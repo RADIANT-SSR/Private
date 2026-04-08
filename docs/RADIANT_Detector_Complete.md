@@ -1,0 +1,395 @@
+# RADIANT Detector Complete
+
+**Status**: Authoritative — first design pass, unified
+**Scope**: The detector and the readout chain in one document. QE, pixel geometry, the complete noise budget, TDI, on-chip and off-chip binning, coadds, two-stage saturation, and the readout-order rules that make all of this consistent. Splitting detector and readout into separate documents would break the noise-and-timing interactions, which is exactly the point of this combined design.
+**Sister documents**: RADIANT_Conventions.md, RADIANT_Optics.md, RADIANT_Spatial_Complete.md, RADIANT_Atmosphere.md, RADIANT_Signal_Chain_Architecture.md, RADIANT_Scan_Timing.md
+
+---
+
+## 1. Design Philosophy
+
+1. **One contract: `DetectorState`.** Everything the readout, performance, and metric stages need is delivered as a single immutable object: per-pixel signal in electrons, the per-pixel noise budget split into temporal and spatial components, the realized saturation status, and the digital output in DN.
+2. **Noise sources are enumerated, not implicit.** RADIANT computes 16 noise sources (see §4) independently and stores each one. Quadrature combination is the *last* step. No noise term is rolled into another at the source.
+3. **Two saturation points, in two domains.** Analog well capacity (after TDI accumulation, before readout) is one saturation. ADC dynamic range (after gain conversion) is the other. Both are checked. A frame can saturate at one without saturating the other.
+4. **The readout order is canonical.** TDI accumulates before binning before well check before nonlinearity before read-noise injection before gain before A/D before off-chip binning before coadds. Each step is in a specific domain (analog or digital) and the noise math depends on that. Re-ordering is not a configuration option.
+5. **Temporal vs. spatial noise is the user's regime choice, not a guess.** Imaging applications (where the user calibrates fixed-pattern out) report temporal noise only. Detection applications (where every pixel is interrogated independently and FPN looks like clutter) report temporal + spatial. The user picks; the framework reports both.
+
+---
+
+## 2. The `DetectorState` Contract
+
+```python
+@dataclass(frozen=True)
+class DetectorState:
+    # ---- Identification ---------------------------------------------------
+    detector_material: DetectorMaterial          # SI_CCD | SI_CMOS | INGAAS | HGCDTE_MWIR
+                                                 # | HGCDTE_LWIR | INSB | T2SL | CUSTOM
+    pixel_pitch_m: tuple[float, float]           # (x, y)
+    fill_factor: float
+    derivation_chain: tuple[str, ...]
+
+    # ---- Signal -----------------------------------------------------------
+    signal_e_per_pixel: float                    # post-TDI, post-binning, post-FWC clip
+    signal_dn: float                             # post-gain, post-ADC clip
+    saturation_well: SaturationStatus            # OK | CLIPPED | SEVERELY_CLIPPED
+    saturation_adc:  SaturationStatus
+
+    # ---- Noise ------------------------------------------------------------
+    noise_terms: dict[str, float]                # 16 entries, each in e- RMS
+    sigma_temporal_e: float                      # RSS of temporal terms
+    sigma_spatial_e: float                       # RSS of spatial terms
+    sigma_total_e: float                         # RSS of (temporal, spatial) per regime
+
+    # ---- Spatial coupling -------------------------------------------------
+    mtf_pixel_aperture: np.ndarray | None
+    mtf_charge_diffusion: np.ndarray | None
+    mtf_ipc: np.ndarray | None
+
+    # ---- Realized scaling factors -----------------------------------------
+    n_tdi_realized: int
+    binning_onchip: tuple[int, int]
+    binning_offchip: tuple[int, int]
+    n_coadds: int
+    cds_enabled: bool
+```
+
+---
+
+## 3. QE Library and Pixel Geometry
+
+### 3.1 QE inputs
+
+```python
+class QeInput(StrEnum):
+    LIBRARY = "library"          # one of the built-in materials
+    FILE    = "file"             # user-supplied QE(λ) table
+    CUSTOM  = "custom"           # parametric model with cutoff
+```
+
+Built-in library, in `data/detectors/`:
+
+| Material | Cutoff (µm) | Typical peak QE | Notes |
+|----------|-------------|-----------------|-------|
+| Si CCD | 1.1 | 0.85 | Backside-illuminated; UV-enhanced variant available |
+| Si CMOS | 1.1 | 0.75 | Frontside; rolling-shutter implied unless overridden |
+| InGaAs | 1.7 (or 2.5 ext.) | 0.80 | SWIR; both standard and extended cutoffs |
+| HgCdTe MWIR | 5.3 | 0.85 | Cutoff tunable per program |
+| HgCdTe LWIR | 10.5 | 0.75 | Tunable; 9.5 / 10.5 / 12 µm common |
+| InSb | 5.5 | 0.80 | Classic MWIR |
+| T2SL | 9.5 | 0.55 | Two-color superlattice |
+
+A `LIBRARY` choice is parameterized by `detector.qe_cutoff_um`, which warps the library curve via a polynomial fit (the long-wavelength edge moves; the short-wavelength shape is preserved). This is good enough for trade studies; users with measured QE on a specific FPA use `FILE`.
+
+`CUSTOM` accepts: `qe_peak`, `qe_cutoff_um`, `qe_cuton_um`, `qe_rolloff_sharpness`, and constructs a parametric Fermi-edge curve.
+
+### 3.2 Sub-band weighting
+
+For multi-layer / two-color detectors, the user supplies a list of sub-bands, each with its own QE curve and the relative *electron* weight (not photon weight) per band. The framework computes the in-band signal for each layer separately and reports them in `DetectorState.noise_terms` keyed `signal_band_<n>`.
+
+Out of scope for v1: physical readout multiplexing of two layers in time. The user gets per-band signals as if they were read simultaneously.
+
+### 3.3 Pixel geometry
+
+| Parameter | Unit | Default |
+|-----------|------|---------|
+| `detector.pixel_pitch_x_um` | µm | None (required) |
+| `detector.pixel_pitch_y_um` | µm | = pitch_x (square) |
+| `detector.fill_factor` | dimensionless | 1.0 |
+| `detector.pixel_shape` | enum: `rect`, `circle` | `rect` |
+| `detector.charge_diffusion_length_um` | µm | 0.0 |
+
+The pixel-aperture MTF is `sinc(π·f_x·p_x·FF) · sinc(π·f_y·p_y·FF)` for rectangular fill, and the corresponding jinc for circular. Charge diffusion is a Gaussian convolution with `σ = L_d / √2`. Both feed the spatial PSF cascade per `RADIANT_Spatial_Complete.md` §6.
+
+---
+
+## 4. The Complete Noise Model — 16 Sources
+
+The 13 sources from the original prompt, plus three more I have included after thinking about it (persistence, glow, IPC fixed pattern). Each is computed separately, stored under a stable key, and combined only at the end.
+
+### Photon-shot family
+| # | Term | Origin | Equation | When it matters | Parameters |
+|---|------|--------|----------|-----------------|------------|
+| 1 | `signal_shot` | Poisson statistics on signal electrons | `√S_signal` | Always | none beyond signal |
+| 2 | `background_shot` | Same, on background electrons | `√S_bg` | Always; dominant in LWIR | from source/atm |
+| 3 | `nearfield_shot` | Same, on warm-optics electrons | `√S_nf` | Dominant in LWIR/MWIR with warm optics | from optics |
+| 4 | `straylight_shot` | Same, on stray-light electrons | `√S_stray` | Always present, often small | from optics |
+
+Photon-shot terms have **no free parameters** beyond the upstream electron rates. They are not configurable; they are computed from physics.
+
+### Detector-material family
+| # | Term | Origin | Equation | When | Parameters |
+|---|------|--------|----------|------|------------|
+| 5 | `dark_shot` | Poisson on thermally generated carriers | `√(J_dark · t_int)` | Always; dominant cooled IR | `J_dark`, `T_det` |
+| 6 | `gr_noise` | Generation-recombination through trap states | `√(2 · J_gen · t_int)` Burstein form | HgCdTe / T2SL | `gr_factor` (scales above shot) |
+| 7 | `johnson_noise` | Thermal noise across detector R₀A | `√(4kT/(R₀A) · A · t_int) · e/q` | Photovoltaic IR | `R0A_ohm_cm2`, `T_det` |
+| 8 | `flicker_1f` | 1/f flicker in detector + ROIC | `σ_1f² = K · ln(f_high/f_low)` | Long integrations, low signal | `flicker_K`, `flicker_f_low`, `flicker_f_high` |
+
+`gr_noise`, `johnson_noise`, `flicker_1f` are zero by default and only kick in when their parameters are set. Users running a Si visible system see all three at zero.
+
+### ROIC family
+| # | Term | Origin | Equation | When | Parameters |
+|---|------|--------|----------|------|------------|
+| 9 | `read_noise` | ROIC sense node + amplifier | `read_noise_e_rms` (parameter) | Always | `read_noise_e_rms` |
+| 10 | `ktc_reset_noise` | kT/C on the sense node | `√(kTC)/q`, suppressed by CDS | Snapshot pixels w/o CDS | `node_capacitance_F`, `T_det`, `cds_enabled` |
+| 11 | `quantization_noise` | ADC LSB | `LSB / √12` (e-) | Always (small unless under-bitted) | `gain_e_per_dn`, `adc_bits` |
+
+When `cds_enabled = True`, `ktc_reset_noise` is set to zero and a flag in derivation_chain records the suppression.
+
+### Fixed-pattern (spatial) family
+| # | Term | Origin | Equation | When | Parameters |
+|---|------|--------|----------|------|------------|
+| 12 | `prnu` | Pixel-to-pixel responsivity variation | `prnu_pct · S_signal / 100` | Imaging w/o flat-field; detection always | `prnu_pct` |
+| 13 | `dsnu` | Pixel-to-pixel dark variation | `dsnu_e_rms` | Long integrations | `dsnu_e_rms` |
+| 14 | `clutter` | Scene background spatial variation | `clutter_sigma · S_bg` | Detection only | `background.clutter_sigma` |
+
+### Other (added after re-thinking)
+| # | Term | Origin | Equation | When | Parameters |
+|---|------|--------|----------|------|------------|
+| 15 | `persistence_noise` | Trap relaxation from prior frame | `f_persist · S_prev · √(1 − exp(−Δt/τ_p))` | HgCdTe long-stare; coadds | `persistence_fraction`, `persistence_tau_s`, `prior_signal_e` |
+| 16 | `glow_shot` | Detector + mux glow | `√(R_glow · t_int)` | LWIR cooled w/ ROIC glow | `glow_e_per_s` |
+
+### Sources I considered but did NOT include as separate terms
+- **Cosmic rays**: returned as a separate `event_rate_per_s_per_cm2` statistic, not a noise term. They are an outlier-rejection problem, not a Gaussian noise.
+- **ADC nonlinearity (INL/DNL)**: deferred per RADIANT_Scope_Decisions.md (electronics-tool concern).
+- **Crosstalk**: optical crosstalk is deferred (D17). Electrical crosstalk is folded into IPC, which appears as an MTF term, not a noise term.
+- **Bias drift**: handled as a constant DN offset (R10 in scope), not a noise term — it doesn't add variance per frame.
+- **Image lag** in CCDs: rolled into persistence with `persistence_tau_s ~ frame period`.
+- **Anti-blooming drain**: a saturation effect (reduces effective FWC) not a noise term. Folded into the well check.
+
+That gives 16 noise terms in v1, with 4 categories deferred or folded. **Recommendation: include all 16 above**; persistence and glow especially are LWIR-relevant and the cost of carrying them is one extra parameter each.
+
+### 4.1 CDS effect on noise terms
+
+Correlated double sampling subtracts a reset frame from a signal frame, suppressing noise terms that are correlated between the two reads. The framework applies CDS as follows:
+
+| Term | Effect of CDS |
+|------|---------------|
+| `ktc_reset_noise` | Set to 0 |
+| `flicker_1f` | Reduced by `√2 · sin(πf_signal · t_cds)` integrated over PSD; in practice, RADIANT applies a fixed `cds_1f_suppression` factor (default 0.7) |
+| `read_noise` | Multiplied by √2 (two reads added in quadrature) — *unless* the user-supplied `read_noise_e_rms` is already the post-CDS value, which is the default convention. A `read_noise_is_post_cds` flag (default `True`) controls this |
+| All others | Unaffected |
+
+The default convention is: when `read_noise_e_rms` comes from a datasheet, it is already the post-CDS number, so no further scaling is applied.
+
+---
+
+## 5. Temporal vs. Spatial Separation
+
+```
+σ_temporal² = signal_shot² + background_shot² + nearfield_shot² + straylight_shot²
+            + dark_shot² + gr² + johnson² + flicker_1f² + read² + ktc² + quant²
+            + persistence² + glow_shot²
+
+σ_spatial²  = prnu² + dsnu² + clutter²
+
+σ_total² = σ_temporal² + σ_spatial²       (detection regime)
+σ_total² = σ_temporal²                    (imaging regime, FPN calibrated out)
+```
+
+The user picks `detector.noise_regime ∈ {imaging, detection}`. Both `σ_temporal_e` and `σ_spatial_e` are *always* computed and reported; `σ_total_e` is the one that matches the user's regime. This way the user can re-frame the result without re-running.
+
+---
+
+## 6. The Readout Chain (Canonical Order)
+
+Each step happens in a *domain* (analog or digital), and the noise math depends on the domain. **No re-ordering.**
+
+```
+Step  Operation                          Domain    Signal           Noise (per-frame)
+────  ─────────────────────────────────  ────────  ───────────────  ───────────────────────
+0     Photon flux → electrons            analog    S_e_raw           √S (already, photon shot)
+1     TDI accumulation (×N_tdi stages)   analog    × N_tdi           dark × N_tdi (sum of shot)
+2     On-chip binning (×M_x × M_y)       analog    × M_x M_y         shot adds; read still 1
+3     Well capacity check (FWC)          analog    clip at FWC       saturation_well = CLIPPED
+4     Nonlinearity                       analog    polynomial(S)     unchanged
+5     Read noise injection               analog    +0                ⊕ read_noise (ONCE)
+6     Gain conversion (e- → DN)          boundary  ÷ gain_e_per_dn   ⊕ quantization
+7     A/D quantization                   digital   round / clip      already quantized
+8     ADC saturation check (2^bits−1)    digital   clip at full      saturation_adc = CLIPPED
+9     Off-chip binning (×P_x × P_y)      digital   × P_x P_y         read × √(P_x P_y)
+10    Coadds (×K)                        digital   per coadd mode    per coadd mode
+11    Final DN                           digital   DN_final          σ_DN
+```
+
+Two saturation points: **well** (step 3) and **ADC** (step 8). They are checked independently. A user can have a 100,000 e- well with a 14-bit ADC and 1 e-/DN gain — the well saturates first. Or they can have a 1,000,000 e- well and 8-bit ADC with 100 e-/DN — the ADC saturates first. RADIANT reports both.
+
+The "read noise injection happens ONCE" rule is the reason TDI gets a √N_tdi SNR improvement: the signal accumulates as N_tdi (analog) but the read noise is added once at the end. If anyone tries to add read noise before TDI accumulation, the chain has a sign of degradation and the test suite catches it.
+
+---
+
+## 7. TDI
+
+```
+S_tdi   = N_tdi · S_per_stage
+σ_dark² = N_tdi · σ_dark_per_stage²       (independent dark events sum)
+σ_read  = σ_read                          (single readout)
+```
+
+**Well check** runs after TDI accumulation. A user with a 50,000 e- well, a 10,000 e- per-stage signal, and N_tdi = 8 will saturate at stage 5; the framework returns `saturation_well = CLIPPED` and clamps signal to FWC.
+
+**CTE loss**: charge transfer efficiency `cte_per_transfer` (default 0.99999). Signal scales by `cte^(N_tdi · n_transfers_per_stage)`, where `n_transfers_per_stage = 1` for area arrays in TDI mode. Reported in `noise_terms["cte_loss"]` as a *signal* loss, not a noise term.
+
+**TDI misalignment** (yaw error, velocity mismatch) is handled in the spatial PSF cascade as `mtf_tdi_misalign` per RADIANT_Spatial_Complete.md §9. The detector module records the misalign value but does not apply it.
+
+---
+
+## 8. Binning
+
+### 8.1 On-chip (analog, before readout)
+
+```
+S_binned       = M_x · M_y · S_pixel
+σ_dark_binned  = √(M_x · M_y) · σ_dark
+σ_read_binned  = σ_read                   (single readout, like TDI)
+σ_quant        = LSB / √12                (still LSB-bound)
+```
+
+The combined charge is *one* charge packet read out by the ROIC; saturation happens against the **summing well capacity**, which may differ from per-pixel FWC. If `summing_well_capacity_e` is not specified, it defaults to `M_x · M_y · pixel_FWC` with a logged warning.
+
+### 8.2 Off-chip (digital, after readout)
+
+```
+S_binned       = P_x · P_y · S_pixel
+σ_read_binned  = √(P_x · P_y) · σ_read    (each pixel read independently)
+```
+
+Each pixel saturates *independently*; binning happens after the per-pixel ADC clip. Off-chip binning never improves saturation headroom.
+
+### 8.3 Spatial effect
+
+Both binning modes change the *effective pixel pitch* on the FPA. The framework constructs an "effective detector" with `pitch_eff = (M_x · P_x · pitch_x, M_y · P_y · pitch_y)` and the detector MTF is recomputed against the effective pitch. This effective pitch is what the spatial cascade uses for the pixel-aperture sinc.
+
+---
+
+## 9. Coadds
+
+```python
+class CoaddMode(StrEnum):
+    SUM = "sum"
+    AVERAGE = "average"
+    MEDIAN = "median"
+```
+
+| Mode | Signal | Read noise | Other temporal | FPN |
+|------|--------|------------|----------------|-----|
+| SUM | × K | × √K | × √K | × K |
+| AVERAGE | unchanged | / √K | / √K | unchanged |
+| MEDIAN | unchanged | × √(π/(2K)) | × √(π/(2K)) | unchanged |
+
+Each coadded frame **saturates independently** at well and ADC — coadds offer no saturation relief. The framework tracks per-frame saturation and warns if any frame saturated even when the average looks unsaturated.
+
+Persistence (term 15) accumulates across coadds: `prior_signal_e` for coadd `k` is the signal of coadd `k−1`. The framework propagates this internally.
+
+---
+
+## 10. Interaction Matrix
+
+TDI × on-chip binning × off-chip binning × coadds can all be active simultaneously. The total signal scaling is:
+
+```
+S_final = N_tdi · M_x · M_y · P_x · P_y · K_signal · S_per_pixel_per_stage
+```
+
+where `K_signal = K` for SUM mode and `K_signal = 1` for AVERAGE/MEDIAN.
+
+Noise term scalings (multiply each term in §4 by the factor in the matrix):
+
+| Term | × N_tdi | × M_x M_y on-chip | × P_x P_y off-chip | × K coadds (SUM) |
+|------|---------|-------------------|--------------------|------------------|
+| `signal_shot` | √N | √(MN) | √(PN) | √K |
+| `background_shot` | √N | √(MN) | √(PN) | √K |
+| `dark_shot` | √N | √(MN) | √(PN) | √K |
+| `gr_noise` | √N | √(MN) | √(PN) | √K |
+| `johnson_noise` | √N | √(MN) | √(PN) | √K |
+| `flicker_1f` | depends (correlated within readout) | √(MN) | √(PN) | √K |
+| `read_noise` | × 1 | × 1 | × √(PN) | × √K |
+| `ktc_reset_noise` | × 1 | × 1 | × √(PN) | × √K |
+| `quantization_noise` | × 1 | × 1 | × √(PN) | × √K |
+| `prnu` | × N | × MN | × PN | × K (SUM); × 1 (AVG) |
+| `dsnu` | × N | × MN | × PN | × K (SUM); × 1 (AVG) |
+| `clutter` | × N | × MN | × PN | × K (SUM); × 1 (AVG) |
+| `persistence_noise` | √N | √(MN) | √(PN) | grows w/ K |
+| `glow_shot` | √N | √(MN) | √(PN) | √K |
+
+The `flicker_1f` row deliberately uses words because the right scaling depends on whether the integration time is increased (`× N`) or the rate is increased (`× 1`); the framework picks based on which knob the user used and records the choice.
+
+For AVERAGE coadd mode, divide every column "× K coadds" entry by K (since signal stays unchanged but noise reduces).
+
+---
+
+## 11. Parameter Inventory
+
+Roughly 60 parameters. Grouped:
+
+### 11.1 QE (4)
+`detector.qe_input`, `detector.qe_material`, `detector.qe_file`, `detector.qe_cutoff_um`, `detector.qe_subbands` (list, optional).
+
+### 11.2 Pixel (5)
+`detector.pixel_pitch_x_um`, `detector.pixel_pitch_y_um`, `detector.fill_factor`, `detector.pixel_shape`, `detector.charge_diffusion_length_um`.
+
+### 11.3 Dark current (4)
+`detector.dark_current_e_per_s`, `detector.dark_activation_energy_eV`, `detector.dark_reference_temperature_K`, `detector.detector_temperature_K`.
+
+### 11.4 Other detector noise (8)
+`detector.gr_factor`, `detector.r0a_ohm_cm2`, `detector.flicker_K`, `detector.flicker_f_low_hz`, `detector.flicker_f_high_hz`, `detector.persistence_fraction`, `detector.persistence_tau_s`, `detector.glow_e_per_s`.
+
+### 11.5 ROIC (8)
+`detector.read_noise_e_rms`, `detector.read_noise_is_post_cds`, `detector.cds_enabled`, `detector.cds_1f_suppression`, `detector.node_capacitance_F`, `detector.full_well_capacity_e`, `detector.summing_well_capacity_e`, `detector.nonlinearity_coeffs`.
+
+### 11.6 ADC and gain (4)
+`detector.gain_e_per_dn`, `detector.adc_bits`, `detector.adc_full_scale_dn`, `detector.bias_offset_dn`.
+
+### 11.7 Fixed-pattern (3)
+`detector.prnu_pct`, `detector.dsnu_e_rms`, `detector.noise_regime`.
+
+### 11.8 TDI (5)
+`detector.n_tdi`, `detector.cte_per_transfer`, `detector.n_transfers_per_stage`, `detector.tdi_misalign_pixels`, `detector.tdi_velocity_match_pct`.
+
+### 11.9 Binning and coadds (7)
+`detector.binning_x_onchip`, `detector.binning_y_onchip`, `detector.binning_x_offchip`, `detector.binning_y_offchip`, `detector.n_coadds`, `detector.coadd_mode`, `detector.prior_signal_e`.
+
+### 11.10 IPC and crosstalk (2)
+`detector.ipc_coupling`, `detector.ipc_kernel_file`.
+
+### 11.11 Misc (4)
+`detector.bad_pixel_fraction`, `detector.cosmic_ray_flux`, `detector.detector_material`, `detector.rolling_shutter` (stub flag).
+
+Total: **54 parameters**, slightly under the prompt's "expect ~60." Adding the rad-damage subset (TID, shielding) and the rolling-shutter-edge case brings it to ~58.
+
+---
+
+## 12. The `DetectorStage` and `ReadoutStage`
+
+Per RADIANT_Signal_Chain_Architecture.md, these are stages 6 and 7. RADIANT keeps them as separate stage objects (so the architecture document's stage list is preserved) but the documentation is unified.
+
+- `DetectorStage`: applies QE, computes per-pixel signal/dark/glow electrons, builds the photon-shot family, assembles the spatial MTF terms (pixel aperture, charge diffusion, IPC), and registers them on the chain state.
+- `ReadoutStage`: runs the canonical readout chain (§6) starting from the per-pixel electron rate, builds the read-noise / ktc / quantization / FPN terms, applies TDI, binning, coadds, and the two saturation checks, and emits the final `DetectorState`.
+
+The split exists so that a user studying spatial behavior alone (e.g., "what does the detector MTF look like?") can stop after `DetectorStage` without paying for the readout chain.
+
+---
+
+## 13. Validation
+
+| Check | Bound |
+|-------|-------|
+| QE(λ) ∈ [0, 1] | hard |
+| `pixel_pitch_x_um > 0`, `pitch_y > 0` | hard |
+| `0 ≤ fill_factor ≤ 1` | hard |
+| `n_tdi ≥ 1` | hard |
+| `summing_well_capacity_e ≥ pixel_FWC` | soft warn if not |
+| Each noise term ≥ 0 | hard |
+| `gain_e_per_dn > 0`, `adc_bits ≥ 8` | hard |
+| If `noise_regime = imaging`, FPN terms still computed but not in σ_total | soft (informational) |
+
+---
+
+## 14. Out of Scope for v1
+
+- Optical crosstalk modeling (D17, deferred).
+- ADC INL/DNL (R9, deferred).
+- Live multi-frame state (the chain is stateless; persistence uses user-supplied prior signal).
+- True rolling-shutter readout simulation (snapshot assumed; flag reserved).
+- Power supply noise, clock feedthrough (deferred to electronics tools).
+
+---

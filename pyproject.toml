@@ -1,0 +1,146 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radiant"
+version = "0.1.0"
+description = "First-principles EO sensor performance modeling framework"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pyyaml>=6.0",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "mypy>=1.7",
+    "ruff>=0.1",
+    "import-linter>=2.0",
+    "hypothesis>=6.90",
+    "h5py>=3.10",
+]
+
+[project.scripts]
+radiant = "radiant.cli.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["src", "tests"]
+markers = [
+    "level0: Physics correctness tests (analytic result checks)",
+    "level1: Module-level tests",
+    "level2: End-to-end reference scenario tests",
+    "golden: Golden regression tests",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "RET", "SIM"]
+ignore = []
+
+[tool.importlinter]
+root_package = "radiant"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "core has no radiant imports"
+type = "forbidden"
+source_modules = ["radiant.core"]
+forbidden_modules = [
+    "radiant.source",
+    "radiant.atmosphere",
+    "radiant.optics",
+    "radiant.platform",
+    "radiant.spectral_integration",
+    "radiant.detector",
+    "radiant.readout",
+    "radiant.performance",
+    "radiant.io",
+    "radiant.api",
+    "radiant.cli",
+    "radiant.plugins",
+]
+
+[[tool.importlinter.contracts]]
+name = "physics stages import only core"
+type = "forbidden"
+source_modules = [
+    "radiant.source",
+    "radiant.atmosphere",
+    "radiant.optics",
+    "radiant.platform",
+    "radiant.spectral_integration",
+    "radiant.detector",
+    "radiant.readout",
+    "radiant.performance",
+]
+forbidden_modules = [
+    "radiant.io",
+    "radiant.api",
+    "radiant.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "no cross-stage physics imports"
+type = "independence"
+modules = [
+    "radiant.source",
+    "radiant.atmosphere",
+    "radiant.optics",
+    "radiant.platform",
+    "radiant.spectral_integration",
+    "radiant.detector",
+    "radiant.readout",
+    "radiant.performance",
+]
+
+[[tool.importlinter.contracts]]
+name = "cli imports only api and io"
+type = "forbidden"
+source_modules = ["radiant.cli"]
+forbidden_modules = [
+    "radiant.core",
+    "radiant.source",
+    "radiant.atmosphere",
+    "radiant.optics",
+    "radiant.platform",
+    "radiant.spectral_integration",
+    "radiant.detector",
+    "radiant.readout",
+    "radiant.performance",
+]
+
+[[tool.importlinter.contracts]]
+name = "plugins import only core"
+type = "forbidden"
+source_modules = ["radiant.plugins"]
+forbidden_modules = [
+    "radiant.source",
+    "radiant.atmosphere",
+    "radiant.optics",
+    "radiant.platform",
+    "radiant.spectral_integration",
+    "radiant.detector",
+    "radiant.readout",
+    "radiant.performance",
+    "radiant.io",
+    "radiant.api",
+    "radiant.cli",
+]

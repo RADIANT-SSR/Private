@@ -10,64 +10,48 @@ from radiant.core.spectral import SpectralData
 from radiant.detector.qe import QuantumEfficiency, photon_energy_joules
 
 # ---------------------------------------------------------------------------
-# Parametric factory
+# Constant factory
 # ---------------------------------------------------------------------------
 
 
-def test_parametric_peak_matches_requested() -> None:
-    qe = QuantumEfficiency.parametric(peak=0.8, cuton_um=0.4, cutoff_um=1.1)
-    # Mid-band: Fermi · Fermi product saturates to peak to within ~0.2%
-    # (never exactly, since σ(x)→1 only asymptotically).
-    mid = qe.evaluate(np.array([0.75]))[0]
-    assert mid == pytest.approx(0.8, rel=3e-3)
-    assert mid <= 0.8 + 1e-12  # strictly bounded above by peak
+def test_constant_is_flat() -> None:
+    qe = QuantumEfficiency.constant(0.7)
+    out = qe.evaluate(np.array([0.4, 0.8, 1.5, 5.0, 12.0]))
+    assert np.all(out == 0.7)
 
 
-def test_parametric_plateau_is_flat() -> None:
-    qe = QuantumEfficiency.parametric(peak=0.9, cuton_um=0.5, cutoff_um=1.0, rolloff_um=0.02)
-    plateau = qe.evaluate(np.array([0.7, 0.75, 0.8, 0.85]))
-    assert np.all(plateau > 0.89)
-    assert plateau.max() - plateau.min() < 1e-3
+def test_constant_stores_two_point_table() -> None:
+    qe = QuantumEfficiency.constant(0.5, lam_min_um=0.2, lam_max_um=20.0)
+    assert qe.table.wavelength_um.size == 2
+    assert qe.table.wavelength_um[0] == pytest.approx(0.2)
+    assert qe.table.wavelength_um[1] == pytest.approx(20.0)
+    assert qe.mode == "constant"
 
 
-def test_parametric_fermi_halfpoint() -> None:
-    # Truth anchor 1: at λ = cuton, the short edge is σ(0) = 0.5.
-    # The long edge is σ((cutoff-cuton)/w) ≈ 1 for well-separated edges,
-    # so QE(cuton) ≈ peak·0.5.
-    qe = QuantumEfficiency.parametric(peak=1.0, cuton_um=0.4, cutoff_um=1.1, rolloff_um=0.01)
-    val = qe.evaluate(np.array([0.4]))[0]
-    assert val == pytest.approx(0.5, abs=1e-3)
+def test_constant_rejects_out_of_range_value() -> None:
+    with pytest.raises(ValueError, match="value"):
+        QuantumEfficiency.constant(1.2)
+    with pytest.raises(ValueError, match="value"):
+        QuantumEfficiency.constant(0.0)
+    with pytest.raises(ValueError, match="value"):
+        QuantumEfficiency.constant(-0.1)
 
 
-def test_parametric_out_of_band_near_zero() -> None:
-    qe = QuantumEfficiency.parametric(peak=0.8, cuton_um=0.5, cutoff_um=1.0, rolloff_um=0.01)
-    # Sample at the short edge of the table (pad = 8·rolloff = 0.08 µm
-    # below cuton), where the Fermi product is < 1e-3 of peak.
-    lam0 = qe.table.wavelength_um[0]
-    low = qe.evaluate(np.array([lam0]))[0]
-    assert low < 1e-3
+def test_constant_rejects_nonpositive_bounds() -> None:
+    with pytest.raises(ValueError, match="must be positive"):
+        QuantumEfficiency.constant(0.5, lam_min_um=0.0, lam_max_um=10.0)
+    with pytest.raises(ValueError, match="must be positive"):
+        QuantumEfficiency.constant(0.5, lam_min_um=0.1, lam_max_um=-1.0)
 
 
-def test_parametric_rejects_peak_out_of_range() -> None:
-    with pytest.raises(ValueError, match="peak"):
-        QuantumEfficiency.parametric(peak=1.2, cuton_um=0.4, cutoff_um=1.0)
-    with pytest.raises(ValueError, match="peak"):
-        QuantumEfficiency.parametric(peak=0.0, cuton_um=0.4, cutoff_um=1.0)
+def test_constant_rejects_inverted_bounds() -> None:
+    with pytest.raises(ValueError, match="lam_min_um"):
+        QuantumEfficiency.constant(0.5, lam_min_um=5.0, lam_max_um=1.0)
 
 
-def test_parametric_rejects_inverted_band() -> None:
-    with pytest.raises(ValueError, match="cuton_um"):
-        QuantumEfficiency.parametric(peak=0.8, cuton_um=1.1, cutoff_um=0.4)
-
-
-def test_parametric_rejects_nonpositive_rolloff() -> None:
-    with pytest.raises(ValueError, match="rolloff_um"):
-        QuantumEfficiency.parametric(peak=0.8, cuton_um=0.4, cutoff_um=1.1, rolloff_um=0.0)
-
-
-def test_parametric_rejects_undersampled_grid() -> None:
-    with pytest.raises(ValueError, match="n_samples"):
-        QuantumEfficiency.parametric(peak=0.8, cuton_um=0.4, cutoff_um=1.1, n_samples=4)
+def test_constant_peak_qe_equals_value() -> None:
+    qe = QuantumEfficiency.constant(0.42)
+    assert qe.peak_qe == pytest.approx(0.42, rel=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +80,7 @@ def test_from_spectral_wraps_table() -> None:
     assert np.allclose(out, 0.6)
 
 
-def test_evaluate_rejects_values_outside_unit_interval() -> None:
+def test_from_spectral_rejects_values_outside_unit_interval() -> None:
     lam = np.linspace(0.4, 1.1, 11)
     with pytest.raises(ValueError, match="out of"):
         QuantumEfficiency.from_spectral(_sample_spectral(lam, np.full_like(lam, 1.5)))
@@ -120,13 +104,6 @@ def test_evaluate_linear_interp() -> None:
     assert mid == pytest.approx(0.4, rel=1e-12)
 
 
-def test_peak_qe_property() -> None:
-    qe = QuantumEfficiency.parametric(peak=0.77, cuton_um=0.4, cutoff_um=1.1)
-    # Bounded above by peak; reaches within ~0.3% at mid-band.
-    assert qe.peak_qe <= 0.77 + 1e-12
-    assert qe.peak_qe == pytest.approx(0.77, rel=3e-3)
-
-
 def test_band_averaged_qe_flat_top() -> None:
     # Flat 0.5 over [0.4, 1.1] → band avg over [0.5, 1.0] is exactly 0.5.
     qe = QuantumEfficiency.from_spectral(
@@ -146,14 +123,23 @@ def test_band_averaged_qe_rejects_inverted() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_qe_round_trip() -> None:
-    qe = QuantumEfficiency.parametric(
-        peak=0.85, cuton_um=0.5, cutoff_um=1.0, n_samples=64, name="si_ccd"
-    )
+def test_qe_constant_round_trip() -> None:
+    qe = QuantumEfficiency.constant(0.65, name="flat_qe")
     d = qe.to_dict()
     restored = QuantumEfficiency.from_dict(d)
-    assert restored.name == "si_ccd"
-    assert restored.mode == "parametric"
+    assert restored.name == "flat_qe"
+    assert restored.mode == "constant"
+    assert np.allclose(restored.table.values, qe.table.values)
+    assert np.allclose(restored.table.wavelength_um, qe.table.wavelength_um)
+
+
+def test_qe_spectral_round_trip() -> None:
+    data = _sample_spectral(np.linspace(0.4, 1.1, 8), np.linspace(0.1, 0.9, 8))
+    qe = QuantumEfficiency.from_spectral(data, name="measured")
+    d = qe.to_dict()
+    restored = QuantumEfficiency.from_dict(d)
+    assert restored.name == "measured"
+    assert restored.mode == "spectral"
     assert np.allclose(restored.table.values, qe.table.values)
     assert np.allclose(restored.table.wavelength_um, qe.table.wavelength_um)
 

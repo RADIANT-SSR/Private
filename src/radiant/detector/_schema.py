@@ -3,8 +3,8 @@
 Only the parameters needed by :mod:`radiant.detector.qe`,
 :mod:`radiant.detector.pixel`, :mod:`radiant.detector.dark_current`,
 and :mod:`radiant.detector.shot_noise` are defined here. The full
-RADIANT_Detector_Complete.md §4 noise inventory (16 terms) and the
-QE library selector will be added by later tasks.
+RADIANT_Detector_Complete.md §4 noise inventory (16 terms) will be
+added by later tasks.
 """
 
 from __future__ import annotations
@@ -50,40 +50,34 @@ FILL_FACTOR = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
-# Quantum efficiency (parametric mode)
+# Quantum efficiency
 # ---------------------------------------------------------------------------
+#
+# QE is specified exactly one of two ways:
+#   - ``detector.qe_value`` — scalar QE, applied uniformly in wavelength.
+#   - ``detector.qe_table_path`` — path to a wavelength-vs-QE table.
+# Exactly one must be set; the stage wrapper (Phase 2C) will enforce the
+# XOR via a ConsistencyGroup. At the primitives layer, both parameters
+# default to ``None`` and the loader picks whichever is populated.
 
-QE_PEAK = ParameterDef(
-    name="detector.qe_peak",
-    description="Peak quantum efficiency for the parametric QE model.",
+QE_VALUE = ParameterDef(
+    name="detector.qe_value",
+    description="Wavelength-independent scalar quantum efficiency.",
     dtype=float,
     canonical_unit="",
     input_unit="",
-    default=0.8,
+    default=None,
     bounds=(0.0, 1.0),
     tags=frozenset({"detector", "qe"}),
-    default_justification="0.8 is representative of a backside-illuminated Si CCD.",
 )
 
-QE_CUTON_UM = ParameterDef(
-    name="detector.qe_cuton_um",
-    description="Short-wavelength cut-on for the parametric QE model.",
-    dtype=float,
-    canonical_unit="um",
-    input_unit="um",
-    default=0.4,
-    bounds=(0.01, 30.0),
-    tags=frozenset({"detector", "qe"}),
-)
-
-QE_CUTOFF_UM = ParameterDef(
-    name="detector.qe_cutoff_um",
-    description="Long-wavelength cutoff for the parametric QE model.",
-    dtype=float,
-    canonical_unit="um",
-    input_unit="um",
-    default=1.1,
-    bounds=(0.01, 30.0),
+QE_TABLE_PATH = ParameterDef(
+    name="detector.qe_table_path",
+    description="Path to a wavelength-vs-QE table (loaded by SpectralDataStore).",
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default=None,
     tags=frozenset({"detector", "qe"}),
 )
 
@@ -132,9 +126,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PIXEL_PITCH_X,
     PIXEL_PITCH_Y,
     FILL_FACTOR,
-    QE_PEAK,
-    QE_CUTON_UM,
-    QE_CUTOFF_UM,
+    QE_VALUE,
+    QE_TABLE_PATH,
     DARK_RATE_E_PER_S,
     DARK_REFERENCE_TEMP,
     DARK_ACTIVATION_EV,

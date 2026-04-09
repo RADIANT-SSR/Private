@@ -1,20 +1,16 @@
-"""Quantum efficiency — parametric and tabulated.
+"""Quantum efficiency — scalar and tabulated.
 
-Implements the ``CUSTOM`` and ``FILE`` QE input modes from
-``docs/RADIANT_Detector_Complete.md`` §3.1 for the 2B.4 cut. The
-built-in ``LIBRARY`` mode (Si, HgCdTe MWIR/LWIR, InSb, InGaAs, T2SL
-curves warped by user-supplied cutoff) is deferred until the
-``data/detectors/`` tables are added; see ``notes/blocked.md``.
+RADIANT specifies detector QE in one of two ways:
+
+- ``QuantumEfficiency.constant(value)`` — a single scalar ``QE ∈ (0, 1]``
+  that applies uniformly across the band.
+- ``QuantumEfficiency.from_spectral(data)`` — a tabulated ``QE(λ)`` curve
+  wrapped around an existing :class:`~radiant.core.spectral.SpectralData`
+  table. Out-of-range evaluation raises rather than silently
+  extrapolating (CLAUDE.md Rule 17).
 
 ``QuantumEfficiency`` is a small immutable container that evaluates
-``QE(λ)`` on an arbitrary ascending wavelength grid. Two constructors:
-
-- ``QuantumEfficiency.parametric(peak, cuton_um, cutoff_um, ...)`` —
-  symmetric Fermi-edge response bounded above by ``peak``.
-- ``QuantumEfficiency.from_spectral(data)`` — wrap a
-  :class:`~radiant.core.spectral.SpectralData` table. Out-of-range
-  evaluation raises rather than silently extrapolating (CLAUDE.md
-  Rule 17).
+``QE(λ)`` on an arbitrary ascending wavelength grid.
 """
 
 from __future__ import annotations
@@ -42,13 +38,14 @@ class QuantumEfficiency:
     Parameters
     ----------
     table:
-        Tabulated QE(λ) in a :class:`SpectralData`. Values bounded in
-        ``[0, 1]``, dimensionless unit.
+        Tabulated ``QE(λ)`` in a :class:`SpectralData`. Values bounded
+        in ``[0, 1]``, dimensionless unit. For a scalar QE this is a
+        two-point flat table spanning a wide wavelength interval.
     name:
         Human-readable identifier.
     mode:
-        One of ``"parametric"`` or ``"spectral"`` — purely
-        informational, stored for provenance.
+        One of ``"constant"`` or ``"spectral"`` — purely informational,
+        stored for provenance.
     """
 
     table: SpectralData
@@ -76,86 +73,59 @@ class QuantumEfficiency:
     # ------------------------------------------------------------------
 
     @classmethod
-    def parametric(
+    def constant(
         cls,
-        peak: float,
-        cuton_um: float,
-        cutoff_um: float,
-        rolloff_um: float = 0.05,
-        n_samples: int = 401,
-        name: str = "qe_parametric",
+        value: float,
+        lam_min_um: float = 0.1,
+        lam_max_um: float = 30.0,
+        name: str = "qe_constant",
     ) -> QuantumEfficiency:
-        """Build a parametric Fermi-edge QE curve.
+        """Build a flat (wavelength-independent) QE of magnitude ``value``.
 
-        The model has a plateau of height ``peak`` between ``cuton_um``
-        and ``cutoff_um``, with symmetric Fermi roll-offs of width
-        ``rolloff_um`` at each edge::
-
-            QE(λ) = peak · σ((λ − cuton) / w) · σ((cutoff − λ) / w)
-
-        where ``σ(x) = 1 / (1 + exp(−x))`` and ``w = rolloff_um``.
+        The result is a two-point :class:`SpectralData` table spanning
+        ``[lam_min_um, lam_max_um]`` with both samples set to ``value``.
+        The span is deliberately wide (0.1–30 µm by default) so that
+        any reasonable evaluation grid falls inside the table without
+        tripping the out-of-range check in :meth:`evaluate`.
 
         Parameters
         ----------
-        peak:
-            Peak QE value, ``0 < peak ≤ 1``.
-        cuton_um, cutoff_um:
-            Short and long wavelength edges of the plateau (µm).
-            ``cuton_um < cutoff_um``; both ``> 0``.
-        rolloff_um:
-            Fermi-edge roll-off width (µm), ``> 0``. Default 0.05 µm.
-        n_samples:
-            Number of wavelength samples (≥ 16). Default 401.
+        value:
+            Scalar QE, ``0 < value ≤ 1``.
+        lam_min_um, lam_max_um:
+            Wavelength span of the stored table (µm). Both ``> 0``,
+            with ``lam_min_um < lam_max_um``. Defaults span 0.1–30 µm.
         name:
             Optional human-readable label.
         """
-        if not (0.0 < peak <= 1.0):
-            raise ValueError(f"QuantumEfficiency.parametric: peak = {peak} must be in (0, 1].")
-        if cuton_um <= 0.0 or cutoff_um <= 0.0:
+        if not (0.0 < value <= 1.0):
+            raise ValueError(f"QuantumEfficiency.constant: value = {value} must be in (0, 1].")
+        if lam_min_um <= 0.0 or lam_max_um <= 0.0:
             raise ValueError(
-                f"QuantumEfficiency.parametric: cuton_um = {cuton_um} and "
-                f"cutoff_um = {cutoff_um} must be positive."
+                f"QuantumEfficiency.constant: lam_min_um = {lam_min_um} and "
+                f"lam_max_um = {lam_max_um} must be positive."
             )
-        if cuton_um >= cutoff_um:
+        if lam_min_um >= lam_max_um:
             raise ValueError(
-                f"QuantumEfficiency.parametric: cuton_um ({cuton_um}) must "
-                f"be strictly less than cutoff_um ({cutoff_um})."
-            )
-        if rolloff_um <= 0.0:
-            raise ValueError(
-                f"QuantumEfficiency.parametric: rolloff_um = {rolloff_um} must be positive."
-            )
-        if n_samples < 16:
-            raise ValueError(
-                f"QuantumEfficiency.parametric: n_samples = {n_samples} is "
-                "too small; use ≥ 16 to resolve the Fermi edges."
+                f"QuantumEfficiency.constant: lam_min_um ({lam_min_um}) must "
+                f"be strictly less than lam_max_um ({lam_max_um})."
             )
 
-        pad = 8.0 * rolloff_um
-        lam = np.linspace(max(1e-6, cuton_um - pad), cutoff_um + pad, int(n_samples))
-        short_edge = 1.0 / (1.0 + np.exp(-(lam - cuton_um) / rolloff_um))
-        long_edge = 1.0 / (1.0 + np.exp(-(cutoff_um - lam) / rolloff_um))
-        qe = peak * short_edge * long_edge
-        # Numerical floor: the tails are ~0 but clamp to non-negative.
-        qe = np.clip(qe, 0.0, 1.0)
-
+        lam = np.array([float(lam_min_um), float(lam_max_um)], dtype=np.float64)
+        vals = np.array([float(value), float(value)], dtype=np.float64)
         table = SpectralData(
             name=name,
             wavelength_um=lam,
-            values=qe,
+            values=vals,
             unit="",
-            source=(
-                f"QuantumEfficiency.parametric(peak={peak}, cuton_um={cuton_um}, "
-                f"cutoff_um={cutoff_um}, rolloff_um={rolloff_um})"
-            ),
+            source=f"QuantumEfficiency.constant(value={value})",
             source_parameters={
-                "peak": float(peak),
-                "cuton_um": float(cuton_um),
-                "cutoff_um": float(cutoff_um),
-                "rolloff_um": float(rolloff_um),
+                "value": float(value),
+                "lam_min_um": float(lam_min_um),
+                "lam_max_um": float(lam_max_um),
             },
         )
-        return cls(table=table, name=name, mode="parametric")
+        return cls(table=table, name=name, mode="constant")
 
     @classmethod
     def from_spectral(cls, data: SpectralData, name: str | None = None) -> QuantumEfficiency:

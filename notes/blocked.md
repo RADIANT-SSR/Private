@@ -17,36 +17,35 @@ Each entry has:
 
 ---
 
-## 2026-04-07 — 2B.2 SimpleAtmosphere `L_path` (single-scatter)
+## 2026-04-07 — 2B.2 SimpleAtmosphere `L_path` (single-scatter) — RESOLVED 2026-04-08
 
-- **Task / file**: Task 2B.2; [src/radiant/atmosphere/simple.py](src/radiant/atmosphere/simple.py)
-- **What I hit**: RADIANT_Atmosphere.md §3.1 specifies the simple-model
-  upwelling path radiance as
-  `L_path(λ) = L_sun(λ) · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · (1 − τ_atm(λ))`.
-  This needs a top-of-atmosphere solar spectrum `L_sun(λ)`. The
-  ReflectedSolarSource (which would own that spectrum) is not
-  implemented yet, and even if it were, CLAUDE.md Rule 11 forbids
-  `radiant.atmosphere` from importing `radiant.source`.
-- **What I did**: Set `L_path(λ) ≡ 0` in `SimpleAtmosphere.build_state`.
-  The `AtmosphericState` invariant ("always populated, prefer numerical
-  zero over None") is satisfied. The 2B.2 numerical truth anchors only
-  validate transmittance, so the validation requirements are still met.
-  `derivation_chain` records the stub. `SpectralData.source` reads
-  `"SimpleAtmosphere stub (pending solar source)"`.
-- **What I need from you**: Decide where the canonical TOA solar
-  spectrum lives. Two options I can see:
-  1. Add a `solar.py` to `radiant.core` with a hard-coded 5778 K
-     blackbody scaled to 1361 W/m² TOA (one-time, ~30 lines). Then
-     `SimpleAtmosphere` can call it directly.
-  2. Defer `L_path` until the `ReflectedSolarSource` task in Phase 2C
-     and pass the solar spectrum into `SimpleAtmosphere.build_state`
-     as an optional argument (would change the `Atmosphere` protocol).
-- **Context**:
-  - [docs/RADIANT_Atmosphere.md](docs/RADIANT_Atmosphere.md) §3.1 for the
-    formula.
-  - [docs/RADIANT_Source_Target_System.md](docs/RADIANT_Source_Target_System.md)
-    for ReflectedSolarSource design.
-  - [CLAUDE.md](CLAUDE.md) Rule 11 for the cross-stage import ban.
+- **Resolution**: Added `radiant.core.solar` with
+  `toa_solar_spectral_irradiance` / `toa_solar_equivalent_radiance`
+  (option 1 in the original plan). The model is a 5778 K blackbody
+  scaled via a cached integral calibration so that ``∫ E_sun dλ = S_0
+  = 1361 W/m²`` to 1e-5. Added `R_sun_m`, `au_m`,
+  `S_solar_W_per_m2` to `radiant.core.constants`.
+- **What's wired now**: `SimpleAtmosphere.build_state` computes the
+  §3.1 single-scatter form
+  ``L_path(λ) = L_sun(λ) · μ₀ · ω₀(λ) · P(Θ) · (1 − τ_atm(λ))``
+  using a weighted two-component phase function: Rayleigh for the
+  molecular component and Henyey-Greenstein (``g = 0.7``) for the
+  aerosol, weighted by their scattering cross-sections and the
+  aerosol single-scattering albedo. ``ω₀`` is the extinction-weighted
+  column single-scattering albedo (molecular pure scatter + aerosol
+  `ω_aer · σ_aer` over total extinction including H₂O absorption).
+- **Geometry change**: `AtmosphericGeometry` gained a
+  `cos_scattering_angle()` method. The existing `solar_zenith_rad`
+  and `solar_azimuth_rad` fields (unused at 2B.2) are now live;
+  `solar_azimuth_rad` is documented as the **relative** azimuth
+  ``Δφ = φ_sun − φ_sensor`` (only the difference matters for single
+  scatter).
+- **Tests added**: TOA irradiance integral recovers 1361 W/m², Wien
+  peak at 0.502 µm, visible-band smoke check, spectral-shape Planck
+  ratio, radiance/irradiance consistency; L_path zero at τ = 1, ratio
+  check for sun-at-horizon vs sun-overhead, non-negative & finite,
+  vis ≫ LWIR ordering, cos(θ_sun) monotonicity, order-of-magnitude
+  anchor at 0.5 µm, cos Θ truth anchors.
 
 ## 2026-04-07 — 2B.2 SimpleAtmosphere `L_atm_down` (graybody) — RESOLVED 2026-04-08
 
@@ -67,51 +66,71 @@ Each entry has:
   (tropical > subarctic winter at fixed geometry); T_atm_eff lookup
   anchor; standard_atmosphere enum validation.
 
-## 2026-04-08 — 2B.4 `DetectorStage` / `Stage` protocol missing
+## 2026-04-08 — 2B.4 `DetectorStage` / `Stage` protocol missing — DEFERRED TO PHASE 2C (confirmed 2026-04-08)
 
-- **Task / file**: Task 2B.4; the prompt calls for
-  `src/radiant/detector/stage.py` implementing "the Stage protocol".
-- **What I hit**: The Stage protocol, `ChainState`, `ChainRunner`, and
-  `RadiometricFrame` containers described in
-  [docs/RADIANT_Signal_Chain_Architecture.md](docs/RADIANT_Signal_Chain_Architecture.md)
-  are not yet implemented in `radiant.core`. `src/radiant/core/` has
-  `constants.py`, `geometry.py`, `parameters.py`, `spectral.py`, and
-  `units.py` — no `chain.py`. Without that, a `DetectorStage` has no
-  protocol to implement and nothing to hand its outputs to.
-- **What I did**: Skipped `detector/stage.py` for this overnight cut.
-  Shipped the physics primitives (`qe.py`, `pixel.py`, `shot_noise.py`,
-  `dark_current.py`, `readout/read_noise.py`, `readout/adc.py`) as
-  standalone, fully tested classes that the future `DetectorStage`
-  will assemble. All cross-stage coupling (ChainState wiring, regime
-  finalisation, mtf_terms registration) is deferred until the core
-  chain scaffolding exists.
-- **What I need from you**: Confirm that the intended order is
-  (1) ship `radiant.core.chain` in a separate Phase 2A task, then
-  (2) wire `SourceStage`, `AtmosphereStage`, `OpticsStage`,
-  `DetectorStage`, `ReadoutStage` on top of it in Phase 2C. The
-  2B.1–2B.4 work so far is all primitives with no stage wrapper, which
-  I believe is the right incremental path — I want a green light before
-  writing half a dozen stage wrappers on a chain that doesn't exist.
+- **Decision (2026-04-08)**: Confirmed with Jason. Option B: keep the
+  2B.1–2B.4 detector primitives as standalone tested classes, and ship
+  `radiant.core.chain` + all stage wrappers (`SourceStage`,
+  `AtmosphereStage`, `OpticsStage`, `DetectorStage`, `ReadoutStage`,
+  etc.) together as a single Phase 2C push. Rationale: `core.chain`
+  touches every stage's contract (ChainState field layout, regime
+  finalisation per Rule 10, spectral integration coupling per Rule 8),
+  so designing it against a single consumer would lock in decisions
+  without the other seven stages to pressure-test them.
+- **Carry-forward for Phase 2C** — the chain scaffold must land before
+  any stage wrapper:
+  1. `radiant.core.chain`: `Stage` Protocol, frozen `ChainState` with
+     `with_frame` / `with_noise` / `with_mtf` / `with_stage_output`
+     methods (Rule 7), `ChainRunner`.
+  2. `radiant.core.radiometry`: `RadiometricFrame`, `NoiseTerm`.
+  3. Then wire stage wrappers on top of the existing primitives:
+     - `source/stage.py` over `ThermalSource` etc.
+     - `atmosphere/stage.py` over `SimpleAtmosphere` / `ExoAtmosphere`
+     - `optics/stage.py` — owns regime finalisation (Rule 10)
+     - `detector/stage.py` over `qe` / `pixel` / `shot_noise` /
+       `dark_current` (+ mtf_terms registration)
+     - `readout/stage.py` over `read_noise` / `adc`
+  4. Parameter schemas (`_schema.py`) already exist per stage; wire
+     them into `ChainRunner` stage registration.
+- **What's shipped today**: `qe.py`, `pixel.py`, `shot_noise.py`,
+  `dark_current.py`, `readout/read_noise.py`, `readout/adc.py` — all
+  standalone, fully tested. No stage wrapper, no ChainState wiring.
 - **Context**:
   - [docs/RADIANT_Signal_Chain_Architecture.md](docs/RADIANT_Signal_Chain_Architecture.md)
     §2 for the Stage protocol signature.
-  - [src/radiant/core/](src/radiant/core/) — current core surface.
+  - [src/radiant/core/](src/radiant/core/) — current core surface (no
+    `chain.py` yet).
 
-## 2026-04-08 — 2B.4 QE library tables not yet shipped
+## 2026-04-08 — 2B.4 QE library tables not yet shipped — RESOLVED 2026-04-08
 
-- **Task / file**: Task 2B.4; [src/radiant/detector/qe.py](src/radiant/detector/qe.py)
-- **What I hit**: RADIANT_Detector_Complete.md §3.1 specifies a
-  built-in QE library under `data/detectors/` (Si CCD, Si CMOS, InGaAs,
-  HgCdTe MWIR/LWIR, InSb, T2SL), accessed through
-  `detector.qe_input = "library"`. The directory does not exist yet.
-- **What I did**: Implemented `CUSTOM` (parametric Fermi edge) and
-  `FILE` (wrap an existing `SpectralData`) modes in `qe.py`. The
-  `LIBRARY` mode and its `qe_cutoff_um` warping function are deferred.
-- **What I need from you**: Either point me at the source for the
-  canonical curves (published datasheets? existing hand-fit code in
-  another repo?) or authorise me to generate Fermi-edge fits per
-  material with the standard cutoff / peak values from the table in
-  §3.1 — the latter would be a half-day task and would unblock the
-  LIBRARY path for trade studies.
+- **Resolution**: Dropped the notion of a built-in QE library entirely.
+  Jason clarified that QE is specified by the user in exactly one of
+  two ways: a scalar value or a wavelength-vs-QE table. No canned
+  materials, no Fermi-edge warping, no `data/detectors/` directory.
+- **What's wired now**: `QuantumEfficiency` keeps two factory
+  classmethods:
+  - `QuantumEfficiency.constant(value, lam_min_um=0.1, lam_max_um=30.0)`
+    — scalar QE, stored internally as a two-point flat `SpectralData`
+    table spanning a wide wavelength range so any reasonable
+    evaluation grid stays inside the table.
+  - `QuantumEfficiency.from_spectral(data)` — wraps a user-supplied
+    `SpectralData` QE curve.
+- **Removed**: The `parametric(peak, cuton_um, cutoff_um, rolloff_um)`
+  Fermi-edge factory and all its tests are gone (CLAUDE.md "no
+  speculative abstractions"). Detector schema dropped
+  `detector.qe_peak` / `qe_cuton_um` / `qe_cutoff_um`; added
+  `detector.qe_value` (scalar) and `detector.qe_table_path` (path to
+  a wavelength-vs-QE table, to be loaded by `SpectralDataStore`).
+  Exactly one must be set; the XOR will be enforced by a
+  `ConsistencyGroup` on the detector stage wrapper when `core.chain`
+  lands in Phase 2C.
+- **Tests**: 17 tests in `test_qe.py` — constant factory (flat
+  evaluation, two-point table layout, bounds validation, value
+  validation, peak_qe identity), `from_spectral` wrap, out-of-range
+  raise, linear interpolation truth anchor, band-averaged QE flat-top
+  anchor, constant and spectral round-trips, photon_energy truth
+  anchors.
 - **Context**:
-  - [docs/RADIANT_Detector_Complete.md](docs/RADIANT_Detector_Complete.md) §3.1
+  - [docs/RADIANT_Detector_Complete.md](docs/RADIANT_Detector_Complete.md)
+    §3.1 (library-curve language is now out of scope for RADIANT;
+    users bring their own QE).

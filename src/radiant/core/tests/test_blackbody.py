@@ -20,11 +20,11 @@ import math
 import numpy as np
 import pytest
 
-from radiant.core.constants import sigma_sb
-from radiant.source.blackbody import (
+from radiant.core.blackbody import (
     planck_spectral_radiance,
     planck_spectral_radiance_dT,
 )
+from radiant.core.constants import sigma_sb
 
 # ---------------------------------------------------------------------------
 # Truth Anchor 1 — Stefan–Boltzmann closed form.

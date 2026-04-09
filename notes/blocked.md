@@ -48,31 +48,24 @@ Each entry has:
     for ReflectedSolarSource design.
   - [CLAUDE.md](CLAUDE.md) Rule 11 for the cross-stage import ban.
 
-## 2026-04-07 — 2B.2 SimpleAtmosphere `L_atm_down` (graybody)
+## 2026-04-07 — 2B.2 SimpleAtmosphere `L_atm_down` (graybody) — RESOLVED 2026-04-08
 
-- **Task / file**: Task 2B.2; [src/radiant/atmosphere/simple.py](src/radiant/atmosphere/simple.py)
-- **What I hit**: RADIANT_Atmosphere.md §3.1 specifies
-  `L_atm_down(λ) = (1 − τ_atm(λ)) · B(λ, T_atm_eff)`. This needs the
-  Planck function. Today `planck_spectral_radiance` lives in
-  [src/radiant/source/blackbody.py](src/radiant/source/blackbody.py),
-  which `radiant.atmosphere` cannot import (CLAUDE.md Rule 11 +
-  `import-linter` "no cross-stage physics imports" contract).
-- **What I did**: Set `L_atm_down(λ) ≡ 0` in `SimpleAtmosphere.build_state`.
-  Same justification as the `L_path` stub above — invariant satisfied,
-  derivation_chain documents the deferral.
-- **What I need from you**: Decide whether to move
-  `planck_spectral_radiance` from `radiant.source.blackbody` into
-  `radiant.core` (e.g., `radiant.core.blackbody`). Planck is a pure
-  physical formula with no chain dependencies and no sensor knowledge,
-  so it sits cleanly in `core/` per the layout rules. If you agree
-  I can do it as a small refactor at the start of 2B.5 — it would
-  unblock `L_atm_down` here AND the thermal optics emission in 2B.3,
-  and `radiant.source.emitted` would re-export from core.
-- **Context**:
-  - [src/radiant/source/blackbody.py](src/radiant/source/blackbody.py)
-  - [pyproject.toml](pyproject.toml) — `[tool.importlinter]` "physics
-    stages import only core" and "no cross-stage physics imports"
-    contracts.
+- **Resolution**: Moved `planck_spectral_radiance` (and
+  `planck_spectral_radiance_dT`) from `radiant.source.blackbody` to
+  `radiant.core.blackbody`. Planck is a pure physical formula with no
+  sensor or chain knowledge and fits cleanly in `core/`. All importers
+  updated; no compat shim left behind.
+- **What's wired now**: `SimpleAtmosphere.build_state` computes
+  `L_atm_down(λ) = (1 − τ_atm(λ)) · B(λ, T_atm_eff)` with
+  `T_atm_eff` from a closed-form lookup: per-profile sea-level
+  temperature (us_standard, tropical, midlat_summer/winter,
+  subarctic_summer/winter), 6.5 K/km tropospheric lapse rate, ICAO
+  tropopause clamp at 216.65 K, evaluated at `0.5 · sensor_altitude`.
+- **Tests added**: zero-τ exo case → zero downwelling; bounded by
+  Planck curve; opaque-limit truth anchor (τ → 0 at 6.3 µm H₂O band
+  with heavy pwv → L_atm_down → B); profile temperature ordering
+  (tropical > subarctic winter at fixed geometry); T_atm_eff lookup
+  anchor; standard_atmosphere enum validation.
 
 ## 2026-04-08 — 2B.4 `DetectorStage` / `Stage` protocol missing
 

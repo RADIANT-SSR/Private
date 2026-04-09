@@ -31,8 +31,8 @@ from typing import Any
 
 import numpy as np
 
+from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
-from radiant.source.blackbody import planck_spectral_radiance
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,7 @@
 """Parameter definitions for the source stage.
 
-Only the subset needed by :mod:`radiant.source.blackbody` and
-:mod:`radiant.source.emitted` (task 2B.1) is defined here. Additional
+Only the subset needed by :mod:`radiant.source.emitted` (task 2B.1)
+is defined here. Additional
 parameters for reflected-solar, background, and point-source variants
 will be added by later Phase 2 tasks.
 """

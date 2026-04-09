@@ -19,13 +19,14 @@ with three contributions:
   water ``w_pw [cm]``. Calibrated against MODTRAN US Standard at the
   band centres; *not* claimed accurate elsewhere.
 
-This 2B.2 cut implements **transmittance only**. The single-scatter
-``L_path`` formulation in §3.1 needs a solar source spectrum, and the
-graybody downwelling needs the Planck function — both currently live
-in ``radiant.source`` which physics stages may not import (Rule 11).
-``L_path`` and ``L_atm_down`` are populated as numerical zero, which
-is consistent with the doc's "always populated, prefer zero over
-``None``" rule. The two open items are recorded in ``notes/blocked.md``.
+This cut implements **transmittance and graybody downwelling**. The
+downwelling uses the §3.1 formula ``L_atm_down(λ) = (1 − τ) · B(λ,
+T_atm_eff)`` with ``T_atm_eff`` from a closed-form standard-atmosphere
+temperature lookup evaluated at ``0.5 × sensor_altitude`` (plane-
+parallel troposphere with a fixed 6.5 K/km lapse, floored at the
+tropopause temperature 216.65 K). The single-scatter ``L_path`` is
+still set to numerical zero pending a top-of-atmosphere solar source
+(see ``notes/blocked.md``).
 
 Assumptions
 -----------
@@ -57,6 +58,7 @@ from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -114,6 +116,25 @@ _H2O_BANDS: tuple[_H2OBand, ...] = (
 # Tiny but nonzero — represents the rotational line wing buildup that
 # is the leading background term in MWIR/LWIR for the simple model.
 H2O_CONTINUUM_KM: float = 0.002
+
+# Sea-level air temperature [K] per standard-atmosphere profile.
+# Values from U.S. Committee on Extension to the Standard Atmosphere
+# (COESA) 1976 supplements for the five non-US profiles; us_standard
+# is COESA 1976 itself. Used to build ``T_atm_eff`` for the graybody
+# downwelling term.
+_T_SEA_LEVEL_K: dict[str, float] = {
+    "us_standard": 288.15,
+    "tropical": 299.65,
+    "midlat_summer": 294.15,
+    "midlat_winter": 272.15,
+    "subarctic_summer": 287.15,
+    "subarctic_winter": 257.15,
+}
+
+# ICAO tropospheric lapse rate and tropopause clamp.
+_LAPSE_RATE_K_PER_M: float = 6.5e-3  # 6.5 K / km
+_TROPOPAUSE_T_K: float = 216.65  # ICAO isothermal tropopause temperature
+_TROPOPAUSE_H_M: float = 11_000.0
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +195,12 @@ class SimpleAtmosphere:
                 f"{self.precipitable_water_cm} is invalid. It is a non-negative "
                 "column amount in cm of liquid-equivalent water vapour."
             )
+        if self.standard_atmosphere not in _T_SEA_LEVEL_K:
+            raise ValueError(
+                f"SimpleAtmosphere '{self.name}': standard_atmosphere = "
+                f"'{self.standard_atmosphere}' is not recognised. Choose one "
+                f"of {sorted(_T_SEA_LEVEL_K)}."
+            )
 
     # ------------------------------------------------------------------
     # Per-species extinction [1/km]
@@ -208,6 +235,23 @@ class SimpleAtmosphere:
         scaled = sigma_550 * (wavelength_um / AEROSOL_REFERENCE_WAVELENGTH_UM) ** (-alpha)
         height_factor = math.exp(-mean_altitude_m / H_AER_M)
         return np.asarray(scaled * height_factor, dtype=np.float64)
+
+    def _effective_atmospheric_temperature_K(self, sensor_altitude_m: float) -> float:
+        """Graybody downwelling effective temperature [K].
+
+        Evaluated at ``0.5 × sensor_altitude_m`` per RADIANT_Atmosphere.md
+        §3.1: a plane-parallel troposphere with a fixed 6.5 K/km lapse
+        rate and an isothermal tropopause clamp at 216.65 K (ICAO
+        standard). Negative or sub-sea-level sensor altitudes clamp to
+        ``h_eval = 0``; altitudes above ``2 × 11 km`` saturate at the
+        tropopause temperature. This is the textbook closed-form
+        approximation appropriate for a "simple" atmosphere.
+        """
+        h_eval_m = max(0.0, 0.5 * sensor_altitude_m)
+        h_eval_m = min(h_eval_m, _TROPOPAUSE_H_M)
+        t_sea = _T_SEA_LEVEL_K[self.standard_atmosphere]
+        t_eff = t_sea - _LAPSE_RATE_K_PER_M * h_eval_m
+        return max(t_eff, _TROPOPAUSE_T_K)
 
     def _h2o_extinction_km(self, wavelength_um: np.ndarray) -> np.ndarray:
         """Water-vapor extinction [1/km].
@@ -277,6 +321,8 @@ class SimpleAtmosphere:
         if slant_km == 0.0:
             tau = np.ones_like(lam)
 
+        t_atm_eff_K = self._effective_atmospheric_temperature_K(geometry.sensor_altitude_m)
+
         provenance: dict[str, Any] = {
             "model": "simple",
             "visibility_km": self.visibility_km,
@@ -285,6 +331,7 @@ class SimpleAtmosphere:
             "standard_atmosphere": self.standard_atmosphere,
             "slant_path_km": slant_km,
             "mean_altitude_m": mean_alt_m,
+            "t_atm_eff_K": t_atm_eff_K,
         }
 
         transmittance = SpectralData(
@@ -296,11 +343,8 @@ class SimpleAtmosphere:
             source_parameters=provenance,
         )
 
-        # L_path and L_atm_down are stubs in this 2B.2 cut. See
-        # notes/blocked.md for the open items: single-scatter L_path
-        # needs a solar source spectrum, graybody L_atm_down needs the
-        # Planck function. Both live in radiant.source which physics
-        # stages may not import (CLAUDE.md Rule 11).
+        # L_path is still a stub — single-scatter requires a TOA solar
+        # source spectrum, tracked in notes/blocked.md.
         zeros = np.zeros_like(lam)
         path_radiance = SpectralData(
             name="atm.path_radiance.simple",
@@ -310,12 +354,20 @@ class SimpleAtmosphere:
             source="SimpleAtmosphere stub (pending solar source)",
             source_parameters=provenance,
         )
+
+        # Graybody downwelling: L_atm_down(λ) = (1 − τ) · B(λ, T_atm_eff).
+        # At τ = 1 (exo-configuration / zero slant path) this is exactly
+        # zero; at τ = 0 (opaque column) it saturates at the blackbody
+        # curve, consistent with Kirchhoff's law for the atmospheric
+        # column treated as a single isothermal slab.
+        planck_curve = planck_spectral_radiance(lam, t_atm_eff_K)
+        atm_emission_down_values = (1.0 - tau) * planck_curve
         atm_emission_down = SpectralData(
             name="atm.emission_down.simple",
             wavelength_um=lam,
-            values=zeros.copy(),
+            values=atm_emission_down_values,
             unit="W/m²/sr/µm",
-            source="SimpleAtmosphere stub (pending Planck-in-core)",
+            source=(f"SimpleAtmosphere graybody downwelling (T_atm_eff={t_atm_eff_K:.2f} K)"),
             source_parameters=provenance,
         )
 
@@ -328,5 +380,7 @@ class SimpleAtmosphere:
                 f"SimpleAtmosphere(visibility_km={self.visibility_km}, "
                 f"aerosol={self.aerosol_type}, pwv_cm={self.precipitable_water_cm})",
                 f"slant_path_km={slant_km:.4f}, mean_alt_m={mean_alt_m:.1f}",
+                f"L_atm_down = (1 − τ) · B(λ, T_atm_eff={t_atm_eff_K:.2f} K) "
+                f"[{self.standard_atmosphere}]",
             ),
         )

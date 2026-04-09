@@ -7,8 +7,8 @@ import dataclasses
 import numpy as np
 import pytest
 
+from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
-from radiant.source.blackbody import planck_spectral_radiance
 from radiant.source.emitted import ThermalSource
 from radiant.source.protocol import SpectralRadianceSource
 

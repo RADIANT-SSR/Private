@@ -468,3 +468,112 @@ def test_artifact_plot_visible_to_lwir(tmp_path: Path) -> None:
     plt.close(fig)
 
     assert plot_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# L_atm_down graybody downwelling
+# ---------------------------------------------------------------------------
+
+
+def _vertical_geometry(sensor_altitude_m: float) -> AtmosphericGeometry:
+    """Zero-zenith vertical path from the ground to ``sensor_altitude_m``."""
+    return AtmosphericGeometry(
+        sensor_altitude_m=sensor_altitude_m,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+    )
+
+
+def test_l_atm_down_zero_when_tau_one() -> None:
+    """Exo-configuration (Δh = 0) has τ ≡ 1 → L_atm_down ≡ 0."""
+    atm = SimpleAtmosphere()
+    geom = AtmosphericGeometry(
+        sensor_altitude_m=400_000.0,
+        target_altitude_m=400_000.0,
+        path_zenith_rad=0.0,
+    )
+    grid = np.linspace(0.4, 14.0, 141)
+    state = atm.build_state(grid, geom)
+    assert np.allclose(state.transmittance.values, 1.0)
+    assert np.allclose(state.atm_emission_down.values, 0.0)
+
+
+def test_l_atm_down_nonnegative_and_bounded_by_planck() -> None:
+    """L_atm_down ∈ [0, B(λ, T_atm_eff)] point-wise, per §3.1 hard limit."""
+    from radiant.core.blackbody import planck_spectral_radiance
+
+    atm = SimpleAtmosphere(
+        visibility_km=10.0,
+        precipitable_water_cm=2.0,
+        standard_atmosphere="us_standard",
+    )
+    grid = np.linspace(0.4, 14.0, 281)
+    state = atm.build_state(grid, _vertical_geometry(2_000.0))
+    emission = state.atm_emission_down.values
+
+    # Expected t_atm_eff at h_eval = 1 km → 288.15 − 6.5 = 281.65 K.
+    t_expected = 288.15 - 6.5 * 1.0
+    planck = planck_spectral_radiance(grid, t_expected)
+
+    assert np.all(emission >= 0.0)
+    assert np.all(emission <= planck + 1e-12)
+
+
+def test_l_atm_down_truth_anchor_opaque_limit() -> None:
+    """At a wavelength where τ ≈ 0, L_atm_down → B(λ, T_atm_eff) exactly.
+
+    The 6.3 µm water-vapor band with heavy precipitable water drives τ
+    very close to zero, so (1 − τ) · B ≈ B.
+    """
+    from radiant.core.blackbody import planck_spectral_radiance
+
+    atm = SimpleAtmosphere(
+        visibility_km=5.0,
+        precipitable_water_cm=10.0,  # very wet column
+        standard_atmosphere="us_standard",
+    )
+    grid = np.array([6.28, 6.30, 6.32])
+    state = atm.build_state(grid, _vertical_geometry(4_000.0))
+
+    # T_atm_eff at h_eval = 2 km → 288.15 − 13.0 = 275.15 K
+    t_expected = 288.15 - 6.5 * 2.0
+    planck = planck_spectral_radiance(grid, t_expected)
+    tau = state.transmittance.values
+
+    # With w_pw = 10 cm at the 6.3 µm band centre, OD is enormous.
+    assert np.all(tau < 1e-6)
+    # L_atm_down should match the Planck curve to < 0.1% at the centre.
+    assert np.allclose(state.atm_emission_down.values, planck, rtol=1e-3, atol=0.0)
+
+
+def test_l_atm_down_scales_with_profile_temperature() -> None:
+    """Hotter standard atmosphere → larger L_atm_down at fixed geometry."""
+    grid = np.linspace(8.0, 14.0, 61)
+    geom = _vertical_geometry(2_000.0)
+
+    tropical = SimpleAtmosphere(standard_atmosphere="tropical").build_state(grid, geom)
+    arctic_winter = SimpleAtmosphere(standard_atmosphere="subarctic_winter").build_state(grid, geom)
+
+    # Same visibility/pwv/aerosol → same τ → L_atm_down ordering is
+    # purely driven by T_atm_eff.
+    assert np.allclose(tropical.transmittance.values, arctic_winter.transmittance.values)
+    assert np.all(tropical.atm_emission_down.values > arctic_winter.atm_emission_down.values)
+
+
+def test_t_atm_eff_truth_anchor_lookup() -> None:
+    """T_atm_eff = T_sea − 6.5 · (h_sensor / 2) / 1000, clamped at 216.65 K."""
+    atm = SimpleAtmosphere(standard_atmosphere="us_standard")
+    # Sea-level sensor → h_eval = 0 → T_eff = 288.15 K.
+    assert atm._effective_atmospheric_temperature_K(0.0) == pytest.approx(288.15)
+    # 4 km sensor → h_eval = 2 km → T_eff = 288.15 − 13 = 275.15 K.
+    assert atm._effective_atmospheric_temperature_K(4_000.0) == pytest.approx(275.15)
+    # 30 km sensor → h_eval clamped at 11 km, tropopause clamp applies.
+    # Without clamp: 288.15 − 6.5·11 = 216.65 → already at the floor.
+    assert atm._effective_atmospheric_temperature_K(30_000.0) == pytest.approx(216.65)
+    # Negative sensor altitude clamps h_eval to 0.
+    assert atm._effective_atmospheric_temperature_K(-500.0) == pytest.approx(288.15)
+
+
+def test_invalid_standard_atmosphere_raises() -> None:
+    with pytest.raises(ValueError, match="standard_atmosphere"):
+        SimpleAtmosphere(standard_atmosphere="martian")

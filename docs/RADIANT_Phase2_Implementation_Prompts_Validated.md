@@ -1793,6 +1793,54 @@ Partial completion is not complete.
 
 ---
 
+# DEFERRED WORK CARRIED FORWARD (logged 2026-04-09)
+
+This section records work that was scoped out of the prompts above
+during execution and must be picked up by a later prompt. Each entry
+names the originating prompt, what shipped, what was deferred, and
+which prompt must absorb the deferred work.
+
+## From Prompts 2B.1–2B.4 → must land in **Prompt 2B.5 (Chain skeleton)**
+
+Prompts 2B.1 through 2B.4 shipped physics primitives (`ThermalSource`,
+`SimpleAtmosphere` / `ExoAtmosphere`, `ScalarTelescope`, and the
+detector primitives `qe.py` / `pixel.py` / `shot_noise.py` /
+`dark_current.py` / `readout/read_noise.py` / `readout/adc.py`) but did
+**not** ship stage wrappers, because `radiant.core.chain` did not yet
+exist. See `notes/blocked.md` 2026-04-08 — DetectorStage / Stage
+protocol — DEFERRED.
+
+Prompt 2B.5 must therefore land the chain scaffold **and** the stage
+wrappers in this order:
+
+1. `radiant.core.chain` — `Stage` Protocol, frozen `ChainState` with
+   `with_frame` / `with_noise` / `with_mtf` / `with_stage_output`
+   helpers (CLAUDE.md Rule 7), `ChainRunner`.
+2. `radiant.core.radiometry` — `RadiometricFrame`, `NoiseTerm`.
+3. Stage wrappers over the existing primitives, in order:
+   - `src/radiant/source/stage.py` over `ThermalSource` etc.
+   - `src/radiant/atmosphere/stage.py` over
+     `SimpleAtmosphere` / `ExoAtmosphere`.
+   - `src/radiant/optics/stage.py` — owns regime finalisation
+     (CLAUDE.md Rule 10).
+   - `src/radiant/detector/stage.py` over `qe` / `pixel` / `shot_noise`
+     / `dark_current` (+ `mtf_terms` registration).
+   - `src/radiant/readout/stage.py` over `read_noise` / `adc`.
+4. Wire each stage's existing `_schema.py` into the `ChainRunner`
+   stage registration.
+
+## From Prompt 2B.4 → enforced inside **Prompt 2B.5 detector wrapper**
+
+`detector.qe_value` (scalar) and `detector.qe_table_path` (str) were
+added to `src/radiant/detector/_schema.py` as the only two QE input
+modes (Blocker 4 resolution, see `notes/blocked.md` 2026-04-08). Both
+default to `None`. The detector stage wrapper added in 2B.5 must
+enforce the XOR (exactly one set) via a `ConsistencyGroup` and dispatch
+to either `QuantumEfficiency.constant(value)` or
+`QuantumEfficiency.from_spectral(SpectralDataStore.load(path))`.
+
+---
+
 # EFFORT ESTIMATE (Validated Version)
 
 The additional validation adds overhead but catches bugs early.

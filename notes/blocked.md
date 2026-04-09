@@ -73,3 +73,52 @@ Each entry has:
   - [pyproject.toml](pyproject.toml) — `[tool.importlinter]` "physics
     stages import only core" and "no cross-stage physics imports"
     contracts.
+
+## 2026-04-08 — 2B.4 `DetectorStage` / `Stage` protocol missing
+
+- **Task / file**: Task 2B.4; the prompt calls for
+  `src/radiant/detector/stage.py` implementing "the Stage protocol".
+- **What I hit**: The Stage protocol, `ChainState`, `ChainRunner`, and
+  `RadiometricFrame` containers described in
+  [docs/RADIANT_Signal_Chain_Architecture.md](docs/RADIANT_Signal_Chain_Architecture.md)
+  are not yet implemented in `radiant.core`. `src/radiant/core/` has
+  `constants.py`, `geometry.py`, `parameters.py`, `spectral.py`, and
+  `units.py` — no `chain.py`. Without that, a `DetectorStage` has no
+  protocol to implement and nothing to hand its outputs to.
+- **What I did**: Skipped `detector/stage.py` for this overnight cut.
+  Shipped the physics primitives (`qe.py`, `pixel.py`, `shot_noise.py`,
+  `dark_current.py`, `readout/read_noise.py`, `readout/adc.py`) as
+  standalone, fully tested classes that the future `DetectorStage`
+  will assemble. All cross-stage coupling (ChainState wiring, regime
+  finalisation, mtf_terms registration) is deferred until the core
+  chain scaffolding exists.
+- **What I need from you**: Confirm that the intended order is
+  (1) ship `radiant.core.chain` in a separate Phase 2A task, then
+  (2) wire `SourceStage`, `AtmosphereStage`, `OpticsStage`,
+  `DetectorStage`, `ReadoutStage` on top of it in Phase 2C. The
+  2B.1–2B.4 work so far is all primitives with no stage wrapper, which
+  I believe is the right incremental path — I want a green light before
+  writing half a dozen stage wrappers on a chain that doesn't exist.
+- **Context**:
+  - [docs/RADIANT_Signal_Chain_Architecture.md](docs/RADIANT_Signal_Chain_Architecture.md)
+    §2 for the Stage protocol signature.
+  - [src/radiant/core/](src/radiant/core/) — current core surface.
+
+## 2026-04-08 — 2B.4 QE library tables not yet shipped
+
+- **Task / file**: Task 2B.4; [src/radiant/detector/qe.py](src/radiant/detector/qe.py)
+- **What I hit**: RADIANT_Detector_Complete.md §3.1 specifies a
+  built-in QE library under `data/detectors/` (Si CCD, Si CMOS, InGaAs,
+  HgCdTe MWIR/LWIR, InSb, T2SL), accessed through
+  `detector.qe_input = "library"`. The directory does not exist yet.
+- **What I did**: Implemented `CUSTOM` (parametric Fermi edge) and
+  `FILE` (wrap an existing `SpectralData`) modes in `qe.py`. The
+  `LIBRARY` mode and its `qe_cutoff_um` warping function are deferred.
+- **What I need from you**: Either point me at the source for the
+  canonical curves (published datasheets? existing hand-fit code in
+  another repo?) or authorise me to generate Fermi-edge fits per
+  material with the standard cutoff / peak values from the table in
+  §3.1 — the latter would be a half-day task and would unblock the
+  LIBRARY path for trade studies.
+- **Context**:
+  - [docs/RADIANT_Detector_Complete.md](docs/RADIANT_Detector_Complete.md) §3.1

@@ -926,54 +926,166 @@ Category: C (integration of physics modules)
 
 Read first:
 - docs/RADIANT_Signal_Chain_Architecture.md
+- notes/blocked.md (Blocker 3 carry-forward, dated 2026-04-08)
+- This prompt's "Design decisions" section below — these are
+  Jason-confirmed and override the architecture doc where they
+  differ.
+
+Design decisions (Jason-confirmed 2026-04-09):
+1. ChainState collections (frames, stage_outputs, mtf_terms, metrics)
+   are typed as Mapping[...] and frozen at construction via
+   types.MappingProxyType so direct mutation raises TypeError.
+   Convention is not enough — the immutability must be enforceable.
+2. SpectralIntegrationStage is its own stage (not folded into
+   DetectorStage). It owns the EE_box coupling per CLAUDE.md Rule 9.
+3. OpticsStage stubs EE_box = 1.0 and final regime = "extended" for
+   2B.5, with an inline TODO pointing at Phase 2C.4 (EffectivePSF).
+   This is the *only* stub in the wrappers.
+4. PlatformStage is skipped entirely in 2B.5 — not registered in the
+   runner, no stub. Phase 2C.3 will append it.
+5. Per-wrapper unit tests are required IN ADDITION to the
+   end-to-end integration test. ~6 tests, one per stage wrapper,
+   each asserting that a hand-crafted input ChainState produces the
+   expected output frame and stage_output keys.
+6. ChainResult in 2B.5 is minimal: it exposes raw state.frames /
+   state.noise_terms / state.stage_outputs only. The signal_at /
+   noise_at / noise_budget propagation queries are deferred to a
+   post-2B.6 task because they need forward-factor backward-prop
+   machinery (architecture doc §5) that no primitive supports yet.
 
 Produce:
-1. src/radiant/io/results.py  (RadiantResult container + JSON/dict
-   serialization; per file tree, results live in io/, not chain/)
-2. src/radiant/api/session.py  (RadiantSession / ChainRunner that
-   assembles the extended-scene dispatch path; per file tree the
-   ChainRunner lives in api/session.py)
-3. src/radiant/core/chain.py  (Stage Protocol, ChainState frozen
-   dataclass, with_* copy helpers; may already exist as a stub from
-   Phase 2A — extend it here)
-4. tests/integration/test_chain_extended.py  (cross-stage integration
-   test lives in the top-level tests/integration/ per file tree)
+
+A. Core scaffolding (radiant.core, no physics imports):
+1. src/radiant/core/radiometry.py
+   - RadiometricFrame (frozen dataclass with shape validation against
+     wavelength_um, XOR between spectral arrays and in_band_value)
+   - NoiseTerm (frozen dataclass; value_e ≥ 0)
+2. src/radiant/core/chain.py
+   - Stage Protocol (runtime_checkable; .name + .run(state, params))
+   - ChainState frozen dataclass with Mapping fields wrapped in
+     MappingProxyType in __post_init__
+   - with_frame / with_stage_output / with_noise / with_mtf /
+     with_metric / with_history helpers — each returns a NEW state
+   - ChainRunner: validates name uniqueness up front, iterates
+     stages, auto-records history if a stage didn't self-record
+3. src/radiant/core/tests/test_radiometry.py
+4. src/radiant/core/tests/test_chain.py
+   - Includes a test that direct mutation of state.frames raises
+
+B. Stage wrappers (one per physics package; ~80–120 LOC each):
+5. src/radiant/source/stage.py
+   - SourceStage wrapping ThermalSource.spectral_radiance
+   - Writes frame "at_target", stage_output["source"]["regime_tentative"]
+6. src/radiant/atmosphere/stage.py
+   - AtmosphereStage wrapping SimpleAtmosphere/ExoAtmosphere
+   - Reads frame "at_target", writes frame "at_aperture" (radiance
+     attenuated by τ_atm + L_path), stashes τ_atm and L_atm_down
+     in stage_outputs["atmosphere"]
+7. src/radiant/optics/stage.py
+   - OpticsStage wrapping ScalarTelescope
+   - Reads "at_aperture", writes frame "post_optics" (× transmission)
+   - Stashes A_collect, Omega_pixel in stage_outputs["optics"]
+   - Stubs EE_box = 1.0, regime = "extended" with TODO(2C.4) comment
+8. src/radiant/spectral_integration/__init__.py
+   src/radiant/spectral_integration/stage.py
+   src/radiant/spectral_integration/_schema.py (filter band, t_int)
+   src/radiant/spectral_integration/tests/test_stage.py
+   - SpectralIntegrationStage: reads "post_optics", computes
+     photon_rate(λ) = L · A_collect · Ω_pixel · τ_opt · (λ/hc),
+     applies QE(λ), integrates over filter bandpass, multiplies by
+     t_int, writes "photoelectrons" frame with in_band_value (e-).
+     Reads regime + EE_box from stage_outputs["optics"]; for
+     "extended" regime EE_box does NOT apply (Rule 9). Asserts
+     EE_box-ne-1 + extended is a programming error.
+9. src/radiant/detector/stage.py
+   - DetectorStage assembling QuantumEfficiency, DarkCurrent,
+     PixelGeometry, shot_noise primitives.
+   - Enforces detector.qe_value XOR detector.qe_table_path via a
+     ConsistencyGroup at the resolver layer (Blocker 4 carry-forward
+     from 2B.4); dispatches to QuantumEfficiency.constant or
+     QuantumEfficiency.from_spectral.
+   - Reads "photoelectrons" frame in_band_value, emits NoiseTerms:
+     shot (Poisson on signal e-), dark_shot (Poisson on
+     dark_e_accumulated). All NoiseTerms have origin_frame =
+     "photoelectrons".
+10. src/radiant/readout/stage.py
+    - ReadoutStage wrapping read_noise + adc primitives.
+    - Adds NoiseTerms: read (origin "photoelectrons"), quantization
+      (origin "photoelectrons", LSB/√12 in equivalent e-).
+    - Optionally writes a "dn" RadiometricFrame with in_band_value =
+      signal converted via gain (or leave for the next task; pick
+      one and document).
+
+C. Result + integration:
+11. src/radiant/io/results.py
+    - ChainResult (minimal): wraps a ChainState, exposes .frames,
+      .noise_terms, .stage_outputs, .history, .wavelength_um as
+      read-only properties. NO signal_at / noise_at queries.
+12. src/radiant/api/session.py
+    - RadiantSession that builds a ChainRunner with the 6 stages
+      (no PlatformStage, no PerformanceStage in 2B.5) and exposes
+      .run(params) -> ChainResult.
+
+D. Tests:
+13. Per-wrapper unit tests, one file per stage in
+    src/radiant/<stage>/tests/test_stage.py — each asserts that a
+    hand-crafted input ChainState produces the expected output frame
+    name(s), stage_output keys, and (where applicable) noise terms.
+14. tests/integration/test_chain_extended.py
+    - One reference case: MWIR staring sensor, 300 K extended
+      scene, nadir, SimpleAtmosphere mid-latitude summer, scalar
+      optics (D=0.30 m, f=1.20 m), pixel pitch 18 µm, t_int 5 ms.
+    - Asserts every intermediate value matches a hand calculation
+      to within 1e-3 relative.
 
 Validation requirements (C):
 
-Numerical validation at each stage:
-For a reference case (MWIR, 300 K, nadir, simple atm, scalar optics,
-basic detector), compute and report every intermediate:
-- L_source at 4 µm [W/m²/sr/µm]
-- τ_atm at 4 µm [dimensionless]
-- L_aperture at 4 µm [W/m²/sr/µm]
-- τ_optics [dimensionless]
-- E_fpa [W/m²/µm] or [W/m²]
-- Signal electrons [e⁻]
-- Each noise source [e⁻]
-- SNR [dimensionless]
+Numerical truth anchors (3+):
+For the reference case above, compute and report every intermediate:
+- L_source(4.0 µm) [W/m²/sr/µm]
+- τ_atm(4.0 µm) [dimensionless]
+- L_at_aperture(4.0 µm) [W/m²/sr/µm]
+- τ_optics(4.0 µm) [dimensionless]
+- L_post_optics(4.0 µm) [W/m²/sr/µm]
+- photon_rate(4.0 µm) at FPA [photons/s/pixel/µm]
+- in-band photoelectrons per integration [e-]
+- shot, dark_shot, read, quantization noise [e- RMS each]
 
-Each value must be hand-verifiable or match a simpler independent calculation.
+Each value must be hand-verifiable. The integration test checks all
+of them.
 
-Dimensional audit: full chain from L [W/m²/sr/µm] to DN.
+Dimensional audit table: full chain from L_source [W/m²/sr/µm] to
+photoelectrons [e-]. Every row checks.
 
 Failure modes:
-- Zero transmission: SNR = 0, no crashes
-- Zero signal: SNR handles division-by-zero
-- Missing parameter: clear error message
+- Zero transmission (τ_atm = 0): all downstream frames present
+  with zero values, noise terms still defined, no NaN, no crash.
+- Wavelength grid mismatch between stages: clear error before any
+  physics runs.
+- Direct mutation of state.frames: TypeError from MappingProxyType.
+- Missing required parameter: ParameterBoundsError with field name.
+- Detector QE both qe_value and qe_table_path set:
+  ConsistencyGroup violation with both field names.
+- Detector QE neither set: ConsistencyGroup violation.
 
 Energy conservation check:
-- Total radiated power from source < Stefan-Boltzmann limit
-- Power at detector < power at aperture (accounting for losses)
-- No stage can produce more energy than it received
+- Power at detector ≤ power at aperture (× A_collect, × τ_opt).
+- No stage adds energy beyond what physics allows
+  (atmosphere may ADD path radiance, but the aperture-frame
+  radiance bound by sensor-scene-emission limits is an overall
+  spot-check, not a stage-by-stage equality).
 
 Cross-model consistency:
-- Run the chain twice with identical inputs: results identical to
-  machine precision
-- Perturb one parameter slightly: SNR changes in the expected direction
+- Run the chain twice with identical inputs → state.frames and
+  state.noise_terms are identical to machine precision.
+- Perturb t_int by +10% → photoelectrons scales by +10%, shot σ
+  scales by √1.1.
 
-Self-review: verify the chain respects the physics documented in
-RADIANT_Signal_Chain_Architecture.md at every stage.
+Self-review: verify the chain respects the 8 architectural invariants
+in RADIANT_Signal_Chain_Architecture.md §9 — especially Rule 7
+(immutability), Rule 8 (single spectral integration), Rule 9 (single
+EE_box site), and Rule 11 (no cross-stage physics imports — verified
+by import-linter).
 
 Report format: Category C (full).
 ```

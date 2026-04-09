@@ -33,6 +33,18 @@ q: float = _sc.e
 # Value: 5.670374419e-8 W/m²/K⁴
 sigma_sb: float = _sc.sigma
 
+# Nominal solar radius [m] — IAU 2015 Resolution B3 nominal value.
+# https://www.iau.org/static/resolutions/IAU2015_English.pdf
+R_sun_m: float = 6.957e8
+
+# Astronomical unit [m] — IAU 2012 exact definition.
+au_m: float = 1.495_978_707e11
+
+# Nominal total solar irradiance at 1 AU [W/m²] — IAU 2015 Resolution B3
+# nominal "solar irradiance" S_0. Used to calibrate the TOA solar
+# spectrum constructed from a 5778 K blackbody.
+S_solar_W_per_m2: float = 1361.0
+
 # ---------------------------------------------------------------------------
 # Derived convenience quantities
 # ---------------------------------------------------------------------------

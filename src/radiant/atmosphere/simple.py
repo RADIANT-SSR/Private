@@ -19,14 +19,18 @@ with three contributions:
   water ``w_pw [cm]``. Calibrated against MODTRAN US Standard at the
   band centres; *not* claimed accurate elsewhere.
 
-This cut implements **transmittance and graybody downwelling**. The
-downwelling uses the §3.1 formula ``L_atm_down(λ) = (1 − τ) · B(λ,
-T_atm_eff)`` with ``T_atm_eff`` from a closed-form standard-atmosphere
-temperature lookup evaluated at ``0.5 × sensor_altitude`` (plane-
-parallel troposphere with a fixed 6.5 K/km lapse, floored at the
-tropopause temperature 216.65 K). The single-scatter ``L_path`` is
-still set to numerical zero pending a top-of-atmosphere solar source
-(see ``notes/blocked.md``).
+This cut implements the full §3.1 simple-model triple:
+
+- **``τ_atm(λ)``** via Beer-Lambert on the three extinction species.
+- **``L_path(λ)``** via the single-scatter approximation, using a
+  5778 K blackbody TOA solar spectrum from ``radiant.core.solar`` and
+  a weighted two-component phase function (Rayleigh for molecular,
+  Henyey-Greenstein with ``g = 0.7`` for aerosol).
+- **``L_atm_down(λ)``** via the graybody ``(1 − τ) · B(λ, T_atm_eff)``
+  with ``T_atm_eff`` from a closed-form standard-atmosphere
+  temperature lookup evaluated at ``0.5 × sensor_altitude``
+  (plane-parallel troposphere with a fixed 6.5 K/km lapse, floored
+  at the ICAO tropopause temperature 216.65 K).
 
 Assumptions
 -----------
@@ -59,6 +63,7 @@ from radiant.atmosphere.protocol import (
     AtmosphericState,
 )
 from radiant.core.blackbody import planck_spectral_radiance
+from radiant.core.solar import toa_solar_equivalent_radiance
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -80,14 +85,21 @@ H_AER_M: float = 1_200.0
 KOSCHMIEDER: float = 3.912
 AEROSOL_REFERENCE_WAVELENGTH_UM: float = 0.550
 
-# Ångström exponents and (currently unused) single-scattering albedos
-# per aerosol type, from RADIANT_Atmosphere.md §3.1. SSA values are
-# placeholders for the future single-scatter L_path implementation.
+# Ångström exponents and single-scattering albedos per aerosol type,
+# from RADIANT_Atmosphere.md §3.1. The SSA values drive the per-species
+# weight of the aerosol phase function in the single-scatter ``L_path``.
 _AEROSOL_TABLE: dict[str, dict[str, float]] = {
     "rural": {"angstrom": 1.3, "ssa": 0.95},
     "urban": {"angstrom": 1.5, "ssa": 0.85},
     "maritime": {"angstrom": 0.7, "ssa": 0.99},
 }
+
+# Henyey-Greenstein asymmetry parameter for the aerosol phase function.
+# ``g ≈ 0.7`` is the canonical value for continental boundary-layer
+# aerosol (forward-scattering). RADIANT_Atmosphere.md §3.1 flags this
+# as a tunable simple-model default; later phases may expose it as a
+# parameter per aerosol type.
+HG_ASYMMETRY: float = 0.7
 
 
 # Five-band water-vapor absorption fit. Each entry: centre wavelength
@@ -236,6 +248,77 @@ class SimpleAtmosphere:
         height_factor = math.exp(-mean_altitude_m / H_AER_M)
         return np.asarray(scaled * height_factor, dtype=np.float64)
 
+    def _single_scatter_phase_function(
+        self,
+        cos_theta_scatter: float,
+        sigma_mol: np.ndarray,
+        sigma_aer: np.ndarray,
+    ) -> np.ndarray:
+        """Extinction-weighted phase function ``P(Θ, λ)`` [dimensionless].
+
+        Normalized so that an isotropic scatterer has ``P ≡ 1`` (i.e.,
+        ``∫ P dΩ / 4π = 1``). Two components:
+
+        - **Rayleigh (molecular)**: ``P_R(Θ) = 0.75 · (1 + cos²Θ)``.
+        - **Aerosol**: Henyey-Greenstein with asymmetry ``g``,
+          ``P_HG(Θ) = (1 − g²) / (1 + g² − 2 g cos Θ)^{3/2}``.
+
+        The two are combined by *scattering* cross-section (not
+        extinction), since a photon that is absorbed by water vapor
+        does not contribute to scattered radiance at all::
+
+            P_total(λ) = (σ_mol · P_R  +  ω_aer · σ_aer · P_HG)
+                         / (σ_mol + ω_aer · σ_aer)
+
+        Water vapor is treated as pure absorption and does not enter
+        the numerator. The denominator is the wavelength-dependent
+        total scattering coefficient; where it is zero (e.g. no
+        molecular and no aerosol at some wavelength), the phase
+        function is defined as 1 by convention and multiplied by a
+        zero scattering albedo downstream so the contribution
+        vanishes.
+        """
+        cos_t = cos_theta_scatter
+        p_rayleigh = 0.75 * (1.0 + cos_t * cos_t)
+
+        g = HG_ASYMMETRY
+        denom_hg = (1.0 + g * g - 2.0 * g * cos_t) ** 1.5
+        p_hg = (1.0 - g * g) / denom_hg
+
+        omega_aer = float(_AEROSOL_TABLE[self.aerosol_type]["ssa"])
+        scat_mol = sigma_mol
+        scat_aer = omega_aer * sigma_aer
+        scat_total = scat_mol + scat_aer
+
+        # Avoid divide-by-zero at wavelengths where both scatter terms
+        # are zero (unreachable in practice for this model but defensive).
+        safe = scat_total > 0.0
+        p_total = np.ones_like(scat_total)
+        p_total[safe] = (scat_mol[safe] * p_rayleigh + scat_aer[safe] * p_hg) / scat_total[safe]
+        return p_total
+
+    def _single_scattering_albedo(
+        self,
+        sigma_mol: np.ndarray,
+        sigma_aer: np.ndarray,
+        sigma_h2o: np.ndarray,
+    ) -> np.ndarray:
+        """Extinction-weighted single-scattering albedo ``ω₀(λ)``.
+
+        ``ω₀ = σ_scat / σ_ext`` where ``σ_scat`` counts molecular
+        (pure scatter) plus aerosol ``ω_aer · σ_aer`` and ``σ_ext``
+        counts everything including H₂O absorption. Bounded in
+        ``[0, 1]`` by construction; returns zero wherever the total
+        extinction vanishes.
+        """
+        omega_aer = float(_AEROSOL_TABLE[self.aerosol_type]["ssa"])
+        scat = sigma_mol + omega_aer * sigma_aer
+        ext = sigma_mol + sigma_aer + sigma_h2o
+        omega0 = np.zeros_like(ext)
+        safe = ext > 0.0
+        omega0[safe] = scat[safe] / ext[safe]
+        return omega0
+
     def _effective_atmospheric_temperature_K(self, sensor_altitude_m: float) -> float:
         """Graybody downwelling effective temperature [K].
 
@@ -323,6 +406,11 @@ class SimpleAtmosphere:
 
         t_atm_eff_K = self._effective_atmospheric_temperature_K(geometry.sensor_altitude_m)
 
+        cos_theta_sun = math.cos(geometry.solar_zenith_rad)
+        cos_theta_scatter = geometry.cos_scattering_angle()
+        omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
+        phase = self._single_scatter_phase_function(cos_theta_scatter, sigma_mol, sigma_aer)
+
         provenance: dict[str, Any] = {
             "model": "simple",
             "visibility_km": self.visibility_km,
@@ -332,6 +420,9 @@ class SimpleAtmosphere:
             "slant_path_km": slant_km,
             "mean_altitude_m": mean_alt_m,
             "t_atm_eff_K": t_atm_eff_K,
+            "cos_theta_sun": cos_theta_sun,
+            "cos_theta_scatter": cos_theta_scatter,
+            "hg_asymmetry": HG_ASYMMETRY,
         }
 
         transmittance = SpectralData(
@@ -343,15 +434,34 @@ class SimpleAtmosphere:
             source_parameters=provenance,
         )
 
-        # L_path is still a stub — single-scatter requires a TOA solar
-        # source spectrum, tracked in notes/blocked.md.
-        zeros = np.zeros_like(lam)
+        # Single-scatter upwelling path radiance. Per
+        # RADIANT_Atmosphere.md §3.1:
+        #   L_path(λ) = L_sun(λ) · cos(θ_sun) · ω₀(λ) · P(Θ) · (1 − τ)
+        # where L_sun = E_sun / π is the equivalent Lambertian TOA
+        # radiance and (1 − τ) is the path-averaged extinction factor.
+        # We clamp to ≥ 0 because the AtmosphericState invariant
+        # forbids negative path radiance, and for a sun below the
+        # horizon cos θ_sun can legitimately be zero (producing a
+        # hard zero rather than a negative number).
+        if cos_theta_sun > 0.0:
+            l_sun = toa_solar_equivalent_radiance(lam)
+            path_radiance_values = l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau)
+            path_radiance_values = np.maximum(path_radiance_values, 0.0)
+            path_source = (
+                f"SimpleAtmosphere single-scatter "
+                f"(cos θ_sun={cos_theta_sun:.4f}, "
+                f"cos Θ={cos_theta_scatter:.4f})"
+            )
+        else:
+            path_radiance_values = np.zeros_like(lam)
+            path_source = "SimpleAtmosphere single-scatter (sun below horizon)"
+
         path_radiance = SpectralData(
             name="atm.path_radiance.simple",
             wavelength_um=lam,
-            values=zeros,
+            values=path_radiance_values,
             unit="W/m²/sr/µm",
-            source="SimpleAtmosphere stub (pending solar source)",
+            source=path_source,
             source_parameters=provenance,
         )
 
@@ -380,6 +490,9 @@ class SimpleAtmosphere:
                 f"SimpleAtmosphere(visibility_km={self.visibility_km}, "
                 f"aerosol={self.aerosol_type}, pwv_cm={self.precipitable_water_cm})",
                 f"slant_path_km={slant_km:.4f}, mean_alt_m={mean_alt_m:.1f}",
+                f"L_path = L_sun · μ₀ · ω₀ · P(Θ) · (1 − τ); "
+                f"μ₀={cos_theta_sun:.4f}, cos Θ={cos_theta_scatter:.4f}, "
+                f"HG g={HG_ASYMMETRY}",
                 f"L_atm_down = (1 − τ) · B(λ, T_atm_eff={t_atm_eff_K:.2f} K) "
                 f"[{self.standard_atmosphere}]",
             ),

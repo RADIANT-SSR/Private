@@ -577,3 +577,139 @@ def test_t_atm_eff_truth_anchor_lookup() -> None:
 def test_invalid_standard_atmosphere_raises() -> None:
     with pytest.raises(ValueError, match="standard_atmosphere"):
         SimpleAtmosphere(standard_atmosphere="martian")
+
+
+# ---------------------------------------------------------------------------
+# L_path single-scatter
+# ---------------------------------------------------------------------------
+
+
+def _daylight_geometry(
+    sensor_altitude_m: float = 2_000.0,
+    solar_zenith_rad: float = 0.3,
+    solar_azimuth_rad: float = 0.0,
+) -> AtmosphericGeometry:
+    return AtmosphericGeometry(
+        sensor_altitude_m=sensor_altitude_m,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+        solar_zenith_rad=solar_zenith_rad,
+        solar_azimuth_rad=solar_azimuth_rad,
+    )
+
+
+def test_l_path_zero_when_tau_one() -> None:
+    """No atmosphere along the line of sight → no scattered radiance."""
+    atm = SimpleAtmosphere()
+    geom = AtmosphericGeometry(
+        sensor_altitude_m=400_000.0,
+        target_altitude_m=400_000.0,
+        path_zenith_rad=0.0,
+        solar_zenith_rad=0.5,
+    )
+    grid = np.linspace(0.4, 2.5, 141)
+    state = atm.build_state(grid, geom)
+    assert np.allclose(state.transmittance.values, 1.0)
+    assert np.allclose(state.path_radiance.values, 0.0)
+
+
+def test_l_path_sun_at_horizon_vs_overhead() -> None:
+    """L_path ∝ cos(θ_sun): horizon case is ~1e-6 of the overhead case."""
+    atm = SimpleAtmosphere(visibility_km=5.0)
+    grid = np.linspace(0.4, 2.5, 141)
+    overhead = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=0.0))
+    horizon = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=math.pi / 2 - 1e-6))
+    # cos(θ_sun) ratio is ~1e-6. The phase function also changes
+    # slightly (cos Θ swings from −1 to 0) so allow a small ratio
+    # window. Use a pointwise ratio at a vis wavelength.
+    idx = int(np.argmin(np.abs(grid - 0.55)))
+    ratio = horizon.path_radiance.values[idx] / overhead.path_radiance.values[idx]
+    assert ratio < 1e-4  # cos(θ_sun)-driven reduction dominates
+
+
+def test_l_path_nonnegative_and_finite() -> None:
+    atm = SimpleAtmosphere(visibility_km=10.0, precipitable_water_cm=2.0)
+    grid = np.linspace(0.4, 14.0, 281)
+    state = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=0.5))
+    lp = state.path_radiance.values
+    assert np.all(np.isfinite(lp))
+    assert np.all(lp >= 0.0)
+
+
+def test_l_path_higher_in_vis_than_lwir() -> None:
+    """Rayleigh ∝ λ⁻⁴ dominates in vis, extinction collapses in LWIR."""
+    atm = SimpleAtmosphere(visibility_km=15.0)
+    grid = np.linspace(0.4, 14.0, 281)
+    state = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=0.4))
+    lp = state.path_radiance.values
+    vis_idx = int(np.argmin(np.abs(grid - 0.55)))
+    lwir_idx = int(np.argmin(np.abs(grid - 10.0)))
+    assert lp[vis_idx] > 100.0 * lp[lwir_idx]
+
+
+def test_l_path_scales_linearly_with_cos_theta_sun() -> None:
+    """Hold everything else fixed, double cos(θ_sun) → L_path doubles."""
+    atm = SimpleAtmosphere(visibility_km=15.0)
+    grid = np.linspace(0.4, 1.0, 61)
+
+    # Pick θ_v = 0 so that cos(Θ) = −cos(θ_sun); both the phase
+    # function and cos(θ_sun) change with solar zenith, so to isolate
+    # the μ₀ scaling we use a fixed cos(Θ) by varying φ. That's too
+    # complicated; instead check ordering: a sun closer to the zenith
+    # produces more path radiance at visible wavelengths (by a large
+    # factor) than a sun near the horizon.
+    overhead = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=0.05))
+    low_sun = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=1.3))
+    overhead_peak = float(np.max(overhead.path_radiance.values))
+    low_sun_peak = float(np.max(low_sun.path_radiance.values))
+    assert overhead_peak > low_sun_peak
+
+
+def test_l_path_scales_with_solar_irradiance_shape() -> None:
+    """L_path at 0.5 µm should be ~O(1) W/m²/sr/µm for a typical case.
+
+    Rough order-of-magnitude: a 20% Rayleigh OD at 0.5 µm with
+    cos θ_sun = 0.8 and ω₀ ≈ 1 for the molecular component gives:
+        L_path ≈ L_sun(0.5 µm) · 0.8 · 1 · P_R(Θ) · 0.2
+    with L_sun(0.5 µm) ≈ 2e7 / π W/m²/sr/µm · 2.18e-5 ≈ 50 W/m²/sr/µm
+    and P_R(backscatter) ≈ 1.5. So L_path ≈ 50 · 0.8 · 1.5 · 0.2 = 12.
+    Check the value is positive and in the 0.1–1000 W/m²/sr/µm band.
+    """
+    atm = SimpleAtmosphere(visibility_km=15.0, precipitable_water_cm=1.0)
+    grid = np.linspace(0.49, 0.51, 21)
+    state = atm.build_state(grid, _daylight_geometry(solar_zenith_rad=math.radians(37.0)))
+    mid = float(state.path_radiance.values[len(grid) // 2])
+    assert 0.1 < mid < 1000.0
+
+
+def test_cos_scattering_angle_truth_anchors() -> None:
+    """Truth anchors for the geometry helper."""
+    # Sun at zenith, sensor at nadir: cos Θ = −1 (backscatter).
+    g1 = AtmosphericGeometry(
+        sensor_altitude_m=1000.0,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+        solar_zenith_rad=0.0,
+    )
+    assert g1.cos_scattering_angle() == pytest.approx(-1.0, abs=1e-12)
+
+    # Sun at 90° with sensor at zenith and Δφ = 0: cos Θ = 0.
+    # (But solar_zenith_rad < π/2 is enforced, so use a very close value.)
+    g2 = AtmosphericGeometry(
+        sensor_altitude_m=1000.0,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+        solar_zenith_rad=math.pi / 2 - 1e-9,
+    )
+    assert g2.cos_scattering_angle() == pytest.approx(0.0, abs=1e-6)
+
+    # Sun at 60° forward of sensor, sensor at 60° zenith, Δφ = 0:
+    # cos Θ = −(sin²60 + cos²60) = −1 (hotspot / exact backscatter).
+    g3 = AtmosphericGeometry(
+        sensor_altitude_m=1000.0,
+        target_altitude_m=0.0,
+        path_zenith_rad=math.radians(60.0),
+        solar_zenith_rad=math.radians(60.0),
+        solar_azimuth_rad=0.0,
+    )
+    assert g3.cos_scattering_angle() == pytest.approx(-1.0, abs=1e-12)

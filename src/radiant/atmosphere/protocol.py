@@ -77,10 +77,12 @@ class AtmosphericGeometry:
         and reflected-solar paths. ``0 ≤ θ_sun < π/2``. Defaults to
         zero (sun overhead) which is enough for transmittance-only use.
     solar_azimuth_rad:
-        Solar azimuth [rad]. Drives the scattering phase angle in
-        ``L_path``. Defaults to zero. Not validated for sign — only
-        the difference from the line-of-sight azimuth matters and
-        future code can compute it from this raw value.
+        Solar azimuth *relative to the sensor look direction* [rad].
+        That is, ``Δφ = φ_sun − φ_sensor``. Only this difference
+        matters for the single-scatter phase angle; there is no need
+        to track absolute compass azimuths. Defaults to ``0`` (sun
+        behind / in front of the sensor — same meridional plane).
+        Range is unrestricted; only ``cos(Δφ)`` is consumed.
     observer_type:
         One of ``"space"``, ``"airborne"``, ``"ground"``. Free-form
         string here; the parameter resolver enforces the enum.
@@ -190,6 +192,33 @@ class AtmosphericGeometry:
         x = dh / EARTH_RADIUS_M
         radicand = cos_theta * cos_theta + 2.0 * x + x * x
         return EARTH_RADIUS_M * (math.sqrt(radicand) - cos_theta)
+
+    def cos_scattering_angle(self) -> float:
+        """Cosine of the single-scatter angle ``Θ`` between sun and sensor.
+
+        For a photon that leaves the sun, scatters once in the
+        atmosphere, and heads toward the sensor, the scattering angle
+        is the angle between the incoming (downward from sun) and
+        outgoing (upward toward sensor) directions. In the local
+        plane-parallel frame::
+
+            cos Θ = −[sin θ_s sin θ_v cos(Δφ) + cos θ_s cos θ_v]
+
+        where ``θ_s`` is the solar zenith, ``θ_v`` is the sensor look
+        zenith, and ``Δφ = solar_azimuth_rad`` is the sun-to-sensor
+        relative azimuth. The leading minus captures the reversal
+        between the incoming and outgoing photon directions.
+
+        Sanity: sun at zenith + sensor at nadir → cos Θ = −1
+        (exact backscatter). Sun at the horizon facing the sensor
+        (θ_s = 90°, θ_v = 0, any Δφ) → cos Θ = 0 (side scatter).
+        """
+        th_s = self.solar_zenith_rad
+        th_v = self.path_zenith_rad
+        d_phi = self.solar_azimuth_rad
+        return -(
+            math.sin(th_s) * math.sin(th_v) * math.cos(d_phi) + math.cos(th_s) * math.cos(th_v)
+        )
 
     def air_mass(self) -> float:
         """Dimensionless air mass ``L_slant / Δh``.

@@ -1,9 +1,59 @@
 """Stage 1: target and background spectral radiance computation."""
 
+from radiant.source.background import (
+    BlackbodyBackground,
+    CMB_BACKGROUND,
+    ConstantBackground,
+    TabulatedBackground,
+)
+from radiant.source.brdf import LambertianBRDF, PhongBRDF
+from radiant.source.combined import CombinedSource
+from radiant.source.composite import CompositeTarget
 from radiant.source.emitted import ThermalSource
+from radiant.source.material import SurfaceMaterial
+from radiant.source.point_source import BlackbodyIntensitySource, DirectIntensitySource
+from radiant.source.primitives import Box, Cone, Cylinder, FlatPlate, Sphere
 from radiant.source.protocol import SpectralRadianceSource
+from radiant.source.reflected import ReflectedSolarSource
+from radiant.source.shape import TargetShape
+from radiant.source.sub_pixel import SubPixelSource
+from radiant.source.tabulated import TabulatedRadianceSource
+from radiant.source.unified_target import (
+    ResolvedTarget,
+    resolve_direct_intensity,
+    resolve_direct_radiance,
+    resolve_geometry,
+    resolve_physical_object,
+    resolve_sub_pixel,
+)
 
 __all__ = [
+    "BlackbodyBackground",
+    "BlackbodyIntensitySource",
+    "Box",
+    "CMB_BACKGROUND",
+    "CombinedSource",
+    "CompositeTarget",
+    "Cone",
+    "ConstantBackground",
+    "Cylinder",
+    "DirectIntensitySource",
+    "FlatPlate",
+    "LambertianBRDF",
+    "PhongBRDF",
+    "ReflectedSolarSource",
+    "ResolvedTarget",
     "SpectralRadianceSource",
+    "Sphere",
+    "SubPixelSource",
+    "SurfaceMaterial",
+    "TabulatedBackground",
+    "TabulatedRadianceSource",
+    "TargetShape",
     "ThermalSource",
+    "resolve_direct_intensity",
+    "resolve_direct_radiance",
+    "resolve_geometry",
+    "resolve_physical_object",
+    "resolve_sub_pixel",
 ]

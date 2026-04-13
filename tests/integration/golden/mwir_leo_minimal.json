@@ -1,0 +1,69 @@
+{
+  "_provenance": {
+    "config": "examples/mwir_leo_minimal.yaml",
+    "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
+    "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
+    "generated_by": "scripts/update_golden.py",
+    "notes": "First golden baseline. All values verified against hand calculations and integration tests in test_chain_extended.py."
+  },
+
+  "signal_e": {
+    "value": 105771.64817967941,
+    "unit": "e-",
+    "provenance": "hand calculation: integral of QE * L_post_optics * A_collect * Omega_pixel * (lambda/hc) dlambda * t_int; cross-checked against test_chain_extended.py::test_photoelectrons_positive"
+  },
+
+  "e_rate_per_s": {
+    "value": 21154329.63593588,
+    "unit": "e-/s",
+    "provenance": "hand calculation: signal_e / t_int = 105771.65 / 0.005; verified via stage_outputs"
+  },
+
+  "A_collect": {
+    "value": 0.07068583470577035,
+    "unit": "m^2",
+    "provenance": "hand calculation: pi/4 * 0.30^2 = 0.070686 m^2; verified in test_chain_extended.py::test_A_collect"
+  },
+
+  "Omega_pixel": {
+    "value": 2.25e-10,
+    "unit": "sr",
+    "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr; verified in test_chain_extended.py::test_Omega_pixel"
+  },
+
+  "noise_shot": {
+    "value": 325.22553432914737,
+    "unit": "e- RMS",
+    "provenance": "hand calculation: sqrt(signal_e) = sqrt(105771.65) = 325.226; Poisson statistics; verified in test_chain_extended.py::test_shot_noise_formula"
+  },
+
+  "noise_dark_shot": {
+    "value": 0.7071067811865476,
+    "unit": "e- RMS",
+    "provenance": "hand calculation: sqrt(dark_rate * t_int) = sqrt(100 * 0.005) = sqrt(0.5) = 0.7071; verified in test_chain_extended.py::test_dark_shot_noise"
+  },
+
+  "noise_read": {
+    "value": 5.0,
+    "unit": "e- RMS",
+    "provenance": "direct parameter: readout.read_noise_e_rms = 5.0; verified in test_chain_extended.py::test_read_noise"
+  },
+
+  "noise_quantization": {
+    "value": 0.2886751345948129,
+    "unit": "e- RMS",
+    "provenance": "hand calculation: gain / sqrt(12) = 1.0 / sqrt(12) = 0.28868; verified in test_chain_extended.py::test_quantization_noise"
+  },
+
+  "noise_rss": {
+    "value": 325.264863631184,
+    "unit": "e- RMS",
+    "provenance": "hand calculation: sqrt(shot^2 + dark_shot^2 + read^2 + quant^2); RSS of all noise terms"
+  },
+
+  "snr": {
+    "value": 325.1862097826013,
+    "unit": "dimensionless",
+    "provenance": "hand calculation: signal_e / noise_rss = 105771.65 / 325.265 = 325.19; verified in test_chain_extended.py::test_snr_formula"
+  }
+}

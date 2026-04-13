@@ -1,0 +1,36 @@
+# RADIANT config — schema v1
+# Minimal MWIR LEO extended-scene scenario.
+# 300 K target, nadir view at 8 km altitude, midlat summer atmosphere.
+# Matches the reference case in tests/integration/test_chain_extended.py.
+
+source:
+  target:
+    temperature: 300.0        # K
+    emissivity: 0.95
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 8000.0   # m
+
+optics:
+  aperture_diameter_m: 0.30   # m
+  focal_length_m: 1.20        # m  (f/4.0)
+  transmission_scalar: 0.70
+
+detector:
+  pixel_pitch_x_um: 18.0      # um
+  pixel_pitch_y_um: 18.0      # um
+  qe_value: 0.70
+  dark_rate_e_per_s: 100.0    # e-/s
+
+spectral_integration:
+  filter_min_um: 3.5           # um
+  filter_max_um: 5.0           # um
+  integration_time_s: 0.005    # s  (5 ms)
+
+readout:
+  read_noise_e_rms: 5.0       # e- RMS
+  gain_e_per_dn: 1.0          # e-/DN
+  adc_bits: 16

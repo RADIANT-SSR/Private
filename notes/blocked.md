@@ -134,3 +134,24 @@ Each entry has:
   - [docs/RADIANT_Detector_Complete.md](docs/RADIANT_Detector_Complete.md)
     §3.1 (library-curve language is now out of scope for RADIANT;
     users bring their own QE).
+
+## 2026-04-12 — 2D.2 `source/stage.py` uses string regime, not `RadiometricRegime` enum — OPEN
+
+- **Task / file**: 2D.2 unified target resolver / `src/radiant/source/stage.py`
+- **What I hit**: Created `radiant.core.regime.RadiometricRegime` enum
+  (architecturally specified in `core/regime.py` per CLAUDE.md package
+  layout). The existing `source/stage.py` still hardcodes the string
+  `"extended"` for `regime_tentative` instead of using
+  `RadiometricRegime.EXTENDED`.
+- **What I did**: Shipped `core/regime.py` with `RadiometricRegime` and
+  `TargetInputPath` enums. `unified_target.py` and all 5 resolver
+  functions use the enum. Did **not** touch `source/stage.py` — that
+  file is outside the scope of 2D.2.
+- **What I need from you**: Confirm this is fine to migrate in a future
+  task (likely when SourceStage is updated to consume `ResolvedTarget`).
+- **Context**:
+  - [src/radiant/core/regime.py](src/radiant/core/regime.py) — new enums
+  - [src/radiant/source/stage.py:55](src/radiant/source/stage.py) —
+    hardcoded `"extended"` string
+  - [src/radiant/source/unified_target.py](src/radiant/source/unified_target.py) —
+    uses `RadiometricRegime` enum

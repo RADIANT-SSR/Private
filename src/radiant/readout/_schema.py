@@ -1,10 +1,7 @@
-"""Parameter definitions for the readout stage (2B.4 minimum subset).
+"""Parameter definitions for the readout stage.
 
-Only the parameters needed by :mod:`radiant.readout.read_noise` and
-:mod:`radiant.readout.adc` are defined here. TDI, on-chip and off-chip
-binning, coadds, two-stage saturation, and the full readout-order
-canonical chain from ``docs/RADIANT_Detector_Complete.md`` §6 will
-be added by later tasks.
+Covers read noise, ADC, gain, TDI, binning, coadds, saturation,
+and CDS per ``docs/RADIANT_Detector_Complete.md`` §6-§9.
 """
 
 from __future__ import annotations
@@ -58,8 +55,164 @@ ADC_BITS = ParameterDef(
 )
 
 
+# ---------------------------------------------------------------------------
+# Well capacity and saturation
+# ---------------------------------------------------------------------------
+
+FULL_WELL_CAPACITY_E = ParameterDef(
+    name="readout.full_well_capacity_e",
+    description="Full well capacity per pixel [e-].",
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=100000.0,
+    bounds=(100.0, 1e8),
+    tags=frozenset({"readout", "saturation"}),
+    default_justification="100 ke- is typical for scientific CMOS and cooled IR FPAs.",
+)
+
+# ---------------------------------------------------------------------------
+# CDS
+# ---------------------------------------------------------------------------
+
+CDS_ENABLED = ParameterDef(
+    name="readout.cds_enabled",
+    description="Correlated double sampling enabled (1=yes, 0=no).",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    tags=frozenset({"readout", "cds"}),
+    default_justification="Most modern ROICs use CDS.",
+)
+
+READ_NOISE_IS_POST_CDS = ParameterDef(
+    name="readout.read_noise_is_post_cds",
+    description=(
+        "If 1, the read_noise_e_rms value is already the post-CDS "
+        "number (no √2 scaling needed). If 0, the value is pre-CDS "
+        "and CDS adds √2."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    tags=frozenset({"readout", "cds"}),
+    default_justification="Datasheet values are typically post-CDS.",
+)
+
+NODE_CAPACITANCE_F = ParameterDef(
+    name="readout.node_capacitance_F",
+    description="Sense-node capacitance [F]. Zero disables kTC noise.",
+    dtype=float,
+    canonical_unit="F",
+    input_unit="F",
+    default=0.0,
+    bounds=(0.0, 1e-9),
+    tags=frozenset({"readout", "noise"}),
+)
+
+# ---------------------------------------------------------------------------
+# TDI
+# ---------------------------------------------------------------------------
+
+N_TDI = ParameterDef(
+    name="readout.n_tdi",
+    description="Number of TDI stages. 1 = no TDI.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 1000),
+    tags=frozenset({"readout", "tdi"}),
+)
+
+# ---------------------------------------------------------------------------
+# Binning
+# ---------------------------------------------------------------------------
+
+BINNING_X_ONCHIP = ParameterDef(
+    name="readout.binning_x_onchip",
+    description="On-chip binning factor along x. 1 = no binning.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 64),
+    tags=frozenset({"readout", "binning"}),
+)
+
+BINNING_Y_ONCHIP = ParameterDef(
+    name="readout.binning_y_onchip",
+    description="On-chip binning factor along y. 1 = no binning.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 64),
+    tags=frozenset({"readout", "binning"}),
+)
+
+BINNING_X_OFFCHIP = ParameterDef(
+    name="readout.binning_x_offchip",
+    description="Off-chip binning factor along x. 1 = no binning.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 64),
+    tags=frozenset({"readout", "binning"}),
+)
+
+BINNING_Y_OFFCHIP = ParameterDef(
+    name="readout.binning_y_offchip",
+    description="Off-chip binning factor along y. 1 = no binning.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 64),
+    tags=frozenset({"readout", "binning"}),
+)
+
+# ---------------------------------------------------------------------------
+# Coadds
+# ---------------------------------------------------------------------------
+
+N_COADDS = ParameterDef(
+    name="readout.n_coadds",
+    description="Number of coadded frames. 1 = no coadd.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 10000),
+    tags=frozenset({"readout", "coadd"}),
+)
+
+COADD_MODE = ParameterDef(
+    name="readout.coadd_mode",
+    description="Coadd combination mode: 'sum', 'average', or 'median'.",
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="sum",
+    tags=frozenset({"readout", "coadd"}),
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     READ_NOISE_E_RMS,
     GAIN_E_PER_DN,
     ADC_BITS,
+    FULL_WELL_CAPACITY_E,
+    CDS_ENABLED,
+    READ_NOISE_IS_POST_CDS,
+    NODE_CAPACITANCE_F,
+    N_TDI,
+    BINNING_X_ONCHIP,
+    BINNING_Y_ONCHIP,
+    BINNING_X_OFFCHIP,
+    BINNING_Y_OFFCHIP,
+    N_COADDS,
+    COADD_MODE,
 )

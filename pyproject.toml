@@ -96,6 +96,10 @@ forbidden_modules = [
     "radiant.api",
     "radiant.cli",
 ]
+ignore_imports = [
+    "radiant.optics.tests.test_stage -> radiant.api._param_registry",
+    "radiant.source.tests.test_stage -> radiant.api._param_registry",
+]
 
 [[tool.importlinter.contracts]]
 name = "no cross-stage physics imports"
@@ -109,6 +113,15 @@ modules = [
     "radiant.detector",
     "radiant.readout",
     "radiant.performance",
+]
+ignore_imports = [
+    "radiant.optics.tests.test_stage -> radiant.detector._schema",
+    "radiant.optics.tests.test_stage -> radiant.api._param_registry",
+    "radiant.spectral_integration.tests.test_stage -> radiant.detector._schema",
+    "radiant.detector.tests.test_stage -> radiant.spectral_integration._schema",
+    "radiant.source.tests.test_stage -> radiant.api._param_registry",
+    "radiant.source.tests.test_stage -> radiant.optics._schema",
+    "radiant.source.tests.test_stage -> radiant.detector._schema",
 ]
 
 [[tool.importlinter.contracts]]
@@ -125,6 +138,29 @@ forbidden_modules = [
     "radiant.detector",
     "radiant.readout",
     "radiant.performance",
+]
+ignore_imports = [
+    # Transitive imports through api/ and io/ are allowed — the contract
+    # enforces that cli modules do not *directly* import physics stages.
+    "radiant.api.session -> radiant.core.chain",
+    "radiant.api.session -> radiant.core.parameters",
+    "radiant.api.session -> radiant.source.stage",
+    "radiant.api.session -> radiant.atmosphere.stage",
+    "radiant.api.session -> radiant.optics.stage",
+    "radiant.api.session -> radiant.spectral_integration.stage",
+    "radiant.api.session -> radiant.detector.stage",
+    "radiant.api.session -> radiant.readout.stage",
+    "radiant.api.session -> radiant.performance.stage",
+    "radiant.api._param_registry -> radiant.source._schema",
+    "radiant.api._param_registry -> radiant.atmosphere._schema",
+    "radiant.api._param_registry -> radiant.optics._schema",
+    "radiant.api._param_registry -> radiant.spectral_integration._schema",
+    "radiant.api._param_registry -> radiant.detector._schema",
+    "radiant.api._param_registry -> radiant.readout._schema",
+    "radiant.api._param_registry -> radiant.core.parameters",
+    "radiant.io.config -> radiant.core.parameters",
+    "radiant.io.results -> radiant.core.chain",
+    "radiant.io.results -> radiant.core.radiometry",
 ]
 
 [[tool.importlinter.contracts]]

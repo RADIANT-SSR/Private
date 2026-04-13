@@ -1,0 +1,36 @@
+# RADIANT config — schema v1
+# Ground truth: fully hand-computable MWIR single-wavelength case.
+# Every intermediate can be verified with a calculator.
+# See docs/validation/ground_truth_mwir_singlewave.md for derivation.
+
+source:
+  target:
+    temperature: 300.0       # K — pure blackbody
+    emissivity: 1.0          # ε = 1 (blackbody)
+
+atmosphere:
+  model: exo                 # vacuum: τ = 1, L_path = 0
+
+geometry:
+  sensor_altitude_m: 500000  # m (irrelevant for exo, but required)
+
+optics:
+  aperture_diameter_m: 0.30  # m
+  focal_length_m: 1.50       # m → f/5
+  transmission_scalar: 0.75
+
+detector:
+  pixel_pitch_x_um: 15.0     # um
+  pixel_pitch_y_um: 15.0     # um
+  qe_value: 0.70
+  dark_rate_e_per_s: 0.0     # zero dark current
+
+spectral_integration:
+  filter_min_um: 3.999       # um — narrow band centered on 4.0 µm
+  filter_max_um: 4.001       # um — Δλ = 0.002 µm
+  integration_time_s: 0.005  # s (5 ms)
+
+readout:
+  read_noise_e_rms: 30.0     # e- RMS
+  gain_e_per_dn: 1.0         # e-/DN
+  adc_bits: 16

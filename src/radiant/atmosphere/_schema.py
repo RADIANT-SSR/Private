@@ -1,9 +1,7 @@
 """Parameter definitions for the atmosphere stage.
 
-Only the subset needed by :mod:`radiant.atmosphere.simple` and
-:mod:`radiant.atmosphere.exo` (task 2B.2) is defined here. The full
-RADIANT_Atmosphere.md §6 inventory (MODTRAN deck options, tabulated
-file paths, turbulence) will be added by later tasks.
+Covers all four atmosphere models (simple, exo, tabulated, modtran)
+plus the interpolated model and viewing geometry parameters.
 """
 
 from __future__ import annotations
@@ -17,16 +15,16 @@ from radiant.core.parameters import ParameterDef
 ATMOSPHERE_MODEL = ParameterDef(
     name="atmosphere.model",
     description=(
-        "Atmosphere model selector. 'simple' uses a closed-form Beer-Lambert "
-        "(Rayleigh + Koschmieder aerosol + 5-band water vapor); 'exo' uses a "
-        "vacuum (τ≡1, L_path≡0). 'tabulated' and 'modtran' are reserved for "
-        "later tasks."
+        "Atmosphere model selector. 'simple' uses a closed-form Beer-Lambert; "
+        "'exo' uses a vacuum; 'tabulated' loads from files; 'modtran' wraps "
+        "the MODTRAN binary; 'interpolated' interpolates between pre-computed "
+        "runs at discrete geometry points."
     ),
     dtype=str,
     canonical_unit="",
     input_unit="",
     default="simple",
-    enum_values=("simple", "exo", "tabulated", "modtran"),
+    enum_values=("simple", "exo", "tabulated", "modtran", "interpolated"),
     tags=frozenset({"atmosphere", "selection"}),
     default_justification=(
         "'simple' is the v1 default for terrestrial scenarios; the parameter "
@@ -116,10 +114,305 @@ STANDARD_ATMOSPHERE = ParameterDef(
 )
 
 
+# ---------------------------------------------------------------------------
+# Viewing geometry (consumed by AtmosphereStage; namespace = geometry.*)
+# ---------------------------------------------------------------------------
+
+SENSOR_ALTITUDE_M = ParameterDef(
+    name="geometry.sensor_altitude_m",
+    description="Sensor altitude above mean sea level [m].",
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=None,
+    bounds=(0.0, 1e8),
+    tags=frozenset({"geometry"}),
+)
+
+TARGET_ALTITUDE_M = ParameterDef(
+    name="geometry.target_altitude_m",
+    description="Target altitude above mean sea level [m].",
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e8),
+    tags=frozenset({"geometry"}),
+    default_justification="Ground-level target is the common case.",
+)
+
+PATH_ZENITH_RAD = ParameterDef(
+    name="geometry.path_zenith_rad",
+    description="Line-of-sight zenith angle [rad].",
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(0.0, 1.562),  # ~89.5 deg
+    tags=frozenset({"geometry"}),
+    default_justification="Nadir (0 rad) is the standard staring geometry.",
+)
+
+SOLAR_ZENITH_RAD = ParameterDef(
+    name="geometry.solar_zenith_rad",
+    description="Solar zenith angle [rad].",
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.5,
+    bounds=(0.0, 1.5707),
+    tags=frozenset({"geometry"}),
+    default_justification="~28.6° — moderate solar elevation.",
+)
+
+SOLAR_AZIMUTH_RAD = ParameterDef(
+    name="geometry.solar_azimuth_rad",
+    description="Sun-to-sensor relative azimuth [rad].",
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.2832, 6.2832),
+    tags=frozenset({"geometry"}),
+    default_justification="Same meridional plane.",
+)
+
+
+# ---------------------------------------------------------------------------
+# Tabulated model
+# ---------------------------------------------------------------------------
+
+TABULATED_TRANSMITTANCE_FILE = ParameterDef(
+    name="atmosphere.tabulated_transmittance_file",
+    description=(
+        "Path to CSV or NPZ file containing tabulated atmospheric "
+        "transmittance. CSV: two columns (wavelength_um, value). "
+        "NPZ: key 'transmittance' with matching 'wavelength_um'. "
+        "Required when atmosphere.model='tabulated'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "tabulated"}),
+    default_justification="Empty string = not set; only required for tabulated model.",
+)
+
+TABULATED_PATH_RADIANCE_FILE = ParameterDef(
+    name="atmosphere.tabulated_path_radiance_file",
+    description=(
+        "Path to CSV or NPZ file containing tabulated path radiance "
+        "[W/m^2/sr/um]. Required when atmosphere.model='tabulated'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "tabulated"}),
+    default_justification="Empty string = not set; only required for tabulated model.",
+)
+
+TABULATED_DOWNWELLING_FILE = ParameterDef(
+    name="atmosphere.tabulated_downwelling_file",
+    description=(
+        "Path to CSV file containing tabulated downwelling atmospheric "
+        "emission [W/m^2/sr/um]. Optional; defaults to zeros if not provided."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "tabulated"}),
+    default_justification="Empty string = not set; optional even for tabulated model.",
+)
+
+# ---------------------------------------------------------------------------
+# MODTRAN model
+# ---------------------------------------------------------------------------
+
+MODTRAN_BINARY_PATH = ParameterDef(
+    name="atmosphere.modtran.binary_path",
+    description="Path to the MODTRAN executable.",
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="/usr/local/bin/modtran",
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="Common install location for MODTRAN.",
+)
+
+MODTRAN_CACHE_DIR = ParameterDef(
+    name="atmosphere.modtran.cache_dir",
+    description=(
+        "Directory for caching MODTRAN tape7 results. Keyed by SHA-256 "
+        "hash of the rendered tape5 deck."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="~/.radiant/modtran_cache",
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="User-local cache directory.",
+)
+
+MODTRAN_ALLOW_FALLBACK = ParameterDef(
+    name="atmosphere.modtran.allow_fallback",
+    description=(
+        "If True and MODTRAN binary is unavailable, fall back to "
+        "SimpleAtmosphere with translated parameters."
+    ),
+    dtype=bool,
+    canonical_unit="",
+    input_unit="",
+    default=False,
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="Fail explicitly by default; user must opt in to fallback.",
+)
+
+MODTRAN_ATMOSPHERE_PROFILE = ParameterDef(
+    name="atmosphere.modtran.atmosphere_profile",
+    description=(
+        "Standard atmosphere profile for MODTRAN (maps to MODEL card). "
+        "Same enum as atmosphere.standard_atmosphere."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="us_standard",
+    enum_values=(
+        "tropical",
+        "midlat_summer",
+        "midlat_winter",
+        "subarctic_summer",
+        "subarctic_winter",
+        "us_standard",
+    ),
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="US Standard 1976 = MODEL 6 in MODTRAN.",
+)
+
+MODTRAN_AEROSOL_MODEL = ParameterDef(
+    name="atmosphere.modtran.aerosol_model",
+    description="Aerosol model for MODTRAN (maps to IHAZE card).",
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="rural",
+    enum_values=("none", "rural", "maritime", "urban", "tropospheric"),
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="Rural (IHAZE=1) is the standard default.",
+)
+
+MODTRAN_H2O_SCALE = ParameterDef(
+    name="atmosphere.modtran.h2o_scale",
+    description="Water vapor column scaling factor for MODTRAN.",
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=1.0,
+    bounds=(0.01, 10.0),
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="1.0 = no scaling from the selected atmosphere profile.",
+)
+
+MODTRAN_O3_SCALE = ParameterDef(
+    name="atmosphere.modtran.o3_scale",
+    description="Ozone column scaling factor for MODTRAN.",
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=1.0,
+    bounds=(0.01, 10.0),
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="1.0 = no scaling from the selected atmosphere profile.",
+)
+
+MODTRAN_SPECTRAL_RESOLUTION_CM1 = ParameterDef(
+    name="atmosphere.modtran.spectral_resolution_cm1",
+    description="Spectral resolution [cm-1] for the MODTRAN computation.",
+    dtype=float,
+    canonical_unit="cm-1",
+    input_unit="cm-1",
+    default=1.0,
+    bounds=(0.1, 100.0),
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification="1 cm-1 is a common moderate-resolution setting.",
+)
+
+# ---------------------------------------------------------------------------
+# Interpolated model
+# ---------------------------------------------------------------------------
+
+INTERPOLATED_DATA_DIR = ParameterDef(
+    name="atmosphere.interpolated_data_dir",
+    description=(
+        "Directory containing pre-computed atmosphere runs (NPZ files) "
+        "at discrete geometry points for the interpolated model. "
+        "Required when atmosphere.model='interpolated'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "interpolated"}),
+    default_justification="Empty string = not set; only required for interpolated model.",
+)
+
+INTERPOLATION_AXES = ParameterDef(
+    name="atmosphere.interpolation_axes",
+    description=(
+        "Comma-separated list of geometry fields to interpolate over, "
+        "e.g. 'path_zenith_rad' or 'path_zenith_rad,sensor_altitude_m'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="path_zenith_rad",
+    tags=frozenset({"atmosphere", "interpolated"}),
+    default_justification="Zenith angle is the most common single-axis sweep.",
+)
+
+INTERPOLATION_METHOD = ParameterDef(
+    name="atmosphere.interpolation_method",
+    description="Interpolation method: 'linear' or 'nearest'.",
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="linear",
+    enum_values=("linear", "nearest"),
+    tags=frozenset({"atmosphere", "interpolated"}),
+    default_justification="Linear is the standard default for smooth fields.",
+)
+
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ATMOSPHERE_MODEL,
+    # Simple parametric
     VISIBILITY_KM,
     AEROSOL_TYPE,
     PRECIPITABLE_WATER_CM,
     STANDARD_ATMOSPHERE,
+    # Tabulated
+    TABULATED_TRANSMITTANCE_FILE,
+    TABULATED_PATH_RADIANCE_FILE,
+    TABULATED_DOWNWELLING_FILE,
+    # MODTRAN
+    MODTRAN_BINARY_PATH,
+    MODTRAN_CACHE_DIR,
+    MODTRAN_ALLOW_FALLBACK,
+    MODTRAN_ATMOSPHERE_PROFILE,
+    MODTRAN_AEROSOL_MODEL,
+    MODTRAN_H2O_SCALE,
+    MODTRAN_O3_SCALE,
+    MODTRAN_SPECTRAL_RESOLUTION_CM1,
+    # Interpolated
+    INTERPOLATED_DATA_DIR,
+    INTERPOLATION_AXES,
+    INTERPOLATION_METHOD,
+    # Geometry
+    SENSOR_ALTITUDE_M,
+    TARGET_ALTITUDE_M,
+    PATH_ZENITH_RAD,
+    SOLAR_ZENITH_RAD,
+    SOLAR_AZIMUTH_RAD,
 )

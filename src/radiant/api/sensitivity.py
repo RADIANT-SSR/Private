@@ -113,8 +113,11 @@ def sensitivity(
     if metric is None:
         metric = _default_snr_metric
 
-    # Ensure resolved (set_tolerance marks unresolved)
+    # Ensure resolved without mutating the caller's ParameterSet.
     if not params._resolved_flag:
+        from copy import deepcopy
+
+        params = deepcopy(params)
         params.resolve()
 
     # Determine which parameters to perturb
@@ -143,11 +146,15 @@ def sensitivity(
             continue
         nominal = float(rv.value)
         if nominal == 0.0:
-            # Cannot compute fractional perturbation at zero
-            logger.warning("sensitivity: skipping %s (nominal=0)", name)
-            continue
-
-        delta = abs(nominal * delta_fraction)
+            # Cannot compute fractional perturbation at zero; use absolute delta.
+            logger.warning(
+                "sensitivity: %s has nominal=0; using absolute delta=%g",
+                name,
+                delta_fraction,
+            )
+            delta = delta_fraction  # absolute perturbation
+        else:
+            delta = abs(nominal * delta_fraction)
         v_plus = nominal + delta
         v_minus = nominal - delta
 

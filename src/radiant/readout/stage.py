@@ -26,19 +26,17 @@ from __future__ import annotations
 import math
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet
-from radiant.core.radiometry import NoiseTerm
-from radiant.detector.noise import (
+from radiant.core.noise_budget import (
     SPATIAL_TERMS,
     TEMPORAL_TERMS,
     NoiseBudget,
 )
+from radiant.core.parameters import ParameterSet
+from radiant.core.radiometry import NoiseTerm
 from radiant.readout.binning import (
-    offchip_scale_fpn,
     offchip_scale_read_noise,
     offchip_scale_shot_noise,
     offchip_scale_signal,
-    onchip_scale_fpn,
     onchip_scale_read_noise,
     onchip_scale_shot_noise,
     onchip_scale_signal,
@@ -65,6 +63,7 @@ def _scale_noise_term(
     raw_value: float,
     term_name: str,
     n_tdi: int,
+    tdi_digital: bool,
     mx_on: int,
     my_on: int,
     px_off: int,
@@ -76,23 +75,37 @@ def _scale_noise_term(
 
     Scaling rules depend on the noise category:
     - Shot-like (temporal, non-read, non-kTC, non-quant): × √N_tdi, × √M, × √P, coadd_temporal
-    - Read noise: × 1 (TDI), × 1 (on-chip), × √P (off-chip), coadd_temporal
+    - Read noise: × 1 (analog TDI) or × √N (digital TDI), × 1 (on-chip), × √P (off-chip)
     - kTC noise: same as read noise
     - Quantization: × 1 (TDI), × 1 (on-chip), × √P (off-chip), coadd_temporal
-    - FPN (spatial): × N_tdi, × M (on-chip), × P (off-chip), coadd_fpn
+    - FPN (spatial): × N_tdi (correlated along TDI column),
+      × √M (on-chip, independent pixels), × √P (off-chip, independent pixels)
     """
     is_spatial = term_name in SPATIAL_TERMS
     is_read_like = term_name in ("read_noise", "ktc_reset", "quantization")
 
     if is_spatial:
-        # FPN scales linearly with signal at every stage
-        v = tdi_scale_fpn(raw_value, n_tdi)
-        v = onchip_scale_fpn(v, mx_on, my_on)
-        v = offchip_scale_fpn(v, px_off, py_off)
+        # FPN: binning is always independent pixels (√M, √P).
+        # TDI scaling depends on mode AND noise source:
+        #
+        # Clutter is scene-correlated (same ground point in every TDI
+        # stage), so it always scales as ×N regardless of TDI mode.
+        #
+        # PRNU/DSNU are detector-pixel properties:
+        #   Analog (pushbroom): different physical pixels per stage →
+        #     independent → √N scaling.
+        #   Digital (same pixel re-read): same pixel → correlated → ×N.
+        is_scene_correlated = term_name == "clutter"
+        if tdi_digital or is_scene_correlated:
+            v = tdi_scale_fpn(raw_value, n_tdi)  # ×N (correlated)
+        else:
+            v = tdi_scale_shot_noise(raw_value, n_tdi)  # ×√N (independent)
+        v = onchip_scale_shot_noise(v, mx_on, my_on)  # √M (independent pixels)
+        v = offchip_scale_shot_noise(v, px_off, py_off)  # √P (independent pixels)
         v = coadd_scale_fpn(v, n_coadds, coadd_mode)
     elif is_read_like:
         # Read/kTC/quant: injected once after TDI + on-chip bin
-        v = tdi_scale_read_noise(raw_value)
+        v = tdi_scale_read_noise(raw_value, n_tdi, digital=tdi_digital)
         v = onchip_scale_read_noise(v)
         v = offchip_scale_read_noise(v, px_off, py_off)
         v = coadd_scale_temporal_noise(v, n_coadds, coadd_mode)
@@ -142,8 +155,13 @@ class ReadoutStage:
         adc_bits: int = int(params.get("readout.adc_bits"))
         fwc_e: float = params.get("readout.full_well_capacity_e")
         noise_regime: str = params.get("detector.noise_regime")
+        tdi_digital: bool = params.get("readout.tdi_mode") == "digital"
 
         max_dn = (1 << adc_bits) - 1
+
+        # ---- Read non-signal electron sources for well fill check ----
+        dark_e: float = det_out.get("dark_e", 0.0)
+        glow_e: float = det_out.get("glow_e", 0.0)
 
         # ---- 2. TDI scaling on signal ----
         signal_e = tdi_scale_signal(signal_e, n_tdi)
@@ -152,7 +170,32 @@ class ReadoutStage:
         signal_e = onchip_scale_signal(signal_e, mx_on, my_on)
 
         # ---- 4. Well saturation check ----
-        signal_e, well_status = check_well_saturation(signal_e, fwc_e)
+        # The well fills with signal + dark + glow.  Dark and glow
+        # accumulate per-pixel per integration; TDI stages accumulate
+        # independently.  Nearfield and stray electrons also fill the
+        # well in reality, but are tracked separately for noise purposes
+        # — the user controls nearfield via cold_stop_efficiency.
+        m_onchip = mx_on * my_on
+        non_signal_e = (dark_e + glow_e) * n_tdi * m_onchip
+        total_well_e = signal_e + non_signal_e
+        _, well_status = check_well_saturation(total_well_e, fwc_e)
+        available_fwc = max(fwc_e - non_signal_e, 0.0)
+        signal_e_pre_clip = signal_e
+        signal_e = min(signal_e, available_fwc)
+
+        # If well saturation clipped the signal, cap the signal_shot raw
+        # term so that after TDI+onchip scaling it gives √(clipped_signal)
+        # instead of √(signal_unclipped). Other shot terms (background,
+        # nearfield, etc.) are independent of the signal well and not capped.
+        if signal_e < signal_e_pre_clip and "signal_shot" in budget_raw.terms:
+            effective_per_pixel = available_fwc / (n_tdi * m_onchip)
+            terms_copy = dict(budget_raw.terms)
+            terms_copy["signal_shot"] = math.sqrt(max(effective_per_pixel, 0.0))
+            budget_raw = NoiseBudget(
+                terms=terms_copy,
+                sigma_temporal_e=budget_raw.sigma_temporal_e,
+                sigma_spatial_e=budget_raw.sigma_spatial_e,
+            )
 
         # ---- 5-6. Read noise and kTC are already in budget_raw ----
         # (injected at per-pixel level; scaling handled in _scale_noise_term)
@@ -173,6 +216,15 @@ class ReadoutStage:
         signal_e_offchip = offchip_scale_signal(signal_e, px_off, py_off)
         signal_e_final = coadd_scale_signal(signal_e_offchip, n_coadds, coadd_mode)
 
+        # Scale contrast_e through the same signal path for contrast SNR.
+        si_out = state.stage_outputs.get("spectral_integration", {})
+        contrast_e_raw: float = si_out.get("contrast_e", 0.0)
+        contrast_e_scaled = tdi_scale_signal(contrast_e_raw, n_tdi)
+        contrast_e_scaled = onchip_scale_signal(contrast_e_scaled, mx_on, my_on)
+        # Contrast is not clipped by well/ADC — it's a differential quantity.
+        contrast_e_scaled = offchip_scale_signal(contrast_e_scaled, px_off, py_off)
+        contrast_e_final = coadd_scale_signal(contrast_e_scaled, n_coadds, coadd_mode)
+
         # ---- 12. Scale all 16 noise terms and emit NoiseTerms ----
         scaled_terms: dict[str, float] = {}
         for term_name, raw_value in budget_raw.terms.items():
@@ -180,6 +232,7 @@ class ReadoutStage:
                 raw_value=raw_value,
                 term_name=term_name,
                 n_tdi=n_tdi,
+                tdi_digital=tdi_digital,
                 mx_on=mx_on,
                 my_on=my_on,
                 px_off=px_off,
@@ -239,6 +292,7 @@ class ReadoutStage:
             )
 
         # ---- Store stage outputs ----
+        state = state.with_stage_output("readout", "contrast_e_final", contrast_e_final)
         state = state.with_stage_output("readout", "signal_e_final", signal_e_final)
         state = state.with_stage_output("readout", "signal_dn_final", signal_dn_final)
         state = state.with_stage_output("readout", "signal_dn_pre_coadd", signal_dn)

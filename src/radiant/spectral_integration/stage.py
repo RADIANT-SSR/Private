@@ -28,6 +28,9 @@ photoelectrons per pixel per integration [e⁻].
 
 from __future__ import annotations
 
+import logging
+import warnings
+
 import numpy as np
 
 from radiant.core.chain import ChainState
@@ -35,6 +38,8 @@ from radiant.core.constants import hc
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
+
+logger = logging.getLogger(__name__)
 
 
 class SpectralIntegrationStage:
@@ -71,6 +76,12 @@ class SpectralIntegrationStage:
         if L is None:
             raise ValueError(
                 "SpectralIntegrationStage: 'post_optics' frame has no spectral_radiance."
+            )
+
+        if np.any(np.isnan(L)):
+            raise ValueError(
+                "SpectralIntegrationStage: 'post_optics' spectral_radiance "
+                "contains NaN values. Check upstream stages for invalid inputs."
             )
 
         wl = state.wavelength_um
@@ -129,21 +140,35 @@ class SpectralIntegrationStage:
 
         elif regime == RadiometricRegime.SUB_PIXEL:
             # Sub-pixel: mix target and background radiances.
+            # Path radiance fills the whole pixel uniformly and must NOT
+            # be split by fill_fraction or subjected to EE_box.
             source_out = state.stage_outputs["source"]
             fill_fraction: float = source_out["fill_fraction"]
             L_background_src = source_out["L_background"]
 
-            # Propagate background through atmosphere and optics.
+            # Decompose: get target-only and background-only through atm+optics.
+            L_target_src = state.frames["at_target"].spectral_radiance
+            if L_target_src is None:
+                raise ValueError(
+                    "SpectralIntegrationStage: 'at_target' frame has no spectral_radiance."
+                )
             atm_out = state.stage_outputs["atmosphere"]
             tau_atm = atm_out["tau_atm"]
             L_path = atm_out["L_path"]
             tau_opt: float = optics_out["tau_opt"]
 
-            L_bg_post_optics = (L_background_src * tau_atm + L_path) * tau_opt
+            L_target_through = L_target_src * tau_atm * tau_opt
+            L_bg_through = L_background_src * tau_atm * tau_opt
+            L_path_through = L_path * tau_opt
 
-            # L_mixed = ff · L_target · EE_box + (1 - ff) · L_bg
+            # L_mixed = ff·L_target·EE_box + (1-ff)·L_bg + L_path
             # EE_box applies to target contribution only (Rule 9).
-            L_mixed = fill_fraction * L * EE_box + (1.0 - fill_fraction) * L_bg_post_optics
+            # Path radiance is uniform across the pixel (not fill-fraction weighted).
+            L_mixed = (
+                fill_fraction * L_target_through * EE_box
+                + (1.0 - fill_fraction) * L_bg_through
+                + L_path_through
+            )
 
             photon_rate = L_mixed * A_collect * Omega_pixel * (lam_m / hc)
 
@@ -163,6 +188,14 @@ class SpectralIntegrationStage:
                 f"SpectralIntegrationStage: filter [{lam_min}, {lam_max}] µm "
                 f"contains fewer than 2 wavelength samples in the grid. "
                 "Increase grid density or widen the filter."
+            )
+        if wl_band.size < 10:
+            warnings.warn(
+                f"SpectralIntegrationStage: filter [{lam_min}, {lam_max}] µm "
+                f"has only {wl_band.size} wavelength samples. Integration "
+                "accuracy may be poor. Consider increasing grid density.",
+                UserWarning,
+                stacklevel=2,
             )
 
         e_per_s = float(np.trapezoid(e_rate_band, wl_band))  # e-/s/pixel

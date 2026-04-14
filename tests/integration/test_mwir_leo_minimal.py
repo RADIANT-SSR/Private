@@ -79,10 +79,10 @@ class TestMWIRLeoMinimal:
         assert math.isfinite(snr)
 
     def test_snr_formula_consistency(self, result) -> None:
-        """SNR = signal / RSS(noise) — cross-check."""
-        pe = result.frames["photoelectrons"].in_band_value
+        """SNR = signal_e_final / RSS(noise) — cross-check."""
+        signal_e = result.stage_outputs["readout"]["signal_e_final"]
         noise_sq = sum(n.value_e**2 for n in result.noise_terms)
-        expected_snr = pe / math.sqrt(noise_sq)
+        expected_snr = signal_e / math.sqrt(noise_sq)
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-10)
 
     def test_noise_terms_present(self, result) -> None:
@@ -92,9 +92,11 @@ class TestMWIRLeoMinimal:
         assert len(names) == 16
 
     def test_shot_noise_formula(self, result) -> None:
-        pe = result.frames["photoelectrons"].in_band_value
+        # Shot noise is √(signal_e_final) — capped at well capacity
+        # when the accumulated signal exceeds FWC.
+        signal_e_final = result.stage_outputs["readout"]["signal_e_final"]
         shot = [n for n in result.noise_terms if n.name == "signal_shot"][0]
-        assert shot.value_e == pytest.approx(math.sqrt(pe), rel=1e-10)
+        assert shot.value_e == pytest.approx(math.sqrt(signal_e_final), rel=1e-10)
 
     def test_determinism(self, result) -> None:
         """Run again with same config — values must be identical."""

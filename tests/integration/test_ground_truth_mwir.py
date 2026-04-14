@@ -23,7 +23,7 @@ Hand-calculated reference values (CODATA 2018 exact constants):
     shot_noise       ≈ 23.23 e⁻ RMS
     read_noise       = 30.00 e⁻ RMS
     quant_noise      = 0.2887 e⁻ RMS
-    SNR              ≈ 14.22
+    SNR              ≈ 12.39  (16-term budget; includes background/nearfield shot)
 """
 
 from __future__ import annotations
@@ -171,10 +171,10 @@ class TestGroundTruthMWIR:
         assert quant.value_e == pytest.approx(GAIN / math.sqrt(12), rel=1e-10)
 
     def test_snr(self, result) -> None:
-        """SNR = signal / RSS(all noise) ≈ 14.22."""
-        pe = result.frames["photoelectrons"].in_band_value
+        """SNR = signal_e_final / RSS(all noise) ≈ 12.39."""
+        signal_e = result.stage_outputs["readout"]["signal_e_final"]
         noise_sq = sum(n.value_e**2 for n in result.noise_terms)
-        expected_snr = pe / math.sqrt(noise_sq)
+        expected_snr = signal_e / math.sqrt(noise_sq)
         actual_snr = result.metrics["snr"]
         assert actual_snr == pytest.approx(expected_snr, rel=1e-10)
         # Cross-check against hand calculation (updated for 16-term noise budget:

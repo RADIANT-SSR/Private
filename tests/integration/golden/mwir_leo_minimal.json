@@ -3,38 +3,38 @@
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
     "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "manual update for 16-term noise budget (Phase 2D.6)",
-    "notes": "Updated noise_rss and snr for 16-term noise budget. Signal, shot, dark_shot, read, quantization unchanged. New terms: background_shot (269.1 e-), nearfield_shot (686.0 e-) now contribute to RSS."
+    "generated_by": "manual update for Round 3 adversarial review (C-3: L_path /4 fix)",
+    "notes": "L_path reduced by 4x (single-scatter formula corrected from E_sun/pi to E_sun/4pi). Signal clips at available_fwc = FWC - dark_e = 100000 - 0.5 = 99999.5. SNR uses sigma_total_e."
   },
 
   "signal_e": {
-    "value": 105771.64817967941,
+    "value": 105333.07994131475,
     "unit": "e-",
-    "provenance": "hand calculation: integral of QE * L_post_optics * A_collect * Omega_pixel * (lambda/hc) dlambda * t_int; cross-checked against test_chain_extended.py::test_photoelectrons_positive"
+    "provenance": "chain output: integral of QE * L_post_optics * A_collect * Omega_pixel * (lambda/hc) dlambda * t_int with corrected L_path"
   },
 
   "e_rate_per_s": {
-    "value": 21154329.63593588,
+    "value": 21066615.988262948,
     "unit": "e-/s",
-    "provenance": "hand calculation: signal_e / t_int = 105771.65 / 0.005; verified via stage_outputs"
+    "provenance": "signal_e / t_int = 105333.08 / 0.005"
   },
 
   "A_collect": {
     "value": 0.07068583470577035,
     "unit": "m^2",
-    "provenance": "hand calculation: pi/4 * 0.30^2 = 0.070686 m^2; verified in test_chain_extended.py::test_A_collect"
+    "provenance": "hand calculation: pi/4 * 0.30^2 = 0.070686 m^2"
   },
 
   "Omega_pixel": {
     "value": 2.25e-10,
     "unit": "sr",
-    "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr; verified in test_chain_extended.py::test_Omega_pixel"
+    "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr"
   },
 
   "noise_shot": {
-    "value": 325.22553432914737,
+    "value": 316.22697544643466,
     "unit": "e- RMS",
-    "provenance": "hand calculation: sqrt(signal_e) = sqrt(105771.65) = 325.226; Poisson statistics"
+    "provenance": "sqrt(available_fwc) = sqrt(99999.5) where available_fwc = FWC - dark_e = 100000 - 0.5; well saturation clips signal_shot"
   },
 
   "noise_dark_shot": {
@@ -56,14 +56,14 @@
   },
 
   "noise_rss": {
-    "value": 805.5145758031673,
+    "value": 801.6501826939932,
     "unit": "e- RMS",
-    "provenance": "RSS of all 16 noise terms: dominated by nearfield_shot (686.0), signal_shot (325.2), background_shot (269.1)"
+    "provenance": "RSS of all 16 noise terms: dominated by nearfield_shot, signal_shot (316.2), background_shot"
   },
 
   "snr": {
-    "value": 131.30941556732972,
+    "value": 124.74206600183851,
     "unit": "dimensionless",
-    "provenance": "signal_e / noise_rss = 105771.65 / 805.51 = 131.31"
+    "provenance": "signal_e_final / sigma_total_e = 99999.5 / 801.65 = 124.74 (signal clipped at available_fwc=99999.5)"
   }
 }

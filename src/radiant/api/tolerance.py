@@ -136,14 +136,22 @@ def monte_carlo(
     keep_results:
         If True, store every ChainResult (memory-heavy).
     """
+    if n_trials < 1:
+        raise ValueError(
+            f"monte_carlo: n_trials must be >= 1, got {n_trials}."
+        )
+
     if not params._tolerances:
         raise ValueError(
             "monte_carlo: no tolerances set on params. Use "
             "params.set_tolerance(name, tolerance) before calling."
         )
 
-    # Ensure resolved (set_tolerance marks unresolved)
+    # Ensure resolved without mutating the caller's ParameterSet.
     if not params._resolved_flag:
+        from copy import deepcopy
+
+        params = deepcopy(params)
         params.resolve()
 
     rng = np.random.default_rng(seed)

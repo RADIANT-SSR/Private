@@ -100,9 +100,9 @@ A closed-form Beer-Lambert model with three knobs that map to the things a worki
 
 **Path radiance** for the simple model uses a single-scatter approximation:
 ```
-L_path(λ) = L_sun(λ) · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · [1 − τ_atm(λ)]
+L_path(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · [1 − τ_atm(λ)]
 ```
-with `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.75`. This is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
+where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.75`. This is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
 
 **Atmospheric thermal emission** for the simple model uses a graybody approximation at the path-mean temperature:
 ```

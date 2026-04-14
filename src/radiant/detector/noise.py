@@ -18,41 +18,22 @@ temporal/spatial RSS separation per §5 of the detector document.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 
 from radiant.core.constants import k_B, q
-
-# ---------------------------------------------------------------------------
-# Term classification (§5 temporal vs. spatial)
-# ---------------------------------------------------------------------------
-
-TEMPORAL_TERMS: frozenset[str] = frozenset(
-    {
-        "signal_shot",
-        "background_shot",
-        "nearfield_shot",
-        "straylight_shot",
-        "dark_shot",
-        "gr_noise",
-        "johnson_noise",
-        "flicker_1f",
-        "read_noise",
-        "ktc_reset",
-        "quantization",
-        "persistence_noise",
-        "glow_shot",
-    }
+from radiant.core.noise_budget import (
+    ALL_NOISE_TERMS,
+    SPATIAL_TERMS,
+    TEMPORAL_TERMS,
+    NoiseBudget,
 )
 
-SPATIAL_TERMS: frozenset[str] = frozenset(
-    {
-        "prnu",
-        "dsnu",
-        "clutter",
-    }
-)
-
-ALL_NOISE_TERMS: frozenset[str] = TEMPORAL_TERMS | SPATIAL_TERMS
+# Re-export for backward compatibility.
+__all__ = [
+    "ALL_NOISE_TERMS",
+    "SPATIAL_TERMS",
+    "TEMPORAL_TERMS",
+    "NoiseBudget",
+]
 
 # ---------------------------------------------------------------------------
 # Photon-shot family (§4, terms 1-4)
@@ -153,8 +134,14 @@ def johnson_noise(
         return 0.0
     # Convert R₀A from Ω·cm² to Ω·m²
     r0a_ohm_m2 = r0a_ohm_cm2 * 1.0e-4
-    # Current noise variance: i²·t = 4kT/R · t where R = R₀A/A
-    # In electrons: σ² = 4kT·A/(R₀A)·t / q²
+    # Current noise PSD: S_I = 4kT/R [A²/Hz] where R = R₀A/A.
+    # Charge variance: σ_Q² = S_I × t_int [C²] (white noise × integration).
+    # In electrons: σ² = 4kT·A/(R₀A)·t / q².
+    #
+    # Note: the factor of 4 (not 2) assumes the noise equivalent bandwidth
+    # is Δf = 1/t_int rather than the ideal boxcar 1/(2·t_int). This is
+    # the convention used by Rogalski (*Infrared Detectors*, 3rd ed.) and
+    # accounts for non-ideal integrator roll-off in practical ROIC designs.
     variance_e2 = 4.0 * k_B * temp_K * pixel_area_m2 / r0a_ohm_m2 * t_int_s / (q * q)
     return math.sqrt(variance_e2)
 
@@ -329,40 +316,7 @@ def glow_shot_noise(glow_e: float) -> float:
     return math.sqrt(glow_e)
 
 
-# ---------------------------------------------------------------------------
-# NoiseBudget aggregator
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class NoiseBudget:
-    """Collection of all 16 noise terms with temporal/spatial separation.
-
-    Parameters
-    ----------
-    terms:
-        Dict mapping term name to noise value [e- RMS].
-    sigma_temporal_e:
-        RSS of all temporal noise terms.
-    sigma_spatial_e:
-        RSS of all spatial noise terms.
-    """
-
-    terms: dict[str, float]
-    sigma_temporal_e: float
-    sigma_spatial_e: float
-
-    @property
-    def sigma_total_e(self) -> float:
-        """RSS of temporal and spatial (detection regime)."""
-        return math.sqrt(self.sigma_temporal_e**2 + self.sigma_spatial_e**2)
-
-    def fractional_contributions(self) -> dict[str, float]:
-        """Return each term's fractional contribution to total variance."""
-        total_var = self.sigma_total_e**2
-        if total_var == 0.0:
-            return dict.fromkeys(self.terms, 0.0)
-        return {k: (v**2 / total_var) for k, v in self.terms.items()}
+    # NoiseBudget is now imported from radiant.core.noise_budget.
 
 
 def compute_noise_budget(

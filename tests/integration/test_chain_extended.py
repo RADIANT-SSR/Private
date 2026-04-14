@@ -137,9 +137,11 @@ class TestChainExtended:
     # -- Noise terms ---------------------------------------------------------
 
     def test_shot_noise_formula(self, result) -> None:
-        pe = result.frames["photoelectrons"].in_band_value
+        # Shot noise is √(signal_e_clipped) — capped at well capacity
+        # when the accumulated signal exceeds FWC.
+        signal_e_final = result.stage_outputs["readout"]["signal_e_final"]
         shot = [n for n in result.noise_terms if n.name == "signal_shot"][0]
-        assert shot.value_e == pytest.approx(math.sqrt(pe), rel=1e-10)
+        assert shot.value_e == pytest.approx(math.sqrt(signal_e_final), rel=1e-10)
 
     def test_dark_shot_noise(self, result) -> None:
         dark_e = DARK_RATE * T_INT
@@ -168,10 +170,14 @@ class TestChainExtended:
         assert math.isfinite(snr)
 
     def test_snr_formula(self, result) -> None:
-        """SNR = signal_e / RSS(all noise terms)."""
-        pe = result.frames["photoelectrons"].in_band_value
+        """SNR = signal_e_final / RSS(all noise terms).
+
+        signal_e_final accounts for well/ADC saturation clipping and
+        TDI/binning/coadd scaling applied in ReadoutStage.
+        """
+        signal_e = result.stage_outputs["readout"]["signal_e_final"]
         noise_sq = sum(n.value_e ** 2 for n in result.noise_terms)
-        expected = pe / math.sqrt(noise_sq)
+        expected = signal_e / math.sqrt(noise_sq)
         assert result.metrics["snr"] == pytest.approx(expected, rel=1e-10)
 
     # -- Energy conservation -------------------------------------------------
@@ -248,6 +254,8 @@ class TestChainExtended:
             p.set("readout.read_noise_e_rms", READ_NOISE)
             p.set("readout.gain_e_per_dn", GAIN)
             p.set("readout.adc_bits", 16)
+            # High FWC to avoid saturation clipping in this scaling test.
+            p.set("readout.full_well_capacity_e", 500000.0)
             p.resolve()
             return session.run(p)
 

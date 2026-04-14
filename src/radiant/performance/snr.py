@@ -76,25 +76,27 @@ def compute_snr(state: ChainState) -> SNRResult:
         Always returns a result — never raises for physics reasons.
         Check ``.failure_reason`` for error cases.
     """
-    # Read signal.
-    if "photoelectrons" not in state.frames:
-        return SNRResult(
-            value=float("nan"),
-            signal_e=0.0,
-            noise_e=0.0,
-            failure_reason=(
-                "No 'photoelectrons' frame in ChainState. Run SpectralIntegrationStage first."
-            ),
-        )
+    # Read signal.  Prefer post-readout signal (accounts for TDI, binning,
+    # coadds) when available; fall back to pre-readout photoelectrons.
+    ro_out = state.stage_outputs.get("readout", {})
+    signal_e_final = ro_out.get("signal_e_final")
+    if signal_e_final is not None:
+        signal_e = signal_e_final
+    elif "photoelectrons" in state.frames:
+        pe_frame = state.frames["photoelectrons"]
+        signal_e = pe_frame.in_band_value
+    else:
+        signal_e = None
 
-    pe_frame = state.frames["photoelectrons"]
-    signal_e = pe_frame.in_band_value
     if signal_e is None:
         return SNRResult(
             value=float("nan"),
             signal_e=0.0,
             noise_e=0.0,
-            failure_reason="'photoelectrons' frame has no in_band_value.",
+            failure_reason=(
+                "No signal source: neither readout.signal_e_final nor "
+                "'photoelectrons' frame is available."
+            ),
         )
 
     if signal_e < 0.0:
@@ -108,17 +110,21 @@ def compute_snr(state: ChainState) -> SNRResult:
             ),
         )
 
-    # Compute total noise (RSS of all noise terms).
-    if len(state.noise_terms) == 0:
-        return SNRResult(
-            value=float("inf"),
-            signal_e=signal_e,
-            noise_e=0.0,
-            failure_reason="noiseless configuration",
-        )
+    # Compute total noise.  Prefer sigma_total_e from ReadoutStage
+    # (respects noise_regime: temporal-only for "imaging", all for
+    # "detection").  Fall back to RSS of all noise terms.
+    noise_e: float | None = ro_out.get("sigma_total_e")
 
-    noise_sq = sum(nt.value_e**2 for nt in state.noise_terms)
-    noise_e = math.sqrt(noise_sq)
+    if noise_e is None:
+        if len(state.noise_terms) == 0:
+            return SNRResult(
+                value=float("inf"),
+                signal_e=signal_e,
+                noise_e=0.0,
+                failure_reason="noiseless configuration",
+            )
+        noise_sq = sum(nt.value_e**2 for nt in state.noise_terms)
+        noise_e = math.sqrt(noise_sq)
 
     if noise_e == 0.0:
         return SNRResult(
@@ -148,31 +154,38 @@ def compute_contrast_snr(state: ChainState) -> SNRResult:
     SNRResult
         ``value`` may be negative. ``signal_e`` is the contrast ΔS.
     """
-    # Read contrast from spectral integration outputs.
-    si_out = state.stage_outputs.get("spectral_integration", {})
-    contrast_e = si_out.get("contrast_e")
+    # Read contrast — prefer post-readout (accounts for TDI/binning/coadds).
+    ro_out = state.stage_outputs.get("readout", {})
+    contrast_e = ro_out.get("contrast_e_final")
+    if contrast_e is None:
+        # Fall back to pre-readout contrast (legacy / no ReadoutStage).
+        si_out = state.stage_outputs.get("spectral_integration", {})
+        contrast_e = si_out.get("contrast_e")
     if contrast_e is None:
         return SNRResult(
             value=float("nan"),
             signal_e=0.0,
             noise_e=0.0,
             failure_reason=(
-                "No 'contrast_e' in spectral_integration stage outputs. "
-                "Run SpectralIntegrationStage first."
+                "No contrast_e available. Run SpectralIntegrationStage "
+                "and ReadoutStage first."
             ),
         )
 
-    # Compute total noise (RSS of all noise terms).
-    if len(state.noise_terms) == 0:
-        return SNRResult(
-            value=float("inf") if contrast_e >= 0 else float("-inf"),
-            signal_e=contrast_e,
-            noise_e=0.0,
-            failure_reason="noiseless configuration",
-        )
+    # Compute total noise — prefer sigma_total_e (respects noise_regime).
+    ro_out = state.stage_outputs.get("readout", {})
+    noise_e: float | None = ro_out.get("sigma_total_e")
 
-    noise_sq = sum(nt.value_e**2 for nt in state.noise_terms)
-    noise_e = math.sqrt(noise_sq)
+    if noise_e is None:
+        if len(state.noise_terms) == 0:
+            return SNRResult(
+                value=float("inf") if contrast_e >= 0 else float("-inf"),
+                signal_e=contrast_e,
+                noise_e=0.0,
+                failure_reason="noiseless configuration",
+            )
+        noise_sq = sum(nt.value_e**2 for nt in state.noise_terms)
+        noise_e = math.sqrt(noise_sq)
 
     if noise_e == 0.0:
         return SNRResult(

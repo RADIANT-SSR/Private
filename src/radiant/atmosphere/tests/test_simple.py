@@ -670,9 +670,9 @@ def test_l_path_scales_with_solar_irradiance_shape() -> None:
 
     Rough order-of-magnitude: a 20% Rayleigh OD at 0.5 µm with
     cos θ_sun = 0.8 and ω₀ ≈ 1 for the molecular component gives:
-        L_path ≈ L_sun(0.5 µm) · 0.8 · 1 · P_R(Θ) · 0.2
-    with L_sun(0.5 µm) ≈ 2e7 / π W/m²/sr/µm · 2.18e-5 ≈ 50 W/m²/sr/µm
-    and P_R(backscatter) ≈ 1.5. So L_path ≈ 50 · 0.8 · 1.5 · 0.2 = 12.
+        L_path ≈ [E_sun(0.5 µm)/(4π)] · 0.8 · 1 · P_R(Θ) · 0.2
+    with E_sun(0.5 µm)/(4π) ≈ 2e3/(4π) ≈ 160 W/m²/sr/µm (approx)
+    and P_R(backscatter) ≈ 1.5. So L_path ≈ 160 · 0.8 · 1.5 · 0.2 ≈ 38.
     Check the value is positive and in the 0.1–1000 W/m²/sr/µm band.
     """
     atm = SimpleAtmosphere(visibility_km=15.0, precipitable_water_cm=1.0)

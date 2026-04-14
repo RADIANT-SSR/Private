@@ -109,7 +109,7 @@ def compute_giqe5(
 
     # Geometric mean GSD in inches.
     gsd_geom_m = math.sqrt(gsd_m_along * gsd_m_cross)
-    gsd_inch = gsd_geom_m * 39.37  # m → inches
+    gsd_inch = gsd_geom_m / 0.0254  # m → inches (exact)
 
     # Geometric mean RER.
     if rer_along <= 0.0 or rer_cross <= 0.0:

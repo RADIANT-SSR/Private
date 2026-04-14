@@ -225,8 +225,13 @@ class TestSNRUnchanged:
         assert math.isfinite(snr)
 
     def test_snr_value_matches_golden(self, result) -> None:
-        """SNR should match the golden value (updated for 16-term noise budget)."""
-        expected_snr = 131.3094155673
+        """SNR should match the golden value.
+
+        Updated: SNR now uses signal_e_final from ReadoutStage, which
+        accounts for well saturation clipping (105,771 e- clipped to
+        100,000 e- FWC). Previous value 131.31 used pre-clipping signal.
+        """
+        expected_snr = 124.74206600183851
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

@@ -58,7 +58,10 @@ def coadd_scale_temporal_noise(
         return noise_e * math.sqrt(n_coadds)
     if mode == CoaddMode.AVERAGE:
         return noise_e / math.sqrt(n_coadds)
-    # MEDIAN
+    # MEDIAN: for K=2, median = average, so use average scaling.
+    # For K >= 3, use asymptotic factor √(π/(2K)).
+    if n_coadds == 2:
+        return noise_e / math.sqrt(2.0)
     return noise_e * math.sqrt(math.pi / (2.0 * n_coadds))
 
 

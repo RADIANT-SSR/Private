@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 MetricFn = Callable[[ChainResult], float]
 
 
+class _PickleFallback(Exception):
+    """Internal: signals that pool.submit failed due to pickling."""
+
+
 def _default_metric(result: ChainResult) -> float:
     """Extract SNR from a ChainResult."""
     snr = result.metrics.get("snr")
@@ -215,16 +219,19 @@ def _sweep_parallel(
     try:
         with ProcessPoolExecutor(max_workers=n_workers) as pool:
             param_sets = [_clone_with(params, param_name, float(v)) for v in vals]
-            futures = [pool.submit(run_fn, ps) for ps in param_sets]
+            try:
+                futures = [pool.submit(run_fn, ps) for ps in param_sets]
+            except (TypeError, AttributeError) as exc:
+                raise _PickleFallback(exc) from exc
             for i, fut in enumerate(futures):
                 r = fut.result()
                 metric_vals[i] = metric(r)
                 if keep_results:
                     results_list.append(r)
-    except (TypeError, AttributeError) as exc:
+    except _PickleFallback as exc:
         logger.warning(
             "Parallel sweep failed (%s); falling back to sequential.",
-            exc,
+            exc.__cause__,
         )
         results_list = []
         for i, v in enumerate(vals):
@@ -310,6 +317,9 @@ def _clone_with(
     new = ParameterSet(list(params._defs.values()), params._groups)
     for name, (val, prov, src) in params._inputs.items():
         new.set(name, val, prov, src)
+    # Preserve tolerances from the original ParameterSet.
+    for tol_name, tol in params._tolerances.items():
+        new.set_tolerance(tol_name, tol)
     from radiant.core.parameters import Provenance
 
     new.set(param_name, value, Provenance.USER_SET, "sweep")

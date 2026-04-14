@@ -13,7 +13,7 @@ See RADIANT_Spatial_Complete.md §2 and §9 for definitions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
@@ -238,15 +238,41 @@ class EffectivePSF:
     # -- Ensquared energy ---------------------------------------------------
 
     def ensquared_energy(self, half_width_m: float) -> float:
-        """Fraction of PSF energy within a square box of given half-width."""
+        """Fraction of PSF energy within a square box of given half-width.
+
+        Uses sub-sample interpolation at the box boundary to avoid
+        grid-quantization error when the PSF sample spacing does not
+        evenly divide the requested half-width (e.g. after FFT
+        power-of-2 padding).  A 1-D weight vector is constructed
+        with 1.0 for fully enclosed samples and fractional weight
+        at the boundary; the 2-D box integral is the separable
+        product ``data · outer(w, w)``.
+        """
         n = self.data.shape[0]
         center = n // 2
         dx = self.sample_spacing_m
-        half_pix = int(round(half_width_m / dx))
+        half_samples = half_width_m / dx  # exact, may be fractional
 
-        lo = max(center - half_pix, 0)
-        hi = min(center + half_pix + 1, n)
-        return float(self.data[lo:hi, lo:hi].sum())
+        # Build 1-D weight vector for the relevant index range.
+        # Box spans [center - half_samples, center + half_samples].
+        # Sample i is fully inside if |i - center| <= floor(half_samples).
+        # The boundary samples at floor(half_samples)+1 from center get
+        # fractional weight equal to the overshoot.
+        n_full = int(half_samples)
+        frac = half_samples - n_full
+
+        lo = max(center - n_full - (1 if frac > 0.0 else 0), 0)
+        hi = min(center + n_full + 1 + (1 if frac > 0.0 else 0), n)
+        w = np.ones(hi - lo, dtype=np.float64)
+
+        if frac > 0.0:
+            # Weight the outermost sample on each side by the fraction
+            if lo == center - n_full - 1:
+                w[0] = frac
+            if hi == center + n_full + 2:
+                w[-1] = frac
+
+        return float(np.einsum("i,j,ij->", w, w, self.data[lo:hi, lo:hi]))
 
     def ensquared_energy_nxn(self, n_pixels: int) -> float:
         """EE within an n×n pixel box centred on the PSF."""
@@ -433,8 +459,18 @@ def build_effective_psf(
         padded_kernel = np.zeros((n, n), dtype=np.float64)
 
         if kernel.ndim == 1:
-            # 1-D kernel → 2-D separable via outer product.
-            kernel_2d = np.outer(kernel, kernel)
+            # 1-D kernel: assumed to apply along a single axis.
+            # Use outer product with a delta in the orthogonal axis
+            # so that e.g. a smear kernel only blurs along-track.
+            # Caller convention: 1-D kernels in the ``kernels`` list
+            # are paired with a name ending in "_x" or "_y" to
+            # indicate the axis.  Default (no suffix) applies along x.
+            delta = np.zeros_like(kernel)
+            delta[len(delta) // 2] = 1.0
+            if name.endswith("_y"):  # noqa: SIM108
+                kernel_2d = np.outer(kernel, delta)
+            else:
+                kernel_2d = np.outer(delta, kernel)
         else:
             kernel_2d = kernel
 

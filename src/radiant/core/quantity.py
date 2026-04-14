@@ -311,13 +311,21 @@ def noise_at(
     if len(state.noise_terms) == 0:
         raise ValueError("noise_at: no noise terms in ChainState.")
 
+    # Verify all noise terms share the same origin frame.
+    origins = {nt.origin_frame for nt in state.noise_terms}
+    if len(origins) != 1:
+        raise ValueError(
+            f"noise_at: cannot RSS noise terms with mixed origin frames "
+            f"{origins}. All terms must share one origin frame."
+        )
+    origin_frame = ReferenceFrame(origins.pop())
+
     noise_sq = sum(nt.value_e**2 for nt in state.noise_terms)
     total_noise = math.sqrt(noise_sq)
 
-    # All current noise terms originate at photoelectrons
     qty = ChainQuantity(
         value=total_noise,
-        frame=ReferenceFrame.PHOTOELECTRONS,
+        frame=origin_frame,
         unit="e-",
         name="total_noise",
     )

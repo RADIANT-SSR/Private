@@ -19,12 +19,12 @@ from radiant.performance.giqe import C0, C1, C2, C3, C4, C5, compute_giqe5
 
 class TestGIQE5:
     def test_hand_calculation(self) -> None:
-        """Manual: GSD=1m (39.37in), RER=0.9, SNR=50, H=1, G=1.
+        """Manual: GSD=1m, RER=0.9, SNR=50, H=1, G=1.
 
-        NIIRS = 9.57 + (-3.32)·log10(39.37) + 3.32·log10(0.9)
+        NIIRS = 9.57 + (-3.32)·log10(GSD_in) + 3.32·log10(0.9)
                      + 1.559·log10(50) + (-0.334)·1 + (-0.01)·1
         """
-        gsd_inch = 1.0 * 39.37
+        gsd_inch = 1.0 / 0.0254  # exact m → inches
         expected = (
             C0
             + C1 * math.log10(gsd_inch)
@@ -73,12 +73,12 @@ class TestGIQE5:
     def test_gsd_inch_conversion(self) -> None:
         """Verify m → inch conversion: 1m = 39.37in."""
         result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 50.0)
-        assert result.gsd_inch == pytest.approx(39.37, rel=1e-4)
+        assert result.gsd_inch == pytest.approx(1.0 / 0.0254, rel=1e-10)
 
     def test_geometric_mean_gsd(self) -> None:
         """Non-square GSD: geometric mean used."""
         result = compute_giqe5(1.0, 4.0, 0.7, 0.7, 50.0)
-        expected_inch = math.sqrt(1.0 * 4.0) * 39.37
+        expected_inch = math.sqrt(1.0 * 4.0) / 0.0254
         assert result.gsd_inch == pytest.approx(expected_inch, rel=1e-10)
 
     def test_geometric_mean_rer(self) -> None:

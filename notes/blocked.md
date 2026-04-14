@@ -135,7 +135,7 @@ Each entry has:
     §3.1 (library-curve language is now out of scope for RADIANT;
     users bring their own QE).
 
-## 2026-04-12 — 2D.2 `source/stage.py` uses string regime, not `RadiometricRegime` enum — OPEN
+## 2026-04-12 — 2D.2 `source/stage.py` uses string regime, not `RadiometricRegime` enum — RESOLVED 2026-04-13
 
 - **Task / file**: 2D.2 unified target resolver / `src/radiant/source/stage.py`
 - **What I hit**: Created `radiant.core.regime.RadiometricRegime` enum
@@ -147,11 +147,7 @@ Each entry has:
   `TargetInputPath` enums. `unified_target.py` and all 5 resolver
   functions use the enum. Did **not** touch `source/stage.py` — that
   file is outside the scope of 2D.2.
-- **What I need from you**: Confirm this is fine to migrate in a future
-  task (likely when SourceStage is updated to consume `ResolvedTarget`).
-- **Context**:
-  - [src/radiant/core/regime.py](src/radiant/core/regime.py) — new enums
-  - [src/radiant/source/stage.py:55](src/radiant/source/stage.py) —
-    hardcoded `"extended"` string
-  - [src/radiant/source/unified_target.py](src/radiant/source/unified_target.py) —
-    uses `RadiometricRegime` enum
+- **Resolution**: Already fixed during the Phase 2B.5–2D.8 chain build.
+  `source/stage.py` now imports `RadiometricRegime` from `core.regime`
+  and `_classify_regime()` returns enum values throughout. No string
+  regime values remain anywhere in `src/radiant/`.

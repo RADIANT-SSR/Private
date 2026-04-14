@@ -412,22 +412,20 @@ class TestNoiseBudget:
             assert total_rss == pytest.approx(sigma_total, rel=1e-6)
 
     def test_snr_consistent_with_noise_budget(self) -> None:
-        """SNR = signal / total_noise."""
+        """SNR = signal_e_final / sigma_total_e."""
         result, _, _ = _run_extended()
-        signal_e = result.stage_outputs["spectral_integration"]["signal_e"]
-        noise_sq = sum(nt.value_e ** 2 for nt in result.noise_terms)
-        total_noise = math.sqrt(noise_sq)
-        expected_snr = signal_e / total_noise
-        # Performance stage may use contrast_e, so allow wider tolerance
-        assert result.metrics["snr"] == pytest.approx(expected_snr, rel=0.05)
+        signal_e_final = result.stage_outputs["readout"]["signal_e_final"]
+        sigma_total_e = result.stage_outputs["readout"]["sigma_total_e"]
+        expected_snr = signal_e_final / sigma_total_e
+        assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-10)
 
     def test_shot_noise_sqrt_signal(self) -> None:
-        """Signal shot noise ≈ √signal_e."""
+        """Signal shot noise = √signal_e_final (accounts for well clipping)."""
         result, _, _ = _run_extended()
-        signal_e = result.stage_outputs["spectral_integration"]["signal_e"]
+        signal_e_final = result.stage_outputs["readout"]["signal_e_final"]
         shot_terms = [nt for nt in result.noise_terms if nt.name == "signal_shot"]
         assert len(shot_terms) == 1
-        expected_shot = math.sqrt(signal_e)
+        expected_shot = math.sqrt(signal_e_final)
         assert shot_terms[0].value_e == pytest.approx(expected_shot, rel=0.01)
 
     def test_dark_shot_noise(self) -> None:
@@ -451,6 +449,62 @@ class TestNoiseBudget:
         result, _, _ = _run_extended()
         for nt in result.noise_terms:
             assert nt.value_e >= 0.0, f"Noise term {nt.name} is negative: {nt.value_e}"
+
+    def test_dark_exceeds_fwc_no_crash(self) -> None:
+        """When dark_e alone exceeds FWC, chain runs without error and SNR is near zero."""
+        session = RadiantSession(wavelength_um=WL)
+        ps = _base_params(session)
+        # Very high dark rate + long integration overwhelms a tiny FWC.
+        ps.set("detector.dark_rate_e_per_s", 1e8)
+        ps.set("spectral_integration.integration_time_s", 1.0)
+        ps.set("readout.full_well_capacity_e", 1000.0)
+        ps.resolve()
+        result = session.run(ps)
+        # Signal should be clipped to ~0 (available_fwc = 0).
+        signal_e_final = result.stage_outputs["readout"]["signal_e_final"]
+        assert signal_e_final == pytest.approx(0.0, abs=1.0)
+        # SNR should be ~0 (or very small).
+        snr = result.metrics["snr"]
+        assert snr < 1.0
+
+    def test_noise_regime_imaging_excludes_spatial(self) -> None:
+        """In imaging regime, sigma_total_e excludes PRNU/DSNU/clutter."""
+        session = RadiantSession(wavelength_um=WL)
+        ps = _base_params(session)
+        # Enable PRNU so spatial terms are nonzero.
+        ps.set("detector.prnu_pct", 5.0)
+        ps.set("detector.noise_regime", "imaging")
+        ps.resolve()
+        result = session.run(ps)
+        ro = result.stage_outputs["readout"]
+        assert ro["noise_regime"] == "imaging"
+        sigma_temporal = ro["sigma_temporal_e"]
+        sigma_spatial = ro["sigma_spatial_e"]
+        sigma_total = ro["sigma_total_e"]
+        # Spatial noise should be nonzero (PRNU is 5%).
+        assert sigma_spatial > 0.0
+        # In imaging mode, sigma_total equals temporal only.
+        assert sigma_total == pytest.approx(sigma_temporal, rel=1e-12)
+
+    def test_noise_regime_detection_includes_spatial(self) -> None:
+        """In detection regime, sigma_total_e includes spatial terms."""
+        session = RadiantSession(wavelength_um=WL)
+        ps = _base_params(session)
+        ps.set("detector.prnu_pct", 5.0)
+        ps.set("detector.noise_regime", "detection")
+        ps.resolve()
+        result = session.run(ps)
+        ro = result.stage_outputs["readout"]
+        assert ro["noise_regime"] == "detection"
+        sigma_temporal = ro["sigma_temporal_e"]
+        sigma_spatial = ro["sigma_spatial_e"]
+        sigma_total = ro["sigma_total_e"]
+        assert sigma_spatial > 0.0
+        # In detection mode, sigma_total includes both.
+        expected = math.sqrt(sigma_temporal**2 + sigma_spatial**2)
+        assert sigma_total == pytest.approx(expected, rel=1e-12)
+        # And it's larger than temporal alone.
+        assert sigma_total > sigma_temporal
 
 
 # ===================================================================

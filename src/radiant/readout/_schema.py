@@ -127,6 +127,20 @@ N_TDI = ParameterDef(
     tags=frozenset({"readout", "tdi"}),
 )
 
+TDI_MODE = ParameterDef(
+    name="readout.tdi_mode",
+    description=(
+        "TDI readout mode: 'analog' (single readout after charge accumulation) "
+        "or 'digital' (each stage read independently, summed digitally)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="analog",
+    tags=frozenset({"readout", "tdi"}),
+    default_justification="Analog TDI is the traditional CCD-based approach.",
+)
+
 # ---------------------------------------------------------------------------
 # Binning
 # ---------------------------------------------------------------------------
@@ -209,6 +223,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     READ_NOISE_IS_POST_CDS,
     NODE_CAPACITANCE_F,
     N_TDI,
+    TDI_MODE,
     BINNING_X_ONCHIP,
     BINNING_Y_ONCHIP,
     BINNING_X_OFFCHIP,

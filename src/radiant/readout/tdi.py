@@ -102,12 +102,28 @@ def tdi_scale_shot_noise(noise_e: float, n_tdi: int) -> float:
     return noise_e * (n_tdi**0.5)
 
 
-def tdi_scale_read_noise(noise_e: float) -> float:
-    """Read noise is injected once after TDI accumulation: ``σ × 1``.
+def tdi_scale_read_noise(noise_e: float, n_tdi: int = 1, digital: bool = False) -> float:
+    """Scale read noise through TDI.
 
-    This is the reason TDI gives a √N SNR improvement — the signal
-    grows as N but the read noise stays at 1×.
+    Analog TDI (default): charge is accumulated on-chip with a single
+    readout → ``σ × 1``. This is the classic √N SNR improvement.
+
+    Digital TDI: each of N stages is read independently and summed
+    digitally → ``σ × √N`` (N independent readouts).
+
+    Parameters
+    ----------
+    noise_e:
+        Per-readout read noise [e- RMS].
+    n_tdi:
+        Number of TDI stages (only used when ``digital=True``).
+    digital:
+        If True, use digital-TDI scaling (√N).
     """
+    if digital:
+        if n_tdi < 1:
+            raise ValueError(f"tdi_scale_read_noise: n_tdi = {n_tdi} must be >= 1.")
+        return noise_e * (n_tdi**0.5)
     return noise_e
 
 

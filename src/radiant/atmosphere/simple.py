@@ -103,25 +103,25 @@ HG_ASYMMETRY: float = 0.7
 
 
 # Five-band water-vapor absorption fit. Each entry: centre wavelength
-# (µm), peak optical depth at w_pw = 1 cm precipitable water, and the
-# half-width-at-half-max (HWHM, µm) of a Lorentzian-shaped band. The
-# values are tuned to give monotone OD scaling with w_pw and band
+# (µm), peak extinction coefficient per cm precipitable water [1/km/cm],
+# and the half-width-at-half-max (HWHM, µm) of a Lorentzian-shaped band.
+# The values are tuned to give monotone OD scaling with w_pw and band
 # depths consistent with US Standard MODTRAN runs at the band centres.
 # Outside the bands the contribution falls off as 1/(1 + (Δλ/HWHM)²)
 # and is dominated at long wavelengths by the continuum term below.
 @dataclass(frozen=True)
 class _H2OBand:
     centre_um: float
-    peak_od_per_cm: float
+    extinction_km_per_cm: float  # [1/km per cm precipitable water]
     hwhm_um: float
 
 
 _H2O_BANDS: tuple[_H2OBand, ...] = (
-    _H2OBand(centre_um=1.4, peak_od_per_cm=0.6, hwhm_um=0.06),
-    _H2OBand(centre_um=1.9, peak_od_per_cm=1.4, hwhm_um=0.10),
-    _H2OBand(centre_um=2.7, peak_od_per_cm=3.5, hwhm_um=0.15),
-    _H2OBand(centre_um=3.2, peak_od_per_cm=0.8, hwhm_um=0.10),
-    _H2OBand(centre_um=6.3, peak_od_per_cm=4.0, hwhm_um=0.40),
+    _H2OBand(centre_um=1.4, extinction_km_per_cm=0.6, hwhm_um=0.06),
+    _H2OBand(centre_um=1.9, extinction_km_per_cm=1.4, hwhm_um=0.10),
+    _H2OBand(centre_um=2.7, extinction_km_per_cm=3.5, hwhm_um=0.15),
+    _H2OBand(centre_um=3.2, extinction_km_per_cm=0.8, hwhm_um=0.10),
+    _H2OBand(centre_um=6.3, extinction_km_per_cm=4.0, hwhm_um=0.40),
 )
 
 # Continuum water-vapor extinction at long wavelengths [1/km/(cm pwv)].
@@ -352,7 +352,7 @@ class SimpleAtmosphere:
         for band in _H2O_BANDS:
             dx = (wavelength_um - band.centre_um) / band.hwhm_um
             lorentz = 1.0 / (1.0 + dx * dx)
-            sigma += band.peak_od_per_cm * w * lorentz
+            sigma += band.extinction_km_per_cm * w * lorentz
 
         sigma += H2O_CONTINUUM_KM * w
         return np.asarray(sigma, dtype=np.float64)
@@ -434,18 +434,29 @@ class SimpleAtmosphere:
             source_parameters=provenance,
         )
 
-        # Single-scatter upwelling path radiance. Per
-        # RADIANT_Atmosphere.md §3.1:
-        #   L_path(λ) = L_sun(λ) · cos(θ_sun) · ω₀(λ) · P(Θ) · (1 − τ)
-        # where L_sun = E_sun / π is the equivalent Lambertian TOA
-        # radiance and (1 − τ) is the path-averaged extinction factor.
+        # Single-scatter upwelling path radiance.  The standard
+        # single-scatter approximation (Schott, *Remote Sensing*;
+        # Liou, *Atmospheric Radiation*) is:
+        #
+        #   L_path(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ)
+        #                · P(Θ) · (1 − τ)
+        #
+        # where E_sun is TOA solar irradiance [W/m²/µm], the 4π comes
+        # from the full-sphere normalization of the phase function, and
+        # (1 − τ) is the path-integrated single-scatter source.
+        #
+        # Since toa_solar_equivalent_radiance returns E_sun/π, we
+        # divide by an additional factor of 4 to get E_sun/(4π).
+        #
         # We clamp to ≥ 0 because the AtmosphericState invariant
         # forbids negative path radiance, and for a sun below the
         # horizon cos θ_sun can legitimately be zero (producing a
         # hard zero rather than a negative number).
         if cos_theta_sun > 0.0:
             l_sun = toa_solar_equivalent_radiance(lam)
-            path_radiance_values = l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau)
+            path_radiance_values = (
+                l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau) / 4.0
+            )
             path_radiance_values = np.maximum(path_radiance_values, 0.0)
             path_source = (
                 f"SimpleAtmosphere single-scatter "

@@ -24,8 +24,9 @@ import logging
 
 import numpy as np
 import numpy.typing as npt
+from scipy.ndimage import zoom
 
-from radiant.optics.sampling import PSFSamplingConfig
+from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,182 @@ def compute_psf(
         psf /= total
 
     return psf
+
+
+def _center_crop_or_pad(
+    arr: npt.NDArray[np.float64],
+    target_size: int,
+) -> npt.NDArray[np.float64]:
+    """Center-crop or zero-pad a 2-D array to target_size × target_size."""
+    n = arr.shape[0]
+    if n == target_size:
+        return arr
+    if n > target_size:
+        # Center-crop
+        start = (n - target_size) // 2
+        return arr[start : start + target_size, start : start + target_size].copy()
+    # Zero-pad
+    out = np.zeros((target_size, target_size), dtype=arr.dtype)
+    start = (target_size - n) // 2
+    out[start : start + n, start : start + n] = arr
+    return out
+
+
+def compute_polychromatic_psf(
+    wavelengths_m: npt.NDArray[np.float64],
+    weights: npt.NDArray[np.float64],
+    focal_length_m: float,
+    aperture_diameter_m: float,
+    pixel_pitch_m: float,
+    obscuration_ratio: float = 0.0,
+    wfe_rms_waves: float = 0.0,
+    pupil_npix: int = 128,
+    psf_oversample: int = 8,
+) -> tuple[npt.NDArray[np.float64], float]:
+    """Compute a polychromatic PSF as the weighted sum of monochromatic PSFs.
+
+    Each monochromatic PSF is computed on its native FFT grid, then
+    resampled to a common reference grid (defined by λ_max) before
+    weighted summation. The result is normalised to unit volume.
+
+    Parameters
+    ----------
+    wavelengths_m:
+        Wavelengths [m], shape (N,).
+    weights:
+        Photon-flux weights, shape (N,). All must be strictly positive.
+    focal_length_m:
+        Effective focal length [m].
+    aperture_diameter_m:
+        Clear aperture diameter [m].
+    pixel_pitch_m:
+        Detector pixel pitch [m].
+    obscuration_ratio:
+        Central obscuration ratio (0 = unobscured).
+    wfe_rms_waves:
+        RMS wavefront error in waves at each wavelength.
+    pupil_npix:
+        Pupil grid side length.
+    psf_oversample:
+        Oversampling factor (samples per pixel).
+
+    Returns
+    -------
+    (psf_poly, sample_spacing_m)
+        Unit-volume-normalised polychromatic PSF and its sample spacing [m].
+
+    Raises
+    ------
+    ValueError
+        If inputs are invalid (mismatched lengths, non-positive weights).
+    """
+    wavelengths_m = np.asarray(wavelengths_m, dtype=np.float64)
+    weights = np.asarray(weights, dtype=np.float64)
+
+    if wavelengths_m.shape != weights.shape:
+        raise ValueError(
+            f"wavelengths_m and weights must have the same length, "
+            f"got {len(wavelengths_m)} and {len(weights)}"
+        )
+    if not np.all(weights > 0.0):
+        raise ValueError("All weights must be strictly positive.")
+    if len(wavelengths_m) == 0:
+        raise ValueError("At least one wavelength is required.")
+
+    n_wl = len(wavelengths_m)
+
+    # --- Single wavelength: delegate to monochromatic path ---
+    if n_wl == 1:
+        config = compute_sampling(
+            wavelength_m=float(wavelengths_m[0]),
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_diameter_m,
+            pixel_pitch_m=pixel_pitch_m,
+            pupil_npix=pupil_npix,
+            psf_oversample=psf_oversample,
+        )
+        psf = compute_psf(config, obscuration_ratio, wfe_rms_waves)
+        return psf, config.focal_spacing_m
+
+    # --- Reference grid from λ_max (coarsest spacing) ---
+    lam_max = float(wavelengths_m.max())
+    ref_config = compute_sampling(
+        wavelength_m=lam_max,
+        focal_length_m=focal_length_m,
+        aperture_diameter_m=aperture_diameter_m,
+        pixel_pitch_m=pixel_pitch_m,
+        pupil_npix=pupil_npix,
+        psf_oversample=psf_oversample,
+    )
+    dx_ref = ref_config.focal_spacing_m
+    n_padded = ref_config.padded_npix
+
+    # --- Accumulate weighted PSFs ---
+    psf_accum = np.zeros((n_padded, n_padded), dtype=np.float64)
+    w_total = 0.0
+
+    for i in range(n_wl):
+        lam_i = float(wavelengths_m[i])
+        w_i = float(weights[i])
+
+        # Compute monochromatic PSF at this wavelength.
+        # Force same padded_npix by computing sampling with λ_i, then
+        # constructing a config with the reference N_padded.
+        config_i = compute_sampling(
+            wavelength_m=lam_i,
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_diameter_m,
+            pixel_pitch_m=pixel_pitch_m,
+            pupil_npix=pupil_npix,
+            psf_oversample=psf_oversample,
+        )
+        # Override padded_npix to match reference grid size.
+        config_i_forced = PSFSamplingConfig(
+            pupil_npix=config_i.pupil_npix,
+            padded_npix=n_padded,
+            psf_oversample=config_i.psf_oversample,
+            pupil_spacing_m=config_i.pupil_spacing_m,
+            focal_spacing_m=(lam_i * focal_length_m) / (n_padded * config_i.pupil_spacing_m),
+            wavelength_m=lam_i,
+            focal_length_m=focal_length_m,
+        )
+
+        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_rms_waves)
+
+        # Resample from native grid (dx_i) to reference grid (dx_ref).
+        # dx_i = λ_i·f/(N·pupil_spacing) and dx_ref = λ_max·f/(N·pupil_spacing).
+        # scipy.ndimage.zoom(arr, z) produces output of size N*z at spacing
+        # dx_input/z. We want output spacing = dx_ref, so:
+        #   dx_ref = dx_i / z  →  z = dx_i / dx_ref = λ_i / λ_max
+        # For λ_i < λ_max: z < 1 (shrink), which correctly makes the shorter-λ
+        # PSF occupy fewer pixels on the coarser reference grid.
+        zoom_factor = lam_i / lam_max
+
+        if abs(zoom_factor - 1.0) < 1e-12:
+            # λ_max wavelength — no resampling needed.
+            psf_resampled = psf_i
+        else:
+            psf_resampled = zoom(psf_i, zoom_factor, order=3, mode="constant", cval=0.0)
+            # Crop or pad to reference size.
+            psf_resampled = _center_crop_or_pad(psf_resampled, n_padded)
+            # Clamp any negative values from cubic interpolation.
+            np.maximum(psf_resampled, 0.0, out=psf_resampled)
+
+        # Re-normalise to unit volume before weighting.
+        total_i = psf_resampled.sum()
+        if total_i > 0:
+            psf_resampled /= total_i
+
+        psf_accum += w_i * psf_resampled
+        w_total += w_i
+
+    # Normalise to unit volume.
+    psf_accum /= w_total
+    total = psf_accum.sum()
+    if total > 0:
+        psf_accum /= total
+
+    return psf_accum, dx_ref
 
 
 def compute_strehl(psf: npt.NDArray[np.float64], psf_ref: npt.NDArray[np.float64]) -> float:

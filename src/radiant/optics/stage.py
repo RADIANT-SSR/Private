@@ -40,12 +40,14 @@ import math
 import numpy as np
 
 from radiant.core.chain import ChainState
+from radiant.core.constants import c as c_light
+from radiant.core.constants import h as h_planck
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
-from radiant.optics.diffraction import compute_psf
+from radiant.optics.diffraction import compute_polychromatic_psf, compute_psf
 from radiant.optics.element_list import compute_nearfield_irradiance
 from radiant.optics.psf import EffectivePSF, build_effective_psf
 from radiant.optics.sampling import compute_sampling
@@ -72,39 +74,87 @@ def _build_effective_psf(
 ) -> tuple[ChainState, EffectivePSF | None]:
     """Build EffectivePSF from diffraction PSF and store in stage outputs.
 
-    Uses band-center wavelength for the diffraction calculation.
-    Gracefully skips if pixel pitch is unavailable.
+    When ``optics.psf_n_wavelengths == 1`` (default), computes a single
+    monochromatic PSF at band center. When > 1, computes a polychromatic
+    PSF as the photon-flux-weighted average of monochromatic PSFs.
 
     Returns (updated_state, epsf_or_None).
     """
-    try:
-        pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
-    except (KeyError, TypeError):
-        logger.debug("Pixel pitch not available; skipping EffectivePSF.")
-        return state, None
+    pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
+    obscuration: float = params.get("optics.obscuration_ratio")
+    n_psf_wavelengths: int = params.get("optics.psf_n_wavelengths")
 
-    wavelength_m = float(state.wavelength_um[len(state.wavelength_um) // 2]) * 1e-6
+    if n_psf_wavelengths <= 1:
+        # --- Monochromatic path (backward compatible) ---
+        wavelength_m = float(state.wavelength_um[len(state.wavelength_um) // 2]) * 1e-6
 
-    config = compute_sampling(
-        wavelength_m=wavelength_m,
-        focal_length_m=focal_length_m,
-        aperture_diameter_m=aperture_m,
-        pixel_pitch_m=pixel_pitch_m,
-        pupil_npix=128,
-        psf_oversample=8,
-    )
-    psf_arr = compute_psf(
-        config,
-        obscuration_ratio=params.get("optics.obscuration_ratio"),
-        wfe_rms_waves=wfe_rms_waves,
-    )
+        config = compute_sampling(
+            wavelength_m=wavelength_m,
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_m,
+            pixel_pitch_m=pixel_pitch_m,
+            pupil_npix=128,
+            psf_oversample=8,
+        )
+        psf_arr = compute_psf(config, obscuration, wfe_rms_waves)
+        sample_spacing_m = config.focal_spacing_m
+        wavelength_um = wavelength_m * 1e6
+    else:
+        # --- Polychromatic path ---
+        # Select N wavelengths linearly spaced across the spectral grid.
+        wl_um = state.wavelength_um
+        psf_wl_um = np.linspace(float(wl_um[0]), float(wl_um[-1]), n_psf_wavelengths)
+        psf_wl_m = psf_wl_um * 1e-6
+
+        # Compute photon-flux weights: L(λ) × λ/(hc).
+        # Interpolate L_post_optics onto the PSF wavelength grid.
+        post_optics_frame = state.frames.get("post_optics")
+        if post_optics_frame is not None and post_optics_frame.spectral_radiance is not None:
+            L_interp = np.interp(psf_wl_um, wl_um, post_optics_frame.spectral_radiance)
+        else:
+            # Fallback: use at_aperture frame.
+            at_aperture = state.frames["at_aperture"]
+            if at_aperture.spectral_radiance is not None:
+                L_interp = np.interp(psf_wl_um, wl_um, at_aperture.spectral_radiance)
+            else:
+                # No spectral data — use uniform weights.
+                L_interp = np.ones(n_psf_wavelengths)
+
+        # w_i = L(λ_i) × λ_i / (h·c) [photon flux in photons/s/m²/sr/µm]
+        weights = L_interp * psf_wl_m / (h_planck * c_light)
+        # Ensure all weights are positive (L should be non-negative).
+        weights = np.maximum(weights, 1e-30)
+
+        psf_arr, sample_spacing_m = compute_polychromatic_psf(
+            wavelengths_m=psf_wl_m,
+            weights=weights,
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_m,
+            pixel_pitch_m=pixel_pitch_m,
+            obscuration_ratio=obscuration,
+            wfe_rms_waves=wfe_rms_waves,
+            pupil_npix=128,
+            psf_oversample=8,
+        )
+
+        # Flux-weighted mean wavelength for EffectivePSF metadata.
+        wavelength_um = float(np.average(psf_wl_um, weights=weights))
+
+        logger.info(
+            "Polychromatic PSF: %d wavelengths (%.2f–%.2f µm), "
+            "effective λ = %.3f µm",
+            n_psf_wavelengths,
+            psf_wl_um[0],
+            psf_wl_um[-1],
+            wavelength_um,
+        )
 
     epsf = build_effective_psf(
         psf_arr,
         kernels=[],
-        sample_spacing_m=config.focal_spacing_m,
+        sample_spacing_m=sample_spacing_m,
         pixel_pitch_m=pixel_pitch_m,
-        wavelength_um=wavelength_m * 1e6,
+        wavelength_um=wavelength_um,
     )
 
     state = state.with_stage_output("optics", "effective_psf", epsf)
@@ -133,6 +183,14 @@ def _finalize_regime(
 
     fwhm_m = epsf.fwhm(axis="x")
     psf_fwhm_rad = fwhm_m / focal_length_m
+
+    if math.isnan(angular_extent_rad):
+        logger.warning(
+            "_finalize_regime: angular_extent_rad is NaN; "
+            "falling back to tentative regime '%s'.",
+            tentative.value,
+        )
+        return tentative
 
     if not math.isfinite(angular_extent_rad) and angular_extent_rad > 0:
         return RadiometricRegime.EXTENDED

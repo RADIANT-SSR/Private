@@ -290,6 +290,30 @@ STRAY_INCLUDES_THERMAL = ParameterDef(
     default_justification="False by default — nearfield computed separately.",
 )
 
+# ---------------------------------------------------------------------------
+# PSF wavelength sampling
+# ---------------------------------------------------------------------------
+
+PSF_N_WAVELENGTHS = ParameterDef(
+    name="optics.psf_n_wavelengths",
+    description=(
+        "Number of wavelengths for polychromatic PSF computation. "
+        "1 = monochromatic at band center (default). Values > 1 compute "
+        "a photon-flux-weighted average of monochromatic PSFs across the "
+        "spectral band."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=1,
+    bounds=(1, 101),
+    tags=frozenset({"optics", "psf"}),
+    default_justification=(
+        "1 = monochromatic (backward compatible). Polychromatic broadening "
+        "is typically 5-10% for MWIR; user opts in by setting > 1."
+    ),
+)
+
 
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     APERTURE_DIAMETER_M,
@@ -309,4 +333,5 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     STRAY_VEILING_GLARE_FRACTION,
     STRAY_ABSOLUTE_IRRADIANCE,
     STRAY_INCLUDES_THERMAL,
+    PSF_N_WAVELENGTHS,
 )

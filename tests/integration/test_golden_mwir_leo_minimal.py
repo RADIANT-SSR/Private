@@ -22,7 +22,6 @@ import pytest
 from radiant.api.session import RadiantSession
 from radiant.io.config import load_config
 
-
 GOLDEN_PATH = Path(__file__).parent / "golden" / "mwir_leo_minimal.json"
 CONFIG_PATH = Path(__file__).parents[2] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -74,7 +73,7 @@ class TestGoldenMWIRLeoMinimal:
 
     def test_noise_shot(self, result, golden) -> None:
         expected = golden["noise_shot"]["value"]
-        actual = [n for n in result.noise_terms if n.name == "shot"][0].value_e
+        actual = [n for n in result.noise_terms if n.name == "signal_shot"][0].value_e
         assert actual == pytest.approx(expected, rel=REL_TOL)
 
     def test_noise_dark_shot(self, result, golden) -> None:
@@ -84,7 +83,7 @@ class TestGoldenMWIRLeoMinimal:
 
     def test_noise_read(self, result, golden) -> None:
         expected = golden["noise_read"]["value"]
-        actual = [n for n in result.noise_terms if n.name == "read"][0].value_e
+        actual = [n for n in result.noise_terms if n.name == "read_noise"][0].value_e
         assert actual == pytest.approx(expected, rel=REL_TOL)
 
     def test_noise_quantization(self, result, golden) -> None:

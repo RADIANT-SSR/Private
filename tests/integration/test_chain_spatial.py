@@ -18,7 +18,6 @@ import pytest
 
 from radiant.api.session import RadiantSession
 
-
 # ---------------------------------------------------------------------------
 # Reference case constants (same as test_chain_extended.py)
 # ---------------------------------------------------------------------------
@@ -226,8 +225,8 @@ class TestSNRUnchanged:
         assert math.isfinite(snr)
 
     def test_snr_value_matches_golden(self, result) -> None:
-        """SNR should match the golden value from before spatial additions."""
-        expected_snr = 325.1862097826013
+        """SNR should match the golden value (updated for 16-term noise budget)."""
+        expected_snr = 131.3094155673
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

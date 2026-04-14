@@ -29,16 +29,14 @@ Hand-calculated reference values (CODATA 2018 exact constants):
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from radiant.api.session import RadiantSession
-from radiant.core.blackbody import planck_spectral_radiance
-from radiant.core.constants import h, c, k_B, hc
+from radiant.core.constants import c, h, hc, k_B
 from radiant.io.config import load_config
-from pathlib import Path
-
 
 # ---------------------------------------------------------------------------
 # Hand-calculation constants (CODATA 2018 exact)
@@ -154,7 +152,7 @@ class TestGroundTruthMWIR:
     def test_shot_noise(self, result) -> None:
         """Shot noise = √(signal_e)."""
         pe = result.frames["photoelectrons"].in_band_value
-        shot = [n for n in result.noise_terms if n.name == "shot"][0]
+        shot = [n for n in result.noise_terms if n.name == "signal_shot"][0]
         assert shot.value_e == pytest.approx(math.sqrt(pe), rel=1e-10)
 
     def test_dark_shot_zero(self, result) -> None:
@@ -164,7 +162,7 @@ class TestGroundTruthMWIR:
 
     def test_read_noise(self, result) -> None:
         """Read noise = 30 e⁻ RMS (direct parameter)."""
-        read = [n for n in result.noise_terms if n.name == "read"][0]
+        read = [n for n in result.noise_terms if n.name == "read_noise"][0]
         assert read.value_e == pytest.approx(READ_NOISE, rel=1e-12)
 
     def test_quantization_noise(self, result) -> None:
@@ -179,8 +177,9 @@ class TestGroundTruthMWIR:
         expected_snr = pe / math.sqrt(noise_sq)
         actual_snr = result.metrics["snr"]
         assert actual_snr == pytest.approx(expected_snr, rel=1e-10)
-        # Cross-check against hand calculation.
-        assert actual_snr == pytest.approx(14.22, rel=1e-2)
+        # Cross-check against hand calculation (updated for 16-term noise budget:
+        # includes background_shot ≈18.4 e⁻ and nearfield_shot ≈10.9 e⁻).
+        assert actual_snr == pytest.approx(12.39, rel=1e-2)
 
     def test_snr_read_noise_dominated(self, result) -> None:
         """With ~540 e⁻ signal and 30 e⁻ read noise, SNR ~ 14.

@@ -3,8 +3,8 @@
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
     "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "scripts/update_golden.py",
-    "notes": "First golden baseline. All values verified against hand calculations and integration tests in test_chain_extended.py."
+    "generated_by": "manual update for 16-term noise budget (Phase 2D.6)",
+    "notes": "Updated noise_rss and snr for 16-term noise budget. Signal, shot, dark_shot, read, quantization unchanged. New terms: background_shot (269.1 e-), nearfield_shot (686.0 e-) now contribute to RSS."
   },
 
   "signal_e": {
@@ -34,36 +34,36 @@
   "noise_shot": {
     "value": 325.22553432914737,
     "unit": "e- RMS",
-    "provenance": "hand calculation: sqrt(signal_e) = sqrt(105771.65) = 325.226; Poisson statistics; verified in test_chain_extended.py::test_shot_noise_formula"
+    "provenance": "hand calculation: sqrt(signal_e) = sqrt(105771.65) = 325.226; Poisson statistics"
   },
 
   "noise_dark_shot": {
     "value": 0.7071067811865476,
     "unit": "e- RMS",
-    "provenance": "hand calculation: sqrt(dark_rate * t_int) = sqrt(100 * 0.005) = sqrt(0.5) = 0.7071; verified in test_chain_extended.py::test_dark_shot_noise"
+    "provenance": "hand calculation: sqrt(dark_rate * t_int) = sqrt(100 * 0.005) = sqrt(0.5) = 0.7071"
   },
 
   "noise_read": {
     "value": 5.0,
     "unit": "e- RMS",
-    "provenance": "direct parameter: readout.read_noise_e_rms = 5.0; verified in test_chain_extended.py::test_read_noise"
+    "provenance": "direct parameter: readout.read_noise_e_rms = 5.0"
   },
 
   "noise_quantization": {
     "value": 0.2886751345948129,
     "unit": "e- RMS",
-    "provenance": "hand calculation: gain / sqrt(12) = 1.0 / sqrt(12) = 0.28868; verified in test_chain_extended.py::test_quantization_noise"
+    "provenance": "hand calculation: gain / sqrt(12) = 1.0 / sqrt(12) = 0.28868"
   },
 
   "noise_rss": {
-    "value": 325.264863631184,
+    "value": 805.5145758031673,
     "unit": "e- RMS",
-    "provenance": "hand calculation: sqrt(shot^2 + dark_shot^2 + read^2 + quant^2); RSS of all noise terms"
+    "provenance": "RSS of all 16 noise terms: dominated by nearfield_shot (686.0), signal_shot (325.2), background_shot (269.1)"
   },
 
   "snr": {
-    "value": 325.1862097826013,
+    "value": 131.30941556732972,
     "unit": "dimensionless",
-    "provenance": "hand calculation: signal_e / noise_rss = 105771.65 / 325.265 = 325.19; verified in test_chain_extended.py::test_snr_formula"
+    "provenance": "signal_e / noise_rss = 105771.65 / 805.51 = 131.31"
   }
 }

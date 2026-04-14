@@ -15,10 +15,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from radiant.api._param_registry import build_parameter_set
 from radiant.api.session import RadiantSession
 from radiant.io.config import load_config
-
 
 YAML_PATH = Path(__file__).parents[2] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -89,11 +87,13 @@ class TestMWIRLeoMinimal:
 
     def test_noise_terms_present(self, result) -> None:
         names = {n.name for n in result.noise_terms}
-        assert {"shot", "dark_shot", "read", "quantization"} == names
+        # 16-term noise budget: all terms present (many may be zero)
+        assert {"signal_shot", "dark_shot", "read_noise", "quantization"}.issubset(names)
+        assert len(names) == 16
 
     def test_shot_noise_formula(self, result) -> None:
         pe = result.frames["photoelectrons"].in_band_value
-        shot = [n for n in result.noise_terms if n.name == "shot"][0]
+        shot = [n for n in result.noise_terms if n.name == "signal_shot"][0]
         assert shot.value_e == pytest.approx(math.sqrt(pe), rel=1e-10)
 
     def test_determinism(self, result) -> None:

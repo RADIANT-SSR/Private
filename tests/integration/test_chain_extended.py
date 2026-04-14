@@ -23,8 +23,6 @@ import pytest
 
 from radiant.api.session import RadiantSession
 from radiant.core.blackbody import planck_spectral_radiance
-from radiant.core.constants import hc
-
 
 # ---------------------------------------------------------------------------
 # Hand-calculation constants for the reference case
@@ -130,7 +128,7 @@ class TestChainExtended:
 
     def test_A_collect(self, result) -> None:
         A = result.stage_outputs["optics"]["A_collect"]
-        assert A == pytest.approx(A_COLLECT, rel=1e-6)
+        assert pytest.approx(A_COLLECT, rel=1e-6) == A
 
     def test_Omega_pixel(self, result) -> None:
         omega = result.stage_outputs["optics"]["Omega_pixel"]
@@ -140,7 +138,7 @@ class TestChainExtended:
 
     def test_shot_noise_formula(self, result) -> None:
         pe = result.frames["photoelectrons"].in_band_value
-        shot = [n for n in result.noise_terms if n.name == "shot"][0]
+        shot = [n for n in result.noise_terms if n.name == "signal_shot"][0]
         assert shot.value_e == pytest.approx(math.sqrt(pe), rel=1e-10)
 
     def test_dark_shot_noise(self, result) -> None:
@@ -149,7 +147,7 @@ class TestChainExtended:
         assert dark_shot.value_e == pytest.approx(math.sqrt(dark_e), rel=1e-10)
 
     def test_read_noise(self, result) -> None:
-        read = [n for n in result.noise_terms if n.name == "read"][0]
+        read = [n for n in result.noise_terms if n.name == "read_noise"][0]
         assert read.value_e == pytest.approx(READ_NOISE, rel=1e-12)
 
     def test_quantization_noise(self, result) -> None:
@@ -260,6 +258,6 @@ class TestChainExtended:
         pe2 = r2.frames["photoelectrons"].in_band_value
         assert pe2 == pytest.approx(pe1 * 1.1, rel=1e-6)
 
-        shot1 = [n for n in r1.noise_terms if n.name == "shot"][0].value_e
-        shot2 = [n for n in r2.noise_terms if n.name == "shot"][0].value_e
+        shot1 = [n for n in r1.noise_terms if n.name == "signal_shot"][0].value_e
+        shot2 = [n for n in r2.noise_terms if n.name == "signal_shot"][0].value_e
         assert shot2 == pytest.approx(shot1 * math.sqrt(1.1), rel=1e-6)

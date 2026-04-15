@@ -1,0 +1,35 @@
+# RADIANT template: mwir_aerial_flir
+# Airborne MWIR FLIR — 0.10m aperture, 3.7–4.8 µm
+# Compact tactical FLIR for airborne surveillance.
+
+source:
+  target:
+    temperature: 310.0        # K (warm vehicle/person)
+    emissivity: 0.92
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 5000.0   # m
+
+optics:
+  aperture_diameter_m: 0.10   # m
+  focal_length_m: 0.25        # m  (f/2.5)
+  transmission_scalar: 0.75
+
+detector:
+  pixel_pitch_x_um: 15.0      # µm
+  pixel_pitch_y_um: 15.0      # µm
+  qe_value: 0.72
+  dark_rate_e_per_s: 200.0    # e-/s
+
+spectral_integration:
+  filter_min_um: 3.7           # µm
+  filter_max_um: 4.8           # µm
+  integration_time_s: 0.008    # s
+
+readout:
+  read_noise_e_rms: 10.0      # e- RMS
+  gain_e_per_dn: 1.5          # e-/DN
+  adc_bits: 14

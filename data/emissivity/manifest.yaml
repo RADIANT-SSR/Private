@@ -1,0 +1,96 @@
+# RADIANT Material Emissivity Library - Manifest
+aluminum:
+  default_temperature_K: 300
+  description: Polished aluminum surface
+  filename: aluminum.csv
+  source_citation: Palik, Handbook of Optical Constants, 1985
+asphalt:
+  default_temperature_K: 310
+  description: Aged asphalt road surface
+  filename: asphalt.csv
+  source_citation: Baldridge et al., RSE, 2009; ASTER Spectral Library
+blackbody:
+  default_temperature_K: 300
+  description: Ideal blackbody (epsilon=1.0 at all wavelengths)
+  filename: blackbody.csv
+  source_citation: 'Definition: perfect absorber/emitter'
+concrete:
+  default_temperature_K: 305
+  description: Portland cement concrete, weathered
+  filename: concrete.csv
+  source_citation: Salisbury & D'Aria, JGR, 1992
+copper:
+  default_temperature_K: 300
+  description: Polished copper surface
+  filename: copper.csv
+  source_citation: Palik, Handbook of Optical Constants, 1985
+glass:
+  default_temperature_K: 300
+  description: Soda-lime glass (window glass, opaque surface assumption)
+  filename: glass.csv
+  source_citation: Rubin, Solar Energy Materials, 1985
+gold:
+  default_temperature_K: 300
+  description: Polished gold surface
+  filename: gold.csv
+  source_citation: Palik, Handbook of Optical Constants, 1985
+ice:
+  default_temperature_K: 270
+  description: Clear lake ice
+  filename: ice.csv
+  source_citation: Warren & Brandt, JGR, 2008
+paint_black:
+  default_temperature_K: 300
+  description: Black diffuse paint (Aeroglaze Z306 type)
+  filename: paint_black.csv
+  source_citation: Gilmore, Spacecraft Thermal Control Handbook, 2002
+paint_grey:
+  default_temperature_K: 300
+  description: Grey diffuse paint, intermediate absorptance
+  filename: paint_grey.csv
+  source_citation: Gilmore, Spacecraft Thermal Control Handbook, 2002
+paint_white:
+  default_temperature_K: 300
+  description: White diffuse paint (spacecraft thermal control)
+  filename: paint_white.csv
+  source_citation: Gilmore, Spacecraft Thermal Control Handbook, 2002
+sand:
+  default_temperature_K: 320
+  description: Quartz-dominated desert sand
+  filename: sand.csv
+  source_citation: Salisbury & D'Aria, JGR, 1992; Baldridge et al., RSE, 2009
+snow:
+  default_temperature_K: 263
+  description: Fresh dry snow
+  filename: snow.csv
+  source_citation: Warren & Brandt, JGR, 2008; ASTER Spectral Library
+soil_dry:
+  default_temperature_K: 305
+  description: Dry sandy loam soil
+  filename: soil_dry.csv
+  source_citation: Salisbury & D'Aria, JGR, 1992; ASTER Spectral Library
+soil_wet:
+  default_temperature_K: 295
+  description: Wet loam soil (field capacity)
+  filename: soil_wet.csv
+  source_citation: Salisbury & D'Aria, JGR, 1992
+steel:
+  default_temperature_K: 300
+  description: Oxidized carbon steel
+  filename: steel.csv
+  source_citation: Modest, Radiative Heat Transfer, 3rd ed., 2013
+vegetation_dry:
+  default_temperature_K: 310
+  description: Dry/senescent vegetation
+  filename: vegetation_dry.csv
+  source_citation: Salisbury & D'Aria, JGR, 1992
+vegetation_green:
+  default_temperature_K: 300
+  description: Healthy green vegetation (deciduous canopy)
+  filename: vegetation_green.csv
+  source_citation: Salisbury & D'Aria, JGR, 1992; ASTER Spectral Library
+water_calm:
+  default_temperature_K: 288
+  description: Calm water surface (nadir view, low wind)
+  filename: water_calm.csv
+  source_citation: Masuda et al., Remote Sens. Environ., 1988

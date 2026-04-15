@@ -8,26 +8,26 @@ from pathlib import Path
 import click
 
 from radiant.api.session import RadiantSession
+from radiant.cli._common import coerce_value, parse_overrides, set_option
 from radiant.io.config import ConfigError, load_config
 
 
 @click.command()
 @click.argument("config", type=click.Path(exists=False, dir_okay=False))
-@click.option(
-    "--set", "overrides", multiple=True,
-    help="Parameter override in key=value format (repeatable).",
-)
+@set_option
 def validate(config: str, overrides: tuple[str, ...]) -> None:
     """Validate a YAML config file without running the chain.
 
     Checks that the file parses, all parameter names are known, types
-    are correct, and all required parameters are set.
+    are correct, and all required parameters are set.  Reports all
+    errors at once (not fail-fast).
 
     Example::
 
         radiant validate examples/mwir_leo_minimal.yaml
     """
     config_path = Path(config)
+    errors: list[str] = []
 
     if not config_path.exists():
         click.echo(f"Error: file not found: {config_path}", err=True)
@@ -41,28 +41,30 @@ def validate(config: str, overrides: tuple[str, ...]) -> None:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
-    # Apply overrides.
-    from radiant.cli.run import _coerce_value, _parse_overrides
-
+    # Apply overrides — collect errors instead of exiting on first.
     try:
-        parsed = _parse_overrides(overrides)
+        parsed = parse_overrides(overrides)
     except click.BadParameter as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
     for key, raw_value in parsed.items():
-        value = _coerce_value(raw_value)
+        value = coerce_value(raw_value)
         try:
             params.set(key, value)
         except KeyError:
-            click.echo(f"Error: unknown parameter '{key}'.", err=True)
-            sys.exit(1)
+            errors.append(f"Unknown parameter: '{key}'")
 
-    # Resolve.
+    # Resolve — collect resolve errors.
     try:
         params.resolve()
     except (ValueError, TypeError) as exc:
-        click.echo(f"Validation failed: {exc}", err=True)
+        errors.append(str(exc))
+
+    if errors:
+        click.echo("Validation failed:", err=True)
+        for err in errors:
+            click.echo(f"  - {err}", err=True)
         sys.exit(1)
 
     click.echo(f"Config OK: {config_path}")

@@ -1,0 +1,61 @@
+# RADIANT Documentation Configuration
+#
+# Build with:  mkdocs build
+# Serve locally:  mkdocs serve
+#
+# Dependencies (doc-build only, NOT in install_requires):
+#   pip install mkdocs mkdocs-material pymdown-extensions
+
+site_name: RADIANT
+site_description: First-principles EO sensor performance modeling
+repo_url: https://github.com/example/radiant
+repo_name: radiant
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: amber
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - User Guides:
+    - Quickstart: guides/quickstart.md
+    - Configuration: guides/configuration.md
+    - Scripting: guides/scripting.md
+    - Parameter Reference: guides/parameter_reference.md
+    - Regime Selection: guides/regime_selection.md
+    - Trade Studies: guides/trade_studies.md
+  - Theory:
+    - Radiometric Chain: theory/radiometric_chain.md
+    - Noise Model: theory/noise_model.md
+    - Spatial Model: theory/spatial_model.md
+  - Developer:
+    - Architecture: RADIANT_Master_Architecture.md
+    - Signal Chain: RADIANT_Signal_Chain_Architecture.md
+    - Conventions: RADIANT_Conventions.md
+    - Parameters: RADIANT_Parameter_System.md
+    - Testing: RADIANT_Testing_Validation.md
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

@@ -1,0 +1,447 @@
+"""Sensor — high-level scripting API for RADIANT.
+
+Wraps :class:`~radiant.api.session.RadiantSession` with a fluent
+interface for loading configs, setting parameters, evaluating the
+signal chain, and running trade studies (sweeps, Monte Carlo,
+sensitivity analysis).
+
+Usage::
+
+    from radiant.api.sensor import Sensor
+
+    s = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
+    result = s.evaluate()
+    print(result.metrics)
+"""
+
+from __future__ import annotations
+
+import copy
+import logging
+from collections.abc import Callable, Sequence
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import numpy.typing as npt
+
+from radiant.api._param_registry import build_parameter_set
+from radiant.api.sensitivity import SensitivityResult, sensitivity
+from radiant.api.session import RadiantSession
+from radiant.api.sweep import SweepResult, Sweep2DResult, sweep, sweep_2d
+from radiant.api.tolerance import MonteCarloResult, monte_carlo
+from radiant.core.parameters import ParameterSet, Provenance, Tolerance
+from radiant.io.config import load_config
+from radiant.io.results import ChainResult
+
+logger = logging.getLogger(__name__)
+
+# Default number of wavelength grid points.
+_DEFAULT_WL_POINTS: int = 500
+
+
+class Sensor:
+    """High-level entry point for RADIANT trade studies.
+
+    Wraps :class:`RadiantSession` and :class:`ParameterSet`, exposing a
+    simple API for loading configs, setting parameters, and running
+    analyses.
+
+    Parameters
+    ----------
+    wavelength_points:
+        Number of points in the spectral evaluation grid.  The grid
+        spans from ``spectral_integration.filter_min_um`` to
+        ``spectral_integration.filter_max_um`` (set via config or
+        :meth:`set`).
+    """
+
+    def __init__(self, *, wavelength_points: int = _DEFAULT_WL_POINTS) -> None:
+        self._params: ParameterSet = build_parameter_set()
+        self._wl_points: int = wavelength_points
+
+    # ------------------------------------------------------------------
+    # Construction helpers
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def from_yaml(
+        cls,
+        path: str | Path,
+        *,
+        wavelength_points: int = _DEFAULT_WL_POINTS,
+    ) -> Sensor:
+        """Load a YAML configuration file.
+
+        Parameters
+        ----------
+        path:
+            Path to a RADIANT YAML config file.
+        wavelength_points:
+            Number of spectral grid points.
+
+        Returns
+        -------
+        Sensor
+            A new Sensor with the config applied (not yet resolved).
+        """
+        sensor = cls(wavelength_points=wavelength_points)
+        load_config(Path(path), sensor._params)
+        return sensor
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        *,
+        wavelength_points: int = _DEFAULT_WL_POINTS,
+    ) -> Sensor:
+        """Create a Sensor from a nested configuration dict.
+
+        Parameters
+        ----------
+        data:
+            Nested dict matching the YAML structure (e.g.,
+            ``{"optics": {"aperture_diameter_m": 0.3}}``).
+        wavelength_points:
+            Number of spectral grid points.
+
+        Returns
+        -------
+        Sensor
+            A new Sensor with the config applied.
+        """
+        sensor = cls(wavelength_points=wavelength_points)
+        load_config(data, sensor._params)
+        return sensor
+
+    # ------------------------------------------------------------------
+    # Parameter access
+    # ------------------------------------------------------------------
+
+    def set(self, dotpath: str, value: Any) -> Sensor:
+        """Set a parameter by dot-path.
+
+        Returns ``self`` for method chaining.
+        """
+        self._params.set(dotpath, value, Provenance.USER_SET, "Sensor.set")
+        return self
+
+    def set_many(self, overrides: dict[str, Any]) -> Sensor:
+        """Set multiple parameters at once.
+
+        Parameters
+        ----------
+        overrides:
+            Dict mapping dot-path → value.
+
+        Returns ``self`` for method chaining.
+        """
+        for dotpath, value in overrides.items():
+            self._params.set(dotpath, value, Provenance.USER_SET, "Sensor.set_many")
+        return self
+
+    def get(self, dotpath: str) -> Any:
+        """Get a resolved parameter value (in canonical units).
+
+        Resolves the parameter set if needed.
+        """
+        self._ensure_resolved()
+        return self._params.get(dotpath)
+
+    def get_input(self, dotpath: str) -> Any:
+        """Get a resolved parameter value in input (display) units."""
+        self._ensure_resolved()
+        return self._params.get_input(dotpath)
+
+    def reset(self, dotpath: str) -> Sensor:
+        """Reset a parameter to its default value.
+
+        Removes the user-set input so that the parameter reverts to
+        its schema default (or is derived from a consistency group)
+        on the next resolve.
+
+        Returns ``self`` for method chaining.
+        """
+        if dotpath in self._params._inputs:
+            del self._params._inputs[dotpath]
+            self._params._resolved_flag = False
+        return self
+
+    def set_tolerance(
+        self,
+        dotpath: str,
+        distribution: str,
+        **kwargs: float,
+    ) -> Sensor:
+        """Set a tolerance distribution for Monte Carlo / sensitivity.
+
+        Parameters
+        ----------
+        dotpath:
+            Parameter dot-path.
+        distribution:
+            Distribution name: ``"gaussian"``, ``"uniform"``,
+            ``"truncated_gaussian"``, ``"log_normal"``.
+        **kwargs:
+            Distribution parameters (e.g., ``std=0.01``).
+
+        Returns ``self`` for method chaining.
+        """
+        tol = Tolerance(distribution=distribution, params=dict(kwargs))
+        self._params.set_tolerance(dotpath, tol)
+        return self
+
+    # ------------------------------------------------------------------
+    # Evaluation
+    # ------------------------------------------------------------------
+
+    def evaluate(self) -> ChainResult:
+        """Run the full signal chain and return the result."""
+        self._ensure_resolved()
+        session = self._build_session()
+        return session.run(self._params)
+
+    # ------------------------------------------------------------------
+    # Trade studies
+    # ------------------------------------------------------------------
+
+    def sweep(
+        self,
+        param: str,
+        values: Sequence[float] | npt.NDArray[np.float64],
+        *,
+        metric: str | Callable[[ChainResult], float] = "snr",
+        keep_results: bool = True,
+        n_workers: int = 1,
+    ) -> SweepResult:
+        """Run a 1-D parameter sweep.
+
+        Parameters
+        ----------
+        param:
+            Dot-path of the parameter to sweep.
+        values:
+            Array of parameter values.
+        metric:
+            Metric key string (looked up in ``result.metrics``) or a
+            callable ``(ChainResult) -> float``.
+        keep_results:
+            Store full ChainResult at each point.
+        n_workers:
+            Parallel workers (1 = sequential).
+        """
+        self._ensure_resolved()
+        session = self._build_session()
+        metric_fn, metric_name = self._resolve_metric(metric)
+        return sweep(
+            session.run,
+            self._params,
+            param,
+            values,
+            metric=metric_fn,
+            metric_name=metric_name,
+            keep_results=keep_results,
+            n_workers=n_workers,
+        )
+
+    def sweep_2d(
+        self,
+        param1: str,
+        values1: Sequence[float] | npt.NDArray[np.float64],
+        param2: str,
+        values2: Sequence[float] | npt.NDArray[np.float64],
+        *,
+        metric: str | Callable[[ChainResult], float] = "snr",
+    ) -> Sweep2DResult:
+        """Run a 2-D parameter sweep.
+
+        Parameters
+        ----------
+        param1, param2:
+            Dot-paths of the two swept parameters.
+        values1, values2:
+            Arrays of values for each axis.
+        metric:
+            Metric key string or callable.
+        """
+        self._ensure_resolved()
+        session = self._build_session()
+        metric_fn, metric_name = self._resolve_metric(metric)
+        return sweep_2d(
+            session.run,
+            self._params,
+            param1,
+            values1,
+            param2,
+            values2,
+            metric=metric_fn,
+            metric_name=metric_name,
+        )
+
+    def monte_carlo(
+        self,
+        n_trials: int = 1000,
+        seed: int = 42,
+        *,
+        metric_names: tuple[str, ...] | None = None,
+        keep_results: bool = False,
+    ) -> MonteCarloResult:
+        """Run Monte Carlo tolerance analysis.
+
+        Requires at least one tolerance set via :meth:`set_tolerance`.
+
+        Parameters
+        ----------
+        n_trials:
+            Number of MC trials.
+        seed:
+            Random seed for reproducibility.
+        metric_names:
+            Metric keys to record. Auto-detected if None.
+        keep_results:
+            Store full ChainResult per trial.
+        """
+        self._ensure_resolved()
+        session = self._build_session()
+        return monte_carlo(
+            session.run,
+            self._params,
+            n_trials=n_trials,
+            seed=seed,
+            metric_names=metric_names,
+            keep_results=keep_results,
+        )
+
+    def sensitivity(
+        self,
+        *,
+        metric: str | Callable[[ChainResult], float] = "snr",
+        param_names: Sequence[str] | None = None,
+        delta_fraction: float = 0.01,
+    ) -> SensitivityResult:
+        """Run one-at-a-time sensitivity analysis.
+
+        Parameters
+        ----------
+        metric:
+            Metric key string or callable.
+        param_names:
+            Parameters to perturb. If None, uses toleranced or all
+            float parameters.
+        delta_fraction:
+            Fractional perturbation (0.01 = ±1%).
+        """
+        self._ensure_resolved()
+        session = self._build_session()
+        metric_fn, metric_name = self._resolve_metric(metric)
+        return sensitivity(
+            session.run,
+            self._params,
+            metric=metric_fn,
+            metric_name=metric_name,
+            param_names=list(param_names) if param_names is not None else None,
+            delta_fraction=delta_fraction,
+        )
+
+    # ------------------------------------------------------------------
+    # Utilities
+    # ------------------------------------------------------------------
+
+    def clone(self) -> Sensor:
+        """Return a deep copy of this Sensor."""
+        return copy.deepcopy(self)
+
+    def summary(self) -> str:
+        """Return a human-readable summary of all resolved parameters."""
+        self._ensure_resolved()
+        resolved = self._params.all_resolved()
+        lines: list[str] = ["RADIANT Sensor — Parameter Summary", "=" * 50]
+        # Group by namespace prefix
+        groups: dict[str, list[str]] = {}
+        for name, rv in sorted(resolved.items()):
+            prefix = name.split(".")[0]
+            groups.setdefault(prefix, [])
+            unit_str = f" {rv.input_unit}" if rv.input_unit else ""
+            prov_str = rv.provenance.value
+            groups[prefix].append(
+                f"  {name} = {rv.input_value}{unit_str}  [{prov_str}]"
+            )
+        for prefix in sorted(groups):
+            lines.append(f"\n[{prefix}]")
+            lines.extend(groups[prefix])
+        return "\n".join(lines)
+
+    def explain(self, dotpath: str | None = None) -> str:
+        """Return a human-readable explanation.
+
+        Parameters
+        ----------
+        dotpath:
+            If provided, explain that parameter's provenance and value.
+            If None, return a chain walkthrough with intermediate values
+            from the most recent evaluation.
+        """
+        self._ensure_resolved()
+        if dotpath is not None:
+            return self._params.explain(dotpath)
+        # Chain walkthrough — evaluate and describe the stages
+        result = self.evaluate()
+        lines: list[str] = ["RADIANT Chain Walkthrough", "=" * 50]
+        for stage_name in result.history:
+            lines.append(f"\n--- {stage_name} ---")
+            outputs = result.stage_outputs.get(stage_name, {})
+            for key, val in sorted(outputs.items()):
+                lines.append(f"  {key}: {_format_value(val)}")
+        lines.append(f"\n--- Metrics ---")
+        for name, val in sorted(result.metrics.items()):
+            lines.append(f"  {name}: {val:.6g}")
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_resolved(self) -> None:
+        """Resolve the ParameterSet if it is not already resolved."""
+        if not self._params._resolved_flag:
+            self._params.resolve()
+
+    def _build_session(self) -> RadiantSession:
+        """Build a RadiantSession with the appropriate wavelength grid."""
+        fmin: float = self._params.get("spectral_integration.filter_min_um")
+        fmax: float = self._params.get("spectral_integration.filter_max_um")
+        wl = np.linspace(fmin, fmax, self._wl_points)
+        return RadiantSession(wavelength_um=wl)
+
+    @staticmethod
+    def _resolve_metric(
+        metric: str | Callable[[ChainResult], float],
+    ) -> tuple[Callable[[ChainResult], float], str]:
+        """Convert a string metric key to a metric function + name."""
+        if callable(metric):
+            name = getattr(metric, "__name__", "metric")
+            return metric, name
+        metric_key = metric
+
+        def _extract(result: ChainResult) -> float:
+            val = result.metrics.get(metric_key)
+            if val is None:
+                raise ValueError(
+                    f"Metric '{metric_key}' not found in result.metrics. "
+                    f"Available: {list(result.metrics.keys())}"
+                )
+            return float(val)
+
+        return _extract, metric_key
+
+
+def _format_value(val: Any) -> str:
+    """Format a value for display in explain() output."""
+    if isinstance(val, np.ndarray):
+        if val.size <= 4:
+            return repr(val)
+        return f"ndarray shape={val.shape} dtype={val.dtype}"
+    if isinstance(val, float):
+        return f"{val:.6g}"
+    return repr(val)

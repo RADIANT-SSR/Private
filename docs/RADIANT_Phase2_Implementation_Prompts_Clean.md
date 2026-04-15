@@ -1044,25 +1044,256 @@ Report: library contents, validation results.
 
 ```
 Task: Write comprehensive user documentation.
+Category: D
 
 Read first:
-- docs/RADIANT_Personas.md (who this doc is for)
-- All physics reference docs
+- docs/RADIANT_Personas.md — 6 personas (systems engineer, detector engineer,
+  mission planner, analyst, optical designer, researcher). Every guide must
+  serve at least one named persona. Note the persona at the top of each guide.
+- docs/RADIANT_Config_Format.md — canonical YAML structure, import/override
+  mechanics, inline comment conventions
+- docs/RADIANT_Parameter_System.md — dot-path naming, resolution, defaults,
+  consistency groups, tolerance distributions
+- docs/RADIANT_Signal_Chain_Architecture.md — 7-stage chain, ChainState flow,
+  RadiometricFrame
+- docs/RADIANT_Conventions.md — canonical units, coordinate system, spectral
+  variable (wavelength in µm)
+- docs/RADIANT_Scope_Decisions.md — what is intentionally deferred
+- src/radiant/api/sensor.py — Sensor class: from_yaml, from_dict, set, get,
+  evaluate, sweep, sweep_2d, monte_carlo, sensitivity, clone, summary, explain
+- src/radiant/cli/main.py — 9 CLI commands: run, validate, explain, sweep,
+  tolerance, compare, schema, template, convert
+- src/radiant/data/library.py — SpectralLibrary: materials(), material(),
+  detector_qe(), detectors(), solar()
+- examples/scripts/ — 5 example scripts (basic_evaluation, aperture_sweep,
+  tolerance_analysis, compare_configs, custom_loop)
+- examples/templates/ — 12 YAML templates spanning VNIR/SWIR/MWIR/LWIR,
+  LEO/aerial/GEO/ground
 
-Produce:
+Audience hierarchy (from Personas doc):
+  Primary:   Sarah (systems engineer) — sweep, trade, quick answers
+  Secondary: Raj (mission planner) — load config, run scenario, yes/no
+  Tertiary:  Mike (detector), Tom (optics), Dr. Chen (researcher)
+
+Produce the following files. Every code block must be runnable against the
+current codebase (tested in the final verification step).
+
+─── User Guides ───────────────────────────────────────────────────────
+
 1. docs/guides/quickstart.md
-2. docs/guides/configuration.md
-3. docs/guides/scripting.md
-4. docs/guides/parameter_reference.md (auto-generated)
-5. docs/guides/regime_selection.md
-6. docs/guides/trade_studies.md
-7. docs/theory/radiometric_chain.md
-8. docs/theory/noise_model.md
-9. docs/theory/spatial_model.md
-10. mkdocs.yml config
-11. Code-in-docs test: extract and run every code block
+   Persona: Sarah (systems engineer), Raj (mission planner)
+   Content:
+   - Install (pip install -e ".[dev]")
+   - "Your first evaluation" — load examples/mwir_leo_minimal.yaml via CLI
+     (`radiant run`) AND via Python (`Sensor.from_yaml`), show SNR output
+   - "Your first sweep" — `radiant sweep` CLI AND `sensor.sweep()` Python
+   - "Exploring results" — `result.metrics`, `sensor.explain()`,
+     `radiant explain`
+   - "Next steps" — links to configuration.md, scripting.md, trade_studies.md
+   Constraints:
+   - Must be completable in < 5 minutes by someone who has never seen RADIANT
+   - Every CLI command shown must also show the Python equivalent
+   - Use the mwir_leo_minimal.yaml that ships with the repo (not a made-up example)
 
-Report: mkdocs build succeeds, code example test results.
+2. docs/guides/configuration.md
+   Persona: Sarah, Raj, Lisa (analyst)
+   Content:
+   - YAML structure overview — top-level keys (source, atmosphere, geometry,
+     optics, detector, spectral_integration, readout) with one annotated example
+   - Parameter dot-path convention (e.g. `optics.f_number`)
+   - How defaults work — what you can omit, what you must specify
+   - The `--set key=value` override mechanism (CLI) and `sensor.set()` (Python)
+   - Consistency groups — f/# = f/D example, what happens on conflict
+   - Units — input units vs. canonical units, `radiant convert` utility
+   - Using templates as starting points (`radiant template list/show/create`)
+   - Loading MODTRAN atmosphere files
+   - Common configuration patterns: "I want to change one parameter and re-run",
+     "I want to compare two configs", "I want to batch 50 scenarios"
+   Constraints:
+   - Include a fully annotated YAML showing every section (not all 91 params,
+     but the ~25 most commonly used ones with inline # comments)
+   - Cross-reference parameter_reference.md for the exhaustive list
+
+3. docs/guides/scripting.md
+   Persona: Sarah, Tom (optical designer), Dr. Chen (researcher)
+   Content:
+   - Sensor class API walkthrough: from_yaml, from_dict, set/get, evaluate
+   - Working with ChainResult: metrics dict, stage_outputs, frames, noise_terms
+   - Sweeps: sensor.sweep() and sensor.sweep_2d() with plotting
+   - Monte Carlo tolerance: sensor.monte_carlo() and sensor.set_tolerance()
+   - Sensitivity analysis: sensor.sensitivity()
+   - Using SpectralLibrary for material/detector/solar data
+   - Cloning sensors for comparison: sensor.clone()
+   - Custom analysis loops (reference examples/scripts/custom_loop.py pattern)
+   - Exporting results to CSV/JSON
+   Constraints:
+   - Every code block must be self-contained (imports + setup visible)
+   - Reference the 5 example scripts in examples/scripts/ as "see also"
+   - Do NOT show matplotlib plotting code in the main guide — mention that
+     the plot functions exist and link to the API, but keep focus on the
+     data/computation side
+
+4. docs/guides/parameter_reference.md
+   Auto-generated from _schema.py files across all stages.
+   Content:
+   - Table for each stage: parameter name, type, default, unit, bounds, description
+   - Organized by stage: source, atmosphere, geometry, optics, detector,
+     spectral_integration, readout
+   - Consistency groups listed separately
+   - Mark which parameters are required (no default) vs. optional
+   Generation approach:
+   - Write a script `scripts/gen_param_reference.py` that imports
+     build_parameter_set() from radiant.api._param_registry, iterates over
+     all 91 ParameterDefs, and writes the markdown table
+   - Run the script as part of the build; include the output in the guide
+   - The script itself is also committed (so the doc can be regenerated)
+
+5. docs/guides/regime_selection.md
+   Persona: Sarah, Raj
+   Content:
+   - What is a radiometric regime? (extended-scene, sub-pixel, point-source)
+   - How RADIANT classifies: SourceStage tentative → OpticsStage final
+   - When to use each regime:
+       extended-scene: target >> pixel IFOV (buildings, terrain)
+       sub-pixel: target < pixel IFOV but > diffraction (small vehicles)
+       point-source: target << diffraction limit (stars, distant missiles)
+   - How fill_fraction and projected_area_m2 interact with regime
+   - Where EE_box is applied and where it is not (Rule 9)
+   - Common pitfall: "I set the wrong regime and got nonsense SNR"
+   - How to override: source.regime_override parameter
+   Constraints:
+   - Include a decision flowchart (text-based, not image)
+   - Show a concrete example for each regime using real templates
+
+6. docs/guides/trade_studies.md
+   Persona: Sarah, Tom
+   Content:
+   - 1D parameter sweep workflow (CLI + Python)
+   - 2D parameter sweep workflow (Python only — sweep_2d)
+   - Monte Carlo tolerance analysis workflow
+   - Sensitivity analysis workflow (which parameter matters most?)
+   - Comparing configurations side by side
+   - Interpreting results: SNR vs. aperture curves, noise budget waterfall,
+     MTF component breakdown
+   - Worked example: "What aperture do I need for SNR ≥ 50?" — complete
+     walkthrough from config to answer
+   Constraints:
+   - Every worked example uses templates that ship in examples/templates/
+   - Show both CLI and Python paths where both exist
+
+─── Theory Documents ──────────────────────────────────────────────────
+
+7. docs/theory/radiometric_chain.md
+   Persona: Dr. Chen (researcher), Mike (detector), Tom (optics)
+   Content:
+   - The 7-stage signal chain with governing equations:
+       source: Planck function, emissivity coupling, regime classification
+       atmosphere: Beer-Lambert, τ_atm, L_path, L_downwelling
+       optics: throughput (A_pixel × Ω × τ_optics), PSF/MTF, thermal self-emission
+       spectral_integration: ∫ over bandpass, QE weighting, EE_box coupling
+       detector: noise model (cross-ref noise_model.md)
+       readout: TDI, gain, ADC, coadd
+       performance: SNR, NEDT, NIIRS (GIQE-5), system MTF
+   - Units trace through the chain (dimensional audit table format)
+   - What each stage adds to ChainState
+   - Assumptions and limitations (list from Scope_Decisions.md)
+   Constraints:
+   - Equations in LaTeX (MathJax-compatible for mkdocs)
+   - Every equation must match the implementation — verify against the actual
+     code in each stage.py
+   - Cross-reference the implementation file for each equation
+
+8. docs/theory/noise_model.md
+   Persona: Mike (detector), Dr. Chen
+   Content:
+   - Complete noise taxonomy: photon shot, dark current shot, read noise,
+     quantization, DSNU, PRNU, 1/f, glow, kTC
+   - Equation for each noise term (in electrons)
+   - RSS combination: total_noise = sqrt(Σ σ_i²)
+   - Dark current vs. temperature (Rule 07 / Arrhenius)
+   - CDS noise reduction factor
+   - TDI noise scaling
+   - When each term dominates (BLIP regime, read-noise-limited, dark-limited)
+   - Cross-reference detector parameters from parameter_reference.md
+   Constraints:
+   - Match equations to the actual implementation in detector/stage.py and
+     readout/stage.py
+   - Use the same variable names as the code
+
+9. docs/theory/spatial_model.md
+   Persona: Tom (optical designer), Sarah
+   Content:
+   - PSF construction: diffraction (Airy/obscured), wavefront error, defocus
+   - MTF decomposition: MTF_optics × MTF_detector × MTF_smear × MTF_jitter ×
+     MTF_electronics
+   - Polychromatic PSF (photon-flux-weighted average across band)
+   - Encircled/ensquared energy: EE_box from PSF (Rule 4 — single PSF for both
+     MTF and EE)
+   - Smear MTF: velocity/altitude model
+   - Jitter MTF: Gaussian jitter model
+   - Detector MTF: sinc(f × pitch) × fill factor
+   - NIIRS via GIQE-5: equation, input terms, relationship to MTF/SNR/GSD
+   - RER (Relative Edge Response) derivation from MTF
+   Constraints:
+   - Match equations to optics/psf.py, optics/mtf.py, platform/stage.py,
+     performance/stage.py
+   - Emphasize Rule 4 (single PSF source of truth)
+
+─── Build Configuration ───────────────────────────────────────────────
+
+10. mkdocs.yml
+    - Use mkdocs-material theme
+    - Navigation:
+        Home: index.md (brief intro + link to quickstart)
+        User Guides: quickstart, configuration, scripting, parameter_reference,
+                     regime_selection, trade_studies
+        Theory: radiometric_chain, noise_model, spatial_model
+        Developer: link to CLAUDE.md, architecture docs
+    - Enable MathJax for LaTeX equations
+    - Enable code highlighting (Python, YAML, bash)
+    - Enable search
+    - Do NOT add mkdocs or mkdocs-material to the project's install_requires —
+      they are doc-build-only dependencies. Note them in a comment in mkdocs.yml.
+
+11. docs/index.md
+    - One-paragraph description of RADIANT
+    - "Get started in 5 minutes" link to quickstart.md
+    - Feature list (6 bullets: signal chain, sweep, tolerance, CLI, scripting,
+      data library)
+    - Link to each guide and theory doc
+
+─── Verification ──────────────────────────────────────────────────────
+
+12. Code-in-docs test
+    - Write scripts/test_docs_code.py that:
+      a. Finds all ```python blocks in docs/guides/*.md
+      b. Extracts each block
+      c. Executes it (exec() with a shared namespace per file)
+      d. Reports pass/fail per block with file:line reference
+    - Run it and fix any broken examples before declaring complete
+    - Also run: mkdocs build --strict (if mkdocs is installed) or at minimum
+      verify all internal markdown links resolve (no broken [text](path.md) refs)
+
+─── Constraints ───────────────────────────────────────────────────────
+
+- All code examples must use the CURRENT API (Sensor class, CLI commands,
+  SpectralLibrary) — not hypothetical future features
+- Do not document features listed as deferred in Scope_Decisions.md
+- Do not invent parameter names — cross-check against the actual 91 parameters
+  from build_parameter_set()
+- Keep guides concise: quickstart ≤ 200 lines, configuration ≤ 400 lines,
+  scripting ≤ 400 lines, trade_studies ≤ 350 lines, regime ≤ 250 lines
+- Theory docs may be longer (up to 500 lines each) but should be scannable
+  with clear section headers
+- Use relative links between docs (e.g. [configuration](configuration.md))
+- No print() in code examples that import from radiant — the library uses
+  logging, and code examples should use the returned values directly
+
+Report: Category D task report. Include:
+- mkdocs build result (or link-check result if mkdocs not installed)
+- Code-in-docs test results (pass/fail per code block)
+- List of which persona each guide serves
+- Regression: full test suite still passes (1530+ tests)
 ```
 
 ### Prompt 2E.5 — Error message audit

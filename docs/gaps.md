@@ -352,6 +352,86 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 
 ---
 
+## Gap 24: No Zernike-to-PSF integration
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
+| **Status** | OPEN |
+| **Description** | `WavefrontError` in `wavefront.py` defines `WfeMode.ZERNIKE` and accepts a `zernike_coeffs` dict, but `OpticsStage` only uses `scalar_rms` mode. It passes `wfe_rms_waves` to `make_pupil_phase()` which generates a random phase screen scaled to the requested RMS. The random screen gives the correct Strehl (same RMS = same Marechal) but NOT the correct PSF shape — coma produces a comet PSF, astigmatism produces a cross, the random screen produces neither. Tom's 12 Zernike coefficients can only be collapsed to a single RMS number today. |
+| **Workaround** | Use scalar RMS (RSS of all coefficients). Correct for Strehl and total WFE budget, but cannot distinguish aberration types. |
+| **Impact** | Any optical designer wanting to evaluate specific aberration contributions to PSF shape, MTF, and image quality. |
+| **Fix location** | `radiant/optics/diffraction.py` — replace random phase screen with Zernike polynomial evaluation on the pupil grid when `WfeMode.ZERNIKE` is selected. |
+| **Effort** | Medium — Zernike polynomial evaluation is well-defined math, but needs pupil coordinate handling with obscuration. |
+| **Scenarios blocked** | 5.1 (partial — scalar RMS works for total budget). |
+| **Rerun after fix** | Scenario 5.1 |
+
+---
+
+## Gap 25: No field-dependent WFE
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
+| **Status** | OPEN |
+| **Description** | `WfeMode.FIELD_DEPENDENT` exists with `FieldWfeSample` tuples (field_x, field_y, WFE at that point), but `OpticsStage` raises `NotImplementedError` if this mode is selected. Tom has Zernike sets at 4 field positions (on-axis + 3 off-axis) — he cannot evaluate edge-of-field performance where aberrations are typically 2-3x worse than on-axis. |
+| **Workaround** | Run separate evaluations with different scalar RMS values representing each field position. Loses field-position coupling to PSF shape. |
+| **Impact** | Any field-dependent image quality analysis. Wide-field imagers where edge performance drives the design. |
+| **Fix location** | `radiant/optics/stage.py` — implement field-dependent WFE interpolation and per-field PSF computation. |
+| **Effort** | Large — needs field-position interpolation, multiple PSF evaluations, field-averaged metrics. |
+| **Scenarios blocked** | 5.1 (partial — on-axis only today). |
+| **Rerun after fix** | Scenario 5.1 |
+
+---
+
+## Gap 26: No Zemax Zernike importer
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
+| **Status** | OPEN |
+| **Description** | Tom exports Zernike coefficients from Zemax (.ZMX format) which contains Zernike coefficients, prescription data, and field definitions. No parser exists in `radiant.io`. Tom must manually transcribe coefficients into a spreadsheet. |
+| **Workaround** | Manual entry into spreadsheet or YAML. |
+| **Impact** | Any optical designer using Zemax, Code V, or similar tools. |
+| **Fix location** | `radiant/io/` — add Zemax .ZMX parser for Zernike coefficients. |
+| **Effort** | Medium — need to reverse-engineer or document Zemax file format. |
+| **Scenarios blocked** | None (manual entry always works). |
+| **Rerun after fix** | Scenario 5.1 |
+
+---
+
+## Gap 27: MTF curve frequency axis units
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
+| **Status** | OPEN |
+| **Description** | RADIANT's MTF curves use normalized spatial frequency (cycles/pixel). Optical designers think in cycles/mm (focal plane) or cycles/mrad (angular). The conversion is straightforward (divide by pixel pitch) but should be built-in or configurable for plotting and export. |
+| **Workaround** | Convert manually in scripts: `freq_cy_mm = freq_cy_px / (pixel_pitch_um * 1e-3)`. |
+| **Impact** | Any MTF analysis or export for optical design review. |
+| **Fix location** | `radiant/performance/` — add frequency unit options to MTF output, or provide a conversion utility. |
+| **Effort** | Small — unit conversion only. |
+| **Scenarios blocked** | None (workaround trivial). |
+| **Rerun after fix** | Scenario 5.1 |
+
+---
+
+## Gap 28: No WFE allocation / error budget tool
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
+| **Status** | OPEN |
+| **Description** | In practice, Tom needs to partition his total WFE budget among contributors: fabrication (mirror figure), alignment, thermal distortion, gravity release, jitter. Each is specified as an RMS, combined via RSS: `WFE_total = sqrt(sum(WFE_i^2))`. RADIANT can sweep total WFE but has no sub-allocation or RSS combination tool. Similar in concept to Gap 23 (jitter-source allocation). |
+| **Workaround** | Manual RSS calculation in scripts. |
+| **Impact** | Systems engineering WFE budget allocation — standard workflow for optical telescope design. |
+| **Fix location** | `radiant/api/` or `radiant/optics/` — add error budget utility with RSS combination and allocation tracking. |
+| **Effort** | Medium — need budget data structure, RSS math, and reporting. Could be combined with Gap 23 into a generic "error budget" framework. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 5.1 |
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -379,3 +459,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 21 | No jitter PSD / frequency dependence | Large | 5.4 | OPEN |
 | 22 | RER below GIQE-5 calibration range | Small | 5.4 | OPEN |
 | 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |
+| 24 | No Zernike-to-PSF integration | Medium | 5.1 | OPEN |
+| 25 | No field-dependent WFE | Large | 5.1 | OPEN |
+| 26 | No Zemax Zernike importer | Medium | 5.1 | OPEN |
+| 27 | MTF curve frequency axis units | Small | 5.1 | OPEN |
+| 28 | No WFE allocation / error budget tool | Medium | 5.1 | OPEN |

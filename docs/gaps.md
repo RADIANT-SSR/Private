@@ -259,6 +259,99 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 
 ---
 
+## Gap 18: Platform jitter not wired into signal chain
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
+| **Status** | FIXED |
+| **Description** | Platform jitter math existed (`platform/jitter.py` with 4 functions, all tested) but was not wired into the chain. There was no `PlatformStage`, no `_schema.py` for jitter parameters, and `PerformanceStage` did not read jitter-degraded PSFs. Scenario 5.4 initially had to use analytic workarounds (erfinv/erf RER approximation) outside RADIANT. |
+| **Fix** | (1) Created `platform/_schema.py` with 4 `ParameterDef` objects (`jitter_rms_urad`, `jitter_axes`, `jitter_rms_x_urad`, `jitter_rms_y_urad`). (2) Created `platform/stage.py` implementing `PlatformStage` — reads ePSF from optics, generates Gaussian jitter kernel, convolves via `epsf.with_kernel("jitter", kernel)`. (3) Registered in `api/session.py` (slot 4 of 8) and `api/_param_registry.py`. (4) Updated `PerformanceStage` to read platform ePSF first, falling back to optics. (5) 13 unit tests in `platform/tests/test_stage.py`. Default `jitter_rms_urad = 0.0` preserves all existing results. 1759 tests pass, 0 regressions. |
+| **Impact** | Jitter tolerance studies now use full ePSF convolution instead of analytic approximation. Full-chain approach yields ~20% tighter (more conservative) jitter thresholds because it captures Airy ring tails. |
+| **Rerun after fix** | Scenario 5.4 — rewritten and verified with full-chain results |
+
+---
+
+## Gap 19: No MTF budget decomposition
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
+| **Status** | OPEN |
+| **Description** | RADIANT computes a system MTF but doesn't decompose it into individual contributors (optics, detector, jitter, smear, etc.) in a way that's easy to inspect. An MTF budget table showing each contributor's MTF at Nyquist would be valuable for optical designers. |
+| **Workaround** | Compute individual MTF terms manually in scripts (e.g., MTF_jitter = exp(-2π²σ²f²)). |
+| **Impact** | Optical design trade studies, jitter/smear allocation. |
+| **Fix location** | `radiant/performance/stage.py` — decompose system MTF into per-contributor terms. |
+| **Effort** | Medium — need to track per-kernel MTF contributions through ePSF convolution chain. |
+| **Scenarios blocked** | None (workaround available). |
+| **Rerun after fix** | Scenario 5.4, 7.3 |
+
+---
+
+## Gap 20: No GIQE-5 sensitivity analysis
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
+| **Status** | OPEN |
+| **Description** | The GIQE-5 equation has terms for GSD, RER, SNR, H, and G. A built-in sensitivity analysis showing d(NIIRS)/d(parameter) for each would help designers understand which parameter to improve. For example, d(NIIRS)/d(RER) = 3.32 / (RER × ln(10)) — very steep near baseline RER. |
+| **Workaround** | Compute partial derivatives analytically in scripts. |
+| **Impact** | Any NIIRS optimization study. |
+| **Fix location** | `radiant/performance/giqe.py` — add `giqe5_sensitivity()` function. |
+| **Effort** | Small — analytic derivatives of GIQE-5 are straightforward. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 5.4 |
+
+---
+
+## Gap 21: No jitter-frequency dependence (PSD)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
+| **Status** | OPEN |
+| **Description** | The current jitter model assumes "well-sampled" jitter (many cycles during integration). Real jitter has a power spectral density (PSD). Low-frequency jitter (< 1/t_int) produces pointing error (frame shift), not blur. RADIANT should accept a jitter PSD and compute the in-band blur vs. out-of-band pointing error partition. |
+| **Workaround** | None — requires PSD-aware jitter model. |
+| **Impact** | Accurate jitter tolerance derivation for systems with colored jitter spectra. |
+| **Fix location** | `radiant/platform/jitter.py` — add PSD-based sigma computation with integration-time-dependent frequency cutoff. |
+| **Effort** | Large — requires PSD input format, frequency integration, and partition logic. |
+| **Scenarios blocked** | None (RMS assumption is standard for preliminary design). |
+| **Rerun after fix** | Scenario 5.4 |
+
+---
+
+## Gap 22: RER below GIQE-5 calibration range
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
+| **Status** | OPEN |
+| **Description** | At moderate jitter (>2.5 µrad for scenario 5.4's system), RER drops below 0.2 which is outside the GIQE-5 calibration range. RADIANT computes NIIRS but does not flag the result as an extrapolation with reduced confidence. |
+| **Workaround** | None — scripts can check RER manually but the chain should warn. |
+| **Impact** | Any degraded-image-quality analysis where RER or SNR fall outside calibration range. |
+| **Fix location** | `radiant/performance/giqe.py` — add calibration-range checks and warnings. |
+| **Effort** | Small — bounds are well-documented in the GIQE-5 specification. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 5.4 |
+
+---
+
+## Gap 23: No jitter-source allocation tool
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
+| **Status** | OPEN |
+| **Description** | Jitter from multiple sources (reaction wheels, solar pressure, cryo coolers, structural modes, ACS residual) adds in quadrature (RSS). RADIANT doesn't have a tool to allocate and track jitter budgets across multiple contributors. An "error budget table" feature would help systems engineers allocate tolerances. |
+| **Workaround** | Manual RSS calculation in scripts. |
+| **Impact** | Systems engineering jitter budget allocation. |
+| **Fix location** | `radiant/api/` or `radiant/platform/` — add budget allocation utility. |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 5.4 |
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -280,3 +373,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 15 | MTF = 0 at high Q (investigate) | Small | Few | CLOSED |
 | 16 | Per-wavelength PSFs not exposed | Small | Few | OPEN |
 | 17 | No arbitrary PSF weighting spectrum | Small | Few | OPEN |
+| 18 | Platform jitter not wired | — | 5.4 | FIXED |
+| 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
+| 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | OPEN |
+| 21 | No jitter PSD / frequency dependence | Large | 5.4 | OPEN |
+| 22 | RER below GIQE-5 calibration range | Small | 5.4 | OPEN |
+| 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |

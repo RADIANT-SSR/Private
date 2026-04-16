@@ -1,8 +1,8 @@
 """RadiantSession — public entry point for running the signal chain.
 
 Builds a :class:`~radiant.core.chain.ChainRunner` with the full
-stage set (no PlatformStage yet) and exposes a ``.run(params)``
-that returns a :class:`~radiant.io.results.ChainResult`.
+stage set and exposes a ``.run(params)`` that returns a
+:class:`~radiant.io.results.ChainResult`.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from radiant.io.results import ChainResult
 from radiant.atmosphere.stage import AtmosphereStage
 from radiant.detector.stage import DetectorStage
 from radiant.optics.stage import OpticsStage
+from radiant.platform.stage import PlatformStage
 from radiant.readout.stage import ReadoutStage
 from radiant.source.stage import SourceStage
 from radiant.performance.stage import PerformanceStage
@@ -41,6 +42,7 @@ class RadiantSession:
             SourceStage(),
             AtmosphereStage(),
             OpticsStage(),
+            PlatformStage(),
             SpectralIntegrationStage(),
             DetectorStage(),
             ReadoutStage(),

@@ -35,13 +35,19 @@ def _compute_spatial_metrics(
 ) -> ChainState:
     """Compute spatial metrics from the EffectivePSF built by OpticsStage.
 
-    Reads the EffectivePSF from ``stage_outputs["optics"]["effective_psf"]``.
-    Skips gracefully if it is not available.
+    Reads the EffectivePSF from ``stage_outputs["platform"]["effective_psf"]``
+    (jitter-degraded) if available, otherwise falls back to
+    ``stage_outputs["optics"]["effective_psf"]``.
+    Skips gracefully if neither is available.
     """
     try:
-        epsf = state.stage_outputs["optics"]["effective_psf"]
+        # Prefer platform ePSF (includes jitter); fall back to optics.
+        plat_out = state.stage_outputs.get("platform", {})
+        epsf = plat_out.get("effective_psf")
+        if epsf is None:
+            epsf = state.stage_outputs["optics"]["effective_psf"]
     except KeyError:
-        logger.debug("EffectivePSF not available from optics stage; skipping spatial metrics.")
+        logger.debug("EffectivePSF not available; skipping spatial metrics.")
         return state
 
     try:

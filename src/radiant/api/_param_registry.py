@@ -11,6 +11,7 @@ from radiant.atmosphere._schema import ALL_PARAMETERS as ATMO_PARAMS
 from radiant.core.parameters import ConsistencyGroup, ParameterSet
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
 from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
+from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS
 from radiant.readout._schema import ALL_PARAMETERS as RO_PARAMS
 from radiant.source._schema import ALL_PARAMETERS as SRC_PARAMS
 from radiant.spectral_integration._schema import ALL_PARAMETERS as SI_PARAMS
@@ -39,7 +40,7 @@ _FNUMBER_GROUP = ConsistencyGroup(
 def build_parameter_set() -> ParameterSet:
     """Return a :class:`ParameterSet` with the full 2B.5 schema."""
     schema = list(
-        SRC_PARAMS + ATMO_PARAMS + OPT_PARAMS + SI_PARAMS + DET_PARAMS + RO_PARAMS
+        SRC_PARAMS + ATMO_PARAMS + OPT_PARAMS + PLAT_PARAMS + SI_PARAMS + DET_PARAMS + RO_PARAMS
     )
     groups = [_FNUMBER_GROUP]
     return ParameterSet(schema, groups)

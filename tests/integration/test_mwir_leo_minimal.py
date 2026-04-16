@@ -50,7 +50,7 @@ class TestMWIRLeoMinimal:
 
     def test_history_complete(self, result) -> None:
         assert result.history == (
-            "source", "atmosphere", "optics",
+            "source", "atmosphere", "optics", "platform",
             "spectral_integration", "detector", "readout",
             "performance",
         )

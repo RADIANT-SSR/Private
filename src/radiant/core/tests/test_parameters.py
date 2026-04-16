@@ -682,3 +682,108 @@ def test_resolved_value_round_trip_all_fields() -> None:
     assert restored["derived_from"][fl_key] == pytest.approx(1.2, rel=1e-12)
     assert restored["derived_from"][ap_key] == pytest.approx(0.3, rel=1e-12)
     assert "timestamp" in restored
+
+
+# ---------------------------------------------------------------------------
+# Fuzzy match / "did you mean?" suggestions
+# ---------------------------------------------------------------------------
+
+
+class TestParameterSuggestions:
+    """Verify that KeyError messages include 'did you mean?' suggestions."""
+
+    def _make_ps(self) -> ParameterSet:
+        schema = [
+            ParameterDef(
+                name="optics.focal_length_m",
+                description="",
+                dtype=float,
+                canonical_unit="m",
+                input_unit="m",
+                default=1.0,
+            ),
+            ParameterDef(
+                name="optics.aperture_diameter_m",
+                description="",
+                dtype=float,
+                canonical_unit="m",
+                input_unit="m",
+                default=0.3,
+            ),
+            ParameterDef(
+                name="detector.pixel_pitch_x_um",
+                description="",
+                dtype=float,
+                canonical_unit="m",
+                input_unit="um",
+                default=18.0,
+            ),
+            ParameterDef(
+                name="atmosphere.model",
+                description="",
+                dtype=str,
+                canonical_unit="",
+                input_unit="",
+                default="simple",
+                enum_values=("simple",),
+            ),
+        ]
+        return ParameterSet(schema)
+
+    def test_set_close_match(self) -> None:
+        """Typo in set() suggests the correct name."""
+        ps = self._make_ps()
+        with pytest.raises(KeyError, match="Did you mean"):
+            ps.set("optics.focal_length", 1.2)
+
+    def test_set_suggests_correct_name(self) -> None:
+        """Suggestion includes the actual parameter name."""
+        ps = self._make_ps()
+        with pytest.raises(KeyError, match="optics.focal_length_m"):
+            ps.set("optics.focal_length", 1.2)
+
+    def test_set_mode_vs_model(self) -> None:
+        """Gap #7 scenario: atmosphere.mode → suggests atmosphere.model."""
+        ps = self._make_ps()
+        with pytest.raises(KeyError, match="atmosphere.model"):
+            ps.set("atmosphere.mode", "simple")
+
+    def test_set_no_match(self) -> None:
+        """Completely unrelated name gives no suggestions."""
+        ps = self._make_ps()
+        with pytest.raises(KeyError, match="Unknown parameter"):
+            ps.set("completely.unrelated.thing", 42)
+
+    def test_set_no_match_no_did_you_mean(self) -> None:
+        """No 'Did you mean' when there's no close match."""
+        ps = self._make_ps()
+        with pytest.raises(KeyError) as exc_info:
+            ps.set("completely.unrelated.thing", 42)
+        assert "Did you mean" not in str(exc_info.value)
+
+    def test_get_close_match(self) -> None:
+        """Typo in get() suggests the correct name."""
+        ps = self._make_ps()
+        ps.resolve()
+        with pytest.raises(KeyError, match="Did you mean"):
+            ps.get("detector.pixel_pitch_x")
+
+    def test_get_suggests_correct_name(self) -> None:
+        """get() suggestion includes the actual parameter name."""
+        ps = self._make_ps()
+        ps.resolve()
+        with pytest.raises(KeyError, match="detector.pixel_pitch_x_um"):
+            ps.get("detector.pixel_pitch_x")
+
+    def test_set_tolerance_close_match(self) -> None:
+        """Typo in set_tolerance() suggests the correct name."""
+        ps = self._make_ps()
+        tol = Tolerance(distribution="gaussian", params={"std": 0.01})
+        with pytest.raises(KeyError, match="Did you mean"):
+            ps.set_tolerance("optics.aperture_diameter", tol)
+
+    def test_load_dict_close_match(self) -> None:
+        """Typo in load_dict() suggests the correct name (delegates to set)."""
+        ps = self._make_ps()
+        with pytest.raises(KeyError, match="Did you mean"):
+            ps.load_dict({"optics.focal_length": 1.2})

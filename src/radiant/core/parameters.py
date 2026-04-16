@@ -13,6 +13,7 @@ Scalar parameters only. Spectral arrays live in radiant.core.spectral.
 from __future__ import annotations
 
 import datetime as _dt
+import difflib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -206,6 +207,14 @@ class ParameterSet:
                         f"ConsistencyGroup '{g.name}' references unknown parameter '{p}'"
                     )
 
+    def _suggest(self, name: str) -> str:
+        """Build a 'did you mean?' suggestion for an unknown parameter name."""
+        matches = difflib.get_close_matches(name, self._defs.keys(), n=3, cutoff=0.5)
+        if matches:
+            suggestions = ", ".join(f"'{m}'" for m in matches)
+            return f"Unknown parameter: '{name}'. Did you mean: {suggestions}?"
+        return f"Unknown parameter: '{name}'"
+
     # -- Input ---------------------------------------------------------------
 
     def set(
@@ -217,13 +226,13 @@ class ParameterSet:
     ) -> None:
         """Set a parameter value (in its input_unit). Marks the set as unresolved."""
         if name not in self._defs:
-            raise KeyError(f"Unknown parameter: '{name}'")
+            raise KeyError(self._suggest(name))
         self._inputs[name] = (value, provenance, source)
         self._resolved_flag = False
 
     def set_tolerance(self, name: str, tol: Tolerance) -> None:
         if name not in self._defs:
-            raise KeyError(f"Unknown parameter: '{name}'")
+            raise KeyError(self._suggest(name))
         self._tolerances[name] = tol
         self._resolved_flag = False
 
@@ -455,7 +464,9 @@ class ParameterSet:
         """Return the canonical-unit value of a resolved parameter."""
         self._require_resolved()
         if name not in self._resolved:
-            raise KeyError(f"Parameter '{name}' is not resolved")
+            if name in self._defs:
+                raise KeyError(f"Parameter '{name}' is not resolved")
+            raise KeyError(self._suggest(name))
         return self._resolved[name].value
 
     def get_resolved(self, name: str) -> ResolvedValue:

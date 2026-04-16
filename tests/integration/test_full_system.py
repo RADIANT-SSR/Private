@@ -62,9 +62,9 @@ def _base_params(session: RadiantSession):
     ps.set("spectral_integration.filter_max_um", FILTER_MAX)
     ps.set("spectral_integration.integration_time_s", T_INT)
     ps.set("readout.read_noise_e_rms", 5.0)
-    ps.set("readout.gain_e_per_dn", 2.0)
+    ps.set("readout.gain_e_per_dn", 32.0)
     ps.set("readout.adc_bits", 16)
-    ps.set("readout.full_well_capacity_e", 500000.0)
+    ps.set("readout.full_well_capacity_e", 2000000.0)
     return ps
 
 
@@ -180,7 +180,7 @@ class TestBackwardPropagation:
         result, _, _ = _run_extended()
         q_pe = result.signal_at_frame("photoelectrons")
         q_dn = result.signal_at_frame("dn")
-        gain = 2.0  # gain_e_per_dn = 2.0
+        gain = 32.0  # gain_e_per_dn = 32.0
         assert q_dn.value == pytest.approx(q_pe.value / gain, rel=1e-10)
 
     def test_noise_at_photoelectrons_positive(self) -> None:

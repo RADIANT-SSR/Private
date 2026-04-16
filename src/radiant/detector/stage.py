@@ -15,6 +15,7 @@ from __future__ import annotations
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.detector.dark_current import DarkCurrent
+from radiant.detector.ipc import ipc_kernel
 from radiant.detector.noise import compute_noise_budget
 
 
@@ -88,6 +89,13 @@ class DetectorStage:
             persistence_tau_s=params.get("detector.persistence_tau_s"),
             frame_interval_s=t_int,  # approximate: use t_int as frame period
         )
+
+        # --- IPC kernel (for downstream spatial metric convolution) ---
+        ipc_coupling: float = params.get("detector.ipc_coupling")
+        if ipc_coupling > 0.0:
+            state = state.with_stage_output(
+                "detector", "ipc_kernel", ipc_kernel(ipc_coupling)
+            )
 
         # --- Store all outputs for ReadoutStage ---
         state = state.with_stage_output("detector", "signal_e", signal_e)

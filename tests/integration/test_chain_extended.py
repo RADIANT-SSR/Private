@@ -38,7 +38,7 @@ T_INT = 0.005   # s
 QE = 0.70
 DARK_RATE = 100.0  # e-/s
 READ_NOISE = 5.0   # e- RMS
-GAIN = 1.0
+GAIN = 32.0
 T_TARGET = 300.0
 EPS_TARGET = 0.95
 SENSOR_ALT = 8000.0
@@ -255,7 +255,7 @@ class TestChainExtended:
             p.set("readout.gain_e_per_dn", GAIN)
             p.set("readout.adc_bits", 16)
             # High FWC to avoid saturation clipping in this scaling test.
-            p.set("readout.full_well_capacity_e", 500000.0)
+            p.set("readout.full_well_capacity_e", 2000000.0)
             p.resolve()
             return session.run(p)
 

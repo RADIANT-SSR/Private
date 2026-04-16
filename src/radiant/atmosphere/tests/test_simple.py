@@ -50,6 +50,9 @@ from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
 )
 from radiant.atmosphere.simple import (
+    H_AER_M,
+    H_H2O_M,
+    H_MOL_M,
     KOSCHMIEDER,
     RAYLEIGH_COEFF_KM,
     RAYLEIGH_EXPONENT,
@@ -108,11 +111,13 @@ def test_simple_state_invariants() -> None:
 
 
 def test_truth_anchor_1_rayleigh_only_matches_hand_calc() -> None:
-    """At sea level, with V → very large and w_pw = 0, only Rayleigh remains.
+    """With V → very large and w_pw = 0, only Rayleigh remains.
 
-    σ_mol(λ) = 0.0088 · λ⁻⁴·⁰⁹ km⁻¹ (Bucholtz 1995). For a 5 km
-    horizontal path at sea level the optical depth at 0.55 µm is
-    σ · L, and τ = exp(-σ · L).
+    The model integrates ``σ₀(λ) · exp(−h/H)`` from 0 to 5 km
+    (the _horizontal_geometry helper creates a vertical column).
+    The column-integrated OD is ``σ₀ · H · [1 − exp(−5/H)]``,
+    which for ``H_mol = 8 km`` gives an effective column length
+    of ``8 · (1 − exp(−0.625)) ≈ 3.718 km``.
     """
     atm = SimpleAtmosphere(
         visibility_km=10_000.0,  # effectively no aerosol
@@ -121,18 +126,18 @@ def test_truth_anchor_1_rayleigh_only_matches_hand_calc() -> None:
     geo = _horizontal_geometry(5.0)
     state = atm.build_state(np.array([0.55, 1.0, 2.0]), geo)
 
-    # The "horizontal" helper is actually a 5 km vertical column with
-    # path-mean altitude 2.5 km. The model scales molecular extinction
-    # by exp(-h_mean / 8 km) and aerosol by exp(-h_mean / 1.2 km), so
-    # the hand calc must do the same.
-    mean_alt_m = 0.5 * (geo.sensor_altitude_m + geo.target_altitude_m)
-    mol_scale = math.exp(-mean_alt_m / 8000.0)
-    aer_scale = math.exp(-mean_alt_m / 1200.0)
+    # Column-integrated OD: σ₀ × H × [exp(-h_low/H) - exp(-h_high/H)]
+    h_low_m = 0.0
+    h_high_m = 5000.0
+    col_mol = (H_MOL_M / 1000.0) * (math.exp(-h_low_m / H_MOL_M) - math.exp(-h_high_m / H_MOL_M))
+    col_aer = (H_AER_M / 1000.0) * (math.exp(-h_low_m / H_AER_M) - math.exp(-h_high_m / H_AER_M))
+
     for lam_um in (0.55, 1.0, 2.0):
         idx = int(np.argmin(np.abs(state.wavelength_um - lam_um)))
-        sigma_mol = RAYLEIGH_COEFF_KM * lam_um ** (-RAYLEIGH_EXPONENT) * mol_scale
-        sigma_aer = KOSCHMIEDER / 10_000.0 * (lam_um / 0.55) ** (-1.3) * aer_scale
-        expected_tau = math.exp(-(sigma_mol + sigma_aer) * 5.0)
+        sigma_mol_0 = RAYLEIGH_COEFF_KM * lam_um ** (-RAYLEIGH_EXPONENT)
+        sigma_aer_0 = KOSCHMIEDER / 10_000.0 * (lam_um / 0.55) ** (-1.3)
+        od = sigma_mol_0 * col_mol + sigma_aer_0 * col_aer
+        expected_tau = math.exp(-od)
         assert state.transmittance.values[idx] == pytest.approx(
             expected_tau, rel=1e-12, abs=1e-12
         ), f"τ mismatch at {lam_um} µm"
@@ -178,11 +183,12 @@ def test_truth_anchor_2_water_vapor_bands_lower_than_windows() -> None:
 
 
 def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
-    """At 550 nm with no Rayleigh and no water vapor, σ should be 3.912/V.
+    """At 550 nm with no water vapor, subtract Rayleigh and recover V.
 
-    We can't actually disable Rayleigh, but we can subtract its
-    known contribution at the same wavelength and recover σ_aer.
-    Then ``visibility_km = 3.912 / σ_aer`` must equal what we set.
+    The column-integrated OD decomposes into molecular and aerosol
+    contributions. We subtract the known molecular column OD and
+    recover the sea-level aerosol extinction, which must round-trip
+    to the input visibility via ``V = 3.912 / σ_aer(550 nm)``.
     """
     visibility = 15.0
     atm = SimpleAtmosphere(
@@ -191,23 +197,21 @@ def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
         precipitable_water_cm=0.0,
     )
     grid = np.array([0.55, 0.56])
-    geo = _horizontal_geometry(1.0)  # 1 km path
+    geo = _horizontal_geometry(1.0)  # 1 km vertical column (0 → 1 km)
     state = atm.build_state(grid, geo)
     tau = float(state.transmittance.values[0])
 
-    # Total OD on a 1 km path = -ln(tau). Both Rayleigh and aerosol
-    # are scaled by their respective scale-height factors at the
-    # path-mean altitude, so we apply the same scaling to the
-    # hand-calculated Rayleigh contribution before subtracting.
+    # Column-integrated OD = σ₀ × H × [exp(-h_low/H) - exp(-h_high/H)]
+    h_low_m, h_high_m = 0.0, 1000.0
+    col_mol = (H_MOL_M / 1000.0) * (math.exp(-h_low_m / H_MOL_M) - math.exp(-h_high_m / H_MOL_M))
+    col_aer = (H_AER_M / 1000.0) * (math.exp(-h_low_m / H_AER_M) - math.exp(-h_high_m / H_AER_M))
+
     od_total = -math.log(tau)
-    mean_alt_m = 0.5 * (geo.sensor_altitude_m + geo.target_altitude_m)
-    mol_scale = math.exp(-mean_alt_m / 8000.0)
-    aer_scale = math.exp(-mean_alt_m / 1200.0)
-    sigma_mol = RAYLEIGH_COEFF_KM * 0.55 ** (-RAYLEIGH_EXPONENT) * mol_scale
-    # 1 km × σ_aer(scaled), so dividing recovers σ_aer at the path-mean
-    sigma_aer_scaled = od_total - sigma_mol
-    sigma_aer_550 = sigma_aer_scaled / aer_scale
-    visibility_round_trip = KOSCHMIEDER / sigma_aer_550
+    sigma_mol_0 = RAYLEIGH_COEFF_KM * 0.55 ** (-RAYLEIGH_EXPONENT)
+    od_mol = sigma_mol_0 * col_mol
+    od_aer = od_total - od_mol
+    sigma_aer_0 = od_aer / col_aer
+    visibility_round_trip = KOSCHMIEDER / sigma_aer_0
     assert visibility_round_trip == pytest.approx(visibility, rel=1e-9)
 
 
@@ -372,6 +376,94 @@ def test_zero_pwv_disables_water_vapor() -> None:
     state = atm.build_state(grid, _horizontal_geometry(5.0))
     # Both band centres should be ~ Rayleigh-only — very high transmittance.
     assert np.all(state.transmittance.values > 0.999)
+
+
+# ---------------------------------------------------------------------------
+# Orbital altitude — regression test for Gap 2 (SNR = 0 at LEO)
+# ---------------------------------------------------------------------------
+
+
+def test_orbital_altitude_high_transmittance() -> None:
+    """At 500 km LEO, τ must be physically reasonable (not zero).
+
+    The column-integrated OD saturates at the full atmospheric column.
+    In the MWIR window the simple model's Lorentzian H₂O band tails
+    (especially from the 6.3 µm band) contribute noticeable extinction,
+    giving τ ≈ 0.5–0.6 at 4.0–4.5 µm with w_pw = 1.4 cm. This is
+    pessimistic relative to MODTRAN (which gives τ ≈ 0.8–0.9 in the
+    true atmospheric window) but physically plausible.
+
+    This is the regression test for Gap 2 — the old mean-altitude
+    approach produced τ ≈ 10⁻⁵⁶ at orbital altitudes.
+    """
+    atm = SimpleAtmosphere(visibility_km=23.0, precipitable_water_cm=1.4)
+    geo = AtmosphericGeometry(
+        sensor_altitude_m=500_000.0,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+    )
+    grid = np.array([4.0, 4.25, 4.5])
+    state = atm.build_state(grid, geo)
+    tau = state.transmittance.values
+
+    # Must be physically reasonable: nonzero and in (0, 1).
+    # The old code gave τ ≈ 10⁻⁵⁶ here; the fix gives τ ≈ 0.5–0.6.
+    assert np.all(tau > 0.3), f"τ at 500 km LEO in MWIR window = {tau}, expected > 0.3"
+    assert np.all(tau < 1.0), f"τ at 500 km should be < 1 (some atmosphere remains)"
+
+
+def test_orbital_altitude_column_od_hand_calc() -> None:
+    """Verify column-integrated OD matches hand calculation at 500 km.
+
+    At 4.25 µm, Rayleigh-only (V→∞, w_pw=0):
+      σ₀ = 0.0088 × 4.25⁻⁴·⁰⁹ = 0.0088 / 4.25⁴·⁰⁹
+      col_length = 8 × [exp(0) − exp(−500/8)] = 8 × 1 = 8.000 km
+      OD = σ₀ × 8.0
+    """
+    atm = SimpleAtmosphere(visibility_km=1e9, precipitable_water_cm=0.0)
+    geo = AtmosphericGeometry(
+        sensor_altitude_m=500_000.0,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+    )
+    grid = np.array([4.25, 4.26])
+    state = atm.build_state(grid, geo)
+    tau = float(state.transmittance.values[0])
+
+    # Hand calc: at 500 km the full molecular column is traversed.
+    sigma_mol_0 = RAYLEIGH_COEFF_KM * 4.25 ** (-RAYLEIGH_EXPONENT)
+    col_mol = (H_MOL_M / 1000.0) * (1.0 - math.exp(-500_000.0 / H_MOL_M))
+    # Aerosol term (V=1e9 → negligible but nonzero)
+    sigma_aer_0 = KOSCHMIEDER / 1e9 * (4.25 / 0.55) ** (-1.3)
+    col_aer = (H_AER_M / 1000.0) * (1.0 - math.exp(-500_000.0 / H_AER_M))
+
+    od_expected = sigma_mol_0 * col_mol + sigma_aer_0 * col_aer
+    tau_expected = math.exp(-od_expected)
+    assert tau == pytest.approx(tau_expected, rel=1e-10)
+
+
+def test_geo_orbit_transmittance_above_ground_observer() -> None:
+    """GEO at 35786 km should have essentially the same τ as LEO.
+
+    Both altitudes are far above all scale heights, so the full
+    atmospheric column is traversed. The column-integrated OD should
+    be nearly identical.
+    """
+    atm = SimpleAtmosphere(visibility_km=23.0, precipitable_water_cm=1.4)
+    grid = np.array([4.0, 10.0])
+
+    leo = atm.build_state(
+        grid,
+        AtmosphericGeometry(sensor_altitude_m=500_000.0, target_altitude_m=0.0, path_zenith_rad=0.0),
+    )
+    geo = atm.build_state(
+        grid,
+        AtmosphericGeometry(
+            sensor_altitude_m=35_786_000.0, target_altitude_m=0.0, path_zenith_rad=0.0
+        ),
+    )
+    # Both should be very close since the atmosphere is entirely below.
+    assert np.allclose(leo.transmittance.values, geo.transmittance.values, rtol=1e-6)
 
 
 # ---------------------------------------------------------------------------

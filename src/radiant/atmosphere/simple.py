@@ -3,21 +3,27 @@
 Implements the ``SimpleAtmosphere`` model from
 ``docs/RADIANT_Atmosphere.md`` §3.1::
 
-    τ_atm(λ) = exp[ −σ_total(λ) · L_slant ]
+    τ_atm(λ) = exp[ −OD_total(λ) × air_mass ]
+
+where ``OD_total`` is the **column-integrated** vertical optical depth
+through an exponential atmosphere::
+
+    OD_vert(λ) = Σ_species σ₀(λ) · H_s · [exp(−h_tgt/H_s) − exp(−h_sen/H_s)]
 
 with three contributions:
 
 - **Molecular (Rayleigh)** — Bucholtz 1995 sea-level coefficient
-  ``σ_mol(λ) = 0.0088 · λ_µm⁻⁴·⁰⁹ km⁻¹``, scaled to a path-mean
-  altitude with an exponential atmosphere of scale height ``H_mol = 8 km``.
+  ``σ_mol(λ) = 0.0088 · λ_µm⁻⁴·⁰⁹ km⁻¹`` with exponential scale
+  height ``H_mol = 8 km``.
 - **Aerosol (Mie)** — Koschmieder visibility relation
   ``σ_aer(550 nm) = 3.912 / V_km`` with three canonical Ångström
   exponents (rural ``α=1.3``, urban ``α=1.5``, maritime ``α=0.7``).
   Aerosol scale height ``H_aer = 1.2 km``.
 - **Water vapor** — five-band Lorentzian-like absorption fit centered
   at 1.4, 1.9, 2.7, 3.2, and 6.3 µm, parameterised by precipitable
-  water ``w_pw [cm]``. Calibrated against MODTRAN US Standard at the
-  band centres; *not* claimed accurate elsewhere.
+  water ``w_pw [cm]``. Scale height ``H_h2o = 2 km``. Calibrated
+  against MODTRAN US Standard at the band centres; *not* claimed
+  accurate elsewhere.
 
 This cut implements the full §3.1 simple-model triple:
 
@@ -36,10 +42,15 @@ Assumptions
 -----------
 - Plane-parallel atmosphere; spherical-Earth correction applied past
   80° zenith via :class:`AtmosphericGeometry`.
-- Aerosol and molecular scale heights are evaluated at the path-mean
-  altitude (i.e. one mean column extinction × slant path), not
-  integrated layer-by-layer. This is the textbook closed-form
-  approximation appropriate for the simple model's accuracy class.
+- Each species has an exponential density profile with a fixed scale
+  height. The optical depth is computed by analytically integrating
+  ``σ₀ · exp(−h/H)`` from target to sensor altitude, then multiplying
+  by the geometric air mass factor. This is exact for the assumed
+  exponential profile and works correctly at all altitudes including
+  orbital (LEO/MEO/GEO).
+- Mean-altitude extinctions are still used for the *relative* species
+  weights in the single-scattering albedo and phase function (these
+  are ratios, not absolute ODs, so the approximation is benign).
 - Wavelength dependence is monotone in each species. The water-vapor
   fit is bumpy by construction at the band centres but is smooth in
   the windows.
@@ -78,6 +89,7 @@ RAYLEIGH_EXPONENT: float = 4.09
 # Exponential-atmosphere scale heights [m].
 H_MOL_M: float = 8_000.0
 H_AER_M: float = 1_200.0
+H_H2O_M: float = 2_000.0
 
 # Koschmieder visibility constant: σ_aer(550 nm) = KOSCHMIEDER / V_km  [1/km]
 # 3.912 = -ln(0.02), the contrast threshold defining "meteorological
@@ -213,6 +225,29 @@ class SimpleAtmosphere:
                 f"'{self.standard_atmosphere}' is not recognised. Choose one "
                 f"of {sorted(_T_SEA_LEVEL_K)}."
             )
+
+    # ------------------------------------------------------------------
+    # Column-integrated optical depth
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _column_length_km(h_low_m: float, h_high_m: float, scale_height_m: float) -> float:
+        """Effective column length [km] for an exponential density profile.
+
+        Analytically integrates ``exp(−h / H)`` from ``h_low`` to ``h_high``::
+
+            ∫ exp(−h/H) dh = H · [exp(−h_low/H) − exp(−h_high/H)]
+
+        The result is in km (matching the sea-level extinction units of
+        [1/km]) so that ``σ₀ [1/km] × column_length [km] = OD``
+        (dimensionless).
+
+        For ``h_high ≫ H`` (orbital altitudes), ``exp(−h_high/H) → 0``
+        and the column length saturates at ``H · exp(−h_low/H)``, i.e.
+        the full atmospheric column above the target.
+        """
+        hs = scale_height_m
+        return (hs / 1000.0) * (math.exp(-h_low_m / hs) - math.exp(-h_high_m / hs))
 
     # ------------------------------------------------------------------
     # Per-species extinction [1/km]
@@ -390,19 +425,42 @@ class SimpleAtmosphere:
         slant_km = slant_m / 1000.0
         mean_alt_m = 0.5 * (geometry.sensor_altitude_m + geometry.target_altitude_m)
 
+        # Sea-level extinction coefficients [1/km] — for column OD.
+        sigma_mol_0 = self._rayleigh_extinction_km(lam, 0.0)
+        sigma_aer_0 = self._aerosol_extinction_km(lam, 0.0)
+        sigma_h2o_0 = self._h2o_extinction_km(lam)
+
+        # Column-integrated vertical optical depth through exponential
+        # atmosphere profiles.  Each species integrates σ₀·exp(-h/H)
+        # from h_target to h_sensor, yielding an effective column
+        # length [km] that is multiplied by the sea-level extinction.
+        h_low_m = min(geometry.target_altitude_m, geometry.sensor_altitude_m)
+        h_high_m = max(geometry.target_altitude_m, geometry.sensor_altitude_m)
+
+        col_mol = self._column_length_km(h_low_m, h_high_m, H_MOL_M)
+        col_aer = self._column_length_km(h_low_m, h_high_m, H_AER_M)
+        col_h2o = self._column_length_km(h_low_m, h_high_m, H_H2O_M)
+
+        # Vertical OD per species [dimensionless arrays over wavelength].
+        od_mol = sigma_mol_0 * col_mol
+        od_aer = sigma_aer_0 * col_aer
+        od_h2o = sigma_h2o_0 * col_h2o
+
+        # Apply geometric air mass factor for off-nadir viewing.
+        airmass = geometry.air_mass()
+        od_total = (od_mol + od_aer + od_h2o) * airmass
+
+        # Beer-Lambert.  OD ≥ 0 by construction → τ ∈ (0, 1].
+        tau = np.exp(-od_total)
+
+        # Mean-altitude extinctions [1/km] — used only for the
+        # *relative* species weights in SSA and phase function, not
+        # for optical depth.  The H₂O term now includes altitude
+        # scaling consistent with Rayleigh and aerosol.
         sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
         sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
-        sigma_h2o = self._h2o_extinction_km(lam)
-        sigma_total = sigma_mol + sigma_aer + sigma_h2o  # [1/km]
-
-        # Beer-Lambert. clip to [0, 1] is unnecessary because all
-        # σ_i ≥ 0 and slant ≥ 0 → exp(...) ∈ (0, 1].
-        tau = np.exp(-sigma_total * slant_km)
-
-        # When slant path is zero (Δh = 0 — exo-like configuration of
-        # SimpleAtmosphere) τ collapses to ones exactly.
-        if slant_km == 0.0:
-            tau = np.ones_like(lam)
+        h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
+        sigma_h2o = sigma_h2o_0 * h2o_scale
 
         t_atm_eff_K = self._effective_atmospheric_temperature_K(geometry.sensor_altitude_m)
 
@@ -419,6 +477,10 @@ class SimpleAtmosphere:
             "standard_atmosphere": self.standard_atmosphere,
             "slant_path_km": slant_km,
             "mean_altitude_m": mean_alt_m,
+            "air_mass": airmass,
+            "col_length_mol_km": col_mol,
+            "col_length_aer_km": col_aer,
+            "col_length_h2o_km": col_h2o,
             "t_atm_eff_K": t_atm_eff_K,
             "cos_theta_sun": cos_theta_sun,
             "cos_theta_scatter": cos_theta_scatter,
@@ -430,7 +492,7 @@ class SimpleAtmosphere:
             wavelength_um=lam,
             values=tau,
             unit="",
-            source="SimpleAtmosphere (Beer-Lambert: Rayleigh+aerosol+H2O)",
+            source="SimpleAtmosphere (column-integrated: Rayleigh+aerosol+H2O)",
             source_parameters=provenance,
         )
 
@@ -500,7 +562,10 @@ class SimpleAtmosphere:
             derivation_chain=(
                 f"SimpleAtmosphere(visibility_km={self.visibility_km}, "
                 f"aerosol={self.aerosol_type}, pwv_cm={self.precipitable_water_cm})",
-                f"slant_path_km={slant_km:.4f}, mean_alt_m={mean_alt_m:.1f}",
+                f"Column-integrated OD: h_low={h_low_m:.0f} m, h_high={h_high_m:.0f} m, "
+                f"airmass={airmass:.4f}",
+                f"col_lengths [km]: mol={col_mol:.4f}, aer={col_aer:.4f}, "
+                f"h2o={col_h2o:.4f}",
                 f"L_path = L_sun · μ₀ · ω₀ · P(Θ) · (1 − τ); "
                 f"μ₀={cos_theta_sun:.4f}, cos Θ={cos_theta_scatter:.4f}, "
                 f"HG g={HG_ASYMMETRY}",

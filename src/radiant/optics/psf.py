@@ -195,6 +195,54 @@ class EffectivePSF:
     def total(self) -> float:
         return float(self.data.sum())
 
+    # -- kernel convolution -------------------------------------------------
+
+    def with_kernel(
+        self, name: str, kernel: npt.NDArray[np.float64]
+    ) -> "EffectivePSF":
+        """Return a new EffectivePSF with an additional kernel convolved in.
+
+        Uses FFT-based convolution, identical to ``build_effective_psf``.
+        The kernel must be a 2-D array normalised to unit volume.
+
+        Parameters
+        ----------
+        name:
+            Label for the convolution history (e.g. ``"ipc"``).
+        kernel:
+            2-D kernel array (must fit within the PSF grid).
+        """
+        n = self.data.shape[0]
+        kn = kernel.shape[0]
+        if kn > n:
+            raise ValueError(
+                f"Kernel '{name}' has size {kn} which exceeds PSF grid {n}."
+            )
+
+        # Pad kernel to PSF size, centered.
+        padded = np.zeros((n, n), dtype=np.float64)
+        kc = kn // 2
+        offset = n // 2 - kc
+        padded[offset : offset + kn, offset : offset + kn] = kernel
+
+        # FFT convolution.
+        psf_fft = np.fft.fft2(np.fft.ifftshift(self.data))
+        k_fft = np.fft.fft2(np.fft.ifftshift(padded))
+        convolved = np.real(np.fft.fftshift(np.fft.ifft2(psf_fft * k_fft)))
+
+        # Re-normalise to unit volume.
+        total = convolved.sum()
+        if total > 0:
+            convolved /= total
+
+        return EffectivePSF(
+            data=convolved,
+            sample_spacing_m=self.sample_spacing_m,
+            pixel_pitch_m=self.pixel_pitch_m,
+            wavelength_um=self.wavelength_um,
+            convolution_history=self.convolution_history + (name,),
+        )
+
     # -- MTF ----------------------------------------------------------------
 
     def mtf_2d(self) -> npt.NDArray[np.float64]:

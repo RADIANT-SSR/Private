@@ -32,5 +32,6 @@ spectral_integration:
 
 readout:
   read_noise_e_rms: 5.0       # e- RMS
-  gain_e_per_dn: 1.0          # e-/DN
+  gain_e_per_dn: 32.0         # e-/DN (sized for FWC/2^16)
   adc_bits: 16
+  full_well_capacity_e: 2000000.0  # e- (2 Me-, typical MWIR HgCdTe)

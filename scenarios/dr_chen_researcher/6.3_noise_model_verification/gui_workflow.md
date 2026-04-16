@@ -1,0 +1,116 @@
+# Scenario 6.3: GUI Workflow — Noise Model Verification
+
+How this scenario would be completed in the RADIANT GUI.
+
+---
+
+## Step 1: Import Parameters
+
+**Script equivalent:** Read Excel, convert units, build `Sensor.from_dict()`
+
+**GUI interaction:**
+- **File > Import Spreadsheet** — user selects their `.xlsx` file
+- GUI reads the parameter table and presents a **mapping dialog**:
+  - Left column: spreadsheet parameter names (e.g., "Aperture diameter")
+  - Right column: dropdown of RADIANT parameter dot-paths (e.g., `optics.aperture_diameter_m`)
+  - Center column: detected unit + target unit with auto-conversion preview
+    - e.g., `30 cm` -> `0.30 m` (green checkmark)
+    - e.g., `70 %` -> `0.70` (green checkmark)
+    - e.g., `5 ms` -> `0.005 s` (green checkmark)
+- **Smart matching**: GUI auto-matches obvious pairs ("Aperture diameter" -> `optics.aperture_diameter_m`) and highlights unmatched rows in yellow
+- User confirms or adjusts mappings, then clicks **Import**
+- Imported values populate the **Parameter Panel** (see below)
+
+**Key GUI requirement:** Unit-aware import with conversion preview. The user should never have to manually convert cm to m.
+
+---
+
+## Step 2: Review / Edit Parameters
+
+**Script equivalent:** The printed "Converted to RADIANT canonical units" block
+
+**GUI interaction:**
+- **Parameter Panel** shows all parameters grouped by stage (Optics, Detector, Readout, Scene, Spectral)
+- Each row: parameter name, value, unit, source indicator (imported / default / derived)
+- Imported values highlighted to distinguish from defaults
+- Derived values (e.g., focal length from f/# x aperture) shown as read-only with tooltip showing the derivation
+- User can edit any value inline; changes propagate through consistency groups in real time
+
+**Key GUI requirement:** Visual distinction between user-supplied, default, and derived values.
+
+---
+
+## Step 3: Run Evaluation
+
+**Script equivalent:** `sensor.evaluate()`
+
+**GUI interaction:**
+- **Run** button (or Ctrl+Enter)
+- Progress indicator while chain executes
+- Results populate the **Results Panel** automatically
+
+---
+
+## Step 4: Inspect Noise Budget
+
+**Script equivalent:** Iterating `result.noise_terms` and printing the table
+
+**GUI interaction:**
+- **Results Panel > Noise Budget tab**
+- **Bar chart** showing all 16 noise terms sorted by magnitude (log scale option)
+- **Table** below the chart with columns: Term, Value (e-), % of Total Variance
+- Terms with value = 0 collapsed/hidden by default (toggle to show all)
+- Dominant term highlighted
+- **Pie chart** option for fractional contribution view
+
+**Key GUI requirement:** Interactive noise budget visualization with sort/filter. This is the most-used view for detector engineers.
+
+---
+
+## Step 5: Compare to Hand Calculations
+
+**Script equivalent:** The comparison table with % error
+
+**GUI interaction:**
+- **Tools > Verification Mode** or a "Compare" button on the Noise Budget tab
+- Opens a **side-by-side panel**:
+  - Left column: RADIANT values (auto-populated)
+  - Right column: editable cells where user enters hand-calc values
+  - Center: auto-computed % error with color coding (green < 5%, yellow < 20%, red > 20%)
+- User can paste values from their spreadsheet
+- **Export** button generates the comparison report (Excel or PDF)
+
+**Key GUI requirement:** Built-in verification/comparison workflow. This is a common use case for researchers and test engineers.
+
+---
+
+## Step 6: Export Results
+
+**Script equivalent:** Writing the output spreadsheet
+
+**GUI interaction:**
+- **File > Export Results** with format options:
+  - Excel (noise budget + comparison table on separate sheets)
+  - CSV
+  - PDF report (formatted with charts)
+- Default export includes: parameter summary, noise budget table, noise bar chart, metrics summary
+
+---
+
+## GUI Components Identified
+
+| Component | Used in this scenario | Reusable? |
+|-----------|----------------------|-----------|
+| Spreadsheet import with unit mapping | Step 1 | Yes — all import workflows |
+| Parameter panel with source indicators | Step 2 | Yes — core UI element |
+| Noise budget bar chart | Step 4 | Yes — any evaluation |
+| Noise budget table with filtering | Step 4 | Yes — any evaluation |
+| Verification comparison panel | Step 5 | Yes — test engineer scenarios |
+| Results export (multi-format) | Step 6 | Yes — all workflows |
+
+## Pain Points the GUI Solves
+
+1. **Unit conversion** — the script required manual cm->m, %->fraction, ms->s. GUI handles this automatically.
+2. **Parameter name discovery** — the script failed on `atmosphere.mode` vs `atmosphere.model`, `operating_temp_K` vs `detector_temperature_K`. GUI uses dropdowns, no guessing.
+3. **Noise visualization** — the script prints a text table. GUI shows an interactive chart.
+4. **Comparison workflow** — the script required writing ~50 lines of comparison code. GUI has it built in.

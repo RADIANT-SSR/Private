@@ -582,6 +582,67 @@ class TestConvolutionHistory:
 # ---------------------------------------------------------------------------
 
 
+class TestEffectivePSFWithKernel:
+    """Tests for ``EffectivePSF.with_kernel()`` — post-hoc kernel convolution."""
+
+    def test_unit_volume_preserved(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """Convolved PSF still sums to 1.0."""
+        kernel = np.zeros((3, 3))
+        kernel[1, 1] = 0.9
+        kernel[0, 1] = kernel[2, 1] = kernel[1, 0] = kernel[1, 2] = 0.025
+        result = epsf_diffraction_only.with_kernel("test", kernel)
+        assert result.total == pytest.approx(1.0, abs=1e-12)
+
+    def test_history_appended(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """Convolution history includes the new kernel name."""
+        kernel = np.array([[0, 0.02, 0], [0.02, 0.92, 0.02], [0, 0.02, 0]])
+        result = epsf_diffraction_only.with_kernel("ipc", kernel)
+        assert result.convolution_history[-1] == "ipc"
+        # Original history preserved.
+        assert result.convolution_history[0] == "optical"
+
+    def test_original_unchanged(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """with_kernel returns a new object; original is unchanged."""
+        original_data = epsf_diffraction_only.data.copy()
+        kernel = np.array([[0, 0.03, 0], [0.03, 0.88, 0.03], [0, 0.03, 0]])
+        _ = epsf_diffraction_only.with_kernel("ipc", kernel)
+        np.testing.assert_array_equal(epsf_diffraction_only.data, original_data)
+
+    def test_ipc_broadens_psf(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """IPC kernel should broaden the PSF (lower peak, wider FWHM)."""
+        kernel = np.array([[0, 0.04, 0], [0.04, 0.84, 0.04], [0, 0.04, 0]])
+        result = epsf_diffraction_only.with_kernel("ipc", kernel)
+        assert result.peak < epsf_diffraction_only.peak
+        assert result.fwhm("x") > epsf_diffraction_only.fwhm("x")
+
+    def test_ipc_reduces_mtf(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """IPC should reduce MTF at all non-zero frequencies."""
+        kernel = np.array([[0, 0.03, 0], [0.03, 0.88, 0.03], [0, 0.03, 0]])
+        original_freq, original_mtf = epsf_diffraction_only.mtf_1d("x")
+        result = epsf_diffraction_only.with_kernel("ipc", kernel)
+        _, result_mtf = result.mtf_1d("x")
+        # DC is still 1.0.
+        assert result_mtf[0] == pytest.approx(1.0, rel=1e-6)
+        # Above noise floor, IPC MTF <= original MTF.
+        mask = original_mtf > 1e-6
+        assert np.all(result_mtf[mask] <= original_mtf[mask] + 1e-10)
+
+    def test_kernel_too_large_raises(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """Kernel larger than PSF grid raises ValueError."""
+        n = epsf_diffraction_only.shape[0]
+        big_kernel = np.ones((n + 2, n + 2))
+        with pytest.raises(ValueError, match="exceeds PSF grid"):
+            epsf_diffraction_only.with_kernel("huge", big_kernel)
+
+    def test_metadata_preserved(self, epsf_diffraction_only: EffectivePSF) -> None:
+        """Sample spacing, pixel pitch, wavelength carried over."""
+        kernel = np.array([[0, 0.02, 0], [0.02, 0.92, 0.02], [0, 0.02, 0]])
+        result = epsf_diffraction_only.with_kernel("ipc", kernel)
+        assert result.sample_spacing_m == epsf_diffraction_only.sample_spacing_m
+        assert result.pixel_pitch_m == epsf_diffraction_only.pixel_pitch_m
+        assert result.wavelength_um == epsf_diffraction_only.wavelength_um
+
+
 class TestEffectivePSFFrozen:
     def test_frozen(self, epsf_diffraction_only: EffectivePSF) -> None:
         with pytest.raises(AttributeError):

@@ -1,17 +1,26 @@
-"""Tests for NEDT, NEDL, NEDR metrics."""
+"""Tests for NEDT, NEDL, NEDR metrics.
+
+Level 0: pure function tests for compute_nedt, compute_nedt_from_snr, etc.
+Level 1: ChainState wiring test for _compute_nedt_metric.
+"""
 
 from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 
+from radiant.core.chain import ChainState
+from radiant.core.parameters import ParameterSet
+from radiant.core.radiometry import NoiseTerm, RadiometricFrame
 from radiant.performance.nedt import (
     compute_nedl,
     compute_nedr,
     compute_nedt,
     compute_nedt_from_snr,
 )
+from radiant.performance.stage import _compute_nedt_metric
 
 
 class TestNEDT:
@@ -153,3 +162,65 @@ class TestNEDR:
     def test_zero_snr_fails(self) -> None:
         result = compute_nedr(0.3, 0.0)
         assert not result.ok
+
+
+# ---------------------------------------------------------------------------
+# Level 1 — ChainState wiring
+# ---------------------------------------------------------------------------
+
+
+def _make_nedt_params(
+    target_temp: float = 310.0,
+    filter_min_um: float = 3.5,
+    filter_max_um: float = 5.0,
+) -> ParameterSet:
+    """Build a minimal ParameterSet for NEDT wiring test."""
+    from radiant.source._schema import TARGET_TEMPERATURE
+    from radiant.spectral_integration._schema import FILTER_MIN_UM, FILTER_MAX_UM
+
+    schema = [TARGET_TEMPERATURE, FILTER_MIN_UM, FILTER_MAX_UM]
+    ps = ParameterSet(schema)
+    ps.set("source.target.temperature", target_temp)
+    ps.set("spectral_integration.filter_min_um", filter_min_um)
+    ps.set("spectral_integration.filter_max_um", filter_max_um)
+    ps.resolve()
+    return ps
+
+
+def _make_state_with_snr(snr: float) -> ChainState:
+    """Build a ChainState with SNR already stored in metrics."""
+    wl = np.linspace(3.5, 5.0, 10)
+    state = ChainState(wavelength_um=wl)
+    state = state.with_metric("snr", snr)
+    return state
+
+
+class TestNEDTMetricsWiring:
+    def test_nedt_in_metrics(self) -> None:
+        """NEDT appears in result.metrics for MWIR thermal scenario."""
+        state = _make_state_with_snr(468.0)
+        params = _make_nedt_params(target_temp=310.0)
+        out = _compute_nedt_metric(state, params)
+
+        assert "nedt_K" in out.metrics
+        # NEDT should be a small positive number for SNR=468
+        assert out.metrics["nedt_K"] > 0.0
+        assert out.metrics["nedt_K"] < 1.0  # well under 1 K for SNR=468
+
+    def test_nedt_consistent_with_pure_function(self) -> None:
+        """Wiring gives same result as calling compute_nedt_from_snr directly."""
+        snr = 100.0
+        target_temp = 300.0
+        state = _make_state_with_snr(snr)
+        params = _make_nedt_params(target_temp=target_temp, filter_min_um=3.5, filter_max_um=5.0)
+        out = _compute_nedt_metric(state, params)
+
+        direct = compute_nedt_from_snr(target_temp, snr, 4.25)
+        assert out.metrics["nedt_K"] == pytest.approx(direct.value_K, rel=1e-10)
+
+    def test_zero_snr_skips(self) -> None:
+        """SNR = 0 → NEDT not computed."""
+        state = _make_state_with_snr(0.0)
+        params = _make_nedt_params()
+        out = _compute_nedt_metric(state, params)
+        assert "nedt_K" not in out.metrics

@@ -3,20 +3,20 @@
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
     "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "manual update for Round 3 adversarial review (C-3: L_path /4 fix)",
-    "notes": "L_path reduced by 4x (single-scatter formula corrected from E_sun/pi to E_sun/4pi). Signal clips at available_fwc = FWC - dark_e = 100000 - 0.5 = 99999.5. SNR uses sigma_total_e."
+    "generated_by": "atmosphere model fix: column-integrated OD replaces mean-altitude x slant-path",
+    "notes": "SimpleAtmosphere now integrates exp(-h/H) analytically for each species instead of using sigma(h_mean) x L_slant. H2O extinction is altitude-scaled with H_h2o=2km. YAML now includes full_well_capacity_e=2e6 (no saturation)."
   },
 
   "signal_e": {
-    "value": 105333.07994131475,
+    "value": 750264.220274625,
     "unit": "e-",
-    "provenance": "chain output: integral of QE * L_post_optics * A_collect * Omega_pixel * (lambda/hc) dlambda * t_int with corrected L_path"
+    "provenance": "chain output: column-integrated atmosphere with H_mol=8km, H_aer=1.2km, H_h2o=2km"
   },
 
   "e_rate_per_s": {
-    "value": 21066615.988262948,
+    "value": 150052844.054925,
     "unit": "e-/s",
-    "provenance": "signal_e / t_int = 105333.08 / 0.005"
+    "provenance": "signal_e / t_int = 750264.22 / 0.005"
   },
 
   "A_collect": {
@@ -32,9 +32,9 @@
   },
 
   "noise_shot": {
-    "value": 316.22697544643466,
+    "value": 866.177938,
     "unit": "e- RMS",
-    "provenance": "sqrt(available_fwc) = sqrt(99999.5) where available_fwc = FWC - dark_e = 100000 - 0.5; well saturation clips signal_shot"
+    "provenance": "sqrt(signal_e) = sqrt(750264.22) = 866.18"
   },
 
   "noise_dark_shot": {
@@ -50,20 +50,20 @@
   },
 
   "noise_quantization": {
-    "value": 0.2886751345948129,
+    "value": 9.237604307034013,
     "unit": "e- RMS",
-    "provenance": "hand calculation: gain / sqrt(12) = 1.0 / sqrt(12) = 0.28868"
+    "provenance": "hand calculation: gain / sqrt(12) = 32.0 / sqrt(12) = 9.2376"
   },
 
   "noise_rss": {
-    "value": 801.6501826939932,
+    "value": 1318.662799662764,
     "unit": "e- RMS",
-    "provenance": "RSS of all 16 noise terms: dominated by nearfield_shot, signal_shot (316.2), background_shot"
+    "provenance": "RSS of all 16 noise terms: dominated by signal_shot (866.2), background_shot (719.6), nearfield_shot (686.0)"
   },
 
   "snr": {
-    "value": 124.74206600183851,
+    "value": 568.9583572589582,
     "unit": "dimensionless",
-    "provenance": "signal_e_final / sigma_total_e = 99999.5 / 801.65 = 124.74 (signal clipped at available_fwc=99999.5)"
+    "provenance": "signal_e_final / sigma_total_e = 750264.22 / 1318.66 = 568.96"
   }
 }

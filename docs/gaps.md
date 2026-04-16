@@ -432,6 +432,134 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 
 ---
 
+## Gap 29: No defocus model (focus-shift parameter)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
+| **Status** | OPEN |
+| **Description** | RADIANT has no parameter for detector-plane defocus (linear focus shift from best focus). The `optics.wfe_rms_waves` parameter models wavefront error as a random phase screen, which is mathematically different from pure defocus (Zernike Z4). A 5 µm defocus at f/3 produces a geometric blur spot of 0.83 µm radius — negligible for this system but significant at faster f-numbers. Defocus is one of the most common as-built degradation modes and the first thing a test engineer checks. |
+| **Workaround** | Compute defocus MTF analytically in scripts: `MTF_defocus = exp(-2π²σ²f²)` with `σ = δ/(4·f/#)`. Multiply with RADIANT's predicted MTF. |
+| **Impact** | Any lab MTF comparison where the sensor is not at perfect focus. Any through-focus analysis. |
+| **Fix location** | `radiant/optics/_schema.py` + `stage.py` — add `optics.defocus_um` parameter, compute Gaussian defocus kernel and convolve with ePSF. |
+| **Effort** | Small — straightforward Gaussian blur kernel, one new parameter. |
+| **Scenarios blocked** | None (workaround available). |
+| **Rerun after fix** | Scenario 7.3 |
+
+---
+
+## Gap 30: No measurement data import / overlay API
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
+| **Status** | OPEN |
+| **Description** | RADIANT has no mechanism to import measured data (MTF curves, NEDT values, noise spectra) and compare against predictions. Test engineers always work in measurement-vs-model mode. Currently, all data import and comparison must be done manually in scripts outside RADIANT. |
+| **Workaround** | Read measurement files (CSV, Excel) in scripts, interpolate onto RADIANT's frequency grid, compute residuals manually. |
+| **Impact** | Every I&T scenario (7.x series), any model validation workflow. |
+| **Fix location** | `radiant/io/` — add measurement import readers. `radiant/api/` — add `Sensor.compare_mtf(measured_data)` or similar comparison utilities. |
+| **Effort** | Medium — need readers for common formats (CSV, Excel), unit conversion, interpolation, and residual computation. |
+| **Scenarios blocked** | None (workaround always available). |
+| **Rerun after fix** | Scenario 7.3 |
+
+---
+
+## Gap 31: No scatter / surface roughness (TIS) model
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
+| **Status** | OPEN |
+| **Description** | Real optical surfaces scatter light due to surface roughness (total integrated scatter, TIS). This transfers energy from the PSF core to a wide-angle halo, reducing MTF at all frequencies. RADIANT models diffraction and WFE but not surface scatter. The Harvey-Shack BRDF model or TIS = (4πσ/λ)² approximation would capture this. |
+| **Workaround** | None — scatter is an unmodeled MTF loss source. |
+| **Impact** | Lab MTF comparisons where scatter explains residual MTF loss after accounting for all other components. High-quality optics where scatter is comparable to WFE. |
+| **Fix location** | `radiant/optics/` — add scatter model (TIS fraction, Harvey-Shack parameters, or scatter kernel). |
+| **Effort** | Medium — TIS is straightforward; full Harvey-Shack is large. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 7.3 |
+
+---
+
+## Gap 32: No electronics MTF model (amplifier bandwidth)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
+| **Status** | OPEN |
+| **Description** | Detector readout electronics have finite bandwidth, producing a low-pass filter that degrades cross-scan MTF. This "electronics MTF" is typically Gaussian: `MTF_elec = exp(-2π²σ_e²f²)` with σ_e determined by the amplifier bandwidth and pixel clock rate. RADIANT does not model this. For CCD and CMOS sensors, electronics MTF can be comparable to pixel aperture MTF at high readout speeds. |
+| **Workaround** | Include as a charge diffusion term if the functional form is similar. |
+| **Impact** | Lab MTF comparisons at high pixel clock rates. |
+| **Fix location** | `radiant/readout/` — add electronics MTF parameter and computation. |
+| **Effort** | Small — single Gaussian parameter. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 7.3 |
+
+---
+
+## Gap 33: GSD not adjusted for off-nadir angle
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
+| **Status** | OPEN |
+| **Description** | `compute_gsd()` in `radiant/performance/gsd.py` uses nadir formula `GSD = pixel_pitch × altitude / focal_length` and does not account for `geometry.path_zenith_rad`. At 45 deg off-nadir from 600 km, the true slant range is 815 km, giving cross-track GSD of 1.86 m vs. the reported 1.37 m — a 26% error. GSD should use slant range: `GSD = pixel_pitch × slant_range / focal_length`. |
+| **Workaround** | Compute slant range and off-nadir GSD manually in scripts. |
+| **Impact** | Any off-nadir or agile pointing analysis reports incorrect GSD. NIIRS derived from incorrect GSD is also wrong (Gap 34). |
+| **Fix location** | `radiant/performance/gsd.py` — read `geometry.path_zenith_rad` and compute slant range. |
+| **Effort** | Small — slant range formula already exists in atmosphere module. |
+| **Scenarios blocked** | None (workaround available). |
+| **Rerun after fix** | Scenario 3.4 |
+
+---
+
+## Gap 34: NIIRS not recomputed with off-nadir GSD
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
+| **Status** | OPEN |
+| **Description** | Because GSD is computed at nadir (Gap 33), NIIRS from GIQE-5 does not reflect the true off-nadir GSD. At 45 deg, NIIRS is approximately 0.67 points too optimistic. Fixing Gap 33 would automatically fix this, since NIIRS reads GSD from `result.metrics`. |
+| **Workaround** | Correct NIIRS using GSD scaling: `dNIIRS = -3.32 × log10(GSD_true / GSD_nadir)`. |
+| **Impact** | Any off-nadir NIIRS analysis. |
+| **Fix location** | Resolved automatically when Gap 33 is fixed. |
+| **Effort** | None beyond Gap 33. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 3.4 |
+
+---
+
+## Gap 35: No along-track vs cross-track GSD distinction at off-nadir
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
+| **Status** | OPEN |
+| **Description** | At off-nadir angles, the ground sample is no longer square. Cross-track GSD scales as `slant_range / f` but along-track GSD scales as `slant_range / (f × cos(incidence_angle))` due to ground projection foreshortening. At 45 deg off-nadir, along-track GSD is 2.94 m vs. cross-track 1.86 m — a 58% asymmetry. RADIANT's GSD metric always reports equal cross-track and along-track values (from pixel pitch ratio only, no angle). |
+| **Workaround** | Compute the projection-corrected along-track GSD externally. |
+| **Impact** | Any off-nadir analysis, NIIRS prediction (GIQE-5 uses geometric mean of cross/along GSD). |
+| **Fix location** | `radiant/performance/gsd.py` — add incidence angle correction for along-track GSD. |
+| **Effort** | Medium — needs incidence angle computation from zenith angle and Earth geometry. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 3.4 |
+
+---
+
+## Gap 36: No swath width or access geometry calculator
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
+| **Status** | OPEN |
+| **Description** | RADIANT has no built-in computation for swath width, ground range, or access area rate. Mission planners need these to evaluate the trade between image quality and collection capability. The math is straightforward geometry (swath = n_pixels × GSD_cross, ground_range from Earth geometry). |
+| **Workaround** | Compute externally in scripts. |
+| **Impact** | Mission planning and agile pointing trade studies. |
+| **Fix location** | `radiant/performance/` or `radiant/api/` — add access geometry utilities. |
+| **Effort** | Medium — need Earth geometry, swath, ground range, access rate calculations. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 3.4 |
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -464,3 +592,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 26 | No Zemax Zernike importer | Medium | 5.1 | OPEN |
 | 27 | MTF curve frequency axis units | Small | 5.1 | OPEN |
 | 28 | No WFE allocation / error budget tool | Medium | 5.1 | OPEN |
+| 29 | No defocus model (focus-shift) | Small | 7.3 | OPEN |
+| 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |
+| 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | OPEN |
+| 32 | No electronics MTF model | Small | 7.3 | OPEN |
+| 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | OPEN |
+| 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | OPEN |
+| 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | OPEN |
+| 36 | No swath width / access geometry | Medium | 3.4 | OPEN |

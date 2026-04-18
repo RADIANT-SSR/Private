@@ -6,11 +6,13 @@ import math
 
 import pytest
 
-from radiant.readout.binning import (
+from radiant.readout.binning_offchip import (
     offchip_scale_fpn,
     offchip_scale_read_noise,
     offchip_scale_shot_noise,
     offchip_scale_signal,
+)
+from radiant.readout.binning_onchip import (
     onchip_scale_fpn,
     onchip_scale_read_noise,
     onchip_scale_shot_noise,

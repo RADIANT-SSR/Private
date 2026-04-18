@@ -1,6 +1,6 @@
-"""Noise-equivalent metrics: NEDT, NEDL, NEDR.
+"""NEDT — Noise-Equivalent Differential Temperature.
 
-Implements §4.2–§4.4 of ``docs/RADIANT_Metrics.md``.
+Implements §4.2 of ``docs/RADIANT_Metrics.md``.
 
 NEDT — Noise-Equivalent Differential Temperature [K]:
     NEDT = T / SNR  (first-order approximation)
@@ -20,13 +20,7 @@ NEDT — Noise-Equivalent Differential Temperature [K]:
     computes dS/dT externally (e.g., by running at T ± δT), and this
     function takes S, σ, and dS/dT directly.
 
-NEDL — Noise-Equivalent Differential Radiance [W/m²/sr/µm]:
-    NEDL = L / SNR
-
-NEDR — Noise-Equivalent Reflectance Difference [dimensionless]:
-    NEΔρ = ρ / SNR  (reflective regime)
-
-All three are pure functions of SNR and the relevant signal quantity.
+See also ``nedl.py`` for NEDL and ``nedr.py`` for NEDR.
 """
 
 from __future__ import annotations
@@ -192,109 +186,3 @@ def compute_nedt_from_snr(
         noise_e=0.0,
         ds_dt_e_per_K=planck_factor * snr / target_temp_K,
     )
-
-
-@dataclass(frozen=True)
-class NEDLResult:
-    """Result of an NEDL computation.
-
-    Parameters
-    ----------
-    value:
-        NEDL [W/m²/sr/µm]. ``float('nan')`` on failure.
-    radiance:
-        Signal radiance [W/m²/sr/µm].
-    snr:
-        Signal-to-noise ratio.
-    failure_reason:
-        ``None`` on success.
-    """
-
-    value: float
-    radiance: float
-    snr: float
-    failure_reason: str | None = None
-
-    @property
-    def ok(self) -> bool:
-        return self.failure_reason is None and math.isfinite(self.value)
-
-
-def compute_nedl(radiance: float, snr: float) -> NEDLResult:
-    """Compute NEDL = L / SNR.
-
-    Parameters
-    ----------
-    radiance:
-        In-band radiance [W/m²/sr/µm]. Must be > 0.
-    snr:
-        Signal-to-noise ratio. Must be > 0 and finite.
-    """
-    if radiance <= 0.0:
-        return NEDLResult(
-            value=float("nan"),
-            radiance=radiance,
-            snr=snr,
-            failure_reason=f"Radiance = {radiance} must be > 0.",
-        )
-    if not math.isfinite(snr) or snr <= 0.0:
-        return NEDLResult(
-            value=float("nan"),
-            radiance=radiance,
-            snr=snr,
-            failure_reason=f"SNR = {snr} must be positive and finite.",
-        )
-    return NEDLResult(value=radiance / snr, radiance=radiance, snr=snr)
-
-
-@dataclass(frozen=True)
-class NEDRResult:
-    """Result of an NEDR (NEΔρ) computation.
-
-    Parameters
-    ----------
-    value:
-        Noise-equivalent reflectance difference [dimensionless].
-    reflectance:
-        Target reflectance (fractional).
-    snr:
-        Signal-to-noise ratio.
-    failure_reason:
-        ``None`` on success.
-    """
-
-    value: float
-    reflectance: float
-    snr: float
-    failure_reason: str | None = None
-
-    @property
-    def ok(self) -> bool:
-        return self.failure_reason is None and math.isfinite(self.value)
-
-
-def compute_nedr(reflectance: float, snr: float) -> NEDRResult:
-    """Compute NEΔρ = ρ / SNR.
-
-    Parameters
-    ----------
-    reflectance:
-        Target reflectance (0, 1]. Must be > 0.
-    snr:
-        Signal-to-noise ratio. Must be > 0 and finite.
-    """
-    if reflectance <= 0.0:
-        return NEDRResult(
-            value=float("nan"),
-            reflectance=reflectance,
-            snr=snr,
-            failure_reason=f"Reflectance = {reflectance} must be > 0.",
-        )
-    if not math.isfinite(snr) or snr <= 0.0:
-        return NEDRResult(
-            value=float("nan"),
-            reflectance=reflectance,
-            snr=snr,
-            failure_reason=f"SNR = {snr} must be positive and finite.",
-        )
-    return NEDRResult(value=reflectance / snr, reflectance=reflectance, snr=snr)

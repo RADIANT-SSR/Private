@@ -33,10 +33,12 @@ from radiant.core.noise_budget import (
 )
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import NoiseTerm
-from radiant.readout.binning import (
+from radiant.readout.binning_offchip import (
     offchip_scale_read_noise,
     offchip_scale_shot_noise,
     offchip_scale_signal,
+)
+from radiant.readout.binning_onchip import (
     onchip_scale_read_noise,
     onchip_scale_shot_noise,
     onchip_scale_signal,
@@ -51,7 +53,7 @@ from radiant.readout.saturation import (
     check_adc_saturation,
     check_well_saturation,
 )
-from radiant.readout.tdi import (
+from radiant.readout.tdi_scaling import (
     tdi_scale_fpn,
     tdi_scale_read_noise,
     tdi_scale_shot_noise,

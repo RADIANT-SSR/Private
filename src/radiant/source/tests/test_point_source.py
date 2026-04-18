@@ -15,10 +15,8 @@ import pytest
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
-from radiant.source.point_source import (
-    BlackbodyIntensitySource,
-    DirectIntensitySource,
-)
+from radiant.source.point_source_blackbody import BlackbodyIntensitySource
+from radiant.source.point_source_direct import DirectIntensitySource
 
 
 WAV = np.linspace(3.0, 5.0, 200)

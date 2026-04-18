@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from radiant.source.composite import CompositeTarget
-from radiant.source.primitives import Box, Cylinder, FlatPlate, Sphere
+from radiant.source.shapes import Box, Cylinder, FlatPlate, Sphere
 from radiant.source.shape import TargetShape
 
 

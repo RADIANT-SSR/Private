@@ -97,8 +97,8 @@ def check(condition: bool, msg: str) -> bool:
 def build_reference_psfs() -> dict:
     """Build diffraction-only and degraded EffectivePSFs."""
     from radiant.optics.sampling import compute_sampling
-    from radiant.optics.diffraction import compute_psf
-    from radiant.optics.psf import build_effective_psf
+    from radiant.optics.diffraction_mono import compute_psf
+    from radiant.optics.psf_builder import build_effective_psf
     from radiant.detector.diffusion import diffusion_kernel_2d
     from radiant.platform.jitter import jitter_kernel_2d
     from radiant.platform.smear import smear_kernel_1d
@@ -343,7 +343,7 @@ def print_niirs(data: dict) -> None:
 def verify_invariants(data: dict) -> int:
     banner("6. NINE MANDATORY INVARIANTS")
 
-    from radiant.optics.psf import build_effective_psf
+    from radiant.optics.psf_builder import build_effective_psf
 
     epsf_diff = data["epsf_diff"]
     epsf_deg = data["epsf_degraded"]
@@ -597,7 +597,7 @@ def adversarial_audit() -> None:
         fail("optics.stage does not build EffectivePSF")
 
     # Check: EffectivePSF.rer() uses ERF from same PSF
-    from radiant.optics.psf import EffectivePSF
+    from radiant.optics.effective_psf import EffectivePSF
     rer_source = inspect.getsource(EffectivePSF.rer)
     if "self.erf" in rer_source:
         ok("EffectivePSF.rer() derives from self.erf() (same PSF)")

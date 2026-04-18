@@ -17,8 +17,10 @@ import math
 import numpy as np
 import pytest
 
-from radiant.optics.diffraction import compute_psf
-from radiant.optics.psf import PSFData, EffectivePSF, build_effective_psf
+from radiant.optics.diffraction_mono import compute_psf
+from radiant.optics.psf_data import PSFData
+from radiant.optics.effective_psf import EffectivePSF
+from radiant.optics.psf_builder import build_effective_psf
 from radiant.optics.sampling import compute_sampling, PSFSamplingConfig
 
 

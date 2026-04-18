@@ -6,11 +6,9 @@ import math
 
 import pytest
 
-from radiant.performance.saturation_metrics import (
-    compute_adc_margin,
-    compute_dynamic_range,
-    compute_well_margin,
-)
+from radiant.performance.adc_margin import compute_adc_margin
+from radiant.performance.dynamic_range import compute_dynamic_range
+from radiant.performance.well_margin import compute_well_margin
 
 
 class TestWellMargin:

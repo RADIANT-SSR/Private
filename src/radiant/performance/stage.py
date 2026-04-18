@@ -21,12 +21,11 @@ from radiant.performance.nedt import compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.qsample import compute_q
 from radiant.performance.strehl import compute_strehl
-from radiant.performance.saturation_metrics import (
-    compute_adc_margin,
-    compute_dynamic_range,
-    compute_well_margin,
-)
-from radiant.performance.snr import compute_contrast_snr, compute_snr
+from radiant.performance.adc_margin import compute_adc_margin
+from radiant.performance.dynamic_range import compute_dynamic_range
+from radiant.performance.well_margin import compute_well_margin
+from radiant.performance.contrast_snr import compute_contrast_snr
+from radiant.performance.snr import compute_snr
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.system_mtf import mtf_at_nyquist, nyquist_freq
 

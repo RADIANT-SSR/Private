@@ -23,7 +23,8 @@ import pytest
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterDef, ParameterSet
-from radiant.optics.psf import EffectivePSF, build_effective_psf
+from radiant.optics.effective_psf import EffectivePSF
+from radiant.optics.psf_builder import build_effective_psf
 from radiant.platform.stage import PlatformStage
 
 
@@ -34,7 +35,7 @@ def _make_diffraction_psf(
     pixel_pitch_m: float = 8e-6,
 ) -> EffectivePSF:
     """Build a simple Airy-like ePSF for testing."""
-    from radiant.optics.diffraction import compute_psf
+    from radiant.optics.diffraction_mono import compute_psf
     from radiant.optics.sampling import compute_sampling
 
     wavelength_m = wavelength_um * 1e-6

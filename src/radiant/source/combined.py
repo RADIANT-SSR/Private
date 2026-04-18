@@ -23,7 +23,8 @@ import numpy.typing as npt
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.solar import toa_solar_spectral_irradiance
-from radiant.source.brdf import LambertianBRDF, PhongBRDF
+from radiant.source.brdf_lambertian import LambertianBRDF
+from radiant.source.brdf_phong import PhongBRDF
 
 
 @dataclass(frozen=True)

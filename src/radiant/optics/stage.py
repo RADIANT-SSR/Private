@@ -48,13 +48,14 @@ from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
 from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
-from radiant.optics.diffraction import (
+from radiant.optics.diffraction_mono import compute_psf
+from radiant.optics.diffraction_poly import (
     PolychromaticPSFResult,
     compute_polychromatic_psf,
-    compute_psf,
 )
-from radiant.optics.element_list import compute_nearfield_irradiance
-from radiant.optics.psf import EffectivePSF, build_effective_psf
+from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
+from radiant.optics.effective_psf import EffectivePSF
+from radiant.optics.psf_builder import build_effective_psf
 from radiant.optics.sampling import compute_sampling
 from radiant.optics.stray_light import (
     StrayLightConfig,

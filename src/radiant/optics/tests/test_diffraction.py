@@ -18,14 +18,16 @@ import numpy as np
 import pytest
 from scipy.special import j1  # type: ignore[import-untyped]
 
-from radiant.optics.diffraction import (
-    PolychromaticPSFResult,
-    compute_polychromatic_psf,
+from radiant.optics.diffraction_mono import (
     compute_psf,
-    compute_strehl,
     make_pupil_amplitude,
     make_pupil_phase,
 )
+from radiant.optics.diffraction_poly import (
+    PolychromaticPSFResult,
+    compute_polychromatic_psf,
+)
+from radiant.optics.diffraction_strehl import compute_strehl
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode
 

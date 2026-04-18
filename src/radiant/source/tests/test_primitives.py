@@ -17,7 +17,7 @@ import math
 import numpy as np
 import pytest
 
-from radiant.source.primitives import Box, Cone, Cylinder, FlatPlate, Sphere
+from radiant.source.shapes import Box, Cone, Cylinder, FlatPlate, Sphere
 from radiant.source.shape import TargetShape
 
 

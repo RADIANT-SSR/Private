@@ -6,10 +6,8 @@ import math
 
 import pytest
 
-from radiant.performance.detection import (
-    detection_range_beer_lambert,
-    detection_range_generic,
-)
+from radiant.performance.detection_beer_lambert import detection_range_beer_lambert
+from radiant.performance.detection_generic import detection_range_generic
 
 
 class TestBeerLambertDetection:

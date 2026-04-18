@@ -21,7 +21,7 @@ import pytest
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.solar import toa_solar_spectral_irradiance
-from radiant.source.brdf import LambertianBRDF
+from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.combined import CombinedSource
 from radiant.source.emitted import ThermalSource
 from radiant.source.reflected import ReflectedSolarSource

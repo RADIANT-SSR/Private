@@ -21,19 +21,17 @@ import pytest
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.regime import RadiometricRegime, TargetInputPath
-from radiant.source.background import BlackbodyBackground
+from radiant.source.background_blackbody import BlackbodyBackground
 from radiant.source.emitted import ThermalSource
 from radiant.source.material import SurfaceMaterial
-from radiant.source.point_source import BlackbodyIntensitySource
-from radiant.source.primitives import Sphere
-from radiant.source.unified_target import (
-    ResolvedTarget,
-    resolve_direct_intensity,
-    resolve_direct_radiance,
-    resolve_geometry,
-    resolve_physical_object,
-    resolve_sub_pixel,
-)
+from radiant.source.point_source_blackbody import BlackbodyIntensitySource
+from radiant.source.shapes import Sphere
+from radiant.source.resolved_target import ResolvedTarget
+from radiant.source.resolve_direct import resolve_direct_radiance
+from radiant.source.resolve_geometry import resolve_geometry
+from radiant.source.resolve_intensity import resolve_direct_intensity
+from radiant.source.resolve_physical import resolve_physical_object
+from radiant.source.resolve_sub_pixel import resolve_sub_pixel
 
 
 WAV = np.linspace(3.0, 5.0, 200)

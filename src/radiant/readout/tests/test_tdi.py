@@ -15,9 +15,11 @@ import math
 import numpy as np
 import pytest
 
-from radiant.readout.tdi import (
+from radiant.readout.tdi_mtf import (
     tdi_misalign_m,
     tdi_misalign_mtf_1d,
+)
+from radiant.readout.tdi_scaling import (
     tdi_scale_fpn,
     tdi_scale_read_noise,
     tdi_scale_shot_noise,

@@ -11,7 +11,7 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
-from radiant.optics.psf import EffectivePSF
+from radiant.optics.effective_psf import EffectivePSF
 from radiant.optics.stage import OpticsStage
 from radiant.optics.element import ElementTransferMode
 from radiant.optics.wavefront import FieldWfeSample, WavefrontError, WfeMode

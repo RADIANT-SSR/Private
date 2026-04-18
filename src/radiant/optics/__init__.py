@@ -6,12 +6,12 @@ from radiant.optics.element import (
     OpticalElement,
     make_lumped_element,
 )
-from radiant.optics.element_list import (
+from radiant.optics.nearfield_irradiance import (
     NearfieldResult,
     compute_downstream_transmission,
     compute_nearfield_irradiance,
-    compute_system_transmission,
 )
+from radiant.optics.system_transmission import compute_system_transmission
 from radiant.optics.filters import (
     FilterSpec,
     FilterType,

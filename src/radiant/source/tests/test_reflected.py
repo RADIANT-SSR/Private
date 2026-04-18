@@ -16,7 +16,8 @@ import numpy as np
 import pytest
 
 from radiant.core.solar import toa_solar_spectral_irradiance
-from radiant.source.brdf import LambertianBRDF, PhongBRDF
+from radiant.source.brdf_lambertian import LambertianBRDF
+from radiant.source.brdf_phong import PhongBRDF
 from radiant.source.reflected import ReflectedSolarSource
 
 

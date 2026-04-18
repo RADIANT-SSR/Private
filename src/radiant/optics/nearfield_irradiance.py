@@ -1,16 +1,15 @@
-"""Element list computations — system transmission and nearfield irradiance.
+"""Nearfield (warm-optics) irradiance at the FPA.
 
-Per RADIANT_Optics.md sections 5 and 7, the element list is the canonical
-internal representation for all five transmission input modes.  This module
-computes:
+Per RADIANT_Optics.md §7, each warm optical element emits as a graybody
+attenuated by all downstream elements, summed and scaled by cold-stop
+efficiency:
 
-1. **System transmission**: product of all element net transmittances.
-2. **Nearfield (warm-optics) irradiance at the FPA**: per-element
-   graybody emission attenuated by all downstream elements, summed over
-   the list and scaled by cold-stop efficiency.
+``E_nf(λ) = η_cold · Σ_i [ ε_i(λ) · B(λ, T_i) · Ω_i · τ_down_i(λ) ]``
 
-Dimensional audit for nearfield:
-    epsilon(dimless) x B(W/m^2/sr/um) x Omega(sr) x tau_down(dimless) = W/m^2/um
+Dimensional audit:
+    epsilon(dimless) × B(W/m²/sr/µm) × Omega(sr) × tau_down(dimless) = W/m²/µm
+
+See also ``system_transmission.py`` for total transmission.
 """
 
 from __future__ import annotations
@@ -44,43 +43,6 @@ class NearfieldResult:
 
     total: SpectralData
     per_element: dict[str, SpectralData]
-
-
-def compute_system_transmission(
-    elements: tuple[OpticalElement, ...],
-    wavelength_um: np.ndarray,
-) -> SpectralData:
-    """Product of all element net transmittances on the given wavelength grid.
-
-    Parameters
-    ----------
-    elements:
-        Ordered tuple of optical elements (entrance pupil to FPA).
-    wavelength_um:
-        Wavelength grid in microns.
-
-    Returns
-    -------
-    SpectralData
-        System transmission, dimensionless [0, 1].
-    """
-    if not elements:
-        raise ValueError(
-            "compute_system_transmission: element list must not be empty. "
-            "Even scalar-mode optics requires at least one lumped element."
-        )
-
-    tau = np.ones_like(wavelength_um, dtype=np.float64)
-    for elem in elements:
-        tau = tau * elem.net_transmittance.values
-
-    return SpectralData(
-        name="optics.system_transmission",
-        wavelength_um=wavelength_um.copy(),
-        values=tau,
-        unit="",
-        source=f"Product of {len(elements)} element(s)",
-    )
 
 
 def compute_downstream_transmission(

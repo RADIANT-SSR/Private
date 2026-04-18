@@ -15,7 +15,7 @@ Assumptions:
 - Spatially coherent pupil
 
 See RADIANT_Spatial_Complete.md §3.1 for the full derivation.
-See also ``diffraction_poly.py`` for polychromatic PSF.
+See also ``psf_poly.py`` for polychromatic PSF.
 """
 
 from __future__ import annotations

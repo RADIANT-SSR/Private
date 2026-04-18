@@ -35,7 +35,7 @@ def _make_diffraction_psf(
     pixel_pitch_m: float = 8e-6,
 ) -> EffectivePSF:
     """Build a simple Airy-like ePSF for testing."""
-    from radiant.optics.diffraction_mono import compute_psf
+    from radiant.optics.psf_mono import compute_psf
     from radiant.optics.sampling import compute_sampling
 
     wavelength_m = wavelength_um * 1e-6

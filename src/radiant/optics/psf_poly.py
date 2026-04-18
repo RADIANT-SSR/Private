@@ -5,7 +5,7 @@ wavelength, resampling to a common reference grid (defined by
 lambda_max), and performing a weighted summation.
 
 See RADIANT_Spatial_Complete.md §3.1 for the derivation.
-See also ``diffraction_mono.py`` for the monochromatic engine.
+See also ``psf_mono.py`` for the monochromatic engine.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.ndimage import zoom
 
-from radiant.optics.diffraction_mono import compute_psf
+from radiant.optics.psf_mono import compute_psf
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode
 

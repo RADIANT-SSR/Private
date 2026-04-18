@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from radiant.optics.diffraction_mono import compute_psf
+from radiant.optics.psf_mono import compute_psf
 from radiant.optics.ee_box import compute_ee_box
 from radiant.optics.psf.effective import EffectivePSF
 from radiant.optics.psf.builder import build_effective_psf

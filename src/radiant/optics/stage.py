@@ -48,8 +48,8 @@ from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
 from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
-from radiant.optics.diffraction_mono import compute_psf
-from radiant.optics.diffraction_poly import (
+from radiant.optics.psf_mono import compute_psf
+from radiant.optics.psf_poly import (
     PolychromaticPSFResult,
     compute_polychromatic_psf,
 )

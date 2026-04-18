@@ -97,7 +97,7 @@ def check(condition: bool, msg: str) -> bool:
 def build_reference_psfs() -> dict:
     """Build diffraction-only and degraded EffectivePSFs."""
     from radiant.optics.sampling import compute_sampling
-    from radiant.optics.diffraction_mono import compute_psf
+    from radiant.optics.psf_mono import compute_psf
     from radiant.optics.psf.builder import build_effective_psf
     from radiant.detector.diffusion import diffusion_kernel_2d
     from radiant.platform.jitter import jitter_kernel_2d

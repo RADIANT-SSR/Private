@@ -3,8 +3,8 @@
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
     "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "atmosphere model fix: column-integrated OD replaces mean-altitude x slant-path",
-    "notes": "SimpleAtmosphere now integrates exp(-h/H) analytically for each species instead of using sigma(h_mean) x L_slant. H2O extinction is altitude-scaled with H_h2o=2km. YAML now includes full_well_capacity_e=2e6 (no saturation)."
+    "generated_by": "refractive element emissivity fix: simple refractive eps=0 (absorption unknown)",
+    "notes": "Simple refractive elements (no cavity model) now have eps=0 instead of eps=1-T-R. When only T is known, 1-T is predominantly reflection not absorption. nearfield_shot drops from 686.0 to 0.0 e-."
   },
 
   "signal_e": {
@@ -56,14 +56,14 @@
   },
 
   "noise_rss": {
-    "value": 1318.662799662764,
+    "value": 1126.161646259509325,
     "unit": "e- RMS",
-    "provenance": "RSS of all 16 noise terms: dominated by signal_shot (866.2), background_shot (719.6), nearfield_shot (686.0)"
+    "provenance": "RSS of all 16 noise terms: dominated by signal_shot (866.2), background_shot (719.6). nearfield_shot=0 (simple refractive eps=0, absorption unknown)"
   },
 
   "snr": {
-    "value": 568.9583572589582,
+    "value": 666.213613975037106,
     "unit": "dimensionless",
-    "provenance": "signal_e_final / sigma_total_e = 750264.22 / 1318.66 = 568.96"
+    "provenance": "signal_e_final / sigma_total_e = 750264.22 / 1126.16 = 666.21"
   }
 }

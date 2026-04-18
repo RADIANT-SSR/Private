@@ -280,7 +280,7 @@ class TestSNRUnchanged:
         of mean-altitude × slant-path. FWC raised to 2M e- to avoid
         saturation clipping.
         """
-        expected_snr = 568.9583572589582
+        expected_snr = 666.213613975037106
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

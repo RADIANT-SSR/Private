@@ -23,7 +23,7 @@ Hand-calculated reference values (CODATA 2018 exact constants):
     shot_noise       ≈ 23.23 e⁻ RMS
     read_noise       = 30.00 e⁻ RMS
     quant_noise      = 0.2887 e⁻ RMS
-    SNR              ≈ 12.39  (16-term budget; includes background/nearfield shot)
+    SNR              ≈ 12.79  (16-term budget; nearfield_shot=0 for simple refractive eps=0)
 """
 
 from __future__ import annotations
@@ -177,9 +177,10 @@ class TestGroundTruthMWIR:
         expected_snr = signal_e / math.sqrt(noise_sq)
         actual_snr = result.metrics["snr"]
         assert actual_snr == pytest.approx(expected_snr, rel=1e-10)
-        # Cross-check against hand calculation (updated for 16-term noise budget:
-        # includes background_shot ≈18.4 e⁻ and nearfield_shot ≈10.9 e⁻).
-        assert actual_snr == pytest.approx(12.39, rel=1e-2)
+        # Cross-check against hand calculation (16-term noise budget:
+        # background_shot ≈18.4 e⁻; nearfield_shot=0 because simple
+        # refractive eps=0 when absorption is unknown).
+        assert actual_snr == pytest.approx(12.79, rel=1e-2)
 
     def test_snr_read_noise_dominated(self, result) -> None:
         """With ~540 e⁻ signal and 30 e⁻ read noise, SNR ~ 14.

@@ -16,7 +16,7 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.detector.dark_current import DarkCurrent
 from radiant.detector.ipc import ipc_kernel
-from radiant.detector.noise import compute_noise_budget
+from radiant.detector.noise.budget import compute_noise_budget
 
 
 class DetectorStage:

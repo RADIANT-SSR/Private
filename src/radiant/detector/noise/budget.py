@@ -24,29 +24,29 @@ from radiant.core.noise_budget import (
 
 # Import individual noise functions from canonical family modules
 # (used by compute_noise_budget below)
-from radiant.detector.noise_photon import (
+from radiant.detector.noise.photon import (
     background_shot_noise,
     nearfield_shot_noise,
     signal_shot_noise,
     straylight_shot_noise,
 )
-from radiant.detector.noise_detector import (
+from radiant.detector.noise.detector_material import (
     dark_shot_noise,
     flicker_1f_noise,
     gr_noise,
     johnson_noise,
 )
-from radiant.detector.noise_roic import (
+from radiant.detector.noise.roic import (
     ktc_reset_noise,
     quantization_noise,
     read_noise_term,
 )
-from radiant.detector.noise_fixed_pattern import (
+from radiant.detector.noise.fixed_pattern import (
     clutter_noise,
     dsnu_noise,
     prnu_noise,
 )
-from radiant.detector.noise_other import (
+from radiant.detector.noise.other import (
     glow_shot_noise,
     persistence_noise,
 )

@@ -12,7 +12,7 @@ See RADIANT_Spatial_Complete.md §2 and RADIANT_Signal_Chain_Architecture.md.
 
 from __future__ import annotations
 
-from radiant.optics.effective_psf import EffectivePSF
+from radiant.optics.psf.effective import EffectivePSF
 
 
 def compute_ee_box(

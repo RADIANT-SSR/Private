@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from radiant.core.regime import RadiometricRegime, TargetInputPath
 from radiant.source.protocol import SpectralRadianceSource
-from radiant.source.resolved_target import (
+from radiant.source.resolvers.resolved_target import (
     ResolvedTarget,
     angular_extent,
     validate_area,

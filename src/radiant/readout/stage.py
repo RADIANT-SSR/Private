@@ -135,7 +135,7 @@ class ReadoutStage:
 
         # If DetectorStage didn't run (legacy/test), build a minimal budget.
         if budget_raw is None:
-            from radiant.detector.noise import compute_noise_budget
+            from radiant.detector.noise.budget import compute_noise_budget
 
             budget_raw = compute_noise_budget(
                 signal_e=signal_e,

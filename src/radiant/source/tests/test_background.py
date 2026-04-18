@@ -15,9 +15,9 @@ import pytest
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
-from radiant.source.background_blackbody import BlackbodyBackground, CMB_BACKGROUND
-from radiant.source.background_constant import ConstantBackground
-from radiant.source.background_tabulated import TabulatedBackground
+from radiant.source.backgrounds.blackbody import BlackbodyBackground, CMB_BACKGROUND
+from radiant.source.backgrounds.constant import ConstantBackground
+from radiant.source.backgrounds.tabulated import TabulatedBackground
 
 
 WAV = np.linspace(3.0, 5.0, 200)

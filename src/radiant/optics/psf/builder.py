@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from radiant.optics.effective_psf import EffectivePSF
+from radiant.optics.psf.effective import EffectivePSF
 
 
 def build_effective_psf(

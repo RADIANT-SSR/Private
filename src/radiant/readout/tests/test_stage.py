@@ -17,7 +17,7 @@ from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
 from radiant.core.noise_budget import NoiseBudget
-from radiant.detector.noise import compute_noise_budget
+from radiant.detector.noise.budget import compute_noise_budget
 from radiant.readout._schema import ALL_PARAMETERS as RO_PARAMS
 from radiant.readout.stage import ReadoutStage
 

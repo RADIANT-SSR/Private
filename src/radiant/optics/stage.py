@@ -54,8 +54,8 @@ from radiant.optics.diffraction_poly import (
     compute_polychromatic_psf,
 )
 from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
-from radiant.optics.effective_psf import EffectivePSF
-from radiant.optics.psf_builder import build_effective_psf
+from radiant.optics.psf.effective import EffectivePSF
+from radiant.optics.psf.builder import build_effective_psf
 from radiant.optics.sampling import compute_sampling
 from radiant.optics.stray_light import (
     StrayLightConfig,

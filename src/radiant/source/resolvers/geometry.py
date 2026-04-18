@@ -12,7 +12,7 @@ import numpy.typing as npt
 from radiant.core.regime import RadiometricRegime, TargetInputPath
 from radiant.source.material import SurfaceMaterial
 from radiant.source.protocol import SpectralRadianceSource
-from radiant.source.resolved_target import (
+from radiant.source.resolvers.resolved_target import (
     ResolvedTarget,
     angular_extent,
     validate_area,

@@ -23,8 +23,8 @@ import pytest
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterDef, ParameterSet
-from radiant.optics.effective_psf import EffectivePSF
-from radiant.optics.psf_builder import build_effective_psf
+from radiant.optics.psf.effective import EffectivePSF
+from radiant.optics.psf.builder import build_effective_psf
 from radiant.platform.stage import PlatformStage
 
 

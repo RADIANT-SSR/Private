@@ -1,11 +1,11 @@
 """Stage 1: target and background spectral radiance computation."""
 
-from radiant.source.background_blackbody import (
+from radiant.source.backgrounds import (
     BlackbodyBackground,
     CMB_BACKGROUND,
+    ConstantBackground,
+    TabulatedBackground,
 )
-from radiant.source.background_constant import ConstantBackground
-from radiant.source.background_tabulated import TabulatedBackground
 from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.brdf_phong import PhongBRDF
 from radiant.source.combined import CombinedSource
@@ -20,12 +20,14 @@ from radiant.source.reflected import ReflectedSolarSource
 from radiant.source.shape import TargetShape
 from radiant.source.sub_pixel import SubPixelSource
 from radiant.source.tabulated import TabulatedRadianceSource
-from radiant.source.resolved_target import ResolvedTarget
-from radiant.source.resolve_direct import resolve_direct_radiance
-from radiant.source.resolve_geometry import resolve_geometry
-from radiant.source.resolve_intensity import resolve_direct_intensity
-from radiant.source.resolve_physical import resolve_physical_object
-from radiant.source.resolve_sub_pixel import resolve_sub_pixel
+from radiant.source.resolvers import (
+    ResolvedTarget,
+    resolve_direct_radiance,
+    resolve_geometry,
+    resolve_direct_intensity,
+    resolve_physical_object,
+    resolve_sub_pixel,
+)
 
 __all__ = [
     "BlackbodyBackground",

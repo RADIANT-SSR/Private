@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from radiant.api.sweep import SweepResult, Sweep2DResult
     from radiant.core.radiometry import NoiseTerm
-    from radiant.optics.effective_psf import EffectivePSF
+    from radiant.optics.psf.effective import EffectivePSF
 
 logger = logging.getLogger(__name__)
 

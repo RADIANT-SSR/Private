@@ -582,12 +582,12 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 8 | Strehl ratio missing | Trivial | 2 | FIXED |
 | 9 | Full MTF curve missing | Small | 4+ | FIXED |
 | 10 | No inverse solver | Medium | Many | OPEN |
-| 11 | No per-element nearfield breakdown | Medium | Few | OPEN |
+| 11 | No per-element nearfield breakdown | Medium | Few | CLOSED |
 | 12 | cold_stop_efficiency naming | Small | Few | OPEN |
 | 13 | Q parameter missing | Trivial | Few | FIXED |
-| 14 | No aliased/folded MTF | Medium | Few | OPEN |
+| 14 | No aliased/folded MTF | Medium | Few | CLOSED |
 | 15 | MTF = 0 at high Q (investigate) | Small | Few | CLOSED |
-| 16 | Per-wavelength PSFs not exposed | Small | Few | OPEN |
+| 16 | Per-wavelength PSFs not exposed | Small | Few | CLOSED |
 | 17 | No arbitrary PSF weighting spectrum | Small | Few | OPEN |
 | 18 | Platform jitter not wired | — | 5.4 | FIXED |
 | 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
@@ -595,16 +595,16 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 21 | No jitter PSD / frequency dependence | Large | 5.4 | OPEN |
 | 22 | RER below GIQE-5 calibration range | Small | 5.4 | OPEN |
 | 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |
-| 24 | No Zernike-to-PSF integration | Medium | 5.1 | OPEN |
-| 25 | No field-dependent WFE | Large | 5.1 | OPEN |
+| 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
+| 25 | No field-dependent WFE | Large | 5.1 | CLOSED |
 | 26 | No Zemax Zernike importer | Medium | 5.1 | OPEN |
 | 27 | MTF curve frequency axis units | Small | 5.1 | OPEN |
 | 28 | No WFE allocation / error budget tool | Medium | 5.1 | OPEN |
-| 29 | No defocus model (focus-shift) | Small | 7.3 | OPEN |
+| 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
 | 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |
 | 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | OPEN |
 | 32 | No electronics MTF model | Small | 7.3 | OPEN |
-| 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | OPEN |
-| 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | OPEN |
-| 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | OPEN |
+| 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | CLOSED |
+| 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | CLOSED |
+| 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |
 | 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |

@@ -17,13 +17,12 @@ import pytest
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
-from radiant.optics.element import (
-    ElementKind,
-    OpticalElement,
+from radiant.optics.element import ElementKind, OpticalElement
+from radiant.optics.element_factories import (
     make_lumped_element,
     make_reflective_element,
-    make_refractive_element,
     make_refractive_cavity_element,
+    make_refractive_element,
 )
 from radiant.optics.nearfield_irradiance import (
     NearfieldResult,

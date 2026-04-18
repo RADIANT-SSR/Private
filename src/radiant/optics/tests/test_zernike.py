@@ -19,11 +19,11 @@ import numpy as np
 import pytest
 
 from radiant.optics.zernike import (
-    evaluate_zernike_opd,
     noll_to_nm,
     zernike_polynomial,
     zernike_radial,
 )
+from radiant.optics.zernike_opd import evaluate_zernike_opd
 
 
 # ---------------------------------------------------------------------------

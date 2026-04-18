@@ -4,8 +4,8 @@ from radiant.optics.element import (
     ElementKind,
     KirchhoffViolationError,
     OpticalElement,
-    make_lumped_element,
 )
+from radiant.optics.element_factories import make_lumped_element
 from radiant.optics.nearfield_irradiance import (
     NearfieldResult,
     compute_downstream_transmission,

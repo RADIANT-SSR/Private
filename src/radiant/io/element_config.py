@@ -21,9 +21,8 @@ import numpy as np
 import yaml
 
 from radiant.core.spectral import SpectralData
-from radiant.optics.element import (
-    ElementKind,
-    OpticalElement,
+from radiant.optics.element import ElementKind, OpticalElement
+from radiant.optics.element_factories import (
     make_reflective_element,
     make_refractive_cavity_element,
     make_refractive_element,

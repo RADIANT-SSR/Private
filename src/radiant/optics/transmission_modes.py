@@ -17,7 +17,8 @@ from dataclasses import dataclass
 import numpy as np
 
 from radiant.core.spectral import SpectralData
-from radiant.optics.element import OpticalElement, make_lumped_element
+from radiant.optics.element import OpticalElement
+from radiant.optics.element_factories import make_lumped_element
 from radiant.optics.system_transmission import compute_system_transmission
 from radiant.optics.filters import FilterSpec, filter_to_element, make_filter_transmission
 

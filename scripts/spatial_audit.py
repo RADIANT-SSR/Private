@@ -314,11 +314,10 @@ def print_spatial_metrics(data: dict) -> None:
 def print_niirs(data: dict) -> None:
     banner("5. NIIRS (GIQE-5)")
 
-    from radiant.platform.geometry import gsd_m, ifov_rad
     from radiant.performance.giqe import compute_giqe5
 
-    gsd = gsd_m(PITCH, ALTITUDE, F)
-    ifov = ifov_rad(PITCH, F)
+    gsd = PITCH * ALTITUDE / F
+    ifov = PITCH / F
     info(f"GSD:   {gsd:.4f} m  ({gsd*100:.2f} cm)")
     info(f"IFOV:  {ifov:.3e} rad  ({ifov*1e6:.2f} µrad)")
 

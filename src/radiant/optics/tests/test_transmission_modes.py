@@ -13,7 +13,8 @@ import numpy as np
 import pytest
 
 from radiant.core.spectral import SpectralData
-from radiant.optics.element import ElementKind, OpticalElement, make_lumped_element
+from radiant.optics.element import ElementKind, OpticalElement
+from radiant.optics.element_factories import make_lumped_element
 from radiant.optics.filters import FilterSpec, FilterType
 from radiant.optics.transmission_modes import (
     TransmissionInputMode,

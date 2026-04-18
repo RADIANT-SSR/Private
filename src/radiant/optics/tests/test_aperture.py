@@ -11,11 +11,8 @@ import math
 
 import pytest
 
-from radiant.optics.aperture import (
-    FNUMBER_CONSISTENCY_RTOL,
-    CircularAperture,
-    resolve_fnumber_group,
-)
+from radiant.optics.aperture import CircularAperture
+from radiant.optics.fnumber import FNUMBER_CONSISTENCY_RTOL, resolve_fnumber_group
 
 # ---------------------------------------------------------------------------
 # Areas

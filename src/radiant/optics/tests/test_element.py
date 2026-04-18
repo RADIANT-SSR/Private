@@ -17,16 +17,18 @@ import numpy as np
 import pytest
 
 from radiant.core.spectral import SpectralData
+from radiant.optics.cavity_model import CavityModel
 from radiant.optics.element import (
-    CavityModel,
     ElementKind,
     ElementTransferMode,
     KirchhoffViolationError,
     OpticalElement,
+)
+from radiant.optics.element_factories import (
     make_lumped_element,
     make_reflective_element,
-    make_refractive_element,
     make_refractive_cavity_element,
+    make_refractive_element,
 )
 
 # ---------------------------------------------------------------------------

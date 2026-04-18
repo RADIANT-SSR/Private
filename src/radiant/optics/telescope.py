@@ -25,7 +25,8 @@ from typing import Any
 import numpy as np
 
 from radiant.core.spectral import SpectralData
-from radiant.optics.aperture import CircularAperture, resolve_fnumber_group
+from radiant.optics.aperture import CircularAperture
+from radiant.optics.fnumber import resolve_fnumber_group
 
 
 @dataclass(frozen=True)

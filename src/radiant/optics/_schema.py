@@ -195,6 +195,26 @@ WFE_REFERENCE_WAVELENGTH_UM = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
+# Defocus
+# ---------------------------------------------------------------------------
+
+DEFOCUS_UM = ParameterDef(
+    name="optics.defocus_um",
+    description=(
+        "Linear defocus: displacement of the detector plane from best focus [µm]. "
+        "Positive = behind focus, negative = in front. Both produce identical "
+        "blur (absolute value used). Zero = no defocus."
+    ),
+    dtype=float,
+    canonical_unit="um",
+    input_unit="um",
+    default=0.0,
+    bounds=(-500.0, 500.0),
+    tags=frozenset({"optics", "defocus"}),
+    default_justification="0 = perfect focus (backward compatible).",
+)
+
+# ---------------------------------------------------------------------------
 # Nearfield
 # ---------------------------------------------------------------------------
 
@@ -294,6 +314,36 @@ STRAY_INCLUDES_THERMAL = ParameterDef(
 # PSF wavelength sampling
 # ---------------------------------------------------------------------------
 
+FIELD_POSITION_X = ParameterDef(
+    name="optics.field_position_x",
+    description=(
+        "Normalized cross-track field coordinate for field-dependent WFE "
+        "evaluation. 0.0 = on-axis. Maps to field_x_deg via the field table."
+    ),
+    dtype=float,
+    canonical_unit="deg",
+    input_unit="deg",
+    default=0.0,
+    bounds=(-10.0, 10.0),
+    tags=frozenset({"optics", "wavefront"}),
+    default_justification="0.0 = on-axis (center of field).",
+)
+
+FIELD_POSITION_Y = ParameterDef(
+    name="optics.field_position_y",
+    description=(
+        "Normalized along-track field coordinate for field-dependent WFE "
+        "evaluation. 0.0 = on-axis. Maps to field_y_deg via the field table."
+    ),
+    dtype=float,
+    canonical_unit="deg",
+    input_unit="deg",
+    default=0.0,
+    bounds=(-10.0, 10.0),
+    tags=frozenset({"optics", "wavefront"}),
+    default_justification="0.0 = on-axis (center of field).",
+)
+
 PSF_N_WAVELENGTHS = ParameterDef(
     name="optics.psf_n_wavelengths",
     description=(
@@ -324,9 +374,12 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TRANSMISSION_INPUT_MODE,
     OPTICS_TEMPERATURE_K,
     OPTICS_DISTANCE_TO_FPA_M,
+    DEFOCUS_UM,
     WFE_MODE,
     WFE_RMS_WAVES,
     WFE_REFERENCE_WAVELENGTH_UM,
+    FIELD_POSITION_X,
+    FIELD_POSITION_Y,
     COLD_STOP_EFFICIENCY,
     NEARFIELD_ENABLED,
     STRAY_INPUT_MODE,

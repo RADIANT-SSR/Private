@@ -13,7 +13,10 @@ import logging
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
+from radiant.performance.access_rate import compute_access_rate_m2_s
+from radiant.performance.ground_range import compute_ground_range_m
 from radiant.performance.gsd import compute_gsd
+from radiant.performance.swath_width import compute_swath_width_m
 from radiant.performance.nedt import compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.qsample import compute_q
@@ -24,7 +27,8 @@ from radiant.performance.saturation_metrics import (
     compute_well_margin,
 )
 from radiant.performance.snr import compute_contrast_snr, compute_snr
-from radiant.performance.system_mtf import mtf_at_nyquist
+from radiant.performance.folded_mtf import compute_folded_mtf
+from radiant.performance.system_mtf import mtf_at_nyquist, nyquist_freq
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +112,26 @@ def _compute_spatial_metrics(
     state = state.with_stage_output("performance", "mtf_x", mtf_x)
     state = state.with_stage_output("performance", "mtf_freq_y", freq_y)
     state = state.with_stage_output("performance", "mtf_y", mtf_y)
-    return state.with_stage_output("performance", "effective_psf", epsf)
+    state = state.with_stage_output("performance", "effective_psf", epsf)
+
+    # Folded (aliased) MTF: meaningful for Q < 2.0.
+    f_ny = nyquist_freq(pixel_pitch_m)
+    folded_x = compute_folded_mtf(freq_x, mtf_x, f_ny, n_folds=3)
+    folded_y = compute_folded_mtf(freq_y, mtf_y, f_ny, n_folds=3)
+
+    state = state.with_stage_output("performance", "folded_mtf_x", folded_x)
+    state = state.with_stage_output("performance", "folded_mtf_y", folded_y)
+
+    # Scalar metrics at Nyquist.
+    from radiant.performance.system_mtf import mtf_at_freq
+
+    mtf_folded_ny = mtf_at_freq(f_ny, folded_x.freq, folded_x.mtf_folded)
+    alias_frac_ny = mtf_at_freq(f_ny, folded_x.freq, folded_x.alias_fraction)
+
+    state = state.with_metric("mtf_folded_at_nyquist", mtf_folded_ny)
+    state = state.with_metric("alias_fraction_at_nyquist", alias_frac_ny)
+
+    return state
 
 
 def _compute_saturation_metrics(
@@ -159,8 +182,10 @@ def _compute_gsd_metrics(
 ) -> ChainState:
     """Compute ground sample distance when orbital/airborne geometry is available.
 
-    Delegates to ``gsd.compute_gsd`` for the math.  Skips gracefully when
-    altitude or focal length is not set (e.g. lab/TVAC scenarios).
+    Delegates to ``gsd.compute_gsd`` for the math.  Reads
+    ``geometry.path_zenith_rad`` for off-nadir correction (defaults to 0.0
+    if not set).  Skips gracefully when altitude or focal length is not set
+    (e.g. lab/TVAC scenarios).
     """
     try:
         altitude_m: float = params.get("geometry.sensor_altitude_m")
@@ -180,9 +205,75 @@ def _compute_gsd_metrics(
     if focal_length_m <= 0.0:
         return state
 
-    result = compute_gsd(pitch_x_m, pitch_y_m, altitude_m, focal_length_m)
+    # Read off-nadir angle; default to 0.0 (nadir) if not in schema.
+    try:
+        path_zenith_rad: float = params.get("geometry.path_zenith_rad")
+    except (KeyError, TypeError):
+        path_zenith_rad = 0.0
+
+    result = compute_gsd(
+        pitch_x_m, pitch_y_m, altitude_m, focal_length_m,
+        path_zenith_rad=path_zenith_rad,
+    )
     state = state.with_metric("gsd_cross_track_m", result.cross_track_m)
     state = state.with_metric("gsd_along_track_m", result.along_track_m)
+    state = state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
+    return state
+
+
+def _compute_access_metrics(
+    state: ChainState,
+    params: ParameterSet,
+) -> ChainState:
+    """Compute access geometry metrics (ground range, swath, access rate).
+
+    Requires GSD and altitude to have been computed first.  Skips
+    gracefully when required inputs are not available.
+    """
+    # Require GSD and altitude.
+    if "gsd_cross_track_m" not in state.metrics:
+        return state
+
+    try:
+        altitude_m: float = params.get("geometry.sensor_altitude_m")
+    except (KeyError, TypeError):
+        return state
+
+    if altitude_m <= 0.0:
+        return state
+
+    # Ground range.
+    try:
+        path_zenith_rad: float = params.get("geometry.path_zenith_rad")
+    except (KeyError, TypeError):
+        path_zenith_rad = 0.0
+
+    ground_range = compute_ground_range_m(altitude_m, path_zenith_rad)
+    state = state.with_metric("ground_range_m", ground_range)
+
+    # Swath width (requires n_pixels_cross > 0).
+    try:
+        n_pixels_cross: int = int(params.get("detector.n_pixels_cross"))
+    except (KeyError, TypeError):
+        return state
+
+    if n_pixels_cross <= 0:
+        return state
+
+    gsd_cross = state.metrics["gsd_cross_track_m"]
+    swath = compute_swath_width_m(gsd_cross, n_pixels_cross)
+    state = state.with_metric("swath_width_m", swath)
+
+    # Access area rate (requires ground_speed_m_s).
+    try:
+        ground_speed: float = params.get("geometry.ground_speed_m_s")
+    except (KeyError, TypeError):
+        return state
+
+    if ground_speed > 0.0:
+        rate = compute_access_rate_m2_s(swath, ground_speed)
+        state = state.with_metric("access_rate_m2_s", rate)
+
     return state
 
 
@@ -327,6 +418,9 @@ class PerformanceStage:
 
         # Ground sample distance (when orbital/airborne geometry is set).
         state = _compute_gsd_metrics(state, params)
+
+        # Access geometry (ground range, swath width, access rate).
+        state = _compute_access_metrics(state, params)
 
         # Sampling parameter Q.
         state = _compute_q_metrics(state, params)

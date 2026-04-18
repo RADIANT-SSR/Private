@@ -21,14 +21,43 @@ See RADIANT_Spatial_Complete.md §3.1 for the full derivation.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
 from scipy.ndimage import zoom
 
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
+from radiant.optics.wavefront import WavefrontError, WfeMode
+from radiant.optics.zernike import evaluate_zernike_opd
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PolychromaticPSFResult:
+    """Structured result from polychromatic PSF computation.
+
+    Parameters
+    ----------
+    combined_psf:
+        Weighted sum of monochromatic PSFs (unit-volume normalised).
+    pixel_scale_m:
+        Focal-plane sample spacing [m].
+    per_wavelength:
+        Per-wavelength PSF arrays keyed by wavelength [um], or None
+        if not requested.
+    wavelengths_um:
+        Wavelength grid used [um].
+    weights:
+        Spectral weights used (same order as wavelengths_um).
+    """
+
+    combined_psf: npt.NDArray[np.float64]
+    pixel_scale_m: float
+    per_wavelength: dict[float, npt.NDArray[np.float64]] | None
+    wavelengths_um: npt.NDArray[np.float64]
+    weights: npt.NDArray[np.float64]
 
 
 def make_pupil_amplitude(
@@ -120,12 +149,59 @@ def make_pupil_phase(
     return phase_rad
 
 
+def make_pupil_phase_zernike(
+    npix: int,
+    coeffs: dict[int, float],
+    reference_wavelength_m: float,
+    operating_wavelength_m: float,
+    obscuration_ratio: float = 0.0,
+) -> npt.NDArray[np.float64]:
+    """Generate a wavefront phase screen from Zernike coefficients.
+
+    Evaluates the Zernike OPD map on the pupil grid, converts from
+    waves (at reference wavelength) to radians (at operating wavelength)::
+
+        phase_rad = 2*pi * OPD_waves * (lambda_ref / lambda_operating)
+
+    Parameters
+    ----------
+    npix:
+        Side length of the square grid (must match pupil amplitude grid).
+    coeffs:
+        Noll-indexed Zernike coefficients in waves at reference wavelength.
+    reference_wavelength_m:
+        Wavelength at which coefficients are defined [m].
+    operating_wavelength_m:
+        Wavelength at which the PSF is computed [m].
+    obscuration_ratio:
+        Central obscuration ratio (0 = unobscured).
+
+    Returns
+    -------
+    ndarray of shape (npix, npix)
+        Phase screen in radians. Zero outside the pupil.
+    """
+    opd_waves = evaluate_zernike_opd(coeffs, npix, obscuration_ratio)
+    # OPD in meters = opd_waves * lambda_ref
+    # Phase at operating lambda = 2*pi * OPD_m / lambda_operating
+    scale = reference_wavelength_m / operating_wavelength_m
+    return 2.0 * np.pi * opd_waves * scale
+
+
 def compute_psf(
     config: PSFSamplingConfig,
     obscuration_ratio: float = 0.0,
-    wfe_rms_waves: float = 0.0,
+    wfe: WavefrontError | None = None,
 ) -> npt.NDArray[np.float64]:
     """Compute the diffraction PSF via FFT of the complex pupil.
+
+    Dispatches on ``wfe.mode``:
+
+    - ``None`` or ``SCALAR_RMS`` with ``rms_waves=0``: diffraction-limited.
+    - ``SCALAR_RMS``: random phase screen scaled to RMS (Strehl-correct
+      but aberration-agnostic).
+    - ``ZERNIKE``: deterministic phase from Zernike coefficients (correct
+      PSF shape for each aberration type).
 
     Parameters
     ----------
@@ -133,8 +209,8 @@ def compute_psf(
         PSF sampling configuration from :func:`compute_sampling`.
     obscuration_ratio:
         Central obscuration ratio D_sec / D_pri.
-    wfe_rms_waves:
-        RMS wavefront error in waves at ``config.wavelength_m``.
+    wfe:
+        Wavefront error specification. ``None`` = perfect optics.
 
     Returns
     -------
@@ -145,7 +221,28 @@ def compute_psf(
     npad = config.padded_npix
 
     amplitude = make_pupil_amplitude(npix, obscuration_ratio)
-    phase = make_pupil_phase(npix, wfe_rms_waves, config.wavelength_m)
+
+    # --- Phase screen dispatch ---
+    if wfe is None:
+        phase = np.zeros((npix, npix), dtype=np.float64)
+    elif wfe.mode == WfeMode.SCALAR_RMS:
+        rms = wfe.rms_waves if wfe.rms_waves is not None else 0.0
+        phase = make_pupil_phase(npix, rms, config.wavelength_m)
+    elif wfe.mode == WfeMode.ZERNIKE:
+        assert wfe.zernike_coeffs is not None
+        ref_m = wfe.reference_wavelength_um * 1e-6
+        phase = make_pupil_phase_zernike(
+            npix,
+            wfe.zernike_coeffs,
+            reference_wavelength_m=ref_m,
+            operating_wavelength_m=config.wavelength_m,
+            obscuration_ratio=obscuration_ratio,
+        )
+    else:
+        raise NotImplementedError(
+            f"WFE mode {wfe.mode.value!r} is not supported in compute_psf. "
+            f"Supported modes: scalar_rms, zernike."
+        )
 
     # Complex pupil function.
     pupil = amplitude * np.exp(1j * phase)
@@ -187,6 +284,39 @@ def _center_crop_or_pad(
     return out
 
 
+def _nearest_chromatic_wl(
+    target_um: float, chromatic_zernikes: dict[float, dict[int, float]]
+) -> dict[int, float]:
+    """Return the Zernike coefficients at the nearest tabulated wavelength."""
+    best_wl = min(chromatic_zernikes.keys(), key=lambda wl: abs(wl - target_um))
+    return chromatic_zernikes[best_wl]
+
+
+def _resolve_wfe_for_wavelength(
+    wfe: WavefrontError | None,
+    wavelength_um: float,
+    chromatic_zernikes: dict[float, dict[int, float]] | None,
+) -> WavefrontError | None:
+    """Resolve per-wavelength WFE for chromatic Zernike systems.
+
+    When ``chromatic_zernikes`` is provided, creates a ZERNIKE-mode
+    WavefrontError with coefficients from the nearest tabulated
+    wavelength, using the reference wavelength from ``wfe``.
+
+    When ``chromatic_zernikes`` is None, returns ``wfe`` unchanged.
+    """
+    if chromatic_zernikes is None:
+        return wfe
+
+    coeffs = _nearest_chromatic_wl(wavelength_um, chromatic_zernikes)
+    ref_wl = wfe.reference_wavelength_um if wfe is not None else 0.633
+    return WavefrontError(
+        mode=WfeMode.ZERNIKE,
+        zernike_coeffs=coeffs,
+        reference_wavelength_um=ref_wl,
+    )
+
+
 def compute_polychromatic_psf(
     wavelengths_m: npt.NDArray[np.float64],
     weights: npt.NDArray[np.float64],
@@ -194,14 +324,16 @@ def compute_polychromatic_psf(
     aperture_diameter_m: float,
     pixel_pitch_m: float,
     obscuration_ratio: float = 0.0,
-    wfe_rms_waves: float = 0.0,
+    wfe: WavefrontError | None = None,
     pupil_npix: int = 128,
     psf_oversample: int = 8,
-) -> tuple[npt.NDArray[np.float64], float]:
+    store_per_wavelength: bool = False,
+    chromatic_zernikes: dict[float, dict[int, float]] | None = None,
+) -> PolychromaticPSFResult:
     """Compute a polychromatic PSF as the weighted sum of monochromatic PSFs.
 
     Each monochromatic PSF is computed on its native FFT grid, then
-    resampled to a common reference grid (defined by λ_max) before
+    resampled to a common reference grid (defined by lambda_max) before
     weighted summation. The result is normalised to unit volume.
 
     Parameters
@@ -218,17 +350,29 @@ def compute_polychromatic_psf(
         Detector pixel pitch [m].
     obscuration_ratio:
         Central obscuration ratio (0 = unobscured).
-    wfe_rms_waves:
-        RMS wavefront error in waves at each wavelength.
+    wfe:
+        Wavefront error specification. ``None`` = perfect optics.
+        When ``chromatic_zernikes`` is provided, ``wfe`` supplies the
+        reference wavelength; Zernike coefficients are overridden
+        per-wavelength from ``chromatic_zernikes``.
     pupil_npix:
         Pupil grid side length.
     psf_oversample:
         Oversampling factor (samples per pixel).
+    store_per_wavelength:
+        If True, store each monochromatic PSF in
+        ``result.per_wavelength`` keyed by wavelength [um].
+    chromatic_zernikes:
+        For refractive systems: wavelength-dependent Zernike coefficients.
+        Maps wavelength_um → {noll_j: coeff_waves}. When provided, each
+        monochromatic PSF uses the Zernike set from the nearest tabulated
+        wavelength instead of the single ``wfe`` Zernike set.
 
     Returns
     -------
-    (psf_poly, sample_spacing_m)
-        Unit-volume-normalised polychromatic PSF and its sample spacing [m].
+    PolychromaticPSFResult
+        Structured result with combined PSF, per-wavelength PSFs (if
+        requested), wavelengths, and weights.
 
     Raises
     ------
@@ -249,6 +393,7 @@ def compute_polychromatic_psf(
         raise ValueError("At least one wavelength is required.")
 
     n_wl = len(wavelengths_m)
+    wavelengths_um = wavelengths_m * 1e6
 
     # --- Single wavelength: delegate to monochromatic path ---
     if n_wl == 1:
@@ -260,10 +405,22 @@ def compute_polychromatic_psf(
             pupil_npix=pupil_npix,
             psf_oversample=psf_oversample,
         )
-        psf = compute_psf(config, obscuration_ratio, wfe_rms_waves)
-        return psf, config.focal_spacing_m
+        wfe_i = _resolve_wfe_for_wavelength(
+            wfe, float(wavelengths_um[0]), chromatic_zernikes
+        )
+        psf = compute_psf(config, obscuration_ratio, wfe_i)
+        per_wl: dict[float, npt.NDArray[np.float64]] | None = None
+        if store_per_wavelength:
+            per_wl = {float(wavelengths_um[0]): psf.copy()}
+        return PolychromaticPSFResult(
+            combined_psf=psf,
+            pixel_scale_m=config.focal_spacing_m,
+            per_wavelength=per_wl,
+            wavelengths_um=wavelengths_um,
+            weights=weights,
+        )
 
-    # --- Reference grid from λ_max (coarsest spacing) ---
+    # --- Reference grid from lambda_max (coarsest spacing) ---
     lam_max = float(wavelengths_m.max())
     ref_config = compute_sampling(
         wavelength_m=lam_max,
@@ -279,14 +436,12 @@ def compute_polychromatic_psf(
     # --- Accumulate weighted PSFs ---
     psf_accum = np.zeros((n_padded, n_padded), dtype=np.float64)
     w_total = 0.0
+    per_wl_dict: dict[float, npt.NDArray[np.float64]] = {}
 
     for i in range(n_wl):
         lam_i = float(wavelengths_m[i])
         w_i = float(weights[i])
 
-        # Compute monochromatic PSF at this wavelength.
-        # Force same padded_npix by computing sampling with λ_i, then
-        # constructing a config with the reference N_padded.
         config_i = compute_sampling(
             wavelength_m=lam_i,
             focal_length_m=focal_length_m,
@@ -295,7 +450,6 @@ def compute_polychromatic_psf(
             pupil_npix=pupil_npix,
             psf_oversample=psf_oversample,
         )
-        # Override padded_npix to match reference grid size.
         config_i_forced = PSFSamplingConfig(
             pupil_npix=config_i.pupil_npix,
             padded_npix=n_padded,
@@ -306,42 +460,42 @@ def compute_polychromatic_psf(
             focal_length_m=focal_length_m,
         )
 
-        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_rms_waves)
+        wfe_i = _resolve_wfe_for_wavelength(
+            wfe, float(wavelengths_um[i]), chromatic_zernikes
+        )
+        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_i)
 
-        # Resample from native grid (dx_i) to reference grid (dx_ref).
-        # dx_i = λ_i·f/(N·pupil_spacing) and dx_ref = λ_max·f/(N·pupil_spacing).
-        # scipy.ndimage.zoom(arr, z) produces output of size N*z at spacing
-        # dx_input/z. We want output spacing = dx_ref, so:
-        #   dx_ref = dx_i / z  →  z = dx_i / dx_ref = λ_i / λ_max
-        # For λ_i < λ_max: z < 1 (shrink), which correctly makes the shorter-λ
-        # PSF occupy fewer pixels on the coarser reference grid.
         zoom_factor = lam_i / lam_max
 
         if abs(zoom_factor - 1.0) < 1e-12:
-            # λ_max wavelength — no resampling needed.
             psf_resampled = psf_i
         else:
             psf_resampled = zoom(psf_i, zoom_factor, order=3, mode="constant", cval=0.0)
-            # Crop or pad to reference size.
             psf_resampled = _center_crop_or_pad(psf_resampled, n_padded)
-            # Clamp any negative values from cubic interpolation.
             np.maximum(psf_resampled, 0.0, out=psf_resampled)
 
-        # Re-normalise to unit volume before weighting.
         total_i = psf_resampled.sum()
         if total_i > 0:
             psf_resampled /= total_i
 
+        if store_per_wavelength:
+            per_wl_dict[float(wavelengths_um[i])] = psf_resampled.copy()
+
         psf_accum += w_i * psf_resampled
         w_total += w_i
 
-    # Normalise to unit volume.
     psf_accum /= w_total
     total = psf_accum.sum()
     if total > 0:
         psf_accum /= total
 
-    return psf_accum, dx_ref
+    return PolychromaticPSFResult(
+        combined_psf=psf_accum,
+        pixel_scale_m=dx_ref,
+        per_wavelength=per_wl_dict if store_per_wavelength else None,
+        wavelengths_um=wavelengths_um,
+        weights=weights,
+    )
 
 
 def compute_strehl(psf: npt.NDArray[np.float64], psf_ref: npt.NDArray[np.float64]) -> float:

@@ -68,9 +68,48 @@ JITTER_RMS_Y_URAD = ParameterDef(
     default_justification="Zero means no along-track jitter.",
 )
 
+# ---------------------------------------------------------------------------
+# Smear — platform linear motion blur during integration
+# ---------------------------------------------------------------------------
+
+GROUND_VELOCITY_M_S = ParameterDef(
+    name="platform.ground_velocity_m_s",
+    description=(
+        "Platform along-track ground velocity [m/s]. "
+        "For LEO at 600 km altitude: ~6900 m/s. "
+        "Set to 0 to disable velocity-based smear."
+    ),
+    dtype=float,
+    canonical_unit="m/s",
+    input_unit="m/s",
+    default=0.0,
+    bounds=(0.0, 50_000.0),
+    tags=frozenset({"platform", "smear"}),
+    default_justification="0 = no platform motion (backward compatible).",
+)
+
+SMEAR_LENGTH_UM = ParameterDef(
+    name="platform.smear_length_um",
+    description=(
+        "Direct focal-plane smear input [µm]. "
+        "Bypasses the velocity/altitude computation. "
+        "If set (> 0), takes precedence over ground_velocity_m_s. "
+        "Set to 0 to use velocity-based computation instead."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 1000.0),
+    tags=frozenset({"platform", "smear"}),
+    default_justification="0 = use velocity-based smear (or no smear).",
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     JITTER_RMS_URAD,
     JITTER_AXES,
     JITTER_RMS_X_URAD,
     JITTER_RMS_Y_URAD,
+    GROUND_VELOCITY_M_S,
+    SMEAR_LENGTH_UM,
 )

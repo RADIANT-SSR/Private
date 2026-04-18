@@ -243,7 +243,7 @@ def epsf_config() -> PSFSamplingConfig:
 
 @pytest.fixture()
 def optical_psf(epsf_config: PSFSamplingConfig) -> np.ndarray:
-    return compute_psf(epsf_config, obscuration_ratio=0.0, wfe_rms_waves=0.0)
+    return compute_psf(epsf_config, obscuration_ratio=0.0)
 
 
 def _make_gaussian_kernel(npix: int, sigma_pix: float) -> np.ndarray:

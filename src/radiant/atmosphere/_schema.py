@@ -177,6 +177,18 @@ SOLAR_AZIMUTH_RAD = ParameterDef(
     default_justification="Same meridional plane.",
 )
 
+GROUND_SPEED_M_S = ParameterDef(
+    name="geometry.ground_speed_m_s",
+    description="Ground-track speed [m/s]. For LEO at 600 km: ~6900 m/s.",
+    dtype=float,
+    canonical_unit="m/s",
+    input_unit="m/s",
+    default=0.0,
+    bounds=(0.0, 50_000.0),
+    tags=frozenset({"geometry"}),
+    default_justification="0 = not set; access rate skipped.",
+)
+
 
 # ---------------------------------------------------------------------------
 # Tabulated model
@@ -415,4 +427,5 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PATH_ZENITH_RAD,
     SOLAR_ZENITH_RAD,
     SOLAR_AZIMUTH_RAD,
+    GROUND_SPEED_M_S,
 )

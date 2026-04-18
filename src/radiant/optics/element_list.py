@@ -16,6 +16,7 @@ Dimensional audit for nearfield:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -24,6 +25,25 @@ from radiant.core.spectral import SpectralData
 from radiant.optics.element import OpticalElement
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class NearfieldResult:
+    """Nearfield irradiance with per-element breakdown.
+
+    Attributes
+    ----------
+    total:
+        Total nearfield irradiance at the FPA [W/m²/µm], summed over
+        all elements and scaled by cold-stop efficiency.
+    per_element:
+        Per-element contributions [W/m²/µm], keyed by element name.
+        Each contribution includes the cold-stop efficiency scaling.
+        Summing all values equals ``total``.
+    """
+
+    total: SpectralData
+    per_element: dict[str, SpectralData]
 
 
 def compute_system_transmission(
@@ -98,8 +118,8 @@ def compute_nearfield_irradiance(
     elements: tuple[OpticalElement, ...],
     wavelength_um: np.ndarray,
     cold_stop_efficiency: float = 1.0,
-) -> SpectralData:
-    """Total nearfield (warm-optics) irradiance at the FPA.
+) -> NearfieldResult:
+    """Total nearfield (warm-optics) irradiance at the FPA with per-element breakdown.
 
     Per RADIANT_Optics.md section 7:
 
@@ -117,8 +137,10 @@ def compute_nearfield_irradiance(
 
     Returns
     -------
-    SpectralData
-        Nearfield irradiance at the FPA in W/m^2/um.
+    NearfieldResult
+        Contains ``total`` (SpectralData, W/m²/µm) and ``per_element``
+        (dict mapping element name to its contribution, also W/m²/µm).
+        Both include the cold-stop efficiency scaling.
     """
     if not elements:
         raise ValueError("compute_nearfield_irradiance: element list must not be empty.")
@@ -129,6 +151,7 @@ def compute_nearfield_irradiance(
         )
 
     e_nf = np.zeros_like(wavelength_um, dtype=np.float64)
+    per_element: dict[str, SpectralData] = {}
 
     for i, elem in enumerate(elements):
         if elem.temperature_K == 0.0:
@@ -140,11 +163,22 @@ def compute_nearfield_irradiance(
         tau_down = compute_downstream_transmission(elements, i, wavelength_um)
 
         # eps(dimless) * B(W/m2/sr/um) * omega(sr) * tau_down(dimless) = W/m2/um
-        e_nf += eps * b_lam * omega * tau_down
+        contribution = eps * b_lam * omega * tau_down
+        e_nf += contribution
+
+        # Store per-element contribution (scaled by cold-stop below).
+        per_element[elem.name] = SpectralData(
+            name=f"optics.nearfield.{elem.name}",
+            wavelength_um=wavelength_um.copy(),
+            values=contribution * cold_stop_efficiency,
+            unit="W/m^2/um",
+            source=f"Nearfield emission from {elem.name} (T={elem.temperature_K} K), "
+            f"eta_cold={cold_stop_efficiency}",
+        )
 
     e_nf *= cold_stop_efficiency
 
-    return SpectralData(
+    total = SpectralData(
         name="optics.nearfield_irradiance_at_fpa",
         wavelength_um=wavelength_um.copy(),
         values=e_nf,
@@ -152,3 +186,5 @@ def compute_nearfield_irradiance(
         source=f"Nearfield emission from {len(elements)} element(s), "
         f"eta_cold={cold_stop_efficiency}",
     )
+
+    return NearfieldResult(total=total, per_element=per_element)

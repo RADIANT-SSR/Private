@@ -120,6 +120,16 @@ No `except Exception: pass`. No `except Exception: return default_value`. No log
 ### 18. Test at Level 0 First
 Write the Level 0 test that verifies the key equation **before** implementing the physics. Tests use known-good analytic values, not values computed by other RADIANT code. `pytest.approx` always uses explicit `rel=` or `abs=` tolerance — never the default.
 
+### 19. One Computation, One Module
+Each distinct physics calculation or metric (e.g., ground range, swath width, access rate, folded MTF) gets its own file. Do not bundle unrelated computations into a single module just because they share a stage or a prompt. A developer should be able to find a calculation by scanning file names, not by reading through a multi-purpose file.
+
+**When this applies:**
+- New standalone computations (pure functions with no shared mutable state)
+- Metrics that could be tested, documented, or reused independently
+
+**When bundling is acceptable:**
+- Tightly coupled computations that share internal state or helper functions and would be meaningless apart (e.g., cavity T_sys and cavity eps_eff are one model, not two files)
+
 ---
 
 ## Agent Task Discipline

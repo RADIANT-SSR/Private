@@ -71,13 +71,13 @@ class TestScalarMode:
         assert len(result.elements) == 1
         assert result.elements[0].kind == ElementKind.LUMPED
 
-    def test_emissivity_consistent(self) -> None:
-        """Lumped element emissivity = 1 - T = 0.3."""
+    def test_emissivity_zero_simple_refractive(self) -> None:
+        """Lumped element is simple refractive: eps = 0."""
         result = resolve_transmission(
             TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
         )
         np.testing.assert_allclose(
-            result.elements[0].emissivity.values, 0.3, atol=1e-12,
+            result.elements[0].emissivity.values, 0.0, atol=1e-12,
         )
 
     def test_missing_scalar_raises(self) -> None:

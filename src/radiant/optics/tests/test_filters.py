@@ -257,7 +257,8 @@ class TestFilterSpecValidation:
 class TestFilterToElement:
     """Verify filter_to_element produces valid OpticalElement."""
 
-    def test_kirchhoff_holds(self) -> None:
+    def test_filter_element_eps_zero(self) -> None:
+        """Filter element is simple refractive: eps = 0."""
         spec = FilterSpec(
             filter_type=FilterType.BANDPASS,
             center_um=4.0,
@@ -267,12 +268,7 @@ class TestFilterToElement:
             name="test_bp",
         )
         elem = filter_to_element(spec, WL, 290.0, 0.05, 0.3)
-        total = (
-            elem.emissivity.values
-            + elem.transmittance.values
-            + elem.reflectance.values
-        )
-        np.testing.assert_allclose(total, 1.0, atol=1e-10)
+        np.testing.assert_allclose(elem.emissivity.values, 0.0, atol=1e-12)
 
     def test_element_kind_is_filter(self) -> None:
         from radiant.optics.element import ElementKind

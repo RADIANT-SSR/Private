@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from radiant.optics.diffraction import compute_polychromatic_psf, compute_psf
+from radiant.optics.diffraction import PolychromaticPSFResult, compute_polychromatic_psf, compute_psf
 from radiant.optics.sampling import compute_sampling
 
 # Reference system: MWIR, D=0.30m, f=1.20m, pitch=18µm
@@ -58,7 +58,7 @@ class TestPolychromaticIdentity:
 
         wavelengths = np.array([LAM_CENTER_M])
         weights = np.array([1.0])
-        poly_psf, poly_dx = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -69,9 +69,9 @@ class TestPolychromaticIdentity:
         )
 
         # Same sample spacing
-        assert poly_dx == pytest.approx(config.focal_spacing_m, rel=1e-10)
+        assert result.pixel_scale_m == pytest.approx(config.focal_spacing_m, rel=1e-10)
         # Same PSF data (within floating-point)
-        np.testing.assert_allclose(poly_psf, mono_psf, atol=1e-12)
+        np.testing.assert_allclose(result.combined_psf, mono_psf, atol=1e-12)
 
 
 class TestPolychromaticNormalization:
@@ -81,7 +81,7 @@ class TestPolychromaticNormalization:
     def test_unit_volume(self, n_wl: int) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, n_wl)
         weights = np.ones(n_wl)
-        poly_psf, _ = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -90,7 +90,7 @@ class TestPolychromaticNormalization:
             pupil_npix=PUPIL_NPIX,
             psf_oversample=PSF_OVERSAMPLE,
         )
-        assert poly_psf.sum() == pytest.approx(1.0, abs=1e-10)
+        assert result.combined_psf.sum() == pytest.approx(1.0, abs=1e-10)
 
 
 def _second_moment(psf_2d: np.ndarray, dx: float) -> float:
@@ -138,7 +138,7 @@ class TestPolychromaticBroadening:
 
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 11)
         weights = np.ones(11)
-        poly_psf, poly_dx = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -147,7 +147,7 @@ class TestPolychromaticBroadening:
             pupil_npix=PUPIL_NPIX,
             psf_oversample=PSF_OVERSAMPLE,
         )
-        poly_var = _second_moment(poly_psf, poly_dx)
+        poly_var = _second_moment(result.combined_psf, result.pixel_scale_m)
 
         assert poly_var > mono_var
 
@@ -166,7 +166,7 @@ class TestPolychromaticBroadening:
 
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 11)
         weights = np.ones(11)
-        poly_psf, poly_dx = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -175,7 +175,7 @@ class TestPolychromaticBroadening:
             pupil_npix=PUPIL_NPIX,
             psf_oversample=PSF_OVERSAMPLE,
         )
-        poly_ee = _ensquared_energy_1x1(poly_psf, poly_dx, PITCH)
+        poly_ee = _ensquared_energy_1x1(result.combined_psf, result.pixel_scale_m, PITCH)
 
         assert poly_ee < mono_ee
 
@@ -193,7 +193,7 @@ class TestPolychromaticBroadening:
 
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 11)
         weights = np.ones(11)
-        poly_psf, _ = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -203,7 +203,7 @@ class TestPolychromaticBroadening:
             psf_oversample=PSF_OVERSAMPLE,
         )
 
-        assert poly_psf.max() < mono_psf.max()
+        assert result.combined_psf.max() < mono_psf.max()
 
 
 class TestPolychromaticSymmetry:
@@ -212,7 +212,7 @@ class TestPolychromaticSymmetry:
     def test_x_y_symmetric(self) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 5)
         weights = np.ones(5)
-        poly_psf, _ = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -222,7 +222,7 @@ class TestPolychromaticSymmetry:
             psf_oversample=PSF_OVERSAMPLE,
         )
         # PSF should be symmetric: PSF == PSF^T
-        np.testing.assert_allclose(poly_psf, poly_psf.T, atol=1e-12)
+        np.testing.assert_allclose(result.combined_psf, result.combined_psf.T, atol=1e-12)
 
 
 class TestPolychromaticConvergence:
@@ -233,7 +233,7 @@ class TestPolychromaticConvergence:
         for n_wl in [5, 11, 21]:
             wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, n_wl)
             weights = np.ones(n_wl)
-            poly_psf, poly_dx = compute_polychromatic_psf(
+            result = compute_polychromatic_psf(
                 wavelengths_m=wavelengths,
                 weights=weights,
                 focal_length_m=F,
@@ -242,7 +242,7 @@ class TestPolychromaticConvergence:
                 pupil_npix=PUPIL_NPIX,
                 psf_oversample=PSF_OVERSAMPLE,
             )
-            fwhms.append(_fwhm_from_psf(poly_psf, poly_dx))
+            fwhms.append(_fwhm_from_psf(result.combined_psf, result.pixel_scale_m))
 
         # N=11 vs N=21 should differ < 1%
         assert fwhms[1] == pytest.approx(fwhms[2], rel=0.01)
@@ -255,7 +255,7 @@ class TestPolychromaticWeights:
         """All weights must be positive for physical radiance."""
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 5)
         weights = np.array([1.0, 2.0, 3.0, 2.0, 1.0])
-        poly_psf, _ = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -264,7 +264,7 @@ class TestPolychromaticWeights:
             pupil_npix=PUPIL_NPIX,
             psf_oversample=PSF_OVERSAMPLE,
         )
-        assert poly_psf.sum() == pytest.approx(1.0, abs=1e-10)
+        assert result.combined_psf.sum() == pytest.approx(1.0, abs=1e-10)
 
     def test_zero_weight_raises(self) -> None:
         """Zero or negative weight should raise."""
@@ -316,7 +316,7 @@ class TestPolychromaticNonNegative:
     def test_no_negative_values(self) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 7)
         weights = np.ones(7)
-        poly_psf, _ = compute_polychromatic_psf(
+        result = compute_polychromatic_psf(
             wavelengths_m=wavelengths,
             weights=weights,
             focal_length_m=F,
@@ -325,4 +325,4 @@ class TestPolychromaticNonNegative:
             pupil_npix=PUPIL_NPIX,
             psf_oversample=PSF_OVERSAMPLE,
         )
-        assert np.all(poly_psf >= 0.0)
+        assert np.all(result.combined_psf >= 0.0)

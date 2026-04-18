@@ -34,7 +34,7 @@ Key concepts:
 
 Gaps revealed:
   - No MTF budget decomposition API (must manually compute components)
-  - No defocus model (RADIANT has no focus-shift parameter)
+  - Defocus model now available via optics.defocus_um (Gap 29 closed)
   - No measurement import/overlay capability in the API
   - No cycles/mm display option (RADIANT stores cy/m only)
 
@@ -256,6 +256,7 @@ config = {
         "optics_temperature_K": optics_temp_K,
         "wfe_rms_waves": wfe_rms_waves,
         "obscuration_ratio": obscuration,
+        "defocus_um": defocus_um,
     },
     "detector": {
         "pixel_pitch_x_um": pixel_pitch_um,
@@ -358,20 +359,32 @@ print(f"     Coupling α = {ipc_coupling:.4f} ({ipc_coupling * 100:.1f}%)")
 print(f"     MTF_ipc at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_ipc):.4f} [--]")
 print(f"     IPC boosts apparent MTF (cross-talk looks like sharpening).")
 
-# 4d. Defocus MTF: Gaussian blur with σ = δ/(2·f/#)/2
-# Geometric defocus spot radius: r = δ/(2·f_number)
-# Gaussian sigma ≈ r/2 (approximation)
-spot_radius_m = defocus_m / (2.0 * f_number)
-sigma_defocus_m = spot_radius_m / 2.0
+# 4d. Defocus MTF: Gaussian blur
+# Two sigma formulas compared:
+#   Script (original): σ = δ/(4·f/#)     — geometric spot radius / 2
+#   RADIANT:           σ = |δ|/(4·f/#·√3) — RMS of uniform disk (R/√3)
+# The √3 factor is the correct RMS radius of a uniformly illuminated circle.
+spot_radius_m = abs(defocus_m) / (4.0 * f_number)  # geometric blur radius
+sigma_defocus_script = spot_radius_m / 1.0  # original script: σ = R (was R/2 before)
+sigma_defocus_radiant = abs(defocus_m) / (4.0 * f_number * math.sqrt(3.0))  # RADIANT formula
+
+# Use RADIANT's formula (physically correct RMS) for the analytic comparison
+sigma_defocus_m = sigma_defocus_radiant
 mtf_defocus = np.exp(-2.0 * math.pi**2 * sigma_defocus_m**2 * freq_eval_cy_m**2)
 
-print(f"\n  4. Defocus MTF (NOT in RADIANT — computed analytically)")
+# RADIANT now includes defocus natively via optics.defocus_um
+radiant_defocus_sigma = r.stage_outputs.get("optics", {}).get("defocus_sigma_m")
+
+print(f"\n  4. Defocus MTF (now included in RADIANT via optics.defocus_um)")
 print(f"     Defocus: {defocus_um:.1f} [µm] from best focus")
 print(f"     Geometric spot radius: {spot_radius_m * 1e6:.2f} [µm]")
-print(f"     Gaussian σ_defocus: {sigma_defocus_m * 1e6:.2f} [µm]")
+print(f"     Gaussian σ_defocus (RADIANT): {sigma_defocus_radiant * 1e6:.3f} [µm]")
+if radiant_defocus_sigma is not None:
+    print(f"     RADIANT stage σ_defocus:      {radiant_defocus_sigma * 1e6:.3f} [µm]")
+    sigma_match = abs(radiant_defocus_sigma - sigma_defocus_radiant) / sigma_defocus_radiant < 0.001
+    print(f"     σ match (analytic vs RADIANT): {'YES' if sigma_match else 'NO'} [--]")
 print(f"     MTF_defocus at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_defocus):.4f} [--]")
-print(f"     WARNING: RADIANT has no defocus model. This is computed via")
-print(f"     geometric optics approximation: σ ≈ δ/(4·f/#).")
+print(f"     Formula: σ = |δ|/(4·f/#·√3), where √3 = RMS of uniform disk.")
 
 # Composite analytic system MTF
 mtf_analytic_system = mtf_diffraction * mtf_pixel * mtf_ipc * mtf_defocus
@@ -449,7 +462,7 @@ print(f"{'=' * 80}")
 
 print(f"\n  Sweeping defocus from {defocus_sweep_um[0]:.0f} to {defocus_sweep_um[-1]:.0f} [µm]")
 print(f"  Showing MTF at Nyquist ({f_nyquist_cy_mm:.0f} cy/mm) vs. defocus")
-print(f"  Note: This is an analytic calculation — RADIANT has no defocus parameter.")
+print(f"  Note: This is an analytic calculation — RADIANT now includes defocus via optics.defocus_um.")
 
 print(f"\n  {'Defocus':>10s}  {'Spot Radius':>14s}  {'σ_defocus':>12s}  {'MTF@Ny':>10s}  {'dMTF':>10s}")
 print(f"  {'[µm]':>10s}  {'[µm]':>14s}  {'[µm]':>12s}  {'[--]':>10s}  {'[%]':>10s}")
@@ -539,7 +552,7 @@ print(f"  {'Measured (slanted-edge)':30s}  {mtf_meas_ny:>10.4f}  "
       f"{math.log10(max(mtf_meas_ny, 1e-10)):>+10.4f}")
 
 print(f"\n  Notes:")
-print(f"    - RADIANT's MTF includes diffraction + WFE + pixel + IPC but NOT defocus")
+print(f"    - RADIANT's MTF now includes diffraction + WFE + pixel + IPC + defocus")
 print(f"    - Analytic system MTF includes all four components above")
 print(f"    - IPC 'boosts' apparent MTF (> 1.0) — this is physically correct;")
 print(f"      IPC cross-talk acts like a sharpening kernel at sub-Nyquist frequencies")
@@ -559,7 +572,7 @@ fig1, ax1 = plt.subplots(figsize=(fig_w, fig_h))
 ax1.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7,
          label="Measured (slanted-edge)")
 ax1.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2,
-         label="RADIANT predicted (no defocus)")
+         label="RADIANT predicted (with defocus)")
 ax1.plot(freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5,
          label="Analytic system (with defocus)")
 
@@ -610,7 +623,7 @@ fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(fig_w, fig_h), height_ratios=[2
 ax3a.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7,
           label="Measured")
 ax3a.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2,
-          label="RADIANT (no defocus)")
+          label="RADIANT (with defocus)")
 ax3a.plot(freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5,
           label="Analytic (with defocus)")
 ax3a.axvline(f_nyquist_cy_mm, color="gray", linestyle=":", alpha=0.5)
@@ -652,7 +665,7 @@ ax4.plot(defocus_arr, mtf_def_arr, "r^--", linewidth=1.5, markersize=6,
          label="Defocus MTF@Nyquist (defocus component only)")
 
 ax4.axhline(mtf_ny_no_defocus, color="green", linestyle=":", alpha=0.5,
-            label=f"RADIANT baseline (no defocus) = {mtf_ny_no_defocus:.4f}")
+            label=f"RADIANT baseline (with defocus) = {mtf_ny_no_defocus:.4f}")
 ax4.axvline(defocus_um, color="orange", linestyle="--", alpha=0.6,
             label=f"Karen's current defocus = {defocus_um:.0f} [µm]")
 ax4.axhline(mtf_meas_ny, color="purple", linestyle=":", alpha=0.5,
@@ -767,7 +780,7 @@ print(f"  Q sampling:   {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampl
 
 print(f"\n  --- MTF at Nyquist ({f_nyquist_cy_mm:.0f} cy/mm) ---")
 print(f"  Measured:       {mtf_meas_ny:.4f} [--]")
-print(f"  RADIANT:        {mtf_nyq_radiant:.4f} [--] (no defocus model)")
+print(f"  RADIANT:        {mtf_nyq_radiant:.4f} [--] (includes defocus)")
 print(f"  Analytic:       {product:.4f} [--] (includes defocus)")
 
 print(f"\n  --- Residual (Predicted − Measured) ---")
@@ -790,8 +803,8 @@ print(f"       (sinc rolloff), followed by diffraction.")
 print(f"    4. IPC provides a small apparent MTF boost ({mtf_ipc_ny:.4f} > 1.0).")
 
 print(f"\n  Limitations:")
-print(f"    - RADIANT has no defocus model — defocus sensitivity computed analytically")
-print(f"      using geometric optics approximation (Gap 29)")
+print(f"    - RADIANT now includes defocus via optics.defocus_um (Gap 29 closed)")
+print(f"      σ = |δ|/(4·f/#·√3) — Gaussian approximation, valid for small defocus")
 print(f"    - No measurement data import API — overlay done manually in script (Gap 30)")
 print(f"    - No MTF budget decomposition API — components computed manually (Gap 19)")
 print(f"    - Analytic diffraction MTF assumes no obscuration; RADIANT includes it")

@@ -308,6 +308,18 @@ IPC_COUPLING = ParameterDef(
     tags=frozenset({"detector", "spatial"}),
 )
 
+N_PIXELS_CROSS = ParameterDef(
+    name="detector.n_pixels_cross",
+    description="Number of detector pixels in the cross-track direction.",
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=0,
+    bounds=(0, 1_000_000),
+    tags=frozenset({"detector", "pixel", "geometry"}),
+    default_justification="0 = not set; swath width skipped.",
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PIXEL_PITCH_X,
     PIXEL_PITCH_Y,
@@ -332,4 +344,5 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PRIOR_SIGNAL_E,
     GLOW_E_PER_S,
     IPC_COUPLING,
+    N_PIXELS_CROSS,
 )

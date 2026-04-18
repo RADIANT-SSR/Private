@@ -7,6 +7,7 @@ from radiant.optics.element import (
     make_lumped_element,
 )
 from radiant.optics.element_list import (
+    NearfieldResult,
     compute_downstream_transmission,
     compute_nearfield_irradiance,
     compute_system_transmission,
@@ -36,6 +37,7 @@ from radiant.optics.wavefront import (
 __all__ = [
     "ElementKind",
     "FieldWfeSample",
+    "NearfieldResult",
     "FilterSpec",
     "FilterType",
     "KirchhoffViolationError",

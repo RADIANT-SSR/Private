@@ -47,7 +47,12 @@ from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
-from radiant.optics.diffraction import compute_polychromatic_psf, compute_psf
+from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
+from radiant.optics.diffraction import (
+    PolychromaticPSFResult,
+    compute_polychromatic_psf,
+    compute_psf,
+)
 from radiant.optics.element_list import compute_nearfield_irradiance
 from radiant.optics.psf import EffectivePSF, build_effective_psf
 from radiant.optics.sampling import compute_sampling
@@ -60,7 +65,8 @@ from radiant.optics.transmission_modes import (
     TransmissionInputMode,
     resolve_transmission,
 )
-from radiant.optics.wavefront import WavefrontError, WfeMode
+from radiant.optics.element import ElementTransferMode
+from radiant.optics.wavefront import FieldWfeSample, WavefrontError, WfeMode
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +76,26 @@ def _build_effective_psf(
     params: ParameterSet,
     aperture_m: float,
     focal_length_m: float,
-    wfe_rms_waves: float = 0.0,
+    wfe: WavefrontError | None = None,
+    chromatic_zernikes: dict[float, dict[int, float]] | None = None,
 ) -> tuple[ChainState, EffectivePSF | None]:
     """Build EffectivePSF from diffraction PSF and store in stage outputs.
 
     When ``optics.psf_n_wavelengths == 1`` (default), computes a single
     monochromatic PSF at band center. When > 1, computes a polychromatic
     PSF as the photon-flux-weighted average of monochromatic PSFs.
+
+    Parameters
+    ----------
+    wfe:
+        Wavefront error specification. Dispatches on ``wfe.mode``:
+        ``SCALAR_RMS`` uses random phase screen (existing behavior),
+        ``ZERNIKE`` uses deterministic Zernike polynomial phase.
+        ``None`` = diffraction-limited.
+    chromatic_zernikes:
+        For refractive systems: wavelength-dependent Zernike coefficients.
+        Maps wavelength_um → {noll_j: coeff_waves}. Passed through to
+        ``compute_polychromatic_psf``.
 
     Returns (updated_state, epsf_or_None).
     """
@@ -96,58 +115,74 @@ def _build_effective_psf(
             pupil_npix=128,
             psf_oversample=8,
         )
-        psf_arr = compute_psf(config, obscuration, wfe_rms_waves)
+        psf_arr = compute_psf(config, obscuration, wfe)
         sample_spacing_m = config.focal_spacing_m
         wavelength_um = wavelength_m * 1e6
     else:
         # --- Polychromatic path ---
-        # Select N wavelengths linearly spaced across the spectral grid.
         wl_um = state.wavelength_um
         psf_wl_um = np.linspace(float(wl_um[0]), float(wl_um[-1]), n_psf_wavelengths)
         psf_wl_m = psf_wl_um * 1e-6
 
-        # Compute photon-flux weights: L(λ) × λ/(hc).
-        # Interpolate L_post_optics onto the PSF wavelength grid.
+        # Compute photon-flux weights: L(lambda) * lambda/(hc).
         post_optics_frame = state.frames.get("post_optics")
         if post_optics_frame is not None and post_optics_frame.spectral_radiance is not None:
             L_interp = np.interp(psf_wl_um, wl_um, post_optics_frame.spectral_radiance)
         else:
-            # Fallback: use at_aperture frame.
             at_aperture = state.frames["at_aperture"]
             if at_aperture.spectral_radiance is not None:
                 L_interp = np.interp(psf_wl_um, wl_um, at_aperture.spectral_radiance)
             else:
-                # No spectral data — use uniform weights.
                 L_interp = np.ones(n_psf_wavelengths)
 
-        # w_i = L(λ_i) × λ_i / (h·c) [photon flux in photons/s/m²/sr/µm]
         weights = L_interp * psf_wl_m / (h_planck * c_light)
-        # Ensure all weights are positive (L should be non-negative).
         weights = np.maximum(weights, 1e-30)
 
-        psf_arr, sample_spacing_m = compute_polychromatic_psf(
+        store_per_wl = n_psf_wavelengths > 1
+
+        poly_result = compute_polychromatic_psf(
             wavelengths_m=psf_wl_m,
             weights=weights,
             focal_length_m=focal_length_m,
             aperture_diameter_m=aperture_m,
             pixel_pitch_m=pixel_pitch_m,
             obscuration_ratio=obscuration,
-            wfe_rms_waves=wfe_rms_waves,
+            wfe=wfe,
             pupil_npix=128,
             psf_oversample=8,
+            store_per_wavelength=store_per_wl,
+            chromatic_zernikes=chromatic_zernikes,
         )
+
+        psf_arr = poly_result.combined_psf
+        sample_spacing_m = poly_result.pixel_scale_m
 
         # Flux-weighted mean wavelength for EffectivePSF metadata.
         wavelength_um = float(np.average(psf_wl_um, weights=weights))
 
         logger.info(
-            "Polychromatic PSF: %d wavelengths (%.2f–%.2f µm), "
-            "effective λ = %.3f µm",
+            "Polychromatic PSF: %d wavelengths (%.2f-%.2f um), "
+            "effective lambda = %.3f um",
             n_psf_wavelengths,
             psf_wl_um[0],
             psf_wl_um[-1],
             wavelength_um,
         )
+
+        # Store per-wavelength PSFs if available (Gap 16).
+        if poly_result.per_wavelength is not None:
+            per_wl_epsfs: dict[float, EffectivePSF] = {}
+            for wl_key, psf_mono in poly_result.per_wavelength.items():
+                per_wl_epsfs[wl_key] = build_effective_psf(
+                    psf_mono,
+                    kernels=[],
+                    sample_spacing_m=sample_spacing_m,
+                    pixel_pitch_m=pixel_pitch_m,
+                    wavelength_um=wl_key,
+                )
+            state = state.with_stage_output(
+                "optics", "per_wavelength_psfs", per_wl_epsfs
+            )
 
     epsf = build_effective_psf(
         psf_arr,
@@ -248,10 +283,20 @@ class OpticsStage:
         if optics_dist_m <= 0:
             optics_dist_m = focal_length_m
 
+        # Mode 5 (full prescription): element list injected via
+        # stage_outputs["optics_config"]["element_list"] by the IO/API
+        # layer before chain execution.
+        optics_config = state.stage_outputs.get("optics_config", {})
+        full_elements = optics_config.get("element_list")
+        if full_elements is not None:
+            mode = TransmissionInputMode.FULL_PRESCRIPTION
+            mode_str = mode.value
+
         tx_result = resolve_transmission(
             mode,
             state.wavelength_um,
             transmission_scalar=params.get("optics.transmission_scalar"),
+            full_elements=tuple(full_elements) if full_elements is not None else (),
             optics_temperature_K=optics_temp_K,
             optics_distance_to_fpa_m=optics_dist_m,
             aperture_diameter_m=aperture.aperture_diameter_m,
@@ -286,14 +331,72 @@ class OpticsStage:
         state = state.with_stage_output("optics", "elements", tx_result.elements)
 
         # --- Wavefront error ---
-        wfe_mode_str: str = params.get("optics.wfe_mode")
-        wfe_rms: float = params.get("optics.wfe_rms_waves")
-        wfe_ref: float = params.get("optics.wfe_reference_wavelength_um")
-        wfe = WavefrontError(
-            mode=WfeMode(wfe_mode_str),
-            rms_waves=wfe_rms if wfe_mode_str == "scalar_rms" else None,
-            reference_wavelength_um=wfe_ref,
-        )
+        # Check for injected WavefrontError (e.g. Zernike from API layer).
+        wfe_injected = optics_config.get("wavefront_error")
+        chromatic_zernikes: dict[float, dict[int, float]] | None = None
+
+        if wfe_injected is not None:
+            wfe = wfe_injected
+        else:
+            wfe_mode_str: str = params.get("optics.wfe_mode")
+            wfe_rms: float = params.get("optics.wfe_rms_waves")
+            wfe_ref: float = params.get("optics.wfe_reference_wavelength_um")
+
+            if wfe_mode_str == "scalar_rms":
+                wfe = WavefrontError(
+                    mode=WfeMode.SCALAR_RMS,
+                    rms_waves=wfe_rms,
+                    reference_wavelength_um=wfe_ref,
+                )
+            else:
+                raise ValueError(
+                    f"WFE mode '{wfe_mode_str}' requires a WavefrontError "
+                    f"object injected via optics_config['wavefront_error']. "
+                    f"Only 'scalar_rms' can be built from parameters alone."
+                )
+
+        # For field_dependent WFE: look up the selected field point.
+        field_sample: FieldWfeSample | None = None
+        if wfe.mode == WfeMode.FIELD_DEPENDENT:
+            field_x: float = params.get("optics.field_position_x")
+            field_y: float = params.get("optics.field_position_y")
+            field_sample = wfe.at_field(field_x, field_y)
+
+            # Build a ZERNIKE-mode WFE from this field point's coefficients.
+            wfe_for_psf = WavefrontError(
+                mode=WfeMode.ZERNIKE,
+                zernike_coeffs=field_sample.zernike_coeffs,
+                reference_wavelength_um=wfe.reference_wavelength_um,
+            )
+
+            # For refractive systems, extract chromatic Zernikes.
+            if (
+                wfe.optical_type == ElementTransferMode.REFRACTIVE
+                and field_sample.chromatic_zernikes is not None
+            ):
+                chromatic_zernikes = field_sample.chromatic_zernikes
+
+            state = state.with_stage_output(
+                "optics", "field_sample", field_sample,
+            )
+            state = state.with_stage_output(
+                "optics", "field_position_deg", (field_x, field_y),
+            )
+
+            logger.info(
+                "Field-dependent WFE: position (%.3f, %.3f) deg, "
+                "optical_type=%s, %d Zernike terms%s",
+                field_x,
+                field_y,
+                wfe.optical_type.value,
+                len(field_sample.zernike_coeffs),
+                f", {len(chromatic_zernikes)} chromatic wavelengths"
+                if chromatic_zernikes
+                else "",
+            )
+        else:
+            wfe_for_psf = wfe
+
         state = state.with_stage_output("optics", "wavefront_error", wfe)
 
         # --- Build EffectivePSF ---
@@ -302,8 +405,60 @@ class OpticsStage:
             params,
             aperture_m=aperture.aperture_diameter_m,
             focal_length_m=focal_length_m,
-            wfe_rms_waves=wfe_rms,
+            wfe=wfe_for_psf,
+            chromatic_zernikes=chromatic_zernikes,
         )
+
+        # --- Defocus blur ---
+        defocus_um: float = params.get("optics.defocus_um")
+        if defocus_um != 0.0 and epsf is not None:
+            f_number: float = params.get("optics.f_number")
+            defocus_m = defocus_um * 1e-6
+            sigma_def = defocus_sigma_m(defocus_m, f_number)
+
+            # Warn if Gaussian approximation may be inaccurate.
+            # Z4 = delta / (8 * lambda * f/#^2)  — warn if > ~2 waves.
+            wl_center_m = float(
+                state.wavelength_um[len(state.wavelength_um) // 2]
+            ) * 1e-6
+            if wl_center_m > 0.0:
+                z4_waves = abs(defocus_m) / (8.0 * wl_center_m * f_number**2)
+                if z4_waves > 2.0:
+                    logger.warning(
+                        "Defocus = %.1f µm produces %.1f waves of Z4 at "
+                        "λ=%.2f µm, f/%.1f. Gaussian approximation may be "
+                        "inaccurate; consider Zernike Z4 wavefront error "
+                        "for large defocus.",
+                        defocus_um,
+                        z4_waves,
+                        wl_center_m * 1e6,
+                        f_number,
+                    )
+
+            # Kernel size: 6σ span, capped to PSF grid.
+            sample_spacing_m = epsf.sample_spacing_m
+            npix_needed = int(math.ceil(6.0 * sigma_def / sample_spacing_m)) | 1
+            npix_needed = min(npix_needed, epsf.data.shape[0])
+            npix_needed = max(npix_needed, 3)
+
+            kernel = defocus_kernel_2d(npix_needed, sample_spacing_m, sigma_def)
+            epsf = epsf.with_kernel("defocus", kernel)
+
+            # Update stored ePSF.
+            state = state.with_stage_output("optics", "effective_psf", epsf)
+            state = state.with_stage_output(
+                "optics", "defocus_sigma_m", sigma_def,
+            )
+
+            logger.info(
+                "Defocus applied: δ=%.1f µm, σ=%.3f µm (%.3f pix), "
+                "kernel %dx%d",
+                defocus_um,
+                sigma_def * 1e6,
+                sigma_def / sample_spacing_m,
+                npix_needed,
+                npix_needed,
+            )
 
         # --- Nearfield emission ---
         nearfield_enabled: int = params.get("optics.nearfield_enabled")
@@ -311,11 +466,12 @@ class OpticsStage:
 
         if nearfield_enabled and not stray_includes_thermal:
             cold_stop_eff: float = params.get("optics.cold_stop_efficiency")
-            nf_irradiance = compute_nearfield_irradiance(
+            nf_result = compute_nearfield_irradiance(
                 tx_result.elements,
                 state.wavelength_um,
                 cold_stop_eff,
             )
+            nf_irradiance = nf_result.total
         else:
             nf_irradiance = SpectralData(
                 name="optics.nearfield_irradiance_at_fpa",
@@ -326,12 +482,19 @@ class OpticsStage:
                 if not nearfield_enabled
                 else "Nearfield suppressed (stray includes thermal)",
             )
+            nf_result = None
 
         state = state.with_stage_output(
             "optics",
             "nearfield_irradiance_at_fpa",
             nf_irradiance,
         )
+        if nf_result is not None:
+            state = state.with_stage_output(
+                "optics",
+                "nearfield_per_element",
+                nf_result.per_element,
+            )
 
         # --- Stray light ---
         stray_mode_str: str = params.get("optics.stray.input_mode")

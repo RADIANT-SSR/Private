@@ -159,11 +159,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.4 (Karen — cold stop sweep) |
-| **Status** | OPEN |
+| **Status** | CLOSED |
 | **Description** | RADIANT outputs total `nearfield_e` but does not break it down by optical element (primary mirror, secondary, fold mirror, field lens, filter). Test engineers need to know which element contributes most to nearfield emission to diagnose cold stop leakage directionality. |
-| **Workaround** | None — requires changes to the optics stage internals. |
+| **Resolution** | `compute_nearfield_irradiance()` now returns `NearfieldResult` with `total` (SpectralData) and `per_element` (dict[str, SpectralData]). Each per-element contribution includes cold-stop efficiency scaling. Sum of per-element equals total (identity tested). OpticsStage stores `nearfield_per_element` in `stage_outputs["optics"]`. |
 | **Impact** | Cold stop and stray light diagnostics. |
-| **Fix location** | `radiant/optics/` — return per-element contributions in `stage_outputs`. |
+| **Fix location** | `radiant/optics/element_list.py`, `radiant/optics/stage.py` |
 | **Effort** | Medium — element list already iterated, just need per-element bookkeeping. |
 | **Scenarios blocked** | None (total nearfield is sufficient for basic analysis). |
 | **Rerun after fix** | Scenario 7.4 |
@@ -203,7 +203,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.2 (Tom — pixel pitch optimization) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Prompt 3C.4) |
 | **Description** | RADIANT computes the pre-sampling (optical) MTF but does not model aliasing — spatial frequency folding at Nyquist. For undersampled systems (Q < 1), high-frequency scene content folds back below Nyquist, producing spurious apparent contrast. The reported MTF at Nyquist can be misleadingly high for aliased systems. |
 | **Workaround** | None — aliasing analysis requires a folded-MTF computation not currently available. |
 | **Impact** | Any undersampled system (Q < 1) analysis gives incomplete spatial performance picture. |
@@ -211,6 +211,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | Medium — requires folded-MTF math and decision on where in the chain to apply. |
 | **Scenarios blocked** | None (pre-sampling MTF is still useful). |
 | **Rerun after fix** | Scenario 5.2 |
+| **Resolution** | New `performance/folded_mtf.py` computes MTF_folded(f) = Σ MTF_optical(|f + k·f_Ny|) for k=-3..+3. Returns `FoldedMTFResult` with folded MTF, alias fraction. Wired into `_compute_spatial_metrics` — always computed, stored as `folded_mtf_x/y` stage outputs and `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` metrics. |
 
 ---
 
@@ -232,7 +233,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.3 (Tom — mono vs. poly PSF) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Prompt 3C.2) |
 | **Description** | `compute_polychromatic_psf()` computes monochromatic PSFs at each wavelength internally but discards them after accumulation into the weighted average. Per-wavelength PSF arrays are never stored in `stage_outputs`. Chromatic PSF visualization requires N separate narrow-band evaluations. |
 | **Workaround** | Run RADIANT N times with narrow bands (±50 nm) centered at each wavelength. |
 | **Impact** | Chromatic PSF analysis, per-wavelength MTF overlays, FWHM(λ) plots. |
@@ -240,6 +241,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | Small — loop already exists, just need to store intermediate arrays. |
 | **Scenarios blocked** | None (workaround available but expensive). |
 | **Rerun after fix** | Scenario 5.3 |
+| **Resolution** | `PolychromaticPSFResult` dataclass stores `per_wavelength` dict when `store_per_wavelength=True`. `OpticsStage` stores `per_wavelength_psfs` as `dict[float, EffectivePSF]` in `stage_outputs["optics"]` when `psf_n_wavelengths > 1`. |
 
 ---
 
@@ -357,7 +359,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Prompt 3C.2) |
 | **Description** | `WavefrontError` in `wavefront.py` defines `WfeMode.ZERNIKE` and accepts a `zernike_coeffs` dict, but `OpticsStage` only uses `scalar_rms` mode. It passes `wfe_rms_waves` to `make_pupil_phase()` which generates a random phase screen scaled to the requested RMS. The random screen gives the correct Strehl (same RMS = same Marechal) but NOT the correct PSF shape — coma produces a comet PSF, astigmatism produces a cross, the random screen produces neither. Tom's 12 Zernike coefficients can only be collapsed to a single RMS number today. |
 | **Workaround** | Use scalar RMS (RSS of all coefficients). Correct for Strehl and total WFE budget, but cannot distinguish aberration types. |
 | **Impact** | Any optical designer wanting to evaluate specific aberration contributions to PSF shape, MTF, and image quality. |
@@ -365,6 +367,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | Medium — Zernike polynomial evaluation is well-defined math, but needs pupil coordinate handling with obscuration. |
 | **Scenarios blocked** | 5.1 (partial — scalar RMS works for total budget). |
 | **Rerun after fix** | Scenario 5.1 |
+| **Resolution** | New `zernike.py` module evaluates Noll-indexed Zernike polynomials on the pupil grid. `compute_psf()` accepts `WavefrontError` and dispatches to `make_pupil_phase_zernike()` for `WfeMode.ZERNIKE`. `OpticsStage` threads injected `WavefrontError` from `optics_config` through the PSF pipeline. |
 
 ---
 
@@ -373,7 +376,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Prompt 3C.3) |
 | **Description** | `WfeMode.FIELD_DEPENDENT` exists with `FieldWfeSample` tuples (field_x, field_y, WFE at that point), but `OpticsStage` raises `NotImplementedError` if this mode is selected. Tom has Zernike sets at 4 field positions (on-axis + 3 off-axis) — he cannot evaluate edge-of-field performance where aberrations are typically 2-3x worse than on-axis. |
 | **Workaround** | Run separate evaluations with different scalar RMS values representing each field position. Loses field-position coupling to PSF shape. |
 | **Impact** | Any field-dependent image quality analysis. Wide-field imagers where edge performance drives the design. |
@@ -381,6 +384,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | Large — needs field-position interpolation, multiple PSF evaluations, field-averaged metrics. |
 | **Scenarios blocked** | 5.1 (partial — on-axis only today). |
 | **Rerun after fix** | Scenario 5.1 |
+| **Resolution** | No interpolation: user selects exact field point via `optics.field_position_x/y` params. `at_field()` returns exact match, `at_field_nearest()` returns nearest with warning. Refractive systems carry `chromatic_zernikes` per field sample; polychromatic PSF uses nearest-wavelength Zernike set for each monochromatic PSF. `OpticsStage` dispatches field_dependent → ZERNIKE at selected field point. |
 
 ---
 
@@ -437,11 +441,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
-| **Status** | OPEN |
+| **Status** | CLOSED |
 | **Description** | RADIANT has no parameter for detector-plane defocus (linear focus shift from best focus). The `optics.wfe_rms_waves` parameter models wavefront error as a random phase screen, which is mathematically different from pure defocus (Zernike Z4). A 5 µm defocus at f/3 produces a geometric blur spot of 0.83 µm radius — negligible for this system but significant at faster f-numbers. Defocus is one of the most common as-built degradation modes and the first thing a test engineer checks. |
-| **Workaround** | Compute defocus MTF analytically in scripts: `MTF_defocus = exp(-2π²σ²f²)` with `σ = δ/(4·f/#)`. Multiply with RADIANT's predicted MTF. |
+| **Resolution** | Added `optics.defocus_um` parameter (default 0.0, bounds [-500, 500] µm). Defocus generates an isotropic Gaussian kernel with σ = \|δ\|/(4·f/#·√3) applied via `epsf.with_kernel("defocus", ...)`. Warns when Z4 > 2 waves (Gaussian approximation breaks down). |
 | **Impact** | Any lab MTF comparison where the sensor is not at perfect focus. Any through-focus analysis. |
-| **Fix location** | `radiant/optics/_schema.py` + `stage.py` — add `optics.defocus_um` parameter, compute Gaussian defocus kernel and convolve with ePSF. |
+| **Fix location** | `radiant/optics/defocus.py`, `radiant/optics/_schema.py`, `radiant/optics/stage.py` |
 | **Effort** | Small — straightforward Gaussian blur kernel, one new parameter. |
 | **Scenarios blocked** | None (workaround available). |
 | **Rerun after fix** | Scenario 7.3 |
@@ -501,12 +505,13 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Phase 3, Prompt 3A.1) |
 | **Description** | `compute_gsd()` in `radiant/performance/gsd.py` uses nadir formula `GSD = pixel_pitch × altitude / focal_length` and does not account for `geometry.path_zenith_rad`. At 45 deg off-nadir from 600 km, the true slant range is 815 km, giving cross-track GSD of 1.86 m vs. the reported 1.37 m — a 26% error. GSD should use slant range: `GSD = pixel_pitch × slant_range / focal_length`. |
 | **Workaround** | Compute slant range and off-nadir GSD manually in scripts. |
 | **Impact** | Any off-nadir or agile pointing analysis reports incorrect GSD. NIIRS derived from incorrect GSD is also wrong (Gap 34). |
 | **Fix location** | `radiant/performance/gsd.py` — read `geometry.path_zenith_rad` and compute slant range. |
 | **Effort** | Small — slant range formula already exists in atmosphere module. |
+| **Resolution** | Added `path_zenith_rad` parameter to `compute_gsd()`. Uses spherical-Earth ray-sphere intersection (`core.geometry.slant_range_spherical_m`) for correct slant range. Default zenith=0 preserves nadir behavior. Note: the original gap description's reference values (815 km slant, 1.86 m GSD) used the atmospheric slant-path formula, not geometric ray-sphere intersection. Correct values at 45°/600 km: slant = 892 km, cross-track GSD = 2.68 m. |
 | **Scenarios blocked** | None (workaround available). |
 | **Rerun after fix** | Scenario 3.4 |
 
@@ -517,12 +522,13 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Phase 3, Prompt 3A.1) |
 | **Description** | Because GSD is computed at nadir (Gap 33), NIIRS from GIQE-5 does not reflect the true off-nadir GSD. At 45 deg, NIIRS is approximately 0.67 points too optimistic. Fixing Gap 33 would automatically fix this, since NIIRS reads GSD from `result.metrics`. |
 | **Workaround** | Correct NIIRS using GSD scaling: `dNIIRS = -3.32 × log10(GSD_true / GSD_nadir)`. |
 | **Impact** | Any off-nadir NIIRS analysis. |
 | **Fix location** | Resolved automatically when Gap 33 is fixed. |
 | **Effort** | None beyond Gap 33. |
+| **Resolution** | Resolved automatically by Gap 33 fix. NIIRS reads GSD from `state.metrics`, which now reflects off-nadir corrected values when `geometry.path_zenith_rad` is set. |
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 3.4 |
 
@@ -533,12 +539,13 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
-| **Status** | OPEN |
+| **Status** | CLOSED (Phase 3, Prompt 3A.1) |
 | **Description** | At off-nadir angles, the ground sample is no longer square. Cross-track GSD scales as `slant_range / f` but along-track GSD scales as `slant_range / (f × cos(incidence_angle))` due to ground projection foreshortening. At 45 deg off-nadir, along-track GSD is 2.94 m vs. cross-track 1.86 m — a 58% asymmetry. RADIANT's GSD metric always reports equal cross-track and along-track values (from pixel pitch ratio only, no angle). |
 | **Workaround** | Compute the projection-corrected along-track GSD externally. |
 | **Impact** | Any off-nadir analysis, NIIRS prediction (GIQE-5 uses geometric mean of cross/along GSD). |
 | **Fix location** | `radiant/performance/gsd.py` — add incidence angle correction for along-track GSD. |
 | **Effort** | Medium — needs incidence angle computation from zenith angle and Earth geometry. |
+| **Resolution** | Along-track GSD now uses `slant_range / (f × cos(incidence))` where incidence is computed via `core.geometry.incidence_angle_rad()` (sine-rule spherical Earth). Cross-track and along-track are reported separately; `geometric_mean_m` property added for GIQE-5. Note: original gap reference values (2.94 m along, 1.86 m cross) used wrong slant range formula. Correct values at 45°/600 km: along = 4.23 m, cross = 2.68 m. |
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 3.4 |
 
@@ -549,11 +556,12 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.4 (Raj — off-nadir agility) |
-| **Status** | OPEN |
+| **Status** | CLOSED |
+| **Resolution** | Prompt 3A.2. Added `performance/ground_range.py`, `performance/swath_width.py`, `performance/access_rate.py`. Wired into PerformanceStage via `_compute_access_metrics()`. New params: `detector.n_pixels_cross`, `geometry.ground_speed_m_s`. Ground range uses law of cosines on ray-sphere triangle. All metrics skip gracefully when inputs not provided. |
 | **Description** | RADIANT has no built-in computation for swath width, ground range, or access area rate. Mission planners need these to evaluate the trade between image quality and collection capability. The math is straightforward geometry (swath = n_pixels × GSD_cross, ground_range from Earth geometry). |
-| **Workaround** | Compute externally in scripts. |
+| **Workaround** | N/A — fixed. |
 | **Impact** | Mission planning and agile pointing trade studies. |
-| **Fix location** | `radiant/performance/` or `radiant/api/` — add access geometry utilities. |
+| **Fix location** | `radiant/performance/ground_range.py`, `radiant/performance/swath_width.py`, `radiant/performance/access_rate.py`, `radiant/performance/stage.py` |
 | **Effort** | Medium — need Earth geometry, swath, ground range, access rate calculations. |
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 3.4 |
@@ -599,4 +607,4 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | OPEN |
 | 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | OPEN |
 | 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | OPEN |
-| 36 | No swath width / access geometry | Medium | 3.4 | OPEN |
+| 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |

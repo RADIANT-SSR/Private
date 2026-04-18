@@ -19,6 +19,145 @@ import numpy as np
 import numpy.typing as npt
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Mean Earth radius [m] — spherical approximation (consistent with US
+# Standard 1976 and the atmosphere module's EARTH_RADIUS_M).
+EARTH_RADIUS_M: float = 6_371_000.0
+
+# ---------------------------------------------------------------------------
+# Spherical-Earth geometry helpers
+# ---------------------------------------------------------------------------
+#
+# These compute geometric slant range and ground incidence angle for a
+# sensor at altitude h looking at off-nadir angle θ toward the Earth's
+# surface.  They use ray-sphere intersection geometry:
+#
+#   Sensor at distance (R_E + h) from Earth center, line of sight at
+#   angle θ from nadir.  The LOS intersects the sphere of radius R_E
+#   at the near solution of the quadratic:
+#
+#     t² − 2(R_E+h)cos(θ)·t + [(R_E+h)² − R_E²] = 0
+#
+# NOTE: The atmosphere module (atmosphere/protocol.py) has its own
+# slant-path computation for atmospheric transmission.  That formula
+# computes the path length THROUGH an atmospheric shell, which is a
+# different geometric problem.  These two implementations are
+# intentionally independent.
+
+
+def slant_range_spherical_m(altitude_m: float, zenith_rad: float) -> float:
+    """Geometric slant range from sensor to Earth surface [m].
+
+    Uses ray-sphere intersection on a spherical Earth of radius R_E.
+    At zenith_rad=0, returns altitude_m exactly (nadir).
+
+    Parameters
+    ----------
+    altitude_m : float
+        Sensor altitude above the Earth surface [m].  Must be >= 0.
+    zenith_rad : float
+        Off-nadir look angle [rad].  Must be >= 0.  Must be less than
+        the horizon angle arcsin(R_E / (R_E + h)).
+
+    Returns
+    -------
+    float
+        Line-of-sight distance from sensor to the target on the
+        Earth surface [m].
+
+    Raises
+    ------
+    ValueError
+        If zenith_rad < 0 or the line of sight misses the Earth
+        (beyond the horizon).
+    """
+    if zenith_rad < 0.0:
+        raise ValueError(
+            f"slant_range_spherical_m: zenith_rad = {zenith_rad:.4f} rad "
+            f"is negative.  Off-nadir angle must be >= 0."
+        )
+    if altitude_m <= 0.0:
+        return 0.0
+
+    R = EARTH_RADIUS_M
+    Rh = R + altitude_m
+    sin_zen = math.sin(zenith_rad)
+    cos_zen = math.cos(zenith_rad)
+
+    # Discriminant of the ray-sphere quadratic:
+    #   disc = R_E² − (R_E + h)² sin²(θ)
+    # Negative discriminant means the LOS misses the Earth (below horizon).
+    disc = R * R - Rh * Rh * sin_zen * sin_zen
+    if disc < 0.0:
+        # Compute the horizon angle for the error message.
+        horizon_deg = math.degrees(math.asin(R / Rh))
+        raise ValueError(
+            f"slant_range_spherical_m: zenith_rad = {zenith_rad:.4f} rad "
+            f"({math.degrees(zenith_rad):.2f}°) is beyond the horizon.  "
+            f"At altitude {altitude_m / 1000:.1f} km, the maximum off-nadir "
+            f"angle is {horizon_deg:.2f}°.  Reduce zenith_rad or increase "
+            f"altitude."
+        )
+
+    return Rh * cos_zen - math.sqrt(disc)
+
+
+def incidence_angle_rad(altitude_m: float, zenith_rad: float) -> float:
+    """Incidence angle at the ground for a sensor at altitude h [rad].
+
+    The incidence angle is the angle between the line of sight and the
+    local surface normal at the target point.  Due to Earth curvature,
+    the incidence angle exceeds the sensor's off-nadir angle:
+
+        sin(incidence) = (R_E + h) / R_E × sin(zenith)
+
+    At nadir (zenith=0), incidence = 0.  At 45° from 600 km,
+    incidence ≈ 50.7° (5.7° larger than zenith).
+
+    Parameters
+    ----------
+    altitude_m : float
+        Sensor altitude above Earth surface [m].  Must be >= 0.
+    zenith_rad : float
+        Off-nadir look angle [rad].  Must be >= 0.
+
+    Returns
+    -------
+    float
+        Ground incidence angle [rad].
+
+    Raises
+    ------
+    ValueError
+        If zenith_rad < 0 or the incidence would exceed 90° (below horizon).
+    """
+    if zenith_rad < 0.0:
+        raise ValueError(
+            f"incidence_angle_rad: zenith_rad = {zenith_rad:.4f} rad "
+            f"is negative.  Off-nadir angle must be >= 0."
+        )
+    if altitude_m <= 0.0 or zenith_rad == 0.0:
+        return 0.0 if zenith_rad == 0.0 else zenith_rad
+
+    R = EARTH_RADIUS_M
+    sin_inc = (R + altitude_m) / R * math.sin(zenith_rad)
+
+    if sin_inc > 1.0:
+        horizon_deg = math.degrees(math.asin(R / (R + altitude_m)))
+        raise ValueError(
+            f"incidence_angle_rad: zenith_rad = {zenith_rad:.4f} rad "
+            f"({math.degrees(zenith_rad):.2f}°) produces an incidence "
+            f"angle beyond 90° (below horizon).  At altitude "
+            f"{altitude_m / 1000:.1f} km, the maximum off-nadir angle "
+            f"is {horizon_deg:.2f}°."
+        )
+
+    return math.asin(sin_inc)
+
+
+# ---------------------------------------------------------------------------
 # Rotation matrix utilities
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,295 @@
+captured_at_sha: 4953c90489db4734d33bd2ae16c4735ea78a0aae
+scenarios:
+  examples/ground_truth_mwir.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 0.7219764225707683
+    - null
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_6
+    error: null
+    mtf_at_nyquist: 0.1516977137283038
+    nedt_K: 1.9558838221253398
+    snr: 12.792731972917522
+    status: ok
+  examples/mwir_leo_minimal.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 0.10866715092222141
+    - 0.41161037388618266
+    - 0.7740859033816564
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_6
+    error: null
+    mtf_at_nyquist: 0.2533711096266722
+    nedt_K: 0.03990423862165068
+    snr: 666.2136146849308
+    status: ok
+  examples/templates/lwir_aerial_survey.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 5.86052916104729
+    - 8.59494248588731
+    - 8.15242727272366
+    cell_ref: Cell 28
+    classification: invariant
+    error: null
+    mtf_at_nyquist: 0.0758782349334645
+    nedt_K: 11.773426337279998
+    snr: 5.520805585767018
+    status: ok
+  examples/templates/lwir_geo.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 3.8915181230160947
+    - 7.04882131424145
+    - 7.062286743128634
+    cell_ref: Cell 28
+    classification: invariant
+    error: null
+    mtf_at_nyquist: 0.06009659862829384
+    nedt_K: 10.275918378988923
+    snr: 5.648452460425781
+    status: ok
+  examples/templates/lwir_leo_sounder.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 6.528087266960084
+    - null
+    cell_ref: Cell 28
+    classification: invariant
+    error: null
+    mtf_at_nyquist: 0.07787930551805869
+    nedt_K: 4.60354470669466
+    snr: 12.478510969843144
+    status: ok
+  examples/templates/mwir_aerial_flir.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 0.6042922289099214
+    - 1.1016125261404168
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_6
+    error: null
+    mtf_at_nyquist: 0.36634802859450605
+    nedt_K: 0.3282167833234408
+    snr: 86.4868798429374
+    status: ok
+  examples/templates/mwir_ground_test.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 1.640092278111781
+    - 3.710470560473891
+    - 6.402335481875011
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_6
+    error: null
+    mtf_at_nyquist: 0.38505696105278175
+    nedt_K: 0.9347653958321323
+    snr: 38.70807580071657
+    status: ok
+  examples/templates/mwir_leo_pushbroom.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 0.10866715092222141
+    - 0.41161037388618266
+    - 0.7740859033816564
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_6
+    error: null
+    mtf_at_nyquist: 0.2533711096266722
+    nedt_K: 0.20897306705390165
+    snr: 127.21614047289053
+    status: ok
+  examples/templates/mwir_leo_starer.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - null
+    - 0.8724972988863222
+    - 0.7420421991200588
+    - 1.0065304513046447
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_6
+    error: null
+    mtf_at_nyquist: 0.5002235257799496
+    nedt_K: 0.47431169734945433
+    snr: 52.75243610148707
+    status: ok
+  examples/templates/swir_aerial_gas.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - null
+    - null
+    - 0.010236522036398315
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_3
+    error: null
+    mtf_at_nyquist: 0.5375502104378229
+    nedt_K: 0.18965971280368848
+    snr: 74.20898457557765
+    status: ok
+  examples/templates/swir_leo.yaml:
+    L_aperture_W_m2_sr_um:
+    - null
+    - null
+    - 22.189940500179347
+    - 11.030778708378605
+    - 5.163690680762617
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_3
+    error: null
+    mtf_at_nyquist: 0.4290835606320365
+    nedt_K: 0.32706547004961867
+    snr: 33.46974569336856
+    status: ok
+  examples/templates/vnir_aerial.yaml:
+    L_aperture_W_m2_sr_um:
+    - 50.34545432813468
+    - 12.78078918684295
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_3
+    error: null
+    mtf_at_nyquist: 0.42060901872650236
+    nedt_K: 0.029953890610409022
+    snr: 135.74041635282333
+    status: ok
+  examples/templates/vnir_leo_highres.yaml:
+    L_aperture_W_m2_sr_um:
+    - 130.82468100143734
+    - 59.729943853628114
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_3
+    error: null
+    mtf_at_nyquist: 0.35728595844937844
+    nedt_K: 0.04908167498297008
+    snr: 73.28203639675493
+    status: ok
+  examples/templates/vnir_leo_multispectral.yaml:
+    L_aperture_W_m2_sr_um:
+    - 130.82468100143737
+    - 59.729943853628114
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    - null
+    cell_ref: null
+    classification: expected_to_change_at_stage_3
+    error: null
+    mtf_at_nyquist: 0.5467557089134018
+    nedt_K: 0.03415368229760102
+    snr: 128.2063586850829
+    status: ok
+schema_version: 1
+wavelength_grid_um:
+- 0.5
+- 0.7
+- 1.0
+- 1.6
+- 2.2
+- 3.5
+- 4.0
+- 4.5
+- 8.0
+- 10.0
+- 12.0

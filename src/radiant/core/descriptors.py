@@ -1,0 +1,603 @@
+"""Target and Background descriptors for the Source → Atmosphere boundary.
+
+These are the pure data contracts that SourceStage publishes and
+AtmosphereStage consumes under Option C (ADR-0002).  Placing them in
+``core/`` — not ``source/`` — keeps the contract symmetric across stages and
+removes a would-be Rule 11 exception (AtmosphereStage importing from
+``radiant.source``).
+
+Three families of classes live here:
+
+- :class:`TargetDescriptor` — base class holding the matrix axes
+  (``scene_type``, ``target_location``, ``no_atmosphere_subcase``,
+  ``h_tgt``).  Subclasses :class:`T1Thermal`, :class:`T2Reflective`,
+  :class:`T3Mixed`, :class:`T5AtAperture` carry the discriminated
+  material/geometry payload.
+
+- :class:`BackgroundDescriptor` — base class.  Subclasses
+  :class:`AtApertureBackground`, :class:`ColdSpaceBackground`,
+  :class:`GroundBackground`, :class:`UserSpectralBackground` cover the
+  four v1 background variants.
+
+- Cross-field validation: each ``__post_init__`` enforces the matrix §7
+  must-raise combinations it can check from the descriptor alone.
+  Checks that require PSF_FWHM (point-source angular-size guard) or
+  cross-descriptor state (variant ↔ sub-case pairing) are deferred to
+  later stages; see class docstrings for the exact deferrals.
+
+Notes
+-----
+- All descriptors are frozen dataclasses.  Serialize via
+  ``dataclasses.asdict(d)`` but note that nested :class:`SpectralData`
+  fields need a custom round-trip (SpectralData already has ``to_dict`` /
+  ``from_dict`` methods — use them for I/O).
+- Unit conventions match ``RADIANT_Conventions.md``: ε and ρ are
+  dimensionless spectral functions on µm; T in K; L in W/m²/sr/µm;
+  h in m.
+"""
+
+from __future__ import annotations
+
+import warnings
+from dataclasses import dataclass
+from typing import Literal
+
+from radiant.core.parameters import ParameterBoundsError
+from radiant.core.spectral import SpectralData
+
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
+
+SceneType = Literal["extended", "sub_pixel", "point_source"]
+TargetLocation = Literal["at_aperture", "terrestrial", "airborne", "no_atmosphere"]
+NoAtmosphereSubcase = Literal["space", "ground_test", "lab_test"]
+
+
+# ---------------------------------------------------------------------------
+# TargetDescriptor — base
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TargetDescriptor:
+    """Base target descriptor.
+
+    Carries the three matrix axes plus the target altitude.  Concrete
+    subclasses add the discriminated material/geometry payload (ε, ρ, T_t,
+    A_t, shape, or user-supplied radiance) per ADR-0002 §"The descriptor
+    surface".
+
+    Parameters
+    ----------
+    scene_type:
+        One of ``"extended"``, ``"sub_pixel"``, ``"point_source"``.
+    target_location:
+        One of ``"at_aperture"``, ``"terrestrial"``, ``"airborne"``,
+        ``"no_atmosphere"``.
+    no_atmosphere_subcase:
+        Required iff ``target_location == "no_atmosphere"``.  One of
+        ``"space"``, ``"ground_test"``, ``"lab_test"``.
+    h_tgt:
+        Target altitude above MSL [m].  Required except when
+        ``target_location == "at_aperture"``.
+
+    Deferred validation (NOT checked at construction)
+    -------------------------------------------------
+    **Point-source angular-size check** (``√A_t / d > 0.1 · PSF_FWHM`` per
+    matrix §7): this check requires ``PSF_FWHM`` from OpticsStage and is
+    therefore deferred to ``OpticsStage._finalize_regime()`` in Stage 8 of
+    the Option C plan.  Constructing a ``point_source`` descriptor with
+    a resolved angular size will **not** raise here; the error surfaces
+    when OpticsStage finalizes the regime.
+    """
+
+    scene_type: SceneType
+    target_location: TargetLocation
+    no_atmosphere_subcase: NoAtmosphereSubcase | None = None
+    h_tgt: float | None = None
+
+    # ------------------------------------------------------------------
+    # Shared cross-field validation
+    # ------------------------------------------------------------------
+
+    def __post_init__(self) -> None:
+        # Enum-ish literals may arrive as raw strings from YAML — validate.
+        if self.scene_type not in ("extended", "sub_pixel", "point_source"):
+            raise ParameterBoundsError(
+                what=f"TargetDescriptor.scene_type = {self.scene_type!r} is invalid",
+                why="scene_type must be 'extended', 'sub_pixel', or 'point_source'.",
+                action="Set scene_type to one of the three allowed values.",
+                context={"scene_type": self.scene_type},
+            )
+        if self.target_location not in (
+            "at_aperture",
+            "terrestrial",
+            "airborne",
+            "no_atmosphere",
+        ):
+            raise ParameterBoundsError(
+                what=(f"TargetDescriptor.target_location = {self.target_location!r} is invalid"),
+                why=(
+                    "target_location must be one of 'at_aperture', "
+                    "'terrestrial', 'airborne', 'no_atmosphere'."
+                ),
+                action="Set target_location to one of the four allowed values.",
+                context={"target_location": self.target_location},
+            )
+
+        # Matrix §7: at_aperture is extended-only.
+        if self.target_location == "at_aperture" and self.scene_type != "extended":
+            raise ParameterBoundsError(
+                what=(
+                    f"TargetDescriptor: target_location='at_aperture' "
+                    f"requires scene_type='extended'; got {self.scene_type!r}"
+                ),
+                why=(
+                    "At-aperture radiance spec is defined only for extended "
+                    "scenes (matrix §7, Decision #2).  sub_pixel/point_source "
+                    "cells cannot be pre-integrated at the pupil."
+                ),
+                action=(
+                    "Either switch scene_type to 'extended' or pick a target "
+                    "location other than 'at_aperture'."
+                ),
+                context={
+                    "target_location": self.target_location,
+                    "scene_type": self.scene_type,
+                },
+            )
+
+        # Matrix §7: no_atmosphere without sub-case → raise.
+        if self.target_location == "no_atmosphere" and self.no_atmosphere_subcase is None:
+            raise ParameterBoundsError(
+                what=(
+                    "TargetDescriptor: target_location='no_atmosphere' "
+                    "without no_atmosphere_subcase"
+                ),
+                why=(
+                    "The 'no_atmosphere' location covers three distinct "
+                    "sub-cases (space / ground_test / lab_test) which share "
+                    "A0 atmosphere but differ in default background and "
+                    "illumination.  Matrix §7 requires the sub-case."
+                ),
+                action=("Set no_atmosphere_subcase to 'space', 'ground_test', or 'lab_test'."),
+                context={"target_location": self.target_location},
+            )
+        if self.target_location != "no_atmosphere" and self.no_atmosphere_subcase is not None:
+            raise ParameterBoundsError(
+                what=(
+                    f"TargetDescriptor: no_atmosphere_subcase = "
+                    f"{self.no_atmosphere_subcase!r} set but target_location = "
+                    f"{self.target_location!r} (not 'no_atmosphere')"
+                ),
+                why="Sub-case selector is only meaningful for target_location='no_atmosphere'.",
+                action="Either clear no_atmosphere_subcase or set target_location='no_atmosphere'.",
+                context={
+                    "target_location": self.target_location,
+                    "no_atmosphere_subcase": self.no_atmosphere_subcase,
+                },
+            )
+
+        # Validate subcase enum.
+        if self.no_atmosphere_subcase is not None and self.no_atmosphere_subcase not in (
+            "space",
+            "ground_test",
+            "lab_test",
+        ):
+            raise ParameterBoundsError(
+                what=(
+                    f"TargetDescriptor.no_atmosphere_subcase = "
+                    f"{self.no_atmosphere_subcase!r} is invalid"
+                ),
+                why="Sub-case must be 'space', 'ground_test', or 'lab_test'.",
+                action="Set no_atmosphere_subcase to one of the three allowed values.",
+                context={"no_atmosphere_subcase": self.no_atmosphere_subcase},
+            )
+
+        # h_tgt: required for terrestrial/airborne/no_atmosphere; forbidden for at_aperture.
+        if self.target_location == "at_aperture":
+            if self.h_tgt is not None:
+                raise ParameterBoundsError(
+                    what=(
+                        f"TargetDescriptor: h_tgt = {self.h_tgt} set but "
+                        f"target_location='at_aperture'"
+                    ),
+                    why="At-aperture descriptors have no atmospheric path; h_tgt is undefined.",
+                    action="Leave h_tgt = None for at_aperture targets.",
+                    context={"target_location": self.target_location, "h_tgt": self.h_tgt},
+                )
+        else:
+            if self.h_tgt is None:
+                raise ParameterBoundsError(
+                    what=(
+                        f"TargetDescriptor: h_tgt is None but "
+                        f"target_location = {self.target_location!r} requires it"
+                    ),
+                    why=(
+                        "Terrestrial / airborne / no_atmosphere descriptors "
+                        "drive the atmospheric path and therefore need the "
+                        "target altitude."
+                    ),
+                    action="Set h_tgt to a non-negative altitude [m].",
+                    context={"target_location": self.target_location},
+                )
+            if self.h_tgt < 0.0:
+                raise ParameterBoundsError(
+                    what=f"TargetDescriptor.h_tgt = {self.h_tgt} m is negative",
+                    why="Target altitude must be non-negative (at or above MSL).",
+                    action="Set h_tgt ≥ 0.",
+                    context={"h_tgt": self.h_tgt},
+                )
+
+
+# ---------------------------------------------------------------------------
+# Regime helpers (internal)
+# ---------------------------------------------------------------------------
+
+
+def _is_mwir_spectral_data(sd: SpectralData | None) -> bool:
+    """Return True if the wavelength grid overlaps the MWIR band (3–5 µm).
+
+    Used by T1/T2 variant validators to emit Rule-17 warnings when a
+    pure-thermal or pure-reflective model is used in the MWIR, where
+    matrix §3.2 says T3 mixed is mandatory for ambient scenes.
+    """
+    if sd is None:
+        return False
+    lam = sd.wavelength_um
+    if lam.size == 0:
+        return False
+    return bool((lam.min() <= 5.0) and (lam.max() >= 3.0))
+
+
+def _warn_mwir_non_mixed(
+    variant: str,
+    sd: SpectralData | None,
+    extra: str = "",
+) -> None:
+    """Emit a matrix §3.2 MWIR warning per Rule 17."""
+    if _is_mwir_spectral_data(sd):
+        msg = (
+            f"TargetDescriptor: {variant} applied to a spectral band overlapping "
+            f"the MWIR (3–5 µm).  Matrix §3.2 notes that ambient-temperature MWIR "
+            f"scenes require the T3 mixed emit+reflect model — a pure "
+            f"{variant.lower()} treatment may be inaccurate."
+        )
+        if extra:
+            msg = f"{msg} {extra}"
+        warnings.warn(msg, UserWarning, stacklevel=3)
+
+
+# ---------------------------------------------------------------------------
+# TargetDescriptor — concrete variants
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class T1Thermal(TargetDescriptor):
+    """Pure-thermal graybody: L_t = ε(λ)·B(λ, T_t).
+
+    Valid for LWIR cells and MWIR cells where ρ ≈ 0 (hot targets).  A
+    warning fires if the emissivity spectral band overlaps the MWIR band,
+    because matrix §3.2 notes that ambient MWIR scenes need the T3 mixed
+    model — the warning gives users a chance to reclassify (Rule 17).
+    """
+
+    epsilon: SpectralData | None = None
+    T_t: float = 0.0
+    A_t: float | None = None
+    shape: str | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.epsilon is None:
+            raise ParameterBoundsError(
+                what="T1Thermal: epsilon is required",
+                why="Graybody thermal radiance needs ε(λ) for Kirchhoff self-emission.",
+                action="Supply epsilon: SpectralData.",
+                context={},
+            )
+        if self.T_t <= 0.0:
+            raise ParameterBoundsError(
+                what=f"T1Thermal: T_t = {self.T_t} K is non-positive",
+                why="Target temperature must be > 0 K for Planck emission.",
+                action="Set T_t to a positive Kelvin temperature.",
+                context={"T_t": self.T_t},
+            )
+        # MWIR warning: pure-thermal without explicit rho-is-zero justification.
+        _warn_mwir_non_mixed(
+            "T1Thermal",
+            self.epsilon,
+            "Use T3Mixed unless ρ ≈ 0 (hot target).",
+        )
+
+
+@dataclass(frozen=True)
+class T2Reflective(TargetDescriptor):
+    """Pure-reflective Lambertian: L_t = ρ(λ)·E/π.
+
+    Valid for VIS/NIR/SWIR reflective cells.  Matrix §3.2 warns that MWIR
+    scenes generally need the T3 mixed model; a warning fires if the
+    reflectance grid overlaps the MWIR band (Rule 17).
+    """
+
+    rho: SpectralData | None = None
+    A_t: float | None = None
+    shape: str | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.rho is None:
+            raise ParameterBoundsError(
+                what="T2Reflective: rho is required",
+                why="Lambertian reflection needs ρ(λ) = 1 − ε(λ) (Kirchhoff) or user-supplied ρ.",
+                action="Supply rho: SpectralData.",
+                context={},
+            )
+        _warn_mwir_non_mixed(
+            "T2Reflective",
+            self.rho,
+            "Use T3Mixed unless ε ≈ 0 (cold reflector).",
+        )
+
+
+@dataclass(frozen=True)
+class T3Mixed(TargetDescriptor):
+    """Mixed emit + reflect (Kirchhoff): ρ = 1 − ε.
+
+    Mandatory for MWIR ambient scenes per matrix §3.2.  Takes ε and T_t;
+    ρ is derived by AtmosphereStage via Kirchhoff at assembly time.
+    """
+
+    epsilon: SpectralData | None = None
+    T_t: float = 0.0
+    A_t: float | None = None
+    shape: str | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.epsilon is None:
+            raise ParameterBoundsError(
+                what="T3Mixed: epsilon is required",
+                why=(
+                    "Mixed emit+reflect needs ε(λ); ρ(λ) = 1 − ε(λ) is "
+                    "derived via Kirchhoff (Rule 5)."
+                ),
+                action="Supply epsilon: SpectralData.",
+                context={},
+            )
+        if self.T_t <= 0.0:
+            raise ParameterBoundsError(
+                what=f"T3Mixed: T_t = {self.T_t} K is non-positive",
+                why="Target temperature must be > 0 K for Planck emission.",
+                action="Set T_t to a positive Kelvin temperature.",
+                context={"T_t": self.T_t},
+            )
+
+
+@dataclass(frozen=True)
+class T5AtAperture(TargetDescriptor):
+    """User-supplied at-aperture spectrum.
+
+    For extended at-aperture cells (Table A).  Carries either the spectral
+    radiance ``L_t_aperture`` (primary) or the spectral intensity
+    ``I_t_aperture`` (deferred for at-aperture sub-pixel/point, currently
+    invalid per the matrix — accepted here for forward compatibility but
+    blocked by the at_aperture⇒extended check in the base ``__post_init__``).
+    """
+
+    L_t_aperture: SpectralData | None = None
+    I_t_aperture: SpectralData | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.target_location != "at_aperture":
+            raise ParameterBoundsError(
+                what=(
+                    f"T5AtAperture: target_location must be 'at_aperture'; "
+                    f"got {self.target_location!r}"
+                ),
+                why="T5 carries pre-propagated radiance and cannot run through A2/A3.",
+                action="Set target_location='at_aperture' or use T1/T2/T3 instead.",
+                context={"target_location": self.target_location},
+            )
+        if self.L_t_aperture is None and self.I_t_aperture is None:
+            raise ParameterBoundsError(
+                what="T5AtAperture: must supply L_t_aperture or I_t_aperture",
+                why="At-aperture descriptors carry a user-supplied spectrum; neither was provided.",
+                action="Supply L_t_aperture (W/m²/sr/µm) for extended cells.",
+                context={},
+            )
+        if self.L_t_aperture is not None and self.I_t_aperture is not None:
+            raise ParameterBoundsError(
+                what=("T5AtAperture: both L_t_aperture and I_t_aperture supplied"),
+                why=(
+                    "The at-aperture descriptor holds exactly one of "
+                    "{radiance, intensity} — which one is determined by "
+                    "scene_type (extended uses L; sub_pixel/point use I)."
+                ),
+                action="Keep whichever matches your scene_type; remove the other.",
+                context={},
+            )
+
+
+# ---------------------------------------------------------------------------
+# Kirchhoff over-specification check (ε and ρ on the same target)
+# ---------------------------------------------------------------------------
+#
+# The Kirchhoff rule (Rule 5 / ADR-0002) says ε + ρ = 1 for an opaque
+# Lambertian surface; supplying both is over-specifying.  The dataclass
+# subclasses above already split ε-carrying variants (T1, T3) from
+# ρ-carrying variants (T2), so a single descriptor cannot carry both.
+#
+# A helper below raises if a caller hand-assembles a dict with both; this
+# is the serialization-layer guard against the over-specification.
+
+
+def raise_if_epsilon_and_rho_both_set(
+    epsilon: SpectralData | None,
+    rho: SpectralData | None,
+    where: str = "TargetDescriptor",
+) -> None:
+    """Guard against ε and ρ being supplied together (Rule 5).
+
+    Raises
+    ------
+    ParameterBoundsError
+        If both ``epsilon`` and ``rho`` are non-None.
+    """
+    if epsilon is not None and rho is not None:
+        raise ParameterBoundsError(
+            what=f"{where}: both epsilon and rho supplied for the same target",
+            why=(
+                "Kirchhoff's law ties ρ and ε together for an opaque "
+                "Lambertian surface (ρ = 1 − ε).  Supplying both "
+                "over-specifies the system (Rule 5)."
+            ),
+            action="Supply only one of epsilon or rho; the other is derived.",
+            context={},
+        )
+
+
+# ---------------------------------------------------------------------------
+# BackgroundDescriptor — base and variants
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BackgroundDescriptor:
+    """Base class for background descriptors.
+
+    Four variants are defined in v1:
+
+    - :class:`AtApertureBackground` — paired with ``target_location="at_aperture"``.
+    - :class:`ColdSpaceBackground` — paired with ``no_atmosphere_subcase="space"``.
+    - :class:`GroundBackground` — required for ``target_location ∈ {"terrestrial", "airborne"}``.
+    - :class:`UserSpectralBackground` — required for
+      ``no_atmosphere_subcase ∈ {"ground_test", "lab_test"}``.
+
+    Variant ↔ target_location pairing is **not** enforced at construction.
+    Descriptors are independent data contracts; pairing is checked at
+    assembly time (Stage 3 AtmosphereStage) where both descriptors are in
+    scope simultaneously.  This keeps construction local, composable, and
+    testable.
+    """
+
+    # Base class intentionally empty — variant-specific validation lives
+    # in each subclass's __post_init__.
+    def __post_init__(self) -> None:  # pragma: no cover - no-op
+        pass
+
+
+@dataclass(frozen=True)
+class AtApertureBackground(BackgroundDescriptor):
+    """At-aperture pre-propagated background radiance.
+
+    Paired with ``target_location == "at_aperture"``.  A ``None`` radiance
+    is treated as zero at assembly time (matrix Decision #14).
+    """
+
+    L_bg_aperture: SpectralData | None = None
+
+
+@dataclass(frozen=True)
+class ColdSpaceBackground(BackgroundDescriptor):
+    """Cold-space background (L ≡ 0 in v1).
+
+    Paired with ``no_atmosphere_subcase == "space"``.  v2 may add
+    zodiacal light and diffuse-galactic terms as additive fields without
+    breaking this variant's construction signature.
+    """
+
+    # No parameters in v1 — L_bg = 0 identically.
+
+
+@dataclass(frozen=True)
+class GroundBackground(BackgroundDescriptor):
+    """Ground background (ε_g(λ), T_g).
+
+    Required for ``target_location ∈ {"terrestrial", "airborne"}``.  Emits
+    a UserWarning per Rule 17 if ``T_g`` is outside the physically
+    plausible Earth-surface range [150, 350] K — it does not raise, because
+    the user may legitimately be modeling a non-standard scene.  Extreme
+    values should still raise, but the "extreme" threshold is scenario-
+    dependent and is deferred to downstream stages (or §8 validators).
+    """
+
+    epsilon_g: SpectralData | None = None
+    T_g: float = 0.0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.epsilon_g is None:
+            raise ParameterBoundsError(
+                what="GroundBackground: epsilon_g is required",
+                why="Ground background needs ε_g(λ) for Kirchhoff self-emission.",
+                action="Supply epsilon_g: SpectralData.",
+                context={},
+            )
+        if self.T_g <= 0.0:
+            raise ParameterBoundsError(
+                what=f"GroundBackground: T_g = {self.T_g} K is non-positive",
+                why="Ground temperature must be > 0 K for Planck emission.",
+                action="Set T_g to a positive Kelvin temperature.",
+                context={"T_g": self.T_g},
+            )
+        if not (150.0 <= self.T_g <= 350.0):
+            warnings.warn(
+                (
+                    f"GroundBackground: T_g = {self.T_g} K is outside the "
+                    f"plausible Earth-surface range [150, 350] K (matrix §7). "
+                    f"Continuing, but physics may be degraded."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+
+
+@dataclass(frozen=True)
+class UserSpectralBackground(BackgroundDescriptor):
+    """User-supplied spectral background.
+
+    Required for ``no_atmosphere_subcase ∈ {"ground_test", "lab_test"}``
+    where no sensible default can be assumed for the test-range or chamber
+    radiance.  Distinct from :class:`AtApertureBackground` because source
+    physics still runs (the atmosphere is A0 pass-through, not a full
+    source-physics bypass).
+    """
+
+    L_bg: SpectralData | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.L_bg is None:
+            raise ParameterBoundsError(
+                what="UserSpectralBackground: L_bg is required",
+                why=(
+                    "ground_test / lab_test sub-cases have no sensible "
+                    "default background — the user must supply test-range "
+                    "or chamber spectral radiance."
+                ),
+                action="Supply L_bg: SpectralData in W/m²/sr/µm.",
+                context={},
+            )
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+__all__ = [
+    "AtApertureBackground",
+    "BackgroundDescriptor",
+    "ColdSpaceBackground",
+    "GroundBackground",
+    "T1Thermal",
+    "T2Reflective",
+    "T3Mixed",
+    "T5AtAperture",
+    "TargetDescriptor",
+    "UserSpectralBackground",
+    "raise_if_epsilon_and_rho_both_set",
+]

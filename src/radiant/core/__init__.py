@@ -1,6 +1,7 @@
 """Core parameter system, constants, and spectral data management."""
 
 from radiant.core.constants import C2 as C2
+from radiant.core.constants import R_EARTH_M as R_EARTH_M
 from radiant.core.constants import c as c
 from radiant.core.constants import h as h
 from radiant.core.constants import hc as hc
@@ -9,12 +10,25 @@ from radiant.core.constants import k_B as k_B
 from radiant.core.constants import q as q
 from radiant.core.constants import sigma_sb as sigma_sb
 from radiant.core.constants import two_hc2 as two_hc2
+from radiant.core.descriptors import AtApertureBackground as AtApertureBackground
+from radiant.core.descriptors import BackgroundDescriptor as BackgroundDescriptor
+from radiant.core.descriptors import ColdSpaceBackground as ColdSpaceBackground
+from radiant.core.descriptors import GroundBackground as GroundBackground
+from radiant.core.descriptors import T1Thermal as T1Thermal
+from radiant.core.descriptors import T2Reflective as T2Reflective
+from radiant.core.descriptors import T3Mixed as T3Mixed
+from radiant.core.descriptors import T5AtAperture as T5AtAperture
+from radiant.core.descriptors import TargetDescriptor as TargetDescriptor
+from radiant.core.descriptors import UserSpectralBackground as UserSpectralBackground
 from radiant.core.geometry import ObserverGeometry as ObserverGeometry
 from radiant.core.geometry import SceneGeometry as SceneGeometry
 from radiant.core.geometry import TargetGeometry as TargetGeometry
 from radiant.core.geometry import euler_to_rotation_matrix as euler_to_rotation_matrix
 from radiant.core.geometry import rotation_matrix_to_euler as rotation_matrix_to_euler
+from radiant.core.los_geometry import LineOfSightGeometry as LineOfSightGeometry
+from radiant.core.los_geometry import theta_o_from_eta as theta_o_from_eta
 from radiant.core.parameters import ConsistencyGroup as ConsistencyGroup
+from radiant.core.parameters import ParameterBoundsError as ParameterBoundsError
 from radiant.core.parameters import ParameterDef as ParameterDef
 from radiant.core.parameters import ParameterSet as ParameterSet
 from radiant.core.parameters import Provenance as Provenance

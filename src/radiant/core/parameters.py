@@ -22,6 +22,54 @@ from typing import Any
 from radiant.core.units import convert, inverse_convert
 
 # ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
+
+class ParameterBoundsError(ValueError):
+    """A user-controlled parameter is out of its valid physical domain.
+
+    Follows the actionable-error contract from RADIANT_Master_Architecture.md
+    Rule 15: carries a structured ``what / why / action / context`` payload so
+    downstream tooling (CLI, GUI, logs) can surface each field independently.
+    Inherits from :class:`ValueError` for back-compat with ``pytest.raises``
+    patterns already used elsewhere in the codebase.
+
+    Parameters
+    ----------
+    what:
+        One-line description of what is wrong ("h_tgt = -100.0 m is negative").
+    why:
+        Physical reason it is wrong ("altitude must be above mean sea level").
+    action:
+        What the user should do to fix it ("set h_tgt ≥ 0").
+    context:
+        Optional dict of diagnostic fields (parameter name, current value,
+        declared bounds, etc.).  Preserved as a structured record so tools
+        can render it without parsing the message string.
+    """
+
+    def __init__(
+        self,
+        what: str,
+        why: str = "",
+        action: str = "",
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        self.what: str = what
+        self.why: str = why
+        self.action: str = action
+        self.context: dict[str, Any] = dict(context) if context is not None else {}
+
+        parts: list[str] = [what]
+        if why:
+            parts.append(f"Why: {why}")
+        if action:
+            parts.append(f"Action: {action}")
+        super().__init__(" | ".join(parts))
+
+
+# ---------------------------------------------------------------------------
 # Provenance
 # ---------------------------------------------------------------------------
 

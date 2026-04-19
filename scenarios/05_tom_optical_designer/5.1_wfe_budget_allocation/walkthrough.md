@@ -57,19 +57,19 @@ Since RADIANT uses scalar RMS mode (not individual Zernike coefficients), the re
 ### WFE Sweep
 | WFE [waves] | Strehl [--] | MTF@Nyq [--] | EE(1x1) [--] | EE(3x3) [--] | RER [--] | NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.000 | 1.0000 | 0.4017 | 0.6251 | 0.8986 | 0.7113 | 6.62 |
-| 0.020 | 0.9851 | 0.3955 | 0.6154 | 0.8846 | 0.7004 | 6.60 |
-| 0.040 | 0.9419 | 0.3774 | 0.5871 | 0.8440 | 0.6688 | 6.53 |
-| 0.060 | 0.8739 | 0.3491 | 0.5428 | 0.7804 | 0.6194 | 6.42 |
-| 0.071 | 0.8280 | 0.3301 | 0.5130 | 0.7376 | 0.5861 | 6.34 |
-| 0.080 | 0.7869 | 0.3131 | 0.4864 | 0.6995 | 0.5564 | 6.27 |
-| 0.100 | 0.6877 | 0.2723 | 0.4225 | 0.6077 | 0.4850 | 6.07 |
-| 0.120 | 0.5832 | 0.2297 | 0.3558 | 0.5118 | 0.4104 | 5.83 |
-| 0.140 | 0.4801 | 0.1879 | 0.2906 | 0.4180 | 0.3374 | 5.55 |
-| 0.160 | 0.3835 | 0.1490 | 0.2301 | 0.3311 | 0.2697 | 5.22 |
-| 0.180 | 0.2973 | 0.1145 | 0.1767 | 0.2544 | 0.2100 | 4.86 |
-| 0.200 | 0.2237 | 0.0852 | 0.1317 | 0.1896 | 0.1596 | 4.47 |
-| 0.250 | 0.0963 | 0.0351 | 0.0554 | 0.0802 | 0.0740 | 3.36 |
+| 0.000 | 1.0000 | 0.2418 | 0.4609 | 0.8861 | 0.6021 | 6.38 |
+| 0.020 | 0.9851 | 0.2380 | 0.4538 | 0.8723 | 0.5930 | 6.36 |
+| 0.040 | 0.9419 | 0.2271 | 0.4329 | 0.8322 | 0.5663 | 6.29 |
+| 0.060 | 0.8739 | 0.2101 | 0.4002 | 0.7695 | 0.5245 | 6.18 |
+| 0.071 | 0.8280 | 0.1986 | 0.3783 | 0.7272 | 0.4964 | 6.10 |
+| 0.080 | 0.7869 | 0.1884 | 0.3587 | 0.6896 | 0.4713 | 6.03 |
+| 0.100 | 0.6877 | 0.1638 | 0.3115 | 0.5990 | 0.4110 | 5.83 |
+| 0.120 | 0.5832 | 0.1382 | 0.2623 | 0.5045 | 0.3480 | 5.59 |
+| 0.140 | 0.4801 | 0.1131 | 0.2142 | 0.4119 | 0.2864 | 5.31 |
+| 0.160 | 0.3835 | 0.0897 | 0.1696 | 0.3262 | 0.2292 | 4.99 |
+| 0.180 | 0.2973 | 0.0689 | 0.1302 | 0.2505 | 0.1788 | 4.63 |
+| 0.200 | 0.2237 | 0.0513 | 0.0970 | 0.1867 | 0.1363 | 4.24 |
+| 0.250 | 0.0963 | 0.0212 | 0.0407 | 0.0788 | 0.0641 | 3.15 |
 
 ### NIIRS Thresholds
 | Degradation | WFE Threshold [waves] |
@@ -84,10 +84,10 @@ Since RADIANT uses scalar RMS mode (not individual Zernike coefficients), the re
 | 0.000 | 0.0 | 0.0 | 0.0 | 0.0 | 0.00 | diffraction-limited |
 | 0.040 | -5.8 | -6.1 | -6.1 | -6.0 | -0.09 | diffraction-limited |
 | 0.071 | -17.2 | -17.8 | -17.9 | -17.6 | -0.28 | diffraction-limited |
-| 0.100 | -31.2 | -32.2 | -32.4 | -31.8 | -0.55 | acceptable |
-| 0.140 | -52.0 | -53.2 | -53.5 | -52.6 | -1.08 | moderate |
-| 0.200 | -77.6 | -78.8 | -78.9 | -77.6 | -2.16 | significant |
-| 0.250 | -90.4 | -91.3 | -91.1 | -89.6 | -3.26 | severe |
+| 0.100 | -31.2 | -32.2 | -32.4 | -31.7 | -0.55 | acceptable |
+| 0.140 | -52.0 | -53.2 | -53.5 | -52.4 | -1.07 | moderate |
+| 0.200 | -77.6 | -78.8 | -79.0 | -77.4 | -2.14 | significant |
+| 0.250 | -90.4 | -91.2 | -91.2 | -89.4 | -3.23 | severe |
 
 ### Tom's Design Assessment
 - **Total Zernike RMS**: 0.0513 waves (nearest sweep point: 0.060)
@@ -130,24 +130,25 @@ WFE does not add noise. The signal (photons collected) is determined by the sour
 NIIRS changes with WFE come entirely through the RER term (3.32 x log10(RER)) and marginally through the EE-dependent signal term for point sources.
 
 ### Undersampled System (Q = 0.65)
-This system is undersampled (Q < 1), meaning the pixel pitch is larger than the Airy disk core. The detector MTF at Nyquist limits the achievable system MTF even with perfect optics. At Q = 0.65, the baseline MTF@Nyquist is 0.40 — well below the diffraction-limited OTF value. Adding WFE reduces this further.
+This system is undersampled (Q < 1), meaning the pixel pitch is larger than the Airy disk core. The detector MTF at Nyquist limits the achievable system MTF even with perfect optics. At Q = 0.65, the baseline MTF@Nyquist is 0.24 — well below the diffraction-limited OTF value. Adding WFE reduces this further.
 
 ### All Metrics Track Together
 In this scenario, all spatial metrics (Strehl, MTF@Nyq, EE(1x1), RER) degrade at nearly the same rate. This is because all are derived from the same EffectivePSF. The percentage degradation at each WFE level is consistent across metrics (within ~1-2%). This self-consistency is a validation check — if one metric degraded much faster than another, it would indicate an implementation error.
 
 ## Gap Findings
 
-### Gap 1: No Zernike-to-PSF Integration
-RADIANT defines Zernike mode in `wavefront.py` but the optics stage only uses `scalar_rms` mode. Individual Zernike coefficients cannot produce aberration-specific PSF shapes (e.g., coma vs. astigmatism produce qualitatively different PSFs). The current random phase screen gives the correct Strehl but not the correct PSF morphology.
+See [gaps.md](gaps.md) for full detail.
 
-### Gap 2: No Field-Dependent WFE
-`WavefrontError` defines `FIELD_DEPENDENT` mode with `FieldWfeSample` tuples, but `OpticsStage` raises `NotImplementedError`. Tom has Zernike sets at 4 field positions — he cannot evaluate edge-of-field performance.
+### Gap Closure Since Last Run
+| Gap | Status | Notes |
+|-----|--------|-------|
+| Strehl/MTF@Nyq/RER/EE metric exposure | **CLOSED** | All available via `result.metrics["strehl"]`, `["mtf_at_nyquist"]`, `["rer"]` |
+| NIIRS metric exposure | **CLOSED** | `result.metrics["niirs"]` available |
+| Dual-path consistency (PSF path + MTF product path) | **CLOSED** | Both paths rooted in same complex pupil; consistency checked |
 
-### Gap 3: No Zemax Importer
-Tom exports Zernike coefficients from Zemax (.ZMX). RADIANT has no parser for this format. Tom must manually enter coefficients into the spreadsheet.
-
-### Gap 4: MTF Curve Frequency Axis Units
-The MTF curve from RADIANT uses normalized spatial frequency (cycles/pixel). For optical designers like Tom, cycles/mm or cycles/mrad are more natural. A unit conversion utility or configurable axis would improve usability.
-
-### Gap 5: No WFE Allocation Tool
-Tom wants to allocate his WFE budget among contributors (alignment, fabrication, thermal, etc.). RADIANT sweeps total WFE but has no tool to decompose a budget into sub-allocations with RSS combination.
+### Open Gaps
+- **Gap 1 (No Zernike-to-PSF)**: still open. Scalar RMS phase screen gives correct Strehl but not aberration-specific PSF morphology (coma vs. astigmatism).
+- **Gap 2 (No field-dependent WFE)**: still open. `FieldWfeSample` defined but `OpticsStage` raises `NotImplementedError`.
+- **Gap 3 (No Zemax .ZMX importer)**: still open.
+- **Gap 4 (MTF frequency axis units)**: still open. Normalized cycles/pixel only — no cycles/mm or cycles/mrad conversion utility.
+- **Gap 5 (No WFE allocation tool)**: still open. No sub-budget RSS decomposition.

@@ -568,6 +568,24 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 
 ---
 
+## Gap 37: Nearfield emission = 0 in scalar transmission mode
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenarios 7.1, 7.4, 2.2, 2.5, 3.2 (cross-scenario — MWIR/LWIR warm-optics systems) |
+| **Status** | OPEN |
+| **Severity** | **HIGH** |
+| **Description** | In scalar transmission mode (`optics.mode: "scalar"`), the lumped optical element is treated as refractive and Kirchhoff's law gives `ε = 1 − T − R = 0` (since `T + R = 1` for refractive). Mirrors follow `ε = 1 − R` and should contribute self-emission, but scalar mode cannot distinguish refractive from reflective. Result: `nearfield_shot = 0` even with warm optics at 293 K in MWIR/LWIR bands. |
+| **Impact** | (a) Under-predicts total noise for cold targets / point sources in warm-optics MWIR/LWIR (30–40% noise underestimate typical). (b) Cold stop efficiency sweeps (7.4) non-functional — no nearfield to reduce. (c) Explains a portion of predicted vs. measured NEDT gap in Karen's TVAC test (26 mK at 25°C). (d) NIIRS predictions slightly optimistic for thermal bands with warm optics (0.02–0.04 optimism). |
+| **Evidence** | 7.1: nearfield_shot = 0 with 4 optics elements at 22°C. 2.5: nearfield_shot = 0 for 200 K cold target with 4 warm optics at 20°C. 3.2: nearfield_shot = 0 at 500 km LEO MWIR baseline. |
+| **Workaround** | Use `optics.mode: "key_elements"` with per-surface emissivity derived from `ε = 1 − R` for mirrors. `full_prescription` mode for Zemax-exported designs. |
+| **Fix location** | `radiant/optics/_schema.py` — add optional `optics.scalar_emissivity` parameter. Default None preserves current behavior; if set, overrides the refractive-lump assumption. Alternative: auto-detect lumped-mirror via `optics.n_mirror_surfaces` parameter. |
+| **Effort** | Small (scalar_emissivity param) to Medium (auto-detection from surface counts). |
+| **Scenarios affected** | 7.1, 7.4, 2.2, 2.5, 3.2 (all warm-optics thermal-band scenarios). |
+| **Rerun after fix** | Scenario 7.4 (cold stop sweep), 7.1 (NEDT reconciliation) |
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -608,3 +626,83 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | CLOSED |
 | 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |
 | 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |
+| 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | OPEN |
+
+---
+
+## Scenario-Driven Capability Priority List
+
+Source: `docs/expanded_scenarios.md` — 35 persona-driven scenarios grouped by implementation tier. Earlier tiers build capabilities that unlock later ones.
+
+### Tier 1 — Executable today with scripting only (0 code changes)
+
+| Priority | Scenario | Persona | Why first |
+|----------|----------|---------|-----------|
+| 1 | 6.3 | Dr. Chen | Verify noise model against hand calcs; all 16 noise terms already output |
+| 2 | 2.3 | Mike | Sweep `ipc_coupling` (exists); compose with existing MTF/EE outputs |
+| 3 | 7.4 | Karen | Sweep `cold_stop_efficiency` (exists); compare background signal |
+| 4 | 5.2 | Tom | Sweep pixel pitch; Q = λf/#/p is trivial on existing outputs |
+| 5 | 5.3 | Tom | Polychromatic PSF already implemented; script mono vs. poly |
+
+### Tier 2 — Need 1–2 metric additions (performance stage only)
+
+Changes concentrated in `src/radiant/performance/` — no signal-chain modifications.
+
+| Priority | Scenario | Persona | New metric needed |
+|----------|----------|---------|-------------------|
+| 6 | 7.1 | Karen | NEDT (+ lab/exo atmosphere mode — already exists) |
+| 7 | 2.2 | Mike | NEDT, noise breakdown vs. frame rate |
+| 8 | 2.5 | Mike | Well fill fraction (trivial: signal_e / FWC) |
+| 9 | 3.2 | Raj | NIIRS (GIQE-5 code exists, not surfaced), GSD |
+| 10 | 5.4 | Tom | NIIRS, jitter sweep (platform params may need additions) |
+| 11 | 1.4 | Sarah | NIIRS, saturation check, TDI sweep (`n_tdi` exists) |
+| 12 | 5.1 | Tom | Strehl, full MTF curve, field-dependent WFE |
+| 13 | 7.3 | Karen | Full MTF curve export, defocus model |
+| 14 | 3.4 | Raj | GSD (along/cross-track), NIIRS, off-nadir geometry |
+
+### Tier 3 — Need input parsers / format converters (io/ module only)
+
+Changes concentrated in `src/radiant/io/` — no physics modifications.
+
+| Priority | Scenario | Persona | Parser needed |
+|----------|----------|---------|---------------|
+| 15 | 2.1 | Mike | QE CSV (nm/pct → µm/frac), J_dark CSV (A/cm² → e⁻/s) |
+| 16 | 6.2 | Dr. Chen | MODTRAN tape7 (wavenumber), libRadtran (nm/mW) |
+| 17 | 1.1 | Sarah | MODTRAN tape7, ocean emissivity model |
+| 18 | 4.1 | Lisa | Excel target library, batch scenario matrix |
+| 19 | 7.2 | Karen | Lab calibration CSV, DN output |
+| 20 | 1.3 | Sarah | ASTER spectral library, Excel detector specs |
+| 21 | 4.3 | Lisa | Spectral emissivity input (curve, not scalar) |
+| 22 | 7.5 | Karen | Measured J(T) curve, QE(T) table |
+
+### Tier 4 — Need new models or capabilities (new modules)
+
+Require new physics models, analysis modes, or architectural additions beyond metric reporting and I/O.
+
+| Priority | Scenario | Persona | New capability |
+|----------|----------|---------|----------------|
+| 23 | 1.2 | Sarah | Solar geometry calculator (LTAN/date/lat → zenith) |
+| 24 | 3.1 | Raj | Orbit → geometry calculator, pass planning |
+| 25 | 4.4 | Lisa | Time-varying scenario (diurnal temperature sweep) |
+| 26 | 4.2 | Lisa | Johnson criteria / DRI range model |
+| 27 | 1.5 | Sarah | Arbitrary pupil mask (spider vanes), Strehl |
+| 28 | 4.5 | Lisa | Microbolometer noise model (NETD-specified) |
+| 29 | 3.3 | Raj | Multi-sensor comparison framework, compliance matrix |
+| 30 | 6.1 | Dr. Chen | D* / NETD / NEP → component noise converters |
+| 31 | 2.4 | Mike | Multi-frame persistence model (temporal sequence) |
+| 32 | 6.5 | Dr. Chen | Temperature retrieval (inverse), Jacobian |
+| 33 | 6.4 | Dr. Chen | Multi-target scene, per-pixel simulation, ROC curve |
+| 34 | 3.5 | Raj | Tropical atmosphere, GeoTIFF reader, MRT metric |
+| 35 | 1.3 | Sarah | Detection probability model, dual-band comparison |
+
+### Key metric additions and how many scenarios they unlock
+
+| Metric / Feature | Scenarios unlocked | Effort |
+|------------------|--------------------|--------|
+| **NEDT** | 7.1, 7.4, 7.5, 2.2, 2.5, 3.5, 4.5, 6.5, 1.1, 1.3 (10) | Small — σ / ∂L/∂T |
+| **NIIRS** (surface GIQE-5) | 3.1, 3.2, 3.4, 5.1, 5.4, 1.1, 1.2, 1.4, 4.1, 4.2, 4.5 (11) | Small — code exists |
+| **GSD** | 3.2, 3.4, 1.2, 4.5 (4) | Trivial — p·h/f |
+| **Full MTF curve** | 5.1, 5.2, 5.3, 7.3 (4) | Medium — array output |
+| **Strehl ratio** | 5.1, 1.5 (2) | Trivial — max(PSF)/max(Airy) |
+| **Detection range** | 1.1, 4.1, 4.2, 4.3 (4) | Medium — range-SNR solver |
+| **Lab/exo mode docs** | 7.1, 7.2, 2.1, 2.2 (4) | Zero — already exists |

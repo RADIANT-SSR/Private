@@ -92,6 +92,36 @@ Karen, test engineer. Running a TVAC background characterization test. She has a
   - "1.0 mm offset leakage: η = 0.054 (44,000 e- background, FAIL)"
   - "Maximum allowed leakage: η ≤ 0.049 (40,000 e- threshold)"
 
+## Step 8: Review Performance Metrics Dashboard
+
+**Script equivalent:** Accessing `result.metrics` for NEDT, NIIRS, GSD, Strehl, Q, MTF budget, well margin
+
+**GUI interaction:**
+- **Results Panel > Metrics tab** shows all computed performance metrics in a summary card:
+  - SNR, Contrast SNR (dimensionless)
+  - NEDT (mK) — now available via `result.metrics["nedt_K"]`
+  - NIIRS (dimensionless) — now available via `result.metrics["niirs"]`
+  - GSD cross-track, along-track, geometric mean (m)
+  - MTF at Nyquist, Strehl ratio, Q parameter, EE(1x1), EE(3x3), RER
+  - Well margin (dB), Dynamic range (dB)
+- **MTF Budget sub-tab**: bar chart showing per-component MTF at Nyquist
+- **Sweep Metrics tab**: NEDT and NIIRS plotted vs. cold_stop_efficiency alongside SNR
+- Hover any metric for a tooltip showing the equation and intermediate values
+
+**Script window commands:**
+```python
+result.metrics["nedt_K"]               # NEDT in Kelvin
+result.metrics["niirs"]                # NIIRS rating
+result.metrics["gsd_geometric_mean_m"] # GSD in meters
+result.metrics["q_center"]             # sampling parameter
+result.metrics["strehl"]               # Strehl ratio
+result.metrics["well_margin_dB"]       # well margin in dB
+mtf_budget = result.stage_outputs["performance"]["mtf_budget"]
+mtf_budget.per_term_at_nyquist         # dict of all MTF component values
+```
+
+---
+
 ## Key GUI Features Exercised
 1. **Non-standard unit conversion** — fA/pixel → e-/s, °C → K, nm → µm, mm → m
 2. **Convention disambiguation** — vendor "100% efficient" ≠ RADIANT η = 1.0
@@ -99,3 +129,4 @@ Karen, test engineer. Running a TVAC background characterization test. She has a
 4. **Parameter sweep with lab data overlay** — match model to measurements
 5. **Inverse problem** — find parameter value that matches a measured quantity
 6. **Noise budget breakdown** — show that nearfield is not the dominant noise contributor
+7. **Metrics dashboard** — NEDT, NIIRS, GSD, Strehl, Q, MTF budget, well margin displayed automatically

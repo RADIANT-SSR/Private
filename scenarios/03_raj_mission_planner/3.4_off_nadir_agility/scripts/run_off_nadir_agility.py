@@ -42,7 +42,7 @@ import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from radiant.api import Sensor
@@ -424,6 +424,10 @@ for angle_deg in angles_deg:
         niirs_corrected = 0.0
 
     nedt_mK = nedt_K * 1000.0 if nedt_K > 0 else 0.0
+    well_margin_dB = r.metrics.get("well_margin_dB", 0.0)
+    dynamic_range_dB = r.metrics.get("dynamic_range_dB", 0.0)
+    q_center = r.metrics.get("q_center", 0.0)
+    fwhm_x_m = r.metrics.get("fwhm_x_m", 0.0)
 
     row_data = {
         "angle_deg": angle_deg,
@@ -445,6 +449,10 @@ for angle_deg in angles_deg:
         "niirs_corrected": niirs_corrected,
         "nedt_mK": nedt_mK,
         "signal_e": signal_e,
+        "well_margin_dB": well_margin_dB,
+        "dynamic_range_dB": dynamic_range_dB,
+        "q_center": q_center,
+        "fwhm_x_m": fwhm_x_m,
     }
     results.append(row_data)
 
@@ -571,6 +579,85 @@ for rd in results:
                  / rd["gsd_cross_m"] * 100.0 if rd["gsd_cross_m"] > 0 else 0.0)
     print(f"  {rd['angle_deg']:>8.0f}  {rd['gsd_radiant_x']:>12.2f}  {rd['gsd_cross_m']:>12.2f}  "
           f"{rd['gsd_along_m']:>12.2f}  {error_pct:>+8.1f}")
+
+# ---------------------------------------------------------------------------
+# Step 9b: RADIANT MTF budget and performance metrics (nadir baseline)
+# ---------------------------------------------------------------------------
+
+print(f"\n{'=' * 80}")
+print(f"  RADIANT PERFORMANCE METRICS (Nadir Baseline)")
+print(f"{'=' * 80}")
+
+# Re-run nadir to get detailed outputs
+nadir_config = {k: ({**v} if isinstance(v, dict) else v) for k, v in base_config.items()}
+nadir_config["source"] = {
+    "target": {**base_config["source"]["target"]},
+    "background": {**base_config["source"]["background"]},
+}
+nadir_sensor = Sensor.from_dict(nadir_config)
+r_nadir = nadir_sensor.evaluate()
+
+print(f"\n  --- Spatial Metrics ---")
+print(f"  Strehl:            {r_nadir.metrics.get('strehl', 0.0):.4f} [--]")
+print(f"  RER:               {r_nadir.metrics.get('rer', 0.0):.4f} [--]")
+print(f"  FWHM_x:            {r_nadir.metrics.get('fwhm_x_m', 0.0) * 1e6:.2f} [µm]")
+print(f"  EE(1x1):           {r_nadir.metrics.get('ee_1x1', 0.0):.4f} [--]")
+print(f"  Q (center):        {r_nadir.metrics.get('q_center', 0.0):.3f} [--]")
+print(f"  Q (min/max):       {r_nadir.metrics.get('q_min', 0.0):.3f} / {r_nadir.metrics.get('q_max', 0.0):.3f} [--]")
+
+print(f"\n  --- Radiometric Metrics ---")
+print(f"  SNR:               {r_nadir.metrics.get('snr', 0.0):.1f} [--]")
+print(f"  NEDT:              {r_nadir.metrics.get('nedt_K', 0.0) * 1000:.1f} [mK]")
+print(f"  Well margin:       {r_nadir.metrics.get('well_margin_dB', 0.0):.1f} [dB]")
+print(f"  Dynamic range:     {r_nadir.metrics.get('dynamic_range_dB', 0.0):.1f} [dB]")
+
+print(f"\n  --- Image Quality ---")
+gsd_val = r_nadir.metrics.get("gsd_geometric_mean_m")
+niirs_val = r_nadir.metrics.get("niirs")
+print(f"  GSD (cross):       {r_nadir.metrics.get('gsd_cross_track_m', 0.0):.2f} [m]")
+print(f"  GSD (along):       {r_nadir.metrics.get('gsd_along_track_m', 0.0):.2f} [m]")
+print(f"  GSD (GM):          {gsd_val:.2f} [m]" if gsd_val else "  GSD (GM):          N/A")
+print(f"  NIIRS:             {niirs_val:.2f} [--]" if niirs_val else "  NIIRS:             N/A")
+
+# MTF budget
+mtf_budget = r_nadir.stage_outputs.get("performance", {}).get("mtf_budget")
+if mtf_budget is not None:
+    print(f"\n  --- RADIANT MTF Budget at Nyquist ---")
+    per_term = mtf_budget.per_term_at_nyquist
+    print(f"  {'Component':<30s}  {'MTF@Ny_x':>10s}  {'MTF@Ny_y':>10s}")
+    print(f"  {'-' * 30}  {'-' * 10}  {'-' * 10}")
+
+    seen: set[str] = set()
+    for key in per_term:
+        base = key.rsplit("_", 1)[0]
+        if base in seen:
+            continue
+        seen.add(base)
+        val_x = per_term.get(f"{base}_x", 1.0)
+        val_y = per_term.get(f"{base}_y", 1.0)
+        label = base.replace("mtf_", "").replace("_", " ").title()
+        print(f"  {label:<30s}  {val_x:>10.4f}  {val_y:>10.4f}")
+
+    print(f"  {'─' * 30}  {'─' * 10}  {'─' * 10}")
+    print(f"  {'System (product)':30s}  {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  "
+          f"{mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
+
+# Noise breakdown
+print(f"\n  --- Noise Breakdown ---")
+print(f"  {'Source':<30s}  {'Value':>10s}")
+print(f"  {'-' * 30}  {'-' * 10}")
+for nt in r_nadir.noise_terms:
+    if nt.value_e > 0.001:
+        print(f"  {nt.name:<30s}  {nt.value_e:>10.4f} [e-]")
+
+# Folded MTF
+folded_mtf_result = r_nadir.stage_outputs.get("performance", {}).get("folded_mtf_x")
+if folded_mtf_result is not None and hasattr(folded_mtf_result, 'mtf_folded'):
+    folded_at_ny = r_nadir.metrics.get("mtf_folded_at_nyquist", 0.0)
+    print(f"\n  --- Folded MTF ---")
+    print(f"  Folded MTF at Nyquist: {folded_at_ny:.4f} [--]")
+    print(f"  Note: Folded MTF > 1.0 indicates aliasing is significant.")
+    print(f"  Alias fraction:        {r_nadir.metrics.get('alias_fraction_at_nyquist', 0.0):.4f} [--]")
 
 # ---------------------------------------------------------------------------
 # Step 10: Plots
@@ -798,6 +885,15 @@ print(f"       the optical path through the atmosphere lengthens (air mass = sec
 print(f"    3. NIIRS loss is dominated by the GSD term (-3.32 × log10(GSD_ratio)).")
 print(f"       SNR degradation from lower transmission is secondary.")
 
+print(f"\n  --- Newly Available Metrics (Gap Closures) ---")
+print(f"  NEDT:              {baseline['nedt_mK']:.1f} [mK] (nadir)")
+print(f"  NIIRS:             {baseline['niirs_corrected']:.2f} [--] (nadir, from RADIANT)")
+print(f"  GSD (RADIANT):     {baseline['gsd_radiant_x']:.2f} [m] (nadir)")
+print(f"  Q:                 {baseline.get('q_center', Q):.3f} [--]")
+print(f"  Strehl:            {baseline['strehl']:.4f} [--]")
+print(f"  RER:               {baseline['rer']:.4f} [--]")
+print(f"  Well margin:       {baseline.get('well_margin_dB', 0.0):.1f} [dB]")
+
 print(f"\n  Limitations:")
 print(f"    - RADIANT GSD metric does not account for off-nadir angle (Gap 33)")
 print(f"    - NIIRS corrected using GSD scaling only — does not re-run GIQE-5")
@@ -806,5 +902,3 @@ print(f"    - No along-track vs cross-track GSD distinction in RADIANT (Gap 35)"
 print(f"    - No swath width or access geometry calculator (Gap 36)")
 print(f"    - Earth curvature correction is applied to slant range but not")
 print(f"      to RADIANT's internal atmospheric path calculation (it uses its own)")
-
-plt.show()

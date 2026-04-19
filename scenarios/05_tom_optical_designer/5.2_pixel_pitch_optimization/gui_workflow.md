@@ -66,6 +66,39 @@ Tom, optical designer. He has a Zemax optical design (f/4, 30 cm aperture, MWIR)
   - PowerPoint slide deck (for design review)
   - YAML snapshot of each candidate configuration (reproducibility)
 
+## Step 7: Review Performance Metrics Dashboard
+
+**Script equivalent:** Accessing `result.metrics` for each candidate
+
+**GUI interaction:**
+- **Results Panel > Metrics tab** shows per-candidate comparison table:
+  - Q (center, min, max) — from `result.metrics["q_center"]`
+  - GSD cross-track, along-track, geometric mean — from `result.metrics["gsd_cross_track_m"]`
+  - NEDT (mK) — from `result.metrics["nedt_K"]`
+  - NIIRS — from `result.metrics["niirs"]`
+  - Strehl ratio — from `result.metrics["strehl"]`
+  - RER — from `result.metrics["rer"]`
+  - Well margin (dB), Dynamic range (dB)
+- **MTF Budget sub-tab**: per-component MTF at Nyquist for each candidate
+- **Folded MTF tab**: shows aliased MTF for undersampled configurations (Q < 1)
+
+**Script window commands:**
+```python
+result.metrics["q_center"]             # Q at band center
+result.metrics["gsd_cross_track_m"]    # GSD in meters
+result.metrics["nedt_K"]               # NEDT in Kelvin
+result.metrics["niirs"]                # NIIRS rating
+result.metrics["strehl"]               # Strehl ratio
+result.metrics["rer"]                  # Relative edge response
+result.metrics["well_margin_dB"]       # well margin in dB
+# Full MTF curves:
+result.stage_outputs["performance"]["mtf_freq_x"]   # frequency array
+result.stage_outputs["performance"]["mtf_x"]         # MTF values
+result.stage_outputs["performance"]["folded_mtf_x"]  # aliased MTF
+```
+
+---
+
 ## Key GUI Features Exercised
 1. **Multi-candidate parametric sweep** — one evaluation per detector option with matched specs
 2. **Automatic Q parameter and GSD computation** from optical design parameters
@@ -73,3 +106,4 @@ Tom, optical designer. He has a Zemax optical design (f/4, 30 cm aperture, MWIR)
 4. **Multi-requirement compliance checking** — GSD, MTF, EE, SNR evaluated simultaneously
 5. **Figure-of-merit optimization** with configurable weighting
 6. **Zemax-convention unit handling** — mm for focal length (not cm or m)
+7. **Metrics dashboard** — NEDT, NIIRS, Strehl, RER, folded MTF per candidate

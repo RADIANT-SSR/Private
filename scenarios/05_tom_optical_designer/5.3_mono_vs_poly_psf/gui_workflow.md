@@ -55,6 +55,34 @@ Tom, optical designer. He has the selected optical design from scenario 5.2 (f/4
   - PowerPoint slide: "Chromaticism Impact" for design review
   - Per-wavelength PSF arrays (FITS or NumPy) for external analysis
 
+## Step 7: Review Performance Metrics Dashboard
+
+**Script equivalent:** Accessing `result.metrics` for each PSF model
+
+**GUI interaction:**
+- **Results Panel > Metrics tab** shows per-PSF-model comparison:
+  - NEDT (mK) — from `result.metrics["nedt_K"]`
+  - NIIRS — from `result.metrics["niirs"]`
+  - Strehl ratio — from `result.metrics["strehl"]`
+  - RER — from `result.metrics["rer"]`
+  - Q, GSD — from `result.metrics["q_center"]`, `["gsd_cross_track_m"]`
+  - Well margin (dB) — from `result.metrics["well_margin_dB"]`
+- **MTF Budget**: per-component MTF at Nyquist for mono vs poly models
+- **Full MTF curves**: via `result.stage_outputs["performance"]["mtf_x"]`
+
+**Script window commands:**
+```python
+result.metrics["nedt_K"]               # NEDT in Kelvin
+result.metrics["niirs"]                # NIIRS rating
+result.metrics["strehl"]               # Strehl ratio
+result.metrics["rer"]                  # Relative edge response
+result.metrics["q_center"]             # Q at band center
+result.stage_outputs["performance"]["mtf_freq_x"]   # frequency array
+result.stage_outputs["performance"]["mtf_x"]         # MTF values
+```
+
+---
+
 ## Key GUI Features Exercised
 1. **Real-time wavelength slider** with PSF + metrics updating live
 2. **Split-screen PSF comparison** (mono vs. poly) with difference map
@@ -62,3 +90,4 @@ Tom, optical designer. He has the selected optical design from scenario 5.2 (f/4
 4. **Convergence analysis** — automatic N-sufficiency determination
 5. **Traffic-light error assessment** — immediate visual flag for significant chromaticism
 6. **Bandwidth sensitivity** — shows how error varies with spectral band width
+7. **Metrics dashboard** — NEDT, NIIRS, Strehl, RER per PSF model

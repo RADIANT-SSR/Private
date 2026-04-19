@@ -87,6 +87,79 @@ slant_range_m = altitude_m / math.cos(angle_rad)
 gsd_cross = pixel_pitch_m * slant_range_m / focal_length_m
 ```
 
+### Step 8: Performance Metrics Dashboard
+
+1. Navigate to "Performance Dashboard" tab
+2. Dashboard displays all available metrics for nadir baseline:
+
+**Spatial Metrics Panel:**
+- Strehl: 0.9169 [--]
+- RER: 0.5592 [--]
+- FWHM_x: 8.55 [um]
+- EE(1x1): 0.4490 [--]
+- Q (center/min/max): 0.844 / 0.562 / 1.125 [--]
+
+**MTF Budget Panel:**
+- Per-component MTF at Nyquist: Optics 0.3815, Pixel 0.6366, IPC 0.9400
+- System product: 0.2283 [--]
+- Folded MTF at Nyquist: 1.5114 [--] (aliasing significant)
+- Alias fraction: 0.8308 [--]
+
+**Radiometric Metrics Panel:**
+- SNR: 85.8 [--]
+- NEDT: 49.2 [mK]
+- Well margin: 14.7 [dB]
+- Dynamic range: 53.4 [dB]
+
+**Image Quality Panel:**
+- GSD (cross/along): 1.37 / 1.37 [m]
+- NIIRS: 5.65 [--]
+
+**Noise Panel:**
+- Signal shot: 121.40 [e-], Background shot: 121.40 [e-]
+- Read noise: 6.00 [e-], Quantization: 1.44 [e-]
+- Nearfield: 0.00 [e-] (scalar transmission mode)
+
+3. **Script window commands:**
+```python
+# Performance metrics dashboard
+result = sensor.evaluate()
+
+# Spatial metrics
+print(f"Strehl: {result.metrics['strehl']:.4f} [--]")
+print(f"RER: {result.metrics['rer']:.4f} [--]")
+print(f"Q: {result.metrics['q_center']:.3f} [--]")
+
+# Radiometric metrics
+print(f"SNR: {result.metrics['snr']:.1f} [--]")
+print(f"NEDT: {result.metrics['nedt_K'] * 1000:.1f} [mK]")
+print(f"Well margin: {result.metrics['well_margin_dB']:.1f} [dB]")
+
+# Image quality
+print(f"GSD: {result.metrics['gsd_cross_track_m']:.2f} [m]")
+print(f"NIIRS: {result.metrics['niirs']:.2f} [--]")
+
+# MTF budget decomposition
+mtf_budget = result.stage_outputs["performance"]["mtf_budget"]
+per_term = mtf_budget.per_term_at_nyquist
+seen = set()
+for key in per_term:
+    base = key.rsplit("_", 1)[0]
+    if base in seen: continue
+    seen.add(base)
+    val_x = per_term.get(f"{base}_x", 1.0)
+    val_y = per_term.get(f"{base}_y", 1.0)
+    print(f"  {base}: x={val_x:.4f}, y={val_y:.4f}")
+
+# Folded MTF (aliasing)
+print(f"Folded MTF@Ny: {result.metrics['mtf_folded_at_nyquist']:.4f} [--]")
+
+# Noise breakdown
+for nt in result.noise_terms:
+    if nt.value_e > 0.001:
+        print(f"  {nt.name}: {nt.value_e:.4f} [e-]")
+```
+
 ## GUI Requirements Summary
 
 | Requirement | Priority | Gap |
@@ -96,6 +169,7 @@ gsd_cross = pixel_pitch_m * slant_range_m / focal_length_m
 | Along-track vs cross-track GSD | High | Gap 35 |
 | Swath width / access geometry | Medium | Gap 36 |
 | Angle input in degrees (auto-convert) | Medium | Gap 6 |
+| Performance metrics dashboard | High | -- |
 | Contrast SNR display alongside total SNR | Medium | -- |
 | Access vs. quality trade plot | Medium | -- |
 | Map view of ground coverage | Low | -- |

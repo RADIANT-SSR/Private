@@ -71,7 +71,24 @@ Karen, test engineer. She has TVAC NEDT measurements from an as-built MWIR senso
   - "What-if" mode: drag any parameter value and see NEDT update live
   - Nominal vs. as-built comparison panel: side-by-side NEDT with degradation breakdown
 
-## Step 7: Export Results
+## Step 7: Performance Metrics Dashboard
+- **Action**: View > Performance Metrics
+- **Script window commands**:
+  ```
+  >> result.metrics["nedt_K"] * 1000       # total NEDT in mK
+  >> result.metrics["niirs"]                # None for lab tests (altitude=0)
+  >> result.metrics["gsd_geometric_mean_m"] # None for lab tests
+  >> [(nt.name, nt.value_e) for nt in result.noise_terms]
+  >> result.stage_outputs["performance"]["mtf_budget"].per_term_at_nyquist
+  ```
+- **GUI components**:
+  - Metric cards: NEDT (mK), Signal (e⁻), Total noise (e⁻ RMS), SNR
+  - Lab-mode indicator: NIIRS/GSD show "N/A (lab test — altitude=0)"
+  - Noise breakdown bar chart with per-term NEDT contribution
+  - Well margin gauge (dB headroom before saturation)
+  - MTF at Nyquist and Strehl ratio indicators
+
+## Step 8: Export Results
 - **Action**: File > Export Results
 - **Options**:
   - Excel workbook: NEDT Comparison, Noise Breakdown, Sensitivity, Summary (4 sheets)

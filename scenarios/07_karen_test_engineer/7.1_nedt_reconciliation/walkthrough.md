@@ -2,7 +2,7 @@
 
 ## The Problem
 
-Karen is a test engineer who has just completed TVAC testing of an as-built MWIR sensor. She measured NEDT at seven blackbody temperatures from 15°C to 50°C. Her primary measurement at 25°C gave NEDT = 127.0 mK, but RADIANT predicts 110.1 mK with the as-built parameters. Where does the 16.9 mK discrepancy come from?
+Karen is a test engineer who has just completed TVAC testing of an as-built MWIR sensor. She measured NEDT at seven blackbody temperatures from 15°C to 50°C. Her primary measurement at 25°C gave NEDT = 127.0 mK, but RADIANT predicts 100.57 mK with the as-built parameters. Where does the 26.43 mK discrepancy come from?
 
 This is the classic test-engineer question: **does the model match the measurement, and if not, what explains the gap?**
 
@@ -99,15 +99,15 @@ At each of Karen's seven measurement temperatures, the script runs RADIANT three
 
 | BB T [°C] | BB T [K] | Meas [mK] | Pred [mK] | Δ [mK] | Signal [e⁻] | dS/dT [e⁻/K] |
 |-----------|----------|-----------|-----------|--------|-------------|---------------|
-| 15.0 | 288.15 | 160.0 | 138.7 | 21.3 | 97,857 | 3,759 |
-| 20.0 | 293.15 | 142.0 | 123.0 | 19.0 | 118,204 | 4,393 |
-| **25.0** | **298.15** | **127.0** | **110.1** | **16.9** | **141,916** | **5,106** |
-| 30.0 | 303.15 | 114.0 | 99.3 | 14.7 | 169,401 | 5,903 |
-| 35.0 | 308.15 | 104.0 | 90.2 | 13.8 | 201,096 | 6,791 |
-| 40.0 | 313.15 | 95.0 | 82.5 | 12.5 | 237,468 | 7,775 |
-| 50.0 | 323.15 | 81.0 | 70.3 | 10.7 | 326,266 | 10,057 |
+| 15.0 | 288.15 | 160.0 | 124.66 | 35.34 | 97,857 | 3,759 |
+| 20.0 | 293.15 | 142.0 | 111.50 | 30.50 | 118,204 | 4,393 |
+| **25.0** | **298.15** | **127.0** | **100.57** | **26.43** | **141,916** | **5,106** |
+| 30.0 | 303.15 | 114.0 | 91.40 | 22.60 | 169,401 | 5,903 |
+| 35.0 | 308.15 | 104.0 | 83.67 | 20.33 | 201,096 | 6,791 |
+| 40.0 | 313.15 | 95.0 | 77.08 | 17.92 | 237,468 | 7,775 |
+| 50.0 | 323.15 | 81.0 | 66.55 | 14.45 | 326,266 | 10,057 |
 
-The predicted NEDT is systematically lower than measured by 10–21 mK (13–15%), with the gap larger at lower temperatures. Both curves show the expected 1/√(signal) behavior — NEDT decreases as the blackbody temperature increases because higher temperatures produce more signal.
+The predicted NEDT is systematically lower than measured by 14–35 mK (18–22%), with the gap larger at lower temperatures. Both curves show the expected 1/√(signal) behavior — NEDT decreases as the blackbody temperature increases because higher temperatures produce more signal.
 
 ### Step 5: Noise Breakdown at Primary Test Point (25°C)
 
@@ -115,20 +115,21 @@ RADIANT's noise budget at the primary test point:
 
 | Noise Term | σ [e⁻ RMS] | NEDT_i [mK] | Fraction [%] |
 |------------|-----------|-------------|-------------|
-| signal_shot | 376.7 | 73.8 | 44.9 |
-| background_shot | 348.6 | 68.3 | 38.5 |
-| nearfield_shot | 228.6 | 44.8 | 16.5 |
-| read_noise | 14.2 | 2.8 | 0.1 |
-| quantization | 3.5 | 0.7 | <0.1 |
-| dark_shot | 0.3 | 0.1 | <0.1 |
-| **RSS TOTAL** | **562.0** | **110.1** | **100.0** |
+| signal_shot | 376.72 | 73.78 | 53.8 |
+| background_shot | 348.58 | 68.27 | 46.1 |
+| read_noise | 14.20 | 2.78 | 0.1 |
+| quantization | 3.46 | 0.68 | <0.1 |
+| dark_shot | 0.26 | 0.05 | <0.1 |
+| nearfield_shot | 0.00 | 0.00 | 0.0 |
+| **RSS TOTAL** | **513.46** | **100.57** | **100.0** |
 
-The noise is overwhelmingly dominated by photon shot noise (signal + background + nearfield = 99.9%). This is expected for a BLIP (Background-Limited Infrared Photodetector) system in MWIR with warm optics. Read noise and dark current are negligible at this signal level.
+The noise is overwhelmingly dominated by photon shot noise (signal + background = 99.9%). This is expected for a BLIP (Background-Limited Infrared Photodetector) system in MWIR with warm optics. Read noise and dark current are negligible at this signal level.
 
-The three photon noise sources:
-- **signal_shot** (44.9%): Shot noise from the blackbody photons — the fundamental limit
-- **background_shot** (38.5%): Shot noise from the shroud (295.15 K, ε = 0.95) filling the rest of the FOV
-- **nearfield_shot** (16.5%): Shot noise from thermal emission of the warm optics (295.15 K, 4 elements)
+The two photon noise sources:
+- **signal_shot** (53.8%): Shot noise from the blackbody photons — the fundamental limit
+- **background_shot** (46.1%): Shot noise from the shroud (295.15 K, ε = 0.95) filling the rest of the FOV
+
+**Note**: `nearfield_shot = 0` is a known limitation (Gap 6 below). In scalar transmission mode, the lumped optical element is treated as refractive (ε = 0 by Kirchhoff's law: T + R = 1, ε = 1 − T − R = 0). Mirror self-emission requires `key_elements` or `full_prescription` mode.
 
 ### Step 6: Gap Analysis
 
@@ -136,11 +137,11 @@ The gap between predicted and measured NEDT implies additional noise sources:
 
 ```
 σ_measured  = NEDT_meas × dS/dT = 127.0 mK × 5,106 e⁻/K = 648.4 e⁻ RMS
-σ_predicted = 562.0 e⁻ RMS
-σ_missing   = √(648.4² − 562.0²) = 323.4 e⁻ RMS
+σ_predicted = 513.5 e⁻ RMS
+σ_missing   = √(648.4² − 513.5²) = 396.0 e⁻ RMS
 ```
 
-This missing noise of 323 e⁻ RMS is significant — it's 58% of the predicted noise. No single modeled noise term, if increased alone, could plausibly explain this gap. The most likely explanations are:
+This missing noise of 396 e⁻ RMS is significant — it's 77% of the predicted noise. No single modeled noise term, if increased alone, could plausibly explain this gap. The most likely explanations are:
 
 1. **Unmodeled ROIC glow** (5 e⁻/s in the spreadsheet, not currently modeled as a noise source in RADIANT)
 2. **Spatial non-uniformity in the NEDT measurement** — Karen measures NEDT as the spatial σ across a 100×100 ROI, which includes pixel-to-pixel responsivity variations (PRNU/DSNU) that inflate the measured temporal NEDT
@@ -153,10 +154,10 @@ Perturbing each parameter by ±1% reveals which parameters have the largest impa
 
 | Parameter | Sensitivity [mK / 1% change] | Direction |
 |-----------|-------------------------------|-----------|
-| f-number (via focal length) | 1.10 | ↑f/# → ↑NEDT |
-| Optical transmission | 0.86 | ↑τ → ↓NEDT |
-| QE | 0.55 | ↑QE → ↓NEDT |
-| Integration time | 0.55 | ↑t_int → ↓NEDT |
+| f-number (via focal length) | 1.01 | ↑f/# → ↑NEDT |
+| QE | 0.50 | ↑QE → ↓NEDT |
+| Optical transmission | 0.50 | ↑τ → ↓NEDT |
+| Integration time | 0.50 | ↑t_int → ↓NEDT |
 | Read noise | 0.001 | negligible |
 | Dark current | 0.000 | negligible |
 
@@ -166,32 +167,36 @@ f-number and optical transmission dominate because they directly scale the photo
 
 | Configuration | NEDT at 25°C [mK] |
 |---------------|-------------------|
-| Nominal design | 103.4 |
-| As-built | 110.1 |
+| Nominal design | 95.18 |
+| As-built | 100.57 |
 | Measured | 127.0 |
 
-The as-built parameters explain 6.7 mK of NEDT degradation from nominal (QE dropped 4%, transmission dropped 2%, f/# increased 1.25%, read noise increased 18%, dark current increased 35%). The remaining 16.9 mK gap is not explained by the known parameter deviations — it comes from noise sources not in the model.
+The as-built parameters explain 5.38 mK of NEDT degradation from nominal (QE dropped 4%, transmission dropped 2%, f/# increased 1.25%, read noise increased 18%, dark current increased 35%). The remaining 26.43 mK gap is not explained by the known parameter deviations — it comes from noise sources not in the model (including unmodeled mirror self-emission; see Gap 6).
 
 ## Key Takeaways
 
-1. **The sensor is BLIP-dominated.** 99.9% of the noise comes from photon shot noise (signal + background + nearfield). Read noise and dark current are completely negligible. This means further improvements require cold optics, cold shielding, or spectral narrowing — not better detectors.
+1. **The sensor is BLIP-dominated.** 99.9% of the noise comes from photon shot noise (signal + background). Read noise and dark current are completely negligible. This means further improvements require cold optics, cold shielding, or spectral narrowing — not better detectors.
 
-2. **Background shot noise is almost as large as signal shot noise** (38.5% vs. 44.9%) because the shroud at 295 K is nearly as warm as the 298 K blackbody. In the MWIR band, a 3 K temperature difference produces only a small radiance contrast. The warm shroud also contributes nearfield emission from the optics.
+2. **Background shot noise is almost as large as signal shot noise** (46.1% vs. 53.8%) because the shroud at 295 K is nearly as warm as the 298 K blackbody. In the MWIR band, a 3 K temperature difference produces only a small radiance contrast.
 
-3. **The 16.9 mK gap is a real measurement-model discrepancy**, not a parameter error. The sensitivity analysis shows that no ±1% parameter perturbation can explain the gap. The most likely cause is spatial non-uniformity in the measurement (PRNU/DSNU inflating the temporal NEDT), combined with unmodeled stray light from the TVAC chamber.
+3. **The 26.43 mK gap is a real measurement-model discrepancy**, not a parameter error. The sensitivity analysis shows that no ±1% parameter perturbation can explain the gap. Likely causes: (a) unmodeled mirror self-emission from warm optics (nearfield_shot = 0 in scalar mode — see Gap 6), (b) spatial non-uniformity in the measurement (PRNU/DSNU inflating the temporal NEDT), and (c) unmodeled stray light from the TVAC chamber.
 
 4. **NEDT improves (decreases) at higher blackbody temperatures** because dS/dT increases faster than noise. This is the Planck function effect: ∂L/∂T increases with T in the Wien regime (for MWIR at 288–323 K), while shot noise grows only as √signal.
 
-5. **The as-built parameter deviations explain only 6.7 mK** of degradation. This tells Karen that the as-built sensor is performing close to its as-built specification — the gap is in the test setup or measurement method, not the sensor itself.
+5. **The as-built parameter deviations explain only 5.38 mK** of degradation. This tells Karen that the as-built sensor is performing close to its as-built specification — the gap is in the test setup or measurement method, not the sensor itself.
 
 ## Gaps Identified
 
-- **Gap 1 (No per-term NEDT breakdown)**: RADIANT computes total NEDT via `result.metrics["nedt_K"]` but does not break it down by individual noise term. The script must manually compute `NEDT_i = σ_i / (dS/dT)` for each NoiseTerm. A native `result.nedt_breakdown` attribute would save Karen significant effort.
+See [gaps.md](gaps.md) for full detail with severity and status.
 
-- **Gap 2 (No gap analysis mode)**: RADIANT has no built-in capability to compare predicted vs. measured NEDT and compute the missing noise σ. The script computes `σ_missing = √(σ_meas² − σ_pred²)` manually. A built-in `reconcile(measured_nedt_mK=...)` method would be useful for test engineers.
+### Gaps Closed Since Last Run
+| Gap | Status | Notes |
+|-----|--------|-------|
+| Gap 1 (per-term NEDT breakdown) | **CLOSED** | `result.metrics["nedt_K"]` now available; per-term breakdown computed via `σ_i / (dS/dT)` |
+| Gap 3 (lab/TVAC mode documentation) | **CLOSED** | `atmosphere.model: "exo"` is the documented recommended approach |
 
-- **Gap 3 (No lab/TVAC mode documentation)**: Using `"atmosphere": {"model": "exo"}` for a lab/TVAC test works correctly but is not documented as the recommended approach for laboratory testing. A "lab mode" alias or documentation section would help test engineers like Karen.
-
-- **Gap 4 (dS/dT via finite difference only)**: The script computes dS/dT by running RADIANT three times (at T, T±δ). RADIANT's native NEDT uses an internal Planck derivative, but the finite-difference approach is more accurate because it captures the full signal chain (optics, QE, etc.) — not just the Planck function. Exposing the internal dS/dT value would allow cross-checking.
-
-- **Gap 5 (ROIC glow not modeled as noise source)**: The spreadsheet lists ROIC glow at 5 e⁻/s, but RADIANT does not include a `glow_shot` noise term (it exists in the noise term list but is always zero). Adding ROIC glow as a modeled noise contributor would improve accuracy for low-signal scenarios, though for this BLIP-dominated case the impact is negligible (√(5 × 0.0005) ≈ 0.05 e⁻ RMS).
+### Open Gaps
+- **Gap 2 (No built-in reconcile method)**: still open. Script computes σ_missing manually.
+- **Gap 4 (Internal dS/dT not exposed)**: still open. Finite-difference workaround used.
+- **Gap 5 (ROIC glow not modeled)**: still open. `glow_shot` noise term is always zero.
+- **Gap 6 (NEW — Nearfield = 0 in scalar mode)**: HIGH severity. Mirror self-emission not modeled in scalar transmission mode. `nearfield_shot = 0` even with warm optics at 295 K. Workaround: `key_elements` or `full_prescription` optical mode. This likely explains part of the 26 mK gap between predicted and measured NEDT.

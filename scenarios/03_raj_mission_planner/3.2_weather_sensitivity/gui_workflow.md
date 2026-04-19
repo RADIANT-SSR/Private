@@ -108,7 +108,24 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
   - "What if SNR were...?" slider: shows diminishing returns of SNR improvement
   - Side-by-side: best weather vs. worst weather NIIRS breakdown
 
-## Step 8: Export Results
+## Step 8: Performance Metrics Dashboard
+- **Action**: View > Performance Metrics
+- **Script window commands**:
+  ```
+  >> result.metrics["niirs"]                   # NIIRS value
+  >> result.metrics["gsd_geometric_mean_m"]    # geometric-mean GSD
+  >> result.metrics["gsd_cross_track_m"]       # x-track GSD
+  >> result.metrics["gsd_along_track_m"]       # along-track GSD
+  >> result.metrics["rer"]                      # relative edge response
+  >> result.metrics["mtf_at_nyquist"]
+  >> result.metrics["nedt_K"]                   # N/A for reflective scenes
+  ```
+- **GUI components**:
+  - Metric cards: NIIRS, GSD (m), RER, MTF@Nyquist, SNR
+  - Traffic-light status vs. NIIRS ≥ 4.0 requirement
+  - GIQE term breakdown pie showing what is limiting NIIRS
+
+## Step 9: Export Results
 - **Action**: File > Export Results
 - **Options**:
   - Excel workbook: Visibility Sweep, PWV Sweep, Named Conditions (with traffic-light formatting), 2D NIIRS Grid (4 sheets)

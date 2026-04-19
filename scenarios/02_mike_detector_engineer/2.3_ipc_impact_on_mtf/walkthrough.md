@@ -44,9 +44,14 @@ The sensor configuration includes the full optical system (30 cm aperture, f/4, 
 RADIANT evaluates the full signal chain from source through atmosphere, optics, spectral integration, detector, and readout to produce baseline performance metrics *without* IPC. This gives us the system's inherent capability before IPC degrades it.
 
 The baseline results at 500 km with atmosphere:
-- System MTF at Nyquist: 0.4223 (well above the 0.15 requirement)
-- SNR: 536 (well above the 100 requirement)
-- EE 1x1: 0.6365 (above the 0.60 requirement, but with less margin)
+- System MTF at Nyquist: 0.2532 (above the 0.15 requirement)
+- SNR: 586 (well above the 100 requirement)
+- EE 1x1: 0.4699 (below the 0.60 requirement — already fails at baseline)
+- GSD: 7.50 m (cross-track = along-track at nadir)
+- Q (sampling parameter): 0.944 (near-optimal Nyquist matching)
+- NEDT: 48.4 mK
+- NIIRS: 4.61
+- Strehl ratio: 1.000 (diffraction-limited, no WFE applied)
 
 The extended radiometric regime is active because the target (a 310 K ground scene) fills the entire pixel. In this regime, background temperature (295 K) only enters the contrast SNR calculation — it does not affect the primary signal or noise budget.
 
@@ -66,14 +71,11 @@ The script sweeps IPC from 0% to 5% in 51 steps, running a full RADIANT evaluati
 
 ### Step 4: Find the Limit
 
-The sweep reveals that the **binding constraint is EE 1x1, not MTF**. The maximum tolerable IPC is 1.44%, set by the EE 1x1 >= 0.60 requirement. The MTF requirement (>= 0.15) is not even close to being violated across the entire 0-5% sweep range.
+The sweep reveals that the **binding constraint is EE 1x1**, which already fails at baseline (0.4699 < 0.60 requirement) before any IPC is applied. The MTF requirement (>= 0.15) is comfortably met across the full 0-5% IPC range.
 
-This is a significant finding for Mike:
-- The vendor's typical IPC of 1.8% **fails** the EE 1x1 requirement
-- The vendor's maximum IPC of 2.5% also **fails**
-- Even the best sample in the lot (1.2% IPC) is close to the limit
+**Important caveat**: The IPC kernel convolution in the PSF path currently applies the 3x3 kernel at PSF sample spacing rather than pixel pitch, causing the IPC effect to be much smaller than expected. The analytic cross-check confirms this: at alpha = 5%, the analytic formula predicts system MTF = 0.2025 but RADIANT's native convolution gives 0.2514. The MTF product path correctly computes `mtf_ipc = 1 - 4*alpha`, triggering dual-path consistency check failures at alpha > 2.5%. See gaps.md for details.
 
-Mike now has a quantitative basis for discussing IPC specifications with the vendor, and he knows exactly which requirement is driving the conversation.
+For Mike's purposes, the analytic IPC MTF formula (MTF_IPC = 1 - 4*alpha at Nyquist) should be used as the authoritative result until the kernel sampling is fixed.
 
 ### Step 5: Validate Against Lab Data
 
@@ -95,6 +97,20 @@ The trend (MTF decreasing with IPC) matches well, confirming that the model capt
 
 ## Gaps Identified
 
-- ~~**Gap 1 (IPC not wired into signal chain)**: FIXED. RADIANT now natively wires IPC into the EffectivePSF via FFT convolution. Setting `detector.ipc_coupling` causes the DetectorStage to generate the IPC kernel and the PerformanceStage to convolve it with the PSF before computing all spatial metrics. The script now uses native RADIANT evaluation at each IPC value instead of the analytic workaround.~~
+- **Gap 1 (IPC kernel sampling)**: PARTIALLY FIXED. IPC is now wired into the signal chain — `DetectorStage` generates the IPC kernel and `PerformanceStage` convolves it with the EffectivePSF. However, the 3x3 kernel is applied at PSF sample spacing rather than pixel pitch, making the effect negligible. The MTF product path correctly computes the analytic IPC MTF. The fix requires upsampling the IPC kernel to match the PSF grid spacing.
 
 - ~~**Gap 2 (SNR = 0 at orbital altitude)**: FIXED. The atmosphere model now uses column-integrated optical depth with proper exponential scale heights.~~
+
+- **Gap 3**: No support for arbitrary (e.g. 5x5) IPC kernels. OPEN.
+- **Gap 4**: No IPC correction/deconvolution model. OPEN.
+
+### Gaps Closed Since Last Run
+
+| Metric | Previous Status | Current Status |
+|--------|----------------|----------------|
+| NEDT | Not available | `result.metrics["nedt_K"]` = 48.4 mK |
+| NIIRS | Not available | `result.metrics["niirs"]` = 4.61 |
+| GSD | Manual calculation | `result.metrics["gsd_cross_track_m"]` = 7.50 m |
+| Q parameter | Manual calculation | `result.metrics["q_center"]` = 0.944 |
+| Strehl | Not available | `result.metrics["strehl"]` = 1.000 |
+| MTF budget | Not available | `mtf_budget.per_term_at_nyquist` with per-component values |

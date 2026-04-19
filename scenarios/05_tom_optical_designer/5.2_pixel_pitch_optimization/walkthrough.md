@@ -67,14 +67,14 @@ RADIANT evaluates the complete signal chain for each pixel pitch with matched de
 
 Results:
 
-| Pitch [µm] | Q    | SNR    | MTF@Nyq | EE 1×1 | Signal [e⁻] |
-|-------------|------|--------|---------|--------|-------------|
-| 8           | 2.12 | 99     | 0.000   | 0.179  | 40,000      |
-| 12          | 1.42 | 189    | 0.181   | 0.365  | 120,000     |
-| 15          | 1.13 | 298    | 0.320   | 0.492  | 250,000     |
-| 18          | 0.94 | 468    | 0.422   | 0.637  | 500,000     |
-| 24          | 0.71 | 726    | 0.559   | 0.773  | 1,070,557   |
-| 30          | 0.57 | 894    | 0.644   | 0.829  | 1,624,952   |
+| Pitch [µm] | Q    | SNR    | MTF@Nyq | EE 1×1 | NIIRS | NEDT [mK] | Signal [e⁻] |
+|-------------|------|--------|---------|--------|-------|-----------|-------------|
+| 8           | 2.12 | 114    | 0.000   | 0.164  | 3.9   | —         | 40,000      |
+| 12          | 1.42 | 214    | 0.119   | 0.312  | 4.2   | 132.6     | 120,000     |
+| 15          | 1.13 | 334    | 0.191   | 0.379  | 4.4   | 85.1      | 250,000     |
+| 18          | 0.94 | 517    | 0.253   | 0.470  | 4.5   | 55.0      | 500,000     |
+| 24          | 0.71 | 792    | 0.366   | 0.576  | 4.6   | 35.9      | 1,070,557   |
+| 30          | 0.57 | 976    | 0.385   | 0.599  | 4.5   | 29.1      | 1,624,952   |
 
 The trends are clear:
 - **Signal scales roughly as p²** — the 30 µm pixel collects ~40× more photons than the 8 µm pixel. This is the dominant driver of SNR.
@@ -86,7 +86,7 @@ The trends are clear:
 
 | Pitch | GSD < 10 m | MTF ≥ 0.10 | EE ≥ 0.30 | SNR ≥ 100 | Verdict |
 |-------|------------|------------|-----------|-----------|---------|
-| 8 µm  | PASS       | FAIL       | FAIL      | FAIL      | FAIL    |
+| 8 µm  | PASS       | FAIL       | FAIL      | PASS      | FAIL (MTF, EE) |
 | 12 µm | PASS       | PASS       | PASS      | PASS      | **ALL PASS** |
 | 15 µm | PASS       | PASS       | PASS      | PASS      | **ALL PASS** |
 | 18 µm | PASS       | PASS       | PASS      | PASS      | **ALL PASS** |
@@ -99,13 +99,13 @@ Three candidates pass: 12, 15, and 18 µm. The 8 µm pixel fails on three metric
 
 Among the three compliant candidates, a simple figure of merit (SNR / GSD — higher is better, favoring both high sensitivity and fine resolution) selects **18 µm** as the optimal pixel pitch:
 
-| Pitch [µm] | Q    | GSD [m] | SNR   | FoM (SNR/GSD) |
-|-------------|------|---------|-------|----------------|
-| 12          | 1.42 | 5.0     | 189   | 37.8           |
-| 15          | 1.13 | 6.2     | 298   | 47.6           |
-| 18          | 0.94 | 7.5     | 468   | **62.5**       |
+| Pitch [µm] | Q    | GSD [m] | SNR   | NIIRS | NEDT [mK] | FoM (SNR/GSD) |
+|-------------|------|---------|-------|-------|-----------|----------------|
+| 12          | 1.42 | 5.0     | 214   | 4.2   | 132.6     | 42.8           |
+| 15          | 1.13 | 6.2     | 334   | 4.4   | 85.1      | 53.4           |
+| 18          | 0.94 | 7.5     | 517   | 4.5   | 55.0      | **68.9**       |
 
-The 18 µm pixel has Q = 0.94 — slightly undersampled but with excellent SNR margin (468 vs. 100 requirement) and GSD margin (7.5 m vs. 10 m limit). It's the classic engineering trade-off: slightly sacrificing sampling adequacy for a large gain in sensitivity.
+The 18 µm pixel has Q = 0.94 — slightly undersampled but with excellent SNR margin (517 vs. 100 requirement) and GSD margin (7.5 m vs. 10 m limit). It's the classic engineering trade-off: slightly sacrificing sampling adequacy for a large gain in sensitivity.
 
 ## Key Takeaways
 

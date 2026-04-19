@@ -255,6 +255,13 @@ baseline_nearfield_e = result.stage_outputs["spectral_integration"]["nearfield_e
 baseline_background_e = result.stage_outputs["spectral_integration"]["background_e"]
 baseline_snr = result.metrics["snr"]
 baseline_contrast_snr = result.metrics.get("contrast_snr")
+baseline_nedt = result.metrics.get("nedt_K")
+baseline_niirs = result.metrics.get("niirs")
+baseline_gsd = result.metrics.get("gsd_geometric_mean_m")
+baseline_q = result.metrics.get("q_center")
+baseline_strehl = result.metrics.get("strehl")
+baseline_mtf_nyq = result.metrics.get("mtf_at_nyquist")
+baseline_well_margin = result.metrics.get("well_margin_dB")
 
 # Extract noise terms
 noise_dict: dict[str, float] = {}
@@ -312,6 +319,39 @@ print(f"  {'Background (scene)':<35s} {baseline_background_e:>14.0f}  e⁻")
 print(f"  {'SNR':<35s} {baseline_snr:>14.2f}  — (dimensionless)")
 if baseline_contrast_snr is not None:
     print(f"  {'Contrast SNR':<35s} {baseline_contrast_snr:>14.2f}  — (dimensionless)")
+if baseline_nedt is not None:
+    print(f"  {'NEDT':<35s} {baseline_nedt * 1e3:>14.2f}  mK")
+if baseline_niirs is not None:
+    print(f"  {'NIIRS':<35s} {baseline_niirs:>14.2f}  — (dimensionless)")
+if baseline_gsd is not None:
+    print(f"  {'GSD (geometric mean)':<35s} {baseline_gsd:>14.4f}  m")
+if baseline_q is not None:
+    print(f"  {'Q (sampling parameter)':<35s} {baseline_q:>14.4f}  — (dimensionless)")
+if baseline_strehl is not None:
+    print(f"  {'Strehl ratio':<35s} {baseline_strehl:>14.4f}  — (dimensionless)")
+if baseline_mtf_nyq is not None:
+    print(f"  {'MTF at Nyquist':<35s} {baseline_mtf_nyq:>14.4f}  — (dimensionless)")
+if baseline_well_margin is not None:
+    print(f"  {'Well margin':<35s} {baseline_well_margin:>14.2f}  dB")
+
+# MTF budget display
+mtf_budget = result.stage_outputs.get("performance", {}).get("mtf_budget")
+if mtf_budget is not None:
+    per_term = mtf_budget.per_term_at_nyquist
+    print(f"\n  MTF Budget (at Nyquist):")
+    print(f"  {'Component':<30s} {'MTF_x':>10s}  {'MTF_y':>10s}")
+    print(f"  {'-' * 30} {'-' * 10}  {'-' * 10}")
+    seen: set[str] = set()
+    for key in per_term:
+        base = key.rsplit("_", 1)[0]
+        if base in seen:
+            continue
+        seen.add(base)
+        val_x = per_term.get(f"{base}_x", 1.0)
+        val_y = per_term.get(f"{base}_y", 1.0)
+        label = base.replace("mtf_", "").replace("_", " ").title()
+        print(f"  {label:<30s} {val_x:>10.4f}  {val_y:>10.4f}")
+    print(f"  {'System':<30s} {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  {mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
 
 print(f"\n  Noise breakdown (at cold_stop_efficiency = 1.0):")
 print(f"  {'Noise Term':<35s} {'Value [e⁻ RMS]':>14s}")
@@ -341,6 +381,8 @@ sweep_bkg_shot = np.zeros_like(eta_sweep)
 sweep_dark_shot = np.zeros_like(eta_sweep)
 sweep_read_noise = np.zeros_like(eta_sweep)
 sweep_signal_e = np.zeros_like(eta_sweep)
+sweep_nedt = np.full_like(eta_sweep, np.nan)
+sweep_niirs = np.full_like(eta_sweep, np.nan)
 
 print(f"\n=== Sweeping cold_stop_efficiency from 0.00 to 1.00 ===")
 
@@ -354,6 +396,12 @@ for i, eta in enumerate(eta_sweep):
     sweep_total_bkg_e[i] = sweep_nearfield_e[i] + sweep_background_e[i]
     sweep_snr[i] = result_i.metrics["snr"]
     sweep_signal_e[i] = result_i.stage_outputs["readout"]["signal_e_final"]
+    nedt_val = result_i.metrics.get("nedt_K")
+    niirs_val = result_i.metrics.get("niirs")
+    if nedt_val is not None:
+        sweep_nedt[i] = nedt_val
+    if niirs_val is not None:
+        sweep_niirs[i] = niirs_val
 
     nd = {}
     for nt in result_i.noise_terms:
@@ -364,11 +412,12 @@ for i, eta in enumerate(eta_sweep):
     sweep_read_noise[i] = nd.get("read_noise", 0.0)
 
 print(f"\n=== Cold Stop Efficiency Sweep Results ===")
-print(f"  {'η_cold':>8s}  {'NF [e⁻]':>12s}  {'Bkg [e⁻]':>12s}  {'Total [e⁻]':>12s}  {'NF Shot':>10s}  {'SNR [—]':>10s}")
-print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}  {'-' * 10}  {'-' * 10}")
+print(f"  {'η_cold':>8s}  {'NF [e⁻]':>12s}  {'Bkg [e⁻]':>12s}  {'Total [e⁻]':>12s}  {'NF Shot':>10s}  {'SNR [—]':>10s}  {'NEDT [mK]':>10s}")
+print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}  {'-' * 10}  {'-' * 10}  {'-' * 10}")
 for i in range(0, len(eta_sweep), 5):
+    nedt_str = f"{sweep_nedt[i] * 1e3:>10.2f}" if not np.isnan(sweep_nedt[i]) else f"{'N/A':>10s}"
     print(f"  {eta_sweep[i]:>8.2f}  {sweep_nearfield_e[i]:>12.0f}  {sweep_background_e[i]:>12.0f}"
-          f"  {sweep_total_bkg_e[i]:>12.0f}  {sweep_nf_shot[i]:>10.1f}  {sweep_snr[i]:>10.1f}")
+          f"  {sweep_total_bkg_e[i]:>12.0f}  {sweep_nf_shot[i]:>10.1f}  {sweep_snr[i]:>10.1f}  {nedt_str}")
 
 # ---------------------------------------------------------------------------
 # Step 5: Find the cold stop efficiency that matches each lab measurement
@@ -539,6 +588,9 @@ for label, eta_val, meas_data in [("Nominal (CS-NOM)", nominal_eta, nominal_data
     nf_e = result_i.stage_outputs["spectral_integration"]["nearfield_e"]
     bkg_e = result_i.stage_outputs["spectral_integration"]["background_e"]
     snr_i = result_i.metrics["snr"]
+    nedt_i = result_i.metrics.get("nedt_K")
+    niirs_i = result_i.metrics.get("niirs")
+    well_margin_i = result_i.metrics.get("well_margin_dB")
 
     nd = {}
     for nt in result_i.noise_terms:
@@ -554,6 +606,12 @@ for label, eta_val, meas_data in [("Nominal (CS-NOM)", nominal_eta, nominal_data
     print(f"    Nearfield (optics):   {nf_e:.0f} e⁻")
     print(f"    Scene background:     {bkg_e:.0f} e⁻")
     print(f"    SNR:                  {snr_i:.1f} — (dimensionless)")
+    if nedt_i is not None:
+        print(f"    NEDT:                 {nedt_i * 1e3:.2f} mK")
+    if niirs_i is not None:
+        print(f"    NIIRS:                {niirs_i:.2f} — (dimensionless)")
+    if well_margin_i is not None:
+        print(f"    Well margin:          {well_margin_i:.2f} dB")
     print(f"    Noise breakdown:")
     for name in ["signal_shot", "background_shot", "nearfield_shot", "dark_shot",
                  "read_noise", "quantization"]:
@@ -607,7 +665,10 @@ ax1.set_title("Shuttered Background vs. Cold Stop Leakage", fontsize=13, fontwei
 ax1.legend(loc="upper left", fontsize=9)
 ax1.grid(True, alpha=0.3)
 ax1.set_xlim(0, 0.12)
-ax1.set_ylim(0, max(lab_bkg) * 1.3 / 1e3)
+if lab_bkg:
+    ax1.set_ylim(0, max(lab_bkg) * 1.3 / 1e3)
+else:
+    ax1.set_ylim(0, max(float(shut_total_bkg_e[-1]), MAX_BKG_E) * 1.3 / 1e3)
 fig1.tight_layout()
 fig1.savefig(PLOT_DIR / "fig1_background_vs_eta.png", dpi=150)
 print(f"  Saved {PLOT_DIR / 'fig1_background_vs_eta.png'}")
@@ -621,7 +682,7 @@ ax2.scatter(positions, etas_matched, s=80, c="steelblue", edgecolors="black",
             linewidths=0.8, zorder=5)
 
 # Linear fit
-if len(positions) >= 2:
+if len(positions) >= 2 and max(positions) > 0:
     coeffs = np.polyfit(positions, etas_matched, 1)
     fit_x = np.linspace(0, max(positions) * 1.1, 50)
     fit_y = np.polyval(coeffs, fit_x)
@@ -825,6 +886,11 @@ summary_items = [
     ("Nearfield signal [e⁻]", f"{baseline_nearfield_e:.0f}"),
     ("Background signal [e⁻]", f"{baseline_background_e:.0f}"),
     ("SNR [—]", f"{baseline_snr:.1f}"),
+    ("NEDT [mK]", f"{baseline_nedt * 1e3:.2f}" if baseline_nedt is not None else "N/A"),
+    ("NIIRS [—]", f"{baseline_niirs:.2f}" if baseline_niirs is not None else "N/A"),
+    ("MTF at Nyquist [—]", f"{baseline_mtf_nyq:.4f}" if baseline_mtf_nyq is not None else "N/A"),
+    ("Strehl ratio [—]", f"{baseline_strehl:.4f}" if baseline_strehl is not None else "N/A"),
+    ("Well margin [dB]", f"{baseline_well_margin:.2f}" if baseline_well_margin is not None else "N/A"),
     ("", ""),
     ("Requirements", ""),
     ("Max shuttered background [e⁻]", f"{MAX_BKG_E:.0f}"),

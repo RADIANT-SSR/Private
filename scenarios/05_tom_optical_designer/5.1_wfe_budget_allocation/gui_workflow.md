@@ -113,9 +113,23 @@ Tom needs to determine how much wavefront error his 40 cm Cassegrain can tolerat
 ### Design Summary Panel
 - Auto-generated recommendation:
   - "Diffraction limit: WFE < 0.071 waves (Strehl > 0.80)"
-  - "NIIRS-driven budget: WFE < X waves (dNIIRS < 0.5)"
-  - "Tom's current design: 0.051 waves (Strehl = 0.90, well within spec)"
+  - "NIIRS-driven budget: WFE < 0.100 waves (dNIIRS < 0.5)"
+  - "Tom's current design: 0.051 waves (Strehl = 0.87, dNIIRS = −0.20, well within spec)"
 - Export: PDF report, Excel spreadsheet
+
+### Performance Metrics Dashboard
+- **Script window commands**:
+  ```
+  >> result.metrics["strehl"]          # Marechal Strehl at operating band center
+  >> result.metrics["mtf_at_nyquist"]
+  >> result.metrics["rer"]              # relative edge response
+  >> result.metrics["fwhm_x_m"]         # PSF FWHM (meters on detector)
+  >> result.metrics["niirs"]            # GIQE-5 NIIRS
+  >> result.metrics["q_center"]         # sampling factor
+  >> [(nt.name, nt.value_e) for nt in result.noise_terms]
+  ```
+- Metric cards: Strehl, MTF@Nyquist, RER, EE(1x1), EE(3x3), NIIRS, SNR
+- Dual-path consistency indicator: FFT of convolved PSF vs MTF product (must agree to ~1e-6)
 
 ## Display Requirements
 - All numerical values must include units

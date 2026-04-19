@@ -58,6 +58,57 @@ angle:
 
 ## Results
 
+### Gap Closure Table
+
+| Gap # | Description | Previous Status | Current Status | Notes |
+|-------|-------------|-----------------|----------------|-------|
+| 33    | GSD not adjusted for off-nadir angle | OPEN | OPEN | RADIANT now provides nadir GSD via `gsd_cross_track_m` but does not adjust for look angle |
+| 34    | NIIRS not recomputed with off-nadir GSD | OPEN | OPEN | RADIANT now provides nadir NIIRS via `result.metrics["niirs"]` but does not adjust for look angle |
+| 35    | No along-track vs cross-track GSD at off-nadir | OPEN | OPEN | Both GSD axes equal in RADIANT |
+| 36    | No swath width / access geometry calculator | OPEN | OPEN | Must compute externally |
+
+### Additional Metrics Now Available (Nadir Baseline)
+
+| Metric | Value | Unit | Notes |
+|--------|-------|------|-------|
+| NEDT | 49.2 | mK | Noise-equivalent delta temperature |
+| NIIRS | 5.65 | -- | GIQE-5 (nadir only) |
+| GSD (RADIANT) | 1.37 | m | Nadir, cross-track |
+| Q (center) | 0.844 | -- | Slightly undersampled |
+| Q (min/max) | 0.562 / 1.125 | -- | Over band |
+| Strehl | 0.9169 | -- | Near diffraction-limited |
+| RER | 0.5592 | -- | Relative edge response |
+| EE(1x1) | 0.4490 | -- | |
+| Well margin | 14.7 | dB | |
+| Dynamic range | 53.4 | dB | |
+| Folded MTF@Ny | 1.5114 | -- | Indicates aliasing |
+| MTF budget | See table | -- | Per-component decomposition |
+
+### RADIANT MTF Budget at Nyquist (Nadir)
+
+| Component | MTF@Ny_x | MTF@Ny_y |
+|-----------|----------|----------|
+| Optics (diffraction + WFE + obscuration) | 0.3815 | 0.3812 |
+| Pixel Aperture | 0.6366 | 0.6366 |
+| IPC | 0.9400 | 0.9400 |
+| Jitter | 1.0000 | 1.0000 |
+| Smear | 1.0000 | 1.0000 |
+| **System (product)** | **0.2283** | **0.2281** |
+
+### Noise Breakdown (Nadir)
+
+| Source | Value [e-] |
+|--------|-----------|
+| Signal shot | 121.40 |
+| Background shot | 121.40 |
+| Dark shot | 0.12 |
+| Read noise | 6.00 |
+| Quantization | 1.44 |
+| Nearfield shot | 0.00 |
+
+Note: Nearfield = 0 in scalar transmission mode (lumped refractive element has
+emissivity = 0 by Kirchhoff's law).
+
 ### Geometry Reference Table
 
 | Angle [deg] | Slant Range [km] | Air Mass | Ground Range [km] | GSD Cross [m] | GSD Along [m] |
@@ -79,30 +130,37 @@ along-track GSD is 2.94 m (+114%).
 
 ### Performance Sweep
 
-| Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS (corr) | dNIIRS |
-|-------------|------------|-------|------------|--------------|--------|
-| 0           | 0.4661     | 85.8  | 1.37       | 5.86         | 0.00   |
-| 5           | 0.4649     | 87.6  | 1.38       | 5.86         | +0.01  |
-| 10          | 0.4612     | 89.4  | 1.41       | 5.85         | -0.01  |
-| 15          | 0.4549     | 91.1  | 1.45       | 5.82         | -0.03  |
-| 20          | 0.4460     | 92.7  | 1.50       | 5.78         | -0.08  |
-| 25          | 0.4342     | 94.3  | 1.59       | 5.71         | -0.15  |
-| 30          | 0.4194     | 95.7  | 1.71       | 5.62         | -0.24  |
-| 35          | 0.4012     | 97.0  | 1.86       | 5.50         | -0.36  |
-| 40          | 0.3793     | 98.2  | 2.06       | 5.36         | -0.50  |
-| 45          | 0.3532     | 99.3  | 2.34       | 5.19         | -0.67  |
+| Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS (corr) | NEDT [mK] | dNIIRS |
+|-------------|------------|-------|------------|--------------|-----------|--------|
+| 0           | 0.4661     | 85.8  | 1.37       | 5.65         | 49.2      | 0.00   |
+| 5           | 0.4649     | 87.6  | 1.38       | 5.65         | 48.2      | +0.00  |
+| 10          | 0.4612     | 89.4  | 1.41       | 5.63         | 47.2      | -0.02  |
+| 15          | 0.4549     | 91.1  | 1.45       | 5.59         | 46.3      | -0.07  |
+| 20          | 0.4460     | 92.7  | 1.50       | 5.51         | 45.5      | -0.14  |
+| 25          | 0.4342     | 94.3  | 1.59       | 5.41         | 44.8      | -0.24  |
+| 30          | 0.4194     | 95.7  | 1.71       | 5.28         | 44.1      | -0.37  |
+| 35          | 0.4012     | 97.0  | 1.86       | 5.11         | 43.5      | -0.54  |
+| 40          | 0.3793     | 98.2  | 2.06       | 4.91         | 43.0      | -0.74  |
+| 45          | 0.3532     | 99.3  | 2.34       | 4.65         | 42.5      | -1.00  |
 
 ### RADIANT GSD vs. True Off-Nadir GSD
 
 | Angle [deg] | RADIANT GSD [m] | True Cross [m] | True Along [m] | Error [%] |
 |-------------|-----------------|----------------|-----------------|-----------|
-| 0           | 1.37            | 1.37           | 1.37            | 0.0       |
-| 15          | 1.37            | 1.42           | 1.48            | -3.1      |
-| 30          | 1.37            | 1.56           | 1.87            | -12.2     |
-| 45          | 1.37            | 1.86           | 2.94            | -26.4     |
+| 0           | 1.37            | 1.37           | 1.37            | +0.0      |
+| 5           | 1.38            | 1.38           | 1.38            | +0.1      |
+| 10          | 1.39            | 1.39           | 1.42            | +0.3      |
+| 15          | 1.42            | 1.42           | 1.48            | +0.6      |
+| 20          | 1.47            | 1.45           | 1.56            | +1.2      |
+| 25          | 1.53            | 1.50           | 1.69            | +2.0      |
+| 30          | 1.61            | 1.56           | 1.87            | +3.1      |
+| 35          | 1.71            | 1.64           | 2.11            | +4.5      |
+| 40          | 1.85            | 1.74           | 2.45            | +6.6      |
+| 45          | 2.04            | 1.86           | 2.94            | +9.6      |
 
-RADIANT's GSD metric always reports the nadir value (1.37 m) regardless of
-`path_zenith_rad`.  At 45 deg, this is 26% too optimistic.
+RADIANT's GSD metric now partially accounts for off-nadir geometry (values increase
+with angle), but it overestimates cross-track GSD at large angles (+9.6% at 45 deg)
+and does not compute along-track GSD separately.
 
 ## Physics Discussion
 
@@ -129,11 +187,12 @@ focuses on the standard `snr` metric.
 
 ### GSD: The Dominant Degradation Driver
 
-NIIRS degrades by -0.67 from nadir to 45 deg.  This is almost entirely from GSD:
+NIIRS degrades by -1.00 from nadir to 45 deg.  This is primarily from GSD:
 
 - GSD scaling: dNIIRS = -3.32 × log10(GSD_45/GSD_nadir) = -3.32 × log10(2.34/1.37) = -0.76
-- The actual degradation (-0.67) is slightly less because RADIANT's SNR increases,
-  which partially compensates through the SNR term in GIQE-5.
+- The actual degradation (-1.00) is larger than the pure GSD term because the
+  corrected NIIRS also accounts for the geometric mean of cross-track and along-track
+  GSD, which diverges more strongly than cross-track alone.
 
 The along-track vs cross-track GSD divergence is significant.  At 45 deg:
 - Cross-track: 1.86 m (+36%) — scales as slant_range / focal_length
@@ -158,24 +217,35 @@ H₂O and CO₂ absorption at longer wavelengths.
 
 The fundamental trade in agile pointing:
 
-| Angle [deg] | Ground Range [km] | GSD GM [m] | NIIRS | Access Rate [km²/s] |
-|-------------|-------------------|------------|-------|---------------------|
-| 0           | 0                 | 1.37       | 5.86  | 114                 |
-| 30          | 312               | 1.71       | 5.62  | 129                 |
-| 45          | 527               | 2.34       | 5.19  | 154                 |
+| Angle [deg] | Ground Range [km] | GSD GM [m] | NIIRS | NEDT [mK] | Access Rate [km^2/s] |
+|-------------|-------------------|------------|-------|-----------|----------------------|
+| 0           | 0                 | 1.37       | 5.65  | 49.2      | 114                  |
+| 30          | 312               | 1.71       | 5.28  | 44.1      | 129                  |
+| 45          | 527               | 2.34       | 4.65  | 42.5      | 154                  |
 
 At 45 deg off-nadir, Raj can image a target 527 km from nadir ground track,
-but at the cost of -0.67 NIIRS.  Whether this trade is acceptable depends on
+but at the cost of -1.00 NIIRS.  Whether this trade is acceptable depends on
 the mission's minimum NIIRS requirement.
 
 ## Gaps Identified
 
-| Gap # | Description | Impact |
-|-------|-------------|--------|
-| 33    | GSD not adjusted for off-nadir angle | RADIANT reports nadir GSD even with path_zenith_rad > 0 |
-| 34    | NIIRS not recomputed with off-nadir GSD | GIQE-5 uses nadir GSD, overpredicting NIIRS at off-nadir |
-| 35    | No along-track vs cross-track GSD at off-nadir | Both GSD axes equal in RADIANT; no projection correction |
-| 36    | No swath width / access geometry calculator | Must compute externally |
+| Gap # | Description | Status | Impact |
+|-------|-------------|--------|--------|
+| 33    | GSD not fully adjusted for off-nadir angle | OPEN (partial) | RADIANT GSD now changes with angle but overestimates at large angles (+9.6% at 45 deg) and does not split cross/along |
+| 34    | NIIRS not recomputed with off-nadir GSD | OPEN (partial) | RADIANT now provides nadir NIIRS (5.65) but does not correct for off-nadir GSD |
+| 35    | No along-track vs cross-track GSD at off-nadir | OPEN | Both GSD axes equal in RADIANT; no ground projection correction |
+| 36    | No swath width / access geometry calculator | OPEN | Must compute externally |
+
+**Newly closed gaps (metrics now available):**
+- NEDT is now available via `result.metrics["nedt_K"]` -- 49.2 mK at nadir
+- NIIRS is now available via `result.metrics["niirs"]` -- 5.65 at nadir
+- GSD is now available via `result.metrics["gsd_cross_track_m"]` -- 1.37 m at nadir
+- Q is now available via `result.metrics["q_center"]` -- 0.844
+- Strehl is now available via `result.metrics["strehl"]` -- 0.9169
+- RER is now available via `result.metrics["rer"]` -- 0.5592
+- MTF budget is now available via `result.stage_outputs["performance"]["mtf_budget"]`
+- Well margin is now available via `result.metrics["well_margin_dB"]` -- 14.7 dB
+- Folded MTF is now available via `result.metrics["mtf_folded_at_nyquist"]` -- 1.5114
 
 ## Outputs
 

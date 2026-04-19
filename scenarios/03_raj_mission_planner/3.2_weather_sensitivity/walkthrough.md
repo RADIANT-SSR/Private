@@ -36,36 +36,36 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
 ### Visibility Sweep (PWV = 1.4 cm)
 | Visibility [km] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] |
 |---|---|---|---|---|
-| 2.0 | 0.449 | 241,571 | 331.4 | 4.46 |
-| 5.3 | 0.499 | 245,618 | 335.8 | 4.47 |
-| 23.1 | 0.524 | 247,589 | 337.9 | 4.47 |
-| 100.0 | 0.530 | 248,053 | 338.4 | 4.47 |
+| 2.0 | 0.449 | 241,571 | 363.0 | 4.28 |
+| 5.3 | 0.499 | 245,618 | 367.4 | 4.29 |
+| 23.1 | 0.524 | 247,589 | 369.6 | 4.29 |
+| 100.0 | 0.530 | 248,053 | 370.1 | 4.30 |
 
-**Key finding**: NIIRS barely changes with visibility (4.46 → 4.47 across entire range). MWIR aerosol scattering is negligible because the Angstrom exponent (α ≈ 1.3) causes extinction to scale as λ^(-1.3), making 4.2 µm aerosol extinction ~13× weaker than at 0.55 µm. Visibility affects visible-band sensors far more than MWIR.
+**Key finding**: NIIRS barely changes with visibility (4.28 → 4.30 across entire range). MWIR aerosol scattering is negligible because the Angstrom exponent (α ≈ 1.3) causes extinction to scale as λ^(-1.3), making 4.2 µm aerosol extinction ~13× weaker than at 0.55 µm. Visibility affects visible-band sensors far more than MWIR.
 
 ### PWV Sweep (visibility = 23 km)
 | PWV [cm] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] | ΔNIIRS [—] |
 |---|---|---|---|---|---|
-| 0.50 | 0.785 | 287,663 | 374.1 | 4.54 | +0.00 |
-| 1.40 | 0.524 | 247,589 | 337.9 | 4.47 | -0.07 |
-| 3.00 | 0.252 | 212,027 | 302.4 | 4.39 | -0.14 |
-| 5.00 | 0.111 | 197,614 | 286.7 | 4.36 | -0.18 |
+| 0.50 | 0.785 | 287,663 | 405.6 | 4.36 | +0.00 |
+| 1.46 | 0.509 | 245,470 | 367.6 | 4.29 | -0.07 |
+| 3.07 | 0.252 | 212,027 | 333.9 | 4.23 | -0.13 |
+| 5.00 | 0.111 | 197,614 | 317.7 | 4.19 | -0.17 |
 
-**Key finding**: PWV has a larger effect than visibility. Band-mean transmittance drops from 0.79 to 0.11 (7× reduction!) as PWV goes from dry desert to tropical humid. But NIIRS only drops 0.18 because NIIRS depends on log₁₀(SNR) — a 7× transmittance reduction causes only a ~30% SNR change (signal drops but noise floor remains dominated by background/nearfield photons).
+**Key finding**: PWV has a larger effect than visibility. Band-mean transmittance drops from 0.79 to 0.11 (7× reduction!) as PWV goes from dry desert to tropical humid. But NIIRS only drops 0.17 because NIIRS depends on log₁₀(SNR) — a 7× transmittance reduction causes only a ~22% SNR change (signal drops but noise floor remains dominated by background photons).
 
 ### Named Weather Conditions — Go/No-Go
 | Condition | Visibility [km] | PWV [cm] | τ_band [—] | SNR [—] | NIIRS [—] | Status |
 |---|---|---|---|---|---|---|
-| Arctic dry | 50 | 0.5 | 0.791 | 374.6 | 4.54 | GO |
-| Crystal clear | 100 | 0.8 | 0.693 | 360.9 | 4.51 | GO |
-| Clear | 50 | 1.0 | 0.632 | 352.4 | 4.50 | GO |
-| Standard | 23 | 1.4 | 0.524 | 337.9 | 4.47 | GO |
-| Light haze | 10 | 2.0 | 0.394 | 320.8 | 4.43 | GO |
-| Moderate haze | 5 | 3.0 | 0.246 | 302.4 | 4.39 | GO |
-| Heavy haze | 2 | 4.0 | 0.145 | 291.2 | 4.37 | GO |
-| Tropical humid | 10 | 5.0 | 0.108 | 286.6 | 4.36 | GO |
+| Arctic dry | 50 | 0.5 | 0.791 | 406.2 | 4.36 | GO |
+| Crystal clear | 100 | 0.8 | 0.693 | 392.5 | 4.33 | GO |
+| Clear | 50 | 1.0 | 0.632 | 384.1 | 4.32 | GO |
+| Standard | 23 | 1.4 | 0.524 | 369.6 | 4.29 | GO |
+| Light haze | 10 | 2.0 | 0.394 | 352.5 | 4.26 | GO |
+| Moderate haze | 5 | 3.0 | 0.246 | 333.8 | 4.23 | GO |
+| Heavy haze | 2 | 4.0 | 0.145 | 322.3 | 4.20 | GO |
+| Tropical humid | 10 | 5.0 | 0.108 | 317.6 | 4.19 | GO |
 
-**Result**: All 8 conditions are GO — NIIRS ≥ 4.0 at every weather condition tested. However, **no condition meets the NIIRS ≥ 5.0 goal**. The best case (Arctic dry) only reaches 4.54. The NIIRS goal of 5.0 is unachievable with 7.5 m GSD regardless of weather.
+**Result**: All 8 conditions are GO — NIIRS ≥ 4.0 at every weather condition tested. However, **no condition meets the NIIRS ≥ 5.0 goal**. The best case (Arctic dry) only reaches 4.36. The NIIRS goal of 5.0 is unachievable with 7.5 m GSD regardless of weather. Weather-induced NIIRS variation = 0.17.
 
 ### 2D NIIRS Grid (Visibility × PWV)
 All 36 grid cells meet NIIRS ≥ 4.0 (100% GO rate). The grid shows that PWV drives the variation (columns vary more than rows), confirming that water vapor absorption is the dominant atmospheric effect in MWIR.
@@ -73,14 +73,14 @@ All 36 grid cells meet NIIRS ≥ 4.0 (100% GO rate). The grid shows that PWV dri
 ### Noise Budget at Baseline (23 km, 1.4 cm)
 | Noise Term | σ [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 497.6 | 46.1 |
-| background_shot | 448.0 | 37.4 |
-| nearfield_shot | 297.1 | 16.4 |
+| signal_shot | 497.6 | 55.2 |
+| background_shot | 448.0 | 44.7 |
 | read_noise | 18.0 | 0.1 |
 | quantization | 9.2 | 0.0 |
 | dark_shot | 0.4 | 0.0 |
+| nearfield_shot | 0.0 | 0.0 |
 
-Signal shot noise dominates (46%), followed by background (37%) and nearfield from warm optics (16%). Read noise and dark current are negligible at this signal level.
+Signal shot noise dominates (55.2%), followed by background (44.7%). Read noise and dark current are negligible at this signal level. **Note**: `nearfield_shot = 0` — scalar-mode refractive-lump assumption does not model mirror self-emission (see Gap 8). Total noise = 669.9 e⁻ RMS, SNR = 369.6, NIIRS = 4.29, RER = 0.6011, MTF@Nyquist = 0.2526.
 
 ## Physics Discussion
 
@@ -111,23 +111,20 @@ So when τ drops, both signal and photon noise decrease, but nearfield noise sta
 
 ## Gap Findings
 
-### Gap 1: NIIRS Never Reaches Goal — GSD Limit Not Surfaced
-RADIANT computes NIIRS correctly, but doesn't proactively flag that GSD is the binding constraint and no amount of atmospheric improvement can reach the NIIRS goal. A "GSD-limited NIIRS ceiling" metric would help mission planners understand this immediately.
+See [gaps.md](gaps.md) for full detail with severity and status.
 
-### Gap 2: No Threshold-Crossing Finder
-The script manually interpolates to find the visibility at NIIRS = 4.0. RADIANT should have a `Sensor.find_threshold(sweep_param, metric, target_value)` method that returns the parameter value at which a metric crosses a threshold.
+### Gap Closure Since Last Run
+| Gap | Status | Notes |
+|-----|--------|-------|
+| NIIRS metric exposure | **CLOSED** | `result.metrics["niirs"]` available at `sensor.evaluate()` |
+| GSD metric exposure | **CLOSED** | `result.metrics["gsd_geometric_mean_m"]` + cross/along-track variants |
 
-### Gap 3: No Named Atmosphere Presets
-Raj thinks in terms of "clear", "haze", "tropical" — not numerical visibility and PWV values. RADIANT should offer named atmosphere presets that set visibility, PWV, aerosol type, and standard atmosphere profile together.
-
-### Gap 4: No Go/No-Go Report Format
-RADIANT could generate a structured go/no-go assessment given a metric threshold — traffic-light tables with green/yellow/red cells, automatic pass/fail labels, and a summary.
-
-### Gap 5: No 2D Contour Output
-The 2D visibility × PWV sweep generates a grid of NIIRS values. RADIANT should support 2D contour plot output with constraint lines (NIIRS = 4.0, NIIRS = 5.0 contours overlaid).
-
-### Gap 6: Band-Mean Transmittance Not in Standard Outputs
-`tau_atm` is a spectral array in `stage_outputs["atmosphere"]`, but there's no scalar `tau_band_mean` for quick reference. This required manual averaging in the script.
-
-### Gap 7: No Visibility-to-Aerosol Mapping Documentation
-The relationship between meteorological visibility (at 550 nm) and MWIR aerosol extinction is non-obvious. RADIANT should document that visibility is a visible-band concept and its impact at MWIR is reduced by the Angstrom exponent.
+### Open Gaps
+- **Gap 1 (NIIRS ceiling not surfaced)**: still open. No GSD-limited NIIRS ceiling metric.
+- **Gap 2 (No threshold-crossing finder)**: still open.
+- **Gap 3 (No named atmosphere presets)**: still open.
+- **Gap 4 (No go/no-go report format)**: still open.
+- **Gap 5 (No 2D contour output)**: still open.
+- **Gap 6 (Band-mean transmittance not scalar)**: still open.
+- **Gap 7 (Visibility-to-aerosol doc missing)**: still open.
+- **Gap 8 (NEW — Nearfield = 0 in scalar transmission mode)**: HIGH severity cross-scenario. Mirror self-emission from warm optics (293 K, 4 elements) not modeled. Under-predicts noise; the NIIRS here is slightly optimistic — real-world NIIRS would be ~0.02–0.04 lower depending on nearfield contribution.

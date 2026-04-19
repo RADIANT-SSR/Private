@@ -56,19 +56,19 @@ Smear MTF (1 pixel/line motion during each TDI stage) and TDI misalignment MTF a
 ### TDI Sweep
 | N_tdi | Signal [e-] | Well Fill [%] | SNR [--] | MTF@Nyq [--] | RER [--] | NIIRS [--] | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 3,118 | 5.2 | 38.8 | 0.3115 | 0.5656 | 5.10 | OK |
-| 2 | 6,236 | 10.4 | 55.3 | 0.3115 | 0.5656 | 5.34 | OK |
-| 4 | 12,473 | 20.8 | 78.6 | 0.3115 | 0.5656 | 5.58 | OK |
-| 8 | 24,945 | 41.6 | 111.4 | 0.3115 | 0.5656 | 5.81 | OK |
-| 16 | 49,891 | 83.2 | 157.8 | 0.3115 | 0.5656 | 6.05 | NEAR-SAT |
-| 32 | 60,000 | 100.0 | 150.0 | 0.3115 | 0.5656 | 6.02 | SATURATED |
-| 64 | 60,000 | 100.0 | 117.7 | 0.3115 | 0.5656 | 5.85 | SATURATED |
-| 96 | 60,000 | 100.0 | 100.1 | 0.3115 | 0.5656 | 5.74 | SATURATED |
-| 128 | 60,000 | 100.0 | 88.5 | 0.3115 | 0.5656 | 5.66 | SATURATED |
+| 1 | 3,118 | 5.2 | 38.8 | 0.1821 | 0.4790 | 4.86 | OK |
+| 2 | 6,236 | 10.4 | 55.3 | 0.1821 | 0.4790 | 5.10 | OK |
+| 4 | 12,473 | 20.8 | 78.6 | 0.1821 | 0.4790 | 5.34 | OK |
+| 8 | 24,945 | 41.6 | 111.4 | 0.1821 | 0.4790 | 5.57 | OK |
+| 16 | 49,891 | 83.2 | 157.8 | 0.1821 | 0.4790 | 5.81 | NEAR-SAT |
+| 32 | 60,000 | 100.0 | 150.0 | 0.1821 | 0.4790 | 5.78 | SATURATED |
+| 64 | 60,000 | 100.0 | 117.7 | 0.1821 | 0.4790 | 5.61 | SATURATED |
+| 96 | 60,000 | 100.0 | 100.1 | 0.1821 | 0.4790 | 5.50 | SATURATED |
+| 128 | 60,000 | 100.0 | 88.5 | 0.1821 | 0.4790 | 5.42 | SATURATED |
 
 ### Optimal N_tdi
-- **Peak NIIRS**: 6.05 at N_tdi = 16 (83% well fill, just below saturation)
-- **Conservative choice**: N_tdi = 8 (NIIRS = 5.81, 42% well fill, 80% margin)
+- **Peak NIIRS**: 5.81 at N_tdi = 16 (83% well fill, just below saturation)
+- **Conservative choice**: N_tdi = 8 (NIIRS = 5.57, 42% well fill, 80% margin)
 - **Saturation onset**: N_tdi = 32 (signal clipped at FWC = 60,000 e-)
 
 ### SNR Scaling
@@ -78,7 +78,7 @@ Smear MTF (1 pixel/line motion during each TDI stage) and TDI misalignment MTF a
 | 2 | 55.3 | 1.43 | 1.41 | shot-limited |
 | 4 | 78.6 | 2.03 | 2.00 | shot-limited |
 | 8 | 111.4 | 2.87 | 2.83 | shot-limited |
-| 16 | 157.8 | 4.07 | 4.00 | shot-limited |
+| 16 | 157.8 | 4.07 | 4.00 | shot-limited (near-sat) |
 | 32 | 150.0 | 3.87 | 5.66 | saturated |
 
 Below saturation, SNR scales as exactly sqrt(N_tdi). This confirms the system is photon-shot-noise-limited (read noise = 15 e- is negligible compared to signal shot = 55-223 e-). Past saturation, signal is capped at FWC while background noise continues to grow, so SNR DECREASES.
@@ -96,12 +96,12 @@ Signal and background shot noise dominate equally, both scaling as sqrt(N). Read
 ### MTF Budget
 | N_tdi | MTF_opt [--] | MTF_smear [--] | MTF_misalign [--] | MTF_sys [--] | Misalign [pix] |
 |---|---|---|---|---|---|
-| 1 | 0.3115 | 0.6366 | 0.9959 | 0.1975 | 0.10 |
-| 8 | 0.3115 | 0.6366 | 0.9674 | 0.1918 | 0.28 |
-| 16 | 0.3115 | 0.6366 | 0.9355 | 0.1855 | 0.40 |
-| 32 | 0.3115 | 0.6366 | 0.8735 | 0.1732 | 0.57 |
-| 64 | 0.3115 | 0.6366 | 0.7568 | 0.1501 | 0.80 |
-| 128 | 0.3115 | 0.6366 | 0.5508 | 0.1092 | 1.13 |
+| 1 | 0.1821 | 0.6366 | 0.9959 | 0.1155 | 0.10 |
+| 8 | 0.1821 | 0.6366 | 0.9674 | 0.1122 | 0.28 |
+| 16 | 0.1821 | 0.6366 | 0.9355 | 0.1085 | 0.40 |
+| 32 | 0.1821 | 0.6366 | 0.8735 | 0.1013 | 0.57 |
+| 64 | 0.1821 | 0.6366 | 0.7568 | 0.0878 | 0.80 |
+| 128 | 0.1821 | 0.6366 | 0.5508 | 0.0639 | 1.13 |
 
 - **MTF_opt** (optics + detector + aberrations) is constant — does not depend on N_tdi
 - **MTF_smear** = 2/pi = 0.6366 (1 pixel/line motion, constant for all N_tdi)

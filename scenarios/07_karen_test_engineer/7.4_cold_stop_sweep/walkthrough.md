@@ -116,8 +116,22 @@ The script evaluates SNR at both the nominal and anomalous cold stop positions w
 
 ## Gaps Identified
 
-- **Gap 1 (Inverse solver)**: RADIANT has no built-in "find the parameter value that matches a measurement" solver. The script does this by sweeping and interpolating. A dedicated solver (e.g., root-finding on a scalar objective) would be more efficient and could handle multiple parameters simultaneously.
+- **Gap 1 (Inverse solver)**: OPEN. RADIANT has no built-in "find the parameter value that matches a measurement" solver. The script does this by sweeping and interpolating. A dedicated solver (e.g., root-finding on a scalar objective) would be more efficient and could handle multiple parameters simultaneously.
 
-- **Gap 2 (Thermal background breakdown)**: RADIANT outputs `nearfield_e` (warm optics) and `background_e` (scene) separately, which is good. But there is no per-element breakdown — Karen cannot see how much each optical element (primary mirror, secondary, fold mirror, etc.) contributes to the nearfield. This would help identify which element is the largest contributor and whether the cold stop leakage is coming from one element's direction.
+- **Gap 2 (Thermal background breakdown)**: OPEN. RADIANT outputs `nearfield_e` (warm optics) and `background_e` (scene) separately, which is good. But there is no per-element breakdown — Karen cannot see how much each optical element (primary mirror, secondary, fold mirror, etc.) contributes to the nearfield. This would help identify which element is the largest contributor and whether the cold stop leakage is coming from one element's direction.
 
-- **Gap 3 (NEDT)**: Karen's requirements include NEDT, but RADIANT does not currently output NEDT as a metric. It would need to be added to the performance stage.
+- ~~**Gap 3 (NEDT)**~~: **CLOSED**. RADIANT now computes NEDT in the performance stage: `result.metrics["nedt_K"]`. The script now displays NEDT in baseline, sweep, and SNR impact sections.
+
+- **Gap 4 (Nearfield = 0 in scalar mode)**: OPEN. In scalar transmission mode, the lumped refractive element has ε = 0 by Kirchhoff's law (T + R = 1, so ε = 1 − T − R = 0). This means `nearfield_e = 0` regardless of cold_stop_efficiency, making the cold stop sweep non-functional. The fix requires using `key_elements` or `full_prescription` mode with individual mirrors (ε = 1 − R). See `gaps.md` for details.
+
+### Gaps Closed Since Last Run
+
+| Metric | Previous Status | Current Status |
+|--------|----------------|----------------|
+| NEDT | Not available | `result.metrics["nedt_K"]` — CLOSED |
+| NIIRS | Not available | `result.metrics["niirs"]` — CLOSED |
+| GSD | Not available | `result.metrics["gsd_geometric_mean_m"]` — CLOSED |
+| Strehl | Not available | `result.metrics["strehl"]` — CLOSED |
+| Q parameter | Not available | `result.metrics["q_center"]` — CLOSED |
+| MTF budget | Not available | `mtf_budget.per_term_at_nyquist` — CLOSED |
+| Well margin | Not available | `result.metrics["well_margin_dB"]` — CLOSED |

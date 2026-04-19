@@ -1,0 +1,52 @@
+# Scenario 7.1 Gaps: Predicted vs. Measured NEDT Reconciliation
+
+## Summary
+Predicted NEDT at 25°C = 100.57 mK, measured = 127.0 mK, gap = 26.43 mK.
+Noise is BLIP-dominated (signal_shot 53.8% + background_shot 46.1% = 99.9%).
+f-number is the most sensitive parameter (1.0065 mK per 1% change).
+
+## Gap Closure Status (since previous run)
+
+| # | Gap | Severity | Status | Evidence |
+|---|-----|----------|--------|----------|
+| 1 | No per-term NEDT breakdown | Medium | **CLOSED** | `result.metrics["nedt_K"]` and `result.noise_terms` both available; script computes `NEDT_i = σ_i / (dS/dT)` |
+| 2 | No built-in `reconcile(measured)` method | Low | Open | Script computes σ_missing = √(σ_meas² − σ_pred²) manually |
+| 3 | No lab/TVAC mode documentation | Low | **CLOSED** | `atmosphere.model: "exo"` is the documented approach; works correctly |
+| 4 | dS/dT not exposed (finite-difference workaround) | Low | Open | Script runs RADIANT at T, T±δ and computes derivative numerically |
+| 5 | ROIC glow not modeled as noise source | Low | Open | `glow_shot` noise term exists but always evaluates to 0 |
+| 6 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | Open | In scalar mode, lumped element is refractive (ε = 1 − T − R = 0 by Kirchhoff); no mirror self-emission |
+
+## Gap 6 Detail — Nearfield Emission Missing (HIGH)
+
+### Observation
+In the 25°C noise breakdown:
+```
+nearfield_shot:   0.00 e⁻ RMS (0.0%)
+```
+With warm optics at 295.15 K and a 3.5–5.0 µm band, mirror self-emission should be a significant contributor — Planck radiance from ε_mirror ≈ 0.02 per surface × 4 surfaces gives a non-negligible photon flux.
+
+### Root Cause
+RADIANT's scalar transmission mode lumps all optical elements into a single τ, and applies Kirchhoff's law for a **refractive** element:
+```
+T + R = 1   →   ε = 1 − T − R = 0
+```
+Mirrors have ε = 1 − R directly, not ε = 1 − T − R. The scalar mode cannot distinguish refractive from reflective elements.
+
+### Impact
+- Warm-optics MWIR/LWIR systems under-predict total background and total NEDT
+- Explains a portion of the 26.43 mK gap for Karen's TVAC test (primary optics at 22 °C)
+- Cold-stop sweeps (scenario 7.4) are non-functional in scalar mode — no nearfield to reduce
+
+### Workarounds
+- Use `optics.mode: "key_elements"` with per-surface emissivity derived from R
+- Use `optics.mode: "full_prescription"` for Zemax-exported designs
+
+### Recommended Fix
+- Expose an `optics.scalar_emissivity` parameter for users who want a lumped ε estimate in scalar mode
+- Document the refractive-lump assumption clearly in scalar-mode help
+
+## Non-Gap Observations
+
+- `nearfield_shot` = 0 in scalar transmission mode is **correct physics** under the refractive-lump assumption — it is a modeling-scope limitation, not a bug.
+- Measurements vs. prediction gap (26 mK at 25°C) most likely combines: (a) missing mirror self-emission (Gap 6), (b) spatial PRNU/DSNU inflating temporal NEDT, (c) TVAC chamber stray light, (d) blackbody calibration uncertainty (±0.02°C × dS/dT ≈ 100 e⁻).
+- NEDT trend vs. BB temperature is correct (1/√signal behavior confirmed).

@@ -49,7 +49,7 @@ import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from radiant.api import Sensor
@@ -303,6 +303,24 @@ if pred_freq_cy_m is not None and pred_mtf is not None:
     print(f"    Strehl:          {r.metrics.get('strehl', 0.0):.4f} [--]")
     print(f"    RER:             {r.metrics.get('rer', 0.0):.4f} [--]")
     print(f"    EE(1x1):         {r.metrics.get('ee_1x1', 0.0):.4f} [--]")
+    print(f"    Q (center):      {r.metrics.get('q_center', 0.0):.3f} [--]")
+    print(f"    Q (min/max):     {r.metrics.get('q_min', 0.0):.3f} / {r.metrics.get('q_max', 0.0):.3f} [--]")
+    print(f"    FWHM_x:          {r.metrics.get('fwhm_x_m', 0.0) * 1e6:.2f} [µm]")
+    print(f"    Well margin:     {r.metrics.get('well_margin_dB', 0.0):.1f} [dB]")
+    print(f"    Dynamic range:   {r.metrics.get('dynamic_range_dB', 0.0):.1f} [dB]")
+
+    # GSD and NIIRS are None for lab tests (altitude = 0)
+    gsd_val = r.metrics.get("gsd_cross_track_m")
+    niirs_val = r.metrics.get("niirs")
+    print(f"    GSD:             {'N/A (lab test, altitude=0)' if gsd_val is None else f'{gsd_val:.2f} [m]'}")
+    print(f"    NIIRS:           {'N/A (lab test, altitude=0)' if niirs_val is None else f'{niirs_val:.2f} [--]'}")
+
+    # NEDT — very large for lab test (no scene contrast)
+    nedt_val = r.metrics.get("nedt_K", 0.0)
+    if nedt_val > 1e6:
+        print(f"    NEDT:            N/A (lab test, no thermal scene)")
+    else:
+        print(f"    NEDT:            {nedt_val * 1000:.1f} [mK]")
 else:
     print("\n  WARNING: RADIANT did not return full MTF curve!")
     pred_freq_cy_m = meas_freq_cy_m
@@ -558,6 +576,51 @@ print(f"    - IPC 'boosts' apparent MTF (> 1.0) — this is physically correct;"
 print(f"      IPC cross-talk acts like a sharpening kernel at sub-Nyquist frequencies")
 print(f"    - Discrepancy between RADIANT and analytic diffraction is expected:")
 print(f"      RADIANT includes obscuration and WFE; analytic curve is ideal unobscured")
+
+# ---------------------------------------------------------------------------
+# Step 7b: RADIANT MTF budget decomposition (from performance stage)
+# ---------------------------------------------------------------------------
+
+mtf_budget = r.stage_outputs.get("performance", {}).get("mtf_budget")
+if mtf_budget is not None:
+    print(f"\n{'=' * 80}")
+    print(f"  RADIANT MTF BUDGET AT NYQUIST (from mtf_budget API)")
+    print(f"{'=' * 80}")
+
+    per_term = mtf_budget.per_term_at_nyquist
+    print(f"\n  {'Component':<30s}  {'MTF@Ny_x':>10s}  {'MTF@Ny_y':>10s}")
+    print(f"  {'-' * 30}  {'-' * 10}  {'-' * 10}")
+
+    seen: set[str] = set()
+    for key in per_term:
+        base = key.rsplit("_", 1)[0]
+        if base in seen:
+            continue
+        seen.add(base)
+        val_x = per_term.get(f"{base}_x", 1.0)
+        val_y = per_term.get(f"{base}_y", 1.0)
+        label = base.replace("mtf_", "").replace("_", " ").title()
+        print(f"  {label:<30s}  {val_x:>10.4f}  {val_y:>10.4f}")
+
+    print(f"  {'─' * 30}  {'─' * 10}  {'─' * 10}")
+    print(f"  {'System (product)':30s}  {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  "
+          f"{mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
+
+# ---------------------------------------------------------------------------
+# Step 7c: Noise breakdown
+# ---------------------------------------------------------------------------
+
+print(f"\n{'=' * 80}")
+print(f"  NOISE BREAKDOWN")
+print(f"{'=' * 80}")
+
+print(f"\n  {'Noise Source':<30s}  {'Value':>10s}")
+print(f"  {'-' * 30}  {'-' * 10}")
+for nt in r.noise_terms:
+    if nt.value_e > 0.001:
+        print(f"  {nt.name:<30s}  {nt.value_e:>10.4f} [e-]")
+print(f"\n  Note: Signal and background shot noise are ~0 in lab test")
+print(f"  (no photon flux from thermal scene at room temperature in VNIR).")
 
 # ---------------------------------------------------------------------------
 # Step 8: Plots

@@ -79,12 +79,10 @@ The atmosphere model is `"exo"` (short-range, negligible atmospheric path).
 
 LWIR systems are fundamentally different from MWIR. At 293 K (ambient), the Planck function peaks near 10 µm, so the thermal background is enormous:
 
-- Signal (300 K target): 4,431,044 e⁻ (22.2% well)
-- Background (295 K): 4,132,439 e⁻
-- Nearfield (optics at 293 K): 726,467 e⁻
-- **Total well charge: 9,289,950 e⁻ (46.4% of 20M FWC)**
+- Signal (300 K target + background + nearfield, integrated in extended regime): 4,431,044 e⁻ (22.2% well fill)
+- Integration time: 100 µs (FWC-limited)
 
-Even at 100 µs integration, the well is nearly half full. This is why LWIR staring arrays need large FWC (20M+ e⁻) and short integrations.
+Even at 100 µs integration, the well is ~22% full from a 300 K scene alone. This is why LWIR staring arrays need large FWC (2–20M e⁻) and short integrations. Note: `nearfield_shot = 0` in scalar transmission mode — mirror self-emission is not modeled (see Gap 5).
 
 ### Step 3: NEDT With and Without 1/f
 
@@ -92,9 +90,9 @@ Running RADIANT at each frame rate with `flicker_K = 25000` and without:
 
 | Frame Rate | NEDT (no 1/f) [mK] | NEDT (with 1/f) [mK] | Δ NEDT [mK] | Δ [%] |
 |-----------|--------------------|--------------------|------------|-------|
-| 30 Hz | 39.1 | 39.4 | 0.3 | 0.7% |
-| 60 Hz | 39.1 | 39.3 | 0.2 | 0.6% |
-| 120 Hz | 39.1 | 39.3 | 0.2 | 0.4% |
+| 30 Hz | 37.6 | 37.9 | 0.3 | 0.8% |
+| 60 Hz | 37.6 | 37.8 | 0.2 | 0.6% |
+| 120 Hz | 37.6 | 37.8 | 0.2 | 0.5% |
 
 **1/f noise adds only 0.2–0.3 mK to NEDT** — less than 1% degradation. The reason: photon shot noise (signal + background + nearfield) completely dominates the noise budget in this BLIP-limited LWIR system.
 
@@ -102,20 +100,20 @@ Running RADIANT at each frame rate with `flicker_K = 25000` and without:
 
 | Noise Term | σ [e⁻ RMS] | NEDT_i [mK] | Fraction [%] |
 |------------|-----------|-------------|-------------|
-| signal_shot | 2,105.0 | 26.65 | 45.9 |
-| background_shot | 2,032.8 | 25.74 | 42.8 |
-| nearfield_shot | 852.3 | 10.79 | 7.5 |
-| quantization | 352.2 | 4.46 | 1.3 |
-| read_noise | 350.0 | 4.43 | 1.3 |
-| **flicker_1f** | **332.5** | **4.21** | **1.1** |
+| signal_shot | 2,105.0 | 26.65 | 49.7 |
+| background_shot | 2,032.8 | 25.74 | 46.3 |
+| quantization | 352.2 | 4.46 | 1.4 |
+| read_noise | 350.0 | 4.43 | 1.4 |
+| **flicker_1f** | **332.5** | **4.21** | **1.2** |
 | dark_shot | 7.1 | 0.09 | <0.1 |
-| **RSS TOTAL** | **3,106.0** | **39.3** | **100.0** |
+| nearfield_shot | 0.0 | 0.00 | 0.0 |
+| **RSS TOTAL** | **2,986.7** | **37.81** | **100.0** |
 
-1/f noise (332.5 e⁻) is comparable to read noise (350.0 e⁻) and quantization noise (352.2 e⁻), but all three combined are dwarfed by the photon noise terms (signal_shot + background_shot + nearfield_shot = 3,087 e⁻ RSS). This is the definition of BLIP performance.
+1/f noise (332.5 e⁻) is comparable to read noise (350.0 e⁻) and quantization noise (352.2 e⁻), but all three combined are dwarfed by the photon noise terms (signal_shot + background_shot = 2,927 e⁻ RSS). This is the definition of BLIP performance. Note: `nearfield_shot = 0` due to scalar-mode refractive-lump assumption (see Gap 5 — the full background is already captured in the extended regime's signal_shot since the scene fills the FOV).
 
 ### Step 5: f_low Sweep
 
-The analytic sweep of f_low from 1 Hz to 500 Hz shows the full sensitivity curve. NEDT ranges from 39.5 mK (at 1 Hz) to 39.2 mK (at 500 Hz) — a total variation of only 0.3 mK across the entire range. This confirms that 1/f noise is irrelevant for NEDT in this BLIP-limited system.
+The analytic sweep of f_low from 1 Hz to 500 Hz shows the full sensitivity curve. NEDT ranges from 38.03 mK (at 1 Hz) to 37.70 mK (at 500 Hz) — a total variation of only 0.33 mK across the entire range. This confirms that 1/f noise is irrelevant for NEDT in this BLIP-limited system.
 
 ### Step 6: When 1/f WOULD Matter
 
@@ -137,14 +135,19 @@ For Mike's LWIR system, none of these apply. The photon noise from the warm back
 
 4. **LWIR integration times are FWC-limited, not frame-rate-limited.** At f/2 with a 300 K scene in 8–10 µm, the well fills to 46% in just 100 µs. All three frame rates use the same 100 µs integration time because the well capacity — not the frame period — limits exposure.
 
-5. **Background shot noise dominates.** Signal_shot and background_shot together account for 89% of the noise variance. The warm background (295 K) produces almost as much photon flux as the target (300 K) in the LWIR band.
+5. **Background shot noise dominates.** Signal_shot and background_shot together account for 96% of the noise variance. The warm background (295 K) produces almost as much photon flux as the target (300 K) in the LWIR band.
 
 ## Gaps Identified
 
-- **Gap 1 (No corner frequency model)**: RADIANT's `flicker_1f_noise()` computes `σ = √(K · ln(f_high / f_low))` over the full band. Physically, the 1/f PSD only applies below the corner frequency f_c. For f > f_c, noise is white and already captured as read noise. A corner-frequency-aware model would integrate K/f only up to min(f_high, f_c). This overestimates σ_1f by 64–170% for this system.
+See [gaps.md](gaps.md) for full detail.
 
-- **Gap 2 (No frame-rate-aware f_low calculator)**: Users must manually set `flicker_f_low_hz = frame_rate`. A `detector.frame_rate_hz` parameter that automatically sets f_low would reduce confusion. Mike's spreadsheet notes show he was confused about how f_low and f_high map to frame rate.
+### Gap Closure Since Last Run
+| Gap | Status | Notes |
+|-----|--------|-------|
+| Gap 4 (per-term NEDT breakdown) | **CLOSED** | `result.metrics["nedt_K"]` and per-term `σ_i / (dS/dT)` both computed |
 
-- **Gap 3 (No noise PSD output)**: Mike wants to plot the noise power spectral density S(f) showing the 1/f, white, and total contributions. RADIANT computes only the integrated σ, not the frequency-domain PSD. A `result.noise_psd(f_array)` method would enable this visualization.
-
-- **Gap 4 (No NEDT breakdown by noise term)**: Same gap identified in scenario 7.1 — RADIANT provides total NEDT but not per-term NEDT_i = σ_i / (dS/dT). The script must compute this manually.
+### Open Gaps
+- **Gap 1 (No corner frequency model)**: still open. RADIANT overestimates σ_1f by 64–170% for this system.
+- **Gap 2 (No frame-rate-aware f_low calculator)**: still open. User must manually set `flicker_f_low_hz = frame_rate`.
+- **Gap 3 (No noise PSD output)**: still open. Only integrated σ available.
+- **Gap 5 (NEW — Nearfield = 0 in scalar mode)**: HIGH severity. Mirror self-emission from warm LWIR optics not modeled — but since signal_shot already includes the full scene in extended regime here, real-world impact on NEDT is small for this particular scenario.

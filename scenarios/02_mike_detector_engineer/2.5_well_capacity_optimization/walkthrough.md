@@ -46,15 +46,16 @@ Mike, detector engineer. He has a MWIR HgCdTe FPA (640x512, 15 µm pitch, 2M e- 
 | t_int | Signal [e-] | Well Fill [%] | SNR [—] | Status |
 |---|---|---|---|---|
 | 1 µs | 5 | 0.0% | 0.1 | FAIL |
-| 200 µs | 1,096 | 0.1% | 2.9 | FAIL |
-| 1.17 ms | 6,415 | 0.3% | 7.1 | FAIL |
-| **2.83 ms** | **15,516** | **0.8%** | **11.1** | **PASS** |
-| 40.09 ms | 219,550 | 11.0% | 41.7 | PASS |
+| 200 µs | 1,096 | 0.1% | 3.5 | FAIL |
+| 1.17 ms | 6,415 | 0.3% | 8.5 | FAIL |
+| **1.82 ms** | **9,976** | **0.5%** | **10.5** | **PASS** ← |
+| **2.83 ms** | **15,516** | **0.8%** | **13.2** | **PASS** |
+| 40.09 ms | 219,550 | 11.0% | 49.5 | PASS |
 
-**Result**: SNR ≥ 10 on the cold target requires t_int ≥ 2.83 ms.
+**Result**: SNR ≥ 10 on the cold target requires t_int ≥ 1.82 ms.
 
 ### Dynamic Range Trade-Off
-At 2.83 ms (the minimum t_int for cold-target detection), the maximum scene temperature that stays below 90% well fill is only **280 K** — barely above ambient. At 1 ms, the maximum is 300 K. The 200–1500 K dynamic range is **physically impossible** in a single integration.
+At 1.82 ms (the minimum t_int for cold-target detection), the maximum scene temperature that stays below 90% well fill is ~300 K — barely above ambient. At 1 ms, the maximum is 300 K as well. The 200–1500 K dynamic range is **physically impossible** in a single integration.
 
 ### Integration Time for 70% Well Fill
 | Scene Temp [K] | t_int for 70% fill | SNR at that t_int [—] |
@@ -71,14 +72,16 @@ The 200 K target never reaches 70% well fill within the sweep range — it would
 ### Noise Budget Comparison at 1 ms
 | Noise Term | 200 K [e- RMS] | 200 K Fraction | 400 K [e- RMS] | 400 K Fraction |
 |---|---|---|---|---|
-| background_shot | 696 | 69.8% | 696 | 18.0% |
-| nearfield_shot | 449 | 29.1% | 449 | 7.5% |
-| signal_shot | 74 | 0.8% | 1414 | 74.4% |
-| quantization | 37.5 | 0.2% | 37.5 | 0.1% |
-| read_noise | 20 | 0.1% | 20 | 0.0% |
+| background_shot | 696.0 | 98.5% | 696.0 | 19.5% |
+| signal_shot | 74.0 | 1.1% | 1414.2 | 80.4% |
+| quantization | 37.5 | 0.3% | 37.5 | 0.1% |
+| read_noise | 20.0 | 0.1% | 20.0 | 0.0% |
 | dark_shot | 0.3 | 0.0% | 0.3 | 0.0% |
+| nearfield_shot | 0.0 | 0.0% | 0.0 | 0.0% |
 
-**Regime transition**: At 200 K, the system is **BLIP** (background-limited) — 99% of noise variance comes from background + nearfield photon noise, signal shot noise is negligible. At 400 K, the system is **signal-shot-limited** — the target itself generates 74% of the noise.
+**Regime transition**: At 200 K, the system is **BLIP** (background-limited) — 98.5% of noise variance comes from background photon noise, signal shot noise is only 1.1%. At 400 K, the system is **signal-shot-limited** — the target itself generates 80.4% of the noise.
+
+**Note**: `nearfield_shot = 0` is a known scalar-mode limitation (Gap 7 below). Mirror self-emission from warm optics (293 K, 4 elements) should be a real contributor but is not modeled in scalar transmission mode. This means RADIANT under-predicts noise for cold targets in warm-optics MWIR systems.
 
 This is physically correct: at 200 K in MWIR, the target emits very little compared to the 280 K background and 293 K warm optics. At 400 K, the target outshines the background.
 
@@ -100,20 +103,19 @@ RADIANT tracks signal electrons and clips at FWC. In reality, the detector well 
 
 ## Gap Findings
 
-### Gap 1: No HDR / Dual-Integration Mode
-RADIANT evaluates one integration time per run. Real systems use dual-integration (short + long exposure) or HDR readout to cover wide dynamic ranges. To model this, RADIANT would need to combine results from two evaluations at different t_int, selecting the unsaturated frame per pixel.
+See [gaps.md](gaps.md) for full detail with severity and status.
 
-### Gap 2: Well Fill Doesn't Include Background/Nearfield
-RADIANT clips signal_e at FWC, but the well actually fills with signal + background + nearfield + dark. For cold targets at long integrations, the background alone could saturate the well. RADIANT should track total well charge = signal + background + nearfield + dark and clip all of them together.
+### Gap Closure Since Last Run
+| Gap | Status | Notes |
+|-----|--------|-------|
+| Well margin / saturation flags | **CLOSED** | `result.metrics["well_margin_dB"]` and `result.metrics["dynamic_range_dB"]` now exposed |
 
-### Gap 3: No Saturation Map Output
-When sweeping temperatures, RADIANT returns signal_e clipped at FWC but doesn't flag which pixels/evaluations are saturated. A `saturated: bool` field in the result would simplify trade studies.
+### Open Gaps
 
-### Gap 4: No Automatic Trade Study Support
-This scenario required 500 individual RADIANT evaluations with manual sweep logic. A built-in `Sensor.sweep()` method that takes parameter ranges and returns a structured sweep result would be much more efficient.
-
-### Gap 5: No NEDT at Saturation Warning
-When signal is at FWC, dS/dT = 0, and NEDT = infinity. RADIANT should detect this condition and return a meaningful warning rather than requiring the user to check well fill manually.
-
-### Gap 6: No Spectral Narrowing Analysis
-One solution to the dynamic range problem is spectral narrowing (reducing the band). RADIANT could offer a band optimization mode that finds the widest band meeting both SNR and saturation constraints.
+- **Gap 1 (No HDR / dual-integration mode)**: still open.
+- **Gap 2 (Well fill excludes background/nearfield)**: still open. RADIANT clips only signal_e at FWC; for cold targets at long t_int, background alone could saturate.
+- **Gap 3 (No saturation map)**: partially closed by `well_margin_dB`; no per-pixel map yet.
+- **Gap 4 (No automatic trade study support)**: still open. 500 evaluations done manually.
+- **Gap 5 (No NEDT-at-saturation warning)**: still open. NEDT goes to ∞ at FWC silently.
+- **Gap 6 (No spectral narrowing analysis)**: still open.
+- **Gap 7 (NEW — Nearfield = 0 in scalar transmission mode)**: HIGH severity. Mirror self-emission from warm optics (293 K, 4 elements) not modeled. Under-predicts noise for cold targets by ~30–40% in MWIR with warm optics.

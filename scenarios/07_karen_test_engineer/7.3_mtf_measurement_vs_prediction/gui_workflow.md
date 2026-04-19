@@ -121,6 +121,73 @@ from radiant.platform.sampling import pixel_aperture_mtf_1d
 mtf_pixel = pixel_aperture_mtf_1d(meas_freq_cy_m, 10e-6)  # 10 um pixel
 ```
 
+### Step 9: Performance Metrics Dashboard
+
+1. Navigate to "Performance Dashboard" tab
+2. Dashboard displays all available metrics in organized panels:
+
+**Spatial Metrics Panel:**
+- Strehl: 0.8324 [--]
+- RER: 0.6825 [--]
+- FWHM_x: 10.79 [um]
+- EE(1x1): 0.6580 [--]
+- Q (center/min/max): 0.195 / 0.165 / 0.225 [--]
+
+**MTF Budget Panel:**
+- Table showing per-component MTF at Nyquist (x and y axes)
+- Optics: 0.8115, Pixel: 0.6364, IPC: 0.9602
+- System product: 0.4961 [--]
+- Bar chart of MTF contributions (log scale)
+
+**Noise Panel:**
+- Bar chart of noise sources: dark_shot (0.32 e-), read_noise (8.00 e-), quantization (2.31 e-)
+- Note: Signal/background shot noise ~0 for lab test
+
+**Radiometric Panel:**
+- GSD: N/A (lab test, altitude = 0)
+- NIIRS: N/A (lab test, altitude = 0)
+- NEDT: N/A (lab test, no thermal scene in VNIR)
+- Well margin: 429.6 [dB] (near-zero signal)
+- Dynamic range: 83.2 [dB]
+
+3. **Script window commands:**
+```python
+# Performance metrics dashboard
+result = sensor.evaluate()
+
+# Strehl, RER, Q
+print(f"Strehl: {result.metrics['strehl']:.4f} [--]")
+print(f"RER: {result.metrics['rer']:.4f} [--]")
+print(f"Q: {result.metrics['q_center']:.3f} [--]")
+print(f"FWHM_x: {result.metrics['fwhm_x_m'] * 1e6:.2f} [um]")
+
+# MTF budget decomposition
+mtf_budget = result.stage_outputs["performance"]["mtf_budget"]
+per_term = mtf_budget.per_term_at_nyquist
+seen = set()
+for key in per_term:
+    base = key.rsplit("_", 1)[0]
+    if base in seen: continue
+    seen.add(base)
+    val_x = per_term.get(f"{base}_x", 1.0)
+    val_y = per_term.get(f"{base}_y", 1.0)
+    print(f"  {base}: x={val_x:.4f}, y={val_y:.4f}")
+print(f"System: x={mtf_budget.system_mtf_at_nyquist_x:.4f} [--]")
+
+# Noise breakdown
+for nt in result.noise_terms:
+    if nt.value_e > 0.001:
+        print(f"  {nt.name}: {nt.value_e:.4f} [e-]")
+
+# Well margin and dynamic range
+print(f"Well margin: {result.metrics['well_margin_dB']:.1f} [dB]")
+print(f"Dynamic range: {result.metrics['dynamic_range_dB']:.1f} [dB]")
+
+# GSD/NIIRS (None for lab tests)
+print(f"GSD: {result.metrics.get('gsd_cross_track_m', 'N/A')} [m]")
+print(f"NIIRS: {result.metrics.get('niirs', 'N/A')} [--]")
+```
+
 ## GUI Requirements Summary
 
 | Requirement | Priority | Gap |
@@ -128,9 +195,10 @@ mtf_pixel = pixel_aperture_mtf_1d(meas_freq_cy_m, 10e-6)  # 10 um pixel
 | Measurement data import dialog | High | Gap 30 |
 | MTF overlay with measured data | High | Gap 30 |
 | Frequency unit switching (cy/mm, cy/m, cy/px) | Medium | Gap 27 |
-| MTF component decomposition view | High | Gap 19 |
+| MTF component decomposition view | High | **CLOSED** (Gap 19) |
 | Residual sub-plot | Medium | -- |
-| Defocus sweep parameter | High | Gap 29 |
+| Defocus sweep parameter | High | **CLOSED** (Gap 29) |
 | Lab mode preset (no atmosphere) | Medium | -- |
+| Performance metrics dashboard | High | -- |
 | Interactive hover tooltips on MTF curves | Low | -- |
 | One-click comparison report export | Low | -- |

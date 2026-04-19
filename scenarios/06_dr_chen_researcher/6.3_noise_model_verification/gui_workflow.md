@@ -108,9 +108,38 @@ How this scenario would be completed in the RADIANT GUI.
 | Verification comparison panel | Step 5 | Yes — test engineer scenarios |
 | Results export (multi-format) | Step 6 | Yes — all workflows |
 
+## Step 7: Review Performance Metrics Dashboard
+
+**Script equivalent:** Accessing `result.metrics` for SNR, NEDT, NIIRS, GSD, Strehl, Q, MTF, etc.
+
+**GUI interaction:**
+- **Results Panel > Metrics tab** shows all computed performance metrics in a summary card:
+  - SNR, Contrast SNR (dimensionless)
+  - NEDT (mK) with hand-calc comparison column
+  - NIIRS (dimensionless) with GIQE-5 breakdown
+  - GSD cross-track, along-track, geometric mean (m)
+  - MTF at Nyquist, Strehl ratio, Q parameter, EE(1x1), EE(3x3), RER
+  - Well margin (dB), Dynamic range (dB)
+- **MTF Budget sub-tab**: bar chart showing per-component MTF at Nyquist (optics, pixel aperture, jitter, smear, IPC, diffusion, TDI)
+- Hover any metric for a tooltip showing the equation and intermediate values
+- Click any metric to drill down into stage outputs
+
+**Script window commands:**
+```python
+result.metrics["nedt_K"]          # 0.02818 K
+result.metrics["niirs"]           # 10.89
+result.metrics["gsd_geometric_mean_m"]  # 0.12 m
+result.metrics["q_center"]        # 0.9444
+mtf_budget = result.stage_outputs["performance"]["mtf_budget"]
+mtf_budget.per_term_at_nyquist    # dict of all MTF terms
+```
+
+---
+
 ## Pain Points the GUI Solves
 
 1. **Unit conversion** — the script required manual cm->m, %->fraction, ms->s. GUI handles this automatically.
 2. **Parameter name discovery** — the script failed on `atmosphere.mode` vs `atmosphere.model`, `operating_temp_K` vs `detector_temperature_K`. GUI uses dropdowns, no guessing.
 3. **Noise visualization** — the script prints a text table. GUI shows an interactive chart.
 4. **Comparison workflow** — the script required writing ~50 lines of comparison code. GUI has it built in.
+5. **Metrics dashboard** — NEDT, NIIRS, GSD, Q, MTF budget are now computed by RADIANT but require explicit code to access. GUI displays all metrics in a unified dashboard automatically.

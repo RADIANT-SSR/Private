@@ -1,31 +1,46 @@
 # Scenario 5.2 — Gaps
 
-## Gap 1: No Q parameter in RADIANT output
+## Gap 1: No Q parameter in RADIANT output (CLOSED)
 **Severity**: Low
-**Description**: The sampling parameter Q = λ·f/#/p is not computed or reported by RADIANT. It must be calculated manually from optical parameters. Q is fundamental to spatial analysis — it determines whether a system is oversampled, critically sampled, or aliased.
-**Workaround**: Script computes Q manually as `lambda_center_um * f_number / pitch_um`.
-**Recommendation**: Add Q to `result.metrics` (compute at band-center wavelength). Also consider reporting Q at band edges to show the sampling variation across the spectral band.
+**Status**: CLOSED
+**Description**: The sampling parameter Q = λ·f/#/p was not computed by RADIANT.
+**Resolution**: Q is now computed natively by PerformanceStage. Access via `result.metrics["q_center"]`, `result.metrics["q_min"]`, `result.metrics["q_max"]`.
 
-## Gap 2: No GSD in RADIANT output
+## Gap 2: No GSD in RADIANT output (CLOSED)
 **Severity**: Low
-**Description**: Ground sample distance (GSD = p × h / f) is not computed by RADIANT. This is a basic mission parameter that should be reported automatically when orbital geometry is specified.
-**Workaround**: Script computes GSD manually.
-**Recommendation**: Add `gsd_cross_track_m` and `gsd_along_track_m` to `result.metrics` when `geometry.sensor_altitude_m > 0`.
+**Status**: CLOSED
+**Description**: GSD was not computed by RADIANT.
+**Resolution**: GSD is now computed natively. Access via `result.metrics["gsd_cross_track_m"]`, `result.metrics["gsd_along_track_m"]`, `result.metrics["gsd_geometric_mean_m"]`.
 
 ## Gap 3: No aliased/folded MTF model
 **Severity**: Medium
-**Description**: RADIANT computes the system MTF but does not model aliasing (spatial frequency folding at Nyquist). For undersampled systems (Q < 1), high-frequency scene content folds back below Nyquist, producing spurious apparent contrast. The current MTF represents the pre-sampling (optical) transfer function, not the sampled (aliased) system response.
-**Workaround**: None — aliasing analysis requires a folded-MTF computation not currently available.
-**Recommendation**: Add an aliased MTF calculation that folds the optical MTF at multiples of the Nyquist frequency.
+**Status**: PARTIALLY CLOSED
+**Description**: RADIANT computes the system MTF but previously did not model aliasing (spatial frequency folding at Nyquist). For undersampled systems (Q < 1), high-frequency scene content folds back below Nyquist, producing spurious apparent contrast.
+**Current status**: Folded MTF is now computed and available in `result.stage_outputs["performance"]["folded_mtf_x"]`. The script does not yet plot or display it.
+**Remaining work**: Script should extract and display folded MTF for undersampled configurations to show aliasing impact.
 
-## Gap 4: No full MTF curve export
+## Gap 4: No full MTF curve export (CLOSED)
 **Severity**: Medium
-**Description**: Only MTF at Nyquist is reported in `result.metrics`. The full MTF curve (modulation vs. spatial frequency) is computed internally by the EffectivePSF but not exposed to the user. Optical designers need the full curve to evaluate frequency response across the band.
-**Workaround**: None through the standard API. Would require accessing `result.stage_outputs` internals.
-**Recommendation**: Add `mtf_curve_x` and `mtf_curve_y` (frequency array + MTF array) to `result.metrics` or a dedicated accessor.
+**Status**: CLOSED
+**Description**: Only MTF at Nyquist was reported.
+**Resolution**: Full MTF curves are now available in `result.stage_outputs["performance"]` as `mtf_freq_x`, `mtf_x`, `mtf_freq_y`, `mtf_y`.
 
-## Gap 5: MTF = 0.000 at 8 µm pixel pitch (Q = 2.12)
-**Severity**: Medium (needs investigation)
-**Description**: The 8 µm pixel returns MTF at Nyquist = 0.0000. The Nyquist frequency at 8 µm pitch is 62.5 cy/mm, while the optical diffraction cutoff at 4.25 µm, f/4 is approximately 1/(λ·f/#) ≈ 59 cy/mm. Since Nyquist exceeds the diffraction cutoff, MTF = 0 may be physically correct. However, it could also indicate insufficient PSF grid resolution for very small pixels.
-**Workaround**: For the trade study, this result is correctly flagged as FAIL — the 8 µm pixel is unsuitable for this f/4 system regardless.
-**Recommendation**: Verify whether the EffectivePSF computation uses sufficient grid points for high-Q (small-pixel) configurations. Consider issuing a warning when Nyquist frequency exceeds the optical cutoff.
+## Gap 5: MTF = 0.000 at 8 µm pixel pitch (Q = 2.12) (CLOSED)
+**Severity**: Medium
+**Status**: CLOSED — physically correct, not a bug
+**Description**: At Q = 2.12, the Nyquist frequency (62.5 cy/mm) exceeds the diffraction cutoff (~59 cy/mm at 4.25 µm, f/4). MTF = 0 is the correct physical result.
+
+### Gaps Closed Since Last Run
+
+| Gap | Previous Status | Current Status |
+|-----|----------------|----------------|
+| Q parameter | Manual computation | `result.metrics["q_center"]` — CLOSED |
+| GSD | Manual computation | `result.metrics["gsd_cross_track_m"]` — CLOSED |
+| Full MTF curve | Not available | `stage_outputs["performance"]["mtf_x"]` — CLOSED |
+| MTF = 0 at 8 µm | Under investigation | Physically correct — CLOSED |
+| NEDT | Not available | `result.metrics["nedt_K"]` — CLOSED |
+| NIIRS | Not available | `result.metrics["niirs"]` — CLOSED |
+| Strehl | Not available | `result.metrics["strehl"]` — CLOSED |
+| RER | Not available | `result.metrics["rer"]` — CLOSED |
+| Well margin | Not available | `result.metrics["well_margin_dB"]` — CLOSED |
+| Folded MTF | Not available | `stage_outputs["performance"]["folded_mtf_x"]` — PARTIALLY CLOSED |

@@ -101,7 +101,22 @@ Mike, detector engineer. He has a 640x512 MWIR HgCdTe FPA with 2M e- FWC in an f
   - **Recommendation panel**: "At t_int = 1 ms: SNR(200 K) = 6.6 (FAIL). At t_int = 2.83 ms: SNR(200 K) = 11.1 (PASS), but max unsaturated temp = 280 K."
   - **Solution suggestions**: expandable cards for HDR, dual-integration, spectral narrowing, gain switching — each with a "Simulate this" button that opens a new analysis mode
 
-## Step 8: Export Results
+## Step 8: Performance Metrics Dashboard
+- **Action**: View > Performance Metrics
+- **Script window commands**:
+  ```
+  >> result.metrics["well_margin_dB"]    # headroom before saturation
+  >> result.metrics["dynamic_range_dB"]  # sensor dynamic range
+  >> result.metrics.get("niirs")          # None for ground-based
+  >> [(nt.name, nt.value_e) for nt in result.noise_terms]
+  ```
+- **GUI components**:
+  - Well margin gauge (dB headroom, color-coded)
+  - Dynamic range display (dB)
+  - Per-pixel saturation map (if available)
+  - Noise-term bar chart with BLIP indicator
+
+## Step 9: Export Results
 - **Action**: File > Export Results
 - **Options**:
   - Excel workbook: Well Fill Sweep, SNR Sweep, Noise Comparison, Summary (4 sheets)

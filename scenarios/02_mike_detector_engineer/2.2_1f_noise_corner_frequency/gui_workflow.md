@@ -66,7 +66,21 @@ Mike, detector engineer. He has a 640×512 LWIR HgCdTe staring array with measur
   - Recommendation panel: "For this system, 1/f is 1.1% of noise variance — negligible for NEDT. BLIP-limited by photon noise."
   - "When does 1/f matter?" reference: conditions where 1/f would be significant (low signal, very low frame rate, large K)
 
-## Step 6: Export Results
+## Step 6: Performance Metrics Dashboard
+- **Action**: View > Performance Metrics
+- **Script window commands**:
+  ```
+  >> result.metrics["nedt_K"] * 1000         # total NEDT in mK
+  >> [(nt.name, nt.value_e) for nt in result.noise_terms if nt.name == "flicker_1f"]
+  >> result.metrics["q_center"]               # sampling factor
+  >> result.metrics["well_margin_dB"]         # headroom before saturation
+  ```
+- **GUI components**:
+  - Metric cards: NEDT (mK) with/without 1/f, Signal (e⁻), Well fill (%)
+  - 1/f NEDT contribution gauge
+  - Corner frequency model toggle (full band vs. capped at f_c)
+
+## Step 7: Export Results
 - **Action**: File > Export Results
 - **Options**:
   - Excel workbook: NEDT vs Frame Rate, Noise Breakdown 60 Hz, Frame Rate Sweep, Summary (4 sheets)

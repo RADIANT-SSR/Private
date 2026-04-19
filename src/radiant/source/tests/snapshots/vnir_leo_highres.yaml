@@ -1,0 +1,60 @@
+background: null
+los_geometry:
+  __los__:
+    delta_phi: null
+    h_atm_top: 100000.0
+    h_tgt: 0.0
+    theta_o: 0.0
+    theta_s: null
+scenario: examples/templates/vnir_leo_highres.yaml
+target:
+  A_t: null
+  T_t: 300.0
+  __type__: T1Thermal
+  epsilon:
+    __spectraldata__:
+      name: source.target.emissivity
+      source: source._inferrer (grey lift from scalar parameter)
+      source_parameters: {}
+      unit: ''
+      values:
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      - 0.1
+      wavelength_um:
+      - 0.45
+      - 0.475
+      - 0.5
+      - 0.525
+      - 0.55
+      - 0.575
+      - 0.6
+      - 0.625
+      - 0.6499999999999999
+      - 0.6749999999999999
+      - 0.7
+  h_tgt: 0.0
+  no_atmosphere_subcase: null
+  scene_type: extended
+  shape: null
+  target_location: terrestrial
+wavelength_um:
+- 0.45
+- 0.475
+- 0.5
+- 0.525
+- 0.55
+- 0.575
+- 0.6
+- 0.625
+- 0.6499999999999999
+- 0.6749999999999999
+- 0.7

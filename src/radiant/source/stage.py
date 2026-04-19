@@ -37,6 +37,7 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
+from radiant.source._inferrer import infer_descriptors
 from radiant.source.emitted import ThermalSource
 
 
@@ -164,4 +165,18 @@ class SourceStage:
         state = state.with_stage_output(
             "source", "regime_override", regime_override,
         )
-        return state
+
+        # --- Option C descriptors (Stage 2 — additive bridge) ---
+        # ADR-0002: SourceStage publishes TargetDescriptor +
+        # BackgroundDescriptor + LineOfSightGeometry alongside the legacy
+        # radiance frame and L_background stage_output.  Stage 3 starts
+        # consuming these; Stage 4 removes the legacy path.  Zero
+        # downstream stage reads these new keys today, so the additive
+        # wiring is a pure superset of the current contract.
+        target_desc, background_desc, los_geometry = infer_descriptors(
+            params=params,
+            wavelength_um=state.wavelength_um,
+        )
+        state = state.with_stage_output("source", "target", target_desc)
+        state = state.with_stage_output("source", "background", background_desc)
+        return state.with_stage_output("source", "los_geometry", los_geometry)

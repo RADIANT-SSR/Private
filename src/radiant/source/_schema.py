@@ -146,6 +146,93 @@ REGIME_OVERRIDE = ParameterDef(
     default_justification="'auto' detects regime from target geometry.",
 )
 
+# ---------------------------------------------------------------------------
+# Option C descriptor-surface parameters (ADR-0002, Stage 2)
+# ---------------------------------------------------------------------------
+#
+# These three parameters expose the matrix §3.2 axes at the YAML surface so
+# users can explicitly choose the cell they want to run.  When any of them
+# is at its schema default, the Stage-2 back-compat inferrer
+# (`radiant.source._inferrer`) infers the descriptor from the existing
+# parameters (fill_fraction, atmosphere.model, geometry, etc.).  When set
+# explicitly by the user, the explicit value wins over inference.
+#
+# The ``auto`` default on ``source.scene_type`` and ``source.target_location``
+# is a distinct sentinel value (rather than "extended" / "terrestrial")
+# because Stage 2 needs to distinguish "user did not set this" from "user
+# set this to the same value as the default".  Without the sentinel the
+# inferrer could not tell the difference via ``get_resolved().provenance``
+# alone when a YAML loader reuses the default string.  The allowed values
+# include ``auto`` so the resolver accepts it cleanly.
+
+SCENE_TYPE = ParameterDef(
+    name="source.scene_type",
+    description=(
+        "Matrix §3.2 scene-type axis. 'auto' = infer from fill_fraction / "
+        "geometry (default). 'extended' = fills the pixel; 'sub_pixel' = "
+        "partial fill; 'point_source' = angular size ≪ IFOV."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="auto",
+    enum_values=("auto", "extended", "sub_pixel", "point_source"),
+    tags=frozenset({"source", "descriptor", "matrix_axis"}),
+    default_justification=(
+        "'auto' triggers the back-compat inferrer in Stage 2 of the Option C "
+        "plan: scene_type is derived from fill_fraction plus IFOV-based "
+        "regime classification.  Users set this explicitly to lock a matrix "
+        "cell."
+    ),
+)
+
+TARGET_LOCATION = ParameterDef(
+    name="source.target_location",
+    description=(
+        "Matrix §3.2 target-location axis. 'auto' = infer from "
+        "atmosphere.model (default). Allowed explicit values: 'at_aperture', "
+        "'terrestrial', 'airborne', 'no_atmosphere'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="auto",
+    enum_values=(
+        "auto",
+        "at_aperture",
+        "terrestrial",
+        "airborne",
+        "no_atmosphere",
+    ),
+    tags=frozenset({"source", "descriptor", "matrix_axis"}),
+    default_justification=(
+        "'auto' triggers the back-compat inferrer: terrestrial for the "
+        "atmospheric backends, no_atmosphere(space) for 'exo'.  Users set "
+        "this explicitly for airborne / at_aperture / lab cases."
+    ),
+)
+
+NO_ATMOSPHERE_SUBCASE = ParameterDef(
+    name="source.no_atmosphere_subcase",
+    description=(
+        "Matrix §3.3 sub-case selector for target_location='no_atmosphere'. "
+        "Empty string = not set (paired with target_location != "
+        "'no_atmosphere'). Allowed explicit values: 'space', 'ground_test', "
+        "'lab_test'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    enum_values=("", "space", "ground_test", "lab_test"),
+    tags=frozenset({"source", "descriptor", "matrix_axis"}),
+    default_justification=(
+        "Empty string is the Rule-12 sentinel for 'not set'.  The inferrer "
+        "promotes it to 'space' when atmosphere.model == 'exo'; explicit "
+        "ground_test / lab_test require user action in a Stage 7 preset."
+    ),
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TARGET_TEMPERATURE,
     TARGET_EMISSIVITY,
@@ -155,4 +242,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     BACKGROUND_TEMPERATURE,
     BACKGROUND_EMISSIVITY,
     REGIME_OVERRIDE,
+    SCENE_TYPE,
+    TARGET_LOCATION,
+    NO_ATMOSPHERE_SUBCASE,
 )

@@ -1,0 +1,61 @@
+background:
+  __type__: ColdSpaceBackground
+los_geometry:
+  __los__:
+    delta_phi: null
+    h_atm_top: 100000.0
+    h_tgt: 0.0
+    theta_o: 0.0
+    theta_s: null
+scenario: examples/ground_truth_mwir.yaml
+target:
+  A_t: null
+  T_t: 300.0
+  __type__: T1Thermal
+  epsilon:
+    __spectraldata__:
+      name: source.target.emissivity
+      source: source._inferrer (grey lift from scalar parameter)
+      source_parameters: {}
+      unit: ''
+      values:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      wavelength_um:
+      - 3.999
+      - 3.9992
+      - 3.9994
+      - 3.9996
+      - 3.9998
+      - 4.0
+      - 4.0002
+      - 4.0004
+      - 4.0006
+      - 4.0008
+      - 4.001
+  h_tgt: 0.0
+  no_atmosphere_subcase: space
+  scene_type: extended
+  shape: null
+  target_location: no_atmosphere
+wavelength_um:
+- 3.999
+- 3.9992
+- 3.9994
+- 3.9996
+- 3.9998
+- 4.0
+- 4.0002
+- 4.0004
+- 4.0006
+- 4.0008
+- 4.001

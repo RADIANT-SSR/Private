@@ -86,12 +86,18 @@ class TestSourceStage:
         out = SourceStage().run(state, _make_params())
         assert out.stage_outputs["source"]["regime_tentative"] == RadiometricRegime.EXTENDED
 
-    def test_zero_temperature_yields_zero_radiance(self, wl: np.ndarray) -> None:
+    def test_near_zero_temperature_yields_near_zero_radiance(self, wl: np.ndarray) -> None:
+        # Stage 2 of the Option C plan: the T1Thermal descriptor requires
+        # T > 0 K (Planck emission is undefined at T=0).  This legacy test
+        # previously set T=0.0 to check that L(T→0) → 0 numerically.  Using
+        # T=0.01 K preserves the intent (Planck exponential underflows to
+        # machine-zero at every wavelength above ~0.1 µm) while keeping
+        # the descriptor constructor happy.
         state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params(T=0.0))
+        out = SourceStage().run(state, _make_params(T=0.01))
         L = out.frames["at_target"].spectral_radiance
         assert L is not None
-        assert np.all(L == 0.0)
+        assert np.all(L < 1e-100)
 
     def test_name(self) -> None:
         assert SourceStage().name == "source"
@@ -105,8 +111,15 @@ class TestSourceStage:
         np.testing.assert_allclose(L_bg, expected, rtol=1e-12)
 
     def test_fill_fraction_stored(self, wl: np.ndarray) -> None:
+        import warnings as _w
+
         state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params(fill_fraction=0.3))
+        # Stage-2 inferrer warns on terrestrial sub-pixel GroundBackground
+        # placeholder — expected for this fill_fraction=0.3 fixture; we
+        # only care that the fill_fraction value round-trips.
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params(fill_fraction=0.3))
         assert out.stage_outputs["source"]["fill_fraction"] == 0.3
 
     def test_angular_extent_stored(self, wl: np.ndarray) -> None:
@@ -118,6 +131,74 @@ class TestSourceStage:
         assert out.stage_outputs["source"]["angular_extent_rad"] == pytest.approx(
             expected, rel=1e-10
         )
+
+    # ------------------------------------------------------------------
+    # Option C descriptors (Stage 2 additive bridge, ADR-0002)
+    # ------------------------------------------------------------------
+
+    def test_descriptors_published_alongside_legacy(self, wl: np.ndarray) -> None:
+        """SourceStage now publishes target/background/los_geometry keys.
+
+        This is the Stage-2 additive-bridge contract: the new keys appear
+        alongside the legacy ``at_target`` frame and ``L_background``
+        stage_output; no downstream stage reads them yet.  Verify they
+        are present and carry the expected runtime types.
+        """
+        from radiant.core.descriptors import GroundBackground, T1Thermal
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        state = ChainState(wavelength_um=wl)
+        out = SourceStage().run(state, _make_params())
+        src = out.stage_outputs["source"]
+
+        # New descriptor keys present.
+        assert "target" in src
+        assert "background" in src
+        assert "los_geometry" in src
+
+        # Stage-2 back-compat inferrer always synthesises a T1Thermal
+        # from the scalar ε+T legacy surface.
+        assert isinstance(src["target"], T1Thermal)
+        # Default fixture is fill_fraction=1 ⇒ extended terrestrial
+        # (no atmosphere.model in this partial-schema fixture → falls
+        # back to terrestrial), so background should be None (Decision #13:
+        # extended terrestrial skips the background term).
+        assert src["background"] is None or isinstance(src["background"], GroundBackground)
+        # LOS is populated for every non-at_aperture scenario.
+        assert isinstance(src["los_geometry"], LineOfSightGeometry)
+
+        # Legacy path still present.
+        assert "at_target" in out.frames
+        assert out.frames["at_target"].spectral_radiance is not None
+        assert "L_background" in src
+
+    def test_descriptor_target_carries_expected_values(self, wl: np.ndarray) -> None:
+        """T1Thermal descriptor carries the scalar ε, T from the param surface."""
+        from radiant.core.descriptors import T1Thermal
+
+        state = ChainState(wavelength_um=wl)
+        out = SourceStage().run(state, _make_params(T=350.0, eps=0.8))
+        target = out.stage_outputs["source"]["target"]
+        assert isinstance(target, T1Thermal)
+        assert target.T_t == pytest.approx(350.0, rel=1e-12)
+        # Grey emissivity: all samples equal.
+        assert target.epsilon is not None
+        assert np.allclose(target.epsilon.values, 0.8)
+
+    def test_descriptor_sub_pixel_builds_ground_background(self, wl: np.ndarray) -> None:
+        """fill_fraction < 1 → scene_type='sub_pixel' → GroundBackground placeholder."""
+        import warnings as _w
+
+        from radiant.core.descriptors import GroundBackground
+
+        state = ChainState(wavelength_um=wl)
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params(fill_fraction=0.3))
+        bg = out.stage_outputs["source"]["background"]
+        assert isinstance(bg, GroundBackground)
+        target = out.stage_outputs["source"]["target"]
+        assert target.scene_type == "sub_pixel"
 
 
 # ======================================================================

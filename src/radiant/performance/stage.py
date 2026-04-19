@@ -27,7 +27,10 @@ from radiant.performance.well_margin import compute_well_margin
 from radiant.performance.contrast_snr import compute_contrast_snr
 from radiant.performance.snr import compute_snr
 from radiant.performance.folded_mtf import compute_folded_mtf
+from radiant.performance.mtf_budget import MTFBudgetResult, compute_mtf_budget
 from radiant.performance.system_mtf import mtf_at_nyquist, nyquist_freq
+from radiant.performance.turbulence_mtf_term import kolmogorov_mtf_1d
+from radiant.performance.consistency_check import check_dual_path_consistency
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +132,69 @@ def _compute_spatial_metrics(
 
     state = state.with_metric("mtf_folded_at_nyquist", mtf_folded_ny)
     state = state.with_metric("alias_fraction_at_nyquist", alias_frac_ny)
+
+    # --- MTF product path: turbulence MTF term ---
+    freq_mrad = state.spatial_freq_cycles_per_mrad
+    atm_out = state.stage_outputs.get("atmosphere", {})
+    r0_m = atm_out.get("r0_m")
+    if freq_mrad is not None and r0_m is not None and r0_m > 0.0:
+        try:
+            focal_length_turb: float = params.get("optics.focal_length_m")
+        except (KeyError, TypeError):
+            focal_length_turb = 0.0
+        if focal_length_turb > 0.0:
+            freq_m_turb = freq_mrad / (focal_length_turb * 1e3)
+            wavelength_turb_m = epsf.wavelength_um * 1e-6
+            mtf_turb = kolmogorov_mtf_1d(
+                freq_m_turb, wavelength_turb_m, r0_m, focal_length_turb
+            )
+            state = state.with_mtf("mtf_turbulence_x", mtf_turb)
+            state = state.with_mtf("mtf_turbulence_y", mtf_turb)
+
+    # --- MTF product path: budget and system MTF ---
+    if freq_mrad is not None and len(state.mtf_terms) > 0:
+        try:
+            focal_length_m: float = params.get("optics.focal_length_m")
+        except (KeyError, TypeError):
+            focal_length_m = 0.0
+
+        if focal_length_m > 0.0:
+            budget = compute_mtf_budget(
+                state.mtf_terms,
+                freq_mrad,
+                pixel_pitch_m,
+                focal_length_m,
+            )
+            state = state.with_stage_output("performance", "mtf_budget", budget)
+            state = state.with_metric(
+                "mtf_system_at_nyquist_x", budget.system_mtf_at_nyquist_x
+            )
+            state = state.with_metric(
+                "mtf_system_at_nyquist_y", budget.system_mtf_at_nyquist_y
+            )
+
+    # --- Dual-path consistency check ---
+    if freq_mrad is not None and len(state.mtf_terms) > 0:
+        try:
+            fl_check: float = params.get("optics.focal_length_m")
+        except (KeyError, TypeError):
+            fl_check = 0.0
+
+        if fl_check > 0.0:
+            consistency = check_dual_path_consistency(
+                epsf, state.mtf_terms, freq_mrad, fl_check
+            )
+            state = state.with_stage_output(
+                "performance", "dual_path_consistency", consistency
+            )
+            if not (consistency.passed_x and consistency.passed_y):
+                logger.warning(
+                    "Dual-path MTF consistency check FAILED: "
+                    "max_err_x=%.4f, max_err_y=%.4f (tol=%.4f)",
+                    consistency.max_absolute_error_x,
+                    consistency.max_absolute_error_y,
+                    consistency.tolerance,
+                )
 
     return state
 

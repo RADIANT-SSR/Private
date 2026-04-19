@@ -12,10 +12,13 @@ of ``NoiseTerm`` objects (after applying TDI/binning/coadd scaling).
 
 from __future__ import annotations
 
+import numpy as np
+
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.detector.dark_current import DarkCurrent
-from radiant.detector.ipc import ipc_kernel
+from radiant.detector.diffusion import diffusion_mtf_1d
+from radiant.detector.ipc import ipc_kernel, ipc_mtf_1d
 from radiant.detector.noise.budget import compute_noise_budget
 
 
@@ -96,6 +99,37 @@ class DetectorStage:
             state = state.with_stage_output(
                 "detector", "ipc_kernel", ipc_kernel(ipc_coupling)
             )
+
+        # --- MTF product path: pixel aperture, IPC, charge diffusion ---
+        freq_mrad = state.spatial_freq_cycles_per_mrad
+        if freq_mrad is not None:
+            focal_length_m: float = params.get("optics.focal_length_m")
+            freq_m = freq_mrad / (focal_length_m * 1e3)
+
+            # Pixel aperture MTF = |sinc(f * pitch)| (anisotropic for rect pixels).
+            mtf_pixel_x = np.abs(np.sinc(freq_m * pixel_pitch_x))
+            mtf_pixel_y = np.abs(np.sinc(freq_m * pixel_pitch_y))
+            state = state.with_mtf("mtf_pixel_aperture_x", mtf_pixel_x)
+            state = state.with_mtf("mtf_pixel_aperture_y", mtf_pixel_y)
+
+            # IPC MTF (both axes).
+            if ipc_coupling > 0.0:
+                mtf_ipc_x = ipc_mtf_1d(freq_m, ipc_coupling, pixel_pitch_x, axis="x")
+                mtf_ipc_y = ipc_mtf_1d(freq_m, ipc_coupling, pixel_pitch_x, axis="y")
+            else:
+                mtf_ipc_x = np.ones_like(freq_m)
+                mtf_ipc_y = np.ones_like(freq_m)
+            state = state.with_mtf("mtf_ipc_x", mtf_ipc_x)
+            state = state.with_mtf("mtf_ipc_y", mtf_ipc_y)
+
+            # Charge diffusion MTF (isotropic: same for x and y).
+            diffusion_length_m: float = params.get("detector.charge_diffusion_length_m")
+            if diffusion_length_m > 0.0:
+                mtf_diff = diffusion_mtf_1d(freq_m, diffusion_length_m)
+            else:
+                mtf_diff = np.ones_like(freq_m)
+            state = state.with_mtf("mtf_charge_diffusion_x", mtf_diff)
+            state = state.with_mtf("mtf_charge_diffusion_y", mtf_diff)
 
         # --- Store all outputs for ReadoutStage ---
         state = state.with_stage_output("detector", "signal_e", signal_e)

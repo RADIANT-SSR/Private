@@ -32,8 +32,26 @@ Type hints are required on **every** function and method — not just public one
 ### 3. Coordinate System
 Right-handed. +Z toward target (along boresight). +X cross-track. +Y along-track. Euler: ZYX (yaw → pitch → roll). Pixel indexing: `[row, col] = [y, x]`, 0-indexed. See `docs/RADIANT_Conventions.md` §1 for full details.
 
-### 4. EffectivePSF Is the Single Source of Truth for Spatial Metrics
-**NEVER** compute MTF and encircled energy (EE_box) from different PSFs. Both must derive from the same `EffectivePSF` object. All spatial metrics — MTF curve, EE(r), EE_box, RER — are computed from a single PSF that accumulates all optical aberrations, diffraction, and defocus. Deriving MTF from one PSF and EE from another (e.g., diffraction-only) introduces an internal inconsistency that will silently produce wrong results.
+### 4. Dual-Path Spatial Architecture — PSF Path and MTF Product Path
+RADIANT maintains two parallel spatial paths, both rooted in the same complex pupil function:
+
+**PSF path** (spatial-domain metrics):
+- Every spatial degradation enters as a convolution kernel on the `EffectivePSF`.
+- EE_box, RER, FWHM, Strehl, LSF, and ERF are computed **only** from this PSF.
+- **NEVER** compute EE_box from one PSF and RER from another. All spatial-domain metrics derive from the same `EffectivePSF` object.
+
+**MTF product path** (frequency-domain budget):
+- Optical MTF is computed from the **autocorrelation of the complex pupil function** (equivalent to `|FT{PSF}|` by the Wiener-Khinchin theorem, but computed directly from the pupil).
+- Each downstream contributor (detector aperture, jitter, smear, diffusion, IPC, turbulence, TDI) has an analytic or kernel-derived MTF.
+- System MTF = product of all contributor MTFs: `MTF_sys(f) = Π_i MTF_i(f)`.
+- MTF budgets, MTF-at-Nyquist, folded MTF, and GIQE/NIIRS consume this path.
+
+**Consistency invariant**: Both paths originate from the same pupil. The FFT of the convolved `EffectivePSF` must agree with the MTF product to within numerical tolerance (~1e-6). This check runs at `standard` fidelity and above. A failure means a degradation was added to one path but not the other.
+
+**What this rule forbids**:
+- Computing EE from one PSF and MTF from a different PSF (the old single-path failure mode).
+- Computing optical MTF by multiplying separate `MTF_diffraction × MTF_aberration` terms — aberrations interact with diffraction in the pupil and cannot be factored. The pupil autocorrelation handles this correctly as a single `MTF_optics` term.
+- Allowing the two paths to diverge without a consistency check.
 
 ### 5. Emissivity of Optical Elements Is Always Derived — Never Independent
 For any optical element, emissivity must be derived from Kirchhoff's law:
@@ -473,7 +491,9 @@ src/radiant/
 | `except Exception: continue` or `except Exception: pass` | Silent failure |
 | `assert value > 0` for user input validation | Use `ParameterBoundsError` |
 | `print()` in library code | Use logging |
-| Compute MTF from one PSF and EE_box from a different PSF | Violates Rule 4 |
+| Compute EE_box from one PSF and RER from a different PSF | Violates Rule 4 (spatial-domain metrics must share one PSF) |
+| Multiply separate `MTF_diffraction × MTF_aberration` for the optical term | Violates Rule 4 — use pupil autocorrelation for `MTF_optics` |
+| Add a spatial degradation to only one path (PSF or MTF product) without the other | Violates Rule 4 consistency invariant |
 | Accept emissivity as independent parameter for an optical element | Violates Rule 5 |
 | Modify a test's `pytest.approx` tolerance to make a failing test pass | Fix the physics, not the test |
 | Update a golden file without the review protocol in `RADIANT_Testing_Validation.md §5.3` | Breaks reproducibility |

@@ -6,13 +6,33 @@
 
 ---
 
-## 1. Critical Insight
+## 1. Critical Insight — Dual-Path Spatial Architecture
 
-**The PSF is the single source of truth.** MTF, EE, LSF, ERF, RER, FWHM, Strehl, and the EE_box that couples spatial behavior into radiometric signal — all of them are derived from the same `EffectivePSF` object via the same FFT, the same numerical integration, and the same grid.
+RADIANT maintains two parallel spatial paths, both rooted in the **same complex pupil function**. This is the most important architectural decision in the spatial subsystem.
 
-This is the most important architectural decision in RADIANT. The previous generation of EO performance tools computes MTF and EE independently, frequently from different formulas, and the inconsistency manifests as a noise budget that no longer matches the spatial budget at high frequency. RADIANT does not have that bug because there is no second path: every spatial metric goes through one method on one class on one PSF.
+### 1.1 PSF Path — Spatial-Domain Metrics
 
-The corollary: every spatial degradation must enter the PSF, not the MTF, *first*. If a smear term is implemented as "multiply MTF by sinc(πf·v·t)" without the corresponding "convolve PSF with rect(v·t)," the two will drift apart at the second decimal place. RADIANT enforces the convolution; the MTF is then the FFT of the result, by definition consistent.
+The `EffectivePSF` is the single source of truth for **spatial-domain** metrics: EE_box, RER, FWHM, Strehl, LSF, and ERF. Every spatial degradation enters the PSF as a convolution kernel (§6). These metrics are computed from the convolved PSF via numerical integration on a common grid. **NEVER** compute EE from one PSF and RER from another.
+
+### 1.2 MTF Product Path — Frequency-Domain Budget
+
+The system MTF is the product of independently computed contributor MTFs:
+
+- **Optical MTF**: computed from the **autocorrelation of the complex pupil function** `P(ξ,η)`. For incoherent imaging, OTF = normalized autocorrelation of the generalized pupil (Goodman, *Introduction to Fourier Optics*, Ch. 6). This is mathematically equivalent to `|FT{PSF}|` by the Wiener-Khinchin theorem, but is computed directly from the pupil without constructing an intermediate PSF. The full complex pupil — including aperture geometry, central obscuration, and all WFE terms — enters as a single entity. Aberrations and diffraction interact in the pupil and **cannot** be factored into separate `MTF_diffraction × MTF_aberration` terms.
+- **Downstream contributors**: detector aperture (`sinc`), charge diffusion (`Gaussian`), jitter (`Gaussian`), smear (`sinc`), IPC (analytic), TDI misalignment (`sinc`), and turbulence (`Kolmogorov`). Each has an analytic or kernel-derived MTF and is physically independent of the others.
+- **System MTF**: `MTF_sys(f) = MTF_optics × Π_i MTF_i(f)` where the product runs over the independent contributors.
+
+This path produces MTF budgets (which contributor dominates at Nyquist?), MTF-at-Nyquist, folded/aliased MTF, and feeds directly into GIQE/NIIRS.
+
+### 1.3 Why Two Paths
+
+The previous generation of EO performance tools computed MTF and EE independently, frequently from different formulas, and the inconsistency manifested as a noise budget that no longer matched the spatial budget at high frequency. A PSF-only approach (RADIANT Phase 1–2) eliminated that bug entirely. The MTF product path restores the frequency-domain budget that analysts need for trade studies, but now with a **consistency check** tying the two together.
+
+### 1.4 The Consistency Invariant
+
+Both paths originate from the same pupil. After all convolutions are applied to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of the 12 individual MTFs (§9) to within numerical tolerance. This check runs at `standard` fidelity and above. If it fails, a degradation was added to one path but not the other — the build is broken.
+
+The corollary still holds: every spatial degradation must enter **both** paths. A new smear term implemented only as "multiply MTF by sinc" without the corresponding PSF convolution kernel will be caught by the consistency check.
 
 ---
 
@@ -205,43 +225,68 @@ In `untracked` mode, target and background see the same PSF and only one is buil
 
 ---
 
-## 9. The 12-Component MTF Budget
+## 9. The MTF Product Path — System MTF Budget
 
-The system MTF is the product of every component MTF:
+The system MTF is the product of the optical MTF and all independent contributor MTFs:
 ```
-MTF_system(f_x, f_y) = Π_i MTF_i(f_x, f_y)
+MTF_system(f_x, f_y) = MTF_optics(f_x, f_y) × Π_i MTF_i(f_x, f_y)
 ```
 
-The 12 components, each computed *as the FFT of its individual kernel* and then multiplied:
+### 9.1 Optical MTF — Pupil Autocorrelation
 
-| # | Term | Kernel form | Source module |
+The optical MTF is computed from the **autocorrelation of the complex pupil function**, not from a product of separate diffraction and aberration terms. For incoherent imaging:
+
+```
+OTF_optics(f_x, f_y) = ∫∫ P(ξ, η) P*(ξ − λzf_x, η − λzf_y) dξdη
+                        ─────────────────────────────────────────────
+                        ∫∫ |P(ξ, η)|² dξdη
+
+MTF_optics = |OTF_optics|
+```
+
+where `P(ξ, η) = A(ξ, η) · exp(i · 2π · W(ξ, η) / λ)` is the generalized pupil function including aperture amplitude `A` (with obscuration) and wavefront error `W`. This single computation captures diffraction, all aberrations (including field-dependent and chromatic Zernikes), defocus, and their interactions. Aberrations modify the diffraction pattern in ways that cannot be factored — computing `MTF_diffraction × MTF_aberration` separately is physically incorrect and is **forbidden**.
+
+For polychromatic operation, the optical MTF is the weighted average of monochromatic pupil-autocorrelation MTFs:
+```
+MTF_optics_poly(f) = Σ_k w_k · MTF_optics(f; λ_k)
+```
+with weights `w_k` = in-band photon-weighted spectral radiance at each wavelength sample.
+
+### 9.2 Independent Contributor MTFs
+
+The remaining contributors are physically independent of the pupil and of each other. Each has an analytic form or is derived from its convolution kernel:
+
+| # | Term | MTF formula | Source module |
 |---|------|-------------|---------------|
-| 1 | `mtf_diffraction` | FFT of |pupil amplitude|² | Optics + Spatial |
-| 2 | `mtf_wfe` | FFT of complex-pupil PSF / FFT of amplitude-only PSF | Optics + Spatial |
-| 3 | `mtf_defocus` | sinc-like, from defocus blur diameter | Optics |
-| 4 | `mtf_pixel_aperture` | sinc(π · f · p_x) · sinc(π · f · p_y) | Detector |
-| 5 | `mtf_charge_diffusion` | exp(−2π² · σ_d² · f²) | Detector |
-| 6 | `mtf_ipc` | from IPC kernel | Detector |
-| 7 | `mtf_smear_along` | sinc(π · f · v · t) | Spatial (this doc) |
-| 8 | `mtf_smear_cross` | sinc(π · f · v · t) | Spatial |
-| 9 | `mtf_target_motion` | sinc(π · f · v_t · t_eff) | Spatial |
-| 10 | `mtf_jitter` | exp(−2π² · σ_j² · f²) | Spatial |
-| 11 | `mtf_tdi_misalign` | sinc(π · f · misalign) | Spatial |
-| 12 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | Atmosphere (registered) |
+| 1 | `mtf_optics` | Pupil autocorrelation (§9.1) — includes diffraction, WFE, defocus | Optics |
+| 2 | `mtf_pixel_aperture` | sinc(π · f · p_x) · sinc(π · f · p_y) | Detector |
+| 3 | `mtf_charge_diffusion` | exp(−2π² · σ_d² · f²) | Detector |
+| 4 | `mtf_ipc` | (1 − 4α) + 2α · cos(2πf · p) | Detector |
+| 5 | `mtf_smear_along` | \|sinc(π · f · v · t)\| | Platform / Spatial |
+| 6 | `mtf_smear_cross` | \|sinc(π · f · v · t)\| | Platform / Spatial |
+| 7 | `mtf_target_motion` | \|sinc(π · f · v_t · t_eff)\| | Platform / Spatial |
+| 8 | `mtf_jitter` | exp(−2π² · σ_j² · f²) | Platform / Spatial |
+| 9 | `mtf_tdi_misalign` | \|sinc(π · f · misalign)\| | Readout / Spatial |
+| 10 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | Atmosphere |
 
-### 9.1 The consistency check
+Note: the old 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are now unified into a single `mtf_optics` via pupil autocorrelation. The component count is 10, not 12.
 
-This is the key invariant. After every spatial degradation has been applied via convolution (§6), the FFT of the resulting `psf_eff` must equal the product of the 12 individual MTFs:
+### 9.3 The Consistency Check
+
+This is the key invariant linking the two paths. After every spatial degradation has been applied via convolution to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of `mtf_optics` and the independent contributor MTFs:
 
 ```python
-mtf_from_psf = np.fft.fft2(psf_eff)
-mtf_from_product = np.prod([mtf_i for mtf_i in mtf_terms.values()], axis=0)
+mtf_from_psf = np.abs(np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(psf_eff))))
+mtf_from_psf /= mtf_from_psf.max()
+
+mtf_from_product = mtf_optics * np.prod([mtf_i for mtf_i in independent_mtfs.values()], axis=0)
+
 assert np.allclose(mtf_from_psf, mtf_from_product, atol=1e-6)
 ```
 
-This check runs at `standard` fidelity and above. If it fails, the build is broken — usually because someone added a new spatial term in one place and forgot the other. The check catches every drift between the PSF-side and the MTF-side at CI time.
+This check runs at `standard` fidelity and above. If it fails, a degradation was added to one path but not the other — the build is broken.
 
-The check tolerates one approved exception: when `wfe_mode` is in Marechal mode (draft fidelity), the WFE term enters as `MTF_wfe = Strehl` (a flat scalar) rather than as a convolution, so the equality is approximate. This case is recorded in `convolution_history`.
+The check tolerates one approved exception: when `wfe_mode` is in Marechal mode (draft fidelity), the WFE term enters as `MTF_wfe = Strehl` (a flat scalar) rather than as a full pupil computation, so the equality is approximate. This case is recorded in `convolution_history`.
 
 ---
 

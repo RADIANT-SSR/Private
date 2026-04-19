@@ -88,12 +88,22 @@ class AtmosphereStage:
             ),
         )
 
-        return (
+        state = (
             state.with_frame(frame)
             .with_stage_output("atmosphere", "tau_atm", tau)
             .with_stage_output("atmosphere", "L_path", L_path)
             .with_stage_output("atmosphere", "L_atm_down", atm_state.atm_emission_down.values)
         )
+
+        # Turbulence: store Fried parameter for downstream stages.
+        try:
+            r0_m: float = params.get("atmosphere.r0_m")
+        except (KeyError, TypeError):
+            r0_m = 0.0
+        if r0_m > 0.0:
+            state = state.with_stage_output("atmosphere", "r0_m", r0_m)
+
+        return state
 
     # ------------------------------------------------------------------
     # Model builders (file I/O happens here, before build_state)

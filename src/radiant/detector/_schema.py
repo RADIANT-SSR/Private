@@ -308,6 +308,18 @@ IPC_COUPLING = ParameterDef(
     tags=frozenset({"detector", "spatial"}),
 )
 
+CHARGE_DIFFUSION_LENGTH_M = ParameterDef(
+    name="detector.charge_diffusion_length_m",
+    description="RMS charge diffusion length [m]. Zero disables diffusion MTF.",
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e-3),
+    tags=frozenset({"detector", "spatial"}),
+    default_justification="Zero = no charge diffusion (ideal detector).",
+)
+
 N_PIXELS_CROSS = ParameterDef(
     name="detector.n_pixels_cross",
     description="Number of detector pixels in the cross-track direction.",
@@ -344,5 +356,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PRIOR_SIGNAL_E,
     GLOW_E_PER_S,
     IPC_COUPLING,
+    CHARGE_DIFFUSION_LENGTH_M,
     N_PIXELS_CROSS,
 )

@@ -48,7 +48,16 @@ from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
 from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
+from radiant.optics.diffusion_kernel import make_diffusion_kernel_2d
+from radiant.optics.pixel_kernel import make_pixel_aperture_kernel_2d
 from radiant.optics.psf_mono import compute_psf
+from radiant.optics.pupil_amplitude import make_pupil_amplitude
+from radiant.optics.pupil_mtf import (
+    polychromatic_pupil_mtf,
+    pupil_autocorrelation_mtf_1d,
+    pupil_autocorrelation_mtf_2d,
+)
+from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
 from radiant.optics.psf_poly import (
     PolychromaticPSFResult,
     compute_polychromatic_psf,
@@ -70,6 +79,166 @@ from radiant.optics.element import ElementTransferMode
 from radiant.optics.wavefront import FieldWfeSample, WavefrontError, WfeMode
 
 logger = logging.getLogger(__name__)
+
+
+def _add_defocus_to_wfe(
+    wfe: WavefrontError | None,
+    defocus_um: float,
+    f_number: float,
+    wavelength_m: float,
+) -> WavefrontError | None:
+    """Fold a separate defocus offset into WFE as an equivalent Zernike Z4.
+
+    The Noll Z4 (defocus) coefficient in waves is::
+
+        Z4 = δ / (8 √3 λ f/#²)
+
+    where δ is the axial defocus [m] and λ is the wavelength [m].
+
+    If the existing WFE already has a Z4 Zernike coefficient, the defocus
+    contribution is added to it.  For scalar-RMS WFE, converts to a
+    single-term Zernike with Z4 only.
+    """
+    if defocus_um == 0.0:
+        return wfe
+
+    defocus_m = defocus_um * 1e-6
+    z4_waves = defocus_m / (8.0 * math.sqrt(3.0) * wavelength_m * f_number**2)
+
+    if wfe is None:
+        return WavefrontError(
+            mode=WfeMode.ZERNIKE,
+            zernike_coeffs={4: z4_waves},
+            reference_wavelength_um=wavelength_m * 1e6,
+        )
+    if wfe.mode == WfeMode.SCALAR_RMS:
+        # Convert scalar RMS to a Z4-only Zernike (defocus dominates).
+        return WavefrontError(
+            mode=WfeMode.ZERNIKE,
+            zernike_coeffs={4: z4_waves},
+            reference_wavelength_um=wfe.reference_wavelength_um,
+        )
+    if wfe.mode == WfeMode.ZERNIKE:
+        assert wfe.zernike_coeffs is not None
+        new_coeffs = dict(wfe.zernike_coeffs)
+        new_coeffs[4] = new_coeffs.get(4, 0.0) + z4_waves
+        return WavefrontError(
+            mode=WfeMode.ZERNIKE,
+            zernike_coeffs=new_coeffs,
+            reference_wavelength_um=wfe.reference_wavelength_um,
+        )
+    # Other modes: cannot fold defocus — return as-is.
+    return wfe
+
+
+def _compute_optical_mtf_terms(
+    state: ChainState,
+    n_psf_wavelengths: int,
+    wavelength_m: float | None,
+    psf_wl_m: np.ndarray | None,
+    weights: np.ndarray | None,
+    focal_length_m: float,
+    aperture_m: float,
+    pixel_pitch_m: float,
+    obscuration: float,
+    wfe: WavefrontError | None,
+    sample_spacing_m: float,
+    chromatic_zernikes: dict[float, dict[int, float]] | None,
+    defocus_um: float = 0.0,
+    f_number: float = 0.0,
+) -> ChainState:
+    """Compute optical MTF via pupil autocorrelation and store in ChainState.
+
+    For monochromatic: builds pupil, computes 2-D autocorrelation MTF,
+    extracts 1-D x and y slices.
+    For polychromatic: calls ``polychromatic_pupil_mtf()`` for weighted
+    average of monochromatic pupil autocorrelation MTFs.
+
+    If ``defocus_um != 0``, folds defocus into the pupil phase as
+    equivalent Zernike Z4 so that ``mtf_optics`` captures
+    diffraction + WFE + defocus as a single term.
+
+    Stores ``mtf_optics_x``, ``mtf_optics_y`` in ``state.mtf_terms``
+    and sets ``state.spatial_freq_cycles_per_mrad``.
+    """
+    pupil_npix = 128
+
+    if n_psf_wavelengths <= 1:
+        # Monochromatic: recompute pupil and autocorrelation MTF.
+        assert wavelength_m is not None
+
+        # Fold defocus into WFE for MTF product path.
+        wfe_mtf = _add_defocus_to_wfe(wfe, defocus_um, f_number, wavelength_m)
+
+        config = compute_sampling(
+            wavelength_m=wavelength_m,
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_m,
+            pixel_pitch_m=pixel_pitch_m,
+            pupil_npix=pupil_npix,
+            psf_oversample=8,
+        )
+
+        amplitude = make_pupil_amplitude(pupil_npix, obscuration)
+        if wfe_mtf is None:
+            phase = np.zeros((pupil_npix, pupil_npix), dtype=np.float64)
+        elif wfe_mtf.mode == WfeMode.SCALAR_RMS:
+            rms = wfe_mtf.rms_waves if wfe_mtf.rms_waves is not None else 0.0
+            phase = make_pupil_phase(pupil_npix, rms, wavelength_m)
+        elif wfe_mtf.mode == WfeMode.ZERNIKE:
+            assert wfe_mtf.zernike_coeffs is not None
+            ref_m = wfe_mtf.reference_wavelength_um * 1e-6
+            phase = make_pupil_phase_zernike(
+                pupil_npix,
+                wfe_mtf.zernike_coeffs,
+                reference_wavelength_m=ref_m,
+                operating_wavelength_m=wavelength_m,
+                obscuration_ratio=obscuration,
+            )
+        else:
+            # Unsupported WFE mode for pupil autocorrelation — skip MTF.
+            logger.warning(
+                "WFE mode %r not supported for pupil autocorrelation MTF; skipping.",
+                wfe_mtf.mode.value,
+            )
+            return state
+
+        mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
+        freq_m, mtf_x = pupil_autocorrelation_mtf_1d(mtf_2d, sample_spacing_m, "x")
+        _, mtf_y = pupil_autocorrelation_mtf_1d(mtf_2d, sample_spacing_m, "y")
+    else:
+        # Polychromatic: weighted average of monochromatic pupil MTFs.
+        assert psf_wl_m is not None
+        assert weights is not None
+
+        # For polychromatic, defocus is folded into WFE for each wavelength
+        # inside polychromatic_pupil_mtf via the WFE object.
+        wl_center_m = float(psf_wl_m[len(psf_wl_m) // 2])
+        wfe_mtf = _add_defocus_to_wfe(wfe, defocus_um, f_number, wl_center_m)
+
+        freq_m, mtf_x, mtf_y = polychromatic_pupil_mtf(
+            wavelengths_m=psf_wl_m,
+            weights=weights,
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_m,
+            pixel_pitch_m=pixel_pitch_m,
+            obscuration_ratio=obscuration,
+            wfe=wfe_mtf,
+            pupil_npix=pupil_npix,
+            psf_oversample=8,
+            chromatic_zernikes=chromatic_zernikes,
+        )
+
+    # Convert frequency from cycles/m to cycles/mrad.
+    # f_angular [cycles/mrad] = f_focal [cycles/m] * focal_length_m * 1e3
+    # (1 mrad on the focal plane = focal_length_m * 1e-3 m)
+    freq_cycles_per_mrad = freq_m * focal_length_m * 1e3
+
+    state = state.with_spatial_freq(freq_cycles_per_mrad)
+    state = state.with_mtf("mtf_optics_x", mtf_x)
+    state = state.with_mtf("mtf_optics_y", mtf_y)
+
+    return state
 
 
 def _build_effective_psf(
@@ -103,6 +272,9 @@ def _build_effective_psf(
     pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
     obscuration: float = params.get("optics.obscuration_ratio")
     n_psf_wavelengths: int = params.get("optics.psf_n_wavelengths")
+
+    # Set in the polychromatic branch; consumed by MTF computation.
+    psf_wl_m: np.ndarray | None = None
 
     if n_psf_wavelengths <= 1:
         # --- Monochromatic path (backward compatible) ---
@@ -191,6 +363,54 @@ def _build_effective_psf(
         sample_spacing_m=sample_spacing_m,
         pixel_pitch_m=pixel_pitch_m,
         wavelength_um=wavelength_um,
+    )
+
+    # --- §6 step 1: Pixel aperture rect kernel ---
+    pixel_pitch_y_m: float = params.get("detector.pixel_pitch_y_um")
+    fill_factor: float = params.get("detector.fill_factor")
+    npix_kern = epsf.data.shape[0]
+    # Ensure odd kernel size.
+    if npix_kern % 2 == 0:
+        npix_kern -= 1
+    npix_kern = max(npix_kern, 3)
+
+    k_pixel = make_pixel_aperture_kernel_2d(
+        npix_kern, sample_spacing_m, pixel_pitch_m, pixel_pitch_y_m, fill_factor
+    )
+    epsf = epsf.with_kernel("pixel_aperture", k_pixel)
+
+    # --- §6 step 2: Charge diffusion Gaussian kernel ---
+    diffusion_length_m: float = params.get("detector.charge_diffusion_length_m")
+    if diffusion_length_m > 0.0:
+        sigma_diff = diffusion_length_m / math.sqrt(2.0)
+        npix_diff = int(math.ceil(6.0 * sigma_diff / sample_spacing_m)) | 1
+        npix_diff = min(npix_diff, epsf.data.shape[0])
+        npix_diff = max(npix_diff, 3)
+        k_diff = make_diffusion_kernel_2d(npix_diff, sample_spacing_m, diffusion_length_m)
+        epsf = epsf.with_kernel("charge_diffusion", k_diff)
+
+    # --- MTF product path: optical MTF via pupil autocorrelation ---
+    defocus_um: float = params.get("optics.defocus_um")
+    f_number: float = params.get("optics.f_number")
+    state = _compute_optical_mtf_terms(
+        state,
+        n_psf_wavelengths=n_psf_wavelengths,
+        wavelength_m=(
+            float(state.wavelength_um[len(state.wavelength_um) // 2]) * 1e-6
+            if n_psf_wavelengths <= 1
+            else None
+        ),
+        psf_wl_m=psf_wl_m if n_psf_wavelengths > 1 else None,
+        weights=weights if n_psf_wavelengths > 1 else None,
+        focal_length_m=focal_length_m,
+        aperture_m=aperture_m,
+        pixel_pitch_m=pixel_pitch_m,
+        obscuration=obscuration,
+        wfe=wfe,
+        sample_spacing_m=sample_spacing_m,
+        chromatic_zernikes=chromatic_zernikes,
+        defocus_um=defocus_um,
+        f_number=f_number,
     )
 
     state = state.with_stage_output("optics", "effective_psf", epsf)

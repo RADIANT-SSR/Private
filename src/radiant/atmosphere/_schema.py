@@ -397,6 +397,30 @@ INTERPOLATION_METHOD = ParameterDef(
 )
 
 
+# ---------------------------------------------------------------------------
+# Turbulence
+# ---------------------------------------------------------------------------
+
+FRIED_PARAMETER_M = ParameterDef(
+    name="atmosphere.r0_m",
+    description=(
+        "Fried coherence diameter r₀ [m] at the operating wavelength. "
+        "Controls long-exposure Kolmogorov turbulence MTF. "
+        "Set to 0 to disable turbulence effects."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification=(
+        "0.0 disables turbulence by default; users must opt-in by setting "
+        "a positive r₀ value for their specific scenario."
+    ),
+)
+
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ATMOSPHERE_MODEL,
     # Simple parametric
@@ -421,6 +445,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     INTERPOLATED_DATA_DIR,
     INTERPOLATION_AXES,
     INTERPOLATION_METHOD,
+    # Turbulence
+    FRIED_PARAMETER_M,
     # Geometry
     SENSOR_ALTITUDE_M,
     TARGET_ALTITUDE_M,

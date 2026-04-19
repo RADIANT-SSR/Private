@@ -141,6 +141,18 @@ TDI_MODE = ParameterDef(
     default_justification="Analog TDI is the traditional CCD-based approach.",
 )
 
+TDI_MISALIGN_PIXELS = ParameterDef(
+    name="readout.tdi_misalign_pixels",
+    description="Cross-scan TDI misalignment in pixel units. Zero = perfect alignment.",
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"readout", "tdi", "spatial"}),
+    default_justification="Zero = no cross-scan misalignment.",
+)
+
 # ---------------------------------------------------------------------------
 # Binning
 # ---------------------------------------------------------------------------
@@ -224,6 +236,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     NODE_CAPACITANCE_F,
     N_TDI,
     TDI_MODE,
+    TDI_MISALIGN_PIXELS,
     BINNING_X_ONCHIP,
     BINNING_Y_ONCHIP,
     BINNING_X_OFFCHIP,

@@ -25,8 +25,9 @@ import numpy as np
 from radiant.core.chain import ChainState
 from radiant.core.geometry import slant_range_spherical_m
 from radiant.core.parameters import ParameterSet
-from radiant.platform.jitter import jitter_kernel_2d, jitter_sigma_focal_m
-from radiant.platform.smear import smear_kernel_1d, smear_width_m
+from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
+from radiant.platform.smear import smear_kernel_1d, smear_mtf_1d, smear_width_m
+from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,60 @@ class PlatformStage:
                 npix_smear,
                 npix_smear,
             )
+
+        # --- Turbulence kernel (Kolmogorov long-exposure) ---
+        atm_out = state.stage_outputs.get("atmosphere", {})
+        r0_m = atm_out.get("r0_m")
+        if r0_m is not None and r0_m > 0.0:
+            sample_spacing_m = epsf.sample_spacing_m
+            wavelength_m = epsf.wavelength_um * 1e-6
+
+            # Kernel size: estimate FWHM ≈ 0.98 λ/r0 on focal plane,
+            # cover ±4 FWHM, ensure odd and capped to PSF grid.
+            fwhm_turb_m = 0.98 * wavelength_m * focal_length_m / r0_m
+            npix_turb = int(math.ceil(8.0 * fwhm_turb_m / sample_spacing_m)) | 1
+            npix_turb = min(npix_turb, epsf.data.shape[0])
+            npix_turb = max(npix_turb, 3)
+
+            k_turb = kolmogorov_kernel_2d(
+                npix_turb, sample_spacing_m, wavelength_m, r0_m, focal_length_m
+            )
+            epsf = epsf.with_kernel("turbulence", k_turb)
+
+            logger.info(
+                "Turbulence applied: r0=%.3f m, FWHM_turb=%.2f µm, kernel %dx%d",
+                r0_m,
+                fwhm_turb_m * 1e6,
+                npix_turb,
+                npix_turb,
+            )
+
+        # --- MTF product path: jitter and smear analytic MTFs ---
+        freq_mrad = state.spatial_freq_cycles_per_mrad
+        if freq_mrad is not None:
+            # Convert cycles/mrad → cycles/m on the focal plane.
+            # f_focal [cycles/m] = f_angular [cycles/mrad] / (focal_length_m * 1e3)
+            freq_m = freq_mrad / (focal_length_m * 1e3)
+
+            # Jitter MTF (anisotropic: different sigma per axis).
+            if sigma_x_m > 0.0 or sigma_y_m > 0.0:
+                mtf_jitter_x = jitter_mtf_1d(freq_m, sigma_x_m) if sigma_x_m > 0.0 else np.ones_like(freq_m)
+                mtf_jitter_y = jitter_mtf_1d(freq_m, sigma_y_m) if sigma_y_m > 0.0 else np.ones_like(freq_m)
+            else:
+                mtf_jitter_x = np.ones_like(freq_m)
+                mtf_jitter_y = np.ones_like(freq_m)
+            state = state.with_mtf("mtf_jitter_x", mtf_jitter_x)
+            state = state.with_mtf("mtf_jitter_y", mtf_jitter_y)
+
+            # Smear MTF (along-track = y-axis degradation).
+            if smear_w_m > 0.0:
+                mtf_smear_y = smear_mtf_1d(freq_m, smear_w_m)
+                mtf_smear_x = np.ones_like(freq_m)
+            else:
+                mtf_smear_x = np.ones_like(freq_m)
+                mtf_smear_y = np.ones_like(freq_m)
+            state = state.with_mtf("mtf_smear_x", mtf_smear_x)
+            state = state.with_mtf("mtf_smear_y", mtf_smear_y)
 
         return state.with_stage_output("platform", "effective_psf", epsf)
 

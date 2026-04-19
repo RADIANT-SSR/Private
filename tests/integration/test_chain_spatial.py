@@ -138,14 +138,16 @@ class TestSpatialMetricsPhysics:
         assert fwhm_x == pytest.approx(fwhm_y, rel=1e-6)
 
     def test_fwhm_near_airy(self, result) -> None:
-        """FWHM should be near 1.028 λf/D for diffraction-limited case.
+        """FWHM should be near the Airy value broadened by pixel aperture.
 
-        Using band-center wavelength as reference. The actual PSF uses
-        a single wavelength (band center), so this should be close.
+        The ePSF now includes pixel aperture convolution (§6 step 1),
+        so the measured FWHM will be larger than the pure Airy FWHM.
+        We check: FWHM >= Airy FWHM and FWHM < 2× Airy FWHM (physical bound).
         """
         airy_fwhm = 1.028 * LAM_CENTER_M * F / D
         fwhm_x = result.metrics["fwhm_x_m"]
-        assert fwhm_x == pytest.approx(airy_fwhm, rel=0.05)
+        assert fwhm_x >= airy_fwhm * 0.95  # Must be at least close to Airy
+        assert fwhm_x < airy_fwhm * 2.0    # Must not be absurdly broad
 
     def test_rer_bounded(self, result) -> None:
         """RER ∈ (0, 1] for any physical PSF."""
@@ -185,12 +187,14 @@ class TestSpatialMetricsPhysics:
         mtf_x = result.stage_outputs["performance"]["mtf_x"]
         assert mtf_x[0] == pytest.approx(1.0, rel=1e-6)
 
-    def test_mtf_curve_x_monotonically_decreasing(self, result) -> None:
-        """Diffraction-limited MTF is monotonically decreasing (above noise floor)."""
+    def test_mtf_curve_x_generally_decreasing(self, result) -> None:
+        """System MTF is generally decreasing (small sinc ripples from pixel aperture allowed)."""
         mtf_x = result.stage_outputs["performance"]["mtf_x"]
-        # Only check where MTF is above numerical noise floor.
-        above_noise = mtf_x > 1e-10
-        assert np.all(np.diff(mtf_x[above_noise]) <= 0.0)
+        # Pixel aperture introduces sinc-like oscillations near its zeros.
+        # Allow small positive increments (< 1% of DC) but overall trend is downward.
+        diffs = np.diff(mtf_x)
+        above_noise = mtf_x[:-1] > 1e-6
+        assert np.all(diffs[above_noise] <= 0.01)
 
     def test_mtf_curve_x_nonnegative(self, result) -> None:
         """MTF values are non-negative."""

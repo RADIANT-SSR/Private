@@ -123,6 +123,12 @@ class ChainState:
         new_mtf[term_name] = mtf
         return replace(self, mtf_terms=new_mtf)
 
+    def with_spatial_freq(
+        self, freq_cycles_per_mrad: npt.NDArray[np.float64]
+    ) -> ChainState:
+        """Set the shared spatial-frequency grid for MTF terms."""
+        return replace(self, spatial_freq_cycles_per_mrad=freq_cycles_per_mrad)
+
     def with_metric(self, key: str, value: float) -> ChainState:
         """Add (or replace) a named metric."""
         new_metrics = dict(self.metrics)

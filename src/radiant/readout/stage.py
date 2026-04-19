@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
+
 from radiant.core.chain import ChainState
 from radiant.core.noise_budget import (
     SPATIAL_TERMS,
@@ -53,6 +55,7 @@ from radiant.readout.saturation import (
     check_adc_saturation,
     check_well_saturation,
 )
+from radiant.readout.tdi_mtf import tdi_misalign_m, tdi_misalign_mtf_1d
 from radiant.readout.tdi_scaling import (
     tdi_scale_fpn,
     tdi_scale_read_noise,
@@ -292,6 +295,25 @@ class ReadoutStage:
                     contributes_to=contributes_to,
                 )
             )
+
+        # ---- MTF product path: TDI misalignment ----
+        freq_mrad = state.spatial_freq_cycles_per_mrad
+        if freq_mrad is not None:
+            misalign_pix: float = params.get("readout.tdi_misalign_pixels")
+            pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
+            focal_length_m: float = params.get("optics.focal_length_m")
+            freq_m = freq_mrad / (focal_length_m * 1e3)
+
+            if misalign_pix > 0.0:
+                misalign_m = tdi_misalign_m(misalign_pix, pixel_pitch_m)
+                # TDI misalignment affects cross-scan (x) axis only.
+                mtf_tdi_x = tdi_misalign_mtf_1d(freq_m, misalign_m)
+                mtf_tdi_y = np.ones_like(freq_m)
+            else:
+                mtf_tdi_x = np.ones_like(freq_m)
+                mtf_tdi_y = np.ones_like(freq_m)
+            state = state.with_mtf("mtf_tdi_x", mtf_tdi_x)
+            state = state.with_mtf("mtf_tdi_y", mtf_tdi_y)
 
         # ---- Store stage outputs ----
         state = state.with_stage_output("readout", "contrast_e_final", contrast_e_final)

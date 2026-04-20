@@ -165,8 +165,19 @@ def cell58_result():
 # ---------------------------------------------------------------------------
 
 CELL28_PINNED = {
-    "snr": 5.520806,
-    "nedt_K": 11.77343,
+    # Stage 4 Option C landing (2026-04-19): extended terrestrial scenes
+    # no longer construct a scalar L_background from source.background.*
+    # and feed it into the SpectralIntegrationStage background-shot
+    # noise term.  Decision #13 pins BackgroundDescriptor to None for
+    # extended terrestrial; Decision #15 documents that the legacy
+    # source.background.* parameters were a nomenclature-trap proxy for
+    # atmospheric path radiance (already owned by AtmosphereStage).
+    # With background_e = 0, the background_shot term drops out of the
+    # RSS and the SNR lifts from 5.52 (pre-Stage-4) to ~315.5.
+    # L_aperture is unchanged because the target-arm radiance transport
+    # is unchanged.
+    "snr": 315.54933814882156,
+    "nedt_K": 0.20598616453385415,
     "mtf_at_nyquist": 0.07587823,
     "L_aperture_W_m2_sr_um": {
         8.0:  5.860529,
@@ -179,8 +190,12 @@ CELL28_PINNED = {
 }
 
 CELL58_PINNED = {
-    "snr": 6.470503,
-    "nedt_K": 9.086301,
+    # Stage 4 Option C landing (2026-04-19): exo atmosphere → no
+    # BackgroundDescriptor for extended, so background_e = 0 and the
+    # background_shot noise drops out of the RSS. SNR lifts from 6.47
+    # (pre-Stage-4) to ~316.0. L_aperture is unchanged.
+    "snr": 315.9745217365823,
+    "nedt_K": 0.18606860088514812,
     "mtf_at_nyquist": 0.06690769,
     "L_aperture_W_m2_sr_um": {
         8.0:  6.485012,

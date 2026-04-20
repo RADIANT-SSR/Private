@@ -280,11 +280,13 @@ class TestSNRUnchanged:
     def test_snr_value_matches_golden(self, result) -> None:
         """SNR should match the golden value.
 
-        Updated: atmosphere model now uses column-integrated OD instead
-        of mean-altitude × slant-path. FWC raised to 2M e- to avoid
-        saturation clipping.
+        Stage 4 Option C landing (2026-04-19): extended terrestrial
+        scenarios no longer synthesise a scalar L_background photon term
+        (Decision #13/#15 — source.background.* is adjacent-scene only).
+        The background_shot noise term goes to zero and SNR rises from
+        the Stage-3 value of 666.21 to 866.11.
         """
-        expected_snr = 666.213613975037106
+        expected_snr = 866.1139666994229
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

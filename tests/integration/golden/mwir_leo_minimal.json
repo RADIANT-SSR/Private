@@ -3,8 +3,8 @@
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
     "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "refractive element emissivity fix: simple refractive eps=0 (absorption unknown)",
-    "notes": "Simple refractive elements (no cavity model) now have eps=0 instead of eps=1-T-R. When only T is known, 1-T is predominantly reflection not absorption. nearfield_shot drops from 686.0 to 0.0 e-."
+    "generated_by": "Option C Stage 4 — Decision #13/#15: extended terrestrial → BackgroundDescriptor=None; background_e=0 and background_shot=0 noise term vanishes",
+    "notes": "Stage 4 Option C landing (2026-04-19). Previous value (666.21) relied on source.background.* synthesising a scalar L_background that was double-counted against the target arm. Extended terrestrial scenes now skip the background photon term entirely (Decision #13). Signal is unchanged (750264.22 e-); noise RSS drops from 1126.16 → 866.24 as background_shot falls from 719.6 to 0."
   },
 
   "signal_e": {
@@ -56,14 +56,14 @@
   },
 
   "noise_rss": {
-    "value": 1126.161646259509325,
+    "value": 866.2419140216884,
     "unit": "e- RMS",
-    "provenance": "RSS of all 16 noise terms: dominated by signal_shot (866.2), background_shot (719.6). nearfield_shot=0 (simple refractive eps=0, absorption unknown)"
+    "provenance": "RSS of 16 noise terms: dominated by signal_shot (866.2); background_shot=0 (Option C Stage 4 — extended terrestrial has no BackgroundDescriptor). nearfield_shot=0 (simple refractive eps=0)."
   },
 
   "snr": {
-    "value": 666.213613975037106,
+    "value": 866.1139666994229,
     "unit": "dimensionless",
-    "provenance": "signal_e_final / sigma_total_e = 750264.22 / 1126.16 = 666.21"
+    "provenance": "signal_e_final / sigma_total_e = 750264.22 / 866.24 = 866.11"
   }
 }

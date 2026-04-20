@@ -379,21 +379,21 @@ class TestTabulatedAtmosphereEvaluate:
 
 
 def test_shadow_mode_off_fixture_sets_env(shadow_mode_off: None) -> None:
-    """Sanity: the fixture does flip the env var inside the test body."""
+    """Sanity: the fixture still flips the env var in Stage 4+.
+
+    Stage 4 removed the shadow-mode wiring entirely, so the env var is
+    inert — the fixture survives only so legacy fixtures that depended
+    on it can be removed gradually.
+    """
     assert os.environ.get("RADIANT_OPTION_C_SHADOW") == "0"
 
 
-def test_shadow_mode_default_is_on() -> None:
-    """Without the fixture, the default is to have shadow-mode ON.
+def test_shadow_mode_symbol_is_gone() -> None:
+    """Stage 4 removed ``_shadow_mode_enabled`` from ``atmosphere.stage``.
 
-    We read the module-level helper rather than the env var so we exercise
-    the production default ("unset → on") rather than any local override.
+    If someone reintroduces the helper they must also reintroduce the
+    legacy dual-path code it gated — which is explicitly forbidden by the
+    Option C plan.  This test fails early if the symbol comes back.
     """
-    from radiant.atmosphere.stage import _shadow_mode_enabled
-    # Preserve any ambient value the developer has exported locally.
-    previous = os.environ.pop("RADIANT_OPTION_C_SHADOW", None)
-    try:
-        assert _shadow_mode_enabled() is True
-    finally:
-        if previous is not None:
-            os.environ["RADIANT_OPTION_C_SHADOW"] = previous
+    import radiant.atmosphere.stage as stage_module
+    assert not hasattr(stage_module, "_shadow_mode_enabled")

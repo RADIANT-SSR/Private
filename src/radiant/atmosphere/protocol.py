@@ -376,43 +376,17 @@ class AtmosphericState:
 class Atmosphere(Protocol):
     """Structural protocol for atmosphere models.
 
-    A model is a pure producer of an :class:`AtmosphericState` for a
-    given wavelength grid and geometry. Implementations must be
-    deterministic: calling ``build_state`` twice with the same inputs
-    must return numerically identical results.
+    A model is a pure producer of an :class:`AtmosphericQuantities`
+    bundle for a given wavelength grid and line-of-sight geometry.
+    Implementations must be deterministic: calling :meth:`evaluate`
+    twice with the same inputs must return numerically identical
+    results.
 
     Implementations must NOT perform file I/O at evaluation time
     (loading happens earlier, in the model constructor) and must NOT
     import from any other physics stage. They may only depend on
     ``radiant.core``.
     """
-
-    def build_state(
-        self,
-        wavelength_um: np.ndarray,
-        geometry: AtmosphericGeometry,
-    ) -> AtmosphericState:
-        """Compute the atmospheric state on the given grid.
-
-        Parameters
-        ----------
-        wavelength_um:
-            1-D ascending wavelength grid in µm, strictly positive.
-        geometry:
-            The :class:`AtmosphericGeometry` to evaluate at.
-
-        Returns
-        -------
-        AtmosphericState
-            The frozen state object the chain consumes.
-
-        Notes
-        -----
-        Legacy method — retained during Option C shadow mode (Stages 3–4)
-        for side-by-side comparison against :meth:`evaluate`. It will be
-        removed once Stage 4 makes the new two-leg bundle authoritative.
-        """
-        ...
 
     def evaluate(
         self,

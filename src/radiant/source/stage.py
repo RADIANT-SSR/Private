@@ -1,22 +1,19 @@
-"""SourceStage — chain wrapper for target spectral radiance with regime classification.
+"""SourceStage — chain wrapper for target descriptors with regime classification.
 
-Wraps :class:`~radiant.source.emitted.ThermalSource` into the
-:class:`~radiant.core.chain.Stage` protocol. Handles thermal
-self-emission, tentative regime classification (IFOV-based), and
-background radiance for sub-pixel mixing.
-
-Produces
---------
-Frame ``"at_target"`` with spectral radiance ``L(λ) = ε · B(λ, T)``
-in W/m²/sr/µm.
+Stage 4 Option C — **SourceStage publishes zero radiance**.  All
+radiance assembly happens in :class:`AtmosphereStage`.  SourceStage
+publishes only descriptors plus tentative regime classification.
 
 Stage outputs under ``stage_outputs["source"]``:
     - ``regime_tentative``: :class:`RadiometricRegime` enum value
     - ``projected_area_m2``: target projected area [m²]
     - ``range_m``: observer-to-target slant range [m]
     - ``fill_fraction``: sub-pixel fill fraction (1.0 = extended)
-    - ``L_background``: spectral radiance array for background [W/m²/sr/µm]
     - ``angular_extent_rad``: target angular extent [rad]
+    - ``regime_override``: raw override string for OpticsStage
+    - ``target``: :class:`TargetDescriptor` (T1/T2/T3/T5)
+    - ``background``: :class:`BackgroundDescriptor` or ``None``
+    - ``los_geometry``: :class:`LineOfSightGeometry` or ``None``
 
 Tentative regime classification (Rule 10 — finalized in OpticsStage):
     angular_extent = sqrt(A_target) / R
@@ -32,13 +29,10 @@ from __future__ import annotations
 
 import math
 
-from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
-from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
 from radiant.source._inferrer import infer_descriptors
-from radiant.source.emitted import ThermalSource
 
 
 def _classify_regime(
@@ -96,25 +90,6 @@ class SourceStage:
         return "source"
 
     def run(self, state: ChainState, params: ParameterSet) -> ChainState:
-        temperature_K: float = params.get("source.target.temperature")
-        emissivity: float = params.get("source.target.emissivity")
-
-        source = ThermalSource(
-            temperature_K=temperature_K,
-            emissivity=emissivity,
-            name="target",
-        )
-
-        L_target = source.spectral_radiance(state.wavelength_um)
-
-        frame = RadiometricFrame(
-            name="at_target",
-            wavelength_um=state.wavelength_um,
-            spectral_radiance=L_target,
-            notes=f"Thermal: ε={emissivity}, T={temperature_K} K",
-        )
-        state = state.with_frame(frame)
-
         # --- Regime classification ---
         # 0.0 is the sentinel for "not provided" (see _schema.py).
         raw_area: float = params.get("source.target.projected_area_m2")
@@ -137,13 +112,6 @@ class SourceStage:
             regime_override=regime_override,
         )
 
-        # --- Background radiance ---
-        bg_temperature_K: float = params.get("source.background.temperature")
-        bg_emissivity: float = params.get("source.background.emissivity")
-        L_background = bg_emissivity * planck_spectral_radiance(
-            state.wavelength_um, bg_temperature_K
-        )
-
         # --- Store stage outputs ---
         state = state.with_stage_output(
             "source", "regime_tentative", regime,
@@ -156,9 +124,6 @@ class SourceStage:
             "source", "fill_fraction", fill_fraction,
         )
         state = state.with_stage_output(
-            "source", "L_background", L_background,
-        )
-        state = state.with_stage_output(
             "source", "angular_extent_rad", angular_extent_rad,
         )
         # Pass through the raw override string so OpticsStage can honor it.
@@ -166,13 +131,10 @@ class SourceStage:
             "source", "regime_override", regime_override,
         )
 
-        # --- Option C descriptors (Stage 2 — additive bridge) ---
-        # ADR-0002: SourceStage publishes TargetDescriptor +
-        # BackgroundDescriptor + LineOfSightGeometry alongside the legacy
-        # radiance frame and L_background stage_output.  Stage 3 starts
-        # consuming these; Stage 4 removes the legacy path.  Zero
-        # downstream stage reads these new keys today, so the additive
-        # wiring is a pure superset of the current contract.
+        # --- Option C descriptors — the authoritative Stage 4 output.
+        # SourceStage publishes no radiance frames; all radiance assembly
+        # happens in AtmosphereStage via :func:`assemble_target_at_aperture`
+        # and :func:`assemble_background_at_aperture`.
         target_desc, background_desc, los_geometry = infer_descriptors(
             params=params,
             wavelength_um=state.wavelength_um,

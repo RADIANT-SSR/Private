@@ -100,6 +100,30 @@
 **Why it matters**: Rule 11 forbids physics stages from importing higher-layer modules, but tests are less strict. The current import-linter contract does not distinguish test code from library code, so the contract reports these as breakages.
 **Suggested fix**: amend the `pyproject.toml` import-linter contracts to exempt `radiant.*.tests.*` from cross-stage import rules (tests legitimately need the public API to build real ParameterSets). This is not Stage-2-specific; it merges naturally with CU-001.
 
+### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
+
+**Discovered**: Option C Stage 3 (2026-04-19)
+**File**: `src/radiant/atmosphere/modtran.py`
+**Symptom**: the Stage 3 `evaluate()` adapter populates `tau_sun = tau_up = tau_full_up` from the legacy single-τ MODTRAN output and emits a one-time `UserWarning` flagging the degradation. Real two-leg fidelity requires either a second TAPE7 run at `θ_s` or an analytic split.
+**Why it matters**: VIS/NIR reflective scenarios that use the MODTRAN backend will behave as if `τ_sun = τ_up`, losing the solar-zenith dependence that Stage 3's new two-leg model is designed to capture.
+**Suggested fix**: in Stage 6 (spectral_integration), when `E_sky_scattered` is decomposed, also split `τ_sun` via a second MODTRAN call keyed on `(los.h_tgt, θ_s)`. Add the new key to the MODTRAN cache signature.
+
+### CU-012 — Shadow-mode classification injection not wired
+
+**Discovered**: Option C Stage 3 (2026-04-19)
+**File**: `src/radiant/atmosphere/stage.py` (reads `state.stage_outputs["meta"]["option_c_classification"]`) and the integration harness.
+**Symptom**: `AtmosphereStage` reads the per-scenario classification from a stage-output field that nothing currently populates. Today's integration tests therefore skip the shadow-mode comparison (the code branch `if classification is None: return`). The anchor tests exercise the assembly path directly and still pass, so no CI signal is lost — but the "invariant" hard-assert for Cells 28/58 only fires when the meta field is explicitly set.
+**Why it matters**: the plan's shadow-mode policy expects every scenario run in the Stage 0 baseline snapshot to receive a classification; unclassified cells should fail loudly. Right now the stage silently bypasses the compare.
+**Suggested fix**: add a pytest fixture in `tests/integration/conftest.py` that loads `tests/integration/snapshots/option_c_baseline.yaml`, matches the running scenario's YAML path or id, and injects `meta.option_c_classification` into the chain state (via a pre-stage hook or parameter). Fail loudly on cells present in the baseline but absent from the fixture.
+
+### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells
+
+**Discovered**: Option C Stage 3 (2026-04-19)
+**File**: `src/radiant/atmosphere/stage.py` (`_SHADOW_RTOL = 1e-6`)
+**Symptom**: Stage 3 passes bit-exact on invariant cells. Stage 6 will introduce small-but-real spectral physics changes in cells classified `expected_to_change_at_stage_6`. If any residual invariant-classified cell has a ~1e-7 relative drift from accumulated floating-point noise at that time, the current threshold will false-trip.
+**Why it matters**: a false-trip would block Stage 6 land while being a non-bug. Too-loose a threshold could hide a real bug.
+**Suggested fix**: during Stage 6, run the full suite at `rtol=1e-9` first to survey real drift magnitudes, then set `_SHADOW_RTOL` to the largest invariant-cell residual plus one decade of margin. Document the chosen value and the survey data in the Stage 6 report.
+
 ---
 
 ## Resolved

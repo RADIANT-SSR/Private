@@ -29,10 +29,14 @@ from typing import Any
 
 import numpy as np
 
+from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterSet
+from radiant.core.solar import toa_solar_spectral_irradiance
 from radiant.core.spectral import SpectralData, SpectralGrid
 
 logger = logging.getLogger(__name__)
@@ -452,4 +456,94 @@ class TabulatedAtmosphere:
                 f"TabulatedAtmosphere(source={self.source_path})",
                 "Geometry-agnostic: values not rescaled with viewing geometry",
             ),
+        )
+
+    def evaluate(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+        params: ParameterSet,
+    ) -> AtmosphericQuantities:
+        """Thin adapter over the legacy τ / L_path / L_atm_down tables.
+
+        Tabulated files pre-date the Option C two-leg split, so the new
+        fields are populated as follows:
+
+        - ``tau_sun == tau_up == tau_full_up`` = the single tabulated
+          ``transmittance`` resampled to the chain grid.  The legacy
+          pipeline collapsed both legs into one factor; the tabulated
+          files carry the same collapse.  A UserWarning is emitted so
+          the caller sees that the two-leg split has been degraded.
+        - ``L_path_up == L_path_full`` = the single tabulated path
+          radiance.  Surface target assumption (h_tgt == 0) still
+          applies — ``h_tgt > 0`` raises :class:`NotImplementedError`.
+        - ``E_TOA`` = ``toa_solar_spectral_irradiance`` on the chain grid
+          (tabulated files do not carry the solar spectrum).
+        - ``E_sky_scattered`` = 0 (not tabulated).
+        - ``E_sky_thermal`` = ``π · L_atm_down`` — converts the tabulated
+          downwelling radiance to an irradiance using the Lambertian
+          hemisphere integral, consistent with how the assembly equation
+          divides ``E_sky`` by π downstream.
+        """
+        import warnings
+
+        if los.h_tgt > 0.0:
+            raise NotImplementedError(
+                f"TabulatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
+                "(airborne targets) is a Stage 5 deliverable; v1 supports "
+                "only surface-level tabulated runs."
+            )
+        _ = params  # unused; tabulated is geometry-agnostic by design.
+
+        lam = np.asarray(wavelength_um, dtype=np.float64)
+        # Reuse the standard input validation via build_state path shape
+        # checks by constructing a grid directly (we do not need the
+        # build_state product here).
+        if lam.ndim != 1 or lam.size < 2 or not np.all(np.diff(lam) > 0):
+            raise ValueError(
+                f"TabulatedAtmosphere '{self.name}': wavelength_um must be "
+                "a strictly ascending 1-D array of length ≥ 2."
+            )
+        if np.any(lam <= 0.0):
+            raise ValueError(
+                f"TabulatedAtmosphere '{self.name}': wavelength_um must be strictly positive."
+            )
+
+        warnings.warn(
+            (
+                "TabulatedAtmosphere.evaluate: backend does not carry the "
+                "Option C two-leg split — collapsing τ_sun=τ_up=τ_full_up and "
+                "L_path_up=L_path_full to the single tabulated value.  "
+                "Two-leg scenarios need a richer tabulated format (Stage 6+)."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+        target_grid = SpectralGrid(wavelengths_um=lam)
+        tau = np.asarray(self.transmittance_data.resample(target_grid).values, dtype=np.float64)
+        lpath = np.asarray(
+            self.path_radiance_data.resample(target_grid).values, dtype=np.float64
+        )
+        ldown = np.asarray(
+            self.atm_emission_down_data.resample(target_grid).values, dtype=np.float64
+        )
+
+        E_TOA = np.asarray(toa_solar_spectral_irradiance(lam), dtype=np.float64)
+        E_sky_thermal = np.pi * ldown
+        E_sky_scattered = np.zeros_like(lam)
+
+        # Clamp for the __post_init__ non-negative invariants.
+        E_sky_thermal = np.maximum(E_sky_thermal, 0.0)
+
+        return AtmosphericQuantities(
+            wavelength_um=lam,
+            tau_sun=tau,
+            tau_up=tau.copy(),
+            tau_full_up=tau.copy(),
+            E_TOA=E_TOA,
+            E_sky_scattered=E_sky_scattered,
+            E_sky_thermal=E_sky_thermal,
+            L_path_up=lpath,
+            L_path_full=lpath.copy(),
         )

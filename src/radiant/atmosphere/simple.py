@@ -69,12 +69,18 @@ from typing import Any
 
 import numpy as np
 
+from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
 from radiant.core.blackbody import planck_spectral_radiance
-from radiant.core.solar import toa_solar_equivalent_radiance
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterBoundsError, ParameterSet
+from radiant.core.solar import (
+    toa_solar_equivalent_radiance,
+    toa_solar_spectral_irradiance,
+)
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -573,3 +579,242 @@ class SimpleAtmosphere:
                 f"[{self.standard_atmosphere}]",
             ),
         )
+
+    # ------------------------------------------------------------------
+    # Option C evaluate()
+    # ------------------------------------------------------------------
+
+    def evaluate(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+        params: ParameterSet,
+    ) -> AtmosphericQuantities:
+        """Option C two-leg quantities bundle.
+
+        v1 scope (matching the Use-Case Matrix "invariant" cells):
+
+        - Supports ``h_tgt == 0`` only.  Airborne targets (``h_tgt > 0``)
+          raise :class:`NotImplementedError` — Stage 5 of the Option C
+          plan lifts this restriction.
+        - ``tau_up == tau_full_up`` by construction when ``h_tgt == 0``.
+        - ``tau_sun`` is the vertical column attenuation from the ground
+          to the top of the atmosphere along the solar zenith.  In the
+          legacy code the solar down-leg and sensor up-leg were collapsed
+          into a single factor; Option C separates them.
+        - ``L_path_up == L_path_full`` (surface target, full column).
+        - ``E_sky_scattered`` is zero in v1 (a Stage 6 deliverable; the
+          simple model has no multiple-scatter sky irradiance).
+        - ``E_sky_thermal = (1 − τ_down) · π · B(T_atm_eff)`` — the
+          graybody sky convert of the legacy ``L_atm_down`` term from
+          radiance to irradiance (the source of the Lambertian ``π``
+          factor that the assembly equation divides back out).
+
+        The sensor altitude comes from ``params["geometry.sensor_altitude_m"]``
+        (the LineOfSightGeometry does not carry ``h_sensor`` in v1 — see
+        `docs/RADIANT_SourceStage.md`).
+        """
+        h_tgt = los.h_tgt
+        if h_tgt > 0.0:
+            raise NotImplementedError(
+                f"SimpleAtmosphere.evaluate: h_tgt = {h_tgt} m > 0 "
+                "(airborne targets) is a Stage 5 deliverable of the Option C "
+                "plan.  v1 supports surface targets only; use "
+                "target_location='at_aperture' or switch to a later-stage "
+                "backend for airborne targets."
+            )
+
+        lam = np.asarray(wavelength_um, dtype=np.float64)
+        if lam.ndim != 1:
+            raise ValueError(
+                f"SimpleAtmosphere '{self.name}': wavelength_um must be 1-D, "
+                f"got shape {lam.shape}."
+            )
+        if lam.size < 2:
+            raise ValueError(
+                f"SimpleAtmosphere '{self.name}': wavelength_um needs at "
+                f"least two samples, got {lam.size}."
+            )
+        if not np.all(np.diff(lam) > 0):
+            raise ValueError(
+                f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly ascending."
+            )
+        if np.any(lam <= 0.0):
+            raise ValueError(
+                f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly positive."
+            )
+
+        # Sensor altitude from the ParameterSet (LineOfSightGeometry does
+        # not carry h_sensor in v1 — see Stage 3 plan).
+        h_sensor_m = float(params.get("geometry.sensor_altitude_m"))
+        if h_sensor_m < 0.0:
+            raise ParameterBoundsError(
+                what=f"SimpleAtmosphere.evaluate: h_sensor = {h_sensor_m} m is negative",
+                why="Sensor altitude must be non-negative.",
+                action="Set geometry.sensor_altitude_m ≥ 0.",
+                context={"h_sensor_m": h_sensor_m},
+            )
+
+        # --- Geometry factors ---
+        # Up-leg airmass: straight from LOS (includes spherical correction).
+        airmass_up = los.path_airmass_up if h_sensor_m >= los.h_atm_top else (
+            # sensor below top of atmosphere: compute airmass as the ratio
+            # of the LOS slant range to the sensor-column vertical extent
+            # using the same secant/spherical root-form.  We construct a
+            # throwaway AtmosphericGeometry identical in shape to the
+            # legacy build_state() call and read air_mass() off it — this
+            # is what makes Cell 28 bit-exact.
+            AtmosphericGeometry(
+                sensor_altitude_m=h_sensor_m,
+                target_altitude_m=0.0,
+                path_zenith_rad=los.theta_o,
+            ).air_mass()
+        )
+        # For the sun down-leg, the equivalent "airmass_down" is sec(θ_s)
+        # with a spherical correction past 80°.  Reuse the same
+        # AtmosphericGeometry class with target_altitude_m=h_atm_top as the
+        # "upper endpoint" of the solar column.  Use params fallback when
+        # the LOS does not carry theta_s (shadow-mode legacy parity).
+        if los.theta_s is not None:
+            theta_s_effective = los.theta_s
+        else:
+            try:
+                theta_s_effective = float(params.get("geometry.solar_zenith_rad"))
+            except (KeyError, TypeError):
+                theta_s_effective = 0.0
+        if math.cos(theta_s_effective) > 0.0:
+            sun_geom = AtmosphericGeometry(
+                sensor_altitude_m=los.h_atm_top,
+                target_altitude_m=0.0,
+                path_zenith_rad=min(theta_s_effective, ZENITH_CEILING_RAD_SIMPLE),
+            )
+            airmass_sun = sun_geom.air_mass()
+        else:
+            airmass_sun = 1.0  # vertical column — irrelevant when sun term is zero
+
+        # --- Column-integrated OD from h_tgt=0 to h_sensor_m ---
+        sigma_mol_0 = self._rayleigh_extinction_km(lam, 0.0)
+        sigma_aer_0 = self._aerosol_extinction_km(lam, 0.0)
+        sigma_h2o_0 = self._h2o_extinction_km(lam)
+
+        # Sensor-leg column length (0 → h_sensor_m).
+        col_mol_up = self._column_length_km(0.0, h_sensor_m, H_MOL_M)
+        col_aer_up = self._column_length_km(0.0, h_sensor_m, H_AER_M)
+        col_h2o_up = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
+
+        od_vert_up = (
+            sigma_mol_0 * col_mol_up
+            + sigma_aer_0 * col_aer_up
+            + sigma_h2o_0 * col_h2o_up
+        )
+        od_slant_up = od_vert_up * airmass_up
+        tau_up = np.exp(-od_slant_up)
+
+        # Full-column (0 → h_atm_top) vertical OD — used for the sun leg
+        # and (since h_tgt=0) equals the sensor-leg column when h_sensor
+        # coincides with h_atm_top.
+        col_mol_full = self._column_length_km(0.0, los.h_atm_top, H_MOL_M)
+        col_aer_full = self._column_length_km(0.0, los.h_atm_top, H_AER_M)
+        col_h2o_full = self._column_length_km(0.0, los.h_atm_top, H_H2O_M)
+        od_vert_full = (
+            sigma_mol_0 * col_mol_full
+            + sigma_aer_0 * col_aer_full
+            + sigma_h2o_0 * col_h2o_full
+        )
+        # Sun down-leg slant OD.
+        od_slant_sun = od_vert_full * airmass_sun
+        tau_sun = np.exp(-od_slant_sun)
+
+        # h_tgt == 0 → the target is on the ground; tau_full_up is the
+        # full ground-to-sensor column, which is exactly tau_up.
+        tau_full_up = tau_up.copy()
+
+        # --- E_TOA from core solar spectrum ---
+        E_TOA = np.asarray(toa_solar_spectral_irradiance(lam), dtype=np.float64)
+
+        # --- Single-scatter L_path_up (matches legacy formula bit-exactly) ---
+        # Mean-altitude extinctions for the phase function and SSA weights.
+        mean_alt_m = 0.5 * h_sensor_m  # h_tgt=0, h_sen=h_sensor_m
+        sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
+        sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
+        h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
+        sigma_h2o = sigma_h2o_0 * h2o_scale
+
+        # Solar-zenith fallback: when the LOS does not carry theta_s (the
+        # LWIR-friendly Stage-2 inferrer default), the simple backend
+        # falls back to the ParameterSet default for the single-scatter
+        # L_path computation.  This preserves bit-exact equivalence with
+        # the legacy build_state() path in shadow mode — the T1 assembly
+        # arm (which has ρ = 0) is unaffected either way.  Descriptors
+        # that do carry theta_s override the params default.
+        if los.theta_s is not None:
+            theta_s_for_scatter = los.theta_s
+        else:
+            try:
+                theta_s_for_scatter = float(params.get("geometry.solar_zenith_rad"))
+            except (KeyError, TypeError):
+                theta_s_for_scatter = 0.0
+        cos_theta_sun = math.cos(theta_s_for_scatter)
+
+        if los.delta_phi is not None:
+            delta_phi_for_scatter = los.delta_phi
+        else:
+            try:
+                delta_phi_for_scatter = float(params.get("geometry.solar_azimuth_rad"))
+            except (KeyError, TypeError):
+                delta_phi_for_scatter = 0.0
+
+        scatter_geom = AtmosphericGeometry(
+            sensor_altitude_m=h_sensor_m,
+            target_altitude_m=0.0,
+            path_zenith_rad=los.theta_o,
+            solar_zenith_rad=theta_s_for_scatter,
+            solar_azimuth_rad=delta_phi_for_scatter,
+        )
+        cos_theta_scatter = scatter_geom.cos_scattering_angle()
+
+        omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
+        phase = self._single_scatter_phase_function(cos_theta_scatter, sigma_mol, sigma_aer)
+
+        if cos_theta_sun > 0.0:
+            l_sun = toa_solar_equivalent_radiance(lam)
+            L_path_vals = (
+                l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau_up) / 4.0
+            )
+            L_path_vals = np.maximum(L_path_vals, 0.0)
+        else:
+            L_path_vals = np.zeros_like(lam)
+        L_path_up = L_path_vals
+        # h_tgt == 0 → L_path_full == L_path_up.
+        L_path_full = L_path_up.copy()
+
+        # --- E_sky_thermal: (1 − τ_down) · π · B(T_atm_eff) ---
+        # τ_down is the sensor-to-ground vertical transmittance (airmass=1).
+        # For h_tgt=0 and h_sensor=h_sensor_m, this is exp(-od_vert_up).
+        tau_down_vertical = np.exp(-od_vert_up)
+        t_atm_eff_K = self._effective_atmospheric_temperature_K(h_sensor_m)
+        B_atm = planck_spectral_radiance(lam, t_atm_eff_K)
+        E_sky_thermal = (1.0 - tau_down_vertical) * np.pi * B_atm
+        E_sky_scattered = np.zeros_like(lam)  # Stage 6 deliverable
+
+        # Snap tiny numerical negatives (from floating-point cancellation) to 0.
+        # τ ∈ (0, 1] and (1 − τ) is the main risk; with expm1 we avoid it but
+        # the assembly invariant forbids silent clipping past the tolerance.
+        E_sky_thermal = np.maximum(E_sky_thermal, 0.0)
+
+        return AtmosphericQuantities(
+            wavelength_um=lam,
+            tau_sun=tau_sun,
+            tau_up=tau_up,
+            tau_full_up=tau_full_up,
+            E_TOA=E_TOA,
+            E_sky_scattered=E_sky_scattered,
+            E_sky_thermal=E_sky_thermal,
+            L_path_up=L_path_up,
+            L_path_full=L_path_full,
+        )
+
+
+# Re-export the spherical ceiling so evaluate() above can clamp sun zenith
+# without importing from protocol.py inside the method body.
+from radiant.atmosphere.protocol import ZENITH_CEILING_RAD as ZENITH_CEILING_RAD_SIMPLE  # noqa: E402

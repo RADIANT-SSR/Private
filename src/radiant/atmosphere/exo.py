@@ -20,10 +20,14 @@ from __future__ import annotations
 
 import numpy as np
 
+from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterSet
+from radiant.core.solar import toa_solar_spectral_irradiance
 from radiant.core.spectral import SpectralData
 
 
@@ -102,4 +106,58 @@ class ExoAtmosphere:
             atm_emission_down=atm_emission_down,
             geometry=geometry,
             derivation_chain=("ExoAtmosphere: τ≡1, L_path≡0, L_atm_down≡0",),
+        )
+
+    def evaluate(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+        params: ParameterSet,
+    ) -> AtmosphericQuantities:
+        """Option C bundle for the vacuum path.
+
+        All transmittances are unity; all path radiances are zero; and the
+        sky-irradiance terms are zero.  ``E_TOA`` is populated from
+        ``radiant.core.solar.toa_solar_spectral_irradiance`` so that
+        downstream reflective arms that happen to be wired up to an exo
+        atmosphere (e.g. lab test scenarios with a simulated sun) still
+        see the true top-of-atmosphere irradiance — even though for a
+        purely thermal cell with ``theta_s = None`` the direct-solar
+        branch vanishes in ``assembly``.
+        """
+        _ = los, params  # params/los unused in the trivial exo case
+        lam = np.asarray(wavelength_um, dtype=np.float64)
+        if lam.ndim != 1:
+            raise ValueError(
+                f"ExoAtmosphere '{self.name}': wavelength_um must be 1-D, "
+                f"got shape {lam.shape}."
+            )
+        if lam.size < 2:
+            raise ValueError(
+                f"ExoAtmosphere '{self.name}': wavelength_um needs at least "
+                f"two samples, got {lam.size}."
+            )
+        if not np.all(np.diff(lam) > 0):
+            raise ValueError(
+                f"ExoAtmosphere '{self.name}': wavelength_um must be strictly ascending."
+            )
+        if np.any(lam <= 0.0):
+            raise ValueError(
+                f"ExoAtmosphere '{self.name}': wavelength_um must be strictly positive."
+            )
+
+        ones = np.ones_like(lam)
+        zeros = np.zeros_like(lam)
+        E_TOA = np.asarray(toa_solar_spectral_irradiance(lam), dtype=np.float64)
+
+        return AtmosphericQuantities(
+            wavelength_um=lam,
+            tau_sun=ones,
+            tau_up=ones.copy(),
+            tau_full_up=ones.copy(),
+            E_TOA=E_TOA,
+            E_sky_scattered=zeros,
+            E_sky_thermal=zeros.copy(),
+            L_path_up=zeros.copy(),
+            L_path_full=zeros.copy(),
         )

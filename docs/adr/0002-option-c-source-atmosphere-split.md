@@ -175,6 +175,27 @@ Matrix §7 cross-field validators land in descriptor `__post_init__` blocks, not
 - *"Breaking change for existing scenarios"*: managed by the Stage 2 back-compat inferrer that maps current flat parameters to descriptors with sensible defaults. Existing scenarios continue to run unchanged.
 - *"Frame consumers depend on `at_target`"*: the only legitimate downstream consumer is SpectralIntegrationStage, which will consume `at_aperture_target` and `at_aperture_background` after Stage 4. The legacy `at_target` frame is removed at that point.
 
+### Decision #15 — `source.background.*` is adjacent-scene only
+
+**Problem**: the matrix/code uses "background" in a way that collides with the common EO engineer's usage. In Option C there are three distinct non-target photon sources:
+
+1. **Adjacent-scene radiance** — what fills a sub-pixel footprint beside a point/sub-pixel target, or what lies geometrically behind the target (cold space behind an Earth target, etc.). Option C names this via `BackgroundDescriptor` (`GroundBackground`, `ColdSpaceBackground`, `AtApertureBackground`, `UserSpectralBackground`). **Absent for extended scenes** (the target *is* the adjacent scene) — this is matrix Decision #13.
+2. **Atmospheric path radiance in front of the target** — photons scattered/emitted into the LOS by the column between target and sensor. Always present in a non-vacuum path, independent of scene regime. Named `L_path_up` / `L_path_full` in `AtmosphericQuantities`; owned by AtmosphereStage.
+3. **Downwelling sky that reflects off the target** — illumination of the target via `E_sky_thermal` + `E_sky_scattered`. Not "background" in any traditional sense; contributes to target leaving radiance via `ρ·E_sky/π`.
+
+**The legacy trap**: pre-Option-C, the scalar parameters `source.background.temperature` and `source.background.emissivity` fed a single `L_background = ε_bg · B(T_bg)` path through SourceStage and into SpectralIntegrationStage's background-photon-shot term. Extended-scene YAMLs (Cells 28 and 58 among them) set these parameters because the chain required *something* non-zero — most plausibly as a proxy for **atmospheric path thermal emission** (intent = (2) above), not as an adjacent-scene term that Decision #13 correctly says does not exist. The Stage 0 anchor values bake this double-count in.
+
+**Decision**: `source.background.*` parameters describe (1) only. They populate `BackgroundDescriptor` and are meaningful only when a background is meaningful — i.e., for `sub_pixel`, `point_source`, and the explicit `no_atmosphere` sub-cases. For `scene_type == "extended"`:
+
+- Stage 2's `_infer_background_descriptor` returns `None` (Decision #13).
+- If the user *also* set `source.background.temperature > 0` and/or `source.background.emissivity > 0`, Stage 2 emits a `UserWarning` naming the likely intent-mismatch and pointing at the atmosphere parameter surface. **No silent bypass; no silent honour.** (Rule 17.)
+- SpectralIntegrationStage skips the background photon term when no background frame is published (already Rule 9 behavior).
+- Atmospheric thermal path emission is computed from atmosphere-stage physics — `SimpleAtmosphere` derives `L_path_up` from `T_atm_eff` and the column integral; `ExoAtmosphere` returns zero; `TabulatedAtmosphere` lifts a precomputed table.
+
+**Consequence for Stage 0 anchors**: Cells 28 and 58 (both extended LWIR) re-baseline at Stage 4. Their Stage 0 `invariant` classification was predicated on the missed double-count; the architecturally correct SNRs under Decision #13 + strict path-radiance ownership differ from the Stage 0 numbers. Stage 4 authors the new anchor values and `docs/option_c_baseline.md` records the old-vs-new diff with physics commentary.
+
+**Why this is not a parameter migration**: the user's intent-under-the-hood was almost always atmospheric path radiance, which is already computed by the atmosphere backend without the user touching any knob. For the terrestrial case the SimpleAtmosphere path-integral produces it; for the exo case it is genuinely zero. There is nothing to automatically migrate — the legacy parameter was over-specifying the system. The `UserWarning` explains this to legacy users.
+
 ## Consequences
 
 ### Positive

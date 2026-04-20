@@ -54,7 +54,8 @@ scenarios:
     - 8.59494248588731
     - 8.15242727272366
     cell_ref: Cell 28
-    classification: invariant
+    classification: expected_to_change_at_stage_4
+    classification_reason: 'Extended LWIR scene; Decision #15 (ADR-0002) drops the legacy ε_bg·B(T_bg) double-count. Re-baseline authored at Stage 4.'
     error: null
     mtf_at_nyquist: 0.0758782349334645
     nedt_K: 11.773426337279998
@@ -74,7 +75,8 @@ scenarios:
     - 7.04882131424145
     - 7.062286743128634
     cell_ref: Cell 28
-    classification: invariant
+    classification: expected_to_change_at_stage_4
+    classification_reason: 'Extended LWIR scene; Decision #15 (ADR-0002) drops the legacy ε_bg·B(T_bg) double-count. Re-baseline authored at Stage 4.'
     error: null
     mtf_at_nyquist: 0.06009659862829384
     nedt_K: 10.275918378988923
@@ -94,7 +96,8 @@ scenarios:
     - 6.528087266960084
     - null
     cell_ref: Cell 28
-    classification: invariant
+    classification: expected_to_change_at_stage_4
+    classification_reason: 'Extended LWIR scene; Decision #15 (ADR-0002) drops the legacy ε_bg·B(T_bg) double-count. Re-baseline authored at Stage 4.'
     error: null
     mtf_at_nyquist: 0.07787930551805869
     nedt_K: 4.60354470669466

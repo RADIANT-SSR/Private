@@ -34,10 +34,13 @@ from typing import Any
 
 import numpy as np
 
+from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData, SpectralGrid
 
 logger = logging.getLogger(__name__)
@@ -674,6 +677,90 @@ class ModtranAtmosphere:
                 )
                 return self._fallback(lam, geometry)
             raise
+
+    def evaluate(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+        params: ParameterSet,
+    ) -> AtmosphericQuantities:
+        """Option C thin adapter over the legacy MODTRAN ``build_state``.
+
+        MODTRAN's tape7 output pre-dates the two-leg split, so this adapter
+        collapses the legs the same way :class:`TabulatedAtmosphere` does:
+
+        - ``tau_sun == tau_up == tau_full_up`` — the single MODTRAN
+          transmittance, re-evaluated at the cached up-leg geometry.
+        - ``L_path_up == L_path_full``.
+        - ``E_sky_thermal == π · L_atm_down``.
+        - ``E_sky_scattered == 0`` (Stage 6 deliverable).
+        - ``E_TOA`` from the core solar irradiance so the direct-solar
+          branch still works in the assembly.
+
+        Surface targets (``h_tgt == 0``) only in v1; see Stage 5 for the
+        airborne extension.
+        """
+        import warnings
+
+        from radiant.core.solar import toa_solar_spectral_irradiance
+
+        if los.h_tgt > 0.0:
+            raise NotImplementedError(
+                f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
+                "(airborne targets) is a Stage 5 deliverable; v1 MODTRAN "
+                "runs are surface-target only."
+            )
+
+        # Reconstruct an AtmosphericGeometry from params; MODTRAN consumes it
+        # via build_state below.
+        geometry = AtmosphericGeometry(
+            sensor_altitude_m=float(params.get("geometry.sensor_altitude_m")),
+            target_altitude_m=0.0,
+            path_zenith_rad=float(los.theta_o),
+            solar_zenith_rad=(
+                float(los.theta_s) if los.theta_s is not None
+                else float(params.get("geometry.solar_zenith_rad"))
+            ),
+            solar_azimuth_rad=(
+                float(los.delta_phi) if los.delta_phi is not None
+                else float(params.get("geometry.solar_azimuth_rad"))
+            ),
+        )
+
+        legacy_state = self.build_state(wavelength_um, geometry)
+        tau = np.asarray(legacy_state.transmittance.values, dtype=np.float64)
+        lpath = np.asarray(legacy_state.path_radiance.values, dtype=np.float64)
+        ldown = np.asarray(legacy_state.atm_emission_down.values, dtype=np.float64)
+
+        warnings.warn(
+            (
+                "ModtranAtmosphere.evaluate: the MODTRAN-tape7 backend does not "
+                "carry the Option C two-leg split — collapsing "
+                "τ_sun=τ_up=τ_full_up and L_path_up=L_path_full to the single "
+                "MODTRAN transmittance.  Two-leg scenarios need a richer MODTRAN "
+                "rendering (Stage 6+)."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+        E_TOA = np.asarray(
+            toa_solar_spectral_irradiance(wavelength_um), dtype=np.float64
+        )
+        E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
+        E_sky_scattered = np.zeros_like(wavelength_um, dtype=np.float64)
+
+        return AtmosphericQuantities(
+            wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+            tau_sun=tau,
+            tau_up=tau.copy(),
+            tau_full_up=tau.copy(),
+            E_TOA=E_TOA,
+            E_sky_scattered=E_sky_scattered,
+            E_sky_thermal=E_sky_thermal,
+            L_path_up=lpath,
+            L_path_full=lpath.copy(),
+        )
 
     def _build_state_from_arrays(
         self,

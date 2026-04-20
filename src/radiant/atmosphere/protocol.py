@@ -26,6 +26,9 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
+from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -402,5 +405,44 @@ class Atmosphere(Protocol):
         -------
         AtmosphericState
             The frozen state object the chain consumes.
+
+        Notes
+        -----
+        Legacy method — retained during Option C shadow mode (Stages 3–4)
+        for side-by-side comparison against :meth:`evaluate`. It will be
+        removed once Stage 4 makes the new two-leg bundle authoritative.
+        """
+        ...
+
+    def evaluate(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+        params: ParameterSet,
+    ) -> AtmosphericQuantities:
+        """Compute the Option C two-leg atmospheric quantities bundle.
+
+        Produces the eight spectral arrays that the assembly equation
+        needs: ``τ_sun``, ``τ_up``, ``τ_full_up``, ``E_TOA``,
+        ``E_sky_scattered``, ``E_sky_thermal``, ``L_path_up``,
+        ``L_path_full`` — all on the supplied wavelength grid and for the
+        given :class:`LineOfSightGeometry`.
+
+        Parameters
+        ----------
+        wavelength_um:
+            1-D ascending wavelength grid in µm, strictly positive.
+        los:
+            The :class:`LineOfSightGeometry` published by SourceStage.
+        params:
+            The resolved :class:`ParameterSet` for the run.  Backends may
+            consult it for atmospheric-model-specific settings; the
+            authoritative geometry comes from ``los``.
+
+        Returns
+        -------
+        AtmosphericQuantities
+            The frozen Stage 3 output contract consumed by
+            ``radiant.atmosphere.assembly``.
         """
         ...

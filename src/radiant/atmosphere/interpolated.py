@@ -40,10 +40,14 @@ from typing import Any
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
 
+from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterSet
+from radiant.core.solar import toa_solar_spectral_irradiance
 from radiant.core.spectral import SpectralData
 
 logger = logging.getLogger(__name__)
@@ -500,4 +504,72 @@ class InterpolatedAtmosphere:
                 "tau interpolated in log-space (optical depth)",
                 "L_path, L_atm_down interpolated linearly",
             ),
+        )
+
+    def evaluate(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+        params: ParameterSet,
+    ) -> AtmosphericQuantities:
+        """Thin adapter over the interpolator's 3-field legacy output.
+
+        Same degradation contract as :meth:`TabulatedAtmosphere.evaluate`:
+        τ_sun = τ_up = τ_full_up and L_path_up = L_path_full are
+        interpolated from the legacy three-field data set, with E_TOA
+        drawn from ``radiant.core.solar`` and E_sky_thermal = π · L_atm_down.
+
+        v1 limitation: ``h_tgt > 0`` raises :class:`NotImplementedError`.
+        """
+        import warnings
+
+        if los.h_tgt > 0.0:
+            raise NotImplementedError(
+                f"InterpolatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
+                "(airborne targets) is a Stage 5 deliverable."
+            )
+
+        # Build a legacy AtmosphericGeometry to reuse the interpolator's
+        # coordinate-extraction logic.  h_sensor comes from params.
+        h_sensor_m = float(params.get("geometry.sensor_altitude_m"))
+        theta_s = float(los.theta_s) if los.theta_s is not None else 0.0
+        delta_phi = float(los.delta_phi) if los.delta_phi is not None else 0.0
+        geometry = AtmosphericGeometry(
+            sensor_altitude_m=h_sensor_m,
+            target_altitude_m=0.0,
+            path_zenith_rad=los.theta_o,
+            solar_zenith_rad=theta_s,
+            solar_azimuth_rad=delta_phi,
+        )
+        atm_state = self.build_state(wavelength_um, geometry)
+        lam = atm_state.wavelength_um
+
+        warnings.warn(
+            (
+                "InterpolatedAtmosphere.evaluate: backend does not carry the "
+                "Option C two-leg split — collapsing τ_sun=τ_up=τ_full_up and "
+                "L_path_up=L_path_full to the single interpolated value."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+        tau = np.asarray(atm_state.transmittance.values, dtype=np.float64)
+        lpath = np.asarray(atm_state.path_radiance.values, dtype=np.float64)
+        ldown = np.asarray(atm_state.atm_emission_down.values, dtype=np.float64)
+
+        E_TOA = np.asarray(toa_solar_spectral_irradiance(lam), dtype=np.float64)
+        E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
+        E_sky_scattered = np.zeros_like(lam)
+
+        return AtmosphericQuantities(
+            wavelength_um=lam,
+            tau_sun=tau,
+            tau_up=tau.copy(),
+            tau_full_up=tau.copy(),
+            E_TOA=E_TOA,
+            E_sky_scattered=E_sky_scattered,
+            E_sky_thermal=E_sky_thermal,
+            L_path_up=lpath,
+            L_path_full=lpath.copy(),
         )

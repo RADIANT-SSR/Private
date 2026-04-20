@@ -111,9 +111,9 @@ class SpectralIntegrationStage:
 
         elif regime == RadiometricRegime.POINT_SOURCE:
             # Point source: target contribution only (no path radiance).
-            # S = L_target · τ_atm · τ_opt · A_collect · (A_target/R²) · (λ/hc)
-            # L_post_optics includes L_path which fills the pixel as background,
-            # so we reconstruct target-only contribution.
+            # S = L_target_only · τ_opt · A_collect · (A_target/R²) · (λ/hc)
+            # The at_aperture_target frame bundles L_target · τ_up + L_path_up;
+            # isolate the target-only term by subtracting L_path_up.
             source_out = state.stage_outputs["source"]
             A_target: float = source_out["projected_area_m2"]
             R: float = source_out["range_m"]
@@ -124,16 +124,20 @@ class SpectralIntegrationStage:
                     f"Got A_target={A_target}, R={R}."
                 )
 
-            # Target-only radiance through atmosphere and optics.
-            L_target = state.frames["at_target"].spectral_radiance
-            if L_target is None:
+            L_aperture_target = state.frames["at_aperture_target"].spectral_radiance
+            if L_aperture_target is None:
                 raise ValueError(
-                    "SpectralIntegrationStage: 'at_target' frame has no spectral_radiance."
+                    "SpectralIntegrationStage: 'at_aperture_target' frame has "
+                    "no spectral_radiance."
                 )
             atm_out = state.stage_outputs["atmosphere"]
-            tau_atm = atm_out["tau_atm"]
+            L_path_up = atm_out["L_path"]
             tau_opt: float = optics_out["tau_opt"]
-            L_target_post = L_target * tau_atm * tau_opt
+
+            # Target-only at aperture (strip the path-radiance contribution),
+            # then transmit through the optics.
+            L_target_only_at_aperture = L_aperture_target - L_path_up
+            L_target_post = L_target_only_at_aperture * tau_opt
 
             Omega_target = A_target / (R * R)
             photon_rate = L_target_post * A_collect * Omega_target * (lam_m / hc)
@@ -142,24 +146,45 @@ class SpectralIntegrationStage:
             # Sub-pixel: mix target and background radiances.
             # Path radiance fills the whole pixel uniformly and must NOT
             # be split by fill_fraction or subjected to EE_box.
+            #
+            # New-frame decomposition (Stage 4):
+            #   at_aperture_target    = L_target · τ_up + L_path_up
+            #   at_aperture_background = L_bg · τ_full_up + L_path_full + …
+            #
+            # Pure target contribution = at_aperture_target − L_path_up
+            # Pure background contribution = at_aperture_background − L_path_full
+            # Path radiance is added back once, unweighted by ff.
             source_out = state.stage_outputs["source"]
             fill_fraction: float = source_out["fill_fraction"]
-            L_background_src = source_out["L_background"]
 
-            # Decompose: get target-only and background-only through atm+optics.
-            L_target_src = state.frames["at_target"].spectral_radiance
-            if L_target_src is None:
-                raise ValueError(
-                    "SpectralIntegrationStage: 'at_target' frame has no spectral_radiance."
-                )
             atm_out = state.stage_outputs["atmosphere"]
-            tau_atm = atm_out["tau_atm"]
-            L_path = atm_out["L_path"]
+            atm_q = atm_out["atm_quantities"]
+            L_path_up = atm_out["L_path"]
+            L_path_full = np.asarray(atm_q.L_path_full)
             tau_opt: float = optics_out["tau_opt"]
 
-            L_target_through = L_target_src * tau_atm * tau_opt
-            L_bg_through = L_background_src * tau_atm * tau_opt
-            L_path_through = L_path * tau_opt
+            L_aperture_target = state.frames["at_aperture_target"].spectral_radiance
+            if L_aperture_target is None:
+                raise ValueError(
+                    "SpectralIntegrationStage: 'at_aperture_target' frame "
+                    "has no spectral_radiance."
+                )
+
+            bg_frame = state.frames.get("at_aperture_background")
+            if bg_frame is not None and bg_frame.spectral_radiance is not None:
+                L_aperture_bg = bg_frame.spectral_radiance
+                L_bg_only_at_aperture = L_aperture_bg - L_path_full
+            else:
+                # No BackgroundDescriptor — matrix Decision #13.  The
+                # sub-pixel regime still needs a (1 − ff) term; fall back
+                # to zero background radiance.
+                L_bg_only_at_aperture = np.zeros_like(L_aperture_target)
+
+            L_target_only_at_aperture = L_aperture_target - L_path_up
+
+            L_target_through = L_target_only_at_aperture * tau_opt
+            L_bg_through = L_bg_only_at_aperture * tau_opt
+            L_path_through = L_path_up * tau_opt
 
             # L_mixed = ff·L_target·EE_box + (1-ff)·L_bg + L_path
             # EE_box applies to target contribution only (Rule 9).
@@ -212,8 +237,10 @@ class SpectralIntegrationStage:
         # contrast ΔS = signal_e − background_e is the detection-
         # relevant quantity: positive for hot targets, negative for
         # cold targets relative to background.
-        source_out_c = state.stage_outputs.get("source", {})
-        has_background = "L_background" in source_out_c
+        bg_frame_c = state.frames.get("at_aperture_background")
+        has_background = (
+            bg_frame_c is not None and bg_frame_c.spectral_radiance is not None
+        )
 
         if regime == RadiometricRegime.POINT_SOURCE:
             # signal_e is already the target-only contribution (no
@@ -223,13 +250,11 @@ class SpectralIntegrationStage:
             background_e = 0.0
         elif has_background:
             # Extended and sub-pixel: compute background-only pixel signal.
-            L_bg_src = source_out_c["L_background"]
-            atm_out_bg = state.stage_outputs["atmosphere"]
-            tau_atm_bg = atm_out_bg["tau_atm"]
-            L_path_bg = atm_out_bg["L_path"]
+            # The at_aperture_background frame already bundles
+            # L_bg · τ_full_up + L_path_full; transmit through the optics
+            # once to reach the FPA.
             tau_opt_bg: float = optics_out["tau_opt"]
-
-            L_bg_post = (L_bg_src * tau_atm_bg + L_path_bg) * tau_opt_bg
+            L_bg_post = bg_frame_c.spectral_radiance * tau_opt_bg
             bg_photon_rate = L_bg_post * A_collect * Omega_pixel * (lam_m / hc)
             bg_e_rate = bg_photon_rate * qe_curve
             bg_e_rate_band = bg_e_rate[mask]
@@ -237,8 +262,8 @@ class SpectralIntegrationStage:
             background_e = bg_e_per_s * t_int
             contrast_e = signal_e - background_e
         else:
-            # No background available (legacy / isolated test). Contrast
-            # defaults to the full signal (equivalent to zero background).
+            # No background descriptor (matrix Decision #13 — computed-
+            # extended cells skip the bg photon reference entirely).
             background_e = 0.0
             contrast_e = signal_e
 

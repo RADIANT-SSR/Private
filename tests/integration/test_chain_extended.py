@@ -87,19 +87,34 @@ class TestChainExtended:
         )
 
     def test_all_frames_present(self, result) -> None:
-        expected = {"at_target", "at_aperture", "post_optics", "photoelectrons"}
-        assert expected == set(result.frames.keys())
+        # Stage 4 Option C: at_target is removed; at_aperture_target replaces it.
+        expected = {
+            "at_aperture_target",
+            "at_aperture",
+            "post_optics",
+            "photoelectrons",
+        }
+        assert expected <= set(result.frames.keys())
 
     # -- Spot-check at λ = 4.0 µm -------------------------------------------
 
     def test_L_source_at_4um(self, result) -> None:
-        """L_source(λ) = ε · B(λ, 300 K) at the grid point nearest 4 µm."""
+        """L_target(λ) = ε · B(λ, 300 K) reconstructed from at_aperture_target.
+
+        Stage 4 Option C: SourceStage no longer publishes at_target; the
+        target-only radiance is recovered from:
+            at_aperture_target − L_path_up
+                = ε·B(T_t)·τ_up
+        so we divide by τ_up to get ε·B(T_t).
+        """
         wl = result.wavelength_um
         idx = int(np.argmin(np.abs(wl - LAM_CHECK_UM)))
         lam_actual = wl[idx]
         B = planck_spectral_radiance(np.array([lam_actual]), T_TARGET)[0]
         L_expected = EPS_TARGET * B
-        L_actual = result.frames["at_target"].spectral_radiance[idx]
+        atm_q = result.stage_outputs["atmosphere"]["atm_quantities"]
+        L_aat = result.frames["at_aperture_target"].spectral_radiance
+        L_actual = (L_aat[idx] - atm_q.L_path_up[idx]) / atm_q.tau_up[idx]
         assert L_actual == pytest.approx(L_expected, rel=1e-6)
 
     def test_tau_atm_bounded(self, result) -> None:
@@ -109,12 +124,23 @@ class TestChainExtended:
         assert np.all(tau <= 1.0)
 
     def test_L_at_aperture_formula(self, result) -> None:
-        """L_at_aperture = L_target · τ + L_path."""
-        L_t = result.frames["at_target"].spectral_radiance
+        """L_at_aperture = ε·B(T_t)·τ_up + L_path_up.
+
+        Stage 4 Option C: AtmosphereStage composes the target arm itself;
+        the at_aperture frame is aliased to at_aperture_target and equals
+        L_target·τ_up + L_path_up for the extended regime.
+        """
         tau = result.stage_outputs["atmosphere"]["tau_atm"]
         L_path = result.stage_outputs["atmosphere"]["L_path"]
         L_aa = result.frames["at_aperture"].spectral_radiance
-        np.testing.assert_allclose(L_aa, L_t * tau + L_path, rtol=1e-12)
+        L_aat = result.frames["at_aperture_target"].spectral_radiance
+        # at_aperture is aliased to at_aperture_target in Stage 4.
+        np.testing.assert_allclose(L_aa, L_aat, rtol=1e-12)
+        # Hand-compute ε·B(T_t) from the params and check the composition.
+        wl = result.wavelength_um
+        B = planck_spectral_radiance(wl, T_TARGET)
+        L_expected = EPS_TARGET * B * tau + L_path
+        np.testing.assert_allclose(L_aa, L_expected, rtol=1e-10)
 
     def test_L_post_optics_formula(self, result) -> None:
         """L_post_optics = L_at_aperture × τ_opt."""
@@ -219,8 +245,8 @@ class TestChainExtended:
         r2 = session.run(params)
 
         np.testing.assert_array_equal(
-            r1.frames["at_target"].spectral_radiance,
-            r2.frames["at_target"].spectral_radiance,
+            r1.frames["at_aperture_target"].spectral_radiance,
+            r2.frames["at_aperture_target"].spectral_radiance,
         )
         assert r1.frames["photoelectrons"].in_band_value == (
             r2.frames["photoelectrons"].in_band_value

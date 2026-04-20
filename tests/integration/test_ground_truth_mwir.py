@@ -23,7 +23,9 @@ Hand-calculated reference values (CODATA 2018 exact constants):
     shot_noise       ≈ 23.23 e⁻ RMS
     read_noise       = 30.00 e⁻ RMS
     quant_noise      = 0.2887 e⁻ RMS
-    SNR              ≈ 12.79  (16-term budget; nearfield_shot=0 for simple refractive eps=0)
+    SNR              ≈ 14.22  (Option C Stage 4: exo→ColdSpaceBackground→L_bg≡0;
+                               Decision #15 removed the legacy scalar-bg
+                               double-count; background_shot=0 here)
 """
 
 from __future__ import annotations
@@ -96,8 +98,12 @@ class TestGroundTruthMWIR:
     """Verify every intermediate against hand calculation."""
 
     def test_planck_radiance(self, result) -> None:
-        """B(4 µm, 300 K) — Planck spectral radiance."""
-        L = result.frames["at_target"].spectral_radiance
+        """B(4 µm, 300 K) — Planck spectral radiance.
+
+        Stage 4 Option C: at_target frame is removed.  For exo (τ_up=1,
+        L_path_up=0) the at_aperture_target frame equals ε·B(T_t) directly.
+        """
+        L = result.frames["at_aperture_target"].spectral_radiance
         # Index 1 is the 4.000 µm grid point.
         assert L[1] == pytest.approx(L_TARGET, rel=1e-6)
 
@@ -109,8 +115,13 @@ class TestGroundTruthMWIR:
         np.testing.assert_array_equal(L_path, np.zeros_like(L_path))
 
     def test_L_at_aperture_equals_target(self, result) -> None:
-        """L_aperture = L_target × 1 + 0 = L_target."""
-        L_t = result.frames["at_target"].spectral_radiance
+        """L_aperture = L_aperture_target for exo (τ=1, L_path=0).
+
+        Stage 4 Option C: the at_aperture frame is aliased to
+        at_aperture_target (both equal ε·B(T_t)·τ_up + L_path_up = ε·B
+        for exo).
+        """
+        L_t = result.frames["at_aperture_target"].spectral_radiance
         L_a = result.frames["at_aperture"].spectral_radiance
         np.testing.assert_allclose(L_a, L_t, rtol=1e-12)
 
@@ -177,10 +188,11 @@ class TestGroundTruthMWIR:
         expected_snr = signal_e / math.sqrt(noise_sq)
         actual_snr = result.metrics["snr"]
         assert actual_snr == pytest.approx(expected_snr, rel=1e-10)
-        # Cross-check against hand calculation (16-term noise budget:
-        # background_shot ≈18.4 e⁻; nearfield_shot=0 because simple
-        # refractive eps=0 when absorption is unknown).
-        assert actual_snr == pytest.approx(12.79, rel=1e-2)
+        # Cross-check against hand calculation (Stage 4 Option C:
+        # ColdSpaceBackground → background_e = 0, background_shot = 0;
+        # only shot (≈23.23 e⁻), read (30 e⁻) and quantization (0.29 e⁻)
+        # contribute.  SNR = 539.51 / sqrt(30² + 23.23² + 0.29²) ≈ 14.22).
+        assert actual_snr == pytest.approx(14.22, rel=1e-2)
 
     def test_snr_read_noise_dominated(self, result) -> None:
         """With ~540 e⁻ signal and 30 e⁻ read noise, SNR ~ 14.

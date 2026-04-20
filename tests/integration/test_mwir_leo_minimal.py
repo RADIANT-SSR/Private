@@ -56,8 +56,16 @@ class TestMWIRLeoMinimal:
         )
 
     def test_frames_present(self, result) -> None:
-        expected = {"at_target", "at_aperture", "post_optics", "photoelectrons"}
-        assert expected == set(result.frames.keys())
+        # Stage 4 Option C: at_target is removed; at_aperture_target
+        # replaces it.  (at_aperture_background may also be present when
+        # the background descriptor is non-None.)
+        expected = {
+            "at_aperture_target",
+            "at_aperture",
+            "post_optics",
+            "photoelectrons",
+        }
+        assert expected <= set(result.frames.keys())
 
     def test_A_collect(self, result) -> None:
         assert result.stage_outputs["optics"]["A_collect"] == pytest.approx(

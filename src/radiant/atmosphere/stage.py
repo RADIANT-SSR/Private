@@ -1,52 +1,38 @@
 """AtmosphereStage — chain wrapper for atmospheric transmission and path radiance.
 
-Stage 3 Option C — **shadow-mode dual-path execution**.
+Stage 4 Option C — **descriptor-driven assembly path is authoritative**.
 
-This stage runs *both* the legacy ``build_state`` path (``L·τ + L_path``) and
-the new descriptor-driven assembly path (``evaluate`` + ``assemble_*``), and —
-when the ``RADIANT_OPTION_C_SHADOW`` env var is set to ``"1"`` — asserts that
-the two paths agree on the cells classified as ``invariant`` in the Stage 0
-baseline snapshot (see ``tests/integration/snapshots/option_c_baseline.yaml``).
+This stage drives the new ``evaluate`` + ``assemble_*`` path: it builds the
+:class:`AtmosphericQuantities` bundle from the configured atmosphere model,
+then calls :func:`assemble_target_at_aperture` /
+:func:`assemble_background_at_aperture` to produce the at-aperture radiance
+arrays.
 
 Produces
 --------
-Frame ``"at_aperture"`` with spectral radiance
-    (LEGACY path, still authoritative in Stage 3):
-    ``L_at_aperture(λ) = L_target(λ) · τ_atm(λ) + L_path(λ)``
+Frame ``"at_aperture"`` with spectral radiance = ``at_aperture_target`` —
+    kept as the canonical name consumed by OpticsStage (``× τ_opt``).
+
+Frame ``"at_aperture_target"`` with spectral radiance
+    ``L_aperture_target(λ)`` — the §6.1 assembly result for the target arm.
+
+Frame ``"at_aperture_background"`` with spectral radiance, **only when**
+    the background descriptor is non-``None`` (Decision #13: extended
+    terrestrial / airborne cells skip this term entirely).
 
 Stage outputs under ``stage_outputs["atmosphere"]``:
-    - ``tau_atm``: transmittance values (ndarray) — legacy τ
-    - ``L_path``: upwelling path radiance (ndarray) — legacy L_path
-    - ``L_atm_down``: downwelling graybody emission (ndarray) — legacy
-    - ``atm_quantities``: the new :class:`AtmosphericQuantities` bundle
-      (ndarray fields; stored for inspection / Stage 4 promotion)
-    - ``L_aperture_new``: the new assembly-path at-aperture spectral
-      radiance (target arm, ndarray).  Stage 4 renames this to the
-      authoritative ``at_aperture`` frame.
-    - ``L_bg_aperture_new``: the new background at-aperture spectral
-      radiance (ndarray or ``None``; None → bg photon term skipped
-      in Stage 5 per Decision #13).
-
-Shadow-mode policy (env var ``RADIANT_OPTION_C_SHADOW``)
--------------------------------------------------------
-- **default**: ``"1"`` — shadow-mode checks run.
-- **"0"**: shadow-mode disabled; both paths still run (legacy stays
-  authoritative); no cross-path comparison happens.
-- When on, for each scenario classified in the baseline snapshot:
-    * ``classification == "invariant"``: hard-assert
-      ``np.allclose(L_aperture_new, L_aperture_legacy, rtol=1e-6)``
-      on the target-arm at-aperture radiance.
-    * ``classification == "expected_to_change_at_stage_3"`` /
-      ``"expected_to_change_at_stage_6"``: log-only (INFO-level).
-    * Unclassified / missing-from-snapshot: the comparison is skipped
-      entirely (no way to know what the expectation is, and the
-      snapshot lives outside the chain-state).
+    - ``atm_quantities``: the :class:`AtmosphericQuantities` bundle
+      (the eight spectral fields used by §6.1 assembly).
+    - ``tau_atm``: ``atm_quantities.tau_up`` exposed as ndarray for
+      downstream stages that still key off the legacy name.
+    - ``L_path``: ``atm_quantities.L_path_up`` exposed as ndarray for
+      downstream stages that still key off the legacy name.
+    - ``r0_m``: Fried parameter (only when ``atmosphere.r0_m > 0``).
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 import numpy as np
@@ -57,7 +43,6 @@ from radiant.atmosphere.assembly import (
     assemble_target_at_aperture,
 )
 from radiant.atmosphere.exo import ExoAtmosphere
-from radiant.atmosphere.protocol import AtmosphericGeometry
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
@@ -65,32 +50,13 @@ from radiant.core.radiometry import RadiometricFrame
 
 logger = logging.getLogger(__name__)
 
-# Env var that toggles shadow-mode hard assertions on the invariant cells.
-# Default is "1" in Stage 3 (per the Option C plan); Stage 4 will stop
-# consulting this var entirely.
-_SHADOW_ENV_VAR: str = "RADIANT_OPTION_C_SHADOW"
-
-# Shadow-mode agreement tolerance on invariant cells.
-_SHADOW_RTOL: float = 1.0e-6
-_SHADOW_ATOL: float = 1.0e-12
-
-
-def _shadow_mode_enabled() -> bool:
-    """True iff ``RADIANT_OPTION_C_SHADOW`` is ``"1"`` (default) or unset.
-
-    Any value other than ``"0"`` is treated as enabled — defensive default
-    for Stage 3.  Stage 4 removes this function entirely.
-    """
-    val = os.environ.get(_SHADOW_ENV_VAR, "1")
-    return val != "0"
-
 
 class AtmosphereStage:
     """Chain stage for atmospheric transmission and path radiance.
 
-    Stage 3 of Option C: runs both the legacy and new descriptor-driven
-    paths; emits both under stage_outputs; and enforces the invariant-cell
-    agreement contract when shadow mode is on.
+    Stage 4 of Option C: drives the descriptor-driven assembly path
+    exclusively.  Publishes the target / background at-aperture radiance
+    frames and the :class:`AtmosphericQuantities` bundle.
     """
 
     @property
@@ -101,7 +67,7 @@ class AtmosphereStage:
         model_name: str = params.get("atmosphere.model")
 
         # ------------------------------------------------------------------
-        # 1. Build the atmospheric model (pure — no chain coupling)
+        # 1. Build the atmospheric model (pure — no chain coupling).
         # ------------------------------------------------------------------
         if model_name == "exo":
             model: object = ExoAtmosphere()
@@ -121,108 +87,78 @@ class AtmosphereStage:
             )
 
         # ------------------------------------------------------------------
-        # 2. Legacy path: build_state(geometry) and assemble L_aperture
-        #    exactly as Stages 0-2 did.  Stays authoritative in Stage 3.
+        # 2. Read descriptor inputs from SourceStage.
         # ------------------------------------------------------------------
-        geometry = AtmosphericGeometry(
-            sensor_altitude_m=params.get("geometry.sensor_altitude_m"),
-            target_altitude_m=params.get("geometry.target_altitude_m"),
-            path_zenith_rad=params.get("geometry.path_zenith_rad"),
-            solar_zenith_rad=params.get("geometry.solar_zenith_rad"),
-            solar_azimuth_rad=params.get("geometry.solar_azimuth_rad"),
-        )
-        atm_state = model.build_state(state.wavelength_um, geometry)  # type: ignore[attr-defined]
+        source_out = state.stage_outputs.get("source", {})
+        target_desc = source_out.get("target")
+        background_desc = source_out.get("background")
+        los = source_out.get("los_geometry")
 
-        at_target = state.frames["at_target"]
-        L_target = at_target.spectral_radiance
-        if L_target is None:
+        if target_desc is None:
             raise ValueError(
-                "AtmosphereStage: 'at_target' frame has no spectral_radiance. "
-                "SourceStage must run first and produce spectral radiance."
+                "AtmosphereStage: SourceStage did not publish a TargetDescriptor "
+                "under stage_outputs['source']['target']. Stage 4 requires the "
+                "descriptor-driven path; run SourceStage before AtmosphereStage."
             )
 
-        tau_legacy: np.ndarray = np.asarray(atm_state.transmittance.values, dtype=np.float64)
-        L_path_legacy: np.ndarray = np.asarray(atm_state.path_radiance.values, dtype=np.float64)
-        L_atm_down_legacy: np.ndarray = np.asarray(
-            atm_state.atm_emission_down.values, dtype=np.float64
+        # ------------------------------------------------------------------
+        # 3. Evaluate the atmospheric quantities bundle and assemble the
+        #    at-aperture radiance arrays for the target and background arms.
+        # ------------------------------------------------------------------
+        atm_quantities: AtmosphericQuantities = model.evaluate(  # type: ignore[attr-defined]
+            state.wavelength_um, los, params,
         )
-        L_aperture_legacy: np.ndarray = L_target * tau_legacy + L_path_legacy
+        L_aperture_target: np.ndarray = assemble_target_at_aperture(
+            target_desc, atm_quantities, los,
+        )
+        L_aperture_background: np.ndarray | None = assemble_background_at_aperture(
+            background_desc, atm_quantities, los,
+        )
 
-        frame = RadiometricFrame(
+        # ------------------------------------------------------------------
+        # 4. Emit frames + stage outputs.
+        # ------------------------------------------------------------------
+        target_frame = RadiometricFrame(
+            name="at_aperture_target",
+            wavelength_um=state.wavelength_um,
+            spectral_radiance=L_aperture_target,
+            notes=(
+                f"§6.1 assembly (target arm); model={model_name}; "
+                f"variant={type(target_desc).__name__}"
+            ),
+        )
+        # Canonical ``at_aperture`` frame consumed by OpticsStage.  It is
+        # the target-arm at-aperture radiance — identical content to
+        # ``at_aperture_target``, retained under the legacy name so the
+        # OpticsStage contract is stable across the Stage 4 cut.
+        at_aperture_frame = RadiometricFrame(
             name="at_aperture",
             wavelength_um=state.wavelength_um,
-            spectral_radiance=L_aperture_legacy,
-            notes=f"L_target × τ_atm + L_path ({model_name})",
+            spectral_radiance=L_aperture_target,
+            notes=(
+                f"§6.1 assembly (target arm, canonical); model={model_name}; "
+                f"variant={type(target_desc).__name__}"
+            ),
         )
-
-        # ------------------------------------------------------------------
-        # 3. New path: evaluate() + assemble_*(), driven by descriptors that
-        #    SourceStage published in stage_outputs["source"].  If any of
-        #    those keys are missing we skip the new path entirely — this
-        #    keeps the stage runnable during staged rollouts where a
-        #    downstream-only test rig is hitting AtmosphereStage without a
-        #    real Stage-2 refactor.
-        # ------------------------------------------------------------------
-        target_desc = state.stage_outputs.get("source", {}).get("target")
-        background_desc = state.stage_outputs.get("source", {}).get("background")
-        los = state.stage_outputs.get("source", {}).get("los_geometry")
-
-        atm_quantities: AtmosphericQuantities | None = None
-        L_aperture_new: np.ndarray | None = None
-        L_bg_aperture_new: np.ndarray | None = None
-
-        if target_desc is not None and los is not None:
-            atm_quantities = model.evaluate(  # type: ignore[attr-defined]
-                state.wavelength_um, los, params
-            )
-            L_aperture_new = assemble_target_at_aperture(
-                target_desc, atm_quantities, los,
-            )
-            L_bg_aperture_new = assemble_background_at_aperture(
-                background_desc, atm_quantities, los,
-            )
-        else:
-            logger.debug(
-                "AtmosphereStage: skipping new-path assembly because "
-                "SourceStage did not publish target/LOS descriptors."
-            )
-
-        # ------------------------------------------------------------------
-        # 4. Shadow-mode agreement check (invariant cells only).
-        # ------------------------------------------------------------------
-        if (
-            _shadow_mode_enabled()
-            and L_aperture_new is not None
-        ):
-            self._shadow_compare(
-                state=state,
-                L_legacy=L_aperture_legacy,
-                L_new=L_aperture_new,
-            )
-
-        # ------------------------------------------------------------------
-        # 5. Emit state — legacy frame + stage outputs for both paths.
-        # ------------------------------------------------------------------
         state = (
-            state.with_frame(frame)
-            .with_stage_output("atmosphere", "tau_atm", tau_legacy)
-            .with_stage_output("atmosphere", "L_path", L_path_legacy)
-            .with_stage_output("atmosphere", "L_atm_down", L_atm_down_legacy)
+            state.with_frame(target_frame)
+            .with_frame(at_aperture_frame)
+            .with_stage_output("atmosphere", "atm_quantities", atm_quantities)
+            .with_stage_output("atmosphere", "tau_atm", atm_quantities.tau_up)
+            .with_stage_output("atmosphere", "L_path", atm_quantities.L_path_up)
         )
 
-        if atm_quantities is not None:
-            state = state.with_stage_output(
-                "atmosphere", "atm_quantities", atm_quantities,
+        if L_aperture_background is not None:
+            background_frame = RadiometricFrame(
+                name="at_aperture_background",
+                wavelength_um=state.wavelength_um,
+                spectral_radiance=L_aperture_background,
+                notes=(
+                    f"§6.1 assembly (background arm); model={model_name}; "
+                    f"variant={type(background_desc).__name__}"
+                ),
             )
-        if L_aperture_new is not None:
-            state = state.with_stage_output(
-                "atmosphere", "L_aperture_new", L_aperture_new,
-            )
-        # Always publish the new bg key (even None) so Stage 5 can consume
-        # it explicitly — Decision #13 uses the None sentinel.
-        state = state.with_stage_output(
-            "atmosphere", "L_bg_aperture_new", L_bg_aperture_new,
-        )
+            state = state.with_frame(background_frame)
 
         # Turbulence: store Fried parameter for downstream stages.
         try:
@@ -235,92 +171,7 @@ class AtmosphereStage:
         return state
 
     # ------------------------------------------------------------------
-    # Shadow-mode comparison
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _shadow_compare(
-        state: ChainState,
-        L_legacy: np.ndarray,
-        L_new: np.ndarray,
-    ) -> None:
-        """Compare legacy vs. new at-aperture radiance under shadow mode.
-
-        Policy (from ``docs/Option_C_Implementation_Plan.md`` Stage 3):
-
-        * ``classification == "invariant"``: hard-assert agreement within
-          ``rtol = 1e-6``.  A failure raises :class:`AssertionError` with
-          actionable context.
-        * ``classification == "expected_to_change_at_stage_3"`` or
-          ``"expected_to_change_at_stage_6"``: log-only (INFO) with the max
-          abs/rel delta — this documents the drift without gating CI.
-        * No classification available (the baseline snapshot does not
-          accompany the chain state in production): skip entirely.
-
-        The baseline snapshot lookup is keyed by the scenario path that the
-        caller stashes under ``state.stage_outputs["meta"]["scenario_path"]``
-        — callers that don't publish that key (unit tests, ad-hoc runs)
-        silently skip the comparison.
-        """
-        classification = (
-            state.stage_outputs.get("meta", {}).get("option_c_classification")
-        )
-        if classification is None:
-            # No classification → we don't know what the expectation is.
-            # The *test harness* (``tests/integration/...``) is responsible
-            # for populating this; production runs don't see it.
-            return
-
-        diff = np.asarray(L_new - L_legacy, dtype=np.float64)
-        max_abs = float(np.max(np.abs(diff))) if diff.size else 0.0
-        denom = np.maximum(np.abs(L_legacy), 1e-30)
-        max_rel = float(np.max(np.abs(diff) / denom)) if diff.size else 0.0
-
-        scenario = (
-            state.stage_outputs.get("meta", {}).get("scenario_path", "(unknown)")
-        )
-
-        if classification == "invariant":
-            if not np.allclose(L_new, L_legacy, rtol=_SHADOW_RTOL, atol=_SHADOW_ATOL):
-                raise AssertionError(
-                    "AtmosphereStage shadow-mode disagreement on invariant cell. "
-                    f"scenario={scenario!r} "
-                    f"max_abs_diff={max_abs:.3e} "
-                    f"max_rel_diff={max_rel:.3e} "
-                    f"tol=rtol={_SHADOW_RTOL:.0e} atol={_SHADOW_ATOL:.0e}. "
-                    "The new descriptor-driven path produced a different at-aperture "
-                    "radiance than the legacy L·τ + L_path path on a cell that is "
-                    "classified as INVARIANT in tests/integration/snapshots/"
-                    "option_c_baseline.yaml. Stop and debug the atmospheric backend "
-                    "or the assembly code; do not update the baseline. See "
-                    "docs/Option_C_Implementation_Plan.md Stage 3 §Regression."
-                )
-            logger.info(
-                "AtmosphereStage shadow-mode: invariant cell %s agreement ok "
-                "(max_abs=%.3e, max_rel=%.3e).",
-                scenario, max_abs, max_rel,
-            )
-            return
-
-        if classification.startswith("expected_to_change"):
-            logger.info(
-                "AtmosphereStage shadow-mode: scenario %s classified %s; "
-                "legacy vs new max_abs=%.3e max_rel=%.3e (not enforced).",
-                scenario, classification, max_abs, max_rel,
-            )
-            return
-
-        raise AssertionError(
-            f"AtmosphereStage shadow-mode: unknown classification "
-            f"{classification!r} for scenario {scenario!r}. Allowed values: "
-            "'invariant', 'expected_to_change_at_stage_3', "
-            "'expected_to_change_at_stage_6'.  Update "
-            "tests/integration/snapshots/option_c_baseline.yaml or the test "
-            "harness that set this key."
-        )
-
-    # ------------------------------------------------------------------
-    # Model builders (file I/O happens here, before build_state)
+    # Model builders (file I/O happens here, before evaluate)
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -438,6 +289,4 @@ class AtmosphereStage:
         return InterpolatedAtmosphere(points, axes, method)
 
 
-# Re-export for the test harness that needs to read the current shadow-mode
-# state.
 __all__ = ["AtmosphereStage"]

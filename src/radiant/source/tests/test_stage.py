@@ -1,9 +1,9 @@
-"""Tests for SourceStage wrapper.
+"""Tests for SourceStage wrapper (Stage 4 Option C).
 
 Covers:
-- Thermal emission frame production
+- Descriptor publication (TargetDescriptor / BackgroundDescriptor /
+  LineOfSightGeometry)
 - Tentative regime classification (IFOV-based)
-- Background radiance storage
 - Fill-fraction and regime override
 """
 
@@ -14,7 +14,6 @@ import math
 import numpy as np
 import pytest
 
-from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
@@ -65,50 +64,50 @@ class TestSourceStage:
     def wl(self) -> np.ndarray:
         return np.linspace(3.0, 5.0, 100)
 
-    def test_produces_at_target_frame(self, wl: np.ndarray) -> None:
-        state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params())
-        assert "at_target" in out.frames
-        frame = out.frames["at_target"]
-        assert frame.spectral_radiance is not None
-        assert frame.spectral_radiance.shape == wl.shape
+    def test_no_at_target_frame_in_stage_4(self, wl: np.ndarray) -> None:
+        """Stage 4 removes the at_target radiance frame entirely."""
+        import warnings as _w
 
-    def test_spectral_radiance_positive(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params(T=300.0))
-        L = out.frames["at_target"].spectral_radiance
-        assert L is not None
-        assert np.all(L > 0.0)
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params())
+        assert "at_target" not in out.frames
+
+    def test_publishes_target_descriptor(self, wl: np.ndarray) -> None:
+        import warnings as _w
+
+        from radiant.core.descriptors import TargetDescriptor
+
+        state = ChainState(wavelength_um=wl)
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params(T=300.0))
+        target = out.stage_outputs["source"]["target"]
+        assert isinstance(target, TargetDescriptor)
 
     def test_default_regime_extended(self, wl: np.ndarray) -> None:
         """No area/range → defaults to EXTENDED."""
-        state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params())
-        assert out.stage_outputs["source"]["regime_tentative"] == RadiometricRegime.EXTENDED
+        import warnings as _w
 
-    def test_near_zero_temperature_yields_near_zero_radiance(self, wl: np.ndarray) -> None:
-        # Stage 2 of the Option C plan: the T1Thermal descriptor requires
-        # T > 0 K (Planck emission is undefined at T=0).  This legacy test
-        # previously set T=0.0 to check that L(T→0) → 0 numerically.  Using
-        # T=0.01 K preserves the intent (Planck exponential underflows to
-        # machine-zero at every wavelength above ~0.1 µm) while keeping
-        # the descriptor constructor happy.
         state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params(T=0.01))
-        L = out.frames["at_target"].spectral_radiance
-        assert L is not None
-        assert np.all(L < 1e-100)
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params())
+        assert out.stage_outputs["source"]["regime_tentative"] == RadiometricRegime.EXTENDED
 
     def test_name(self) -> None:
         assert SourceStage().name == "source"
 
-    def test_background_radiance_stored(self, wl: np.ndarray) -> None:
-        bg_T, bg_eps = 290.0, 0.95
+    def test_no_L_background_stage_output_in_stage_4(self, wl: np.ndarray) -> None:
+        """Stage 4 removes the L_background stage_output entirely."""
+        import warnings as _w
+
         state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params(bg_T=bg_T, bg_eps=bg_eps))
-        L_bg = out.stage_outputs["source"]["L_background"]
-        expected = bg_eps * planck_spectral_radiance(wl, bg_T)
-        np.testing.assert_allclose(L_bg, expected, rtol=1e-12)
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params())
+        assert "L_background" not in out.stage_outputs["source"]
 
     def test_fill_fraction_stored(self, wl: np.ndarray) -> None:
         import warnings as _w
@@ -136,19 +135,22 @@ class TestSourceStage:
     # Option C descriptors (Stage 2 additive bridge, ADR-0002)
     # ------------------------------------------------------------------
 
-    def test_descriptors_published_alongside_legacy(self, wl: np.ndarray) -> None:
-        """SourceStage now publishes target/background/los_geometry keys.
+    def test_descriptors_published(self, wl: np.ndarray) -> None:
+        """SourceStage publishes target/background/los_geometry keys.
 
-        This is the Stage-2 additive-bridge contract: the new keys appear
-        alongside the legacy ``at_target`` frame and ``L_background``
-        stage_output; no downstream stage reads them yet.  Verify they
-        are present and carry the expected runtime types.
+        Stage 4 Option C: SourceStage publishes descriptors only — the
+        legacy ``at_target`` frame and ``L_background`` stage_output have
+        been removed.  AtmosphereStage owns the ε·B(T_t) assembly.
         """
+        import warnings as _w
+
         from radiant.core.descriptors import GroundBackground, T1Thermal
         from radiant.core.los_geometry import LineOfSightGeometry
 
         state = ChainState(wavelength_um=wl)
-        out = SourceStage().run(state, _make_params())
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)
+            out = SourceStage().run(state, _make_params())
         src = out.stage_outputs["source"]
 
         # New descriptor keys present.
@@ -156,8 +158,8 @@ class TestSourceStage:
         assert "background" in src
         assert "los_geometry" in src
 
-        # Stage-2 back-compat inferrer always synthesises a T1Thermal
-        # from the scalar ε+T legacy surface.
+        # The inferrer synthesises a T1Thermal from the scalar ε+T legacy
+        # surface.
         assert isinstance(src["target"], T1Thermal)
         # Default fixture is fill_fraction=1 ⇒ extended terrestrial
         # (no atmosphere.model in this partial-schema fixture → falls
@@ -167,10 +169,10 @@ class TestSourceStage:
         # LOS is populated for every non-at_aperture scenario.
         assert isinstance(src["los_geometry"], LineOfSightGeometry)
 
-        # Legacy path still present.
-        assert "at_target" in out.frames
-        assert out.frames["at_target"].spectral_radiance is not None
-        assert "L_background" in src
+        # Stage 4: SourceStage does not publish at_target frame or
+        # L_background stage_output.
+        assert "at_target" not in out.frames
+        assert "L_background" not in src
 
     def test_descriptor_target_carries_expected_values(self, wl: np.ndarray) -> None:
         """T1Thermal descriptor carries the scalar ε, T from the param surface."""

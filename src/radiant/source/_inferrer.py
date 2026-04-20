@@ -396,6 +396,43 @@ def _build_background_descriptor(
     # terrestrial / airborne: background depends on scene_type.
     # Matrix Decision #13: extended terrestrial/airborne = no bg term.
     if scene_type == "extended":
+        # Decision #15: source.background.* is adjacent-scene only; if the
+        # user explicitly set these parameters for an extended scene they
+        # will be silently ignored by downstream assembly.  Warn loudly
+        # (Rule 17) so the user sees the contract mismatch.
+        try:
+            bg_t_rv = params.get_resolved("source.background.temperature")
+            bg_e_rv = params.get_resolved("source.background.emissivity")
+            t_user_set = bg_t_rv.provenance is not Provenance.DEFAULT
+            e_user_set = bg_e_rv.provenance is not Provenance.DEFAULT
+        except KeyError:
+            t_user_set = False
+            e_user_set = False
+        if t_user_set or e_user_set:
+            fields = []
+            if t_user_set:
+                fields.append(
+                    f"source.background.temperature = {bg_t_rv.value} K"
+                )
+            if e_user_set:
+                fields.append(
+                    f"source.background.emissivity = {bg_e_rv.value}"
+                )
+            warnings.warn(
+                (
+                    "source._inferrer: extended terrestrial/airborne scene "
+                    "was configured with user-set "
+                    f"{', '.join(fields)}.  Per ADR-0002 Decision #15, "
+                    "source.background.* parameters are adjacent-scene only "
+                    "(sub_pixel / point_source).  For extended scenes the "
+                    "background photon term is computed from the atmospheric "
+                    "downwelling / ground reflectance physics and these "
+                    "values are ignored.  Remove them from the scenario to "
+                    "silence this warning."
+                ),
+                UserWarning,
+                stacklevel=3,
+            )
         return None
 
     # sub_pixel / point_source: need a GroundBackground.  Stage 2 has no

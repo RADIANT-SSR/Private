@@ -217,3 +217,114 @@ All pre-existing tests still pass; no regressions introduced.
 - Created this document — [docs/option_c_baseline.md](option_c_baseline.md).
 
 No changes to `src/radiant/source/`, `src/radiant/atmosphere/`, or `src/radiant/core/` (reconnaissance-only constraint).
+
+---
+
+## Stage 4 landing — descriptor-only Source, Atmosphere owns assembly
+
+**Landed**: 2026-04-19
+**Reference**: ADR-0002 Decision #13 (no BackgroundDescriptor in extended
+terrestrial/airborne), Decision #15 (`source.background.*` is adjacent-scene
+only).
+
+Stage 4 completes the Option C transition. `SourceStage.run()` now publishes
+only descriptors (`target`, `background`, `los_geometry`) and regime
+classification — it no longer emits a radiance `at_target` frame or an
+`L_background` stage_output. `AtmosphereStage.run()` owns 100% of the
+ε·B(T_t) and background-arm assembly via `assemble_target_at_aperture` /
+`assemble_background_at_aperture`, and publishes `at_aperture_target`
+and (when a descriptor exists) `at_aperture_background` frames. The
+canonical `at_aperture` frame is aliased to `at_aperture_target` so the
+OpticsStage contract stays stable.
+
+### Pinned anchor values — Stage 4 revision
+
+The Cell 28 and Cell 58 SNRs / NEDTs moved: extended scenes no longer
+synthesise a `L_background` that was previously double-counted in the
+noise RSS via the `background_shot` term. `L_aperture(λ)` is unchanged
+(target-arm radiance transport is unchanged).
+
+| Scenario | Quantity | Stage 0 value | Stage 4 value | Change |
+|---|---|---|---|---|
+| Cell 28 (terrestrial LWIR) | SNR | 5.52081 | 315.549 | +5615% (bg_shot → 0) |
+| Cell 28 | NEDT | 11.7734 K | 0.205986 K | −98.25% |
+| Cell 28 | L_aperture grid | unchanged | unchanged | 0 |
+| Cell 58 (space LWIR exo) | SNR | 6.47050 | 315.975 | +4783% |
+| Cell 58 | NEDT | 9.08630 K | 0.186069 K | −97.95% |
+| Cell 58 | L_aperture grid | unchanged | unchanged | 0 |
+| MWIR LEO minimal (golden) | SNR | 666.214 | 866.114 | +30.0% |
+| MWIR LEO minimal (golden) | noise_rss | 1126.16 | 866.24 | −23.1% |
+| ground_truth_mwir (exo) | SNR | 12.79 | 14.22 | +11.2% |
+
+**Why the SNR jumps**: pre-Stage-4, SpectralIntegrationStage computed a
+`background_e` from the (scalar) `L_background` stage_output produced
+by SourceStage for every scenario — including extended terrestrial and
+`exo` space scenarios where that scalar carried no physical meaning
+(it was user-set `source.background.temperature/emissivity`, an
+adjacent-scene concept). The shot-noise on that background
+(`background_shot = √background_e`) then appeared in the RSS, dragging
+the SNR down. Stage 4 correctly returns `BackgroundDescriptor=None`
+for extended terrestrial (Decision #13) and `ColdSpaceBackground()`
+with `L_bg≡0` for `no_atmosphere` + `space`, both of which yield
+`background_e=0` and eliminate the spurious noise contribution.
+Decision #15 additionally warns (Rule 17) when users supply
+`source.background.*` in a scene where those parameters are ignored.
+
+### Rule 9 preservation
+
+EE_box remains applied exactly once and only in the right regimes:
+
+- **Extended** — `background_e=0` (no bg reference); EE_box≡1 guarded.
+- **Point source** — target-only photon rate uses `at_aperture_target −
+  L_path_up` to isolate ε·B(T_t)·τ_up, then multiplied by EE_box after
+  integration (unchanged semantics).
+- **Sub-pixel** — `L_mixed = ff·L_target_through·EE_box +
+  (1−ff)·L_bg_through + L_path_through` decomposed from the new frames
+  by subtracting `L_path_up` and `L_path_full` respectively; EE_box
+  applied only to the target contribution (unchanged semantics).
+
+### Files touched in Stage 4
+
+Source code:
+- `src/radiant/source/stage.py` — removed `at_target` frame emission and
+  `L_background` stage_output; now publishes descriptors + regime only.
+- `src/radiant/source/_inferrer.py` — added Decision #15 UserWarning
+  when `source.background.*` is user-set in an extended
+  terrestrial/airborne scene.
+- `src/radiant/atmosphere/stage.py` — shadow-mode removed; authoritative
+  descriptor-driven assembly with `at_aperture_target` /
+  `at_aperture_background` frames (and an `at_aperture` alias for
+  OpticsStage compatibility).
+- `src/radiant/atmosphere/protocol.py` — removed `build_state` from
+  the Protocol (implementations retain it as an impl detail for
+  MODTRAN fallback).
+- `src/radiant/spectral_integration/stage.py` — reads the new frames
+  and decomposes target-only / background-only / path-only radiance
+  via `L_path_up` and `L_path_full`.
+
+Tests / goldens:
+- `src/radiant/atmosphere/tests/test_stage.py` — rewritten for
+  descriptor-driven contract.
+- `src/radiant/atmosphere/tests/test_evaluate.py` — shadow-mode symbol
+  assertion removed.
+- `src/radiant/source/tests/test_stage.py` — removed `at_target` /
+  `L_background` legacy assertions; added descriptor-publication
+  tests.
+- `tests/integration/test_chain_extended.py`,
+  `tests/integration/test_ground_truth_mwir.py`,
+  `tests/integration/test_mwir_leo_minimal.py` — replaced `at_target`
+  reads with `at_aperture_target`; updated SNR expectation for
+  `ground_truth_mwir` (12.79 → 14.22).
+- `tests/integration/test_option_c_anchors.py` — Cell 28 and Cell 58
+  pinned values updated with Stage 4 physics justification.
+- `tests/integration/test_chain_spatial.py` — golden SNR updated
+  (666.21 → 866.11) with justification.
+- `tests/integration/golden/mwir_leo_minimal.json` — regenerated
+  (noise_rss, snr) with provenance note.
+
+### Test-suite state after Stage 4
+
+Full suite: **2269 passed / 0 failed** (442 s). No regressions; anchor
+tests and all reclassified scenarios match their Stage 4 pinned values.
+Tag the commit `option-c-landed`.
+

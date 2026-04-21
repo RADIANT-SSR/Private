@@ -526,7 +526,14 @@ class InterpolatedAtmosphere:
         if los.h_tgt > 0.0:
             raise NotImplementedError(
                 f"InterpolatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
-                "(airborne targets) is a Stage 5 deliverable."
+                "is not supported — the interpolator's sample grid records "
+                "only sensor-altitude / zenith-angle axes for the full "
+                "(h_tgt = 0) column, and there is no species-resolved "
+                "profile to rescale to a partial column.  See Option C "
+                "Stage 5 §8.3 open question 'partial-column rescaling for "
+                "tabulated/interpolated backends'.  Workaround: use "
+                "SimpleAtmosphere or extend the interpolator sample grid "
+                "to include h_tgt."
             )
 
         # Build a legacy AtmosphericGeometry to reuse the interpolator's

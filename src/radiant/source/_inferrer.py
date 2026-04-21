@@ -229,7 +229,10 @@ def _infer_target_location_and_subcase(
 # ---------------------------------------------------------------------------
 
 
-def _infer_los(target_location: str) -> LineOfSightGeometry | None:
+def _infer_los(
+    target_location: str,
+    params: ParameterSet,
+) -> LineOfSightGeometry | None:
     """Build a LineOfSightGeometry for the Stage-2 bridge.
 
     Matrix §4.3 requires (h_tgt, θ_o, θ_s, Δφ).  The legacy parameter
@@ -237,7 +240,8 @@ def _infer_los(target_location: str) -> LineOfSightGeometry | None:
     SourceStage; Stage 3 will consume them through the AtmosphereStage
     parameters.  For Stage 2 we build a minimal LOS:
 
-      * h_tgt = 0 m (surface target) for terrestrial / no_atmosphere.
+      * h_tgt = ``geometry.target_altitude_m`` (0 m by default — surface
+        target; Stage 5 A3 lifts this to arbitrary 0 ≤ h_tgt < h_atm_top).
       * θ_o = 0 rad (nadir).
       * θ_s = None (no solar geometry — LWIR-friendly default).
       * Δφ = None.
@@ -246,10 +250,21 @@ def _infer_los(target_location: str) -> LineOfSightGeometry | None:
     Returns ``None`` when ``target_location == "at_aperture"`` because
     the at-aperture pass-through arm never evaluates an atmospheric
     path; matrix §4.3 line 356.
+
+    Stage-5 Option C note: ``geometry.target_altitude_m`` is now read
+    from the ParameterSet so airborne scenarios flow through the
+    partial-column ``SimpleAtmosphere.evaluate()`` path.  A ``KeyError``
+    fallback to 0.0 keeps source-only unit-test fixtures working.
     """
     if target_location == "at_aperture":
         return None
-    return LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
+    try:
+        h_tgt_m = float(params.get("geometry.target_altitude_m"))
+    except KeyError:
+        h_tgt_m = 0.0
+    if h_tgt_m < 0.0:
+        h_tgt_m = 0.0
+    return LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -533,17 +548,20 @@ def infer_descriptors(
             no_atmosphere_subcase = subcase_user
 
     # --- LOS geometry ---
-    los = _infer_los(target_location)
+    los = _infer_los(target_location, params)
 
     # --- h_tgt (target altitude) ---
-    # Matrix §3.2: h_tgt = 0 for terrestrial; None for at_aperture;
-    # 0 for no_atmosphere=space (the space LOS is "above everything",
-    # and the LOS object is currently still built with h_tgt=0 — a
-    # Stage 7 enhancement will make h_tgt irrelevant for the no_atm path).
+    # Matrix §3.2: h_tgt = geometry.target_altitude_m for terrestrial
+    # (Stage 5 A3 — airborne partial-column support); None for
+    # at_aperture; still 0 for no_atmosphere=space (the space LOS is
+    # "above everything", and h_tgt is irrelevant for the no_atm path).
     if target_location == "at_aperture":
         h_tgt: float | None = None
-    else:
+    elif target_location == "no_atmosphere":
         h_tgt = 0.0
+    else:
+        # Terrestrial — honor the airborne target altitude if set.
+        h_tgt = los.h_tgt if los is not None else 0.0
 
     # --- Construct descriptors ---
     target = _build_target_descriptor(

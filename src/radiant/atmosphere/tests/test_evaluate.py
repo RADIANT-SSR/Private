@@ -212,15 +212,26 @@ class TestExoAtmosphereEvaluate:
 
 
 class TestSimpleAtmosphereEvaluate:
-    """SimpleAtmosphere backend — surface-target v1 scope (``h_tgt == 0``)."""
+    """SimpleAtmosphere backend — surface (``h_tgt == 0``) and airborne (Stage 5)."""
 
-    def test_airborne_target_raises_not_implemented(
+    def test_airborne_target_above_sensor_raises(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
     ) -> None:
-        """v1 surface-target-only scope — Stage 5 lifts this restriction."""
+        """Looking-up configuration (h_sensor < h_tgt) must raise.
+
+        Stage 5 (A3) adds partial-column support for ``0 < h_tgt < h_sensor``.
+        A target higher than the sensor is a looking-up integration that the
+        A3 model does not cover — the backend must surface the configuration
+        error rather than silently return τ > 1 from a negative column.
+
+        Pre-Stage-5 this test asserted that any ``h_tgt > 0`` raised
+        ``NotImplementedError``; Stage 5 narrows the raise to the
+        looking-up edge case.  ``lwir_params`` pins h_sensor = 2000 m, so
+        h_tgt = 5000 m is above the sensor and triggers the guard.
+        """
         los = LineOfSightGeometry(
-            h_tgt=5000.0,  # airborne target above the ground
+            h_tgt=5000.0,  # airborne target above the sensor (h_sensor=2000)
             theta_o=0.0,
             h_atm_top=1.0e5,
         )
@@ -228,7 +239,8 @@ class TestSimpleAtmosphereEvaluate:
             visibility_km=23.0, aerosol_type="rural",
             precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
         )
-        with pytest.raises(NotImplementedError, match="h_tgt"):
+        from radiant.core.parameters import ParameterBoundsError
+        with pytest.raises(ParameterBoundsError, match="below h_tgt"):
             atm.evaluate(lwir_wavelengths, los, lwir_params)
 
     def test_returns_atmospheric_quantities(

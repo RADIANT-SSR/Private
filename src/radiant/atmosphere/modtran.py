@@ -697,25 +697,20 @@ class ModtranAtmosphere:
         - ``E_TOA`` from the core solar irradiance so the direct-solar
           branch still works in the assembly.
 
-        Surface targets (``h_tgt == 0``) only in v1; see Stage 5 for the
-        airborne extension.
+        Airborne targets (``h_tgt > 0``) are supported by setting
+        MODTRAN's H2 to ``los.h_tgt``; the tape5 content participates in
+        the SHA-256 cache key via :func:`_cache_key`, so distinct h_tgt
+        values produce distinct cache entries automatically.
         """
         import warnings
 
         from radiant.core.solar import toa_solar_spectral_irradiance
 
-        if los.h_tgt > 0.0:
-            raise NotImplementedError(
-                f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
-                "(airborne targets) is a Stage 5 deliverable; v1 MODTRAN "
-                "runs are surface-target only."
-            )
-
         # Reconstruct an AtmosphericGeometry from params; MODTRAN consumes it
-        # via build_state below.
+        # via build_state below.  h_tgt flows through to MODTRAN H2.
         geometry = AtmosphericGeometry(
             sensor_altitude_m=float(params.get("geometry.sensor_altitude_m")),
-            target_altitude_m=0.0,
+            target_altitude_m=float(los.h_tgt),
             path_zenith_rad=float(los.theta_o),
             solar_zenith_rad=(
                 float(los.theta_s) if los.theta_s is not None

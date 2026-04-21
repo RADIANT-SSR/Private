@@ -590,39 +590,32 @@ class SimpleAtmosphere:
         los: LineOfSightGeometry,
         params: ParameterSet,
     ) -> AtmosphericQuantities:
-        """Option C two-leg quantities bundle.
+        """Option C two-leg quantities bundle with A3 partial-column support.
 
-        v1 scope (matching the Use-Case Matrix "invariant" cells):
+        Scope (Stage 5 — Option C Implementation Plan §Stage 5):
 
-        - Supports ``h_tgt == 0`` only.  Airborne targets (``h_tgt > 0``)
-          raise :class:`NotImplementedError` — Stage 5 of the Option C
-          plan lifts this restriction.
-        - ``tau_up == tau_full_up`` by construction when ``h_tgt == 0``.
-        - ``tau_sun`` is the vertical column attenuation from the ground
-          to the top of the atmosphere along the solar zenith.  In the
-          legacy code the solar down-leg and sensor up-leg were collapsed
-          into a single factor; Option C separates them.
-        - ``L_path_up == L_path_full`` (surface target, full column).
-        - ``E_sky_scattered`` is zero in v1 (a Stage 6 deliverable; the
-          simple model has no multiple-scatter sky irradiance).
-        - ``E_sky_thermal = (1 − τ_down) · π · B(T_atm_eff)`` — the
-          graybody sky convert of the legacy ``L_atm_down`` term from
-          radiance to irradiance (the source of the Lambertian ``π``
-          factor that the assembly equation divides back out).
+        - Supports arbitrary ``0 ≤ h_tgt < h_atm_top``.  At ``h_tgt == 0`` the
+          code path is bit-exactly the post-Stage-4 behaviour so Cell 28 /
+          Cell 58 anchors at rtol=1e-6 are preserved.
+        - ``tau_up`` = exp(−airmass_up · ∫_{h_tgt}^{h_sensor} k(λ,z) dz).
+        - ``tau_sun`` = exp(−airmass_sun · ∫_{h_tgt}^{h_atm_top} k(λ,z) dz).
+        - ``tau_full_up`` = exp(−airmass_up · ∫_{0}^{h_sensor} k(λ,z) dz) —
+          the ground-to-sensor column used by the background branch.  This
+          is **independent of** ``h_tgt`` by construction.
+        - ``L_path_up`` = single-scatter integral from h_tgt to h_sensor
+          (uses (1 − τ_up)).
+        - ``L_path_full`` = single-scatter integral from 0 to h_sensor
+          (uses (1 − τ_full_up)).
+        - ``E_sky_scattered`` is zero in v1 (Stage 6 deliverable).
+        - ``E_sky_thermal = (1 − τ_down) · π · B(T_atm_eff)`` on the
+          h_tgt→h_sensor vertical column, so it degrades to 0 as
+          ``h_tgt → h_atm_top``.
 
         The sensor altitude comes from ``params["geometry.sensor_altitude_m"]``
         (the LineOfSightGeometry does not carry ``h_sensor`` in v1 — see
         `docs/RADIANT_SourceStage.md`).
         """
         h_tgt = los.h_tgt
-        if h_tgt > 0.0:
-            raise NotImplementedError(
-                f"SimpleAtmosphere.evaluate: h_tgt = {h_tgt} m > 0 "
-                "(airborne targets) is a Stage 5 deliverable of the Option C "
-                "plan.  v1 supports surface targets only; use "
-                "target_location='at_aperture' or switch to a later-stage "
-                "backend for airborne targets."
-            )
 
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
@@ -655,26 +648,91 @@ class SimpleAtmosphere:
                 context={"h_sensor_m": h_sensor_m},
             )
 
+        # A3 degenerate case: h_tgt == h_atm_top collapses the sun-leg
+        # column to zero extent, making the solar airmass undefined.
+        # Physically this means the target is above the atmosphere — the
+        # caller should use target_location='no_atmosphere' / 'space'
+        # instead of routing through the simple backend.
+        if h_tgt >= los.h_atm_top:
+            raise ParameterBoundsError(
+                what=(
+                    f"SimpleAtmosphere.evaluate: h_tgt = {h_tgt} m is at or "
+                    f"above h_atm_top = {los.h_atm_top} m — column above "
+                    "the target has zero vertical extent."
+                ),
+                why=(
+                    "The atmospheric-column integrals need a positive "
+                    "(h_tgt, h_atm_top) interval.  At equality the sun "
+                    "down-leg airmass is undefined (0/0) and the simple "
+                    "backend is outside its validity window."
+                ),
+                action=(
+                    "Use target_location='no_atmosphere' with sub-case "
+                    "'space' for above-atmosphere targets, or lower h_tgt "
+                    "below h_atm_top."
+                ),
+                context={"h_tgt": h_tgt, "h_atm_top": los.h_atm_top},
+            )
+
+        # Sensor must sit above the target for the up-leg column to have
+        # positive extent.  An airborne target higher than the sensor is
+        # a looking-up configuration which Option C's partial-column model
+        # does not support (it would require a separate downlooking-from-
+        # target-to-sensor integral).
+        if h_sensor_m < h_tgt:
+            raise ParameterBoundsError(
+                what=(
+                    f"SimpleAtmosphere.evaluate: h_sensor = {h_sensor_m} m is "
+                    f"below h_tgt = {h_tgt} m (looking-up configuration)."
+                ),
+                why=(
+                    "The A3 partial-column model integrates the slant column "
+                    "from h_tgt upward to h_sensor; h_sensor must be at or "
+                    "above h_tgt for the integral to be well-defined."
+                ),
+                action=(
+                    "Raise geometry.sensor_altitude_m above h_tgt, or model "
+                    "a looking-up configuration with a dedicated backend."
+                ),
+                context={"h_sensor_m": h_sensor_m, "h_tgt": h_tgt},
+            )
+
         # --- Geometry factors ---
-        # Up-leg airmass: straight from LOS (includes spherical correction).
-        airmass_up = los.path_airmass_up if h_sensor_m >= los.h_atm_top else (
-            # sensor below top of atmosphere: compute airmass as the ratio
-            # of the LOS slant range to the sensor-column vertical extent
-            # using the same secant/spherical root-form.  We construct a
-            # throwaway AtmosphericGeometry identical in shape to the
-            # legacy build_state() call and read air_mass() off it — this
-            # is what makes Cell 28 bit-exact.
-            AtmosphericGeometry(
+        # Up-leg airmass for the target→sensor slant column.
+        # A3 partial-column: the observer zenith is defined at the target,
+        # so for h_tgt > 0 we build an AtmosphericGeometry with
+        # target_altitude_m = h_tgt and sensor_altitude_m = h_sensor_m.
+        # For h_tgt == 0 we retain the exact legacy construction
+        # (target_altitude_m=0.0) so Cell 28 / Cell 58 anchors remain
+        # bit-exact at rtol=1e-6.
+        if h_tgt == 0.0:
+            # Exact legacy path (bit-invariant for the h_tgt=0 anchors).
+            airmass_up = los.path_airmass_up if h_sensor_m >= los.h_atm_top else (
+                AtmosphericGeometry(
+                    sensor_altitude_m=h_sensor_m,
+                    target_altitude_m=0.0,
+                    path_zenith_rad=los.theta_o,
+                ).air_mass()
+            )
+        else:
+            # A3 partial-column airmass: target→sensor slant through the
+            # (h_tgt, h_sensor) column.  Using AtmosphericGeometry here
+            # gives spherical-Earth behaviour identical to the legacy
+            # construction; reduces to sec(θ_o) in the plane-parallel
+            # limit (Δh / cos θ_o with Δh = h_sensor_m − h_tgt).
+            airmass_up = AtmosphericGeometry(
                 sensor_altitude_m=h_sensor_m,
-                target_altitude_m=0.0,
+                target_altitude_m=h_tgt,
                 path_zenith_rad=los.theta_o,
             ).air_mass()
-        )
+
         # For the sun down-leg, the equivalent "airmass_down" is sec(θ_s)
         # with a spherical correction past 80°.  Reuse the same
-        # AtmosphericGeometry class with target_altitude_m=h_atm_top as the
-        # "upper endpoint" of the solar column.  Use params fallback when
-        # the LOS does not carry theta_s (shadow-mode legacy parity).
+        # AtmosphericGeometry class, with target_altitude_m = h_tgt (A3;
+        # 0 for the legacy h_tgt=0 path) and sensor_altitude_m = h_atm_top
+        # as the "upper endpoint" of the solar column.  Use params
+        # fallback when the LOS does not carry theta_s (shadow-mode
+        # legacy parity).
         if los.theta_s is not None:
             theta_s_effective = los.theta_s
         else:
@@ -685,22 +743,24 @@ class SimpleAtmosphere:
         if math.cos(theta_s_effective) > 0.0:
             sun_geom = AtmosphericGeometry(
                 sensor_altitude_m=los.h_atm_top,
-                target_altitude_m=0.0,
+                target_altitude_m=h_tgt,
                 path_zenith_rad=min(theta_s_effective, ZENITH_CEILING_RAD_SIMPLE),
             )
             airmass_sun = sun_geom.air_mass()
         else:
             airmass_sun = 1.0  # vertical column — irrelevant when sun term is zero
 
-        # --- Column-integrated OD from h_tgt=0 to h_sensor_m ---
+        # --- Column-integrated OD ---
+        # Sea-level extinction per species [1/km].
         sigma_mol_0 = self._rayleigh_extinction_km(lam, 0.0)
         sigma_aer_0 = self._aerosol_extinction_km(lam, 0.0)
         sigma_h2o_0 = self._h2o_extinction_km(lam)
 
-        # Sensor-leg column length (0 → h_sensor_m).
-        col_mol_up = self._column_length_km(0.0, h_sensor_m, H_MOL_M)
-        col_aer_up = self._column_length_km(0.0, h_sensor_m, H_AER_M)
-        col_h2o_up = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
+        # Up-leg column length: [h_tgt, h_sensor_m] for A3, [0, h_sensor_m]
+        # for the h_tgt=0 surface-target case (unchanged).
+        col_mol_up = self._column_length_km(h_tgt, h_sensor_m, H_MOL_M)
+        col_aer_up = self._column_length_km(h_tgt, h_sensor_m, H_AER_M)
+        col_h2o_up = self._column_length_km(h_tgt, h_sensor_m, H_H2O_M)
 
         od_vert_up = (
             sigma_mol_0 * col_mol_up
@@ -710,31 +770,47 @@ class SimpleAtmosphere:
         od_slant_up = od_vert_up * airmass_up
         tau_up = np.exp(-od_slant_up)
 
-        # Full-column (0 → h_atm_top) vertical OD — used for the sun leg
-        # and (since h_tgt=0) equals the sensor-leg column when h_sensor
-        # coincides with h_atm_top.
-        col_mol_full = self._column_length_km(0.0, los.h_atm_top, H_MOL_M)
-        col_aer_full = self._column_length_km(0.0, los.h_atm_top, H_AER_M)
-        col_h2o_full = self._column_length_km(0.0, los.h_atm_top, H_H2O_M)
-        od_vert_full = (
-            sigma_mol_0 * col_mol_full
-            + sigma_aer_0 * col_aer_full
-            + sigma_h2o_0 * col_h2o_full
+        # Sun-leg column length: [h_tgt, h_atm_top].  For h_tgt=0 this
+        # reduces to [0, h_atm_top] (the legacy full-column solar leg).
+        col_mol_sun = self._column_length_km(h_tgt, los.h_atm_top, H_MOL_M)
+        col_aer_sun = self._column_length_km(h_tgt, los.h_atm_top, H_AER_M)
+        col_h2o_sun = self._column_length_km(h_tgt, los.h_atm_top, H_H2O_M)
+        od_vert_sun = (
+            sigma_mol_0 * col_mol_sun
+            + sigma_aer_0 * col_aer_sun
+            + sigma_h2o_0 * col_h2o_sun
         )
-        # Sun down-leg slant OD.
-        od_slant_sun = od_vert_full * airmass_sun
+        od_slant_sun = od_vert_sun * airmass_sun
         tau_sun = np.exp(-od_slant_sun)
 
-        # h_tgt == 0 → the target is on the ground; tau_full_up is the
-        # full ground-to-sensor column, which is exactly tau_up.
-        tau_full_up = tau_up.copy()
+        # tau_full_up: the ground-to-sensor column, used by the background
+        # branch regardless of the airborne target's altitude.  For h_tgt=0
+        # this is identically tau_up (preserved via .copy() so the two
+        # arrays are independent objects but equal element-wise).
+        if h_tgt == 0.0:
+            tau_full_up = tau_up.copy()
+        else:
+            col_mol_full = self._column_length_km(0.0, h_sensor_m, H_MOL_M)
+            col_aer_full = self._column_length_km(0.0, h_sensor_m, H_AER_M)
+            col_h2o_full = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
+            od_vert_full = (
+                sigma_mol_0 * col_mol_full
+                + sigma_aer_0 * col_aer_full
+                + sigma_h2o_0 * col_h2o_full
+            )
+            od_slant_full = od_vert_full * airmass_up
+            tau_full_up = np.exp(-od_slant_full)
 
         # --- E_TOA from core solar spectrum ---
         E_TOA = np.asarray(toa_solar_spectral_irradiance(lam), dtype=np.float64)
 
-        # --- Single-scatter L_path_up (matches legacy formula bit-exactly) ---
+        # --- Single-scatter L_path_up ---
         # Mean-altitude extinctions for the phase function and SSA weights.
-        mean_alt_m = 0.5 * h_sensor_m  # h_tgt=0, h_sen=h_sensor_m
+        # For h_tgt=0 the mean altitude is 0.5 · h_sensor_m (preserves the
+        # legacy scaling bit-exactly).  For h_tgt > 0 we use the mean of
+        # (h_tgt, h_sensor_m) so the phase-function weights track the
+        # column actually being integrated.
+        mean_alt_m = 0.5 * (h_tgt + h_sensor_m)
         sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
         sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
         h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
@@ -764,9 +840,11 @@ class SimpleAtmosphere:
             except (KeyError, TypeError):
                 delta_phi_for_scatter = 0.0
 
+        # Scatter-angle geometry: target_altitude_m = h_tgt for A3 consistency.
+        # For h_tgt=0 this reduces to the exact legacy construction.
         scatter_geom = AtmosphericGeometry(
             sensor_altitude_m=h_sensor_m,
-            target_altitude_m=0.0,
+            target_altitude_m=h_tgt,
             path_zenith_rad=los.theta_o,
             solar_zenith_rad=theta_s_for_scatter,
             solar_azimuth_rad=delta_phi_for_scatter,
@@ -778,6 +856,7 @@ class SimpleAtmosphere:
 
         if cos_theta_sun > 0.0:
             l_sun = toa_solar_equivalent_radiance(lam)
+            # L_path_up uses (1 − τ_up) over the partial column [h_tgt, h_sensor].
             L_path_vals = (
                 l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau_up) / 4.0
             )
@@ -785,12 +864,56 @@ class SimpleAtmosphere:
         else:
             L_path_vals = np.zeros_like(lam)
         L_path_up = L_path_vals
-        # h_tgt == 0 → L_path_full == L_path_up.
-        L_path_full = L_path_up.copy()
+
+        # L_path_full: the background-branch single-scatter radiance,
+        # integrated over the full ground-to-sensor column.  For h_tgt=0
+        # this is identically L_path_up (preserved via .copy()).  For
+        # h_tgt > 0 we need the single-scatter integral over [0, h_sensor],
+        # which uses (1 − τ_full_up) and the mean-altitude weights for
+        # that full column.
+        if h_tgt == 0.0:
+            L_path_full = L_path_up.copy()
+        else:
+            mean_alt_full_m = 0.5 * h_sensor_m
+            sigma_mol_full = self._rayleigh_extinction_km(lam, mean_alt_full_m)
+            sigma_aer_full = self._aerosol_extinction_km(lam, mean_alt_full_m)
+            h2o_scale_full = math.exp(-mean_alt_full_m / H_H2O_M)
+            sigma_h2o_full = sigma_h2o_0 * h2o_scale_full
+            # Scatter geometry for the ground-based full column: the
+            # observer zenith is still θ_o at the target, but the target
+            # is now on the ground.  Reuse the legacy target_altitude_m=0
+            # shape so the phase function matches the surface-target case.
+            scatter_geom_full = AtmosphericGeometry(
+                sensor_altitude_m=h_sensor_m,
+                target_altitude_m=0.0,
+                path_zenith_rad=los.theta_o,
+                solar_zenith_rad=theta_s_for_scatter,
+                solar_azimuth_rad=delta_phi_for_scatter,
+            )
+            cos_theta_scatter_full = scatter_geom_full.cos_scattering_angle()
+            omega0_full = self._single_scattering_albedo(
+                sigma_mol_full, sigma_aer_full, sigma_h2o_full
+            )
+            phase_full = self._single_scatter_phase_function(
+                cos_theta_scatter_full, sigma_mol_full, sigma_aer_full
+            )
+            if cos_theta_sun > 0.0:
+                l_sun_full = toa_solar_equivalent_radiance(lam)
+                L_path_full_vals = (
+                    l_sun_full * cos_theta_sun * omega0_full * phase_full
+                    * (1.0 - tau_full_up) / 4.0
+                )
+                L_path_full = np.maximum(L_path_full_vals, 0.0)
+            else:
+                L_path_full = np.zeros_like(lam)
 
         # --- E_sky_thermal: (1 − τ_down) · π · B(T_atm_eff) ---
-        # τ_down is the sensor-to-ground vertical transmittance (airmass=1).
-        # For h_tgt=0 and h_sensor=h_sensor_m, this is exp(-od_vert_up).
+        # τ_down is the vertical transmittance of the atmosphere between
+        # the target (at h_tgt) and the sensor (at h_sensor) — i.e. the
+        # up-leg column at airmass=1.  For h_tgt=0 this is exp(-od_vert_up),
+        # matching the legacy formula bit-exactly.  As h_tgt → h_atm_top
+        # the column collapses and (1 − τ_down) → 0, so E_sky_thermal → 0
+        # in the vacuum limit (Anchor 2).
         tau_down_vertical = np.exp(-od_vert_up)
         t_atm_eff_K = self._effective_atmospheric_temperature_K(h_sensor_m)
         B_atm = planck_spectral_radiance(lam, t_atm_eff_K)

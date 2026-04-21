@@ -79,6 +79,185 @@ _T5_LPATH_TRIVIAL_TOL: float = 1e-12
 
 
 # ---------------------------------------------------------------------------
+# no_atmosphere sub-case preconditions (Stage 7, Option C)
+# ---------------------------------------------------------------------------
+
+
+def validate_no_atmosphere_subcase(
+    target: TargetDescriptor,
+    background: BackgroundDescriptor | None,
+    los: LineOfSightGeometry | None,
+    h_sensor: float | None,
+    h_sensor_user_set: bool,
+) -> None:
+    """Enforce matrix §7 preconditions for the three no_atmosphere sub-cases.
+
+    Only called by :class:`AtmosphereStage` when
+    ``target.target_location == "no_atmosphere"``.  Pure validation —
+    raises :class:`ParameterBoundsError` on violation; returns ``None``
+    on success.  Does not mutate inputs.
+
+    Matrix §7 rules enforced here:
+
+    * ``space`` requires a positive ``platform.h_sensor`` set by the
+      user (Rule 17 — no silent default).
+    * ``space`` with an Earth-intercepting LOS raises (v1 has no
+      earthlimb model, §7 "no_atmosphere (space) + LOS intercepts
+      Earth").
+    * ``ground_test`` / ``lab_test`` require a
+      :class:`UserSpectralBackground` background; §7 "no_atmosphere
+      (ground_test / lab_test) without UserSpectralBackground".
+
+    The ``lab_test`` dark-cal regime (no illumination) is permitted;
+    illumination is a T2/T3 concern and is orthogonal to the sub-case
+    validation handled here.
+
+    Parameters
+    ----------
+    target:
+        TargetDescriptor published by SourceStage.  The
+        ``target_location`` must be ``"no_atmosphere"``.
+    background:
+        BackgroundDescriptor (may be ``None``).  Matrix §7 requires
+        UserSpectralBackground for ground_test/lab_test.
+    los:
+        LineOfSightGeometry.  Required for the space sub-case
+        Earth-intercept check; optional otherwise.
+    h_sensor:
+        Sensor altitude above MSL [m], from ``params["platform.h_sensor"]``.
+        Only consulted for the space sub-case; ignored otherwise.
+    h_sensor_user_set:
+        ``True`` iff the user explicitly set ``platform.h_sensor``.  The
+        space sub-case rejects the default value loudly rather than
+        silently using 0.0 (Rule 17).
+    """
+    if target.target_location != "no_atmosphere":
+        return  # Not a no_atmosphere cell — nothing to validate here.
+
+    subcase = target.no_atmosphere_subcase
+
+    if subcase == "space":
+        if not h_sensor_user_set or h_sensor is None or h_sensor <= 0.0:
+            raise ParameterBoundsError(
+                what=(
+                    f"assembly.validate_no_atmosphere_subcase: "
+                    f"no_atmosphere_subcase='space' requires a positive "
+                    f"user-supplied platform.h_sensor (got h_sensor="
+                    f"{h_sensor!r}, user_set={h_sensor_user_set})"
+                ),
+                why=(
+                    "The space sub-case runs an Earth-intercept check on "
+                    "the sensor → target LOS (matrix §7; v1 has no "
+                    "earthlimb model).  The check requires the sensor "
+                    "altitude; silently defaulting it to 0 (ground) would "
+                    "produce a non-physical result (Rule 17)."
+                ),
+                action=(
+                    "Set platform.h_sensor to the sensor altitude above "
+                    "MSL in meters (e.g. 800_000 for 800 km LEO).  This "
+                    "parameter is a Stage-7 stop-gap that the "
+                    "SensorDescriptor follow-on ADR will subsume."
+                ),
+                context={
+                    "h_sensor": h_sensor,
+                    "h_sensor_user_set": h_sensor_user_set,
+                    "no_atmosphere_subcase": subcase,
+                },
+            )
+        if los is None:
+            raise ParameterBoundsError(
+                what=(
+                    "assembly.validate_no_atmosphere_subcase: "
+                    "no_atmosphere_subcase='space' requires a "
+                    "LineOfSightGeometry; got None"
+                ),
+                why=(
+                    "The Earth-intercept check needs the observer zenith "
+                    "and target altitude to project the LOS onto the "
+                    "Earth sphere."
+                ),
+                action=(
+                    "Check that SourceStage published a LineOfSightGeometry "
+                    "for the no_atmosphere target (it should — see "
+                    "_inferrer._infer_los)."
+                ),
+                context={"no_atmosphere_subcase": subcase},
+            )
+        if los.intercepts_earth(h_sensor):
+            raise ParameterBoundsError(
+                what=(
+                    f"assembly.validate_no_atmosphere_subcase: "
+                    f"no_atmosphere_subcase='space' LOS from h_sensor="
+                    f"{h_sensor} m to h_tgt={los.h_tgt} m at theta_o="
+                    f"{los.theta_o} rad intersects the Earth"
+                ),
+                why=(
+                    "Matrix §7: no_atmosphere (space) + LOS intercepts "
+                    "Earth is rejected because v1 has no earthlimb "
+                    "background model.  A space-to-space scenario with "
+                    "an Earth-intersecting LOS is physically a ground / "
+                    "earthlimb scenario and must be routed through a "
+                    "terrestrial / airborne target_location instead."
+                ),
+                action=(
+                    "Either (a) increase h_tgt so the target is above the "
+                    "Earth limb at this zenith, (b) reduce theta_o so the "
+                    "LOS points further from the limb, or (c) switch "
+                    "target_location to terrestrial / airborne."
+                ),
+                context={
+                    "h_sensor": h_sensor,
+                    "h_tgt": los.h_tgt,
+                    "theta_o": los.theta_o,
+                    "no_atmosphere_subcase": subcase,
+                },
+            )
+        return
+
+    if subcase in ("ground_test", "lab_test"):
+        if not isinstance(background, UserSpectralBackground):
+            variant = type(background).__name__ if background is not None else "None"
+            raise ParameterBoundsError(
+                what=(
+                    f"assembly.validate_no_atmosphere_subcase: "
+                    f"no_atmosphere_subcase={subcase!r} requires a "
+                    f"UserSpectralBackground; got {variant}"
+                ),
+                why=(
+                    "Matrix §7: no_atmosphere (ground_test / lab_test) "
+                    "has no sensible default for test-range or chamber "
+                    "radiance.  The user must supply a "
+                    "UserSpectralBackground carrying the measured or "
+                    "modelled L_bg(λ) on the chain wavelength grid."
+                ),
+                action=(
+                    "Construct a UserSpectralBackground with "
+                    "L_bg: SpectralData in W/m²/sr/µm and publish it "
+                    "as the background descriptor (via SourceStage's "
+                    "stage_outputs['source']['background'])."
+                ),
+                context={
+                    "no_atmosphere_subcase": subcase,
+                    "background_variant": variant,
+                },
+            )
+        return
+
+    # no_atmosphere_subcase is None or an unknown value — the descriptor
+    # constructor already rejected these, so this arm is unreachable.
+    # Defensive: raise if we somehow land here.
+    raise ParameterBoundsError(  # pragma: no cover
+        what=(
+            f"assembly.validate_no_atmosphere_subcase: unknown "
+            f"no_atmosphere_subcase={subcase!r}"
+        ),
+        why="Valid sub-cases are 'space', 'ground_test', 'lab_test'.",
+        action="Set no_atmosphere_subcase on the TargetDescriptor.",
+        context={"no_atmosphere_subcase": subcase},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Per-term decomposition (Stage 6, Option C — report_components introspection)
 # ---------------------------------------------------------------------------
 
@@ -755,4 +934,5 @@ __all__ = [
     "AssemblyComponents",
     "assemble_background_at_aperture",
     "assemble_target_at_aperture",
+    "validate_no_atmosphere_subcase",
 ]

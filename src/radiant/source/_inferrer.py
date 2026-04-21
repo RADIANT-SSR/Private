@@ -378,34 +378,74 @@ def _build_background_descriptor(
 
     if target_location == "no_atmosphere":
         if no_atmosphere_subcase == "space":
-            # Matrix §3.3 line 300: space sub-case → ColdSpaceBackground.
+            # Matrix §3.3 line 300: space sub-case → ColdSpaceBackground
+            # (default, no user input required).  Default illumination is
+            # solar TOA unattenuated; the assembly arm reads E_TOA directly
+            # from ExoAtmosphere.evaluate() which populates it from the
+            # built-in solar spectrum (radiant.core.solar).  Stage 7 adds
+            # an Earth-intercept precondition on the LOS — see
+            # atmosphere.assembly.validate_no_atmosphere_subcase.
             return ColdSpaceBackground()
-        # ground_test / lab_test: user must supply spectral background;
-        # Stage 7 introduces the preset.  Raising here is Rule 17:
-        # fail loud rather than silently.
-        raise ParameterBoundsError(
+        if no_atmosphere_subcase in ("ground_test", "lab_test"):
+            # Matrix §7: ground_test / lab_test require a
+            # UserSpectralBackground (L_bg(λ) on the chain grid).  The
+            # legacy parameter surface has no user-L_bg path — a user
+            # driving the chain through the legacy YAML must construct a
+            # UserSpectralBackground manually and inject it into
+            # stage_outputs['source']['background'] before AtmosphereStage
+            # runs (this is the integration test pattern in Stage 7 of
+            # the Option C plan; a richer YAML-driven path is the
+            # SensorDescriptor / illumination follow-on).
+            #
+            # Raising here is Rule 17 (no silent failure): the inferrer
+            # has no default to give and the Stage-7 AtmosphereStage
+            # validator will likewise raise.  We raise early so the user
+            # sees a clear, actionable error at descriptor construction
+            # rather than deep in assembly.
+            raise ParameterBoundsError(
+                what=(
+                    f"source._inferrer: no_atmosphere_subcase="
+                    f"{no_atmosphere_subcase!r} requires a user-supplied "
+                    f"UserSpectralBackground; the legacy parameter "
+                    f"surface does not carry L_bg(λ)."
+                ),
+                why=(
+                    "Matrix §7: ground_test and lab_test sub-cases have no "
+                    "sensible default for test-range or chamber radiance. "
+                    "The user must supply UserSpectralBackground(L_bg: "
+                    "SpectralData in W/m²/sr/µm).  The Option C "
+                    "SourceStage legacy inferrer cannot construct L_bg "
+                    "from scalar parameters; this is a Stage-7 preset "
+                    "that runs through a direct-descriptor pathway "
+                    "(tests inject a UserSpectralBackground into "
+                    "stage_outputs['source']['background']).  The "
+                    "illumination follow-on ADR will add a YAML-driven "
+                    "path."
+                ),
+                action=(
+                    "Either (a) construct a UserSpectralBackground "
+                    "manually and publish it as "
+                    "stage_outputs['source']['background'] (see "
+                    "tests/integration/test_no_atm_subcases.py for the "
+                    "canonical pattern), or (b) leave "
+                    "source.target_location at 'auto' for a space / "
+                    "terrestrial / airborne scenario."
+                ),
+                context={
+                    "target_location": target_location,
+                    "no_atmosphere_subcase": no_atmosphere_subcase,
+                },
+            )
+        # Unknown sub-case — the descriptor constructor already rejects
+        # these; this arm is defensive.
+        raise ParameterBoundsError(  # pragma: no cover
             what=(
-                f"source._inferrer: no_atmosphere_subcase = "
-                f"{no_atmosphere_subcase!r} requires a user-supplied "
-                f"UserSpectralBackground, which is not yet wired into "
-                f"the legacy parameter surface."
+                f"source._inferrer: unknown no_atmosphere_subcase="
+                f"{no_atmosphere_subcase!r}"
             ),
-            why=(
-                "Stage 2 of the Option C plan is the additive bridge; "
-                "ground_test / lab_test presets land in Stage 7 of the "
-                "plan.  Setting the sub-case today requires the user to "
-                "supply their own background spectrum through a future "
-                "API surface."
-            ),
-            action=(
-                "Either leave source.target_location at 'auto' / "
-                "'terrestrial' / 'no_atmosphere'=space for now, or wait "
-                "for Stage 7 to land the ground_test / lab_test preset."
-            ),
-            context={
-                "target_location": target_location,
-                "no_atmosphere_subcase": no_atmosphere_subcase,
-            },
+            why="Valid sub-cases are 'space', 'ground_test', 'lab_test'.",
+            action="Set no_atmosphere_subcase to one of the three values.",
+            context={"no_atmosphere_subcase": no_atmosphere_subcase},
         )
 
     # terrestrial / airborne: background depends on scene_type.

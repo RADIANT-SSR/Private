@@ -45,11 +45,12 @@ from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.assembly import (
     assemble_background_at_aperture,
     assemble_target_at_aperture,
+    validate_no_atmosphere_subcase,
 )
 from radiant.atmosphere.exo import ExoAtmosphere
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterSet, Provenance
 from radiant.core.radiometry import RadiometricFrame
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,34 @@ class AtmosphereStage:
                 "AtmosphereStage: SourceStage did not publish a TargetDescriptor "
                 "under stage_outputs['source']['target']. Stage 4 requires the "
                 "descriptor-driven path; run SourceStage before AtmosphereStage."
+            )
+
+        # ------------------------------------------------------------------
+        # 2a. Stage 7 (Option C) — no_atmosphere sub-case preconditions.
+        # Matrix §7: space sub-case requires a positive user-set
+        # platform.h_sensor and the LOS must clear the Earth limb; the
+        # ground_test / lab_test sub-cases require a UserSpectralBackground
+        # on the background arm.  Fails loud per Rule 17 before any
+        # physics runs.
+        # ------------------------------------------------------------------
+        if getattr(target_desc, "target_location", None) == "no_atmosphere":
+            try:
+                h_sensor_rv = params.get_resolved("platform.h_sensor")
+                h_sensor: float | None = float(h_sensor_rv.value)
+                h_sensor_user_set: bool = (
+                    h_sensor_rv.provenance is not Provenance.DEFAULT
+                )
+            except KeyError:
+                # Platform schema not registered in this ParameterSet (source-
+                # only unit-test fixture).  Treat as "not supplied".
+                h_sensor = None
+                h_sensor_user_set = False
+            validate_no_atmosphere_subcase(
+                target=target_desc,
+                background=background_desc,
+                los=los,
+                h_sensor=h_sensor,
+                h_sensor_user_set=h_sensor_user_set,
             )
 
         # ------------------------------------------------------------------

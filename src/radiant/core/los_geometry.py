@@ -205,6 +205,145 @@ class LineOfSightGeometry:
         return float(self.slant_range_atm / dz)
 
     # ------------------------------------------------------------------
+    # Earth-intercept check (Stage 7 — no_atmosphere=space precondition)
+    # ------------------------------------------------------------------
+
+    def intercepts_earth(self, h_sensor: float) -> bool:
+        """Return True if the sensor→target LOS passes through the Earth.
+
+        Spherical-Earth ray-sphere intersection from the sensor position.
+        Used by the ``no_atmosphere`` sub-case ``space`` to validate that
+        the sensor's LOS to the target clears the Earth limb — matrix §7:
+        v1 has no earthlimb model, so any LOS that dips below the surface
+        must be rejected.
+
+        The sensor is placed at radius ``R_E + h_sensor`` and directed at
+        the target through zenith angle ``theta_o`` (measured at the
+        target on a spherical Earth).  Concretely: construct the LOS as
+        the line from ``sensor_pos`` to ``target_pos`` and check whether
+        the minimum distance from the Earth centre along the *segment*
+        (not the infinite line) is below ``R_E``.
+
+        Parameters
+        ----------
+        h_sensor:
+            Sensor altitude above MSL [m].  Must be non-negative.
+
+        Returns
+        -------
+        bool
+            ``True`` iff the LOS segment between sensor and target passes
+            below the Earth's surface (``R_E``).  ``False`` if the path
+            stays above the surface for its entire length, or exactly
+            tangential within floating-point tolerance.
+
+        Raises
+        ------
+        ParameterBoundsError
+            If ``h_sensor`` is negative.
+
+        Notes
+        -----
+        Geometry on a spherical Earth:
+          * Target is at radius ``r_t = R_E + h_tgt``.
+          * Sensor is at radius ``r_s = R_E + h_sensor``.
+          * The target-centred observer zenith is ``theta_o``.
+          * Apply the law of cosines to the triangle (Earth centre,
+            target, sensor):
+                r_s² = r_t² + d² − 2 r_t d cos(π − theta_o)
+                     = r_t² + d² + 2 r_t d cos(theta_o)
+            where ``d`` is the slant range target→sensor.  Solve for
+            ``d`` (positive root).
+          * The closest approach of the LOS segment to the Earth centre
+            is:
+                - if the foot of the perpendicular from the centre lies
+                  *on* the segment: ``r_min = r_t sin(theta_o)``
+                  (equivalently ``r_s sin(theta_s_at_sensor)``).
+                - if the foot lies *off* the segment (behind target or
+                  beyond sensor): the minimum is at one of the endpoints,
+                  which are both ≥ R_E by construction.
+          * We return ``r_min < R_E`` for on-segment feet; for off-segment
+            feet we return ``False`` (endpoints are above the surface).
+
+        At ``theta_o = 0`` (nadir-looking from above), ``r_min = 0`` but
+        the foot is not on the segment for a space sensor above the
+        atmosphere — the segment stays radial and never dips below R_E.
+        The on-segment check handles this correctly.
+        """
+        if h_sensor < 0.0:
+            raise ParameterBoundsError(
+                what=f"LineOfSightGeometry.intercepts_earth: h_sensor = {h_sensor} m is negative",
+                why="Sensor altitude must be non-negative (at or above MSL).",
+                action="Set h_sensor ≥ 0.",
+                context={"h_sensor": h_sensor},
+            )
+
+        r_t = R_EARTH_M + self.h_tgt
+        r_s = R_EARTH_M + h_sensor
+        cos_to = math.cos(self.theta_o)
+        sin_to = math.sin(self.theta_o)
+
+        # Slant range target→sensor via law of cosines on the triangle
+        # (Earth centre, target, sensor).  The interior angle at the target
+        # between the local-up (Earth-centre→target extended) and the
+        # target→sensor ray is (π − theta_o) because theta_o is measured
+        # from local up toward the sensor (zenith convention).  So:
+        #   r_s² = r_t² + d² − 2 r_t d cos(π − theta_o)
+        #        = r_t² + d² + 2 r_t d cos(theta_o)
+        # ⇒   d² + 2 r_t cos(theta_o) d + (r_t² − r_s²) = 0
+        # Positive root:
+        #   d = −r_t cos(theta_o) + √(r_t² cos²(theta_o) + r_s² − r_t²)
+        disc = (r_t * cos_to) ** 2 + (r_s * r_s - r_t * r_t)
+        if disc < 0.0:
+            # Should not occur for h_sensor ≥ h_tgt; indicates the sensor is
+            # below the target shell with a geometry that never reaches up
+            # to the sensor.  In that degenerate case the LOS is ill-defined
+            # and we treat it as intercepting (conservative — the caller
+            # should supply a sensible h_sensor).
+            return True
+        d = -r_t * cos_to + math.sqrt(disc)
+        if d <= 0.0:
+            # Degenerate: sensor coincides with (or is below) the target
+            # along the LOS.  Not a physical imaging geometry; treat as
+            # intercepting to fail loudly upstream.
+            return True
+
+        # Closest approach of the infinite line through (target, sensor)
+        # to Earth centre = r_t · sin(theta_o) (perpendicular from centre
+        # to the LOS through the target point with zenith theta_o).
+        r_min_line = r_t * sin_to
+
+        # Foot-of-perpendicular parameter t along the segment
+        # target → sensor (t = 0 at target, t = d at sensor).
+        #
+        # Set up a target-local 2-D frame: target at origin, local up
+        # along +y, Earth centre at (0, −r_t) (directly below the target
+        # along local-up).  The LOS direction from target toward sensor
+        # has zenith theta_o measured from local-up, and lies in the xy
+        # plane, so the direction unit vector is (sin(theta_o),
+        # cos(theta_o)).  Line points:
+        #     P(t) = (t · sin(theta_o),  r_t + t · cos(theta_o))
+        # Squared distance from origin to P(t):
+        #     |P(t)|² = t² · sin² + (r_t + t · cos)²
+        #             = t² + 2 r_t cos(theta_o) · t + r_t²
+        # Minimum (d/dt = 0) at
+        #     t_foot = −r_t · cos(theta_o)
+        # The foot lies on the LOS segment [0, d] iff
+        #     0 ≤ −r_t · cos(theta_o) ≤ d
+        # Nadir (theta_o = 0): t_foot = −r_t < 0 ⇒ foot OFF the segment
+        # (behind the target, toward Earth centre).  The closest point on
+        # the segment is therefore an endpoint; both endpoints have radii
+        # ≥ R_EARTH_M by construction, so no intercept.  Correct.
+        t_foot = -r_t * cos_to
+        if 0.0 <= t_foot <= d:
+            # Foot on segment — closest approach is r_min_line.
+            return bool(r_min_line < R_EARTH_M)
+        # Foot off segment — closest approach is at an endpoint.  Both
+        # endpoints sit at radii r_t ≥ R_EARTH_M and r_s ≥ R_EARTH_M by
+        # construction, so the segment does not dip below the surface.
+        return False
+
+    # ------------------------------------------------------------------
     # Serialization
     # ------------------------------------------------------------------
 

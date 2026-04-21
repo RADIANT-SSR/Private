@@ -134,6 +134,10 @@ def cell58_result():
 
     # Geometry: 800 km LEO nadir.
     params.set("geometry.sensor_altitude_m", 800000.0)
+    # Stage 7 (Option C): exo atmosphere → no_atmosphere='space' sub-case,
+    # which requires platform.h_sensor for the Earth-intercept precondition
+    # check (matrix §7).  Same altitude as geometry.sensor_altitude_m.
+    params.set("platform.h_sensor", 800000.0)
 
     # Optics: 0.15 m aperture, f/3.0.
     params.set("optics.aperture_diameter_m", 0.15)

@@ -25,6 +25,7 @@ from radiant.core.descriptors import (
     T5AtAperture,
     UserSpectralBackground,
     raise_if_epsilon_and_rho_both_set,
+    warn_if_reflective_and_sun_below_horizon,
 )
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.spectral import SpectralData
@@ -716,3 +717,129 @@ def test_roundtrip_user_spectral_background() -> None:
     d = _descriptor_to_plain_dict(orig)
     rebuilt = _rebuild_from_plain_dict(d, UserSpectralBackground)
     assert _descriptors_equal(orig, rebuilt)
+
+
+# ---------------------------------------------------------------------------
+# Matrix §7 SWIR hot-target warn (T1Thermal alone in SWIR at T_t > 700 K)
+# ---------------------------------------------------------------------------
+
+
+def eps_swir() -> SpectralData:
+    return _sd("eps_swir", 1.0, 2.5, 0.9)
+
+
+@pytest.mark.level0
+def test_warn_t1_thermal_swir_hot_target() -> None:
+    """Matrix §3.2 line 318: T1Thermal at SWIR with T_t > 700 K must warn."""
+    with pytest.warns(UserWarning, match=r"SWIR.*700"):
+        T1Thermal(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            epsilon=eps_swir(),
+            T_t=1200.0,
+        )
+
+
+@pytest.mark.level0
+def test_no_warn_t1_thermal_swir_cold_target() -> None:
+    """T1Thermal at SWIR with T_t <= 700 K must not fire the SWIR warning."""
+    import warnings as _w
+
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)
+        # 600 K target: below threshold; should not fire SWIR warning.
+        T1Thermal(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            epsilon=eps_swir(),
+            T_t=600.0,
+        )
+
+
+@pytest.mark.level0
+def test_no_warn_t1_thermal_lwir_hot_target() -> None:
+    """LWIR band: even with T_t > 700 K, the SWIR check must not fire."""
+    import warnings as _w
+
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)
+        T1Thermal(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            epsilon=eps_lwir(),
+            T_t=1200.0,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Matrix §7 θ_s > π/2 with T2Reflective (sun below horizon → zero signal)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_warn_t2_reflective_sun_below_horizon() -> None:
+    """θ_s > π/2 (sun below horizon) with T2Reflective must warn."""
+    import math
+
+    target = T2Reflective(
+        scene_type="extended",
+        target_location="terrestrial",
+        h_tgt=0.0,
+        rho=rho_vis(),
+    )
+    with pytest.warns(UserWarning, match=r"below the horizon"):
+        warn_if_reflective_and_sun_below_horizon(target, theta_s=math.pi * 0.6)
+
+
+@pytest.mark.level0
+def test_no_warn_t2_reflective_sun_above_horizon() -> None:
+    """θ_s = π/4 is well above horizon — no warning for T2Reflective."""
+    import math
+    import warnings as _w
+
+    target = T2Reflective(
+        scene_type="extended",
+        target_location="terrestrial",
+        h_tgt=0.0,
+        rho=rho_vis(),
+    )
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)
+        warn_if_reflective_and_sun_below_horizon(target, theta_s=math.pi / 4.0)
+
+
+@pytest.mark.level0
+def test_no_warn_t1_thermal_sun_below_horizon() -> None:
+    """T1Thermal with sun below horizon: warning is T2-only, no-op for T1."""
+    import math
+    import warnings as _w
+
+    target = T1Thermal(
+        scene_type="extended",
+        target_location="terrestrial",
+        h_tgt=0.0,
+        epsilon=eps_lwir(),
+        T_t=300.0,
+    )
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)
+        warn_if_reflective_and_sun_below_horizon(target, theta_s=math.pi * 0.6)
+
+
+@pytest.mark.level0
+def test_no_warn_t2_reflective_theta_s_none() -> None:
+    """θ_s = None (pure-thermal scene) — helper is a no-op."""
+    import warnings as _w
+
+    target = T2Reflective(
+        scene_type="extended",
+        target_location="terrestrial",
+        h_tgt=0.0,
+        rho=rho_vis(),
+    )
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)
+        warn_if_reflective_and_sun_below_horizon(target, theta_s=None)

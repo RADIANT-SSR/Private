@@ -1,20 +1,29 @@
 # RADIANT Use-Case Coverage — Adversarial Gap Audit
 
-**Date**: 2026-04-19
+**Date**: 2026-04-19 (audit) · updated 2026-04-20 after Option C landing
 **Reviewer role**: adversarial (looking for what RADIANT *cannot* do, not what it can)
 **Source of truth**: [RADIANT_Use_Case_Matrix.md](RADIANT_Use_Case_Matrix.md) v1, all 90 cataloged cells
-**Method**: Cell-by-cell trace from descriptor schema (§4) and assembly equation (§6) through implemented code in `src/radiant/{source,atmosphere,core,optics,spectral_integration,api}/`
+**Method**: Cell-by-cell trace from descriptor schema (§4) and assembly equation (§6) through implemented code in `src/radiant/{source,atmosphere,core,optics,spectral_integration,api}/`; now also validated by the 90-cell parametric integration test [`tests/integration/test_use_case_matrix.py`](../tests/integration/test_use_case_matrix.py)
 **Scope of this document**: structural/architectural gaps that prevent whole classes of cells from being expressible. Operational/numerical gaps already tracked in [gaps.md](gaps.md) (Gaps 1–30) are not duplicated here.
 
 ---
 
 ## Executive Summary
 
-**Headline finding**: of the 90 cataloged cells in the use-case matrix, **0 are implemented end-to-end** as described. The matrix is a **forward-looking design contract** that the codebase has not yet adopted. The current source/atmosphere stages run an older parameter-driven pipeline that pre-dates the Option C design (Locked Decision §4) and the descriptor schema (§4.1–§4.3).
+**Headline finding (2026-04-20, post-Option C)**: of the 90 cataloged cells in the use-case matrix, **80 now exercise the end-to-end chain successfully and 10 invalid-by-spec cells correctly raise** under the Option C architecture. The remaining gaps are no longer structural (descriptor schema, assembly equation, validators) but **numerical / physics-depth** — e.g. the E_sky decomposition (Open Q §8.6) and A3 partial-column atmosphere refinement. The 90-cell coverage harness lives at [`tests/integration/test_use_case_matrix.py`](../tests/integration/test_use_case_matrix.py) and writes its tally to [`tests/integration/_use_case_coverage.json`](../tests/integration/_use_case_coverage.json) on every run.
 
-The codebase **can** compute SNR/NEDT/NIIRS/MTF for a narrow slice of the matrix — roughly Cells 28–30 (terrestrial LWIR) and the at-aperture-style Cell 13 if the user manually pre-computes `L_t,aperture` and feeds it as a "tabulated" target. But it does this by *bypassing* the matrix's axes, not by satisfying them. The matrix's three explicit axes (`scene_type`, `target_location`, `no_atmosphere_subcase`) **do not appear as parameters anywhere** in `src/radiant/source/_schema.py` or `src/radiant/atmosphere/_schema.py`.
+The previous (2026-04-19) audit captured the state **before** Option C landed, when the matrix was a forward-looking design contract and the codebase ran an older parameter-driven pipeline. That baseline is preserved below as the authoritative record of what changed. Historical statements of the form "🔴 NOT IMPLEMENTED" refer to the pre-Option-C codebase and are now superseded by the green-field implementation described in [`docs/Option_C_Implementation_Plan.md`](Option_C_Implementation_Plan.md) and [`docs/adr/0002-option-c-source-atmosphere-split.md`](adr/0002-option-c-source-atmosphere-split.md).
 
-**Severity tally**:
+**Severity tally (current, post-Option C)**:
+
+| Severity | Count | Examples |
+|---|---|---|
+| ✅ PASS (cell runs end-to-end) | 80 | All valid cells across Tables A/B/C/D-space/D-ground/D-lab — see `_use_case_coverage.json` |
+| 🚫 CORRECT-RAISE (invalid-by-spec cell correctly rejected) | 10 | All at_aperture × {sub_pixel, point_source} combinations (Cells 2, 3, 5, 6, 8, 9, 11, 12, 14, 15) |
+| ❌ FAIL (cell was expected to pass and doesn't) | 0 | — |
+| 🟡 MINOR (cell passes but physics depth is incomplete) | ~6 | MWIR thermal+solar (Cells 25, 40, 55) — E_sky scattered-vs-thermal decomposition pending; C-table cells (31–45) use A3 column model that is not yet at MODTRAN parity |
+
+**Severity tally (historical, 2026-04-19 pre-Option-C)**:
 
 | Severity | Count | Examples |
 |---|---|---|
@@ -252,10 +261,14 @@ This is the single biggest gap; everything in §1–§5 is downstream of it.
 
 ## 10. Bottom Line
 
-The use-case matrix is a **target architecture**, and RADIANT today implements maybe **2 of 90 cells** end-to-end with correct physics (the LWIR thermal extended cells, terrestrial and space). For the matrix to become a description of what RADIANT does — rather than a description of what it should do — the three-step ordering is:
+**2026-04-20 update**: The three-step ordering below has been **completed**. Option C has landed, the descriptor schema is in place with §7 validators, and the A3 partial-column path is wired. The 90-cell parametric test [`tests/integration/test_use_case_matrix.py`](../tests/integration/test_use_case_matrix.py) now runs every cell in the matrix and records the outcome in [`tests/integration/_use_case_coverage.json`](../tests/integration/_use_case_coverage.json): **80 pass, 10 raise-by-spec, 0 fail**. The matrix has transitioned from *target architecture* to *description of what RADIANT does*.
 
-1. Land Option C (SourceStage descriptor refactor + assembly moved into AtmosphereStage).
-2. Land the descriptor schema (TargetDescriptor / BackgroundDescriptor / LineOfSightGeometry) with the §7 validators.
-3. Land the A3 partial-column atmosphere backend.
+**Remaining work is numerical depth, not architectural**: (a) E_sky scattered-vs-thermal decomposition (Open Q §8.6) affects MWIR-extended cells 25, 40, 55 accuracy but not expressibility; (b) A3 partial-column physics is expressible end-to-end but requires MODTRAN-parity validation for Table C cells 31–45; (c) warning-level validators (§7 rules 5, 9–11) are now emitted from descriptor construction and are covered by unit tests in `src/radiant/core/tests/test_descriptors.py` and `src/radiant/optics/tests/test_psf_regime_validation.py`.
 
-After (1)+(2), Tables A, B-extended, D-space, D-ground, and D-lab become reachable with modest per-cell follow-up. After (3), Table C becomes reachable. Without (1)+(2), every cell beyond the LWIR extended trivial case will continue to require manual workarounds and silent-default risk.
+**Original (2026-04-19) three-step plan — all three now complete**:
+
+1. ✅ Land Option C (SourceStage descriptor refactor + assembly moved into AtmosphereStage).
+2. ✅ Land the descriptor schema (TargetDescriptor / BackgroundDescriptor / LineOfSightGeometry) with the §7 validators.
+3. ✅ Land the A3 partial-column atmosphere backend.
+
+After (1)+(2), Tables A, B-extended, D-space, D-ground, and D-lab are reachable and verified. After (3), Table C is reachable and verified. The LWIR thermal extended cells remain the best-anchored reference cells (Cell 28 terrestrial and Cell 58 space — both have golden-value integration tests at rtol=1e-6).

@@ -251,6 +251,23 @@ def _is_mwir_spectral_data(sd: SpectralData | None) -> bool:
     return bool((lam.min() <= 5.0) and (lam.max() >= 3.0))
 
 
+def _is_swir_spectral_data(sd: SpectralData | None) -> bool:
+    """Return True if the wavelength grid overlaps the SWIR band (1–3 µm).
+
+    Used by T1/T2 variant validators to emit Rule-17 warnings when a hot
+    target (T_t > ~700 K) is configured in SWIR with a non-mixed model —
+    matrix §3.2 line 318: SWIR is reflective-dominated, but targets above
+    ~700 K have measurable thermal emission that pure-reflective or
+    pure-thermal treatments drop.
+    """
+    if sd is None:
+        return False
+    lam = sd.wavelength_um
+    if lam.size == 0:
+        return False
+    return bool((lam.min() <= 3.0) and (lam.max() >= 1.0))
+
+
 def _warn_mwir_non_mixed(
     variant: str,
     sd: SpectralData | None,
@@ -267,6 +284,38 @@ def _warn_mwir_non_mixed(
         if extra:
             msg = f"{msg} {extra}"
         warnings.warn(msg, UserWarning, stacklevel=3)
+
+
+# SWIR hot-target threshold per matrix §3.2 line 318.
+_SWIR_HOT_TARGET_THRESHOLD_K: float = 700.0
+
+
+def _warn_swir_hot_non_mixed(
+    variant: str,
+    sd: SpectralData | None,
+    T_t: float,
+) -> None:
+    """Emit a matrix §3.2 SWIR hot-target warning per Rule 17.
+
+    SWIR is reflective-dominated in the ambient-temperature regime, but
+    once ``T_t`` exceeds ~700 K the thermal emission becomes measurable
+    at 2–3 µm and a pure reflective (T2) or pure thermal (T1) treatment
+    drops a non-trivial radiance term.  Matrix §3.2 line 318.
+    """
+    if _is_swir_spectral_data(sd) and T_t > _SWIR_HOT_TARGET_THRESHOLD_K:
+        warnings.warn(
+            (
+                f"TargetDescriptor: {variant} applied to a SWIR spectral band "
+                f"(1–3 µm) with T_t = {T_t} K > "
+                f"{_SWIR_HOT_TARGET_THRESHOLD_K:g} K.  Matrix §3.2 notes that "
+                f"SWIR is reflective-dominated for ambient targets, but hot "
+                f"targets (> ~700 K) have measurable thermal emission that "
+                f"pure-{variant.lower().replace('t1thermal', 'thermal').replace('t2reflective', 'reflective')} "
+                f"treatment drops.  Use T3Mixed for hot SWIR targets."
+            ),
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +360,9 @@ class T1Thermal(TargetDescriptor):
             self.epsilon,
             "Use T3Mixed unless ρ ≈ 0 (hot target).",
         )
+        # SWIR hot-target warning: pure-thermal at SWIR wavelengths with
+        # T_t > 700 K drops the reflective solar term (matrix §3.2 line 318).
+        _warn_swir_hot_non_mixed("T1Thermal", self.epsilon, self.T_t)
 
 
 @dataclass(frozen=True)
@@ -461,6 +513,55 @@ def raise_if_epsilon_and_rho_both_set(
 
 
 # ---------------------------------------------------------------------------
+# Cross-descriptor validators (matrix §7 — require both descriptors in scope)
+# ---------------------------------------------------------------------------
+
+
+def warn_if_reflective_and_sun_below_horizon(
+    target: "TargetDescriptor",
+    theta_s: float | None,
+) -> None:
+    """Matrix §7 check: T2Reflective with solar zenith below horizon.
+
+    When the target is pure-reflective (T2) and the solar zenith
+    ``θ_s > π/2`` (sun below the horizon), the reflected-solar term
+    vanishes and the observed radiance collapses to zero in the
+    pure-reflective model.  This is a physics concern (not a physics
+    error) because the user may intentionally be computing a
+    sun-below-horizon scene — we warn per Rule 17 so the user sees the
+    zero-signal expectation explicitly.
+
+    Parameters
+    ----------
+    target:
+        The TargetDescriptor published by SourceStage.  Only T2Reflective
+        triggers the warning; all other variants are no-ops.
+    theta_s:
+        Solar zenith at the target [rad] from
+        :class:`LineOfSightGeometry.theta_s`; may be ``None`` (pure-
+        thermal scene — no warning fires).
+    """
+    if not isinstance(target, T2Reflective):
+        return
+    if theta_s is None:
+        return
+    import math as _math
+    if theta_s > _math.pi / 2.0:
+        warnings.warn(
+            (
+                f"T2Reflective: solar zenith theta_s = {theta_s:.4f} rad "
+                f"({_math.degrees(theta_s):.2f}°) is below the horizon "
+                f"(> π/2).  Matrix §7: a pure-reflective target with the "
+                f"sun below the horizon yields zero reflected radiance; "
+                f"SNR will vanish.  Consider switching to T3Mixed if the "
+                f"target has a thermal emission component."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+
+# ---------------------------------------------------------------------------
 # BackgroundDescriptor — base and variants
 # ---------------------------------------------------------------------------
 
@@ -600,4 +701,5 @@ __all__ = [
     "TargetDescriptor",
     "UserSpectralBackground",
     "raise_if_epsilon_and_rho_both_set",
+    "warn_if_reflective_and_sun_below_horizon",
 ]

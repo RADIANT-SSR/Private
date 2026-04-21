@@ -36,13 +36,14 @@ from __future__ import annotations
 
 import logging
 import math
+import warnings
 
 import numpy as np
 
 from radiant.core.chain import ChainState
 from radiant.core.constants import c as c_light
 from radiant.core.constants import h as h_planck
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
@@ -458,6 +459,107 @@ def _finalize_regime(
     return RadiometricRegime.SUB_PIXEL
 
 
+# Matrix §7 thresholds for PSF-dependent angular-size checks.
+# Point-source: fail above 0.1 × PSF_FWHM (angular extent no longer << PSF).
+_POINT_SOURCE_ANGULAR_SIZE_LIMIT: float = 0.1
+# Sub-pixel: warn below 0.01 × PSF_FWHM (descriptor has degraded into the
+# point-source corner of the §1.1 decision region).
+_SUBPIXEL_RECLASSIFICATION_THRESHOLD: float = 0.01
+
+
+def _validate_psf_regime_consistency(
+    scene_type: str,
+    angular_extent_rad: float,
+    epsf: EffectivePSF | None,
+    focal_length_m: float,
+) -> None:
+    """Matrix §7 PSF-dependent angular-size checks.
+
+    Runs after :func:`_finalize_regime` resolves the radiometric regime;
+    it does not modify the regime, only guards against the two physics
+    inconsistencies the matrix flags:
+
+    * **Point-source descriptor with a resolved target** — if
+      ``√A_t / d > 0.1 · PSF_FWHM`` the point-source approximation is
+      breaking down (the target is no longer ≪ the PSF).  Raise
+      :class:`ParameterBoundsError` per matrix §7 line 485 (this is a
+      physics error, not a warning).
+    * **Sub-pixel descriptor with √A_t / d ≪ PSF_FWHM** — below
+      ``0.01 · PSF_FWHM`` the sub-pixel descriptor is effectively a
+      point source and carries unused area/shape fields.  Emit a
+      :class:`UserWarning` suggesting reclassification per matrix §1.1.
+
+    Both checks are skipped when there is no EffectivePSF (degenerate
+    chain) or the scene_type is not one of ``{point_source, sub_pixel}``.
+    ``angular_extent_rad`` of 0 or non-finite is also skipped because the
+    descriptor carries no resolved geometry — the guard is only
+    meaningful when √A_t / d is a positive finite number.
+    """
+    if epsf is None:
+        return
+    if scene_type not in ("point_source", "sub_pixel"):
+        return
+    if not math.isfinite(angular_extent_rad) or angular_extent_rad <= 0.0:
+        return
+    if focal_length_m <= 0.0:
+        return
+
+    fwhm_m = epsf.fwhm(axis="x")
+    psf_fwhm_rad = fwhm_m / focal_length_m
+    if psf_fwhm_rad <= 0.0:
+        return
+
+    ratio = angular_extent_rad / psf_fwhm_rad
+
+    if scene_type == "point_source" and ratio > _POINT_SOURCE_ANGULAR_SIZE_LIMIT:
+        raise ParameterBoundsError(
+            what=(
+                f"OpticsStage: point_source target has resolved angular extent "
+                f"√A_t/d = {angular_extent_rad:.3e} rad, which is "
+                f"{ratio:.3f}× PSF_FWHM ({psf_fwhm_rad:.3e} rad); the "
+                f"point-source approximation requires √A_t/d ≤ "
+                f"{_POINT_SOURCE_ANGULAR_SIZE_LIMIT:g}·PSF_FWHM "
+                f"(matrix §7)."
+            ),
+            why=(
+                "Point-source spectral intensity I(λ) = ∫L(λ)dA collapses a "
+                "finite-area target into a zero-dimensional emitter by "
+                "pre-integrating over the target area.  When the target's "
+                "angular extent exceeds ~10% of the system PSF_FWHM the "
+                "target is resolved and the point-source form silently "
+                "drops spatial structure (Rule 17 forbids that)."
+            ),
+            action=(
+                "Either (a) switch scene_type to 'sub_pixel' and supply A_t "
+                "+ shape explicitly, or (b) move the target farther from "
+                "the sensor (larger d) so √A_t/d falls below "
+                f"{_POINT_SOURCE_ANGULAR_SIZE_LIMIT:g}·PSF_FWHM, or "
+                "(c) use the extended regime if the target fills the pixel."
+            ),
+            context={
+                "scene_type": scene_type,
+                "angular_extent_rad": angular_extent_rad,
+                "psf_fwhm_rad": psf_fwhm_rad,
+                "ratio": ratio,
+                "threshold": _POINT_SOURCE_ANGULAR_SIZE_LIMIT,
+            },
+        )
+
+    if scene_type == "sub_pixel" and ratio < _SUBPIXEL_RECLASSIFICATION_THRESHOLD:
+        warnings.warn(
+            (
+                f"OpticsStage: sub_pixel target has angular extent "
+                f"√A_t/d = {angular_extent_rad:.3e} rad, which is only "
+                f"{ratio:.3e}× PSF_FWHM ({psf_fwhm_rad:.3e} rad) — the "
+                f"target is effectively a point source.  Matrix §1.1 "
+                f"suggests reclassifying to scene_type='point_source' to "
+                f"avoid carrying unused A_t/shape fields."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+
 def _compute_ee_box(
     regime: RadiometricRegime,
     epsf: EffectivePSF | None,
@@ -774,6 +876,21 @@ class OpticsStage:
             focal_length_m=focal_length_m,
             regime_override=regime_override,
         )
+
+        # Matrix §7 PSF-dependent validation on the scene_type axis
+        # (separate from the radiometric regime which is IFOV-based):
+        # point-source with √A_t/d > 0.1·PSF_FWHM raises, sub-pixel with
+        # √A_t/d < 0.01·PSF_FWHM warns.  Reads the published descriptor
+        # so the scene_type is the descriptor-declared value, not the
+        # finalized regime (they can differ at the PSF/IFOV boundary).
+        target_desc = source_out.get("target")
+        if target_desc is not None:
+            _validate_psf_regime_consistency(
+                scene_type=target_desc.scene_type,
+                angular_extent_rad=angular_extent_rad,
+                epsf=epsf,
+                focal_length_m=focal_length_m,
+            )
 
         ee_box = _compute_ee_box(regime, epsf)
 

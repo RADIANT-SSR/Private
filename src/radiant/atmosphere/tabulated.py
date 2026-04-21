@@ -490,8 +490,13 @@ class TabulatedAtmosphere:
         if los.h_tgt > 0.0:
             raise NotImplementedError(
                 f"TabulatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
-                "(airborne targets) is a Stage 5 deliverable; v1 supports "
-                "only surface-level tabulated runs."
+                "is not supported — tabulated files record a single "
+                "(sensor ↔ ground) column and cannot be rescaled to a "
+                "partial-column geometry without the species-resolved "
+                "profile.  See Option C Stage 5 §8.3 open question "
+                "'partial-column rescaling for tabulated/interpolated "
+                "backends'.  Workaround: use SimpleAtmosphere or generate "
+                "a fresh tabulated file at the requested h_tgt."
             )
         _ = params  # unused; tabulated is geometry-agnostic by design.
 

@@ -606,7 +606,10 @@ class SimpleAtmosphere:
           (uses (1 − τ_up)).
         - ``L_path_full`` = single-scatter integral from 0 to h_sensor
           (uses (1 − τ_full_up)).
-        - ``E_sky_scattered`` is zero in v1 (Stage 6 deliverable).
+        - ``E_sky_scattered = E_TOA · cos(θ_s) · ω₀ · (1 − τ_down,vert)``
+          on the h_tgt→h_sensor vertical column (same slab as thermal)
+          (Stage 6, ADR-0002).  Degrades to 0 as cos θ_s → 0 (sun below
+          horizon) or as h_tgt → h_sensor (vacuum limit).
         - ``E_sky_thermal = (1 − τ_down) · π · B(T_atm_eff)`` on the
           h_tgt→h_sensor vertical column, so it degrades to 0 as
           ``h_tgt → h_atm_top``.
@@ -842,19 +845,23 @@ class SimpleAtmosphere:
 
         # Scatter-angle geometry: target_altitude_m = h_tgt for A3 consistency.
         # For h_tgt=0 this reduces to the exact legacy construction.
-        scatter_geom = AtmosphericGeometry(
-            sensor_altitude_m=h_sensor_m,
-            target_altitude_m=h_tgt,
-            path_zenith_rad=los.theta_o,
-            solar_zenith_rad=theta_s_for_scatter,
-            solar_azimuth_rad=delta_phi_for_scatter,
-        )
-        cos_theta_scatter = scatter_geom.cos_scattering_angle()
-
+        # Guard: AtmosphericGeometry rejects solar_zenith_rad ≥ π/2, so
+        # only construct it when the sun is meaningfully above the
+        # horizon (cos_theta_sun > the same horizon tolerance used by
+        # E_sky_scattered below — keeps the two branches in sync).
         omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
-        phase = self._single_scatter_phase_function(cos_theta_scatter, sigma_mol, sigma_aer)
-
-        if cos_theta_sun > 0.0:
+        if cos_theta_sun > 1.0e-12:
+            scatter_geom = AtmosphericGeometry(
+                sensor_altitude_m=h_sensor_m,
+                target_altitude_m=h_tgt,
+                path_zenith_rad=los.theta_o,
+                solar_zenith_rad=theta_s_for_scatter,
+                solar_azimuth_rad=delta_phi_for_scatter,
+            )
+            cos_theta_scatter = scatter_geom.cos_scattering_angle()
+            phase = self._single_scatter_phase_function(
+                cos_theta_scatter, sigma_mol, sigma_aer,
+            )
             l_sun = toa_solar_equivalent_radiance(lam)
             # L_path_up uses (1 − τ_up) over the partial column [h_tgt, h_sensor].
             L_path_vals = (
@@ -883,21 +890,23 @@ class SimpleAtmosphere:
             # observer zenith is still θ_o at the target, but the target
             # is now on the ground.  Reuse the legacy target_altitude_m=0
             # shape so the phase function matches the surface-target case.
-            scatter_geom_full = AtmosphericGeometry(
-                sensor_altitude_m=h_sensor_m,
-                target_altitude_m=0.0,
-                path_zenith_rad=los.theta_o,
-                solar_zenith_rad=theta_s_for_scatter,
-                solar_azimuth_rad=delta_phi_for_scatter,
-            )
-            cos_theta_scatter_full = scatter_geom_full.cos_scattering_angle()
-            omega0_full = self._single_scattering_albedo(
-                sigma_mol_full, sigma_aer_full, sigma_h2o_full
-            )
-            phase_full = self._single_scatter_phase_function(
-                cos_theta_scatter_full, sigma_mol_full, sigma_aer_full
-            )
-            if cos_theta_sun > 0.0:
+            # Same horizon guard as the L_path_up block — skip the
+            # AtmosphericGeometry construction when cos θ_s ≤ tolerance.
+            if cos_theta_sun > 1.0e-12:
+                scatter_geom_full = AtmosphericGeometry(
+                    sensor_altitude_m=h_sensor_m,
+                    target_altitude_m=0.0,
+                    path_zenith_rad=los.theta_o,
+                    solar_zenith_rad=theta_s_for_scatter,
+                    solar_azimuth_rad=delta_phi_for_scatter,
+                )
+                cos_theta_scatter_full = scatter_geom_full.cos_scattering_angle()
+                omega0_full = self._single_scattering_albedo(
+                    sigma_mol_full, sigma_aer_full, sigma_h2o_full
+                )
+                phase_full = self._single_scatter_phase_function(
+                    cos_theta_scatter_full, sigma_mol_full, sigma_aer_full
+                )
                 l_sun_full = toa_solar_equivalent_radiance(lam)
                 L_path_full_vals = (
                     l_sun_full * cos_theta_sun * omega0_full * phase_full
@@ -918,7 +927,51 @@ class SimpleAtmosphere:
         t_atm_eff_K = self._effective_atmospheric_temperature_K(h_sensor_m)
         B_atm = planck_spectral_radiance(lam, t_atm_eff_K)
         E_sky_thermal = (1.0 - tau_down_vertical) * np.pi * B_atm
-        E_sky_scattered = np.zeros_like(lam)  # Stage 6 deliverable
+
+        # --- E_sky_scattered: single-scatter diffuse solar on target ---
+        # Stage 6 (ADR-0002 / Option C plan):
+        #     E_sky_scattered(λ) = E_TOA(λ) · cos(θ_s) · ω₀(λ) · (1 − τ_down,vert(λ))
+        # where τ_down,vert is the *vertical* (airmass=1) transmittance of the
+        # target→sensor column (identical to the column used by E_sky_thermal,
+        # which keeps the two decomposed components on a symmetric footing —
+        # both are diffuse-sky fluxes at the target generated within the same
+        # atmospheric slab) and ω₀ is the mean-altitude single-scattering
+        # albedo on that same column.
+        # Physics:
+        #   • cos(θ_s) projects the TOA normal irradiance onto the horizontal
+        #     target plane (plane-parallel single-scatter convention).
+        #   • ω₀ converts extinction to scattering (absorbed photons do not
+        #     contribute to diffuse illumination of the target).
+        #   • (1 − τ_down,vert) is the fraction of the incoming solar flux
+        #     that interacts with the overhead atmospheric slab and is
+        #     scattered isotropically toward the target.  The *vertical*
+        #     form matches the diffuse geometry (isotropic hemispheric
+        #     integral) — the slant airmass factor belongs to the direct
+        #     beam, not to the downwelling diffuse.
+        #   • Same column as E_sky_thermal ⇒ both diffuse components share
+        #     an identical optical-thickness weighting, which is the
+        #     standard textbook single-scatter + Kirchhoff split for a
+        #     plane-parallel graybody slab.
+        #   • For sun at or below horizon (cos θ_s ≤ 0) the term is 0.
+        #   • As h_tgt → h_sensor the slab collapses, (1 − τ_down,vert) → 0,
+        #     and E_sky_scattered → 0 (vacuum limit) — mirrors E_sky_thermal.
+        #   • The ceiling is E_TOA · cos(θ_s) since ω₀ ≤ 1 and (1−τ) ≤ 1
+        #     (energy-conservation check in the single-scatter limit).
+        omega0_up = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
+        # Sun-below-horizon guard: cos(π/2) evaluates to ~6e-17 in IEEE-754
+        # due to π round-off; treat cosines below a small tolerance as
+        # exactly zero so the diffuse-sky term is strictly null for
+        # θ_s ≥ π/2 (matches the direct-solar term's sentinel behaviour in
+        # assembly._direct_solar_term and the Stage 6 Anchor-3 fragility
+        # test, which asserts exact-zero via np.testing.assert_array_equal).
+        _COS_HORIZON_TOL = 1.0e-12
+        if cos_theta_sun > _COS_HORIZON_TOL:
+            E_sky_scattered = (
+                E_TOA * cos_theta_sun * omega0_up * (1.0 - tau_down_vertical)
+            )
+            E_sky_scattered = np.maximum(E_sky_scattered, 0.0)
+        else:
+            E_sky_scattered = np.zeros_like(lam)
 
         # Snap tiny numerical negatives (from floating-point cancellation) to 0.
         # τ ∈ (0, 1] and (1 − τ) is the main risk; with expm1 we avoid it but

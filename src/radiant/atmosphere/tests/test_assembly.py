@@ -394,21 +394,35 @@ class TestAnchor3_T5_PassThrough:
 
 
 class TestT3Kirchhoff:
-    """T3 = T1 + T2 with ρ = 1 − ε (Kirchhoff) — equation check only."""
+    """T3 = T1 + T2 with ρ = 1 − ε (Kirchhoff) — equation check only.
+
+    Stage 6 (Option C) — MWIR-mixed anchor: the ``E_sky`` consumed by
+    ``_diffuse_sky_term`` is the exact sum of the two published
+    per-component fields (scattered-solar + atmospheric-thermal).  The
+    equation math is otherwise unchanged; the decomposition only unlocks
+    per-component audits (matrix cells 25/26/40/41).
+    """
 
     WL = np.array([3.5, 4.0, 4.5])
 
     def test_t3_equals_t1_plus_t2_with_kirchhoff(self) -> None:
         eps_val = 0.6
         T_t = 310.0
+        # MWIR-mixed pinning (Stage 6): both diffuse components are
+        # non-zero and of the same order — the crossover regime that
+        # motivates the decomposition.  10 and 5 W/m²/µm are arbitrary
+        # hand-picked magnitudes; what matters is the Kirchhoff equation
+        # consumes their *sum* via _diffuse_sky_term.
+        E_sky_scattered = np.full_like(self.WL, 10.0)
+        E_sky_thermal = np.full_like(self.WL, 5.0)
         atm = AtmosphericQuantities(
             wavelength_um=self.WL,
             tau_sun=np.full_like(self.WL, 0.5),
             tau_up=np.full_like(self.WL, 0.7),
             tau_full_up=np.full_like(self.WL, 0.7),
             E_TOA=np.full_like(self.WL, 200.0),
-            E_sky_scattered=np.full_like(self.WL, 10.0),
-            E_sky_thermal=np.full_like(self.WL, 5.0),
+            E_sky_scattered=E_sky_scattered,
+            E_sky_thermal=E_sky_thermal,
             L_path_up=np.full_like(self.WL, 0.3),
             L_path_full=np.full_like(self.WL, 0.3),
         )
@@ -430,9 +444,72 @@ class TestT3Kirchhoff:
         B = planck_spectral_radiance(self.WL, T_t)
         L_self = eps_val * B
         direct = rho * atm.tau_sun * atm.E_TOA * cos_ts / math.pi
-        diffuse = rho * (atm.E_sky_scattered + atm.E_sky_thermal) / math.pi
+        # Stage 6: the MWIR-mixed anchor asserts that the assembly math
+        # consumes E_sky_scattered + E_sky_thermal — not either term in
+        # isolation.  This guards against a future refactor silently
+        # dropping one of the two components.
+        E_sky_sum = atm.E_sky_scattered + atm.E_sky_thermal
+        diffuse = rho * E_sky_sum / math.pi
         expected = (L_self + direct + diffuse) * atm.tau_up + atm.L_path_up
         np.testing.assert_allclose(L, expected, rtol=1e-14, atol=0.0)
+
+    def test_report_components_sums_back_to_total(self) -> None:
+        """Stage 6 (Option C) introspection — AssemblyComponents reconstructs L.
+
+        When ``report_components=True``, :func:`assemble_target_at_aperture`
+        returns the per-term arrays alongside the total.  This test
+        verifies the arithmetic identity::
+
+            total = (self_emission
+                     + direct_solar
+                     + diffuse_sky_scattered
+                     + diffuse_sky_thermal) · τ_up
+                  + L_path_up
+
+        so that users auditing the MWIR crossover can trust the
+        per-component breakdown matches the summed radiance bit-for-bit.
+        """
+        eps_val = 0.6
+        T_t = 310.0
+        atm = AtmosphericQuantities(
+            wavelength_um=self.WL,
+            tau_sun=np.full_like(self.WL, 0.5),
+            tau_up=np.full_like(self.WL, 0.7),
+            tau_full_up=np.full_like(self.WL, 0.7),
+            E_TOA=np.full_like(self.WL, 200.0),
+            E_sky_scattered=np.full_like(self.WL, 10.0),
+            E_sky_thermal=np.full_like(self.WL, 5.0),
+            L_path_up=np.full_like(self.WL, 0.3),
+            L_path_full=np.full_like(self.WL, 0.3),
+        )
+        eps_sd = _const_sd(self.WL, eps_val, "epsilon")
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=math.pi / 4.0)
+        target = T3Mixed(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            epsilon=eps_sd,
+            T_t=T_t,
+        )
+        comps = assemble_target_at_aperture(target, atm, los, report_components=True)
+        # All four pre-τ branches must be individually non-negative and
+        # their τ_up-weighted sum + path_up must equal ``total``.
+        reconstructed = (
+            (
+                comps.self_emission
+                + comps.direct_solar
+                + comps.diffuse_sky_scattered
+                + comps.diffuse_sky_thermal
+            )
+            * comps.tau_up_factor
+            + comps.path_up
+        )
+        np.testing.assert_allclose(comps.total, reconstructed, rtol=1e-14, atol=0.0)
+        # MWIR mixed: T3 with sun up has all three non-path branches > 0.
+        assert np.all(comps.self_emission > 0.0)
+        assert np.all(comps.direct_solar > 0.0)
+        assert np.all(comps.diffuse_sky_scattered > 0.0)
+        assert np.all(comps.diffuse_sky_thermal > 0.0)
 
 
 # ---------------------------------------------------------------------------

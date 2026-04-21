@@ -328,3 +328,101 @@ Full suite: **2269 passed / 0 failed** (442 s). No regressions; anchor
 tests and all reclassified scenarios match their Stage 4 pinned values.
 Tag the commit `option-c-landed`.
 
+---
+
+## Stage 6 landing — E_sky decomposition (scattered-solar vs atm-thermal)
+
+**Landed**: 2026-04-20
+**Reference**: ADR-0002 / [Option C plan §6](Option_C_Implementation_Plan.md)
+**Tag**: `post-stage-6-baseline` (annotated).
+
+Stage 6 replaces the single-graybody `E_sky` placeholder with two
+physically-distinct components. The *consumed* sum (fed to
+`_diffuse_sky_term` in `assembly.py`) is unchanged, so the §6.1
+assembly math does not change — only the decomposition unlocks
+per-component MWIR audits (matrix cells 25/26/40/41).
+
+Formulas (both on the h_tgt→h_sensor vertical slab):
+
+```
+E_sky_scattered(λ, h_tgt) = E_TOA(λ) · cos(θ_s) · ω₀(λ) · (1 − τ_down,vert(λ))
+E_sky_thermal(λ, h_tgt)   = (1 − τ_down,vert(λ)) · π · B(λ, T_atm_eff(h_tgt))
+```
+
+Physics properties:
+
+- VIS/NIR (λ ≲ 1 µm): E_TOA large (~1000 W/m²/µm), Planck(T_atm) tiny
+  (Wien tail at T ≈ 290 K) → `E_sky_thermal / E_sky_scattered < 1e-6`.
+- LWIR (λ ≳ 8 µm): E_TOA tiny (Wien tail at T ≈ 5778 K), Planck(T_atm)
+  moderate → `E_sky_scattered / E_sky_thermal < 1e-3`.
+- MWIR (λ ≈ 4 µm): both components within one order of magnitude
+  (crossover regime).
+- `cos(θ_s) ≤ 0` (sun at or below horizon): `E_sky_scattered = 0`
+  exactly (matches the `_direct_solar_term` sentinel behaviour).
+- `ω₀ ≤ 1` and `(1 − τ_down) ≤ 1` ⇒ `E_sky_scattered ≤ E_TOA · cos(θ_s)`
+  (single-scatter energy-conservation ceiling).
+
+### Post-Stage-6 anchor values
+
+Cell 28 and Cell 58 are **extended-scene T1Thermal** scenarios
+(ρ ≡ 0 — pure thermal graybody with no reflective coupling). The
+assembly's diffuse-sky branch multiplies by ρ, so neither Stage-6
+component reaches the at-aperture radiance on those cells.
+Consequently the Cell 28 / Cell 58 anchor values are **bit-invariant**
+post-Stage-6:
+
+| Scenario | Quantity | Stage 4 value | Stage 6 value | Δ |
+|---|---|---|---|---|
+| Cell 28 (terrestrial LWIR) | SNR | 315.54933814882156 | 315.54933814882156 | 0 |
+| Cell 28 | NEDT | 0.20598616453385415 K | 0.20598616453385415 K | 0 |
+| Cell 28 | MTF @ Nyquist | 0.07587823 | 0.07587823 | 0 |
+| Cell 28 | L_aperture grid | unchanged | unchanged | 0 |
+| Cell 58 (space LWIR exo) | SNR | 315.9745217365823 | 315.9745217365823 | 0 |
+| Cell 58 | NEDT | 0.18606860088514812 K | 0.18606860088514812 K | 0 |
+| Cell 58 | MTF @ Nyquist | 0.06690769 | 0.06690769 | 0 |
+| Cell 58 | L_aperture grid | unchanged | unchanged | 0 |
+
+No `CELL28_PINNED` / `CELL58_PINNED` edit was required. The anchors
+remain at rtol = 1e-6 vs Stage 4.
+
+MWIR mixed / reflective scenarios — where `E_sky_scattered` and
+`E_sky_thermal` do couple through a nonzero ρ — will exercise the new
+decomposition; those truth anchors live in
+`src/radiant/atmosphere/tests/test_e_sky_decomposition.py` (3 Category-C
+anchors + 6 fragility / sum-preservation / inspectability tests).
+
+### Test-suite state after Stage 6
+
+Full suite: **2316 passed / 0 failed** (≈ 7 min). +13 tests vs Stage 4
+(12 Stage-6 Category-C anchors + 1 `AssemblyComponents`
+report-components test in `test_assembly.py`). No regressions; zero
+golden-file edits.
+
+### Files touched in Stage 6
+
+Source code:
+- `src/radiant/atmosphere/simple.py` — replaced
+  `E_sky_scattered = zeros_like(lam)` placeholder with the single-scatter
+  formula; added `cos θ_s` horizon-tolerance guard to the existing
+  `L_path_up` / `L_path_full` scatter-geom blocks (prevents
+  `AtmosphericGeometry` from raising when `θ_s` rounds through π/2 on
+  the IEEE-754 grid).
+- `src/radiant/atmosphere/assembly.py` — added `AssemblyComponents`
+  dataclass and `report_components: bool = False` kwarg to
+  `assemble_target_at_aperture`; split `_diffuse_sky_term` into
+  scattered / thermal helper functions (consumed sum unchanged).
+- `src/radiant/atmosphere/stage.py` — publishes `E_sky_scattered` and
+  `E_sky_thermal` stage_outputs for Rule-16 inspectability.
+
+Tests / goldens:
+- `src/radiant/atmosphere/tests/test_e_sky_decomposition.py` — new,
+  12 Category-C tests (3 anchors + 6 fragility/sum/inspect tests +
+  3 parametrised at-or-below-horizon cases).
+- `src/radiant/atmosphere/tests/test_assembly.py` — added Stage-6
+  MWIR-mixed anchor assertion (`E_sky = E_sky_scattered + E_sky_thermal`
+  consumption) and a new `AssemblyComponents` round-trip test.
+- `src/radiant/atmosphere/tests/test_evaluate.py` — renamed
+  `test_E_sky_scattered_is_zero_in_v1` → `test_E_sky_scattered_non_negative`
+  (the zero precondition no longer holds — the scattered component is
+  now physically populated).
+

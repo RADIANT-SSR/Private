@@ -34,16 +34,19 @@ These hold continuously and are asserted in `tests/integration/test_option_c_anc
 |---|---|---|---|
 | Cell 28 SNR/NEDT/MTF/L_aperture unchanged within rtol=1e-6 | Stages 0–5 | Stage 0 | Stage 0 baseline |
 | Cell 58 SNR/NEDT/MTF/L_aperture unchanged within rtol=1e-6 | Stages 0–5 | Stage 0 | Stage 0 baseline |
-| Cell 28 SNR/NEDT/MTF/L_aperture unchanged within rtol=1e-6 | Stages 7–8 | Stage 6 exit | **Post-Stage-6 baseline** |
-| Cell 58 SNR/NEDT/MTF/L_aperture unchanged within rtol=1e-6 | Stages 7–8 | Stage 6 exit | **Post-Stage-6 baseline** |
+| Cell 28 SNR/NEDT/MTF/L_aperture unchanged within rtol=1e-6 | Stages 7–8 | Stage 6 exit | **Post-Stage-6 baseline** (landed — Cell 28/58 values are bit-invariant vs. Stage 0 because both anchors are T1Thermal with ρ≡0, so the diffuse-sky split does not reach the aperture) |
+| Cell 58 SNR/NEDT/MTF/L_aperture unchanged within rtol=1e-6 | Stages 7–8 | Stage 6 exit | **Post-Stage-6 baseline** (same rationale as Cell 28) |
 | Shadow-mode snapshot agreement on all "invariant"-classified cells (rtol=1e-6) | Stage 3 | Stage 3 | Stage 0 baseline snapshot |
+| E_sky = E_sky_scattered + E_sky_thermal for every evaluate() call; both components ≥ 0; both components published to `state.stage_outputs["atmosphere"]` | Stage 6 | Stage 6 | — |
+| E_sky_scattered = 0 exactly when cos(θ_s) ≤ 1e-12 (sun at or below horizon) | Stage 6 | Stage 6 | — |
+| LWIR (10 µm): E_sky_scattered / E_sky_thermal < 1e-3; VIS (0.5 µm): same ratio < 1e-6; MWIR (3–5 µm): crossover within one order of magnitude | Stage 6 | Stage 6 | truth anchors in `test_e_sky_decomposition.py` |
 | Full test suite pass count never decreases | All stages | Stage 0 | — |
 | `mypy --strict` clean on `core/` and `api/` | All stages | per CLAUDE.md | — |
 | `import-linter` clean (no Rule 11 violations) | All stages | per CLAUDE.md | — |
 | Rule 9 (EE_box only on target term in point/sub-pixel; never on bg; never in extended) | All stages — explicit test in Stage 4 | Stage 4 | — |
 | Rule 4 (PSF path / MTF product path consistency) | Untouched by Option C | n/a | — |
 
-Stage 6 is the **one** authorized anchor re-baseline in this plan: the LWIR thermal-downwelling approximation becomes exact, so Cell 28/58 values are expected to shift (target: rtol ≤ 1e-3). The re-baseline follows the procedure in Stage 6's constraints section and is tagged `post-stage-6-baseline`. No other stage is permitted to move anchor values.
+Stage 6 is the **one** authorized anchor re-baseline in this plan: the LWIR thermal-downwelling approximation becomes exact, so Cell 28/58 values are permitted to shift (target: rtol ≤ 1e-3). The re-baseline follows the procedure in Stage 6's constraints section and is tagged `post-stage-6-baseline`. **Outcome (post-landing)**: Cell 28/58 are both T1Thermal with ρ≡0; the diffuse-sky decomposition introduced by Stage 6 does not reach the aperture for these two cells (the `ρ · (E_sky_scattered + E_sky_thermal)` term vanishes), so both anchors are bit-invariant vs. Stage 0. The existing `CELL28_PINNED` / `CELL58_PINNED` values in `tests/integration/test_option_c_anchors.py` are unchanged. No other stage is permitted to move anchor values.
 
 If any invariant breaks during a stage, **stop**, do not proceed to the next stage, debug the current stage. The shadow-mode in Stage 3 is the primary mechanism for catching regressions before they ship.
 

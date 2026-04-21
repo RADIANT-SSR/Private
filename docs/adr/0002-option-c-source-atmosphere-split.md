@@ -233,11 +233,15 @@ This ADR is implemented by the 8-stage plan recorded in the conversation transcr
 | 3 | AtmosphereStage consumes descriptors, owns assembly | 3 | ~15 |
 | 4 | SpectralIntegrationStage consumes two frames; legacy frame removed | 1 | ~20 |
 | 5 | A3 partial-column atmosphere | 3 | +15 (Table C) |
-| 6 | E_sky decomposition | 2 | quality fix on MWIR cells |
+| 6 | E_sky decomposition (landed `post-stage-6-baseline`) | 2 | quality fix on MWIR cells |
 | 7 | no_atmosphere sub-case presets and dispatch | 1 | +30 (D-ground + D-lab) |
 | 8 | §7 cross-field validators + 90-cell parametric coverage test | 2 | quality fix on all |
 
 Stage 4 is the "Option C landed" milestone (full Option C surface in place; SourceStage publishes zero radiance). Stages 5/6 and 7 are independent expansions on top of Stage 4 and may run in parallel.
+
+### Stage 6 landing (post-`post-stage-6-baseline` tag)
+
+Stage 6 lands the E_sky decomposition: `E_sky = E_sky_scattered_solar + E_sky_atm_thermal`, both published at `state.stage_outputs["atmosphere"]["E_sky_scattered"]` and `["E_sky_thermal"]`. The single-scatter component is `E_TOA · cos(θ_s) · ω₀_up · (1 − τ_down,vert)` using the same vertical column as the thermal component (symmetric weighting). A horizon guard (`cos(θ_s) > 1e-12`) zeros the scattered component at and below the horizon. Cell 28 and Cell 58 (both T1Thermal with ρ≡0) are **bit-invariant** vs. Stage 0 — the `ρ·(E_sky_scattered + E_sky_thermal)` term vanishes — so `CELL28_PINNED` / `CELL58_PINNED` in `tests/integration/test_option_c_anchors.py` are unchanged. From Stage 6 exit onward the regression invariants table treats these pinned values as the post-Stage-6 baseline for Stages 7–8.
 
 ## References
 

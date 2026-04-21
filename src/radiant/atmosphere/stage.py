@@ -27,6 +27,10 @@ Stage outputs under ``stage_outputs["atmosphere"]``:
       downstream stages that still key off the legacy name.
     - ``L_path``: ``atm_quantities.L_path_up`` exposed as ndarray for
       downstream stages that still key off the legacy name.
+    - ``E_sky_scattered``: ``atm_quantities.E_sky_scattered`` exposed
+      for Rule 16 inspectability (Stage 6 — Option C decomposition).
+    - ``E_sky_thermal``: ``atm_quantities.E_sky_thermal`` exposed for
+      Rule 16 inspectability (Stage 6 — Option C decomposition).
     - ``r0_m``: Fried parameter (only when ``atmosphere.r0_m > 0``).
 """
 
@@ -146,6 +150,17 @@ class AtmosphereStage:
             .with_stage_output("atmosphere", "atm_quantities", atm_quantities)
             .with_stage_output("atmosphere", "tau_atm", atm_quantities.tau_up)
             .with_stage_output("atmosphere", "L_path", atm_quantities.L_path_up)
+            # Stage 6 (Option C) — per-component diffuse-sky inspectability.
+            # Per Rule 16: the two constituents of the consumed E_sky sum
+            # must be individually inspectable so users / tests can audit
+            # the physical regime (VIS = scattered-dominated; LWIR =
+            # thermal-dominated; MWIR = mixed).
+            .with_stage_output(
+                "atmosphere", "E_sky_scattered", atm_quantities.E_sky_scattered,
+            )
+            .with_stage_output(
+                "atmosphere", "E_sky_thermal", atm_quantities.E_sky_thermal,
+            )
         )
 
         if L_aperture_background is not None:

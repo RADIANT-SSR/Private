@@ -48,6 +48,8 @@ unchanged.  Rule 17 — no silent failure.
 from __future__ import annotations
 
 import warnings
+from dataclasses import dataclass
+from typing import Literal, overload
 
 import numpy as np
 
@@ -74,6 +76,61 @@ from radiant.core.spectral import SpectralData
 _T5_TAU_TRIVIAL_TOL: float = 1e-9
 # Floor for "non-zero L_path" detection in the T5 warn-if-atm arm.
 _T5_LPATH_TRIVIAL_TOL: float = 1e-12
+
+
+# ---------------------------------------------------------------------------
+# Per-term decomposition (Stage 6, Option C — report_components introspection)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AssemblyComponents:
+    """Per-term decomposition of a §6.1 assembly call.
+
+    Produced by :func:`assemble_target_at_aperture` when
+    ``report_components=True``.  Every field is a 1-D ndarray on the
+    atmosphere wavelength grid (W/m²/sr/µm).  The assembly equation is
+    exactly::
+
+        total = (self_emission
+                 + direct_solar
+                 + diffuse_sky_scattered
+                 + diffuse_sky_thermal) * tau_up
+              + path_up
+
+    so all fields sum (with the shared τ_up factor on the non-path terms)
+    to the returned ``total``.
+
+    Fields
+    ------
+    total:
+        The same at-aperture radiance ``assemble_target_at_aperture``
+        returns in its scalar mode (``report_components=False``).
+    self_emission:
+        ``ε · B(T_t)`` — zero for T2, non-zero for T1/T3.  Pre-τ_up.
+    direct_solar:
+        ``ρ · τ_sun · E_TOA · cos(θ_s) / π`` — zero for T1 (ρ=0) or sun
+        below horizon.  Pre-τ_up.
+    diffuse_sky_scattered:
+        ``ρ · E_sky_scattered / π`` — the single-scatter diffuse solar
+        contribution.  Pre-τ_up.  Stage 6 deliverable.
+    diffuse_sky_thermal:
+        ``ρ · E_sky_thermal / π`` — the atmospheric-thermal diffuse
+        contribution.  Pre-τ_up.  Stage 6 deliverable.
+    tau_up_factor:
+        The common ``τ_up(λ)`` multiplier applied to the four pre-τ
+        terms (exposed for audit-time arithmetic verification).
+    path_up:
+        The additive ``L_path_up(λ)`` — not multiplied by τ_up.
+    """
+
+    total: np.ndarray
+    self_emission: np.ndarray
+    direct_solar: np.ndarray
+    diffuse_sky_scattered: np.ndarray
+    diffuse_sky_thermal: np.ndarray
+    tau_up_factor: np.ndarray
+    path_up: np.ndarray
 
 
 # ---------------------------------------------------------------------------
@@ -145,9 +202,41 @@ def _direct_solar_term(
 
 
 def _diffuse_sky_term(rho: np.ndarray, atm: AtmosphericQuantities) -> np.ndarray:
-    """ρ · (E_sky_scattered + E_sky_thermal) / π  — the diffuse-sky term."""
+    """ρ · (E_sky_scattered + E_sky_thermal) / π  — the diffuse-sky term.
+
+    Stage 6 (Option C) — the *consumed* sum is unchanged so the §6.1
+    assembly math is bit-invariant with the Stage 4 baseline (modulo
+    the new non-zero ``E_sky_scattered``).  Per-component introspection
+    is available via :func:`_diffuse_sky_scattered_term` and
+    :func:`_diffuse_sky_thermal_term` (called from the ``report_components``
+    branch of :func:`assemble_target_at_aperture`).
+    """
     e_sky = atm.E_sky_scattered + atm.E_sky_thermal
     return np.asarray(rho * e_sky / np.pi, dtype=np.float64)
+
+
+def _diffuse_sky_scattered_term(
+    rho: np.ndarray, atm: AtmosphericQuantities,
+) -> np.ndarray:
+    """ρ · E_sky_scattered / π — the single-scatter diffuse-solar term.
+
+    Stage 6 (Option C) per-term introspection.  Returned alone only when
+    the caller has asked for ``report_components``; the assembly math
+    still consumes the sum via :func:`_diffuse_sky_term`.
+    """
+    return np.asarray(rho * atm.E_sky_scattered / np.pi, dtype=np.float64)
+
+
+def _diffuse_sky_thermal_term(
+    rho: np.ndarray, atm: AtmosphericQuantities,
+) -> np.ndarray:
+    """ρ · E_sky_thermal / π — the atmospheric-thermal diffuse term.
+
+    Stage 6 (Option C) per-term introspection.  Returned alone only when
+    the caller has asked for ``report_components``; the assembly math
+    still consumes the sum via :func:`_diffuse_sky_term`.
+    """
+    return np.asarray(rho * atm.E_sky_thermal / np.pi, dtype=np.float64)
 
 
 def _is_trivial_atmosphere(atm: AtmosphericQuantities) -> bool:
@@ -167,11 +256,41 @@ def _is_trivial_atmosphere(atm: AtmosphericQuantities) -> bool:
 # ---------------------------------------------------------------------------
 
 
+@overload
 def assemble_target_at_aperture(
     target: TargetDescriptor,
     atm: AtmosphericQuantities,
     los: LineOfSightGeometry | None,
-) -> np.ndarray:
+) -> np.ndarray: ...
+
+
+@overload
+def assemble_target_at_aperture(
+    target: TargetDescriptor,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+    *,
+    report_components: Literal[True],
+) -> AssemblyComponents: ...
+
+
+@overload
+def assemble_target_at_aperture(
+    target: TargetDescriptor,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+    *,
+    report_components: Literal[False],
+) -> np.ndarray: ...
+
+
+def assemble_target_at_aperture(
+    target: TargetDescriptor,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+    *,
+    report_components: bool = False,
+) -> np.ndarray | AssemblyComponents:
     """Compute the target at-aperture spectral radiance [W/m²/sr/µm].
 
     Dispatches on ``target.target_location`` first, then on the
@@ -201,12 +320,22 @@ def assemble_target_at_aperture(
     los:
         The :class:`LineOfSightGeometry` published by SourceStage, or
         ``None`` if the target is at_aperture.  Used only for θ_s.
+    report_components:
+        When True, return an :class:`AssemblyComponents` dataclass with
+        the per-term decomposition alongside the summed total.  The
+        default (``False``) returns the total only, preserving the
+        Stage-4 ``np.ndarray`` contract.  Stage 6 (Option C) — enables
+        the MWIR crossover audit (Cells 25/26/40/41) without forking the
+        assembly math.
 
     Returns
     -------
     numpy.ndarray
         1-D spectral radiance array in W/m²/sr/µm on the atm wavelength
-        grid.
+        grid (default), OR
+    AssemblyComponents
+        Per-term decomposition with the same ``total`` field when
+        ``report_components=True``.
 
     Raises
     ------
@@ -234,7 +363,22 @@ def assemble_target_at_aperture(
             )
         # Decision #6: pass through L_t_aperture unmodified; warn if the
         # caller paired the pass-through with a non-trivial atmosphere.
-        return _assemble_t5(target, atm)
+        total = _assemble_t5(target, atm)
+        if report_components:
+            zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
+            # T5 pass-through has no decomposable physics — every branch
+            # except ``total`` is identically zero and τ_up is 1 by
+            # construction (or should be; if not, the pass-through warned).
+            return AssemblyComponents(
+                total=total,
+                self_emission=zeros,
+                direct_solar=zeros,
+                diffuse_sky_scattered=zeros,
+                diffuse_sky_thermal=zeros,
+                tau_up_factor=np.ones_like(atm.wavelength_um, dtype=np.float64),
+                path_up=zeros,
+            )
+        return total
 
     # --- Every non-at_aperture arm requires a LineOfSightGeometry ---
     if los is None:
@@ -259,14 +403,20 @@ def assemble_target_at_aperture(
 
     # --- T1Thermal — pure-thermal graybody ---
     if isinstance(target, T1Thermal):
+        if report_components:
+            return _components_t1(target, atm, cos_ts)
         return _assemble_t1(target, atm, cos_ts)
 
     # --- T2Reflective — pure-reflective Lambertian ---
     if isinstance(target, T2Reflective):
+        if report_components:
+            return _components_t2(target, atm, cos_ts)
         return _assemble_t2(target, atm, cos_ts)
 
     # --- T3Mixed — Kirchhoff ρ = 1 − ε ---
     if isinstance(target, T3Mixed):
+        if report_components:
+            return _components_t3(target, atm, cos_ts)
         return _assemble_t3(target, atm, cos_ts)
 
     # --- T5 but target_location != at_aperture — already blocked by
@@ -345,6 +495,91 @@ def _assemble_t3(
     return np.asarray(
         (L_self + direct + diffuse) * atm.tau_up + atm.L_path_up,
         dtype=np.float64,
+    )
+
+
+def _components_t1(
+    target: T1Thermal,
+    atm: AtmosphericQuantities,
+    cos_theta_s: float,
+) -> AssemblyComponents:
+    """Per-term T1 decomposition (Stage 6 introspection)."""
+    assert target.epsilon is not None
+    epsilon = _extract_sd_values(target.epsilon, atm)
+    zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
+    L_self = np.asarray(
+        epsilon * planck_spectral_radiance(atm.wavelength_um, target.T_t),
+        dtype=np.float64,
+    )
+    _ = cos_theta_s  # T1 has ρ = 0
+    total = np.asarray(L_self * atm.tau_up + atm.L_path_up, dtype=np.float64)
+    return AssemblyComponents(
+        total=total,
+        self_emission=L_self,
+        direct_solar=zeros,
+        diffuse_sky_scattered=zeros,
+        diffuse_sky_thermal=zeros,
+        tau_up_factor=np.asarray(atm.tau_up, dtype=np.float64),
+        path_up=np.asarray(atm.L_path_up, dtype=np.float64),
+    )
+
+
+def _components_t2(
+    target: T2Reflective,
+    atm: AtmosphericQuantities,
+    cos_theta_s: float,
+) -> AssemblyComponents:
+    """Per-term T2 decomposition (Stage 6 introspection)."""
+    assert target.rho is not None
+    rho = _extract_sd_values(target.rho, atm)
+    zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
+    direct = _direct_solar_term(rho, atm, cos_theta_s)
+    diffuse_scat = _diffuse_sky_scattered_term(rho, atm)
+    diffuse_therm = _diffuse_sky_thermal_term(rho, atm)
+    diffuse_sum = diffuse_scat + diffuse_therm
+    total = np.asarray(
+        (direct + diffuse_sum) * atm.tau_up + atm.L_path_up, dtype=np.float64,
+    )
+    return AssemblyComponents(
+        total=total,
+        self_emission=zeros,
+        direct_solar=direct,
+        diffuse_sky_scattered=diffuse_scat,
+        diffuse_sky_thermal=diffuse_therm,
+        tau_up_factor=np.asarray(atm.tau_up, dtype=np.float64),
+        path_up=np.asarray(atm.L_path_up, dtype=np.float64),
+    )
+
+
+def _components_t3(
+    target: T3Mixed,
+    atm: AtmosphericQuantities,
+    cos_theta_s: float,
+) -> AssemblyComponents:
+    """Per-term T3 decomposition (Stage 6 introspection)."""
+    assert target.epsilon is not None
+    epsilon = _extract_sd_values(target.epsilon, atm)
+    rho = 1.0 - epsilon
+    L_self = np.asarray(
+        epsilon * planck_spectral_radiance(atm.wavelength_um, target.T_t),
+        dtype=np.float64,
+    )
+    direct = _direct_solar_term(rho, atm, cos_theta_s)
+    diffuse_scat = _diffuse_sky_scattered_term(rho, atm)
+    diffuse_therm = _diffuse_sky_thermal_term(rho, atm)
+    diffuse_sum = diffuse_scat + diffuse_therm
+    total = np.asarray(
+        (L_self + direct + diffuse_sum) * atm.tau_up + atm.L_path_up,
+        dtype=np.float64,
+    )
+    return AssemblyComponents(
+        total=total,
+        self_emission=L_self,
+        direct_solar=direct,
+        diffuse_sky_scattered=diffuse_scat,
+        diffuse_sky_thermal=diffuse_therm,
+        tau_up_factor=np.asarray(atm.tau_up, dtype=np.float64),
+        path_up=np.asarray(atm.L_path_up, dtype=np.float64),
     )
 
 
@@ -517,6 +752,7 @@ def _assemble_ground_background(
 
 
 __all__ = [
+    "AssemblyComponents",
     "assemble_background_at_aperture",
     "assemble_target_at_aperture",
 ]

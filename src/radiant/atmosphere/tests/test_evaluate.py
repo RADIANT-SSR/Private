@@ -298,18 +298,26 @@ class TestSimpleAtmosphereEvaluate:
         assert np.all(q.E_sky_thermal >= 0.0)
         assert np.any(q.E_sky_thermal > 0.0)
 
-    def test_E_sky_scattered_is_zero_in_v1(
+    def test_E_sky_scattered_non_negative(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
-        """Stage 6 deliverable; v1 returns identically zero."""
+        """Stage 6 (Option C) — E_sky_scattered is physical and non-negative.
+
+        Post-Stage-6 the scattered-solar diffuse field is populated via
+        ``E_TOA · cos(θ_s) · ω₀ · (1 − τ_down,vert)``.  At LWIR the
+        magnitude is small (Wien-tail E_TOA), but it must never go
+        negative.  Non-negativity is the only invariant tested here; the
+        Category-C truth anchors live in
+        :mod:`radiant.atmosphere.tests.test_e_sky_decomposition`.
+        """
         atm = SimpleAtmosphere(
             visibility_km=23.0, aerosol_type="rural",
             precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
-        assert np.all(q.E_sky_scattered == 0.0)
+        assert np.all(q.E_sky_scattered >= 0.0)
 
     def test_vis_sun_on_produces_finite_L_path_up(
         self, vis_wavelengths: np.ndarray,

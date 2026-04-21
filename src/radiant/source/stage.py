@@ -30,6 +30,7 @@ from __future__ import annotations
 import math
 
 from radiant.core.chain import ChainState
+from radiant.core.descriptors import warn_if_reflective_and_sun_below_horizon
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
 from radiant.source._inferrer import infer_descriptors
@@ -139,6 +140,17 @@ class SourceStage:
             params=params,
             wavelength_um=state.wavelength_um,
         )
+
+        # Matrix §7 cross-descriptor check: T2Reflective + θ_s > π/2 warns
+        # (sun below horizon → zero reflected signal).  Requires both the
+        # target descriptor and LOS geometry in scope, so runs here rather
+        # than in the T2Reflective.__post_init__ (which only sees the
+        # target).
+        if los_geometry is not None:
+            warn_if_reflective_and_sun_below_horizon(
+                target_desc, los_geometry.theta_s,
+            )
+
         state = state.with_stage_output("source", "target", target_desc)
         state = state.with_stage_output("source", "background", background_desc)
         return state.with_stage_output("source", "los_geometry", los_geometry)

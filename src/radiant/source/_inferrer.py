@@ -75,6 +75,29 @@ from radiant.core.descriptors import (
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
 from radiant.core.spectral import SpectralData
+from radiant.source._schema import validate_reflectance_albedo_exclusive
+from radiant.source.converters.brightness_temperature import (
+    brightness_temperature_to_descriptor,
+)
+from radiant.source.converters.radiance_temperature import (
+    radiance_temperature_to_descriptor,
+)
+from radiant.source.converters.reflectance import (
+    reflectance_to_descriptor,
+)
+from radiant.source.converters.user_intensity import (
+    _validate_I_t_source,
+    load_user_intensity_csv,
+    user_intensity_to_descriptor,
+)
+from radiant.source.converters.user_radiance import (
+    _validate_L_t_source,
+    load_user_radiance_csv,
+    user_radiance_to_descriptor,
+)
+from radiant.source.resolvers.shape_factory import build_shape
+from radiant.source.shape import TargetShape
+from radiant.source.tabulated import TabulatedRadianceSource
 
 # ---------------------------------------------------------------------------
 # Constants / helpers
@@ -267,9 +290,1025 @@ def _infer_los(
     return LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)
 
 
+def _view_direction_from_los(
+    params: ParameterSet, target_location: str
+) -> np.ndarray:
+    """Return the target→observer unit 3-vector in the target scene frame.
+
+    The shape protocol (``TargetShape.projected_area``) expects a unit
+    view vector in the target's local scene frame with +Z = local up
+    (per Rule 3).  For Stage-2 inference the observer zenith angle
+    ``theta_o`` is the only LOS scalar surfaced today; we set the
+    absolute observer azimuth to 0 (observer along local +X horizon
+    when tilted off-nadir) so that ``theta_o=0`` gives the canonical
+    nadir view ``(0, 0, 1)`` = +Z.
+
+    Parameters
+    ----------
+    params:
+        Resolved source ParameterSet.
+    target_location:
+        Matrix §3.2 target-location axis.  When ``at_aperture`` the
+        LOS is skipped and we fall back to the nadir view because the
+        at-aperture arm never evaluates atmospheric geometry.
+
+    Returns
+    -------
+    numpy.ndarray
+        Unit 3-vector in the target scene frame, target → observer.
+    """
+    if target_location == "at_aperture":
+        return np.array([0.0, 0.0, 1.0], dtype=np.float64)
+    try:
+        theta_o = float(params.get("geometry.observer_zenith_rad"))
+    except KeyError:
+        theta_o = 0.0
+    if theta_o < 0.0:
+        theta_o = 0.0
+    if theta_o >= math.pi / 2.0:
+        theta_o = math.pi / 2.0 - 1e-9
+    return np.array(
+        [math.sin(theta_o), 0.0, math.cos(theta_o)], dtype=np.float64
+    )
+
+
 # ---------------------------------------------------------------------------
 # Target descriptor construction
 # ---------------------------------------------------------------------------
+
+
+def _resolve_projected_area_and_shape(
+    params: ParameterSet,
+    target_location: str,
+) -> tuple[float | None, TargetShape | None]:
+    """Return ``(A_t, shape)`` per the Q3 shape-wins rule.
+
+    Shared between the legacy ε/T path in ``_build_target_descriptor``
+    and the S11 brightness-temperature branch; both paths apply the
+    shape-over-projected_area precedence identically.
+    """
+    projected_area: float = params.get("source.target.projected_area_m2")
+    user_area_set: bool = projected_area > 0.0
+
+    shape_obj: TargetShape | None = build_shape(params)
+    if shape_obj is not None and target_location == "at_aperture":
+        shape_name_tmp: str = params.get("source.target.shape")
+        raise ParameterBoundsError(
+            what=(
+                f"source.target.shape = {shape_name_tmp!r} is incompatible "
+                f"with target_location='at_aperture' (S9)"
+            ),
+            why=(
+                "The at-aperture target spec form (S9) provides a "
+                "spectral radiance already at the aperture plane — there "
+                "is no scene-frame geometry for shape.projected_area "
+                "to operate on."
+            ),
+            action=(
+                "Either remove source.target.shape to use the at-aperture "
+                "radiance directly, or switch target_location away from "
+                "'at_aperture' so the shape is evaluated against a "
+                "physical line of sight."
+            ),
+            context={
+                "shape": shape_name_tmp,
+                "target_location": target_location,
+            },
+        )
+    if shape_obj is not None:
+        shape_name: str = params.get("source.target.shape")
+        view_dir = _view_direction_from_los(params, target_location)
+        a_shape = float(shape_obj.projected_area(view_dir))
+        if user_area_set:
+            warnings.warn(
+                (
+                    f"Both shape={shape_name!r} and "
+                    f"projected_area_m2={projected_area} supplied; "
+                    f"shape wins (A_projected={a_shape} m²)."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+        A_t: float | None = a_shape if a_shape > 0.0 else None
+    else:
+        A_t = projected_area if user_area_set else None
+    return A_t, shape_obj
+
+
+def _maybe_build_from_brightness_temperature(
+    params: ParameterSet,
+    wavelength_um: np.ndarray,
+    scene_type: str,
+    target_location: str,
+    no_atmosphere_subcase: str,
+    h_tgt: float | None,
+) -> TargetDescriptor | None:
+    """Return an S11-routed descriptor or None if T_B is not user-set.
+
+    S11 spec form (Target Definition Matrix §1): the user supplies a
+    brightness temperature ``T_B`` (scalar or λ-tabulated) and the
+    boundary converter routes to either :class:`T1Thermal` (near-constant
+    T_B, ε ≡ 1) or :class:`T6TabulatedAtSource` (λ-varying T_B, per
+    ADR-0003).  Implementation plan Step 2.1.
+
+    Scope in this step:
+      * ``source.target.brightness_temperature_K`` (scalar) is fully wired.
+      * ``source.target.brightness_temperature_path`` (CSV) is recognised
+        but not yet loaded — when set, we raise
+        :class:`ParameterBoundsError` pointing the user at the follow-up
+        work.  Wiring the CSV (format, grid interp, boundary policy)
+        lands alongside Phase 4 ``user_radiance`` since both flow through
+        the same file-to-SpectralData path.
+    """
+    t_b_k_rv = params.get_resolved("source.target.brightness_temperature_K")
+    t_b_path_rv = params.get_resolved(
+        "source.target.brightness_temperature_path"
+    )
+    t_b_k_user = t_b_k_rv.provenance is not Provenance.DEFAULT
+    t_b_path_user = (
+        t_b_path_rv.provenance is not Provenance.DEFAULT
+        and bool(t_b_path_rv.value)
+    )
+
+    if not t_b_k_user and not t_b_path_user:
+        return None
+
+    if t_b_k_user and t_b_path_user:
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: both "
+                "source.target.brightness_temperature_K and "
+                "source.target.brightness_temperature_path are user-set"
+            ),
+            why=(
+                "S11 is a single spec form — either a scalar T_B or a "
+                "tabulated T_B(λ), not both (would over-specify the "
+                "source surface)."
+            ),
+            action=(
+                "Pick one: leave the scalar for a flat T_B, or the path "
+                "for a λ-dependent T_B (routes to T6TabulatedAtSource)."
+            ),
+            context={
+                "brightness_temperature_K": t_b_k_rv.value,
+                "brightness_temperature_path": t_b_path_rv.value,
+            },
+        )
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S11 replaces the (ε, T_t) surface with an equivalent-"
+                "blackbody radiance description; supplying both forms "
+                "over-specifies the target."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.brightness_temperature_*; or remove "
+                "brightness_temperature_* to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(
+                    params, "source.target.temperature"
+                ),
+                "emissivity_set": _is_user_set(
+                    params, "source.target.emissivity"
+                ),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_radiance_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with user_radiance_path (S11 vs S8)"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; S11 supplies an equivalent brightness "
+                "temperature that the converter turns into radiance.  "
+                "Combining them over-specifies the target radiance."
+            ),
+            action=(
+                "Pick one user-entry surface: brightness_temperature_* "
+                "for S11, or user_radiance_path for S8 (direct radiance)."
+            ),
+            context={
+                "user_radiance_path": params.get_resolved(
+                    "source.target.user_radiance_path"
+                ).value,
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with user_intensity_path (S11 vs S10)"
+            ),
+            why=(
+                "S10 supplies an absolute intensity at the target plane "
+                "for point sources; S11 supplies an equivalent "
+                "brightness temperature that the converter turns into "
+                "radiance.  Combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: brightness_temperature_* "
+                "for S11, or user_intensity_path for S10 (direct "
+                "intensity)."
+            ),
+            context={
+                "user_intensity_path": params.get_resolved(
+                    "source.target.user_intensity_path"
+                ).value,
+            },
+        )
+
+    if (
+        _is_user_set(params, "source.target.reflectance")
+        or _is_user_set(params, "source.target.albedo")
+        or _is_user_set(params, "source.target.reflectance_path")
+        or _is_user_set(params, "source.target.albedo_path")
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with reflectance/albedo (thermal S11 vs "
+                "reflective S4/S5/S6)"
+            ),
+            why=(
+                "A single target cannot be both purely thermal and "
+                "purely reflective.  Mixed emit+reflect must go through "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            action=(
+                "Pick one user-entry surface: brightness_temperature_* "
+                "for pure thermal (T1), reflectance/albedo for pure "
+                "reflection (T2), or temperature+emissivity for mixed (T3)."
+            ),
+            context={
+                "reflectance_set": _is_user_set(
+                    params, "source.target.reflectance"
+                ),
+                "albedo_set": _is_user_set(
+                    params, "source.target.albedo"
+                ),
+            },
+        )
+
+    if t_b_path_user:
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: "
+                "source.target.brightness_temperature_path is not yet "
+                "wired through the inferrer"
+            ),
+            why=(
+                "The tabulated T_B path requires a CSV reader, grid "
+                "interpolation policy, and boundary validation that "
+                "land in the follow-up step alongside Phase 4 "
+                "user_radiance (both flow through the same "
+                "file → SpectralData transport).  The converter itself "
+                "(source.converters.brightness_temperature) already "
+                "accepts λ-varying T_B — tests construct SpectralData "
+                "directly to exercise the T6 branch."
+            ),
+            action=(
+                "Until the CSV path lands: supply a scalar T_B via "
+                "source.target.brightness_temperature_K, or build a "
+                "T6TabulatedAtSource manually and publish it as "
+                "stage_outputs['source']['target'] (see the integration "
+                "test pattern in the test_no_atm_subcases suite)."
+            ),
+            context={
+                "brightness_temperature_path": t_b_path_rv.value,
+            },
+        )
+
+    # Scalar T_B: lift to a flat SpectralData on the chain grid and run
+    # the converter.  Constant ⇒ T1Thermal with ε ≡ 1 (exact blackbody).
+    T_B_scalar = float(t_b_k_rv.value)
+    T_B = SpectralData(
+        name="source.target.brightness_temperature",
+        wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+        values=np.full(
+            np.asarray(wavelength_um).shape,
+            T_B_scalar,
+            dtype=np.float64,
+        ),
+        unit="K",
+        source=(
+            "source.target.brightness_temperature_K (scalar lift; S11)"
+        ),
+    )
+
+    A_t, shape_obj = _resolve_projected_area_and_shape(
+        params, target_location
+    )
+    return brightness_temperature_to_descriptor(
+        T_B=T_B,
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(  # type: ignore[arg-type]
+            no_atmosphere_subcase or None
+        ),
+        h_tgt=h_tgt,
+        A_t=A_t,
+        shape=shape_obj,
+    )
+
+
+def _maybe_build_from_radiance_temperature(
+    params: ParameterSet,
+    wavelength_um: np.ndarray,
+    scene_type: str,
+    target_location: str,
+    no_atmosphere_subcase: str,
+    h_tgt: float | None,
+) -> TargetDescriptor | None:
+    """Return an S12-routed descriptor or None if T_R is not user-set.
+
+    S12 spec form (Target Definition Matrix §1): the user supplies a
+    scalar radiance temperature ``T_R`` together with a band
+    ``[λ_lo, λ_hi]``.  The boundary converter treats the target as a
+    blackbody at ``T_R`` and emits :class:`T1Thermal` with ``T_t = T_R``
+    and ``ε ≡ 1``.  Implementation plan Step 2.2.
+    """
+    t_r_rv = params.get_resolved("source.target.radiance_temperature_K")
+    lo_rv = params.get_resolved(
+        "source.target.radiance_temperature_band_lo_um"
+    )
+    hi_rv = params.get_resolved(
+        "source.target.radiance_temperature_band_hi_um"
+    )
+    t_r_user = t_r_rv.provenance is not Provenance.DEFAULT
+
+    if not t_r_user:
+        return None
+
+    lo_user = lo_rv.provenance is not Provenance.DEFAULT
+    hi_user = hi_rv.provenance is not Provenance.DEFAULT
+    if not (lo_user and hi_user):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature_K is set but "
+                "radiance_temperature_band_lo_um / _hi_um is not"
+            ),
+            why=(
+                "S12 requires both the scalar T_R and the band edges "
+                "(λ_lo, λ_hi); T_R is defined against an integration "
+                "window and cannot be interpreted without one."
+            ),
+            action=(
+                "Set both source.target.radiance_temperature_band_lo_um "
+                "and source.target.radiance_temperature_band_hi_um in µm."
+            ),
+            context={
+                "radiance_temperature_K": t_r_rv.value,
+                "band_lo_set": lo_user,
+                "band_hi_set": hi_user,
+            },
+        )
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S12 replaces the (ε, T_t) surface with an equivalent-"
+                "blackbody band-radiance description; supplying both "
+                "forms over-specifies the target."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.radiance_temperature_K; or remove "
+                "T_R to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(
+                    params, "source.target.temperature"
+                ),
+                "emissivity_set": _is_user_set(
+                    params, "source.target.emissivity"
+                ),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_radiance_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with user_radiance_path (S12 vs S8)"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; S12 supplies a band-averaged radiance "
+                "temperature the converter inverts into radiance.  "
+                "Combining them over-specifies the target radiance."
+            ),
+            action=(
+                "Pick one user-entry surface: radiance_temperature_K + "
+                "band for S12, or user_radiance_path for S8 (direct "
+                "radiance)."
+            ),
+            context={
+                "user_radiance_path": params.get_resolved(
+                    "source.target.user_radiance_path"
+                ).value,
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with user_intensity_path (S12 vs S10)"
+            ),
+            why=(
+                "S10 supplies an absolute intensity at the target plane "
+                "for point sources; S12 supplies a band-averaged "
+                "radiance temperature the converter inverts into "
+                "radiance.  Combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: radiance_temperature_K + "
+                "band for S12, or user_intensity_path for S10 (direct "
+                "intensity)."
+            ),
+            context={
+                "user_intensity_path": params.get_resolved(
+                    "source.target.user_intensity_path"
+                ).value,
+            },
+        )
+
+    if (
+        _is_user_set(params, "source.target.reflectance")
+        or _is_user_set(params, "source.target.albedo")
+        or _is_user_set(params, "source.target.reflectance_path")
+        or _is_user_set(params, "source.target.albedo_path")
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with reflectance/albedo (thermal S12 vs "
+                "reflective S4/S5/S6)"
+            ),
+            why=(
+                "A single target cannot be both purely thermal and "
+                "purely reflective.  Mixed emit+reflect must go through "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            action=(
+                "Pick one user-entry surface: radiance_temperature_K + "
+                "band for pure thermal (T1), reflectance/albedo for pure "
+                "reflection (T2), or temperature+emissivity for mixed (T3)."
+            ),
+            context={
+                "reflectance_set": _is_user_set(
+                    params, "source.target.reflectance"
+                ),
+                "albedo_set": _is_user_set(
+                    params, "source.target.albedo"
+                ),
+            },
+        )
+
+    if _is_user_set(
+        params, "source.target.brightness_temperature_K"
+    ) or _is_user_set(
+        params, "source.target.brightness_temperature_path"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with brightness_temperature_* (S11 vs S12)"
+            ),
+            why=(
+                "S11 and S12 are parallel user-entry forms for the same "
+                "thermal target; combining them over-specifies the "
+                "source surface."
+            ),
+            action=(
+                "Pick one: brightness_temperature_* for a λ-resolved "
+                "T_B(λ), or radiance_temperature_K + band for a scalar "
+                "band-averaged T_R."
+            ),
+            context={
+                "T_B_K_set": _is_user_set(
+                    params, "source.target.brightness_temperature_K"
+                ),
+                "T_B_path_set": _is_user_set(
+                    params, "source.target.brightness_temperature_path"
+                ),
+            },
+        )
+
+    T_R_K = float(t_r_rv.value)
+    band = (float(lo_rv.value), float(hi_rv.value))
+
+    A_t, shape_obj = _resolve_projected_area_and_shape(
+        params, target_location
+    )
+    return radiance_temperature_to_descriptor(
+        T_R_K=T_R_K,
+        band_um=band,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(  # type: ignore[arg-type]
+            no_atmosphere_subcase or None
+        ),
+        h_tgt=h_tgt,
+        A_t=A_t,
+        shape=shape_obj,
+    )
+
+
+def _maybe_build_from_reflectance(
+    params: ParameterSet,
+    wavelength_um: np.ndarray,
+    scene_type: str,
+    target_location: str,
+    no_atmosphere_subcase: str,
+    h_tgt: float | None,
+) -> TargetDescriptor | None:
+    """Return an S4/S5/S6-routed T2Reflective or None if ρ is not user-set.
+
+    Matrix spec forms S4 (scalar ρ), S5 (tabulated ρ(λ) via CSV path),
+    S6 (albedo alias) all collapse onto :class:`T2Reflective`.  Step 3.2
+    fully wires the scalar paths (``reflectance`` / ``albedo``); the
+    tabulated ``_path`` surfaces raise a clear deferral error until the
+    same CSV-loader work that lands with S11's T_B path.
+    """
+    rho_rv = params.get_resolved("source.target.reflectance")
+    alb_rv = params.get_resolved("source.target.albedo")
+    rho_path_rv = params.get_resolved("source.target.reflectance_path")
+    alb_path_rv = params.get_resolved("source.target.albedo_path")
+
+    rho_user = rho_rv.provenance is not Provenance.DEFAULT
+    alb_user = alb_rv.provenance is not Provenance.DEFAULT
+    rho_path_user = (
+        rho_path_rv.provenance is not Provenance.DEFAULT
+        and bool(rho_path_rv.value)
+    )
+    alb_path_user = (
+        alb_path_rv.provenance is not Provenance.DEFAULT
+        and bool(alb_path_rv.value)
+    )
+
+    any_user = rho_user or alb_user or rho_path_user or alb_path_user
+    if not any_user:
+        return None
+
+    # Reject over-specified reflectance surfaces (reflectance + albedo,
+    # scalar + path, etc.).  The schema-layer validator owns this check.
+    validate_reflectance_albedo_exclusive(params)
+
+    # Reject pairing with legacy thermal surface (T3Mixed is the path for
+    # combined ε + T; supplying both ρ and T over-specifies the target).
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "Pure-reflective targets (T2Reflective) are specified "
+                "by ρ(λ) alone.  Combining ρ with (ε, T) drops into the "
+                "T3Mixed regime — for that surface, omit ρ and let "
+                "Kirchhoff derive ρ = 1 − ε downstream."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using reflectance/albedo; or remove reflectance to use "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            context={
+                "temperature_set": _is_user_set(
+                    params, "source.target.temperature"
+                ),
+                "emissivity_set": _is_user_set(
+                    params, "source.target.emissivity"
+                ),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_radiance_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with user_radiance_path (S4/S5/S6 vs S8)"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; S4/S5/S6 supplies a material ρ(λ) that RADIANT "
+                "turns into radiance via the solar path.  Combining "
+                "them over-specifies the target radiance."
+            ),
+            action=(
+                "Pick one user-entry surface: reflectance/albedo for "
+                "a material description (S4/S5/S6), or "
+                "user_radiance_path for direct radiance (S8)."
+            ),
+            context={
+                "user_radiance_path": params.get_resolved(
+                    "source.target.user_radiance_path"
+                ).value,
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with user_intensity_path (S4/S5/S6 vs S10)"
+            ),
+            why=(
+                "S10 supplies an absolute intensity at the target plane "
+                "for point sources; S4/S5/S6 supplies a material ρ(λ) "
+                "that RADIANT turns into radiance via the solar path.  "
+                "Combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: reflectance/albedo for "
+                "a material description (S4/S5/S6), or "
+                "user_intensity_path for direct intensity (S10)."
+            ),
+            context={
+                "user_intensity_path": params.get_resolved(
+                    "source.target.user_intensity_path"
+                ).value,
+            },
+        )
+
+    # Reject pairing with S11 / S12 thermal user-entry forms.
+    if (
+        _is_user_set(params, "source.target.brightness_temperature_K")
+        or _is_user_set(params, "source.target.brightness_temperature_path")
+        or _is_user_set(params, "source.target.radiance_temperature_K")
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with brightness_temperature / "
+                "radiance_temperature (thermal S11/S12 vs reflective "
+                "S4/S5/S6)"
+            ),
+            why=(
+                "A single target cannot be both purely reflective and "
+                "purely thermal.  Mixed emit+reflect must go through "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            action=(
+                "Pick one user-entry surface: reflectance/albedo for "
+                "pure reflection (T2), brightness_temperature or "
+                "radiance_temperature for pure thermal (T1), or "
+                "temperature+emissivity for mixed (T3)."
+            ),
+            context={
+                "brightness_temperature_K_set": _is_user_set(
+                    params, "source.target.brightness_temperature_K"
+                ),
+                "brightness_temperature_path_set": _is_user_set(
+                    params, "source.target.brightness_temperature_path"
+                ),
+                "radiance_temperature_K_set": _is_user_set(
+                    params, "source.target.radiance_temperature_K"
+                ),
+            },
+        )
+
+    # CSV path is deferred in lockstep with the S11 T_B path loader.
+    if rho_path_user or alb_path_user:
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: source.target.reflectance_path / "
+                "albedo_path is not yet wired through the inferrer"
+            ),
+            why=(
+                "Tabulated ρ(λ) via a CSV file requires the same "
+                "file → SpectralData loader that lands alongside Phase 4 "
+                "user_radiance (shared path with the S11 "
+                "brightness_temperature_path).  The converter itself "
+                "(source.converters.reflectance) already accepts a "
+                "λ-varying ρ — tests construct SpectralData directly to "
+                "exercise that path."
+            ),
+            action=(
+                "Until the CSV loader lands: supply a scalar ρ via "
+                "source.target.reflectance / .albedo, or build a "
+                "T2Reflective manually and publish it as "
+                "stage_outputs['source']['target']."
+            ),
+            context={
+                "reflectance_path": rho_path_rv.value,
+                "albedo_path": alb_path_rv.value,
+            },
+        )
+
+    # Scalar ρ — take whichever surface is user-set (validator already
+    # enforced that only one is).
+    rho_scalar = float(rho_rv.value if rho_user else alb_rv.value)
+
+    A_t, shape_obj = _resolve_projected_area_and_shape(
+        params, target_location
+    )
+    return reflectance_to_descriptor(
+        rho=rho_scalar,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(  # type: ignore[arg-type]
+            no_atmosphere_subcase or None
+        ),
+        h_tgt=h_tgt,
+        A_t=A_t,
+        shape=shape_obj,
+    )
+
+
+def _maybe_build_from_user_radiance(
+    params: ParameterSet,
+    wavelength_um: np.ndarray,
+    scene_type: str,
+    target_location: str,
+    no_atmosphere_subcase: str,
+    h_tgt: float | None,
+) -> TargetDescriptor | None:
+    """Return an S8-routed T6TabulatedAtSource, or None if not user-set.
+
+    S8 spec form (Target Definition Matrix §1): the user supplies an
+    absolute spectral radiance ``L_t_source(λ)`` at the target plane
+    via ``source.target.user_radiance_path`` (a two-column CSV).  The
+    boundary converter loads the CSV, resamples onto the chain grid
+    through :class:`~radiant.source.tabulated.TabulatedRadianceSource`,
+    and routes to :class:`T6TabulatedAtSource` (ADR-0003).
+
+    ``target_location == 'at_aperture'`` is rejected — that cell is the
+    S9 (T5AtAperture) domain and bypasses atmospheric transport.  The
+    mutual-exclusion guards against every other spec form ((ε, T),
+    ρ/albedo, S11 T_B, S12 T_R) are owned by the respective helpers
+    (each rejects S8 symmetrically); this helper only needs to guard
+    the legacy (ε, T) surface for the case where S8 is the only
+    fast-path candidate.
+    """
+    path_rv = params.get_resolved("source.target.user_radiance_path")
+    path_user = (
+        path_rv.provenance is not Provenance.DEFAULT
+        and bool(path_rv.value)
+    )
+    if not path_user:
+        return None
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: user_radiance_path is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; combining it with (ε, T) over-specifies the "
+                "target radiance (RADIANT would have two inconsistent "
+                "ways to compute L_t_source)."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.user_radiance_path; or remove "
+                "user_radiance_path to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(
+                    params, "source.target.temperature"
+                ),
+                "emissivity_set": _is_user_set(
+                    params, "source.target.emissivity"
+                ),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: user_radiance_path is mutually "
+                "exclusive with user_intensity_path (S8 vs S10)"
+            ),
+            why=(
+                "S8 supplies radiance L_t_source [W/m²/sr/µm] at the "
+                "target plane for resolved targets; S10 supplies "
+                "intensity I_t_source [W/sr/µm] for point-source targets. "
+                "They are different radiometric quantities for different "
+                "regimes — combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: user_radiance_path for "
+                "resolved targets (S8), or user_intensity_path for "
+                "point-source targets (S10)."
+            ),
+            context={
+                "user_intensity_path": params.get_resolved(
+                    "source.target.user_intensity_path"
+                ).value,
+            },
+        )
+
+    csv_path = str(path_rv.value)
+
+    # Load CSV → SpectralData on the file's native grid.  Rule 15:
+    # load_user_radiance_csv raises ParameterBoundsError on missing /
+    # malformed / empty files with actionable context.
+    L_native = load_user_radiance_csv(csv_path)
+
+    # Boundary guard (Rule 15): validate native values here so a negative
+    # CSV entry surfaces as a ParameterBoundsError with actionable
+    # context, not as the ValueError that TabulatedRadianceSource
+    # raises for the same condition.
+    _validate_L_t_source(
+        np.asarray(L_native.values, dtype=np.float64)
+    )
+
+    # Resample onto the chain grid via TabulatedRadianceSource (owns
+    # the interpolation contract; extrapolation outside the native
+    # grid raises).
+    tabulated = TabulatedRadianceSource(
+        radiance_data=L_native, name="source.target.user_radiance"
+    )
+    lam = np.asarray(wavelength_um, dtype=np.float64)
+    L_on_grid = tabulated.spectral_radiance(lam)
+
+    L_sd = SpectralData(
+        name="source.target.user_radiance",
+        wavelength_um=lam,
+        values=L_on_grid,
+        unit="W/m^2/sr/um",
+        source=(
+            f"source.converters.user_radiance (CSV → chain grid: "
+            f"{csv_path})"
+        ),
+    )
+
+    A_t, shape_obj = _resolve_projected_area_and_shape(
+        params, target_location
+    )
+    return user_radiance_to_descriptor(
+        L_t_source=L_sd,
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(  # type: ignore[arg-type]
+            no_atmosphere_subcase or None
+        ),
+        h_tgt=h_tgt,
+        A_t=A_t,
+        shape=shape_obj,
+    )
+
+
+def _maybe_build_from_user_intensity(
+    params: ParameterSet,
+    wavelength_um: np.ndarray,
+    scene_type: str,
+    target_location: str,
+    no_atmosphere_subcase: str,
+    h_tgt: float | None,
+) -> TargetDescriptor | None:
+    """Return an S10-routed T7IntensityAtSource, or None if not user-set.
+
+    S10 spec form (Target Definition Matrix §1; ADR-0004): the user
+    supplies an absolute spectral intensity ``I_t_source(λ)`` at the
+    target plane via ``source.target.user_intensity_path`` (a two-
+    column CSV).  The boundary converter loads the CSV, resamples onto
+    the chain grid via linear interpolation, and routes to
+    :class:`T7IntensityAtSource`.
+
+    ``target_location == 'at_aperture'`` and ``scene_type != 'point_source'``
+    are rejected by the converter.  Mutual-exclusion guards against
+    every other spec form are owned by the respective helpers (each
+    rejects S10 symmetrically); this helper only needs to guard the
+    legacy (ε, T) surface for the case where S10 is the only fast-path
+    candidate.
+    """
+    path_rv = params.get_resolved("source.target.user_intensity_path")
+    path_user = (
+        path_rv.provenance is not Provenance.DEFAULT
+        and bool(path_rv.value)
+    )
+    if not path_user:
+        return None
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: user_intensity_path is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S10 supplies an absolute intensity already at the "
+                "target plane; combining it with (ε, T) over-specifies "
+                "the target (RADIANT would have two inconsistent ways "
+                "to compute the at-aperture signal)."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.user_intensity_path; or remove "
+                "user_intensity_path to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(
+                    params, "source.target.temperature"
+                ),
+                "emissivity_set": _is_user_set(
+                    params, "source.target.emissivity"
+                ),
+            },
+        )
+
+    csv_path = str(path_rv.value)
+
+    # Load CSV → SpectralData on the file's native grid.  Rule 15:
+    # load_user_intensity_csv raises ParameterBoundsError on missing /
+    # malformed / empty files with actionable context.
+    I_native = load_user_intensity_csv(csv_path)
+
+    # Boundary guard (Rule 15): validate native values here so a negative
+    # CSV entry surfaces as a ParameterBoundsError before the grid
+    # resample or descriptor construction.
+    _validate_I_t_source(
+        np.asarray(I_native.values, dtype=np.float64)
+    )
+
+    # Resample onto the chain grid via linear interpolation.  Extrapolation
+    # outside the native grid raises below by checking the bounds up
+    # front — matches TabulatedRadianceSource's contract for S8.
+    lam = np.asarray(wavelength_um, dtype=np.float64)
+    src_wl = np.asarray(I_native.wavelength_um, dtype=np.float64)
+    if lam[0] < src_wl[0] or lam[-1] > src_wl[-1]:
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: user_intensity CSV grid "
+                f"[{src_wl[0]:.4f}, {src_wl[-1]:.4f}] µm does not cover "
+                f"the chain wavelength grid "
+                f"[{lam[0]:.4f}, {lam[-1]:.4f}] µm"
+            ),
+            why=(
+                "Extrapolating user-supplied intensity outside the "
+                "tabulated grid would silently invent physics.  Rule 17 "
+                "— the loader refuses rather than falling back to "
+                "zero-fill or constant extrapolation."
+            ),
+            action=(
+                "Extend the CSV wavelength coverage to span the chain "
+                "grid, or tighten source.wavelength_min/max so the "
+                "chain grid fits inside the CSV grid."
+            ),
+            context={
+                "csv_range_um": (float(src_wl[0]), float(src_wl[-1])),
+                "chain_range_um": (float(lam[0]), float(lam[-1])),
+            },
+        )
+    I_on_grid = np.interp(lam, src_wl, I_native.values)
+
+    I_sd = SpectralData(
+        name="source.target.user_intensity",
+        wavelength_um=lam,
+        values=np.asarray(I_on_grid, dtype=np.float64),
+        unit="W/sr/um",
+        source=(
+            f"source.converters.user_intensity (CSV → chain grid: "
+            f"{csv_path})"
+        ),
+    )
+
+    return user_intensity_to_descriptor(
+        I_t_source=I_sd,
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(  # type: ignore[arg-type]
+            no_atmosphere_subcase or None
+        ),
+        h_tgt=h_tgt,
+    )
 
 
 def _build_target_descriptor(
@@ -297,6 +1336,67 @@ def _build_target_descriptor(
     scene_type, target_location, no_atmosphere_subcase, h_tgt:
         Resolved axes from the other inferrer helpers.
     """
+    # S11 fast path — user-supplied brightness temperature.
+    s11 = _maybe_build_from_brightness_temperature(
+        params=params,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,
+        target_location=target_location,
+        no_atmosphere_subcase=no_atmosphere_subcase,
+        h_tgt=h_tgt,
+    )
+    if s11 is not None:
+        return s11
+
+    # S12 fast path — user-supplied band-averaged radiance temperature.
+    s12 = _maybe_build_from_radiance_temperature(
+        params=params,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,
+        target_location=target_location,
+        no_atmosphere_subcase=no_atmosphere_subcase,
+        h_tgt=h_tgt,
+    )
+    if s12 is not None:
+        return s12
+
+    # S4/S5/S6 fast path — user-supplied reflectance (pure-reflective target).
+    s4 = _maybe_build_from_reflectance(
+        params=params,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,
+        target_location=target_location,
+        no_atmosphere_subcase=no_atmosphere_subcase,
+        h_tgt=h_tgt,
+    )
+    if s4 is not None:
+        return s4
+
+    # S8 fast path — user-supplied absolute radiance at the target plane.
+    s8 = _maybe_build_from_user_radiance(
+        params=params,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,
+        target_location=target_location,
+        no_atmosphere_subcase=no_atmosphere_subcase,
+        h_tgt=h_tgt,
+    )
+    if s8 is not None:
+        return s8
+
+    # S10 fast path — user-supplied absolute intensity at the target
+    # plane (point-source; ADR-0004).
+    s10 = _maybe_build_from_user_intensity(
+        params=params,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,
+        target_location=target_location,
+        no_atmosphere_subcase=no_atmosphere_subcase,
+        h_tgt=h_tgt,
+    )
+    if s10 is not None:
+        return s10
+
     T_t: float = params.get("source.target.temperature")
     epsilon_scalar: float = params.get("source.target.emissivity")
 
@@ -312,8 +1412,11 @@ def _build_target_descriptor(
     # Matrix §3.2 line 156: T1Thermal is the correct v1 variant for the
     # legacy ε+T parameter surface.  T2/T3/T5 enter the pipeline in later
     # stages when reflectance, mixed, or at-aperture data are surfaced.
-    projected_area = params.get("source.target.projected_area_m2")
-    A_t: float | None = projected_area if projected_area > 0.0 else None
+    #
+    # Q3 shape-wins precedence (matrix §4, resolved 2026-04-21) is applied
+    # inside ``_resolve_projected_area_and_shape`` — shared with the S11
+    # brightness-temperature branch.
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
 
     # Silence the MWIR non-mixed warning emitted by T1Thermal.__post_init__
     # during Stage-2 back-compat inference.  The scalar-ε legacy surface
@@ -334,7 +1437,7 @@ def _build_target_descriptor(
             epsilon=epsilon,
             T_t=T_t,
             A_t=A_t,
-            shape=None,
+            shape=shape_obj,
         )
 
 

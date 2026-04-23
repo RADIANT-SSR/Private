@@ -113,3 +113,30 @@ class PhongBRDF:
         specular = rho_s * ((n + 2.0) / (2.0 * math.pi)) * (cos_alpha ** n)
 
         return np.asarray(diffuse + specular, dtype=np.float64)
+
+    def reflectance_at(
+        self,
+        wavelength_um: npt.NDArray[np.float64],
+        view_dir: npt.NDArray[np.float64],
+        illumination_dir: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Return total hemispherical ρ(λ) on the requested grid.
+
+        Implements :class:`~radiant.core.reflectance.ReflectanceDescriptor`.
+        The Phong model conserves total hemispherical reflectance
+        ``ρ = ρ_d + ρ_s``; this method exposes that conserved quantity so
+        downstream code can treat a Phong surface as a ``reflectance``
+        source without also handling the BRDF's anisotropic lobe.  Callers
+        needing the angle-resolved BRDF use :meth:`evaluate`.
+        """
+        _ = view_dir, illumination_dir
+        n_wl = len(wavelength_um)
+        rho = np.atleast_1d(np.asarray(self.reflectance, dtype=np.float64))
+        if rho.size == 1:
+            rho = np.full(n_wl, rho.item(), dtype=np.float64)
+        elif rho.size != n_wl:
+            raise ValueError(
+                f"PhongBRDF: reflectance array length {rho.size} "
+                f"does not match wavelength grid length {n_wl}"
+            )
+        return np.asarray(rho, dtype=np.float64)

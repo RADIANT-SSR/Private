@@ -5,6 +5,8 @@ Covers thermal, point-source, sub-pixel, and regime-related parameters.
 
 from __future__ import annotations
 
+from typing import Any
+
 from radiant.core.parameters import ParameterDef
 
 # ---------------------------------------------------------------------------
@@ -233,6 +235,532 @@ NO_ATMOSPHERE_SUBCASE = ParameterDef(
     ),
 )
 
+# ---------------------------------------------------------------------------
+# Shape selection parameters (Target Definition Matrix §3 — Q3 resolution)
+# ---------------------------------------------------------------------------
+#
+# Step 1.1 of the Target Definition Matrix Implementation Plan registers the
+# shape-selection surface so YAML loaders / ``params.set`` accept it.  Wiring
+# into ``_inferrer`` (construction of ``TargetShape`` instances, precedence
+# over ``projected_area_m2``, view-direction-dependent projection) is Step
+# 1.2 and deliberately not performed here.
+#
+# Design note — why flattened scalar params instead of a ``shape_params``
+# dict:
+#   The original task prompt proposed ``source.target.shape_params`` as a
+#   free-form ``dict``.  ``ParameterDef`` (core) restricts dtype to
+#   ``(float, int, str, bool)`` and Rule 16 forbids passing raw dicts from
+#   user input into physics; so the plan resolves (owner-approved
+#   2026-04-21) to flatten shape parameters into individual scalar
+#   ParameterDefs.  The resolver in Step 1.2 picks the subset relevant to
+#   the selected ``shape`` and ignores the rest.
+#
+# Bounds policy: each dimensional scalar uses ``bounds=(0.0, 1e6)`` so that
+# the default sentinel ``0.0`` is accepted.  Step 1.2's ``build_shape``
+# raises :class:`ParameterBoundsError` when a value is at the sentinel but
+# the shape requires it to be strictly positive.  Canonical unit for all
+# lengths is metres (Rule 2).
+
+SHAPE = ParameterDef(
+    name="source.target.shape",
+    description=(
+        "Geometric primitive for sub-pixel / point-source projected-area "
+        "computation. 'none' = not specified (back-compat: use "
+        "source.target.projected_area_m2).  Explicit values select a "
+        "concrete shape; dimensional parameters are read from the "
+        "source.target.shape_* scalars per the matrix §3 catalog."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="none",
+    enum_values=("none", "sphere", "cylinder", "flat_plate", "box", "cone"),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification=(
+        "'none' is the Rule-12 sentinel for 'shape not provided'; the "
+        "descriptor falls back to source.target.projected_area_m2.  Users "
+        "opt into shape-driven projection by naming a concrete shape."
+    ),
+)
+
+SHAPE_RADIUS = ParameterDef(
+    name="source.target.shape_radius_m",
+    description=(
+        "Radius [m] for shapes with a single radius parameter "
+        "(sphere, cylinder).  Must be > 0 when the selected shape "
+        "requires it; validation is enforced by the Step 1.2 shape "
+        "factory, not here.  Ignored for shapes that do not take a "
+        "radius (flat_plate, box)."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification=(
+        "0.0 is the 'not set' sentinel; the Step 1.2 factory raises "
+        "ParameterBoundsError if the chosen shape needs radius_m > 0."
+    ),
+)
+
+SHAPE_LENGTH = ParameterDef(
+    name="source.target.shape_length_m",
+    description=(
+        "Length [m] for shapes with a length axis (cylinder axial "
+        "extent, flat_plate body-X extent, box body-X extent).  "
+        "Ignored for sphere and cone."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+)
+
+SHAPE_WIDTH = ParameterDef(
+    name="source.target.shape_width_m",
+    description=(
+        "Width [m] for rectangular shapes (flat_plate body-Y extent, "
+        "box body-Y extent).  Ignored for sphere, cylinder, cone."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+)
+
+SHAPE_HEIGHT = ParameterDef(
+    name="source.target.shape_height_m",
+    description=(
+        "Height [m] for shapes with a body-Z extent (box height, cone "
+        "apex-to-base height).  Ignored for sphere, cylinder, "
+        "flat_plate."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+)
+
+SHAPE_BASE_RADIUS = ParameterDef(
+    name="source.target.shape_base_radius_m",
+    description=(
+        "Base-circle radius [m] for the cone shape.  Separate from "
+        "source.target.shape_radius_m because the cone class names the "
+        "parameter base_radius_m (see shapes/cone.py).  Ignored for "
+        "non-cone shapes."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+)
+
+# Orientation (body-frame yaw/pitch/roll in radians, ZYX Euler per Rule 3).
+# Default (0, 0, 0) aligns the shape's body axes with the scene frame so
+# that sphere / cone / cylinder / flat_plate / box hit their canonical
+# projected-area identities (π r², 2rL side-on, WH normal-on, etc.) out
+# of the box.  Step 1.2 passes the tuple into the concrete TargetShape's
+# ``orientation_rad`` field.
+
+SHAPE_YAW = ParameterDef(
+    name="source.target.shape_yaw_rad",
+    description=(
+        "Target body yaw [rad] about scene +Z (ZYX Euler, Rule 3).  "
+        "Applied to the selected TargetShape's ``orientation_rad`` "
+        "tuple in Step 1.2."
+    ),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),  # [-2π, 2π]
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    default_justification=(
+        "0.0 = body +X aligned with scene +X (canonical alignment)."
+    ),
+)
+
+SHAPE_PITCH = ParameterDef(
+    name="source.target.shape_pitch_rad",
+    description=(
+        "Target body pitch [rad] about scene +Y (ZYX Euler, Rule 3)."
+    ),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
+)
+
+SHAPE_ROLL = ParameterDef(
+    name="source.target.shape_roll_rad",
+    description=(
+        "Target body roll [rad] about scene +X (ZYX Euler, Rule 3)."
+    ),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
+)
+
+# ---------------------------------------------------------------------------
+# S11 — brightness temperature T_B (Target Definition Matrix §1, Plan 2.1)
+# ---------------------------------------------------------------------------
+#
+# Brightness temperature is the equivalent-blackbody temperature that produces
+# the same spectral radiance as the source at wavelength λ.  ``T_B`` is a
+# legitimate user specification for IR / microwave remote-sensing targets
+# where the physical (ε, T_phys) pair is unknown.
+#
+# The converter in ``source.converters.brightness_temperature`` maps user
+# input to a canonical TargetDescriptor:
+#   - (near-)constant T_B → T1Thermal(T_t=T_B, ε≡1)
+#   - λ-varying T_B(λ)   → T6TabulatedAtSource(L_source=B(λ, T_B(λ))) per
+#                          ADR-0003
+#
+# Design note — why two scalar params instead of a single SpectralData
+# field: ``ParameterDef.dtype`` is restricted to ``{float, int, str, bool}``
+# (core constraint); SpectralData is transported via a file-path sentinel,
+# consistent with ``detector.qe_table_path`` and
+# ``atmosphere.tabulated_path_radiance_file``.  The file, when supplied,
+# is a 2-column CSV ``wavelength_um, T_B_K`` (header optional).
+
+BRIGHTNESS_TEMPERATURE_K = ParameterDef(
+    name="source.target.brightness_temperature_K",
+    description=(
+        "Scalar brightness temperature T_B [K] — the equivalent-blackbody "
+        "temperature that produces the same spectral radiance as the source. "
+        "When user-set (provenance != DEFAULT), routes through the S11 "
+        "converter to a T1Thermal descriptor with ε≡1.  Mutually exclusive "
+        "with source.target.brightness_temperature_path."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=0.0,
+    bounds=(0.0, 10000.0),
+    tags=frozenset({"source", "target", "thermal", "S11"}),
+    default_justification=(
+        "0.0 K is the Rule-12 'not set' sentinel; the inferrer checks "
+        "provenance (not value) to decide whether the user opted into "
+        "S11, mirroring source.target.projected_area_m2 / shape_radius_m."
+    ),
+)
+
+BRIGHTNESS_TEMPERATURE_PATH = ParameterDef(
+    name="source.target.brightness_temperature_path",
+    description=(
+        "Path to a 2-column CSV (wavelength_um, T_B_K) carrying a "
+        "wavelength-dependent brightness temperature.  When set, routes "
+        "through the S11 converter; λ-varying T_B emits "
+        "T6TabulatedAtSource with L_source = B(λ, T_B(λ)) per ADR-0003. "
+        "Mutually exclusive with source.target.brightness_temperature_K."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "target", "thermal", "S11"}),
+    default_justification=(
+        "Empty string = not set.  Pattern mirrors "
+        "detector.qe_table_path / atmosphere.tabulated_path_radiance_file "
+        "for SpectralData transport through the ParameterSet surface."
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# S12 — band-averaged radiance temperature (T_R + band)
+# ---------------------------------------------------------------------------
+# T_R is a scalar K value paired with a (λ_lo, λ_hi) band.  The S12 converter
+# treats the target as a blackbody at T_R and emits T1Thermal(T_t=T_R, ε≡1).
+# A separate inversion helper (``source.converters.invert_band_radiance``)
+# is provided for future forward-compat use cases in which a user supplies
+# an in-band integrated radiance and needs T_equiv recovered.
+
+RADIANCE_TEMPERATURE_K = ParameterDef(
+    name="source.target.radiance_temperature_K",
+    description=(
+        "Band-averaged radiance temperature T_R [K] — the scalar "
+        "equivalent-blackbody temperature that matches the in-band integrated "
+        "radiance of the target over [λ_lo, λ_hi].  Must be paired with "
+        "source.target.radiance_temperature_band_lo_um and "
+        "source.target.radiance_temperature_band_hi_um when user-set.  "
+        "Mutually exclusive with S11 brightness_temperature parameters."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=0.0,
+    bounds=(0.0, 10000.0),
+    tags=frozenset({"source", "target", "thermal", "S12"}),
+    default_justification=(
+        "0.0 K is the Rule-12 'not set' sentinel; the inferrer checks "
+        "provenance (not value) to decide whether the user opted into S12."
+    ),
+)
+
+RADIANCE_TEMPERATURE_BAND_LO = ParameterDef(
+    name="source.target.radiance_temperature_band_lo_um",
+    description=(
+        "Lower band edge [µm] for the S12 radiance-temperature specification. "
+        "Required when source.target.radiance_temperature_K is user-set; must "
+        "satisfy λ_lo < λ_hi."
+    ),
+    dtype=float,
+    canonical_unit="um",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 1000.0),
+    tags=frozenset({"source", "target", "thermal", "S12"}),
+    default_justification=(
+        "0.0 µm is the 'not set' sentinel; inferrer checks provenance."
+    ),
+)
+
+RADIANCE_TEMPERATURE_BAND_HI = ParameterDef(
+    name="source.target.radiance_temperature_band_hi_um",
+    description=(
+        "Upper band edge [µm] for the S12 radiance-temperature specification. "
+        "Required when source.target.radiance_temperature_K is user-set; must "
+        "satisfy λ_lo < λ_hi."
+    ),
+    dtype=float,
+    canonical_unit="um",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 1000.0),
+    tags=frozenset({"source", "target", "thermal", "S12"}),
+    default_justification=(
+        "0.0 µm is the 'not set' sentinel; inferrer checks provenance."
+    ),
+)
+
+
+# ---------------------------------------------------------------------------
+# S4 / S5 / S6 — spectral reflectance / albedo (reflective user inputs)
+# ---------------------------------------------------------------------------
+# Reflective targets (T2Reflective) are specified by ρ(λ) — either a scalar
+# ρ lifted to a constant spectrum (S4) or a tabulated ρ(λ) CSV (S5/S6).
+# ``albedo`` is the user-facing alias for ``reflectance`` (both map to the
+# same T2Reflective surface); exposing both keeps the YAML surface natural
+# ("I want to set albedo") while preserving a single physics path.  The
+# inferrer (Step 3.2) treats the two as mutually exclusive — supplying both
+# over-specifies the reflectance and raises.  Same path-sentinel pattern as
+# S11: SpectralData can't be a ParameterDef dtype, so tabulated input flows
+# in via a CSV path string.
+
+REFLECTANCE = ParameterDef(
+    name="source.target.reflectance",
+    description=(
+        "Scalar target reflectance ρ [dimensionless, 0–1] — the fraction "
+        "of incident radiance that is reflected from the target.  When "
+        "user-set (provenance != DEFAULT), routes through the Step 3.2 "
+        "inferrer to a T2Reflective descriptor with ρ(λ) ≡ this scalar. "
+        "Mutually exclusive with source.target.albedo, "
+        "source.target.reflectance_path, and the legacy (ε, T) surface."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"source", "target", "reflective", "S4"}),
+    default_justification=(
+        "0.0 is the Rule-12 'not set' sentinel; the inferrer checks "
+        "provenance (not value) to decide whether the user opted into S4. "
+        "A physically zero reflectance is still user-set and routes through."
+    ),
+)
+
+ALBEDO = ParameterDef(
+    name="source.target.albedo",
+    description=(
+        "User-facing alias for source.target.reflectance with identical "
+        "semantics (Lambertian ρ, 0–1).  Accepted for scenarios where "
+        "'albedo' is the natural label; the inferrer rejects pairing with "
+        "source.target.reflectance (pick one)."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"source", "target", "reflective", "S4"}),
+    default_justification=(
+        "0.0 is the Rule-12 'not set' sentinel (same pattern as reflectance)."
+    ),
+)
+
+REFLECTANCE_PATH = ParameterDef(
+    name="source.target.reflectance_path",
+    description=(
+        "Path to a 2-column CSV (wavelength_um, rho) carrying a "
+        "λ-dependent reflectance ρ(λ).  When set, routes through the "
+        "Step 3.2 inferrer to a T2Reflective descriptor (S5/S6).  Mutually "
+        "exclusive with the scalar reflectance / albedo surfaces."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "target", "reflective", "S5", "S6"}),
+    default_justification=(
+        "Empty string = not set; pattern mirrors "
+        "source.target.brightness_temperature_path."
+    ),
+)
+
+ALBEDO_PATH = ParameterDef(
+    name="source.target.albedo_path",
+    description=(
+        "Alias of source.target.reflectance_path with identical CSV "
+        "format.  Rejected when paired with the reflectance_path surface."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "target", "reflective", "S5", "S6"}),
+    default_justification=(
+        "Empty string = not set."
+    ),
+)
+
+USER_RADIANCE_PATH = ParameterDef(
+    name="source.target.user_radiance_path",
+    description=(
+        "Path to a 2-column CSV (wavelength_um, L_t_source [W/m²/sr/µm]) "
+        "carrying a user-supplied spectral radiance at the target plane.  "
+        "When set, routes through the Phase 4 inferrer to a "
+        "T6TabulatedAtSource descriptor (S8 — no physical model applied; "
+        "the user owns the physics).  Mutually exclusive with every "
+        "other target spec form ((ε, T), reflectance/albedo, "
+        "brightness_temperature, radiance_temperature)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "target", "user_radiance", "S8"}),
+    default_justification=(
+        "Empty string = not set.  Path is a plain string; the CSV "
+        "payload values are W/m²/sr/µm but the ParameterDef itself "
+        "describes the path string only (pattern mirrors "
+        "source.target.brightness_temperature_path)."
+    ),
+)
+
+USER_INTENSITY_PATH = ParameterDef(
+    name="source.target.user_intensity_path",
+    description=(
+        "Path to a 2-column CSV (wavelength_um, I_t_source [W/sr/µm]) "
+        "carrying a user-supplied spectral intensity at the target "
+        "plane, for unresolved (point-source) targets.  When set, "
+        "routes through the Phase 5 inferrer to a T7IntensityAtSource "
+        "descriptor (S10 — ADR-0004; no physical model applied, the "
+        "user owns the physics).  Mutually exclusive with every other "
+        "target spec form ((ε, T), reflectance/albedo, "
+        "brightness_temperature, radiance_temperature, user_radiance).  "
+        "Requires scene_type='point_source'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "target", "user_intensity", "S10"}),
+    default_justification=(
+        "Empty string = not set.  Path is a plain string; the CSV "
+        "payload values are W/sr/µm but the ParameterDef itself "
+        "describes the path string only (pattern mirrors "
+        "source.target.user_radiance_path)."
+    ),
+)
+
+
+def validate_reflectance_albedo_exclusive(params: Any) -> None:
+    """Raise if both ``reflectance`` and ``albedo`` surfaces are user-set.
+
+    ``albedo`` is a naming alias for ``reflectance``; supplying both over-
+    specifies the same physical quantity.  The same rule applies to the
+    tabulated ``_path`` siblings.  Called by the Step 3.2 inferrer
+    (unit-tested in :mod:`source.tests.test_schema`).
+
+    Parameters
+    ----------
+    params:
+        A :class:`radiant.core.parameters.ParameterSet`.  Typed as ``Any``
+        here to keep :mod:`radiant.source._schema` free of the core/
+        parameters import cycle (Rule 11 — schema is user-data only).
+    """
+    from radiant.core.parameters import (  # local import: avoid cycle
+        ParameterBoundsError,
+        Provenance,
+    )
+
+    rho_rv = params.get_resolved("source.target.reflectance")
+    alb_rv = params.get_resolved("source.target.albedo")
+    rho_path_rv = params.get_resolved("source.target.reflectance_path")
+    alb_path_rv = params.get_resolved("source.target.albedo_path")
+
+    rho_user = rho_rv.provenance is not Provenance.DEFAULT
+    alb_user = alb_rv.provenance is not Provenance.DEFAULT
+    rho_path_user = (
+        rho_path_rv.provenance is not Provenance.DEFAULT
+        and bool(rho_path_rv.value)
+    )
+    alb_path_user = (
+        alb_path_rv.provenance is not Provenance.DEFAULT
+        and bool(alb_path_rv.value)
+    )
+
+    set_surfaces = []
+    if rho_user:
+        set_surfaces.append("source.target.reflectance")
+    if alb_user:
+        set_surfaces.append("source.target.albedo")
+    if rho_path_user:
+        set_surfaces.append("source.target.reflectance_path")
+    if alb_path_user:
+        set_surfaces.append("source.target.albedo_path")
+
+    if len(set_surfaces) > 1:
+        raise ParameterBoundsError(
+            what=(
+                "source._schema: reflectance / albedo over-specified — "
+                f"{len(set_surfaces)} surfaces user-set: {set_surfaces}"
+            ),
+            why=(
+                "reflectance and albedo are aliases for the same "
+                "Lambertian ρ; tabulated (_path) and scalar siblings are "
+                "mutually exclusive.  Supplying more than one is always "
+                "ambiguous — the inferrer cannot pick a canonical ρ(λ)."
+            ),
+            action=(
+                "Leave exactly one surface set: scalar reflectance *or* "
+                "albedo *or* reflectance_path *or* albedo_path."
+            ),
+            context={"set_surfaces": set_surfaces},
+        )
+
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TARGET_TEMPERATURE,
     TARGET_EMISSIVITY,
@@ -245,4 +773,24 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SCENE_TYPE,
     TARGET_LOCATION,
     NO_ATMOSPHERE_SUBCASE,
+    SHAPE,
+    SHAPE_RADIUS,
+    SHAPE_LENGTH,
+    SHAPE_WIDTH,
+    SHAPE_HEIGHT,
+    SHAPE_BASE_RADIUS,
+    SHAPE_YAW,
+    SHAPE_PITCH,
+    SHAPE_ROLL,
+    BRIGHTNESS_TEMPERATURE_K,
+    BRIGHTNESS_TEMPERATURE_PATH,
+    RADIANCE_TEMPERATURE_K,
+    RADIANCE_TEMPERATURE_BAND_LO,
+    RADIANCE_TEMPERATURE_BAND_HI,
+    REFLECTANCE,
+    ALBEDO,
+    REFLECTANCE_PATH,
+    ALBEDO_PATH,
+    USER_RADIANCE_PATH,
+    USER_INTENSITY_PATH,
 )

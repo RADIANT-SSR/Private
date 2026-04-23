@@ -11,7 +11,7 @@ Stage outputs under ``stage_outputs["source"]``:
     - ``fill_fraction``: sub-pixel fill fraction (1.0 = extended)
     - ``angular_extent_rad``: target angular extent [rad]
     - ``regime_override``: raw override string for OpticsStage
-    - ``target``: :class:`TargetDescriptor` (T1/T2/T3/T5)
+    - ``target``: :class:`TargetDescriptor` (T1/T2/T3/T5/T6/T7)
     - ``background``: :class:`BackgroundDescriptor` or ``None``
     - ``los_geometry``: :class:`LineOfSightGeometry` or ``None``
 
@@ -30,7 +30,10 @@ from __future__ import annotations
 import math
 
 from radiant.core.chain import ChainState
-from radiant.core.descriptors import warn_if_reflective_and_sun_below_horizon
+from radiant.core.descriptors import (
+    T7IntensityAtSource,
+    warn_if_reflective_and_sun_below_horizon,
+)
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
 from radiant.source._inferrer import infer_descriptors
@@ -140,6 +143,43 @@ class SourceStage:
             params=params,
             wavelength_um=state.wavelength_um,
         )
+
+        # Target Definition Matrix Q3: when the user supplies a geometric
+        # shape (shape wins over projected_area_m2), the inferrer writes
+        # the shape-derived A onto descriptor.A_t.  Republish it to
+        # stage_outputs["source"]["projected_area_m2"] so downstream
+        # stages (SpectralIntegrationStage point_source branch, regime
+        # reclassification) see the shape area — without this propagation
+        # a shape-only scenario reports A=None and spectral integration
+        # raises in point/sub-pixel regimes.
+        descriptor_area = getattr(target_desc, "A_t", None)
+        # T7IntensityAtSource: point-source intensity carries no user A_t,
+        # but SpectralIntegrationStage still needs a non-None projected
+        # area to compute scene solid angle.  Publish the T7 reference
+        # area (A_fict) — it cancels algebraically through the single
+        # at-pixel camera equation to recover I · A_collect / R².  See
+        # ADR-0004 §Assembly contract.
+        if descriptor_area is None and isinstance(target_desc, T7IntensityAtSource):
+            descriptor_area = T7IntensityAtSource.REFERENCE_AREA_M2
+        if projected_area_m2 is None and descriptor_area is not None:
+            projected_area_m2 = float(descriptor_area)
+            regime, angular_extent_rad = _classify_regime(
+                projected_area_m2=projected_area_m2,
+                range_m=range_m,
+                fill_fraction=fill_fraction,
+                pixel_pitch_m=pixel_pitch_m,
+                focal_length_m=focal_length_m,
+                regime_override=regime_override,
+            )
+            state = state.with_stage_output(
+                "source", "regime_tentative", regime,
+            )
+            state = state.with_stage_output(
+                "source", "projected_area_m2", projected_area_m2,
+            )
+            state = state.with_stage_output(
+                "source", "angular_extent_rad", angular_extent_rad,
+            )
 
         # Matrix §7 cross-descriptor check: T2Reflective + θ_s > π/2 warns
         # (sun below horizon → zero reflected signal).  Requires both the

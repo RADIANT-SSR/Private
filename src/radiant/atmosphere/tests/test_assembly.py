@@ -50,12 +50,12 @@ from radiant.core.descriptors import (
     T2Reflective,
     T3Mixed,
     T5AtAperture,
+    T6TabulatedAtSource,
     UserSpectralBackground,
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.spectral import SpectralData
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -639,6 +639,141 @@ class TestGroundBackgroundAssembly:
         diffuse = rho_g * (atm.E_sky_scattered + atm.E_sky_thermal) / math.pi
         expected = (eps_g * B + diffuse) * atm.tau_full_up + atm.L_path_full
         np.testing.assert_allclose(L, expected, rtol=1e-14, atol=0.0)
+
+
+# ---------------------------------------------------------------------------
+# T6TabulatedAtSource assembly (ADR-0003)
+# ---------------------------------------------------------------------------
+
+
+class TestT6Assembly:
+    """T6 tabulated-at-source: L_source·τ_up + L_path_up exactly."""
+
+    WL = np.array([8.0, 10.0, 12.0, 14.0], dtype=np.float64)
+
+    def _atm(self) -> AtmosphericQuantities:
+        return AtmosphericQuantities(
+            wavelength_um=self.WL,
+            tau_sun=np.full_like(self.WL, 1.0),
+            tau_up=np.array([0.8, 0.7, 0.6, 0.5], dtype=np.float64),
+            tau_full_up=np.array([0.8, 0.7, 0.6, 0.5], dtype=np.float64),
+            E_TOA=np.full_like(self.WL, 1400.0),
+            E_sky_scattered=np.full_like(self.WL, 0.0),
+            E_sky_thermal=np.full_like(self.WL, 5.0),
+            L_path_up=np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float64),
+            L_path_full=np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float64),
+        )
+
+    def _L_source(self, values: np.ndarray) -> SpectralData:
+        return SpectralData(
+            name="L_t_source",
+            wavelength_um=self.WL,
+            values=np.asarray(values, dtype=np.float64),
+            unit="W/m^2/sr/um",
+            source="test_t6_assembly",
+        )
+
+    def test_assembly_math_matches_closed_form(self) -> None:
+        """L_t_source · τ_up + L_path_up — no reflective terms, no ε/B."""
+        atm = self._atm()
+        L_src_vals = np.array([2.0, 3.0, 4.0, 5.0], dtype=np.float64)
+        target = T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            L_t_source=self._L_source(L_src_vals),
+        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
+
+        L_aperture = assemble_target_at_aperture(target, atm, los)
+
+        expected = L_src_vals * atm.tau_up + atm.L_path_up
+        np.testing.assert_allclose(
+            L_aperture, expected, rtol=1e-14, atol=0.0,
+        )
+
+    def test_trivial_atmosphere_is_identity(self) -> None:
+        """τ ≡ 1, L_path ≡ 0 — T6 returns L_source unchanged."""
+        atm = _trivial_atm(self.WL)
+        L_src_vals = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        target = T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="no_atmosphere",
+            no_atmosphere_subcase="space",
+            h_tgt=0.0,
+            L_t_source=self._L_source(L_src_vals),
+        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
+
+        L_aperture = assemble_target_at_aperture(target, atm, los)
+
+        np.testing.assert_allclose(
+            L_aperture, L_src_vals, rtol=1e-14, atol=0.0,
+        )
+
+    def test_components_report(self) -> None:
+        """report_components puts L_source under self_emission; ρ-terms zero."""
+        atm = self._atm()
+        L_src_vals = np.array([2.0, 3.0, 4.0, 5.0], dtype=np.float64)
+        target = T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            L_t_source=self._L_source(L_src_vals),
+        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
+
+        comp = assemble_target_at_aperture(
+            target, atm, los, report_components=True,
+        )
+
+        np.testing.assert_allclose(comp.self_emission, L_src_vals)
+        np.testing.assert_allclose(comp.direct_solar, np.zeros_like(self.WL))
+        np.testing.assert_allclose(
+            comp.diffuse_sky_scattered, np.zeros_like(self.WL),
+        )
+        np.testing.assert_allclose(
+            comp.diffuse_sky_thermal, np.zeros_like(self.WL),
+        )
+        np.testing.assert_allclose(comp.tau_up_factor, atm.tau_up)
+        np.testing.assert_allclose(comp.path_up, atm.L_path_up)
+        np.testing.assert_allclose(
+            comp.total, L_src_vals * atm.tau_up + atm.L_path_up,
+        )
+
+    def test_grid_mismatch_raises(self) -> None:
+        atm = self._atm()
+        bad = SpectralData(
+            name="L_t_source",
+            wavelength_um=np.array([3.0, 5.0], dtype=np.float64),  # MWIR grid
+            values=np.array([1.0, 1.0], dtype=np.float64),
+            unit="W/m^2/sr/um",
+            source="test_t6_assembly",
+        )
+        target = T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            L_t_source=bad,
+        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
+        with pytest.raises(
+            ParameterBoundsError, match=r"grid does not match",
+        ):
+            assemble_target_at_aperture(target, atm, los)
+
+    def test_missing_los_raises(self) -> None:
+        atm = self._atm()
+        target = T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            L_t_source=self._L_source(np.ones_like(self.WL)),
+        )
+        with pytest.raises(
+            ParameterBoundsError, match=r"requires a LineOfSightGeometry",
+        ):
+            assemble_target_at_aperture(target, atm, None)
 
 
 __all__: list[str] = []

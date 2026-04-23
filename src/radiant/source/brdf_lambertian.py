@@ -74,3 +74,28 @@ class LambertianBRDF:
                 f"does not match wavelength grid length {n}"
             )
         return np.asarray(rho / math.pi, dtype=np.float64)
+
+    def reflectance_at(
+        self,
+        wavelength_um: npt.NDArray[np.float64],
+        view_dir: npt.NDArray[np.float64],
+        illumination_dir: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Return ρ(λ) on the requested grid (ReflectanceDescriptor protocol).
+
+        Lambertian reflectance is angle-independent by definition, so
+        ``view_dir`` and ``illumination_dir`` are ignored.  The returned
+        value is the hemispherical reflectance ρ — not ``ρ/π`` — matching
+        :class:`~radiant.core.reflectance.ReflectanceDescriptor`.
+        """
+        _ = view_dir, illumination_dir
+        n = len(wavelength_um)
+        rho = np.atleast_1d(np.asarray(self.reflectance, dtype=np.float64))
+        if rho.size == 1:
+            rho = np.full(n, rho.item(), dtype=np.float64)
+        elif rho.size != n:
+            raise ValueError(
+                f"LambertianBRDF: reflectance array length {rho.size} "
+                f"does not match wavelength grid length {n}"
+            )
+        return np.asarray(rho, dtype=np.float64)

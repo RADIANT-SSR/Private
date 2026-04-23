@@ -64,6 +64,8 @@ from radiant.core.descriptors import (
     T2Reflective,
     T3Mixed,
     T5AtAperture,
+    T6TabulatedAtSource,
+    T7IntensityAtSource,
     TargetDescriptor,
     UserSpectralBackground,
 )
@@ -482,11 +484,14 @@ def assemble_target_at_aperture(
     terrestrial       T1         ε·B(T_t)·τ_up + L_path_up
     terrestrial       T2         ρ·[τ_sun·E_TOA·cosθ_s/π + E_sky/π]·τ_up + L_path_up
     terrestrial       T3         T1 + T2 with ρ = 1 − ε (Kirchhoff)
+    terrestrial       T6         L_t_source·τ_up + L_path_up (user at-source; ADR-0003)
     airborne          T1/T2/T3   same as terrestrial; backends compute
                                   τ/L_path from h_tgt > 0 (Stage 5)
+    airborne          T6         same as terrestrial T6
     no_atmosphere     T1         ε·B(T_t)·τ_up + L_path_up  (τ_up ≡ 1,
                                   L_path_up ≡ 0 for ExoAtmosphere)
     no_atmosphere     T5         pass-through (Table A vacuum / lab)
+    no_atmosphere     T6         L_t_source (τ_up ≡ 1, L_path_up ≡ 0)
     ================  =========  ====================================
 
     Parameters
@@ -598,6 +603,18 @@ def assemble_target_at_aperture(
             return _components_t3(target, atm, cos_ts)
         return _assemble_t3(target, atm, cos_ts)
 
+    # --- T6TabulatedAtSource — user-supplied L_source(λ) at target plane ---
+    if isinstance(target, T6TabulatedAtSource):
+        if report_components:
+            return _components_t6(target, atm)
+        return _assemble_t6(target, atm)
+
+    # --- T7IntensityAtSource — user-supplied I(λ) for point sources ---
+    if isinstance(target, T7IntensityAtSource):
+        if report_components:
+            return _components_t7(target, atm)
+        return _assemble_t7(target, atm)
+
     # --- T5 but target_location != at_aperture — already blocked by
     #     T5AtAperture.__post_init__, but guard anyway. ---
     if isinstance(target, T5AtAperture):
@@ -614,7 +631,7 @@ def assemble_target_at_aperture(
 
     raise ParameterBoundsError(
         what=f"assembly: unsupported TargetDescriptor variant {type(target).__name__}",
-        why="Stage 3 of Option C only knows T1/T2/T3/T5.",
+        why="Stage 3 of Option C only knows T1/T2/T3/T5/T6/T7.",
         action="Extend assembly with the new variant (update ADR-0002 first).",
         context={"variant": type(target).__name__},
     )
@@ -757,6 +774,99 @@ def _components_t3(
         direct_solar=direct,
         diffuse_sky_scattered=diffuse_scat,
         diffuse_sky_thermal=diffuse_therm,
+        tau_up_factor=np.asarray(atm.tau_up, dtype=np.float64),
+        path_up=np.asarray(atm.L_path_up, dtype=np.float64),
+    )
+
+
+def _assemble_t6(
+    target: T6TabulatedAtSource,
+    atm: AtmosphericQuantities,
+) -> np.ndarray:
+    """T6 tabulated-at-source assembly: L_t_source·τ_up + L_path_up.
+
+    ADR-0003.  The user supplies L_source(λ) at the target plane; the
+    up-leg attenuates it and adds path radiance.  ρ ≡ 0 by construction
+    (absolute radiance — not a material property), so the direct-solar
+    and diffuse-sky arms vanish.  Mathematically identical to T1 with
+    ``ε · B(T_t) → L_t_source``.
+    """
+    assert target.L_t_source is not None  # constructor invariant
+    L_source = _extract_sd_values(target.L_t_source, atm)
+    return np.asarray(L_source * atm.tau_up + atm.L_path_up, dtype=np.float64)
+
+
+def _components_t6(
+    target: T6TabulatedAtSource,
+    atm: AtmosphericQuantities,
+) -> AssemblyComponents:
+    """Per-term T6 decomposition (Stage 6 introspection).
+
+    L_t_source is reported under ``self_emission`` — it is the at-source
+    emissive term the user supplied.  ρ-driven fields are identically
+    zero (ADR-0003: T6 has no reflective branch).
+    """
+    assert target.L_t_source is not None
+    L_source = _extract_sd_values(target.L_t_source, atm)
+    zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
+    total = np.asarray(L_source * atm.tau_up + atm.L_path_up, dtype=np.float64)
+    return AssemblyComponents(
+        total=total,
+        self_emission=L_source,
+        direct_solar=zeros,
+        diffuse_sky_scattered=zeros,
+        diffuse_sky_thermal=zeros,
+        tau_up_factor=np.asarray(atm.tau_up, dtype=np.float64),
+        path_up=np.asarray(atm.L_path_up, dtype=np.float64),
+    )
+
+
+def _assemble_t7(
+    target: T7IntensityAtSource,
+    atm: AtmosphericQuantities,
+) -> np.ndarray:
+    """T7 user-intensity-at-source assembly: (I/A_fict)·τ_up + L_path_up.
+
+    ADR-0004.  The user supplies I(λ) [W/sr/µm] at the target plane.
+    At the assembly boundary we convert to radiance via the reference
+    area A_fict = ``T7IntensityAtSource.REFERENCE_AREA_M2`` and then
+    follow the T6-style up-leg.
+
+    Why A_fict cancels downstream: RADIANT uses a single at-pixel
+    radiometric equation (``L · A_collect · A_t / R²``) for all regimes.
+    SourceStage publishes ``projected_area_m2 = A_fict`` when the
+    descriptor is T7, so SpectralIntegrationStage sees ``A_t = A_fict``.
+    The product ``L · A_t = (I/A_fict) · A_fict = I`` at aperture, and
+    the single camera equation reduces algebraically to the correct
+    point-source form ``I · A_collect / R²``.  See ADR-0004.
+    """
+    assert target.I_t_source is not None  # constructor invariant
+    I_source = _extract_sd_values(target.I_t_source, atm)
+    L_source = I_source / T7IntensityAtSource.REFERENCE_AREA_M2
+    return np.asarray(L_source * atm.tau_up + atm.L_path_up, dtype=np.float64)
+
+
+def _components_t7(
+    target: T7IntensityAtSource,
+    atm: AtmosphericQuantities,
+) -> AssemblyComponents:
+    """Per-term T7 decomposition (Stage 6 introspection).
+
+    Reports ``self_emission = I / A_fict`` — the radiance form of the
+    user's intensity payload after boundary conversion.  ρ-driven fields
+    are identically zero (ADR-0004: T7 has no reflective branch).
+    """
+    assert target.I_t_source is not None
+    I_source = _extract_sd_values(target.I_t_source, atm)
+    L_source = I_source / T7IntensityAtSource.REFERENCE_AREA_M2
+    zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
+    total = np.asarray(L_source * atm.tau_up + atm.L_path_up, dtype=np.float64)
+    return AssemblyComponents(
+        total=total,
+        self_emission=np.asarray(L_source, dtype=np.float64),
+        direct_solar=zeros,
+        diffuse_sky_scattered=zeros,
+        diffuse_sky_thermal=zeros,
         tau_up_factor=np.asarray(atm.tau_up, dtype=np.float64),
         path_up=np.asarray(atm.L_path_up, dtype=np.float64),
     )

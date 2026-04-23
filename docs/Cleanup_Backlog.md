@@ -124,6 +124,14 @@
 **Why it matters**: a false-trip would block Stage 6 land while being a non-bug. Too-loose a threshold could hide a real bug.
 **Suggested fix**: during Stage 6, run the full suite at `rtol=1e-9` first to survey real drift magnitudes, then set `_SHADOW_RTOL` to the largest invariant-cell residual plus one decade of margin. Document the chosen value and the survey data in the Stage 6 report.
 
+### CU-014 — Stage-4 `GroundBackground` assembly is thermal-only (deferred reflected terms)
+
+**Discovered**: Option C Stage 4 (2026-04-19)
+**File**: `src/radiant/atmosphere/assembly.py::_assemble_ground_background`
+**Symptom**: the v1 ground-background arm is `ε_g·B(T_g)·τ_full_up + L_path_full` — pure self-emission plus path radiance. The reflected-diffuse (`(1−ε_g)·E_sky/π`) and reflected-direct-solar (`(1−ε_g)·τ_sun·E_TOA·cos(θ_s)/π`) terms that a full T3 Kirchhoff treatment would include are **omitted**. Stage 3 wired them in, but Stage 4 removed them to preserve the Cell 28 / Cell 58 invariants (which were pinned against the legacy single-τ formulation that did not model reflected sky/solar on the background).
+**Why it matters**: for MWIR sub-pixel cells where the ground background is treated as the fill-fraction-weighted "rest of the pixel," omitting the reflected-sky term under-estimates the background radiance in cases with substantial diffuse downwelling. Point-source cells bypass this entirely (`background_e = 0` in `spectral_integration/stage.py`), so the impact is restricted to sub-pixel cells and extended-scene contrast computations with non-vacuum atmospheres.
+**Suggested fix**: in Stage 6 (E_sky decomposition) — since that stage is an authorized re-baseline for MWIR anchors — restore the reflected-diffuse and reflected-direct-solar branches on the ground background. Re-run `test_ground_background_thermal_only_at_h0` and update it to the full T3 form. Document the Cell 28/58 re-baseline magnitudes that the restoration induces.
+
 ---
 
 ## Resolved

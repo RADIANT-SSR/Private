@@ -1,9 +1,16 @@
-"""Path 4 — Direct intensity (point source) target resolver.
+"""Path 4 — Direct intensity (point source) target resolver (deprecated).
 
-See RADIANT_Source_Target_System.md §6.4.
+Deprecated under ADR-0004 in favor of
+:class:`~radiant.core.descriptors.T7IntensityAtSource` and the S10
+boundary converter :func:`~radiant.source.converters.user_intensity.user_intensity_to_descriptor`.
+This legacy resolver returns a :class:`ResolvedTarget` which the
+Option C chain does not consume; it is kept for a single release so
+out-of-tree callers can migrate, and will be removed in a follow-up.
 """
 
 from __future__ import annotations
+
+import warnings
 
 from radiant.core.regime import RadiometricRegime, TargetInputPath
 from radiant.source.protocol import SpectralRadianceSource
@@ -21,28 +28,26 @@ def resolve_direct_intensity(
     range_m: float,
     regime_override: RadiometricRegime | None = None,
 ) -> ResolvedTarget:
-    """Path 4 — user provides I(λ) directly.
+    """Path 4 — user provides I(λ) directly (deprecated, use T7IntensityAtSource).
 
-    The ``intensity_source`` is treated as producing intensity values
-    (W/sr/µm). It is stored as the radiance_source for chain access;
-    the chain uses the POINT_SOURCE regime to interpret it correctly.
-    ``projected_area_m2`` is set to 0.
-
-    Parameters
-    ----------
-    name:
-        Target label.
-    intensity_source:
-        Source producing I(λ) values. For BlackbodyIntensitySource,
-        ``spectral_radiance()`` returns ε·B(λ,T) and
-        ``spectral_intensity()`` returns A·ε·B(λ,T).
-    background_source:
-        Background radiance source.
-    range_m:
-        Observer–target distance [m].
-    regime_override:
-        Force regime (optional). Defaults to POINT_SOURCE.
+    .. deprecated::
+        ADR-0004: the Option C descriptor surface owns S10 via
+        :class:`T7IntensityAtSource`.  This resolver returns a
+        :class:`ResolvedTarget`, which the Option C chain does not
+        consume.  For new code, construct T7 via
+        ``user_intensity_to_descriptor(...)`` or the
+        ``source.target.user_intensity_path`` YAML parameter.
     """
+    warnings.warn(
+        (
+            "resolve_direct_intensity is deprecated and will be removed "
+            "in a future release.  Use T7IntensityAtSource / "
+            "radiant.source.converters.user_intensity.user_intensity_to_descriptor "
+            "(ADR-0004) for user-supplied point-source intensity."
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
     validate_range(range_m)
 
     regime = regime_override or RadiometricRegime.POINT_SOURCE

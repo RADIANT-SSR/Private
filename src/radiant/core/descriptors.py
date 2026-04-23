@@ -11,8 +11,9 @@ Three families of classes live here:
 - :class:`TargetDescriptor` — base class holding the matrix axes
   (``scene_type``, ``target_location``, ``no_atmosphere_subcase``,
   ``h_tgt``).  Subclasses :class:`T1Thermal`, :class:`T2Reflective`,
-  :class:`T3Mixed`, :class:`T5AtAperture` carry the discriminated
-  material/geometry payload.
+  :class:`T3Mixed`, :class:`T5AtAperture`, :class:`T6TabulatedAtSource`,
+  :class:`T7IntensityAtSource` carry the discriminated material / geometry
+  / user-radiometry payload.
 
 - :class:`BackgroundDescriptor` — base class.  Subclasses
   :class:`AtApertureBackground`, :class:`ColdSpaceBackground`,
@@ -40,9 +41,10 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Literal
+from typing import ClassVar, Literal
 
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.reflectance import ReflectanceDescriptor
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -336,7 +338,9 @@ class T1Thermal(TargetDescriptor):
     epsilon: SpectralData | None = None
     T_t: float = 0.0
     A_t: float | None = None
-    shape: str | None = None
+    shape: object | None = None  # TargetShape | None; typed as ``object`` because
+    # ``radiant.core`` cannot import from ``radiant.source`` (Rule 11).  Source
+    # stages narrow via ``isinstance(desc.shape, TargetShape)`` when needed.
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -374,9 +378,9 @@ class T2Reflective(TargetDescriptor):
     reflectance grid overlaps the MWIR band (Rule 17).
     """
 
-    rho: SpectralData | None = None
+    rho: SpectralData | ReflectanceDescriptor | None = None
     A_t: float | None = None
-    shape: str | None = None
+    shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -384,14 +388,19 @@ class T2Reflective(TargetDescriptor):
             raise ParameterBoundsError(
                 what="T2Reflective: rho is required",
                 why="Lambertian reflection needs ρ(λ) = 1 − ε(λ) (Kirchhoff) or user-supplied ρ.",
-                action="Supply rho: SpectralData.",
+                action="Supply rho: SpectralData or ReflectanceDescriptor.",
                 context={},
             )
-        _warn_mwir_non_mixed(
-            "T2Reflective",
-            self.rho,
-            "Use T3Mixed unless ε ≈ 0 (cold reflector).",
-        )
+        # MWIR §3.2 warning fires on the spectral grid only; when the user
+        # supplies a ReflectanceDescriptor (Q4 stub — not yet wired through
+        # assembly), the grid is unknown at construction time and the check
+        # is deferred to the stage that materializes ρ on the chain grid.
+        if isinstance(self.rho, SpectralData):
+            _warn_mwir_non_mixed(
+                "T2Reflective",
+                self.rho,
+                "Use T3Mixed unless ε ≈ 0 (cold reflector).",
+            )
 
 
 @dataclass(frozen=True)
@@ -405,7 +414,7 @@ class T3Mixed(TargetDescriptor):
     epsilon: SpectralData | None = None
     T_t: float = 0.0
     A_t: float | None = None
-    shape: str | None = None
+    shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -471,6 +480,225 @@ class T5AtAperture(TargetDescriptor):
                 ),
                 action="Keep whichever matches your scene_type; remove the other.",
                 context={},
+            )
+
+
+@dataclass(frozen=True)
+class T6TabulatedAtSource(TargetDescriptor):
+    """User-supplied at-source spectral radiance; flows through τ_up + L_path_up.
+
+    ADR-0003 — the S8 / S11(λ-varying) / S12 escape-hatch descriptor.  The
+    user provides an absolute spectral radiance ``L_t_source(λ)`` at the
+    target plane (h = ``h_tgt``); AtmosphereStage propagates it via the
+    normal up-leg arm so downstream stages see ``L_t_source · τ_up +
+    L_path_up`` at the aperture.  ρ ≡ 0 by construction (the user is naming
+    absolute radiance, not a material property).
+
+    Paired with ``target_location ∈ {terrestrial, airborne, no_atmosphere}``.
+    ``at_aperture`` is rejected — that is :class:`T5AtAperture`'s domain.
+
+    Parameters
+    ----------
+    L_t_source:
+        Spectral radiance at the target [W/m²/sr/µm] on the chain
+        wavelength grid.  Must be non-negative everywhere.
+    A_t:
+        Optional projected area [m²] for sub_pixel / point_source regimes.
+    shape:
+        Optional :class:`~radiant.source.shape.TargetShape`; typed as
+        ``object`` to respect Rule 11 (no cross-stage import).
+    """
+
+    L_t_source: SpectralData | None = None
+    A_t: float | None = None
+    shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.L_t_source is None:
+            raise ParameterBoundsError(
+                what="T6TabulatedAtSource: L_t_source is required",
+                why=(
+                    "T6 wraps a user-supplied spectral radiance at the "
+                    "target plane; without L_t_source there is nothing to "
+                    "propagate."
+                ),
+                action="Supply L_t_source: SpectralData in W/m²/sr/µm.",
+                context={},
+            )
+        if self.target_location == "at_aperture":
+            raise ParameterBoundsError(
+                what=(
+                    "T6TabulatedAtSource: target_location='at_aperture' is "
+                    "not supported"
+                ),
+                why=(
+                    "T6 carries at-source radiance and flows through the "
+                    "atmospheric up-leg.  At-aperture inputs bypass "
+                    "atmosphere and belong on T5AtAperture."
+                ),
+                action=(
+                    "Use T5AtAperture for at-aperture inputs; switch "
+                    "target_location to terrestrial / airborne / "
+                    "no_atmosphere for T6."
+                ),
+                context={"target_location": self.target_location},
+            )
+        vals = self.L_t_source.values
+        if vals.size == 0 or bool((vals < 0.0).any()):
+            raise ParameterBoundsError(
+                what=(
+                    "T6TabulatedAtSource: L_t_source contains negative or "
+                    "empty values"
+                ),
+                why=(
+                    "Spectral radiance is non-negative (Rule 17 — no silent "
+                    "failure on unphysical inputs)."
+                ),
+                action=(
+                    "Resample / clean L_t_source so that every value is "
+                    "≥ 0 on a non-empty wavelength grid."
+                ),
+                context={
+                    "min_value": float(vals.min()) if vals.size else None,
+                    "size": int(vals.size),
+                },
+            )
+
+
+@dataclass(frozen=True)
+class T7IntensityAtSource(TargetDescriptor):
+    """User-supplied at-source spectral intensity I(λ) for point sources.
+
+    ADR-0004.  The user provides spectral intensity ``I_t_source(λ)``
+    [W/sr/µm] at the target plane (``h = h_tgt``) for an unresolved
+    (point-source) target.  AtmosphereStage's T7 arm performs the
+    ``I → L`` conversion at the boundary using
+    :attr:`REFERENCE_AREA_M2` and then feeds it through the standard
+    up-leg formula ``L · τ_up + L_path_up``.
+
+    The reference area is a *numerical cancellation device*, not a
+    physical claim about target size: RADIANT uses a single at-pixel
+    camera equation (``L · A_collect · A_t / R²``) for all regimes, and
+    choosing ``L ≡ I / A_fict`` with ``A_t ≡ A_fict`` makes ``A_fict``
+    cancel exactly, recovering the correct point-source form
+    ``I · A_collect / R²``.  See ADR-0004 §Assembly contract.
+
+    No ``shape`` or ``A_t`` fields: a point source is unresolved by
+    construction (``scene_type == "point_source"``); projected geometry
+    is meaningless at the descriptor surface, and the reference area
+    used internally by the assembly arm is an implementation detail
+    (ADR-0002 faithfulness).
+
+    Parameters
+    ----------
+    I_t_source:
+        Spectral intensity at the target [W/sr/µm] on the chain
+        wavelength grid.  Must be non-negative everywhere with the
+        canonical unit string ``"W/sr/um"``.
+
+    Notes
+    -----
+    Paired with ``scene_type == "point_source"`` and
+    ``target_location ∈ {terrestrial, airborne, no_atmosphere}``.
+    ``at_aperture`` is rejected — the aperture integrates radiance, not
+    intensity; at-aperture scenes belong on :class:`T5AtAperture`.
+    ``extended`` and ``sub_pixel`` are rejected — intensity is the
+    point-source radiometric quantity (matrix §7 row S10); resolved
+    targets belong on T1 / T3 / T6.
+    """
+
+    REFERENCE_AREA_M2: ClassVar[float] = 1e-12
+
+    I_t_source: SpectralData | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.I_t_source is None:
+            raise ParameterBoundsError(
+                what="T7IntensityAtSource: I_t_source is required",
+                why=(
+                    "T7 wraps a user-supplied spectral intensity at the "
+                    "target plane; without I_t_source there is nothing "
+                    "to propagate."
+                ),
+                action="Supply I_t_source: SpectralData in W/sr/µm.",
+                context={},
+            )
+        if self.scene_type != "point_source":
+            raise ParameterBoundsError(
+                what=(
+                    f"T7IntensityAtSource: scene_type = "
+                    f"{self.scene_type!r} is not 'point_source'"
+                ),
+                why=(
+                    "Intensity I(λ) [W/sr/µm] is the point-source "
+                    "radiometric quantity (matrix §7 row S10).  "
+                    "Resolved (extended / sub_pixel) targets must use "
+                    "T1 / T3 / T6 with radiance L(λ) [W/m²/sr/µm]."
+                ),
+                action=(
+                    "Set scene_type='point_source' or switch to a "
+                    "radiance-carrying variant (T1, T3, T6)."
+                ),
+                context={"scene_type": self.scene_type},
+            )
+        if self.target_location == "at_aperture":
+            raise ParameterBoundsError(
+                what=(
+                    "T7IntensityAtSource: target_location='at_aperture' "
+                    "is not supported"
+                ),
+                why=(
+                    "T7 requires atmospheric transport from the target "
+                    "plane to the aperture.  The aperture integrates "
+                    "radiance, not intensity — at-aperture spectra "
+                    "belong on T5AtAperture."
+                ),
+                action=(
+                    "Set target_location to 'terrestrial', 'airborne', "
+                    "or 'no_atmosphere', or switch to T5AtAperture."
+                ),
+                context={"target_location": self.target_location},
+            )
+        if self.I_t_source.unit != "W/sr/um":
+            raise ParameterBoundsError(
+                what=(
+                    f"T7IntensityAtSource: I_t_source.unit = "
+                    f"{self.I_t_source.unit!r} is not the canonical "
+                    f"'W/sr/um'"
+                ),
+                why=(
+                    "Rule 2: internal canonical units are fixed; "
+                    "conversions happen at boundary readers, so a "
+                    "descriptor with a non-canonical unit indicates a "
+                    "missed conversion upstream."
+                ),
+                action=(
+                    "Author the SpectralData with unit='W/sr/um' or "
+                    "convert at the boundary before constructing T7."
+                ),
+                context={"unit": self.I_t_source.unit},
+            )
+        vals = self.I_t_source.values
+        if vals.size == 0 or bool((vals < 0.0).any()):
+            raise ParameterBoundsError(
+                what=(
+                    "T7IntensityAtSource: I_t_source contains negative "
+                    "or empty values"
+                ),
+                why=(
+                    "Spectral intensity is non-negative (Rule 17 — no "
+                    "silent failure on unphysical inputs)."
+                ),
+                action=(
+                    "Resample / clean I_t_source so every value is ≥ 0 "
+                    "on a non-empty wavelength grid."
+                ),
+                context={
+                    "min_value": float(vals.min()) if vals.size else None,
+                    "size": int(vals.size),
+                },
             )
 
 
@@ -698,6 +926,8 @@ __all__ = [
     "T2Reflective",
     "T3Mixed",
     "T5AtAperture",
+    "T6TabulatedAtSource",
+    "T7IntensityAtSource",
     "TargetDescriptor",
     "UserSpectralBackground",
     "raise_if_epsilon_and_rho_both_set",

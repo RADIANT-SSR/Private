@@ -23,6 +23,7 @@ from radiant.core.descriptors import (
     T2Reflective,
     T3Mixed,
     T5AtAperture,
+    T6TabulatedAtSource,
     UserSpectralBackground,
     raise_if_epsilon_and_rho_both_set,
     warn_if_reflective_and_sun_below_horizon,
@@ -78,6 +79,11 @@ def rho_mwir() -> SpectralData:
 
 def L_flat(name: str = "L_aperture") -> SpectralData:
     return _sd(name, 0.4, 14.0, 1.0, unit="W/m^2/sr/um")
+
+
+def L_source_lwir(name: str = "L_t_source") -> SpectralData:
+    """Positive flat L_source on the LWIR grid for T6 tests."""
+    return _sd(name, 8.0, 14.0, 1.0, unit="W/m^2/sr/um")
 
 
 # ---------------------------------------------------------------------------
@@ -843,3 +849,95 @@ def test_no_warn_t2_reflective_theta_s_none() -> None:
     with _w.catch_warnings():
         _w.simplefilter("error", UserWarning)
         warn_if_reflective_and_sun_below_horizon(target, theta_s=None)
+
+
+# ---------------------------------------------------------------------------
+# T6TabulatedAtSource (ADR-0003) — construction, validation, round-trip
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_t6_terrestrial_valid_construction() -> None:
+    """Happy path: T6 on terrestrial LWIR with a flat L_source(λ)."""
+    t = T6TabulatedAtSource(
+        scene_type="extended",
+        target_location="terrestrial",
+        h_tgt=0.0,
+        L_t_source=L_source_lwir(),
+    )
+    assert isinstance(t, T6TabulatedAtSource)
+    assert t.L_t_source is not None
+    assert t.L_t_source.values.min() >= 0.0
+
+
+@pytest.mark.level0
+def test_t6_no_atmosphere_space_valid_construction() -> None:
+    """T6 is allowed on no_atmosphere (τ_up ≡ 1, L_path ≡ 0 → pass-through)."""
+    t = T6TabulatedAtSource(
+        scene_type="extended",
+        target_location="no_atmosphere",
+        no_atmosphere_subcase="space",
+        h_tgt=0.0,
+        L_t_source=L_source_lwir(),
+    )
+    assert t.no_atmosphere_subcase == "space"
+
+
+@pytest.mark.level0
+def test_t6_raise_missing_L_t_source() -> None:
+    """L_t_source is required — constructor raises (Rule 15)."""
+    with pytest.raises(ParameterBoundsError, match=r"L_t_source is required"):
+        T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            L_t_source=None,
+        )
+
+
+@pytest.mark.level0
+def test_t6_raise_at_aperture_rejected() -> None:
+    """T6 rejects at_aperture — that is T5's domain."""
+    with pytest.raises(
+        ParameterBoundsError, match=r"at_aperture.*not supported"
+    ):
+        T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="at_aperture",
+            L_t_source=L_source_lwir(),
+        )
+
+
+@pytest.mark.level0
+def test_t6_raise_negative_radiance() -> None:
+    """Negative L_source values are unphysical and must raise (Rule 17)."""
+    bad = SpectralData(
+        name="L_bad",
+        wavelength_um=np.array([8.0, 14.0], dtype=np.float64),
+        values=np.array([1.0, -0.5], dtype=np.float64),
+        unit="W/m^2/sr/um",
+        source="test_t6",
+    )
+    with pytest.raises(
+        ParameterBoundsError, match=r"negative or empty"
+    ):
+        T6TabulatedAtSource(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            L_t_source=bad,
+        )
+
+
+@pytest.mark.level0
+def test_roundtrip_t6_tabulated_at_source() -> None:
+    orig = T6TabulatedAtSource(
+        scene_type="sub_pixel",
+        target_location="airborne",
+        h_tgt=1000.0,
+        L_t_source=L_source_lwir("L_t_source_rt"),
+        A_t=12.0,
+    )
+    d = _descriptor_to_plain_dict(orig)
+    rebuilt = _rebuild_from_plain_dict(d, T6TabulatedAtSource)
+    assert _descriptors_equal(orig, rebuilt)

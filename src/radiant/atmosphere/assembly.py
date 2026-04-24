@@ -75,11 +75,19 @@ from radiant.core.reflectance import ReflectanceDescriptor
 from radiant.core.spectral import SpectralData
 
 # Gap H: assembly consumes T2Reflective.rho via the ReflectanceDescriptor
-# protocol.  H.1 installs the call with zero-vector placeholders for
-# view/illumination direction (the Lambertian adapter ignores them so the
-# numerical output is bit-identical to the pre-Gap-H path).  H.2 replaces
-# the zero vectors with the derived view/illum unit vectors from los.
+# protocol.  H.2 closes the Phase 6 framing by passing the view /
+# illumination unit vectors derived from the LineOfSightGeometry to the
+# protocol call.  The Lambertian adapter ignores these directions (so
+# the numerical output is bit-identical to the pre-Gap-H path), but
+# anisotropic BRDFs that land on the protocol in the future will
+# consume them.  See ``_view_illum_from_los`` for the frame convention.
 _ZERO_VEC3: np.ndarray = np.zeros(3, dtype=np.float64)
+# Illumination fallback when the scenario has no solar geometry
+# (``theta_s is None``): ρ is never multiplied against a solar term in
+# that regime, so the descriptor call is formal.  The zero vector
+# flags "no illumination" to anisotropic BRDFs without forcing them to
+# branch on a sentinel — they can check ``np.any(illum_dir)``.
+_NO_ILLUMINATION: np.ndarray = _ZERO_VEC3
 
 # Floor for "non-trivial atmosphere" detection in the T5 warn-if-atm arm.
 # τ ≥ 1 − _T5_TAU_TRIVIAL_TOL everywhere → trivial; otherwise warn.
@@ -357,20 +365,87 @@ def _extract_sd_values(sd: SpectralData, atm: AtmosphericQuantities) -> np.ndarr
     return np.asarray(sd.values, dtype=np.float64)
 
 
+def _view_illum_from_los(
+    los: LineOfSightGeometry,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Unit vectors (view_dir, illum_dir) at the target surface from LOS.
+
+    Frame convention — local surface tangent plane at the target:
+      * +Z = outward surface normal (local vertical)
+      * +X = azimuth reference (``φ = 0``); observer azimuth is aligned
+        with it so ``phi_o ≡ 0``
+      * +Y = right-hand complement (``+Z × +X``)
+
+    With ``phi_o ≡ 0`` and ``phi_s = delta_phi`` (``delta_phi`` is
+    ``φ_s − φ_o`` per :class:`LineOfSightGeometry`), the direction from
+    the target toward the sensor is::
+
+        view_dir = (sin θ_o, 0, cos θ_o)
+
+    and the direction from the target toward the sun is::
+
+        illum_dir = (sin θ_s cos δφ, sin θ_s sin δφ, cos θ_s)
+
+    Both are unit vectors by construction (``sin²+cos² = 1``).
+
+    When ``theta_s`` is None the scenario has no solar term (pure-thermal
+    or dark-cal lab_test); assembly already skips the direct-solar
+    branch, so the descriptor receives ``_NO_ILLUMINATION`` (the zero
+    vector) as a formal placeholder.
+    """
+    view_dir = np.asarray(
+        [
+            np.sin(los.theta_o),
+            0.0,
+            np.cos(los.theta_o),
+        ],
+        dtype=np.float64,
+    )
+
+    if los.theta_s is None:
+        return view_dir, _NO_ILLUMINATION
+
+    delta_phi = 0.0 if los.delta_phi is None else float(los.delta_phi)
+    sin_ts = np.sin(los.theta_s)
+    illum_dir = np.asarray(
+        [
+            sin_ts * np.cos(delta_phi),
+            sin_ts * np.sin(delta_phi),
+            np.cos(los.theta_s),
+        ],
+        dtype=np.float64,
+    )
+    return view_dir, illum_dir
+
+
 def _extract_reflectance_on_grid(
-    rho: ReflectanceDescriptor, atm: AtmosphericQuantities
+    rho: ReflectanceDescriptor,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
 ) -> np.ndarray:
     """Resolve ρ(λ) on the chain grid via the ReflectanceDescriptor protocol.
 
     Gap H closes the Phase 6 stub framing: T2Reflective.rho is a
     ReflectanceDescriptor after construction, so assembly exercises the
     ``reflectance_at(λ, view, illum)`` protocol rather than reaching into
-    the adapter's stored SpectralData.  The view / illumination unit
-    vectors are zero placeholders today; step H.2 replaces them with
-    vectors derived from ``LineOfSightGeometry`` (the Lambertian adapter
-    ignores the directions, so the output is bit-identical).
+    the adapter's stored SpectralData.  ``los`` provides the observer /
+    solar zenith and relative azimuth from which the unit vectors are
+    built via :func:`_view_illum_from_los`; the Lambertian adapter
+    ignores the directions (so the output is bit-identical to the H.1
+    zero-vector path), but anisotropic BRDFs that land on this protocol
+    in the future will consume them.
+
+    ``los=None`` is accepted only for the (unreachable-at-runtime)
+    case where a caller hand-assembles a T2Reflective outside the
+    dispatcher; the protocol call falls back to zero vectors with a
+    warning-free path so the test surface stays small.
     """
-    vals = rho.reflectance_at(atm.wavelength_um, _ZERO_VEC3, _ZERO_VEC3)
+    if los is None:
+        view_dir = _ZERO_VEC3
+        illum_dir = _ZERO_VEC3
+    else:
+        view_dir, illum_dir = _view_illum_from_los(los)
+    vals = rho.reflectance_at(atm.wavelength_um, view_dir, illum_dir)
     if vals.shape != atm.wavelength_um.shape:
         raise ParameterBoundsError(
             what=(
@@ -634,8 +709,8 @@ def assemble_target_at_aperture(
     # --- T2Reflective — pure-reflective Lambertian ---
     if isinstance(target, T2Reflective):
         if report_components:
-            return _components_t2(target, atm, cos_ts)
-        return _assemble_t2(target, atm, cos_ts)
+            return _components_t2(target, atm, cos_ts, los)
+        return _assemble_t2(target, atm, cos_ts, los)
 
     # --- T3Mixed — Kirchhoff ρ = 1 − ε ---
     if isinstance(target, T3Mixed):
@@ -701,10 +776,11 @@ def _assemble_t2(
     target: T2Reflective,
     atm: AtmosphericQuantities,
     cos_theta_s: float,
+    los: LineOfSightGeometry,
 ) -> np.ndarray:
     """T2 reflective Lambertian assembly: ρ·(τ_sun·E·cosθ_s + E_sky)·τ_up/π + L_path_up."""
     assert target.rho is not None  # mypy: constructor invariant
-    rho = _extract_reflectance_on_grid(target.rho, atm)
+    rho = _extract_reflectance_on_grid(target.rho, atm, los)
     direct = _direct_solar_term(rho, atm, cos_theta_s)
     diffuse = _diffuse_sky_term(rho, atm)
     # No self-emission for pure reflective (ε ≡ 0 → B·ε ≡ 0).
@@ -764,10 +840,11 @@ def _components_t2(
     target: T2Reflective,
     atm: AtmosphericQuantities,
     cos_theta_s: float,
+    los: LineOfSightGeometry,
 ) -> AssemblyComponents:
     """Per-term T2 decomposition (Stage 6 introspection)."""
     assert target.rho is not None
-    rho = _extract_reflectance_on_grid(target.rho, atm)
+    rho = _extract_reflectance_on_grid(target.rho, atm, los)
     zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
     direct = _direct_solar_term(rho, atm, cos_theta_s)
     diffuse_scat = _diffuse_sky_scattered_term(rho, atm)

@@ -777,4 +777,222 @@ class TestT6Assembly:
             assemble_target_at_aperture(target, atm, None)
 
 
+# ---------------------------------------------------------------------------
+# Gap H H.2 — derived view/illum vectors into the ReflectanceDescriptor call
+# ---------------------------------------------------------------------------
+
+
+class _SpyReflectanceDescriptor:
+    """Test double that records every ``reflectance_at`` call.
+
+    Captures wavelength grid, view_dir, and illumination_dir for each
+    call and delegates the actual ρ evaluation to a scalar constant so
+    the numerical assembly result is comparable against a reference run
+    using :class:`ScalarLambertianReflectance`.
+    """
+
+    def __init__(self, rho_value: float) -> None:
+        self.rho_value = float(rho_value)
+        self.calls: list[
+            tuple[np.ndarray, np.ndarray, np.ndarray]
+        ] = []
+
+    def reflectance_at(
+        self,
+        wavelength_um: np.ndarray,
+        view_dir: np.ndarray,
+        illumination_dir: np.ndarray,
+    ) -> np.ndarray:
+        self.calls.append(
+            (
+                np.asarray(wavelength_um, dtype=np.float64).copy(),
+                np.asarray(view_dir, dtype=np.float64).copy(),
+                np.asarray(illumination_dir, dtype=np.float64).copy(),
+            )
+        )
+        return np.full_like(
+            np.asarray(wavelength_um, dtype=np.float64),
+            self.rho_value,
+            dtype=np.float64,
+        )
+
+
+class TestGapH2_ViewIllumFromLOS:
+    """H.2 — ``_assemble_t2`` passes LOS-derived unit vectors to the protocol.
+
+    Uses a spy descriptor that records ``(wl, view_dir, illum_dir)`` on
+    every call.  The Lambertian adapter would ignore the vectors, so the
+    numerical output is bit-identical to the reference run — this suite
+    verifies the vectors are (a) unit-norm, (b) match the LOS angles,
+    (c) ``illum_dir = 0`` when ``theta_s`` is None, and (d) that the
+    numerical assembly result matches the scalar-Lambertian path bit-
+    identically.
+    """
+
+    WL = np.array([0.5, 0.6, 0.7], dtype=np.float64)
+
+    def _atm(self) -> AtmosphericQuantities:
+        return AtmosphericQuantities(
+            wavelength_um=self.WL,
+            tau_sun=np.full_like(self.WL, 0.8),
+            tau_up=np.full_like(self.WL, 0.9),
+            tau_full_up=np.full_like(self.WL, 0.9),
+            E_TOA=np.full_like(self.WL, 1400.0),
+            E_sky_scattered=np.full_like(self.WL, 120.0),
+            E_sky_thermal=np.zeros_like(self.WL),
+            L_path_up=np.full_like(self.WL, 2.5),
+            L_path_full=np.full_like(self.WL, 2.5),
+        )
+
+    def test_view_illum_vectors_match_los_angles(self) -> None:
+        """view = (sinθo, 0, cosθo); illum = (sinθs·cosδφ, sinθs·sinδφ, cosθs)."""
+        theta_o = math.radians(30.0)
+        theta_s = math.radians(60.0)
+        delta_phi = math.radians(45.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0,
+            theta_o=theta_o,
+            theta_s=theta_s,
+            delta_phi=delta_phi,
+        )
+        spy = _SpyReflectanceDescriptor(rho_value=0.3)
+        target = T2Reflective(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            rho=spy,  # type: ignore[arg-type]
+        )
+        assemble_target_at_aperture(target, self._atm(), los)
+
+        # Non-report path makes exactly one call.
+        assert len(spy.calls) == 1
+        wl, view_dir, illum_dir = spy.calls[0]
+
+        np.testing.assert_array_equal(wl, self.WL)
+
+        expected_view = np.array(
+            [math.sin(theta_o), 0.0, math.cos(theta_o)], dtype=np.float64
+        )
+        np.testing.assert_allclose(view_dir, expected_view, rtol=0.0, atol=1e-15)
+        np.testing.assert_allclose(
+            float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15
+        )
+
+        expected_illum = np.array(
+            [
+                math.sin(theta_s) * math.cos(delta_phi),
+                math.sin(theta_s) * math.sin(delta_phi),
+                math.cos(theta_s),
+            ],
+            dtype=np.float64,
+        )
+        np.testing.assert_allclose(illum_dir, expected_illum, rtol=0.0, atol=1e-15)
+        np.testing.assert_allclose(
+            float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15
+        )
+
+    def test_theta_s_none_sends_zero_illumination(self) -> None:
+        """theta_s=None ⇒ illum_dir is the zero vector (formal placeholder)."""
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=math.radians(10.0), theta_s=None
+        )
+        spy = _SpyReflectanceDescriptor(rho_value=0.3)
+        target = T2Reflective(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            rho=spy,  # type: ignore[arg-type]
+        )
+        assemble_target_at_aperture(target, self._atm(), los)
+
+        assert len(spy.calls) == 1
+        _wl, view_dir, illum_dir = spy.calls[0]
+
+        # View dir still well-defined.
+        np.testing.assert_allclose(
+            float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15
+        )
+        # Illum dir is the zero vector.
+        np.testing.assert_array_equal(illum_dir, np.zeros(3, dtype=np.float64))
+
+    def test_delta_phi_none_defaults_to_zero(self) -> None:
+        """delta_phi=None ⇒ illum_dir has zero y-component (φ_s = 0)."""
+        theta_s = math.radians(45.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=0.0, theta_s=theta_s, delta_phi=None
+        )
+        spy = _SpyReflectanceDescriptor(rho_value=0.3)
+        target = T2Reflective(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            rho=spy,  # type: ignore[arg-type]
+        )
+        assemble_target_at_aperture(target, self._atm(), los)
+
+        _wl, _view_dir, illum_dir = spy.calls[0]
+        expected = np.array(
+            [math.sin(theta_s), 0.0, math.cos(theta_s)], dtype=np.float64
+        )
+        np.testing.assert_allclose(illum_dir, expected, rtol=0.0, atol=1e-15)
+
+    def test_components_path_also_passes_los_vectors(self) -> None:
+        """report_components=True threads LOS into _components_t2 too."""
+        theta_s = math.radians(60.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=0.0, theta_s=theta_s, delta_phi=0.0
+        )
+        spy = _SpyReflectanceDescriptor(rho_value=0.3)
+        target = T2Reflective(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            rho=spy,  # type: ignore[arg-type]
+        )
+        assemble_target_at_aperture(target, self._atm(), los, report_components=True)
+        assert len(spy.calls) == 1
+        _wl, view_dir, illum_dir = spy.calls[0]
+        np.testing.assert_allclose(
+            float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15
+        )
+        np.testing.assert_allclose(
+            float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15
+        )
+
+    def test_spy_result_matches_scalar_lambertian_bit_identical(self) -> None:
+        """Spy and ScalarLambertianReflectance return the same assembly result.
+
+        Lambertian ignores view/illum, so regardless of what vectors the
+        assembly passes, the two paths must produce bit-identical
+        radiance arrays.  This is the H.2 regression guard: H.1's zero-
+        vector path and H.2's LOS-derived-vector path yield the same
+        numbers today.
+        """
+        theta_s = math.radians(60.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=math.radians(30.0), theta_s=theta_s, delta_phi=0.0
+        )
+        atm = self._atm()
+        rho_value = 0.3
+
+        spy_target = T2Reflective(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            rho=_SpyReflectanceDescriptor(rho_value=rho_value),  # type: ignore[arg-type]
+        )
+        L_spy = assemble_target_at_aperture(spy_target, atm, los)
+
+        rho_sd = _const_sd(self.WL, rho_value, "rho")
+        lambertian_target = T2Reflective(
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+            rho=ScalarLambertianReflectance(reflectance=rho_sd),
+        )
+        L_ref = assemble_target_at_aperture(lambertian_target, atm, los)
+
+        np.testing.assert_array_equal(L_spy, L_ref)
+
+
 __all__: list[str] = []

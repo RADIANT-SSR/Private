@@ -46,6 +46,7 @@ from radiant.core.descriptors import (
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.reflectance import ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
 
 
@@ -218,7 +219,9 @@ class TestT2BelowHorizonWarning:
             scene_type="extended",
             target_location="terrestrial",
             h_tgt=0.0,
-            rho=_grey_sd(wl, 0.3, name="rho"),
+            rho=ScalarLambertianReflectance(
+                reflectance=_grey_sd(wl, 0.3, name="rho"),
+            ),
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
@@ -236,7 +239,9 @@ class TestT2BelowHorizonWarning:
             scene_type="extended",
             target_location="terrestrial",
             h_tgt=0.0,
-            rho=_grey_sd(wl, 0.3, name="rho"),
+            rho=ScalarLambertianReflectance(
+                reflectance=_grey_sd(wl, 0.3, name="rho"),
+            ),
         )
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)

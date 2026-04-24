@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from typing import ClassVar, Literal
 
 from radiant.core.parameters import ParameterBoundsError
-from radiant.core.reflectance import ReflectanceDescriptor
+from radiant.core.reflectance import ReflectanceDescriptor, ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -378,7 +378,7 @@ class T2Reflective(TargetDescriptor):
     reflectance grid overlaps the MWIR band (Rule 17).
     """
 
-    rho: SpectralData | ReflectanceDescriptor | None = None
+    rho: ReflectanceDescriptor | None = None
     A_t: float | None = None
     shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
 
@@ -387,18 +387,42 @@ class T2Reflective(TargetDescriptor):
         if self.rho is None:
             raise ParameterBoundsError(
                 what="T2Reflective: rho is required",
-                why="Lambertian reflection needs ρ(λ) = 1 − ε(λ) (Kirchhoff) or user-supplied ρ.",
-                action="Supply rho: SpectralData or ReflectanceDescriptor.",
+                why=(
+                    "Lambertian reflection needs ρ(λ) = 1 − ε(λ) "
+                    "(Kirchhoff) or user-supplied ρ."
+                ),
+                action=(
+                    "Supply rho: ReflectanceDescriptor (build via "
+                    "radiant.source.converters.reflectance."
+                    "reflectance_to_descriptor)."
+                ),
                 context={},
             )
-        # MWIR §3.2 warning fires on the spectral grid only; when the user
-        # supplies a ReflectanceDescriptor (Q4 stub — not yet wired through
-        # assembly), the grid is unknown at construction time and the check
-        # is deferred to the stage that materializes ρ on the chain grid.
         if isinstance(self.rho, SpectralData):
+            raise ParameterBoundsError(
+                what="T2Reflective: rho must be a ReflectanceDescriptor, got SpectralData",
+                why=(
+                    "Gap H invariant: T2Reflective.rho is narrowed to ReflectanceDescriptor "
+                    "so downstream consumers can rely on the .reflectance_at(λ, view, illum) "
+                    "protocol interface.  SpectralData is the user-input surface, not the "
+                    "descriptor-internal surface."
+                ),
+                action=(
+                    "Build the descriptor via "
+                    "radiant.source.converters.reflectance.reflectance_to_descriptor, "
+                    "which wraps the SpectralData in a ScalarLambertianReflectance adapter."
+                ),
+                context={},
+            )
+        # MWIR §3.2 warning: descriptor-level check is best-effort; for scalar
+        # ρ the grid is knowable via the adapter, so the boundary converter
+        # emits the authoritative warning at wrap time (Gap H).  Anisotropic
+        # BRDF concretions without a stored grid are silent here — their
+        # assembly-time consumers are responsible.
+        if isinstance(self.rho, ScalarLambertianReflectance):
             _warn_mwir_non_mixed(
                 "T2Reflective",
-                self.rho,
+                self.rho.reflectance,
                 "Use T3Mixed unless ε ≈ 0 (cold reflector).",
             )
 
@@ -717,7 +741,7 @@ class T7IntensityAtSource(TargetDescriptor):
 
 def raise_if_epsilon_and_rho_both_set(
     epsilon: SpectralData | None,
-    rho: SpectralData | None,
+    rho: SpectralData | ReflectanceDescriptor | None,
     where: str = "TargetDescriptor",
 ) -> None:
     """Guard against ε and ρ being supplied together (Rule 5).

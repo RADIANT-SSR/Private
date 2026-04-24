@@ -24,6 +24,8 @@ Rule 19 — this module holds exactly the S11 boundary conversion.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 from radiant.core.blackbody import planck_spectral_radiance
@@ -37,6 +39,7 @@ from radiant.core.descriptors import (
 )
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.spectral import SpectralData
+from radiant.source.converters._csv import load_two_column_csv
 
 # ---------------------------------------------------------------------------
 # Bounds — same semantics as ``source.target.temperature`` schema, widened
@@ -269,4 +272,26 @@ def brightness_temperature_to_descriptor(
     )
 
 
-__all__ = ["brightness_temperature_to_descriptor"]
+def load_brightness_temperature_csv(path: Path | str) -> SpectralData:
+    """Load an S11 brightness-temperature CSV into a :class:`SpectralData`.
+
+    Thin wrapper around :func:`load_two_column_csv` that fixes the S11
+    metadata (unit = K, column label = ``brightness_temperature``) so
+    callers can't accidentally mislabel the file at the boundary.
+
+    The returned :class:`SpectralData` is on the CSV's native wavelength
+    grid; the caller is responsible for resampling onto the chain grid.
+    """
+    return load_two_column_csv(
+        path,
+        value_unit="K",
+        column_label="brightness_temperature",
+        sd_name="source.target.brightness_temperature",
+        sd_source_prefix="source.converters.brightness_temperature",
+    )
+
+
+__all__ = [
+    "brightness_temperature_to_descriptor",
+    "load_brightness_temperature_csv",
+]

@@ -29,6 +29,7 @@ from radiant.core.descriptors import (
     warn_if_reflective_and_sun_below_horizon,
 )
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.reflectance import ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -61,20 +62,20 @@ def eps_mwir() -> SpectralData:
     return _sd("eps_mwir", 3.0, 5.0, 0.90)
 
 
-def rho_vis() -> SpectralData:
-    return _sd("rho_vis", 0.4, 0.7, 0.3)
+def rho_vis() -> ScalarLambertianReflectance:
+    return ScalarLambertianReflectance(reflectance=_sd("rho_vis", 0.4, 0.7, 0.3))
 
 
-def rho_nir() -> SpectralData:
-    return _sd("rho_nir", 0.7, 1.0, 0.4)
+def rho_nir() -> ScalarLambertianReflectance:
+    return ScalarLambertianReflectance(reflectance=_sd("rho_nir", 0.7, 1.0, 0.4))
 
 
-def rho_swir() -> SpectralData:
-    return _sd("rho_swir", 1.0, 2.5, 0.5)
+def rho_swir() -> ScalarLambertianReflectance:
+    return ScalarLambertianReflectance(reflectance=_sd("rho_swir", 1.0, 2.5, 0.5))
 
 
-def rho_mwir() -> SpectralData:
-    return _sd("rho_mwir", 3.0, 5.0, 0.1)
+def rho_mwir() -> ScalarLambertianReflectance:
+    return ScalarLambertianReflectance(reflectance=_sd("rho_mwir", 3.0, 5.0, 0.1))
 
 
 def L_flat(name: str = "L_aperture") -> SpectralData:
@@ -601,6 +602,13 @@ def _rebuild_from_plain_dict(d: Any, cls: type) -> Any:
                 kwargs[f.name] = SpectralData.from_dict(raw)
             elif isinstance(raw, dict) and "__scalar__" in raw:
                 kwargs[f.name] = raw["__scalar__"]
+            elif (
+                isinstance(raw, dict)
+                and raw.get("__class__") == "ScalarLambertianReflectance"
+            ):
+                kwargs[f.name] = _rebuild_from_plain_dict(
+                    raw, ScalarLambertianReflectance
+                )
             else:
                 kwargs[f.name] = raw
         return cls(**kwargs)

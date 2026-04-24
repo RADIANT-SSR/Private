@@ -99,15 +99,14 @@ _CELLS: tuple[SpecCell, ...] = (
     SpecCell("S4", "extended",     "pass"),
     SpecCell("S4", "sub_pixel",    "pass"),
     SpecCell("S4", "point_source", "pass"),
-    # S5 Reflective spectral — ρ(λ) via reflectance_path.  The CSV
-    # loader is not yet wired through the inferrer (the converter is),
-    # so the user-facing path form raises today.  Tracked as "raise"
-    # with a note so the coverage JSON accurately reflects pipeline
-    # state; it will flip to "pass" when the CSV loader lands.
-    SpecCell("S5", "extended",     "raise", "reflectance_path CSV not yet wired"),
-    SpecCell("S5", "sub_pixel",    "raise", "reflectance_path CSV not yet wired"),
-    SpecCell("S5", "point_source", "raise", "reflectance_path CSV not yet wired"),
-    # S6 Albedo — alias of S5 via albedo scalar (Phase 3).
+    # S5 Reflective spectral — ρ(λ) via reflectance_path (Gap G Step G.2:
+    # CSV loader wired through the inferrer via the shared two-column
+    # reader).  All three scenes exercise the CSV path.
+    SpecCell("S5", "extended",     "pass"),
+    SpecCell("S5", "sub_pixel",    "pass"),
+    SpecCell("S5", "point_source", "pass"),
+    # S6 Albedo — alias of S5.  Extended scene exercises the albedo_path
+    # CSV (Gap G G.4); sub_pixel / point_source exercise scalar albedo.
     SpecCell("S6", "extended",     "pass"),
     SpecCell("S6", "sub_pixel",    "pass"),
     SpecCell("S6", "point_source", "pass"),
@@ -129,6 +128,8 @@ _CELLS: tuple[SpecCell, ...] = (
     SpecCell("S10", "sub_pixel",    "raise", "intensity is point-source only"),
     SpecCell("S10", "point_source", "pass"),
     # S11 Brightness temperature — converter → T1Thermal or T6 (Phase 2).
+    # Extended scene exercises brightness_temperature_path CSV (Gap G G.4);
+    # sub_pixel / point_source exercise scalar brightness_temperature_K.
     SpecCell("S11", "extended",     "pass"),
     SpecCell("S11", "sub_pixel",    "pass"),
     SpecCell("S11", "point_source", "pass"),
@@ -230,6 +231,7 @@ def _run_reflective_spec(
     reflectance: float | None = None,
     albedo: float | None = None,
     reflectance_path: Path | None = None,
+    albedo_path: Path | None = None,
 ) -> None:
     session = RadiantSession(wavelength_um=_WL_VIS)
     params = session.default_params()
@@ -239,6 +241,8 @@ def _run_reflective_spec(
         params.set("source.target.albedo", albedo)
     if reflectance_path is not None:
         params.set("source.target.reflectance_path", str(reflectance_path))
+    if albedo_path is not None:
+        params.set("source.target.albedo_path", str(albedo_path))
     params.set("source.target_location", "auto")
     params.set("source.scene_type", scene)
     params.set("atmosphere.model", "simple")
@@ -363,13 +367,23 @@ def _run_user_intensity(scene: str, tmp_path: Path) -> None:
     _assert_chain_ran(session, params)
 
 
-def _run_brightness_temperature(scene: str, tmp_path: Path) -> None:
-    # S11 scalar lift: brightness_temperature_K is wired through the
-    # inferrer (Phase 2).  The λ-varying CSV path is deferred in
-    # lockstep with the S5 reflectance_path loader.
+def _run_brightness_temperature(
+    scene: str,
+    tmp_path: Path,
+    *,
+    use_csv_path: bool = False,
+) -> None:
+    # S11: scalar brightness_temperature_K (Phase 2) OR λ-varying
+    # brightness_temperature_path CSV (Gap G Step G.3 — shared two-column
+    # reader routes to T1Thermal for flat T_B or T6TabulatedAtSource for
+    # λ-varying T_B).
     session = RadiantSession(wavelength_um=_WL_LWIR)
     params = session.default_params()
-    params.set("source.target.brightness_temperature_K", 320.0)
+    if use_csv_path:
+        csv = _write_csv(tmp_path / "T_B.csv", _WL_LWIR, 320.0)
+        params.set("source.target.brightness_temperature_path", str(csv))
+    else:
+        params.set("source.target.brightness_temperature_K", 320.0)
     params.set("source.target_location", "auto")
     params.set("source.scene_type", scene)
     params.set("atmosphere.model", "simple")
@@ -426,7 +440,13 @@ def _dispatch(cell: SpecCell, tmp_path: Path) -> None:
             csv = _write_csv(tmp_path / "rho.csv", _WL_VIS, 0.3)
             _run_reflective_spec(cell.scene_type, reflectance_path=csv)
         case "S6":
-            _run_reflective_spec(cell.scene_type, albedo=0.3)
+            # Exercise albedo_path CSV at the extended scene (Gap G G.4
+            # coverage); scalar albedo at the other two scenes.
+            if cell.scene_type == "extended":
+                csv = _write_csv(tmp_path / "alb.csv", _WL_VIS, 0.3)
+                _run_reflective_spec(cell.scene_type, albedo_path=csv)
+            else:
+                _run_reflective_spec(cell.scene_type, albedo=0.3)
         case "S7":
             _run_thermal_spec(cell.scene_type, T_t=320.0, epsilon=0.7)
         case "S8":
@@ -436,7 +456,13 @@ def _dispatch(cell: SpecCell, tmp_path: Path) -> None:
         case "S10":
             _run_user_intensity(cell.scene_type, tmp_path)
         case "S11":
-            _run_brightness_temperature(cell.scene_type, tmp_path)
+            # Exercise brightness_temperature_path CSV at the extended
+            # scene (Gap G G.4 coverage); scalar K at the other scenes.
+            _run_brightness_temperature(
+                cell.scene_type,
+                tmp_path,
+                use_csv_path=(cell.scene_type == "extended"),
+            )
         case "S12":
             _run_radiance_temperature(cell.scene_type)
         case _:

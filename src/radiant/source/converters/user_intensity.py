@@ -32,114 +32,7 @@ from radiant.core.descriptors import (
 )
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.spectral import SpectralData
-
-
-def _load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """Load a two-column CSV ``(wavelength_um, I_t_source)``.
-
-    Auto-detects and skips a header row if the first field of line 1
-    cannot be parsed as a float.  Returns the column arrays as
-    ``np.float64`` for downstream :class:`SpectralData` construction.
-
-    Raises
-    ------
-    ParameterBoundsError
-        If the file is missing, empty, has malformed rows, or has fewer
-        than 2 usable data rows (SpectralData needs ≥ 2 samples to
-        interpolate onto the chain grid).
-    """
-    path = Path(path)
-    if not path.exists():
-        raise ParameterBoundsError(
-            what=f"user_intensity: CSV file not found at {path!s}",
-            why=(
-                "The S10 user-intensity path loader resolves the "
-                "source.target.user_intensity_path parameter to a two-"
-                "column CSV of (wavelength_um, I_t_source[W/sr/µm])."
-            ),
-            action=(
-                "Check the file path in source.target.user_intensity_path "
-                "and ensure the file exists at the working-directory "
-                "relative or absolute location supplied."
-            ),
-            context={"path": str(path)},
-        )
-
-    lines = path.read_text().strip().splitlines()
-    if not lines:
-        raise ParameterBoundsError(
-            what=f"user_intensity: CSV file is empty at {path!s}",
-            why=(
-                "The loader needs at least two rows of (wavelength_um, "
-                "I_t_source) to construct a SpectralData object."
-            ),
-            action=(
-                "Populate the CSV with at least two data rows; a header "
-                "row is auto-detected and optional."
-            ),
-            context={"path": str(path)},
-        )
-
-    start = 0
-    try:
-        float(lines[0].split(",")[0].strip())
-    except ValueError:
-        start = 1
-
-    rows: list[tuple[float, float]] = []
-    for i, line in enumerate(lines[start:], start=start):
-        parts = line.split(",")
-        if len(parts) < 2:
-            raise ParameterBoundsError(
-                what=(
-                    f"user_intensity: CSV line {i + 1} in {path!s} has "
-                    f"fewer than 2 columns: {line!r}"
-                ),
-                why=(
-                    "Each data row must carry (wavelength_um, "
-                    "I_t_source[W/sr/µm])."
-                ),
-                action="Fix the malformed row or remove stray delimiters.",
-                context={"path": str(path), "line_number": i + 1},
-            )
-        try:
-            wl = float(parts[0].strip())
-            val = float(parts[1].strip())
-        except ValueError as err:
-            raise ParameterBoundsError(
-                what=(
-                    f"user_intensity: CSV line {i + 1} in {path!s} cannot "
-                    f"be parsed as floats: {line!r}"
-                ),
-                why=(
-                    "Columns must be parseable as plain floats "
-                    "(wavelength_um, I_t_source)."
-                ),
-                action=(
-                    "Remove non-numeric tokens or re-export the CSV as "
-                    "two float columns."
-                ),
-                context={"path": str(path), "line_number": i + 1},
-            ) from err
-        rows.append((wl, val))
-
-    if len(rows) < 2:
-        raise ParameterBoundsError(
-            what=(
-                f"user_intensity: CSV file {path!s} has fewer than 2 "
-                "data rows"
-            ),
-            why=(
-                "SpectralData requires at least 2 wavelength samples to "
-                "interpolate onto the chain grid."
-            ),
-            action="Provide at least two (wavelength_um, I) rows.",
-            context={"path": str(path), "row_count": len(rows)},
-        )
-
-    wl_arr = np.asarray([r[0] for r in rows], dtype=np.float64)
-    val_arr = np.asarray([r[1] for r in rows], dtype=np.float64)
-    return wl_arr, val_arr
+from radiant.source.converters._csv import load_two_column_csv
 
 
 def load_user_intensity_csv(path: Path | str) -> SpectralData:
@@ -160,13 +53,12 @@ def load_user_intensity_csv(path: Path | str) -> SpectralData:
         downstream caller resamples onto the chain grid before building
         the T7 descriptor.
     """
-    wl, vals = _load_csv(Path(path))
-    return SpectralData(
-        name="source.target.user_intensity",
-        wavelength_um=wl,
-        values=vals,
-        unit="W/sr/um",
-        source=f"source.converters.user_intensity (CSV: {path!s})",
+    return load_two_column_csv(
+        path,
+        value_unit="W/sr/um",
+        column_label="I_t_source",
+        sd_name="source.target.user_intensity",
+        sd_source_prefix="source.converters.user_intensity",
     )
 
 

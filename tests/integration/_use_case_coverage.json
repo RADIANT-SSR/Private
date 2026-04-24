@@ -111,9 +111,9 @@
       "point_source": "pass"
     },
     "S5": {
-      "extended": "raise",
-      "sub_pixel": "raise",
-      "point_source": "raise"
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
     },
     "S6": {
       "extended": "pass",

@@ -55,6 +55,7 @@ from radiant.core.descriptors import (
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.reflectance import ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
 
 # ---------------------------------------------------------------------------
@@ -245,7 +246,7 @@ class TestAnchor2_VIS_Reflective_T2:
             scene_type="extended",
             target_location="terrestrial",
             h_tgt=0.0,
-            rho=rho_sd,
+            rho=ScalarLambertianReflectance(reflectance=rho_sd),
         )
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=theta_s)
 
@@ -277,7 +278,7 @@ class TestAnchor2_VIS_Reflective_T2:
             scene_type="extended",
             target_location="terrestrial",
             h_tgt=0.0,
-            rho=rho_sd,
+            rho=ScalarLambertianReflectance(reflectance=rho_sd),
         )
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=theta_s)
 
@@ -303,7 +304,7 @@ class TestAnchor2_VIS_Reflective_T2:
             scene_type="extended",
             target_location="terrestrial",
             h_tgt=0.0,
-            rho=rho_sd,
+            rho=ScalarLambertianReflectance(reflectance=rho_sd),
         )
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=None)
 

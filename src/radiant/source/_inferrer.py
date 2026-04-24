@@ -78,11 +78,13 @@ from radiant.core.spectral import SpectralData
 from radiant.source._schema import validate_reflectance_albedo_exclusive
 from radiant.source.converters.brightness_temperature import (
     brightness_temperature_to_descriptor,
+    load_brightness_temperature_csv,
 )
 from radiant.source.converters.radiance_temperature import (
     radiance_temperature_to_descriptor,
 )
 from radiant.source.converters.reflectance import (
+    load_reflectance_csv,
     reflectance_to_descriptor,
 )
 from radiant.source.converters.user_intensity import (
@@ -333,6 +335,219 @@ def _view_direction_from_los(
 
 
 # ---------------------------------------------------------------------------
+# CSV resample / validation helpers (Gap G, Step G.2 / G.3)
+# ---------------------------------------------------------------------------
+
+
+def _resample_dimensionless_on_grid(
+    native: SpectralData,
+    wavelength_um: np.ndarray,
+    *,
+    quantity_label: str,
+) -> np.ndarray:
+    """Resample a native-grid SpectralData onto the chain grid.
+
+    Rule 17 — no silent extrapolation.  If the chain grid extends
+    beyond the file's native grid on either end, raise
+    :class:`ParameterBoundsError` with both ranges in context.  Also
+    reject non-monotonic and duplicated native wavelengths; ``np.interp``
+    otherwise silently produces ambiguous values.
+
+    Parameters
+    ----------
+    native:
+        SpectralData on its native grid (from the CSV loader).
+    wavelength_um:
+        Chain wavelength grid (canonical µm).
+    quantity_label:
+        Human-readable quantity name used in error messages
+        (e.g. ``"reflectance"``, ``"brightness_temperature"``).
+
+    Returns
+    -------
+    ndarray
+        Values interpolated onto ``wavelength_um``.
+    """
+    lam = np.asarray(wavelength_um, dtype=np.float64)
+    src_wl = np.asarray(native.wavelength_um, dtype=np.float64)
+    src_vals = np.asarray(native.values, dtype=np.float64)
+
+    # Monotonicity / duplicate checks are enforced by the shared CSV
+    # loader (and ultimately by SpectralData.__post_init__), so by the
+    # time we get here src_wl is strictly ascending.
+
+    if lam[0] < src_wl[0] or lam[-1] > src_wl[-1]:
+        raise ParameterBoundsError(
+            what=(
+                f"{quantity_label}: chain grid "
+                f"[{lam[0]:.4f}, {lam[-1]:.4f}] µm extends outside "
+                f"the CSV native grid "
+                f"[{src_wl[0]:.4f}, {src_wl[-1]:.4f}] µm"
+            ),
+            why=(
+                "RADIANT never silently extrapolates user-supplied "
+                "tabulated data; extrapolation past the file bounds is "
+                "unphysical and hides authoring errors."
+            ),
+            action=(
+                "Extend the CSV to cover the full sensor band, or "
+                "narrow the chain grid (source.grid.*) to the file "
+                "extent."
+            ),
+            context={
+                "source": native.source,
+                "chain_grid_um": [float(lam[0]), float(lam[-1])],
+                "file_grid_um": [float(src_wl[0]), float(src_wl[-1])],
+                "quantity": quantity_label,
+            },
+        )
+
+    return np.asarray(np.interp(lam, src_wl, src_vals), dtype=np.float64)
+
+
+def _validate_rho_csv(
+    rho_values: np.ndarray, *, csv_path: str
+) -> None:
+    """Raise on ρ outside ``[0, 1]`` at the CSV boundary (Rule 15).
+
+    Mirrors :func:`reflectance._validate_rho` but reports the source
+    CSV path in context so the user can trace a bad row to its file.
+    """
+    if rho_values.size == 0:
+        raise ParameterBoundsError(
+            what=(
+                "reflectance_path: CSV produced zero-sample SpectralData"
+            ),
+            why=(
+                "The converter needs at least one (λ, ρ) pair to emit "
+                "a descriptor."
+            ),
+            action=(
+                "Populate the CSV with at least two (wavelength_um, "
+                "reflectance) rows."
+            ),
+            context={"path": csv_path},
+        )
+    if np.any(rho_values < 0.0):
+        bad = float(rho_values.min())
+        raise ParameterBoundsError(
+            what=(
+                f"reflectance_path: rho = {bad} is negative in CSV "
+                f"{csv_path}"
+            ),
+            why=(
+                "Reflectance is a dimensionless fraction in [0, 1]; "
+                "negative values have no physical interpretation."
+            ),
+            action=(
+                "Correct the CSV rows so every rho value is ≥ 0."
+            ),
+            context={
+                "path": csv_path,
+                "min_rho": bad,
+                "floor": 0.0,
+            },
+        )
+    if np.any(rho_values > 1.0):
+        bad = float(rho_values.max())
+        raise ParameterBoundsError(
+            what=(
+                f"reflectance_path: rho = {bad} exceeds 1.0 in CSV "
+                f"{csv_path}"
+            ),
+            why=(
+                "Reflectance > 1 violates energy conservation "
+                "(reflected power cannot exceed incident power for a "
+                "passive surface)."
+            ),
+            action=(
+                "Clamp rho ≤ 1 in the CSV or check for unit / scale "
+                "errors (e.g. percent vs fraction)."
+            ),
+            context={
+                "path": csv_path,
+                "max_rho": bad,
+                "ceiling": 1.0,
+            },
+        )
+
+
+_T_B_CSV_MIN_K: float = 0.0
+_T_B_CSV_MAX_K: float = 10_000.0
+
+
+def _validate_T_B_csv(
+    T_B_values: np.ndarray, *, csv_path: str
+) -> None:
+    """Raise on T_B outside ``(0, 10000]`` K at the CSV boundary (Rule 15).
+
+    Mirrors the converter's private ``_validate_T_B`` but reports the
+    source CSV path in context so the user can trace a bad row to its
+    file.  Runs on the native grid (pre-resample) — Rule 16: validate
+    before compute.
+    """
+    if T_B_values.size == 0:
+        raise ParameterBoundsError(
+            what=(
+                "brightness_temperature_path: CSV produced zero-sample "
+                "SpectralData"
+            ),
+            why=(
+                "The converter needs at least one (λ, T_B) pair to emit "
+                "a descriptor."
+            ),
+            action=(
+                "Populate the CSV with at least two (wavelength_um, "
+                "brightness_temperature) rows."
+            ),
+            context={"path": csv_path},
+        )
+    if np.any(T_B_values < _T_B_CSV_MIN_K):
+        bad = float(T_B_values.min())
+        raise ParameterBoundsError(
+            what=(
+                f"brightness_temperature_path: T_B = {bad} K is negative "
+                f"in CSV {csv_path}"
+            ),
+            why=(
+                "Brightness temperature is an equivalent absolute "
+                "temperature; negative values have no Planck "
+                "interpretation."
+            ),
+            action=(
+                f"Set every T_B value ≥ {_T_B_CSV_MIN_K} K in the CSV."
+            ),
+            context={
+                "path": csv_path,
+                "min_T_B_K": bad,
+                "floor_K": _T_B_CSV_MIN_K,
+            },
+        )
+    if np.any(T_B_values > _T_B_CSV_MAX_K):
+        bad = float(T_B_values.max())
+        raise ParameterBoundsError(
+            what=(
+                f"brightness_temperature_path: T_B = {bad} K exceeds "
+                f"{_T_B_CSV_MAX_K} K ceiling in CSV {csv_path}"
+            ),
+            why=(
+                "T_B > 10 000 K is non-physical for RADIANT targets "
+                "(solar effective T ≈ 5778 K).  Values this large are "
+                "typically a unit error (°C vs K) or input scale bug."
+            ),
+            action=(
+                "Verify units (canonical K, not °C) and the T_B CSV "
+                "column values."
+            ),
+            context={
+                "path": csv_path,
+                "max_T_B_K": bad,
+                "ceiling_K": _T_B_CSV_MAX_K,
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # Target descriptor construction
 # ---------------------------------------------------------------------------
 
@@ -409,16 +624,16 @@ def _maybe_build_from_brightness_temperature(
     brightness temperature ``T_B`` (scalar or λ-tabulated) and the
     boundary converter routes to either :class:`T1Thermal` (near-constant
     T_B, ε ≡ 1) or :class:`T6TabulatedAtSource` (λ-varying T_B, per
-    ADR-0003).  Implementation plan Step 2.1.
+    ADR-0003).
 
-    Scope in this step:
-      * ``source.target.brightness_temperature_K`` (scalar) is fully wired.
-      * ``source.target.brightness_temperature_path`` (CSV) is recognised
-        but not yet loaded — when set, we raise
-        :class:`ParameterBoundsError` pointing the user at the follow-up
-        work.  Wiring the CSV (format, grid interp, boundary policy)
-        lands alongside Phase 4 ``user_radiance`` since both flow through
-        the same file-to-SpectralData path.
+    Both user-entry surfaces are fully wired:
+      * ``source.target.brightness_temperature_K`` (scalar) lifts to a
+        flat SpectralData on the chain grid.
+      * ``source.target.brightness_temperature_path`` (CSV) loads a
+        native-grid SpectralData via the shared two-column reader,
+        validates T_B ∈ (0, 10000] K at the boundary, then resamples
+        onto the chain grid with hard out-of-grid guards (Rule 17:
+        no silent extrapolation).
     """
     t_b_k_rv = params.get_resolved("source.target.brightness_temperature_K")
     t_b_path_rv = params.get_resolved(
@@ -563,33 +778,50 @@ def _maybe_build_from_brightness_temperature(
             },
         )
 
+    A_t, shape_obj = _resolve_projected_area_and_shape(
+        params, target_location
+    )
+
+    # Tabulated T_B(λ) via CSV (S11 brightness_temperature_path).
+    # Gap G Step G.3: load native grid, validate T_B ∈ (0, 10000] K at the
+    # boundary, resample onto the chain grid with hard out-of-grid guards
+    # (Rule 17: no silent extrapolation), then dispatch to the converter
+    # which routes constant vs λ-varying to T1Thermal vs T6TabulatedAtSource.
     if t_b_path_user:
-        raise ParameterBoundsError(
-            what=(
-                "source._inferrer: "
-                "source.target.brightness_temperature_path is not yet "
-                "wired through the inferrer"
+        csv_path = str(t_b_path_rv.value)
+        T_B_native = load_brightness_temperature_csv(csv_path)
+        # Boundary guard (Rule 16): validate native T_B BEFORE resampling —
+        # interpolation could otherwise mask out-of-range samples between
+        # good neighbours.
+        _validate_T_B_csv(
+            np.asarray(T_B_native.values, dtype=np.float64),
+            csv_path=csv_path,
+        )
+        T_B_on_grid = _resample_dimensionless_on_grid(
+            T_B_native,
+            wavelength_um,
+            quantity_label="brightness_temperature",
+        )
+        T_B = SpectralData(
+            name="source.target.brightness_temperature",
+            wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+            values=T_B_on_grid,
+            unit="K",
+            source=(
+                f"source.converters.brightness_temperature "
+                f"(CSV → chain grid: {csv_path})"
             ),
-            why=(
-                "The tabulated T_B path requires a CSV reader, grid "
-                "interpolation policy, and boundary validation that "
-                "land in the follow-up step alongside Phase 4 "
-                "user_radiance (both flow through the same "
-                "file → SpectralData transport).  The converter itself "
-                "(source.converters.brightness_temperature) already "
-                "accepts λ-varying T_B — tests construct SpectralData "
-                "directly to exercise the T6 branch."
+        )
+        return brightness_temperature_to_descriptor(
+            T_B=T_B,
+            scene_type=scene_type,  # type: ignore[arg-type]
+            target_location=target_location,  # type: ignore[arg-type]
+            no_atmosphere_subcase=(  # type: ignore[arg-type]
+                no_atmosphere_subcase or None
             ),
-            action=(
-                "Until the CSV path lands: supply a scalar T_B via "
-                "source.target.brightness_temperature_K, or build a "
-                "T6TabulatedAtSource manually and publish it as "
-                "stage_outputs['source']['target'] (see the integration "
-                "test pattern in the test_no_atm_subcases suite)."
-            ),
-            context={
-                "brightness_temperature_path": t_b_path_rv.value,
-            },
+            h_tgt=h_tgt,
+            A_t=A_t,
+            shape=shape_obj,
         )
 
     # Scalar T_B: lift to a flat SpectralData on the chain grid and run
@@ -609,9 +841,6 @@ def _maybe_build_from_brightness_temperature(
         ),
     )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(
-        params, target_location
-    )
     return brightness_temperature_to_descriptor(
         T_B=T_B,
         scene_type=scene_type,  # type: ignore[arg-type]
@@ -994,41 +1223,58 @@ def _maybe_build_from_reflectance(
             },
         )
 
-    # CSV path is deferred in lockstep with the S11 T_B path loader.
+    A_t, shape_obj = _resolve_projected_area_and_shape(
+        params, target_location
+    )
+
+    # Tabulated ρ(λ) via CSV (S5 reflectance_path / S6 albedo_path).
+    # Gap G Step G.2: load native grid, validate bounds at the boundary,
+    # resample onto the chain grid with hard out-of-grid / monotonicity
+    # guards (Rule 17: no silent extrapolation), then dispatch.
     if rho_path_user or alb_path_user:
-        raise ParameterBoundsError(
-            what=(
-                "source._inferrer: source.target.reflectance_path / "
-                "albedo_path is not yet wired through the inferrer"
+        csv_path = str(
+            rho_path_rv.value if rho_path_user else alb_path_rv.value
+        )
+        rho_native = load_reflectance_csv(
+            csv_path, is_albedo=alb_path_user
+        )
+        # Boundary guard (Rule 16): validate native ρ ∈ [0, 1] BEFORE
+        # resampling — catches bad rows at the CSV boundary with the
+        # source path in context.
+        _validate_rho_csv(
+            np.asarray(rho_native.values, dtype=np.float64),
+            csv_path=csv_path,
+        )
+        rho_on_grid = _resample_dimensionless_on_grid(
+            rho_native, wavelength_um, quantity_label="reflectance"
+        )
+        rho_sd = SpectralData(
+            name="source.target.reflectance",
+            wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+            values=rho_on_grid,
+            unit="dimensionless",
+            source=(
+                f"source.converters.reflectance (CSV → chain grid: "
+                f"{csv_path})"
             ),
-            why=(
-                "Tabulated ρ(λ) via a CSV file requires the same "
-                "file → SpectralData loader that lands alongside Phase 4 "
-                "user_radiance (shared path with the S11 "
-                "brightness_temperature_path).  The converter itself "
-                "(source.converters.reflectance) already accepts a "
-                "λ-varying ρ — tests construct SpectralData directly to "
-                "exercise that path."
+        )
+        return reflectance_to_descriptor(
+            rho=rho_sd,
+            wavelength_um=wavelength_um,
+            scene_type=scene_type,  # type: ignore[arg-type]
+            target_location=target_location,  # type: ignore[arg-type]
+            no_atmosphere_subcase=(  # type: ignore[arg-type]
+                no_atmosphere_subcase or None
             ),
-            action=(
-                "Until the CSV loader lands: supply a scalar ρ via "
-                "source.target.reflectance / .albedo, or build a "
-                "T2Reflective manually and publish it as "
-                "stage_outputs['source']['target']."
-            ),
-            context={
-                "reflectance_path": rho_path_rv.value,
-                "albedo_path": alb_path_rv.value,
-            },
+            h_tgt=h_tgt,
+            A_t=A_t,
+            shape=shape_obj,
         )
 
     # Scalar ρ — take whichever surface is user-set (validator already
     # enforced that only one is).
     rho_scalar = float(rho_rv.value if rho_user else alb_rv.value)
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(
-        params, target_location
-    )
     return reflectance_to_descriptor(
         rho=rho_scalar,
         wavelength_um=wavelength_um,

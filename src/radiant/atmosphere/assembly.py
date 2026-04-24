@@ -71,7 +71,15 @@ from radiant.core.descriptors import (
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.reflectance import ReflectanceDescriptor
 from radiant.core.spectral import SpectralData
+
+# Gap H: assembly consumes T2Reflective.rho via the ReflectanceDescriptor
+# protocol.  H.1 installs the call with zero-vector placeholders for
+# view/illumination direction (the Lambertian adapter ignores them so the
+# numerical output is bit-identical to the pre-Gap-H path).  H.2 replaces
+# the zero vectors with the derived view/illum unit vectors from los.
+_ZERO_VEC3: np.ndarray = np.zeros(3, dtype=np.float64)
 
 # Floor for "non-trivial atmosphere" detection in the T5 warn-if-atm arm.
 # τ ≥ 1 − _T5_TAU_TRIVIAL_TOL everywhere → trivial; otherwise warn.
@@ -347,6 +355,38 @@ def _extract_sd_values(sd: SpectralData, atm: AtmosphericQuantities) -> np.ndarr
     """Validate and extract grid-aligned values from a SpectralData field."""
     _grid_match(sd.wavelength_um, atm)
     return np.asarray(sd.values, dtype=np.float64)
+
+
+def _extract_reflectance_on_grid(
+    rho: ReflectanceDescriptor, atm: AtmosphericQuantities
+) -> np.ndarray:
+    """Resolve ρ(λ) on the chain grid via the ReflectanceDescriptor protocol.
+
+    Gap H closes the Phase 6 stub framing: T2Reflective.rho is a
+    ReflectanceDescriptor after construction, so assembly exercises the
+    ``reflectance_at(λ, view, illum)`` protocol rather than reaching into
+    the adapter's stored SpectralData.  The view / illumination unit
+    vectors are zero placeholders today; step H.2 replaces them with
+    vectors derived from ``LineOfSightGeometry`` (the Lambertian adapter
+    ignores the directions, so the output is bit-identical).
+    """
+    vals = rho.reflectance_at(atm.wavelength_um, _ZERO_VEC3, _ZERO_VEC3)
+    if vals.shape != atm.wavelength_um.shape:
+        raise ParameterBoundsError(
+            what=(
+                f"ReflectanceDescriptor.reflectance_at returned shape {vals.shape}"
+            ),
+            why="Assembly requires ρ(λ) sampled on the chain wavelength grid.",
+            action=(
+                "Ensure the ReflectanceDescriptor implementation resamples to "
+                "the input wavelength grid."
+            ),
+            context={
+                "expected_shape": atm.wavelength_um.shape,
+                "actual_shape": vals.shape,
+            },
+        )
+    return np.asarray(vals, dtype=np.float64)
 
 
 def _cos_theta_s(los: LineOfSightGeometry) -> float:
@@ -664,7 +704,7 @@ def _assemble_t2(
 ) -> np.ndarray:
     """T2 reflective Lambertian assembly: ρ·(τ_sun·E·cosθ_s + E_sky)·τ_up/π + L_path_up."""
     assert target.rho is not None  # mypy: constructor invariant
-    rho = _extract_sd_values(target.rho, atm)
+    rho = _extract_reflectance_on_grid(target.rho, atm)
     direct = _direct_solar_term(rho, atm, cos_theta_s)
     diffuse = _diffuse_sky_term(rho, atm)
     # No self-emission for pure reflective (ε ≡ 0 → B·ε ≡ 0).
@@ -727,7 +767,7 @@ def _components_t2(
 ) -> AssemblyComponents:
     """Per-term T2 decomposition (Stage 6 introspection)."""
     assert target.rho is not None
-    rho = _extract_sd_values(target.rho, atm)
+    rho = _extract_reflectance_on_grid(target.rho, atm)
     zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)
     direct = _direct_solar_term(rho, atm, cos_theta_s)
     diffuse_scat = _diffuse_sky_scattered_term(rho, atm)

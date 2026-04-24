@@ -7,14 +7,11 @@ Verifies that:
    :class:`~radiant.core.reflectance.ReflectanceDescriptor` protocol
    (``runtime_checkable`` structural isinstance).
 3. :class:`~radiant.source.brdf_phong.PhongBRDF` implements the same protocol.
-4. :class:`~radiant.core.descriptors.T2Reflective` accepts both
-   :class:`SpectralData` (back-compat) and a
-   :class:`ReflectanceDescriptor` (Q4 new surface) without breaking the
-   existing constructor contract.
-
-The test file is narrow by design — Phase 6 is the stub base; full plumbing
-of a ReflectanceDescriptor through ``AtmosphereStage`` assembly is a later
-step.  These tests only protect the type system and the two BRDF concretions.
+4. :class:`~radiant.core.descriptors.T2Reflective` accepts only a
+   :class:`ReflectanceDescriptor` — raw :class:`SpectralData` is rejected.
+   Gap H invariant: the boundary converter wraps the SpectralData in a
+   :class:`ScalarLambertianReflectance` adapter before construction so
+   downstream consumers can rely on the protocol.
 """
 
 from __future__ import annotations
@@ -171,21 +168,33 @@ class TestPhongBRDFProtocol:
 
 
 # ---------------------------------------------------------------------------
-# 4. T2Reflective accepts both SpectralData and ReflectanceDescriptor
+# 4. T2Reflective accepts a ReflectanceDescriptor only (Gap H invariant)
 # ---------------------------------------------------------------------------
 
 
 class TestT2ReflectiveAcceptsReflectanceDescriptor:
-    def test_accepts_spectraldata_backcompat(self) -> None:
+    def test_rejects_raw_spectral_data(self) -> None:
+        """Gap H: raw SpectralData is not a valid ``rho`` for ``T2Reflective``.
+
+        The supported entry path is
+        ``radiant.source.converters.reflectance.reflectance_to_descriptor``,
+        which wraps the SpectralData in a ``ScalarLambertianReflectance``
+        adapter.  Passing the SpectralData directly bypasses the protocol
+        invariant that downstream consumers rely on.
+        """
+        from radiant.core.parameters import ParameterBoundsError
+
         rho_sd = _make_rho_spectral(0.3)
-        desc = T2Reflective(
-            scene_type="extended",
-            target_location="terrestrial",
-            h_tgt=0.0,
-            rho=rho_sd,
-        )
-        # .rho access returns the SpectralData unchanged (back-compat).
-        assert desc.rho is rho_sd
+        with pytest.raises(
+            ParameterBoundsError,
+            match="rho must be a ReflectanceDescriptor",
+        ):
+            T2Reflective(
+                scene_type="extended",
+                target_location="terrestrial",
+                h_tgt=0.0,
+                rho=rho_sd,  # type: ignore[arg-type]
+            )
 
     def test_accepts_scalar_lambertian_reflectance(self) -> None:
         adapter = ScalarLambertianReflectance(reflectance=_make_rho_spectral(0.3))
@@ -222,10 +231,13 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
                 rho=None,
             )
 
-    def test_mwir_warning_still_fires_on_spectraldata_path(self) -> None:
-        """MWIR Rule-17 warning unchanged when rho is SpectralData."""
-        import warnings as _warnings
+    def test_mwir_warning_fires_on_scalar_lambertian_adapter(self) -> None:
+        """MWIR Rule-17 warning fires when the adapter's stored grid overlaps 3–5 µm.
 
+        Gap H: post-wrap, the authoritative MWIR warning runs against the
+        ``ScalarLambertianReflectance`` adapter's stored SpectralData.  The
+        raw-SpectralData path was removed (Gap H negative test above).
+        """
         wl_mwir = np.linspace(3.5, 4.5, 8, dtype=np.float64)
         rho_mwir = SpectralData(
             name="test.mwir",
@@ -234,20 +246,8 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
             unit="dimensionless",
             source="test_reflectance_descriptor",
         )
-        with pytest.warns(UserWarning, match="MWIR"):
-            T2Reflective(
-                scene_type="extended",
-                target_location="terrestrial",
-                h_tgt=0.0,
-                rho=rho_mwir,
-            )
-
-        # And the adapter path is silent (grid unknown at construction time —
-        # deferred to assembly).  pytest.warns with no-op would fail, so use
-        # catch_warnings instead.
         adapter = ScalarLambertianReflectance(reflectance=rho_mwir)
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error", UserWarning)  # any UserWarning → raise
+        with pytest.warns(UserWarning, match="MWIR"):
             T2Reflective(
                 scene_type="extended",
                 target_location="terrestrial",

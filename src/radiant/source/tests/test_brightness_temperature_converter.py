@@ -5,9 +5,12 @@ Covers Step 2.1 of the Target Definition Matrix Implementation Plan:
 - 3 mandatory truth anchors (constant-T_B identity, λ-varying pointwise
   identity, round-trip T_B → L → invert Planck → T_B to 1e-4 K).
 - Negative cases: T_B < 0, T_B > 10 000, empty, at_aperture.
-- Inferrer integration: scalar T_B routes to T1Thermal; CSV path raises
-  with a clear deferral message.
-- Over-specification: brightness_temperature paired with legacy (ε, T).
+- Inferrer integration (Gap G Step G.3): scalar T_B routes to T1Thermal;
+  CSV path loads via the shared two-column reader, validates
+  T_B ∈ (0, 10000] K at the boundary, and routes to T1Thermal (flat) or
+  T6TabulatedAtSource (λ-varying).
+- Over-specification: brightness_temperature paired with legacy (ε, T)
+  or with the scalar ``brightness_temperature_K``.
 
 These are the Category C numerical anchors for
 ``source.converters.brightness_temperature``.
@@ -16,17 +19,22 @@ These are the Category C numerical anchors for
 from __future__ import annotations
 
 import math
+import warnings
+from pathlib import Path
 
 import numpy as np
 import pytest
 
+from radiant.api._param_registry import build_parameter_set
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.constants import hc_over_kB, two_hc2
 from radiant.core.descriptors import T1Thermal, T6TabulatedAtSource
-from radiant.core.parameters import ParameterBoundsError
+from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.spectral import SpectralData
+from radiant.source._inferrer import infer_descriptors
 from radiant.source.converters.brightness_temperature import (
     brightness_temperature_to_descriptor,
+    load_brightness_temperature_csv,
 )
 
 # ---------------------------------------------------------------------------
@@ -351,3 +359,251 @@ class TestFragility:
                 target_location="terrestrial",
                 h_tgt=0.0,
             )
+
+
+# ---------------------------------------------------------------------------
+# Gap G Step G.3 — brightness_temperature_path CSV wiring
+# ---------------------------------------------------------------------------
+
+
+_WL_LWIR = np.linspace(8.0, 13.0, 21)
+
+
+def _s11_path_params(csv_path: Path) -> ParameterSet:
+    """Return a ParameterSet configured for the S11 CSV path.
+
+    Leaves the scalar brightness_temperature_K and every other target
+    surface at their Provenance.DEFAULT schema values so the
+    brightness_temperature_path branch is the only user-set target
+    surface and the inferrer routes through the CSV loader.
+    """
+    params = build_parameter_set()
+    params.set("optics.aperture_diameter_m", 0.15)
+    params.set("optics.focal_length_m", 0.60)
+    params.set("atmosphere.model", "simple")
+    params.set("geometry.sensor_altitude_m", 500.0)
+    params.set("spectral_integration.filter_min_um", float(_WL_LWIR[0]))
+    params.set("spectral_integration.filter_max_um", float(_WL_LWIR[-1]))
+    params.set("spectral_integration.integration_time_s", 1e-3)
+    params.set("detector.pixel_pitch_x_um", 5.5)
+    params.set("detector.pixel_pitch_y_um", 5.5)
+    params.set("detector.qe_value", 0.8)
+    params.set("source.scene_type", "extended")
+    params.set("source.target_location", "terrestrial")
+    params.set("source.target.brightness_temperature_path", str(csv_path))
+    return params
+
+
+def _write_flat_T_B_csv(
+    path: Path,
+    *,
+    wl_um: np.ndarray,
+    T_B_value: float,
+    header: bool = True,
+) -> Path:
+    lines: list[str] = []
+    if header:
+        lines.append("wavelength_um,brightness_temperature_K")
+    lines.extend(f"{w:.6f},{T_B_value:.6f}" for w in wl_um)
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def _write_ramp_T_B_csv(
+    path: Path,
+    *,
+    wl_um: np.ndarray,
+    T_B_values: np.ndarray,
+) -> Path:
+    assert wl_um.shape == T_B_values.shape
+    lines = ["wavelength_um,brightness_temperature_K"]
+    for w, t in zip(wl_um, T_B_values, strict=True):
+        lines.append(f"{float(w):.6f},{float(t):.6f}")
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+class TestBrightnessTemperaturePathCSV:
+    """S11 ``brightness_temperature_path`` CSV wiring (Gap G Step G.3).
+
+    Each test uses a file-native grid that BRACKETS ``_WL_LWIR`` so the
+    resampler stays inside the CSV span (Rule 17: out-of-grid raises).
+    """
+
+    # ----- Constant T_B=300 K CSV → T1Thermal, L(10µm)=B(10µm,300K) -----
+
+    def test_constant_T_B_path_emits_T1_and_matches_planck(
+        self, tmp_path: Path
+    ) -> None:
+        csv = _write_flat_T_B_csv(
+            tmp_path / "tb.csv",
+            wl_um=np.array([7.5, 9.0, 11.0, 13.5]),
+            T_B_value=300.0,
+        )
+        params = _s11_path_params(csv)
+        params.resolve()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            target, _bg, _los = infer_descriptors(params, _WL_LWIR)
+
+        assert isinstance(target, T1Thermal)
+        assert target.T_t == pytest.approx(300.0, abs=1e-9)
+        assert target.epsilon is not None
+        np.testing.assert_allclose(
+            target.epsilon.values, np.ones_like(_WL_LWIR), atol=0.0
+        )
+
+        # Truth anchor: L(10 µm) = B(10 µm, 300 K) to 1e-6 (ε ≡ 1).
+        idx_10 = int(np.argmin(np.abs(_WL_LWIR - 10.0)))
+        expected = float(
+            planck_spectral_radiance(
+                np.asarray([_WL_LWIR[idx_10]]), 300.0
+            )[0]
+        )
+        actual = float(target.epsilon.values[idx_10]) * expected
+        rel = abs(actual - expected) / expected
+        assert rel < 1.0e-6, (
+            f"|ΔL/L| = {rel:g} exceeds 1e-6 truth-anchor tolerance"
+        )
+
+    # ----- λ-varying T_B CSV → T6TabulatedAtSource -----
+
+    def test_varying_T_B_path_emits_T6_with_pointwise_planck(
+        self, tmp_path: Path
+    ) -> None:
+        # 280 K @ 7.5 µm → 320 K @ 13.5 µm — 40 K peak-to-peak, solidly
+        # in the λ-varying branch.  File grid brackets _WL_LWIR.
+        wl_file = np.array([7.5, 9.0, 11.0, 13.5])
+        T_vals = np.linspace(280.0, 320.0, wl_file.size)
+        csv = _write_ramp_T_B_csv(
+            tmp_path / "ramp.csv", wl_um=wl_file, T_B_values=T_vals
+        )
+        params = _s11_path_params(csv)
+        params.resolve()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            target, _bg, _los = infer_descriptors(params, _WL_LWIR)
+
+        assert isinstance(target, T6TabulatedAtSource)
+        assert target.L_t_source is not None
+        # After linear resample onto _WL_LWIR, pointwise check: the
+        # resampled T_B(λ_i) passed through Planck must equal
+        # B(λ_i, T_B_resampled_i).  Tolerance is 1e-6 because the CSV
+        # loader round-trips T_B through 6-digit decimal formatting,
+        # which introduces ~1e-6 relative error in T_B and hence in L.
+        T_B_on_chain = np.interp(_WL_LWIR, wl_file, T_vals)
+        for lam_target in (9.0, 11.0, 12.0):
+            i = int(np.argmin(np.abs(_WL_LWIR - lam_target)))
+            expected = float(
+                planck_spectral_radiance(
+                    np.asarray([_WL_LWIR[i]]), float(T_B_on_chain[i])
+                )[0]
+            )
+            actual = float(target.L_t_source.values[i])
+            rel = abs(actual - expected) / max(expected, 1e-30)
+            assert rel < 1.0e-6, (
+                f"λ={_WL_LWIR[i]:.3f} µm: actual={actual:g}, "
+                f"expected={expected:g}, rel={rel:g}"
+            )
+
+    # ----- Failure mode — T_B < 0 in CSV -----
+
+    def test_T_B_path_with_negative_value_raises(
+        self, tmp_path: Path
+    ) -> None:
+        csv = tmp_path / "neg.csv"
+        csv.write_text(
+            "wavelength_um,brightness_temperature_K\n"
+            "7.5,290.0\n"
+            "10.0,-5.0\n"
+            "13.5,290.0\n"
+        )
+        params = _s11_path_params(csv)
+        params.resolve()
+
+        with pytest.raises(
+            ParameterBoundsError, match="negative"
+        ) as exc:
+            infer_descriptors(params, _WL_LWIR)
+        assert exc.value.context["path"] == str(csv)
+        assert exc.value.context["min_T_B_K"] == pytest.approx(-5.0)
+
+    # ----- Failure mode — T_B > 10 000 K in CSV -----
+
+    def test_T_B_path_above_ceiling_raises(
+        self, tmp_path: Path
+    ) -> None:
+        csv = tmp_path / "hot.csv"
+        csv.write_text(
+            "wavelength_um,brightness_temperature_K\n"
+            "7.5,300.0\n"
+            "10.0,15000.0\n"
+            "13.5,300.0\n"
+        )
+        params = _s11_path_params(csv)
+        params.resolve()
+
+        with pytest.raises(
+            ParameterBoundsError, match="ceiling"
+        ) as exc:
+            infer_descriptors(params, _WL_LWIR)
+        assert exc.value.context["path"] == str(csv)
+        assert exc.value.context["max_T_B_K"] == pytest.approx(15000.0)
+
+    # ----- Failure mode — chain grid wider than file grid -----
+
+    def test_T_B_path_out_of_grid_raises(
+        self, tmp_path: Path
+    ) -> None:
+        # File grid [9.0, 12.0] does NOT cover chain grid [8.0, 13.0] —
+        # resampler must raise rather than silently extrapolate.
+        csv = _write_flat_T_B_csv(
+            tmp_path / "narrow.csv",
+            wl_um=np.array([9.0, 12.0]),
+            T_B_value=300.0,
+        )
+        params = _s11_path_params(csv)
+        params.resolve()
+
+        with pytest.raises(
+            ParameterBoundsError, match="extends outside"
+        ) as exc:
+            infer_descriptors(params, _WL_LWIR)
+        ctx = exc.value.context
+        assert ctx["chain_grid_um"] == pytest.approx([8.0, 13.0])
+        assert ctx["file_grid_um"] == pytest.approx([9.0, 12.0])
+        assert ctx["quantity"] == "brightness_temperature"
+
+    # ----- Failure mode — both scalar K and path set -----
+
+    def test_T_B_path_plus_scalar_K_raises(
+        self, tmp_path: Path
+    ) -> None:
+        csv = _write_flat_T_B_csv(
+            tmp_path / "both.csv",
+            wl_um=np.array([7.5, 13.5]),
+            T_B_value=290.0,
+        )
+        params = _s11_path_params(csv)
+        params.set("source.target.brightness_temperature_K", 300.0)
+        params.resolve()
+
+        with pytest.raises(ParameterBoundsError, match="user-set"):
+            infer_descriptors(params, _WL_LWIR)
+
+    # ----- Loader unit / metadata cosmetic check -----
+
+    def test_load_brightness_temperature_csv_sets_unit_K(
+        self, tmp_path: Path
+    ) -> None:
+        csv = _write_flat_T_B_csv(
+            tmp_path / "u.csv",
+            wl_um=np.array([8.0, 13.0]),
+            T_B_value=300.0,
+        )
+        sd = load_brightness_temperature_csv(csv)
+        assert sd.unit == "K"
+        assert sd.name == "source.target.brightness_temperature"
+        assert str(csv) in sd.source

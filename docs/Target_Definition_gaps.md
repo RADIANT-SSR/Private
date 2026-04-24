@@ -2,24 +2,25 @@
 
 **Original audit**: 2026-04-21 (against pre-implementation codebase)
 **Post-implementation update**: 2026-04-22 (after Target Definition Implementation Plan Phases 1–7 landed)
+**Gap G close-out**: 2026-04-23 (shared CSV loader delivered — all 12 spec forms fully supported)
 **Audit scope**: 12 spec forms (S1–S12) × 3 scene types (extended, sub_pixel, point_source)
 **Source of truth**: [`RADIANT_Target_Definition_Matrix.md`](RADIANT_Target_Definition_Matrix.md) (spec) vs. codebase (implementation)
 
 ---
 
-## Executive Summary (post Phases 1–7)
+## Executive Summary (post Gap G)
 
 | Status | Count | Forms | Notes |
 |--------|-------|-------|-------|
-| ✅ Fully supported | 10 | S1, S2, S3, S4, S6, S7, S8, S9, S10, S12 | Input paths wired through inferrer; descriptor construction verified end-to-end; matrix coverage in [`tests/integration/test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) |
-| ⚠ Scalar-only (CSV loader deferred) | 2 | S5, S11 (path form) | Converters accept λ-varying inputs; user-facing CSV loader for `reflectance_path` / `albedo_path` / `brightness_temperature_path` is the only remaining surface |
-| ❌ Not supported | 0 | — | All 12 forms have at least a scalar path |
+| ✅ Fully supported | 12 | S1–S12 | Scalar and CSV-path surfaces both wired; descriptor construction verified end-to-end; matrix coverage in [`tests/integration/test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) |
+| ⚠ Scalar-only (CSV loader deferred) | 0 | — | Closed 2026-04-23 by Gap G shared CSV loader |
+| ❌ Not supported | 0 | — | — |
 
 **Key findings (2026-04-22):**
 - Q1 **delivered**: S11 (`brightness_temperature_K`) and S12 (`radiance_temperature_K` + band) boundary converters live in [`src/radiant/source/converters/`](../src/radiant/source/converters/), wired through the inferrer.
 - Q3 **delivered**: `source.target.shape` + `shape_params` route through [`shape_factory.build_shape`](../src/radiant/source/resolvers/shape_factory.py); shape wins over `projected_area_m2` with a `UserWarning`.
 - Q4 **delivered (stub)**: [`ReflectanceDescriptor`](../src/radiant/core/reflectance.py) protocol (`runtime_checkable`) + [`ScalarLambertianReflectance`](../src/radiant/core/reflectance.py) adapter; `LambertianBRDF` and `PhongBRDF` both satisfy the protocol; `T2Reflective.rho` accepts either `SpectralData` or a `ReflectanceDescriptor`.
-- S4/S5/S6 (pure-reflective) now reachable via `source.target.reflectance` / `.albedo` (scalar) or `reflectance_path` / `albedo_path` (CSV — deferred, currently raises `ParameterBoundsError` with a clear action message).
+- S4/S5/S6 (pure-reflective) reachable via `source.target.reflectance` / `.albedo` (scalar) and via `reflectance_path` / `albedo_path` CSV (Gap G Step G.2, closed 2026-04-23).
 - S8, S10 wired at the YAML/params surface through Phase 4 / Phase 5.
 - Matrix axes (scene_type, target_location, shape) enforced at descriptor level (`src/radiant/core/descriptors.py`).
 - 36-cell spec-form coverage matrix ([`tests/integration/test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py)) green; aggregated into [`_use_case_coverage.json`](../tests/integration/_use_case_coverage.json) under the `spec_forms` block.
@@ -51,10 +52,10 @@
 
 | Aspect | Finding | Citation |
 |--------|---------|----------|
-| **User input path** | `source.target.temperature` + scalar ε lifted to spectral (S3 scalar-constant limit) through the inferrer. λ-varying ε(λ) at the YAML surface shares the deferred CSV-loader follow-up with S5/S11. | [`_inferrer.py`](../src/radiant/source/_inferrer.py) |
+| **User input path** | `source.target.temperature` + scalar ε lifted to spectral (S3 scalar-constant limit) through the inferrer.  A λ-varying ε(λ) CSV surface is not yet exposed; the Gap G shared two-column loader at [`_csv.py`](../src/radiant/source/converters/_csv.py) is the template if one is added later. | [`_inferrer.py`](../src/radiant/source/_inferrer.py) |
 | **Normalization** | T1Thermal(ε=SpectralData). | [`descriptors.py`](../src/radiant/core/descriptors.py) |
 | **Tests** | `test_inferrer.py`, [`test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) (S3 × 3) | — |
-| **Status** | ✅ **Fully supported** (scalar limit exercised; CSV path tracked in the follow-up loader task) |
+| **Status** | ✅ **Fully supported** (scalar limit exercised; no dedicated CSV surface — not needed for the current spec set) |
 
 ### S4 — Reflective scalar (ρ, E_illum)
 
@@ -70,10 +71,10 @@
 
 | Aspect | Finding | Citation |
 |--------|---------|----------|
-| **User input path** | Converter accepts λ-varying ρ; CSV loader for `source.target.reflectance_path` / `albedo_path` is deferred in lockstep with the S11 `brightness_temperature_path` loader. The inferrer raises a `ParameterBoundsError` with an action message pointing users to the scalar form or a manually-built `T2Reflective`. | [`_inferrer.py`](../src/radiant/source/_inferrer.py) (deferred-path raise at ~line 999) |
-| **Normalization** | Would become T2Reflective(rho=SpectralData). Converter already handles λ-varying ρ. | — |
-| **Tests** | Scalar limit covered by S4; CSV-path form recorded as `raise` in [`_use_case_coverage.json`](../tests/integration/_use_case_coverage.json) spec_forms block. | — |
-| **Status** | ⚠ **Scalar wired, CSV loader deferred** — flips to ✅ when the shared CSV loader lands. |
+| **User input path** | `source.target.reflectance_path` / `albedo_path` CSV routes through the shared two-column loader ([`_csv.py`](../src/radiant/source/converters/_csv.py)) into T2Reflective(rho=SpectralData). Scalar `source.target.reflectance` / `.albedo` path remains available. | [`_inferrer.py`](../src/radiant/source/_inferrer.py), [`_csv.py`](../src/radiant/source/converters/_csv.py) |
+| **Normalization** | T2Reflective(rho=SpectralData). | [`descriptors.py`](../src/radiant/core/descriptors.py) |
+| **Tests** | [`test_inferrer_reflective.py`](../src/radiant/source/tests/test_inferrer_reflective.py), [`test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) (S5 × 3 — extended exercises the CSV path via `albedo_path`, sub_pixel / point_source exercise the scalar path). | — |
+| **Status** | ✅ **Fully supported** |
 
 ### S6 — Albedo (α(λ), E_illum)
 
@@ -125,11 +126,11 @@
 
 | Aspect | Finding | Citation |
 |--------|---------|----------|
-| **User input path** | Scalar `source.target.brightness_temperature_K` wired through Phase 2 / Step 2.1 → T1Thermal(ε ≡ 1). λ-varying `brightness_temperature_path` CSV loader shares the deferred follow-up with S5. | [`src/radiant/source/converters/brightness_temperature.py`](../src/radiant/source/converters/brightness_temperature.py), [`test_brightness_temperature_converter.py`](../src/radiant/source/tests/test_brightness_temperature_converter.py) |
-| **Normalization** | Constant T_B → T1Thermal; λ-varying T_B would route to T6TabulatedAtSource (converter ready; CSV loader pending). | — |
-| **Validation** | T_B < 0 or > 10000 K → raise. | — |
-| **Tests** | [`test_brightness_temperature_converter.py`](../src/radiant/source/tests/test_brightness_temperature_converter.py), [`test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) (S11 × 3 scalar form) | — |
-| **Status** | ✅ **Fully supported** (scalar form; CSV path deferred) |
+| **User input path** | Scalar `source.target.brightness_temperature_K` → T1Thermal(ε ≡ 1); λ-varying `source.target.brightness_temperature_path` CSV routes through the shared two-column loader ([`_csv.py`](../src/radiant/source/converters/_csv.py)) into T6TabulatedAtSource via Planck per-λ conversion. | [`brightness_temperature.py`](../src/radiant/source/converters/brightness_temperature.py), [`_csv.py`](../src/radiant/source/converters/_csv.py) |
+| **Normalization** | Constant T_B → T1Thermal; λ-varying T_B → T6TabulatedAtSource. | — |
+| **Validation** | T_B ≤ 0 or > 10000 K → raise (scalar and per-sample on CSV). | — |
+| **Tests** | [`test_brightness_temperature_converter.py`](../src/radiant/source/tests/test_brightness_temperature_converter.py), [`test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) (S11 × 3 — extended exercises the CSV path, sub_pixel / point_source exercise the scalar path). | — |
+| **Status** | ✅ **Fully supported** |
 
 ### S12 — Radiance temperature in-band (T_R, band)
 
@@ -155,7 +156,7 @@
 
 **Status: ✅ CLOSED (Phase 2).**
 
-[`brightness_temperature.py`](../src/radiant/source/converters/brightness_temperature.py) and [`radiance_temperature.py`](../src/radiant/source/converters/radiance_temperature.py) with matching schema params and inferrer wiring. Scalar forms wired end-to-end; λ-varying CSV loaders share the deferred follow-up documented in Gap G.
+[`brightness_temperature.py`](../src/radiant/source/converters/brightness_temperature.py) and [`radiance_temperature.py`](../src/radiant/source/converters/radiance_temperature.py) with matching schema params and inferrer wiring. Scalar forms wired end-to-end; λ-varying `brightness_temperature_path` CSV delivered 2026-04-23 via the shared two-column loader (Gap G close-out).
 
 ### Gap C — ReflectanceDescriptor stub (Q4 resolution)
 
@@ -165,9 +166,9 @@
 
 ### Gap D — S4/S5/S6 reflective user-input paths
 
-**Status: ✅ CLOSED (Phase 3) for scalar forms.** CSV path (S5 spectral) deferred — see Gap G.
+**Status: ✅ CLOSED (Phase 3 + Gap G).**
 
-`source.target.reflectance` / `source.target.albedo` (scalar) wired through the inferrer; mutual exclusion with temperature and with each other enforced; MWIR warning fires per Rule 17.
+`source.target.reflectance` / `source.target.albedo` (scalar) wired through the inferrer in Phase 3; mutual exclusion with temperature and with each other enforced; MWIR warning fires per Rule 17. λ-varying `reflectance_path` / `albedo_path` CSVs delivered 2026-04-23 via the shared two-column loader (Gap G close-out).
 
 ### Gap E — S8 (user L at source)
 
@@ -181,11 +182,11 @@
 
 `source.target.user_intensity_path` CSV routes through `user_intensity_to_descriptor` → T7IntensityAtSource. Non-point-source inputs raise at the converter boundary.
 
-### Gap G — Shared CSV loader for spectral user inputs (**new, open**)
+### Gap G — Shared CSV loader for spectral user inputs
 
-| Finding | Impact | Next step |
-|---------|--------|-----------|
-| Three YAML-surface parameters share a common "scalar is wired, CSV path is not" state: `source.target.reflectance_path`, `source.target.albedo_path`, `source.target.brightness_temperature_path`. The underlying converters accept λ-varying inputs; only the file-loader + grid-interpolation + boundary-validation plumbing at the inferrer surface is missing. The inferrer raises a clear `ParameterBoundsError` with an action message pointing users to the scalar form or a manually-built descriptor. | Users working with measured ρ(λ) or T_B(λ) tables cannot hand their CSVs directly to a YAML scenario — they must drop to the scalar limit or build a descriptor manually. | Land a single `file → SpectralData` loader shared by all three paths, matching the style of the `user_radiance_path` / `user_intensity_path` loaders from Phases 4–5. Estimated ≤ 1 day; low risk; flips three cells of `_use_case_coverage.json` from `raise` to `pass`. |
+**Status: ✅ CLOSED (2026-04-23).**
+
+Shared two-column loader [`load_two_column_csv`](../src/radiant/source/converters/_csv.py) now powers `source.target.reflectance_path`, `source.target.albedo_path`, and `source.target.brightness_temperature_path`. The loader parses `λ [µm], value` rows, validates monotonic λ, and returns a `SpectralData` on the caller-supplied grid; per-sample bounds checks (0 ≤ ρ ≤ 1 for reflectance/albedo; 0 < T_B ≤ 10000 K for brightness temperature) happen inside the calling converter. Matrix coverage ([`test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py)) exercises each CSV path at the extended scene_type; the `_use_case_coverage.json` `spec_forms` block shows S5/S6/S11 all-pass.
 
 ### Gap H — Automatic `ScalarLambertianReflectance` wrap at assembly (**new, open, low priority**)
 
@@ -195,21 +196,21 @@
 
 ---
 
-## Summary Table: Spec Form Support (2026-04-22)
+## Summary Table: Spec Form Support (2026-04-23)
 
 | Form | Name | User input | Normalization | Validation | Tests | Status |
 |------|------|-----------|----------------|-----------|-------|--------------|
 | **S1** | Blackbody | ✅ (T, ε=1) | ✅ T1Thermal | ✅ | ✅ | ✅ Fully |
 | **S2** | Graybody scalar | ✅ (T, ε) | ✅ T1Thermal | ✅ | ✅ | ✅ Fully |
-| **S3** | Graybody spectral | ✅ (scalar limit) / ⚠ (CSV deferred — Gap G) | ✅ T1Thermal | ✅ | ✅ | ✅ Fully (scalar) |
+| **S3** | Graybody spectral | ✅ (scalar limit; no dedicated CSV surface) | ✅ T1Thermal | ✅ | ✅ | ✅ Fully |
 | **S4** | Reflective scalar | ✅ `.reflectance` | ✅ T2Reflective | ✅ | ✅ | ✅ Fully |
-| **S5** | Reflective spectral | ⚠ CSV deferred (Gap G) | ✅ T2Reflective | ✅ | ⚠ `raise` until loader lands | ⚠ Scalar wired |
-| **S6** | Albedo | ✅ `.albedo` | ✅ T2Reflective | ✅ | ✅ | ✅ Fully |
+| **S5** | Reflective spectral | ✅ `.reflectance_path` / `.albedo_path` CSV | ✅ T2Reflective | ✅ | ✅ | ✅ Fully |
+| **S6** | Albedo | ✅ `.albedo` (scalar) / `.albedo_path` (CSV) | ✅ T2Reflective | ✅ | ✅ | ✅ Fully |
 | **S7** | Mixed emit+reflect | ✅ (T, ε) | ✅ T3Mixed | ✅ | ✅ | ✅ Fully |
 | **S8** | User L at source | ✅ `.user_radiance_path` | ✅ T6TabulatedAtSource | ✅ | ✅ | ✅ Fully |
 | **S9** | User L at aperture | ✅ T5AtAperture | ✅ | ✅ (extended-only) | ✅ | ✅ Fully |
 | **S10** | Intensity point | ✅ `.user_intensity_path` | ✅ T7IntensityAtSource | ✅ (point_source-only) | ✅ | ✅ Fully |
-| **S11** | Brightness temp | ✅ `.brightness_temperature_K` / ⚠ CSV deferred (Gap G) | ✅ T1Thermal | ✅ | ✅ | ✅ Fully (scalar) |
+| **S11** | Brightness temp | ✅ `.brightness_temperature_K` (scalar) / `.brightness_temperature_path` (CSV) | ✅ T1Thermal / T6TabulatedAtSource | ✅ | ✅ | ✅ Fully |
 | **S12** | Radiance temp | ✅ `.radiance_temperature_K` + band | ✅ T1Thermal | ✅ | ✅ | ✅ Fully |
 
 ---
@@ -218,7 +219,6 @@
 
 | Priority | Item | Effort | Risk |
 |----------|------|--------|------|
-| P1 | Gap G — shared CSV loader for `reflectance_path`, `albedo_path`, `brightness_temperature_path` | ≤ 1 day | Low |
 | P3 | Gap H — automatic `ScalarLambertianReflectance` wrap at assembly | ≤ 0.5 day | Low (no user-facing impact) |
 
 ---
@@ -227,3 +227,4 @@
 
 - **2026-04-21**: Initial audit against pre-implementation codebase. 6 gaps (A–F) identified; 6 forms without user paths.
 - **2026-04-22**: Post-implementation update. Phases 1–7 delivered. Gaps A–F closed. Two new open items (G, H) surfaced by the Phase 7.1 coverage harness. 10 of 12 forms fully supported; S5 and S11 have scalar forms wired with CSV path deferred.
+- **2026-04-23**: Gap G closed. Shared two-column loader [`load_two_column_csv`](../src/radiant/source/converters/_csv.py) wired into `reflectance_path`, `albedo_path`, and `brightness_temperature_path` inferrer call sites; matrix now exercises the CSV surfaces for S5/S6/S11 at the extended scene; `_use_case_coverage.json` `spec_forms` block shows S5/S6/S11 all `pass`. All 12 forms now fully supported. Only Gap H (P3, no user-facing impact) remains open.

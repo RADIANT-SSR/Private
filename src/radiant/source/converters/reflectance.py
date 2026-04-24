@@ -17,6 +17,8 @@ Rule 19 — this module owns exactly the reflective boundary conversion.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 from radiant.core.descriptors import (
@@ -27,10 +29,48 @@ from radiant.core.descriptors import (
     TargetLocation,
 )
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.reflectance import ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
+from radiant.source.converters._csv import load_two_column_csv
 
 _RHO_MIN: float = 0.0
 _RHO_MAX: float = 1.0
+
+
+def load_reflectance_csv(
+    path: Path | str, *, is_albedo: bool
+) -> SpectralData:
+    """Load a two-column ``(wavelength_um, rho)`` CSV into SpectralData.
+
+    Delegates to the shared :func:`load_two_column_csv` reader with
+    dimensionless unit.  Caller owns validation (``ρ ∈ [0, 1]``) and
+    resampling onto the chain grid — this function is a pure transport.
+
+    Parameters
+    ----------
+    path:
+        Filesystem path to the CSV.  Columns are
+        ``(wavelength_um, reflectance)`` — the second column is a
+        dimensionless fraction in ``[0, 1]``.  Header row auto-detected.
+    is_albedo:
+        Cosmetic flag controlling the ``column_label`` embedded in
+        error messages.  S5 (``reflectance_path``) and S6
+        (``albedo_path``) are aliases for the same quantity; this lets
+        errors point back to whichever parameter surface the user set.
+
+    Returns
+    -------
+    SpectralData
+        ρ(λ) on the CSV's native wavelength grid, unit ``"dimensionless"``.
+    """
+    column_label = "albedo" if is_albedo else "reflectance"
+    return load_two_column_csv(
+        path,
+        value_unit="dimensionless",
+        column_label=column_label,
+        sd_name="source.target.reflectance",
+        sd_source_prefix="source.converters.reflectance",
+    )
 
 
 def _lift_scalar_rho(
@@ -166,15 +206,21 @@ def reflectance_to_descriptor(
 
     _validate_rho(np.asarray(rho_sd.values, dtype=np.float64))
 
+    # Gap H: wrap the SpectralData into a ReflectanceDescriptor adapter so
+    # T2Reflective.rho is always protocol-typed.  Scalar-Lambertian adapter
+    # is an identity on the chain grid — no physics drift.  MWIR §3.2 warn
+    # fires at the descriptor level on the adapter's stored grid.
+    rho_descriptor = ScalarLambertianReflectance(reflectance=rho_sd)
+
     return T2Reflective(
         scene_type=scene_type,
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
-        rho=rho_sd,
+        rho=rho_descriptor,
         A_t=A_t,
         shape=shape,
     )
 
 
-__all__ = ["reflectance_to_descriptor"]
+__all__ = ["load_reflectance_csv", "reflectance_to_descriptor"]

@@ -11,18 +11,18 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.api._param_registry import build_parameter_set
-from radiant.core.chain import ChainRunner
-from radiant.core.parameters import ParameterSet
-from radiant.io.results import ChainResult
 
 # Stage imports — only api/ may import all physics stages.
 from radiant.atmosphere.stage import AtmosphereStage
+from radiant.core.chain import ChainRunner
+from radiant.core.parameters import ParameterSet
 from radiant.detector.stage import DetectorStage
+from radiant.io.results import ChainResult
 from radiant.optics.stage import OpticsStage
+from radiant.performance.stage import PerformanceStage
 from radiant.platform.stage import PlatformStage
 from radiant.readout.stage import ReadoutStage
 from radiant.source.stage import SourceStage
-from radiant.performance.stage import PerformanceStage
 from radiant.spectral_integration.stage import SpectralIntegrationStage
 
 

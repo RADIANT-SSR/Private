@@ -23,7 +23,6 @@ from radiant.platform.sampling import (
     pixel_aperture_mtf_2d,
 )
 
-
 # ---------------------------------------------------------------------------
 # pixel_aperture_mtf_1d — Truth Anchor: analytic sinc
 # ---------------------------------------------------------------------------

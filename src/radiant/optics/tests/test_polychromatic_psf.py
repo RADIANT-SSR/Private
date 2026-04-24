@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from radiant.optics.psf_mono import compute_psf
-from radiant.optics.psf_poly import PolychromaticPSFResult, compute_polychromatic_psf
+from radiant.optics.psf_poly import compute_polychromatic_psf
 from radiant.optics.sampling import compute_sampling
 
 # Reference system: MWIR, D=0.30m, f=1.20m, pitch=18µm

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
-
 
 # ---------------------------------------------------------------------------
 # RadiometricFrame

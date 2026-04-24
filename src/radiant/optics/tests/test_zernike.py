@@ -25,7 +25,6 @@ from radiant.optics.zernike import (
 )
 from radiant.optics.zernike_opd import evaluate_zernike_opd
 
-
 # ---------------------------------------------------------------------------
 # Noll indexing
 # ---------------------------------------------------------------------------

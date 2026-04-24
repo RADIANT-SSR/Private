@@ -53,7 +53,7 @@ class EffectivePSF:
 
     def with_kernel(
         self, name: str, kernel: npt.NDArray[np.float64]
-    ) -> "EffectivePSF":
+    ) -> EffectivePSF:
         """Return a new EffectivePSF with an additional kernel convolved in.
 
         Uses FFT-based convolution, identical to ``build_effective_psf``.

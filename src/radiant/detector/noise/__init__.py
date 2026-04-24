@@ -11,9 +11,9 @@ Family modules:
 
 from radiant.core.noise_budget import (
     ALL_NOISE_TERMS,
-    NoiseBudget,
     SPATIAL_TERMS,
     TEMPORAL_TERMS,
+    NoiseBudget,
 )
 from radiant.detector.noise.budget import compute_noise_budget
 

@@ -29,7 +29,6 @@ from radiant.atmosphere.exo import ExoAtmosphere
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.core.los_geometry import LineOfSightGeometry
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

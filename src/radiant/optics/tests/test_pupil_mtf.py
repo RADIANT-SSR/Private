@@ -13,15 +13,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from radiant.optics.psf_mono import compute_psf
 from radiant.optics.psf.builder import build_effective_psf
+from radiant.optics.psf_mono import compute_psf
+from radiant.optics.psf_poly import compute_polychromatic_psf
 from radiant.optics.pupil_amplitude import make_pupil_amplitude
 from radiant.optics.pupil_mtf import (
     polychromatic_pupil_mtf,
     pupil_autocorrelation_mtf_1d,
     pupil_autocorrelation_mtf_2d,
 )
-from radiant.optics.psf_poly import compute_polychromatic_psf
 from radiant.optics.pupil_phase import make_pupil_phase_zernike
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode

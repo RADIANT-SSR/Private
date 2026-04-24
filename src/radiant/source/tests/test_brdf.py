@@ -18,7 +18,6 @@ import pytest
 from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.brdf_phong import PhongBRDF
 
-
 WAV = np.linspace(3.0, 5.0, 100)
 
 

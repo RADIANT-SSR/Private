@@ -12,17 +12,14 @@ See RADIANT_Spatial_Complete.md §2, §9.
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
-from radiant.optics.psf_mono import compute_psf
+from radiant.optics.psf.builder import build_effective_psf
 from radiant.optics.psf.data import PSFData
 from radiant.optics.psf.effective import EffectivePSF
-from radiant.optics.psf.builder import build_effective_psf
-from radiant.optics.sampling import compute_sampling, PSFSamplingConfig
-
+from radiant.optics.psf_mono import compute_psf
+from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 
 # ---------------------------------------------------------------------------
 # Standard config

@@ -48,7 +48,6 @@ from radiant.atmosphere.simple import (
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 
-
 # ---------------------------------------------------------------------------
 # Helpers (shared with test_evaluate.py patterns)
 # ---------------------------------------------------------------------------

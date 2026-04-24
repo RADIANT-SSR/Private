@@ -28,7 +28,7 @@ import numpy.typing as npt
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
-from radiant.api.sweep import SweepResult, Sweep2DResult, sweep, sweep_2d
+from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.core.parameters import ParameterSet, Provenance, Tolerance
 from radiant.io.config import load_config
@@ -393,7 +393,7 @@ class Sensor:
             outputs = result.stage_outputs.get(stage_name, {})
             for key, val in sorted(outputs.items()):
                 lines.append(f"  {key}: {_format_value(val)}")
-        lines.append(f"\n--- Metrics ---")
+        lines.append("\n--- Metrics ---")
         for name, val in sorted(result.metrics.items()):
             lines.append(f"  {name}: {val:.6g}")
         return "\n".join(lines)

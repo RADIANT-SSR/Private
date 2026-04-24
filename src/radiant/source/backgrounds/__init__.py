@@ -1,6 +1,6 @@
 """Background source models — blackbody, tabulated, and constant."""
 
-from radiant.source.backgrounds.blackbody import BlackbodyBackground, CMB_BACKGROUND
+from radiant.source.backgrounds.blackbody import CMB_BACKGROUND, BlackbodyBackground
 from radiant.source.backgrounds.constant import ConstantBackground
 from radiant.source.backgrounds.tabulated import TabulatedBackground
 

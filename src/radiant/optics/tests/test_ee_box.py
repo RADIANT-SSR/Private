@@ -11,15 +11,13 @@ See RADIANT_Spatial_Complete.md §2, CLAUDE.md Rule 9.
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
-from radiant.optics.psf_mono import compute_psf
 from radiant.optics.ee_box import compute_ee_box
-from radiant.optics.psf.effective import EffectivePSF
 from radiant.optics.psf.builder import build_effective_psf
+from radiant.optics.psf.effective import EffectivePSF
+from radiant.optics.psf_mono import compute_psf
 from radiant.optics.sampling import compute_sampling
-
 
 WAVELENGTH_M = 4.0e-6
 FOCAL_LENGTH_M = 1.50

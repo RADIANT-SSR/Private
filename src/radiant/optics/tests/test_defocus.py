@@ -16,7 +16,6 @@ import pytest
 
 from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
 
-
 # ---------------------------------------------------------------------------
 # defocus_sigma_m
 # ---------------------------------------------------------------------------

@@ -10,8 +10,6 @@ See RADIANT_Source_Target_System.md §4.
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
@@ -19,7 +17,6 @@ from radiant.core.blackbody import planck_spectral_radiance
 from radiant.source.combined import CombinedSource
 from radiant.source.emitted import ThermalSource
 from radiant.source.material import SurfaceMaterial
-
 
 WAV = np.linspace(3.0, 5.0, 200)
 

@@ -18,8 +18,6 @@ RADIANT_Detector_Complete.md §3.3.
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import numpy.typing as npt
 

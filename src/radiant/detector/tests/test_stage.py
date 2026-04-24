@@ -13,10 +13,10 @@ import numpy as np
 import pytest
 
 from radiant.core.chain import ChainState
+from radiant.core.noise_budget import NoiseBudget
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
-from radiant.core.noise_budget import NoiseBudget
 from radiant.detector.stage import DetectorStage
 from radiant.readout._schema import ALL_PARAMETERS as RO_PARAMS
 from radiant.spectral_integration._schema import ALL_PARAMETERS as SI_PARAMS

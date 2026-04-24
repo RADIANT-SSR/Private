@@ -19,16 +19,15 @@ import pytest
 from scipy.special import j1  # type: ignore[import-untyped]
 
 from radiant.optics.psf_mono import compute_psf
-from radiant.optics.pupil_amplitude import make_pupil_amplitude
-from radiant.optics.pupil_phase import make_pupil_phase
 from radiant.optics.psf_poly import (
     PolychromaticPSFResult,
     compute_polychromatic_psf,
 )
-from radiant.optics.strehl import compute_strehl
+from radiant.optics.pupil_amplitude import make_pupil_amplitude
+from radiant.optics.pupil_phase import make_pupil_phase
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
+from radiant.optics.strehl import compute_strehl
 from radiant.optics.wavefront import WavefrontError, WfeMode
-
 
 # ---------------------------------------------------------------------------
 # Standard test configuration — high-resolution for accuracy

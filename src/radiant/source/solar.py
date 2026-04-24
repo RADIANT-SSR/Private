@@ -17,7 +17,6 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from radiant.core.constants import au_m
 from radiant.core.solar import toa_solar_spectral_irradiance
 
 

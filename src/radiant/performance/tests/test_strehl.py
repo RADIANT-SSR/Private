@@ -20,17 +20,16 @@ import pytest
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
-from radiant.performance.strehl import compute_strehl
-from radiant.performance.stage import _compute_strehl_metric
-
 from radiant.optics._schema import (
     APERTURE_DIAMETER_M,
-    FOCAL_LENGTH_M,
     F_NUMBER,
+    FOCAL_LENGTH_M,
     WFE_REFERENCE_WAVELENGTH_UM,
     WFE_RMS_WAVES,
 )
-from radiant.spectral_integration._schema import FILTER_MIN_UM, FILTER_MAX_UM
+from radiant.performance.stage import _compute_strehl_metric
+from radiant.performance.strehl import compute_strehl
+from radiant.spectral_integration._schema import FILTER_MAX_UM, FILTER_MIN_UM
 
 
 def _make_params(

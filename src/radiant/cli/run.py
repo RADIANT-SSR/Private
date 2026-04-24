@@ -10,8 +10,8 @@ from pathlib import Path
 import click
 import numpy as np
 
-from radiant.cli._common import coerce_value, load_sensor, parse_overrides, set_option
 from radiant.api.session import RadiantSession
+from radiant.cli._common import coerce_value, parse_overrides, set_option
 from radiant.io.config import ConfigError, load_config
 
 

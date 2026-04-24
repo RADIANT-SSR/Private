@@ -13,12 +13,11 @@ import pytest
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
+from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
+from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
 from radiant.optics.psf.effective import EffectivePSF
 from radiant.optics.stage import OpticsStage
 from radiant.optics.wavefront import WavefrontError, WfeMode
-
-from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
-from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
 
 
 def _make_state(wl: np.ndarray) -> ChainState:

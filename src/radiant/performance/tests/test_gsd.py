@@ -13,21 +13,18 @@ import math
 import numpy as np
 import pytest
 
-from radiant.core.chain import ChainState
-from radiant.core.geometry import (
-    incidence_angle_rad,
-    slant_range_spherical_m,
-    EARTH_RADIUS_M,
-)
-from radiant.core.parameters import ParameterSet
-from radiant.performance.gsd import GSDResult, compute_gsd
-from radiant.performance.stage import _compute_gsd_metrics
-
 from radiant.atmosphere._schema import (
     GROUND_SPEED_M_S,
     PATH_ZENITH_RAD,
     SENSOR_ALTITUDE_M,
 )
+from radiant.core.chain import ChainState
+from radiant.core.geometry import (
+    EARTH_RADIUS_M,
+    incidence_angle_rad,
+    slant_range_spherical_m,
+)
+from radiant.core.parameters import ParameterSet
 from radiant.detector._schema import (
     N_PIXELS_CROSS,
     PIXEL_PITCH_X,
@@ -37,6 +34,8 @@ from radiant.optics._schema import (
     APERTURE_DIAMETER_M,
     FOCAL_LENGTH_M,
 )
+from radiant.performance.gsd import GSDResult, compute_gsd
+from radiant.performance.stage import _compute_gsd_metrics
 
 
 def _make_params(

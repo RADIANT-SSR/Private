@@ -9,10 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-import pytest
 
 from radiant.performance.consistency_check import (
-    DualPathConsistencyResult,
     check_dual_path_consistency,
 )
 

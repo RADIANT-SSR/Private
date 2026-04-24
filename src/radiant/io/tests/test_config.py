@@ -13,8 +13,7 @@ import yaml
 
 from radiant.api._param_registry import build_parameter_set
 from radiant.core.parameters import Provenance
-from radiant.io.config import ConfigError, load_config, save_config, _flatten, _unflatten
-
+from radiant.io.config import ConfigError, _flatten, _unflatten, load_config, save_config
 
 # ---------------------------------------------------------------------------
 # Flatten / unflatten helpers

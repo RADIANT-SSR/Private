@@ -15,9 +15,8 @@ import numpy as np
 import pytest
 
 from radiant.source.composite import CompositeTarget
-from radiant.source.shapes import Box, Cylinder, FlatPlate, Sphere
 from radiant.source.shape import TargetShape
-
+from radiant.source.shapes import Box, Cylinder, FlatPlate, Sphere
 
 VZ = np.array([0.0, 0.0, 1.0])
 VX = np.array([1.0, 0.0, 0.0])

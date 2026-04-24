@@ -27,7 +27,6 @@ from radiant.core.parameters import ParameterBoundsError
 from radiant.optics.psf.effective import EffectivePSF
 from radiant.optics.stage import _validate_psf_regime_consistency
 
-
 # ---------------------------------------------------------------------------
 # Helper: build a minimal EffectivePSF with a known FWHM
 # ---------------------------------------------------------------------------

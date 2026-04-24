@@ -11,7 +11,6 @@ import pytest
 
 from radiant.performance.turbulence_mtf_term import kolmogorov_mtf_1d
 
-
 WAVELENGTH_M = 4.0e-6
 FOCAL_LENGTH_M = 1.0
 

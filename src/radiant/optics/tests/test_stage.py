@@ -11,13 +11,12 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
-from radiant.optics.psf.effective import EffectivePSF
-from radiant.optics.stage import OpticsStage
-from radiant.optics.element import ElementTransferMode
-from radiant.optics.wavefront import FieldWfeSample, WavefrontError, WfeMode
-
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
 from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
+from radiant.optics.element import ElementTransferMode
+from radiant.optics.psf.effective import EffectivePSF
+from radiant.optics.stage import OpticsStage
+from radiant.optics.wavefront import FieldWfeSample, WavefrontError, WfeMode
 
 
 def _make_state(wl: np.ndarray) -> ChainState:
@@ -73,7 +72,7 @@ class TestOpticsStage:
         out = OpticsStage().run(_make_state(wl), _make_params(D=D))
         A = out.stage_outputs["optics"]["A_collect"]
         expected = math.pi / 4.0 * D ** 2
-        assert A == pytest.approx(expected, rel=1e-10)
+        assert pytest.approx(expected, rel=1e-10) == A
 
     def test_Omega_pixel(self, wl: np.ndarray) -> None:
         pitch_m = 18e-6  # input is µm, schema converts to m

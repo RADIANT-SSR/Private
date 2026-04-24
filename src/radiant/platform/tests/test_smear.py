@@ -11,13 +11,10 @@ See RADIANT_Spatial_Complete.md §7.
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
 from radiant.platform.smear import smear_kernel_1d, smear_mtf_1d, smear_width_m
-
 
 # ---------------------------------------------------------------------------
 # smear_mtf_1d — Truth Anchor: analytic sinc

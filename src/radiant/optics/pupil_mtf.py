@@ -26,7 +26,7 @@ import numpy.typing as npt
 
 from radiant.optics.pupil_amplitude import make_pupil_amplitude
 from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
-from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
+from radiant.optics.sampling import compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode
 
 

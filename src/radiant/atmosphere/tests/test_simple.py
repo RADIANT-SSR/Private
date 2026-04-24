@@ -51,7 +51,6 @@ from radiant.atmosphere.protocol import (
 )
 from radiant.atmosphere.simple import (
     H_AER_M,
-    H_H2O_M,
     H_MOL_M,
     KOSCHMIEDER,
     RAYLEIGH_COEFF_KM,
@@ -409,7 +408,7 @@ def test_orbital_altitude_high_transmittance() -> None:
     # Must be physically reasonable: nonzero and in (0, 1).
     # The old code gave τ ≈ 10⁻⁵⁶ here; the fix gives τ ≈ 0.5–0.6.
     assert np.all(tau > 0.3), f"τ at 500 km LEO in MWIR window = {tau}, expected > 0.3"
-    assert np.all(tau < 1.0), f"τ at 500 km should be < 1 (some atmosphere remains)"
+    assert np.all(tau < 1.0), "τ at 500 km should be < 1 (some atmosphere remains)"
 
 
 def test_orbital_altitude_column_od_hand_calc() -> None:

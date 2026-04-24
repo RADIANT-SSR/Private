@@ -19,7 +19,6 @@ import pytest
 from radiant.source.emitted import ThermalSource
 from radiant.source.sub_pixel import SubPixelSource
 
-
 WAV = np.linspace(3.0, 5.0, 200)
 
 

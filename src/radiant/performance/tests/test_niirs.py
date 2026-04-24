@@ -95,7 +95,7 @@ def _make_niirs_params(
     filter_max_um: float = 0.70,
 ) -> ParameterSet:
     """Build a minimal ParameterSet with filter bounds for NIIRS wiring."""
-    from radiant.spectral_integration._schema import FILTER_MIN_UM, FILTER_MAX_UM
+    from radiant.spectral_integration._schema import FILTER_MAX_UM, FILTER_MIN_UM
 
     schema = [FILTER_MIN_UM, FILTER_MAX_UM]
     ps = ParameterSet(schema)

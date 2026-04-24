@@ -770,7 +770,7 @@ def raise_if_epsilon_and_rho_both_set(
 
 
 def warn_if_reflective_and_sun_below_horizon(
-    target: "TargetDescriptor",
+    target: TargetDescriptor,
     theta_s: float | None,
 ) -> None:
     """Matrix §7 check: T2Reflective with solar zenith below horizon.

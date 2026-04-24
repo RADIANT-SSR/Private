@@ -993,4 +993,6 @@ class SimpleAtmosphere:
 
 # Re-export the spherical ceiling so evaluate() above can clamp sun zenith
 # without importing from protocol.py inside the method body.
-from radiant.atmosphere.protocol import ZENITH_CEILING_RAD as ZENITH_CEILING_RAD_SIMPLE  # noqa: E402
+from radiant.atmosphere.protocol import (
+    ZENITH_CEILING_RAD as ZENITH_CEILING_RAD_SIMPLE,  # noqa: E402
+)

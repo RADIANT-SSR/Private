@@ -48,7 +48,6 @@ from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.core.los_geometry import LineOfSightGeometry
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

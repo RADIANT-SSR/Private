@@ -16,15 +16,13 @@ Validates:
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterDef, ParameterSet
-from radiant.optics.psf.effective import EffectivePSF
+from radiant.core.parameters import ParameterSet
 from radiant.optics.psf.builder import build_effective_psf
+from radiant.optics.psf.effective import EffectivePSF
 from radiant.platform.stage import PlatformStage
 
 
@@ -59,8 +57,8 @@ def _make_diffraction_psf(
 
 def _make_params(**overrides: object) -> ParameterSet:
     """Build a minimal ParameterSet with platform + optics params."""
-    from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS
     from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
+    from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS
 
     schema = list(PLAT_PARAMS + OPT_PARAMS)
     ps = ParameterSet(schema, [])
@@ -382,8 +380,8 @@ def _make_smear_params(**overrides: object) -> ParameterSet:
     needed for velocity-based smear computation.
     """
     from radiant.atmosphere._schema import (
-        SENSOR_ALTITUDE_M,
         PATH_ZENITH_RAD,
+        SENSOR_ALTITUDE_M,
     )
     from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
     from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS

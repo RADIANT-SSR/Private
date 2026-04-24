@@ -17,9 +17,8 @@ import math
 import numpy as np
 import pytest
 
-from radiant.source.shapes import Box, Cone, Cylinder, FlatPlate, Sphere
 from radiant.source.shape import TargetShape
-
+from radiant.source.shapes import Box, Cone, Cylinder, FlatPlate, Sphere
 
 # View direction helpers (unit vectors in scene frame)
 VZ = np.array([0.0, 0.0, 1.0])  # broadside / end-on / normal

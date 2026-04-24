@@ -8,8 +8,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-import numpy.typing as npt
 import numpy as np
+import numpy.typing as npt
 
 from radiant.source.shapes._helpers import validate_positive
 

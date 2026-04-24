@@ -20,8 +20,6 @@ See RADIANT_Spatial_Complete.md §6, §7.
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import numpy.typing as npt
 

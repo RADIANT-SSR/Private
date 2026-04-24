@@ -26,7 +26,6 @@ from radiant.source.combined import CombinedSource
 from radiant.source.emitted import ThermalSource
 from radiant.source.reflected import ReflectedSolarSource
 
-
 WAV = np.linspace(3.0, 5.0, 200)
 
 

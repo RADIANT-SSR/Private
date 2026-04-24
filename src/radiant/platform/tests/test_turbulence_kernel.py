@@ -12,7 +12,6 @@ import pytest
 
 from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
 
-
 WAVELENGTH_M = 4.0e-6
 FOCAL_LENGTH_M = 1.0
 SAMPLE_SPACING_M = 2.5e-6

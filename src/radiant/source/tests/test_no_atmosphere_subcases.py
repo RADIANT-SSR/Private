@@ -31,7 +31,6 @@ path without requiring the full YAML-driven chain.
 
 from __future__ import annotations
 
-import math
 import warnings
 
 import numpy as np
@@ -47,14 +46,11 @@ from radiant.core.descriptors import (
     ColdSpaceBackground,
     GroundBackground,
     T1Thermal,
-    T2Reflective,
-    T3Mixed,
     UserSpectralBackground,
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.spectral import SpectralData
-
 
 # ---------------------------------------------------------------------------
 # Helpers

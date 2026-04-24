@@ -11,12 +11,11 @@ import pytest
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
+from radiant.detector._schema import PIXEL_PITCH_X, PIXEL_PITCH_Y
+from radiant.optics._schema import APERTURE_DIAMETER_M, F_NUMBER, FOCAL_LENGTH_M
 from radiant.performance.qsample import SamplingResult, compute_q
 from radiant.performance.stage import _compute_q_metrics
-
-from radiant.detector._schema import PIXEL_PITCH_X, PIXEL_PITCH_Y
-from radiant.optics._schema import APERTURE_DIAMETER_M, FOCAL_LENGTH_M, F_NUMBER
-from radiant.spectral_integration._schema import FILTER_MIN_UM, FILTER_MAX_UM
+from radiant.spectral_integration._schema import FILTER_MAX_UM, FILTER_MIN_UM
 
 
 def _make_params(

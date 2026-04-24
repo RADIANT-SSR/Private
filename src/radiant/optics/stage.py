@@ -50,8 +50,15 @@ from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
 from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
 from radiant.optics.diffusion_kernel import make_diffusion_kernel_2d
+from radiant.optics.element import ElementTransferMode
+from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
 from radiant.optics.pixel_kernel import make_pixel_aperture_kernel_2d
+from radiant.optics.psf.builder import build_effective_psf
+from radiant.optics.psf.effective import EffectivePSF
 from radiant.optics.psf_mono import compute_psf
+from radiant.optics.psf_poly import (
+    compute_polychromatic_psf,
+)
 from radiant.optics.pupil_amplitude import make_pupil_amplitude
 from radiant.optics.pupil_mtf import (
     polychromatic_pupil_mtf,
@@ -59,13 +66,6 @@ from radiant.optics.pupil_mtf import (
     pupil_autocorrelation_mtf_2d,
 )
 from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
-from radiant.optics.psf_poly import (
-    PolychromaticPSFResult,
-    compute_polychromatic_psf,
-)
-from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
-from radiant.optics.psf.effective import EffectivePSF
-from radiant.optics.psf.builder import build_effective_psf
 from radiant.optics.sampling import compute_sampling
 from radiant.optics.stray_light import (
     StrayLightConfig,
@@ -76,7 +76,6 @@ from radiant.optics.transmission_modes import (
     TransmissionInputMode,
     resolve_transmission,
 )
-from radiant.optics.element import ElementTransferMode
 from radiant.optics.wavefront import FieldWfeSample, WavefrontError, WfeMode
 
 logger = logging.getLogger(__name__)

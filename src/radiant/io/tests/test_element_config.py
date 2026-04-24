@@ -131,7 +131,7 @@ class TestLoadElementList:
         # Write a CSV file.
         csv_path = tmp_path / "gold_reflectance.csv"
         csv_path.write_text("# wavelength_um, reflectance\n3.0, 0.98\n5.0, 0.97\n")
-        content = textwrap.dedent(f"""\
+        content = textwrap.dedent("""\
             optical_elements:
               - name: gold_mirror
                 transfer_mode: REFLECTIVE

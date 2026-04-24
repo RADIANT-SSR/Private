@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import pytest
 
 from radiant.core.chain import ChainRunner, ChainState
-from radiant.core.parameters import ParameterDef, ParameterSet
+from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
-
 
 # ---------------------------------------------------------------------------
 # ChainState

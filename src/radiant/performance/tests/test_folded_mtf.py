@@ -16,7 +16,6 @@ import pytest
 
 from radiant.performance.folded_mtf import FoldedMTFResult, compute_folded_mtf
 
-
 # Reference system constants
 PIXEL_PITCH_M = 18e-6
 F_NYQUIST = 1.0 / (2.0 * PIXEL_PITCH_M)  # ~27778 cycles/m

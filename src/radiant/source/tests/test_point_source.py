@@ -18,7 +18,6 @@ from radiant.core.spectral import SpectralData
 from radiant.source.point_source_blackbody import BlackbodyIntensitySource
 from radiant.source.point_source_direct import DirectIntensitySource
 
-
 WAV = np.linspace(3.0, 5.0, 200)
 
 

@@ -16,22 +16,11 @@ import pytest
 from radiant.core.constants import k_B, q
 from radiant.core.noise_budget import ALL_NOISE_TERMS, SPATIAL_TERMS, TEMPORAL_TERMS
 from radiant.detector.noise.budget import compute_noise_budget
-from radiant.detector.noise.photon import (
-    background_shot_noise,
-    nearfield_shot_noise,
-    signal_shot_noise,
-    straylight_shot_noise,
-)
 from radiant.detector.noise.detector_material import (
     dark_shot_noise,
     flicker_1f_noise,
     gr_noise,
     johnson_noise,
-)
-from radiant.detector.noise.roic import (
-    ktc_reset_noise,
-    quantization_noise,
-    read_noise_term,
 )
 from radiant.detector.noise.fixed_pattern import (
     clutter_noise,
@@ -41,6 +30,17 @@ from radiant.detector.noise.fixed_pattern import (
 from radiant.detector.noise.other import (
     glow_shot_noise,
     persistence_noise,
+)
+from radiant.detector.noise.photon import (
+    background_shot_noise,
+    nearfield_shot_noise,
+    signal_shot_noise,
+    straylight_shot_noise,
+)
+from radiant.detector.noise.roic import (
+    ktc_reset_noise,
+    quantization_noise,
+    read_noise_term,
 )
 
 # ---------------------------------------------------------------------------

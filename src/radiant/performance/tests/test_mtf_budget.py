@@ -9,8 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from radiant.performance.mtf_budget import MTFBudgetResult, compute_mtf_budget
-
+from radiant.performance.mtf_budget import compute_mtf_budget
 
 PIXEL_PITCH_M = 15e-6
 FOCAL_LENGTH_M = 1.0

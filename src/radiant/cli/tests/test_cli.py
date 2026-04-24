@@ -13,7 +13,6 @@ from click.testing import CliRunner
 
 from radiant.cli.main import cli
 
-
 EXAMPLE_YAML = Path(__file__).parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
 

@@ -30,7 +30,6 @@ import numpy.typing as npt
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
 
-
 # ---------------------------------------------------------------------------
 # Stage protocol
 # ---------------------------------------------------------------------------

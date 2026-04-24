@@ -11,7 +11,6 @@ import pytest
 from radiant.core.spectral import SpectralData
 from radiant.source.tabulated import TabulatedRadianceSource
 
-
 WAV = np.linspace(3.0, 5.0, 200)
 
 

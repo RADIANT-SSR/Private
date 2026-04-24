@@ -24,8 +24,7 @@ import numpy.typing as npt
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from radiant.api.sweep import SweepResult, Sweep2DResult
-    from radiant.core.radiometry import NoiseTerm
+    from radiant.api.sweep import Sweep2DResult, SweepResult
     from radiant.optics.psf.effective import EffectivePSF
 
 logger = logging.getLogger(__name__)

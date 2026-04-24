@@ -17,13 +17,12 @@ from radiant.api.plot import (
     plot_sweep,
     plot_sweep_2d,
 )
-from radiant.api.sweep import SweepResult, Sweep2DResult
+from radiant.api.sweep import Sweep2DResult, SweepResult
 
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
 
 from matplotlib.figure import Figure
-
 
 # -- Fixtures --------------------------------------------------------------
 

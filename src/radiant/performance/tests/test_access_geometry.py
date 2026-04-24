@@ -21,7 +21,6 @@ from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.ground_range import compute_ground_range_m
 from radiant.performance.swath_width import compute_swath_width_m
 
-
 # ---------------------------------------------------------------------------
 # Ground range
 # ---------------------------------------------------------------------------

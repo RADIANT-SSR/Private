@@ -8,13 +8,9 @@ See RADIANT_Spatial_Complete.md §4 for the derivation.
 
 from __future__ import annotations
 
-import math
-
-import numpy as np
 import pytest
 
-from radiant.optics.sampling import PSFSamplingConfig, compute_sampling, _next_power_of_2
-
+from radiant.optics.sampling import PSFSamplingConfig, _next_power_of_2, compute_sampling
 
 # ---------------------------------------------------------------------------
 # Reference parameters (MWIR, f/5)

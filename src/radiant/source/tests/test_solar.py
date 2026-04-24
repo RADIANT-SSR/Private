@@ -16,7 +16,6 @@ import pytest
 from radiant.core.solar import toa_solar_spectral_irradiance
 from radiant.source.solar import solar_irradiance_at_target
 
-
 WAV = np.linspace(0.3, 5.0, 200)
 
 

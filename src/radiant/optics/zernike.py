@@ -149,9 +149,8 @@ def zernike_polynomial(
 
     if m > 0:
         return norm * R * np.cos(m_abs * theta)
-    elif m < 0:
+    if m < 0:
         return norm * R * np.sin(m_abs * theta)
-    else:
-        return norm * R
+    return norm * R
 
 

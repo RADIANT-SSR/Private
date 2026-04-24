@@ -20,7 +20,6 @@ from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.brdf_phong import PhongBRDF
 from radiant.source.reflected import ReflectedSolarSource
 
-
 WAV = np.linspace(0.4, 2.5, 200)
 
 

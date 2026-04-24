@@ -13,10 +13,9 @@ import pytest
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
-from radiant.core.radiometry import NoiseTerm, RadiometricFrame
-from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.nedl import compute_nedl
 from radiant.performance.nedr import compute_nedr
+from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.stage import _compute_nedt_metric
 
 
@@ -173,7 +172,7 @@ def _make_nedt_params(
 ) -> ParameterSet:
     """Build a minimal ParameterSet for NEDT wiring test."""
     from radiant.source._schema import TARGET_TEMPERATURE
-    from radiant.spectral_integration._schema import FILTER_MIN_UM, FILTER_MAX_UM
+    from radiant.spectral_integration._schema import FILTER_MAX_UM, FILTER_MIN_UM
 
     schema = [TARGET_TEMPERATURE, FILTER_MIN_UM, FILTER_MAX_UM]
     ps = ParameterSet(schema)

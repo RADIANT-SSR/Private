@@ -11,12 +11,12 @@ are excluded from the product comparison.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 
 # MTF terms that are NOT convolved into the ePSF and should be
 # excluded from the dual-path comparison.

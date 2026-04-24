@@ -1,5 +1,12 @@
 # Gap H — Automatic `ScalarLambertianReflectance` Wrap at Assembly
 
+**Status: ✅ COMPLETE (2026-04-24).**  Delivered in three commits on `main`:
+- **H.1 + H.3 (bundled, `48bdf73`)** — `T2Reflective.rho` narrowed to `ReflectanceDescriptor | None`; [`reflectance_to_descriptor`](../src/radiant/source/converters/reflectance.py) wraps scalar + CSV ρ into `ScalarLambertianReflectance`; MWIR §3.2 warn fires on the adapter; all downstream tests ported to the protocol surface.  Bundled with Gap G close-out because the type-boundary entanglement made a clean split infeasible without breaking the regression gate.
+- **H.2 (`cf6a94d`)** — `_assemble_t2` / `_components_t2` derive view / illumination unit vectors from `LineOfSightGeometry` via `_view_illum_from_los` and pass them through the protocol call.  Spy-descriptor tests in `TestGapH2_ViewIllumFromLOS` guard the vectors and confirm bit-identical output vs. the Lambertian reference.
+- **H.4 (this commit)** — docs close-out: Gap H marked CLOSED in all three tracking docs; Remaining Work emptied.
+
+---
+
 **Scope**: make good on the Phase 6 / Step 6.1 docstring promise — every path that builds a `T2Reflective` produces a `rho` that satisfies the `ReflectanceDescriptor` protocol, and that protocol interface is actually exercised end-to-end by at least one consumer.
 
 **Audit source**: [`Target_Definition_gaps.md`](Target_Definition_gaps.md) Gap H (2026-04-22). P3. No user-facing impact today.

@@ -520,6 +520,8 @@ Report per Category B.
 
 ## Phase 6 — `ReflectanceDescriptor` Stub Base (Q4)
 
+**Status: ✅ COMPLETE (2026-04-24).**  Step 6.1 stub landed with Phases 1–7 on 2026-04-22.  The follow-on "full plumbing through assembly" framing was tracked as Gap H in [`Target_Definition_gaps.md`](Target_Definition_gaps.md) and closed 2026-04-24 by a three-commit bundle: (H.1/H.3) narrow `T2Reflective.rho` to `ReflectanceDescriptor | None` + wrap scalar/CSV ρ into `ScalarLambertianReflectance` at the source-stage boundary; (H.2) derive view / illumination unit vectors from `LineOfSightGeometry` and pass them through the protocol call in `_assemble_t2` / `_components_t2`; (H.4) docs close-out.  Parametrised invariant [`test_gap_h_invariant.py`](../src/radiant/source/tests/test_gap_h_invariant.py) pins the protocol contract across all 4 user surfaces (S4 / S6 scalar + S5 / S6 CSV).
+
 ### Step 6.1 — Introduce the base and refactor `LambertianBRDF` / `PhongBRDF` under it
 
 **Category**: B

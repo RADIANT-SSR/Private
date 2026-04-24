@@ -3,18 +3,21 @@
 **Original audit**: 2026-04-21 (against pre-implementation codebase)
 **Post-implementation update**: 2026-04-22 (after Target Definition Implementation Plan Phases 1–7 landed)
 **Gap G close-out**: 2026-04-23 (shared CSV loader delivered — all 12 spec forms fully supported)
+**Gap H close-out**: 2026-04-24 (`T2Reflective.rho` narrowed to `ReflectanceDescriptor`; LOS-derived view/illum vectors threaded into protocol call)
 **Audit scope**: 12 spec forms (S1–S12) × 3 scene types (extended, sub_pixel, point_source)
 **Source of truth**: [`RADIANT_Target_Definition_Matrix.md`](RADIANT_Target_Definition_Matrix.md) (spec) vs. codebase (implementation)
 
 ---
 
-## Executive Summary (post Gap G)
+## Executive Summary (post Gap H)
 
 | Status | Count | Forms | Notes |
 |--------|-------|-------|-------|
 | ✅ Fully supported | 12 | S1–S12 | Scalar and CSV-path surfaces both wired; descriptor construction verified end-to-end; matrix coverage in [`tests/integration/test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py) |
 | ⚠ Scalar-only (CSV loader deferred) | 0 | — | Closed 2026-04-23 by Gap G shared CSV loader |
 | ❌ Not supported | 0 | — | — |
+
+No open gaps remain. Gap H (`ScalarLambertianReflectance` wrap at the source-stage boundary + LOS-derived protocol vectors in assembly) closed 2026-04-24 — see Revision log and the updated Gap H section below.
 
 **Key findings (2026-04-22):**
 - Q1 **delivered**: S11 (`brightness_temperature_K`) and S12 (`radiance_temperature_K` + band) boundary converters live in [`src/radiant/source/converters/`](../src/radiant/source/converters/), wired through the inferrer.
@@ -162,7 +165,7 @@
 
 **Status: ✅ CLOSED (Phase 6, stub scope).**
 
-[`ReflectanceDescriptor`](../src/radiant/core/reflectance.py) protocol + `ScalarLambertianReflectance` adapter; `LambertianBRDF` and `PhongBRDF` satisfy the protocol via `.reflectance_at(λ, view, illum)` returning total hemispherical ρ. `T2Reflective.rho` widened to `SpectralData | ReflectanceDescriptor | None`. Automatic wrapping of scalar ρ SpectralData into an adapter at assembly time was deferred in line with the "stub" framing — see Gap H.
+[`ReflectanceDescriptor`](../src/radiant/core/reflectance.py) protocol + `ScalarLambertianReflectance` adapter; `LambertianBRDF` and `PhongBRDF` satisfy the protocol via `.reflectance_at(λ, view, illum)` returning total hemispherical ρ. `T2Reflective.rho` originally widened to `SpectralData | ReflectanceDescriptor | None`; narrowed to `ReflectanceDescriptor | None` in Gap H (2026-04-24) so every path through construction produces a protocol-typed ρ.
 
 ### Gap D — S4/S5/S6 reflective user-input paths
 
@@ -188,11 +191,20 @@
 
 Shared two-column loader [`load_two_column_csv`](../src/radiant/source/converters/_csv.py) now powers `source.target.reflectance_path`, `source.target.albedo_path`, and `source.target.brightness_temperature_path`. The loader parses `λ [µm], value` rows, validates monotonic λ, and returns a `SpectralData` on the caller-supplied grid; per-sample bounds checks (0 ≤ ρ ≤ 1 for reflectance/albedo; 0 < T_B ≤ 10000 K for brightness temperature) happen inside the calling converter. Matrix coverage ([`test_spec_form_matrix.py`](../tests/integration/test_spec_form_matrix.py)) exercises each CSV path at the extended scene_type; the `_use_case_coverage.json` `spec_forms` block shows S5/S6/S11 all-pass.
 
-### Gap H — Automatic `ScalarLambertianReflectance` wrap at assembly (**new, open, low priority**)
+### Gap H — `ScalarLambertianReflectance` wrap at the source-stage boundary
 
-| Finding | Impact | Next step |
-|---------|--------|-----------|
-| Phase 6 / Step 6.1 framed the `ScalarLambertianReflectance` adapter as the place existing scalar-ρ `SpectralData` would *automatically* wrap on its way through `T2Reflective`. The current implementation widens the type union but keeps `SpectralData` flowing through unchanged (no wrap at assembly). | No user-facing impact today — downstream code treats `SpectralData` and the adapter interchangeably. Relevant only when a later phase begins distinguishing the two in assembly. | Deferred; revisit when the first consumer of the protocol lands (full plumbing through `AtmosphereStage` assembly, per Phase 6 docstring). Low priority. |
+**Status: ✅ CLOSED (2026-04-24).**
+
+Three bundled commits (`48bdf73` + `cf6a94d`) delivered the full wrap:
+
+1. **Boundary wrap** — [`reflectance_to_descriptor`](../src/radiant/source/converters/reflectance.py) wraps scalar- and CSV-derived ρ `SpectralData` into [`ScalarLambertianReflectance`](../src/radiant/core/reflectance.py) at the source-stage boundary.  The MWIR §3.2 warning now fires at the adapter, not at the raw SpectralData (Rule 17).
+2. **Type narrow** — `T2Reflective.rho: ReflectanceDescriptor | None` ([`descriptors.py`](../src/radiant/core/descriptors.py)).  Passing a raw `SpectralData` is a `ParameterBoundsError` at construction.  `raise_if_epsilon_and_rho_both_set` accepts `SpectralData | ReflectanceDescriptor | None` for the serialization-layer guard.
+3. **Assembly protocol consumer** — [`_assemble_t2`](../src/radiant/atmosphere/assembly.py) and `_components_t2` call `target.rho.reflectance_at(λ, view, illum)` with unit vectors derived from the `LineOfSightGeometry` (`_view_illum_from_los`): `view_dir = (sin θ_o, 0, cos θ_o)`, `illum_dir = (sin θ_s cos δφ, sin θ_s sin δφ, cos θ_s)` (zero vector when `theta_s is None`).  Lambertian ignores the vectors so numerical output is bit-identical to the pre-Gap-H path; future anisotropic BRDFs will consume them.
+
+New tests guard the invariant:
+- [`test_gap_h_invariant.py`](../src/radiant/source/tests/test_gap_h_invariant.py) — parametrised over all 4 user surfaces (`.reflectance`, `.albedo`, `.reflectance_path`, `.albedo_path`); every path produces a `T2Reflective.rho` that satisfies the `ReflectanceDescriptor` protocol.
+- [`test_reflectance_converter.py`](../src/radiant/source/converters/tests/test_reflectance_converter.py) — adapter output + `reflectance_at` bit-identical on native grid + MWIR wrap-site warn.
+- [`TestGapH2_ViewIllumFromLOS`](../src/radiant/atmosphere/tests/test_assembly.py) — 5 spy-descriptor tests on the LOS-derived vector call.
 
 ---
 
@@ -217,9 +229,7 @@ Shared two-column loader [`load_two_column_csv`](../src/radiant/source/converter
 
 ## Remaining Work
 
-| Priority | Item | Effort | Risk |
-|----------|------|--------|------|
-| P3 | Gap H — automatic `ScalarLambertianReflectance` wrap at assembly | ≤ 0.5 day | Low (no user-facing impact) |
+None.  All audit gaps (A–H) are closed as of 2026-04-24.
 
 ---
 
@@ -228,3 +238,4 @@ Shared two-column loader [`load_two_column_csv`](../src/radiant/source/converter
 - **2026-04-21**: Initial audit against pre-implementation codebase. 6 gaps (A–F) identified; 6 forms without user paths.
 - **2026-04-22**: Post-implementation update. Phases 1–7 delivered. Gaps A–F closed. Two new open items (G, H) surfaced by the Phase 7.1 coverage harness. 10 of 12 forms fully supported; S5 and S11 have scalar forms wired with CSV path deferred.
 - **2026-04-23**: Gap G closed. Shared two-column loader [`load_two_column_csv`](../src/radiant/source/converters/_csv.py) wired into `reflectance_path`, `albedo_path`, and `brightness_temperature_path` inferrer call sites; matrix now exercises the CSV surfaces for S5/S6/S11 at the extended scene; `_use_case_coverage.json` `spec_forms` block shows S5/S6/S11 all `pass`. All 12 forms now fully supported. Only Gap H (P3, no user-facing impact) remains open.
+- **2026-04-24**: Gap H closed. Three commits delivered the full wrap: (1) `T2Reflective.rho` narrowed to `ReflectanceDescriptor | None`; (2) scalar/CSV ρ `SpectralData` wraps into [`ScalarLambertianReflectance`](../src/radiant/core/reflectance.py) at the source-stage boundary in [`reflectance_to_descriptor`](../src/radiant/source/converters/reflectance.py); (3) [`_assemble_t2`](../src/radiant/atmosphere/assembly.py) / `_components_t2` consume the protocol with view / illumination unit vectors derived from `LineOfSightGeometry` via `_view_illum_from_los`.  Lambertian adapter ignores the vectors — assembly output is bit-identical to the pre-Gap-H path (verified by spy-descriptor regression test).  Parametrised invariant [`test_gap_h_invariant.py`](../src/radiant/source/tests/test_gap_h_invariant.py) pins the `ReflectanceDescriptor` invariant across all 4 user surfaces (S4 scalar, S5 CSV, S6 albedo alias, S6 albedo CSV).  All audit gaps (A–H) now closed.

@@ -187,8 +187,7 @@ def _make_state_with_snr(snr: float) -> ChainState:
     """Build a ChainState with SNR already stored in metrics."""
     wl = np.linspace(3.5, 5.0, 10)
     state = ChainState(wavelength_um=wl)
-    state = state.with_metric("snr", snr)
-    return state
+    return state.with_metric("snr", snr)
 
 
 class TestNEDTMetricsWiring:

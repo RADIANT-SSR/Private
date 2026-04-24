@@ -282,8 +282,7 @@ def _compute_gsd_metrics(
     )
     state = state.with_metric("gsd_cross_track_m", result.cross_track_m)
     state = state.with_metric("gsd_along_track_m", result.along_track_m)
-    state = state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
-    return state
+    return state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
 
 
 def _compute_access_metrics(
@@ -358,8 +357,7 @@ def _compute_q_metrics(
     result = compute_q(f_number, pitch_m, lambda_min, lambda_max)
     state = state.with_metric("q_center", result.q_center)
     state = state.with_metric("q_min", result.q_min)
-    state = state.with_metric("q_max", result.q_max)
-    return state
+    return state.with_metric("q_max", result.q_max)
 
 
 def _compute_strehl_metric(
@@ -452,8 +450,7 @@ def _compute_niirs_metric(
     # RER is currently a geometric mean; use for both axes.
     result = compute_niirs(gsd_along, gsd_cross, rer, rer, snr, band=band)
     state = state.with_metric("niirs", result.niirs)
-    state = state.with_stage_output("performance", "niirs_result", result)
-    return state
+    return state.with_stage_output("performance", "niirs_result", result)
 
 
 class PerformanceStage:

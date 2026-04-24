@@ -46,8 +46,7 @@ def _make_state(
     f_ny = 1.0 / (2.0 * pixel_pitch_m)
     freq_m = np.linspace(0, f_ny, 200)
     freq_mrad = freq_m * focal_length_m * 1e3
-    state = state.with_spatial_freq(freq_mrad)
-    return state
+    return state.with_spatial_freq(freq_mrad)
 
 
 def _make_params(

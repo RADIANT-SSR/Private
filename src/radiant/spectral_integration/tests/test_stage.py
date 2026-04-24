@@ -24,8 +24,7 @@ def _make_state(wl: np.ndarray, L: float = 1.0) -> ChainState:
     state = state.with_stage_output("optics", "A_collect", 0.07)
     state = state.with_stage_output("optics", "Omega_pixel", 2.25e-10)
     state = state.with_stage_output("optics", "EE_box", 1.0)
-    state = state.with_stage_output("optics", "regime", "extended")
-    return state
+    return state.with_stage_output("optics", "regime", "extended")
 
 
 def _make_params(

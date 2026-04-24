@@ -117,8 +117,7 @@ def _make_state_with_metrics(
     state = state.with_metric("snr", snr)
     state = state.with_metric("rer", rer)
     state = state.with_metric("gsd_along_track_m", gsd_along)
-    state = state.with_metric("gsd_cross_track_m", gsd_cross)
-    return state
+    return state.with_metric("gsd_cross_track_m", gsd_cross)
 
 
 class TestNIIRSMetricsWiring:

@@ -236,9 +236,8 @@ def _compute_optical_mtf_terms(
 
     state = state.with_spatial_freq(freq_cycles_per_mrad)
     state = state.with_mtf("mtf_optics_x", mtf_x)
-    state = state.with_mtf("mtf_optics_y", mtf_y)
+    return state.with_mtf("mtf_optics_y", mtf_y)
 
-    return state
 
 
 def _build_effective_psf(

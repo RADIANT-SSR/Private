@@ -50,8 +50,7 @@ def _make_state_with_descriptors(
     )
     state = state.with_stage_output("source", "target", target)
     state = state.with_stage_output("source", "background", None)
-    state = state.with_stage_output("source", "los_geometry", los)
-    return state
+    return state.with_stage_output("source", "los_geometry", los)
 
 
 def _make_params(

@@ -68,8 +68,7 @@ def make_pupil_phase(
     phase_raw = rng.standard_normal((npix, npix))
     phase_raw -= phase_raw.mean()
     phase_raw /= phase_raw.std()
-    phase_rad = phase_raw * (2.0 * np.pi * wfe_rms_waves)
-    return phase_rad
+    return phase_raw * (2.0 * np.pi * wfe_rms_waves)
 
 
 def make_pupil_phase_zernike(

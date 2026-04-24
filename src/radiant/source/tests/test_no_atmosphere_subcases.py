@@ -474,7 +474,6 @@ class TestLabTestSubcaseSmoke:
                 epsilon=_grey_sd(wl, 0.999),
                 T_t=310.0,
             )
-        bg = _user_lbg(wl, L_value=0.0)  # dark chamber
         los = LineOfSightGeometry(
             h_tgt=0.0,
             theta_o=0.0,

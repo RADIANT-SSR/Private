@@ -176,7 +176,6 @@ class TestAiryFirstZero:
 
         # Radial profile from center.
         profile = psf_unaberrated[c, c:]
-        peak = profile[0]
 
         # Expected first zero radius.
         r_zero_expected = 1.21966989 * WAVELENGTH_M * FOCAL_LENGTH_M / APERTURE_M

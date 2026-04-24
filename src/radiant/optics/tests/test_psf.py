@@ -539,7 +539,6 @@ class TestEffectivePSFLSF:
     def test_lsf_sums_to_one(self, epsf_diffraction_only: EffectivePSF) -> None:
         """LSF is projection of unit-volume PSF → integrates to ~1."""
         pos, lsf_vals = epsf_diffraction_only.lsf("x")
-        dx = epsf_diffraction_only.sample_spacing_m
         assert float(lsf_vals.sum()) == pytest.approx(1.0, rel=1e-6)
 
     def test_erf_endpoints(self, epsf_diffraction_only: EffectivePSF) -> None:

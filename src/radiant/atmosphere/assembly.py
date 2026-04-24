@@ -642,8 +642,6 @@ def assemble_target_at_aperture(
         If the descriptor's spectral grid disagrees with the atm grid,
         or the descriptor variant is unsupported.
     """
-    lam = atm.wavelength_um
-
     # --- at_aperture (T5 pass-through; Decision #6) ---
     if target.target_location == "at_aperture":
         if not isinstance(target, T5AtAperture):

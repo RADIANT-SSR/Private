@@ -174,8 +174,16 @@ class PlatformStage:
 
             # Jitter MTF (anisotropic: different sigma per axis).
             if sigma_x_m > 0.0 or sigma_y_m > 0.0:
-                mtf_jitter_x = jitter_mtf_1d(freq_m, sigma_x_m) if sigma_x_m > 0.0 else np.ones_like(freq_m)
-                mtf_jitter_y = jitter_mtf_1d(freq_m, sigma_y_m) if sigma_y_m > 0.0 else np.ones_like(freq_m)
+                mtf_jitter_x = (
+                    jitter_mtf_1d(freq_m, sigma_x_m)
+                    if sigma_x_m > 0.0
+                    else np.ones_like(freq_m)
+                )
+                mtf_jitter_y = (
+                    jitter_mtf_1d(freq_m, sigma_y_m)
+                    if sigma_y_m > 0.0
+                    else np.ones_like(freq_m)
+                )
             else:
                 mtf_jitter_x = np.ones_like(freq_m)
                 mtf_jitter_y = np.ones_like(freq_m)

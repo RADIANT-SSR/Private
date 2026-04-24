@@ -78,7 +78,9 @@ class TestResolvedTarget:
         with pytest.raises(AttributeError):
             rt.name = "changed"  # type: ignore[misc]
 
-    def test_spectral_radiance(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
+    def test_spectral_radiance(
+        self, thermal_source: ThermalSource, background: BlackbodyBackground
+    ) -> None:
         rt = ResolvedTarget(
             name="test",
             input_path=TargetInputPath.DIRECT_RADIANCE,
@@ -94,7 +96,9 @@ class TestResolvedTarget:
         expected = 0.9 * planck_spectral_radiance(WAV, 500.0)
         np.testing.assert_allclose(L, expected, rtol=1e-10)
 
-    def test_spectral_intensity(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
+    def test_spectral_intensity(
+        self, thermal_source: ThermalSource, background: BlackbodyBackground
+    ) -> None:
         area = 0.5
         rt = ResolvedTarget(
             name="test",
@@ -131,7 +135,9 @@ class TestDirectRadiance:
         assert rt.range_m == 10000.0
         assert rt.tentative_regime == RadiometricRegime.EXTENDED
 
-    def test_negative_range_raises(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
+    def test_negative_range_raises(
+        self, thermal_source: ThermalSource, background: BlackbodyBackground
+    ) -> None:
         with pytest.raises(ValueError, match="range_m"):
             resolve_direct_radiance(
                 name="bad",
@@ -165,7 +171,9 @@ class TestGeometry:
         assert rt.shapes is not None
         assert rt.materials is not None
 
-    def test_radiance_matches_material(self, background: BlackbodyBackground, material: SurfaceMaterial) -> None:
+    def test_radiance_matches_material(
+        self, background: BlackbodyBackground, material: SurfaceMaterial
+    ) -> None:
         sphere = Sphere(radius_m=0.5)
         rt = resolve_geometry(
             name="sphere",
@@ -178,7 +186,9 @@ class TestGeometry:
         expected = 0.9 * planck_spectral_radiance(WAV, 500.0)
         np.testing.assert_allclose(rt.spectral_radiance(WAV), expected, rtol=1e-10)
 
-    def test_angular_extent(self, background: BlackbodyBackground, material: SurfaceMaterial) -> None:
+    def test_angular_extent(
+        self, background: BlackbodyBackground, material: SurfaceMaterial
+    ) -> None:
         sphere = Sphere(radius_m=0.5)
         rt = resolve_geometry(
             name="sphere",
@@ -210,7 +220,9 @@ class TestSubPixel:
         assert rt.tentative_regime == RadiometricRegime.SUB_PIXEL
         assert rt.projected_area_m2 == 0.0
 
-    def test_invalid_ff_raises(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
+    def test_invalid_ff_raises(
+        self, thermal_source: ThermalSource, background: BlackbodyBackground
+    ) -> None:
         with pytest.raises(ValueError, match="fill_fraction"):
             resolve_sub_pixel(
                 name="bad",
@@ -249,7 +261,9 @@ class TestDirectIntensity:
 
 
 class TestPhysicalObject:
-    def test_matches_geometry_path(self, background: BlackbodyBackground, material: SurfaceMaterial) -> None:
+    def test_matches_geometry_path(
+        self, background: BlackbodyBackground, material: SurfaceMaterial
+    ) -> None:
         """Path 5 computes same radiance and area as Path 2."""
         sphere = Sphere(radius_m=0.5)
         rt2 = resolve_geometry(

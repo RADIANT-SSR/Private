@@ -658,7 +658,10 @@ def assemble_target_at_aperture(
                     "reflected / emitted physics and require an atmosphere."
                 ),
                 action="Use T5AtAperture for at_aperture target_location.",
-                context={"target_location": target.target_location, "variant": type(target).__name__},
+                context={
+                    "target_location": target.target_location,
+                    "variant": type(target).__name__,
+                },
             )
         # Decision #6: pass through L_t_aperture unmodified; warn if the
         # caller paired the pass-through with a non-trivial atmosphere.

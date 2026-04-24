@@ -285,7 +285,9 @@ def epsf_with_detector(
 ) -> EffectivePSF:
     """EffectivePSF with detector aperture kernel."""
     n = optical_psf.shape[0]
-    detector_k = _make_rect_kernel(n, max(1, int(round(PIXEL_PITCH_M / epsf_config.focal_spacing_m))))
+    detector_k = _make_rect_kernel(
+        n, max(1, int(round(PIXEL_PITCH_M / epsf_config.focal_spacing_m)))
+    )
     return build_effective_psf(
         optical_psf,
         kernels=[("pixel_aperture", detector_k)],
@@ -301,7 +303,9 @@ def epsf_with_motion(
 ) -> EffectivePSF:
     """EffectivePSF with detector + motion (Gaussian jitter)."""
     n = optical_psf.shape[0]
-    detector_k = _make_rect_kernel(n, max(1, int(round(PIXEL_PITCH_M / epsf_config.focal_spacing_m))))
+    detector_k = _make_rect_kernel(
+        n, max(1, int(round(PIXEL_PITCH_M / epsf_config.focal_spacing_m)))
+    )
     jitter_sigma = 3.0  # pixels
     jitter_k = _make_gaussian_kernel(n, jitter_sigma)
     return build_effective_psf(

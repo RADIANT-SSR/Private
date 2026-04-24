@@ -305,6 +305,11 @@ def _warn_swir_hot_non_mixed(
     drops a non-trivial radiance term.  Matrix §3.2 line 318.
     """
     if _is_swir_spectral_data(sd) and T_t > _SWIR_HOT_TARGET_THRESHOLD_K:
+        variant_label = (
+            variant.lower()
+            .replace("t1thermal", "thermal")
+            .replace("t2reflective", "reflective")
+        )
         warnings.warn(
             (
                 f"TargetDescriptor: {variant} applied to a SWIR spectral band "
@@ -312,7 +317,7 @@ def _warn_swir_hot_non_mixed(
                 f"{_SWIR_HOT_TARGET_THRESHOLD_K:g} K.  Matrix §3.2 notes that "
                 f"SWIR is reflective-dominated for ambient targets, but hot "
                 f"targets (> ~700 K) have measurable thermal emission that "
-                f"pure-{variant.lower().replace('t1thermal', 'thermal').replace('t2reflective', 'reflective')} "
+                f"pure-{variant_label} "
                 f"treatment drops.  Use T3Mixed for hot SWIR targets."
             ),
             UserWarning,

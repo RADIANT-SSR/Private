@@ -453,7 +453,9 @@ def test_geo_orbit_transmittance_above_ground_observer() -> None:
 
     leo = atm.build_state(
         grid,
-        AtmosphericGeometry(sensor_altitude_m=500_000.0, target_altitude_m=0.0, path_zenith_rad=0.0),
+        AtmosphericGeometry(
+            sensor_altitude_m=500_000.0, target_altitude_m=0.0, path_zenith_rad=0.0
+        ),
     )
     geo = atm.build_state(
         grid,

@@ -178,7 +178,9 @@ class TestSmearMTF:
         params = _make_params(**{"platform.smear_length_um": 5.0})
         out = PlatformStage().run(state, params)
 
-        np.testing.assert_array_equal(out.mtf_terms["mtf_smear_x"], np.ones_like(out.mtf_terms["mtf_smear_x"]))
+        np.testing.assert_array_equal(
+            out.mtf_terms["mtf_smear_x"], np.ones_like(out.mtf_terms["mtf_smear_x"])
+        )
 
     def test_smear_matches_analytic(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()

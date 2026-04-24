@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "examples" / "templates"
+_TEMPLATES_DIR = (
+    Path(__file__).resolve().parent.parent.parent.parent.parent / "examples" / "templates"
+)
 
 
 def _template_paths() -> list[Path]:

@@ -11,6 +11,28 @@
 ## Open
 
 
+### CU-020 — Pytest level0/1/2/golden marker sweep + CI gating per Testing_Validation §3
+
+**Discovered**: 2026-04-25 audit, tracked as CU-NEW-05 in `audit_2026/Reconciliation_Tasks.md`. `RADIANT_Testing_Validation.md` §1 declares a four-level test hierarchy with strict gating (Level 0 blocks Level 1 blocks Level 2; golden in a separate job). The pytest config defines the four markers but only **362 of 2798 tests (12.9%)** currently carry one — and the `.github/workflows/` directory does not exist, so no CI gating is wired at all.
+
+**Status**: Open / In Progress. Partial fix landing now adds `--strict-markers` to pytest `addopts` so future drift is blocked at collection time (typo'd marker name fails immediately instead of being silently ignored). Full sweep + CI workflow remain.
+
+**File**: `pyproject.toml` (markers + addopts done); `.github/workflows/ci.yml` (does not exist yet); 100+ test files under `src/radiant/*/tests/`, `src/radiant/*/converters/tests/`, and `tests/` lacking marker decorators.
+
+**Symptom** (2026-04-25 inventory): `pytest -m level0` collects 334/2798; `pytest -m level1` collects 10/2798; `pytest -m level2` collects 8/2798; `pytest -m golden` collects 10/2798. The remaining 2436 tests run under no level marker and so cannot be gated by CI per §3.
+
+**Why it still matters**: Without the markers, `pytest -m "not level0"` silently skips tests that *should* be Level 0 — meaning a PR that breaks Planck or Stefan-Boltzmann numerics could pass CI's Level-1/2 jobs (because nothing in those jobs touches the broken physics). C15 ("Test at Level 0 Before Level 2") becomes unenforceable in practice. CI gating is also a non-trivial separate task: there is no `.github/workflows/` directory yet, and adding one wants user input on runner choice, mypy/import-linter integration, and pre-merge vs post-merge job split.
+
+**Suggested fix**: Per-directory ladder with one PR per slice — judgment-heavy enough that batched mechanical assignment risks misclassifying integration-style tests as Level 0. Proposed slice order:
+
+1. `src/radiant/core/tests/` — easiest (constants, units, blackbody clearly Level 0; chain/quantity/radiometry are Level 1).
+2. `src/radiant/source/tests/` + `src/radiant/atmosphere/tests/` — module-level Level 1.
+3. `src/radiant/optics/tests/` + `src/radiant/platform/tests/` + `src/radiant/spectral_integration/tests/` + `src/radiant/detector/tests/` + `src/radiant/readout/tests/` + `src/radiant/performance/tests/`.
+4. `src/radiant/io/tests/` + `src/radiant/cli/tests/` + `tests/` — Level 1 boundary tests + already-marked Level 2/golden in `tests/integration/`.
+5. CI workflow (`.github/workflows/ci.yml`) — Level 0 → Level 1 → Level 2 gated jobs + golden job on main only, plus mypy --strict + lint-imports + ruff.
+
+**Effort**: 1 day total across the five slices; category B (test-infrastructure cleanup, not physics).
+
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
 
 **Discovered**: Option C Stage 0 (2026-04-19)

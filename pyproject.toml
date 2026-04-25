@@ -33,6 +33,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
+addopts = "--strict-markers"
 markers = [
     "level0: Physics correctness tests (analytic result checks)",
     "level1: Module-level tests",

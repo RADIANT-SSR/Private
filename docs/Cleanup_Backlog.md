@@ -54,67 +54,80 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired
 
 **Discovered**: Option C Stage 1 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stages 7 and 8 have landed)
+**Status**: stage-deferral expired — Stage 7 ("no_atmosphere sub-cases", commit `ecc22b4`) and Stage 8 ("90-cell matrix coverage", commit `9fc28aa`) both landed without wiring this function. Per the original CU body, the trigger to "reconsider whether it belongs in `core/` or in a stubbed `sensor/` module" has fired.
+
 **File**: `src/radiant/core/los_geometry.py`
-**Symptom**: function is implemented and unit-tested but no stage calls it. A module-level comment flags it as deferred for Stage 7 / SensorDescriptor ADR.
-**Why it matters**: dead-until-wired code risks bit-rot. If it's still unwired after Stage 8, reconsider whether it belongs in `core/` or in a stubbed `sensor/` module.
-**Suggested fix**: revisit at Stage 7; either wire it into the Earth-LOS-intercept check (which needs `h_sensor`) or explicitly defer to the SensorDescriptor ADR with a link from the module comment.
+**Symptom (verified 2026-04-24)**: function still has zero non-test callers in `src/radiant/`. Only sites are the definition (`los_geometry.py`), the unit test (`core/tests/test_los_geometry.py`), and the `core/__init__.py` export.
+**Why it still matters**: dead-until-wired code in `core/` is a Rule-19 / Rule-11 hazard — the converter sits in `core/` (which forbids cross-stage imports) precisely because it was supposed to be a sensor-side boundary helper, but eight Option C stages later there is no sensor consumer.
+**Suggested fix**: pick one of three paths and commit explicitly — (a) wire it into the Earth-LOS-intercept check in `OpticsStage._finalize_regime()` if `h_sensor` is now available downstream of Stage 8; (b) move it to `radiant.api.geometry` (which can legitimately import sensor-side context), keeping a re-export shim from `core/`; (c) delete it and the unit test as truly unused. Decision belongs to whoever owns the SensorDescriptor follow-on ADR.
 
 ### CU-007 — Stage-2 MWIR-mixed `UserWarning` is globally suppressed inside `_inferrer.py`
 
 **Discovered**: Option C Stage 2 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stage 6 has landed)
+**Status**: stage-deferral expired — Stage 6 (E_sky decomposition, commit `b9244fd`) landed without removing the suppression. The MWIR-mixed T3 branch the original suggestion expected is in place, but the inferrer is still building T1Thermal under the warnings-suppressed wrapper for the legacy ε+T scalar surface.
+
 **File**: `src/radiant/source/_inferrer.py::_build_target_descriptor`
-**Symptom**: `T1Thermal.__post_init__` emits a `UserWarning` for MWIR cells that might be better modelled as T3Mixed. Stage 2 cannot distinguish MWIR-with-negligible-ρ (hot target, T1 correct) from MWIR-mixed (T3 correct) from the scalar ε+T legacy surface, so every MWIR snapshot scenario fires the warning. The inferrer currently wraps the `T1Thermal(...)` construction in `warnings.catch_warnings() / simplefilter("ignore", UserWarning)` to keep the snapshot logs clean.
-**Why it matters**: the suppression is narrow (one constructor call), but it masks a legitimate modelling flag that Stage 3/6 MWIR-mixed work should re-expose once the spectral ρ(λ) surface lands.
-**Suggested fix**: in Stage 3 (atmosphere) or Stage 6 (spectral_integration), once the mixed T3 branch is synthesised from atmosphere-aware metadata, remove the suppression here and let the warning fire for the remaining legacy cases (if any).
+**Symptom (verified 2026-04-24)**: `warnings.catch_warnings() / simplefilter("ignore", UserWarning)` still wraps the `T1Thermal(...)` construction at lines ~1670–1687 of `_inferrer.py`. Every MWIR snapshot scenario still triggers the suppression at runtime (silently); the only signal is that *no* warning ever surfaces from those scenarios.
+**Why it still matters**: the suppression masks a legitimate modelling flag for any new MWIR cell that lands post-Stage-8 with the legacy scalar surface. With Stage 6's T3Mixed synthesis available, there is no longer a reason to gag the warning — the inferrer should now choose T3 for atmosphere-aware MWIR cases and leave T1 only for the `ρ ≈ 0` cases where the warning is genuinely a false positive.
+**Suggested fix**: a stand-alone task that (1) audits which scenarios still flow through the legacy ε+T scalar branch post-Stage-8, (2) routes the atmosphere-aware MWIR cases through T3Mixed instead of T1Thermal, (3) removes the `simplefilter("ignore", UserWarning)` wrapper, (4) explicitly asserts the warning *does not* fire on the post-Stage-8 baseline. Estimate: 50–100 lines, Category B (no physics change, just inferrer routing).
 
 ### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral
 
 **Discovered**: Option C Stage 2 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stages 3–8 have landed)
+**Status**: stage-deferral expired — Stage 3 (atmosphere shadow-mode, commit `018e5a7`) was supposed to replace this, but the placeholder still fires.
+
 **File**: `src/radiant/source/_inferrer.py::_build_background_descriptor`
-**Symptom**: terrestrial / airborne sub-pixel or point-source cells build a `GroundBackground(epsilon_g=grey_array, T_g=scalar)` from `source.background.{emissivity,temperature}` and emit a `UserWarning` flagging the placeholder. The real spectral ε_g(λ) will come from the backgrounds subsystem in Stage 3.
-**Why it matters**: spectral ε_g matters for radiometric fidelity when the bg surface has non-grey reflectance (vegetation / snow / urban). Stage 2 is deliberately permissive; Stage 3 must replace this.
-**Suggested fix**: in Stage 3 of the Option C plan, route the background spectral emissivity through `SpectralDataStore` and remove the warning. Confirm the snapshot regression YAMLs under `src/radiant/source/tests/snapshots/` refresh cleanly.
+**Symptom (verified 2026-04-24)**: `_inferrer.py` lines ~1842–1865 still call `_grey_spectraldata(wavelength_um=..., value=bg_eps_scalar, ...)` to construct `GroundBackground(epsilon_g=...)`. The `UserWarning` flagging "placeholder bg, will be replaced in Stage 3" is still emitted on every terrestrial / airborne sub-pixel scenario.
+**Why it still matters**: spectral ε_g(λ) matters for radiometric fidelity on non-grey surfaces (vegetation / snow / urban). Stage 6's E_sky decomposition assumes a real spectral ε_g for the reflected-diffuse and reflected-direct-solar terms — the grey placeholder silently degrades those terms wherever it flows through.
+**Suggested fix**: stand-alone task — route `source.background.emissivity` through `SpectralDataStore` instead of `_grey_spectraldata`, accept either a `SpectralData` reference or a scalar (with the scalar path explicitly opt-in for "true grey is the user's intent"), remove the placeholder warning, refresh the snapshot regression YAMLs under `src/radiant/source/tests/snapshots/`. Estimate: Category C (touches radiometric path); requires three numerical truth anchors (analytic grey limit, vegetation-spectral library, snow-spectral library).
 
 ### CU-009 — Stage-2 `LineOfSightGeometry` uses Kármán-line default instead of scenario-aware `h_atm_top`
 
 **Discovered**: Option C Stage 2 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stage 5 has landed)
+**Status**: stage-deferral expired — Stage 5 (A3 partial-column atmosphere, commit `4d2c57d`) landed but did *not* wire scenario-aware observer geometry through the inferrer. The partial-column atmosphere consumer side is in place; the producer side (this CU) is still hardcoded.
+
 **File**: `src/radiant/source/_inferrer.py::_infer_los`
-**Symptom**: every non-at-aperture scenario gets `LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)` with `h_atm_top=1e5` (dataclass default). Observer geometry (solar zenith, azimuth, slant angle, airborne h_tgt) is not yet exposed on the SourceStage parameter surface.
-**Why it matters**: path-radiance models in Stage 3 will want a real LOS. For now every scenario fires as nadir/surface/Kármán.
-**Suggested fix**: Stage 5 of the Option C plan adds the partial-column atmosphere and introduces `source.observer_geometry.*` parameters. Wire those through `_infer_los` at that time.
+**Symptom (verified 2026-04-24)**: `_infer_los` at lines 286–292 still returns `LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)` with `theta_s` and `delta_phi` unset and `h_atm_top` defaulting to 1e5 m. Only `h_tgt` is read from a parameter (`geometry.target_altitude_m`). No `source.observer_geometry.*` parameters exist on the schema.
+**Why it still matters**: every reflective / two-leg / sky-decomposition scenario currently fires as nadir-surface-Kármán. Stage 6's E_sky decomposition has the *capability* to use real `θ_s` and `Δφ`, but the inferrer never supplies them, so the per-scenario radiance is computed at sun-overhead-and-on-axis regardless of the YAML's actual scene geometry.
+**Suggested fix**: stand-alone Category B task — register `source.observer_geometry.theta_o`, `source.observer_geometry.theta_s`, `source.observer_geometry.delta_phi`, and `source.observer_geometry.h_atm_top` (optional; default 1e5) as `ParameterDef`s on the SourceStage schema. Wire them through `_infer_los`. Update the 14 baseline scenarios to specify their actual geometry. Expect a re-baseline of every reflective / two-leg cell — coordinate with whoever owns the post-Stage-8 anchor pinning.
 
 
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
 **Discovered**: Option C Stage 3 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stage 6 has landed)
+**Status**: stage-deferral expired — Stage 6 (E_sky decomposition, commit `b9244fd`) landed without splitting the MODTRAN τ. The decomposition operates on whatever the backend supplies; with the MODTRAN backend, that remains a single-τ alias.
+
 **File**: `src/radiant/atmosphere/modtran.py`
-**Symptom**: the Stage 3 `evaluate()` adapter populates `tau_sun = tau_up = tau_full_up` from the legacy single-τ MODTRAN output and emits a one-time `UserWarning` flagging the degradation. Real two-leg fidelity requires either a second TAPE7 run at `θ_s` or an analytic split.
-**Why it matters**: VIS/NIR reflective scenarios that use the MODTRAN backend will behave as if `τ_sun = τ_up`, losing the solar-zenith dependence that Stage 3's new two-leg model is designed to capture.
-**Suggested fix**: in Stage 6 (spectral_integration), when `E_sky_scattered` is decomposed, also split `τ_sun` via a second MODTRAN call keyed on `(los.h_tgt, θ_s)`. Add the new key to the MODTRAN cache signature.
+**Symptom (verified 2026-04-24)**: `modtran.py` lines 730–752 still emit the `UserWarning` and set `tau_sun = tau`, `tau_up = tau.copy()`, `tau_full_up = tau.copy()`, `L_path_up = lpath`, `L_path_full = lpath.copy()` from a single MODTRAN call. No second TAPE7 run keyed on `θ_s`, no analytic split.
+**Why it still matters**: VIS/NIR reflective scenarios that route through MODTRAN now silently lose the solar-zenith dependence that Stage 6's E_sky decomposition was designed to expose. The analytic backend is fine; the MODTRAN backend collapses the split. Mixed-backend test suites can therefore mask real two-leg bugs.
+**Suggested fix**: stand-alone Category C task — add a second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)` to produce `tau_sun` independently from `tau_up`. Cache key must include θ_s. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s. Block: requires CU-009 to land first (otherwise θ_s is always 0 and the new code path is exercised by zero scenarios).
 
 ### CU-012 — Shadow-mode classification injection not wired
 
 **Discovered**: Option C Stage 3 (2026-04-19)
-**File**: `src/radiant/atmosphere/stage.py` (reads `state.stage_outputs["meta"]["option_c_classification"]`) and the integration harness.
-**Symptom**: `AtmosphereStage` reads the per-scenario classification from a stage-output field that nothing currently populates. Today's integration tests therefore skip the shadow-mode comparison (the code branch `if classification is None: return`). The anchor tests exercise the assembly path directly and still pass, so no CI signal is lost — but the "invariant" hard-assert for Cells 28/58 only fires when the meta field is explicitly set.
-**Why it matters**: the plan's shadow-mode policy expects every scenario run in the Stage 0 baseline snapshot to receive a classification; unclassified cells should fail loudly. Right now the stage silently bypasses the compare.
-**Suggested fix**: add a pytest fixture in `tests/integration/conftest.py` that loads `tests/integration/snapshots/option_c_baseline.yaml`, matches the running scenario's YAML path or id, and injects `meta.option_c_classification` into the chain state (via a pre-stage hook or parameter). Fail loudly on cells present in the baseline but absent from the fixture.
+**Re-audited**: 2026-04-24 (Stages 3–8 have landed)
+**Status**: stage-deferral expired — Stages 3 through 8 all landed without wiring this. Worse, audit shows zero occurrences of `option_c_classification` *anywhere* in `src/` or `tests/` as of 2026-04-24, suggesting either the field name has drifted or the entire shadow-mode pathway was reworked silently.
+
+**File**: `src/radiant/atmosphere/stage.py` and the integration harness.
+**Symptom (verified 2026-04-24)**: `grep -rn option_c_classification src/ tests/` returns zero matches. The CU originally referenced `state.stage_outputs["meta"]["option_c_classification"]`, but that field name no longer exists. The shadow-mode comparison may therefore be running on a different mechanism (anchor-tests-only, post-Stage-6 baseline) — or the per-scenario invariant assertion may have been quietly dropped.
+**Why it still matters**: the post-Stage-6 baseline (`Post-Stage-6 baseline` in `Option_C_Implementation_Plan.md`) only pins Cells 28 and 58. Every other "invariant"-classified cell from the Stage 0 baseline snapshot is currently *not* hard-asserted on a per-scenario basis — drift can accumulate without CI signal.
+**Suggested fix**: investigation task first (1–2 hours), not a code task — find where the shadow-mode comparison actually lives in post-Stage-8 code (likely renamed or moved to `tests/integration/`), audit which baseline cells are currently hard-asserted vs. soft-checked, then either revive the per-scenario assert with the current field name or document the post-Stage-6 narrowing of scope. Update or close this CU once the investigation lands.
 
 ### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells
 
 **Discovered**: Option C Stage 3 (2026-04-19)
-**File**: `src/radiant/atmosphere/stage.py` (`_SHADOW_RTOL = 1e-6`)
-**Symptom**: Stage 3 passes bit-exact on invariant cells. Stage 6 will introduce small-but-real spectral physics changes in cells classified `expected_to_change_at_stage_6`. If any residual invariant-classified cell has a ~1e-7 relative drift from accumulated floating-point noise at that time, the current threshold will false-trip.
-**Why it matters**: a false-trip would block Stage 6 land while being a non-bug. Too-loose a threshold could hide a real bug.
-**Suggested fix**: during Stage 6, run the full suite at `rtol=1e-9` first to survey real drift magnitudes, then set `_SHADOW_RTOL` to the largest invariant-cell residual plus one decade of margin. Document the chosen value and the survey data in the Stage 6 report.
+**Re-audited**: 2026-04-24 (Stage 6 has landed)
+**Status**: cannot verify in-place — `_SHADOW_RTOL` constant no longer exists in `src/radiant/atmosphere/stage.py` (`grep -rn _SHADOW_RTOL src/` returns zero matches as of 2026-04-24). Either the constant was renamed/relocated when Stage 6 landed, or the shadow-mode tolerance check was removed/restructured. Linked to CU-012's "the field name has drifted" finding.
 
-### CU-014 — Stage-4 `GroundBackground` assembly is thermal-only (deferred reflected terms)
-
-**Discovered**: Option C Stage 4 (2026-04-19)
-**File**: `src/radiant/atmosphere/assembly.py::_assemble_ground_background`
-**Symptom**: the v1 ground-background arm is `ε_g·B(T_g)·τ_full_up + L_path_full` — pure self-emission plus path radiance. The reflected-diffuse (`(1−ε_g)·E_sky/π`) and reflected-direct-solar (`(1−ε_g)·τ_sun·E_TOA·cos(θ_s)/π`) terms that a full T3 Kirchhoff treatment would include are **omitted**. Stage 3 wired them in, but Stage 4 removed them to preserve the Cell 28 / Cell 58 invariants (which were pinned against the legacy single-τ formulation that did not model reflected sky/solar on the background).
-**Why it matters**: for MWIR sub-pixel cells where the ground background is treated as the fill-fraction-weighted "rest of the pixel," omitting the reflected-sky term under-estimates the background radiance in cases with substantial diffuse downwelling. Point-source cells bypass this entirely (`background_e = 0` in `spectral_integration/stage.py`), so the impact is restricted to sub-pixel cells and extended-scene contrast computations with non-vacuum atmospheres.
-**Suggested fix**: in Stage 6 (E_sky decomposition) — since that stage is an authorized re-baseline for MWIR anchors — restore the reflected-diffuse and reflected-direct-solar branches on the ground background. Re-run `test_ground_background_thermal_only_at_h0` and update it to the full T3 form. Document the Cell 28/58 re-baseline magnitudes that the restoration induces.
+**File**: previously `src/radiant/atmosphere/stage.py`; now unknown.
+**Symptom (re-stated)**: Stage 6 introduced authorized physics changes to MWIR-mixed and ground-bg-reflected branches. The original concern was that floating-point drift on *invariant*-classified cells might exceed `rtol=1e-6` and false-trip the assertion. Whether that concern materialized depends on the post-Stage-6 tolerance value, which is currently unlocatable.
+**Why it still matters**: if the tolerance was dropped entirely (rather than re-tuned), invariant cells now have no hard guard against drift. If it was loosened silently, the magnitude of legitimate drift Stage 6 produced is undocumented.
+**Suggested fix**: investigation task — find where the post-Stage-6 invariant-cell assertion lives (or whether it was deleted), recover the chosen rtol and the survey data behind it, document in `docs/Option_C_Implementation_Plan.md` Regression Invariants section. Likely closes alongside CU-012 since they touch the same shadow-mode pathway.
 
 ---
 
@@ -139,6 +152,10 @@ Resolved by Phase 2 Track B via Path A (single-enum vocabulary expansion). Added
 ### CU-006 — `LineOfSightGeometry` field ordering diverges from plan text — RESOLVED 2026-04-24
 
 Resolved by Phase 2 Track C. Added `kw_only=True` to the `@dataclass` decorator and re-ordered field declarations to match the plan's textual order `(h_tgt, h_atm_top=1e5, theta_o, theta_s=None, delta_phi=None)`. Positional construction now raises `TypeError` at construction time, closing the silent `h_atm_top ↔ theta_o` misassignment footgun before Stage 2's inferrer expands. All call sites already used keyword form; no test fixes required. Regression gate green: 2360 src + 381 integration, mypy/ruff/import-linter clean.
+
+### CU-014 — Stage-4 `GroundBackground` assembly is thermal-only (deferred reflected terms) — RESOLVED 2026-04-24
+
+Resolved by Stage 6 of Option C (commit `b9244fd`, "feat(option-c): Stage 6 — E_sky decomposition"). [src/radiant/atmosphere/assembly.py](../src/radiant/atmosphere/assembly.py) `_assemble_ground_background` (lines 1122–1158) now returns `(L_self + direct + diffuse) * tau_full_up + L_path_full`, where `L_self = epsilon_g * B(T_g)`, `direct = _direct_solar_term(rho_g, atm, cos_ts)` for the reflected-direct-solar term, and `diffuse = _diffuse_sky_term(rho_g, atm)` for the reflected-diffuse-sky term. Both branches that the original CU said were omitted are now present. Cell 28 and Cell 58 stayed bit-invariant because both anchors are `T1Thermal` with `ρ ≡ 0`, so the `(1−ε_g)` reflectance terms vanish identically — confirmed in [docs/Option_C_Implementation_Plan.md](Option_C_Implementation_Plan.md) Regression Invariants table. Verified during the 2026-04-24 stage-deferred audit.
 
 ### CU-015 — `readout.stage` lazy-imports `detector.noise.budget` — RESOLVED 2026-04-24
 

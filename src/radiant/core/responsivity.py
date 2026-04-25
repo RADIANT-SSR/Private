@@ -72,7 +72,9 @@ def spectral_responsivity(
         qe_arr = np.full_like(wl, float(qe_scalar)) if qe_scalar is not None else np.ones_like(wl)
 
     # R(λ) = A_collect · Ω_pixel · τ_opt(λ) · QE(λ) · (λ/hc)
-    return A_collect * Omega_pixel * tau_arr * qe_arr * (lam_m / hc)
+    return np.asarray(
+        A_collect * Omega_pixel * tau_arr * qe_arr * (lam_m / hc), dtype=np.float64
+    )
 
 
 def band_integrated_responsivity(

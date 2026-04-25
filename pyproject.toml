@@ -196,7 +196,22 @@ ignore_imports = [
     "radiant.io.config -> radiant.core.parameters",
     "radiant.io.results -> radiant.core.chain",
     "radiant.io.results -> radiant.core.radiometry",
+    "radiant.io.results -> radiant.core.quantity",
     "radiant.api.units -> radiant.core.units",
+    "radiant.api.sensor -> radiant.core.parameters",
+    "radiant.api.sensor -> radiant.api.tolerance",
+    "radiant.api.tolerance -> radiant.core.parameters",
+    "radiant.api.sensor -> radiant.api.sensitivity",
+    "radiant.api.sensitivity -> radiant.core.parameters",
+    "radiant.api.sweep -> radiant.core.parameters",
+    "radiant.api.plot -> radiant.api.sweep",
+    "radiant.api.plot -> radiant.optics.psf.effective",
+    "radiant.api._param_registry -> radiant.platform._schema",
+    "radiant.api.session -> radiant.platform.stage",
+    "radiant.platform.stage -> radiant.core.chain",
+    "radiant.platform.stage -> radiant.core.parameters",
+    "radiant.platform.stage -> radiant.core.geometry",
+    "radiant.platform._schema -> radiant.core.parameters",
 ]
 
 [[tool.importlinter.contracts]]

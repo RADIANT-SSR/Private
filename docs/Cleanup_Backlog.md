@@ -14,10 +14,42 @@
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
 
 **Discovered**: Option C Stage 0 (2026-04-19)
-**File**: `examples/swir_aerial_gas.yaml` (if that is the exact path — discovered via `scripts/capture_option_c_baseline.py`)
-**Symptom**: MTF consistency check reports `max_err_x = 0.052` vs tolerance `0.050` (a narrow miss of ~4%).
-**Why it matters**: Rule 4 requires PSF-path ↔ MTF-product-path consistency to ~1e-6; this scenario is ~10⁴ looser. Flagged now so Stage 3 reviewers don't mistake it for a new regression.
-**Suggested fix**: investigate which degradation is split inconsistently across the two paths for this scenario; likely either a jitter kernel, smear term, or diffraction normalization drift. Low priority unless the scenario is promoted to a regression anchor.
+**Investigated**: Phase 2 Track A (2026-04-24)
+**Status**: escalated to a stand-alone Category C task (`docs/tasks/CU-003_rect_kernel_fix.md`) — this entry stays Open until the follow-on lands.
+
+**File**: `examples/templates/swir_aerial_gas.yaml`
+**Symptom**: MTF consistency check reports `max_err_x = max_err_y = 0.05196` vs tolerance `0.050` (~4% miss). All other 13 baseline scenarios pass cleanly.
+
+**Reproducer numbers** (Phase 2 investigation, 2026-04-24):
+- Aperture 0.12 m, focal 0.36 m (f/3.0), pixel pitch 20 µm, filter 2.0–2.5 µm.
+- `Q = λ·F#/pitch ≈ 0.338` at 2.25 µm — the lowest Q in the suite (next-lowest, `vnir_leo_highres`, has Q ≈ 1.0).
+- PSF spatial sampling: `sample_spacing = 1.6875 µm` → `pitch / sample_spacing ≈ 11.852` samples per pixel (non-integer).
+- Residual peaks near Nyquist (idx 35 of 64), monotonic at low frequency.
+
+**Per-term sensitivity** (drop-one-MTF-term probe on the product side, re-measure `max_err`):
+| Term dropped | max_err |
+|---|---|
+| (none — baseline) | 0.05196 |
+| optics | 0.131 |
+| pixel_aperture | 0.546 |
+| jitter / smear / ipc / diffusion | 0.05196 (no change) |
+
+Only optics × pixel_aperture matter for this scenario. Decisive verification: substituting the *discrete* rect kernel's actual FFT into the product (in place of the analytic `sinc(π·pitch·f)`) collapses `max_err` to **0.00000** (floating-point identity), proving the entire residual is the pixel-aperture term's PSF-path/MTF-product-path discretization mismatch.
+
+**Root cause**: `src/radiant/optics/pixel_kernel.py::_rect_1d` builds a binary mask `np.where(np.abs(x) <= pitch/2, 1.0, 0.0)` at `1.6875 µm` sample spacing. With `11.852` samples per pixel (non-integer), the kernel quantizes the rect's edges, so its FFT has lower roll-off than the analytic `sinc` that the MTF-product path uses. The PSF path therefore over-attenuates near Nyquist relative to the MTF-product path, and the divergence is greatest at low Q (when `pitch/λF#` is small the rect edges dominate).
+
+**Branch classification (per Phase 2 plan §Track A)**:
+- **Finding A** (real Rule-4 bug, missing/mis-applied degradation in one path) — **NO**. Both paths apply pixel-aperture; they disagree only on discretization.
+- **Finding B** (numerical edge intrinsic to sampling) — **YES**. Q = 0.338 is the suite minimum; the scenario sits at a corner of the sampled-rect's accuracy regime.
+- **Finding C** (inconsistent scenario YAML) — **NO**. The scenario inputs are self-consistent.
+
+**Why this is not a Phase-2 inline fix**: a proper fix is Category C (touches optics physics path, requires three numerical truth anchors, dimensional audit, fragility analysis, and golden-snapshot sweep). Two candidate approaches exist:
+1. Anti-aliased rect kernel — replace the binary mask in `_rect_1d` with an integrated rect (subpixel-area weighting at the edges, equivalent to convolving the binary rect with a sample-spacing impulse train and integrating). PSF-path FFT will then match the analytic `sinc` to ~1e-6 across all Q.
+2. FFT-based product path — compute the pixel-aperture MTF on the product side from `FFT(_rect_1d(...))` instead of the analytic `sinc`. Symmetric: both paths see the same discretization. Cheaper but couples the product path to the PSF sampling grid.
+
+Approach 1 is preferred (preserves the MTF-product path as the analytic reference; fixes the PSF path to match).
+
+**Why "low priority unless promoted to a regression anchor" is no longer accurate**: the scenario *is* in `tests/integration/snapshots/option_c_baseline.yaml` and will be re-checked at every Option C stage. The miss is ~4% above tolerance, persistent, and the only failing cell. It needs a real fix before it gets confused with a Stage 6 physics drift.
 
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired
 

@@ -77,6 +77,13 @@ forbidden_modules = [
     "radiant.cli",
     "radiant.plugins",
 ]
+ignore_imports = [
+    # Test-colocation: the reflectance descriptor lives in core but its
+    # canonical test fixtures (Lambertian, Phong) live in source. Tests
+    # may reach across this seam.
+    "radiant.core.tests.test_reflectance_descriptor -> radiant.source.brdf_lambertian",
+    "radiant.core.tests.test_reflectance_descriptor -> radiant.source.brdf_phong",
+]
 
 [[tool.importlinter.contracts]]
 name = "physics stages import only core"
@@ -96,9 +103,17 @@ forbidden_modules = [
     "radiant.api",
     "radiant.cli",
 ]
+unmatched_ignore_imports_alerting = "warn"
 ignore_imports = [
-    "radiant.optics.tests.test_stage -> radiant.api._param_registry",
-    "radiant.source.tests.test_stage -> radiant.api._param_registry",
+    # Test-colocation: physics-stage tests use api utilities (param
+    # registry helpers, full-chain session fixtures, schema cross-checks).
+    # Production stage code is not allowed to import api/io — these
+    # exceptions cover the test seam only.
+    "radiant.*.tests.* -> radiant.api._param_registry",
+    "radiant.*.tests.* -> radiant.api.session",
+    "radiant.*.tests.* -> radiant.api.sensor",
+    "radiant.*.tests.* -> radiant.io.results",
+    "radiant.*.tests.* -> radiant.io.config",
 ]
 
 [[tool.importlinter.contracts]]
@@ -114,14 +129,34 @@ modules = [
     "radiant.readout",
     "radiant.performance",
 ]
+unmatched_ignore_imports_alerting = "warn"
 ignore_imports = [
-    "radiant.optics.tests.test_stage -> radiant.detector._schema",
-    "radiant.optics.tests.test_stage -> radiant.api._param_registry",
-    "radiant.spectral_integration.tests.test_stage -> radiant.detector._schema",
-    "radiant.detector.tests.test_stage -> radiant.spectral_integration._schema",
-    "radiant.source.tests.test_stage -> radiant.api._param_registry",
-    "radiant.source.tests.test_stage -> radiant.optics._schema",
-    "radiant.source.tests.test_stage -> radiant.detector._schema",
+    # Test-colocation: physics-stage tests use cross-stage `_schema`
+    # modules (parameter definitions) and api utilities to assemble
+    # realistic full-chain fixtures. Production stage code remains
+    # cross-stage independent — these exceptions cover the test seam only.
+    "radiant.*.tests.* -> radiant.api._param_registry",
+    "radiant.*.tests.* -> radiant.api.session",
+    "radiant.*.tests.* -> radiant.source._schema",
+    "radiant.*.tests.* -> radiant.atmosphere._schema",
+    "radiant.*.tests.* -> radiant.optics._schema",
+    "radiant.*.tests.* -> radiant.platform._schema",
+    "radiant.*.tests.* -> radiant.spectral_integration._schema",
+    "radiant.*.tests.* -> radiant.detector._schema",
+    "radiant.*.tests.* -> radiant.readout._schema",
+    "radiant.*.tests.* -> radiant.optics.psf.builder",
+    "radiant.*.tests.* -> radiant.optics.psf.effective",
+    "radiant.*.tests.* -> radiant.optics.psf_mono",
+    "radiant.*.tests.* -> radiant.optics.sampling",
+    "radiant.*.tests.* -> radiant.detector.noise.budget",
+    "radiant.*.tests.* -> radiant.atmosphere.exo",
+    "radiant.*.tests.* -> radiant.atmosphere.assembly",
+    # Production exception (tracked in Cleanup_Backlog.md): readout.stage
+    # has a lazy fallback that calls into detector.noise.budget when the
+    # detector stage didn't populate noise_budget_raw (legacy/test path).
+    # Ideally this fallback should live in detector or be removed; until
+    # then, this edge is documented as a known Rule-11 violation.
+    "radiant.readout.stage -> radiant.detector.noise.budget",
 ]
 
 [[tool.importlinter.contracts]]

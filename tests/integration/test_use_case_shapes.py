@@ -218,7 +218,7 @@ class TestShapeSubPixelIntegration:
 
         # 1. chain completed (session.run returned without raising).
         # 2. Signal in DN is finite and non-negative.
-        signal_dn = result.signal_at_frame(ReferenceFrame.DN).value
+        signal_dn = result.signal_at(ReferenceFrame.DN).value
         assert np.all(np.isfinite(signal_dn)), (
             f"cell {cell_id} / {shape_name}: signal_DN contains non-finite"
         )

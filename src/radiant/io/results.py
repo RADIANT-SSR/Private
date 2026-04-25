@@ -7,6 +7,7 @@ noise at any reference frame.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -17,9 +18,9 @@ from radiant.core.chain import ChainState
 from radiant.core.quantity import (
     ChainQuantity,
     ReferenceFrame,
-    noise_at,
-    signal_at,
 )
+from radiant.core.quantity import noise_at as _quantity_noise_at
+from radiant.core.quantity import signal_at as _quantity_signal_at
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
 
 
@@ -75,7 +76,7 @@ class ChainResult:
     # Backward propagation queries
     # ------------------------------------------------------------------
 
-    def signal_at_frame(
+    def signal_at(
         self,
         frame: ReferenceFrame | str,
     ) -> ChainQuantity:
@@ -93,9 +94,9 @@ class ChainResult:
         """
         if isinstance(frame, str):
             frame = ReferenceFrame(frame)
-        return signal_at(self._state, frame)
+        return _quantity_signal_at(self._state, frame)
 
-    def noise_at_frame(
+    def noise_at(
         self,
         frame: ReferenceFrame | str,
         term_name: str | None = None,
@@ -117,4 +118,71 @@ class ChainResult:
         """
         if isinstance(frame, str):
             frame = ReferenceFrame(frame)
-        return noise_at(self._state, frame, term_name)
+        return _quantity_noise_at(self._state, frame, term_name)
+
+    # ------------------------------------------------------------------
+    # Deprecated aliases (CU-NEW-03 — to be removed after 0.2.0)
+    # ------------------------------------------------------------------
+
+    def signal_at_frame(
+        self,
+        frame: ReferenceFrame | str,
+    ) -> ChainQuantity:
+        """Deprecated alias for :meth:`signal_at`. Issues DeprecationWarning."""
+        warnings.warn(
+            "ChainResult.signal_at_frame() is deprecated; use signal_at() instead. "
+            "The old name will be removed in RADIANT 0.2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.signal_at(frame)
+
+    def noise_at_frame(
+        self,
+        frame: ReferenceFrame | str,
+        term_name: str | None = None,
+    ) -> ChainQuantity:
+        """Deprecated alias for :meth:`noise_at`. Issues DeprecationWarning."""
+        warnings.warn(
+            "ChainResult.noise_at_frame() is deprecated; use noise_at() instead. "
+            "The old name will be removed in RADIANT 0.2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.noise_at(frame, term_name)
+
+    # ------------------------------------------------------------------
+    # Performance metric convenience accessors
+    # ------------------------------------------------------------------
+
+    def snr(self) -> float:
+        """Signal-to-noise ratio (dimensionless). Reads ``metrics['snr']``.
+
+        Raises
+        ------
+        KeyError
+            If SNR was not computed for this run (e.g., scenario routed through
+            a metric mode that did not populate ``metrics['snr']``). Inspect
+            ``self.metrics`` to see what was actually computed.
+        """
+        return float(self._state.metrics["snr"])
+
+    def nedt(self) -> float:
+        """Noise-equivalent delta-temperature in kelvin. Reads ``metrics['nedt_K']``.
+
+        Raises
+        ------
+        KeyError
+            If NEDT was not computed for this run.
+        """
+        return float(self._state.metrics["nedt_K"])
+
+    def niirs(self) -> float:
+        """National Imagery Interpretability Rating Scale value. Reads ``metrics['niirs']``.
+
+        Raises
+        ------
+        KeyError
+            If NIIRS was not computed for this run.
+        """
+        return float(self._state.metrics["niirs"])

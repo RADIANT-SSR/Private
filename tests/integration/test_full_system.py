@@ -2,7 +2,7 @@
 
 Exercises all implemented features through the full signal chain:
 - All three radiometric regimes (extended, point source, sub-pixel)
-- Backward propagation (signal_at_frame, noise_at_frame, round-trip)
+- Backward propagation (signal_at, noise_at, round-trip)
 - 1-D and 2-D sweeps with monotonicity checks
 - Monte Carlo tolerance analysis
 - Saturation checks (well and ADC)
@@ -168,35 +168,35 @@ class TestAllRegimes:
 
 
 class TestBackwardPropagation:
-    """Verify signal_at_frame and noise_at_frame through full chain."""
+    """Verify signal_at and noise_at through full chain."""
 
     def test_signal_at_photoelectrons(self) -> None:
         result, _, _ = _run_extended()
-        q = result.signal_at_frame("photoelectrons")
+        q = result.signal_at("photoelectrons")
         sig_e = result.stage_outputs["spectral_integration"]["signal_e"]
         assert q.value == pytest.approx(sig_e, rel=1e-10)
 
     def test_signal_at_dn(self) -> None:
         result, _, _ = _run_extended()
-        q_pe = result.signal_at_frame("photoelectrons")
-        q_dn = result.signal_at_frame("dn")
+        q_pe = result.signal_at("photoelectrons")
+        q_dn = result.signal_at("dn")
         gain = 32.0  # gain_e_per_dn = 32.0
         assert q_dn.value == pytest.approx(q_pe.value / gain, rel=1e-10)
 
     def test_noise_at_photoelectrons_positive(self) -> None:
         result, _, _ = _run_extended()
-        q = result.noise_at_frame("photoelectrons")
+        q = result.noise_at("photoelectrons")
         assert q.value > 0.0
 
     def test_noise_specific_term(self) -> None:
         result, _, _ = _run_extended()
-        q = result.noise_at_frame("photoelectrons", term_name="read_noise")
+        q = result.noise_at("photoelectrons", term_name="read_noise")
         assert q.value == pytest.approx(5.0, rel=0.01)
 
     def test_round_trip_pe_dn_pe(self) -> None:
         """signal: pe → dn → pe recovers original value."""
         result, _, _ = _run_extended()
-        q_pe = result.signal_at_frame(ReferenceFrame.PHOTOELECTRONS)
+        q_pe = result.signal_at(ReferenceFrame.PHOTOELECTRONS)
         q_dn = q_pe.to(ReferenceFrame.DN, result.state)
         q_pe_back = q_dn.to(ReferenceFrame.PHOTOELECTRONS, result.state)
         assert q_pe_back.value == pytest.approx(q_pe.value, rel=1e-10)
@@ -204,7 +204,7 @@ class TestBackwardPropagation:
     def test_noise_round_trip(self) -> None:
         """noise: pe → dn → pe recovers original."""
         result, _, _ = _run_extended()
-        q1 = result.noise_at_frame("photoelectrons", term_name="read_noise")
+        q1 = result.noise_at("photoelectrons", term_name="read_noise")
         q2 = q1.to(ReferenceFrame.DN, result.state)
         q3 = q2.to(ReferenceFrame.PHOTOELECTRONS, result.state)
         assert q3.value == pytest.approx(q1.value, rel=1e-10)

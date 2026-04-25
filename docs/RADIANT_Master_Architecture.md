@@ -152,7 +152,7 @@ When two documents address the same topic, this table shows which is authoritati
 
 ## 6. Implementation Order
 
-Modules can only be implemented after their dependencies are stable. This order is dependency-correct; see RADIANT_Phase1_Plan.md for the full implementation plan.
+Modules can only be implemented after their dependencies are stable. This order is dependency-correct; see [archive/RADIANT_Phase1_Plan.md](archive/RADIANT_Phase1_Plan.md) for the historical Phase 1 implementation plan.
 
 ```
 Phase 1a — Core Infrastructure (no dependencies)

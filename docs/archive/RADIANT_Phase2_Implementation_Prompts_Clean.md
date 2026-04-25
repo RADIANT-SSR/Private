@@ -1,5 +1,7 @@
 # RADIANT — Phase II Implementation Prompt Sequence (Clean Start Version)
 
+> **HISTORICAL — for current architecture see [RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md).** Phase II completed; superseded by the Validated variant in this archive folder. Preserved for traceability.
+
 ## How to use this document
 
 This sequence assumes Phase I was executed using the optimized prompt

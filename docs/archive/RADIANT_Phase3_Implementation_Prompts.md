@@ -1,5 +1,7 @@
 # RADIANT — Phase 3 Implementation Prompt Sequence
 
+> **HISTORICAL — for current architecture see [RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md).** Phase 3 (gap-fixes) landed; superseded by the Option C plan and post-Stage-8 baseline. Preserved for traceability.
+
 ## Purpose
 
 This document defines the implementation prompts for Phase 3: gap fixes

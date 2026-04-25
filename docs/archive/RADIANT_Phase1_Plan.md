@@ -1,7 +1,9 @@
 # RADIANT Phase 1 Implementation Plan
 
+> **HISTORICAL — for current architecture see [RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md).** This roadmap landed in full; preserved for traceability.
+
 **Date:** 2026-04-07
-**Status:** Authoritative
+**Status:** Archived (roadmap completed)
 **Scope:** Defines the Phase 1 implementation plan organized as phases 1a through 1e. Each phase includes deliverables, "done" criteria, dependencies, effort estimates, risks, and parallelization guidance.
 
 ---

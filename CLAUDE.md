@@ -130,10 +130,12 @@ raise AssertionError("bad value")   # assert is for developer invariants only
 ```
 
 ### 16. Validate Before Compute
-Validate all user-controlled inputs before doing any physics computation. Use `ParameterSet` — never pass raw dicts from user input to physics functions. Never return `NaN` or `inf` silently; raise `NumericalError` with context.
+Validate all user-controlled inputs before doing any physics computation. Use `ParameterSet` — never pass raw dicts from user input to physics functions. Physics-layer functions (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`) must never return `NaN` or `inf` silently — raise an actionable error with context (per Rule 15). Metric-layer functions (`performance/snr.py`, `performance/nedt.py`, `performance/niirs.py`) may return result-typed failures with an explicit `failure_reason` field instead of raising — see Rule 17 carve-out.
 
 ### 17. No Silent Failures
 No `except Exception: pass`. No `except Exception: return default_value`. No logging a warning and continuing when physics is undefined. No clipping values to valid ranges without at minimum a `UserWarning`.
+
+**Exception (metric layer — see ADR-B):** computations under `radiant.performance/` (`snr.py`, `nedt.py`, `niirs.py`) may return result-typed failures with a structured `failure_reason` field instead of raising. The failure must be named and surfaced in the result object that callers already inspect; silent NaN propagation remains forbidden. Physics-layer modules (source through readout) keep the universal raise rule.
 
 ### 18. Test at Level 0 First
 Write the Level 0 test that verifies the key equation **before** implementing the physics. Tests use known-good analytic values, not values computed by other RADIANT code. `pytest.approx` always uses explicit `rel=` or `abs=` tolerance — never the default.
@@ -147,6 +149,28 @@ Each distinct physics calculation or metric (e.g., ground range, swath width, ac
 
 **When bundling is acceptable:**
 - Tightly coupled computations that share internal state or helper functions and would be meaningless apart (e.g., cavity T_sys and cavity eps_eff are one model, not two files)
+
+### 20. Doc-and-Code Change in Lock-Step
+Any change that modifies a public API name, parameter schema, error class, stage protocol, `ChainState` field, public method on `Sensor` / `ChainResult` / `SweepResult`, or an architectural rule MUST update the corresponding `docs/RADIANT_*.md` doc(s) in the same PR. Doc-only PRs are acceptable. Code-only PRs that cross a documented surface are not. Reviewers reject the PR rather than filing a follow-up.
+
+The drift profile this prevents: a code-side change that silently obsoletes a doc claim, producing aspirational documentation that misleads future contributors and agents.
+
+### 21. Every Finding Becomes a Tracked CU
+When work uncovers a latent issue orthogonal to the current task — placeholder implementation, suppressed warning, dead helper, schema mismatch, doc claim that doesn't match code, golden-result tolerance bumped, hardcoded value that should be a parameter — it MUST be appended to `docs/Cleanup_Backlog.md` as a CU entry **before the current PR merges**. No silently-deferred debt; no "I'll log it later".
+
+Required fields per CU entry:
+- **CU number** (next available; never reuse)
+- **Discovered**: originating task or commit + date
+- **Status**: Open / Investigating / Stage-deferred (with gating stage and re-audit date)
+- **File**: dotted path or `path:line`
+- **Symptom**: what the reader can reproduce
+- **Why it still matters**: physics or architectural consequence
+- **Suggested fix**: one of (a) inline-fix-now, (b) stand-alone task, (c) delete-as-unused; with effort estimate and category (A/B/C/D)
+
+### 22. CU Closure Is a Commit-Linked Event
+A CU is closed only by moving its entry into the **Resolved** section of `docs/Cleanup_Backlog.md` with: resolution date, linked commit SHA, and a one-line resolution summary. Phantom closure (deleting an entry, marking ✓ without a commit, or moving to Resolved without the SHA) is forbidden.
+
+Stage-deferral rule: if a CU is intentionally deferred behind unrelated stage work, the entry MUST record the gating stage(s) and a re-audit date. When a gating stage lands, the next PR touching that area re-audits the CU and either closes it or refreshes the deferral record (new gating stage + new re-audit date). A CU may not be silently carried across multiple stage landings without re-audit.
 
 ---
 
@@ -316,7 +340,10 @@ Run this mentally before declaring any task complete.
 - Any hidden state, globals, or side effects I missed?
 
 ### Architecture
-- Does this respect all 18 rules above?
+- Does this respect all 22 rules above?
+- If I touched a documented surface (public API, schema, error class, stage protocol, ChainState field, architectural rule), did I update the matching `RADIANT_*.md` doc in this PR? (R20)
+- Did I uncover any latent issue (placeholder, suppressed warning, dead helper, schema drift) that I left undocumented? If yes, file a CU before merge. (R21)
+- If I closed a CU, does the Resolved entry have a linked commit SHA and resolution date? (R22)
 - Did I invent any abstraction not in the architecture documents?
 - Did I couple modules that should be independent?
 
@@ -498,6 +525,11 @@ src/radiant/
 | Modify a test's `pytest.approx` tolerance to make a failing test pass | Fix the physics, not the test |
 | Update a golden file without the review protocol in `RADIANT_Testing_Validation.md §5.3` | Breaks reproducibility |
 | Implement anything not requested by the task | Scope creep |
+| Land a doc-touching surface change without updating the matching `RADIANT_*.md` doc | Violates Rule 20 — produces aspirational-doc drift |
+| Discover a latent issue in passing without filing a CU before PR merge | Violates Rule 21 — produces silent debt |
+| Mark a CU resolved without a linked commit SHA and resolution date | Violates Rule 22 — phantom closure |
+| Carry a stage-deferred CU across a gating-stage landing without re-audit | Violates Rule 22 — silent perpetual deferral |
+| Add a normative claim to a `RADIANT_*.md` doc that no test, contract, or type check enforces | Produces aspirational drift (the failure mode that created the 16 Phase-4 audit findings) |
 
 ---
 

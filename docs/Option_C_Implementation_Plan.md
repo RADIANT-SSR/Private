@@ -1,7 +1,9 @@
 # Option C Implementation Plan — Staged with Per-Stage Prompts
 
+> **HISTORICAL ROADMAP — Stages 1 through 8 have all landed.** For current architecture see [RADIANT_Master_Architecture.md](RADIANT_Master_Architecture.md). This document is preserved in place (rather than moved to `archive/`) because the live `Cleanup_Backlog.md` (CU-013) and `option_c_baseline.md` reference specific sections of it (e.g., the Regression Invariants section). Any reader landing here for non-archaeological reasons should redirect to the master architecture and the post-Stage-8 baseline snapshot.
+
 **Date**: 2026-04-19
-**Status**: Proposed
+**Status**: Archived (all 8 stages landed, post-Stage-8 baseline pinned)
 **Owner ADR**: [ADR-0002 Option C — Source/Atmosphere Split via Descriptors](adr/0002-option-c-source-atmosphere-split.md)
 **Coverage target**: [RADIANT_Use_Case_Matrix.md](RADIANT_Use_Case_Matrix.md) — close the gaps in [Use_Case_gaps.md](Use_Case_gaps.md)
 **Effort**: 8 PRs, ~16.5 engineering days

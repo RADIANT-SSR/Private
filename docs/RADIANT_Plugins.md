@@ -1,7 +1,9 @@
 # RADIANT Plugin and Extensibility System
 
+> **v2 DEFERRED — implementation tracked as future scope.** As of 2026-04-25, `src/radiant/plugins/` contains a 1-LOC `__init__.py` stub. The ABCs and entry-point machinery described below are aspirational. Per ADR-A/B/C reconciliation (2026-04-25 audit), this doc is preserved as the design specification for v2 but is **not** an authoritative description of current code. New contributors should not rely on the symbols below being importable. Removing this doc from the `Read first` lists of unrelated tasks is the operational meaning of "v2 deferred".
+
 **Date:** 2026-04-07
-**Status:** Accepted
+**Status:** v2 Deferred (design doc only; no implementation in current code)
 **Depends on:** RADIANT_Signal_Chain_Architecture.md, RADIANT_File_Tree.md
 **Scope:** Defines the formal extension points for custom source models, atmosphere models, metrics, detector models, and file formats. Covers registration, discovery, namespace conflict resolution, and plugin validation.
 

@@ -1,5 +1,7 @@
 # RADIANT — Phase II Implementation Prompt Sequence (Validated)
 
+> **HISTORICAL — for current architecture see [RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md).** Phase II landed in full. Preserved for traceability.
+
 ## Purpose of This Document
 
 This is the authoritative Phase II implementation plan, integrating

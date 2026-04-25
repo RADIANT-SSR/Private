@@ -64,8 +64,10 @@ This interleaving is physically required because:
 Every stage implements a single method:
 
 ```python
+@runtime_checkable
 class Stage(Protocol):
-    name: str
+    @property
+    def name(self) -> str: ...
 
     def run(self, state: ChainState, params: ParameterSet) -> ChainState:
         """Apply this stage to the chain state and return a new state.
@@ -77,6 +79,8 @@ class Stage(Protocol):
         """
         ...
 ```
+
+`name` is exposed as a read-only property rather than a class attribute so concrete stages can satisfy the protocol with either a class-level constant or an instance-resolved value, and `@runtime_checkable` enables `isinstance(obj, Stage)` checks in tests and tooling.
 
 ### What each stage produces and consumes
 
@@ -127,9 +131,10 @@ class ChainState:
     # Trace metadata
     history: tuple[str, ...]  # ordered list of stage names that have run
 
-    def with_frame(self, name: str, frame: "RadiometricFrame") -> "ChainState": ...
+    def with_frame(self, frame: "RadiometricFrame") -> "ChainState": ...
     def with_stage_output(self, stage: str, key: str, value: Any) -> "ChainState": ...
-    def with_mtf(self, term: str, mtf: np.ndarray) -> "ChainState": ...
+    def with_noise(self, term: "NoiseTerm") -> "ChainState": ...
+    def with_mtf(self, term_name: str, mtf: np.ndarray) -> "ChainState": ...
     def with_metric(self, key: str, value: float) -> "ChainState": ...
 ```
 
@@ -279,13 +284,18 @@ Noise is generated at specific points in the chain (shot noise after spectral in
 Each noise term carries an **origin frame** — the frame in which it was generated. To express it in another frame, multiply (forward) or divide (backward) by the appropriate forward factors.
 
 ```python
-def noise_at_frame(noise_term: NoiseTerm, target_frame: str, state: ChainState) -> float:
-    """Convert a noise term from its origin frame to a target frame."""
-    factors = _forward_factors_between(noise_term.origin_frame, target_frame, state)
-    if factors.direction == "forward":
-        return noise_term.value_e * factors.product
-    else:
-        return noise_term.value_e / factors.product
+def noise_at(
+    state: ChainState,
+    target_frame: ReferenceFrame,
+    term_name: str | None = None,
+) -> ChainQuantity:
+    """Get noise (total or a specific term) at a target reference frame.
+
+    If ``term_name`` is None, the total noise is the RSS of all terms whose
+    origin_frame matches; mixed-origin RSS raises ValueError. Conversion
+    between frames is handled by ChainQuantity.to(target_frame, state).
+    """
+    ...
 ```
 
 ### NoiseTerm
@@ -313,7 +323,7 @@ result.signal_at("at_aperture")   # spectral radiance returned
 # Backward propagation
 result.noise_at("electrons")      # 263 e- RMS total
 result.noise_at("dn")             # 2.63 DN RMS total
-result.noise_at("electrons", term="dark")  # 89.2 e- (just one term)
+result.noise_at("electrons", term_name="dark")  # 89.2 e- (just one term)
 result.noise_budget()             # full breakdown table
 
 # Spatial
@@ -368,8 +378,10 @@ These go into `state.stage_outputs[stage_name]` as a namespaced dict. Downstream
 from typing import Protocol
 import numpy as np
 
+@runtime_checkable
 class Stage(Protocol):
-    name: str
+    @property
+    def name(self) -> str: ...
     def run(self, state: "ChainState", params: "ParameterSet") -> "ChainState": ...
 
 
@@ -456,12 +468,15 @@ class ChainResult:
         self._state = state
         self._params = params
 
-    # --- Forward queries ---
-    def signal_at(self, frame: str) -> float | np.ndarray: ...
-    def signal_in_dn(self) -> float: ...
+    # --- Forward queries (ChainQuantity carries value + unit + frame) ---
+    def signal_at(self, frame: ReferenceFrame | str) -> ChainQuantity: ...
 
     # --- Backward queries ---
-    def noise_at(self, frame: str, term: str | None = None) -> float: ...
+    def noise_at(
+        self,
+        frame: ReferenceFrame | str,
+        term_name: str | None = None,
+    ) -> ChainQuantity: ...
     def noise_budget(self) -> list[dict]: ...
 
     # --- Spatial ---

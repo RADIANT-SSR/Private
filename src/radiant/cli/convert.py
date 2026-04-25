@@ -6,7 +6,7 @@ import sys
 
 import click
 
-from radiant.core.units import _CONVERSIONS, convert
+from radiant.api.units import _CONVERSIONS, convert
 
 
 @click.command()

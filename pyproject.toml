@@ -161,6 +161,7 @@ ignore_imports = [
     "radiant.io.config -> radiant.core.parameters",
     "radiant.io.results -> radiant.core.chain",
     "radiant.io.results -> radiant.core.radiometry",
+    "radiant.api.units -> radiant.core.units",
 ]
 
 [[tool.importlinter.contracts]]

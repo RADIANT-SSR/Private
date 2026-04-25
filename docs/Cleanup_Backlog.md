@@ -10,13 +10,6 @@
 
 ## Open
 
-### CU-015 — `readout.stage` lazy-imports `detector.noise.budget` (Rule-11 violation)
-
-**Discovered**: Technical debt cleanup, Phase 6.2 (2026-04-24)
-**File**: `src/radiant/readout/stage.py:141`
-**Symptom**: when `DetectorStage` did not populate `noise_budget_raw` in `state.stage_outputs["detector"]`, `ReadoutStage.run` falls back to constructing a budget directly via `from radiant.detector.noise.budget import compute_noise_budget`. This is a cross-stage physics import in production code, which violates CLAUDE.md Rule 11 ("no cross-stage physics imports"). The fallback was added with a `legacy/test` comment.
-**Why it matters**: Rule 11 says all inter-stage data must flow through `ChainState`. The fallback bypasses that contract. It is currently masked by a `pyproject.toml` ignore_imports entry added in commit 7ab1251.
-**Suggested fix**: either (a) move the fallback responsibility into `DetectorStage` so `noise_budget_raw` is always populated when readout runs, or (b) move `compute_noise_budget` into `radiant.core` (it is a thin general-purpose helper). After the refactor, remove the ignore_imports entry. Verify all existing readout tests still pass.
 
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
 
@@ -122,3 +115,7 @@ Resolved by Phases 2–5 of the technical-debt cleanup. `core/responsivity.py` n
 ### CU-010 — `test_inferrer.py` imports from `radiant.api` — RESOLVED 2026-04-24
 
 Resolved by Phase 6.2 (commit 7ab1251). `pyproject.toml` import-linter contracts now exempt `radiant.*.tests.*` patterns from the physics-stage and cross-stage rules, matching CLAUDE.md's intent (Rule 11 governs production code; tests legitimately need api/io to build full-schema fixtures).
+
+### CU-015 — `readout.stage` lazy-imports `detector.noise.budget` — RESOLVED 2026-04-24
+
+Investigation showed the fallback (lines 140–149) was unreachable: `RadiantSession` always runs `DetectorStage` before `ReadoutStage`, and every test that exercises `ReadoutStage` directly populates `noise_budget_raw` itself. Replaced the fallback with a `ValueError` that explicitly tells the caller to populate `stage_outputs['detector']['noise_budget_raw']` (CLAUDE.md Rule 17 — fail loudly, not silently). Removed the corresponding `radiant.readout.stage -> radiant.detector.noise.budget` ignore from `pyproject.toml`. All five import contracts now KEPT without exceptions for production cross-stage imports.

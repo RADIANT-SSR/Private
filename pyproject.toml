@@ -151,12 +151,6 @@ ignore_imports = [
     "radiant.*.tests.* -> radiant.detector.noise.budget",
     "radiant.*.tests.* -> radiant.atmosphere.exo",
     "radiant.*.tests.* -> radiant.atmosphere.assembly",
-    # Production exception (tracked in Cleanup_Backlog.md): readout.stage
-    # has a lazy fallback that calls into detector.noise.budget when the
-    # detector stage didn't populate noise_budget_raw (legacy/test path).
-    # Ideally this fallback should live in detector or be removed; until
-    # then, this edge is documented as a known Rule-11 violation.
-    "radiant.readout.stage -> radiant.detector.noise.budget",
 ]
 
 [[tool.importlinter.contracts]]

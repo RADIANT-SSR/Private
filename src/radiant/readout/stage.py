@@ -136,16 +136,13 @@ class ReadoutStage:
         signal_e: float = det_out.get("signal_e", 0.0)
         budget_raw: NoiseBudget | None = det_out.get("noise_budget_raw")
 
-        # If DetectorStage didn't run (legacy/test), build a minimal budget.
         if budget_raw is None:
-            from radiant.detector.noise.budget import compute_noise_budget
-
-            budget_raw = compute_noise_budget(
-                signal_e=signal_e,
-                read_noise_e_rms=params.get("readout.read_noise_e_rms"),
-                gain_e_per_dn=params.get("readout.gain_e_per_dn"),
-                cds_enabled=bool(params.get("readout.cds_enabled")),
-                node_capacitance_F=params.get("readout.node_capacitance_F"),
+            raise ValueError(
+                "ReadoutStage: stage_outputs['detector']['noise_budget_raw'] "
+                "is missing. DetectorStage must run before ReadoutStage to "
+                "populate the raw NoiseBudget. Add DetectorStage to your "
+                "ChainRunner or, in unit tests, set the budget directly via "
+                "state.with_stage_output('detector', 'noise_budget_raw', ...)."
             )
 
         # ---- 1. Read readout parameters ----

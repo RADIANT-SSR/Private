@@ -10,31 +10,13 @@
 
 ## Open
 
-### CU-001 — Pre-existing `lint-imports` contract breakages
+### CU-015 — `readout.stage` lazy-imports `detector.noise.budget` (Rule-11 violation)
 
-**Discovered**: Option C Stage 1 (2026-04-19)
-**Files**:
-- `src/radiant/cli/*` — imports from `radiant.api` / `radiant.core` that violate a declared contract
-- `src/radiant/detector/tests/test_stage_mtf_term.py` — imports from `radiant.api`
-
-**Symptom**: `lint-imports` reports 3 contract breakages unrelated to any recent change.
-**Why it matters**: import-linter is a CI gate for Rule 11. Current failures make it impossible to tell an Option-C-introduced regression from pre-existing noise during Stage 3 shadow-mode review.
-**Suggested fix**: either amend the `pyproject.toml` import-linter contracts to allow the current CLI/tests usage if legitimate, or fix the offending imports. Investigate before deciding.
-**Blocks**: Stage 3 shadow-mode clean CI signal would be cleaner if this is resolved first, but not hard-blocking.
-
-### CU-002 — Pre-existing `mypy --strict` errors in non-`core`/`api` modules
-
-**Discovered**: Option C Stage 1 (2026-04-19)
-**Files** (with approximate error count):
-- `src/radiant/responsivity.py`
-- `src/radiant/api/tolerance.py`
-- `src/radiant/api/sweep.py`
-- `src/radiant/api/plot.py`
-- `src/radiant/api/tests/test_plot.py`
-
-**Symptom**: `mypy --strict src/radiant` reports 10 errors; none in Stage 1 files but all pre-existing.
-**Why it matters**: CLAUDE.md requires `mypy --strict` clean on `core/` and `api/`. The `api/` failures are currently out of compliance.
-**Suggested fix**: open an issue per file and annotate/fix the specific errors. Low risk — these are type-annotation gaps, not logic bugs.
+**Discovered**: Technical debt cleanup, Phase 6.2 (2026-04-24)
+**File**: `src/radiant/readout/stage.py:141`
+**Symptom**: when `DetectorStage` did not populate `noise_budget_raw` in `state.stage_outputs["detector"]`, `ReadoutStage.run` falls back to constructing a budget directly via `from radiant.detector.noise.budget import compute_noise_budget`. This is a cross-stage physics import in production code, which violates CLAUDE.md Rule 11 ("no cross-stage physics imports"). The fallback was added with a `legacy/test` comment.
+**Why it matters**: Rule 11 says all inter-stage data must flow through `ChainState`. The fallback bypasses that contract. It is currently masked by a `pyproject.toml` ignore_imports entry added in commit 7ab1251.
+**Suggested fix**: either (a) move the fallback responsibility into `DetectorStage` so `noise_budget_raw` is always populated when readout runs, or (b) move `compute_noise_budget` into `radiant.core` (it is a thin general-purpose helper). After the refactor, remove the ignore_imports entry. Verify all existing readout tests still pass.
 
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
 
@@ -92,13 +74,6 @@
 **Why it matters**: path-radiance models in Stage 3 will want a real LOS. For now every scenario fires as nadir/surface/Kármán.
 **Suggested fix**: Stage 5 of the Option C plan adds the partial-column atmosphere and introduces `source.observer_geometry.*` parameters. Wire those through `_infer_los` at that time.
 
-### CU-010 — `test_inferrer.py` imports from `radiant.api` (transitive import-linter violations)
-
-**Discovered**: Option C Stage 2 (2026-04-19)
-**File**: `src/radiant/source/tests/test_inferrer.py`
-**Symptom**: the test uses `build_parameter_set()` from `radiant.api._param_registry` and `load_config` from `radiant.io.config` to build a full-schema ParameterSet matching the real-world YAML scenarios. This adds 8 new `lint-imports` violations to the baseline of 82, matching the pattern already used by `radiant.optics.tests.test_stage_mtf_term`, `radiant.readout.tests.test_stage`, `radiant.detector.tests.test_stage_mtf_term`, etc.
-**Why it matters**: Rule 11 forbids physics stages from importing higher-layer modules, but tests are less strict. The current import-linter contract does not distinguish test code from library code, so the contract reports these as breakages.
-**Suggested fix**: amend the `pyproject.toml` import-linter contracts to exempt `radiant.*.tests.*` from cross-stage import rules (tests legitimately need the public API to build real ParameterSets). This is not Stage-2-specific; it merges naturally with CU-001.
 
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
@@ -136,4 +111,14 @@
 
 ## Resolved
 
-_(none yet)_
+### CU-001 — Pre-existing `lint-imports` contract breakages — RESOLVED 2026-04-24
+
+Resolved by Phase 6 of the technical-debt cleanup (commits 2a70558, 7ab1251, bea406a). `cli/convert.py` was the only direct production violation; routed through new `radiant.api.units` re-export. All transitive cli→api→{core,platform,optics,io} edges enumerated in `pyproject.toml` `ignore_imports`. Test-colocation patterns (`radiant.*.tests.*`) granted explicit ignores with `unmatched_ignore_imports_alerting = "warn"`. All 5 import-linter contracts now KEPT.
+
+### CU-002 — Pre-existing `mypy --strict` errors in non-`core`/`api` modules — RESOLVED 2026-04-24
+
+Resolved by Phases 2–5 of the technical-debt cleanup. `core/responsivity.py` no-any-return wrapped with `np.asarray` (commit), `api/sweep.py` no-redef collapsed (commit), `api/tolerance.py` union-attr asserted (commit 2de6b76), `api/plot.py` × 6 + `api/tests/test_plot.py` × 1 wrapped with `cast(Figure, ...)` at the matplotlib seam (commit f9fcf3c). `mypy --strict src/radiant/core src/radiant/api` is now clean (51 source files).
+
+### CU-010 — `test_inferrer.py` imports from `radiant.api` — RESOLVED 2026-04-24
+
+Resolved by Phase 6.2 (commit 7ab1251). `pyproject.toml` import-linter contracts now exempt `radiant.*.tests.*` patterns from the physics-stage and cross-stage rules, matching CLAUDE.md's intent (Rule 11 governs production code; tests legitimately need api/io to build full-schema fixtures).

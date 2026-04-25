@@ -15,7 +15,7 @@
 
 **Discovered**: Option C Stage 0 (2026-04-19)
 **Investigated**: Phase 2 Track A (2026-04-24)
-**Status**: escalated to a stand-alone Category C task (`docs/tasks/CU-003_rect_kernel_fix.md`) — this entry stays Open until the follow-on lands.
+**Status**: escalated to a stand-alone Category C task (`docs/CU-003_Rect_Kernel_Fix_Task.md`) — this entry stays Open until the follow-on lands.
 
 **File**: `examples/templates/swir_aerial_gas.yaml`
 **Symptom**: MTF consistency check reports `max_err_x = max_err_y = 0.05196` vs tolerance `0.050` (~4% miss). All other 13 baseline scenarios pass cleanly.

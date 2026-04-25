@@ -184,7 +184,7 @@ def sweep(
         )
     else:
         metric_vals = np.empty(n, dtype=np.float64)
-        results_list: list[ChainResult] = []
+        results_list = []
         for i, v in enumerate(vals):
             ps = _clone_with(params, param_name, float(v))
             r = run_fn(ps)

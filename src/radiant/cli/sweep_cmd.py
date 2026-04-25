@@ -57,14 +57,14 @@ def sweep_cmd(
     # Print table.
     click.echo(f"{'Value':>12s}  {metric:>12s}")
     click.echo("-" * 26)
-    for v, m in zip(result.values, result.metric_values):
+    for v, m in zip(result.values, result.metric_values, strict=True):
         click.echo(f"{v:12.6g}  {m:12.6g}")
 
     # Save output.
     if output_path is not None:
         if output_path.endswith(".csv"):
             lines = [f"value,{metric}"]
-            for v, m in zip(result.values, result.metric_values):
+            for v, m in zip(result.values, result.metric_values, strict=True):
                 lines.append(f"{v},{m}")
             from pathlib import Path
 

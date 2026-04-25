@@ -243,7 +243,7 @@ class TestOpticsStagePerWavelengthPSF:
         per_wl = out.stage_outputs["optics"].get("per_wavelength_psfs")
         assert per_wl is not None
         assert len(per_wl) == 3
-        for wl_key, epsf_mono in per_wl.items():
+        for epsf_mono in per_wl.values():
             assert isinstance(epsf_mono, EffectivePSF)
             assert float(epsf_mono.data.sum()) == pytest.approx(1.0, rel=1e-4)
 

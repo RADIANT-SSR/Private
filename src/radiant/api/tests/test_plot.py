@@ -22,7 +22,7 @@ from radiant.api.sweep import Sweep2DResult, SweepResult
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
 
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure  # noqa: E402  # backend must be set first
 
 # -- Fixtures --------------------------------------------------------------
 

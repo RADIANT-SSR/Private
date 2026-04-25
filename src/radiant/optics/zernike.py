@@ -52,10 +52,7 @@ def noll_to_nm(j: int) -> tuple[int, int]:
     k = j - n * (n + 1) // 2 - 1
 
     # |m| follows a zigzag pattern within each order
-    if n % 2 == 0:
-        m_abs = 2 * ((k + 1) // 2)
-    else:
-        m_abs = 2 * (k // 2) + 1
+    m_abs = 2 * ((k + 1) // 2) if n % 2 == 0 else 2 * (k // 2) + 1
 
     # Sign: even j -> positive m (cosine), odd j -> negative m (sine)
     if m_abs == 0:
@@ -142,10 +139,7 @@ def zernike_polynomial(
     R = zernike_radial(n, m_abs, rho)
 
     # Noll normalization
-    if m == 0:
-        norm = math.sqrt(n + 1)
-    else:
-        norm = math.sqrt(2 * (n + 1))
+    norm = math.sqrt(n + 1) if m == 0 else math.sqrt(2 * (n + 1))
 
     if m > 0:
         return norm * R * np.cos(m_abs * theta)

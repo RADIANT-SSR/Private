@@ -178,6 +178,7 @@ def monte_carlo(
             if metric_names is None:
                 metric_names = tuple(sorted(r.metrics.keys()))
 
+        assert metric_names is not None  # set on first iteration
         row = [float(r.metrics.get(m, float("nan"))) for m in metric_names]
         metric_rows.append(row)
 

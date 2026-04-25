@@ -39,6 +39,7 @@ from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.core.exceptions import RadiantError
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData, SpectralGrid
@@ -50,8 +51,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class ModtranUnavailableError(RuntimeError):
-    """MODTRAN binary is not available and no fallback is enabled."""
+class ModtranUnavailableError(RadiantError, RuntimeError):
+    """MODTRAN binary is not available and no fallback is enabled.
+
+    Co-inherits from :class:`RuntimeError` for back-compat with existing
+    ``except RuntimeError`` patterns; :class:`RadiantError` is the
+    canonical base.
+    """
 
     def __init__(self, binary_path: str | Path, detail: str = "") -> None:
         msg = (
@@ -66,8 +72,13 @@ class ModtranUnavailableError(RuntimeError):
         self.binary_path = binary_path
 
 
-class Tape7ParseError(ValueError):
-    """Error parsing MODTRAN tape7 output."""
+class Tape7ParseError(RadiantError, ValueError):
+    """Error parsing MODTRAN tape7 output.
+
+    Co-inherits from :class:`ValueError` for back-compat with existing
+    ``pytest.raises(ValueError, ...)`` patterns; :class:`RadiantError`
+    is the canonical base.
+    """
 
 
 # ---------------------------------------------------------------------------

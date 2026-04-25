@@ -82,7 +82,7 @@ Every user-facing parameter is defined once in a `_schema.py` file within its ow
 The full validation pipeline (type → bounds → enum → required → consistency → file) runs and completes before any physics computation begins. A config with validation errors never reaches the chain runner. Validation collects all errors before reporting (not fail-fast). This applies in all execution modes: CLI, scripting API, GUI.
 
 ### C12 — Every Error Is Actionable
-Every exception raised by RADIANT must state: what went wrong (specific, not generic), why it is wrong (physics or logic reason), and what the user should do (specific fix). `RadiantError` has `what`, `why`, and `action` fields. Exceptions that say only "invalid parameter" are bugs.
+Every exception raised by RADIANT inherits from `RadiantError` (base class in `radiant.core.exceptions`, re-exported as `radiant.RadiantError`). Concrete subclasses (`ParameterBoundsError`, `KirchhoffViolationError`, `ModtranUnavailableError`, `Tape7ParseError`, `ConfigError`, `ElementConfigError`) live with the module that raises them. The user-facing actionability contract — what went wrong (specific, not generic), why it is wrong (physics or logic reason), what the user should do (specific fix) — is carried as a structured `what / why / action / context` payload on every raise site. `ParameterBoundsError` formalizes that payload as constructor fields; other subclasses include the same information in their message strings until the carve-out is generalized. Exceptions that say only "invalid parameter" are bugs.
 
 ### C13 — Provenance Is Mandatory
 Every `ChainResult` carries a complete provenance record: run ID, RADIANT version, git commit, Python version, dependency versions, resolved parameter set with per-parameter provenance, input file hashes, and active model identifiers. Provenance is not optional and cannot be disabled. Given a provenance record, the result must be reproducible.
@@ -228,11 +228,12 @@ Within each phase, modules can be implemented in parallel by different developer
 
 ### 7.4 Error Handling
 
-1. Use `RadiantError` subclasses from `radiant.exceptions`. Never raise bare `ValueError`, `TypeError`, or `AssertionError` for user-facing errors.
-2. Every `raise` must supply `what`, `why`, and `action`.
+1. Use `RadiantError` subclasses (`RadiantError` lives in `radiant.core.exceptions`, re-exported at the top level as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError` in `core/parameters.py`, `KirchhoffViolationError` in `optics/element.py`, `ModtranUnavailableError` and `Tape7ParseError` in `atmosphere/modtran.py`, `ConfigError` in `io/config.py`, `ElementConfigError` in `io/element_config.py`. Never raise bare `ValueError`, `TypeError`, or `AssertionError` for user-facing errors.
+2. Every `raise` must supply `what`, `why`, and `action` — either as `ParameterBoundsError` constructor fields or in the message string, until the carve-out is generalized.
 3. `assert` is for developer invariants only (not user-input validation). A user who triggers an `AssertionError` has found a bug in RADIANT, not made a user error.
 4. Catch exceptions at layer boundaries (e.g., `io/` catching file-not-found), re-raise as `RadiantError` with context.
 5. Do not catch `RadiantError` inside physics modules. Let it propagate to the API layer.
+6. Concrete subclasses MAY co-inherit from a built-in exception type (`ValueError`, `RuntimeError`) for back-compat with existing `except`/`pytest.raises` patterns; new RADIANT exception classes SHOULD inherit from `RadiantError` only.
 
 ### 7.5 Code Style
 

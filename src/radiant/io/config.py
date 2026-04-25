@@ -26,6 +26,7 @@ from typing import Any
 
 import yaml
 
+from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 _RESERVED_KEYS = frozenset({"_extends", "_imports", "_vars"})
 
 
-class ConfigError(Exception):
+class ConfigError(RadiantError):
     """Raised when a YAML configuration file is invalid.
 
     Attributes

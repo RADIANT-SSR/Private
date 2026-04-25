@@ -516,19 +516,25 @@ If the software version does not match, `radiant reproduce` warns but still runs
 2. **Why:** Why it's wrong. "Aperture diameter must be positive (it is a physical length)."
 3. **What to do:** What the user should change. "Set sensor.optics.aperture_diameter to a positive value in meters."
 
-Every RADIANT exception class carries these three fields as structured attributes, not just a message string.
+The base class `RadiantError` lives in `radiant.core.exceptions` (re-exported as `radiant.RadiantError`). It is currently a plain `Exception` subclass — the structured `what / why / action / context` payload is carried by `ParameterBoundsError`, the most user-facing subclass. The other concrete subclasses (`KirchhoffViolationError`, `ModtranUnavailableError`, `Tape7ParseError`, `ConfigError`, `ElementConfigError`) carry the same information in their message strings until the carve-out is generalized.
 
 ```python
-@dataclass
+# radiant/core/exceptions.py
 class RadiantError(Exception):
-    what: str          # What went wrong
-    why: str           # Why it's wrong
-    action: str        # What the user should do
-    context: dict      # Structured context (parameter name, value, source file, etc.)
+    """Base class for all RADIANT-defined exceptions."""
 
-    def __str__(self) -> str:
-        return f"{self.what}\n  Why: {self.why}\n  Fix: {self.action}"
+# radiant/core/parameters.py — the canonical structured form
+class ParameterBoundsError(RadiantError, ValueError):
+    def __init__(
+        self,
+        what: str,
+        why: str = "",
+        action: str = "",
+        context: dict[str, Any] | None = None,
+    ) -> None: ...
 ```
+
+Concrete subclasses MAY co-inherit from a built-in exception (`ValueError`, `RuntimeError`) for back-compat with `except ValueError` / `pytest.raises(ValueError, ...)` patterns; new RADIANT exception classes SHOULD inherit from `RadiantError` only.
 
 ### 8.2 No Silent Failures
 
@@ -577,27 +583,21 @@ Verbose mode is enabled with `-v` on CLI or `sensor.validate(verbose=True)` in t
 
 ### 8.5 Exception Hierarchy
 
+Current hierarchy (matches code):
+
 ```
-RadiantError (base)
-├── ConfigError
-│   ├── ParameterTypeError
-│   ├── ParameterBoundsError
-│   ├── ParameterEnumError
-│   ├── UnknownParameterError
-│   ├── MissingParameterError
-│   ├── ConsistencyError
-│   └── FileReferenceError
-├── PhysicsError
-│   ├── RegimeError        — regime inconsistency
-│   ├── SpectralError      — wavelength grid problem
-│   └── NumericalError     — NaN, inf, or non-convergence
-├── PluginError
-│   ├── PluginNotFoundError
-│   └── PluginConflictError
-└── ReproductionError      — provenance mismatch during reproduce
+RadiantError (radiant.core.exceptions; re-exported as radiant.RadiantError)
+├── ParameterBoundsError      (also ValueError)  — radiant.core.parameters
+├── KirchhoffViolationError   (also ValueError)  — radiant.optics.element
+├── ModtranUnavailableError   (also RuntimeError)— radiant.atmosphere.modtran
+├── Tape7ParseError           (also ValueError)  — radiant.atmosphere.modtran
+├── ConfigError                                  — radiant.io.config
+└── ElementConfigError        (also ValueError)  — radiant.io.element_config
 ```
 
-All exceptions are importable from `radiant.exceptions`.
+`RadiantError` itself is importable from `radiant` (top-level re-export) and from `radiant.core.exceptions`. Each concrete subclass is importable from the module that raises it.
+
+The richer multi-tier hierarchy that earlier drafts of this doc described (`PhysicsError`, `PluginError`, `ReproductionError`, finer-grained `ParameterTypeError`/`ParameterEnumError`/etc.) has been deferred — see CU-NEW-01 follow-up tracking in `docs/Cleanup_Backlog.md`. The single-tier hierarchy above is the load-bearing contract today.
 
 ---
 

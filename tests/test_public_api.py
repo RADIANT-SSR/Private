@@ -22,13 +22,31 @@ def test_top_level_sensor_import() -> None:
 
 @pytest.mark.level0
 def test_top_level_all_exports_match_adr() -> None:
-    """`radiant.__all__` matches the ADR-C decision: Sensor + __version__ only.
+    """`radiant.__all__` matches the documented top-level surface.
 
-    SensorConfig, ScenarioConfig, BatchRunner are explicitly out per ADR-C.
+    Per ADR-C: `Sensor`, `__version__`. Per CU-018 (RadiantError base class):
+    `RadiantError` joined the top-level surface so user code can write
+    `except RadiantError` without reaching into `radiant.core.exceptions`.
+
+    SensorConfig, ScenarioConfig, BatchRunner remain explicitly out per ADR-C.
     """
     import radiant
 
-    assert set(radiant.__all__) == {"Sensor", "__version__"}
+    assert set(radiant.__all__) == {"RadiantError", "Sensor", "__version__"}
+
+
+@pytest.mark.level0
+def test_top_level_radiant_error_import() -> None:
+    """`from radiant import RadiantError` resolves to the canonical base class.
+
+    Per CU-018, `RadiantError` is re-exported at the top level so user
+    code can use `except RadiantError` to catch every framework-defined
+    error without importing from `radiant.core.exceptions`.
+    """
+    from radiant import RadiantError as TopLevelRadiantError
+    from radiant.core.exceptions import RadiantError as CoreRadiantError
+
+    assert TopLevelRadiantError is CoreRadiantError
 
 
 @pytest.mark.level1

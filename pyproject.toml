@@ -188,6 +188,7 @@ ignore_imports = [
     "radiant.api._param_registry -> radiant.readout._schema",
     "radiant.api._param_registry -> radiant.core.parameters",
     "radiant.io.config -> radiant.core.parameters",
+    "radiant.io.config -> radiant.core.exceptions",
     "radiant.io.results -> radiant.core.chain",
     "radiant.io.results -> radiant.core.radiometry",
     "radiant.io.results -> radiant.core.quantity",

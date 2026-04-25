@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 import yaml
 
+from radiant.core.exceptions import RadiantError
 from radiant.core.spectral import SpectralData
 from radiant.optics.element import ElementKind, OpticalElement
 from radiant.optics.element_factories import (
@@ -31,8 +32,13 @@ from radiant.optics.element_factories import (
 logger = logging.getLogger(__name__)
 
 
-class ElementConfigError(ValueError):
-    """Raised when element YAML configuration is invalid."""
+class ElementConfigError(RadiantError, ValueError):
+    """Raised when element YAML configuration is invalid.
+
+    Co-inherits from :class:`ValueError` for back-compat with existing
+    ``pytest.raises(ValueError, ...)`` patterns; :class:`RadiantError`
+    is the canonical base.
+    """
 
 
 def _load_spectral_csv(path: Path, name: str) -> SpectralData:

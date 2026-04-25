@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from radiant.core.exceptions import RadiantError
 from radiant.core.spectral import SpectralData
 
 if TYPE_CHECKING:
@@ -52,8 +53,13 @@ class ElementTransferMode(enum.Enum):
     REFRACTIVE = "refractive"
 
 
-class KirchhoffViolationError(ValueError):
-    """Raised when an optical element violates Kirchhoff's law."""
+class KirchhoffViolationError(RadiantError, ValueError):
+    """Raised when an optical element violates Kirchhoff's law.
+
+    Co-inherits from :class:`ValueError` for back-compat with existing
+    ``pytest.raises(ValueError, ...)`` patterns; :class:`RadiantError`
+    is the canonical base.
+    """
 
 
 @dataclass(frozen=True)

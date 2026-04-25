@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from radiant.core.exceptions import RadiantError
 from radiant.core.units import convert, inverse_convert
 
 # ---------------------------------------------------------------------------
@@ -26,14 +27,15 @@ from radiant.core.units import convert, inverse_convert
 # ---------------------------------------------------------------------------
 
 
-class ParameterBoundsError(ValueError):
+class ParameterBoundsError(RadiantError, ValueError):
     """A user-controlled parameter is out of its valid physical domain.
 
     Follows the actionable-error contract from RADIANT_Master_Architecture.md
     Rule 15: carries a structured ``what / why / action / context`` payload so
     downstream tooling (CLI, GUI, logs) can surface each field independently.
-    Inherits from :class:`ValueError` for back-compat with ``pytest.raises``
-    patterns already used elsewhere in the codebase.
+    Co-inherits from :class:`ValueError` for back-compat with the
+    ``pytest.raises(ValueError, ...)`` patterns already used elsewhere in
+    the codebase; :class:`RadiantError` is the canonical base.
 
     Parameters
     ----------

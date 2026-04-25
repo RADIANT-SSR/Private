@@ -61,6 +61,10 @@ This decision unblocks the following audit reconciliation tasks (see [docs/audit
   - Drop the `from radiant.api import SensorConfig, ScenarioConfig, BatchRunner` import line entirely.
 - **R3.CU-NEW-03** — `ChainResult` API method names (`signal_at` vs `signal_at_frame`) is decided in its own task; this ADR scopes only the top-level `Sensor` and config/batch classes.
 
+## Subsequent Extensions
+
+- **2026-04-25 (CU-018):** `RadiantError` joined the top-level surface — `from radiant import RadiantError`. The class lives at `radiant.core.exceptions.RadiantError` and is re-exported via `radiant/__init__.py`. Rationale: user code that wants to catch every framework-defined error needs a single name to use in `except RadiantError`, and forcing users to reach into `radiant.core.exceptions` for that one base class would defeat the "tight, documented top-level surface" goal of this ADR. The top-level `__all__` is now `{RadiantError, Sensor, __version__}`. SensorConfig / ScenarioConfig / BatchRunner remain out per the original decision.
+
 ## References
 
 - [docs/audit_2026/Doc_Drift_Report.md#D5, #D8](../audit_2026/Doc_Drift_Report.md)

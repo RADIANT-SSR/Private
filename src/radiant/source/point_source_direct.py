@@ -93,5 +93,5 @@ class DirectIntensitySource:
             raise ValueError(
                 f"reference_area_m2 must be positive, got {reference_area_m2}"
             )
-        I = self.spectral_intensity(wavelength_um)
-        return np.asarray(I / reference_area_m2, dtype=np.float64)
+        intensity = self.spectral_intensity(wavelength_um)
+        return np.asarray(intensity / reference_area_m2, dtype=np.float64)

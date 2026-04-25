@@ -111,9 +111,9 @@ class TestResolvedTarget:
             range_m=10000.0,
             tentative_regime=RadiometricRegime.EXTENDED,
         )
-        I = rt.spectral_intensity(WAV)
+        intensity = rt.spectral_intensity(WAV)
         expected = 0.9 * planck_spectral_radiance(WAV, 500.0) * area
-        np.testing.assert_allclose(I, expected, rtol=1e-10)
+        np.testing.assert_allclose(intensity, expected, rtol=1e-10)
 
 
 # ======================================================================

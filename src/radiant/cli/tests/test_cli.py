@@ -226,7 +226,7 @@ class TestSweepCommand:
         assert result.exit_code == 0, result.output
         assert "snr" in result.output.lower()
         # Should have 3 rows + header + separator = 5 lines minimum
-        lines = [l for l in result.output.strip().splitlines() if l.strip()]
+        lines = [line for line in result.output.strip().splitlines() if line.strip()]
         assert len(lines) >= 5
 
     def test_sweep_output_csv(self, runner: CliRunner, tmp_path: Path) -> None:

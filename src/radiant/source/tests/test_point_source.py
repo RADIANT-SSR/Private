@@ -30,18 +30,18 @@ class TestBlackbodyIntensitySource:
         src = BlackbodyIntensitySource(
             temperature_K=T, projected_area_m2=A, emissivity=eps,
         )
-        I = src.spectral_intensity(WAV)
+        intensity = src.spectral_intensity(WAV)
         expected = A * eps * planck_spectral_radiance(WAV, T)
-        np.testing.assert_allclose(I, expected, rtol=1e-12)
+        np.testing.assert_allclose(intensity, expected, rtol=1e-12)
 
     def test_area_scaling(self) -> None:
         """Doubling area doubles intensity."""
         T = 500.0
         src_1 = BlackbodyIntensitySource(temperature_K=T, projected_area_m2=0.01)
         src_2 = BlackbodyIntensitySource(temperature_K=T, projected_area_m2=0.02)
-        I_1 = src_1.spectral_intensity(WAV)
-        I_2 = src_2.spectral_intensity(WAV)
-        np.testing.assert_allclose(I_2, 2.0 * I_1, rtol=1e-12)
+        intensity_1 = src_1.spectral_intensity(WAV)
+        intensity_2 = src_2.spectral_intensity(WAV)
+        np.testing.assert_allclose(intensity_2, 2.0 * intensity_1, rtol=1e-12)
 
     def test_radiance_equals_eps_B(self) -> None:
         """Equivalent radiance = ε · B (area cancels)."""
@@ -56,9 +56,9 @@ class TestBlackbodyIntensitySource:
 
     def test_unity_emissivity_default(self) -> None:
         src = BlackbodyIntensitySource(temperature_K=500, projected_area_m2=0.01)
-        I = src.spectral_intensity(WAV)
+        intensity = src.spectral_intensity(WAV)
         expected = 0.01 * planck_spectral_radiance(WAV, 500)
-        np.testing.assert_allclose(I, expected, rtol=1e-12)
+        np.testing.assert_allclose(intensity, expected, rtol=1e-12)
 
     def test_zero_temp_raises(self) -> None:
         with pytest.raises(ValueError, match="temperature_K"):
@@ -93,8 +93,8 @@ class TestDirectIntensitySource:
 
     def test_constant_intensity(self, intensity_data: SpectralData) -> None:
         src = DirectIntensitySource(intensity_data=intensity_data)
-        I = src.spectral_intensity(WAV)
-        np.testing.assert_allclose(I, 100.0, rtol=1e-6)
+        intensity = src.spectral_intensity(WAV)
+        np.testing.assert_allclose(intensity, 100.0, rtol=1e-6)
 
     def test_interpolation(self) -> None:
         """Linear interpolation on non-uniform data."""
@@ -113,8 +113,8 @@ class TestDirectIntensitySource:
         src = DirectIntensitySource(intensity_data=intensity_data)
         ref_area = 1e-6
         L = src.spectral_radiance(WAV, reference_area_m2=ref_area)
-        I = src.spectral_intensity(WAV)
-        np.testing.assert_allclose(L, I / ref_area, rtol=1e-12)
+        intensity = src.spectral_intensity(WAV)
+        np.testing.assert_allclose(L, intensity / ref_area, rtol=1e-12)
 
     def test_out_of_range_raises(self) -> None:
         sd = SpectralData(

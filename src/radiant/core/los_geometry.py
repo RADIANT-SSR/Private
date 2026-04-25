@@ -40,7 +40,7 @@ from radiant.core.constants import R_EARTH_M
 from radiant.core.parameters import ParameterBoundsError
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LineOfSightGeometry:
     """Line-of-sight geometry for the atmosphere assembly equation.
 
@@ -76,8 +76,8 @@ class LineOfSightGeometry:
     """
 
     h_tgt: float
-    theta_o: float
     h_atm_top: float = 1.0e5
+    theta_o: float
     theta_s: float | None = None
     delta_phi: float | None = None
 

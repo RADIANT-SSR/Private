@@ -35,14 +35,6 @@
 **Why it matters**: dead-until-wired code risks bit-rot. If it's still unwired after Stage 8, reconsider whether it belongs in `core/` or in a stubbed `sensor/` module.
 **Suggested fix**: revisit at Stage 7; either wire it into the Earth-LOS-intercept check (which needs `h_sensor`) or explicitly defer to the SensorDescriptor ADR with a link from the module comment.
 
-### CU-006 — `LineOfSightGeometry` field ordering diverges from plan text
-
-**Discovered**: Option C Stage 1 (2026-04-19)
-**File**: `src/radiant/core/los_geometry.py`
-**Symptom**: Python forbids non-default fields after default fields, so the implementation is `(h_tgt, theta_o, h_atm_top=1e5, theta_s=None, delta_phi=None)` rather than the plan's textual order `(h_tgt, h_atm_top=1e5, theta_o, theta_s, delta_phi)`.
-**Why it matters**: positional construction would silently misassign `h_atm_top` ↔ `theta_o`.
-**Suggested fix**: enforce keyword-only construction via `@dataclass(frozen=True, kw_only=True)` (Python 3.10+). Non-blocking since current call sites are test-only, but will bite once Stage 2's inferrer starts constructing descriptors from YAML.
-
 ### CU-007 — Stage-2 MWIR-mixed `UserWarning` is globally suppressed inside `_inferrer.py`
 
 **Discovered**: Option C Stage 2 (2026-04-19)
@@ -115,6 +107,10 @@ Resolved by Phases 2–5 of the technical-debt cleanup. `core/responsivity.py` n
 ### CU-010 — `test_inferrer.py` imports from `radiant.api` — RESOLVED 2026-04-24
 
 Resolved by Phase 6.2 (commit 7ab1251). `pyproject.toml` import-linter contracts now exempt `radiant.*.tests.*` patterns from the physics-stage and cross-stage rules, matching CLAUDE.md's intent (Rule 11 governs production code; tests legitimately need api/io to build full-schema fixtures).
+
+### CU-006 — `LineOfSightGeometry` field ordering diverges from plan text — RESOLVED 2026-04-24
+
+Resolved by Phase 2 Track C. Added `kw_only=True` to the `@dataclass` decorator and re-ordered field declarations to match the plan's textual order `(h_tgt, h_atm_top=1e5, theta_o, theta_s=None, delta_phi=None)`. Positional construction now raises `TypeError` at construction time, closing the silent `h_atm_top ↔ theta_o` misassignment footgun before Stage 2's inferrer expands. All call sites already used keyword form; no test fixes required. Regression gate green: 2360 src + 381 integration, mypy/ruff/import-linter clean.
 
 ### CU-015 — `readout.stage` lazy-imports `detector.noise.budget` — RESOLVED 2026-04-24
 

@@ -137,7 +137,8 @@ scenarios:
     - null
     - null
     cell_ref: null
-    classification: expected_to_change_at_stage_6
+    classification: expected_to_change_at_stage_6_and_stage_7
+    classification_reason: 'MWIR band → Stage-6 E_sky decomposition shifts the radiance budget. Also a Stage-7 `no_atmosphere (ground_test)` sub-case → the Stage-7 sensor-descriptor cut will reclassify the chain that resolves it. CU-004 reclassified from `expected_to_change_at_stage_6` so reviewers can attribute drift to the correct stage.'
     error: null
     mtf_at_nyquist: 0.38505696105278175
     nedt_K: 0.9347653958321323

@@ -71,7 +71,10 @@ class ScenarioResult:
     status: str           # "ok" | "error"
     error: str | None
     classification: str   # "invariant" | "expected_to_change_at_stage_3" |
-                          # "expected_to_change_at_stage_6" | "unclassified"
+                          # "expected_to_change_at_stage_4" |
+                          # "expected_to_change_at_stage_6" |
+                          # "expected_to_change_at_stage_6_and_stage_7" |
+                          # "unclassified"
     cell_ref: str | None  # "Cell 28", "Cell 58", or None
     snr: float | None
     nedt_K: float | None
@@ -189,6 +192,12 @@ def _classify(cfg: dict, yaml_name: str) -> tuple[str, str | None]:
     if "mwir_leo_minimal" in name_lower or "mwir_leo" in name_lower:
         # MWIR reflective+thermal mixed: remains classified by band rule above.
         pass
+    if "mwir_ground_test" in name_lower:
+        # Ground-test cell: MWIR band heuristic flags Stage-6 E_sky decomposition,
+        # but this scenario is also a Stage-7 `no_atmosphere (ground_test)` sub-case.
+        # Both stages will shift its values; classify it accordingly so reviewers
+        # can attribute drift to the correct stage. (CU-004)
+        classification = "expected_to_change_at_stage_6_and_stage_7"
 
     return classification, cell_ref
 

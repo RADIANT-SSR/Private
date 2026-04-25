@@ -19,14 +19,6 @@
 **Why it matters**: Rule 4 requires PSF-path ↔ MTF-product-path consistency to ~1e-6; this scenario is ~10⁴ looser. Flagged now so Stage 3 reviewers don't mistake it for a new regression.
 **Suggested fix**: investigate which degradation is split inconsistently across the two paths for this scenario; likely either a jitter kernel, smear term, or diffraction normalization drift. Low priority unless the scenario is promoted to a regression anchor.
 
-### CU-004 — `mwir_ground_test.yaml` classification is ambiguous
-
-**Discovered**: Option C Stage 0 (2026-04-19)
-**File**: `tests/integration/snapshots/option_c_baseline.yaml` (scenario entry `mwir_ground_test`)
-**Symptom**: classified as `expected_to_change_at_stage_6` by the wavelength-band heuristic, but it is likely also a Stage-7 `no_atmosphere (ground_test)` sub-case cell. Both stages will shift its values.
-**Why it matters**: when Stage 3 shadow-mode fires, this cell may drift for two reasons at once; without a clean classification we can't tell whether Stage-3 drift alone is legitimate.
-**Suggested fix**: before Stage 3 kicks off, manually review the scenario and set `classification: expected_to_change_at_stage_6_and_stage_7` (or split-categorize). Consider whether the YAML snapshot schema should allow a list of classifications rather than a single enum.
-
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired
 
 **Discovered**: Option C Stage 1 (2026-04-19)
@@ -107,6 +99,10 @@ Resolved by Phases 2–5 of the technical-debt cleanup. `core/responsivity.py` n
 ### CU-010 — `test_inferrer.py` imports from `radiant.api` — RESOLVED 2026-04-24
 
 Resolved by Phase 6.2 (commit 7ab1251). `pyproject.toml` import-linter contracts now exempt `radiant.*.tests.*` patterns from the physics-stage and cross-stage rules, matching CLAUDE.md's intent (Rule 11 governs production code; tests legitimately need api/io to build full-schema fixtures).
+
+### CU-004 — `mwir_ground_test.yaml` classification is ambiguous — RESOLVED 2026-04-24
+
+Resolved by Phase 2 Track B via Path A (single-enum vocabulary expansion). Added `expected_to_change_at_stage_6_and_stage_7` to the legal-values list on `ScenarioResult` in `scripts/capture_option_c_baseline.py`, taught `_classify()` to apply the compound classification when the scenario name matches `mwir_ground_test`, and updated the `option_c_baseline.yaml` cell directly with a `classification_reason` justifying the dual-stage drift. Path B (`list[str]`) was rejected: today there are zero live consumers of the YAML's `classification` field (the shadow-mode reader CU-012 is unwired and reads from a different stage-output path), making the list-of-string promotion all churn for no gain. Regression gate green: 2360 src + 381 integration + mypy + ruff + 5/5 import contracts KEPT.
 
 ### CU-006 — `LineOfSightGeometry` field ordering diverges from plan text — RESOLVED 2026-04-24
 

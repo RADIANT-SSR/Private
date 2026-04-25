@@ -12,6 +12,11 @@ Verifies that:
    Gap H invariant: the boundary converter wraps the SpectralData in a
    :class:`ScalarLambertianReflectance` adapter before construction so
    downstream consumers can rely on the protocol.
+
+Level 0: TestScalarLambertianReflectance (single adapter contract: pass-through
+ρ, resampling identity, range validation).
+Level 1: BRDF protocol satisfaction and T2Reflective acceptance — these compose
+core.reflectance / core.descriptors with source.brdf_lambertian / source.brdf_phong.
 """
 
 from __future__ import annotations
@@ -56,6 +61,7 @@ def _make_rho_spectral(value: float = 0.3) -> SpectralData:
 
 
 class TestScalarLambertianReflectance:
+    @pytest.mark.level0
     def test_returns_rho_independent_of_geometry(self) -> None:
         rho_val = 0.3
         adapter = ScalarLambertianReflectance(
@@ -75,6 +81,7 @@ class TestScalarLambertianReflectance:
         )
         np.testing.assert_array_equal(r_on_axis, r_off_axis)
 
+    @pytest.mark.level0
     def test_resamples_onto_requested_grid(self) -> None:
         adapter = ScalarLambertianReflectance(reflectance=_make_rho_spectral(0.5))
         lam_q = np.linspace(0.5, 0.6, 32, dtype=np.float64)
@@ -85,10 +92,12 @@ class TestScalarLambertianReflectance:
             r, np.full_like(lam_q, 0.5), rtol=0, atol=1e-12
         )
 
+    @pytest.mark.level0
     def test_satisfies_protocol(self) -> None:
         adapter = ScalarLambertianReflectance(reflectance=_make_rho_spectral(0.2))
         assert isinstance(adapter, ReflectanceDescriptor)
 
+    @pytest.mark.level0
     def test_rejects_out_of_range_reflectance(self) -> None:
         bad = SpectralData(
             name="test.bad",
@@ -100,6 +109,7 @@ class TestScalarLambertianReflectance:
         with pytest.raises(ValueError, match=r"\[0, 1\]"):
             ScalarLambertianReflectance(reflectance=bad)
 
+    @pytest.mark.level0
     def test_rejects_negative_reflectance(self) -> None:
         bad = SpectralData(
             name="test.bad",
@@ -118,10 +128,12 @@ class TestScalarLambertianReflectance:
 
 
 class TestLambertianBRDFProtocol:
+    @pytest.mark.level1
     def test_implements_protocol_runtime_checkable(self) -> None:
         brdf = LambertianBRDF(reflectance=0.4)
         assert isinstance(brdf, ReflectanceDescriptor)
 
+    @pytest.mark.level1
     def test_reflectance_at_returns_rho_not_brdf(self) -> None:
         rho = 0.4
         brdf = LambertianBRDF(reflectance=rho)
@@ -136,6 +148,7 @@ class TestLambertianBRDFProtocol:
             brdf_sr, np.full_like(_WL_VIS, rho / math.pi), rtol=0, atol=1e-12
         )
 
+    @pytest.mark.level1
     def test_reflectance_at_array_reflectance(self) -> None:
         rho_arr = np.linspace(0.1, 0.9, _WL_VIS.size, dtype=np.float64)
         brdf = LambertianBRDF(reflectance=rho_arr)
@@ -149,10 +162,12 @@ class TestLambertianBRDFProtocol:
 
 
 class TestPhongBRDFProtocol:
+    @pytest.mark.level1
     def test_implements_protocol_runtime_checkable(self) -> None:
         brdf = PhongBRDF(reflectance=0.5, specular_fraction=0.2, phong_exponent=20.0)
         assert isinstance(brdf, ReflectanceDescriptor)
 
+    @pytest.mark.level1
     def test_reflectance_at_returns_total_rho(self) -> None:
         rho = 0.5
         brdf = PhongBRDF(
@@ -173,6 +188,7 @@ class TestPhongBRDFProtocol:
 
 
 class TestT2ReflectiveAcceptsReflectanceDescriptor:
+    @pytest.mark.level1
     def test_rejects_raw_spectral_data(self) -> None:
         """Gap H: raw SpectralData is not a valid ``rho`` for ``T2Reflective``.
 
@@ -196,6 +212,7 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
                 rho=rho_sd,  # type: ignore[arg-type]
             )
 
+    @pytest.mark.level1
     def test_accepts_scalar_lambertian_reflectance(self) -> None:
         adapter = ScalarLambertianReflectance(reflectance=_make_rho_spectral(0.3))
         desc = T2Reflective(
@@ -208,6 +225,7 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
         assert desc.rho is adapter
         assert isinstance(desc.rho, ReflectanceDescriptor)
 
+    @pytest.mark.level1
     def test_accepts_lambertian_brdf(self) -> None:
         brdf = LambertianBRDF(reflectance=0.3)
         desc = T2Reflective(
@@ -219,6 +237,7 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
         assert desc.rho is brdf
         assert isinstance(desc.rho, ReflectanceDescriptor)
 
+    @pytest.mark.level1
     def test_rho_none_still_raises(self) -> None:
         """Preserves the existing required-rho contract."""
         from radiant.core.parameters import ParameterBoundsError
@@ -231,6 +250,7 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
                 rho=None,
             )
 
+    @pytest.mark.level1
     def test_mwir_warning_fires_on_scalar_lambertian_adapter(self) -> None:
         """MWIR Rule-17 warning fires when the adapter's stored grid overlaps 3–5 µm.
 

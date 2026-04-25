@@ -1,6 +1,9 @@
 """Tests for ChainState MTF-related methods.
 
 Validates with_mtf(), with_spatial_freq(), and their interaction.
+
+All tests are Level 1: module-level state-machine behavior verifying that MTF
+contributions accumulate across stage calls without clobbering prior entries.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ def wl() -> np.ndarray:
 
 
 class TestWithSpatialFreq:
+    @pytest.mark.level1
     def test_sets_frequency_grid(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         freq = np.linspace(0, 100, 50)
@@ -25,6 +29,7 @@ class TestWithSpatialFreq:
         assert new_state.spatial_freq_cycles_per_mrad is not None
         np.testing.assert_array_equal(new_state.spatial_freq_cycles_per_mrad, freq)
 
+    @pytest.mark.level1
     def test_original_unchanged(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         freq = np.linspace(0, 100, 50)
@@ -32,12 +37,14 @@ class TestWithSpatialFreq:
 
         assert state.spatial_freq_cycles_per_mrad is None
 
+    @pytest.mark.level1
     def test_default_is_none(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         assert state.spatial_freq_cycles_per_mrad is None
 
 
 class TestWithMTFAccumulation:
+    @pytest.mark.level1
     def test_multiple_terms_accumulate(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         mtf_a = np.ones(50)
@@ -51,6 +58,7 @@ class TestWithMTFAccumulation:
         np.testing.assert_array_equal(state.mtf_terms["mtf_optics_x"], mtf_a)
         np.testing.assert_array_equal(state.mtf_terms["mtf_jitter_x"], mtf_b)
 
+    @pytest.mark.level1
     def test_with_mtf_does_not_clobber(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         mtf_a = np.ones(50)
@@ -59,6 +67,7 @@ class TestWithMTFAccumulation:
         assert len(state.mtf_terms) == 0  # original unchanged
         assert len(state1.mtf_terms) == 1
 
+    @pytest.mark.level1
     def test_both_axes_stored(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         freq = np.linspace(0, 100, 50)

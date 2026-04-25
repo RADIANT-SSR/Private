@@ -1,4 +1,9 @@
-"""Tests for spectral and band-integrated responsivity."""
+"""Tests for spectral and band-integrated responsivity.
+
+All tests are Level 0: verify the analytic identity R(λ) = A·Ω·τ·QE·λ/hc and
+its scaling/limit behaviors against closed-form values; pytest.approx uses
+explicit rel= tolerance.
+"""
 
 from __future__ import annotations
 
@@ -29,12 +34,14 @@ def _make_state(
 
 
 class TestSpectralResponsivity:
+    @pytest.mark.level0
     def test_shape_matches_wavelength(self) -> None:
         state = _make_state()
         r = spectral_responsivity(state)
         assert r is not None
         assert r.shape == state.wavelength_um.shape
 
+    @pytest.mark.level0
     def test_scales_with_A_collect(self) -> None:
         """Doubling A_collect doubles R(λ)."""
         s1 = _make_state(A_collect=0.1)
@@ -44,6 +51,7 @@ class TestSpectralResponsivity:
         assert r1 is not None and r2 is not None
         np.testing.assert_allclose(r2, 2.0 * r1, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_scales_with_tau_opt(self) -> None:
         """Halving τ_opt halves R(λ)."""
         s1 = _make_state(tau_opt_val=0.6)
@@ -53,6 +61,7 @@ class TestSpectralResponsivity:
         assert r1 is not None and r2 is not None
         np.testing.assert_allclose(r2, 0.5 * r1, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_known_value_no_qe(self) -> None:
         """R(λ) = A·Ω·τ·λ/hc when no QE is in stage_outputs (QE defaults to 1).
 
@@ -72,6 +81,7 @@ class TestSpectralResponsivity:
         expected = 0.1 * 1e-10 * 0.6 * (lam_m / hc)
         assert r[1] == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_known_value_with_qe(self) -> None:
         """R(λ) = A·Ω·τ·QE·λ/hc when QE is available in stage_outputs.
 
@@ -92,6 +102,7 @@ class TestSpectralResponsivity:
         expected = 0.1 * 1e-10 * 0.6 * 0.7 * (lam_m / hc)
         assert r[1] == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_spectral_qe_curve(self) -> None:
         """R(λ) uses spectral qe_curve when provided."""
         wl = np.array([3.9, 4.0, 4.1])
@@ -109,6 +120,7 @@ class TestSpectralResponsivity:
         expected = 0.1 * 1e-10 * 0.6 * 0.7 * (lam_m / hc)
         assert r[1] == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_missing_optics_returns_none(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -116,12 +128,14 @@ class TestSpectralResponsivity:
 
 
 class TestBandIntegratedResponsivity:
+    @pytest.mark.level0
     def test_full_band(self) -> None:
         state = _make_state()
         r_band = band_integrated_responsivity(state)
         assert r_band is not None
         assert r_band > 0.0
 
+    @pytest.mark.level0
     def test_narrower_filter_gives_less(self) -> None:
         state = _make_state()
         r_full = band_integrated_responsivity(state, 3.5, 5.0)
@@ -129,6 +143,7 @@ class TestBandIntegratedResponsivity:
         assert r_full is not None and r_half is not None
         assert r_half < r_full
 
+    @pytest.mark.level0
     def test_missing_optics_returns_none(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -136,6 +151,7 @@ class TestBandIntegratedResponsivity:
 
 
 class TestElectronsToRadiance:
+    @pytest.mark.level0
     def test_round_trip_consistency(self) -> None:
         """signal_e ÷ (R_band × t_int) should give back radiance."""
         state = _make_state(A_collect=0.1, Omega_pixel=1e-10, tau_opt_val=0.6)
@@ -148,6 +164,7 @@ class TestElectronsToRadiance:
         assert L is not None
         assert L > 0.0
 
+    @pytest.mark.level0
     def test_missing_data_returns_none(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)

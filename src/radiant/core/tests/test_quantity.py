@@ -1,4 +1,9 @@
-"""Tests for ChainQuantity backward propagation."""
+"""Tests for ChainQuantity backward propagation.
+
+Level 1: TestTransferFactors (helper that crawls a multi-stage ChainState).
+Level 0: forward/back propagation algebra and dataclass contracts; identities
+verified against analytic ratios (1/τ, 1/g, sqrt round-trip).
+"""
 
 from __future__ import annotations
 
@@ -95,16 +100,19 @@ def _make_chain_state(
 
 
 class TestTransferFactors:
+    @pytest.mark.level1
     def test_atm_factor(self) -> None:
         state = _make_chain_state(tau_atm_mean=0.8)
         factors = _compute_transfer_factors(state)
         assert factors["at_target->at_aperture"] == pytest.approx(0.8, rel=1e-10)
 
+    @pytest.mark.level1
     def test_opt_factor(self) -> None:
         state = _make_chain_state(tau_opt_mean=0.6)
         factors = _compute_transfer_factors(state)
         assert factors["at_aperture->post_optics"] == pytest.approx(0.6, rel=1e-10)
 
+    @pytest.mark.level1
     def test_readout_factor(self) -> None:
         state = _make_chain_state(n_tdi=1, gain=1.0)
         factors = _compute_transfer_factors(state)
@@ -112,6 +120,7 @@ class TestTransferFactors:
         assert "photoelectrons->post_readout" in factors
         assert factors["photoelectrons->post_readout"] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_dn_factor(self) -> None:
         state = _make_chain_state(gain=2.0)
         factors = _compute_transfer_factors(state)
@@ -121,6 +130,7 @@ class TestTransferFactors:
 
 
 class TestForwardFactor:
+    @pytest.mark.level0
     def test_identity(self) -> None:
         factors: dict[str, float] = {}
         factor = _get_forward_factor(
@@ -130,6 +140,7 @@ class TestForwardFactor:
         )
         assert factor == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_forward_one_step(self) -> None:
         factors = {"at_target->at_aperture": 0.8}
         factor = _get_forward_factor(
@@ -139,6 +150,7 @@ class TestForwardFactor:
         )
         assert factor == pytest.approx(0.8, rel=1e-10)
 
+    @pytest.mark.level0
     def test_backward_one_step(self) -> None:
         factors = {"at_target->at_aperture": 0.8}
         factor = _get_forward_factor(
@@ -148,6 +160,7 @@ class TestForwardFactor:
         )
         assert factor == pytest.approx(1.0 / 0.8, rel=1e-10)
 
+    @pytest.mark.level0
     def test_missing_factor_returns_none(self) -> None:
         factors: dict[str, float] = {}
         factor = _get_forward_factor(
@@ -159,6 +172,7 @@ class TestForwardFactor:
 
 
 class TestChainQuantity:
+    @pytest.mark.level0
     def test_to_same_frame(self) -> None:
         state = _make_chain_state()
         q = ChainQuantity(100.0, ReferenceFrame.PHOTOELECTRONS, "e-", "test")
@@ -166,6 +180,7 @@ class TestChainQuantity:
         assert result.value == pytest.approx(100.0, rel=1e-12)
         assert result.frame == ReferenceFrame.PHOTOELECTRONS
 
+    @pytest.mark.level0
     def test_to_dn(self) -> None:
         """photoelectrons → post_readout → dn with gain=2."""
         state = _make_chain_state(gain=2.0)
@@ -175,6 +190,7 @@ class TestChainQuantity:
         assert result.value == pytest.approx(500.0, rel=1e-10)
         assert result.unit == "DN"
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         q = ChainQuantity(100.0, ReferenceFrame.PHOTOELECTRONS, "e-")
         with pytest.raises(AttributeError):
@@ -182,18 +198,21 @@ class TestChainQuantity:
 
 
 class TestSignalAt:
+    @pytest.mark.level0
     def test_at_photoelectrons(self) -> None:
         state = _make_chain_state(signal_e=10000.0)
         q = signal_at(state, ReferenceFrame.PHOTOELECTRONS)
         assert q.value == pytest.approx(10000.0, rel=1e-10)
         assert q.frame == ReferenceFrame.PHOTOELECTRONS
 
+    @pytest.mark.level0
     def test_at_dn(self) -> None:
         state = _make_chain_state(signal_e=10000.0, gain=2.0)
         q = signal_at(state, ReferenceFrame.DN)
         assert q.value == pytest.approx(5000.0, rel=1e-10)
         assert q.unit == "DN"
 
+    @pytest.mark.level0
     def test_missing_frame_raises(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -202,6 +221,7 @@ class TestSignalAt:
 
 
 class TestNoiseAt:
+    @pytest.mark.level0
     def test_total_noise_at_photoelectrons(self) -> None:
         state = _make_chain_state(signal_e=10000.0)
         q = noise_at(state, ReferenceFrame.PHOTOELECTRONS)
@@ -209,12 +229,14 @@ class TestNoiseAt:
         assert q.value == pytest.approx(expected, rel=1e-10)
         assert q.name == "total_noise"
 
+    @pytest.mark.level0
     def test_specific_term(self) -> None:
         state = _make_chain_state(signal_e=10000.0)
         q = noise_at(state, ReferenceFrame.PHOTOELECTRONS, term_name="read_noise")
         assert q.value == pytest.approx(5.0, rel=1e-12)
         assert q.name == "read_noise"
 
+    @pytest.mark.level0
     def test_noise_at_dn(self) -> None:
         """Noise propagated to DN frame divides by gain."""
         state = _make_chain_state(signal_e=10000.0, gain=2.0)
@@ -222,11 +244,13 @@ class TestNoiseAt:
         q_dn = noise_at(state, ReferenceFrame.DN, term_name="read_noise")
         assert q_dn.value == pytest.approx(q_e.value / 2.0, rel=1e-10)
 
+    @pytest.mark.level0
     def test_unknown_term_raises(self) -> None:
         state = _make_chain_state()
         with pytest.raises(ValueError, match="no noise term"):
             noise_at(state, ReferenceFrame.PHOTOELECTRONS, term_name="nonexistent")
 
+    @pytest.mark.level0
     def test_no_noise_raises(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -235,6 +259,7 @@ class TestNoiseAt:
 
 
 class TestRoundTrip:
+    @pytest.mark.level0
     def test_pe_to_dn_and_back(self) -> None:
         """Forward to DN, backward to photoelectrons returns original."""
         state = _make_chain_state(signal_e=10000.0, gain=2.0)
@@ -243,6 +268,7 @@ class TestRoundTrip:
         q_pe_back = q_dn.to(ReferenceFrame.PHOTOELECTRONS, state)
         assert q_pe_back.value == pytest.approx(10000.0, rel=1e-10)
 
+    @pytest.mark.level0
     def test_noise_round_trip(self) -> None:
         """Noise: pe → DN → pe returns original value."""
         state = _make_chain_state(signal_e=10000.0, gain=2.0)

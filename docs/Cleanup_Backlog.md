@@ -15,7 +15,7 @@
 
 **Discovered**: 2026-04-25 audit, tracked as CU-NEW-05 in `audit_2026/Reconciliation_Tasks.md`. `RADIANT_Testing_Validation.md` §1 declares a four-level test hierarchy with strict gating (Level 0 blocks Level 1 blocks Level 2; golden in a separate job). The pytest config defines the four markers but only **362 of 2798 tests (12.9%)** currently carry one — and the `.github/workflows/` directory does not exist, so no CI gating is wired at all.
 
-**Status**: Open / In Progress. Partial fix landing now adds `--strict-markers` to pytest `addopts` so future drift is blocked at collection time (typo'd marker name fails immediately instead of being silently ignored). Full sweep + CI workflow remain.
+**Status**: Open / In Progress (slice 1 of 5 done; slices 2–5 still pending). `--strict-markers` is in `addopts` (commit `b021d38`). Slice 1 (`src/radiant/core/tests/`) brought the directory to 100% marker coverage on 2026-04-25: 369/369 tests now carry exactly one of `level0` (335) / `level1` (34); zero `level2` or `golden` — neither applies in `core/`. The slice also surfaced 9 unmarked tests in `test_parameters.py::TestParameterSuggestions` that the original inventory missed (they were silently uncategorized but passing); they are now `level0`. Slices 2–5 remain: `source/atmosphere`, the optics-through-performance ring, `io/cli/tests/`, and the `.github/workflows/ci.yml` wiring.
 
 **File**: `pyproject.toml` (markers + addopts done); `.github/workflows/ci.yml` (does not exist yet); 100+ test files under `src/radiant/*/tests/`, `src/radiant/*/converters/tests/`, and `tests/` lacking marker decorators.
 
@@ -25,7 +25,7 @@
 
 **Suggested fix**: Per-directory ladder with one PR per slice — judgment-heavy enough that batched mechanical assignment risks misclassifying integration-style tests as Level 0. Proposed slice order:
 
-1. `src/radiant/core/tests/` — easiest (constants, units, blackbody clearly Level 0; chain/quantity/radiometry are Level 1).
+1. ✅ `src/radiant/core/tests/` — landed 2026-04-25 (slice 1 of 5). 335 level0 + 34 level1; commit pending. ChainState/ChainRunner state-machine tests + MTF accumulation went level1; transfer-factor crawl across multi-stage state went level1; BRDF protocol satisfaction tests (compose `radiant.source.brdf_*`) went level1; everything else level0.
 2. `src/radiant/source/tests/` + `src/radiant/atmosphere/tests/` — module-level Level 1.
 3. `src/radiant/optics/tests/` + `src/radiant/platform/tests/` + `src/radiant/spectral_integration/tests/` + `src/radiant/detector/tests/` + `src/radiant/readout/tests/` + `src/radiant/performance/tests/`.
 4. `src/radiant/io/tests/` + `src/radiant/cli/tests/` + `tests/` — Level 1 boundary tests + already-marked Level 2/golden in `tests/integration/`.

@@ -730,30 +730,35 @@ class TestParameterSuggestions:
         ]
         return ParameterSet(schema)
 
+    @pytest.mark.level0
     def test_set_close_match(self) -> None:
         """Typo in set() suggests the correct name."""
         ps = self._make_ps()
         with pytest.raises(KeyError, match="Did you mean"):
             ps.set("optics.focal_length", 1.2)
 
+    @pytest.mark.level0
     def test_set_suggests_correct_name(self) -> None:
         """Suggestion includes the actual parameter name."""
         ps = self._make_ps()
         with pytest.raises(KeyError, match="optics.focal_length_m"):
             ps.set("optics.focal_length", 1.2)
 
+    @pytest.mark.level0
     def test_set_mode_vs_model(self) -> None:
         """Gap #7 scenario: atmosphere.mode → suggests atmosphere.model."""
         ps = self._make_ps()
         with pytest.raises(KeyError, match="atmosphere.model"):
             ps.set("atmosphere.mode", "simple")
 
+    @pytest.mark.level0
     def test_set_no_match(self) -> None:
         """Completely unrelated name gives no suggestions."""
         ps = self._make_ps()
         with pytest.raises(KeyError, match="Unknown parameter"):
             ps.set("completely.unrelated.thing", 42)
 
+    @pytest.mark.level0
     def test_set_no_match_no_did_you_mean(self) -> None:
         """No 'Did you mean' when there's no close match."""
         ps = self._make_ps()
@@ -761,6 +766,7 @@ class TestParameterSuggestions:
             ps.set("completely.unrelated.thing", 42)
         assert "Did you mean" not in str(exc_info.value)
 
+    @pytest.mark.level0
     def test_get_close_match(self) -> None:
         """Typo in get() suggests the correct name."""
         ps = self._make_ps()
@@ -768,6 +774,7 @@ class TestParameterSuggestions:
         with pytest.raises(KeyError, match="Did you mean"):
             ps.get("detector.pixel_pitch_x")
 
+    @pytest.mark.level0
     def test_get_suggests_correct_name(self) -> None:
         """get() suggestion includes the actual parameter name."""
         ps = self._make_ps()
@@ -775,6 +782,7 @@ class TestParameterSuggestions:
         with pytest.raises(KeyError, match="detector.pixel_pitch_x_um"):
             ps.get("detector.pixel_pitch_x")
 
+    @pytest.mark.level0
     def test_set_tolerance_close_match(self) -> None:
         """Typo in set_tolerance() suggests the correct name."""
         ps = self._make_ps()
@@ -782,6 +790,7 @@ class TestParameterSuggestions:
         with pytest.raises(KeyError, match="Did you mean"):
             ps.set_tolerance("optics.aperture_diameter", tol)
 
+    @pytest.mark.level0
     def test_load_dict_close_match(self) -> None:
         """Typo in load_dict() suggests the correct name (delegates to set)."""
         ps = self._make_ps()

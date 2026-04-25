@@ -1,26 +1,35 @@
-# RADIANT Spatial Complete
+# RADIANT Spatial Architecture
 
-**Status**: Authoritative — first design pass, unified
-**Scope**: Diffraction, PSF construction, MTF derivation, encircled energy, line-spread and edge-response functions, smear (all five sources), jitter, TDI alignment, and atmospheric turbulence MTF. Anything that touches the spatial structure of the image.
-**Sister documents**: RADIANT_Conventions.md, RADIANT_Optics.md, RADIANT_Atmosphere.md, RADIANT_Signal_Chain_Architecture.md, RADIANT_Detector_Complete.md
+**Status:** Authoritative — rewritten 2026-04-25 per **ADR-A** (drop FidelityPreset)
+**Filename note:** content was previously titled "RADIANT Spatial Complete". The filename `RADIANT_Spatial_Complete.md` is retained because ~50 source-file docstrings and sister-doc references link to it; the page title is now "RADIANT Spatial Architecture" to reflect what it actually documents (the dual-path discipline + distributed-spatial reality), not a finished-feature claim.
+**Scope:** Diffraction, PSF construction (mono + polychromatic), MTF derivation, encircled energy, line-spread and edge-response functions, smear, jitter, TDI alignment, and atmospheric turbulence MTF — every architectural piece that touches the spatial structure of the image.
+**Sister documents:** [RADIANT_Conventions.md](RADIANT_Conventions.md), [RADIANT_Optics.md](RADIANT_Optics.md), [RADIANT_Atmosphere.md](RADIANT_Atmosphere.md), [RADIANT_Signal_Chain_Architecture.md](RADIANT_Signal_Chain_Architecture.md), [RADIANT_Detector_Complete.md](RADIANT_Detector_Complete.md), [adr/ADR-A-fidelity-preset.md](adr/ADR-A-fidelity-preset.md)
+
+---
+
+## 0. Distributed-Spatial Reality
+
+There is **no separate "spatial stage"** in RADIANT. Spatial physics is interleaved through the radiometric chain: each stage that has a spatial effect publishes its MTF contribution to `state.mtf_terms` and (where it owns a kernel) convolves it into the propagating `EffectivePSF`. The accumulator is `ChainState`; the stages that contribute spatial terms are `OpticsStage`, `PlatformStage`, `DetectorStage`, `ReadoutStage`, and `AtmosphereStage` (turbulence, ground-based scenarios only). `PerformanceStage` reads the accumulated terms at the end and forms the system MTF.
+
+This is the actual implementation as of 2026-04-25 (post-Stage-8). Earlier docs implied a monolithic "spatial pass" or a configurable fidelity dial; neither exists. The dual-path discipline (PSF path + MTF product path) is enforced by the **unconditional** `check_dual_path_consistency` step in `PerformanceStage`, with a fixed tolerance of `5e-2` — see §1.4 and §9.3.
 
 ---
 
 ## 1. Critical Insight — Dual-Path Spatial Architecture
 
-RADIANT maintains two parallel spatial paths, both rooted in the **same complex pupil function**. This is the most important architectural decision in the spatial subsystem.
+RADIANT maintains two parallel spatial paths, both rooted in the **same complex pupil function**. This is the most important architectural decision in the spatial subsystem and is codified as **CLAUDE.md Rule 4**.
 
 ### 1.1 PSF Path — Spatial-Domain Metrics
 
-The `EffectivePSF` is the single source of truth for **spatial-domain** metrics: EE_box, RER, FWHM, Strehl, LSF, and ERF. Every spatial degradation enters the PSF as a convolution kernel (§6). These metrics are computed from the convolved PSF via numerical integration on a common grid. **NEVER** compute EE from one PSF and RER from another.
+The `EffectivePSF` (`src/radiant/optics/psf/effective.py`) is the single source of truth for **spatial-domain** metrics: EE_box, RER, FWHM, Strehl, LSF, and ERF. Every spatial degradation enters the PSF as a convolution kernel (§6). These metrics are computed from the convolved PSF via numerical integration (or FFT, for MTF). **NEVER** compute EE_box from one PSF and RER from another.
 
 ### 1.2 MTF Product Path — Frequency-Domain Budget
 
 The system MTF is the product of independently computed contributor MTFs:
 
-- **Optical MTF**: computed from the **autocorrelation of the complex pupil function** `P(ξ,η)`. For incoherent imaging, OTF = normalized autocorrelation of the generalized pupil (Goodman, *Introduction to Fourier Optics*, Ch. 6). This is mathematically equivalent to `|FT{PSF}|` by the Wiener-Khinchin theorem, but is computed directly from the pupil without constructing an intermediate PSF. The full complex pupil — including aperture geometry, central obscuration, and all WFE terms — enters as a single entity. Aberrations and diffraction interact in the pupil and **cannot** be factored into separate `MTF_diffraction × MTF_aberration` terms.
+- **Optical MTF**: computed from the **autocorrelation of the complex pupil function** `P(ξ,η)`. For incoherent imaging, `OTF = normalized autocorrelation of the generalized pupil` (Goodman, *Introduction to Fourier Optics*, Ch. 6). This is mathematically equivalent to `|FT{PSF}|` by the Wiener-Khinchin theorem, but is computed directly from the pupil without constructing an intermediate PSF. The full complex pupil — including aperture geometry, central obscuration, and all WFE terms — enters as a single entity. Aberrations and diffraction interact in the pupil and **cannot** be factored into separate `MTF_diffraction × MTF_aberration` terms. Implementation: `src/radiant/optics/pupil_mtf.py`.
 - **Downstream contributors**: detector aperture (`sinc`), charge diffusion (`Gaussian`), jitter (`Gaussian`), smear (`sinc`), IPC (analytic), TDI misalignment (`sinc`), and turbulence (`Kolmogorov`). Each has an analytic or kernel-derived MTF and is physically independent of the others.
-- **System MTF**: `MTF_sys(f) = MTF_optics × Π_i MTF_i(f)` where the product runs over the independent contributors.
+- **System MTF**: `MTF_sys(f) = MTF_optics × Π_i MTF_i(f)` where the product runs over the independent contributors. Implementation: `src/radiant/performance/system_mtf.py`.
 
 This path produces MTF budgets (which contributor dominates at Nyquist?), MTF-at-Nyquist, folded/aliased MTF, and feeds directly into GIQE/NIIRS.
 
@@ -30,9 +39,11 @@ The previous generation of EO performance tools computed MTF and EE independentl
 
 ### 1.4 The Consistency Invariant
 
-Both paths originate from the same pupil. After all convolutions are applied to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of the 12 individual MTFs (§9) to within numerical tolerance. This check runs at `standard` fidelity and above. If it fails, a degradation was added to one path but not the other — the build is broken.
+Both paths originate from the same pupil. After all convolutions are applied to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of the contributor MTFs (excluding terms that have no spatial-domain kernel — see §9.3) to within a fixed tolerance.
 
-The corollary still holds: every spatial degradation must enter **both** paths. A new smear term implemented only as "multiply MTF by sinc" without the corresponding PSF convolution kernel will be caught by the consistency check.
+Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`), the check is **unconditional** — it runs on every chain execution, not gated by a fidelity preset. Tolerance: `5e-2` absolute error on max(|MTF_psf − MTF_product|) below Nyquist on each axis. The check function is `check_dual_path_consistency` in `src/radiant/performance/consistency_check.py`; the result lives at `state.stage_outputs["performance"]["dual_path_consistency"]`.
+
+A failure means a degradation was added to one path but not the other — the build is broken. The `5e-2` tolerance is wide enough to absorb expected discretization mismatches (see CU-003 for the rect-kernel sampling story) but narrow enough to catch a missing convolution or an unmultiplied MTF term.
 
 ---
 
@@ -41,47 +52,51 @@ The corollary still holds: every spatial degradation must enter **both** paths. 
 ```python
 @dataclass(frozen=True)
 class EffectivePSF:
-    """The end-state PSF after every spatial degradation has been applied.
+    """End-state PSF after every spatial degradation has been applied.
 
     Single source of truth for all spatial metrics.
     """
 
-    # ---- Underlying data ---------------------------------------------------
-    psf: np.ndarray                          # 2D, normalized to ∫∫ psf dxdy = 1
-    sample_spacing_m: float                  # physical spacing on the FPA
-    pixel_pitch_m: float                     # for EE_box default
-    wavelength_um: float | np.ndarray        # scalar (mono) or array (poly-PSF)
-    polychromatic_weights: np.ndarray | None # used to build the poly-PSF; None if mono
-    fidelity_preset: FidelityPreset
+    data: np.ndarray                  # 2D, normalized to ∫∫ data dxdy = 1
+    sample_spacing_m: float           # physical spacing on the FPA
+    pixel_pitch_m: float              # for EE_box default
+    wavelength_um: float              # scalar (mono PSF) — see §3.4 for poly
+    convolution_history: tuple[str, ...]   # in-order list of degradations applied
 
-    # ---- Provenance --------------------------------------------------------
-    convolution_history: tuple[str, ...]     # in-order list of degradations applied
-    pupil_grid_size_px: int                  # so a debugger can find the optical PSF
+    # Properties / methods (every spatial metric derives from `data`)
+    @property
+    def shape(self) -> tuple[int, int]: ...
+    @property
+    def peak(self) -> float: ...
+    @property
+    def total(self) -> float: ...
 
-    # ---- Methods (all derived from psf, never independently) ---------------
+    def with_kernel(self, name: str, kernel: np.ndarray) -> EffectivePSF: ...
     def mtf_2d(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
-    def mtf_1d(self, axis: Axis) -> tuple[np.ndarray, np.ndarray]: ...
-    def ensquared_energy(self, box_size_m: float, offset_m=(0,0)) -> float: ...
-    def ensquared_energy_nxn(self, n: int, pitch_m: float | None = None) -> float: ...
-    def ee_vs_offset(self, pitch_m: float | None = None, n_offsets=21) -> np.ndarray: ...
-    def lsf(self, axis: Axis) -> tuple[np.ndarray, np.ndarray]: ...
-    def erf(self, axis: Axis) -> tuple[np.ndarray, np.ndarray]: ...
-    def edge_slope(self, axis: Axis) -> float: ...
+    def mtf_1d(self, axis: str) -> tuple[np.ndarray, np.ndarray]: ...
+    def ensquared_energy(self, box_size_m: float, offset_m=(0, 0)) -> float: ...
+    def lsf(self, axis: str) -> tuple[np.ndarray, np.ndarray]: ...
+    def erf(self, axis: str) -> tuple[np.ndarray, np.ndarray]: ...
+    def edge_slope(self, axis: str) -> float: ...
     def rer(self) -> float: ...
-    def fwhm(self, axis: Axis) -> float: ...
-    def strehl(self, reference: "EffectivePSF") -> float: ...
+    def fwhm(self, axis: str) -> float: ...
+    def strehl(self, reference: EffectivePSF) -> float: ...
 ```
 
+Source: `src/radiant/optics/psf/effective.py`.
+
 **Method invariants:**
-1. `mtf_2d()` is `np.fft.fft2(psf)`, normalized so MTF(0,0) = 1.
-2. `lsf(axis)` is the projection of `psf` onto `axis`.
+1. `mtf_2d()` is `np.fft.fft2(data)`, normalized so MTF(0,0) = 1.
+2. `lsf(axis)` is the projection of `data` onto `axis`.
 3. `erf(axis)` is the cumulative integral of `lsf(axis)`.
-4. `edge_slope(axis)` is the maximum slope of `erf(axis)`, in units of contrast per FPA-meter.
-5. `rer()` is `erf(0.5·pitch) − erf(−0.5·pitch)` in *both* axes geometrically averaged (this is the GIQE-5 definition; see RADIANT_Metrics.md).
-6. `ensquared_energy(box, offset)` is `∫∫_box psf dxdy` with the box centered at `offset`. `ensquared_energy_nxn(n)` is the centered case for an `n × n_pixel` box.
-7. `strehl(reference)` is `psf.max() / reference.psf.max()` after both are normalized to unit volume. The reference is typically the diffraction-limited PSF for the same pupil with WFE = 0.
+4. `edge_slope(axis)` is the maximum slope of `erf(axis)` in contrast per FPA-meter.
+5. `rer()` is `erf(0.5·pitch) − erf(−0.5·pitch)` averaged across the two axes (GIQE-5 definition).
+6. `ensquared_energy(box, offset)` is `∫∫_box data dxdy` with the box centered at `offset`.
+7. `strehl(reference)` is `data.peak / reference.peak` after both are normalized to unit volume; the reference is typically the diffraction-limited PSF for the same pupil with WFE = 0.
 
 There is no `mtf_at_freq(f)` method that bypasses the FFT. There is no `ee_analytical()`. There is no `lsf_from_mtf()`. The point of having one class is that there is only one way to ask each question.
+
+**Note on what's not on the class:** the previous version of this doc listed `polychromatic_weights`, `pupil_grid_size_px`, and a `fidelity_preset` enum. None of those are fields on the actual class as of 2026-04-25 — the polychromatic weights live inside `psf_poly.py` during construction and are not retained on the EffectivePSF; pupil-grid metadata stays in the upstream `PSFSamplingConfig` (§4); fidelity preset was dropped per ADR-A. The class deliberately carries the minimum state needed to answer "what's the PSF here, sampled how, with what history?".
 
 ---
 
@@ -89,7 +104,7 @@ There is no `mtf_at_freq(f)` method that bypasses the FFT. There is no `ee_analy
 
 ### 3.1 Pupil → PSF via FFT
 
-Given a complex pupil `P(x, y) = A(x, y) · exp(i · φ(x, y))` from `OpticsState.pupil`:
+Given a complex pupil `P(x, y) = A(x, y) · exp(i · φ(x, y))` from the optics pupil amplitude / phase modules:
 1. Pad to a power-of-two grid sized to give the desired focal-plane sample spacing.
 2. FFT.
 3. `psf_optical = |fft|²`, normalized to unit volume.
@@ -98,100 +113,95 @@ The pupil grid sampling and the focal-plane grid sampling are coupled by the FFT
 
 ### 3.2 Apodization, obscuration, spiders
 
-All baked into the pupil amplitude `A(x, y)` by `OpticsState.pupil`. The diffraction engine is agnostic to where they came from.
+All baked into the pupil amplitude `A(x, y)` by `optics/pupil_amplitude.py`. The diffraction engine is agnostic to where they came from.
 
 ### 3.3 Wavefront error
 
-`OpticsState.pupil.wavefront_error.opd_at_field(field, λ_op)` returns the OPD in meters on the pupil grid. The diffraction engine multiplies the pupil by `exp(2πi · OPD / λ_op)`. For Maréchal mode (draft fidelity), the engine instead returns the diffraction-limited PSF and tags `convolution_history` with `"strehl_marechal:S=...,σ=..."`; the spatial module then multiplies the *MTF* by `S` (not the PSF). This is the only place RADIANT applies a spatial term as an MTF rather than a convolution, and it is explicitly marked in fidelity preset metadata.
+`optics/pupil_phase.py` and `optics/wavefront.py` build the OPD on the pupil grid (Zernike-polynomial expansion or user-supplied OPD map). The diffraction engine multiplies the pupil by `exp(2πi · OPD / λ_op)`. The full FFT path is the only WFE handling that ships in v1; the Maréchal-Strehl shortcut described in earlier drafts is **not** implemented (and is not needed once FidelityPreset is gone — there is no "draft mode" to gate it on).
 
 ### 3.4 Polychromatic PSF
 
-For each wavelength sample λ_k in the integration grid, compute a monochromatic PSF and accumulate with weight `w_k`:
+For each wavelength sample λ_k, `optics/psf_poly.compute_polychromatic_psf` builds a monochromatic PSF and accumulates with weight `w_k`:
+
 ```
 psf_poly(x, y) = Σ_k w_k · psf_λ_k(x, y)
 ```
 
-The weights are the in-band spectral radiance × QE × τ product, normalized to sum to 1. This couples spatial to radiometric: the polychromatic PSF *depends on the source spectrum*. RADIANT recomputes the polychromatic PSF if the source spectrum changes meaningfully (a parameter dependency edge tracked by the resolver).
-
-The wavelength sample count is set by the fidelity preset (§5).
+The weights are the in-band spectral radiance × QE × τ product, normalized to sum to 1. This couples spatial to radiometric: the polychromatic PSF *depends on the source spectrum*. The number of wavelength samples is controlled by **`optics.psf_n_wavelengths`** (default 1 = monochromatic at band center; bounds [1, 101]). Setting > 1 opts in to polychromatic broadening (typically 5–10 % for MWIR).
 
 ---
 
-## 4. Sampling Configuration (Three Mutually-Constrained Parameters)
+## 4. Sampling Configuration
 
-Three parameters fully specify the spatial sampling:
+The optics module owns a single sampling helper, `optics/sampling.py::compute_sampling`, that derives a fully consistent `PSFSamplingConfig` from physical quantities the user has already specified for the optics + detector:
 
-| Parameter | Unit | What it controls |
-|-----------|------|------------------|
-| `spatial.psf_oversample` | int | Number of PSF samples per detector pixel |
-| `spatial.psf_sample_spacing_um` | µm | Physical sample spacing on the FPA |
-| `spatial.min_samples_per_psf_fwhm` | int | Minimum samples across the diffraction FWHM |
+| Input | Source |
+|-------|--------|
+| `wavelength_m` | `optics.psf_n_wavelengths` × spectral grid |
+| `focal_length_m` | `optics.focal_length_m` |
+| `aperture_diameter_m` | `optics.aperture_diameter_m` |
+| `pixel_pitch_m` | `detector.pixel_pitch_x_um / 1e6` |
+| `pupil_npix` | hard default `128` |
+| `psf_oversample` | hard default `8` (samples per detector pixel; minimum 2 enforced) |
 
-These are linked by the consistency relation:
-```
-psf_sample_spacing_um = pixel_pitch_um / psf_oversample
-samples_across_fwhm    = (1.22 × λ × f / D) / (psf_sample_spacing_um × 1e-6)
-```
+The function then:
+1. Sets pupil sample spacing `Δx_pupil = aperture_diameter_m / pupil_npix`.
+2. Sets target focal-plane spacing `Δx_focal = pixel_pitch_m / psf_oversample`.
+3. Solves the FFT constraint `Δx_focal = λ·f / (N · Δx_pupil)` for `N` and rounds up to the next power of 2.
+4. Recomputes the actual focal spacing from the rounded `N` for downstream consistency.
+5. Logs a warning if `samples_across_Airy_FWHM < 2`.
 
-The user specifies **one** (or none, in which case the fidelity preset picks). The other two are derived. If the user specifies two, the parameter resolver solves for the third and validates the solution; if the user specifies all three inconsistently, it raises `ConsistencyGroupConflict`.
+The two free knobs (`pupil_npix=128`, `psf_oversample=8`) are **not** exposed as schema parameters in v1. They are the values that fit the entire scenario set without undersampling — see CU-003 for the one corner case (Q ≈ 0.34 with non-integer samples-per-pixel) where the pixel-aperture rect kernel sees discretization noise; that is a numerical edge of the rect kernel, not a sampling-knob deficiency.
 
-**Why not call this `Q` or `padding_ratio`?** Because:
-- `Q` collides with quantum efficiency notation (the rest of RADIANT uses `QE(λ)`; `Q` would be ambiguous).
-- `padding_ratio` is FFT-implementation jargon that does not say what it means to a user thinking in pixels.
-- `psf_oversample` says exactly what it is.
+**Open follow-up:** if a future scenario needs deeper pupil sampling (e.g., for very low Q or extreme aberrations), promote `optics.pupil_npix` and/or `optics.psf_oversample` to `_schema.py` parameters with defaults matching today's hard-coded values. There is no FidelityPreset to bundle them under.
 
 ---
 
-## 5. Fidelity Presets
+## 5. ~~Fidelity Presets~~ (dropped per ADR-A)
 
-```python
-class FidelityPreset(StrEnum):
-    DRAFT = "draft"
-    STANDARD = "standard"
-    HIGH = "high"
-    PUBLICATION = "publication"
-```
+**Removed.** Earlier drafts of this doc described a `FidelityPreset` enum (`draft` / `standard` / `high` / `publication`) that would gate (a) the consistency-check tolerance and (b) bundles of `pupil_npix` / `psf_oversample` / `n_wavelength_samples` defaults. Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`):
 
-| Preset | Pupil grid | Padded grid | psf_oversample | Wavelength samples | WFE handling |
-|--------|------------|-------------|----------------|--------------------|----|
-| `draft` | 64 × 64 | 256 × 256 | 4 | 3 | Marechal Strehl |
-| `standard` | 128 × 128 | 1024 × 1024 | 8 | 7 | Full FFT of complex pupil |
-| `high` | 256 × 256 | 4096 × 4096 | 16 | 15 | Full FFT |
-| `publication` | 512 × 512 | 8192 × 8192 | 32 | 31 | Full FFT, Gauss-Legendre quadrature |
+- The dual-path consistency check is **unconditional** with tolerance `5e-2` (§1.4, §9.3). No "draft mode that skips the check" exists.
+- The two sampling knobs (`pupil_npix=128`, `psf_oversample=8`) are unconditional defaults. If a scenario needs different sampling, the schema gets two new parameters; it does not need a preset enum to bundle them.
+- Polychromatic sampling is controlled by the existing `optics.psf_n_wavelengths` parameter (§3.4), which is the only "fidelity-like" knob that ships.
 
-Wavelength samples are placed at Gauss-Legendre nodes within each filter band; the weight is the in-band spectral product at that node.
-
-The fidelity preset is also propagated to the optics module (which uses it to decide pupil grid size) and to the detector module (which uses it for PSF-based MTF computation grids).
+The FidelityPreset enum, the per-preset table, and the preset-driven WFE handling are all retired; any code referencing them is dead and should be removed (none exist as of the 2026-04-25 audit — the enum was always doc-only).
 
 ---
 
 ## 6. The PSF Convolution Pipeline
 
-Starting from the optical PSF `psf_optical` (already polychromatic, already includes WFE), the spatial pipeline convolves in this order:
+`src/radiant/optics/psf/builder.py::build_effective_psf` takes the optical PSF and a list of `(name, kernel_2d)` tuples and produces the `EffectivePSF`. Convolution is FFT-based and unit-volume-normalized after each kernel.
+
+The canonical kernel order — recorded in `convolution_history` — is:
 
 ```
-psf_0 = psf_optical
+psf_0 = psf_optical                                          # diffraction + WFE
 psf_1 = psf_0  ∗  rect(pixel_pitch_x, pixel_pitch_y)         # detector aperture
 psf_2 = psf_1  ∗  gauss(σ_diffusion_x, σ_diffusion_y)        # charge diffusion
 psf_3 = psf_2  ∗  rect(v_along · t_int, 0)                   # platform smear (along-track)
 psf_4 = psf_3  ∗  rect(0, v_cross · t_int)                   # scan smear (cross-track, if any)
 psf_5 = psf_4  ∗  rect(v_target_x · t_int_eff,
                        v_target_y · t_int_eff)               # target motion (untracked only)
-psf_6 = psf_5  ∗  gauss(σ_jitter_x, σ_jitter_y)              # jitter (possibly anisotropic)
-psf_7 = psf_6  ∗  rect(misalign_x, misalign_y)               # TDI misalignment (small)
-psf_8 = psf_7  ∗  kolmogorov_kernel(r₀, λ)                   # turbulence (ground only)
+psf_6 = psf_5  ∗  gauss(σ_jitter_x, σ_jitter_y)              # jitter
+psf_7 = psf_6  ∗  ipc_kernel(α)                              # inter-pixel capacitance
+psf_8 = psf_7  ∗  kolmogorov_kernel(r0, λ)                   # turbulence (ground only)
 psf_eff = psf_8
 ```
 
-Order matters because some kernels are not commutative when truncated to the working grid (the detector aperture is much wider than the optical PSF and dominates the support of the result; convolving with it first is numerically friendlier). The result is the same to within FFT round-off, but the working order above is the canonical one and the convolution_history records it.
+Order matters because some kernels are not commutative when truncated to the working grid (the detector aperture is much wider than the optical PSF and dominates the support of the result). The result is the same to within FFT round-off, but the working order above is the canonical one and `convolution_history` records it.
 
 `t_int_eff` for target-motion smear in TDI mode is `N_TDI × t_int_per_stage` (the target moves through every TDI stage's integration time before being read out).
 
+**TDI misalignment is not in the PSF cascade.** TDI line-to-line misalignment is a *readout* effect in v1 — it has an MTF term (see §9, term 9) but no spatial-domain kernel, so it appears in the MTF product path and is excluded from the dual-path comparison (`_EXCLUDED_PREFIXES = ("mtf_tdi",)` in `consistency_check.py`). If a future stage adds a spatial kernel for TDI shear, both paths must update together.
+
+Zero-magnitude kernels are skipped from the convolution (their kernel is a delta) but logged in `convolution_history` as `"name:zero"` so the user can verify the framework saw them.
+
 ---
 
-## 7. The Five Distinct Smear Sources
+## 7. The Distinct Smear Sources
 
-Confusing these is one of the top sources of error in EO performance modeling. RADIANT names each one and computes it from a different parameter group:
+Confusing these is one of the top sources of error in EO performance modeling. RADIANT computes the smear MTF generically (`src/radiant/platform/smear.py::smear_mtf_1d` returns `|sinc(π·f·smear_width_m)|`) but the architecture distinguishes:
 
 | Smear source | Origin | Parameters | Direction | Always present? |
 |--------------|--------|------------|-----------|-----------------|
@@ -201,33 +211,22 @@ Confusing these is one of the top sources of error in EO performance modeling. R
 | Jitter | Random pointing errors | `platform.jitter_rms_urad`, `platform.jitter_axes` | Either / both | Yes (default 0) |
 | Turbulence | Atmospheric refractive-index fluctuations | `atmosphere.r0_cm` | Isotropic | Ground only |
 
-A user studying a moving target observed by a stationary tracking ground sensor has all five potentially active. A user studying a building from LEO has platform motion and jitter only. The framework does not switch behavior based on use case — every term is computed (zero if not configured) and every term enters the PSF cascade. Zero-magnitude terms are skipped from the convolution (their kernel is a delta) but logged in `convolution_history` as `"name:zero"` so the user can verify the framework saw them.
+A user studying a moving target observed by a stationary tracking ground sensor has all five potentially active. A user studying a building from LEO has platform motion and jitter only. The framework does not switch behavior based on use case — every term is computed (zero if not configured) and every term enters the PSF cascade. Zero-magnitude terms are skipped from the convolution and logged in `convolution_history`.
 
 ---
 
-## 8. Tracking Mode
+## 8. Tracking Mode — **v2 deferred**
 
-```python
-class TrackingMode(StrEnum):
-    UNTRACKED = "untracked"   # platform smears target and background equally
-    TRACKED = "tracked"       # target image is stabilized; background smears instead
-```
+Earlier drafts described a `TrackingMode` enum with `untracked` / `tracked` modes, a per-mode pair of `EffectivePSF` objects (`state.psf["target"]` vs `state.psf["background"]`), and a tracker-stabilized smear cascade. **None of this is implemented in v1.** All v1 scenarios route through the untracked path: target and background see the same PSF, and a single `EffectivePSF` is produced.
 
-In `tracked` mode:
-- The platform-motion smear kernel is **not** applied to the target PSF. The target is held still on the FPA.
-- The platform-motion smear kernel **is** applied to the background PSF. The background slides past while the tracker stares at the target.
-- Two `EffectivePSF` objects are produced: `state.psf["target"]` and `state.psf["background"]`.
-- The MTF cascade has two budgets: `target_mtf` and `background_mtf`. They differ in the smear term only.
-
-The downstream consumer of these PSFs (the detection-range and CSNR calculation in `RADIANT_Metrics.md`) uses the *target* PSF for the signal numerator and the *background* PSF for the clutter denominator. This matters for point-source-while-tracking detection, which is precisely the situation tracking exists for.
-
-In `untracked` mode, target and background see the same PSF and only one is built.
+When tracking is implemented, it MUST land alongside an updated dual-path consistency check that handles the per-target/per-background variants and an explicit ADR documenting the new ChainState shape. Until then, this section is a placeholder, not a contract.
 
 ---
 
 ## 9. The MTF Product Path — System MTF Budget
 
 The system MTF is the product of the optical MTF and all independent contributor MTFs:
+
 ```
 MTF_system(f_x, f_y) = MTF_optics(f_x, f_y) × Π_i MTF_i(f_x, f_y)
 ```
@@ -238,19 +237,23 @@ The optical MTF is computed from the **autocorrelation of the complex pupil func
 
 ```
 OTF_optics(f_x, f_y) = ∫∫ P(ξ, η) P*(ξ − λzf_x, η − λzf_y) dξdη
-                        ─────────────────────────────────────────────
-                        ∫∫ |P(ξ, η)|² dξdη
+                       ─────────────────────────────────────────
+                       ∫∫ |P(ξ, η)|² dξdη
 
 MTF_optics = |OTF_optics|
 ```
 
-where `P(ξ, η) = A(ξ, η) · exp(i · 2π · W(ξ, η) / λ)` is the generalized pupil function including aperture amplitude `A` (with obscuration) and wavefront error `W`. This single computation captures diffraction, all aberrations (including field-dependent and chromatic Zernikes), defocus, and their interactions. Aberrations modify the diffraction pattern in ways that cannot be factored — computing `MTF_diffraction × MTF_aberration` separately is physically incorrect and is **forbidden**.
+where `P(ξ, η) = A(ξ, η) · exp(i · 2π · W(ξ, η) / λ)` is the generalized pupil function including aperture amplitude `A` (with obscuration) and wavefront error `W`. This single computation captures diffraction, all aberrations (including field-dependent and chromatic Zernikes), defocus, and their interactions. Aberrations modify the diffraction pattern in ways that cannot be factored — computing `MTF_diffraction × MTF_aberration` separately is physically incorrect and is **forbidden** (CLAUDE.md Rule 4 §4).
 
 For polychromatic operation, the optical MTF is the weighted average of monochromatic pupil-autocorrelation MTFs:
+
 ```
 MTF_optics_poly(f) = Σ_k w_k · MTF_optics(f; λ_k)
 ```
+
 with weights `w_k` = in-band photon-weighted spectral radiance at each wavelength sample.
+
+Implementation: `src/radiant/optics/pupil_mtf.py`.
 
 ### 9.2 Independent Contributor MTFs
 
@@ -258,86 +261,104 @@ The remaining contributors are physically independent of the pupil and of each o
 
 | # | Term | MTF formula | Source module |
 |---|------|-------------|---------------|
-| 1 | `mtf_optics` | Pupil autocorrelation (§9.1) — includes diffraction, WFE, defocus | Optics |
-| 2 | `mtf_pixel_aperture` | sinc(π · f · p_x) · sinc(π · f · p_y) | Detector |
-| 3 | `mtf_charge_diffusion` | exp(−2π² · σ_d² · f²) | Detector |
-| 4 | `mtf_ipc` | (1 − 4α) + 2α · cos(2πf · p) | Detector |
-| 5 | `mtf_smear_along` | \|sinc(π · f · v · t)\| | Platform / Spatial |
-| 6 | `mtf_smear_cross` | \|sinc(π · f · v · t)\| | Platform / Spatial |
-| 7 | `mtf_target_motion` | \|sinc(π · f · v_t · t_eff)\| | Platform / Spatial |
-| 8 | `mtf_jitter` | exp(−2π² · σ_j² · f²) | Platform / Spatial |
-| 9 | `mtf_tdi_misalign` | \|sinc(π · f · misalign)\| | Readout / Spatial |
-| 10 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | Atmosphere |
+| 1 | `mtf_optics` | Pupil autocorrelation (§9.1) — includes diffraction, WFE, defocus | `optics/pupil_mtf.py` |
+| 2 | `mtf_pixel_aperture` | sinc(π · f · p_x) · sinc(π · f · p_y) | `optics/pixel_kernel.py` |
+| 3 | `mtf_charge_diffusion` | exp(−2π² · σ_d² · f²) | `detector/diffusion.py` |
+| 4 | `mtf_ipc` | (1 − 4α) + 2α · cos(2πf · p) | `detector/ipc.py` |
+| 5 | `mtf_smear_along` | \|sinc(π · f · v · t)\| | `platform/smear.py` |
+| 6 | `mtf_smear_cross` | \|sinc(π · f · v · t)\| | `platform/smear.py` |
+| 7 | `mtf_target_motion` | \|sinc(π · f · v_t · t_eff)\| | `platform/smear.py` |
+| 8 | `mtf_jitter` | exp(−2π² · σ_j² · f²) | `platform/jitter.py` |
+| 9 | `mtf_tdi_misalign` | \|sinc(π · f · misalign)\| | `readout/tdi_mtf.py` |
+| 10 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | `atmosphere/turbulence.py` + `performance/turbulence_mtf_term.py` |
 
-Note: the old 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are now unified into a single `mtf_optics` via pupil autocorrelation. The component count is 10, not 12.
+Notes:
+- The previous 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are unified into a single `mtf_optics` via pupil autocorrelation (§9.1). The component count is 10, not 12.
+- Each term keys into `state.mtf_terms` with a `_x` / `_y` suffix for per-axis storage (e.g., `mtf_optics_x`, `mtf_pixel_aperture_y`).
 
-### 9.3 The Consistency Check
+### 9.3 The Consistency Check (unconditional)
 
-This is the key invariant linking the two paths. After every spatial degradation has been applied via convolution to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of `mtf_optics` and the independent contributor MTFs:
+After every spatial degradation has been applied via convolution to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of `mtf_optics` and the independent contributor MTFs that have a corresponding spatial kernel:
 
 ```python
-mtf_from_psf = np.abs(np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(psf_eff))))
-mtf_from_psf /= mtf_from_psf.max()
-
-mtf_from_product = mtf_optics * np.prod([mtf_i for mtf_i in independent_mtfs.values()], axis=0)
-
-assert np.allclose(mtf_from_psf, mtf_from_product, atol=1e-6)
+# performance/consistency_check.py — pseudocode
+mtf_psf_x = epsf.mtf_1d("x")[1]                 # FFT path
+product_x = product_over_i(mtf_terms[name]
+                           for name in mtf_terms
+                           if name.endswith("_x")
+                           and not name.startswith("mtf_tdi"))
+errors = abs(product_x[:nyquist] − mtf_psf_x[:nyquist])
+passed_x = max(errors) <= 5e-2
 ```
 
-This check runs at `standard` fidelity and above. If it fails, a degradation was added to one path but not the other — the build is broken.
+The check runs unconditionally on every chain execution. The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`.
 
-The check tolerates one approved exception: when `wfe_mode` is in Marechal mode (draft fidelity), the WFE term enters as `MTF_wfe = Strehl` (a flat scalar) rather than as a full pupil computation, so the equality is approximate. This case is recorded in `convolution_history`.
+**Excluded prefixes:** `mtf_tdi*` is excluded because TDI misalignment has no spatial-domain kernel in v1 (§6). When a kernel is added, the exclusion list shrinks; both paths must update together.
+
+**Why the wider tolerance than the previous doc claimed (5e-2 vs the old "1e-6"):** the rect kernel in `optics/pixel_kernel.py` is a binary mask sampled on the FPA grid, not the analytic `sinc` it pairs with on the product side; at low Q (long-wave SWIR, small focal length, e.g., `swir_aerial_gas` with Q ≈ 0.34) the discretization mismatch reaches ~5 % near Nyquist. CU-003 tracks the planned anti-aliased-rect fix that would let the tolerance tighten back to ~1e-6; until then, `5e-2` is calibrated to the real-world worst case across the baseline scenario set without masking any actual missing-degradation regressions.
 
 ---
 
-## 10. Parameter Inventory
+## 10. Parameter Inventory (current — what actually exists in `_schema.py`)
 
-All parameters under `spatial.*` (sampling) and feed-in parameters from sister modules.
+This section enumerates only parameters that ship today. Future-state spatial parameters that earlier drafts listed (e.g., `spatial.fidelity_preset`, `spatial.psf_oversample` as a tuneable, `spatial.tracking_mode`) are documented in §5 / §8 with their deferral status.
 
-### 10.1 Sampling
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `spatial.fidelity_preset` | enum | `standard` |
-| `spatial.psf_oversample` | int | from preset |
-| `spatial.psf_sample_spacing_um` | µm | derived |
-| `spatial.min_samples_per_psf_fwhm` | int | 4 |
-| `spatial.n_wavelength_samples` | int | from preset |
-| `spatial.tracking_mode` | enum: `untracked`, `tracked` | `untracked` |
+### 10.1 Optics-side spatial parameters
 
-### 10.2 Smear and motion (most live in `platform.*`)
+| Parameter | Unit | Default | Source |
+|-----------|------|---------|--------|
+| `optics.aperture_diameter_m` | m | required | `optics/_schema.py` |
+| `optics.focal_length_m` | m | required | |
+| `optics.f_number` | — | derived | |
+| `optics.obscuration_ratio` | — | 0.0 | |
+| `optics.defocus_um` | µm | 0.0 | |
+| `optics.wfe_mode` | enum | `none` | |
+| `optics.wfe_rms_waves` | waves | 0.0 | |
+| `optics.wfe_reference_wavelength_um` | µm | (band-center) | |
+| `optics.field_position_x` | deg | 0.0 | |
+| `optics.field_position_y` | deg | 0.0 | |
+| `optics.psf_n_wavelengths` | int | 1 | controls polychromatic broadening (§3.4) |
+
+Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded inside `optics/sampling.py` (128 and 8 respectively). Promoting them to schema parameters is an open follow-up (§4).
+
+### 10.2 Platform-side smear / motion / jitter
+
 | Parameter | Unit | Default |
 |-----------|------|---------|
 | `platform.velocity_m_s` | m/s | derived from orbit if `platform.orbit_*` set |
-| `platform.altitude_m` | m | None (required) |
+| `platform.altitude_m` | m | required |
 | `platform.jitter_rms_urad` | µrad | 0.0 |
-| `platform.jitter_axes` | enum: `isotropic`, `anisotropic` | `isotropic` |
-| `platform.jitter_rms_x_urad` | µrad | 0.0 (anisotropic) |
-| `platform.jitter_rms_y_urad` | µrad | 0.0 (anisotropic) |
-| `platform.drift_rate_urad_s` | µrad/s | 0.0 |
+| `platform.jitter_axes` | enum (`isotropic` / `anisotropic`) | `isotropic` |
+| `platform.jitter_rms_x_urad` | µrad | 0.0 (anisotropic only) |
+| `platform.jitter_rms_y_urad` | µrad | 0.0 (anisotropic only) |
 | `scan.cross_track_velocity_m_s` | m/s | 0.0 |
 | `target.velocity_x_m_s` | m/s | 0.0 |
 | `target.velocity_y_m_s` | m/s | 0.0 |
 
-### 10.3 TDI and turbulence pass-through
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `detector.tdi_misalign_pixels` | pixels | 0.0 |
-| `atmosphere.r0_cm` | cm | (consumed from atmosphere module) |
+### 10.3 Detector / readout / atmosphere pass-through
+
+| Parameter | Unit | Default | Notes |
+|-----------|------|---------|-------|
+| `detector.pixel_pitch_x_um` | µm | required | feeds `pixel_pitch_m` for sampling |
+| `detector.pixel_pitch_y_um` | µm | required | |
+| `detector.ipc_alpha` | — | 0.0 | term 4 in §9.2 |
+| `detector.diffusion_sigma_um` | µm | 0.0 | term 3 in §9.2 |
+| `readout.tdi_misalign_pixels` | pixels | 0.0 | term 9 in §9.2 |
+| `atmosphere.r0_cm` | cm | (consumed from atmosphere model) | term 10 in §9.2 |
 
 ---
 
 ## 11. Validation
 
-| Check | Bound |
-|-------|-------|
-| `psf_oversample ≥ 2` | hard (Nyquist) |
-| `samples_across_fwhm ≥ min_samples_per_psf_fwhm` | hard, from preset |
-| `psf` integrates to 1 ± 1e-4 | hard (after every convolution) |
-| `mtf_2d` ≤ 1 + 1e-9 ∀f | hard |
-| `tracking_mode == "tracked"` requires non-zero target velocity, else warning | soft |
-| MTF consistency check (§9.1) | hard at standard+ fidelity |
-| `r0_cm > 0` if turbulence enabled | hard |
-| `psf_eff` symmetric for symmetric inputs | soft (sanity) |
+| Check | Where enforced | Hard / soft |
+|-------|----------------|-------------|
+| `psf_oversample ≥ 2` (Nyquist minimum) | `optics/sampling.py::compute_sampling` | hard (raises `ValueError`) |
+| `samples_across_Airy_FWHM ≥ 2` | `optics/sampling.py::compute_sampling` | soft (logs warning) |
+| `psf.data` integrates to 1 ± numerical error | `optics/psf/builder.py` re-normalizes after each kernel | hard (always-true post-build) |
+| `mtf_2d` ≤ 1 + 1e-9 | `optics/psf/effective.py` per FFT normalization | hard |
+| Dual-path MTF consistency, tol = 5e-2 | `performance/consistency_check.py` (§9.3) | hard, **unconditional** |
+| `r0_cm > 0` if turbulence enabled | `atmosphere/turbulence.py` | hard |
+| `psf_eff` symmetric for symmetric inputs | unit tests | sanity |
 
 ---
 
@@ -349,5 +370,5 @@ All parameters under `spatial.*` (sampling) and feed-in parameters from sister m
 - Wave-optics propagation through volumes (we use Fraunhofer + image-plane convolutions).
 - Speckle from coherent illumination.
 - Adaptive-optics correction simulation.
-
----
+- Tracking mode (target / background PSF split — §8 — v2).
+- Anti-aliased pixel-aperture rect kernel (CU-003) — would let §9.3 tighten to ~1e-6.

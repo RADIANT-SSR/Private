@@ -5,7 +5,7 @@ Uses the matplotlib Agg backend (non-interactive) so tests run headless.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -63,7 +63,7 @@ class TestPlottableProtocol:
         class MyPlottable:
             def plot(self, **kwargs: Any) -> Figure:
                 fig, _ = matplotlib.pyplot.subplots()
-                return fig
+                return cast(Figure, fig)
 
         obj = MyPlottable()
         assert isinstance(obj, Plottable)

@@ -16,7 +16,7 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
@@ -86,7 +86,7 @@ def plot_sweep(result: SweepResult, **kwargs: Any) -> Figure:
     ax.set_title(f"{result.metric_name} vs {result.param_name}")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    return fig
+    return cast("Figure", fig)
 
 
 def plot_sweep_2d(result: Sweep2DResult, **kwargs: Any) -> Figure:
@@ -113,7 +113,7 @@ def plot_sweep_2d(result: Sweep2DResult, **kwargs: Any) -> Figure:
     ax.set_ylabel(result.param2_name)
     ax.set_title(f"{result.metric_name}")
     fig.tight_layout()
-    return fig
+    return cast("Figure", fig)
 
 
 def plot_noise_budget(
@@ -147,7 +147,7 @@ def plot_noise_budget(
     ax.set_title("Noise Budget")
     ax.invert_yaxis()
     fig.tight_layout()
-    return fig
+    return cast("Figure", fig)
 
 
 def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
@@ -183,7 +183,7 @@ def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
     ax.set_xlabel("x (pixels)")
     ax.set_ylabel("y (pixels)")
     fig.tight_layout()
-    return fig
+    return cast("Figure", fig)
 
 
 def plot_mtf_terms(
@@ -219,7 +219,7 @@ def plot_mtf_terms(
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1.05)
     fig.tight_layout()
-    return fig
+    return cast("Figure", fig)
 
 
 def plot_spectral(
@@ -258,4 +258,4 @@ def plot_spectral(
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    return fig
+    return cast("Figure", fig)

@@ -1,231 +1,228 @@
 # RADIANT File Tree and Module Layout
 
-**Status**: Authoritative  
-**Derived from**: RADIANT_Signal_Chain_Architecture.md, RADIANT_Parameter_System.md, RADIANT_Conventions.md  
-**Target file count**: ~150 source files (excluding data assets)
+**Status:** Living reference (regenerated against current `src/`)
+**Last regenerated:** 2026-04-25 (post-Stage-8, post-audit reconciliation)
+**Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
+view, not a spec. When in doubt, run the find command.
+
+**Current file count:** 344 `.py` files under `src/radiant/` (171 source +
+125 test + ~48 `__init__.py`), plus 16 integration tests under
+`tests/integration/` and 1 top-level `tests/test_public_api.py`.
 
 ---
 
 ## Design Principles
 
 1. **One subpackage per signal chain stage.** Every physics module is isolated in its own subpackage. Cross-stage coupling flows through `ChainState`, not imports.
-2. **`core/` has zero physics dependencies.** Core abstractions (constants, units, parameters, spectral store, chain protocol) import only stdlib and numpy/scipy. Nothing in `core/` knows about sensors.
-3. **Physics modules import only `core/` and stdlib.** No physics module imports another physics module. Inter-stage communication is through `ChainState`.
+2. **`core/` has zero physics dependencies.** Core abstractions (constants, units, parameters, spectral store, chain protocol, geometry, radiometry) import only stdlib and numpy/scipy. Nothing in `core/` knows about specific sensor configurations.
+3. **Physics modules import only `core/` and stdlib.** No physics module imports another physics module. Inter-stage communication is through `ChainState`. Enforced by `import-linter` in CI (5 contracts).
 4. **`io/`, `api/`, `cli/` are the integration layers.** They may import from anything below them. Physics modules never import from these.
-5. **Tests live alongside implementation.** Each subpackage has a `tests/` subdirectory. Integration tests live in a top-level `tests/integration/`.
-6. **`_schema.py` in every physics subpackage.** Each stage owns its `ParameterDef` registry. The top-level schema is assembled by `api/`.
+5. **Tests live alongside implementation.** Each subpackage has a `tests/` subdirectory. Cross-stage integration tests live in `tests/integration/`.
+6. **`_schema.py` in every physics subpackage.** Each stage owns its `ParameterDef` registry. The top-level schema is assembled by `api/_param_registry.py`.
+7. **Underscore-prefixed names are private.** Modules like `_schema.py`, `_inferrer.py`, `_param_registry.py`, `_helpers.py`, `_quantities.py` are package-internal — not part of the public surface and not stability-guaranteed.
 
 ---
 
-## Full Directory Tree
+## Subpackage Inventories
+
+Counts below exclude `__init__.py` files. "Source" = production modules; "Tests" = `test_*.py` files. Run `find src/radiant/<pkg> -name '*.py'` for the full enumeration; this doc highlights the structure and the load-bearing modules per package.
+
+### `core/` — 16 source + 15 tests
+
+Foundational abstractions; no physics, no sensor knowledge. The only package physics modules may import from.
 
 ```
-radiant/                           # Single namespace package
-├── __init__.py                    # Package version, public re-exports
-│
-├── core/                          # Foundational abstractions — no physics
-│   ├── __init__.py
-│   ├── constants.py               # CODATA 2018 exact physical constants
-│   ├── units.py                   # Unit conversion registry (convert, inverse_convert)
-│   ├── parameters.py              # ParameterDef, ParameterSet, ResolvedValue, Tolerance
-│   ├── spectral.py                # SpectralData, SpectralDataStore
-│   ├── chain.py                   # ChainState, Stage ABC, ChainRunner
-│   ├── radiometry.py              # RadiometricFrame, NoiseTerm, NoiseFrame, EE_box coupling
-│   ├── geometry.py                # ObserverGeometry, TargetGeometry, SceneGeometry
-│   └── regime.py                  # RadiometricRegime enum (EXTENDED, POINT_SOURCE, SUB_PIXEL)
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_constants.py      # CODATA values, derived quantities
-│       ├── test_units.py          # Conversion roundtrips, missing key errors
-│       ├── test_parameters.py     # ParameterSet: resolve, derive, bounds, Monte Carlo
-│       ├── test_spectral.py       # SpectralDataStore: add, interpolate, out-of-range
-│       ├── test_chain.py          # ChainState immutability, Stage protocol
-│       ├── test_geometry.py       # SceneGeometry construction, GSD/slant range
-│       └── test_regime.py         # Regime classification logic
-│
-├── source/                        # Stage 1: Target + background spectral radiance
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: target_temp, emissivity_model, ...
-│   ├── stage.py                   # SourceStage: populates at_target RadiometricFrame
-│   ├── blackbody.py               # Planck function, integrated radiance, spectral exitance
-│   ├── solar.py                   # Solar spectral irradiance loader and models
-│   ├── reflected.py               # BRDF-weighted reflected solar radiance
-│   ├── emitted.py                 # Thermal self-emission from target surface
-│   ├── background.py              # Extended background / clutter spectral radiance
-│   └── emissivity.py              # Emissivity spectral models (graybody, spectral lookup)
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_blackbody.py      # Planck vs. analytic integrals, Stefan-Boltzmann check
-│       ├── test_solar.py          # Spectrum loading, unit conversion
-│       ├── test_reflected.py      # BRDF models, lambertian limit
-│       ├── test_emitted.py        # Emissivity × Planck consistency
-│       └── test_background.py    # Background radiance integration
-│
-├── atmosphere/                    # Stage 2: Transmittance, path radiance, thermal emission
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: range_km, altitude_m, visibility_km, ...
-│   ├── stage.py                   # AtmosphereStage: applies 3-output interface to at_target
-│   ├── modtran.py                 # MODTRAN tape7/tape8 reader + interface wrapper
-│   ├── simple.py                  # Beer-Lambert / exponential transmittance model
-│   ├── standard.py                # Standard atmosphere profiles: US76, tropical, subarctic
-│   ├── lowtran.py                 # LOWTRAN-style 7-band empirical transmittance (stub)
-│   ├── transmittance.py           # SpectralTransmittance container + wavelength interpolation
-│   ├── path_radiance.py           # SpectralPathRadiance container
-│   ├── thermal_emission.py        # Atmospheric thermal emission (downwelling / upwelling)
-│   └── turbulence.py              # Fried r0, Cn² profiles, turbulence MTF term
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_modtran.py        # Reader against known tape7 fixture
-│       ├── test_simple.py         # Beer-Lambert vs. analytic, boundary cases
-│       ├── test_transmittance.py  # Container interpolation, wavelength alignment
-│       └── test_turbulence.py     # r0 from Cn², turbulence MTF shape
-│
-├── optics/                        # Stage 3: PSF, MTF terms, throughput, EE_box, regime final
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: aperture_diameter, focal_length, f_number, ...
-│   ├── stage.py                   # OpticsStage: finalizes regime, computes EE_box
-│   ├── psf.py                     # PSF container, PSF → MTF transform, PSF moments
-│   ├── diffraction.py             # Circular aperture diffraction MTF (Airy, OTF)
-│   ├── aberrations.py             # WFE → MTF: Marechal approximation + full OTF integral
-│   ├── defocus.py                 # Defocus MTF (sinc-based)
-│   ├── obscuration.py             # Central obscuration effect on diffraction MTF
-│   ├── smear_optics.py            # Optical smear (vibration-driven, LOS wobble)
-│   ├── throughput.py              # Optics transmission: coatings, windows, beamsplitters
-│   ├── filter.py                  # Bandpass filter spectral transmission model
-│   └── ee_box.py                  # EE_box computation from PSF over pixel footprint
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_psf.py            # PSF normalization, moments, OTF transform
-│       ├── test_diffraction.py    # Airy disk limits, Rayleigh criterion
-│       ├── test_aberrations.py    # Marechal vs. OTF integral agreement
-│       ├── test_ee_box.py         # EE_box vs. analytic Airy integrals
-│       ├── test_filter.py         # Bandpass shape, out-of-band rejection
-│       └── test_throughput.py    # Transmission stack product
-│
-├── platform/                      # Stage 4: Smear, jitter, sampling MTF
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: velocity, altitude, integration_time, ...
-│   ├── stage.py                   # PlatformStage: smear + jitter MTF terms
-│   ├── geometry.py                # GSD, IFOV, slant range, look angle, ground projection
-│   ├── smear.py                   # Image smear MTF: along-track (rect), cross-track
-│   ├── jitter.py                  # LOS jitter MTF: Gaussian, sinusoidal models
-│   └── sampling.py                # Pixel aperture MTF (rect); Nyquist / aliasing notes
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_geometry.py       # GSD vs. altitude/FL/pitch, slant range
-│       ├── test_smear.py          # Smear MTF at zero → unity, at 1 pixel → sinc
-│       └── test_jitter.py         # Jitter MTF normalization
-│
-├── spectral_integration/          # Stage 5: Spectral → scalar (applies EE_box coupling)
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: integration method, ...
-│   ├── stage.py                   # SpectralIntegrationStage: EE_box × QE × spectral radiance
-│   ├── integration.py             # Numerical integration: trapezoid, midpoint, Gauss-Legendre
-│   └── grid.py                    # Wavelength grid construction, resolution management
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_integration.py    # ∫Planck dλ vs. σT⁴, bandpass consistency
-│       └── test_grid.py           # Grid construction, resolution checks
-│
-├── detector/                      # Stage 6: QE, photoelectrons, detector MTF, detector noise
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: pitch, FWC, dark_current_rate, QE_model, ...
-│   ├── stage.py                   # DetectorStage: radiance → photoelectrons + noise terms
-│   ├── qe.py                      # Quantum efficiency: spectral model, temperature dependence
-│   ├── dark_current.py            # Dark current: Rule 07, activation energy, ROIC contribution
-│   ├── shot_noise.py              # Photon shot noise, dark current shot noise
-│   ├── prnu.py                    # Photo-response nonuniformity model
-│   ├── nonlinearity.py            # Detector nonlinearity: polynomial model
-│   ├── saturation.py              # Full-well capacity, anti-blooming
-│   ├── ipc.py                     # Inter-pixel capacitance MTF
-│   └── diffusion.py               # Charge diffusion MTF (Gaussian model)
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_qe.py             # QE × photon flux = signal electrons
-│       ├── test_dark_current.py   # Rule 07 regression, temperature scaling
-│       ├── test_shot_noise.py     # Poisson statistics, sqrt(signal) limit
-│       ├── test_ipc.py            # IPC MTF: α=0 → unity, α>0 → lowpass
-│       └── test_diffusion.py      # Diffusion MTF: Gaussian shape, cutoff
-│
-├── readout/                       # Stage 7: Read noise, ADC, gain, fixed-pattern
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: read_noise_erms, gain_e_per_dn, bit_depth, ...
-│   ├── stage.py                   # ReadoutStage: electrons → DN + noise terms
-│   ├── read_noise.py              # Read noise (CDS, Fowler-N, up-the-ramp)
-│   ├── one_over_f.py              # 1/f (flicker) noise model
-│   ├── ktc.py                     # kTC (reset) noise; CDS cancellation
-│   ├── adc.py                     # A/D conversion, quantization noise, DN range
-│   ├── gain.py                    # System gain e⁻/DN, gain nonuniformity (GNNU)
-│   └── fixed_pattern.py           # DSNU, column/row FPN
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_read_noise.py     # CDS, Fowler-N reduction factors
-│       ├── test_ktc.py            # kTC magnitude, CDS cancellation
-│       ├── test_adc.py            # Quantization noise = LSB/√12
-│       └── test_gain.py           # Gain roundtrip, DN saturation level
-│
-├── performance/                   # Stage 8: SNR, NEDT, NIIRS, MTF, detection range
-│   ├── __init__.py
-│   ├── _schema.py                 # ParameterDefs: target_contrast, required_snr, ...
-│   ├── stage.py                   # PerformanceStage: assembles all metrics from ChainState
-│   ├── snr.py                     # SNR: signal / √(sum-quadrature noise)
-│   ├── nedt.py                    # NEDT: ΔT → Δsignal via dL/dT at scene temperature
-│   ├── nei.py                     # NEI: noise equivalent irradiance (point source)
-│   ├── system_mtf.py              # System MTF: product of all MTF terms in ChainState
-│   ├── giqe.py                    # GIQE5 implementation (EO-NIIRS)
-│   ├── iirs.py                    # IIRS implementation (IR NIIRS)
-│   ├── niirs.py                   # NIIRS dispatcher: selects GIQE5 vs. IIRS by regime/band
-│   ├── detection_range.py         # Detection/acquisition range from SNR or MDTD
-│   └── mdtd.py                    # MDTD / MRT (minimum resolvable temperature difference)
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_snr.py            # Known signal/noise → known SNR
-│       ├── test_nedt.py           # dL/dT analytic check vs. finite difference
-│       ├── test_giqe.py           # GIQE5 against published sample cases
-│       ├── test_iirs.py           # IIRS against published sample cases
-│       └── test_detection_range.py
-│
-├── io/                            # I/O layer: config, file readers, results serialization
-│   ├── __init__.py
-│   ├── config.py                  # YAML sensor config loader → ParameterSet
-│   ├── modtran_reader.py          # MODTRAN tape5/tape7/tape8 parser
-│   ├── spectral_library.py        # Generic spectral file reader: CSV, ASCII column, ENVI hdr
-│   ├── results.py                 # RadiantResult container, JSON/dict serialization
-│   └── hdf5.py                    # HDF5 read/write for spectral data and batch results
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_config.py         # YAML roundtrip, required vs. optional, bad values
-│       ├── test_modtran_reader.py # Reader against fixture tape7 file
-│       └── test_results.py        # Serialization roundtrip
-│
-├── cli/                           # Command-line interface
-│   ├── __init__.py
-│   ├── main.py                    # Entry point registered as `radiant` in pyproject.toml
-│   ├── run.py                     # `radiant run <config.yaml>` subcommand
-│   ├── explain.py                 # `radiant explain <param>` — provenance dump
-│   └── validate.py                # `radiant validate <config.yaml>` — dry-run validation
-│   └── tests/
-│       ├── __init__.py
-│       └── test_cli.py            # Click test-runner: run, explain, validate subcommands
-│
-├── api/                           # Scripting API: public, stable, version-guaranteed
-│   ├── __init__.py                # Public symbols: RadiantSession, SensorConfig, ScenarioConfig
-│   ├── session.py                 # RadiantSession: top-level object, run(), explain(), batch()
-│   ├── sensor.py                  # SensorConfig: fluent builder for sensor parameters
-│   ├── scenario.py                # ScenarioConfig: fluent builder for scene/geometry
-│   └── batch.py                   # BatchRunner: parameter sweeps, Monte Carlo, multiprocessing
-│   └── tests/
-│       ├── __init__.py
-│       ├── test_session.py        # End-to-end: session → result
-│       └── test_batch.py          # Parameter sweep, result collection
-│
-└── plugins/                       # Extension point for third-party physics modules
-    ├── __init__.py
-    ├── _registry.py               # Plugin discovery via importlib.metadata entry_points
-    ├── base.py                    # ABCs: SourcePlugin, AtmospherePlugin, MetricPlugin, StagePlugin
-    └── tests/
-        ├── __init__.py
-        └── test_registry.py       # Discovery, registration, name collision handling
+core/
+├── constants.py         # CODATA 2018 physical constants (h, c, k_B, σ, ...)
+├── units.py             # Unit conversion registry
+├── parameters.py        # ParameterDef, ParameterSet, Tolerance, ConsistencyGroup
+├── spectral.py          # SpectralData, SpectralDataStore
+├── chain.py             # Stage Protocol, ChainState (frozen), ChainRunner
+├── radiometry.py        # RadiometricFrame, NoiseTerm
+├── quantity.py          # ChainQuantity, ReferenceFrame enum, signal_at, noise_at
+├── regime.py            # RadiometricRegime enum (EXTENDED, POINT, SUB_PIXEL)
+├── geometry.py          # SceneGeometry, ObserverGeometry helpers
+├── los_geometry.py      # LineOfSightGeometry (frozen, kw_only)
+├── blackbody.py         # Planck function (used by source/, atmosphere/)
+├── solar.py             # Solar spectral irradiance loader
+├── reflectance.py       # Reflectance descriptors
+├── responsivity.py      # Detector responsivity descriptors
+├── descriptors.py       # Generic descriptor base classes
+├── noise_budget.py      # NoiseBudget aggregation helpers
+└── tests/               # 15 test files mirroring the source modules
+```
+
+### `source/` — 40 source + 25 tests
+
+Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
+
+Top-level: `stage.py`, `_inferrer.py` (spec-form router), `_schema.py`, `protocol.py`, plus per-spec-form modules (`emitted.py`, `reflected.py`, `combined.py`, `composite.py`, `tabulated.py`, `solar.py`, `material.py`, `shape.py`, `sub_pixel.py`, `point_source_blackbody.py`, `point_source_direct.py`, `brdf_lambertian.py`, `brdf_phong.py`).
+
+Subpackages:
+```
+source/backgrounds/    # blackbody, constant, tabulated background descriptors
+source/converters/     # CSV loader, brightness_temperature, radiance_temperature,
+                       # reflectance, invert_band_radiance, user_intensity, user_radiance
+source/resolvers/      # direct, geometry, intensity, physical, resolved_target,
+                       # shape_factory, sub_pixel — pre-stage parameter resolution
+source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_area
+                       # implementations for sub-pixel target geometry
+```
+
+### `atmosphere/` — 11 source + 11 tests
+
+Stage 2: τ_atm, L_path, L_atm.
+
+```
+atmosphere/
+├── stage.py
+├── _schema.py
+├── _quantities.py       # internal radiometric helpers
+├── protocol.py          # AtmosphereModel protocol
+├── assembly.py          # composes selected model into stage outputs
+├── modtran.py           # MODTRAN tape7 reader + interface
+├── simple.py            # Beer-Lambert / exponential model
+├── exo.py               # exo-atmosphere (vacuum) — τ=1, L_path=0
+├── tabulated.py         # user-supplied tabulated τ(λ) / L_path(λ)
+├── interpolated.py      # spectral interpolation helpers
+└── turbulence.py        # Fried r0, Cn² profile, turbulence MTF (ground only)
+```
+
+### `optics/` — 30 source + 19 tests
+
+Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
+
+Top-level modules group by concern:
+
+- **Pupil + PSF (path-shared root):** `pupil_amplitude.py`, `pupil_phase.py`, `pupil_mtf.py`, `psf_mono.py`, `psf_poly.py`, `wavefront.py`, `zernike.py`, `zernike_opd.py`, `strehl.py`, `aperture.py`, `defocus.py`
+- **Spatial-domain path:** `psf/` subpackage — `builder.py`, `data.py`, `effective.py` (the EffectivePSF that EE_box, RER, FWHM derive from)
+- **MTF product path:** `pupil_mtf.py` (optical MTF from autocorrelation), `pixel_kernel.py`, `diffusion_kernel.py`, `sampling.py`
+- **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`
+- **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `telescope.py`
+
+### `platform/` — 6 source + 6 tests
+
+Stage 4: smear MTF, jitter MTF, sampling, turbulence kernel.
+
+```
+platform/
+├── stage.py
+├── _schema.py
+├── smear.py
+├── jitter.py
+├── sampling.py
+└── turbulence_kernel.py    # spatial kernel that pairs with atmosphere turbulence MTF
+```
+
+### `spectral_integration/` — 2 source + 1 test
+
+Stage 5: spectral → scalar (the only stage that collapses spectral arrays to per-pixel scalars; applies EE_box exactly once for point/sub-pixel regimes).
+
+```
+spectral_integration/
+├── stage.py
+└── _schema.py
+```
+
+### `detector/` — 14 source + 9 tests
+
+Stage 6: QE, dark current, full well, noise terms, detector MTF.
+
+Top-level: `stage.py`, `_schema.py`, `qe.py`, `dark_current.py`, `shot_noise.py`, `pixel.py`, `ipc.py`, `diffusion.py`.
+
+`detector/noise/` subpackage:
+```
+noise/
+├── budget.py             # noise budget aggregation
+├── photon.py             # photon shot
+├── detector_material.py  # material-specific terms (HgCdTe, InSb, Si)
+├── fixed_pattern.py      # DSNU, PRNU residuals
+├── roic.py               # ROIC contribution
+└── other.py              # 1/f, glow, persistence, etc.
+```
+
+### `readout/` — 10 source + 8 tests
+
+Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation.
+
+```
+readout/
+├── stage.py
+├── _schema.py
+├── adc.py
+├── read_noise.py
+├── tdi_scaling.py
+├── tdi_mtf.py
+├── coadds.py
+├── binning_onchip.py
+├── binning_offchip.py
+└── saturation.py
+```
+
+### `performance/` — 28 source + 16 tests
+
+Stage 8: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
+
+Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `detection.py`, `detection_generic.py`, `detection_beer_lambert.py`, `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
+
+### `io/` — 3 source + 3 tests
+
+I/O layer: YAML config, results container.
+
+```
+io/
+├── config.py              # YAML sensor/scenario config loader → ParameterSet
+├── element_config.py      # optical-element list config
+└── results.py             # ChainResult: signal_at, noise_at, snr/nedt/niirs accessors
+```
+
+### `cli/` — 11 source + 1 test
+
+Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
+
+```
+cli/
+├── main.py                # `radiant` entry point
+├── _common.py             # shared CLI helpers
+├── run.py                 # `radiant run`
+├── validate.py            # `radiant validate`
+├── explain.py             # `radiant explain` (param provenance)
+├── compare.py             # `radiant compare` (two runs)
+├── convert.py             # `radiant convert` (between config formats)
+├── schema_cmd.py          # `radiant schema`
+├── sweep_cmd.py           # `radiant sweep`
+├── tolerance_cmd.py       # `radiant tolerance`
+└── templates.py           # built-in scenario templates
+```
+
+### `api/` — 9 source + 7 tests
+
+Public scripting API.
+
+```
+api/
+├── sensor.py              # Sensor — public class (also re-exported at top level)
+├── session.py             # RadiantSession — internal session orchestrator
+├── sweep.py               # SweepResult, parameter sweeps
+├── sensitivity.py         # finite-difference sensitivity
+├── tolerance.py           # tolerance / Monte Carlo helpers
+├── inspect.py             # post-run introspection helpers
+├── plot.py                # plotting helpers (uses matplotlib if available)
+├── units.py               # public unit-conversion helpers
+└── _param_registry.py     # private — assembles the master schema
+```
+
+### `plugins/` — 1 init, 0 source, 0 tests — **v2 deferred**
+
+`src/radiant/plugins/` is a 1-LOC stub. The plugin extension system (SourcePlugin / AtmospherePlugin / MetricPlugin / StagePlugin ABCs, entry-point discovery) is **deferred to v2**. See `docs/RADIANT_Plugins.md` for the v2 design — the file ships a "DEFERRED" banner so readers don't mistake it for current shipped behavior.
+
+### `data/` — 1 source + 4 tests
+
+Reference data accessors (solar spectra, detector libraries, scenario templates).
+
+```
+data/
+└── library.py             # importlib.resources-backed access to packaged data
 ```
 
 ---
@@ -236,78 +233,101 @@ radiant/                           # Single namespace package
 SSR_Tool/
 ├── src/
 │   └── radiant/                   # Package root (src layout)
-│       └── ...                    # (tree above)
+│       └── ...                    # subpackages above
 │
 ├── tests/
-│   └── integration/               # Cross-stage integration tests
-│       ├── __init__.py
-│       ├── fixtures/
-│       │   ├── sample_tape7.txt   # MODTRAN tape7 fixture for atmosphere tests
-│       │   ├── vnir_config.yaml   # Complete VNIR sensor config
-│       │   ├── mwir_config.yaml   # Complete MWIR sensor config
-│       │   └── lwir_config.yaml   # Complete LWIR sensor config
-│       ├── test_chain_vnir.py     # Full chain: VNIR extended target, SNR + NIIRS
-│       ├── test_chain_mwir.py     # Full chain: MWIR dual-source (reflected + emitted)
-│       ├── test_chain_lwir.py     # Full chain: LWIR thermal, NEDT + IIRS
-│       └── test_chain_point.py    # Full chain: point source regime, NEI
-│
-├── data/
-│   ├── solar/
-│   │   ├── kurucz_1nm.csv         # Kurucz solar reference spectrum (W/m²/µm at 1 AU)
-│   │   └── astm_e490.csv          # ASTM E490 extraterrestrial solar spectrum
-│   ├── emissivity/
-│   │   └── spectralon_reflectance.csv  # Reference reflectance panel
-│   └── atmospheres/
-│       └── us_standard_1976.csv   # US Standard Atmosphere 1976 profile
+│   ├── test_public_api.py         # ADR-C top-level surface checks
+│   └── integration/               # Cross-stage integration tests (16 files)
+│       ├── fixtures/              # YAML configs + MODTRAN tape7 fixtures
+│       ├── golden/                # Golden-result JSON snapshots
+│       ├── snapshots/             # Per-test pytest-snapshot artifacts
+│       ├── test_full_system.py
+│       ├── test_chain_extended.py
+│       ├── test_chain_spatial.py
+│       ├── test_dual_path_mtf.py            # PSF/MTF consistency invariant
+│       ├── test_golden_mwir_leo_minimal.py
+│       ├── test_ground_truth_mwir.py
+│       ├── test_mwir_leo_minimal.py
+│       ├── test_no_atm_subcases.py
+│       ├── test_option_c_anchors.py
+│       ├── test_regime_continuity.py
+│       ├── test_spec_form_matrix.py
+│       ├── test_table_c_cells.py
+│       ├── test_use_case_matrix.py
+│       ├── test_use_case_shapes.py          # shape catalog × scene-type
+│       └── test_use_case_warnings.py
 │
 ├── docs/
-│   ├── adr/
-│   │   ├── 0000-template.md
-│   │   ├── 0001-scope-and-constraints.md
-│   │   └── ...
-│   ├── RADIANT_Physics_Inventory.md
-│   ├── RADIANT_Scope_Decisions.md
-│   ├── RADIANT_Personas.md
+│   ├── RADIANT_Master_Architecture.md     # the 22 non-negotiable rules
 │   ├── RADIANT_Conventions.md
 │   ├── RADIANT_Parameter_System.md
 │   ├── RADIANT_Signal_Chain_Architecture.md
-│   └── RADIANT_File_Tree.md       # This document
+│   ├── RADIANT_File_Tree.md               # this document
+│   ├── RADIANT_Source_*.md                # per-stage design docs
+│   ├── RADIANT_Atmosphere.md
+│   ├── RADIANT_Optics.md
+│   ├── RADIANT_Spatial_Complete.md        # (being rewritten — see ADR-A)
+│   ├── RADIANT_Detector.md
+│   ├── RADIANT_Readout.md
+│   ├── RADIANT_Performance.md
+│   ├── RADIANT_IO.md
+│   ├── RADIANT_API.md
+│   ├── RADIANT_Scripting_API.md
+│   ├── RADIANT_Plugins.md                 # v2 deferred — banner present
+│   ├── RADIANT_Testing_Validation.md
+│   ├── RADIANT_Target_Definition_Matrix.md
+│   ├── adr/                               # ADR-A/B/C and ongoing
+│   ├── archive/                           # historical RADIANT_Phase*.md
+│   ├── audit_2026/                        # audit findings + reconciliation
+│   ├── Cleanup_Backlog.md                 # CU tracking (R21/R22)
+│   └── Reconciliation_Tasks.md            # post-audit execution plan
 │
 ├── examples/
-│   ├── vnir_trade.py              # VNIR aperture/altitude SNR trade script
-│   ├── mwir_crossover.py          # MWIR crossover temperature analysis
-│   └── batch_mc.py                # Monte Carlo tolerance analysis example
+│   ├── mwir_leo_minimal.yaml              # smallest end-to-end scenario
+│   └── ...
 │
-├── pyproject.toml                 # Build config, entry points, dependencies
-└── README.md
+├── scenarios/                             # persona-driven worked examples
+│
+├── pyproject.toml                         # build config, deps, import-linter
+├── README.md
+├── CLAUDE.md                              # agent operating instructions
+└── DEVELOPMENT.md
 ```
 
 ---
 
 ## File Count Summary
 
-| Subpackage           | Source | Tests | Total |
-|----------------------|--------|-------|-------|
-| core/                | 8      | 7     | 15    |
-| source/              | 8      | 5     | 13    |
-| atmosphere/          | 9      | 4     | 13    |
-| optics/              | 11     | 6     | 17    |
-| platform/            | 6      | 3     | 9     |
-| spectral_integration/| 4      | 2     | 6     |
-| detector/            | 10     | 5     | 15    |
-| readout/             | 7      | 4     | 11    |
-| performance/         | 10     | 5     | 15    |
-| io/                  | 5      | 3     | 8     |
-| cli/                 | 4      | 1     | 5     |
-| api/                 | 5      | 2     | 7     |
-| plugins/             | 3      | 1     | 4     |
-| **Subtotal**         | **90** | **48**| **138**|
-| integration tests    | —      | 5     | 5     |
-| **Grand total**      |        |       | **143**|
+Numbers below exclude `__init__.py` files. Counts captured 2026-04-25.
+
+| Subpackage             | Source | Tests | Notes |
+|------------------------|--------|-------|-------|
+| core/                  | 16     | 15    | foundational abstractions |
+| source/                | 40     | 25    | spec-form fan-out + shape catalog |
+| atmosphere/            | 11     | 11    | MODTRAN + simple + exo + tabulated |
+| optics/                | 30     | 19    | dual-path PSF/MTF + element model |
+| platform/              | 6      | 6     | smear, jitter, sampling, turbulence |
+| spectral_integration/  | 2      | 1     | single-stage collapse |
+| detector/              | 14     | 9     | includes `detector/noise/` subpackage |
+| readout/               | 10     | 8     | TDI, ADC, binning, coadds |
+| performance/           | 28     | 16    | one metric per module (Rule 19) |
+| io/                    | 3      | 3     | config, results, element_config |
+| cli/                   | 11     | 1     | subcommand-per-file |
+| api/                   | 9      | 7     | public + internal session |
+| **plugins/ (v2 deferred)** | 0  | 0     | 1-LOC stub |
+| data/                  | 1      | 4     | packaged-data accessor |
+| **Subtotal**           | **171**| **125**| 296 non-init files |
+| Integration tests      | —      | 16    | `tests/integration/` |
+| Top-level tests        | —      | 1     | `tests/test_public_api.py` |
+| **Grand total (non-init)** |    |       | **313** |
+
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 344.
 
 ---
 
 ## Import Rules
+
+Enforced by `import-linter` in CI (5 contracts in `pyproject.toml`):
 
 ```
                     stdlib, numpy, scipy
@@ -329,102 +349,51 @@ SSR_Tool/
                           cli/
 ```
 
-**Enforcement rules:**
-
 1. `core/` → stdlib, numpy, scipy only. No other `radiant.*` imports.
-2. Physics subpackages (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`, `performance/`) → `radiant.core` only. No cross-stage physics imports.
+2. Physics subpackages (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`, `performance/`) → `radiant.core` only. **No cross-stage physics imports.**
 3. `io/` → `radiant.core` + any physics subpackage (read-only access for schema introspection). No imports from `api/` or `cli/`.
 4. `api/` → `radiant.core` + all physics subpackages + `radiant.io`. No `cli/` imports.
 5. `cli/` → `radiant.api` + `radiant.io`. No direct physics imports.
-6. `plugins/` → `radiant.core` only (defines ABCs; concrete plugins live outside the package).
-7. No circular imports at any level. Enforced via `import-linter` in CI.
+6. `plugins/` (when populated for v2) → `radiant.core` only.
+
+CI runs `import-linter --config pyproject.toml`; PRs that break a contract are blocked.
 
 ---
 
 ## Public vs. Private API
 
-### Public (stable, versioned, user-facing)
+Per **ADR-C** (`docs/adr/ADR-C-public-api-surface.md`):
 
-| Symbol | Location |
-|--------|----------|
-| `RadiantSession` | `radiant.api.session` |
-| `SensorConfig` | `radiant.api.sensor` |
-| `ScenarioConfig` | `radiant.api.scenario` |
-| `BatchRunner` | `radiant.api.batch` |
-| `RadiantResult` | `radiant.io.results` |
-| `SourcePlugin`, `AtmospherePlugin`, `MetricPlugin` | `radiant.plugins.base` |
+### Top-level package surface — minimal
 
-All public symbols are re-exported from `radiant/__init__.py`.  
-Public API is guaranteed stable across minor versions. Breaking changes require a major version bump.
-
-### Semi-public (stable for plugin authors, not for end users)
-
-| Module | Audience |
-|--------|----------|
-| `radiant.core.*` | Plugin authors, advanced users |
-| `radiant.io.config`, `radiant.io.modtran_reader` | Integration scripts |
-
-### Private (internal, no stability guarantee)
-
-- All `_schema.py` files (assembled by `api/` into the master schema)
-- All `_registry.py`, `_*.py` prefixed modules
-- Individual stage `stage.py` implementations (accessed through `ChainRunner`, not directly)
-- Sub-module internals within physics packages
-
----
-
-## Plugin and Extension System
-
-### Extension Points
-
-Three formal plugin types, each with a defined ABC in `radiant.plugins.base`:
-
-```
-SourcePlugin          Custom target/background spectral radiance model
-AtmospherePlugin      Custom atmosphere (replaces or wraps MODTRAN interface)
-MetricPlugin          Custom performance metric appended to PerformanceStage output
-```
-
-A fourth informal extension point: `StagePlugin` allows injecting a new `Stage` into `ChainRunner`'s stage list. Use sparingly; prefer the three typed plugins.
-
-### Registration
-
-Plugins are discovered via `importlib.metadata` entry points declared in the plugin package's `pyproject.toml`:
-
-```toml
-[project.entry-points."radiant.plugins"]
-my_atmosphere = "mypackage.atmosphere:MyAtmospherePlugin"
-my_metric = "mypackage.metrics:ContrastMetricPlugin"
-```
-
-`radiant.plugins._registry.load_plugins()` is called once at `RadiantSession` construction.  
-Name collisions raise `PluginConflictError` (explicit over implicit).
-
-### Adding a Custom Source
+`radiant.__all__` is exactly `{"Sensor", "__version__"}`. Documented usage:
 
 ```python
-from radiant.plugins.base import SourcePlugin
-from radiant.core.spectral import SpectralData
-from radiant.core.chain import ChainState
+from radiant import Sensor
 
-class HyperspectralLibrarySource(SourcePlugin):
-    name = "hyperspectral_library"
-
-    def __init__(self, library_path: str) -> None:
-        self._path = library_path
-
-    def get_schema(self) -> list:           # returns list[ParameterDef]
-        ...
-
-    def compute(self, state: ChainState) -> SpectralData:
-        ...                                 # returns target SpectralData
+s = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
+result = s.evaluate()
+print(result.snr())
 ```
+
+Anything else (SensorConfig, ScenarioConfig, BatchRunner, internal session) is reachable via the `radiant.api.*` submodule path but is **not** re-exported at the top level. Users who import from `radiant.api.*` accept the same stability contract as the top-level Sensor.
+
+### Stable for plugin authors / advanced users (v2)
+
+- `radiant.core.*` — stable abstractions; future plugin authors will compose against these.
+- `radiant.io.config`, `radiant.io.results` — stable for integration scripts.
+
+### Private — no stability guarantee
+
+- All `_schema.py`, `_inferrer.py`, `_param_registry.py`, `_helpers.py`, `_quantities.py` files
+- All stage `stage.py` modules (use `Sensor.evaluate()` / `RadiantSession.run()` instead)
+- Anything under `cli/_common.py`
 
 ---
 
 ## `_schema.py` Convention
 
-Every physics subpackage owns its parameter definitions. Format:
+Every physics subpackage owns its parameter definitions in `_schema.py`:
 
 ```python
 # source/_schema.py
@@ -432,7 +401,7 @@ from radiant.core.parameters import ParameterDef
 
 SOURCE_PARAMS: list[ParameterDef] = [
     ParameterDef(
-        name="source.target_temperature",
+        name="source.target.temperature",
         description="Target surface temperature",
         dtype=float,
         canonical_unit="K",
@@ -444,19 +413,19 @@ SOURCE_PARAMS: list[ParameterDef] = [
 ]
 ```
 
-`api/session.py` assembles the master schema by importing all `*_PARAMS` lists and passing them to a single `ParameterSet`. Users never instantiate `ParameterSet` directly.
+`api/_param_registry.py` assembles the master schema by importing all `*_PARAMS` lists and passing them to a single `ParameterSet`. Users never instantiate `ParameterSet` directly — `Sensor.from_yaml(...)` does it for them.
 
 ---
 
 ## Naming Conventions
 
-- **Module files**: `snake_case.py`
-- **Private modules**: `_snake_case.py`
-- **Classes**: `PascalCase`
-- **Private class members**: `_leading_underscore`
-- **Parameter dot-paths**: `stage.group.name` (e.g., `optics.aperture_diameter`, `detector.fwc`)
-- **MTF terms**: named by stage and effect (e.g., `mtf.diffraction`, `mtf.smear`, `mtf.jitter`)
-- **Noise terms**: named by origin (e.g., `noise.photon_shot`, `noise.dark_current`, `noise.read`)
+- **Module files:** `snake_case.py`
+- **Package-internal modules:** `_leading_underscore.py`
+- **Classes:** `PascalCase`
+- **Private class members:** `_leading_underscore`
+- **Parameter dot-paths:** `stage.group.name` (e.g., `optics.aperture_diameter_m`, `detector.dark_rate_e_per_s`). Units are baked into the parameter name when ambiguity would otherwise arise; see `RADIANT_Parameter_System.md` for the canonical-unit rule.
+- **MTF terms (`state.mtf_terms` keys):** stage prefix + effect (e.g., `optics.diffraction`, `platform.smear`, `platform.jitter`, `detector.pixel`, `detector.ipc`, `atmosphere.turbulence`).
+- **Noise terms (`NoiseTerm.name`):** physics origin (e.g., `signal_shot`, `dark_shot`, `read_noise`, `quantization`).
 
 ---
 
@@ -469,17 +438,11 @@ SOURCE_PARAMS: list[ParameterDef] = [
 | `pyyaml` | YAML config loading | Yes |
 | `click` | CLI framework | Yes |
 | `h5py` | HDF5 output | Optional |
-| `matplotlib` | Plotting (examples only) | Optional |
+| `matplotlib` | Plotting (`api/plot.py`, examples) | Optional |
 | `pytest` | Test runner | Dev |
-| `import-linter` | Import rule enforcement in CI | Dev |
+| `import-linter` | Import-rule enforcement in CI | Dev |
+| `mypy` | Type checking (`--strict` on `core/`, `api/`) | Dev |
+| `ruff` | Format + lint | Dev |
 | `hypothesis` | Property-based testing for physics | Dev |
 
-`modtran` itself is not a Python dependency — RADIANT wraps its file I/O.
-
----
-
-## Open Questions
-
-1. **`spectral_integration/` naming**: Currently named to match signal chain stage terminology. Alternative: merge small modules into a single file. Decision deferred to implementation.
-2. **`data/` packaging**: Reference data (solar spectra, US76) should ship with the package. Mechanism: `importlib.resources` with `data/` as a package resource. Large data files (e.g., full Kurucz spectrum) may need separate distribution.
-3. **MTF frequency axis**: MTF arrays are functions of spatial frequency. Convention for the frequency grid (cycles/pixel vs. cycles/mm vs. cycles/mrad) TBD — will be established in the optics architecture prompt.
+MODTRAN itself is not a Python dependency — RADIANT wraps its file I/O via `atmosphere/modtran.py`.

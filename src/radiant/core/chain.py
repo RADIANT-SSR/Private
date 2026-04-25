@@ -28,6 +28,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.parameters import ParameterSet
+from radiant.core.provenance import new_run_id
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
 
 # ---------------------------------------------------------------------------
@@ -83,6 +84,7 @@ class ChainState:
     spatial_freq_cycles_per_mrad: npt.NDArray[np.float64] | None = None
     metrics: Mapping[str, float] = field(default_factory=dict)
     history: tuple[str, ...] = ()
+    run_id: str | None = None
 
     def __post_init__(self) -> None:
         # Coerce wavelength to float64.
@@ -171,9 +173,27 @@ class ChainRunner:
         self,
         params: ParameterSet,
         wavelength_um: npt.NDArray[np.float64],
+        *,
+        run_id: str | None = None,
     ) -> ChainState:
-        """Execute the chain and return the final accumulated state."""
-        state = ChainState(wavelength_um=np.asarray(wavelength_um, dtype=np.float64))
+        """Execute the chain and return the final accumulated state.
+
+        Parameters
+        ----------
+        params, wavelength_um:
+            ParameterSet and shared spectral grid (µm).
+        run_id:
+            Optional caller-supplied run identifier. Required to be
+            unique across runs by C13. If ``None``, a fresh UUID4 is
+            generated. The value is carried on the returned
+            :class:`ChainState` and accessible via
+            :attr:`ChainResult.provenance.run_id`.
+        """
+        rid = run_id if run_id is not None else new_run_id()
+        state = ChainState(
+            wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+            run_id=rid,
+        )
         for stage in self._stages:
             new_state = stage.run(state, params)
             # Auto-record history if the stage didn't self-record.

@@ -248,6 +248,11 @@ class ParameterSet:
         self._tolerances: dict[str, Tolerance] = {}
         self._resolved: dict[str, ResolvedValue] = {}
         self._resolved_flag: bool = False
+        # Per RADIANT_Master_Architecture.md §C13, the provenance record
+        # must include input file hashes. Loaders (radiant.io.config)
+        # populate this via record_loaded_file() so ChainResult can
+        # surface the list at provenance-render time.
+        self._loaded_files: list[tuple[str, str]] = []
 
         # Validate consistency groups reference real parameters
         for g in self._groups:
@@ -256,6 +261,24 @@ class ParameterSet:
                     raise ValueError(
                         f"ConsistencyGroup '{g.name}' references unknown parameter '{p}'"
                     )
+
+    def record_loaded_file(self, path: str, sha256: str) -> None:
+        """Record that a config file with the given SHA-256 was loaded.
+
+        Loaders (e.g. :func:`radiant.io.config.load_config`) call this so
+        that :meth:`ChainResult.to_provenance_record` can surface the
+        full set of files this run consumed. Duplicate (path, hash)
+        tuples are deduped; same path with a new hash appends a fresh
+        record (a config that was reloaded after edit).
+        """
+        entry = (path, sha256)
+        if entry not in self._loaded_files:
+            self._loaded_files.append(entry)
+
+    @property
+    def loaded_files(self) -> tuple[tuple[str, str], ...]:
+        """Tuples of ``(path, sha256)`` for every config file loaded."""
+        return tuple(self._loaded_files)
 
     def _suggest(self, name: str) -> str:
         """Build a 'did you mean?' suggestion for an unknown parameter name."""

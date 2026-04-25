@@ -28,6 +28,7 @@ import yaml
 
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance
+from radiant.core.provenance import hash_file
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +145,9 @@ def load_config(
             raise ConfigError(
                 f"YAML parse error: {exc}", path=path
             ) from exc
+        # Per RADIANT_Master_Architecture.md §C13, provenance must record
+        # the SHA-256 of every input file consumed by the run.
+        params.record_loaded_file(str(path), hash_file(path))
     elif isinstance(source, dict):
         raw = source
     else:

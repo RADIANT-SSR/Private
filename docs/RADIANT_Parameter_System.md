@@ -486,7 +486,9 @@ The entire resolved parameter set can be serialized to a provenance record:
 }
 ```
 
-This record is attached to every RADIANT output. Given the provenance record, any result is exactly reproducible.
+This per-parameter dict is the `parameter_set` block of the §C13 provenance record returned by `ChainResult.to_provenance_record()`. The record also carries `input_file_hashes` — an ordered list of `(path, sha256)` pairs for every YAML consumed during the run. `radiant.io.config.load_config` populates this list by calling `ParameterSet.record_loaded_file(path, sha256)` after a successful YAML parse; in-memory dict sources record nothing (no path to hash).
+
+Given the provenance record, any result is exactly reproducible.
 
 ---
 

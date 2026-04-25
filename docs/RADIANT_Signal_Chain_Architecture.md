@@ -131,6 +131,10 @@ class ChainState:
     # Trace metadata
     history: tuple[str, ...]  # ordered list of stage names that have run
 
+    # Per-run identifier (UUID4); minted by ChainRunner if the caller
+    # doesn't supply one. Required for the §C13 provenance record.
+    run_id: str | None
+
     def with_frame(self, frame: "RadiometricFrame") -> "ChainState": ...
     def with_stage_output(self, stage: str, key: str, value: Any) -> "ChainState": ...
     def with_noise(self, term: "NoiseTerm") -> "ChainState": ...
@@ -421,6 +425,7 @@ class ChainState:
     spatial_freq_cycles_per_mrad: np.ndarray | None = None
     metrics: dict[str, float] = field(default_factory=dict)
     history: tuple[str, ...] = ()
+    run_id: str | None = None  # UUID4; minted by ChainRunner per §C13
 
     def with_frame(self, frame: RadiometricFrame) -> "ChainState":
         new = dict(self.frames)

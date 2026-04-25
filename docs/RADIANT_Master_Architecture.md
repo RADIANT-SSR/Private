@@ -87,6 +87,21 @@ Every exception raised by RADIANT inherits from `RadiantError` (base class in `r
 ### C13 — Provenance Is Mandatory
 Every `ChainResult` carries a complete provenance record: run ID, RADIANT version, git commit, Python version, dependency versions, resolved parameter set with per-parameter provenance, input file hashes, and active model identifiers. Provenance is not optional and cannot be disabled. Given a provenance record, the result must be reproducible.
 
+The canonical accessor is `ChainResult.to_provenance_record() -> dict[str, Any]`, which returns a JSON-serialisable dict with exactly these keys:
+
+| Key | Type | Source |
+|-----|------|--------|
+| `run_id` | `str \| None` | UUID4 minted by `ChainRunner.run` (or caller-supplied), carried on `ChainState.run_id`; `None` only for synthetic states constructed outside a runner |
+| `radiant_version` | `str` | `radiant.__version__` |
+| `git_commit` | `str` | short SHA of working-tree HEAD; `"unknown"` outside a git repo |
+| `python_version` | `str` | `MAJOR.MINOR.PATCH` of the running interpreter |
+| `dependency_versions` | `dict[str, str]` | `{name: version}` for the declared runtime deps (numpy, scipy, pyyaml, click); missing packages map to `"unknown"` |
+| `parameter_set` | `dict[str, dict]` | `{dotpath: ResolvedValue.to_dict()}` for every resolved parameter — values, units, and per-parameter provenance |
+| `input_file_hashes` | `list[dict]` | ordered list of `{"path": str, "sha256": str}` for every config file consumed via `radiant.io.config.load_config` |
+| `active_models` | `list[str]` | ordered stage names that ran; mirrors `ChainResult.history` |
+
+The pure helpers that assemble the record (`new_run_id`, `git_commit`, `python_version_string`, `dependency_versions`, `hash_file`) live in `radiant.core.provenance` so they are import-safe from anywhere in the codebase. Loaders populate the file-hash list by calling `ParameterSet.record_loaded_file(path, sha256)`. Provenance helpers never raise on environmental edge cases (no git, missing dep) — they degrade to `"unknown"` rather than blocking a chain run.
+
 ### C14 — The Scripting API Is the Stable Surface
 The public API (`radiant.Sensor`, `radiant.SensorConfig`, `radiant.ScenarioConfig`, `radiant.BatchRunner`, `radiant.ChainResult`) is the only surface with stability guarantees. Internal modules (`radiant.core.*`, individual stage implementations) are semi-public at best. Breaking changes to the public API require a major version bump and a deprecation cycle.
 

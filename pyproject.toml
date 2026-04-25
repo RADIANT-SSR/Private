@@ -189,9 +189,19 @@ ignore_imports = [
     "radiant.api._param_registry -> radiant.core.parameters",
     "radiant.io.config -> radiant.core.parameters",
     "radiant.io.config -> radiant.core.exceptions",
+    "radiant.io.config -> radiant.core.provenance",
     "radiant.io.results -> radiant.core.chain",
+    "radiant.io.results -> radiant.core.parameters",
+    "radiant.io.results -> radiant.core.provenance",
     "radiant.io.results -> radiant.core.radiometry",
     "radiant.io.results -> radiant.core.quantity",
+    # `to_provenance_record` reads `radiant.__version__` lazily; the
+    # `radiant` package init re-exports `RadiantError` from
+    # `radiant.core.exceptions`, so the `radiant -> radiant.core.exceptions`
+    # edge gets attributed to any cli-reachable module that touches the
+    # provenance code path.
+    "radiant.io.results -> radiant",
+    "radiant -> radiant.core.exceptions",
     "radiant.api.units -> radiant.core.units",
     "radiant.api.sensor -> radiant.core.parameters",
     "radiant.api.sensor -> radiant.api.tolerance",

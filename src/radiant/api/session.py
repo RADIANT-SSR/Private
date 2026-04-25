@@ -54,9 +54,16 @@ class RadiantSession:
         return self._runner.stage_names
 
     def run(self, params: ParameterSet) -> ChainResult:
-        """Execute the chain and return the result."""
+        """Execute the chain and return the result.
+
+        The returned :class:`ChainResult` carries the provided
+        ``params`` so that
+        :meth:`~radiant.io.results.ChainResult.to_provenance_record`
+        can include the resolved parameter set and any input file
+        hashes recorded by :func:`radiant.io.config.load_config`.
+        """
         state = self._runner.run(params, self._wavelength_um)
-        return ChainResult(state)
+        return ChainResult(state, params=params)
 
     @staticmethod
     def default_params() -> ParameterSet:

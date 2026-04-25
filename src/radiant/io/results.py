@@ -1,8 +1,9 @@
 """ChainResult — read-only wrapper over the final ChainState.
 
 Exposes raw frames, noise_terms, stage_outputs, history, metrics,
-and backward-propagation query methods for expressing signal and
-noise at any reference frame.
+backward-propagation query methods for expressing signal and noise at
+any reference frame, and a provenance record (per
+RADIANT_Master_Architecture.md §C13).
 """
 
 from __future__ import annotations
@@ -15,6 +16,12 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.chain import ChainState
+from radiant.core.parameters import ParameterSet
+from radiant.core.provenance import (
+    dependency_versions,
+    git_commit,
+    python_version_string,
+)
 from radiant.core.quantity import (
     ChainQuantity,
     ReferenceFrame,
@@ -32,10 +39,17 @@ class ChainResult:
     state:
         The final :class:`ChainState` produced by
         :meth:`ChainRunner.run`.
+    params:
+        The resolved :class:`ParameterSet` used for the run. Optional
+        for back-compat with callers that construct a ``ChainResult``
+        directly from a state. When omitted,
+        :meth:`to_provenance_record` reports an empty ``parameter_set``
+        and ``input_file_hashes`` block.
     """
 
-    def __init__(self, state: ChainState) -> None:
+    def __init__(self, state: ChainState, params: ParameterSet | None = None) -> None:
         self._state = state
+        self._params = params
 
     @property
     def state(self) -> ChainState:
@@ -186,3 +200,65 @@ class ChainResult:
             If NIIRS was not computed for this run.
         """
         return float(self._state.metrics["niirs"])
+
+    # ------------------------------------------------------------------
+    # Provenance (RADIANT_Master_Architecture.md §C13)
+    # ------------------------------------------------------------------
+
+    def to_provenance_record(self) -> dict[str, Any]:
+        """Return the complete provenance record for this run.
+
+        Implements the contract from RADIANT_Master_Architecture.md §C13.
+        The returned dict has the following keys:
+
+        - ``run_id`` — UUID4 string assigned at chain-runtime
+          (:func:`radiant.core.provenance.new_run_id`). ``None`` if
+          this result was constructed from a synthetic state without
+          going through :meth:`ChainRunner.run`.
+        - ``radiant_version`` — ``radiant.__version__``.
+        - ``git_commit`` — short SHA of the working-tree HEAD;
+          ``"unknown"`` if not in a git repo.
+        - ``python_version`` — ``MAJOR.MINOR.PATCH``.
+        - ``dependency_versions`` — ``{name: version}`` for the declared
+          runtime dependencies (numpy, scipy, pyyaml, click).
+        - ``parameter_set`` — ``{dotpath: ResolvedValue.to_dict()}``
+          for every resolved parameter (per-parameter provenance,
+          values, units). Empty if no ParameterSet was attached.
+        - ``input_file_hashes`` — ordered list of
+          ``[{"path": str, "sha256": str}, ...]`` for every config
+          file consumed via :func:`radiant.io.config.load_config`.
+          Empty if no ParameterSet was attached.
+        - ``active_models`` — ordered list of stage names that ran;
+          mirrors :attr:`history`.
+
+        The result is JSON-serialisable: ``ResolvedValue.to_dict()``
+        flattens enums, timestamps are isoformat strings, and there are
+        no numpy arrays in the record.
+        """
+        from radiant import __version__ as _radiant_version
+
+        if self._params is not None:
+            try:
+                resolved = self._params.all_resolved()
+            except RuntimeError:
+                # Params provided but not resolved — leave parameter_set empty
+                # rather than crashing the provenance render.
+                resolved = {}
+            parameter_set = {name: rv.to_dict() for name, rv in resolved.items()}
+            input_file_hashes = [
+                {"path": p, "sha256": h} for p, h in self._params.loaded_files
+            ]
+        else:
+            parameter_set = {}
+            input_file_hashes = []
+
+        return {
+            "run_id": self._state.run_id,
+            "radiant_version": _radiant_version,
+            "git_commit": git_commit(),
+            "python_version": python_version_string(),
+            "dependency_versions": dependency_versions(),
+            "parameter_set": parameter_set,
+            "input_file_hashes": input_file_hashes,
+            "active_models": list(self._state.history),
+        }

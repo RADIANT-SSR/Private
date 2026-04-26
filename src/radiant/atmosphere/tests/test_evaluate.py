@@ -10,15 +10,9 @@ Truth anchors and full physics coverage live in
 ``src/radiant/atmosphere/tests/test_assembly.py`` — this file is the
 Category B validation layer (Stage 3 plan deliverable): "every backend
 answers evaluate() without erroring and returns shape-valid data".
-
-A ``shadow_mode_off`` fixture is provided for tests that need to exercise
-the new path without triggering the shadow-mode legacy comparison.
 """
 
 from __future__ import annotations
-
-import os
-from collections.abc import Iterator
 
 import numpy as np
 import pytest
@@ -114,26 +108,6 @@ def lwir_params(lwir_wavelengths: np.ndarray):
 def vis_params(vis_wavelengths: np.ndarray):
     """A resolved ParameterSet appropriate for VIS smoke tests."""
     return _resolved_params(vis_wavelengths, sensor_altitude_m=2000.0)
-
-
-@pytest.fixture
-def shadow_mode_off() -> Iterator[None]:
-    """Disable AtmosphereStage shadow-mode for the duration of the test.
-
-    Setting ``RADIANT_OPTION_C_SHADOW=0`` suppresses the invariant-cell
-    hard-assertion in :class:`radiant.atmosphere.stage.AtmosphereStage`.
-    Restores the original value after the test, so test isolation is
-    preserved.
-    """
-    previous = os.environ.get("RADIANT_OPTION_C_SHADOW")
-    os.environ["RADIANT_OPTION_C_SHADOW"] = "0"
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop("RADIANT_OPTION_C_SHADOW", None)
-        else:
-            os.environ["RADIANT_OPTION_C_SHADOW"] = previous
 
 
 # ---------------------------------------------------------------------------
@@ -451,20 +425,8 @@ class TestTabulatedAtmosphereEvaluate:
 
 
 # ---------------------------------------------------------------------------
-# Stage-level shadow-mode sanity: env var is respected (not asserted by the
-# tests below, but validated by the fixture's set/restore semantics).
+# Stage-4 guard: ensure the deleted shadow-mode helper does not return.
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.level1
-def test_shadow_mode_off_fixture_sets_env(shadow_mode_off: None) -> None:
-    """Sanity: the fixture still flips the env var in Stage 4+.
-
-    Stage 4 removed the shadow-mode wiring entirely, so the env var is
-    inert — the fixture survives only so legacy fixtures that depended
-    on it can be removed gradually.
-    """
-    assert os.environ.get("RADIANT_OPTION_C_SHADOW") == "0"
 
 
 @pytest.mark.level1

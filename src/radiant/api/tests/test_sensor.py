@@ -25,6 +25,7 @@ def sensor() -> Sensor:
 # ------------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestConstruction:
     def test_from_yaml(self) -> None:
         s = Sensor.from_yaml(_MWIR_YAML)
@@ -74,6 +75,7 @@ class TestConstruction:
 # ------------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestParameterAccess:
     def test_set_and_get(self, sensor: Sensor) -> None:
         sensor.set("optics.aperture_diameter_m", 0.50)
@@ -113,6 +115,7 @@ class TestParameterAccess:
 # ------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestEvaluation:
     def test_evaluate_returns_chain_result(self, sensor: Sensor) -> None:
         result = sensor.evaluate()
@@ -142,6 +145,7 @@ class TestEvaluation:
 # ------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestSweep:
     def test_sweep_1d(self, sensor: Sensor) -> None:
         result = sensor.sweep(
@@ -170,6 +174,7 @@ class TestSweep:
 # ------------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestClone:
     def test_clone_is_independent(self, sensor: Sensor) -> None:
         clone = sensor.clone()
@@ -184,16 +189,19 @@ class TestClone:
 
 
 class TestSummaryExplain:
+    @pytest.mark.level1
     def test_summary(self, sensor: Sensor) -> None:
         text = sensor.summary()
         assert "Parameter Summary" in text
         assert "optics" in text
 
+    @pytest.mark.level1
     def test_explain_param(self, sensor: Sensor) -> None:
         text = sensor.explain("optics.aperture_diameter_m")
         assert "aperture_diameter_m" in text
         assert "0.3" in text
 
+    @pytest.mark.level2
     def test_explain_chain(self, sensor: Sensor) -> None:
         text = sensor.explain()
         assert "Chain Walkthrough" in text

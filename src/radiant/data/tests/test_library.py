@@ -13,6 +13,7 @@ def lib() -> SpectralLibrary:
     return SpectralLibrary()
 
 
+@pytest.mark.level1
 class TestMaterialsList:
     """Test listing available materials."""
 
@@ -31,6 +32,7 @@ class TestMaterialsList:
             assert name in materials
 
 
+@pytest.mark.level1
 class TestMaterialLoading:
     """Test loading individual material emissivity spectra."""
 

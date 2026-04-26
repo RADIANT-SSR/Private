@@ -13,6 +13,7 @@ def lib() -> SpectralLibrary:
     return SpectralLibrary()
 
 
+@pytest.mark.level1
 class TestDetectorsList:
     """Test listing available detectors."""
 
@@ -31,6 +32,7 @@ class TestDetectorsList:
             assert name in detectors
 
 
+@pytest.mark.level1
 class TestDetectorQELoading:
     """Test loading and validating detector QE spectra."""
 

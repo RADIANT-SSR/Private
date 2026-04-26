@@ -48,6 +48,7 @@ def _mock_run(params: ParameterSet) -> ChainResult:
 # -- Tests ---------------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestMonteCarlo:
     def test_basic_mc(self) -> None:
         params = _make_params(0.3)

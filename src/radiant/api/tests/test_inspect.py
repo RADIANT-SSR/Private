@@ -37,6 +37,7 @@ def _make_result() -> ChainResult:
     return ChainResult(state)
 
 
+@pytest.mark.level1
 class TestInspectFull:
     def test_full_tree_contains_metrics(self) -> None:
         result = _make_result()
@@ -66,6 +67,7 @@ class TestInspectFull:
         assert "\u251c" in tree or "\u2514" in tree
 
 
+@pytest.mark.level1
 class TestInspectStage:
     def test_single_stage(self) -> None:
         result = _make_result()
@@ -81,6 +83,7 @@ class TestInspectStage:
         assert "Available" in text
 
 
+@pytest.mark.level1
 class TestResultPlotNamespace:
     def test_namespace_creation(self) -> None:
         result = _make_result()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
+import pytest
 
 from radiant.api.sweep import sweep
 from radiant.api.tolerance import monte_carlo
@@ -47,6 +48,7 @@ def _snr_metric(result: ChainResult) -> float:
     return float(result.metrics["snr"])
 
 
+@pytest.mark.level1
 class TestPerformance:
     def test_1000_point_sweep_under_60s(self) -> None:
         """1000-point sweep must complete in < 60 seconds."""

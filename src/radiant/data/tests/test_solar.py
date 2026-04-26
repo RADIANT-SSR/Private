@@ -13,6 +13,7 @@ def lib() -> SpectralLibrary:
     return SpectralLibrary()
 
 
+@pytest.mark.level1
 class TestSolarLoading:
     """Test loading and validating solar irradiance spectrum."""
 

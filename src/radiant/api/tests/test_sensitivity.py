@@ -62,6 +62,7 @@ def _snr_metric(result: ChainResult) -> float:
 # -- Tests ---------------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestSensitivity:
     def test_basic_sensitivity(self) -> None:
         params = _make_params()

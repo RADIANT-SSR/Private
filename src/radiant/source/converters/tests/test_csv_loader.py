@@ -22,6 +22,8 @@ from radiant.core.parameters import ParameterBoundsError
 from radiant.core.spectral import SpectralData
 from radiant.source.converters._csv import load_two_column_csv
 
+pytestmark = pytest.mark.level1
+
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------

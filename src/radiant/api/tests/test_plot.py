@@ -58,6 +58,7 @@ class _FakeNoiseTerm:
 # -- Plottable protocol ---------------------------------------------------
 
 
+@pytest.mark.level1
 class TestPlottableProtocol:
     def test_plottable_is_runtime_checkable(self) -> None:
         class MyPlottable:
@@ -79,6 +80,7 @@ class TestPlottableProtocol:
 # -- Plot functions --------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestPlotSweep:
     def test_returns_figure(self) -> None:
         result = _make_sweep_result()
@@ -95,6 +97,7 @@ class TestPlotSweep:
         matplotlib.pyplot.close(fig)
 
 
+@pytest.mark.level1
 class TestPlotSweep2D:
     def test_returns_figure(self) -> None:
         result = _make_sweep_2d_result()
@@ -103,6 +106,7 @@ class TestPlotSweep2D:
         matplotlib.pyplot.close(fig)
 
 
+@pytest.mark.level1
 class TestPlotNoiseBudget:
     def test_returns_figure(self) -> None:
         terms = [
@@ -115,6 +119,7 @@ class TestPlotNoiseBudget:
         matplotlib.pyplot.close(fig)
 
 
+@pytest.mark.level1
 class TestPlotSpectral:
     def test_returns_figure(self) -> None:
         wl = np.linspace(3.5, 5.0, 100)

@@ -56,6 +56,7 @@ def _mock_metric(result: ChainResult) -> float:
 # -- 1-D Sweep ----------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestSweep:
     def test_basic_sweep(self) -> None:
         params = _make_params(aperture=0.3)
@@ -175,6 +176,7 @@ class TestSweep:
 # -- 2-D Sweep ----------------------------------------------------------------
 
 
+@pytest.mark.level1
 class TestSweep2D:
     def test_basic_2d(self) -> None:
         params = _make_params()

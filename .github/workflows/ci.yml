@@ -25,6 +25,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Ruff lint
         run: ruff check src/
+      - name: Ruff format check
+        run: ruff format --check src/
       - name: mypy --strict on core + api
         run: mypy --strict src/radiant/core src/radiant/api
       - name: Import contracts

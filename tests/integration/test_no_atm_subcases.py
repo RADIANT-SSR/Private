@@ -171,6 +171,7 @@ def _run_injected_chain(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestD58LWIRSpaceExtended:
     """Full-chain integration for the Table D-58 space sub-case.
 
@@ -231,6 +232,7 @@ class TestD58LWIRSpaceExtended:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestG13LWIRGroundTestExtended:
     """Full downstream-chain integration for Table D-ground G13.
 
@@ -319,6 +321,7 @@ class TestG13LWIRGroundTestExtended:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestL13LWIRLabDarkCalBlackbody:
     """Full downstream-chain integration for Table D-lab L13.
 

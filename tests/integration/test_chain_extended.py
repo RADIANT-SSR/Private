@@ -76,6 +76,7 @@ def result():
     return session.run(params)
 
 
+@pytest.mark.level2
 class TestChainExtended:
     """Validate every intermediate in the extended-scene MWIR chain."""
 

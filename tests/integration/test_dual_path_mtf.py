@@ -74,6 +74,7 @@ def result():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestMTFTermsPresent:
     """All expected MTF terms exist in the chain state."""
 
@@ -105,6 +106,7 @@ class TestMTFTermsPresent:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestPhysicalValidity:
     """All MTF terms are physically valid."""
 
@@ -123,6 +125,7 @@ class TestPhysicalValidity:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestMTFBudget:
     """MTF budget is computed and correct."""
 
@@ -167,6 +170,7 @@ class TestMTFBudget:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestAnisotropy:
     """Along-track smear makes y MTF worse than x."""
 
@@ -190,6 +194,7 @@ class TestAnisotropy:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestDualPathConsistency:
     """The dual-path consistency check should pass."""
 
@@ -214,6 +219,7 @@ class TestDualPathConsistency:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestPSFPathMetrics:
     """PSF-path spatial metrics are still computed correctly."""
 

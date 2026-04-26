@@ -80,6 +80,7 @@ def airborne_results() -> dict[float, object]:
     return {h: _run_airborne_lwir_extended(h) for h in TABLE_C_ALTITUDES_M}
 
 
+@pytest.mark.level2
 class TestTableCAirborneLWIRExtended:
     """Stage 5 A3 smoke tests — Cell 43 at five airborne altitudes."""
 

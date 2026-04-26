@@ -131,6 +131,7 @@ _SWIR_EXTENDED_CELLS: tuple[tuple[str, str], ...] = (
 _SWIR_T1_CELLS = tuple((c, loc) for c, loc in _SWIR_EXTENDED_CELLS if loc != "at_aperture")
 
 
+@pytest.mark.level2
 class TestSwirHotTargetWarning:
     """Matrix §3.2 line 318 — T1Thermal in SWIR with T_t > 700 K warns."""
 
@@ -208,6 +209,7 @@ class TestSwirHotTargetWarning:
 _REFLECTIVE_REGIMES = ("VIS", "NIR", "SWIR")
 
 
+@pytest.mark.level2
 class TestT2BelowHorizonWarning:
     """Matrix §7 — T2Reflective with θ_s > π/2 warns at SourceStage."""
 
@@ -272,6 +274,7 @@ _SUBPIXEL_CELLS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+@pytest.mark.level2
 class TestSubPixelCollapsesToPointSource:
     """Matrix §1.1 — sub-pixel with √A_t/d ≪ 0.01·PSF_FWHM warns.
 
@@ -338,6 +341,7 @@ _POINT_SOURCE_CELLS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+@pytest.mark.level2
 class TestPointSourceAngularSizeRaise:
     """Matrix §7 — point_source with √A_t/d > 0.1·PSF_FWHM raises.
 

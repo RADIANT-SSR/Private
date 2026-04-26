@@ -45,6 +45,7 @@ def result():
     return session.run(params)
 
 
+@pytest.mark.level2
 class TestMWIRLeoMinimal:
     """Validate YAML-driven chain matches reference case."""
 

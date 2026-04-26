@@ -665,6 +665,7 @@ def _cell_id(cell: CellSpec) -> str:
     return f"{cell.cell_id}-{cell.location}-{cell.regime}-{cell.scene_type}"
 
 
+@pytest.mark.level2
 @pytest.mark.parametrize("cell", ALL_CELLS, ids=[_cell_id(c) for c in ALL_CELLS])
 def test_use_case_matrix_cell(cell: CellSpec) -> None:
     """Run (or assert the expected raise of) one matrix cell.

@@ -75,6 +75,7 @@ def result():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestSpatialMetricsPresent:
     """Spatial metrics should be present when optics params are available."""
 
@@ -118,6 +119,7 @@ class TestSpatialMetricsPresent:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestSpatialMetricsPhysics:
     """Verify spatial metrics are physically reasonable for this config."""
 
@@ -220,6 +222,7 @@ class TestSpatialMetricsPhysics:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestEffectivePSFFromChain:
     """Verify the EffectivePSF stored in stage_outputs works correctly."""
 
@@ -266,6 +269,7 @@ class TestEffectivePSFFromChain:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestSNRUnchanged:
     """Verify spatial metrics don't alter existing SNR computation."""
 
@@ -295,6 +299,7 @@ class TestSNRUnchanged:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestSpatialGracefulDegradation:
     """When optics parameters are not available, spatial metrics are skipped."""
 
@@ -365,6 +370,7 @@ def result_with_ipc():
     return session.run(params)
 
 
+@pytest.mark.level2
 class TestIPCWiring:
     """Verify IPC coupling propagates through the chain to spatial metrics."""
 
@@ -438,6 +444,7 @@ class TestIPCWiring:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestNyquistExceedsCutoff:
     """Verify diagnostic warning when detector oversamples the optics."""
 

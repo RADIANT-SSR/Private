@@ -478,6 +478,7 @@ def _cell_id(cell: SpecCell) -> str:
     return f"{cell.spec_form}-{cell.scene_type}-{cell.outcome}"
 
 
+@pytest.mark.level2
 @pytest.mark.parametrize("cell", _CELLS, ids=[_cell_id(c) for c in _CELLS])
 def test_spec_form_matrix_cell(cell: SpecCell, tmp_path: Path) -> None:
     """Exercise one (spec_form, scene_type) cell and record coverage."""

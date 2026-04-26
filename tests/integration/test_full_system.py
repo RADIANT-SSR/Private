@@ -112,6 +112,7 @@ def _run_sub_pixel(
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestAllRegimes:
     """Verify all three regimes produce valid, distinct results."""
 
@@ -167,6 +168,7 @@ class TestAllRegimes:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestBackwardPropagation:
     """Verify signal_at and noise_at through full chain."""
 
@@ -215,6 +217,7 @@ class TestBackwardPropagation:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestSweeps:
     """Verify sweeps produce physically correct trends."""
 
@@ -289,6 +292,7 @@ class TestSweeps:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestToleranceAnalysis:
     """Verify Monte Carlo tolerance analysis through the full chain."""
 
@@ -340,6 +344,7 @@ class TestToleranceAnalysis:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestSaturation:
     """Verify saturation detection and margin computation."""
 
@@ -387,6 +392,7 @@ class TestSaturation:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestNoiseBudget:
     """Verify the full noise budget through the chain."""
 
@@ -512,6 +518,7 @@ class TestNoiseBudget:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestSensitivityAnalysis:
     """Verify sensitivity analysis through the full chain."""
 
@@ -536,6 +543,7 @@ class TestSensitivityAnalysis:
 # ===================================================================
 
 
+@pytest.mark.level2
 class TestDeterminism:
     """Same inputs produce bitwise-identical outputs."""
 

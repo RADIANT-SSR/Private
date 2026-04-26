@@ -197,6 +197,7 @@ class TestShapeSubPixelIntegration:
     """Every v1 shape runs end-to-end at one representative sub_pixel cell
     per scene-type family (terrestrial LWIR / airborne MWIR / space LWIR)."""
 
+    @pytest.mark.level2
     @pytest.mark.parametrize("shape_name,shape_dims,expected_cls", _SHAPES)
     @pytest.mark.parametrize("cell_id,target_location,regime", _CELLS)
     def test_shape_cell_end_to_end(
@@ -259,6 +260,7 @@ class TestShapeAtApertureRejected:
     target_location).
     """
 
+    @pytest.mark.level2
     def test_shape_plus_at_aperture_raises(self) -> None:
         wl = _REGIME_GRIDS["LWIR"]
         session = RadiantSession(wavelength_um=wl)

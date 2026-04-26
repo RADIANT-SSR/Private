@@ -21,28 +21,35 @@ from radiant.io.config import ConfigError, _flatten, _unflatten, load_config, sa
 
 
 class TestFlatten:
+    @pytest.mark.level1
     def test_simple(self) -> None:
         assert _flatten({"a": {"b": 1}}) == {"a.b": 1}
 
+    @pytest.mark.level1
     def test_deep(self) -> None:
         assert _flatten({"a": {"b": {"c": 3}}}) == {"a.b.c": 3}
 
+    @pytest.mark.level1
     def test_multiple_keys(self) -> None:
         result = _flatten({"x": 1, "y": {"z": 2}})
         assert result == {"x": 1, "y.z": 2}
 
 
 class TestUnflatten:
+    @pytest.mark.level1
     def test_simple(self) -> None:
         assert _unflatten({"a.b": 1}) == {"a": {"b": 1}}
 
+    @pytest.mark.level1
     def test_deep(self) -> None:
         assert _unflatten({"a.b.c": 3}) == {"a": {"b": {"c": 3}}}
 
+    @pytest.mark.level1
     def test_multiple_keys(self) -> None:
         result = _unflatten({"a.b": 1, "a.c": 2})
         assert result == {"a": {"b": 1, "c": 2}}
 
+    @pytest.mark.level1
     def test_roundtrip(self) -> None:
         original = {"source": {"target": {"temperature": 300}}, "optics": {"f": 1.2}}
         assert _unflatten(_flatten(original)) == original
@@ -86,6 +93,7 @@ def _full_config_dict() -> dict[str, Any]:
 class TestLoadConfigDict:
     """Test load_config with in-memory dicts."""
 
+    @pytest.mark.level1
     def test_basic_dict(self) -> None:
         params = build_parameter_set()
         data = _full_config_dict()
@@ -94,6 +102,7 @@ class TestLoadConfigDict:
         assert params.get("source.target.temperature") == pytest.approx(300.0, rel=1e-12)
         assert params.get("optics.aperture_diameter_m") == pytest.approx(0.30, rel=1e-12)
 
+    @pytest.mark.level1
     def test_provenance_is_config_file(self) -> None:
         params = build_parameter_set()
         data = _full_config_dict()
@@ -102,6 +111,7 @@ class TestLoadConfigDict:
         rv = params.get_resolved("source.target.temperature")
         assert rv.provenance == Provenance.CONFIG_FILE
 
+    @pytest.mark.level1
     def test_reserved_keys_ignored(self) -> None:
         params = build_parameter_set()
         data = {
@@ -119,6 +129,7 @@ class TestLoadConfigDict:
 
 
 class TestLoadConfigFile:
+    @pytest.mark.level1
     def test_load_example_yaml(self) -> None:
         """Load examples/mwir_leo_minimal.yaml and verify key values."""
         yaml_path = Path(__file__).parents[3] / "examples" / "mwir_leo_minimal.yaml"
@@ -135,11 +146,13 @@ class TestLoadConfigFile:
         )
         assert params.get("readout.adc_bits") == 16
 
+    @pytest.mark.level1
     def test_file_not_found(self, tmp_path: Path) -> None:
         params = build_parameter_set()
         with pytest.raises(ConfigError, match="File not found"):
             load_config(tmp_path / "nonexistent.yaml", params)
 
+    @pytest.mark.level1
     def test_invalid_yaml(self, tmp_path: Path) -> None:
         bad = tmp_path / "bad.yaml"
         bad.write_text("{{invalid yaml", encoding="utf-8")
@@ -147,6 +160,7 @@ class TestLoadConfigFile:
         with pytest.raises(ConfigError, match="YAML parse error"):
             load_config(bad, params)
 
+    @pytest.mark.level1
     def test_non_dict_top_level(self, tmp_path: Path) -> None:
         bad = tmp_path / "list.yaml"
         bad.write_text("- item1\n- item2\n", encoding="utf-8")
@@ -161,12 +175,14 @@ class TestLoadConfigFile:
 
 
 class TestLoadConfigErrors:
+    @pytest.mark.level1
     def test_unknown_parameter(self) -> None:
         params = build_parameter_set()
         data = {"bogus": {"nonexistent_param": 42}}
         with pytest.raises(ConfigError, match="Unknown parameter.*bogus.nonexistent_param"):
             load_config(data, params)
 
+    @pytest.mark.level1
     def test_wrong_type_caught_on_resolve(self) -> None:
         """Type errors are caught by ParameterSet.resolve(), not load_config."""
         params = build_parameter_set()
@@ -178,6 +194,7 @@ class TestLoadConfigErrors:
             params.set("optics.focal_length_m", 1.20)
             params.resolve()
 
+    @pytest.mark.level1
     def test_bad_source_type(self) -> None:
         params = build_parameter_set()
         with pytest.raises(ConfigError, match="Expected a file path or dict"):
@@ -190,6 +207,7 @@ class TestLoadConfigErrors:
 
 
 class TestSaveConfig:
+    @pytest.mark.level1
     def test_round_trip(self, tmp_path: Path) -> None:
         """save → load → compare: values must match."""
         params1 = build_parameter_set()
@@ -236,6 +254,7 @@ class TestSaveConfig:
             else:
                 assert v2 == v1, f"{name}: {v2} != {v1}"
 
+    @pytest.mark.level1
     def test_header_present(self, tmp_path: Path) -> None:
         params = build_parameter_set()
         load_config(_full_config_dict(), params)
@@ -245,6 +264,7 @@ class TestSaveConfig:
         text = outfile.read_text()
         assert text.startswith("# custom header\n")
 
+    @pytest.mark.level1
     def test_output_is_valid_yaml(self, tmp_path: Path) -> None:
         params = build_parameter_set()
         load_config(_full_config_dict(), params)

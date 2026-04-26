@@ -57,16 +57,19 @@ def _make_result(
 
 
 class TestChainResultSignalAt:
+    @pytest.mark.level1
     def test_signal_at_photoelectrons(self) -> None:
         result = _make_result(signal_e=10000.0)
         q = result.signal_at("photoelectrons")
         assert q.value == pytest.approx(10000.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_signal_at_dn(self) -> None:
         result = _make_result(signal_e=10000.0, gain=2.0)
         q = result.signal_at(ReferenceFrame.DN)
         assert q.value == pytest.approx(5000.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_signal_at_string(self) -> None:
         result = _make_result(signal_e=10000.0, gain=2.0)
         q = result.signal_at("dn")
@@ -74,23 +77,27 @@ class TestChainResultSignalAt:
 
 
 class TestChainResultNoiseAt:
+    @pytest.mark.level1
     def test_total_noise(self) -> None:
         result = _make_result(signal_e=10000.0)
         q = result.noise_at("photoelectrons")
         expected = math.sqrt(100.0**2 + 5.0**2)
         assert q.value == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level1
     def test_specific_term(self) -> None:
         result = _make_result()
         q = result.noise_at("photoelectrons", term_name="read_noise")
         assert q.value == pytest.approx(5.0, rel=1e-12)
 
+    @pytest.mark.level1
     def test_noise_at_dn(self) -> None:
         result = _make_result(signal_e=10000.0, gain=2.0)
         q = result.noise_at("dn", term_name="read_noise")
         # 5 e- / 2 gain = 2.5 DN
         assert q.value == pytest.approx(2.5, rel=1e-10)
 
+    @pytest.mark.level1
     def test_round_trip(self) -> None:
         result = _make_result(signal_e=10000.0, gain=2.0)
         q1 = result.noise_at("photoelectrons", term_name="read_noise")
@@ -106,18 +113,21 @@ class TestChainResultDeprecatedAliases:
     return the same value as the new method names.
     """
 
+    @pytest.mark.level1
     def test_signal_at_frame_emits_deprecation_warning(self) -> None:
         result = _make_result(signal_e=10000.0)
         with pytest.warns(DeprecationWarning, match="signal_at_frame"):
             q = result.signal_at_frame("photoelectrons")
         assert q.value == pytest.approx(10000.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_noise_at_frame_emits_deprecation_warning(self) -> None:
         result = _make_result()
         with pytest.warns(DeprecationWarning, match="noise_at_frame"):
             q = result.noise_at_frame("photoelectrons", term_name="read_noise")
         assert q.value == pytest.approx(5.0, rel=1e-12)
 
+    @pytest.mark.level1
     def test_deprecated_alias_returns_same_value(self) -> None:
         result = _make_result(signal_e=10000.0, gain=2.0)
         q_new = result.signal_at("dn")
@@ -137,18 +147,22 @@ class TestChainResultMetricAccessors:
         state = state.with_metric("niirs", 5.4)
         return ChainResult(state)
 
+    @pytest.mark.level1
     def test_snr_accessor(self) -> None:
         result = self._result_with_metrics()
         assert result.snr() == pytest.approx(47.3, rel=1e-12)
 
+    @pytest.mark.level1
     def test_nedt_accessor_returns_kelvin(self) -> None:
         result = self._result_with_metrics()
         assert result.nedt() == pytest.approx(0.023, rel=1e-12)
 
+    @pytest.mark.level1
     def test_niirs_accessor(self) -> None:
         result = self._result_with_metrics()
         assert result.niirs() == pytest.approx(5.4, rel=1e-12)
 
+    @pytest.mark.level1
     def test_metric_accessor_raises_keyerror_when_unavailable(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         result = ChainResult(ChainState(wavelength_um=wl))

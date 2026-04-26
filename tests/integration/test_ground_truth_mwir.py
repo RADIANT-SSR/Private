@@ -94,6 +94,7 @@ def result():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestGroundTruthMWIR:
     """Verify every intermediate against hand calculation."""
 

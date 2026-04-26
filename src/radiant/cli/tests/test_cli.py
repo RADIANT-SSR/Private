@@ -27,6 +27,7 @@ def runner() -> CliRunner:
 
 
 class TestRunCommand:
+    @pytest.mark.level2
     def test_run_example(self, runner: CliRunner) -> None:
         """Running the example YAML produces SNR output."""
         result = runner.invoke(cli, ["run", str(EXAMPLE_YAML)])
@@ -34,6 +35,7 @@ class TestRunCommand:
         assert "SNR:" in result.output
         assert "Signal:" in result.output
 
+    @pytest.mark.level2
     def test_run_shows_noise_terms(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", str(EXAMPLE_YAML)])
         assert result.exit_code == 0
@@ -42,6 +44,7 @@ class TestRunCommand:
         assert "dark_shot" in result.output
         assert "quantization" in result.output
 
+    @pytest.mark.level2
     def test_run_set_override(self, runner: CliRunner) -> None:
         """--set changes the result."""
         r1 = runner.invoke(cli, ["run", str(EXAMPLE_YAML)])
@@ -56,6 +59,7 @@ class TestRunCommand:
         snr2 = _extract_snr(r2.output)
         assert snr2 != snr1
 
+    @pytest.mark.level2
     def test_run_set_unknown_param(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "run", str(EXAMPLE_YAML),
@@ -64,6 +68,7 @@ class TestRunCommand:
         assert result.exit_code != 0
         assert "unknown parameter" in result.output.lower()
 
+    @pytest.mark.level2
     def test_run_set_bad_format(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "run", str(EXAMPLE_YAML),
@@ -71,10 +76,12 @@ class TestRunCommand:
         ])
         assert result.exit_code != 0
 
+    @pytest.mark.level2
     def test_run_file_not_found(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", "/tmp/does_not_exist_xyz.yaml"])
         assert result.exit_code != 0
 
+    @pytest.mark.level2
     def test_run_invalid_yaml(self, runner: CliRunner, tmp_path: Path) -> None:
         bad = tmp_path / "bad.yaml"
         bad.write_text("{{invalid yaml", encoding="utf-8")
@@ -82,6 +89,7 @@ class TestRunCommand:
         assert result.exit_code != 0
         assert "error" in result.output.lower()
 
+    @pytest.mark.level2
     def test_run_json_format(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", str(EXAMPLE_YAML), "--format", "json"])
         assert result.exit_code == 0, result.output
@@ -89,12 +97,14 @@ class TestRunCommand:
         assert "metrics" in data
         assert "snr" in data["metrics"]
 
+    @pytest.mark.level2
     def test_run_csv_format(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", str(EXAMPLE_YAML), "--format", "csv"])
         assert result.exit_code == 0, result.output
         assert "metric,value" in result.output
         assert "snr," in result.output
 
+    @pytest.mark.level2
     def test_run_quiet(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", str(EXAMPLE_YAML), "--quiet"])
         assert result.exit_code == 0, result.output
@@ -102,6 +112,7 @@ class TestRunCommand:
         # Quiet suppresses noise term details
         assert "Signal:" not in result.output
 
+    @pytest.mark.level2
     def test_run_output_file(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "result.json"
         result = runner.invoke(cli, [
@@ -112,6 +123,7 @@ class TestRunCommand:
         data = json.loads(out.read_text())
         assert "metrics" in data
 
+    @pytest.mark.level2
     def test_run_provenance_file(self, runner: CliRunner, tmp_path: Path) -> None:
         prov = tmp_path / "provenance.json"
         result = runner.invoke(cli, [
@@ -129,22 +141,26 @@ class TestRunCommand:
 
 
 class TestValidateCommand:
+    @pytest.mark.level1
     def test_validate_ok(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["validate", str(EXAMPLE_YAML)])
         assert result.exit_code == 0, result.output
         assert "Config OK" in result.output
 
+    @pytest.mark.level1
     def test_validate_file_not_found(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["validate", "/tmp/does_not_exist_xyz.yaml"])
         assert result.exit_code != 0
         assert "not found" in result.output.lower()
 
+    @pytest.mark.level1
     def test_validate_invalid_yaml(self, runner: CliRunner, tmp_path: Path) -> None:
         bad = tmp_path / "bad.yaml"
         bad.write_text("{{invalid yaml", encoding="utf-8")
         result = runner.invoke(cli, ["validate", str(bad)])
         assert result.exit_code != 0
 
+    @pytest.mark.level1
     def test_validate_missing_required(self, runner: CliRunner, tmp_path: Path) -> None:
         """YAML with only one param → resolve fails for missing required params."""
         incomplete = tmp_path / "incomplete.yaml"
@@ -156,6 +172,7 @@ class TestValidateCommand:
         assert result.exit_code != 0
         assert "validation failed" in result.output.lower()
 
+    @pytest.mark.level1
     def test_validate_unknown_param(self, runner: CliRunner, tmp_path: Path) -> None:
         """YAML with unknown parameter key → error."""
         bad_param = tmp_path / "bad_param.yaml"
@@ -167,6 +184,7 @@ class TestValidateCommand:
         assert result.exit_code != 0
         assert "unknown parameter" in result.output.lower()
 
+    @pytest.mark.level1
     def test_validate_set_override(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "validate", str(EXAMPLE_YAML),
@@ -182,6 +200,7 @@ class TestValidateCommand:
 
 
 class TestExplainCommand:
+    @pytest.mark.level1
     def test_explain_derived_param(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "explain", str(EXAMPLE_YAML), "optics.f_number",
@@ -190,6 +209,7 @@ class TestExplainCommand:
         assert "f_number" in result.output
         assert "4.0" in result.output
 
+    @pytest.mark.level1
     def test_explain_user_set_param(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "explain", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
@@ -197,6 +217,7 @@ class TestExplainCommand:
         assert result.exit_code == 0, result.output
         assert "0.3" in result.output
 
+    @pytest.mark.level1
     def test_explain_with_override(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "explain", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
@@ -205,6 +226,7 @@ class TestExplainCommand:
         assert result.exit_code == 0, result.output
         assert "0.5" in result.output
 
+    @pytest.mark.level1
     def test_explain_unknown_param(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "explain", str(EXAMPLE_YAML), "bogus.param",
@@ -218,6 +240,7 @@ class TestExplainCommand:
 
 
 class TestSweepCommand:
+    @pytest.mark.level2
     def test_sweep_basic(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "sweep", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
@@ -229,6 +252,7 @@ class TestSweepCommand:
         lines = [line for line in result.output.strip().splitlines() if line.strip()]
         assert len(lines) >= 5
 
+    @pytest.mark.level2
     def test_sweep_output_csv(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "sweep.csv"
         result = runner.invoke(cli, [
@@ -241,6 +265,7 @@ class TestSweepCommand:
         content = out.read_text()
         assert "value,snr" in content
 
+    @pytest.mark.level2
     def test_sweep_output_json(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "sweep.json"
         result = runner.invoke(cli, [
@@ -260,6 +285,7 @@ class TestSweepCommand:
 
 
 class TestToleranceCommand:
+    @pytest.mark.level2
     def test_tolerance_basic(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "tolerance", str(EXAMPLE_YAML), "--trials", "10",
@@ -269,6 +295,7 @@ class TestToleranceCommand:
         assert "Monte Carlo" in result.output
         assert "10 trials" in result.output
 
+    @pytest.mark.level2
     def test_tolerance_no_tolerances(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "tolerance", str(EXAMPLE_YAML), "--trials", "5",
@@ -276,6 +303,7 @@ class TestToleranceCommand:
         assert result.exit_code != 0
         assert "no tolerances" in result.output.lower()
 
+    @pytest.mark.level2
     def test_tolerance_output_json(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "mc.json"
         result = runner.invoke(cli, [
@@ -294,6 +322,7 @@ class TestToleranceCommand:
 
 
 class TestCompareCommand:
+    @pytest.mark.level2
     def test_compare_same_config(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, [
             "compare", str(EXAMPLE_YAML), str(EXAMPLE_YAML),
@@ -303,6 +332,7 @@ class TestCompareCommand:
         # Same config → all deltas should be +0.0000
         assert "+0.0000" in result.output
 
+    @pytest.mark.level2
     def test_compare_output_json(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "cmp.json"
         result = runner.invoke(cli, [
@@ -320,12 +350,14 @@ class TestCompareCommand:
 
 
 class TestSchemaCommand:
+    @pytest.mark.level1
     def test_schema_text(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["schema"])
         assert result.exit_code == 0, result.output
         assert "Name" in result.output
         assert "optics.aperture_diameter_m" in result.output
 
+    @pytest.mark.level1
     def test_schema_json(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["schema", "--format", "json"])
         assert result.exit_code == 0, result.output
@@ -334,6 +366,7 @@ class TestSchemaCommand:
         assert len(data) > 0
         assert "name" in data[0]
 
+    @pytest.mark.level1
     def test_schema_stage_filter(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["schema", "--stage", "detector"])
         assert result.exit_code == 0, result.output
@@ -341,6 +374,7 @@ class TestSchemaCommand:
         # Should not contain optics params
         assert "optics.aperture" not in result.output
 
+    @pytest.mark.level1
     def test_schema_unknown_stage(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["schema", "--stage", "bogus"])
         assert result.exit_code == 0  # Not an error, just empty
@@ -353,6 +387,7 @@ class TestSchemaCommand:
 
 
 class TestTemplateCommand:
+    @pytest.mark.level1
     def test_template_list(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["template", "list"])
         assert result.exit_code == 0, result.output
@@ -361,17 +396,20 @@ class TestTemplateCommand:
         assert "lwir_geo" in result.output
         assert "swir_leo" in result.output
 
+    @pytest.mark.level1
     def test_template_show(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["template", "show", "mwir_leo_pushbroom"])
         assert result.exit_code == 0, result.output
         assert "aperture_diameter_m" in result.output
         assert "0.3" in result.output
 
+    @pytest.mark.level1
     def test_template_show_unknown(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["template", "show", "nonexistent"])
         assert result.exit_code != 0
         assert "unknown template" in result.output.lower()
 
+    @pytest.mark.level1
     def test_template_create(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "test.yaml"
         result = runner.invoke(cli, [
@@ -390,21 +428,25 @@ class TestTemplateCommand:
 
 
 class TestConvertCommand:
+    @pytest.mark.level1
     def test_convert_um_to_m(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["convert", "18", "um", "m"])
         assert result.exit_code == 0, result.output
         assert "1.8e-05" in result.output
 
+    @pytest.mark.level1
     def test_convert_deg_to_rad(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["convert", "45", "deg", "rad"])
         assert result.exit_code == 0, result.output
         assert "0.785" in result.output
 
+    @pytest.mark.level1
     def test_convert_ms_to_s(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["convert", "5", "ms", "s"])
         assert result.exit_code == 0, result.output
         assert "0.005" in result.output
 
+    @pytest.mark.level1
     def test_convert_unknown_unit(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["convert", "1", "parsec", "m"])
         assert result.exit_code != 0
@@ -417,49 +459,59 @@ class TestConvertCommand:
 
 
 class TestHelpText:
+    @pytest.mark.level1
     def test_main_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
         assert "RADIANT" in result.output
 
+    @pytest.mark.level1
     def test_run_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", "--help"])
         assert result.exit_code == 0
         assert "config" in result.output.lower()
 
+    @pytest.mark.level1
     def test_validate_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["validate", "--help"])
         assert result.exit_code == 0
         assert "config" in result.output.lower()
 
+    @pytest.mark.level1
     def test_explain_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["explain", "--help"])
         assert result.exit_code == 0
         assert "param" in result.output.lower()
 
+    @pytest.mark.level1
     def test_sweep_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["sweep", "--help"])
         assert result.exit_code == 0
         assert "--min" in result.output
 
+    @pytest.mark.level1
     def test_tolerance_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["tolerance", "--help"])
         assert result.exit_code == 0
         assert "--trials" in result.output
 
+    @pytest.mark.level1
     def test_compare_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["compare", "--help"])
         assert result.exit_code == 0
 
+    @pytest.mark.level1
     def test_schema_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["schema", "--help"])
         assert result.exit_code == 0
         assert "--stage" in result.output
 
+    @pytest.mark.level1
     def test_template_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["template", "--help"])
         assert result.exit_code == 0
 
+    @pytest.mark.level1
     def test_convert_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["convert", "--help"])
         assert result.exit_code == 0

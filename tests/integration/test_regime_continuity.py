@@ -84,6 +84,7 @@ def _run_chain(
 # ======================================================================
 
 
+@pytest.mark.level2
 class TestSubPixelFFOneMatchesExtended:
     """Sub-pixel with fill_fraction=1.0 vs extended.
 
@@ -127,6 +128,7 @@ class TestSubPixelFFOneMatchesExtended:
 # ======================================================================
 
 
+@pytest.mark.level2
 class TestPointSourceInverseSquare:
     """Point source signal should scale as 1/R²: doubling the range
     should quarter the signal.
@@ -162,6 +164,7 @@ class TestPointSourceInverseSquare:
 # ======================================================================
 
 
+@pytest.mark.level2
 class TestSubPixelContrast:
     """Verify sub-pixel contrast ΔL = ff × (L_target − L_bg) × EE_box
     produces the expected signal difference.
@@ -327,6 +330,7 @@ class TestSubPixelContrast:
 # ======================================================================
 
 
+@pytest.mark.level2
 class TestRegimeClassification:
     """Verify that regime tentative → final propagates correctly."""
 
@@ -368,6 +372,7 @@ class TestRegimeClassification:
 # ======================================================================
 
 
+@pytest.mark.level2
 class TestSignalPhysics:
     """Basic physical sanity for all three regimes."""
 
@@ -397,6 +402,7 @@ class TestSignalPhysics:
 # ======================================================================
 
 
+@pytest.mark.level2
 class TestContrastSNR:
     """Verify that contrast SNR (ΔS / σ) has the correct sign for hot
     and cold sub-pixel targets.

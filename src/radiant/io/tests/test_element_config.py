@@ -83,6 +83,7 @@ def cavity_yaml(tmp_path: Path) -> Path:
 class TestLoadElementList:
     """Verify YAML loading of element lists."""
 
+    @pytest.mark.level1
     def test_basic_load(self, tmp_yaml: Path) -> None:
         """Load a valid mixed-train config."""
         elements = load_element_list(tmp_yaml, wavelength_um=WL)
@@ -93,6 +94,7 @@ class TestLoadElementList:
         assert elements[2].name == "field_lens"
         assert elements[2].resolved_transfer_mode == ElementTransferMode.REFRACTIVE
 
+    @pytest.mark.level1
     def test_reflective_properties(self, tmp_yaml: Path) -> None:
         """Reflective element has correct R and eps."""
         elements = load_element_list(tmp_yaml, wavelength_um=WL)
@@ -100,6 +102,7 @@ class TestLoadElementList:
         np.testing.assert_allclose(m.reflectance.values, 0.98, atol=1e-12)
         np.testing.assert_allclose(m.emissivity.values, 0.02, atol=1e-12)
 
+    @pytest.mark.level1
     def test_simple_refractive_eps_zero(self, tmp_yaml: Path) -> None:
         """Simple refractive element has eps=0."""
         elements = load_element_list(tmp_yaml, wavelength_um=WL)
@@ -107,6 +110,7 @@ class TestLoadElementList:
         np.testing.assert_allclose(lens.emissivity.values, 0.0, atol=1e-12)
         np.testing.assert_allclose(lens.transmittance.values, 0.92, atol=1e-12)
 
+    @pytest.mark.level1
     def test_geometry_preserved(self, tmp_yaml: Path) -> None:
         """Geometry/thermal properties are loaded correctly."""
         elements = load_element_list(tmp_yaml, wavelength_um=WL)
@@ -115,6 +119,7 @@ class TestLoadElementList:
         assert m.diameter_m == 0.35
         assert m.distance_to_fpa_m == 1.2
 
+    @pytest.mark.level1
     def test_cavity_element(self, cavity_yaml: Path) -> None:
         """Cavity element has correct T_sys and eps."""
         elements = load_element_list(cavity_yaml, wavelength_um=WL)
@@ -126,6 +131,7 @@ class TestLoadElementList:
         )
         np.testing.assert_allclose(window.emissivity.values, 0.0, atol=1e-14)
 
+    @pytest.mark.level1
     def test_spectral_csv_file(self, tmp_path: Path) -> None:
         """Spectral property loaded from CSV file path."""
         # Write a CSV file.
@@ -152,16 +158,19 @@ class TestLoadElementList:
 class TestElementConfigErrors:
     """Error cases for YAML loading."""
 
+    @pytest.mark.level1
     def test_missing_file(self) -> None:
         with pytest.raises(ElementConfigError, match="not found"):
             load_element_list("/nonexistent/sensor.yaml")
 
+    @pytest.mark.level1
     def test_missing_optical_elements_key(self, tmp_path: Path) -> None:
         p = tmp_path / "bad.yaml"
         p.write_text("optics:\n  aperture: 0.3\n")
         with pytest.raises(ElementConfigError, match="optical_elements"):
             load_element_list(p)
 
+    @pytest.mark.level1
     def test_missing_required_field(self, tmp_path: Path) -> None:
         content = textwrap.dedent("""\
             optical_elements:
@@ -173,6 +182,7 @@ class TestElementConfigErrors:
         with pytest.raises(ElementConfigError, match="reflectance"):
             load_element_list(p, wavelength_um=WL)
 
+    @pytest.mark.level1
     def test_invalid_transfer_mode(self, tmp_path: Path) -> None:
         content = textwrap.dedent("""\
             optical_elements:
@@ -185,6 +195,7 @@ class TestElementConfigErrors:
         with pytest.raises(ElementConfigError, match="REFLECTIVE.*REFRACTIVE"):
             load_element_list(p, wavelength_um=WL)
 
+    @pytest.mark.level1
     def test_spectral_file_not_found(self, tmp_path: Path) -> None:
         content = textwrap.dedent("""\
             optical_elements:
@@ -197,6 +208,7 @@ class TestElementConfigErrors:
         with pytest.raises(ElementConfigError, match="not found"):
             load_element_list(p)
 
+    @pytest.mark.level1
     def test_empty_element_list(self, tmp_path: Path) -> None:
         content = "optical_elements: []\n"
         p = tmp_path / "empty.yaml"

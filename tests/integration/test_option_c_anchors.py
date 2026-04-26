@@ -217,6 +217,7 @@ CELL58_PINNED = {
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level2
 class TestCell28TerrestrialLWIRExtended:
     """Option C anchor: Cell 28 — terrestrial LWIR extended."""
 
@@ -245,6 +246,7 @@ class TestCell28TerrestrialLWIRExtended:
             )
 
 
+@pytest.mark.level2
 class TestCell58SpaceLWIRExtended:
     """Option C anchor: Cell 58 — space LWIR extended (vacuum path)."""
 

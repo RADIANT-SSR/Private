@@ -113,6 +113,7 @@ class TestAnchor1_LWIR_Thermal_T1:
 
     WL = np.array([8.0, 10.0, 12.0], dtype=np.float64)
 
+    @pytest.mark.level1
     def test_analytic_match_at_10um(self) -> None:
         eps = 0.95
         T_t = 300.0
@@ -149,6 +150,7 @@ class TestAnchor1_LWIR_Thermal_T1:
 
         np.testing.assert_allclose(L, L_expected, rtol=1e-12, atol=0.0)
 
+    @pytest.mark.level1
     def test_matches_legacy_formula_bit_exact(self) -> None:
         """T1 with the legacy-path inputs (no sun) should reproduce the old
         L_target · τ + L_path scalar formula bit-exactly.  This is the core
@@ -221,6 +223,7 @@ class TestAnchor2_VIS_Reflective_T2:
 
     WL = np.array([0.5, 0.6, 0.7], dtype=np.float64)
 
+    @pytest.mark.level1
     def test_two_leg_analytic(self) -> None:
         rho = 0.3
         theta_s = math.pi / 3.0  # 60° → cos = 0.5
@@ -258,6 +261,7 @@ class TestAnchor2_VIS_Reflective_T2:
         expected = (direct + diffuse) * tau_up + L_path
         np.testing.assert_allclose(L, expected, rtol=1e-14, atol=0.0)
 
+    @pytest.mark.level1
     def test_sun_below_horizon_zeros_direct(self) -> None:
         """cos(θ_s) ≤ 0 must null the direct-solar term."""
         rho = 0.3
@@ -285,6 +289,7 @@ class TestAnchor2_VIS_Reflective_T2:
         L = assemble_target_at_aperture(target, atm, los)
         np.testing.assert_allclose(L, 0.0, atol=0.0)
 
+    @pytest.mark.level1
     def test_no_sun_zeros_direct(self) -> None:
         """theta_s = None must null the direct-solar term."""
         rho = 0.3
@@ -332,6 +337,7 @@ class TestAnchor3_T5_PassThrough:
 
     WL = np.linspace(3.0, 5.0, 21)
 
+    @pytest.mark.level1
     def test_trivial_atm_passes_through_without_warning(self) -> None:
         """When τ_up = 1 and L_path_up = 0, the pass-through is silent."""
         L_user = np.linspace(1.0, 2.0, self.WL.size)
@@ -355,6 +361,7 @@ class TestAnchor3_T5_PassThrough:
 
         np.testing.assert_array_equal(L, L_user)
 
+    @pytest.mark.level1
     def test_nontrivial_atm_warns_but_passes_through(self) -> None:
         """τ_up < 1 anywhere → UserWarning, but the spectrum is still passed through."""
         L_user = np.linspace(1.0, 2.0, self.WL.size)
@@ -406,6 +413,7 @@ class TestT3Kirchhoff:
 
     WL = np.array([3.5, 4.0, 4.5])
 
+    @pytest.mark.level1
     def test_t3_equals_t1_plus_t2_with_kirchhoff(self) -> None:
         eps_val = 0.6
         T_t = 310.0
@@ -454,6 +462,7 @@ class TestT3Kirchhoff:
         expected = (L_self + direct + diffuse) * atm.tau_up + atm.L_path_up
         np.testing.assert_allclose(L, expected, rtol=1e-14, atol=0.0)
 
+    @pytest.mark.level1
     def test_report_components_sums_back_to_total(self) -> None:
         """Stage 6 (Option C) introspection — AssemblyComponents reconstructs L.
 
@@ -531,10 +540,12 @@ class TestFailureModes:
             T_t=300.0,
         )
 
+    @pytest.mark.level1
     def test_t1_without_los_raises(self) -> None:
         with pytest.raises(ParameterBoundsError, match="requires a LineOfSightGeometry"):
             assemble_target_at_aperture(self._make_t1(), _trivial_atm(self.WL), los=None)
 
+    @pytest.mark.level1
     def test_descriptor_grid_mismatch_raises(self) -> None:
         # Build a T1 whose epsilon lives on a shifted grid.
         bad_grid = self.WL + 0.5
@@ -550,24 +561,28 @@ class TestFailureModes:
         with pytest.raises(ParameterBoundsError, match="does not match"):
             assemble_target_at_aperture(target, _trivial_atm(self.WL), los)
 
+    @pytest.mark.level1
     def test_ground_background_without_los_raises(self) -> None:
         eps_g_sd = _const_sd(self.WL, 0.95, "epsilon_g")
         bg = GroundBackground(epsilon_g=eps_g_sd, T_g=290.0)
         with pytest.raises(ParameterBoundsError, match="GroundBackground requires"):
             assemble_background_at_aperture(bg, _trivial_atm(self.WL), los=None)
 
+    @pytest.mark.level1
     def test_none_background_returns_none(self) -> None:
         # Decision #13: SpectralIntegrationStage handles the computed-extended
         # background photon term itself; assembly passes None through.
         result = assemble_background_at_aperture(None, _trivial_atm(self.WL), los=None)
         assert result is None
 
+    @pytest.mark.level1
     def test_cold_space_background_zeros(self) -> None:
         bg = ColdSpaceBackground()
         L = assemble_background_at_aperture(bg, _trivial_atm(self.WL), los=None)
         assert L is not None
         np.testing.assert_array_equal(L, np.zeros_like(self.WL))
 
+    @pytest.mark.level1
     def test_at_aperture_background_none_radiance_zeros(self) -> None:
         """Decision #14: missing L_bg_aperture → treated as zero."""
         bg = AtApertureBackground(L_bg_aperture=None)
@@ -575,6 +590,7 @@ class TestFailureModes:
         assert L is not None
         np.testing.assert_array_equal(L, np.zeros_like(self.WL))
 
+    @pytest.mark.level1
     def test_at_aperture_background_passes_through(self) -> None:
         values = np.full_like(self.WL, 3.14)
         L_sd = SpectralData(
@@ -589,6 +605,7 @@ class TestFailureModes:
         assert L is not None
         np.testing.assert_array_equal(L, values)
 
+    @pytest.mark.level1
     def test_user_spectral_background_passes_through(self) -> None:
         values = np.full_like(self.WL, 2.0)
         L_sd = SpectralData(
@@ -612,6 +629,7 @@ class TestFailureModes:
 class TestGroundBackgroundAssembly:
     WL = np.array([8.0, 10.0, 12.0], dtype=np.float64)
 
+    @pytest.mark.level1
     def test_ground_background_matches_T3_formula_at_h0(self) -> None:
         """GroundBackground is modeled as T3 Kirchhoff at h = 0, using
         τ_full_up and L_path_full."""
@@ -674,6 +692,7 @@ class TestT6Assembly:
             source="test_t6_assembly",
         )
 
+    @pytest.mark.level1
     def test_assembly_math_matches_closed_form(self) -> None:
         """L_t_source · τ_up + L_path_up — no reflective terms, no ε/B."""
         atm = self._atm()
@@ -693,6 +712,7 @@ class TestT6Assembly:
             L_aperture, expected, rtol=1e-14, atol=0.0,
         )
 
+    @pytest.mark.level1
     def test_trivial_atmosphere_is_identity(self) -> None:
         """τ ≡ 1, L_path ≡ 0 — T6 returns L_source unchanged."""
         atm = _trivial_atm(self.WL)
@@ -712,6 +732,7 @@ class TestT6Assembly:
             L_aperture, L_src_vals, rtol=1e-14, atol=0.0,
         )
 
+    @pytest.mark.level1
     def test_components_report(self) -> None:
         """report_components puts L_source under self_emission; ρ-terms zero."""
         atm = self._atm()
@@ -742,6 +763,7 @@ class TestT6Assembly:
             comp.total, L_src_vals * atm.tau_up + atm.L_path_up,
         )
 
+    @pytest.mark.level1
     def test_grid_mismatch_raises(self) -> None:
         atm = self._atm()
         bad = SpectralData(
@@ -763,6 +785,7 @@ class TestT6Assembly:
         ):
             assemble_target_at_aperture(target, atm, los)
 
+    @pytest.mark.level1
     def test_missing_los_raises(self) -> None:
         atm = self._atm()
         target = T6TabulatedAtSource(
@@ -844,6 +867,7 @@ class TestGapH2_ViewIllumFromLOS:
             L_path_full=np.full_like(self.WL, 2.5),
         )
 
+    @pytest.mark.level1
     def test_view_illum_vectors_match_los_angles(self) -> None:
         """view = (sinθo, 0, cosθo); illum = (sinθs·cosδφ, sinθs·sinδφ, cosθs)."""
         theta_o = math.radians(30.0)
@@ -891,6 +915,7 @@ class TestGapH2_ViewIllumFromLOS:
             float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15
         )
 
+    @pytest.mark.level1
     def test_theta_s_none_sends_zero_illumination(self) -> None:
         """theta_s=None ⇒ illum_dir is the zero vector (formal placeholder)."""
         los = LineOfSightGeometry(
@@ -915,6 +940,7 @@ class TestGapH2_ViewIllumFromLOS:
         # Illum dir is the zero vector.
         np.testing.assert_array_equal(illum_dir, np.zeros(3, dtype=np.float64))
 
+    @pytest.mark.level1
     def test_delta_phi_none_defaults_to_zero(self) -> None:
         """delta_phi=None ⇒ illum_dir has zero y-component (φ_s = 0)."""
         theta_s = math.radians(45.0)
@@ -936,6 +962,7 @@ class TestGapH2_ViewIllumFromLOS:
         )
         np.testing.assert_allclose(illum_dir, expected, rtol=0.0, atol=1e-15)
 
+    @pytest.mark.level1
     def test_components_path_also_passes_los_vectors(self) -> None:
         """report_components=True threads LOS into _components_t2 too."""
         theta_s = math.radians(60.0)
@@ -959,6 +986,7 @@ class TestGapH2_ViewIllumFromLOS:
             float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15
         )
 
+    @pytest.mark.level1
     def test_spy_result_matches_scalar_lambertian_bit_identical(self) -> None:
         """Spy and ScalarLambertianReflectance return the same assembly result.
 

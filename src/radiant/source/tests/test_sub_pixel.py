@@ -23,6 +23,7 @@ WAV = np.linspace(3.0, 5.0, 200)
 
 
 class TestSubPixelSource:
+    @pytest.mark.level0
     def test_ff_1_equals_target(self) -> None:
         """ff=1 → L_pixel = L_target."""
         src = SubPixelSource(
@@ -36,6 +37,7 @@ class TestSubPixelSource:
         L_tgt = src.target_radiance(WAV)
         np.testing.assert_allclose(L, L_tgt, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_ff_1_matches_thermal_source(self) -> None:
         """ff=1 produces same result as ThermalSource directly."""
         T = 350.0
@@ -52,6 +54,7 @@ class TestSubPixelSource:
         L_thermal = thermal.spectral_radiance(WAV)
         np.testing.assert_allclose(L_sub, L_thermal, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_small_ff_approaches_background(self) -> None:
         """At very small ff, L_pixel ≈ L_background."""
         src = SubPixelSource(
@@ -65,6 +68,7 @@ class TestSubPixelSource:
         L_bg = src.background_radiance(WAV)
         np.testing.assert_allclose(L, L_bg, rtol=1e-4)
 
+    @pytest.mark.level0
     def test_linear_mixing(self) -> None:
         """L_pixel = ff·L_tgt + (1-ff)·L_bg."""
         ff = 0.3
@@ -79,6 +83,7 @@ class TestSubPixelSource:
         expected = ff * src.target_radiance(WAV) + (1 - ff) * src.background_radiance(WAV)
         np.testing.assert_allclose(L, expected, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_half_fill(self) -> None:
         """ff=0.5 → average of target and background."""
         src = SubPixelSource(
@@ -93,6 +98,7 @@ class TestSubPixelSource:
         L_bg = src.background_radiance(WAV)
         np.testing.assert_allclose(L, 0.5 * L_tgt + 0.5 * L_bg, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_ff_zero_raises(self) -> None:
         with pytest.raises(ValueError, match="fill_fraction"):
             SubPixelSource(
@@ -101,6 +107,7 @@ class TestSubPixelSource:
                 background_temperature_K=290, background_emissivity=0.9,
             )
 
+    @pytest.mark.level0
     def test_ff_gt_1_raises(self) -> None:
         with pytest.raises(ValueError, match="fill_fraction"):
             SubPixelSource(
@@ -109,6 +116,7 @@ class TestSubPixelSource:
                 background_temperature_K=290, background_emissivity=0.9,
             )
 
+    @pytest.mark.level0
     def test_negative_target_temp_raises(self) -> None:
         with pytest.raises(ValueError, match="target_temperature_K"):
             SubPixelSource(
@@ -117,6 +125,7 @@ class TestSubPixelSource:
                 background_temperature_K=290, background_emissivity=0.9,
             )
 
+    @pytest.mark.level0
     def test_emissivity_gt_1_raises(self) -> None:
         with pytest.raises(ValueError, match="target_emissivity"):
             SubPixelSource(
@@ -125,6 +134,7 @@ class TestSubPixelSource:
                 background_temperature_K=290, background_emissivity=0.9,
             )
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         src = SubPixelSource(
             fill_fraction=0.5,

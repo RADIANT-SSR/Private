@@ -73,6 +73,7 @@ def _write_csv(path: Path, wavelength_um: np.ndarray, values: np.ndarray,
 class TestCSVRoundTrip:
     """Load data from CSV files and verify values match."""
 
+    @pytest.mark.level1
     def test_round_trip_with_header(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
@@ -105,6 +106,7 @@ class TestCSVRoundTrip:
             rtol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_round_trip_no_header(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
@@ -125,6 +127,7 @@ class TestCSVRoundTrip:
             rtol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_optional_ldown_defaults_to_zeros(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
@@ -150,6 +153,7 @@ class TestCSVRoundTrip:
 class TestNPZRoundTrip:
     """Load data from NPZ files and verify values match."""
 
+    @pytest.mark.level1
     def test_round_trip_full(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
@@ -177,6 +181,7 @@ class TestNPZRoundTrip:
             rtol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_npz_missing_ldown_defaults_to_zeros(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
@@ -202,6 +207,7 @@ class TestNPZRoundTrip:
 class TestResampling:
     """Verify resampling onto a different wavelength grid."""
 
+    @pytest.mark.level1
     def test_resample_to_coarser_grid(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
@@ -234,6 +240,7 @@ class TestResampling:
             simple_state.transmittance.values.max() + 1e-10
         )
 
+    @pytest.mark.level0
     def test_resample_at_source_points_is_exact(
         self, tmp_path: Path, default_geometry: AtmosphericGeometry,
     ) -> None:
@@ -255,6 +262,7 @@ class TestResampling:
             result.path_radiance.values, lp, atol=1e-15,
         )
 
+    @pytest.mark.level0
     def test_linear_interpolation_midpoint(
         self, tmp_path: Path, default_geometry: AtmosphericGeometry,
     ) -> None:
@@ -283,6 +291,7 @@ class TestResampling:
 class TestExtrapolationRejection:
     """Query grid extending beyond source data must raise."""
 
+    @pytest.mark.level1
     def test_query_beyond_source_raises(
         self, tmp_path: Path, default_geometry: AtmosphericGeometry,
     ) -> None:
@@ -306,6 +315,7 @@ class TestExtrapolationRejection:
 class TestValidationFailures:
     """Invalid inputs must produce actionable errors."""
 
+    @pytest.mark.level0
     def test_tau_out_of_bounds(self) -> None:
         wl = np.array([3.0, 4.0, 5.0])
         with pytest.raises(ValueError, match="transmittance values out of"):
@@ -324,6 +334,7 @@ class TestValidationFailures:
                 ),
             )
 
+    @pytest.mark.level0
     def test_negative_path_radiance(self) -> None:
         wl = np.array([3.0, 4.0, 5.0])
         with pytest.raises(ValueError, match="path_radiance has negative"):
@@ -342,20 +353,24 @@ class TestValidationFailures:
                 ),
             )
 
+    @pytest.mark.level0
     def test_csv_file_not_found(self) -> None:
         with pytest.raises(FileNotFoundError, match="not found"):
             TabulatedAtmosphere.from_csv("/nonexistent/tau.csv", "/nonexistent/lp.csv")
 
+    @pytest.mark.level0
     def test_npz_file_not_found(self) -> None:
         with pytest.raises(FileNotFoundError, match="not found"):
             TabulatedAtmosphere.from_npz("/nonexistent/atm.npz")
 
+    @pytest.mark.level0
     def test_npz_missing_key(self, tmp_path: Path) -> None:
         npz_file = tmp_path / "bad.npz"
         np.savez(npz_file, wavelength_um=np.array([3.0, 5.0]))
         with pytest.raises(ValueError, match="missing required key"):
             TabulatedAtmosphere.from_npz(npz_file)
 
+    @pytest.mark.level0
     def test_non_ascending_wavelength_csv(self, tmp_path: Path) -> None:
         f = tmp_path / "bad.csv"
         f.write_text("5.0,0.9\n3.0,0.8\n")
@@ -363,6 +378,7 @@ class TestValidationFailures:
             _load_csv(f)  # raw loader doesn't check, but SpectralData will
             TabulatedAtmosphere.from_csv(f, f)
 
+    @pytest.mark.level0
     def test_empty_csv(self, tmp_path: Path) -> None:
         f = tmp_path / "empty.csv"
         f.write_text("")
@@ -378,6 +394,7 @@ class TestValidationFailures:
 class TestProtocol:
     """TabulatedAtmosphere satisfies the Atmosphere protocol."""
 
+    @pytest.mark.level1
     def test_isinstance_check(self, tmp_path: Path) -> None:
         wl = np.array([3.0, 4.0, 5.0])
         npz = tmp_path / "atm.npz"
@@ -390,6 +407,7 @@ class TestProtocol:
         model = TabulatedAtmosphere.from_npz(npz)
         assert isinstance(model, Atmosphere)
 
+    @pytest.mark.level1
     def test_geometry_does_not_affect_values(
         self, tmp_path: Path,
     ) -> None:
@@ -423,6 +441,7 @@ class TestProtocol:
             r1.path_radiance.values, r2.path_radiance.values,
         )
 
+    @pytest.mark.level1
     def test_deterministic(
         self, tmp_path: Path, default_geometry: AtmosphericGeometry,
     ) -> None:
@@ -451,6 +470,7 @@ class TestProtocol:
 class TestCrossModelConsistency:
     """SimpleAtmosphere output saved as CSV, reloaded as Tabulated, matches."""
 
+    @pytest.mark.level1
     def test_simple_to_csv_round_trip(
         self, tmp_path: Path, simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,

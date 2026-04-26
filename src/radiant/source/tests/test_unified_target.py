@@ -63,6 +63,7 @@ def material() -> SurfaceMaterial:
 
 
 class TestResolvedTarget:
+    @pytest.mark.level0
     def test_frozen(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
         rt = ResolvedTarget(
             name="test",
@@ -78,6 +79,7 @@ class TestResolvedTarget:
         with pytest.raises(AttributeError):
             rt.name = "changed"  # type: ignore[misc]
 
+    @pytest.mark.level0
     def test_spectral_radiance(
         self, thermal_source: ThermalSource, background: BlackbodyBackground
     ) -> None:
@@ -96,6 +98,7 @@ class TestResolvedTarget:
         expected = 0.9 * planck_spectral_radiance(WAV, 500.0)
         np.testing.assert_allclose(L, expected, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_spectral_intensity(
         self, thermal_source: ThermalSource, background: BlackbodyBackground
     ) -> None:
@@ -122,6 +125,7 @@ class TestResolvedTarget:
 
 
 class TestDirectRadiance:
+    @pytest.mark.level0
     def test_basic(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
         rt = resolve_direct_radiance(
             name="direct",
@@ -135,6 +139,7 @@ class TestDirectRadiance:
         assert rt.range_m == 10000.0
         assert rt.tentative_regime == RadiometricRegime.EXTENDED
 
+    @pytest.mark.level0
     def test_negative_range_raises(
         self, thermal_source: ThermalSource, background: BlackbodyBackground
     ) -> None:
@@ -154,6 +159,7 @@ class TestDirectRadiance:
 
 
 class TestGeometry:
+    @pytest.mark.level0
     def test_sphere_area(self, background: BlackbodyBackground, material: SurfaceMaterial) -> None:
         sphere = Sphere(radius_m=0.5)
         rt = resolve_geometry(
@@ -171,6 +177,7 @@ class TestGeometry:
         assert rt.shapes is not None
         assert rt.materials is not None
 
+    @pytest.mark.level0
     def test_radiance_matches_material(
         self, background: BlackbodyBackground, material: SurfaceMaterial
     ) -> None:
@@ -186,6 +193,7 @@ class TestGeometry:
         expected = 0.9 * planck_spectral_radiance(WAV, 500.0)
         np.testing.assert_allclose(rt.spectral_radiance(WAV), expected, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_angular_extent(
         self, background: BlackbodyBackground, material: SurfaceMaterial
     ) -> None:
@@ -208,6 +216,7 @@ class TestGeometry:
 
 
 class TestSubPixel:
+    @pytest.mark.level0
     def test_basic(self, thermal_source: ThermalSource, background: BlackbodyBackground) -> None:
         rt = resolve_sub_pixel(
             name="sub",
@@ -220,6 +229,7 @@ class TestSubPixel:
         assert rt.tentative_regime == RadiometricRegime.SUB_PIXEL
         assert rt.projected_area_m2 == 0.0
 
+    @pytest.mark.level0
     def test_invalid_ff_raises(
         self, thermal_source: ThermalSource, background: BlackbodyBackground
     ) -> None:
@@ -239,6 +249,7 @@ class TestSubPixel:
 
 
 class TestDirectIntensity:
+    @pytest.mark.level0
     def test_basic(self, background: BlackbodyBackground) -> None:
         isrc = BlackbodyIntensitySource(
             temperature_K=500.0, projected_area_m2=0.01, emissivity=1.0,
@@ -261,6 +272,7 @@ class TestDirectIntensity:
 
 
 class TestPhysicalObject:
+    @pytest.mark.level0
     def test_matches_geometry_path(
         self, background: BlackbodyBackground, material: SurfaceMaterial
     ) -> None:
@@ -303,6 +315,7 @@ class TestCrossPathConsistency:
     spectral_radiance(WAV) and projected_area_m2.
     """
 
+    @pytest.mark.level0
     def test_paths_1_2_5_consistent(self) -> None:
         T = 500.0
         eps = 0.9
@@ -354,6 +367,7 @@ class TestCrossPathConsistency:
         np.testing.assert_allclose(L1, L2, rtol=1e-10)
         np.testing.assert_allclose(L2, L5, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_path_4_intensity_consistent(self) -> None:
         """Path 4 intensity = Path 1 radiance × area."""
         T = 500.0
@@ -381,6 +395,7 @@ class TestCrossPathConsistency:
         I_p1 = rt1.spectral_intensity(WAV)
         np.testing.assert_allclose(I_p4, I_p1, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_regime_override(self) -> None:
         src = ThermalSource(temperature_K=500.0, emissivity=0.9)
         bg = BlackbodyBackground(temperature_K=290.0)
@@ -395,6 +410,7 @@ class TestCrossPathConsistency:
         assert rt.tentative_regime == RadiometricRegime.POINT_SOURCE
         assert rt.regime_override == RadiometricRegime.POINT_SOURCE
 
+    @pytest.mark.level0
     def test_derivation_chain_present(self) -> None:
         src = ThermalSource(temperature_K=500.0, emissivity=0.9)
         bg = BlackbodyBackground(temperature_K=290.0)

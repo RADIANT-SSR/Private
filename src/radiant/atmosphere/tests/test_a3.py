@@ -136,6 +136,7 @@ class TestAnchor1HTgtZeroLimit:
     bugs (which would show up at the ~1 % level or worse).
     """
 
+    @pytest.mark.level1
     def test_tau_up_matches_at_h_tgt_1m(
         self,
         lwir_grid: np.ndarray,
@@ -154,6 +155,7 @@ class TestAnchor1HTgtZeroLimit:
             err_msg="A3 at h_tgt=1m diverges from A2 beyond the 1e-3 continuity band",
         )
 
+    @pytest.mark.level1
     def test_tau_sun_matches_at_h_tgt_1m(
         self,
         lwir_grid: np.ndarray,
@@ -173,6 +175,7 @@ class TestAnchor1HTgtZeroLimit:
             err_msg="τ_sun discontinuity at h_tgt→0 limit",
         )
 
+    @pytest.mark.level1
     def test_L_path_up_matches_at_h_tgt_1m(
         self,
         vis_grid: np.ndarray,
@@ -195,6 +198,7 @@ class TestAnchor1HTgtZeroLimit:
             err_msg="L_path_up discontinuity at h_tgt→0 limit",
         )
 
+    @pytest.mark.level1
     def test_h_tgt_zero_unchanged(self, lwir_grid: np.ndarray) -> None:
         """Exact bit equality at h_tgt = 0 (no partial-column code path).
 
@@ -228,6 +232,7 @@ class TestAnchor2HTgtVacuumLimit:
     The sensor must be above 99 km for this test (we use 100 km = h_atm_top).
     """
 
+    @pytest.mark.level1
     def test_tau_up_is_near_unity(self, lwir_grid: np.ndarray) -> None:
         params = _resolved_params(lwir_grid, sensor_altitude_m=100_000.0)
         atm = _default_simple()
@@ -240,6 +245,7 @@ class TestAnchor2HTgtVacuumLimit:
             f"threshold 0.995; the residual column is too large."
         )
 
+    @pytest.mark.level1
     def test_tau_sun_is_near_unity(self, vis_grid: np.ndarray) -> None:
         """Sun down-leg τ_sun from h_tgt=99km is also near-unity."""
         params = _resolved_params(vis_grid, sensor_altitude_m=100_000.0)
@@ -255,6 +261,7 @@ class TestAnchor2HTgtVacuumLimit:
             f"τ_sun min = {float(q.tau_sun.min()):g} below vacuum limit 0.99."
         )
 
+    @pytest.mark.level1
     def test_L_path_up_is_small(self, vis_grid: np.ndarray) -> None:
         """L_path_up at h_tgt=99km must be tiny vs the surface value.
 
@@ -284,6 +291,7 @@ class TestAnchor2HTgtVacuumLimit:
             "vacuum limit is not being reached."
         )
 
+    @pytest.mark.level1
     def test_tau_full_up_unchanged_from_h_tgt_zero(self, lwir_grid: np.ndarray) -> None:
         """τ_full_up is the ground-to-sensor column — independent of h_tgt.
 
@@ -352,6 +360,7 @@ class TestAnchor3HandCalculatedOD:
     composite against an independent hand calc.
     """
 
+    @pytest.mark.level0
     def test_hand_calculated_rayleigh_column_OD(self) -> None:
         """Hand-compute Rayleigh column OD and compare to backend."""
         # Hand calculation.
@@ -376,6 +385,7 @@ class TestAnchor3HandCalculatedOD:
         assert sigma_0 == pytest.approx(3.0343e-5, rel=1e-3, abs=0.0)
         assert od_mol_expected == pytest.approx(6.95e-5, rel=1e-2, abs=0.0)
 
+    @pytest.mark.level0
     def test_hand_calculated_aerosol_column_OD(self) -> None:
         """Hand-compute aerosol column OD and compare to the backend formula."""
         h_low, h_high = 10_000.0, 100_000.0
@@ -403,6 +413,7 @@ class TestAnchor3HandCalculatedOD:
         # OD_aer ≈ 0.01290 · 2.8844e-4 ≈ 3.72e-6
         assert od_aer_expected == pytest.approx(3.72e-6, rel=5e-2, abs=0.0)
 
+    @pytest.mark.level1
     def test_backend_tau_up_matches_hand_calc_at_4um(self) -> None:
         """Backend τ_up at λ=4µm, h_tgt=10km, nadir must match hand calc.
 
@@ -467,6 +478,7 @@ class TestAnchor3HandCalculatedOD:
 class TestFragilityEdgeCases:
     """Fragility analysis: airmass divergence, h_tgt=h_atm_top boundary."""
 
+    @pytest.mark.level1
     def test_h_tgt_at_h_atm_top_raises(self, lwir_grid: np.ndarray) -> None:
         """h_tgt == h_atm_top: path_airmass_up raises (zero-column guard).
 
@@ -484,6 +496,7 @@ class TestFragilityEdgeCases:
         with pytest.raises((ParameterBoundsError, ValueError, ZeroDivisionError)):
             atm.evaluate(lwir_grid, los, params)
 
+    @pytest.mark.level1
     def test_airborne_produces_valid_quantities(self, lwir_grid: np.ndarray) -> None:
         """Smoke test: mid-altitude h_tgt returns a shape-valid bundle."""
         params = _resolved_params(lwir_grid, sensor_altitude_m=20000.0)

@@ -28,6 +28,7 @@ def _lwir_grid(n: int = 61) -> np.ndarray:
 
 
 class TestHappyPath:
+    @pytest.mark.level0
     def test_emits_T1Thermal_with_epsilon_1(self) -> None:
         lam = _lwir_grid()
         desc = radiance_temperature_to_descriptor(
@@ -45,6 +46,7 @@ class TestHappyPath:
             desc.epsilon.values, np.ones_like(lam), atol=0.0
         )
 
+    @pytest.mark.level0
     def test_passes_through_shape_and_area(self) -> None:
         lam = _lwir_grid(n=11)
         desc = radiance_temperature_to_descriptor(
@@ -73,6 +75,7 @@ class TestRoundTripAnchors:
             (2000.0, (0.7, 1.0)),  # Anchor 3 — visible Wien
         ],
     )
+    @pytest.mark.level0
     def test_roundtrip_within_1e_3_K(
         self, T_R: float, band: tuple[float, float]
     ) -> None:
@@ -99,6 +102,7 @@ class TestRoundTripAnchors:
 
 
 class TestRejectsInvalidInputs:
+    @pytest.mark.level0
     def test_T_R_non_positive_raises(self) -> None:
         lam = _lwir_grid(n=5)
         with pytest.raises(ParameterBoundsError, match="non-positive"):
@@ -110,6 +114,7 @@ class TestRejectsInvalidInputs:
                 target_location="terrestrial",
             )
 
+    @pytest.mark.level0
     def test_T_R_above_ceiling_raises(self) -> None:
         lam = _lwir_grid(n=5)
         with pytest.raises(ParameterBoundsError, match="ceiling"):
@@ -121,6 +126,7 @@ class TestRejectsInvalidInputs:
                 target_location="terrestrial",
             )
 
+    @pytest.mark.level0
     def test_T_R_nan_raises(self) -> None:
         lam = _lwir_grid(n=5)
         with pytest.raises(ParameterBoundsError, match="not finite"):
@@ -132,6 +138,7 @@ class TestRejectsInvalidInputs:
                 target_location="terrestrial",
             )
 
+    @pytest.mark.level0
     def test_inverted_band_raises(self) -> None:
         lam = _lwir_grid(n=5)
         with pytest.raises(ParameterBoundsError, match="inverted|degenerate"):
@@ -143,6 +150,7 @@ class TestRejectsInvalidInputs:
                 target_location="terrestrial",
             )
 
+    @pytest.mark.level0
     def test_non_positive_band_raises(self) -> None:
         lam = _lwir_grid(n=5)
         with pytest.raises(ParameterBoundsError, match="non-positive"):
@@ -154,6 +162,7 @@ class TestRejectsInvalidInputs:
                 target_location="terrestrial",
             )
 
+    @pytest.mark.level0
     def test_at_aperture_rejected(self) -> None:
         lam = _lwir_grid(n=5)
         with pytest.raises(ParameterBoundsError, match="at_aperture"):

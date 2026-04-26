@@ -86,10 +86,12 @@ def _grid_vis_to_lwir(n: int = 281) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_simple_atmosphere_implements_protocol() -> None:
     assert isinstance(SimpleAtmosphere(), Atmosphere)
 
 
+@pytest.mark.level1
 def test_simple_state_invariants() -> None:
     atm = SimpleAtmosphere()
     state = atm.build_state(_grid_vis_to_lwir(), _horizontal_geometry())
@@ -109,6 +111,7 @@ def test_simple_state_invariants() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_truth_anchor_1_rayleigh_only_matches_hand_calc() -> None:
     """With V → very large and w_pw = 0, only Rayleigh remains.
 
@@ -147,6 +150,7 @@ def test_truth_anchor_1_rayleigh_only_matches_hand_calc() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_truth_anchor_2_water_vapor_bands_lower_than_windows() -> None:
     """Mid-latitude-ish 5 km horizontal, w_pw = 1.4 cm.
 
@@ -181,6 +185,7 @@ def test_truth_anchor_2_water_vapor_bands_lower_than_windows() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
     """At 550 nm with no water vapor, subtract Rayleigh and recover V.
 
@@ -219,6 +224,7 @@ def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_cross_model_simple_high_visibility_approaches_exo() -> None:
     """``SimpleAtmosphere(V→∞, w=0)`` is close to but not equal to Exo.
 
@@ -253,6 +259,7 @@ def test_cross_model_simple_high_visibility_approaches_exo() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_zenith_zero_slant_equals_altitude_difference() -> None:
     geo = AtmosphericGeometry(
         sensor_altitude_m=10_000.0,
@@ -263,6 +270,7 @@ def test_zenith_zero_slant_equals_altitude_difference() -> None:
     assert geo.air_mass() == pytest.approx(1.0, rel=1e-12)
 
 
+@pytest.mark.level0
 def test_zenith_60_deg_air_mass_two() -> None:
     """sec(60°) = 2.0 — flat-Earth check."""
     geo = AtmosphericGeometry(
@@ -273,6 +281,7 @@ def test_zenith_60_deg_air_mass_two() -> None:
     assert geo.air_mass() == pytest.approx(2.0, rel=1e-12)
 
 
+@pytest.mark.level0
 def test_zenith_85_deg_uses_spherical_correction() -> None:
     """Past 80° the spherical correction kicks in. Air mass remains
     finite and is less than the (singular) flat-Earth ``sec(85°)``.
@@ -290,6 +299,7 @@ def test_zenith_85_deg_uses_spherical_correction() -> None:
     assert am > 0.5 * flat
 
 
+@pytest.mark.level0
 def test_zenith_above_ceiling_rejected() -> None:
     with pytest.raises(ValueError, match="path_zenith_rad"):
         AtmosphericGeometry(
@@ -299,6 +309,7 @@ def test_zenith_above_ceiling_rejected() -> None:
         )
 
 
+@pytest.mark.level0
 def test_negative_zenith_rejected() -> None:
     with pytest.raises(ValueError, match="path_zenith_rad"):
         AtmosphericGeometry(
@@ -308,6 +319,7 @@ def test_negative_zenith_rejected() -> None:
         )
 
 
+@pytest.mark.level0
 def test_negative_altitude_rejected() -> None:
     with pytest.raises(ValueError, match="altitude"):
         AtmosphericGeometry(
@@ -317,6 +329,7 @@ def test_negative_altitude_rejected() -> None:
         )
 
 
+@pytest.mark.level0
 def test_geometry_from_degrees_round_trip() -> None:
     geo = AtmosphericGeometry.from_degrees(
         sensor_altitude_m=500_000.0,
@@ -330,6 +343,7 @@ def test_geometry_from_degrees_round_trip() -> None:
     assert geo.solar_azimuth_rad == pytest.approx(math.radians(180.0))
 
 
+@pytest.mark.level0
 def test_geometry_serialization_round_trip() -> None:
     geo = AtmosphericGeometry.from_degrees(
         sensor_altitude_m=8000.0,
@@ -348,26 +362,31 @@ def test_geometry_serialization_round_trip() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_negative_visibility_rejected() -> None:
     with pytest.raises(ValueError, match="visibility_km"):
         SimpleAtmosphere(visibility_km=-1.0)
 
 
+@pytest.mark.level0
 def test_zero_visibility_rejected() -> None:
     with pytest.raises(ValueError, match="visibility_km"):
         SimpleAtmosphere(visibility_km=0.0)
 
 
+@pytest.mark.level0
 def test_unknown_aerosol_type_rejected() -> None:
     with pytest.raises(ValueError, match="aerosol_type"):
         SimpleAtmosphere(aerosol_type="dusty")
 
 
+@pytest.mark.level0
 def test_negative_pwv_rejected() -> None:
     with pytest.raises(ValueError, match="precipitable_water_cm"):
         SimpleAtmosphere(precipitable_water_cm=-0.1)
 
 
+@pytest.mark.level0
 def test_zero_pwv_disables_water_vapor() -> None:
     """w_pw = 0 must zero out the H₂O term cleanly."""
     atm = SimpleAtmosphere(precipitable_water_cm=0.0, visibility_km=1e9)
@@ -382,6 +401,7 @@ def test_zero_pwv_disables_water_vapor() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_orbital_altitude_high_transmittance() -> None:
     """At 500 km LEO, τ must be physically reasonable (not zero).
 
@@ -411,6 +431,7 @@ def test_orbital_altitude_high_transmittance() -> None:
     assert np.all(tau < 1.0), "τ at 500 km should be < 1 (some atmosphere remains)"
 
 
+@pytest.mark.level0
 def test_orbital_altitude_column_od_hand_calc() -> None:
     """Verify column-integrated OD matches hand calculation at 500 km.
 
@@ -441,6 +462,7 @@ def test_orbital_altitude_column_od_hand_calc() -> None:
     assert tau == pytest.approx(tau_expected, rel=1e-10)
 
 
+@pytest.mark.level1
 def test_geo_orbit_transmittance_above_ground_observer() -> None:
     """GEO at 35786 km should have essentially the same τ as LEO.
 
@@ -472,6 +494,7 @@ def test_geo_orbit_transmittance_above_ground_observer() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_build_state_is_deterministic() -> None:
     atm = SimpleAtmosphere()
     grid = _grid_vis_to_lwir(64)
@@ -486,11 +509,13 @@ def test_build_state_is_deterministic() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_simple_rejects_non_ascending_grid() -> None:
     with pytest.raises(ValueError, match="ascending"):
         SimpleAtmosphere().build_state(np.array([1.0, 0.5, 2.0]), _horizontal_geometry())
 
 
+@pytest.mark.level0
 def test_simple_rejects_non_positive_grid() -> None:
     with pytest.raises(ValueError, match="positive"):
         SimpleAtmosphere().build_state(np.array([-0.1, 1.0, 2.0]), _horizontal_geometry())
@@ -501,6 +526,7 @@ def test_simple_rejects_non_positive_grid() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_artifact_plot_visible_to_lwir(tmp_path: Path) -> None:
     """Save a transmittance plot for visual inspection.
 
@@ -577,6 +603,7 @@ def _vertical_geometry(sensor_altitude_m: float) -> AtmosphericGeometry:
     )
 
 
+@pytest.mark.level0
 def test_l_atm_down_zero_when_tau_one() -> None:
     """Exo-configuration (Δh = 0) has τ ≡ 1 → L_atm_down ≡ 0."""
     atm = SimpleAtmosphere()
@@ -591,6 +618,7 @@ def test_l_atm_down_zero_when_tau_one() -> None:
     assert np.allclose(state.atm_emission_down.values, 0.0)
 
 
+@pytest.mark.level1
 def test_l_atm_down_nonnegative_and_bounded_by_planck() -> None:
     """L_atm_down ∈ [0, B(λ, T_atm_eff)] point-wise, per §3.1 hard limit."""
     from radiant.core.blackbody import planck_spectral_radiance
@@ -612,6 +640,7 @@ def test_l_atm_down_nonnegative_and_bounded_by_planck() -> None:
     assert np.all(emission <= planck + 1e-12)
 
 
+@pytest.mark.level0
 def test_l_atm_down_truth_anchor_opaque_limit() -> None:
     """At a wavelength where τ ≈ 0, L_atm_down → B(λ, T_atm_eff) exactly.
 
@@ -639,6 +668,7 @@ def test_l_atm_down_truth_anchor_opaque_limit() -> None:
     assert np.allclose(state.atm_emission_down.values, planck, rtol=1e-3, atol=0.0)
 
 
+@pytest.mark.level1
 def test_l_atm_down_scales_with_profile_temperature() -> None:
     """Hotter standard atmosphere → larger L_atm_down at fixed geometry."""
     grid = np.linspace(8.0, 14.0, 61)
@@ -653,6 +683,7 @@ def test_l_atm_down_scales_with_profile_temperature() -> None:
     assert np.all(tropical.atm_emission_down.values > arctic_winter.atm_emission_down.values)
 
 
+@pytest.mark.level0
 def test_t_atm_eff_truth_anchor_lookup() -> None:
     """T_atm_eff = T_sea − 6.5 · (h_sensor / 2) / 1000, clamped at 216.65 K."""
     atm = SimpleAtmosphere(standard_atmosphere="us_standard")
@@ -667,6 +698,7 @@ def test_t_atm_eff_truth_anchor_lookup() -> None:
     assert atm._effective_atmospheric_temperature_K(-500.0) == pytest.approx(288.15)
 
 
+@pytest.mark.level0
 def test_invalid_standard_atmosphere_raises() -> None:
     with pytest.raises(ValueError, match="standard_atmosphere"):
         SimpleAtmosphere(standard_atmosphere="martian")
@@ -691,6 +723,7 @@ def _daylight_geometry(
     )
 
 
+@pytest.mark.level0
 def test_l_path_zero_when_tau_one() -> None:
     """No atmosphere along the line of sight → no scattered radiance."""
     atm = SimpleAtmosphere()
@@ -706,6 +739,7 @@ def test_l_path_zero_when_tau_one() -> None:
     assert np.allclose(state.path_radiance.values, 0.0)
 
 
+@pytest.mark.level1
 def test_l_path_sun_at_horizon_vs_overhead() -> None:
     """L_path ∝ cos(θ_sun): horizon case is ~1e-6 of the overhead case."""
     atm = SimpleAtmosphere(visibility_km=5.0)
@@ -720,6 +754,7 @@ def test_l_path_sun_at_horizon_vs_overhead() -> None:
     assert ratio < 1e-4  # cos(θ_sun)-driven reduction dominates
 
 
+@pytest.mark.level1
 def test_l_path_nonnegative_and_finite() -> None:
     atm = SimpleAtmosphere(visibility_km=10.0, precipitable_water_cm=2.0)
     grid = np.linspace(0.4, 14.0, 281)
@@ -729,6 +764,7 @@ def test_l_path_nonnegative_and_finite() -> None:
     assert np.all(lp >= 0.0)
 
 
+@pytest.mark.level1
 def test_l_path_higher_in_vis_than_lwir() -> None:
     """Rayleigh ∝ λ⁻⁴ dominates in vis, extinction collapses in LWIR."""
     atm = SimpleAtmosphere(visibility_km=15.0)
@@ -740,6 +776,7 @@ def test_l_path_higher_in_vis_than_lwir() -> None:
     assert lp[vis_idx] > 100.0 * lp[lwir_idx]
 
 
+@pytest.mark.level1
 def test_l_path_scales_linearly_with_cos_theta_sun() -> None:
     """Hold everything else fixed, double cos(θ_sun) → L_path doubles."""
     atm = SimpleAtmosphere(visibility_km=15.0)
@@ -758,6 +795,7 @@ def test_l_path_scales_linearly_with_cos_theta_sun() -> None:
     assert overhead_peak > low_sun_peak
 
 
+@pytest.mark.level1
 def test_l_path_scales_with_solar_irradiance_shape() -> None:
     """L_path at 0.5 µm should be ~O(1) W/m²/sr/µm for a typical case.
 
@@ -775,6 +813,7 @@ def test_l_path_scales_with_solar_irradiance_shape() -> None:
     assert 0.1 < mid < 1000.0
 
 
+@pytest.mark.level0
 def test_cos_scattering_angle_truth_anchors() -> None:
     """Truth anchors for the geometry helper."""
     # Sun at zenith, sensor at nadir: cos Θ = −1 (backscatter).

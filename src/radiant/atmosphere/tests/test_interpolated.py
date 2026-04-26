@@ -79,6 +79,7 @@ def wl() -> np.ndarray:
 class TestLogTauInterpolation:
     """Verify the core interpolation formula in log-transmittance space."""
 
+    @pytest.mark.level0
     def test_midpoint_is_geometric_mean(self, wl: np.ndarray) -> None:
         """At the midpoint of two zenith values, tau should be the
         geometric mean: tau_mid = sqrt(tau_0 * tau_1).
@@ -110,6 +111,7 @@ class TestLogTauInterpolation:
             rtol=1e-10,
         )
 
+    @pytest.mark.level0
     def test_quarter_point_interpolation(self, wl: np.ndarray) -> None:
         """At 1/4 of the way between two points:
         ln(tau) = 0.75 * ln(tau_0) + 0.25 * ln(tau_1)
@@ -137,6 +139,7 @@ class TestLogTauInterpolation:
             rtol=1e-10,
         )
 
+    @pytest.mark.level0
     def test_lpath_interpolation_is_linear(self, wl: np.ndarray) -> None:
         """L_path should be interpolated linearly (not in log space)."""
         lp_0 = 0.01 * np.ones_like(wl)
@@ -170,6 +173,7 @@ class TestLogTauInterpolation:
 class TestExactAtNodes:
     """Querying at an existing grid point reproduces the original values."""
 
+    @pytest.mark.level0
     def test_exact_at_endpoints(self, wl: np.ndarray) -> None:
         tau = np.linspace(0.9, 0.3, len(wl))
         lp = np.linspace(0.01, 0.05, len(wl))
@@ -190,6 +194,7 @@ class TestExactAtNodes:
         np.testing.assert_allclose(result.transmittance.values, tau, rtol=1e-10)
         np.testing.assert_allclose(result.path_radiance.values, lp, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_exact_at_interior_node(self, wl: np.ndarray) -> None:
         """3 points; query at the middle one."""
         tau_vals = [0.9 * np.ones_like(wl), 0.6 * np.ones_like(wl), 0.3 * np.ones_like(wl)]
@@ -221,6 +226,7 @@ class TestExactAtNodes:
 class TestMultiAxisInterpolation:
     """Interpolation over multiple geometry axes."""
 
+    @pytest.mark.level1
     def test_2d_structured_grid(self, wl: np.ndarray) -> None:
         """2x2 grid of (zenith, altitude); verify interior interpolation."""
         zeniths = [0.0, 1.0]
@@ -254,6 +260,7 @@ class TestMultiAxisInterpolation:
         assert float(result.transmittance.values.min()) > 0.0
         assert float(result.transmittance.values.max()) <= 1.0
 
+    @pytest.mark.level1
     def test_scattered_points(self, wl: np.ndarray) -> None:
         """Non-grid points should use LinearNDInterpolator."""
         # 4 non-collinear points that don't form a 2x2 grid.
@@ -301,6 +308,7 @@ class TestMultiAxisInterpolation:
 class TestCrossModelConsistency:
     """Interpolated SimpleAtmosphere states should bracket the truth."""
 
+    @pytest.mark.level1
     def test_simple_atmosphere_interpolation_bounded(self) -> None:
         """Build from 3 SimpleAtmosphere runs at different zeniths.
         The interpolated result at the midpoint should be bounded by
@@ -346,6 +354,7 @@ class TestCrossModelConsistency:
 class TestExtrapolationRejection:
     """Queries outside the available range must raise."""
 
+    @pytest.mark.level0
     def test_beyond_upper_bound(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -361,6 +370,7 @@ class TestExtrapolationRejection:
         with pytest.raises(ValueError, match="outside the available range"):
             model.build_state(wl, geom)
 
+    @pytest.mark.level0
     def test_below_lower_bound(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.2}, wl, 0.9 * np.ones_like(wl)),
@@ -385,6 +395,7 @@ class TestExtrapolationRejection:
 class TestEdgeCases:
     """Edge cases: tau=0, tau=1, mismatched grids."""
 
+    @pytest.mark.level0
     def test_tau_near_zero_clamped(self, wl: np.ndarray) -> None:
         """tau=0 should be clamped to TAU_FLOOR before log; no NaN."""
         points = [
@@ -402,6 +413,7 @@ class TestEdgeCases:
         assert not np.any(np.isnan(result.transmittance.values))
         assert np.all(result.transmittance.values >= 0.0)
 
+    @pytest.mark.level0
     def test_tau_one_exo_like(self, wl: np.ndarray) -> None:
         """tau=1 everywhere (exo-like); log(1)=0 should work."""
         points = [
@@ -418,6 +430,7 @@ class TestEdgeCases:
 
         np.testing.assert_allclose(result.transmittance.values, 1.0, atol=1e-15)
 
+    @pytest.mark.level1
     def test_mismatched_wavelength_grids_raises(self) -> None:
         wl1 = np.linspace(3.0, 5.0, 50)
         wl2 = np.linspace(3.0, 5.0, 60)  # different grid
@@ -429,6 +442,7 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="different wavelength grid"):
             InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
+    @pytest.mark.level1
     def test_query_grid_mismatch_raises(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -453,11 +467,13 @@ class TestEdgeCases:
 class TestValidationFailures:
     """Invalid constructor inputs."""
 
+    @pytest.mark.level0
     def test_fewer_than_2_points(self, wl: np.ndarray) -> None:
         points = [_make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl))]
         with pytest.raises(ValueError, match="at least 2"):
             InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
+    @pytest.mark.level0
     def test_no_axes(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -466,6 +482,7 @@ class TestValidationFailures:
         with pytest.raises(ValueError, match="at least one"):
             InterpolatedAtmosphere(points, axes=[])
 
+    @pytest.mark.level0
     def test_invalid_axis_name(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -474,6 +491,7 @@ class TestValidationFailures:
         with pytest.raises(ValueError, match="not a valid geometry"):
             InterpolatedAtmosphere(points, axes=["invalid_field"])
 
+    @pytest.mark.level0
     def test_missing_coordinate(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -482,6 +500,7 @@ class TestValidationFailures:
         with pytest.raises(ValueError, match="missing coordinate"):
             InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
+    @pytest.mark.level0
     def test_invalid_method(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -499,6 +518,7 @@ class TestValidationFailures:
 class TestProtocol:
     """InterpolatedAtmosphere satisfies the Atmosphere protocol."""
 
+    @pytest.mark.level1
     def test_isinstance_check(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -507,6 +527,7 @@ class TestProtocol:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
         assert isinstance(model, Atmosphere)
 
+    @pytest.mark.level0
     def test_coordinate_bounds(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.2}, wl, 0.9 * np.ones_like(wl)),
@@ -516,6 +537,7 @@ class TestProtocol:
         bounds = model.coordinate_bounds()
         assert bounds["path_zenith_rad"] == pytest.approx((0.2, 0.8))
 
+    @pytest.mark.level1
     def test_deterministic(self, wl: np.ndarray) -> None:
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
@@ -534,6 +556,7 @@ class TestProtocol:
             r1.transmittance.values, r2.transmittance.values,
         )
 
+    @pytest.mark.level1
     def test_from_states_factory(self) -> None:
         """from_states class method works correctly."""
         wl = np.linspace(3.0, 5.0, 50)

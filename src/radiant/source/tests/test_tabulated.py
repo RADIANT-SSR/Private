@@ -25,11 +25,13 @@ class TestTabulatedRadianceSource:
             source="test",
         )
 
+    @pytest.mark.level0
     def test_constant_value(self, radiance_data: SpectralData) -> None:
         src = TabulatedRadianceSource(radiance_data=radiance_data)
         L = src.spectral_radiance(WAV)
         np.testing.assert_allclose(L, 5.0, rtol=1e-6)
 
+    @pytest.mark.level0
     def test_interpolation(self) -> None:
         wl = np.array([2.0, 3.0, 4.0, 5.0, 6.0])
         vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -41,6 +43,7 @@ class TestTabulatedRadianceSource:
         result = src.spectral_radiance(np.array([3.5]))
         assert result[0] == pytest.approx(2.5, rel=1e-10)
 
+    @pytest.mark.level0
     def test_out_of_range_raises(self) -> None:
         sd = SpectralData(
             name="narrow", wavelength_um=np.linspace(4.0, 4.5, 10),
@@ -50,6 +53,7 @@ class TestTabulatedRadianceSource:
         with pytest.raises(ValueError, match="outside table"):
             src.spectral_radiance(WAV)
 
+    @pytest.mark.level0
     def test_negative_values_raises(self) -> None:
         sd = SpectralData(
             name="bad", wavelength_um=np.linspace(2.0, 6.0, 10),
@@ -58,6 +62,7 @@ class TestTabulatedRadianceSource:
         with pytest.raises(ValueError, match="non-negative"):
             TabulatedRadianceSource(radiance_data=sd)
 
+    @pytest.mark.level0
     def test_serialization_roundtrip(self, radiance_data: SpectralData) -> None:
         src = TabulatedRadianceSource(radiance_data=radiance_data, name="my_tab")
         d = src.to_dict()
@@ -66,11 +71,13 @@ class TestTabulatedRadianceSource:
         L2 = src2.spectral_radiance(WAV)
         np.testing.assert_allclose(L1, L2, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_frozen(self, radiance_data: SpectralData) -> None:
         src = TabulatedRadianceSource(radiance_data=radiance_data)
         with pytest.raises(AttributeError):
             src.name = "changed"  # type: ignore[misc]
 
+    @pytest.mark.level0
     def test_deterministic(self, radiance_data: SpectralData) -> None:
         src = TabulatedRadianceSource(radiance_data=radiance_data)
         L1 = src.spectral_radiance(WAV)

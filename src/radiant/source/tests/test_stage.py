@@ -64,6 +64,7 @@ class TestSourceStage:
     def wl(self) -> np.ndarray:
         return np.linspace(3.0, 5.0, 100)
 
+    @pytest.mark.level1
     def test_no_at_target_frame_in_stage_4(self, wl: np.ndarray) -> None:
         """Stage 4 removes the at_target radiance frame entirely."""
         import warnings as _w
@@ -74,6 +75,7 @@ class TestSourceStage:
             out = SourceStage().run(state, _make_params())
         assert "at_target" not in out.frames
 
+    @pytest.mark.level1
     def test_publishes_target_descriptor(self, wl: np.ndarray) -> None:
         import warnings as _w
 
@@ -86,6 +88,7 @@ class TestSourceStage:
         target = out.stage_outputs["source"]["target"]
         assert isinstance(target, TargetDescriptor)
 
+    @pytest.mark.level1
     def test_default_regime_extended(self, wl: np.ndarray) -> None:
         """No area/range → defaults to EXTENDED."""
         import warnings as _w
@@ -96,9 +99,11 @@ class TestSourceStage:
             out = SourceStage().run(state, _make_params())
         assert out.stage_outputs["source"]["regime_tentative"] == RadiometricRegime.EXTENDED
 
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert SourceStage().name == "source"
 
+    @pytest.mark.level1
     def test_no_L_background_stage_output_in_stage_4(self, wl: np.ndarray) -> None:
         """Stage 4 removes the L_background stage_output entirely."""
         import warnings as _w
@@ -109,6 +114,7 @@ class TestSourceStage:
             out = SourceStage().run(state, _make_params())
         assert "L_background" not in out.stage_outputs["source"]
 
+    @pytest.mark.level1
     def test_fill_fraction_stored(self, wl: np.ndarray) -> None:
         import warnings as _w
 
@@ -121,6 +127,7 @@ class TestSourceStage:
             out = SourceStage().run(state, _make_params(fill_fraction=0.3))
         assert out.stage_outputs["source"]["fill_fraction"] == 0.3
 
+    @pytest.mark.level1
     def test_angular_extent_stored(self, wl: np.ndarray) -> None:
         """When area and range are provided, angular_extent is computed."""
         area, R = 1.0, 10000.0
@@ -135,6 +142,7 @@ class TestSourceStage:
     # Option C descriptors (Stage 2 additive bridge, ADR-0002)
     # ------------------------------------------------------------------
 
+    @pytest.mark.level1
     def test_descriptors_published(self, wl: np.ndarray) -> None:
         """SourceStage publishes target/background/los_geometry keys.
 
@@ -174,6 +182,7 @@ class TestSourceStage:
         assert "at_target" not in out.frames
         assert "L_background" not in src
 
+    @pytest.mark.level1
     def test_descriptor_target_carries_expected_values(self, wl: np.ndarray) -> None:
         """T1Thermal descriptor carries the scalar ε, T from the param surface."""
         from radiant.core.descriptors import T1Thermal
@@ -187,6 +196,7 @@ class TestSourceStage:
         assert target.epsilon is not None
         assert np.allclose(target.epsilon.values, 0.8)
 
+    @pytest.mark.level1
     def test_descriptor_sub_pixel_builds_ground_background(self, wl: np.ndarray) -> None:
         """fill_fraction < 1 → scene_type='sub_pixel' → GroundBackground placeholder."""
         import warnings as _w
@@ -216,6 +226,7 @@ class TestClassifyRegime:
     FOCAL_LENGTH_M: float = 1.2
     IFOV: float = 18e-6 / 1.2  # 1.5e-5 rad
 
+    @pytest.mark.level1
     def test_no_geometry_is_extended(self) -> None:
         regime, ang = _classify_regime(
             projected_area_m2=None,
@@ -228,6 +239,7 @@ class TestClassifyRegime:
         assert regime == RadiometricRegime.EXTENDED
         assert ang == float("inf")
 
+    @pytest.mark.level1
     def test_large_target_is_extended(self) -> None:
         """angular_extent >> 2 × IFOV → EXTENDED."""
         # angular_extent = sqrt(100) / 1000 = 0.01 rad >> 2 * 1.5e-5
@@ -242,6 +254,7 @@ class TestClassifyRegime:
         assert regime == RadiometricRegime.EXTENDED
         assert ang == pytest.approx(0.01, rel=1e-10)
 
+    @pytest.mark.level1
     def test_tiny_target_is_point_source(self) -> None:
         """angular_extent << 0.25 × IFOV → POINT_SOURCE."""
         # Need angular_extent <= 0.25 * 1.5e-5 = 3.75e-6 rad
@@ -257,6 +270,7 @@ class TestClassifyRegime:
         assert regime == RadiometricRegime.POINT_SOURCE
         assert ang == pytest.approx(3e-6, rel=1e-10)
 
+    @pytest.mark.level1
     def test_intermediate_target_is_subpixel(self) -> None:
         """0.25 × IFOV < angular_extent < 2 × IFOV → SUB_PIXEL."""
         # IFOV = 1.5e-5, need 3.75e-6 < ang < 3e-5
@@ -272,6 +286,7 @@ class TestClassifyRegime:
         assert regime == RadiometricRegime.SUB_PIXEL
         assert ang == pytest.approx(1e-5, rel=1e-10)
 
+    @pytest.mark.level1
     def test_fill_fraction_forces_subpixel(self) -> None:
         """fill_fraction < 1.0 overrides IFOV-based classification."""
         regime, _ = _classify_regime(
@@ -284,6 +299,7 @@ class TestClassifyRegime:
         )
         assert regime == RadiometricRegime.SUB_PIXEL
 
+    @pytest.mark.level1
     def test_regime_override_forces(self) -> None:
         """Explicit regime_override bypasses all classification."""
         regime, _ = _classify_regime(
@@ -296,6 +312,7 @@ class TestClassifyRegime:
         )
         assert regime == RadiometricRegime.POINT_SOURCE
 
+    @pytest.mark.level1
     def test_boundary_exactly_2_ifov_is_extended(self) -> None:
         """Angular extent exactly 2 × IFOV → EXTENDED (inclusive boundary)."""
         ang_target = 2.0 * self.IFOV  # = 3e-5 rad
@@ -312,6 +329,7 @@ class TestClassifyRegime:
         )
         assert regime == RadiometricRegime.EXTENDED
 
+    @pytest.mark.level1
     def test_boundary_exactly_025_ifov_is_point(self) -> None:
         """Angular extent exactly 0.25 × IFOV → POINT_SOURCE (inclusive)."""
         ang_target = 0.25 * self.IFOV

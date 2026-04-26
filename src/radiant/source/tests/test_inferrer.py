@@ -194,6 +194,7 @@ _EXPECTED: dict[str, ScenarioExpectation] = {
 class TestScenarioInference:
     """Confirm every snapshot scenario produces expected descriptors."""
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("scenario_name,path", _scenario_paths())
     def test_expected_variants(self, scenario_name: str, path: Path) -> None:
         assert scenario_name in _EXPECTED, (
@@ -246,6 +247,7 @@ class TestSnapshotRegression:
     re-run; the test will overwrite the YAML and pass.
     """
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("scenario_name,path", _scenario_paths())
     def test_snapshot_matches(self, scenario_name: str, path: Path) -> None:
         import os
@@ -300,6 +302,7 @@ class TestSnapshotRegression:
 
 
 class TestExplicitOverrides:
+    @pytest.mark.level1
     def test_explicit_scene_type_overrides_inference(self) -> None:
         params = build_parameter_set()
         load_config(
@@ -317,6 +320,7 @@ class TestExplicitOverrides:
         # Sub-pixel terrestrial ⇒ GroundBackground placeholder.
         assert isinstance(bg, GroundBackground)
 
+    @pytest.mark.level1
     def test_explicit_target_location_overrides_inference(self) -> None:
         params = build_parameter_set()
         load_config(
@@ -340,6 +344,7 @@ class TestExplicitOverrides:
         assert los is None
         assert isinstance(bg, AtApertureBackground)
 
+    @pytest.mark.level1
     def test_explicit_subcase_honored_with_auto_location(self) -> None:
         params = build_parameter_set()
         load_config(
@@ -363,6 +368,7 @@ class TestExplicitOverrides:
 
 
 class TestFailureModes:
+    @pytest.mark.level1
     def test_no_atmosphere_without_subcase_raises(self) -> None:
         """Matrix §7: target_location='no_atmosphere' requires a subcase."""
         params = build_parameter_set()
@@ -377,6 +383,7 @@ class TestFailureModes:
         with pytest.raises(ParameterBoundsError, match="no_atmosphere"):
             infer_descriptors(params, wl)
 
+    @pytest.mark.level1
     def test_at_aperture_plus_sub_pixel_raises(self) -> None:
         """Matrix §7: at_aperture is extended-only."""
         params = build_parameter_set()
@@ -391,6 +398,7 @@ class TestFailureModes:
         with pytest.raises(ParameterBoundsError, match="at_aperture"):
             infer_descriptors(params, wl)
 
+    @pytest.mark.level1
     def test_terrestrial_sub_pixel_placeholder_warns(self) -> None:
         """Stage 2 placeholder warning: terrestrial+sub_pixel → grey GroundBackground."""
         params = build_parameter_set()
@@ -411,6 +419,7 @@ class TestFailureModes:
             f"Expected Stage-2 placeholder warning, got: {msgs}"
         )
 
+    @pytest.mark.level1
     def test_ground_test_subcase_raises_in_stage_2(self) -> None:
         """Stage 2 has no UserSpectralBackground path; ground_test must raise."""
         params = build_parameter_set()
@@ -446,6 +455,7 @@ class TestRoundTrip:
             "examples/ground_truth_mwir.yaml",
         ],
     )
+    @pytest.mark.level1
     def test_round_trip_subset(self, scenario_name: str) -> None:
         path = REPO_ROOT / scenario_name
         params = _load_params(path)
@@ -515,6 +525,7 @@ class TestRoundTrip:
 
 
 class TestInfererHelpers:
+    @pytest.mark.level1
     def test_infer_scene_type_extended_default(self) -> None:
         params = build_parameter_set()
         load_config(
@@ -529,6 +540,7 @@ class TestInfererHelpers:
         )
         assert result == "extended"
 
+    @pytest.mark.level1
     def test_infer_scene_type_fill_fraction_forces_subpixel(self) -> None:
         params = build_parameter_set()
         load_config(
@@ -544,6 +556,7 @@ class TestInfererHelpers:
         )
         assert result == "sub_pixel"
 
+    @pytest.mark.level1
     def test_infer_target_location_exo_to_space(self) -> None:
         params = build_parameter_set()
         load_config(REPO_ROOT / "examples" / "ground_truth_mwir.yaml", params)
@@ -552,6 +565,7 @@ class TestInfererHelpers:
         assert loc == "no_atmosphere"
         assert sub == "space"
 
+    @pytest.mark.level1
     def test_infer_target_location_simple_to_terrestrial(self) -> None:
         params = build_parameter_set()
         load_config(
@@ -569,6 +583,7 @@ class TestInfererHelpers:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_inferrer_does_not_import_atmosphere_module() -> None:
     """Rule 11: source._inferrer must not import radiant.atmosphere.*"""
     import radiant.source._inferrer as infer_mod

@@ -87,6 +87,7 @@ def _invert_planck_to_T_B(lam_um: float, L: float) -> float:
 
 
 class TestAnchor1ConstantTBMatchesPlanck:
+    @pytest.mark.level0
     def test_constant_T_B_emits_T1_thermal_with_epsilon_1(self) -> None:
         lam = _lwir_grid()
         T_B = _flat_T_B(lam, 300.0)
@@ -105,6 +106,7 @@ class TestAnchor1ConstantTBMatchesPlanck:
             desc.epsilon.values, np.ones_like(lam), atol=0.0
         )
 
+    @pytest.mark.level0
     def test_L_at_10um_matches_planck_blackbody(self) -> None:
         """Anchor 1: T_B = 300 K flat → L(10 µm) = B(10 µm, 300 K) to 1e-6."""
         lam = _lwir_grid()
@@ -138,6 +140,7 @@ class TestAnchor1ConstantTBMatchesPlanck:
 
 
 class TestAnchor2VaryingTBMatchesPointwisePlanck:
+    @pytest.mark.level0
     def test_varying_T_B_emits_T6_with_matching_L(self) -> None:
         """Anchor 2: sloped T_B(λ) → L(λ_i) = B(λ_i, T_B(λ_i)) at 3 checkpoints."""
         lam = _lwir_grid()
@@ -183,6 +186,7 @@ class TestAnchor2VaryingTBMatchesPointwisePlanck:
 
 
 class TestAnchor3RoundTripTB:
+    @pytest.mark.level0
     def test_roundtrip_within_1e_4_kelvin(self) -> None:
         lam = _lwir_grid()
         T_B_vals = np.linspace(275.0, 315.0, lam.size, dtype=np.float64)
@@ -223,6 +227,7 @@ class TestAnchor3RoundTripTB:
 
 
 class TestBranchSelection:
+    @pytest.mark.level0
     def test_near_constant_below_threshold_collapses_to_T1(self) -> None:
         """peak-to-peak ≤ 1 K default threshold → T1Thermal."""
         lam = _lwir_grid(n=7)
@@ -246,6 +251,7 @@ class TestBranchSelection:
         assert isinstance(desc, T1Thermal)
         assert desc.T_t == pytest.approx(float(T_B_vals.mean()), abs=1e-12)
 
+    @pytest.mark.level0
     def test_peak_to_peak_just_above_threshold_routes_to_T6(self) -> None:
         lam = _lwir_grid(n=5)
         # 1.5 K peak-to-peak — above the 1 K default threshold.
@@ -267,6 +273,7 @@ class TestBranchSelection:
         )
         assert isinstance(desc, T6TabulatedAtSource)
 
+    @pytest.mark.level0
     def test_custom_threshold_forces_T6(self) -> None:
         """constant_threshold_K=0 forces T6 even for flat T_B."""
         lam = _lwir_grid(n=5)
@@ -287,6 +294,7 @@ class TestBranchSelection:
 
 
 class TestRejectsInvalidInputs:
+    @pytest.mark.level0
     def test_negative_T_B_raises(self) -> None:
         lam = _lwir_grid(n=5)
         T_B_vals = np.array(
@@ -307,6 +315,7 @@ class TestRejectsInvalidInputs:
                 h_tgt=0.0,
             )
 
+    @pytest.mark.level0
     def test_T_B_above_ceiling_raises(self) -> None:
         lam = _lwir_grid(n=5)
         T_B = _flat_T_B(lam, 15_000.0)
@@ -318,6 +327,7 @@ class TestRejectsInvalidInputs:
                 h_tgt=0.0,
             )
 
+    @pytest.mark.level0
     def test_at_aperture_rejected(self) -> None:
         lam = _lwir_grid(n=5)
         T_B = _flat_T_B(lam, 300.0)
@@ -335,6 +345,7 @@ class TestRejectsInvalidInputs:
 
 
 class TestFragility:
+    @pytest.mark.level0
     def test_cold_T_B_still_produces_non_negative_radiance(self) -> None:
         """T_B = 50 K is deep in the Wien / underflow regime for LWIR."""
         lam = _lwir_grid(n=11)
@@ -348,6 +359,7 @@ class TestFragility:
         assert isinstance(desc, T1Thermal)
         assert desc.T_t == pytest.approx(50.0, abs=1e-12)
 
+    @pytest.mark.level0
     def test_zero_T_B_yields_zero_radiance_on_forward_pass(self) -> None:
         """T_B ≡ 0 K — mean = 0 ⇒ T1Thermal refuses (T_t must be > 0)."""
         lam = _lwir_grid(n=5)
@@ -432,6 +444,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- Constant T_B=300 K CSV → T1Thermal, L(10µm)=B(10µm,300K) -----
 
+    @pytest.mark.level1
     def test_constant_T_B_path_emits_T1_and_matches_planck(
         self, tmp_path: Path
     ) -> None:
@@ -469,6 +482,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- λ-varying T_B CSV → T6TabulatedAtSource -----
 
+    @pytest.mark.level1
     def test_varying_T_B_path_emits_T6_with_pointwise_planck(
         self, tmp_path: Path
     ) -> None:
@@ -510,6 +524,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- Failure mode — T_B < 0 in CSV -----
 
+    @pytest.mark.level1
     def test_T_B_path_with_negative_value_raises(
         self, tmp_path: Path
     ) -> None:
@@ -532,6 +547,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- Failure mode — T_B > 10 000 K in CSV -----
 
+    @pytest.mark.level1
     def test_T_B_path_above_ceiling_raises(
         self, tmp_path: Path
     ) -> None:
@@ -554,6 +570,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- Failure mode — chain grid wider than file grid -----
 
+    @pytest.mark.level1
     def test_T_B_path_out_of_grid_raises(
         self, tmp_path: Path
     ) -> None:
@@ -578,6 +595,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- Failure mode — both scalar K and path set -----
 
+    @pytest.mark.level1
     def test_T_B_path_plus_scalar_K_raises(
         self, tmp_path: Path
     ) -> None:
@@ -595,6 +613,7 @@ class TestBrightnessTemperaturePathCSV:
 
     # ----- Loader unit / metadata cosmetic check -----
 
+    @pytest.mark.level1
     def test_load_brightness_temperature_csv_sets_unit_K(
         self, tmp_path: Path
     ) -> None:

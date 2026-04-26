@@ -104,6 +104,7 @@ class TestTruthAnchorLambertianIdentity:
     path unchanged.
     """
 
+    @pytest.mark.level1
     def test_scalar_rho_flat_on_chain_grid(self) -> None:
         params = _reflective_params()
         params.set("source.target.reflectance", 0.5)
@@ -123,6 +124,7 @@ class TestTruthAnchorLambertianIdentity:
             rho_on_grid, np.full_like(_WL_VIS, 0.5)
         )
 
+    @pytest.mark.level1
     def test_lambertian_identity_recovers_rho_times_E_over_pi(self) -> None:
         """L_refl(λ) = ρ·E_sun(λ)/π reconstructed from the descriptor's ρ."""
         params = _reflective_params()
@@ -168,6 +170,7 @@ class TestTruthAnchorHeavisideSpectrum:
     never resamples or smooths ρ.
     """
 
+    @pytest.mark.level1
     def test_heaviside_step_preserved_in_descriptor(self) -> None:
         step_edge_um = 0.5
         wl = np.linspace(0.3, 0.9, 25)
@@ -218,6 +221,7 @@ class TestTruthAnchorKirchhoffConsistency:
     is tested there.)
     """
 
+    @pytest.mark.level1
     def test_rho_plus_epsilon_is_one_pointwise(self) -> None:
         rho_scalar = 0.3
         eps_scalar = 1.0 - rho_scalar  # 0.7
@@ -272,6 +276,7 @@ class TestTruthAnchorKirchhoffConsistency:
 class TestInferrerReflectiveDispatch:
     """The inferrer dispatches scalar ρ / albedo to T2Reflective."""
 
+    @pytest.mark.level1
     def test_scalar_reflectance_produces_T2Reflective(self) -> None:
         params = _reflective_params()
         params.set("source.target.reflectance", 0.3)
@@ -284,6 +289,7 @@ class TestInferrerReflectiveDispatch:
         assert isinstance(target, T2Reflective)
         assert not isinstance(target, (T1Thermal, T3Mixed))
 
+    @pytest.mark.level1
     def test_albedo_alias_produces_T2Reflective(self) -> None:
         """S6 albedo alias collapses onto the same T2Reflective surface."""
         params = _reflective_params()
@@ -308,6 +314,7 @@ class TestInferrerReflectiveDispatch:
 
 
 class TestInferrerReflectiveRejections:
+    @pytest.mark.level1
     def test_reflectance_plus_temperature_raises(self) -> None:
         """ρ + (ε, T) over-specifies the target; must raise."""
         params = _reflective_params()
@@ -319,6 +326,7 @@ class TestInferrerReflectiveRejections:
         with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_VIS)
 
+    @pytest.mark.level1
     def test_reflectance_plus_brightness_temperature_raises(self) -> None:
         """Reflective S4/S5/S6 and thermal S11 are mutually exclusive."""
         params = _reflective_params()
@@ -329,6 +337,7 @@ class TestInferrerReflectiveRejections:
         with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_VIS)
 
+    @pytest.mark.level1
     def test_reflectance_plus_radiance_temperature_raises(self) -> None:
         """Reflective S4/S5/S6 and thermal S12 are mutually exclusive."""
         params = _reflective_params()
@@ -341,6 +350,7 @@ class TestInferrerReflectiveRejections:
         with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_VIS)
 
+    @pytest.mark.level1
     def test_reflectance_plus_albedo_raises(self) -> None:
         """Reflectance + albedo (both scalar surfaces) over-specifies ρ."""
         params = _reflective_params()
@@ -351,6 +361,7 @@ class TestInferrerReflectiveRejections:
         with pytest.raises(ParameterBoundsError, match="over-specified"):
             infer_descriptors(params, _WL_VIS)
 
+    @pytest.mark.level1
     def test_reflectance_at_aperture_raises(self) -> None:
         """ρ is meaningless at S9 (at-aperture) — converter must reject."""
         with pytest.raises(ParameterBoundsError, match="at_aperture"):
@@ -361,6 +372,7 @@ class TestInferrerReflectiveRejections:
                 target_location="at_aperture",
             )
 
+    @pytest.mark.level1
     def test_reflectance_mwir_emits_warning(self) -> None:
         """S4 with MWIR grid triggers the T2 non-mixed Rule-17 warning.
 
@@ -434,6 +446,7 @@ class TestReflectancePathCSV:
 
     # ----- Truth Anchor 1 — constant ρ=0.3 round-trip (Lambertian) -----
 
+    @pytest.mark.level1
     def test_constant_reflectance_path_recovers_rho(
         self, tmp_path: Path
     ) -> None:
@@ -462,6 +475,7 @@ class TestReflectancePathCSV:
 
     # ----- Truth Anchor 2 — step ρ(λ) carries the step -----
 
+    @pytest.mark.level1
     def test_step_reflectance_path_carries_the_step(
         self, tmp_path: Path
     ) -> None:
@@ -501,6 +515,7 @@ class TestReflectancePathCSV:
 
     # ----- Truth Anchor 3 — albedo_path alias identity -----
 
+    @pytest.mark.level1
     def test_albedo_path_and_reflectance_path_are_aliases(
         self, tmp_path: Path
     ) -> None:
@@ -537,6 +552,7 @@ class TestReflectancePathCSV:
 
     # ----- Cross-model consistency — CSV ρ vs scalar ρ -----
 
+    @pytest.mark.level1
     def test_csv_flat_rho_matches_scalar_rho(
         self, tmp_path: Path
     ) -> None:
@@ -566,6 +582,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — reflectance_path + albedo_path both set -----
 
+    @pytest.mark.level1
     def test_reflectance_path_plus_albedo_path_raises(
         self, tmp_path: Path
     ) -> None:
@@ -584,6 +601,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — ρ > 1 boundary rejection -----
 
+    @pytest.mark.level1
     def test_reflectance_path_with_rho_gt_1_raises(
         self, tmp_path: Path
     ) -> None:
@@ -607,6 +625,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — ρ < 0 boundary rejection -----
 
+    @pytest.mark.level1
     def test_reflectance_path_with_negative_rho_raises(
         self, tmp_path: Path
     ) -> None:
@@ -629,6 +648,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — chain grid wider than file grid -----
 
+    @pytest.mark.level1
     def test_reflectance_path_out_of_grid_raises(
         self, tmp_path: Path
     ) -> None:
@@ -655,6 +675,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — non-monotonic CSV grid -----
 
+    @pytest.mark.level1
     def test_reflectance_path_non_monotonic_grid_raises(
         self, tmp_path: Path
     ) -> None:
@@ -676,6 +697,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — duplicate wavelengths -----
 
+    @pytest.mark.level1
     def test_reflectance_path_duplicate_wavelengths_raises(
         self, tmp_path: Path
     ) -> None:
@@ -698,6 +720,7 @@ class TestReflectancePathCSV:
 
     # ----- Failure mode — reflectance_path + temperature -----
 
+    @pytest.mark.level1
     def test_reflectance_path_plus_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -717,6 +740,7 @@ class TestReflectancePathCSV:
 
     # ----- load_reflectance_csv helper direct test -----
 
+    @pytest.mark.level1
     def test_load_reflectance_csv_dimensionless_unit(
         self, tmp_path: Path
     ) -> None:
@@ -731,6 +755,7 @@ class TestReflectancePathCSV:
         np.testing.assert_array_equal(sd.wavelength_um, [0.3, 0.9])
         np.testing.assert_array_equal(sd.values, [0.4, 0.4])
 
+    @pytest.mark.level1
     def test_load_reflectance_csv_albedo_label_in_errors(
         self, tmp_path: Path
     ) -> None:

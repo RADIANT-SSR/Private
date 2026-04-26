@@ -22,6 +22,7 @@ WAV = np.linspace(3.0, 5.0, 200)
 
 
 class TestBlackbodyIntensitySource:
+    @pytest.mark.level0
     def test_basic_formula(self) -> None:
         """I(λ) = A · ε · B(λ, T)."""
         T = 500.0
@@ -34,6 +35,7 @@ class TestBlackbodyIntensitySource:
         expected = A * eps * planck_spectral_radiance(WAV, T)
         np.testing.assert_allclose(intensity, expected, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_area_scaling(self) -> None:
         """Doubling area doubles intensity."""
         T = 500.0
@@ -43,6 +45,7 @@ class TestBlackbodyIntensitySource:
         intensity_2 = src_2.spectral_intensity(WAV)
         np.testing.assert_allclose(intensity_2, 2.0 * intensity_1, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_radiance_equals_eps_B(self) -> None:
         """Equivalent radiance = ε · B (area cancels)."""
         T = 500.0
@@ -54,26 +57,31 @@ class TestBlackbodyIntensitySource:
         expected = eps * planck_spectral_radiance(WAV, T)
         np.testing.assert_allclose(L, expected, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_unity_emissivity_default(self) -> None:
         src = BlackbodyIntensitySource(temperature_K=500, projected_area_m2=0.01)
         intensity = src.spectral_intensity(WAV)
         expected = 0.01 * planck_spectral_radiance(WAV, 500)
         np.testing.assert_allclose(intensity, expected, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_zero_temp_raises(self) -> None:
         with pytest.raises(ValueError, match="temperature_K"):
             BlackbodyIntensitySource(temperature_K=0, projected_area_m2=0.01)
 
+    @pytest.mark.level0
     def test_zero_area_raises(self) -> None:
         with pytest.raises(ValueError, match="projected_area_m2"):
             BlackbodyIntensitySource(temperature_K=500, projected_area_m2=0.0)
 
+    @pytest.mark.level0
     def test_emissivity_gt_1_raises(self) -> None:
         with pytest.raises(ValueError, match="emissivity"):
             BlackbodyIntensitySource(
                 temperature_K=500, projected_area_m2=0.01, emissivity=1.5,
             )
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         src = BlackbodyIntensitySource(temperature_K=500, projected_area_m2=0.01)
         with pytest.raises(AttributeError):
@@ -91,11 +99,13 @@ class TestDirectIntensitySource:
             source="test",
         )
 
+    @pytest.mark.level0
     def test_constant_intensity(self, intensity_data: SpectralData) -> None:
         src = DirectIntensitySource(intensity_data=intensity_data)
         intensity = src.spectral_intensity(WAV)
         np.testing.assert_allclose(intensity, 100.0, rtol=1e-6)
 
+    @pytest.mark.level0
     def test_interpolation(self) -> None:
         """Linear interpolation on non-uniform data."""
         wl = np.array([2.0, 3.0, 4.0, 5.0, 6.0])
@@ -108,6 +118,7 @@ class TestDirectIntensitySource:
         result = src.spectral_intensity(np.array([3.5]))
         assert result[0] == pytest.approx(25.0, rel=1e-10)
 
+    @pytest.mark.level0
     def test_radiance_conversion(self, intensity_data: SpectralData) -> None:
         """L = I / reference_area."""
         src = DirectIntensitySource(intensity_data=intensity_data)
@@ -116,6 +127,7 @@ class TestDirectIntensitySource:
         intensity = src.spectral_intensity(WAV)
         np.testing.assert_allclose(L, intensity / ref_area, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_out_of_range_raises(self) -> None:
         sd = SpectralData(
             name="narrow", wavelength_um=np.linspace(4.0, 4.5, 10),
@@ -125,6 +137,7 @@ class TestDirectIntensitySource:
         with pytest.raises(ValueError, match="outside table"):
             src.spectral_intensity(WAV)
 
+    @pytest.mark.level0
     def test_negative_values_raises(self) -> None:
         sd = SpectralData(
             name="bad", wavelength_um=np.linspace(2.0, 6.0, 10),
@@ -133,6 +146,7 @@ class TestDirectIntensitySource:
         with pytest.raises(ValueError, match="non-negative"):
             DirectIntensitySource(intensity_data=sd)
 
+    @pytest.mark.level0
     def test_zero_ref_area_raises(self) -> None:
         sd = SpectralData(
             name="test", wavelength_um=np.linspace(2.0, 6.0, 10),
@@ -142,6 +156,7 @@ class TestDirectIntensitySource:
         with pytest.raises(ValueError, match="reference_area_m2"):
             src.spectral_radiance(np.array([3.0]), reference_area_m2=0.0)
 
+    @pytest.mark.level0
     def test_frozen(self, intensity_data: SpectralData) -> None:
         src = DirectIntensitySource(intensity_data=intensity_data)
         with pytest.raises(AttributeError):

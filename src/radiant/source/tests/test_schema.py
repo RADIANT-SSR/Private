@@ -39,6 +39,7 @@ def _fresh_params() -> ParameterSet:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_shape_defaults_resolve() -> None:
     """Schema accepts ``shape`` at its default (back-compat path)."""
     params = _fresh_params()
@@ -60,6 +61,7 @@ def test_shape_defaults_resolve() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_shape_accepts_sphere_with_radius() -> None:
     """``shape="sphere"`` + ``shape_radius_m=1.0`` resolves without raising."""
     params = _fresh_params()
@@ -79,6 +81,7 @@ def test_shape_accepts_sphere_with_radius() -> None:
 @pytest.mark.parametrize(
     "shape_name", ["sphere", "cylinder", "flat_plate", "box", "cone"]
 )
+@pytest.mark.level1
 def test_shape_enum_accepts_every_catalog_entry(shape_name: str) -> None:
     """Every §3 catalog entry is accepted by the schema enum."""
     params = _fresh_params()
@@ -93,6 +96,7 @@ def test_shape_enum_accepts_every_catalog_entry(shape_name: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_shape_rejects_unknown_name() -> None:
     """``shape="pyramid"`` raises at resolve time (not in enum)."""
     params = _fresh_params()
@@ -107,6 +111,7 @@ def test_shape_rejects_unknown_name() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_shape_radius_rejects_dict_input() -> None:
     """A dict passed to a float dimensional scalar raises at resolve.
 
@@ -136,6 +141,7 @@ def test_shape_radius_rejects_dict_input() -> None:
         "source.target.shape_base_radius_m",
     ],
 )
+@pytest.mark.level1
 def test_shape_dim_rejects_negative(param_name: str) -> None:
     """Negative dimensional scalars fail the schema bounds check."""
     params = _fresh_params()
@@ -158,6 +164,7 @@ def test_shape_dim_rejects_negative(param_name: str) -> None:
         "source.target.shape_roll_rad",
     ],
 )
+@pytest.mark.level1
 def test_shape_orientation_accepts_in_range(param_name: str) -> None:
     """Orientation scalars accept full-rotation input in [-2π, 2π]."""
     import math
@@ -177,6 +184,7 @@ def test_shape_orientation_accepts_in_range(param_name: str) -> None:
         "source.target.shape_roll_rad",
     ],
 )
+@pytest.mark.level1
 def test_shape_orientation_rejects_out_of_range(param_name: str) -> None:
     """Orientation scalars reject values outside [-2π, 2π]."""
     params = _fresh_params()
@@ -191,6 +199,7 @@ def test_shape_orientation_rejects_out_of_range(param_name: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_reflectance_scalar_accepted() -> None:
     """ρ = 0.3 resolves cleanly on the source schema."""
     params = _fresh_params()
@@ -202,6 +211,7 @@ def test_reflectance_scalar_accepted() -> None:
     )
 
 
+@pytest.mark.level1
 def test_albedo_scalar_accepted() -> None:
     """albedo = 0.25 resolves cleanly on the source schema."""
     params = _fresh_params()
@@ -213,6 +223,7 @@ def test_albedo_scalar_accepted() -> None:
     )
 
 
+@pytest.mark.level1
 @pytest.mark.parametrize("bad_value", [-0.1, 1.5, 10.0])
 def test_reflectance_rejects_out_of_bounds(bad_value: float) -> None:
     """ρ outside [0, 1] fails the schema bounds check."""
@@ -223,6 +234,7 @@ def test_reflectance_rejects_out_of_bounds(bad_value: float) -> None:
         params.resolve()
 
 
+@pytest.mark.level1
 @pytest.mark.parametrize("bad_value", [-0.5, 2.0])
 def test_albedo_rejects_out_of_bounds(bad_value: float) -> None:
     """albedo outside [0, 1] fails the schema bounds check."""
@@ -233,6 +245,7 @@ def test_albedo_rejects_out_of_bounds(bad_value: float) -> None:
         params.resolve()
 
 
+@pytest.mark.level1
 def test_reflectance_path_accepted() -> None:
     """reflectance_path resolves as a plain string (CSV loader is Step 3.2)."""
     params = _fresh_params()
@@ -245,6 +258,7 @@ def test_reflectance_path_accepted() -> None:
     )
 
 
+@pytest.mark.level1
 def test_reflectance_plus_albedo_raises() -> None:
     """Setting both surfaces over-specifies ρ; the validator must reject."""
     params = _fresh_params()
@@ -256,6 +270,7 @@ def test_reflectance_plus_albedo_raises() -> None:
         validate_reflectance_albedo_exclusive(params)
 
 
+@pytest.mark.level1
 def test_reflectance_scalar_plus_path_raises() -> None:
     """Scalar reflectance + reflectance_path together is ambiguous."""
     params = _fresh_params()
@@ -267,6 +282,7 @@ def test_reflectance_scalar_plus_path_raises() -> None:
         validate_reflectance_albedo_exclusive(params)
 
 
+@pytest.mark.level1
 def test_single_reflectance_surface_passes_validator() -> None:
     """A single reflective surface (reflectance only) survives the check."""
     params = _fresh_params()
@@ -277,6 +293,7 @@ def test_single_reflectance_surface_passes_validator() -> None:
     validate_reflectance_albedo_exclusive(params)
 
 
+@pytest.mark.level1
 def test_defaults_pass_validator() -> None:
     """With nothing set, the validator is a no-op."""
     params = _fresh_params()

@@ -24,11 +24,13 @@ from radiant.atmosphere.turbulence import turbulence_mtf_1d, turbulence_mtf_foca
 
 
 class TestTurbulenceMTF:
+    @pytest.mark.level0
     def test_dc_is_one(self) -> None:
         freq = np.array([0.0])
         mtf = turbulence_mtf_1d(freq, wavelength_m=0.5e-6, r0_m=0.10)
         assert mtf[0] == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_analytic_formula(self) -> None:
         """MTF matches exp(-3.44 · (λf/r₀)^(5/3))."""
         lam = 0.5e-6
@@ -41,6 +43,7 @@ class TestTurbulenceMTF:
 
         np.testing.assert_allclose(mtf_computed, mtf_analytic, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_larger_r0_higher_mtf(self) -> None:
         """Larger r₀ (better seeing) → higher MTF."""
         freq = np.array([1e5])
@@ -49,6 +52,7 @@ class TestTurbulenceMTF:
         mtf_good = turbulence_mtf_1d(freq, lam, r0_m=0.20)
         assert mtf_good[0] > mtf_poor[0]
 
+    @pytest.mark.level0
     def test_longer_wave_higher_mtf(self) -> None:
         """Longer wavelength → less degradation (r₀ ∝ λ^(6/5))."""
         freq = np.array([1e5])
@@ -60,18 +64,22 @@ class TestTurbulenceMTF:
         # So mtf_ir < mtf_vis. This is correct — r₀ is fixed, not scaled.
         assert mtf_ir[0] < mtf_vis[0]
 
+    @pytest.mark.level0
     def test_zero_r0_raises(self) -> None:
         with pytest.raises(ValueError, match="r0_m must be positive"):
             turbulence_mtf_1d(np.array([0.0]), 0.5e-6, 0.0)
 
+    @pytest.mark.level0
     def test_negative_r0_raises(self) -> None:
         with pytest.raises(ValueError, match="r0_m must be positive"):
             turbulence_mtf_1d(np.array([0.0]), 0.5e-6, -0.10)
 
+    @pytest.mark.level0
     def test_zero_wavelength_raises(self) -> None:
         with pytest.raises(ValueError, match="wavelength_m must be positive"):
             turbulence_mtf_1d(np.array([0.0]), 0.0, 0.10)
 
+    @pytest.mark.level0
     def test_hand_calculation(self) -> None:
         """Manual check: λ=0.5µm, f=1e6 cy/rad, r₀=10cm.
 
@@ -93,6 +101,7 @@ class TestTurbulenceMTF:
 
 
 class TestTurbulenceMTFFocal:
+    @pytest.mark.level0
     def test_conversion(self) -> None:
         """Focal freq × focal_length = angular freq."""
         lam = 0.5e-6
@@ -106,6 +115,7 @@ class TestTurbulenceMTFFocal:
 
         np.testing.assert_allclose(mtf_focal, mtf_angular, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_zero_focal_length_raises(self) -> None:
         with pytest.raises(ValueError, match="focal_length_m"):
             turbulence_mtf_focal(np.array([0.0]), 0.5e-6, 0.10, 0.0)

@@ -23,10 +23,12 @@ VX = np.array([1.0, 0.0, 0.0])
 
 
 class TestCompositeTarget:
+    @pytest.mark.level0
     def test_protocol(self) -> None:
         comp = CompositeTarget(shapes=(Sphere(radius_m=1.0),))
         assert isinstance(comp, TargetShape)
 
+    @pytest.mark.level0
     def test_single_sphere_matches_bare(self) -> None:
         """Composite of one sphere = bare sphere."""
         sphere = Sphere(radius_m=1.0)
@@ -39,6 +41,7 @@ class TestCompositeTarget:
             sphere.surface_area(), rel=1e-12
         )
 
+    @pytest.mark.level0
     def test_two_spheres_add(self) -> None:
         """Two spheres: projected areas add (no occlusion)."""
         s1 = Sphere(radius_m=1.0)
@@ -47,6 +50,7 @@ class TestCompositeTarget:
         expected = math.pi * 1.0 + math.pi * 0.25
         assert comp.projected_area(VZ) == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_sphere_plus_box(self) -> None:
         """Mixed primitives: areas add."""
         s = Sphere(radius_m=0.5)
@@ -55,6 +59,7 @@ class TestCompositeTarget:
         expected = s.projected_area(VZ) + b.projected_area(VZ)
         assert comp.projected_area(VZ) == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_surface_area_sums(self) -> None:
         s = Sphere(radius_m=1.0)
         c = Cylinder(radius_m=0.5, length_m=2.0)
@@ -62,15 +67,18 @@ class TestCompositeTarget:
         expected = s.surface_area() + c.surface_area()
         assert comp.surface_area() == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_empty_shapes_raises(self) -> None:
         with pytest.raises(ValueError, match="non-empty"):
             CompositeTarget(shapes=())
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         comp = CompositeTarget(shapes=(Sphere(radius_m=1.0),))
         with pytest.raises(AttributeError):
             comp.name = "changed"  # type: ignore[misc]
 
+    @pytest.mark.level0
     def test_orientation_per_primitive(self) -> None:
         """Each primitive in the composite uses its own orientation."""
         # Two flat plates: one normal to +Z, one rotated 90° around Y (normal to +X).

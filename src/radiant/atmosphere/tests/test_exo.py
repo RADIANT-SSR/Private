@@ -51,11 +51,13 @@ def _space_geometry() -> AtmosphericGeometry:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_exo_atmosphere_implements_protocol() -> None:
     src = ExoAtmosphere()
     assert isinstance(src, Atmosphere)
 
 
+@pytest.mark.level0
 def test_exo_returns_unity_transmittance_and_zero_radiance() -> None:
     atm = ExoAtmosphere()
     state = atm.build_state(_grid_vis_to_lwir(), _ground_geometry())
@@ -65,6 +67,7 @@ def test_exo_returns_unity_transmittance_and_zero_radiance() -> None:
     assert np.allclose(state.atm_emission_down.values, 0.0, atol=0.0)
 
 
+@pytest.mark.level0
 def test_exo_units_are_correct() -> None:
     state = ExoAtmosphere().build_state(_grid_vis_to_lwir(), _ground_geometry())
     assert state.transmittance.unit == ""
@@ -72,6 +75,7 @@ def test_exo_units_are_correct() -> None:
     assert state.atm_emission_down.unit == "W/m²/sr/µm"
 
 
+@pytest.mark.level1
 def test_exo_geometry_passthrough() -> None:
     geo = _ground_geometry()
     state = ExoAtmosphere().build_state(_grid_vis_to_lwir(), geo)
@@ -81,6 +85,7 @@ def test_exo_geometry_passthrough() -> None:
     assert state.air_mass >= 1.0
 
 
+@pytest.mark.level0
 def test_exo_space_to_space_zero_slant_air_mass_one() -> None:
     state = ExoAtmosphere().build_state(_grid_vis_to_lwir(), _space_geometry())
     # Δh = 0 ⇒ slant = 0 ⇒ air_mass conventionally 1.
@@ -89,6 +94,7 @@ def test_exo_space_to_space_zero_slant_air_mass_one() -> None:
     assert np.all(state.transmittance.values == 1.0)
 
 
+@pytest.mark.level1
 def test_exo_works_on_arbitrary_grid() -> None:
     grid = np.array([0.5, 1.0, 2.0, 5.0, 10.0, 12.0])
     state = ExoAtmosphere().build_state(grid, _ground_geometry())
@@ -101,24 +107,28 @@ def test_exo_works_on_arbitrary_grid() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_exo_rejects_non_ascending_grid() -> None:
     grid = np.array([1.0, 0.5, 2.0])
     with pytest.raises(ValueError, match="ascending"):
         ExoAtmosphere().build_state(grid, _ground_geometry())
 
 
+@pytest.mark.level0
 def test_exo_rejects_non_positive_grid() -> None:
     grid = np.array([0.0, 1.0, 2.0])
     with pytest.raises(ValueError, match="positive"):
         ExoAtmosphere().build_state(grid, _ground_geometry())
 
 
+@pytest.mark.level0
 def test_exo_rejects_2d_grid() -> None:
     grid = np.ones((4, 4))
     with pytest.raises(ValueError, match="1-D"):
         ExoAtmosphere().build_state(grid, _ground_geometry())
 
 
+@pytest.mark.level0
 def test_exo_rejects_single_sample_grid() -> None:
     with pytest.raises(ValueError, match="at least"):
         ExoAtmosphere().build_state(np.array([1.0]), _ground_geometry())

@@ -132,6 +132,7 @@ class TestUserRadianceChainRun:
     to within the sampling fidelity of the spectral-integration trapz.
     """
 
+    @pytest.mark.level2
     def test_chain_runs_and_at_aperture_matches_user_radiance(
         self, tmp_path: Path
     ) -> None:
@@ -169,6 +170,7 @@ class TestUserRadianceChainRun:
             L_ap, L_value, rtol=5e-3, atol=0.0
         )
 
+    @pytest.mark.level1
     def test_inferrer_emits_T6TabulatedAtSource(
         self, tmp_path: Path
     ) -> None:
@@ -216,6 +218,7 @@ class TestConverterPassThrough:
     unchanged.
     """
 
+    @pytest.mark.level1
     def test_heaviside_L_preserved_by_converter(self) -> None:
         wl = np.linspace(8.0, 13.0, 41)
         step = 10.0  # µm
@@ -259,6 +262,7 @@ class TestSerializationRoundTrip:
     across serialize / deserialize.
     """
 
+    @pytest.mark.level1
     def test_spectraldata_round_trip_preserves_values_and_grid(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         vals = np.linspace(3.0, 7.0, 11)
@@ -292,6 +296,7 @@ class TestSerializationRoundTrip:
 
 
 class TestCSVLoader:
+    @pytest.mark.level1
     def test_load_flat_csv_with_header(self, tmp_path: Path) -> None:
         csv_path = _write_flat_csv(
             tmp_path / "flat.csv",
@@ -306,6 +311,7 @@ class TestCSVLoader:
         )
         assert sd.unit == "W/m^2/sr/um"
 
+    @pytest.mark.level1
     def test_load_flat_csv_without_header(self, tmp_path: Path) -> None:
         csv_path = _write_flat_csv(
             tmp_path / "noheader.csv",
@@ -316,16 +322,19 @@ class TestCSVLoader:
         sd = load_user_radiance_csv(csv_path)
         np.testing.assert_array_equal(sd.wavelength_um, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ParameterBoundsError, match="not found"):
             load_user_radiance_csv(tmp_path / "does_not_exist.csv")
 
+    @pytest.mark.level1
     def test_empty_file_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "empty.csv"
         csv_path.write_text("")
         with pytest.raises(ParameterBoundsError, match="empty"):
             load_user_radiance_csv(csv_path)
 
+    @pytest.mark.level1
     def test_single_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "one_row.csv"
         csv_path.write_text("wavelength_um,L\n10.0,5.0\n")
@@ -334,6 +343,7 @@ class TestCSVLoader:
         ):
             load_user_radiance_csv(csv_path)
 
+    @pytest.mark.level1
     def test_malformed_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "bad.csv"
         csv_path.write_text(
@@ -349,6 +359,7 @@ class TestCSVLoader:
 
 
 class TestConverterRejections:
+    @pytest.mark.level1
     def test_negative_radiance_raises(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         L_bad = np.full_like(wl, 5.0)
@@ -370,6 +381,7 @@ class TestConverterRejections:
                 h_tgt=0.0,
             )
 
+    @pytest.mark.level1
     def test_at_aperture_rejected(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         L_sd = SpectralData(
@@ -395,6 +407,7 @@ class TestConverterRejections:
 
 
 class TestInferrerRejections:
+    @pytest.mark.level1
     def test_user_radiance_plus_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -412,6 +425,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_user_radiance_plus_reflectance_raises(
         self, tmp_path: Path
     ) -> None:
@@ -428,6 +442,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_VIS)
 
+    @pytest.mark.level1
     def test_user_radiance_plus_brightness_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -444,6 +459,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_user_radiance_plus_radiance_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -462,6 +478,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_negative_values_in_csv_raise_through_inferrer(
         self, tmp_path: Path
     ) -> None:
@@ -479,6 +496,7 @@ class TestInferrerRejections:
         with pytest.raises(ParameterBoundsError, match="negative"):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_missing_csv_raises_actionable_error(
         self, tmp_path: Path
     ) -> None:

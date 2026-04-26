@@ -144,6 +144,7 @@ def shadow_mode_off() -> Iterator[None]:
 class TestExoAtmosphereEvaluate:
     """Exo backend: vacuum path — ``τ ≡ 1``, ``L_path ≡ 0``, ``E_sky ≡ 0``."""
 
+    @pytest.mark.level1
     def test_returns_atmospheric_quantities(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -152,6 +153,7 @@ class TestExoAtmosphereEvaluate:
         atm = ExoAtmosphere().evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         assert isinstance(atm, AtmosphericQuantities)
 
+    @pytest.mark.level1
     def test_shape_matches_input_grid(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -166,6 +168,7 @@ class TestExoAtmosphereEvaluate:
         ):
             assert getattr(atm, field).shape == (n,), f"{field} shape mismatch"
 
+    @pytest.mark.level1
     def test_tau_identically_one(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -176,6 +179,7 @@ class TestExoAtmosphereEvaluate:
         assert np.all(atm.tau_up == 1.0)
         assert np.all(atm.tau_full_up == 1.0)
 
+    @pytest.mark.level1
     def test_path_radiances_identically_zero(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -185,6 +189,7 @@ class TestExoAtmosphereEvaluate:
         assert np.all(atm.L_path_up == 0.0)
         assert np.all(atm.L_path_full == 0.0)
 
+    @pytest.mark.level1
     def test_sky_irradiances_identically_zero(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -194,6 +199,7 @@ class TestExoAtmosphereEvaluate:
         assert np.all(atm.E_sky_scattered == 0.0)
         assert np.all(atm.E_sky_thermal == 0.0)
 
+    @pytest.mark.level1
     def test_E_TOA_from_core_solar(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -213,6 +219,7 @@ class TestExoAtmosphereEvaluate:
 class TestSimpleAtmosphereEvaluate:
     """SimpleAtmosphere backend — surface (``h_tgt == 0``) and airborne (Stage 5)."""
 
+    @pytest.mark.level1
     def test_airborne_target_above_sensor_raises(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -242,6 +249,7 @@ class TestSimpleAtmosphereEvaluate:
         with pytest.raises(ParameterBoundsError, match="below h_tgt"):
             atm.evaluate(lwir_wavelengths, los, lwir_params)
 
+    @pytest.mark.level1
     def test_returns_atmospheric_quantities(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -254,6 +262,7 @@ class TestSimpleAtmosphereEvaluate:
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         assert isinstance(q, AtmosphericQuantities)
 
+    @pytest.mark.level1
     def test_tau_bounded_0_1(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -269,6 +278,7 @@ class TestSimpleAtmosphereEvaluate:
             assert np.all(arr >= 0.0), f"{arr_name} has negative values"
             assert np.all(arr <= 1.0), f"{arr_name} exceeds 1"
 
+    @pytest.mark.level1
     def test_tau_up_equals_tau_full_up_for_surface_target(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -283,6 +293,7 @@ class TestSimpleAtmosphereEvaluate:
         np.testing.assert_array_equal(q.tau_up, q.tau_full_up)
         np.testing.assert_array_equal(q.L_path_up, q.L_path_full)
 
+    @pytest.mark.level1
     def test_E_sky_thermal_populated_for_cold_sky(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -297,6 +308,7 @@ class TestSimpleAtmosphereEvaluate:
         assert np.all(q.E_sky_thermal >= 0.0)
         assert np.any(q.E_sky_thermal > 0.0)
 
+    @pytest.mark.level1
     def test_E_sky_scattered_non_negative(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -318,6 +330,7 @@ class TestSimpleAtmosphereEvaluate:
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         assert np.all(q.E_sky_scattered >= 0.0)
 
+    @pytest.mark.level1
     def test_vis_sun_on_produces_finite_L_path_up(
         self, vis_wavelengths: np.ndarray,
         vis_params,
@@ -332,6 +345,7 @@ class TestSimpleAtmosphereEvaluate:
         assert np.all(q.L_path_up >= 0.0)
         assert np.any(q.L_path_up > 0.0)
 
+    @pytest.mark.level1
     def test_determinism_same_inputs_same_outputs(
         self, lwir_wavelengths: np.ndarray,
         lwir_params,
@@ -358,6 +372,7 @@ class TestSimpleAtmosphereEvaluate:
 class TestTabulatedAtmosphereEvaluate:
     """Tabulated backend: the thin adapter collapses tau_sun == tau_up."""
 
+    @pytest.mark.level1
     def test_smoke_with_synthetic_npz(
         self, tmp_path,
         lwir_wavelengths: np.ndarray,
@@ -397,6 +412,7 @@ class TestTabulatedAtmosphereEvaluate:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_shadow_mode_off_fixture_sets_env(shadow_mode_off: None) -> None:
     """Sanity: the fixture still flips the env var in Stage 4+.
 
@@ -407,6 +423,7 @@ def test_shadow_mode_off_fixture_sets_env(shadow_mode_off: None) -> None:
     assert os.environ.get("RADIANT_OPTION_C_SHADOW") == "0"
 
 
+@pytest.mark.level1
 def test_shadow_mode_symbol_is_gone() -> None:
     """Stage 4 removed ``_shadow_mode_enabled`` from ``atmosphere.stage``.
 

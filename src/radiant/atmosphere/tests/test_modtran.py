@@ -87,6 +87,7 @@ def _write_synthetic_tape7(path: Path, n_points: int = 50) -> np.ndarray:
 class TestUnitConversion:
     """Verify the MODTRAN -> RADIANT unit conversion Jacobian."""
 
+    @pytest.mark.level0
     def test_jacobian_preserves_integral(self, tmp_path: Path) -> None:
         """The integral of L(nu) d_nu must equal the integral of L(lambda) d_lambda.
 
@@ -113,6 +114,7 @@ class TestUnitConversion:
         # the integral in wavelength [W/m2/sr].
         assert integral_lam == pytest.approx(integral_nu * 1e4, rel=1e-3)
 
+    @pytest.mark.level0
     def test_known_conversion_point(self, tmp_path: Path) -> None:
         """Hand-calculated conversion at a single wavenumber.
 
@@ -142,6 +144,7 @@ class TestUnitConversion:
         # At lambda=5.0 um (nu=2000): L = 1e-5 * 2000^2 = 40.0
         assert lp[1] == pytest.approx(40.0, rel=1e-6)
 
+    @pytest.mark.level0
     def test_transmittance_unchanged(self, tmp_path: Path) -> None:
         """Transmittance is dimensionless and should not be scaled."""
         tape7 = tmp_path / "tape7"
@@ -159,6 +162,7 @@ class TestUnitConversion:
         assert trans[0] == pytest.approx(0.75, abs=1e-10)  # nu=3000 -> lam=3.33
         assert trans[1] == pytest.approx(0.85, abs=1e-10)  # nu=2000 -> lam=5.0
 
+    @pytest.mark.level1
     def test_ascending_wavelength_output(self, tmp_path: Path) -> None:
         """Output wavelength array must be strictly ascending."""
         _write_synthetic_tape7(tmp_path / "tape7")
@@ -176,6 +180,7 @@ class TestUnitConversion:
 class TestTape7Reader:
     """Parse synthetic tape7 files."""
 
+    @pytest.mark.level1
     def test_parse_synthetic(self, tmp_path: Path) -> None:
         nu = _write_synthetic_tape7(tmp_path / "tape7")
         reader = Tape7Reader(tmp_path / "tape7")
@@ -184,15 +189,18 @@ class TestTape7Reader:
         assert native.wavenumber_cm1.shape[0] == len(nu)
         assert np.allclose(native.wavenumber_cm1, nu)
 
+    @pytest.mark.level1
     def test_file_not_found(self) -> None:
         with pytest.raises(FileNotFoundError, match="not found"):
             Tape7Reader("/nonexistent/tape7")
 
+    @pytest.mark.level1
     def test_empty_file(self, tmp_path: Path) -> None:
         (tmp_path / "tape7").write_text("")
         with pytest.raises(Tape7ParseError, match="no numeric data"):
             Tape7Reader(tmp_path / "tape7").parse()
 
+    @pytest.mark.level1
     def test_header_only_file(self, tmp_path: Path) -> None:
         (tmp_path / "tape7").write_text("Header only\nNo data here\n")
         with pytest.raises(Tape7ParseError, match="no numeric data"):
@@ -207,12 +215,14 @@ class TestTape7Reader:
 class TestCardDeck:
     """Verify the tape5 card deck is rendered correctly."""
 
+    @pytest.mark.level1
     def test_model_code_mapping(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig(atmosphere_profile="tropical")
         tape5 = render_tape5(config, default_geometry)
         # MODEL=1 for tropical should appear in Card 1.
         assert "1" in tape5.splitlines()[0]
 
+    @pytest.mark.level1
     def test_geometry_in_card3(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig()
         tape5 = render_tape5(config, default_geometry)
@@ -220,12 +230,14 @@ class TestCardDeck:
         assert "20.000" in tape5
         assert "0.000" in tape5
 
+    @pytest.mark.level1
     def test_spectral_range_in_card4(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig(v1_cm1=800.0, v2_cm1=5000.0)
         tape5 = render_tape5(config, default_geometry)
         assert "800.0" in tape5
         assert "5000.0" in tape5
 
+    @pytest.mark.level1
     def test_deterministic_rendering(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig()
         t1 = render_tape5(config, default_geometry)
@@ -241,13 +253,16 @@ class TestCardDeck:
 class TestCache:
     """Cache key determinism and round-trip."""
 
+    @pytest.mark.level0
     def test_cache_key_deterministic(self) -> None:
         tape5 = "some card deck content\n"
         assert _cache_key(tape5) == _cache_key(tape5)
 
+    @pytest.mark.level0
     def test_cache_key_differs_for_different_decks(self) -> None:
         assert _cache_key("deck_a\n") != _cache_key("deck_b\n")
 
+    @pytest.mark.level1
     def test_cache_round_trip(self, tmp_path: Path) -> None:
         cache_dir = tmp_path / "cache"
         key = "test_key_12345678"
@@ -265,6 +280,7 @@ class TestCache:
         np.testing.assert_array_equal(tau_r, tau)
         np.testing.assert_array_equal(lp_r, lp)
 
+    @pytest.mark.level1
     def test_cache_miss_returns_none(self, tmp_path: Path) -> None:
         result = _load_cache(tmp_path, "nonexistent_key")
         assert result is None
@@ -278,6 +294,7 @@ class TestCache:
 class TestFallback:
     """Fallback to SimpleAtmosphere when binary is unavailable."""
 
+    @pytest.mark.level1
     def test_fallback_when_binary_missing(
         self, default_geometry: AtmosphericGeometry, tmp_path: Path,
     ) -> None:
@@ -296,6 +313,7 @@ class TestFallback:
         assert np.all(result.transmittance.values <= 1.0)
         assert np.all(result.path_radiance.values >= 0.0)
 
+    @pytest.mark.level1
     def test_error_when_no_fallback(
         self, default_geometry: AtmosphericGeometry, tmp_path: Path,
     ) -> None:
@@ -309,6 +327,7 @@ class TestFallback:
         with pytest.raises(ModtranUnavailableError, match="not found"):
             model.build_state(wl, default_geometry)
 
+    @pytest.mark.level1
     def test_cache_hit_bypasses_binary(
         self, default_geometry: AtmosphericGeometry, tmp_path: Path,
     ) -> None:
@@ -347,18 +366,22 @@ class TestFallback:
 class TestConfigValidation:
     """ModtranConfig validates its parameters."""
 
+    @pytest.mark.level1
     def test_invalid_profile(self) -> None:
         with pytest.raises(ValueError, match="atmosphere_profile"):
             ModtranConfig(atmosphere_profile="martian")
 
+    @pytest.mark.level1
     def test_invalid_aerosol(self) -> None:
         with pytest.raises(ValueError, match="aerosol_model"):
             ModtranConfig(aerosol_model="volcanic")
 
+    @pytest.mark.level1
     def test_negative_h2o_scale(self) -> None:
         with pytest.raises(ValueError, match="h2o_scale"):
             ModtranConfig(h2o_scale=-1.0)
 
+    @pytest.mark.level1
     def test_bad_spectral_range(self) -> None:
         with pytest.raises(ValueError, match="v1_cm1"):
             ModtranConfig(v1_cm1=5000.0, v2_cm1=1000.0)
@@ -372,6 +395,7 @@ class TestConfigValidation:
 class TestProtocol:
     """ModtranAtmosphere satisfies the Atmosphere protocol."""
 
+    @pytest.mark.level1
     def test_isinstance_check(self, tmp_path: Path) -> None:
         config = ModtranConfig(
             binary_path=tmp_path / "fake",

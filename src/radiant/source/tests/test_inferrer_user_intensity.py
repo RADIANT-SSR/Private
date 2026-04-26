@@ -136,6 +136,7 @@ class TestUserIntensityChainRun:
        numerical tolerance (vacuum limit).
     """
 
+    @pytest.mark.level2
     def test_chain_runs_on_vacuum_path(self, tmp_path: Path) -> None:
         I_value = 1.0  # W/sr/µm — sensible order-of-magnitude for LWIR
         csv_path = _write_flat_csv(
@@ -179,6 +180,7 @@ class TestUserIntensityChainRun:
             atol=0.0,
         )
 
+    @pytest.mark.level1
     def test_inferrer_emits_T7IntensityAtSource(
         self, tmp_path: Path
     ) -> None:
@@ -234,6 +236,7 @@ class TestT7DescriptorGuards:
             source="test::T7 guards",
         )
 
+    @pytest.mark.level1
     def test_requires_I_t_source(self) -> None:
         with pytest.raises(ParameterBoundsError, match="I_t_source is required"):
             T7IntensityAtSource(
@@ -243,6 +246,7 @@ class TestT7DescriptorGuards:
                 I_t_source=None,
             )
 
+    @pytest.mark.level1
     def test_rejects_extended_scene_type(self) -> None:
         I_sd = self._sd(np.full(11, 1.0))
         with pytest.raises(ParameterBoundsError, match="scene_type"):
@@ -253,6 +257,7 @@ class TestT7DescriptorGuards:
                 I_t_source=I_sd,
             )
 
+    @pytest.mark.level1
     def test_rejects_sub_pixel_scene_type(self) -> None:
         I_sd = self._sd(np.full(11, 1.0))
         with pytest.raises(ParameterBoundsError, match="scene_type"):
@@ -263,6 +268,7 @@ class TestT7DescriptorGuards:
                 I_t_source=I_sd,
             )
 
+    @pytest.mark.level1
     def test_rejects_at_aperture_target_location(self) -> None:
         I_sd = self._sd(np.full(11, 1.0))
         # Note: base TargetDescriptor.__post_init__ also rejects
@@ -276,6 +282,7 @@ class TestT7DescriptorGuards:
                 I_t_source=I_sd,
             )
 
+    @pytest.mark.level1
     def test_rejects_non_canonical_unit(self) -> None:
         I_sd = self._sd(np.full(11, 1.0), unit="W/m^2/sr/um")
         with pytest.raises(ParameterBoundsError, match="W/sr/um"):
@@ -286,6 +293,7 @@ class TestT7DescriptorGuards:
                 I_t_source=I_sd,
             )
 
+    @pytest.mark.level1
     def test_rejects_negative_intensity(self) -> None:
         vals = np.full(11, 1.0)
         vals[5] = -1e-3
@@ -298,6 +306,7 @@ class TestT7DescriptorGuards:
                 I_t_source=I_sd,
             )
 
+    @pytest.mark.level1
     def test_no_A_t_or_shape_field(self) -> None:
         """T7 deliberately does not expose A_t / shape on the descriptor surface."""
         I_sd = self._sd(np.full(11, 1.0))
@@ -319,6 +328,7 @@ class TestT7DescriptorGuards:
 class TestConverterPassThrough:
     """The boundary converter does not reshape or rescale I_t_source."""
 
+    @pytest.mark.level1
     def test_heaviside_I_preserved_by_converter(self) -> None:
         wl = np.linspace(8.0, 13.0, 41)
         step = 10.0  # µm
@@ -354,6 +364,7 @@ class TestConverterPassThrough:
 class TestSerializationRoundTrip:
     """T7 round-trips via SpectralData.to_dict / from_dict without loss."""
 
+    @pytest.mark.level1
     def test_spectraldata_round_trip_preserves_values_and_grid(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         vals = np.linspace(0.3, 0.7, 11)
@@ -387,6 +398,7 @@ class TestSerializationRoundTrip:
 
 
 class TestCSVLoader:
+    @pytest.mark.level1
     def test_load_flat_csv_with_header(self, tmp_path: Path) -> None:
         csv_path = _write_flat_csv(
             tmp_path / "flat.csv",
@@ -401,6 +413,7 @@ class TestCSVLoader:
         )
         assert sd.unit == "W/sr/um"
 
+    @pytest.mark.level1
     def test_load_flat_csv_without_header(self, tmp_path: Path) -> None:
         csv_path = _write_flat_csv(
             tmp_path / "noheader.csv",
@@ -411,16 +424,19 @@ class TestCSVLoader:
         sd = load_user_intensity_csv(csv_path)
         np.testing.assert_array_equal(sd.wavelength_um, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ParameterBoundsError, match="not found"):
             load_user_intensity_csv(tmp_path / "does_not_exist.csv")
 
+    @pytest.mark.level1
     def test_empty_file_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "empty.csv"
         csv_path.write_text("")
         with pytest.raises(ParameterBoundsError, match="empty"):
             load_user_intensity_csv(csv_path)
 
+    @pytest.mark.level1
     def test_single_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "one_row.csv"
         csv_path.write_text("wavelength_um,I\n10.0,5.0\n")
@@ -429,6 +445,7 @@ class TestCSVLoader:
         ):
             load_user_intensity_csv(csv_path)
 
+    @pytest.mark.level1
     def test_malformed_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "bad.csv"
         csv_path.write_text(
@@ -444,6 +461,7 @@ class TestCSVLoader:
 
 
 class TestConverterRejections:
+    @pytest.mark.level1
     def test_negative_intensity_raises(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         I_bad = np.full_like(wl, 1.0)
@@ -463,6 +481,7 @@ class TestConverterRejections:
                 h_tgt=0.0,
             )
 
+    @pytest.mark.level1
     def test_at_aperture_rejected(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         I_sd = SpectralData(
@@ -479,6 +498,7 @@ class TestConverterRejections:
                 target_location="at_aperture",
             )
 
+    @pytest.mark.level1
     def test_extended_scene_type_rejected(self) -> None:
         wl = np.linspace(8.0, 13.0, 11)
         I_sd = SpectralData(
@@ -503,6 +523,7 @@ class TestConverterRejections:
 
 
 class TestInferrerRejections:
+    @pytest.mark.level1
     def test_user_intensity_plus_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -520,6 +541,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_user_intensity_plus_reflectance_raises(
         self, tmp_path: Path
     ) -> None:
@@ -536,6 +558,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_VIS)
 
+    @pytest.mark.level1
     def test_user_intensity_plus_brightness_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -552,6 +575,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_user_intensity_plus_radiance_temperature_raises(
         self, tmp_path: Path
     ) -> None:
@@ -570,6 +594,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_user_intensity_plus_user_radiance_raises(
         self, tmp_path: Path
     ) -> None:
@@ -589,6 +614,7 @@ class TestInferrerRejections:
         ):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_negative_values_in_csv_raise_through_inferrer(
         self, tmp_path: Path
     ) -> None:
@@ -606,6 +632,7 @@ class TestInferrerRejections:
         with pytest.raises(ParameterBoundsError, match="negative"):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_missing_csv_raises_actionable_error(
         self, tmp_path: Path
     ) -> None:
@@ -618,6 +645,7 @@ class TestInferrerRejections:
         with pytest.raises(ParameterBoundsError, match="not found"):
             infer_descriptors(params, _WL_LWIR)
 
+    @pytest.mark.level1
     def test_grid_out_of_bounds_raises(self, tmp_path: Path) -> None:
         """CSV grid narrower than the chain grid refuses rather than extrapolating."""
         csv_path = _write_flat_csv(

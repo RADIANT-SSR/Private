@@ -30,6 +30,7 @@ WAV = np.linspace(3.0, 5.0, 200)
 
 
 class TestCombinedSource:
+    @pytest.mark.level0
     def test_eps_1_equals_thermal(self) -> None:
         """ε=1 → L = B(λ,T), no reflected component."""
         T = 300.0
@@ -42,6 +43,7 @@ class TestCombinedSource:
         L_thermal = thermal.spectral_radiance(WAV)
         np.testing.assert_allclose(L_combined, L_thermal, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_eps_0_equals_reflected(self) -> None:
         """ε=0 → L = (1/π)·E_sun·cosθ (pure reflected Lambertian)."""
         theta = 0.3
@@ -57,6 +59,7 @@ class TestCombinedSource:
         L_reflected = reflected.spectral_radiance(WAV)
         np.testing.assert_allclose(L_combined, L_reflected, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_kirchhoff_hand_calc(self) -> None:
         """L = ε·B + (1-ε)·(ρ/π)·E_sun·cosθ with ρ = 1-ε."""
         T = 350.0
@@ -74,6 +77,7 @@ class TestCombinedSource:
         expected = eps * B + (rho / math.pi) * E_sun * math.cos(theta)
         np.testing.assert_allclose(L, expected, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_sun_at_horizon(self) -> None:
         """θ_sun = π/2 → reflected term = 0, only thermal."""
         T = 300.0
@@ -86,6 +90,7 @@ class TestCombinedSource:
         expected = eps * planck_spectral_radiance(WAV, T)
         np.testing.assert_allclose(L, expected, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_mwir_crossover(self) -> None:
         """In MWIR, both terms contribute — result > either alone."""
         T = 400.0
@@ -99,6 +104,7 @@ class TestCombinedSource:
         # Combined should be >= thermal at every wavelength
         assert np.all(L_combined >= L_thermal - 1e-20)
 
+    @pytest.mark.level0
     def test_phong_brdf_model(self) -> None:
         """Phong model produces different result than Lambertian."""
         T = 300.0
@@ -118,6 +124,7 @@ class TestCombinedSource:
         # Phong at specular should be higher than Lambertian
         assert np.all(L_phong > L_lamb)
 
+    @pytest.mark.level0
     def test_spectral_emissivity(self) -> None:
         """Array emissivity works correctly."""
         eps = np.linspace(0.3, 0.9, len(WAV))
@@ -130,6 +137,7 @@ class TestCombinedSource:
         assert np.all(np.isfinite(L))
         assert np.all(L > 0)
 
+    @pytest.mark.level0
     def test_negative_temp_raises(self) -> None:
         with pytest.raises(ValueError, match="temperature_K"):
             CombinedSource(
@@ -137,6 +145,7 @@ class TestCombinedSource:
                 solar_zenith_rad=0.0,
             )
 
+    @pytest.mark.level0
     def test_emissivity_gt_1_raises(self) -> None:
         with pytest.raises(ValueError, match="emissivity"):
             CombinedSource(
@@ -144,6 +153,7 @@ class TestCombinedSource:
                 solar_zenith_rad=0.0,
             )
 
+    @pytest.mark.level0
     def test_invalid_brdf_model_raises(self) -> None:
         with pytest.raises(ValueError, match="brdf_model"):
             CombinedSource(
@@ -152,6 +162,7 @@ class TestCombinedSource:
                 brdf_model="invalid",
             )
 
+    @pytest.mark.level0
     def test_invalid_zenith_raises(self) -> None:
         with pytest.raises(ValueError, match="solar_zenith_rad"):
             CombinedSource(
@@ -159,6 +170,7 @@ class TestCombinedSource:
                 solar_zenith_rad=2.0,
             )
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         src = CombinedSource(
             temperature_K=300, emissivity=0.5,
@@ -167,6 +179,7 @@ class TestCombinedSource:
         with pytest.raises(AttributeError):
             src.temperature_K = 400  # type: ignore[misc]
 
+    @pytest.mark.level0
     def test_deterministic(self) -> None:
         src = CombinedSource(
             temperature_K=300, emissivity=0.5,

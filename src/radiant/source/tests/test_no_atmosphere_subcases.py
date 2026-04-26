@@ -128,6 +128,7 @@ def _seed_required_params(params) -> None:
 class TestSpaceSubcaseSmoke:
     """Descriptor + assembly path for the Table D space sub-case."""
 
+    @pytest.mark.level1
     def test_cold_space_background_assembly_is_zero(self) -> None:
         """Matrix §3.3: default ColdSpaceBackground is identically zero in v1."""
         wl = _lwir_grid()
@@ -137,6 +138,7 @@ class TestSpaceSubcaseSmoke:
         assert L_bg is not None
         assert np.all(L_bg == 0.0)
 
+    @pytest.mark.level1
     def test_space_target_assembly_equals_thermal_self_emission(self) -> None:
         """Matrix §6.2: exo reduces to ε·B(T_t) + 0; Cell 58 LWIR extended."""
         wl = _lwir_grid()
@@ -159,6 +161,7 @@ class TestSpaceSubcaseSmoke:
         assert np.all(L < 15.0)
         assert np.all(L > 3.0)
 
+    @pytest.mark.level1
     def test_validate_space_leo_nadir_passes(self) -> None:
         """800 km LEO nadir clears the Earth limb — validator returns cleanly."""
         wl = _lwir_grid()
@@ -186,6 +189,7 @@ class TestSpaceSubcaseSmoke:
 class TestSpaceSubcaseFailures:
     """Matrix §7 must-raise combinations for the space sub-case."""
 
+    @pytest.mark.level1
     def test_missing_h_sensor_raises(self) -> None:
         """Rule 17: space sub-case without user-set h_sensor is rejected loudly."""
         wl = _lwir_grid()
@@ -209,6 +213,7 @@ class TestSpaceSubcaseFailures:
                 h_sensor_user_set=False, # provenance = DEFAULT
             )
 
+    @pytest.mark.level1
     def test_h_sensor_default_value_user_unset_raises(self) -> None:
         """Even if h_sensor=0.0 (the default), the ``user_set=False`` flag
         triggers the raise — silent default use is Rule-17 forbidden."""
@@ -233,6 +238,7 @@ class TestSpaceSubcaseFailures:
                 h_sensor_user_set=False,
             )
 
+    @pytest.mark.level1
     def test_los_intercepts_earth_raises(self) -> None:
         """Matrix §7: LOS from a low-altitude sensor looking down at a
         high-zenith angle will pass below the Earth surface toward an
@@ -273,6 +279,7 @@ class TestSpaceSubcaseFailures:
                 h_sensor_user_set=True,
             )
 
+    @pytest.mark.level1
     def test_los_missing_raises(self) -> None:
         """Space sub-case with no LOS cannot run the Earth-intercept check."""
         wl = _lwir_grid()
@@ -304,6 +311,7 @@ class TestSpaceSubcaseFailures:
 class TestGroundTestSubcaseSmoke:
     """Descriptor + assembly path for Table D-ground G13."""
 
+    @pytest.mark.level1
     def test_user_spectral_background_passes_through(self) -> None:
         """UserSpectralBackground passes L_bg through the ExoAtmosphere
         bundle unmodified (atmosphere is A0 — no transport)."""
@@ -317,6 +325,7 @@ class TestGroundTestSubcaseSmoke:
         # Dimensional audit: user-supplied W/m²/sr/µm passes through unchanged.
         np.testing.assert_allclose(L_bg, L_user, atol=1e-15)
 
+    @pytest.mark.level1
     def test_g13_lwir_ground_test_extended_end_to_end(self) -> None:
         """G13: LWIR extended thermal graybody + UserSpectralBackground."""
         wl = _lwir_grid()
@@ -350,6 +359,7 @@ class TestGroundTestSubcaseSmoke:
 
 
 class TestGroundTestSubcaseFailures:
+    @pytest.mark.level1
     def test_no_user_background_raises(self) -> None:
         """Matrix §7: ground_test without UserSpectralBackground → raise."""
         wl = _lwir_grid()
@@ -373,6 +383,7 @@ class TestGroundTestSubcaseFailures:
                 h_sensor_user_set=False,
             )
 
+    @pytest.mark.level1
     def test_cold_space_background_for_ground_test_raises(self) -> None:
         """Matrix §7: wrong background variant for ground_test → raise."""
         wl = _lwir_grid()
@@ -396,6 +407,7 @@ class TestGroundTestSubcaseFailures:
                 h_sensor_user_set=False,
             )
 
+    @pytest.mark.level1
     def test_ground_background_for_ground_test_raises(self) -> None:
         """GroundBackground is for terrestrial/airborne, not ground_test."""
         wl = _lwir_grid()
@@ -429,6 +441,7 @@ class TestGroundTestSubcaseFailures:
 class TestLabTestSubcaseSmoke:
     """Descriptor + assembly path for Table D-lab L13 dark cal."""
 
+    @pytest.mark.level1
     def test_l13_lwir_dark_cal_blackbody_standard(self) -> None:
         """L13 dark-cal: blackbody-standard target + chamber UserSpectralBackground,
         no illumination (illumination = None → T1Thermal, ρ=0)."""
@@ -461,6 +474,7 @@ class TestLabTestSubcaseSmoke:
         assert L_bg is not None
         np.testing.assert_allclose(L_bg, 0.3, atol=1e-15)
 
+    @pytest.mark.level1
     def test_lab_test_dark_cal_runs_without_illumination(self) -> None:
         """Illumination = None (θ_s = None) is permitted for lab_test."""
         wl = _lwir_grid()
@@ -487,6 +501,7 @@ class TestLabTestSubcaseSmoke:
 
 
 class TestLabTestSubcaseFailures:
+    @pytest.mark.level1
     def test_no_user_background_raises(self) -> None:
         """Matrix §7: lab_test without UserSpectralBackground → raise."""
         wl = _lwir_grid()
@@ -525,6 +540,7 @@ class TestUserSpectralBackgroundRoundTrip:
     at the aperture — no hidden unit conversion, no hidden transport.
     """
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("L_value", [0.0, 0.1, 1.0, 10.0, 1234.5])
     def test_pass_through_is_identity(self, L_value: float) -> None:
         wl = _lwir_grid()
@@ -535,6 +551,7 @@ class TestUserSpectralBackgroundRoundTrip:
         assert L_out is not None
         np.testing.assert_allclose(L_out, L_value, atol=1e-15)
 
+    @pytest.mark.level1
     def test_spectral_shape_preserved(self) -> None:
         """A non-constant L_bg(λ) must pass through with the same shape."""
         wl = _lwir_grid()
@@ -563,11 +580,13 @@ class TestUserSpectralBackgroundRoundTrip:
 class TestIntercepsEarth:
     """Level-0 sanity tests for ``LineOfSightGeometry.intercepts_earth``."""
 
+    @pytest.mark.level1
     def test_nadir_from_leo_does_not_intercept(self) -> None:
         """800 km LEO looking straight down at h_tgt=0 — no intercept."""
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
         assert not los.intercepts_earth(800_000.0)
 
+    @pytest.mark.level1
     def test_nadir_from_ground_does_not_intercept(self) -> None:
         """A sensor at 1 m looking down at h_tgt=0 — degenerate but not an
         intercept (target and sensor both sit at/near the surface; the LOS
@@ -576,6 +595,7 @@ class TestIntercepsEarth:
         # Both endpoints at the surface → no dip below.
         assert not los.intercepts_earth(1.0)
 
+    @pytest.mark.level1
     def test_grazing_los_below_limb_intercepts(self) -> None:
         """A pair at low altitude with θ_o close to π/2 — LOS dips below."""
         # h_atm_top bumped to admit the space-target geometry; the
@@ -585,11 +605,13 @@ class TestIntercepsEarth:
         # the line between them crosses below the Earth limb.
         assert los.intercepts_earth(100_000.0)
 
+    @pytest.mark.level1
     def test_negative_h_sensor_raises(self) -> None:
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
         with pytest.raises(ParameterBoundsError, match="h_sensor"):
             los.intercepts_earth(-1.0)
 
+    @pytest.mark.level1
     def test_two_space_objects_nadir_clear(self) -> None:
         """GEO looking at LEO from above — clear LOS."""
         # h_atm_top bumped to admit the space-target geometry; the
@@ -608,6 +630,7 @@ class TestIntercepsEarth:
 class TestInferrerSpaceSubcase:
     """The inferrer's ``space`` dispatch returns ColdSpaceBackground."""
 
+    @pytest.mark.level1
     def test_exo_atm_model_routes_to_space_subcase(self) -> None:
         from radiant.api._param_registry import build_parameter_set
         from radiant.source._inferrer import infer_descriptors
@@ -630,6 +653,7 @@ class TestInferrerSpaceSubcase:
 class TestInferrerGroundTestSubcase:
     """The inferrer raises for ground_test (legacy surface has no L_bg path)."""
 
+    @pytest.mark.level1
     def test_ground_test_without_user_background_raises(self) -> None:
         from radiant.api._param_registry import build_parameter_set
         from radiant.source._inferrer import infer_descriptors
@@ -650,6 +674,7 @@ class TestInferrerGroundTestSubcase:
 class TestInferrerLabTestSubcase:
     """The inferrer raises for lab_test (legacy surface has no L_bg path)."""
 
+    @pytest.mark.level1
     def test_lab_test_without_user_background_raises(self) -> None:
         from radiant.api._param_registry import build_parameter_set
         from radiant.source._inferrer import infer_descriptors
@@ -681,6 +706,7 @@ class TestLabTestDescriptorRoundTrip:
     parameter — the lossy boundary is documented in _inferrer).
     """
 
+    @pytest.mark.level1
     def test_t1_lab_test_roundtrip(self) -> None:
         wl = _lwir_grid()
         with warnings.catch_warnings():

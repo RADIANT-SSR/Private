@@ -124,6 +124,7 @@ class TestAnchor1_LWIR_limit:
 
     WL = np.linspace(8.0, 13.0, 51)
 
+    @pytest.mark.level1
     def test_scattered_over_thermal_lt_1em3_at_10um(self) -> None:
         params = _resolved_params(
             self.WL,
@@ -172,6 +173,7 @@ class TestAnchor2_VIS_limit:
 
     WL = np.linspace(0.4, 1.0, 61)
 
+    @pytest.mark.level1
     def test_thermal_over_scattered_lt_1em6_at_0p5um(self) -> None:
         params = _resolved_params(
             self.WL,
@@ -221,6 +223,7 @@ class TestAnchor3_MWIR_crossover:
 
     WL = np.linspace(3.0, 5.0, 41)
 
+    @pytest.mark.level1
     def test_both_components_within_order_of_magnitude_at_4um(self) -> None:
         params = _resolved_params(
             self.WL,
@@ -272,6 +275,7 @@ class TestFragility_HighOpticalDepth:
 
     WL = np.linspace(0.4, 1.0, 31)
 
+    @pytest.mark.level1
     def test_scattered_does_not_exceed_E_TOA_times_cos(self) -> None:
         # Visibility 0.1 km, lots of water → thick aerosol/H2O column.
         atm = SimpleAtmosphere(
@@ -321,6 +325,7 @@ class TestFragility_LowSun:
 
     WL = np.linspace(0.4, 1.0, 31)
 
+    @pytest.mark.level1
     @pytest.mark.parametrize(
         "theta_s_deg", [85.0, 89.0, 89.99],
     )
@@ -353,6 +358,7 @@ class TestFragility_LowSun:
         # at θ_s = 30° (monotone in cos θ_s).
         assert np.all(q.E_sky_scattered <= ref_q.E_sky_scattered + 1e-12)
 
+    @pytest.mark.level1
     @pytest.mark.parametrize(
         "theta_s_deg", [90.0, 120.0, 180.0],
     )
@@ -397,6 +403,7 @@ class TestSumPreservation:
 
     WL = np.linspace(0.4, 13.0, 101)
 
+    @pytest.mark.level1
     def test_both_components_populated_across_spectrum(self) -> None:
         params = _resolved_params(
             self.WL,
@@ -433,6 +440,7 @@ class TestStageOutputInspectability:
 
     WL = np.linspace(3.0, 5.0, 41)
 
+    @pytest.mark.level2
     def test_components_published_on_stage_outputs(self) -> None:
         session = RadiantSession(wavelength_um=self.WL)
         params = session.default_params()

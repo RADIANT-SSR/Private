@@ -79,6 +79,7 @@ def _base_params():  # type: ignore[no-untyped-def]
 class TestTruthAnchorSphere:
     """Sphere projected area is π r² regardless of view (closed form)."""
 
+    @pytest.mark.level1
     def test_sphere_descriptor_is_sphere_and_area_is_pi_rsq(self) -> None:
         params = _base_params()
         params.set("source.target.shape", "sphere")
@@ -101,6 +102,7 @@ class TestTruthAnchorSphere:
 class TestTruthAnchorCylinderSide:
     """Cylinder viewed with axis perpendicular to view: A = 2 r L."""
 
+    @pytest.mark.level1
     def test_cylinder_side_view_is_two_r_l(self) -> None:
         params = _base_params()
         params.set("source.target.shape", "cylinder")
@@ -128,6 +130,7 @@ class TestTruthAnchorCylinderSide:
 class TestTruthAnchorFlatPlate:
     """Flat plate: A = W·H at normal incidence, 0 edge-on."""
 
+    @pytest.mark.level1
     def test_flat_plate_normal_view_is_wh(self) -> None:
         params = _base_params()
         params.set("source.target.shape", "flat_plate")
@@ -144,6 +147,7 @@ class TestTruthAnchorFlatPlate:
         assert isinstance(target.shape, FlatPlate)
         assert target.A_t == pytest.approx(6.0, rel=1e-12, abs=0.0)
 
+    @pytest.mark.level1
     def test_flat_plate_edge_view_is_zero(self) -> None:
         params = _base_params()
         params.set("source.target.shape", "flat_plate")
@@ -169,6 +173,7 @@ class TestTruthAnchorFlatPlate:
 
 
 class TestQ3Precedence:
+    @pytest.mark.level1
     def test_shape_and_area_conflict_emits_single_warning(self) -> None:
         """Both shape + projected_area_m2 → exactly one ``shape.*wins`` warning."""
         params = _base_params()
@@ -197,6 +202,7 @@ class TestQ3Precedence:
         assert isinstance(target.shape, Sphere)
         assert target.A_t == pytest.approx(math.pi, rel=1e-12, abs=0.0)
 
+    @pytest.mark.level1
     def test_no_shape_uses_projected_area_no_warning(self) -> None:
         """Back-compat: shape='none' keeps projected_area_m2 and emits no warning."""
         params = _base_params()
@@ -225,6 +231,7 @@ class TestQ3Precedence:
 
 
 class TestShapeFactoryValidation:
+    @pytest.mark.level1
     def test_sphere_zero_radius_raises_parameter_bounds_error(self) -> None:
         """shape='sphere' with radius sentinel (0.0) → ParameterBoundsError."""
         params = _base_params()
@@ -235,6 +242,7 @@ class TestShapeFactoryValidation:
         with pytest.raises(ParameterBoundsError, match="shape_radius_m"):
             build_shape(params)
 
+    @pytest.mark.level1
     def test_sphere_negative_radius_rejected_at_schema(self) -> None:
         """Negative radius fails earlier, at schema bounds (Step 1.1 contract)."""
         params = _base_params()
@@ -250,6 +258,7 @@ class TestShapeFactoryValidation:
 
 
 class TestAdditionalShapes:
+    @pytest.mark.level1
     def test_cone_descriptor_is_cone(self) -> None:
         params = _base_params()
         params.set("source.target.shape", "cone")
@@ -265,6 +274,7 @@ class TestAdditionalShapes:
         # Smoke: cone projected area is positive under nadir view.
         assert target.A_t is not None and target.A_t > 0.0
 
+    @pytest.mark.level1
     def test_box_descriptor_is_box(self) -> None:
         params = _base_params()
         params.set("source.target.shape", "box")
@@ -320,6 +330,7 @@ class TestShapeFactoryDispatch:
             ),
         ],
     )
+    @pytest.mark.level1
     def test_factory_dispatches_every_catalog_shape(
         self,
         shape_name: str,
@@ -340,6 +351,7 @@ class TestShapeFactoryDispatch:
         result = build_shape(params)
         assert isinstance(result, expected_type)
 
+    @pytest.mark.level1
     def test_factory_none_on_shape_sentinel(self) -> None:
         """build_shape returns None when shape='none' (back-compat)."""
         from radiant.core.parameters import ParameterSet

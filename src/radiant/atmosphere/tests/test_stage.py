@@ -69,6 +69,7 @@ class TestAtmosphereStage:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 100)
 
+    @pytest.mark.level1
     def test_produces_at_aperture_frame(self, wl: np.ndarray) -> None:
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params())
@@ -77,6 +78,7 @@ class TestAtmosphereStage:
         assert L is not None
         assert L.shape == wl.shape
 
+    @pytest.mark.level1
     def test_produces_at_aperture_target_frame(self, wl: np.ndarray) -> None:
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params())
@@ -91,6 +93,7 @@ class TestAtmosphereStage:
             L,
         )
 
+    @pytest.mark.level1
     def test_tau_stashed(self, wl: np.ndarray) -> None:
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params())
@@ -99,6 +102,7 @@ class TestAtmosphereStage:
         assert np.all(tau >= 0.0)
         assert np.all(tau <= 1.0)
 
+    @pytest.mark.level1
     def test_L_path_stashed(self, wl: np.ndarray) -> None:
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params())
@@ -106,6 +110,7 @@ class TestAtmosphereStage:
         assert lp.shape == wl.shape
         assert np.all(np.isfinite(lp))
 
+    @pytest.mark.level1
     def test_atm_quantities_stashed(self, wl: np.ndarray) -> None:
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params())
@@ -114,6 +119,7 @@ class TestAtmosphereStage:
         assert atm_q.L_path_up.shape == wl.shape
         assert atm_q.L_path_full.shape == wl.shape
 
+    @pytest.mark.level1
     def test_exo_model(self, wl: np.ndarray) -> None:
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params(model="exo"))
@@ -125,9 +131,11 @@ class TestAtmosphereStage:
         # identically ε·B(T_t).
         assert np.all(L >= 0.0)
 
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert AtmosphereStage().name == "atmosphere"
 
+    @pytest.mark.level1
     def test_requires_target_descriptor(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)  # no descriptors
         with pytest.raises(ValueError, match="TargetDescriptor"):

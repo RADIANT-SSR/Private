@@ -107,31 +107,35 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 **Why it still matters**: VIS/NIR reflective scenarios that route through MODTRAN now silently lose the solar-zenith dependence that Stage 6's E_sky decomposition was designed to expose. The analytic backend is fine; the MODTRAN backend collapses the split. Mixed-backend test suites can therefore mask real two-leg bugs.
 **Suggested fix**: stand-alone Category C task — add a second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)` to produce `tau_sun` independently from `tau_up`. Cache key must include θ_s. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s. Block: requires CU-009 to land first (otherwise θ_s is always 0 and the new code path is exercised by zero scenarios).
 
-### CU-012 — Shadow-mode classification injection not wired
+### CU-022 — Orphaned shadow-mode artifacts post-Stage-4 narrowing
 
-**Discovered**: Option C Stage 3 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stages 3–8 have landed)
-**Status**: stage-deferral expired — Stages 3 through 8 all landed without wiring this. Worse, audit shows zero occurrences of `option_c_classification` *anywhere* in `src/` or `tests/` as of 2026-04-24, suggesting either the field name has drifted or the entire shadow-mode pathway was reworked silently.
+**Discovered**: 2026-04-26 during CU-012/CU-013 investigation. Stage 4 (commit `3680a54`) deleted the shadow-mode mechanism but left two artifacts behind that have no consumers and no functional effect.
 
-**File**: `src/radiant/atmosphere/stage.py` and the integration harness.
-**Symptom (verified 2026-04-24)**: `grep -rn option_c_classification src/ tests/` returns zero matches. The CU originally referenced `state.stage_outputs["meta"]["option_c_classification"]`, but that field name no longer exists. The shadow-mode comparison may therefore be running on a different mechanism (anchor-tests-only, post-Stage-6 baseline) — or the per-scenario invariant assertion may have been quietly dropped.
-**Why it still matters**: the post-Stage-6 baseline (`Post-Stage-6 baseline` in `Option_C_Implementation_Plan.md`) only pins Cells 28 and 58. Every other "invariant"-classified cell from the Stage 0 baseline snapshot is currently *not* hard-asserted on a per-scenario basis — drift can accumulate without CI signal.
-**Suggested fix**: investigation task first (1–2 hours), not a code task — find where the shadow-mode comparison actually lives in post-Stage-8 code (likely renamed or moved to `tests/integration/`), audit which baseline cells are currently hard-asserted vs. soft-checked, then either revive the per-scenario assert with the current field name or document the post-Stage-6 narrowing of scope. Update or close this CU once the investigation lands.
+**Status**: Open. Cleanup-only, low risk; could batch with any future atmosphere/tests cleanup.
 
-### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells
+**File**:
+1. `tests/integration/snapshots/option_c_baseline.yaml` — 14-scenario YAML snapshot from Stage 0 with per-cell `classification` field. Zero readers in `src/` or `tests/`. Was the Stage-3 shadow-mode reference; superseded by hardcoded `CELL28_PINNED` / `CELL58_PINNED` in `tests/integration/test_option_c_anchors.py`.
+2. `src/radiant/atmosphere/tests/test_evaluate.py:120-136` — `shadow_mode_off` fixture that sets the now-inert `RADIANT_OPTION_C_SHADOW=0` env var. The fixture's own self-test (`test_shadow_mode_off_fixture_sets_env`, line 460) acknowledges it: "Stage 4 removed the shadow-mode wiring entirely, so the env var is inert — the fixture survives only so legacy fixtures that depended on it can be removed gradually."
 
-**Discovered**: Option C Stage 3 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stage 6 has landed)
-**Status**: cannot verify in-place — `_SHADOW_RTOL` constant no longer exists in `src/radiant/atmosphere/stage.py` (`grep -rn _SHADOW_RTOL src/` returns zero matches as of 2026-04-24). Either the constant was renamed/relocated when Stage 6 landed, or the shadow-mode tolerance check was removed/restructured. Linked to CU-012's "the field name has drifted" finding.
+**Symptom**: `grep -rn shadow_mode_off src/ tests/` returns 3 hits, all in `test_evaluate.py` itself (definition + docstring + self-test). `grep -rn option_c_baseline.yaml src/ tests/` returns zero hits.
 
-**File**: previously `src/radiant/atmosphere/stage.py`; now unknown.
-**Symptom (re-stated)**: Stage 6 introduced authorized physics changes to MWIR-mixed and ground-bg-reflected branches. The original concern was that floating-point drift on *invariant*-classified cells might exceed `rtol=1e-6` and false-trip the assertion. Whether that concern materialized depends on the post-Stage-6 tolerance value, which is currently unlocatable.
-**Why it still matters**: if the tolerance was dropped entirely (rather than re-tuned), invariant cells now have no hard guard against drift. If it was loosened silently, the magnitude of legitimate drift Stage 6 produced is undocumented.
-**Suggested fix**: investigation task — find where the post-Stage-6 invariant-cell assertion lives (or whether it was deleted), recover the chosen rtol and the survey data behind it, document in `docs/Option_C_Implementation_Plan.md` Regression Invariants section. Likely closes alongside CU-012 since they touch the same shadow-mode pathway.
+**Why it still matters**: the orphaned YAML carries a per-cell classification taxonomy (`invariant`, `expected_to_change_at_stage_3`, etc.) that suggests-but-does-not-deliver per-scenario regression coverage. New contributors reading `Option_C_Implementation_Plan.md` may assume the baseline is live. The fixture is a known dead helper kept for transition that has now lasted six stages.
+
+**Suggested fix**: stand-alone Category A — delete the YAML file; delete the `shadow_mode_off` fixture and its self-test; verify pytest 2798/2798 still green; one commit. Effort: ~15 min. Optionally also strip the `Iterator[None]` import and `os` import if `test_evaluate.py` no longer needs them after removing the fixture.
 
 ---
 
 ## Resolved
+
+### CU-012 — Shadow-mode classification injection not wired — RESOLVED 2026-04-26 (Stage 4 commit `3680a54`)
+
+Closed by reference to the Stage 4 architectural decision, not by new code. Investigation 2026-04-26 found that Stage 4 (commit `3680a54`, 2026-04-20) deliberately removed the entire shadow-mode mechanism — `_shadow_compare()`, `_SHADOW_ENV_VAR`, `_SHADOW_RTOL`, `_shadow_mode_enabled()`, the dual-path execution in `AtmosphereStage.run()`, and the legacy `build_state()` protocol method are all gone. Per-scenario invariant assertion was not "silently dropped" — it was deliberately superseded. Post-Stage-4 regression gating is narrowed to **two anchor cells (28 and 58)** with hardcoded pinned values in `tests/integration/test_option_c_anchors.py::CELL28_PINNED` and `CELL58_PINNED` (rtol=1e-6, `ANCHOR_TOLERANCE` line 69). The 14-scenario `option_c_baseline.yaml` survives as an orphaned historical artifact (zero consumers — filed as **CU-022**). The post-Stage-6 narrowing is documented in `docs/Option_C_Implementation_Plan.md` lines 31–53 (Regression Invariants section); the doc already carries a top-of-file HISTORICAL banner directing readers to `RADIANT_Master_Architecture.md` for current architecture.
+
+### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells — RESOLVED 2026-04-26 (Stage 4 commit `3680a54`)
+
+Closed alongside CU-012, same root cause. The `_SHADOW_RTOL` constant returned zero grep hits because Stage 4 (commit `3680a54`) deleted it along with the rest of the shadow-mode machinery. The Stage-6-tolerance concern is therefore moot — there is no post-Stage-6 tolerance value to recover because the per-scenario heterogeneous-cell comparison no longer runs. The `ANCHOR_TOLERANCE = 1e-6` in `tests/integration/test_option_c_anchors.py:69` survives unchanged because Cells 28 and 58 are both T1Thermal with ρ≡0, making them bit-invariant across Stage 6's `ρ · (E_sky_scattered + E_sky_thermal)` decomposition (`Option_C_Implementation_Plan.md:51`). No tolerance loosening occurred; the assertion scope shrank from "all invariant cells" to "two anchor cells."
+
+
 
 ### CU-021 — Repo-wide `ruff format` drift (160 files) — RESOLVED 2026-04-26 (commit `1c1c6b7` + CI follow-up `87dfccc`)
 

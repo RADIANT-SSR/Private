@@ -129,23 +129,13 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 **Why it still matters**: if the tolerance was dropped entirely (rather than re-tuned), invariant cells now have no hard guard against drift. If it was loosened silently, the magnitude of legitimate drift Stage 6 produced is undocumented.
 **Suggested fix**: investigation task — find where the post-Stage-6 invariant-cell assertion lives (or whether it was deleted), recover the chosen rtol and the survey data behind it, document in `docs/Option_C_Implementation_Plan.md` Regression Invariants section. Likely closes alongside CU-012 since they touch the same shadow-mode pathway.
 
-### CU-021 — Repo-wide `ruff format` drift (160 files)
-
-**Discovered**: 2026-04-26 during CU-020 slice 5 (CI workflow wiring). Pre-flight `ruff format --check src/` reports 160 of 346 source files would be reformatted. `ruff check src/` (lint) is clean — this is a formatter-only drift, not a lint failure.
-
-**Status**: Open. Not a blocker for slice 5 — the CI workflow ships with `ruff check` only, not `ruff format --check`. Once CU-021 lands the format step can be added back.
-
-**File**: 160 files across `src/radiant/` (sample: `src/radiant/source/tests/test_tabulated.py`, `src/radiant/source/tests/test_unified_target.py`, `src/radiant/spectral_integration/stage.py`, `src/radiant/spectral_integration/tests/test_stage.py`).
-
-**Symptom**: `ruff format --check src/` exits non-zero with `160 files would be reformatted, 186 files already formatted`. CLAUDE.md "Code Style" section requires `ruff format` and line length 100, but the tool was never run repo-wide so the codebase has organic drift from this baseline.
-
-**Why it still matters**: CI's static-checks job currently skips format verification, so any new file can introduce arbitrary formatting. CLAUDE.md says this should be enforced. Until CU-021 lands, the convention is documented but not gated.
-
-**Suggested fix**: stand-alone Category A task — run `ruff format src/` in one PR (cleanup-only, no logic changes), confirm `pytest -q` still 2798/2798, then a follow-up one-line PR adds `ruff format --check src/` back to `.github/workflows/ci.yml`. Effort: ~30 min for the format pass plus full pytest verification.
-
 ---
 
 ## Resolved
+
+### CU-021 — Repo-wide `ruff format` drift (160 files) — RESOLVED 2026-04-26 (commit `1c1c6b7` + CI follow-up `87dfccc`)
+
+Resolved by two commits: (1) `1c1c6b7` ran `ruff format src/` repo-wide, reformatting 160 of 346 files (+2227/-2420 lines, format-only diff with no logic changes), verified by pytest 2798/2798 passing, mypy --strict clean (53 files), lint-imports 5/5 contracts kept, ruff check + ruff format --check both clean post-pass; (2) `87dfccc` added `ruff format --check src/` to the `static` job in `.github/workflows/ci.yml` so formatting drift is now gated alongside ruff lint, mypy --strict, and import-linter. CLAUDE.md "Code Style" requirement (ruff format, line length 100) is now enforceable in CI, completing the gap left by CU-020 slice 5.
 
 ### CU-020 — Pytest level0/1/2/golden marker sweep + CI gating — RESOLVED 2026-04-26 (slice 5 commit `f0c2aed`)
 

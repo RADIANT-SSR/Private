@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pytest
 
 from radiant.performance.consistency_check import (
     check_dual_path_consistency,
@@ -40,6 +41,7 @@ def _make_gaussian_mtf(freq_m: np.ndarray, sigma_m: float) -> np.ndarray:
 class TestConsistentPaths:
     """When both paths agree, the check should pass."""
 
+    @pytest.mark.level1
     def test_single_term_passes(self) -> None:
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
         freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
@@ -57,6 +59,7 @@ class TestConsistentPaths:
         assert result.passed_y
         assert result.max_absolute_error_x < 1e-10
 
+    @pytest.mark.level1
     def test_two_terms_product_passes(self) -> None:
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
         freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
@@ -81,6 +84,7 @@ class TestConsistentPaths:
 class TestInconsistentPaths:
     """When paths disagree, the check should fail."""
 
+    @pytest.mark.level1
     def test_missing_term_in_product_fails(self) -> None:
         """ePSF has two degradations but product only has one → FAIL."""
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
@@ -100,6 +104,7 @@ class TestInconsistentPaths:
         assert not result.passed_x
         assert not result.passed_y
 
+    @pytest.mark.level1
     def test_extra_term_in_product_fails(self) -> None:
         """Product has extra term not in ePSF → FAIL."""
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
@@ -124,6 +129,7 @@ class TestInconsistentPaths:
 class TestExcludedTerms:
     """TDI terms are excluded from the comparison."""
 
+    @pytest.mark.level1
     def test_tdi_excluded(self) -> None:
         """Adding a TDI term should NOT cause a mismatch."""
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
@@ -148,6 +154,7 @@ class TestExcludedTerms:
 class TestAnisotropy:
     """Consistency check handles x ≠ y independently."""
 
+    @pytest.mark.level1
     def test_x_fails_y_passes(self) -> None:
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
         freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3

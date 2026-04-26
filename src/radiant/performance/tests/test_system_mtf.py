@@ -17,17 +17,20 @@ from radiant.performance.system_mtf import (
 
 
 class TestNyquistFreq:
+    @pytest.mark.level0
     def test_basic(self) -> None:
         """f_Ny = 1/(2×15µm) ≈ 33333 cy/m."""
         f = nyquist_freq(15e-6)
         assert f == pytest.approx(1.0 / (2.0 * 15e-6), rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero_pitch_raises(self) -> None:
         with pytest.raises(ValueError, match="pixel_pitch_m"):
             nyquist_freq(0.0)
 
 
 class TestMTFAtFreq:
+    @pytest.mark.level0
     def test_interpolation(self) -> None:
         freq = np.linspace(0, 1e5, 100)
         mtf = np.exp(-freq / 3e4)
@@ -37,6 +40,7 @@ class TestMTFAtFreq:
 
 
 class TestMTFAtNyquist:
+    @pytest.mark.level0
     def test_basic(self) -> None:
         pitch = 15e-6
         freq = np.linspace(0, 1e5, 1000)
@@ -47,6 +51,7 @@ class TestMTFAtNyquist:
 
 
 class TestMTFAtHalfNyquist:
+    @pytest.mark.level0
     def test_basic(self) -> None:
         pitch = 15e-6
         freq = np.linspace(0, 1e5, 1000)

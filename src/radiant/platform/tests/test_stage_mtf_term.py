@@ -7,6 +7,7 @@ for both x and y axes and stores them in ChainState.mtf_terms.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
@@ -92,6 +93,7 @@ def _make_state_with_epsf_and_freq() -> tuple[ChainState, EffectivePSF]:
 class TestIsotropicJitterMTF:
     """Isotropic jitter: mtf_jitter_x == mtf_jitter_y."""
 
+    @pytest.mark.level1
     def test_isotropic_jitter_x_equals_y(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         params = _make_params(**{"platform.jitter_rms_urad": 5.0})
@@ -102,6 +104,7 @@ class TestIsotropicJitterMTF:
             out.mtf_terms["mtf_jitter_y"],
         )
 
+    @pytest.mark.level1
     def test_isotropic_jitter_matches_analytic(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         jitter_urad = 5.0
@@ -120,6 +123,7 @@ class TestIsotropicJitterMTF:
 class TestAnisotropicJitterMTF:
     """Anisotropic jitter: mtf_jitter_x ≠ mtf_jitter_y at non-zero freq."""
 
+    @pytest.mark.level1
     def test_anisotropic_x_gt_y(self) -> None:
         """σ_x < σ_y → mtf_jitter_x > mtf_jitter_y at non-zero freq."""
         state, _ = _make_state_with_epsf_and_freq()
@@ -136,6 +140,7 @@ class TestAnisotropicJitterMTF:
         # Skip DC (both = 1.0).
         assert np.all(mtf_x[1:] > mtf_y[1:])
 
+    @pytest.mark.level1
     def test_anisotropic_matches_analytic(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         focal_length_m = 5.0
@@ -164,6 +169,7 @@ class TestAnisotropicJitterMTF:
 class TestSmearMTF:
     """Along-track smear: mtf_smear_y < 1 but mtf_smear_x == 1."""
 
+    @pytest.mark.level1
     def test_along_track_smear_y_degrades(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         params = _make_params(**{"platform.smear_length_um": 5.0})
@@ -173,6 +179,7 @@ class TestSmearMTF:
         # At non-zero freq, smear degrades y-axis MTF.
         assert np.any(mtf_smear_y[1:] < 1.0)
 
+    @pytest.mark.level1
     def test_smear_x_is_unity(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         params = _make_params(**{"platform.smear_length_um": 5.0})
@@ -182,6 +189,7 @@ class TestSmearMTF:
             out.mtf_terms["mtf_smear_x"], np.ones_like(out.mtf_terms["mtf_smear_x"])
         )
 
+    @pytest.mark.level1
     def test_smear_matches_analytic(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         smear_um = 5.0
@@ -200,6 +208,7 @@ class TestSmearMTF:
 class TestZeroMotionMTF:
     """Zero jitter and zero smear → all MTF terms are unity."""
 
+    @pytest.mark.level1
     def test_all_unity(self) -> None:
         state, _ = _make_state_with_epsf_and_freq()
         params = _make_params()

@@ -43,6 +43,7 @@ def _flat_irradiance(value: float) -> SpectralData:
 class TestVeilingGlare:
     """Verify veiling glare mode."""
 
+    @pytest.mark.level0
     def test_fraction_scales_irradiance(self) -> None:
         """VGF=0.01 with 1.0 W/m^2/um -> 0.01 W/m^2/um."""
         config = StrayLightConfig(
@@ -53,6 +54,7 @@ class TestVeilingGlare:
         result = compute_stray_light_irradiance(config, WL, in_fov_irradiance=e_in)
         np.testing.assert_allclose(result.values, 0.01, atol=1e-12)
 
+    @pytest.mark.level0
     def test_zero_fraction_is_zero(self) -> None:
         config = StrayLightConfig(
             input_mode=StrayLightInputMode.VEILING_GLARE,
@@ -62,6 +64,7 @@ class TestVeilingGlare:
         result = compute_stray_light_irradiance(config, WL, in_fov_irradiance=e_in)
         np.testing.assert_allclose(result.values, 0.0, atol=1e-15)
 
+    @pytest.mark.level0
     def test_missing_in_fov_raises(self) -> None:
         config = StrayLightConfig(
             input_mode=StrayLightInputMode.VEILING_GLARE,
@@ -79,6 +82,7 @@ class TestVeilingGlare:
 class TestAbsoluteIrradiance:
     """Verify absolute irradiance mode."""
 
+    @pytest.mark.level0
     def test_distributes_over_bandwidth(self) -> None:
         """1e-3 W/m^2 over 2 um bandwidth -> 5e-4 W/m^2/um."""
         config = StrayLightConfig(
@@ -90,6 +94,7 @@ class TestAbsoluteIrradiance:
         expected = 1e-3 / bandwidth
         np.testing.assert_allclose(result.values, expected, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_flat_output(self) -> None:
         """Output should be spectrally flat."""
         config = StrayLightConfig(
@@ -99,6 +104,7 @@ class TestAbsoluteIrradiance:
         result = compute_stray_light_irradiance(config, WL)
         assert np.all(np.diff(result.values) == 0.0)
 
+    @pytest.mark.level0
     def test_zero_irradiance(self) -> None:
         config = StrayLightConfig(
             input_mode=StrayLightInputMode.ABSOLUTE_IRRADIANCE,
@@ -116,6 +122,7 @@ class TestAbsoluteIrradiance:
 class TestSpectralFile:
     """Verify spectral file mode."""
 
+    @pytest.mark.level0
     def test_uses_preloaded(self) -> None:
         preloaded = _flat_irradiance(0.05)
         config = StrayLightConfig(
@@ -127,6 +134,7 @@ class TestSpectralFile:
         )
         np.testing.assert_allclose(result.values, 0.05, atol=1e-12)
 
+    @pytest.mark.level0
     def test_missing_preloaded_raises(self) -> None:
         config = StrayLightConfig(
             input_mode=StrayLightInputMode.SPECTRAL_FILE,
@@ -144,6 +152,7 @@ class TestSpectralFile:
 class TestPstStub:
     """Verify PST mode raises NotImplementedError."""
 
+    @pytest.mark.level0
     def test_raises(self) -> None:
         config = StrayLightConfig(
             input_mode=StrayLightInputMode.PST_FILE,
@@ -161,6 +170,7 @@ class TestPstStub:
 class TestConfigValidation:
     """Input validation for StrayLightConfig."""
 
+    @pytest.mark.level0
     def test_vgf_out_of_range(self) -> None:
         with pytest.raises(ValueError, match="veiling_glare_fraction"):
             StrayLightConfig(
@@ -168,6 +178,7 @@ class TestConfigValidation:
                 veiling_glare_fraction=1.5,
             )
 
+    @pytest.mark.level0
     def test_negative_absolute(self) -> None:
         with pytest.raises(ValueError, match="absolute_irradiance"):
             StrayLightConfig(
@@ -175,10 +186,12 @@ class TestConfigValidation:
                 absolute_irradiance_W_m2=-0.01,
             )
 
+    @pytest.mark.level0
     def test_spectral_file_missing_path(self) -> None:
         with pytest.raises(ValueError, match="spectral_file"):
             StrayLightConfig(input_mode=StrayLightInputMode.SPECTRAL_FILE)
 
+    @pytest.mark.level0
     def test_pst_file_missing_path(self) -> None:
         with pytest.raises(ValueError, match="pst_file"):
             StrayLightConfig(input_mode=StrayLightInputMode.PST_FILE)
@@ -192,6 +205,7 @@ class TestConfigValidation:
 class TestIncludesThermal:
     """Verify includes_thermal is just a flag, not affecting stray calc."""
 
+    @pytest.mark.level0
     def test_flag_stored(self) -> None:
         config = StrayLightConfig(
             input_mode=StrayLightInputMode.VEILING_GLARE,

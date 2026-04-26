@@ -56,6 +56,7 @@ def _flat_spectral(value: float, name: str = "test") -> SpectralData:
 class TestKirchhoffIdentity:
     """Verify epsilon + T + R == 1 for all element types."""
 
+    @pytest.mark.level0
     def test_mirror_kirchhoff(self) -> None:
         """Mirror: epsilon = 1 - R, T = 0."""
         R = 0.98
@@ -76,6 +77,7 @@ class TestKirchhoffIdentity:
         )
         np.testing.assert_allclose(eps, 1.0 - R, atol=1e-12)
 
+    @pytest.mark.level0
     def test_lens_simple_refractive_eps_zero(self) -> None:
         """Simple refractive element (no cavity): epsilon = 0.
 
@@ -95,6 +97,7 @@ class TestKirchhoffIdentity:
         eps = elem.emissivity.values
         np.testing.assert_allclose(eps, 0.0, atol=1e-12)
 
+    @pytest.mark.level0
     def test_gold_mirror_emissivity(self) -> None:
         """Truth anchor: gold mirror R=0.98 -> epsilon=0.02."""
         elem = OpticalElement(
@@ -110,6 +113,7 @@ class TestKirchhoffIdentity:
             elem.emissivity.values, 0.02, atol=1e-12,
         )
 
+    @pytest.mark.level0
     def test_simple_refractive_eps_zero_regardless_of_R(self) -> None:
         """Simple refractive: eps = 0 even when R is specified."""
         elem = OpticalElement(
@@ -129,6 +133,7 @@ class TestKirchhoffIdentity:
 class TestNetTransmittance:
     """Verify net_transmittance dispatches correctly."""
 
+    @pytest.mark.level1
     def test_mirror_returns_reflectance(self) -> None:
         elem = OpticalElement(
             name="m",
@@ -143,6 +148,7 @@ class TestNetTransmittance:
             elem.net_transmittance.values, elem.reflectance.values
         )
 
+    @pytest.mark.level1
     def test_lens_returns_transmittance(self) -> None:
         elem = OpticalElement(
             name="l",
@@ -166,6 +172,7 @@ class TestNetTransmittance:
 class TestSolidAngle:
     """Verify nearfield solid angle calculation."""
 
+    @pytest.mark.level0
     def test_known_geometry(self) -> None:
         """Truth anchor: D=0.10m, d=0.50m -> Omega = pi*(0.05)^2/0.25 = 0.03142 sr."""
         elem = OpticalElement(
@@ -180,6 +187,7 @@ class TestSolidAngle:
         expected = math.pi * (0.05) ** 2 / (0.50) ** 2
         assert elem.nearfield_solid_angle_sr == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_large_geometry(self) -> None:
         """D=0.30m, d=1.20m -> Omega = pi*(0.15)^2/(1.44) = 0.04909 sr."""
         elem = OpticalElement(
@@ -194,6 +202,7 @@ class TestSolidAngle:
         expected = math.pi * (0.15) ** 2 / (1.20) ** 2
         assert elem.nearfield_solid_angle_sr == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_clipping_at_2pi(self) -> None:
         """Very large element very close to FPA clips at 2*pi."""
         elem = OpticalElement(
@@ -218,6 +227,7 @@ class TestSolidAngle:
 class TestKirchhoffViolations:
     """Detect and reject Kirchhoff violations."""
 
+    @pytest.mark.level1
     def test_mirror_nonzero_transmittance(self) -> None:
         with pytest.raises(KirchhoffViolationError, match="mirrors must have zero"):
             OpticalElement(
@@ -230,6 +240,7 @@ class TestKirchhoffViolations:
                 distance_to_fpa_m=1.0,
             )
 
+    @pytest.mark.level1
     def test_t_plus_r_exceeds_one(self) -> None:
         with pytest.raises(KirchhoffViolationError, match="T \\+ R"):
             OpticalElement(
@@ -246,6 +257,7 @@ class TestKirchhoffViolations:
 class TestValidation:
     """Input validation for OpticalElement."""
 
+    @pytest.mark.level1
     def test_grid_mismatch(self) -> None:
         tau = SpectralData(
             name="tau",
@@ -272,6 +284,7 @@ class TestValidation:
                 distance_to_fpa_m=0.3,
             )
 
+    @pytest.mark.level1
     def test_negative_temperature(self) -> None:
         with pytest.raises(ValueError, match="temperature_K"):
             OpticalElement(
@@ -284,6 +297,7 @@ class TestValidation:
                 distance_to_fpa_m=0.3,
             )
 
+    @pytest.mark.level1
     def test_zero_diameter(self) -> None:
         with pytest.raises(ValueError, match="diameter_m"):
             OpticalElement(
@@ -296,6 +310,7 @@ class TestValidation:
                 distance_to_fpa_m=0.3,
             )
 
+    @pytest.mark.level1
     def test_zero_distance(self) -> None:
         with pytest.raises(ValueError, match="distance_to_fpa_m"):
             OpticalElement(
@@ -308,6 +323,7 @@ class TestValidation:
                 distance_to_fpa_m=0.0,
             )
 
+    @pytest.mark.level1
     def test_transmittance_out_of_bounds(self) -> None:
         with pytest.raises(ValueError, match="transmittance values"):
             OpticalElement(
@@ -329,6 +345,7 @@ class TestValidation:
 class TestMakeLumpedElement:
     """Verify the lumped element factory."""
 
+    @pytest.mark.level1
     def test_basic(self) -> None:
         tau = _flat_spectral(0.7, "tau")
         elem = make_lumped_element(tau, 290.0, 0.3, 1.0)
@@ -339,6 +356,7 @@ class TestMakeLumpedElement:
         # Simple refractive: eps = 0 (absorption unknown).
         np.testing.assert_allclose(elem.emissivity.values, 0.0, atol=1e-12)
 
+    @pytest.mark.level1
     def test_net_transmittance_is_T(self) -> None:
         """Lumped element transfer factor is transmittance."""
         tau = _flat_spectral(0.5, "tau")
@@ -356,6 +374,7 @@ class TestMakeLumpedElement:
 class TestCavityModel:
     """Category C validation for refractive cavity physics."""
 
+    @pytest.mark.level0
     def test_uncoated_glass_no_absorption(self) -> None:
         """Truth anchor 1: uncoated glass window, no bulk absorption.
 
@@ -386,6 +405,7 @@ class TestCavityModel:
         # Energy conservation.
         np.testing.assert_allclose(t_sys + r_sys + eps, 1.0, atol=1e-10)
 
+    @pytest.mark.level0
     def test_absorbing_glass(self) -> None:
         """Truth anchor 2: glass with bulk absorption.
 
@@ -423,6 +443,7 @@ class TestCavityModel:
         # Energy conservation: T + R + A = 1.
         np.testing.assert_allclose(t_sys + r_sys + absorptance, 1.0, atol=1e-12)
 
+    @pytest.mark.level0
     def test_high_absorption_limit(self) -> None:
         """High absorption: T_sys → 0, absorptance large."""
         cavity = CavityModel(
@@ -442,6 +463,7 @@ class TestCavityModel:
             t_sys + cavity.R_sys.values + absorptance, 1.0, atol=1e-12,
         )
 
+    @pytest.mark.level0
     def test_zero_thickness_surface_only(self) -> None:
         """d=0 → beer=1 → reduces to surface-only cavity (no bulk absorption)."""
         cavity = CavityModel(
@@ -457,6 +479,7 @@ class TestCavityModel:
         np.testing.assert_allclose(cavity.beer, 1.0, atol=1e-14)
         np.testing.assert_allclose(cavity.eps_eff.values, 0.0, atol=1e-14)
 
+    @pytest.mark.level0
     def test_energy_conservation_spectral(self) -> None:
         """T_sys + R_sys + A = 1 at every wavelength (non-flat inputs)."""
         wl = np.linspace(3.0, 5.0, 50)
@@ -488,6 +511,7 @@ class TestCavityModel:
 class TestCavityModelValidation:
     """Error cases for CavityModel."""
 
+    @pytest.mark.level1
     def test_surface_energy_violation(self) -> None:
         """R1 + T1 > 1 at surface 1."""
         with pytest.raises(KirchhoffViolationError, match="surface 1"):
@@ -501,6 +525,7 @@ class TestCavityModelValidation:
                 thickness_m=0.003,
             )
 
+    @pytest.mark.level1
     def test_negative_alpha(self) -> None:
         with pytest.raises(ValueError, match="alpha"):
             CavityModel(
@@ -513,6 +538,7 @@ class TestCavityModelValidation:
                 thickness_m=0.003,
             )
 
+    @pytest.mark.level1
     def test_n_below_one(self) -> None:
         with pytest.raises(ValueError, match="n must be"):
             CavityModel(
@@ -525,6 +551,7 @@ class TestCavityModelValidation:
                 thickness_m=0.003,
             )
 
+    @pytest.mark.level1
     def test_negative_thickness(self) -> None:
         with pytest.raises(ValueError, match="thickness_m"):
             CavityModel(
@@ -537,6 +564,7 @@ class TestCavityModelValidation:
                 thickness_m=-0.001,
             )
 
+    @pytest.mark.level1
     def test_grid_mismatch(self) -> None:
         """All cavity spectral inputs must share the same wavelength grid."""
         wl2 = np.linspace(3.0, 6.0, 50)
@@ -564,6 +592,7 @@ class TestCavityModelValidation:
 class TestMakeReflectiveElement:
     """Verify reflective element factory."""
 
+    @pytest.mark.level1
     def test_scalar_reflectance(self) -> None:
         elem = make_reflective_element("primary", 0.98, wavelength_um=WL)
         assert elem.resolved_transfer_mode == ElementTransferMode.REFLECTIVE
@@ -572,16 +601,19 @@ class TestMakeReflectiveElement:
         np.testing.assert_allclose(elem.transmittance.values, 0.0, atol=1e-12)
         np.testing.assert_allclose(elem.emissivity.values, 0.02, atol=1e-12)
 
+    @pytest.mark.level1
     def test_spectral_reflectance(self) -> None:
         rho = _flat_spectral(0.95, "rho")
         elem = make_reflective_element("secondary", rho)
         np.testing.assert_allclose(elem.net_transmittance.values, 0.95, atol=1e-12)
         np.testing.assert_allclose(elem.emissivity.values, 0.05, atol=1e-12)
 
+    @pytest.mark.level1
     def test_scalar_without_wavelength_raises(self) -> None:
         with pytest.raises(ValueError, match="wavelength_um is required"):
             make_reflective_element("bad", 0.98)
 
+    @pytest.mark.level1
     def test_geometry_defaults(self) -> None:
         """Geometry parameters have defaults for pure radiometric use."""
         elem = make_reflective_element("m", 0.98, wavelength_um=WL)
@@ -589,6 +621,7 @@ class TestMakeReflectiveElement:
         assert elem.diameter_m == 1.0
         assert elem.distance_to_fpa_m == 1.0
 
+    @pytest.mark.level1
     def test_geometry_override(self) -> None:
         elem = make_reflective_element(
             "m", 0.98, wavelength_um=WL,
@@ -607,6 +640,7 @@ class TestMakeReflectiveElement:
 class TestMakeRefractiveElement:
     """Verify simple refractive element factory."""
 
+    @pytest.mark.level1
     def test_scalar_transmittance(self) -> None:
         elem = make_refractive_element("window", 0.90, wavelength_um=WL)
         assert elem.resolved_transfer_mode == ElementTransferMode.REFRACTIVE
@@ -614,16 +648,19 @@ class TestMakeRefractiveElement:
         np.testing.assert_allclose(elem.transmittance.values, 0.90, atol=1e-12)
         np.testing.assert_allclose(elem.emissivity.values, 0.0, atol=1e-12)
 
+    @pytest.mark.level1
     def test_spectral_transmittance(self) -> None:
         tau = _flat_spectral(0.85, "tau")
         elem = make_refractive_element("filter", tau, kind=ElementKind.FILTER)
         assert elem.kind == ElementKind.FILTER
         np.testing.assert_allclose(elem.net_transmittance.values, 0.85, atol=1e-12)
 
+    @pytest.mark.level1
     def test_mirror_kind_rejected(self) -> None:
         with pytest.raises(ValueError, match="not refractive"):
             make_refractive_element("bad", 0.90, kind=ElementKind.MIRROR, wavelength_um=WL)
 
+    @pytest.mark.level1
     def test_scalar_without_wavelength_raises(self) -> None:
         with pytest.raises(ValueError, match="wavelength_um is required"):
             make_refractive_element("bad", 0.90)
@@ -637,6 +674,7 @@ class TestMakeRefractiveElement:
 class TestMakeRefractiveCavityElement:
     """Verify cavity element factory with hand-calculated truth anchors."""
 
+    @pytest.mark.level1
     def test_uncoated_glass_scalar_inputs(self) -> None:
         """Uncoated glass via factory with all-scalar inputs."""
         elem = make_refractive_cavity_element(
@@ -654,6 +692,7 @@ class TestMakeRefractiveCavityElement:
         # eps_eff = 0 (no absorption).
         np.testing.assert_allclose(elem.emissivity.values, 0.0, atol=1e-14)
 
+    @pytest.mark.level1
     def test_absorbing_glass_nonzero_eps(self) -> None:
         """Glass with absorption has nonzero emissivity via n^2 formula.
 
@@ -674,6 +713,7 @@ class TestMakeRefractiveCavityElement:
         np.testing.assert_allclose(elem.emissivity.values, expected_eps, rtol=1e-10)
         assert np.all(elem.emissivity.values > 0)
 
+    @pytest.mark.level1
     def test_eps_eff_matches_cavity_formula(self) -> None:
         """Cavity element eps matches T2 * n^2 * (1 - beer) / denom.
 
@@ -698,6 +738,7 @@ class TestMakeRefractiveCavityElement:
         absorptance = 1.0 - elem.transmittance.values - elem.reflectance.values
         assert np.all(elem.emissivity.values > absorptance)
 
+    @pytest.mark.level1
     def test_mirror_kind_rejected(self) -> None:
         with pytest.raises(ValueError, match="not refractive"):
             make_refractive_cavity_element(
@@ -706,6 +747,7 @@ class TestMakeRefractiveCavityElement:
                 kind=ElementKind.MIRROR, wavelength_um=WL,
             )
 
+    @pytest.mark.level1
     def test_net_transmittance_is_T_sys(self) -> None:
         """Transfer factor C_i = T_sys for cavity elements."""
         elem = make_refractive_cavity_element(

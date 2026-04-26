@@ -56,6 +56,7 @@ def _make_gaussian_epsf(fwhm_m: float, sample_spacing_m: float) -> EffectivePSF:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_point_source_resolved_target_raises() -> None:
     """√A_t/d = 0.5·PSF_FWHM on a point_source descriptor → raise."""
     fwhm_m = 20e-6  # at FPA
@@ -74,6 +75,7 @@ def test_point_source_resolved_target_raises() -> None:
         )
 
 
+@pytest.mark.level1
 def test_point_source_below_threshold_noop() -> None:
     """√A_t/d = 0.01·PSF_FWHM (well under 0.1) must not raise."""
     fwhm_m = 20e-6
@@ -93,6 +95,7 @@ def test_point_source_below_threshold_noop() -> None:
         )
 
 
+@pytest.mark.level1
 def test_point_source_right_at_threshold_noop() -> None:
     """Ratio exactly equal to 0.1 does not raise (strictly above)."""
     fwhm_m = 20e-6
@@ -115,6 +118,7 @@ def test_point_source_right_at_threshold_noop() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_subpixel_collapses_to_point_warns() -> None:
     """√A_t/d = 1e-4·PSF_FWHM on a sub_pixel descriptor → UserWarning."""
     fwhm_m = 20e-6
@@ -132,6 +136,7 @@ def test_subpixel_collapses_to_point_warns() -> None:
         )
 
 
+@pytest.mark.level1
 def test_subpixel_above_threshold_noop() -> None:
     """√A_t/d = 0.5·PSF_FWHM on a sub_pixel descriptor — no warning."""
     fwhm_m = 20e-6
@@ -155,6 +160,7 @@ def test_subpixel_above_threshold_noop() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level1
 def test_extended_scene_noop() -> None:
     """scene_type='extended' — the PSF-dependent guard is a no-op."""
     fwhm_m = 20e-6
@@ -173,6 +179,7 @@ def test_extended_scene_noop() -> None:
         )
 
 
+@pytest.mark.level1
 def test_missing_psf_noop() -> None:
     """epsf=None (degenerate chain) — validator is a no-op."""
     _validate_psf_regime_consistency(
@@ -183,6 +190,7 @@ def test_missing_psf_noop() -> None:
     )
 
 
+@pytest.mark.level1
 def test_nonfinite_angular_extent_noop() -> None:
     """Infinite or zero angular extent (no geometry) — validator is a no-op."""
     fwhm_m = 20e-6

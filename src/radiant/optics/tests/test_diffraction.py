@@ -64,21 +64,25 @@ def psf_unaberrated(config: PSFSamplingConfig) -> np.ndarray:
 
 
 class TestPupilAmplitude:
+    @pytest.mark.level0
     def test_shape(self) -> None:
         mask = make_pupil_amplitude(64)
         assert mask.shape == (64, 64)
 
+    @pytest.mark.level0
     def test_binary(self) -> None:
         mask = make_pupil_amplitude(64)
         unique = np.unique(mask)
         assert set(unique) <= {0.0, 1.0}
 
+    @pytest.mark.level0
     def test_circular(self) -> None:
         """Mask should be approximately circular — fill fraction near π/4."""
         mask = make_pupil_amplitude(512)
         fill = mask.sum() / mask.size
         assert fill == pytest.approx(math.pi / 4, abs=0.01)
 
+    @pytest.mark.level0
     def test_obscuration_removes_center(self) -> None:
         mask_clear = make_pupil_amplitude(128, obscuration_ratio=0.0)
         mask_obs = make_pupil_amplitude(128, obscuration_ratio=0.3)
@@ -88,6 +92,7 @@ class TestPupilAmplitude:
         c = 64
         assert mask_obs[c, c] == 0.0
 
+    @pytest.mark.level0
     def test_obscuration_ratio_bounds(self) -> None:
         with pytest.raises(ValueError, match="obscuration_ratio"):
             make_pupil_amplitude(64, obscuration_ratio=1.0)
@@ -101,10 +106,12 @@ class TestPupilAmplitude:
 
 
 class TestPupilPhase:
+    @pytest.mark.level0
     def test_zero_wfe_returns_zeros(self) -> None:
         phase = make_pupil_phase(64, wfe_rms_waves=0.0)
         np.testing.assert_array_equal(phase, np.zeros((64, 64)))
 
+    @pytest.mark.level0
     def test_nonzero_wfe_has_correct_rms(self) -> None:
         wfe = 0.07  # waves (~λ/14)
         phase = make_pupil_phase(128, wfe_rms_waves=wfe)
@@ -112,12 +119,14 @@ class TestPupilPhase:
         actual_rms = float(phase.std())
         assert actual_rms == pytest.approx(expected_rms_rad, rel=0.01)
 
+    @pytest.mark.level0
     def test_deterministic(self) -> None:
         """Same seed → same phase screen."""
         p1 = make_pupil_phase(64, wfe_rms_waves=0.1)
         p2 = make_pupil_phase(64, wfe_rms_waves=0.1)
         np.testing.assert_array_equal(p1, p2)
 
+    @pytest.mark.level0
     def test_negative_wfe_rejected(self) -> None:
         with pytest.raises(ValueError, match="wfe_rms_waves must be non-negative"):
             make_pupil_phase(64, wfe_rms_waves=-0.05)
@@ -129,16 +138,20 @@ class TestPupilPhase:
 
 
 class TestPSFBasic:
+    @pytest.mark.level1
     def test_shape(self, config: PSFSamplingConfig, psf_unaberrated: np.ndarray) -> None:
         assert psf_unaberrated.shape == (config.padded_npix, config.padded_npix)
 
+    @pytest.mark.level1
     def test_non_negative(self, psf_unaberrated: np.ndarray) -> None:
         assert np.all(psf_unaberrated >= 0.0)
 
+    @pytest.mark.level1
     def test_unit_volume(self, psf_unaberrated: np.ndarray) -> None:
         """PSF sums to 1.0 (unit-volume normalised)."""
         assert float(psf_unaberrated.sum()) == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_peak_at_center(self, config: PSFSamplingConfig, psf_unaberrated: np.ndarray) -> None:
         """Peak should be at or very near the grid center."""
         peak_idx = np.unravel_index(psf_unaberrated.argmax(), psf_unaberrated.shape)
@@ -146,6 +159,7 @@ class TestPSFBasic:
         assert abs(peak_idx[0] - center) <= 1
         assert abs(peak_idx[1] - center) <= 1
 
+    @pytest.mark.level1
     def test_symmetric(self, psf_unaberrated: np.ndarray) -> None:
         """Unaberrated circular aperture PSF should be ~symmetric."""
         n = psf_unaberrated.shape[0]
@@ -162,6 +176,7 @@ class TestPSFBasic:
 
 
 class TestAiryFirstZero:
+    @pytest.mark.level1
     def test_first_zero_location(
         self, config: PSFSamplingConfig, psf_unaberrated: np.ndarray
     ) -> None:
@@ -199,6 +214,7 @@ class TestAiryFirstZero:
 
 
 class TestAiryFWHM:
+    @pytest.mark.level1
     def test_fwhm(self, config: PSFSamplingConfig, psf_unaberrated: np.ndarray) -> None:
         """FWHM of Airy pattern ≈ 1.028 λf/D.
 
@@ -235,6 +251,7 @@ class TestAiryFWHM:
 
 
 class TestStrehl:
+    @pytest.mark.level1
     def test_unaberrated_strehl_is_one(self, config: PSFSamplingConfig) -> None:
         """Unaberrated system -> Strehl = 1.0."""
         psf = compute_psf(config)
@@ -242,6 +259,7 @@ class TestStrehl:
         strehl = compute_strehl(psf, psf_ref)
         assert strehl == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_marechal_strehl(self, config: PSFSamplingConfig) -> None:
         """Marechal approximation: Strehl ~ exp(-(2*pi*sigma)^2) for small WFE.
 
@@ -257,6 +275,7 @@ class TestStrehl:
         marechal = math.exp(-(2 * math.pi * wfe_waves) ** 2)
         assert strehl == pytest.approx(marechal, rel=0.05)
 
+    @pytest.mark.level1
     def test_strehl_decreases_with_wfe(self, config: PSFSamplingConfig) -> None:
         """More WFE -> lower Strehl."""
         psf_ref = compute_psf(config)
@@ -268,6 +287,7 @@ class TestStrehl:
         s_large = compute_strehl(psf_large, psf_ref)
         assert s_small > s_large
 
+    @pytest.mark.level1
     def test_zero_ref_raises(self) -> None:
         psf = np.ones((4, 4))
         psf_ref = np.zeros((4, 4))
@@ -281,12 +301,14 @@ class TestStrehl:
 
 
 class TestObscuration:
+    @pytest.mark.level1
     def test_obscuration_lowers_peak(self, config: PSFSamplingConfig) -> None:
         """Central obscuration redistributes energy -> lower peak."""
         psf_clear = compute_psf(config, obscuration_ratio=0.0)
         psf_obs = compute_psf(config, obscuration_ratio=0.3)
         assert psf_obs.max() < psf_clear.max()
 
+    @pytest.mark.level1
     def test_obscuration_preserves_total(self, config: PSFSamplingConfig) -> None:
         """Both PSFs should sum to 1.0."""
         psf_obs = compute_psf(config, obscuration_ratio=0.3)
@@ -299,6 +321,7 @@ class TestObscuration:
 
 
 class TestBesselComparison:
+    @pytest.mark.level1
     def test_airy_profile_matches_bessel(
         self, config: PSFSamplingConfig, psf_unaberrated: np.ndarray
     ) -> None:
@@ -339,6 +362,7 @@ class TestBesselComparison:
 
 
 class TestDeterminism:
+    @pytest.mark.level1
     def test_same_config_same_psf(self, config: PSFSamplingConfig) -> None:
         wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.05)
         psf1 = compute_psf(config, wfe=wfe)
@@ -354,6 +378,7 @@ class TestDeterminism:
 class TestZernikePSF:
     """Tests for compute_psf with WfeMode.ZERNIKE."""
 
+    @pytest.mark.level1
     def test_zernike_defocus_lowers_strehl(self, config: PSFSamplingConfig) -> None:
         """Z4 (defocus) should reduce the Strehl ratio."""
         psf_ref = compute_psf(config)
@@ -366,6 +391,7 @@ class TestZernikePSF:
         strehl = compute_strehl(psf_z, psf_ref)
         assert strehl < 1.0
 
+    @pytest.mark.level1
     def test_zernike_coma_asymmetric(self, config: PSFSamplingConfig) -> None:
         """Z7 (coma y) should produce an asymmetric PSF along y."""
         wfe_z = WavefrontError(
@@ -379,6 +405,7 @@ class TestZernikePSF:
         lower = psf_z[c:, :].sum()
         assert upper != pytest.approx(lower, abs=0.01)
 
+    @pytest.mark.level1
     def test_zernike_matches_scalar_strehl(self, config: PSFSamplingConfig) -> None:
         """Zernike with same RMS as scalar should give similar Strehl.
 
@@ -407,6 +434,7 @@ class TestZernikePSF:
         assert strehl_z == pytest.approx(marechal, rel=0.10)
         assert strehl_s == pytest.approx(marechal, rel=0.10)
 
+    @pytest.mark.level1
     def test_zernike_deterministic(self, config: PSFSamplingConfig) -> None:
         """Same coefficients -> identical PSF."""
         wfe = WavefrontError(
@@ -418,6 +446,7 @@ class TestZernikePSF:
         psf2 = compute_psf(config, wfe=wfe)
         np.testing.assert_array_equal(psf1, psf2)
 
+    @pytest.mark.level1
     def test_zernike_unit_volume(self, config: PSFSamplingConfig) -> None:
         """Zernike PSF should still sum to 1.0."""
         wfe = WavefrontError(
@@ -428,6 +457,7 @@ class TestZernikePSF:
         psf_z = compute_psf(config, wfe=wfe)
         assert float(psf_z.sum()) == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_zernike_differs_from_random(self, config: PSFSamplingConfig) -> None:
         """Zernike PSF shape should differ from random-phase scalar PSF."""
         rms = 0.1
@@ -452,6 +482,7 @@ class TestZernikePSF:
 class TestPolychromaticPSFResult:
     """Tests for the structured polychromatic PSF return type."""
 
+    @pytest.mark.level1
     def test_returns_result_type(self) -> None:
         wavelengths_m = np.array([3.5e-6, 4.0e-6, 5.0e-6])
         weights = np.ones(3)
@@ -464,6 +495,7 @@ class TestPolychromaticPSFResult:
         )
         assert isinstance(result, PolychromaticPSFResult)
 
+    @pytest.mark.level1
     def test_combined_psf_unit_volume(self) -> None:
         wavelengths_m = np.array([3.5e-6, 4.0e-6, 5.0e-6])
         weights = np.ones(3)
@@ -476,6 +508,7 @@ class TestPolychromaticPSFResult:
         )
         assert float(result.combined_psf.sum()) == pytest.approx(1.0, rel=1e-6)
 
+    @pytest.mark.level1
     def test_per_wavelength_none_by_default(self) -> None:
         wavelengths_m = np.array([3.5e-6, 5.0e-6])
         weights = np.ones(2)
@@ -488,6 +521,7 @@ class TestPolychromaticPSFResult:
         )
         assert result.per_wavelength is None
 
+    @pytest.mark.level1
     def test_per_wavelength_stored_when_requested(self) -> None:
         wavelengths_m = np.array([3.5e-6, 4.0e-6, 5.0e-6])
         weights = np.ones(3)
@@ -505,6 +539,7 @@ class TestPolychromaticPSFResult:
         for wl_um in result.per_wavelength:
             assert 3.0 < wl_um < 6.0
 
+    @pytest.mark.level1
     def test_blue_psf_narrower_than_red(self) -> None:
         """Shorter wavelength -> narrower Airy disk."""
         wavelengths_m = np.array([3.5e-6, 5.0e-6])
@@ -523,6 +558,7 @@ class TestPolychromaticPSFResult:
         # Blue peak should be higher (narrower Airy -> more concentrated)
         assert blue_psf.max() > red_psf.max()
 
+    @pytest.mark.level1
     def test_wavelengths_um_field(self) -> None:
         wavelengths_m = np.array([3.5e-6, 5.0e-6])
         weights = np.array([1.0, 2.0])
@@ -536,6 +572,7 @@ class TestPolychromaticPSFResult:
         np.testing.assert_allclose(result.wavelengths_um, [3.5, 5.0], rtol=1e-10)
         np.testing.assert_allclose(result.weights, [1.0, 2.0], rtol=1e-10)
 
+    @pytest.mark.level1
     def test_single_wavelength_result(self) -> None:
         """Single wavelength should still return PolychromaticPSFResult."""
         result = compute_polychromatic_psf(
@@ -548,6 +585,7 @@ class TestPolychromaticPSFResult:
         assert isinstance(result, PolychromaticPSFResult)
         assert float(result.combined_psf.sum()) == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_wfe_threaded_to_polychromatic(self) -> None:
         """WavefrontError should propagate to polychromatic path."""
         wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.1)

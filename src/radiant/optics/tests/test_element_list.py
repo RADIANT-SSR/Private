@@ -80,6 +80,7 @@ def _window(T: float, R: float, T_K: float, D: float, d: float, name: str = "w")
 class TestSystemTransmission:
     """Verify system transmission is the product of net transmittances."""
 
+    @pytest.mark.level1
     def test_two_mirrors(self) -> None:
         """Two mirrors R=0.98 each: tau_system = 0.98^2 = 0.9604."""
         m1 = _mirror(0.98, 290.0, 0.3, 1.2, "primary")
@@ -87,6 +88,7 @@ class TestSystemTransmission:
         tau = compute_system_transmission((m1, m2), WL)
         np.testing.assert_allclose(tau.values, 0.98**2, atol=1e-12)
 
+    @pytest.mark.level1
     def test_mirror_plus_window(self) -> None:
         """Mirror R=0.98, window T=0.95: system tau = 0.98 * 0.95 = 0.931."""
         m = _mirror(0.98, 290.0, 0.3, 1.2)
@@ -94,11 +96,13 @@ class TestSystemTransmission:
         tau = compute_system_transmission((m, w), WL)
         np.testing.assert_allclose(tau.values, 0.98 * 0.95, atol=1e-12)
 
+    @pytest.mark.level1
     def test_single_element(self) -> None:
         m = _mirror(0.97, 290.0, 0.3, 1.0)
         tau = compute_system_transmission((m,), WL)
         np.testing.assert_allclose(tau.values, 0.97, atol=1e-12)
 
+    @pytest.mark.level1
     def test_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="empty"):
             compute_system_transmission((), WL)
@@ -112,18 +116,21 @@ class TestSystemTransmission:
 class TestDownstreamTransmission:
     """Verify downstream transmission for element ordering."""
 
+    @pytest.mark.level1
     def test_last_element_is_ones(self) -> None:
         m1 = _mirror(0.98, 290.0, 0.3, 1.2)
         m2 = _mirror(0.95, 290.0, 0.1, 0.6)
         tau_down = compute_downstream_transmission((m1, m2), 1, WL)
         np.testing.assert_allclose(tau_down, 1.0, atol=1e-12)
 
+    @pytest.mark.level1
     def test_first_element_has_second_downstream(self) -> None:
         m1 = _mirror(0.98, 290.0, 0.3, 1.2)
         m2 = _mirror(0.95, 290.0, 0.1, 0.6)
         tau_down = compute_downstream_transmission((m1, m2), 0, WL)
         np.testing.assert_allclose(tau_down, 0.95, atol=1e-12)
 
+    @pytest.mark.level1
     def test_three_elements(self) -> None:
         m1 = _mirror(0.98, 290.0, 0.3, 1.2)
         m2 = _mirror(0.95, 290.0, 0.1, 0.8)
@@ -141,6 +148,7 @@ class TestDownstreamTransmission:
 class TestNearfieldIrradiance:
     """Verify nearfield emission calculations."""
 
+    @pytest.mark.level1
     def test_single_mirror_hand_calc(self) -> None:
         """Truth anchor 1: single 290K mirror.
 
@@ -159,6 +167,7 @@ class TestNearfieldIrradiance:
 
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
 
+    @pytest.mark.level1
     def test_two_elements_downstream_attenuation(self) -> None:
         """Truth anchor 2: mirror emission attenuated by downstream window.
 
@@ -185,12 +194,14 @@ class TestNearfieldIrradiance:
 
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
 
+    @pytest.mark.level1
     def test_zero_temperature_no_contribution(self) -> None:
         """T=0 K element contributes zero nearfield."""
         m = _mirror(0.98, 0.0, 0.30, 1.20)
         result = compute_nearfield_irradiance((m,), WL)
         np.testing.assert_allclose(result.total.values, 0.0, atol=1e-30)
 
+    @pytest.mark.level1
     def test_cold_stop_efficiency_scales(self) -> None:
         """Nearfield should scale linearly with cold_stop_efficiency."""
         m = _mirror(0.98, 290.0, 0.30, 1.20)
@@ -198,6 +209,7 @@ class TestNearfieldIrradiance:
         half = compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=0.5)
         np.testing.assert_allclose(half.total.values, full.total.values * 0.5, rtol=1e-12)
 
+    @pytest.mark.level1
     def test_lumped_element_zero_nearfield(self) -> None:
         """Lumped element (simple refractive) has eps=0, zero nearfield.
 
@@ -219,21 +231,25 @@ class TestNearfieldIrradiance:
 class TestEdgeCases:
     """Edge-case validation."""
 
+    @pytest.mark.level1
     def test_empty_list_raises(self) -> None:
         with pytest.raises(ValueError, match="empty"):
             compute_nearfield_irradiance((), WL)
 
+    @pytest.mark.level1
     def test_cold_stop_out_of_range(self) -> None:
         m = _mirror(0.98, 290.0, 0.3, 1.2)
         with pytest.raises(ValueError, match="cold_stop_efficiency"):
             compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=1.5)
 
+    @pytest.mark.level1
     def test_nearfield_nonnegative(self) -> None:
         """Nearfield must always be >= 0."""
         m = _mirror(0.98, 290.0, 0.3, 1.2)
         result = compute_nearfield_irradiance((m,), WL)
         assert np.all(result.total.values >= 0.0)
 
+    @pytest.mark.level1
     def test_unit_is_irradiance(self) -> None:
         m = _mirror(0.98, 290.0, 0.3, 1.2)
         result = compute_nearfield_irradiance((m,), WL)
@@ -248,6 +264,7 @@ class TestEdgeCases:
 class TestMixedTrain:
     """Verify mixed-train element list with reflective and refractive elements."""
 
+    @pytest.mark.level1
     def test_system_transmission_mixed(self) -> None:
         """3-mirror + 1-lens: tau_system = R1 * R2 * R3 * T_lens."""
         m1 = make_reflective_element(
@@ -271,6 +288,7 @@ class TestMixedTrain:
         expected = 0.98 * 0.98 * 0.97 * 0.92
         np.testing.assert_allclose(tau.values, expected, rtol=1e-10)
 
+    @pytest.mark.level1
     def test_nearfield_mirrors_only_emit(self) -> None:
         """In mixed train, only reflective elements contribute nearfield.
 
@@ -295,6 +313,7 @@ class TestMixedTrain:
 
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
 
+    @pytest.mark.level1
     def test_cavity_element_emits_in_nearfield(self) -> None:
         """Cavity element with absorption has nonzero nearfield emission."""
         m = make_reflective_element(
@@ -336,12 +355,14 @@ class TestMixedTrain:
 class TestNearfieldPerElement:
     """Verify per-element nearfield breakdown in NearfieldResult."""
 
+    @pytest.mark.level1
     def test_returns_nearfield_result(self) -> None:
         """compute_nearfield_irradiance returns NearfieldResult."""
         m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
         result = compute_nearfield_irradiance((m,), WL)
         assert isinstance(result, NearfieldResult)
 
+    @pytest.mark.level1
     def test_single_element_per_element_matches_total(self) -> None:
         """For one element, per_element[name] == total."""
         m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
@@ -351,6 +372,7 @@ class TestNearfieldPerElement:
             result.per_element["primary"].values, result.total.values, rtol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_sum_of_per_element_equals_total(self) -> None:
         """Sum of all per-element contributions must equal total."""
         m1 = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
@@ -362,6 +384,7 @@ class TestNearfieldPerElement:
             summed += sd.values
         np.testing.assert_allclose(summed, result.total.values, rtol=1e-12)
 
+    @pytest.mark.level1
     def test_per_element_keys_match_element_names(self) -> None:
         """per_element dict keys are the element names."""
         m1 = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
@@ -369,6 +392,7 @@ class TestNearfieldPerElement:
         result = compute_nearfield_irradiance((m1, m2), WL)
         assert set(result.per_element.keys()) == {"primary", "secondary"}
 
+    @pytest.mark.level1
     def test_zero_temp_element_excluded_from_per_element(self) -> None:
         """T=0 K element does not appear in per_element."""
         m_warm = _mirror(0.98, 290.0, 0.30, 1.20, "warm")
@@ -377,6 +401,7 @@ class TestNearfieldPerElement:
         assert "warm" in result.per_element
         assert "cold" not in result.per_element
 
+    @pytest.mark.level1
     def test_cold_stop_scales_per_element(self) -> None:
         """Cold stop efficiency scales each per-element contribution."""
         m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
@@ -388,12 +413,14 @@ class TestNearfieldPerElement:
             rtol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_per_element_units(self) -> None:
         """Each per-element SpectralData has irradiance units."""
         m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
         result = compute_nearfield_irradiance((m,), WL)
         assert "W/m" in result.per_element["primary"].unit
 
+    @pytest.mark.level1
     def test_per_element_hand_calc_two_mirrors(self) -> None:
         """Verify per-element values match hand calculation for two mirrors.
 

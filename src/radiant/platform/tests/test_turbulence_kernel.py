@@ -20,6 +20,7 @@ SAMPLE_SPACING_M = 2.5e-6
 class TestKernelNormalisation:
     """Kernel sums to 1.0."""
 
+    @pytest.mark.level1
     def test_sums_to_unity(self) -> None:
         kernel = kolmogorov_kernel_2d(
             npix=65,
@@ -34,6 +35,7 @@ class TestKernelNormalisation:
 class TestKernelMTFConsistency:
     """FFT of kernel matches the analytic Kolmogorov MTF."""
 
+    @pytest.mark.level1
     def test_fft_matches_analytic(self) -> None:
         r0_m = 0.10
         npix = 65
@@ -62,6 +64,7 @@ class TestKernelMTFConsistency:
 class TestKernelExtremes:
     """Kernel behaviour at extreme r0 values."""
 
+    @pytest.mark.level1
     def test_large_r0_approaches_delta(self) -> None:
         """Weak turbulence (large r0) → kernel approaches delta function."""
         kernel = kolmogorov_kernel_2d(
@@ -75,6 +78,7 @@ class TestKernelExtremes:
         # Center pixel should have nearly all energy.
         assert kernel[c, c] > 0.95
 
+    @pytest.mark.level1
     def test_small_r0_is_broad(self) -> None:
         """Strong turbulence (small r0) → kernel is broad."""
         kernel = kolmogorov_kernel_2d(
@@ -92,6 +96,7 @@ class TestKernelExtremes:
 class TestKernelShape:
     """Kernel has correct shape and is non-negative."""
 
+    @pytest.mark.level1
     def test_shape(self) -> None:
         kernel = kolmogorov_kernel_2d(
             npix=33,
@@ -102,6 +107,7 @@ class TestKernelShape:
         )
         assert kernel.shape == (33, 33)
 
+    @pytest.mark.level1
     def test_non_negative(self) -> None:
         kernel = kolmogorov_kernel_2d(
             npix=65,

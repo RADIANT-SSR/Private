@@ -33,25 +33,30 @@ class TestGroundRange:
     target) triangle, using ray-sphere slant range.
     """
 
+    @pytest.mark.level0
     def test_nadir_is_zero(self) -> None:
         """At nadir, ground range is exactly 0."""
         assert compute_ground_range_m(600_000.0, 0.0) == 0.0
 
+    @pytest.mark.level0
     def test_30_deg_from_600km(self) -> None:
         """At 30 deg, ground range ≈ 352.2 km (from ray-sphere geometry)."""
         gr = compute_ground_range_m(600_000.0, math.radians(30.0))
         assert gr == pytest.approx(352_200.0, rel=0.005)
 
+    @pytest.mark.level0
     def test_45_deg_from_600km(self) -> None:
         """At 45 deg, ground range ≈ 632.4 km (from ray-sphere geometry)."""
         gr = compute_ground_range_m(600_000.0, math.radians(45.0))
         assert gr == pytest.approx(632_400.0, rel=0.005)
 
+    @pytest.mark.level0
     def test_5_deg_from_600km(self) -> None:
         """At 5 deg, ground range ≈ 52.5 km."""
         gr = compute_ground_range_m(600_000.0, math.radians(5.0))
         assert gr == pytest.approx(52_500.0, rel=0.01)
 
+    @pytest.mark.level0
     def test_flat_earth_small_angle(self) -> None:
         """For small zenith angles, ground_range ≈ H × tan(θ)."""
         altitude_m = 600_000.0
@@ -61,19 +66,23 @@ class TestGroundRange:
         # Should match within 1% for small angles.
         assert gr == pytest.approx(flat_approx, rel=0.01)
 
+    @pytest.mark.level0
     def test_negative_zenith_raises(self) -> None:
         with pytest.raises(ValueError, match="negative"):
             compute_ground_range_m(600_000.0, -0.1)
 
+    @pytest.mark.level0
     def test_beyond_horizon_raises(self) -> None:
         """Zenith angle beyond horizon should raise ValueError."""
         with pytest.raises(ValueError, match="beyond the horizon"):
             compute_ground_range_m(600_000.0, math.radians(89.0))
 
+    @pytest.mark.level0
     def test_zero_altitude_returns_zero(self) -> None:
         """At altitude=0, ground range is 0 (degenerate case)."""
         assert compute_ground_range_m(0.0, math.radians(30.0)) == 0.0
 
+    @pytest.mark.level0
     def test_monotonically_increasing(self) -> None:
         """Ground range increases with zenith angle."""
         angles = [10.0, 20.0, 30.0, 40.0, 45.0]
@@ -92,6 +101,7 @@ class TestGroundRange:
 class TestSwathWidth:
     """Verify swath width = n_pixels × GSD_cross."""
 
+    @pytest.mark.level0
     def test_identity(self) -> None:
         """Swath = GSD × n_pixels exactly."""
         gsd = 1.37
@@ -100,10 +110,12 @@ class TestSwathWidth:
             gsd * n_pix, rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_zero_pixels(self) -> None:
         """n_pixels=0 gives swath=0 (valid)."""
         assert compute_swath_width_m(1.37, 0) == 0.0
 
+    @pytest.mark.level0
     def test_off_nadir_larger_gsd(self) -> None:
         """Off-nadir GSD produces larger swath."""
         nadir_swath = compute_swath_width_m(1.37, 10_000)
@@ -119,6 +131,7 @@ class TestSwathWidth:
 class TestAccessRate:
     """Verify access area rate = swath × speed."""
 
+    @pytest.mark.level0
     def test_identity(self) -> None:
         """Rate = swath × speed exactly."""
         swath = 13_700.0  # 13.7 km
@@ -127,10 +140,12 @@ class TestAccessRate:
             swath * speed, rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_zero_speed(self) -> None:
         """No motion → no area coverage."""
         assert compute_access_rate_m2_s(13_700.0, 0.0) == 0.0
 
+    @pytest.mark.level0
     def test_walkthrough_values(self) -> None:
         """Scenario 3.4: access rate at nadir ≈ 114 km²/s.
 

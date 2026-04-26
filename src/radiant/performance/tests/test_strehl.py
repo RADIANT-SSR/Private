@@ -65,10 +65,12 @@ def _make_state() -> ChainState:
 
 
 class TestStrehlFormula:
+    @pytest.mark.level0
     def test_zero_wfe_gives_unity(self) -> None:
         """Truth anchor 1: perfect optics → Strehl = 1.0 exactly."""
         assert compute_strehl(0.0, 0.633, 4.25) == 1.0
 
+    @pytest.mark.level0
     def test_lambda_over_14_at_ref_wavelength(self) -> None:
         """Truth anchor 2: λ/14 RMS at 633 nm, operating at 633 nm.
 
@@ -79,6 +81,7 @@ class TestStrehlFormula:
         result = compute_strehl(wfe, 0.633, 0.633)
         assert result == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_lambda_over_14_at_mwir(self) -> None:
         """Truth anchor 3: λ/14 at 633 nm, operating at 4.0 µm.
 
@@ -92,6 +95,7 @@ class TestStrehlFormula:
         result = compute_strehl(wfe, 0.633, 4.0)
         assert result == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_strehl_decreases_with_wfe(self) -> None:
         """More WFE → lower Strehl."""
         s1 = compute_strehl(0.05, 0.633, 4.25)
@@ -99,6 +103,7 @@ class TestStrehlFormula:
         s3 = compute_strehl(0.20, 0.633, 4.25)
         assert s1 > s2 > s3
 
+    @pytest.mark.level0
     def test_strehl_increases_with_longer_wavelength(self) -> None:
         """Same WFE looks better at longer wavelengths."""
         s_short = compute_strehl(0.10, 0.633, 1.0)
@@ -112,6 +117,7 @@ class TestStrehlFormula:
 
 
 class TestStrehlMetricsWiring:
+    @pytest.mark.level1
     def test_strehl_in_metrics(self) -> None:
         """Strehl appears in result.metrics."""
         state = _make_state()
@@ -123,6 +129,7 @@ class TestStrehlMetricsWiring:
         expected = math.exp(-(2.0 * math.pi * opd_rms_um / 4.25) ** 2)
         assert out.metrics["strehl"] == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level1
     def test_zero_wfe_default(self) -> None:
         """Default WFE = 0 → Strehl = 1.0."""
         state = _make_state()

@@ -32,11 +32,13 @@ from radiant.readout.tdi_scaling import (
 
 
 class TestTDIMisalignMTF:
+    @pytest.mark.level0
     def test_dc_is_one(self) -> None:
         freq = np.array([0.0])
         mtf = tdi_misalign_mtf_1d(freq, misalign_m=1e-6)
         assert mtf[0] == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_analytic_sinc(self) -> None:
         """MTF matches |sinc(π·f·m)|."""
         m = 2e-6
@@ -45,17 +47,20 @@ class TestTDIMisalignMTF:
         mtf_analytic = np.abs(np.sinc(freq * m))
         np.testing.assert_allclose(mtf_computed, mtf_analytic, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_zero_misalign_is_unity(self) -> None:
         freq = np.linspace(0, 1e5, 100)
         mtf = tdi_misalign_mtf_1d(freq, 0.0)
         np.testing.assert_array_equal(mtf, np.ones_like(freq))
 
+    @pytest.mark.level0
     def test_first_zero(self) -> None:
         m = 5e-6
         freq = np.array([1.0 / m])
         mtf = tdi_misalign_mtf_1d(freq, m)
         assert mtf[0] == pytest.approx(0.0, abs=1e-10)
 
+    @pytest.mark.level0
     def test_negative_misalign_raises(self) -> None:
         with pytest.raises(ValueError, match="non-negative"):
             tdi_misalign_mtf_1d(np.array([0.0]), -1e-6)
@@ -67,18 +72,22 @@ class TestTDIMisalignMTF:
 
 
 class TestTDIMisalignConversion:
+    @pytest.mark.level0
     def test_basic(self) -> None:
         m = tdi_misalign_m(0.1, 15e-6)
         assert m == pytest.approx(0.1 * 15e-6, rel=1e-12)
 
+    @pytest.mark.level0
     def test_negative_pixels_absolute(self) -> None:
         """Misalignment is absolute (direction doesn't matter)."""
         m = tdi_misalign_m(-0.1, 15e-6)
         assert m == pytest.approx(0.1 * 15e-6, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero_misalign(self) -> None:
         assert tdi_misalign_m(0.0, 15e-6) == 0.0
 
+    @pytest.mark.level0
     def test_zero_pitch_raises(self) -> None:
         with pytest.raises(ValueError, match="pixel_pitch_m"):
             tdi_misalign_m(0.1, 0.0)
@@ -90,23 +99,28 @@ class TestTDIMisalignConversion:
 
 
 class TestTDISignalScaling:
+    @pytest.mark.level0
     def test_signal_scales_linearly(self) -> None:
         """S_tdi = N × S_per_stage."""
         assert tdi_scale_signal(1000.0, 8) == pytest.approx(8000.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_n_tdi_1_identity(self) -> None:
         assert tdi_scale_signal(1000.0, 1) == pytest.approx(1000.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_invalid_n_tdi(self) -> None:
         with pytest.raises(ValueError, match="n_tdi"):
             tdi_scale_signal(1000.0, 0)
 
 
 class TestTDIShotScaling:
+    @pytest.mark.level0
     def test_shot_scales_sqrt_n(self) -> None:
         """Shot noise scales as √N_tdi."""
         assert tdi_scale_shot_noise(10.0, 4) == pytest.approx(20.0, rel=1e-12)
 
+    @pytest.mark.level1
     def test_truth_anchor_snr_improvement(self) -> None:
         """N=8, S=1000 e-, σ_shot=√1000 → S_tdi=8000, σ_shot_tdi=√8000.
 
@@ -122,12 +136,14 @@ class TestTDIShotScaling:
 
 
 class TestTDIReadNoiseScaling:
+    @pytest.mark.level0
     def test_read_noise_unchanged(self) -> None:
         """Read noise injected once — unchanged by TDI."""
         assert tdi_scale_read_noise(5.0) == pytest.approx(5.0, rel=1e-12)
 
 
 class TestTDIFPNScaling:
+    @pytest.mark.level0
     def test_fpn_scales_linearly(self) -> None:
         """FPN correlated → scales as N."""
         assert tdi_scale_fpn(10.0, 4) == pytest.approx(40.0, rel=1e-12)

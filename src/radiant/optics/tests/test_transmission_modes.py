@@ -58,6 +58,7 @@ def _mirror(R: float, name: str = "m") -> OpticalElement:
 class TestScalarMode:
     """Verify Mode 1 scalar transmission."""
 
+    @pytest.mark.level1
     def test_flat_at_scalar(self) -> None:
         result = resolve_transmission(
             TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
@@ -65,6 +66,7 @@ class TestScalarMode:
         np.testing.assert_allclose(result.transmission.values, 0.7, atol=1e-12)
         assert result.mode == TransmissionInputMode.SCALAR
 
+    @pytest.mark.level1
     def test_single_lumped_element(self) -> None:
         result = resolve_transmission(
             TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
@@ -72,6 +74,7 @@ class TestScalarMode:
         assert len(result.elements) == 1
         assert result.elements[0].kind == ElementKind.LUMPED
 
+    @pytest.mark.level1
     def test_emissivity_zero_simple_refractive(self) -> None:
         """Lumped element is simple refractive: eps = 0."""
         result = resolve_transmission(
@@ -81,6 +84,7 @@ class TestScalarMode:
             result.elements[0].emissivity.values, 0.0, atol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_missing_scalar_raises(self) -> None:
         with pytest.raises(ValueError, match="transmission_scalar"):
             resolve_transmission(TransmissionInputMode.SCALAR, WL)
@@ -94,6 +98,7 @@ class TestScalarMode:
 class TestSpectralFileMode:
     """Verify Mode 2 spectral file transmission."""
 
+    @pytest.mark.level1
     def test_uses_preloaded(self) -> None:
         tau_sd = _flat_spectral(0.8, "preloaded")
         result = resolve_transmission(
@@ -103,6 +108,7 @@ class TestSpectralFileMode:
         np.testing.assert_allclose(result.transmission.values, 0.8, atol=1e-12)
         assert len(result.elements) == 1
 
+    @pytest.mark.level1
     def test_missing_spectral_raises(self) -> None:
         with pytest.raises(ValueError, match="transmission_spectral"):
             resolve_transmission(TransmissionInputMode.SPECTRAL_FILE, WL)
@@ -116,6 +122,7 @@ class TestSpectralFileMode:
 class TestTelescopeFilterMode:
     """Verify Mode 3 telescope + filter stack."""
 
+    @pytest.mark.level1
     def test_telescope_times_filter(self) -> None:
         """telescope_tau=0.9 * bandpass peak=0.95 -> in-band 0.855."""
         bp = FilterSpec(
@@ -138,6 +145,7 @@ class TestTelescopeFilterMode:
             0.9 * 0.95, abs=0.01,
         )
 
+    @pytest.mark.level1
     def test_oob_near_zero(self) -> None:
         """Out-of-band: telescope * filter_oob."""
         bp = FilterSpec(
@@ -158,6 +166,7 @@ class TestTelescopeFilterMode:
             0.9 * 1e-4, abs=1e-5,
         )
 
+    @pytest.mark.level1
     def test_elements_include_telescope_and_filter(self) -> None:
         bp = FilterSpec(
             filter_type=FilterType.BANDPASS,
@@ -173,6 +182,7 @@ class TestTelescopeFilterMode:
         # 1 telescope lumped + 1 filter element
         assert len(result.elements) == 2
 
+    @pytest.mark.level1
     def test_missing_telescope_raises(self) -> None:
         with pytest.raises(ValueError, match="telescope_transmission"):
             resolve_transmission(
@@ -188,6 +198,7 @@ class TestTelescopeFilterMode:
 class TestKeyElementsMode:
     """Verify Mode 4 key elements + residual."""
 
+    @pytest.mark.level1
     def test_key_elements_with_residual(self) -> None:
         m = _mirror(0.98, "primary")
         result = resolve_transmission(
@@ -200,6 +211,7 @@ class TestKeyElementsMode:
             result.transmission.values, 0.98 * 0.9, atol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_includes_residual_element(self) -> None:
         m = _mirror(0.98, "primary")
         result = resolve_transmission(
@@ -211,6 +223,7 @@ class TestKeyElementsMode:
         assert len(result.elements) == 2
         assert result.elements[-1].kind == ElementKind.LUMPED
 
+    @pytest.mark.level1
     def test_empty_key_elements_raises(self) -> None:
         with pytest.raises(ValueError, match="key_elements"):
             resolve_transmission(
@@ -227,6 +240,7 @@ class TestKeyElementsMode:
 class TestFullPrescriptionMode:
     """Verify Mode 5 full element list."""
 
+    @pytest.mark.level1
     def test_two_mirrors(self) -> None:
         m1 = _mirror(0.98, "primary")
         m2 = _mirror(0.95, "secondary")
@@ -238,6 +252,7 @@ class TestFullPrescriptionMode:
             result.transmission.values, 0.98 * 0.95, atol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_elements_unchanged(self) -> None:
         m1 = _mirror(0.98, "primary")
         m2 = _mirror(0.95, "secondary")
@@ -247,6 +262,7 @@ class TestFullPrescriptionMode:
         )
         assert result.elements == (m1, m2)
 
+    @pytest.mark.level1
     def test_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="full_elements"):
             resolve_transmission(
@@ -263,6 +279,7 @@ class TestFullPrescriptionMode:
 class TestCrossMode:
     """Mode 1 vs Mode 5 consistency for equivalent inputs."""
 
+    @pytest.mark.level1
     def test_scalar_vs_single_lumped(self) -> None:
         """Scalar tau=0.7 and Mode 5 with equivalent lumped element
         should produce identical transmission."""
@@ -284,6 +301,7 @@ class TestCrossMode:
             atol=1e-12,
         )
 
+    @pytest.mark.level1
     def test_all_modes_produce_elements(self) -> None:
         """Every mode should produce at least one element."""
         # Mode 1

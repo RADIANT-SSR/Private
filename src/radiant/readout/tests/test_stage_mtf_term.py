@@ -90,6 +90,7 @@ def wl() -> np.ndarray:
 class TestTDIMisalignMTF:
     """TDI misalignment affects cross-scan (x) only; y = unity."""
 
+    @pytest.mark.level1
     def test_nonzero_misalign_x_matches_analytic(self, wl: np.ndarray) -> None:
         misalign_pix = 0.1
         pitch = 18.0
@@ -106,6 +107,7 @@ class TestTDIMisalignMTF:
 
         np.testing.assert_allclose(out.mtf_terms["mtf_tdi_x"], expected_x, atol=1e-12)
 
+    @pytest.mark.level1
     def test_nonzero_misalign_y_is_unity(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params(misalign_pix=0.1)
@@ -114,6 +116,7 @@ class TestTDIMisalignMTF:
         freq_mrad = out.spatial_freq_cycles_per_mrad
         np.testing.assert_array_equal(out.mtf_terms["mtf_tdi_y"], np.ones(len(freq_mrad)))
 
+    @pytest.mark.level1
     def test_zero_misalign_all_unity(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params(misalign_pix=0.0)

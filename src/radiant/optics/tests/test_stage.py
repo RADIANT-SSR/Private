@@ -53,11 +53,13 @@ class TestOpticsStage:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_produces_post_optics_frame(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
         assert "post_optics" in out.frames
 
+    @pytest.mark.level1
     def test_throughput_applied(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         tau = 0.70
@@ -67,6 +69,7 @@ class TestOpticsStage:
         assert L_in is not None and L_out is not None
         np.testing.assert_allclose(L_out, L_in * tau, rtol=1e-12)
 
+    @pytest.mark.level1
     def test_A_collect(self, wl: np.ndarray) -> None:
         D = 0.30
         out = OpticsStage().run(_make_state(wl), _make_params(D=D))
@@ -74,6 +77,7 @@ class TestOpticsStage:
         expected = math.pi / 4.0 * D ** 2
         assert pytest.approx(expected, rel=1e-10) == A
 
+    @pytest.mark.level1
     def test_Omega_pixel(self, wl: np.ndarray) -> None:
         pitch_m = 18e-6  # input is µm, schema converts to m
         f = 1.20
@@ -82,17 +86,21 @@ class TestOpticsStage:
         expected = (pitch_m ** 2) / (f ** 2)
         assert omega == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level1
     def test_EE_box_stubbed(self, wl: np.ndarray) -> None:
         out = OpticsStage().run(_make_state(wl), _make_params())
         assert out.stage_outputs["optics"]["EE_box"] == 1.0
 
+    @pytest.mark.level1
     def test_regime_stubbed_extended(self, wl: np.ndarray) -> None:
         out = OpticsStage().run(_make_state(wl), _make_params())
         assert out.stage_outputs["optics"]["regime"] == RadiometricRegime.EXTENDED
 
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert OpticsStage().name == "optics"
 
+    @pytest.mark.level1
     def test_defocus_zero_no_kernel(self, wl: np.ndarray) -> None:
         """defocus_um=0: no defocus kernel applied."""
         params = _make_params()
@@ -102,6 +110,7 @@ class TestOpticsStage:
         epsf = out.stage_outputs["optics"]["effective_psf"]
         assert "defocus" not in epsf.convolution_history
 
+    @pytest.mark.level1
     def test_defocus_applied_degrades_mtf(self, wl: np.ndarray) -> None:
         """defocus_um=5.0 at f/4: MTF should decrease at low frequencies."""
         params_no = _make_params()
@@ -123,6 +132,7 @@ class TestOpticsStage:
         idx = max(1, len(freq_no) // 20)
         assert mtf_yes[idx] < mtf_no[idx]
 
+    @pytest.mark.level1
     def test_defocus_negative_same_as_positive(self, wl: np.ndarray) -> None:
         """Negative defocus produces same ePSF as positive (symmetric)."""
         params_pos = _make_params()
@@ -139,6 +149,7 @@ class TestOpticsStage:
         epsf_neg = out_neg.stage_outputs["optics"]["effective_psf"]
         np.testing.assert_allclose(epsf_pos.data, epsf_neg.data, rtol=1e-12)
 
+    @pytest.mark.level1
     def test_defocus_sigma_stored(self, wl: np.ndarray) -> None:
         """defocus_sigma_m stored in stage outputs."""
         params = _make_params()
@@ -148,6 +159,7 @@ class TestOpticsStage:
         sigma = out.stage_outputs["optics"]["defocus_sigma_m"]
         assert sigma > 0.0
 
+    @pytest.mark.level1
     def test_defocus_increases_fwhm(self, wl: np.ndarray) -> None:
         """Large defocus increases FWHM measurably."""
         params_no = _make_params()
@@ -171,6 +183,7 @@ class TestOpticsStageWFE:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_scalar_rms_unchanged(self, wl: np.ndarray) -> None:
         """Default scalar_rms mode should work identically to before."""
         params = _make_params()
@@ -181,6 +194,7 @@ class TestOpticsStageWFE:
         assert wfe_out.mode == WfeMode.SCALAR_RMS
         assert wfe_out.rms_waves == pytest.approx(0.05, rel=1e-10)
 
+    @pytest.mark.level1
     def test_injected_zernike_wfe(self, wl: np.ndarray) -> None:
         """Injected Zernike WavefrontError should produce a valid ePSF."""
         wfe = WavefrontError(
@@ -199,6 +213,7 @@ class TestOpticsStageWFE:
         assert epsf is not None
         assert float(epsf.data.sum()) == pytest.approx(1.0, rel=1e-6)
 
+    @pytest.mark.level1
     def test_zernike_differs_from_zero_wfe(self, wl: np.ndarray) -> None:
         """Zernike WFE should produce a different PSF than zero WFE."""
         params = _make_params()
@@ -217,6 +232,7 @@ class TestOpticsStageWFE:
 
         assert not np.allclose(epsf_zero.data, epsf_z.data, atol=1e-10)
 
+    @pytest.mark.level1
     def test_unsupported_wfe_mode_from_params_raises(self, wl: np.ndarray) -> None:
         """Setting wfe_mode='zernike' without injection should raise."""
         params = _make_params()
@@ -233,6 +249,7 @@ class TestOpticsStagePerWavelengthPSF:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_per_wavelength_stored(self, wl: np.ndarray) -> None:
         """When psf_n_wavelengths > 1, per_wavelength_psfs should be stored."""
         params = _make_params()
@@ -247,6 +264,7 @@ class TestOpticsStagePerWavelengthPSF:
             assert isinstance(epsf_mono, EffectivePSF)
             assert float(epsf_mono.data.sum()) == pytest.approx(1.0, rel=1e-4)
 
+    @pytest.mark.level1
     def test_per_wavelength_not_stored_mono(self, wl: np.ndarray) -> None:
         """When psf_n_wavelengths <= 1, per_wavelength_psfs should NOT be stored."""
         params = _make_params()
@@ -277,6 +295,7 @@ class TestOpticsStageFieldDependent:
         )
         return state.with_stage_output("optics_config", "wavefront_error", wfe)
 
+    @pytest.mark.level1
     def test_reflective_on_axis(self, wl: np.ndarray) -> None:
         """Reflective field-dependent, on-axis evaluation."""
         table = (
@@ -300,6 +319,7 @@ class TestOpticsStageFieldDependent:
         assert epsf is not None
         assert float(epsf.data.sum()) == pytest.approx(1.0, rel=1e-4)
 
+    @pytest.mark.level1
     def test_reflective_off_axis_worse_strehl(self, wl: np.ndarray) -> None:
         """Off-axis (larger WFE) produces worse Strehl than on-axis."""
         table = (
@@ -327,6 +347,7 @@ class TestOpticsStageFieldDependent:
         # Off-axis with larger WFE → lower peak (worse Strehl).
         assert peak_off < peak_on
 
+    @pytest.mark.level1
     def test_default_field_position_is_on_axis(self, wl: np.ndarray) -> None:
         """Default field_position = (0,0)."""
         table = (
@@ -340,6 +361,7 @@ class TestOpticsStageFieldDependent:
         out = OpticsStage().run(state, params)
         assert out.stage_outputs["optics"]["field_position_deg"] == (0.0, 0.0)
 
+    @pytest.mark.level1
     def test_field_position_not_found_raises(self, wl: np.ndarray) -> None:
         """Requesting non-tabulated field position raises ValueError."""
         table = (
@@ -354,6 +376,7 @@ class TestOpticsStageFieldDependent:
         with pytest.raises(ValueError, match="No field sample"):
             OpticsStage().run(state, params)
 
+    @pytest.mark.level1
     def test_refractive_chromatic_psf(self, wl: np.ndarray) -> None:
         """Refractive system with chromatic Zernikes produces valid PSF."""
         table = (
@@ -381,6 +404,7 @@ class TestOpticsStageFieldDependent:
         assert epsf is not None
         assert float(epsf.data.sum()) == pytest.approx(1.0, rel=1e-4)
 
+    @pytest.mark.level1
     def test_refractive_chromatic_differs_from_reflective(self, wl: np.ndarray) -> None:
         """Refractive (varying Zernikes per λ) differs from reflective (same)."""
         # Reflective: same Z4=0.10 at all wavelengths.

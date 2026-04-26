@@ -177,22 +177,27 @@ class TestSNREdgeCases:
 class TestSNRResult:
     """Test the SNRResult dataclass itself."""
 
+    @pytest.mark.level0
     def test_ok_property_finite(self) -> None:
         r = SNRResult(value=10.0, signal_e=100.0, noise_e=10.0)
         assert r.ok is True
 
+    @pytest.mark.level0
     def test_ok_property_inf(self) -> None:
         r = SNRResult(value=float("inf"), signal_e=100.0, noise_e=0.0)
         assert r.ok is False
 
+    @pytest.mark.level0
     def test_ok_property_nan(self) -> None:
         r = SNRResult(value=float("nan"), signal_e=0.0, noise_e=0.0, failure_reason="test")
         assert r.ok is False
 
+    @pytest.mark.level0
     def test_ok_property_failure_reason(self) -> None:
         r = SNRResult(value=10.0, signal_e=100.0, noise_e=10.0, failure_reason="forced")
         assert r.ok is False
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         r = SNRResult(value=10.0, signal_e=100.0, noise_e=10.0)
         with pytest.raises(AttributeError):

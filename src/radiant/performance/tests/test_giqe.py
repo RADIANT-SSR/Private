@@ -18,6 +18,7 @@ from radiant.performance.giqe import C0, C1, C2, C3, C4, C5, compute_giqe5
 
 
 class TestGIQE5:
+    @pytest.mark.level0
     def test_hand_calculation(self) -> None:
         """Manual: GSD=1m, RER=0.9, SNR=50, H=1, G=1.
 
@@ -36,77 +37,92 @@ class TestGIQE5:
         result = compute_giqe5(1.0, 1.0, 0.9, 0.9, 50.0)
         assert result.niirs == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_published_giqe5_case_1(self) -> None:
         """GSD=0.3m, RER=0.7, SNR=100 → NIIRS ~7-8 range."""
         result = compute_giqe5(0.3, 0.3, 0.7, 0.7, 100.0)
         # Reasonable NIIRS for high-res commercial imagery.
         assert 7.0 < result.niirs < 9.0
 
+    @pytest.mark.level0
     def test_published_giqe5_case_2(self) -> None:
         """GSD=5m, RER=0.5, SNR=30 → NIIRS ~2.5-4 range (coarse imagery)."""
         result = compute_giqe5(5.0, 5.0, 0.5, 0.5, 30.0)
         assert 2.5 < result.niirs < 4.5
 
+    @pytest.mark.level0
     def test_published_giqe5_case_3(self) -> None:
         """GSD=0.5m, RER=0.8, SNR=80 → NIIRS ~6-8 range."""
         result = compute_giqe5(0.5, 0.5, 0.8, 0.8, 80.0)
         assert 6.0 < result.niirs < 8.0
 
+    @pytest.mark.level0
     def test_larger_gsd_lower_niirs(self) -> None:
         """Larger GSD → lower NIIRS (worse resolution)."""
         r1 = compute_giqe5(0.5, 0.5, 0.7, 0.7, 50.0)
         r2 = compute_giqe5(5.0, 5.0, 0.7, 0.7, 50.0)
         assert r1.niirs > r2.niirs
 
+    @pytest.mark.level0
     def test_higher_snr_higher_niirs(self) -> None:
         """Higher SNR → higher NIIRS."""
         r1 = compute_giqe5(1.0, 1.0, 0.7, 0.7, 20.0)
         r2 = compute_giqe5(1.0, 1.0, 0.7, 0.7, 100.0)
         assert r2.niirs > r1.niirs
 
+    @pytest.mark.level0
     def test_higher_rer_higher_niirs(self) -> None:
         """Higher RER → higher NIIRS (sharper edges)."""
         r1 = compute_giqe5(1.0, 1.0, 0.3, 0.3, 50.0)
         r2 = compute_giqe5(1.0, 1.0, 0.9, 0.9, 50.0)
         assert r2.niirs > r1.niirs
 
+    @pytest.mark.level0
     def test_gsd_inch_conversion(self) -> None:
         """Verify m → inch conversion: 1m = 39.37in."""
         result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 50.0)
         assert result.gsd_inch == pytest.approx(1.0 / 0.0254, rel=1e-10)
 
+    @pytest.mark.level0
     def test_geometric_mean_gsd(self) -> None:
         """Non-square GSD: geometric mean used."""
         result = compute_giqe5(1.0, 4.0, 0.7, 0.7, 50.0)
         expected_inch = math.sqrt(1.0 * 4.0) / 0.0254
         assert result.gsd_inch == pytest.approx(expected_inch, rel=1e-10)
 
+    @pytest.mark.level0
     def test_geometric_mean_rer(self) -> None:
         """Non-isotropic RER: geometric mean used."""
         result = compute_giqe5(1.0, 1.0, 0.5, 0.8, 50.0)
         expected_rer = math.sqrt(0.5 * 0.8)
         assert result.rer == pytest.approx(expected_rer, rel=1e-10)
 
+    @pytest.mark.level0
     def test_low_snr_warning(self) -> None:
         result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 3.0)
         assert any("SNR below" in w for w in result.warnings)
 
+    @pytest.mark.level0
     def test_low_rer_warning(self) -> None:
         result = compute_giqe5(1.0, 1.0, 0.1, 0.1, 50.0)
         assert any("RER below" in w for w in result.warnings)
 
+    @pytest.mark.level0
     def test_zero_gsd_raises(self) -> None:
         with pytest.raises(ValueError, match="GSD must be positive"):
             compute_giqe5(0.0, 1.0, 0.7, 0.7, 50.0)
 
+    @pytest.mark.level0
     def test_negative_snr_raises(self) -> None:
         with pytest.raises(ValueError, match="SNR must be positive"):
             compute_giqe5(1.0, 1.0, 0.7, 0.7, -10.0)
 
+    @pytest.mark.level0
     def test_zero_rer_raises(self) -> None:
         with pytest.raises(ValueError, match="RER must be positive"):
             compute_giqe5(1.0, 1.0, 0.0, 0.7, 50.0)
 
+    @pytest.mark.level0
     def test_frozen(self) -> None:
         result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 50.0)
         with pytest.raises(AttributeError):

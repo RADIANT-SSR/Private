@@ -35,6 +35,7 @@ def _make_gaussian_mtf(freq_mrad: np.ndarray, sigma_m: float) -> np.ndarray:
 class TestSystemMTFProduct:
     """System MTF = product of all terms per axis."""
 
+    @pytest.mark.level1
     def test_product_x(self, freq: np.ndarray) -> None:
         # sigma values are focal-plane blur sizes in metres.
         mtf_a_x = _make_gaussian_mtf(freq, 3e-6)
@@ -56,6 +57,7 @@ class TestSystemMTFProduct:
         np.testing.assert_allclose(result.system_mtf_x, mtf_a_x * mtf_b_x, atol=1e-12)
         np.testing.assert_allclose(result.system_mtf_y, mtf_a_y * mtf_b_y, atol=1e-12)
 
+    @pytest.mark.level1
     def test_three_contributors(self, freq: np.ndarray) -> None:
         """Three contributors multiply correctly for both axes."""
         a_x = _make_gaussian_mtf(freq, 3e-6)
@@ -84,6 +86,7 @@ class TestSystemMTFProduct:
 class TestDominantContributor:
     """Correctly identifies the worst contributor at Nyquist."""
 
+    @pytest.mark.level1
     def test_jitter_worst_x(self, freq: np.ndarray) -> None:
         """Make jitter_x the worst contributor."""
         # Optics is mild, jitter is severe.
@@ -100,6 +103,7 @@ class TestDominantContributor:
 
         assert result.dominant_contributor_at_nyquist_x == "mtf_jitter_x"
 
+    @pytest.mark.level1
     def test_optics_worst_y(self, freq: np.ndarray) -> None:
         terms = {
             "mtf_optics_x": _make_gaussian_mtf(freq, 1e-6),
@@ -118,6 +122,7 @@ class TestDominantContributor:
 class TestAnisotropy:
     """System MTF at Nyquist differs for x and y when terms are anisotropic."""
 
+    @pytest.mark.level1
     def test_anisotropic_system_mtf(self, freq: np.ndarray) -> None:
         terms = {
             "mtf_optics_x": _make_gaussian_mtf(freq, 3e-6),
@@ -135,6 +140,7 @@ class TestAnisotropy:
 class TestPerTermAtNyquist:
     """per_term_at_nyquist values match direct interpolation."""
 
+    @pytest.mark.level1
     def test_values_match(self, freq: np.ndarray) -> None:
         mtf_a = _make_gaussian_mtf(freq, 5e-6)
         terms = {"mtf_test_x": mtf_a, "mtf_test_y": mtf_a}

@@ -22,20 +22,24 @@ from radiant.detector.ipc import ipc_kernel, ipc_mtf_1d, ipc_mtf_analytic
 
 
 class TestIPCKernel:
+    @pytest.mark.level0
     def test_shape(self) -> None:
         k = ipc_kernel(0.02)
         assert k.shape == (3, 3)
 
+    @pytest.mark.level0
     def test_unit_volume(self) -> None:
         """Kernel sums to 1.0."""
         k = ipc_kernel(0.03)
         assert float(k.sum()) == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_center_value(self) -> None:
         alpha = 0.04
         k = ipc_kernel(alpha)
         assert k[1, 1] == pytest.approx(1.0 - 4.0 * alpha, rel=1e-12)
 
+    @pytest.mark.level0
     def test_neighbour_values(self) -> None:
         alpha = 0.02
         k = ipc_kernel(alpha)
@@ -44,6 +48,7 @@ class TestIPCKernel:
         assert k[1, 0] == pytest.approx(alpha, rel=1e-12)
         assert k[1, 2] == pytest.approx(alpha, rel=1e-12)
 
+    @pytest.mark.level0
     def test_corners_zero(self) -> None:
         k = ipc_kernel(0.03)
         assert k[0, 0] == 0.0
@@ -51,16 +56,19 @@ class TestIPCKernel:
         assert k[2, 0] == 0.0
         assert k[2, 2] == 0.0
 
+    @pytest.mark.level0
     def test_zero_coupling(self) -> None:
         """Zero coupling → delta kernel."""
         k = ipc_kernel(0.0)
         assert k[1, 1] == 1.0
         assert float(k.sum()) == 1.0
 
+    @pytest.mark.level0
     def test_coupling_too_large_raises(self) -> None:
         with pytest.raises(ValueError, match="IPC coupling"):
             ipc_kernel(0.25)
 
+    @pytest.mark.level0
     def test_negative_coupling_raises(self) -> None:
         with pytest.raises(ValueError, match="IPC coupling"):
             ipc_kernel(-0.01)
@@ -72,6 +80,7 @@ class TestIPCKernel:
 
 
 class TestIPCMTFAnalytic:
+    @pytest.mark.level0
     def test_dc_is_one(self) -> None:
         """MTF(0,0) = (1-4α) + 2α + 2α = 1.0."""
         fx = np.array([0.0])
@@ -79,6 +88,7 @@ class TestIPCMTFAnalytic:
         mtf = ipc_mtf_analytic(fx, fy, coupling=0.03, pixel_pitch_m=15e-6)
         assert mtf[0] == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_nyquist(self) -> None:
         """At Nyquist (f = 1/(2p)), cos(2π·f·p) = cos(π) = -1.
 
@@ -93,11 +103,13 @@ class TestIPCMTFAnalytic:
         expected = 1.0 - 8.0 * alpha
         assert mtf[0] == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_zero_coupling_unity(self) -> None:
         freq = np.linspace(0, 1e5, 50)
         mtf = ipc_mtf_analytic(freq, np.zeros_like(freq), 0.0, 15e-6)
         np.testing.assert_array_equal(mtf, np.ones_like(freq))
 
+    @pytest.mark.level0
     def test_hand_calculation(self) -> None:
         """Manual check at f = 1/(4p).
 
@@ -120,17 +132,20 @@ class TestIPCMTFAnalytic:
 
 
 class TestIPCMTF1D:
+    @pytest.mark.level0
     def test_x_axis(self) -> None:
         freq = np.array([0.0, 1e4])
         mtf = ipc_mtf_1d(freq, 0.02, 15e-6, axis="x")
         assert mtf[0] == pytest.approx(1.0, rel=1e-12)
         assert len(mtf) == 2
 
+    @pytest.mark.level0
     def test_y_axis(self) -> None:
         freq = np.array([0.0])
         mtf = ipc_mtf_1d(freq, 0.02, 15e-6, axis="y")
         assert mtf[0] == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_invalid_axis(self) -> None:
         with pytest.raises(ValueError, match="axis must be"):
             ipc_mtf_1d(np.array([0.0]), 0.02, 15e-6, axis="z")
@@ -142,6 +157,7 @@ class TestIPCMTF1D:
 
 
 class TestIPCCrossModel:
+    @pytest.mark.level1
     def test_kernel_fft_matches_analytic(self) -> None:
         """FFT of the 3×3 IPC kernel matches the analytic MTF formula."""
         alpha = 0.03

@@ -68,12 +68,14 @@ class TestDetectorStage:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_no_noise_terms_emitted(self, wl: np.ndarray) -> None:
         """DetectorStage must NOT emit NoiseTerm objects (ReadoutStage does)."""
         state = _make_state(wl, signal_e=10000.0)
         out = DetectorStage().run(state, _make_params())
         assert len(out.noise_terms) == 0
 
+    @pytest.mark.level1
     def test_stage_outputs_signal_e(self, wl: np.ndarray) -> None:
         signal = 10000.0
         out = DetectorStage().run(
@@ -85,6 +87,7 @@ class TestDetectorStage:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_stage_outputs_dark_e(self, wl: np.ndarray) -> None:
         dark_rate = 100.0
         t_int = 0.005
@@ -98,6 +101,7 @@ class TestDetectorStage:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_stage_outputs_glow_e(self, wl: np.ndarray) -> None:
         glow_rate = 50.0
         t_int = 0.01
@@ -110,12 +114,14 @@ class TestDetectorStage:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_noise_budget_raw_present(self, wl: np.ndarray) -> None:
         out = DetectorStage().run(_make_state(wl), _make_params())
         budget = out.stage_outputs["detector"]["noise_budget_raw"]
         assert isinstance(budget, NoiseBudget)
         assert len(budget.terms) == 16
 
+    @pytest.mark.level1
     def test_noise_budget_signal_shot(self, wl: np.ndarray) -> None:
         signal = 10000.0
         out = DetectorStage().run(
@@ -128,6 +134,7 @@ class TestDetectorStage:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_noise_budget_dark_shot(self, wl: np.ndarray) -> None:
         dark_rate = 100.0
         t_int = 0.005
@@ -142,6 +149,7 @@ class TestDetectorStage:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_nearfield_and_stray_passthrough(self, wl: np.ndarray) -> None:
         nf, stray = 500.0, 200.0
         state = _make_state(wl, nearfield_e=nf, stray_e=stray)
@@ -155,5 +163,6 @@ class TestDetectorStage:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert DetectorStage().name == "detector"

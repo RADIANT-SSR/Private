@@ -92,6 +92,7 @@ def _make_state_with_epsf() -> tuple[ChainState, EffectivePSF]:
 class TestPlatformStageZeroJitter:
     """Zero jitter should pass the ePSF through unchanged."""
 
+    @pytest.mark.level1
     def test_zero_jitter_preserves_epsf(self) -> None:
         state, epsf_orig = _make_state_with_epsf()
         params = _make_params()
@@ -102,6 +103,7 @@ class TestPlatformStageZeroJitter:
         epsf_out = result.stage_outputs["platform"]["effective_psf"]
         assert epsf_out is epsf_orig
 
+    @pytest.mark.level1
     def test_zero_jitter_sigma_outputs(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params()
@@ -116,6 +118,7 @@ class TestPlatformStageZeroJitter:
 class TestPlatformStageIsotropicJitter:
     """Isotropic jitter should broaden the PSF symmetrically."""
 
+    @pytest.mark.level1
     def test_jitter_broadens_psf(self) -> None:
         state, epsf_orig = _make_state_with_epsf()
         params = _make_params(**{"platform.jitter_rms_urad": 1.0})
@@ -127,6 +130,7 @@ class TestPlatformStageIsotropicJitter:
         assert epsf_out.fwhm("x") > epsf_orig.fwhm("x")
         assert epsf_out.fwhm("y") > epsf_orig.fwhm("y")
 
+    @pytest.mark.level1
     def test_jitter_degrades_rer(self) -> None:
         state, epsf_orig = _make_state_with_epsf()
         params = _make_params(**{"platform.jitter_rms_urad": 1.0})
@@ -137,6 +141,7 @@ class TestPlatformStageIsotropicJitter:
         epsf_out = result.stage_outputs["platform"]["effective_psf"]
         assert epsf_out.rer() < epsf_orig.rer()
 
+    @pytest.mark.level1
     def test_convolution_history(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params(**{"platform.jitter_rms_urad": 1.0})
@@ -147,6 +152,7 @@ class TestPlatformStageIsotropicJitter:
         epsf_out = result.stage_outputs["platform"]["effective_psf"]
         assert "jitter" in epsf_out.convolution_history
 
+    @pytest.mark.level1
     def test_sigma_focal_plane(self) -> None:
         """sigma_fp = jitter_rad * focal_length_m."""
         jitter_urad = 2.0
@@ -166,6 +172,7 @@ class TestPlatformStageIsotropicJitter:
             expected_sigma_m, rel=1e-10
         )
 
+    @pytest.mark.level1
     def test_mtf_at_nyquist_degrades(self) -> None:
         """System MTF at Nyquist should decrease with jitter."""
         state, epsf_orig = _make_state_with_epsf()
@@ -185,6 +192,7 @@ class TestPlatformStageIsotropicJitter:
 
         assert mtf_nyq_jittered < mtf_nyq_orig
 
+    @pytest.mark.level1
     def test_large_jitter_kills_mtf(self) -> None:
         """5 urad jitter on 5m focal length → 25 µm sigma (3+ pixels). MTF@Nyq ~ 0."""
         state, _ = _make_state_with_epsf()
@@ -205,6 +213,7 @@ class TestPlatformStageIsotropicJitter:
 class TestPlatformStageAnisotropicJitter:
     """Anisotropic mode should use separate x/y sigmas."""
 
+    @pytest.mark.level1
     def test_anisotropic_different_axes(self) -> None:
         state, epsf_orig = _make_state_with_epsf()
         params = _make_params(**{
@@ -219,6 +228,7 @@ class TestPlatformStageAnisotropicJitter:
         # x-axis should be broader than y-axis (more jitter)
         assert epsf_out.fwhm("x") > epsf_out.fwhm("y")
 
+    @pytest.mark.level1
     def test_anisotropic_sigma_outputs(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params(**{
@@ -242,6 +252,7 @@ class TestPlatformStageAnisotropicJitter:
 class TestPlatformStageNoEpsf:
     """No ePSF from optics → graceful skip."""
 
+    @pytest.mark.level1
     def test_no_epsf_skips_jitter(self) -> None:
         wl = np.array([0.45, 0.575, 0.70])
         state = ChainState(wavelength_um=wl)
@@ -252,6 +263,7 @@ class TestPlatformStageNoEpsf:
 
         assert "effective_psf" not in result.stage_outputs.get("platform", {})
 
+    @pytest.mark.level1
     def test_no_epsf_stores_sigma(self) -> None:
         wl = np.array([0.45, 0.575, 0.70])
         state = ChainState(wavelength_um=wl)
@@ -268,6 +280,7 @@ class TestPlatformStageNoEpsf:
 class TestPlatformStageZeroSmear:
     """Zero smear (default) should not alter the ePSF."""
 
+    @pytest.mark.level1
     def test_zero_smear_preserves_epsf(self) -> None:
         state, epsf_orig = _make_state_with_epsf()
         params = _make_params(**{"platform.ground_velocity_m_s": 0.0})
@@ -278,6 +291,7 @@ class TestPlatformStageZeroSmear:
         epsf_out = result.stage_outputs["platform"]["effective_psf"]
         assert epsf_out is epsf_orig
 
+    @pytest.mark.level1
     def test_zero_smear_width_stored(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params()
@@ -291,6 +305,7 @@ class TestPlatformStageZeroSmear:
 class TestPlatformStageSmear:
     """Non-zero smear broadens the PSF along y-axis (along-track) only."""
 
+    @pytest.mark.level1
     def test_smear_broadens_y_not_x(self) -> None:
         """Smear is along-track (y); cross-track (x) should be unchanged."""
         state, epsf_orig = _make_state_with_epsf()
@@ -306,6 +321,7 @@ class TestPlatformStageSmear:
         # variation (~4%) even though the kernel is purely along y.
         assert epsf_out.fwhm("x") == pytest.approx(epsf_orig.fwhm("x"), rel=0.05)
 
+    @pytest.mark.level1
     def test_smear_convolution_history(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params(**{"platform.smear_length_um": 16.0})
@@ -316,6 +332,7 @@ class TestPlatformStageSmear:
         epsf_out = result.stage_outputs["platform"]["effective_psf"]
         assert "smear" in epsf_out.convolution_history
 
+    @pytest.mark.level1
     def test_smear_width_stored(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params(**{"platform.smear_length_um": 16.0})
@@ -328,6 +345,7 @@ class TestPlatformStageSmear:
             16e-6, rel=1e-10
         )
 
+    @pytest.mark.level1
     def test_smear_degrades_mtf_y(self) -> None:
         """Smear should degrade MTF along y (along-track) at Nyquist."""
         state, epsf_orig = _make_state_with_epsf()
@@ -347,6 +365,7 @@ class TestPlatformStageSmear:
 
         assert mtf_nyq_smeared < mtf_nyq_orig
 
+    @pytest.mark.level1
     def test_smear_mtf_matches_sinc(self) -> None:
         """Ratio of smeared/original MTF_y should match sinc formula."""
         from radiant.platform.smear import smear_mtf_1d
@@ -414,6 +433,7 @@ def _make_smear_params(**overrides: object) -> ParameterSet:
 class TestPlatformStageSmearVelocity:
     """Velocity-based smear computation through the stage."""
 
+    @pytest.mark.level1
     def test_velocity_based_smear_width(self) -> None:
         """v/slant × focal × t_int at nadir."""
         state, _ = _make_state_with_epsf()
@@ -431,6 +451,7 @@ class TestPlatformStageSmearVelocity:
         expected = 7000.0 / 600_000.0 * 5.0 * 0.0001
         assert smear_w == pytest.approx(expected, rel=0.01)
 
+    @pytest.mark.level1
     def test_no_velocity_no_smear(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_smear_params(**{
@@ -447,6 +468,7 @@ class TestPlatformStageSmearVelocity:
 class TestPlatformStageSmearOverride:
     """smear_length_um takes precedence over ground_velocity_m_s."""
 
+    @pytest.mark.level1
     def test_direct_overrides_velocity(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_smear_params(**{
@@ -467,6 +489,7 @@ class TestPlatformStageSmearOverride:
 class TestPlatformStageJitterPlusSmear:
     """Combined jitter + smear should degrade the ePSF more than either alone."""
 
+    @pytest.mark.level1
     def test_combined_worse_than_jitter_alone(self) -> None:
         state, _ = _make_state_with_epsf()
 
@@ -490,6 +513,7 @@ class TestPlatformStageJitterPlusSmear:
         # discrete 2-D convolution allows ~5% grid artifact.
         assert epsf_both.fwhm("x") == pytest.approx(epsf_j.fwhm("x"), rel=0.05)
 
+    @pytest.mark.level1
     def test_combined_history(self) -> None:
         state, _ = _make_state_with_epsf()
         params = _make_params(**{
@@ -505,5 +529,6 @@ class TestPlatformStageJitterPlusSmear:
 
 
 class TestPlatformStageName:
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert PlatformStage().name == "platform"

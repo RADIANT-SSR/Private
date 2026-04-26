@@ -29,11 +29,13 @@ from radiant.platform.sampling import (
 
 
 class TestPixelApertureMTF1D:
+    @pytest.mark.level0
     def test_dc_is_one(self) -> None:
         freq = np.array([0.0])
         mtf = pixel_aperture_mtf_1d(freq, pixel_pitch_m=15e-6)
         assert mtf[0] == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_analytic_sinc(self) -> None:
         """MTF matches |sinc(π·f·p)| within 0.1%.
 
@@ -48,6 +50,7 @@ class TestPixelApertureMTF1D:
 
         np.testing.assert_allclose(mtf_computed, mtf_analytic, rtol=1e-10)
 
+    @pytest.mark.level0
     def test_zero_at_nyquist(self) -> None:
         """MTF(1/p) = sinc(1) = 0 for FF=1."""
         pitch = 15e-6
@@ -56,6 +59,7 @@ class TestPixelApertureMTF1D:
         mtf = pixel_aperture_mtf_1d(freq, pitch)
         assert mtf[0] == pytest.approx(0.0, abs=1e-10)
 
+    @pytest.mark.level0
     def test_half_nyquist(self) -> None:
         """MTF(1/(2p)) = sinc(0.5) = 2/π ≈ 0.6366."""
         pitch = 15e-6
@@ -64,6 +68,7 @@ class TestPixelApertureMTF1D:
         expected = 2.0 / math.pi
         assert mtf[0] == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_fill_factor_shifts_zero(self) -> None:
         """FF < 1 moves the first zero to 1/(p·FF)."""
         pitch = 15e-6
@@ -73,6 +78,7 @@ class TestPixelApertureMTF1D:
         mtf = pixel_aperture_mtf_1d(freq, pitch, fill_factor=ff)
         assert mtf[0] == pytest.approx(0.0, abs=1e-10)
 
+    @pytest.mark.level0
     def test_fill_factor_increases_mtf_at_nyquist(self) -> None:
         """Smaller FF → less blurring → higher MTF at Nyquist."""
         pitch = 15e-6
@@ -82,14 +88,17 @@ class TestPixelApertureMTF1D:
         mtf_half = pixel_aperture_mtf_1d(freq, pitch, fill_factor=0.5)
         assert mtf_half[0] > mtf_full[0]
 
+    @pytest.mark.level0
     def test_negative_pitch_raises(self) -> None:
         with pytest.raises(ValueError, match="pixel_pitch_m must be positive"):
             pixel_aperture_mtf_1d(np.array([0.0]), -15e-6)
 
+    @pytest.mark.level0
     def test_zero_fill_factor_raises(self) -> None:
         with pytest.raises(ValueError, match="fill_factor must be in"):
             pixel_aperture_mtf_1d(np.array([0.0]), 15e-6, fill_factor=0.0)
 
+    @pytest.mark.level0
     def test_fill_factor_above_one_raises(self) -> None:
         with pytest.raises(ValueError, match="fill_factor must be in"):
             pixel_aperture_mtf_1d(np.array([0.0]), 15e-6, fill_factor=1.1)
@@ -101,6 +110,7 @@ class TestPixelApertureMTF1D:
 
 
 class TestPixelApertureMTF2D:
+    @pytest.mark.level0
     def test_separable(self) -> None:
         """2-D MTF = MTF_x × MTF_y (separable)."""
         pitch_x = 15e-6
@@ -115,6 +125,7 @@ class TestPixelApertureMTF2D:
 
         np.testing.assert_allclose(mtf_2d, mtf_x * mtf_y, rtol=1e-12)
 
+    @pytest.mark.level0
     def test_dc_is_one(self) -> None:
         fx = np.array([[0.0]])
         fy = np.array([[0.0]])
@@ -128,18 +139,21 @@ class TestPixelApertureMTF2D:
 
 
 class TestPixelApertureKernel:
+    @pytest.mark.level0
     def test_unit_volume(self) -> None:
         kernel = pixel_aperture_kernel_1d(
             npix=65, sample_spacing_m=1e-6, pixel_pitch_m=15e-6
         )
         assert float(kernel.sum()) == pytest.approx(1.0, rel=1e-6)
 
+    @pytest.mark.level0
     def test_non_negative(self) -> None:
         kernel = pixel_aperture_kernel_1d(
             npix=65, sample_spacing_m=1e-6, pixel_pitch_m=15e-6
         )
         assert np.all(kernel >= 0.0)
 
+    @pytest.mark.level0
     def test_rect_width(self) -> None:
         """Number of nonzero samples ≈ pitch / spacing."""
         dx = 1e-6
@@ -149,10 +163,12 @@ class TestPixelApertureKernel:
         expected = int(round(pitch / dx)) + 1  # +1 for boundary inclusion
         assert abs(n_nonzero - expected) <= 1
 
+    @pytest.mark.level0
     def test_even_npix_raises(self) -> None:
         with pytest.raises(ValueError, match="odd"):
             pixel_aperture_kernel_1d(npix=64, sample_spacing_m=1e-6, pixel_pitch_m=15e-6)
 
+    @pytest.mark.level0
     def test_zero_spacing_raises(self) -> None:
         with pytest.raises(ValueError, match="sample_spacing_m must be positive"):
             pixel_aperture_kernel_1d(npix=65, sample_spacing_m=0.0, pixel_pitch_m=15e-6)
@@ -164,6 +180,7 @@ class TestPixelApertureKernel:
 
 
 class TestPixelApertureCrossModel:
+    @pytest.mark.level0
     def test_convolution_equals_multiplication(self) -> None:
         """Convolution in real space ≡ multiplication in Fourier space.
 

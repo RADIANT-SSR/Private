@@ -18,12 +18,14 @@ FOCAL_LENGTH_M = 1.0
 class TestKnownValues:
     """Validate against hand-calculated values."""
 
+    @pytest.mark.level0
     def test_dc_is_unity(self) -> None:
         """MTF at zero frequency = 1.0."""
         freq_m = np.array([0.0])
         mtf = kolmogorov_mtf_1d(freq_m, WAVELENGTH_M, r0_m=0.10, focal_length_m=1.0)
         assert mtf[0] == pytest.approx(1.0, abs=1e-15)
 
+    @pytest.mark.level0
     def test_hand_calculation(self) -> None:
         """Check against a manually computed value.
 
@@ -42,12 +44,14 @@ class TestKnownValues:
 class TestLimitingCases:
     """MTF behaviour at extreme r0 values."""
 
+    @pytest.mark.level0
     def test_large_r0_approaches_unity(self) -> None:
         """Very large r0 → MTF ≈ 1 at all frequencies."""
         freq_m = np.linspace(0, 50000, 100)
         mtf = kolmogorov_mtf_1d(freq_m, WAVELENGTH_M, r0_m=100.0, focal_length_m=1.0)
         assert np.all(mtf > 0.999)
 
+    @pytest.mark.level0
     def test_small_r0_approaches_zero(self) -> None:
         """Very small r0 → MTF ≈ 0 at moderate frequencies."""
         freq_m = np.linspace(1000, 50000, 100)
@@ -58,6 +62,7 @@ class TestLimitingCases:
 class TestMonotonicity:
     """MTF is monotonically decreasing with frequency."""
 
+    @pytest.mark.level0
     def test_decreasing(self) -> None:
         freq_m = np.linspace(0, 50000, 200)
         mtf = kolmogorov_mtf_1d(freq_m, WAVELENGTH_M, r0_m=0.10, focal_length_m=1.0)

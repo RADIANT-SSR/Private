@@ -57,22 +57,26 @@ def wl() -> np.ndarray:
 class TestOpticsStageProducesMTFTerms:
     """Verify OpticsStage populates mtf_optics_x/y and spatial_freq."""
 
+    @pytest.mark.level1
     def test_mtf_optics_x_exists(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
         assert "mtf_optics_x" in out.mtf_terms
 
+    @pytest.mark.level1
     def test_mtf_optics_y_exists(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
         assert "mtf_optics_y" in out.mtf_terms
 
+    @pytest.mark.level1
     def test_spatial_freq_populated(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
         assert out.spatial_freq_cycles_per_mrad is not None
         assert len(out.spatial_freq_cycles_per_mrad) > 0
 
+    @pytest.mark.level1
     def test_mtf_and_freq_same_length(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
@@ -80,6 +84,7 @@ class TestOpticsStageProducesMTFTerms:
         assert len(out.mtf_terms["mtf_optics_x"]) == n_freq
         assert len(out.mtf_terms["mtf_optics_y"]) == n_freq
 
+    @pytest.mark.level1
     def test_dc_is_unity(self, wl: np.ndarray) -> None:
         """MTF(0) = 1.0 for both axes."""
         state = _make_state(wl)
@@ -87,12 +92,14 @@ class TestOpticsStageProducesMTFTerms:
         assert out.mtf_terms["mtf_optics_x"][0] == pytest.approx(1.0, abs=1e-6)
         assert out.mtf_terms["mtf_optics_y"][0] == pytest.approx(1.0, abs=1e-6)
 
+    @pytest.mark.level1
     def test_mtf_non_negative(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
         assert np.all(out.mtf_terms["mtf_optics_x"] >= 0.0)
         assert np.all(out.mtf_terms["mtf_optics_y"] >= 0.0)
 
+    @pytest.mark.level1
     def test_freq_monotonically_increasing(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = OpticsStage().run(state, _make_params())
@@ -117,6 +124,7 @@ class TestCrossPathConsistency:
         """Pixel aperture MTF = |sinc(f * pitch)|."""
         return np.abs(np.sinc(freq_m * pixel_pitch_m))
 
+    @pytest.mark.level1
     def test_mono_cross_check_x(self, wl: np.ndarray) -> None:
         """mtf_optics_x × pixel_sinc vs ePSF FFT, x axis."""
         state = _make_state(wl)
@@ -147,6 +155,7 @@ class TestCrossPathConsistency:
             atol=2e-2,
         )
 
+    @pytest.mark.level1
     def test_mono_cross_check_y(self, wl: np.ndarray) -> None:
         """mtf_optics_y × pixel_sinc vs ePSF FFT, y axis."""
         state = _make_state(wl)
@@ -178,6 +187,7 @@ class TestCrossPathConsistency:
 class TestAsymmetricWFE:
     """With coma (asymmetric WFE), mtf_optics_x ≠ mtf_optics_y."""
 
+    @pytest.mark.level1
     def test_coma_breaks_symmetry(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params()

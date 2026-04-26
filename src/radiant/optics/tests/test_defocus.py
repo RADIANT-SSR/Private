@@ -24,6 +24,7 @@ from radiant.optics.defocus import defocus_kernel_2d, defocus_sigma_m
 class TestDefocusSigma:
     """Verify σ_defocus = |δ| / (4 × f/# × √3)."""
 
+    @pytest.mark.level0
     def test_analytical_f3_10um(self) -> None:
         """Truth anchor 1: f/3, δ=10 µm → σ = 10e-6 / (4×3×√3) = 0.481 µm."""
         sigma = defocus_sigma_m(10e-6, 3.0)
@@ -31,37 +32,44 @@ class TestDefocusSigma:
         assert sigma == pytest.approx(expected, rel=1e-12)
         assert sigma == pytest.approx(0.481e-6, rel=0.005)
 
+    @pytest.mark.level0
     def test_analytical_f10_5um(self) -> None:
         """Truth anchor 2: f/10, δ=5 µm → σ = 5e-6 / (4×10×√3) = 0.0722 µm."""
         sigma = defocus_sigma_m(5e-6, 10.0)
         expected = 5e-6 / (4.0 * 10.0 * math.sqrt(3.0))
         assert sigma == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_symmetry_positive_negative(self) -> None:
         """Positive and negative defocus give identical σ."""
         sigma_pos = defocus_sigma_m(10e-6, 5.0)
         sigma_neg = defocus_sigma_m(-10e-6, 5.0)
         assert sigma_pos == sigma_neg
 
+    @pytest.mark.level0
     def test_zero_defocus_zero_sigma(self) -> None:
         assert defocus_sigma_m(0.0, 5.0) == 0.0
 
+    @pytest.mark.level0
     def test_sigma_scales_with_defocus(self) -> None:
         """σ is linear in |δ|."""
         s1 = defocus_sigma_m(5e-6, 5.0)
         s2 = defocus_sigma_m(10e-6, 5.0)
         assert s2 == pytest.approx(2.0 * s1, rel=1e-12)
 
+    @pytest.mark.level0
     def test_sigma_inversely_proportional_to_fnumber(self) -> None:
         """σ ∝ 1/f/#."""
         s1 = defocus_sigma_m(10e-6, 5.0)
         s2 = defocus_sigma_m(10e-6, 10.0)
         assert s1 == pytest.approx(2.0 * s2, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero_fnumber_raises(self) -> None:
         with pytest.raises(ValueError, match="positive"):
             defocus_sigma_m(10e-6, 0.0)
 
+    @pytest.mark.level0
     def test_negative_fnumber_raises(self) -> None:
         with pytest.raises(ValueError, match="positive"):
             defocus_sigma_m(10e-6, -1.0)
@@ -75,17 +83,20 @@ class TestDefocusSigma:
 class TestDefocusKernel:
     """Verify 2-D isotropic Gaussian defocus kernel."""
 
+    @pytest.mark.level0
     def test_normalisation(self) -> None:
         """Kernel sums to 1.0."""
         k = defocus_kernel_2d(31, 1e-6, 3e-6)
         assert k.sum() == pytest.approx(1.0, abs=1e-10)
 
+    @pytest.mark.level0
     def test_delta_at_zero_sigma(self) -> None:
         """Zero sigma → delta function."""
         k = defocus_kernel_2d(11, 1e-6, 0.0)
         assert k[5, 5] == 1.0
         assert k.sum() == 1.0
 
+    @pytest.mark.level0
     def test_isotropic(self) -> None:
         """Kernel is symmetric: k[r] depends only on distance from center."""
         k = defocus_kernel_2d(21, 1e-6, 3e-6)
@@ -95,19 +106,23 @@ class TestDefocusKernel:
         assert k[c, c + 3] == pytest.approx(k[c, c - 3], rel=1e-12)
         assert k[c, c + 3] == pytest.approx(k[c - 3, c], rel=1e-12)
 
+    @pytest.mark.level0
     def test_peak_at_center(self) -> None:
         """Maximum value is at the center."""
         k = defocus_kernel_2d(21, 1e-6, 3e-6)
         assert k[10, 10] == k.max()
 
+    @pytest.mark.level0
     def test_even_npix_raises(self) -> None:
         with pytest.raises(ValueError, match="odd"):
             defocus_kernel_2d(10, 1e-6, 3e-6)
 
+    @pytest.mark.level0
     def test_negative_spacing_raises(self) -> None:
         with pytest.raises(ValueError, match="positive"):
             defocus_kernel_2d(11, -1e-6, 3e-6)
 
+    @pytest.mark.level0
     def test_negative_sigma_raises(self) -> None:
         with pytest.raises(ValueError, match="non-negative"):
             defocus_kernel_2d(11, 1e-6, -3e-6)
@@ -125,6 +140,7 @@ class TestDefocusMTF:
     Compute the MTF of the kernel via FFT and compare at several frequencies.
     """
 
+    @pytest.mark.level0
     def test_kernel_mtf_matches_analytical(self) -> None:
         """At f/3, δ=10 µm: compare kernel MTF to exp(-2π²σ²f²) at 5 frequencies."""
         sigma = defocus_sigma_m(10e-6, 3.0)

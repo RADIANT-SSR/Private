@@ -46,28 +46,34 @@ def epsf() -> EffectivePSF:
 
 
 class TestComputeEEBox:
+    @pytest.mark.level1
     def test_1x1_positive(self, epsf: EffectivePSF) -> None:
         ee = compute_ee_box(epsf, n_pixels=1)
         assert 0.0 < ee < 1.0
 
+    @pytest.mark.level1
     def test_increases_with_n(self, epsf: EffectivePSF) -> None:
         ee1 = compute_ee_box(epsf, n_pixels=1)
         ee3 = compute_ee_box(epsf, n_pixels=3)
         ee5 = compute_ee_box(epsf, n_pixels=5)
         assert ee1 < ee3 < ee5
 
+    @pytest.mark.level1
     def test_large_box_near_one(self, epsf: EffectivePSF) -> None:
         ee = compute_ee_box(epsf, n_pixels=50)
         assert ee == pytest.approx(1.0, abs=0.01)
 
+    @pytest.mark.level1
     def test_zero_n_raises(self, epsf: EffectivePSF) -> None:
         with pytest.raises(ValueError, match="n_pixels must be >= 1"):
             compute_ee_box(epsf, n_pixels=0)
 
+    @pytest.mark.level1
     def test_negative_n_raises(self, epsf: EffectivePSF) -> None:
         with pytest.raises(ValueError, match="n_pixels must be >= 1"):
             compute_ee_box(epsf, n_pixels=-1)
 
+    @pytest.mark.level1
     def test_default_is_1x1(self, epsf: EffectivePSF) -> None:
         ee_default = compute_ee_box(epsf)
         ee_1x1 = compute_ee_box(epsf, n_pixels=1)

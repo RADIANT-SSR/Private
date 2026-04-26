@@ -58,6 +58,7 @@ def config() -> PSFSamplingConfig:
 class TestClearCircularAperture:
     """Pupil autocorrelation MTF must match FFT(PSF) for a perfect optic."""
 
+    @pytest.mark.level1
     def test_2d_matches_psf_fft(self, config: PSFSamplingConfig) -> None:
         """2-D MTF from autocorrelation ≈ 2-D MTF from FFT(PSF)."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
@@ -76,6 +77,7 @@ class TestClearCircularAperture:
         # Both should agree to numerical precision.
         np.testing.assert_allclose(mtf_auto, mtf_psf, atol=1e-6)
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
     def test_1d_matches_psf_fft(
         self, config: PSFSamplingConfig, axis: str
@@ -98,6 +100,7 @@ class TestClearCircularAperture:
         np.testing.assert_allclose(freq_auto, freq_psf, atol=1e-10)
         np.testing.assert_allclose(mtf_auto, mtf_psf, atol=1e-6)
 
+    @pytest.mark.level1
     def test_dc_equals_one(self, config: PSFSamplingConfig) -> None:
         """MTF(0,0) = 1 for a clear aperture."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
@@ -107,6 +110,7 @@ class TestClearCircularAperture:
         center = config.padded_npix // 2
         assert mtf_2d[center, center] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_non_negative(self, config: PSFSamplingConfig) -> None:
         """MTF must be non-negative (physical requirement for incoherent)."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
@@ -115,6 +119,7 @@ class TestClearCircularAperture:
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
         assert np.all(mtf_2d >= -1e-15)  # allow tiny numerical noise
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
     def test_symmetric_for_clear_aperture(
         self, config: PSFSamplingConfig, axis: str
@@ -140,6 +145,7 @@ class TestObscuredAperture:
 
     OBSCURATION = 0.33
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
     def test_matches_psf_fft(
         self, config: PSFSamplingConfig, axis: str
@@ -160,6 +166,7 @@ class TestObscuredAperture:
 
         np.testing.assert_allclose(mtf_auto, mtf_psf, atol=1e-6)
 
+    @pytest.mark.level1
     def test_dc_equals_one(self, config: PSFSamplingConfig) -> None:
         amplitude = make_pupil_amplitude(config.pupil_npix, self.OBSCURATION)
         phase = np.zeros((config.pupil_npix, config.pupil_npix))
@@ -183,6 +190,7 @@ class TestZernikeWFE:
     ZERNIKE_COEFFS = {4: 0.1, 7: 0.2}  # waves at reference wavelength
     REF_WAVELENGTH_UM = WAVELENGTH_M * 1e6  # same as operating
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
     def test_matches_psf_fft(
         self, config: PSFSamplingConfig, axis: str
@@ -213,6 +221,7 @@ class TestZernikeWFE:
 
         np.testing.assert_allclose(mtf_auto, mtf_psf, atol=1e-5)
 
+    @pytest.mark.level1
     def test_coma_breaks_symmetry(self, config: PSFSamplingConfig) -> None:
         """Coma (Z7) is asymmetric — x and y MTF should differ."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
@@ -232,6 +241,7 @@ class TestZernikeWFE:
         # The two slices should not be equal.
         assert not np.allclose(mtf_x, mtf_y, atol=1e-3)
 
+    @pytest.mark.level1
     def test_dc_equals_one(self, config: PSFSamplingConfig) -> None:
         amplitude = make_pupil_amplitude(config.pupil_npix)
         phase = make_pupil_phase_zernike(
@@ -245,6 +255,7 @@ class TestZernikeWFE:
         center = config.padded_npix // 2
         assert mtf_2d[center, center] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_non_negative(self, config: PSFSamplingConfig) -> None:
         amplitude = make_pupil_amplitude(config.pupil_npix)
         phase = make_pupil_phase_zernike(
@@ -264,6 +275,7 @@ class TestZernikeWFE:
 
 
 class TestInvalidAxis:
+    @pytest.mark.level1
     def test_invalid_axis_raises(self, config: PSFSamplingConfig) -> None:
         mtf_2d = np.ones((config.padded_npix, config.padded_npix))
         with pytest.raises(ValueError, match="axis must be"):
@@ -278,6 +290,7 @@ class TestInvalidAxis:
 class TestPolychromaticPupilMTF:
     """Tests for polychromatic pupil autocorrelation MTF."""
 
+    @pytest.mark.level1
     def test_single_wavelength_matches_mono(
         self, config: PSFSamplingConfig
     ) -> None:
@@ -319,6 +332,7 @@ class TestPolychromaticPupilMTF:
             mtf_poly_y[mask], mtf_mono_y_interp[mask], atol=1e-4
         )
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("axis_idx", [0, 1], ids=["x", "y"])
     def test_multi_wavelength_matches_psf_fft(self, axis_idx: int) -> None:
         """Polychromatic pupil MTF ≈ FFT of polychromatic PSF."""
@@ -366,6 +380,7 @@ class TestPolychromaticPupilMTF:
             mtf_auto[mask], mtf_psf_interp[mask], atol=5e-3
         )
 
+    @pytest.mark.level1
     def test_dc_equals_one(self) -> None:
         """DC value of polychromatic MTF is 1.0."""
         wl_m = np.array([3.5e-6, 5.0e-6])
@@ -384,6 +399,7 @@ class TestPolychromaticPupilMTF:
         assert mtf_x[0] == pytest.approx(1.0, rel=1e-6)
         assert mtf_y[0] == pytest.approx(1.0, rel=1e-6)
 
+    @pytest.mark.level1
     def test_weight_sensitivity(self) -> None:
         """Different weight distributions produce different MTFs."""
         wl_m = np.array([3.5e-6, 5.0e-6])

@@ -84,10 +84,12 @@ class TestReadoutStageBasic:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_emits_16_noise_terms(self, wl: np.ndarray) -> None:
         out = ReadoutStage().run(_make_state(wl), _make_params())
         assert len(out.noise_terms) == 16
 
+    @pytest.mark.level1
     def test_read_noise_term_present(self, wl: np.ndarray) -> None:
         rn = 5.0
         budget = compute_noise_budget(signal_e=10000.0, read_noise_e_rms=rn)
@@ -99,6 +101,7 @@ class TestReadoutStageBasic:
         assert len(read_terms) == 1
         assert read_terms[0].value_e == pytest.approx(rn, rel=1e-12)
 
+    @pytest.mark.level1
     def test_quantization_noise_term_present(self, wl: np.ndarray) -> None:
         gain = 2.0
         budget = compute_noise_budget(signal_e=10000.0, gain_e_per_dn=gain)
@@ -111,6 +114,7 @@ class TestReadoutStageBasic:
         expected = gain / math.sqrt(12.0)
         assert quant_terms[0].value_e == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level1
     def test_signal_shot_noise(self, wl: np.ndarray) -> None:
         signal = 10000.0
         budget = compute_noise_budget(signal_e=signal)
@@ -121,6 +125,7 @@ class TestReadoutStageBasic:
         shot = [n for n in out.noise_terms if n.name == "signal_shot"][0]
         assert shot.value_e == pytest.approx(math.sqrt(signal), rel=1e-10)
 
+    @pytest.mark.level1
     def test_stage_outputs(self, wl: np.ndarray) -> None:
         out = ReadoutStage().run(_make_state(wl), _make_params())
         ro = out.stage_outputs["readout"]
@@ -130,6 +135,7 @@ class TestReadoutStageBasic:
         assert "sigma_temporal_e" in ro
         assert "sigma_total_e" in ro
 
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert ReadoutStage().name == "readout"
 
@@ -139,6 +145,7 @@ class TestReadoutTDI:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_tdi_signal_scaling(self, wl: np.ndarray) -> None:
         """TDI N=8 multiplies signal by 8."""
         signal = 1000.0
@@ -150,6 +157,7 @@ class TestReadoutTDI:
         ro = out.stage_outputs["readout"]
         assert ro["signal_e_final"] == pytest.approx(8000.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_tdi_snr_improvement_read_limited(self, wl: np.ndarray) -> None:
         """TDI N=8, read-limited: SNR improves by ~N (signal ×N, read noise ×1)."""
         signal = 1.0  # very small signal → read-noise limited
@@ -182,6 +190,7 @@ class TestReadoutSaturation:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_well_saturation_clips(self, wl: np.ndarray) -> None:
         """Signal exceeding FWC is clipped."""
         signal = 200000.0
@@ -195,6 +204,7 @@ class TestReadoutSaturation:
         # Signal DN should be at most FWC/gain
         assert out.stage_outputs["readout"]["signal_dn_pre_coadd"] <= fwc
 
+    @pytest.mark.level1
     def test_adc_saturation_clips(self, wl: np.ndarray) -> None:
         """Signal exceeding ADC range is clipped."""
         signal = 50000.0
@@ -207,6 +217,7 @@ class TestReadoutSaturation:
         assert out.stage_outputs["readout"]["adc_status"] == "clipped"
         assert out.stage_outputs["readout"]["signal_dn_pre_coadd"] <= 255.0
 
+    @pytest.mark.level1
     def test_no_saturation(self, wl: np.ndarray) -> None:
         signal = 1000.0
         budget = compute_noise_budget(signal_e=signal)
@@ -223,6 +234,7 @@ class TestReadoutBinning:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_onchip_2x2_signal(self, wl: np.ndarray) -> None:
         signal = 1000.0
         budget = compute_noise_budget(signal_e=signal)
@@ -242,6 +254,7 @@ class TestReadoutCoadds:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_sum_coadd_k4_signal(self, wl: np.ndarray) -> None:
         signal = 1000.0
         budget = compute_noise_budget(signal_e=signal)
@@ -254,6 +267,7 @@ class TestReadoutCoadds:
             rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_average_coadd_signal_unchanged(self, wl: np.ndarray) -> None:
         signal = 1000.0
         budget = compute_noise_budget(signal_e=signal)
@@ -272,6 +286,7 @@ class TestReadoutNoiseRegime:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 50)
 
+    @pytest.mark.level1
     def test_imaging_regime_excludes_spatial(self, wl: np.ndarray) -> None:
         """In 'imaging' mode, sigma_total = sigma_temporal (spatial excluded)."""
         budget = compute_noise_budget(
@@ -290,6 +305,7 @@ class TestReadoutNoiseRegime:
         )
         assert ro["sigma_spatial_e"] > 0.0  # spatial computed, just not in total
 
+    @pytest.mark.level1
     def test_detection_regime_includes_spatial(self, wl: np.ndarray) -> None:
         """In 'detection' mode, sigma_total = RSS(temporal, spatial)."""
         budget = compute_noise_budget(
@@ -305,6 +321,7 @@ class TestReadoutNoiseRegime:
         expected = math.sqrt(ro["sigma_temporal_e"] ** 2 + ro["sigma_spatial_e"] ** 2)
         assert ro["sigma_total_e"] == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level1
     def test_contributes_to_tags(self, wl: np.ndarray) -> None:
         """Temporal terms tag ('temporal', 'total'), spatial tag ('spatial', 'total')."""
         budget = compute_noise_budget(signal_e=10000.0, prnu_pct=1.0)

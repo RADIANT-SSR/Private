@@ -49,39 +49,48 @@ from radiant.detector.noise.roic import (
 
 
 class TestSignalShot:
+    @pytest.mark.level0
     def test_poisson(self) -> None:
         assert signal_shot_noise(10000.0) == pytest.approx(100.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero(self) -> None:
         assert signal_shot_noise(0.0) == 0.0
 
+    @pytest.mark.level0
     def test_negative_raises(self) -> None:
         with pytest.raises(ValueError, match="signal_e"):
             signal_shot_noise(-1.0)
 
 
 class TestBackgroundShot:
+    @pytest.mark.level0
     def test_poisson(self) -> None:
         assert background_shot_noise(2500.0) == pytest.approx(50.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_negative_raises(self) -> None:
         with pytest.raises(ValueError, match="background_e"):
             background_shot_noise(-1.0)
 
 
 class TestNearfieldShot:
+    @pytest.mark.level0
     def test_poisson(self) -> None:
         assert nearfield_shot_noise(400.0) == pytest.approx(20.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_negative_raises(self) -> None:
         with pytest.raises(ValueError, match="nearfield_e"):
             nearfield_shot_noise(-1.0)
 
 
 class TestStraylightShot:
+    @pytest.mark.level0
     def test_poisson(self) -> None:
         assert straylight_shot_noise(100.0) == pytest.approx(10.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_negative_raises(self) -> None:
         with pytest.raises(ValueError, match="stray_e"):
             straylight_shot_noise(-1.0)
@@ -93,30 +102,36 @@ class TestStraylightShot:
 
 
 class TestDarkShot:
+    @pytest.mark.level0
     def test_truth_anchor(self) -> None:
         """100 e-/s × 0.01 s = 1 e- → σ = 1.0 e-."""
         assert dark_shot_noise(1.0) == pytest.approx(1.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero(self) -> None:
         assert dark_shot_noise(0.0) == 0.0
 
 
 class TestGRNoise:
+    @pytest.mark.level0
     def test_gr_factor_1(self) -> None:
         """gr_factor=1 → variance = 2×dark_e."""
         dark_e = 100.0
         expected = math.sqrt(2.0 * 1.0 * dark_e)
         assert gr_noise(dark_e, 1.0) == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_gr_factor_0(self) -> None:
         assert gr_noise(100.0, 0.0) == 0.0
 
+    @pytest.mark.level0
     def test_negative_factor_raises(self) -> None:
         with pytest.raises(ValueError, match="gr_factor"):
             gr_noise(100.0, -1.0)
 
 
 class TestJohnsonNoise:
+    @pytest.mark.level0
     def test_hand_calculation(self) -> None:
         """Truth anchor: R₀A=1e-5 Ω·cm², A=(18µm)², T=77K, t=0.01s.
 
@@ -132,23 +147,28 @@ class TestJohnsonNoise:
         actual = johnson_noise(r0a, area, temp, t_int)
         assert actual == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_zero_r0a(self) -> None:
         assert johnson_noise(0.0, 1e-10, 77.0, 0.01) == 0.0
 
+    @pytest.mark.level0
     def test_zero_temp(self) -> None:
         assert johnson_noise(1e-5, 1e-10, 0.0, 0.01) == 0.0
 
 
 class TestFlicker1f:
+    @pytest.mark.level0
     def test_known_value(self) -> None:
         """K=100 e-², f_low=1 Hz, f_high=1000 Hz → √(100·ln(1000))."""
         K = 100.0
         expected = math.sqrt(K * math.log(1000.0))
         assert flicker_1f_noise(K, 1.0, 1000.0) == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero_K(self) -> None:
         assert flicker_1f_noise(0.0, 1.0, 1000.0) == 0.0
 
+    @pytest.mark.level0
     def test_bad_freq_raises(self) -> None:
         with pytest.raises(ValueError, match="f_low_hz"):
             flicker_1f_noise(1.0, 0.0, 1000.0)
@@ -162,18 +182,22 @@ class TestFlicker1f:
 
 
 class TestReadNoise:
+    @pytest.mark.level0
     def test_passthrough(self) -> None:
         assert read_noise_term(5.0) == pytest.approx(5.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_negative_raises(self) -> None:
         with pytest.raises(ValueError, match="sigma_rms"):
             read_noise_term(-1.0)
 
 
 class TestKtcReset:
+    @pytest.mark.level0
     def test_cds_suppresses(self) -> None:
         assert ktc_reset_noise(1e-15, 77.0, cds_enabled=True) == 0.0
 
+    @pytest.mark.level0
     def test_hand_calculation(self) -> None:
         """C=50 fF, T=77K → √(kTC)/q."""
         C = 50.0e-15
@@ -182,20 +206,24 @@ class TestKtcReset:
         actual = ktc_reset_noise(C, T, cds_enabled=False)
         assert actual == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_zero_capacitance(self) -> None:
         assert ktc_reset_noise(0.0, 77.0, cds_enabled=False) == 0.0
 
 
 class TestQuantization:
+    @pytest.mark.level0
     def test_lsb_sqrt12(self) -> None:
         """gain=1.0 → σ = 1/√12 ≈ 0.2887."""
         expected = 1.0 / math.sqrt(12.0)
         assert quantization_noise(1.0) == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_gain_2(self) -> None:
         expected = 2.0 / math.sqrt(12.0)
         assert quantization_noise(2.0) == pytest.approx(expected, rel=1e-12)
 
+    @pytest.mark.level0
     def test_negative_gain_raises(self) -> None:
         with pytest.raises(ValueError, match="gain_e_per_dn"):
             quantization_noise(-1.0)
@@ -207,24 +235,29 @@ class TestQuantization:
 
 
 class TestPRNU:
+    @pytest.mark.level0
     def test_one_percent(self) -> None:
         """1% PRNU, 10000 e- → 100 e-."""
         assert prnu_noise(10000.0, 1.0) == pytest.approx(100.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero_prnu(self) -> None:
         assert prnu_noise(10000.0, 0.0) == 0.0
 
 
 class TestDSNU:
+    @pytest.mark.level0
     def test_passthrough(self) -> None:
         assert dsnu_noise(3.5) == pytest.approx(3.5, rel=1e-12)
 
 
 class TestClutter:
+    @pytest.mark.level0
     def test_scaling(self) -> None:
         """clutter_sigma=0.01, bg=50000 e- → 500 e-."""
         assert clutter_noise(50000.0, 0.01) == pytest.approx(500.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero_sigma(self) -> None:
         assert clutter_noise(50000.0, 0.0) == 0.0
 
@@ -235,6 +268,7 @@ class TestClutter:
 
 
 class TestPersistence:
+    @pytest.mark.level0
     def test_known_value(self) -> None:
         """f=0.01, S_prev=10000, τ=1s, dt=0.1s."""
         frac = 0.01
@@ -246,21 +280,26 @@ class TestPersistence:
         actual = persistence_noise(prior, frac, tau, dt)
         assert actual == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_zero_fraction(self) -> None:
         assert persistence_noise(10000.0, 0.0, 1.0, 0.1) == 0.0
 
+    @pytest.mark.level0
     def test_zero_prior(self) -> None:
         assert persistence_noise(0.0, 0.01, 1.0, 0.1) == 0.0
 
+    @pytest.mark.level0
     def test_bad_tau_raises(self) -> None:
         with pytest.raises(ValueError, match="persistence_tau_s"):
             persistence_noise(100.0, 0.01, 0.0, 0.1)
 
 
 class TestGlowShot:
+    @pytest.mark.level0
     def test_poisson(self) -> None:
         assert glow_shot_noise(25.0) == pytest.approx(5.0, rel=1e-12)
 
+    @pytest.mark.level0
     def test_zero(self) -> None:
         assert glow_shot_noise(0.0) == 0.0
 
@@ -271,15 +310,18 @@ class TestGlowShot:
 
 
 class TestNoiseBudget:
+    @pytest.mark.level1
     def test_all_16_terms_present(self) -> None:
         budget = compute_noise_budget(signal_e=100.0)
         assert set(budget.terms.keys()) == ALL_NOISE_TERMS
 
+    @pytest.mark.level1
     def test_temporal_spatial_partition(self) -> None:
         """TEMPORAL_TERMS + SPATIAL_TERMS = ALL_NOISE_TERMS, disjoint."""
         assert TEMPORAL_TERMS | SPATIAL_TERMS == ALL_NOISE_TERMS
         assert frozenset() == TEMPORAL_TERMS & SPATIAL_TERMS
 
+    @pytest.mark.level1
     def test_rss_consistency(self) -> None:
         """sigma_total = √(σ_temporal² + σ_spatial²)."""
         budget = compute_noise_budget(
@@ -305,6 +347,7 @@ class TestNoiseBudget:
             rel=1e-12,
         )
 
+    @pytest.mark.level1
     def test_blip_regime_shot_dominates(self) -> None:
         """High signal, low read noise → signal shot dominates."""
         budget = compute_noise_budget(
@@ -314,6 +357,7 @@ class TestNoiseBudget:
         fracs = budget.fractional_contributions()
         assert fracs["signal_shot"] > 0.99
 
+    @pytest.mark.level1
     def test_read_limited_regime(self) -> None:
         """Low signal, high read noise → read noise dominates."""
         budget = compute_noise_budget(
@@ -323,6 +367,7 @@ class TestNoiseBudget:
         fracs = budget.fractional_contributions()
         assert fracs["read_noise"] > 0.99
 
+    @pytest.mark.level1
     def test_fractional_contributions_sum_to_one(self) -> None:
         budget = compute_noise_budget(
             signal_e=10000.0,
@@ -333,6 +378,7 @@ class TestNoiseBudget:
         total = sum(budget.fractional_contributions().values())
         assert total == pytest.approx(1.0, abs=1e-12)
 
+    @pytest.mark.level1
     def test_all_zeros_no_crash(self) -> None:
         """All electron counts zero → budget with near-zero noise."""
         budget = compute_noise_budget(signal_e=0.0)

@@ -46,6 +46,7 @@ class TestGaussianMTFAnalytical:
     so the interpolation can look up values at shifted frequencies.
     """
 
+    @pytest.mark.level0
     def test_gaussian_folded_matches_analytical(self) -> None:
         """Numerical folded MTF matches direct Gaussian sum."""
         sigma = 1.0 / (2.0 * np.pi * F_NYQUIST * 0.8)  # FWHM ~ 0.8 * f_Nyq
@@ -62,6 +63,7 @@ class TestGaussianMTFAnalytical:
             result.mtf_folded[baseband], expected[baseband], rtol=1e-3
         )
 
+    @pytest.mark.level0
     def test_gaussian_5_frequencies(self) -> None:
         """Verify at 5 specific frequencies with < 0.1% tolerance."""
         sigma = 1.0 / (2.0 * np.pi * F_NYQUIST * 0.6)
@@ -83,6 +85,7 @@ class TestGaussianMTFAnalytical:
 class TestWellSampledLimit:
     """Truth anchor 2: Q >> 1 → folded MTF equals optical MTF."""
 
+    @pytest.mark.level1
     def test_oversampled_folded_equals_optical(self) -> None:
         """When optical MTF is zero well before f_Nyquist, folded ≈ optical
         in the region where the MTF is significant."""
@@ -99,6 +102,7 @@ class TestWellSampledLimit:
             result.mtf_folded[significant], mtf_optical[significant], atol=1e-6,
         )
 
+    @pytest.mark.level1
     def test_oversampled_alias_fraction_zero(self) -> None:
         """Well-sampled system: alias fraction ≈ 0 where MTF is significant."""
         sigma = 10.0 / (2.0 * np.pi * F_NYQUIST)
@@ -115,6 +119,7 @@ class TestWellSampledLimit:
 class TestUndersampledBehaviour:
     """Undersampled (Q < 1): folded MTF > optical MTF."""
 
+    @pytest.mark.level1
     def test_folded_ge_optical(self) -> None:
         """Folded MTF >= optical MTF at all frequencies."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)  # broad — extends beyond f_Ny
@@ -125,6 +130,7 @@ class TestUndersampledBehaviour:
 
         assert np.all(result.mtf_folded >= mtf_optical - 1e-15)
 
+    @pytest.mark.level1
     def test_alias_fraction_positive(self) -> None:
         """Undersampled: alias fraction > 0 in the passband."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)
@@ -136,6 +142,7 @@ class TestUndersampledBehaviour:
         # At least some frequencies should have non-zero alias fraction.
         assert np.any(result.alias_fraction > 0.01)
 
+    @pytest.mark.level1
     def test_folded_at_zero_freq_equals_optical(self) -> None:
         """At f=0, aliased copies contribute at ±f_Ny, ±2*f_Ny, etc.
         For broad MTF, these are non-zero, so folded(0) > optical(0)."""
@@ -152,6 +159,7 @@ class TestUndersampledBehaviour:
 class TestNFoldsZero:
     """n_folds=0 returns optical MTF unchanged."""
 
+    @pytest.mark.level0
     def test_no_folding(self) -> None:
         freq = np.linspace(0, F_NYQUIST, 100)
         mtf_optical = _gaussian_mtf(freq, 1.0 / (2.0 * np.pi * F_NYQUIST))
@@ -166,6 +174,7 @@ class TestNFoldsZero:
 class TestEdgeCases:
     """Edge cases and error handling."""
 
+    @pytest.mark.level1
     def test_empty_frequency_array(self) -> None:
         freq = np.array([], dtype=np.float64)
         mtf = np.array([], dtype=np.float64)
@@ -176,18 +185,21 @@ class TestEdgeCases:
         assert len(result.mtf_folded) == 0
         assert len(result.alias_fraction) == 0
 
+    @pytest.mark.level1
     def test_f_nyquist_zero_raises(self) -> None:
         freq = np.linspace(0, 1000, 100)
         mtf = np.ones(100)
         with pytest.raises(ValueError, match="positive"):
             compute_folded_mtf(freq, mtf, 0.0)
 
+    @pytest.mark.level1
     def test_f_nyquist_negative_raises(self) -> None:
         freq = np.linspace(0, 1000, 100)
         mtf = np.ones(100)
         with pytest.raises(ValueError, match="positive"):
             compute_folded_mtf(freq, mtf, -100.0)
 
+    @pytest.mark.level1
     def test_negative_mtf_raises(self) -> None:
         freq = np.linspace(0, F_NYQUIST, 100)
         mtf = np.ones(100)
@@ -195,6 +207,7 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="non-negative"):
             compute_folded_mtf(freq, mtf, F_NYQUIST)
 
+    @pytest.mark.level1
     def test_result_is_frozen(self) -> None:
         freq = np.linspace(0, F_NYQUIST, 50)
         mtf = np.ones(50) * 0.5
@@ -205,6 +218,7 @@ class TestEdgeCases:
 class TestAliasFraction:
     """Alias fraction properties."""
 
+    @pytest.mark.level1
     def test_alias_fraction_bounded(self) -> None:
         """Alias fraction should be in [0, 1]."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)
@@ -216,6 +230,7 @@ class TestAliasFraction:
         assert np.all(result.alias_fraction >= 0.0)
         assert np.all(result.alias_fraction <= 1.0)
 
+    @pytest.mark.level1
     def test_alias_fraction_zero_at_dc_when_wellsampled(self) -> None:
         """For well-sampled systems, alias fraction is 0 at DC."""
         sigma = 10.0 / (2.0 * np.pi * F_NYQUIST)

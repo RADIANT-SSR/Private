@@ -19,6 +19,7 @@ from radiant.optics.fnumber import FNUMBER_CONSISTENCY_RTOL, resolve_fnumber_gro
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_unobscured_area_equals_pi_d_squared_over_four() -> None:
     d = 0.5
     ap = CircularAperture(aperture_diameter_m=d)
@@ -26,6 +27,7 @@ def test_unobscured_area_equals_pi_d_squared_over_four() -> None:
     assert ap.clear_area_m2 == pytest.approx(math.pi * (d / 2) ** 2, rel=1e-12)
 
 
+@pytest.mark.level0
 def test_obscured_area_matches_analytic_formula() -> None:
     d = 1.0
     eps = 0.3
@@ -36,6 +38,7 @@ def test_obscured_area_matches_analytic_formula() -> None:
     assert ap.primary_area_m2 == pytest.approx(math.pi * (d / 2) ** 2, rel=1e-12)
 
 
+@pytest.mark.level0
 def test_area_equivalent_to_pi_over_4_d_squared_minus_d2_squared() -> None:
     """``A = π/4 · (D² − d²)`` with ``d = ε·D``."""
     d = 0.8
@@ -51,6 +54,7 @@ def test_area_equivalent_to_pi_over_4_d_squared_minus_d2_squared() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_solid_angle_at_f_one_is_pi_over_four() -> None:
     ap = CircularAperture(aperture_diameter_m=1.0)
     # f/# = 1 means focal_length_m == aperture_diameter_m
@@ -58,6 +62,7 @@ def test_solid_angle_at_f_one_is_pi_over_four() -> None:
     assert omega == pytest.approx(math.pi / 4.0, rel=1e-12)
 
 
+@pytest.mark.level0
 def test_solid_angle_decreases_with_slow_system() -> None:
     ap = CircularAperture(aperture_diameter_m=0.1)
     om_fast = ap.solid_angle_at_focal_length(0.1)  # f/1
@@ -67,6 +72,7 @@ def test_solid_angle_decreases_with_slow_system() -> None:
     assert om_slow == pytest.approx(math.pi / (4 * 100.0**2), rel=1e-12)
 
 
+@pytest.mark.level0
 def test_solid_angle_tends_to_zero_for_very_slow_systems() -> None:
     ap = CircularAperture(aperture_diameter_m=0.1)
     om = ap.solid_angle_at_focal_length(1e6)
@@ -74,6 +80,7 @@ def test_solid_angle_tends_to_zero_for_very_slow_systems() -> None:
     assert om < 1e-12
 
 
+@pytest.mark.level0
 def test_solid_angle_rejects_non_positive_focal_length() -> None:
     ap = CircularAperture(aperture_diameter_m=0.5)
     with pytest.raises(ValueError, match="focal_length_m"):
@@ -87,26 +94,31 @@ def test_solid_angle_rejects_non_positive_focal_length() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_negative_diameter_rejected() -> None:
     with pytest.raises(ValueError, match="aperture_diameter_m"):
         CircularAperture(aperture_diameter_m=-0.5)
 
 
+@pytest.mark.level0
 def test_zero_diameter_rejected() -> None:
     with pytest.raises(ValueError, match="aperture_diameter_m"):
         CircularAperture(aperture_diameter_m=0.0)
 
 
+@pytest.mark.level0
 def test_obscuration_ratio_at_one_rejected() -> None:
     with pytest.raises(ValueError, match="obscuration_ratio"):
         CircularAperture(aperture_diameter_m=0.5, obscuration_ratio=1.0)
 
 
+@pytest.mark.level0
 def test_obscuration_ratio_above_one_rejected() -> None:
     with pytest.raises(ValueError, match="obscuration_ratio"):
         CircularAperture(aperture_diameter_m=0.5, obscuration_ratio=1.2)
 
 
+@pytest.mark.level0
 def test_negative_obscuration_ratio_rejected() -> None:
     with pytest.raises(ValueError, match="obscuration_ratio"):
         CircularAperture(aperture_diameter_m=0.5, obscuration_ratio=-0.1)
@@ -117,6 +129,7 @@ def test_negative_obscuration_ratio_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_aperture_to_dict_from_dict_round_trip() -> None:
     ap = CircularAperture(aperture_diameter_m=0.8, obscuration_ratio=0.25, name="primary")
     d = ap.to_dict()
@@ -125,6 +138,7 @@ def test_aperture_to_dict_from_dict_round_trip() -> None:
     assert ap2 == ap
 
 
+@pytest.mark.level0
 def test_aperture_from_dict_rejects_wrong_kind() -> None:
     with pytest.raises(ValueError, match="kind"):
         CircularAperture.from_dict({"kind": "slit", "aperture_diameter_m": 0.1})
@@ -135,18 +149,21 @@ def test_aperture_from_dict_rejects_wrong_kind() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_derive_f_number() -> None:
     d, f, fn = resolve_fnumber_group(aperture_diameter_m=0.25, focal_length_m=2.0, f_number=None)
     assert fn == pytest.approx(8.0, rel=1e-12)
     assert d == 0.25 and f == 2.0
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_derive_focal_length() -> None:
     d, f, fn = resolve_fnumber_group(aperture_diameter_m=0.1, focal_length_m=None, f_number=5.0)
     assert f == pytest.approx(0.5, rel=1e-12)
     assert d == 0.1 and fn == 5.0
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_derive_diameter() -> None:
     d, f, fn = resolve_fnumber_group(aperture_diameter_m=None, focal_length_m=3.0, f_number=12.0)
     assert d == pytest.approx(0.25, rel=1e-12)
@@ -158,23 +175,27 @@ def test_resolve_fnumber_derive_diameter() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_three_consistent_inputs_accepted() -> None:
     d, f, fn = resolve_fnumber_group(aperture_diameter_m=0.5, focal_length_m=2.5, f_number=5.0)
     assert (d, f, fn) == (0.5, 2.5, 5.0)
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_three_inputs_within_tolerance_accepted() -> None:
     # 0.5 * 4.999 ≈ 2.4995 vs stated 2.5 → rel err 2e-4, < 1e-3
     d, f, fn = resolve_fnumber_group(aperture_diameter_m=0.5, focal_length_m=2.5, f_number=4.999)
     assert (d, f, fn) == (0.5, 2.5, 4.999)
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_inconsistent_inputs_rejected() -> None:
     with pytest.raises(ValueError, match="over-specified and inconsistent"):
         # f/# should be 5.0, but user says 6.0
         resolve_fnumber_group(aperture_diameter_m=0.5, focal_length_m=2.5, f_number=6.0)
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_discrepancy_at_exactly_tolerance_boundary() -> None:
     """Values just above the tolerance must fail."""
     d = 0.5
@@ -189,21 +210,25 @@ def test_resolve_fnumber_discrepancy_at_exactly_tolerance_boundary() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_fewer_than_two_inputs_rejected() -> None:
     with pytest.raises(ValueError, match="at least two"):
         resolve_fnumber_group(aperture_diameter_m=0.5, focal_length_m=None, f_number=None)
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_none_inputs_rejected() -> None:
     with pytest.raises(ValueError, match="at least two"):
         resolve_fnumber_group(aperture_diameter_m=None, focal_length_m=None, f_number=None)
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_negative_value_rejected() -> None:
     with pytest.raises(ValueError, match="aperture_diameter_m"):
         resolve_fnumber_group(aperture_diameter_m=-0.1, focal_length_m=2.0, f_number=None)
 
 
+@pytest.mark.level0
 def test_resolve_fnumber_nan_rejected() -> None:
     with pytest.raises(ValueError, match="focal_length_m"):
         resolve_fnumber_group(aperture_diameter_m=0.5, focal_length_m=float("nan"), f_number=None)

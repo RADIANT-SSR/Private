@@ -48,6 +48,7 @@ class TestSpectralIntegrationStage:
     def wl(self) -> np.ndarray:
         return np.linspace(3.5, 5.0, 200)
 
+    @pytest.mark.level1
     def test_produces_photoelectrons_frame(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         out = SpectralIntegrationStage().run(state, _make_params())
@@ -56,6 +57,7 @@ class TestSpectralIntegrationStage:
         assert pe.in_band_value is not None
         assert pe.in_band_value > 0.0
 
+    @pytest.mark.level1
     def test_signal_scales_with_t_int(self, wl: np.ndarray) -> None:
         state = _make_state(wl, L=1.0)
         out1 = SpectralIntegrationStage().run(state, _make_params(t_int=0.005))
@@ -65,6 +67,7 @@ class TestSpectralIntegrationStage:
         assert pe1 is not None and pe2 is not None
         assert pe2 == pytest.approx(pe1 * 2.0, rel=1e-6)
 
+    @pytest.mark.level1
     def test_signal_scales_with_qe(self, wl: np.ndarray) -> None:
         state = _make_state(wl, L=1.0)
         out1 = SpectralIntegrationStage().run(state, _make_params(qe=0.35))
@@ -74,6 +77,7 @@ class TestSpectralIntegrationStage:
         assert pe1 is not None and pe2 is not None
         assert pe2 == pytest.approx(pe1 * 2.0, rel=1e-3)
 
+    @pytest.mark.level1
     def test_EE_box_not_applied_extended(self, wl: np.ndarray) -> None:
         """In extended regime, EE_box = 1.0 must not be applied. If it
         were != 1 in extended regime, the stage raises (programming error)."""
@@ -83,6 +87,7 @@ class TestSpectralIntegrationStage:
         with pytest.raises(RuntimeError, match="EE_box != 1.0"):
             SpectralIntegrationStage().run(state2, _make_params())
 
+    @pytest.mark.level1
     def test_hand_calculated_flat_source(self, wl: np.ndarray) -> None:
         """Verify against a hand calculation for a flat source.
 
@@ -106,5 +111,6 @@ class TestSpectralIntegrationStage:
         # Verify to within 1% of the trapezoidal hand calculation.
         assert pe == pytest.approx(5.05e8, rel=0.01)
 
+    @pytest.mark.level1
     def test_name(self) -> None:
         assert SpectralIntegrationStage().name == "spectral_integration"

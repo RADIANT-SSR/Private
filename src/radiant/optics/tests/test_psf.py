@@ -62,15 +62,19 @@ def psf_data(config: PSFSamplingConfig) -> PSFData:
 
 
 class TestPSFDataBasic:
+    @pytest.mark.level1
     def test_shape(self, psf_data: PSFData, config: PSFSamplingConfig) -> None:
         assert psf_data.shape == (config.padded_npix, config.padded_npix)
 
+    @pytest.mark.level1
     def test_peak(self, psf_data: PSFData) -> None:
         assert psf_data.peak > 0.0
 
+    @pytest.mark.level1
     def test_total(self, psf_data: PSFData) -> None:
         assert psf_data.total == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_frozen(self, psf_data: PSFData) -> None:
         with pytest.raises(AttributeError):
             psf_data.strehl = 0.5  # type: ignore[misc]
@@ -82,24 +86,29 @@ class TestPSFDataBasic:
 
 
 class TestMTF2D:
+    @pytest.mark.level1
     def test_dc_is_one(self, psf_data: PSFData) -> None:
         """MTF(0,0) = 1.0 by normalisation."""
         mtf = psf_data.mtf_2d()
         c = mtf.shape[0] // 2
         assert mtf[c, c] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_non_negative(self, psf_data: PSFData) -> None:
         mtf = psf_data.mtf_2d()
         assert np.all(mtf >= 0.0)
 
+    @pytest.mark.level1
     def test_bounded_by_one(self, psf_data: PSFData) -> None:
         mtf = psf_data.mtf_2d()
         assert mtf.max() == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_shape_matches_psf(self, psf_data: PSFData) -> None:
         mtf = psf_data.mtf_2d()
         assert mtf.shape == psf_data.shape
 
+    @pytest.mark.level1
     def test_symmetric(self, psf_data: PSFData) -> None:
         """MTF of a symmetric PSF should be symmetric (above noise floor)."""
         mtf = psf_data.mtf_2d()
@@ -111,28 +120,34 @@ class TestMTF2D:
 
 
 class TestMTF1D:
+    @pytest.mark.level1
     def test_x_slice_dc_is_one(self, psf_data: PSFData) -> None:
         freq, mtf = psf_data.mtf_1d("x")
         assert mtf[0] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_y_slice_dc_is_one(self, psf_data: PSFData) -> None:
         freq, mtf = psf_data.mtf_1d("y")
         assert mtf[0] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_frequency_starts_at_zero(self, psf_data: PSFData) -> None:
         freq, mtf = psf_data.mtf_1d("x")
         assert freq[0] == pytest.approx(0.0, abs=1e-20)
 
+    @pytest.mark.level1
     def test_mtf_drops_to_zero(self, psf_data: PSFData) -> None:
         """For a circular aperture, MTF drops to 0 at cutoff freq = D/(λf)."""
         freq, mtf = psf_data.mtf_1d("x")
         # At Nyquist, MTF should be well below 1.
         assert mtf[-1] < 0.5
 
+    @pytest.mark.level1
     def test_invalid_axis_raises(self, psf_data: PSFData) -> None:
         with pytest.raises(ValueError, match="axis must be"):
             psf_data.mtf_1d("z")
 
+    @pytest.mark.level1
     def test_diffraction_cutoff(self, psf_data: PSFData) -> None:
         """MTF should reach zero at the diffraction cutoff D/(λf).
 
@@ -154,18 +169,21 @@ class TestMTF1D:
 
 
 class TestEncircledEnergy:
+    @pytest.mark.level1
     def test_full_grid_captures_all(self, psf_data: PSFData) -> None:
         """Box the size of the full grid should capture ~100%."""
         half = psf_data.config.psf_fov_m / 2
         ee = psf_data.encircled_energy(half)
         assert ee == pytest.approx(1.0, rel=1e-6)
 
+    @pytest.mark.level1
     def test_small_box(self, psf_data: PSFData) -> None:
         """Tiny box captures less energy."""
         dx = psf_data.config.focal_spacing_m
         ee = psf_data.encircled_energy(dx)
         assert 0 < ee < 0.5
 
+    @pytest.mark.level1
     def test_monotonically_increasing(self, psf_data: PSFData) -> None:
         """EE increases with box size."""
         dx = psf_data.config.focal_spacing_m
@@ -174,6 +192,7 @@ class TestEncircledEnergy:
         for i in range(len(ees) - 1):
             assert ees[i + 1] >= ees[i]
 
+    @pytest.mark.level1
     def test_airy_84_percent(self, psf_data: PSFData) -> None:
         """~84% of Airy pattern energy within first zero.
 
@@ -191,12 +210,14 @@ class TestEncircledEnergy:
 
 
 class TestFWHM:
+    @pytest.mark.level1
     def test_fwhm_near_airy(self, psf_data: PSFData) -> None:
         """FWHM ≈ 1.028 λf/D."""
         fwhm = psf_data.fwhm_m()
         expected = 1.028 * WAVELENGTH_M * FOCAL_LENGTH_M / APERTURE_M
         assert fwhm == pytest.approx(expected, rel=0.02)
 
+    @pytest.mark.level1
     def test_fwhm_positive(self, psf_data: PSFData) -> None:
         assert psf_data.fwhm_m() > 0.0
 
@@ -207,6 +228,7 @@ class TestFWHM:
 
 
 class TestParseval:
+    @pytest.mark.level1
     def test_parseval(self, psf_data: PSFData) -> None:
         """Sum |OTF|² should equal sum |PSF|² (Parseval's theorem).
 
@@ -323,12 +345,15 @@ def epsf_with_motion(
 
 
 class TestInvariant1EnergyConservation:
+    @pytest.mark.level1
     def test_diffraction_only(self, epsf_diffraction_only: EffectivePSF) -> None:
         assert epsf_diffraction_only.total == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_with_detector(self, epsf_with_detector: EffectivePSF) -> None:
         assert epsf_with_detector.total == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_with_motion(self, epsf_with_motion: EffectivePSF) -> None:
         assert epsf_with_motion.total == pytest.approx(1.0, rel=1e-10)
 
@@ -339,14 +364,17 @@ class TestInvariant1EnergyConservation:
 
 
 class TestInvariant2MTFatDC:
+    @pytest.mark.level1
     def test_diffraction_only(self, epsf_diffraction_only: EffectivePSF) -> None:
         freq, mtf = epsf_diffraction_only.mtf_1d("x")
         assert mtf[0] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_with_detector(self, epsf_with_detector: EffectivePSF) -> None:
         freq, mtf = epsf_with_detector.mtf_1d("x")
         assert mtf[0] == pytest.approx(1.0, rel=1e-10)
 
+    @pytest.mark.level1
     def test_with_motion(self, epsf_with_motion: EffectivePSF) -> None:
         freq, mtf = epsf_with_motion.mtf_1d("x")
         assert mtf[0] == pytest.approx(1.0, rel=1e-10)
@@ -358,6 +386,7 @@ class TestInvariant2MTFatDC:
 
 
 class TestInvariant3Parseval:
+    @pytest.mark.level1
     def test_parseval(self, epsf_with_motion: EffectivePSF) -> None:
         psf_arr = epsf_with_motion.data
         otf = np.fft.fft2(psf_arr)
@@ -372,6 +401,7 @@ class TestInvariant3Parseval:
 
 
 class TestInvariant4OrderIndependence:
+    @pytest.mark.level1
     def test_abc_equals_cba(
         self, optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
     ) -> None:
@@ -402,6 +432,7 @@ class TestInvariant4OrderIndependence:
 
 
 class TestInvariant5EEMonotonicity:
+    @pytest.mark.level1
     def test_ee_monotonic(self, epsf_with_detector: EffectivePSF) -> None:
         dx = epsf_with_detector.sample_spacing_m
         sizes = [dx * i for i in range(1, 51)]
@@ -409,6 +440,7 @@ class TestInvariant5EEMonotonicity:
         for i in range(len(ees) - 1):
             assert ees[i + 1] >= ees[i] - 1e-12  # allow tiny float jitter
 
+    @pytest.mark.level1
     def test_ee_full_grid_is_one(self, epsf_with_detector: EffectivePSF) -> None:
         n = epsf_with_detector.shape[0]
         half = (n // 2) * epsf_with_detector.sample_spacing_m
@@ -422,6 +454,7 @@ class TestInvariant5EEMonotonicity:
 
 
 class TestInvariant6MTFBudgetConsistency:
+    @pytest.mark.level1
     def test_mtf_from_psf_equals_product_of_components(
         self, optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
     ) -> None:
@@ -488,6 +521,7 @@ class TestInvariant6MTFBudgetConsistency:
 
 
 class TestInvariant7Strehl:
+    @pytest.mark.level1
     def test_unaberrated_strehl_is_one(
         self, epsf_diffraction_only: EffectivePSF
     ) -> None:
@@ -501,6 +535,7 @@ class TestInvariant7Strehl:
 
 
 class TestInvariant8FWHMMonotonic:
+    @pytest.mark.level1
     def test_fwhm_increases_with_degradation(
         self,
         epsf_diffraction_only: EffectivePSF,
@@ -520,6 +555,7 @@ class TestInvariant8FWHMMonotonic:
 
 
 class TestInvariant9RERDecreases:
+    @pytest.mark.level1
     def test_rer_decreases(
         self,
         epsf_diffraction_only: EffectivePSF,
@@ -536,17 +572,20 @@ class TestInvariant9RERDecreases:
 
 
 class TestEffectivePSFLSF:
+    @pytest.mark.level1
     def test_lsf_sums_to_one(self, epsf_diffraction_only: EffectivePSF) -> None:
         """LSF is projection of unit-volume PSF → integrates to ~1."""
         pos, lsf_vals = epsf_diffraction_only.lsf("x")
         assert float(lsf_vals.sum()) == pytest.approx(1.0, rel=1e-6)
 
+    @pytest.mark.level1
     def test_erf_endpoints(self, epsf_diffraction_only: EffectivePSF) -> None:
         """ERF goes from 0 to 1."""
         pos, erf_vals = epsf_diffraction_only.erf("x")
         assert erf_vals[0] == pytest.approx(0.0, abs=0.01)
         assert erf_vals[-1] == pytest.approx(1.0, abs=0.01)
 
+    @pytest.mark.level1
     def test_erf_monotonic(self, epsf_diffraction_only: EffectivePSF) -> None:
         pos, erf_vals = epsf_diffraction_only.erf("x")
         assert np.all(np.diff(erf_vals) >= -1e-15)
@@ -558,13 +597,16 @@ class TestEffectivePSFLSF:
 
 
 class TestConvolutionHistory:
+    @pytest.mark.level1
     def test_no_kernels(self, epsf_diffraction_only: EffectivePSF) -> None:
         assert epsf_diffraction_only.convolution_history == ("optical",)
 
+    @pytest.mark.level1
     def test_with_kernels(self, epsf_with_detector: EffectivePSF) -> None:
         assert "optical" in epsf_with_detector.convolution_history
         assert "pixel_aperture" in epsf_with_detector.convolution_history
 
+    @pytest.mark.level1
     def test_zero_kernel_recorded(
         self, optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
     ) -> None:
@@ -587,6 +629,7 @@ class TestConvolutionHistory:
 class TestEffectivePSFWithKernel:
     """Tests for ``EffectivePSF.with_kernel()`` — post-hoc kernel convolution."""
 
+    @pytest.mark.level1
     def test_unit_volume_preserved(self, epsf_diffraction_only: EffectivePSF) -> None:
         """Convolved PSF still sums to 1.0."""
         kernel = np.zeros((3, 3))
@@ -595,6 +638,7 @@ class TestEffectivePSFWithKernel:
         result = epsf_diffraction_only.with_kernel("test", kernel)
         assert result.total == pytest.approx(1.0, abs=1e-12)
 
+    @pytest.mark.level1
     def test_history_appended(self, epsf_diffraction_only: EffectivePSF) -> None:
         """Convolution history includes the new kernel name."""
         kernel = np.array([[0, 0.02, 0], [0.02, 0.92, 0.02], [0, 0.02, 0]])
@@ -603,6 +647,7 @@ class TestEffectivePSFWithKernel:
         # Original history preserved.
         assert result.convolution_history[0] == "optical"
 
+    @pytest.mark.level1
     def test_original_unchanged(self, epsf_diffraction_only: EffectivePSF) -> None:
         """with_kernel returns a new object; original is unchanged."""
         original_data = epsf_diffraction_only.data.copy()
@@ -610,6 +655,7 @@ class TestEffectivePSFWithKernel:
         _ = epsf_diffraction_only.with_kernel("ipc", kernel)
         np.testing.assert_array_equal(epsf_diffraction_only.data, original_data)
 
+    @pytest.mark.level1
     def test_ipc_broadens_psf(self, epsf_diffraction_only: EffectivePSF) -> None:
         """IPC kernel should broaden the PSF (lower peak, wider FWHM)."""
         kernel = np.array([[0, 0.04, 0], [0.04, 0.84, 0.04], [0, 0.04, 0]])
@@ -617,6 +663,7 @@ class TestEffectivePSFWithKernel:
         assert result.peak < epsf_diffraction_only.peak
         assert result.fwhm("x") > epsf_diffraction_only.fwhm("x")
 
+    @pytest.mark.level1
     def test_ipc_reduces_mtf(self, epsf_diffraction_only: EffectivePSF) -> None:
         """IPC should reduce MTF at all non-zero frequencies."""
         kernel = np.array([[0, 0.03, 0], [0.03, 0.88, 0.03], [0, 0.03, 0]])
@@ -629,6 +676,7 @@ class TestEffectivePSFWithKernel:
         mask = original_mtf > 1e-6
         assert np.all(result_mtf[mask] <= original_mtf[mask] + 1e-10)
 
+    @pytest.mark.level1
     def test_kernel_too_large_raises(self, epsf_diffraction_only: EffectivePSF) -> None:
         """Kernel larger than PSF grid raises ValueError."""
         n = epsf_diffraction_only.shape[0]
@@ -636,6 +684,7 @@ class TestEffectivePSFWithKernel:
         with pytest.raises(ValueError, match="exceeds PSF grid"):
             epsf_diffraction_only.with_kernel("huge", big_kernel)
 
+    @pytest.mark.level1
     def test_metadata_preserved(self, epsf_diffraction_only: EffectivePSF) -> None:
         """Sample spacing, pixel pitch, wavelength carried over."""
         kernel = np.array([[0, 0.02, 0], [0.02, 0.92, 0.02], [0, 0.02, 0]])
@@ -646,6 +695,7 @@ class TestEffectivePSFWithKernel:
 
 
 class TestEffectivePSFFrozen:
+    @pytest.mark.level1
     def test_frozen(self, epsf_diffraction_only: EffectivePSF) -> None:
         with pytest.raises(AttributeError):
             epsf_diffraction_only.pixel_pitch_m = 10e-6  # type: ignore[misc]

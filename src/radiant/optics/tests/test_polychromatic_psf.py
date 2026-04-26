@@ -45,6 +45,7 @@ def _fwhm_from_psf(psf_2d: np.ndarray, dx: float) -> float:
 class TestPolychromaticIdentity:
     """N=1 must reproduce the monochromatic result exactly."""
 
+    @pytest.mark.level1
     def test_single_wavelength_matches_mono(self) -> None:
         """Polychromatic with one wavelength == compute_psf at that wavelength."""
         config = compute_sampling(
@@ -78,6 +79,7 @@ class TestPolychromaticIdentity:
 class TestPolychromaticNormalization:
     """Polychromatic PSF must sum to 1.0."""
 
+    @pytest.mark.level1
     @pytest.mark.parametrize("n_wl", [3, 5, 11])
     def test_unit_volume(self, n_wl: int) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, n_wl)
@@ -124,6 +126,7 @@ class TestPolychromaticBroadening:
     energy in the central pixel, not necessarily wider FWHM.
     """
 
+    @pytest.mark.level1
     def test_poly_second_moment_larger(self) -> None:
         """Polychromatic radial variance > monochromatic at band center."""
         config = compute_sampling(
@@ -152,6 +155,7 @@ class TestPolychromaticBroadening:
 
         assert poly_var > mono_var
 
+    @pytest.mark.level1
     def test_poly_ee1x1_lower(self) -> None:
         """Polychromatic EE(1×1) < monochromatic EE(1×1) — more energy in wings."""
         config = compute_sampling(
@@ -180,6 +184,7 @@ class TestPolychromaticBroadening:
 
         assert poly_ee < mono_ee
 
+    @pytest.mark.level1
     def test_poly_peak_lower(self) -> None:
         """Polychromatic peak < monochromatic peak (averaging different widths)."""
         config = compute_sampling(
@@ -210,6 +215,7 @@ class TestPolychromaticBroadening:
 class TestPolychromaticSymmetry:
     """Circular aperture with uniform weights → symmetric PSF."""
 
+    @pytest.mark.level1
     def test_x_y_symmetric(self) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 5)
         weights = np.ones(5)
@@ -229,6 +235,7 @@ class TestPolychromaticSymmetry:
 class TestPolychromaticConvergence:
     """FWHM should converge as N increases."""
 
+    @pytest.mark.level1
     def test_fwhm_converges(self) -> None:
         fwhms = []
         for n_wl in [5, 11, 21]:
@@ -252,6 +259,7 @@ class TestPolychromaticConvergence:
 class TestPolychromaticWeights:
     """Weight handling edge cases."""
 
+    @pytest.mark.level1
     def test_all_positive_weights(self) -> None:
         """All weights must be positive for physical radiance."""
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 5)
@@ -267,6 +275,7 @@ class TestPolychromaticWeights:
         )
         assert result.combined_psf.sum() == pytest.approx(1.0, abs=1e-10)
 
+    @pytest.mark.level1
     def test_zero_weight_raises(self) -> None:
         """Zero or negative weight should raise."""
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 3)
@@ -282,6 +291,7 @@ class TestPolychromaticWeights:
                 psf_oversample=PSF_OVERSAMPLE,
             )
 
+    @pytest.mark.level1
     def test_negative_weight_raises(self) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 3)
         weights = np.array([1.0, -0.5, 1.0])
@@ -296,6 +306,7 @@ class TestPolychromaticWeights:
                 psf_oversample=PSF_OVERSAMPLE,
             )
 
+    @pytest.mark.level1
     def test_mismatched_lengths_raises(self) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 5)
         weights = np.array([1.0, 1.0, 1.0])
@@ -314,6 +325,7 @@ class TestPolychromaticWeights:
 class TestPolychromaticNonNegative:
     """PSF values must be non-negative."""
 
+    @pytest.mark.level1
     def test_no_negative_values(self) -> None:
         wavelengths = np.linspace(FILTER_MIN_UM * 1e-6, FILTER_MAX_UM * 1e-6, 7)
         weights = np.ones(7)

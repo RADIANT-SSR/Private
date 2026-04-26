@@ -43,10 +43,12 @@ def _snr_ready_state() -> ChainState:
 
 
 class TestCanCompute:
+    @pytest.mark.level1
     def test_snr_with_dependencies(self) -> None:
         state = _snr_ready_state()
         assert can_compute("snr", state) is True
 
+    @pytest.mark.level1
     def test_snr_without_frame(self) -> None:
         state = _minimal_state()
         state = state.with_noise(
@@ -59,6 +61,7 @@ class TestCanCompute:
         )
         assert can_compute("snr", state) is False
 
+    @pytest.mark.level1
     def test_snr_without_noise(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -71,10 +74,12 @@ class TestCanCompute:
         state = state.with_frame(frame)
         assert can_compute("snr", state) is False
 
+    @pytest.mark.level1
     def test_unknown_metric_raises(self) -> None:
         with pytest.raises(KeyError):
             can_compute("nonexistent_metric", _minimal_state())
 
+    @pytest.mark.level1
     def test_contrast_snr_needs_contrast_e(self) -> None:
         state = _snr_ready_state()
         assert can_compute("contrast_snr", state) is False
@@ -85,6 +90,7 @@ class TestCanCompute:
         )
         assert can_compute("contrast_snr", state) is True
 
+    @pytest.mark.level1
     def test_saturation_margin(self) -> None:
         state = _minimal_state()
         assert can_compute("saturation_margin", state) is False
@@ -92,6 +98,7 @@ class TestCanCompute:
         state = state.with_stage_output("readout", "signal_dn_pre_coadd", 1000.0)
         assert can_compute("saturation_margin", state) is True
 
+    @pytest.mark.level1
     def test_dynamic_range(self) -> None:
         state = _minimal_state()
         assert can_compute("dynamic_range", state) is False
@@ -105,6 +112,7 @@ class TestCanCompute:
         )
         assert can_compute("dynamic_range", state) is True
 
+    @pytest.mark.level1
     def test_nedl_requires_snr_metric(self) -> None:
         state = _snr_ready_state()
         assert can_compute("nedl", state) is False
@@ -113,17 +121,20 @@ class TestCanCompute:
 
 
 class TestAvailableMetrics:
+    @pytest.mark.level1
     def test_empty_state(self) -> None:
         state = _minimal_state()
         available = available_metrics(state)
         assert len(available) == 0
 
+    @pytest.mark.level1
     def test_snr_ready(self) -> None:
         state = _snr_ready_state()
         available = available_metrics(state)
         assert "snr" in available
         assert "dynamic_range" in available
 
+    @pytest.mark.level1
     def test_with_snr_computed(self) -> None:
         state = _snr_ready_state()
         state = state.with_metric("snr", 100.0)
@@ -133,11 +144,13 @@ class TestAvailableMetrics:
 
 
 class TestMissingFor:
+    @pytest.mark.level1
     def test_nothing_missing(self) -> None:
         state = _snr_ready_state()
         missing = missing_for("snr", state)
         assert missing == {}
 
+    @pytest.mark.level1
     def test_missing_frame(self) -> None:
         state = _minimal_state()
         state = state.with_noise(
@@ -152,6 +165,7 @@ class TestMissingFor:
         assert "frames" in missing
         assert "photoelectrons" in missing["frames"]
 
+    @pytest.mark.level1
     def test_missing_noise(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -167,6 +181,7 @@ class TestMissingFor:
 
 
 class TestRegistryCompleteness:
+    @pytest.mark.level1
     def test_all_14_metrics_registered(self) -> None:
         """All 14 metrics from docs/RADIANT_Metrics.md §4 are registered."""
         expected = {

@@ -15,24 +15,28 @@ from radiant.readout.coadds import (
 
 
 class TestCoaddSignal:
+    @pytest.mark.level0
     def test_sum_scales_k(self) -> None:
         assert coadd_scale_signal(1000.0, 4, CoaddMode.SUM) == pytest.approx(
             4000.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_average_unchanged(self) -> None:
         assert coadd_scale_signal(1000.0, 4, CoaddMode.AVERAGE) == pytest.approx(
             1000.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_median_unchanged(self) -> None:
         assert coadd_scale_signal(1000.0, 4, CoaddMode.MEDIAN) == pytest.approx(
             1000.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_k1_identity(self) -> None:
         for mode in CoaddMode:
             assert coadd_scale_signal(1000.0, 1, mode) == pytest.approx(
@@ -42,18 +46,21 @@ class TestCoaddSignal:
 
 
 class TestCoaddTemporalNoise:
+    @pytest.mark.level0
     def test_sum_sqrt_k(self) -> None:
         assert coadd_scale_temporal_noise(10.0, 4, CoaddMode.SUM) == pytest.approx(
             20.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_average_div_sqrt_k(self) -> None:
         assert coadd_scale_temporal_noise(10.0, 4, CoaddMode.AVERAGE) == pytest.approx(
             5.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_median_pi_factor(self) -> None:
         """Median: × √(π/(2K))."""
         K = 9
@@ -63,6 +70,7 @@ class TestCoaddTemporalNoise:
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_k1_all_modes_identity(self) -> None:
         for mode in CoaddMode:
             assert coadd_scale_temporal_noise(10.0, 1, mode) == pytest.approx(
@@ -70,6 +78,7 @@ class TestCoaddTemporalNoise:
                 rel=1e-12,
             )
 
+    @pytest.mark.level1
     def test_sum_snr_improvement(self) -> None:
         """SUM K=4: signal ×4, noise ×2 → SNR doubles."""
         s = 1000.0
@@ -82,18 +91,21 @@ class TestCoaddTemporalNoise:
 
 
 class TestCoaddFPN:
+    @pytest.mark.level0
     def test_sum_scales_k(self) -> None:
         assert coadd_scale_fpn(10.0, 4, CoaddMode.SUM) == pytest.approx(
             40.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_average_unchanged(self) -> None:
         assert coadd_scale_fpn(10.0, 4, CoaddMode.AVERAGE) == pytest.approx(
             10.0,
             rel=1e-12,
         )
 
+    @pytest.mark.level0
     def test_median_unchanged(self) -> None:
         assert coadd_scale_fpn(10.0, 4, CoaddMode.MEDIAN) == pytest.approx(
             10.0,
@@ -102,6 +114,7 @@ class TestCoaddFPN:
 
 
 class TestCoaddValidation:
+    @pytest.mark.level0
     def test_invalid_k(self) -> None:
         with pytest.raises(ValueError, match="n_coadds"):
             coadd_scale_signal(1000.0, 0, CoaddMode.SUM)

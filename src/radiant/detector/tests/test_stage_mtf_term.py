@@ -82,6 +82,7 @@ def wl() -> np.ndarray:
 class TestPixelApertureMTF:
     """Pixel aperture MTF = |sinc(f * pitch)|."""
 
+    @pytest.mark.level1
     def test_at_nyquist_square_pixels(self, wl: np.ndarray) -> None:
         """MTF_pixel at Nyquist = sinc(0.5) = 2/π ≈ 0.6366."""
         pitch = 18.0
@@ -106,6 +107,7 @@ class TestPixelApertureMTF:
             expected, abs=1e-10
         )
 
+    @pytest.mark.level1
     def test_square_pixels_x_equals_y(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params()
@@ -120,6 +122,7 @@ class TestPixelApertureMTF:
 class TestIPCMTF:
     """IPC MTF from analytic formula."""
 
+    @pytest.mark.level1
     def test_ipc_coupling_matches_analytic(self, wl: np.ndarray) -> None:
         coupling = 0.03
         pitch = 18.0
@@ -138,6 +141,7 @@ class TestIPCMTF:
         np.testing.assert_allclose(out.mtf_terms["mtf_ipc_x"], expected_x, atol=1e-12)
         np.testing.assert_allclose(out.mtf_terms["mtf_ipc_y"], expected_y, atol=1e-12)
 
+    @pytest.mark.level1
     def test_zero_coupling_is_unity(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params(ipc_coupling=0.0)
@@ -151,6 +155,7 @@ class TestIPCMTF:
 class TestDiffusionMTF:
     """Charge diffusion MTF (isotropic: x == y)."""
 
+    @pytest.mark.level1
     def test_diffusion_x_equals_y(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params(diffusion_length_m=5e-6)
@@ -161,6 +166,7 @@ class TestDiffusionMTF:
             out.mtf_terms["mtf_charge_diffusion_y"],
         )
 
+    @pytest.mark.level1
     def test_diffusion_matches_analytic(self, wl: np.ndarray) -> None:
         L_d = 5e-6
         f_m = 1.2
@@ -176,6 +182,7 @@ class TestDiffusionMTF:
             out.mtf_terms["mtf_charge_diffusion_x"], expected, atol=1e-12
         )
 
+    @pytest.mark.level1
     def test_zero_diffusion_is_unity(self, wl: np.ndarray) -> None:
         state = _make_state(wl)
         params = _make_params(diffusion_length_m=0.0)

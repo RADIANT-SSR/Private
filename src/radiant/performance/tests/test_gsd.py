@@ -96,6 +96,7 @@ def _make_state() -> ChainState:
 class TestGSDFormula:
     """GSD = pixel_pitch_m × altitude_m / focal_length_m."""
 
+    @pytest.mark.level0
     def test_leo_500km_18um_pitch(self) -> None:
         """Standard LEO scenario: 18 µm pitch, f=1.2 m, h=500 km."""
         result = compute_gsd(
@@ -105,6 +106,7 @@ class TestGSDFormula:
         assert result.cross_track_m == pytest.approx(7.5, rel=1e-10)
         assert result.along_track_m == pytest.approx(7.5, rel=1e-10)
 
+    @pytest.mark.level0
     def test_geo_36000km_24um_pitch(self) -> None:
         """GEO scenario: 24 µm pitch, f=3.6 m, h=35786 km."""
         h = 35_786_000.0
@@ -115,6 +117,7 @@ class TestGSDFormula:
         expected = 24e-6 * h / 3.6  # ≈ 238.57 m
         assert result.cross_track_m == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_rectangular_pixels(self) -> None:
         """Non-square pixels give different cross-track and along-track GSD."""
         result = compute_gsd(
@@ -124,6 +127,7 @@ class TestGSDFormula:
         assert result.cross_track_m == pytest.approx(7.5, rel=1e-10)
         assert result.along_track_m == pytest.approx(10.0, rel=1e-10)
 
+    @pytest.mark.level0
     def test_airborne_8km(self) -> None:
         """Airborne scenario: 15 µm pitch, f=0.5 m, h=8 km."""
         result = compute_gsd(
@@ -132,6 +136,7 @@ class TestGSDFormula:
         )
         assert result.cross_track_m == pytest.approx(0.24, rel=1e-10)
 
+    @pytest.mark.level0
     def test_result_is_frozen(self) -> None:
         """GSDResult is immutable."""
         result = compute_gsd(18e-6, 18e-6, 500_000.0, 1.2)
@@ -154,18 +159,21 @@ class TestSlantRangeSpherical:
 
     R_E = EARTH_RADIUS_M
 
+    @pytest.mark.level0
     def test_nadir_returns_altitude(self) -> None:
         """At zenith=0, slant range equals altitude exactly."""
         assert slant_range_spherical_m(600_000.0, 0.0) == pytest.approx(
             600_000.0, rel=1e-12
         )
 
+    @pytest.mark.level0
     def test_nadir_airborne(self) -> None:
         """At zenith=0, airborne: slant = altitude."""
         assert slant_range_spherical_m(8_000.0, 0.0) == pytest.approx(
             8_000.0, rel=1e-12
         )
 
+    @pytest.mark.level0
     def test_small_angle_matches_flat_earth(self) -> None:
         """At 5 deg from 600 km, spherical ≈ flat-Earth to < 0.1%."""
         h = 600_000.0
@@ -174,6 +182,7 @@ class TestSlantRangeSpherical:
         flat = h / math.cos(zen)
         assert abs(spherical - flat) / flat < 0.001
 
+    @pytest.mark.level0
     def test_45deg_600km(self) -> None:
         """At 45 deg from 600 km: slant = 892.9 km (ray-sphere intersection).
 
@@ -184,11 +193,13 @@ class TestSlantRangeSpherical:
         slant = slant_range_spherical_m(600_000.0, math.radians(45.0))
         assert slant == pytest.approx(892_900.0, rel=0.001)
 
+    @pytest.mark.level0
     def test_30deg_600km(self) -> None:
         """At 30 deg from 600 km: slant ≈ 704.1 km."""
         slant = slant_range_spherical_m(600_000.0, math.radians(30.0))
         assert slant == pytest.approx(704_100.0, rel=0.001)
 
+    @pytest.mark.level0
     def test_spherical_greater_than_flat_earth(self) -> None:
         """Spherical slant range > flat-Earth at off-nadir angles.
 
@@ -201,6 +212,7 @@ class TestSlantRangeSpherical:
         flat = h / math.cos(zen)
         assert spherical > flat
 
+    @pytest.mark.level0
     def test_airborne_flat_earth_regime(self) -> None:
         """At 8 km altitude, 30 deg: spherical ≈ flat-Earth to < 0.1%.
 
@@ -212,11 +224,13 @@ class TestSlantRangeSpherical:
         flat = h / math.cos(zen)
         assert abs(spherical - flat) / flat < 0.001
 
+    @pytest.mark.level0
     def test_negative_zenith_raises(self) -> None:
         """Negative zenith angle raises ValueError."""
         with pytest.raises(ValueError, match="zenith"):
             slant_range_spherical_m(600_000.0, -0.1)
 
+    @pytest.mark.level0
     def test_beyond_horizon_raises(self) -> None:
         """Zenith angle beyond the horizon raises ValueError.
 
@@ -226,6 +240,7 @@ class TestSlantRangeSpherical:
         with pytest.raises(ValueError, match="horizon"):
             slant_range_spherical_m(600_000.0, math.radians(70.0))
 
+    @pytest.mark.level0
     def test_near_horizon_finite(self) -> None:
         """Just inside the horizon limit: slant range is large but finite.
 
@@ -235,6 +250,7 @@ class TestSlantRangeSpherical:
         assert slant > 0
         assert math.isfinite(slant)
 
+    @pytest.mark.level0
     def test_zero_altitude(self) -> None:
         """altitude = 0: slant = 0 regardless of zenith."""
         assert slant_range_spherical_m(0.0, 0.0) == pytest.approx(0.0, abs=1e-10)
@@ -247,10 +263,12 @@ class TestIncidenceAngle:
     Incidence > zenith due to Earth curvature.
     """
 
+    @pytest.mark.level0
     def test_nadir_returns_zero(self) -> None:
         """At zenith=0, incidence = 0."""
         assert incidence_angle_rad(600_000.0, 0.0) == pytest.approx(0.0, abs=1e-15)
 
+    @pytest.mark.level0
     def test_45deg_600km(self) -> None:
         """At 45 deg zenith from 600 km, incidence ≈ 50.7 deg.
 
@@ -260,24 +278,28 @@ class TestIncidenceAngle:
         inc = incidence_angle_rad(600_000.0, math.radians(45.0))
         assert math.degrees(inc) == pytest.approx(50.68, abs=0.1)
 
+    @pytest.mark.level0
     def test_incidence_exceeds_zenith(self) -> None:
         """Incidence angle at ground always exceeds sensor zenith (for h > 0)."""
         zen = math.radians(30.0)
         inc = incidence_angle_rad(600_000.0, zen)
         assert inc > zen
 
+    @pytest.mark.level0
     def test_small_angle_incidence_approx_zenith(self) -> None:
         """At small zenith, incidence ≈ zenith (Earth curvature negligible)."""
         zen = math.radians(5.0)
         inc = incidence_angle_rad(600_000.0, zen)
         assert abs(inc - zen) / zen < 0.12  # < 12% difference at 5 deg
 
+    @pytest.mark.level0
     def test_airborne_incidence_approx_zenith(self) -> None:
         """At 8 km altitude, incidence ≈ zenith (negligible curvature)."""
         zen = math.radians(30.0)
         inc = incidence_angle_rad(8_000.0, zen)
         assert inc == pytest.approx(zen, rel=0.002)  # < 0.2% difference
 
+    @pytest.mark.level0
     def test_negative_zenith_raises(self) -> None:
         """Negative zenith angle raises ValueError."""
         with pytest.raises(ValueError, match="zenith"):
@@ -308,6 +330,7 @@ class TestOffNadirGSD:
     F = 3.5        # focal length [m]
     H = 600_000.0  # altitude [m]
 
+    @pytest.mark.level0
     def test_nadir_cross_equals_along(self) -> None:
         """At zenith=0, cross-track = along-track = p × H / f exactly."""
         result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
@@ -316,6 +339,7 @@ class TestOffNadirGSD:
         assert result.cross_track_m == pytest.approx(expected, rel=1e-10)
         assert result.along_track_m == pytest.approx(expected, rel=1e-10)
 
+    @pytest.mark.level0
     def test_nadir_default_zenith(self) -> None:
         """Default path_zenith_rad=0.0 gives nadir formula (backward compat)."""
         result_default = compute_gsd(self.P_X, self.P_Y, self.H, self.F)
@@ -324,6 +348,7 @@ class TestOffNadirGSD:
         assert result_default.cross_track_m == result_explicit.cross_track_m
         assert result_default.along_track_m == result_explicit.along_track_m
 
+    @pytest.mark.level0
     def test_45deg_cross_track(self) -> None:
         """At 45 deg, cross-track GSD ≈ 2.04 m.
 
@@ -334,6 +359,7 @@ class TestOffNadirGSD:
                              path_zenith_rad=math.radians(45.0))
         assert result.cross_track_m == pytest.approx(2.041, rel=0.005)
 
+    @pytest.mark.level0
     def test_45deg_along_track(self) -> None:
         """At 45 deg, along-track GSD ≈ 3.22 m.
 
@@ -344,6 +370,7 @@ class TestOffNadirGSD:
                              path_zenith_rad=math.radians(45.0))
         assert result.along_track_m == pytest.approx(3.221, rel=0.005)
 
+    @pytest.mark.level0
     def test_30deg_values(self) -> None:
         """At 30 deg from 600 km: cross ≈ 1.61 m, along ≈ 1.92 m.
 
@@ -354,6 +381,7 @@ class TestOffNadirGSD:
         assert result.cross_track_m == pytest.approx(1.609, rel=0.005)
         assert result.along_track_m == pytest.approx(1.923, rel=0.005)
 
+    @pytest.mark.level0
     def test_15deg_values(self) -> None:
         """At 15 deg from 600 km: cross ≈ 1.42 m, along ≈ 1.49 m."""
         result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
@@ -361,12 +389,14 @@ class TestOffNadirGSD:
         assert result.cross_track_m == pytest.approx(1.425, rel=0.005)
         assert result.along_track_m == pytest.approx(1.485, rel=0.005)
 
+    @pytest.mark.level0
     def test_along_track_exceeds_cross_track(self) -> None:
         """At off-nadir, along-track GSD > cross-track GSD (foreshortening)."""
         result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
                              path_zenith_rad=math.radians(30.0))
         assert result.along_track_m > result.cross_track_m
 
+    @pytest.mark.level0
     def test_geometric_mean(self) -> None:
         """Geometric mean = sqrt(cross × along)."""
         result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
@@ -374,6 +404,7 @@ class TestOffNadirGSD:
         expected_gm = math.sqrt(result.cross_track_m * result.along_track_m)
         assert result.geometric_mean_m == pytest.approx(expected_gm, rel=1e-10)
 
+    @pytest.mark.level0
     def test_geometric_mean_nadir_equals_gsd(self) -> None:
         """At nadir with square pixels, geometric mean = GSD."""
         result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
@@ -382,6 +413,7 @@ class TestOffNadirGSD:
             result.cross_track_m, rel=1e-10
         )
 
+    @pytest.mark.level0
     def test_gsd_increases_with_zenith(self) -> None:
         """GSD monotonically increases with zenith angle."""
         prev_cross = 0.0
@@ -391,6 +423,7 @@ class TestOffNadirGSD:
             assert result.cross_track_m > prev_cross
             prev_cross = result.cross_track_m
 
+    @pytest.mark.level0
     def test_airborne_small_correction(self) -> None:
         """Airborne at 8 km, 30 deg: off-nadir GSD ≈ flat-Earth GSD.
 
@@ -412,6 +445,7 @@ class TestOffNadirGSD:
 
 
 class TestGSDMetricsWiring:
+    @pytest.mark.level1
     def test_metrics_populated(self) -> None:
         """GSD appears in ChainState metrics for orbital scenario."""
         state = _make_state()
@@ -420,6 +454,7 @@ class TestGSDMetricsWiring:
         assert out.metrics["gsd_cross_track_m"] == pytest.approx(7.5, rel=1e-10)
         assert out.metrics["gsd_along_track_m"] == pytest.approx(7.5, rel=1e-10)
 
+    @pytest.mark.level1
     def test_no_altitude_skips(self) -> None:
         """Lab/TVAC scenario: no altitude in schema. GSD should not appear."""
         state = _make_state()
@@ -428,6 +463,7 @@ class TestGSDMetricsWiring:
         assert "gsd_cross_track_m" not in out.metrics
         assert "gsd_along_track_m" not in out.metrics
 
+    @pytest.mark.level1
     def test_zero_altitude_skips(self) -> None:
         """Ground-level sensor: altitude = 0. GSD = 0 is meaningless, skip."""
         state = _make_state()
@@ -435,6 +471,7 @@ class TestGSDMetricsWiring:
         out = _compute_gsd_metrics(state, params)
         assert "gsd_cross_track_m" not in out.metrics
 
+    @pytest.mark.level1
     def test_zenith_zero_matches_nadir(self) -> None:
         """path_zenith_rad=0.0 gives identical GSD to current nadir behavior."""
         state = _make_state()
@@ -451,6 +488,7 @@ class TestGSDMetricsWiring:
             out_no.metrics["gsd_along_track_m"], rel=1e-10
         )
 
+    @pytest.mark.level1
     def test_off_nadir_gives_larger_gsd(self) -> None:
         """path_zenith_rad > 0 gives larger GSD than nadir."""
         state = _make_state()
@@ -464,6 +502,7 @@ class TestGSDMetricsWiring:
         assert out_off.metrics["gsd_cross_track_m"] > out_nadir.metrics["gsd_cross_track_m"]
         assert out_off.metrics["gsd_along_track_m"] > out_nadir.metrics["gsd_along_track_m"]
 
+    @pytest.mark.level1
     def test_geometric_mean_in_metrics(self) -> None:
         """gsd_geometric_mean_m is stored in metrics."""
         state = _make_state()
@@ -484,6 +523,7 @@ class TestGSDMetricsWiring:
 class TestAccessMetricsWiring:
     """Verify access geometry metrics wired via _compute_access_metrics."""
 
+    @pytest.mark.level1
     def test_ground_range_at_nadir(self) -> None:
         """At nadir, ground_range_m = 0."""
         state = _make_state()
@@ -496,6 +536,7 @@ class TestAccessMetricsWiring:
         out = _compute_access_metrics(state, params)
         assert out.metrics["ground_range_m"] == pytest.approx(0.0, abs=1e-10)
 
+    @pytest.mark.level1
     def test_ground_range_offnadir(self) -> None:
         """Off-nadir produces nonzero ground range."""
         state = _make_state()
@@ -508,6 +549,7 @@ class TestAccessMetricsWiring:
         out = _compute_access_metrics(state, params)
         assert out.metrics["ground_range_m"] > 0.0
 
+    @pytest.mark.level1
     def test_swath_width_present(self) -> None:
         """Swath width = GSD_cross × n_pixels_cross."""
         state = _make_state()
@@ -524,6 +566,7 @@ class TestAccessMetricsWiring:
             expected_swath, rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_access_rate_with_speed(self) -> None:
         """Access rate = swath × ground_speed."""
         state = _make_state()
@@ -541,6 +584,7 @@ class TestAccessMetricsWiring:
             expected_rate, rel=1e-10,
         )
 
+    @pytest.mark.level1
     def test_no_speed_skips_rate(self) -> None:
         """Without ground_speed, access_rate is not in metrics."""
         state = _make_state()
@@ -554,6 +598,7 @@ class TestAccessMetricsWiring:
         assert "swath_width_m" in out.metrics
         assert "access_rate_m2_s" not in out.metrics
 
+    @pytest.mark.level1
     def test_no_n_pixels_skips_swath(self) -> None:
         """Without n_pixels_cross, swath and access rate are not in metrics."""
         state = _make_state()
@@ -567,6 +612,7 @@ class TestAccessMetricsWiring:
         assert "ground_range_m" in out.metrics
         assert "swath_width_m" not in out.metrics
 
+    @pytest.mark.level1
     def test_no_altitude_skips_all(self) -> None:
         """Without altitude, no access metrics."""
         state = _make_state()

@@ -54,6 +54,7 @@ def _make_state() -> ChainState:
 class TestQFormula:
     """Q = λ · f/# / p."""
 
+    @pytest.mark.level0
     def test_mwir_f4_18um(self) -> None:
         """Tom's system: f/4, 18 µm, 3.5–5.0 µm."""
         result = compute_q(
@@ -67,6 +68,7 @@ class TestQFormula:
         # Q_max = 5.0 * 4 / 18 = 1.1111
         assert result.q_max == pytest.approx(5.0 * 4.0 / 18.0, rel=1e-10)
 
+    @pytest.mark.level0
     def test_vnir_f10_8um(self) -> None:
         """VNIR system: f/10, 8 µm, 0.45–0.70 µm."""
         result = compute_q(
@@ -76,6 +78,7 @@ class TestQFormula:
         # Q_center = 0.575 * 10 / 8 = 0.71875
         assert result.q_center == pytest.approx(0.575 * 10.0 / 8.0, rel=1e-10)
 
+    @pytest.mark.level0
     def test_oversampled_small_pixel(self) -> None:
         """8 µm pixel at f/4, MWIR → Q > 2 (oversampled)."""
         result = compute_q(
@@ -85,6 +88,7 @@ class TestQFormula:
         assert result.q_center == pytest.approx(4.25 * 4.0 / 8.0, rel=1e-10)
         assert result.q_center > 2.0  # heavily oversampled
 
+    @pytest.mark.level0
     def test_undersampled_large_pixel(self) -> None:
         """30 µm pixel at f/4, MWIR → Q < 0.7 (aliased)."""
         result = compute_q(
@@ -94,12 +98,14 @@ class TestQFormula:
         assert result.q_center == pytest.approx(4.25 * 4.0 / 30.0, rel=1e-10)
         assert result.q_center < 0.7
 
+    @pytest.mark.level0
     def test_result_is_frozen(self) -> None:
         result = compute_q(4.0, 18e-6, 3.5, 5.0)
         assert isinstance(result, SamplingResult)
         with pytest.raises(AttributeError):
             result.q_center = 999.0  # type: ignore[misc]
 
+    @pytest.mark.level0
     def test_q_min_less_than_q_max(self) -> None:
         """Q_min (short λ) is always less than Q_max (long λ)."""
         result = compute_q(4.0, 18e-6, 3.5, 5.0)
@@ -112,6 +118,7 @@ class TestQFormula:
 
 
 class TestQMetricsWiring:
+    @pytest.mark.level1
     def test_metrics_populated(self) -> None:
         """Q metrics appear in ChainState for standard config."""
         state = _make_state()

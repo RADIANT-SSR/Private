@@ -26,6 +26,7 @@ def _aperture(d: float = 0.5, eps: float = 0.0) -> CircularAperture:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_scalar_telescope_basic_construction() -> None:
     scope = ScalarTelescope(aperture=_aperture(0.5), transmission_scalar=0.7, focal_length_m=2.5)
     assert scope.resolved_f_number == pytest.approx(5.0, rel=1e-12)
@@ -33,6 +34,7 @@ def test_scalar_telescope_basic_construction() -> None:
     assert scope.solid_angle_sr == pytest.approx(math.pi / (4 * 25.0), rel=1e-12)
 
 
+@pytest.mark.level0
 def test_scalar_telescope_accepts_consistent_three_inputs() -> None:
     scope = ScalarTelescope(
         aperture=_aperture(0.4),
@@ -43,6 +45,7 @@ def test_scalar_telescope_accepts_consistent_three_inputs() -> None:
     assert scope.resolved_f_number == 8.0
 
 
+@pytest.mark.level0
 def test_scalar_telescope_rejects_inconsistent_three_inputs() -> None:
     with pytest.raises(ValueError, match="over-specified and inconsistent"):
         ScalarTelescope(
@@ -53,6 +56,7 @@ def test_scalar_telescope_rejects_inconsistent_three_inputs() -> None:
         )
 
 
+@pytest.mark.level0
 def test_scalar_telescope_obscuration_reduces_area() -> None:
     scope_unobs = ScalarTelescope(
         aperture=_aperture(0.6, 0.0), transmission_scalar=0.8, focal_length_m=4.8
@@ -71,6 +75,7 @@ def test_scalar_telescope_obscuration_reduces_area() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_transmission_is_flat_and_on_requested_grid() -> None:
     scope = ScalarTelescope(aperture=_aperture(0.3), transmission_scalar=0.65, focal_length_m=1.2)
     grid = np.linspace(0.4, 14.0, 201)
@@ -80,6 +85,7 @@ def test_transmission_is_flat_and_on_requested_grid() -> None:
     assert np.allclose(tau.values, 0.65, atol=0.0)
 
 
+@pytest.mark.level0
 def test_transmission_deterministic() -> None:
     scope = ScalarTelescope(aperture=_aperture(), transmission_scalar=0.5, focal_length_m=2.0)
     grid = np.linspace(1.0, 5.0, 64)
@@ -93,16 +99,19 @@ def test_transmission_deterministic() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_transmission_scalar_above_one_rejected() -> None:
     with pytest.raises(ValueError, match="transmission_scalar"):
         ScalarTelescope(aperture=_aperture(), transmission_scalar=1.01, focal_length_m=1.0)
 
 
+@pytest.mark.level0
 def test_transmission_scalar_negative_rejected() -> None:
     with pytest.raises(ValueError, match="transmission_scalar"):
         ScalarTelescope(aperture=_aperture(), transmission_scalar=-0.1, focal_length_m=1.0)
 
 
+@pytest.mark.level0
 def test_transmission_rejects_bad_grid() -> None:
     scope = ScalarTelescope(aperture=_aperture(), transmission_scalar=0.5, focal_length_m=2.0)
     with pytest.raises(ValueError, match="ascending"):
@@ -115,6 +124,7 @@ def test_transmission_rejects_bad_grid() -> None:
         scope.transmission(np.array([1.0]))
 
 
+@pytest.mark.level0
 def test_zero_focal_length_rejected() -> None:
     with pytest.raises(ValueError, match="focal_length_m"):
         ScalarTelescope(aperture=_aperture(), transmission_scalar=0.5, focal_length_m=0.0)
@@ -125,6 +135,7 @@ def test_zero_focal_length_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.level0
 def test_scalar_telescope_round_trip() -> None:
     scope = ScalarTelescope(
         aperture=_aperture(0.8, 0.2),

@@ -76,10 +76,14 @@ class TestReflectedSolarSource:
         """Phong at specular geometry should be higher than off-axis."""
         brdf = PhongBRDF(reflectance=0.5, specular_fraction=0.5, phong_exponent=20)
         src_spec = ReflectedSolarSource(
-            brdf=brdf, solar_zenith_rad=0.3, observer_zenith_rad=0.3,
+            brdf=brdf,
+            solar_zenith_rad=0.3,
+            observer_zenith_rad=0.3,
         )
         src_off = ReflectedSolarSource(
-            brdf=brdf, solar_zenith_rad=0.3, observer_zenith_rad=0.8,
+            brdf=brdf,
+            solar_zenith_rad=0.3,
+            observer_zenith_rad=0.8,
         )
         L_spec = src_spec.spectral_radiance(WAV)
         L_off = src_off.spectral_radiance(WAV)

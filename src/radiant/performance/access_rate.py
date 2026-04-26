@@ -1,6 +1,6 @@
 """Access area rate — ground area covered per unit time.
 
-    access_rate = swath_width × ground_speed
+access_rate = swath_width × ground_speed
 """
 
 from __future__ import annotations

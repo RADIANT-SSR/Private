@@ -96,9 +96,7 @@ class DetectorStage:
         # --- IPC kernel (for downstream spatial metric convolution) ---
         ipc_coupling: float = params.get("detector.ipc_coupling")
         if ipc_coupling > 0.0:
-            state = state.with_stage_output(
-                "detector", "ipc_kernel", ipc_kernel(ipc_coupling)
-            )
+            state = state.with_stage_output("detector", "ipc_kernel", ipc_kernel(ipc_coupling))
 
         # --- MTF product path: pixel aperture, IPC, charge diffusion ---
         freq_mrad = state.spatial_freq_cycles_per_mrad

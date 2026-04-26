@@ -76,6 +76,8 @@ def load_sensor(
 
 # Standard Click options reused across commands.
 set_option = click.option(
-    "--set", "overrides", multiple=True,
+    "--set",
+    "overrides",
+    multiple=True,
     help="Parameter override in key=value format (repeatable).",
 )

@@ -59,9 +59,7 @@ class TestGaussianMTFAnalytical:
 
         # Compare only in baseband [0, f_Ny].
         baseband = freq <= F_NYQUIST
-        np.testing.assert_allclose(
-            result.mtf_folded[baseband], expected[baseband], rtol=1e-3
-        )
+        np.testing.assert_allclose(result.mtf_folded[baseband], expected[baseband], rtol=1e-3)
 
     @pytest.mark.level0
     def test_gaussian_5_frequencies(self) -> None:
@@ -77,9 +75,9 @@ class TestGaussianMTFAnalytical:
         baseband_idx = np.where(freq <= F_NYQUIST)[0]
         test_indices = np.linspace(0, len(baseband_idx) - 1, 5, dtype=int)
         for idx in test_indices:
-            assert result.mtf_folded[idx] == pytest.approx(
-                expected[idx], rel=1e-3
-            ), f"Mismatch at freq index {idx}"
+            assert result.mtf_folded[idx] == pytest.approx(expected[idx], rel=1e-3), (
+                f"Mismatch at freq index {idx}"
+            )
 
 
 class TestWellSampledLimit:
@@ -99,7 +97,9 @@ class TestWellSampledLimit:
         # Compare where optical MTF is significant (> 1e-3).
         significant = (freq <= F_NYQUIST) & (mtf_optical > 1e-3)
         np.testing.assert_allclose(
-            result.mtf_folded[significant], mtf_optical[significant], atol=1e-6,
+            result.mtf_folded[significant],
+            mtf_optical[significant],
+            atol=1e-6,
         )
 
     @pytest.mark.level1

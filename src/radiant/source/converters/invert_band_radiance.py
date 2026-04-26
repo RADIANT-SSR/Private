@@ -106,10 +106,7 @@ def invert_band_radiance_to_temperature(
     _validate_band(band_um)
     if not np.isfinite(L_band_W_per_m2_per_sr):
         raise ParameterBoundsError(
-            what=(
-                f"invert_band_radiance: L_band = "
-                f"{L_band_W_per_m2_per_sr} is not finite"
-            ),
+            what=(f"invert_band_radiance: L_band = {L_band_W_per_m2_per_sr} is not finite"),
             why="Band-integrated radiance must be a real non-negative number.",
             action="Check the upstream integrator for NaN / inf inputs.",
             context={"L_band": L_band_W_per_m2_per_sr},
@@ -117,8 +114,7 @@ def invert_band_radiance_to_temperature(
     if L_band_W_per_m2_per_sr <= 0.0:
         raise ParameterBoundsError(
             what=(
-                f"invert_band_radiance: L_band = "
-                f"{L_band_W_per_m2_per_sr} W/m²/sr is non-positive"
+                f"invert_band_radiance: L_band = {L_band_W_per_m2_per_sr} W/m²/sr is non-positive"
             ),
             why="Planck's law maps T > 0 to L > 0; inversion undefined at L ≤ 0.",
             action=(
@@ -145,10 +141,7 @@ def invert_band_radiance_to_temperature(
                 "target radiance outside the bracket has no root in "
                 "T_bracket_K."
             ),
-            action=(
-                "Widen T_bracket_K or verify the L_band units / band "
-                "definition."
-            ),
+            action=("Widen T_bracket_K or verify the L_band units / band definition."),
             context={
                 "L_band": L_band_W_per_m2_per_sr,
                 "L_lo": L_lo,
@@ -158,10 +151,7 @@ def invert_band_radiance_to_temperature(
         )
 
     def residual(T_K: float) -> float:
-        return (
-            integrate_planck_over_band(T_K, band_um, n_quad=n_quad)
-            - L_band_W_per_m2_per_sr
-        )
+        return integrate_planck_over_band(T_K, band_um, n_quad=n_quad) - L_band_W_per_m2_per_sr
 
     return float(brentq(residual, T_lo, T_hi, rtol=rtol))
 
@@ -170,20 +160,14 @@ def _validate_band(band_um: tuple[float, float]) -> None:
     lo, hi = float(band_um[0]), float(band_um[1])
     if lo <= 0.0 or hi <= 0.0:
         raise ParameterBoundsError(
-            what=(
-                f"invert_band_radiance: band = ({lo}, {hi}) µm has "
-                "non-positive edges"
-            ),
+            what=(f"invert_band_radiance: band = ({lo}, {hi}) µm has non-positive edges"),
             why="Wavelengths must be strictly positive for Planck's law.",
             action="Supply band edges in µm with 0 < λ_lo < λ_hi.",
             context={"band_um": (lo, hi)},
         )
     if lo >= hi:
         raise ParameterBoundsError(
-            what=(
-                f"invert_band_radiance: band = ({lo}, {hi}) µm is inverted "
-                "or degenerate"
-            ),
+            what=(f"invert_band_radiance: band = ({lo}, {hi}) µm is inverted or degenerate"),
             why="Integration requires λ_lo < λ_hi (strict).",
             action="Swap band edges so λ_lo is the smaller wavelength.",
             context={"band_um": (lo, hi)},

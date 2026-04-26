@@ -272,7 +272,7 @@ class TestStrehl:
         psf_aberrated = compute_psf(config, wfe=wfe)
         strehl = compute_strehl(psf_aberrated, psf_ref)
 
-        marechal = math.exp(-(2 * math.pi * wfe_waves) ** 2)
+        marechal = math.exp(-((2 * math.pi * wfe_waves) ** 2))
         assert strehl == pytest.approx(marechal, rel=0.05)
 
     @pytest.mark.level1
@@ -351,9 +351,7 @@ class TestBesselComparison:
         n_compare = min(n_compare, len(profile_fft))
 
         # Allow 2% absolute tolerance due to discrete sampling.
-        np.testing.assert_allclose(
-            profile_fft[:n_compare], airy[:n_compare], atol=0.02
-        )
+        np.testing.assert_allclose(profile_fft[:n_compare], airy[:n_compare], atol=0.02)
 
 
 # ---------------------------------------------------------------------------
@@ -430,7 +428,7 @@ class TestZernikePSF:
 
         # Marechal Strehl depends only on RMS, so both should agree
         # (within limits — random vs deterministic phase shape).
-        marechal = math.exp(-(2 * math.pi * rms) ** 2)
+        marechal = math.exp(-((2 * math.pi * rms) ** 2))
         assert strehl_z == pytest.approx(marechal, rel=0.10)
         assert strehl_s == pytest.approx(marechal, rel=0.10)
 

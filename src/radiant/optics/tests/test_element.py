@@ -110,7 +110,9 @@ class TestKirchhoffIdentity:
             distance_to_fpa_m=1.0,
         )
         np.testing.assert_allclose(
-            elem.emissivity.values, 0.02, atol=1e-12,
+            elem.emissivity.values,
+            0.02,
+            atol=1e-12,
         )
 
     @pytest.mark.level0
@@ -126,7 +128,9 @@ class TestKirchhoffIdentity:
             distance_to_fpa_m=0.2,
         )
         np.testing.assert_allclose(
-            elem.emissivity.values, 0.0, atol=1e-12,
+            elem.emissivity.values,
+            0.0,
+            atol=1e-12,
         )
 
 
@@ -144,9 +148,7 @@ class TestNetTransmittance:
             diameter_m=0.3,
             distance_to_fpa_m=1.0,
         )
-        np.testing.assert_array_equal(
-            elem.net_transmittance.values, elem.reflectance.values
-        )
+        np.testing.assert_array_equal(elem.net_transmittance.values, elem.reflectance.values)
 
     @pytest.mark.level1
     def test_lens_returns_transmittance(self) -> None:
@@ -159,9 +161,7 @@ class TestNetTransmittance:
             diameter_m=0.05,
             distance_to_fpa_m=0.3,
         )
-        np.testing.assert_array_equal(
-            elem.net_transmittance.values, elem.transmittance.values
-        )
+        np.testing.assert_array_equal(elem.net_transmittance.values, elem.transmittance.values)
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +215,8 @@ class TestSolidAngle:
             distance_to_fpa_m=0.01,
         )
         assert elem.nearfield_solid_angle_sr == pytest.approx(
-            2.0 * math.pi, rel=1e-10,
+            2.0 * math.pi,
+            rel=1e-10,
         )
 
 
@@ -362,7 +363,9 @@ class TestMakeLumpedElement:
         tau = _flat_spectral(0.5, "tau")
         elem = make_lumped_element(tau, 300.0, 0.1, 0.5)
         np.testing.assert_allclose(
-            elem.net_transmittance.values, 0.5, atol=1e-12,
+            elem.net_transmittance.values,
+            0.5,
+            atol=1e-12,
         )
 
 
@@ -460,7 +463,9 @@ class TestCavityModel:
         # Energy conservation: T + R + A = 1.
         absorptance = 1.0 - t_sys - cavity.R_sys.values
         np.testing.assert_allclose(
-            t_sys + cavity.R_sys.values + absorptance, 1.0, atol=1e-12,
+            t_sys + cavity.R_sys.values + absorptance,
+            1.0,
+            atol=1e-12,
         )
 
     @pytest.mark.level0
@@ -491,8 +496,11 @@ class TestCavityModel:
             R2=_flat_spectral(0.05, "R2"),
             T2=_flat_spectral(0.95, "T2"),
             alpha=SpectralData(
-                name="alpha", wavelength_um=wl.copy(), values=alpha_vals,
-                unit="1/m", source="test",
+                name="alpha",
+                wavelength_um=wl.copy(),
+                values=alpha_vals,
+                unit="1/m",
+                source="test",
             ),
             n_refr=_flat_spectral(1.45, "n"),
             thickness_m=0.005,
@@ -569,8 +577,11 @@ class TestCavityModelValidation:
         """All cavity spectral inputs must share the same wavelength grid."""
         wl2 = np.linspace(3.0, 6.0, 50)
         bad_alpha = SpectralData(
-            name="alpha", wavelength_um=wl2, values=np.zeros(50),
-            unit="1/m", source="test",
+            name="alpha",
+            wavelength_um=wl2,
+            values=np.zeros(50),
+            unit="1/m",
+            source="test",
         )
         with pytest.raises(ValueError, match="wavelength grid"):
             CavityModel(
@@ -624,8 +635,12 @@ class TestMakeReflectiveElement:
     @pytest.mark.level1
     def test_geometry_override(self) -> None:
         elem = make_reflective_element(
-            "m", 0.98, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.35, distance_to_fpa_m=1.2,
+            "m",
+            0.98,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.35,
+            distance_to_fpa_m=1.2,
         )
         assert elem.temperature_K == 290.0
         assert elem.diameter_m == 0.35
@@ -679,15 +694,22 @@ class TestMakeRefractiveCavityElement:
         """Uncoated glass via factory with all-scalar inputs."""
         elem = make_refractive_cavity_element(
             "window",
-            R1=0.04, T1=0.96, R2=0.04, T2=0.96,
-            alpha=0.0, n_refr=1.5, thickness_m=0.003,
+            R1=0.04,
+            T1=0.96,
+            R2=0.04,
+            T2=0.96,
+            alpha=0.0,
+            n_refr=1.5,
+            thickness_m=0.003,
             wavelength_um=WL,
         )
         assert elem.resolved_transfer_mode == ElementTransferMode.REFRACTIVE
         assert elem.cavity is not None
         # T_sys from hand calc.
         np.testing.assert_allclose(
-            elem.transmittance.values, 0.9216 / 0.9984, rtol=1e-10,
+            elem.transmittance.values,
+            0.9216 / 0.9984,
+            rtol=1e-10,
         )
         # eps_eff = 0 (no absorption).
         np.testing.assert_allclose(elem.emissivity.values, 0.0, atol=1e-14)
@@ -700,10 +722,16 @@ class TestMakeRefractiveCavityElement:
         For n > 1, eps_eff > absorptance (enhanced photon density of states).
         """
         import math
+
         elem = make_refractive_cavity_element(
             "lens",
-            R1=0.04, T1=0.96, R2=0.04, T2=0.96,
-            alpha=10.0, n_refr=1.5, thickness_m=0.003,
+            R1=0.04,
+            T1=0.96,
+            R2=0.04,
+            T2=0.96,
+            alpha=10.0,
+            n_refr=1.5,
+            thickness_m=0.003,
             wavelength_um=WL,
         )
         beer = math.exp(-10.0 * 0.003)
@@ -721,10 +749,16 @@ class TestMakeRefractiveCavityElement:
         enhancement factor (photon density of states inside dielectric).
         """
         import math
+
         elem = make_refractive_cavity_element(
             "lens",
-            R1=0.03, T1=0.97, R2=0.05, T2=0.95,
-            alpha=15.0, n_refr=1.5, thickness_m=0.005,
+            R1=0.03,
+            T1=0.97,
+            R2=0.05,
+            T2=0.95,
+            alpha=15.0,
+            n_refr=1.5,
+            thickness_m=0.005,
             wavelength_um=WL,
         )
         beer = math.exp(-15.0 * 0.005)
@@ -732,7 +766,9 @@ class TestMakeRefractiveCavityElement:
         expected_eps = 0.95 * 1.5**2 * (1.0 - beer) / denom
 
         np.testing.assert_allclose(
-            elem.emissivity.values, expected_eps, rtol=1e-10,
+            elem.emissivity.values,
+            expected_eps,
+            rtol=1e-10,
         )
         # eps_eff > absorptance for n > 1.
         absorptance = 1.0 - elem.transmittance.values - elem.reflectance.values
@@ -742,9 +778,16 @@ class TestMakeRefractiveCavityElement:
     def test_mirror_kind_rejected(self) -> None:
         with pytest.raises(ValueError, match="not refractive"):
             make_refractive_cavity_element(
-                "bad", R1=0.04, T1=0.96, R2=0.04, T2=0.96,
-                alpha=0.0, n_refr=1.5, thickness_m=0.003,
-                kind=ElementKind.MIRROR, wavelength_um=WL,
+                "bad",
+                R1=0.04,
+                T1=0.96,
+                R2=0.04,
+                T2=0.96,
+                alpha=0.0,
+                n_refr=1.5,
+                thickness_m=0.003,
+                kind=ElementKind.MIRROR,
+                wavelength_um=WL,
             )
 
     @pytest.mark.level1
@@ -752,10 +795,16 @@ class TestMakeRefractiveCavityElement:
         """Transfer factor C_i = T_sys for cavity elements."""
         elem = make_refractive_cavity_element(
             "lens",
-            R1=0.04, T1=0.96, R2=0.04, T2=0.96,
-            alpha=10.0, n_refr=1.5, thickness_m=0.003,
+            R1=0.04,
+            T1=0.96,
+            R2=0.04,
+            T2=0.96,
+            alpha=10.0,
+            n_refr=1.5,
+            thickness_m=0.003,
             wavelength_um=WL,
         )
         np.testing.assert_array_equal(
-            elem.net_transmittance.values, elem.transmittance.values,
+            elem.net_transmittance.values,
+            elem.transmittance.values,
         )

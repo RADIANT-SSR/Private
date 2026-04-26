@@ -53,14 +53,10 @@ class PhongBRDF:
             )
         if not (0.0 <= self.specular_fraction <= 1.0):
             raise ValueError(
-                f"PhongBRDF: specular_fraction must be in [0, 1], "
-                f"got {self.specular_fraction}"
+                f"PhongBRDF: specular_fraction must be in [0, 1], got {self.specular_fraction}"
             )
         if self.phong_exponent < 0.0:
-            raise ValueError(
-                f"PhongBRDF: phong_exponent must be >= 0, "
-                f"got {self.phong_exponent}"
-            )
+            raise ValueError(f"PhongBRDF: phong_exponent must be >= 0, got {self.phong_exponent}")
 
     def evaluate(
         self,
@@ -110,7 +106,7 @@ class PhongBRDF:
         n = self.phong_exponent
         alpha = abs(theta_obs_rad - theta_sun_rad)
         cos_alpha = max(math.cos(alpha), 0.0)
-        specular = rho_s * ((n + 2.0) / (2.0 * math.pi)) * (cos_alpha ** n)
+        specular = rho_s * ((n + 2.0) / (2.0 * math.pi)) * (cos_alpha**n)
 
         return np.asarray(diffuse + specular, dtype=np.float64)
 

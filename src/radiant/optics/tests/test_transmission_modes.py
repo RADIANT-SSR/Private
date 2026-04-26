@@ -61,7 +61,9 @@ class TestScalarMode:
     @pytest.mark.level1
     def test_flat_at_scalar(self) -> None:
         result = resolve_transmission(
-            TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
+            TransmissionInputMode.SCALAR,
+            WL,
+            transmission_scalar=0.7,
         )
         np.testing.assert_allclose(result.transmission.values, 0.7, atol=1e-12)
         assert result.mode == TransmissionInputMode.SCALAR
@@ -69,7 +71,9 @@ class TestScalarMode:
     @pytest.mark.level1
     def test_single_lumped_element(self) -> None:
         result = resolve_transmission(
-            TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
+            TransmissionInputMode.SCALAR,
+            WL,
+            transmission_scalar=0.7,
         )
         assert len(result.elements) == 1
         assert result.elements[0].kind == ElementKind.LUMPED
@@ -78,10 +82,14 @@ class TestScalarMode:
     def test_emissivity_zero_simple_refractive(self) -> None:
         """Lumped element is simple refractive: eps = 0."""
         result = resolve_transmission(
-            TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
+            TransmissionInputMode.SCALAR,
+            WL,
+            transmission_scalar=0.7,
         )
         np.testing.assert_allclose(
-            result.elements[0].emissivity.values, 0.0, atol=1e-12,
+            result.elements[0].emissivity.values,
+            0.0,
+            atol=1e-12,
         )
 
     @pytest.mark.level1
@@ -102,7 +110,8 @@ class TestSpectralFileMode:
     def test_uses_preloaded(self) -> None:
         tau_sd = _flat_spectral(0.8, "preloaded")
         result = resolve_transmission(
-            TransmissionInputMode.SPECTRAL_FILE, WL,
+            TransmissionInputMode.SPECTRAL_FILE,
+            WL,
             transmission_spectral=tau_sd,
         )
         np.testing.assert_allclose(result.transmission.values, 0.8, atol=1e-12)
@@ -134,7 +143,8 @@ class TestTelescopeFilterMode:
             name="bp",
         )
         result = resolve_transmission(
-            TransmissionInputMode.TELESCOPE_PLUS_FILTERS, WL,
+            TransmissionInputMode.TELESCOPE_PLUS_FILTERS,
+            WL,
             telescope_transmission=0.9,
             filter_specs=(bp,),
         )
@@ -142,7 +152,8 @@ class TestTelescopeFilterMode:
         idx = np.argmin(np.abs(WL - 4.0))
         # Filter clips at 1 - 2*0.005 = 0.99 for T, so T=0.95 < 0.99 is fine
         assert result.transmission.values[idx] == pytest.approx(
-            0.9 * 0.95, abs=0.01,
+            0.9 * 0.95,
+            abs=0.01,
         )
 
     @pytest.mark.level1
@@ -157,13 +168,15 @@ class TestTelescopeFilterMode:
             name="bp",
         )
         result = resolve_transmission(
-            TransmissionInputMode.TELESCOPE_PLUS_FILTERS, WL,
+            TransmissionInputMode.TELESCOPE_PLUS_FILTERS,
+            WL,
             telescope_transmission=0.9,
             filter_specs=(bp,),
         )
         # Well out-of-band (3.0 um)
         assert result.transmission.values[0] == pytest.approx(
-            0.9 * 1e-4, abs=1e-5,
+            0.9 * 1e-4,
+            abs=1e-5,
         )
 
     @pytest.mark.level1
@@ -175,7 +188,8 @@ class TestTelescopeFilterMode:
             name="bp",
         )
         result = resolve_transmission(
-            TransmissionInputMode.TELESCOPE_PLUS_FILTERS, WL,
+            TransmissionInputMode.TELESCOPE_PLUS_FILTERS,
+            WL,
             telescope_transmission=0.9,
             filter_specs=(bp,),
         )
@@ -186,7 +200,8 @@ class TestTelescopeFilterMode:
     def test_missing_telescope_raises(self) -> None:
         with pytest.raises(ValueError, match="telescope_transmission"):
             resolve_transmission(
-                TransmissionInputMode.TELESCOPE_PLUS_FILTERS, WL,
+                TransmissionInputMode.TELESCOPE_PLUS_FILTERS,
+                WL,
             )
 
 
@@ -202,20 +217,24 @@ class TestKeyElementsMode:
     def test_key_elements_with_residual(self) -> None:
         m = _mirror(0.98, "primary")
         result = resolve_transmission(
-            TransmissionInputMode.KEY_ELEMENTS, WL,
+            TransmissionInputMode.KEY_ELEMENTS,
+            WL,
             key_elements=(m,),
             residual_transmission=0.9,
         )
         # Net = 0.98 * 0.9 = 0.882
         np.testing.assert_allclose(
-            result.transmission.values, 0.98 * 0.9, atol=1e-12,
+            result.transmission.values,
+            0.98 * 0.9,
+            atol=1e-12,
         )
 
     @pytest.mark.level1
     def test_includes_residual_element(self) -> None:
         m = _mirror(0.98, "primary")
         result = resolve_transmission(
-            TransmissionInputMode.KEY_ELEMENTS, WL,
+            TransmissionInputMode.KEY_ELEMENTS,
+            WL,
             key_elements=(m,),
             residual_transmission=0.85,
         )
@@ -227,7 +246,8 @@ class TestKeyElementsMode:
     def test_empty_key_elements_raises(self) -> None:
         with pytest.raises(ValueError, match="key_elements"):
             resolve_transmission(
-                TransmissionInputMode.KEY_ELEMENTS, WL,
+                TransmissionInputMode.KEY_ELEMENTS,
+                WL,
                 key_elements=(),
             )
 
@@ -245,11 +265,14 @@ class TestFullPrescriptionMode:
         m1 = _mirror(0.98, "primary")
         m2 = _mirror(0.95, "secondary")
         result = resolve_transmission(
-            TransmissionInputMode.FULL_PRESCRIPTION, WL,
+            TransmissionInputMode.FULL_PRESCRIPTION,
+            WL,
             full_elements=(m1, m2),
         )
         np.testing.assert_allclose(
-            result.transmission.values, 0.98 * 0.95, atol=1e-12,
+            result.transmission.values,
+            0.98 * 0.95,
+            atol=1e-12,
         )
 
     @pytest.mark.level1
@@ -257,7 +280,8 @@ class TestFullPrescriptionMode:
         m1 = _mirror(0.98, "primary")
         m2 = _mirror(0.95, "secondary")
         result = resolve_transmission(
-            TransmissionInputMode.FULL_PRESCRIPTION, WL,
+            TransmissionInputMode.FULL_PRESCRIPTION,
+            WL,
             full_elements=(m1, m2),
         )
         assert result.elements == (m1, m2)
@@ -266,7 +290,8 @@ class TestFullPrescriptionMode:
     def test_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="full_elements"):
             resolve_transmission(
-                TransmissionInputMode.FULL_PRESCRIPTION, WL,
+                TransmissionInputMode.FULL_PRESCRIPTION,
+                WL,
                 full_elements=(),
             )
 
@@ -284,14 +309,16 @@ class TestCrossMode:
         """Scalar tau=0.7 and Mode 5 with equivalent lumped element
         should produce identical transmission."""
         mode1 = resolve_transmission(
-            TransmissionInputMode.SCALAR, WL,
+            TransmissionInputMode.SCALAR,
+            WL,
             transmission_scalar=0.7,
         )
 
         tau_sd = _flat_spectral(0.7, "tau")
         lumped = make_lumped_element(tau_sd, 290.0, 0.3, 1.0)
         mode5 = resolve_transmission(
-            TransmissionInputMode.FULL_PRESCRIPTION, WL,
+            TransmissionInputMode.FULL_PRESCRIPTION,
+            WL,
             full_elements=(lumped,),
         )
 
@@ -306,20 +333,24 @@ class TestCrossMode:
         """Every mode should produce at least one element."""
         # Mode 1
         r1 = resolve_transmission(
-            TransmissionInputMode.SCALAR, WL, transmission_scalar=0.7,
+            TransmissionInputMode.SCALAR,
+            WL,
+            transmission_scalar=0.7,
         )
         assert len(r1.elements) >= 1
 
         # Mode 2
         r2 = resolve_transmission(
-            TransmissionInputMode.SPECTRAL_FILE, WL,
+            TransmissionInputMode.SPECTRAL_FILE,
+            WL,
             transmission_spectral=_flat_spectral(0.8),
         )
         assert len(r2.elements) >= 1
 
         # Mode 3
         r3 = resolve_transmission(
-            TransmissionInputMode.TELESCOPE_PLUS_FILTERS, WL,
+            TransmissionInputMode.TELESCOPE_PLUS_FILTERS,
+            WL,
             telescope_transmission=0.9,
             filter_specs=(),
         )
@@ -327,14 +358,16 @@ class TestCrossMode:
 
         # Mode 4
         r4 = resolve_transmission(
-            TransmissionInputMode.KEY_ELEMENTS, WL,
+            TransmissionInputMode.KEY_ELEMENTS,
+            WL,
             key_elements=(_mirror(0.98),),
         )
         assert len(r4.elements) >= 1
 
         # Mode 5
         r5 = resolve_transmission(
-            TransmissionInputMode.FULL_PRESCRIPTION, WL,
+            TransmissionInputMode.FULL_PRESCRIPTION,
+            WL,
             full_elements=(_mirror(0.98),),
         )
         assert len(r5.elements) >= 1

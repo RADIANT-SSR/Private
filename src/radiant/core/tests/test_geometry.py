@@ -73,8 +73,8 @@ def test_rotation_matrix_determinant() -> None:
 @pytest.mark.level0
 def test_rotation_matrix_non_commutativity() -> None:
     """Matrix multiplication is non-commutative for different rotation axes."""
-    Ry = euler_to_rotation_matrix(0.1, 0.0, 0.0)   # yaw only
-    Rp = euler_to_rotation_matrix(0.0, 0.2, 0.0)   # pitch only
+    Ry = euler_to_rotation_matrix(0.1, 0.0, 0.0)  # yaw only
+    Rp = euler_to_rotation_matrix(0.0, 0.2, 0.0)  # pitch only
     AB = Ry @ Rp
     BA = Rp @ Ry
     # They must differ; any element difference proves non-commutativity

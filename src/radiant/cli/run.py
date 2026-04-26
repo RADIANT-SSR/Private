@@ -40,33 +40,53 @@ def _coerce_value(raw: str) -> int | float | str:
 @click.argument("config", type=click.Path(exists=True, dir_okay=False))
 @set_option
 @click.option(
-    "--wavelength-min", "wl_min", type=float, default=None,
+    "--wavelength-min",
+    "wl_min",
+    type=float,
+    default=None,
     help="Override spectral grid minimum [um].",
 )
 @click.option(
-    "--wavelength-max", "wl_max", type=float, default=None,
+    "--wavelength-max",
+    "wl_max",
+    type=float,
+    default=None,
     help="Override spectral grid maximum [um].",
 )
 @click.option(
-    "--wavelength-points", "wl_n", type=int, default=500,
+    "--wavelength-points",
+    "wl_n",
+    type=int,
+    default=500,
     help="Number of wavelength grid points (default: 500).",
     show_default=True,
 )
 @click.option(
-    "--output", "output_path", type=click.Path(), default=None,
+    "--output",
+    "output_path",
+    type=click.Path(),
+    default=None,
     help="Write results to a JSON file.",
 )
 @click.option(
-    "--provenance", "provenance_path", type=click.Path(), default=None,
+    "--provenance",
+    "provenance_path",
+    type=click.Path(),
+    default=None,
     help="Write provenance record to a JSON file.",
 )
 @click.option(
-    "--format", "fmt", type=click.Choice(["text", "json", "csv"]),
-    default="text", show_default=True,
+    "--format",
+    "fmt",
+    type=click.Choice(["text", "json", "csv"]),
+    default="text",
+    show_default=True,
     help="Output format.",
 )
 @click.option(
-    "--quiet", is_flag=True, default=False,
+    "--quiet",
+    is_flag=True,
+    default=False,
     help="Suppress all output except the final metric summary.",
 )
 def run(
@@ -133,8 +153,7 @@ def run(
             "config": config,
             "metrics": dict(result.metrics),
             "noise_terms": [
-                {"name": nt.name, "value_e_rms": nt.value_e}
-                for nt in result.noise_terms
+                {"name": nt.name, "value_e_rms": nt.value_e} for nt in result.noise_terms
             ],
         }
         click.echo(json.dumps(data, indent=2))
@@ -151,7 +170,7 @@ def run(
             for nt in result.noise_terms:
                 click.echo(f"  {nt.name:15s}  {nt.value_e:.4f} e- RMS")
 
-            noise_total = math.sqrt(sum(n.value_e ** 2 for n in result.noise_terms))
+            noise_total = math.sqrt(sum(n.value_e**2 for n in result.noise_terms))
             click.echo(f"Noise (RSS): {noise_total:.4f} e- RMS")
 
         snr = result.metrics.get("snr")
@@ -170,8 +189,7 @@ def run(
             "config": config,
             "metrics": dict(result.metrics),
             "noise_terms": [
-                {"name": nt.name, "value_e_rms": nt.value_e}
-                for nt in result.noise_terms
+                {"name": nt.name, "value_e_rms": nt.value_e} for nt in result.noise_terms
             ],
             "history": list(result.history),
         }

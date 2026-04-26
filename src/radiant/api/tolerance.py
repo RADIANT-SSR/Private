@@ -137,9 +137,7 @@ def monte_carlo(
         If True, store every ChainResult (memory-heavy).
     """
     if n_trials < 1:
-        raise ValueError(
-            f"monte_carlo: n_trials must be >= 1, got {n_trials}."
-        )
+        raise ValueError(f"monte_carlo: n_trials must be >= 1, got {n_trials}.")
 
     if not params._tolerances:
         raise ValueError(

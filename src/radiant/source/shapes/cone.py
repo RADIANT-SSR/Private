@@ -66,9 +66,7 @@ class Cone:
         # Lateral facets (triangles: apex → base_i → base_{i+1}).
         for i in range(N):
             v1 = np.array([r * np.cos(angles[i]), r * np.sin(angles[i]), 0.0])
-            v2 = np.array(
-                [r * np.cos(angles[i + 1]), r * np.sin(angles[i + 1]), 0.0]
-            )
+            v2 = np.array([r * np.cos(angles[i + 1]), r * np.sin(angles[i + 1]), 0.0])
             edge_a = v1 - apex
             edge_b = v2 - apex
             cross = np.cross(edge_a, edge_b)
@@ -85,16 +83,10 @@ class Cone:
             normals.append(base_normal)
             areas.append(float(base_wedge_area))
 
-        object.__setattr__(
-            self, "_facet_normals", np.array(normals, dtype=np.float64)
-        )
-        object.__setattr__(
-            self, "_facet_areas", np.array(areas, dtype=np.float64)
-        )
+        object.__setattr__(self, "_facet_normals", np.array(normals, dtype=np.float64))
+        object.__setattr__(self, "_facet_areas", np.array(areas, dtype=np.float64))
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """Sum of A_f · max(0, n̂_f · v̂) over all facets."""
         v = view_to_body(view_direction, *self.orientation_rad)
         normals: npt.NDArray[np.float64] = self._facet_normals  # type: ignore[attr-defined]
@@ -107,5 +99,5 @@ class Cone:
         """π·r·s + π·r² where s = √(r² + h²) is the slant height."""
         r = self.base_radius_m
         h = self.height_m
-        s = math.sqrt(r ** 2 + h ** 2)
-        return math.pi * r * s + math.pi * r ** 2
+        s = math.sqrt(r**2 + h**2)
+        return math.pi * r * s + math.pi * r**2

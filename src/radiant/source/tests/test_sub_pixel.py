@@ -103,8 +103,10 @@ class TestSubPixelSource:
         with pytest.raises(ValueError, match="fill_fraction"):
             SubPixelSource(
                 fill_fraction=0.0,
-                target_temperature_K=300, target_emissivity=0.9,
-                background_temperature_K=290, background_emissivity=0.9,
+                target_temperature_K=300,
+                target_emissivity=0.9,
+                background_temperature_K=290,
+                background_emissivity=0.9,
             )
 
     @pytest.mark.level0
@@ -112,8 +114,10 @@ class TestSubPixelSource:
         with pytest.raises(ValueError, match="fill_fraction"):
             SubPixelSource(
                 fill_fraction=1.5,
-                target_temperature_K=300, target_emissivity=0.9,
-                background_temperature_K=290, background_emissivity=0.9,
+                target_temperature_K=300,
+                target_emissivity=0.9,
+                background_temperature_K=290,
+                background_emissivity=0.9,
             )
 
     @pytest.mark.level0
@@ -121,8 +125,10 @@ class TestSubPixelSource:
         with pytest.raises(ValueError, match="target_temperature_K"):
             SubPixelSource(
                 fill_fraction=0.5,
-                target_temperature_K=-10, target_emissivity=0.9,
-                background_temperature_K=290, background_emissivity=0.9,
+                target_temperature_K=-10,
+                target_emissivity=0.9,
+                background_temperature_K=290,
+                background_emissivity=0.9,
             )
 
     @pytest.mark.level0
@@ -130,16 +136,20 @@ class TestSubPixelSource:
         with pytest.raises(ValueError, match="target_emissivity"):
             SubPixelSource(
                 fill_fraction=0.5,
-                target_temperature_K=300, target_emissivity=1.5,
-                background_temperature_K=290, background_emissivity=0.9,
+                target_temperature_K=300,
+                target_emissivity=1.5,
+                background_temperature_K=290,
+                background_emissivity=0.9,
             )
 
     @pytest.mark.level0
     def test_frozen(self) -> None:
         src = SubPixelSource(
             fill_fraction=0.5,
-            target_temperature_K=300, target_emissivity=0.9,
-            background_temperature_K=290, background_emissivity=0.9,
+            target_temperature_K=300,
+            target_emissivity=0.9,
+            background_temperature_K=290,
+            background_emissivity=0.9,
         )
         with pytest.raises(AttributeError):
             src.fill_fraction = 0.3  # type: ignore[misc]

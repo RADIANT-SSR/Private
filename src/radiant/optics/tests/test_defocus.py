@@ -165,7 +165,7 @@ class TestDefocusMTF:
             mtf_analytical = math.exp(-2.0 * math.pi**2 * sigma**2 * f_test**2)
 
             # Interpolate FFT MTF.
-            mtf_interp = float(np.interp(f_test, freqs[:npix // 2], mtf_fft[:npix // 2]))
+            mtf_interp = float(np.interp(f_test, freqs[: npix // 2], mtf_fft[: npix // 2]))
 
             assert mtf_interp == pytest.approx(mtf_analytical, rel=0.01), (
                 f"At f={f_test:.0f} cy/m: kernel MTF={mtf_interp:.4f}, "

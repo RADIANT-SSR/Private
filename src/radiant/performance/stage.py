@@ -145,9 +145,7 @@ def _compute_spatial_metrics(
         if focal_length_turb > 0.0:
             freq_m_turb = freq_mrad / (focal_length_turb * 1e3)
             wavelength_turb_m = epsf.wavelength_um * 1e-6
-            mtf_turb = kolmogorov_mtf_1d(
-                freq_m_turb, wavelength_turb_m, r0_m, focal_length_turb
-            )
+            mtf_turb = kolmogorov_mtf_1d(freq_m_turb, wavelength_turb_m, r0_m, focal_length_turb)
             state = state.with_mtf("mtf_turbulence_x", mtf_turb)
             state = state.with_mtf("mtf_turbulence_y", mtf_turb)
 
@@ -166,12 +164,8 @@ def _compute_spatial_metrics(
                 focal_length_m,
             )
             state = state.with_stage_output("performance", "mtf_budget", budget)
-            state = state.with_metric(
-                "mtf_system_at_nyquist_x", budget.system_mtf_at_nyquist_x
-            )
-            state = state.with_metric(
-                "mtf_system_at_nyquist_y", budget.system_mtf_at_nyquist_y
-            )
+            state = state.with_metric("mtf_system_at_nyquist_x", budget.system_mtf_at_nyquist_x)
+            state = state.with_metric("mtf_system_at_nyquist_y", budget.system_mtf_at_nyquist_y)
 
     # --- Dual-path consistency check ---
     if freq_mrad is not None and len(state.mtf_terms) > 0:
@@ -181,12 +175,8 @@ def _compute_spatial_metrics(
             fl_check = 0.0
 
         if fl_check > 0.0:
-            consistency = check_dual_path_consistency(
-                epsf, state.mtf_terms, freq_mrad, fl_check
-            )
-            state = state.with_stage_output(
-                "performance", "dual_path_consistency", consistency
-            )
+            consistency = check_dual_path_consistency(epsf, state.mtf_terms, freq_mrad, fl_check)
+            state = state.with_stage_output("performance", "dual_path_consistency", consistency)
             if not (consistency.passed_x and consistency.passed_y):
                 logger.warning(
                     "Dual-path MTF consistency check FAILED: "
@@ -277,7 +267,10 @@ def _compute_gsd_metrics(
         path_zenith_rad = 0.0
 
     result = compute_gsd(
-        pitch_x_m, pitch_y_m, altitude_m, focal_length_m,
+        pitch_x_m,
+        pitch_y_m,
+        altitude_m,
+        focal_length_m,
         path_zenith_rad=path_zenith_rad,
     )
     state = state.with_metric("gsd_cross_track_m", result.cross_track_m)

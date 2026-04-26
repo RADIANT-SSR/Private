@@ -118,21 +118,31 @@ class SourceStage:
 
         # --- Store stage outputs ---
         state = state.with_stage_output(
-            "source", "regime_tentative", regime,
+            "source",
+            "regime_tentative",
+            regime,
         )
         state = state.with_stage_output(
-            "source", "projected_area_m2", projected_area_m2,
+            "source",
+            "projected_area_m2",
+            projected_area_m2,
         )
         state = state.with_stage_output("source", "range_m", range_m)
         state = state.with_stage_output(
-            "source", "fill_fraction", fill_fraction,
+            "source",
+            "fill_fraction",
+            fill_fraction,
         )
         state = state.with_stage_output(
-            "source", "angular_extent_rad", angular_extent_rad,
+            "source",
+            "angular_extent_rad",
+            angular_extent_rad,
         )
         # Pass through the raw override string so OpticsStage can honor it.
         state = state.with_stage_output(
-            "source", "regime_override", regime_override,
+            "source",
+            "regime_override",
+            regime_override,
         )
 
         # --- Option C descriptors — the authoritative Stage 4 output.
@@ -172,13 +182,19 @@ class SourceStage:
                 regime_override=regime_override,
             )
             state = state.with_stage_output(
-                "source", "regime_tentative", regime,
+                "source",
+                "regime_tentative",
+                regime,
             )
             state = state.with_stage_output(
-                "source", "projected_area_m2", projected_area_m2,
+                "source",
+                "projected_area_m2",
+                projected_area_m2,
             )
             state = state.with_stage_output(
-                "source", "angular_extent_rad", angular_extent_rad,
+                "source",
+                "angular_extent_rad",
+                angular_extent_rad,
             )
 
         # Matrix §7 cross-descriptor check: T2Reflective + θ_s > π/2 warns
@@ -188,7 +204,8 @@ class SourceStage:
         # target).
         if los_geometry is not None:
             warn_if_reflective_and_sun_below_horizon(
-                target_desc, los_geometry.theta_s,
+                target_desc,
+                los_geometry.theta_s,
             )
 
         state = state.with_stage_output("source", "target", target_desc)

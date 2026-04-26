@@ -85,9 +85,7 @@ def inverse_convert(value: float, canonical_unit: str, display_unit: str) -> flo
     # Use the inverse of the forward conversion
     forward_key = (display_unit, canonical_unit)
     if forward_key not in _CONVERSIONS:
-        raise KeyError(
-            f"No conversion registered from '{display_unit}' to '{canonical_unit}'."
-        )
+        raise KeyError(f"No conversion registered from '{display_unit}' to '{canonical_unit}'.")
     return value / _CONVERSIONS[forward_key]
 
 

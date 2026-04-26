@@ -129,8 +129,7 @@ class ExoAtmosphere:
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
             raise ValueError(
-                f"ExoAtmosphere '{self.name}': wavelength_um must be 1-D, "
-                f"got shape {lam.shape}."
+                f"ExoAtmosphere '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
             raise ValueError(

@@ -120,9 +120,7 @@ class TestTruthAnchorLambertianIdentity:
         # Constant-ρ lift: every grid point equals 0.5 exactly (probed via
         # the ReflectanceDescriptor protocol surface — Gap H).
         rho_on_grid = target.rho.reflectance_at(_WL_VIS, _ZERO3, _ZERO3)
-        np.testing.assert_array_equal(
-            rho_on_grid, np.full_like(_WL_VIS, 0.5)
-        )
+        np.testing.assert_array_equal(rho_on_grid, np.full_like(_WL_VIS, 0.5))
 
     @pytest.mark.level1
     def test_lambertian_identity_recovers_rho_times_E_over_pi(self) -> None:
@@ -303,9 +301,7 @@ class TestInferrerReflectiveDispatch:
         assert isinstance(target, T2Reflective)
         assert target.rho is not None
         rho_on_grid = target.rho.reflectance_at(_WL_VIS, _ZERO3, _ZERO3)
-        np.testing.assert_array_equal(
-            rho_on_grid, np.full_like(_WL_VIS, 0.4)
-        )
+        np.testing.assert_array_equal(rho_on_grid, np.full_like(_WL_VIS, 0.4))
 
 
 # ---------------------------------------------------------------------------
@@ -390,9 +386,7 @@ class TestInferrerReflectiveRejections:
 
         assert isinstance(target, T2Reflective)
         mwir_msgs = [
-            w
-            for w in caught
-            if "MWIR" in str(w.message) and "T2Reflective" in str(w.message)
+            w for w in caught if "MWIR" in str(w.message) and "T2Reflective" in str(w.message)
         ]
         assert mwir_msgs, (
             "Expected T2Reflective MWIR non-mixed warning to propagate; "
@@ -429,9 +423,7 @@ def _write_two_row_rho_csv(
     rho_high: float,
 ) -> Path:
     path.write_text(
-        "wavelength_um,reflectance\n"
-        f"{wl_low:.6f},{rho_low:.6f}\n"
-        f"{wl_high:.6f},{rho_high:.6f}\n"
+        f"wavelength_um,reflectance\n{wl_low:.6f},{rho_low:.6f}\n{wl_high:.6f},{rho_high:.6f}\n"
     )
     return path
 
@@ -447,9 +439,7 @@ class TestReflectancePathCSV:
     # ----- Truth Anchor 1 — constant ρ=0.3 round-trip (Lambertian) -----
 
     @pytest.mark.level1
-    def test_constant_reflectance_path_recovers_rho(
-        self, tmp_path: Path
-    ) -> None:
+    def test_constant_reflectance_path_recovers_rho(self, tmp_path: Path) -> None:
         csv = _write_flat_rho_csv(
             tmp_path / "rho.csv",
             wl_um=np.array([0.3, 0.4, 0.8, 0.9]),
@@ -476,20 +466,12 @@ class TestReflectancePathCSV:
     # ----- Truth Anchor 2 — step ρ(λ) carries the step -----
 
     @pytest.mark.level1
-    def test_step_reflectance_path_carries_the_step(
-        self, tmp_path: Path
-    ) -> None:
+    def test_step_reflectance_path_carries_the_step(self, tmp_path: Path) -> None:
         # Step at 0.6 µm: ρ=0.1 below, ρ=0.6 above.  File grid encodes
         # the step as two rows on either side of the edge to avoid
         # linear-interpolation smoothing around the cut.
         csv = tmp_path / "step_rho.csv"
-        csv.write_text(
-            "wavelength_um,reflectance\n"
-            "0.30,0.1\n"
-            "0.59999,0.1\n"
-            "0.60001,0.6\n"
-            "0.90,0.6\n"
-        )
+        csv.write_text("wavelength_um,reflectance\n0.30,0.1\n0.59999,0.1\n0.60001,0.6\n0.90,0.6\n")
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
@@ -506,19 +488,13 @@ class TestReflectancePathCSV:
         # are excluded from both tails.
         below = _WL_VIS < 0.59999
         above = _WL_VIS > 0.60001
-        np.testing.assert_allclose(
-            rho_on_grid[below], 0.1, rtol=1e-9, atol=1e-9
-        )
-        np.testing.assert_allclose(
-            rho_on_grid[above], 0.6, rtol=1e-9, atol=1e-9
-        )
+        np.testing.assert_allclose(rho_on_grid[below], 0.1, rtol=1e-9, atol=1e-9)
+        np.testing.assert_allclose(rho_on_grid[above], 0.6, rtol=1e-9, atol=1e-9)
 
     # ----- Truth Anchor 3 — albedo_path alias identity -----
 
     @pytest.mark.level1
-    def test_albedo_path_and_reflectance_path_are_aliases(
-        self, tmp_path: Path
-    ) -> None:
+    def test_albedo_path_and_reflectance_path_are_aliases(self, tmp_path: Path) -> None:
         csv_a = _write_flat_rho_csv(
             tmp_path / "alb.csv",
             wl_um=np.array([0.3, 0.4, 0.8, 0.9]),
@@ -553,9 +529,7 @@ class TestReflectancePathCSV:
     # ----- Cross-model consistency — CSV ρ vs scalar ρ -----
 
     @pytest.mark.level1
-    def test_csv_flat_rho_matches_scalar_rho(
-        self, tmp_path: Path
-    ) -> None:
+    def test_csv_flat_rho_matches_scalar_rho(self, tmp_path: Path) -> None:
         """Flat-ρ CSV path and scalar-ρ schema path produce identical ρ(λ)."""
         csv = _write_flat_rho_csv(
             tmp_path / "rho.csv",
@@ -583,9 +557,7 @@ class TestReflectancePathCSV:
     # ----- Failure mode — reflectance_path + albedo_path both set -----
 
     @pytest.mark.level1
-    def test_reflectance_path_plus_albedo_path_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_plus_albedo_path_raises(self, tmp_path: Path) -> None:
         csv = _write_flat_rho_csv(
             tmp_path / "r.csv",
             wl_um=np.array([0.3, 0.9]),
@@ -602,16 +574,9 @@ class TestReflectancePathCSV:
     # ----- Failure mode — ρ > 1 boundary rejection -----
 
     @pytest.mark.level1
-    def test_reflectance_path_with_rho_gt_1_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_with_rho_gt_1_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "bad.csv"
-        csv.write_text(
-            "wavelength_um,reflectance\n"
-            "0.3,0.3\n"
-            "0.5,1.5\n"
-            "0.9,0.3\n"
-        )
+        csv.write_text("wavelength_um,reflectance\n0.3,0.3\n0.5,1.5\n0.9,0.3\n")
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
@@ -626,32 +591,21 @@ class TestReflectancePathCSV:
     # ----- Failure mode — ρ < 0 boundary rejection -----
 
     @pytest.mark.level1
-    def test_reflectance_path_with_negative_rho_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_with_negative_rho_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "neg.csv"
-        csv.write_text(
-            "wavelength_um,reflectance\n"
-            "0.3,0.3\n"
-            "0.5,-0.1\n"
-            "0.9,0.3\n"
-        )
+        csv.write_text("wavelength_um,reflectance\n0.3,0.3\n0.5,-0.1\n0.9,0.3\n")
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="negative"
-        ) as exc:
+        with pytest.raises(ParameterBoundsError, match="negative") as exc:
             infer_descriptors(params, _WL_VIS)
         assert exc.value.context["path"] == str(csv)
 
     # ----- Failure mode — chain grid wider than file grid -----
 
     @pytest.mark.level1
-    def test_reflectance_path_out_of_grid_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_out_of_grid_raises(self, tmp_path: Path) -> None:
         # File grid [0.5, 0.7] does NOT cover chain grid [0.4, 0.8] —
         # resampler must raise rather than silently extrapolate.
         csv = _write_two_row_rho_csv(
@@ -665,9 +619,7 @@ class TestReflectancePathCSV:
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="extends outside"
-        ) as exc:
+        with pytest.raises(ParameterBoundsError, match="extends outside") as exc:
             infer_descriptors(params, _WL_VIS)
         ctx = exc.value.context
         assert ctx["chain_grid_um"] == pytest.approx([0.4, 0.8])
@@ -676,9 +628,7 @@ class TestReflectancePathCSV:
     # ----- Failure mode — non-monotonic CSV grid -----
 
     @pytest.mark.level1
-    def test_reflectance_path_non_monotonic_grid_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_non_monotonic_grid_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "unsorted.csv"
         csv.write_text(
             "wavelength_um,reflectance\n"
@@ -690,40 +640,26 @@ class TestReflectancePathCSV:
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="strictly ascending"
-        ):
+        with pytest.raises(ParameterBoundsError, match="strictly ascending"):
             infer_descriptors(params, _WL_VIS)
 
     # ----- Failure mode — duplicate wavelengths -----
 
     @pytest.mark.level1
-    def test_reflectance_path_duplicate_wavelengths_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_duplicate_wavelengths_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "dup.csv"
-        csv.write_text(
-            "wavelength_um,reflectance\n"
-            "0.3,0.1\n"
-            "0.5,0.2\n"
-            "0.5,0.3\n"
-            "0.9,0.4\n"
-        )
+        csv.write_text("wavelength_um,reflectance\n0.3,0.1\n0.5,0.2\n0.5,0.3\n0.9,0.4\n")
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="duplicate wavelength"
-        ):
+        with pytest.raises(ParameterBoundsError, match="duplicate wavelength"):
             infer_descriptors(params, _WL_VIS)
 
     # ----- Failure mode — reflectance_path + temperature -----
 
     @pytest.mark.level1
-    def test_reflectance_path_plus_temperature_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reflectance_path_plus_temperature_raises(self, tmp_path: Path) -> None:
         csv = _write_flat_rho_csv(
             tmp_path / "r.csv",
             wl_um=np.array([0.3, 0.9]),
@@ -741,9 +677,7 @@ class TestReflectancePathCSV:
     # ----- load_reflectance_csv helper direct test -----
 
     @pytest.mark.level1
-    def test_load_reflectance_csv_dimensionless_unit(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_reflectance_csv_dimensionless_unit(self, tmp_path: Path) -> None:
         csv = _write_flat_rho_csv(
             tmp_path / "r.csv",
             wl_um=np.array([0.3, 0.9]),
@@ -756,9 +690,7 @@ class TestReflectancePathCSV:
         np.testing.assert_array_equal(sd.values, [0.4, 0.4])
 
     @pytest.mark.level1
-    def test_load_reflectance_csv_albedo_label_in_errors(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_reflectance_csv_albedo_label_in_errors(self, tmp_path: Path) -> None:
         missing = tmp_path / "missing.csv"
         with pytest.raises(ParameterBoundsError, match="albedo"):
             load_reflectance_csv(missing, is_albedo=True)

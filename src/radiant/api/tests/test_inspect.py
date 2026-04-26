@@ -20,18 +20,22 @@ def _make_result() -> ChainResult:
     state = state.with_stage_output("source", "regime_tentative", "extended")
     state = state.with_stage_output("optics", "regime", "extended")
     state = state.with_stage_output("optics", "ee_box", 0.82)
-    state = state.with_noise(NoiseTerm(
-        name="photon_shot",
-        value_e=111.6,
-        origin_frame="photoelectrons",
-        physical_basis="Poisson",
-    ))
-    state = state.with_noise(NoiseTerm(
-        name="dark_current_shot",
-        value_e=89.2,
-        origin_frame="photoelectrons",
-        physical_basis="Poisson",
-    ))
+    state = state.with_noise(
+        NoiseTerm(
+            name="photon_shot",
+            value_e=111.6,
+            origin_frame="photoelectrons",
+            physical_basis="Poisson",
+        )
+    )
+    state = state.with_noise(
+        NoiseTerm(
+            name="dark_current_shot",
+            value_e=89.2,
+            origin_frame="photoelectrons",
+            physical_basis="Poisson",
+        )
+    )
     state = state.with_history("source")
     state = state.with_history("optics")
     return ChainResult(state)

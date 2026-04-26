@@ -61,7 +61,8 @@ class TestChainState:
     def test_with_frame(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         frame = RadiometricFrame(
-            name="at_target", wavelength_um=wl,
+            name="at_target",
+            wavelength_um=wl,
             spectral_radiance=np.ones_like(wl),
         )
         new = state.with_frame(frame)
@@ -78,7 +79,10 @@ class TestChainState:
     def test_with_noise(self, wl: np.ndarray) -> None:
         state = ChainState(wavelength_um=wl)
         nt = NoiseTerm(
-            name="shot", value_e=10.0, origin_frame="pe", physical_basis="Poisson",
+            name="shot",
+            value_e=10.0,
+            origin_frame="pe",
+            physical_basis="Poisson",
         )
         new = state.with_noise(nt)
         assert len(new.noise_terms) == 1
@@ -139,7 +143,9 @@ class TestChainRunner:
 
     @pytest.mark.level1
     def test_runs_stages_in_order(
-        self, wl: np.ndarray, empty_params: ParameterSet,
+        self,
+        wl: np.ndarray,
+        empty_params: ParameterSet,
     ) -> None:
         runner = ChainRunner([_DummyStage("first"), _DummyStage("second")])
         state = runner.run(empty_params, wl)
@@ -149,7 +155,9 @@ class TestChainRunner:
 
     @pytest.mark.level1
     def test_auto_records_history(
-        self, wl: np.ndarray, empty_params: ParameterSet,
+        self,
+        wl: np.ndarray,
+        empty_params: ParameterSet,
     ) -> None:
         runner = ChainRunner([_DummyStage("x")])
         state = runner.run(empty_params, wl)

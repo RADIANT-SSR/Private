@@ -35,8 +35,7 @@ from radiant.core.parameters import ParameterDef
 JITTER_RMS_URAD = ParameterDef(
     name="platform.jitter_rms_urad",
     description=(
-        "Isotropic jitter RMS [µrad]. Applied equally to both axes. "
-        "Set to 0 to disable jitter."
+        "Isotropic jitter RMS [µrad]. Applied equally to both axes. Set to 0 to disable jitter."
     ),
     dtype=float,
     canonical_unit="rad",
@@ -62,9 +61,7 @@ JITTER_AXES = ParameterDef(
 
 JITTER_RMS_X_URAD = ParameterDef(
     name="platform.jitter_rms_x_urad",
-    description=(
-        "Cross-track jitter RMS [µrad]. Only used when jitter_axes='anisotropic'."
-    ),
+    description=("Cross-track jitter RMS [µrad]. Only used when jitter_axes='anisotropic'."),
     dtype=float,
     canonical_unit="rad",
     input_unit="urad",
@@ -76,9 +73,7 @@ JITTER_RMS_X_URAD = ParameterDef(
 
 JITTER_RMS_Y_URAD = ParameterDef(
     name="platform.jitter_rms_y_urad",
-    description=(
-        "Along-track jitter RMS [µrad]. Only used when jitter_axes='anisotropic'."
-    ),
+    description=("Along-track jitter RMS [µrad]. Only used when jitter_axes='anisotropic'."),
     dtype=float,
     canonical_unit="rad",
     input_unit="urad",

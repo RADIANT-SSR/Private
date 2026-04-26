@@ -130,7 +130,9 @@ class TestSpectralFile:
             spectral_file="/path/to/stray.csv",
         )
         result = compute_stray_light_irradiance(
-            config, WL, preloaded_spectral=preloaded,
+            config,
+            WL,
+            preloaded_spectral=preloaded,
         )
         np.testing.assert_allclose(result.values, 0.05, atol=1e-12)
 

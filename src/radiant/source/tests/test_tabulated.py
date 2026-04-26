@@ -36,8 +36,11 @@ class TestTabulatedRadianceSource:
         wl = np.array([2.0, 3.0, 4.0, 5.0, 6.0])
         vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         sd = SpectralData(
-            name="linear", wavelength_um=wl, values=vals,
-            unit="W/m2/sr/um", source="test",
+            name="linear",
+            wavelength_um=wl,
+            values=vals,
+            unit="W/m2/sr/um",
+            source="test",
         )
         src = TabulatedRadianceSource(radiance_data=sd)
         result = src.spectral_radiance(np.array([3.5]))
@@ -46,8 +49,11 @@ class TestTabulatedRadianceSource:
     @pytest.mark.level0
     def test_out_of_range_raises(self) -> None:
         sd = SpectralData(
-            name="narrow", wavelength_um=np.linspace(4.0, 4.5, 10),
-            values=np.ones(10), unit="W/m2/sr/um", source="test",
+            name="narrow",
+            wavelength_um=np.linspace(4.0, 4.5, 10),
+            values=np.ones(10),
+            unit="W/m2/sr/um",
+            source="test",
         )
         src = TabulatedRadianceSource(radiance_data=sd)
         with pytest.raises(ValueError, match="outside table"):
@@ -56,8 +62,11 @@ class TestTabulatedRadianceSource:
     @pytest.mark.level0
     def test_negative_values_raises(self) -> None:
         sd = SpectralData(
-            name="bad", wavelength_um=np.linspace(2.0, 6.0, 10),
-            values=np.full(10, -1.0), unit="W/m2/sr/um", source="test",
+            name="bad",
+            wavelength_um=np.linspace(2.0, 6.0, 10),
+            values=np.full(10, -1.0),
+            unit="W/m2/sr/um",
+            source="test",
         )
         with pytest.raises(ValueError, match="non-negative"):
             TabulatedRadianceSource(radiance_data=sd)

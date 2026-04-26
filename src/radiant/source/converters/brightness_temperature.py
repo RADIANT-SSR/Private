@@ -89,9 +89,7 @@ def _planck_at_per_point_temperature(
     for i in range(lam.size):
         # planck_spectral_radiance wraps scalars to 1-D arrays; read [0].
         out[i] = float(
-            planck_spectral_radiance(
-                np.asarray([lam[i]], dtype=np.float64), float(T[i])
-            )[0]
+            planck_spectral_radiance(np.asarray([lam[i]], dtype=np.float64), float(T[i]))[0]
         )
     return out
 
@@ -104,13 +102,8 @@ def _validate_T_B(T_B_K: np.ndarray) -> None:
     """
     if T_B_K.size == 0:
         raise ParameterBoundsError(
-            what=(
-                "brightness_temperature: T_B SpectralData has zero samples"
-            ),
-            why=(
-                "The converter needs at least one (λ, T_B) pair to emit a "
-                "descriptor."
-            ),
+            what=("brightness_temperature: T_B SpectralData has zero samples"),
+            why=("The converter needs at least one (λ, T_B) pair to emit a descriptor."),
             action=(
                 "Supply T_B on the chain wavelength grid (at least two "
                 "points for the SpectralData constructor)."
@@ -120,36 +113,25 @@ def _validate_T_B(T_B_K: np.ndarray) -> None:
     if np.any(T_B_K < _T_B_MIN_K):
         bad = float(T_B_K.min())
         raise ParameterBoundsError(
-            what=(
-                f"brightness_temperature: T_B = {bad} K is negative"
-            ),
+            what=(f"brightness_temperature: T_B = {bad} K is negative"),
             why=(
                 "Brightness temperature is an equivalent absolute "
                 "temperature; negative values have no Planck interpretation."
             ),
-            action=(
-                f"Set every T_B value ≥ {_T_B_MIN_K} K (use 0 K only for "
-                "zero radiance)."
-            ),
+            action=(f"Set every T_B value ≥ {_T_B_MIN_K} K (use 0 K only for zero radiance)."),
             context={"min_T_B_K": bad, "floor_K": _T_B_MIN_K},
         )
     if np.any(T_B_K > _T_B_MAX_K):
         bad = float(T_B_K.max())
         raise ParameterBoundsError(
-            what=(
-                f"brightness_temperature: T_B = {bad} K exceeds "
-                f"{_T_B_MAX_K} K ceiling"
-            ),
+            what=(f"brightness_temperature: T_B = {bad} K exceeds {_T_B_MAX_K} K ceiling"),
             why=(
                 "T_B > 10 000 K is non-physical for RADIANT targets "
                 "(solar effective T ≈ 5778 K is already in the "
                 "reflective-dominated regime).  Values this large are "
                 "typically a unit error (°C vs K) or an input scale bug."
             ),
-            action=(
-                "Verify units (canonical K, not °C) and the T_B array "
-                "values."
-            ),
+            action=("Verify units (canonical K, not °C) and the T_B array values."),
             context={"max_T_B_K": bad, "ceiling_K": _T_B_MAX_K},
         )
 
@@ -202,10 +184,7 @@ def brightness_temperature_to_descriptor(
     """
     if target_location == "at_aperture":
         raise ParameterBoundsError(
-            what=(
-                "brightness_temperature: target_location='at_aperture' is "
-                "not supported"
-            ),
+            what=("brightness_temperature: target_location='at_aperture' is not supported"),
             why=(
                 "At-aperture (S9) specifies radiance already at the "
                 "sensor aperture; there is no up-leg transport for T_B "
@@ -228,13 +207,8 @@ def brightness_temperature_to_descriptor(
         T_t = float(T_vals.mean())
         if T_t <= 0.0:
             raise ParameterBoundsError(
-                what=(
-                    f"brightness_temperature: mean T_B = {T_t} K is "
-                    "non-positive"
-                ),
-                why=(
-                    "T1Thermal requires T_t > 0 K for Planck emission."
-                ),
+                what=(f"brightness_temperature: mean T_B = {T_t} K is non-positive"),
+                why=("T1Thermal requires T_t > 0 K for Planck emission."),
                 action="Supply T_B > 0 K.",
                 context={"mean_T_B_K": T_t},
             )
@@ -256,10 +230,7 @@ def brightness_temperature_to_descriptor(
         wavelength_um=lam,
         values=L_vals,
         unit="W/m^2/sr/um",
-        source=(
-            "source.converters.brightness_temperature "
-            "(L = B(λ, T_B(λ)); ADR-0003)"
-        ),
+        source=("source.converters.brightness_temperature (L = B(λ, T_B(λ)); ADR-0003)"),
     )
     return T6TabulatedAtSource(
         scene_type=scene_type,

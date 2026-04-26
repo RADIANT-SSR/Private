@@ -87,10 +87,12 @@ class TestParameterAccess:
         assert ret is sensor
 
     def test_set_many(self, sensor: Sensor) -> None:
-        sensor.set_many({
-            "optics.aperture_diameter_m": 0.40,
-            "detector.qe_value": 0.80,
-        })
+        sensor.set_many(
+            {
+                "optics.aperture_diameter_m": 0.40,
+                "detector.qe_value": 0.80,
+            }
+        )
         assert sensor.get("optics.aperture_diameter_m") == pytest.approx(0.40, rel=1e-10)
         assert sensor.get("detector.qe_value") == pytest.approx(0.80, rel=1e-10)
 

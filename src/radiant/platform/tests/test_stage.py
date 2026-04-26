@@ -216,11 +216,13 @@ class TestPlatformStageAnisotropicJitter:
     @pytest.mark.level1
     def test_anisotropic_different_axes(self) -> None:
         state, epsf_orig = _make_state_with_epsf()
-        params = _make_params(**{
-            "platform.jitter_axes": "anisotropic",
-            "platform.jitter_rms_x_urad": 2.0,
-            "platform.jitter_rms_y_urad": 0.5,
-        })
+        params = _make_params(
+            **{
+                "platform.jitter_axes": "anisotropic",
+                "platform.jitter_rms_x_urad": 2.0,
+                "platform.jitter_rms_y_urad": 0.5,
+            }
+        )
         stage = PlatformStage()
         result = stage.run(state, params)
 
@@ -231,11 +233,13 @@ class TestPlatformStageAnisotropicJitter:
     @pytest.mark.level1
     def test_anisotropic_sigma_outputs(self) -> None:
         state, _ = _make_state_with_epsf()
-        params = _make_params(**{
-            "platform.jitter_axes": "anisotropic",
-            "platform.jitter_rms_x_urad": 3.0,
-            "platform.jitter_rms_y_urad": 1.0,
-        })
+        params = _make_params(
+            **{
+                "platform.jitter_axes": "anisotropic",
+                "platform.jitter_rms_x_urad": 3.0,
+                "platform.jitter_rms_y_urad": 1.0,
+            }
+        )
         stage = PlatformStage()
         result = stage.run(state, params)
 
@@ -341,9 +345,7 @@ class TestPlatformStageSmear:
         result = stage.run(state, params)
 
         # 16 µm input → 16e-6 m canonical
-        assert result.stage_outputs["platform"]["smear_width_m"] == pytest.approx(
-            16e-6, rel=1e-10
-        )
+        assert result.stage_outputs["platform"]["smear_width_m"] == pytest.approx(16e-6, rel=1e-10)
 
     @pytest.mark.level1
     def test_smear_degrades_mtf_y(self) -> None:
@@ -437,11 +439,13 @@ class TestPlatformStageSmearVelocity:
     def test_velocity_based_smear_width(self) -> None:
         """v/slant × focal × t_int at nadir."""
         state, _ = _make_state_with_epsf()
-        params = _make_smear_params(**{
-            "platform.ground_velocity_m_s": 7000.0,
-            "geometry.sensor_altitude_m": 600_000.0,
-            "spectral_integration.integration_time_s": 0.0001,
-        })
+        params = _make_smear_params(
+            **{
+                "platform.ground_velocity_m_s": 7000.0,
+                "geometry.sensor_altitude_m": 600_000.0,
+                "spectral_integration.integration_time_s": 0.0001,
+            }
+        )
         stage = PlatformStage()
         result = stage.run(state, params)
 
@@ -454,11 +458,13 @@ class TestPlatformStageSmearVelocity:
     @pytest.mark.level1
     def test_no_velocity_no_smear(self) -> None:
         state, _ = _make_state_with_epsf()
-        params = _make_smear_params(**{
-            "platform.ground_velocity_m_s": 0.0,
-            "geometry.sensor_altitude_m": 600_000.0,
-            "spectral_integration.integration_time_s": 0.0001,
-        })
+        params = _make_smear_params(
+            **{
+                "platform.ground_velocity_m_s": 0.0,
+                "geometry.sensor_altitude_m": 600_000.0,
+                "spectral_integration.integration_time_s": 0.0001,
+            }
+        )
         stage = PlatformStage()
         result = stage.run(state, params)
 
@@ -471,19 +477,19 @@ class TestPlatformStageSmearOverride:
     @pytest.mark.level1
     def test_direct_overrides_velocity(self) -> None:
         state, _ = _make_state_with_epsf()
-        params = _make_smear_params(**{
-            "platform.smear_length_um": 10.0,
-            "platform.ground_velocity_m_s": 7000.0,
-            "geometry.sensor_altitude_m": 600_000.0,
-            "spectral_integration.integration_time_s": 0.001,
-        })
+        params = _make_smear_params(
+            **{
+                "platform.smear_length_um": 10.0,
+                "platform.ground_velocity_m_s": 7000.0,
+                "geometry.sensor_altitude_m": 600_000.0,
+                "spectral_integration.integration_time_s": 0.001,
+            }
+        )
         stage = PlatformStage()
         result = stage.run(state, params)
 
         # Direct override: 10 µm = 10e-6 m
-        assert result.stage_outputs["platform"]["smear_width_m"] == pytest.approx(
-            10e-6, rel=1e-10
-        )
+        assert result.stage_outputs["platform"]["smear_width_m"] == pytest.approx(10e-6, rel=1e-10)
 
 
 class TestPlatformStageJitterPlusSmear:
@@ -500,10 +506,12 @@ class TestPlatformStageJitterPlusSmear:
         epsf_j = result_j.stage_outputs["platform"]["effective_psf"]
 
         # Both jitter + smear
-        params_both = _make_params(**{
-            "platform.jitter_rms_urad": 1.0,
-            "platform.smear_length_um": 16.0,
-        })
+        params_both = _make_params(
+            **{
+                "platform.jitter_rms_urad": 1.0,
+                "platform.smear_length_um": 16.0,
+            }
+        )
         result_both = stage.run(state, params_both)
         epsf_both = result_both.stage_outputs["platform"]["effective_psf"]
 
@@ -516,10 +524,12 @@ class TestPlatformStageJitterPlusSmear:
     @pytest.mark.level1
     def test_combined_history(self) -> None:
         state, _ = _make_state_with_epsf()
-        params = _make_params(**{
-            "platform.jitter_rms_urad": 1.0,
-            "platform.smear_length_um": 16.0,
-        })
+        params = _make_params(
+            **{
+                "platform.jitter_rms_urad": 1.0,
+                "platform.smear_length_um": 16.0,
+            }
+        )
         stage = PlatformStage()
         result = stage.run(state, params)
 

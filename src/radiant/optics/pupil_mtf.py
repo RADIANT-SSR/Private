@@ -64,7 +64,7 @@ def pupil_autocorrelation_mtf_2d(
     # Zero-pad to FFT size, centered (same layout as compute_psf).
     padded = np.zeros((npad, npad), dtype=np.complex128)
     offset = (npad - npix) // 2
-    padded[offset: offset + npix, offset: offset + npix] = pupil
+    padded[offset : offset + npix, offset : offset + npix] = pupil
 
     # Autocorrelation via Wiener-Khinchin:
     #   autocorr = IFFT(|FFT(P)|²)
@@ -254,9 +254,7 @@ def polychromatic_pupil_mtf(
         dx_i = (lam_i * focal_length_m) / (n_padded * config_i.pupil_spacing_m)
 
         # Build pupil.
-        wfe_i = _resolve_wfe_for_wavelength(
-            wfe, lam_i * 1e6, chromatic_zernikes
-        )
+        wfe_i = _resolve_wfe_for_wavelength(wfe, lam_i * 1e6, chromatic_zernikes)
         amplitude = make_pupil_amplitude(pupil_npix, obscuration_ratio)
         phase = _build_pupil_phase(pupil_npix, wfe_i, lam_i, obscuration_ratio)
 

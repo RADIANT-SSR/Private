@@ -26,12 +26,15 @@ _FNUMBER_GROUP = ConsistencyGroup(
     ),
     constraint="f_number = focal_length_m / aperture_diameter_m",
     derivations={
-        "optics.f_number": lambda kv: kv["optics.focal_length_m"]
-        / kv["optics.aperture_diameter_m"],
-        "optics.focal_length_m": lambda kv: kv["optics.aperture_diameter_m"]
-        * kv["optics.f_number"],
-        "optics.aperture_diameter_m": lambda kv: kv["optics.focal_length_m"]
-        / kv["optics.f_number"],
+        "optics.f_number": lambda kv: (
+            kv["optics.focal_length_m"] / kv["optics.aperture_diameter_m"]
+        ),
+        "optics.focal_length_m": lambda kv: (
+            kv["optics.aperture_diameter_m"] * kv["optics.f_number"]
+        ),
+        "optics.aperture_diameter_m": lambda kv: (
+            kv["optics.focal_length_m"] / kv["optics.f_number"]
+        ),
     },
     tolerance=1e-3,
 )

@@ -59,9 +59,7 @@ def evaluate_zernike_opd(
         If any Noll index < 1, or obscuration_ratio >= 1.
     """
     if not (0.0 <= obscuration_ratio < 1.0):
-        raise ValueError(
-            f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}"
-        )
+        raise ValueError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
 
     if obscuration_ratio > 0.30:
         warnings.warn(

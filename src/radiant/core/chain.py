@@ -50,6 +50,7 @@ class Stage(Protocol):
 # ChainState
 # ---------------------------------------------------------------------------
 
+
 def _freeze_map(d: Mapping[str, Any] | dict[str, Any]) -> types.MappingProxyType[str, Any]:
     """Wrap a dict (or Mapping) in a read-only proxy."""
     return types.MappingProxyType(dict(d))
@@ -59,9 +60,7 @@ def _freeze_nested_map(
     d: Mapping[str, Mapping[str, Any]] | dict[str, dict[str, Any]],
 ) -> types.MappingProxyType[str, types.MappingProxyType[str, Any]]:
     """Wrap a dict-of-dicts in read-only proxies (both levels)."""
-    return types.MappingProxyType(
-        {k: types.MappingProxyType(dict(v)) for k, v in d.items()}
-    )
+    return types.MappingProxyType({k: types.MappingProxyType(dict(v)) for k, v in d.items()})
 
 
 @dataclass(frozen=True)
@@ -107,9 +106,7 @@ class ChainState:
 
     def with_stage_output(self, stage: str, key: str, value: Any) -> ChainState:
         """Stash a value under ``stage_outputs[stage][key]``."""
-        outer: dict[str, dict[str, Any]] = {
-            k: dict(v) for k, v in self.stage_outputs.items()
-        }
+        outer: dict[str, dict[str, Any]] = {k: dict(v) for k, v in self.stage_outputs.items()}
         inner = outer.setdefault(stage, {})
         inner[key] = value
         return replace(self, stage_outputs=outer)
@@ -124,9 +121,7 @@ class ChainState:
         new_mtf[term_name] = mtf
         return replace(self, mtf_terms=new_mtf)
 
-    def with_spatial_freq(
-        self, freq_cycles_per_mrad: npt.NDArray[np.float64]
-    ) -> ChainState:
+    def with_spatial_freq(self, freq_cycles_per_mrad: npt.NDArray[np.float64]) -> ChainState:
         """Set the shared spatial-frequency grid for MTF terms."""
         return replace(self, spatial_freq_cycles_per_mrad=freq_cycles_per_mrad)
 

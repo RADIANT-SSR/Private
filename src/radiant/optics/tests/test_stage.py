@@ -23,7 +23,9 @@ def _make_state(wl: np.ndarray) -> ChainState:
     state = ChainState(wavelength_um=wl)
     L = np.ones_like(wl) * 2.0  # W/m²/sr/µm
     frame = RadiometricFrame(
-        name="at_aperture", wavelength_um=wl, spectral_radiance=L,
+        name="at_aperture",
+        wavelength_um=wl,
+        spectral_radiance=L,
     )
     return state.with_frame(frame)
 
@@ -74,7 +76,7 @@ class TestOpticsStage:
         D = 0.30
         out = OpticsStage().run(_make_state(wl), _make_params(D=D))
         A = out.stage_outputs["optics"]["A_collect"]
-        expected = math.pi / 4.0 * D ** 2
+        expected = math.pi / 4.0 * D**2
         assert pytest.approx(expected, rel=1e-10) == A
 
     @pytest.mark.level1
@@ -83,7 +85,7 @@ class TestOpticsStage:
         f = 1.20
         out = OpticsStage().run(_make_state(wl), _make_params(f=f, pitch=18.0))
         omega = out.stage_outputs["optics"]["Omega_pixel"]
-        expected = (pitch_m ** 2) / (f ** 2)
+        expected = (pitch_m**2) / (f**2)
         assert omega == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level1
@@ -350,9 +352,7 @@ class TestOpticsStageFieldDependent:
     @pytest.mark.level1
     def test_default_field_position_is_on_axis(self, wl: np.ndarray) -> None:
         """Default field_position = (0,0)."""
-        table = (
-            FieldWfeSample(0.0, 0.0, zernike_coeffs={4: 0.05}),
-        )
+        table = (FieldWfeSample(0.0, 0.0, zernike_coeffs={4: 0.05}),)
         state = self._inject_field_wfe(_make_state(wl), table)
         params = _make_params()
         params.set("optics.wfe_mode", "field_dependent")
@@ -364,9 +364,7 @@ class TestOpticsStageFieldDependent:
     @pytest.mark.level1
     def test_field_position_not_found_raises(self, wl: np.ndarray) -> None:
         """Requesting non-tabulated field position raises ValueError."""
-        table = (
-            FieldWfeSample(0.0, 0.0, zernike_coeffs={4: 0.05}),
-        )
+        table = (FieldWfeSample(0.0, 0.0, zernike_coeffs={4: 0.05}),)
         state = self._inject_field_wfe(_make_state(wl), table)
         params = _make_params()
         params.set("optics.wfe_mode", "field_dependent")
@@ -381,7 +379,8 @@ class TestOpticsStageFieldDependent:
         """Refractive system with chromatic Zernikes produces valid PSF."""
         table = (
             FieldWfeSample(
-                0.0, 0.0,
+                0.0,
+                0.0,
                 zernike_coeffs={4: 0.10},
                 chromatic_zernikes={
                     3.5: {4: 0.15},
@@ -391,7 +390,8 @@ class TestOpticsStageFieldDependent:
             ),
         )
         state = self._inject_field_wfe(
-            _make_state(wl), table,
+            _make_state(wl),
+            table,
             optical_type=ElementTransferMode.REFRACTIVE,
         )
         params = _make_params()
@@ -408,9 +408,7 @@ class TestOpticsStageFieldDependent:
     def test_refractive_chromatic_differs_from_reflective(self, wl: np.ndarray) -> None:
         """Refractive (varying Zernikes per λ) differs from reflective (same)."""
         # Reflective: same Z4=0.10 at all wavelengths.
-        table_refl = (
-            FieldWfeSample(0.0, 0.0, zernike_coeffs={4: 0.10}),
-        )
+        table_refl = (FieldWfeSample(0.0, 0.0, zernike_coeffs={4: 0.10}),)
         state_refl = self._inject_field_wfe(_make_state(wl), table_refl)
         params_refl = _make_params()
         params_refl.set("optics.wfe_mode", "field_dependent")
@@ -422,7 +420,8 @@ class TestOpticsStageFieldDependent:
         # Refractive: defocus varies strongly with λ (chromatic aberration).
         table_refr = (
             FieldWfeSample(
-                0.0, 0.0,
+                0.0,
+                0.0,
                 zernike_coeffs={4: 0.10},
                 chromatic_zernikes={
                     3.5: {4: 0.20},
@@ -432,7 +431,8 @@ class TestOpticsStageFieldDependent:
             ),
         )
         state_refr = self._inject_field_wfe(
-            _make_state(wl), table_refr,
+            _make_state(wl),
+            table_refr,
             optical_type=ElementTransferMode.REFRACTIVE,
         )
         params_refr = _make_params()

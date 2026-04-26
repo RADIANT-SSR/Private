@@ -116,9 +116,7 @@ class SpectralGrid:
         SpectralGrid
         """
         if n_points < 2:
-            raise ValueError(
-                f"SpectralGrid.uniform: n_points must be ≥ 2, got {n_points}"
-            )
+            raise ValueError(f"SpectralGrid.uniform: n_points must be ≥ 2, got {n_points}")
         if lam_min >= lam_max:
             raise ValueError(
                 f"SpectralGrid.uniform: lam_min ({lam_min}) must be < lam_max ({lam_max})"
@@ -397,9 +395,7 @@ class SpectralData:
     # Visualisation
     # ------------------------------------------------------------------
 
-    def plot(
-        self, ax: matplotlib.axes.Axes | None = None
-    ) -> matplotlib.axes.Axes:
+    def plot(self, ax: matplotlib.axes.Axes | None = None) -> matplotlib.axes.Axes:
         """Plot values vs. wavelength.
 
         Parameters

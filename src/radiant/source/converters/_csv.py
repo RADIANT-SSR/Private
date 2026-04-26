@@ -137,14 +137,8 @@ def load_two_column_csv(
         parts = line.split(",")
         if len(parts) < 2:
             raise ParameterBoundsError(
-                what=(
-                    f"{prefix}: CSV line {i + 1} in {path!s} has fewer "
-                    f"than 2 columns: {line!r}"
-                ),
-                why=(
-                    f"Each data row must carry (wavelength_um, "
-                    f"{column_label})."
-                ),
+                what=(f"{prefix}: CSV line {i + 1} in {path!s} has fewer than 2 columns: {line!r}"),
+                why=(f"Each data row must carry (wavelength_um, {column_label})."),
                 action="Fix the malformed row or remove stray delimiters.",
                 context={
                     "path": str(path),
@@ -158,17 +152,10 @@ def load_two_column_csv(
         except ValueError as err:
             raise ParameterBoundsError(
                 what=(
-                    f"{prefix}: CSV line {i + 1} in {path!s} cannot be "
-                    f"parsed as floats: {line!r}"
+                    f"{prefix}: CSV line {i + 1} in {path!s} cannot be parsed as floats: {line!r}"
                 ),
-                why=(
-                    f"Columns must be parseable as plain floats "
-                    f"(wavelength_um, {column_label})."
-                ),
-                action=(
-                    "Remove non-numeric tokens or re-export the CSV as "
-                    "two float columns."
-                ),
+                why=(f"Columns must be parseable as plain floats (wavelength_um, {column_label})."),
+                action=("Remove non-numeric tokens or re-export the CSV as two float columns."),
                 context={
                     "path": str(path),
                     "line_number": i + 1,
@@ -179,17 +166,12 @@ def load_two_column_csv(
 
     if len(rows) < 2:
         raise ParameterBoundsError(
-            what=(
-                f"{prefix}: CSV file {path!s} has fewer than 2 data rows"
-            ),
+            what=(f"{prefix}: CSV file {path!s} has fewer than 2 data rows"),
             why=(
                 "SpectralData requires at least 2 wavelength samples to "
                 "interpolate onto the chain grid."
             ),
-            action=(
-                f"Provide at least two (wavelength_um, {column_label}) "
-                "rows."
-            ),
+            action=(f"Provide at least two (wavelength_um, {column_label}) rows."),
             context={
                 "path": str(path),
                 "row_count": len(rows),
@@ -208,17 +190,13 @@ def load_two_column_csv(
     if np.any(diffs <= 0):
         if np.any(diffs == 0):
             raise ParameterBoundsError(
-                what=(
-                    f"{prefix}: CSV {path!s} has duplicate wavelength "
-                    "entries"
-                ),
+                what=(f"{prefix}: CSV {path!s} has duplicate wavelength entries"),
                 why=(
                     "Linear interpolation onto the chain grid is "
                     "ambiguous when the same wavelength appears twice."
                 ),
                 action=(
-                    "Deduplicate the wavelength_um column so each "
-                    "wavelength appears exactly once."
+                    "Deduplicate the wavelength_um column so each wavelength appears exactly once."
                 ),
                 context={
                     "path": str(path),
@@ -226,17 +204,13 @@ def load_two_column_csv(
                 },
             )
         raise ParameterBoundsError(
-            what=(
-                f"{prefix}: CSV {path!s} wavelengths are not strictly "
-                "ascending"
-            ),
+            what=(f"{prefix}: CSV {path!s} wavelengths are not strictly ascending"),
             why=(
                 "The loader preserves file row order; downstream "
                 "interpolation requires a strictly monotonic grid."
             ),
             action=(
-                "Sort the CSV by the wavelength_um column (strictly "
-                "ascending) before loading."
+                "Sort the CSV by the wavelength_um column (strictly ascending) before loading."
             ),
             context={
                 "path": str(path),

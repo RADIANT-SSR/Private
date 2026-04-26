@@ -266,8 +266,7 @@ def validate_no_atmosphere_subcase(
     # Defensive: raise if we somehow land here.
     raise ParameterBoundsError(  # pragma: no cover
         what=(
-            f"assembly.validate_no_atmosphere_subcase: unknown "
-            f"no_atmosphere_subcase={subcase!r}"
+            f"assembly.validate_no_atmosphere_subcase: unknown no_atmosphere_subcase={subcase!r}"
         ),
         why="Valid sub-cases are 'space', 'ground_test', 'lab_test'.",
         action="Set no_atmosphere_subcase on the TargetDescriptor.",
@@ -337,9 +336,7 @@ class AssemblyComponents:
 
 def _grid_match(lam: np.ndarray, atm: AtmosphericQuantities) -> None:
     """Raise if a descriptor's spectral grid does not match the atm grid."""
-    if lam.shape != atm.wavelength_um.shape or not np.array_equal(
-        lam, atm.wavelength_um
-    ):
+    if lam.shape != atm.wavelength_um.shape or not np.array_equal(lam, atm.wavelength_um):
         raise ParameterBoundsError(
             what=(
                 "assembly: descriptor spectral grid does not match "
@@ -448,9 +445,7 @@ def _extract_reflectance_on_grid(
     vals = rho.reflectance_at(atm.wavelength_um, view_dir, illum_dir)
     if vals.shape != atm.wavelength_um.shape:
         raise ParameterBoundsError(
-            what=(
-                f"ReflectanceDescriptor.reflectance_at returned shape {vals.shape}"
-            ),
+            what=(f"ReflectanceDescriptor.reflectance_at returned shape {vals.shape}"),
             why="Assembly requires ρ(λ) sampled on the chain wavelength grid.",
             action=(
                 "Ensure the ReflectanceDescriptor implementation resamples to "
@@ -492,9 +487,7 @@ def _direct_solar_term(
     """
     if cos_theta_s <= 0.0:
         return np.zeros_like(atm.E_TOA, dtype=np.float64)
-    return np.asarray(
-        rho * atm.tau_sun * atm.E_TOA * cos_theta_s / np.pi, dtype=np.float64
-    )
+    return np.asarray(rho * atm.tau_sun * atm.E_TOA * cos_theta_s / np.pi, dtype=np.float64)
 
 
 def _diffuse_sky_term(rho: np.ndarray, atm: AtmosphericQuantities) -> np.ndarray:
@@ -512,7 +505,8 @@ def _diffuse_sky_term(rho: np.ndarray, atm: AtmosphericQuantities) -> np.ndarray
 
 
 def _diffuse_sky_scattered_term(
-    rho: np.ndarray, atm: AtmosphericQuantities,
+    rho: np.ndarray,
+    atm: AtmosphericQuantities,
 ) -> np.ndarray:
     """ρ · E_sky_scattered / π — the single-scatter diffuse-solar term.
 
@@ -524,7 +518,8 @@ def _diffuse_sky_scattered_term(
 
 
 def _diffuse_sky_thermal_term(
-    rho: np.ndarray, atm: AtmosphericQuantities,
+    rho: np.ndarray,
+    atm: AtmosphericQuantities,
 ) -> np.ndarray:
     """ρ · E_sky_thermal / π — the atmospheric-thermal diffuse term.
 
@@ -852,7 +847,8 @@ def _components_t2(
     diffuse_therm = _diffuse_sky_thermal_term(rho, atm)
     diffuse_sum = diffuse_scat + diffuse_therm
     total = np.asarray(
-        (direct + diffuse_sum) * atm.tau_up + atm.L_path_up, dtype=np.float64,
+        (direct + diffuse_sum) * atm.tau_up + atm.L_path_up,
+        dtype=np.float64,
     )
     return AssemblyComponents(
         total=total,
@@ -1091,10 +1087,7 @@ def assemble_background_at_aperture(
     if isinstance(background, GroundBackground):
         if los is None:
             raise ParameterBoundsError(
-                what=(
-                    "assembly: GroundBackground requires a LineOfSightGeometry; "
-                    "got None"
-                ),
+                what=("assembly: GroundBackground requires a LineOfSightGeometry; got None"),
                 why=(
                     "Ground background propagates from h = 0 to the sensor "
                     "through τ_full_up and L_path_full, both of which are "
@@ -1109,10 +1102,7 @@ def assemble_background_at_aperture(
         return _assemble_ground_background(background, atm, los)
 
     raise ParameterBoundsError(
-        what=(
-            f"assembly: unsupported BackgroundDescriptor variant "
-            f"{type(background).__name__}"
-        ),
+        what=(f"assembly: unsupported BackgroundDescriptor variant {type(background).__name__}"),
         why="Stage 3 of Option C only knows AtAperture/ColdSpace/Ground/UserSpectral.",
         action="Extend assembly with the new variant (update ADR-0002 first).",
         context={"variant": type(background).__name__},

@@ -127,11 +127,13 @@ class TestAnisotropicJitterMTF:
     def test_anisotropic_x_gt_y(self) -> None:
         """σ_x < σ_y → mtf_jitter_x > mtf_jitter_y at non-zero freq."""
         state, _ = _make_state_with_epsf_and_freq()
-        params = _make_params(**{
-            "platform.jitter_axes": "anisotropic",
-            "platform.jitter_rms_x_urad": 2.0,
-            "platform.jitter_rms_y_urad": 5.0,
-        })
+        params = _make_params(
+            **{
+                "platform.jitter_axes": "anisotropic",
+                "platform.jitter_rms_x_urad": 2.0,
+                "platform.jitter_rms_y_urad": 5.0,
+            }
+        )
         out = PlatformStage().run(state, params)
 
         # At non-zero frequencies, smaller sigma → higher MTF.
@@ -146,11 +148,13 @@ class TestAnisotropicJitterMTF:
         focal_length_m = 5.0
         jitter_x_urad = 2.0
         jitter_y_urad = 5.0
-        params = _make_params(**{
-            "platform.jitter_axes": "anisotropic",
-            "platform.jitter_rms_x_urad": jitter_x_urad,
-            "platform.jitter_rms_y_urad": jitter_y_urad,
-        })
+        params = _make_params(
+            **{
+                "platform.jitter_axes": "anisotropic",
+                "platform.jitter_rms_x_urad": jitter_x_urad,
+                "platform.jitter_rms_y_urad": jitter_y_urad,
+            }
+        )
         out = PlatformStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad

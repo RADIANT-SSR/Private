@@ -100,8 +100,7 @@ class SpectralLibrary:
         manifest = self._load_manifest()
         if name not in manifest:
             raise KeyError(
-                f"Unknown material '{name}'. "
-                f"Available: {', '.join(sorted(manifest.keys()))}"
+                f"Unknown material '{name}'. Available: {', '.join(sorted(manifest.keys()))}"
             )
         entry = manifest[name]
         csv_path = self._root / "emissivity" / entry["filename"]
@@ -124,8 +123,7 @@ class SpectralLibrary:
         manifest = self._load_manifest()
         if name not in manifest:
             raise KeyError(
-                f"Unknown material '{name}'. "
-                f"Available: {', '.join(sorted(manifest.keys()))}"
+                f"Unknown material '{name}'. Available: {', '.join(sorted(manifest.keys()))}"
             )
         return dict(manifest[name])
 
@@ -157,8 +155,7 @@ class SpectralLibrary:
         if not csv_path.exists():
             available = self.detectors()
             raise KeyError(
-                f"Unknown detector material '{material}'. "
-                f"Available: {', '.join(available)}"
+                f"Unknown detector material '{material}'. Available: {', '.join(available)}"
             )
         wl, vals = _load_csv(csv_path, "qe")
         return SpectralData(
@@ -184,9 +181,7 @@ class SpectralLibrary:
         """
         csv_path = self._root / "solar" / "solar_irradiance_am0.csv"
         if not csv_path.exists():
-            raise FileNotFoundError(
-                f"Solar irradiance file not found: {csv_path}"
-            )
+            raise FileNotFoundError(f"Solar irradiance file not found: {csv_path}")
         wl, vals = _load_csv(csv_path, "irradiance_W_per_m2_per_um")
         return SpectralData(
             name="solar_irradiance_am0",

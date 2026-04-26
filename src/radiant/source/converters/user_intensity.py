@@ -86,9 +86,7 @@ def _validate_I_t_source(I_values: np.ndarray) -> None:
     if np.any(I_values < 0.0):
         bad = float(I_values.min())
         raise ParameterBoundsError(
-            what=(
-                f"user_intensity: I_t_source = {bad} W/sr/µm is negative"
-            ),
+            what=(f"user_intensity: I_t_source = {bad} W/sr/µm is negative"),
             why=(
                 "Spectral intensity is non-negative by definition "
                 "(photon flux per solid angle is non-negative); "
@@ -142,10 +140,7 @@ def user_intensity_to_descriptor(
     """
     if target_location == "at_aperture":
         raise ParameterBoundsError(
-            what=(
-                "user_intensity: target_location='at_aperture' is not "
-                "supported"
-            ),
+            what=("user_intensity: target_location='at_aperture' is not supported"),
             why=(
                 "S10 supplies intensity at the target plane; the "
                 "aperture integrates radiance, not intensity.  "
@@ -161,10 +156,7 @@ def user_intensity_to_descriptor(
 
     if scene_type != "point_source":
         raise ParameterBoundsError(
-            what=(
-                f"user_intensity: scene_type = {scene_type!r} is not "
-                f"'point_source'"
-            ),
+            what=(f"user_intensity: scene_type = {scene_type!r} is not 'point_source'"),
             why=(
                 "Intensity I(λ) [W/sr/µm] is the point-source "
                 "radiometric quantity (matrix §7 row S10).  Extended "
@@ -179,9 +171,7 @@ def user_intensity_to_descriptor(
             context={"scene_type": scene_type},
         )
 
-    _validate_I_t_source(
-        np.asarray(I_t_source.values, dtype=np.float64)
-    )
+    _validate_I_t_source(np.asarray(I_t_source.values, dtype=np.float64))
 
     return T7IntensityAtSource(
         scene_type=scene_type,

@@ -83,7 +83,9 @@ class TestBandpass:
         # Points clearly inside band (4.2 to 5.8 um, well within 4.0-6.0)
         in_band = (WL >= 4.2) & (WL <= 5.8)
         np.testing.assert_allclose(
-            sd.values[in_band], 0.90, atol=1e-4,
+            sd.values[in_band],
+            0.90,
+            atol=1e-4,
         )
 
 
@@ -247,7 +249,9 @@ class TestFilterSpecValidation:
     def test_notch_missing_min(self) -> None:
         with pytest.raises(ValueError, match="min_transmission"):
             FilterSpec(
-                filter_type=FilterType.NOTCH, center_um=4.0, fwhm_um=1.0,
+                filter_type=FilterType.NOTCH,
+                center_um=4.0,
+                fwhm_um=1.0,
             )
 
     @pytest.mark.level1

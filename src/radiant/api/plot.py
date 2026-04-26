@@ -34,8 +34,10 @@ def _require_matplotlib() -> Any:
     """Import and return matplotlib.pyplot, raising a helpful error if missing."""
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+
         return plt
     except ImportError:
         raise ImportError(

@@ -48,9 +48,7 @@ def solar_irradiance_at_target(
         If ``distance_au`` is not positive.
     """
     if distance_au <= 0.0:
-        raise ValueError(
-            f"distance_au must be positive, got {distance_au}"
-        )
+        raise ValueError(f"distance_au must be positive, got {distance_au}")
     e_sun_1au = toa_solar_spectral_irradiance(wavelength_um, model=model)
     scale = (1.0 / distance_au) ** 2
     return np.asarray(e_sun_1au * scale, dtype=np.float64)

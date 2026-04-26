@@ -29,6 +29,7 @@ from radiant.core.spectral import SpectralData
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def default_geometry() -> AtmosphericGeometry:
     return AtmosphericGeometry(
@@ -60,8 +61,9 @@ def simple_state(
 # ---------------------------------------------------------------------------
 
 
-def _write_csv(path: Path, wavelength_um: np.ndarray, values: np.ndarray,
-               header: bool = True) -> None:
+def _write_csv(
+    path: Path, wavelength_um: np.ndarray, values: np.ndarray, header: bool = True
+) -> None:
     lines = []
     if header:
         lines.append("wavelength_um,value")
@@ -75,7 +77,9 @@ class TestCSVRoundTrip:
 
     @pytest.mark.level1
     def test_round_trip_with_header(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         wl = simple_state.wavelength_um
@@ -108,7 +112,9 @@ class TestCSVRoundTrip:
 
     @pytest.mark.level1
     def test_round_trip_no_header(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         wl = simple_state.wavelength_um
@@ -129,7 +135,9 @@ class TestCSVRoundTrip:
 
     @pytest.mark.level1
     def test_optional_ldown_defaults_to_zeros(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         wl = simple_state.wavelength_um
@@ -155,7 +163,9 @@ class TestNPZRoundTrip:
 
     @pytest.mark.level1
     def test_round_trip_full(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         npz_file = tmp_path / "atm.npz"
@@ -183,7 +193,9 @@ class TestNPZRoundTrip:
 
     @pytest.mark.level1
     def test_npz_missing_ldown_defaults_to_zeros(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         npz_file = tmp_path / "atm.npz"
@@ -209,14 +221,18 @@ class TestResampling:
 
     @pytest.mark.level1
     def test_resample_to_coarser_grid(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         """Load on a fine grid, query on a coarser sub-grid."""
         wl_fine = simple_state.wavelength_um
         # Query on a coarser grid strictly within the source range.
         wl_coarse = np.linspace(
-            float(wl_fine[5]), float(wl_fine[-6]), 20,
+            float(wl_fine[5]),
+            float(wl_fine[-6]),
+            20,
         )
 
         npz_file = tmp_path / "atm.npz"
@@ -242,7 +258,9 @@ class TestResampling:
 
     @pytest.mark.level0
     def test_resample_at_source_points_is_exact(
-        self, tmp_path: Path, default_geometry: AtmosphericGeometry,
+        self,
+        tmp_path: Path,
+        default_geometry: AtmosphericGeometry,
     ) -> None:
         """Querying at the exact source wavelengths returns exact values."""
         wl = np.array([3.0, 4.0, 5.0])
@@ -256,15 +274,21 @@ class TestResampling:
         result = model.build_state(wl, default_geometry)
 
         np.testing.assert_allclose(
-            result.transmittance.values, tau, atol=1e-15,
+            result.transmittance.values,
+            tau,
+            atol=1e-15,
         )
         np.testing.assert_allclose(
-            result.path_radiance.values, lp, atol=1e-15,
+            result.path_radiance.values,
+            lp,
+            atol=1e-15,
         )
 
     @pytest.mark.level0
     def test_linear_interpolation_midpoint(
-        self, tmp_path: Path, default_geometry: AtmosphericGeometry,
+        self,
+        tmp_path: Path,
+        default_geometry: AtmosphericGeometry,
     ) -> None:
         """Verify linear interpolation at the midpoint of two samples."""
         wl = np.array([3.0, 5.0])
@@ -293,7 +317,9 @@ class TestExtrapolationRejection:
 
     @pytest.mark.level1
     def test_query_beyond_source_raises(
-        self, tmp_path: Path, default_geometry: AtmosphericGeometry,
+        self,
+        tmp_path: Path,
+        default_geometry: AtmosphericGeometry,
     ) -> None:
         wl = np.array([3.0, 5.0])
         tau = np.array([0.9, 0.5])
@@ -321,16 +347,25 @@ class TestValidationFailures:
         with pytest.raises(ValueError, match="transmittance values out of"):
             TabulatedAtmosphere(
                 transmittance_data=SpectralData(
-                    name="tau", wavelength_um=wl, values=np.array([1.1, 0.5, 0.3]),
-                    unit="", source="test",
+                    name="tau",
+                    wavelength_um=wl,
+                    values=np.array([1.1, 0.5, 0.3]),
+                    unit="",
+                    source="test",
                 ),
                 path_radiance_data=SpectralData(
-                    name="lp", wavelength_um=wl, values=np.zeros(3),
-                    unit="W/m²/sr/µm", source="test",
+                    name="lp",
+                    wavelength_um=wl,
+                    values=np.zeros(3),
+                    unit="W/m²/sr/µm",
+                    source="test",
                 ),
                 atm_emission_down_data=SpectralData(
-                    name="ld", wavelength_um=wl, values=np.zeros(3),
-                    unit="W/m²/sr/µm", source="test",
+                    name="ld",
+                    wavelength_um=wl,
+                    values=np.zeros(3),
+                    unit="W/m²/sr/µm",
+                    source="test",
                 ),
             )
 
@@ -340,16 +375,25 @@ class TestValidationFailures:
         with pytest.raises(ValueError, match="path_radiance has negative"):
             TabulatedAtmosphere(
                 transmittance_data=SpectralData(
-                    name="tau", wavelength_um=wl, values=np.array([0.9, 0.5, 0.3]),
-                    unit="", source="test",
+                    name="tau",
+                    wavelength_um=wl,
+                    values=np.array([0.9, 0.5, 0.3]),
+                    unit="",
+                    source="test",
                 ),
                 path_radiance_data=SpectralData(
-                    name="lp", wavelength_um=wl, values=np.array([-0.01, 0.0, 0.01]),
-                    unit="W/m²/sr/µm", source="test",
+                    name="lp",
+                    wavelength_um=wl,
+                    values=np.array([-0.01, 0.0, 0.01]),
+                    unit="W/m²/sr/µm",
+                    source="test",
                 ),
                 atm_emission_down_data=SpectralData(
-                    name="ld", wavelength_um=wl, values=np.zeros(3),
-                    unit="W/m²/sr/µm", source="test",
+                    name="ld",
+                    wavelength_um=wl,
+                    values=np.zeros(3),
+                    unit="W/m²/sr/µm",
+                    source="test",
                 ),
             )
 
@@ -409,7 +453,8 @@ class TestProtocol:
 
     @pytest.mark.level1
     def test_geometry_does_not_affect_values(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Values are the same regardless of query geometry."""
         wl = np.array([3.0, 4.0, 5.0])
@@ -423,27 +468,35 @@ class TestProtocol:
         model = TabulatedAtmosphere.from_npz(npz)
 
         geom1 = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.0, solar_zenith_rad=0.5,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.0,
+            solar_zenith_rad=0.5,
         )
         geom2 = AtmosphericGeometry(
-            sensor_altitude_m=20_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=20_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
 
         r1 = model.build_state(wl, geom1)
         r2 = model.build_state(wl, geom2)
 
         np.testing.assert_array_equal(
-            r1.transmittance.values, r2.transmittance.values,
+            r1.transmittance.values,
+            r2.transmittance.values,
         )
         np.testing.assert_array_equal(
-            r1.path_radiance.values, r2.path_radiance.values,
+            r1.path_radiance.values,
+            r2.path_radiance.values,
         )
 
     @pytest.mark.level1
     def test_deterministic(
-        self, tmp_path: Path, default_geometry: AtmosphericGeometry,
+        self,
+        tmp_path: Path,
+        default_geometry: AtmosphericGeometry,
     ) -> None:
         wl = np.array([3.0, 4.0, 5.0])
         npz = tmp_path / "atm.npz"
@@ -458,7 +511,8 @@ class TestProtocol:
         r2 = model.build_state(wl, default_geometry)
 
         np.testing.assert_array_equal(
-            r1.transmittance.values, r2.transmittance.values,
+            r1.transmittance.values,
+            r2.transmittance.values,
         )
 
 
@@ -472,7 +526,9 @@ class TestCrossModelConsistency:
 
     @pytest.mark.level1
     def test_simple_to_csv_round_trip(
-        self, tmp_path: Path, simple_state: AtmosphericState,
+        self,
+        tmp_path: Path,
+        simple_state: AtmosphericState,
         default_geometry: AtmosphericGeometry,
     ) -> None:
         wl = simple_state.wavelength_um

@@ -19,11 +19,17 @@ from radiant.cli._common import load_sensor, set_option
 @click.option("--steps", type=int, default=10, show_default=True, help="Number of sweep points.")
 @click.option("--metric", default="snr", show_default=True, help="Metric key to report.")
 @click.option(
-    "--output", "output_path", type=click.Path(), default=None,
+    "--output",
+    "output_path",
+    type=click.Path(),
+    default=None,
     help="Save results to JSON or CSV (extension determines format).",
 )
 @click.option(
-    "--plot", "plot_path", type=click.Path(), default=None,
+    "--plot",
+    "plot_path",
+    type=click.Path(),
+    default=None,
     help="Save a plot to PNG (requires matplotlib).",
 )
 @set_option
@@ -87,8 +93,7 @@ def sweep_cmd(
             from radiant.api.plot import plot_sweep
         except ImportError:
             click.echo(
-                "Error: matplotlib is required for --plot. "
-                "Install with: pip install matplotlib",
+                "Error: matplotlib is required for --plot. Install with: pip install matplotlib",
                 err=True,
             )
             sys.exit(1)

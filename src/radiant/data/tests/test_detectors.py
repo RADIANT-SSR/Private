@@ -60,9 +60,7 @@ class TestDetectorQELoading:
         for name in lib.detectors():
             sd = lib.detector_qe(name)
             peak = float(np.max(sd.values))
-            assert 0.3 <= peak <= 1.0, (
-                f"{name}: peak QE {peak:.3f} outside reasonable range"
-            )
+            assert 0.3 <= peak <= 1.0, f"{name}: peak QE {peak:.3f} outside reasonable range"
 
     def test_cutoff_behavior(self, lib: SpectralLibrary) -> None:
         """QE at the long-wavelength end should drop (last value < peak)."""
@@ -71,8 +69,7 @@ class TestDetectorQELoading:
             peak = float(np.max(sd.values))
             last = float(sd.values[-1])
             assert last < peak, (
-                f"{name}: QE at longest wavelength ({last:.3f}) "
-                f"should be below peak ({peak:.3f})"
+                f"{name}: QE at longest wavelength ({last:.3f}) should be below peak ({peak:.3f})"
             )
 
     def test_silicon_cutoff_near_1um(self, lib: SpectralLibrary) -> None:

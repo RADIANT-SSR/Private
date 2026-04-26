@@ -42,9 +42,7 @@ class CompositeTarget:
                 f"Provide at least one TargetShape."
             )
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """Sum of constituent projected areas [m²].
 
         No occlusion testing — this is exact for non-overlapping

@@ -108,9 +108,7 @@ class TestComputeSampling:
 
     @pytest.mark.level0
     def test_psf_fov_um(self, ref_config: PSFSamplingConfig) -> None:
-        assert ref_config.psf_fov_um == pytest.approx(
-            ref_config.psf_fov_m * 1e6, rel=1e-12
-        )
+        assert ref_config.psf_fov_um == pytest.approx(ref_config.psf_fov_m * 1e6, rel=1e-12)
 
     @pytest.mark.level0
     def test_oversample_stored(self, ref_config: PSFSamplingConfig) -> None:

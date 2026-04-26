@@ -45,20 +45,14 @@ class Box:
         validate_positive("Box", self.width_m, "width_m")
         validate_positive("Box", self.height_m, "height_m")
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """Sum of face-pair projections.
 
         A = W·H·|vx| + L·H·|vy| + L·W·|vz| in body frame.
         """
         v = view_to_body(view_direction, *self.orientation_rad)
         L, W, H = self.length_m, self.width_m, self.height_m
-        return (
-            W * H * abs(float(v[0]))
-            + L * H * abs(float(v[1]))
-            + L * W * abs(float(v[2]))
-        )
+        return W * H * abs(float(v[0])) + L * H * abs(float(v[1])) + L * W * abs(float(v[2]))
 
     def surface_area(self) -> float:
         """2(LW + LH + WH)."""

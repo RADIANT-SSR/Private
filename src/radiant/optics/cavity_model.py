@@ -63,17 +63,17 @@ class CavityModel:
         # Validate all share the same wavelength grid.
         ref_wl = self.R1.wavelength_um
         for name, sd in [
-            ("T1", self.T1), ("R2", self.R2), ("T2", self.T2),
-            ("alpha", self.alpha), ("n_refr", self.n_refr),
+            ("T1", self.T1),
+            ("R2", self.R2),
+            ("T2", self.T2),
+            ("alpha", self.alpha),
+            ("n_refr", self.n_refr),
         ]:
             if not np.array_equal(sd.wavelength_um, ref_wl):
-                raise ValueError(
-                    f"CavityModel: '{name}' wavelength grid does not match R1."
-                )
+                raise ValueError(f"CavityModel: '{name}' wavelength grid does not match R1.")
 
         # Surface energy conservation: R + T <= 1 at each surface.
-        for label, r_sd, t_sd in [("surface 1", self.R1, self.T1),
-                                   ("surface 2", self.R2, self.T2)]:
+        for label, r_sd, t_sd in [("surface 1", self.R1, self.T1), ("surface 2", self.R2, self.T2)]:
             total = r_sd.values + t_sd.values
             if np.any(total > 1.0 + _CAVITY_KIRCHHOFF_TOL):
                 worst = float(np.max(total))
@@ -98,9 +98,7 @@ class CavityModel:
 
         # Thickness must be non-negative.
         if self.thickness_m < 0.0:
-            raise ValueError(
-                f"CavityModel: thickness_m must be >= 0, got {self.thickness_m}."
-            )
+            raise ValueError(f"CavityModel: thickness_m must be >= 0, got {self.thickness_m}.")
 
         # Energy conservation: T_sys + R_sys <= 1 (absorptance >= 0).
         t_sys = self.T_sys.values
@@ -146,9 +144,7 @@ class CavityModel:
     def R_sys(self) -> SpectralData:
         """System reflectance: R1 + T1^2 * R2 * beer^2 / denom."""
         b = self.beer
-        vals = self.R1.values + (
-            self.T1.values ** 2 * self.R2.values * b * b / self.denom
-        )
+        vals = self.R1.values + (self.T1.values**2 * self.R2.values * b * b / self.denom)
         return SpectralData(
             name="cavity.R_sys",
             wavelength_um=self.wavelength_um.copy(),
@@ -161,7 +157,7 @@ class CavityModel:
     def eps_eff(self) -> SpectralData:
         """Effective cavity emissivity: T2 * n^2 * (1 - beer) / denom."""
         b = self.beer
-        vals = self.T2.values * self.n_refr.values ** 2 * (1.0 - b) / self.denom
+        vals = self.T2.values * self.n_refr.values**2 * (1.0 - b) / self.denom
         return SpectralData(
             name="cavity.eps_eff",
             wavelength_um=self.wavelength_um.copy(),

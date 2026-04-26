@@ -36,9 +36,7 @@ def make_pupil_amplitude(
         Binary amplitude: 1.0 in clear aperture, 0.0 outside.
     """
     if not (0.0 <= obscuration_ratio < 1.0):
-        raise ValueError(
-            f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}"
-        )
+        raise ValueError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
 
     # Normalised coordinates: [-0.5, +0.5]
     x = np.linspace(-0.5, 0.5, npix, endpoint=False) + 0.5 / npix

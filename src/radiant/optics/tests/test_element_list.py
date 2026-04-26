@@ -268,20 +268,36 @@ class TestMixedTrain:
     def test_system_transmission_mixed(self) -> None:
         """3-mirror + 1-lens: tau_system = R1 * R2 * R3 * T_lens."""
         m1 = make_reflective_element(
-            "primary", 0.98, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.35, distance_to_fpa_m=1.2,
+            "primary",
+            0.98,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.35,
+            distance_to_fpa_m=1.2,
         )
         m2 = make_reflective_element(
-            "secondary", 0.98, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.10, distance_to_fpa_m=0.8,
+            "secondary",
+            0.98,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.10,
+            distance_to_fpa_m=0.8,
         )
         m3 = make_reflective_element(
-            "fold", 0.97, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.05, distance_to_fpa_m=0.4,
+            "fold",
+            0.97,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.05,
+            distance_to_fpa_m=0.4,
         )
         lens = make_refractive_element(
-            "field_lens", 0.92, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.04, distance_to_fpa_m=0.2,
+            "field_lens",
+            0.92,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.04,
+            distance_to_fpa_m=0.2,
         )
         elements = (m1, m2, m3, lens)
         tau = compute_system_transmission(elements, WL)
@@ -295,12 +311,20 @@ class TestMixedTrain:
         Simple refractive elements have eps=0.
         """
         m = make_reflective_element(
-            "mirror", 0.98, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.30, distance_to_fpa_m=1.2,
+            "mirror",
+            0.98,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.30,
+            distance_to_fpa_m=1.2,
         )
         lens = make_refractive_element(
-            "lens", 0.90, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.05, distance_to_fpa_m=0.1,
+            "lens",
+            0.90,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.05,
+            distance_to_fpa_m=0.1,
         )
         result = compute_nearfield_irradiance((m, lens), WL)
 
@@ -317,15 +341,26 @@ class TestMixedTrain:
     def test_cavity_element_emits_in_nearfield(self) -> None:
         """Cavity element with absorption has nonzero nearfield emission."""
         m = make_reflective_element(
-            "mirror", 0.98, wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.30, distance_to_fpa_m=1.2,
+            "mirror",
+            0.98,
+            wavelength_um=WL,
+            temperature_K=290.0,
+            diameter_m=0.30,
+            distance_to_fpa_m=1.2,
         )
         cavity_lens = make_refractive_cavity_element(
             "lens",
-            R1=0.04, T1=0.96, R2=0.04, T2=0.96,
-            alpha=10.0, n_refr=1.5, thickness_m=0.003,
+            R1=0.04,
+            T1=0.96,
+            R2=0.04,
+            T2=0.96,
+            alpha=10.0,
+            n_refr=1.5,
+            thickness_m=0.003,
             wavelength_um=WL,
-            temperature_K=290.0, diameter_m=0.04, distance_to_fpa_m=0.3,
+            temperature_K=290.0,
+            diameter_m=0.04,
+            distance_to_fpa_m=0.3,
         )
         result = compute_nearfield_irradiance((m, cavity_lens), WL)
 
@@ -369,7 +404,9 @@ class TestNearfieldPerElement:
         result = compute_nearfield_irradiance((m,), WL)
         assert "primary" in result.per_element
         np.testing.assert_allclose(
-            result.per_element["primary"].values, result.total.values, rtol=1e-12,
+            result.per_element["primary"].values,
+            result.total.values,
+            rtol=1e-12,
         )
 
     @pytest.mark.level1
@@ -441,11 +478,15 @@ class TestNearfieldPerElement:
         eps2, omega2 = 0.05, math.pi * (0.05) ** 2 / (0.60) ** 2
 
         expected_m1 = eps1 * b_290 * omega1 * 0.95  # attenuated by M2
-        expected_m2 = eps2 * b_300 * omega2 * 1.0    # nothing downstream
+        expected_m2 = eps2 * b_300 * omega2 * 1.0  # nothing downstream
 
         np.testing.assert_allclose(
-            result.per_element["primary"].values, expected_m1, rtol=1e-10,
+            result.per_element["primary"].values,
+            expected_m1,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
-            result.per_element["secondary"].values, expected_m2, rtol=1e-10,
+            result.per_element["secondary"].values,
+            expected_m2,
+            rtol=1e-10,
         )

@@ -419,6 +419,7 @@ class TestSpectralDataPlot:
     def test_plot_does_not_raise(self) -> None:
         pytest.importorskip("matplotlib")
         import matplotlib
+
         matplotlib.use("Agg")  # non-interactive backend for CI
         sd = _make_sd()
         ax = sd.plot()
@@ -428,6 +429,7 @@ class TestSpectralDataPlot:
     def test_plot_with_existing_ax(self) -> None:
         plt = pytest.importorskip("matplotlib.pyplot")
         import matplotlib
+
         matplotlib.use("Agg")
         _, ax = plt.subplots()
         sd = _make_sd()

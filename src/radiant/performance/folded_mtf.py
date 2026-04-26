@@ -126,7 +126,9 @@ def compute_folded_mtf(
         # Interpolate optical MTF at shifted frequencies.
         # Values outside the defined range are zero (MTF→0 beyond cutoff).
         mtf_shifted = np.interp(
-            shifted_freq, freq_cy_m, mtf_values,
+            shifted_freq,
+            freq_cy_m,
+            mtf_values,
             left=mtf_values[0] if len(mtf_values) > 0 else 0.0,
             right=0.0,
         )
@@ -136,9 +138,7 @@ def compute_folded_mtf(
     # Avoid division by zero where folded MTF is zero.
     alias_fraction = np.zeros_like(mtf_folded)
     nonzero = mtf_folded > 0.0
-    alias_fraction[nonzero] = (
-        (mtf_folded[nonzero] - mtf_values[nonzero]) / mtf_folded[nonzero]
-    )
+    alias_fraction[nonzero] = (mtf_folded[nonzero] - mtf_values[nonzero]) / mtf_folded[nonzero]
 
     return FoldedMTFResult(
         freq=freq_cy_m.copy(),

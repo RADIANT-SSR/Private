@@ -193,8 +193,7 @@ class WavefrontError:
         if on_axis is None:
             on_axis = self.field_table[0]
             logger.info(
-                "rms_opd_m: no on-axis field point found; using first sample "
-                "at (%.3f, %.3f) deg.",
+                "rms_opd_m: no on-axis field point found; using first sample at (%.3f, %.3f) deg.",
                 on_axis.field_x_deg,
                 on_axis.field_y_deg,
             )
@@ -251,9 +250,7 @@ class WavefrontError:
             position is not in the field table.
         """
         if self.mode != WfeMode.FIELD_DEPENDENT:
-            raise ValueError(
-                f"at_field() requires mode=FIELD_DEPENDENT, got {self.mode.value!r}."
-            )
+            raise ValueError(f"at_field() requires mode=FIELD_DEPENDENT, got {self.mode.value!r}.")
         assert self.field_table is not None
 
         tol = 1e-12
@@ -272,9 +269,7 @@ class WavefrontError:
             f"Zernike coefficients at this exact field position."
         )
 
-    def at_field_nearest(
-        self, field_x_deg: float, field_y_deg: float
-    ) -> FieldWfeSample:
+    def at_field_nearest(self, field_x_deg: float, field_y_deg: float) -> FieldWfeSample:
         """Return the nearest tabulated FieldWfeSample.
 
         Warns if the nearest point is more than 0.01 degrees away
@@ -294,8 +289,7 @@ class WavefrontError:
         """
         if self.mode != WfeMode.FIELD_DEPENDENT:
             raise ValueError(
-                f"at_field_nearest() requires mode=FIELD_DEPENDENT, "
-                f"got {self.mode.value!r}."
+                f"at_field_nearest() requires mode=FIELD_DEPENDENT, got {self.mode.value!r}."
             )
         assert self.field_table is not None
 

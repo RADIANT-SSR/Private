@@ -15,8 +15,7 @@ def validate_positive(name: str, value: float, field: str) -> None:
     """Raise ValueError if value is not strictly positive."""
     if value <= 0.0:
         raise ValueError(
-            f"{name}: {field} must be positive, got {value}. "
-            f"All dimensions are in meters."
+            f"{name}: {field} must be positive, got {value}. All dimensions are in meters."
         )
 
 

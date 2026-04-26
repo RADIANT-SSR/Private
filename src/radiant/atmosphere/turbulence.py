@@ -84,8 +84,6 @@ def turbulence_mtf_focal(
         Turbulence MTF values.
     """
     if focal_length_m <= 0.0:
-        raise ValueError(
-            f"focal_length_m must be positive, got {focal_length_m}"
-        )
+        raise ValueError(f"focal_length_m must be positive, got {focal_length_m}")
     freq_angular = freq_focal * focal_length_m
     return turbulence_mtf_1d(freq_angular, wavelength_m, r0_m)

@@ -40,9 +40,7 @@ class DirectIntensitySource:
                 f"must be non-negative (min={float(self.intensity_data.values.min())})"
             )
 
-    def spectral_intensity(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_intensity(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return I(λ) interpolated onto the requested grid [W/sr/µm].
 
         Parameters
@@ -90,8 +88,6 @@ class DirectIntensitySource:
             Fictitious reference area [m²]. Default 1e-12.
         """
         if reference_area_m2 <= 0.0:
-            raise ValueError(
-                f"reference_area_m2 must be positive, got {reference_area_m2}"
-            )
+            raise ValueError(f"reference_area_m2 must be positive, got {reference_area_m2}")
         intensity = self.spectral_intensity(wavelength_um)
         return np.asarray(intensity / reference_area_m2, dtype=np.float64)

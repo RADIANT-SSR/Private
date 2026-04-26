@@ -102,9 +102,7 @@ class TestAnchor1ConstantTBMatchesPlanck:
         assert isinstance(desc, T1Thermal)
         assert desc.T_t == pytest.approx(300.0, abs=1e-12)
         assert desc.epsilon is not None
-        np.testing.assert_allclose(
-            desc.epsilon.values, np.ones_like(lam), atol=0.0
-        )
+        np.testing.assert_allclose(desc.epsilon.values, np.ones_like(lam), atol=0.0)
 
     @pytest.mark.level0
     def test_L_at_10um_matches_planck_blackbody(self) -> None:
@@ -120,18 +118,12 @@ class TestAnchor1ConstantTBMatchesPlanck:
         assert isinstance(desc, T1Thermal)
 
         idx_10um = int(np.argmin(np.abs(lam - 10.0)))
-        expected = float(
-            planck_spectral_radiance(
-                np.asarray([lam[idx_10um]]), desc.T_t
-            )[0]
-        )
+        expected = float(planck_spectral_radiance(np.asarray([lam[idx_10um]]), desc.T_t)[0])
         assert desc.epsilon is not None
         actual = float(desc.epsilon.values[idx_10um]) * expected
 
         rel = abs(actual - expected) / expected
-        assert rel < 1.0e-6, (
-            f"|ΔL/L| = {rel:g} exceeds 1e-6 truth-anchor tolerance"
-        )
+        assert rel < 1.0e-6, f"|ΔL/L| = {rel:g} exceeds 1e-6 truth-anchor tolerance"
 
 
 # ---------------------------------------------------------------------------
@@ -169,14 +161,11 @@ class TestAnchor2VaryingTBMatchesPointwisePlanck:
         for lam_target in (9.0, 11.0, 13.0):
             i = int(np.argmin(np.abs(lam - lam_target)))
             T_i = float(T_B_vals[i])
-            expected = float(
-                planck_spectral_radiance(np.asarray([lam[i]]), T_i)[0]
-            )
+            expected = float(planck_spectral_radiance(np.asarray([lam[i]]), T_i)[0])
             actual = float(desc.L_t_source.values[i])
             rel = abs(actual - expected) / max(expected, 1e-30)
             assert rel < 1.0e-12, (
-                f"λ={lam[i]} µm: actual={actual:g}, expected={expected:g}, "
-                f"rel={rel:g}"
+                f"λ={lam[i]} µm: actual={actual:g}, expected={expected:g}, rel={rel:g}"
             )
 
 
@@ -207,17 +196,13 @@ class TestAnchor3RoundTripTB:
         assert desc.L_t_source is not None
 
         recovered = np.array(
-            [
-                _invert_planck_to_T_B(lam[i], desc.L_t_source.values[i])
-                for i in range(lam.size)
-            ],
+            [_invert_planck_to_T_B(lam[i], desc.L_t_source.values[i]) for i in range(lam.size)],
             dtype=np.float64,
         )
 
         max_err_K = float(np.abs(recovered - T_B_vals).max())
         assert max_err_K < 1.0e-4, (
-            f"Round-trip T_B → L → T_B drifted by {max_err_K:g} K "
-            f"(tolerance 1e-4 K)"
+            f"Round-trip T_B → L → T_B drifted by {max_err_K:g} K (tolerance 1e-4 K)"
         )
 
 
@@ -255,9 +240,7 @@ class TestBranchSelection:
     def test_peak_to_peak_just_above_threshold_routes_to_T6(self) -> None:
         lam = _lwir_grid(n=5)
         # 1.5 K peak-to-peak — above the 1 K default threshold.
-        T_B_vals = np.array(
-            [299.25, 299.625, 300.0, 300.375, 300.75], dtype=np.float64
-        )
+        T_B_vals = np.array([299.25, 299.625, 300.0, 300.375, 300.75], dtype=np.float64)
         T_B = SpectralData(
             name="T_B",
             wavelength_um=lam,
@@ -297,9 +280,7 @@ class TestRejectsInvalidInputs:
     @pytest.mark.level0
     def test_negative_T_B_raises(self) -> None:
         lam = _lwir_grid(n=5)
-        T_B_vals = np.array(
-            [300.0, 300.0, -1.0, 300.0, 300.0], dtype=np.float64
-        )
+        T_B_vals = np.array([300.0, 300.0, -1.0, 300.0, 300.0], dtype=np.float64)
         T_B = SpectralData(
             name="T_B",
             wavelength_um=lam,
@@ -445,9 +426,7 @@ class TestBrightnessTemperaturePathCSV:
     # ----- Constant T_B=300 K CSV → T1Thermal, L(10µm)=B(10µm,300K) -----
 
     @pytest.mark.level1
-    def test_constant_T_B_path_emits_T1_and_matches_planck(
-        self, tmp_path: Path
-    ) -> None:
+    def test_constant_T_B_path_emits_T1_and_matches_planck(self, tmp_path: Path) -> None:
         csv = _write_flat_T_B_csv(
             tmp_path / "tb.csv",
             wl_um=np.array([7.5, 9.0, 11.0, 13.5]),
@@ -463,36 +442,24 @@ class TestBrightnessTemperaturePathCSV:
         assert isinstance(target, T1Thermal)
         assert target.T_t == pytest.approx(300.0, abs=1e-9)
         assert target.epsilon is not None
-        np.testing.assert_allclose(
-            target.epsilon.values, np.ones_like(_WL_LWIR), atol=0.0
-        )
+        np.testing.assert_allclose(target.epsilon.values, np.ones_like(_WL_LWIR), atol=0.0)
 
         # Truth anchor: L(10 µm) = B(10 µm, 300 K) to 1e-6 (ε ≡ 1).
         idx_10 = int(np.argmin(np.abs(_WL_LWIR - 10.0)))
-        expected = float(
-            planck_spectral_radiance(
-                np.asarray([_WL_LWIR[idx_10]]), 300.0
-            )[0]
-        )
+        expected = float(planck_spectral_radiance(np.asarray([_WL_LWIR[idx_10]]), 300.0)[0])
         actual = float(target.epsilon.values[idx_10]) * expected
         rel = abs(actual - expected) / expected
-        assert rel < 1.0e-6, (
-            f"|ΔL/L| = {rel:g} exceeds 1e-6 truth-anchor tolerance"
-        )
+        assert rel < 1.0e-6, f"|ΔL/L| = {rel:g} exceeds 1e-6 truth-anchor tolerance"
 
     # ----- λ-varying T_B CSV → T6TabulatedAtSource -----
 
     @pytest.mark.level1
-    def test_varying_T_B_path_emits_T6_with_pointwise_planck(
-        self, tmp_path: Path
-    ) -> None:
+    def test_varying_T_B_path_emits_T6_with_pointwise_planck(self, tmp_path: Path) -> None:
         # 280 K @ 7.5 µm → 320 K @ 13.5 µm — 40 K peak-to-peak, solidly
         # in the λ-varying branch.  File grid brackets _WL_LWIR.
         wl_file = np.array([7.5, 9.0, 11.0, 13.5])
         T_vals = np.linspace(280.0, 320.0, wl_file.size)
-        csv = _write_ramp_T_B_csv(
-            tmp_path / "ramp.csv", wl_um=wl_file, T_B_values=T_vals
-        )
+        csv = _write_ramp_T_B_csv(tmp_path / "ramp.csv", wl_um=wl_file, T_B_values=T_vals)
         params = _s11_path_params(csv)
         params.resolve()
 
@@ -511,36 +478,24 @@ class TestBrightnessTemperaturePathCSV:
         for lam_target in (9.0, 11.0, 12.0):
             i = int(np.argmin(np.abs(_WL_LWIR - lam_target)))
             expected = float(
-                planck_spectral_radiance(
-                    np.asarray([_WL_LWIR[i]]), float(T_B_on_chain[i])
-                )[0]
+                planck_spectral_radiance(np.asarray([_WL_LWIR[i]]), float(T_B_on_chain[i]))[0]
             )
             actual = float(target.L_t_source.values[i])
             rel = abs(actual - expected) / max(expected, 1e-30)
             assert rel < 1.0e-6, (
-                f"λ={_WL_LWIR[i]:.3f} µm: actual={actual:g}, "
-                f"expected={expected:g}, rel={rel:g}"
+                f"λ={_WL_LWIR[i]:.3f} µm: actual={actual:g}, expected={expected:g}, rel={rel:g}"
             )
 
     # ----- Failure mode — T_B < 0 in CSV -----
 
     @pytest.mark.level1
-    def test_T_B_path_with_negative_value_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_T_B_path_with_negative_value_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "neg.csv"
-        csv.write_text(
-            "wavelength_um,brightness_temperature_K\n"
-            "7.5,290.0\n"
-            "10.0,-5.0\n"
-            "13.5,290.0\n"
-        )
+        csv.write_text("wavelength_um,brightness_temperature_K\n7.5,290.0\n10.0,-5.0\n13.5,290.0\n")
         params = _s11_path_params(csv)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="negative"
-        ) as exc:
+        with pytest.raises(ParameterBoundsError, match="negative") as exc:
             infer_descriptors(params, _WL_LWIR)
         assert exc.value.context["path"] == str(csv)
         assert exc.value.context["min_T_B_K"] == pytest.approx(-5.0)
@@ -548,22 +503,15 @@ class TestBrightnessTemperaturePathCSV:
     # ----- Failure mode — T_B > 10 000 K in CSV -----
 
     @pytest.mark.level1
-    def test_T_B_path_above_ceiling_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_T_B_path_above_ceiling_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "hot.csv"
         csv.write_text(
-            "wavelength_um,brightness_temperature_K\n"
-            "7.5,300.0\n"
-            "10.0,15000.0\n"
-            "13.5,300.0\n"
+            "wavelength_um,brightness_temperature_K\n7.5,300.0\n10.0,15000.0\n13.5,300.0\n"
         )
         params = _s11_path_params(csv)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="ceiling"
-        ) as exc:
+        with pytest.raises(ParameterBoundsError, match="ceiling") as exc:
             infer_descriptors(params, _WL_LWIR)
         assert exc.value.context["path"] == str(csv)
         assert exc.value.context["max_T_B_K"] == pytest.approx(15000.0)
@@ -571,9 +519,7 @@ class TestBrightnessTemperaturePathCSV:
     # ----- Failure mode — chain grid wider than file grid -----
 
     @pytest.mark.level1
-    def test_T_B_path_out_of_grid_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_T_B_path_out_of_grid_raises(self, tmp_path: Path) -> None:
         # File grid [9.0, 12.0] does NOT cover chain grid [8.0, 13.0] —
         # resampler must raise rather than silently extrapolate.
         csv = _write_flat_T_B_csv(
@@ -584,9 +530,7 @@ class TestBrightnessTemperaturePathCSV:
         params = _s11_path_params(csv)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="extends outside"
-        ) as exc:
+        with pytest.raises(ParameterBoundsError, match="extends outside") as exc:
             infer_descriptors(params, _WL_LWIR)
         ctx = exc.value.context
         assert ctx["chain_grid_um"] == pytest.approx([8.0, 13.0])
@@ -596,9 +540,7 @@ class TestBrightnessTemperaturePathCSV:
     # ----- Failure mode — both scalar K and path set -----
 
     @pytest.mark.level1
-    def test_T_B_path_plus_scalar_K_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_T_B_path_plus_scalar_K_raises(self, tmp_path: Path) -> None:
         csv = _write_flat_T_B_csv(
             tmp_path / "both.csv",
             wl_um=np.array([7.5, 13.5]),
@@ -614,9 +556,7 @@ class TestBrightnessTemperaturePathCSV:
     # ----- Loader unit / metadata cosmetic check -----
 
     @pytest.mark.level1
-    def test_load_brightness_temperature_csv_sets_unit_K(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_brightness_temperature_csv_sets_unit_K(self, tmp_path: Path) -> None:
         csv = _write_flat_T_B_csv(
             tmp_path / "u.csv",
             wl_um=np.array([8.0, 13.0]),

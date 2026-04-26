@@ -34,7 +34,10 @@ class TestRadiometricFrame:
     @pytest.mark.level0
     def test_scalar_frame(self, wl: np.ndarray) -> None:
         f = RadiometricFrame(
-            name="pe", wavelength_um=wl, in_band_value=1000.0, in_band_unit="e-",
+            name="pe",
+            wavelength_um=wl,
+            in_band_value=1000.0,
+            in_band_unit="e-",
         )
         assert f.in_band_value == pytest.approx(1000.0, rel=1e-12)
         assert f.spectral_radiance is None
@@ -87,7 +90,9 @@ class TestNoiseTerm:
     @pytest.mark.level0
     def test_valid_construction(self) -> None:
         nt = NoiseTerm(
-            name="shot", value_e=100.0, origin_frame="photoelectrons",
+            name="shot",
+            value_e=100.0,
+            origin_frame="photoelectrons",
             physical_basis="Poisson",
         )
         assert nt.value_e == pytest.approx(100.0, rel=1e-12)
@@ -95,7 +100,9 @@ class TestNoiseTerm:
     @pytest.mark.level0
     def test_zero_noise_ok(self) -> None:
         nt = NoiseTerm(
-            name="zero", value_e=0.0, origin_frame="pe",
+            name="zero",
+            value_e=0.0,
+            origin_frame="pe",
             physical_basis="Poisson",
         )
         assert nt.value_e == 0.0

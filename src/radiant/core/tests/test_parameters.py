@@ -25,6 +25,7 @@ from radiant.core.parameters import (
 # Helpers — minimal schema used by many tests
 # ---------------------------------------------------------------------------
 
+
 def _make_fno_schema() -> tuple[list[ParameterDef], list[ConsistencyGroup]]:
     """Return a 3-param schema (aperture, focal_length, f_number) + fno group."""
     schema = [
@@ -402,9 +403,7 @@ def test_sample_returns_new_parameter_set() -> None:
     ps = _make_ps()
     ps.set("sensor.optics.aperture_diameter", 0.3)
     ps.set("sensor.optics.focal_length", 1.2)
-    ps.set_tolerance(
-        "sensor.optics.aperture_diameter", Tolerance("gaussian", {"std": 0.001})
-    )
+    ps.set_tolerance("sensor.optics.aperture_diameter", Tolerance("gaussian", {"std": 0.001}))
     ps.resolve()
     rng = np.random.default_rng(99)
     sampled = ps.sample(rng)
@@ -417,9 +416,7 @@ def test_sample_produces_different_values() -> None:
     ps = _make_ps()
     ps.set("sensor.optics.aperture_diameter", 0.3)
     ps.set("sensor.optics.focal_length", 1.2)
-    ps.set_tolerance(
-        "sensor.optics.aperture_diameter", Tolerance("gaussian", {"std": 0.01})
-    )
+    ps.set_tolerance("sensor.optics.aperture_diameter", Tolerance("gaussian", {"std": 0.01}))
     ps.resolve()
     rng = np.random.default_rng(7)
     vals = {ps.sample(rng).get("sensor.optics.aperture_diameter") for _ in range(10)}
@@ -514,8 +511,8 @@ def test_error_msg_over_constrained_shows_both_values() -> None:
     with pytest.raises(ValueError) as exc_info:
         ps.resolve()
     msg = str(exc_info.value)
-    assert "5.0" in msg   # user-specified
-    assert "4.0" in msg   # computed
+    assert "5.0" in msg  # user-specified
+    assert "4.0" in msg  # computed
 
 
 @pytest.mark.level0
@@ -596,12 +593,8 @@ def test_circular_dependency_raises_value_error() -> None:
     The fixed-point loop must detect the cycle and raise.
     """
     schema = [
-        ParameterDef(
-            name="cyc.A", description="A", dtype=float, canonical_unit="", input_unit=""
-        ),
-        ParameterDef(
-            name="cyc.B", description="B", dtype=float, canonical_unit="", input_unit=""
-        ),
+        ParameterDef(name="cyc.A", description="A", dtype=float, canonical_unit="", input_unit=""),
+        ParameterDef(name="cyc.B", description="B", dtype=float, canonical_unit="", input_unit=""),
         ParameterDef(
             name="cyc.C",
             description="C",

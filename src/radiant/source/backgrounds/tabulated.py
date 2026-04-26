@@ -39,9 +39,7 @@ class TabulatedBackground:
                 f"must be non-negative (min={float(self.radiance_data.values.min())})"
             )
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return L_bg(λ) interpolated onto requested grid [W/m²/sr/µm]."""
         lam = np.asarray(wavelength_um, dtype=np.float64)
         src_wl = self.radiance_data.wavelength_um

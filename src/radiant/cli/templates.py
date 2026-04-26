@@ -172,17 +172,23 @@ def template_show(name: str) -> None:
         click.echo(f"Available: {', '.join(sorted(TEMPLATES))}", err=True)
         sys.exit(1)
     header = f"# RADIANT template: {name}\n# {TEMPLATES[name]['description']}\n"
-    click.echo(header + yaml.dump(
-        TEMPLATES[name]["config"],
-        default_flow_style=False,
-        sort_keys=True,
-    ))
+    click.echo(
+        header
+        + yaml.dump(
+            TEMPLATES[name]["config"],
+            default_flow_style=False,
+            sort_keys=True,
+        )
+    )
 
 
 @template.command("create")
 @click.argument("name")
 @click.option(
-    "--output", "output_path", type=click.Path(), default=None,
+    "--output",
+    "output_path",
+    type=click.Path(),
+    default=None,
     help="Output file path (default: <name>.yaml in current directory).",
 )
 def template_create(name: str, output_path: str | None) -> None:

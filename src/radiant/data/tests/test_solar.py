@@ -45,9 +45,7 @@ class TestSolarLoading:
         sd = lib.solar()
         peak_idx = int(np.argmax(sd.values))
         peak_wl = float(sd.wavelength_um[peak_idx])
-        assert 0.4 <= peak_wl <= 0.7, (
-            f"Solar peak at {peak_wl:.2f} µm, expected near 0.5 µm"
-        )
+        assert 0.4 <= peak_wl <= 0.7, f"Solar peak at {peak_wl:.2f} µm, expected near 0.5 µm"
 
     def test_uv_lower_than_visible(self, lib: SpectralLibrary) -> None:
         """UV irradiance (< 0.35 µm) should be lower than visible peak."""

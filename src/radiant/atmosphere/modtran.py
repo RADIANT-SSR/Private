@@ -148,7 +148,7 @@ class ModtranConfig:
     h2o_scale: float = 1.0
     o3_scale: float = 1.0
     spectral_resolution_cm1: float = 1.0
-    v1_cm1: float = 700.0   # ~14.3 um
+    v1_cm1: float = 700.0  # ~14.3 um
     v2_cm1: float = 25000.0  # ~0.4 um
     extra_cards: dict[str, str] = field(default_factory=dict)
 
@@ -167,22 +167,16 @@ class ModtranConfig:
                 f"not recognised. Choose one of {sorted(_IHAZE_MAP)}."
             )
         if self.h2o_scale <= 0.0:
-            raise ValueError(
-                f"ModtranConfig: h2o_scale={self.h2o_scale} must be positive."
-            )
+            raise ValueError(f"ModtranConfig: h2o_scale={self.h2o_scale} must be positive.")
         if self.o3_scale <= 0.0:
-            raise ValueError(
-                f"ModtranConfig: o3_scale={self.o3_scale} must be positive."
-            )
+            raise ValueError(f"ModtranConfig: o3_scale={self.o3_scale} must be positive.")
         if self.spectral_resolution_cm1 <= 0.0:
             raise ValueError(
                 f"ModtranConfig: spectral_resolution_cm1="
                 f"{self.spectral_resolution_cm1} must be positive."
             )
         if self.v1_cm1 >= self.v2_cm1:
-            raise ValueError(
-                f"ModtranConfig: v1_cm1={self.v1_cm1} must be < v2_cm1={self.v2_cm1}."
-            )
+            raise ValueError(f"ModtranConfig: v1_cm1={self.v1_cm1} must be < v2_cm1={self.v2_cm1}.")
 
 
 # ---------------------------------------------------------------------------
@@ -255,19 +249,13 @@ def render_tape5(
     # Card 1: MODRAN, SPEED, BINARY, LYMOLC, MODEL, T_BEST, ITYPE, IEMSCT, IMULT
     # ITYPE=2 (slant path H1 to H2), IEMSCT=2 (thermal+solar radiance),
     # IMULT=1 (multiple scattering via DISORT)
-    card1 = (
-        f"T    5    0    {model_code}    0    2    2    1"
-        f"    0    0    0    1    0  0.000"
-    )
+    card1 = f"T    5    0    {model_code}    0    2    2    1    0    0    0    1    0  0.000"
 
     # Card 1A: DIS, NSTR, LSUN
     card1a = "T    4 F F F F    0 0.00000  0.00000  0.00000  0.00000"
 
     # Card 2: IHAZE, ISEASN, IVULCN, ICSTL, ICLD, IVSA, VIS, WSS, WHH, RAINRT
-    card2 = (
-        f"    {ihaze}    0    0    0    0    0"
-        f"  0.000  0.000  0.000  0.000  0.000"
-    )
+    card2 = f"    {ihaze}    0    0    0    0    0  0.000  0.000  0.000  0.000  0.000"
 
     # Card 2C (water vapor scaling): H2OSTR
     h2o_str = f"{config.h2o_scale:.3f}g"
@@ -281,10 +269,7 @@ def render_tape5(
     )
 
     # Card 3A1: IPARM, IPH, IDAY, ISOURC, PARM1 (solar zen), PARM2 (solar az)
-    card3a1 = (
-        f"    2    0    0    0"
-        f"{solar_zen_deg:10.3f}{solar_az_deg:10.3f}     0.000     0.000"
-    )
+    card3a1 = f"    2    0    0    0{solar_zen_deg:10.3f}{solar_az_deg:10.3f}     0.000     0.000"
 
     # Card 4: V1, V2, DV, FWHM, YFLAG, XFLAG, FLAGS
     card4 = (
@@ -541,7 +526,8 @@ def _save_cache(
 
 
 def _load_cache(
-    cache_dir: Path, key: str,
+    cache_dir: Path,
+    key: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
     """Load a cached MODTRAN result, or return None if not found."""
     path = _cache_path(cache_dir, key)
@@ -612,8 +598,7 @@ class ModtranAtmosphere:
 
         if result.returncode != 0:
             raise RuntimeError(
-                f"MODTRAN exited with code {result.returncode}. "
-                f"stderr: {result.stderr[:500]}"
+                f"MODTRAN exited with code {result.returncode}. stderr: {result.stderr[:500]}"
             )
 
         tape7_path = work_dir / "tape7"
@@ -641,9 +626,7 @@ class ModtranAtmosphere:
                 f"ModtranAtmosphere: wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
-                "ModtranAtmosphere: wavelength_um needs at least two samples."
-            )
+            raise ValueError("ModtranAtmosphere: wavelength_um needs at least two samples.")
         if not np.all(np.diff(lam) > 0):
             raise ValueError("ModtranAtmosphere: wavelength_um must be strictly ascending.")
         if np.any(lam <= 0.0):
@@ -658,12 +641,18 @@ class ModtranAtmosphere:
             logger.info("MODTRAN cache hit: %s", key)
             wl_cached, tau_cached, lp_cached, gr_cached = cached
             return self._build_state_from_arrays(
-                lam, geometry, wl_cached, tau_cached, lp_cached, key,
+                lam,
+                geometry,
+                wl_cached,
+                tau_cached,
+                lp_cached,
+                key,
             )
 
         # Try running MODTRAN.
         try:
             import tempfile
+
             with tempfile.TemporaryDirectory(prefix="radiant_modtran_") as tmpdir:
                 tape7_path = self._run_modtran(tape5, Path(tmpdir))
                 reader = Tape7Reader(tape7_path)
@@ -671,12 +660,21 @@ class ModtranAtmosphere:
 
             # Cache the result.
             _save_cache(
-                self._config.cache_dir, key,
-                wl_mod, tau_mod, lp_mod, gr_mod,
+                self._config.cache_dir,
+                key,
+                wl_mod,
+                tau_mod,
+                lp_mod,
+                gr_mod,
             )
 
             return self._build_state_from_arrays(
-                lam, geometry, wl_mod, tau_mod, lp_mod, key,
+                lam,
+                geometry,
+                wl_mod,
+                tau_mod,
+                lp_mod,
+                key,
             )
 
         except ModtranUnavailableError:
@@ -724,11 +722,13 @@ class ModtranAtmosphere:
             target_altitude_m=float(los.h_tgt),
             path_zenith_rad=float(los.theta_o),
             solar_zenith_rad=(
-                float(los.theta_s) if los.theta_s is not None
+                float(los.theta_s)
+                if los.theta_s is not None
                 else float(params.get("geometry.solar_zenith_rad"))
             ),
             solar_azimuth_rad=(
-                float(los.delta_phi) if los.delta_phi is not None
+                float(los.delta_phi)
+                if los.delta_phi is not None
                 else float(params.get("geometry.solar_azimuth_rad"))
             ),
         )
@@ -750,9 +750,7 @@ class ModtranAtmosphere:
             stacklevel=2,
         )
 
-        E_TOA = np.asarray(
-            toa_solar_spectral_irradiance(wavelength_um), dtype=np.float64
-        )
+        E_TOA = np.asarray(toa_solar_spectral_irradiance(wavelength_um), dtype=np.float64)
         E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
         E_sky_scattered = np.zeros_like(wavelength_um, dtype=np.float64)
 

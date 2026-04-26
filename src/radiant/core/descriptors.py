@@ -306,9 +306,7 @@ def _warn_swir_hot_non_mixed(
     """
     if _is_swir_spectral_data(sd) and T_t > _SWIR_HOT_TARGET_THRESHOLD_K:
         variant_label = (
-            variant.lower()
-            .replace("t1thermal", "thermal")
-            .replace("t2reflective", "reflective")
+            variant.lower().replace("t1thermal", "thermal").replace("t2reflective", "reflective")
         )
         warnings.warn(
             (
@@ -392,10 +390,7 @@ class T2Reflective(TargetDescriptor):
         if self.rho is None:
             raise ParameterBoundsError(
                 what="T2Reflective: rho is required",
-                why=(
-                    "Lambertian reflection needs ρ(λ) = 1 − ε(λ) "
-                    "(Kirchhoff) or user-supplied ρ."
-                ),
+                why=("Lambertian reflection needs ρ(λ) = 1 − ε(λ) (Kirchhoff) or user-supplied ρ."),
                 action=(
                     "Supply rho: ReflectanceDescriptor (build via "
                     "radiant.source.converters.reflectance."
@@ -557,10 +552,7 @@ class T6TabulatedAtSource(TargetDescriptor):
             )
         if self.target_location == "at_aperture":
             raise ParameterBoundsError(
-                what=(
-                    "T6TabulatedAtSource: target_location='at_aperture' is "
-                    "not supported"
-                ),
+                what=("T6TabulatedAtSource: target_location='at_aperture' is not supported"),
                 why=(
                     "T6 carries at-source radiance and flows through the "
                     "atmospheric up-leg.  At-aperture inputs bypass "
@@ -576,10 +568,7 @@ class T6TabulatedAtSource(TargetDescriptor):
         vals = self.L_t_source.values
         if vals.size == 0 or bool((vals < 0.0).any()):
             raise ParameterBoundsError(
-                what=(
-                    "T6TabulatedAtSource: L_t_source contains negative or "
-                    "empty values"
-                ),
+                what=("T6TabulatedAtSource: L_t_source contains negative or empty values"),
                 why=(
                     "Spectral radiance is non-negative (Rule 17 — no silent "
                     "failure on unphysical inputs)."
@@ -657,8 +646,7 @@ class T7IntensityAtSource(TargetDescriptor):
         if self.scene_type != "point_source":
             raise ParameterBoundsError(
                 what=(
-                    f"T7IntensityAtSource: scene_type = "
-                    f"{self.scene_type!r} is not 'point_source'"
+                    f"T7IntensityAtSource: scene_type = {self.scene_type!r} is not 'point_source'"
                 ),
                 why=(
                     "Intensity I(λ) [W/sr/µm] is the point-source "
@@ -674,10 +662,7 @@ class T7IntensityAtSource(TargetDescriptor):
             )
         if self.target_location == "at_aperture":
             raise ParameterBoundsError(
-                what=(
-                    "T7IntensityAtSource: target_location='at_aperture' "
-                    "is not supported"
-                ),
+                what=("T7IntensityAtSource: target_location='at_aperture' is not supported"),
                 why=(
                     "T7 requires atmospheric transport from the target "
                     "plane to the aperture.  The aperture integrates "
@@ -712,10 +697,7 @@ class T7IntensityAtSource(TargetDescriptor):
         vals = self.I_t_source.values
         if vals.size == 0 or bool((vals < 0.0).any()):
             raise ParameterBoundsError(
-                what=(
-                    "T7IntensityAtSource: I_t_source contains negative "
-                    "or empty values"
-                ),
+                what=("T7IntensityAtSource: I_t_source contains negative or empty values"),
                 why=(
                     "Spectral intensity is non-negative (Rule 17 — no "
                     "silent failure on unphysical inputs)."
@@ -803,6 +785,7 @@ def warn_if_reflective_and_sun_below_horizon(
     if theta_s is None:
         return
     import math as _math
+
     if theta_s > _math.pi / 2.0:
         warnings.warn(
             (

@@ -39,7 +39,7 @@ class TestMarechalStrehl:
             reference_wavelength_um=0.633,
         )
         s = wfe.strehl_marechal(0.633)
-        expected = math.exp(-(2.0 * math.pi / 14.0) ** 2)
+        expected = math.exp(-((2.0 * math.pi / 14.0) ** 2))
         assert s == pytest.approx(expected, rel=1e-10)
         assert s == pytest.approx(0.8176, abs=1e-3)
 
@@ -62,7 +62,7 @@ class TestMarechalStrehl:
             reference_wavelength_um=0.633,
         )
         s = wfe.strehl_marechal(0.633)
-        expected = math.exp(-(math.pi) ** 2)
+        expected = math.exp(-((math.pi) ** 2))
         assert s == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level0
@@ -222,7 +222,8 @@ class TestValidation:
     @pytest.mark.level0
     def test_refractive_single_wavelength_warns(self) -> None:
         sample = FieldWfeSample(
-            0.0, 0.0,
+            0.0,
+            0.0,
             zernike_coeffs={4: 0.1},
             chromatic_zernikes={0.633: {4: 0.1}},
         )
@@ -258,19 +259,23 @@ def _make_4point_field_table() -> tuple[FieldWfeSample, ...]:
     """4-point field table mimicking scenario 5.1 (Tom's optical design)."""
     return (
         FieldWfeSample(
-            field_x_deg=0.0, field_y_deg=0.0,
+            field_x_deg=0.0,
+            field_y_deg=0.0,
             zernike_coeffs={4: 0.05, 5: 0.02, 6: 0.01},
         ),
         FieldWfeSample(
-            field_x_deg=0.5, field_y_deg=0.0,
+            field_x_deg=0.5,
+            field_y_deg=0.0,
             zernike_coeffs={4: 0.10, 5: 0.06, 7: 0.04},
         ),
         FieldWfeSample(
-            field_x_deg=0.0, field_y_deg=0.5,
+            field_x_deg=0.0,
+            field_y_deg=0.5,
             zernike_coeffs={4: 0.09, 6: 0.07, 8: 0.03},
         ),
         FieldWfeSample(
-            field_x_deg=0.5, field_y_deg=0.5,
+            field_x_deg=0.5,
+            field_y_deg=0.5,
             zernike_coeffs={4: 0.15, 5: 0.10, 7: 0.08, 11: 0.05},
         ),
     )
@@ -399,7 +404,8 @@ class TestFieldDependentRefractive:
     def test_refractive_with_chromatic(self) -> None:
         """Valid refractive system with multi-wavelength Zernikes."""
         sample = FieldWfeSample(
-            0.0, 0.0,
+            0.0,
+            0.0,
             zernike_coeffs={4: 0.1},
             chromatic_zernikes={
                 0.5: {4: 0.12, 5: 0.02},
@@ -419,7 +425,8 @@ class TestFieldDependentRefractive:
     @pytest.mark.level0
     def test_chromatic_different_coeffs_at_different_wavelengths(self) -> None:
         sample = FieldWfeSample(
-            0.0, 0.0,
+            0.0,
+            0.0,
             zernike_coeffs={4: 0.1},
             chromatic_zernikes={
                 0.5: {4: 0.15},
@@ -434,16 +441,18 @@ class TestFieldDependentRefractive:
         """Scenario 5.1: 4 field points, each with chromatic Zernikes."""
         samples = []
         for fx, fy in [(0.0, 0.0), (0.5, 0.0), (0.0, 0.5), (0.5, 0.5)]:
-            samples.append(FieldWfeSample(
-                field_x_deg=fx,
-                field_y_deg=fy,
-                zernike_coeffs={4: 0.1 * (1 + fx + fy)},
-                chromatic_zernikes={
-                    3.5: {4: 0.12 * (1 + fx + fy)},
-                    4.25: {4: 0.10 * (1 + fx + fy)},
-                    5.0: {4: 0.08 * (1 + fx + fy)},
-                },
-            ))
+            samples.append(
+                FieldWfeSample(
+                    field_x_deg=fx,
+                    field_y_deg=fy,
+                    zernike_coeffs={4: 0.1 * (1 + fx + fy)},
+                    chromatic_zernikes={
+                        3.5: {4: 0.12 * (1 + fx + fy)},
+                        4.25: {4: 0.10 * (1 + fx + fy)},
+                        5.0: {4: 0.08 * (1 + fx + fy)},
+                    },
+                )
+            )
         wfe = WavefrontError(
             mode=WfeMode.FIELD_DEPENDENT,
             field_table=tuple(samples),

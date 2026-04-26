@@ -52,9 +52,7 @@ class TestConsistentPaths:
         epsf = _FakeEPSF(freq_m=freq_m, mtf_x=mtf, mtf_y=mtf)
         terms = {"mtf_optics_x": mtf, "mtf_optics_y": mtf}
 
-        result = check_dual_path_consistency(
-            epsf, terms, freq_mrad, FOCAL_LENGTH_M
-        )
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert result.passed_x
         assert result.passed_y
         assert result.max_absolute_error_x < 1e-10
@@ -70,13 +68,13 @@ class TestConsistentPaths:
 
         epsf = _FakeEPSF(freq_m=freq_m, mtf_x=combined, mtf_y=combined)
         terms = {
-            "mtf_optics_x": mtf_a, "mtf_optics_y": mtf_a,
-            "mtf_jitter_x": mtf_b, "mtf_jitter_y": mtf_b,
+            "mtf_optics_x": mtf_a,
+            "mtf_optics_y": mtf_a,
+            "mtf_jitter_x": mtf_b,
+            "mtf_jitter_y": mtf_b,
         }
 
-        result = check_dual_path_consistency(
-            epsf, terms, freq_mrad, FOCAL_LENGTH_M
-        )
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert result.passed_x
         assert result.passed_y
 
@@ -98,9 +96,7 @@ class TestInconsistentPaths:
         # Only mtf_optics, missing mtf_jitter.
         terms = {"mtf_optics_x": mtf_a, "mtf_optics_y": mtf_a}
 
-        result = check_dual_path_consistency(
-            epsf, terms, freq_mrad, FOCAL_LENGTH_M
-        )
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert not result.passed_x
         assert not result.passed_y
 
@@ -115,13 +111,13 @@ class TestInconsistentPaths:
 
         epsf = _FakeEPSF(freq_m=freq_m, mtf_x=mtf_a, mtf_y=mtf_a)
         terms = {
-            "mtf_optics_x": mtf_a, "mtf_optics_y": mtf_a,
-            "mtf_jitter_x": mtf_b, "mtf_jitter_y": mtf_b,
+            "mtf_optics_x": mtf_a,
+            "mtf_optics_y": mtf_a,
+            "mtf_jitter_x": mtf_b,
+            "mtf_jitter_y": mtf_b,
         }
 
-        result = check_dual_path_consistency(
-            epsf, terms, freq_mrad, FOCAL_LENGTH_M
-        )
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert not result.passed_x
         assert not result.passed_y
 
@@ -140,13 +136,13 @@ class TestExcludedTerms:
 
         epsf = _FakeEPSF(freq_m=freq_m, mtf_x=mtf, mtf_y=mtf)
         terms = {
-            "mtf_optics_x": mtf, "mtf_optics_y": mtf,
-            "mtf_tdi_x": mtf_tdi, "mtf_tdi_y": mtf_tdi,
+            "mtf_optics_x": mtf,
+            "mtf_optics_y": mtf,
+            "mtf_tdi_x": mtf_tdi,
+            "mtf_tdi_y": mtf_tdi,
         }
 
-        result = check_dual_path_consistency(
-            epsf, terms, freq_mrad, FOCAL_LENGTH_M
-        )
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert result.passed_x
         assert result.passed_y
 
@@ -170,8 +166,6 @@ class TestAnisotropy:
         )
         terms = {"mtf_optics_x": mtf_good, "mtf_optics_y": mtf_good}
 
-        result = check_dual_path_consistency(
-            epsf, terms, freq_mrad, FOCAL_LENGTH_M
-        )
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert not result.passed_x
         assert result.passed_y

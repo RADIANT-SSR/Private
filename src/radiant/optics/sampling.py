@@ -123,9 +123,7 @@ def compute_sampling(
     if pupil_npix < 4:
         raise ValueError(f"pupil_npix must be >= 4, got {pupil_npix}")
     if psf_oversample < 2:
-        raise ValueError(
-            f"psf_oversample must be >= 2 (Nyquist minimum), got {psf_oversample}"
-        )
+        raise ValueError(f"psf_oversample must be >= 2 (Nyquist minimum), got {psf_oversample}")
 
     # Pupil sample spacing: aperture fills the grid.
     pupil_spacing_m = aperture_diameter_m / pupil_npix

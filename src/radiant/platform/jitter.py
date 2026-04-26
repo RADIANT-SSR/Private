@@ -42,13 +42,9 @@ def jitter_sigma_focal_m(
         σ on the focal plane [m].
     """
     if jitter_rms_rad < 0.0:
-        raise ValueError(
-            f"jitter_rms_rad must be non-negative, got {jitter_rms_rad}"
-        )
+        raise ValueError(f"jitter_rms_rad must be non-negative, got {jitter_rms_rad}")
     if focal_length_m <= 0.0:
-        raise ValueError(
-            f"focal_length_m must be positive, got {focal_length_m}"
-        )
+        raise ValueError(f"focal_length_m must be positive, got {focal_length_m}")
     return jitter_rms_rad * focal_length_m
 
 
@@ -136,9 +132,7 @@ def jitter_kernel_2d(
     if npix < 1 or npix % 2 == 0:
         raise ValueError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(
-            f"sample_spacing_m must be positive, got {sample_spacing_m}"
-        )
+        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
     if sigma_x_m < 0.0:
         raise ValueError(f"sigma_x_m must be non-negative, got {sigma_x_m}")
     if sigma_y_m < 0.0:
@@ -158,7 +152,7 @@ def jitter_kernel_2d(
     sx2 = sigma_x_m**2 if sigma_x_m > 0.0 else 1e-30
     sy2 = sigma_y_m**2 if sigma_y_m > 0.0 else 1e-30
 
-    kernel = np.exp(-xx**2 / (2.0 * sx2) - yy**2 / (2.0 * sy2))
+    kernel = np.exp(-(xx**2) / (2.0 * sx2) - yy**2 / (2.0 * sy2))
 
     # Zero out the degenerate dimension if σ = 0.
     if sigma_x_m == 0.0:

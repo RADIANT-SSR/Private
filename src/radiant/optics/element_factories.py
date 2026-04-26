@@ -255,8 +255,13 @@ def make_refractive_cavity_element(
     n_sd = _scalar_to_spectral(n_refr, wavelength_um, f"{name}.n_refr")
 
     cavity = CavityModel(
-        R1=r1_sd, T1=t1_sd, R2=r2_sd, T2=t2_sd,
-        alpha=alpha_sd, n_refr=n_sd, thickness_m=thickness_m,
+        R1=r1_sd,
+        T1=t1_sd,
+        R2=r2_sd,
+        T2=t2_sd,
+        alpha=alpha_sd,
+        n_refr=n_sd,
+        thickness_m=thickness_m,
     )
 
     return OpticalElement(

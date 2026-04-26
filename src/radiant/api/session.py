@@ -38,16 +38,18 @@ class RadiantSession:
 
     def __init__(self, wavelength_um: npt.NDArray[np.float64]) -> None:
         self._wavelength_um = np.asarray(wavelength_um, dtype=np.float64)
-        self._runner = ChainRunner([
-            SourceStage(),
-            AtmosphereStage(),
-            OpticsStage(),
-            PlatformStage(),
-            SpectralIntegrationStage(),
-            DetectorStage(),
-            ReadoutStage(),
-            PerformanceStage(),
-        ])
+        self._runner = ChainRunner(
+            [
+                SourceStage(),
+                AtmosphereStage(),
+                OpticsStage(),
+                PlatformStage(),
+                SpectralIntegrationStage(),
+                DetectorStage(),
+                ReadoutStage(),
+                PerformanceStage(),
+            ]
+        )
 
     @property
     def stage_names(self) -> tuple[str, ...]:

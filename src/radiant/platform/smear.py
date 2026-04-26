@@ -50,9 +50,7 @@ def smear_mtf_1d(
         If smear_width_m is negative.
     """
     if smear_width_m < 0.0:
-        raise ValueError(
-            f"smear_width_m must be non-negative, got {smear_width_m}"
-        )
+        raise ValueError(f"smear_width_m must be non-negative, got {smear_width_m}")
     if smear_width_m == 0.0:
         return np.ones_like(freq)
     # np.sinc(x) = sin(πx)/(πx)

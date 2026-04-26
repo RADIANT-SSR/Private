@@ -364,9 +364,7 @@ class Sensor:
             groups.setdefault(prefix, [])
             unit_str = f" {rv.input_unit}" if rv.input_unit else ""
             prov_str = rv.provenance.value
-            groups[prefix].append(
-                f"  {name} = {rv.input_value}{unit_str}  [{prov_str}]"
-            )
+            groups[prefix].append(f"  {name} = {rv.input_value}{unit_str}  [{prov_str}]")
         for prefix in sorted(groups):
             lines.append(f"\n[{prefix}]")
             lines.extend(groups[prefix])

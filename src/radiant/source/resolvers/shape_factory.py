@@ -29,9 +29,7 @@ from radiant.source.shapes import Box, Cone, Cylinder, FlatPlate, Sphere
 _SHAPE_NOT_SET = "none"
 
 
-def _require_positive(
-    params: ParameterSet, name: str, shape: str
-) -> float:
+def _require_positive(params: ParameterSet, name: str, shape: str) -> float:
     """Return a dimensional scalar or raise ParameterBoundsError if ≤ 0."""
     value: float = params.get(name)
     if value <= 0.0:
@@ -45,10 +43,7 @@ def _require_positive(
                 "dimensions; a zero or negative value collapses the "
                 "shape and makes projected area ill-defined."
             ),
-            action=(
-                f"Set {name} > 0 m in the scenario input, or select a "
-                f"different shape."
-            ),
+            action=(f"Set {name} > 0 m in the scenario input, or select a different shape."),
             context={"param": name, "value": value, "shape": shape},
         )
     return value
@@ -93,46 +88,28 @@ def build_shape(params: ParameterSet) -> TargetShape | None:
     built: Any  # narrowed per-branch; TargetShape is a Protocol
 
     if shape_name == "sphere":
-        radius_m = _require_positive(
-            params, "source.target.shape_radius_m", shape_name
-        )
-        built = Sphere(
-            radius_m=radius_m, orientation_rad=orientation
-        )
+        radius_m = _require_positive(params, "source.target.shape_radius_m", shape_name)
+        built = Sphere(radius_m=radius_m, orientation_rad=orientation)
     elif shape_name == "cylinder":
-        radius_m = _require_positive(
-            params, "source.target.shape_radius_m", shape_name
-        )
-        length_m = _require_positive(
-            params, "source.target.shape_length_m", shape_name
-        )
+        radius_m = _require_positive(params, "source.target.shape_radius_m", shape_name)
+        length_m = _require_positive(params, "source.target.shape_length_m", shape_name)
         built = Cylinder(
             radius_m=radius_m,
             length_m=length_m,
             orientation_rad=orientation,
         )
     elif shape_name == "flat_plate":
-        length_m = _require_positive(
-            params, "source.target.shape_length_m", shape_name
-        )
-        width_m = _require_positive(
-            params, "source.target.shape_width_m", shape_name
-        )
+        length_m = _require_positive(params, "source.target.shape_length_m", shape_name)
+        width_m = _require_positive(params, "source.target.shape_width_m", shape_name)
         built = FlatPlate(
             length_m=length_m,
             width_m=width_m,
             orientation_rad=orientation,
         )
     elif shape_name == "box":
-        length_m = _require_positive(
-            params, "source.target.shape_length_m", shape_name
-        )
-        width_m = _require_positive(
-            params, "source.target.shape_width_m", shape_name
-        )
-        height_m = _require_positive(
-            params, "source.target.shape_height_m", shape_name
-        )
+        length_m = _require_positive(params, "source.target.shape_length_m", shape_name)
+        width_m = _require_positive(params, "source.target.shape_width_m", shape_name)
+        height_m = _require_positive(params, "source.target.shape_height_m", shape_name)
         built = Box(
             length_m=length_m,
             width_m=width_m,
@@ -140,12 +117,8 @@ def build_shape(params: ParameterSet) -> TargetShape | None:
             orientation_rad=orientation,
         )
     elif shape_name == "cone":
-        base_radius_m = _require_positive(
-            params, "source.target.shape_base_radius_m", shape_name
-        )
-        height_m = _require_positive(
-            params, "source.target.shape_height_m", shape_name
-        )
+        base_radius_m = _require_positive(params, "source.target.shape_base_radius_m", shape_name)
+        height_m = _require_positive(params, "source.target.shape_height_m", shape_name)
         built = Cone(
             base_radius_m=base_radius_m,
             height_m=height_m,

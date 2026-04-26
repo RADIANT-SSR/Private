@@ -602,13 +602,8 @@ def _rebuild_from_plain_dict(d: Any, cls: type) -> Any:
                 kwargs[f.name] = SpectralData.from_dict(raw)
             elif isinstance(raw, dict) and "__scalar__" in raw:
                 kwargs[f.name] = raw["__scalar__"]
-            elif (
-                isinstance(raw, dict)
-                and raw.get("__class__") == "ScalarLambertianReflectance"
-            ):
-                kwargs[f.name] = _rebuild_from_plain_dict(
-                    raw, ScalarLambertianReflectance
-                )
+            elif isinstance(raw, dict) and raw.get("__class__") == "ScalarLambertianReflectance":
+                kwargs[f.name] = _rebuild_from_plain_dict(raw, ScalarLambertianReflectance)
             else:
                 kwargs[f.name] = raw
         return cls(**kwargs)
@@ -906,9 +901,7 @@ def test_t6_raise_missing_L_t_source() -> None:
 @pytest.mark.level0
 def test_t6_raise_at_aperture_rejected() -> None:
     """T6 rejects at_aperture — that is T5's domain."""
-    with pytest.raises(
-        ParameterBoundsError, match=r"at_aperture.*not supported"
-    ):
+    with pytest.raises(ParameterBoundsError, match=r"at_aperture.*not supported"):
         T6TabulatedAtSource(
             scene_type="extended",
             target_location="at_aperture",
@@ -926,9 +919,7 @@ def test_t6_raise_negative_radiance() -> None:
         unit="W/m^2/sr/um",
         source="test_t6",
     )
-    with pytest.raises(
-        ParameterBoundsError, match=r"negative or empty"
-    ):
+    with pytest.raises(ParameterBoundsError, match=r"negative or empty"):
         T6TabulatedAtSource(
             scene_type="extended",
             target_location="terrestrial",

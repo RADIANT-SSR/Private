@@ -24,7 +24,9 @@ def _make_state(wl: np.ndarray) -> ChainState:
     state = ChainState(wavelength_um=wl)
     L = np.ones_like(wl) * 2.0  # W/m²/sr/µm
     frame = RadiometricFrame(
-        name="at_aperture", wavelength_um=wl, spectral_radiance=L,
+        name="at_aperture",
+        wavelength_um=wl,
+        spectral_radiance=L,
     )
     return state.with_frame(frame)
 
@@ -119,7 +121,8 @@ class TestCrossPathConsistency:
 
     @staticmethod
     def _pixel_sinc_mtf(
-        freq_m: np.ndarray, pixel_pitch_m: float,
+        freq_m: np.ndarray,
+        pixel_pitch_m: float,
     ) -> np.ndarray:
         """Pixel aperture MTF = |sinc(f * pitch)|."""
         return np.abs(np.sinc(freq_m * pixel_pitch_m))

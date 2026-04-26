@@ -64,9 +64,7 @@ class TestScalarLambertianReflectance:
     @pytest.mark.level0
     def test_returns_rho_independent_of_geometry(self) -> None:
         rho_val = 0.3
-        adapter = ScalarLambertianReflectance(
-            reflectance=_make_rho_spectral(rho_val)
-        )
+        adapter = ScalarLambertianReflectance(reflectance=_make_rho_spectral(rho_val))
 
         # Same ρ regardless of view / illumination vectors.
         r_on_axis = adapter.reflectance_at(_WL_VIS, _VIEW, _ILLUM)
@@ -76,9 +74,7 @@ class TestScalarLambertianReflectance:
             np.asarray([0.0, 1.0, 0.0], dtype=np.float64),
         )
 
-        np.testing.assert_allclose(
-            r_on_axis, np.full_like(_WL_VIS, rho_val), rtol=0, atol=1e-12
-        )
+        np.testing.assert_allclose(r_on_axis, np.full_like(_WL_VIS, rho_val), rtol=0, atol=1e-12)
         np.testing.assert_array_equal(r_on_axis, r_off_axis)
 
     @pytest.mark.level0
@@ -88,9 +84,7 @@ class TestScalarLambertianReflectance:
         r = adapter.reflectance_at(lam_q, _VIEW, _ILLUM)
         assert r.shape == lam_q.shape
         # Flat ρ = 0.5 must survive resample exactly (up to fp noise).
-        np.testing.assert_allclose(
-            r, np.full_like(lam_q, 0.5), rtol=0, atol=1e-12
-        )
+        np.testing.assert_allclose(r, np.full_like(lam_q, 0.5), rtol=0, atol=1e-12)
 
     @pytest.mark.level0
     def test_satisfies_protocol(self) -> None:
@@ -139,9 +133,7 @@ class TestLambertianBRDFProtocol:
         brdf = LambertianBRDF(reflectance=rho)
         r = brdf.reflectance_at(_WL_VIS, _VIEW, _ILLUM)
         # Protocol returns ρ (dimensionless), NOT ρ/π (BRDF in sr⁻¹).
-        np.testing.assert_allclose(
-            r, np.full_like(_WL_VIS, rho), rtol=0, atol=1e-12
-        )
+        np.testing.assert_allclose(r, np.full_like(_WL_VIS, rho), rtol=0, atol=1e-12)
         # And the evaluate() path (sr⁻¹) still returns ρ/π.
         brdf_sr = brdf.evaluate(_WL_VIS)
         np.testing.assert_allclose(
@@ -170,16 +162,12 @@ class TestPhongBRDFProtocol:
     @pytest.mark.level1
     def test_reflectance_at_returns_total_rho(self) -> None:
         rho = 0.5
-        brdf = PhongBRDF(
-            reflectance=rho, specular_fraction=0.3, phong_exponent=10.0
-        )
+        brdf = PhongBRDF(reflectance=rho, specular_fraction=0.3, phong_exponent=10.0)
         r = brdf.reflectance_at(_WL_VIS, _VIEW, _ILLUM)
         # Phong.reflectance_at exposes TOTAL hemispherical ρ (ρ_d + ρ_s = ρ),
         # not the angle-resolved BRDF.  The split between ρ_d and ρ_s lives
         # in the BRDF.evaluate path.
-        np.testing.assert_allclose(
-            r, np.full_like(_WL_VIS, rho), rtol=0, atol=1e-12
-        )
+        np.testing.assert_allclose(r, np.full_like(_WL_VIS, rho), rtol=0, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------

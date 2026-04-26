@@ -34,18 +34,18 @@ class TestNollIndexing:
     """Verify Noll-to-(n,m) mapping matches standard convention."""
 
     EXPECTED = {
-        1: (0, 0),    # piston
-        2: (1, 1),    # tilt x
-        3: (1, -1),   # tilt y
-        4: (2, 0),    # defocus
-        5: (2, -2),   # astigmatism 45 deg
-        6: (2, 2),    # astigmatism 0 deg
-        7: (3, -1),   # coma y
-        8: (3, 1),    # coma x
-        9: (3, -3),   # trefoil y
-        10: (3, 3),   # trefoil x
-        11: (4, 0),   # spherical
-        12: (4, 2),   # secondary astigmatism
+        1: (0, 0),  # piston
+        2: (1, 1),  # tilt x
+        3: (1, -1),  # tilt y
+        4: (2, 0),  # defocus
+        5: (2, -2),  # astigmatism 45 deg
+        6: (2, 2),  # astigmatism 0 deg
+        7: (3, -1),  # coma y
+        8: (3, 1),  # coma x
+        9: (3, -3),  # trefoil y
+        10: (3, 3),  # trefoil x
+        11: (4, 0),  # spherical
+        12: (4, 2),  # secondary astigmatism
         13: (4, -2),
         14: (4, 4),
         15: (4, -4),
@@ -136,8 +136,7 @@ class TestOrthogonality:
             for k in range(j + 1, n_zern):
                 cross = float(np.sum(polys[j][mask] * polys[k][mask])) * dx**2
                 assert abs(cross) < 0.05, (
-                    f"Z{j+1} x Z{k+1} cross-integral = {cross:.4f}, "
-                    f"expected ~0"
+                    f"Z{j + 1} x Z{k + 1} cross-integral = {cross:.4f}, expected ~0"
                 )
 
 

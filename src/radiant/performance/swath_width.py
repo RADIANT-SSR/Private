@@ -1,6 +1,6 @@
 """Swath width — ground footprint of the detector cross-track extent.
 
-    swath = n_pixels_cross × GSD_cross
+swath = n_pixels_cross × GSD_cross
 """
 
 from __future__ import annotations

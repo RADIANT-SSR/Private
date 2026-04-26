@@ -79,17 +79,13 @@ class TestClearCircularAperture:
 
     @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
-    def test_1d_matches_psf_fft(
-        self, config: PSFSamplingConfig, axis: str
-    ) -> None:
+    def test_1d_matches_psf_fft(self, config: PSFSamplingConfig, axis: str) -> None:
         """1-D slice from autocorrelation ≈ 1-D slice from FFT(PSF)."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
         phase = np.zeros((config.pupil_npix, config.pupil_npix))
 
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
-        freq_auto, mtf_auto = pupil_autocorrelation_mtf_1d(
-            mtf_2d, config.focal_spacing_m, axis
-        )
+        freq_auto, mtf_auto = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, axis)
 
         psf = compute_psf(config)
         epsf = build_effective_psf(
@@ -121,9 +117,7 @@ class TestClearCircularAperture:
 
     @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
-    def test_symmetric_for_clear_aperture(
-        self, config: PSFSamplingConfig, axis: str
-    ) -> None:
+    def test_symmetric_for_clear_aperture(self, config: PSFSamplingConfig, axis: str) -> None:
         """Clear circular aperture is symmetric → x and y slices match."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
         phase = np.zeros((config.pupil_npix, config.pupil_npix))
@@ -147,16 +141,12 @@ class TestObscuredAperture:
 
     @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
-    def test_matches_psf_fft(
-        self, config: PSFSamplingConfig, axis: str
-    ) -> None:
+    def test_matches_psf_fft(self, config: PSFSamplingConfig, axis: str) -> None:
         amplitude = make_pupil_amplitude(config.pupil_npix, self.OBSCURATION)
         phase = np.zeros((config.pupil_npix, config.pupil_npix))
 
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
-        freq_auto, mtf_auto = pupil_autocorrelation_mtf_1d(
-            mtf_2d, config.focal_spacing_m, axis
-        )
+        freq_auto, mtf_auto = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, axis)
 
         psf = compute_psf(config, obscuration_ratio=self.OBSCURATION)
         epsf = build_effective_psf(
@@ -192,9 +182,7 @@ class TestZernikeWFE:
 
     @pytest.mark.level1
     @pytest.mark.parametrize("axis", ["x", "y"])
-    def test_matches_psf_fft(
-        self, config: PSFSamplingConfig, axis: str
-    ) -> None:
+    def test_matches_psf_fft(self, config: PSFSamplingConfig, axis: str) -> None:
         amplitude = make_pupil_amplitude(config.pupil_npix)
         phase = make_pupil_phase_zernike(
             config.pupil_npix,
@@ -204,9 +192,7 @@ class TestZernikeWFE:
         )
 
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
-        _, mtf_auto = pupil_autocorrelation_mtf_1d(
-            mtf_2d, config.focal_spacing_m, axis
-        )
+        _, mtf_auto = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, axis)
 
         wfe = WavefrontError(
             mode=WfeMode.ZERNIKE,
@@ -291,20 +277,14 @@ class TestPolychromaticPupilMTF:
     """Tests for polychromatic pupil autocorrelation MTF."""
 
     @pytest.mark.level1
-    def test_single_wavelength_matches_mono(
-        self, config: PSFSamplingConfig
-    ) -> None:
+    def test_single_wavelength_matches_mono(self, config: PSFSamplingConfig) -> None:
         """Polychromatic with 1 wavelength = monochromatic result."""
         amplitude = make_pupil_amplitude(config.pupil_npix)
         phase = np.zeros((config.pupil_npix, config.pupil_npix))
 
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
-        _, mtf_mono_x = pupil_autocorrelation_mtf_1d(
-            mtf_2d, config.focal_spacing_m, "x"
-        )
-        _, mtf_mono_y = pupil_autocorrelation_mtf_1d(
-            mtf_2d, config.focal_spacing_m, "y"
-        )
+        _, mtf_mono_x = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, "x")
+        _, mtf_mono_y = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, "y")
 
         freq_poly, mtf_poly_x, mtf_poly_y = polychromatic_pupil_mtf(
             wavelengths_m=np.array([WAVELENGTH_M]),
@@ -317,20 +297,14 @@ class TestPolychromaticPupilMTF:
         )
 
         # Interpolate mono onto poly's grid for comparison.
-        freq_mono = np.arange(len(mtf_mono_x)) / (
-            config.padded_npix * config.focal_spacing_m
-        )
+        freq_mono = np.arange(len(mtf_mono_x)) / (config.padded_npix * config.focal_spacing_m)
         mtf_mono_x_interp = np.interp(freq_poly, freq_mono, mtf_mono_x, right=0.0)
         mtf_mono_y_interp = np.interp(freq_poly, freq_mono, mtf_mono_y, right=0.0)
 
         # Where both have signal, they should match closely.
         mask = mtf_mono_x_interp > 0.01
-        np.testing.assert_allclose(
-            mtf_poly_x[mask], mtf_mono_x_interp[mask], atol=1e-4
-        )
-        np.testing.assert_allclose(
-            mtf_poly_y[mask], mtf_mono_y_interp[mask], atol=1e-4
-        )
+        np.testing.assert_allclose(mtf_poly_x[mask], mtf_mono_x_interp[mask], atol=1e-4)
+        np.testing.assert_allclose(mtf_poly_y[mask], mtf_mono_y_interp[mask], atol=1e-4)
 
     @pytest.mark.level1
     @pytest.mark.parametrize("axis_idx", [0, 1], ids=["x", "y"])
@@ -376,9 +350,7 @@ class TestPolychromaticPupilMTF:
 
         # Compare where both have significant values.
         mask = (mtf_auto > 0.01) & (mtf_psf_interp > 0.01)
-        np.testing.assert_allclose(
-            mtf_auto[mask], mtf_psf_interp[mask], atol=5e-3
-        )
+        np.testing.assert_allclose(mtf_auto[mask], mtf_psf_interp[mask], atol=5e-3)
 
     @pytest.mark.level1
     def test_dc_equals_one(self) -> None:

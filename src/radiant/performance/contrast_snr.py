@@ -47,8 +47,7 @@ def compute_contrast_snr(state: ChainState) -> SNRResult:
             signal_e=0.0,
             noise_e=0.0,
             failure_reason=(
-                "No contrast_e available. Run SpectralIntegrationStage "
-                "and ReadoutStage first."
+                "No contrast_e available. Run SpectralIntegrationStage and ReadoutStage first."
             ),
         )
 

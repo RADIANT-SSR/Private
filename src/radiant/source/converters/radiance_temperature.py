@@ -48,9 +48,7 @@ def _grey_epsilon(wavelength_um: np.ndarray) -> SpectralData:
         wavelength_um=lam,
         values=np.ones_like(lam),
         unit="",
-        source=(
-            "source.converters.radiance_temperature (ε≡1; T_R supplied)"
-        ),
+        source=("source.converters.radiance_temperature (ε≡1; T_R supplied)"),
     )
 
 
@@ -68,9 +66,7 @@ def _validate_inputs(
         )
     if T_R_K <= _T_R_MIN_K:
         raise ParameterBoundsError(
-            what=(
-                f"radiance_temperature: T_R = {T_R_K} K is non-positive"
-            ),
+            what=(f"radiance_temperature: T_R = {T_R_K} K is non-positive"),
             why=(
                 "T1Thermal requires T_t > 0 K for Planck emission; T_R "
                 "represents an absolute temperature."
@@ -80,10 +76,7 @@ def _validate_inputs(
         )
     if T_R_K > _T_R_MAX_K:
         raise ParameterBoundsError(
-            what=(
-                f"radiance_temperature: T_R = {T_R_K} K exceeds "
-                f"{_T_R_MAX_K} K ceiling"
-            ),
+            what=(f"radiance_temperature: T_R = {T_R_K} K exceeds {_T_R_MAX_K} K ceiling"),
             why=(
                 "T_R > 10 000 K is non-physical for RADIANT targets and "
                 "typically indicates a unit error (°C vs K)."
@@ -95,10 +88,7 @@ def _validate_inputs(
     lo, hi = float(band_um[0]), float(band_um[1])
     if lo <= 0.0 or hi <= 0.0:
         raise ParameterBoundsError(
-            what=(
-                f"radiance_temperature: band = ({lo}, {hi}) µm has "
-                "non-positive edges"
-            ),
+            what=(f"radiance_temperature: band = ({lo}, {hi}) µm has non-positive edges"),
             why="Wavelengths must be strictly positive for Planck's law.",
             action="Supply band edges in µm with 0 < λ_lo < λ_hi.",
             context={"band_um": (lo, hi)},
@@ -169,10 +159,7 @@ def radiance_temperature_to_descriptor(
     """
     if target_location == "at_aperture":
         raise ParameterBoundsError(
-            what=(
-                "radiance_temperature: target_location='at_aperture' is "
-                "not supported"
-            ),
+            what=("radiance_temperature: target_location='at_aperture' is not supported"),
             why=(
                 "At-aperture (S9) specifies radiance already at the "
                 "sensor aperture; there is no up-leg transport for T_R "

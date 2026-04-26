@@ -505,15 +505,11 @@ class TestT3Kirchhoff:
         # All four pre-τ branches must be individually non-negative and
         # their τ_up-weighted sum + path_up must equal ``total``.
         reconstructed = (
-            (
-                comps.self_emission
-                + comps.direct_solar
-                + comps.diffuse_sky_scattered
-                + comps.diffuse_sky_thermal
-            )
-            * comps.tau_up_factor
-            + comps.path_up
-        )
+            comps.self_emission
+            + comps.direct_solar
+            + comps.diffuse_sky_scattered
+            + comps.diffuse_sky_thermal
+        ) * comps.tau_up_factor + comps.path_up
         np.testing.assert_allclose(comps.total, reconstructed, rtol=1e-14, atol=0.0)
         # MWIR mixed: T3 with sun up has all three non-path branches > 0.
         assert np.all(comps.self_emission > 0.0)
@@ -709,7 +705,10 @@ class TestT6Assembly:
 
         expected = L_src_vals * atm.tau_up + atm.L_path_up
         np.testing.assert_allclose(
-            L_aperture, expected, rtol=1e-14, atol=0.0,
+            L_aperture,
+            expected,
+            rtol=1e-14,
+            atol=0.0,
         )
 
     @pytest.mark.level1
@@ -729,7 +728,10 @@ class TestT6Assembly:
         L_aperture = assemble_target_at_aperture(target, atm, los)
 
         np.testing.assert_allclose(
-            L_aperture, L_src_vals, rtol=1e-14, atol=0.0,
+            L_aperture,
+            L_src_vals,
+            rtol=1e-14,
+            atol=0.0,
         )
 
     @pytest.mark.level1
@@ -746,21 +748,27 @@ class TestT6Assembly:
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
 
         comp = assemble_target_at_aperture(
-            target, atm, los, report_components=True,
+            target,
+            atm,
+            los,
+            report_components=True,
         )
 
         np.testing.assert_allclose(comp.self_emission, L_src_vals)
         np.testing.assert_allclose(comp.direct_solar, np.zeros_like(self.WL))
         np.testing.assert_allclose(
-            comp.diffuse_sky_scattered, np.zeros_like(self.WL),
+            comp.diffuse_sky_scattered,
+            np.zeros_like(self.WL),
         )
         np.testing.assert_allclose(
-            comp.diffuse_sky_thermal, np.zeros_like(self.WL),
+            comp.diffuse_sky_thermal,
+            np.zeros_like(self.WL),
         )
         np.testing.assert_allclose(comp.tau_up_factor, atm.tau_up)
         np.testing.assert_allclose(comp.path_up, atm.L_path_up)
         np.testing.assert_allclose(
-            comp.total, L_src_vals * atm.tau_up + atm.L_path_up,
+            comp.total,
+            L_src_vals * atm.tau_up + atm.L_path_up,
         )
 
     @pytest.mark.level1
@@ -781,7 +789,8 @@ class TestT6Assembly:
         )
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
         with pytest.raises(
-            ParameterBoundsError, match=r"grid does not match",
+            ParameterBoundsError,
+            match=r"grid does not match",
         ):
             assemble_target_at_aperture(target, atm, los)
 
@@ -795,7 +804,8 @@ class TestT6Assembly:
             L_t_source=self._L_source(np.ones_like(self.WL)),
         )
         with pytest.raises(
-            ParameterBoundsError, match=r"requires a LineOfSightGeometry",
+            ParameterBoundsError,
+            match=r"requires a LineOfSightGeometry",
         ):
             assemble_target_at_aperture(target, atm, None)
 
@@ -816,9 +826,7 @@ class _SpyReflectanceDescriptor:
 
     def __init__(self, rho_value: float) -> None:
         self.rho_value = float(rho_value)
-        self.calls: list[
-            tuple[np.ndarray, np.ndarray, np.ndarray]
-        ] = []
+        self.calls: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
 
     def reflectance_at(
         self,
@@ -894,13 +902,9 @@ class TestGapH2_ViewIllumFromLOS:
 
         np.testing.assert_array_equal(wl, self.WL)
 
-        expected_view = np.array(
-            [math.sin(theta_o), 0.0, math.cos(theta_o)], dtype=np.float64
-        )
+        expected_view = np.array([math.sin(theta_o), 0.0, math.cos(theta_o)], dtype=np.float64)
         np.testing.assert_allclose(view_dir, expected_view, rtol=0.0, atol=1e-15)
-        np.testing.assert_allclose(
-            float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15
-        )
+        np.testing.assert_allclose(float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15)
 
         expected_illum = np.array(
             [
@@ -911,16 +915,12 @@ class TestGapH2_ViewIllumFromLOS:
             dtype=np.float64,
         )
         np.testing.assert_allclose(illum_dir, expected_illum, rtol=0.0, atol=1e-15)
-        np.testing.assert_allclose(
-            float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15
-        )
+        np.testing.assert_allclose(float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15)
 
     @pytest.mark.level1
     def test_theta_s_none_sends_zero_illumination(self) -> None:
         """theta_s=None ⇒ illum_dir is the zero vector (formal placeholder)."""
-        los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=math.radians(10.0), theta_s=None
-        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=math.radians(10.0), theta_s=None)
         spy = _SpyReflectanceDescriptor(rho_value=0.3)
         target = T2Reflective(
             scene_type="extended",
@@ -934,9 +934,7 @@ class TestGapH2_ViewIllumFromLOS:
         _wl, view_dir, illum_dir = spy.calls[0]
 
         # View dir still well-defined.
-        np.testing.assert_allclose(
-            float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15
-        )
+        np.testing.assert_allclose(float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15)
         # Illum dir is the zero vector.
         np.testing.assert_array_equal(illum_dir, np.zeros(3, dtype=np.float64))
 
@@ -944,9 +942,7 @@ class TestGapH2_ViewIllumFromLOS:
     def test_delta_phi_none_defaults_to_zero(self) -> None:
         """delta_phi=None ⇒ illum_dir has zero y-component (φ_s = 0)."""
         theta_s = math.radians(45.0)
-        los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, theta_s=theta_s, delta_phi=None
-        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=theta_s, delta_phi=None)
         spy = _SpyReflectanceDescriptor(rho_value=0.3)
         target = T2Reflective(
             scene_type="extended",
@@ -957,18 +953,14 @@ class TestGapH2_ViewIllumFromLOS:
         assemble_target_at_aperture(target, self._atm(), los)
 
         _wl, _view_dir, illum_dir = spy.calls[0]
-        expected = np.array(
-            [math.sin(theta_s), 0.0, math.cos(theta_s)], dtype=np.float64
-        )
+        expected = np.array([math.sin(theta_s), 0.0, math.cos(theta_s)], dtype=np.float64)
         np.testing.assert_allclose(illum_dir, expected, rtol=0.0, atol=1e-15)
 
     @pytest.mark.level1
     def test_components_path_also_passes_los_vectors(self) -> None:
         """report_components=True threads LOS into _components_t2 too."""
         theta_s = math.radians(60.0)
-        los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, theta_s=theta_s, delta_phi=0.0
-        )
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=theta_s, delta_phi=0.0)
         spy = _SpyReflectanceDescriptor(rho_value=0.3)
         target = T2Reflective(
             scene_type="extended",
@@ -979,12 +971,8 @@ class TestGapH2_ViewIllumFromLOS:
         assemble_target_at_aperture(target, self._atm(), los, report_components=True)
         assert len(spy.calls) == 1
         _wl, view_dir, illum_dir = spy.calls[0]
-        np.testing.assert_allclose(
-            float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15
-        )
-        np.testing.assert_allclose(
-            float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15
-        )
+        np.testing.assert_allclose(float(np.linalg.norm(view_dir)), 1.0, rtol=0.0, atol=1e-15)
+        np.testing.assert_allclose(float(np.linalg.norm(illum_dir)), 1.0, rtol=0.0, atol=1e-15)
 
     @pytest.mark.level1
     def test_spy_result_matches_scalar_lambertian_bit_identical(self) -> None:

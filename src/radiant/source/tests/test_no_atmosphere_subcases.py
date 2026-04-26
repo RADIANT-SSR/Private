@@ -209,8 +209,8 @@ class TestSpaceSubcaseFailures:
                 target=target,
                 background=ColdSpaceBackground(),
                 los=los,
-                h_sensor=0.0,            # default sentinel
-                h_sensor_user_set=False, # provenance = DEFAULT
+                h_sensor=0.0,  # default sentinel
+                h_sensor_user_set=False,  # provenance = DEFAULT
             )
 
     @pytest.mark.level1
@@ -259,7 +259,7 @@ class TestSpaceSubcaseFailures:
                 scene_type="extended",
                 target_location="no_atmosphere",
                 no_atmosphere_subcase="space",
-                h_tgt=400_000.0,   # 400 km target
+                h_tgt=400_000.0,  # 400 km target
                 epsilon=_grey_sd(wl, 0.98),
                 T_t=285.0,
             )
@@ -275,7 +275,7 @@ class TestSpaceSubcaseFailures:
                 target=target,
                 background=ColdSpaceBackground(),
                 los=los,
-                h_sensor=100_000.0,   # sensor below target
+                h_sensor=100_000.0,  # sensor below target
                 h_sensor_user_set=True,
             )
 
@@ -337,7 +337,7 @@ class TestGroundTestSubcaseSmoke:
                 no_atmosphere_subcase="ground_test",
                 h_tgt=0.0,
                 epsilon=_grey_sd(wl, 0.96),
-                T_t=320.0,   # hot target on test range
+                T_t=320.0,  # hot target on test range
             )
         bg = _user_lbg(wl, L_value=1.2)  # user test-range background
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
@@ -347,7 +347,7 @@ class TestGroundTestSubcaseSmoke:
             target=target,
             background=bg,
             los=los,
-            h_sensor=None,   # not required for ground_test
+            h_sensor=None,  # not required for ground_test
             h_sensor_user_set=False,
         )
         L_t = assemble_target_at_aperture(target, atm, los)
@@ -454,7 +454,7 @@ class TestLabTestSubcaseSmoke:
                 no_atmosphere_subcase="lab_test",
                 h_tgt=0.0,
                 epsilon=_grey_sd(wl, 0.999),  # BB standard ε ≈ 1
-                T_t=310.0,                    # calibration temperature
+                T_t=310.0,  # calibration temperature
             )
         # Dark cal: chamber wall radiance at ambient; user supplies it.
         bg = _user_lbg(wl, L_value=0.3)
@@ -491,7 +491,7 @@ class TestLabTestSubcaseSmoke:
         los = LineOfSightGeometry(
             h_tgt=0.0,
             theta_o=0.0,
-            theta_s=None,        # dark cal: no illumination
+            theta_s=None,  # dark cal: no illumination
             delta_phi=None,
         )
         atm = _minimal_exo_bundle(wl, los)

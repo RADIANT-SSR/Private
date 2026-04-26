@@ -292,9 +292,7 @@ def _infer_los(
     return LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)
 
 
-def _view_direction_from_los(
-    params: ParameterSet, target_location: str
-) -> np.ndarray:
+def _view_direction_from_los(params: ParameterSet, target_location: str) -> np.ndarray:
     """Return the target→observer unit 3-vector in the target scene frame.
 
     The shape protocol (``TargetShape.projected_area``) expects a unit
@@ -329,9 +327,7 @@ def _view_direction_from_los(
         theta_o = 0.0
     if theta_o >= math.pi / 2.0:
         theta_o = math.pi / 2.0 - 1e-9
-    return np.array(
-        [math.sin(theta_o), 0.0, math.cos(theta_o)], dtype=np.float64
-    )
+    return np.array([math.sin(theta_o), 0.0, math.cos(theta_o)], dtype=np.float64)
 
 
 # ---------------------------------------------------------------------------
@@ -405,9 +401,7 @@ def _resample_dimensionless_on_grid(
     return np.asarray(np.interp(lam, src_wl, src_vals), dtype=np.float64)
 
 
-def _validate_rho_csv(
-    rho_values: np.ndarray, *, csv_path: str
-) -> None:
+def _validate_rho_csv(rho_values: np.ndarray, *, csv_path: str) -> None:
     """Raise on ρ outside ``[0, 1]`` at the CSV boundary (Rule 15).
 
     Mirrors :func:`reflectance._validate_rho` but reports the source
@@ -415,33 +409,20 @@ def _validate_rho_csv(
     """
     if rho_values.size == 0:
         raise ParameterBoundsError(
-            what=(
-                "reflectance_path: CSV produced zero-sample SpectralData"
-            ),
-            why=(
-                "The converter needs at least one (λ, ρ) pair to emit "
-                "a descriptor."
-            ),
-            action=(
-                "Populate the CSV with at least two (wavelength_um, "
-                "reflectance) rows."
-            ),
+            what=("reflectance_path: CSV produced zero-sample SpectralData"),
+            why=("The converter needs at least one (λ, ρ) pair to emit a descriptor."),
+            action=("Populate the CSV with at least two (wavelength_um, reflectance) rows."),
             context={"path": csv_path},
         )
     if np.any(rho_values < 0.0):
         bad = float(rho_values.min())
         raise ParameterBoundsError(
-            what=(
-                f"reflectance_path: rho = {bad} is negative in CSV "
-                f"{csv_path}"
-            ),
+            what=(f"reflectance_path: rho = {bad} is negative in CSV {csv_path}"),
             why=(
                 "Reflectance is a dimensionless fraction in [0, 1]; "
                 "negative values have no physical interpretation."
             ),
-            action=(
-                "Correct the CSV rows so every rho value is ≥ 0."
-            ),
+            action=("Correct the CSV rows so every rho value is ≥ 0."),
             context={
                 "path": csv_path,
                 "min_rho": bad,
@@ -451,10 +432,7 @@ def _validate_rho_csv(
     if np.any(rho_values > 1.0):
         bad = float(rho_values.max())
         raise ParameterBoundsError(
-            what=(
-                f"reflectance_path: rho = {bad} exceeds 1.0 in CSV "
-                f"{csv_path}"
-            ),
+            what=(f"reflectance_path: rho = {bad} exceeds 1.0 in CSV {csv_path}"),
             why=(
                 "Reflectance > 1 violates energy conservation "
                 "(reflected power cannot exceed incident power for a "
@@ -476,9 +454,7 @@ _T_B_CSV_MIN_K: float = 0.0
 _T_B_CSV_MAX_K: float = 10_000.0
 
 
-def _validate_T_B_csv(
-    T_B_values: np.ndarray, *, csv_path: str
-) -> None:
+def _validate_T_B_csv(T_B_values: np.ndarray, *, csv_path: str) -> None:
     """Raise on T_B outside ``(0, 10000]`` K at the CSV boundary (Rule 15).
 
     Mirrors the converter's private ``_validate_T_B`` but reports the
@@ -488,35 +464,23 @@ def _validate_T_B_csv(
     """
     if T_B_values.size == 0:
         raise ParameterBoundsError(
-            what=(
-                "brightness_temperature_path: CSV produced zero-sample "
-                "SpectralData"
-            ),
-            why=(
-                "The converter needs at least one (λ, T_B) pair to emit "
-                "a descriptor."
-            ),
+            what=("brightness_temperature_path: CSV produced zero-sample SpectralData"),
+            why=("The converter needs at least one (λ, T_B) pair to emit a descriptor."),
             action=(
-                "Populate the CSV with at least two (wavelength_um, "
-                "brightness_temperature) rows."
+                "Populate the CSV with at least two (wavelength_um, brightness_temperature) rows."
             ),
             context={"path": csv_path},
         )
     if np.any(T_B_values < _T_B_CSV_MIN_K):
         bad = float(T_B_values.min())
         raise ParameterBoundsError(
-            what=(
-                f"brightness_temperature_path: T_B = {bad} K is negative "
-                f"in CSV {csv_path}"
-            ),
+            what=(f"brightness_temperature_path: T_B = {bad} K is negative in CSV {csv_path}"),
             why=(
                 "Brightness temperature is an equivalent absolute "
                 "temperature; negative values have no Planck "
                 "interpretation."
             ),
-            action=(
-                f"Set every T_B value ≥ {_T_B_CSV_MIN_K} K in the CSV."
-            ),
+            action=(f"Set every T_B value ≥ {_T_B_CSV_MIN_K} K in the CSV."),
             context={
                 "path": csv_path,
                 "min_T_B_K": bad,
@@ -535,10 +499,7 @@ def _validate_T_B_csv(
                 "(solar effective T ≈ 5778 K).  Values this large are "
                 "typically a unit error (°C vs K) or input scale bug."
             ),
-            action=(
-                "Verify units (canonical K, not °C) and the T_B CSV "
-                "column values."
-            ),
+            action=("Verify units (canonical K, not °C) and the T_B CSV column values."),
             context={
                 "path": csv_path,
                 "max_T_B_K": bad,
@@ -636,14 +597,9 @@ def _maybe_build_from_brightness_temperature(
         no silent extrapolation).
     """
     t_b_k_rv = params.get_resolved("source.target.brightness_temperature_K")
-    t_b_path_rv = params.get_resolved(
-        "source.target.brightness_temperature_path"
-    )
+    t_b_path_rv = params.get_resolved("source.target.brightness_temperature_path")
     t_b_k_user = t_b_k_rv.provenance is not Provenance.DEFAULT
-    t_b_path_user = (
-        t_b_path_rv.provenance is not Provenance.DEFAULT
-        and bool(t_b_path_rv.value)
-    )
+    t_b_path_user = t_b_path_rv.provenance is not Provenance.DEFAULT and bool(t_b_path_rv.value)
 
     if not t_b_k_user and not t_b_path_user:
         return None
@@ -690,12 +646,8 @@ def _maybe_build_from_brightness_temperature(
                 "brightness_temperature_* to use the legacy (ε, T) form."
             ),
             context={
-                "temperature_set": _is_user_set(
-                    params, "source.target.temperature"
-                ),
-                "emissivity_set": _is_user_set(
-                    params, "source.target.emissivity"
-                ),
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
             },
         )
 
@@ -716,9 +668,7 @@ def _maybe_build_from_brightness_temperature(
                 "for S11, or user_radiance_path for S8 (direct radiance)."
             ),
             context={
-                "user_radiance_path": params.get_resolved(
-                    "source.target.user_radiance_path"
-                ).value,
+                "user_radiance_path": params.get_resolved("source.target.user_radiance_path").value,
             },
         )
 
@@ -769,18 +719,12 @@ def _maybe_build_from_brightness_temperature(
                 "reflection (T2), or temperature+emissivity for mixed (T3)."
             ),
             context={
-                "reflectance_set": _is_user_set(
-                    params, "source.target.reflectance"
-                ),
-                "albedo_set": _is_user_set(
-                    params, "source.target.albedo"
-                ),
+                "reflectance_set": _is_user_set(params, "source.target.reflectance"),
+                "albedo_set": _is_user_set(params, "source.target.albedo"),
             },
         )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(
-        params, target_location
-    )
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
 
     # Tabulated T_B(λ) via CSV (S11 brightness_temperature_path).
     # Gap G Step G.3: load native grid, validate T_B ∈ (0, 10000] K at the
@@ -807,10 +751,7 @@ def _maybe_build_from_brightness_temperature(
             wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
             values=T_B_on_grid,
             unit="K",
-            source=(
-                f"source.converters.brightness_temperature "
-                f"(CSV → chain grid: {csv_path})"
-            ),
+            source=(f"source.converters.brightness_temperature (CSV → chain grid: {csv_path})"),
         )
         return brightness_temperature_to_descriptor(
             T_B=T_B,
@@ -836,9 +777,7 @@ def _maybe_build_from_brightness_temperature(
             dtype=np.float64,
         ),
         unit="K",
-        source=(
-            "source.target.brightness_temperature_K (scalar lift; S11)"
-        ),
+        source=("source.target.brightness_temperature_K (scalar lift; S11)"),
     )
 
     return brightness_temperature_to_descriptor(
@@ -871,12 +810,8 @@ def _maybe_build_from_radiance_temperature(
     and ``ε ≡ 1``.  Implementation plan Step 2.2.
     """
     t_r_rv = params.get_resolved("source.target.radiance_temperature_K")
-    lo_rv = params.get_resolved(
-        "source.target.radiance_temperature_band_lo_um"
-    )
-    hi_rv = params.get_resolved(
-        "source.target.radiance_temperature_band_hi_um"
-    )
+    lo_rv = params.get_resolved("source.target.radiance_temperature_band_lo_um")
+    hi_rv = params.get_resolved("source.target.radiance_temperature_band_hi_um")
     t_r_user = t_r_rv.provenance is not Provenance.DEFAULT
 
     if not t_r_user:
@@ -926,12 +861,8 @@ def _maybe_build_from_radiance_temperature(
                 "T_R to use the legacy (ε, T) form."
             ),
             context={
-                "temperature_set": _is_user_set(
-                    params, "source.target.temperature"
-                ),
-                "emissivity_set": _is_user_set(
-                    params, "source.target.emissivity"
-                ),
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
             },
         )
 
@@ -953,9 +884,7 @@ def _maybe_build_from_radiance_temperature(
                 "radiance)."
             ),
             context={
-                "user_radiance_path": params.get_resolved(
-                    "source.target.user_radiance_path"
-                ).value,
+                "user_radiance_path": params.get_resolved("source.target.user_radiance_path").value,
             },
         )
 
@@ -1006,18 +935,12 @@ def _maybe_build_from_radiance_temperature(
                 "reflection (T2), or temperature+emissivity for mixed (T3)."
             ),
             context={
-                "reflectance_set": _is_user_set(
-                    params, "source.target.reflectance"
-                ),
-                "albedo_set": _is_user_set(
-                    params, "source.target.albedo"
-                ),
+                "reflectance_set": _is_user_set(params, "source.target.reflectance"),
+                "albedo_set": _is_user_set(params, "source.target.albedo"),
             },
         )
 
-    if _is_user_set(
-        params, "source.target.brightness_temperature_K"
-    ) or _is_user_set(
+    if _is_user_set(params, "source.target.brightness_temperature_K") or _is_user_set(
         params, "source.target.brightness_temperature_path"
     ):
         raise ParameterBoundsError(
@@ -1036,21 +959,15 @@ def _maybe_build_from_radiance_temperature(
                 "band-averaged T_R."
             ),
             context={
-                "T_B_K_set": _is_user_set(
-                    params, "source.target.brightness_temperature_K"
-                ),
-                "T_B_path_set": _is_user_set(
-                    params, "source.target.brightness_temperature_path"
-                ),
+                "T_B_K_set": _is_user_set(params, "source.target.brightness_temperature_K"),
+                "T_B_path_set": _is_user_set(params, "source.target.brightness_temperature_path"),
             },
         )
 
     T_R_K = float(t_r_rv.value)
     band = (float(lo_rv.value), float(hi_rv.value))
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(
-        params, target_location
-    )
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
     return radiance_temperature_to_descriptor(
         T_R_K=T_R_K,
         band_um=band,
@@ -1089,14 +1006,8 @@ def _maybe_build_from_reflectance(
 
     rho_user = rho_rv.provenance is not Provenance.DEFAULT
     alb_user = alb_rv.provenance is not Provenance.DEFAULT
-    rho_path_user = (
-        rho_path_rv.provenance is not Provenance.DEFAULT
-        and bool(rho_path_rv.value)
-    )
-    alb_path_user = (
-        alb_path_rv.provenance is not Provenance.DEFAULT
-        and bool(alb_path_rv.value)
-    )
+    rho_path_user = rho_path_rv.provenance is not Provenance.DEFAULT and bool(rho_path_rv.value)
+    alb_path_user = alb_path_rv.provenance is not Provenance.DEFAULT and bool(alb_path_rv.value)
 
     any_user = rho_user or alb_user or rho_path_user or alb_path_user
     if not any_user:
@@ -1129,12 +1040,8 @@ def _maybe_build_from_reflectance(
                 "the legacy (ε, T) → T3Mixed path."
             ),
             context={
-                "temperature_set": _is_user_set(
-                    params, "source.target.temperature"
-                ),
-                "emissivity_set": _is_user_set(
-                    params, "source.target.emissivity"
-                ),
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
             },
         )
 
@@ -1156,9 +1063,7 @@ def _maybe_build_from_reflectance(
                 "user_radiance_path for direct radiance (S8)."
             ),
             context={
-                "user_radiance_path": params.get_resolved(
-                    "source.target.user_radiance_path"
-                ).value,
+                "user_radiance_path": params.get_resolved("source.target.user_radiance_path").value,
             },
         )
 
@@ -1223,21 +1128,15 @@ def _maybe_build_from_reflectance(
             },
         )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(
-        params, target_location
-    )
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
 
     # Tabulated ρ(λ) via CSV (S5 reflectance_path / S6 albedo_path).
     # Gap G Step G.2: load native grid, validate bounds at the boundary,
     # resample onto the chain grid with hard out-of-grid / monotonicity
     # guards (Rule 17: no silent extrapolation), then dispatch.
     if rho_path_user or alb_path_user:
-        csv_path = str(
-            rho_path_rv.value if rho_path_user else alb_path_rv.value
-        )
-        rho_native = load_reflectance_csv(
-            csv_path, is_albedo=alb_path_user
-        )
+        csv_path = str(rho_path_rv.value if rho_path_user else alb_path_rv.value)
+        rho_native = load_reflectance_csv(csv_path, is_albedo=alb_path_user)
         # Boundary guard (Rule 16): validate native ρ ∈ [0, 1] BEFORE
         # resampling — catches bad rows at the CSV boundary with the
         # source path in context.
@@ -1253,10 +1152,7 @@ def _maybe_build_from_reflectance(
             wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
             values=rho_on_grid,
             unit="dimensionless",
-            source=(
-                f"source.converters.reflectance (CSV → chain grid: "
-                f"{csv_path})"
-            ),
+            source=(f"source.converters.reflectance (CSV → chain grid: {csv_path})"),
         )
         return reflectance_to_descriptor(
             rho=rho_sd,
@@ -1315,10 +1211,7 @@ def _maybe_build_from_user_radiance(
     fast-path candidate.
     """
     path_rv = params.get_resolved("source.target.user_radiance_path")
-    path_user = (
-        path_rv.provenance is not Provenance.DEFAULT
-        and bool(path_rv.value)
-    )
+    path_user = path_rv.provenance is not Provenance.DEFAULT and bool(path_rv.value)
     if not path_user:
         return None
 
@@ -1343,12 +1236,8 @@ def _maybe_build_from_user_radiance(
                 "user_radiance_path to use the legacy (ε, T) form."
             ),
             context={
-                "temperature_set": _is_user_set(
-                    params, "source.target.temperature"
-                ),
-                "emissivity_set": _is_user_set(
-                    params, "source.target.emissivity"
-                ),
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
             },
         )
 
@@ -1388,16 +1277,12 @@ def _maybe_build_from_user_radiance(
     # CSV entry surfaces as a ParameterBoundsError with actionable
     # context, not as the ValueError that TabulatedRadianceSource
     # raises for the same condition.
-    _validate_L_t_source(
-        np.asarray(L_native.values, dtype=np.float64)
-    )
+    _validate_L_t_source(np.asarray(L_native.values, dtype=np.float64))
 
     # Resample onto the chain grid via TabulatedRadianceSource (owns
     # the interpolation contract; extrapolation outside the native
     # grid raises).
-    tabulated = TabulatedRadianceSource(
-        radiance_data=L_native, name="source.target.user_radiance"
-    )
+    tabulated = TabulatedRadianceSource(radiance_data=L_native, name="source.target.user_radiance")
     lam = np.asarray(wavelength_um, dtype=np.float64)
     L_on_grid = tabulated.spectral_radiance(lam)
 
@@ -1406,15 +1291,10 @@ def _maybe_build_from_user_radiance(
         wavelength_um=lam,
         values=L_on_grid,
         unit="W/m^2/sr/um",
-        source=(
-            f"source.converters.user_radiance (CSV → chain grid: "
-            f"{csv_path})"
-        ),
+        source=(f"source.converters.user_radiance (CSV → chain grid: {csv_path})"),
     )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(
-        params, target_location
-    )
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
     return user_radiance_to_descriptor(
         L_t_source=L_sd,
         scene_type=scene_type,  # type: ignore[arg-type]
@@ -1453,10 +1333,7 @@ def _maybe_build_from_user_intensity(
     candidate.
     """
     path_rv = params.get_resolved("source.target.user_intensity_path")
-    path_user = (
-        path_rv.provenance is not Provenance.DEFAULT
-        and bool(path_rv.value)
-    )
+    path_user = path_rv.provenance is not Provenance.DEFAULT and bool(path_rv.value)
     if not path_user:
         return None
 
@@ -1481,12 +1358,8 @@ def _maybe_build_from_user_intensity(
                 "user_intensity_path to use the legacy (ε, T) form."
             ),
             context={
-                "temperature_set": _is_user_set(
-                    params, "source.target.temperature"
-                ),
-                "emissivity_set": _is_user_set(
-                    params, "source.target.emissivity"
-                ),
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
             },
         )
 
@@ -1500,9 +1373,7 @@ def _maybe_build_from_user_intensity(
     # Boundary guard (Rule 15): validate native values here so a negative
     # CSV entry surfaces as a ParameterBoundsError before the grid
     # resample or descriptor construction.
-    _validate_I_t_source(
-        np.asarray(I_native.values, dtype=np.float64)
-    )
+    _validate_I_t_source(np.asarray(I_native.values, dtype=np.float64))
 
     # Resample onto the chain grid via linear interpolation.  Extrapolation
     # outside the native grid raises below by checking the bounds up
@@ -1540,10 +1411,7 @@ def _maybe_build_from_user_intensity(
         wavelength_um=lam,
         values=np.asarray(I_on_grid, dtype=np.float64),
         unit="W/sr/um",
-        source=(
-            f"source.converters.user_intensity (CSV → chain grid: "
-            f"{csv_path})"
-        ),
+        source=(f"source.converters.user_intensity (CSV → chain grid: {csv_path})"),
     )
 
     return user_intensity_to_descriptor(
@@ -1788,10 +1656,7 @@ def _build_background_descriptor(
         # Unknown sub-case — the descriptor constructor already rejects
         # these; this arm is defensive.
         raise ParameterBoundsError(  # pragma: no cover
-            what=(
-                f"source._inferrer: unknown no_atmosphere_subcase="
-                f"{no_atmosphere_subcase!r}"
-            ),
+            what=(f"source._inferrer: unknown no_atmosphere_subcase={no_atmosphere_subcase!r}"),
             why="Valid sub-cases are 'space', 'ground_test', 'lab_test'.",
             action="Set no_atmosphere_subcase to one of the three values.",
             context={"no_atmosphere_subcase": no_atmosphere_subcase},
@@ -1815,13 +1680,9 @@ def _build_background_descriptor(
         if t_user_set or e_user_set:
             fields = []
             if t_user_set:
-                fields.append(
-                    f"source.background.temperature = {bg_t_rv.value} K"
-                )
+                fields.append(f"source.background.temperature = {bg_t_rv.value} K")
             if e_user_set:
-                fields.append(
-                    f"source.background.emissivity = {bg_e_rv.value}"
-                )
+                fields.append(f"source.background.emissivity = {bg_e_rv.value}")
             warnings.warn(
                 (
                     "source._inferrer: extended terrestrial/airborne scene "
@@ -2007,13 +1868,9 @@ def descriptors_to_params(
         # Grey emissivity is a constant array; pull the first sample.
         if target.epsilon is not None and target.epsilon.values.size > 0:
             d["source.target.emissivity"] = float(target.epsilon.values[0])
-        d["source.target.projected_area_m2"] = (
-            float(target.A_t) if target.A_t is not None else 0.0
-        )
+        d["source.target.projected_area_m2"] = float(target.A_t) if target.A_t is not None else 0.0
     elif isinstance(target, T2Reflective):
-        d["source.target.projected_area_m2"] = (
-            float(target.A_t) if target.A_t is not None else 0.0
-        )
+        d["source.target.projected_area_m2"] = float(target.A_t) if target.A_t is not None else 0.0
     elif isinstance(target, T5AtAperture):
         # At-aperture: no target params round-trip.
         pass

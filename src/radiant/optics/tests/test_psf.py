@@ -288,9 +288,7 @@ def _make_rect_kernel(npix: int, width_pix: int) -> np.ndarray:
 
 
 @pytest.fixture()
-def epsf_diffraction_only(
-    optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
-) -> EffectivePSF:
+def epsf_diffraction_only(optical_psf: np.ndarray, epsf_config: PSFSamplingConfig) -> EffectivePSF:
     """EffectivePSF with no degradation kernels."""
     return build_effective_psf(
         optical_psf,
@@ -302,9 +300,7 @@ def epsf_diffraction_only(
 
 
 @pytest.fixture()
-def epsf_with_detector(
-    optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
-) -> EffectivePSF:
+def epsf_with_detector(optical_psf: np.ndarray, epsf_config: PSFSamplingConfig) -> EffectivePSF:
     """EffectivePSF with detector aperture kernel."""
     n = optical_psf.shape[0]
     detector_k = _make_rect_kernel(
@@ -320,9 +316,7 @@ def epsf_with_detector(
 
 
 @pytest.fixture()
-def epsf_with_motion(
-    optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
-) -> EffectivePSF:
+def epsf_with_motion(optical_psf: np.ndarray, epsf_config: PSFSamplingConfig) -> EffectivePSF:
     """EffectivePSF with detector + motion (Gaussian jitter)."""
     n = optical_psf.shape[0]
     detector_k = _make_rect_kernel(
@@ -402,9 +396,7 @@ class TestInvariant3Parseval:
 
 class TestInvariant4OrderIndependence:
     @pytest.mark.level1
-    def test_abc_equals_cba(
-        self, optical_psf: np.ndarray, epsf_config: PSFSamplingConfig
-    ) -> None:
+    def test_abc_equals_cba(self, optical_psf: np.ndarray, epsf_config: PSFSamplingConfig) -> None:
         n = optical_psf.shape[0]
         k_a = _make_rect_kernel(n, 3)
         k_b = _make_gaussian_kernel(n, 2.0)
@@ -414,16 +406,18 @@ class TestInvariant4OrderIndependence:
         epsf_abc = build_effective_psf(
             optical_psf,
             [("A", k_a), ("B", k_b), ("C", k_c)],
-            dx, PIXEL_PITCH_M, WAVELENGTH_M * 1e6,
+            dx,
+            PIXEL_PITCH_M,
+            WAVELENGTH_M * 1e6,
         )
         epsf_cba = build_effective_psf(
             optical_psf,
             [("C", k_c), ("B", k_b), ("A", k_a)],
-            dx, PIXEL_PITCH_M, WAVELENGTH_M * 1e6,
+            dx,
+            PIXEL_PITCH_M,
+            WAVELENGTH_M * 1e6,
         )
-        np.testing.assert_allclose(
-            epsf_abc.data, epsf_cba.data, atol=1e-10
-        )
+        np.testing.assert_allclose(epsf_abc.data, epsf_cba.data, atol=1e-10)
 
 
 # ---------------------------------------------------------------------------
@@ -473,7 +467,9 @@ class TestInvariant6MTFBudgetConsistency:
         epsf = build_effective_psf(
             optical_psf,
             [("det", k_det), ("jitter", k_jitter)],
-            dx, PIXEL_PITCH_M, WAVELENGTH_M * 1e6,
+            dx,
+            PIXEL_PITCH_M,
+            WAVELENGTH_M * 1e6,
         )
 
         # MTF from the EffectivePSF (single FFT of convolved PSF).
@@ -522,9 +518,7 @@ class TestInvariant6MTFBudgetConsistency:
 
 class TestInvariant7Strehl:
     @pytest.mark.level1
-    def test_unaberrated_strehl_is_one(
-        self, epsf_diffraction_only: EffectivePSF
-    ) -> None:
+    def test_unaberrated_strehl_is_one(self, epsf_diffraction_only: EffectivePSF) -> None:
         strehl = epsf_diffraction_only.strehl(epsf_diffraction_only)
         assert strehl == pytest.approx(1.0, rel=1e-10)
 

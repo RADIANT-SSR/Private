@@ -29,7 +29,9 @@ class TestBlackbodyIntensitySource:
         A = 0.01  # 100 cm²
         eps = 0.9
         src = BlackbodyIntensitySource(
-            temperature_K=T, projected_area_m2=A, emissivity=eps,
+            temperature_K=T,
+            projected_area_m2=A,
+            emissivity=eps,
         )
         intensity = src.spectral_intensity(WAV)
         expected = A * eps * planck_spectral_radiance(WAV, T)
@@ -51,7 +53,9 @@ class TestBlackbodyIntensitySource:
         T = 500.0
         eps = 0.8
         src = BlackbodyIntensitySource(
-            temperature_K=T, projected_area_m2=0.5, emissivity=eps,
+            temperature_K=T,
+            projected_area_m2=0.5,
+            emissivity=eps,
         )
         L = src.spectral_radiance(WAV)
         expected = eps * planck_spectral_radiance(WAV, T)
@@ -78,7 +82,9 @@ class TestBlackbodyIntensitySource:
     def test_emissivity_gt_1_raises(self) -> None:
         with pytest.raises(ValueError, match="emissivity"):
             BlackbodyIntensitySource(
-                temperature_K=500, projected_area_m2=0.01, emissivity=1.5,
+                temperature_K=500,
+                projected_area_m2=0.01,
+                emissivity=1.5,
             )
 
     @pytest.mark.level0
@@ -111,8 +117,11 @@ class TestDirectIntensitySource:
         wl = np.array([2.0, 3.0, 4.0, 5.0, 6.0])
         vals = np.array([10.0, 20.0, 30.0, 20.0, 10.0])
         sd = SpectralData(
-            name="test", wavelength_um=wl, values=vals,
-            unit="W/sr/um", source="test",
+            name="test",
+            wavelength_um=wl,
+            values=vals,
+            unit="W/sr/um",
+            source="test",
         )
         src = DirectIntensitySource(intensity_data=sd)
         result = src.spectral_intensity(np.array([3.5]))
@@ -130,8 +139,11 @@ class TestDirectIntensitySource:
     @pytest.mark.level0
     def test_out_of_range_raises(self) -> None:
         sd = SpectralData(
-            name="narrow", wavelength_um=np.linspace(4.0, 4.5, 10),
-            values=np.ones(10), unit="W/sr/um", source="test",
+            name="narrow",
+            wavelength_um=np.linspace(4.0, 4.5, 10),
+            values=np.ones(10),
+            unit="W/sr/um",
+            source="test",
         )
         src = DirectIntensitySource(intensity_data=sd)
         with pytest.raises(ValueError, match="outside table"):
@@ -140,8 +152,11 @@ class TestDirectIntensitySource:
     @pytest.mark.level0
     def test_negative_values_raises(self) -> None:
         sd = SpectralData(
-            name="bad", wavelength_um=np.linspace(2.0, 6.0, 10),
-            values=np.full(10, -1.0), unit="W/sr/um", source="test",
+            name="bad",
+            wavelength_um=np.linspace(2.0, 6.0, 10),
+            values=np.full(10, -1.0),
+            unit="W/sr/um",
+            source="test",
         )
         with pytest.raises(ValueError, match="non-negative"):
             DirectIntensitySource(intensity_data=sd)
@@ -149,8 +164,11 @@ class TestDirectIntensitySource:
     @pytest.mark.level0
     def test_zero_ref_area_raises(self) -> None:
         sd = SpectralData(
-            name="test", wavelength_um=np.linspace(2.0, 6.0, 10),
-            values=np.ones(10), unit="W/sr/um", source="test",
+            name="test",
+            wavelength_um=np.linspace(2.0, 6.0, 10),
+            values=np.ones(10),
+            unit="W/sr/um",
+            source="test",
         )
         src = DirectIntensitySource(intensity_data=sd)
         with pytest.raises(ValueError, match="reference_area_m2"):

@@ -77,10 +77,12 @@ def _resolved_params(
     params.set("detector.qe_value", 0.55)
     params.set("detector.dark_rate_e_per_s", 1000.0)
     params.set(
-        "spectral_integration.filter_min_um", float(wavelength_um[0]),
+        "spectral_integration.filter_min_um",
+        float(wavelength_um[0]),
     )
     params.set(
-        "spectral_integration.filter_max_um", float(wavelength_um[-1]),
+        "spectral_integration.filter_max_um",
+        float(wavelength_um[-1]),
     )
     params.set("spectral_integration.integration_time_s", 0.015)
     params.set("readout.read_noise_e_rms", 20.0)
@@ -132,8 +134,11 @@ class TestAnchor1_LWIR_limit:
             solar_zenith_rad=math.radians(30.0),  # sun up — worst case for Anchor 1
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=math.radians(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=math.radians(30.0),
+            delta_phi=0.0,
         )
         q = _default_simple().evaluate(self.WL, los, params)
         idx = _nearest_index(self.WL, 10.0)
@@ -181,8 +186,11 @@ class TestAnchor2_VIS_limit:
             solar_zenith_rad=math.radians(30.0),
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=math.radians(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=math.radians(30.0),
+            delta_phi=0.0,
         )
         q = _default_simple().evaluate(self.WL, los, params)
         idx = _nearest_index(self.WL, 0.5)
@@ -231,8 +239,11 @@ class TestAnchor3_MWIR_crossover:
             solar_zenith_rad=math.radians(30.0),
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=math.radians(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=math.radians(30.0),
+            delta_phi=0.0,
         )
         q = _default_simple().evaluate(self.WL, los, params)
         idx = _nearest_index(self.WL, 4.0)
@@ -291,8 +302,11 @@ class TestFragility_HighOpticalDepth:
             solar_zenith_rad=theta_s,
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=theta_s, delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=theta_s,
+            delta_phi=0.0,
         )
         q = atm.evaluate(self.WL, los, params)
 
@@ -327,7 +341,8 @@ class TestFragility_LowSun:
 
     @pytest.mark.level1
     @pytest.mark.parametrize(
-        "theta_s_deg", [85.0, 89.0, 89.99],
+        "theta_s_deg",
+        [85.0, 89.0, 89.99],
     )
     def test_scattered_decreases_as_sun_nears_horizon(self, theta_s_deg: float) -> None:
         theta_s = math.radians(theta_s_deg)
@@ -337,8 +352,11 @@ class TestFragility_LowSun:
             solar_zenith_rad=theta_s,
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=theta_s, delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=theta_s,
+            delta_phi=0.0,
         )
         q = _default_simple().evaluate(self.WL, los, params)
 
@@ -349,8 +367,11 @@ class TestFragility_LowSun:
             solar_zenith_rad=math.radians(30.0),
         )
         ref_los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=math.radians(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=math.radians(30.0),
+            delta_phi=0.0,
         )
         ref_q = _default_simple().evaluate(self.WL, ref_los, ref_params)
 
@@ -360,10 +381,12 @@ class TestFragility_LowSun:
 
     @pytest.mark.level1
     @pytest.mark.parametrize(
-        "theta_s_deg", [90.0, 120.0, 180.0],
+        "theta_s_deg",
+        [90.0, 120.0, 180.0],
     )
     def test_scattered_is_zero_for_sun_at_or_below_horizon(
-        self, theta_s_deg: float,
+        self,
+        theta_s_deg: float,
     ) -> None:
         # At/below-horizon sun: LOS carries the ≥π/2 angle, but the
         # params fallback stays at a safe 0.0 (the ParameterSet bound on
@@ -377,8 +400,11 @@ class TestFragility_LowSun:
             solar_zenith_rad=None,  # rely on LOS; avoid the bounds clash
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=theta_s, delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=theta_s,
+            delta_phi=0.0,
         )
         q = _default_simple().evaluate(self.WL, los, params)
         np.testing.assert_array_equal(q.E_sky_scattered, np.zeros_like(self.WL))
@@ -411,8 +437,11 @@ class TestSumPreservation:
             solar_zenith_rad=math.radians(30.0),
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=math.radians(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=math.radians(30.0),
+            delta_phi=0.0,
         )
         q = _default_simple().evaluate(self.WL, los, params)
 

@@ -245,9 +245,7 @@ class ChainResult:
                 # rather than crashing the provenance render.
                 resolved = {}
             parameter_set = {name: rv.to_dict() for name, rv in resolved.items()}
-            input_file_hashes = [
-                {"path": p, "sha256": h} for p, h in self._params.loaded_files
-            ]
+            input_file_hashes = [{"path": p, "sha256": h} for p, h in self._params.loaded_files]
         else:
             parameter_set = {}
             input_file_hashes = []

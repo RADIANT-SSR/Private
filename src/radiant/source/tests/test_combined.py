@@ -35,7 +35,8 @@ class TestCombinedSource:
         """ε=1 → L = B(λ,T), no reflected component."""
         T = 300.0
         combined = CombinedSource(
-            temperature_K=T, emissivity=1.0,
+            temperature_K=T,
+            emissivity=1.0,
             solar_zenith_rad=0.0,
         )
         thermal = ThermalSource(temperature_K=T, emissivity=1.0)
@@ -48,7 +49,8 @@ class TestCombinedSource:
         """ε=0 → L = (1/π)·E_sun·cosθ (pure reflected Lambertian)."""
         theta = 0.3
         combined = CombinedSource(
-            temperature_K=300.0, emissivity=0.0,
+            temperature_K=300.0,
+            emissivity=0.0,
             solar_zenith_rad=theta,
         )
         reflected = ReflectedSolarSource(
@@ -66,7 +68,8 @@ class TestCombinedSource:
         eps = 0.6
         theta = math.radians(30)
         combined = CombinedSource(
-            temperature_K=T, emissivity=eps,
+            temperature_K=T,
+            emissivity=eps,
             solar_zenith_rad=theta,
         )
         L = combined.spectral_radiance(WAV)
@@ -83,7 +86,8 @@ class TestCombinedSource:
         T = 300.0
         eps = 0.5
         combined = CombinedSource(
-            temperature_K=T, emissivity=eps,
+            temperature_K=T,
+            emissivity=eps,
             solar_zenith_rad=math.pi / 2,
         )
         L = combined.spectral_radiance(WAV)
@@ -96,7 +100,8 @@ class TestCombinedSource:
         T = 400.0
         eps = 0.8
         combined = CombinedSource(
-            temperature_K=T, emissivity=eps,
+            temperature_K=T,
+            emissivity=eps,
             solar_zenith_rad=0.0,
         )
         L_combined = combined.spectral_radiance(WAV)
@@ -110,14 +115,20 @@ class TestCombinedSource:
         T = 300.0
         eps = 0.5
         lamb = CombinedSource(
-            temperature_K=T, emissivity=eps,
-            solar_zenith_rad=0.3, observer_zenith_rad=0.3,
+            temperature_K=T,
+            emissivity=eps,
+            solar_zenith_rad=0.3,
+            observer_zenith_rad=0.3,
             brdf_model="lambertian",
         )
         phong = CombinedSource(
-            temperature_K=T, emissivity=eps,
-            solar_zenith_rad=0.3, observer_zenith_rad=0.3,
-            brdf_model="phong", specular_fraction=0.5, phong_exponent=20,
+            temperature_K=T,
+            emissivity=eps,
+            solar_zenith_rad=0.3,
+            observer_zenith_rad=0.3,
+            brdf_model="phong",
+            specular_fraction=0.5,
+            phong_exponent=20,
         )
         L_lamb = lamb.spectral_radiance(WAV)
         L_phong = phong.spectral_radiance(WAV)
@@ -129,7 +140,8 @@ class TestCombinedSource:
         """Array emissivity works correctly."""
         eps = np.linspace(0.3, 0.9, len(WAV))
         combined = CombinedSource(
-            temperature_K=300.0, emissivity=eps,
+            temperature_K=300.0,
+            emissivity=eps,
             solar_zenith_rad=0.0,
         )
         L = combined.spectral_radiance(WAV)
@@ -141,7 +153,8 @@ class TestCombinedSource:
     def test_negative_temp_raises(self) -> None:
         with pytest.raises(ValueError, match="temperature_K"):
             CombinedSource(
-                temperature_K=-10, emissivity=0.5,
+                temperature_K=-10,
+                emissivity=0.5,
                 solar_zenith_rad=0.0,
             )
 
@@ -149,7 +162,8 @@ class TestCombinedSource:
     def test_emissivity_gt_1_raises(self) -> None:
         with pytest.raises(ValueError, match="emissivity"):
             CombinedSource(
-                temperature_K=300, emissivity=1.1,
+                temperature_K=300,
+                emissivity=1.1,
                 solar_zenith_rad=0.0,
             )
 
@@ -157,7 +171,8 @@ class TestCombinedSource:
     def test_invalid_brdf_model_raises(self) -> None:
         with pytest.raises(ValueError, match="brdf_model"):
             CombinedSource(
-                temperature_K=300, emissivity=0.5,
+                temperature_K=300,
+                emissivity=0.5,
                 solar_zenith_rad=0.0,
                 brdf_model="invalid",
             )
@@ -166,14 +181,16 @@ class TestCombinedSource:
     def test_invalid_zenith_raises(self) -> None:
         with pytest.raises(ValueError, match="solar_zenith_rad"):
             CombinedSource(
-                temperature_K=300, emissivity=0.5,
+                temperature_K=300,
+                emissivity=0.5,
                 solar_zenith_rad=2.0,
             )
 
     @pytest.mark.level0
     def test_frozen(self) -> None:
         src = CombinedSource(
-            temperature_K=300, emissivity=0.5,
+            temperature_K=300,
+            emissivity=0.5,
             solar_zenith_rad=0.0,
         )
         with pytest.raises(AttributeError):
@@ -182,7 +199,8 @@ class TestCombinedSource:
     @pytest.mark.level0
     def test_deterministic(self) -> None:
         src = CombinedSource(
-            temperature_K=300, emissivity=0.5,
+            temperature_K=300,
+            emissivity=0.5,
             solar_zenith_rad=0.3,
         )
         L1 = src.spectral_radiance(WAV)

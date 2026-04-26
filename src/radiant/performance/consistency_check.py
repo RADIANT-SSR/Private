@@ -80,9 +80,7 @@ def check_dual_path_consistency(
             product *= arr
 
         # Interpolate product onto PSF frequency grid for comparison.
-        product_interp = np.interp(
-            freq_psf_mrad, freq_cycles_per_mrad, product, right=0.0
-        )
+        product_interp = np.interp(freq_psf_mrad, freq_cycles_per_mrad, product, right=0.0)
 
         # Compare only the first half (below Nyquist) where both are reliable.
         n_compare = len(freq_psf_mrad) // 2

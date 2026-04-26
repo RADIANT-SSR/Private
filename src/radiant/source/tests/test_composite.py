@@ -34,12 +34,8 @@ class TestCompositeTarget:
         sphere = Sphere(radius_m=1.0)
         comp = CompositeTarget(shapes=(sphere,))
         for v in [VZ, VX]:
-            assert comp.projected_area(v) == pytest.approx(
-                sphere.projected_area(v), rel=1e-12
-            )
-        assert comp.surface_area() == pytest.approx(
-            sphere.surface_area(), rel=1e-12
-        )
+            assert comp.projected_area(v) == pytest.approx(sphere.projected_area(v), rel=1e-12)
+        assert comp.surface_area() == pytest.approx(sphere.surface_area(), rel=1e-12)
 
     @pytest.mark.level0
     def test_two_spheres_add(self) -> None:
@@ -84,7 +80,8 @@ class TestCompositeTarget:
         # Two flat plates: one normal to +Z, one rotated 90° around Y (normal to +X).
         fp1 = FlatPlate(length_m=2.0, width_m=1.0)
         fp2 = FlatPlate(
-            length_m=2.0, width_m=1.0,
+            length_m=2.0,
+            width_m=1.0,
             orientation_rad=(0.0, math.pi / 2, 0.0),
         )
         comp = CompositeTarget(shapes=(fp1, fp2))

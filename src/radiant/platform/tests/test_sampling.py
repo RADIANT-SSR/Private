@@ -141,16 +141,12 @@ class TestPixelApertureMTF2D:
 class TestPixelApertureKernel:
     @pytest.mark.level0
     def test_unit_volume(self) -> None:
-        kernel = pixel_aperture_kernel_1d(
-            npix=65, sample_spacing_m=1e-6, pixel_pitch_m=15e-6
-        )
+        kernel = pixel_aperture_kernel_1d(npix=65, sample_spacing_m=1e-6, pixel_pitch_m=15e-6)
         assert float(kernel.sum()) == pytest.approx(1.0, rel=1e-6)
 
     @pytest.mark.level0
     def test_non_negative(self) -> None:
-        kernel = pixel_aperture_kernel_1d(
-            npix=65, sample_spacing_m=1e-6, pixel_pitch_m=15e-6
-        )
+        kernel = pixel_aperture_kernel_1d(npix=65, sample_spacing_m=1e-6, pixel_pitch_m=15e-6)
         assert np.all(kernel >= 0.0)
 
     @pytest.mark.level0
@@ -195,10 +191,11 @@ class TestPixelApertureCrossModel:
 
         # Simple test signal: Gaussian.
         x = (np.arange(n) - n // 2) * dx
-        signal = np.exp(-x**2 / (2 * (5e-6) ** 2))
+        signal = np.exp(-(x**2) / (2 * (5e-6) ** 2))
 
         # Real-space convolution.
         from scipy.signal import fftconvolve  # type: ignore[import-untyped]
+
         conv_real = fftconvolve(signal, kernel, mode="same")
 
         # Frequency-domain multiplication.

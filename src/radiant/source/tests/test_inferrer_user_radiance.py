@@ -86,12 +86,8 @@ def _user_radiance_params(
     params.set("optics.focal_length_m", 0.60)
     params.set("atmosphere.model", "simple")
     params.set("geometry.sensor_altitude_m", 500.0)
-    params.set(
-        "spectral_integration.filter_min_um", float(wl_um[0])
-    )
-    params.set(
-        "spectral_integration.filter_max_um", float(wl_um[-1])
-    )
+    params.set("spectral_integration.filter_min_um", float(wl_um[0]))
+    params.set("spectral_integration.filter_max_um", float(wl_um[-1]))
     params.set("spectral_integration.integration_time_s", 1e-3)
     params.set("detector.pixel_pitch_x_um", 5.5)
     params.set("detector.pixel_pitch_y_um", 5.5)
@@ -133,9 +129,7 @@ class TestUserRadianceChainRun:
     """
 
     @pytest.mark.level2
-    def test_chain_runs_and_at_aperture_matches_user_radiance(
-        self, tmp_path: Path
-    ) -> None:
+    def test_chain_runs_and_at_aperture_matches_user_radiance(self, tmp_path: Path) -> None:
         L_value = 10.0  # W/m²/sr/µm — well above LWIR blackbody floor
         csv_path = _write_flat_csv(
             tmp_path / "user_radiance.csv",
@@ -166,14 +160,10 @@ class TestUserRadianceChainRun:
         assert np.all(L_ap > 0.0)
 
         # Vacuum transport: L_aperture ≈ L_t_source (no attenuation).
-        np.testing.assert_allclose(
-            L_ap, L_value, rtol=5e-3, atol=0.0
-        )
+        np.testing.assert_allclose(L_ap, L_value, rtol=5e-3, atol=0.0)
 
     @pytest.mark.level1
-    def test_inferrer_emits_T6TabulatedAtSource(
-        self, tmp_path: Path
-    ) -> None:
+    def test_inferrer_emits_T6TabulatedAtSource(self, tmp_path: Path) -> None:
         csv_path = _write_flat_csv(
             tmp_path / "user_radiance.csv",
             wl_um=_WL_LWIR,
@@ -197,9 +187,7 @@ class TestUserRadianceChainRun:
             rtol=1e-12,
             atol=0.0,
         )
-        np.testing.assert_array_equal(
-            target.L_t_source.wavelength_um, _WL_LWIR
-        )
+        np.testing.assert_array_equal(target.L_t_source.wavelength_um, _WL_LWIR)
 
 
 # ---------------------------------------------------------------------------
@@ -240,12 +228,8 @@ class TestConverterPassThrough:
 
         assert isinstance(target, T6TabulatedAtSource)
         assert target.L_t_source is not None
-        np.testing.assert_array_equal(
-            target.L_t_source.values, L_vals
-        )
-        np.testing.assert_array_equal(
-            target.L_t_source.wavelength_um, wl
-        )
+        np.testing.assert_array_equal(target.L_t_source.values, L_vals)
+        np.testing.assert_array_equal(target.L_t_source.wavelength_um, wl)
 
 
 # ---------------------------------------------------------------------------
@@ -306,9 +290,7 @@ class TestCSVLoader:
         )
         sd = load_user_radiance_csv(csv_path)
         np.testing.assert_array_equal(sd.wavelength_um, _WL_LWIR)
-        np.testing.assert_array_equal(
-            sd.values, np.full_like(_WL_LWIR, 3.0)
-        )
+        np.testing.assert_array_equal(sd.values, np.full_like(_WL_LWIR, 3.0))
         assert sd.unit == "W/m^2/sr/um"
 
     @pytest.mark.level1
@@ -338,17 +320,13 @@ class TestCSVLoader:
     def test_single_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "one_row.csv"
         csv_path.write_text("wavelength_um,L\n10.0,5.0\n")
-        with pytest.raises(
-            ParameterBoundsError, match="fewer than 2"
-        ):
+        with pytest.raises(ParameterBoundsError, match="fewer than 2"):
             load_user_radiance_csv(csv_path)
 
     @pytest.mark.level1
     def test_malformed_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "bad.csv"
-        csv_path.write_text(
-            "wavelength_um,L\n10.0,5.0\nnot-a-number,7.0\n"
-        )
+        csv_path.write_text("wavelength_um,L\n10.0,5.0\nnot-a-number,7.0\n")
         with pytest.raises(ParameterBoundsError, match="floats"):
             load_user_radiance_csv(csv_path)
 
@@ -371,9 +349,7 @@ class TestConverterRejections:
             unit="W/m^2/sr/um",
             source="test::negative",
         )
-        with pytest.raises(
-            ParameterBoundsError, match="negative"
-        ):
+        with pytest.raises(ParameterBoundsError, match="negative"):
             user_radiance_to_descriptor(
                 L_t_source=L_sd,
                 scene_type="extended",
@@ -391,9 +367,7 @@ class TestConverterRejections:
             unit="W/m^2/sr/um",
             source="test::at_aperture",
         )
-        with pytest.raises(
-            ParameterBoundsError, match="at_aperture"
-        ):
+        with pytest.raises(ParameterBoundsError, match="at_aperture"):
             user_radiance_to_descriptor(
                 L_t_source=L_sd,
                 scene_type="extended",
@@ -408,80 +382,54 @@ class TestConverterRejections:
 
 class TestInferrerRejections:
     @pytest.mark.level1
-    def test_user_radiance_plus_temperature_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_user_radiance_plus_temperature_raises(self, tmp_path: Path) -> None:
         """S8 + legacy (ε, T) over-specifies the target radiance."""
-        csv_path = _write_flat_csv(
-            tmp_path / "u.csv", wl_um=_WL_LWIR, L_value=3.0
-        )
+        csv_path = _write_flat_csv(tmp_path / "u.csv", wl_um=_WL_LWIR, L_value=3.0)
         params = _user_radiance_params(csv_path, wl_um=_WL_LWIR)
         params.set("source.target.temperature", 300.0)
         params.set("source.target.emissivity", 0.9)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="mutually exclusive"
-        ):
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_LWIR)
 
     @pytest.mark.level1
-    def test_user_radiance_plus_reflectance_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_user_radiance_plus_reflectance_raises(self, tmp_path: Path) -> None:
         """S8 + S4 ρ over-specifies the target radiance."""
-        csv_path = _write_flat_csv(
-            tmp_path / "u.csv", wl_um=_WL_VIS, L_value=3.0
-        )
+        csv_path = _write_flat_csv(tmp_path / "u.csv", wl_um=_WL_VIS, L_value=3.0)
         params = _user_radiance_params(csv_path, wl_um=_WL_VIS)
         params.set("source.target.reflectance", 0.5)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="mutually exclusive"
-        ):
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_VIS)
 
     @pytest.mark.level1
-    def test_user_radiance_plus_brightness_temperature_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_user_radiance_plus_brightness_temperature_raises(self, tmp_path: Path) -> None:
         """S8 + S11 T_B over-specifies the target radiance."""
-        csv_path = _write_flat_csv(
-            tmp_path / "u.csv", wl_um=_WL_LWIR, L_value=3.0
-        )
+        csv_path = _write_flat_csv(tmp_path / "u.csv", wl_um=_WL_LWIR, L_value=3.0)
         params = _user_radiance_params(csv_path, wl_um=_WL_LWIR)
         params.set("source.target.brightness_temperature_K", 290.0)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="mutually exclusive"
-        ):
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_LWIR)
 
     @pytest.mark.level1
-    def test_user_radiance_plus_radiance_temperature_raises(
-        self, tmp_path: Path
-    ) -> None:
+    def test_user_radiance_plus_radiance_temperature_raises(self, tmp_path: Path) -> None:
         """S8 + S12 T_R over-specifies the target radiance."""
-        csv_path = _write_flat_csv(
-            tmp_path / "u.csv", wl_um=_WL_LWIR, L_value=3.0
-        )
+        csv_path = _write_flat_csv(tmp_path / "u.csv", wl_um=_WL_LWIR, L_value=3.0)
         params = _user_radiance_params(csv_path, wl_um=_WL_LWIR)
         params.set("source.target.radiance_temperature_K", 290.0)
         params.set("source.target.radiance_temperature_band_lo_um", 8.0)
         params.set("source.target.radiance_temperature_band_hi_um", 12.0)
         params.resolve()
 
-        with pytest.raises(
-            ParameterBoundsError, match="mutually exclusive"
-        ):
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
             infer_descriptors(params, _WL_LWIR)
 
     @pytest.mark.level1
-    def test_negative_values_in_csv_raise_through_inferrer(
-        self, tmp_path: Path
-    ) -> None:
+    def test_negative_values_in_csv_raise_through_inferrer(self, tmp_path: Path) -> None:
         """Negative L in the CSV surfaces the converter guard at inference."""
         csv_path = tmp_path / "negative.csv"
         lines = ["wavelength_um,L"]
@@ -497,13 +445,9 @@ class TestInferrerRejections:
             infer_descriptors(params, _WL_LWIR)
 
     @pytest.mark.level1
-    def test_missing_csv_raises_actionable_error(
-        self, tmp_path: Path
-    ) -> None:
+    def test_missing_csv_raises_actionable_error(self, tmp_path: Path) -> None:
         """A missing CSV surfaces a Rule-15 actionable error at inference."""
-        params = _user_radiance_params(
-            tmp_path / "does_not_exist.csv", wl_um=_WL_LWIR
-        )
+        params = _user_radiance_params(tmp_path / "does_not_exist.csv", wl_um=_WL_LWIR)
         params.resolve()
 
         with pytest.raises(ParameterBoundsError, match="not found"):

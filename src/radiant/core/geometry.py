@@ -189,15 +189,9 @@ def euler_to_rotation_matrix(
     cp, sp = math.cos(pitch_rad), math.sin(pitch_rad)
     cr, sr = math.cos(roll_rad), math.sin(roll_rad)
 
-    R_z = np.array(
-        [[cy, -sy, 0.0], [sy, cy, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64
-    )
-    R_y = np.array(
-        [[cp, 0.0, sp], [0.0, 1.0, 0.0], [-sp, 0.0, cp]], dtype=np.float64
-    )
-    R_x = np.array(
-        [[1.0, 0.0, 0.0], [0.0, cr, -sr], [0.0, sr, cr]], dtype=np.float64
-    )
+    R_z = np.array([[cy, -sy, 0.0], [sy, cy, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64)
+    R_y = np.array([[cp, 0.0, sp], [0.0, 1.0, 0.0], [-sp, 0.0, cp]], dtype=np.float64)
+    R_x = np.array([[1.0, 0.0, 0.0], [0.0, cr, -sr], [0.0, sr, cr]], dtype=np.float64)
 
     return R_z @ R_y @ R_x
 
@@ -226,9 +220,7 @@ def rotation_matrix_to_euler(
     """
     R = np.asarray(R, dtype=np.float64)
     if R.shape != (3, 3):
-        raise ValueError(
-            f"rotation_matrix_to_euler: R must be (3, 3), got shape {R.shape}."
-        )
+        raise ValueError(f"rotation_matrix_to_euler: R must be (3, 3), got shape {R.shape}.")
 
     det = float(np.linalg.det(R))
     if abs(det - 1.0) > 1e-6:
@@ -402,7 +394,7 @@ class SceneGeometry:
     def ground_range_m(self) -> float:
         """Horizontal distance from observer nadir to target [m].
 
-            ground_range = altitude_difference * tan(look_angle)
+        ground_range = altitude_difference * tan(look_angle)
         """
         return self.altitude_difference_m * math.tan(self.observer.look_angle_rad)
 

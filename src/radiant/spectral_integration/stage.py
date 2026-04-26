@@ -127,8 +127,7 @@ class SpectralIntegrationStage:
             L_aperture_target = state.frames["at_aperture_target"].spectral_radiance
             if L_aperture_target is None:
                 raise ValueError(
-                    "SpectralIntegrationStage: 'at_aperture_target' frame has "
-                    "no spectral_radiance."
+                    "SpectralIntegrationStage: 'at_aperture_target' frame has no spectral_radiance."
                 )
             atm_out = state.stage_outputs["atmosphere"]
             L_path_up = atm_out["L_path"]
@@ -166,8 +165,7 @@ class SpectralIntegrationStage:
             L_aperture_target = state.frames["at_aperture_target"].spectral_radiance
             if L_aperture_target is None:
                 raise ValueError(
-                    "SpectralIntegrationStage: 'at_aperture_target' frame "
-                    "has no spectral_radiance."
+                    "SpectralIntegrationStage: 'at_aperture_target' frame has no spectral_radiance."
                 )
 
             bg_frame = state.frames.get("at_aperture_background")
@@ -238,9 +236,7 @@ class SpectralIntegrationStage:
         # relevant quantity: positive for hot targets, negative for
         # cold targets relative to background.
         bg_frame_c = state.frames.get("at_aperture_background")
-        has_background = (
-            bg_frame_c is not None and bg_frame_c.spectral_radiance is not None
-        )
+        has_background = bg_frame_c is not None and bg_frame_c.spectral_radiance is not None
 
         if regime == RadiometricRegime.POINT_SOURCE:
             # signal_e is already the target-only contribution (no

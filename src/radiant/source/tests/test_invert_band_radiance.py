@@ -28,9 +28,7 @@ class TestForwardIntegralMonotone:
             dtype=np.float64,
         )
         diffs = np.diff(Ls)
-        assert np.all(diffs > 0.0), (
-            f"Band integral not monotone in T: L={Ls}, diffs={diffs}"
-        )
+        assert np.all(diffs > 0.0), f"Band integral not monotone in T: L={Ls}, diffs={diffs}"
 
 
 class TestRoundTripAnchors:
@@ -41,9 +39,7 @@ class TestRoundTripAnchors:
         band = (8.0, 12.0)
         L_band = integrate_planck_over_band(T_true, band)
         T_rec = invert_band_radiance_to_temperature(L_band, band)
-        assert abs(T_rec - T_true) < 1.0e-3, (
-            f"LWIR round-trip: {T_rec} K vs {T_true} K"
-        )
+        assert abs(T_rec - T_true) < 1.0e-3, f"LWIR round-trip: {T_rec} K vs {T_true} K"
 
     @pytest.mark.level0
     def test_anchor_2_MWIR_500K(self) -> None:
@@ -52,9 +48,7 @@ class TestRoundTripAnchors:
         band = (3.0, 5.0)
         L_band = integrate_planck_over_band(T_true, band)
         T_rec = invert_band_radiance_to_temperature(L_band, band)
-        assert abs(T_rec - T_true) < 1.0e-3, (
-            f"MWIR round-trip: {T_rec} K vs {T_true} K"
-        )
+        assert abs(T_rec - T_true) < 1.0e-3, f"MWIR round-trip: {T_rec} K vs {T_true} K"
 
     @pytest.mark.level0
     def test_anchor_3_visible_Wien_2000K(self) -> None:
@@ -64,12 +58,8 @@ class TestRoundTripAnchors:
         L_band = integrate_planck_over_band(
             T_true, band, n_quad=401
         )  # denser grid — Wien curvature
-        T_rec = invert_band_radiance_to_temperature(
-            L_band, band, n_quad=401
-        )
-        assert abs(T_rec - T_true) < 1.0e-3, (
-            f"Wien round-trip: {T_rec} K vs {T_true} K"
-        )
+        T_rec = invert_band_radiance_to_temperature(L_band, band, n_quad=401)
+        assert abs(T_rec - T_true) < 1.0e-3, f"Wien round-trip: {T_rec} K vs {T_true} K"
 
 
 class TestValidation:

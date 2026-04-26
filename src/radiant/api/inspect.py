@@ -108,10 +108,7 @@ def _format_stage(result: ChainResult, stage: str) -> str:
     outputs = result.stage_outputs.get(stage)
     if outputs is None:
         available = list(result.stage_outputs.keys())
-        return (
-            f"Stage '{stage}' not found in result.\n"
-            f"Available stages: {available}"
-        )
+        return f"Stage '{stage}' not found in result.\nAvailable stages: {available}"
     lines: list[str] = [f"stage: {stage}"]
     output_items = sorted(outputs.items())
     for i, (key, val) in enumerate(output_items):

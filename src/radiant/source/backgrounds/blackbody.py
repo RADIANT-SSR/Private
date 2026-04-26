@@ -52,9 +52,7 @@ class BlackbodyBackground:
                 f"[0, 1], got {self.emissivity}"
             )
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return ``ε · B(λ, T)`` [W/m²/sr/µm]."""
         lam = np.asarray(wavelength_um, dtype=np.float64)
         B = planck_spectral_radiance(lam, self.temperature_K)

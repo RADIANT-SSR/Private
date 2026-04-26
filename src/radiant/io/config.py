@@ -142,18 +142,14 @@ def load_config(
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
-            raise ConfigError(
-                f"YAML parse error: {exc}", path=path
-            ) from exc
+            raise ConfigError(f"YAML parse error: {exc}", path=path) from exc
         # Per RADIANT_Master_Architecture.md §C13, provenance must record
         # the SHA-256 of every input file consumed by the run.
         params.record_loaded_file(str(path), hash_file(path))
     elif isinstance(source, dict):
         raw = source
     else:
-        raise ConfigError(
-            f"Expected a file path or dict, got {type(source).__name__}."
-        )
+        raise ConfigError(f"Expected a file path or dict, got {type(source).__name__}.")
 
     if not isinstance(raw, dict):
         raise ConfigError(

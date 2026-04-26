@@ -151,7 +151,10 @@ class TestAnchor1HTgtZeroLimit:
         q_a3 = atm.evaluate(lwir_grid, los_a3, params)
 
         np.testing.assert_allclose(
-            q_a3.tau_up, q_a2.tau_up, rtol=1e-3, atol=0.0,
+            q_a3.tau_up,
+            q_a2.tau_up,
+            rtol=1e-3,
+            atol=0.0,
             err_msg="A3 at h_tgt=1m diverges from A2 beyond the 1e-3 continuity band",
         )
 
@@ -163,15 +166,24 @@ class TestAnchor1HTgtZeroLimit:
         params = _resolved_params(lwir_grid, sensor_altitude_m=20000.0)
         atm = _default_simple()
         los_a2 = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         los_a3 = LineOfSightGeometry(
-            h_tgt=1.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=1.0,
+            theta_o=0.0,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         q_a2 = atm.evaluate(lwir_grid, los_a2, params)
         q_a3 = atm.evaluate(lwir_grid, los_a3, params)
         np.testing.assert_allclose(
-            q_a3.tau_sun, q_a2.tau_sun, rtol=1e-3, atol=0.0,
+            q_a3.tau_sun,
+            q_a2.tau_sun,
+            rtol=1e-3,
+            atol=0.0,
             err_msg="τ_sun discontinuity at h_tgt→0 limit",
         )
 
@@ -184,17 +196,26 @@ class TestAnchor1HTgtZeroLimit:
         params = _resolved_params(vis_grid, sensor_altitude_m=20000.0)
         atm = _default_simple()
         los_a2 = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         los_a3 = LineOfSightGeometry(
-            h_tgt=1.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=1.0,
+            theta_o=0.0,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         q_a2 = atm.evaluate(vis_grid, los_a2, params)
         q_a3 = atm.evaluate(vis_grid, los_a3, params)
         # Both must be > 0 on the VIS grid (sun up, scatter active).
         assert np.any(q_a2.L_path_up > 0.0)
         np.testing.assert_allclose(
-            q_a3.L_path_up, q_a2.L_path_up, rtol=1e-3, atol=1e-8,
+            q_a3.L_path_up,
+            q_a2.L_path_up,
+            rtol=1e-3,
+            atol=1e-8,
             err_msg="L_path_up discontinuity at h_tgt→0 limit",
         )
 
@@ -251,8 +272,11 @@ class TestAnchor2HTgtVacuumLimit:
         params = _resolved_params(vis_grid, sensor_altitude_m=100_000.0)
         atm = _default_simple()
         los = LineOfSightGeometry(
-            h_tgt=99_000.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=99_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         q = atm.evaluate(vis_grid, los, params)
         # Near 99 km the molecular column residual is tiny; at 400 nm
@@ -272,12 +296,18 @@ class TestAnchor2HTgtVacuumLimit:
         params = _resolved_params(vis_grid, sensor_altitude_m=100_000.0)
         atm = _default_simple()
         los_surface = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=0.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         los_airborne = LineOfSightGeometry(
-            h_tgt=99_000.0, theta_o=0.0, h_atm_top=1.0e5,
-            theta_s=np.deg2rad(30.0), delta_phi=0.0,
+            h_tgt=99_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         q_surface = atm.evaluate(vis_grid, los_surface, params)
         q_airborne = atm.evaluate(vis_grid, los_airborne, params)
@@ -303,13 +333,17 @@ class TestAnchor2HTgtVacuumLimit:
         atm = _default_simple()
         los_surface = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
         los_airborne = LineOfSightGeometry(
-            h_tgt=99_000.0, theta_o=0.0, h_atm_top=1.0e5,
+            h_tgt=99_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
         )
         q_surface = atm.evaluate(lwir_grid, los_surface, params)
         q_airborne = atm.evaluate(lwir_grid, los_airborne, params)
         np.testing.assert_allclose(
-            q_airborne.tau_full_up, q_surface.tau_full_up,
-            rtol=1e-6, atol=0.0,
+            q_airborne.tau_full_up,
+            q_surface.tau_full_up,
+            rtol=1e-6,
+            atol=0.0,
             err_msg=(
                 "τ_full_up must be identical for h_tgt=0 and h_tgt=99km — "
                 "it tracks the full ground-to-sensor column independent of "
@@ -366,9 +400,7 @@ class TestAnchor3HandCalculatedOD:
         # Hand calculation.
         h_low, h_high = 10_000.0, 100_000.0
         H = H_MOL_M  # 8000 m
-        col_mol_km = (H / 1000.0) * (
-            math.exp(-h_low / H) - math.exp(-h_high / H)
-        )
+        col_mol_km = (H / 1000.0) * (math.exp(-h_low / H) - math.exp(-h_high / H))
         lam_um = 4.0
         sigma_0 = RAYLEIGH_COEFF_KM * lam_um ** (-RAYLEIGH_EXPONENT)
         od_mol_expected = sigma_0 * col_mol_km
@@ -390,9 +422,7 @@ class TestAnchor3HandCalculatedOD:
         """Hand-compute aerosol column OD and compare to the backend formula."""
         h_low, h_high = 10_000.0, 100_000.0
         H = H_AER_M  # 1200 m
-        col_aer_km = (H / 1000.0) * (
-            math.exp(-h_low / H) - math.exp(-h_high / H)
-        )
+        col_aer_km = (H / 1000.0) * (math.exp(-h_low / H) - math.exp(-h_high / H))
         # The top term at h=100km is exp(-100000/1200) ≈ 2.59e-37 — negligible.
         # col_aer_km = 1.2 · [exp(-10000/1200) - exp(-100000/1200)]
         #            ≈ 1.2 · 2.4037e-4
@@ -433,12 +463,8 @@ class TestAnchor3HandCalculatedOD:
 
         # Hand calc at 4 µm:
         h_low, h_high = 10_000.0, 100_000.0
-        col_mol_km = (H_MOL_M / 1000.0) * (
-            math.exp(-h_low / H_MOL_M) - math.exp(-h_high / H_MOL_M)
-        )
-        col_aer_km = (H_AER_M / 1000.0) * (
-            math.exp(-h_low / H_AER_M) - math.exp(-h_high / H_AER_M)
-        )
+        col_mol_km = (H_MOL_M / 1000.0) * (math.exp(-h_low / H_MOL_M) - math.exp(-h_high / H_MOL_M))
+        col_aer_km = (H_AER_M / 1000.0) * (math.exp(-h_low / H_AER_M) - math.exp(-h_high / H_AER_M))
         sigma_mol = RAYLEIGH_COEFF_KM * 4.0 ** (-RAYLEIGH_EXPONENT)
         sigma_aer = (KOSCHMIEDER / 23.0) * (4.0 / 0.550) ** (-1.3)
 
@@ -493,6 +519,7 @@ class TestFragilityEdgeCases:
         # The backend should surface the underlying parameter error rather
         # than silently returning NaNs.
         from radiant.core.parameters import ParameterBoundsError
+
         with pytest.raises((ParameterBoundsError, ValueError, ZeroDivisionError)):
             atm.evaluate(lwir_grid, los, params)
 

@@ -522,9 +522,7 @@ class SimpleAtmosphere:
         # hard zero rather than a negative number).
         if cos_theta_sun > 0.0:
             l_sun = toa_solar_equivalent_radiance(lam)
-            path_radiance_values = (
-                l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau) / 4.0
-            )
+            path_radiance_values = l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau) / 4.0
             path_radiance_values = np.maximum(path_radiance_values, 0.0)
             path_source = (
                 f"SimpleAtmosphere single-scatter "
@@ -570,8 +568,7 @@ class SimpleAtmosphere:
                 f"aerosol={self.aerosol_type}, pwv_cm={self.precipitable_water_cm})",
                 f"Column-integrated OD: h_low={h_low_m:.0f} m, h_high={h_high_m:.0f} m, "
                 f"airmass={airmass:.4f}",
-                f"col_lengths [km]: mol={col_mol:.4f}, aer={col_aer:.4f}, "
-                f"h2o={col_h2o:.4f}",
+                f"col_lengths [km]: mol={col_mol:.4f}, aer={col_aer:.4f}, h2o={col_h2o:.4f}",
                 f"L_path = L_sun · μ₀ · ω₀ · P(Θ) · (1 − τ); "
                 f"μ₀={cos_theta_sun:.4f}, cos Θ={cos_theta_scatter:.4f}, "
                 f"HG g={HG_ASYMMETRY}",
@@ -623,8 +620,7 @@ class SimpleAtmosphere:
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
             raise ValueError(
-                f"SimpleAtmosphere '{self.name}': wavelength_um must be 1-D, "
-                f"got shape {lam.shape}."
+                f"SimpleAtmosphere '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
             raise ValueError(
@@ -710,12 +706,16 @@ class SimpleAtmosphere:
         # bit-exact at rtol=1e-6.
         if h_tgt == 0.0:
             # Exact legacy path (bit-invariant for the h_tgt=0 anchors).
-            airmass_up = los.path_airmass_up if h_sensor_m >= los.h_atm_top else (
-                AtmosphericGeometry(
-                    sensor_altitude_m=h_sensor_m,
-                    target_altitude_m=0.0,
-                    path_zenith_rad=los.theta_o,
-                ).air_mass()
+            airmass_up = (
+                los.path_airmass_up
+                if h_sensor_m >= los.h_atm_top
+                else (
+                    AtmosphericGeometry(
+                        sensor_altitude_m=h_sensor_m,
+                        target_altitude_m=0.0,
+                        path_zenith_rad=los.theta_o,
+                    ).air_mass()
+                )
             )
         else:
             # A3 partial-column airmass: target→sensor slant through the
@@ -765,11 +765,7 @@ class SimpleAtmosphere:
         col_aer_up = self._column_length_km(h_tgt, h_sensor_m, H_AER_M)
         col_h2o_up = self._column_length_km(h_tgt, h_sensor_m, H_H2O_M)
 
-        od_vert_up = (
-            sigma_mol_0 * col_mol_up
-            + sigma_aer_0 * col_aer_up
-            + sigma_h2o_0 * col_h2o_up
-        )
+        od_vert_up = sigma_mol_0 * col_mol_up + sigma_aer_0 * col_aer_up + sigma_h2o_0 * col_h2o_up
         od_slant_up = od_vert_up * airmass_up
         tau_up = np.exp(-od_slant_up)
 
@@ -779,9 +775,7 @@ class SimpleAtmosphere:
         col_aer_sun = self._column_length_km(h_tgt, los.h_atm_top, H_AER_M)
         col_h2o_sun = self._column_length_km(h_tgt, los.h_atm_top, H_H2O_M)
         od_vert_sun = (
-            sigma_mol_0 * col_mol_sun
-            + sigma_aer_0 * col_aer_sun
-            + sigma_h2o_0 * col_h2o_sun
+            sigma_mol_0 * col_mol_sun + sigma_aer_0 * col_aer_sun + sigma_h2o_0 * col_h2o_sun
         )
         od_slant_sun = od_vert_sun * airmass_sun
         tau_sun = np.exp(-od_slant_sun)
@@ -797,9 +791,7 @@ class SimpleAtmosphere:
             col_aer_full = self._column_length_km(0.0, h_sensor_m, H_AER_M)
             col_h2o_full = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
             od_vert_full = (
-                sigma_mol_0 * col_mol_full
-                + sigma_aer_0 * col_aer_full
-                + sigma_h2o_0 * col_h2o_full
+                sigma_mol_0 * col_mol_full + sigma_aer_0 * col_aer_full + sigma_h2o_0 * col_h2o_full
             )
             od_slant_full = od_vert_full * airmass_up
             tau_full_up = np.exp(-od_slant_full)
@@ -860,13 +852,13 @@ class SimpleAtmosphere:
             )
             cos_theta_scatter = scatter_geom.cos_scattering_angle()
             phase = self._single_scatter_phase_function(
-                cos_theta_scatter, sigma_mol, sigma_aer,
+                cos_theta_scatter,
+                sigma_mol,
+                sigma_aer,
             )
             l_sun = toa_solar_equivalent_radiance(lam)
             # L_path_up uses (1 − τ_up) over the partial column [h_tgt, h_sensor].
-            L_path_vals = (
-                l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau_up) / 4.0
-            )
+            L_path_vals = l_sun * cos_theta_sun * omega0 * phase * (1.0 - tau_up) / 4.0
             L_path_vals = np.maximum(L_path_vals, 0.0)
         else:
             L_path_vals = np.zeros_like(lam)
@@ -909,8 +901,12 @@ class SimpleAtmosphere:
                 )
                 l_sun_full = toa_solar_equivalent_radiance(lam)
                 L_path_full_vals = (
-                    l_sun_full * cos_theta_sun * omega0_full * phase_full
-                    * (1.0 - tau_full_up) / 4.0
+                    l_sun_full
+                    * cos_theta_sun
+                    * omega0_full
+                    * phase_full
+                    * (1.0 - tau_full_up)
+                    / 4.0
                 )
                 L_path_full = np.maximum(L_path_full_vals, 0.0)
             else:
@@ -966,9 +962,7 @@ class SimpleAtmosphere:
         # test, which asserts exact-zero via np.testing.assert_array_equal).
         _COS_HORIZON_TOL = 1.0e-12
         if cos_theta_sun > _COS_HORIZON_TOL:
-            E_sky_scattered = (
-                E_TOA * cos_theta_sun * omega0_up * (1.0 - tau_down_vertical)
-            )
+            E_sky_scattered = E_TOA * cos_theta_sun * omega0_up * (1.0 - tau_down_vertical)
             E_sky_scattered = np.maximum(E_sky_scattered, 0.0)
         else:
             E_sky_scattered = np.zeros_like(lam)

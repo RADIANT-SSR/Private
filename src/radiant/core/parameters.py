@@ -93,31 +93,25 @@ class Provenance(Enum):
 class ParameterDef:
     """Immutable schema definition for a parameter."""
 
-    name: str                                  # dot-path: "sensor.optics.aperture_diameter"
+    name: str  # dot-path: "sensor.optics.aperture_diameter"
     description: str
-    dtype: type                                # float, int, str, bool
-    canonical_unit: str                        # internal unit
-    input_unit: str                            # user-facing unit
-    default: Any | None = None                 # in input_unit; None means required
+    dtype: type  # float, int, str, bool
+    canonical_unit: str  # internal unit
+    input_unit: str  # user-facing unit
+    default: Any | None = None  # in input_unit; None means required
     bounds: tuple[float, float] | None = None  # in input_unit
     enum_values: tuple[str, ...] | None = None
-    group: str | None = None                   # consistency group name
+    group: str | None = None  # consistency group name
     tags: frozenset[str] = frozenset()
     default_justification: str = ""
 
     def __post_init__(self) -> None:
         if self.dtype not in (float, int, str, bool):
-            raise ValueError(
-                f"ParameterDef '{self.name}': dtype must be float, int, str, or bool"
-            )
+            raise ValueError(f"ParameterDef '{self.name}': dtype must be float, int, str, or bool")
         if self.enum_values is not None and self.dtype is not str:
-            raise ValueError(
-                f"ParameterDef '{self.name}': enum_values requires dtype=str"
-            )
+            raise ValueError(f"ParameterDef '{self.name}': enum_values requires dtype=str")
         if self.bounds is not None and self.dtype not in (float, int):
-            raise ValueError(
-                f"ParameterDef '{self.name}': bounds requires numeric dtype"
-            )
+            raise ValueError(f"ParameterDef '{self.name}': bounds requires numeric dtype")
 
 
 # ---------------------------------------------------------------------------
@@ -192,16 +186,14 @@ class ResolvedValue:
     """A parameter value after resolution, carrying full provenance."""
 
     name: str
-    value: Any                              # canonical unit
-    input_value: Any                        # input unit (as user provided / display)
+    value: Any  # canonical unit
+    input_value: Any  # input unit (as user provided / display)
     canonical_unit: str
     input_unit: str
     provenance: Provenance
-    source: str                             # human-readable origin
+    source: str  # human-readable origin
     derived_from: dict[str, Any] | None = None
-    timestamp: str = field(
-        default_factory=lambda: _dt.datetime.now(_dt.UTC).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: _dt.datetime.now(_dt.UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -333,9 +325,7 @@ class ParameterSet:
 
         # Stage 1: collect explicit inputs (validate type, bounds, enum)
         for name, (raw_value, prov, src) in self._inputs.items():
-            self._resolved[name] = self._validate_and_convert(
-                name, raw_value, prov, src
-            )
+            self._resolved[name] = self._validate_and_convert(name, raw_value, prov, src)
 
         # Stage 2: fixed-point iteration over consistency groups
         # Repeat until no new values are derived or max passes reached.
@@ -367,9 +357,7 @@ class ParameterSet:
                 unresolvable.extend(unset)
             elif n_unset == n_total:
                 # Completely unresolved — cycle with no entry point if all required
-                all_required = all(
-                    self._defs[p].default is None for p in unset
-                )
+                all_required = all(self._defs[p].default is None for p in unset)
                 if all_required:
                     unresolvable.extend(unset)
         if unresolvable:
@@ -423,9 +411,7 @@ class ParameterSet:
         elif pdef.dtype is int:
             value = int(raw_value)
             if float(value) != float(raw_value):
-                raise ValueError(
-                    f"Parameter '{name}' expects int, got non-integer {raw_value}"
-                )
+                raise ValueError(f"Parameter '{name}' expects int, got non-integer {raw_value}")
         elif pdef.dtype is bool:
             if not isinstance(raw_value, bool):
                 raise ValueError(
@@ -441,8 +427,7 @@ class ParameterSet:
             str_value = str(value)
             if str_value not in pdef.enum_values:
                 raise ValueError(
-                    f"Parameter '{name}' = {value!r}; "
-                    f"must be one of {list(pdef.enum_values)}"
+                    f"Parameter '{name}' = {value!r}; must be one of {list(pdef.enum_values)}"
                 )
 
         # Bounds check (in input units)
@@ -450,8 +435,7 @@ class ParameterSet:
             lo, hi = pdef.bounds
             if not (lo <= value <= hi):
                 raise ValueError(
-                    f"Parameter '{name}' = {value} out of bounds [{lo}, {hi}] "
-                    f"({pdef.input_unit})"
+                    f"Parameter '{name}' = {value} out of bounds [{lo}, {hi}] ({pdef.input_unit})"
                 )
 
         # Unit conversion to canonical
@@ -505,9 +489,7 @@ class ParameterSet:
             missing = unset_params[0]
             known = {p: self._resolved[p].value for p in set_params}
             if missing not in group.derivations:
-                raise ValueError(
-                    f"Group '{group.name}': no derivation rule for '{missing}'"
-                )
+                raise ValueError(f"Group '{group.name}': no derivation rule for '{missing}'")
             derived_value = group.derivations[missing](known)
             pdef = self._defs[missing]
             input_value = (
@@ -593,9 +575,7 @@ class ParameterSet:
         return {
             "radiant_version": radiant_version,
             "resolved_at": _dt.datetime.now(_dt.UTC).isoformat(),
-            "parameters": {
-                name: rv.to_dict() for name, rv in self._resolved.items()
-            },
+            "parameters": {name: rv.to_dict() for name, rv in self._resolved.items()},
         }
 
     # -- Monte Carlo support -------------------------------------------------

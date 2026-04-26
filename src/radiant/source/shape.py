@@ -29,9 +29,7 @@ class TargetShape(Protocol):
     positive dot product with the view direction.
     """
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """Projected area [m²] as seen from view_direction.
 
         Parameters

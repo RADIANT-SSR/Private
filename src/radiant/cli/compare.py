@@ -14,7 +14,10 @@ from radiant.cli._common import load_sensor
 @click.argument("config1", type=click.Path(exists=True, dir_okay=False))
 @click.argument("config2", type=click.Path(exists=True, dir_okay=False))
 @click.option(
-    "--output", "output_path", type=click.Path(), default=None,
+    "--output",
+    "output_path",
+    type=click.Path(),
+    default=None,
     help="Save comparison to JSON.",
 )
 def compare(config1: str, config2: str, output_path: str | None) -> None:
@@ -36,13 +39,10 @@ def compare(config1: str, config2: str, output_path: str | None) -> None:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
-    all_metrics = sorted(
-        set(result1.metrics.keys()) | set(result2.metrics.keys())
-    )
+    all_metrics = sorted(set(result1.metrics.keys()) | set(result2.metrics.keys()))
 
     click.echo(
-        f"{'Metric':>20s}  {'Config 1':>12s}  {'Config 2':>12s}  "
-        f"{'Delta':>12s}  {'%Change':>10s}"
+        f"{'Metric':>20s}  {'Config 1':>12s}  {'Config 2':>12s}  {'Delta':>12s}  {'%Change':>10s}"
     )
     click.echo("-" * 70)
 
@@ -52,9 +52,7 @@ def compare(config1: str, config2: str, output_path: str | None) -> None:
         v2 = result2.metrics.get(name, float("nan"))
         delta = v2 - v1
         pct = (delta / v1 * 100.0) if v1 != 0.0 else float("nan")
-        click.echo(
-            f"{name:>20s}  {v1:12.4f}  {v2:12.4f}  {delta:+12.4f}  {pct:+9.1f}%"
-        )
+        click.echo(f"{name:>20s}  {v1:12.4f}  {v2:12.4f}  {delta:+12.4f}  {pct:+9.1f}%")
         comparison[name] = {"config1": v1, "config2": v2, "delta": delta, "pct_change": pct}
 
     if output_path is not None:

@@ -171,9 +171,7 @@ class TestGeometry:
             range_m=10000.0,
         )
         assert rt.input_path == TargetInputPath.GEOMETRY
-        assert rt.projected_area_m2 == pytest.approx(
-            math.pi * 0.25, rel=1e-12
-        )
+        assert rt.projected_area_m2 == pytest.approx(math.pi * 0.25, rel=1e-12)
         assert rt.shapes is not None
         assert rt.materials is not None
 
@@ -252,7 +250,9 @@ class TestDirectIntensity:
     @pytest.mark.level0
     def test_basic(self, background: BlackbodyBackground) -> None:
         isrc = BlackbodyIntensitySource(
-            temperature_K=500.0, projected_area_m2=0.01, emissivity=1.0,
+            temperature_K=500.0,
+            projected_area_m2=0.01,
+            emissivity=1.0,
         )
         rt = resolve_direct_intensity(
             name="point",
@@ -295,9 +295,7 @@ class TestPhysicalObject:
             range_m=10000.0,
         )
         assert rt5.input_path == TargetInputPath.PHYSICAL_OBJECT
-        assert rt5.projected_area_m2 == pytest.approx(
-            rt2.projected_area_m2, rel=1e-12
-        )
+        assert rt5.projected_area_m2 == pytest.approx(rt2.projected_area_m2, rel=1e-12)
         np.testing.assert_allclose(
             rt5.spectral_radiance(WAV),
             rt2.spectral_radiance(WAV),
@@ -321,7 +319,7 @@ class TestCrossPathConsistency:
         eps = 0.9
         r = 0.5
         range_m = 10000.0
-        area = math.pi * r ** 2
+        area = math.pi * r**2
         bg = BlackbodyBackground(temperature_K=290.0, emissivity=0.95)
 
         # Path 1: direct radiance
@@ -387,7 +385,9 @@ class TestCrossPathConsistency:
 
         # Path 4: intensity source with same physics
         isrc = BlackbodyIntensitySource(
-            temperature_K=T, projected_area_m2=area, emissivity=eps,
+            temperature_K=T,
+            projected_area_m2=area,
+            emissivity=eps,
         )
 
         # The intensity from Path 4 = radiance from Path 1 × area.

@@ -125,8 +125,7 @@ class RadiometricFrame:
             v = float(self.in_band_value)  # type: ignore[arg-type]
             if not math.isfinite(v):
                 raise ValueError(
-                    f"RadiometricFrame '{self.name}': in_band_value = {v} "
-                    "is not finite."
+                    f"RadiometricFrame '{self.name}': in_band_value = {v} is not finite."
                 )
             object.__setattr__(self, "in_band_value", v)
 
@@ -162,10 +161,7 @@ class NoiseTerm:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.value_e):
-            raise ValueError(
-                f"NoiseTerm '{self.name}': value_e = {self.value_e} is not "
-                "finite."
-            )
+            raise ValueError(f"NoiseTerm '{self.name}': value_e = {self.value_e} is not finite.")
         if self.value_e < 0.0:
             raise ValueError(
                 f"NoiseTerm '{self.name}': value_e = {self.value_e} is "

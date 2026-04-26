@@ -55,8 +55,7 @@ def _make_params(
     """
     if pitch_y_um is None:
         pitch_y_um = pitch_x_um
-    schema: list = [FOCAL_LENGTH_M, APERTURE_DIAMETER_M,
-                    PIXEL_PITCH_X, PIXEL_PITCH_Y]
+    schema: list = [FOCAL_LENGTH_M, APERTURE_DIAMETER_M, PIXEL_PITCH_X, PIXEL_PITCH_Y]
     if altitude_m is not None:
         schema.append(SENSOR_ALTITUDE_M)
     if path_zenith_rad is not None:
@@ -100,8 +99,10 @@ class TestGSDFormula:
     def test_leo_500km_18um_pitch(self) -> None:
         """Standard LEO scenario: 18 µm pitch, f=1.2 m, h=500 km."""
         result = compute_gsd(
-            pitch_x_m=18e-6, pitch_y_m=18e-6,
-            altitude_m=500_000.0, focal_length_m=1.2,
+            pitch_x_m=18e-6,
+            pitch_y_m=18e-6,
+            altitude_m=500_000.0,
+            focal_length_m=1.2,
         )
         assert result.cross_track_m == pytest.approx(7.5, rel=1e-10)
         assert result.along_track_m == pytest.approx(7.5, rel=1e-10)
@@ -111,8 +112,10 @@ class TestGSDFormula:
         """GEO scenario: 24 µm pitch, f=3.6 m, h=35786 km."""
         h = 35_786_000.0
         result = compute_gsd(
-            pitch_x_m=24e-6, pitch_y_m=24e-6,
-            altitude_m=h, focal_length_m=3.6,
+            pitch_x_m=24e-6,
+            pitch_y_m=24e-6,
+            altitude_m=h,
+            focal_length_m=3.6,
         )
         expected = 24e-6 * h / 3.6  # ≈ 238.57 m
         assert result.cross_track_m == pytest.approx(expected, rel=1e-10)
@@ -121,8 +124,10 @@ class TestGSDFormula:
     def test_rectangular_pixels(self) -> None:
         """Non-square pixels give different cross-track and along-track GSD."""
         result = compute_gsd(
-            pitch_x_m=18e-6, pitch_y_m=24e-6,
-            altitude_m=500_000.0, focal_length_m=1.2,
+            pitch_x_m=18e-6,
+            pitch_y_m=24e-6,
+            altitude_m=500_000.0,
+            focal_length_m=1.2,
         )
         assert result.cross_track_m == pytest.approx(7.5, rel=1e-10)
         assert result.along_track_m == pytest.approx(10.0, rel=1e-10)
@@ -131,8 +136,10 @@ class TestGSDFormula:
     def test_airborne_8km(self) -> None:
         """Airborne scenario: 15 µm pitch, f=0.5 m, h=8 km."""
         result = compute_gsd(
-            pitch_x_m=15e-6, pitch_y_m=15e-6,
-            altitude_m=8_000.0, focal_length_m=0.5,
+            pitch_x_m=15e-6,
+            pitch_y_m=15e-6,
+            altitude_m=8_000.0,
+            focal_length_m=0.5,
         )
         assert result.cross_track_m == pytest.approx(0.24, rel=1e-10)
 
@@ -162,16 +169,12 @@ class TestSlantRangeSpherical:
     @pytest.mark.level0
     def test_nadir_returns_altitude(self) -> None:
         """At zenith=0, slant range equals altitude exactly."""
-        assert slant_range_spherical_m(600_000.0, 0.0) == pytest.approx(
-            600_000.0, rel=1e-12
-        )
+        assert slant_range_spherical_m(600_000.0, 0.0) == pytest.approx(600_000.0, rel=1e-12)
 
     @pytest.mark.level0
     def test_nadir_airborne(self) -> None:
         """At zenith=0, airborne: slant = altitude."""
-        assert slant_range_spherical_m(8_000.0, 0.0) == pytest.approx(
-            8_000.0, rel=1e-12
-        )
+        assert slant_range_spherical_m(8_000.0, 0.0) == pytest.approx(8_000.0, rel=1e-12)
 
     @pytest.mark.level0
     def test_small_angle_matches_flat_earth(self) -> None:
@@ -325,16 +328,15 @@ class TestOffNadirGSD:
     """
 
     # Scenario 3.4 system parameters
-    P_X = 8e-6    # pixel pitch [m]
-    P_Y = 8e-6    # pixel pitch [m]
-    F = 3.5        # focal length [m]
+    P_X = 8e-6  # pixel pitch [m]
+    P_Y = 8e-6  # pixel pitch [m]
+    F = 3.5  # focal length [m]
     H = 600_000.0  # altitude [m]
 
     @pytest.mark.level0
     def test_nadir_cross_equals_along(self) -> None:
         """At zenith=0, cross-track = along-track = p × H / f exactly."""
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=0.0)
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=0.0)
         expected = self.P_X * self.H / self.F  # 1.371 m
         assert result.cross_track_m == pytest.approx(expected, rel=1e-10)
         assert result.along_track_m == pytest.approx(expected, rel=1e-10)
@@ -343,8 +345,7 @@ class TestOffNadirGSD:
     def test_nadir_default_zenith(self) -> None:
         """Default path_zenith_rad=0.0 gives nadir formula (backward compat)."""
         result_default = compute_gsd(self.P_X, self.P_Y, self.H, self.F)
-        result_explicit = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                                      path_zenith_rad=0.0)
+        result_explicit = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=0.0)
         assert result_default.cross_track_m == result_explicit.cross_track_m
         assert result_default.along_track_m == result_explicit.along_track_m
 
@@ -355,8 +356,7 @@ class TestOffNadirGSD:
         slant(45°, 600 km) = 892.9 km
         GSD_cross = 8e-6 × 892900 / 3.5 = 2.041 m
         """
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=math.radians(45.0))
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(45.0))
         assert result.cross_track_m == pytest.approx(2.041, rel=0.005)
 
     @pytest.mark.level0
@@ -366,8 +366,7 @@ class TestOffNadirGSD:
         incidence(45°, 600 km) ≈ 50.7 deg
         GSD_along = 8e-6 × 892900 / (3.5 × cos(50.7°)) = 3.221 m
         """
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=math.radians(45.0))
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(45.0))
         assert result.along_track_m == pytest.approx(3.221, rel=0.005)
 
     @pytest.mark.level0
@@ -376,50 +375,44 @@ class TestOffNadirGSD:
 
         slant(30°) = 704.1 km, incidence ≈ 33.2 deg
         """
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=math.radians(30.0))
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(30.0))
         assert result.cross_track_m == pytest.approx(1.609, rel=0.005)
         assert result.along_track_m == pytest.approx(1.923, rel=0.005)
 
     @pytest.mark.level0
     def test_15deg_values(self) -> None:
         """At 15 deg from 600 km: cross ≈ 1.42 m, along ≈ 1.49 m."""
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=math.radians(15.0))
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(15.0))
         assert result.cross_track_m == pytest.approx(1.425, rel=0.005)
         assert result.along_track_m == pytest.approx(1.485, rel=0.005)
 
     @pytest.mark.level0
     def test_along_track_exceeds_cross_track(self) -> None:
         """At off-nadir, along-track GSD > cross-track GSD (foreshortening)."""
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=math.radians(30.0))
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(30.0))
         assert result.along_track_m > result.cross_track_m
 
     @pytest.mark.level0
     def test_geometric_mean(self) -> None:
         """Geometric mean = sqrt(cross × along)."""
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=math.radians(45.0))
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(45.0))
         expected_gm = math.sqrt(result.cross_track_m * result.along_track_m)
         assert result.geometric_mean_m == pytest.approx(expected_gm, rel=1e-10)
 
     @pytest.mark.level0
     def test_geometric_mean_nadir_equals_gsd(self) -> None:
         """At nadir with square pixels, geometric mean = GSD."""
-        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                             path_zenith_rad=0.0)
-        assert result.geometric_mean_m == pytest.approx(
-            result.cross_track_m, rel=1e-10
-        )
+        result = compute_gsd(self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=0.0)
+        assert result.geometric_mean_m == pytest.approx(result.cross_track_m, rel=1e-10)
 
     @pytest.mark.level0
     def test_gsd_increases_with_zenith(self) -> None:
         """GSD monotonically increases with zenith angle."""
         prev_cross = 0.0
         for deg in [0, 15, 30, 45]:
-            result = compute_gsd(self.P_X, self.P_Y, self.H, self.F,
-                                 path_zenith_rad=math.radians(deg))
+            result = compute_gsd(
+                self.P_X, self.P_Y, self.H, self.F, path_zenith_rad=math.radians(deg)
+            )
             assert result.cross_track_m > prev_cross
             prev_cross = result.cross_track_m
 
@@ -431,7 +424,10 @@ class TestOffNadirGSD:
         Flat-Earth: GSD = p × H/(f×cos(30°)) = 15e-6 × 8000/(0.5×0.866) = 0.277 m
         """
         result = compute_gsd(
-            15e-6, 15e-6, 8_000.0, 0.5,
+            15e-6,
+            15e-6,
+            8_000.0,
+            0.5,
             path_zenith_rad=math.radians(30.0),
         )
         flat_slant = 8_000.0 / math.cos(math.radians(30.0))
@@ -475,10 +471,10 @@ class TestGSDMetricsWiring:
     def test_zenith_zero_matches_nadir(self) -> None:
         """path_zenith_rad=0.0 gives identical GSD to current nadir behavior."""
         state = _make_state()
-        params_no_zen = _make_params(altitude_m=600_000.0, focal_length_m=3.5,
-                                     pitch_x_um=8.0)
-        params_zen0 = _make_params(altitude_m=600_000.0, focal_length_m=3.5,
-                                   pitch_x_um=8.0, path_zenith_rad=0.0)
+        params_no_zen = _make_params(altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0)
+        params_zen0 = _make_params(
+            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0, path_zenith_rad=0.0
+        )
         out_no = _compute_gsd_metrics(state, params_no_zen)
         out_zen = _compute_gsd_metrics(state, params_zen0)
         assert out_zen.metrics["gsd_cross_track_m"] == pytest.approx(
@@ -492,11 +488,15 @@ class TestGSDMetricsWiring:
     def test_off_nadir_gives_larger_gsd(self) -> None:
         """path_zenith_rad > 0 gives larger GSD than nadir."""
         state = _make_state()
-        params_nadir = _make_params(altitude_m=600_000.0, focal_length_m=3.5,
-                                    pitch_x_um=8.0, path_zenith_rad=0.0)
-        params_offnadir = _make_params(altitude_m=600_000.0, focal_length_m=3.5,
-                                       pitch_x_um=8.0,
-                                       path_zenith_rad=math.radians(30.0))
+        params_nadir = _make_params(
+            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0, path_zenith_rad=0.0
+        )
+        params_offnadir = _make_params(
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=math.radians(30.0),
+        )
         out_nadir = _compute_gsd_metrics(state, params_nadir)
         out_off = _compute_gsd_metrics(state, params_offnadir)
         assert out_off.metrics["gsd_cross_track_m"] > out_nadir.metrics["gsd_cross_track_m"]
@@ -506,8 +506,12 @@ class TestGSDMetricsWiring:
     def test_geometric_mean_in_metrics(self) -> None:
         """gsd_geometric_mean_m is stored in metrics."""
         state = _make_state()
-        params = _make_params(altitude_m=600_000.0, focal_length_m=3.5,
-                              pitch_x_um=8.0, path_zenith_rad=math.radians(30.0))
+        params = _make_params(
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=math.radians(30.0),
+        )
         out = _compute_gsd_metrics(state, params)
         gm = out.metrics["gsd_geometric_mean_m"]
         cross = out.metrics["gsd_cross_track_m"]
@@ -528,11 +532,15 @@ class TestAccessMetricsWiring:
         """At nadir, ground_range_m = 0."""
         state = _make_state()
         params = _make_params(
-            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0,
-            path_zenith_rad=0.0, n_pixels_cross=10_000,
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=0.0,
+            n_pixels_cross=10_000,
         )
         state = _compute_gsd_metrics(state, params)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         assert out.metrics["ground_range_m"] == pytest.approx(0.0, abs=1e-10)
 
@@ -541,11 +549,15 @@ class TestAccessMetricsWiring:
         """Off-nadir produces nonzero ground range."""
         state = _make_state()
         params = _make_params(
-            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0,
-            path_zenith_rad=math.radians(30.0), n_pixels_cross=10_000,
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=math.radians(30.0),
+            n_pixels_cross=10_000,
         )
         state = _compute_gsd_metrics(state, params)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         assert out.metrics["ground_range_m"] > 0.0
 
@@ -554,16 +566,21 @@ class TestAccessMetricsWiring:
         """Swath width = GSD_cross × n_pixels_cross."""
         state = _make_state()
         params = _make_params(
-            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0,
-            path_zenith_rad=0.0, n_pixels_cross=10_000,
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=0.0,
+            n_pixels_cross=10_000,
         )
         state = _compute_gsd_metrics(state, params)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         gsd_cross = out.metrics["gsd_cross_track_m"]
         expected_swath = gsd_cross * 10_000
         assert out.metrics["swath_width_m"] == pytest.approx(
-            expected_swath, rel=1e-10,
+            expected_swath,
+            rel=1e-10,
         )
 
     @pytest.mark.level1
@@ -571,17 +588,22 @@ class TestAccessMetricsWiring:
         """Access rate = swath × ground_speed."""
         state = _make_state()
         params = _make_params(
-            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0,
-            path_zenith_rad=0.0, n_pixels_cross=10_000,
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=0.0,
+            n_pixels_cross=10_000,
             ground_speed_m_s=6_900.0,
         )
         state = _compute_gsd_metrics(state, params)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         swath = out.metrics["swath_width_m"]
         expected_rate = swath * 6_900.0
         assert out.metrics["access_rate_m2_s"] == pytest.approx(
-            expected_rate, rel=1e-10,
+            expected_rate,
+            rel=1e-10,
         )
 
     @pytest.mark.level1
@@ -589,11 +611,15 @@ class TestAccessMetricsWiring:
         """Without ground_speed, access_rate is not in metrics."""
         state = _make_state()
         params = _make_params(
-            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0,
-            path_zenith_rad=0.0, n_pixels_cross=10_000,
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
+            path_zenith_rad=0.0,
+            n_pixels_cross=10_000,
         )
         state = _compute_gsd_metrics(state, params)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         assert "swath_width_m" in out.metrics
         assert "access_rate_m2_s" not in out.metrics
@@ -603,11 +629,14 @@ class TestAccessMetricsWiring:
         """Without n_pixels_cross, swath and access rate are not in metrics."""
         state = _make_state()
         params = _make_params(
-            altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0,
+            altitude_m=600_000.0,
+            focal_length_m=3.5,
+            pitch_x_um=8.0,
             path_zenith_rad=0.0,
         )
         state = _compute_gsd_metrics(state, params)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         assert "ground_range_m" in out.metrics
         assert "swath_width_m" not in out.metrics
@@ -618,5 +647,6 @@ class TestAccessMetricsWiring:
         state = _make_state()
         params = _make_params(altitude_m=None)
         from radiant.performance.stage import _compute_access_metrics
+
         out = _compute_access_metrics(state, params)
         assert "ground_range_m" not in out.metrics

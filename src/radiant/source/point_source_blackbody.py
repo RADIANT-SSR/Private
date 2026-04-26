@@ -55,9 +55,7 @@ class BlackbodyIntensitySource:
                 f"be in [0, 1], got {self.emissivity}"
             )
 
-    def spectral_intensity(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_intensity(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return I(λ) = A · ε · B(λ, T) [W/sr/µm].
 
         Parameters
@@ -77,9 +75,7 @@ class BlackbodyIntensitySource:
             dtype=np.float64,
         )
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return equivalent radiance L = I / A [W/m²/sr/µm].
 
         For a BlackbodyIntensitySource this simplifies to ``ε · B(λ, T)``.

@@ -103,9 +103,7 @@ class CombinedSource:
                 f"positive, got {self.distance_au}"
             )
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return Kirchhoff-consistent total radiance [W/m²/sr/µm].
 
         ``L(λ) = ε(λ)·B(λ,T) + (1-ε(λ))·BRDF_norm·E_sun·cos θ_sun``

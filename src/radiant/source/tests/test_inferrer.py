@@ -46,9 +46,7 @@ from radiant.source._inferrer import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-SNAPSHOT_YAML = (
-    REPO_ROOT / "tests" / "integration" / "snapshots" / "option_c_baseline.yaml"
-)
+SNAPSHOT_YAML = REPO_ROOT / "tests" / "integration" / "snapshots" / "option_c_baseline.yaml"
 SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 
 
@@ -138,50 +136,106 @@ ScenarioExpectation = tuple[str, str, str, str, str | None]
 _EXPECTED: dict[str, ScenarioExpectation] = {
     # LWIR thermal extended terrestrial (Cell 28 family) — simple atmosphere
     "examples/templates/lwir_aerial_survey.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/lwir_geo.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/lwir_leo_sounder.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     # Ground truth MWIR: exo atmosphere, extended → no_atmosphere(space)
     "examples/ground_truth_mwir.yaml": (
-        "extended", "no_atmosphere", "space", "T1Thermal", "ColdSpaceBackground",
+        "extended",
+        "no_atmosphere",
+        "space",
+        "T1Thermal",
+        "ColdSpaceBackground",
     ),
     # MWIR minimal + aerial flir + pushbroom + starer + ground test: simple atm, extended
     "examples/mwir_leo_minimal.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/mwir_aerial_flir.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/mwir_ground_test.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/mwir_leo_pushbroom.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/mwir_leo_starer.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     # SWIR LEO: simple atm, extended
     "examples/templates/swir_aerial_gas.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/swir_leo.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     # VNIR: simple atm, extended
     "examples/templates/vnir_aerial.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/vnir_leo_highres.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
     "examples/templates/vnir_leo_multispectral.yaml": (
-        "extended", "terrestrial", "", "T1Thermal", None,
+        "extended",
+        "terrestrial",
+        "",
+        "T1Thermal",
+        None,
     ),
 }
 
@@ -202,9 +256,9 @@ class TestScenarioInference:
             f"from the Stage-2 inferrer expectation table.  Add an entry to "
             f"_EXPECTED in test_inferrer.py."
         )
-        expected_scene, expected_loc, expected_sub, expected_tgt, expected_bg = (
-            _EXPECTED[scenario_name]
-        )
+        expected_scene, expected_loc, expected_sub, expected_tgt, expected_bg = _EXPECTED[
+            scenario_name
+        ]
 
         params = _load_params(path)
         wl = _wavelength_grid(path)

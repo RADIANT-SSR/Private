@@ -144,9 +144,7 @@ class AtmosphericQuantities:
             )
         if lam.size < 2:
             raise ParameterBoundsError(
-                what=(
-                    f"AtmosphericQuantities.wavelength_um needs ≥2 samples, got {lam.size}"
-                ),
+                what=(f"AtmosphericQuantities.wavelength_um needs ≥2 samples, got {lam.size}"),
                 why="Spectral quantities require a non-trivial wavelength grid.",
                 action="Provide at least two wavelength samples.",
                 context={"n_samples": int(lam.size)},
@@ -197,10 +195,7 @@ class AtmosphericQuantities:
         hi = float(a.max()) if a.size else 0.0
         if lo < -_TAU_TOLERANCE or hi > 1.0 + _TAU_TOLERANCE:
             raise ParameterBoundsError(
-                what=(
-                    f"AtmosphericQuantities.{name} out of [0, 1] "
-                    f"(min={lo:g}, max={hi:g})"
-                ),
+                what=(f"AtmosphericQuantities.{name} out of [0, 1] (min={lo:g}, max={hi:g})"),
                 why=(
                     "Transmittance is a probability-of-transmission bounded "
                     "to [0, 1]. Values outside this range point to a bug in "

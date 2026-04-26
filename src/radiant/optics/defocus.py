@@ -46,9 +46,7 @@ def defocus_sigma_m(defocus_m: float, f_number: float) -> float:
         Defocus blur sigma [m].
     """
     if f_number <= 0.0:
-        raise ValueError(
-            f"defocus_sigma_m: f_number must be positive, got {f_number}."
-        )
+        raise ValueError(f"defocus_sigma_m: f_number must be positive, got {f_number}.")
     return abs(defocus_m) / (4.0 * f_number * math.sqrt(3.0))
 
 
@@ -76,9 +74,7 @@ def defocus_kernel_2d(
     if npix < 1 or npix % 2 == 0:
         raise ValueError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(
-            f"sample_spacing_m must be positive, got {sample_spacing_m}"
-        )
+        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
     if sigma_m < 0.0:
         raise ValueError(f"sigma_m must be non-negative, got {sigma_m}")
 

@@ -48,10 +48,15 @@ class TestRunCommand:
     def test_run_set_override(self, runner: CliRunner) -> None:
         """--set changes the result."""
         r1 = runner.invoke(cli, ["run", str(EXAMPLE_YAML)])
-        r2 = runner.invoke(cli, [
-            "run", str(EXAMPLE_YAML),
-            "--set", "optics.aperture_diameter_m=0.50",
-        ])
+        r2 = runner.invoke(
+            cli,
+            [
+                "run",
+                str(EXAMPLE_YAML),
+                "--set",
+                "optics.aperture_diameter_m=0.50",
+            ],
+        )
         assert r1.exit_code == 0
         assert r2.exit_code == 0
         # Overriding a parameter changes the metric.
@@ -61,19 +66,29 @@ class TestRunCommand:
 
     @pytest.mark.level2
     def test_run_set_unknown_param(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "run", str(EXAMPLE_YAML),
-            "--set", "typo.nonexistent=42",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(EXAMPLE_YAML),
+                "--set",
+                "typo.nonexistent=42",
+            ],
+        )
         assert result.exit_code != 0
         assert "unknown parameter" in result.output.lower()
 
     @pytest.mark.level2
     def test_run_set_bad_format(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "run", str(EXAMPLE_YAML),
-            "--set", "no_equals_sign",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(EXAMPLE_YAML),
+                "--set",
+                "no_equals_sign",
+            ],
+        )
         assert result.exit_code != 0
 
     @pytest.mark.level2
@@ -115,9 +130,15 @@ class TestRunCommand:
     @pytest.mark.level2
     def test_run_output_file(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "result.json"
-        result = runner.invoke(cli, [
-            "run", str(EXAMPLE_YAML), "--output", str(out),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(EXAMPLE_YAML),
+                "--output",
+                str(out),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert out.exists()
         data = json.loads(out.read_text())
@@ -126,9 +147,15 @@ class TestRunCommand:
     @pytest.mark.level2
     def test_run_provenance_file(self, runner: CliRunner, tmp_path: Path) -> None:
         prov = tmp_path / "provenance.json"
-        result = runner.invoke(cli, [
-            "run", str(EXAMPLE_YAML), "--provenance", str(prov),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(EXAMPLE_YAML),
+                "--provenance",
+                str(prov),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert prov.exists()
         data = json.loads(prov.read_text())
@@ -186,10 +213,15 @@ class TestValidateCommand:
 
     @pytest.mark.level1
     def test_validate_set_override(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "validate", str(EXAMPLE_YAML),
-            "--set", "optics.aperture_diameter_m=0.50",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "validate",
+                str(EXAMPLE_YAML),
+                "--set",
+                "optics.aperture_diameter_m=0.50",
+            ],
+        )
         assert result.exit_code == 0
         assert "Config OK" in result.output
 
@@ -202,35 +234,56 @@ class TestValidateCommand:
 class TestExplainCommand:
     @pytest.mark.level1
     def test_explain_derived_param(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "explain", str(EXAMPLE_YAML), "optics.f_number",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "explain",
+                str(EXAMPLE_YAML),
+                "optics.f_number",
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "f_number" in result.output
         assert "4.0" in result.output
 
     @pytest.mark.level1
     def test_explain_user_set_param(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "explain", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "explain",
+                str(EXAMPLE_YAML),
+                "optics.aperture_diameter_m",
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "0.3" in result.output
 
     @pytest.mark.level1
     def test_explain_with_override(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "explain", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
-            "--set", "optics.aperture_diameter_m=0.50",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "explain",
+                str(EXAMPLE_YAML),
+                "optics.aperture_diameter_m",
+                "--set",
+                "optics.aperture_diameter_m=0.50",
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "0.5" in result.output
 
     @pytest.mark.level1
     def test_explain_unknown_param(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "explain", str(EXAMPLE_YAML), "bogus.param",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "explain",
+                str(EXAMPLE_YAML),
+                "bogus.param",
+            ],
+        )
         assert result.exit_code != 0
 
 
@@ -242,10 +295,20 @@ class TestExplainCommand:
 class TestSweepCommand:
     @pytest.mark.level2
     def test_sweep_basic(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "sweep", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
-            "--min", "0.20", "--max", "0.40", "--steps", "3",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "sweep",
+                str(EXAMPLE_YAML),
+                "optics.aperture_diameter_m",
+                "--min",
+                "0.20",
+                "--max",
+                "0.40",
+                "--steps",
+                "3",
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "snr" in result.output.lower()
         # Should have 3 rows + header + separator = 5 lines minimum
@@ -255,11 +318,22 @@ class TestSweepCommand:
     @pytest.mark.level2
     def test_sweep_output_csv(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "sweep.csv"
-        result = runner.invoke(cli, [
-            "sweep", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
-            "--min", "0.20", "--max", "0.30", "--steps", "2",
-            "--output", str(out),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "sweep",
+                str(EXAMPLE_YAML),
+                "optics.aperture_diameter_m",
+                "--min",
+                "0.20",
+                "--max",
+                "0.30",
+                "--steps",
+                "2",
+                "--output",
+                str(out),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert out.exists()
         content = out.read_text()
@@ -268,11 +342,22 @@ class TestSweepCommand:
     @pytest.mark.level2
     def test_sweep_output_json(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "sweep.json"
-        result = runner.invoke(cli, [
-            "sweep", str(EXAMPLE_YAML), "optics.aperture_diameter_m",
-            "--min", "0.20", "--max", "0.30", "--steps", "2",
-            "--output", str(out),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "sweep",
+                str(EXAMPLE_YAML),
+                "optics.aperture_diameter_m",
+                "--min",
+                "0.20",
+                "--max",
+                "0.30",
+                "--steps",
+                "2",
+                "--output",
+                str(out),
+            ],
+        )
         assert result.exit_code == 0, result.output
         data = json.loads(out.read_text())
         assert "values" in data
@@ -287,30 +372,51 @@ class TestSweepCommand:
 class TestToleranceCommand:
     @pytest.mark.level2
     def test_tolerance_basic(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "tolerance", str(EXAMPLE_YAML), "--trials", "10",
-            "--tolerance", "optics.aperture_diameter_m gaussian std_fraction=0.02",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "tolerance",
+                str(EXAMPLE_YAML),
+                "--trials",
+                "10",
+                "--tolerance",
+                "optics.aperture_diameter_m gaussian std_fraction=0.02",
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "Monte Carlo" in result.output
         assert "10 trials" in result.output
 
     @pytest.mark.level2
     def test_tolerance_no_tolerances(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "tolerance", str(EXAMPLE_YAML), "--trials", "5",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "tolerance",
+                str(EXAMPLE_YAML),
+                "--trials",
+                "5",
+            ],
+        )
         assert result.exit_code != 0
         assert "no tolerances" in result.output.lower()
 
     @pytest.mark.level2
     def test_tolerance_output_json(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "mc.json"
-        result = runner.invoke(cli, [
-            "tolerance", str(EXAMPLE_YAML), "--trials", "5",
-            "--tolerance", "optics.transmission_scalar gaussian std_fraction=0.05",
-            "--output", str(out),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "tolerance",
+                str(EXAMPLE_YAML),
+                "--trials",
+                "5",
+                "--tolerance",
+                "optics.transmission_scalar gaussian std_fraction=0.05",
+                "--output",
+                str(out),
+            ],
+        )
         assert result.exit_code == 0, result.output
         data = json.loads(out.read_text())
         assert data["n_trials"] == 5
@@ -324,9 +430,14 @@ class TestToleranceCommand:
 class TestCompareCommand:
     @pytest.mark.level2
     def test_compare_same_config(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, [
-            "compare", str(EXAMPLE_YAML), str(EXAMPLE_YAML),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "compare",
+                str(EXAMPLE_YAML),
+                str(EXAMPLE_YAML),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "Delta" in result.output
         # Same config → all deltas should be +0.0000
@@ -335,10 +446,16 @@ class TestCompareCommand:
     @pytest.mark.level2
     def test_compare_output_json(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "cmp.json"
-        result = runner.invoke(cli, [
-            "compare", str(EXAMPLE_YAML), str(EXAMPLE_YAML),
-            "--output", str(out),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "compare",
+                str(EXAMPLE_YAML),
+                str(EXAMPLE_YAML),
+                "--output",
+                str(out),
+            ],
+        )
         assert result.exit_code == 0, result.output
         data = json.loads(out.read_text())
         assert "metrics" in data
@@ -412,10 +529,16 @@ class TestTemplateCommand:
     @pytest.mark.level1
     def test_template_create(self, runner: CliRunner, tmp_path: Path) -> None:
         out = tmp_path / "test.yaml"
-        result = runner.invoke(cli, [
-            "template", "create", "mwir_leo_pushbroom",
-            "--output", str(out),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "template",
+                "create",
+                "mwir_leo_pushbroom",
+                "--output",
+                str(out),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert out.exists()
         content = out.read_text()

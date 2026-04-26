@@ -101,9 +101,7 @@ class ScalarLambertianReflectance:
     def __post_init__(self) -> None:
         vals = np.asarray(self.reflectance.values, dtype=np.float64)
         if vals.size == 0:
-            raise ValueError(
-                "ScalarLambertianReflectance: reflectance has zero samples"
-            )
+            raise ValueError("ScalarLambertianReflectance: reflectance has zero samples")
         if np.any(vals < 0.0) or np.any(vals > 1.0):
             raise ValueError(
                 "ScalarLambertianReflectance: reflectance must be in [0, 1], "
@@ -121,13 +119,9 @@ class ScalarLambertianReflectance:
         lam_query = np.asarray(wavelength_um, dtype=np.float64)
         lam_stored = np.asarray(self.reflectance.wavelength_um, dtype=np.float64)
         vals_stored = np.asarray(self.reflectance.values, dtype=np.float64)
-        if lam_query.shape == lam_stored.shape and np.array_equal(
-            lam_query, lam_stored
-        ):
+        if lam_query.shape == lam_stored.shape and np.array_equal(lam_query, lam_stored):
             return vals_stored.copy()
-        return np.asarray(
-            np.interp(lam_query, lam_stored, vals_stored), dtype=np.float64
-        )
+        return np.asarray(np.interp(lam_query, lam_stored, vals_stored), dtype=np.float64)
 
 
 __all__ = [

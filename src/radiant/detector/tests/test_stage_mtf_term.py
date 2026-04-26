@@ -100,12 +100,8 @@ class TestPixelApertureMTF:
         idx_ny = np.argmin(np.abs(freq_m - f_ny))
         expected = np.abs(np.sinc(freq_m[idx_ny] * pitch_m))
 
-        assert out.mtf_terms["mtf_pixel_aperture_x"][idx_ny] == pytest.approx(
-            expected, abs=1e-10
-        )
-        assert out.mtf_terms["mtf_pixel_aperture_y"][idx_ny] == pytest.approx(
-            expected, abs=1e-10
-        )
+        assert out.mtf_terms["mtf_pixel_aperture_x"][idx_ny] == pytest.approx(expected, abs=1e-10)
+        assert out.mtf_terms["mtf_pixel_aperture_y"][idx_ny] == pytest.approx(expected, abs=1e-10)
 
     @pytest.mark.level1
     def test_square_pixels_x_equals_y(self, wl: np.ndarray) -> None:
@@ -178,9 +174,7 @@ class TestDiffusionMTF:
         freq_m = freq_mrad / (f_m * 1e3)
 
         expected = diffusion_mtf_1d(freq_m, L_d)
-        np.testing.assert_allclose(
-            out.mtf_terms["mtf_charge_diffusion_x"], expected, atol=1e-12
-        )
+        np.testing.assert_allclose(out.mtf_terms["mtf_charge_diffusion_x"], expected, atol=1e-12)
 
     @pytest.mark.level1
     def test_zero_diffusion_is_unity(self, wl: np.ndarray) -> None:

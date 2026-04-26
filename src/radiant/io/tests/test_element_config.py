@@ -127,7 +127,9 @@ class TestLoadElementList:
         assert window.cavity is not None
         # Uncoated glass, no absorption: T_sys = 0.9216/0.9984, eps ≈ 0.
         np.testing.assert_allclose(
-            window.transmittance.values, 0.9216 / 0.9984, rtol=1e-10,
+            window.transmittance.values,
+            0.9216 / 0.9984,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(window.emissivity.values, 0.0, atol=1e-14)
 

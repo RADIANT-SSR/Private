@@ -68,9 +68,7 @@ def _validate_L_t_source(L_values: np.ndarray) -> None:
     """
     if L_values.size == 0:
         raise ParameterBoundsError(
-            what=(
-                "user_radiance: L_t_source SpectralData has zero samples"
-            ),
+            what=("user_radiance: L_t_source SpectralData has zero samples"),
             why=(
                 "The converter needs at least one (λ, L) pair to emit a "
                 "T6TabulatedAtSource descriptor."
@@ -84,10 +82,7 @@ def _validate_L_t_source(L_values: np.ndarray) -> None:
     if np.any(L_values < 0.0):
         bad = float(L_values.min())
         raise ParameterBoundsError(
-            what=(
-                f"user_radiance: L_t_source = {bad} W/m²/sr/µm is "
-                "negative"
-            ),
+            what=(f"user_radiance: L_t_source = {bad} W/m²/sr/µm is negative"),
             why=(
                 "Spectral radiance is non-negative by definition "
                 "(photon-count is non-negative); negative values "
@@ -142,10 +137,7 @@ def user_radiance_to_descriptor(
     """
     if target_location == "at_aperture":
         raise ParameterBoundsError(
-            what=(
-                "user_radiance: target_location='at_aperture' is not "
-                "supported"
-            ),
+            what=("user_radiance: target_location='at_aperture' is not supported"),
             why=(
                 "S8 supplies radiance at the target plane, which flows "
                 "through the atmospheric up-leg to the aperture.  "
@@ -160,9 +152,7 @@ def user_radiance_to_descriptor(
             context={"target_location": target_location},
         )
 
-    _validate_L_t_source(
-        np.asarray(L_t_source.values, dtype=np.float64)
-    )
+    _validate_L_t_source(np.asarray(L_t_source.values, dtype=np.float64))
 
     return T6TabulatedAtSource(
         scene_type=scene_type,

@@ -42,9 +42,7 @@ class FlatPlate:
         validate_positive("FlatPlate", self.length_m, "length_m")
         validate_positive("FlatPlate", self.width_m, "width_m")
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """L × W × |cos θ|. Zero at edge-on."""
         v = view_to_body(view_direction, *self.orientation_rad)
         return self.length_m * self.width_m * abs(float(v[2]))

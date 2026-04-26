@@ -125,9 +125,7 @@ def test_single_row_file_with_header_raises(tmp_path: Path) -> None:
 
 def test_malformed_single_column_raises(tmp_path: Path) -> None:
     csv = _write(tmp_path / "r.csv", "8.0,1.0\n10.0\n12.0,3.0\n")
-    with pytest.raises(
-        ParameterBoundsError, match="fewer than 2 columns"
-    ) as exc:
+    with pytest.raises(ParameterBoundsError, match="fewer than 2 columns") as exc:
         load_two_column_csv(csv, **_DEFAULT_KWARGS)
     assert exc.value.context["line_number"] == 2
 
@@ -145,9 +143,7 @@ def test_nonfloat_token_raises(tmp_path: Path) -> None:
 
 
 def test_nonfloat_wavelength_raises(tmp_path: Path) -> None:
-    csv = _write(
-        tmp_path / "r.csv", "wl,val\n8.0,1.0\nbad,2.0\n12.0,3.0\n"
-    )
+    csv = _write(tmp_path / "r.csv", "wl,val\n8.0,1.0\nbad,2.0\n12.0,3.0\n")
     with pytest.raises(ParameterBoundsError, match="floats") as exc:
         load_two_column_csv(csv, **_DEFAULT_KWARGS)
     # Header auto-skipped, so the bad row is file line 3 (1-indexed).
@@ -163,9 +159,7 @@ def test_nonfloat_wavelength_raises(tmp_path: Path) -> None:
     "value_unit",
     ["W/m^2/sr/um", "W/sr/um", "dimensionless", "K"],
 )
-def test_value_unit_propagates_verbatim(
-    tmp_path: Path, value_unit: str
-) -> None:
+def test_value_unit_propagates_verbatim(tmp_path: Path, value_unit: str) -> None:
     csv = _write(tmp_path / "r.csv", "8.0,1.0\n10.0,2.0\n")
     kwargs = dict(_DEFAULT_KWARGS)
     kwargs["value_unit"] = value_unit

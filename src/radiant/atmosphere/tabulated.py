@@ -117,8 +117,7 @@ def _validate_spectral_array(
         )
     if values.ndim != 1:
         raise ValueError(
-            f"Tabulated {label} from {source_path}: values must be 1-D, "
-            f"got shape {values.shape}."
+            f"Tabulated {label} from {source_path}: values must be 1-D, got shape {values.shape}."
         )
     if len(wavelength_um) != len(values):
         raise ValueError(
@@ -132,13 +131,11 @@ def _validate_spectral_array(
         )
     if not np.all(np.diff(wavelength_um) > 0):
         raise ValueError(
-            f"Tabulated {label} from {source_path}: wavelength_um must be "
-            "strictly ascending."
+            f"Tabulated {label} from {source_path}: wavelength_um must be strictly ascending."
         )
     if np.any(wavelength_um <= 0.0):
         raise ValueError(
-            f"Tabulated {label} from {source_path}: wavelength_um must be "
-            "strictly positive."
+            f"Tabulated {label} from {source_path}: wavelength_um must be strictly positive."
         )
 
 
@@ -411,13 +408,11 @@ class TabulatedAtmosphere:
             )
         if not np.all(np.diff(lam) > 0):
             raise ValueError(
-                f"TabulatedAtmosphere '{self.name}': wavelength_um must be "
-                "strictly ascending."
+                f"TabulatedAtmosphere '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
             raise ValueError(
-                f"TabulatedAtmosphere '{self.name}': wavelength_um must be "
-                "strictly positive."
+                f"TabulatedAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 
         target_grid = SpectralGrid(wavelengths_um=lam)
@@ -527,9 +522,7 @@ class TabulatedAtmosphere:
 
         target_grid = SpectralGrid(wavelengths_um=lam)
         tau = np.asarray(self.transmittance_data.resample(target_grid).values, dtype=np.float64)
-        lpath = np.asarray(
-            self.path_radiance_data.resample(target_grid).values, dtype=np.float64
-        )
+        lpath = np.asarray(self.path_radiance_data.resample(target_grid).values, dtype=np.float64)
         ldown = np.asarray(
             self.atm_emission_down_data.resample(target_grid).values, dtype=np.float64
         )

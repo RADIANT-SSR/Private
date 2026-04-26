@@ -73,20 +73,13 @@ class ResolvedTarget:
     shapes: tuple[TargetShape, ...] | None = None
     materials: tuple[SurfaceMaterial, ...] | None = None
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Target surface spectral radiance [W/m²/sr/µm]."""
         return self.radiance_source.spectral_radiance(wavelength_um)
 
-    def spectral_intensity(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_intensity(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Target spectral intensity [W/sr/µm] = L(λ) × A_proj."""
-        return (
-            self.radiance_source.spectral_radiance(wavelength_um)
-            * self.projected_area_m2
-        )
+        return self.radiance_source.spectral_radiance(wavelength_um) * self.projected_area_m2
 
     def background_radiance(
         self, wavelength_um: npt.NDArray[np.float64]
@@ -111,14 +104,11 @@ def validate_range(range_m: float) -> None:
     """Raise ValueError if range_m is not positive."""
     if range_m <= 0.0:
         raise ValueError(
-            f"range_m must be positive, got {range_m}. "
-            f"Distance from observer to target in meters."
+            f"range_m must be positive, got {range_m}. Distance from observer to target in meters."
         )
 
 
 def validate_area(projected_area_m2: float) -> None:
     """Raise ValueError if projected_area_m2 is negative."""
     if projected_area_m2 < 0.0:
-        raise ValueError(
-            f"projected_area_m2 must be >= 0, got {projected_area_m2}"
-        )
+        raise ValueError(f"projected_area_m2 must be >= 0, got {projected_area_m2}")

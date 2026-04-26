@@ -43,18 +43,16 @@ class Cylinder:
         validate_positive("Cylinder", self.radius_m, "radius_m")
         validate_positive("Cylinder", self.length_m, "length_m")
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """2r·L·sin θ + π·r²·cos θ."""
         v = view_to_body(view_direction, *self.orientation_rad)
         r = self.radius_m
         L = self.length_m
         cos_theta = abs(float(v[2]))
         sin_theta = math.sqrt(float(v[0]) ** 2 + float(v[1]) ** 2)
-        return 2.0 * r * L * sin_theta + math.pi * r ** 2 * cos_theta
+        return 2.0 * r * L * sin_theta + math.pi * r**2 * cos_theta
 
     def surface_area(self) -> float:
         """2πrL + 2πr² (lateral + two caps)."""
         r = self.radius_m
-        return 2.0 * math.pi * r * self.length_m + 2.0 * math.pi * r ** 2
+        return 2.0 * math.pi * r * self.length_m + 2.0 * math.pi * r**2

@@ -86,9 +86,7 @@ class TestGroundRange:
     def test_monotonically_increasing(self) -> None:
         """Ground range increases with zenith angle."""
         angles = [10.0, 20.0, 30.0, 40.0, 45.0]
-        ranges = [
-            compute_ground_range_m(600_000.0, math.radians(a)) for a in angles
-        ]
+        ranges = [compute_ground_range_m(600_000.0, math.radians(a)) for a in angles]
         for i in range(1, len(ranges)):
             assert ranges[i] > ranges[i - 1]
 
@@ -107,7 +105,8 @@ class TestSwathWidth:
         gsd = 1.37
         n_pix = 10_000
         assert compute_swath_width_m(gsd, n_pix) == pytest.approx(
-            gsd * n_pix, rel=1e-12,
+            gsd * n_pix,
+            rel=1e-12,
         )
 
     @pytest.mark.level0
@@ -135,9 +134,10 @@ class TestAccessRate:
     def test_identity(self) -> None:
         """Rate = swath × speed exactly."""
         swath = 13_700.0  # 13.7 km
-        speed = 6_900.0   # m/s
+        speed = 6_900.0  # m/s
         assert compute_access_rate_m2_s(swath, speed) == pytest.approx(
-            swath * speed, rel=1e-12,
+            swath * speed,
+            rel=1e-12,
         )
 
     @pytest.mark.level0

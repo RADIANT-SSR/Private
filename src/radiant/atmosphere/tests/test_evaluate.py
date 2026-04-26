@@ -146,7 +146,8 @@ class TestExoAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_returns_atmospheric_quantities(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
@@ -155,22 +156,29 @@ class TestExoAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_shape_matches_input_grid(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
         atm = ExoAtmosphere().evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         n = lwir_wavelengths.size
         for field in (
-            "tau_sun", "tau_up", "tau_full_up",
-            "E_TOA", "E_sky_scattered", "E_sky_thermal",
-            "L_path_up", "L_path_full",
+            "tau_sun",
+            "tau_up",
+            "tau_full_up",
+            "E_TOA",
+            "E_sky_scattered",
+            "E_sky_thermal",
+            "L_path_up",
+            "L_path_full",
         ):
             assert getattr(atm, field).shape == (n,), f"{field} shape mismatch"
 
     @pytest.mark.level1
     def test_tau_identically_one(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
@@ -181,7 +189,8 @@ class TestExoAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_path_radiances_identically_zero(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
@@ -191,7 +200,8 @@ class TestExoAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_sky_irradiances_identically_zero(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
@@ -201,7 +211,8 @@ class TestExoAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_E_TOA_from_core_solar(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
@@ -221,7 +232,8 @@ class TestSimpleAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_airborne_target_above_sensor_raises(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
     ) -> None:
         """Looking-up configuration (h_sensor < h_tgt) must raise.
@@ -242,35 +254,44 @@ class TestSimpleAtmosphereEvaluate:
             h_atm_top=1.0e5,
         )
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         from radiant.core.parameters import ParameterBoundsError
+
         with pytest.raises(ParameterBoundsError, match="below h_tgt"):
             atm.evaluate(lwir_wavelengths, los, lwir_params)
 
     @pytest.mark.level1
     def test_returns_atmospheric_quantities(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         assert isinstance(q, AtmosphericQuantities)
 
     @pytest.mark.level1
     def test_tau_bounded_0_1(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         for arr_name in ("tau_sun", "tau_up", "tau_full_up"):
@@ -280,14 +301,17 @@ class TestSimpleAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_tau_up_equals_tau_full_up_for_surface_target(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
         """For ``h_tgt == 0`` the surface-target column == full ground column."""
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         np.testing.assert_array_equal(q.tau_up, q.tau_full_up)
@@ -295,14 +319,17 @@ class TestSimpleAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_E_sky_thermal_populated_for_cold_sky(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
         """Downwelling sky emission is non-zero at warm ground altitude."""
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         assert np.all(q.E_sky_thermal >= 0.0)
@@ -310,7 +337,8 @@ class TestSimpleAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_E_sky_scattered_non_negative(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
@@ -324,22 +352,27 @@ class TestSimpleAtmosphereEvaluate:
         :mod:`radiant.atmosphere.tests.test_e_sky_decomposition`.
         """
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         assert np.all(q.E_sky_scattered >= 0.0)
 
     @pytest.mark.level1
     def test_vis_sun_on_produces_finite_L_path_up(
-        self, vis_wavelengths: np.ndarray,
+        self,
+        vis_wavelengths: np.ndarray,
         vis_params,
         vis_terrestrial_los: LineOfSightGeometry,
     ) -> None:
         """With an explicit 30° sun the single-scatter L_path_up is positive."""
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q = atm.evaluate(vis_wavelengths, vis_terrestrial_los, vis_params)
         assert np.all(q.L_path_up >= 0.0)
@@ -347,20 +380,30 @@ class TestSimpleAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_determinism_same_inputs_same_outputs(
-        self, lwir_wavelengths: np.ndarray,
+        self,
+        lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
     ) -> None:
         """Same (λ, los, params) → bit-identical AtmosphericQuantities."""
         atm = SimpleAtmosphere(
-            visibility_km=23.0, aerosol_type="rural",
-            precipitable_water_cm=1.4, standard_atmosphere="midlat_summer",
+            visibility_km=23.0,
+            aerosol_type="rural",
+            precipitable_water_cm=1.4,
+            standard_atmosphere="midlat_summer",
         )
         q1 = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
         q2 = atm.evaluate(lwir_wavelengths, terrestrial_los, lwir_params)
-        for f in ("tau_sun", "tau_up", "tau_full_up",
-                  "E_TOA", "E_sky_scattered", "E_sky_thermal",
-                  "L_path_up", "L_path_full"):
+        for f in (
+            "tau_sun",
+            "tau_up",
+            "tau_full_up",
+            "E_TOA",
+            "E_sky_scattered",
+            "E_sky_thermal",
+            "L_path_up",
+            "L_path_full",
+        ):
             np.testing.assert_array_equal(getattr(q1, f), getattr(q2, f))
 
 
@@ -374,7 +417,8 @@ class TestTabulatedAtmosphereEvaluate:
 
     @pytest.mark.level1
     def test_smoke_with_synthetic_npz(
-        self, tmp_path,
+        self,
+        tmp_path,
         lwir_wavelengths: np.ndarray,
         lwir_params,
         terrestrial_los: LineOfSightGeometry,
@@ -432,4 +476,5 @@ def test_shadow_mode_symbol_is_gone() -> None:
     Option C plan.  This test fails early if the symbol comes back.
     """
     import radiant.atmosphere.stage as stage_module
+
     assert not hasattr(stage_module, "_shadow_mode_enabled")

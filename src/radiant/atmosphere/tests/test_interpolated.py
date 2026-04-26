@@ -39,11 +39,17 @@ from radiant.core.spectral import SpectralData
 
 
 def _make_spectral(
-    name: str, wavelength_um: np.ndarray, values: np.ndarray, unit: str = "",
+    name: str,
+    wavelength_um: np.ndarray,
+    values: np.ndarray,
+    unit: str = "",
 ) -> SpectralData:
     return SpectralData(
-        name=name, wavelength_um=wavelength_um, values=values,
-        unit=unit, source="test",
+        name=name,
+        wavelength_um=wavelength_um,
+        values=values,
+        unit=unit,
+        source="test",
     )
 
 
@@ -100,14 +106,16 @@ class TestLogTauInterpolation:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.5,  # midpoint
             solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
         np.testing.assert_allclose(
-            result.transmittance.values, expected_tau,
+            result.transmittance.values,
+            expected_tau,
             rtol=1e-10,
         )
 
@@ -119,7 +127,7 @@ class TestLogTauInterpolation:
         """
         tau_0 = 0.9 * np.ones_like(wl)
         tau_1 = 0.4 * np.ones_like(wl)
-        expected_tau = tau_0 ** 0.75 * tau_1 ** 0.25
+        expected_tau = tau_0**0.75 * tau_1**0.25
 
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, tau_0),
@@ -128,14 +136,16 @@ class TestLogTauInterpolation:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.25,
             solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
         np.testing.assert_allclose(
-            result.transmittance.values, expected_tau,
+            result.transmittance.values,
+            expected_tau,
             rtol=1e-10,
         )
 
@@ -153,14 +163,16 @@ class TestLogTauInterpolation:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.5,
             solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
         np.testing.assert_allclose(
-            result.path_radiance.values, expected_lp,
+            result.path_radiance.values,
+            expected_lp,
             rtol=1e-10,
         )
 
@@ -185,7 +197,8 @@ class TestExactAtNodes:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.0,
             solar_zenith_rad=0.3,
         )
@@ -207,14 +220,17 @@ class TestExactAtNodes:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.5,
             solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
         np.testing.assert_allclose(
-            result.transmittance.values, 0.6, rtol=1e-10,
+            result.transmittance.values,
+            0.6,
+            rtol=1e-10,
         )
 
 
@@ -239,20 +255,24 @@ class TestMultiAxisInterpolation:
                 points.append(
                     _make_point(
                         {"path_zenith_rad": z, "sensor_altitude_m": a},
-                        wl, np.clip(tau, 0.01, 1.0),
+                        wl,
+                        np.clip(tau, 0.01, 1.0),
                     )
                 )
 
         model = InterpolatedAtmosphere(
-            points, axes=["path_zenith_rad", "sensor_altitude_m"],
+            points,
+            axes=["path_zenith_rad", "sensor_altitude_m"],
         )
         assert model.grid_type == "regular"
         assert model.n_points == 4
 
         # Query at center: zenith=0.5, altitude=12500
         geom = AtmosphericGeometry(
-            sensor_altitude_m=12_500.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=12_500.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
@@ -267,36 +287,45 @@ class TestMultiAxisInterpolation:
         points = [
             _make_point(
                 {"path_zenith_rad": 0.0, "sensor_altitude_m": 10_000.0},
-                wl, 0.9 * np.ones_like(wl),
+                wl,
+                0.9 * np.ones_like(wl),
             ),
             _make_point(
                 {"path_zenith_rad": 1.0, "sensor_altitude_m": 10_000.0},
-                wl, 0.5 * np.ones_like(wl),
+                wl,
+                0.5 * np.ones_like(wl),
             ),
             _make_point(
                 {"path_zenith_rad": 0.0, "sensor_altitude_m": 20_000.0},
-                wl, 0.85 * np.ones_like(wl),
+                wl,
+                0.85 * np.ones_like(wl),
             ),
             _make_point(
                 {"path_zenith_rad": 0.5, "sensor_altitude_m": 15_000.0},
-                wl, 0.7 * np.ones_like(wl),
+                wl,
+                0.7 * np.ones_like(wl),
             ),
         ]
         model = InterpolatedAtmosphere(
-            points, axes=["path_zenith_rad", "sensor_altitude_m"],
+            points,
+            axes=["path_zenith_rad", "sensor_altitude_m"],
         )
         assert model.grid_type == "scattered"
 
         # Query at the exact interior point.
         geom = AtmosphericGeometry(
-            sensor_altitude_m=15_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=15_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
         # Should reproduce the exact point at (0.5, 15000).
         np.testing.assert_allclose(
-            result.transmittance.values, 0.7, rtol=1e-4,
+            result.transmittance.values,
+            0.7,
+            rtol=1e-4,
         )
 
 
@@ -322,20 +351,26 @@ class TestCrossModelConsistency:
         geom_dicts = []
         for z in zeniths:
             geom = AtmosphericGeometry(
-                sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-                path_zenith_rad=z, solar_zenith_rad=0.5,
+                sensor_altitude_m=10_000.0,
+                target_altitude_m=0.0,
+                path_zenith_rad=z,
+                solar_zenith_rad=0.5,
             )
             states.append(simple.build_state(wl, geom))
             geom_dicts.append({"path_zenith_rad": z})
 
         model = InterpolatedAtmosphere.from_states(
-            states, geom_dicts, axes=["path_zenith_rad"],
+            states,
+            geom_dicts,
+            axes=["path_zenith_rad"],
         )
 
         # Interpolate at z=0.2 (between first two nodes).
         query_geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.2, solar_zenith_rad=0.5,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.2,
+            solar_zenith_rad=0.5,
         )
         result = model.build_state(wl, query_geom)
 
@@ -363,7 +398,8 @@ class TestExtrapolationRejection:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.8,  # beyond max=0.5
             solar_zenith_rad=0.3,
         )
@@ -379,7 +415,8 @@ class TestExtrapolationRejection:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
             path_zenith_rad=0.1,  # below min=0.2
             solar_zenith_rad=0.3,
         )
@@ -405,8 +442,10 @@ class TestEdgeCases:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
@@ -423,8 +462,10 @@ class TestEdgeCases:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
 
@@ -452,8 +493,10 @@ class TestEdgeCases:
 
         different_wl = np.linspace(3.0, 5.0, 30)
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
         with pytest.raises(ValueError, match="does not match"):
             model.build_state(different_wl, geom)
@@ -546,14 +589,17 @@ class TestProtocol:
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
-            sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-            path_zenith_rad=0.5, solar_zenith_rad=0.3,
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.3,
         )
         r1 = model.build_state(wl, geom)
         r2 = model.build_state(wl, geom)
 
         np.testing.assert_array_equal(
-            r1.transmittance.values, r2.transmittance.values,
+            r1.transmittance.values,
+            r2.transmittance.values,
         )
 
     @pytest.mark.level1
@@ -565,14 +611,18 @@ class TestProtocol:
         geom_dicts = []
         for z in [0.0, 0.5, 1.0]:
             geom = AtmosphericGeometry(
-                sensor_altitude_m=10_000.0, target_altitude_m=0.0,
-                path_zenith_rad=z, solar_zenith_rad=0.5,
+                sensor_altitude_m=10_000.0,
+                target_altitude_m=0.0,
+                path_zenith_rad=z,
+                solar_zenith_rad=0.5,
             )
             states.append(simple.build_state(wl, geom))
             geom_dicts.append({"path_zenith_rad": z})
 
         model = InterpolatedAtmosphere.from_states(
-            states, geom_dicts, axes=["path_zenith_rad"],
+            states,
+            geom_dicts,
+            axes=["path_zenith_rad"],
         )
         assert model.n_points == 3
         assert model.grid_type == "regular"

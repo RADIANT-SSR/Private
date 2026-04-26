@@ -40,9 +40,15 @@ def _make_params(
 ) -> ParameterSet:
     from radiant.api._param_registry import _FNUMBER_GROUP
 
-    schema = [APERTURE_DIAMETER_M, FOCAL_LENGTH_M, F_NUMBER,
-              WFE_RMS_WAVES, WFE_REFERENCE_WAVELENGTH_UM,
-              FILTER_MIN_UM, FILTER_MAX_UM]
+    schema = [
+        APERTURE_DIAMETER_M,
+        FOCAL_LENGTH_M,
+        F_NUMBER,
+        WFE_RMS_WAVES,
+        WFE_REFERENCE_WAVELENGTH_UM,
+        FILTER_MIN_UM,
+        FILTER_MAX_UM,
+    ]
     ps = ParameterSet(schema, [_FNUMBER_GROUP])
     ps.set("optics.aperture_diameter_m", 0.3)
     ps.set("optics.f_number", 4.0)
@@ -77,7 +83,7 @@ class TestStrehlFormula:
         Marechal: S = exp(-(2π/14)²) = exp(-0.2013) ≈ 0.8176.
         """
         wfe = 1.0 / 14.0  # waves
-        expected = math.exp(-(2.0 * math.pi / 14.0) ** 2)
+        expected = math.exp(-((2.0 * math.pi / 14.0) ** 2))
         result = compute_strehl(wfe, 0.633, 0.633)
         assert result == pytest.approx(expected, rel=1e-10)
 
@@ -91,7 +97,7 @@ class TestStrehlFormula:
         """
         wfe = 1.0 / 14.0
         opd_rms_um = wfe * 0.633
-        expected = math.exp(-(2.0 * math.pi * opd_rms_um / 4.0) ** 2)
+        expected = math.exp(-((2.0 * math.pi * opd_rms_um / 4.0) ** 2))
         result = compute_strehl(wfe, 0.633, 4.0)
         assert result == pytest.approx(expected, rel=1e-10)
 
@@ -126,7 +132,7 @@ class TestStrehlMetricsWiring:
 
         # Operating wavelength = band center = (3.5 + 5.0) / 2 = 4.25 µm
         opd_rms_um = (1.0 / 14.0) * 0.633
-        expected = math.exp(-(2.0 * math.pi * opd_rms_um / 4.25) ** 2)
+        expected = math.exp(-((2.0 * math.pi * opd_rms_um / 4.25) ** 2))
         assert out.metrics["strehl"] == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level1

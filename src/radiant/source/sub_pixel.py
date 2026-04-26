@@ -78,9 +78,7 @@ class SubPixelSource:
                 f"be in [0, 1], got {self.background_emissivity}"
             )
 
-    def target_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def target_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return target spectral radiance L_target(λ) [W/m²/sr/µm]."""
         lam = np.asarray(wavelength_um, dtype=np.float64)
         B = planck_spectral_radiance(lam, self.target_temperature_K)
@@ -94,9 +92,7 @@ class SubPixelSource:
         B = planck_spectral_radiance(lam, self.background_temperature_K)
         return np.asarray(self.background_emissivity * B, dtype=np.float64)
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return in-pixel mean radiance [W/m²/sr/µm].
 
         ``L_pixel = ff · L_target + (1 − ff) · L_background``

@@ -118,9 +118,7 @@ class AtmosphereStage:
             try:
                 h_sensor_rv = params.get_resolved("platform.h_sensor")
                 h_sensor: float | None = float(h_sensor_rv.value)
-                h_sensor_user_set: bool = (
-                    h_sensor_rv.provenance is not Provenance.DEFAULT
-                )
+                h_sensor_user_set: bool = h_sensor_rv.provenance is not Provenance.DEFAULT
             except KeyError:
                 # Platform schema not registered in this ParameterSet (source-
                 # only unit-test fixture).  Treat as "not supplied".
@@ -139,13 +137,19 @@ class AtmosphereStage:
         #    at-aperture radiance arrays for the target and background arms.
         # ------------------------------------------------------------------
         atm_quantities: AtmosphericQuantities = model.evaluate(  # type: ignore[attr-defined]
-            state.wavelength_um, los, params,
+            state.wavelength_um,
+            los,
+            params,
         )
         L_aperture_target: np.ndarray = assemble_target_at_aperture(
-            target_desc, atm_quantities, los,
+            target_desc,
+            atm_quantities,
+            los,
         )
         L_aperture_background: np.ndarray | None = assemble_background_at_aperture(
-            background_desc, atm_quantities, los,
+            background_desc,
+            atm_quantities,
+            los,
         )
 
         # ------------------------------------------------------------------
@@ -185,10 +189,14 @@ class AtmosphereStage:
             # the physical regime (VIS = scattered-dominated; LWIR =
             # thermal-dominated; MWIR = mixed).
             .with_stage_output(
-                "atmosphere", "E_sky_scattered", atm_quantities.E_sky_scattered,
+                "atmosphere",
+                "E_sky_scattered",
+                atm_quantities.E_sky_scattered,
             )
             .with_stage_output(
-                "atmosphere", "E_sky_thermal", atm_quantities.E_sky_thermal,
+                "atmosphere",
+                "E_sky_thermal",
+                atm_quantities.E_sky_thermal,
             )
         )
 
@@ -238,7 +246,9 @@ class AtmosphereStage:
         if str(tau_file).endswith(".npz"):
             return TabulatedAtmosphere.from_npz(tau_file)
         return TabulatedAtmosphere.from_csv(
-            tau_file, lpath_file, ldown_file if ldown_file else None,
+            tau_file,
+            lpath_file,
+            ldown_file if ldown_file else None,
         )
 
     @staticmethod
@@ -250,7 +260,8 @@ class AtmosphereStage:
             binary_path=Path(params.get("atmosphere.modtran.binary_path")),
             cache_dir=Path(
                 str(params.get("atmosphere.modtran.cache_dir")).replace(
-                    "~", str(Path.home()),
+                    "~",
+                    str(Path.home()),
                 )
             ),
             allow_fallback=params.get("atmosphere.modtran.allow_fallback"),
@@ -258,9 +269,7 @@ class AtmosphereStage:
             aerosol_model=params.get("atmosphere.modtran.aerosol_model"),
             h2o_scale=params.get("atmosphere.modtran.h2o_scale"),
             o3_scale=params.get("atmosphere.modtran.o3_scale"),
-            spectral_resolution_cm1=params.get(
-                "atmosphere.modtran.spectral_resolution_cm1"
-            ),
+            spectral_resolution_cm1=params.get("atmosphere.modtran.spectral_resolution_cm1"),
         )
         return ModtranAtmosphere(config)
 
@@ -296,8 +305,7 @@ class AtmosphereStage:
         data_path = Path(data_dir)
         if not data_path.exists():
             raise FileNotFoundError(
-                f"AtmosphereStage: interpolated data directory not found: "
-                f"{data_path}."
+                f"AtmosphereStage: interpolated data directory not found: {data_path}."
             )
 
         npz_files = sorted(data_path.glob("*.npz"))

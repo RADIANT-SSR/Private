@@ -37,9 +37,7 @@ class ConstantBackground:
                 f">= 0, got {self.radiance_W_m2_sr_um}"
             )
 
-    def spectral_radiance(
-        self, wavelength_um: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def spectral_radiance(self, wavelength_um: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return constant L_bg [W/m²/sr/µm]."""
         return np.full(
             len(wavelength_um),

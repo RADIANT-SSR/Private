@@ -51,9 +51,7 @@ class EffectivePSF:
 
     # -- kernel convolution -------------------------------------------------
 
-    def with_kernel(
-        self, name: str, kernel: npt.NDArray[np.float64]
-    ) -> EffectivePSF:
+    def with_kernel(self, name: str, kernel: npt.NDArray[np.float64]) -> EffectivePSF:
         """Return a new EffectivePSF with an additional kernel convolved in.
 
         Uses FFT-based convolution, identical to ``build_effective_psf``.
@@ -69,9 +67,7 @@ class EffectivePSF:
         n = self.data.shape[0]
         kn = kernel.shape[0]
         if kn > n:
-            raise ValueError(
-                f"Kernel '{name}' has size {kn} which exceeds PSF grid {n}."
-            )
+            raise ValueError(f"Kernel '{name}' has size {kn} which exceeds PSF grid {n}.")
 
         # Pad kernel to PSF size, centered.
         padded = np.zeros((n, n), dtype=np.float64)
@@ -108,9 +104,7 @@ class EffectivePSF:
             mtf /= dc
         return mtf
 
-    def mtf_1d(
-        self, axis: str = "x"
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    def mtf_1d(self, axis: str = "x") -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """1-D MTF slice along the specified axis.
 
         Parameters
@@ -183,9 +177,7 @@ class EffectivePSF:
 
     # -- LSF, ERF, RER ------------------------------------------------------
 
-    def lsf(
-        self, axis: str = "x"
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    def lsf(self, axis: str = "x") -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Line Spread Function = projection of PSF onto axis.
 
         Parameters
@@ -211,9 +203,7 @@ class EffectivePSF:
         pos = (np.arange(n) - center) * dx
         return pos, lsf_vals
 
-    def erf(
-        self, axis: str = "x"
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    def erf(self, axis: str = "x") -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Edge Response Function = cumulative integral of LSF.
 
         Returns

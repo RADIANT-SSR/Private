@@ -63,16 +63,14 @@ TARGET_PROJECTED_AREA = ParameterDef(
     bounds=(0.0, 1e12),
     tags=frozenset({"source", "target", "geometry"}),
     default_justification=(
-        "0.0 signals 'geometry not provided' — regime classification "
-        "defaults to extended scene."
+        "0.0 signals 'geometry not provided' — regime classification defaults to extended scene."
     ),
 )
 
 TARGET_RANGE = ParameterDef(
     name="source.target.range_m",
     description=(
-        "Observer-to-target slant range [m]. "
-        "0.0 = not specified (extended-scene default)."
+        "Observer-to-target slant range [m]. 0.0 = not specified (extended-scene default)."
     ),
     dtype=float,
     canonical_unit="m",
@@ -81,8 +79,7 @@ TARGET_RANGE = ParameterDef(
     bounds=(0.0, 1e12),
     tags=frozenset({"source", "target", "geometry"}),
     default_justification=(
-        "0.0 signals 'range not provided' — regime classification "
-        "defaults to extended scene."
+        "0.0 signals 'range not provided' — regime classification defaults to extended scene."
     ),
 )
 
@@ -388,16 +385,12 @@ SHAPE_YAW = ParameterDef(
     default=0.0,
     bounds=(-6.283185307179586, 6.283185307179586),  # [-2π, 2π]
     tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
-    default_justification=(
-        "0.0 = body +X aligned with scene +X (canonical alignment)."
-    ),
+    default_justification=("0.0 = body +X aligned with scene +X (canonical alignment)."),
 )
 
 SHAPE_PITCH = ParameterDef(
     name="source.target.shape_pitch_rad",
-    description=(
-        "Target body pitch [rad] about scene +Y (ZYX Euler, Rule 3)."
-    ),
+    description=("Target body pitch [rad] about scene +Y (ZYX Euler, Rule 3)."),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
@@ -409,9 +402,7 @@ SHAPE_PITCH = ParameterDef(
 
 SHAPE_ROLL = ParameterDef(
     name="source.target.shape_roll_rad",
-    description=(
-        "Target body roll [rad] about scene +X (ZYX Euler, Rule 3)."
-    ),
+    description=("Target body roll [rad] about scene +X (ZYX Euler, Rule 3)."),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
@@ -530,9 +521,7 @@ RADIANCE_TEMPERATURE_BAND_LO = ParameterDef(
     default=0.0,
     bounds=(0.0, 1000.0),
     tags=frozenset({"source", "target", "thermal", "S12"}),
-    default_justification=(
-        "0.0 µm is the 'not set' sentinel; inferrer checks provenance."
-    ),
+    default_justification=("0.0 µm is the 'not set' sentinel; inferrer checks provenance."),
 )
 
 RADIANCE_TEMPERATURE_BAND_HI = ParameterDef(
@@ -548,9 +537,7 @@ RADIANCE_TEMPERATURE_BAND_HI = ParameterDef(
     default=0.0,
     bounds=(0.0, 1000.0),
     tags=frozenset({"source", "target", "thermal", "S12"}),
-    default_justification=(
-        "0.0 µm is the 'not set' sentinel; inferrer checks provenance."
-    ),
+    default_justification=("0.0 µm is the 'not set' sentinel; inferrer checks provenance."),
 )
 
 
@@ -604,9 +591,7 @@ ALBEDO = ParameterDef(
     default=0.0,
     bounds=(0.0, 1.0),
     tags=frozenset({"source", "target", "reflective", "S4"}),
-    default_justification=(
-        "0.0 is the Rule-12 'not set' sentinel (same pattern as reflectance)."
-    ),
+    default_justification=("0.0 is the Rule-12 'not set' sentinel (same pattern as reflectance)."),
 )
 
 REFLECTANCE_PATH = ParameterDef(
@@ -623,8 +608,7 @@ REFLECTANCE_PATH = ParameterDef(
     default="",
     tags=frozenset({"source", "target", "reflective", "S5", "S6"}),
     default_justification=(
-        "Empty string = not set; pattern mirrors "
-        "source.target.brightness_temperature_path."
+        "Empty string = not set; pattern mirrors source.target.brightness_temperature_path."
     ),
 )
 
@@ -639,9 +623,7 @@ ALBEDO_PATH = ParameterDef(
     input_unit="",
     default="",
     tags=frozenset({"source", "target", "reflective", "S5", "S6"}),
-    default_justification=(
-        "Empty string = not set."
-    ),
+    default_justification=("Empty string = not set."),
 )
 
 USER_RADIANCE_PATH = ParameterDef(
@@ -722,14 +704,8 @@ def validate_reflectance_albedo_exclusive(params: Any) -> None:
 
     rho_user = rho_rv.provenance is not Provenance.DEFAULT
     alb_user = alb_rv.provenance is not Provenance.DEFAULT
-    rho_path_user = (
-        rho_path_rv.provenance is not Provenance.DEFAULT
-        and bool(rho_path_rv.value)
-    )
-    alb_path_user = (
-        alb_path_rv.provenance is not Provenance.DEFAULT
-        and bool(alb_path_rv.value)
-    )
+    rho_path_user = rho_path_rv.provenance is not Provenance.DEFAULT and bool(rho_path_rv.value)
+    alb_path_user = alb_path_rv.provenance is not Provenance.DEFAULT and bool(alb_path_rv.value)
 
     set_surfaces = []
     if rho_user:

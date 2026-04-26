@@ -17,7 +17,8 @@ def _make_state(wl: np.ndarray, L: float = 1.0) -> ChainState:
     """ChainState with post_optics frame and optics stage outputs."""
     state = ChainState(wavelength_um=wl)
     frame = RadiometricFrame(
-        name="post_optics", wavelength_um=wl,
+        name="post_optics",
+        wavelength_um=wl,
         spectral_radiance=np.full_like(wl, L),
     )
     state = state.with_frame(frame)
@@ -28,8 +29,10 @@ def _make_state(wl: np.ndarray, L: float = 1.0) -> ChainState:
 
 
 def _make_params(
-    lam_min: float = 3.5, lam_max: float = 5.0,
-    t_int: float = 0.005, qe: float = 0.7,
+    lam_min: float = 3.5,
+    lam_max: float = 5.0,
+    t_int: float = 0.005,
+    qe: float = 0.7,
 ) -> ParameterSet:
     schema = list(SI_PARAMS) + list(DET_PARAMS)
     ps = ParameterSet(schema)

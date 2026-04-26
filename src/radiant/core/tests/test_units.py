@@ -130,18 +130,14 @@ def test_wavenumber_to_wavelength_known() -> None:
 @pytest.mark.parametrize("nu", [100.0, 1000.0, 10000.0])
 def test_wavenumber_wavelength_invertibility_from_nu(nu: float) -> None:
     """wavelength_to_wavenumber(wavenumber_to_wavelength(ν)) == ν."""
-    assert wavelength_to_wavenumber(wavenumber_to_wavelength(nu)) == pytest.approx(
-        nu, rel=1e-15
-    )
+    assert wavelength_to_wavenumber(wavenumber_to_wavelength(nu)) == pytest.approx(nu, rel=1e-15)
 
 
 @pytest.mark.level0
 @pytest.mark.parametrize("lam", [0.5, 5.0, 12.0])
 def test_wavenumber_wavelength_invertibility_from_lam(lam: float) -> None:
     """wavenumber_to_wavelength(wavelength_to_wavenumber(λ)) == λ."""
-    assert wavenumber_to_wavelength(wavelength_to_wavenumber(lam)) == pytest.approx(
-        lam, rel=1e-15
-    )
+    assert wavenumber_to_wavelength(wavelength_to_wavenumber(lam)) == pytest.approx(lam, rel=1e-15)
 
 
 # ---------------------------------------------------------------------------

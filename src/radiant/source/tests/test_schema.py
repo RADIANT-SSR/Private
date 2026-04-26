@@ -78,9 +78,7 @@ def test_shape_accepts_sphere_with_radius() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "shape_name", ["sphere", "cylinder", "flat_plate", "box", "cone"]
-)
+@pytest.mark.parametrize("shape_name", ["sphere", "cylinder", "flat_plate", "box", "cone"])
 @pytest.mark.level1
 def test_shape_enum_accepts_every_catalog_entry(shape_name: str) -> None:
     """Every §3 catalog entry is accepted by the schema enum."""
@@ -206,9 +204,7 @@ def test_reflectance_scalar_accepted() -> None:
     params.set("source.target.reflectance", 0.3)
     params.resolve()
 
-    assert params.get("source.target.reflectance") == pytest.approx(
-        0.3, abs=0.0
-    )
+    assert params.get("source.target.reflectance") == pytest.approx(0.3, abs=0.0)
 
 
 @pytest.mark.level1
@@ -218,9 +214,7 @@ def test_albedo_scalar_accepted() -> None:
     params.set("source.target.albedo", 0.25)
     params.resolve()
 
-    assert params.get("source.target.albedo") == pytest.approx(
-        0.25, abs=0.0
-    )
+    assert params.get("source.target.albedo") == pytest.approx(0.25, abs=0.0)
 
 
 @pytest.mark.level1
@@ -252,10 +246,7 @@ def test_reflectance_path_accepted() -> None:
     params.set("source.target.reflectance_path", "scenes/reflectance.csv")
     params.resolve()
 
-    assert (
-        params.get("source.target.reflectance_path")
-        == "scenes/reflectance.csv"
-    )
+    assert params.get("source.target.reflectance_path") == "scenes/reflectance.csv"
 
 
 @pytest.mark.level1

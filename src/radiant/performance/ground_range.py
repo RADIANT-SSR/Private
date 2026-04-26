@@ -52,9 +52,7 @@ def compute_ground_range_m(altitude_m: float, path_zenith_rad: float) -> float:
     slant = slant_range_spherical_m(altitude_m, path_zenith_rad)
 
     # Law of cosines for the central (Earth-center) angle gamma.
-    cos_gamma = (r_sensor * r_sensor + R * R - slant * slant) / (
-        2.0 * r_sensor * R
-    )
+    cos_gamma = (r_sensor * r_sensor + R * R - slant * slant) / (2.0 * r_sensor * R)
     # Clamp for floating-point safety.
     cos_gamma = max(-1.0, min(1.0, cos_gamma))
     gamma = math.acos(cos_gamma)

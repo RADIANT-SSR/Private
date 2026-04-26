@@ -122,7 +122,8 @@ class TestFlatPlate:
     def test_with_orientation(self) -> None:
         """90° pitch rotates the plate normal from +Z body to +X scene."""
         fp = FlatPlate(
-            length_m=2.0, width_m=1.0,
+            length_m=2.0,
+            width_m=1.0,
             orientation_rad=(0.0, math.pi / 2, 0.0),
         )
         # After 90° pitch, body +Z maps to scene +X.
@@ -217,9 +218,7 @@ class TestCylinder:
     def test_end_on(self) -> None:
         """View along axis: π r²."""
         c = Cylinder(radius_m=0.5, length_m=2.0)
-        assert c.projected_area(VZ) == pytest.approx(
-            math.pi * 0.25, rel=1e-12
-        )
+        assert c.projected_area(VZ) == pytest.approx(math.pi * 0.25, rel=1e-12)
 
     @pytest.mark.level0
     def test_broadside(self) -> None:
@@ -235,10 +234,7 @@ class TestCylinder:
             # θ from axis means view_direction = sin θ * X + cos θ * Z
             theta = math.radians(theta_deg)
             v = np.array([math.sin(theta), 0.0, math.cos(theta)])
-            expected = (
-                2 * 0.5 * 2.0 * math.sin(theta)
-                + math.pi * 0.25 * math.cos(theta)
-            )
+            expected = 2 * 0.5 * 2.0 * math.sin(theta) + math.pi * 0.25 * math.cos(theta)
             assert c.projected_area(v) == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level0
@@ -251,13 +247,12 @@ class TestCylinder:
     def test_with_orientation(self) -> None:
         """90° pitch rotates axis from +Z to +X."""
         c = Cylinder(
-            radius_m=0.5, length_m=2.0,
+            radius_m=0.5,
+            length_m=2.0,
             orientation_rad=(0.0, math.pi / 2, 0.0),
         )
         # Axis now along +X. Viewing from +X is end-on.
-        assert c.projected_area(VX) == pytest.approx(
-            math.pi * 0.25, rel=1e-10
-        )
+        assert c.projected_area(VX) == pytest.approx(math.pi * 0.25, rel=1e-10)
         # Viewing from +Z is broadside.
         assert c.projected_area(VZ) == pytest.approx(2.0, rel=1e-10)
 
@@ -275,17 +270,13 @@ class TestCylinder:
 class TestCone:
     @pytest.mark.level0
     def test_protocol(self) -> None:
-        assert isinstance(
-            Cone(base_radius_m=1.0, height_m=2.0), TargetShape
-        )
+        assert isinstance(Cone(base_radius_m=1.0, height_m=2.0), TargetShape)
 
     @pytest.mark.level0
     def test_end_on_base(self) -> None:
         """View from below base (−Z): A ≈ π r²."""
         cone = Cone(base_radius_m=1.0, height_m=2.0, n_facets=256)
-        assert cone.projected_area(-VZ) == pytest.approx(
-            math.pi, rel=1e-3
-        )
+        assert cone.projected_area(-VZ) == pytest.approx(math.pi, rel=1e-3)
 
     @pytest.mark.level0
     def test_broadside(self) -> None:
@@ -384,10 +375,7 @@ class TestProjectedAreaTable:
         theta = math.radians(theta_deg)
         v = np.array([math.sin(theta), 0.0, math.cos(theta)])
         # A = W·H·|vx| + L·H·0 + L·W·|vz|
-        expected = (
-            1.0 * 0.5 * abs(math.sin(theta))
-            + 2.0 * 1.0 * abs(math.cos(theta))
-        )
+        expected = 1.0 * 0.5 * abs(math.sin(theta)) + 2.0 * 1.0 * abs(math.cos(theta))
         assert b.projected_area(v) == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level0
@@ -396,10 +384,7 @@ class TestProjectedAreaTable:
         c = Cylinder(radius_m=0.5, length_m=2.0)
         theta = math.radians(theta_deg)
         v = np.array([math.sin(theta), 0.0, math.cos(theta)])
-        expected = (
-            2 * 0.5 * 2.0 * math.sin(theta)
-            + math.pi * 0.25 * abs(math.cos(theta))
-        )
+        expected = 2 * 0.5 * 2.0 * math.sin(theta) + math.pi * 0.25 * abs(math.cos(theta))
         assert c.projected_area(v) == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level0
@@ -411,9 +396,7 @@ class TestProjectedAreaTable:
         v = np.array([math.sin(theta), 0.0, math.cos(theta)])
         if theta_deg == 0:
             # Apex view ≈ π r²
-            assert cone.projected_area(v) == pytest.approx(
-                math.pi, rel=5e-2
-            )
+            assert cone.projected_area(v) == pytest.approx(math.pi, rel=5e-2)
         else:
             # Broadside ≈ r × h
             assert cone.projected_area(v) == pytest.approx(2.0, rel=1e-2)

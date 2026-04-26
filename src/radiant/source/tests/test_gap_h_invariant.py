@@ -69,9 +69,7 @@ def _write_flat_rho_csv(path: Path, *, rho_value: float) -> Path:
     "surface",
     ["reflectance", "albedo", "reflectance_path", "albedo_path"],
 )
-def test_every_t2_rho_is_reflectance_descriptor(
-    surface: str, tmp_path: Path
-) -> None:
+def test_every_t2_rho_is_reflectance_descriptor(surface: str, tmp_path: Path) -> None:
     """Gap H invariant: T2.rho is a ReflectanceDescriptor for every user surface.
 
     For each of the four reflective user surfaces, drive the inferrer,

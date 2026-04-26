@@ -42,9 +42,7 @@ class TestHappyPath:
         assert isinstance(desc, T1Thermal)
         assert desc.T_t == pytest.approx(300.0, abs=1e-12)
         assert desc.epsilon is not None
-        np.testing.assert_allclose(
-            desc.epsilon.values, np.ones_like(lam), atol=0.0
-        )
+        np.testing.assert_allclose(desc.epsilon.values, np.ones_like(lam), atol=0.0)
 
     @pytest.mark.level0
     def test_passes_through_shape_and_area(self) -> None:
@@ -71,14 +69,12 @@ class TestRoundTripAnchors:
         "T_R, band",
         [
             (300.0, (8.0, 12.0)),  # Anchor 1 — LWIR
-            (500.0, (3.0, 5.0)),   # Anchor 2 — MWIR
+            (500.0, (3.0, 5.0)),  # Anchor 2 — MWIR
             (2000.0, (0.7, 1.0)),  # Anchor 3 — visible Wien
         ],
     )
     @pytest.mark.level0
-    def test_roundtrip_within_1e_3_K(
-        self, T_R: float, band: tuple[float, float]
-    ) -> None:
+    def test_roundtrip_within_1e_3_K(self, T_R: float, band: tuple[float, float]) -> None:
         lam = _lwir_grid(n=21)
         desc = radiance_temperature_to_descriptor(
             T_R_K=T_R,
@@ -93,12 +89,8 @@ class TestRoundTripAnchors:
         # by construction since ε ≡ 1.  Verify via the inversion helper.
         n_quad = 401 if band[0] < 2.0 else 201  # Wien band needs density
         L_band = integrate_planck_over_band(desc.T_t, band, n_quad=n_quad)
-        T_rec = invert_band_radiance_to_temperature(
-            L_band, band, n_quad=n_quad
-        )
-        assert abs(T_rec - T_R) < 1.0e-3, (
-            f"Band round-trip: T_R={T_R}, T_rec={T_rec}, band={band}"
-        )
+        T_rec = invert_band_radiance_to_temperature(L_band, band, n_quad=n_quad)
+        assert abs(T_rec - T_R) < 1.0e-3, f"Band round-trip: T_R={T_R}, T_rec={T_rec}, band={band}"
 
 
 class TestRejectsInvalidInputs:

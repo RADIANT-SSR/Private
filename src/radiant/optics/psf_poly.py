@@ -187,9 +187,7 @@ def compute_polychromatic_psf(
             pupil_npix=pupil_npix,
             psf_oversample=psf_oversample,
         )
-        wfe_i = _resolve_wfe_for_wavelength(
-            wfe, float(wavelengths_um[0]), chromatic_zernikes
-        )
+        wfe_i = _resolve_wfe_for_wavelength(wfe, float(wavelengths_um[0]), chromatic_zernikes)
         psf = compute_psf(config, obscuration_ratio, wfe_i)
         per_wl: dict[float, npt.NDArray[np.float64]] | None = None
         if store_per_wavelength:
@@ -242,9 +240,7 @@ def compute_polychromatic_psf(
             focal_length_m=focal_length_m,
         )
 
-        wfe_i = _resolve_wfe_for_wavelength(
-            wfe, float(wavelengths_um[i]), chromatic_zernikes
-        )
+        wfe_i = _resolve_wfe_for_wavelength(wfe, float(wavelengths_um[i]), chromatic_zernikes)
         psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_i)
 
         zoom_factor = lam_i / lam_max

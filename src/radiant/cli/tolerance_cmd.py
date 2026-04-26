@@ -44,11 +44,16 @@ def _parse_tolerance_spec(spec: str) -> tuple[str, str, dict[str, float]]:
 @click.option("--trials", type=int, default=100, show_default=True, help="Number of MC trials.")
 @click.option("--seed", type=int, default=42, show_default=True, help="Random seed.")
 @click.option(
-    "--tolerance", "tolerances", multiple=True,
+    "--tolerance",
+    "tolerances",
+    multiple=True,
     help='Tolerance spec: "param distribution key=val ..." (repeatable).',
 )
 @click.option(
-    "--output", "output_path", type=click.Path(), default=None,
+    "--output",
+    "output_path",
+    type=click.Path(),
+    default=None,
     help="Save results to JSON.",
 )
 @set_option

@@ -46,19 +46,14 @@ def resolve_sub_pixel(
     """
     validate_range(range_m)
     if not (0.0 < fill_fraction <= 1.0):
-        raise ValueError(
-            f"resolve_sub_pixel: fill_fraction must be in (0, 1], "
-            f"got {fill_fraction}"
-        )
+        raise ValueError(f"resolve_sub_pixel: fill_fraction must be in (0, 1], got {fill_fraction}")
 
     regime = regime_override or RadiometricRegime.SUB_PIXEL
 
     return ResolvedTarget(
         name=name,
         input_path=TargetInputPath.SUB_PIXEL,
-        derivation_chain=(
-            f"sub-pixel: ff={fill_fraction:.6e}",
-        ),
+        derivation_chain=(f"sub-pixel: ff={fill_fraction:.6e}",),
         radiance_source=target_source,
         background_source=background_source,
         projected_area_m2=0.0,

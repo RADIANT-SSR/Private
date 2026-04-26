@@ -35,12 +35,10 @@ class Sphere:
     def __post_init__(self) -> None:
         validate_positive("Sphere", self.radius_m, "radius_m")
 
-    def projected_area(
-        self, view_direction: npt.NDArray[np.float64]
-    ) -> float:
+    def projected_area(self, view_direction: npt.NDArray[np.float64]) -> float:
         """π r² regardless of view direction."""
-        return math.pi * self.radius_m ** 2
+        return math.pi * self.radius_m**2
 
     def surface_area(self) -> float:
         """4 π r²."""
-        return 4.0 * math.pi * self.radius_m ** 2
+        return 4.0 * math.pi * self.radius_m**2

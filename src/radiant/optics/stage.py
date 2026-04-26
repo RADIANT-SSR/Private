@@ -239,7 +239,6 @@ def _compute_optical_mtf_terms(
     return state.with_mtf("mtf_optics_y", mtf_y)
 
 
-
 def _build_effective_psf(
     state: ChainState,
     params: ParameterSet,
@@ -333,8 +332,7 @@ def _build_effective_psf(
         wavelength_um = float(np.average(psf_wl_um, weights=weights))
 
         logger.info(
-            "Polychromatic PSF: %d wavelengths (%.2f-%.2f um), "
-            "effective lambda = %.3f um",
+            "Polychromatic PSF: %d wavelengths (%.2f-%.2f um), effective lambda = %.3f um",
             n_psf_wavelengths,
             psf_wl_um[0],
             psf_wl_um[-1],
@@ -352,9 +350,7 @@ def _build_effective_psf(
                     pixel_pitch_m=pixel_pitch_m,
                     wavelength_um=wl_key,
                 )
-            state = state.with_stage_output(
-                "optics", "per_wavelength_psfs", per_wl_epsfs
-            )
+            state = state.with_stage_output("optics", "per_wavelength_psfs", per_wl_epsfs)
 
     epsf = build_effective_psf(
         psf_arr,
@@ -441,8 +437,7 @@ def _finalize_regime(
 
     if math.isnan(angular_extent_rad):
         logger.warning(
-            "_finalize_regime: angular_extent_rad is NaN; "
-            "falling back to tentative regime '%s'.",
+            "_finalize_regime: angular_extent_rad is NaN; falling back to tentative regime '%s'.",
             tentative.value,
         )
         return tentative
@@ -698,10 +693,14 @@ class OpticsStage:
                 chromatic_zernikes = field_sample.chromatic_zernikes
 
             state = state.with_stage_output(
-                "optics", "field_sample", field_sample,
+                "optics",
+                "field_sample",
+                field_sample,
             )
             state = state.with_stage_output(
-                "optics", "field_position_deg", (field_x, field_y),
+                "optics",
+                "field_position_deg",
+                (field_x, field_y),
             )
 
             logger.info(
@@ -711,9 +710,7 @@ class OpticsStage:
                 field_y,
                 wfe.optical_type.value,
                 len(field_sample.zernike_coeffs),
-                f", {len(chromatic_zernikes)} chromatic wavelengths"
-                if chromatic_zernikes
-                else "",
+                f", {len(chromatic_zernikes)} chromatic wavelengths" if chromatic_zernikes else "",
             )
         else:
             wfe_for_psf = wfe
@@ -739,9 +736,7 @@ class OpticsStage:
 
             # Warn if Gaussian approximation may be inaccurate.
             # Z4 = delta / (8 * lambda * f/#^2)  — warn if > ~2 waves.
-            wl_center_m = float(
-                state.wavelength_um[len(state.wavelength_um) // 2]
-            ) * 1e-6
+            wl_center_m = float(state.wavelength_um[len(state.wavelength_um) // 2]) * 1e-6
             if wl_center_m > 0.0:
                 z4_waves = abs(defocus_m) / (8.0 * wl_center_m * f_number**2)
                 if z4_waves > 2.0:
@@ -768,12 +763,13 @@ class OpticsStage:
             # Update stored ePSF.
             state = state.with_stage_output("optics", "effective_psf", epsf)
             state = state.with_stage_output(
-                "optics", "defocus_sigma_m", sigma_def,
+                "optics",
+                "defocus_sigma_m",
+                sigma_def,
             )
 
             logger.info(
-                "Defocus applied: δ=%.1f µm, σ=%.3f µm (%.3f pix), "
-                "kernel %dx%d",
+                "Defocus applied: δ=%.1f µm, σ=%.3f µm (%.3f pix), kernel %dx%d",
                 defocus_um,
                 sigma_def * 1e6,
                 sigma_def / sample_spacing_m,

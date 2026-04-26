@@ -61,8 +61,7 @@ def _load_spectral_csv(path: Path, name: str) -> SpectralData:
             values.append(float(row[1]))
     if len(wavelengths) < 2:
         raise ElementConfigError(
-            f"Spectral file '{path}' must have at least 2 data points, "
-            f"got {len(wavelengths)}."
+            f"Spectral file '{path}' must have at least 2 data points, got {len(wavelengths)}."
         )
     return SpectralData(
         name=name,
@@ -115,7 +114,9 @@ def _parse_element(
 
     if transfer_mode == "REFLECTIVE":
         reflectance = _resolve_spectral_or_scalar(
-            _require(entry, "reflectance", name), f"{name}.reflectance", config_dir,
+            _require(entry, "reflectance", name),
+            f"{name}.reflectance",
+            config_dir,
         )
         return make_reflective_element(
             name,
@@ -131,22 +132,34 @@ def _parse_element(
         if "R1" in entry:
             # Cavity element — all per-surface fields required.
             r1 = _resolve_spectral_or_scalar(
-                _require(entry, "R1", name), f"{name}.R1", config_dir,
+                _require(entry, "R1", name),
+                f"{name}.R1",
+                config_dir,
             )
             t1 = _resolve_spectral_or_scalar(
-                _require(entry, "T1", name), f"{name}.T1", config_dir,
+                _require(entry, "T1", name),
+                f"{name}.T1",
+                config_dir,
             )
             r2 = _resolve_spectral_or_scalar(
-                _require(entry, "R2", name), f"{name}.R2", config_dir,
+                _require(entry, "R2", name),
+                f"{name}.R2",
+                config_dir,
             )
             t2 = _resolve_spectral_or_scalar(
-                _require(entry, "T2", name), f"{name}.T2", config_dir,
+                _require(entry, "T2", name),
+                f"{name}.T2",
+                config_dir,
             )
             alpha = _resolve_spectral_or_scalar(
-                _require(entry, "alpha", name), f"{name}.alpha", config_dir,
+                _require(entry, "alpha", name),
+                f"{name}.alpha",
+                config_dir,
             )
             n_refr = _resolve_spectral_or_scalar(
-                _require(entry, "n_refr", name), f"{name}.n_refr", config_dir,
+                _require(entry, "n_refr", name),
+                f"{name}.n_refr",
+                config_dir,
             )
             thickness_m = float(_require(entry, "thickness_m", name))
 
@@ -155,8 +168,13 @@ def _parse_element(
 
             return make_refractive_cavity_element(
                 name,
-                R1=r1, T1=t1, R2=r2, T2=t2,
-                alpha=alpha, n_refr=n_refr, thickness_m=thickness_m,
+                R1=r1,
+                T1=t1,
+                R2=r2,
+                T2=t2,
+                alpha=alpha,
+                n_refr=n_refr,
+                thickness_m=thickness_m,
                 kind=kind,
                 wavelength_um=wavelength_um,
                 temperature_K=temperature_K,
@@ -166,7 +184,9 @@ def _parse_element(
 
         # Simple refractive element — just transmittance.
         transmittance = _resolve_spectral_or_scalar(
-            _require(entry, "transmittance", name), f"{name}.transmittance", config_dir,
+            _require(entry, "transmittance", name),
+            f"{name}.transmittance",
+            config_dir,
         )
         kind_str = entry.get("kind", "LENS").upper()
         kind = ElementKind(kind_str.lower())
@@ -216,8 +236,7 @@ def load_element_list(
 
     if not isinstance(config, dict) or "optical_elements" not in config:
         raise ElementConfigError(
-            f"Config file '{yaml_path.name}' must contain an "
-            "'optical_elements' top-level key."
+            f"Config file '{yaml_path.name}' must contain an 'optical_elements' top-level key."
         )
 
     entries = config["optical_elements"]
@@ -232,8 +251,7 @@ def load_element_list(
     for i, entry in enumerate(entries):
         if not isinstance(entry, dict):
             raise ElementConfigError(
-                f"Element {i} in '{yaml_path.name}' must be a mapping, "
-                f"got {type(entry).__name__}."
+                f"Element {i} in '{yaml_path.name}' must be a mapping, got {type(entry).__name__}."
             )
         elements.append(_parse_element(entry, wavelength_um, config_dir))
 

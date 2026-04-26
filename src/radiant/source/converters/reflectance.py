@@ -37,9 +37,7 @@ _RHO_MIN: float = 0.0
 _RHO_MAX: float = 1.0
 
 
-def load_reflectance_csv(
-    path: Path | str, *, is_albedo: bool
-) -> SpectralData:
+def load_reflectance_csv(path: Path | str, *, is_albedo: bool) -> SpectralData:
     """Load a two-column ``(wavelength_um, rho)`` CSV into SpectralData.
 
     Delegates to the shared :func:`load_two_column_csv` reader with
@@ -84,9 +82,7 @@ def _lift_scalar_rho(
         wavelength_um=lam,
         values=np.full_like(lam, float(rho_scalar), dtype=np.float64),
         unit="",
-        source=(
-            "source.converters.reflectance (scalar lift; S4)"
-        ),
+        source=("source.converters.reflectance (scalar lift; S4)"),
     )
 
 
@@ -94,13 +90,8 @@ def _validate_rho(rho_values: np.ndarray) -> None:
     """Raise :class:`ParameterBoundsError` on empty or out-of-range ρ."""
     if rho_values.size == 0:
         raise ParameterBoundsError(
-            what=(
-                "reflectance: rho SpectralData has zero samples"
-            ),
-            why=(
-                "The converter needs at least one (λ, ρ) pair to emit a "
-                "descriptor."
-            ),
+            what=("reflectance: rho SpectralData has zero samples"),
+            why=("The converter needs at least one (λ, ρ) pair to emit a descriptor."),
             action=(
                 "Supply rho on the chain wavelength grid (at least two "
                 "points for the SpectralData constructor)."
@@ -110,9 +101,7 @@ def _validate_rho(rho_values: np.ndarray) -> None:
     if np.any(rho_values < _RHO_MIN):
         bad = float(rho_values.min())
         raise ParameterBoundsError(
-            what=(
-                f"reflectance: rho = {bad} is negative"
-            ),
+            what=(f"reflectance: rho = {bad} is negative"),
             why=(
                 "Reflectance is a dimensionless fraction in [0, 1]; "
                 "negative values have no physical interpretation."
@@ -123,9 +112,7 @@ def _validate_rho(rho_values: np.ndarray) -> None:
     if np.any(rho_values > _RHO_MAX):
         bad = float(rho_values.max())
         raise ParameterBoundsError(
-            what=(
-                f"reflectance: rho = {bad} exceeds 1.0 ceiling"
-            ),
+            what=(f"reflectance: rho = {bad} exceeds 1.0 ceiling"),
             why=(
                 "Reflectance > 1 violates energy conservation (reflected "
                 "power cannot exceed incident power for a passive surface)."
@@ -181,10 +168,7 @@ def reflectance_to_descriptor(
     """
     if target_location == "at_aperture":
         raise ParameterBoundsError(
-            what=(
-                "reflectance: target_location='at_aperture' is not "
-                "supported"
-            ),
+            what=("reflectance: target_location='at_aperture' is not supported"),
             why=(
                 "At-aperture (S9) specifies radiance already at the "
                 "sensor aperture; there is no up-leg illumination for "
@@ -198,11 +182,7 @@ def reflectance_to_descriptor(
             context={"target_location": target_location},
         )
 
-    rho_sd = (
-        rho
-        if isinstance(rho, SpectralData)
-        else _lift_scalar_rho(float(rho), wavelength_um)
-    )
+    rho_sd = rho if isinstance(rho, SpectralData) else _lift_scalar_rho(float(rho), wavelength_um)
 
     _validate_rho(np.asarray(rho_sd.values, dtype=np.float64))
 

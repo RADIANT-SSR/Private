@@ -106,7 +106,7 @@ class TestUnitConversion:
         lam = 10000.0 / nu_asc[::-1]  # reverse nu descending -> lam ascending
         nu_for_jac = nu_asc[::-1]
         # Combined Jacobian: L_radiant(lam) [W/m2/sr/um] = L(nu) * nu^2
-        L_lam = L_nu[::-1] * nu_for_jac ** 2
+        L_lam = L_nu[::-1] * nu_for_jac**2
 
         integral_lam = np.trapezoid(L_lam, lam)  # W/m2/sr
 
@@ -296,7 +296,9 @@ class TestFallback:
 
     @pytest.mark.level1
     def test_fallback_when_binary_missing(
-        self, default_geometry: AtmosphericGeometry, tmp_path: Path,
+        self,
+        default_geometry: AtmosphericGeometry,
+        tmp_path: Path,
     ) -> None:
         config = ModtranConfig(
             binary_path=tmp_path / "no_modtran",
@@ -315,7 +317,9 @@ class TestFallback:
 
     @pytest.mark.level1
     def test_error_when_no_fallback(
-        self, default_geometry: AtmosphericGeometry, tmp_path: Path,
+        self,
+        default_geometry: AtmosphericGeometry,
+        tmp_path: Path,
     ) -> None:
         config = ModtranConfig(
             binary_path=tmp_path / "no_modtran",
@@ -329,7 +333,9 @@ class TestFallback:
 
     @pytest.mark.level1
     def test_cache_hit_bypasses_binary(
-        self, default_geometry: AtmosphericGeometry, tmp_path: Path,
+        self,
+        default_geometry: AtmosphericGeometry,
+        tmp_path: Path,
     ) -> None:
         """Pre-populate cache; verify binary is never invoked."""
         cache_dir = tmp_path / "cache"

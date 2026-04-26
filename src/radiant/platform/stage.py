@@ -84,8 +84,7 @@ class PlatformStage:
             epsf = epsf.with_kernel("jitter", kernel)
 
             logger.info(
-                "Jitter applied: σ_x=%.2f µm (%.3f pix), σ_y=%.2f µm (%.3f pix), "
-                "kernel %dx%d",
+                "Jitter applied: σ_x=%.2f µm (%.3f pix), σ_y=%.2f µm (%.3f pix), kernel %dx%d",
                 sigma_x_m * 1e6,
                 sigma_x_m / epsf.pixel_pitch_m,
                 sigma_y_m * 1e6,
@@ -175,14 +174,10 @@ class PlatformStage:
             # Jitter MTF (anisotropic: different sigma per axis).
             if sigma_x_m > 0.0 or sigma_y_m > 0.0:
                 mtf_jitter_x = (
-                    jitter_mtf_1d(freq_m, sigma_x_m)
-                    if sigma_x_m > 0.0
-                    else np.ones_like(freq_m)
+                    jitter_mtf_1d(freq_m, sigma_x_m) if sigma_x_m > 0.0 else np.ones_like(freq_m)
                 )
                 mtf_jitter_y = (
-                    jitter_mtf_1d(freq_m, sigma_y_m)
-                    if sigma_y_m > 0.0
-                    else np.ones_like(freq_m)
+                    jitter_mtf_1d(freq_m, sigma_y_m) if sigma_y_m > 0.0 else np.ones_like(freq_m)
                 )
             else:
                 mtf_jitter_x = np.ones_like(freq_m)
@@ -225,9 +220,7 @@ class PlatformStage:
         try:
             altitude_m: float = params.get("geometry.sensor_altitude_m")
         except (KeyError, TypeError):
-            logger.debug(
-                "Smear: ground_velocity set but no altitude; skipping."
-            )
+            logger.debug("Smear: ground_velocity set but no altitude; skipping.")
             return 0.0
 
         if altitude_m <= 0.0:
@@ -236,9 +229,7 @@ class PlatformStage:
         try:
             t_int_s: float = params.get("spectral_integration.integration_time_s")
         except (KeyError, TypeError):
-            logger.debug(
-                "Smear: ground_velocity set but no integration_time; skipping."
-            )
+            logger.debug("Smear: ground_velocity set but no integration_time; skipping.")
             return 0.0
 
         if t_int_s <= 0.0:

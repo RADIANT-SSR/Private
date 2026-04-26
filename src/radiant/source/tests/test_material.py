@@ -83,7 +83,9 @@ class TestSurfaceMaterial:
     def test_invalid_brdf_model_raises(self) -> None:
         with pytest.raises(ValueError, match="brdf_model"):
             SurfaceMaterial(
-                name="bad", temperature_K=300, emissivity=0.9,
+                name="bad",
+                temperature_K=300,
+                emissivity=0.9,
                 brdf_model="cook-torrance",
             )
 
@@ -91,7 +93,9 @@ class TestSurfaceMaterial:
     def test_invalid_specular_fraction_raises(self) -> None:
         with pytest.raises(ValueError, match="specular_fraction"):
             SurfaceMaterial(
-                name="bad", temperature_K=300, emissivity=0.9,
+                name="bad",
+                temperature_K=300,
+                emissivity=0.9,
                 specular_fraction=1.5,
             )
 
@@ -104,8 +108,12 @@ class TestSurfaceMaterial:
     @pytest.mark.level0
     def test_phong_material(self) -> None:
         mat = SurfaceMaterial(
-            name="glossy", temperature_K=300, emissivity=0.9,
-            brdf_model="phong", phong_exponent=20.0, specular_fraction=0.3,
+            name="glossy",
+            temperature_K=300,
+            emissivity=0.9,
+            brdf_model="phong",
+            phong_exponent=20.0,
+            specular_fraction=0.3,
         )
         src = mat.create_source(solar_zenith_rad=0.3, observer_zenith_rad=0.3)
         assert isinstance(src, CombinedSource)

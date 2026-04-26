@@ -78,9 +78,7 @@ class TestSystemMTFProduct:
             terms, freq, pixel_pitch_m=PIXEL_PITCH_M, focal_length_m=FOCAL_LENGTH_M
         )
 
-        np.testing.assert_allclose(
-            result.system_mtf_x, a_x * b_x * c_x, atol=1e-12
-        )
+        np.testing.assert_allclose(result.system_mtf_x, a_x * b_x * c_x, atol=1e-12)
 
 
 class TestDominantContributor:
@@ -153,6 +151,4 @@ class TestPerTermAtNyquist:
         freq_m = freq / (FOCAL_LENGTH_M * 1e3)
         expected = float(np.interp(f_ny, freq_m, mtf_a, right=0.0))
 
-        assert result.per_term_at_nyquist["mtf_test_x"] == pytest.approx(
-            expected, abs=1e-10
-        )
+        assert result.per_term_at_nyquist["mtf_test_x"] == pytest.approx(expected, abs=1e-10)

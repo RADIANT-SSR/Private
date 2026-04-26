@@ -57,13 +57,15 @@ logger = logging.getLogger(__name__)
 TAU_FLOOR: float = 1e-30
 
 # Geometry fields that can be used as interpolation axes.
-_GEOMETRY_FIELDS: frozenset[str] = frozenset({
-    "sensor_altitude_m",
-    "target_altitude_m",
-    "path_zenith_rad",
-    "solar_zenith_rad",
-    "solar_azimuth_rad",
-})
+_GEOMETRY_FIELDS: frozenset[str] = frozenset(
+    {
+        "sensor_altitude_m",
+        "target_altitude_m",
+        "path_zenith_rad",
+        "solar_zenith_rad",
+        "solar_azimuth_rad",
+    }
+)
 
 
 def _extract_geometry_coord(geometry: AtmosphericGeometry, axis: str) -> float:
@@ -176,13 +178,10 @@ class InterpolatedAtmosphere:
     ) -> None:
         if len(points) < 2:
             raise ValueError(
-                f"InterpolatedAtmosphere: at least 2 geometry points "
-                f"required, got {len(points)}."
+                f"InterpolatedAtmosphere: at least 2 geometry points required, got {len(points)}."
             )
         if not axes:
-            raise ValueError(
-                "InterpolatedAtmosphere: at least one interpolation axis required."
-            )
+            raise ValueError("InterpolatedAtmosphere: at least one interpolation axis required.")
         for ax in axes:
             if ax not in _GEOMETRY_FIELDS:
                 raise ValueError(
@@ -263,10 +262,7 @@ class InterpolatedAtmosphere:
             from itertools import product as cart_product
 
             for multi_idx in cart_product(*(range(len(u)) for u in unique_per_axis)):
-                key = tuple(
-                    float(unique_per_axis[j][multi_idx[j]])
-                    for j in range(len(self._axes))
-                )
+                key = tuple(float(unique_per_axis[j][multi_idx[j]]) for j in range(len(self._axes)))
                 pt_idx = coord_to_idx[key]
                 log_tau_grid[multi_idx] = log_tau[pt_idx]
                 lpath_grid[multi_idx] = lpath[pt_idx]
@@ -275,16 +271,22 @@ class InterpolatedAtmosphere:
             axis_values = tuple(u for u in unique_per_axis)
 
             self._interp_log_tau = RegularGridInterpolator(
-                axis_values, log_tau_grid,
-                method=method, bounds_error=True,
+                axis_values,
+                log_tau_grid,
+                method=method,
+                bounds_error=True,
             )
             self._interp_lpath = RegularGridInterpolator(
-                axis_values, lpath_grid,
-                method=method, bounds_error=True,
+                axis_values,
+                lpath_grid,
+                method=method,
+                bounds_error=True,
             )
             self._interp_ldown = RegularGridInterpolator(
-                axis_values, ldown_grid,
-                method=method, bounds_error=True,
+                axis_values,
+                ldown_grid,
+                method=method,
+                bounds_error=True,
             )
         else:
             self._grid_type = "scattered"
@@ -295,8 +297,11 @@ class InterpolatedAtmosphere:
 
         logger.info(
             "InterpolatedAtmosphere: %d points, %d axes (%s), %s grid, %d wavelengths",
-            n_pts, len(self._axes), ", ".join(self._axes),
-            self._grid_type, n_wl,
+            n_pts,
+            len(self._axes),
+            ", ".join(self._axes),
+            self._grid_type,
+            n_wl,
         )
 
     @property
@@ -451,8 +456,7 @@ class InterpolatedAtmosphere:
                     "convex hull of available data points. Interpolation "
                     "does not extrapolate. Available bounds per axis: "
                     + ", ".join(
-                        f"{ax}=[{bounds[ax][0]:.6g}, {bounds[ax][1]:.6g}]"
-                        for ax in self._axes
+                        f"{ax}=[{bounds[ax][0]:.6g}, {bounds[ax][1]:.6g}]" for ax in self._axes
                     )
                 )
 
@@ -499,8 +503,7 @@ class InterpolatedAtmosphere:
             ),
             geometry=geometry,
             derivation_chain=(
-                f"InterpolatedAtmosphere({self._grid_type}, "
-                f"n={self.n_points}, axes={self._axes})",
+                f"InterpolatedAtmosphere({self._grid_type}, n={self.n_points}, axes={self._axes})",
                 "tau interpolated in log-space (optical depth)",
                 "L_path, L_atm_down interpolated linearly",
             ),

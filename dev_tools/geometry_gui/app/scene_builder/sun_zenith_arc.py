@@ -20,8 +20,12 @@ import plotly.graph_objects as go
 
 from dev_tools.geometry_gui.app.scene_builder._arc_helpers import arc_points
 from dev_tools.geometry_gui.app.scene_builder._arc_labels import label_for
+from dev_tools.geometry_gui.app.scene_builder._arc_offsets import shifted_anchor
 from dev_tools.geometry_gui.app.scene_builder._arc_palette import arc_color_for
 from dev_tools.geometry_gui.app.scene_builder._arc_radii import arc_radius_for
+from dev_tools.geometry_gui.app.scene_builder.arc_leader_line import (
+    arc_leader_line_traces,
+)
 
 
 def sun_zenith_at_target_rad(sun_dir_scene: npt.NDArray[np.float64]) -> float:
@@ -40,7 +44,8 @@ def sun_zenith_arc_traces(
     plus_z = np.array([0.0, 0.0, 1.0], dtype=np.float64)
     radius = arc_radius_for("sun_zenith")
     color = arc_color_for("sun")
-    xs, ys, zs, swept = arc_points(t, plus_z, sun_dir_scene, radius=radius)
+    anchor = shifted_anchor(t, plus_z, sun_dir_scene, "target")
+    xs, ys, zs, swept = arc_points(anchor, plus_z, sun_dir_scene, radius=radius)
     if xs.size == 0:
         return []
 
@@ -73,4 +78,7 @@ def sun_zenith_arc_traces(
         hoverinfo="skip",
         showlegend=False,
     )
-    return [arc, text]
+    leader = arc_leader_line_traces(
+        t, anchor, color, leader_name=f"theta_s leader ({theta_deg:.1f} deg)"
+    )
+    return [arc, text, *leader]

@@ -128,22 +128,31 @@ def test_off_nadir_arc_anchors_at_off_nadir_radius() -> None:
 
 
 def test_phase_angle_arc_anchors_at_phase_angle_radius() -> None:
+    """Phase 12: arc center is the shifted anchor, not the physical target."""
+    from dev_tools.geometry_gui.app.scene_builder._arc_offsets import shifted_anchor
+
     target = np.zeros(3, dtype=float)
     view = np.array([1.0, 0.0, 1.0], dtype=float) / math.sqrt(2.0)
     sun = np.array([1.0, 1.0, 1.0], dtype=float) / math.sqrt(3.0)
     traces = phase_angle_arc_traces(target, view, sun)
+    anchor = shifted_anchor(target, view, sun, "target")
     assert math.isclose(
-        _first_arc_radius(traces, target), arc_radius_for("phase_angle"), rel_tol=1e-9
+        _first_arc_radius(traces, anchor), arc_radius_for("phase_angle"), rel_tol=1e-9
     )
 
 
 def test_sun_zenith_arc_anchors_at_sun_zenith_radius() -> None:
+    """Phase 12: arc center is the shifted anchor, not the physical target."""
+    from dev_tools.geometry_gui.app.scene_builder._arc_offsets import shifted_anchor
+
     target = np.zeros(3, dtype=float)
+    plus_z = np.array([0.0, 0.0, 1.0], dtype=float)
     sun = np.array([0.5, 0.5, 1.0 / math.sqrt(2.0)], dtype=float)
     sun /= np.linalg.norm(sun)
     traces = sun_zenith_arc_traces(target, sun)
+    anchor = shifted_anchor(target, plus_z, sun, "target")
     assert math.isclose(
-        _first_arc_radius(traces, target), arc_radius_for("sun_zenith"), rel_tol=1e-9
+        _first_arc_radius(traces, anchor), arc_radius_for("sun_zenith"), rel_tol=1e-9
     )
 
 

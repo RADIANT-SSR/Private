@@ -22,8 +22,12 @@ import plotly.graph_objects as go
 
 from dev_tools.geometry_gui.app.scene_builder._arc_helpers import arc_points
 from dev_tools.geometry_gui.app.scene_builder._arc_labels import label_for
+from dev_tools.geometry_gui.app.scene_builder._arc_offsets import shifted_anchor
 from dev_tools.geometry_gui.app.scene_builder._arc_palette import arc_color_for
 from dev_tools.geometry_gui.app.scene_builder._arc_radii import arc_radius_for
+from dev_tools.geometry_gui.app.scene_builder.arc_leader_line import (
+    arc_leader_line_traces,
+)
 
 
 def phase_angle_rad(
@@ -50,8 +54,11 @@ def phase_angle_arc_traces(
     t = np.asarray(target_pos_display, dtype=np.float64)
     radius = arc_radius_for("phase_angle")
     color = arc_color_for("target")
+    anchor = shifted_anchor(
+        t, view_dir_target_to_observer, sun_dir_target_to_sun, "target"
+    )
     xs, ys, zs, swept = arc_points(
-        t, view_dir_target_to_observer, sun_dir_target_to_sun, radius=radius
+        anchor, view_dir_target_to_observer, sun_dir_target_to_sun, radius=radius
     )
     if xs.size == 0:
         return []
@@ -90,4 +97,7 @@ def phase_angle_arc_traces(
         hoverinfo="skip",
         showlegend=False,
     )
-    return [arc, text]
+    leader = arc_leader_line_traces(
+        t, anchor, color, leader_name=f"alpha_t leader ({alpha_deg:.1f} deg)"
+    )
+    return [arc, text, *leader]

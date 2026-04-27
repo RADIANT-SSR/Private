@@ -18,6 +18,7 @@ import numpy.typing as npt
 import plotly.graph_objects as go
 
 from dev_tools.geometry_gui.app.scene_builder._arc_helpers import arc_points
+from dev_tools.geometry_gui.app.scene_builder._arc_offsets import shifted_anchor
 from dev_tools.geometry_gui.app.scene_builder._arc_palette import (
     PROJECTION_ALPHA,
     arc_color_for,
@@ -33,11 +34,18 @@ def phase_angle_projection_traces(
     view_dir_target_to_observer: npt.NDArray[np.float64],
     sun_dir_target_to_sun: npt.NDArray[np.float64],
 ) -> list[go.Scatter3d]:
-    """Dashed companion of the α_t arc on the target's tangent plane."""
+    """Dashed companion of the α_t arc on the target's tangent plane.
+
+    Phase 12: anchor follows the parent arc's outward shift so the
+    projection sits beside its parent rather than inside the target mesh.
+    """
     t = np.asarray(target_pos_display, dtype=np.float64)
     radius = arc_radius_for("phase_angle")
+    anchor = shifted_anchor(
+        t, view_dir_target_to_observer, sun_dir_target_to_sun, "target"
+    )
     xs, ys, zs, _ = arc_points(
-        t, view_dir_target_to_observer, sun_dir_target_to_sun, radius=radius
+        anchor, view_dir_target_to_observer, sun_dir_target_to_sun, radius=radius
     )
     if xs.size == 0:
         return []

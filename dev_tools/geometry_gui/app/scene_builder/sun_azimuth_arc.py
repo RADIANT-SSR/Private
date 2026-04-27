@@ -20,8 +20,12 @@ import plotly.graph_objects as go
 
 from dev_tools.geometry_gui.app.scene_builder._arc_helpers import arc_points
 from dev_tools.geometry_gui.app.scene_builder._arc_labels import label_for
+from dev_tools.geometry_gui.app.scene_builder._arc_offsets import shifted_anchor
 from dev_tools.geometry_gui.app.scene_builder._arc_palette import arc_color_for
 from dev_tools.geometry_gui.app.scene_builder._arc_radii import arc_radius_for
+from dev_tools.geometry_gui.app.scene_builder.arc_leader_line import (
+    arc_leader_line_traces,
+)
 
 
 def sun_azimuth_rad(sun_dir_scene: npt.NDArray[np.float64]) -> float:
@@ -46,7 +50,8 @@ def sun_azimuth_arc_traces(
     plus_x = np.array([1.0, 0.0, 0.0], dtype=np.float64)
     radius = arc_radius_for("sun_azimuth")
     color = arc_color_for("sun")
-    xs, ys, zs, swept = arc_points(t, plus_x, proj, radius=radius)
+    anchor = shifted_anchor(t, plus_x, proj, "target")
+    xs, ys, zs, swept = arc_points(anchor, plus_x, proj, radius=radius)
     if xs.size == 0:
         return []
 
@@ -79,4 +84,7 @@ def sun_azimuth_arc_traces(
         hoverinfo="skip",
         showlegend=False,
     )
-    return [arc, text]
+    leader = arc_leader_line_traces(
+        t, anchor, color, leader_name=f"delta_phi leader ({phi_deg:.1f} deg)"
+    )
+    return [arc, text, *leader]

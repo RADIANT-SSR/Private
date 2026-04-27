@@ -257,29 +257,44 @@ def _infer_target_location_and_subcase(
 def _infer_los(
     target_location: str,
     params: ParameterSet,
+    *,
+    target_descriptor: TargetDescriptor | None = None,
 ) -> LineOfSightGeometry | None:
-    """Build a LineOfSightGeometry for the Stage-2 bridge.
+    """Build a LineOfSightGeometry from already-registered ``geometry.*`` params.
 
-    Matrix §4.3 requires (h_tgt, θ_o, θ_s, Δφ).  The legacy parameter
-    surface does not yet expose viewing / solar geometry through the
-    SourceStage; Stage 3 will consume them through the AtmosphereStage
-    parameters.  For Stage 2 we build a minimal LOS:
+    Matrix §4.3 requires (h_tgt, θ_o, θ_s, Δφ).  All four canonical
+    quantities map onto AtmosphereStage-registered ``geometry.*`` params
+    that downstream stages already consume; this helper wires the
+    SourceStage producer side to read from the same canonical names
+    (CU-009).
 
-      * h_tgt = ``geometry.target_altitude_m`` (0 m by default — surface
-        target; Stage 5 A3 lifts this to arbitrary 0 ≤ h_tgt < h_atm_top).
-      * θ_o = 0 rad (nadir).
-      * θ_s = None (no solar geometry — LWIR-friendly default).
-      * Δφ = None.
-      * h_atm_top = 1e5 m (Kármán line, v1 default).
+      * ``h_tgt``        ← ``geometry.target_altitude_m`` (default 0.0 m).
+      * ``theta_o``      ← ``geometry.path_zenith_rad`` (default 0.0 rad
+        — nadir).
+      * ``theta_s``      ← ``geometry.solar_zenith_rad`` for T2/T3
+        targets, ``None`` for T1Thermal.
+      * ``delta_phi``    ← ``geometry.solar_azimuth_rad`` for T2/T3
+        targets, ``None`` for T1Thermal.
+      * ``h_atm_top``    stays at the dataclass default (1e5 m, Kármán
+        line; user-overridable surface is Stage-7+ / SensorDescriptor
+        territory).
+
+    The "T2/T3 ⇒ populated, T1 ⇒ None" predicate honors
+    :class:`LineOfSightGeometry`'s "``None`` for pure-thermal scenarios
+    where the sun is not used" docstring contract: T1Thermal radiance
+    has no solar leg, so the solar fields are inert metadata at best
+    and misleading at worst.  When ``target_descriptor`` is ``None``
+    (legacy callers, source-only fixtures), the predicate also yields
+    ``theta_s=None, delta_phi=None`` — back-compat with the pre-CU-009
+    behavior.
 
     Returns ``None`` when ``target_location == "at_aperture"`` because
     the at-aperture pass-through arm never evaluates an atmospheric
     path; matrix §4.3 line 356.
 
-    Stage-5 Option C note: ``geometry.target_altitude_m`` is now read
-    from the ParameterSet so airborne scenarios flow through the
-    partial-column ``SimpleAtmosphere.evaluate()`` path.  A ``KeyError``
-    fallback to 0.0 keeps source-only unit-test fixtures working.
+    Each ``params.get`` is wrapped in ``try/except KeyError → default``
+    so source-only unit-test fixtures (which do not register the
+    AtmosphereStage schema) continue to work.
     """
     if target_location == "at_aperture":
         return None
@@ -289,7 +304,28 @@ def _infer_los(
         h_tgt_m = 0.0
     if h_tgt_m < 0.0:
         h_tgt_m = 0.0
-    return LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)
+    try:
+        theta_o = float(params.get("geometry.path_zenith_rad"))
+    except KeyError:
+        theta_o = 0.0
+    if isinstance(target_descriptor, (T2Reflective, T3Mixed)):
+        try:
+            theta_s: float | None = float(params.get("geometry.solar_zenith_rad"))
+        except KeyError:
+            theta_s = None
+        try:
+            delta_phi: float | None = float(params.get("geometry.solar_azimuth_rad"))
+        except KeyError:
+            delta_phi = None
+    else:
+        theta_s = None
+        delta_phi = None
+    return LineOfSightGeometry(
+        h_tgt=h_tgt_m,
+        theta_o=theta_o,
+        theta_s=theta_s,
+        delta_phi=delta_phi,
+    )
 
 
 def _view_direction_from_los(params: ParameterSet, target_location: str) -> np.ndarray:
@@ -297,11 +333,12 @@ def _view_direction_from_los(params: ParameterSet, target_location: str) -> np.n
 
     The shape protocol (``TargetShape.projected_area``) expects a unit
     view vector in the target's local scene frame with +Z = local up
-    (per Rule 3).  For Stage-2 inference the observer zenith angle
-    ``theta_o`` is the only LOS scalar surfaced today; we set the
-    absolute observer azimuth to 0 (observer along local +X horizon
-    when tilted off-nadir) so that ``theta_o=0`` gives the canonical
-    nadir view ``(0, 0, 1)`` = +Z.
+    (per Rule 3).  The observer zenith angle ``theta_o`` is read from
+    the canonical ``geometry.path_zenith_rad`` parameter (the same
+    name that the AtmosphereStage / PlatformStage / PerformanceStage
+    consumers use); we set the absolute observer azimuth to 0
+    (observer along local +X horizon when tilted off-nadir) so that
+    ``theta_o = 0`` gives the canonical nadir view ``(0, 0, 1)`` = +Z.
 
     Parameters
     ----------
@@ -320,7 +357,7 @@ def _view_direction_from_los(params: ParameterSet, target_location: str) -> np.n
     if target_location == "at_aperture":
         return np.array([0.0, 0.0, 1.0], dtype=np.float64)
     try:
-        theta_o = float(params.get("geometry.observer_zenith_rad"))
+        theta_o = float(params.get("geometry.path_zenith_rad"))
     except KeyError:
         theta_o = 0.0
     if theta_o < 0.0:
@@ -1797,23 +1834,29 @@ def infer_descriptors(
         if subcase_user:
             no_atmosphere_subcase = subcase_user
 
-    # --- LOS geometry ---
-    los = _infer_los(target_location, params)
-
     # --- h_tgt (target altitude) ---
     # Matrix §3.2: h_tgt = geometry.target_altitude_m for terrestrial
     # (Stage 5 A3 — airborne partial-column support); None for
     # at_aperture; still 0 for no_atmosphere=space (the space LOS is
     # "above everything", and h_tgt is irrelevant for the no_atm path).
+    # Computed before LOS so the target descriptor can be constructed
+    # first; the LOS's T1/T2/T3 routing predicate (CU-009) reads the
+    # descriptor's runtime type to decide whether to populate
+    # ``theta_s`` / ``delta_phi``.
     if target_location == "at_aperture":
         h_tgt: float | None = None
     elif target_location == "no_atmosphere":
         h_tgt = 0.0
     else:
-        # Terrestrial — honor the airborne target altitude if set.
-        h_tgt = los.h_tgt if los is not None else 0.0
+        try:
+            h_tgt_raw = float(params.get("geometry.target_altitude_m"))
+        except KeyError:
+            h_tgt_raw = 0.0
+        h_tgt = h_tgt_raw if h_tgt_raw >= 0.0 else 0.0
 
     # --- Construct descriptors ---
+    # Target first so CU-009's T1/T2/T3 routing predicate in _infer_los
+    # can dispatch on the runtime descriptor type.
     target = _build_target_descriptor(
         params=params,
         wavelength_um=wavelength_um,
@@ -1822,6 +1865,9 @@ def infer_descriptors(
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
     )
+
+    # --- LOS geometry ---
+    los = _infer_los(target_location, params, target_descriptor=target)
     background = _build_background_descriptor(
         params=params,
         wavelength_um=wavelength_um,

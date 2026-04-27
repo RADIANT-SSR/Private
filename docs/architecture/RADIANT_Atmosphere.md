@@ -335,6 +335,8 @@ These parameters live in `geometry.*` per RADIANT_Parameter_System.md, and the a
 
 `geometry.sensor_altitude_m`, `geometry.target_altitude_m`, `geometry.path_zenith_deg`, `geometry.solar_zenith_deg`, `geometry.solar_azimuth_deg`, `geometry.observer_type`, `geometry.target_type`, `geometry.day_of_year`.
 
+**Producer-side note (CU-009):** SourceStage's `_infer_los` reads `geometry.path_zenith_rad`, `geometry.solar_zenith_rad`, and `geometry.solar_azimuth_rad` to construct the `LineOfSightGeometry` it publishes for AtmosphereStage. The solar-zenith and solar-azimuth values propagate only when the target descriptor is solar-interacting (`T2Reflective`, `T3Mixed`); pure-thermal `T1Thermal` targets receive `theta_s = delta_phi = None` regardless of the registered solar params, honoring the `LineOfSightGeometry` "None for pure-thermal" docstring contract.
+
 ### 6.6 Turbulence (stubbed)
 
 | Parameter | Unit / type | Default | Notes |

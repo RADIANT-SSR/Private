@@ -167,6 +167,9 @@ geometry.path_zenith_rad              # rad (input: deg)
 geometry.solar_zenith_rad             # rad (input: deg)
 geometry.solar_azimuth_rad            # rad (input: deg)
 geometry.ground_speed_m_s             # m/s
+# Consumed by AtmosphereStage, PlatformStage, PerformanceStage,
+# and (post-CU-009) by SourceStage's `_infer_los` for
+# `LineOfSightGeometry` construction.  See RADIANT_Atmosphere.md §6.5.
 
 atmosphere.model                      # enum: "unity", "simple", "tabulated", "modtran", "interpolated"
 atmosphere.visibility_km              # km

@@ -54,13 +54,20 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired
 
 **Discovered**: Option C Stage 1 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stages 7 and 8 have landed)
-**Status**: stage-deferral expired — Stage 7 ("no_atmosphere sub-cases", commit `ecc22b4`) and Stage 8 ("90-cell matrix coverage", commit `9fc28aa`) both landed without wiring this function. Per the original CU body, the trigger to "reconsider whether it belongs in `core/` or in a stubbed `sensor/` module" has fired.
+**Re-audited**: 2026-04-24 (Stages 7 and 8 have landed); 2026-04-26 (re-scoped — see Status)
+**Status**: blocked on CU-009 (re-audit when CU-009 lands). Investigation 2026-04-26 found the original "Suggested fix" mis-framed:
 
-**File**: `src/radiant/core/los_geometry.py`
-**Symptom (verified 2026-04-24)**: function still has zero non-test callers in `src/radiant/`. Only sites are the definition (`los_geometry.py`), the unit test (`core/tests/test_los_geometry.py`), and the `core/__init__.py` export.
-**Why it still matters**: dead-until-wired code in `core/` is a Rule-19 / Rule-11 hazard — the converter sits in `core/` (which forbids cross-stage imports) precisely because it was supposed to be a sensor-side boundary helper, but eight Option C stages later there is no sensor consumer.
-**Suggested fix**: pick one of three paths and commit explicitly — (a) wire it into the Earth-LOS-intercept check in `OpticsStage._finalize_regime()` if `h_sensor` is now available downstream of Stage 8; (b) move it to `radiant.api.geometry` (which can legitimately import sensor-side context), keeping a re-export shim from `core/`; (c) delete it and the unit test as truly unused. Decision belongs to whoever owns the SensorDescriptor follow-on ADR.
+- The CU body conflated three things in `core/los_geometry.py`. Only one of them is unwired: the standalone `theta_o_from_eta` function. The `LineOfSightGeometry` class itself is heavily consumed (every atmosphere backend, the source stage, ~10 test files, all source-stage snapshots). `LineOfSightGeometry.intercepts_earth(h_sensor)` is wired into production at [src/radiant/atmosphere/assembly.py:204](../src/radiant/atmosphere/assembly.py#L204), called from `validate_no_atmosphere_subcase` against the already-registered `platform.h_sensor` parameter ([src/radiant/platform/_schema.py:127](../src/radiant/platform/_schema.py#L127), Stage-7 stop-gap).
+- Path (a) ("wire into `OpticsStage._finalize_regime()`'s Earth-intercept check") doesn't apply: the Earth-intercept check is `intercepts_earth()` (not `theta_o_from_eta`), it lives in AtmosphereStage (not OpticsStage), and it is already wired.
+- Path (b) ("move to `radiant.api.geometry`") is no improvement: the function only depends on `R_EARTH_M` and `ParameterBoundsError`, both already in `core/`. The file's own docstring (lines 22–30) explicitly justifies keeping it in `core/` adjacent to `LineOfSightGeometry`.
+- Path (c) ("delete") is premature: 5 unit tests at `core/tests/test_los_geometry.py:204–258` cover spherical-Earth sine-rule inversion with a horizon-tangent floating-point guard. The function is documented, tested, and reserved for the SensorDescriptor follow-on per the file docstring's "**not dead code**" note.
+
+The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry.eta` (or equivalent) schema parameter exists yet. Today users supply `theta_o` directly via `_inferrer.py::_infer_los`, or accept the hardcoded default `theta_o=0.0` — and that hardcoded default is the subject of **CU-009**. When CU-009 lands the `source.observer_geometry.*` schema parameters, the schema-design question becomes real: "does the user supply `theta_o` directly, or supply `(eta, h_sensor)` and let `theta_o_from_eta` convert?" That is where CU-005 actually gets answered. Solving it before CU-009 lands is solving an imaginary problem (same pattern as CU-011, also blocked on CU-009).
+
+**File**: `src/radiant/core/los_geometry.py::theta_o_from_eta`
+**Symptom (verified 2026-04-26)**: standalone `theta_o_from_eta` function has zero non-test callers in `src/radiant/`. Only sites: definition, the 5-test suite at `core/tests/test_los_geometry.py:204–258`, and the `core/__init__.py` export.
+**Why it still matters**: tracking, not urgency — once CU-009 lands the schema, this CU's resolution becomes a forced choice (wire in `_inferrer._infer_los`, or document the `eta` opt-out as deliberately deferred behind a SensorDescriptor ADR).
+**Suggested fix (deferred to post-CU-009 re-audit)**: when CU-009's `source.observer_geometry.*` schema lands, decide whether `_inferrer._infer_los` accepts `(theta_o)` only, `(eta, h_sensor)` with conversion via `theta_o_from_eta`, or both with explicit precedence. Re-audit date: keyed to CU-009 landing.
 
 ### CU-007 — Stage-2 MWIR-mixed `UserWarning` is globally suppressed inside `_inferrer.py`
 
@@ -76,13 +83,13 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 ### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral
 
 **Discovered**: Option C Stage 2 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stages 3–8 have landed)
-**Status**: stage-deferral expired — Stage 3 (atmosphere shadow-mode, commit `018e5a7`) was supposed to replace this, but the placeholder still fires.
+**Re-audited**: 2026-04-24 (Stages 3–8 have landed); 2026-04-26 (escalated — see Status)
+**Status**: investigated 2026-04-26; escalated to a stand-alone Category C task (`docs/CU-008_GroundBackground_Spectral_Task.md`) — this entry stays Open until the follow-on lands. Investigation found (a) the placeholder is at [_inferrer.py:1707–1726](../src/radiant/source/_inferrer.py#L1707), (b) **zero baseline scenarios route through it** — every one of the 14 scenarios in `tests/integration/snapshots/option_c_baseline.yaml` and `src/radiant/source/tests/snapshots/*.yaml` is `scene_type: extended` with `background: null` (extended scenes return `None` from `_build_background_descriptor` at line 1701), so the placeholder fires on no live scenario today; (c) the only live consumer is one unit-test fixture at `src/radiant/source/tests/test_inferrer.py:472`. The CU's "still emitted on every sub-pixel scenario" claim was correct in principle but not in the live code base — the placeholder is **dormant production code**, not silently-corrupting code. The fix lights up dormant code rather than refreshing existing snapshots.
 
 **File**: `src/radiant/source/_inferrer.py::_build_background_descriptor`
 **Symptom (verified 2026-04-24)**: `_inferrer.py` lines ~1842–1865 still call `_grey_spectraldata(wavelength_um=..., value=bg_eps_scalar, ...)` to construct `GroundBackground(epsilon_g=...)`. The `UserWarning` flagging "placeholder bg, will be replaced in Stage 3" is still emitted on every terrestrial / airborne sub-pixel scenario.
-**Why it still matters**: spectral ε_g(λ) matters for radiometric fidelity on non-grey surfaces (vegetation / snow / urban). Stage 6's E_sky decomposition assumes a real spectral ε_g for the reflected-diffuse and reflected-direct-solar terms — the grey placeholder silently degrades those terms wherever it flows through.
-**Suggested fix**: stand-alone task — route `source.background.emissivity` through `SpectralDataStore` instead of `_grey_spectraldata`, accept either a `SpectralData` reference or a scalar (with the scalar path explicitly opt-in for "true grey is the user's intent"), remove the placeholder warning, refresh the snapshot regression YAMLs under `src/radiant/source/tests/snapshots/`. Estimate: Category C (touches radiometric path); requires three numerical truth anchors (analytic grey limit, vegetation-spectral library, snow-spectral library).
+**Why it still matters**: dormant Rule-17 antipattern. Once the first sub-pixel terrestrial / airborne scenario lands (likely soon — CU-009 schema work, future point-target scenarios), the placeholder warning starts firing in production and the silent-grey ε_g(λ) becomes a real radiometry bug for non-grey materials (vegetation NDVI, snow MWIR drop, urban asphalt SWIR). Stage 6's E_sky decomposition consumes ε_g spectrally via `_assemble_ground_background`; the bridge has to be built before a real consumer arrives.
+**Suggested fix**: see `docs/CU-008_GroundBackground_Spectral_Task.md`. Recommended approach (Approach 1 in that task doc): named spectral-library enum (`source.background.material ∈ {grey, vegetation, snow}`) + optional `source.background.emissivity_path` override, with the existing scalar `source.background.emissivity` preserved as the `material="grey"` back-compat path. Three numerical truth anchors (grey-limit identity, vegetation NDVI signature, snow MWIR drop). Zero existing-baseline drift; one or two new sub-pixel test fixtures added.
 
 ### CU-009 — Stage-2 `LineOfSightGeometry` uses Kármán-line default instead of scenario-aware `h_atm_top`
 

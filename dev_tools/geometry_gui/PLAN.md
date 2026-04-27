@@ -601,3 +601,246 @@ cone}.{json,png}` regenerated via the existing
   C5 (Rule 19), C6 (no private symbols) — all still hold.
 - Phase 0–11 test suite — every existing test must still pass after
   the offset substitution (sweeps and decomposition values unchanged).
+
+---
+
+## 14. Phase 13 — Label-management system: leader lines, slot layout, no overlaps (added 2026-04-26)
+
+### Motivation
+Phase 12 lifted the *arcs* off the target mesh, but labels are still
+emitted as `Scatter3d(mode="text")` traces anchored at a 3D point in
+the arc. Plotly renders 3D text with no pixel-level layout: when two
+labels share roughly the same world-space position (and the target is
+the densest cluster — α_t at target, θ_sun,B at B which is near-target,
+n_B, s_B, az, el plus the body-axis tip labels), they all get
+projected to nearly the same screen pixel and stack into an unreadable
+glyph soup. Every Phase-12 screenshot shows this — `α_t = 70.0°`
+glyph-collides with neighbors and the body-axis labels.
+
+User feedback (2026-04-26):
+
+> every screenshot has the same defect: at the target location, the
+> labels α_t, θ_sun,B, n_B, s_B, az, el, and the body axes all stack
+> on top of each other and become unreadable… Fix this with a proper
+> label-management system before doing anything else, because no
+> other improvement will be visible until labels stop overlapping.
+
+User requirements (verbatim):
+1. **Leader lines.** Labels render in screen-space at a fixed pixel
+   offset from their anchor, connected by a thin 1px line. Labels
+   never overlap the geometry.
+2. **Force-directed OR angular distribution** (~80px screen-space
+   circle around the target) so labels fan out instead of stacking.
+3. **Collapsible label clusters.** Default: show only the angle group
+   the user is currently editing; others render as faded numeric chips
+   that expand on hover.
+4. **Subtle white halo / text-stroke** (2px, 80% opacity background).
+5. **Hard invariant:** never render two labels at the same
+   screen-space pixel — verified in tests.
+
+### Phase 13 acceptance overview
+
+| Phase | File | Output | Acceptance |
+|---|---|---|---|
+| 13 | `phase_13_label_layout.md` | (a) per-label-key slot table in new `_label_layout.py` mapping `label_key → (xshift_px, yshift_px, slot_index)`; (b) every arc module ships a `<arc>_label_annotation(...)` constructor returning a single `plotly.graph_objs.layout.scene.Annotation`-compatible dict (or `None` when its arc is suppressed) and *no longer* emits a `Scatter3d(mode="text")` label trace; (c) new orchestrator `build_annotations.py` that reads a `SceneState` plus the same active angle-group filter `build_scene` already takes, calls each module's `<arc>_label_annotation()`, and returns `list[dict]`; (d) `main.py` figure construction passes the result into `fig.update_layout(scene=dict(annotations=…))`; (e) every annotation uses the slot-table `xshift`/`yshift` (~80 px circle around the target) for fan-out, `bgcolor='rgba(255,255,255,0.8)'` + `bordercolor` matching the parent arc + `borderpad=2` for the white halo, and `showarrow=True` with `arrowwidth=1` for the leader line; (f) `test_phase13_label_layout.py` hard-asserts the pixel-distinctness invariant (no two slots resolve to the same `(xshift, yshift)` pair within a 12-px tolerance circle) plus per-arc construction tests; (g) golden re-spin for `scene_*.json` / `scene_*.png`. | The slot table is the single source of truth for label fan-out. Every arc module that previously emitted a label-text Scatter3d now emits exactly one annotation entry instead and zero text traces. The pixel-distinctness invariant test passes for every active-angle-group combination the GUI exposes. Visually: at the default state, no two labels share the same screen rectangle in any of the five golden screenshots. |
+
+### Phase 13 detail
+
+**(a) Per-label-key slot table.** New module
+`app/scene_builder/_label_layout.py` (Rule 19 — own file). Single
+source of truth, keyed by *label* identifier (one slot per visible
+arc/axis label, not per anchor — anchors host multiple labels):
+
+```python
+LABEL_SLOT_RADIUS_PX: Final[float] = 80.0  # screen-space circle radius
+
+# (slot_index, friendly_name) — slot_index ∈ [0, N) is converted to
+# (xshift_px, yshift_px) by `slot_offset(slot_index, N)` below using
+# evenly-spaced angles around an 80 px circle. Order is fixed so a
+# label's slot is deterministic across renders.
+LABEL_SLOTS: Final[tuple[str, ...]] = (
+    "off_nadir",       # θ_look at observer
+    "azimuth",         # az at observer
+    "elevation",       # el at observer
+    "phase_angle",     # α_t at target
+    "sun_zenith_at_t", # θ_s at target
+    "sun_azimuth",     # Δφ at target
+    "solar_zenith_b",  # θ_sun,B at background point B
+    "surface_normal",  # n_B label at B
+    "body_axis_x",     # body-axis tip labels (x_b, y_b, z_b)
+    "body_axis_y",
+    "body_axis_z",
+    "world_axis_x",    # world-axis triad tip labels
+    "world_axis_y",
+    "world_axis_z",
+)
+
+def slot_offset(label_key: str) -> tuple[float, float]:
+    """Return (xshift_px, yshift_px) for `label_key` on the 80 px circle."""
+```
+
+The mapping function distributes the N slots evenly around the 80 px
+circle, but with a stable seeded ordering so two labels that *could*
+share the same anchor (e.g., α_t and θ_s,t both anchored at target)
+land on opposite sides of the circle. Slot indices are reserved at
+table-definition time, not computed dynamically — that is what makes
+the pixel-distinctness invariant testable as a pure unit assertion.
+
+**(b) Per-arc-module annotation builders.** Each arc module currently
+returns a list of `Scatter3d` traces, one of which is a `mode="text"`
+label. After Phase 13:
+
+  * `<arc>_traces(...)` returns *only* the geometry traces (the arc,
+    the leader line from Phase 12) — the text-mode Scatter3d is
+    removed entirely.
+  * New sibling function in the same file:
+    `<arc>_label_annotation(...) -> dict | None`
+    returns a plotly scene-annotation dict ready to drop into
+    `layout.scene.annotations`, or `None` when the arc is suppressed
+    (e.g., zero swept angle, antiparallel inputs).
+
+The annotation dict shape:
+
+```python
+{
+    "x": <world-x of label anchor>,
+    "y": <world-y>,
+    "z": <world-z>,
+    "text": "α_t = 70.0°",            # same string the trace used to carry
+    "showarrow": True,
+    "arrowhead": 0,                   # plain line, not arrowhead
+    "arrowwidth": 1,
+    "arrowcolor": <arc palette color>,
+    "ax": <xshift_px from slot_offset>,
+    "ay": <yshift_px from slot_offset>,
+    "xanchor": "left",                # or "right" depending on slot quadrant
+    "yanchor": "middle",
+    "bgcolor": "rgba(255,255,255,0.8)",
+    "bordercolor": <arc palette color>,
+    "borderpad": 2,
+    "borderwidth": 1,
+    "font": {"size": 12, "color": <arc palette color>},
+    "captureevents": False,
+}
+```
+
+`xanchor` is selected by the slot-offset quadrant (right-side slots →
+`"left"`, left-side slots → `"right"`) so the leader line points
+*toward* the anchor and the label text reads outward. This is
+deterministic from the slot index.
+
+**(c) `build_annotations.py` orchestrator.** New module that mirrors
+`build_scene.py`'s structure: takes `SceneState` + the same
+`angle_groups` set, walks the same group-conditional branches, and
+calls each `<arc>_label_annotation()`. Returns `list[dict]` (empty
+when no group is active). This preserves Rule 19 — composition lives
+in its own file rather than swelling `build_scene.py`.
+
+```python
+def build_annotations(
+    state: SceneState,
+    *,
+    angle_groups: frozenset[str] | None = None,
+    # … (same precomputed inputs build_scene currently takes) …
+) -> list[dict]:
+    ...
+```
+
+The orchestrator drops `None` returns and also drops body-/world-axis
+annotations when the corresponding group is hidden. The "currently
+editing" cluster (user requirement #3) is encoded by callers passing a
+narrower `angle_groups` set — no separate "active group" parameter.
+
+**(d) Figure wiring in `main.py`.** Today the figure layout is built
+once with `traces` only. Phase 13 changes the build to:
+
+```python
+traces = build_scene(state, angle_groups=groups, …)
+annotations = build_annotations(state, angle_groups=groups, …)
+fig = go.Figure(data=traces)
+fig.update_layout(scene=dict(annotations=annotations, …existing scene options…))
+```
+
+`build_scene`'s signature and return type are unchanged — labels are
+simply *removed* from its traces. This keeps every existing
+`build_scene` callsite valid.
+
+**(e) Faded-chip "hover-expand" mode (user requirement #3).**
+Deferred to a future phase. The current Phase-10 angle-group checklist
+already gives the user the same control granularity as the
+"currently editing → others faded" mode the user described, and it
+ships immediately without a hover-state interaction model. The slot
+table is the precondition for any future faded-chip mode, so Phase 13
+unblocks it without implementing it.
+
+**(f) Pixel-distinctness invariant test (user requirement #5).**
+`test_phase13_label_layout.py` asserts as a *pure* unit test (no
+plotly figure construction needed):
+
+  * **slot-uniqueness** — for every pair of distinct keys
+    `(k_i, k_j)` in `LABEL_SLOTS`, the Euclidean distance
+    `‖slot_offset(k_i) − slot_offset(k_j)‖₂` is ≥ 12 px (the chosen
+    text bounding-box exclusion radius).
+  * **slot-on-circle** — every `slot_offset(k)` has Euclidean magnitude
+    `LABEL_SLOT_RADIUS_PX` to within 1e-9.
+  * **per-arc-annotation-shape** — for the default `SceneState` and
+    each arc module, calling the module's `<arc>_label_annotation()`
+    returns a dict with exactly the keys listed in (b), the leader
+    `arrowcolor` matches the palette, and `(ax, ay)` matches the slot
+    table for that arc's label key.
+  * **annotation-emission-vs-group-filter** — calling
+    `build_annotations(state, angle_groups=frozenset())` returns `[]`;
+    each single-group `frozenset({grp})` returns the count of
+    annotations expected for that group; the union over all groups
+    has no duplicate label-key entries.
+  * **no-text-trace-leakage** — `build_scene(state)` no longer
+    returns any `Scatter3d` whose `mode` contains `"text"` for the
+    arc/axis labels (target marker label, observer/sun/B chip labels
+    that are *anchor* identifiers, not arc labels, may remain — the
+    test enumerates the arc-label trace-name patterns explicitly).
+  * **annotation-list-shape** — `build_annotations(...)` returns a
+    list of plain `dict`s (mypy-friendly, JSON-serializable) so
+    `fig.to_json()` round-trip is preserved.
+
+**(g) Golden re-spin.** `scene_{sphere,cylinder,flat_plate,box,
+cone}.{json,png}` regenerated via the existing
+`tests/dev_render_goldens.py` after Phase 13 lands. The .json
+deltas will show: arc text traces removed; `layout.scene.annotations`
+populated.
+
+### CU candidates surfaced by Phase 13 (file at PR-merge time per R21/R22)
+
+  * Body-axis and world-axis tip labels are currently emitted as
+    `mode="text"` Scatter3d traces from inside `body_axes.py` and
+    `world_axes_triad.py`. Phase 13 has the option to migrate those
+    to annotations too (so they participate in the slot table) or to
+    leave them as 3D text. Recommendation: migrate, since they are
+    the worst offenders in the user's "stack on top of each other"
+    complaint. Either way, file a CU if any arc/axis label is left
+    on the trace path after Phase 13.
+  * Plotly's `xshift`/`yshift` annotation parameters are evaluated
+    in screen pixels at *render time* — viewport-resize re-applies
+    them but does not rotate them. Aggressive camera spin can place
+    a label on top of unrelated geometry. Phase 13 accepts this
+    fragility (Phase 12 leader lines mitigate it). File a CU for a
+    follow-up that reapplies slot rotation when the user drags the
+    camera past 45° azimuth quadrants.
+  * The "currently-editing → faded chips" interaction model
+    (requirement #3) is deferred. File a CU describing the
+    hover-expand interaction so it is not lost.
+
+### What does NOT change in Phase 13
+- `app/state.py` — no new state fields.
+- Physics / angle math — angle decompositions, swept values, and the
+  readout panel see identical inputs and produce identical numbers.
+- `_arc_radii.py`, `_arc_offsets.py`, `_arc_palette.py`,
+  `_arc_labels.py` — Phase-11 + Phase-12 invariants stand. Phase 13
+  is purely a label-rendering layer.
+- `build_scene` signature and return type — only the *content* of
+  the trace list shrinks (label text traces removed). All 16
+  existing callsites continue to compile.
+- C1 (no /src writes), C3 (projected-area invariant), C4 (units),
+  C5 (Rule 19), C6 (no private symbols) — all still hold.
+- Phase 0–12 test suite — every existing test must still pass.
+  Tests that previously asserted on label-text trace presence are
+  rewritten to assert on annotation entries instead.

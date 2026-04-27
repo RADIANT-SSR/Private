@@ -468,3 +468,136 @@ Phase-11 PR merges.
 - C1 (no /src writes), C3 (projected-area invariant), C4 (units),
   C5 (Rule 19), C6 (no private symbols) — all still hold.
 - Phase 0–10 test suite — every existing test must still pass.
+
+---
+
+## 13. Phase 12 — Lift angle annotations clear of the shape geometry (added 2026-04-26)
+
+### Motivation
+Phase 11 made arcs symbol-only with per-group radii, but the radii are
+still measured *from the physical vertex* (target center, B, observer
+chip, sun chip). When the target shape is large or oriented obliquely,
+the target-anchored arcs (α_t at the target, plus α_t's projection)
+clip through the mesh — the user can't read the angle and can't see
+the geometry underneath. The same risk lurks for any future scenario
+that grows the observer/sun chip beyond its current display radius.
+
+User feedback (2026-04-26): "I think all angle definitions and
+orientations should be shown outside of the shape geometry."
+
+### Phase 12 acceptance overview
+
+| Phase | File | Output | Acceptance |
+|---|---|---|---|
+| 12 | `phase_12_anchor_offsets.md` | (a) per-anchor outward-offset table in `_arc_radii.py` (or a sibling `_arc_offsets.py`); (b) every arc module shifts its anchor along the outward radial direction by the offset before invoking `arc_points()`; (c) projection arcs stay at the parent's offset (so projection + parent remain visually coupled); (d) on-figure label placement re-derived from the offset anchor so labels float outside the mesh too; (e) leader line (thin, parent's color, alpha 0.5) from the *physical* vertex to the offset arc's geometric center, so the viewer can still see what each arc is measuring; (f) per-arc test asserting the arc anchor is offset from the physical vertex by exactly the table value along the outward direction; (g) golden re-spin for `scene_*.json` / `scene_*.png`. | Per-anchor offset table is the single source of truth (no module-local literals). Every existing arc test continues to pass after substituting the offset anchor (the swept angle and the directional unit vectors are unchanged). At the default state, the bounding box of every arc trace lies *outside* the target mesh's bounding box for the largest test shape (cone). The leader line is present and connects vertex → arc center within numerical tolerance. |
+
+### Phase 12 detail
+
+**(a) Per-anchor outward-offset table.** New constant table keyed by
+the same anchor names the palette uses (`observer`, `target`,
+`background`, `sun`). The offset is the *additional* clearance applied
+to the anchor before the arc is drawn — it does not replace the arc
+radius, which still controls the arc's own size:
+
+| Anchor | Outward offset | Outward direction |
+|---|---|---|
+| observer | 0.0 (chip is small + already in clear space) | n/a |
+| target | 1.6 × max(target shape half-extent) + 0.1 | unit vector along (vertex − target_center) — for arcs anchored at the target center this is the *bisector* of the arc's two direction vectors |
+| background | 0.0 (B sits on the ground patch; arcs already point upward) | n/a |
+| sun | 0.0 (sun chip is far from the rest of the scene) | n/a |
+
+Only the target anchor needs a non-zero offset today. The table form
+exists so the four other anchors can be tuned without code changes if
+a future scenario grows them.
+
+**Outward direction for the target anchor.** When the arc is centered
+at the target center (α_t and the off-nadir-style arcs would fall
+into this bucket if any were target-centered — currently α_t is the
+only one), the natural "outward" direction is the bisector of the
+arc's two unit-direction vectors `(u1 + u2) / |u1 + u2|`. The arc is
+offset *from the target center* along that bisector by the table
+value. Result: the arc floats outside the mesh on the side the angle
+is opening into, which is exactly where the eye expects to find it.
+
+**(b) Apply the offset before `arc_points()`.** Each arc module today
+calls `arc_points(anchor, u1, u2, radius=arc_radius_for(...))`. The
+new flow:
+
+```python
+shifted = anchor + offset_for("target") * bisector(u1, u2)
+xs, ys, zs, swept = arc_points(shifted, u1, u2, radius=arc_radius_for(...))
+```
+
+`arc_points()` itself does not change — it still draws an arc of the
+given radius around whatever anchor it's handed. The offset is purely
+a caller-side decision, which keeps the helper trivial and Rule-19
+clean.
+
+**(c) Projection arcs follow their parent.** Each projection module
+(`off_nadir_projection.py`, `phase_angle_projection.py`,
+`solar_zenith_projection.py`) already shares the parent arc's anchor
+and color. After Phase 12 the projection module reads the *same*
+shifted anchor, so the dotted projection sits next to its parent arc
+rather than next to the physical vertex. This preserves the visual
+coupling that Phase 11 introduced.
+
+**(d) Label placement.** The label-text trace today places the label
+at `anchor + radius * bisector + small_offset_along_bisector`. After
+Phase 12 the same formula uses the *shifted* anchor. No new math.
+
+**(e) Leader line.** Thin (`width=1`) line from the physical vertex
+to the shifted anchor's geometric center, in the parent's palette
+color at alpha 0.5 (same alpha used by Phase-11 projections). This
+is the diagnostic affordance that tells the viewer "this arc, way
+over here, is measuring an angle at *that* vertex over there."
+Implemented as one new helper `arc_leader_line_traces(vertex,
+shifted_anchor, color)` returning a single Scatter3d, called by
+each arc module that uses a non-zero offset. Skipped entirely when
+the offset is zero (no leader needed).
+
+**(f) Tests.** New test file `test_phase12_anchor_offsets.py`:
+  * **offset-table-is-source-of-truth** — every arc module's anchor
+    after offset application equals `physical_vertex + offset *
+    bisector` to machine precision.
+  * **arc-outside-target-mesh** — for the default state with the
+    cone target (largest mesh), the bounding box of every
+    target-anchored arc trace has no overlap with the cone mesh's
+    bounding box.
+  * **leader-line-endpoints** — each arc with non-zero offset emits
+    one leader-line Scatter3d whose endpoints are the physical
+    vertex and the arc's geometric center.
+  * **no-offset-no-leader** — observer/background/sun arcs (offset
+    = 0) emit zero leader-line traces.
+  * **swept-angle-unchanged** — the swept angle returned by every
+    arc helper is identical (machine precision) before and after
+    the offset shift, since `arc_points()` only sees a translated
+    anchor.
+
+**(g) Golden re-spin.** `scene_{sphere,cylinder,flat_plate,box,
+cone}.{json,png}` regenerated via the existing
+`tests/dev_render_goldens.py` after the offset code lands.
+
+### CU candidates surfaced by Phase 12 (file at PR-merge time per R21/R22)
+
+  * If the cone-shape half-extent computation requires a new helper
+    on `state.py`, that helper itself becomes a Rule-19 candidate
+    (one computation per file). Either land it in a sibling module
+    or note it as a CU.
+  * The bisector formula degenerates when `u1` and `u2` are
+    anti-parallel (180° arc). All arcs we currently render are
+    strictly < 180°, but a future fully-back-illuminated phase angle
+    (`α_t = 180°`) would trip this. File a CU describing the
+    degeneracy and either guard at the helper or document the
+    constraint.
+
+### What does NOT change in Phase 12
+- `app/state.py` — no new state fields. Target half-extent is computed
+  on demand from existing size sliders.
+- Physics — no view-model math changes. The arc helpers, the angle
+  decompositions, and the readout panel all see identical inputs.
+- The arc *radii* (Phase-11 `_arc_radii.py`) — unchanged. Phase 12
+  only translates the anchor; the arc itself is the same size.
+- C1 (no /src writes), C3 (projected-area invariant), C4 (units),
+  C5 (Rule 19), C6 (no private symbols) — all still hold.
+- Phase 0–11 test suite — every existing test must still pass after
+  the offset substitution (sweeps and decomposition values unchanged).

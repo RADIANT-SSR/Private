@@ -107,6 +107,36 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 **Why it still matters**: VIS/NIR reflective scenarios that route through MODTRAN now silently lose the solar-zenith dependence that Stage 6's E_sky decomposition was designed to expose. The analytic backend is fine; the MODTRAN backend collapses the split. Mixed-backend test suites can therefore mask real two-leg bugs.
 **Suggested fix**: stand-alone Category C task — add a second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)` to produce `tau_sun` independently from `tau_up`. Cache key must include θ_s. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s. Block: requires CU-009 to land first (otherwise θ_s is always 0 and the new code path is exercised by zero scenarios).
 
+### CU-023 — Phase-10 arc trace `name` duplicated across line + label sub-traces
+
+**Discovered**: Geometry GUI Phase 10 (2026-04-26)
+**Status**: Open — mitigation landed inline during Phase 11 (`dev_tools/geometry_gui/app/scene_builder/*_arc.py`); commit SHA backfill required when Phase 11 PR merges.
+
+**File**: `dev_tools/geometry_gui/app/scene_builder/{off_nadir_arc,azimuth_arc,elevation_arc,phase_angle_arc,solar_zenith_arc,sun_zenith_arc,sun_azimuth_arc}.py`
+**Symptom**: Pre-Phase-11, every arc module emitted *two* plotly traces with identical `name=` (e.g. `off-nadir = 20.0°` for both the lines-mode arc trace and the text-mode label trace). Plotly's legend collapses duplicates silently, but hover tooltips and any future legend-driven test would surface both copies of the same string.
+**Why it still matters**: trace `name` is the contract surface for hover text, legend entries, and any test that introspects scene contents by name. Two unrelated traces sharing one name is a lurking ambiguity — a future filter that picks a trace by name returns whichever one happens to be first in the list. Same anti-pattern existed across all seven arc modules so the audit hit is structural, not local.
+**Suggested fix**: (a) Phase-11 mitigation already in place — each label sub-trace now uses a distinct `label_name` (`"<key> label (<value> deg)"`) while the lines-mode trace keeps the canonical `arc_name` (`"<key> = <value>°"`). (b) Close-out: re-audit on Phase-11 PR merge and move to Resolved with the merge SHA per R22. (c) Standing guard: a per-arc-module test asserting `arc.name != label.name` would prevent regression — author when filing the close-out.
+
+### CU-024 — Sun-zenith readout: `θ_s` (target) and `θ_sun,B` (background) collapse to identical values in flat-ground display
+
+**Discovered**: Geometry GUI Phase 10 (2026-04-26)
+**Status**: Open — flagged in PLAN.md §12 Phase-11 plan "Phase-10 CU sweep candidates".
+
+**File**: `dev_tools/geometry_gui/app/view_model.py` (`_READOUT_FORMATTERS` `ro-solar-zenith` row); `dev_tools/geometry_gui/app/scene_builder/{sun_zenith_arc,solar_zenith_arc}.py`
+**Symptom**: Both arc helpers (`sun_zenith_at_target_rad(s_unit)` and `solar_zenith_at_b_rad(n_B, s_unit)`) reduce to `arccos(s_z)` whenever the surface normal at B equals `+ẑ` — which is *every* state the GUI currently renders, since the display assumes flat ground. The two on-figure labels (`θₛ` at target and `θ_sun,B` at the background point) sit at different anchors but encode the same numeric angle, and the readout panel shows only one row labeled "Solar zenith" without disambiguating which of the two physically-distinct angles is being read out.
+**Why it still matters**: this is a *display* limitation, not a physics bug — the helpers are correct. The audit hit is that the GUI presents two visually-distinct decorations as if they were independent measurements, which would mislead a user driving a non-flat-ground scenario. The moment Phase 12+ adds ground-tilt or oblique-surface support (i.e., `n_B ≠ +ẑ`), `θ_sun,B` will diverge from `θ_s` and the readout panel needs to label them separately.
+**Suggested fix**: stand-alone Category B task — (a) add a `target_surface_normal` field to `SceneState` (default `+ẑ`); (b) split the readout row into `Solar zenith at target (θ_s)` and `Solar zenith at B (θ_sun,B)`; (c) on-figure label for `θ_sun,B` becomes redundant when `n_B = +ẑ` exactly — suppress the second arc in that case to avoid visual duplication. Tests: when normal is non-axial, both rows surface, both arcs render, and the values differ. Block on Phase 12+ scope (no current consumer).
+
+### CU-025 — Camera auto-frame is anchored to default-state geometry constants
+
+**Discovered**: Geometry GUI Phase 11 (2026-04-26)
+**Status**: Open — design choice, but the coupling needs to be captured before someone changes one of the display constants in isolation.
+
+**File**: `dev_tools/geometry_gui/app/scene_builder/_camera_frame.py` (`REFERENCE_HALF_EXTENT = 6.0`)
+**Symptom**: Phase-11 (d) introduces auto-framing via a bounding-box scan over all base-scene traces; the eye distance scales as `max(1.0, half_extent / REFERENCE_HALF_EXTENT)`. The constant `6.0` was hand-calibrated against the default state's bbox (driven by `OBSERVER_DISPLAY_DISTANCE = 4.0` and `SUN_DISPLAY_DISTANCE = 6.0` in `_display_constants.py`). Any future change to either display distance silently breaks the "default state framing matches Phase-10" invariant guarded by `tests/test_phase11_polish.py::test_camera_default_state_eye_unchanged`.
+**Why it still matters**: a developer who bumps `OBSERVER_DISPLAY_DISTANCE` to make the observer chip more readable will trip the camera-frame test, but the failure message will point at `_camera_frame.py` rather than at the display constant they actually edited. The cross-module coupling is correct (the camera *must* track the bbox) but undocumented at the code-comment level.
+**Suggested fix**: inline-fix-now — add a one-line comment on `REFERENCE_HALF_EXTENT` linking it to `OBSERVER_DISPLAY_DISTANCE` / `SUN_DISPLAY_DISTANCE` and noting that any change to those constants requires re-calibration. Optional follow-up: derive `REFERENCE_HALF_EXTENT` programmatically from the default-state bbox at import time, eliminating the manual constant. Effort: < 30 LOC; Category A.
+
 ---
 
 ## Resolved

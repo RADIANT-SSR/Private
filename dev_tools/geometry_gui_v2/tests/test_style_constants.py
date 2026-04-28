@@ -97,8 +97,10 @@ def test_vector_line_widths() -> None:
 
 
 def test_reference_frame_colors() -> None:
+    # T4 of the visual remediation moved the world frame to a corner
+    # gnomon, so ``WORLD_AXES_COLOR`` is gone — the gnomon's per-axis
+    # tints live in ``test_world_axes_gnomon_constants`` below.
     assert style.BODY_AXES_COLOR == "#7A8086"
-    assert style.WORLD_AXES_COLOR == "#9499A0"
 
 
 def test_reference_line_width() -> None:
@@ -106,8 +108,9 @@ def test_reference_line_width() -> None:
 
 
 def test_reference_axes_length_fractions() -> None:
+    # ``WORLD_AXES_LENGTH_FRACTION`` was removed alongside the in-scene
+    # world-axes triad (T4); only the body axes need a length fraction now.
     assert style.BODY_AXES_LENGTH_FRACTION == 0.15
-    assert style.WORLD_AXES_LENGTH_FRACTION == 0.30
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +150,25 @@ def test_view_cube_constants() -> None:
     assert style.VIEW_CUBE_VIEWPORT == (0.86, 0.78, 0.99, 0.99)
 
 
+def test_world_axes_gnomon_constants() -> None:
+    """T4 corner gnomon: bottom-left viewport, family-tinted shafts."""
+    assert style.WORLD_AXES_GNOMON_SHAFT_COLOR == "#5a5d65"
+    assert style.WORLD_AXES_GNOMON_LABEL_COLOR == "#bcd0f0"
+    # Shafts share the view-cube principal-edge palette so the two corner
+    # widgets read as a coordinated set.
+    assert style.WORLD_AXES_GNOMON_PLUS_X_COLOR == style.VIEW_CUBE_PLUS_X_EDGE_COLOR
+    assert style.WORLD_AXES_GNOMON_PLUS_Y_COLOR == style.VIEW_CUBE_PLUS_Y_EDGE_COLOR
+    assert style.WORLD_AXES_GNOMON_PLUS_Z_COLOR == style.VIEW_CUBE_PLUS_Z_EDGE_COLOR
+    # Viewport is bottom-left and stays inside the [0, 1] normalized rect.
+    vp = style.WORLD_AXES_GNOMON_VIEWPORT
+    assert vp == (0.01, 0.01, 0.14, 0.22)
+    x0, y0, x1, y1 = vp
+    assert 0.0 <= x0 < x1 <= 1.0
+    assert 0.0 <= y0 < y1 <= 1.0
+    # Anchored to the bottom-left half of the frame, never floating mid-screen.
+    assert x0 < 0.5 and y0 < 0.5
+
+
 # ---------------------------------------------------------------------------
 # Sanity: every fractional value is in [0, 1]
 # ---------------------------------------------------------------------------
@@ -160,7 +182,6 @@ def test_all_opacity_and_fraction_values_are_in_unit_interval() -> None:
         style.GRID_OPACITY,
         style.CONTACT_SHADOW_OPACITY,
         style.BODY_AXES_LENGTH_FRACTION,
-        style.WORLD_AXES_LENGTH_FRACTION,
     )
     for v in fractional:
         assert 0.0 <= v <= 1.0, f"{v} out of [0, 1]"
@@ -175,7 +196,6 @@ def test_color_constants_are_seven_char_hex() -> None:
         style.SOLAR_FAMILY,
         style.TARGET_VECTOR_FAMILY,
         style.BODY_AXES_COLOR,
-        style.WORLD_AXES_COLOR,
         style.CONTACT_SHADOW_COLOR,
         style.VIEWPORT_BACKGROUND_COLOR,
         style.VIEW_CUBE_FACE_COLOR,
@@ -184,6 +204,11 @@ def test_color_constants_are_seven_char_hex() -> None:
         style.VIEW_CUBE_PLUS_X_EDGE_COLOR,
         style.VIEW_CUBE_PLUS_Y_EDGE_COLOR,
         style.VIEW_CUBE_PLUS_Z_EDGE_COLOR,
+        style.WORLD_AXES_GNOMON_SHAFT_COLOR,
+        style.WORLD_AXES_GNOMON_LABEL_COLOR,
+        style.WORLD_AXES_GNOMON_PLUS_X_COLOR,
+        style.WORLD_AXES_GNOMON_PLUS_Y_COLOR,
+        style.WORLD_AXES_GNOMON_PLUS_Z_COLOR,
     )
     for c in color_constants:
         assert len(c) == 7 and c.startswith("#"), f"{c!r} is not a #RRGGBB hex"

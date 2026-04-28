@@ -61,9 +61,9 @@ _EXPECTED_NAMED_ACTORS = (
     "body_axis_x",
     "body_axis_y",
     "body_axis_z",
-    "world_axis_x",
-    "world_axis_y",
-    "world_axis_z",
+    # T4 of the visual remediation moved the world-axis triad out of the
+    # scene and into a screen-space corner gnomon (bottom-left), so the
+    # 3D ``world_axis_{x,y,z}`` primitives are no longer registered.
     # vectors (Phase 3: each gets a "<name>_tip" arrowhead cone, and the
     # two not-to-scale connecting rays — boresight + sun_ray — also get a
     # "<name>_break" zigzag mid-line marker)

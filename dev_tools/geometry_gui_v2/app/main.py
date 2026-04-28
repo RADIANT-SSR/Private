@@ -78,6 +78,9 @@ from dev_tools.geometry_gui_v2.scene.camera_views import camera_pose_for  # noqa
 from dev_tools.geometry_gui_v2.scene.widgets.view_cube import (  # noqa: E402
     build_view_cube_widget,
 )
+from dev_tools.geometry_gui_v2.scene.widgets.world_axes_gnomon import (  # noqa: E402
+    build_world_axes_widget,
+)
 from dev_tools.geometry_gui_v2.scene.highlight import (  # noqa: E402
     actors_for_primitive,
     apply_highlight,
@@ -145,6 +148,7 @@ class GeometryMainWindow(QMainWindow):
         self.plotter.reset_camera()
 
         self._enable_view_cube()
+        self._enable_world_axes_gnomon()
         self._enable_picking()
         self._install_shortcuts()
 
@@ -376,6 +380,19 @@ class GeometryMainWindow(QMainWindow):
             self.plotter.render()
         except Exception:
             pass
+
+    def _enable_world_axes_gnomon(self) -> None:
+        """Install the T4 corner gnomon in the bottom-left.
+
+        Same lifecycle constraint as the view-cube: VTK garbage-collects the
+        orientation-marker widget if no Python reference is retained, so the
+        widget is parked on ``self``.
+        """
+        try:
+            interactor = self.plotter.iren.interactor
+            self._world_axes_widget = build_world_axes_widget(interactor)
+        except Exception:
+            self._world_axes_widget = None
 
     def _enable_picking(self) -> None:
         try:

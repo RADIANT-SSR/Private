@@ -85,14 +85,15 @@ DASHED_COMPANION_LINE_WIDTH: Final[float] = 1.0
 # ---------------------------------------------------------------------------
 
 BODY_AXES_COLOR: Final[str] = "#7A8086"
-WORLD_AXES_COLOR: Final[str] = "#9499A0"
 REFERENCE_LINE_WIDTH: Final[float] = 1.0
 
 # Reference-frame stub length is a fraction of the target characteristic
 # length (TARGET_DISPLAY_RADIUS = 1.0). Body axes are intentionally short
-# so they don't visually compete with the target body.
+# so they don't visually compete with the target body. World-axes
+# constants used to live here too; T4 of the visual remediation moved
+# the world frame to a screen-space corner gnomon, so the in-scene
+# constants no longer have a consumer and were deleted.
 BODY_AXES_LENGTH_FRACTION: Final[float] = 0.15
-WORLD_AXES_LENGTH_FRACTION: Final[float] = 0.30
 
 # ---------------------------------------------------------------------------
 # Tier 5 — Glyph sizes (screen-space px).
@@ -137,3 +138,29 @@ VIEW_CUBE_PLUS_Y_EDGE_COLOR: Final[str] = SURFACE_FAMILY  # muted green
 VIEW_CUBE_PLUS_Z_EDGE_COLOR: Final[str] = SATELLITE_FAMILY  # muted blue
 # Top-right viewport rectangle — ~80×80 px at 1920×1080.
 VIEW_CUBE_VIEWPORT: Final[tuple[float, float, float, float]] = (0.86, 0.78, 0.99, 0.99)
+
+# ---------------------------------------------------------------------------
+# World-axes corner gnomon (T4 of visual remediation).
+# ---------------------------------------------------------------------------
+# T4 moves the world-frame triad from the 3D origin (where it overlapped the
+# body axes, producing a six-tube ball-of-yarn) to a screen-space gnomon in
+# the bottom-left of the viewport. The widget reads as "this is the global
+# frame the camera lives in" without any in-scene clutter.
+#
+# Subdued palette (a half-shade above the viewport bg) so the gnomon doesn't
+# pull focus from the geometry itself; +X / +Y / +Z get the same desaturated
+# family tints as the view-cube's principal edges so the two corner widgets
+# share an axis-color vocabulary.
+WORLD_AXES_GNOMON_SHAFT_COLOR: Final[str] = "#5a5d65"
+WORLD_AXES_GNOMON_LABEL_COLOR: Final[str] = "#bcd0f0"
+WORLD_AXES_GNOMON_PLUS_X_COLOR: Final[str] = VIEW_CUBE_PLUS_X_EDGE_COLOR
+WORLD_AXES_GNOMON_PLUS_Y_COLOR: Final[str] = VIEW_CUBE_PLUS_Y_EDGE_COLOR
+WORLD_AXES_GNOMON_PLUS_Z_COLOR: Final[str] = VIEW_CUBE_PLUS_Z_EDGE_COLOR
+# Bottom-left viewport rectangle — ~120×120 px at 1920×1080. Mirrors the
+# top-right view-cube footprint so the two corner widgets feel balanced.
+WORLD_AXES_GNOMON_VIEWPORT: Final[tuple[float, float, float, float]] = (
+    0.01,
+    0.01,
+    0.14,
+    0.22,
+)

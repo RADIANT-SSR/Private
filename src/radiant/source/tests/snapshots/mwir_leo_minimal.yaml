@@ -1,16 +1,16 @@
 background: null
 los_geometry:
   __los__:
-    delta_phi: null
+    delta_phi: 0.0
     h_atm_top: 100000.0
     h_tgt: 0.0
     theta_o: 0.0
-    theta_s: null
+    theta_s: 0.5
 scenario: examples/mwir_leo_minimal.yaml
 target:
   A_t: null
   T_t: 300.0
-  __type__: T1Thermal
+  __type__: T3Mixed
   epsilon:
     __spectraldata__:
       name: source.target.emissivity

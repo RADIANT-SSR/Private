@@ -152,7 +152,7 @@ class TestSourceStage:
         """
         import warnings as _w
 
-        from radiant.core.descriptors import GroundBackground, T1Thermal
+        from radiant.core.descriptors import GroundBackground, T3Mixed
         from radiant.core.los_geometry import LineOfSightGeometry
 
         state = ChainState(wavelength_um=wl)
@@ -166,9 +166,10 @@ class TestSourceStage:
         assert "background" in src
         assert "los_geometry" in src
 
-        # The inferrer synthesises a T1Thermal from the scalar ε+T legacy
-        # surface.
-        assert isinstance(src["target"], T1Thermal)
+        # CU-007: MWIR-overlap legacy ε+T scenarios route to T3Mixed
+        # (matrix §3.2); the hot-target opt-out lives at
+        # source.target.is_hot_target.
+        assert isinstance(src["target"], T3Mixed)
         # Default fixture is fill_fraction=1 ⇒ extended terrestrial
         # (no atmosphere.model in this partial-schema fixture → falls
         # back to terrestrial), so background should be None (Decision #13:
@@ -184,13 +185,18 @@ class TestSourceStage:
 
     @pytest.mark.level1
     def test_descriptor_target_carries_expected_values(self, wl: np.ndarray) -> None:
-        """T1Thermal descriptor carries the scalar ε, T from the param surface."""
-        from radiant.core.descriptors import T1Thermal
+        """T3Mixed descriptor carries the scalar ε, T from the param surface.
+
+        CU-007: MWIR-overlap legacy ε+T scenarios route to T3Mixed by
+        default (matrix §3.2).  The grey-lift epsilon and scalar T_t
+        round-trip identically into the T3Mixed dataclass.
+        """
+        from radiant.core.descriptors import T3Mixed
 
         state = ChainState(wavelength_um=wl)
         out = SourceStage().run(state, _make_params(T=350.0, eps=0.8))
         target = out.stage_outputs["source"]["target"]
-        assert isinstance(target, T1Thermal)
+        assert isinstance(target, T3Mixed)
         assert target.T_t == pytest.approx(350.0, rel=1e-12)
         # Grey emissivity: all samples equal.
         assert target.epsilon is not None

@@ -157,11 +157,12 @@ _EXPECTED: dict[str, ScenarioExpectation] = {
         None,
     ),
     # Ground truth MWIR: exo atmosphere, extended → no_atmosphere(space)
+    # CU-007: MWIR-overlap targets default to T3Mixed (matrix §3.2).
     "examples/ground_truth_mwir.yaml": (
         "extended",
         "no_atmosphere",
         "space",
-        "T1Thermal",
+        "T3Mixed",
         "ColdSpaceBackground",
     ),
     # MWIR minimal + aerial flir + pushbroom + starer + ground test: simple atm, extended
@@ -169,35 +170,35 @@ _EXPECTED: dict[str, ScenarioExpectation] = {
         "extended",
         "terrestrial",
         "",
-        "T1Thermal",
+        "T3Mixed",
         None,
     ),
     "examples/templates/mwir_aerial_flir.yaml": (
         "extended",
         "terrestrial",
         "",
-        "T1Thermal",
+        "T3Mixed",
         None,
     ),
     "examples/templates/mwir_ground_test.yaml": (
         "extended",
         "terrestrial",
         "",
-        "T1Thermal",
+        "T3Mixed",
         None,
     ),
     "examples/templates/mwir_leo_pushbroom.yaml": (
         "extended",
         "terrestrial",
         "",
-        "T1Thermal",
+        "T3Mixed",
         None,
     ),
     "examples/templates/mwir_leo_starer.yaml": (
         "extended",
         "terrestrial",
         "",
-        "T1Thermal",
+        "T3Mixed",
         None,
     ),
     # SWIR LEO: simple atm, extended

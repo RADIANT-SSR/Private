@@ -182,6 +182,7 @@ atmosphere.r0_m                       # m (Fried parameter)
 
 source.target.temperature             # K
 source.target.emissivity              # dimensionless (0–1)
+source.target.is_hot_target           # bool — MWIR routing opt-out (CU-007); see source._inferrer matrix §3.2
 source.target.reflectance             # dimensionless (0–1), Lambertian
 source.target.projected_area_m2       # m²
 source.target.range_m                 # m

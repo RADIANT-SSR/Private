@@ -71,6 +71,7 @@ from radiant.core.descriptors import (
     T5AtAperture,
     TargetDescriptor,
     UserSpectralBackground,
+    _is_mwir_spectral_data,
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
@@ -1569,16 +1570,16 @@ def _build_target_descriptor(
     # brightness-temperature branch.
     A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
 
-    # Silence the MWIR non-mixed warning emitted by T1Thermal.__post_init__
-    # during Stage-2 back-compat inference.  The scalar-ε legacy surface
-    # cannot distinguish "MWIR with ρ ≈ 0 (hot target)" from "MWIR that
-    # should really use T3 mixed", so firing the warning here produces
-    # noise on every MWIR scenario in the snapshot.  Stage 3/6 addresses
-    # MWIR mixed explicitly; until then the warning suppression is
-    # scoped narrowly to this back-compat construction only.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        return T1Thermal(
+    # Matrix §3.2 routing (CU-007): MWIR-overlap targets default to
+    # T3Mixed (Kirchhoff emit+reflect); the hot-target opt-out at
+    # `source.target.is_hot_target` lets ρ ≈ 0 scenes (engine plumes,
+    # missile signatures, calibration sources) keep T1Thermal where
+    # the reflected terms are physically negligible.  The opt-out is
+    # ignored on non-MWIR grids — LWIR routing is unconditional T1.
+    is_hot_target = bool(params.get("source.target.is_hot_target"))
+    is_mwir = _is_mwir_spectral_data(epsilon)
+    if is_mwir and not is_hot_target:
+        return T3Mixed(
             scene_type=scene_type,  # type: ignore[arg-type]
             target_location=target_location,  # type: ignore[arg-type]
             no_atmosphere_subcase=(
@@ -1590,6 +1591,18 @@ def _build_target_descriptor(
             A_t=A_t,
             shape=shape_obj,
         )
+    return T1Thermal(
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(
+            no_atmosphere_subcase or None  # type: ignore[arg-type]
+        ),
+        h_tgt=h_tgt,
+        epsilon=epsilon,
+        T_t=T_t,
+        A_t=A_t,
+        shape=shape_obj,
+    )
 
 
 # ---------------------------------------------------------------------------

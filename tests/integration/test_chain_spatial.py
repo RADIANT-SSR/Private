@@ -22,9 +22,9 @@ from radiant.api.session import RadiantSession
 # ---------------------------------------------------------------------------
 # Reference case constants (same as test_chain_extended.py)
 # ---------------------------------------------------------------------------
-D = 0.30        # m
-F = 1.20        # m
-PITCH = 18e-6   # m
+D = 0.30  # m
+F = 1.20  # m
+PITCH = 18e-6  # m
 TAU_OPT = 0.70
 QE = 0.70
 T_TARGET = 300.0
@@ -50,6 +50,11 @@ def result():
     params = session.default_params()
     params.set("source.target.temperature", T_TARGET)
     params.set("source.target.emissivity", EPS_TARGET)
+    # CU-007 opt-out: SNR golden (866.11) was authored against T1Thermal
+    # MWIR routing; matrix-§3.2 default is now T3Mixed.  Set
+    # is_hot_target=True to keep T1 and preserve the pinned regression
+    # value.
+    params.set("source.target.is_hot_target", True)
     params.set("optics.aperture_diameter_m", D)
     params.set("optics.focal_length_m", F)
     params.set("optics.transmission_scalar", TAU_OPT)
@@ -149,7 +154,7 @@ class TestSpatialMetricsPhysics:
         airy_fwhm = 1.028 * LAM_CENTER_M * F / D
         fwhm_x = result.metrics["fwhm_x_m"]
         assert fwhm_x >= airy_fwhm * 0.95  # Must be at least close to Airy
-        assert fwhm_x < airy_fwhm * 2.0    # Must not be absurdly broad
+        assert fwhm_x < airy_fwhm * 2.0  # Must not be absurdly broad
 
     def test_rer_bounded(self, result) -> None:
         """RER ∈ (0, 1] for any physical PSF."""
@@ -349,6 +354,9 @@ def result_with_ipc():
     params = session.default_params()
     params.set("source.target.temperature", T_TARGET)
     params.set("source.target.emissivity", EPS_TARGET)
+    # CU-007 opt-out: must match the no-IPC `result` fixture for the
+    # IPC-vs-no-IPC SNR comparison test below.
+    params.set("source.target.is_hot_target", True)
     params.set("optics.aperture_diameter_m", D)
     params.set("optics.focal_length_m", F)
     params.set("optics.transmission_scalar", TAU_OPT)
@@ -406,9 +414,7 @@ class TestIPCWiring:
 
     def test_snr_unchanged_by_ipc(self, result, result_with_ipc) -> None:
         """IPC affects spatial metrics but not SNR."""
-        assert result_with_ipc.metrics["snr"] == pytest.approx(
-            result.metrics["snr"], rel=1e-6
-        )
+        assert result_with_ipc.metrics["snr"] == pytest.approx(result.metrics["snr"], rel=1e-6)
 
     def test_zero_ipc_matches_baseline(self) -> None:
         """IPC = 0 (default) should not create an IPC kernel in outputs."""

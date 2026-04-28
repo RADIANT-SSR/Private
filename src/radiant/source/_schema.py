@@ -46,6 +46,28 @@ TARGET_EMISSIVITY = ParameterDef(
     ),
 )
 
+TARGET_IS_HOT_TARGET = ParameterDef(
+    name="source.target.is_hot_target",
+    description=(
+        "Hot-target opt-out for MWIR routing.  Per matrix §3.2 the legacy "
+        "scalar-ε surface defaults MWIR scenes to T3Mixed (Kirchhoff "
+        "emit+reflect) because ambient MWIR scenes are reflective-relevant.  "
+        "Set true for ρ ≈ 0 hot-target scenes (engine plumes, missile "
+        "signatures, calibration sources) where self-emission dominates "
+        "and the legacy T1Thermal pure-emit treatment is the correct "
+        "physics.  Ignored for non-MWIR wavelength grids."
+    ),
+    dtype=bool,
+    canonical_unit="",
+    input_unit="",
+    default=False,
+    tags=frozenset({"thermal", "source", "target", "routing"}),
+    default_justification=(
+        "Matrix §3.2: ambient MWIR scenes route to T3Mixed by default; "
+        "hot-target sub-case is the explicit opt-out, not the default."
+    ),
+)
+
 # ---------------------------------------------------------------------------
 # Geometry parameters for regime classification
 # ---------------------------------------------------------------------------
@@ -740,6 +762,7 @@ def validate_reflectance_albedo_exclusive(params: Any) -> None:
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TARGET_TEMPERATURE,
     TARGET_EMISSIVITY,
+    TARGET_IS_HOT_TARGET,
     TARGET_PROJECTED_AREA,
     TARGET_RANGE,
     FILL_FRACTION,

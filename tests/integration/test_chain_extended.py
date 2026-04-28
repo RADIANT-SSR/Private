@@ -27,17 +27,17 @@ from radiant.core.blackbody import planck_spectral_radiance
 # ---------------------------------------------------------------------------
 # Hand-calculation constants for the reference case
 # ---------------------------------------------------------------------------
-D = 0.30        # m
-F = 1.20        # m
-F_NUM = F / D   # 4.0
+D = 0.30  # m
+F = 1.20  # m
+F_NUM = F / D  # 4.0
 TAU_OPT = 0.70
-PITCH = 18e-6   # m
-A_COLLECT = math.pi / 4.0 * D ** 2         # 0.070686 m²
-OMEGA_PIXEL = PITCH ** 2 / F ** 2           # 2.25e-10 sr
-T_INT = 0.005   # s
+PITCH = 18e-6  # m
+A_COLLECT = math.pi / 4.0 * D**2  # 0.070686 m²
+OMEGA_PIXEL = PITCH**2 / F**2  # 2.25e-10 sr
+T_INT = 0.005  # s
 QE = 0.70
 DARK_RATE = 100.0  # e-/s
-READ_NOISE = 5.0   # e- RMS
+READ_NOISE = 5.0  # e- RMS
 GAIN = 32.0
 T_TARGET = 300.0
 EPS_TARGET = 0.95
@@ -57,6 +57,12 @@ def result():
     params = session.default_params()
     params.set("source.target.temperature", T_TARGET)
     params.set("source.target.emissivity", EPS_TARGET)
+    # CU-007 opt-out: this fixture's hand-computed reference is L = ε·B·τ
+    # + L_path (T1Thermal physics).  The matrix-§3.2 default is now
+    # T3Mixed (adds reflected E_sky term) for MWIR; setting
+    # is_hot_target=True keeps T1 routing so the spot-checks below
+    # remain a clean ε·B(T_t) reference.
+    params.set("source.target.is_hot_target", True)
     params.set("optics.aperture_diameter_m", D)
     params.set("optics.focal_length_m", F)
     params.set("optics.transmission_scalar", TAU_OPT)
@@ -82,8 +88,13 @@ class TestChainExtended:
 
     def test_history(self, result) -> None:
         assert result.history == (
-            "source", "atmosphere", "optics", "platform",
-            "spectral_integration", "detector", "readout",
+            "source",
+            "atmosphere",
+            "optics",
+            "platform",
+            "spectral_integration",
+            "detector",
+            "readout",
             "performance",
         )
 
@@ -203,7 +214,7 @@ class TestChainExtended:
         TDI/binning/coadd scaling applied in ReadoutStage.
         """
         signal_e = result.stage_outputs["readout"]["signal_e_final"]
-        noise_sq = sum(n.value_e ** 2 for n in result.noise_terms)
+        noise_sq = sum(n.value_e**2 for n in result.noise_terms)
         expected = signal_e / math.sqrt(noise_sq)
         assert result.metrics["snr"] == pytest.approx(expected, rel=1e-10)
 
@@ -225,6 +236,10 @@ class TestChainExtended:
         params = session.default_params()
         params.set("source.target.temperature", T_TARGET)
         params.set("source.target.emissivity", EPS_TARGET)
+        # CU-007 opt-out (see top-level fixture): keep T1Thermal routing
+        # so this determinism check sees the same physics as the rest of
+        # the suite.
+        params.set("source.target.is_hot_target", True)
         params.set("optics.aperture_diameter_m", D)
         params.set("optics.focal_length_m", F)
         params.set("optics.transmission_scalar", TAU_OPT)

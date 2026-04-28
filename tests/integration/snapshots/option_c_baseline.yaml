@@ -1,4 +1,4 @@
-captured_at_sha: 4953c90489db4734d33bd2ae16c4735ea78a0aae
+captured_at_sha: 5dfc989ad885f23d125bfbd8242f4fd82bb4e2d5
 scenarios:
   examples/ground_truth_mwir.yaml:
     L_aperture_W_m2_sr_um:
@@ -17,8 +17,8 @@ scenarios:
     classification: expected_to_change_at_stage_6
     error: null
     mtf_at_nyquist: 0.1516977137283038
-    nedt_K: 1.9558838221253398
-    snr: 12.792731972917522
+    nedt_K: 1.759656314800866
+    snr: 14.219309359536219
     status: ok
   examples/mwir_leo_minimal.yaml:
     L_aperture_W_m2_sr_um:
@@ -27,9 +27,9 @@ scenarios:
     - null
     - null
     - null
-    - 0.10866715092222141
-    - 0.41161037388618266
-    - 0.7740859033816564
+    - 0.1459389076724468
+    - 0.4560153880142165
+    - 0.8011593111477601
     - null
     - null
     - null
@@ -37,8 +37,8 @@ scenarios:
     classification: expected_to_change_at_stage_6
     error: null
     mtf_at_nyquist: 0.2533711096266722
-    nedt_K: 0.03990423862165068
-    snr: 666.2136146849308
+    nedt_K: 0.029876344317926965
+    snr: 889.8259696862591
     status: ok
   examples/templates/lwir_aerial_survey.yaml:
     L_aperture_W_m2_sr_um:
@@ -54,12 +54,11 @@ scenarios:
     - 8.59494248588731
     - 8.15242727272366
     cell_ref: Cell 28
-    classification: expected_to_change_at_stage_4
-    classification_reason: 'Extended LWIR scene; Decision #15 (ADR-0002) drops the legacy ε_bg·B(T_bg) double-count. Re-baseline authored at Stage 4.'
+    classification: invariant
     error: null
     mtf_at_nyquist: 0.0758782349334645
-    nedt_K: 11.773426337279998
-    snr: 5.520805585767018
+    nedt_K: 0.20598616453385415
+    snr: 315.54933814882156
     status: ok
   examples/templates/lwir_geo.yaml:
     L_aperture_W_m2_sr_um:
@@ -75,12 +74,11 @@ scenarios:
     - 7.04882131424145
     - 7.062286743128634
     cell_ref: Cell 28
-    classification: expected_to_change_at_stage_4
-    classification_reason: 'Extended LWIR scene; Decision #15 (ADR-0002) drops the legacy ε_bg·B(T_bg) double-count. Re-baseline authored at Stage 4.'
+    classification: invariant
     error: null
     mtf_at_nyquist: 0.06009659862829384
-    nedt_K: 10.275918378988923
-    snr: 5.648452460425781
+    nedt_K: 0.18377325609365125
+    snr: 315.84049651574776
     status: ok
   examples/templates/lwir_leo_sounder.yaml:
     L_aperture_W_m2_sr_um:
@@ -96,12 +94,11 @@ scenarios:
     - 6.528087266960084
     - null
     cell_ref: Cell 28
-    classification: expected_to_change_at_stage_4
-    classification_reason: 'Extended LWIR scene; Decision #15 (ADR-0002) drops the legacy ε_bg·B(T_bg) double-count. Re-baseline authored at Stage 4.'
+    classification: invariant
     error: null
     mtf_at_nyquist: 0.07787930551805869
-    nedt_K: 4.60354470669466
-    snr: 12.478510969843144
+    nedt_K: 0.18180384547125927
+    snr: 315.9745217365823
     status: ok
   examples/templates/mwir_aerial_flir.yaml:
     L_aperture_W_m2_sr_um:
@@ -111,8 +108,8 @@ scenarios:
     - null
     - null
     - null
-    - 0.6042922289099214
-    - 1.1016125261404168
+    - 0.6799331798857889
+    - 1.1507361195775427
     - null
     - null
     - null
@@ -120,8 +117,8 @@ scenarios:
     classification: expected_to_change_at_stage_6
     error: null
     mtf_at_nyquist: 0.36634802859450605
-    nedt_K: 0.3282167833234408
-    snr: 86.4868798429374
+    nedt_K: 0.0898122152666346
+    snr: 316.06441748993865
     status: ok
   examples/templates/mwir_ground_test.yaml:
     L_aperture_W_m2_sr_um:
@@ -130,19 +127,18 @@ scenarios:
     - null
     - null
     - null
-    - 1.640092278111781
-    - 3.710470560473891
-    - 6.402335481875011
+    - 1.7185048326423726
+    - 3.779574695848524
+    - 6.443144283061148
     - null
     - null
     - null
     cell_ref: null
     classification: expected_to_change_at_stage_6_and_stage_7
-    classification_reason: 'MWIR band → Stage-6 E_sky decomposition shifts the radiance budget. Also a Stage-7 `no_atmosphere (ground_test)` sub-case → the Stage-7 sensor-descriptor cut will reclassify the chain that resolves it. CU-004 reclassified from `expected_to_change_at_stage_6` so reviewers can attribute drift to the correct stage.'
     error: null
     mtf_at_nyquist: 0.38505696105278175
-    nedt_K: 0.9347653958321323
-    snr: 38.70807580071657
+    nedt_K: 0.11443609078101709
+    snr: 316.1849513629062
     status: ok
   examples/templates/mwir_leo_pushbroom.yaml:
     L_aperture_W_m2_sr_um:
@@ -151,9 +147,9 @@ scenarios:
     - null
     - null
     - null
-    - 0.10866715092222141
-    - 0.41161037388618266
-    - 0.7740859033816564
+    - 0.1459389076724468
+    - 0.4560153880142165
+    - 0.8011593111477601
     - null
     - null
     - null
@@ -161,8 +157,8 @@ scenarios:
     classification: expected_to_change_at_stage_6
     error: null
     mtf_at_nyquist: 0.2533711096266722
-    nedt_K: 0.20897306705390165
-    snr: 127.21614047289053
+    nedt_K: 0.08407931501606199
+    snr: 316.18653230347246
     status: ok
   examples/templates/mwir_leo_starer.yaml:
     L_aperture_W_m2_sr_um:
@@ -171,9 +167,9 @@ scenarios:
     - null
     - null
     - null
-    - 0.8724972988863222
-    - 0.7420421991200588
-    - 1.0065304513046447
+    - 0.993657377735168
+    - 0.8434225379497006
+    - 1.065760776721267
     - null
     - null
     - null
@@ -181,8 +177,8 @@ scenarios:
     classification: expected_to_change_at_stage_6
     error: null
     mtf_at_nyquist: 0.5002235257799496
-    nedt_K: 0.47431169734945433
-    snr: 52.75243610148707
+    nedt_K: 0.07914936232845435
+    snr: 316.12506747410436
     status: ok
   examples/templates/swir_aerial_gas.yaml:
     L_aperture_W_m2_sr_um:
@@ -201,8 +197,8 @@ scenarios:
     classification: expected_to_change_at_stage_3
     error: null
     mtf_at_nyquist: 0.5375502104378229
-    nedt_K: 0.18965971280368848
-    snr: 74.20898457557765
+    nedt_K: 0.1352440242054456
+    snr: 104.06710969112596
     status: ok
   examples/templates/swir_leo.yaml:
     L_aperture_W_m2_sr_um:
@@ -221,8 +217,8 @@ scenarios:
     classification: expected_to_change_at_stage_3
     error: null
     mtf_at_nyquist: 0.4290835606320365
-    nedt_K: 0.32706547004961867
-    snr: 33.46974569336856
+    nedt_K: 0.03462807827464022
+    snr: 316.1249094108594
     status: ok
   examples/templates/vnir_aerial.yaml:
     L_aperture_W_m2_sr_um:
@@ -241,8 +237,8 @@ scenarios:
     classification: expected_to_change_at_stage_3
     error: null
     mtf_at_nyquist: 0.42060901872650236
-    nedt_K: 0.029953890610409022
-    snr: 135.74041635282333
+    nedt_K: 0.021181905442098074
+    snr: 191.95409940613501
     status: ok
   examples/templates/vnir_leo_highres.yaml:
     L_aperture_W_m2_sr_um:
@@ -261,8 +257,8 @@ scenarios:
     classification: expected_to_change_at_stage_3
     error: null
     mtf_at_nyquist: 0.35728595844937844
-    nedt_K: 0.04908167498297008
-    snr: 73.28203639675493
+    nedt_K: 0.034718961987544775
+    snr: 103.59771394680641
     status: ok
   examples/templates/vnir_leo_multispectral.yaml:
     L_aperture_W_m2_sr_um:
@@ -281,8 +277,8 @@ scenarios:
     classification: expected_to_change_at_stage_3
     error: null
     mtf_at_nyquist: 0.5467557089134018
-    nedt_K: 0.03415368229760102
-    snr: 128.2063586850829
+    nedt_K: 0.013848468083211714
+    snr: 316.18798676879334
     status: ok
 schema_version: 1
 wavelength_grid_um:

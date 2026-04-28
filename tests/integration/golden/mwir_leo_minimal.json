@@ -3,67 +3,67 @@
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
     "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "Option C Stage 4 — Decision #13/#15: extended terrestrial → BackgroundDescriptor=None; background_e=0 and background_shot=0 noise term vanishes",
-    "notes": "Stage 4 Option C landing (2026-04-19). Previous value (666.21) relied on source.background.* synthesising a scalar L_background that was double-counted against the target arm. Extended terrestrial scenes now skip the background photon term entirely (Decision #13). Signal is unchanged (750264.22 e-); noise RSS drops from 1126.16 → 866.24 as background_shot falls from 719.6 to 0."
+    "generated_by": "CU-007 (2026-04-27): MWIR-overlap legacy ε+T scenarios route to T3Mixed by default (matrix §3.2). Adds the Kirchhoff reflected term (1−ε)·E_sky/π to the target arm.",
+    "notes": "CU-007 refresh (2026-04-27). Pre-CU-007 chain routed MWIR ε+T scenes to T1Thermal (pure-emit). Post-CU-007 routes them to T3Mixed (emit + Kirchhoff-reflected sky); ε=0.95 ⇒ ρ=0.05 lifts signal_e by ~5.5% (750264 → 791901 e-) and snr by 866 → 890 (signal-shot-limited regime). Hot-target opt-out lives at source.target.is_hot_target. Pre-CU-007 history: Stage 4 Option C (2026-04-19) dropped the legacy scalar L_background term (Decision #13/#15), lifting snr from 666.21 to 866.11."
   },
 
   "signal_e": {
-    "value": 750264.220274625,
+    "value": 791901.0723407408,
     "unit": "e-",
-    "provenance": "chain output: column-integrated atmosphere with H_mol=8km, H_aer=1.2km, H_h2o=2km"
+    "provenance": "chain output, T3Mixed routing — target = ε·B(T_t) + (1−ε)·E_sky/π"
   },
 
   "e_rate_per_s": {
-    "value": 150052844.054925,
+    "value": 158380214.46814817,
     "unit": "e-/s",
-    "provenance": "signal_e / t_int = 750264.22 / 0.005"
+    "provenance": "signal_e / t_int = 791901.07 / 0.005"
   },
 
   "A_collect": {
     "value": 0.07068583470577035,
     "unit": "m^2",
-    "provenance": "hand calculation: pi/4 * 0.30^2 = 0.070686 m^2"
+    "provenance": "hand calculation: pi/4 * 0.30^2 = 0.070686 m^2 (unchanged by CU-007)"
   },
 
   "Omega_pixel": {
     "value": 2.25e-10,
     "unit": "sr",
-    "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr"
+    "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr (unchanged by CU-007)"
   },
 
   "noise_shot": {
-    "value": 866.177938,
+    "value": 889.888235870517,
     "unit": "e- RMS",
-    "provenance": "sqrt(signal_e) = sqrt(750264.22) = 866.18"
+    "provenance": "sqrt(signal_e) = sqrt(791901.07) = 889.89 (lifted by reflected term)"
   },
 
   "noise_dark_shot": {
     "value": 0.7071067811865476,
     "unit": "e- RMS",
-    "provenance": "hand calculation: sqrt(dark_rate * t_int) = sqrt(100 * 0.005) = sqrt(0.5) = 0.7071"
+    "provenance": "hand calculation: sqrt(dark_rate * t_int) = sqrt(100 * 0.005) = sqrt(0.5) = 0.7071 (unchanged by CU-007)"
   },
 
   "noise_read": {
     "value": 5.0,
     "unit": "e- RMS",
-    "provenance": "direct parameter: readout.read_noise_e_rms = 5.0"
+    "provenance": "direct parameter: readout.read_noise_e_rms = 5.0 (unchanged by CU-007)"
   },
 
   "noise_quantization": {
     "value": 9.237604307034013,
     "unit": "e- RMS",
-    "provenance": "hand calculation: gain / sqrt(12) = 32.0 / sqrt(12) = 9.2376"
+    "provenance": "hand calculation: gain / sqrt(12) = 32.0 / sqrt(12) = 9.2376 (unchanged by CU-007)"
   },
 
   "noise_rss": {
-    "value": 866.2419140216884,
+    "value": 889.9505074295279,
     "unit": "e- RMS",
-    "provenance": "RSS of 16 noise terms: dominated by signal_shot (866.2); background_shot=0 (Option C Stage 4 — extended terrestrial has no BackgroundDescriptor). nearfield_shot=0 (simple refractive eps=0)."
+    "provenance": "RSS of 16 noise terms: dominated by signal_shot (889.9); background_shot=0 (extended terrestrial has no BackgroundDescriptor); nearfield_shot=0 (simple refractive eps=0)."
   },
 
   "snr": {
-    "value": 866.1139666994229,
+    "value": 889.8259686687675,
     "unit": "dimensionless",
-    "provenance": "signal_e_final / sigma_total_e = 750264.22 / 866.24 = 866.11"
+    "provenance": "signal_e_final / sigma_total_e = 791901.07 / 889.95 = 889.83 (signal-shot-limited)"
   }
 }

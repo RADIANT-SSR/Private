@@ -1,0 +1,173 @@
+# RADIANT Geometry — glossary of every angle, vector, glyph, and arc the
+# scene library can render.
+#
+# Single source of truth (PLAN_v2.md §15 step 3): the readout-row tooltips
+# (Phase 5 hover work — CU-037), the keyboard-shortcut help dialog
+# (already shipped), and the README glossary table all read from this
+# file. Adding a new primitive without an entry here is a Phase-7 review
+# blocker.
+#
+# Schema (per primitive):
+#   name:        short human-readable display name (no math notation)
+#   symbol:      LaTeX-style symbol (renders to a unicode glyph in the GUI)
+#   kind:        one of: vector, arc, glyph, target, frame
+#   units:       canonical unit (matches RADIANT_Conventions.md)
+#   definition:  one-sentence parametric definition
+#   reads_state: SceneState fields this primitive depends on
+#                (so the live-update layer knows what to invalidate)
+
+vec_boresight:
+  name: "Boresight"
+  symbol: "b̂"
+  kind: vector
+  units: dimensionless
+  definition: >
+    Unit vector from the observer position to the target centroid.
+    Anchored at the observer glyph; tip cone at the target body. The
+    not-to-scale break-mark indicates that the rendered length is a
+    schematic distance, not the true slant range.
+  reads_state:
+    - observer_altitude_m
+    - observer_look_angle_rad
+    - target_altitude_m
+
+vec_surface_normal:
+  name: "Surface normal"
+  symbol: "n̂"
+  kind: vector
+  units: dimensionless
+  definition: >
+    Unit normal to the target's representative surface element at the
+    centroid. For convex shapes (sphere, cylinder, cone) this is the
+    outward radial direction; for plates and boxes it is the dominant
+    facet normal.
+  reads_state:
+    - target_shape
+    - target_yaw_rad
+    - target_pitch_rad
+    - target_roll_rad
+
+vec_sun_ray:
+  name: "Sun ray (target)"
+  symbol: "ŝ_t"
+  kind: vector
+  units: dimensionless
+  definition: >
+    Unit vector from the target centroid toward the Sun. Anchored at the
+    target body; the rendered length is schematic (the actual Sun
+    distance is 1 AU and would be off-screen). The break-mark on the
+    shaft indicates this not-to-scale connector.
+  reads_state:
+    - solar_zenith_rad
+    - relative_azimuth_rad
+
+vec_sun_to_background:
+  name: "Sun ray (background)"
+  symbol: "ŝ_B"
+  kind: vector
+  units: dimensionless
+  definition: >
+    Unit vector from the background marker toward the Sun. Identical
+    direction to ŝ_t in the default flat-ground geometry; diverges when
+    the background is placed at a different altitude or local incidence.
+  reads_state:
+    - solar_zenith_rad
+    - relative_azimuth_rad
+    - background_kind
+
+arc_off_nadir:
+  name: "Off-nadir angle"
+  symbol: "θ_o"
+  kind: arc
+  units: rad
+  definition: >
+    Angle between the local vertical at the observer and the line of
+    sight to the target. Zero when the observer is looking straight
+    down; π/2 at the horizon. Equals observer_look_angle_rad in flat-
+    ground geometry.
+  reads_state:
+    - observer_look_angle_rad
+
+arc_phase_angle:
+  name: "Phase angle"
+  symbol: "α_t"
+  kind: arc
+  units: rad
+  definition: >
+    Angle at the target centroid between the Sun direction (ŝ_t) and
+    the observer direction (-b̂). Zero = backscatter (Sun behind
+    observer); π = forward scatter (Sun behind target).
+  reads_state:
+    - observer_look_angle_rad
+    - solar_zenith_rad
+    - relative_azimuth_rad
+
+arc_sun_zenith:
+  name: "Sun zenith angle"
+  symbol: "θ_s"
+  kind: arc
+  units: rad
+  definition: >
+    Angle between the local vertical at the target and the Sun direction
+    (ŝ_t). Zero = Sun overhead; π/2 = Sun on the horizon. Drives the
+    irradiance E_sun · cos(θ_s) on horizontal surfaces.
+  reads_state:
+    - solar_zenith_rad
+
+glyph_observer:
+  name: "Observer"
+  symbol: "○"
+  kind: glyph
+  units: m
+  definition: >
+    Diamond marker at the observer position, sized in screen-space pixels
+    so it remains legible at any zoom. Carries the observer's body axes
+    (small triad) when the active edit is a vector or attitude angle.
+  reads_state:
+    - observer_altitude_m
+
+glyph_sun:
+  name: "Sun"
+  symbol: "☀"
+  kind: glyph
+  units: m
+  definition: >
+    Disc + 8 radiating rays at the schematic Sun position (a fixed
+    distance from the target along ŝ_t). The actual Sun is 1 AU away;
+    this glyph is a placeholder so the user has something to point at.
+  reads_state:
+    - solar_zenith_rad
+    - relative_azimuth_rad
+
+glyph_background:
+  name: "Background"
+  symbol: "▢"
+  kind: glyph
+  units: m
+  definition: >
+    Marker at the representative background patch. Position depends on
+    background_kind: 'ground' places it directly below the target;
+    'cold_space' places it antipodal to the observer; 'at_aperture' /
+    'none' suppress the glyph.
+  reads_state:
+    - background_kind
+
+target:
+  name: "Target body"
+  symbol: "T"
+  kind: target
+  units: m
+  definition: >
+    The 3D mesh of the target shape (sphere / cylinder / cone / box /
+    flat plate). Rendered with PBR shading so the lit / dark hemispheres
+    are visually distinct under the scene Sun light.
+  reads_state:
+    - target_shape
+    - target_radius_m
+    - target_length_m
+    - target_width_m
+    - target_height_m
+    - target_base_radius_m
+    - target_yaw_rad
+    - target_pitch_rad
+    - target_roll_rad

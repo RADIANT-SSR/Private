@@ -1,0 +1,118 @@
+"""Shared two-point vector helper — tube + cone arrowhead.
+
+Phase 3 (PLAN_v2.md §11 step 1): every geometric vector renders as a tube
+with a cone arrowhead at the tip. Replaces the Phase 1 plain tube. The
+helper also accepts an optional ``with_break_mark=True`` flag (Phase 3
+step 4) that inserts a small zigzag at the midpoint of the line as a
+"not to scale" indicator on the satellite/sun connecting rays.
+
+Rule 19 carve-out: shared helper for the vectors/ family per CLAUDE.md
+Rule 19's "tightly coupled computations that share internal state or
+helper functions" exception. Each named vector keeps its own file.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import numpy.typing as npt
+import pyvista as pv
+
+# World-space tube radius. Phase 3 keeps the tube radius constant in world
+# units; pixel-perfect screen-space line widths are a Phase 5/6 concern.
+_TUBE_RADIUS_M = 0.020
+_ARROW_TIP_LENGTH_FRAC = 0.12
+_ARROW_TIP_RADIUS_M = 0.07
+
+_BREAK_AMPLITUDE_FRAC = 0.06
+_BREAK_HALF_LENGTH_FRAC = 0.04
+
+
+def add_vector_with_arrow(
+    plotter: pv.Plotter,
+    start: npt.NDArray[np.float64],
+    end: npt.NDArray[np.float64],
+    color: str,
+    name: str,
+    with_break_mark: bool = False,
+) -> None:
+    """Add a tube from ``start`` → ``end`` with a cone arrowhead at the tip.
+
+    If ``with_break_mark`` is True, also draw a small zigzag at the
+    midpoint signaling "not to scale" (used for the satellite and sun
+    connecting rays whose schematic length doesn't match the physical
+    600 km / 1.5e8 km distances).
+    """
+    direction = end - start
+    length = float(np.linalg.norm(direction))
+    if length < 1e-9:
+        return
+    unit = direction / length
+
+    tip_length = max(length * _ARROW_TIP_LENGTH_FRAC, 0.05)
+    shaft_end = end - unit * tip_length
+    line = pv.Line(pointa=tuple(start), pointb=tuple(shaft_end))
+    tube = line.tube(radius=_TUBE_RADIUS_M)
+    plotter.add_mesh(tube, color=color, name=name)
+
+    arrow = pv.Cone(
+        center=tuple(end - unit * (tip_length * 0.5)),
+        direction=tuple(unit),
+        height=tip_length,
+        radius=_ARROW_TIP_RADIUS_M,
+        resolution=24,
+    )
+    plotter.add_mesh(arrow, color=color, name=f"{name}_tip")
+
+    if with_break_mark:
+        _add_break_mark(plotter, start, end, length, color, f"{name}_break")
+
+
+def add_tube(
+    plotter: pv.Plotter,
+    start: npt.NDArray[np.float64],
+    end: npt.NDArray[np.float64],
+    color: str,
+    name: str,
+) -> None:
+    """Backwards-compatible plain-tube call — kept for the Phase 1 frames
+    triad (body axes / world axes), which renders without arrowheads so
+    the small tubes don't visually compete with the main vectors."""
+    line = pv.Line(pointa=tuple(start), pointb=tuple(end))
+    tube = line.tube(radius=_TUBE_RADIUS_M)
+    plotter.add_mesh(tube, color=color, name=name)
+
+
+def _add_break_mark(
+    plotter: pv.Plotter,
+    start: npt.NDArray[np.float64],
+    end: npt.NDArray[np.float64],
+    length: float,
+    color: str,
+    name: str,
+) -> None:
+    """Draw a small zigzag at the line's midpoint, oriented perpendicular
+    to the line in the up-most-similar plane."""
+    unit = (end - start) / length
+    # Pick a perpendicular: prefer +Z; fall back to +X if line is along Z.
+    up = np.array([0.0, 0.0, 1.0])
+    if abs(np.dot(unit, up)) > 0.95:
+        up = np.array([1.0, 0.0, 0.0])
+    perp = np.cross(unit, up)
+    perp /= np.linalg.norm(perp)
+
+    mid = (start + end) * 0.5
+    half_along = length * _BREAK_HALF_LENGTH_FRAC
+    amp = length * _BREAK_AMPLITUDE_FRAC
+
+    points = np.array(
+        [
+            mid - unit * half_along,
+            mid - unit * (half_along * 0.33) + perp * amp,
+            mid + unit * (half_along * 0.33) - perp * amp,
+            mid + unit * half_along,
+        ],
+        dtype=np.float64,
+    )
+    spline = pv.Spline(points, n_points=24)
+    tube = spline.tube(radius=_TUBE_RADIUS_M * 0.7)
+    plotter.add_mesh(tube, color=color, name=name)

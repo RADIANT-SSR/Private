@@ -136,6 +136,17 @@ def test_contact_shadow_constants() -> None:
     assert style.CONTACT_SHADOW_RADIUS_FACTOR == 1.05
 
 
+def test_view_cube_constants() -> None:
+    """T2 view-cube palette: subdued, never saturated."""
+    assert style.VIEW_CUBE_FACE_COLOR == "#3a3d45"
+    assert style.VIEW_CUBE_EDGE_COLOR == "#5a5d65"
+    assert style.VIEW_CUBE_TEXT_COLOR == "#bcd0f0"
+    assert style.VIEW_CUBE_PLUS_X_EDGE_COLOR == "#9a4040"
+    assert style.VIEW_CUBE_PLUS_Y_EDGE_COLOR == style.SURFACE_FAMILY
+    assert style.VIEW_CUBE_PLUS_Z_EDGE_COLOR == style.SATELLITE_FAMILY
+    assert style.VIEW_CUBE_VIEWPORT == (0.86, 0.78, 0.99, 0.99)
+
+
 # ---------------------------------------------------------------------------
 # Sanity: every fractional value is in [0, 1]
 # ---------------------------------------------------------------------------
@@ -167,6 +178,12 @@ def test_color_constants_are_seven_char_hex() -> None:
         style.WORLD_AXES_COLOR,
         style.CONTACT_SHADOW_COLOR,
         style.VIEWPORT_BACKGROUND_COLOR,
+        style.VIEW_CUBE_FACE_COLOR,
+        style.VIEW_CUBE_EDGE_COLOR,
+        style.VIEW_CUBE_TEXT_COLOR,
+        style.VIEW_CUBE_PLUS_X_EDGE_COLOR,
+        style.VIEW_CUBE_PLUS_Y_EDGE_COLOR,
+        style.VIEW_CUBE_PLUS_Z_EDGE_COLOR,
     )
     for c in color_constants:
         assert len(c) == 7 and c.startswith("#"), f"{c!r} is not a #RRGGBB hex"

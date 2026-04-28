@@ -75,6 +75,9 @@ from dev_tools.geometry_gui_v2.app.window_persistence import (  # noqa: E402
 )
 from dev_tools.geometry_gui_v2.scene import build_scene  # noqa: E402
 from dev_tools.geometry_gui_v2.scene.camera_views import camera_pose_for  # noqa: E402
+from dev_tools.geometry_gui_v2.scene.widgets.view_cube import (  # noqa: E402
+    build_view_cube_widget,
+)
 from dev_tools.geometry_gui_v2.scene.highlight import (  # noqa: E402
     actors_for_primitive,
     apply_highlight,
@@ -345,25 +348,34 @@ class GeometryMainWindow(QMainWindow):
     # ----- Phase 5 interaction wiring (kept) ------------------------------
 
     def _enable_view_cube(self) -> None:
+        """Install the T2 subdued view-cube in the top-right corner.
+
+        Holds a reference to the widget on ``self`` so VTK doesn't garbage-
+        collect it. Wires face-click to ``_snap_to_view`` via a custom
+        observer.
+        """
         try:
-            self.plotter.add_camera_orientation_widget()
+            # ``plotter.iren`` is PyVista's RenderWindowInteractor wrapper;
+            # ``.interactor`` unwraps to the underlying ``vtkRenderWindowInteractor``
+            # the orientation-marker widget needs.
+            interactor = self.plotter.iren.interactor
+            self._view_cube_widget = build_view_cube_widget(interactor)
         except Exception:
-            pass
+            self._view_cube_widget = None
 
     def _toggle_view_cube(self, visible: bool) -> None:
-        """No-op fallback if the orientation widget didn't install."""
-        # PyVista doesn't expose a hide/show API for the orientation widget
-        # cleanly; simplest path is a remove-and-re-add.
-        if visible:
-            try:
-                self.plotter.add_camera_orientation_widget()
-            except Exception:
-                pass
-        else:
-            try:
-                self.plotter.clear_camera_widgets()
-            except Exception:
-                pass
+        """Show/hide the T2 subdued view-cube widget."""
+        widget = getattr(self, "_view_cube_widget", None)
+        if widget is None:
+            # First-time init failed (no interactor yet); try again.
+            if visible:
+                self._enable_view_cube()
+            return
+        try:
+            widget.SetEnabled(bool(visible))
+            self.plotter.render()
+        except Exception:
+            pass
 
     def _enable_picking(self) -> None:
         try:

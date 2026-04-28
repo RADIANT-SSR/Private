@@ -121,3 +121,19 @@ CONTACT_SHADOW_RADIUS_FACTOR: Final[float] = 1.05
 # something to contrast against. Phase 6 may swap this when the dark/light
 # theme switch lands.
 VIEWPORT_BACKGROUND_COLOR: Final[str] = "#1F242B"
+
+# ---------------------------------------------------------------------------
+# View-cube widget (T2 of visual remediation).
+# ---------------------------------------------------------------------------
+# Subdued so the view-cube doesn't dominate the frame. Faces are a half-
+# tone above the viewport background; edges are a hair lighter; +X / +Y /
+# +Z principal edges pick up a desaturated family color (red / green /
+# blue) so the user can still orient at a glance.
+VIEW_CUBE_FACE_COLOR: Final[str] = "#3a3d45"          # one shade above bg
+VIEW_CUBE_EDGE_COLOR: Final[str] = "#5a5d65"          # hairline border
+VIEW_CUBE_TEXT_COLOR: Final[str] = "#bcd0f0"          # light blue-gray
+VIEW_CUBE_PLUS_X_EDGE_COLOR: Final[str] = "#9a4040"   # desaturated red
+VIEW_CUBE_PLUS_Y_EDGE_COLOR: Final[str] = SURFACE_FAMILY  # muted green
+VIEW_CUBE_PLUS_Z_EDGE_COLOR: Final[str] = SATELLITE_FAMILY  # muted blue
+# Top-right viewport rectangle — ~80×80 px at 1920×1080.
+VIEW_CUBE_VIEWPORT: Final[tuple[float, float, float, float]] = (0.86, 0.78, 0.99, 0.99)

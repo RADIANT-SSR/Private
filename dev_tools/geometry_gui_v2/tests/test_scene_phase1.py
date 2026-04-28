@@ -50,7 +50,9 @@ def offscreen_plotter() -> Iterator[pv.Plotter]:
 # explicitly catches a Phase-2 / 3 / 4 rename that silently breaks the actor-
 # update API the Qt shell depends on.
 _EXPECTED_NAMED_ACTORS = (
-    # ground
+    # ground (T3 of the visual remediation adds an outer fade plane behind
+    # the gridded cap so it doesn't end in a hard rectangular edge).
+    "ground_fade",
     "ground_cap",
     "contact_shadow",
     # target (default state = sphere)

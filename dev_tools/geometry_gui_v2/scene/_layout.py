@@ -25,9 +25,16 @@ SCENE_OBSERVER_DISTANCE_M: Final[float] = 6.0
 SCENE_SUN_DISTANCE_M: Final[float] = 9.0
 SCENE_BACKGROUND_DISTANCE_M: Final[float] = 12.0
 
-# Ground cap radius around the target footprint. Phase 2 swaps this for a
-# textured plane sized to the target's projected footprint plus a margin.
-GROUND_CAP_RADIUS_M: Final[float] = 4.0
+# Ground cap radius around the target footprint. T3 of the visual
+# remediation widens it from 4 m → 10 m so the gridded region extends a
+# usable distance around the target without the user perceiving a hard
+# edge (the outer fade plane handles the void-beyond transition).
+GROUND_CAP_RADIUS_M: Final[float] = 10.0
+
+# Outer fade-plane radius — large enough to fill the entire viewport at any
+# camera distance the canonical views adopt. Below the gridded cap (z =
+# -0.001) so the cap sits visually on top of the fade.
+GROUND_FADE_RADIUS_M: Final[float] = 500.0
 
 # Unit-radius for angle arcs. Arcs live on a sphere centered on the target.
 ARC_RADIUS_M: Final[float] = 2.0

@@ -532,8 +532,35 @@ class GeometryMainWindow(QMainWindow):
         super().closeEvent(event)
 
 
+def _verify_mathtext_support() -> None:
+    """Warn if VTK math-text is not available (subscripts fall back to ASCII).
+
+    Called once at startup. The remediation T1 spec installs this canary so
+    a platform with broken math-text rendering surfaces as a warning rather
+    than a silent fallback to underscored labels.
+    """
+    try:
+        import vtk
+
+        renderer = vtk.vtkMathTextFreeTypeTextRenderer()
+        if not renderer.MathTextIsSupported():
+            import warnings
+
+            warnings.warn(
+                "VTK math-text rendering not available on this platform. "
+                "Subscript labels will fall back to ASCII. "
+                "See REMEDIATION_BLOCKERS.md.",
+                stacklevel=2,
+            )
+    except Exception:  # noqa: BLE001 - vtk import or attr-access; never fatal
+        # The check itself must never block app startup. Worst case the user
+        # sees no warning; labels render whatever VTK supports.
+        pass
+
+
 def main() -> int:
     """Launch the desktop window. Returns the Qt exit code."""
+    _verify_mathtext_support()
     app = QApplication.instance() or QApplication(sys.argv)
 
     # Apply the persisted theme (or the dark default on first launch).

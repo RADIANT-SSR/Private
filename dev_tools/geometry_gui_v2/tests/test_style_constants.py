@@ -150,6 +150,16 @@ def test_view_cube_constants() -> None:
     assert style.VIEW_CUBE_VIEWPORT == (0.86, 0.78, 0.99, 0.99)
 
 
+def test_arc_geometry_constants() -> None:
+    """T6 angle-arc widening: tube + tip cone large enough to read at zoom."""
+    assert style.ARC_TUBE_RADIUS_M == 0.025
+    assert style.ARC_TIP_HEIGHT_M == 0.18
+    assert style.ARC_TIP_RADIUS_M == 0.09
+    # Sanity: tip cone is wider than the tube it terminates so the
+    # arrowhead reads as an arrowhead, not a continuation of the shaft.
+    assert style.ARC_TIP_RADIUS_M > style.ARC_TUBE_RADIUS_M
+
+
 def test_world_axes_gnomon_constants() -> None:
     """T4 corner gnomon: bottom-left viewport, family-tinted shafts."""
     assert style.WORLD_AXES_GNOMON_SHAFT_COLOR == "#5a5d65"

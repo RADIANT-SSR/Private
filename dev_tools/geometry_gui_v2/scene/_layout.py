@@ -36,5 +36,10 @@ GROUND_CAP_RADIUS_M: Final[float] = 10.0
 # -0.001) so the cap sits visually on top of the fade.
 GROUND_FADE_RADIUS_M: Final[float] = 500.0
 
-# Unit-radius for angle arcs. Arcs live on a sphere centered on the target.
-ARC_RADIUS_M: Final[float] = 2.0
+# Radius for angle arcs. Arcs live on a sphere centered on the target.
+# T6 of the visual remediation widens this from 2.0 → 2.6 m so the arcs
+# sit clearly outside even the largest default target body (the box
+# preset has a half-extent of ~1.4 m along its diagonal). At 2.0 m the
+# arcs were intersecting the target geometry and reading as "decoration
+# stuck to the surface" rather than "angle between two vectors".
+ARC_RADIUS_M: Final[float] = 2.6

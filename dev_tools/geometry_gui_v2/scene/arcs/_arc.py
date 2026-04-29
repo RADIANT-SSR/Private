@@ -17,10 +17,12 @@ import numpy as np
 import numpy.typing as npt
 import pyvista as pv
 
-_ARC_TUBE_RADIUS_M = 0.012
+from dev_tools.geometry_gui_v2.scene import style
+
+# T6 of the visual remediation moved the arc tube + tip dimensions into
+# ``scene/style.py`` so they sit alongside the other visual constants.
+# The number of slerp samples stays here — it is geometric, not stylistic.
 _NUM_SAMPLES = 32
-_ARC_TIP_HEIGHT_M = 0.10
-_ARC_TIP_RADIUS_M = 0.05
 
 
 def add_great_arc(
@@ -53,7 +55,7 @@ def add_great_arc(
         s2 = math.sin(t * theta) / sin_theta
         points[i] = (s1 * a + s2 * b) * radius
     spline = pv.Spline(points, n_points=_NUM_SAMPLES)
-    tube = spline.tube(radius=_ARC_TUBE_RADIUS_M)
+    tube = spline.tube(radius=style.ARC_TUBE_RADIUS_M)
     plotter.add_mesh(tube, color=color, name=name)
 
     if with_arrowhead:
@@ -61,12 +63,12 @@ def add_great_arc(
         # then scaled by radius. Direction-only is what we need for the cone.
         tangent = (b * math.cos(theta) - a) / sin_theta
         tangent /= max(np.linalg.norm(tangent), 1e-12)
-        tip_center = points[-1] + tangent * (_ARC_TIP_HEIGHT_M * 0.5)
+        tip_center = points[-1] + tangent * (style.ARC_TIP_HEIGHT_M * 0.5)
         cone = pv.Cone(
             center=tuple(tip_center),
             direction=tuple(tangent),
-            height=_ARC_TIP_HEIGHT_M,
-            radius=_ARC_TIP_RADIUS_M,
+            height=style.ARC_TIP_HEIGHT_M,
+            radius=style.ARC_TIP_RADIUS_M,
             resolution=24,
         )
         plotter.add_mesh(cone, color=color, name=f"{name}_tip")

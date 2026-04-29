@@ -42,4 +42,4 @@ GROUND_FADE_RADIUS_M: Final[float] = 500.0
 # preset has a half-extent of ~1.4 m along its diagonal). At 2.0 m the
 # arcs were intersecting the target geometry and reading as "decoration
 # stuck to the surface" rather than "angle between two vectors".
-ARC_RADIUS_M: Final[float] = 2.6
+ARC_RADIUS_M: Final[float] = 3.4

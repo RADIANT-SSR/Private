@@ -24,8 +24,14 @@ def _half_extent(state: SceneState) -> float:
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
-    radius = style.CONTACT_SHADOW_RADIUS_FACTOR * _half_extent(state)
-    disc = pv.Disc(center=(0.0, 0.0, 0.001), inner=0.0, outer=radius, c_res=64)
+    # Phase-7 diet: widen and stretch the shadow into a soft horizontal
+    # ellipse (3× wider than tall in scene-X) so it reads as the only
+    # ground reference now that the grid is gone. Disc is at z = +0.001
+    # to sit just above the conceptual ground plane.
+    base_radius = style.CONTACT_SHADOW_RADIUS_FACTOR * _half_extent(state)
+    radius = base_radius * 1.6
+    disc = pv.Disc(center=(0.0, 0.0, 0.001), inner=0.0, outer=radius, c_res=96)
+    disc.scale([1.0, 0.55, 1.0], inplace=True)
     plotter.add_mesh(
         disc,
         color=style.CONTACT_SHADOW_COLOR,

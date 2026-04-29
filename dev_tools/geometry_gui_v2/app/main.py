@@ -152,6 +152,7 @@ class GeometryMainWindow(QMainWindow):
         self._enable_world_axes_gnomon()
         self._enable_picking()
         self._install_shortcuts()
+        self._install_label_camera_sync()
 
         self._readouts_panel.set_state(self._state)
         self._refresh_status_bar()
@@ -408,6 +409,52 @@ class GeometryMainWindow(QMainWindow):
         except Exception:
             self._world_axes_widget = None
 
+    def _install_label_camera_sync(self) -> None:
+        """Re-project label anchors after every camera interaction.
+
+        Labels are screen-space text actors at fixed pixel positions
+        (computed from the projected 3D anchor at scene-build time). When
+        the user orbits the camera, the 3D anchors move on screen but the
+        text actors stay nailed to their original pixels — labels and
+        leader lines visibly detach from the diagram. Hooking
+        ``EndInteractionEvent`` rebuilds the label set against the new
+        projection so they re-attach as soon as the camera comes to rest.
+        """
+        try:
+            interactor = self.plotter.iren.interactor
+        except Exception:
+            return
+
+        def _on_interaction_end(_obj, _evt) -> None:  # type: ignore[no-untyped-def]
+            self._rebuild_labels()
+
+        # ``EndInteractionEvent`` covers orbit / pan (mouse drag), but the
+        # scroll-wheel zoom path on PyVistaQt fires its own wheel events
+        # without ever entering "interaction." Subscribe to all three so
+        # the label re-projection runs after every camera change.
+        self._label_sync_obs_ids: list[int] = []
+        for evt_name in (
+            "EndInteractionEvent",
+            "MouseWheelForwardEvent",
+            "MouseWheelBackwardEvent",
+        ):
+            try:
+                obs_id = interactor.AddObserver(evt_name, _on_interaction_end)
+                self._label_sync_obs_ids.append(obs_id)
+            except Exception:
+                pass
+
+    def _rebuild_labels(self) -> None:
+        from dev_tools.geometry_gui_v2.scene import labels
+
+        try:
+            labels.remove_from_plotter(self.plotter)
+            labels.add_to_plotter(self.plotter, self._state)
+            self.plotter.render()
+        except Exception:
+            # A label-rebuild failure must never crash the camera loop.
+            pass
+
     def _enable_picking(self) -> None:
         try:
             self.plotter.enable_mesh_picking(
@@ -458,12 +505,14 @@ class GeometryMainWindow(QMainWindow):
 
     def _reset_camera(self) -> None:
         self.plotter.reset_camera()
+        self._rebuild_labels()
         self.plotter.render()
 
     def _snap_to_view(self, view: CanonicalView) -> None:
         position, focal, up = camera_pose_for(view.value)
         self.plotter.camera_position = [position, focal, up]
         self._interaction = self._interaction.with_canonical_view(view)
+        self._rebuild_labels()
         self.plotter.render()
 
     # ----- File menu actions ---------------------------------------------

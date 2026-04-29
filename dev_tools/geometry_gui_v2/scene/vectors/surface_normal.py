@@ -17,7 +17,11 @@ from dev_tools.geometry_gui_v2.scene.vectors._tube import add_vector_with_arrow
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
-    # Length scaled to the target's characteristic radius for visual balance.
+    # Phase-7 diet: ``n_B`` is the *background* surface normal; with no
+    # background it has no referent and just clutters the +Z axis next
+    # to the body axes. Renders only when the background is on.
+    if state.background_kind == "none":
+        return
     length = max(1.5 * state.target_radius_m, 1.5)
     end = np.array([0.0, 0.0, length], dtype=np.float64)
     add_vector_with_arrow(

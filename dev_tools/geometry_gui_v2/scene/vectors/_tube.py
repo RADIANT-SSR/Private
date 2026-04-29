@@ -19,9 +19,9 @@ import pyvista as pv
 
 # World-space tube radius. Phase 3 keeps the tube radius constant in world
 # units; pixel-perfect screen-space line widths are a Phase 5/6 concern.
-_TUBE_RADIUS_M = 0.020
-_ARROW_TIP_LENGTH_FRAC = 0.12
-_ARROW_TIP_RADIUS_M = 0.07
+_TUBE_RADIUS_M = 0.012
+_ARROW_TIP_LENGTH_FRAC = 0.10
+_ARROW_TIP_RADIUS_M = 0.05
 
 # T7 of the visual remediation: the Phase-3 break-mark used a smoothed
 # 4-point spline at 0.7× tube radius, which read as a "wave" rather than

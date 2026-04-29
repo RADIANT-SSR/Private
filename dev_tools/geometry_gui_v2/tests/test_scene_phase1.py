@@ -50,10 +50,13 @@ def offscreen_plotter() -> Iterator[pv.Plotter]:
 # explicitly catches a Phase-2 / 3 / 4 rename that silently breaks the actor-
 # update API the Qt shell depends on.
 _EXPECTED_NAMED_ACTORS = (
-    # ground (T3 of the visual remediation adds an outer fade plane behind
-    # the gridded cap so it doesn't end in a hard rectangular edge).
-    "ground_fade",
-    "ground_cap",
+    # Phase-7 diet: drop ``ground_fade`` + ``ground_cap`` (the gridded
+    # ground is gone — only the contact-shadow ellipse remains as the
+    # ground reference). Drop the 8 sun-ray tubes (sun is one solid
+    # sphere). Drop the boresight/sun_ray break-mark zigzags. With
+    # ``state.background_kind == "none"`` (the default), the background
+    # marker, the s_B vector, and the n_B surface-normal vector are
+    # also suppressed; the matching label anchors are gated alongside.
     "contact_shadow",
     # target (default state = sphere)
     "target",
@@ -61,60 +64,32 @@ _EXPECTED_NAMED_ACTORS = (
     "body_axis_x",
     "body_axis_y",
     "body_axis_z",
-    # T4 of the visual remediation moved the world-axis triad out of the
-    # scene and into a screen-space corner gnomon (bottom-left), so the
-    # 3D ``world_axis_{x,y,z}`` primitives are no longer registered.
-    # vectors (Phase 3: each gets a "<name>_tip" arrowhead cone, and the
-    # two not-to-scale connecting rays — boresight + sun_ray — also get a
-    # "<name>_break" zigzag mid-line marker)
+    # vectors (background-coupled vectors are gated by background_kind)
     "vec_boresight",
     "vec_boresight_tip",
-    "vec_boresight_break",
-    "vec_surface_normal",
-    "vec_surface_normal_tip",
     "vec_sun_ray",
     "vec_sun_ray_tip",
-    "vec_sun_ray_break",
-    "vec_sun_to_background",
-    "vec_sun_to_background_tip",
-    # arcs (off_nadir + sun_zenith + phase_angle on the default scene; Phase 3
-    # adds a "<name>_tip" cone arrowhead at the v2 endpoint of each)
+    # arcs (each: tube + tip cone)
     "arc_off_nadir",
     "arc_off_nadir_tip",
     "arc_phase_angle",
     "arc_phase_angle_tip",
     "arc_sun_zenith",
     "arc_sun_zenith_tip",
-    # glyphs (Phase 3: sun is now a disc + 8 rays at 45° increments)
+    # glyphs (sun is now a single sphere; background gated off by default)
     "glyph_observer",
     "glyph_sun",
-    "glyph_sun_ray_0",
-    "glyph_sun_ray_1",
-    "glyph_sun_ray_2",
-    "glyph_sun_ray_3",
-    "glyph_sun_ray_4",
-    "glyph_sun_ray_5",
-    "glyph_sun_ray_6",
-    "glyph_sun_ray_7",
-    "glyph_background",
-    # labels (Phase 4 wires one LeaderLabel per anchor — each adds two
-    # actors: "<name>_text" and "<name>_leader").
+    # labels (anchor list excludes background-coupled labels by default)
     "lbl_target_text",
     "lbl_target_leader",
     "lbl_observer_text",
     "lbl_observer_leader",
     "lbl_sun_text",
     "lbl_sun_leader",
-    "lbl_background_text",
-    "lbl_background_leader",
     "lbl_vec_boresight_text",
     "lbl_vec_boresight_leader",
-    "lbl_vec_surface_normal_text",
-    "lbl_vec_surface_normal_leader",
     "lbl_vec_sun_ray_text",
     "lbl_vec_sun_ray_leader",
-    "lbl_vec_sun_to_background_text",
-    "lbl_vec_sun_to_background_leader",
     "lbl_arc_off_nadir_text",
     "lbl_arc_off_nadir_leader",
     "lbl_arc_sun_zenith_text",

@@ -23,9 +23,11 @@ from dev_tools.geometry_gui_v2.scene.vectors._tube import add_vector_with_arrow
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
+    # Phase-7 diet: the s_B ray only renders when there is a background.
+    if state.background_kind == "none":
+        return
     sun_pos = sun_direction_scene(state) * SCENE_SUN_DISTANCE_M
     bg_pos = background_direction_scene(state) * SCENE_BACKGROUND_DISTANCE_M
-    # No break-mark per Phase 3 step 4: only target-rooted connectors.
     add_vector_with_arrow(
         plotter,
         sun_pos,

@@ -151,10 +151,13 @@ def test_view_cube_constants() -> None:
 
 
 def test_arc_geometry_constants() -> None:
-    """T6 angle-arc widening: tube + tip cone large enough to read at zoom."""
-    assert style.ARC_TUBE_RADIUS_M == 0.025
-    assert style.ARC_TIP_HEIGHT_M == 0.18
-    assert style.ARC_TIP_RADIUS_M == 0.09
+    """Phase-7 diet retunes the T6 widening to a middle ground — arcs
+    must read as visible annotations at the canonical zoom (the first
+    diet pass shrunk them so far the user couldn't see them) without
+    out-competing the geometric vectors."""
+    assert style.ARC_TUBE_RADIUS_M == 0.022
+    assert style.ARC_TIP_HEIGHT_M == 0.16
+    assert style.ARC_TIP_RADIUS_M == 0.085
     # Sanity: tip cone is wider than the tube it terminates so the
     # arrowhead reads as an arrowhead, not a continuation of the shaft.
     assert style.ARC_TIP_RADIUS_M > style.ARC_TUBE_RADIUS_M

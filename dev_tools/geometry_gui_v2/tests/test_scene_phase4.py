@@ -218,21 +218,31 @@ def test_solver_keeps_labels_close_to_their_anchors() -> None:
 
 def test_anchor_registry_covers_every_named_primitive() -> None:
     """Every actor we render with a vector / arc / glyph name must have a
-    matching label anchor — no silent label drops."""
+    matching label anchor — no silent label drops.
+
+    Phase-7 diet: background-coupled anchors (background marker, n_B,
+    s_B) are gated on ``state.background_kind != "none"``. The default
+    state has ``background_kind="none"`` so the test exercises the
+    always-on subset; a separate state with a background turned on
+    pins the gated trio.
+    """
     state = SceneState.default()
     anchors = {a.name for a in collect_anchors(state)}
-    expected = {
+    always_on = {
         "lbl_target",
         "lbl_observer",
         "lbl_sun",
-        "lbl_background",
         "lbl_vec_boresight",
-        "lbl_vec_surface_normal",
         "lbl_vec_sun_ray",
-        "lbl_vec_sun_to_background",
         "lbl_arc_off_nadir",
         "lbl_arc_sun_zenith",
         "lbl_arc_phase_angle",
     }
-    missing = expected - anchors
+    missing = always_on - anchors
     assert not missing, f"label anchor registry missing: {missing!r}"
+
+    bg_on = dataclasses.replace(state, background_kind="ground")
+    anchors_bg = {a.name for a in collect_anchors(bg_on)}
+    bg_gated = {"lbl_background", "lbl_vec_surface_normal", "lbl_vec_sun_to_background"}
+    missing_bg = bg_gated - anchors_bg
+    assert not missing_bg, f"background-gated anchors missing: {missing_bg!r}"

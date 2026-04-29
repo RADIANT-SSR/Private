@@ -31,10 +31,10 @@ import vtk
 # bbox query would require rendering, which is a chicken-and-egg with
 # the deconfliction. The estimate is conservative (oversized boxes →
 # more separation), which is the right side to err on.
-_CHAR_WIDTH_PX: float = 7.0  # 12-pt sans-serif average advance
-_LINE_HEIGHT_PX: float = 16.0
-_TEXT_HORIZ_PADDING_PX: float = 6.0
-_TEXT_VERT_PADDING_PX: float = 4.0
+_CHAR_WIDTH_PX: float = 6.0  # 10-pt sans-serif average advance
+_LINE_HEIGHT_PX: float = 13.0
+_TEXT_HORIZ_PADDING_PX: float = 4.0
+_TEXT_VERT_PADDING_PX: float = 2.0
 
 # T10 of the visual remediation introduced VTK math-text strings like
 # ``$\theta_{off}$`` whose ``$``, ``{``, ``}``, ``\`` characters are
@@ -105,13 +105,15 @@ def add_leader_label(
     text_actor.SetInput(label.text)
     text_actor.SetPosition(float(label_screen_xy[0]), float(label_screen_xy[1]))
     tp = text_actor.GetTextProperty()
-    tp.SetFontSize(12)
+    tp.SetFontSize(10)
     tp.SetFontFamilyToArial()
     tp.SetColor(*_hex_to_rgb_float(label.color))
     tp.SetJustificationToCentered()
     tp.SetVerticalJustificationToCentered()
-    tp.SetBackgroundColor(0.122, 0.141, 0.169)  # matches VIEWPORT_BACKGROUND_COLOR
-    tp.SetBackgroundOpacity(0.85)
+    # Phase-7 diet: tighter pill — darker, less opaque background so it
+    # reads as a subtle annotation rather than a bold sticker.
+    tp.SetBackgroundColor(0.078, 0.090, 0.110)  # one shade below viewport bg
+    tp.SetBackgroundOpacity(0.65)
     plotter.add_actor(text_actor, name=f"{label.name}_text")
 
     # Leader line as a 2D vtkLeaderActor2D — both endpoints in display
@@ -127,8 +129,8 @@ def add_leader_label(
     leader.GetPosition2Coordinate().SetValue(float(nudged[0]), float(nudged[1]))
     leader.SetArrowPlacementToNone()
     leader.GetProperty().SetColor(*_hex_to_rgb_float(label.color))
-    leader.GetProperty().SetLineWidth(1.0)
-    leader.GetProperty().SetOpacity(0.6)
+    leader.GetProperty().SetLineWidth(0.75)
+    leader.GetProperty().SetOpacity(0.45)
     plotter.add_actor(leader, name=f"{label.name}_leader")
 
 

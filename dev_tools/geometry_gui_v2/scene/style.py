@@ -147,9 +147,9 @@ VIEW_CUBE_VIEWPORT: Final[tuple[float, float, float, float]] = (0.86, 0.78, 0.99
 # with a 100 mm × 50 mm cone, which disappeared against the target body
 # at default camera distances. The new sizes are roughly 2× across the
 # board; the arc-radius widening lives in ``_layout.py``.
-ARC_TUBE_RADIUS_M: Final[float] = 0.025
-ARC_TIP_HEIGHT_M: Final[float] = 0.18
-ARC_TIP_RADIUS_M: Final[float] = 0.09
+ARC_TUBE_RADIUS_M: Final[float] = 0.022
+ARC_TIP_HEIGHT_M: Final[float] = 0.16
+ARC_TIP_RADIUS_M: Final[float] = 0.085
 
 # ---------------------------------------------------------------------------
 # World-axes corner gnomon (T4 of visual remediation).

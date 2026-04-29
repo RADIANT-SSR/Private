@@ -117,7 +117,9 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     sym_theta_s = viewport_label("solar_zenith_target")
     sym_alpha_t = viewport_label("phase_angle_target")
 
-    return [
+    has_background = state.background_kind != "none"
+
+    anchors: list[LabelAnchor] = [
         # --- objects --------------------------------------------------
         LabelAnchor(
             name="lbl_target",
@@ -140,13 +142,6 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
             color=style.SOLAR_FAMILY,
             group=GROUP_OBJECTS,
         ),
-        LabelAnchor(
-            name="lbl_background",
-            anchor_world=bg_pos,
-            text="Background",
-            color=style.SURFACE_FAMILY,
-            group=GROUP_OBJECTS,
-        ),
         # --- vectors --------------------------------------------------
         LabelAnchor(
             name="lbl_vec_boresight",
@@ -156,23 +151,9 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
             group=GROUP_VECTORS,
         ),
         LabelAnchor(
-            name="lbl_vec_surface_normal",
-            anchor_world=surface_normal_end,
-            text=sym_n_B,
-            color=style.SURFACE_FAMILY,
-            group=GROUP_VECTORS,
-        ),
-        LabelAnchor(
             name="lbl_vec_sun_ray",
             anchor_world=_vector_midpoint(sun_dir, SCENE_SUN_DISTANCE_M),
             text=sym_s_t,
-            color=style.SOLAR_FAMILY,
-            group=GROUP_VECTORS,
-        ),
-        LabelAnchor(
-            name="lbl_vec_sun_to_background",
-            anchor_world=_midpoint(sun_pos, bg_pos),
-            text=sym_s_B,
             color=style.SOLAR_FAMILY,
             group=GROUP_VECTORS,
         ),
@@ -199,6 +180,41 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
             group=GROUP_ANGLES,
         ),
     ]
+
+    # Phase-7 diet: only emit background-coupled labels when there *is* a
+    # background. The matching primitives (glyph_background,
+    # vec_sun_to_background, vec_surface_normal) follow the same gate so
+    # we never anchor a label at a non-existent actor.
+    if has_background:
+        anchors.append(
+            LabelAnchor(
+                name="lbl_background",
+                anchor_world=bg_pos,
+                text="Background",
+                color=style.SURFACE_FAMILY,
+                group=GROUP_OBJECTS,
+            )
+        )
+        anchors.append(
+            LabelAnchor(
+                name="lbl_vec_surface_normal",
+                anchor_world=surface_normal_end,
+                text=sym_n_B,
+                color=style.SURFACE_FAMILY,
+                group=GROUP_VECTORS,
+            )
+        )
+        anchors.append(
+            LabelAnchor(
+                name="lbl_vec_sun_to_background",
+                anchor_world=_midpoint(sun_pos, bg_pos),
+                text=sym_s_B,
+                color=style.SOLAR_FAMILY,
+                group=GROUP_VECTORS,
+            )
+        )
+
+    return anchors
 
 
 def _slerp_mid(

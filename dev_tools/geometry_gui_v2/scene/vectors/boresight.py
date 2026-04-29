@@ -22,11 +22,13 @@ def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     direction = observer_direction_scene(state)
     end = direction * SCENE_OBSERVER_DISTANCE_M
     # Break-mark: schematic 6 m vs physical ~600 km satellite distance.
+    # Phase-7 diet: drop the break-mark zigzag. The "not to scale" status is
+    # already conveyed by the schematic distances and the readout panel; the
+    # zigzag was reading as noise rather than an engineering symbol.
     add_vector_with_arrow(
         plotter,
         np.zeros(3, dtype=np.float64),
         end,
         color=style.SATELLITE_FAMILY,
         name="vec_boresight",
-        with_break_mark=True,
     )

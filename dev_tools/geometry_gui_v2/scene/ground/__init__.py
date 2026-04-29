@@ -21,8 +21,15 @@ if TYPE_CHECKING:
 
 
 def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
-    from dev_tools.geometry_gui_v2.scene.ground import cap, contact_shadow, fade
+    """Phase-7 diet: only the contact-shadow disc renders by default.
 
-    fade.add_to_plotter(plotter, state)
-    cap.add_to_plotter(plotter, state)
+    The gridded ``cap`` and the ``fade`` plane are intentionally not
+    invoked here; the gridded ground reads as "engineering plot" rather
+    than the soft "object sits on something" the reference design calls
+    for. The two modules are retained on disk so a future high-detail
+    mode can opt back in without re-implementing them (Rule 19 — they
+    are independent primitives, kept independently).
+    """
+    from dev_tools.geometry_gui_v2.scene.ground import contact_shadow
+
     contact_shadow.add_to_plotter(plotter, state)

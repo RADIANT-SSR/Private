@@ -20,12 +20,11 @@ from dev_tools.geometry_gui_v2.scene.vectors._tube import add_vector_with_arrow
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     direction = sun_direction_scene(state)
     end = direction * SCENE_SUN_DISTANCE_M
-    # Break-mark: schematic 9 m vs physical 1 AU sun distance.
+    # Phase-7 diet: drop the break-mark (see boresight.py for rationale).
     add_vector_with_arrow(
         plotter,
         np.zeros(3, dtype=np.float64),
         end,
         color=style.SOLAR_FAMILY,
         name="vec_sun_ray",
-        with_break_mark=True,
     )

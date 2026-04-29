@@ -30,35 +30,18 @@ _NUM_RAYS = 8
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
+    # Phase-7 diet: solid sphere glyph, no rays. The 8-ray sunburst was
+    # adding 8 actors of visual noise around the orange disc; the
+    # reference design uses a single filled circle and lets context
+    # (color, position) sell "sun." Sphere is camera-orientation-free
+    # so the glyph reads as a disc from every angle without the
+    # disc-normal hack the previous version needed.
     direction = sun_direction_scene(state)
     pos = direction * SCENE_SUN_DISTANCE_M
-
-    # Disc faces the target (normal = -sun_direction).
-    disc_normal = -direction
-    disc = pv.Disc(
+    sphere = pv.Sphere(
         center=tuple(pos),
-        inner=_DISC_INNER_RADIUS_M,
-        outer=_DISC_OUTER_RADIUS_M,
-        normal=tuple(disc_normal),
-        r_res=1,
-        c_res=32,
+        radius=_DISC_OUTER_RADIUS_M,
+        theta_resolution=24,
+        phi_resolution=24,
     )
-    plotter.add_mesh(disc, color=style.SOLAR_FAMILY, name="glyph_sun")
-
-    # Two unit vectors spanning the disc plane (perpendicular to direction).
-    up = np.array([0.0, 0.0, 1.0])
-    if abs(np.dot(direction, up)) > 0.95:
-        up = np.array([1.0, 0.0, 0.0])
-    e1 = np.cross(direction, up)
-    e1 /= np.linalg.norm(e1)
-    e2 = np.cross(direction, e1)
-    e2 /= np.linalg.norm(e2)
-
-    for k in range(_NUM_RAYS):
-        phi = 2.0 * math.pi * k / _NUM_RAYS
-        radial = math.cos(phi) * e1 + math.sin(phi) * e2
-        start = pos + radial * _RAY_INNER_M
-        end = pos + radial * _RAY_OUTER_M
-        line = pv.Line(pointa=tuple(start), pointb=tuple(end))
-        tube = line.tube(radius=_RAY_TUBE_RADIUS_M)
-        plotter.add_mesh(tube, color=style.SOLAR_FAMILY, name=f"glyph_sun_ray_{k}")
+    plotter.add_mesh(sphere, color=style.SOLAR_FAMILY, name="glyph_sun")

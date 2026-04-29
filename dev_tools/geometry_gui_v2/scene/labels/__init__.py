@@ -21,6 +21,32 @@ if TYPE_CHECKING:
     import pyvista as pv
 
 
+def remove_from_plotter(plotter: "pv.Plotter") -> None:
+    """Remove every label-pair actor that ``add_to_plotter`` previously added.
+
+    Used by the camera-change rebuild path: rotating the camera invalidates
+    every projected anchor pixel coordinate, so the label set must be torn
+    down and re-added against the new projection.
+    """
+    from dev_tools.geometry_gui_v2.scene.labels._anchors import collect_anchors
+
+    # Use the default state purely to enumerate the anchor names — the names
+    # are state-independent (one per labeled primitive). Ask state.default()
+    # rather than passing the live state so this helper is callable even from
+    # a context that doesn't yet have one (e.g. teardown paths).
+    state_for_names = SceneState.default()
+    for anchor in collect_anchors(state_for_names):
+        for suffix in ("_text", "_leader"):
+            actor_name = f"{anchor.name}{suffix}"
+            try:
+                plotter.remove_actor(actor_name)
+            except Exception:
+                # The actor may not exist (first call, or partial build);
+                # remove_actor is idempotent in spirit but raises on miss
+                # in some PyVista versions.
+                pass
+
+
 def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
     """Phase-4 entry point — replaces the Phase-1 ``add_point_labels`` stub.
 

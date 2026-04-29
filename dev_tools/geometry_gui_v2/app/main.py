@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (  # noqa: E402
     QDialog,
     QDockWidget,
     QFileDialog,
+    QFrame,
     QLabel,
     QMainWindow,
     QScrollArea,
@@ -186,7 +187,20 @@ class GeometryMainWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidget(self._readouts_panel)
         scroll.setWidgetResizable(True)
-        scroll.setMinimumWidth(320)
+        scroll.setMinimumWidth(340)
+        # T8 of the visual remediation: suppress the scrollbar artifacts
+        # that the first-cut screenshot showed.
+        #   - The horizontal scrollbar appeared when section content
+        #     overflowed by 1-2 px; the panel is column-rigid by design
+        #     so we never want a horizontal scroller.
+        #   - The QScrollArea's etched frame border drew a hairline rect
+        #     around the entire dock body, fighting the QGroupBox
+        #     borders inside.
+        # ``ScrollBarAsNeeded`` on the vertical axis stays default — long
+        # readout lists (multi-facet explainer text) still need it.
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setFrameShape(QFrame.NoFrame)
         dock.setWidget(scroll)
         self._right_dock = dock
         self.addDockWidget(Qt.RightDockWidgetArea, dock)

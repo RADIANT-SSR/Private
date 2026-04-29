@@ -34,7 +34,6 @@ import pyvista as pv
 
 from dev_tools.geometry_gui_v2.app.state import SceneState
 from dev_tools.geometry_gui_v2.scene.builder import build_scene
-from dev_tools.geometry_gui_v2.scene.camera_views import camera_pose_for
 
 WINDOW_SIZE = (1920, 1080)
 
@@ -86,14 +85,16 @@ CANONICAL_VIEWS: tuple[str, ...] = (
 
 
 def render_view(view: str, out_path: pathlib.Path) -> None:
-    """Render one canonical view to a PNG."""
+    """Render one canonical view to a PNG.
+
+    Uses ``build_scene``'s extent-driven default isometric pose (R1 + R2)
+    rather than overriding the camera here. The audit baseline matches
+    what the user sees on app launch.
+    """
     state = _state_for(view)
     p = pv.Plotter(off_screen=True, window_size=WINDOW_SIZE)
     try:
         build_scene(state, plotter=p)
-        # Use the existing canonical iso pose so the audit baseline is
-        # reproducible and matches the phase-1 golden frame.
-        p.camera_position = camera_pose_for("iso")
         p.show(auto_close=False)
         from PIL import Image
 

@@ -91,9 +91,13 @@ def set_default_camera(
     """Set the plotter to the round-2 default isometric three-quarter view.
 
     R1 of visual remediation: the default the user sees on app launch
-    and the pose the view-cube's iso face restores. R2 will pass an
-    extent-driven ``distance`` from a scene-bounds computation; for R1
-    the call site uses ``CANONICAL_DISTANCE_M``.
+    and the pose the view-cube's iso face restores. R2 makes the
+    distance argument extent-driven — call sites pass
+    ``framing.default_camera_distance_m(state)`` so the scene fills the
+    majority of the canvas (see ``scene/framing.py``). The
+    ``CANONICAL_DISTANCE_M`` default is preserved for callers that
+    don't have a ``SceneState`` handy (tests, snap-to-iso from the
+    view-cube).
 
     Idempotency: if the caller has already set ``plotter.camera_position``
     explicitly (PyVista's ``camera_set`` flag is True), this function is

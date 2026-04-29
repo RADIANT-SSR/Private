@@ -75,7 +75,13 @@ from dev_tools.geometry_gui_v2.app.window_persistence import (  # noqa: E402
     save_window_state,
 )
 from dev_tools.geometry_gui_v2.scene import build_scene  # noqa: E402
-from dev_tools.geometry_gui_v2.scene.camera_views import camera_pose_for  # noqa: E402
+from dev_tools.geometry_gui_v2.scene.camera_views import (  # noqa: E402
+    camera_pose_for,
+    set_default_camera,
+)
+from dev_tools.geometry_gui_v2.scene.framing import (  # noqa: E402
+    default_camera_distance_m,
+)
 from dev_tools.geometry_gui_v2.scene.widgets.view_cube import (  # noqa: E402
     build_view_cube_widget,
 )
@@ -146,7 +152,10 @@ class GeometryMainWindow(QMainWindow):
         self._add_frame_indicator_overlay()
 
         build_scene(self._state, plotter=self.plotter)
-        self.plotter.reset_camera()
+        # R1/R2: build_scene installs the round-2 isometric default at the
+        # extent-driven distance. Do NOT call ``plotter.reset_camera()``
+        # afterward — it would discard the explicit pose and revert to
+        # PyVista's default bounding-box framing.
 
         self._enable_view_cube()
         self._enable_world_axes_gnomon()
@@ -504,11 +513,31 @@ class GeometryMainWindow(QMainWindow):
         help_shortcut.activated.connect(self._show_shortcuts_dialog)
 
     def _reset_camera(self) -> None:
-        self.plotter.reset_camera()
+        """R-key / View → Reset camera: recenter on target at default pose.
+
+        R2 of round-2 visual remediation: instead of PyVista's
+        ``reset_camera`` (which fits the bbox of all current actors,
+        including the 500 m fade plane), recenter to the round-2
+        isometric default with the extent-driven distance for the
+        current ``SceneState``. ``force=True`` overrides any pose the
+        user may have orbited to.
+        """
+        set_default_camera(
+            self.plotter,
+            distance=default_camera_distance_m(self._state),
+            force=True,
+        )
         self._rebuild_labels()
         self.plotter.render()
 
     def _snap_to_view(self, view: CanonicalView) -> None:
+        # R2: route the iso-face click through the same extent-driven
+        # default-camera path so clicking the iso face restores the
+        # exact pose the app launches with.
+        if view is CanonicalView.ISO:
+            self._reset_camera()
+            self._interaction = self._interaction.with_canonical_view(view)
+            return
         position, focal, up = camera_pose_for(view.value)
         self.plotter.camera_position = [position, focal, up]
         self._interaction = self._interaction.with_canonical_view(view)
@@ -522,7 +551,15 @@ class GeometryMainWindow(QMainWindow):
         self._state = SceneState.default()
         self.plotter.clear_actors()
         build_scene(self._state, plotter=self.plotter)
-        self.plotter.reset_camera()
+        # R2: build_scene's set_default_camera is a no-op when the
+        # plotter's ``camera_set`` flag is already True (it is, after
+        # the prior session). Force the round-2 default so "New scene"
+        # actually returns the user to the launch view.
+        set_default_camera(
+            self.plotter,
+            distance=default_camera_distance_m(self._state),
+            force=True,
+        )
         self._readouts_panel.set_state(self._state)
         self._refresh_status_bar()
 

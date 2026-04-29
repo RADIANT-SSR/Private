@@ -29,6 +29,7 @@ from dev_tools.geometry_gui_v2.scene import (
 )
 from dev_tools.geometry_gui_v2.scene._lighting import install_lighting
 from dev_tools.geometry_gui_v2.scene.camera_views import set_default_camera
+from dev_tools.geometry_gui_v2.scene.framing import default_camera_distance_m
 from dev_tools.geometry_gui_v2.scene.style import VIEWPORT_BACKGROUND_COLOR
 
 if TYPE_CHECKING:
@@ -73,7 +74,9 @@ def build_scene(
     # will use. Labels used to call reset_camera() themselves; that
     # discarded any pose set earlier in this function. The default pose
     # is the round-2 isometric three-quarter view (25° elev / 45° az).
-    set_default_camera(plotter)
+    # R2: distance is extent-driven so the scene fills the majority of
+    # the canvas regardless of target size or geometry.
+    set_default_camera(plotter, distance=default_camera_distance_m(state))
 
     labels.add_to_plotter(plotter, state)
 

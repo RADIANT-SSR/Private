@@ -23,8 +23,14 @@ _TUBE_RADIUS_M = 0.020
 _ARROW_TIP_LENGTH_FRAC = 0.12
 _ARROW_TIP_RADIUS_M = 0.07
 
-_BREAK_AMPLITUDE_FRAC = 0.06
-_BREAK_HALF_LENGTH_FRAC = 0.04
+# T7 of the visual remediation: the Phase-3 break-mark used a smoothed
+# 4-point spline at 0.7× tube radius, which read as a "wave" rather than
+# a "this line is not to scale" symbol. T7 swaps the smoothed spline for
+# a sharp Z polyline at full tube radius and widens the amplitude so the
+# kink registers immediately at the canonical camera distance.
+_BREAK_AMPLITUDE_FRAC = 0.09
+_BREAK_HALF_LENGTH_FRAC = 0.06
+_BREAK_TUBE_RADIUS_FRAC = 1.0
 
 
 def add_vector_with_arrow(
@@ -90,8 +96,14 @@ def _add_break_mark(
     color: str,
     name: str,
 ) -> None:
-    """Draw a small zigzag at the line's midpoint, oriented perpendicular
-    to the line in the up-most-similar plane."""
+    """Draw a sharp Z-shaped polyline at the line's midpoint.
+
+    T7 of the visual remediation replaced the Phase-3 smoothed spline
+    with a sharp polyline so the break reads as an engineering "not to
+    scale" symbol rather than a gentle curve. The kink lies in the
+    plane spanned by the line direction and the most-vertical
+    perpendicular, so it stays oriented sensibly under camera rotation.
+    """
     unit = (end - start) / length
     # Pick a perpendicular: prefer +Z; fall back to +X if line is along Z.
     up = np.array([0.0, 0.0, 1.0])
@@ -104,15 +116,19 @@ def _add_break_mark(
     half_along = length * _BREAK_HALF_LENGTH_FRAC
     amp = length * _BREAK_AMPLITUDE_FRAC
 
-    points = np.array(
+    # Sharp Z: the corners are deliberately *not* smoothed so the break
+    # reads as a kink. Each segment becomes its own tube; pv.MultiBlock
+    # combines them into one named actor.
+    p0 = mid - unit * half_along
+    p1 = mid - unit * (half_along * 0.33) + perp * amp
+    p2 = mid + unit * (half_along * 0.33) - perp * amp
+    p3 = mid + unit * half_along
+    radius = _TUBE_RADIUS_M * _BREAK_TUBE_RADIUS_FRAC
+    blocks = pv.MultiBlock(
         [
-            mid - unit * half_along,
-            mid - unit * (half_along * 0.33) + perp * amp,
-            mid + unit * (half_along * 0.33) - perp * amp,
-            mid + unit * half_along,
-        ],
-        dtype=np.float64,
+            pv.Line(pointa=tuple(p0), pointb=tuple(p1)).tube(radius=radius),
+            pv.Line(pointa=tuple(p1), pointb=tuple(p2)).tube(radius=radius),
+            pv.Line(pointa=tuple(p2), pointb=tuple(p3)).tube(radius=radius),
+        ]
     )
-    spline = pv.Spline(points, n_points=24)
-    tube = spline.tube(radius=_TUBE_RADIUS_M * 0.7)
-    plotter.add_mesh(tube, color=color, name=name)
+    plotter.add_mesh(blocks, color=color, name=name)

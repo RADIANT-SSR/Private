@@ -34,10 +34,17 @@ def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
         i_resolution=1,
         j_resolution=1,
     )
-    plotter.add_mesh(
+    actor = plotter.add_mesh(
         fade,
         color=style.VIEWPORT_BACKGROUND_COLOR,
         lighting=False,
         opacity=1.0,
         name="ground_fade",
     )
+    # Critical: the fade plane spans 500 m to read as an infinite
+    # backdrop, but if it contributes to the renderer's bounds then
+    # ``reset_camera()`` frames a 1000 m disc and the actual scene
+    # (target ~1 m, observer @ 6 m, sun @ 9 m) collapses to a sub-pixel
+    # speck. Excluding the fade from bounds keeps the visual but lets
+    # the auto-camera frame the meaningful primitives.
+    actor.SetUseBounds(False)

@@ -39,6 +39,7 @@ from dev_tools.geometry_gui_v2.scene._layout import (
     SCENE_OBSERVER_DISTANCE_M,
     SCENE_SUN_DISTANCE_M,
 )
+from dev_tools.geometry_gui_v2.scene.labels.typography import viewport_label
 
 
 # Group names align with the right-panel's collapsible sections so the
@@ -102,12 +103,26 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     sun_zenith_mid = _slerp_mid(zenith, sun_dir) * ARC_RADIUS_M
     phase_mid = _slerp_mid(sun_dir, obs_dir) * ARC_RADIUS_M
 
+    # T10 of the visual remediation: every symbol literal flows through
+    # ``viewport_label()`` so the glossary YAML is the single source of
+    # truth. Free-text composites (e.g. the off-nadir-angle readout) use
+    # the typography helper for the symbol and append the formatted
+    # value next to it.
+    sym_a_t = viewport_label("projected_area")
+    sym_n_B = viewport_label("surface_normal_background")
+    sym_s_t = viewport_label("sun_vector_target")
+    sym_s_B = viewport_label("sun_vector_background")
+    sym_boresight = viewport_label("boresight")
+    sym_theta_off = viewport_label("off_nadir_angle")
+    sym_theta_s = viewport_label("solar_zenith_target")
+    sym_alpha_t = viewport_label("phase_angle_target")
+
     return [
         # --- objects --------------------------------------------------
         LabelAnchor(
             name="lbl_target",
             anchor_world=np.zeros(3, dtype=np.float64),
-            text=f"Target  A_t = {proj_area:.3g} m^2  ({regime.value})",
+            text=f"Target  {sym_a_t} = {proj_area:.3g} m^2  ({regime.value})",
             color=style.TARGET_COLOR,
             group=GROUP_OBJECTS,
         ),
@@ -121,7 +136,7 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         LabelAnchor(
             name="lbl_sun",
             anchor_world=sun_pos,
-            text=f"Sun  (theta_s = {math.degrees(state.solar_zenith_rad):.0f} deg)",
+            text=f"Sun  ({sym_theta_s} = {math.degrees(state.solar_zenith_rad):.0f} deg)",
             color=style.SOLAR_FAMILY,
             group=GROUP_OBJECTS,
         ),
@@ -136,28 +151,28 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         LabelAnchor(
             name="lbl_vec_boresight",
             anchor_world=_vector_midpoint(obs_dir, SCENE_OBSERVER_DISTANCE_M),
-            text="boresight",
+            text=sym_boresight,
             color=style.SATELLITE_FAMILY,
             group=GROUP_VECTORS,
         ),
         LabelAnchor(
             name="lbl_vec_surface_normal",
             anchor_world=surface_normal_end,
-            text="n_B",
+            text=sym_n_B,
             color=style.SURFACE_FAMILY,
             group=GROUP_VECTORS,
         ),
         LabelAnchor(
             name="lbl_vec_sun_ray",
             anchor_world=_vector_midpoint(sun_dir, SCENE_SUN_DISTANCE_M),
-            text="s_t",
+            text=sym_s_t,
             color=style.SOLAR_FAMILY,
             group=GROUP_VECTORS,
         ),
         LabelAnchor(
             name="lbl_vec_sun_to_background",
             anchor_world=_midpoint(sun_pos, bg_pos),
-            text="s_B",
+            text=sym_s_B,
             color=style.SOLAR_FAMILY,
             group=GROUP_VECTORS,
         ),
@@ -165,21 +180,21 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         LabelAnchor(
             name="lbl_arc_off_nadir",
             anchor_world=off_nadir_mid,
-            text=f"theta_off = {math.degrees(state.observer_look_angle_rad):.0f} deg",
+            text=f"{sym_theta_off} = {math.degrees(state.observer_look_angle_rad):.0f} deg",
             color=style.SATELLITE_FAMILY,
             group=GROUP_ANGLES,
         ),
         LabelAnchor(
             name="lbl_arc_sun_zenith",
             anchor_world=sun_zenith_mid,
-            text=f"theta_sun = {math.degrees(state.solar_zenith_rad):.0f} deg",
+            text=f"{sym_theta_s} = {math.degrees(state.solar_zenith_rad):.0f} deg",
             color=style.SOLAR_FAMILY,
             group=GROUP_ANGLES,
         ),
         LabelAnchor(
             name="lbl_arc_phase_angle",
             anchor_world=phase_mid,
-            text="alpha_t",
+            text=sym_alpha_t,
             color=style.TARGET_VECTOR_FAMILY,
             group=GROUP_ANGLES,
         ),

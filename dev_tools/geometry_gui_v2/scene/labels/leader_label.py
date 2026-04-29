@@ -17,6 +17,7 @@ computations (Rule 19 carve-out for tightly coupled pairs).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import numpy as np
@@ -35,6 +36,31 @@ _LINE_HEIGHT_PX: float = 16.0
 _TEXT_HORIZ_PADDING_PX: float = 6.0
 _TEXT_VERT_PADDING_PX: float = 4.0
 
+# T10 of the visual remediation introduced VTK math-text strings like
+# ``$\theta_{off}$`` whose ``$``, ``{``, ``}``, ``\`` characters are
+# layout/markup, not rendered glyphs. Counting them as printable inflates
+# the estimated box width and breaks the deconfliction solver. Strip the
+# math-text markup before counting characters; LaTeX command tokens
+# (``\theta``) collapse to one rendered glyph.
+_MATHTEXT_BLOCK = re.compile(r"\$([^$]*)\$")
+_LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
+_LATEX_BRACES = re.compile(r"[{}]")
+
+
+def _rendered_char_count(text: str) -> int:
+    """Approximate the number of rendered glyphs in ``text``.
+
+    Treats every ``$...$`` block as math-text: braces are stripped and
+    each ``\\command`` collapses to one glyph (e.g. ``\\theta`` → ``θ``).
+    Non-mathtext segments pass through unchanged.
+    """
+    def _collapse(match: re.Match[str]) -> str:
+        inner = match.group(1)
+        inner = _LATEX_COMMAND.sub("x", inner)  # one-glyph stand-in
+        inner = _LATEX_BRACES.sub("", inner)
+        return inner
+    return len(_MATHTEXT_BLOCK.sub(_collapse, text))
+
 
 @dataclass(frozen=True)
 class LeaderLabel:
@@ -44,7 +70,7 @@ class LeaderLabel:
     color: str  # hex string
 
     def estimated_screen_size_px(self) -> tuple[float, float]:
-        width = len(self.text) * _CHAR_WIDTH_PX + 2 * _TEXT_HORIZ_PADDING_PX
+        width = _rendered_char_count(self.text) * _CHAR_WIDTH_PX + 2 * _TEXT_HORIZ_PADDING_PX
         height = _LINE_HEIGHT_PX + 2 * _TEXT_VERT_PADDING_PX
         return (width, height)
 

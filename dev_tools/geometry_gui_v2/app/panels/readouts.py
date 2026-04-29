@@ -39,11 +39,17 @@ from dev_tools.geometry_gui_v2.app.view_model import (
     format_readout,
     multi_facet_explainer,
 )
+from dev_tools.geometry_gui_v2.scene.labels.typography import panel_label
 
 
 # Section title → list of (display label, component-id) pairs. Component
 # ids are the keys returned by ``format_readout`` so updates are wired by
 # id without the panel knowing the format.
+#
+# T10 of the visual remediation: every symbol that appears in a row
+# label flows through ``panel_label()`` so the glossary YAML is the
+# single source of truth (HTML form for Qt panels, math-text for the
+# 3D viewport).
 _SECTIONS: Final[list[tuple[str, list[tuple[str, str]]]]] = [
     (
         "Scene objects",
@@ -51,7 +57,7 @@ _SECTIONS: Final[list[tuple[str, list[tuple[str, str]]]]] = [
             ("Slant range", "ro-slant-range"),
             ("Ground range", "ro-ground-range"),
             ("Pixel area", "ro-pixel-area"),
-            ("Projected area A_t", "ro-projected-area"),
+            (f"Projected area {panel_label('projected_area')}", "ro-projected-area"),
         ],
     ),
     (

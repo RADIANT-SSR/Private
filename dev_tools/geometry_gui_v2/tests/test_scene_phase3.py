@@ -156,13 +156,18 @@ def test_observer_glyph_is_a_4_sided_polygon(
 # -- Sun disc + 8 rays ------------------------------------------------------
 
 
-def test_sun_glyph_has_no_rays(offscreen_plotter: pv.Plotter) -> None:
-    """Phase-7 diet: the 8-ray sunburst was 8 actors of decoration around
-    a glyph the user already reads as 'sun' from color and position. Sun
-    is now a single solid sphere, no rays."""
+def test_sun_glyph_has_eight_rays(offscreen_plotter: pv.Plotter) -> None:
+    """Round-2 R3 (PLAN_v2_remediation_round2.md §4): the sun glyph is a
+    disc + 8 rays at 45° increments. Inverts the Phase-7 diet's
+    "no rays" rule — round 2 restores the iconographic sunburst because
+    the diet's solid sphere read as "second celestial body" rather than
+    "sun symbol" against the rest of the scene."""
     build_scene(SceneState.default(), plotter=offscreen_plotter)
-    rays = [n for n in offscreen_plotter.actors if n.startswith("glyph_sun_ray_")]
-    assert rays == [], f"sun glyph should have no rays; got {rays!r}"
+    rays = sorted(
+        n for n in offscreen_plotter.actors if n.startswith("glyph_sun_ray_")
+    )
+    expected = [f"glyph_sun_ray_{i}" for i in range(8)]
+    assert rays == expected, f"sun glyph rays mismatch: got {rays!r}"
 
 
 # -- Tip cone is positioned at the shaft endpoint ---------------------------

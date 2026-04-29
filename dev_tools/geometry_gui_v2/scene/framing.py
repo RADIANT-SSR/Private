@@ -125,16 +125,22 @@ def scene_bounds(
 
 
 def scene_extent_m(state: SceneState) -> float:
-    """Half of the largest bounding-box dimension, in scene meters.
+    """Maximum component-wise distance from the focal point (origin) to
+    any bbox corner, in scene meters.
 
-    The "scene extent" is what ``set_default_camera`` multiplies by
-    ``DISTANCE_EXTENT_MULTIPLIER`` to choose the camera distance.
-    Floor at ``_MIN_EXTENT_M`` so a degenerate state still produces
-    a usable view.
+    The default camera focuses on the target centroid (origin), not the
+    AABB centroid. So the relevant "extent" for fitting the scene is
+    *how far from the origin* the bbox reaches in each axis — not the
+    bbox's overall span. For the default state the bbox is asymmetric
+    around the origin (target at origin, sun glyph at z = 7.37 m,
+    background at z = -9.83 m when active), so the largest absolute
+    coordinate drives the camera distance.
+
+    Floor at ``_MIN_EXTENT_M`` so a degenerate state still produces a
+    usable view.
     """
     bbox_min, bbox_max = scene_bounds(state)
-    sizes = bbox_max - bbox_min
-    extent = float(np.max(sizes) / 2.0)
+    extent = float(np.max(np.maximum(np.abs(bbox_min), np.abs(bbox_max))))
     return max(extent, _MIN_EXTENT_M)
 
 

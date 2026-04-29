@@ -47,7 +47,19 @@ _ACTORS_PER_PRIMITIVE: Final[dict[str, tuple[str, ...]]] = {
     "arc_sun_zenith": ("arc_sun_zenith", "arc_sun_zenith_tip"),
     # Glyphs: single actor.
     "glyph_observer": ("glyph_observer",),
-    "glyph_sun": ("glyph_sun",),
+    # R3: sun glyph is now disc + 8 ray tubes; highlight covers all 9 actors
+    # so clicking any part selects the whole glyph composite.
+    "glyph_sun": (
+        "glyph_sun",
+        "glyph_sun_ray_0",
+        "glyph_sun_ray_1",
+        "glyph_sun_ray_2",
+        "glyph_sun_ray_3",
+        "glyph_sun_ray_4",
+        "glyph_sun_ray_5",
+        "glyph_sun_ray_6",
+        "glyph_sun_ray_7",
+    ),
     "glyph_background": ("glyph_background",),
     # Target body.
     "target": ("target",),

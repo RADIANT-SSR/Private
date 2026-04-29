@@ -21,15 +21,24 @@ if TYPE_CHECKING:
 
 
 def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
-    """Phase-7 diet: only the contact-shadow disc renders by default.
+    """Round-2 R4: re-wire the gridded ``cap`` + outer ``fade`` plane.
 
-    The gridded ``cap`` and the ``fade`` plane are intentionally not
-    invoked here; the gridded ground reads as "engineering plot" rather
-    than the soft "object sits on something" the reference design calls
-    for. The two modules are retained on disk so a future high-detail
-    mode can opt back in without re-implementing them (Rule 19 — they
-    are independent primitives, kept independently).
+    The Phase-7 diet had collapsed ground rendering to the contact-shadow
+    disc only — the round-1 first-cut screenshot showed the target
+    floating in empty dark space with no scale reference. Round 2
+    restores the full ground composition: a 1-m grid cap under the
+    target (teaches scale), a viewport-color fade plane below it that
+    erases the hard rectangular edge of the cap, and the contact-shadow
+    disc on top so the target visibly sits *on* the ground.
+
+    Draw order (back to front, by z): fade (z = -0.5) → cap (z = 0)
+    → contact_shadow (z = +0.001). The fade-cap separation is 0.5 m
+    rather than 0.001 m so the depth buffer can resolve the two at
+    the round-2 camera distance (~30 m) — see fade.py for the
+    z-fighting incident that drove the gap up.
     """
-    from dev_tools.geometry_gui_v2.scene.ground import contact_shadow
+    from dev_tools.geometry_gui_v2.scene.ground import cap, contact_shadow, fade
 
+    cap.add_to_plotter(plotter, state)
+    fade.add_to_plotter(plotter, state)
     contact_shadow.add_to_plotter(plotter, state)

@@ -107,7 +107,7 @@ SUN_RAY_TIP_SIZE: Final[int] = 2
 # Tier 6 — Ground grid (recede).
 # ---------------------------------------------------------------------------
 
-GRID_OPACITY: Final[float] = 0.08
+GRID_OPACITY: Final[float] = 0.45
 
 # Contact-shadow constants (Tier 1 chrome — sits behind the target body).
 CONTACT_SHADOW_COLOR: Final[str] = "#000000"

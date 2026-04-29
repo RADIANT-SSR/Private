@@ -24,10 +24,16 @@ from dev_tools.geometry_gui_v2.scene._layout import GROUND_FADE_RADIUS_M
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     del state
     fade = pv.Plane(
-        # Sit 0.001 m below the gridded cap so the cap renders on top
-        # without z-fighting; the contact shadow at z=+0.001 is on the
-        # other side of the cap, so all three primitives have unique z.
-        center=(0.0, 0.0, -0.001),
+        # Sit 0.5 m below the gridded cap. Round-2 found that the
+        # original 0.001 m offset z-fought with the cap at the new
+        # camera distance (~30 m) — depth-buffer precision can't
+        # distinguish 0.001 m at that range, so the fade ended up
+        # randomly winning per-pixel and hiding the cap entirely.
+        # 0.5 m is well outside any plausible depth-buffer noise floor
+        # but still far enough below the cap that the fade is visually
+        # imperceptible (the cap occludes any view down toward it).
+        # Contact shadow at z=+0.001 is on the other side of the cap.
+        center=(0.0, 0.0, -0.5),
         direction=(0.0, 0.0, 1.0),
         i_size=2.0 * GROUND_FADE_RADIUS_M,
         j_size=2.0 * GROUND_FADE_RADIUS_M,

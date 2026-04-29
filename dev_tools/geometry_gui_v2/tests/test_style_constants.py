@@ -130,7 +130,11 @@ def test_glyph_sizes() -> None:
 
 
 def test_grid_opacity() -> None:
-    assert style.GRID_OPACITY == 0.08
+    # Round-2 R4 raised this from 0.08 to 0.45 — the diet-pass value made
+    # the grid lines invisible against the dark VIEWPORT_BACKGROUND_COLOR
+    # at the new R2 camera distance, so the ground "disappeared". 0.45
+    # produces visible-but-subdued lines (sum-difference vs bg ≈ 210).
+    assert style.GRID_OPACITY == 0.45
 
 
 def test_contact_shadow_constants() -> None:

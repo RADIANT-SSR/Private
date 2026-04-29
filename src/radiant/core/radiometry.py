@@ -137,8 +137,9 @@ class NoiseTerm:
     Parameters
     ----------
     name:
-        Identifier — ``"shot"``, ``"dark_shot"``, ``"read"``,
-        ``"quantization"``, ...
+        Identifier — ``"signal_shot"``, ``"dark_shot"``, ``"read_noise"``,
+        ``"quantization"``, ... (canonical list in
+        :mod:`radiant.core.noise_budget`).
     value_e:
         Sigma in electrons RMS at ``origin_frame``. Non-negative finite.
     origin_frame:

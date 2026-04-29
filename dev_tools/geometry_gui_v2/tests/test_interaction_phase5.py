@@ -161,14 +161,23 @@ def test_camera_pose_for_axis_aligned_views(
         assert got == pytest.approx(want * CANONICAL_DISTANCE_M, abs=1e-9)
 
 
-def test_camera_pose_for_iso_matches_phase1_golden_pose() -> None:
-    """The ``iso`` pose must match the Phase 1 golden screenshot pose so
-    snapping back to iso is bit-for-bit reproducible against the goldens."""
+def test_camera_pose_for_iso_is_round2_isometric_three_quarter() -> None:
+    """R1 of round-2 visual remediation: the iso pose is the standard
+    isometric three-quarter view (elev = 25°, az = 45°), not the legacy
+    Phase-1 pose (elev = arctan(0.5), az = 35°).
+
+    The phase-1 golden test in ``test_scene_goldens_phase1.py`` keeps a
+    locally-hardcoded camera so its goldens stay reproducible against
+    the legacy pose; the canonical iso pose used by the view-cube and
+    the default-camera helper is the round-2 spec.
+    """
     pos, _focal, _up = camera_pose_for("iso")
     d = CANONICAL_DISTANCE_M
-    assert pos[0] == pytest.approx(d * math.cos(math.radians(35.0)), abs=1e-9)
-    assert pos[1] == pytest.approx(d * math.sin(math.radians(35.0)), abs=1e-9)
-    assert pos[2] == pytest.approx(0.5 * d, abs=1e-9)
+    elev = math.radians(25.0)
+    az = math.radians(45.0)
+    assert pos[0] == pytest.approx(d * math.cos(elev) * math.cos(az), abs=1e-9)
+    assert pos[1] == pytest.approx(d * math.cos(elev) * math.sin(az), abs=1e-9)
+    assert pos[2] == pytest.approx(d * math.sin(elev), abs=1e-9)
 
 
 def test_camera_pose_for_unknown_view_raises_value_error() -> None:

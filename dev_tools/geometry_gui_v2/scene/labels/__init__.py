@@ -51,14 +51,16 @@ def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
     """Phase-4 entry point — replaces the Phase-1 ``add_point_labels`` stub.
 
     Steps:
-      1. Reset the camera so the screen-projection inputs the layout
-         solver sees match what the next ``screenshot`` / ``show`` call
-         will render. Without this, the projection silently uses a
-         default identity camera and every label lands at (0, 0).
-      2. Project every anchor's world position to display (pixel) coords.
-      3. Run the force-directed solver to assign per-label screen
+      1. Project every anchor's world position to display (pixel) coords
+         using the camera the call site has already set on the plotter.
+         R1 of round-2 visual remediation: ``builder.build_scene`` now
+         calls ``set_default_camera`` immediately before this function,
+         so the projection is well-defined. Earlier code reset the
+         camera here, which silently discarded any pose the call site
+         had set.
+      2. Run the force-directed solver to assign per-label screen
          positions that don't overlap.
-      4. Render each LeaderLabel — a vtkTextActor at the label position
+      3. Render each LeaderLabel — a vtkTextActor at the label position
          + a vtkLeaderActor2D from anchor → label.
     """
     from dev_tools.geometry_gui_v2.scene.labels._anchors import collect_anchors
@@ -75,8 +77,6 @@ def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
     anchors = collect_anchors(state)
     if not anchors:
         return
-
-    plotter.reset_camera()
 
     labels = [
         LeaderLabel(

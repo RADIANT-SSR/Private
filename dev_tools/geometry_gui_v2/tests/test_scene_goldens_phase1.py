@@ -57,20 +57,23 @@ def _state_for_shape(shape_kind: str) -> SceneState:
 
 
 def _capture(state: SceneState) -> np.ndarray:
-    """Render the scene off-screen and return the RGB pixel array."""
+    """Render the scene off-screen and return the RGB pixel array.
+
+    Pin the legacy Phase-1 isometric pose **before** calling
+    ``build_scene`` so the labels solver projects against this pose
+    and the goldens stay reproducible. R1 of round-2 visual
+    remediation makes ``build_scene`` skip its default-camera
+    install when the caller has already set ``camera_position``.
+    """
     p = pv.Plotter(off_screen=True, window_size=WINDOW_SIZE)
     try:
-        build_scene(state, plotter=p)
-        # Frame the scene at a fixed isometric angle so the goldens are
-        # reproducible across machines (auto-camera depends on the bounds
-        # the build pipeline produced; an explicit camera removes that
-        # variability).
         d = 14.0
         p.camera_position = [
             (d * math.cos(math.radians(35.0)), d * math.sin(math.radians(35.0)), 0.5 * d),
             (0.0, 0.0, 0.0),
             (0.0, 0.0, 1.0),
         ]
+        build_scene(state, plotter=p)
         p.show(auto_close=False)
         img = p.screenshot(return_img=True)
     finally:

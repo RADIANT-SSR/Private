@@ -28,6 +28,7 @@ from dev_tools.geometry_gui_v2.scene import (
     vectors,
 )
 from dev_tools.geometry_gui_v2.scene._lighting import install_lighting
+from dev_tools.geometry_gui_v2.scene.camera_views import set_default_camera
 from dev_tools.geometry_gui_v2.scene.style import VIEWPORT_BACKGROUND_COLOR
 
 if TYPE_CHECKING:
@@ -66,6 +67,14 @@ def build_scene(
     vectors.add_to_plotter(plotter, state)
     arcs.add_to_plotter(plotter, state)
     glyphs.add_to_plotter(plotter, state)
+
+    # R1: set the default camera AFTER all 3D primitives are added so
+    # the labels solver projects against the same camera the next render
+    # will use. Labels used to call reset_camera() themselves; that
+    # discarded any pose set earlier in this function. The default pose
+    # is the round-2 isometric three-quarter view (25° elev / 45° az).
+    set_default_camera(plotter)
+
     labels.add_to_plotter(plotter, state)
 
     return plotter

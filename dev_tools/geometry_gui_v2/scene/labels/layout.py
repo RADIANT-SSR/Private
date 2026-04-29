@@ -26,10 +26,18 @@ import numpy.typing as npt
 
 # Tunable knobs. These are not parameters in the RADIANT sense (no physics);
 # they are visual-design constants. Names match PLAN_v2.md §12 step 2 verbatim.
-INITIAL_OFFSET_PX: float = 60.0
-INITIAL_RING_RADIUS_PX: float = 220.0  # angular-slot ring radius for n > 1 labels
-ANCHOR_ATTRACTION_K: float = 0.02
-LABEL_REPULSION_K: float = 4000.0
+#
+# T5 tuning (visual remediation): the Phase-1 numbers placed every label on a
+# 220-px ring around the *centroid* of the anchor cloud, which pushed labels
+# far from their own anchors and produced long, crossing leader lines. The
+# solver still converged to non-overlapping layouts (the hard test passed),
+# but the intent of "label sits near its anchor" was lost. T5 swaps the
+# centroid-ring initial placement for a per-anchor radial offset and
+# tightens anchor attraction so the label-to-anchor distance stays short
+# during the iterative solve.
+INITIAL_OFFSET_PX: float = 90.0
+ANCHOR_ATTRACTION_K: float = 0.05
+LABEL_REPULSION_K: float = 2500.0
 EDGE_REPULSION_K: float = 800.0
 EDGE_PADDING_PX: float = 8.0
 NUM_ITERATIONS: int = 60
@@ -85,22 +93,20 @@ def solve_layout(
             )
         ]
 
-    # Multi-label: angular-slot placement on a ring around the centroid.
-    # Sort labels by their anchor's angle from centroid (so adjacent slots
-    # belong to anchors that are visually close — minimizes leader-line
-    # crossings).
+    # T5 tuning: place each label at INITIAL_OFFSET_PX along its own
+    # anchor-from-centroid radial direction. Anchors at the centroid (zero
+    # radial) fall back to a unit-x offset and let the iterative repulsion
+    # spread them. This is intentionally per-anchor (not the centroid-ring
+    # the Phase-1 solver used) so the initial state already honors "label
+    # sits near its anchor"; the iterative pass then resolves overlaps
+    # from this much better starting layout.
     deltas_init = anchors - centroid
-    angles = np.arctan2(deltas_init[:, 1], deltas_init[:, 0])
-    order = np.argsort(angles)
-    slot_angles = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
-    positions = np.empty_like(anchors)
-    ring_r = min(
-        INITIAL_RING_RADIUS_PX,
-        0.4 * min(width, height),
-    )
-    for slot_idx, anchor_idx in enumerate(order):
-        a = slot_angles[slot_idx]
-        positions[anchor_idx] = centroid + ring_r * np.array([np.cos(a), np.sin(a)])
+    radial_norms = np.linalg.norm(deltas_init, axis=1)
+    units = np.zeros_like(deltas_init)
+    nonzero = radial_norms > 1e-6
+    units[nonzero] = deltas_init[nonzero] / radial_norms[nonzero, None]
+    units[~nonzero] = np.array([1.0, 0.0])
+    positions = anchors + units * INITIAL_OFFSET_PX
 
     half_sizes = sizes * 0.5
 

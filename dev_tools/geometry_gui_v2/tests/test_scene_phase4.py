@@ -186,6 +186,33 @@ def test_solver_preserves_anchor_endpoint() -> None:
     assert np.allclose(result.leader_anchor_xy, a)
 
 
+def test_solver_keeps_labels_close_to_their_anchors() -> None:
+    """T5 of the visual remediation: the solver pulls each label *toward
+    its own anchor*, not toward the centroid. With 8 well-spread anchors
+    the converged label-to-anchor distance should stay under ~250 px so
+    leader lines read clearly. The Phase-1 centroid-ring solver could
+    place a label > 400 px from its anchor in the same scenario.
+    """
+    n = 8
+    radius = 350.0
+    cx, cy = 960.0, 540.0
+    anchor_xy = [
+        np.array(
+            [cx + radius * math.cos(2.0 * math.pi * i / n),
+             cy + radius * math.sin(2.0 * math.pi * i / n)]
+        )
+        for i in range(n)
+    ]
+    inputs = [
+        LabelLayoutInput(anchor_screen_xy=a, label_size_px=(80.0, 20.0))
+        for a in anchor_xy
+    ]
+    results = solve_layout(inputs, viewport_size_px=(1920, 1080))
+    for r, a in zip(results, anchor_xy):
+        d = float(np.linalg.norm(r.label_screen_xy - a))
+        assert d < 250.0, f"label drifted {d:.1f} px from its anchor (limit 250)"
+
+
 # --- Anchor registry -------------------------------------------------------
 
 

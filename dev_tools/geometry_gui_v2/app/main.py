@@ -59,6 +59,7 @@ from dev_tools.geometry_gui_v2.app.interaction_state import (  # noqa: E402
     InteractionState,
     frame_indicator_text,
 )
+from dev_tools.geometry_gui_v2.app.panels.parameters import ParametersPanel  # noqa: E402
 from dev_tools.geometry_gui_v2.app.panels.readouts import ReadoutsPanel  # noqa: E402
 from dev_tools.geometry_gui_v2.app.state import SceneState  # noqa: E402
 from dev_tools.geometry_gui_v2.app.status_bar_text import status_bar_right_text  # noqa: E402
@@ -179,13 +180,21 @@ class GeometryMainWindow(QMainWindow):
         dock = QDockWidget("Parameters", self)
         dock.setObjectName("dock_parameters")
         dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        placeholder = QLabel(
-            "(Sliders deferred — see CU-043 in docs/Cleanup_Backlog.md.)"
-        )
-        placeholder.setAlignment(Qt.AlignCenter)
-        placeholder.setMargin(16)
-        placeholder.setWordWrap(True)
-        dock.setWidget(placeholder)
+        # R8: build the real parameter panel — sliders, spinboxes, mode
+        # toggles. Replaces the CU-043 placeholder. The panel is the
+        # single surface for SceneState input; ``state_changed`` is the
+        # contract that drives the rebuild path.
+        self._parameters_panel = ParametersPanel()
+        self._parameters_panel.set_state(self._state)
+        self._parameters_panel.state_changed.connect(self._on_parameters_changed)
+        scroll = QScrollArea()
+        scroll.setWidget(self._parameters_panel)
+        scroll.setWidgetResizable(True)
+        scroll.setMinimumWidth(220)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setFrameShape(QFrame.NoFrame)
+        dock.setWidget(scroll)
         self._left_dock = dock
         self.addDockWidget(Qt.LeftDockWidgetArea, dock)
 
@@ -570,8 +579,28 @@ class GeometryMainWindow(QMainWindow):
             distance=default_camera_distance_m(self._state),
             force=True,
         )
+        self._parameters_panel.set_state(self._state)
         self._readouts_panel.set_state(self._state)
         self._refresh_status_bar()
+
+    def _on_parameters_changed(self, state: SceneState) -> None:
+        """R8: parameter panel committed a change — rebuild the scene
+        and refresh every downstream surface.
+
+        The rebuild path mirrors ``_on_new_scene`` (clear + build) but
+        deliberately does *not* call ``set_default_camera`` — a slider
+        drag must not snap the user out of their current camera pose.
+        ``_rebuild_labels`` re-runs the deconfliction solver against
+        the new geometry so anchors stay attached after the geometry
+        moves.
+        """
+        self._state = state
+        self.plotter.clear_actors()
+        build_scene(self._state, plotter=self.plotter)
+        self._rebuild_labels()
+        self._readouts_panel.set_state(self._state)
+        self._refresh_status_bar()
+        self.plotter.render()
 
     def _on_save_screenshot(self) -> None:
         path, _filter = QFileDialog.getSaveFileName(

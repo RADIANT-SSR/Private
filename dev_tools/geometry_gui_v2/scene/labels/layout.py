@@ -23,6 +23,55 @@ Round-3 S2 extension (anchor-mesh exclusion zone):
     iterative force is a soft hint that lets the solver converge to a
     consistent layout; the hard pass enforces the invariant.
 
+Round-3 S3 extension (co-located-anchor cluster handling):
+  * Many anchors project to nearly the same screen point — the angle
+    arc midpoints and the target centroid all collapse onto the target
+    when the camera looks down at it. Round-1/T5's per-anchor radial
+    initial placement degenerates here: every label ends up on the same
+    radial direction with effectively the same start position, so the
+    iterative pair-repulsion has to do all the spreading work and tends
+    to leave a piled-up cluster in the converged layout.
+  * S3 introduces *cluster detection*: anchors within
+    ``CENTRAL_CLUSTER_THRESHOLD_PX`` of each other (transitively, via
+    union-find) form a cluster. Each cluster member gets:
+      1. An evenly-distributed initial angular position around the
+         cluster centroid at ``CENTRAL_CLUSTER_INITIAL_OFFSET_PX`` —
+         breaks the symmetry that causes pile-up before the solver runs.
+      2. Reduced anchor attraction
+         (``CLUSTERED_ANCHOR_ATTRACTION_K`` < ``ANCHOR_ATTRACTION_K``)
+         so the spread state isn't pulled back toward the pile.
+      3. Boosted pair repulsion among cluster-mates
+         (``CLUSTERED_PAIR_REPULSION_BOOST``) so co-located labels
+         actively spread apart.
+  * The first ``REPULSION_BOOST_ITERS`` iterations also use a global
+    repulsion boost (``EARLY_REPULSION_BOOST``) to aggressively
+    separate any near-overlap before the layout settles. This decays
+    smoothly to 1.0 by the end of the boost window so the solver can
+    converge without oscillation.
+
+Tuned constants (round-3 S3 final):
+  * ``INITIAL_OFFSET_PX = 90``  — non-clustered radial offset. Kept
+    unchanged from T5; the centroid-radial placement is correct for
+    non-co-located anchors and keeps leader lines short.
+  * ``CENTRAL_CLUSTER_INITIAL_OFFSET_PX = 180`` — clustered angular
+    offset. Plan §5 step 1 spec.
+  * ``CENTRAL_CLUSTER_THRESHOLD_PX = 40`` — cluster membership
+    threshold. Plan §5 step 3 spec.
+  * ``ANCHOR_ATTRACTION_K = 0.05`` — non-clustered attraction. Kept.
+  * ``CLUSTERED_ANCHOR_ATTRACTION_K = 0.025`` — halved per plan §5
+    step 4.
+  * ``LABEL_REPULSION_K = 2500.0`` — base inverse-cube coefficient.
+    Kept (the spec calls for 8.0 in round-1 units; the round-1 to
+    round-3 unit-system change preserves the same equilibrium).
+  * ``EARLY_REPULSION_BOOST = 1.875`` (= 15.0 / 8.0) — boost factor for
+    iterations 0..``REPULSION_BOOST_ITERS - 1``. Plan §5 step 2.
+  * ``REPULSION_BOOST_ITERS = 20`` — duration of the early boost.
+  * ``CLUSTERED_PAIR_REPULSION_BOOST = 1.625`` (= (8 + 5) / 8) —
+    additional boost between cluster-mates only. Plan §5 step 3
+    additive 5.0 in round-1 units.
+  * ``NUM_ITERATIONS = 120`` — bumped from 60 per plan §5 step 5.
+  * ``CONVERGENCE_DELTA_PX = 0.5`` — unchanged.
+
 Pure NumPy, no PyVista. The caller does the projection of world anchors
 to screen space and feeds projected (xy, label_size) tuples in. This
 keeps the solver testable in isolation and Qt-free.
@@ -57,11 +106,39 @@ ANCHOR_ATTRACTION_K: float = 0.05
 LABEL_REPULSION_K: float = 2500.0
 EDGE_REPULSION_K: float = 800.0
 EDGE_PADDING_PX: float = 8.0
-NUM_ITERATIONS: int = 60
+NUM_ITERATIONS: int = 120
 CONVERGENCE_DELTA_PX: float = 0.5  # if max move < this, stop early.
 # Final separation pass: directly push apart any boxes still overlapping
 # after the iterative solve. Number of passes through the pair list.
 SEPARATION_PASSES: int = 20
+
+# Round-3 S3: co-located-anchor cluster handling.
+#
+# Anchors within ``CENTRAL_CLUSTER_THRESHOLD_PX`` of each other (after
+# screen projection) are treated as a *cluster*: the angle-arc midpoints
+# and the target centroid all collapse onto the target body when the
+# camera looks down at it, and the per-anchor radial initial placement
+# degenerates because every label has the same anchor-from-centroid
+# direction. For cluster members, the solver:
+#   (a) initializes positions on an even angular spread around the
+#       cluster centroid at ``CENTRAL_CLUSTER_INITIAL_OFFSET_PX``;
+#   (b) halves the anchor attraction
+#       (``CLUSTERED_ANCHOR_ATTRACTION_K``) so the spread state isn't
+#       pulled back into the pile;
+#   (c) boosts pair repulsion between cluster-mates by
+#       ``CLUSTERED_PAIR_REPULSION_BOOST``.
+#
+# The first ``REPULSION_BOOST_ITERS`` iterations apply a global early
+# repulsion boost (``EARLY_REPULSION_BOOST``) on top of the per-pair
+# coefficients, decaying linearly to 1.0 by the end of the boost
+# window. This separates near-overlapping labels aggressively up front
+# while still letting the layout converge without oscillation.
+CENTRAL_CLUSTER_THRESHOLD_PX: float = 40.0
+CENTRAL_CLUSTER_INITIAL_OFFSET_PX: float = 180.0
+CLUSTERED_ANCHOR_ATTRACTION_K: float = 0.025
+CLUSTERED_PAIR_REPULSION_BOOST: float = 1.625
+EARLY_REPULSION_BOOST: float = 1.875
+REPULSION_BOOST_ITERS: int = 20
 
 # Round-3 S2: anchor-mesh exclusion zone constants.
 #
@@ -165,13 +242,55 @@ def solve_layout(
     units[~nonzero] = np.array([1.0, 0.0])
     positions = anchors + units * INITIAL_OFFSET_PX
 
+    # Round-3 S3: detect clusters of co-located anchors and re-seed
+    # cluster members with an even angular spread around the cluster
+    # centroid. ``cluster_id[i] >= 0`` marks label ``i`` as belonging to
+    # the named cluster; ``-1`` means singleton (uses the radial
+    # placement above).
+    cluster_id = _detect_anchor_clusters(anchors, CENTRAL_CLUSTER_THRESHOLD_PX)
+    is_clustered = cluster_id >= 0
+    n_clusters = int(cluster_id.max()) + 1 if cluster_id.max() >= 0 else 0
+    for cid in range(n_clusters):
+        members = np.where(cluster_id == cid)[0]
+        if len(members) < 2:
+            continue
+        cluster_anchor_centroid = anchors[members].mean(axis=0)
+        for k, i in enumerate(members):
+            angle = 2.0 * np.pi * k / len(members)
+            offset = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
+            positions[i] = (
+                cluster_anchor_centroid
+                + offset * CENTRAL_CLUSTER_INITIAL_OFFSET_PX
+            )
+
+    # Per-label anchor-attraction coefficient: halved for cluster members
+    # so the spread state isn't pulled back into the pile.
+    attraction_k = np.where(
+        is_clustered, CLUSTERED_ANCHOR_ATTRACTION_K, ANCHOR_ATTRACTION_K
+    )
+
+    # Per-pair label-repulsion boost: cluster-mates get
+    # ``CLUSTERED_PAIR_REPULSION_BOOST`` on top of the base coefficient.
+    # All other pairs use 1.0 (no extra boost).
+    pair_boost = np.ones((n, n), dtype=np.float64)
+    for cid in range(n_clusters):
+        members = np.where(cluster_id == cid)[0]
+        if len(members) < 2:
+            continue
+        for i in members:
+            for j in members:
+                if i != j:
+                    pair_boost[i, j] = CLUSTERED_PAIR_REPULSION_BOOST
+
     half_sizes = sizes * 0.5
 
     for _step in range(NUM_ITERATIONS):
         forces = np.zeros_like(positions)
 
-        # Anchor attraction: pull each label back toward its anchor.
-        forces += -ANCHOR_ATTRACTION_K * (positions - anchors)
+        # Anchor attraction: pull each label back toward its anchor. The
+        # per-label coefficient is halved for cluster members (S3) so
+        # the angular initial spread isn't immediately collapsed back.
+        forces += -attraction_k[:, None] * (positions - anchors)
 
         # Label-label repulsion (vectorized). For n labels, deltas[i,j] is
         # positions[i] - positions[j]. Forces are inverse-square along
@@ -188,7 +307,16 @@ def solve_layout(
         zero_mask = (dist < 1e-6) & ~np.eye(n, dtype=bool)
         deltas[zero_mask] = np.array([1.0, 0.0])
         d_eff[zero_mask] = 1.0
-        inv_cube = LABEL_REPULSION_K / (d_eff ** 3)
+        # S3: per-pair boost for cluster-mates, plus a global early boost
+        # that decays linearly to 1.0 over the first
+        # ``REPULSION_BOOST_ITERS`` iterations. Aggressive separation up
+        # front; clean convergence after.
+        if _step < REPULSION_BOOST_ITERS:
+            t = _step / max(REPULSION_BOOST_ITERS - 1, 1)
+            early_boost = EARLY_REPULSION_BOOST + (1.0 - EARLY_REPULSION_BOOST) * t
+        else:
+            early_boost = 1.0
+        inv_cube = LABEL_REPULSION_K * pair_boost * early_boost / (d_eff ** 3)
         pair_forces = deltas * inv_cube[:, :, None]
         forces += pair_forces.sum(axis=1)
 
@@ -366,6 +494,63 @@ def solve_layout(
         )
         for i in range(n)
     ]
+
+
+def _detect_anchor_clusters(
+    anchors: npt.NDArray[np.float64], threshold_px: float
+) -> npt.NDArray[np.int_]:
+    """Group anchors into clusters by transitive closeness in screen space.
+
+    Two anchors are in the same cluster iff they are within
+    ``threshold_px`` of each other (or connected via a chain of such
+    pairs). The return is an int array ``cluster_id[i]`` where:
+      * ``cluster_id[i] >= 0`` is the cluster index for anchor ``i``;
+      * ``cluster_id[i] == -1`` marks a singleton (no co-located peer).
+
+    Singletons get -1 so the caller can use the standard radial initial
+    placement; clustered indices start at 0 and are dense.
+
+    Used by ``solve_layout`` to apply the S3 cluster treatment (angular
+    initial spread, halved attraction, boosted pair repulsion) only to
+    anchors that actually need it.
+    """
+    n = len(anchors)
+    if n == 0:
+        return np.array([], dtype=int)
+    parent = np.arange(n)
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        ri, rj = find(i), find(j)
+        if ri != rj:
+            parent[ri] = rj
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if float(np.linalg.norm(anchors[i] - anchors[j])) <= threshold_px:
+                union(i, j)
+
+    roots = np.array([find(i) for i in range(n)])
+    counts: dict[int, int] = {}
+    for r in roots:
+        counts[int(r)] = counts.get(int(r), 0) + 1
+
+    cluster_id = np.full(n, -1, dtype=int)
+    next_id = 0
+    root_to_id: dict[int, int] = {}
+    for i in range(n):
+        r = int(roots[i])
+        if counts[r] >= 2:
+            if r not in root_to_id:
+                root_to_id[r] = next_id
+                next_id += 1
+            cluster_id[i] = root_to_id[r]
+    return cluster_id
 
 
 def boxes_overlap(

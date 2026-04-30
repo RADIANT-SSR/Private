@@ -194,6 +194,16 @@ class GeometryMainWindow(QMainWindow):
         dock.setObjectName("dock_readouts")
         dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self._readouts_panel = ReadoutsPanel()
+        # R7: populate the Visibility section with one row per toggleable
+        # primitive and wire ``visibility_changed`` to the same handler the
+        # Scene menu uses. The Scene menu still works; this is an
+        # additional surface, not a replacement.
+        self._readouts_panel.populate_visibility_toggles(
+            list(_PRIMITIVE_DISPLAY_NAMES.items())
+        )
+        self._readouts_panel.visibility_changed.connect(
+            self._on_panel_visibility_toggled
+        )
         scroll = QScrollArea()
         scroll.setWidget(self._readouts_panel)
         scroll.setWidgetResizable(True)
@@ -642,6 +652,32 @@ class GeometryMainWindow(QMainWindow):
                 continue
             actor.SetVisibility(bool(visible))
         self.plotter.render()
+        # Keep the readouts-panel checkbox in sync — the Scene menu and
+        # the panel section are two surfaces over one piece of state.
+        # set_primitive_visibility blocks signals on the receiving end so
+        # this never re-enters the panel handler.
+        self._readouts_panel.set_primitive_visibility(primitive_name, visible)
+
+    def _on_panel_visibility_toggled(
+        self, primitive_name: str, visible: bool
+    ) -> None:
+        """Round-2 R7: receive the panel's eye-icon toggle, apply to the
+        plotter, and mirror into the Scene menu's checkable QAction so
+        the menu state matches the panel state. This is the inbound side
+        of the sync pair; ``_set_primitive_visibility`` is the outbound
+        side (Scene menu → plotter + panel).
+        """
+        for actor_name in actors_for_primitive(primitive_name):
+            actor = self.plotter.actors.get(actor_name)
+            if actor is None:
+                continue
+            actor.SetVisibility(bool(visible))
+        self.plotter.render()
+        action = self._scene_visibility_actions.get(primitive_name)
+        if action is not None:
+            action.blockSignals(True)
+            action.setChecked(bool(visible))
+            action.blockSignals(False)
 
     # ----- Status bar -----------------------------------------------------
 

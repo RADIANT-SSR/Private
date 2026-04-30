@@ -49,9 +49,10 @@ def _value_label_texts(panel: ReadoutsPanel) -> dict[str, str]:
 def test_panel_has_four_collapsible_sections(panel: ReadoutsPanel) -> None:
     """PLAN_v2.md §12 step 4: 'Scene objects / Vectors / Angles / Regime'.
 
-    Plus the 'Multi-facet decomposition' explainer at the bottom — five
-    QGroupBox total. Each is checkable (collapsible) so the user can
-    hide a section.
+    Plus the 'Multi-facet decomposition' explainer (Phase 4) and the
+    'Visibility' section (round-2 R7) — six QGroupBox total. Every
+    readouts section is checkable (collapsible). The explainer is a
+    plain group; the round-2 visibility section is also collapsible.
     """
     boxes = panel.findChildren(QGroupBox)
     titles = sorted(b.title() for b in boxes)
@@ -62,6 +63,7 @@ def test_panel_has_four_collapsible_sections(panel: ReadoutsPanel) -> None:
             "Angles",
             "Regime",
             "Multi-facet decomposition",
+            "Visibility",
         ]
     )
     for b in boxes:
@@ -163,6 +165,66 @@ def test_multi_facet_explainer_renders_for_default_state(
 
 
 # --- set_state refresh ----------------------------------------------------
+
+
+# --- Visibility section (R7) ----------------------------------------------
+
+
+def test_visibility_section_populates_one_row_per_primitive(
+    qt_app: QApplication,
+) -> None:
+    """Round-2 R7: the panel exposes a Visibility section populated by the
+    host window. Each row is an eye-icon checkbox that emits
+    ``visibility_changed`` when toggled."""
+    panel = ReadoutsPanel()
+    primitives = [
+        ("vec_boresight", "Boresight"),
+        ("arc_off_nadir", "Off-nadir arc"),
+        ("glyph_sun", "Sun glyph"),
+    ]
+    panel.populate_visibility_toggles(primitives)
+    assert set(panel._visibility_checkboxes.keys()) == {
+        "vec_boresight", "arc_off_nadir", "glyph_sun"
+    }
+    for cb in panel._visibility_checkboxes.values():
+        assert cb.isChecked(), "visibility checkboxes default to checked"
+
+
+def test_visibility_toggle_emits_signal_with_primitive_and_state(
+    qt_app: QApplication,
+) -> None:
+    """Round-2 R7: toggling a checkbox emits
+    ``visibility_changed(primitive_name, is_visible)``."""
+    panel = ReadoutsPanel()
+    panel.populate_visibility_toggles([("vec_boresight", "Boresight")])
+    received: list[tuple[str, bool]] = []
+    panel.visibility_changed.connect(
+        lambda name, vis: received.append((name, bool(vis)))
+    )
+    panel._visibility_checkboxes["vec_boresight"].setChecked(False)
+    assert received == [("vec_boresight", False)]
+    panel._visibility_checkboxes["vec_boresight"].setChecked(True)
+    assert received == [("vec_boresight", False), ("vec_boresight", True)]
+
+
+def test_set_primitive_visibility_does_not_re_emit_signal(
+    qt_app: QApplication,
+) -> None:
+    """Round-2 R7: external sync (host window pushing a state into the
+    panel) must not re-fire ``visibility_changed`` — that would create a
+    feedback loop with the Scene menu."""
+    panel = ReadoutsPanel()
+    panel.populate_visibility_toggles([("glyph_sun", "Sun glyph")])
+    received: list[tuple[str, bool]] = []
+    panel.visibility_changed.connect(
+        lambda name, vis: received.append((name, bool(vis)))
+    )
+    panel.set_primitive_visibility("glyph_sun", False)
+    assert received == [], (
+        "set_primitive_visibility must block signals to prevent feedback "
+        "loops with the Scene menu"
+    )
+    assert panel._visibility_checkboxes["glyph_sun"].isChecked() is False
 
 
 def test_set_state_refreshes_every_row(qt_app: QApplication) -> None:

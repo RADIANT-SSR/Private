@@ -23,9 +23,10 @@ from __future__ import annotations
 
 from typing import Final
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFormLayout,
     QGroupBox,
     QLabel,
@@ -116,12 +117,26 @@ class ReadoutsPanel(QWidget):
     Wire changes in scene state by calling ``set_state(state)``; the
     panel re-pulls every component-id from ``format_readout`` and
     updates each value label in place.
+
+    Round-2 R7 (PLAN_v2_remediation_round2.md §8): a fifth "Visibility"
+    section carries an eye-icon toggle per scene primitive. Toggles
+    emit ``visibility_changed(primitive_name, is_visible)``. The host
+    window (``app.main``) wires the signal to per-actor visibility on
+    the plotter; the panel itself stays Qt-only and never imports the
+    plotter or the scene namespace.
     """
+
+    # PLAN_v2_remediation_round2.md §8: eye-icon visibility toggles emit
+    # ``visibility_changed(primitive, is_visible)``. The signal is the
+    # contract; the main window listens and applies the toggle to the
+    # PyVista plotter via ``scene.highlight.actors_for_primitive``.
+    visibility_changed = Signal(str, bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self._value_labels: dict[str, QLabel] = {}
+        self._visibility_checkboxes: dict[str, QCheckBox] = {}
         self._mono_font = _monospace_font()
 
         outer = QVBoxLayout(self)
@@ -139,7 +154,72 @@ class ReadoutsPanel(QWidget):
         ex_layout.addWidget(self._explainer_label)
         outer.addWidget(explainer_group)
 
+        # The visibility section is built by ``populate_visibility_toggles``
+        # so the host window owns the (primitive → display-label) mapping.
+        # Keeping the panel decoupled from ``scene.highlight`` honors C7
+        # at the panel layer (Qt-only widget; no scene imports).
+        self._visibility_group = QGroupBox("Visibility")
+        self._visibility_group.setCheckable(True)
+        self._visibility_group.setChecked(True)
+        self._visibility_form = QFormLayout(self._visibility_group)
+        self._visibility_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._visibility_form.setHorizontalSpacing(16)
+        self._visibility_form.setVerticalSpacing(4)
+        outer.addWidget(self._visibility_group)
+
         outer.addStretch(1)
+
+    def populate_visibility_toggles(
+        self, primitives: list[tuple[str, str]]
+    ) -> None:
+        """Populate the Visibility section with one row per primitive.
+
+        ``primitives`` is a list of ``(primitive_name, display_label)``
+        tuples — the host window owns the display labels (the panel
+        cannot import ``scene.highlight``'s primitive-name vocabulary
+        without coupling). Idempotent: a second call rebuilds the section.
+        """
+        # Tear down any prior rows so a re-populate works cleanly.
+        for cb in self._visibility_checkboxes.values():
+            cb.deleteLater()
+        self._visibility_checkboxes.clear()
+        while self._visibility_form.rowCount():
+            self._visibility_form.removeRow(0)
+
+        for primitive_name, display_label in primitives:
+            # Eye-icon affordance: a checkbox with a leading "eye"
+            # character that flips with the toggle state. The Qt-material
+            # dark theme styles the checkbox indicator natively; the
+            # leading glyph is the secondary-redundant signal.
+            cb = QCheckBox("\u25c9 visible")
+            cb.setChecked(True)
+            cb.setToolTip(f"Toggle visibility of {display_label}")
+            cb.toggled.connect(
+                lambda checked, p=primitive_name, c=cb: self._on_visibility_toggled(
+                    p, checked, c
+                )
+            )
+            self._visibility_checkboxes[primitive_name] = cb
+            self._visibility_form.addRow(QLabel(display_label), cb)
+
+    def set_primitive_visibility(self, primitive_name: str, visible: bool) -> None:
+        """External API — host window calls this when the Scene menu (or
+        a keyboard shortcut) toggles a primitive elsewhere, so the panel
+        checkbox stays in sync. Blocks signal emission so the host
+        doesn't get a feedback loop."""
+        cb = self._visibility_checkboxes.get(primitive_name)
+        if cb is None:
+            return
+        cb.blockSignals(True)
+        cb.setChecked(bool(visible))
+        cb.setText("\u25c9 visible" if visible else "\u25cb hidden")
+        cb.blockSignals(False)
+
+    def _on_visibility_toggled(
+        self, primitive_name: str, checked: bool, checkbox: QCheckBox
+    ) -> None:
+        checkbox.setText("\u25c9 visible" if checked else "\u25cb hidden")
+        self.visibility_changed.emit(primitive_name, bool(checked))
 
     def _build_section(
         self, title: str, rows: list[tuple[str, str]]

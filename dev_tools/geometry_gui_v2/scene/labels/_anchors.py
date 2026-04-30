@@ -67,10 +67,6 @@ def _midpoint(a: npt.NDArray[np.float64], b: npt.NDArray[np.float64]) -> npt.NDA
     return (a + b) * 0.5
 
 
-def _vector_midpoint(unit: npt.NDArray[np.float64], distance: float) -> npt.NDArray[np.float64]:
-    return unit * (distance * 0.5)
-
-
 def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     """Return every Phase-4 label anchor for ``state``.
 
@@ -84,6 +80,7 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     obs_pos = obs_dir * SCENE_OBSERVER_DISTANCE_M
     sun_pos = sun_dir * SCENE_SUN_DISTANCE_M
     bg_pos = bg_dir * SCENE_BACKGROUND_DISTANCE_M
+    target_pos = np.array(target_centroid_scene(state), dtype=np.float64)
 
     surface_normal_end = np.array(
         [0.0, 0.0, max(1.5 * state.target_radius_m, 1.5)], dtype=np.float64
@@ -144,16 +141,23 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
             group=GROUP_OBJECTS,
         ),
         # --- vectors --------------------------------------------------
+        # S4: anchor at the midpoint of the *visible* line (target →
+        # observer / target → sun), matching the new line origin in
+        # ``vectors/boresight.py`` and ``vectors/sun_ray.py``. Pre-S4
+        # these used ``_vector_midpoint(unit, scene_distance)`` —
+        # midpoint of (origin → end_pos) — which detached the leader
+        # anchor from the visible line whenever the target was lifted
+        # above ground (high altitude).
         LabelAnchor(
             name="lbl_vec_boresight",
-            anchor_world=_vector_midpoint(obs_dir, SCENE_OBSERVER_DISTANCE_M),
+            anchor_world=_midpoint(target_pos, obs_pos),
             text=sym_boresight,
             color=style.SATELLITE_FAMILY,
             group=GROUP_VECTORS,
         ),
         LabelAnchor(
             name="lbl_vec_sun_ray",
-            anchor_world=_vector_midpoint(sun_dir, SCENE_SUN_DISTANCE_M),
+            anchor_world=_midpoint(target_pos, sun_pos),
             text=sym_s_t,
             color=style.SOLAR_FAMILY,
             group=GROUP_VECTORS,

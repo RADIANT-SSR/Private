@@ -96,19 +96,32 @@ def test_background_coupled_vectors_have_tips_when_background_on(
     assert tip_name in offscreen_plotter.actors
 
 
-# -- Break-marks: Phase-7 diet removed them entirely ------------------------
+# -- Break-marks: round-2 R5 restored them on the schematic-distance vectors
+
+
+@pytest.mark.parametrize("vector_name", ["vec_boresight", "vec_sun_ray"])
+def test_long_haul_vectors_carry_a_break_mark(
+    offscreen_plotter: pv.Plotter, vector_name: str
+) -> None:
+    """Round-2 R5: the boresight (target → satellite, schematic 6 m for
+    ~600 km) and the sun ray (target → sun, schematic 9 m for 1 AU)
+    carry not-to-scale break-marks. The Phase-7 diet had removed them;
+    round 2 restored them because users had no in-canvas signal that
+    the schematic distances did not reflect physical scale."""
+    build_scene(SceneState.default(), plotter=offscreen_plotter)
+    assert f"{vector_name}_break" in offscreen_plotter.actors
 
 
 @pytest.mark.parametrize(
-    "vector_name",
-    ["vec_boresight", "vec_sun_ray", "vec_surface_normal", "vec_sun_to_background"],
+    "vector_name", ["vec_surface_normal", "vec_sun_to_background"]
 )
-def test_no_vector_carries_a_break_mark(
+def test_short_haul_vectors_do_not_carry_a_break_mark(
     offscreen_plotter: pv.Plotter, vector_name: str
 ) -> None:
-    """Phase-7 diet: the not-to-scale zigzag was reading as visual noise
-    rather than as an engineering symbol; the schematic distance and the
-    readout panel already convey the not-to-scale status."""
+    """Round-2 R5: only the long-haul vectors get break-marks. The
+    surface-normal and sun-to-background vectors have schematic lengths
+    that closely match their physical lengths (or there is no physical
+    length to compare to), so a break-mark would mislead."""
     import dataclasses
 
     state = dataclasses.replace(SceneState.default(), background_kind="ground")

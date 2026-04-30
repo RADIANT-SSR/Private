@@ -36,10 +36,12 @@ if TYPE_CHECKING:
 # highlight covers the base actor + its tip cone (vectors, arcs) so the
 # whole composite is visually selected.
 _ACTORS_PER_PRIMITIVE: Final[dict[str, tuple[str, ...]]] = {
-    # Vectors: shaft + tip. (Phase-7 diet dropped break-mark zigzags.)
-    "vec_boresight": ("vec_boresight", "vec_boresight_tip"),
+    # Vectors: shaft + tip + (for the long-haul vectors) break-mark zigzag.
+    # Round-2 R5 restored the break-marks on the boresight and sun-ray
+    # only; surface-normal and sun-to-background remain break-mark-less.
+    "vec_boresight": ("vec_boresight", "vec_boresight_tip", "vec_boresight_break"),
     "vec_surface_normal": ("vec_surface_normal", "vec_surface_normal_tip"),
-    "vec_sun_ray": ("vec_sun_ray", "vec_sun_ray_tip"),
+    "vec_sun_ray": ("vec_sun_ray", "vec_sun_ray_tip", "vec_sun_ray_break"),
     "vec_sun_to_background": ("vec_sun_to_background", "vec_sun_to_background_tip"),
     # Arcs: tube + tip cone.
     "arc_off_nadir": ("arc_off_nadir", "arc_off_nadir_tip"),

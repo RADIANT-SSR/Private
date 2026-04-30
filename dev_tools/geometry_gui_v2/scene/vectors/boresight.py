@@ -21,14 +21,18 @@ from dev_tools.geometry_gui_v2.scene.vectors._tube import add_vector_with_arrow
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     direction = observer_direction_scene(state)
     end = direction * SCENE_OBSERVER_DISTANCE_M
-    # Break-mark: schematic 6 m vs physical ~600 km satellite distance.
-    # Phase-7 diet: drop the break-mark zigzag. The "not to scale" status is
-    # already conveyed by the schematic distances and the readout panel; the
-    # zigzag was reading as noise rather than an engineering symbol.
+    # Round-2 R5: re-enable the not-to-scale break-mark. The diet had
+    # dropped it, but the round-1 first-cut readout-panel-only treatment
+    # left users with no in-canvas indicator that the schematic 6 m
+    # observer distance is standing in for ~600 km of physical altitude.
+    # The zigzag is now drawn through a real gap in the shaft (see
+    # _tube.py with_break_mark branch) so the symbol reads as a kink
+    # rather than as noise overlaid on a line.
     add_vector_with_arrow(
         plotter,
         np.zeros(3, dtype=np.float64),
         end,
         color=style.SATELLITE_FAMILY,
         name="vec_boresight",
+        with_break_mark=True,
     )

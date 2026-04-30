@@ -56,9 +56,29 @@ def add_vector_with_arrow(
 
     tip_length = max(length * _ARROW_TIP_LENGTH_FRAC, 0.05)
     shaft_end = end - unit * tip_length
-    line = pv.Line(pointa=tuple(start), pointb=tuple(shaft_end))
-    tube = line.tube(radius=_TUBE_RADIUS_M)
-    plotter.add_mesh(tube, color=color, name=name)
+
+    if with_break_mark:
+        # Round-2 R5: split the shaft into two tubes with a gap so the
+        # zigzag visibly *replaces* a section of line rather than overlaying
+        # one. The plan §6 step 4 is explicit that overlaying loses the
+        # "not to scale" semantic. Gap half-extent matches the break-mark's
+        # span.
+        mid = (start + shaft_end) * 0.5
+        half_gap = length * _BREAK_HALF_LENGTH_FRAC
+        gap_start = mid - unit * half_gap
+        gap_end = mid + unit * half_gap
+        seg_a = pv.Line(pointa=tuple(start), pointb=tuple(gap_start)).tube(
+            radius=_TUBE_RADIUS_M
+        )
+        seg_b = pv.Line(pointa=tuple(gap_end), pointb=tuple(shaft_end)).tube(
+            radius=_TUBE_RADIUS_M
+        )
+        blocks = pv.MultiBlock([seg_a, seg_b])
+        plotter.add_mesh(blocks, color=color, name=name)
+    else:
+        line = pv.Line(pointa=tuple(start), pointb=tuple(shaft_end))
+        tube = line.tube(radius=_TUBE_RADIUS_M)
+        plotter.add_mesh(tube, color=color, name=name)
 
     arrow = pv.Cone(
         center=tuple(end - unit * (tip_length * 0.5)),

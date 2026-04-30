@@ -71,3 +71,19 @@ axis_z:
   latex: "$z$"
   html: "z"
   description: "Z axis"
+object_satellite:
+  latex: "Satellite"
+  html: "Satellite"
+  description: "Sensor satellite at the configured altitude"
+object_sun:
+  latex: "Sun"
+  html: "Sun"
+  description: "Sun position (direction only; not to scale)"
+object_target:
+  latex: "Target"
+  html: "Target"
+  description: "Imaging target"
+object_background:
+  latex: "Background"
+  html: "Background"
+  description: "Background reference point"

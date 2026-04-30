@@ -23,10 +23,6 @@ import numpy as np
 import numpy.typing as npt
 
 from dev_tools.geometry_gui_v2.app.state import SceneState
-from dev_tools.geometry_gui_v2.app.view_model import (
-    classify_regime,
-    derived_readout,
-)
 from dev_tools.geometry_gui_v2.scene import style
 from dev_tools.geometry_gui_v2.scene._directions import (
     background_direction_scene,
@@ -93,18 +89,11 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         [0.0, 0.0, max(1.5 * state.target_radius_m, 1.5)], dtype=np.float64
     )
 
-    derived = derived_readout(state)
-    # Display the line-of-sight distance as a positive magnitude. RADIANT's
-    # SceneGeometry uses a flat-Earth altitude-difference formula that goes
-    # negative when target altitude > observer altitude (target above
-    # sensor) — physically the LOS distance is the same regardless of
-    # which is higher, so abs() is the right magnitude to surface.
-    slant_km = abs(derived["slant_range"][0]) / 1_000.0
-    proj_area = derived["projected_area"][0]
-    regime, _reason = classify_regime(state)
-
-    target_alt_km = state.target_altitude_m / 1_000.0
-    sensor_alt_km = state.observer_altitude_m / 1_000.0
+    # S1 (round-3 remediation): viewport labels are minimal nouns +
+    # symbol labels only. Data readouts (altitude, slant range, projected
+    # area, regime tag) live in the right-dock ReadoutsPanel and the
+    # left-dock ParametersPanel. The viewport never duplicates panel
+    # content.
 
     # Angle midpoints sit on the great-arc midpoint at ``ARC_RADIUS_M``.
     zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
@@ -117,7 +106,6 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     # truth. Free-text composites (e.g. the off-nadir-angle readout) use
     # the typography helper for the symbol and append the formatted
     # value next to it.
-    sym_a_t = viewport_label("projected_area")
     sym_n_B = viewport_label("surface_normal_background")
     sym_s_t = viewport_label("sun_vector_target")
     sym_s_B = viewport_label("sun_vector_background")
@@ -125,6 +113,10 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     sym_theta_off = viewport_label("off_nadir_angle")
     sym_theta_s = viewport_label("solar_zenith_target")
     sym_alpha_t = viewport_label("phase_angle_target")
+    name_satellite = viewport_label("object_satellite")
+    name_sun = viewport_label("object_sun")
+    name_target = viewport_label("object_target")
+    name_background = viewport_label("object_background")
 
     has_background = state.background_kind != "none"
 
@@ -133,27 +125,21 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         LabelAnchor(
             name="lbl_target",
             anchor_world=np.array(target_centroid_scene(state), dtype=np.float64),
-            text=(
-                f"Target  alt = {target_alt_km:.0f} km  "
-                f"{sym_a_t} = {proj_area:.3g} m^2  ({regime.value})"
-            ),
+            text=name_target,
             color=style.TARGET_COLOR,
             group=GROUP_OBJECTS,
         ),
         LabelAnchor(
             name="lbl_observer",
             anchor_world=obs_pos,
-            text=(
-                f"Sensor  alt = {sensor_alt_km:.0f} km  "
-                f"slant = {slant_km:.0f} km"
-            ),
+            text=name_satellite,
             color=style.SATELLITE_FAMILY,
             group=GROUP_OBJECTS,
         ),
         LabelAnchor(
             name="lbl_sun",
             anchor_world=sun_pos,
-            text=f"Sun  ({sym_theta_s} = {math.degrees(state.solar_zenith_rad):.0f} deg)",
+            text=name_sun,
             color=style.SOLAR_FAMILY,
             group=GROUP_OBJECTS,
         ),
@@ -176,14 +162,14 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         LabelAnchor(
             name="lbl_arc_off_nadir",
             anchor_world=off_nadir_mid,
-            text=f"{sym_theta_off} = {math.degrees(state.observer_look_angle_rad):.0f} deg",
+            text=sym_theta_off,
             color=style.SATELLITE_FAMILY,
             group=GROUP_ANGLES,
         ),
         LabelAnchor(
             name="lbl_arc_sun_zenith",
             anchor_world=sun_zenith_mid,
-            text=f"{sym_theta_s} = {math.degrees(state.solar_zenith_rad):.0f} deg",
+            text=sym_theta_s,
             color=style.SOLAR_FAMILY,
             group=GROUP_ANGLES,
         ),
@@ -205,7 +191,7 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
             LabelAnchor(
                 name="lbl_background",
                 anchor_world=bg_pos,
-                text="Background",
+                text=name_background,
                 color=style.SURFACE_FAMILY,
                 group=GROUP_OBJECTS,
             )

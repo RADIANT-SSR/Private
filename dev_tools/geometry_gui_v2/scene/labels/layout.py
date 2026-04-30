@@ -24,6 +24,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from dev_tools.geometry_gui_v2.scene import style
+
 # Tunable knobs. These are not parameters in the RADIANT sense (no physics);
 # they are visual-design constants. Names match PLAN_v2.md §12 step 2 verbatim.
 #
@@ -205,6 +207,31 @@ def solve_layout(
         )
         if not moved:
             break
+
+    # Round-2 R6 (PLAN_v2_remediation_round2.md §7 step 4): hard cap on
+    # label-to-anchor screen distance. The plan is explicit that "a label
+    # that's 400 px from the thing it labels is worse than a label that
+    # overlaps slightly" — so this clamp runs *after* separation and
+    # accepts that it may re-introduce sub-pixel overlaps. The
+    # iterative anchor-attraction term keeps most labels under the cap
+    # already; this only acts on the outliers separation pushed too far.
+    max_d = float(style.LABEL_MAX_ANCHOR_DISTANCE_PX)
+    deltas_to_anchor = positions - anchors
+    norms = np.linalg.norm(deltas_to_anchor, axis=1)
+    too_far = norms > max_d
+    if np.any(too_far):
+        scale = np.where(too_far, max_d / np.maximum(norms, 1e-9), 1.0)
+        positions = anchors + deltas_to_anchor * scale[:, None]
+        # Re-clamp to viewport (the scale-down moves toward the anchor,
+        # which is in-viewport, so this is mostly a no-op but cheap).
+        positions[:, 0] = np.clip(
+            positions[:, 0], half_sizes[:, 0] + EDGE_PADDING_PX,
+            width - half_sizes[:, 0] - EDGE_PADDING_PX,
+        )
+        positions[:, 1] = np.clip(
+            positions[:, 1], half_sizes[:, 1] + EDGE_PADDING_PX,
+            height - half_sizes[:, 1] - EDGE_PADDING_PX,
+        )
 
     return [
         LabelLayoutResult(

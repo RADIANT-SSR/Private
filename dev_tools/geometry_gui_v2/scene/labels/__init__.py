@@ -36,7 +36,7 @@ def remove_from_plotter(plotter: "pv.Plotter") -> None:
     # a context that doesn't yet have one (e.g. teardown paths).
     state_for_names = SceneState.default()
     for anchor in collect_anchors(state_for_names):
-        for suffix in ("_text", "_leader"):
+        for suffix in ("_text", "_leader", "_dot"):
             actor_name = f"{anchor.name}{suffix}"
             try:
                 plotter.remove_actor(actor_name)

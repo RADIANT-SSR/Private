@@ -104,6 +104,28 @@ SUN_DISC_SIZE: Final[int] = 9
 SUN_RAY_TIP_SIZE: Final[int] = 2
 
 # ---------------------------------------------------------------------------
+# Tier 5b — Leader lines + anchor dots (label-to-anchor connectors).
+# ---------------------------------------------------------------------------
+# Round-2 R6 (PLAN_v2_remediation_round2.md §7): leader lines were rendered
+# in the per-label family color at 0.75 px / 0.45 opacity, which all but
+# vanished against the dark viewport. Tier 5b pins a single neutral color
+# for every leader, bumped width and opacity so the connector is legible,
+# and a per-label anchor dot so the user can disambiguate "which 3D point
+# does this label point at" at a glance. Hover constants drive the
+# Phase-5 hover-thicken behaviour.
+LEADER_LINE_COLOR: Final[str] = "#6a6d75"
+LEADER_LINE_HOVER_COLOR: Final[str] = "#bcd0f0"
+LEADER_LINE_WIDTH: Final[float] = 1.0
+LEADER_LINE_HOVER_WIDTH: Final[float] = 2.0
+LEADER_LINE_OPACITY: Final[float] = 0.85
+LEADER_ANCHOR_DOT_RADIUS_PX: Final[float] = 1.5  # 3 px diameter
+# Hard cap on label-to-anchor screen distance. The deconfliction solver may
+# push a label far away to resolve a cluster; round-2 R6 step 4 is explicit
+# that "a label that's 400 px from the thing it labels is worse than a label
+# that overlaps slightly". Solver runs first; this clamp runs last.
+LABEL_MAX_ANCHOR_DISTANCE_PX: Final[float] = 240.0
+
+# ---------------------------------------------------------------------------
 # Tier 6 — Ground grid (recede).
 # ---------------------------------------------------------------------------
 

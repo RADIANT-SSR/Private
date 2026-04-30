@@ -25,6 +25,8 @@ import numpy.typing as npt
 import pyvista as pv
 import vtk
 
+from dev_tools.geometry_gui_v2.scene import style
+
 
 # Estimated character cell at the chosen font size. The layout solver
 # needs a label-box size in pixels; we estimate from len(text). A real
@@ -119,6 +121,12 @@ def add_leader_label(
     # Leader line as a 2D vtkLeaderActor2D — both endpoints in display
     # (pixel) coords. Endpoint at label gets nudged toward the anchor so
     # the line doesn't pierce the text background.
+    # Round-2 R6: every leader uses LEADER_LINE_COLOR (a single neutral
+    # gray) rather than the per-label family color. Mixing leader color
+    # with text color was visually noisy and made the connectors merge
+    # into the family-coded vectors. The label text and pill keep the
+    # family color; the connector is now clearly "annotation chrome".
+    leader_color = _hex_to_rgb_float(style.LEADER_LINE_COLOR)
     leader = vtk.vtkLeaderActor2D()
     leader.GetPositionCoordinate().SetCoordinateSystemToDisplay()
     leader.GetPositionCoordinate().SetValue(
@@ -128,10 +136,56 @@ def add_leader_label(
     nudged = _nudge_toward(label_screen_xy, anchor_screen_xy, distance=12.0)
     leader.GetPosition2Coordinate().SetValue(float(nudged[0]), float(nudged[1]))
     leader.SetArrowPlacementToNone()
-    leader.GetProperty().SetColor(*_hex_to_rgb_float(label.color))
-    leader.GetProperty().SetLineWidth(0.75)
-    leader.GetProperty().SetOpacity(0.45)
+    leader.GetProperty().SetColor(*leader_color)
+    leader.GetProperty().SetLineWidth(style.LEADER_LINE_WIDTH)
+    leader.GetProperty().SetOpacity(style.LEADER_LINE_OPACITY)
     plotter.add_actor(leader, name=f"{label.name}_leader")
+
+    # Anchor dot — a 3 px-diameter filled circle at the projected anchor
+    # so the user can disambiguate which 3D point the leader points at.
+    # Implemented as a screen-space vtkActor2D: a regular polygon with
+    # ~12 sides reads as a circle at this size and skips the cost of a
+    # texture-based glyph.
+    _add_anchor_dot(plotter, anchor_screen_xy, leader_color, name=f"{label.name}_dot")
+
+
+def _add_anchor_dot(
+    plotter: pv.Plotter,
+    anchor_screen_xy: tuple[float, float],
+    color: tuple[float, float, float],
+    name: str,
+) -> None:
+    radius_px = float(style.LEADER_ANCHOR_DOT_RADIUS_PX)
+    n_sides = 12
+    points = vtk.vtkPoints()
+    polygon = vtk.vtkPolygon()
+    polygon.GetPointIds().SetNumberOfIds(n_sides)
+    cx, cy = float(anchor_screen_xy[0]), float(anchor_screen_xy[1])
+    for i in range(n_sides):
+        theta = 2.0 * np.pi * i / n_sides
+        points.InsertNextPoint(
+            cx + radius_px * float(np.cos(theta)),
+            cy + radius_px * float(np.sin(theta)),
+            0.0,
+        )
+        polygon.GetPointIds().SetId(i, i)
+    cells = vtk.vtkCellArray()
+    cells.InsertNextCell(polygon)
+    poly = vtk.vtkPolyData()
+    poly.SetPoints(points)
+    poly.SetPolys(cells)
+
+    mapper = vtk.vtkPolyDataMapper2D()
+    mapper.SetInputData(poly)
+    coord = vtk.vtkCoordinate()
+    coord.SetCoordinateSystemToDisplay()
+    mapper.SetTransformCoordinate(coord)
+
+    actor = vtk.vtkActor2D()
+    actor.SetMapper(mapper)
+    actor.GetProperty().SetColor(*color)
+    actor.GetProperty().SetOpacity(style.LEADER_LINE_OPACITY)
+    plotter.add_actor(actor, name=name)
 
 
 def _hex_to_rgb_float(hex_color: str) -> tuple[float, float, float]:

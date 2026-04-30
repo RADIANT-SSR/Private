@@ -137,6 +137,20 @@ def test_grid_opacity() -> None:
     assert style.GRID_OPACITY == 0.45
 
 
+def test_leader_line_constants() -> None:
+    """Round-2 R6: leader lines were rendered in per-label color at
+    0.75 px / 0.45 opacity, which all but vanished against the dark
+    viewport. R6 pins a single neutral color and bumps width + opacity
+    so the connector reads as legible annotation chrome."""
+    assert style.LEADER_LINE_COLOR == "#6a6d75"
+    assert style.LEADER_LINE_HOVER_COLOR == "#bcd0f0"
+    assert style.LEADER_LINE_WIDTH == 1.0
+    assert style.LEADER_LINE_HOVER_WIDTH == 2.0
+    assert style.LEADER_LINE_OPACITY == 0.85
+    assert style.LEADER_ANCHOR_DOT_RADIUS_PX == 1.5
+    assert style.LABEL_MAX_ANCHOR_DISTANCE_PX == 240.0
+
+
 def test_contact_shadow_constants() -> None:
     assert style.CONTACT_SHADOW_COLOR == "#000000"
     assert style.CONTACT_SHADOW_OPACITY == 0.18
@@ -226,6 +240,8 @@ def test_color_constants_are_seven_char_hex() -> None:
         style.WORLD_AXES_GNOMON_PLUS_X_COLOR,
         style.WORLD_AXES_GNOMON_PLUS_Y_COLOR,
         style.WORLD_AXES_GNOMON_PLUS_Z_COLOR,
+        style.LEADER_LINE_COLOR,
+        style.LEADER_LINE_HOVER_COLOR,
     )
     for c in color_constants:
         assert len(c) == 7 and c.startswith("#"), f"{c!r} is not a #RRGGBB hex"

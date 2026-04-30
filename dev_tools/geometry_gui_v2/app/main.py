@@ -240,6 +240,48 @@ class GeometryMainWindow(QMainWindow):
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
+        reset_view = QAction("Reset view", self)
+        reset_view.setObjectName("action_reset_view")
+        reset_view.setToolTip(
+            "Recenter on target at the default isometric pose (shortcut: R)"
+        )
+        reset_view.triggered.connect(self._reset_camera)
+        toolbar.addAction(reset_view)
+
+        toolbar.addSeparator()
+
+        # Quick-toggle the dock panels from the toolbar so a hidden
+        # parameter panel is one click away. The View-menu actions
+        # ("Toggle left panel" / "Toggle right panel") still exist; these
+        # are an additional, more discoverable surface.
+        self._toolbar_toggle_left = QAction("Parameters", self)
+        self._toolbar_toggle_left.setObjectName("action_toggle_parameters")
+        self._toolbar_toggle_left.setCheckable(True)
+        self._toolbar_toggle_left.setChecked(True)
+        self._toolbar_toggle_left.setToolTip("Show / hide the left parameter panel")
+        self._toolbar_toggle_left.toggled.connect(self._left_dock.setVisible)
+        toolbar.addAction(self._toolbar_toggle_left)
+
+        self._toolbar_toggle_right = QAction("Readouts", self)
+        self._toolbar_toggle_right.setObjectName("action_toggle_readouts")
+        self._toolbar_toggle_right.setCheckable(True)
+        self._toolbar_toggle_right.setChecked(True)
+        self._toolbar_toggle_right.setToolTip("Show / hide the right readouts panel")
+        self._toolbar_toggle_right.toggled.connect(self._right_dock.setVisible)
+        toolbar.addAction(self._toolbar_toggle_right)
+
+        # Keep the toolbar buttons in sync if the dock is closed via its
+        # title-bar X (which goes through ``visibilityChanged``, not the
+        # action's toggled signal).
+        self._left_dock.visibilityChanged.connect(
+            self._toolbar_toggle_left.setChecked
+        )
+        self._right_dock.visibilityChanged.connect(
+            self._toolbar_toggle_right.setChecked
+        )
+
+        toolbar.addSeparator()
+
         toolbar.addWidget(QLabel("Frame:"))
 
         self._frame_combo = QComboBox()
@@ -590,9 +632,11 @@ class GeometryMainWindow(QMainWindow):
         The rebuild path mirrors ``_on_new_scene`` (clear + build) but
         deliberately does *not* call ``set_default_camera`` — a slider
         drag must not snap the user out of their current camera pose.
-        ``_rebuild_labels`` re-runs the deconfliction solver against
-        the new geometry so anchors stay attached after the geometry
-        moves.
+
+        Target altitude is surfaced as a leader-label readout, not as a
+        translation of the target body — the scene is not-to-scale
+        (sensor at 6 m, sun at 9 m) so the target stays centered at the
+        origin regardless of the user's altitude setting.
         """
         self._state = state
         self.plotter.clear_actors()

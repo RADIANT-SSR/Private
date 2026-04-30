@@ -51,10 +51,17 @@ def _render_with_camera_at_y_minus(state: SceneState) -> np.ndarray:
     the +X side of the target (lit when sun azimuth points +X), and the
     -X half corresponds to the -X side (dark when sun is +X).
     """
+    from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
+
     p = pv.Plotter(off_screen=True, window_size=WINDOW)
     try:
         build_scene(state, plotter=p)
-        p.camera_position = [(0.0, -3.5, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0)]
+        focal = target_centroid_scene(state)
+        p.camera_position = [
+            (0.0, -3.5, focal[2]),
+            focal,
+            (0.0, 0.0, 1.0),
+        ]
         p.show(auto_close=False)
         img = p.screenshot(return_img=True)
     finally:

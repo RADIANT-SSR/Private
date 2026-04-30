@@ -15,6 +15,7 @@ import pyvista as pv
 
 from dev_tools.geometry_gui_v2.app.state import SceneState
 from dev_tools.geometry_gui_v2.scene import style
+from dev_tools.geometry_gui_v2.scene.target._pose import apply_target_pose
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
@@ -26,6 +27,7 @@ def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
         i_resolution=1,
         j_resolution=1,
     )
+    apply_target_pose(mesh, state)
     # PBR + non-unit opacity wash out shading. See target/sphere.py and CU-034.
     plotter.add_mesh(
         mesh,

@@ -131,6 +131,11 @@ LABEL_MAX_ANCHOR_DISTANCE_PX: Final[float] = 240.0
 
 GRID_OPACITY: Final[float] = 0.45
 
+# Ground-cap base alpha — the cap fills with this opacity in the cells
+# between grid lines so the ground reads as a continuous surface, not
+# as transparent grid lines over the void.
+GROUND_CAP_BASE_OPACITY: Final[float] = 0.20
+
 # Contact-shadow constants (Tier 1 chrome — sits behind the target body).
 CONTACT_SHADOW_COLOR: Final[str] = "#000000"
 CONTACT_SHADOW_OPACITY: Final[float] = 0.18

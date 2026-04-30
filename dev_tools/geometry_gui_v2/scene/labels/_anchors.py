@@ -40,6 +40,7 @@ from dev_tools.geometry_gui_v2.scene._layout import (
     SCENE_SUN_DISTANCE_M,
 )
 from dev_tools.geometry_gui_v2.scene.labels.typography import viewport_label
+from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
 
 
 # Group names align with the right-panel's collapsible sections so the
@@ -93,9 +94,17 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     )
 
     derived = derived_readout(state)
-    slant_km = derived["slant_range"][0] / 1_000.0
+    # Display the line-of-sight distance as a positive magnitude. RADIANT's
+    # SceneGeometry uses a flat-Earth altitude-difference formula that goes
+    # negative when target altitude > observer altitude (target above
+    # sensor) — physically the LOS distance is the same regardless of
+    # which is higher, so abs() is the right magnitude to surface.
+    slant_km = abs(derived["slant_range"][0]) / 1_000.0
     proj_area = derived["projected_area"][0]
     regime, _reason = classify_regime(state)
+
+    target_alt_km = state.target_altitude_m / 1_000.0
+    sensor_alt_km = state.observer_altitude_m / 1_000.0
 
     # Angle midpoints sit on the great-arc midpoint at ``ARC_RADIUS_M``.
     zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
@@ -123,15 +132,21 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
         # --- objects --------------------------------------------------
         LabelAnchor(
             name="lbl_target",
-            anchor_world=np.zeros(3, dtype=np.float64),
-            text=f"Target  {sym_a_t} = {proj_area:.3g} m^2  ({regime.value})",
+            anchor_world=np.array(target_centroid_scene(state), dtype=np.float64),
+            text=(
+                f"Target  alt = {target_alt_km:.0f} km  "
+                f"{sym_a_t} = {proj_area:.3g} m^2  ({regime.value})"
+            ),
             color=style.TARGET_COLOR,
             group=GROUP_OBJECTS,
         ),
         LabelAnchor(
             name="lbl_observer",
             anchor_world=obs_pos,
-            text=f"Observer  ({slant_km:.0f} km)",
+            text=(
+                f"Sensor  alt = {sensor_alt_km:.0f} km  "
+                f"slant = {slant_km:.0f} km"
+            ),
             color=style.SATELLITE_FAMILY,
             group=GROUP_OBJECTS,
         ),

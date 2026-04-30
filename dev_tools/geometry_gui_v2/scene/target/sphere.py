@@ -12,10 +12,12 @@ import pyvista as pv
 
 from dev_tools.geometry_gui_v2.app.state import SceneState
 from dev_tools.geometry_gui_v2.scene import style
+from dev_tools.geometry_gui_v2.scene.target._pose import apply_target_pose
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     mesh = pv.Sphere(radius=state.target_radius_m, theta_resolution=48, phi_resolution=48)
+    apply_target_pose(mesh, state)
     # PBR + non-unit opacity wash out the terminator (PyVista PBR composites
     # translucency before lighting). TARGET_OPACITY (0.92, ported from v1
     # Plotly) is kept in style.py for non-PBR overlays (selection highlight)

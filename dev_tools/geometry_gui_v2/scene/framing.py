@@ -98,18 +98,22 @@ def scene_bounds(
     Returns ``(bbox_min, bbox_max)`` — each a length-3 ``np.ndarray``.
 
     Includes the target body half-extent expressed as a cube around
-    the origin (the target centroid is always at the origin in the
-    visual scene frame), the observer glyph at its display position,
-    the sun glyph at its display position, and — when not gated off —
-    the background marker at its display position. Excludes the ground
-    cap, fade plane, and contact shadow (see module docstring).
+    the target's lifted scene centroid (per ``target_centroid_scene``
+    — non-zero z when ``target_altitude_m > 0``), the observer glyph at
+    its display position, the sun glyph at its display position, and —
+    when not gated off — the background marker at its display position.
+    Excludes the ground cap, fade plane, and contact shadow (see module
+    docstring).
     """
+    from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
+
     points: list[np.ndarray] = []
 
-    # Target — model as a cube around the origin at its half-extent.
+    # Target — model as a cube around the lifted scene centroid.
     half = _target_half_extent(state)
-    points.append(np.array([+half, +half, +half], dtype=np.float64))
-    points.append(np.array([-half, -half, -half], dtype=np.float64))
+    centroid = np.array(target_centroid_scene(state), dtype=np.float64)
+    points.append(centroid + np.array([+half, +half, +half], dtype=np.float64))
+    points.append(centroid + np.array([-half, -half, -half], dtype=np.float64))
 
     # Observer / sun glyphs at display positions.
     points.append(observer_direction_scene(state) * SCENE_OBSERVER_DISTANCE_M)

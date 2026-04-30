@@ -40,6 +40,10 @@ def _grid_texture() -> pv.Texture:
     """
     arr = np.zeros((_TEXTURE_SIZE, _TEXTURE_SIZE, 4), dtype=np.uint8)
     arr[..., :3] = 200  # light-gray base
+    # Solid base alpha so the ground reads as a continuous surface, not
+    # transparent grid lines floating over the void. Grid lines stamp on
+    # top with stronger alpha for the scale reference.
+    arr[..., 3] = int(round(255 * style.GROUND_CAP_BASE_OPACITY))
     px_per_meter = _TEXTURE_SIZE / _TEXTURE_METERS_PER_SIDE
     minor_step_px = max(int(round(px_per_meter * _MINOR_SPACING_M)), 1)
     minor_alpha = int(round(255 * style.GRID_OPACITY))

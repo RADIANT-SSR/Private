@@ -40,11 +40,17 @@ from dev_tools.geometry_gui_v2.scene.framing import (  # noqa: E402
 
 
 def test_scene_bounds_contains_target_and_glyphs() -> None:
+    from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
+
     state = SceneState.default()
     bbox_min, bbox_max = scene_bounds(state)
-    # Target body — sphere of radius 1 m at origin must be inside bbox.
-    assert (bbox_min <= -state.target_radius_m).all()
-    assert (bbox_max >= +state.target_radius_m).all()
+    # Target body — sphere of radius 1 m sits at the lifted scene
+    # centroid (z > 0 because the body sits on the ground rather than
+    # being bisected by it). The AABB must contain a cube of half-edge
+    # = radius around that centroid.
+    centroid = np.array(target_centroid_scene(state), dtype=np.float64)
+    assert (bbox_min <= centroid - state.target_radius_m + 1e-9).all()
+    assert (bbox_max >= centroid + state.target_radius_m - 1e-9).all()
     # Observer and sun glyph display positions must be inside the bbox
     # (this is what drives extent — without these the framing is wrong).
     obs_pos = observer_direction_scene(state) * SCENE_OBSERVER_DISTANCE_M

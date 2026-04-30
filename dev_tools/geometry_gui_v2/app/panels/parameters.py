@@ -152,7 +152,7 @@ _NUMERIC_ROWS: Final[list[_NumericRow]] = [
     # ---- Target (numeric — shape selector handled separately) ----
     _NumericRow("Target", "tgt-altitude", "Altitude", "km",
                 "target_altitude_m",
-                0.0, 5.0, 0.1, 2, _km_to_m, _m_to_km),
+                0.0, 2_000.0, 1.0, 1, _km_to_m, _m_to_km),
     _NumericRow("Target", "tgt-radius", "Radius", "m",
                 "target_radius_m",
                 0.01, 100.0, 0.1, 2, _identity, _identity),
@@ -409,12 +409,17 @@ class ParametersPanel(QWidget):
         spinbox.setMaximum(row.display_max)
         spinbox.setSingleStep(row.display_step)
         spinbox.setDecimals(row.decimals)
-        # The slider's resolution can produce a display value with more
-        # decimals than the row's native step. ``setKeyboardTracking`` on
-        # a QDoubleSpinBox is True by default — every keystroke fires
-        # ``valueChanged``. That's the right behavior here: typing into
-        # the spinbox is fast enough that the rebuild can happen on every
-        # keystroke; we only debounce slider drag.
+        # ``keyboardTracking`` defaults to True, which fires
+        # ``valueChanged`` on every keystroke. That makes multi-digit
+        # typing (e.g. "800" altitude) impossible: after the first "8"
+        # the host rebuilds the entire scene with altitude=8 km, the
+        # spinbox is repainted, and the user cannot complete the
+        # number. Turning it off makes the spinbox commit only on
+        # Enter / focus-out / arrow-step / programmatic ``setValue`` —
+        # which is what every typed-input control should do here.
+        # The existing tests use ``setValue`` (programmatic) so they
+        # still emit immediately regardless of this setting.
+        spinbox.setKeyboardTracking(False)
         spinbox.valueChanged.connect(
             lambda v, r=row: self._on_spinbox_changed(r, v)
         )

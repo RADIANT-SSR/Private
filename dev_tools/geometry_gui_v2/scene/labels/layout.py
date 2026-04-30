@@ -8,6 +8,21 @@ PLAN_v2.md §12 step 2:
   * Output: per-label screen position + leader-line endpoints (anchor
     screen-xy → label screen-xy).
 
+Round-3 S2 extension (anchor-mesh exclusion zone):
+  * For labels whose anchor is a *mesh* (target body, satellite glyph,
+    sun disc, background sphere), the caller supplies the projected
+    screen-space AABB of that mesh, padded by
+    ``MESH_EXCLUSION_PADDING_PX``. The solver:
+      1. During iteration, applies a strong repulsive force from the
+         exclusion-zone center whenever a label box still intersects.
+      2. After convergence + label-label separation, runs a final hard
+         pass that forcibly pushes any still-overlapping label out
+         along the smaller-overlap axis.
+  * This is a *hard* constraint: the post-solve guarantee is that no
+    label box intersects its own anchor mesh's projected AABB. The
+    iterative force is a soft hint that lets the solver converge to a
+    consistent layout; the hard pass enforces the invariant.
+
 Pure NumPy, no PyVista. The caller does the projection of world anchors
 to screen space and feeds projected (xy, label_size) tuples in. This
 keeps the solver testable in isolation and Qt-free.
@@ -48,11 +63,34 @@ CONVERGENCE_DELTA_PX: float = 0.5  # if max move < this, stop early.
 # after the iterative solve. Number of passes through the pair list.
 SEPARATION_PASSES: int = 20
 
+# Round-3 S2: anchor-mesh exclusion zone constants.
+#
+# ``MESH_EXCLUSION_PADDING_PX`` is the padding added to the projected
+# mesh AABB before the solver treats it as forbidden territory — keeps a
+# small but visible gap between the label box and the silhouette of the
+# anchor mesh (e.g. the target sphere or the satellite diamond).
+#
+# ``MESH_EXCLUSION_K`` is the per-step force coefficient. It is tuned
+# higher than ``LABEL_REPULSION_K``-on-typical-distances because the
+# constraint is a *hard* one: violating "label sits inside the mesh
+# silhouette" is worse than any other layout outcome. The post-solve
+# hard-push pass guarantees the invariant even if this force isn't
+# enough to converge in time.
+MESH_EXCLUSION_PADDING_PX: float = 8.0
+MESH_EXCLUSION_K: float = 200.0
+
 
 @dataclass(frozen=True)
 class LabelLayoutInput:
     anchor_screen_xy: npt.NDArray[np.float64]  # shape (2,)
     label_size_px: tuple[float, float]  # (width, height)
+    # Round-3 S2: optional projected screen-space AABB of the anchor's
+    # *mesh*, used to keep the label outside the mesh silhouette. Format
+    # is ``(xmin, ymin, xmax, ymax)`` in pixels, already padded by the
+    # caller via ``MESH_EXCLUSION_PADDING_PX``. ``None`` for anchors that
+    # are points / vector-midpoints / arc-midpoints (no mesh silhouette
+    # to avoid).
+    mesh_bbox_px: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +116,23 @@ def solve_layout(
     width, height = float(viewport_size_px[0]), float(viewport_size_px[1])
     anchors = np.array([np.asarray(i.anchor_screen_xy, dtype=np.float64) for i in inputs])
     sizes = np.array([np.asarray(i.label_size_px, dtype=np.float64) for i in inputs])
+
+    # Round-3 S2: pre-compute the per-label mesh-exclusion zones (padded
+    # AABBs in screen pixels). ``None`` mesh bboxes become an "inactive"
+    # row: zero half-extent and a center far off-screen, so the
+    # vectorized intersection test never fires.
+    has_mesh_bbox = np.zeros(n, dtype=bool)
+    mesh_bbox_centers = np.zeros((n, 2), dtype=np.float64)
+    mesh_bbox_half = np.zeros((n, 2), dtype=np.float64)
+    for idx, inp in enumerate(inputs):
+        if inp.mesh_bbox_px is None:
+            continue
+        xmin, ymin, xmax, ymax = inp.mesh_bbox_px
+        if xmax <= xmin or ymax <= ymin:
+            continue
+        has_mesh_bbox[idx] = True
+        mesh_bbox_centers[idx] = (0.5 * (xmin + xmax), 0.5 * (ymin + ymax))
+        mesh_bbox_half[idx] = (0.5 * (xmax - xmin), 0.5 * (ymax - ymin))
 
     # Initial placement.
     centroid = anchors.mean(axis=0)
@@ -136,6 +191,32 @@ def solve_layout(
         inv_cube = LABEL_REPULSION_K / (d_eff ** 3)
         pair_forces = deltas * inv_cube[:, :, None]
         forces += pair_forces.sum(axis=1)
+
+        # Round-3 S2: anchor-mesh exclusion. For each label whose anchor
+        # has a mesh bbox, push the label center away from the bbox
+        # center if the label box still intersects the (padded) mesh
+        # bbox. Soft force during iteration; the post-solve hard-push
+        # pass below guarantees the invariant.
+        if np.any(has_mesh_bbox):
+            for i in range(n):
+                if not has_mesh_bbox[i]:
+                    continue
+                # AABB intersection test: separation gap on each axis.
+                gap_x = abs(positions[i, 0] - mesh_bbox_centers[i, 0]) - (
+                    half_sizes[i, 0] + mesh_bbox_half[i, 0]
+                )
+                gap_y = abs(positions[i, 1] - mesh_bbox_centers[i, 1]) - (
+                    half_sizes[i, 1] + mesh_bbox_half[i, 1]
+                )
+                if gap_x < 0.0 and gap_y < 0.0:
+                    delta = positions[i] - mesh_bbox_centers[i]
+                    dnorm = float(np.linalg.norm(delta))
+                    if dnorm < 1e-6:
+                        # Co-located — push along +x as a tiebreaker.
+                        unit = np.array([1.0, 0.0])
+                    else:
+                        unit = delta / dnorm
+                    forces[i] += MESH_EXCLUSION_K * unit
 
         # Viewport-edge repulsion: linear push back from each wall.
         left_dist = positions[:, 0] - half_sizes[:, 0] - EDGE_PADDING_PX
@@ -232,6 +313,50 @@ def solve_layout(
             positions[:, 1], half_sizes[:, 1] + EDGE_PADDING_PX,
             height - half_sizes[:, 1] - EDGE_PADDING_PX,
         )
+
+    # Round-3 S2: hard anchor-mesh exclusion. After every other pass
+    # (including R6's max-distance clamp, which can pull a label back
+    # toward its anchor and into the mesh), forcibly push every label
+    # with a mesh bbox out along the smaller-overlap axis until the AABB
+    # invariant holds. This is the post-solve guarantee — S2 outranks
+    # R6's max-distance clamp because "label inside the mesh silhouette"
+    # is always worse than "label slightly farther than 240 px from the
+    # anchor".
+    if np.any(has_mesh_bbox):
+        for i in range(n):
+            if not has_mesh_bbox[i]:
+                continue
+            for _ in range(SEPARATION_PASSES):
+                gap_x = abs(positions[i, 0] - mesh_bbox_centers[i, 0]) - (
+                    half_sizes[i, 0] + mesh_bbox_half[i, 0]
+                )
+                gap_y = abs(positions[i, 1] - mesh_bbox_centers[i, 1]) - (
+                    half_sizes[i, 1] + mesh_bbox_half[i, 1]
+                )
+                if gap_x >= 0.0 or gap_y >= 0.0:
+                    break
+                # Push along the smaller-overlap axis.
+                overlap_x = -gap_x
+                overlap_y = -gap_y
+                if overlap_x < overlap_y:
+                    sign = 1.0 if positions[i, 0] >= mesh_bbox_centers[i, 0] else -1.0
+                    positions[i, 0] += sign * (overlap_x + 0.5)
+                else:
+                    sign = 1.0 if positions[i, 1] >= mesh_bbox_centers[i, 1] else -1.0
+                    positions[i, 1] += sign * (overlap_y + 0.5)
+                # Stay inside the viewport. Clamping is per-axis and uses
+                # the half-size so the *box* stays inside, not just the
+                # center.
+                positions[i, 0] = float(np.clip(
+                    positions[i, 0],
+                    half_sizes[i, 0] + EDGE_PADDING_PX,
+                    width - half_sizes[i, 0] - EDGE_PADDING_PX,
+                ))
+                positions[i, 1] = float(np.clip(
+                    positions[i, 1],
+                    half_sizes[i, 1] + EDGE_PADDING_PX,
+                    height - half_sizes[i, 1] - EDGE_PADDING_PX,
+                ))
 
     return [
         LabelLayoutResult(

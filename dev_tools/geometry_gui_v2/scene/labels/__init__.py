@@ -6,12 +6,17 @@ orchestrates anchor collection, screen-space layout, and leader-label
 rendering. Per-primitive label data lives in ``_anchors.py``; the layout
 solver lives in ``layout.py``; the renderer lives in ``leader_label.py``.
 
+Round-3 S2: anchors whose primitive is a *mesh* (target body, satellite
+glyph, sun disc, background sphere) supply the projected screen-space
+AABB of that mesh to the layout solver so the label box can be kept
+outside the mesh silhouette.
+
 C7: this package imports nothing from Qt.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import numpy as np
 
@@ -19,6 +24,71 @@ from dev_tools.geometry_gui_v2.app.state import SceneState
 
 if TYPE_CHECKING:
     import pyvista as pv
+
+
+# Round-3 S2: anchors whose label must stay outside the silhouette of a
+# rendered mesh. Maps anchor name → primary actor name. Vector-midpoint
+# and arc-midpoint anchors are intentionally absent — they're points
+# along a tube/arc, not silhouettes the label can be "inside".
+_ANCHOR_MESH_ACTORS: Final[dict[str, str]] = {
+    "lbl_target": "target",
+    "lbl_observer": "glyph_observer",
+    "lbl_sun": "glyph_sun",
+    "lbl_background": "glyph_background",
+}
+
+
+def _projected_mesh_bbox(
+    plotter: "pv.Plotter", actor_name: str | None
+) -> tuple[float, float, float, float] | None:
+    """Project the 8 corners of an actor's world-space AABB to display
+    pixels and return the screen-space AABB padded by
+    ``MESH_EXCLUSION_PADDING_PX``.
+
+    Returns ``None`` if ``actor_name`` is ``None`` or the actor is not in
+    the plotter — the layout solver treats ``None`` as "no exclusion
+    zone" and falls back to the standard repulsion / clamp behavior.
+    """
+    if actor_name is None:
+        return None
+    actor = plotter.actors.get(actor_name)
+    if actor is None:
+        return None
+    from dev_tools.geometry_gui_v2.scene.labels.layout import (
+        MESH_EXCLUSION_PADDING_PX as PAD,
+    )
+    from dev_tools.geometry_gui_v2.scene.labels.leader_label import (
+        project_world_to_display,
+    )
+
+    bounds = actor.GetBounds()
+    if bounds is None:
+        return None
+    xmin, xmax, ymin, ymax, zmin, zmax = bounds
+    if xmax < xmin or ymax < ymin or zmax < zmin:
+        return None
+
+    corners_world = np.array(
+        [
+            (xmin, ymin, zmin),
+            (xmax, ymin, zmin),
+            (xmin, ymax, zmin),
+            (xmax, ymax, zmin),
+            (xmin, ymin, zmax),
+            (xmax, ymin, zmax),
+            (xmin, ymax, zmax),
+            (xmax, ymax, zmax),
+        ],
+        dtype=np.float64,
+    )
+    xs: list[float] = []
+    ys: list[float] = []
+    for corner in corners_world:
+        px, py = project_world_to_display(plotter, corner)
+        xs.append(px)
+        ys.append(py)
+
+    return (min(xs) - PAD, min(ys) - PAD, max(xs) + PAD, max(ys) + PAD)
 
 
 def remove_from_plotter(plotter: "pv.Plotter") -> None:
@@ -65,6 +135,7 @@ def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
     """
     from dev_tools.geometry_gui_v2.scene.labels._anchors import collect_anchors
     from dev_tools.geometry_gui_v2.scene.labels.layout import (
+        MESH_EXCLUSION_PADDING_PX,
         LabelLayoutInput,
         solve_layout,
     )
@@ -88,13 +159,17 @@ def add_to_plotter(plotter: "pv.Plotter", state: SceneState) -> None:
     win_size = plotter.window_size  # (w, h) in pixels
     inputs: list[LabelLayoutInput] = []
     anchor_screens: list[tuple[float, float]] = []
-    for label in labels:
+    for anchor, label in zip(anchors, labels):
         screen_xy = project_world_to_display(plotter, label.anchor_world)
         anchor_screens.append(screen_xy)
+        mesh_bbox_px = _projected_mesh_bbox(
+            plotter, _ANCHOR_MESH_ACTORS.get(anchor.name)
+        )
         inputs.append(
             LabelLayoutInput(
                 anchor_screen_xy=np.array(screen_xy, dtype=np.float64),
                 label_size_px=label.estimated_screen_size_px(),
+                mesh_bbox_px=mesh_bbox_px,
             )
         )
 

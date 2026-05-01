@@ -385,6 +385,7 @@ def test_derived_readout_has_units_on_every_value() -> None:
         "pixel_area",
         "projected_area",
         "fill_fraction_effective",
+        "apparent_size_pixels",
         "view_azimuth",
         "view_elevation",
         "solar_zenith",

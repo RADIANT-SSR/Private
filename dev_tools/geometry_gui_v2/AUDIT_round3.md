@@ -146,7 +146,39 @@ These will be filed as CU entries in `docs/Cleanup_Backlog.md` before this round
 
 ---
 
-## 9. Summary
+## 9. S7 follow-up — point_source regime tag root cause (added 2026-04-29)
+
+The round-3 plan §9 asks me to determine which of three possibilities explains the `point_source` regime tag on physically-large targets:
+
+1. The classifier is wrong.
+2. Rendering-vs-reality mismatch — the rendered target is artificially scaled up for visibility.
+3. Test fixture deliberately overrides the regime to point_source.
+
+**Finding: possibility 2.** The classifier is correct. The targets that look "large" in the viewport are actually point sources at the configured altitude and sensor parameters. Worked example for the round-3 default state (observer 600 km, look 20°, target alt 0, focal 1 m, pixel pitch 10 µm):
+
+| Shape           | A_t      | slant      | ang_ext    | IFOV       | Apparent size | Threshold check          | Regime         |
+| --------------- | -------- | ---------- | ---------- | ---------- | ------------- | ------------------------ | -------------- |
+| sphere R=1 m    | 3.142 m² | 638.5 km   | 2.78 µrad  | 10.00 µrad | 0.278 px      | 0.25·IFOV < r < 2·IFOV   | sub_pixel      |
+| box 1×1×2 m     | 2.000 m² | 638.5 km   | 2.21 µrad  | 10.00 µrad | 0.221 px      | r ≤ 0.25·IFOV            | **point_source** |
+| flat_plate 1×2 m | 2.000 m² | 638.5 km  | 2.21 µrad  | 10.00 µrad | 0.221 px      | r ≤ 0.25·IFOV            | **point_source** |
+| cylinder R=1, L=2 m | 3.142 m² | 638.5 km | 2.78 µrad | 10.00 µrad | 0.278 px      | 0.25·IFOV < r < 2·IFOV   | sub_pixel      |
+| cone R=1, H=2 m | 3.137 m² | 638.5 km   | 2.77 µrad  | 10.00 µrad | 0.277 px      | 0.25·IFOV < r < 2·IFOV   | sub_pixel      |
+
+(The thresholds for the round-3 default sensor: 0.25·IFOV = 2.5 µrad and 2·IFOV = 20 µrad.)
+
+So the box and flat_plate, with projected areas just below the sphere's, dip below the 0.25·IFOV boundary and classify as `point_source`. The viewport renders both at scene-meter scale (~1–2 m on canvas) so the user sees a "big box"; the regime classifier is reading the *true* angular extent (sub-pixel by 5×).
+
+**Fix shipped (S7 commit):**
+
+1. New panel readout `Apparent size` in the Regime section ([app/panels/readouts.py](app/panels/readouts.py)) shows the target's true on-sensor size in pixels (`= ang_ext / ifov`). When the user sees `point_source` on a "big" rendered target, the same panel section now shows e.g. `0.221 px` so the rendering-vs-reality story is explicit.
+2. New view-model function `target_apparent_size_pixels(state)` computes the value once. Tightly coupled to `_angular_extent_rad` and `classify_regime` (same inputs, same purpose) — kept in `view_model.py` per the Rule-19 carve-out for tightly coupled helpers.
+3. Regression tests in [tests/test_regime_apparent_size.py](tests/test_regime_apparent_size.py) (19 tests) anchor the round-3 §0 defect-7 case numerically (default box → `point_source`, apparent size ≈ 0.22 px), sweep the classifier across (size, altitude, focal length) so any future threshold flip is caught, verify the panel value equals `ang_ext / ifov` for every shape, and verify the box orientation sweep all stays sub-1-px (the rendering-vs-reality story holds across the round-3 reel).
+
+**No classifier change.** The round-3 plan §9's possibility-2 path explicitly says: "add a 'rendered at N× true scale' indicator … makes it explicit when the user is looking at an artificially-scaled rendering." The `Apparent size` readout is the concrete realization of that — the user reads off the apparent pixel count directly, not a fudge factor.
+
+---
+
+## 10. Summary
 
 - Tests pass (295 + 8 skipped).
 - Both dock panels are shipped and wired (different filenames than the plan spec'd; functionally equivalent).

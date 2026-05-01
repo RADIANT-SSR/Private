@@ -235,6 +235,28 @@ def _angular_extent_rad(state: SceneState) -> float:
     return math.sqrt(A) / slant
 
 
+def target_apparent_size_pixels(state: SceneState) -> float:
+    """Target apparent size on the sensor [pixels], = ang_ext / ifov.
+
+    Round-3 S7: the viewport renders the target at scene-meter scale so
+    geometry stays legible. That makes physically-tiny targets look
+    "large" on screen even when they classify as ``point_source`` (e.g.
+    a 1×1×2 m box at 600 km with a 1 m focal length / 10 µm pixel
+    pitch). This readout makes the rendering-vs-reality story explicit:
+    if apparent size << 1 px, the target is a point source; if
+    apparent size >> 1 px, it is extended; the on-canvas appearance is
+    schematic, not photorealistic.
+
+    Returns +inf for the degenerate slant=0 case (matches
+    ``_angular_extent_rad``); the panel formatter renders it as "∞ px".
+    """
+    ang_ext = _angular_extent_rad(state)
+    ifov = state.pixel_pitch_m / state.focal_length_m
+    if not math.isfinite(ang_ext):
+        return math.inf
+    return ang_ext / ifov
+
+
 # ---------------------------------------------------------------------------
 # Readout panel values (one labeled scalar each, every value carries units)
 # ---------------------------------------------------------------------------
@@ -289,6 +311,7 @@ def derived_readout(state: SceneState) -> dict[str, tuple[float, str]]:
         "pixel_area": (pixel_area, "m^2"),
         "projected_area": (A_t, "m^2"),
         "fill_fraction_effective": (fill_eff, "(dimensionless)"),
+        "apparent_size_pixels": (target_apparent_size_pixels(state), "px"),
         "view_azimuth": (display_view_azimuth_rad(state), "rad"),
         "view_elevation": (display_view_elevation_rad(state), "rad"),
         "solar_zenith": (state.solar_zenith_rad, "rad"),
@@ -315,6 +338,10 @@ _READOUT_FORMATTERS: Final[dict[str, tuple[str, "callable[[float], str]"]]] = { 
     "ro-fill-fraction": (
         "(dimensionless)",
         lambda v: f"{v:.3f} (dimensionless)",
+    ),
+    "ro-apparent-size-pixels": (
+        "px",
+        lambda v: "∞ px" if not math.isfinite(v) else f"{v:.3f} px",
     ),
     "ro-pixel-area": ("m^2", lambda v: f"{v:.4g} m^2"),
     "ro-projected-area": ("m^2", lambda v: f"{v:.4g} m^2"),

@@ -84,6 +84,7 @@ _SECTIONS: Final[list[tuple[str, list[tuple[str, str]]]]] = [
         [
             ("Regime", "ro-regime"),
             ("Reason", "ro-regime-reason"),
+            ("Apparent size", "ro-apparent-size-pixels"),
         ],
     ),
 ]

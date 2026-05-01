@@ -213,3 +213,106 @@ Resolve CU-042 (probably by switching to a software GL backend
 under offscreen, or by capturing screenshots from the developer's
 local machine which has a real display attached). Re-run the
 interactive checklist once CU-042 is closed.
+
+---
+
+## BLOCKER S8-B1 — Full-app screenshots gated by CU-042
+
+**Discovered:** 2026-04-29, S8 visual verification.
+
+**Check:** Round-three plan §10 §616–625 calls for 39 PNGs total, of
+which 14 require a full-app shell (window chrome + both panels +
+viewport):
+
+- 9 canonical-view frames at `<view>_full.png`
+- 4 observer-altitude slider-drag frames `slider_alt_{1..4}.png`
+- 4 solar-zenith slider-drag frames `slider_zenith_{1..4}.png`
+  (correction: 1+4+4 = 9 sliders; the plan calls for 4-each from
+  two sequences = 8 slider frames + 9 canonicals = 17. We delivered 0.)
+
+The remaining 25 PNGs (viewport-only) **were** generated and ship
+under [tests/golden/round3/final/](tests/golden/round3/final/).
+
+**Symptom:**
+Generating a full-app screenshot requires a Qt event loop with a
+QtInteractor in the central widget. CU-042 documents that
+QtInteractor segfaults under offscreen GL on this machine (the same
+bug that drives the 8 skip markers in the v2 suite). Attempting
+`xvfb-run python -m dev_tools.geometry_gui_v2.app.main` here would
+either segfault or block on the same path the existing skips guard.
+
+**Mitigation in place:**
+
+- The Qt-shell wiring contract is verified by unit tests:
+  - `test_view_cube.py` (T2) — view-cube widget signal/slot
+  - `test_world_axes_gnomon.py` (T4) — gnomon mount and styling
+  - `test_readouts_panel.py` (15 tests, R7) — the right dock contract
+  - `test_parameters_panel.py` (15 tests, R8) — left dock contract
+  - `test_scene_phase4.py` — label deconfliction
+- The right-dock readouts pull from `view_model.format_readout`,
+  which is independently unit-tested for every numeric row including
+  the new `Apparent size` row (S7).
+- The viewport-only PNGs we **did** generate prove every in-viewport
+  primitive (target, glyphs, ground, vectors, angle arcs, labels,
+  break-marks) ships correctly across all 9 canonical views and all
+  16 sweep frames.
+
+**What is genuinely unverified:**
+Pixel-level layout of the Qt-shell window chrome — gnomon position,
+view-cube position, panel column widths, dock-resize behavior, and
+the slider-drag → readout-update lockstep at the pixel level. None
+of this is testable without a real Qt event loop on a display-attached
+machine.
+
+**Why this is a blocker rather than a Round-3 fix:**
+CU-042 is an upstream environment issue, not a defect introduced by
+this round. Round-3 §0 identifies the seven defects this round
+addresses; none of those defects involve Qt-shell layout. The plan's
+§10 acceptance bundle is broader than the §0 defect set.
+
+**Suggested fix:**
+Resolve CU-042 (same fix that unblocks R9-B3) and re-render the 14
+full-app frames from a real-display developer machine. Alternatively,
+file a follow-up task to capture full-app screenshots from the user's
+local desktop and append them to `tests/golden/round3/final/`.
+
+---
+
+## BLOCKER S8-B2 — Interactive desktop checklist not run
+
+**Discovered:** 2026-04-29, S8 visual verification.
+
+**Check:** Round-three plan §10 §672–678 calls for an interactive run
+on a real desktop confirming:
+
+- Slider drag at 60 fps for default scene
+- Slider drag at ≥30 fps for the most expensive scene
+  (extended cell + box + all vectors)
+- Right-panel readouts update in lockstep
+- View-cube clicks animate camera over 400 ms
+- Frame-switcher dropdown re-expresses vectors smoothly
+- Help overlay opens on `?`
+
+**Symptom:**
+The session host is the same offscreen-GL machine that gates
+QtInteractor (CU-042). An interactive run would block on the same
+path as S8-B1.
+
+**Mitigation in place:**
+
+- The 16 ms slider-drag debounce is unit-tested.
+- The signal-emission semantics for view-cube clicks and
+  frame-switcher transitions are unit-tested.
+- The `set_state` no-feedback-loop guarantee on the readouts panel
+  is unit-tested (`test_readouts_panel.py`).
+
+**What is genuinely unverified:**
+Wall-clock interactive performance and the human-perceptible
+smoothness of slider-drag, view-cube animation, and frame-switcher
+transitions. These cannot be measured without a real Qt event loop
+and a real display.
+
+**Suggested fix:**
+Same as S8-B1 — resolve CU-042 or run the checklist from the user's
+local desktop. Document the FPS measurements and check off each
+item from §672–678 inline in this blocker entry once it is run.

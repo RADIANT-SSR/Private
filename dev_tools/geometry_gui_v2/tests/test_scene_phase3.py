@@ -191,24 +191,38 @@ def test_vector_tip_sits_at_shaft_endpoint(
 ) -> None:
     """Sanity: the boresight tip cone's bounds are near the boresight
     shaft's far endpoint. Catches a regression where the tip is placed at
-    the wrong position (e.g. start vs end swap)."""
+    the wrong position (e.g. start vs end swap).
+
+    Round-3 S4/S5: the boresight line now starts at ``target_centroid``
+    (not the world origin) and ends at ``target_centroid +
+    display_distance * direction`` where ``display_distance`` grows with
+    target altitude. The expected tip position therefore shifts with the
+    target lift and the new schematic distance.
+    """
     state = SceneState.default()
     build_scene(state, plotter=offscreen_plotter)
 
     from dev_tools.geometry_gui_v2.scene._directions import (
         observer_direction_scene,
     )
+    from dev_tools.geometry_gui_v2.scene._display_distance import (
+        schematic_display_distance_m,
+    )
     from dev_tools.geometry_gui_v2.scene._layout import (
         SCENE_OBSERVER_DISTANCE_M,
     )
-
-    expected_tip = (
-        observer_direction_scene(state) * SCENE_OBSERVER_DISTANCE_M
+    from dev_tools.geometry_gui_v2.scene.target._pose import (
+        target_centroid_scene,
     )
+
+    target_pos = np.array(target_centroid_scene(state), dtype=np.float64)
+    direction = observer_direction_scene(state)
+    distance = schematic_display_distance_m(state, SCENE_OBSERVER_DISTANCE_M)
+    expected_tip = target_pos + direction * distance
     tip_center = _bounds_center(offscreen_plotter.actors["vec_boresight_tip"])
-    distance = np.linalg.norm(tip_center - expected_tip)
+    distance_off = np.linalg.norm(tip_center - expected_tip)
     # Cone has finite height (~ length * 0.12); allow for half a cone length.
-    assert distance < 0.6, (
-        f"boresight tip cone offset from expected endpoint by {distance:.3f} m "
+    assert distance_off < 0.6, (
+        f"boresight tip cone offset from expected endpoint by {distance_off:.3f} m "
         f"— expected {expected_tip!r}, got {tip_center!r}"
     )

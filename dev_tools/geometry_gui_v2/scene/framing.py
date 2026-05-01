@@ -40,6 +40,7 @@ from dev_tools.geometry_gui_v2.scene._directions import (
     observer_direction_scene,
     sun_direction_scene,
 )
+from dev_tools.geometry_gui_v2.scene._display_distance import schematic_display_distance_m
 from dev_tools.geometry_gui_v2.scene._layout import (
     SCENE_BACKGROUND_DISTANCE_M,
     SCENE_OBSERVER_DISTANCE_M,
@@ -115,14 +116,30 @@ def scene_bounds(
     points.append(centroid + np.array([+half, +half, +half], dtype=np.float64))
     points.append(centroid + np.array([-half, -half, -half], dtype=np.float64))
 
-    # Observer / sun glyphs at display positions.
-    points.append(observer_direction_scene(state) * SCENE_OBSERVER_DISTANCE_M)
-    points.append(sun_direction_scene(state) * SCENE_SUN_DISTANCE_M)
+    # Observer / sun glyphs at display positions. S5 (round-3): the
+    # display position is anchored at the lifted target centroid and
+    # grows with altitude — see ``scene/_display_distance.py``. The
+    # framing must follow so the camera pulls back to keep the full
+    # scene in frame at high altitude.
+    points.append(
+        centroid
+        + observer_direction_scene(state)
+        * schematic_display_distance_m(state, SCENE_OBSERVER_DISTANCE_M)
+    )
+    points.append(
+        centroid
+        + sun_direction_scene(state)
+        * schematic_display_distance_m(state, SCENE_SUN_DISTANCE_M)
+    )
 
     # Background only when active — matches the gating in
     # ``scene/glyphs/background.py`` and ``scene/vectors/sun_to_background.py``.
     if state.background_kind != "none":
-        points.append(background_direction_scene(state) * SCENE_BACKGROUND_DISTANCE_M)
+        points.append(
+            centroid
+            + background_direction_scene(state)
+            * schematic_display_distance_m(state, SCENE_BACKGROUND_DISTANCE_M)
+        )
 
     stacked = np.stack(points, axis=0)
     return stacked.min(axis=0), stacked.max(axis=0)

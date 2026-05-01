@@ -29,6 +29,7 @@ from dev_tools.geometry_gui_v2.scene._directions import (
     observer_direction_scene,
     sun_direction_scene,
 )
+from dev_tools.geometry_gui_v2.scene._display_distance import schematic_display_distance_m
 from dev_tools.geometry_gui_v2.scene._layout import (
     ARC_RADIUS_M,
     SCENE_BACKGROUND_DISTANCE_M,
@@ -77,10 +78,22 @@ def collect_anchors(state: SceneState) -> list[LabelAnchor]:
     obs_dir = observer_direction_scene(state)
     sun_dir = sun_direction_scene(state)
     bg_dir = background_direction_scene(state)
-    obs_pos = obs_dir * SCENE_OBSERVER_DISTANCE_M
-    sun_pos = sun_dir * SCENE_SUN_DISTANCE_M
-    bg_pos = bg_dir * SCENE_BACKGROUND_DISTANCE_M
     target_pos = np.array(target_centroid_scene(state), dtype=np.float64)
+    # S5: glyph display positions are anchored at the lifted target
+    # centroid and scale with target altitude — see
+    # ``scene/_display_distance.py``. Pre-S5 these were
+    # ``direction * SCENE_*_DISTANCE_M`` from the world origin, which
+    # detached the leader-line anchor from the actual glyph position
+    # at high target altitude.
+    obs_pos = target_pos + obs_dir * schematic_display_distance_m(
+        state, SCENE_OBSERVER_DISTANCE_M
+    )
+    sun_pos = target_pos + sun_dir * schematic_display_distance_m(
+        state, SCENE_SUN_DISTANCE_M
+    )
+    bg_pos = target_pos + bg_dir * schematic_display_distance_m(
+        state, SCENE_BACKGROUND_DISTANCE_M
+    )
 
     surface_normal_end = np.array(
         [0.0, 0.0, max(1.5 * state.target_radius_m, 1.5)], dtype=np.float64

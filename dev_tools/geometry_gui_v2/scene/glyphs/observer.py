@@ -6,6 +6,14 @@ oriented so its normal points along the boresight (target → observer)
 unit vector, which matches the user expectation that the satellite icon
 "faces the camera looking toward the target".
 
+Round-3 S5 (PLAN_v2_remediation_round3.md §7): the glyph is now anchored
+at ``target_centroid + display_distance * direction`` instead of
+``direction * SCENE_OBSERVER_DISTANCE_M``. Pre-S5 the lifted target at
+high altitude (z ≈ 4–5 m) overlapped the satellite glyph at its fixed
+world-space position. ``display_distance`` is sourced from
+``scene/_display_distance.py``, which grows the schematic distance with
+target altitude so the glyph remains visibly above the target.
+
 Screen-space sizing (PLAN_v2.md §11 step 3) is a Phase 5 interactive
 concern; for now the glyph has a fixed world-space radius so the static
 goldens are deterministic.
@@ -19,14 +27,18 @@ import pyvista as pv
 from dev_tools.geometry_gui_v2.app.state import SceneState
 from dev_tools.geometry_gui_v2.scene import style
 from dev_tools.geometry_gui_v2.scene._directions import observer_direction_scene
+from dev_tools.geometry_gui_v2.scene._display_distance import schematic_display_distance_m
 from dev_tools.geometry_gui_v2.scene._layout import SCENE_OBSERVER_DISTANCE_M
+from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
 
 _DIAMOND_RADIUS_M = 0.30
 
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     direction = observer_direction_scene(state)
-    pos = direction * SCENE_OBSERVER_DISTANCE_M
+    distance = schematic_display_distance_m(state, SCENE_OBSERVER_DISTANCE_M)
+    target_pos = np.array(target_centroid_scene(state), dtype=np.float64)
+    pos = target_pos + direction * distance
     diamond = pv.Polygon(
         center=tuple(pos),
         radius=_DIAMOND_RADIUS_M,

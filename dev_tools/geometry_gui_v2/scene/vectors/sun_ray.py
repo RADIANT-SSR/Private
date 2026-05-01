@@ -18,6 +18,7 @@ import pyvista as pv
 from dev_tools.geometry_gui_v2.app.state import SceneState
 from dev_tools.geometry_gui_v2.scene import style
 from dev_tools.geometry_gui_v2.scene._directions import sun_direction_scene
+from dev_tools.geometry_gui_v2.scene._display_distance import schematic_display_distance_m
 from dev_tools.geometry_gui_v2.scene._layout import SCENE_SUN_DISTANCE_M
 from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
 from dev_tools.geometry_gui_v2.scene.vectors._tube import add_vector_with_arrow
@@ -25,8 +26,11 @@ from dev_tools.geometry_gui_v2.scene.vectors._tube import add_vector_with_arrow
 
 def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     direction = sun_direction_scene(state)
-    end = direction * SCENE_SUN_DISTANCE_M
     start = np.array(target_centroid_scene(state), dtype=np.float64)
+    # S5: end follows the sun glyph, anchored at ``target + display *
+    # direction`` and growing with altitude. See boresight.py.
+    distance = schematic_display_distance_m(state, SCENE_SUN_DISTANCE_M)
+    end = start + direction * distance
     # Round-2 R5: re-enable the not-to-scale break-mark. The schematic
     # 9 m sun distance is standing in for 1 AU; the break-mark conveys
     # that in-canvas. See boresight.py for the full rationale.

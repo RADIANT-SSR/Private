@@ -35,7 +35,9 @@ import pyvista as pv
 from dev_tools.geometry_gui_v2.app.state import SceneState
 from dev_tools.geometry_gui_v2.scene import style
 from dev_tools.geometry_gui_v2.scene._directions import sun_direction_scene
+from dev_tools.geometry_gui_v2.scene._display_distance import schematic_display_distance_m
 from dev_tools.geometry_gui_v2.scene._layout import SCENE_SUN_DISTANCE_M
+from dev_tools.geometry_gui_v2.scene.target._pose import target_centroid_scene
 
 # World-space sizes — see module docstring for the screen-space rationale.
 _DISC_OUTER_RADIUS_M = 0.30
@@ -76,7 +78,12 @@ def add_to_plotter(plotter: pv.Plotter, state: SceneState) -> None:
     ``glyph_sun_ray_0`` … ``glyph_sun_ray_7``.
     """
     direction = sun_direction_scene(state)
-    pos = direction * SCENE_SUN_DISTANCE_M
+    distance = schematic_display_distance_m(state, SCENE_SUN_DISTANCE_M)
+    target_pos = np.array(target_centroid_scene(state), dtype=np.float64)
+    # S5: anchor relative to the lifted target centroid (not the world
+    # origin) and grow the distance with altitude so the disc stays
+    # visibly above the target. See ``scene/_display_distance.py``.
+    pos = target_pos + direction * distance
 
     # Disc face points back toward the target (= camera-ish at iso pose).
     disc_normal = -direction

@@ -314,31 +314,39 @@ def test_apply_highlight_stamps_accent_on_known_actors() -> None:
 
 # --- Qt main-window wiring ------------------------------------------------
 # These tests construct a live ``GeometryMainWindow`` (which embeds a
-# ``QtInteractor``). On platforms where the offscreen Qt platform plugin
-# cannot create a real GL context, ``QtInteractor.__init__`` segfaults
-# *during construction* — Python's exception handling can't recover from
-# that. To opt in, set ``RADIANT_GUI_FULL_WINDOW_TESTS=1`` (CI does this in
-# environments that have a working virtual framebuffer; local dev on
-# headless macOS skips them).
+# ``QtInteractor``). The historical CU-042 segfault was specific to
+# ``QT_QPA_PLATFORM=offscreen`` on Darwin — ``QtInteractor.__init__``
+# couldn't create a GL context and crashed during construction. The fix
+# is to use the platform-native plugin instead (``cocoa`` on macOS,
+# ``xcb`` on Linux, ``windows`` on Windows). Setting this default below
+# makes the full Qt-window suite run by default on every dev machine.
 #
-# Equivalent coverage on non-segfault paths is provided by
-# tests/test_readouts_panel.py (panel construction) and the pure-Python
-# tests above (state machine, camera poses, highlight registry).
+# CI environments that genuinely need offscreen rendering (e.g. headless
+# Linux without xvfb) can still set ``QT_QPA_PLATFORM=offscreen`` and
+# ``RADIANT_GUI_FULL_WINDOW_TESTS=0`` to opt out.
+
+import sys as _sys
 
 os.environ.setdefault("QT_API", "pyside6")
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+if _sys.platform == "darwin":
+    os.environ.setdefault("QT_QPA_PLATFORM", "cocoa")
+elif _sys.platform == "win32":
+    os.environ.setdefault("QT_QPA_PLATFORM", "windows")
+else:
+    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
 pytest.importorskip("PySide6")
 pytest.importorskip("pyvistaqt")
 
-_FULL_WINDOW_TESTS_ENABLED = os.environ.get("RADIANT_GUI_FULL_WINDOW_TESTS") == "1"
+_FULL_WINDOW_TESTS_ENABLED = os.environ.get(
+    "RADIANT_GUI_FULL_WINDOW_TESTS", "1"
+) == "1"
 
 pytestmark_window = pytest.mark.skipif(
     not _FULL_WINDOW_TESTS_ENABLED,
     reason=(
-        "Set RADIANT_GUI_FULL_WINDOW_TESTS=1 to run the full QtInteractor-"
-        "backed window tests. Skipped by default because offscreen GL "
-        "contexts segfault on some platforms during QtInteractor.__init__."
+        "Full Qt-window tests disabled (RADIANT_GUI_FULL_WINDOW_TESTS=0). "
+        "Set RADIANT_GUI_FULL_WINDOW_TESTS=1 to opt back in."
     ),
 )
 

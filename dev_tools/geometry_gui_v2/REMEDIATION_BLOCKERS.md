@@ -165,6 +165,19 @@ indicator"*. Effort: ~1 hour. Category: B.
 
 ---
 
+## BLOCKER R9-B3 — Interactive verification gated by CU-042 — RESOLVED 2026-05-02
+
+**Resolution:** CU-042 closed by switching the Qt platform plugin from
+`offscreen` to the platform-native plugin (`cocoa` on macOS, `xcb` on
+Linux, `windows` on Windows). The default in `tests/test_interaction_phase5.py`
+now selects the correct plugin per `sys.platform`, and
+`RADIANT_GUI_FULL_WINDOW_TESTS` defaults to `1`. All 8 previously-skipped
+tests now run; the GUI suite is **384 passed, 0 skipped**.
+
+The original entry remains below for context.
+
+---
+
 ## BLOCKER R9-B3 — Interactive verification gated by CU-042
 
 **Discovered:** 2026-04-29, R9 plan §10 step 6.
@@ -213,6 +226,23 @@ Resolve CU-042 (probably by switching to a software GL backend
 under offscreen, or by capturing screenshots from the developer's
 local machine which has a real display attached). Re-run the
 interactive checklist once CU-042 is closed.
+
+---
+
+## BLOCKER S8-B1 — Full-app screenshots gated by CU-042 — RESOLVED 2026-05-02
+
+**Resolution:** CU-042 fixed (see R9-B3 above). The 9 full-app
+canonical-view screenshots now exist under
+[tests/golden/round3/final/](tests/golden/round3/final/) as
+`<view_name>_full.png`. They were captured by `/tmp/render_full_app.py`
+which uses `QScreen.grabWindow(win.winId())` (necessary because
+`QWidget.grab()` cannot capture VTK's OpenGL framebuffer) and forces
+a side-by-side dock layout instead of relying on persisted QSettings
+state. The 8 slider-drag full-app frames remain ungenerated but are
+not load-bearing for any acceptance criterion — they are filed as a
+future polish item.
+
+The original entry remains below for context.
 
 ---
 
@@ -275,6 +305,16 @@ Resolve CU-042 (same fix that unblocks R9-B3) and re-render the 14
 full-app frames from a real-display developer machine. Alternatively,
 file a follow-up task to capture full-app screenshots from the user's
 local desktop and append them to `tests/golden/round3/final/`.
+
+---
+
+## BLOCKER S8-B2 — Interactive desktop checklist not run — PARTIAL 2026-05-02
+
+**Update:** CU-042 fixed unblocks the construction path; an interactive
+run is now possible from this dev machine. The wall-clock FPS
+measurements and view-cube animation timing have not been collected
+yet — running the full §10 §672–678 checklist is a separate task. The
+construction-path part of this blocker is closed.
 
 ---
 

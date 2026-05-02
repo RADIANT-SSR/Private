@@ -68,6 +68,22 @@ sequence.
 
 ---
 
+## BLOCKER R9-B1 — `extended_default`: pixel-cell footprint missing — RESOLVED 2026-05-02
+
+**Resolution:** Built [`scene/extended_pixel_cell.py`](scene/extended_pixel_cell.py),
+a translucent 4 m × 4 m schematic ground footprint primitive in
+`TARGET_COLOR` at `GRID_OPACITY` with visible edges. The builder
+([`scene/builder.py`](scene/builder.py)) calls it after the target body
+so transparency composites correctly; the module returns a no-op when
+`state.regime_override != "extended"`. A Phase-1 golden
+(`tests/golden_phase1/regime_extended.png`) locks the new view.
+
+The footprint size is intentionally schematic per the not-to-scale
+viewer rule — the actual GSD is surfaced as a numeric readout in the
+right dock. The original entry remains below for context.
+
+---
+
 ## BLOCKER R9-B1 — `extended_default`: pixel-cell footprint missing
 
 **Discovered:** 2026-04-29, R9 visual verification.
@@ -116,6 +132,22 @@ Open a CU under `docs/Cleanup_Backlog.md` titled
 *"Add `scene/extended_pixel_cell.py` ground-plane translucent
 footprint primitive"*. Effort: ~2 hours. Category: B (core
 abstraction — needs its own dimensional-audit + Phase-1 golden).
+
+---
+
+## BLOCKER R9-B2 — `point_source_default`: distinct marker missing — RESOLVED 2026-05-02
+
+**Resolution:** Built [`scene/point_source_marker.py`](scene/point_source_marker.py),
+a four-spoke "+" crosshair primitive in `ACCENT_COLOR` (orange) lying
+on the ground plane beneath the target. The builder calls it after the
+target body; the module returns a no-op when
+`state.regime_override != "point_source"`. A Phase-1 golden
+(`tests/golden_phase1/regime_point_source.png`) locks the new view.
+
+The orange crosshair is unambiguously distinct from the teal target
+body and the gray ground grid, so the user can tell at a glance that
+this view represents the point-source regime. The original entry
+remains below for context.
 
 ---
 

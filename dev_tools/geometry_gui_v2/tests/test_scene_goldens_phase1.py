@@ -122,3 +122,24 @@ def test_phase1_diagram_golden() -> None:
     golden the Phase-3 / Phase-4 work will repeatedly re-lock."""
     image = _capture(SceneState.default())
     _compare_or_lock("diagram_default", image)
+
+
+def test_phase1_extended_regime_golden() -> None:
+    """R9-B1 closure — translucent pixel-cell footprint primitive must
+    render when ``regime_override == "extended"``. Pre-fix this view was
+    byte-identical to ``diagram_default``; the golden locks the new
+    additive primitive."""
+    state = dataclasses.replace(SceneState.default(), regime_override="extended")
+    image = _capture(state)
+    _compare_or_lock("regime_extended", image)
+
+
+def test_phase1_point_source_regime_golden() -> None:
+    """R9-B2 closure — distinct crosshair marker must render when
+    ``regime_override == "point_source"``. Pre-fix this view was
+    byte-identical to ``diagram_default``."""
+    state = dataclasses.replace(
+        SceneState.default(), regime_override="point_source"
+    )
+    image = _capture(state)
+    _compare_or_lock("regime_point_source", image)

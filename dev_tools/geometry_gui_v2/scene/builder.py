@@ -20,10 +20,12 @@ import pyvista as pv
 
 from dev_tools.geometry_gui_v2.scene import (
     arcs,
+    extended_pixel_cell,
     frames,
     glyphs,
     ground,
     labels,
+    point_source_marker,
     target,
     vectors,
 )
@@ -64,6 +66,11 @@ def build_scene(
 
     ground.add_to_plotter(plotter, state)
     target.add_to_plotter(plotter, state)
+    # Regime-gated overlays (R9-B1, R9-B2). These render after the target
+    # body so translucent compositing works correctly, and each module
+    # returns a no-op when its regime is not active.
+    extended_pixel_cell.add_to_plotter(plotter, state)
+    point_source_marker.add_to_plotter(plotter, state)
     frames.add_to_plotter(plotter, state)
     vectors.add_to_plotter(plotter, state)
     arcs.add_to_plotter(plotter, state)

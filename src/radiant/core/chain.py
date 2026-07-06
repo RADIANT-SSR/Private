@@ -170,6 +170,7 @@ class ChainRunner:
         wavelength_um: npt.NDArray[np.float64],
         *,
         run_id: str | None = None,
+        initial_stage_outputs: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> ChainState:
         """Execute the chain and return the final accumulated state.
 
@@ -183,12 +184,24 @@ class ChainRunner:
             generated. The value is carried on the returned
             :class:`ChainState` and accessible via
             :attr:`ChainResult.provenance.run_id`.
+        initial_stage_outputs:
+            Optional pre-chain injections seeded into
+            ``state.stage_outputs`` before the first stage runs. This is
+            the Rule 6 hook: file-derived objects (e.g. the atmosphere
+            model under ``atmosphere_config``, the optical element list
+            under ``optics_config``) are loaded by the IO/API layer and
+            injected here, so stages never read files. Keys must not
+            collide with stage names.
         """
         rid = run_id if run_id is not None else new_run_id()
         state = ChainState(
             wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
             run_id=rid,
         )
+        if initial_stage_outputs is not None:
+            for namespace, outputs in initial_stage_outputs.items():
+                for key, value in outputs.items():
+                    state = state.with_stage_output(namespace, key, value)
         for stage in self._stages:
             new_state = stage.run(state, params)
             # Auto-record history if the stage didn't self-record.

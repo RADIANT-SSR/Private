@@ -13,6 +13,7 @@ import numpy.typing as npt
 from radiant.api._param_registry import build_parameter_set
 
 # Stage imports — only api/ may import all physics stages.
+from radiant.atmosphere.loaders import build_atmosphere_model
 from radiant.atmosphere.stage import AtmosphereStage
 from radiant.core.chain import ChainRunner
 from radiant.core.parameters import ParameterSet
@@ -58,13 +59,23 @@ class RadiantSession:
     def run(self, params: ParameterSet) -> ChainResult:
         """Execute the chain and return the result.
 
+        Builds the configured atmosphere model before chain execution
+        (Rule 6: any file I/O the model needs happens here, not inside
+        ``AtmosphereStage.run``) and injects it via
+        ``stage_outputs["atmosphere_config"]["model"]``.
+
         The returned :class:`ChainResult` carries the provided
         ``params`` so that
         :meth:`~radiant.io.results.ChainResult.to_provenance_record`
         can include the resolved parameter set and any input file
         hashes recorded by :func:`radiant.io.config.load_config`.
         """
-        state = self._runner.run(params, self._wavelength_um)
+        atmosphere_model = build_atmosphere_model(params)
+        state = self._runner.run(
+            params,
+            self._wavelength_um,
+            initial_stage_outputs={"atmosphere_config": {"model": atmosphere_model}},
+        )
         return ChainResult(state, params=params)
 
     @staticmethod

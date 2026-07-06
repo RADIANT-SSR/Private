@@ -176,6 +176,7 @@ ignore_imports = [
     "radiant.api.session -> radiant.core.parameters",
     "radiant.api.session -> radiant.source.stage",
     "radiant.api.session -> radiant.atmosphere.stage",
+    "radiant.api.session -> radiant.atmosphere.loaders",
     "radiant.api.session -> radiant.optics.stage",
     "radiant.api.session -> radiant.spectral_integration.stage",
     "radiant.api.session -> radiant.detector.stage",

@@ -287,14 +287,27 @@ EE_nxn
 └── pitch parameters as in RER
 ```
 
-### 3.11 Strehl ratio
+### 3.11 Strehl ratio (PSF-derived, `strehl`)
 
 ```
 Strehl
-├── EffectivePSF                              [§2.4]
-└── reference (diffraction-limited PSF)
-    └── (same pupil with WFE = 0; constructed automatically)
+├── EffectivePSF                              [§2.4]  stage_outputs["optics"]["effective_psf"]
+└── reference (diffraction-limited PSF)                stage_outputs["optics"]["reference_psf"]
+    └── (same pupil with WFE = 0, same detector kernels;
+        published by OpticsStage)
 ```
+
+### 3.11b Marechal Strehl diagnostic (`strehl_marechal`)
+
+```
+strehl_marechal = exp(-(2π · OPD_rms / λ)²)
+└── WavefrontError                            stage_outputs["optics"]["wavefront_error"]
+    ├── ★ optics.wfe_rms_waves
+    ├── ● optics.wfe_reference_wavelength_um
+    └── operating (band-center) wavelength
+```
+
+Analytic small-aberration diagnostic — ignores obscuration, defocus, jitter, smear. Distinct from the PSF-derived `strehl` above.
 
 ### 3.12 Point source detection range
 
@@ -360,7 +373,8 @@ The minimum-set table — what the user *must* set to compute each metric, assum
 | Edge slope | RER set |
 | MTF | RER set |
 | EE | RER set + `metric.ee.n` (defaulted to {1,3,5}) |
-| Strehl | RER set |
+| Strehl (`strehl`) | RER set (needs both `effective_psf` and `reference_psf` stage outputs) |
+| Marechal Strehl (`strehl_marechal`) | `optics.wfe_rms_waves` + reference wavelength (needs the `wavefront_error` stage output) |
 | Detection range | SNR set + point-source target + non-tabulated atmosphere |
 | Saturation margin (well/ADC) | SNR set + `detector.full_well_capacity_e` + `detector.gain_e_per_dn` + `detector.adc_bits` |
 | Dynamic range | `detector.full_well_capacity_e` + `detector.read_noise_e_rms` |
@@ -369,10 +383,10 @@ The minimum-set table — what the user *must* set to compute each metric, assum
 
 ## 5. How the Resolver Uses This
 
-The dependency trees in §3 are encoded as data in `radiant.performance.dependencies` as:
+The dependency trees in §3 are encoded as data in `radiant.performance.registry` (`METRIC_SPECS: dict[str, MetricSpec]`) — the runtime form is expressed in ChainState terms (required frames, `(stage, key)` stage-output pairs, noise terms, metric-on-metric dependencies, regimes) rather than raw parameter dot-paths:
 
 ```python
-DEPENDENCIES: dict[str, MetricDependency] = {
+DEPENDENCIES: dict[str, MetricDependency] = {   # design sketch; actual: METRIC_SPECS
     "snr": MetricDependency(
         required_keys=frozenset({
             "target.temperature_K",
@@ -392,15 +406,13 @@ DEPENDENCIES: dict[str, MetricDependency] = {
 }
 ```
 
-The resolver workflow:
-1. Load user config → flat dict of provided parameters.
-2. For each requested metric, look up its `MetricDependency`.
-3. Compute `missing = required_keys − provided_keys − defaulted_keys`.
-4. If `missing` is empty and consistency groups are satisfied → metric is computable.
-5. Else → emit a per-metric error: "metric `csnr` is not computable; missing: target.area_m2, background.temperature_K".
-6. The user can then run `radiant metrics applicable my_config.yaml` to get the list of computable metrics for *just* the parameters they have set, with no errors — useful when iterating.
+The runtime workflow (`radiant/performance/registry.py`):
+1. Run the chain to produce a `ChainState`.
+2. For each requested metric, `can_compute(name, state)` checks the `MetricSpec` requirements (frames, stage outputs, noise terms, prerequisite metrics, regime).
+3. `available_metrics(state)` returns the set of computable metrics.
+4. `missing_for(name, state)` reports exactly which frames / stage outputs / noise terms / metrics are absent, per category.
 
-This document and the code stay in sync via a CI test that walks every entry in `DEPENDENCIES` and checks that the trees match the markdown headings here. Drift is a build failure.
+(There is no `radiant metrics` CLI subcommand today; the functions above are the programmatic interface.) `performance/tests/test_registry.py` covers the registry behavior; there is no automated markdown-tree drift check — keep §3 in sync manually per Rule 20.
 
 ---
 

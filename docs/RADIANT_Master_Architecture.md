@@ -103,7 +103,7 @@ The canonical accessor is `ChainResult.to_provenance_record() -> dict[str, Any]`
 The pure helpers that assemble the record (`new_run_id`, `git_commit`, `python_version_string`, `dependency_versions`, `hash_file`) live in `radiant.core.provenance` so they are import-safe from anywhere in the codebase. Loaders populate the file-hash list by calling `ParameterSet.record_loaded_file(path, sha256)`. Provenance helpers never raise on environmental edge cases (no git, missing dep) — they degrade to `"unknown"` rather than blocking a chain run.
 
 ### C14 — The Scripting API Is the Stable Surface
-The public API (`radiant.Sensor`, `radiant.SensorConfig`, `radiant.ScenarioConfig`, `radiant.BatchRunner`, `radiant.ChainResult`) is the only surface with stability guarantees. Internal modules (`radiant.core.*`, individual stage implementations) are semi-public at best. Breaking changes to the public API require a major version bump and a deprecation cycle.
+The public API (`radiant.Sensor`, `radiant.RadiantError` — the top-level `__all__` in `src/radiant/__init__.py`) is the only surface with stability guarantees. `ChainResult` is importable from `radiant.io.results` but is not re-exported at the top level; `SensorConfig`, `ScenarioConfig`, and `BatchRunner` were dropped (see `docs/adr/ADR-C`). Internal modules (`radiant.core.*`, individual stage implementations) are semi-public at best. Breaking changes to the public API require a major version bump and a deprecation cycle.
 
 ### C15 — Test at Level 0 Before Level 2
 Physics correctness tests (Level 0) must pass before integration tests (Level 2) are trusted. A Level 2 test that passes while a Level 0 test fails is meaningless — the right answer for the wrong reason. CI enforces: Level 0 failure blocks Level 1; Level 1 failure blocks Level 2.
@@ -120,7 +120,7 @@ Full detail in RADIANT_Scope_Decisions.md. Summary:
 |----------|-----------------|
 | Source | Planck thermal emission, Lambertian reflected solar, non-uniform temperature (hot-spot), gray body emissivity |
 | Atmosphere | MODTRAN tape7 interface (τ, L_path, L_atm), simple Beer-Lambert model, 6 standard atmospheres |
-| Optics | Diffraction MTF (circular aperture ± obscuration), WFE/Strehl (Marechal), throughput, warm optics emission, cold stop, filter bandpass, defocus MTF, EE_box |
+| Optics | Optical MTF from pupil autocorrelation (circular aperture ± obscuration, WFE, defocus — Rule 4), PSF-derived Strehl (+ `strehl_marechal` diagnostic), throughput, warm optics emission, cold stop, filter bandpass, EE_box |
 | Platform/Spatial | Smear MTF (sinc), jitter MTF (Gaussian), pixel aperture MTF (sinc), IPC MTF, charge-diffusion MTF |
 | Detector | 12+ noise terms (shot, dark-current shot, read, 1/f, kTC, DSNU, PRNU, NUC residual, glow, IPC, quantization, persistence), Rule 07 dark current, HgCdTe/InSb/InGaAs/Si QE models |
 | Readout | TDI signal/noise scaling, binning, coadds, CDS, Fowler-N, gain, 14/16-bit ADC, quantization |
@@ -229,7 +229,7 @@ Within each phase, modules can be implemented in parallel by different developer
 3. Specify canonical and input units. Do not omit units for dimensionless quantities — use `""`.
 4. Specify `default=None` for required parameters; provide a justified default for optional ones.
 5. Add `default_justification` to the `ParameterDef` if the default is non-obvious.
-6. If the parameter participates in a consistency group, add it to `CONSISTENCY_GROUPS` in `radiant.core.parameters`.
+6. If the parameter participates in a consistency group, add it to the `ConsistencyGroup` definitions in `radiant/api/_param_registry.py` — groups are assembled there and passed to `ParameterSet(schema, groups)`.
 7. Add the parameter to RADIANT_Parameter_System.md §parameter naming convention table.
 
 ### 7.3 Writing Tests

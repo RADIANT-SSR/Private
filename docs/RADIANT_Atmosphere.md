@@ -381,7 +381,7 @@ Turbulence is physically an atmospheric phenomenon (refractive index fluctuation
 
 Per RADIANT_Signal_Chain_Architecture.md §2, `AtmosphereStage` is the second stage in the chain. Its responsibilities:
 
-1. **Build the `AtmosphericState`** by dispatching to the model selected in `atmosphere.model`.
+1. **Resolve the atmosphere model** — preferentially the pre-built model injected at `stage_outputs["atmosphere_config"]["model"]` (see §8.1); only non-file-backed models may be built inline as a partial-chain fallback — and **build the `AtmosphericState`** from it.
 2. **Apply transmittance and add path radiance** to produce the `at_aperture` reference frame:
    ```
    L_at_aperture(λ) = L_at_target(λ) · τ_atm(λ) + L_path(λ)
@@ -391,7 +391,16 @@ Per RADIANT_Signal_Chain_Architecture.md §2, `AtmosphereStage` is the second st
 5. **Register the turbulence MTF** in `state.mtf_terms["turbulence"]` if turbulence is enabled. Otherwise this term is omitted entirely (not set to unity); the system-MTF cascade simply has one fewer term, which is faster and avoids the temptation to "see" turbulence in a debug plot when it is off.
 6. **Store the full `AtmosphericState`** in `state.stage_outputs["atmosphere"]["state"]` for downstream inspection.
 
-`AtmosphereStage` is a pure function of `(state_in, params)` per the architecture document. It does not mutate state, does not perform I/O outside of the cached MODTRAN invocation, and is safely re-runnable.
+`AtmosphereStage` is a pure function of `(state_in, params)` per the architecture document. It does not mutate state, performs **no file I/O** (Rule 6 — see §8.1), and is safely re-runnable.
+
+### 8.1 The Rule 6 loader boundary (`atmosphere/loaders.py`)
+
+Rule 6 forbids stages from reading files, so all file-backed model construction lives in `radiant/atmosphere/loaders.py`, which runs **before** chain execution:
+
+- `build_atmosphere_model(params)` dispatches on `atmosphere.model` and performs any file I/O the model needs (NPZ/CSV tables for `tabulated`, an NPZ directory scan for `interpolated`, MODTRAN setup for `modtran`); `exo` and `simple` need no I/O.
+- `FILE_BACKED_MODELS = frozenset({"tabulated", "interpolated"})` names the models that **must** be pre-built.
+- The API layer (`RadiantSession`, and therefore `Sensor`) calls the loader and injects the constructed model into the chain via `ChainRunner.run(..., initial_stage_outputs={"atmosphere_config": {"model": model}})`; `AtmosphereStage` reads it from `stage_outputs["atmosphere_config"]["model"]`.
+- If no injected model is present, the stage builds only non-file-backed models inline (partial-chain convenience). For a file-backed model it **refuses to build inline** and raises a `ValueError` directing the caller to `RadiantSession`/`Sensor` or to `build_atmosphere_model()` + manual injection.
 
 ---
 

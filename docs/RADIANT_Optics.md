@@ -152,7 +152,7 @@ class WavefrontError:
 
 **Wavelength scaling**: WFE specified in waves at λ_ref converts to OPD in meters at any wavelength: `opd_m = wfe_waves × λ_ref_m`. The OPD is then converted to phase at the operating wavelength: `phase_rad = 2π × opd_m / λ_op_m`. Strehl follows from the standard `S ≈ exp(−(2πσ_OPD/λ)²)` Maréchal approximation when the WFE is small; for larger WFE, the spatial module integrates the actual OPD.
 
-**Marechal vs. full OTF**: The optics module does not compute Strehl. It hands the WFE to the spatial module, which either applies the Marechal approximation (in `draft` fidelity) or builds a complex pupil and FFTs it (in `standard` and above). This keeps optics agnostic to fidelity preset.
+**Marechal vs. full OTF**: The optics module does not compute the reported Strehl. The WFE always enters the complex pupil, which is FFT'd (there is no fidelity preset — ADR-A). The reported `strehl` metric is PSF-derived in `PerformanceStage`: degraded `effective_psf` peak over the diffraction-limited `reference_psf` peak (both published by `OpticsStage`, same detector kernels — Rule 4). The Maréchal formula survives as the separate `strehl_marechal` diagnostic (`performance/strehl.py`), computed from `stage_outputs["optics"]["wavefront_error"]`.
 
 ---
 
@@ -457,10 +457,10 @@ Per RADIANT_Signal_Chain_Architecture.md, `OpticsStage` is the third stage. Resp
 
 1. Build the `OpticsState` from parameters (one of five transmission modes × one of four stray-light modes).
 2. Apply transmission to produce the `at_fpa_signal` reference frame (still spectral radiance, but multiplied by `τ_opt(λ)`).
-3. Compute `A_collect`, `Ω_pixel`, and **EE_box** (delegates EE computation to the spatial module, which already owns the PSF).
+3. Compute `A_collect` and `Ω_pixel`, and publish the `effective_psf` and diffraction-limited `reference_psf` (same detector kernels; used for the PSF-derived Strehl) in `state.stage_outputs["optics"]`. **EE_box is *not* computed here** — it is computed downstream in `PlatformStage` from the fully degraded PSF (jitter, smear, turbulence included), stored at `stage_outputs["platform"]["EE_box"]`, and applied exactly once in `SpectralIntegrationStage` (Rule 9 unchanged).
 4. Finalize the radiometric regime (per the architecture document, Source's tentative regime can be upgraded once the real PSF FWHM is known).
 5. Register `nearfield_irradiance_at_fpa` and `stray_light_irradiance_at_fpa` in `state.stage_outputs["optics"]` for the detector stage to consume.
-6. Register MTF terms `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` in `state.mtf_terms` (these are computed by the spatial module on request, but optics is responsible for registering the *call*).
+6. Register the single optical MTF term `mtf_optics_x` / `mtf_optics_y` in `state.mtf_terms`, computed from the pupil autocorrelation (Rule 4 — diffraction, WFE, and defocus enter via the pupil and are not separate MTF factors).
 
 ---
 

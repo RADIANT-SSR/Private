@@ -178,6 +178,36 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: the Rule-4 consistency invariant is the guard against a spatial degradation landing in one path but not the other; a warn-only 5e-2 gate is too loose to catch small real divergences, and no strict mode exists for configurations that should agree tightly.
 **Suggested fix**: stand-alone decision task after CU-003 — decide whether to (a) tighten tolerance per-configuration, (b) add a strict mode that raises, or (c) accept warn-at-5e-2 permanently. Effort S; category C.
 
+### CU-046 — `Sensor.reset()` reaches into `ParameterSet` privates
+
+**Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+**Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
+
+**File**: `src/radiant/api/sensor.py` (`reset()`)
+**Symptom**: `Sensor.reset()` manipulates `ParameterSet._inputs` and `ParameterSet._resolved_flag` directly instead of going through a public API.
+**Why it still matters**: any internal refactor of `ParameterSet` state silently breaks `Sensor.reset()`; the private-attribute coupling bypasses the validation/resolution lifecycle the class owns.
+**Suggested fix**: stand-alone small task — add a public `ParameterSet.reset()` (or `clear_inputs()`) that owns the invalidation semantics, and have `Sensor.reset()` call it. Effort S; category A.
+
+### CU-047 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working
+
+**Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+**Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
+
+**File**: `src/radiant/core/radiometry.py` / `src/radiant/io/results.py`
+**Symptom**: the `at_aperture` frame's `in_band_value` field is `None`; `ChainResult.signal_at("at_aperture")` nevertheless returns a value by applying transfer factors from a downstream frame.
+**Why it still matters**: two access paths to the same physical quantity disagree about whether it exists — a user inspecting frames directly sees `None` where the accessor reports a number; inconsistent inspectability violates the spirit of Rule 16.
+**Suggested fix**: stand-alone task — either populate `in_band_value` for all frames at spectral-integration time or document/enforce that `in_band_value` is only defined post-integration and make `signal_at`'s derivation explicit in its docstring. Effort S; category B.
+
+### CU-048 — Config loader silently strips `_vars` / `_extends` / `_imports` keys
+
+**Discovered**: doc-reconciliation pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+**Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
+
+**File**: `src/radiant/io/config.py:36`
+**Symptom**: `load_config` strips the `_vars`, `_extends`, and `_imports` keys without processing them and without warning. A user config relying on the inheritance/substitution features documented in `RADIANT_Config_Format.md` §1.3–1.5 (now banner-marked unimplemented) loads "successfully" with those directives silently ignored. The XLSX view (§2) is likewise unimplemented.
+**Why it still matters**: silent key-stripping is a Rule 17 antipattern — a config that says `_extends: base.yaml` produces physics results from an entirely different parameter set than the user intended, with no diagnostic.
+**Suggested fix**: stand-alone task — either implement the three directives or make `load_config` raise `ConfigError` ("_extends is not implemented; inline the base config") when they are present. Interim minimum: warn. Effort S (raise) / M (implement); category A.
+
 ---
 
 ## Resolved

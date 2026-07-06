@@ -1,13 +1,14 @@
 # RADIANT File Tree and Module Layout
 
 **Status:** Living reference (regenerated against current `src/`)
-**Last regenerated:** 2026-04-25 (post-Stage-8, post-audit reconciliation)
+**Last regenerated:** 2026-07-06 (doc-reconciliation pass)
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 344 `.py` files under `src/radiant/` (171 source +
-125 test + ~48 `__init__.py`), plus 16 integration tests under
-`tests/integration/` and 1 top-level `tests/test_public_api.py`.
+**Current file count:** 348 `.py` files under `src/radiant/` (184 source +
+128 test + 36 `__init__.py`), plus 15 integration tests under
+`tests/integration/` and 3 top-level test files (`tests/test_public_api.py`,
+`tests/test_exceptions.py`, `tests/test_provenance.py`).
 
 ---
 
@@ -27,7 +28,7 @@ view, not a spec. When in doubt, run the find command.
 
 Counts below exclude `__init__.py` files. "Source" = production modules; "Tests" = `test_*.py` files. Run `find src/radiant/<pkg> -name '*.py'` for the full enumeration; this doc highlights the structure and the load-bearing modules per package.
 
-### `core/` — 16 source + 15 tests
+### `core/` — 18 source + 15 tests
 
 Foundational abstractions; no physics, no sensor knowledge. The only package physics modules may import from.
 
@@ -49,10 +50,12 @@ core/
 ├── responsivity.py      # Detector responsivity descriptors
 ├── descriptors.py       # Generic descriptor base classes
 ├── noise_budget.py      # NoiseBudget aggregation helpers
+├── exceptions.py        # RadiantError base class (Rule 15)
+├── provenance.py        # run_id, git commit, dep versions, file hashing (§C13)
 └── tests/               # 15 test files mirroring the source modules
 ```
 
-### `source/` — 40 source + 25 tests
+### `source/` — 40 source + 27 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
 
@@ -69,7 +72,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 11 source + 11 tests
+### `atmosphere/` — 12 source + 12 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -80,6 +83,7 @@ atmosphere/
 ├── _quantities.py       # internal radiometric helpers
 ├── protocol.py          # AtmosphereModel protocol
 ├── assembly.py          # composes selected model into stage outputs
+├── loaders.py           # pre-chain model construction — Rule 6 file-I/O boundary
 ├── modtran.py           # MODTRAN tape7 reader + interface
 ├── simple.py            # Beer-Lambert / exponential model
 ├── exo.py               # exo-atmosphere (vacuum) — τ=1, L_path=0
@@ -237,7 +241,9 @@ SSR_Tool/
 │
 ├── tests/
 │   ├── test_public_api.py         # ADR-C top-level surface checks
-│   └── integration/               # Cross-stage integration tests (16 files)
+│   ├── test_exceptions.py         # RadiantError hierarchy contract (Rule 15)
+│   ├── test_provenance.py         # §C13 provenance record checks
+│   └── integration/               # Cross-stage integration tests (15 files)
 │       ├── fixtures/              # YAML configs + MODTRAN tape7 fixtures
 │       ├── golden/                # Golden-result JSON snapshots
 │       ├── snapshots/             # Per-test pytest-snapshot artifacts
@@ -298,13 +304,13 @@ SSR_Tool/
 
 ## File Count Summary
 
-Numbers below exclude `__init__.py` files. Counts captured 2026-04-25.
+Numbers below exclude `__init__.py` files. Counts captured 2026-07-06.
 
 | Subpackage             | Source | Tests | Notes |
 |------------------------|--------|-------|-------|
-| core/                  | 16     | 15    | foundational abstractions |
-| source/                | 40     | 25    | spec-form fan-out + shape catalog |
-| atmosphere/            | 11     | 11    | MODTRAN + simple + exo + tabulated |
+| core/                  | 18     | 15    | foundational abstractions |
+| source/                | 40     | 27    | spec-form fan-out + shape catalog |
+| atmosphere/            | 12     | 12    | MODTRAN + simple + exo + tabulated + loaders |
 | optics/                | 30     | 19    | dual-path PSF/MTF + element model |
 | platform/              | 6      | 6     | smear, jitter, sampling, turbulence |
 | spectral_integration/  | 2      | 1     | single-stage collapse |
@@ -316,12 +322,12 @@ Numbers below exclude `__init__.py` files. Counts captured 2026-04-25.
 | api/                   | 9      | 7     | public + internal session |
 | **plugins/ (v2 deferred)** | 0  | 0     | 1-LOC stub |
 | data/                  | 1      | 4     | packaged-data accessor |
-| **Subtotal**           | **171**| **125**| 296 non-init files |
-| Integration tests      | —      | 16    | `tests/integration/` |
-| Top-level tests        | —      | 1     | `tests/test_public_api.py` |
-| **Grand total (non-init)** |    |       | **313** |
+| **Subtotal**           | **184**| **128**| 312 non-init files |
+| Integration tests      | —      | 15    | `tests/integration/` |
+| Top-level tests        | —      | 3     | `tests/test_public_api.py`, `tests/test_exceptions.py`, `tests/test_provenance.py` |
+| **Grand total (non-init)** |    |       | **330** |
 
-Including `__init__.py` files, total `.py` count under `src/radiant/` is 344.
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 348 (36 `__init__.py`).
 
 ---
 

@@ -248,7 +248,7 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 
 **Formula:** `EE_nxn = ∫∫_{n×n pixels centered} psf dxdy`. Variants: 1×1 (often called EE_box), 3×3, 5×5, and `ee_vs_offset(pitch)`.
 
-**Required inputs:** `state.psf`.
+**Required inputs:** `stage_outputs["optics"]["effective_psf"]` (registry: `ee`).
 
 **Regimes:** all.
 
@@ -258,11 +258,11 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 
 **Failure modes:** none.
 
-### 4.11 Strehl ratio
+### 4.11 Strehl ratio (PSF-derived)
 
-**Formula:** `psf.max() / psf_diffraction_limited.max()`, both normalized to unit volume. The reference is built from the same pupil with WFE = 0.
+**Formula:** `effective_psf.peak / reference_psf.peak`, both normalized to unit volume (Rule 4: spatial-domain metric from the shared `EffectivePSF`). The reference is the diffraction-limited PSF from the same pupil with WFE = 0, carrying the **same detector kernels** as the degraded PSF, published by OpticsStage as `stage_outputs["optics"]["reference_psf"]`.
 
-**Required inputs:** `state.psf` and access to `state.optics.pupil` to construct the reference.
+**Required inputs:** `stage_outputs["optics"]["effective_psf"]` **and** `stage_outputs["optics"]["reference_psf"]` (registry: `strehl`).
 
 **Regimes:** all (more meaningful for low-WFE systems).
 
@@ -271,6 +271,20 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 **Typical values:** 0.8 for "diffraction-limited"; 0.4–0.8 for "well-corrected."
 
 **Failure modes:** none.
+
+### 4.11b Strehl ratio — Marechal diagnostic (`strehl_marechal`)
+
+**Formula:** `exp(-(2π · OPD_rms / λ)²)` with `OPD_rms = wfe_rms_waves × λ_ref` — the analytic small-aberration Marechal approximation (`radiant/performance/strehl.py::compute_strehl`). Distinct from `strehl` (§4.11): it is computed from the scalar WFE RMS alone and ignores obscuration, defocus, jitter, and smear.
+
+**Required inputs:** `stage_outputs["optics"]["wavefront_error"]` (registry: `strehl_marechal`).
+
+**Regimes:** all. Valid for WFE ≲ λ/5 (Strehl ≳ 0.8); underestimates Strehl for larger aberrations.
+
+**Unit:** dimensionless [0, 1].
+
+**Typical use:** fast sanity diagnostic against the PSF-derived `strehl`; large disagreement indicates non-WFE degradations (obscuration, defocus) dominating the peak.
+
+**Failure modes:** none (returns 1.0 for zero WFE).
 
 ### 4.12 Point source detection range
 
@@ -359,34 +373,42 @@ A metric that depends on a key not in this list is malformed and the loader reje
 
 ## 6. The metric registry
 
+The registry lives in `radiant/performance/registry.py`. Each metric is described by a frozen `MetricSpec` and registered into the module-level `METRIC_SPECS` dict at import time:
+
 ```python
-class MetricRegistry:
-    def register(self, metric: Metric) -> None: ...
-    def get(self, name: str) -> Metric: ...
-    def all(self) -> tuple[Metric, ...]: ...
-    def applicable_to(self, state: ChainState) -> tuple[Metric, ...]:
-        """Return only metrics whose requires() and regimes() match state."""
+@dataclass(frozen=True)
+class MetricSpec:
+    name: str
+    requires_frames: frozenset[str] = frozenset()
+    requires_stage_outputs: frozenset[tuple[str, str]] = frozenset()
+    requires_noise_terms: bool = False
+    requires_metrics: frozenset[str] = frozenset()
+    regimes: frozenset[str] = frozenset()   # empty = all regimes
+
+METRIC_SPECS: dict[str, MetricSpec]         # 16 built-in specs
+
+def can_compute(metric_name: str, state: ChainState) -> bool: ...
+def available_metrics(state: ChainState) -> set[str]: ...
+def missing_for(metric_name: str, state: ChainState) -> dict[str, list[str]]: ...
 ```
 
-The registry is populated at startup by:
-1. Importing `radiant.performance.metrics.builtin`, which registers the 14 metrics above.
-2. Loading `radiant.plugins.metric` entry points, which register user plugins.
-
-The CLI command `radiant metrics list` prints every registered metric with its `requires()` and `regimes()`. A user planning a study can ask "what can I get from this config?" via `radiant metrics applicable my_config.yaml` — which runs the parameter resolver, builds an empty `ChainState` shape, and returns the list.
+The 16 registered built-ins are: `snr`, `contrast_snr`, `nedt`, `nedl`, `nedr`, `csnr`, `niirs`, `rer`, `edge_slope`, `mtf_at_nyquist`, `ee`, `strehl`, `strehl_marechal`, `detection_range`, `saturation_margin`, `dynamic_range`. Plugin entry-point loading is v2-deferred, and there is currently no `radiant metrics` CLI subcommand; `available_metrics(state)` / `missing_for(name, state)` are the programmatic equivalents.
 
 ---
 
 ## 7. Validation of metric inputs
 
-Before running a chain, the parameter resolver collects the union of `requires()` over all requested metrics and verifies that every key will be present after the chain runs. Missing keys raise `MetricRequirementError` with a list like:
+After a chain runs, `missing_for(metric_name, state)` (`radiant/performance/registry.py`) reports exactly which dependencies a metric lacks, keyed by category:
 
+```python
+missing_for("csnr", state)
+# {
+#   "frames": ["photoelectrons"],
+#   "stage_outputs": ["spectral_integration.contrast_e"],
+# }
 ```
-CSNR requires:
-  ✓ frames["at_target"].spectral_radiance
-  ✓ optics.A_collect
-  ✗ stage_outputs["optics"]["ee_box"]      ← missing because spatial.fidelity_preset = "draft" disables EE_box
-  ✗ target.area_m2                          ← missing; add target.area_m2 to your config
-```
+
+`available_metrics(state)` returns the set of metric names whose dependencies are all satisfied for the given state.
 
 Compare to RADIANT_Metric_Dependencies.md, which is the *static* form of this same information for all built-in metrics.
 

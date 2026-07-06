@@ -20,49 +20,53 @@ YAML is the **source of truth** for all RADIANT configurations. Every other form
 | **Full config** | `configs/<name>.yaml` | Complete self-contained run: all sections present. |
 | **Partial config** | `partials/<name>.yaml` | Fragment imported by other configs. Contains only a subset of sections. |
 
-A scenario config that imports a sensor config and overrides one parameter is the most common pattern. Both files together define the full parameter set.
+A scenario config that imports a sensor config and overrides one parameter is the intended common pattern — but multi-file composition depends on `_extends`/`_imports`, which are not yet implemented (see the §1.3 status banner). Today, use a single complete config (see `examples/`) plus `Sensor.set()` or CLI `--set` overrides.
 
 ### 1.2 YAML Structure and Naming
 
-The dot-path parameter namespace maps directly to YAML nesting. A parameter `sensor.optics.aperture_diameter` maps to:
+The dot-path parameter namespace maps directly to YAML nesting (`radiant/io/config.py::_flatten`). A parameter `optics.aperture_diameter_m` maps to:
 
 ```yaml
-sensor:
-  optics:
-    aperture_diameter: 0.30   # m
+optics:
+  aperture_diameter_m: 0.30   # m
 ```
 
-Top-level keys match the parameter namespace roots exactly:
+There is **no `sensor:` wrapper** — top-level keys are the stage namespace roots exactly as they appear in the parameter schema (`*/_schema.py`):
 
 | Top-level key | Parameter namespace | Contents |
 |--------------|--------------------|-|
-| `sensor` | `sensor.*` | `optics`, `detector`, `readout`, `filter` sub-keys |
-| `geometry` | `geometry.*` | Observer/target positions, look angle, solar geometry |
-| `atmosphere` | `atmosphere.*` | Model selection, MODTRAN file, standard atmosphere type |
-| `target` | `target.*` | Temperature, emissivity, area, regime hints |
-| `background` | `background.*` | Background temperature, emissivity, clutter |
-| `platform` | `platform.*` | Jitter, drift, smear velocity |
-| `mission` | `mission.*` | Age, radiation dose |
-| `spectral` | `spectral.*` | Wavelength grid definition |
+| `source` | `source.*` | Target and background: `source.target.*`, `source.background.*` (temperature, emissivity, area, range, regime override) |
+| `atmosphere` | `atmosphere.*` | Model selection (`unity`, `simple`, `tabulated`, `modtran`, `interpolated`, `exo`), standard atmosphere, `atmosphere.modtran.*` sub-keys |
+| `geometry` | `geometry.*` | Sensor/target altitudes, path/solar zenith, solar azimuth, ground speed |
+| `optics` | `optics.*` | Aperture, focal length, transmission, WFE, defocus, cold stop, `optics.stray.*` sub-keys |
+| `platform` | `platform.*` | Jitter, ground velocity, smear |
+| `spectral_integration` | `spectral_integration.*` | Filter bandpass (`filter_min_um`, `filter_max_um`), integration time |
+| `detector` | `detector.*` | Pixel pitch, QE, dark current, noise parameters, IPC, diffusion |
+| `readout` | `readout.*` | Read noise, gain, ADC, full well, CDS, TDI, binning, coadds |
 
-All parameter names follow the naming rules from RADIANT_Parameter_System.md: lowercase, underscore-separated, no unit in name.
+Unknown parameter names raise `ConfigError` at load time (`Schema violations: Unknown parameter: '...'`).
+
+All parameter names follow the naming rules from RADIANT_Parameter_System.md and ADR-D (`docs/adr/ADR-D-parameter-naming.md`, 2026-07-06): lowercase, underscore-separated, with the **input unit as a name suffix** for dimensioned quantities — `aperture_diameter_m`, `pixel_pitch_x_um`, `jitter_rms_urad`. Dimensionless parameters carry no suffix.
 
 **Inline comments are mandatory** for non-obvious values and any value not in SI base units:
 
 ```yaml
-sensor:
-  detector:
-    dark_current: 500       # e-/s/pixel — at operating_temp; Rule 07 scaling enabled
-    read_noise: 25          # e- RMS — Fowler-2 CDS mode
-    full_well: 1.5e6        # e-
-    operating_temp: 80      # K
-    pixel_pitch: 18.0e-6    # m (= 18 µm)
-    cutoff_wavelength: 5.0  # µm — HgCdTe cutoff
+detector:
+  pixel_pitch_x_um: 18.0        # µm
+  pixel_pitch_y_um: 18.0        # µm
+  qe_value: 0.70
+  dark_rate_e_per_s: 100.0      # e-/s — at reference temperature
+
+readout:
+  read_noise_e_rms: 5.0         # e- RMS
+  full_well_capacity_e: 2000000.0  # e- (2 Me-, typical MWIR HgCdTe)
 ```
 
-Scientific notation (`1.5e6`, `18.0e-6`) is preferred over long decimal strings. Units go in the comment.
+Scientific notation (`1.5e6`) is acceptable for large values. Units go in the name suffix and the comment.
 
 ### 1.3 Variable Substitution
+
+> **Implementation status (2026-07-06):** `_vars`, `_extends`, and `_imports` (§1.3–1.5) are **design targets, not implemented**. The current loader (`radiant/io/config.py`) reserves these top-level keys and silently ignores them — no substitution, inheritance, or import merging is performed, and there is no CLI `--var` flag. Do not rely on these features until this banner is removed.
 
 Variables are defined at the top of a config in a `_vars:` block. They are substituted anywhere in the document using `${VAR_NAME}` syntax. Substitution is string-level: the YAML parser resolves variables before YAML is parsed. Arithmetic is not supported; use Python if you need arithmetic.
 
@@ -73,14 +77,14 @@ _vars:
   T_TINT_S: 0.005        # 5 ms integration time
 
 geometry:
-  observer_altitude: ${ALT_M}
-  slant_range: ${RANGE_M}
-  observer_type: space
-  target_type: ground
+  sensor_altitude_m: ${ALT_M}
 
-sensor:
-  readout:
-    integration_time: ${T_TINT_S}
+source:
+  target:
+    range_m: ${RANGE_M}
+
+spectral_integration:
+  integration_time_s: ${T_TINT_S}
 ```
 
 Variables can be overridden from the CLI: `radiant run config.yaml --var ALT_M=500000`. This is the primary mechanism for batch sweeps from shell scripts.
@@ -97,50 +101,47 @@ _extends: sensors/baseline_mwir.yaml
 
 # Override only what differs from the sensor baseline:
 geometry:
-  observer_altitude: 600000
-  slant_range: 650000
-  look_angle: 0             # deg (nadir)
-  solar_zenith: 30          # deg
+  sensor_altitude_m: 600000   # m
+  solar_zenith_rad: 0.52      # rad (~30°)
 
 atmosphere:
   model: modtran
-  modtran_file: data/midlat_summer_mwir.tape7
+  standard_atmosphere: midlat_summer
 
-target:
-  temperature: 300
-  emissivity: 0.95
-  area: 10.0
+source:
+  target:
+    temperature: 300.0        # K
+    emissivity: 0.95
+    projected_area_m2: 10.0   # m²
 ```
 
 ```yaml
 # sensors/baseline_mwir.yaml — parent
-sensor:
-  optics:
-    aperture_diameter: 0.30
-    focal_length: 1.20
-    obscuration_ratio: 0.33
-    wfe_rms: 0.07
-    temperature: 280
-  detector:
-    material: HgCdTe
-    pixel_pitch: 18.0e-6
-    cutoff_wavelength: 5.0
-    peak_qe: 0.75
-    dark_current: 500
-    read_noise: 25
-    full_well: 1.5e6
-    operating_temp: 80
-  readout:
-    integration_time: 0.005
-    cds_enabled: true
-    adc_bits: 14
-    gain: 100
-    n_tdi: 1
-  filter:
-    center_wavelength: 4.2
-    bandwidth: 0.5
-    peak_transmission: 0.9
-    shape: tophat
+optics:
+  aperture_diameter_m: 0.30   # m
+  focal_length_m: 1.20        # m
+  obscuration_ratio: 0.33
+  wfe_rms_waves: 0.07         # waves
+  optics_temperature_K: 280.0 # K
+  transmission_scalar: 0.70
+
+detector:
+  pixel_pitch_x_um: 18.0      # µm
+  pixel_pitch_y_um: 18.0      # µm
+  qe_value: 0.75
+  dark_rate_e_per_s: 500.0    # e-/s
+
+spectral_integration:
+  filter_min_um: 3.95         # µm
+  filter_max_um: 4.45         # µm
+  integration_time_s: 0.005   # s
+
+readout:
+  read_noise_e_rms: 25.0      # e- RMS
+  cds_enabled: true
+  adc_bits: 14
+  gain_e_per_dn: 100.0        # e-/DN
+  n_tdi: 1
 ```
 
 **Deep merge rules:**
@@ -162,10 +163,9 @@ _imports:
 
 # Per-run overrides on top of the imports:
 geometry:
-  observer_altitude: 600000
-  slant_range: 650000
-  look_angle: 0
-  solar_zenith: 30
+  sensor_altitude_m: 600000   # m
+  path_zenith_rad: 0.0        # rad (nadir)
+  solar_zenith_rad: 0.52      # rad (~30°)
 ```
 
 `_imports` and `_extends` may coexist in one file. Resolution order:
@@ -184,11 +184,13 @@ Every config file should include a schema version comment at the top. This enabl
 _extends: sensors/baseline_mwir.yaml
 ```
 
-The schema version is not a validated field in v1, but the parser will log a warning if it is absent.
+The schema version is a comment convention only — it is not a validated field in v1, and the current loader does not warn when it is absent. `save_config` writes the `# RADIANT config — schema v1` header on every file it produces.
 
 ---
 
 ## 2. XLSX Convenience View
+
+> **Implementation status (2026-07-06):** the XLSX view is a **design target, not implemented**. There is no `radiant export` command and no XLSX code in `radiant/io/` (the existing `radiant convert` CLI is a scalar unit converter, unrelated). Sheet names below reflect the superseded `sensor.*` namespace and will be revised to the ADR-D namespaces when this feature is built.
 
 XLSX is not a source of truth. It is a **generated view** of a YAML config, editable in Excel, round-trippable back to YAML. Its purpose: reviewers and program managers who don't write YAML.
 
@@ -217,7 +219,7 @@ Each sheet has fixed columns:
 
 | Column | Content |
 |--------|---------|
-| A — Parameter | Dot-path name (e.g., `sensor.optics.aperture_diameter`) |
+| A — Parameter | Dot-path name (e.g., `optics.aperture_diameter_m`) |
 | B — Value | Current value |
 | C — Unit | User-facing unit |
 | D — Description | One-line description from schema |
@@ -244,113 +246,57 @@ The importer reads column A (parameter name) and column B (value) from each shee
 
 ## 3. Python API Creation
 
-All config file formats can be constructed programmatically. The Python API is the primary development interface.
+Configs are constructed programmatically through the `Sensor` class (`radiant.Sensor`; see `radiant/api/sensor.py`). There are no `SensorConfig`/`ScenarioConfig` builder classes — they were dropped per `docs/adr/ADR-C`.
 
-### 3.1 Creating a Sensor Config
+### 3.1 Creating a Sensor Programmatically
 
 ```python
-from radiant.api import SensorConfig
+from radiant import Sensor
 
 sensor = (
-    SensorConfig("baseline_mwir")
-    .optics(
-        aperture_diameter=0.30,     # m
-        focal_length=1.20,          # m
-        # f_number is derived: 4.0
-        obscuration_ratio=0.33,
-        wfe_rms=0.07,               # waves RMS
-        temperature=280,            # K
-    )
-    .detector(
-        material="HgCdTe",
-        pixel_pitch=18.0e-6,        # m
-        cutoff_wavelength=5.0,      # µm
-        peak_qe=0.75,
-        dark_current=500,           # e-/s/pixel
-        read_noise=25,              # e- RMS
-        full_well=1.5e6,            # e-
-        operating_temp=80,          # K
-    )
-    .readout(
-        integration_time=0.005,     # s
-        cds_enabled=True,
-        adc_bits=14,
-        gain=100,                   # e-/DN
-    )
-    .filter(
-        center_wavelength=4.2,      # µm
-        bandwidth=0.5,              # µm
-        peak_transmission=0.90,
-        shape="tophat",
-    )
+    Sensor()
+    .set("optics.aperture_diameter_m", 0.30)       # m
+    .set("optics.focal_length_m", 1.20)            # m — f_number derived: 4.0
+    .set("optics.obscuration_ratio", 0.33)
+    .set("optics.wfe_rms_waves", 0.07)             # waves RMS
+    .set("optics.optics_temperature_K", 280.0)     # K
+    .set("detector.pixel_pitch_x_um", 18.0)        # µm
+    .set("detector.pixel_pitch_y_um", 18.0)        # µm
+    .set("detector.qe_value", 0.75)
+    .set("detector.dark_rate_e_per_s", 500.0)      # e-/s
+    .set("readout.read_noise_e_rms", 25.0)         # e- RMS
+    .set("spectral_integration.filter_min_um", 3.95)
+    .set("spectral_integration.filter_max_um", 4.45)
+    .set("spectral_integration.integration_time_s", 0.005)
 )
 
-# Save to YAML
-sensor.save("sensors/baseline_mwir.yaml")
-
-# Or convert to dict
-d = sensor.to_dict()
-```
-
-### 3.2 Creating a Scenario Config
-
-```python
-from radiant.api import ScenarioConfig
-
-scenario = (
-    ScenarioConfig("leo_mwir_clear")
-    .geometry(
-        observer_altitude=600_000,  # m
-        observer_type="space",
-        target_type="ground",
-        look_angle=0,               # deg (nadir)
-        solar_zenith=30,            # deg
-    )
-    .atmosphere(
-        model="modtran",
-        modtran_file="data/midlat_summer_mwir.tape7",
-    )
-    .target(
-        temperature=300,            # K
-        emissivity=0.95,
-        area=10.0,                  # m²
-    )
-    .background(
-        temperature=290,
-        emissivity=0.96,
-    )
-    .platform(
-        jitter_rms=3.0,             # µrad
-    )
-)
-
-scenario.save("scenarios/leo_mwir_clear.yaml")
-```
-
-### 3.3 Combining Sensor and Scenario
-
-```python
-from radiant.api import Sensor
-
-# From files:
-sensor = Sensor.from_files(
-    sensor="sensors/baseline_mwir.yaml",
-    scenario="scenarios/leo_mwir_clear.yaml",
-)
-
-# From config objects:
-sensor = Sensor.from_configs(sensor_cfg, scenario_cfg)
-
-# From a single complete YAML:
-sensor = Sensor.load("configs/leo_mwir_clear_full.yaml")
-
-# From Python dict:
-sensor = Sensor.from_dict({
-    "sensor": {"optics": {"aperture_diameter": 0.30, ...}, ...},
-    "geometry": {...},
-    ...
+# Or set several at once:
+sensor.set_many({
+    "readout.cds_enabled": True,
+    "readout.adc_bits": 14,
+    "readout.gain_e_per_dn": 100.0,
 })
 ```
+
+### 3.2 Loading from YAML or Dict
+
+```python
+from radiant import Sensor
+
+# From a complete YAML config:
+sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
+
+# From a nested Python dict (same structure as the YAML):
+sensor = Sensor.from_dict({
+    "optics": {"aperture_diameter_m": 0.30, "focal_length_m": 1.20},
+    "detector": {"pixel_pitch_x_um": 18.0, "pixel_pitch_y_um": 18.0},
+})
+
+# Override after loading, then run:
+result = sensor.set("optics.aperture_diameter_m", 0.45).evaluate()
+```
+
+Splitting a sensor definition and a scenario across multiple YAML files is not supported by the current loader (see the §1.3 implementation-status banner); pass a single complete config, or load one file and apply per-scenario overrides via `set`/`set_many`.
 
 ---
 
@@ -362,38 +308,37 @@ The `radiant run` command accepts dot-path parameter overrides that override any
 
 ```bash
 # Single override
-radiant run config.yaml --set sensor.optics.aperture_diameter=0.45
+radiant run config.yaml --set optics.aperture_diameter_m=0.45
 
 # Multiple overrides
 radiant run config.yaml \
-  --set sensor.optics.aperture_diameter=0.45 \
-  --set sensor.readout.integration_time=0.008 \
-  --set target.temperature=320
+  --set optics.aperture_diameter_m=0.45 \
+  --set spectral_integration.integration_time_s=0.008 \
+  --set source.target.temperature=320
 
 # Override a string parameter
 radiant run config.yaml --set atmosphere.model=simple
-
-# Override with a variable substitution
-radiant run config.yaml --var ALT_M=500000 --var RANGE_M=550000
 ```
+
+(There is no `--var` flag; `_vars` substitution is unimplemented — see §1.3.)
 
 ### 4.2 Output
 
 ```bash
 # Write results to JSON
-radiant run config.yaml --set sensor.optics.aperture_diameter=0.45 --output result.json
+radiant run config.yaml --set optics.aperture_diameter_m=0.45 --output result.json
 
 # Write provenance record
 radiant run config.yaml --provenance provenance.json
 
 # Dry run: validate only, no evaluation
-radiant validate config.yaml --set sensor.optics.aperture_diameter=0.45
+radiant validate config.yaml --set optics.aperture_diameter_m=0.45
 
 # Explain a derived parameter
-radiant explain config.yaml sensor.optics.f_number
-# → f_number = 4.0 (derived: focal_length / aperture_diameter)
-#   focal_length = 1.20 m (user_set, config:sensors/baseline_mwir.yaml)
-#   aperture_diameter = 0.45 m (user_set, cli_override)
+radiant explain config.yaml optics.f_number
+# → f_number = 4.0 (derived: focal_length_m / aperture_diameter_m)
+#   optics.focal_length_m = 1.20 m (user_set, config.yaml)
+#   optics.aperture_diameter_m = 0.45 m (user_set, cli_override)
 ```
 
 ### 4.3 Batch Sweep from CLI
@@ -403,7 +348,7 @@ A lightweight parameter sweep from the CLI using shell expansion. For proper swe
 ```bash
 for D in 0.15 0.20 0.25 0.30 0.35 0.40; do
   radiant run config.yaml \
-    --set sensor.optics.aperture_diameter=$D \
+    --set optics.aperture_diameter_m=$D \
     --output results/snr_D${D}.json
 done
 ```
@@ -412,39 +357,28 @@ done
 
 ## 5. Validation
 
-### 5.1 Pydantic Schema
+### 5.1 Schema Validation
 
-Every YAML config is validated against a Pydantic model on load. The Pydantic model is generated from the RADIANT parameter schema (all `ParameterDef` objects from the `_schema.py` files assembled by `api/session.py`).
+There is no Pydantic dependency. Every YAML config is validated against the RADIANT parameter schema itself: `radiant/io/config.py::load_config` flattens the nested YAML to dot-paths and calls `ParameterSet.set()` for each, and `ParameterSet.resolve()` (`radiant/core/parameters.py`) performs the remaining checks. The schema is the set of all `ParameterDef` objects from the `_schema.py` files, assembled by `radiant/api/_param_registry.py::build_parameter_set`.
 
-Validation levels, in order:
+Validation checks, in order:
 
-| Level | Check | Error type |
-|-------|-------|-----------|
-| 1 — Type | Value is the correct dtype (float, int, str, bool) | `ParameterTypeError` |
-| 2 — Bounds | Value is within `[min, max]` if bounds defined | `ParameterBoundsError` |
-| 3 — Enum | Value is one of the allowed enum values | `ParameterEnumError` |
-| 4 — Unknown | No parameter exists at this dot-path | `UnknownParameterError` |
-| 5 — Required | Required parameters (no default, not derivable) are present | `MissingParameterError` |
-| 6 — Consistency | Consistency group constraints are satisfied | `ConsistencyError` |
-| 7 — File | Referenced files (MODTRAN tape7, spectral data) exist and are readable | `FileReferenceError` |
+| Check | Where | Error surface |
+|-------|-------|--------------|
+| Unknown name | `load_config` | `ConfigError` ("Schema violations: Unknown parameter: '…'"; all unknown names collected, not fail-fast) |
+| Type | `ParameterSet.set` | `ValueError` with expected dtype |
+| Bounds | `ParameterSet.set` | `ParameterBoundsError` (what/why/action/context per Rule 15) |
+| Enum | `ParameterSet.set` | `ValueError` listing allowed values |
+| Required | `ParameterSet.resolve` | `ValueError` ("Required parameter '…' is not set") |
+| Consistency | `ParameterSet.resolve` | `ValueError` showing constraint, specified vs. computed value, and relative discrepancy vs. group tolerance |
 
-All errors are reported together (not fail-fast), so the user sees all problems in one pass.
+Unknown-name errors are collected and reported together in one pass; type/bounds/enum errors raise on the first offending `set()`.
 
 ### 5.2 Physics-Informed Validation (Consistency Groups)
 
-Beyond per-parameter bounds, consistency groups enforce multi-parameter physics constraints. From RADIANT_Parameter_System.md:
+Beyond per-parameter bounds, consistency groups enforce multi-parameter physics constraints. v1 defines one group (`radiant/api/_param_registry.py`; see RADIANT_Parameter_System.md):
 
-**optics_fno group:** `f_number = focal_length / aperture_diameter`. Given any 2, the 3rd is derived. All 3 specified → validated. Fewer than 2 non-defaulted → error.
-
-**readout_timing group:** `integration_time × frame_rate ≤ 1.0` (duty cycle ≤ 1). If `frame_rate = 100 Hz` and `integration_time = 0.015 s`, duty cycle = 1.5 → `ConsistencyError`.
-
-**spectral_grid group:** `filter.center_wavelength ± filter.bandwidth/2` must be within `[spectral.lambda_min, spectral.lambda_max]`. If the filter bandpass is not covered by the spectral grid, all spectral integrals are wrong. This is a `ConsistencyWarning` (not error) if the overlap is >95%, error if <50%.
-
-**Additional physics-informed warnings:**
-- `detector.dark_current` is anomalously low for the stated `detector.material` at `detector.operating_temp` (below Rule 07 floor by >10×) → warning: possible typo.
-- `sensor.optics.wfe_rms > 0.25 waves` → warning: Strehl < 0.5; WFE MTF will severely degrade performance.
-- `target.temperature < background.temperature` for MWIR/LWIR regime → warning: negative contrast; target will be cooler than background.
-- `sensor.readout.n_tdi > 1` and `platform.smear_velocity = 0` → warning: TDI gain requires image motion matched to TDI rate.
+**fnumber group:** `f_number = focal_length_m / aperture_diameter_m`. Given any 2 of {`optics.f_number`, `optics.focal_length_m`, `optics.aperture_diameter_m`}, the 3rd is derived. All 3 specified → validated against the group tolerance (1e-3 relative); an inconsistent triple raises a `ValueError` naming the constraint, both values, and the discrepancy.
 
 ### 5.3 Rich Error Messages
 
@@ -456,435 +390,121 @@ Every error includes:
 5. A suggested fix where possible
 
 ```
-ConfigValidationError: 3 errors found in 'scenarios/leo_mwir_clear.yaml'
+ParameterBoundsError: detector.detector_temperature_K = 600 K is out of bounds
+  Why: schema bounds for this parameter are (1.0, 500.0) K
+  Action: set detector_temperature_K within bounds (77 K is typical for cooled IR)
+  Context: {"param": "detector.detector_temperature_K", "value": 600, ...}
 
-[1] ParameterBoundsError at sensor.detector.operating_temp
-    Value: 400 K (from config:sensors/baseline_mwir.yaml)
-    Allowed: 1 K ≤ operating_temp ≤ 300 K
-    Fix: HgCdTe detectors operate at cryogenic temperature. Did you mean 80 K?
+ValueError: Consistency group 'fnumber' is over-constrained:
+  Constraint: f_number = focal_length_m / aperture_diameter_m
+  User-specified 'optics.aperture_diameter_m' = 0.25
+  Computed 'optics.aperture_diameter_m' from other parameters = 0.30
+  Relative discrepancy: 2.000e-01 (tolerance: 1.000e-03)
+  Fix: either remove 'optics.aperture_diameter_m' from inputs and let it be
+  derived, or correct the inconsistent value.
 
-[2] ConsistencyError in group 'optics_fno'
-    sensor.optics.f_number=4.0 specified directly, but
-    sensor.optics.focal_length=1.20 m and sensor.optics.aperture_diameter=0.30 m
-    imply f_number = 1.20/0.30 = 4.0 (within tolerance). ✓
-    → Actually consistent; no action required. (This message should not appear.)
-
-[3] MissingParameterError: target.temperature is required (no default)
-    Source: not provided in scenario config or any imported partial
-    Fix: add 'target:\n  temperature: 300  # K' to your scenario config
+ValueError: Required parameter 'optics.aperture_diameter_m' is not set.
+  Description: Clear entrance-pupil diameter of the primary [m].
+  Expected type: float in m
+  Set it via: params.set('optics.aperture_diameter_m', value)
 ```
 
 ---
 
-## 6. Five Complete YAML Configurations
+## 6. Complete YAML Configurations
 
-### Config 1: MWIR LEO Pushbroom (Baseline)
+Complete, loadable configurations live in the repository and are the authoritative examples — every file below passes `radiant validate`:
 
-```yaml
-# RADIANT config — schema v1
-# Baseline MWIR LEO pushbroom sensor, mid-latitude summer atmosphere,
-# 300 K extended target at 600 km altitude. The reference scenario for
-# aperture/integration-time trade studies.
+| File | Scenario |
+|------|----------|
+| `examples/mwir_leo_minimal.yaml` | Minimal MWIR LEO extended scene (reference case for `tests/integration/test_chain_extended.py`) |
+| `examples/ground_truth_mwir.yaml` | Hand-computable single-wavelength MWIR ground truth (exo atmosphere) |
+| `examples/templates/*.yaml` | Twelve band/platform templates (MWIR/LWIR/SWIR/VNIR × LEO/GEO/aerial/ground), served by `radiant template` |
 
-_vars:
-  ALT_M: 600000
-  RANGE_M: 650000
+Two of them, inline:
 
-sensor:
-  optics:
-    aperture_diameter: 0.30     # m
-    focal_length: 1.20          # m — f/# = 4.0 (derived)
-    obscuration_ratio: 0.33
-    wfe_rms: 0.07               # waves RMS at 4.2 µm
-    n_surfaces: 6
-    temperature: 280            # K — warm optics; cold stop η = 0.90
-
-  detector:
-    material: HgCdTe
-    pixel_pitch: 18.0e-6        # m (18 µm)
-    cutoff_wavelength: 5.0      # µm
-    peak_qe: 0.75
-    dark_current: 500           # e-/s/pixel at 80 K
-    read_noise: 25              # e- RMS (CDS)
-    full_well: 1.5e6            # e-
-    operating_temp: 80          # K
-    ipc_coupling: 0.02
-    n_pixels_x: 2048            # cross-track (pushbroom array)
-    n_pixels_y: 1               # along-track (TDI handled in readout)
-
-  readout:
-    integration_time: 0.005     # s (5 ms)
-    cds_enabled: true
-    adc_bits: 14
-    gain: 100                   # e-/DN
-    n_tdi: 4                    # 4-stage TDI
-    n_coadds: 1
-
-  filter:
-    center_wavelength: 4.2      # µm
-    bandwidth: 0.5              # µm FWHM
-    peak_transmission: 0.90
-    shape: tophat
-
-geometry:
-  observer_altitude: ${ALT_M}   # m (600 km)
-  observer_type: space
-  target_type: ground
-  look_angle: 0                 # deg (nadir)
-  solar_zenith: 30              # deg
-  solar_azimuth: 180            # deg (sun behind sensor)
-
-atmosphere:
-  model: modtran
-  modtran_file: data/midlat_summer_mwir.tape7
-
-target:
-  temperature: 300              # K
-  emissivity: 0.95
-  area: 100.0                   # m² (extended scene)
-  regime: auto
-
-background:
-  temperature: 290              # K
-  emissivity: 0.96
-  clutter_sigma: 0.0
-
-platform:
-  jitter_rms: 3.0               # µrad RMS
-  drift_rate: 0.0               # µrad/s
-
-spectral:
-  lambda_min: 3.5               # µm
-  lambda_max: 5.0               # µm
-  n_points: 500
-  grid_type: from_modtran
-```
-
----
-
-### Config 2: LWIR Geostationary Stare
+### Config 1: MWIR LEO Minimal (`examples/mwir_leo_minimal.yaml`)
 
 ```yaml
 # RADIANT config — schema v1
-# LWIR geostationary staring imager, 35786 km altitude, tropical atmosphere,
-# 300 K extended background with 5 K hot target (wildfire detection scenario).
+# Minimal MWIR LEO extended-scene scenario.
+# 300 K target, nadir view at 8 km altitude, midlat summer atmosphere.
+# Matches the reference case in tests/integration/test_chain_extended.py.
 
-sensor:
-  optics:
-    aperture_diameter: 0.50     # m — large aperture for geo range
-    focal_length: 2.50          # m — f/# = 5.0 (derived)
-    obscuration_ratio: 0.35
-    wfe_rms: 0.05               # waves RMS at 10.5 µm
-    n_surfaces: 5
-    temperature: 290            # K — ambient-temperature optics
-
-  detector:
-    material: HgCdTe
-    pixel_pitch: 30.0e-6        # m (30 µm)
-    cutoff_wavelength: 12.5     # µm — LWIR cutoff
-    peak_qe: 0.65
-    dark_current: 8.0e6         # e-/s/pixel at 77 K LWIR HgCdTe
-    read_noise: 300             # e- RMS — staring ROIC
-    full_well: 20.0e6           # e- — large well for high background
-    operating_temp: 77          # K
-    ipc_coupling: 0.015
-    n_pixels_x: 1024
-    n_pixels_y: 1024
-
-  readout:
-    integration_time: 0.010     # s (10 ms)
-    cds_enabled: true
-    adc_bits: 16
-    gain: 500                   # e-/DN
-    n_tdi: 1                    # staring (no TDI)
-    n_coadds: 8                 # 8 coadds → effective 80 ms
-
-  filter:
-    center_wavelength: 10.5     # µm
-    bandwidth: 4.0              # µm FWHM (8–13 µm)
-    peak_transmission: 0.85
-    shape: tophat
-
-geometry:
-  observer_altitude: 35786000   # m (geostationary orbit)
-  observer_type: space
-  target_type: ground
-  look_angle: 0                 # deg (sub-satellite point)
-  solar_zenith: 45              # deg
+source:
+  target:
+    temperature: 300.0        # K
+    emissivity: 0.95
 
 atmosphere:
-  model: modtran
-  standard_atmosphere: tropical
-  modtran_file: data/tropical_lwir.tape7
-
-target:
-  temperature: 305              # K (5 K above background)
-  temperature_hot: 1000         # K — fire component
-  temperature_cool: 300         # K — cooler surrounding ground
-  hot_fraction: 0.001           # 0.1% of pixel area on fire
-  emissivity: 0.97
-  area: 900.0                   # m² (30 m × 30 m = 1 GSD pixel at geo)
-  regime: extended
-
-background:
-  temperature: 300              # K
-  emissivity: 0.97
-  clutter_sigma: 0.02           # 2% spatial clutter
-
-platform:
-  jitter_rms: 1.0               # µrad (ACS-controlled GEO platform)
-  drift_rate: 0.05              # µrad/s
-
-spectral:
-  lambda_min: 7.5               # µm
-  lambda_max: 14.0              # µm
-  n_points: 500
-  grid_type: from_modtran
-```
-
----
-
-### Config 3: Visible Aerial Pushbroom
-
-```yaml
-# RADIANT config — schema v1
-# VIS/NIR pushbroom from manned aircraft at 3000 m AGL.
-# Reflected solar illumination, 0.5 m GSD, mapping mission.
-
-sensor:
-  optics:
-    aperture_diameter: 0.10     # m
-    focal_length: 0.50          # m — f/# = 5.0 (derived)
-    obscuration_ratio: 0.0      # unobscured refractive design
-    wfe_rms: 0.04               # waves RMS at 0.65 µm
-    n_surfaces: 8               # camera with multiple elements
-    temperature: 293            # K — ambient temperature
-
-  detector:
-    material: Si                # Silicon CMOS, VIS range
-    pixel_pitch: 5.0e-6         # m (5 µm)
-    cutoff_wavelength: 1.0      # µm — Si cutoff
-    peak_qe: 0.60               # at 0.65 µm
-    dark_current: 10            # e-/s/pixel at 293 K (CMOS)
-    read_noise: 3               # e- RMS (modern CMOS)
-    full_well: 40000            # e- (40 ke-)
-    operating_temp: 293         # K — uncooled
-    ipc_coupling: 0.005
-    n_pixels_x: 4096
-    n_pixels_y: 1
-
-  readout:
-    integration_time: 0.001     # s (1 ms)
-    cds_enabled: false          # CMOS rolling shutter
-    adc_bits: 12
-    gain: 1                     # e-/DN (unity gain)
-    n_tdi: 1
-
-  filter:
-    center_wavelength: 0.65     # µm (panchromatic peak)
-    bandwidth: 0.45             # µm (0.4–0.9 µm)
-    peak_transmission: 0.95
-    shape: tophat
-
-geometry:
-  observer_altitude: 3000       # m AGL
-  target_altitude: 0            # m (ground)
-  observer_type: airborne
-  target_type: ground
-  look_angle: 0                 # deg (nadir)
-  solar_zenith: 25              # deg
-  solar_azimuth: 135            # deg
-  observer_latitude: 40         # deg N
-
-atmosphere:
-  model: simple
-  visibility: 23000             # m (23 km — good visibility)
   standard_atmosphere: midlat_summer
 
-target:
-  temperature: 300              # K (for thermal emission; negligible in VIS)
-  reflectance: 0.15             # Lambertian, moderate albedo (mixed vegetation)
-  emissivity: 0.95
-  area: 500.0                   # m² (extended)
-  regime: extended
+geometry:
+  sensor_altitude_m: 8000.0   # m
 
-background:
-  temperature: 295              # K
-  reflectance: 0.12
-  emissivity: 0.95
-  clutter_sigma: 0.05           # 5% spatial variation in reflectance
+optics:
+  aperture_diameter_m: 0.30   # m
+  focal_length_m: 1.20        # m  (f/4.0)
+  transmission_scalar: 0.70
 
-platform:
-  jitter_rms: 5.0               # µrad RMS (manned aircraft vibration)
-  smear_velocity: 0.25          # m/s image plane velocity
+detector:
+  pixel_pitch_x_um: 18.0      # um
+  pixel_pitch_y_um: 18.0      # um
+  qe_value: 0.70
+  dark_rate_e_per_s: 100.0    # e-/s
 
-spectral:
-  lambda_min: 0.35              # µm
-  lambda_max: 0.95              # µm
-  n_points: 300
-  grid_type: uniform_wavelength
+spectral_integration:
+  filter_min_um: 3.5           # um
+  filter_max_um: 5.0           # um
+  integration_time_s: 0.005    # s  (5 ms)
+
+readout:
+  read_noise_e_rms: 5.0       # e- RMS
+  gain_e_per_dn: 32.0         # e-/DN (sized for FWC/2^16)
+  adc_bits: 16
+  full_well_capacity_e: 2000000.0  # e- (2 Me-, typical MWIR HgCdTe)
 ```
 
----
-
-### Config 4: Point Source Tracking
+### Config 2: VNIR LEO High-Resolution (`examples/templates/vnir_leo_highres.yaml`)
 
 ```yaml
-# RADIANT config — schema v1
-# MWIR sensor tracking an aircraft engine exhaust plume as a point source
-# from a ground-based observatory at 20 km range. Detection range analysis.
+# RADIANT template: vnir_leo_highres
+# High-resolution VNIR from LEO — 0.50m aperture, 0.45–0.70 µm
+# Panchromatic high-GSD imaging satellite.
 
-sensor:
-  optics:
-    aperture_diameter: 0.40     # m
-    focal_length: 3.20          # m — f/# = 8.0 (derived), long focal length for angular res
-    obscuration_ratio: 0.30
-    wfe_rms: 0.06               # waves RMS
-    n_surfaces: 6
-    temperature: 293            # K — ambient ground-based
-
-  detector:
-    material: InSb              # InSb — excellent MWIR QE
-    pixel_pitch: 15.0e-6        # m (15 µm)
-    cutoff_wavelength: 5.4      # µm — InSb cutoff
-    peak_qe: 0.80
-    dark_current: 200           # e-/s/pixel at 77 K
-    read_noise: 20              # e- RMS
-    full_well: 8.0e6            # e-
-    operating_temp: 77          # K
-    ipc_coupling: 0.01
-    n_pixels_x: 640
-    n_pixels_y: 512             # staring FPA
-
-  readout:
-    integration_time: 0.002     # s (2 ms) — short for high background
-    cds_enabled: true
-    adc_bits: 14
-    gain: 80
-    n_tdi: 1
-    n_coadds: 1
-
-  filter:
-    center_wavelength: 4.3      # µm — CO2 emission band from exhaust
-    bandwidth: 0.15             # µm narrow band
-    peak_transmission: 0.85
-    shape: tophat
-
-geometry:
-  observer_altitude: 500        # m (observatory elevation)
-  target_altitude: 3000         # m (aircraft cruise)
-  slant_range: 20000            # m — user-specified directly
-  observer_type: ground
-  target_type: airborne
-  look_angle: 8.5               # deg elevation angle
-  solar_zenith: 75              # deg — twilight conditions
+source:
+  target:
+    temperature: 300.0        # K (ground target)
+    emissivity: 0.10
 
 atmosphere:
-  model: modtran
-  modtran_file: data/midlat_summer_mwir_slant.tape7
-  visibility: 15000             # m (15 km)
-
-target:
-  temperature: 800              # K — exhaust plume temperature
-  emissivity: 0.85              # exhaust plume emissivity
-  area: 0.5                     # m² — effective plume cross-section
-  regime: point                 # force point-source equations
-
-background:
-  temperature: 280              # K — sky background at 8.5 deg elevation
-  emissivity: 0.10              # low sky emissivity in narrow MWIR band
-
-platform:
-  jitter_rms: 15.0              # µrad — ground-based mount with wind loading
-
-spectral:
-  lambda_min: 4.0               # µm
-  lambda_max: 4.6               # µm
-  n_points: 300
-  grid_type: from_modtran
-```
-
----
-
-### Config 5: Sub-Pixel Target Detection
-
-```yaml
-# RADIANT config — schema v1
-# LWIR staring sensor detecting a sub-pixel vehicle target (2 m²)
-# against a warm ground background. NVTherm-style analysis.
-
-sensor:
-  optics:
-    aperture_diameter: 0.15     # m — compact tactical sensor
-    focal_length: 0.75          # m — f/# = 5.0 (derived)
-    obscuration_ratio: 0.0
-    wfe_rms: 0.10               # waves RMS — budget sensor
-    n_surfaces: 4
-    temperature: 290            # K
-
-  detector:
-    material: HgCdTe
-    pixel_pitch: 15.0e-6        # m (15 µm)
-    cutoff_wavelength: 10.5     # µm
-    peak_qe: 0.70
-    dark_current: 3.0e6         # e-/s/pixel at 77 K (LWIR)
-    read_noise: 250             # e- RMS
-    full_well: 10.0e6           # e-
-    operating_temp: 77          # K
-    ipc_coupling: 0.025         # LWIR detectors have higher IPC
-    n_pixels_x: 640
-    n_pixels_y: 480
-
-  readout:
-    integration_time: 0.010     # s (10 ms)
-    cds_enabled: true
-    adc_bits: 14
-    gain: 400                   # e-/DN
-    n_tdi: 1
-    n_coadds: 1
-
-  filter:
-    center_wavelength: 9.0      # µm — LWIR atmospheric window
-    bandwidth: 4.0              # µm (7–11 µm)
-    peak_transmission: 0.88
-    shape: tophat
-
-geometry:
-  observer_altitude: 500        # m — airborne tactical sensor
-  target_altitude: 0            # m
-  slant_range: 3000             # m — 3 km range
-  observer_type: airborne
-  target_type: ground
-  look_angle: 9.5               # deg depression angle
-  solar_zenith: 50              # deg
-
-atmosphere:
-  model: simple
-  visibility: 8000              # m (8 km — hazy)
   standard_atmosphere: midlat_summer
 
-target:
-  temperature: 308              # K — vehicle hood (8 K above background)
-  emissivity: 0.90
-  area: 2.0                     # m² — sub-pixel (IFOV projects to ~50 m² at 3 km)
-  regime: subpixel              # force sub-pixel equation for the 2 m² target
+geometry:
+  sensor_altitude_m: 600000.0  # m (600 km LEO)
 
-background:
-  temperature: 300              # K
-  emissivity: 0.95
-  clutter_sigma: 0.04           # 4% terrain clutter
+optics:
+  aperture_diameter_m: 0.50   # m
+  focal_length_m: 5.00        # m  (f/10)
+  transmission_scalar: 0.75
 
-platform:
-  jitter_rms: 8.0               # µrad (airborne pod vibration)
+detector:
+  pixel_pitch_x_um: 8.0       # µm
+  pixel_pitch_y_um: 8.0       # µm
+  qe_value: 0.80
+  dark_rate_e_per_s: 15.0     # e-/s
 
-spectral:
-  lambda_min: 7.0               # µm
-  lambda_max: 12.0              # µm
-  n_points: 400
-  grid_type: uniform_wavelength
+spectral_integration:
+  filter_min_um: 0.45          # µm
+  filter_max_um: 0.70          # µm
+  integration_time_s: 0.0005   # s  (0.5 ms)
+
+readout:
+  read_noise_e_rms: 4.0       # e- RMS
+  gain_e_per_dn: 1.0          # e-/DN
+  adc_bits: 12
 ```
 
----
 
 ## 7. Loading Precedence Summary
 
@@ -893,13 +513,10 @@ Parameters are resolved in the following priority order (lowest to highest):
 | Priority | Source | Provenance tag |
 |----------|--------|----------------|
 | 1 (lowest) | Schema defaults (`ParameterDef.default`) | `DEFAULT` |
-| 2 | Grandparent config (if `_extends` chain > 1 level) | `CONFIG_FILE` |
-| 3 | Parent config (direct `_extends` target) | `CONFIG_FILE` |
-| 4 | Imported partials (`_imports`, in list order) | `CONFIG_FILE` |
-| 5 | Current config file body | `CONFIG_FILE` |
-| 6 | Programmatic `sensor.set()` calls | `USER_SET` |
-| 7 (highest) | CLI `--set` overrides | `USER_SET` |
+| 2 | Config file body | `CONFIG_FILE` |
+| 3 | Programmatic `Sensor.set()` / `set_many()` calls | `USER_SET` |
+| 4 (highest) | CLI `--set` overrides | `USER_SET` |
 
-Every resolved parameter carries its provenance tag and source file. A parameter from the current config file at priority 5 that is also present in the parent at priority 3 retains the winning source: `config:scenarios/leo_mwir_clear.yaml`.
+(When the `_extends`/`_imports` layering of §1.4–1.5 is implemented, parent and imported configs will slot in below the current file body at the `CONFIG_FILE` level.)
 
-Derived parameters (computed from other parameters via consistency groups) carry provenance `DERIVED` with a `derived_from` record listing the inputs and values used. Derived parameters cannot be set at any priority level; setting them explicitly triggers a consistency check (and may produce a `ConsistencyError` if the explicit value conflicts with the derived value).
+Every resolved parameter carries its provenance tag and source label (the config file path, `Sensor.set`, or the CLI). Derived parameters (computed from other parameters via consistency groups) carry provenance `DERIVED` with a `derived_from` record listing the inputs and values used. Setting all members of a group explicitly triggers a consistency check, which raises a `ValueError` if the explicit value conflicts with the derived value beyond the group tolerance.

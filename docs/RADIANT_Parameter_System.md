@@ -67,16 +67,17 @@ Every parameter in RADIANT is defined once in a schema. The schema is the single
 ```python
 @dataclass(frozen=True)
 class ParameterDef:
-    name: str               # Dot-path: "sensor.optics.aperture_diameter"
+    name: str               # Dot-path: "optics.aperture_diameter_m"
     description: str        # Dense, specific: "Entrance pupil diameter"
     dtype: type             # float, int, str, bool
     canonical_unit: str     # Internal unit per Conventions: "m", "rad", "s", "e-/s"
     input_unit: str         # User-facing unit: "m", "deg", "urad", "ms"
-    default: Any | None     # Default value in input_unit, or None if required
-    bounds: tuple | None    # (min, max) in input_unit, or None
-    enum_values: list | None  # For categorical: ["Si", "HgCdTe", "InSb", "InGaAs"]
-    group: str | None       # Consistency group: "optics_fno"
-    tags: set[str]          # Metadata: {"detector", "noise", "mwir", "lwir"}
+    default: Any | None = None      # Default value in input_unit; None means required
+    bounds: tuple[float, float] | None = None  # (min, max) in input_unit
+    enum_values: tuple[str, ...] | None = None  # For categorical (dtype=str only)
+    group: str | None = None        # Consistency group name: "fnumber"
+    tags: frozenset[str] = frozenset()  # Metadata: {"detector", "noise", "mwir"}
+    default_justification: str = ""     # One-line rationale for a non-obvious default
 ```
 
 Key properties:
@@ -125,91 +126,78 @@ Conversion happens exactly once: on `set()`. Internally, everything is in canoni
 Parameters are organized hierarchically by dot-separated namespaces:
 
 ```
-sensor.optics.aperture_diameter       # m
-sensor.optics.focal_length            # m
-sensor.optics.f_number                # dimensionless
-sensor.optics.obscuration_ratio       # dimensionless (0–1)
-sensor.optics.wfe_rms                 # waves (at reference wavelength)
-sensor.optics.n_surfaces              # int
-sensor.optics.temperature             # K
+optics.aperture_diameter_m            # m
+optics.focal_length_m                 # m
+optics.f_number                       # dimensionless
+optics.obscuration_ratio              # dimensionless (0–1)
+optics.wfe_rms_waves                  # waves (at optics.wfe_reference_wavelength_um)
+optics.transmission_scalar            # dimensionless (0–1)
+optics.optics_temperature_K           # K
+optics.defocus_um                     # µm
+optics.cold_stop_efficiency           # dimensionless (0–1)
+optics.stray.veiling_glare_fraction   # dimensionless (0–1)
 
-sensor.detector.material              # enum: "HgCdTe", "InSb", "Si", "InGaAs"
-sensor.detector.pixel_pitch           # m
-sensor.detector.fill_factor           # dimensionless (0–1)
-sensor.detector.cutoff_wavelength     # µm
-sensor.detector.peak_qe              # dimensionless (0–1)
-sensor.detector.dark_current          # e-/s/pixel (at operating temp)
-sensor.detector.read_noise            # e- RMS
-sensor.detector.full_well             # e-
-sensor.detector.operating_temp        # K
-sensor.detector.ipc_coupling          # dimensionless (0–1)
-sensor.detector.diffusion_length      # m
-sensor.detector.n_pixels_x            # int (cross-track)
-sensor.detector.n_pixels_y            # int (along-track)
+detector.pixel_pitch_x_um             # µm
+detector.pixel_pitch_y_um             # µm
+detector.fill_factor                  # dimensionless (0–1)
+detector.qe_value                     # dimensionless (0–1)
+detector.dark_rate_e_per_s            # e-/s/pixel (at reference temp)
+detector.detector_temperature_K       # K
+detector.ipc_coupling                 # dimensionless (0–1)
+detector.charge_diffusion_length_m    # m
+detector.n_pixels_cross               # int (cross-track)
 
-sensor.readout.integration_time       # s
-sensor.readout.frame_rate             # Hz
-sensor.readout.n_tdi                  # int
-sensor.readout.cds_enabled            # bool
-sensor.readout.n_coadds               # int
-sensor.readout.adc_bits               # int
-sensor.readout.gain                   # e-/DN
-sensor.readout.binning_x              # int
-sensor.readout.binning_y              # int
+readout.read_noise_e_rms              # e- RMS
+readout.gain_e_per_dn                 # e-/DN
+readout.adc_bits                      # int
+readout.full_well_capacity_e          # e-
+readout.cds_enabled                   # bool
+readout.n_tdi                         # int
+readout.n_coadds                      # int
+readout.binning_x_onchip              # int
+readout.binning_y_onchip              # int
 
-sensor.filter.center_wavelength       # µm
-sensor.filter.bandwidth               # µm (FWHM)
-sensor.filter.peak_transmission       # dimensionless (0–1)
-sensor.filter.shape                   # enum: "gaussian", "tophat", "butterworth"
-sensor.filter.oob_rejection           # dimensionless
+spectral_integration.filter_min_um    # µm
+spectral_integration.filter_max_um    # µm
+spectral_integration.integration_time_s  # s
 
-geometry.observer_altitude            # m
-geometry.target_altitude              # m
-geometry.slant_range                  # m
-geometry.look_angle                   # rad (input: deg)
-geometry.solar_zenith                 # rad (input: deg)
-geometry.solar_azimuth                # rad (input: deg)
-geometry.observer_latitude            # rad (input: deg)
-geometry.observer_type                # enum: "space", "airborne", "ground"
-geometry.target_type                  # enum: "space", "airborne", "ground"
+geometry.sensor_altitude_m            # m
+geometry.target_altitude_m            # m
+geometry.path_zenith_rad              # rad (input: deg)
+geometry.solar_zenith_rad             # rad (input: deg)
+geometry.solar_azimuth_rad            # rad (input: deg)
+geometry.ground_speed_m_s             # m/s
 
-atmosphere.model                      # enum: "simple", "standard", "modtran"
-atmosphere.visibility                 # m (input: km)
+atmosphere.model                      # enum: "unity", "simple", "tabulated", "modtran", "interpolated"
+atmosphere.visibility_km              # km
+atmosphere.precipitable_water_cm      # cm
 atmosphere.standard_atmosphere        # enum: "tropical", "midlat_summer", "midlat_winter",
                                       #        "subarctic_summer", "subarctic_winter", "us_standard"
-atmosphere.modtran_file               # str (file path)
-atmosphere.cloud_optical_depth        # dimensionless
-atmosphere.cloud_fraction             # dimensionless (0–1)
+atmosphere.modtran.binary_path        # str (file path)
+atmosphere.modtran.h2o_scale          # dimensionless
+atmosphere.r0_m                       # m (Fried parameter)
 
-target.temperature                    # K
-target.temperature_hot                # K (for non-uniform: hot component)
-target.temperature_cool               # K (for non-uniform: cool component)
-target.hot_fraction                   # dimensionless (0–1)
-target.emissivity                     # dimensionless (0–1), scalar or reference to spectral data
-target.reflectance                    # dimensionless (0–1), Lambertian
-target.area                           # m²
-target.velocity                       # m/s (for smear computation)
+source.target.temperature             # K
+source.target.emissivity              # dimensionless (0–1)
+source.target.reflectance             # dimensionless (0–1), Lambertian
+source.target.projected_area_m2       # m²
+source.target.range_m                 # m
+source.target.fill_fraction           # dimensionless (0–1)
+source.background.temperature         # K
+source.background.emissivity          # dimensionless (0–1)
 
-background.temperature                # K
-background.emissivity                 # dimensionless (0–1)
-background.reflectance                # dimensionless (0–1)
-background.clutter_sigma              # dimensionless (σ_clutter / L_background)
-
-platform.jitter_rms                   # rad (input: µrad)
-platform.drift_rate                   # rad/s (input: µrad/s)
-platform.smear_velocity               # m/s (image plane velocity)
-
-mission.age                           # s (input: years, for radiation damage)
-mission.total_dose                    # krad (for radiation damage)
+platform.jitter_rms_urad              # rad (input: µrad)
+platform.ground_velocity_m_s          # m/s
+platform.smear_length_um              # µm (image-plane smear)
 ```
 
-### Naming rules
+### Naming rules (per ADR-D, `docs/adr/ADR-D-parameter-naming.md`, 2026-07-06)
 
-1. All lowercase, underscores separating words: `aperture_diameter`, not `ApertureDiameter` or `aperture-diameter`.
-2. No unit in the name. The unit is metadata on the definition. `aperture_diameter` not `aperture_diameter_m`.
-3. Namespace depth is 2: `category.parameter_name`. No deeper nesting. The category groups parameters by physical subsystem.
+1. All lowercase, underscores separating words: `aperture_diameter_m`, not `ApertureDiameter` or `aperture-diameter`.
+2. Every dimensioned parameter carries a unit suffix: `_m`, `_um`, `_urad`, `_K`, `_rad`, `_s`, `_hz`, `_km`, `_cm`, `_e`, `_e_per_s`, `_e_rms`, `_m_s`, `_W_m2`, `_eV`, `_pct`, `_waves`, … (e.g. `optics.aperture_diameter_m`, `detector.pixel_pitch_x_um`). The suffix names the **input unit** — the unit a user supplies to `params.set()`, exactly as declared in the schema's `input_unit`. It usually coincides with the canonical unit; where they differ, the suffix follows the input unit (`pixel_pitch_x_um` accepts µm, stores meters canonically; `jitter_rms_urad` accepts µrad, stores rad). Dimensionless parameters (ratios, counts, flags, enums) have no suffix (`optics.f_number`, `detector.fill_factor`). The suffix is a human affordance; the `ParameterDef` remains the single source of truth for conversion.
+3. Namespace depth is 2 or 3: `stage.parameter_name` or `stage.group.parameter_name`, where the group names a cohesive sub-model (`source.target.*`, `source.background.*`, `optics.stray.*`, `atmosphere.modtran.*`). The first segment is the owning stage; there is no `sensor.` super-prefix.
 4. Boolean parameters are named as adjectives or states: `cds_enabled`, not `use_cds` or `cds`.
-5. Count parameters are prefixed with `n_`: `n_tdi`, `n_coadds`, `n_pixels_x`.
+5. Count parameters are prefixed with `n_`: `n_tdi`, `n_coadds`, `n_pixels_cross`.
 
 ---
 
@@ -220,29 +208,27 @@ Each parameter definition includes a default value or `None` (required).
 ### Default categories
 
 1. **Required (no default):** Parameters that fundamentally define the scenario. There is no sensible default for aperture diameter — the user must choose a sensor.
-   - `sensor.optics.aperture_diameter`: None (required)
-   - `sensor.detector.pixel_pitch`: None (required)
-   - `target.temperature`: None (required)
-   - `geometry.slant_range`: None (required)
+   - `optics.aperture_diameter_m`: None (required)
+   - `optics.focal_length_m`: None (required, unless derived via the `fnumber` group)
+   - `detector.pixel_pitch_x_um`: None (required)
+   - `detector.pixel_pitch_y_um`: None (required)
 
 2. **Defaulted to common value:** Parameters where a reasonable assumption covers 80% of use cases.
-   - `sensor.readout.cds_enabled`: True (most modern ROICs use CDS)
-   - `sensor.readout.n_coadds`: 1
-   - `sensor.readout.n_tdi`: 1 (no TDI)
-   - `sensor.readout.binning_x`: 1
-   - `sensor.readout.binning_y`: 1
-   - `sensor.optics.obscuration_ratio`: 0.0 (unobscured by default)
-   - `sensor.detector.fill_factor`: 1.0
-   - `sensor.detector.ipc_coupling`: 0.0
-   - `atmosphere.cloud_fraction`: 0.0 (clear sky)
-   - `atmosphere.cloud_optical_depth`: 0.0
-   - `background.clutter_sigma`: 0.0
+   - `readout.cds_enabled`: True (most modern ROICs use CDS)
+   - `readout.n_coadds`: 1
+   - `readout.n_tdi`: 1 (no TDI)
+   - `readout.binning_x_onchip`: 1
+   - `readout.binning_y_onchip`: 1
+   - `optics.obscuration_ratio`: 0.0 (unobscured by default)
+   - `detector.fill_factor`: 1.0
+   - `source.target.temperature`: 300.0 K
+   - `source.background.temperature`: 290.0 K
 
-3. **Defaulted to "off" for optional effects:** Stubbed or optional parameters default to the value that disables the effect.
-   - `platform.jitter_rms`: 0.0 (no jitter)
-   - `platform.drift_rate`: 0.0 (no drift)
-   - `target.hot_fraction`: 0.0 (uniform temperature)
-   - `mission.age`: 0.0 (beginning of life)
+3. **Defaulted to "off" for optional effects:** Optional parameters default to the value that disables the effect.
+   - `platform.jitter_rms_urad`: 0.0 (no jitter)
+   - `detector.ipc_coupling`: 0.0 (no inter-pixel capacitance)
+   - `detector.clutter_sigma`: 0.0 (no clutter)
+   - `optics.defocus_um`: 0.0 (in focus)
 
 ### Default documentation
 
@@ -250,7 +236,7 @@ Every default value includes a one-line justification in the schema:
 
 ```python
 ParameterDef(
-    name="sensor.readout.cds_enabled",
+    name="readout.cds_enabled",
     description="Correlated double sampling active",
     dtype=bool,
     canonical_unit="",
@@ -318,12 +304,13 @@ A consistency group defines:
 - The constraint equation for validation
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class ConsistencyGroup:
     name: str
-    parameters: list[str]
-    constraint: str                            # human-readable: "f_number = focal_length / aperture_diameter"
+    parameters: tuple[str, ...]
+    constraint: str                            # human-readable: "f_number = focal_length_m / aperture_diameter_m"
     derivations: dict[str, Callable]           # {free_param: function(known_values) -> value}
+    tolerance: float = 1e-9                    # relative tolerance for the over-specification check
 ```
 
 ### Resolution algorithm
@@ -335,49 +322,35 @@ class ConsistencyGroup:
 
 ### v1 consistency groups
 
+Groups are assembled in `radiant/api/_param_registry.py` (there is no module-level constant in `radiant.core.parameters`) and passed to the `ParameterSet` constructor: `ParameterSet(schema, groups)`. v1 defines one group:
+
 ```python
-CONSISTENCY_GROUPS = [
-    ConsistencyGroup(
-        name="optics_fno",
-        parameters=[
-            "sensor.optics.f_number",
-            "sensor.optics.focal_length",
-            "sensor.optics.aperture_diameter",
-        ],
-        constraint="f_number = focal_length / aperture_diameter",
-        derivations={
-            "sensor.optics.f_number": lambda p: p["sensor.optics.focal_length"] / p["sensor.optics.aperture_diameter"],
-            "sensor.optics.focal_length": lambda p: p["sensor.optics.f_number"] * p["sensor.optics.aperture_diameter"],
-            "sensor.optics.aperture_diameter": lambda p: p["sensor.optics.focal_length"] / p["sensor.optics.f_number"],
-        },
+# radiant/api/_param_registry.py
+_FNUMBER_GROUP = ConsistencyGroup(
+    name="fnumber",
+    parameters=(
+        "optics.aperture_diameter_m",
+        "optics.focal_length_m",
+        "optics.f_number",
     ),
-    ConsistencyGroup(
-        name="readout_timing",
-        parameters=[
-            "sensor.readout.integration_time",
-            "sensor.readout.frame_rate",
-            # duty_cycle is derived from these two, not a group member
-        ],
-        constraint="frame_rate <= 1 / integration_time",
-        derivations={
-            "sensor.readout.integration_time": lambda p: 1.0 / p["sensor.readout.frame_rate"],
-            "sensor.readout.frame_rate": lambda p: 1.0 / p["sensor.readout.integration_time"],
-        },
-    ),
-    ConsistencyGroup(
-        name="gsd",
-        parameters=[
-            "sensor.optics.focal_length",
-            "sensor.detector.pixel_pitch",
-            # GSD is a derived output, not a group member — it requires geometry too
-        ],
-        constraint="ifov = pixel_pitch / focal_length",
-        derivations={
-            "sensor.optics.focal_length": lambda p: p["sensor.detector.pixel_pitch"] / p["_ifov"],
-            "sensor.detector.pixel_pitch": lambda p: p["_ifov"] * p["sensor.optics.focal_length"],
-        },
-    ),
-]
+    constraint="f_number = focal_length_m / aperture_diameter_m",
+    derivations={
+        "optics.f_number": lambda kv: (
+            kv["optics.focal_length_m"] / kv["optics.aperture_diameter_m"]
+        ),
+        "optics.focal_length_m": lambda kv: (
+            kv["optics.aperture_diameter_m"] * kv["optics.f_number"]
+        ),
+        "optics.aperture_diameter_m": lambda kv: (
+            kv["optics.focal_length_m"] / kv["optics.f_number"]
+        ),
+    },
+    tolerance=1e-3,
+)
+
+def build_parameter_set() -> ParameterSet:
+    schema = list(SRC_PARAMS + ATMO_PARAMS + OPT_PARAMS + ...)
+    return ParameterSet(schema, [_FNUMBER_GROUP])
 ```
 
 ---
@@ -389,15 +362,15 @@ CONSISTENCY_GROUPS = [
 Parameters can depend on other parameters via derivation rules. The resolver maintains a directed acyclic graph (DAG):
 
 ```
-sensor.optics.aperture_diameter ──┐
-                                  ├──▶ sensor.optics.f_number (derived)
-sensor.optics.focal_length ───────┘
-                                  │
-                                  ├──▶ _ifov (derived)
-sensor.detector.pixel_pitch ──────┘
-                                  │
-                                  ├──▶ _gsd (derived)
-geometry.slant_range ─────────────┘
+optics.aperture_diameter_m ──┐
+                             ├──▶ optics.f_number (derived)
+optics.focal_length_m ───────┘
+                             │
+                             ├──▶ _ifov (derived)
+detector.pixel_pitch_x_um ───┘
+                             │
+                             ├──▶ _gsd (derived)
+source.target.range_m ───────┘
 ```
 
 ### Resolution algorithm
@@ -462,7 +435,7 @@ The entire resolved parameter set can be serialized to a provenance record:
     "radiant_version": "0.1.0",
     "resolved_at": "2026-04-06T14:30:00Z",
     "parameters": {
-        "sensor.optics.aperture_diameter": {
+        "optics.aperture_diameter_m": {
             "value": 0.3,
             "canonical_unit": "m",
             "input_value": 0.3,
@@ -470,16 +443,16 @@ The entire resolved parameter set can be serialized to a provenance record:
             "provenance": "user_set",
             "source": "user"
         },
-        "sensor.optics.f_number": {
+        "optics.f_number": {
             "value": 4.0,
             "canonical_unit": "",
             "input_value": 4.0,
             "input_unit": "",
             "provenance": "derived",
-            "source": "derived:focal_length/aperture_diameter",
+            "source": "derived:focal_length_m/aperture_diameter_m",
             "derived_from": {
-                "sensor.optics.focal_length": 1.2,
-                "sensor.optics.aperture_diameter": 0.3
+                "optics.focal_length_m": 1.2,
+                "optics.aperture_diameter_m": 0.3
             }
         }
     }
@@ -497,18 +470,18 @@ Given the provenance record, any result is exactly reproducible.
 Every parameter can answer: "why does this have this value?"
 
 ```python
-params.explain("sensor.optics.f_number")
+params.explain("optics.f_number")
 # Returns:
-# "sensor.optics.f_number = 4.0 (dimensionless)
+# "optics.f_number = 4.0 (dimensionless)
 #  Provenance: DERIVED
-#  Rule: f_number = focal_length / aperture_diameter
-#  From: sensor.optics.focal_length = 1.2 m (USER_SET)
-#        sensor.optics.aperture_diameter = 0.3 m (USER_SET)
-#  Consistency group: optics_fno"
+#  Rule: f_number = focal_length_m / aperture_diameter_m
+#  From: optics.focal_length_m = 1.2 m (USER_SET)
+#        optics.aperture_diameter_m = 0.3 m (USER_SET)
+#  Consistency group: fnumber"
 
-params.explain("sensor.readout.cds_enabled")
+params.explain("readout.cds_enabled")
 # Returns:
-# "sensor.readout.cds_enabled = True
+# "readout.cds_enabled = True
 #  Provenance: DEFAULT
 #  Justification: CDS is standard on modern HgCdTe and CMOS ROICs; eliminates kTC noise"
 ```
@@ -526,9 +499,9 @@ result.explain("snr")
 #    Read noise: 25.0 e- (spec)
 #    ... [full noise budget]
 #  Top 3 parameters by sensitivity:
-#    sensor.optics.aperture_diameter: ∂SNR/∂D = +312 /m
-#    sensor.readout.integration_time: ∂SNR/∂t = +2340 /s
-#    sensor.detector.dark_current: ∂SNR/∂J = -0.0012 /(e-/s)"
+#    optics.aperture_diameter_m: ∂SNR/∂D = +312 /m
+#    spectral_integration.integration_time_s: ∂SNR/∂t = +2340 /s
+#    detector.dark_rate_e_per_s: ∂SNR/∂J = -0.0012 /(e-/s)"
 ```
 
 ---
@@ -588,14 +561,14 @@ Each spectral quantity has a registered generator that either computes from scal
 
 | Spectral Data | Generator Input | Source |
 |---------------|----------------|--------|
-| `qe` | `sensor.detector.material`, `sensor.detector.cutoff_wavelength`, `sensor.detector.peak_qe` | Computed from material model or loaded from file |
-| `filter_transmission` | `sensor.filter.center_wavelength`, `sensor.filter.bandwidth`, `sensor.filter.peak_transmission`, `sensor.filter.shape` | Computed from analytical shape model |
-| `tau_atm` | `atmosphere.modtran_file` or `atmosphere.model` + params | Loaded from MODTRAN or computed from simple model |
-| `path_radiance` | `atmosphere.modtran_file` or `atmosphere.model` + params | Loaded from MODTRAN or computed |
-| `atm_emission` | `atmosphere.modtran_file` or `atmosphere.model` + params | Loaded from MODTRAN or computed |
+| `qe` | `detector.qe_value` (flat) or `detector.qe_table_path` (file) | Constant array or loaded from file |
+| `filter_transmission` | `spectral_integration.filter_min_um`, `spectral_integration.filter_max_um` | Computed top-hat bandpass |
+| `tau_atm` | `atmosphere.model` + model params (e.g. `atmosphere.tabulated_transmittance_file`) | Loaded from file or computed from simple model |
+| `path_radiance` | `atmosphere.model` + model params | Loaded from file or computed |
+| `atm_emission` | `atmosphere.model` + model params | Loaded from file or computed |
 | `solar_irradiance` | None (reference spectrum) | Loaded from built-in data file |
-| `optical_transmission` | `sensor.optics.n_surfaces`, per-surface reflectance, or bulk τ_opt | Computed or loaded |
-| `target_emissivity` | `target.emissivity` (scalar) or file path | Scalar → constant array, or loaded from spectral library |
+| `optical_transmission` | `optics.transmission_scalar` or per-element data (`optics.transmission_input_mode`) | Computed or loaded |
+| `target_emissivity` | `source.target.emissivity` (scalar) or `source.target.reflectance_path` | Scalar → constant array, or loaded from spectral library |
 
 ---
 
@@ -604,60 +577,49 @@ Each spectral quantity has a registered generator that either computes from scal
 Parameters are specified in YAML. The dot-path namespace maps to YAML nesting:
 
 ```yaml
-# scenario_example.yaml
-sensor:
-  optics:
-    aperture_diameter: 0.3       # m
-    focal_length: 1.2            # m
-    obscuration_ratio: 0.33
-    wfe_rms: 0.07                # waves
-    temperature: 280             # K
-
-  detector:
-    material: HgCdTe
-    pixel_pitch: 18.0e-6         # m
-    cutoff_wavelength: 5.0       # µm
-    peak_qe: 0.75
-    dark_current: 500            # e-/s/pixel
-    read_noise: 25               # e-
-    full_well: 1.5e6             # e-
-    operating_temp: 80           # K
-
-  readout:
-    integration_time: 0.005      # s (= 5 ms)
-    cds_enabled: true
-    adc_bits: 14
-    gain: 100                    # e-/DN
-    n_tdi: 1
-
-  filter:
-    center_wavelength: 4.2       # µm
-    bandwidth: 0.5               # µm
-    peak_transmission: 0.9
-    shape: tophat
-
-geometry:
-  observer_altitude: 600000      # m (= 600 km)
-  observer_type: space
-  target_type: ground
-  look_angle: 0                  # deg (nadir)
-  solar_zenith: 30               # deg
+# scenario_example.yaml — top-level keys are the stage namespaces
+source:
+  target:
+    temperature: 300.0           # K
+    emissivity: 0.95
+  background:
+    temperature: 290.0           # K
+    emissivity: 0.96
 
 atmosphere:
-  model: modtran
-  modtran_file: data/midlat_summer_mwir.tape7
+  standard_atmosphere: midlat_summer
 
-target:
-  temperature: 300               # K
-  emissivity: 0.95
-  area: 10.0                     # m²
+geometry:
+  sensor_altitude_m: 8000.0      # m
 
-background:
-  temperature: 290               # K
-  emissivity: 0.96
+optics:
+  aperture_diameter_m: 0.30      # m
+  focal_length_m: 1.20           # m  (f/4.0)
+  obscuration_ratio: 0.33
+  wfe_rms_waves: 0.07            # waves
+  optics_temperature_K: 280.0    # K
+  transmission_scalar: 0.70
+
+detector:
+  pixel_pitch_x_um: 18.0         # µm
+  pixel_pitch_y_um: 18.0         # µm
+  qe_value: 0.70
+  dark_rate_e_per_s: 100.0       # e-/s
+
+spectral_integration:
+  filter_min_um: 3.5             # µm
+  filter_max_um: 5.0             # µm
+  integration_time_s: 0.005      # s  (5 ms)
+
+readout:
+  read_noise_e_rms: 5.0          # e- RMS
+  gain_e_per_dn: 32.0            # e-/DN
+  adc_bits: 16
+  cds_enabled: true
+  n_tdi: 1
 
 platform:
-  jitter_rms: 3.0                # µrad
+  jitter_rms_urad: 3.0           # µrad
 ```
 
 ### Loading precedence
@@ -675,10 +637,10 @@ Each layer records its provenance. If the same parameter appears in multiple lay
 
 | Persona | Parameter system requirement | How it's met |
 |---------|----------------------------|-------------|
-| Sarah (P1) | Sweep one parameter, hold others constant | `ParameterSet.sweep("sensor.optics.aperture_diameter", [0.15, 0.20, ..., 0.60])` returns list of resolved sets |
+| Sarah (P1) | Sweep one parameter, hold others constant | `ParameterSet.sweep("optics.aperture_diameter_m", [0.15, 0.20, ..., 0.60])` returns list of resolved sets |
 | Mike (P2) | Inspect every noise term independently | Provenance + explainability on all derived noise values |
 | Raj (P3) | Load a sensor config and specify only the scenario | Config file layering: sensor config + scenario overrides |
 | Lisa (P4) | Batch run across target × atmosphere × sensor | Cross-product of config files → list of ParameterSets |
 | Tom (P5) | Override WFE, see MTF effect | Direct `params.set()` override with instant re-resolution |
 | Dr. Chen (P6) | Full provenance for reproducibility | Provenance audit record attached to every output |
-| Karen (P7) | Compare predicted vs. measured; adjust one param to close gap | Sensitivity analysis via `params.sensitivity("snr", "sensor.detector.dark_current")` |
+| Karen (P7) | Compare predicted vs. measured; adjust one param to close gap | Sensitivity analysis via `params.sensitivity("snr", "detector.dark_rate_e_per_s")` |

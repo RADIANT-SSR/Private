@@ -11,14 +11,14 @@
 
 Four levels of tests. Every level must pass before the next level is meaningful. Level 0 failures are bugs in physics fundamentals — they invalidate every result the tool has ever produced.
 
-| Level | Name | Scope | Runner | Speed |
-|-------|------|-------|--------|-------|
-| **0** | Physics correctness | Single equations and constants against known-good analytic results | pytest | < 1 s per test |
-| **1** | Module-level | Individual stage or module with controlled inputs | pytest | < 10 s per test |
-| **2** | End-to-end chain | Full signal chain against multi-stage reference scenarios | pytest | < 60 s per scenario |
-| **3** | Regression (golden) | Full chain against frozen golden output files | pytest | < 120 s per golden |
+| Level | Name | pytest marker | Scope | Speed |
+|-------|------|--------------|-------|-------|
+| **0** | Physics correctness | `level0` | Single equations and constants against known-good analytic results | < 1 s per test |
+| **1** | Module-level | `level1` | Individual stage or module with controlled inputs | < 10 s per test |
+| **2** | End-to-end chain | `level2` | Full signal chain against multi-stage reference scenarios | < 60 s per scenario |
+| — | Regression (golden) | `golden` | Full chain against frozen golden output files | < 120 s per golden |
 
-All levels run in CI on every PR. Level 0–2 run in < 5 minutes total. Level 3 (golden) runs in a separate CI job on main branch only (not on every PR, to avoid golden file drift blocking development).
+The registered markers in `pyproject.toml` are exactly `level0`, `level1`, `level2`, and `golden` — golden regression is its own marker, **not** a "level3" (no `level3` marker exists; `--strict-markers` would reject it). All levels run in CI on every PR. Level 0–2 run in < 5 minutes total. Golden tests run in a separate CI job on main branch only (not on every PR, to avoid golden file drift blocking development).
 
 ---
 
@@ -57,7 +57,7 @@ def test_planck_stefan_boltzmann():
 ])
 def test_wiens_displacement(T, expected_lam_peak_um):
     """λ_max · T = 2897.77 µm·K (CODATA 2018 Wien constant)."""
-    from radiant.source.blackbody import planck_spectral_radiance
+    from radiant.core.blackbody import planck_spectral_radiance
     import numpy as np
     wl = np.linspace(0.2, 30.0, 5000)
     L = planck_spectral_radiance(wl, T)
@@ -73,8 +73,8 @@ def test_wiens_displacement(T, expected_lam_peak_um):
 @pytest.mark.parametrize("n_signal", [100, 1000, 10000, 100000, 1_000_000])
 def test_shot_noise_is_sqrt_signal(n_signal):
     """σ_shot = √(signal). This must be exact — no approximations."""
-    from radiant.detector.shot_noise import photon_shot_noise_electrons
-    sigma = photon_shot_noise_electrons(n_signal)
+    from radiant.detector.shot_noise import shot_noise_e
+    sigma = shot_noise_e(n_signal)
     assert sigma == pytest.approx(np.sqrt(n_signal), rel=1e-10)
 ```
 
@@ -86,56 +86,59 @@ def test_shot_noise_is_sqrt_signal(n_signal):
 @pytest.mark.parametrize("lsb_e", [50, 100, 200, 500])
 def test_quantization_noise(lsb_e):
     """σ_q = LSB / √12. Exact formula — no approximation."""
-    from radiant.readout.adc import quantization_noise_electrons
-    sigma = quantization_noise_electrons(lsb_e)
-    assert sigma == pytest.approx(lsb_e / np.sqrt(12), rel=1e-10)
+    from radiant.readout.adc import AnalogToDigital
+    adc = AnalogToDigital(gain_e_per_dn=lsb_e, n_bits=16)
+    assert adc.quantization_noise_e() == pytest.approx(lsb_e / np.sqrt(12), rel=1e-10)
 ```
 
 ### 2.4 Diffraction Limit
 
-**Test:** Airy disk first dark ring at `θ = 1.22 λ/D`.
+**Test:** Airy disk first dark ring at `r = 1.22 λf/D` on the focal plane. There is no closed-form `airy_first_dark_ring` helper — the PSF is computed via FFT of the complex pupil (`radiant.optics.psf_mono.compute_psf`), and the first minimum of its radial profile is located numerically (this is exactly how `optics/tests/test_diffraction.py::TestAiryFirstZero` does it):
 
 ```python
-@pytest.mark.parametrize("D_m,lam_um,expected_theta_urad", [
-    (0.30, 4.2, 17.08),   # MWIR
-    (0.30, 10.5, 42.70),  # LWIR
-    (0.10, 0.65,  7.93),  # VIS
-])
-def test_airy_first_dark_ring(D_m, lam_um, expected_theta_urad):
-    """θ_first_dark = 1.22 λ / D (radians), converted to µrad."""
-    from radiant.optics.diffraction import airy_first_dark_ring_rad
-    theta_rad = airy_first_dark_ring_rad(D_m, lam_um * 1e-6)
-    theta_urad = theta_rad * 1e6
-    assert theta_urad == pytest.approx(expected_theta_urad, rel=0.001)
+def test_airy_first_zero_location(config, psf_unaberrated):
+    """First zero of the Airy pattern at r = 1.22 λf/D.
+    Truth anchor: Born & Wolf, Principles of Optics, §8.5.2."""
+    c = config.padded_npix // 2
+    profile = psf_unaberrated[c, c:]                 # radial profile from center
+    r_zero_expected = 1.21966989 * lam_m * f_m / D_m
+    for i in range(1, len(profile) - 1):             # first local minimum
+        if profile[i] < profile[i - 1] and profile[i] <= profile[i + 1]:
+            r_min = i * config.focal_spacing_m
+            break
+    assert r_min == pytest.approx(r_zero_expected, rel=0.01)
 ```
 
-**Test:** Circular aperture diffraction MTF at zero frequency = 1.0; at cutoff frequency = 0.0.
+**Test:** Optical MTF from the pupil autocorrelation (`radiant.optics.pupil_mtf`, Rule 4 — no separate `circular_aperture_mtf` exists) is 1.0 at zero frequency and 0.0 at and beyond cutoff `f_c = D / (λ f)`:
 
 ```python
-def test_diffraction_mtf_normalization():
-    from radiant.optics.diffraction import circular_aperture_mtf
-    import numpy as np
-    D, f, lam = 0.30, 1.20, 4.2e-6
-    f_cutoff = D / (lam * f)                       # cycles/m (focal plane)
-    freq = np.linspace(0, f_cutoff * 1.5, 500)
-    mtf = circular_aperture_mtf(freq, D, f, lam)
+def test_pupil_mtf_normalization(amplitude, phase, config):
+    from radiant.optics.pupil_mtf import (
+        pupil_autocorrelation_mtf_1d,
+        pupil_autocorrelation_mtf_2d,
+    )
+    mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
+    freq, mtf = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, axis="x")
+    f_cutoff = D_m / (lam_m * f_m)                   # cycles/m (focal plane)
     assert mtf[0] == pytest.approx(1.0, abs=1e-8)
-    assert all(mtf[freq >= f_cutoff] < 1e-6)
+    assert np.all(mtf[freq >= f_cutoff] < 1e-6)
 ```
 
 ### 2.5 Pixel Aperture MTF
 
 **Test:** `MTF(f) = |sinc(f × p)|` where `p` is pixel pitch.
 
+The pixel aperture MTF has no standalone helper — `DetectorStage` computes it inline as `np.abs(np.sinc(freq_m * pixel_pitch))` and publishes it as `mtf_pixel_aperture_x` / `mtf_pixel_aperture_y` (`detector/stage.py`). The Level 0 check therefore reads the stage's published MTF term:
+
 ```python
-def test_pixel_aperture_mtf():
+def test_pixel_aperture_mtf(state_after_detector, freq_m):
     """MTF at Nyquist = sinc(0.5) ≈ 0.6366. At Nyquist/2 = sinc(0.25) ≈ 0.9003."""
-    from radiant.platform.sampling import pixel_aperture_mtf
     import numpy as np
     p = 18e-6   # m
     f_ny = 1 / (2 * p)   # Nyquist frequency (cycles/m)
-    assert pixel_aperture_mtf(f_ny, p) == pytest.approx(np.sinc(0.5), rel=1e-6)
-    assert pixel_aperture_mtf(f_ny / 2, p) == pytest.approx(np.sinc(0.25), rel=1e-6)
+    mtf = state_after_detector.mtf_terms["mtf_pixel_aperture_x"]
+    assert np.interp(f_ny, freq_m, mtf) == pytest.approx(np.sinc(0.5), rel=1e-3)
+    assert np.interp(f_ny / 2, freq_m, mtf) == pytest.approx(np.sinc(0.25), rel=1e-3)
 ```
 
 ### 2.6 kTC Noise and CDS Cancellation
@@ -144,19 +147,16 @@ def test_pixel_aperture_mtf():
 
 ```python
 def test_ktc_cds_cancellation():
-    """CDS completely cancels kTC noise. Without CDS, kTC = sqrt(k_B T C / q²)."""
-    from radiant.readout.ktc import ktc_noise_electrons
+    """CDS completely cancels kTC noise. Without CDS, kTC = √(k_B T C) / q."""
+    from radiant.detector.noise.roic import ktc_reset_noise
     from radiant.core.constants import k_B, q
     T_roic = 290      # K
     C_node = 50e-15   # F (50 fF)
-    sigma_ktc = ktc_noise_electrons(T_roic, C_node)
     expected = np.sqrt(k_B * T_roic * C_node) / q
-    assert sigma_ktc == pytest.approx(expected, rel=1e-6)
 
     # With CDS enabled: kTC contribution = 0
-    from radiant.readout.ktc import ktc_noise_electrons_with_cds
-    assert ktc_noise_electrons_with_cds(T_roic, C_node, cds_enabled=True) == 0.0
-    assert ktc_noise_electrons_with_cds(T_roic, C_node, cds_enabled=False) == pytest.approx(expected, rel=1e-6)
+    assert ktc_reset_noise(C_node, T_roic, cds_enabled=True) == 0.0
+    assert ktc_reset_noise(C_node, T_roic, cds_enabled=False) == pytest.approx(expected, rel=1e-6)
 ```
 
 ### 2.7 TDI Signal and Noise Scaling
@@ -180,16 +180,15 @@ def test_tdi_snr_improvement(n_tdi):
 
 **Test:** Simple atmosphere transmittance follows Beer-Lambert law.
 
+There is no standalone `beer_lambert_transmittance` helper — `SimpleAtmosphere` (`radiant/atmosphere/simple.py`) computes the column-integrated optical depth per species and applies `τ = exp(−OD)` internally. The check verifies the model's transmittance against a hand-computed optical depth (this is `atmosphere/tests/test_simple.py::test_truth_anchor_1_rayleigh_only_matches_hand_calc`):
+
 ```python
-@pytest.mark.parametrize("alpha_per_km,range_km,expected_tau", [
-    (0.1, 10.0, np.exp(-1.0)),    # τ = e^{-1} ≈ 0.3679
-    (0.0, 100.0, 1.0),            # no extinction → unity
-    (0.5,  1.0, np.exp(-0.5)),    # shorter path
-])
-def test_beer_lambert(alpha_per_km, range_km, expected_tau):
-    from radiant.atmosphere.simple import beer_lambert_transmittance
-    tau = beer_lambert_transmittance(alpha_per_km, range_km)
-    assert tau == pytest.approx(expected_tau, rel=1e-8)
+def test_beer_lambert_matches_hand_calc():
+    """τ(λ) = exp(-OD) with OD hand-computed from the column integral."""
+    state = simple_atmosphere.build_state(...)      # Rayleigh-only configuration
+    od = sigma_0 * col_mol                          # hand-computed column OD
+    expected_tau = math.exp(-od)
+    assert state.transmittance.values[i] == pytest.approx(expected_tau, rel=1e-12, abs=1e-12)
 ```
 
 ### 2.9 Encircled Energy — Airy Disk
@@ -197,15 +196,18 @@ def test_beer_lambert(alpha_per_km, range_km, expected_tau):
 **Test:** Airy disk EE at first dark ring = 83.8%.
 
 ```python
-def test_airy_encircled_energy_at_first_dark():
-    """EE(r = 1.22 λ/D) = 83.8% for a circular unobscured aperture.
-    Reference: Born & Wolf, Principles of Optics, Table 8.5."""
-    from radiant.optics.ee_box import encircled_energy_airy
+def test_airy_encircled_energy_at_first_dark(psf_data):
+    """~84% of Airy energy within the first zero (Born & Wolf: 83.8%
+    within the first dark ring). PSFData.encircled_energy uses a square
+    box, so the tolerance is loose (this is
+    optics/tests/test_psf.py::test_airy_84_percent)."""
     D, f, lam_m = 0.30, 1.20, 4.2e-6
     r_first_dark = 1.22 * lam_m * f / D   # radius of first dark ring (m, focal plane)
-    ee = encircled_energy_airy(r_first_dark, D, f, lam_m)
-    assert ee == pytest.approx(0.838, abs=0.002)
+    ee = psf_data.encircled_energy(r_first_dark)
+    assert ee == pytest.approx(0.84, abs=0.05)
 ```
+
+(The pixel-box coupling quantity `EE_box` itself is computed by `radiant.optics.ee_box.compute_ee_box(psf, n_pixels)` from the `EffectivePSF`.)
 
 ### 2.10 Unit Conversion Roundtrip
 
@@ -315,7 +317,7 @@ Ten reference scenarios with known-good results. These test the full chain but n
 
 ---
 
-## 5. Level 3: Regression (Golden Results)
+## 5. Golden Regression Tests (`@pytest.mark.golden`)
 
 Golden results are frozen JSON files representing the exact output of a full chain evaluation for a reference scenario. They are not updated automatically — updates require an intentional command.
 
@@ -359,7 +361,7 @@ Golden results are frozen JSON files representing the exact output of a full cha
 ```python
 def test_golden_mwir_baseline(radiant_golden):
     """Full chain against frozen golden result for MWIR LEO pushbroom baseline."""
-    result = Sensor.load("tests/fixtures/mwir_leo_baseline.yaml").evaluate()
+    result = Sensor.from_yaml("tests/fixtures/mwir_leo_baseline.yaml").evaluate()
     golden = radiant_golden.load("tests/golden/mwir_leo_baseline.json")
     radiant_golden.assert_within_tolerance(result, golden)
 ```
@@ -635,18 +637,17 @@ from hypothesis import given, strategies as st
 )
 def test_planck_always_positive(T, lam_min, lam_max):
     """Planck function is always positive for positive T."""
-    from radiant.source.blackbody import planck_spectral_radiance
+    from radiant.core.blackbody import planck_spectral_radiance
     import numpy as np
     wl = np.linspace(lam_min, lam_max, 50)
     L = planck_spectral_radiance(wl, T)
     assert np.all(L > 0)
 
-@given(D=st.floats(min_value=0.01, max_value=5.0),
-       f=st.floats(min_value=0.05, max_value=20.0))
-def test_fno_always_positive(D, f):
-    """f/# = f/D is always positive for positive f and D."""
-    from radiant.optics.diffraction import compute_fno
-    assert compute_fno(D, f) > 0
+@given(n=st.floats(min_value=0.0, max_value=1e9))
+def test_shot_noise_always_nonnegative(n):
+    """σ_shot = √n is non-negative and monotonic for all valid signals."""
+    from radiant.detector.shot_noise import shot_noise_e
+    assert shot_noise_e(n) >= 0.0
 ```
 
 ### 9.3 CI Configuration

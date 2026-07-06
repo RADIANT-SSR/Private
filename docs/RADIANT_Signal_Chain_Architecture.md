@@ -50,7 +50,7 @@ Not a free-form DAG. Not bare function composition. A `Chain` is an ordered list
 **Spatial and radiometric effects are interleaved through the chain**, not separated into parallel tracks. Each stage that has a spatial effect (diffraction, pixel aperture, jitter, IPC, etc.) writes its MTF contribution into `state.mtf_terms` at the same time it writes its radiometric contribution into a reference frame. `PerformanceStage` reads the accumulated MTF terms at the end and forms the system MTF as their product.
 
 This interleaving is physically required because:
-- **Encircled energy couples spatial and radiometric.** In point and sub-pixel regimes, the signal depends on how much PSF energy falls inside the pixel footprint (`EE_box`). OpticsStage computes the PSF and must publish `EE_box` before SpectralIntegrationStage can compute the photoelectron rate.
+- **Encircled energy couples spatial and radiometric.** In point and sub-pixel regimes, the signal depends on how much PSF energy falls inside the pixel footprint (`EE_box`). OpticsStage computes the PSF; PlatformStage degrades it (jitter, smear, turbulence) and publishes `EE_box` from the fully degraded PSF (`stage_outputs["platform"]["EE_box"]`) before SpectralIntegrationStage can compute the photoelectron rate.
 - **Regime dispatch depends on PSF size.** The extended/point/sub-pixel classification compares target angular extent to the diffraction PSF diameter — which doesn't exist until OpticsStage has run. SourceStage can tentatively classify based on IFOV alone, but the final regime is confirmed in OpticsStage.
 - **Detector spatial response is part of the detector stage.** Pixel aperture MTF, IPC MTF, and charge-diffusion MTF are detector physics, not a separate spatial pass. They belong in DetectorStage.
 - **Smear/jitter need integration time.** These MTF terms depend on `t_int` and platform motion and are naturally computed in PlatformStage, which is positioned after OpticsStage but before SpectralIntegration.
@@ -88,9 +88,9 @@ class Stage(Protocol):
 |-------|----------|------------------------|--------------------|
 | **SourceStage** | params (target T, ε, ρ, area; background; geometry) | `L_source(λ)`, target solid angle, tentative regime | — |
 | **AtmosphereStage** | `L_source(λ)`, params (atmosphere model, geometry) | `L_at_aperture(λ)`, τ_atm(λ), L_path(λ), L_atm(λ) | MTF_turbulence(f) (ground-based only) |
-| **OpticsStage** | `L_at_aperture(λ)`, params (D, f, ε_obs, T_opt, ε_opt, η_cold, WFE, defocus, vignetting) | `L_post_optics(λ)`, A_collect, Ω_pixel, **EE_box** (encircled energy in pixel footprint), final regime | MTF_diffraction(f), MTF_WFE(f), MTF_defocus(f) |
-| **PlatformStage** | params (smear velocity, jitter, drift, TDI, t_int) | — | MTF_smear(f), MTF_jitter(f), MTF_drift(f), MTF_TDI_align(f) |
-| **SpectralIntegrationStage** | `L_post_optics(λ)`, **EE_box**, regime, params (filter, QE, λ-grid, t_int) | In-band photoelectrons per pixel per integration (regime-dependent) | — |
+| **OpticsStage** | `L_at_aperture(λ)`, params (D, f, ε_obs, T_opt, ε_opt, η_cold, WFE, defocus, vignetting) | `L_post_optics(λ)`, A_collect, Ω_pixel, `effective_psf`, `reference_psf` (diffraction-limited reference with the same detector kernels, for PSF-derived Strehl), final regime | MTF_optics(f) — single term from the pupil autocorrelation; WFE and defocus enter via the pupil (Rule 4) |
+| **PlatformStage** | `effective_psf`, regime, params (smear velocity, jitter, t_int) | **EE_box** (ensquared energy in pixel footprint, from the fully degraded PSF) | MTF_smear(f), MTF_jitter(f) |
+| **SpectralIntegrationStage** | `L_post_optics(λ)`, **EE_box** (from PlatformStage), regime, params (filter, QE, λ-grid, t_int) | In-band photoelectrons per pixel per integration (regime-dependent) | — |
 | **DetectorStage** | photoelectrons, params (J_dark, FWC, IPC, glow, L_d, nonlinearity, etc.) | Signal `S` [e-], noise terms {shot, dark, read, 1/f, kTC, DSNU, PRNU, NUC, glow, persistence, ...} | MTF_pixel(f), MTF_IPC(f), MTF_diffusion(f) |
 | **ReadoutStage** | signal, noise terms, params (TDI, binning, coadds, gain, ADC) | Signal in DN, full noise budget; quantization noise added | — |
 | **PerformanceStage** | full state (all frames, all noise terms, all MTF terms) | SNR, NEDT, RER, NIIRS, detection range | System MTF = ∏ MTF_i |
@@ -216,7 +216,7 @@ Regime classification happens in **two steps**:
 1. **SourceStage** makes a *tentative* classification based on target angular extent vs. IFOV only. This is enough to route atmosphere-side choices. Stored in `state.stage_outputs["source"]["regime_tentative"]`.
 2. **OpticsStage** finalizes the regime after computing the diffraction PSF. It compares target angular extent against the actual PSF FWHM and writes `state.stage_outputs["optics"]["regime"]`. This is the authoritative regime for all downstream stages.
 
-**SpectralIntegrationStage** reads the final regime and the PSF-derived **EE_box** from OpticsStage, then applies the regime-appropriate formula. This is the single point where EE_box enters the radiometric calculation. No other stage multiplies by EE_box.
+**SpectralIntegrationStage** reads the final regime and the PSF-derived **EE_box** from PlatformStage (`stage_outputs["platform"]["EE_box"]`, computed from the fully degraded PSF — jitter, smear, and turbulence included), then applies the regime-appropriate formula. This is the single point where EE_box enters the radiometric calculation. No other stage multiplies by EE_box.
 
 The three regime equations differ only in **which spatial factors multiply the photoelectron integral**. The atmospheric transmission and optical throughput are identical across regimes. Encircled energy EE_box is the critical spatial→radiometric coupling and is applied exactly once, at SpectralIntegrationStage.
 
@@ -268,7 +268,7 @@ L_at_target(λ)                                   [W/m²/sr/µm]
   ÷ gain                                         → DN
 ```
 
-For a **point source**, insert the regime-specific spatial factor at OpticsStage→SpectralIntegration:
+For a **point source**, insert the regime-specific spatial factor at SpectralIntegrationStage (EE_box supplied by PlatformStage):
 
 ```
 I_target / R²                                    [W/m²/µm, per wavelength]
@@ -368,8 +368,9 @@ It was tempting. But geometry is constant for the duration of one chain run — 
 Some stages need to publish metadata that downstream stages consume but that isn't a radiometric quantity. Examples:
 - SourceStage publishes the **regime** ("extended" / "point" / "subpixel")
 - SourceStage publishes the **target solid angle**
-- OpticsStage publishes **A_collect**, **Ω_pixel**, **EE_box** (encircled energy in pixel box)
-- SpatialStage publishes the **system MTF** for use in PerformanceStage NIIRS computation
+- OpticsStage publishes **A_collect**, **Ω_pixel**, the **effective_psf** and the diffraction-limited **reference_psf**
+- PlatformStage publishes **EE_box** (ensquared energy in the pixel box, from the fully degraded PSF)
+- PerformanceStage publishes the **system MTF** used in its NIIRS computation
 
 These go into `state.stage_outputs[stage_name]` as a namespaced dict. Downstream stages access them via `state.stage_outputs["source"]["regime"]`. This is read-only by convention.
 
@@ -378,9 +379,8 @@ These go into `state.stage_outputs[stage_name]` as a namespaced dict. Downstream
 ## 7. Concrete Python Interfaces
 
 ```python
-# radiant/chain/protocols.py
-from typing import Protocol
-import numpy as np
+# src/radiant/core/chain.py — Stage protocol
+from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class Stage(Protocol):
@@ -389,7 +389,7 @@ class Stage(Protocol):
     def run(self, state: "ChainState", params: "ParameterSet") -> "ChainState": ...
 
 
-# radiant/chain/state.py
+# src/radiant/core/radiometry.py — RadiometricFrame, NoiseTerm
 from dataclasses import dataclass, field, replace
 from typing import Any
 import numpy as np
@@ -415,15 +415,19 @@ class NoiseTerm:
     contributes_to: tuple[str, ...] = ("total",)
 
 
+# src/radiant/core/chain.py — ChainState
+# All Mapping fields are wrapped in types.MappingProxyType at construction
+# (__post_init__), so direct mutation raises TypeError. Stages only ever
+# call the with_* helpers, which return a NEW state.
 @dataclass(frozen=True)
 class ChainState:
     wavelength_um: np.ndarray
-    frames: dict[str, RadiometricFrame] = field(default_factory=dict)
-    stage_outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    frames: Mapping[str, RadiometricFrame] = field(default_factory=dict)
+    stage_outputs: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     noise_terms: tuple[NoiseTerm, ...] = ()
-    mtf_terms: dict[str, np.ndarray] = field(default_factory=dict)
+    mtf_terms: Mapping[str, np.ndarray] = field(default_factory=dict)
     spatial_freq_cycles_per_mrad: np.ndarray | None = None
-    metrics: dict[str, float] = field(default_factory=dict)
+    metrics: Mapping[str, float] = field(default_factory=dict)
     history: tuple[str, ...] = ()
     run_id: str | None = None  # UUID4; minted by ChainRunner per §C13
 
@@ -445,6 +449,9 @@ class ChainState:
         new[term_name] = mtf
         return replace(self, mtf_terms=new)
 
+    def with_spatial_freq(self, freq_cycles_per_mrad: np.ndarray) -> "ChainState":
+        return replace(self, spatial_freq_cycles_per_mrad=freq_cycles_per_mrad)
+
     def with_metric(self, key: str, value: float) -> "ChainState":
         new = dict(self.metrics)
         new[key] = value
@@ -454,46 +461,70 @@ class ChainState:
         return replace(self, history=self.history + (stage_name,))
 
 
-# radiant/chain/chain.py
-class Chain:
+# src/radiant/core/chain.py — ChainRunner
+class ChainRunner:
     def __init__(self, stages: list[Stage]) -> None:
-        self.stages = stages
+        # Validates stage-name uniqueness at construction.
+        self._stages = list(stages)
 
-    def run(self, params: ParameterSet, wavelength_um: np.ndarray) -> "ChainResult":
-        state = ChainState(wavelength_um=wavelength_um)
-        for stage in self.stages:
+    def run(
+        self,
+        params: ParameterSet,
+        wavelength_um: np.ndarray,
+        *,
+        run_id: str | None = None,
+        initial_stage_outputs: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> ChainState:
+        state = ChainState(wavelength_um=wavelength_um, run_id=run_id or new_run_id())
+        # Rule 6 hook: pre-chain injection of file-derived objects. The
+        # IO/API layer loads files and seeds them into stage_outputs
+        # before the first stage runs — e.g. the atmosphere model under
+        # "atmosphere_config", the optical element list under
+        # "optics_config" — so stages never read files themselves.
+        if initial_stage_outputs is not None:
+            for namespace, outputs in initial_stage_outputs.items():
+                for key, value in outputs.items():
+                    state = state.with_stage_output(namespace, key, value)
+        for stage in self._stages:
             state = stage.run(state, params)
-            state = state.with_history(stage.name)
-        return ChainResult(state, params)
+            # History auto-recorded if the stage didn't self-record.
+        return state
 
 
-# radiant/chain/result.py
+# src/radiant/io/results.py — ChainResult
+# ChainRunner.run returns the raw ChainState; the API layer
+# (api/session.py) wraps it in a ChainResult for user-facing queries.
 class ChainResult:
-    def __init__(self, state: ChainState, params: ParameterSet) -> None:
+    def __init__(self, state: ChainState, params: ParameterSet | None = None) -> None:
         self._state = state
         self._params = params
 
-    # --- Forward queries (ChainQuantity carries value + unit + frame) ---
-    def signal_at(self, frame: ReferenceFrame | str) -> ChainQuantity: ...
+    # --- Raw state access ---
+    @property
+    def state(self) -> ChainState: ...
+    @property
+    def frames(self) -> Mapping[str, RadiometricFrame]: ...
+    @property
+    def noise_terms(self) -> tuple[NoiseTerm, ...]: ...
+    @property
+    def stage_outputs(self) -> Mapping[str, Mapping[str, Any]]: ...
+    @property
+    def history(self) -> tuple[str, ...]: ...
+    @property
+    def metrics(self) -> Mapping[str, float]: ...
 
-    # --- Backward queries ---
+    # --- Forward / backward queries (ChainQuantity carries value + unit + frame) ---
+    def signal_at(self, frame: ReferenceFrame | str) -> ChainQuantity: ...
     def noise_at(
         self,
         frame: ReferenceFrame | str,
         term_name: str | None = None,
     ) -> ChainQuantity: ...
-    def noise_budget(self) -> list[dict]: ...
-
-    # --- Spatial ---
-    def mtf_curve(self, term: str = "system") -> np.ndarray: ...
-    def mtf_at_nyquist(self) -> float: ...
-    def mtf_budget(self) -> dict[str, np.ndarray]: ...
 
     # --- Performance metrics ---
     def snr(self) -> float: ...
     def nedt(self) -> float: ...
     def niirs(self) -> float: ...
-    def detection_range(self) -> float: ...
 
     # --- Provenance ---
     def to_provenance_record(self) -> dict: ...
@@ -516,8 +547,8 @@ A staring MWIR sensor observing an extended thermal scene.
 ### Stage execution
 1. **SourceStage** computes `L_source(λ) = ε × Planck(T,λ)`. Adds `at_target` frame. Tentative regime = extended (target angular size ≫ IFOV). Stores tentative regime + target solid angle in `state.stage_outputs["source"]`.
 2. **AtmosphereStage** computes `L_at_aperture(λ) = L_source(λ) × τ_atm(λ) + L_path(λ) + L_atm(λ)`. Adds `at_aperture` frame. Turbulence MTF = 1 (space-based).
-3. **OpticsStage** computes `L_post_optics(λ) = L_at_aperture(λ) × τ_opt(λ) + L_warm_optics(λ) × (1 − η_cold)`. Adds `post_optics` frame. Stores A_collect, Ω_pixel, computes PSF and EE_box, finalizes regime = extended, writes MTF_diffraction, MTF_WFE, MTF_defocus into `state.mtf_terms`.
-4. **PlatformStage** writes MTF_smear (sinc from v_img × t_int), MTF_jitter (Gaussian from σ_jitter) into `state.mtf_terms`.
+3. **OpticsStage** computes `L_post_optics(λ) = L_at_aperture(λ) × τ_opt(λ) + L_warm_optics(λ) × (1 − η_cold)`. Adds `post_optics` frame. Stores A_collect, Ω_pixel, computes the `effective_psf` and diffraction-limited `reference_psf`, finalizes regime = extended, writes MTF_optics (pupil autocorrelation) into `state.mtf_terms`.
+4. **PlatformStage** writes MTF_smear (sinc from v_img × t_int), MTF_jitter (Gaussian from σ_jitter) into `state.mtf_terms`, degrades the PSF accordingly, and publishes EE_box from the fully degraded PSF (`stage_outputs["platform"]["EE_box"]`; 1.0 in the extended regime).
 5. **SpectralIntegrationStage** reads regime = extended → does not apply EE_box. Computes per-pixel photon rate by integrating `L × A × Ω × τ × QE × λ/hc` over the filter bandpass. Adds `at_fpa` and (after × t_int) `photoelectrons` frames.
 6. **DetectorStage** generates noise terms: shot, dark shot, read, 1/f, kTC (off because CDS=on), DSNU residual, PRNU residual, NUC residual, IPC, glow, persistence. Writes MTF_pixel, MTF_IPC, MTF_diffusion into `state.mtf_terms`.
 7. **ReadoutStage** applies gain, ADC; adds quantization noise. Updates noise terms for TDI/coadds (each multiplied by √N_TDI · √N_coadd in the appropriate direction).
@@ -538,7 +569,7 @@ These hold for every chain run:
 2. **Reference frames accumulate.** Once added, a frame is never removed or modified.
 3. **Noise terms accumulate.** Each carries its origin frame; conversion between frames is computed at query time, not stored.
 4. **Spectral integration happens exactly once,** in `SpectralIntegrationStage`. Before it: spectral arrays. After it: scalars.
-5. **The MTF chain and the radiometric chain are interleaved, not independent.** Spatial effects (diffraction, pixel MTF, IPC, jitter, smear) are computed in the same stages that produce their radiometric counterparts. The two chains are coupled through `EE_box` (encircled energy in the pixel footprint), which is a spatial quantity derived from the optics PSF that multiplies the radiometric signal in the point-source and sub-pixel regimes. `PerformanceStage` combines the accumulated MTF terms into the system MTF but does not "join" two separate chains.
+5. **The MTF chain and the radiometric chain are interleaved, not independent.** Spatial effects (diffraction, pixel MTF, IPC, jitter, smear) are computed in the same stages that produce their radiometric counterparts. The two chains are coupled through `EE_box` (ensquared energy in the pixel footprint), a spatial quantity computed in `PlatformStage` from the fully degraded PSF (jitter, smear, turbulence included) that multiplies the radiometric signal in the point-source and sub-pixel regimes. `PerformanceStage` combines the accumulated MTF terms into the system MTF but does not "join" two separate chains.
 6. **Regime is tentatively classified in `SourceStage` and finalized in `OpticsStage`** after the diffraction PSF is computed. The final regime lives in `stage_outputs["optics"]["regime"]`.
 7. **EE_box is applied exactly once,** in `SpectralIntegrationStage`, and only in point-source and sub-pixel regimes. It is the single architectural coupling between the spatial PSF and the radiometric signal.
 8. **Geometry and configuration are read from `ParameterSet`, never written.** Stages may read; only the resolver writes.

@@ -92,7 +92,7 @@ Source: `src/radiant/optics/psf/effective.py`.
 4. `edge_slope(axis)` is the maximum slope of `erf(axis)` in contrast per FPA-meter.
 5. `rer()` is `erf(0.5·pitch) − erf(−0.5·pitch)` averaged across the two axes (GIQE-5 definition).
 6. `ensquared_energy(box, offset)` is `∫∫_box data dxdy` with the box centered at `offset`.
-7. `strehl(reference)` is `data.peak / reference.peak` after both are normalized to unit volume; the reference is typically the diffraction-limited PSF for the same pupil with WFE = 0.
+7. `strehl(reference)` is `data.peak / reference.peak` after both are normalized to unit volume. In the shipped chain the reference is `stage_outputs["optics"]["reference_psf"]` — the diffraction-limited PSF from the same pupil with WFE = 0, carrying the **same detector kernels** as the degraded PSF — published by `OpticsStage`; `PerformanceStage` computes the reported `strehl` metric as `epsf.strehl(ref_epsf)`.
 
 There is no `mtf_at_freq(f)` method that bypasses the FFT. There is no `ee_analytical()`. There is no `lsf_from_mtf()`. The point of having one class is that there is only one way to ask each question.
 
@@ -117,7 +117,7 @@ All baked into the pupil amplitude `A(x, y)` by `optics/pupil_amplitude.py`. The
 
 ### 3.3 Wavefront error
 
-`optics/pupil_phase.py` and `optics/wavefront.py` build the OPD on the pupil grid (Zernike-polynomial expansion or user-supplied OPD map). The diffraction engine multiplies the pupil by `exp(2πi · OPD / λ_op)`. The full FFT path is the only WFE handling that ships in v1; the Maréchal-Strehl shortcut described in earlier drafts is **not** implemented (and is not needed once FidelityPreset is gone — there is no "draft mode" to gate it on).
+`optics/pupil_phase.py` and `optics/wavefront.py` build the OPD on the pupil grid (Zernike-polynomial expansion or user-supplied OPD map). The diffraction engine multiplies the pupil by `exp(2πi · OPD / λ_op)`. The full FFT path is the only WFE handling that enters the PSF/MTF paths in v1. The Maréchal approximation survives only as the **`strehl_marechal` diagnostic metric** (`performance/strehl.py::compute_strehl`, `exp(-(2π·OPD_rms/λ)²)` from `stage_outputs["optics"]["wavefront_error"]`) — a named sanity check alongside the PSF-derived `strehl`, never a substitute for the pupil-phase computation.
 
 ### 3.4 Polychromatic PSF
 
@@ -291,7 +291,7 @@ errors = abs(product_x[:nyquist] − mtf_psf_x[:nyquist])
 passed_x = max(errors) <= 5e-2
 ```
 
-The check runs unconditionally on every chain execution. The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`.
+The check runs unconditionally on every chain execution (default tolerance `5e-2`, the `tolerance` parameter of `check_dual_path_consistency`). The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`. On failure, `PerformanceStage` logs a warning with both per-axis errors and stores the failing result — it does **not** raise; the stored result is the machine-checkable record.
 
 **Excluded prefixes:** `mtf_tdi*` is excluded because TDI misalignment has no spatial-domain kernel in v1 (§6). When a kernel is added, the exclusion list shrinks; both paths must update together.
 
@@ -356,7 +356,7 @@ Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded i
 | `samples_across_Airy_FWHM ≥ 2` | `optics/sampling.py::compute_sampling` | soft (logs warning) |
 | `psf.data` integrates to 1 ± numerical error | `optics/psf/builder.py` re-normalizes after each kernel | hard (always-true post-build) |
 | `mtf_2d` ≤ 1 + 1e-9 | `optics/psf/effective.py` per FFT normalization | hard |
-| Dual-path MTF consistency, tol = 5e-2 | `performance/consistency_check.py` (§9.3) | hard, **unconditional** |
+| Dual-path MTF consistency, tol = 5e-2 | `performance/consistency_check.py` (§9.3) | **unconditional**; soft on failure (logs a warning, result stored in stage outputs — does not raise) |
 | `r0_cm > 0` if turbulence enabled | `atmosphere/turbulence.py` | hard |
 | `psf_eff` symmetric for symmetric inputs | unit tests | sanity |
 

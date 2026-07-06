@@ -1,15 +1,22 @@
 """PlatformStage — applies jitter and smear blur to the EffectivePSF.
 
-Reads the EffectivePSF produced by OpticsStage, generates jitter and
-smear kernels from the platform parameters, and convolves them into the
-PSF. The updated EffectivePSF is stored in
+Reads the EffectivePSF produced by OpticsStage, generates jitter,
+smear, and turbulence kernels from the platform parameters, and
+convolves them into the PSF. The updated EffectivePSF is stored in
 ``stage_outputs["platform"]["effective_psf"]`` for PerformanceStage
 to read.
 
-Jitter and smear do NOT affect signal or noise — they only degrade
-spatial quality (MTF, RER, NIIRS). The chain position is after
-OpticsStage and before SpectralIntegrationStage so that EE_box
-(computed in SpectralIntegrationStage) reflects the degraded PSF.
+This stage also computes ``EE_box`` (ensquared energy in a 1×1 pixel)
+from the fully degraded PSF and stores it in
+``stage_outputs["platform"]["EE_box"]``. The chain position — after
+OpticsStage and before SpectralIntegrationStage — exists precisely so
+that the EE_box applied to point-source and sub-pixel radiometry
+(applied once, in SpectralIntegrationStage, per Rule 9) includes
+jitter, smear, and turbulence blur. For extended scenes EE_box = 1.0
+(Rule 9: never applied in the extended regime).
+
+Beyond the EE_box coupling, jitter and smear do NOT affect signal or
+noise — they degrade spatial quality (MTF, RER, NIIRS).
 
 See ``platform/jitter.py`` and ``platform/smear.py`` for the
 underlying models.
@@ -25,11 +32,33 @@ import numpy as np
 from radiant.core.chain import ChainState
 from radiant.core.geometry import slant_range_spherical_m
 from radiant.core.parameters import ParameterSet
+from radiant.core.regime import RadiometricRegime
 from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
 from radiant.platform.smear import smear_kernel_1d, smear_mtf_1d, smear_width_m
 from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_ee_box(regime: RadiometricRegime | str | None, epsf: object) -> float:
+    """EE_box for the finalized regime, from the degraded EffectivePSF.
+
+    Extended regime → 1.0 (EE_box not applied, Rule 9).
+    Point/sub-pixel → ensquared energy in 1×1 pixel from the PSF as
+    degraded by all kernels applied so far (pixel aperture, diffusion,
+    defocus, jitter, smear, turbulence).
+    If no EffectivePSF or no regime is available, defaults to 1.0.
+
+    Note: the EE computation itself lives on ``EffectivePSF`` (duck-typed
+    here — Rule 11 forbids importing ``radiant.optics`` from this stage).
+    """
+    if regime is None or epsf is None:
+        return 1.0
+    if isinstance(regime, str):
+        regime = RadiometricRegime(regime)
+    if regime == RadiometricRegime.EXTENDED:
+        return 1.0
+    return float(epsf.ensquared_energy_nxn(1))  # type: ignore[attr-defined]
 
 
 class PlatformStage:
@@ -65,7 +94,7 @@ class PlatformStage:
 
         if epsf is None:
             logger.debug("No EffectivePSF from optics stage; skipping platform kernels.")
-            return state
+            return state.with_stage_output("platform", "EE_box", 1.0)
 
         if sigma_x_m != 0.0 or sigma_y_m != 0.0:
             # Kernel size: cover ±4σ, at the PSF sample spacing, capped to PSF grid.
@@ -194,6 +223,11 @@ class PlatformStage:
                 mtf_smear_y = np.ones_like(freq_m)
             state = state.with_mtf("mtf_smear_x", mtf_smear_x)
             state = state.with_mtf("mtf_smear_y", mtf_smear_y)
+
+        # --- EE_box from the fully degraded PSF (Rule 9 coupling) ---
+        regime = state.stage_outputs.get("optics", {}).get("regime")
+        ee_box = _compute_ee_box(regime, epsf)
+        state = state.with_stage_output("platform", "EE_box", ee_box)
 
         return state.with_stage_output("platform", "effective_psf", epsf)
 

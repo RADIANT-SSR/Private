@@ -1,8 +1,9 @@
 """OpticsStage — chain wrapper for full optics pipeline.
 
 Handles all five transmission input modes, nearfield emission, stray
-light, wavefront error, EffectivePSF construction, EE_box computation,
-and **regime finalization** (Rule 10).
+light, wavefront error, EffectivePSF construction, and **regime
+finalization** (Rule 10). EE_box is computed downstream in
+PlatformStage from the jitter/smear-degraded PSF.
 
 Produces
 --------
@@ -14,9 +15,12 @@ Stage outputs under ``stage_outputs["optics"]``:
     - ``Omega_pixel``: single-pixel solid angle [sr]
     - ``tau_opt``: system throughput values (np.ndarray)
     - ``tau_opt_spectral``: system throughput (SpectralData, full provenance)
-    - ``EE_box``: ensquared energy in 1×1 pixel (1.0 for extended regime)
     - ``regime``: finalized :class:`RadiometricRegime` enum value
-    - ``effective_psf``: :class:`EffectivePSF` (diffraction-only for now)
+    - ``effective_psf``: :class:`EffectivePSF` (diffraction + WFE, pixel
+      aperture, charge diffusion; defocus kernel added later in run())
+    - ``reference_psf``: :class:`EffectivePSF` diffraction-limited
+      reference (no WFE/defocus) with the same detector kernels, used
+      for the PSF-derived Strehl ratio
     - ``nearfield_irradiance_at_fpa``: SpectralData [W/m²/µm]
     - ``stray_light_irradiance_at_fpa``: SpectralData [W/m²/µm]
     - ``stray_includes_thermal``: bool
@@ -360,6 +364,43 @@ def _build_effective_psf(
         wavelength_um=wavelength_um,
     )
 
+    # --- Diffraction-limited reference PSF (for PSF-derived Strehl) ---
+    # Same aperture geometry (obscuration included) and sampling, but no
+    # wavefront error. Receives the same detector kernels as the actual
+    # PSF below so that detector effects cancel in the Strehl peak ratio;
+    # aberration kernels (defocus, jitter, smear, turbulence) are applied
+    # only to the actual PSF.
+    wfe_is_null = wfe is None or (
+        wfe.mode == WfeMode.SCALAR_RMS and (wfe.rms_waves or 0.0) == 0.0
+    )
+    if wfe_is_null and chromatic_zernikes is None:
+        ref_psf_arr = psf_arr
+    elif n_psf_wavelengths <= 1:
+        ref_psf_arr = compute_psf(config, obscuration, None)
+    else:
+        ref_result = compute_polychromatic_psf(
+            wavelengths_m=psf_wl_m,
+            weights=weights,
+            focal_length_m=focal_length_m,
+            aperture_diameter_m=aperture_m,
+            pixel_pitch_m=pixel_pitch_m,
+            obscuration_ratio=obscuration,
+            wfe=None,
+            pupil_npix=128,
+            psf_oversample=8,
+            store_per_wavelength=False,
+            chromatic_zernikes=None,
+        )
+        ref_psf_arr = ref_result.combined_psf
+
+    ref_epsf = build_effective_psf(
+        ref_psf_arr,
+        kernels=[],
+        sample_spacing_m=sample_spacing_m,
+        pixel_pitch_m=pixel_pitch_m,
+        wavelength_um=wavelength_um,
+    )
+
     # --- §6 step 1: Pixel aperture rect kernel ---
     pixel_pitch_y_m: float = params.get("detector.pixel_pitch_y_um")
     fill_factor: float = params.get("detector.fill_factor")
@@ -373,6 +414,7 @@ def _build_effective_psf(
         npix_kern, sample_spacing_m, pixel_pitch_m, pixel_pitch_y_m, fill_factor
     )
     epsf = epsf.with_kernel("pixel_aperture", k_pixel)
+    ref_epsf = ref_epsf.with_kernel("pixel_aperture", k_pixel)
 
     # --- §6 step 2: Charge diffusion Gaussian kernel ---
     diffusion_length_m: float = params.get("detector.charge_diffusion_length_m")
@@ -383,6 +425,7 @@ def _build_effective_psf(
         npix_diff = max(npix_diff, 3)
         k_diff = make_diffusion_kernel_2d(npix_diff, sample_spacing_m, diffusion_length_m)
         epsf = epsf.with_kernel("charge_diffusion", k_diff)
+        ref_epsf = ref_epsf.with_kernel("charge_diffusion", k_diff)
 
     # --- MTF product path: optical MTF via pupil autocorrelation ---
     defocus_um: float = params.get("optics.defocus_um")
@@ -409,6 +452,7 @@ def _build_effective_psf(
     )
 
     state = state.with_stage_output("optics", "effective_psf", epsf)
+    state = state.with_stage_output("optics", "reference_psf", ref_epsf)
     return state, epsf
 
 
@@ -551,23 +595,6 @@ def _validate_psf_regime_consistency(
             UserWarning,
             stacklevel=2,
         )
-
-
-def _compute_ee_box(
-    regime: RadiometricRegime,
-    epsf: EffectivePSF | None,
-) -> float:
-    """Compute EE_box for the finalized regime.
-
-    Extended regime → 1.0 (EE_box not applied, Rule 9).
-    Point/sub-pixel → ensquared energy in 1×1 pixel from EffectivePSF.
-    If no EffectivePSF available, defaults to 1.0.
-    """
-    if regime == RadiometricRegime.EXTENDED:
-        return 1.0
-    if epsf is None:
-        return 1.0
-    return epsf.ensquared_energy_nxn(1)
 
 
 class OpticsStage:
@@ -886,8 +913,7 @@ class OpticsStage:
                 focal_length_m=focal_length_m,
             )
 
-        ee_box = _compute_ee_box(regime, epsf)
-
-        return state.with_stage_output("optics", "EE_box", ee_box).with_stage_output(
-            "optics", "regime", regime
-        )
+        # EE_box is computed in PlatformStage from the fully degraded PSF
+        # (jitter, smear, turbulence included) and applied once in
+        # SpectralIntegrationStage (Rule 9).
+        return state.with_stage_output("optics", "regime", regime)

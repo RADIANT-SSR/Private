@@ -54,12 +54,32 @@ class SpectralIntegrationStage:
         optics_out = state.stage_outputs["optics"]
         A_collect: float = optics_out["A_collect"]
         Omega_pixel: float = optics_out["Omega_pixel"]
-        EE_box: float = optics_out["EE_box"]
         regime = optics_out["regime"]
+
+        # EE_box comes from PlatformStage (computed from the fully
+        # degraded PSF: jitter, smear, turbulence included). Fall back to
+        # an optics-level EE_box for partial-chain states that skip
+        # PlatformStage.
+        platform_out = state.stage_outputs.get("platform", {})
+        EE_box_maybe = platform_out.get("EE_box", optics_out.get("EE_box"))
 
         # Normalise regime to enum (handle legacy string values).
         if isinstance(regime, str):
             regime = RadiometricRegime(regime)
+
+        if EE_box_maybe is None:
+            if regime == RadiometricRegime.EXTENDED:
+                EE_box_maybe = 1.0  # never applied in extended regime (Rule 9)
+            else:
+                raise RuntimeError(
+                    "SpectralIntegrationStage: no EE_box found in "
+                    "stage_outputs['platform'] or stage_outputs['optics'] "
+                    f"but regime is '{regime.value}', which requires EE_box "
+                    "coupling (Rule 9). Run PlatformStage before "
+                    "SpectralIntegrationStage, or inject an EE_box stage "
+                    "output for partial-chain tests."
+                )
+        EE_box: float = EE_box_maybe
 
         # Guard: EE_box != 1.0 in extended regime is a programming error.
         if regime == RadiometricRegime.EXTENDED and EE_box != 1.0:
@@ -67,7 +87,7 @@ class SpectralIntegrationStage:
                 "SpectralIntegrationStage: EE_box != 1.0 but regime is "
                 f"'extended' (EE_box={EE_box}). In extended-scene mode, "
                 "EE_box must not be applied (Rule 9). This is a programming "
-                "error in OpticsStage."
+                "error in PlatformStage."
             )
 
         # Read post-optics spectral radiance.

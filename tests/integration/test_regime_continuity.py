@@ -108,7 +108,7 @@ class TestSubPixelFFOneMatchesExtended:
 
         sig_ext = result_ext.stage_outputs["spectral_integration"]["signal_e"]
         sig_sub = result_sub.stage_outputs["spectral_integration"]["signal_e"]
-        ee_box = result_sub.stage_outputs["optics"]["EE_box"]
+        ee_box = result_sub.stage_outputs["platform"]["EE_box"]
 
         assert sig_ext > 0.0
         assert sig_sub > 0.0
@@ -220,7 +220,7 @@ class TestSubPixelContrast:
 
         sig_sub = result_sub.stage_outputs["spectral_integration"]["signal_e"]
         sig_ext = result_ext.stage_outputs["spectral_integration"]["signal_e"]
-        ee_box = result_sub.stage_outputs["optics"]["EE_box"]
+        ee_box = result_sub.stage_outputs["platform"]["EE_box"]
 
         # Decompose extended signal into scene and path components.
         # For extended with T_target == T_bg == 290K, the "background"

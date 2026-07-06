@@ -542,3 +542,59 @@ class TestPlatformStageName:
     @pytest.mark.level1
     def test_name(self) -> None:
         assert PlatformStage().name == "platform"
+
+
+class TestPlatformStageEEBox:
+    """EE_box is computed here from the fully degraded PSF (Rule 9
+    coupling; moved from OpticsStage so jitter/smear are included)."""
+
+    @staticmethod
+    def _state_with_regime(regime: object) -> tuple[ChainState, EffectivePSF]:
+        state, epsf = _make_state_with_epsf()
+        state = state.with_stage_output("optics", "regime", regime)
+        return state, epsf
+
+    @pytest.mark.level1
+    def test_extended_regime_ee_box_is_one(self) -> None:
+        from radiant.core.regime import RadiometricRegime
+
+        state, _ = self._state_with_regime(RadiometricRegime.EXTENDED)
+        result = PlatformStage().run(state, _make_params())
+        assert result.stage_outputs["platform"]["EE_box"] == 1.0
+
+    @pytest.mark.level1
+    def test_point_source_no_jitter_matches_psf_ee(self) -> None:
+        from radiant.core.regime import RadiometricRegime
+
+        state, epsf = self._state_with_regime(RadiometricRegime.POINT_SOURCE)
+        result = PlatformStage().run(state, _make_params())
+        expected = epsf.ensquared_energy_nxn(1)
+        assert result.stage_outputs["platform"]["EE_box"] == pytest.approx(
+            expected, rel=1e-12
+        )
+
+    @pytest.mark.level1
+    def test_point_source_jitter_reduces_ee_box(self) -> None:
+        from radiant.core.regime import RadiometricRegime
+
+        state, _ = self._state_with_regime(RadiometricRegime.POINT_SOURCE)
+        result_still = PlatformStage().run(state, _make_params())
+        result_jitter = PlatformStage().run(
+            state, _make_params(**{"platform.jitter_rms_urad": 2.0})
+        )
+        ee_still = result_still.stage_outputs["platform"]["EE_box"]
+        ee_jitter = result_jitter.stage_outputs["platform"]["EE_box"]
+        assert ee_jitter < ee_still
+
+    @pytest.mark.level1
+    def test_missing_regime_defaults_to_one(self) -> None:
+        state, _ = _make_state_with_epsf()
+        result = PlatformStage().run(state, _make_params())
+        assert result.stage_outputs["platform"]["EE_box"] == 1.0
+
+    @pytest.mark.level1
+    def test_no_epsf_writes_ee_box_one(self) -> None:
+        wl = np.array([0.45, 0.575, 0.70])
+        state = ChainState(wavelength_um=wl)
+        result = PlatformStage().run(state, _make_params())
+        assert result.stage_outputs["platform"]["EE_box"] == 1.0

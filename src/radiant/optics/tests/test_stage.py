@@ -89,9 +89,23 @@ class TestOpticsStage:
         assert omega == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level1
-    def test_EE_box_stubbed(self, wl: np.ndarray) -> None:
+    def test_EE_box_not_written_by_optics(self, wl: np.ndarray) -> None:
+        """EE_box moved to PlatformStage (degraded-PSF coupling, Rule 9)."""
         out = OpticsStage().run(_make_state(wl), _make_params())
-        assert out.stage_outputs["optics"]["EE_box"] == 1.0
+        assert "EE_box" not in out.stage_outputs["optics"]
+
+    @pytest.mark.level1
+    def test_reference_psf_published(self, wl: np.ndarray) -> None:
+        """Diffraction-limited reference PSF is published for Strehl."""
+        out = OpticsStage().run(_make_state(wl), _make_params())
+        ref = out.stage_outputs["optics"]["reference_psf"]
+        epsf = out.stage_outputs["optics"]["effective_psf"]
+        assert isinstance(ref, EffectivePSF)
+        # Same grid and sampling as the actual PSF.
+        assert ref.data.shape == epsf.data.shape
+        assert ref.sample_spacing_m == epsf.sample_spacing_m
+        # Default params have zero WFE → reference equals the actual PSF.
+        np.testing.assert_allclose(ref.data, epsf.data, atol=1e-15)
 
     @pytest.mark.level1
     def test_regime_stubbed_extended(self, wl: np.ndarray) -> None:

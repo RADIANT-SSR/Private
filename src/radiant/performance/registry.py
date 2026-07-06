@@ -161,11 +161,26 @@ _register(
     )
 )
 
-# §4.11 — Strehl ratio
+# §4.11 — Strehl ratio (PSF-derived, Rule 4: degraded-PSF peak over the
+# diffraction-limited reference PSF)
 _register(
     MetricSpec(
         name="strehl",
-        requires_stage_outputs=frozenset({("optics", "effective_psf")}),
+        requires_stage_outputs=frozenset(
+            {
+                ("optics", "effective_psf"),
+                ("optics", "reference_psf"),
+            }
+        ),
+    )
+)
+
+# §4.11b — Marechal Strehl diagnostic (analytic small-aberration
+# approximation from WFE RMS; ignores obscuration, defocus, jitter, smear)
+_register(
+    MetricSpec(
+        name="strehl_marechal",
+        requires_stage_outputs=frozenset({("optics", "wavefront_error")}),
     )
 )
 

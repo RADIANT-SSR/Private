@@ -75,6 +75,18 @@ def _compute_spatial_metrics(
     ee_1x1 = epsf.ensquared_energy_nxn(1)
     ee_3x3 = epsf.ensquared_energy_nxn(3)
 
+    # Strehl ratio (Rule 4: PSF-derived, not analytic). Peak of the
+    # degraded PSF over the diffraction-limited reference built by
+    # OpticsStage. The reference carries the same detector kernels
+    # (pixel aperture, diffusion, and IPC below) so detector effects
+    # cancel; WFE, defocus, jitter, smear, and turbulence do not.
+    strehl: float | None = None
+    ref_epsf = state.stage_outputs.get("optics", {}).get("reference_psf")
+    if ref_epsf is not None:
+        if ipc_kern is not None:
+            ref_epsf = ref_epsf.with_kernel("ipc", ipc_kern)
+        strehl = epsf.strehl(ref_epsf)
+
     # MTF curves (both axes) and scalar at Nyquist.
     freq_x, mtf_x = epsf.mtf_1d("x")
     freq_y, mtf_y = epsf.mtf_1d("y")
@@ -108,6 +120,8 @@ def _compute_spatial_metrics(
     state = state.with_metric("ee_1x1", ee_1x1)
     state = state.with_metric("ee_3x3", ee_3x3)
     state = state.with_metric("mtf_at_nyquist", mtf_ny)
+    if strehl is not None:
+        state = state.with_metric("strehl", strehl)
 
     # Store full MTF curves and EffectivePSF for downstream access.
     state = state.with_stage_output("performance", "mtf_freq_x", freq_x)
@@ -357,7 +371,13 @@ def _compute_strehl_metric(
     state: ChainState,
     params: ParameterSet,
 ) -> ChainState:
-    """Compute Strehl ratio (Marechal approximation) when WFE is available."""
+    """Compute the analytic Marechal Strehl diagnostic when WFE is available.
+
+    The reported ``strehl`` metric is PSF-derived (Rule 4) and computed in
+    ``_compute_spatial_metrics``. This analytic value is kept as the
+    named diagnostic ``strehl_marechal`` — a fast small-aberration
+    cross-check that ignores obscuration, defocus, jitter, and smear.
+    """
     try:
         wfe_rms: float = params.get("optics.wfe_rms_waves")
         wfe_ref: float = params.get("optics.wfe_reference_wavelength_um")
@@ -367,8 +387,8 @@ def _compute_strehl_metric(
         return state
 
     operating_um = 0.5 * (fmin + fmax)
-    strehl = compute_strehl(wfe_rms, wfe_ref, operating_um)
-    return state.with_metric("strehl", strehl)
+    strehl_marechal = compute_strehl(wfe_rms, wfe_ref, operating_um)
+    return state.with_metric("strehl_marechal", strehl_marechal)
 
 
 def _compute_nedt_metric(

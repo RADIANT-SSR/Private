@@ -37,16 +37,18 @@ RADIANT maintains two parallel spatial paths, both rooted in the same complex pu
 
 **PSF path** (spatial-domain metrics):
 - Every spatial degradation enters as a convolution kernel on the `EffectivePSF`.
-- EE_box, RER, FWHM, Strehl, LSF, and ERF are computed **only** from this PSF.
+- EE_box, RER, FWHM, Strehl, LSF, and ERF are computed **only** from this PSF. Strehl is the degraded-PSF peak over the diffraction-limited `reference_psf` peak (same detector kernels on both, so detector effects cancel); the analytic Maréchal value survives only as the separate `strehl_marechal` diagnostic.
+- EE_box is computed in `PlatformStage` from the fully degraded PSF (jitter, smear, turbulence included) and applied once in `SpectralIntegrationStage` (Rule 9).
 - **NEVER** compute EE_box from one PSF and RER from another. All spatial-domain metrics derive from the same `EffectivePSF` object.
 
 **MTF product path** (frequency-domain budget):
 - Optical MTF is computed from the **autocorrelation of the complex pupil function** (equivalent to `|FT{PSF}|` by the Wiener-Khinchin theorem, but computed directly from the pupil).
-- Each downstream contributor (detector aperture, jitter, smear, diffusion, IPC, turbulence, TDI) has an analytic or kernel-derived MTF.
+- Each downstream contributor (detector aperture, jitter, smear, diffusion, IPC, turbulence) has an analytic or kernel-derived MTF.
+- TDI mis-registration MTF is the one deliberate MTF-only term: it is a readout-timing effect with no spatial kernel, enters only the MTF product, and is excluded from the consistency comparison (`consistency_check._EXCLUDED_PREFIXES`).
 - System MTF = product of all contributor MTFs: `MTF_sys(f) = Π_i MTF_i(f)`.
 - MTF budgets, MTF-at-Nyquist, folded MTF, and GIQE/NIIRS consume this path.
 
-**Consistency invariant**: Both paths originate from the same pupil. The FFT of the convolved `EffectivePSF` must agree with the MTF product to within numerical tolerance (~1e-6). This check runs at `standard` fidelity and above. A failure means a degradation was added to one path but not the other.
+**Consistency invariant**: Both paths originate from the same pupil. The FFT of the convolved `EffectivePSF` must agree with the MTF product; `performance/consistency_check.py` runs unconditionally on every chain execution with a default absolute tolerance of 5e-2 (floor set by rect-kernel discretization error — see CU-003/CU-045) and logs a warning on failure. A failure means a degradation was added to one path but not the other.
 
 **What this rule forbids**:
 - Computing EE from one PSF and MTF from a different PSF (the old single-path failure mode).
@@ -65,7 +67,7 @@ This rule does **not** apply to scene targets and backgrounds, where emissivity 
 ### 6. Stages Are Pure Functions
 - Stage signature: `run(self, state: ChainState, params: ParameterSet) -> ChainState`
 - Stages **do not** mutate inputs. Use `state.with_frame(...)`, `state.with_noise(...)`, `state.with_mtf(...)`, `state.with_stage_output(...)`.
-- Stages **do not** read files. File I/O happens before chain execution in `SpectralDataStore`.
+- Stages **do not** read files. File I/O happens before chain execution — spectral tables load into `SpectralDataStore`; file-derived objects (atmosphere model, optical element list) are built by the IO/API layer and injected via `ChainRunner.run(initial_stage_outputs=...)` (e.g. `stage_outputs["atmosphere_config"]["model"]`, built by `radiant.atmosphere.loaders.build_atmosphere_model`).
 - Stages **do not** call other stages. All inter-stage data flows through `ChainState`.
 
 ### 7. ChainState Is Immutable
@@ -75,7 +77,7 @@ This rule does **not** apply to scene targets and backgrounds, where emissivity 
 Before `SpectralIntegrationStage`: spectral arrays (shape = N_wavelengths). After: per-pixel scalars (e-, DN). No other stage collapses spectral to scalar.
 
 ### 9. EE_box Applied Exactly Once
-Applied in `SpectralIntegrationStage` only, only for point-source and sub-pixel target regimes, never to the background term in sub-pixel regime, never in extended-scene regime.
+Computed in `PlatformStage` from the fully degraded PSF (`stage_outputs["platform"]["EE_box"]`). Applied in `SpectralIntegrationStage` only, only for point-source and sub-pixel target regimes, never to the background term in sub-pixel regime, never in extended-scene regime.
 
 ### 10. Regime Finalized in OpticsStage
 - `SourceStage` tentative classification: `state.stage_outputs["source"]["regime_tentative"]`

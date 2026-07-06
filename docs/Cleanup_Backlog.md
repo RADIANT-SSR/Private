@@ -6,6 +6,8 @@
 
 **Not for**: items inside the current feature's scope (those go in the feature plan), scenario-specific gaps (those go in the scenario's `gaps.md`), or operational/runtime gaps already tracked in `docs/gaps.md`.
 
+**Numbering note**: CU-026 through CU-041 were never allocated (the GUI-v2 track jumped to CU-042); the gap is intentional, not lost entries.
+
 ---
 
 ## Open
@@ -15,7 +17,7 @@
 
 **Discovered**: Option C Stage 0 (2026-04-19)
 **Investigated**: Phase 2 Track A (2026-04-24)
-**Status**: escalated to a stand-alone Category C task (`docs/CU-003_Rect_Kernel_Fix_Task.md`) — this entry stays Open until the follow-on lands.
+**Status**: Open — escalated to a stand-alone Category C task (`docs/CU-003_Rect_Kernel_Fix_Task.md`) — this entry stays Open until the follow-on lands.
 
 **File**: `examples/templates/swir_aerial_gas.yaml`
 **Symptom**: MTF consistency check reports `max_err_x = max_err_y = 0.05196` vs tolerance `0.050` (~4% miss). All other 13 baseline scenarios pass cleanly.
@@ -49,7 +51,9 @@ Only optics × pixel_aperture matter for this scenario. Decisive verification: s
 
 Approach 1 is preferred (preserves the MTF-product path as the analytic reference; fixes the PSF path to match).
 
-**Why "low priority unless promoted to a regression anchor" is no longer accurate**: the scenario *is* in `tests/integration/snapshots/option_c_baseline.yaml` and will be re-checked at every Option C stage. The miss is ~4% above tolerance, persistent, and the only failing cell. It needs a real fix before it gets confused with a Stage 6 physics drift.
+**Why it still matters** (supersedes the earlier "low priority unless promoted to a regression anchor" framing, which is no longer accurate): the scenario *is* in `tests/integration/snapshots/option_c_baseline.yaml` and will be re-checked at every Option C stage. The miss is ~4% above tolerance, persistent, and the only failing cell. It needs a real fix before it gets confused with a Stage 6 physics drift.
+
+**Suggested fix**: stand-alone task (Category C, effort M) per `docs/CU-003_Rect_Kernel_Fix_Task.md` — the two candidate approaches above: (1) anti-aliased rect kernel in `_rect_1d` (preferred — preserves the MTF-product path as the analytic reference and fixes the PSF path to match), or (2) FFT-based product path (cheaper but couples the product path to the PSF sampling grid).
 
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired
 
@@ -67,7 +71,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **File**: `src/radiant/core/los_geometry.py::theta_o_from_eta`
 **Symptom (verified 2026-04-26)**: standalone `theta_o_from_eta` function has zero non-test callers in `src/radiant/`. Only sites: definition, the 5-test suite at `core/tests/test_los_geometry.py:204–258`, and the `core/__init__.py` export.
 **Why it still matters**: tracking, not urgency — once CU-009 lands the schema, this CU's resolution becomes a forced choice (wire in `_inferrer._infer_los`, or document the `eta` opt-out as deliberately deferred behind a SensorDescriptor ADR).
-**Suggested fix (deferred to post-CU-009 re-audit)**: when CU-009's escalated task lands and `_inferrer._infer_los` reads from the canonical `geometry.path_zenith_rad`, decide whether to (a) introduce `geometry.sensor_off_nadir_rad` and route through `theta_o_from_eta(eta, h_sensor, h_tgt)` (Approach C of CU-009, deferred there for scope reasons), with an explicit precedence rule against `geometry.path_zenith_rad`, or (b) document the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Note: the CU-009 task doc explicitly defers the sensor-off-nadir surface here rather than co-resolving it. Re-audit date: keyed to CU-009 task landing.
+**Suggested fix (deferred to post-CU-009 re-audit)**: when CU-009's escalated task lands and `_inferrer._infer_los` reads from the canonical `geometry.path_zenith_rad`, decide whether to (a) introduce `geometry.sensor_off_nadir_rad` and route through `theta_o_from_eta(eta, h_sensor, h_tgt)` (Approach C of CU-009, deferred there for scope reasons), with an explicit precedence rule against `geometry.path_zenith_rad`, or (b) document the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Note: the CU-009 task doc explicitly defers the sensor-off-nadir surface here rather than co-resolving it. Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-009 lands).
 
 ### CU-007 — Stage-2 MWIR-mixed `UserWarning` is globally suppressed inside `_inferrer.py`
 
@@ -112,12 +116,12 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **File**: `src/radiant/atmosphere/modtran.py`
 **Symptom (verified 2026-04-24)**: `modtran.py` lines 730–752 still emit the `UserWarning` and set `tau_sun = tau`, `tau_up = tau.copy()`, `tau_full_up = tau.copy()`, `L_path_up = lpath`, `L_path_full = lpath.copy()` from a single MODTRAN call. No second TAPE7 run keyed on `θ_s`, no analytic split.
 **Why it still matters**: VIS/NIR reflective scenarios that route through MODTRAN now silently lose the solar-zenith dependence that Stage 6's E_sky decomposition was designed to expose. The analytic backend is fine; the MODTRAN backend collapses the split. Mixed-backend test suites can therefore mask real two-leg bugs.
-**Suggested fix**: stand-alone Category C task (file post-CU-009 landing) — add a second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)` to produce `tau_sun` independently from `tau_up`. Cache key must include θ_s. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; this is a no-op for them). Block: requires CU-009 to land first so a YAML can actually exercise non-zero θ_s through the MODTRAN backend.
+**Suggested fix**: stand-alone Category C task (file post-CU-009 landing) — add a second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)` to produce `tau_sun` independently from `tau_up`. Cache key must include θ_s. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; this is a no-op for them). Block: requires CU-009 to land first so a YAML can actually exercise non-zero θ_s through the MODTRAN backend. Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-009 lands).
 
 ### CU-023 — Phase-10 arc trace `name` duplicated across line + label sub-traces
 
 **Discovered**: Geometry GUI Phase 10 (2026-04-26)
-**Status**: Open — mitigation landed inline during Phase 11 (`dev_tools/geometry_gui/app/scene_builder/*_arc.py`); commit SHA backfill required when Phase 11 PR merges.
+**Status**: Open — ready to close pending standing-guard test. Re-audit performed 2026-07-06: the gating event has landed — Phase 11 merged as commit `6f67f40` ("feat(geometry_gui): Phase 0–11 — interactive 3D geometry visualizer"), and the mitigation is verified present in that commit (each arc module emits a distinct `label_name` for the text sub-trace vs the canonical `arc_name` for the lines sub-trace, e.g. `off_nadir_arc.py:49–50`). Remaining close-out item: the standing-guard test from Suggested fix (c) does not exist yet (no `arc.name != label.name` assertion anywhere in `dev_tools/geometry_gui/tests/`). Author the guard test, then move this entry to Resolved citing `6f67f40` plus the guard-test commit SHA. Re-audit date: 2026-08-15 (calendar backstop; earlier when the guard test lands).
 
 **File**: `dev_tools/geometry_gui/app/scene_builder/{off_nadir_arc,azimuth_arc,elevation_arc,phase_angle_arc,solar_zenith_arc,sun_zenith_arc,sun_azimuth_arc}.py`
 **Symptom**: Pre-Phase-11, every arc module emitted *two* plotly traces with identical `name=` (e.g. `off-nadir = 20.0°` for both the lines-mode arc trace and the text-mode label trace). Plotly's legend collapses duplicates silently, but hover tooltips and any future legend-driven test would surface both copies of the same string.
@@ -132,7 +136,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **File**: `dev_tools/geometry_gui/app/view_model.py` (`_READOUT_FORMATTERS` `ro-solar-zenith` row); `dev_tools/geometry_gui/app/scene_builder/{sun_zenith_arc,solar_zenith_arc}.py`
 **Symptom**: Both arc helpers (`sun_zenith_at_target_rad(s_unit)` and `solar_zenith_at_b_rad(n_B, s_unit)`) reduce to `arccos(s_z)` whenever the surface normal at B equals `+ẑ` — which is *every* state the GUI currently renders, since the display assumes flat ground. The two on-figure labels (`θₛ` at target and `θ_sun,B` at the background point) sit at different anchors but encode the same numeric angle, and the readout panel shows only one row labeled "Solar zenith" without disambiguating which of the two physically-distinct angles is being read out.
 **Why it still matters**: this is a *display* limitation, not a physics bug — the helpers are correct. The audit hit is that the GUI presents two visually-distinct decorations as if they were independent measurements, which would mislead a user driving a non-flat-ground scenario. The moment Phase 12+ adds ground-tilt or oblique-surface support (i.e., `n_B ≠ +ẑ`), `θ_sun,B` will diverge from `θ_s` and the readout panel needs to label them separately.
-**Suggested fix**: stand-alone Category B task — (a) add a `target_surface_normal` field to `SceneState` (default `+ẑ`); (b) split the readout row into `Solar zenith at target (θ_s)` and `Solar zenith at B (θ_sun,B)`; (c) on-figure label for `θ_sun,B` becomes redundant when `n_B = +ẑ` exactly — suppress the second arc in that case to avoid visual duplication. Tests: when normal is non-axial, both rows surface, both arcs render, and the values differ. Block on Phase 12+ scope (no current consumer).
+**Suggested fix**: stand-alone Category B task — (a) add a `target_surface_normal` field to `SceneState` (default `+ẑ`); (b) split the readout row into `Solar zenith at target (θ_s)` and `Solar zenith at B (θ_sun,B)`; (c) on-figure label for `θ_sun,B` becomes redundant when `n_B = +ẑ` exactly — suppress the second arc in that case to avoid visual duplication. Tests: when normal is non-axial, both rows surface, both arcs render, and the values differ. Block on Phase 12+ scope (no current consumer). Re-audit date: 2026-08-15 (calendar backstop; earlier if Phase 12+ ground-tilt/oblique-surface scope lands).
 
 ### CU-025 — Camera auto-frame is anchored to default-state geometry constants
 
@@ -142,13 +146,43 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **File**: `dev_tools/geometry_gui/app/scene_builder/_camera_frame.py` (`REFERENCE_HALF_EXTENT = 6.0`)
 **Symptom**: Phase-11 (d) introduces auto-framing via a bounding-box scan over all base-scene traces; the eye distance scales as `max(1.0, half_extent / REFERENCE_HALF_EXTENT)`. The constant `6.0` was hand-calibrated against the default state's bbox (driven by `OBSERVER_DISPLAY_DISTANCE = 4.0` and `SUN_DISPLAY_DISTANCE = 6.0` in `_display_constants.py`). Any future change to either display distance silently breaks the "default state framing matches Phase-10" invariant guarded by `tests/test_phase11_polish.py::test_camera_default_state_eye_unchanged`.
 **Why it still matters**: a developer who bumps `OBSERVER_DISPLAY_DISTANCE` to make the observer chip more readable will trip the camera-frame test, but the failure message will point at `_camera_frame.py` rather than at the display constant they actually edited. The cross-module coupling is correct (the camera *must* track the bbox) but undocumented at the code-comment level.
-**Suggested fix**: inline-fix-now — add a one-line comment on `REFERENCE_HALF_EXTENT` linking it to `OBSERVER_DISPLAY_DISTANCE` / `SUN_DISPLAY_DISTANCE` and noting that any change to those constants requires re-calibration. Optional follow-up: derive `REFERENCE_HALF_EXTENT` programmatically from the default-state bbox at import time, eliminating the manual constant. Effort: < 30 LOC; Category A.
+**Suggested fix**: inline-fix-now — add a one-line comment on `REFERENCE_HALF_EXTENT` linking it to `OBSERVER_DISPLAY_DISTANCE` / `SUN_DISPLAY_DISTANCE` and noting that any change to those constants requires re-calibration. Optional follow-up: derive `REFERENCE_HALF_EXTENT` programmatically from the default-state bbox at import time, eliminating the manual constant. Effort: < 30 LOC; Category A. Re-audit date: 2026-08-15 (calendar backstop; earlier if the next PR touching `dev_tools/geometry_gui/app/scene_builder/` picks up the inline fix).
+
+### CU-043 — Rule 15 error-type migration: 398 bare `raise ValueError/RuntimeError` across core + physics
+
+**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+**Status**: Open
+
+**File**: repo-wide across `src/radiant/` — core 69, source 52, atmosphere 80, optics 96, platform 20, spectral_integration 8, detector 50, readout 16, performance 7 (e.g. `src/radiant/core/units.py:105`, `src/radiant/core/radiometry.py:83`, `src/radiant/core/geometry.py:77`)
+**Symptom**: 398 `raise ValueError(...)` / `raise RuntimeError(...)` statements in core and physics modules use bare built-in exceptions rather than `RadiantError` subclasses with the what/why/action/context structure.
+**Why it still matters**: user code cannot catch `RadiantError` for framework rejections — the single-`except RadiantError` contract established by CU-018 is hollow wherever a bare built-in is raised. Violates Rule 15's actionable-error contract.
+**Suggested fix**: stand-alone task — migrate user-input validation paths first (`core/parameters`, `core/units`, `io/`), then physics invariant guards. Effort L; category A/B.
+
+### CU-044 — Hardcoded tuneable quantities in physics modules (Rule 12)
+
+**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+**Status**: Open
+
+**File**: `src/radiant/source/stage.py:84` and `src/radiant/source/_inferrer.py:200` (regime threshold `0.25 * ifov`, duplicated); `src/radiant/atmosphere/simple.py:92-165` (aerosol coefficient table, H2O band table, `RAYLEIGH_COEFF_KM` / `H2O_CONTINUUM_KM` / lapse rate); `src/radiant/performance/giqe.py:26-31,112` (GIQE-5 coefficients, m→inch conversion); `src/radiant/source/converters/brightness_temperature.py:56` (brightness-temperature threshold); `src/radiant/detector/ipc.py:37,50,90` (IPC coupling ceiling 0.25)
+**Symptom**: tuneable physics quantities are hardcoded inline in physics modules rather than registered as `ParameterDef`s in `_schema.py` or named constants; the regime threshold `0.25 * ifov` is duplicated at two sites.
+**Why it still matters**: untunable physics constants outside schema/`constants.py` violate Rule 12 ("all tuneable quantities are parameters; nothing is hardcoded in physics modules"); the duplicated regime threshold can silently diverge if one site is edited without the other.
+**Suggested fix**: stand-alone task — promote genuinely tuneable quantities to `ParameterDef`s, move fixed physical/empirical constants to module-level named constants with citations, deduplicate the regime threshold. Effort M; category B/C.
+
+### CU-045 — Dual-path consistency check gating: warn-only at tolerance 5e-2
+
+**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+**Status**: Open — blocked by CU-003 (the rect-kernel discretization error sets the tolerance floor). Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-003 lands).
+
+**File**: `src/radiant/performance/consistency_check.py`
+**Symptom**: the PSF-path vs MTF-product-path consistency check runs with default tolerance `5e-2`, unconditionally, and only warns on failure. CLAUDE.md Rule 4 previously claimed ~1e-6 gated at `standard` fidelity (doc corrected 2026-07-06 to describe actual behavior).
+**Why it still matters**: the Rule-4 consistency invariant is the guard against a spatial degradation landing in one path but not the other; a warn-only 5e-2 gate is too loose to catch small real divergences, and no strict mode exists for configurations that should agree tightly.
+**Suggested fix**: stand-alone decision task after CU-003 — decide whether to (a) tighten tolerance per-configuration, (b) add a strict mode that raises, or (c) accept warn-at-5e-2 permanently. Effort S; category C.
 
 ---
 
 ## Resolved
 
-### CU-042 — `QtInteractor` segfault under `QT_QPA_PLATFORM=offscreen` on Darwin — RESOLVED 2026-05-02
+### CU-042 — `QtInteractor` segfault under `QT_QPA_PLATFORM=offscreen` on Darwin — RESOLVED 2026-05-02 (commit `c972802`)
 
 **Discovered**: Geometry GUI v2 Phase 6 (2026-04-26).
 **File**: `dev_tools/geometry_gui_v2/tests/test_interaction_phase5.py`; `dev_tools/geometry_gui_v2/app/main.py`.
@@ -184,7 +218,7 @@ Resolved by Phase 6 of the technical-debt cleanup (commits 2a70558, 7ab1251, bea
 
 ### CU-002 — Pre-existing `mypy --strict` errors in non-`core`/`api` modules — RESOLVED 2026-04-24
 
-Resolved by Phases 2–5 of the technical-debt cleanup. `core/responsivity.py` no-any-return wrapped with `np.asarray` (commit), `api/sweep.py` no-redef collapsed (commit), `api/tolerance.py` union-attr asserted (commit 2de6b76), `api/plot.py` × 6 + `api/tests/test_plot.py` × 1 wrapped with `cast(Figure, ...)` at the matplotlib seam (commit f9fcf3c). `mypy --strict src/radiant/core src/radiant/api` is now clean (51 source files).
+Resolved by Phases 2–5 of the technical-debt cleanup. `core/responsivity.py` no-any-return wrapped with `np.asarray` (commit `0d361eb`), `api/sweep.py` no-redef collapsed (commit `0e6bb84`), `api/tolerance.py` union-attr asserted (commit 2de6b76), `api/plot.py` × 6 + `api/tests/test_plot.py` × 1 wrapped with `cast(Figure, ...)` at the matplotlib seam (commit f9fcf3c). `mypy --strict src/radiant/core src/radiant/api` is now clean (51 source files).
 
 ### CU-010 — `test_inferrer.py` imports from `radiant.api` — RESOLVED 2026-04-24
 

@@ -323,13 +323,56 @@ class ParameterSet:
         value: Any,
         provenance: Provenance = Provenance.USER_SET,
         source: str = "user",
+        *,
+        unit: str | None = None,
     ) -> None:
-        """Set a parameter value (in its input_unit). Marks the set as unresolved."""
+        """Set a parameter value. Marks the set as unresolved.
+
+        Without ``unit``, *value* is taken in the parameter's
+        ``input_unit`` (historical behavior). With ``unit``, *value* is
+        converted from the caller's native unit at this boundary
+        (Rule 2 — the only place user-unit conversion happens), e.g.
+        ``set("optics.aperture_diameter_m", 30.0, unit="cm")``.
+        """
         name = self._canonical(name)
         if name not in self._defs:
             raise KeyError(self._suggest(name))
+        if unit is not None:
+            converted = self._convert_from_user_unit(name, value, unit)
+            source = f"{source} [{value!r} {unit}]"
+            value = converted
         self._inputs[name] = (value, provenance, source)
         self._resolved_flag = False
+
+    def _convert_from_user_unit(self, name: str, value: Any, unit: str) -> float:
+        """Convert *value* from a caller-supplied unit to the input_unit."""
+        pdef = self._defs[name]
+        if pdef.dtype not in (float, int):
+            raise ValueError(
+                f"Parameter '{name}' is {pdef.dtype.__name__}-typed; the "
+                "unit= argument applies only to numeric parameters. "
+                "Pass the value without a unit."
+            )
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Parameter '{name}': cannot convert {value!r} from unit "
+                f"'{unit}' — value must be numeric."
+            ) from exc
+        if unit == pdef.input_unit:
+            return numeric
+        try:
+            canonical = convert(numeric, unit, pdef.canonical_unit)
+            return inverse_convert(canonical, pdef.canonical_unit, pdef.input_unit)
+        except KeyError as exc:
+            raise ValueError(
+                f"Parameter '{name}': no registered conversion from "
+                f"'{unit}' to '{pdef.canonical_unit or 'dimensionless'}'. "
+                f"Native input unit is '{pdef.input_unit or 'dimensionless'}'; "
+                "either pass the value in that unit (omit unit=) or register "
+                "the conversion in radiant.core.units._CONVERSIONS."
+            ) from exc
 
     def clear_input(self, name: str) -> bool:
         """Remove a set input so *name* reverts to its default (or is derived

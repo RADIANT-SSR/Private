@@ -119,12 +119,16 @@ class Sensor:
     # Parameter access
     # ------------------------------------------------------------------
 
-    def set(self, dotpath: str, value: Any) -> Sensor:
+    def set(self, dotpath: str, value: Any, *, unit: str | None = None) -> Sensor:
         """Set a parameter by dot-path.
+
+        With ``unit``, the value is converted from the caller's native
+        unit at this boundary (Gap 6), e.g.
+        ``sensor.set("optics.aperture_diameter_m", 30.0, unit="cm")``.
 
         Returns ``self`` for method chaining.
         """
-        self._params.set(dotpath, value, Provenance.USER_SET, "Sensor.set")
+        self._params.set(dotpath, value, Provenance.USER_SET, "Sensor.set", unit=unit)
         return self
 
     def set_many(self, overrides: dict[str, Any]) -> Sensor:

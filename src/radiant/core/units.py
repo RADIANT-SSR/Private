@@ -46,6 +46,10 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     ("e-/s/pixel", "e-/s/pixel"): 1.0,
     # Dimensionless
     ("", ""): 1.0,
+    ("%", ""): 1e-2,  # percent → fraction, for unit-aware set() (Gap 6)
+    # Time (additional input forms)
+    ("min", "s"): 60.0,
+    # Temperature offsets are NOT multiplicative; only K is accepted.
     # Dose
     ("krad", "krad"): 1.0,
     # Area

@@ -42,6 +42,12 @@ retroactively reconstructed.
   at f = 1.2 m, previously 3.33e7). Found during Gap 27.
 
 ### Added
+- Unit-aware parameter input (Gap 6): `ParameterSet.set(name, value,
+  unit=...)` and `Sensor.set(dotpath, value, unit=...)` convert from the
+  caller's native unit (cm, ms, %, min, …) at the set boundary. Bounds
+  validated after conversion; original value+unit recorded in
+  provenance. Omitting `unit=` keeps historical input-unit behavior —
+  no result changes.
 - `convert_spatial_frequency()` (Gap 27): cy/m ↔ cy/mm ↔ cy/mrad ↔
   cy/pixel conversion utility in the new
   `performance/frequency_units.py` module.

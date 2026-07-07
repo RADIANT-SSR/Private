@@ -78,6 +78,7 @@ class ParameterDef:
     group: str | None = None        # Consistency group name: "fnumber"
     tags: frozenset[str] = frozenset()  # Metadata: {"detector", "noise", "mwir"}
     default_justification: str = ""     # One-line rationale for a non-obvious default
+    deprecated_aliases: frozenset[str] = frozenset()  # Old names (renames), warn + redirect
 ```
 
 Key properties:
@@ -85,6 +86,7 @@ Key properties:
 - `bounds` are in `input_unit`, not `canonical_unit`. The user thinks in input units; validation should too.
 - `default=None` means the parameter is **required** — the resolver will error if it's not provided.
 - `tags` enable filtering ("show me all detector parameters", "what parameters matter in LWIR?").
+- `deprecated_aliases` (Gap 12): old dot-paths for renamed parameters. `set`/`get`/`set_tolerance`/`clear_input` resolve an alias to the canonical name with a `DeprecationWarning`. Aliases may not collide with defined names and are validated at `ParameterSet` construction. Current aliases: `optics.cold_stop_efficiency` → `optics.nearfield_fraction`.
 
 ### Unit Conversion
 
@@ -116,6 +118,8 @@ def convert(value, from_unit, to_unit):
 ```
 
 Conversion happens exactly once: on `set()`. Internally, everything is in canonical units. On `get()` for display, convert back to input units.
+
+**Unit-aware input (Gap 6).** `ParameterSet.set(name, value, unit=...)` (and `Sensor.set(dotpath, value, unit=...)`) accepts the caller's native unit and converts at the set boundary — the only place user-unit conversion happens (Rule 2). The value is converted `unit → canonical → input_unit` through the registered conversion table, then follows the normal input-unit validation path (bounds are checked after conversion, so `set("detector.qe_value", 150, unit="%")` fails the [0, 1] bounds check as 1.5). Percent (`"%"` → fraction) and `min` → s are registered for this purpose. Unknown units raise an actionable `ValueError` naming the parameter's native unit. The original value and unit are recorded in the resolved provenance `source` string. Without `unit=`, values are taken in `input_unit` (historical behavior, unchanged).
 
 ---
 

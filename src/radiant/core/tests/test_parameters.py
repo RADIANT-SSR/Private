@@ -840,6 +840,126 @@ def test_clear_input_unknown_name_suggests() -> None:
         ps.clear_input("sensor.optics.focal_lenght")
 
 
+class TestUnitAwareSet:
+    """Gap 6: set() accepts a caller-native unit and converts at the boundary.
+
+    Truth anchors (Dr. Chen's scenario-6.3 native units):
+      1. 30 cm aperture → 0.30 m canonical (input_unit m).
+      2. 5 ms integration time → 0.005 s canonical.
+      3. 70 % QE → 0.70 fraction.
+    """
+
+    def _pset(self) -> ParameterSet:
+        return ParameterSet(
+            [
+                ParameterDef(
+                    name="t.length_m",
+                    description="length",
+                    dtype=float,
+                    canonical_unit="m",
+                    input_unit="m",
+                    default=1.0,
+                ),
+                ParameterDef(
+                    name="t.pitch_um",
+                    description="pitch",
+                    dtype=float,
+                    canonical_unit="m",
+                    input_unit="um",
+                    default=18.0,
+                ),
+                ParameterDef(
+                    name="t.time_s",
+                    description="time",
+                    dtype=float,
+                    canonical_unit="s",
+                    input_unit="s",
+                    default=1.0,
+                ),
+                ParameterDef(
+                    name="t.fraction",
+                    description="fraction",
+                    dtype=float,
+                    canonical_unit="",
+                    input_unit="",
+                    default=0.5,
+                    bounds=(0.0, 1.0),
+                ),
+                ParameterDef(
+                    name="t.mode",
+                    description="mode",
+                    dtype=str,
+                    canonical_unit="",
+                    input_unit="",
+                    default="a",
+                ),
+            ]
+        )
+
+    @pytest.mark.level0
+    def test_cm_to_m(self) -> None:
+        ps = self._pset()
+        ps.set("t.length_m", 30.0, unit="cm")
+        ps.resolve()
+        assert ps.get("t.length_m") == pytest.approx(0.30, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_ms_to_s(self) -> None:
+        ps = self._pset()
+        ps.set("t.time_s", 5.0, unit="ms")
+        ps.resolve()
+        assert ps.get("t.time_s") == pytest.approx(5.0e-3, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_percent_to_fraction(self) -> None:
+        ps = self._pset()
+        ps.set("t.fraction", 70.0, unit="%")
+        ps.resolve()
+        assert ps.get("t.fraction") == pytest.approx(0.70, rel=1e-12)
+
+    def test_cross_unit_to_nonsi_input_unit(self) -> None:
+        """cm input on a µm-input-unit parameter: cm → m → µm → canonical m."""
+        ps = self._pset()
+        ps.set("t.pitch_um", 0.0018, unit="cm")
+        ps.resolve()
+        assert ps.get("t.pitch_um") == pytest.approx(18e-6, rel=1e-12)
+
+    def test_same_unit_passthrough(self) -> None:
+        ps = self._pset()
+        ps.set("t.pitch_um", 18.0, unit="um")
+        ps.resolve()
+        assert ps.get("t.pitch_um") == pytest.approx(18e-6, rel=1e-12)
+
+    def test_no_unit_is_historical_behavior(self) -> None:
+        ps = self._pset()
+        ps.set("t.length_m", 0.30)
+        ps.resolve()
+        assert ps.get("t.length_m") == pytest.approx(0.30, rel=1e-12)
+
+    def test_bounds_checked_after_conversion(self) -> None:
+        """150 % → 1.5 fraction must fail the [0, 1] bounds check."""
+        ps = self._pset()
+        ps.set("t.fraction", 150.0, unit="%")
+        with pytest.raises(ValueError, match="out of bounds"):
+            ps.resolve()
+
+    def test_unknown_unit_actionable_error(self) -> None:
+        ps = self._pset()
+        with pytest.raises(ValueError, match="no registered conversion"):
+            ps.set("t.length_m", 1.0, unit="furlong")
+
+    def test_unit_on_str_param_rejected(self) -> None:
+        ps = self._pset()
+        with pytest.raises(ValueError, match="numeric"):
+            ps.set("t.mode", "a", unit="m")
+
+    def test_provenance_records_original(self) -> None:
+        ps = self._pset()
+        ps.set("t.length_m", 30.0, unit="cm")
+        ps.resolve()
+        assert "30.0 cm" in ps.get_resolved("t.length_m").source
+
+
 class TestDeprecatedAliases:
     """Gap 12: renamed parameters keep working via deprecated aliases."""
 

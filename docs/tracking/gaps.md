@@ -90,7 +90,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 6.3 (Dr. Chen — noise verification) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.1) |
+| **Fix** | `ParameterSet.set(name, value, unit=...)` + `Sensor.set(dotpath, value, unit=...)` convert caller-native units at the set boundary (Rule 2): unit → canonical → input_unit via `core/units.py`. `"%"`→fraction and `min`→s registered. Bounds checked post-conversion; original value+unit recorded in provenance source; actionable error for unregistered units. 10 new tests with 3 anchors (30 cm→0.30 m, 5 ms→0.005 s, 70 %→0.70). Docs: RADIANT_Parameter_System.md §Unit Conversion. |
+| **Rerun after fix** | Verified: Dr. Chen's native-unit inputs (cm, %, ms) set directly without manual conversion; 150 % correctly rejected by post-conversion bounds. GUI can now expose unit dropdowns per parameter. |
 | **Description** | `Sensor.set()` only accepts RADIANT canonical units (m, fractions, s). Users must manually convert from their native units (cm, %, ms). `ParameterDef` already has `canonical_unit` and `input_unit` fields but they are not used by `set()`. |
 | **Workaround** | Convert in script before calling `sensor.set()` or `Sensor.from_dict()`. |
 | **Impact** | Every scenario with non-RADIANT inputs requires manual conversion. Major friction point for GUI. |
@@ -679,7 +681,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 3 | NEDT missing | Small | 10+ | FIXED |
 | 4 | NIIRS missing | Small | 11 | FIXED |
 | 5 | GSD missing | Trivial | 5+ | FIXED |
-| 6 | Unit-aware input | Medium | All | OPEN |
+| 6 | Unit-aware input | Medium | All | FIXED |
 | 7 | Parameter name discovery | Small | All | FIXED |
 | 8 | Strehl ratio missing | Trivial | 2 | FIXED |
 | 9 | Full MTF curve missing | Small | 4+ | FIXED |

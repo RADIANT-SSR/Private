@@ -419,7 +419,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-2.5) |
+| **Fix** | (1) Phase-0 re-audit found the premise stale: PSF-path curves (`mtf_freq_x/y`) were already stored in cycles/m, not cycles/pixel. (2) New `performance/frequency_units.py` (Rule 19): `convert_spatial_frequency(freq, from_unit, to_unit, pixel_pitch_m=, focal_length_m=)` across cy/m ↔ cy/mm ↔ cy/mrad ↔ cy/pixel; 10 tests, 3 anchors (Nyquist=0.5 cy/pixel, IFOV-derived cy/mrad, SI prefix). (3) **Latent bug found and fixed in passing (Rule 21, inline-fix)**: the product-path grid `ChainState.spatial_freq_cycles_per_mrad` was computed with `× f·1e3` instead of `× f·1e-3` — stored values were 1e6× true cycles/mrad. Every consumer round-tripped with the same inverse factor, so all physics/metrics were unaffected; only the grid's unit claim (and the cycles/mrad axis on `plot_mtf_terms`) was wrong. Fixed symmetrically at all 7 src sites + mirrored test helpers. |
+| **Rerun after fix** | Verified: 18 µm/f=1.2 m Nyquist now reads 33.33 cy/mrad on the product grid (was 3.33e7); all 78 MTF-path tests and dual-path consistency green. |
 | **Description** | RADIANT's MTF curves use normalized spatial frequency (cycles/pixel). Optical designers think in cycles/mm (focal plane) or cycles/mrad (angular). The conversion is straightforward (divide by pixel pitch) but should be built-in or configurable for plotting and export. |
 | **Workaround** | Convert manually in scripts: `freq_cy_mm = freq_cy_px / (pixel_pitch_um * 1e-3)`. |
 | **Impact** | Any MTF analysis or export for optical design review. |
@@ -698,7 +700,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
 | 25 | No field-dependent WFE | Large | 5.1 | CLOSED |
 | 26 | No Zemax Zernike importer | Medium | 5.1 | OPEN |
-| 27 | MTF curve frequency axis units | Small | 5.1 | OPEN |
+| 27 | MTF curve frequency axis units | Small | 5.1 | FIXED |
 | 28 | No WFE allocation / error budget tool | Medium | 5.1 | OPEN |
 | 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
 | 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |

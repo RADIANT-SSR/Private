@@ -73,7 +73,7 @@ def compute_mtf_budget(
     focal_length_m:
         Effective focal length [m] — used for freq conversion.
     """
-    freq_m = freq_cycles_per_mrad / (focal_length_m * 1e3)
+    freq_m = freq_cycles_per_mrad / (focal_length_m * 1e-3)
 
     # Separate terms by axis.
     x_terms: dict[str, npt.NDArray[np.float64]] = {}

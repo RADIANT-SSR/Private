@@ -67,7 +67,7 @@ def check_dual_path_consistency(
     for axis in ("x", "y"):
         # PSF-path: FFT of the convolved ePSF.
         freq_psf_m, mtf_psf = epsf.mtf_1d(axis)
-        freq_psf_mrad = freq_psf_m * focal_length_m * 1e3
+        freq_psf_mrad = freq_psf_m * focal_length_m * 1e-3
 
         # MTF product path: multiply all non-excluded terms for this axis.
         suffix = f"_{axis}"

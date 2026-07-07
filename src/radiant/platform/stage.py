@@ -197,8 +197,8 @@ class PlatformStage:
         freq_mrad = state.spatial_freq_cycles_per_mrad
         if freq_mrad is not None:
             # Convert cycles/mrad → cycles/m on the focal plane.
-            # f_focal [cycles/m] = f_angular [cycles/mrad] / (focal_length_m * 1e3)
-            freq_m = freq_mrad / (focal_length_m * 1e3)
+            # f_focal [cycles/m] = f_angular [cycles/mrad] / (focal_length_m * 1e-3)
+            freq_m = freq_mrad / (focal_length_m * 1e-3)
 
             # Jitter MTF (anisotropic: different sigma per axis).
             if sigma_x_m > 0.0 or sigma_y_m > 0.0:

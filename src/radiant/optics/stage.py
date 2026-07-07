@@ -234,9 +234,9 @@ def _compute_optical_mtf_terms(
         )
 
     # Convert frequency from cycles/m to cycles/mrad.
-    # f_angular [cycles/mrad] = f_focal [cycles/m] * focal_length_m * 1e3
+    # f_angular [cycles/mrad] = f_focal [cycles/m] * focal_length_m * 1e-3
     # (1 mrad on the focal plane = focal_length_m * 1e-3 m)
-    freq_cycles_per_mrad = freq_m * focal_length_m * 1e3
+    freq_cycles_per_mrad = freq_m * focal_length_m * 1e-3
 
     state = state.with_spatial_freq(freq_cycles_per_mrad)
     state = state.with_mtf("mtf_optics_x", mtf_x)

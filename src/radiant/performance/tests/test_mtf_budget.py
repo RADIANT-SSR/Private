@@ -20,7 +20,7 @@ def freq() -> np.ndarray:
     """Frequency grid [cycles/mrad] covering 0 to Nyquist."""
     f_ny_m = 1.0 / (2.0 * PIXEL_PITCH_M)
     freq_m = np.linspace(0, f_ny_m, 200)
-    return freq_m * FOCAL_LENGTH_M * 1e3
+    return freq_m * FOCAL_LENGTH_M * 1e-3
 
 
 def _make_gaussian_mtf(freq_mrad: np.ndarray, sigma_m: float) -> np.ndarray:
@@ -28,7 +28,7 @@ def _make_gaussian_mtf(freq_mrad: np.ndarray, sigma_m: float) -> np.ndarray:
 
     sigma_m is the blur sigma in focal-plane metres.
     """
-    freq_m = freq_mrad / (FOCAL_LENGTH_M * 1e3)
+    freq_m = freq_mrad / (FOCAL_LENGTH_M * 1e-3)
     return np.exp(-2.0 * np.pi**2 * sigma_m**2 * freq_m**2)
 
 
@@ -62,7 +62,7 @@ class TestSystemMTFProduct:
         """Three contributors multiply correctly for both axes."""
         a_x = _make_gaussian_mtf(freq, 3e-6)
         b_x = _make_gaussian_mtf(freq, 5e-6)
-        freq_m = freq / (FOCAL_LENGTH_M * 1e3)
+        freq_m = freq / (FOCAL_LENGTH_M * 1e-3)
         c_x = np.abs(np.sinc(freq_m * PIXEL_PITCH_M))
 
         terms = {
@@ -148,7 +148,7 @@ class TestPerTermAtNyquist:
         )
 
         f_ny = 1.0 / (2.0 * PIXEL_PITCH_M)
-        freq_m = freq / (FOCAL_LENGTH_M * 1e3)
+        freq_m = freq / (FOCAL_LENGTH_M * 1e-3)
         expected = float(np.interp(f_ny, freq_m, mtf_a, right=0.0))
 
         assert result.per_term_at_nyquist["mtf_test_x"] == pytest.approx(expected, abs=1e-10)

@@ -79,13 +79,13 @@ def _make_state_with_epsf_and_freq() -> tuple[ChainState, EffectivePSF]:
 
     # Set spatial frequency grid (cycles/mrad) as OpticsStage would.
     # For pixel_pitch = 8 µm, f = 5 m: Nyquist = 1/(2*8e-6) = 62500 cy/m
-    #   = 62500 * 5.0 * 1e3 = 312.5e6 cy/mrad — very high.
+    #   = 62500 * 5.0 * 1e-3 = 312.5 cy/mrad.
     # Use a grid in cycles/m units that covers up to Nyquist, then convert.
     focal_length_m = 5.0
     pixel_pitch_m = 8e-6
     f_nyquist_m = 1.0 / (2.0 * pixel_pitch_m)
     freq_m = np.linspace(0, f_nyquist_m, 200)
-    freq_mrad = freq_m * focal_length_m * 1e3
+    freq_mrad = freq_m * focal_length_m * 1e-3
     state = state.with_spatial_freq(freq_mrad)
     return state, epsf
 
@@ -113,7 +113,7 @@ class TestIsotropicJitterMTF:
         out = PlatformStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (focal_length_m * 1e3)
+        freq_m = freq_mrad / (focal_length_m * 1e-3)
         sigma_m = jitter_urad * 1e-6 * focal_length_m  # rad * f
 
         expected = jitter_mtf_1d(freq_m, sigma_m)
@@ -158,7 +158,7 @@ class TestAnisotropicJitterMTF:
         out = PlatformStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (focal_length_m * 1e3)
+        freq_m = freq_mrad / (focal_length_m * 1e-3)
 
         sigma_x_m = jitter_x_urad * 1e-6 * focal_length_m
         sigma_y_m = jitter_y_urad * 1e-6 * focal_length_m
@@ -202,7 +202,7 @@ class TestSmearMTF:
         out = PlatformStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (focal_length_m * 1e3)
+        freq_m = freq_mrad / (focal_length_m * 1e-3)
         smear_m = smear_um * 1e-6
 
         expected = smear_mtf_1d(freq_m, smear_m)

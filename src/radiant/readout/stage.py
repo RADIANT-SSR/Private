@@ -300,7 +300,7 @@ class ReadoutStage:
             misalign_pix: float = params.get("readout.tdi_misalign_pixels")
             pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
             focal_length_m: float = params.get("optics.focal_length_m")
-            freq_m = freq_mrad / (focal_length_m * 1e3)
+            freq_m = freq_mrad / (focal_length_m * 1e-3)
 
             if misalign_pix > 0.0:
                 misalign_m = tdi_misalign_m(misalign_pix, pixel_pitch_m)

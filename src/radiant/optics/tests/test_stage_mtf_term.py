@@ -139,7 +139,7 @@ class TestCrossPathConsistency:
         pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
 
         freq_psf_m, mtf_psf_x = epsf.mtf_1d("x")
-        freq_psf_mrad = freq_psf_m * focal_length_m * 1e3
+        freq_psf_mrad = freq_psf_m * focal_length_m * 1e-3
 
         freq_prod = out.spatial_freq_cycles_per_mrad
         mtf_prod_x = out.mtf_terms["mtf_optics_x"]
@@ -170,7 +170,7 @@ class TestCrossPathConsistency:
         pixel_pitch_m: float = params.get("detector.pixel_pitch_y_um")
 
         freq_psf_m, mtf_psf_y = epsf.mtf_1d("y")
-        freq_psf_mrad = freq_psf_m * focal_length_m * 1e3
+        freq_psf_mrad = freq_psf_m * focal_length_m * 1e-3
 
         freq_prod = out.spatial_freq_cycles_per_mrad
         mtf_prod_y = out.mtf_terms["mtf_optics_y"]

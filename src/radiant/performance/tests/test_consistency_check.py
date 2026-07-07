@@ -44,7 +44,7 @@ class TestConsistentPaths:
     @pytest.mark.level1
     def test_single_term_passes(self) -> None:
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
-        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
 
         sigma = 3e-6
         mtf = _make_gaussian_mtf(freq_m, sigma)
@@ -60,7 +60,7 @@ class TestConsistentPaths:
     @pytest.mark.level1
     def test_two_terms_product_passes(self) -> None:
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
-        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
 
         mtf_a = _make_gaussian_mtf(freq_m, 3e-6)
         mtf_b = _make_gaussian_mtf(freq_m, 5e-6)
@@ -86,7 +86,7 @@ class TestInconsistentPaths:
     def test_missing_term_in_product_fails(self) -> None:
         """ePSF has two degradations but product only has one → FAIL."""
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
-        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
 
         mtf_a = _make_gaussian_mtf(freq_m, 3e-6)
         mtf_b = _make_gaussian_mtf(freq_m, 8e-6)
@@ -104,7 +104,7 @@ class TestInconsistentPaths:
     def test_extra_term_in_product_fails(self) -> None:
         """Product has extra term not in ePSF → FAIL."""
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
-        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
 
         mtf_a = _make_gaussian_mtf(freq_m, 3e-6)
         mtf_b = _make_gaussian_mtf(freq_m, 8e-6)
@@ -129,7 +129,7 @@ class TestExcludedTerms:
     def test_tdi_excluded(self) -> None:
         """Adding a TDI term should NOT cause a mismatch."""
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
-        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
 
         mtf = _make_gaussian_mtf(freq_m, 3e-6)
         mtf_tdi = _make_gaussian_mtf(freq_m, 2e-6)  # Would change product
@@ -153,7 +153,7 @@ class TestAnisotropy:
     @pytest.mark.level1
     def test_x_fails_y_passes(self) -> None:
         freq_m = np.linspace(0, 1.0 / (2 * PIXEL_PITCH_M), 200)
-        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e3
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
 
         mtf_good = _make_gaussian_mtf(freq_m, 3e-6)
         mtf_bad = _make_gaussian_mtf(freq_m, 10e-6)

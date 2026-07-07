@@ -45,7 +45,7 @@ def _make_state(
     # Set frequency grid as OpticsStage would.
     f_ny = 1.0 / (2.0 * pixel_pitch_m)
     freq_m = np.linspace(0, f_ny, 200)
-    freq_mrad = freq_m * focal_length_m * 1e3
+    freq_mrad = freq_m * focal_length_m * 1e-3
     return state.with_spatial_freq(freq_mrad)
 
 
@@ -93,7 +93,7 @@ class TestPixelApertureMTF:
         out = DetectorStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (f_m * 1e3)
+        freq_m = freq_mrad / (f_m * 1e-3)
         f_ny = 1.0 / (2.0 * pitch_m)
 
         # Find index closest to Nyquist.
@@ -129,7 +129,7 @@ class TestIPCMTF:
         out = DetectorStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (f_m * 1e3)
+        freq_m = freq_mrad / (f_m * 1e-3)
 
         expected_x = ipc_mtf_1d(freq_m, coupling, pitch_m, axis="x")
         expected_y = ipc_mtf_1d(freq_m, coupling, pitch_m, axis="y")
@@ -171,7 +171,7 @@ class TestDiffusionMTF:
         out = DetectorStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (f_m * 1e3)
+        freq_m = freq_mrad / (f_m * 1e-3)
 
         expected = diffusion_mtf_1d(freq_m, L_d)
         np.testing.assert_allclose(out.mtf_terms["mtf_charge_diffusion_x"], expected, atol=1e-12)

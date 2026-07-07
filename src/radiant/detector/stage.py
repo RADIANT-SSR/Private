@@ -102,7 +102,7 @@ class DetectorStage:
         freq_mrad = state.spatial_freq_cycles_per_mrad
         if freq_mrad is not None:
             focal_length_m: float = params.get("optics.focal_length_m")
-            freq_m = freq_mrad / (focal_length_m * 1e3)
+            freq_m = freq_mrad / (focal_length_m * 1e-3)
 
             # Pixel aperture MTF = |sinc(f * pitch)| (anisotropic for rect pixels).
             mtf_pixel_x = np.abs(np.sinc(freq_m * pixel_pitch_x))

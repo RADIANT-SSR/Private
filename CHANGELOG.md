@@ -30,7 +30,21 @@ retroactively reconstructed.
   (`ParameterDef.deprecated_aliases`) with a `DeprecationWarning`, and
   will be removed in a future release.
 
+### Fixed
+- **Results-affecting (labels/exports only):** the MTF product-path
+  frequency grid `ChainState.spatial_freq_cycles_per_mrad` (and
+  `MTFBudgetResult.freq_cycles_per_mrad`) stored values 1e6× true
+  cycles/mrad (conversion used `× f·1e3` instead of `× f·1e-3`). All
+  internal consumers round-tripped with the same inverse factor, so
+  MTF curves, metrics, and golden results are unchanged — but the grid
+  values themselves and the cycles/mrad axis of `result.plot.mtf()`
+  now read correctly (e.g. 33.3 cy/mrad at Nyquist for an 18 µm pixel
+  at f = 1.2 m, previously 3.33e7). Found during Gap 27.
+
 ### Added
+- `convert_spatial_frequency()` (Gap 27): cy/m ↔ cy/mm ↔ cy/mrad ↔
+  cy/pixel conversion utility in the new
+  `performance/frequency_units.py` module.
 - PSF weighting spectrum override (Gap 17): `RadiantSession.run` gains an
   `extra_stage_outputs` injection argument;
   `optics_config["psf_weighting_spectrum"]` (SpectralData) decouples

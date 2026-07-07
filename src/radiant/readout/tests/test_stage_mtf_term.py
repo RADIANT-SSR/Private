@@ -56,7 +56,7 @@ def _make_state(
     # Set frequency grid.
     f_ny = 1.0 / (2.0 * pixel_pitch_m)
     freq_m = np.linspace(0, f_ny, 200)
-    freq_mrad = freq_m * focal_length_m * 1e3
+    freq_mrad = freq_m * focal_length_m * 1e-3
     return state.with_spatial_freq(freq_mrad)
 
 
@@ -101,7 +101,7 @@ class TestTDIMisalignMTF:
         out = ReadoutStage().run(state, params)
 
         freq_mrad = out.spatial_freq_cycles_per_mrad
-        freq_m = freq_mrad / (f_m * 1e3)
+        freq_m = freq_mrad / (f_m * 1e-3)
         m = tdi_misalign_m(misalign_pix, pitch_m)
         expected_x = tdi_misalign_mtf_1d(freq_m, m)
 

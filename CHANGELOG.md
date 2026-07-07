@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- `giqe5_sensitivity()` (Gap 20): analytic d(NIIRS)/d(GSD, RER, SNR, H, G)
+  partials and exact per-+1% deltas in the new
+  `performance/giqe_sensitivity.py` module. Analysis utility only — no
+  chain output changes.
 - GIQE-5 calibration-range flagging (Gap 22): NIIRS results outside the
   published fit ranges (GSD 3–80 cm, RER 0.2–0.95, SNR 2–130) now carry
   `GIQEResult.extrapolated=True`, a `UserWarning`, and a new

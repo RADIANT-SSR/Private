@@ -195,6 +195,8 @@ where:
 **Failure modes:**
 - `RER ≤ 0` → NaN with reason "non-positive RER; PSF may be over-blurred to the point of ill-conditioning."
 
+**Sensitivity analysis (Gap 20).** `performance/giqe_sensitivity.py` provides `giqe5_sensitivity(gsd_m, rer, snr, h, g)` → `GIQESensitivity` with analytic partials (d(NIIRS)/d(GSD) = c1/(GSD·ln10), d/d(RER) = c2/(RER·ln10), d/d(SNR) = c3/(SNR·ln10), d/dH = c4, d/dG = c5) plus exact per-+1% NIIRS deltas. Pure function — not a chain metric; validated against central finite differences of `compute_giqe5`.
+
 **Calibration range (Gap 22).** GIQE-5 is a fit; outside its published fit ranges (Harrington et al. 2015) the value is an extrapolation with reduced confidence, not an error. Checked ranges: GSD 3–80 cm (1.18–31.5 inch), RER 0.2–0.95, SNR 2–130 — both ends. When any input is out of range the formula value is still returned, `GIQEResult.extrapolated` is `True` with per-input strings in `GIQEResult.warnings`, the chain emits a `UserWarning`, and `result.metrics["niirs_extrapolated"]` is 1.0 (else 0.0). The IIRS (MWIR/LWIR) dispatch inherits the same checks.
 
 ### 4.7 RER — Relative Edge Response

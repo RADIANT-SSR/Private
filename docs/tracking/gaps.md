@@ -296,7 +296,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-2.1) |
+| **Fix** | New `performance/giqe_sensitivity.py` (Rule 19 own-module): `giqe5_sensitivity()` → `GIQESensitivity` with analytic partials for all five GIQE-5 inputs plus exact per-+1% NIIRS deltas. 9 tests, 3 truth anchors (hand calc, registry formula, central finite difference of `compute_giqe5`). Docs: RADIANT_Metrics.md §4.6. |
+| **Rerun after fix** | Verified: d(NIIRS)/d(RER) at RER=0.5 → 2.8837 (= 3.32/(0.5·ln10), the registry's own example formula); finite-difference agreement to rel 1e-5. |
 | **Description** | The GIQE-5 equation has terms for GSD, RER, SNR, H, and G. A built-in sensitivity analysis showing d(NIIRS)/d(parameter) for each would help designers understand which parameter to improve. For example, d(NIIRS)/d(RER) = 3.32 / (RER × ln(10)) — very steep near baseline RER. |
 | **Workaround** | Compute partial derivatives analytically in scripts. |
 | **Impact** | Any NIIRS optimization study. |
@@ -683,7 +685,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 17 | No arbitrary PSF weighting spectrum | Small | Few | OPEN |
 | 18 | Platform jitter not wired | — | 5.4 | FIXED |
 | 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
-| 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | OPEN |
+| 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | FIXED |
 | 21 | No jitter PSD / frequency dependence | Large | 5.4 | DEFERRED |
 | 22 | RER below GIQE-5 calibration range | Small | 5.4 | FIXED |
 | 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |

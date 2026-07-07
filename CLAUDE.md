@@ -606,6 +606,9 @@ mypy --strict src/radiant/core src/radiant/api
 # Import rules:
 import-linter --config pyproject.toml
 
+# Organization rules (placement + naming per docs/OPERATING_MODEL.md):
+python scripts/check_org_rules.py
+
 # Lint:
 ruff check src/
 ```

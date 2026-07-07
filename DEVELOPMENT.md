@@ -100,6 +100,9 @@ ruff format src/
 # Import rule enforcement:
 import-linter --config pyproject.toml
 
+# Organization rules (placement + naming per docs/OPERATING_MODEL.md):
+python scripts/check_org_rules.py
+
 # Coverage gate (≥ 85%):
 pytest --cov=radiant --cov-fail-under=85
 ```

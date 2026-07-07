@@ -6,7 +6,7 @@
 
 **Not for**: items inside the current feature's scope (those go in the feature plan), scenario-specific gaps (those go in the scenario's `gaps.md`), or operational/runtime gaps already tracked in `docs/tracking/gaps.md`.
 
-**Numbering note**: CU-026 through CU-041 were never allocated (the GUI-v2 track jumped to CU-042); the gap is intentional, not lost entries.
+**Numbering note**: CU-026 through CU-041 were never allocated (the GUI-v2 track jumped to CU-042); the gap is intentional, not lost entries. The GUI-v2 README's Phase-7 deferral references to CU-043–046 were phantom numbers (never filed here) that collided with the audit entries now holding those IDs; they were re-filed 2026-07-06 as CU-052–055.
 
 ---
 
@@ -59,7 +59,7 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 
 **Discovered**: Option C Stage 1 (2026-04-19)
 **Re-audited**: 2026-04-24 (Stages 7 and 8 have landed); 2026-04-26 (re-scoped — see Status); 2026-04-26 (refreshed after CU-009 escalation)
-**Status**: blocked on CU-009 task ([docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md)) landing — re-audit when that task's commit lands. The CU-009 escalated task answers the prerequisite question for CU-005: the canonical schema name for `theta_o` is `geometry.path_zenith_rad` (Approach A in CU-009's doc). When CU-009 lands, CU-005's resolution becomes a forced choice between (a) leaving `theta_o_from_eta` as the boundary converter that user-supplied `geometry.sensor_off_nadir_rad` would route through (Approach C of CU-009, deferred there), or (b) documenting the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Investigation 2026-04-26 found the original "Suggested fix" mis-framed:
+**Status**: UNBLOCKED 2026-07-06 — CU-009 landed (commit `d846f07`); the forced choice described below is now live. Re-audit and decide: (a) introduce `geometry.sensor_off_nadir_rad` routed through `theta_o_from_eta` (Approach C of CU-009, deferred there), or (b) document the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Re-audit date: 2026-08-15. Prior context: the CU-009 escalated task answers the prerequisite question for CU-005: the canonical schema name for `theta_o` is `geometry.path_zenith_rad` (Approach A in CU-009's doc). When CU-009 lands, CU-005's resolution becomes a forced choice between (a) leaving `theta_o_from_eta` as the boundary converter that user-supplied `geometry.sensor_off_nadir_rad` would route through (Approach C of CU-009, deferred there), or (b) documenting the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Investigation 2026-04-26 found the original "Suggested fix" mis-framed:
 
 - The CU body conflated three things in `core/los_geometry.py`. Only one of them is unwired: the standalone `theta_o_from_eta` function. The `LineOfSightGeometry` class itself is heavily consumed (every atmosphere backend, the source stage, ~10 test files, all source-stage snapshots). `LineOfSightGeometry.intercepts_earth(h_sensor)` is wired into production at [src/radiant/atmosphere/assembly.py:204](../src/radiant/atmosphere/assembly.py#L204), called from `validate_no_atmosphere_subcase` against the already-registered `platform.h_sensor` parameter ([src/radiant/platform/_schema.py:127](../src/radiant/platform/_schema.py#L127), Stage-7 stop-gap).
 - Path (a) ("wire into `OpticsStage._finalize_regime()`'s Earth-intercept check") doesn't apply: the Earth-intercept check is `intercepts_earth()` (not `theta_o_from_eta`), it lives in AtmosphereStage (not OpticsStage), and it is already wired.
@@ -73,17 +73,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: tracking, not urgency — once CU-009 lands the schema, this CU's resolution becomes a forced choice (wire in `_inferrer._infer_los`, or document the `eta` opt-out as deliberately deferred behind a SensorDescriptor ADR).
 **Suggested fix (deferred to post-CU-009 re-audit)**: when CU-009's escalated task lands and `_inferrer._infer_los` reads from the canonical `geometry.path_zenith_rad`, decide whether to (a) introduce `geometry.sensor_off_nadir_rad` and route through `theta_o_from_eta(eta, h_sensor, h_tgt)` (Approach C of CU-009, deferred there for scope reasons), with an explicit precedence rule against `geometry.path_zenith_rad`, or (b) document the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Note: the CU-009 task doc explicitly defers the sensor-off-nadir surface here rather than co-resolving it. Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-009 lands).
 
-### CU-007 — Stage-2 MWIR-mixed `UserWarning` is globally suppressed inside `_inferrer.py`
-
-**Discovered**: Option C Stage 2 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stage 6 has landed)
-**Status**: investigated 2026-04-26; escalated to a stand-alone Category B task with C-level radiometric audit (`docs/reports/cu_tasks/CU-007_MWIR_T3Mixed_Routing_Task.md`) — this entry stays Open until the follow-on lands. Investigation confirmed (a) the suppression wrapper is at [src/radiant/source/_inferrer.py:1542](../src/radiant/source/_inferrer.py#L1542); (b) six baseline scenarios route through the wrapper (`ground_truth_mwir`, `mwir_leo_minimal`, `mwir_aerial_flir`, `mwir_ground_test`, `mwir_leo_pushbroom`, `mwir_leo_starer`); (c) `T3Mixed` adds the reflected-direct-solar + reflected-diffuse-sky terms via Kirchhoff in [atmosphere/assembly.py:786](../src/radiant/atmosphere/assembly.py#L786) — a real radiometric change to those rows' `L_aperture`/`nedt_K`/`snr`; (d) anchor cells 28/58 are bit-invariant (LWIR T1Thermal, ρ≡0). Original "50–100 LOC, Category B (no physics change)" estimate undercounted the snapshot regression burden — escalation matches the CU-003 pattern.
-
-**File**: `src/radiant/source/_inferrer.py::_build_target_descriptor`
-**Symptom (verified 2026-04-24)**: `warnings.catch_warnings() / simplefilter("ignore", UserWarning)` still wraps the `T1Thermal(...)` construction at lines ~1670–1687 of `_inferrer.py`. Every MWIR snapshot scenario still triggers the suppression at runtime (silently); the only signal is that *no* warning ever surfaces from those scenarios.
-**Why it still matters**: the suppression masks a legitimate modelling flag for any new MWIR cell that lands post-Stage-8 with the legacy scalar surface. With Stage 6's T3Mixed synthesis available, there is no longer a reason to gag the warning — the inferrer should now choose T3 for atmosphere-aware MWIR cases and leave T1 only for the `ρ ≈ 0` cases where the warning is genuinely a false positive.
-**Suggested fix**: see `docs/reports/cu_tasks/CU-007_MWIR_T3Mixed_Routing_Task.md`. Recommended approach (Approach 1 in that task doc): MWIR-overlap defaults to `T3Mixed`; new `source.target.is_hot_target` schema parameter as the explicit hot-target opt-out; suppression wrapper removed entirely. Six MWIR snapshot rows refresh; remaining 8 rows + anchor cells 28/58 bit-invariant.
-
 ### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral
 
 **Discovered**: Option C Stage 2 (2026-04-19)
@@ -95,23 +84,11 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: dormant Rule-17 antipattern. Once the first sub-pixel terrestrial / airborne scenario lands (likely soon — CU-009 schema work, future point-target scenarios), the placeholder warning starts firing in production and the silent-grey ε_g(λ) becomes a real radiometry bug for non-grey materials (vegetation NDVI, snow MWIR drop, urban asphalt SWIR). Stage 6's E_sky decomposition consumes ε_g spectrally via `_assemble_ground_background`; the bridge has to be built before a real consumer arrives.
 **Suggested fix**: see `docs/reports/cu_tasks/CU-008_GroundBackground_Spectral_Task.md`. Recommended approach (Approach 1 in that task doc): named spectral-library enum (`source.background.material ∈ {grey, vegetation, snow}`) + optional `source.background.emissivity_path` override, with the existing scalar `source.background.emissivity` preserved as the `material="grey"` back-compat path. Three numerical truth anchors (grey-limit identity, vegetation NDVI signature, snow MWIR drop). Zero existing-baseline drift; one or two new sub-pixel test fixtures added.
 
-### CU-009 — Stage-2 `_infer_los` ignores the registered `geometry.*` params (nadir/Kármán hardcode)
-
-**Discovered**: Option C Stage 2 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stage 5 has landed); 2026-04-26 (escalated — see Status)
-**Status**: investigated 2026-04-26; escalated to a stand-alone Category B task with C-level radiometric audit ([docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md)) — this entry stays Open until the follow-on lands. Investigation confirmed (a) the hardcode is at [src/radiant/source/_inferrer.py:286–292](../src/radiant/source/_inferrer.py#L286); (b) the original "register `source.observer_geometry.*` namespace" framing creates redundant parameter names — the equivalent params already exist on AtmosphereStage's schema and are consumed by multiple downstream stages: `geometry.path_zenith_rad` ([atmosphere/_schema.py:144](../src/radiant/atmosphere/_schema.py#L144), default 0.0) ↔ `theta_o`, `geometry.solar_zenith_rad` ([atmosphere/_schema.py:156](../src/radiant/atmosphere/_schema.py#L156), default 0.5 rad) ↔ `theta_s`, `geometry.solar_azimuth_rad` ([atmosphere/_schema.py:168](../src/radiant/atmosphere/_schema.py#L168), default 0.0) ↔ `delta_phi`; (c) the inferrer is the outlier — every other stage that needs LOS geometry already pulls from `geometry.*` (platform smear, performance GSD, MODTRAN, atmosphere assembly); (d) all 14 baseline scenarios take schema defaults for these three params (zero hits in `examples/`) and route through descriptors that don't consume `theta_s`/`delta_phi` (T1Thermal — LWIR/SWIR/VNIR, plus MWIR-under-CU-007-suppression), so the recommended "wire `_infer_los` to the existing `geometry.*` params" approach gives **zero existing-baseline drift**; (e) anchor cells 28/58 bit-invariant by construction (LWIR T1Thermal extended, all geometry defaults, `_assemble_t1` ignores `theta_s`/`delta_phi`); (f) latent finding folded into the task — `_view_direction_from_los` ([_inferrer.py:323](../src/radiant/source/_inferrer.py#L323)) reads `geometry.observer_zenith_rad`, which is unregistered (Rule-12 violation, silent `KeyError → 0.0` fallback); the canonical name is `geometry.path_zenith_rad`.
-
-**File**: `src/radiant/source/_inferrer.py::_infer_los`
-**Symptom (verified 2026-04-26)**: `_infer_los` at lines 286–292 still returns `LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)` with `theta_s` and `delta_phi` unset and `h_atm_top` defaulting to 1e5 m. Only `h_tgt` is read from a parameter (`geometry.target_altitude_m`). The three relevant `geometry.*` params (`path_zenith_rad`, `solar_zenith_rad`, `solar_azimuth_rad`) are registered and consumed elsewhere but ignored by the inferrer.
-**Why it still matters**: every reflective / two-leg / sky-decomposition scenario currently fires as nadir-surface-Kármán. Stage 6's E_sky decomposition has the *capability* to use real `θ_s` and `Δφ`, but the inferrer never supplies them, so the per-scenario radiance is computed at sun-overhead-and-on-axis regardless of the YAML's actual scene geometry. Ordering matters: landing CU-009 first means CU-007's MWIR T3Mixed snapshot refresh captures the correct solar geometry on the first cut (no double-shift); CU-005 and CU-011 also depend on a canonical `theta_o`/`theta_s` schema name being decided.
-**Suggested fix**: see [docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md). Recommended approach (Approach A in that task doc): wire `_infer_los` to the already-registered `geometry.path_zenith_rad` / `solar_zenith_rad` / `solar_azimuth_rad` (T1 ⇒ `theta_s = delta_phi = None`, T2/T3 ⇒ populated); fix the latent unregistered `geometry.observer_zenith_rad` reader in the same surgery; zero new schema parameters; zero baseline drift.
-
-
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
 **Discovered**: Option C Stage 3 (2026-04-19)
 **Re-audited**: 2026-04-24 (Stage 6 has landed); 2026-04-26 (refreshed after CU-009 escalation)
-**Status**: blocked on CU-009 task ([docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md)) landing — re-audit when that task's commit lands. The exercise path is now visible (post-CU-009, a YAML can plumb non-zero `geometry.solar_zenith_rad` through `_infer_los` to the MODTRAN backend), so the test fixture for the second TAPE7 invocation finally has somewhere to land. Stage 6 (E_sky decomposition, commit `b9244fd`) landed the consumer side; CU-009 lands the producer side; this CU completes the MODTRAN-backend slice. Currently anchor cells 28/58 use the analytic atmosphere, so the MODTRAN single-τ alias does not affect the pinned values directly — but any MWIR scenario that elects to route through MODTRAN with a non-zero `θ_s` would silently lose the solar-leg attenuation.
+**Status**: UNBLOCKED 2026-07-06 — CU-009 landed (commit `d846f07`); the producer side now exists, so the stand-alone Category C task in Suggested fix can be filed. Re-audit date: 2026-08-15. Prior context: the exercise path is now visible (post-CU-009, a YAML can plumb non-zero `geometry.solar_zenith_rad` through `_infer_los` to the MODTRAN backend), so the test fixture for the second TAPE7 invocation finally has somewhere to land. Stage 6 (E_sky decomposition, commit `b9244fd`) landed the consumer side; CU-009 lands the producer side; this CU completes the MODTRAN-backend slice. Currently anchor cells 28/58 use the analytic atmosphere, so the MODTRAN single-τ alias does not affect the pinned values directly — but any MWIR scenario that elects to route through MODTRAN with a non-zero `θ_s` would silently lose the solar-leg attenuation.
 
 **File**: `src/radiant/atmosphere/modtran.py`
 **Symptom (verified 2026-04-24)**: `modtran.py` lines 730–752 still emit the `UserWarning` and set `tau_sun = tau`, `tau_up = tau.copy()`, `tau_full_up = tau.copy()`, `L_path_up = lpath`, `L_path_full = lpath.copy()` from a single MODTRAN call. No second TAPE7 run keyed on `θ_s`, no analytic split.
@@ -208,9 +185,86 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: silent key-stripping is a Rule 17 antipattern — a config that says `_extends: base.yaml` produces physics results from an entirely different parameter set than the user intended, with no diagnostic.
 **Suggested fix**: stand-alone task — either implement the three directives or make `load_config` raise `ConfigError` ("_extends is not implemented; inline the base config") when they are present. Interim minimum: warn. Effort S (raise) / M (implement); category A.
 
+### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
+
+**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
+**Status**: Open. Re-audit date: 2026-08-15.
+**File**: `dev_tools/geometry_gui_v2/app/panels/parameters.py`
+**Symptom**: the parameters panel's slider interaction work ("headlining slider work" per `dev_tools/geometry_gui_v2/README.md` Phase-7 deferrals) is deferred; it gates the performance and memory test passes (CU-053, CU-054).
+**Why it still matters**: Phase 7 (hardening + handoff) cannot complete its acceptance bundle without it; two downstream CUs are blocked on it.
+**Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7. Effort M; category A (GUI tooling).
+
+### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044")
+
+**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
+**Status**: Open — blocked on CU-052. Re-audit date: 2026-08-15.
+**File**: `dev_tools/geometry_gui_v2/` (scene rebuild path)
+**Symptom**: no performance test pass exists for interactive scene rebuilds; deferred from Phase 7 pending the slider work that would exercise it.
+**Why it still matters**: the tool is the visual-design prototype for the production GUI's geometry tab; rebuild latency regressions land silently without a gate.
+**Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
+
+### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045")
+
+**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
+**Status**: Open — blocked on CU-052. Re-audit date: 2026-08-15.
+**File**: `dev_tools/geometry_gui_v2/` (actor lifecycle)
+**Symptom**: no memory-leak pass over repeated scene rebuilds (VTK actor churn); deferred from Phase 7 pending the slider work that would exercise it.
+**Why it still matters**: long-lived desktop sessions with continuous parameter dragging will surface any actor leak; no gate exists.
+**Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
+
+### CU-055 — GUI v2 test suite not wired into CI (Phase-7 deferral; formerly README "CU-046")
+
+**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
+**Status**: Open.
+**File**: `.github/workflows/ci.yml`
+**Symptom**: `.github/workflows/ci.yml` runs nothing under `dev_tools/`; the 386-test GUI v2 suite (including the golden_phase1 screenshot baseline) relies on manual invocation only.
+**Why it still matters**: the repo's only untested-in-CI code surface; a `src/` refactor that breaks the GUI's `radiant` imports would land green.
+**Suggested fix**: inline-fix-now — add a `gui-tests` CI job (Linux: Qt offscreen deps + xvfb, `pip install -e . -e dev_tools/geometry_gui_v2`, `pytest dev_tools/geometry_gui_v2 -q`). Note the repo currently has no git remote, so all CI jobs are dormant until one is configured. Effort S; category A.
+
+### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
+
+**Discovered**: Geometry GUI v2 round-2 remediation (sun glyph rework); re-filed 2026-07-06 during loose-end cleanup (the docstring's CU number was never allocated in this registry and collided with the README's CI-deferral phantom).
+**Status**: Open. Re-audit date: 2026-08-15.
+**File**: `dev_tools/geometry_gui_v2/scene/glyphs/sun.py`
+**Symptom**: the sun disc + rays are sized in world space (tuned to ~24 px / 8 px at the round-2 default camera distance); zooming scales the glyph with the scene instead of holding fixed pixel size.
+**Why it still matters**: icon-style glyphs are meant to read at constant screen size; at extreme zoom the sun either dominates the viewport or vanishes.
+**Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
+
 ---
 
 ## Resolved
+
+### CU-051 — `scripts/update_golden.py` uses stale noise-term keys — RESOLVED 2026-07-06 (commit `0729faf`)
+
+**Discovered**: CU-007 close-out on branch `chore/cu-007-mwir-t3mixed-routing` (2026-04-26, as pre-renumbering "CU-047"); the branch's backlog filing never reached main — re-filed and closed 2026-07-06 during loose-end cleanup.
+**File**: `scripts/update_golden.py`; `src/radiant/core/radiometry.py` (docstring).
+**Symptom**: `update_golden.py` looked up `noise["shot"]` and `noise["read"]`, but the canonical noise-term names (per `radiant.core.noise_budget`) are `signal_shot` and `read_noise` — the golden-regeneration script would KeyError on invocation.
+**Resolution**: cherry-picked `83967ed` as `0729faf`: key lookups fixed, `NoiseTerm` docstring updated to the canonical names, and `tests/integration/test_update_golden_keys.py` regression guard added (asserts the script's key set against the live noise budget).
+
+### CU-007 — Stage-2 MWIR-mixed `UserWarning` is globally suppressed inside `_inferrer.py` — RESOLVED 2026-07-06 (commit `45b6671`)
+
+**Discovered**: Option C Stage 2 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stage 6 has landed)
+**Status**: investigated 2026-04-26; escalated to a stand-alone Category B task with C-level radiometric audit (`docs/reports/cu_tasks/CU-007_MWIR_T3Mixed_Routing_Task.md`) — this entry stays Open until the follow-on lands. Investigation confirmed (a) the suppression wrapper is at [src/radiant/source/_inferrer.py:1542](../src/radiant/source/_inferrer.py#L1542); (b) six baseline scenarios route through the wrapper (`ground_truth_mwir`, `mwir_leo_minimal`, `mwir_aerial_flir`, `mwir_ground_test`, `mwir_leo_pushbroom`, `mwir_leo_starer`); (c) `T3Mixed` adds the reflected-direct-solar + reflected-diffuse-sky terms via Kirchhoff in [atmosphere/assembly.py:786](../src/radiant/atmosphere/assembly.py#L786) — a real radiometric change to those rows' `L_aperture`/`nedt_K`/`snr`; (d) anchor cells 28/58 are bit-invariant (LWIR T1Thermal, ρ≡0). Original "50–100 LOC, Category B (no physics change)" estimate undercounted the snapshot regression burden — escalation matches the CU-003 pattern.
+
+**File**: `src/radiant/source/_inferrer.py::_build_target_descriptor`
+**Symptom (verified 2026-04-24)**: `warnings.catch_warnings() / simplefilter("ignore", UserWarning)` still wraps the `T1Thermal(...)` construction at lines ~1670–1687 of `_inferrer.py`. Every MWIR snapshot scenario still triggers the suppression at runtime (silently); the only signal is that *no* warning ever surfaces from those scenarios.
+**Why it still matters**: the suppression masks a legitimate modelling flag for any new MWIR cell that lands post-Stage-8 with the legacy scalar surface. With Stage 6's T3Mixed synthesis available, there is no longer a reason to gag the warning — the inferrer should now choose T3 for atmosphere-aware MWIR cases and leave T1 only for the `ρ ≈ 0` cases where the warning is genuinely a false positive.
+**Suggested fix**: see `docs/reports/cu_tasks/CU-007_MWIR_T3Mixed_Routing_Task.md`. Recommended approach (Approach 1 in that task doc): MWIR-overlap defaults to `T3Mixed`; new `source.target.is_hot_target` schema parameter as the explicit hot-target opt-out; suppression wrapper removed entirely. Six MWIR snapshot rows refresh; remaining 8 rows + anchor cells 28/58 bit-invariant.
+**Resolution**: Approach 1 of the task doc landed as `45b6671` (cherry-picked from branch `chore/cu-007-mwir-t3mixed-routing`, original commit `452cccd`): MWIR-overlap legacy scalar-ε scenarios default to `T3Mixed` (Kirchhoff emit+reflect); new `source.target.is_hot_target` schema parameter is the explicit hot-target opt-out; the `warnings.catch_warnings()` suppression wrapper is removed. Six MWIR snapshot rows and `tests/integration/golden/mwir_leo_minimal.json` + `option_c_baseline.yaml` refreshed per the task's C-level radiometric audit; anchor cells 28/58 bit-invariant. Full suite incl. golden green on merge day.
+
+### CU-009 — Stage-2 `_infer_los` ignores the registered `geometry.*` params (nadir/Kármán hardcode) — RESOLVED 2026-07-06 (commit `d846f07`)
+
+**Discovered**: Option C Stage 2 (2026-04-19)
+**Re-audited**: 2026-04-24 (Stage 5 has landed); 2026-04-26 (escalated — see Status)
+**Status**: investigated 2026-04-26; escalated to a stand-alone Category B task with C-level radiometric audit ([docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md)) — this entry stays Open until the follow-on lands. Investigation confirmed (a) the hardcode is at [src/radiant/source/_inferrer.py:286–292](../src/radiant/source/_inferrer.py#L286); (b) the original "register `source.observer_geometry.*` namespace" framing creates redundant parameter names — the equivalent params already exist on AtmosphereStage's schema and are consumed by multiple downstream stages: `geometry.path_zenith_rad` ([atmosphere/_schema.py:144](../src/radiant/atmosphere/_schema.py#L144), default 0.0) ↔ `theta_o`, `geometry.solar_zenith_rad` ([atmosphere/_schema.py:156](../src/radiant/atmosphere/_schema.py#L156), default 0.5 rad) ↔ `theta_s`, `geometry.solar_azimuth_rad` ([atmosphere/_schema.py:168](../src/radiant/atmosphere/_schema.py#L168), default 0.0) ↔ `delta_phi`; (c) the inferrer is the outlier — every other stage that needs LOS geometry already pulls from `geometry.*` (platform smear, performance GSD, MODTRAN, atmosphere assembly); (d) all 14 baseline scenarios take schema defaults for these three params (zero hits in `examples/`) and route through descriptors that don't consume `theta_s`/`delta_phi` (T1Thermal — LWIR/SWIR/VNIR, plus MWIR-under-CU-007-suppression), so the recommended "wire `_infer_los` to the existing `geometry.*` params" approach gives **zero existing-baseline drift**; (e) anchor cells 28/58 bit-invariant by construction (LWIR T1Thermal extended, all geometry defaults, `_assemble_t1` ignores `theta_s`/`delta_phi`); (f) latent finding folded into the task — `_view_direction_from_los` ([_inferrer.py:323](../src/radiant/source/_inferrer.py#L323)) reads `geometry.observer_zenith_rad`, which is unregistered (Rule-12 violation, silent `KeyError → 0.0` fallback); the canonical name is `geometry.path_zenith_rad`.
+
+**File**: `src/radiant/source/_inferrer.py::_infer_los`
+**Symptom (verified 2026-04-26)**: `_infer_los` at lines 286–292 still returns `LineOfSightGeometry(h_tgt=h_tgt_m, theta_o=0.0)` with `theta_s` and `delta_phi` unset and `h_atm_top` defaulting to 1e5 m. Only `h_tgt` is read from a parameter (`geometry.target_altitude_m`). The three relevant `geometry.*` params (`path_zenith_rad`, `solar_zenith_rad`, `solar_azimuth_rad`) are registered and consumed elsewhere but ignored by the inferrer.
+**Why it still matters**: every reflective / two-leg / sky-decomposition scenario currently fires as nadir-surface-Kármán. Stage 6's E_sky decomposition has the *capability* to use real `θ_s` and `Δφ`, but the inferrer never supplies them, so the per-scenario radiance is computed at sun-overhead-and-on-axis regardless of the YAML's actual scene geometry. Ordering matters: landing CU-009 first means CU-007's MWIR T3Mixed snapshot refresh captures the correct solar geometry on the first cut (no double-shift); CU-005 and CU-011 also depend on a canonical `theta_o`/`theta_s` schema name being decided.
+**Suggested fix**: see [docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md). Recommended approach (Approach A in that task doc): wire `_infer_los` to the already-registered `geometry.path_zenith_rad` / `solar_zenith_rad` / `solar_azimuth_rad` (T1 ⇒ `theta_s = delta_phi = None`, T2/T3 ⇒ populated); fix the latent unregistered `geometry.observer_zenith_rad` reader in the same surgery; zero new schema parameters; zero baseline drift.
+**Resolution**: Approach A of the task doc landed as `d846f07` (cherry-picked from branch `chore/cu-009-observer-geometry`, original commit `c2634b6`): `_infer_los` now reads the already-registered `geometry.target_altitude_m` / `path_zenith_rad` / `solar_zenith_rad` / `solar_azimuth_rad` (T1 ⇒ `theta_s = delta_phi = None`; T2/T3 ⇒ populated); the latent unregistered `geometry.observer_zenith_rad` reader in `_view_direction_from_los` fixed in the same surgery. Zero new schema parameters; zero baseline drift (all 14 baselines take defaults); 418-line routing test suite added (`test_inferrer_los_routing.py`).
+
 
 ### CU-042 — `QtInteractor` segfault under `QT_QPA_PLATFORM=offscreen` on Darwin — RESOLVED 2026-05-02 (commit `c972802`)
 

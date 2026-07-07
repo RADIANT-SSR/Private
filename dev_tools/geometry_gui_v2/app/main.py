@@ -181,7 +181,7 @@ class GeometryMainWindow(QMainWindow):
         dock.setObjectName("dock_parameters")
         dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         # R8: build the real parameter panel — sliders, spinboxes, mode
-        # toggles. Replaces the CU-043 placeholder. The panel is the
+        # toggles. Replaces the CU-052 placeholder. The panel is the
         # single surface for SceneState input; ``state_changed`` is the
         # contract that drives the rebuild path.
         self._parameters_panel = ParametersPanel()

@@ -15,3 +15,12 @@ repos:
       - id: check-toml
       - id: check-merge-conflict
       - id: debug-statements
+
+  - repo: local
+    hooks:
+      - id: check-org-rules
+        name: Organization rules (OPERATING_MODEL placement + naming)
+        entry: python3 scripts/check_org_rules.py
+        language: system
+        pass_filenames: false
+        always_run: true

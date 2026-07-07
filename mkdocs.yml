@@ -11,6 +11,25 @@ site_description: First-principles EO sensor performance modeling
 repo_url: https://github.com/example/radiant
 repo_name: radiant
 
+# The published site covers the user/developer-facing set (guides, theory,
+# architecture, ADRs, validation, Operating Model). Repo-internal working
+# docs — living registries, in-flight plans, point-in-time reports, and the
+# historical archive — are repo-only (see docs/OPERATING_MODEL.md §1).
+exclude_docs: |
+  archive/**
+  reports/**
+  tracking/**
+  plans/**
+
+# Specs legitimately link to repo files outside docs/ (../src, ../tests,
+# ../examples). Those are repo-relative references, not site links — report
+# them at info level instead of failing the strict build.
+validation:
+  links:
+    unrecognized_links: info
+    absolute_links: info
+    not_found: info
+
 theme:
   name: material
   palette:

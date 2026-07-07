@@ -14,7 +14,7 @@ Sizing: world-space, scaled so the glyph reads at roughly 24 px /
 8 px (disc diameter / ray length) at the round-2 default camera
 distance for the default state (~17 m). True screen-space sizing
 (via ``vtkActor2D`` or a camera-change callback) is deferred — this
-file documents that deferral as CU-046; the user-visible difference
+file documents that deferral as CU-056; the user-visible difference
 is that zooming in/out scales the glyph with the rest of the scene
 rather than nailing it to fixed pixels. The icon nature of the disc
 + rays survives the zoom because the proportions stay correct.

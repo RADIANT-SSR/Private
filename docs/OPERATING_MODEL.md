@@ -20,7 +20,11 @@
 | `plans/` | Plans for work **not yet finished**. Status header mandatory | Living while active | **`plans/` empty ⇒ nothing is in flight.** That invariant is the point |
 | `reports/` | Completed point-in-time records: audits, task reports, remediation records | **Immutable** — corrections are new documents | One folder per audit: `<topic>_<YYYY-MM>/` |
 | `archive/` | Documents that once claimed to be current and no longer are. Flat, no subfolders. Every file carries a HISTORICAL banner with date + superseded-by | Frozen | — |
-| Top-level files | `index.md` (mkdocs home), `OPERATING_MODEL.md` (this file) | — | **Nothing else at top level. Ever.** |
+| Top-level files | `index.md` (mkdocs home — the tool requires it at docs-root), `OPERATING_MODEL.md` (this file — it governs the taxonomy, so it sits above the folders it defines) | — | **Nothing else at top level. Ever.** |
+
+**Repo root is a closed list too:** `README.md`, `DEVELOPMENT.md`, `CLAUDE.md`, `pyproject.toml`, `mkdocs.yml`, `.gitignore`, `.pre-commit-config.yaml` (plus `LICENSE` if one is added). Root-level `README`/`DEVELOPMENT` follow ecosystem convention — they are the two files a newcomer looks for before knowing the taxonomy exists. Any other root file needs a row added here first.
+
+**Enforcement:** `scripts/check_org_rules.py` mechanically checks the closed lists, the two-file `tracking/` rule, the no-PM-docs-in-packages rule, and §5.3 prohibited names. It runs in the CI `static` job; a violation fails the build. (Per CLAUDE.md's final forbidden action, a normative claim with no enforcing check is aspirational drift — this file is normative *because* that script runs.)
 
 ## 2. Lifecycle Flows — what moves where, and when
 

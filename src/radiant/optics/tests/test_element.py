@@ -808,3 +808,109 @@ class TestMakeRefractiveCavityElement:
             elem.net_transmittance.values,
             elem.transmittance.values,
         )
+
+
+# ---------------------------------------------------------------------------
+# Declared emissivity for LUMPED pseudo-elements (Gap 37)
+# ---------------------------------------------------------------------------
+
+
+class TestDeclaredEmissivity:
+    """LUMPED pseudo-elements may carry a user-declared train emissivity.
+
+    Rule 5 still holds for physical surfaces: only kind=LUMPED (a virtual
+    element standing in for an entire optical train) may declare emissivity,
+    because net transmission alone cannot resolve the train's energy balance.
+    """
+
+    def _spectral(self, value: float, name: str) -> SpectralData:
+        return SpectralData(
+            name=name,
+            wavelength_um=WL.copy(),
+            values=np.full_like(WL, value),
+            unit="",
+            source="test",
+        )
+
+    def _lump(
+        self,
+        eps_val: float,
+        tau_val: float = 0.7,
+        kind: ElementKind = ElementKind.LUMPED,
+    ) -> OpticalElement:
+        return OpticalElement(
+            name="lump",
+            kind=kind,
+            temperature_K=293.0,
+            transmittance=self._spectral(tau_val, "t"),
+            reflectance=self._spectral(0.0, "r"),
+            diameter_m=0.1,
+            distance_to_fpa_m=0.5,
+            declared_emissivity=self._spectral(eps_val, "e"),
+        )
+
+    @pytest.mark.level0
+    def test_emissivity_property_returns_declared(self) -> None:
+        """eps property returns the declared value, not the eps=0 lump default."""
+        elem = self._lump(0.05)
+        np.testing.assert_allclose(elem.emissivity.values, 0.05, rtol=1e-12)
+
+    @pytest.mark.level0
+    def test_no_declaration_preserves_zero(self) -> None:
+        """Without a declaration the simple-refractive eps=0 rule is unchanged."""
+        elem = OpticalElement(
+            name="lump",
+            kind=ElementKind.LUMPED,
+            temperature_K=293.0,
+            transmittance=self._spectral(0.7, "t"),
+            reflectance=self._spectral(0.0, "r"),
+            diameter_m=0.1,
+            distance_to_fpa_m=0.5,
+        )
+        np.testing.assert_array_equal(elem.emissivity.values, 0.0)
+
+    def test_non_lumped_kind_rejected(self) -> None:
+        """Rule 5: a physical surface may never declare emissivity."""
+        with pytest.raises(KirchhoffViolationError, match="LUMPED"):
+            self._lump(0.05, kind=ElementKind.WINDOW)
+
+    def test_energy_conservation_enforced(self) -> None:
+        """eps + T + R <= 1 for the lumped train."""
+        with pytest.raises(KirchhoffViolationError, match="energy"):
+            self._lump(0.4, tau_val=0.7)
+
+    def test_out_of_range_emissivity_rejected(self) -> None:
+        with pytest.raises(ValueError, match="\\[0, 1\\]"):
+            self._lump(1.2, tau_val=0.0)
+
+    def test_grid_mismatch_rejected(self) -> None:
+        other_wl = np.linspace(8.0, 12.0, 50)
+        eps = SpectralData(
+            name="e",
+            wavelength_um=other_wl,
+            values=np.full_like(other_wl, 0.05),
+            unit="",
+            source="test",
+        )
+        with pytest.raises(ValueError, match="wavelength grid"):
+            OpticalElement(
+                name="lump",
+                kind=ElementKind.LUMPED,
+                temperature_K=293.0,
+                transmittance=self._spectral(0.7, "t"),
+                reflectance=self._spectral(0.0, "r"),
+                diameter_m=0.1,
+                distance_to_fpa_m=0.5,
+                declared_emissivity=eps,
+            )
+
+    def test_factory_scalar_emissivity(self) -> None:
+        """make_lumped_element broadcasts a scalar emissivity."""
+        tau = self._spectral(0.7, "t")
+        elem = make_lumped_element(tau, 293.0, 0.1, 0.5, emissivity=0.2)
+        np.testing.assert_allclose(elem.emissivity.values, 0.2, rtol=1e-12)
+
+    def test_factory_default_unchanged(self) -> None:
+        tau = self._spectral(0.7, "t")
+        elem = make_lumped_element(tau, 293.0, 0.1, 0.5)
+        np.testing.assert_array_equal(elem.emissivity.values, 0.0)

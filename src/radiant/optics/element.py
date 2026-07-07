@@ -96,6 +96,7 @@ class OpticalElement:
     n_surfaces: int = 1
     transfer_mode: ElementTransferMode | None = None
     cavity: CavityModel | None = None
+    declared_emissivity: SpectralData | None = None
 
     def __post_init__(self) -> None:
         # --- Wavelength grid compatibility ---
@@ -140,6 +141,45 @@ class OpticalElement:
                 "Use kind=WINDOW or kind=BEAMSPLITTER for partially "
                 "transmissive elements."
             )
+
+        # --- Declared emissivity (LUMPED pseudo-elements only) ---
+        # Rule 5 forbids independent emissivity for a physical surface. A
+        # LUMPED element is a virtual stand-in for an entire optical train,
+        # whose energy balance (mirror eps = 1-R vs refractive eps = 0) is not
+        # resolvable from net transmission alone — so the user may declare the
+        # train emissivity there, and only there.
+        if self.declared_emissivity is not None:
+            if self.kind != ElementKind.LUMPED:
+                raise KirchhoffViolationError(
+                    f"OpticalElement '{self.name}': declared_emissivity is only "
+                    f"permitted for kind=LUMPED pseudo-elements, got "
+                    f"kind={self.kind.value}. Physical surfaces derive emissivity "
+                    "from Kirchhoff's law (Rule 5): use make_reflective_element "
+                    "(eps = 1 - R) or a cavity model instead."
+                )
+            eps_decl = self.declared_emissivity.values
+            if not np.array_equal(
+                self.declared_emissivity.wavelength_um, self.transmittance.wavelength_um
+            ):
+                raise ValueError(
+                    f"OpticalElement '{self.name}': declared_emissivity must "
+                    "share the transmittance wavelength grid."
+                )
+            if np.any(eps_decl < 0.0) or np.any(eps_decl > 1.0):
+                raise ValueError(
+                    f"OpticalElement '{self.name}': declared_emissivity values "
+                    f"must be in [0, 1], got range [{float(eps_decl.min()):.6g}, "
+                    f"{float(eps_decl.max()):.6g}]."
+                )
+            budget = t_vals + r_vals + eps_decl
+            if np.any(budget > 1.0 + KIRCHHOFF_TOL):
+                worst = float(np.max(budget))
+                raise KirchhoffViolationError(
+                    f"OpticalElement '{self.name}': energy conservation violation — "
+                    f"T + R + declared_emissivity = {worst:.6g} > 1 at some "
+                    "wavelengths. A train cannot emit more than it absorbs; "
+                    "reduce the declared emissivity or the transmission."
+                )
 
         # --- Geometry ---
         if self.temperature_K < 0.0:
@@ -194,7 +234,17 @@ class OpticalElement:
           (generalized Kirchhoff — n^2 enhancement for dielectric medium)
         - Refractive without cavity (simple): ``eps = 0`` (absorption unknown;
           the remaining ``1 - T`` is predominantly reflection, not absorption)
+        - LUMPED with declared_emissivity: the user-declared train emissivity
+          (the one sanctioned exception — a lump is not a physical surface)
         """
+        if self.declared_emissivity is not None:
+            return SpectralData(
+                name=f"{self.name}.emissivity",
+                wavelength_um=self.transmittance.wavelength_um.copy(),
+                values=self.declared_emissivity.values.copy(),
+                unit="",
+                source=f"User-declared train emissivity ({self.name})",
+            )
         if self.resolved_transfer_mode == ElementTransferMode.REFLECTIVE:
             eps_vals = 1.0 - self.reflectance.values
             source = f"Kirchhoff: 1 - R ({self.name})"

@@ -490,3 +490,31 @@ class TestNearfieldPerElement:
             expected_m2,
             rtol=1e-10,
         )
+
+
+class TestNearfieldDeclaredEmissivity:
+    """Gap 37 Level 0: warm lumped train with declared emissivity emits."""
+
+    @pytest.mark.level0
+    def test_hand_computed_irradiance(self) -> None:
+        """E_nf = eps * B(lam, T) * Omega for a single warm lump, eta_cold = 1.
+
+        Hand anchor: eps = 0.05, T = 295 K, D = 0.1 m, d = 0.5 m
+        -> Omega = pi * 0.05^2 / 0.5^2 = 0.0314159 sr.
+        """
+        tau = _flat_spectral(0.7, "tau")
+        lump = make_lumped_element(tau, 295.0, 0.1, 0.5, emissivity=0.05)
+        result = compute_nearfield_irradiance((lump,), WL)
+
+        omega = math.pi * 0.05**2 / 0.5**2
+        expected = 0.05 * planck_spectral_radiance(WL, 295.0) * omega
+        np.testing.assert_allclose(result.total.values, expected, rtol=1e-12)
+        assert float(result.total.values.max()) > 0.0
+
+    @pytest.mark.level0
+    def test_zero_emissivity_lump_stays_dark(self) -> None:
+        """Regression: default lump (eps = 0) contributes no nearfield."""
+        tau = _flat_spectral(0.7, "tau")
+        lump = make_lumped_element(tau, 295.0, 0.1, 0.5)
+        result = compute_nearfield_irradiance((lump,), WL)
+        np.testing.assert_array_equal(result.total.values, 0.0)

@@ -20,4 +20,13 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
-_No entries yet._
+### Added
+- `optics.scalar_emissivity` parameter (default 0.0): declared effective
+  emissivity of the lumped train in scalar transmission mode, enabling
+  warm-optics nearfield emission from the simplest input mode (Gap 37).
+  **Results-affecting only when set nonzero** — it adds nearfield background
+  and shot noise (lower SNR, higher NEDT) for warm-optics MWIR/LWIR
+  configurations; the default preserves all existing results (`ε = 0`,
+  nearfield dark). `OpticalElement` gains a `declared_emissivity` field,
+  legal only on `kind=LUMPED` pseudo-elements; `KirchhoffViolationError`
+  on physical surfaces or when `ε + τ + R > 1`.

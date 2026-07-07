@@ -60,6 +60,7 @@ def resolve_transmission(
     *,
     # Mode 1: scalar
     transmission_scalar: float | None = None,
+    scalar_emissivity: float = 0.0,
     # Mode 2: spectral file (preloaded)
     transmission_spectral: SpectralData | None = None,
     # Mode 3: telescope + filters
@@ -88,6 +89,11 @@ def resolve_transmission(
         Wavelength grid in microns.
     transmission_scalar:
         Flat throughput [0, 1] for Mode 1.
+    scalar_emissivity:
+        Declared emissivity of the lumped train for Mode 1 [0, 1]. Zero
+        (default) keeps the refractive-lump assumption (eps = 0, no
+        nearfield emission). Nonzero declares the train's effective
+        emissivity for warm-optics nearfield modeling (Gap 37).
     transmission_spectral:
         Pre-loaded spectral transmission for Mode 2.
     telescope_transmission:
@@ -116,6 +122,7 @@ def resolve_transmission(
             optics_temperature_K,
             aperture_diameter_m,
             dist,
+            scalar_emissivity,
         )
 
     if mode == TransmissionInputMode.SPECTRAL_FILE:
@@ -164,6 +171,7 @@ def _resolve_scalar(
     temperature_K: float,
     diameter_m: float,
     distance_m: float,
+    scalar_emissivity: float = 0.0,
 ) -> TransmissionResult:
     """Mode 1: scalar throughput broadcast to flat spectrum."""
     if transmission_scalar is None:
@@ -175,7 +183,13 @@ def _resolve_scalar(
         unit="",
         source=f"Scalar Mode 1: tau={transmission_scalar}",
     )
-    lumped = make_lumped_element(tau_sd, temperature_K, diameter_m, distance_m)
+    lumped = make_lumped_element(
+        tau_sd,
+        temperature_K,
+        diameter_m,
+        distance_m,
+        emissivity=scalar_emissivity if scalar_emissivity > 0.0 else None,
+    )
     return TransmissionResult(
         mode=TransmissionInputMode.SCALAR,
         transmission=tau_sd,

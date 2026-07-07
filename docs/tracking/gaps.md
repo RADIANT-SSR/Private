@@ -575,8 +575,10 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenarios 7.1, 7.4, 2.2, 2.5, 3.2 (cross-scenario — MWIR/LWIR warm-optics systems) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-1.1) |
 | **Severity** | **HIGH** |
+| **Fix** | Added `optics.scalar_emissivity` (default 0.0 preserves ε=0 behavior). `OpticalElement.declared_emissivity` accepted on `kind=LUMPED` pseudo-elements only — the one sanctioned Rule 5 exception, since a lump is not a physical surface; construction enforces ε + τ + R ≤ 1 (`KirchhoffViolationError`). Wired scalar mode → `make_lumped_element(emissivity=...)` → nearfield. Warns if set in non-scalar modes. 14 new tests (element validation, factory, mode dispatch, Level 0 hand-calc E_nf = ε·B·Ω, full-chain integration: nearfield_shot 0 → 662.6 e⁻ RMS at ε=0.25/293 K MWIR, SNR decreases, signal path unchanged to 1e-12). Docs: RADIANT_Optics.md §2/§5.1/§5.2/§6.1/§10.3 (also fixed pre-existing doc drift claiming scalar mode synthesized ε = 1−τ — it never did), RADIANT_Parameter_System.md. |
+| **Resolution note** | Fix targets scalar mode per the gap. Mode 2 (spectral_file) retains ε=0 with the workaround documented (use key_elements / full_prescription). |
 | **Description** | In scalar transmission mode (`optics.mode: "scalar"`), the lumped optical element is treated as refractive and Kirchhoff's law gives `ε = 1 − T − R = 0` (since `T + R = 1` for refractive). Mirrors follow `ε = 1 − R` and should contribute self-emission, but scalar mode cannot distinguish refractive from reflective. Result: `nearfield_shot = 0` even with warm optics at 293 K in MWIR/LWIR bands. |
 | **Impact** | (a) Under-predicts total noise for cold targets / point sources in warm-optics MWIR/LWIR (30–40% noise underestimate typical). (b) Cold stop efficiency sweeps (7.4) non-functional — no nearfield to reduce. (c) Explains a portion of predicted vs. measured NEDT gap in Karen's TVAC test (26 mK at 25°C). (d) NIIRS predictions slightly optimistic for thermal bands with warm optics (0.02–0.04 optimism). |
 | **Evidence** | 7.1: nearfield_shot = 0 with 4 optics elements at 22°C. 2.5: nearfield_shot = 0 for 200 K cold target with 4 warm optics at 20°C. 3.2: nearfield_shot = 0 at 500 km LEO MWIR baseline. |
@@ -584,7 +586,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Fix location** | `radiant/optics/_schema.py` — add optional `optics.scalar_emissivity` parameter. Default None preserves current behavior; if set, overrides the refractive-lump assumption. Alternative: auto-detect lumped-mirror via `optics.n_mirror_surfaces` parameter. |
 | **Effort** | Small (scalar_emissivity param) to Medium (auto-detection from surface counts). |
 | **Scenarios affected** | 7.1, 7.4, 2.2, 2.5, 3.2 (all warm-optics thermal-band scenarios). |
-| **Rerun after fix** | Scenario 7.4 (cold stop sweep), 7.1 (NEDT reconciliation) |
+| **Rerun after fix** | Verified 2026-07-07 (7.4 rerun-equivalent — the scripted sweep itself is blocked on CU-057 `openpyxl`): scalar mode, ε=0.25, T_optics=293 K, MWIR 3.5–5.0 µm; η_cold sweep 0→1 gives nearfield 0 → 439.0 ke⁻ (linear in η_cold) and SNR 316.1 → 136.2. Cold-stop sweeps are functional in scalar mode. |
 
 ---
 
@@ -695,7 +697,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | CLOSED |
 | 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |
 | 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |
-| 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | OPEN |
+| 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | FIXED |
 | 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | DEFERRED |
 | 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |

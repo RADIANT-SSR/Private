@@ -218,6 +218,26 @@ DEFOCUS_UM = ParameterDef(
 # Nearfield
 # ---------------------------------------------------------------------------
 
+SCALAR_EMISSIVITY = ParameterDef(
+    name="optics.scalar_emissivity",
+    description=(
+        "Declared effective emissivity of the lumped optical train in scalar "
+        "transmission mode [0, 1]. Zero (default) keeps the refractive-lump "
+        "assumption (no warm-optics nearfield emission). Set nonzero for "
+        "warm reflective trains — e.g. eps ≈ 1 - tau for an all-mirror train. "
+        "Permitted only because the scalar lump is not a physical surface; "
+        "Rule 5 (Kirchhoff-derived emissivity) still binds real elements. "
+        "Requires eps + tau <= 1. Ignored in non-scalar transmission modes."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"optics", "thermal"}),
+    default_justification="0.0 preserves the historical eps=0 refractive-lump assumption.",
+)
+
 COLD_STOP_EFFICIENCY = ParameterDef(
     name="optics.cold_stop_efficiency",
     description=(
@@ -380,6 +400,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     WFE_REFERENCE_WAVELENGTH_UM,
     FIELD_POSITION_X,
     FIELD_POSITION_Y,
+    SCALAR_EMISSIVITY,
     COLD_STOP_EFFICIENCY,
     NEARFIELD_ENABLED,
     STRAY_INPUT_MODE,

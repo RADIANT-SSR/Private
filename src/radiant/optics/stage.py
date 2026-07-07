@@ -635,10 +635,21 @@ class OpticsStage:
             mode = TransmissionInputMode.FULL_PRESCRIPTION
             mode_str = mode.value
 
+        scalar_emissivity: float = params.get("optics.scalar_emissivity")
+        if scalar_emissivity > 0.0 and mode != TransmissionInputMode.SCALAR:
+            logger.warning(
+                "optics.scalar_emissivity=%.3g is ignored in '%s' transmission "
+                "mode — it applies only to scalar mode. Element emissivities "
+                "are Kirchhoff-derived in element-based modes.",
+                scalar_emissivity,
+                mode.value,
+            )
+
         tx_result = resolve_transmission(
             mode,
             state.wavelength_um,
             transmission_scalar=params.get("optics.transmission_scalar"),
+            scalar_emissivity=scalar_emissivity,
             full_elements=tuple(full_elements) if full_elements is not None else (),
             optics_temperature_K=optics_temp_K,
             optics_distance_to_fpa_m=optics_dist_m,

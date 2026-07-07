@@ -11,7 +11,7 @@
 The optics module has one job: **deliver an `OpticsState` to the chain**. Five guiding rules:
 
 1. **One contract, many input depths.** A user may specify the optics by a scalar transmission and a Strehl ratio, or by a full element-by-element prescription with measured OPD maps and per-element temperatures. All inputs flow into the same `OpticsState`. The downstream chain is identical.
-2. **Kirchhoff is enforced for elements.** A user supplies reflectance and (for transmissive elements) transmittance. Emissivity is **derived**: ε = 1 − R for mirrors, ε = 1 − T − R for transmissive elements (with R defaulting to a small number when unspecified). Emissivity is never specified independently.
+2. **Kirchhoff is enforced for elements.** A user supplies reflectance and (for transmissive elements) transmittance. Emissivity is **derived**: ε = 1 − R for mirrors, ε = 1 − T − R for transmissive elements (with R defaulting to a small number when unspecified). Emissivity is never specified independently for a physical surface. The one sanctioned exception is the LUMPED pseudo-element (`optics.scalar_emissivity`, §5.1): a lump stands in for an entire train whose energy balance is not derivable from net transmission, so the user may declare it there — still bounded by ε + τ ≤ 1.
 3. **Signal etendue and nearfield solid angle are different things.** The signal path uses the single invariant AΩ. Nearfield emission uses a *per-element* Ω that depends on each element's size and distance from the FPA. They are computed separately, named separately, and never conflated.
 4. **Stray light adds noise, not signal.** Stray light contributes electrons (and therefore shot noise) to every pixel uniformly, but is not part of the signal that NIIRS or detection metrics measure. It is reported in the noise budget.
 5. **Pupil → PSF lives elsewhere.** The optics module produces the pupil function (or hands the diffraction module enough to build one). The PSF, MTF, and EE all live in `RADIANT_Spatial_Complete.md`. Optics owns the pupil; spatial owns the focal plane.
@@ -170,22 +170,24 @@ The scalar is broadcast to a flat spectrum on the global wavelength grid. The el
 OpticalElement(
     name="lumped",
     kind=ElementKind.LUMPED,
-    temperature_K=optics.lumped_temperature_K,    # default = optics.optics_temperature_K
+    temperature_K=optics.optics_temperature_K,
     transmittance=flat_at(transmission_scalar),
     reflectance=flat_at(0.0),                     # not used
-    emissivity=flat_at(1 - transmission_scalar),  # Kirchhoff: lumped element absorbs the rest
+    declared_emissivity=flat_at(optics.scalar_emissivity),  # default 0.0 — see below
     distance_to_fpa_m=optics.optics_distance_to_fpa_m,
     diameter_m=aperture_diameter_m,
 )
 ```
 
-The synthesized emissivity is what makes nearfield emission still computable from the simplest input mode. A user who provides only a scalar transmission gets a nearfield estimate; the estimate is crude but present.
+**Lumped-train emissivity (Gap 37).** By default the lump follows the simple-refractive rule `ε = 0` — the remaining `1 − τ` cannot be attributed to absorption vs. reflection from net transmission alone, so scalar mode produces **no nearfield emission** unless told otherwise. For warm reflective trains (where mirrors follow `ε = 1 − R` and do emit), set `optics.scalar_emissivity` to the train's effective emissivity — `ε ≈ 1 − τ` is the appropriate declaration for an all-mirror train. Construction enforces `ε + τ ≤ 1` (energy conservation) and raises `KirchhoffViolationError` otherwise.
+
+This is the **one sanctioned exception** to the never-independent-emissivity rule (Rule 5): a LUMPED pseudo-element is not a physical surface — it stands in for an entire train whose energy balance the user, not Kirchhoff's law, must supply. `declared_emissivity` on any non-LUMPED element raises `KirchhoffViolationError`.
 
 ### 5.2 Mode 2: spectral transmission file
 
 Inputs: `optics.transmission_file` (CSV or .npz, ascending λ in µm).
 
-The file is loaded, validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element with `emissivity = 1 − transmission(λ)`.
+The file is loaded, validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element, with the same `ε = 0` default as Mode 1. `optics.scalar_emissivity` applies to Mode 1 only; for spectral emissivity control use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
 
 ### 5.3 Mode 3: telescope transmission + filter stack
 
@@ -263,7 +265,7 @@ class OpticalElement:
 **Kirchhoff enforcement** at construction:
 - For mirrors: `emissivity = 1 − reflectance`. If the user accidentally sets `transmittance` on a mirror, raise `KirchhoffViolationError`.
 - For transmissive elements: `emissivity = 1 − transmittance − reflectance`. The default `reflectance` is the per-surface Fresnel scalar (default 0.005 per coated surface) times `n_surfaces`. If the user sets all three independently, the total must satisfy ε + T + R = 1 within tolerance.
-- Emissivity is never a user-facing parameter on `OpticalElement`. The schema rejects any `emissivity` field.
+- Emissivity is never a user-facing parameter on `OpticalElement` for physical surfaces. The schema rejects any `emissivity` field. Exception: `declared_emissivity` is accepted on `kind=LUMPED` pseudo-elements only (§5.1, Gap 37) and raises `KirchhoffViolationError` on any other kind.
 
 ### 6.2 Filter specifications
 
@@ -424,6 +426,7 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 |-----------|------|---------|------|
 | `optics.transmission_input_mode` | enum | inferred | |
 | `optics.transmission_scalar` | dimensionless | None | mode 1 |
+| `optics.scalar_emissivity` | dimensionless (0–1) | 0.0 | mode 1 — declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1 |
 | `optics.transmission_file` | path | None | mode 2 |
 | `optics.telescope_transmission` | scalar or path | None | mode 3 |
 | `optics.filters` | list[FilterSpec] | `[]` | mode 3 |

@@ -51,10 +51,14 @@ def make_lumped_element(
     diameter_m: float,
     distance_to_fpa_m: float,
     name: str = "lumped",
+    emissivity: float | SpectralData | None = None,
 ) -> OpticalElement:
     """Create a LUMPED refractive element with the given transmission.
 
-    Emissivity is zero (simple refractive — absorption unknown).
+    Emissivity defaults to zero (simple refractive — absorption unknown).
+    A user-declared train emissivity may be supplied for warm-optics
+    nearfield modeling (Gap 37) — permitted only because a lump is not a
+    physical surface (Rule 5 still binds real elements).
     This is the canonical way to synthesize a virtual element for Modes 1-4.
     """
     zero_reflectance = SpectralData(
@@ -64,6 +68,11 @@ def make_lumped_element(
         unit="",
         source=f"Lumped element zero reflectance ({name})",
     )
+    eps_sd = (
+        _scalar_to_spectral(emissivity, transmission.wavelength_um, f"{name}.emissivity")
+        if emissivity is not None
+        else None
+    )
     return OpticalElement(
         name=name,
         kind=ElementKind.LUMPED,
@@ -72,6 +81,7 @@ def make_lumped_element(
         reflectance=zero_reflectance,
         diameter_m=diameter_m,
         distance_to_fpa_m=distance_to_fpa_m,
+        declared_emissivity=eps_sd,
     )
 
 

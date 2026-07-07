@@ -10,7 +10,7 @@
 2. Pupil grid size
 3. Marechal-approximation vs full-OTF dispatch
 
-The 2026-04-25 audit ([Doc_Drift_Report.md#D2](../audit_2026/Doc_Drift_Report.md)) found that `FidelityPreset` does not exist in `src/radiant/`. The behavior the docs ascribe to it is implemented through other mechanisms:
+The 2026-04-25 audit ([Doc_Drift_Report.md#D2](../reports/architecture_audit_2026-04/Doc_Drift_Report.md)) found that `FidelityPreset` does not exist in `src/radiant/`. The behavior the docs ascribe to it is implemented through other mechanisms:
 
 - The dual-path consistency check ([performance/consistency_check.py](../../src/radiant/performance/consistency_check.py)) runs **unconditionally** with hardcoded `tolerance = 5e-2`, independent of any preset. It is actively load-bearing — it caught CU-003 (the rect-kernel discretization mismatch on `swir_aerial_gas.yaml` at low Q).
 - Marechal-vs-full-OTF selection is dispatched through a separate mode mechanism in `optics/`, not gated by a fidelity preset.
@@ -46,7 +46,7 @@ If high-fidelity pupil grids or full-OTF dispatch later become expensive enough 
 
 ## Downstream Tasks Unblocked
 
-This decision unblocks the following audit reconciliation tasks (see [docs/audit_2026/Reconciliation_Tasks.md](../audit_2026/Reconciliation_Tasks.md)):
+This decision unblocks the following audit reconciliation tasks (see [docs/reports/architecture_audit_2026-04/Reconciliation_Tasks.md](../reports/architecture_audit_2026-04/Reconciliation_Tasks.md)):
 
 - **R2.A1** — Rewrite `RADIANT_Spatial_Complete.md`. The new `RADIANT_Spatial_Architecture.md` MUST remove all `FidelityPreset` references. The unconditional consistency check (tolerance `5e-2`, runs on every chain execution) is the documented behavior.
 - **R2.A1** — `RADIANT_Optics.md` `FidelityPreset` references must be removed in the same pass.
@@ -55,8 +55,8 @@ No code task is filed; nothing exists in `src/` to remove.
 
 ## References
 
-- [docs/audit_2026/Doc_Drift_Report.md#D2](../audit_2026/Doc_Drift_Report.md)
-- [docs/audit_2026/Reconciliation_Tasks.md](../audit_2026/Reconciliation_Tasks.md) §R1.1
-- [docs/audit_2026/Recommendation.md](../audit_2026/Recommendation.md)
+- [docs/reports/architecture_audit_2026-04/Doc_Drift_Report.md#D2](../reports/architecture_audit_2026-04/Doc_Drift_Report.md)
+- [docs/reports/architecture_audit_2026-04/Reconciliation_Tasks.md](../reports/architecture_audit_2026-04/Reconciliation_Tasks.md) §R1.1
+- [docs/reports/architecture_audit_2026-04/Recommendation.md](../reports/architecture_audit_2026-04/Recommendation.md)
 - [src/radiant/performance/consistency_check.py](../../src/radiant/performance/consistency_check.py) — the unconditional check this ADR formalizes as the design
 - CLAUDE.md Rule 4 — Dual-Path Spatial Architecture (the rule the unconditional check enforces)

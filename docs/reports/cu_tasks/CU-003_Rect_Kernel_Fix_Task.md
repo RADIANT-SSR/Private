@@ -43,8 +43,8 @@ CLAUDE.md Rule 4 requires PSF-path ↔ MTF-product-path agreement to ~1e-6. The 
 ## Required reading (do not skip)
 
 1. [CLAUDE.md](../CLAUDE.md) — Rule 4 in full (dual-path spatial architecture). The whole task lives inside this rule's invariant.
-2. [docs/RADIANT_Optics.md](RADIANT_Optics.md) — pupil → PSF → optical MTF derivation; pixel-aperture kernel description.
-3. [docs/RADIANT_Spatial_Complete.md](RADIANT_Spatial_Complete.md) §6 step 1 — pixel-aperture kernel as PSF convolution.
+2. [docs/architecture/RADIANT_Optics.md](RADIANT_Optics.md) — pupil → PSF → optical MTF derivation; pixel-aperture kernel description.
+3. [docs/architecture/RADIANT_Spatial_Complete.md](RADIANT_Spatial_Complete.md) §6 step 1 — pixel-aperture kernel as PSF convolution.
 4. [src/radiant/optics/pixel_kernel.py](../src/radiant/optics/pixel_kernel.py) — the file you will edit.
 5. [src/radiant/optics/stage.py](../src/radiant/optics/stage.py) — `_compute_optical_mtf_terms` (the analytic `sinc` consumer side; **do not change** unless approach 2 is chosen).
 6. [src/radiant/performance/consistency_check.py](../src/radiant/performance/consistency_check.py) — the check that fires; tolerance `5e-2` lives here. Tolerance is **not** the lever to pull; the kernel is.
@@ -115,7 +115,7 @@ Replace `_compute_optical_mtf_terms`' analytic `sinc(π·pitch·f)` for the pixe
    - **Expected:** the `swir_aerial_gas` row's `mtf_at_nyquist` shifts by some small amount (the PSF path was over-attenuating; corrected MTF will be slightly higher).
    - **Expected:** other 13 rows' `mtf_at_nyquist` unchanged to ≤1e-6 (any larger drift is a Rule-4 violation in another scenario and a STOP trigger).
    - **Expected:** all `L_aperture_W_m2_sr_um`, `nedt_K`, `snr` values unchanged to floating-point precision (the pixel-aperture kernel doesn't enter radiometry — only spatial-frequency response).
-7. **Update the golden snapshot** following [docs/RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) §5.3. Document the before/after `mtf_at_nyquist` for `swir_aerial_gas` in the commit body. **Do not touch any other row.**
+7. **Update the golden snapshot** following [docs/architecture/RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) §5.3. Document the before/after `mtf_at_nyquist` for `swir_aerial_gas` in the commit body. **Do not touch any other row.**
 8. **Full regression gate:**
    ```
    pytest src/ -q                       # 2360 + 3 new = 2363 expected

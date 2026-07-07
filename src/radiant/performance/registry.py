@@ -1,7 +1,7 @@
 """Metric registry — declares dependencies and determines computability.
 
-Implements §6 of ``docs/RADIANT_Metrics.md`` and §5 of
-``docs/RADIANT_Metric_Dependencies.md``.
+Implements §6 of ``docs/architecture/RADIANT_Metrics.md`` and §5 of
+``docs/architecture/RADIANT_Metric_Dependencies.md``.
 
 Each metric declares:
 - ``requires``: set of ChainState keys that must be present

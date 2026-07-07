@@ -1,7 +1,7 @@
 """Simple parametric atmosphere — closed-form Beer-Lambert.
 
 Implements the ``SimpleAtmosphere`` model from
-``docs/RADIANT_Atmosphere.md`` §3.1::
+``docs/architecture/RADIANT_Atmosphere.md`` §3.1::
 
     τ_atm(λ) = exp[ −OD_total(λ) × air_mass ]
 

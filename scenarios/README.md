@@ -4,7 +4,7 @@ Persona-driven test cases for exercising the RADIANT tool. Each folder
 corresponds to a persona archetype; each subfolder is a self-contained
 scenario with its own inputs, scripts, and outputs.
 
-See `docs/expanded_scenarios.md` for full scenario descriptions and
+See `docs/architecture/expanded_scenarios.md` for full scenario descriptions and
 recommended execution order.
 
 ## Folder Structure
@@ -34,4 +34,4 @@ scenarios/
 ## Execution Order
 
 Start with Tier 1 (no code changes needed), then progress through Tiers 2-4.
-See `docs/expanded_scenarios.md` for the full priority table.
+See `docs/architecture/expanded_scenarios.md` for the full priority table.

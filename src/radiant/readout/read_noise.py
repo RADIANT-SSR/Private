@@ -1,7 +1,7 @@
 """Read noise — Gaussian 1σ stub.
 
 Implements the minimum form of noise term #9 ("read_noise") from
-``docs/RADIANT_Detector_Complete.md`` §4: a single per-pixel read
+``docs/architecture/RADIANT_Detector_Complete.md`` §4: a single per-pixel read
 noise in electrons RMS. The full readout noise model (kTC, flicker,
 CDS interaction, post-CDS scaling) is deferred to later tasks.
 """

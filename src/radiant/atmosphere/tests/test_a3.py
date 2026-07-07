@@ -2,7 +2,7 @@
 
 These three anchors validate the :class:`SimpleAtmosphere.evaluate` partial-
 column extension (Option C Stage 5 — see
-``docs/Option_C_Implementation_Plan.md`` §Stage 5):
+``docs/archive/Option_C_Implementation_Plan.md`` §Stage 5):
 
 * **Anchor 1** — h_tgt → 0 limit: at ``h_tgt = 1 m`` the A3 partial-column
   result must match the A2 surface-target result (``h_tgt = 0``) within

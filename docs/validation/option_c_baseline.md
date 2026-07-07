@@ -3,7 +3,7 @@
 **Captured-at SHA**: `4953c90489db4734d33bd2ae16c4735ea78a0aae`
 **Tag**: `pre-option-c-baseline` (local only — not pushed; `git push origin pre-option-c-baseline` when ready)
 **Captured**: 2026-04-19
-**Plan reference**: [docs/Option_C_Implementation_Plan.md](Option_C_Implementation_Plan.md) Stage 0
+**Plan reference**: [docs/archive/Option_C_Implementation_Plan.md](Option_C_Implementation_Plan.md) Stage 0
 
 ---
 
@@ -214,7 +214,7 @@ All pre-existing tests still pass; no regressions introduced.
 - Created [tests/integration/test_option_c_anchors.py](../tests/integration/test_option_c_anchors.py) — 8 anchor tests.
 - Created [scripts/capture_option_c_baseline.py](../scripts/capture_option_c_baseline.py) — snapshot capture driver.
 - Created [tests/integration/snapshots/option_c_baseline.yaml](../tests/integration/snapshots/option_c_baseline.yaml) — the Stage 0 snapshot.
-- Created this document — [docs/option_c_baseline.md](option_c_baseline.md).
+- Created this document — [docs/validation/option_c_baseline.md](option_c_baseline.md).
 
 No changes to `src/radiant/source/`, `src/radiant/atmosphere/`, or `src/radiant/core/` (reconnaissance-only constraint).
 

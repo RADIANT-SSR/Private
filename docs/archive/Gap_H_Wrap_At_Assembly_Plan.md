@@ -1,3 +1,5 @@
+> **HISTORICAL (archived 2026-07-06).** Plan completed 2026-04-24 (auto-wrap of ScalarLambertianReflectance landed).
+
 # Gap H — Automatic `ScalarLambertianReflectance` Wrap at Assembly
 
 **Status: ✅ COMPLETE (2026-04-24).**  Delivered in three commits on `main`:

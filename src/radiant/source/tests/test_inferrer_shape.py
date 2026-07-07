@@ -20,7 +20,7 @@ against closed-form projected-area identities from the §3 catalog:
    to the view direction; ``A_proj = 0`` when edge-on.
 
 See the shape catalog in
-[docs/RADIANT_Target_Definition_Matrix.md §3](../../../../docs/RADIANT_Target_Definition_Matrix.md)
+``docs/architecture/RADIANT_Target_Definition_Matrix.md`` §3
 for the identities the scalars mirror.
 """
 

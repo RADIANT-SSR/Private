@@ -1,3 +1,5 @@
+> **HISTORICAL (archived 2026-07-06).** Plan completed — Gap G closed 2026-04-23. All three CSV target paths wired.
+
 # Gap G — Shared CSV Loader Implementation Plan
 
 **Scope**: close the three deferred YAML-surface CSV paths so every spec form in the Target Definition Matrix is reachable from a scenario file.

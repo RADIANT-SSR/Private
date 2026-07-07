@@ -183,7 +183,7 @@ class TestMissingFor:
 class TestRegistryCompleteness:
     @pytest.mark.level1
     def test_all_metrics_registered(self) -> None:
-        """All metrics from docs/RADIANT_Metrics.md §4 are registered."""
+        """All metrics from docs/architecture/RADIANT_Metrics.md §4 are registered."""
         expected = {
             "snr",
             "contrast_snr",

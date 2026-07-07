@@ -1,7 +1,7 @@
 """ReadoutStage — canonical 12-step readout chain.
 
 Implements the full readout pipeline from
-``docs/RADIANT_Detector_Complete.md`` §6:
+``docs/architecture/RADIANT_Detector_Complete.md`` §6:
 
 1. Read per-pixel electron counts from DetectorStage
 2. Apply TDI scaling (signal × N, shot × √N, read × 1, FPN × N)

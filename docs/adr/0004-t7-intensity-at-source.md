@@ -5,10 +5,10 @@
 
 ## Context
 
-The Target Definition Matrix ([`RADIANT_Target_Definition_Matrix.md`](../RADIANT_Target_Definition_Matrix.md))
+The Target Definition Matrix ([`RADIANT_Target_Definition_Matrix.md`](../architecture/RADIANT_Target_Definition_Matrix.md))
 defines **S10** as a user-supplied spectral intensity `I(λ)` [W/sr/µm] for
 unresolved / point-source targets.  Phase 5 of the
-[implementation plan](../Target_Definition_Implementation_Plan.md) is
+[implementation plan](../archive/Target_Definition_Implementation_Plan.md) is
 scoped to wire this YAML surface through the inferrer.
 
 The pre-Option-C code path uses
@@ -235,9 +235,9 @@ construction) and unblocks Phase 7's matrix coverage for S10.
   surface contract (faithfulness principle).
 - [ADR-0003](0003-t6-tabulated-at-source.md) — T6TabulatedAtSource
   precedent for user-supplied at-source quantities.
-- [`RADIANT_Target_Definition_Matrix.md`](../RADIANT_Target_Definition_Matrix.md)
+- [`RADIANT_Target_Definition_Matrix.md`](../architecture/RADIANT_Target_Definition_Matrix.md)
   §1 row S10; §7 point-source angular-size constraint.
-- [`Target_Definition_Implementation_Plan.md`](../Target_Definition_Implementation_Plan.md)
+- [`Target_Definition_Implementation_Plan.md`](../archive/Target_Definition_Implementation_Plan.md)
   Phase 5 (blocked on this ADR).
 - [`src/radiant/source/point_source_direct.py`](../../src/radiant/source/point_source_direct.py) —
   legacy `DirectIntensitySource` migrating to internal helper.

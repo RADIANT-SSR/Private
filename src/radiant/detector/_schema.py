@@ -1,7 +1,7 @@
 """Parameter definitions for the detector stage.
 
 Covers pixel geometry, QE, dark current, and all 16 noise source
-parameters from ``docs/RADIANT_Detector_Complete.md`` §4 and §11.
+parameters from ``docs/architecture/RADIANT_Detector_Complete.md`` §4 and §11.
 """
 
 from __future__ import annotations

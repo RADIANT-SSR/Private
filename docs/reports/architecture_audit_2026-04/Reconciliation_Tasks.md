@@ -113,9 +113,9 @@ These are mechanical doc fixes. Each can be done independently after the ADRs la
 **Blocked by:** ADR-A
 
 **Read first:**
-- [docs/RADIANT_Spatial_Complete.md](../RADIANT_Spatial_Complete.md)
-- [docs/RADIANT_Optics.md](../RADIANT_Optics.md)
-- [docs/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §4
+- [docs/architecture/RADIANT_Spatial_Complete.md](../RADIANT_Spatial_Complete.md)
+- [docs/architecture/RADIANT_Optics.md](../RADIANT_Optics.md)
+- [docs/architecture/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §4
 - [src/radiant/optics/](../../src/radiant/optics/) (skim — esp. `psf/effective.py`, `pupil_mtf.py`)
 - [src/radiant/performance/consistency_check.py](../../src/radiant/performance/consistency_check.py)
 
@@ -148,7 +148,7 @@ These are mechanical doc fixes. Each can be done independently after the ADRs la
 >
 > Regenerate the file tree from `src/radiant/` with one-line annotations per file. Mark `plugins/` as `[v2 deferred]` per ADR result on R2.A6. Mark stub directories explicitly.
 >
-> **Deliverable:** updated `docs/RADIANT_File_Tree.md` matching `find src/radiant/ -name '*.py'` output.
+> **Deliverable:** updated `docs/architecture/RADIANT_File_Tree.md` matching `find src/radiant/ -name '*.py'` output.
 >
 > **Completion criteria:** every file listed in the doc exists; every `.py` file in `src/radiant/` is described.
 
@@ -180,7 +180,7 @@ These are mechanical doc fixes. Each can be done independently after the ADRs la
 >    - If method renamed (`signal_at_frame` → `signal_at`), update doc to use `signal_at`
 >    - If doc updated to match code, change to `signal_at_frame`, `noise_at_frame`, and `result.metrics["snr"]` (dict access) instead of `result.snr()`
 >
-> **Deliverable:** updated `docs/RADIANT_Signal_Chain_Architecture.md`.
+> **Deliverable:** updated `docs/architecture/RADIANT_Signal_Chain_Architecture.md`.
 
 ## R2.A4 — Sync CLAUDE.md "18 rules" → "22 rules"
 
@@ -246,7 +246,7 @@ After this section, append each entry to [docs/Cleanup_Backlog.md](../Cleanup_Ba
 
 **Read first:**
 - [CLAUDE.md §15](../../CLAUDE.md) (actionable errors)
-- [docs/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §C12, §7.4
+- [docs/architecture/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §C12, §7.4
 - [src/radiant/core/parameters.py](../../src/radiant/core/parameters.py) — see `ParameterBoundsError`
 - [src/radiant/optics/element.py](../../src/radiant/optics/element.py) — see `KirchhoffViolationError`
 - [src/radiant/io/config.py](../../src/radiant/io/config.py) — see `ConfigError`
@@ -338,7 +338,7 @@ After this section, append each entry to [docs/Cleanup_Backlog.md](../Cleanup_Ba
 **Audit reference:** [Doc_Drift_Report.md#D9](Doc_Drift_Report.md), [phase3_pipeline_traces.md §Provenance status](findings/phase3_pipeline_traces.md), [Doc_Reconciliation_Plan.md#CU-NEW-04](Doc_Reconciliation_Plan.md)
 
 **Read first:**
-- [docs/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §C13
+- [docs/architecture/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §C13
 - [src/radiant/core/parameters.py:566](../../src/radiant/core/parameters.py#L566) — current partial provenance
 - [src/radiant/io/results.py](../../src/radiant/io/results.py) — `ChainResult`
 - [src/radiant/api/session.py](../../src/radiant/api/session.py) — where ChainResult is constructed
@@ -385,8 +385,8 @@ After this section, append each entry to [docs/Cleanup_Backlog.md](../Cleanup_Ba
 **Audit reference:** [Doc_Drift_Report.md#D10](Doc_Drift_Report.md), [phase1_mechanical.md §Test marker distribution](findings/phase1_mechanical.md), [Doc_Reconciliation_Plan.md#CU-NEW-05](Doc_Reconciliation_Plan.md)
 
 **Read first:**
-- [docs/RADIANT_Testing_Validation.md](../RADIANT_Testing_Validation.md) §3 (Level hierarchy)
-- [docs/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §C15 (CI gating)
+- [docs/architecture/RADIANT_Testing_Validation.md](../RADIANT_Testing_Validation.md) §3 (Level hierarchy)
+- [docs/architecture/RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) §C15 (CI gating)
 - [pyproject.toml](../../pyproject.toml) — current pytest marker registration
 
 **Task prompt:**

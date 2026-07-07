@@ -9,7 +9,7 @@
 
 ## Read first
 
-- `docs/RADIANT_Testing_Validation.md` §1 (Test Hierarchy), §2 (Level 0), §3 (Level 1), §4 (Level 2)
+- `docs/architecture/RADIANT_Testing_Validation.md` §1 (Test Hierarchy), §2 (Level 0), §3 (Level 1), §4 (Level 2)
 - `docs/Cleanup_Backlog.md` → CU-020 entry (the parent's per-directory ladder)
 - `pyproject.toml` `[tool.pytest.ini_options]` — markers already declared; `--strict-markers` already enforced (commit `b021d38`)
 - Existing marked examples for the pattern:

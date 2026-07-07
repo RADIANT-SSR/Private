@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory contains Architecture Decision Records (ADRs) for the SSR Tool — a combined radiometric, spatial, and spectral modeling tool for space-based optical sensors.
+This directory contains Architecture Decision Records (ADRs) for **RADIANT** — a first-principles EO sensor performance modeling framework.
 
 ## Index
 
@@ -8,6 +8,17 @@ This directory contains Architecture Decision Records (ADRs) for the SSR Tool �
 |-----|-------|--------|
 | [0000](0000-template.md) | Template | — |
 | [0001](0001-scope-and-constraints.md) | Scope and Top-Level Constraints | Accepted |
+| [0002](0002-option-c-source-atmosphere-split.md) | Option C — Source/Atmosphere Split | Accepted |
+| [0003](0003-t6-tabulated-at-source.md) | T6 Tabulated Radiance at Source | Proposed |
+| [0004](0004-t7-intensity-at-source.md) | T7 Intensity at Source | Accepted |
+| [ADR-A](ADR-A-fidelity-preset.md) | Drop FidelityPreset | Accepted |
+| [ADR-B](ADR-B-metric-soft-fail.md) | Metric-Layer Soft Failures | Accepted |
+| [ADR-C](ADR-C-public-api-surface.md) | Public API Surface | Accepted |
+| [ADR-D](ADR-D-parameter-naming.md) | Parameter Naming | Accepted |
+
+## Numbering scheme
+
+Two ID schemes coexist for historical reasons: the numeric `000N-` series and the lettered `ADR-A…D` series (created by the 2026-04 architecture audit). **Both are frozen** — existing ADRs keep their IDs because they are cross-referenced throughout the specs. **New ADRs continue the numeric series from `0005-`** using `NNNN-<kebab-slug>.md` (see `docs/OPERATING_MODEL.md` §5).
 
 ## Process
 

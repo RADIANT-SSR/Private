@@ -63,12 +63,12 @@ The CU-008 entry's claim that "the UserWarning is still emitted on every terrest
 
 1. [CLAUDE.md](../CLAUDE.md) — Rules 5 (Kirchhoff: ρ_g = 1 − ε_g), 13 (constants), 16 (validate before compute), 17 (no silent failures), 19 (one computation, one module), 20 (doc-and-code lock-step).
 2. [docs/RADIANT_Source.md](RADIANT_Source.md) — `BackgroundDescriptor` taxonomy (matrix §3.7); `GroundBackground` purpose and contract.
-3. [docs/RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) — `ParameterDef` rules; how to register a new `SpectralData`-typed parameter; `SpectralDataStore` integration patterns.
+3. [docs/architecture/RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) — `ParameterDef` rules; how to register a new `SpectralData`-typed parameter; `SpectralDataStore` integration patterns.
 4. [src/radiant/core/spectral.py:432–550](../src/radiant/core/spectral.py#L432) — `SpectralDataStore.add()` + interpolation behaviour.
 5. [src/radiant/core/descriptors.py:858–895](../src/radiant/core/descriptors.py#L858) — `GroundBackground` class (the descriptor you're populating).
 6. [src/radiant/source/_inferrer.py:1563–1726](../src/radiant/source/_inferrer.py#L1563) — `_build_background_descriptor` (the file you will edit).
 7. [src/radiant/atmosphere/assembly.py:1112–1148](../src/radiant/atmosphere/assembly.py#L1112) — `_assemble_ground_background` (the consumer; `rho_g = 1 − ε_g` and the reflected terms).
-8. [docs/CU-007_MWIR_T3Mixed_Routing_Task.md](CU-007_MWIR_T3Mixed_Routing_Task.md) — pattern this task follows (multi-approach decision, stop triggers, Category-C validation).
+8. [docs/reports/cu_tasks/CU-007_MWIR_T3Mixed_Routing_Task.md](CU-007_MWIR_T3Mixed_Routing_Task.md) — pattern this task follows (multi-approach decision, stop triggers, Category-C validation).
 
 ---
 
@@ -149,7 +149,7 @@ Allow `source.background.emissivity` to accept either a `float` or a `SpectralDa
 7. **Update existing test fixture.** [src/radiant/source/tests/test_inferrer.py:472](../src/radiant/source/tests/test_inferrer.py#L472) currently asserts the placeholder warning fires; flip it to assert the warning *does not* fire (Rule 17 — the placeholder is gone). Replace the warning-fires assertion with a structural check (the returned `GroundBackground.epsilon_g` is non-`None` and has the expected scalar value).
 8. **Doc updates (Rule 20).**
    - `docs/RADIANT_Source.md` — describe the new `material` enum + `emissivity_path` override; remove any "spectral ε_g(λ) is deferred" language.
-   - `docs/RADIANT_Parameter_System.md` — add the two new parameters to the parameter table.
+   - `docs/architecture/RADIANT_Parameter_System.md` — add the two new parameters to the parameter table.
 9. **Full regression gate.**
    ```
    pytest src/ -q                       # +6 new tests; existing test_inferrer.py warning assertion flipped
@@ -254,7 +254,7 @@ Stop and ask the user before continuing if any of these fire:
 - [ ] New `src/radiant/data/spectral_library/ground_emissivity.yaml` with three entries: `grey`, `vegetation`, `snow`. Each cites a source.
 - [ ] `src/radiant/io/spectral_library.py` (or equivalent) provides the loader functions; covered by its own Level 0 unit tests.
 - [ ] Existing `test_inferrer.py:472` warning-fires assertion flipped to warning-does-not-fire + structural check on `GroundBackground.epsilon_g`.
-- [ ] `docs/RADIANT_Source.md` and `docs/RADIANT_Parameter_System.md` updated; the "Stage-2 GroundBackground placeholder" language removed (Rule 20).
+- [ ] `docs/RADIANT_Source.md` and `docs/architecture/RADIANT_Parameter_System.md` updated; the "Stage-2 GroundBackground placeholder" language removed (Rule 20).
 - [ ] `pytest src/`, `pytest tests/integration/`, `mypy --strict`, `ruff check`, `ruff format --check`, `lint-imports` all green.
 - [ ] All 14 baseline scenarios bit-invariant (zero drift in `option_c_baseline.yaml` and the per-scenario source-stage snapshots); anchor cells 28/58 bit-invariant.
 - [ ] Structured Category C report attached to the commit body or PR description: Numerical Truth Anchors (≥3), Dimensional Audit, Failure Modes, Assumptions, Fragility, Traceability, Cross-Model Consistency, Integration & Regression — with the new sub-pixel scenario's `L_aperture` / `nedt_K` / `snr` deltas explicitly attributed to `material="vegetation"` vs `material="grey"`.

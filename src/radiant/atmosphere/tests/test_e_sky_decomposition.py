@@ -1,7 +1,7 @@
 """Stage 6 Category-C truth anchors — E_sky scattered vs thermal decomposition.
 
 Stage 6 of the Option C Implementation Plan
-([docs/Option_C_Implementation_Plan.md](../../../../docs/Option_C_Implementation_Plan.md))
+([docs/archive/Option_C_Implementation_Plan.md](../../../../docs/archive/Option_C_Implementation_Plan.md))
 replaces the single-graybody E_sky placeholder with two separate
 components:
 

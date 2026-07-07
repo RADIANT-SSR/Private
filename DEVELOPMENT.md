@@ -166,11 +166,11 @@ OPTICS_PARAMS: list[ParameterDef] = [
 
 3. **Add the unit conversion** if the input unit differs from the canonical unit and is not already in `core/units.py`.
 
-4. **Update the YAML example** in `docs/RADIANT_Config_Format.md` to show the new parameter.
+4. **Update the YAML example** in `docs/architecture/RADIANT_Config_Format.md` to show the new parameter.
 
 5. **Write a Level 0 test** if the new parameter affects any equation.
 
-6. **Add the parameter** to the naming table in `docs/RADIANT_Parameter_System.md`.
+6. **Add the parameter** to the naming table in `docs/architecture/RADIANT_Parameter_System.md`.
 
 ---
 
@@ -228,7 +228,7 @@ class MyStage:
 
 6. **Add the module** to the import rules in `pyproject.toml` under `[tool.importlinter]`.
 
-7. **Add the stage** to the document map in `docs/RADIANT_Master_Architecture.md`.
+7. **Add the stage** to the document map in `docs/architecture/RADIANT_Master_Architecture.md`.
 
 ---
 

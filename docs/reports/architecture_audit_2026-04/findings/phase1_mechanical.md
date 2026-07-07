@@ -49,7 +49,7 @@ This is the single most important finding of the audit. Every architectural rule
 **Concerns:**
 - `spectral_integration` test ratio = 0.28 — the *single* most important stage (Rule 8: spectral integration happens exactly once; Rule 9: EE_box applied here only) has only one test file. This is undertested for what it owns.
 - `cli` test ratio = 0.47, and 12 prod files vs 1 test file. CLI shape testing is light.
-- `plugins` is essentially empty (1 LOC). The architecture promises plugin ABCs in [docs/RADIANT_Plugins.md](../../RADIANT_Plugins.md); the implementation is a stub.
+- `plugins` is essentially empty (1 LOC). The architecture promises plugin ABCs in [docs/architecture/RADIANT_Plugins.md](../../RADIANT_Plugins.md); the implementation is a stub.
 
 ## Largest files (god-module candidates)
 

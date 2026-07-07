@@ -5,13 +5,13 @@
 
 ## Context
 
-The Target Definition Matrix ([`RADIANT_Target_Definition_Matrix.md`](../RADIANT_Target_Definition_Matrix.md))
+The Target Definition Matrix ([`RADIANT_Target_Definition_Matrix.md`](../architecture/RADIANT_Target_Definition_Matrix.md))
 calls out three spec forms that need to hand the SourceStage a pre-computed
 spectral radiance L_source(λ) at the target (h = h_tgt), letting the normal
 atmospheric up-leg (τ_up, L_path_up) propagate it to the aperture:
 
 - **S8** — user-tabulated at-source radiance (Phase 4 of the
-  [implementation plan](../Target_Definition_Implementation_Plan.md)).
+  [implementation plan](../archive/Target_Definition_Implementation_Plan.md)).
 - **S11** — brightness temperature T_B(λ); when T_B is λ-dependent, the only
   exact representation is L(λ) = B(λ, T_B(λ)) (Phase 2.1).
 - **S12** — band-averaged radiance temperature T_R; the inversion harness
@@ -141,9 +141,9 @@ would mean rewriting Step 2.1's output in place.
 
 - [ADR-0002](0002-option-c-source-atmosphere-split.md) — the descriptor
   surface contract this ADR extends.
-- [`RADIANT_Target_Definition_Matrix.md`](../RADIANT_Target_Definition_Matrix.md)
+- [`RADIANT_Target_Definition_Matrix.md`](../architecture/RADIANT_Target_Definition_Matrix.md)
   §1 rows S8, S11, S12; §6.1 master equation.
-- [`Target_Definition_Implementation_Plan.md`](../Target_Definition_Implementation_Plan.md)
+- [`Target_Definition_Implementation_Plan.md`](../archive/Target_Definition_Implementation_Plan.md)
   Phases 2 and 4.
 - `CLAUDE.md` Rules 5 (Kirchhoff — informs ρ ≡ 0 choice for T6), 11
   (no cross-stage imports), 17 (no silent failure).

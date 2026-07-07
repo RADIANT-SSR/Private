@@ -4,8 +4,8 @@
 
 ## Spec corpus read
 - [CLAUDE.md](../../../CLAUDE.md) — agent rules, 19 numbered rules (CLAUDE.md says "18 rules" in places but enumerates 1–19)
-- [docs/RADIANT_Master_Architecture.md](../../RADIANT_Master_Architecture.md) — 15 architectural constraints C1–C15
-- [docs/RADIANT_Signal_Chain_Architecture.md](../../RADIANT_Signal_Chain_Architecture.md) — Stage protocol, ChainState, RadiometricFrame, NoiseTerm
+- [docs/architecture/RADIANT_Master_Architecture.md](../../RADIANT_Master_Architecture.md) — 15 architectural constraints C1–C15
+- [docs/architecture/RADIANT_Signal_Chain_Architecture.md](../../RADIANT_Signal_Chain_Architecture.md) — Stage protocol, ChainState, RadiometricFrame, NoiseTerm
 - [pyproject.toml](../../../pyproject.toml) — 5 import-linter contracts, mypy strict, ruff config
 
 ## Rule → predicate mapping

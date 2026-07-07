@@ -1,6 +1,6 @@
 """ChainQuantity — a value with its reference frame and unit.
 
-Implements backward propagation per ``docs/RADIANT_Signal_Chain_Architecture.md`` §5.
+Implements backward propagation per ``docs/architecture/RADIANT_Signal_Chain_Architecture.md`` §5.
 
 A ``ChainQuantity`` represents a physical value at a specific reference
 frame in the signal chain. The ``to()`` method propagates the value

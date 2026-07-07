@@ -1,7 +1,7 @@
 """MODTRAN atmosphere interface — card deck builder, tape7 parser, and cache.
 
 Wraps MODTRAN as an external binary tool per
-``docs/RADIANT_Atmosphere.md`` section 5.  RADIANT builds a tape5 input
+``docs/architecture/RADIANT_Atmosphere.md`` section 5.  RADIANT builds a tape5 input
 deck, invokes the MODTRAN executable, parses the tape7 output, converts
 to RADIANT canonical units, and caches the result keyed by an SHA-256
 hash of the rendered deck.

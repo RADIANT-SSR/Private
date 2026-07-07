@@ -1,6 +1,6 @@
 """Saturation and dynamic range metrics — shared types and re-exports.
 
-Implements §4.13–§4.14 of ``docs/RADIANT_Metrics.md``.
+Implements §4.13–§4.14 of ``docs/architecture/RADIANT_Metrics.md``.
 
 Individual computations have been moved to their own modules (Rule 19):
 - ``well_margin.py`` — well saturation margin

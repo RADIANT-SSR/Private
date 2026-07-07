@@ -1,6 +1,6 @@
 """Reflectance descriptor protocol — Q4 stub base.
 
-Per ``docs/RADIANT_Target_Definition_Matrix.md`` §4 Q4, today's scalar
+Per ``docs/architecture/RADIANT_Target_Definition_Matrix.md`` §4 Q4, today's scalar
 ρ(λ) / albedo(λ) user inputs should normalize into a lightweight
 ``ReflectanceDescriptor`` base so BRDF concretions (Lambertian, Phong,
 measured) can slot under it later without breaking

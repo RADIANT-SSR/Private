@@ -8,7 +8,7 @@ Sources:
     dsnu_noise    — Dark-signal non-uniformity passthrough
     clutter_noise — Scene clutter noise: clutter_sigma · S_bg
 
-See ``docs/RADIANT_Detector_Complete.md`` §4.
+See ``docs/architecture/RADIANT_Detector_Complete.md`` §4.
 """
 
 from __future__ import annotations

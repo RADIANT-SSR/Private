@@ -8,13 +8,13 @@
 The 2026-07-06 architecture audit found a direct contradiction between two
 documented naming conventions:
 
-- `docs/RADIANT_Parameter_System.md` (naming rule #2) and
-  `docs/RADIANT_Config_Format.md` (§1.2) mandate **no unit in the parameter
+- `docs/architecture/RADIANT_Parameter_System.md` (naming rule #2) and
+  `docs/architecture/RADIANT_Config_Format.md` (§1.2) mandate **no unit in the parameter
   name** — "`aperture_diameter` not `aperture_diameter_m`" — and a strict
   depth-2 `category.parameter_name` namespace with a `sensor.` prefix in
   examples.
-- The shipped code, `docs/RADIANT_File_Tree.md` (§ parameter naming), and
-  `docs/RADIANT_Conventions.md` §5 all use **unit-suffixed** names:
+- The shipped code, `docs/architecture/RADIANT_File_Tree.md` (§ parameter naming), and
+  `docs/architecture/RADIANT_Conventions.md` §5 all use **unit-suffixed** names:
   `optics.aperture_diameter_m`, `detector.pixel_pitch_x_um`,
   `platform.jitter_rms_urad`, `atmosphere.visibility_km`. Roughly 58 of the
   ~129 `ParameterDef` names in `*/_schema.py` carry a unit suffix, and four

@@ -1,6 +1,6 @@
 """Point-source detection range — shared types and re-exports.
 
-Implements §4.12 of ``docs/RADIANT_Metrics.md``.
+Implements §4.12 of ``docs/architecture/RADIANT_Metrics.md``.
 
 Individual solvers have been moved to their own modules (Rule 19):
 - ``detection_beer_lambert.py`` — Beer-Lambert atmosphere model

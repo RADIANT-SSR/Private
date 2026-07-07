@@ -1,3 +1,5 @@
+> **HISTORICAL (archived 2026-07-06).** Historical LLM prompt-sequence playbook. Was misfiled in docs/adr/ — it is not a decision record. Archived unmodified.
+
 # RADIANT — Optimized Prompt Sequence for Architecture from Scratch
 
 ## How to use this document

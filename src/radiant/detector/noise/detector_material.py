@@ -9,7 +9,7 @@ Sources:
     johnson_noise     — Johnson (thermal) noise from detector R₀A
     flicker_1f_noise  — 1/f flicker noise
 
-See ``docs/RADIANT_Detector_Complete.md`` §4.
+See ``docs/architecture/RADIANT_Detector_Complete.md`` §4.
 """
 
 from __future__ import annotations

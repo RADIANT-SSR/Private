@@ -7,7 +7,7 @@
 
 CLAUDE.md §16 ("Validate Before Compute") states: *"Never return `NaN` or `inf` silently; raise `NumericalError` with context."* §17 ("No Silent Failures") forbids `except Exception: pass`, swallowed warnings, and returning default values when physics is undefined.
 
-The 2026-04-25 audit ([Doc_Drift_Report.md#D4](../audit_2026/Doc_Drift_Report.md)) found:
+The 2026-04-25 audit ([Doc_Drift_Report.md#D4](../reports/architecture_audit_2026-04/Doc_Drift_Report.md)) found:
 
 - No `NumericalError` class exists anywhere in `src/radiant/`. The rule references a class that has never been built.
 - [performance/snr.py](../../src/radiant/performance/snr.py) returns `SNRResult(value=nan, failure_reason=str)` on physics-undefined inputs (zero noise, negative signal, NaN propagation). The `failure_reason` field is structured and inspectable. This is a **deliberate** soft-fail pattern, not a silent NaN return.
@@ -60,16 +60,16 @@ This decision triggers the following doc updates (R20 — doc-and-code lock-step
 1. **CLAUDE.md §17** — add the metric-layer carve-out clause:
    > *Exception (metric layer):* computations under `radiant.performance/` (`snr.py`, `nedt.py`, `niirs.py`) may return result-typed failures with an explicit `failure_reason` field instead of raising. The failure must be named and surfaced in the result; silent NaN propagation remains forbidden. Physics-layer modules (source through readout) keep the universal raise rule.
 2. **CLAUDE.md §16** — qualify the "raise `NumericalError`" sentence: physics-layer functions raise; metric-layer functions may use the soft-fail result pattern. Remove the implication that `NumericalError` is an existing class.
-3. **`docs/RADIANT_Master_Architecture.md` §C12 and §16** — describe `SNRResult.failure_reason` as the canonical metric-layer failure pattern. Remove `NumericalError` references.
-4. **`docs/RADIANT_Testing_Validation.md`** — update test guidance to assert on `result.failure_reason` for metric-layer failure modes rather than `pytest.raises(NumericalError)`.
+3. **`docs/architecture/RADIANT_Master_Architecture.md` §C12 and §16** — describe `SNRResult.failure_reason` as the canonical metric-layer failure pattern. Remove `NumericalError` references.
+4. **`docs/architecture/RADIANT_Testing_Validation.md`** — update test guidance to assert on `result.failure_reason` for metric-layer failure modes rather than `pytest.raises(NumericalError)`.
 5. **R2.A4 (CLAUDE.md sync task)** — pick up the §16/§17 changes alongside the rule-count fix.
 
 No code task is filed — `performance/snr.py` already implements the codified pattern.
 
 ## References
 
-- [docs/audit_2026/Doc_Drift_Report.md#D4](../audit_2026/Doc_Drift_Report.md)
-- [docs/audit_2026/Reconciliation_Tasks.md](../audit_2026/Reconciliation_Tasks.md) §R1.2
-- [docs/audit_2026/findings/phase3_pipeline_traces.md](../audit_2026/findings/phase3_pipeline_traces.md)
+- [docs/reports/architecture_audit_2026-04/Doc_Drift_Report.md#D4](../reports/architecture_audit_2026-04/Doc_Drift_Report.md)
+- [docs/reports/architecture_audit_2026-04/Reconciliation_Tasks.md](../reports/architecture_audit_2026-04/Reconciliation_Tasks.md) §R1.2
+- [docs/reports/architecture_audit_2026-04/findings/phase3_pipeline_traces.md](../reports/architecture_audit_2026-04/findings/phase3_pipeline_traces.md)
 - [src/radiant/performance/snr.py](../../src/radiant/performance/snr.py) — the SNRResult.failure_reason implementation this ADR formalizes
 - CLAUDE.md §16, §17 — the rules this ADR carves a metric-layer exception from

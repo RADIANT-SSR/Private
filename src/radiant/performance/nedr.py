@@ -1,6 +1,6 @@
 """NEDR — Noise-Equivalent Reflectance Difference.
 
-Implements §4.4 of ``docs/RADIANT_Metrics.md``::
+Implements §4.4 of ``docs/architecture/RADIANT_Metrics.md``::
 
     NEΔρ = ρ / SNR  [dimensionless]
 """

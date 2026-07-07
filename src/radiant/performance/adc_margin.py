@@ -1,6 +1,6 @@
 """ADC saturation margin.
 
-Implements §4.13 of ``docs/RADIANT_Metrics.md``::
+Implements §4.13 of ``docs/architecture/RADIANT_Metrics.md``::
 
     margin_adc = 20 · log10(max_dn / S_dn)  [dB]
 """

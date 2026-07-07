@@ -1,7 +1,7 @@
 """Photon and dark shot noise.
 
 Implements noise terms #1–#4 ("photon-shot family") and term #5
-("dark_shot") from ``docs/RADIANT_Detector_Complete.md`` §4 in their
+("dark_shot") from ``docs/architecture/RADIANT_Detector_Complete.md`` §4 in their
 minimum form for the 2B.4 cut: Poisson statistics on a non-negative
 electron count.
 

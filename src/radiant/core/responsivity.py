@@ -1,7 +1,7 @@
 """Spectral and band-integrated responsivity.
 
 Implements the responsivity computation per
-``docs/RADIANT_Signal_Chain_Architecture.md`` §5.
+``docs/architecture/RADIANT_Signal_Chain_Architecture.md`` §5.
 
 The spectral responsivity ``R(λ)`` converts spectral radiance at the
 aperture [W/m²/sr/µm] to electron rate [e-/s/pixel/µm]:

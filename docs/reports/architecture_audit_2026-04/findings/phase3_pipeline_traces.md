@@ -21,7 +21,7 @@ self._runner = ChainRunner([
 ])
 ```
 
-**Verdict:** Matches [docs/RADIANT_Signal_Chain_Architecture.md §1](../../RADIANT_Signal_Chain_Architecture.md) exactly. 8 stages, in order. No bypass paths.
+**Verdict:** Matches [docs/architecture/RADIANT_Signal_Chain_Architecture.md §1](../../RADIANT_Signal_Chain_Architecture.md) exactly. 8 stages, in order. No bypass paths.
 
 ## SNR pipeline trace
 

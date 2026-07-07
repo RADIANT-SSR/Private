@@ -1,7 +1,7 @@
 """Dark-current model.
 
 Implements noise term #5 ("dark_shot") from
-``docs/RADIANT_Detector_Complete.md`` §4 in its minimum form: a
+``docs/architecture/RADIANT_Detector_Complete.md`` §4 in its minimum form: a
 constant dark rate ``J_dark`` [e⁻/s/pixel] with Poisson statistics.
 The optional Arrhenius temperature scaling is exposed as a helper so
 cooled-IR users can propagate a measured ``J(T_ref)`` to a different

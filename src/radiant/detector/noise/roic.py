@@ -8,7 +8,7 @@ Sources:
     ktc_reset_noise      — kTC reset noise: sqrt(kT·C) / q
     quantization_noise   — ADC quantization noise: LSB / sqrt(12)
 
-See ``docs/RADIANT_Detector_Complete.md`` §4.
+See ``docs/architecture/RADIANT_Detector_Complete.md`` §4.
 """
 
 from __future__ import annotations

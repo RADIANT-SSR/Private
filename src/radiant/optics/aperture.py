@@ -1,7 +1,7 @@
 """Circular aperture geometry.
 
 Implements a circular clear aperture with optional central obscuration
-per ``docs/RADIANT_Optics.md`` section 3.  Wavefront error, spiders,
+per ``docs/architecture/RADIANT_Optics.md`` section 3.  Wavefront error, spiders,
 apodization, pupil mask generation, and the full ``OpticsState`` contract
 are deferred to later tasks.
 

@@ -5,7 +5,7 @@
 
 ## Context
 
-The [RADIANT Use-Case Matrix](../RADIANT_Use_Case_Matrix.md) v1 catalogs 90 imaging-scenario cells across three axes (`scene_type` × `target_location` × `wavelength_regime`). The matrix's centerpiece is the radiance assembly equation (matrix §6.1):
+The [RADIANT Use-Case Matrix](../architecture/RADIANT_Use_Case_Matrix.md) v1 catalogs 90 imaging-scenario cells across three axes (`scene_type` × `target_location` × `wavelength_regime`). The matrix's centerpiece is the radiance assembly equation (matrix §6.1):
 
 ```
 L_t,aperture(λ) = [ε·B(T_t) + ρ·τ_sun·E_TOA·cos(θ_s)/π + ρ·E_sky/π] · τ_up + L_path,up
@@ -192,7 +192,7 @@ Matrix §7 cross-field validators land in descriptor `__post_init__` blocks, not
 - SpectralIntegrationStage skips the background photon term when no background frame is published (already Rule 9 behavior).
 - Atmospheric thermal path emission is computed from atmosphere-stage physics — `SimpleAtmosphere` derives `L_path_up` from `T_atm_eff` and the column integral; `ExoAtmosphere` returns zero; `TabulatedAtmosphere` lifts a precomputed table.
 
-**Consequence for Stage 0 anchors**: Cells 28 and 58 (both extended LWIR) re-baseline at Stage 4. The legacy `SpectralIntegrationStage` computed a `background_e` term from `L_background` for EXTENDED scenes (feeding the `background_shot` noise RSS), which numerically dominated the noise budget and drove SNR down (5.52 for Cell 28, 6.47 for Cell 58). Under Decision #13 + #15, `BackgroundDescriptor = None` for extended scenes → `background_e = 0` → `background_shot = 0`, and SNR rises to ~315.5 and ~316.0 respectively. The target-arm radiance transport is unchanged, so `L_aperture(λ)` stays bit-identical across the Stage 4 cut. The three `lwir_*` scenarios in `option_c_baseline.yaml` (all cell_ref `Cell 28`) are reclassified from `invariant` to `expected_to_change_at_stage_4`; their new post-Stage-4 SNR/NEDT values are pinned in `docs/option_c_baseline.md`.
+**Consequence for Stage 0 anchors**: Cells 28 and 58 (both extended LWIR) re-baseline at Stage 4. The legacy `SpectralIntegrationStage` computed a `background_e` term from `L_background` for EXTENDED scenes (feeding the `background_shot` noise RSS), which numerically dominated the noise budget and drove SNR down (5.52 for Cell 28, 6.47 for Cell 58). Under Decision #13 + #15, `BackgroundDescriptor = None` for extended scenes → `background_e = 0` → `background_shot = 0`, and SNR rises to ~315.5 and ~316.0 respectively. The target-arm radiance transport is unchanged, so `L_aperture(λ)` stays bit-identical across the Stage 4 cut. The three `lwir_*` scenarios in `option_c_baseline.yaml` (all cell_ref `Cell 28`) are reclassified from `invariant` to `expected_to_change_at_stage_4`; their new post-Stage-4 SNR/NEDT values are pinned in `docs/validation/option_c_baseline.md`.
 
 **Why this is not a parameter migration**: the user's intent-under-the-hood was almost always atmospheric path radiance, which is already computed by the atmosphere backend without the user touching any knob. For the terrestrial case the SimpleAtmosphere path-integral produces it; for the exo case it is genuinely zero. There is nothing to automatically migrate — the legacy parameter was over-specifying the system. The `UserWarning` explains this to legacy users.
 
@@ -210,7 +210,7 @@ Matrix §7 cross-field validators land in descriptor `__post_init__` blocks, not
 ### Negative
 
 - **8-PR refactor** spanning ~16.5 engineering days before all matrix cells are reachable (per the staged plan in the conversation that produced this ADR). Stage 4 is the earliest point at which the full Option C surface is in.
-- **Stage 3 will move some golden values**: cells that today benefit from the missing atmospheric propagation of the background term (sub-pixel terrestrial scenarios) will produce different — *correct* — numbers. Each changed golden requires a review per [RADIANT_Testing_Validation.md §5.3](../RADIANT_Testing_Validation.md).
+- **Stage 3 will move some golden values**: cells that today benefit from the missing atmospheric propagation of the background term (sub-pixel terrestrial scenarios) will produce different — *correct* — numbers. Each changed golden requires a review per [RADIANT_Testing_Validation.md §5.3](../architecture/RADIANT_Testing_Validation.md).
 - **A new public surface** (`state.stage_outputs["source"]["target" | "background" | "los_geometry"]`) becomes part of the contract that downstream stages and plugins consume. Once published it is hard to change.
 - **Sensor altitude (`h_sensor`) is deferred** to a follow-on ADR; it does not bite today (OpticsStage uses focal length + aperture only) but will when airborne sensors land in v2.
 
@@ -245,8 +245,8 @@ Stage 6 lands the E_sky decomposition: `E_sky = E_sky_scattered_solar + E_sky_at
 
 ## References
 
-- [RADIANT_Use_Case_Matrix.md](../RADIANT_Use_Case_Matrix.md) — 90-cell matrix and the Locked Decision §4 that this ADR implements
+- [RADIANT_Use_Case_Matrix.md](../architecture/RADIANT_Use_Case_Matrix.md) — 90-cell matrix and the Locked Decision §4 that this ADR implements
 - [Use_Case_gaps.md](../Use_Case_gaps.md) — adversarial coverage audit that motivated this work
-- [RADIANT_Master_Architecture.md](../RADIANT_Master_Architecture.md) — Rules 2 (units at boundaries), 9 (EE_box), 10 (regime finalization), 11 (no cross-stage imports), 19 (one computation, one module)
-- [RADIANT_Signal_Chain_Architecture.md](../RADIANT_Signal_Chain_Architecture.md) — Stage protocol, ChainState contract
+- [RADIANT_Master_Architecture.md](../architecture/RADIANT_Master_Architecture.md) — Rules 2 (units at boundaries), 9 (EE_box), 10 (regime finalization), 11 (no cross-stage imports), 19 (one computation, one module)
+- [RADIANT_Signal_Chain_Architecture.md](../architecture/RADIANT_Signal_Chain_Architecture.md) — Stage protocol, ChainState contract
 - [ADR-0001](0001-scope-and-constraints.md) — RADIANT scope and top-level constraints (parent ADR)

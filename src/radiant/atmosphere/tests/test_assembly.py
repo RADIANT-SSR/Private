@@ -325,7 +325,7 @@ class TestAnchor2_VIS_Reflective_T2:
 class TestAnchor3_T5_PassThrough:
     """Anchor 3 — T5AtAperture pass-through behavior (Decision #6).
 
-    Source: specification in ``docs/Option_C_Implementation_Plan.md``
+    Source: specification in ``docs/archive/Option_C_Implementation_Plan.md``
     Stage 3 Decision #6.
 
     - Trivial atmosphere (τ_up ≡ 1, L_path ≡ 0) → pass through bit-exactly,

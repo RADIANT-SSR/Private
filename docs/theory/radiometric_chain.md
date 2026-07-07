@@ -288,4 +288,4 @@ at $f_N = 1 / (2p)$ where $p$ is pixel pitch.
 - No ghost images, BSDF scatter, or chromatic aberration
 - No optical crosstalk between pixels
 - No temporal variability in scene
-- See `docs/RADIANT_Scope_Decisions.md` for the full list of 26 deferred effects
+- See `docs/architecture/RADIANT_Scope_Decisions.md` for the full list of 26 deferred effects

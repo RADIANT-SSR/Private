@@ -38,7 +38,7 @@ Create `docs/architecture/`, `docs/tracking/`, `docs/plans/` (exists), `docs/rep
 `Cleanup_Backlog.md`, `gaps.md`.
 
 **→ `archive/`** (HISTORICAL banner added, with date + superseded-by/completed-by line):
-`Gap_G_CSV_Loader_Plan.md`, `Gap_H_Wrap_At_Assembly_Plan.md`, `Option_C_Implementation_Plan.md`¹, `RADIANT_Rule19_Compliance_Plan.md`, `Target_Definition_Implementation_Plan.md`, `Technical_Debt_Cleanup_Plan.md`², `Cleanup_Backlog_Phase2_Plan.md`², `Use_Case_gaps.md`², `Target_Definition_gaps.md`², `adr/RADIANT_Optimized_Prompt_Sequence.md` (prompt playbook, not an ADR), `notes/blocked.md` (then delete `notes/`).
+`Gap_G_CSV_Loader_Plan.md`, `Gap_H_Wrap_At_Assembly_Plan.md`, `Option_C_Implementation_Plan.md`¹, `RADIANT_Rule19_Compliance_Plan.md`, `Target_Definition_Implementation_Plan.md`, `Technical_Debt_Cleanup_Plan.md`², `Cleanup_Backlog_Phase2_Plan.md`², `Use_Case_gaps.md`², `Target_Definition_gaps.md`², `adr/RADIANT_Optimized_Prompt_Sequence.md` (prompt playbook, not an ADR), `docs/archive/blocked_overnight_log.md` (then delete `notes/`).
 
 ¹ Option_C is referenced by Cleanup_Backlog CU-013 and `option_c_baseline.md` — update those two links in the same commit.
 ² Fold-then-archive: any still-open item is first copied into `tracking/Cleanup_Backlog.md` (as a CU) or `tracking/gaps.md`; the archived file gets a banner naming where each open item went. **Folding into Cleanup_Backlog.md waits for Phase E** (in-flight branch); the archive move of the two cleanup-plan docs waits with it.

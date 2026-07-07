@@ -1,7 +1,7 @@
 """Parameter definitions for the platform stage.
 
 Covers jitter (random pointing errors) and smear (linear motion blur)
-from platform dynamics. See ``docs/RADIANT_Spatial_Complete.md`` §7, §10.2.
+from platform dynamics. See ``docs/architecture/RADIANT_Spatial_Complete.md`` §7, §10.2.
 
 Stop-gap — ``platform.h_sensor``
 --------------------------------

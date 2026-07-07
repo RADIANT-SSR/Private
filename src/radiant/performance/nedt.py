@@ -1,6 +1,6 @@
 """NEDT — Noise-Equivalent Differential Temperature.
 
-Implements §4.2 of ``docs/RADIANT_Metrics.md``.
+Implements §4.2 of ``docs/architecture/RADIANT_Metrics.md``.
 
 NEDT — Noise-Equivalent Differential Temperature [K]:
     NEDT = T / SNR  (first-order approximation)

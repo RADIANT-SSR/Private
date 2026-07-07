@@ -7,7 +7,7 @@ Sources:
     persistence_noise — Image lag / persistence noise
     glow_shot_noise   — ROIC / detector glow shot noise: sqrt(R_glow · t)
 
-See ``docs/RADIANT_Detector_Complete.md`` §4.
+See ``docs/architecture/RADIANT_Detector_Complete.md`` §4.
 """
 
 from __future__ import annotations

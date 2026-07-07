@@ -8,7 +8,7 @@ differently through TDI accumulation:
 - Read noise: × 1 (analog TDI) or × √N_tdi (digital TDI)
 - FPN: × N_tdi (correlated across stages)
 
-See §7 of ``docs/RADIANT_Detector_Complete.md``.
+See §7 of ``docs/architecture/RADIANT_Detector_Complete.md``.
 """
 
 from __future__ import annotations

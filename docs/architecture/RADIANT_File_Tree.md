@@ -218,7 +218,7 @@ api/
 
 ### `plugins/` — 1 init, 0 source, 0 tests — **v2 deferred**
 
-`src/radiant/plugins/` is a 1-LOC stub. The plugin extension system (SourcePlugin / AtmospherePlugin / MetricPlugin / StagePlugin ABCs, entry-point discovery) is **deferred to v2**. See `docs/RADIANT_Plugins.md` for the v2 design — the file ships a "DEFERRED" banner so readers don't mistake it for current shipped behavior.
+`src/radiant/plugins/` is a 1-LOC stub. The plugin extension system (SourcePlugin / AtmospherePlugin / MetricPlugin / StagePlugin ABCs, entry-point discovery) is **deferred to v2**. See `docs/architecture/RADIANT_Plugins.md` for the v2 design — the file ships a "DEFERRED" banner so readers don't mistake it for current shipped behavior.
 
 ### `data/` — 1 source + 4 tests
 

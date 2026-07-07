@@ -1,7 +1,7 @@
 """ADC quantization (minimum form).
 
 Implements the quantization-only slice of noise term #11
-("quantization_noise") from ``docs/RADIANT_Detector_Complete.md`` §4
+("quantization_noise") from ``docs/architecture/RADIANT_Detector_Complete.md`` §4
 for the 2B.4 cut::
 
     σ_quant = LSB / √12   [e⁻ RMS]

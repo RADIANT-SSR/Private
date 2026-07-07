@@ -1,3 +1,5 @@
+> **HISTORICAL (archived 2026-07-06).** Plan completed — Phases 1-7 landed (see archive/../Target_Definition_gaps.md audit; Gaps G and H closed).
+
 # Target Definition Matrix — Implementation Plan
 
 **Date**: 2026-04-21

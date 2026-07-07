@@ -3,7 +3,7 @@
 This module maps the legacy (pre-Option-C) parameter surface onto the new
 Option C descriptor surface defined in :mod:`radiant.core.descriptors` and
 :mod:`radiant.core.los_geometry`.  It is the Stage-2 **additive bridge**
-step in the [Option C plan](../../../docs/Option_C_Implementation_Plan.md):
+step in the [Option C plan](../../../docs/archive/Option_C_Implementation_Plan.md):
 SourceStage now publishes TargetDescriptor + BackgroundDescriptor +
 LineOfSightGeometry alongside the legacy ``at_target`` frame and
 ``L_background`` stage_output, so downstream stages are unchanged while

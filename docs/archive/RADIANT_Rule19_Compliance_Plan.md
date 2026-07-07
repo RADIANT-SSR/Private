@@ -1,3 +1,5 @@
+> **HISTORICAL (archived 2026-07-06).** Plan completed — Rule 19 remediation Phases 1/2/3 all complete.
+
 # RADIANT Rule 19 Compliance Audit & Remediation Plan
 
 **Date:** 2026-04-18 (updated 2026-04-18)  

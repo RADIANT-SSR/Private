@@ -53,14 +53,14 @@ The inferrer is the **outlier**. Every other stage that needs LOS geometry alrea
 
 1. [CLAUDE.md](../CLAUDE.md) — Rules 5 (Kirchhoff derivation; this CU does not change derivation but enables the geometry it consumes), 12 (every parameter has a `ParameterDef` — the latent `geometry.observer_zenith_rad` finding), 16 (validate before compute), 17 (no silent failures — the Kármán/nadir hardcode is the antipattern), 19 (one computation, one module — do *not* split routing into a new module), 20 (doc-and-code lock-step — Source / Atmosphere docs both touch).
 2. [docs/RADIANT_Source.md](RADIANT_Source.md) — `_infer_los` contract; matrix §3.2 LOS rules; §4.3 at-aperture pass-through.
-3. [docs/RADIANT_Atmosphere.md](RADIANT_Atmosphere.md) — `LineOfSightGeometry` consumer contract on the AtmosphereStage side; how `theta_s`/`delta_phi` enter `_assemble_t3` / `_assemble_ground_background` / `_diffuse_sky_term` / `_direct_solar_term`.
-4. [docs/RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) — `ParameterDef` rules; the `geometry.*` namespace ownership convention.
+3. [docs/architecture/RADIANT_Atmosphere.md](RADIANT_Atmosphere.md) — `LineOfSightGeometry` consumer contract on the AtmosphereStage side; how `theta_s`/`delta_phi` enter `_assemble_t3` / `_assemble_ground_background` / `_diffuse_sky_term` / `_direct_solar_term`.
+4. [docs/architecture/RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) — `ParameterDef` rules; the `geometry.*` namespace ownership convention.
 5. [src/radiant/core/los_geometry.py](../src/radiant/core/los_geometry.py) — `LineOfSightGeometry` dataclass (`kw_only=True` post-CU-006); validation invariants; the `theta_o ∈ [0, π/2)` half-open guard; `theta_s ∈ [0, π]` and `delta_phi ∈ [−π, π]` ranges.
 6. [src/radiant/atmosphere/_schema.py:120–190](../src/radiant/atmosphere/_schema.py#L120) — the four `geometry.*` params (`sensor_altitude_m`, `target_altitude_m`, `path_zenith_rad`, `solar_zenith_rad`, `solar_azimuth_rad`).
 7. [src/radiant/source/_inferrer.py:257–331](../src/radiant/source/_inferrer.py#L257) — `_infer_los` and `_view_direction_from_los` (the two functions you will edit).
 8. [src/radiant/atmosphere/assembly.py:786–870](../src/radiant/atmosphere/assembly.py#L786) — `_assemble_t3` (verify the consumer accepts non-zero `theta_s`/`delta_phi` correctly; should already, since `_assemble_t1` is the one that ignores them).
-9. [docs/CU-007_MWIR_T3Mixed_Routing_Task.md](CU-007_MWIR_T3Mixed_Routing_Task.md) and [docs/CU-008_GroundBackground_Spectral_Task.md](CU-008_GroundBackground_Spectral_Task.md) — pattern this task follows (multi-approach decision, stop triggers, Category-B-with-C-radiometric-audit validation, ordering relative to other escalated CUs).
-10. [docs/RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) §5.3 — golden-snapshot review protocol (this CU should not refresh any snapshot; if one moves, stop and investigate).
+9. [docs/reports/cu_tasks/CU-007_MWIR_T3Mixed_Routing_Task.md](CU-007_MWIR_T3Mixed_Routing_Task.md) and [docs/reports/cu_tasks/CU-008_GroundBackground_Spectral_Task.md](CU-008_GroundBackground_Spectral_Task.md) — pattern this task follows (multi-approach decision, stop triggers, Category-B-with-C-radiometric-audit validation, ordering relative to other escalated CUs).
+10. [docs/architecture/RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) §5.3 — golden-snapshot review protocol (this CU should not refresh any snapshot; if one moves, stop and investigate).
 
 ---
 
@@ -172,8 +172,8 @@ Add a single new parameter `geometry.sensor_off_nadir_rad`; inferrer computes `t
    - **Expected:** `mtf_at_nyquist` unchanged on every row (no spatial-frequency coupling).
 10. **Doc updates (Rule 20).**
     - [docs/RADIANT_Source.md](RADIANT_Source.md) — `_infer_los` contract section: drop "θ_o = 0 rad (nadir)" from the defaults list; replace with "`theta_o` ← `geometry.path_zenith_rad`; `theta_s`, `delta_phi` ← `geometry.solar_zenith_rad`, `geometry.solar_azimuth_rad` for T2/T3 targets, `None` for T1." Note the latent-finding cleanup (`_view_direction_from_los` now reads from the canonical name).
-    - [docs/RADIANT_Atmosphere.md](RADIANT_Atmosphere.md) — `LineOfSightGeometry` consumer-side section: clarify that the producer side now respects `geometry.solar_zenith_rad` / `geometry.solar_azimuth_rad` for T2/T3 targets. (No new params to document.)
-    - [docs/RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) — append a one-line note in the `geometry.*` section: "Consumed by AtmosphereStage, PlatformStage, PerformanceStage, and (post-CU-009) by SourceStage's `_infer_los` for `LineOfSightGeometry` construction." No new parameter rows to add.
+    - [docs/architecture/RADIANT_Atmosphere.md](RADIANT_Atmosphere.md) — `LineOfSightGeometry` consumer-side section: clarify that the producer side now respects `geometry.solar_zenith_rad` / `geometry.solar_azimuth_rad` for T2/T3 targets. (No new params to document.)
+    - [docs/architecture/RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) — append a one-line note in the `geometry.*` section: "Consumed by AtmosphereStage, PlatformStage, PerformanceStage, and (post-CU-009) by SourceStage's `_infer_los` for `LineOfSightGeometry` construction." No new parameter rows to add.
 11. **Move CU-009 to Resolved** in `docs/Cleanup_Backlog.md` with the commit hash and a one-line note: "wired `_infer_los` to `geometry.path_zenith_rad` / `geometry.solar_zenith_rad` / `geometry.solar_azimuth_rad`; latent unregistered `geometry.observer_zenith_rad` reader cleaned up; zero baseline drift; unblocks CU-005 / CU-011 follow-ons." (Rule 22 — phantom closure forbidden.)
 12. **Commit.** Format: `chore(debt): CU-009 — wire _infer_los to existing geometry.* params; remove nadir/Kármán hardcode`. Body cites the three params now read, confirms anchor cells 28/58 and all 14 baseline rows bit-invariant, calls out the CU-007 ordering benefit ("MWIR T3Mixed routing now lands on correct geometry on first cut"), and confirms the `geometry.observer_zenith_rad` latent finding is closed in the same diff.
 
@@ -284,7 +284,7 @@ The radiometric W/m²/sr/µm dimensional path through `_assemble_t1` / `_assembl
 - [ ] `_view_direction_from_los` no longer reads `geometry.observer_zenith_rad`; the unregistered name appears nowhere in `src/radiant/`.
 - [ ] `pytest src/`, `pytest tests/integration/`, `mypy --strict`, `ruff check`, `ruff format --check`, `lint-imports` all green.
 - [ ] All 14 baseline rows in `option_c_baseline.yaml` bit-invariant; all per-scenario source-stage snapshots bit-invariant; anchor cells 28/58 bit-invariant.
-- [ ] `docs/RADIANT_Source.md`, `docs/RADIANT_Atmosphere.md`, and `docs/RADIANT_Parameter_System.md` updated per Rule 20.
+- [ ] `docs/RADIANT_Source.md`, `docs/architecture/RADIANT_Atmosphere.md`, and `docs/architecture/RADIANT_Parameter_System.md` updated per Rule 20.
 - [ ] CU-005's "blocked on CU-009" status refreshed to "ready for re-audit" in the same commit (the `theta_o`-canonical-name question is now answered).
 - [ ] CU-011's "blocked on CU-009" status refreshed to "exercise path now possible" in the same commit (a YAML can now plumb non-zero `theta_s` through to MODTRAN).
 - [ ] Structured Category-B-with-C-radiometric-audit report attached to the commit body or PR description: Numerical Truth Anchors (≥3), Dimensional Audit, Failure Modes, Assumptions, Fragility, Traceability, Cross-Model Consistency, Integration & Regression — with explicit confirmation that no baseline scenario shifted and that the descriptor-reorder did not cascade beyond the ~20-line region around `_infer_los`'s call site.

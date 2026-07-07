@@ -5,14 +5,14 @@
 
 ## Context
 
-[RADIANT_Scripting_API.md](../RADIANT_Scripting_API.md) shows code examples using:
+[RADIANT_Scripting_API.md](../architecture/RADIANT_Scripting_API.md) shows code examples using:
 
 ```python
 from radiant import Sensor
 from radiant.api import SensorConfig, ScenarioConfig, BatchRunner
 ```
 
-The 2026-04-25 audit ([Doc_Drift_Report.md#D5, #D8](../audit_2026/Doc_Drift_Report.md)) found:
+The 2026-04-25 audit ([Doc_Drift_Report.md#D5, #D8](../reports/architecture_audit_2026-04/Doc_Drift_Report.md)) found:
 
 - `src/radiant/__init__.py` exports only `__version__`. `Sensor` is reachable via `from radiant.api.sensor import Sensor` or `from radiant.api import Sensor`. The top-level `from radiant import Sensor` example fails.
 - No `SensorConfig`, `ScenarioConfig`, or `BatchRunner` classes exist anywhere in `src/radiant/`. Every example using these classes fails at import.
@@ -52,7 +52,7 @@ This ADR resolves three sub-questions on the public API surface.
 
 ## Downstream Tasks Unblocked
 
-This decision unblocks the following audit reconciliation tasks (see [docs/audit_2026/Reconciliation_Tasks.md](../audit_2026/Reconciliation_Tasks.md)):
+This decision unblocks the following audit reconciliation tasks (see [docs/reports/architecture_audit_2026-04/Reconciliation_Tasks.md](../reports/architecture_audit_2026-04/Reconciliation_Tasks.md)):
 
 - **R3.CU-NEW-02** — Add top-level `Sensor` re-export to `src/radiant/__init__.py`. Per R20, confirm `RADIANT_Scripting_API.md` examples that say `from radiant import Sensor` now match reality. Add `tests/test_public_api.py::test_top_level_sensor_import`.
 - **R2.A1 / Doc cleanup** — `RADIANT_Scripting_API.md` must be updated to:
@@ -67,9 +67,9 @@ This decision unblocks the following audit reconciliation tasks (see [docs/audit
 
 ## References
 
-- [docs/audit_2026/Doc_Drift_Report.md#D5, #D8](../audit_2026/Doc_Drift_Report.md)
-- [docs/audit_2026/Reconciliation_Tasks.md](../audit_2026/Reconciliation_Tasks.md) §R1.3
-- [docs/audit_2026/Recommendation.md](../audit_2026/Recommendation.md)
+- [docs/reports/architecture_audit_2026-04/Doc_Drift_Report.md#D5, #D8](../reports/architecture_audit_2026-04/Doc_Drift_Report.md)
+- [docs/reports/architecture_audit_2026-04/Reconciliation_Tasks.md](../reports/architecture_audit_2026-04/Reconciliation_Tasks.md) §R1.3
+- [docs/reports/architecture_audit_2026-04/Recommendation.md](../reports/architecture_audit_2026-04/Recommendation.md)
 - [src/radiant/api/sensor.py](../../src/radiant/api/sensor.py) — the `Sensor` class this ADR re-exports
 - [src/radiant/__init__.py](../../src/radiant/__init__.py) — the file CU-NEW-02 will modify
-- [docs/RADIANT_Scripting_API.md](../RADIANT_Scripting_API.md) — the doc whose examples this ADR brings into alignment with code
+- [docs/architecture/RADIANT_Scripting_API.md](../architecture/RADIANT_Scripting_API.md) — the doc whose examples this ADR brings into alignment with code

@@ -5,7 +5,7 @@ emission from CSV or NPZ files.  The data are geometry-agnostic: the loaded
 values are returned verbatim for any query geometry, resampled to the
 requested wavelength grid via ``SpectralData.resample()``.
 
-Per ``docs/RADIANT_Atmosphere.md`` section 3.2 the tabulated model does NOT
+Per ``docs/architecture/RADIANT_Atmosphere.md`` section 3.2 the tabulated model does NOT
 rescale with geometry.  Users who need geometry-dependent interpolation
 between multiple tabulated runs should use
 :class:`~radiant.atmosphere.interpolated.InterpolatedAtmosphere`.

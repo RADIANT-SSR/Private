@@ -1,6 +1,6 @@
 """Contrast SNR — detectability against a background.
 
-Implements contrast SNR from ``docs/RADIANT_Metrics.md`` §4.1::
+Implements contrast SNR from ``docs/architecture/RADIANT_Metrics.md`` §4.1::
 
     contrast_SNR = ΔS / σ_total
 

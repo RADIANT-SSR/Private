@@ -1,6 +1,6 @@
 """NEDL — Noise-Equivalent Differential Radiance.
 
-Implements §4.3 of ``docs/RADIANT_Metrics.md``::
+Implements §4.3 of ``docs/architecture/RADIANT_Metrics.md``::
 
     NEDL = L / SNR  [W/m²/sr/µm]
 """

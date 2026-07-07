@@ -1,6 +1,6 @@
 """SNR — Signal-to-Noise Ratio.
 
-Implements §4.1 of ``docs/RADIANT_Metrics.md``::
+Implements §4.1 of ``docs/architecture/RADIANT_Metrics.md``::
 
     SNR = S / σ_total
 

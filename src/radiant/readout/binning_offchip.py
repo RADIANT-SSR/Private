@@ -1,6 +1,6 @@
 """Off-chip (digital) binning — signal and noise scaling.
 
-Per ``docs/RADIANT_Detector_Complete.md`` §8:
+Per ``docs/architecture/RADIANT_Detector_Complete.md`` §8:
 
 Off-chip binning sums P_x × P_y independently-read pixels in the
 digital domain after readout.

@@ -9,7 +9,7 @@ Sources:
     nearfield_shot_noise  — Nearfield (warm-optics) shot noise: sqrt(S_nf)
     straylight_shot_noise — Stray-light shot noise: sqrt(S_stray)
 
-See ``docs/RADIANT_Detector_Complete.md`` §4.
+See ``docs/architecture/RADIANT_Detector_Complete.md`` §4.
 """
 
 from __future__ import annotations

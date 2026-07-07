@@ -67,8 +67,8 @@ The remaining 8 (LWIR / SWIR / VNIR) are out of scope: LWIR is correctly `T1Ther
 3. [src/radiant/core/descriptors.py:273–323](../src/radiant/core/descriptors.py#L273) — `_warn_mwir_non_mixed` and `_warn_swir_hot_non_mixed` warning helpers; `T1Thermal.__post_init__` and `T3Mixed.__post_init__` (lines 348–369 and 443–461).
 4. [src/radiant/atmosphere/assembly.py:786–870](../src/radiant/atmosphere/assembly.py#L786) — `_assemble_t3` and `_components_t3` (the consumer side; verify they accept the descriptor signature emitted by `_inferrer.py` after the change).
 5. [src/radiant/source/_inferrer.py:1438–1555](../src/radiant/source/_inferrer.py#L1438) — `_build_target_descriptor` legacy ε+T branch (the file you will edit).
-6. [docs/CU-003_Rect_Kernel_Fix_Task.md](CU-003_Rect_Kernel_Fix_Task.md) — pattern this task follows (Category-C-grade validation, snapshot refresh protocol, stop-trigger discipline).
-7. [docs/RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) §5.3 — golden-snapshot review protocol. **Snapshot updates require an explicit "expected radiometric drift" entry in the commit body for each affected row.**
+6. [docs/reports/cu_tasks/CU-003_Rect_Kernel_Fix_Task.md](CU-003_Rect_Kernel_Fix_Task.md) — pattern this task follows (Category-C-grade validation, snapshot refresh protocol, stop-trigger discipline).
+7. [docs/architecture/RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) §5.3 — golden-snapshot review protocol. **Snapshot updates require an explicit "expected radiometric drift" entry in the commit body for each affected row.**
 
 ---
 
@@ -87,7 +87,7 @@ If `_is_mwir_spectral_data(epsilon)` is true, build `T3Mixed(...)` instead of `T
 - All six MWIR baseline scenarios re-baseline (expected); the other 8 are bit-invariant.
 
 **Cons.**
-- Adds one new schema parameter (`source.target.is_hot_target`, dtype `bool`, default `False`) on the `SourceStage` schema. Doc update in `docs/RADIANT_Parameter_System.md` and `docs/RADIANT_Source.md` required (Rule 20).
+- Adds one new schema parameter (`source.target.is_hot_target`, dtype `bool`, default `False`) on the `SourceStage` schema. Doc update in `docs/architecture/RADIANT_Parameter_System.md` and `docs/RADIANT_Source.md` required (Rule 20).
 - The 6 MWIR snapshot rows must be reviewed and accepted as the new physics ground truth — not "drift to investigate" but "improvement per matrix §3.2."
 
 ### Approach 2 — Always emit `T3Mixed` for MWIR, no opt-out
@@ -146,7 +146,7 @@ Drop the `simplefilter("ignore", UserWarning)` wrapper. Let the warning fire on 
    - **Expected:** Cells 28 and 58 (`tests/integration/test_option_c_anchors.py::CELL28_PINNED`, `CELL58_PINNED`) bit-invariant — both are LWIR T1Thermal.
 7. **Snapshot regeneration on the source side.** Re-run `pytest src/radiant/source/tests/test_inferrer.py` and refresh any per-scenario snapshot YAMLs under `src/radiant/source/tests/snapshots/` that test the MWIR scenarios. Document each refreshed file in the commit body.
 8. **Doc updates (Rule 20).**
-   - `docs/RADIANT_Parameter_System.md`: add `source.target.is_hot_target` to the parameter table.
+   - `docs/architecture/RADIANT_Parameter_System.md`: add `source.target.is_hot_target` to the parameter table.
    - `docs/RADIANT_Source.md`: update matrix §3.2 description to note that the inferrer now defaults MWIR to `T3Mixed`; document the opt-out parameter.
 9. **Full regression gate.**
    ```
@@ -250,5 +250,5 @@ The radiometric audit (W/m²/sr/µm units throughout the assembly) is already en
 - [ ] New `src/radiant/source/tests/test_inferrer_mwir_routing.py` covers the five Level 0 anchors plus the failure-mode cases above.
 - [ ] `pytest src/`, `pytest tests/integration/`, `mypy --strict`, `ruff check`, `ruff format --check`, `lint-imports` all green.
 - [ ] `option_c_baseline.yaml`'s 6 MWIR rows updated; the other 8 rows bit-invariant; anchor cells 28/58 bit-invariant.
-- [ ] `docs/RADIANT_Parameter_System.md` and `docs/RADIANT_Source.md` updated to document `source.target.is_hot_target` and the new MWIR-default routing (Rule 20).
+- [ ] `docs/architecture/RADIANT_Parameter_System.md` and `docs/RADIANT_Source.md` updated to document `source.target.is_hot_target` and the new MWIR-default routing (Rule 20).
 - [ ] Structured Category-B-with-C-radiometric-audit report attached to the commit body or PR description: Numerical Truth Anchors (≥3), Dimensional Audit, Failure Modes, Assumptions, Fragility, Traceability, Cross-Model Consistency, Integration & Regression — with explicit sign-off on each affected MWIR scenario's `L_aperture` delta as "expected per matrix §3.2."

@@ -1,7 +1,7 @@
 """Pixel geometry container.
 
 Implements the pixel-geometry slice of
-``docs/RADIANT_Detector_Complete.md`` §3.3 for the 2B.4 cut. Holds the
+``docs/architecture/RADIANT_Detector_Complete.md`` §3.3 for the 2B.4 cut. Holds the
 x/y pitch, fill factor, and (optional) charge-diffusion length.
 Pixel-aperture MTF and charge-diffusion MTF are deferred to the
 spatial module per the design document.

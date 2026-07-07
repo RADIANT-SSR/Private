@@ -1,6 +1,6 @@
 """Well saturation margin.
 
-Implements §4.13 of ``docs/RADIANT_Metrics.md``::
+Implements §4.13 of ``docs/architecture/RADIANT_Metrics.md``::
 
     margin_well = 20 · log10(FWC / S_well)  [dB]
 """

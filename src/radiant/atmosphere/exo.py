@@ -3,7 +3,7 @@
 For sensors above the atmosphere observing targets above the atmosphere
 (typical space surveillance and satellite-to-satellite imaging) the
 three spectral outputs are constants per
-``docs/RADIANT_Atmosphere.md`` §3.3::
+``docs/architecture/RADIANT_Atmosphere.md`` §3.3::
 
     τ_atm(λ)     ≡ 1.0
     L_path(λ)    ≡ 0.0

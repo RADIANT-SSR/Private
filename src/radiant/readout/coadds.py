@@ -1,6 +1,6 @@
 """Coadd modes — sum, average, median.
 
-Per ``docs/RADIANT_Detector_Complete.md`` §9:
+Per ``docs/architecture/RADIANT_Detector_Complete.md`` §9:
 
 | Mode    | Signal      | Temporal noise | FPN         |
 |---------|-------------|----------------|-------------|

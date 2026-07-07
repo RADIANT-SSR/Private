@@ -1,6 +1,6 @@
 """Dual saturation checks — well capacity and ADC dynamic range.
 
-Per ``docs/RADIANT_Detector_Complete.md`` §6, RADIANT has two
+Per ``docs/architecture/RADIANT_Detector_Complete.md`` §6, RADIANT has two
 independent saturation points:
 
 1. **Well capacity** (analog, after TDI accumulation): signal clipped

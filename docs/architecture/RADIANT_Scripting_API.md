@@ -86,7 +86,7 @@ s.get("detector.pixel_pitch_x_um")        # → 1.8e-05  (canonical: m)
 s.get_input("detector.pixel_pitch_x_um")  # → 18.0     (input unit: µm)
 ```
 
-Parameter names carry their input unit as a suffix (`_m`, `_um`, `_K`, `_s`, `_rad`, `_e_rms`, ...). See `docs/RADIANT_Parameter_System.md` for the full registry (129 parameters as of this rewrite).
+Parameter names carry their input unit as a suffix (`_m`, `_um`, `_K`, `_s`, `_rad`, `_e_rms`, ...). See `docs/architecture/RADIANT_Parameter_System.md` for the full registry (129 parameters as of this rewrite).
 
 ### 2.3 Sweep
 
@@ -899,7 +899,7 @@ The 2026-04-07 revision of this document described the surface below. **None of 
 | `Sensor.load(path)` / `Sensor.load(sensor=..., scenario=...)` | Use `Sensor.from_yaml(path)`; merge scenario overrides with `set_many()`. |
 | `Sensor.from_configs(...)`, `SensorConfig`, `ScenarioConfig` builders | Not implemented. Use YAML or `from_dict()`. |
 | `s.validate()` | Not implemented as a separate step. Validation happens at `set()`/resolve/evaluate; catch `RadiantError`. |
-| `s.schema()`, `s.params` proxy, parameter tab-completion | Not implemented. Use `s.summary()` and `docs/RADIANT_Parameter_System.md`. |
+| `s.schema()`, `s.params` proxy, parameter tab-completion | Not implemented. Use `s.summary()` and `docs/architecture/RADIANT_Parameter_System.md`. |
 | `s.copy()` | Use `s.clone()`. |
 | `s.save(path)` | Not implemented. Persist `result.to_provenance_record()` instead. |
 | `Sensor.load_result(...)`, `Sensor.from_provenance_record(...)` | Not implemented. |

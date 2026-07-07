@@ -2,7 +2,7 @@
 
 Defines the structural interface every atmosphere model in RADIANT must
 satisfy and the immutable result it produces. Per
-``docs/RADIANT_Atmosphere.md`` §2 the chain consumes a single
+``docs/architecture/RADIANT_Atmosphere.md`` §2 the chain consumes a single
 ``AtmosphericState`` regardless of which model produced it (simple,
 tabulated, MODTRAN, exo).
 
@@ -12,7 +12,7 @@ the geometry the state was evaluated for, and the derived ``air_mass``
 and ``slant_path_length_m``. Fields that only matter for MODTRAN
 (``derivation_chain``, ``cache_key``, ``native_output``) and
 turbulence are deferred to later phases — see
-``notes/blocked.md``.
+``docs/archive/blocked_overnight_log.md``.
 
 The protocol is structural (``typing.Protocol``), so concrete models
 do not need to subclass it. Duck typing is sufficient.
@@ -58,7 +58,7 @@ ZENITH_CEILING_RAD: float = math.radians(89.5)
 class AtmosphericGeometry:
     """Geometry inputs to the atmosphere module.
 
-    Per ``docs/RADIANT_Conventions.md`` §5 all angles are stored
+    Per ``docs/architecture/RADIANT_Conventions.md`` §5 all angles are stored
     internally in **radians**. The ``from_degrees`` factory accepts the
     user-facing degrees-typed inputs documented in
     ``RADIANT_Atmosphere.md`` §4.1.
@@ -178,7 +178,7 @@ class AtmosphericGeometry:
 
             L = R_E · [√(cos²θ + 2(Δh/R_E) + (Δh/R_E)²) − cos θ]
 
-        Per ``docs/RADIANT_Atmosphere.md`` §4.2.
+        Per ``docs/architecture/RADIANT_Atmosphere.md`` §4.2.
 
         For exo-atmospheric paths (``Δh = 0``) the slant path is zero.
         Callers needing a positive path length must use a model whose
@@ -274,7 +274,7 @@ class AtmosphericGeometry:
 class AtmosphericState:
     """The frozen contract every atmosphere model returns.
 
-    Per ``docs/RADIANT_Atmosphere.md`` §2:
+    Per ``docs/architecture/RADIANT_Atmosphere.md`` §2:
 
     - ``transmittance``, ``path_radiance``, and ``atm_emission_down`` are
       **always** populated. ``ExoAtmosphere`` returns numerical zero
@@ -288,7 +288,7 @@ class AtmosphericState:
     The full doc-spec ``AtmosphericState`` carries additional fields for
     MODTRAN provenance (``model``, ``derivation_chain``, ``cache_key``,
     ``native_output``) and turbulence. Those are deferred to later
-    phases of the implementation; see ``notes/blocked.md`` for the open
+    phases of the implementation; see ``docs/archive/blocked_overnight_log.md`` for the open
     items.
 
     Parameters

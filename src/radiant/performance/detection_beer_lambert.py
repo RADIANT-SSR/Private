@@ -1,6 +1,6 @@
 """Point-source detection range — Beer-Lambert atmosphere model.
 
-Implements §4.12 of ``docs/RADIANT_Metrics.md``. Uses bisection to
+Implements §4.12 of ``docs/architecture/RADIANT_Metrics.md``. Uses bisection to
 find the range at which contrast SNR equals the detection threshold.
 
 Signal model::

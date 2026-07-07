@@ -37,11 +37,43 @@ nav:
     - Noise Model: theory/noise_model.md
     - Spatial Model: theory/spatial_model.md
   - Developer:
-    - Architecture: RADIANT_Master_Architecture.md
-    - Signal Chain: RADIANT_Signal_Chain_Architecture.md
-    - Conventions: RADIANT_Conventions.md
-    - Parameters: RADIANT_Parameter_System.md
-    - Testing: RADIANT_Testing_Validation.md
+    - Architecture: architecture/RADIANT_Master_Architecture.md
+    - Signal Chain: architecture/RADIANT_Signal_Chain_Architecture.md
+    - Conventions: architecture/RADIANT_Conventions.md
+    - Parameters: architecture/RADIANT_Parameter_System.md
+    - Testing: architecture/RADIANT_Testing_Validation.md
+  - Architecture Reference:
+    - Config Format: architecture/RADIANT_Config_Format.md
+    - Scripting API: architecture/RADIANT_Scripting_API.md
+    - Source & Target System: architecture/RADIANT_Source_Target_System.md
+    - Atmosphere: architecture/RADIANT_Atmosphere.md
+    - Optics: architecture/RADIANT_Optics.md
+    - Spatial Architecture: architecture/RADIANT_Spatial_Complete.md
+    - Detector & Readout: architecture/RADIANT_Detector_Complete.md
+    - Scan & Timing: architecture/RADIANT_Scan_Timing.md
+    - Metrics: architecture/RADIANT_Metrics.md
+    - Metric Dependencies: architecture/RADIANT_Metric_Dependencies.md
+    - Use-Case Matrix: architecture/RADIANT_Use_Case_Matrix.md
+    - Target Definition Matrix: architecture/RADIANT_Target_Definition_Matrix.md
+    - Physics Inventory: architecture/RADIANT_Physics_Inventory.md
+    - Scope Decisions: architecture/RADIANT_Scope_Decisions.md
+    - Personas: architecture/RADIANT_Personas.md
+    - Scenario Testing: architecture/RADIANT_Scenario_Testing_Instructions.md
+    - File Tree: architecture/RADIANT_File_Tree.md
+    - GUI Architecture (deferred): architecture/RADIANT_GUI_Architecture.md
+    - Plugins (deferred): architecture/RADIANT_Plugins.md
+  - Decision Records:
+    - Index: adr/README.md
+    - 0001 Scope and Constraints: adr/0001-scope-and-constraints.md
+    - 0002 Option C Source/Atmosphere Split: adr/0002-option-c-source-atmosphere-split.md
+    - 0003 T6 Tabulated at Source: adr/0003-t6-tabulated-at-source.md
+    - 0004 T7 Intensity at Source: adr/0004-t7-intensity-at-source.md
+    - ADR-A Fidelity Preset: adr/ADR-A-fidelity-preset.md
+    - ADR-B Metric Soft-Fail: adr/ADR-B-metric-soft-fail.md
+    - ADR-C Public API Surface: adr/ADR-C-public-api-surface.md
+    - ADR-D Parameter Naming: adr/ADR-D-parameter-naming.md
+  - Project:
+    - Operating Model: OPERATING_MODEL.md
 
 markdown_extensions:
   - pymdownx.arithmatex:

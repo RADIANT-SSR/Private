@@ -195,7 +195,7 @@ Any issue, gap, or blocker discovered during scenario development goes in:
 
 Scenarios are tiered by the number of code changes needed. Work through
 them in order — earlier scenarios build capabilities that unlock later
-ones. See `docs/expanded_scenarios.md` for the full priority table.
+ones. See `docs/architecture/expanded_scenarios.md` for the full priority table.
 
 | Tier | Description | Code Changes |
 |------|-------------|-------------|
@@ -286,5 +286,5 @@ These are the gold-standard examples for scenario format:
 | GUI workflow | `scenarios/05_tom_optical_designer/5.2_pixel_pitch_optimization/gui_workflow.md` |
 | Per-scenario gaps | `scenarios/02_mike_detector_engineer/2.3_ipc_impact_on_mtf/gaps.md` |
 | Master gap registry | `docs/gaps.md` |
-| Scenario descriptions | `docs/expanded_scenarios.md` |
+| Scenario descriptions | `docs/architecture/expanded_scenarios.md` |
 | Off-nadir walkthrough | `scenarios/03_raj_mission_planner/3.4_off_nadir_agility/walkthrough.md` |

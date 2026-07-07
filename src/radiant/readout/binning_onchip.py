@@ -1,6 +1,6 @@
 """On-chip (analog) binning — signal and noise scaling.
 
-Per ``docs/RADIANT_Detector_Complete.md`` §8:
+Per ``docs/architecture/RADIANT_Detector_Complete.md`` §8:
 
 On-chip binning accumulates charge from M_x × M_y pixels into a
 single super-pixel before readout (single readout of the combined

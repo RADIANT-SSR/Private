@@ -2,7 +2,7 @@
 
 **Status:** Draft — written 2026-04-24
 **Scope:** Open items in `docs/Cleanup_Backlog.md` after Phase 1 (mypy/ruff/import-linter) closed out CU-001/002/010/015.
-**Governing docs:** `CLAUDE.md` (Rule 4 / 11 / 17 / 19, regression gate, one-task-per-commit), `docs/RADIANT_Master_Architecture.md`.
+**Governing docs:** `CLAUDE.md` (Rule 4 / 11 / 17 / 19, regression gate, one-task-per-commit), `docs/architecture/RADIANT_Master_Architecture.md`.
 **Sequencing rule:** any item flagged "Stage-deferred" stays where it is — those will close as a side-effect of the Option C plan landing the relevant stage. Do **not** pre-emptively pick them up here; doing so would either revert Cell 28/58 invariants or duplicate work that the stage author owns.
 
 ---
@@ -55,7 +55,7 @@ Recommended order: **CU-006 → CU-004 → CU-003** (cheapest first; CU-003 last
 ### Pre-reads
 - `src/radiant/core/los_geometry.py` (the dataclass + the unwired converter from CU-005 lives here too — do **not** touch it in this commit)
 - All call sites: `grep -rn "LineOfSightGeometry(" src/ tests/`
-- `docs/RADIANT_Master_Architecture.md` Rule 12 (parameter system) for keyword discipline
+- `docs/architecture/RADIANT_Master_Architecture.md` Rule 12 (parameter system) for keyword discipline
 
 ### Steps
 1. Add `kw_only=True` to the dataclass decorator: `@dataclass(frozen=True, kw_only=True)`.
@@ -119,8 +119,8 @@ Promote the field from `str` to `list[str]`. Update the validator and any downst
 **Why last:** highest investigation cost; a real PSF-↔-MTF-product divergence is exactly the failure mode CLAUDE.md Rule 4 is written to catch. Either the tolerance is loose because the scenario hits a numerical edge (legitimate), or one path is missing a degradation (real bug).
 
 ### Pre-reads
-- `docs/RADIANT_Master_Architecture.md` Rule 4 in full
-- `docs/RADIANT_Optics.md` (PSF path + MTF product path)
+- `docs/architecture/RADIANT_Master_Architecture.md` Rule 4 in full
+- `docs/architecture/RADIANT_Optics.md` (PSF path + MTF product path)
 - `src/radiant/optics/psf/effective.py` and the consistency check that emits the warning
 - `examples/swir_aerial_gas.yaml` (or wherever the scenario actually lives — task author confirmed the path is uncertain)
 - `scripts/capture_option_c_baseline.py` (the script that surfaced this)

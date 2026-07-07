@@ -11,7 +11,7 @@
 Produce a defensible recommendation backed by quantitative and qualitative evidence — not vibes. Reconcile docs against code as a deliverable, regardless of which path wins.
 
 User direction (2026-04-24):
-- Audit is read-only on `src/` and `docs/RADIANT_*.md`. All output goes under `docs/audit_2026/`.
+- Audit is read-only on `src/` and `docs/RADIANT_*.md`. All output goes under `docs/reports/architecture_audit_2026-04/`.
 - Ambiguities log to `findings/open_questions.md` and continue (no stop-and-ask overnight).
 - Assume physics is correct. Focus is architecture, organization, and code-base assembly quality.
 
@@ -52,7 +52,7 @@ Workarounds, `_v2`/`_legacy` symbols, swallowed warnings, dead helpers, schema d
 ### Phase 6 — Synthesis & Recommendation
 Score each criterion. Output three-option comparison.
 
-## Deliverables (all under `docs/audit_2026/`)
+## Deliverables (all under `docs/reports/architecture_audit_2026-04/`)
 1. `Audit_Plan.md` — this file
 2. `findings/phase1_mechanical.md`
 3. `findings/phase2_rule_conformance.md`

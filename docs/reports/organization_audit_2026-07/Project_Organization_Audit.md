@@ -90,7 +90,7 @@ Secondary issues: the mkdocs site publishes only 15 of ~70 docs (all stage-level
 
 - `examples/` and `scripts/` are **not** duplicates: user-facing API demos vs repo maintenance tools. Both current. Two committed plot PNGs (`examples/scripts/aperture_sweep_snr.png`, `scripts/spatial_audit_plots.png`) are the only issues. `scripts/capture_option_c_baseline.py` is a one-off tied to the completed Option C migration.
 - `data/` is genuine reference data actively loaded by `src/radiant/data/library.py`; small (<100 KB); `atmospheres/` is a documented intentional placeholder.
-- `notes/blocked.md`: all entries resolved/deferred as of April; one entry ("no `data/detectors/` directory") is now factually contradicted by the codebase.
+- `docs/archive/blocked_overnight_log.md`: all entries resolved/deferred as of April; one entry ("no `data/detectors/` directory") is now factually contradicted by the codebase.
 - Root files healthy. Repo weight: `.git` is 45 MB, driven by the screenshot corpus.
 
 ---

@@ -8,7 +8,7 @@ Individual noise sources live in family modules per Rule 19:
     noise_fixed_pattern.py — Fixed-pattern / spatial (terms 12–14)
     noise_other.py         — Other (terms 15–16)
 
-See ``docs/RADIANT_Detector_Complete.md`` §4–§5.
+See ``docs/architecture/RADIANT_Detector_Complete.md`` §4–§5.
 """
 
 from __future__ import annotations

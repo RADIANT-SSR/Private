@@ -1,6 +1,6 @@
 """Dynamic range.
 
-Implements §4.14 of ``docs/RADIANT_Metrics.md``::
+Implements §4.14 of ``docs/architecture/RADIANT_Metrics.md``::
 
     DR = 20 · log10(FWC / σ_dark)  [dB]
 """

@@ -1,7 +1,7 @@
 """Parameter definitions for the readout stage.
 
 Covers read noise, ADC, gain, TDI, binning, coadds, saturation,
-and CDS per ``docs/RADIANT_Detector_Complete.md`` §6-§9.
+and CDS per ``docs/architecture/RADIANT_Detector_Complete.md`` §6-§9.
 """
 
 from __future__ import annotations

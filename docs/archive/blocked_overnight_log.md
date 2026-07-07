@@ -1,3 +1,5 @@
+> **HISTORICAL (archived 2026-07-06).** Overnight blockers log (2026-04-07 to 2026-04-13, tasks 2B.2-2D.2); formerly notes/blocked.md. All entries resolved or deferred. NOTE: the 2026-04-08 entry stating there would be no data/detectors/ directory was superseded — that directory exists and is loaded by src/radiant/data/library.py.
+
 # Overnight Blockers Log
 
 Started: 2026-04-07 evening session

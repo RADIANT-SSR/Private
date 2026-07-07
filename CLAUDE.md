@@ -1,6 +1,6 @@
 # RADIANT — Coding Agent Instructions
 
-This is the authoritative reference for all RADIANT coding agents. Read it fully before making any change. When in conflict with another document, this file governs agent behavior; `docs/RADIANT_Master_Architecture.md` governs architecture decisions.
+This is the authoritative reference for all RADIANT coding agents. Read it fully before making any change. When in conflict with another document, this file governs agent behavior; `docs/architecture/RADIANT_Master_Architecture.md` governs architecture decisions.
 
 ---
 
@@ -9,11 +9,11 @@ This is the authoritative reference for all RADIANT coding agents. Read it fully
 RADIANT is a first-principles EO sensor performance modeling framework. It predicts SNR, NEDT, NIIRS, MTF, and detection range for space-based and airborne electro-optical sensors. The signal chain flows: source → atmosphere → optics → platform → spectral integration → detector → readout → performance metrics.
 
 **Primary reference documents** (read before touching related code):
-- `docs/RADIANT_Master_Architecture.md` — non-negotiable constraints (15 rules)
-- `docs/RADIANT_Conventions.md` — units, coordinate system, spectral variable
-- `docs/RADIANT_Signal_Chain_Architecture.md` — stage protocol, ChainState
-- `docs/RADIANT_Parameter_System.md` — parameter naming, types, resolution
-- `docs/RADIANT_Testing_Validation.md` — what and how to test
+- `docs/architecture/RADIANT_Master_Architecture.md` — non-negotiable constraints (15 rules)
+- `docs/architecture/RADIANT_Conventions.md` — units, coordinate system, spectral variable
+- `docs/architecture/RADIANT_Signal_Chain_Architecture.md` — stage protocol, ChainState
+- `docs/architecture/RADIANT_Parameter_System.md` — parameter naming, types, resolution
+- `docs/architecture/RADIANT_Testing_Validation.md` — what and how to test
 
 ---
 
@@ -30,7 +30,7 @@ Type hints are required on **every** function and method — not just public one
 - No unit conversion inside physics modules. A `* math.pi / 180` or `* 1e4` in a physics module is a red flag — verify it is computing physics, not converting units.
 
 ### 3. Coordinate System
-Right-handed. +Z toward target (along boresight). +X cross-track. +Y along-track. Euler: ZYX (yaw → pitch → roll). Pixel indexing: `[row, col] = [y, x]`, 0-indexed. See `docs/RADIANT_Conventions.md` §1 for full details.
+Right-handed. +Z toward target (along boresight). +X cross-track. +Y along-track. Euler: ZYX (yaw → pitch → roll). Pixel indexing: `[row, col] = [y, x]`, 0-indexed. See `docs/architecture/RADIANT_Conventions.md` §1 for full details.
 
 ### 4. Dual-Path Spatial Architecture — PSF Path and MTF Product Path
 RADIANT maintains two parallel spatial paths, both rooted in the same complex pupil function:
@@ -492,9 +492,9 @@ src/radiant/
 
 | What you need | Where to look |
 |--------------|--------------|
-| Architecture overview | `docs/RADIANT_Master_Architecture.md` |
-| Where files go | `docs/RADIANT_File_Tree.md` |
-| All parameters | `docs/RADIANT_Parameter_System.md` |
+| Architecture overview | `docs/architecture/RADIANT_Master_Architecture.md` |
+| Where files go | `docs/architecture/RADIANT_File_Tree.md` |
+| All parameters | `docs/architecture/RADIANT_Parameter_System.md` |
 | Subsystem design detail | `docs/RADIANT_<Subsystem>.md` |
 | The code | `src/radiant/` |
 | The tests | `src/radiant/<stage>/tests/` and `tests/integration/` |
@@ -503,7 +503,7 @@ src/radiant/
 
 ## When Editing an Existing Stage
 
-1. Read the stage's doc (e.g., `docs/RADIANT_Optics.md`) before changing anything.
+1. Read the stage's doc (e.g., `docs/architecture/RADIANT_Optics.md`) before changing anything.
 2. Read the tests before changing the implementation. The tests define the contract.
 3. Run the tests: `pytest src/radiant/<stage>/tests/ -v`
 4. Do not add imports that violate the import rules. Check with `import-linter`.
@@ -520,7 +520,7 @@ src/radiant/
 3. Create `stage.py` implementing the `Stage` protocol.
 4. Create `tests/` with Level 0 tests for the key physics equations.
 5. Register the stage in `api/session.py`'s `ChainRunner` stage list.
-6. Add the stage to the document map in `docs/RADIANT_Master_Architecture.md`.
+6. Add the stage to the document map in `docs/architecture/RADIANT_Master_Architecture.md`.
 
 ---
 

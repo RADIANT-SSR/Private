@@ -95,16 +95,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: VIS/NIR reflective scenarios that route through MODTRAN now silently lose the solar-zenith dependence that Stage 6's E_sky decomposition was designed to expose. The analytic backend is fine; the MODTRAN backend collapses the split. Mixed-backend test suites can therefore mask real two-leg bugs.
 **Suggested fix**: stand-alone Category C task (file post-CU-009 landing) — add a second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)` to produce `tau_sun` independently from `tau_up`. Cache key must include θ_s. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; this is a no-op for them). Block: requires CU-009 to land first so a YAML can actually exercise non-zero θ_s through the MODTRAN backend. Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-009 lands).
 
-### CU-023 — Phase-10 arc trace `name` duplicated across line + label sub-traces
-
-**Discovered**: Geometry GUI Phase 10 (2026-04-26)
-**Status**: Open — ready to close pending standing-guard test. Re-audit performed 2026-07-06: the gating event has landed — Phase 11 merged as commit `6f67f40` ("feat(geometry_gui): Phase 0–11 — interactive 3D geometry visualizer"), and the mitigation is verified present in that commit (each arc module emits a distinct `label_name` for the text sub-trace vs the canonical `arc_name` for the lines sub-trace, e.g. `off_nadir_arc.py:49–50`). Remaining close-out item: the standing-guard test from Suggested fix (c) does not exist yet (no `arc.name != label.name` assertion anywhere in `dev_tools/geometry_gui/tests/`). Author the guard test, then move this entry to Resolved citing `6f67f40` plus the guard-test commit SHA. Re-audit date: 2026-08-15 (calendar backstop; earlier when the guard test lands).
-
-**File**: `dev_tools/geometry_gui/app/scene_builder/{off_nadir_arc,azimuth_arc,elevation_arc,phase_angle_arc,solar_zenith_arc,sun_zenith_arc,sun_azimuth_arc}.py`
-**Symptom**: Pre-Phase-11, every arc module emitted *two* plotly traces with identical `name=` (e.g. `off-nadir = 20.0°` for both the lines-mode arc trace and the text-mode label trace). Plotly's legend collapses duplicates silently, but hover tooltips and any future legend-driven test would surface both copies of the same string.
-**Why it still matters**: trace `name` is the contract surface for hover text, legend entries, and any test that introspects scene contents by name. Two unrelated traces sharing one name is a lurking ambiguity — a future filter that picks a trace by name returns whichever one happens to be first in the list. Same anti-pattern existed across all seven arc modules so the audit hit is structural, not local.
-**Suggested fix**: (a) Phase-11 mitigation already in place — each label sub-trace now uses a distinct `label_name` (`"<key> label (<value> deg)"`) while the lines-mode trace keeps the canonical `arc_name` (`"<key> = <value>°"`). (b) Close-out: re-audit on Phase-11 PR merge and move to Resolved with the merge SHA per R22. (c) Standing guard: a per-arc-module test asserting `arc.name != label.name` would prevent regression — author when filing the close-out.
-
 ### CU-024 — Sun-zenith readout: `θ_s` (target) and `θ_sun,B` (background) collapse to identical values in flat-ground display
 
 **Discovered**: Geometry GUI Phase 10 (2026-04-26)
@@ -155,16 +145,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: the Rule-4 consistency invariant is the guard against a spatial degradation landing in one path but not the other; a warn-only 5e-2 gate is too loose to catch small real divergences, and no strict mode exists for configurations that should agree tightly.
 **Suggested fix**: stand-alone decision task after CU-003 — decide whether to (a) tighten tolerance per-configuration, (b) add a strict mode that raises, or (c) accept warn-at-5e-2 permanently. Effort S; category C.
 
-### CU-049 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working
-
-**Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
-**Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
-
-**File**: `src/radiant/core/radiometry.py` / `src/radiant/io/results.py`
-**Symptom**: the `at_aperture` frame's `in_band_value` field is `None`; `ChainResult.signal_at("at_aperture")` nevertheless returns a value by applying transfer factors from a downstream frame.
-**Why it still matters**: two access paths to the same physical quantity disagree about whether it exists — a user inspecting frames directly sees `None` where the accessor reports a number; inconsistent inspectability violates the spirit of Rule 16.
-**Suggested fix**: stand-alone task — either populate `in_band_value` for all frames at spectral-integration time or document/enforce that `in_band_value` is only defined post-integration and make `signal_at`'s derivation explicit in its docstring. Effort S; category B.
-
 ### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
@@ -204,6 +184,26 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ---
 
 ## Resolved
+
+### CU-049 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working — RESOLVED 2026-07-06 (commit `a9b3bca`)
+
+**Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+
+**File**: `src/radiant/core/radiometry.py` / `src/radiant/io/results.py`
+**Symptom**: the `at_aperture` frame's `in_band_value` field is `None`; `ChainResult.signal_at("at_aperture")` nevertheless returns a value by applying transfer factors from a downstream frame.
+**Why it still matters**: two access paths to the same physical quantity disagree about whether it exists — a user inspecting frames directly sees `None` where the accessor reports a number; inconsistent inspectability violates the spirit of Rule 16.
+**Suggested fix**: stand-alone task — either populate `in_band_value` for all frames at spectral-integration time or document/enforce that `in_band_value` is only defined post-integration and make `signal_at`'s derivation explicit in its docstring. Effort S; category B.
+**Resolution**: taken as the CU's document/enforce option — the populate option is architecturally forbidden (RadiometricFrame enforces spectral XOR scalar per Rule 8, so pre-integration frames are spectral-only by design). Contract made explicit in RadiometricFrame docs, signal_at() docstring, and a Scripting API §3.2 callout; pinned by integration test `test_pre_integration_frame_scalar_is_none_but_signal_at_derives`.
+
+### CU-023 — Phase-10 arc trace `name` duplicated across line + label sub-traces — RESOLVED 2026-07-06 (obsolete; commit `3acac3a`)
+
+**Discovered**: Geometry GUI Phase 10 (2026-04-26)
+
+**File**: `dev_tools/geometry_gui/app/scene_builder/{off_nadir_arc,azimuth_arc,elevation_arc,phase_angle_arc,solar_zenith_arc,sun_zenith_arc,sun_azimuth_arc}.py`
+**Symptom**: Pre-Phase-11, every arc module emitted *two* plotly traces with identical `name=` (e.g. `off-nadir = 20.0°` for both the lines-mode arc trace and the text-mode label trace). Plotly's legend collapses duplicates silently, but hover tooltips and any future legend-driven test would surface both copies of the same string.
+**Why it still matters**: trace `name` is the contract surface for hover text, legend entries, and any test that introspects scene contents by name. Two unrelated traces sharing one name is a lurking ambiguity — a future filter that picks a trace by name returns whichever one happens to be first in the list. Same anti-pattern existed across all seven arc modules so the audit hit is structural, not local.
+**Suggested fix**: (a) Phase-11 mitigation already in place — each label sub-trace now uses a distinct `label_name` (`"<key> label (<value> deg)"`) while the lines-mode trace keeps the canonical `arc_name` (`"<key> = <value>°"`). (b) Close-out: re-audit on Phase-11 PR merge and move to Resolved with the merge SHA per R22. (c) Standing guard: a per-arc-module test asserting `arc.name != label.name` would prevent regression — author when filing the close-out.
+**Resolution**: closed as obsolete. The subject code (GUI v1, `dev_tools/geometry_gui/app/scene_builder/*`) was deleted entirely in ORG-C (`3acac3a`, owner Decision #1 — v1 closed, git history is the archive), so the planned standing-guard test has no code to guard. The v2 replacement cannot reproduce the pattern: PyVista's actor registry is a dict keyed by name (duplicates replace, never coexist), arc actors get distinct names structurally (`scene/arcs/_arc.py:59,74` — tube `name`, tip `{name}_tip`), labels are a separate subsystem, and existing presence tests (e.g. `test_leader_lines_round2`) catch any clobbering.
 
 ### CU-046 — `Sensor.reset()` reaches into `ParameterSet` privates — RESOLVED 2026-07-06 (commit `6edf17c`)
 

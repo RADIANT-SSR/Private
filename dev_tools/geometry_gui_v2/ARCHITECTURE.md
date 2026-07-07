@@ -110,7 +110,7 @@ and full `QtInteractor`-bearing tests gate behind
 `RADIANT_GUI_FULL_WINDOW_TESTS=1` because offscreen-GL contexts segfault
 on some platforms during widget construction.
 
-## Hard constraints (C1–C8 from PLAN_v2.md §3)
+## Hard constraints (C1–C8 from docs/plans/Geometry_GUI_v2_Plan.md §3)
 
 - **C1**: this rewrite must not edit `src/`. RADIANT physics is the load-
   bearing layer; the GUI consumes it.
@@ -131,7 +131,7 @@ on some platforms during widget construction.
 
 ## Future production-GUI lift
 
-Decision D5 (PLAN_v2.md §16) commits to lifting `scene/` cleanly into
+Decision D5 (docs/plans/Geometry_GUI_v2_Plan.md §16) commits to lifting `scene/` cleanly into
 `radiant.gui.scene` once the production GUI lands. The package layout
 is structured for that lift:
 

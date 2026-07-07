@@ -5,7 +5,7 @@ prototype that will lift into the production GUI's geometry tab once
 CI / packaging settle.
 
 This is the geometry-only module of a larger RADIANT GUI (decision D2 in
-[PLAN_v2.md](../geometry_gui/PLAN_v2.md) §16); the "Vision Studio" naming
+[Geometry_GUI_v2_Plan.md](../../docs/plans/Geometry_GUI_v2_Plan.md) §16); the "Vision Studio" naming
 that appeared in early drafts is dropped.
 
 ## Quick start
@@ -52,7 +52,7 @@ The viewport renders, in a single canonical frame:
 - The **target body** with PBR shading
 
 Every primitive is labelled with a force-directed leader line so labels
-never overlap. See [glossary.yaml](glossary.yaml) for the parametric
+never overlap. See [glossary.yaml](scene/labels/glossary.yaml) for the parametric
 definition of every primitive (the single source of truth that
 tooltips, the help overlay, and this README all read from).
 

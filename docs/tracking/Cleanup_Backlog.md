@@ -175,16 +175,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: two access paths to the same physical quantity disagree about whether it exists — a user inspecting frames directly sees `None` where the accessor reports a number; inconsistent inspectability violates the spirit of Rule 16.
 **Suggested fix**: stand-alone task — either populate `in_band_value` for all frames at spectral-integration time or document/enforce that `in_band_value` is only defined post-integration and make `signal_at`'s derivation explicit in its docstring. Effort S; category B.
 
-### CU-050 — Config loader silently strips `_vars` / `_extends` / `_imports` keys
-
-**Discovered**: doc-reconciliation pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
-**Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
-
-**File**: `src/radiant/io/config.py:36`
-**Symptom**: `load_config` strips the `_vars`, `_extends`, and `_imports` keys without processing them and without warning. A user config relying on the inheritance/substitution features documented in `RADIANT_Config_Format.md` §1.3–1.5 (now banner-marked unimplemented) loads "successfully" with those directives silently ignored. The XLSX view (§2) is likewise unimplemented.
-**Why it still matters**: silent key-stripping is a Rule 17 antipattern — a config that says `_extends: base.yaml` produces physics results from an entirely different parameter set than the user intended, with no diagnostic.
-**Suggested fix**: stand-alone task — either implement the three directives or make `load_config` raise `ConfigError` ("_extends is not implemented; inline the base config") when they are present. Interim minimum: warn. Effort S (raise) / M (implement); category A.
-
 ### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
@@ -224,6 +214,16 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ---
 
 ## Resolved
+
+### CU-050 — Config loader silently strips `_vars` / `_extends` / `_imports` keys — RESOLVED 2026-07-06 (commit `8b66cd8`)
+
+**Discovered**: doc-reconciliation pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+
+**File**: `src/radiant/io/config.py:36`
+**Symptom**: `load_config` strips the `_vars`, `_extends`, and `_imports` keys without processing them and without warning. A user config relying on the inheritance/substitution features documented in `RADIANT_Config_Format.md` §1.3–1.5 (now banner-marked unimplemented) loads "successfully" with those directives silently ignored. The XLSX view (§2) is likewise unimplemented.
+**Why it still matters**: silent key-stripping is a Rule 17 antipattern — a config that says `_extends: base.yaml` produces physics results from an entirely different parameter set than the user intended, with no diagnostic.
+**Suggested fix**: stand-alone task — either implement the three directives or make `load_config` raise `ConfigError` ("_extends is not implemented; inline the base config") when they are present. Interim minimum: warn. Effort S (raise) / M (implement); category A.
+**Resolution**: `load_config` now raises an actionable `ConfigError` naming every reserved directive present (all offenders in one error) with the inline-the-values remedy. Config Format §1.3 banner updated in lock-step. 3 parametrized tests + multi-offender test added; grep verified no in-repo config uses the directives.
 
 ### CU-055 — GUI v2 test suite not wired into CI (Phase-7 deferral; formerly README "CU-046") — RESOLVED 2026-07-06 (commit `6874139`)
 

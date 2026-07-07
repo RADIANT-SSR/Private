@@ -212,15 +212,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: long-lived desktop sessions with continuous parameter dragging will surface any actor leak; no gate exists.
 **Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
 
-### CU-055 — GUI v2 test suite not wired into CI (Phase-7 deferral; formerly README "CU-046")
-
-**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
-**Status**: Open.
-**File**: `.github/workflows/ci.yml`
-**Symptom**: `.github/workflows/ci.yml` runs nothing under `dev_tools/`; the 386-test GUI v2 suite (including the golden_phase1 screenshot baseline) relies on manual invocation only.
-**Why it still matters**: the repo's only untested-in-CI code surface; a `src/` refactor that breaks the GUI's `radiant` imports would land green.
-**Suggested fix**: inline-fix-now — add a `gui-tests` CI job (Linux: Qt offscreen deps + xvfb, `pip install -e . -e dev_tools/geometry_gui_v2`, `pytest dev_tools/geometry_gui_v2 -q`). Note the repo currently has no git remote, so all CI jobs are dormant until one is configured. Effort S; category A.
-
 ### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
 
 **Discovered**: Geometry GUI v2 round-2 remediation (sun glyph rework); re-filed 2026-07-06 during loose-end cleanup (the docstring's CU number was never allocated in this registry and collided with the README's CI-deferral phantom).
@@ -233,6 +224,15 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ---
 
 ## Resolved
+
+### CU-055 — GUI v2 test suite not wired into CI (Phase-7 deferral; formerly README "CU-046") — RESOLVED 2026-07-06 (commit `6874139`)
+
+**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
+**File**: `.github/workflows/ci.yml`
+**Symptom**: `.github/workflows/ci.yml` runs nothing under `dev_tools/`; the 386-test GUI v2 suite (including the golden_phase1 screenshot baseline) relies on manual invocation only.
+**Why it still matters**: the repo's only untested-in-CI code surface; a `src/` refactor that breaks the GUI's `radiant` imports would land green.
+**Suggested fix**: inline-fix-now — add a `gui-tests` CI job (Linux: Qt offscreen deps + xvfb, `pip install -e . -e dev_tools/geometry_gui_v2`, `pytest dev_tools/geometry_gui_v2 -q`). Note the repo currently has no git remote, so all CI jobs are dormant until one is configured. Effort S; category A.
+**Resolution**: `6874139` adds a `gui-tests` job to `.github/workflows/ci.yml` (ubuntu: Qt/VTK system libs, `pip install -e dev_tools/geometry_gui_v2`, `xvfb-run pytest dev_tools/geometry_gui_v2 -q`). Caveat recorded: the repo has no git remote, so the job is dormant until one is configured; on the first real run the golden_phase1 screenshot baselines may need recalibration for llvmpipe rendering per RADIANT_Testing_Validation §5.3 (comment in the job says exactly that).
 
 ### CU-051 — `scripts/update_golden.py` uses stale noise-term keys — RESOLVED 2026-07-06 (commit `0729faf`)
 

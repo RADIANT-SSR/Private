@@ -14,6 +14,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 |--------|---------|
 | OPEN | Not yet addressed |
 | WORKAROUND | Scriptable workaround exists, not integrated into RADIANT |
+| DEFERRED | Explicitly deferred with a gating condition + re-audit date (Rule 22/27 protocol) — not silently open |
 | FIXED | Implemented and verified by rerunning originating scenario |
 
 ---
@@ -311,7 +312,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
-| **Status** | OPEN |
+| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Deferral record** | Gating condition: a scenario or user request requiring colored-jitter blur/pointing partition (RMS assumption is standard for preliminary design; no scenario blocked). Re-audit: 2026-10-01. |
 | **Description** | The current jitter model assumes "well-sampled" jitter (many cycles during integration). Real jitter has a power spectral density (PSD). Low-frequency jitter (< 1/t_int) produces pointing error (frame shift), not blur. RADIANT should accept a jitter PSD and compute the in-band blur vs. out-of-band pointing error partition. |
 | **Workaround** | None — requires PSD-aware jitter model. |
 | **Impact** | Accurate jitter tolerance derivation for systems with colored jitter spectra. |
@@ -593,7 +595,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, Open Q §8.6 (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | OPEN |
+| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Deferral record** | Gating condition: MODTRAN lookup-table wiring lands (same blocker family as Gap 39 — no MODTRAN access since 2026-04-21, reconfirmed by owner 2026-07-07). Re-audit: 2026-10-01 or on MODTRAN access, whichever comes first. |
 | **Description** | The single-scatter sky irradiance formula `E_sky_scattered = E_TOA·cos(θ_s)·ω₀·(1−τ_down,vert)` is in place, but the single-scatter albedo ω₀ is a fixed scalar — it does not vary by aerosol regime or wavelength with MODTRAN-parity fidelity. Affects MWIR mixed emit+reflect scenes (use-case Cells 25, 40, 55) where thermal downwelling competes with scattered solar. No effect on LWIR (Cells 28, 58) or VIS/NIR-dominated cells. |
 | **Workaround** | Accept ~10–30% error on MWIR-band radiance in mixed emit+reflect scenes; expressibility is unaffected. |
 | **Impact** | MWIR mixed-scene radiance accuracy (~10–30%). Not a release blocker. |
@@ -609,7 +612,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, Table C (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | OPEN |
+| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Deferral record** | Gating condition: licensed MODTRAN install or donated tape7 fixtures (no access since 2026-04-21, reconfirmed by owner 2026-07-07). Re-audit: 2026-10-01 or on MODTRAN access, whichever comes first. ~2 days of work once unblocked. |
 | **Description** | A3 partial-column transmission is wired end-to-end in `SimpleAtmosphere` and the Table C smoke tests pass monotonicity in h_tgt (`tests/integration/test_table_c_cells.py`), but MODTRAN-equivalent validation of τ(h_tgt, θ_o) requires a licensed MODTRAN install to generate reference tape7 fixtures. **BLOCKED: no MODTRAN access** (since 2026-04-21). The backend extension itself is ~2 days (two-run differential: full column + h_tgt→sensor legs, extending `ModtranAtmosphere.evaluate`). |
 | **Workaround** | Rely on smoke-tested, monotone `SimpleAtmosphere` values; not pinned against an external reference. Alternative reference (`lowtran` port or Beer-Lambert thin-atmosphere hand check) adds a dependency — not recommended for closure. |
 | **Impact** | Table C (use-case Cells 31–45) accuracy is unpinned against an external reference. |
@@ -625,7 +629,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, D-lab cells (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | OPEN |
+| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Deferral record** | Gating condition: a user or GUI request for an explicit dark-cal flag (the registry entry itself says "when a user actually asks for it"; ergonomics only, not correctness). Re-audit: next GUI scenario touching D-lab cells. |
 | **Description** | The use-case matrix's `no_atmosphere (lab_test)` dark-cal sub-mode (illumination=None) is expressible by simply not configuring a source illumination, but there is no positive assertion in the descriptor that this is dark-cal. The scenario YAML has no field explicitly flagging dark-cal vs lit-lab (~5 D-lab cells where illumination=None is intended). |
 | **Workaround** | Omit source illumination; cells pass. Readability/ergonomics gap only, not correctness. |
 | **Impact** | Scenario-YAML readability for D-lab dark-cal configurations; GUI clarity. |
@@ -674,7 +679,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 18 | Platform jitter not wired | — | 5.4 | FIXED |
 | 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
 | 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | OPEN |
-| 21 | No jitter PSD / frequency dependence | Large | 5.4 | OPEN |
+| 21 | No jitter PSD / frequency dependence | Large | 5.4 | DEFERRED |
 | 22 | RER below GIQE-5 calibration range | Small | 5.4 | OPEN |
 | 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |
 | 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
@@ -691,9 +696,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |
 | 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |
 | 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | OPEN |
-| 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | OPEN |
-| 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | OPEN |
-| 40 | Lab dark-cal mode not first-class | Small | UC D-lab | OPEN |
+| 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | DEFERRED |
+| 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
+| 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | OPEN |
 
 ---

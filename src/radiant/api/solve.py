@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from scipy.optimize import brentq
+from scipy.optimize import brentq  # type: ignore[import-untyped]
 
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet

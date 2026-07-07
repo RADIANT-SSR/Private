@@ -1,6 +1,6 @@
 # RADIANT Documentation & Work-Tracking Operating Model
 
-**Status:** Active (2026-07-06) — normative; Rules 23–28 in CLAUDE.md bind to this document
+**Status:** Active (2026-07-06) — normative; Rules 23–29 in CLAUDE.md bind to this document
 **Purpose:** The single rulebook for where every document lives, how documents move through their lifecycle, and how work is tracked without an external ticket system. If a file placement question isn't answered here, the answer goes here.
 
 ---
@@ -22,7 +22,7 @@
 | `archive/` | Documents that once claimed to be current and no longer are. Flat, no subfolders. Every file carries a HISTORICAL banner with date + superseded-by | Frozen | — |
 | Top-level files | `index.md` (mkdocs home — the tool requires it at docs-root), `OPERATING_MODEL.md` (this file — it governs the taxonomy, so it sits above the folders it defines) | — | **Nothing else at top level. Ever.** |
 
-**Repo root is a closed list too:** `README.md`, `DEVELOPMENT.md`, `CLAUDE.md`, `pyproject.toml`, `mkdocs.yml`, `.gitignore`, `.pre-commit-config.yaml` (plus `LICENSE` if one is added). Root-level `README`/`DEVELOPMENT` follow ecosystem convention — they are the two files a newcomer looks for before knowing the taxonomy exists. Any other root file needs a row added here first.
+**Repo root is a closed list too:** `README.md`, `DEVELOPMENT.md`, `CHANGELOG.md`, `CLAUDE.md`, `pyproject.toml`, `mkdocs.yml`, `.gitignore`, `.pre-commit-config.yaml` (plus `LICENSE` if one is added). Root-level `README`/`DEVELOPMENT`/`CHANGELOG` follow ecosystem convention — they are the files a newcomer looks for before knowing the taxonomy exists. `CHANGELOG.md` (added 2026-07-07) is the Rule-29 record of behavior-affecting changes: living, append-at-top, Keep-a-Changelog format; it complements the tracking registries, which remain the work board. Any other root file needs a row added here first.
 
 **Enforcement:** `scripts/check_org_rules.py` mechanically checks the closed lists, the two-file `tracking/` rule, the no-PM-docs-in-packages rule, and §5.3 prohibited names. It runs in the CI `static` job; a violation fails the build. (Per CLAUDE.md's final forbidden action, a normative claim with no enforcing check is aspirational drift — this file is normative *because* that script runs.)
 
@@ -74,7 +74,7 @@ The repo is the tracker. Three views replace a board:
 
 ## 4. PR Hygiene Checklist
 
-Every PR description ends with this five-line checklist (copy-paste; it belongs in `.github/PULL_REQUEST_TEMPLATE.md`):
+Every PR description ends with this six-line checklist (copy-paste; it belongs in `.github/PULL_REQUEST_TEMPLATE.md`):
 
 ```
 - [ ] Placement & naming: every new/moved file is in its Rule-23 home and follows §5 naming (no PM docs in packages, nothing new at docs/ top level, no status/version words in filenames)
@@ -82,6 +82,7 @@ Every PR description ends with this five-line checklist (copy-paste; it belongs 
 - [ ] Registry: new findings are CUs in tracking/Cleanup_Backlog.md — not a new tracking file
 - [ ] Artifacts: committed binaries are (a) test-asserted goldens or (b) doc-referenced figures, with generator named; superseded sets deleted
 - [ ] Docs lock-step: touched public surface ⇒ matching RADIANT_*.md updated in this PR (Rule 20)
+- [ ] Changelog: results-affecting or public-surface change ⇒ entry under CHANGELOG.md [Unreleased] in this PR (Rule 29)
 ```
 
 ## 5. Naming Conventions (everything except source code)
@@ -108,6 +109,7 @@ Source code naming is governed by CLAUDE.md / PEP 8 and is out of scope here. Ev
 | Files inside an audit folder | Role names: `Audit_Plan.md`, `Findings*.md`, `Recommendation.md`; corrections dated `<YYYY-MM-DD>_<slug>.md` | `reports/architecture_audit_2026-04/Recommendation.md` |
 | CU task brief | `CU-NNN_<Slug>_Task.md` | `reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md` |
 | Tracking registry | Frozen names: `Cleanup_Backlog.md`, `gaps.md` — no others, no renames | `tracking/Cleanup_Backlog.md` |
+| Changelog | Frozen name `CHANGELOG.md`, repo root only, Keep-a-Changelog headings (Rule 29) | `CHANGELOG.md` |
 | Guide / theory doc | `lowercase_snake.md` | `guides/regime_selection.md` |
 | Archived file | Original name unchanged + HISTORICAL banner (date, superseded-by) | `archive/Option_C_Implementation_Plan.md` |
 | Scenario persona dir | `NN_<first>_<role>/` (2-digit) | `scenarios/05_tom_optical_designer/` |

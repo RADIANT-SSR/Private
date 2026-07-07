@@ -37,18 +37,19 @@ These checks come from CLAUDE.md's non-negotiable rules. Reviewers reject PRs th
 - [ ] No invented abstractions outside the architecture documents
 - [ ] Validation report (per task category A/B/C/D) attached or linked below if required
 
-## Organization hygiene (CLAUDE.md R23–R28, `docs/OPERATING_MODEL.md`)
+## Organization hygiene (CLAUDE.md R23–R29, `docs/OPERATING_MODEL.md`)
 
 - [ ] Placement & naming: every new/moved file is in its Rule-23 home and follows OPERATING_MODEL §5 naming (no PM docs in packages, nothing new at docs/ top level, no status/version words in filenames)
 - [ ] Lifecycle: no doc in `plans/` or `architecture/` has an expired claim (completed plan still live, ✅ banner in live tree); completed plans moved to `archive/` in this PR
 - [ ] Registry: new findings are CUs in `docs/tracking/Cleanup_Backlog.md` — not a new tracking file
 - [ ] Artifacts: committed binaries are (a) test-asserted goldens or (b) doc-referenced figures, with generator named; superseded sets deleted in this PR
 - [ ] Audits: any audit findings this PR actions carry a disposition (CU'd / Planned / Declined)
+- [ ] Changelog (R29): if this PR changes computed results or a public surface (API, parameter, metric, error class, config field), an entry was added under `CHANGELOG.md [Unreleased]`; **Results-affecting:** prefix used where golden values / defaults / physics changed
 
 ## Self-review
 
 - [ ] Physics: units traced, signs verified, no eyebrow-raising intermediates
 - [ ] Code: docstrings match behavior; tests would fail if the implementation were gutted
-- [ ] Architecture: respects all 28 non-negotiable rules in CLAUDE.md
+- [ ] Architecture: respects all 29 non-negotiable rules in CLAUDE.md
 
 <!-- Validation report for Category B/C/D tasks goes here, or link to the task report file -->

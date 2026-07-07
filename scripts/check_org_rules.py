@@ -39,6 +39,7 @@ DOCS_TOP_ALLOWED = {
 ROOT_ALLOWED = {
     "README.md",
     "DEVELOPMENT.md",
+    "CHANGELOG.md",
     "CLAUDE.md",
     "LICENSE",
     "pyproject.toml",

@@ -208,6 +208,14 @@ When an implementation, plan, or baseline is superseded, the old version is dele
 ### 28. Audit Protocol — Chartered In, Dispositioned Out
 Chartered audits are owner-triggered with a written scope before work starts, live in exactly one `docs/reports/<topic>_<YYYY-MM>/` folder, and are immutable once complete. An audit is done only when every finding carries one of three dispositions: **CU'd** (Rule 21), **Planned** (`docs/plans/`, under Rule 24), or **Declined** (with one line of rationale). Lightweight hygiene checks against Rules 23–27 run at every phase close via the PR checklist. Full protocol: `docs/OPERATING_MODEL.md` §2.
 
+### 29. Behavior-Affecting Changes Get a CHANGELOG Entry
+The repo root `CHANGELOG.md` (Keep a Changelog format, `## [Unreleased]` section) records every user-observable change. A PR MUST add an entry under `[Unreleased]` in the same PR when it:
+- (a) changes computed results — physics model, parameter default, or golden baseline (prefix the entry **Results-affecting:** and state direction and rough magnitude), or
+- (b) adds, renames, deprecates, or removes a public surface — API method, parameter, metric, error class, or config field, or
+- (c) adds or removes a capability tracked in `docs/tracking/gaps.md`.
+
+Refactors, doc-only, test-only, and internal changes with no observable effect get no entry — the changelog is a user-facing record, not a commit log. The changelog entry complements, never replaces, the registry updates (Rules 21–22) and lock-step doc updates (Rule 20). Enforced via the PR-template checklist, the same mechanism as Rule 20. The changelog begins 2026-07-07; earlier history is git log plus the tracking registries, not retroactively reconstructed.
+
 ---
 
 ## Agent Task Discipline
@@ -376,8 +384,9 @@ Run this mentally before declaring any task complete.
 - Any hidden state, globals, or side effects I missed?
 
 ### Architecture
-- Does this respect all 28 rules above?
+- Does this respect all 29 rules above?
 - If I touched a documented surface (public API, schema, error class, stage protocol, ChainState field, architectural rule), did I update the matching `RADIANT_*.md` doc in this PR? (R20)
+- If this change affects computed results or a public surface, did I add a `CHANGELOG.md` entry under `[Unreleased]`? (R29)
 - Did I uncover any latent issue (placeholder, suppressed warning, dead helper, schema drift) that I left undocumented? If yes, file a CU before merge. (R21)
 - If I closed a CU, does the Resolved entry have a linked commit SHA and resolution date? (R22)
 - Did I invent any abstraction not in the architecture documents?
@@ -572,6 +581,7 @@ package returns when that spec is implemented.)
 | Mark a CU resolved without a linked commit SHA and resolution date | Violates Rule 22 — phantom closure |
 | Carry a stage-deferred CU across a gating-stage landing without re-audit | Violates Rule 22 — silent perpetual deferral |
 | Add a normative claim to a `RADIANT_*.md` doc that no test, contract, or type check enforces | Produces aspirational drift (the failure mode that created the 16 Phase-4 audit findings) |
+| Land a results-affecting or public-surface change without a `CHANGELOG.md` entry | Violates Rule 29 — untracked behavior change |
 
 ---
 

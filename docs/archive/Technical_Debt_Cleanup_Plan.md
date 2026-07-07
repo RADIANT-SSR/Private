@@ -1,3 +1,5 @@
+> **HISTORICAL — archived 2026-07-06 (Registry fold, Phase E of Repo_Reorganization_Plan).** All phases executed 2026-04-24 (commits `03644a2` … `ec4b56a`); the baseline inventory closed as CU-001, CU-002, and CU-010 — all in the Resolved section of `../tracking/Cleanup_Backlog.md`, the sole live registry. No open items remain in this plan.
+
 # Technical Debt Cleanup Plan
 
 **Status:** Active — started 2026-04-24

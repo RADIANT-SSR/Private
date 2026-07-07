@@ -1,6 +1,6 @@
 # RADIANT Documentation & Work-Tracking Operating Model
 
-**Status:** Draft — pending owner approval (becomes normative when Rules 23–28 land in CLAUDE.md)
+**Status:** Active (2026-07-06) — normative; Rules 23–28 in CLAUDE.md bind to this document
 **Purpose:** The single rulebook for where every document lives, how documents move through their lifecycle, and how work is tracked without an external ticket system. If a file placement question isn't answered here, the answer goes here.
 
 ---

@@ -174,7 +174,7 @@ Any change that modifies a public API name, parameter schema, error class, stage
 The drift profile this prevents: a code-side change that silently obsoletes a doc claim, producing aspirational documentation that misleads future contributors and agents.
 
 ### 21. Every Finding Becomes a Tracked CU
-When work uncovers a latent issue orthogonal to the current task — placeholder implementation, suppressed warning, dead helper, schema mismatch, doc claim that doesn't match code, golden-result tolerance bumped, hardcoded value that should be a parameter — it MUST be appended to `docs/Cleanup_Backlog.md` as a CU entry **before the current PR merges**. No silently-deferred debt; no "I'll log it later".
+When work uncovers a latent issue orthogonal to the current task — placeholder implementation, suppressed warning, dead helper, schema mismatch, doc claim that doesn't match code, golden-result tolerance bumped, hardcoded value that should be a parameter — it MUST be appended to `docs/tracking/Cleanup_Backlog.md` as a CU entry **before the current PR merges**. No silently-deferred debt; no "I'll log it later".
 
 Required fields per CU entry:
 - **CU number** (next available; never reuse)
@@ -186,9 +186,27 @@ Required fields per CU entry:
 - **Suggested fix**: one of (a) inline-fix-now, (b) stand-alone task, (c) delete-as-unused; with effort estimate and category (A/B/C/D)
 
 ### 22. CU Closure Is a Commit-Linked Event
-A CU is closed only by moving its entry into the **Resolved** section of `docs/Cleanup_Backlog.md` with: resolution date, linked commit SHA, and a one-line resolution summary. Phantom closure (deleting an entry, marking ✓ without a commit, or moving to Resolved without the SHA) is forbidden.
+A CU is closed only by moving its entry into the **Resolved** section of `docs/tracking/Cleanup_Backlog.md` with: resolution date, linked commit SHA, and a one-line resolution summary. Phantom closure (deleting an entry, marking ✓ without a commit, or moving to Resolved without the SHA) is forbidden.
 
 Stage-deferral rule: if a CU is intentionally deferred behind unrelated stage work, the entry MUST record the gating stage(s) and a re-audit date. When a gating stage lands, the next PR touching that area re-audits the CU and either closes it or refreshes the deferral record (new gating stage + new re-audit date). A CU may not be silently carried across multiple stage landings without re-audit.
+
+### 23. Every Artifact Has One Defined Home — and a Conforming Name
+`docs/OPERATING_MODEL.md` §1 defines the closed folder taxonomy (architecture / adr / guides / theory / validation / tracking / plans / reports / archive) and §5 defines the binding naming conventions for every non-source file. Placement and naming are review-blocking: no project-management markdown inside a Python package, nothing new at `docs/` top level, no status or version words in filenames. When a placement question isn't answered by the Operating Model, the answer is added to it in the same PR.
+
+### 24. Plans and Reports Have a Lifecycle
+Every plan, audit, and report opens with a `Status:` header (Draft / Active / Complete / Superseded). The PR that completes a plan moves it to `docs/archive/` (HISTORICAL banner: date + completed-by) in that same PR — parallel to Rule 22's CU-closure protocol. Reports in `docs/reports/` are point-in-time records: immutable once complete, never moved, never edited; corrections are new documents. A "✅ COMPLETE" banner on a file still in the live tree is a violation.
+
+### 25. One Registry Per Concern
+Technical debt lives only in `docs/tracking/Cleanup_Backlog.md`; capability gaps only in `docs/tracking/gaps.md`. Creating a new tracking document requires folding and archiving the one it replaces in the same PR. Plans may reference registry entries but never re-enumerate them.
+
+### 26. Generated Artifacts Are Regenerable, Committed Only With Cause
+A binary or derived file may be committed only if it is (a) a golden baseline a test asserts against, or (b) a figure a committed document references. Every committed artifact names its generator (script + input) in a manifest or the referencing doc. When a baseline set is superseded, the old set is deleted in the same PR — git history is the archive. Everything else (results workbooks, ad-hoc plots) is regenerate-on-demand and gitignored.
+
+### 27. One Canonical Version
+When an implementation, plan, or baseline is superseded, the old version is deleted from the working tree, not retained alongside its replacement. A closed version may persist only with an explicit deferral record (gating condition + re-audit date), mirroring Rule 22's stage-deferral protocol.
+
+### 28. Audit Protocol — Chartered In, Dispositioned Out
+Chartered audits are owner-triggered with a written scope before work starts, live in exactly one `docs/reports/<topic>_<YYYY-MM>/` folder, and are immutable once complete. An audit is done only when every finding carries one of three dispositions: **CU'd** (Rule 21), **Planned** (`docs/plans/`, under Rule 24), or **Declined** (with one line of rationale). Lightweight hygiene checks against Rules 23–27 run at every phase close via the PR checklist. Full protocol: `docs/OPERATING_MODEL.md` §2.
 
 ---
 
@@ -358,7 +376,7 @@ Run this mentally before declaring any task complete.
 - Any hidden state, globals, or side effects I missed?
 
 ### Architecture
-- Does this respect all 22 rules above?
+- Does this respect all 28 rules above?
 - If I touched a documented surface (public API, schema, error class, stage protocol, ChainState field, architectural rule), did I update the matching `RADIANT_*.md` doc in this PR? (R20)
 - Did I uncover any latent issue (placeholder, suppressed warning, dead helper, schema drift) that I left undocumented? If yes, file a CU before merge. (R21)
 - If I closed a CU, does the Resolved entry have a linked commit SHA and resolution date? (R22)
@@ -467,11 +485,15 @@ src/radiant/
 ├── detector/       # Stage 6: QE, noise terms, detector MTF
 ├── readout/        # Stage 7: TDI, ADC, gain, read noise
 ├── performance/    # Stage 8: SNR, NEDT, NIIRS, system MTF
+├── data/           # SpectralLibrary — loads reference CSVs from repo-root data/ (emissivity, QE, solar)
 ├── io/             # I/O layer — YAML, MODTRAN, results
 ├── api/            # Public API — Sensor, SensorConfig, BatchRunner
-├── cli/            # CLI — radiant run/validate/explain
-└── plugins/        # Extension points — SourcePlugin, AtmospherePlugin, MetricPlugin
+└── cli/            # CLI — radiant run/validate/explain
 ```
+
+(`plugins/` was removed 2026-07-06 — it was an empty two-file stub. The extension-point
+design lives in `docs/architecture/RADIANT_Plugins.md` under a DEFERRED banner; the
+package returns when that spec is implemented.)
 
 ---
 
@@ -481,10 +503,10 @@ src/radiant/
 |--------|----------------|
 | `core/` | stdlib, numpy, scipy ONLY |
 | Physics stages (source through performance) | `radiant.core` ONLY |
+| `data/` | `radiant.core` ONLY (+ stdlib, numpy, yaml) |
 | `io/` | `radiant.core` + any physics stage (read-only for schema) |
 | `api/` | `radiant.core` + all physics stages + `radiant.io` |
 | `cli/` | `radiant.api` + `radiant.io` |
-| `plugins/` | `radiant.core` ONLY (ABCs) |
 
 ---
 
@@ -495,9 +517,11 @@ src/radiant/
 | Architecture overview | `docs/architecture/RADIANT_Master_Architecture.md` |
 | Where files go | `docs/architecture/RADIANT_File_Tree.md` |
 | All parameters | `docs/architecture/RADIANT_Parameter_System.md` |
-| Subsystem design detail | `docs/RADIANT_<Subsystem>.md` |
+| Subsystem design detail | `docs/architecture/RADIANT_<Subsystem>.md` |
+| Where every document type lives | `docs/OPERATING_MODEL.md` |
+| Work tracking (CUs, gaps) | `docs/tracking/Cleanup_Backlog.md`, `docs/tracking/gaps.md` |
 | The code | `src/radiant/` |
-| The tests | `src/radiant/<stage>/tests/` and `tests/integration/` |
+| The tests | `src/radiant/<stage>/tests/` (unit), `tests/integration/` (full-chain + golden), `tests/` root (cross-cutting: exceptions, provenance, public API surface) |
 
 ---
 

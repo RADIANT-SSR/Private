@@ -115,7 +115,7 @@ This document is the **target spec**; it does not yet describe what the codebase
 4. **Is there a validator for incompatible combinations?** (e.g., S10 + extended → raise)
 5. **Are there truth-anchor tests for this spec form?**
 
-Audit deliverable: a companion `docs/Target_Definition_gaps.md` structured like `Use_Case_gaps.md` — one row per ✓ cell in §2 listing current state, gaps, and effort to close.
+Audit deliverable: a companion `docs/archive/Target_Definition_gaps.md` structured like `Use_Case_gaps.md` — one row per ✓ cell in §2 listing current state, gaps, and effort to close.
 
 **Resolutions (2026-04-21):**
 

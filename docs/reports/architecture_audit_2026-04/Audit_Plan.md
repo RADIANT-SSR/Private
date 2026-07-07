@@ -68,4 +68,4 @@ Score each criterion. Output three-option comparison.
 - Read-only on `src/` and `docs/RADIANT_*.md`
 - All findings cite `file:line`
 - Ambiguities → `open_questions.md`, continue
-- New debt → existing `docs/Cleanup_Backlog.md` format (logged in audit, not appended live)
+- New debt → existing `docs/tracking/Cleanup_Backlog.md` format (logged in audit, not appended live)

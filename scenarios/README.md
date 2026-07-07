@@ -34,7 +34,7 @@ a missing one is not); every numerical value in script output carries units;
 the script's output explains the radiometric regime in effect and any
 non-obvious physics; `outputs/MANIFEST.md` names the generator, input file,
 and commit for each committed artifact. Open items in `gaps.md` must also be
-mirrored to `docs/gaps.md` (the tracking registry) to be actionable.
+mirrored to `docs/tracking/gaps.md` (the tracking registry) to be actionable.
 
 **Output policy** (OPERATING_MODEL Rule 26): figures referenced by
 `walkthrough.md` are committed with a manifest line; `*_results.xlsx`

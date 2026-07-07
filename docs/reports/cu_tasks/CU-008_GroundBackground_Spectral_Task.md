@@ -1,7 +1,7 @@
 # CU-008 — Stage-2 inferrer: replace grey `GroundBackground` placeholder with spectral ε_g(λ)
 
 **Category:** C (physics implementation — touches the radiometric path through `_assemble_ground_background`'s Kirchhoff `ρ_g = 1 − ε_g`).
-**Triggered from:** [docs/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-008, escalated 2026-04-26 after stage-deferral expired (Stage 3 was supposed to replace this; Stage 6 landed without the replacement).
+**Triggered from:** [docs/tracking/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-008, escalated 2026-04-26 after stage-deferral expired (Stage 3 was supposed to replace this; Stage 6 landed without the replacement).
 **Scope:** Schema design for spectral ε_g(λ) input + ~30–60 lines of production code in [src/radiant/source/_inferrer.py](../src/radiant/source/_inferrer.py) + new sub-pixel terrestrial scenario added to a test/baseline + new Level 0 / Level 2 tests. **Zero existing baseline snapshot regressions** — every current baseline scenario is `scene_type: extended` with `background: null`, so the placeholder fires nowhere in production today. The fix lights up dormant code; it does not change live snapshot values.
 
 ---
@@ -159,7 +159,7 @@ Allow `source.background.emissivity` to accept either a `float` or a `SpectralDa
    ruff format --check src/
    lint-imports --config pyproject.toml
    ```
-10. **Move CU-008 to Resolved** in `docs/Cleanup_Backlog.md` with the commit hash and a one-line note: "placeholder removed, named spectral library + path override landed, three Level 0 anchors covered." (Rule 22 — phantom closure forbidden.)
+10. **Move CU-008 to Resolved** in `docs/tracking/Cleanup_Backlog.md` with the commit hash and a one-line note: "placeholder removed, named spectral library + path override landed, three Level 0 anchors covered." (Rule 22 — phantom closure forbidden.)
 11. **Commit.** Format: `chore(debt): CU-008 — spectral GroundBackground; remove Stage-2 placeholder`. Body lists the new schema parameters, library entries, and confirms zero existing-baseline drift.
 
 ---
@@ -249,7 +249,7 @@ Stop and ask the user before continuing if any of these fire:
 
 ## Completion criteria
 
-- [ ] CU-008 entry in `docs/Cleanup_Backlog.md` moved to Resolved with this task's commit hash, one-line summary citing the new schema parameters and the placeholder removal (Rule 22).
+- [ ] CU-008 entry in `docs/tracking/Cleanup_Backlog.md` moved to Resolved with this task's commit hash, one-line summary citing the new schema parameters and the placeholder removal (Rule 22).
 - [ ] New `src/radiant/source/tests/test_inferrer_ground_background.py` covers the six Level 0 / Level 2 anchors plus the failure-mode cases above.
 - [ ] New `src/radiant/data/spectral_library/ground_emissivity.yaml` with three entries: `grey`, `vegetation`, `snow`. Each cites a source.
 - [ ] `src/radiant/io/spectral_library.py` (or equivalent) provides the loader functions; covered by its own Level 0 unit tests.

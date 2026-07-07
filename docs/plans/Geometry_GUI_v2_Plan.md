@@ -379,13 +379,13 @@ All six pre-Phase-0 decisions are resolved. Originals preserved for traceability
 | D3 | Target operating systems for the v2 deliverable? | **All three** (Linux + macOS + Windows). CI runs on all three. |
 | D4 | Is v1 (`dev_tools/geometry_gui/`) deleted at v2 Phase 6 acceptance, or kept indefinitely as reference? | **Archive.** Move to `dev_tools/_archive/geometry_gui_v1/` at Phase 6 acceptance; do not delete. |
 | D5 | Should the scene library be importable by the future production GUI as a separate package? | **Yes.** Scene library structured to lift cleanly into `radiant.gui.scene` later without modification (C7 enforces). |
-| D6 | Trame (web-deployable PyVista) — v3 goal or out of scope? | **Deferred** — filed as **CU-033** in `docs/Cleanup_Backlog.md`. Architecture stays compatible at zero cost because the scene library is already Qt-free (C7). |
+| D6 | Trame (web-deployable PyVista) — v3 goal or out of scope? | **Deferred** — filed as **CU-033** in `docs/tracking/Cleanup_Backlog.md`. Architecture stays compatible at zero cost because the scene library is already Qt-free (C7). |
 
 ## 17. Deferred (out-of-v2 scope)
 
-Only CU-033 is filed in `docs/Cleanup_Backlog.md` (per Rule 21, "next available; never reuse" — the speculative CU-100 numbering used in earlier drafts is replaced). The remaining four items are scope-cuts of the v2 plan, tracked here until promoted to the backlog when active work begins.
+Only CU-033 is filed in `docs/tracking/Cleanup_Backlog.md` (per Rule 21, "next available; never reuse" — the speculative CU-100 numbering used in earlier drafts is replaced). The remaining four items are scope-cuts of the v2 plan, tracked here until promoted to the backlog when active work begins.
 
-- **CU-033** — Trame web deployment. The scene library (per C7) is Qt-free, so a parallel `app_web/` shell using `trame` is feasible without touching `scene/`. Effort: B. Category: presentation-only. **Filed in `docs/Cleanup_Backlog.md` 2026-04-26.**
+- **CU-033** — Trame web deployment. The scene library (per C7) is Qt-free, so a parallel `app_web/` shell using `trame` is feasible without touching `scene/`. Effort: B. Category: presentation-only. **Filed in `docs/tracking/Cleanup_Backlog.md` 2026-04-26.**
 - **(Plan-internal)** Scenario YAML loading. Snap all sliders to a loaded scenario file. Touches `state.py` to add a `from_scenario` classmethod. Effort: A. Category: state. Promote to backlog if/when work starts.
 - **(Plan-internal)** Multi-target / constellation views. Architectural change to `SceneState` (one target → list of targets). Effort: C. Category: architecture. Promote to backlog if/when work starts.
 - **(Plan-internal)** Session save / load. Serialize `SceneState` to JSON, restore on launch. Effort: A. Category: state. Promote to backlog if/when work starts.

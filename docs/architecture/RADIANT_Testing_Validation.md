@@ -599,7 +599,7 @@ RadiantError (radiant.core.exceptions; re-exported as radiant.RadiantError)
 
 `RadiantError` itself is importable from `radiant` (top-level re-export) and from `radiant.core.exceptions`. Each concrete subclass is importable from the module that raises it.
 
-The richer multi-tier hierarchy that earlier drafts of this doc described (`PhysicsError`, `PluginError`, `ReproductionError`, finer-grained `ParameterTypeError`/`ParameterEnumError`/etc.) has been deferred — see CU-NEW-01 follow-up tracking in `docs/Cleanup_Backlog.md`. The single-tier hierarchy above is the load-bearing contract today.
+The richer multi-tier hierarchy that earlier drafts of this doc described (`PhysicsError`, `PluginError`, `ReproductionError`, finer-grained `ParameterTypeError`/`ParameterEnumError`/etc.) has been deferred — see CU-NEW-01 follow-up tracking in `docs/tracking/Cleanup_Backlog.md`. The single-tier hierarchy above is the load-bearing contract today.
 
 ---
 

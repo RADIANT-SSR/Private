@@ -2,7 +2,7 @@
 
 **Category**: B (test infrastructure cleanup; no physics changes)
 **Effort**: ~2 hours
-**Parent CU**: CU-020 in `docs/Cleanup_Backlog.md` (slice 1 of 5)
+**Parent CU**: CU-020 in `docs/tracking/Cleanup_Backlog.md` (slice 1 of 5)
 **Stand-alone**: yes — can land independently of slices 2–5.
 
 ---
@@ -10,7 +10,7 @@
 ## Read first
 
 - `docs/architecture/RADIANT_Testing_Validation.md` §1 (Test Hierarchy), §2 (Level 0), §3 (Level 1), §4 (Level 2)
-- `docs/Cleanup_Backlog.md` → CU-020 entry (the parent's per-directory ladder)
+- `docs/tracking/Cleanup_Backlog.md` → CU-020 entry (the parent's per-directory ladder)
 - `pyproject.toml` `[tool.pytest.ini_options]` — markers already declared; `--strict-markers` already enforced (commit `b021d38`)
 - Existing marked examples for the pattern:
   - `src/radiant/core/tests/test_constants.py` (21 marks — read this first; canonical Level 0)

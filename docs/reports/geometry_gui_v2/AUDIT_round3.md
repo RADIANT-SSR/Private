@@ -142,7 +142,7 @@ S8 then gates the round on the 180-cell verification matrix and the 39 PNGs.
 2. **The break-mark wiring is documented in `_tube.py` (Rule-19 carve-out) rather than in its own `scene/glyphs/break_mark.py` module** that the round-3 plan repeatedly assumes exists. The function `_add_break_mark` is private, the `with_break_mark=True` flag plumbs it indirectly. Either the plan documentation should be updated to point at `_tube.py::_add_break_mark`, or the break-mark should be promoted to its own module per Rule 19. (The Rule-19 carve-out in `_tube.py` is documented; the question is whether break-mark belongs in vectors/ or glyphs/.)
 3. **Round-2 R9 reported `point_source_default` and `extended_default` as "FAIL" special-case checks** (no distinct marker primitives for either regime) and filed `R9-B1`/`R9-B2` blockers. Round-3 S7 is the partial follow-up for `point_source`; `extended_default` remains unaddressed. Either round-3 should claim it or it should stay as a CU.
 
-These will be filed as CU entries in `docs/Cleanup_Backlog.md` before this round's PR merges, per the project's Rule 21.
+These will be filed as CU entries in `docs/tracking/Cleanup_Backlog.md` before this round's PR merges, per the project's Rule 21.
 
 ---
 

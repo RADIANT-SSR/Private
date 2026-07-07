@@ -4,7 +4,7 @@ Phase 6 (PLAN_v2.md §14 step 4): the spec lists Theme dropdown,
 default frame, display units, font size, and label-density. The Phase-6
 deliverable ships theme + default-frame; the remaining three (units,
 font size, label density) are deferred — see CU-040 in
-``docs/Cleanup_Backlog.md``.
+``docs/tracking/Cleanup_Backlog.md``.
 
 Rule 19: own file.
 """

@@ -1,3 +1,5 @@
+> **HISTORICAL — archived 2026-07-06 (Registry fold, Phase E of Repo_Reorganization_Plan).** This audit is closed. All gaps (A–H) were resolved by 2026-04-24 (G: 2026-04-23 shared CSV loader; H: 2026-04-24 ReflectanceDescriptor wrap, commits `48bdf73` + `cf6a94d`); no open items were folded into tracking/gaps.md. Retained for archaeology only. Note: the S3 λ-varying ε(λ) CSV surface limitation recorded at §S3 is intentionally not a gap per this doc's own accounting.
+
 # Target Definition Matrix — Codebase Audit Against Spec
 
 **Original audit**: 2026-04-21 (against pre-implementation codebase)

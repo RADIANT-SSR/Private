@@ -1,7 +1,7 @@
 # CU-007 — Stage-2 inferrer: route atmosphere-aware MWIR cases through `T3Mixed`
 
 **Category:** B (core abstraction — inferrer routing) with C-level radiometric impact (`T3Mixed` adds reflected-solar + reflected-sky terms vs. `T1Thermal`'s pure-emit). Validation must clear the C-level bar on the affected snapshot rows even though no new physics is being authored — only the existing `T3Mixed` Kirchhoff path is being switched on for scenarios that were silently routed through `T1Thermal`.
-**Triggered from:** [docs/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-007, escalated 2026-04-26 after stage-deferral expired and investigation found the suggested 50–100-line "Category B inferrer routing" undercounts the snapshot regression burden.
+**Triggered from:** [docs/tracking/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-007, escalated 2026-04-26 after stage-deferral expired and investigation found the suggested 50–100-line "Category B inferrer routing" undercounts the snapshot regression burden.
 **Scope:** ~50–80 lines of production code in [src/radiant/source/_inferrer.py](../src/radiant/source/_inferrer.py) (routing decision + suppression removal), one new Level 0 test, plus a 6-row snapshot refresh on `tests/integration/snapshots/option_c_baseline.yaml` and `src/radiant/source/tests/snapshots/` for the MWIR scenarios.
 
 ---
@@ -157,7 +157,7 @@ Drop the `simplefilter("ignore", UserWarning)` wrapper. Let the warning fire on 
    ruff format --check src/
    lint-imports --config pyproject.toml
    ```
-10. **Move CU-007 to Resolved** in `docs/Cleanup_Backlog.md` with the commit hash, the affected scenario list, and a one-line summary that the suppression is gone (Rule 22 — phantom closure forbidden).
+10. **Move CU-007 to Resolved** in `docs/tracking/Cleanup_Backlog.md` with the commit hash, the affected scenario list, and a one-line summary that the suppression is gone (Rule 22 — phantom closure forbidden).
 11. **Commit.** Format: `chore(debt): CU-007 — route MWIR ambient cases through T3Mixed; remove warning suppression`. Body cites the 6 affected scenarios with before/after `L_aperture` deltas, confirms anchor cells 28/58 bit-invariant, lists the new schema parameter and doc updates, and confirms the warning-suppression wrapper is removed.
 
 ---
@@ -246,7 +246,7 @@ The radiometric audit (W/m²/sr/µm units throughout the assembly) is already en
 
 ## Completion criteria
 
-- [ ] CU-007 entry in `docs/Cleanup_Backlog.md` moved to Resolved with this task's commit hash, the 6 affected scenario list, and confirmation that the `simplefilter("ignore", UserWarning)` wrapper is removed.
+- [ ] CU-007 entry in `docs/tracking/Cleanup_Backlog.md` moved to Resolved with this task's commit hash, the 6 affected scenario list, and confirmation that the `simplefilter("ignore", UserWarning)` wrapper is removed.
 - [ ] New `src/radiant/source/tests/test_inferrer_mwir_routing.py` covers the five Level 0 anchors plus the failure-mode cases above.
 - [ ] `pytest src/`, `pytest tests/integration/`, `mypy --strict`, `ruff check`, `ruff format --check`, `lint-imports` all green.
 - [ ] `option_c_baseline.yaml`'s 6 MWIR rows updated; the other 8 rows bit-invariant; anchor cells 28/58 bit-invariant.

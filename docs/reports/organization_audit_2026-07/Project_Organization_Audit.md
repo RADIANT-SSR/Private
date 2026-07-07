@@ -1,7 +1,7 @@
 # RADIANT Project Organization Audit
 
 **Date:** 2026-07-06
-**Status:** Draft — awaiting owner review; no changes executed
+**Status:** Complete — dispositioned 2026-07-06 (Rule 28). Owner approved all six decision points; findings actioned via `docs/archive/Repo_Reorganization_Plan.md` (Planned → executed, commits ORG-0/A/B/C/D/E) and the registry folds (CU'd: Gaps 38–41 in `docs/tracking/gaps.md`; the cleanup-plan fold needed zero new CUs — every item was already tracked or commit-linked done). One finding Declined: the S3 λ-varying ε(λ) note stays with the archived Target_Definition_gaps doc per its own accounting. This report is immutable; path references reflect the pre-reorganization tree except where mechanically updated during the move.
 **Scope:** Full-repository content accounting + reorganization recommendation + proposed execution ground rules. Read-only audit; no code, docs, or data were modified.
 **Method:** Four parallel inventory sweeps (docs/, scenarios/, tooling dirs, src+tests) plus git-level hygiene analysis.
 
@@ -237,7 +237,7 @@ An audit with undispositioned findings is the organizational analog of a silent 
 
 ## 7. Proposed Execution Sequence (after approval)
 
-Ordered so each phase is independently landable; **no phase touches `src/` physics** (Phase E is docs/config only). The in-flight `fix/architecture-audit-2026-07` branch modifies `src/` and `docs/Cleanup_Backlog.md` — Phases A–D avoid those files entirely; Phase E's registry consolidation waits until that branch lands.
+Ordered so each phase is independently landable; **no phase touches `src/` physics** (Phase E is docs/config only). The in-flight `fix/architecture-audit-2026-07` branch modifies `src/` and `docs/tracking/Cleanup_Backlog.md` — Phases A–D avoid those files entirely; Phase E's registry consolidation waits until that branch lands.
 
 | Phase | Content | Effort | Risk |
 |---|---|---|---|

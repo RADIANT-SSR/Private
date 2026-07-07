@@ -14,7 +14,7 @@ Wired in this phase (additive over Phase 5):
   * Window state persistence via ``QSettings`` — geometry, dock layout,
     theme, default frame all survive a quit/relaunch.
 
-Unshipped Phase-6 items (filed as CUs in ``docs/Cleanup_Backlog.md``):
+Unshipped Phase-6 items (filed as CUs in ``docs/tracking/Cleanup_Backlog.md``):
   * App icon (CU-041) — needs design pass.
   * Golden screenshot re-lock for both themes × 9 views (CU-042) — blocked
     by the QtInteractor offscreen-GL segfault on this dev machine.

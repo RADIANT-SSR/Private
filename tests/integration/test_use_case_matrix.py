@@ -20,7 +20,7 @@ For each cell, the test either:
   reason (e.g. require a parameter surface that doesn't yet exist).
 
 Emits a JSON coverage report (``_use_case_coverage.json``) after the
-sweep so downstream documentation (``docs/Use_Case_gaps.md``) can be
+sweep so downstream documentation (``docs/archive/Use_Case_gaps.md``) can be
 updated by comparing test-run outputs directly.
 
 The test is parametrized per-cell so failures are isolated — one cell

@@ -128,7 +128,7 @@ visual-remediation polish. R9's mandate is "verify the existing
 work"; building net-new primitives is out of scope.
 
 **Suggested fix:**
-Open a CU under `docs/Cleanup_Backlog.md` titled
+Open a CU under `docs/tracking/Cleanup_Backlog.md` titled
 *"Add `scene/extended_pixel_cell.py` ground-plane translucent
 footprint primitive"*. Effort: ~2 hours. Category: B (core
 abstraction — needs its own dimensional-audit + Phase-1 golden).
@@ -191,7 +191,7 @@ that replaces or augments the sphere when regime is
 `point_source`) is its own standalone task with its own golden.
 
 **Suggested fix:**
-Open a CU under `docs/Cleanup_Backlog.md` titled *"Add
+Open a CU under `docs/tracking/Cleanup_Backlog.md` titled *"Add
 `scene/point_source_marker.py` distinct point-source target
 indicator"*. Effort: ~1 hour. Category: B.
 

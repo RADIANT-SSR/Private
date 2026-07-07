@@ -70,7 +70,7 @@ segfaults on offscreen GL). CI work in Phase 7 step 5 unblocks this.
 ## CU discipline (Rule 21 / 22 from CLAUDE.md)
 
 Every latent issue you uncover while shipping a feature gets a CU
-entry in [../../docs/Cleanup_Backlog.md](../../docs/Cleanup_Backlog.md)
+entry in [../../docs/tracking/Cleanup_Backlog.md](../../docs/tracking/Cleanup_Backlog.md)
 **before your PR merges**. No silently-deferred debt. Required fields:
 discovered, status, file, symptom, why-it-still-matters, suggested fix
 + category + effort.

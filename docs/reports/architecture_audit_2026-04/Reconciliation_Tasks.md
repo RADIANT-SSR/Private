@@ -236,7 +236,7 @@ These are mechanical doc fixes. Each can be done independently after the ADRs la
 
 # Phase R3 — Code Cleanups (CU-NEW-01 through CU-NEW-05)
 
-After this section, append each entry to [docs/Cleanup_Backlog.md](../Cleanup_Backlog.md) per R21 with the next available CU number.
+After this section, append each entry to [docs/tracking/Cleanup_Backlog.md](../Cleanup_Backlog.md) per R21 with the next available CU number.
 
 ## R3.CU-NEW-01 — Introduce `radiant.exceptions.RadiantError` base class
 
@@ -425,7 +425,7 @@ These are not code changes; they are habits the new R20–R22 rules formalize. F
 
 **Task prompt:**
 
-> The 8 open CUs in [docs/Cleanup_Backlog.md](../Cleanup_Backlog.md) are already well-formatted. Verify each carries:
+> The 8 open CUs in [docs/tracking/Cleanup_Backlog.md](../Cleanup_Backlog.md) are already well-formatted. Verify each carries:
 > - Discovery context (date + originating task or commit)
 > - File path
 > - Symptom (reproducer)

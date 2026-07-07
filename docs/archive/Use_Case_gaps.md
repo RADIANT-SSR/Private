@@ -1,3 +1,5 @@
+> **HISTORICAL — archived 2026-07-06 (Registry fold, Phase E of Repo_Reorganization_Plan).** This registry is closed. Its open items were folded into [../tracking/gaps.md](../tracking/gaps.md): item #1 → Gap 38, #2 → Gap 39, #4 → Gap 40, #5 → Gap 41. Item #3 was closed 2026-04-21 (`tests/integration/test_use_case_warnings.py`). Do not update this file; track status in tracking/gaps.md.
+
 # RADIANT Use-Case Coverage — Remaining Gaps
 
 **Date**: 2026-04-21 (post-Option-C, post-Stage-8)

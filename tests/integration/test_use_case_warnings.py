@@ -2,7 +2,7 @@
 
 This file is the warning-coverage companion to
 ``tests/integration/test_use_case_matrix.py``.  Gap #3 in
-``docs/Use_Case_gaps.md``: the 90-cell pass/raise sweep does not assert
+``docs/archive/Use_Case_gaps.md``: the 90-cell pass/raise sweep does not assert
 that the matrix §7 *warnings* fire — it only suppresses them so the
 chain-run assertion dominates.  That leaves silent-drift risk if a
 future refactor removes a ``warnings.warn`` call; the unit tests in
@@ -27,7 +27,7 @@ Four warning boundaries are covered:
    (√A_t/d > 0.1·PSF_FWHM) — matrix §7 (raises, not warns).
 
 Reference: ``docs/Option_C_Implementation_Plan.md`` Stage 8;
-``docs/Use_Case_gaps.md`` Gap #3.
+``docs/archive/Use_Case_gaps.md`` Gap #3.
 """
 
 from __future__ import annotations

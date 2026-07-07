@@ -16,7 +16,7 @@ Window covered: 2026-04-27 first-cut screenshot → 2026-04-28 T10 landing.
 | T6  | Angle arcs widened so they read at default zoom                       | `be965af`  | Arc tube + tip-cone constants moved to `scene/style.py`; `ARC_TUBE_RADIUS_M = 0.025`, `ARC_TIP_HEIGHT_M = 0.18`, `ARC_TIP_RADIUS_M = 0.09`; `ARC_RADIUS_M` 2.0 → 2.6. |
 | T7  | "Not to scale" break-marks sharpened                                  | `363a91c`  | Smoothed 4-point spline → sharp Z polyline (3 line tubes via `pv.MultiBlock`). Wider amplitude so the kink reads at canonical camera distance. |
 | T8  | Right-dock structured info panel + scrollbar artifact fix             | `06f30cf`  | `QScrollArea` `NoFrame` + scrollbar-policy override. Dock width 320 → 340 px. |
-| T9  | **Skipped** — gated by CU-043 (not reopened by reviewer)              | —          | Per spec: "T9 gated by CU-043 — skip if not reopened by reviewer." Verified `docs/Cleanup_Backlog.md` unchanged on this branch. |
+| T9  | **Skipped** — gated by CU-043 (not reopened by reviewer)              | —          | Per spec: "T9 gated by CU-043 — skip if not reopened by reviewer." Verified `docs/tracking/Cleanup_Backlog.md` unchanged on this branch. |
 | T10 | Project-wide subscript typography sweep                               | `61aeb77`  | Every viewport label routes through `viewport_label()`; `Projected area` panel row routes through `panel_label()`. `LeaderLabel.estimated_screen_size_px` made math-text-aware so the new `$\theta_{off}$` strings don't blow up the deconfliction box. New `tests/test_typography_sweep.py` pins the sweep. Phase-1 goldens relocked. |
 
 ## Recovery note (2026-04-28)

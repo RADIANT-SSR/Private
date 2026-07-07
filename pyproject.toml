@@ -76,7 +76,7 @@ forbidden_modules = [
     "radiant.io",
     "radiant.api",
     "radiant.cli",
-    "radiant.plugins",
+    "radiant.data",
 ]
 ignore_imports = [
     # Test-colocation: the reflectance descriptor lives in core but its
@@ -222,9 +222,9 @@ ignore_imports = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "plugins import only core"
+name = "data imports only core"
 type = "forbidden"
-source_modules = ["radiant.plugins"]
+source_modules = ["radiant.data"]
 forbidden_modules = [
     "radiant.source",
     "radiant.atmosphere",
@@ -237,4 +237,9 @@ forbidden_modules = [
     "radiant.io",
     "radiant.api",
     "radiant.cli",
+]
+ignore_imports = [
+    # Test-colocation: template smoke tests evaluate full sensors through
+    # the public API. Production radiant.data code imports core only.
+    "radiant.data.tests.test_templates -> radiant.api",
 ]

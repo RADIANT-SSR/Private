@@ -10,7 +10,7 @@ Modified:
   - `src/radiant/optics/_schema.py` — Added `DEFOCUS_UM` parameter
   - `src/radiant/optics/stage.py` — Defocus kernel applied after ePSF construction
   - `src/radiant/optics/tests/test_stage.py` — 5 new defocus wiring tests
-  - `docs/gaps.md` — Gap 29 marked CLOSED
+  - `docs/tracking/gaps.md` — Gap 29 marked CLOSED
 
 Tests added:
   - `src/radiant/optics/tests/test_defocus.py` — 16 tests (8 sigma, 7 kernel, 1 MTF validation)

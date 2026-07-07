@@ -123,4 +123,4 @@ The three Bucket-C decisions (ADR-A, ADR-B, ADR-C) are the only items that need 
 
 ## Conditional rewrite-scope document
 
-Per the Audit_Plan.md guardrails, a `Rewrite_Scope.md` would be produced only if the recommendation were rewrite or partial rewrite. Because the recommendation is Continue + Cleanup, no `Rewrite_Scope.md` is generated. The forward-looking work is captured in [Doc_Reconciliation_Plan.md](Doc_Reconciliation_Plan.md) and the existing [docs/Cleanup_Backlog.md](../Cleanup_Backlog.md).
+Per the Audit_Plan.md guardrails, a `Rewrite_Scope.md` would be produced only if the recommendation were rewrite or partial rewrite. Because the recommendation is Continue + Cleanup, no `Rewrite_Scope.md` is generated. The forward-looking work is captured in [Doc_Reconciliation_Plan.md](Doc_Reconciliation_Plan.md) and the existing [docs/tracking/Cleanup_Backlog.md](../Cleanup_Backlog.md).

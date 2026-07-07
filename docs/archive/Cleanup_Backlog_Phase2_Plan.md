@@ -1,3 +1,5 @@
+> **HISTORICAL — archived 2026-07-06 (Registry fold, Phase E of Repo_Reorganization_Plan).** Tracks C and B closed as CU-006 (`5f07f76`) and CU-004 (`a880c94`); Track A escalated per this plan's completion criteria and remains Open as CU-003; stage-deferred CU-012/013/014 since Resolved; CU-005/007/008/009/011 remain Open — all tracked solely in `../tracking/Cleanup_Backlog.md`.
+
 # Cleanup Backlog — Phase 2 Plan
 
 **Status:** Draft — written 2026-04-24

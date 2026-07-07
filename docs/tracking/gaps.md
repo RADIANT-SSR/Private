@@ -586,6 +586,70 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 
 ---
 
+---
+
+## Gap 38: E_sky single-scatter ω₀ lacks aerosol / spectral fidelity
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Use-case matrix audit, Open Q §8.6 (folded from Use_Case_gaps.md, 2026-07-06) |
+| **Status** | OPEN |
+| **Description** | The single-scatter sky irradiance formula `E_sky_scattered = E_TOA·cos(θ_s)·ω₀·(1−τ_down,vert)` is in place, but the single-scatter albedo ω₀ is a fixed scalar — it does not vary by aerosol regime or wavelength with MODTRAN-parity fidelity. Affects MWIR mixed emit+reflect scenes (use-case Cells 25, 40, 55) where thermal downwelling competes with scattered solar. No effect on LWIR (Cells 28, 58) or VIS/NIR-dominated cells. |
+| **Workaround** | Accept ~10–30% error on MWIR-band radiance in mixed emit+reflect scenes; expressibility is unaffected. |
+| **Impact** | MWIR mixed-scene radiance accuracy (~10–30%). Not a release blocker. |
+| **Fix location** | `radiant/atmosphere/` — dedicated aerosol-parity task once MODTRAN-driven lookup tables are wired. |
+| **Effort** | Medium — deferred behind MODTRAN lookup-table wiring. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Use-case matrix Cells 25, 40, 55 (`tests/integration/test_use_case_matrix.py`). |
+
+---
+
+## Gap 39: A3 partial-column MODTRAN parity — blocked on MODTRAN access
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Use-case matrix audit, Table C (folded from Use_Case_gaps.md, 2026-07-06) |
+| **Status** | OPEN |
+| **Description** | A3 partial-column transmission is wired end-to-end in `SimpleAtmosphere` and the Table C smoke tests pass monotonicity in h_tgt (`tests/integration/test_table_c_cells.py`), but MODTRAN-equivalent validation of τ(h_tgt, θ_o) requires a licensed MODTRAN install to generate reference tape7 fixtures. **BLOCKED: no MODTRAN access** (since 2026-04-21). The backend extension itself is ~2 days (two-run differential: full column + h_tgt→sensor legs, extending `ModtranAtmosphere.evaluate`). |
+| **Workaround** | Rely on smoke-tested, monotone `SimpleAtmosphere` values; not pinned against an external reference. Alternative reference (`lowtran` port or Beer-Lambert thin-atmosphere hand check) adds a dependency — not recommended for closure. |
+| **Impact** | Table C (use-case Cells 31–45) accuracy is unpinned against an external reference. |
+| **Fix location** | `src/radiant/atmosphere/modtran.py` — extend `ModtranAtmosphere.evaluate` with the two-run differential once MODTRAN access (licensed install or donated tape7 fixtures) is available. |
+| **Effort** | Small (~2 days) once unblocked. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Table C cells (`tests/integration/test_table_c_cells.py`, `test_use_case_matrix.py`). |
+
+---
+
+## Gap 40: Lab dark-cal mode is not a first-class parameter
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Use-case matrix audit, D-lab cells (folded from Use_Case_gaps.md, 2026-07-06) |
+| **Status** | OPEN |
+| **Description** | The use-case matrix's `no_atmosphere (lab_test)` dark-cal sub-mode (illumination=None) is expressible by simply not configuring a source illumination, but there is no positive assertion in the descriptor that this is dark-cal. The scenario YAML has no field explicitly flagging dark-cal vs lit-lab (~5 D-lab cells where illumination=None is intended). |
+| **Workaround** | Omit source illumination; cells pass. Readability/ergonomics gap only, not correctness. |
+| **Impact** | Scenario-YAML readability for D-lab dark-cal configurations; GUI clarity. |
+| **Fix location** | Descriptor / schema — add an optional `lab_test_mode: "dark" \| "lit"` enum when a user actually asks for it. |
+| **Effort** | Small. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | D-lab cells in `tests/integration/test_use_case_matrix.py`. |
+
+---
+
+## Gap 41: Earth-LOS-intercept validator has no negative integration test
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Use-case matrix audit, D-space invalid configurations (folded from Use_Case_gaps.md, 2026-07-06) |
+| **Status** | OPEN |
+| **Description** | `LineOfSightGeometry.intercepts_earth(h_sensor)` is implemented (`src/radiant/core/los_geometry.py`) and unit-tested, but no integration test configures a "space" target with sensor below the target to confirm the validator raises end-to-end. The validator works in isolation; the negative integration path is not proven. |
+| **Workaround** | None needed — unit coverage exists; only end-to-end negative-path proof is missing. |
+| **Impact** | Silent-regression risk: a refactor could disconnect the validator from the chain without any integration test failing. |
+| **Fix location** | `tests/integration/test_use_case_matrix.py` — add one negative-path test that flips sensor and target altitudes for Cell 58 and asserts a raise. |
+| **Effort** | Trivial — one test. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | N/A — test-only addition. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -627,6 +691,10 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |
 | 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |
 | 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | OPEN |
+| 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | OPEN |
+| 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | OPEN |
+| 40 | Lab dark-cal mode not first-class | Small | UC D-lab | OPEN |
+| 41 | Earth-LOS negative integration test | Trivial | UC D-space | OPEN |
 
 ---
 

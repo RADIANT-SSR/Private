@@ -8,7 +8,7 @@
 
 1. **First, decide each open design question (Bucket C).** These are the only items that warrant an ADR. Until they're resolved, neither doc updates nor code changes are safe — you don't know which side to align to.
 2. **Then update stale docs (Bucket A).** Mechanical: regenerate from code state, mark archive items, fix obsolete examples.
-3. **Then fix code-side debts (Bucket B).** These are real CU-style backlog items — file them in [docs/Cleanup_Backlog.md](../Cleanup_Backlog.md) using the existing format.
+3. **Then fix code-side debts (Bucket B).** These are real CU-style backlog items — file them in [docs/tracking/Cleanup_Backlog.md](../Cleanup_Backlog.md) using the existing format.
 
 ## Bucket C — design ADRs needed
 

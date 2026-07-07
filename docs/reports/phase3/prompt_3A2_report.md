@@ -13,7 +13,7 @@ Modified:
   - `src/radiant/performance/tests/test_gsd.py` — 7 new access wiring tests
   - `src/radiant/detector/_schema.py` — Added N_PIXELS_CROSS parameter
   - `src/radiant/atmosphere/_schema.py` — Added GROUND_SPEED_M_S parameter
-  - `docs/gaps.md` — Gap 36 marked CLOSED
+  - `docs/tracking/gaps.md` — Gap 36 marked CLOSED
 Tests added:
   - `src/radiant/performance/tests/test_access_geometry.py` — 15 tests (9 ground_range, 3 swath, 3 access_rate)
   - `src/radiant/performance/tests/test_gsd.py` — 7 new tests (TestAccessMetricsWiring)

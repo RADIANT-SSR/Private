@@ -81,7 +81,7 @@ Their presence/absence has been audited via grep and code reading instead. R7/R8
 
 ### T9 — Left-dock parameter panel
 **Status:** Missing (gated by CU-043).
-**Evidence:** `app/main.py:169-181` `_add_left_dock` adds a `QDockWidget` with a `QLabel` placeholder text *"(Sliders deferred — see CU-043 in docs/Cleanup_Backlog.md.)"*. The panel itself does not exist. The previous report (REMEDIATION_REPORT.md row T9) confirms: *"T9 gated by CU-043 — skip if not reopened by reviewer."*
+**Evidence:** `app/main.py:169-181` `_add_left_dock` adds a `QDockWidget` with a `QLabel` placeholder text *"(Sliders deferred — see CU-043 in docs/tracking/Cleanup_Backlog.md.)"*. The panel itself does not exist. The previous report (REMEDIATION_REPORT.md row T9) confirms: *"T9 gated by CU-043 — skip if not reopened by reviewer."*
 **Defect:** **R8 (the round-2 plan) explicitly re-opens this work.** The plan §9 spec says: width 200 px, collapsible Observer/Target/Sun/Sensor/Mode sections, label + slider + spinbox + units per row, debounced `state_changed` signal. CU-043 needs to be re-audited for closure or a new gating reason. Risk: real implementation work, not just wiring.
 
 ### T10 — Project-wide subscript typography sweep
@@ -160,7 +160,7 @@ R3, R4, R5, R6, R8 are net-new code; R1, R2 are smaller targeted edits; R7 is ve
 3. **`point_source_default` view has no point-source marker primitive** — same shape as the audit. File as CU.
 4. **Diet pass dropped the gridded ground cap and the outer fade plane** but the modules `scene/ground/cap.py` and `scene/ground/fade.py` are still on disk, never imported. Either R4 re-imports them (R4 will), or — if R4 chooses a different fallback — the dead modules need either deletion or a docstring marking them as Phase-7-diet-orphans. Track via R4's resolution and the `Cleanup_Backlog.md` entry it generates.
 
-These will be filed at the CU stage (during/after R8, before the PR merges) per the round-2 plan §12 *"R21 holds: any latent issue you uncover that is orthogonal to the current R-task gets a CU entry in docs/Cleanup_Backlog.md before this PR merges."*
+These will be filed at the CU stage (during/after R8, before the PR merges) per the round-2 plan §12 *"R21 holds: any latent issue you uncover that is orthogonal to the current R-task gets a CU entry in docs/tracking/Cleanup_Backlog.md before this PR merges."*
 
 ---
 

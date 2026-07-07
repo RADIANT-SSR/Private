@@ -16,7 +16,7 @@ Limitation: for large defocus (> several waves of Z4), the true defocus
 PSF approaches a pill-box (uniform disk), not a Gaussian.  Use Zernike Z4
 wavefront error for accurate large-defocus modelling.
 
-See RADIANT docs/gaps.md Gap 29.
+See RADIANT docs/tracking/gaps.md Gap 29.
 """
 
 from __future__ import annotations

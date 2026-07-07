@@ -77,7 +77,7 @@ the only mutable state.
 | 7     | Hardening + handoff (this PR)              | In progress |
 
 Phase-7 deferrals are tracked in
-[../../docs/Cleanup_Backlog.md](../../docs/Cleanup_Backlog.md):
+[../../docs/tracking/Cleanup_Backlog.md](../../docs/tracking/Cleanup_Backlog.md):
 performance pass (CU-044), memory pass (CU-045), CI integration
 (CU-046), and the headlining slider work (CU-043) that unblocks the
 performance / memory tests.

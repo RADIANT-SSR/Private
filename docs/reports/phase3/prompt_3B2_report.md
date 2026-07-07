@@ -8,7 +8,7 @@ Modified:
   - `src/radiant/optics/stage.py` — Extracts `.total` from NearfieldResult; stores `.per_element` in stage_outputs
   - `src/radiant/optics/__init__.py` — Exports `NearfieldResult`
   - `src/radiant/optics/tests/test_element_list.py` — Updated existing tests for NearfieldResult return type; added 8 per-element tests
-  - `docs/gaps.md` — Gap 11 marked CLOSED
+  - `docs/tracking/gaps.md` — Gap 11 marked CLOSED
 
 Tests added:
   - `src/radiant/optics/tests/test_element_list.py` — 8 new tests (TestNearfieldPerElement class)

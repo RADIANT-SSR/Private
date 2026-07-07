@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-07-06.** Plan completed: all five phases executed as commits ORG-0 through ORG-E on main (2026-07-06), all six decision points approved by owner (delete v1 / hybrid outputs / fold gaps / publish specs / delete plugins stub / prune goldens). The rules this plan proposed are now live in CLAUDE.md Rules 23-28 and docs/OPERATING_MODEL.md.
+
 # Repo Reorganization Plan
 
-**Status:** Draft — awaiting owner approval of `docs/OPERATING_MODEL.md` and decision points below
+**Status:** Complete (2026-07-06, commits ORG-0…ORG-E)
 **Source:** `docs/reports/organization_audit_2026-07/Project_Organization_Audit.md` (this plan is that audit's Rule-28 disposition)
 **Scope:** Move/retire/fix every misplaced or stale artifact in the repo per the Operating Model. **No physics code changes.** The only `src/` edits permitted are mechanical docstring path fixups (Phase B) and none land until the in-flight `fix/architecture-audit-2026-07` branch merges.
 

@@ -170,7 +170,7 @@ Any issue, gap, or blocker discovered during scenario development goes in:
 
 1. **Per-scenario `gaps.md`**: In the scenario folder, with description,
    severity, and workaround
-2. **Master `docs/gaps.md`**: The canonical gap registry, using the
+2. **Master `docs/tracking/gaps.md`**: The canonical gap registry, using the
    structured table format:
 
 ```markdown
@@ -270,7 +270,7 @@ Before declaring a scenario complete, verify:
 - [ ] Script explains regime, unused params, and non-obvious physics
 - [ ] `walkthrough.md` exists with full narrative
 - [ ] `gui_workflow.md` exists with step-by-step GUI workflow
-- [ ] Gaps (if any) logged in per-scenario `gaps.md` AND `docs/gaps.md`
+- [ ] Gaps (if any) logged in per-scenario `gaps.md` AND `docs/tracking/gaps.md`
 - [ ] Script runs cleanly from a fresh checkout (no hardcoded paths)
 - [ ] Results are physically reasonable (sanity-checked)
 
@@ -285,6 +285,6 @@ These are the gold-standard examples for scenario format:
 | Walkthrough | `scenarios/02_mike_detector_engineer/2.3_ipc_impact_on_mtf/walkthrough.md` |
 | GUI workflow | `scenarios/05_tom_optical_designer/5.2_pixel_pitch_optimization/gui_workflow.md` |
 | Per-scenario gaps | `scenarios/02_mike_detector_engineer/2.3_ipc_impact_on_mtf/gaps.md` |
-| Master gap registry | `docs/gaps.md` |
+| Master gap registry | `docs/tracking/gaps.md` |
 | Scenario descriptions | `docs/architecture/expanded_scenarios.md` |
 | Off-nadir walkthrough | `scenarios/03_raj_mission_planner/3.4_off_nadir_agility/walkthrough.md` |

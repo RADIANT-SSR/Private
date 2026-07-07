@@ -1,7 +1,7 @@
 # CU-003 — Pixel-aperture rect kernel: anti-aliased construction
 
 **Category:** C (physics implementation — touches the dual-path consistency invariant from CLAUDE.md Rule 4).
-**Triggered from:** [docs/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-003, escalated 2026-04-24 by Phase 2 Track A investigation (commit `cfc94c0`).
+**Triggered from:** [docs/tracking/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-003, escalated 2026-04-24 by Phase 2 Track A investigation (commit `cfc94c0`).
 **Scope:** ~30–80 lines of production code in [src/radiant/optics/pixel_kernel.py](../src/radiant/optics/pixel_kernel.py), plus new tests and one possible golden-snapshot refresh on `swir_aerial_gas`.
 
 ---
@@ -48,7 +48,7 @@ CLAUDE.md Rule 4 requires PSF-path ↔ MTF-product-path agreement to ~1e-6. The 
 4. [src/radiant/optics/pixel_kernel.py](../src/radiant/optics/pixel_kernel.py) — the file you will edit.
 5. [src/radiant/optics/stage.py](../src/radiant/optics/stage.py) — `_compute_optical_mtf_terms` (the analytic `sinc` consumer side; **do not change** unless approach 2 is chosen).
 6. [src/radiant/performance/consistency_check.py](../src/radiant/performance/consistency_check.py) — the check that fires; tolerance `5e-2` lives here. Tolerance is **not** the lever to pull; the kernel is.
-7. [docs/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-003 — the full investigation record (numbers, per-term sensitivity table, decisive verification).
+7. [docs/tracking/Cleanup_Backlog.md](Cleanup_Backlog.md) CU-003 — the full investigation record (numbers, per-term sensitivity table, decisive verification).
 
 ---
 
@@ -124,7 +124,7 @@ Replace `_compute_optical_mtf_terms`' analytic `sinc(π·pitch·f)` for the pixe
    ruff check src/
    lint-imports --config pyproject.toml
    ```
-9. **Move CU-003 to Resolved** in `docs/Cleanup_Backlog.md` with the commit hash and the new `max_err` value.
+9. **Move CU-003 to Resolved** in `docs/tracking/Cleanup_Backlog.md` with the commit hash and the new `max_err` value.
 10. **Commit.** Format: `chore(debt): CU-003 — anti-aliased rect kernel closes Rule-4 swir_aerial_gas miss`. Body cites the new `max_err`, the `mtf_at_nyquist` delta, and confirms no other scenario drifted.
 
 ---
@@ -207,7 +207,7 @@ The post-fix consistency check is itself the cross-model invariant. Required: `m
 
 ## Completion criteria
 
-- [ ] CU-003 entry in `docs/Cleanup_Backlog.md` moved to Resolved with this task's commit hash and the new `max_err` value documented.
+- [ ] CU-003 entry in `docs/tracking/Cleanup_Backlog.md` moved to Resolved with this task's commit hash and the new `max_err` value documented.
 - [ ] New `src/radiant/optics/tests/test_pixel_kernel.py` covers the three Level 0 anchors plus the failure-mode cases above.
 - [ ] `pytest src/` and `pytest tests/integration/` green; `mypy --strict`, `ruff`, `lint-imports` clean.
 - [ ] `swir_aerial_gas`'s `option_c_baseline.yaml` row updated (and only that row's `mtf_at_nyquist`).

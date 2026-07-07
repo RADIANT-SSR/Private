@@ -112,15 +112,42 @@ class TestLoadConfigDict:
         assert rv.provenance == Provenance.CONFIG_FILE
 
     @pytest.mark.level1
-    def test_reserved_keys_ignored(self) -> None:
+    @pytest.mark.parametrize("reserved_key", ["_extends", "_imports", "_vars"])
+    def test_reserved_keys_raise(self, reserved_key: str) -> None:
+        """CU-050: unimplemented directives must raise, not silently strip.
+
+        A config relying on `_extends`/`_imports`/`_vars` (documented as
+        design targets in RADIANT_Config_Format.md §1.3–1.5) would otherwise
+        load "successfully" with the directive ignored — producing physics
+        from a different parameter set than the user intended (Rule 17).
+        """
         params = build_parameter_set()
         data = {
-            "_extends": "some_parent.yaml",
+            reserved_key: "anything",
+            "source": {"target": {"temperature": 300.0}},
+        }
+        with pytest.raises(ConfigError) as excinfo:
+            load_config(data, params)
+        msg = str(excinfo.value)
+        assert reserved_key in msg
+        assert "not implemented" in msg
+        # Actionable: tells the user what to do instead.
+        assert "inline" in msg.lower() or "single complete config" in msg.lower()
+
+    @pytest.mark.level1
+    def test_reserved_key_error_names_all_offenders(self) -> None:
+        """All present reserved keys are reported in one error, not one at a time."""
+        params = build_parameter_set()
+        data = {
+            "_extends": "parent.yaml",
             "_vars": {"ALT": 8000},
             "source": {"target": {"temperature": 300.0}},
         }
-        # Should not raise — reserved keys are silently stripped.
-        load_config(data, params)
+        with pytest.raises(ConfigError) as excinfo:
+            load_config(data, params)
+        msg = str(excinfo.value)
+        assert "_extends" in msg
+        assert "_vars" in msg
 
 
 # ---------------------------------------------------------------------------

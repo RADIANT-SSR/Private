@@ -14,8 +14,12 @@ parameter names::
       aperture_diameter_m: 0.30  # → "optics.aperture_diameter_m"
 
 Special top-level keys (``_extends``, ``_imports``, ``_vars``) are
-reserved for future configuration-inheritance features and are
-silently ignored by this loader.
+reserved for future configuration-inheritance features
+(``RADIANT_Config_Format.md`` §1.3–1.5, currently design targets).
+This loader raises :class:`ConfigError` when they are present — a
+config relying on them would otherwise load with the directive
+silently ignored and produce physics from a different parameter set
+than the user intended (CU-050).
 """
 
 from __future__ import annotations
@@ -32,7 +36,8 @@ from radiant.core.provenance import hash_file
 
 logger = logging.getLogger(__name__)
 
-# Keys reserved for future config-inheritance features.
+# Keys reserved for future config-inheritance features. Present in a config,
+# they are an error (not implemented) — never silently stripped (CU-050).
 _RESERVED_KEYS = frozenset({"_extends", "_imports", "_vars"})
 
 
@@ -157,10 +162,18 @@ def load_config(
             path=path,
         )
 
-    # Strip reserved keys.
-    body = {k: v for k, v in raw.items() if k not in _RESERVED_KEYS}
+    reserved_present = sorted(_RESERVED_KEYS & raw.keys())
+    if reserved_present:
+        keys = ", ".join(f"'{k}'" for k in reserved_present)
+        raise ConfigError(
+            f"Reserved directive(s) {keys} are not implemented "
+            "(RADIANT_Config_Format.md §1.3–1.5 are design targets). "
+            "Inline the parent/imported values into a single complete config "
+            "and re-run; do not rely on substitution, inheritance, or imports.",
+            path=path,
+        )
 
-    flat = _flatten(body)
+    flat = _flatten(raw)
     source_label = str(path) if path else "dict"
 
     errors: list[str] = []

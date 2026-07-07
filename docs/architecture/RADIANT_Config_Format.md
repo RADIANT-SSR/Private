@@ -66,7 +66,7 @@ Scientific notation (`1.5e6`) is acceptable for large values. Units go in the na
 
 ### 1.3 Variable Substitution
 
-> **Implementation status (2026-07-06):** `_vars`, `_extends`, and `_imports` (§1.3–1.5) are **design targets, not implemented**. The current loader (`radiant/io/config.py`) reserves these top-level keys and silently ignores them — no substitution, inheritance, or import merging is performed, and there is no CLI `--var` flag. Do not rely on these features until this banner is removed.
+> **Implementation status (2026-07-06):** `_vars`, `_extends`, and `_imports` (§1.3–1.5) are **design targets, not implemented**. The current loader (`radiant/io/config.py`) **raises `ConfigError`** when any of these top-level keys is present (CU-050; previously they were silently stripped, which loaded the config with the directive ignored — a Rule 17 antipattern). Inline the parent/imported values into a single complete config. There is no CLI `--var` flag. Do not rely on these features until this banner is removed.
 
 Variables are defined at the top of a config in a `_vars:` block. They are substituted anywhere in the document using `${VAR_NAME}` syntax. Substitution is string-level: the YAML parser resolves variables before YAML is parsed. Arithmetic is not supported; use Python if you need arithmetic.
 

@@ -45,7 +45,7 @@ class OpticsState:
 
     # ---- Nearfield (warm optics) emission ---------------------------------
     nearfield_irradiance_at_fpa: SpectralData  # E_nf(λ), W/m²/µm at FPA
-    cold_stop_efficiency: float                # η_cold ∈ [0,1]
+    nearfield_fraction: float                  # η_nf ∈ [0,1] (0 = perfect cold stop)
 
     # ---- Stray light --------------------------------------------------------
     stray_light_irradiance_at_fpa: SpectralData  # E_stray(λ), W/m²/µm at FPA
@@ -60,7 +60,7 @@ class OpticsState:
 1. `transmission` is on the global wavelength grid. Its value is the *net* throughput from the entrance pupil to the FPA, regardless of how the user specified it.
 2. `elements` is always populated. For input modes that do not name elements explicitly, it contains a single synthesized "lumped" element with the supplied transmission and an effective temperature.
 3. `nearfield_irradiance_at_fpa` and `stray_light_irradiance_at_fpa` are *irradiance at the FPA*, not radiance and not "irradiance at the entrance pupil." This is the form the detector stage consumes directly.
-4. `cold_stop_efficiency` is unity for uncooled instruments.
+4. `nearfield_fraction` is unity for uncooled instruments.
 5. `signal_etendue_AΩ_m2_sr` is `aperture_area_m2 × Ω_pixel` and is stored only for sanity checks. Downstream stages do not multiply by this — they apply A and Ω independently per regime (per RADIANT_Signal_Chain_Architecture.md §4).
 
 ---
@@ -327,14 +327,16 @@ where `D_i` is the element diameter and `d_i` is its distance to the FPA. For el
 
 This per-element Ω is what makes the difference between "I have a 10 cm secondary 30 cm from the FPA" and "I have a 10 cm window 1 cm from the FPA": the latter contributes ~900× more nearfield even though the element transmittance is identical.
 
-### 7.4 Cold stop efficiency
+### 7.4 Nearfield fraction (cold stop)
 
-Cooled IR instruments have a cold stop that limits the solid angle the FPA can see "outside" the optical path. `cold_stop_efficiency η_cold` is the fraction of the FPA's hemisphere that is filled by cold (i.e., nearfield-emitting) elements:
+Cooled IR instruments have a cold stop that limits the solid angle the FPA can see "outside" the optical path. `optics.nearfield_fraction` (η_nf) is the fraction of the FPA's hemisphere that is filled by **warm** (nearfield-emitting) elements:
 ```
-E_nf_total(λ) = η_cold · Σ_i ε_i(λ) · B(λ, T_i) · Ω_element_i · τ_downstream(i)(λ)
+E_nf_total(λ) = η_nf · Σ_i ε_i(λ) · B(λ, T_i) · Ω_element_i · τ_downstream(i)(λ)
 ```
 
-For uncooled instruments, `η_cold = 1` (everything the FPA sees is warm). For a well-baffled cooled IR camera, `η_cold ≈ 0.05–0.2`.
+For uncooled instruments, `η_nf = 1` (everything the FPA sees is warm). For a well-baffled cooled IR camera, `η_nf ≈ 0.05–0.2`.
+
+**Naming (Gap 12).** This parameter was formerly `optics.cold_stop_efficiency`, which inverted the vendor convention (a vendor's "100% efficient cold stop" blocks everything, i.e. η_nf = 0). The relationship is `nearfield_fraction = 1 − vendor_cold_stop_efficiency`. The old name remains accepted as a deprecated alias (DeprecationWarning) and will be removed in a future release. GUI tooltips must state the vendor-convention relationship explicitly.
 
 ### 7.5 Output
 
@@ -439,7 +441,7 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 ### 10.4 Nearfield
 | Parameter | Unit | Default |
 |-----------|------|---------|
-| `optics.cold_stop_efficiency` | dimensionless | 1.0 |
+| `optics.nearfield_fraction` (deprecated alias: `optics.cold_stop_efficiency`) | dimensionless | 1.0 |
 | `optics.nearfield_enabled` | bool | True |
 
 ### 10.5 Stray light
@@ -476,7 +478,7 @@ Per RADIANT_Signal_Chain_Architecture.md, `OpticsStage` is the third stage. Resp
 | `ε_i + T_i + R_i = 1 ± 1e-4` for transmissive | hard (Kirchhoff) |
 | `ε_i + R_i = 1 ± 1e-4` for mirrors | hard (Kirchhoff) |
 | `obscuration_ratio < 1` | hard |
-| `cold_stop_efficiency ∈ [0, 1]` | hard |
+| `nearfield_fraction ∈ [0, 1]` | hard |
 | `aperture_diameter_m > 0` | hard |
 | Mode 4/5 element list non-empty | hard |
 | Mode 5 elements ordered (entrance → FPA) | hard; user must order |

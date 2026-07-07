@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import difflib
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -104,6 +105,7 @@ class ParameterDef:
     group: str | None = None  # consistency group name
     tags: frozenset[str] = frozenset()
     default_justification: str = ""
+    deprecated_aliases: frozenset[str] = frozenset()  # old names; warn + redirect
 
     def __post_init__(self) -> None:
         if self.dtype not in (float, int, str, bool):
@@ -112,6 +114,8 @@ class ParameterDef:
             raise ValueError(f"ParameterDef '{self.name}': enum_values requires dtype=str")
         if self.bounds is not None and self.dtype not in (float, int):
             raise ValueError(f"ParameterDef '{self.name}': bounds requires numeric dtype")
+        if self.name in self.deprecated_aliases:
+            raise ValueError(f"ParameterDef '{self.name}': cannot alias itself")
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +239,22 @@ class ParameterSet:
         groups: list[ConsistencyGroup] | None = None,
     ) -> None:
         self._defs: dict[str, ParameterDef] = {p.name: p for p in schema}
+        # Deprecated alias -> canonical name map (renames keep working
+        # with a DeprecationWarning; see _canonical()).
+        self._aliases: dict[str, str] = {}
+        for p in schema:
+            for alias in p.deprecated_aliases:
+                if alias in self._defs:
+                    raise ValueError(
+                        f"ParameterDef '{p.name}': deprecated alias '{alias}' "
+                        "collides with a defined parameter name"
+                    )
+                if alias in self._aliases:
+                    raise ValueError(
+                        f"ParameterDef '{p.name}': deprecated alias '{alias}' "
+                        f"already maps to '{self._aliases[alias]}'"
+                    )
+                self._aliases[alias] = p.name
         self._groups: list[ConsistencyGroup] = groups or []
         self._inputs: dict[str, tuple[Any, Provenance, str]] = {}
         self._tolerances: dict[str, Tolerance] = {}
@@ -280,6 +300,21 @@ class ParameterSet:
             return f"Unknown parameter: '{name}'. Did you mean: {suggestions}?"
         return f"Unknown parameter: '{name}'"
 
+    def _canonical(self, name: str) -> str:
+        """Resolve a deprecated alias to its canonical name (with warning)."""
+        if name in self._defs:
+            return name
+        canonical = self._aliases.get(name)
+        if canonical is not None:
+            warnings.warn(
+                f"Parameter '{name}' is deprecated; use '{canonical}' instead. "
+                "The old name will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            return canonical
+        return name
+
     # -- Input ---------------------------------------------------------------
 
     def set(
@@ -290,6 +325,7 @@ class ParameterSet:
         source: str = "user",
     ) -> None:
         """Set a parameter value (in its input_unit). Marks the set as unresolved."""
+        name = self._canonical(name)
         if name not in self._defs:
             raise KeyError(self._suggest(name))
         self._inputs[name] = (value, provenance, source)
@@ -313,6 +349,7 @@ class ParameterSet:
         KeyError
             If *name* is not in the schema (with a did-you-mean suggestion).
         """
+        name = self._canonical(name)
         if name not in self._defs:
             raise KeyError(self._suggest(name))
         if name not in self._inputs:
@@ -322,6 +359,7 @@ class ParameterSet:
         return True
 
     def set_tolerance(self, name: str, tol: Tolerance) -> None:
+        name = self._canonical(name)
         if name not in self._defs:
             raise KeyError(self._suggest(name))
         self._tolerances[name] = tol
@@ -544,6 +582,8 @@ class ParameterSet:
     def get(self, name: str) -> Any:
         """Return the canonical-unit value of a resolved parameter."""
         self._require_resolved()
+        if name not in self._resolved:
+            name = self._canonical(name)
         if name not in self._resolved:
             if name in self._defs:
                 raise KeyError(f"Parameter '{name}' is not resolved")

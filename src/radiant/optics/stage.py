@@ -845,7 +845,7 @@ class OpticsStage:
         stray_includes_thermal: int = params.get("optics.stray.includes_thermal")
 
         if nearfield_enabled and not stray_includes_thermal:
-            cold_stop_eff: float = params.get("optics.cold_stop_efficiency")
+            cold_stop_eff: float = params.get("optics.nearfield_fraction")
             nf_result = compute_nearfield_irradiance(
                 tx_result.elements,
                 state.wavelength_um,

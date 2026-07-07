@@ -20,6 +20,16 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Deprecated
+- `optics.cold_stop_efficiency` renamed to `optics.nearfield_fraction`
+  (Gap 12) — the old name inverted the vendor convention ("100%
+  efficient cold stop" = complete blocking, but η=1 here means *no*
+  cold stop). Same semantics, no numeric change:
+  `nearfield_fraction = 1 − vendor_cold_stop_efficiency`. The old name
+  still works via a new parameter-alias mechanism
+  (`ParameterDef.deprecated_aliases`) with a `DeprecationWarning`, and
+  will be removed in a future release.
+
 ### Added
 - PSF weighting spectrum override (Gap 17): `RadiantSession.run` gains an
   `extra_stage_outputs` injection argument;

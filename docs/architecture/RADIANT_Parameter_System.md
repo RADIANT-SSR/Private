@@ -135,7 +135,7 @@ optics.transmission_scalar            # dimensionless (0–1)
 optics.scalar_emissivity              # dimensionless (0–1), scalar mode only; declared lumped-train emissivity, ε + τ ≤ 1
 optics.optics_temperature_K           # K
 optics.defocus_um                     # µm
-optics.cold_stop_efficiency           # dimensionless (0–1)
+optics.nearfield_fraction             # dimensionless (0–1); 0 = perfect cold stop, 1 = uncooled. INVERTED from vendor "cold stop efficiency" (= 1 − vendor). Deprecated alias: optics.cold_stop_efficiency (warns, Gap 12)
 optics.stray.veiling_glare_fraction   # dimensionless (0–1)
 
 readout.electronics_sigma_um          # µm, equivalent Gaussian blur from amplifier bandwidth (x-axis only)

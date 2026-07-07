@@ -838,3 +838,88 @@ def test_clear_input_unknown_name_suggests() -> None:
     ps = _make_ps()
     with pytest.raises(KeyError, match="Did you mean"):
         ps.clear_input("sensor.optics.focal_lenght")
+
+
+class TestDeprecatedAliases:
+    """Gap 12: renamed parameters keep working via deprecated aliases."""
+
+    def _pset(self) -> ParameterSet:
+        return ParameterSet(
+            [
+                ParameterDef(
+                    name="ns.new_name",
+                    description="renamed",
+                    dtype=float,
+                    canonical_unit="",
+                    input_unit="",
+                    default=1.0,
+                    bounds=(0.0, 1.0),
+                    deprecated_aliases=frozenset({"ns.old_name"}),
+                ),
+            ]
+        )
+
+    def test_set_via_alias_warns_and_redirects(self) -> None:
+        ps = self._pset()
+        with pytest.warns(DeprecationWarning, match="ns.new_name"):
+            ps.set("ns.old_name", 0.25)
+        ps.resolve()
+        assert ps.get("ns.new_name") == pytest.approx(0.25, rel=1e-12)
+
+    def test_get_via_alias_warns(self) -> None:
+        ps = self._pset()
+        ps.set("ns.new_name", 0.5)
+        ps.resolve()
+        with pytest.warns(DeprecationWarning):
+            assert ps.get("ns.old_name") == pytest.approx(0.5, rel=1e-12)
+
+    def test_canonical_name_no_warning(self) -> None:
+        import warnings as _warnings
+
+        ps = self._pset()
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", DeprecationWarning)
+            ps.set("ns.new_name", 0.5)
+            ps.resolve()
+            assert ps.get("ns.new_name") == pytest.approx(0.5, rel=1e-12)
+
+    def test_unknown_name_still_suggests(self) -> None:
+        ps = self._pset()
+        with pytest.raises(KeyError, match="Did you mean"):
+            ps.set("ns.new_nam", 0.5)
+
+    def test_alias_collision_with_real_name_rejected(self) -> None:
+        with pytest.raises(ValueError, match="collides"):
+            ParameterSet(
+                [
+                    ParameterDef(
+                        name="ns.a",
+                        description="a",
+                        dtype=float,
+                        canonical_unit="",
+                        input_unit="",
+                        default=0.0,
+                    ),
+                    ParameterDef(
+                        name="ns.b",
+                        description="b",
+                        dtype=float,
+                        canonical_unit="",
+                        input_unit="",
+                        default=0.0,
+                        deprecated_aliases=frozenset({"ns.a"}),
+                    ),
+                ]
+            )
+
+    def test_self_alias_rejected(self) -> None:
+        with pytest.raises(ValueError, match="alias itself"):
+            ParameterDef(
+                name="ns.a",
+                description="a",
+                dtype=float,
+                canonical_unit="",
+                input_unit="",
+                default=0.0,
+                deprecated_aliases=frozenset({"ns.a"}),
+            )

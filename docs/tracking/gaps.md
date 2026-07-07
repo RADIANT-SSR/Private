@@ -176,7 +176,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.4 (Karen — cold stop sweep) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-2.4) |
+| **Fix** | Renamed to `optics.nearfield_fraction` (the name now states the quantity: fraction of the FPA hemisphere filled by warm elements). New generic deprecation-alias mechanism in `core/parameters.py` (`ParameterDef.deprecated_aliases`; `set`/`get`/`set_tolerance`/`clear_input` resolve aliases with `DeprecationWarning`) keeps `optics.cold_stop_efficiency` working. Schema description + RADIANT_Optics.md §7.4 now state the vendor-convention relationship (`nearfield_fraction = 1 − vendor_efficiency`) — the required GUI tooltip text lives there. 7 new alias tests. Physics-function kwarg `compute_nearfield_irradiance(cold_stop_efficiency=...)` unchanged (internal). |
+| **Rerun after fix** | Verified: old name sets/reads via alias with DeprecationWarning; nearfield integration suite green under the new name. |
 | **Description** | RADIANT's `cold_stop_efficiency` is the fraction of the FPA hemisphere filled by warm-emitting elements. η=0 means perfect cold stop, η=1 means no cold stop. This is **inverted** from vendor convention where "100% efficient cold stop" means complete blocking. The naming causes confusion. |
 | **Workaround** | Scripts include explicit convention notes in output. |
 | **Impact** | Every user working with cold stop specs from vendors will be confused. Critical for GUI tooltips. |
@@ -681,7 +683,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 9 | Full MTF curve missing | Small | 4+ | FIXED |
 | 10 | No inverse solver | Medium | Many | OPEN |
 | 11 | No per-element nearfield breakdown | Medium | Few | CLOSED |
-| 12 | cold_stop_efficiency naming | Small | Few | OPEN |
+| 12 | cold_stop_efficiency naming | Small | Few | FIXED |
 | 13 | Q parameter missing | Trivial | Few | FIXED |
 | 14 | No aliased/folded MTF | Medium | Few | CLOSED |
 | 15 | MTF = 0 at high Q (investigate) | Small | Few | CLOSED |

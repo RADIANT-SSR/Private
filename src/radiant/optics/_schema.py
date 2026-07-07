@@ -238,11 +238,17 @@ SCALAR_EMISSIVITY = ParameterDef(
     default_justification="0.0 preserves the historical eps=0 refractive-lump assumption.",
 )
 
-COLD_STOP_EFFICIENCY = ParameterDef(
-    name="optics.cold_stop_efficiency",
+NEARFIELD_FRACTION = ParameterDef(
+    name="optics.nearfield_fraction",
     description=(
-        "Cold-stop efficiency: fraction of the FPA hemisphere filled by "
-        "warm (nearfield-emitting) elements. Unity for uncooled instruments."
+        "Nearfield fraction: fraction of the FPA hemisphere filled by "
+        "warm (nearfield-emitting) elements. 0 = perfect cold stop "
+        "(no warm-optics emission reaches the FPA); 1 = no cold stop "
+        "(uncooled instrument). NOTE this is INVERTED from the vendor "
+        "'cold stop efficiency' convention, where 100% efficient means "
+        "complete blocking: nearfield_fraction = 1 - vendor_efficiency. "
+        "Formerly named optics.cold_stop_efficiency (deprecated alias "
+        "still accepted, Gap 12)."
     ),
     dtype=float,
     canonical_unit="",
@@ -251,6 +257,7 @@ COLD_STOP_EFFICIENCY = ParameterDef(
     bounds=(0.0, 1.0),
     tags=frozenset({"optics", "thermal"}),
     default_justification="1.0 = uncooled (no cold stop).",
+    deprecated_aliases=frozenset({"optics.cold_stop_efficiency"}),
 )
 
 NEARFIELD_ENABLED = ParameterDef(
@@ -401,7 +408,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     FIELD_POSITION_X,
     FIELD_POSITION_Y,
     SCALAR_EMISSIVITY,
-    COLD_STOP_EFFICIENCY,
+    NEARFIELD_FRACTION,
     NEARFIELD_ENABLED,
     STRAY_INPUT_MODE,
     STRAY_VEILING_GLARE_FRACTION,

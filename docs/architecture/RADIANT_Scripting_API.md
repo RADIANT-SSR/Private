@@ -74,6 +74,7 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.sweep_2d(param1, values1, param2, values2, *, metric="snr")` | 2-D parameter sweep. Returns `Sweep2DResult` (§6.2). |
 | `s.monte_carlo(n_trials=1000, seed=42, *, metric_names=None, keep_results=False)` | Monte Carlo tolerance analysis. Returns `MonteCarloResult` (§7). |
 | `s.sensitivity(*, metric="snr", param_names=None, delta_fraction=0.01)` | One-at-a-time sensitivity analysis. Returns `SensitivityResult` (§8). |
+| `s.solve_for(param, target, *, bounds, metric="snr", rtol=1e-6)` | Inverse solve (Gap 10): Brent root-finding for the parameter value where *metric* equals *target* over the `bounds` bracket (input units). Returns `SolveResult` (solution, achieved, n_evaluations, full `ChainResult`). Raises `SolveBracketError` with both endpoint metric values when the target is not bracketed — note a saturated (plateaued) metric cannot be bracketed. |
 | `s.clone()` | Deep copy of the Sensor (parameters, tolerances). Use before sweeps/what-ifs to keep the original unchanged. |
 | `s.summary()` | Return (not print) a human-readable string of all resolved parameters, grouped by namespace, with input units and provenance tags. |
 | `s.explain(dotpath=None)` | Return a string. With a dot-path: that parameter's value, units, provenance, and derivation chain. With no argument: evaluates the chain and returns a stage-by-stage walkthrough with intermediate values. |
@@ -888,6 +889,7 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `ChainResult.signal_at_frame` / `noise_at_frame` | **Deprecated** — removed in 0.2.0 |
 | `SweepResult`, `Sweep2DResult`, `MonteCarloResult`, `SensitivityResult` public attributes | Stable |
 | `ErrorBudget`, `BudgetContributor` (`radiant.api.error_budget`, Gaps 23+28) | Stable |
+| `SolveResult` (`radiant.api.solve`, Gap 10) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |
 | `radiant.api.session.RadiantSession` | Semi-stable (wrapped by `Sensor`; not an alias) |
 | `radiant.core.*` | Semi-stable (plugin API) |

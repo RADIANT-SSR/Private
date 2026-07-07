@@ -28,6 +28,7 @@ import numpy.typing as npt
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
+from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.core.parameters import ParameterSet, Provenance, Tolerance
@@ -245,6 +246,43 @@ class Sensor:
             metric_name=metric_name,
             keep_results=keep_results,
             n_workers=n_workers,
+        )
+
+    def solve_for(
+        self,
+        param: str,
+        target: float,
+        *,
+        bounds: tuple[float, float],
+        metric: str | Callable[[ChainResult], float] = "snr",
+        rtol: float = 1e-6,
+    ) -> SolveResult:
+        """Find the parameter value that makes *metric* equal *target* (Gap 10).
+
+        Brent root-finding on the forward model over the *bounds*
+        bracket (input units). Example::
+
+            res = sensor.solve_for(
+                "optics.aperture_diameter_m", 50.0,
+                bounds=(0.05, 1.0), metric="snr",
+            )
+            res.solution   # aperture [m] giving SNR = 50
+
+        Raises :class:`~radiant.api.solve.SolveBracketError` (with both
+        endpoint metric values) when the target is not bracketed.
+        """
+        self._ensure_resolved()
+        session = self._build_session()
+        metric_fn, metric_name = self._resolve_metric(metric)
+        return solve_for(
+            session.run,
+            self._params,
+            param,
+            target,
+            bounds,
+            metric=metric_fn,
+            metric_name=metric_name,
+            rtol=rtol,
         )
 
     def sweep_2d(

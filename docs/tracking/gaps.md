@@ -146,7 +146,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.4 (Karen — cold stop sweep) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.3) |
+| **Fix** | `Sensor.solve_for(param, target, bounds=, metric=, rtol=)` backed by new `api/solve.py` (Rule 19): Brent root-finding on the forward chain; `SolveResult` carries solution, achieved metric, evaluation count, and the full `ChainResult` at the root. Actionable `SolveBracketError` reports both endpoint metric values when the target isn't bracketed. 4 integration tests incl. round-trip anchor (forward SNR at D=0.20 m recovered to rel 1e-4). Docs: RADIANT_Scripting_API.md §2.2 + stability row. |
+| **Rerun after fix** | Verified: round-trip solve recovers a known aperture to 1e-4; unreachable targets produce the bracketing error (including the saturation-plateau case where SNR clips at FWC). |
 | **Description** | RADIANT has no built-in mechanism to find the parameter value that produces a target output (e.g., "what `cold_stop_efficiency` gives 44,000 e⁻ background?"). A proper root-finding solver would be more efficient and generalizable than sweep + interpolation. |
 | **Workaround** | Sweep the parameter space and linearly interpolate to the target value. |
 | **Impact** | Any scenario requiring inverse analysis (matching measured data to model parameters). Common in test engineering workflows. |
@@ -689,7 +691,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 7 | Parameter name discovery | Small | All | FIXED |
 | 8 | Strehl ratio missing | Trivial | 2 | FIXED |
 | 9 | Full MTF curve missing | Small | 4+ | FIXED |
-| 10 | No inverse solver | Medium | Many | OPEN |
+| 10 | No inverse solver | Medium | Many | FIXED |
 | 11 | No per-element nearfield breakdown | Medium | Few | CLOSED |
 | 12 | cold_stop_efficiency naming | Small | Few | FIXED |
 | 13 | Q parameter missing | Trivial | Few | FIXED |

@@ -2,6 +2,7 @@
 
 from radiant.api.error_budget import BudgetContributor, ErrorBudget
 from radiant.api.sensitivity import SensitivityResult
+from radiant.api.solve import SolveResult
 from radiant.api.sensor import Sensor
 from radiant.api.sweep import Sweep2DResult, SweepResult
 from radiant.api.tolerance import MonteCarloResult
@@ -16,4 +17,5 @@ __all__ = [
     "ChainResult",
     "ErrorBudget",
     "BudgetContributor",
+    "SolveResult",
 ]

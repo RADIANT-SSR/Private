@@ -295,6 +295,32 @@ class ParameterSet:
         self._inputs[name] = (value, provenance, source)
         self._resolved_flag = False
 
+    def clear_input(self, name: str) -> bool:
+        """Remove a set input so *name* reverts to its default (or is derived
+        from a consistency group) on the next :meth:`resolve`.
+
+        Owns the invalidation semantics: resolution is invalidated only when
+        an input was actually removed. Callers (e.g. ``Sensor.reset()``) must
+        use this instead of touching ``_inputs`` directly (CU-046).
+
+        Returns
+        -------
+        bool
+            ``True`` if an input was removed, ``False`` if none was set.
+
+        Raises
+        ------
+        KeyError
+            If *name* is not in the schema (with a did-you-mean suggestion).
+        """
+        if name not in self._defs:
+            raise KeyError(self._suggest(name))
+        if name not in self._inputs:
+            return False
+        del self._inputs[name]
+        self._resolved_flag = False
+        return True
+
     def set_tolerance(self, name: str, tol: Tolerance) -> None:
         if name not in self._defs:
             raise KeyError(self._suggest(name))

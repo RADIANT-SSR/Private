@@ -163,9 +163,7 @@ class Sensor:
 
         Returns ``self`` for method chaining.
         """
-        if dotpath in self._params._inputs:
-            del self._params._inputs[dotpath]
-            self._params._resolved_flag = False
+        self._params.clear_input(dotpath)
         return self
 
     def set_tolerance(

@@ -789,3 +789,52 @@ class TestParameterSuggestions:
         ps = self._make_ps()
         with pytest.raises(KeyError, match="Did you mean"):
             ps.load_dict({"optics.focal_length": 1.2})
+
+
+# ---------------------------------------------------------------------------
+# clear_input (CU-046)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_clear_input_removes_value_and_allows_rederivation() -> None:
+    """Clearing an input lets the consistency group re-derive the parameter."""
+    ps = _make_ps()
+    ps.set("sensor.optics.aperture_diameter", 0.30)
+    ps.set("sensor.optics.focal_length", 1.5)
+    assert ps.clear_input("sensor.optics.focal_length") is True
+    ps.set("sensor.optics.f_number", 4.0)
+    ps.resolve()
+    # focal_length derives from the group (0.30 m x f/4), not the cleared 1.5 m
+    assert ps.get("sensor.optics.focal_length") == pytest.approx(1.2, rel=1e-12)
+
+
+@pytest.mark.level0
+def test_clear_input_invalidates_resolution() -> None:
+    ps = _make_ps()
+    ps.set("sensor.optics.aperture_diameter", 0.30)
+    ps.set("sensor.optics.focal_length", 1.5)
+    ps.resolve()
+    assert ps.get("sensor.optics.f_number") == pytest.approx(5.0, rel=1e-12)
+    ps.clear_input("sensor.optics.focal_length")
+    with pytest.raises(RuntimeError, match="not resolved"):
+        ps.get("sensor.optics.f_number")
+
+
+@pytest.mark.level0
+def test_clear_input_absent_is_noop_and_keeps_resolution() -> None:
+    """Clearing a never-set input returns False and does not invalidate."""
+    ps = _make_ps()
+    ps.set("sensor.optics.aperture_diameter", 0.30)
+    ps.set("sensor.optics.focal_length", 1.5)
+    ps.resolve()
+    assert ps.clear_input("sensor.optics.f_number") is False
+    # Still resolved — no invalidation for a no-op clear.
+    assert ps.get("sensor.optics.f_number") == pytest.approx(5.0, rel=1e-12)
+
+
+@pytest.mark.level0
+def test_clear_input_unknown_name_suggests() -> None:
+    ps = _make_ps()
+    with pytest.raises(KeyError, match="Did you mean"):
+        ps.clear_input("sensor.optics.focal_lenght")

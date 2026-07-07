@@ -111,6 +111,15 @@ class TestParameterAccess:
         with pytest.raises(KeyError, match="Unknown parameter"):
             sensor.set("bogus.param", 42)
 
+    def test_reset_unknown_param_raises(self, sensor: Sensor) -> None:
+        """CU-046: a typo'd dotpath in reset() raises like set() does.
+
+        Previously reset() silently no-oped on unknown names — the user
+        believed a parameter was reverted when nothing happened.
+        """
+        with pytest.raises(KeyError, match="Unknown parameter"):
+            sensor.reset("bogus.param")
+
 
 # ------------------------------------------------------------------
 # Evaluation

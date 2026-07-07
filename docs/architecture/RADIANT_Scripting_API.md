@@ -67,7 +67,7 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.set_many({dotpath: value, ...})` | Set multiple parameters at once. Returns `self`. |
 | `s.get(dotpath)` | Get a resolved parameter value in **canonical units** (m, rad, s, K, e-). |
 | `s.get_input(dotpath)` | Get a resolved parameter value in **input (display) units** (e.g., µm for pixel pitch). |
-| `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. |
+| `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `KeyError` (with a did-you-mean suggestion) for unknown names, like `set()`. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
 | `s.evaluate()` | Run the full signal chain. Returns `ChainResult` (§3). |
 | `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |

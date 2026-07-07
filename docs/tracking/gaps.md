@@ -495,7 +495,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.5 — TIS model; Harvey-Shack explicitly out of scope for v1) |
+| **Fix** | New `optics/scatter.py` (Rule 19): TIS = 1 − exp(−(4πσ_s/λ)²) (Bennett & Porteus; validity warning above TIS 0.3), mixed kernel `(1−TIS)·δ + TIS·Gaussian(σ_halo)` and exact-Fourier-pair MTF `(1−TIS) + TIS·exp(−2π²σ_halo²f²)` — Rule 4 both paths, included in the consistency check (passes at TIS≈0.117). New params `optics.surface_roughness_nm` (default 0) + `optics.scatter_halo_sigma_um` (default 100 µm). 18 tests, 3 anchors (hand calc TIS=0.021620 at 50 nm/4.25 µm, small-σ limit, kernel-FFT ↔ analytic). Docs: Optics §7.4b, Spatial_Complete term 12, Parameter_System. |
+| **Rerun after fix** | Verified: 120 nm roughness MWIR chain — TIS 0.117 stored, both-axis MTF drops, dual-path consistency green, signal path bit-identical (energy-conserving redistribution). Full 7.3 script rerun blocked on CU-057 (openpyxl). |
 | **Description** | Real optical surfaces scatter light due to surface roughness (total integrated scatter, TIS). This transfers energy from the PSF core to a wide-angle halo, reducing MTF at all frequencies. RADIANT models diffraction and WFE but not surface scatter. The Harvey-Shack BRDF model or TIS = (4πσ/λ)² approximation would capture this. |
 | **Workaround** | None — scatter is an unmodeled MTF loss source. |
 | **Impact** | Lab MTF comparisons where scatter explains residual MTF loss after accounting for all other components. High-quality optics where scatter is comparable to WFE. |
@@ -714,7 +716,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 28 | No WFE allocation / error budget tool | Medium | 5.1 | FIXED |
 | 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
 | 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |
-| 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | OPEN |
+| 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | FIXED |
 | 32 | No electronics MTF model | Small | 7.3 | FIXED |
 | 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | CLOSED |
 | 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | CLOSED |

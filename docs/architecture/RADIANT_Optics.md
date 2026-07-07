@@ -338,6 +338,10 @@ For uncooled instruments, `η_nf = 1` (everything the FPA sees is warm). For a w
 
 **Naming (Gap 12).** This parameter was formerly `optics.cold_stop_efficiency`, which inverted the vendor convention (a vendor's "100% efficient cold stop" blocks everything, i.e. η_nf = 0). The relationship is `nearfield_fraction = 1 − vendor_cold_stop_efficiency`. The old name remains accepted as a deprecated alias (DeprecationWarning) and will be removed in a future release. GUI tooltips must state the vendor-convention relationship explicitly.
 
+### 7.4b Surface-roughness scatter (TIS, Gap 31)
+
+Micro-roughness scatters a fraction TIS = 1 − exp(−(4π σ_s/λ)²) of the specular beam into a wide halo (Bennett & Porteus; smooth-surface limit, warning above TIS ≈ 0.3). Parameters: `optics.surface_roughness_nm` (effective train RMS roughness, default 0 = off) and `optics.scatter_halo_sigma_um` (focal-plane Gaussian halo width, default 100 µm). The kernel `(1−TIS)·δ + TIS·G(σ_halo)` and the analytic MTF `(1−TIS) + TIS·exp(−2π²σ_halo²f²)` are exact Fourier pairs — the term enters both spatial paths (Rule 4) and the consistency check. Energy-conserving: scatter redistributes PSF energy; the radiometric signal path is untouched.
+
 ### 7.5 Output
 
 The total `nearfield_irradiance_at_fpa(λ)` is summed over all elements and stored on `OpticsState`. The detector stage adds it to the photon-flux integrand at the FPA — it does not pass through the signal etendue (it is already an irradiance on the FPA).

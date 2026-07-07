@@ -42,6 +42,12 @@ retroactively reconstructed.
   at f = 1.2 m, previously 3.33e7). Found during Gap 27.
 
 ### Added
+- Surface-roughness scatter (Gap 31): new `optics.surface_roughness_nm`
+  and `optics.scatter_halo_sigma_um` parameters drive a TIS model
+  (`optics/scatter.py`): TIS = 1 − exp(−(4πσ/λ)²), scattered fraction
+  into a Gaussian halo. **Results-affecting only when roughness is set
+  nonzero** — lowers MTF/RER at all frequencies via both spatial paths
+  (Rule 4 Fourier pair); default 0 preserves all results.
 - MTF budget reporting (Gap 19): `MTFBudgetResult.table()` and
   `plot_mtf_budget` / `ResultPlotNamespace.mtf_budget()` — human-facing
   views over the existing per-contributor MTF-at-Nyquist decomposition.

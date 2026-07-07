@@ -272,10 +272,12 @@ The remaining contributors are physically independent of the pupil and of each o
 | 9 | `mtf_tdi_misalign` | \|sinc(π · f · misalign)\| | `readout/tdi_mtf.py` |
 | 10 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | `atmosphere/turbulence.py` + `performance/turbulence_mtf_term.py` |
 | 11 | `mtf_electronics` | exp(−2π² · σ_e² · f²), x-axis only | `readout/electronics_mtf.py` |
+| 12 | `mtf_scatter` | (1 − TIS) + TIS·exp(−2π² σ_halo² f²), isotropic | `optics/scatter.py` |
 
 Notes:
 - The previous 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are unified into a single `mtf_optics` via pupil autocorrelation (§9.1). The component count is 11, not 12.
 - Each term keys into `state.mtf_terms` with a `_x` / `_y` suffix for per-axis storage (e.g., `mtf_optics_x`, `mtf_pixel_aperture_y`).
+- **Scatter MTF (Gap 31) enters BOTH paths**: `OpticsStage` computes TIS = 1 − exp(−(4πσ_s/λ)²) from `optics.surface_roughness_nm` at the ePSF wavelength, convolves the mixed kernel `(1−TIS)·δ + TIS·Gaussian(optics.scatter_halo_sigma_um)` into the ePSF, and pushes the analytic Fourier-pair term `(1−TIS) + TIS·exp(−2π²σ_halo²f²)` isotropically. Included in the consistency check. Harvey–Shack BRDF is out of scope for v1.
 - **Electronics MTF (Gap 32) enters BOTH paths**, unlike TDI: `ReadoutStage` pushes the analytic term and builds the matching Gaussian-in-x kernel (delta in y — readout-axis blur only), which `PerformanceStage` convolves into the `EffectivePSF` exactly like the IPC kernel (the kernel travels via `stage_outputs["readout"]["electronics_kernel"]`, Rule 11). It is therefore *included* in the dual-path consistency comparison. Parameter: `readout.electronics_sigma_um` (default 0 = ideal electronics).
 
 ### 9.3 The Consistency Check (unconditional)

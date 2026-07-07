@@ -218,6 +218,45 @@ DEFOCUS_UM = ParameterDef(
 # Nearfield
 # ---------------------------------------------------------------------------
 
+SURFACE_ROUGHNESS_NM = ParameterDef(
+    name="optics.surface_roughness_nm",
+    description=(
+        "Effective RMS surface micro-roughness of the optical train [nm] "
+        "for the TIS scatter model: TIS = 1 - exp(-(4πσ/λ)²) at band "
+        "center. Zero (default) = no scatter. Smooth-surface limit — a "
+        "warning fires when TIS > 0.3. Scattered energy lands in a "
+        "Gaussian halo of width optics.scatter_halo_sigma_um (Rule 4: "
+        "kernel on the PSF path + analytic MTF term, exact Fourier pair)."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="nm",
+    default=0.0,
+    bounds=(0.0, 10000.0),
+    tags=frozenset({"optics", "scatter"}),
+    default_justification="0.0 = ideally smooth surfaces (backward compatible).",
+)
+
+SCATTER_HALO_SIGMA_UM = ParameterDef(
+    name="optics.scatter_halo_sigma_um",
+    description=(
+        "Focal-plane sigma of the Gaussian scatter halo [µm] used by the "
+        "TIS model. Sets where the scattered fraction lands; tune to a "
+        "measured halo when available. Only meaningful when "
+        "optics.surface_roughness_nm > 0."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="um",
+    default=100.0,
+    bounds=(0.1, 10000.0),
+    tags=frozenset({"optics", "scatter"}),
+    default_justification=(
+        "100 µm — wide against typical PSF cores (several pixels), narrow "
+        "against the PSF grid, so the halo is resolved on both paths."
+    ),
+)
+
 SCALAR_EMISSIVITY = ParameterDef(
     name="optics.scalar_emissivity",
     description=(
@@ -407,6 +446,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     WFE_REFERENCE_WAVELENGTH_UM,
     FIELD_POSITION_X,
     FIELD_POSITION_Y,
+    SURFACE_ROUGHNESS_NM,
+    SCATTER_HALO_SIGMA_UM,
     SCALAR_EMISSIVITY,
     NEARFIELD_FRACTION,
     NEARFIELD_ENABLED,

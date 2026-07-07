@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 132**
+**Total parameters: 134**
 
 ## source
 
@@ -94,10 +94,12 @@
 | `optics.optics_temperature_K` | float | 290.0 | K | (1.0, 1000.0) | Default physical temperature of the optical train [K]. Used for synthesized lumped elements in Modes 1-4. |
 | `optics.psf_n_wavelengths` | int | 1 | --- | (1, 101) | Number of wavelengths for polychromatic PSF computation. 1 = monochromatic at band center (default). Values > 1 compute a photon-flux-weighted average of monochromatic PSFs across the spectral band. |
 | `optics.scalar_emissivity` | float | 0.0 | --- | (0.0, 1.0) | Declared effective emissivity of the lumped optical train in scalar transmission mode [0, 1]. Zero (default) keeps the refractive-lump assumption (no warm-optics nearfield emission). Set nonzero for warm reflective trains — e.g. eps ≈ 1 - tau for an all-mirror train. Permitted only because the scalar lump is not a physical surface; Rule 5 (Kirchhoff-derived emissivity) still binds real elements. Requires eps + tau <= 1. Ignored in non-scalar transmission modes. |
+| `optics.scatter_halo_sigma_um` | float | 100.0 | um | (0.1, 10000.0) | Focal-plane sigma of the Gaussian scatter halo [µm] used by the TIS model. Sets where the scattered fraction lands; tune to a measured halo when available. Only meaningful when optics.surface_roughness_nm > 0. |
 | `optics.stray.absolute_irradiance_W_m2` | float | 0.0 | W/m^2 | (0.0, 1000000.0) | Absolute in-band stray irradiance at the FPA [W/m^2]. Distributed flat across the wavelength grid. |
 | `optics.stray.includes_thermal` | int | 0 | --- | (0, 1) | If 1, the stray light measurement already includes warm-optics scatter; nearfield is suppressed to avoid double-counting. (int: 1=True, 0=False). |
 | `optics.stray.input_mode` | str | veiling_glare | --- | --- | Stray light input mode: veiling_glare, absolute_irradiance, spectral_file, or pst_file. |
 | `optics.stray.veiling_glare_fraction` | float | 0.0 | --- | (0.0, 1.0) | Veiling glare fraction: fraction of in-FOV scene irradiance that becomes stray light [0, 1]. |
+| `optics.surface_roughness_nm` | float | 0.0 | nm | (0.0, 10000.0) | Effective RMS surface micro-roughness of the optical train [nm] for the TIS scatter model: TIS = 1 - exp(-(4πσ/λ)²) at band center. Zero (default) = no scatter. Smooth-surface limit — a warning fires when TIS > 0.3. Scattered energy lands in a Gaussian halo of width optics.scatter_halo_sigma_um (Rule 4: kernel on the PSF path + analytic MTF term, exact Fourier pair). |
 | `optics.transmission_input_mode` | str | scalar | --- | --- | Which of the five transmission input modes to use: scalar, spectral_file, telescope_plus_filters, key_elements, full_prescription. |
 | `optics.transmission_scalar` | float | 0.7 | --- | (0.0, 1.0) | Flat broadband optical throughput ``τ_opt`` (Mode 1 of RADIANT_Optics.md §5.1). Dimensionless in [0, 1]. |
 | `optics.wfe_mode` | str | scalar_rms | --- | --- | Wavefront error input mode: scalar_rms, zernike, opd_map, or field_dependent. |

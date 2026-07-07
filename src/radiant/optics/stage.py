@@ -71,6 +71,11 @@ from radiant.optics.pupil_mtf import (
 )
 from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
 from radiant.optics.sampling import compute_sampling
+from radiant.optics.scatter import (
+    scatter_kernel_2d,
+    scatter_mtf_1d,
+    total_integrated_scatter,
+)
 from radiant.optics.stray_light import (
     StrayLightConfig,
     StrayLightInputMode,
@@ -838,6 +843,41 @@ class OpticsStage:
                 sigma_def / sample_spacing_m,
                 npix_needed,
                 npix_needed,
+            )
+
+        # --- Surface-roughness scatter (TIS, Gap 31) ---
+        # Rule 4: kernel on the PSF path + analytic term on the MTF
+        # product path; the two are exact Fourier pairs.
+        roughness_m: float = params.get("optics.surface_roughness_nm")
+        if roughness_m > 0.0 and epsf is not None:
+            sigma_halo_m: float = params.get("optics.scatter_halo_sigma_um")
+            lam_m = epsf.wavelength_um * 1e-6
+            tis = total_integrated_scatter(roughness_m, lam_m)
+
+            spacing = epsf.sample_spacing_m
+            npix_sc = int(math.ceil(6.0 * sigma_halo_m / spacing)) | 1
+            npix_sc = max(3, min(npix_sc, epsf.data.shape[0]))
+            k_scatter = scatter_kernel_2d(npix_sc, spacing, sigma_halo_m, tis)
+            epsf = epsf.with_kernel("scatter", k_scatter)
+            state = state.with_stage_output("optics", "effective_psf", epsf)
+            state = state.with_stage_output("optics", "scatter_tis", tis)
+
+            freq_mrad_sc = state.spatial_freq_cycles_per_mrad
+            if freq_mrad_sc is not None:
+                freq_m_sc = freq_mrad_sc / (focal_length_m * 1e-3)
+                mtf_sc = scatter_mtf_1d(freq_m_sc, sigma_halo_m, tis)
+                state = state.with_mtf("mtf_scatter_x", mtf_sc)
+                state = state.with_mtf("mtf_scatter_y", mtf_sc.copy())
+
+            logger.info(
+                "Scatter applied: sigma_s=%.1f nm at λ=%.2f µm → TIS=%.4f, "
+                "halo σ=%.0f µm, kernel %dx%d",
+                roughness_m * 1e9,
+                epsf.wavelength_um,
+                tis,
+                sigma_halo_m * 1e6,
+                npix_sc,
+                npix_sc,
             )
 
         # --- Nearfield emission ---

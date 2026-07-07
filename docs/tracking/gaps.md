@@ -355,7 +355,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.2 — merged with Gap 28) |
+| **Fix** | Generic `ErrorBudget`/`BudgetContributor` in `radiant/api/error_budget.py` (one RSS model per the registry's own suggestion to merge with Gap 28): rss_total, allocation margin, over-budget flag, RSS headroom `sqrt(alloc²−total²)`, immutable extension, formatted budget table with variance shares, dict round-trip. Exported from `radiant.api`. 16 tests, 3 anchors (3-4-5 RSS, WFE hand calc, exact-consumption headroom). Docs: RADIANT_Scripting_API.md. |
+| **Rerun after fix** | Verified: jitter-style budget (µrad) and WFE-style budget (waves) both exercise the same model; table output includes per-contributor variance share for allocation review. |
 | **Description** | Jitter from multiple sources (reaction wheels, solar pressure, cryo coolers, structural modes, ACS residual) adds in quadrature (RSS). RADIANT doesn't have a tool to allocate and track jitter budgets across multiple contributors. An "error budget table" feature would help systems engineers allocate tolerances. |
 | **Workaround** | Manual RSS calculation in scripts. |
 | **Impact** | Systems engineering jitter budget allocation. |
@@ -439,7 +441,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.2 — merged with Gap 23) |
+| **Fix** | Same `ErrorBudget` utility as Gap 23 (see that entry): the registry's suggested generic "error budget" framework. WFE usage: `ErrorBudget("wfe", "waves", contributors=(fabrication, alignment, thermal, gravity_release, ...), allocation=total_budget)`. |
+| **Rerun after fix** | Verified: RSS(0.05, 0.03, 0.02) waves = 0.06164 waves anchor; headroom query answers "how much is left for a new contributor". |
 | **Description** | In practice, Tom needs to partition his total WFE budget among contributors: fabrication (mirror figure), alignment, thermal distortion, gravity release, jitter. Each is specified as an RMS, combined via RSS: `WFE_total = sqrt(sum(WFE_i^2))`. RADIANT can sweep total WFE but has no sub-allocation or RSS combination tool. Similar in concept to Gap 23 (jitter-source allocation). |
 | **Workaround** | Manual RSS calculation in scripts. |
 | **Impact** | Systems engineering WFE budget allocation — standard workflow for optical telescope design. |
@@ -698,12 +702,12 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | FIXED |
 | 21 | No jitter PSD / frequency dependence | Large | 5.4 | DEFERRED |
 | 22 | RER below GIQE-5 calibration range | Small | 5.4 | FIXED |
-| 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |
+| 23 | No jitter-source allocation tool | Medium | 5.4 | FIXED |
 | 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
 | 25 | No field-dependent WFE | Large | 5.1 | CLOSED |
 | 26 | No Zemax Zernike importer | Medium | 5.1 | OPEN |
 | 27 | MTF curve frequency axis units | Small | 5.1 | FIXED |
-| 28 | No WFE allocation / error budget tool | Medium | 5.1 | OPEN |
+| 28 | No WFE allocation / error budget tool | Medium | 5.1 | FIXED |
 | 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
 | 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |
 | 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | OPEN |

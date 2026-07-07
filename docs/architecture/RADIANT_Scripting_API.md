@@ -872,6 +872,8 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 
 **Under the hood:** `Sensor.evaluate()` builds a `RadiantSession` on the configured wavelength grid and calls `session.run(params)`. `RadiantSession.run` pre-builds the configured atmosphere model via `radiant.atmosphere.loaders.build_atmosphere_model(params)` — all file I/O happens there, before chain execution (Rule 6) — and injects it via `ChainRunner.run(initial_stage_outputs={"atmosphere_config": {"model": ...}})`. The returned `ChainResult` carries the resolved `ParameterSet` so `to_provenance_record()` can report parameters and input-file hashes.
 
+**Error budgets (Gaps 23 + 28).** `radiant.api.error_budget` provides a generic quadrature budget: `ErrorBudget(name, unit, contributors=(BudgetContributor(name, rms, note), ...), allocation=req)` with `rss_total`, `margin`, `over_budget`, `remaining_allocation()` (RSS headroom `sqrt(alloc² − total²)`), immutable `with_contributor(...)`, a formatted `table()` with per-contributor variance share, and `to_dict`/`from_dict`. One model serves jitter budgets (µrad) and WFE budgets (waves) — the math is unit-agnostic RSS; the unit field is display metadata.
+
 `RadiantSession.run` also accepts `extra_stage_outputs` (Gap 17): a dict of additional pre-chain injections merged over the built-in ones — the Rule 6 route for non-scalar inputs. Example: decouple polychromatic PSF weighting from the scene spectrum with `extra_stage_outputs={"optics_config": {"psf_weighting_spectrum": spectral_data}}` (a `SpectralData` in W/m²/sr/µm; must overlap the sensor band). The chosen weighting source is recorded in `stage_outputs["optics"]["psf_weighting_source"]` (`override:<name>` / `post_optics` / `at_aperture` / `flat`).
 
 ---
@@ -885,6 +887,7 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `ChainResult` properties and methods (§3) | Stable across minor versions |
 | `ChainResult.signal_at_frame` / `noise_at_frame` | **Deprecated** — removed in 0.2.0 |
 | `SweepResult`, `Sweep2DResult`, `MonteCarloResult`, `SensitivityResult` public attributes | Stable |
+| `ErrorBudget`, `BudgetContributor` (`radiant.api.error_budget`, Gaps 23+28) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |
 | `radiant.api.session.RadiantSession` | Semi-stable (wrapped by `Sensor`; not an alias) |
 | `radiant.core.*` | Semi-stable (plugin API) |

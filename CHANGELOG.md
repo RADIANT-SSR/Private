@@ -42,6 +42,10 @@ retroactively reconstructed.
   at f = 1.2 m, previously 3.33e7). Found during Gap 27.
 
 ### Added
+- `ErrorBudget` / `BudgetContributor` (Gaps 23+28): generic RSS error
+  budget with allocation tracking, headroom queries, budget table, and
+  dict round-trip — one model for jitter (µrad) and WFE (waves)
+  budgets. Exported from `radiant.api`.
 - Unit-aware parameter input (Gap 6): `ParameterSet.set(name, value,
   unit=...)` and `Sensor.set(dotpath, value, unit=...)` convert from the
   caller's native unit (cm, ms, %, min, …) at the set boundary. Bounds

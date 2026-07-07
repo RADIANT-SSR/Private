@@ -1,5 +1,6 @@
 """Public API: Sensor, ChainResult, and analysis result types."""
 
+from radiant.api.error_budget import BudgetContributor, ErrorBudget
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
 from radiant.api.sweep import Sweep2DResult, SweepResult
@@ -13,4 +14,6 @@ __all__ = [
     "MonteCarloResult",
     "SensitivityResult",
     "ChainResult",
+    "ErrorBudget",
+    "BudgetContributor",
 ]

@@ -300,15 +300,40 @@ def _build_effective_psf(
         psf_wl_m = psf_wl_um * 1e-6
 
         # Compute photon-flux weights: L(lambda) * lambda/(hc).
-        post_optics_frame = state.frames.get("post_optics")
-        if post_optics_frame is not None and post_optics_frame.spectral_radiance is not None:
-            L_interp = np.interp(psf_wl_um, wl_um, post_optics_frame.spectral_radiance)
+        # Gap 17: an injected optics_config["psf_weighting_spectrum"]
+        # (SpectralData, W/m²/sr/µm) overrides the scene spectrum so the
+        # PSF weighting can be decoupled from the radiometric source
+        # (e.g. blackbody- vs solar-weighted PSF comparisons).
+        override_sd = state.stage_outputs.get("optics_config", {}).get("psf_weighting_spectrum")
+        if override_sd is not None:
+            if (
+                float(override_sd.wavelength_um[-1]) < float(psf_wl_um[0])
+                or float(override_sd.wavelength_um[0]) > float(psf_wl_um[-1])
+            ):
+                raise ValueError(
+                    "OpticsStage: psf_weighting_spectrum grid "
+                    f"[{float(override_sd.wavelength_um[0]):.3g}, "
+                    f"{float(override_sd.wavelength_um[-1]):.3g}] µm does not "
+                    f"overlap the PSF band [{float(psf_wl_um[0]):.3g}, "
+                    f"{float(psf_wl_um[-1]):.3g}] µm. Provide an override "
+                    "spectrum covering the sensor band."
+                )
+            L_interp = np.interp(psf_wl_um, override_sd.wavelength_um, override_sd.values)
+            weighting_source = f"override:{override_sd.name}"
         else:
-            at_aperture = state.frames["at_aperture"]
-            if at_aperture.spectral_radiance is not None:
-                L_interp = np.interp(psf_wl_um, wl_um, at_aperture.spectral_radiance)
+            post_optics_frame = state.frames.get("post_optics")
+            if post_optics_frame is not None and post_optics_frame.spectral_radiance is not None:
+                L_interp = np.interp(psf_wl_um, wl_um, post_optics_frame.spectral_radiance)
+                weighting_source = "post_optics"
             else:
-                L_interp = np.ones(n_psf_wavelengths)
+                at_aperture = state.frames["at_aperture"]
+                if at_aperture.spectral_radiance is not None:
+                    L_interp = np.interp(psf_wl_um, wl_um, at_aperture.spectral_radiance)
+                    weighting_source = "at_aperture"
+                else:
+                    L_interp = np.ones(n_psf_wavelengths)
+                    weighting_source = "flat"
+        state = state.with_stage_output("optics", "psf_weighting_source", weighting_source)
 
         weights = L_interp * psf_wl_m / (h_planck * c_light)
         weights = np.maximum(weights, 1e-30)

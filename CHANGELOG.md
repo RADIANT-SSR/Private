@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- PSF weighting spectrum override (Gap 17): `RadiantSession.run` gains an
+  `extra_stage_outputs` injection argument;
+  `optics_config["psf_weighting_spectrum"]` (SpectralData) decouples
+  polychromatic PSF weighting from the scene spectrum. Radiometry is
+  unaffected; weighting provenance recorded in
+  `stage_outputs["optics"]["psf_weighting_source"]`. No default-behavior
+  change.
 - Electronics MTF (Gap 32): new `readout.electronics_sigma_um` parameter
   (default 0.0 = ideal electronics, no result change) models readout
   amplifier bandwidth as a Gaussian blur along the readout (x) axis.

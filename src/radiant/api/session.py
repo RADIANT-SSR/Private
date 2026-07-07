@@ -7,6 +7,8 @@ stage set and exposes a ``.run(params)`` that returns a
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import numpy.typing as npt
 
@@ -56,13 +58,27 @@ class RadiantSession:
     def stage_names(self) -> tuple[str, ...]:
         return self._runner.stage_names
 
-    def run(self, params: ParameterSet) -> ChainResult:
+    def run(
+        self,
+        params: ParameterSet,
+        extra_stage_outputs: dict[str, dict[str, Any]] | None = None,
+    ) -> ChainResult:
         """Execute the chain and return the result.
 
         Builds the configured atmosphere model before chain execution
         (Rule 6: any file I/O the model needs happens here, not inside
         ``AtmosphereStage.run``) and injects it via
         ``stage_outputs["atmosphere_config"]["model"]``.
+
+        Parameters
+        ----------
+        params:
+            Resolved parameter set.
+        extra_stage_outputs:
+            Optional additional pre-chain injections merged over the
+            built-in ones — the Rule 6 route for non-scalar inputs, e.g.
+            ``{"optics_config": {"psf_weighting_spectrum": spectral_data}}``
+            (Gap 17) or ``{"optics_config": {"element_list": [...]}}``.
 
         The returned :class:`ChainResult` carries the provided
         ``params`` so that
@@ -71,10 +87,15 @@ class RadiantSession:
         hashes recorded by :func:`radiant.io.config.load_config`.
         """
         atmosphere_model = build_atmosphere_model(params)
+        initial: dict[str, dict[str, Any]] = {
+            "atmosphere_config": {"model": atmosphere_model},
+        }
+        for group, values in (extra_stage_outputs or {}).items():
+            initial.setdefault(group, {}).update(values)
         state = self._runner.run(
             params,
             self._wavelength_um,
-            initial_stage_outputs={"atmosphere_config": {"model": atmosphere_model}},
+            initial_stage_outputs=initial,
         )
         return ChainResult(state, params=params)
 

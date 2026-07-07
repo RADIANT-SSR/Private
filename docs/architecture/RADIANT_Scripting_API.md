@@ -872,6 +872,8 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 
 **Under the hood:** `Sensor.evaluate()` builds a `RadiantSession` on the configured wavelength grid and calls `session.run(params)`. `RadiantSession.run` pre-builds the configured atmosphere model via `radiant.atmosphere.loaders.build_atmosphere_model(params)` — all file I/O happens there, before chain execution (Rule 6) — and injects it via `ChainRunner.run(initial_stage_outputs={"atmosphere_config": {"model": ...}})`. The returned `ChainResult` carries the resolved `ParameterSet` so `to_provenance_record()` can report parameters and input-file hashes.
 
+`RadiantSession.run` also accepts `extra_stage_outputs` (Gap 17): a dict of additional pre-chain injections merged over the built-in ones — the Rule 6 route for non-scalar inputs. Example: decouple polychromatic PSF weighting from the scene spectrum with `extra_stage_outputs={"optics_config": {"psf_weighting_spectrum": spectral_data}}` (a `SpectralData` in W/m²/sr/µm; must overlap the sensor band). The chosen weighting source is recorded in `stage_outputs["optics"]["psf_weighting_source"]` (`override:<name>` / `post_optics` / `at_aperture` / `flat`).
+
 ---
 
 ## 11. API Stability Contract

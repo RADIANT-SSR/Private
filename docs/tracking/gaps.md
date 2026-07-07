@@ -251,7 +251,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.3 (Tom — mono vs. poly PSF) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-2.3) |
+| **Fix** | Injection route (Rule 6, non-scalar input): `RadiantSession.run(params, extra_stage_outputs={"optics_config": {"psf_weighting_spectrum": SpectralData}})`. OpticsStage uses the override for photon-flux weights (validated for band overlap), records provenance in `stage_outputs["optics"]["psf_weighting_source"]`. Radiometric chain untouched (signal_e bit-identical). 5 integration tests. Docs: RADIANT_Scripting_API.md. |
+| **Rerun after fix** | Verified: blue- vs red-weighted overrides on a 3.5–5 µm chain shift the ePSF effective wavelength and FWHM in the expected directions with SNR/signal unchanged (scenario 5.3's isolated PSF-weighting comparison is now possible). |
 | **Description** | The polychromatic PSF weighting uses the scene source spectrum (post-atmosphere, post-optics photon flux). There is no mechanism to override this — e.g., to compare blackbody-weighted vs. solar-reflection-weighted PSFs for VNIR bands. Changing the source temperature also changes radiometric results (SNR, signal), making isolated PSF-weighting comparisons impossible. |
 | **Workaround** | None — PSF weighting is coupled to the source spectrum. |
 | **Impact** | Dual-use systems (thermal + reflected) where PSF weighting depends on the observation mode. |
@@ -684,7 +686,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 14 | No aliased/folded MTF | Medium | Few | CLOSED |
 | 15 | MTF = 0 at high Q (investigate) | Small | Few | CLOSED |
 | 16 | Per-wavelength PSFs not exposed | Small | Few | CLOSED |
-| 17 | No arbitrary PSF weighting spectrum | Small | Few | OPEN |
+| 17 | No arbitrary PSF weighting spectrum | Small | Few | FIXED |
 | 18 | Platform jitter not wired | — | 5.4 | FIXED |
 | 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
 | 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | FIXED |

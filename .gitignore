@@ -37,6 +37,9 @@ coverage.xml
 # macOS
 .DS_Store
 
+# LibreOffice lock files
+.~lock.*#
+
 # Data files (large assets shipped separately)
 data/solar/*.bin
 data/atmospheres/*.bin

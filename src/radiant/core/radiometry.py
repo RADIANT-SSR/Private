@@ -56,7 +56,13 @@ class RadiometricFrame:
         Post-spectral-integration scalar (e.g., e- per pixel per
         integration). When set, the frame holds **no** spectral arrays;
         when unset, at least one spectral array must be set. This XOR
-        is enforced at construction.
+        is enforced at construction. Consequence (CU-049): pre-integration
+        frames (``at_target``, ``at_aperture``, ``post_optics``) always
+        carry ``in_band_value = None`` — that is Rule 8 by design, not a
+        missing value. The in-band scalar *at* such a frame exists only as
+        a derived quantity: use ``ChainResult.signal_at(frame)``, which
+        propagates the post-integration value backward through the chain's
+        transfer factors.
     in_band_unit:
         Free-form unit string for ``in_band_value`` (e.g. ``"e-"``).
     notes:

@@ -94,7 +94,18 @@ class ChainResult:
         self,
         frame: ReferenceFrame | str,
     ) -> ChainQuantity:
-        """Get the signal expressed at a target reference frame.
+        """Get the in-band signal expressed at a target reference frame.
+
+        The returned value is **derived**, not stored: the post-integration
+        signal is propagated backward to *frame* through the chain's
+        transfer factors. For pre-integration frames (``at_target``,
+        ``at_aperture``, ``post_optics``) the corresponding
+        ``result.frames[...]`` object intentionally carries
+        ``in_band_value = None`` — those frames are spectral-only by
+        design (Rule 8: spectral integration happens exactly once), so
+        this accessor is the *only* way to read an in-band scalar there
+        (CU-049). The two access paths differing is the documented
+        contract, not a bug.
 
         Parameters
         ----------
@@ -104,7 +115,7 @@ class ChainResult:
         Returns
         -------
         ChainQuantity
-            Signal value at the requested frame.
+            In-band signal value derived at the requested frame.
         """
         if isinstance(frame, str):
             frame = ReferenceFrame(frame)

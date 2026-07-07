@@ -148,6 +148,8 @@ The object returned by `s.evaluate()` (`src/radiant/io/results.py`). It is a rea
 
 Valid frame strings (the `ReferenceFrame` enum values): `"at_target"`, `"at_aperture"`, `"post_optics"`, `"photoelectrons"`, `"post_readout"`, `"dn"`.
 
+> **Derived, not stored (CU-049):** for pre-integration frames (`at_target`, `at_aperture`, `post_optics`) the corresponding `result.frames[...]` object carries `in_band_value = None` — those frames are spectral-only by design (Rule 8: spectral integration happens exactly once; `RadiometricFrame` enforces spectral XOR scalar). `signal_at` is the only way to read an in-band scalar at such a frame: it derives the value by propagating the post-integration signal backward. Seeing `None` on the frame while `signal_at` returns a number is the documented contract, not an inconsistency.
+
 ```python
 result = s.evaluate()
 

@@ -211,6 +211,22 @@ class TestBackwardPropagation:
         q3 = q2.to(ReferenceFrame.PHOTOELECTRONS, result.state)
         assert q3.value == pytest.approx(q1.value, rel=1e-10)
 
+    def test_pre_integration_frame_scalar_is_none_but_signal_at_derives(self) -> None:
+        """CU-049 contract: the two access paths intentionally differ pre-integration.
+
+        Pre-integration frames are spectral-only by design (Rule 8: exactly one
+        spectral collapse; RadiometricFrame enforces spectral XOR scalar), so
+        ``frames["at_aperture"].in_band_value`` is None. The in-band scalar at
+        that frame exists only as a *derived* quantity: ``signal_at`` propagates
+        the post-integration value backward through the transfer factors.
+        """
+        result, _, _ = _run_extended()
+        frame = result.frames["at_aperture"]
+        assert frame.in_band_value is None  # spectral-only, by design
+        q = result.signal_at("at_aperture")
+        assert math.isfinite(q.value)
+        assert q.value > 0.0
+
 
 # ===================================================================
 # 3. SWEEPS

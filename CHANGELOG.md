@@ -42,6 +42,9 @@ retroactively reconstructed.
   at f = 1.2 m, previously 3.33e7). Found during Gap 27.
 
 ### Added
+- MTF budget reporting (Gap 19): `MTFBudgetResult.table()` and
+  `plot_mtf_budget` / `ResultPlotNamespace.mtf_budget()` — human-facing
+  views over the existing per-contributor MTF-at-Nyquist decomposition.
 - `Sensor.solve_for(param, target, bounds=, metric=)` (Gap 10): inverse
   solver — Brent root-finding for the parameter value that hits a target
   metric, replacing sweep-and-interpolate. New `api/solve.py` module,

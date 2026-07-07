@@ -120,8 +120,15 @@ def _format_stage(result: ChainResult, stage: str) -> str:
 class ResultPlotNamespace:
     """Namespace for result plot accessors.
 
-    Provides ``result.plot.psf()``, ``result.plot.noise_budget()``, etc.
-    Lazily imports matplotlib — raises a helpful error if not installed.
+    Construct with a :class:`ChainResult`::
+
+        plots = ResultPlotNamespace(result)
+        plots.psf(); plots.noise_budget(); plots.mtf(); plots.mtf_budget()
+
+    (``ChainResult`` lives in ``radiant.io`` which may not import the API
+    layer, so the namespace is constructed here rather than attached as a
+    ``result.plot`` property.) Lazily imports matplotlib — raises a
+    helpful error if not installed.
     """
 
     def __init__(self, result: ChainResult) -> None:
@@ -151,6 +158,18 @@ class ResultPlotNamespace:
             self._result.state.spatial_freq_cycles_per_mrad,
             **kwargs,
         )
+
+    def mtf_budget(self, **kwargs: Any) -> Any:
+        """Plot the per-contributor MTF-at-Nyquist budget (Gap 19)."""
+        from radiant.api.plot import plot_mtf_budget
+
+        budget = self._result.stage_outputs.get("performance", {}).get("mtf_budget")
+        if budget is None:
+            raise ValueError(
+                "No MTF budget found in result stage_outputs['performance'] — "
+                "the chain must run PerformanceStage with an MTF product path."
+            )
+        return plot_mtf_budget(budget, **kwargs)
 
 
 def _fmt(val: Any) -> str:

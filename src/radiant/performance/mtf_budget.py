@@ -49,6 +49,38 @@ class MTFBudgetResult:
     dominant_contributor_at_nyquist_x: str
     dominant_contributor_at_nyquist_y: str
 
+    def table(self) -> str:
+        """Formatted per-contributor MTF budget table at Nyquist (Gap 19).
+
+        One row per contributor with its x- and y-axis MTF at Nyquist,
+        sorted worst-x first; system product and dominant contributor
+        rows at the bottom.
+        """
+        bases = sorted(
+            {n[:-2] for n in self.per_term_at_nyquist if n.endswith(("_x", "_y"))},
+            key=lambda b: self.per_term_at_nyquist.get(f"{b}_x", 1.0),
+        )
+        lines = [
+            "MTF budget at Nyquist",
+            f"{'Contributor':<24s} {'MTF_x(Ny)':>10s} {'MTF_y(Ny)':>10s}",
+        ]
+        for base in bases:
+            mx = self.per_term_at_nyquist.get(f"{base}_x")
+            my = self.per_term_at_nyquist.get(f"{base}_y")
+            sx = f"{mx:.4f}" if mx is not None else "—"
+            sy = f"{my:.4f}" if my is not None else "—"
+            lines.append(f"{base:<24s} {sx:>10s} {sy:>10s}")
+        lines.append(
+            f"{'system (product)':<24s} "
+            f"{self.system_mtf_at_nyquist_x:>10.4f} "
+            f"{self.system_mtf_at_nyquist_y:>10.4f}"
+        )
+        lines.append(
+            f"dominant: x = {self.dominant_contributor_at_nyquist_x}, "
+            f"y = {self.dominant_contributor_at_nyquist_y}"
+        )
+        return "\n".join(lines)
+
 
 def compute_mtf_budget(
     mtf_terms: Mapping[str, npt.NDArray[np.float64]],

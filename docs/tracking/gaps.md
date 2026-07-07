@@ -288,7 +288,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.7) |
+| **Fix** | Phase-0 re-audit found the decomposition already existed (dual-path architecture: `MTFBudgetResult` in `performance/mtf_budget.py` with `per_term_at_nyquist`, dominant contributor per axis, system product, stored at `stage_outputs["performance"]["mtf_budget"]`) — the gap predated that work. Added the missing reporting layer: `MTFBudgetResult.table()` (per-contributor MTF-at-Nyquist table, worst-first, system + dominant rows) and `plot_mtf_budget` / `ResultPlotNamespace.mtf_budget()` grouped bar chart. 3 integration tests. Also corrected the `ResultPlotNamespace` docstring (it claimed a `result.plot` attribute that was never wired — the namespace is constructed explicitly; io may not import api). |
+| **Rerun after fix** | Verified: MWIR chain with 2 µrad jitter — table lists optics/pixel/jitter/diffusion/IPC/TDI/electronics contributors with system product and dominant contributor; plot renders under Agg. |
 | **Description** | RADIANT computes a system MTF but doesn't decompose it into individual contributors (optics, detector, jitter, smear, etc.) in a way that's easy to inspect. An MTF budget table showing each contributor's MTF at Nyquist would be valuable for optical designers. |
 | **Workaround** | Compute individual MTF terms manually in scripts (e.g., MTF_jitter = exp(-2π²σ²f²)). |
 | **Impact** | Optical design trade studies, jitter/smear allocation. |
@@ -700,7 +702,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 16 | Per-wavelength PSFs not exposed | Small | Few | CLOSED |
 | 17 | No arbitrary PSF weighting spectrum | Small | Few | FIXED |
 | 18 | Platform jitter not wired | — | 5.4 | FIXED |
-| 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
+| 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | FIXED |
 | 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | FIXED |
 | 21 | No jitter PSD / frequency dependence | Large | 5.4 | DEFERRED |
 | 22 | RER below GIQE-5 calibration range | Small | 5.4 | FIXED |

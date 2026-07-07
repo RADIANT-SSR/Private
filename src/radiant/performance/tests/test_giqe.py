@@ -138,13 +138,13 @@ class TestCalibrationRange:
     """
 
     def _nominal(self, **overrides):
-        kwargs = dict(
-            gsd_m_along=0.3,
-            gsd_m_cross=0.3,
-            rer_along=0.5,
-            rer_cross=0.5,
-            snr=50.0,
-        )
+        kwargs = {
+            "gsd_m_along": 0.3,
+            "gsd_m_cross": 0.3,
+            "rer_along": 0.5,
+            "rer_cross": 0.5,
+            "snr": 50.0,
+        }
         kwargs.update(overrides)
         return compute_giqe5(**kwargs)
 

@@ -152,6 +152,38 @@ def plot_noise_budget(
     return cast("Figure", fig)
 
 
+def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
+    """Plot per-contributor MTF at Nyquist as a grouped bar chart (Gap 19).
+
+    Parameters
+    ----------
+    budget:
+        :class:`~radiant.performance.mtf_budget.MTFBudgetResult`.
+    **kwargs:
+        Passed to ``ax.barh()``.
+    """
+    plt = _require_matplotlib()
+    fig, ax = plt.subplots()
+    bases = sorted(
+        {n[:-2] for n in budget.per_term_at_nyquist if n.endswith(("_x", "_y"))},
+        key=lambda b: budget.per_term_at_nyquist.get(f"{b}_x", 1.0),
+    )
+    y = np.arange(len(bases))
+    mx = [budget.per_term_at_nyquist.get(f"{b}_x", np.nan) for b in bases]
+    my = [budget.per_term_at_nyquist.get(f"{b}_y", np.nan) for b in bases]
+    ax.barh(y - 0.2, mx, height=0.4, label="x", **kwargs)
+    ax.barh(y + 0.2, my, height=0.4, label="y", **kwargs)
+    ax.set_yticks(y)
+    ax.set_yticklabels(bases)
+    ax.axvline(budget.system_mtf_at_nyquist_x, ls="--", lw=1, label="system (x)")
+    ax.set_xlabel("MTF at Nyquist")
+    ax.set_title("MTF budget at Nyquist")
+    ax.legend()
+    ax.invert_yaxis()
+    fig.tight_layout()
+    return cast("Figure", fig)
+
+
 def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
     """Plot an EffectivePSF as a 2D image with log scale.
 

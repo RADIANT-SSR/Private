@@ -88,5 +88,67 @@
   "L12": "pass",
   "L13": "pass",
   "L14": "pass",
-  "L15": "pass"
+  "L15": "pass",
+  "spec_forms": {
+    "S1": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S2": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S3": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S4": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S5": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S6": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S7": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S8": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S9": {
+      "extended": "pass",
+      "sub_pixel": "raise",
+      "point_source": "raise"
+    },
+    "S10": {
+      "extended": "raise",
+      "sub_pixel": "raise",
+      "point_source": "pass"
+    },
+    "S11": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    },
+    "S12": {
+      "extended": "pass",
+      "sub_pixel": "pass",
+      "point_source": "pass"
+    }
+  }
 }

@@ -155,16 +155,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: the Rule-4 consistency invariant is the guard against a spatial degradation landing in one path but not the other; a warn-only 5e-2 gate is too loose to catch small real divergences, and no strict mode exists for configurations that should agree tightly.
 **Suggested fix**: stand-alone decision task after CU-003 — decide whether to (a) tighten tolerance per-configuration, (b) add a strict mode that raises, or (c) accept warn-at-5e-2 permanently. Effort S; category C.
 
-### CU-046 — `Sensor.reset()` reaches into `ParameterSet` privates
-
-**Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
-**Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
-
-**File**: `src/radiant/api/sensor.py` (`reset()`)
-**Symptom**: `Sensor.reset()` manipulates `ParameterSet._inputs` and `ParameterSet._resolved_flag` directly instead of going through a public API.
-**Why it still matters**: any internal refactor of `ParameterSet` state silently breaks `Sensor.reset()`; the private-attribute coupling bypasses the validation/resolution lifecycle the class owns.
-**Suggested fix**: stand-alone small task — add a public `ParameterSet.reset()` (or `clear_inputs()`) that owns the invalidation semantics, and have `Sensor.reset()` call it. Effort S; category A.
-
 ### CU-049 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working
 
 **Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
@@ -214,6 +204,16 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ---
 
 ## Resolved
+
+### CU-046 — `Sensor.reset()` reaches into `ParameterSet` privates — RESOLVED 2026-07-06 (commit `6edf17c`)
+
+**Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
+
+**File**: `src/radiant/api/sensor.py` (`reset()`)
+**Symptom**: `Sensor.reset()` manipulates `ParameterSet._inputs` and `ParameterSet._resolved_flag` directly instead of going through a public API.
+**Why it still matters**: any internal refactor of `ParameterSet` state silently breaks `Sensor.reset()`; the private-attribute coupling bypasses the validation/resolution lifecycle the class owns.
+**Suggested fix**: stand-alone small task — add a public `ParameterSet.reset()` (or `clear_inputs()`) that owns the invalidation semantics, and have `Sensor.reset()` call it. Effort S; category A.
+**Resolution**: public `ParameterSet.clear_input(name)` added (owns invalidation semantics: invalidates only when an input was removed; KeyError + did-you-mean for unknown names). `Sensor.reset()` delegates to it — bonus fix: reset() previously silently no-oped on typo'd dotpaths. Scripting API doc updated in lock-step; 5 new tests.
 
 ### CU-050 — Config loader silently strips `_vars` / `_extends` / `_imports` keys — RESOLVED 2026-07-06 (commit `8b66cd8`)
 

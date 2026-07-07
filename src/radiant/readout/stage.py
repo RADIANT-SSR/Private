@@ -51,11 +51,11 @@ from radiant.readout.coadds import (
     coadd_scale_signal,
     coadd_scale_temporal_noise,
 )
+from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
 from radiant.readout.saturation import (
     check_adc_saturation,
     check_well_saturation,
 )
-from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
 from radiant.readout.tdi_mtf import tdi_misalign_m, tdi_misalign_mtf_1d
 from radiant.readout.tdi_scaling import (
     tdi_scale_fpn,

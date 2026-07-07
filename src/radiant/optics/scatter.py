@@ -54,9 +54,13 @@ def total_integrated_scatter(roughness_m: float, wavelength_m: float) -> float:
         On non-positive wavelength or negative roughness.
     """
     if wavelength_m <= 0.0:
-        raise ValueError(f"total_integrated_scatter: wavelength must be positive, got {wavelength_m} m.")
+        raise ValueError(
+            f"total_integrated_scatter: wavelength must be positive, got {wavelength_m} m."
+        )
     if roughness_m < 0.0:
-        raise ValueError(f"total_integrated_scatter: roughness must be non-negative, got {roughness_m} m.")
+        raise ValueError(
+            f"total_integrated_scatter: roughness must be non-negative, got {roughness_m} m."
+        )
     tis = 1.0 - math.exp(-((4.0 * math.pi * roughness_m / wavelength_m) ** 2))
     if tis > _TIS_VALIDITY_LIMIT:
         logger.warning(

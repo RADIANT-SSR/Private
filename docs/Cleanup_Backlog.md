@@ -188,7 +188,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: any internal refactor of `ParameterSet` state silently breaks `Sensor.reset()`; the private-attribute coupling bypasses the validation/resolution lifecycle the class owns.
 **Suggested fix**: stand-alone small task — add a public `ParameterSet.reset()` (or `clear_inputs()`) that owns the invalidation semantics, and have `Sensor.reset()` call it. Effort S; category A.
 
-### CU-047 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working
+### CU-049 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working
 
 **Discovered**: Scripting-API doc verification pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
 **Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).
@@ -198,7 +198,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: two access paths to the same physical quantity disagree about whether it exists — a user inspecting frames directly sees `None` where the accessor reports a number; inconsistent inspectability violates the spirit of Rule 16.
 **Suggested fix**: stand-alone task — either populate `in_band_value` for all frames at spectral-integration time or document/enforce that `in_band_value` is only defined post-integration and make `signal_at`'s derivation explicit in its docstring. Effort S; category B.
 
-### CU-048 — Config loader silently strips `_vars` / `_extends` / `_imports` keys
+### CU-050 — Config loader silently strips `_vars` / `_extends` / `_imports` keys
 
 **Discovered**: doc-reconciliation pass, architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
 **Status**: Open. Re-audit date: 2026-08-15 (calendar backstop).

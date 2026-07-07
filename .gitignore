@@ -40,6 +40,10 @@ coverage.xml
 # LibreOffice lock files
 .~lock.*#
 
+# Scenario results workbooks — regenerate-on-demand (OPERATING_MODEL Rule 26);
+# committed scenario figures are inventoried in each outputs/MANIFEST.md
+scenarios/*/*/outputs/*.xlsx
+
 # Data files (large assets shipped separately)
 data/solar/*.bin
 data/atmospheres/*.bin

@@ -1,0 +1,11 @@
+Listing of Zernike Standard Coefficient Data
+
+File : broken_export.zmx
+Title: Truncated export
+Date : 7/7/2026
+
+Surface                      : Image
+Field                        : 0.0000, 0.0000 (deg)
+Wavelength                   :     4.0000 µm
+
+(export truncated — no coefficient lines follow)

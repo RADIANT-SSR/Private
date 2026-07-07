@@ -1,0 +1,28 @@
+Listing of Zernike Standard Coefficient Data
+
+File : C:\Designs\mwir_telescope.zmx
+Title: MWIR Telescope
+Date : 7/7/2026
+
+Note that RMS (to chief) is the RMS of the OPD after subtracting out piston.
+
+Surface                      : Image
+Field                        : 0.0000, 0.0000 (deg)
+Wavelength                   :     4.0000 µm
+Peak to Valley (to chief)    :     0.31415927 waves
+Peak to Valley (to centroid) :     0.27182818 waves
+
+From integration of the rays:
+RMS (to chief)               :     0.08000000 waves
+RMS (to centroid)            :     0.07500000 waves
+Variance                     :     0.00562500 waves squared
+Strehl Ratio (Est)           :     0.80074568
+
+Z   1      0.12345678 :   1
+Z   2     -0.00234567 :   4^(1/2) (p) * COS (A)
+Z   3      0.01000000 :   4^(1/2) (p) * SIN (A)
+Z   4      0.05500000 :   3^(1/2) (2p^2 - 1)
+Z   5     -0.00012345 :   6^(1/2) (p^2) * SIN (2A)
+Z   6      1.2500e-03 :   6^(1/2) (p^2) * COS (2A)
+Z   7      0.00000000 :   8^(1/2) (3p^3 - 2p) * SIN (A)
+Z   8     -0.02750000 :   8^(1/2) (3p^3 - 2p) * COS (A)

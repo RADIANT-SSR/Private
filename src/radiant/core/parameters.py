@@ -242,19 +242,19 @@ class ParameterSet:
         # Deprecated alias -> canonical name map (renames keep working
         # with a DeprecationWarning; see _canonical()).
         self._aliases: dict[str, str] = {}
-        for p in schema:
-            for alias in p.deprecated_aliases:
+        for pdef in schema:
+            for alias in pdef.deprecated_aliases:
                 if alias in self._defs:
                     raise ValueError(
-                        f"ParameterDef '{p.name}': deprecated alias '{alias}' "
+                        f"ParameterDef '{pdef.name}': deprecated alias '{alias}' "
                         "collides with a defined parameter name"
                     )
                 if alias in self._aliases:
                     raise ValueError(
-                        f"ParameterDef '{p.name}': deprecated alias '{alias}' "
+                        f"ParameterDef '{pdef.name}': deprecated alias '{alias}' "
                         f"already maps to '{self._aliases[alias]}'"
                     )
-                self._aliases[alias] = p.name
+                self._aliases[alias] = pdef.name
         self._groups: list[ConsistencyGroup] = groups or []
         self._inputs: dict[str, tuple[Any, Provenance, str]] = {}
         self._tolerances: dict[str, Tolerance] = {}

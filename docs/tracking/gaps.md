@@ -650,7 +650,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, D-space invalid configurations (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-1.3) |
+| **Fix** | `TestEarthLosInterceptNegativePath` in `tests/integration/test_use_case_matrix.py`: sensor (1 km) below space target (90 km) at nadir through the full RadiantSession → `assembly.validate_no_atmosphere_subcase` raises `ParameterBoundsError` ("intersects the Earth") end-to-end; control case (800 km sensor) runs clean. Note: with `theta_o` bounded [0, π/2), the intercept fires via the degenerate sensor-below-target branches of `intercepts_earth`, which is precisely the flipped-altitude case the gap prescribed. Test-only change. |
 | **Description** | `LineOfSightGeometry.intercepts_earth(h_sensor)` is implemented (`src/radiant/core/los_geometry.py`) and unit-tested, but no integration test configures a "space" target with sensor below the target to confirm the validator raises end-to-end. The validator works in isolation; the negative integration path is not proven. |
 | **Workaround** | None needed — unit coverage exists; only end-to-end negative-path proof is missing. |
 | **Impact** | Silent-regression risk: a refactor could disconnect the validator from the chain without any integration test failing. |
@@ -703,7 +704,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | DEFERRED |
 | 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
-| 41 | Earth-LOS negative integration test | Trivial | UC D-space | OPEN |
+| 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
 
 ---
 

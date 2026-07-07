@@ -686,3 +686,46 @@ def test_use_case_matrix_cell(cell: CellSpec) -> None:
     # Recorded as whichever the expected outcome was (for 'raise' cells the
     # pytest.raises context inside _run_cell has already validated the raise).
     _record_result(cell.cell_id, cell.outcome)
+
+
+class TestEarthLosInterceptNegativePath:
+    """Gap 41: the Earth-LOS-intercept validator raises end-to-end.
+
+    Flips the Cell-58-style geometry: sensor (1 km) BELOW the space
+    target (90 km) at nadir — a degenerate LOS that never reaches the
+    sensor. ``intercepts_earth`` treats it as intercepting and
+    ``assembly.validate_no_atmosphere_subcase`` must raise through the
+    full RadiantSession chain, not just in unit isolation.
+    """
+
+    def _params(self, h_sensor_m: float):
+        wl = _REGIME_GRIDS["LWIR"]
+        session = RadiantSession(wavelength_um=wl)
+        params = session.default_params()
+        params.set("source.target.temperature", 280.0)
+        params.set("source.target.emissivity", 0.95)
+        params.set("source.target_location", "auto")
+        params.set("source.scene_type", "extended")
+        params.set("atmosphere.model", "exo")  # -> no_atmosphere + space
+        params.set("geometry.sensor_altitude_m", h_sensor_m)
+        params.set("platform.h_sensor", h_sensor_m)
+        params.set("geometry.target_altitude_m", 90_000.0)
+        params.set("geometry.path_zenith_rad", 0.0)
+        _seed_optics_detector_readout(params, "LWIR")
+        params.resolve()
+        return session, params
+
+    def test_sensor_below_space_target_raises(self) -> None:
+        session, params = self._params(1_000.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with pytest.raises(ParameterBoundsError, match="intersects the Earth"):
+                session.run(params)
+
+    def test_sensor_above_space_target_runs(self) -> None:
+        """Control: same cell with sane altitudes must not raise."""
+        session, params = self._params(800_000.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = session.run(params)
+        assert np.all(np.isfinite(result.frames["at_aperture"].spectral_radiance))

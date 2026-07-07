@@ -1,5 +1,6 @@
 """Public API: Sensor, ChainResult, and analysis result types."""
 
+from radiant.api.compare import MtfComparisonResult, compare_mtf
 from radiant.api.error_budget import BudgetContributor, ErrorBudget
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
@@ -18,4 +19,6 @@ __all__ = [
     "ErrorBudget",
     "BudgetContributor",
     "SolveResult",
+    "compare_mtf",
+    "MtfComparisonResult",
 ]

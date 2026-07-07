@@ -875,6 +875,10 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 
 **Error budgets (Gaps 23 + 28).** `radiant.api.error_budget` provides a generic quadrature budget: `ErrorBudget(name, unit, contributors=(BudgetContributor(name, rms, note), ...), allocation=req)` with `rss_total`, `margin`, `over_budget`, `remaining_allocation()` (RSS headroom `sqrt(alloc² − total²)`), immutable `with_contributor(...)`, a formatted `table()` with per-contributor variance share, and `to_dict`/`from_dict`. One model serves jitter budgets (µrad) and WFE budgets (waves) — the math is unit-agnostic RSS; the unit field is display metadata.
 
+**Zemax Zernike import (Gap 26).** `radiant.io.zemax_zernike.load_zemax_zernike(path)` parses a Zemax "Zernike Standard Coefficients" text export (Noll-indexed waves; UTF-8 / UTF-16 tolerant; the `.txt` analysis report, not the `.ZMX` prescription) into a `ZemaxZernikeResult`; `to_wavefront_error()` feeds the Gap 24/25 Zernike pipeline directly (`WavefrontError`, `WfeMode.ZERNIKE`). Single-field per file — multi-field exports are rejected with an actionable `ZemaxParseError` (export per field).
+
+**Measurement import and comparison (Gap 30).** `radiant.io.measurement.load_measured_curve(path, x_column=, y_column=, delimiter=, skip_header="auto", x_unit=)` reads a measured CSV curve into a validated `MeasuredCurve` (comments/blank lines skipped, auto header detection, actionable `MeasurementParseError`; Excel is out of scope — export to CSV). `radiant.api.compare.compare_mtf(result, measured, axis=, frequency_unit=, pixel_pitch_m=, focal_length_m=)` interpolates the predicted MTF onto the measured frequency points (unit-aware via `convert_spatial_frequency`; overlap-only, never extrapolated) and returns an `MtfComparisonResult` with residuals, `rms_residual`, `max_abs_residual`, exclusion counts, and a formatted `table()`.
+
 `RadiantSession.run` also accepts `extra_stage_outputs` (Gap 17): a dict of additional pre-chain injections merged over the built-in ones — the Rule 6 route for non-scalar inputs. Example: decouple polychromatic PSF weighting from the scene spectrum with `extra_stage_outputs={"optics_config": {"psf_weighting_spectrum": spectral_data}}` (a `SpectralData` in W/m²/sr/µm; must overlap the sensor band). The chosen weighting source is recorded in `stage_outputs["optics"]["psf_weighting_source"]` (`override:<name>` / `post_optics` / `at_aperture` / `flat`).
 
 ---
@@ -890,6 +894,9 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `SweepResult`, `Sweep2DResult`, `MonteCarloResult`, `SensitivityResult` public attributes | Stable |
 | `ErrorBudget`, `BudgetContributor` (`radiant.api.error_budget`, Gaps 23+28) | Stable |
 | `SolveResult` (`radiant.api.solve`, Gap 10) | Stable |
+| `compare_mtf`, `MtfComparisonResult` (`radiant.api.compare`, Gap 30) | Stable |
+| `load_measured_curve`, `MeasuredCurve` (`radiant.io.measurement`, Gap 30) | Stable |
+| `load_zemax_zernike`, `ZemaxZernikeResult` (`radiant.io.zemax_zernike`, Gap 26) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |
 | `radiant.api.session.RadiantSession` | Semi-stable (wrapped by `Sensor`; not an alias) |
 | `radiant.core.*` | Semi-stable (plugin API) |

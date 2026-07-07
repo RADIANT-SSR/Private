@@ -42,6 +42,15 @@ retroactively reconstructed.
   at f = 1.2 m, previously 3.33e7). Found during Gap 27.
 
 ### Added
+- Zemax Zernike importer (Gap 26): `radiant.io.zemax_zernike.
+  load_zemax_zernike` parses "Zernike Standard Coefficients" text
+  exports (Noll-indexed waves, UTF-8/UTF-16 tolerant) into the existing
+  Zernike WFE pipeline via `ZemaxZernikeResult.to_wavefront_error()`.
+- Measurement import + comparison (Gap 30):
+  `radiant.io.measurement.load_measured_curve` (CSV → `MeasuredCurve`)
+  and `radiant.api.compare.compare_mtf` (unit-aware measured-vs-predicted
+  MTF residuals, overlap-only interpolation). Excel import out of scope
+  (CSV export required).
 - Surface-roughness scatter (Gap 31): new `optics.surface_roughness_nm`
   and `optics.scatter_halo_sigma_um` parameters drive a TIS model
   (`optics/scatter.py`): TIS = 1 − exp(−(4πσ/λ)²), scattered fraction

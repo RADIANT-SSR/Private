@@ -411,7 +411,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.1 (Tom — WFE budget allocation) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.6) |
+| **Fix** | New `io/zemax_zernike.py` (Rule 19): `load_zemax_zernike(path)` parses the Zemax "Zernike Standard Coefficients" text analysis export (scoped to the `.txt` report Tom actually exports, not the full `.ZMX` prescription) — Noll-indexed waves, `Z 1`/`Z1` styles, trailing polynomial formulas ignored, UTF-8/UTF-16 (Zemax-on-Windows BOM) tolerant. `ZemaxZernikeResult.to_wavefront_error()` feeds the Gap 24/25 Zernike pipeline directly. Single-field per file; duplicated Noll indices (concatenated multi-field export) rejected with an actionable `ZemaxParseError`. 27 tests with hand-valued fixtures (incl. UTF-16-LE BOM fixture + its generator per Rule 26). Docs: RADIANT_Scripting_API.md §10 + stability rows. |
+| **Rerun after fix** | Verified: fixture exports parse to exact hand values; `to_wavefront_error()` round-trips mode/coeffs/reference wavelength. Tom's transcribe-to-spreadsheet step is eliminated. |
 | **Description** | Tom exports Zernike coefficients from Zemax (.ZMX format) which contains Zernike coefficients, prescription data, and field definitions. No parser exists in `radiant.io`. Tom must manually transcribe coefficients into a spreadsheet. |
 | **Workaround** | Manual entry into spreadsheet or YAML. |
 | **Impact** | Any optical designer using Zemax, Code V, or similar tools. |
@@ -479,7 +481,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-3.4) |
+| **Fix** | (1) `io/measurement.py`: `load_measured_curve(path, x_column=, y_column=, delimiter=, skip_header="auto", x_unit=)` → validated `MeasuredCurve` (comment/blank handling, auto header, strictly-ascending x, actionable `MeasurementParseError`). CSV via stdlib only — **Excel import is out of scope** (openpyxl not a dependency; export to CSV; see CU-057). (2) `api/compare.py`: `compare_mtf(result, measured, axis=, frequency_unit=, ...)` interpolates the predicted MTF onto the measured points (unit-aware via `convert_spatial_frequency`, overlap-only, never extrapolated) → `MtfComparisonResult` with residual = measured − predicted, rms/max stats, exclusion counts, `table()`. Exported from `radiant.api`. 33 tests incl. full-chain round-trip (measured = predicted + 0.02 → rms_residual = 0.02 to rel 1e-9, cy/mm unit path). Docs: RADIANT_Scripting_API.md §10 + stability rows. |
+| **Rerun after fix** | Verified: real MWIR chain comparison with synthetic measured curve — residual sign convention, unit conversion, and exclusion counting all anchor-checked. Karen's 7.x measurement-vs-model workflow no longer needs manual interpolation. |
 | **Description** | RADIANT has no mechanism to import measured data (MTF curves, NEDT values, noise spectra) and compare against predictions. Test engineers always work in measurement-vs-model mode. Currently, all data import and comparison must be done manually in scripts outside RADIANT. |
 | **Workaround** | Read measurement files (CSV, Excel) in scripts, interpolate onto RADIANT's frequency grid, compute residuals manually. |
 | **Impact** | Every I&T scenario (7.x series), any model validation workflow. |
@@ -711,11 +715,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 23 | No jitter-source allocation tool | Medium | 5.4 | FIXED |
 | 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
 | 25 | No field-dependent WFE | Large | 5.1 | CLOSED |
-| 26 | No Zemax Zernike importer | Medium | 5.1 | OPEN |
+| 26 | No Zemax Zernike importer | Medium | 5.1 | FIXED |
 | 27 | MTF curve frequency axis units | Small | 5.1 | FIXED |
 | 28 | No WFE allocation / error budget tool | Medium | 5.1 | FIXED |
 | 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
-| 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |
+| 30 | No measurement data import/overlay API | Medium | 7.x | FIXED |
 | 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | FIXED |
 | 32 | No electronics MTF model | Small | 7.3 | FIXED |
 | 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | CLOSED |

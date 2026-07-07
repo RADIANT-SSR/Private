@@ -15,6 +15,20 @@
 
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
 
+**Investigation extended 2026-07-07 (overnight run — STOP trigger fired, no code changed):** the task doc's Approach 1 (area-integration/anti-aliased rect kernel) was measured before implementation and does NOT meet the doc's own acceptance criterion. Empirical FFT-vs-analytic-sinc error on the exact `swir_aerial_gas` parameters (pitch 20 µm, spacing 1.6875 µm, npix 512):
+
+| Kernel construction | max err (|f| ≤ detector Nyquist) | min kernel value |
+|---|---|---|
+| binary mask (current) | 4.50e-2 | 0.0 |
+| area-integration (task doc Approach 1) | 3.51e-3 | 0.0 |
+| band-limited (IFFT of analytic sinc on grid) | 2.2e-16 | −6.7e-3 |
+
+Root cause of the residual: any *nonnegative sampled* kernel carries the bin-average envelope `sinc(πΔf)` in its DFT (Poisson summation), an irreducible ~3.5e-3 floor at detector Nyquist for this Δ/pitch — the task doc's predicted ~1e-7 is unachievable by Approach 1, and its >1e-4 stop trigger fires. Decision needed (owner):
+(a) accept the area kernel as a 13× improvement and re-derive the consistency tolerance from the sinc_Δ envelope (could tighten 5e-2 → ~5e-3);
+(b) band-limited kernel — exact MTF agreement but introduces negative PSF lobes (EffectivePSF nonnegativity/EE invariant implications must be assessed first);
+(c) multiply the product-path analytic reference by sinc_Δ(f) — exact agreement, nonnegative kernel, but couples the MTF product path to the PSF sampling grid (the documented con of Approach 2).
+Measurement script preserved in this entry's table; reproduce with numpy per the three constructions above.
+
 **Discovered**: Option C Stage 0 (2026-04-19)
 **Investigated**: Phase 2 Track A (2026-04-24)
 **Status**: Open — escalated to a stand-alone Category C task (`docs/reports/cu_tasks/CU-003_Rect_Kernel_Fix_Task.md`) — this entry stays Open until the follow-on lands.

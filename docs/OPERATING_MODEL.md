@@ -73,23 +73,55 @@ The repo is the tracker. Three views replace a board:
 Every PR description ends with this five-line checklist (copy-paste; it belongs in `.github/PULL_REQUEST_TEMPLATE.md`):
 
 ```
-- [ ] Placement: every new/moved file is in its Rule-23 home (no PM docs in packages, nothing new at docs/ top level)
+- [ ] Placement & naming: every new/moved file is in its Rule-23 home and follows §5 naming (no PM docs in packages, nothing new at docs/ top level, no status/version words in filenames)
 - [ ] Lifecycle: no doc in plans/ or architecture/ has an expired claim (completed plan still live, ✅ banner in live tree)
 - [ ] Registry: new findings are CUs in tracking/Cleanup_Backlog.md — not a new tracking file
 - [ ] Artifacts: committed binaries are (a) test-asserted goldens or (b) doc-referenced figures, with generator named; superseded sets deleted
 - [ ] Docs lock-step: touched public surface ⇒ matching RADIANT_*.md updated in this PR (Rule 20)
 ```
 
-## 5. Naming Conventions
+## 5. Naming Conventions (everything except source code)
 
-| Kind | Pattern | Example |
+Source code naming is governed by CLAUDE.md / PEP 8 and is out of scope here. Everything else — markdown, audits, scenarios, data, configs, figures, folders — follows this section.
+
+### 5.1 Global rules (all files, all folders)
+
+1. **No spaces, ASCII only.** Allowed characters: letters, digits, `_`, `-`, `.`. Word separator is `_` (underscore); `-` appears only in ADR slugs and dates.
+2. **Dates are ISO.** Folder-level: suffix `_<YYYY-MM>` (audit folders). File-level dated records: prefix `<YYYY-MM-DD>_` so they sort chronologically. Never `Jul6`, `final_v2`, `latest`.
+3. **No status or version words in filenames.** `_Final`, `_Complete`, `_v2`, `_new`, `_old`, `_fixed`, `_Copy`, `round3`, `after_R1` are all forbidden — status lives in the `Status:` header, versions live in git history. (Two legacy exceptions, frozen for link stability: `RADIANT_Detector_Complete.md`, `RADIANT_Spatial_Complete.md` — "_Complete" there is naming residue, not a status claim. Do not copy the pattern.)
+4. **The name states the content, not the event.** `wfe_budget_sweep.png`, not `output3.png` or `Screenshot 2026-07-06.png`. If you can't name what a file shows, it isn't ready to commit.
+5. **Case by class:** `Title_Snake_Case.md` for governance docs (specs, plans, task briefs — anything with a Status header); `lowercase_snake` for everything else (guides, theory, scenario files, data, configs, figures, folders).
+6. **Every `.md` opens with an H1 that matches its filename's meaning**, plus a `Status:` header where §2 requires a lifecycle.
+
+### 5.2 Per-class patterns
+
+| Class | Pattern | Example |
 |---|---|---|
 | Spec | `RADIANT_<Subsystem>.md` | `architecture/RADIANT_Optics.md` |
-| ADR | `NNNN-<slug>.md` (4-digit, continue from 0005; legacy `ADR-A…D` keep their IDs) | `adr/0005-data-package-contract.md` |
-| Plan | `<Topic>_Plan.md` + mandatory `Status:` header | `plans/Repo_Reorganization_Plan.md` |
-| Audit folder | `<topic>_<YYYY-MM>/` | `reports/organization_audit_2026-07/` |
-| CU task brief | `CU-NNN_<slug>_Task.md` | `reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md` |
-| Archived file | original name unchanged + HISTORICAL banner (date, superseded-by) | `archive/Option_C_Implementation_Plan.md` |
+| ADR | `NNNN-<kebab-slug>.md` (4-digit, continue from 0005; legacy `ADR-A…D` frozen) | `adr/0005-data-package-contract.md` |
+| Plan | `<Topic>_Plan.md` — the `_Plan` suffix is mandatory (grep-ability) | `plans/Repo_Reorganization_Plan.md` |
+| Audit/report folder | `<topic>_<YYYY-MM>/` | `reports/organization_audit_2026-07/` |
+| Files inside an audit folder | Role names: `Audit_Plan.md`, `Findings*.md`, `Recommendation.md`; corrections dated `<YYYY-MM-DD>_<slug>.md` | `reports/architecture_audit_2026-04/Recommendation.md` |
+| CU task brief | `CU-NNN_<Slug>_Task.md` | `reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md` |
+| Tracking registry | Frozen names: `Cleanup_Backlog.md`, `gaps.md` — no others, no renames | `tracking/Cleanup_Backlog.md` |
+| Guide / theory doc | `lowercase_snake.md` | `guides/regime_selection.md` |
+| Archived file | Original name unchanged + HISTORICAL banner (date, superseded-by) | `archive/Option_C_Implementation_Plan.md` |
+| Scenario persona dir | `NN_<first>_<role>/` (2-digit) | `scenarios/05_tom_optical_designer/` |
+| Sub-scenario dir | `N.M_<snake_slug>/` — N.M unique within persona | `5.1_wfe_budget_allocation/` |
+| Scenario trio | Exactly `walkthrough.md`, `gaps.md`, `gui_workflow.md` | — |
+| Scenario input generator | `create_spreadsheet.py` (fixed name) | — |
+| Scenario input data | `<persona>_<topic>_data.xlsx` | `tom_wfe_budget_data.xlsx` |
+| Scenario run script | `run_<sub_scenario_slug>.py` | `run_wfe_budget_allocation.py` |
+| Scenario outputs | `<slug>_results.xlsx`, figures `<slug>_<what_it_shows>.png`, plus `MANIFEST.md` | `wfe_budget_snr_vs_rms.png` |
+| Reference data | `lowercase_snake.csv` + a `manifest.yaml` per data family | `data/emissivity/soil_dry.csv` |
+| Config template | `<band>_<platform>_<variant>.yaml` | `examples/templates/mwir_leo_pushbroom.yaml` |
+| Maintenance script | `<verb>_<object>.py` | `scripts/gen_param_reference.py` |
+| Golden/test baseline | Named by what it asserts, in the suite that loads it | `tests/integration/golden/mwir_leo_minimal.json` |
+| Committed figure | `<subject>_<view_or_metric>.png`, referenced by a doc or test | `docs_screenshots/` style names forbidden going forward |
+
+### 5.3 Prohibited names (reject in review)
+
+`misc*`, `temp*`, `scratch*`, `untitled*`, `notes.md` (unscoped), `stuff*`, `output*.png`, `test.py` outside a test suite, bare `data.csv`/`results.xlsx` without a scoping prefix, any name whose meaning requires opening the file.
 
 Project name is **RADIANT** in all documents. The repo folder name (`SSR_Tool`) is historical; noted once in the root README and nowhere else.
 

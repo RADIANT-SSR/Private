@@ -75,7 +75,8 @@ Create `docs/architecture/`, `docs/tracking/`, `docs/plans/` (exists), `docs/rep
 
 ## Phase E — conventions + registry consolidation (~2 h, **gated on in-flight branch merge**)
 
-- [ ] Append Rules 23–28 to `CLAUDE.md` (text finalized in the audit report §5) and reference `docs/OPERATING_MODEL.md` from it.
+- [ ] Append Rules 23–28 to `CLAUDE.md` (text finalized in the audit report §5) and reference `docs/OPERATING_MODEL.md` from it; Rule 23's text must point to OPERATING_MODEL §5 as the binding naming convention for all non-source files.
+- [ ] Naming sweep: grep for §5.3 prohibited patterns and §5.1-violating names (spaces, status/version words) across all non-source files; rename stragglers or file CUs. (Most current violators — v2 golden `round*/` trees, `docs_screenshots/` — are already deleted in Phase C.)
 - [ ] `git mv Cleanup_Backlog.md gaps.md → docs/tracking/`; update all inbound references (CLAUDE.md mentions the backlog path ~5×).
 - [ ] Fold open items from `Technical_Debt_Cleanup_Plan.md` + `Cleanup_Backlog_Phase2_Plan.md` into the backlog; archive both (completes Phase B footnote ²).
 - [ ] Fold `Use_Case_gaps.md` + `Target_Definition_gaps.md` open items into `tracking/gaps.md`; archive both (Decision #3).

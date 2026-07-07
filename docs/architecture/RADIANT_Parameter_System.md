@@ -138,6 +138,8 @@ optics.defocus_um                     # µm
 optics.cold_stop_efficiency           # dimensionless (0–1)
 optics.stray.veiling_glare_fraction   # dimensionless (0–1)
 
+readout.electronics_sigma_um          # µm, equivalent Gaussian blur from amplifier bandwidth (x-axis only)
+
 detector.pixel_pitch_x_um             # µm
 detector.pixel_pitch_y_um             # µm
 detector.fill_factor                  # dimensionless (0–1)

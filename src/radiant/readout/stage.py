@@ -55,6 +55,7 @@ from radiant.readout.saturation import (
     check_adc_saturation,
     check_well_saturation,
 )
+from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
 from radiant.readout.tdi_mtf import tdi_misalign_m, tdi_misalign_mtf_1d
 from radiant.readout.tdi_scaling import (
     tdi_scale_fpn,
@@ -311,6 +312,25 @@ class ReadoutStage:
                 mtf_tdi_y = np.ones_like(freq_m)
             state = state.with_mtf("mtf_tdi_x", mtf_tdi_x)
             state = state.with_mtf("mtf_tdi_y", mtf_tdi_y)
+
+            # ---- Electronics (amplifier bandwidth), Rule 4 both paths ----
+            # Product path: analytic term here. PSF path: the matching
+            # Gaussian-in-x kernel is built here (sized to the ePSF grid)
+            # and applied by PerformanceStage, same pattern as IPC.
+            elec_sigma_m: float = params.get("readout.electronics_sigma_um")
+            state = state.with_mtf("mtf_electronics_x", electronics_mtf_1d(freq_m, elec_sigma_m))
+            state = state.with_mtf("mtf_electronics_y", np.ones_like(freq_m))
+            if elec_sigma_m > 0.0:
+                plat_out = state.stage_outputs.get("platform", {})
+                epsf = plat_out.get("effective_psf")
+                if epsf is None:
+                    epsf = state.stage_outputs.get("optics", {}).get("effective_psf")
+                if epsf is not None:
+                    npix = int(math.ceil(6.0 * elec_sigma_m / epsf.sample_spacing_m)) | 1
+                    npix = max(3, min(npix, epsf.data.shape[0]))
+                    kern = electronics_kernel_2d(npix, epsf.sample_spacing_m, elec_sigma_m)
+                    state = state.with_stage_output("readout", "electronics_kernel", kern)
+            state = state.with_stage_output("readout", "electronics_sigma_m", elec_sigma_m)
 
         # ---- Store stage outputs ----
         state = state.with_stage_output("readout", "contrast_e_final", contrast_e_final)

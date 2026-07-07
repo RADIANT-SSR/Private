@@ -271,10 +271,12 @@ The remaining contributors are physically independent of the pupil and of each o
 | 8 | `mtf_jitter` | exp(−2π² · σ_j² · f²) | `platform/jitter.py` |
 | 9 | `mtf_tdi_misalign` | \|sinc(π · f · misalign)\| | `readout/tdi_mtf.py` |
 | 10 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | `atmosphere/turbulence.py` + `performance/turbulence_mtf_term.py` |
+| 11 | `mtf_electronics` | exp(−2π² · σ_e² · f²), x-axis only | `readout/electronics_mtf.py` |
 
 Notes:
-- The previous 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are unified into a single `mtf_optics` via pupil autocorrelation (§9.1). The component count is 10, not 12.
+- The previous 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are unified into a single `mtf_optics` via pupil autocorrelation (§9.1). The component count is 11, not 12.
 - Each term keys into `state.mtf_terms` with a `_x` / `_y` suffix for per-axis storage (e.g., `mtf_optics_x`, `mtf_pixel_aperture_y`).
+- **Electronics MTF (Gap 32) enters BOTH paths**, unlike TDI: `ReadoutStage` pushes the analytic term and builds the matching Gaussian-in-x kernel (delta in y — readout-axis blur only), which `PerformanceStage` convolves into the `EffectivePSF` exactly like the IPC kernel (the kernel travels via `stage_outputs["readout"]["electronics_kernel"]`, Rule 11). It is therefore *included* in the dual-path consistency comparison. Parameter: `readout.electronics_sigma_um` (default 0 = ideal electronics).
 
 ### 9.3 The Consistency Check (unconditional)
 

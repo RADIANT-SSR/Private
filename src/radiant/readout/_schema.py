@@ -226,6 +226,25 @@ COADD_MODE = ParameterDef(
     tags=frozenset({"readout", "coadd"}),
 )
 
+ELECTRONICS_SIGMA_UM = ParameterDef(
+    name="readout.electronics_sigma_um",
+    description=(
+        "Electronics MTF: equivalent Gaussian blur sigma on the focal "
+        "plane [µm] from finite amplifier bandwidth at the pixel clock "
+        "rate. Blurs the readout (cross-scan, x) axis only. Zero "
+        "(default) = ideal electronics, no blur. Enters both the "
+        "EffectivePSF (kernel) and the MTF product (analytic term) per "
+        "Rule 4."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 100.0),
+    tags=frozenset({"readout", "mtf"}),
+    default_justification="0.0 = ideal electronics (backward compatible).",
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     READ_NOISE_E_RMS,
     GAIN_E_PER_DN,
@@ -243,4 +262,5 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     BINNING_Y_OFFCHIP,
     N_COADDS,
     COADD_MODE,
+    ELECTRONICS_SIGMA_UM,
 )

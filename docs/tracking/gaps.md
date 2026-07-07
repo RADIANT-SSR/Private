@@ -495,7 +495,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.3 (Karen — MTF measurement vs. prediction) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-2.2) |
+| **Fix** | New `readout/electronics_mtf.py` (Rule 19) + `readout.electronics_sigma_um` param (default 0 = ideal). Rule 4 both-paths: ReadoutStage pushes analytic `mtf_electronics_x` (`exp(-2π²σ²f²)`, y=1) and builds the matching Gaussian-in-x kernel; PerformanceStage convolves it into the ePSF like IPC (kernel travels via ChainState, Rule 11). Included in the dual-path consistency check (passes: max err 0.006/0.016 vs 0.05 tol at σ=9 µm). 15 new tests, 3 anchors (hand calc exp(-0.3084)=0.7346, kernel-FFT vs analytic, half-power frequency). Docs: RADIANT_Spatial_Complete.md §9.2 (term 11), RADIANT_Parameter_System.md. |
+| **Rerun after fix** | Verified: σ=9 µm MWIR chain — mtf_at_nyquist drops, y-axis MTF bit-identical, dual-path consistency green. Full scenario 7.3 script rerun blocked on CU-057 (openpyxl). |
 | **Description** | Detector readout electronics have finite bandwidth, producing a low-pass filter that degrades cross-scan MTF. This "electronics MTF" is typically Gaussian: `MTF_elec = exp(-2π²σ_e²f²)` with σ_e determined by the amplifier bandwidth and pixel clock rate. RADIANT does not model this. For CCD and CMOS sensors, electronics MTF can be comparable to pixel aperture MTF at high readout speeds. |
 | **Workaround** | Include as a charge diffusion term if the functional form is similar. |
 | **Impact** | Lab MTF comparisons at high pixel clock rates. |
@@ -697,7 +699,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
 | 30 | No measurement data import/overlay API | Medium | 7.x | OPEN |
 | 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | OPEN |
-| 32 | No electronics MTF model | Small | 7.3 | OPEN |
+| 32 | No electronics MTF model | Small | 7.3 | FIXED |
 | 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | CLOSED |
 | 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | CLOSED |
 | 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |

@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Electronics MTF (Gap 32): new `readout.electronics_sigma_um` parameter
+  (default 0.0 = ideal electronics, no result change) models readout
+  amplifier bandwidth as a Gaussian blur along the readout (x) axis.
+  **Results-affecting only when set nonzero** — enters both the
+  EffectivePSF and the MTF product per Rule 4, lowering x-axis MTF,
+  RER, and NIIRS. New `readout/electronics_mtf.py` module and
+  `mtf_electronics_x/_y` product terms.
 - `giqe5_sensitivity()` (Gap 20): analytic d(NIIRS)/d(GSD, RER, SNR, H, G)
   partials and exact per-+1% deltas in the new
   `performance/giqe_sensitivity.py` module. Analysis utility only — no

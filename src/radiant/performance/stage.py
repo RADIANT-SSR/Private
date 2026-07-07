@@ -69,6 +69,13 @@ def _compute_spatial_metrics(
     if ipc_kern is not None:
         epsf = epsf.with_kernel("ipc", ipc_kern)
 
+    # Apply electronics blur kernel if the readout stage built one
+    # (Rule 4: matches the mtf_electronics_x product term; Rule 11: the
+    # kernel travels via ChainState, same pattern as the IPC kernel).
+    elec_kern = state.stage_outputs.get("readout", {}).get("electronics_kernel")
+    if elec_kern is not None:
+        epsf = epsf.with_kernel("electronics", elec_kern)
+
     # Compute spatial metrics from EffectivePSF.
     fwhm_x = epsf.fwhm("x")
     fwhm_y = epsf.fwhm("y")
@@ -86,6 +93,8 @@ def _compute_spatial_metrics(
     if ref_epsf is not None:
         if ipc_kern is not None:
             ref_epsf = ref_epsf.with_kernel("ipc", ipc_kern)
+        if elec_kern is not None:
+            ref_epsf = ref_epsf.with_kernel("electronics", elec_kern)
         strehl = epsf.strehl(ref_epsf)
 
     # MTF curves (both axes) and scalar at Nyquist.

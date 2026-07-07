@@ -194,7 +194,8 @@ where:
 
 **Failure modes:**
 - `RER ≤ 0` → NaN with reason "non-positive RER; PSF may be over-blurred to the point of ill-conditioning."
-- `SNR < 5` → returns the formula value but flags reason "SNR below GIQE-5 calibration range."
+
+**Calibration range (Gap 22).** GIQE-5 is a fit; outside its published fit ranges (Harrington et al. 2015) the value is an extrapolation with reduced confidence, not an error. Checked ranges: GSD 3–80 cm (1.18–31.5 inch), RER 0.2–0.95, SNR 2–130 — both ends. When any input is out of range the formula value is still returned, `GIQEResult.extrapolated` is `True` with per-input strings in `GIQEResult.warnings`, the chain emits a `UserWarning`, and `result.metrics["niirs_extrapolated"]` is 1.0 (else 0.0). The IIRS (MWIR/LWIR) dispatch inherits the same checks.
 
 ### 4.7 RER — Relative Edge Response
 

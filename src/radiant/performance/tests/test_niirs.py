@@ -207,3 +207,17 @@ class TestNIIRSMetricsWiring:
         assert "niirs_result" in out.stage_outputs["performance"]
         result = out.stage_outputs["performance"]["niirs_result"]
         assert result.niirs == out.metrics["niirs"]
+
+
+class TestExtrapolationFlag:
+    """Gap 22: chain surfaces GIQE-5 calibration-range extrapolation."""
+
+    def test_in_range_flag_zero(self) -> None:
+        result = compute_niirs(0.3, 0.3, 0.5, 0.5, 50.0, band="vis")
+        assert result.extrapolated is False
+
+    def test_iirs_path_also_flagged(self) -> None:
+        """MWIR dispatch inherits the calibration checks."""
+        result = compute_niirs(0.3, 0.3, 0.1, 0.1, 50.0, band="mwir")
+        assert result.extrapolated is True
+        assert any("RER" in w for w in result.warnings)

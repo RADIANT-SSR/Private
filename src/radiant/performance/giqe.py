@@ -30,6 +30,13 @@ C3 = 1.559
 C4 = -0.334
 C5 = -0.01
 
+# GIQE-5 calibration (fit) ranges, per Harrington, L. et al., "General
+# Image Quality Equation; GIQE version 5," NGA, 2015. Results outside
+# these ranges are extrapolations with reduced confidence (Gap 22).
+GIQE5_GSD_INCH_RANGE: tuple[float, float] = (1.18, 31.5)  # 3-80 cm
+GIQE5_RER_RANGE: tuple[float, float] = (0.2, 0.95)
+GIQE5_SNR_RANGE: tuple[float, float] = (2.0, 130.0)
+
 
 @dataclass(frozen=True)
 class GIQEResult:
@@ -51,6 +58,9 @@ class GIQEResult:
         Noise gain from MTF compensation.
     warnings:
         Any warnings about input validity.
+    extrapolated:
+        True when any input fell outside the GIQE-5 calibration range —
+        the NIIRS value is an extrapolation with reduced confidence.
     """
 
     niirs: float
@@ -60,6 +70,7 @@ class GIQEResult:
     h: float
     g: float
     warnings: tuple[str, ...]
+    extrapolated: bool = False
 
 
 def compute_giqe5(
@@ -116,14 +127,21 @@ def compute_giqe5(
         raise ValueError(f"RER must be positive, got along={rer_along}, cross={rer_cross}")
     rer = math.sqrt(rer_along * rer_cross)
 
-    # Validity warnings.
-    if snr < 5.0:
-        warnings.append("SNR below GIQE-5 calibration range (SNR < 5)")
-        logger.warning("SNR = %.1f is below GIQE-5 calibration range", snr)
-
-    if rer < 0.2:
-        warnings.append("RER below GIQE-5 calibration range (RER < 0.2)")
-        logger.warning("RER = %.3f is below GIQE-5 calibration range", rer)
+    # Calibration-range checks (Gap 22): flag extrapolation, both ends.
+    for label, value, (lo, hi) in (
+        ("GSD", gsd_inch, GIQE5_GSD_INCH_RANGE),
+        ("RER", rer, GIQE5_RER_RANGE),
+        ("SNR", snr, GIQE5_SNR_RANGE),
+    ):
+        if not lo <= value <= hi:
+            unit = " inch" if label == "GSD" else ""
+            msg = (
+                f"{label} = {value:.3g}{unit} is outside the GIQE-5 "
+                f"calibration range [{lo:g}, {hi:g}]{unit} — NIIRS is an "
+                "extrapolation with reduced confidence"
+            )
+            warnings.append(msg)
+            logger.warning("%s", msg)
 
     # GIQE-5 formula.
     niirs = (
@@ -143,4 +161,5 @@ def compute_giqe5(
         h=h,
         g=g,
         warnings=tuple(warnings),
+        extrapolated=bool(warnings),
     )

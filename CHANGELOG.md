@@ -21,6 +21,12 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- GIQE-5 calibration-range flagging (Gap 22): NIIRS results outside the
+  published fit ranges (GSD 3–80 cm, RER 0.2–0.95, SNR 2–130) now carry
+  `GIQEResult.extrapolated=True`, a `UserWarning`, and a new
+  `niirs_extrapolated` metric (0.0/1.0). The NIIRS value itself is
+  unchanged — flagging only. The prior ad-hoc low-end checks (SNR < 5,
+  RER < 0.2) are replaced by the spec-based ranges, both ends.
 - `optics.scalar_emissivity` parameter (default 0.0): declared effective
   emissivity of the lumped train in scalar transmission mode, enabling
   warm-optics nearfield emission from the simplest input mode (Gap 37).

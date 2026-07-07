@@ -10,6 +10,7 @@ The stage writes all results as metrics and stage outputs.
 from __future__ import annotations
 
 import logging
+import warnings
 
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
@@ -463,6 +464,14 @@ def _compute_niirs_metric(
     # RER is currently a geometric mean; use for both axes.
     result = compute_niirs(gsd_along, gsd_cross, rer, rer, snr, band=band)
     state = state.with_metric("niirs", result.niirs)
+    state = state.with_metric("niirs_extrapolated", 1.0 if result.extrapolated else 0.0)
+    if result.extrapolated:
+        warnings.warn(
+            "NIIRS is an extrapolation outside the GIQE-5 calibration range: "
+            + "; ".join(result.warnings),
+            UserWarning,
+            stacklevel=2,
+        )
     return state.with_stage_output("performance", "niirs_result", result)
 
 

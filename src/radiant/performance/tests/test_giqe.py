@@ -99,13 +99,14 @@ class TestGIQE5:
 
     @pytest.mark.level0
     def test_low_snr_warning(self) -> None:
-        result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 3.0)
-        assert any("SNR below" in w for w in result.warnings)
+        # Below the published GIQE-5 fit range [2, 130] (Harrington 2015).
+        result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 1.5)
+        assert any("SNR" in w and "calibration range" in w for w in result.warnings)
 
     @pytest.mark.level0
     def test_low_rer_warning(self) -> None:
         result = compute_giqe5(1.0, 1.0, 0.1, 0.1, 50.0)
-        assert any("RER below" in w for w in result.warnings)
+        assert any("RER" in w and "calibration range" in w for w in result.warnings)
 
     @pytest.mark.level0
     def test_zero_gsd_raises(self) -> None:
@@ -127,3 +128,63 @@ class TestGIQE5:
         result = compute_giqe5(1.0, 1.0, 0.7, 0.7, 50.0)
         with pytest.raises(AttributeError):
             result.niirs = 5.0  # type: ignore[misc]
+
+
+class TestCalibrationRange:
+    """Gap 22: GIQE-5 results outside the published fit range are flagged.
+
+    Fit ranges per GIQE-5 (Harrington et al., 2015): GSD 3-80 cm
+    (1.18-31.5 inch), RER 0.2-0.95, SNR 2-130.
+    """
+
+    def _nominal(self, **overrides):
+        kwargs = dict(
+            gsd_m_along=0.3,
+            gsd_m_cross=0.3,
+            rer_along=0.5,
+            rer_cross=0.5,
+            snr=50.0,
+        )
+        kwargs.update(overrides)
+        return compute_giqe5(**kwargs)
+
+    @pytest.mark.level0
+    def test_in_range_not_extrapolated(self) -> None:
+        result = self._nominal()
+        assert result.extrapolated is False
+        assert result.warnings == ()
+
+    def test_rer_below_range(self) -> None:
+        result = self._nominal(rer_along=0.1, rer_cross=0.1)
+        assert result.extrapolated is True
+        assert any("RER" in w for w in result.warnings)
+
+    def test_rer_above_range(self) -> None:
+        result = self._nominal(rer_along=0.98, rer_cross=0.98)
+        assert result.extrapolated is True
+        assert any("RER" in w for w in result.warnings)
+
+    def test_snr_below_range(self) -> None:
+        result = self._nominal(snr=1.5)
+        assert result.extrapolated is True
+        assert any("SNR" in w for w in result.warnings)
+
+    def test_snr_above_range(self) -> None:
+        result = self._nominal(snr=500.0)
+        assert result.extrapolated is True
+        assert any("SNR" in w for w in result.warnings)
+
+    def test_gsd_below_range(self) -> None:
+        result = self._nominal(gsd_m_along=0.01, gsd_m_cross=0.01)
+        assert result.extrapolated is True
+        assert any("GSD" in w for w in result.warnings)
+
+    def test_gsd_above_range(self) -> None:
+        result = self._nominal(gsd_m_along=5.0, gsd_m_cross=5.0)
+        assert result.extrapolated is True
+        assert any("GSD" in w for w in result.warnings)
+
+    def test_niirs_still_computed_when_extrapolated(self) -> None:
+        """Extrapolation reduces confidence; it does not suppress the value."""
+        result = self._nominal(rer_along=0.1, rer_cross=0.1)
+        assert math.isfinite(result.niirs)

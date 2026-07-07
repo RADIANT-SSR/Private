@@ -329,7 +329,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-07, Gap_Closure_Plan WP-1.2) |
+| **Fix** | Full published GIQE-5 fit ranges (Harrington 2015: GSD 3–80 cm, RER 0.2–0.95, SNR 2–130, both ends) checked in `performance/giqe.py`; `GIQEResult.extrapolated` flag + per-input warning strings; chain emits `UserWarning` and a `niirs_extrapolated` metric (0/1). IIRS dispatch inherits the checks. Replaces the old ad-hoc low-end-only checks (SNR<5, RER<0.2). 10 new tests. Docs: `RADIANT_Metrics.md` §4.6. |
+| **Rerun after fix** | Verified 2026-07-07 (5.4 rerun-equivalent): MWIR LEO chain, jitter 0→20 µrad drives RER 0.601→0.254, NIIRS 4.19→2.95; `niirs_extrapolated=1.0` and UserWarning fire (baseline is itself out of calibration — GSD 295 inch, SNR 316 — correctly flagged). |
 | **Description** | At moderate jitter (>2.5 µrad for scenario 5.4's system), RER drops below 0.2 which is outside the GIQE-5 calibration range. RADIANT computes NIIRS but does not flag the result as an extrapolation with reduced confidence. |
 | **Workaround** | None — scripts can check RER manually but the chain should warn. |
 | **Impact** | Any degraded-image-quality analysis where RER or SNR fall outside calibration range. |
@@ -682,7 +684,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | OPEN |
 | 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | OPEN |
 | 21 | No jitter PSD / frequency dependence | Large | 5.4 | DEFERRED |
-| 22 | RER below GIQE-5 calibration range | Small | 5.4 | OPEN |
+| 22 | RER below GIQE-5 calibration range | Small | 5.4 | FIXED |
 | 23 | No jitter-source allocation tool | Medium | 5.4 | OPEN |
 | 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
 | 25 | No field-dependent WFE | Large | 5.1 | CLOSED |

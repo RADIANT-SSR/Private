@@ -9,5 +9,5 @@ results workbook).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_dri_ranges_by_ship.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_cycles_vs_range.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_dri_ranges_by_ship.png | figure (committed) | d1f2707 2026-07-08 |
+| fig2_cycles_vs_range.png | figure (committed) | d1f2707 2026-07-08 |

@@ -10,8 +10,8 @@ and `*_results.xlsx` are regenerate-on-demand and not committed
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_spectral_contrast.png | figure (committed) | (set on commit) |
-| fig2_signature_by_option.png | figure (committed) | (set on commit) |
-| fig3_emissivity_inputs.png | figure (committed) | (set on commit) |
+| fig1_spectral_contrast.png | figure (committed) | 7aababc 2026-07-08 |
+| fig2_signature_by_option.png | figure (committed) | 7aababc 2026-07-08 |
+| fig3_emissivity_inputs.png | figure (committed) | 7aababc 2026-07-08 |
 | camouflage_results.xlsx | results workbook (not committed) | regenerate on demand |
 | derived/*.csv | S8 radiance inputs (not committed) | regenerate on demand |

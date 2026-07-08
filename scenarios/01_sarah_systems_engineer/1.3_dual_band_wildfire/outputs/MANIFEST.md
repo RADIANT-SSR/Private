@@ -9,7 +9,7 @@ not committed (see `docs/OPERATING_MODEL.md` Rule 26).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_spectral_contrast.png | figure (committed) | (set on commit) |
-| fig2_detection_vs_temperature.png | figure (committed) | (set on commit) |
-| fig3_noise_budgets.png | figure (committed) | (set on commit) |
+| fig1_spectral_contrast.png | figure (committed) | 8aeb31b 2026-07-08 |
+| fig2_detection_vs_temperature.png | figure (committed) | 8aeb31b 2026-07-08 |
+| fig3_noise_budgets.png | figure (committed) | 8aeb31b 2026-07-08 |
 | dual_band_results.xlsx | results workbook (not committed) | regenerate on demand |

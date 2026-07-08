@@ -830,6 +830,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 1.2. |
 
+---
+
+## Gap 51: No revisit / repeat-ground-track model
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.1 execution (Phase T4), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `radiant.core.orbit` gives single-orbit kinematics (period, velocity, ground-track speed). True revisit time for a target latitude needs the sun-sync nodal-regression rate, the J2 repeat-cycle ground-track spacing, and the swath / access-corridor overlap between adjacent tracks — none of which is modeled. Scenario 3.1 reports orbits/day (86400/period) and the cross-track access corridor as coverage proxies. |
+| **Workaround** | Orbits/day + access-corridor half-width (scenario 3.1 pattern). |
+| **Impact** | Medium for coverage/revisit planning; a repeat-ground-track calculator is the natural layer above the orbit-kinematics model. Not blocking — orbits/day and the corridor answer the sizing question. |
+| **Fix location** | New `core/` or `performance/` module: nodal regression + repeat cycle + track spacing; consumes `radiant.core.orbit`. |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None (proxy available); a dedicated revisit scenario would use it. |
+| **Rerun after fix** | Scenario 3.1 (replace orbits/day proxy with true revisit). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -884,6 +900,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | OPEN |
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | OPEN |
+| 51 | No revisit / repeat-ground-track model | Medium | 3.1 | OPEN |
 
 ---
 
@@ -939,7 +956,7 @@ Require new physics models, analysis modes, or architectural additions beyond me
 | Priority | Scenario | Persona | New capability |
 |----------|----------|---------|----------------|
 | ~~23~~ | ~~1.2~~ | ~~Sarah~~ | ~~Solar geometry calculator (LTAN/date/lat → zenith)~~ — **DONE** `radiant.core.solar_geometry` (00efcc5) |
-| 24 | 3.1 | Raj | Orbit → geometry calculator, pass planning |
+| ~~24~~ | ~~3.1~~ | ~~Raj~~ | ~~Orbit → geometry calculator, pass planning~~ — **DONE** `radiant.core.orbit` (e32188e) |
 | 25 | 4.4 | Lisa | Time-varying scenario (diurnal temperature sweep) |
 | 26 | 4.2 | Lisa | Johnson criteria / DRI range model |
 | 27 | 1.5 | Sarah | Arbitrary pupil mask (spider vanes), Strehl |

@@ -42,6 +42,8 @@ retroactively reconstructed.
   at f = 1.2 m, previously 3.33e7). Found during Gap 27.
 
 ### Added
+- `scenarios` optional-dependency group (`pip install -e ".[scenarios]"`):
+  openpyxl + matplotlib, required by the scenario run scripts (CU-057).
 - Zemax Zernike importer (Gap 26): `radiant.io.zemax_zernike.
   load_zemax_zernike` parses "Zernike Standard Coefficients" text
   exports (Noll-indexed waves, UTF-8/UTF-16 tolerant) into the existing

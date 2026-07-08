@@ -8,6 +8,9 @@ Scenario descriptions and execution order: `docs/guides/scenario_catalog.md`.
 Rules for building and validating scenarios: `docs/guides/scenario_testing.md`.
 File placement and naming rules: `docs/OPERATING_MODEL.md` §5.
 
+Scenario scripts need the `scenarios` extra (`pip install -e ".[scenarios]"`) —
+openpyxl for the vendor-format Excel inputs/outputs and matplotlib for figures.
+
 ## Layout of an implemented scenario
 
 ```

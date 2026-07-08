@@ -8,5 +8,5 @@ spider-width sweep are printed to the console (no results workbook).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_psf_diffraction_spikes.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_degradation_vs_width.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_psf_diffraction_spikes.png | figure (committed) | bbf9f6f 2026-07-08 |
+| fig2_degradation_vs_width.png | figure (committed) | bbf9f6f 2026-07-08 |

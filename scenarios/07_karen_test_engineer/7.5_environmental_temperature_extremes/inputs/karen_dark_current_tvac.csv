@@ -1,0 +1,13 @@
+# TVAC dark-current measurement, MWIR HgCdTe FPA, per-pixel mean
+# Deviates super-Arrhenius above ~85 K (defect-assisted leakage)
+T_K,dark_current_e_per_s
+70.0,1343.2
+75.0,19058.1
+77.0,50000.0
+80.0,194104.2
+82.0,453731.8
+85.0,1654727.2
+88.0,8735214.0
+90.0,28034927.0
+92.0,85347890.2
+95.0,395723318.6

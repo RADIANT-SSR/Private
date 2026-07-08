@@ -1,0 +1,5 @@
+# Band-average QE vs FPA temperature (3 measured points)
+T_K,QE
+70.0,0.78
+80.0,0.75
+90.0,0.71

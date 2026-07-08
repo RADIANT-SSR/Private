@@ -782,6 +782,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (S8 workaround); 4.3 and any spectral-emitter scene would use it. |
 | **Rerun after fix** | Scenario 4.3 (replace the manual L_t composition with the ε-path input). |
 
+---
+
+## Gap 48: QE has no temperature dependence in the chain
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.5 execution (Phase T3), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `detector.qe_value` (and the QE-curve path, Gap 44) are temperature-independent; there is no QE(T) or QE(λ,T) model. A TVAC operating-temperature sweep must interpolate a measured QE(T) table externally and set the scalar per operating point. |
+| **Workaround** | Interpolate QE(T) and set `detector.qe_value` per sweep point (scenario 7.5 pattern). |
+| **Impact** | Low — scenario 7.5 shows QE(T) is second-order vs dark current (9% QE swing vs 294,612× dark over 70–95 K). A native QE(T) would let the chain co-vary QE with `detector.detector_temperature_K` automatically. |
+| **Fix location** | `detector/_schema.py` + QE evaluation — a `qe_temperature_ref_K` + coefficient, or a QE(λ,T) table. Related to Gaps 44 (QE-curve config path) and 47 (spectral emissivity). |
+| **Effort** | Small–Medium. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 7.5. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -833,6 +849,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | OPEN |
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | OPEN |
 | 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
+| 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
 
 ---
 

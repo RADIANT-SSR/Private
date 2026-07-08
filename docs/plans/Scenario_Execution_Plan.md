@@ -25,6 +25,14 @@ Process rules: `docs/guides/scenario_testing.md`. Definitions:
 
 ## Phase R — refresh pass over executed scenarios (first)
 
+**Status: COMPLETE 2026-07-07.** Scenario commits: 7.4 → 8333992, 7.3 →
+0c1bed9, 5.1 → 6fa9c83, 6.3 → 253ffa5; sweep-pass h_sensor fixes (7.1, 2.2,
+2.5) → e75136f. Side discoveries, all dispositioned: odd-kernel crash fixed
+(8a5d9e8), CU-058 (defocus Rule 4 violation), CU-059 (stale non-Phase-R
+outputs), registry Gaps 42 (lab_test unreachable from config) and 43 (NEDT
+single-λ approximation). The remaining 8 terrestrial scripts were rerun and
+pass; their regenerated outputs were restored pending CU-059.
+
 The Gap_Closure_Plan (archived 2026-07-07) obsoleted these scenarios'
 workarounds; refresh each script + walkthrough to the built-in capability and
 rerun:

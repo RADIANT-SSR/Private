@@ -1,5 +1,13 @@
 # Scenario 5.1 Walkthrough: WFE Budget Allocation — How Much Aberration Can I Tolerate?
 
+Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): the Zernike
+prescription is now parsed from the Zemax text export via
+`load_zemax_zernike` (Gap 26), the allocation is a `radiant.api.ErrorBudget`
+(Gaps 23+28), and a Zernike-mode chain run compares the actual prescription
+against the scalar-RMS screen at the same total RMS. Numbers below are from
+the refreshed run (SNR/NIIRS are higher than the first execution — the
+column-integrated atmospheric transmittance fix raised in-band signal).
+
 ## Persona
 Tom, optical designer. He has a Zernike decomposition from Zemax for a 40 cm Cassegrain telescope (f/10, 35% linear obscuration) operating in VNIR (500--800 nm). He wants to determine how much total WFE RMS his design can tolerate before Strehl, MTF, EE, RER, and NIIRS degrade unacceptably.
 
@@ -47,29 +55,84 @@ Tom, optical designer. He has a Zernike decomposition from Zemax for a 40 cm Cas
 
 The dominant contributors are spherical (Z11 = 0.030), coma Y (Z7 = 0.025), and defocus (Z4 = 0.020). The total RMS is the RSS of all coefficients.
 
-## Approach
-The script sweeps `optics.wfe_rms_waves` from 0 to 0.25 waves (at 633 nm HeNe reference) and evaluates the full RADIANT signal chain at each point. RADIANT applies a random phase screen scaled to the requested RMS in the optics stage, producing an aberrated PSF. PerformanceStage computes Strehl (Marechal), MTF, EE, RER, and NIIRS from the aberrated EffectivePSF.
+The coefficients arrive as `tom_zernike_zemax.txt` — the Zemax "Zernike
+Standard Coefficients" text export — parsed by
+`radiant.io.zemax_zernike.load_zemax_zernike` (Gap 26: encoding detection,
+Noll-index validation, reference-wavelength capture). The script
+cross-checks the parsed set against the workbook sheet and refuses to run on
+a mismatch.
 
-Since RADIANT uses scalar RMS mode (not individual Zernike coefficients), the results represent the average impact of a given total WFE. The Zernike coefficients are provided as reference data — Tom's 0.0513 waves total RMS corresponds to one point on the sweep.
+## The WFE Allocation as an ErrorBudget (Gaps 23+28)
+
+The λ/14 requirement is expressed as a `radiant.api.ErrorBudget` with one RSS
+contributor per Zernike mode (Noll-normalized coefficients are per-mode RMS
+contributions, so total RMS = RSS):
+
+| Quantity | Value |
+|----------|-------|
+| RSS total | 0.0513 waves |
+| Allocation (λ/14) | 0.0714 waves |
+| Over budget | No |
+| Linear margin | +0.0201 waves |
+| RSS headroom (`remaining_allocation()`) | **0.0497 waves** |
+
+The RSS headroom is the actionable number: an assembly/thermal contributor of
+up to 0.0497 waves RMS can be added before the λ/14 allocation is exceeded —
+notably larger than the 0.0201-wave linear margin, because independent errors
+add in quadrature. The budget table also ranks contributors by variance share
+(spherical 34.2%, coma-Y 23.7%, defocus 15.2%), telling Tom where reduction
+effort pays off.
+
+## Approach
+The script sweeps `optics.wfe_rms_waves` from 0 to 0.25 waves (at 633 nm HeNe reference) and evaluates the full RADIANT signal chain at each point. RADIANT applies a random phase screen scaled to the requested RMS in the optics stage, producing an aberrated PSF. PerformanceStage computes Strehl, MTF, EE, RER, and NIIRS from the aberrated EffectivePSF.
+
+The scalar sweep is the budget *trade*; the as-built *truth* is the Zernike
+run (next section). Tom's 0.0513 waves total RMS also corresponds to one
+point on the sweep for continuity with the previous execution.
+
+## Zernike Mode vs Scalar Screen (Step 5b — new)
+
+RADIANT now runs the actual prescription: `zemax.to_wavefront_error()`
+produces a ZERNIKE-mode `WavefrontError`, injected via
+`RadiantSession.run(extra_stage_outputs={"optics_config": {"wavefront_error": …}})`
+(Rule 6 — file-derived objects are built by the IO/API layer and injected
+before chain execution; there is no scalar-parameter path for Zernike mode).
+
+| Metric | Zernike (actual) | Scalar screen | Δ |
+|--------|-----------------:|--------------:|---:|
+| Strehl [--] | 0.9194 | 0.9019 | +0.0175 |
+| MTF@Nyquist [--] | 0.2132 | 0.2181 | −0.0049 |
+| EE(1x1) [--] | 0.4255 | 0.4157 | +0.0098 |
+| RER [--] | 0.5728 | 0.5443 | +0.0285 |
+| NIIRS [--] | 6.54 | 6.47 | +0.07 |
+| SNR [--] | 250.6 | 250.6 | 0 |
+
+Same total RMS, different modal mix, different metrics — the shape effect a
+single RMS number cannot capture. At this small RMS (Strehl ≈ 0.9) the
+difference is modest but visible (+0.07 NIIRS); it grows with WFE, and only
+the Zernike route reproduces aberration-specific PSF structure (coma
+asymmetry, spherical rings). This is the same shape-ambiguity that dominated
+scenario 7.3's measured-vs-predicted MTF residual — use the prescription
+whenever one exists.
 
 ## Key Results
 
 ### WFE Sweep
 | WFE [waves] | Strehl [--] | MTF@Nyq [--] | EE(1x1) [--] | EE(3x3) [--] | RER [--] | NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.000 | 1.0000 | 0.2418 | 0.4609 | 0.8861 | 0.6021 | 6.38 |
-| 0.020 | 0.9851 | 0.2380 | 0.4538 | 0.8723 | 0.5930 | 6.36 |
-| 0.040 | 0.9419 | 0.2271 | 0.4329 | 0.8322 | 0.5663 | 6.29 |
-| 0.060 | 0.8739 | 0.2101 | 0.4002 | 0.7695 | 0.5245 | 6.18 |
-| 0.071 | 0.8280 | 0.1986 | 0.3783 | 0.7272 | 0.4964 | 6.10 |
-| 0.080 | 0.7869 | 0.1884 | 0.3587 | 0.6896 | 0.4713 | 6.03 |
-| 0.100 | 0.6877 | 0.1638 | 0.3115 | 0.5990 | 0.4110 | 5.83 |
-| 0.120 | 0.5832 | 0.1382 | 0.2623 | 0.5045 | 0.3480 | 5.59 |
-| 0.140 | 0.4801 | 0.1131 | 0.2142 | 0.4119 | 0.2864 | 5.31 |
-| 0.160 | 0.3835 | 0.0897 | 0.1696 | 0.3262 | 0.2292 | 4.99 |
-| 0.180 | 0.2973 | 0.0689 | 0.1302 | 0.2505 | 0.1788 | 4.63 |
-| 0.200 | 0.2237 | 0.0513 | 0.0970 | 0.1867 | 0.1363 | 4.24 |
-| 0.250 | 0.0963 | 0.0212 | 0.0407 | 0.0788 | 0.0641 | 3.15 |
+| 0.000 | 1.0000 | 0.2418 | 0.4609 | 0.8861 | 0.6021 | 6.62 |
+| 0.020 | 0.9844 | 0.2380 | 0.4538 | 0.8723 | 0.5930 | 6.59 |
+| 0.040 | 0.9391 | 0.2271 | 0.4329 | 0.8322 | 0.5663 | 6.53 |
+| 0.060 | 0.8683 | 0.2101 | 0.4002 | 0.7695 | 0.5245 | 6.42 |
+| 0.071 | 0.8207 | 0.1986 | 0.3783 | 0.7272 | 0.4964 | 6.34 |
+| 0.080 | 0.7781 | 0.1884 | 0.3587 | 0.6896 | 0.4713 | 6.26 |
+| 0.100 | 0.6759 | 0.1638 | 0.3115 | 0.5990 | 0.4110 | 6.07 |
+| 0.120 | 0.5692 | 0.1382 | 0.2623 | 0.5045 | 0.3480 | 5.83 |
+| 0.140 | 0.4648 | 0.1131 | 0.2142 | 0.4119 | 0.2864 | 5.55 |
+| 0.160 | 0.3681 | 0.0897 | 0.1696 | 0.3262 | 0.2292 | 5.22 |
+| 0.180 | 0.2827 | 0.0689 | 0.1302 | 0.2505 | 0.1788 | 4.87 |
+| 0.200 | 0.2107 | 0.0513 | 0.0970 | 0.1867 | 0.1363 | 4.47 |
+| 0.250 | 0.0886 | 0.0212 | 0.0407 | 0.0788 | 0.0641 | 3.39 |
 
 ### NIIRS Thresholds
 | Degradation | WFE Threshold [waves] |
@@ -82,28 +145,30 @@ Since RADIANT uses scalar RMS mode (not individual Zernike coefficients), the re
 | WFE [waves] | dStrehl [%] | dMTF@Nyq [%] | dEE(1x1) [%] | dRER [%] | dNIIRS [--] | Quality |
 |---|---|---|---|---|---|---|
 | 0.000 | 0.0 | 0.0 | 0.0 | 0.0 | 0.00 | diffraction-limited |
-| 0.040 | -5.8 | -6.1 | -6.1 | -6.0 | -0.09 | diffraction-limited |
-| 0.071 | -17.2 | -17.8 | -17.9 | -17.6 | -0.28 | diffraction-limited |
-| 0.100 | -31.2 | -32.2 | -32.4 | -31.7 | -0.55 | acceptable |
-| 0.140 | -52.0 | -53.2 | -53.5 | -52.4 | -1.07 | moderate |
-| 0.200 | -77.6 | -78.8 | -79.0 | -77.4 | -2.14 | significant |
-| 0.250 | -90.4 | -91.2 | -91.2 | -89.4 | -3.23 | severe |
+| 0.040 | -6.1 | -6.1 | -6.1 | -6.0 | -0.09 | diffraction-limited |
+| 0.071 | -17.9 | -17.8 | -17.9 | -17.6 | -0.28 | diffraction-limited |
+| 0.100 | -32.4 | -32.2 | -32.4 | -31.7 | -0.55 | acceptable |
+| 0.140 | -53.5 | -53.2 | -53.5 | -52.4 | -1.07 | moderate |
+| 0.200 | -78.9 | -78.8 | -79.0 | -77.4 | -2.14 | significant |
+| 0.250 | -91.1 | -91.2 | -91.2 | -89.4 | -3.23 | severe |
 
 ### Tom's Design Assessment
-- **Total Zernike RMS**: 0.0513 waves (nearest sweep point: 0.060)
-- **Strehl**: 0.87 (well above 0.80 diffraction limit)
-- **dNIIRS**: -0.20 (only 0.2 NIIRS loss from perfect optics)
+- **Total Zernike RMS**: 0.0513 waves (run in Zernike mode, not just the nearest sweep point)
+- **Strehl**: 0.9194 (well above 0.80 diffraction limit; the structured prescription outperforms a random screen at the same RMS)
+- **dNIIRS**: -0.08 (Zernike mode) vs -0.15 (scalar screen at the same RMS)
+- **Budget**: RSS 0.0513 vs allocation 0.0714 waves — within budget, 0.0497 waves RSS headroom for assembly/thermal terms
 - **Assessment**: Tom's WFE budget is well within diffraction-limited territory.
 
 ### Noise Budget (constant across sweep)
 | Noise Term | Value [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 250.6 | 50.0 |
-| background_shot | 250.6 | 50.0 |
+| signal_shot | 250.6 | 100.0 |
+| dark_shot | 0.1 | 0.0 |
 | read_noise | 5.0 | 0.0 |
-| TOTAL (RSS) | 354.5 | 100.0 |
+| quantization | 0.3 | 0.0 |
+| TOTAL (RSS) | 250.7 | 100.0 |
 
-Signal: 62,818 e-, SNR: 177.2. WFE does not affect noise — it degrades spatial metrics only.
+Signal: 62,818 e-, SNR: 250.6. WFE does not affect noise — it degrades spatial metrics only. (The background-shot term present in the first run is now zero: in the extended regime RADIANT skips the separate scene-background photon term by design — matrix Decision #13.)
 
 ## Physics Discussion
 
@@ -142,13 +207,13 @@ See [gaps.md](gaps.md) for full detail.
 ### Gap Closure Since Last Run
 | Gap | Status | Notes |
 |-----|--------|-------|
-| Strehl/MTF@Nyq/RER/EE metric exposure | **CLOSED** | All available via `result.metrics["strehl"]`, `["mtf_at_nyquist"]`, `["rer"]` |
-| NIIRS metric exposure | **CLOSED** | `result.metrics["niirs"]` available |
+| Zernike-to-PSF (scenario Gap 1) | **CLOSED** (this refresh) | ZERNIKE-mode `WavefrontError` injected via `optics_config` — Step 5b runs Tom's actual prescription |
+| Zemax importer (scenario Gap 3, registry Gap 26) | **CLOSED** (this refresh) | `load_zemax_zernike` parses the text export; cross-checked vs workbook |
+| MTF frequency units (scenario Gap 4, registry Gap 27) | **CLOSED** | cy/m, cy/mm, cy/mrad, cy/pixel conversions |
+| WFE allocation tool (scenario Gap 5, registry Gaps 23+28) | **CLOSED** (this refresh) | `radiant.api.ErrorBudget` — RSS, allocation, margin, headroom |
+| Strehl/MTF@Nyq/RER/EE/NIIRS metric exposure | **CLOSED** | All available via `result.metrics[...]` |
 | Dual-path consistency (PSF path + MTF product path) | **CLOSED** | Both paths rooted in same complex pupil; consistency checked |
 
 ### Open Gaps
-- **Gap 1 (No Zernike-to-PSF)**: still open. Scalar RMS phase screen gives correct Strehl but not aberration-specific PSF morphology (coma vs. astigmatism).
-- **Gap 2 (No field-dependent WFE)**: still open. `FieldWfeSample` defined but `OpticsStage` raises `NotImplementedError`.
-- **Gap 3 (No Zemax .ZMX importer)**: still open.
-- **Gap 4 (MTF frequency axis units)**: still open. Normalized cycles/pixel only — no cycles/mm or cycles/mrad conversion utility.
-- **Gap 5 (No WFE allocation tool)**: still open. No sub-budget RSS decomposition.
+- **Gap 2 (Field-dependent WFE)**: the `OpticsStage` field-lookup path exists (`optics.field_position_x/y` + `FieldWfeSample`) but is not exercised by this scenario — needs a field-dependent prescription input.
+- **Config-surface Zernike path**: Zernike mode requires API-level injection (`RadiantSession.run(extra_stage_outputs=...)`); no YAML/dict route yet (parallel to registry Gap 42's lab_test ask).

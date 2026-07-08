@@ -1,7 +1,11 @@
 # Scenario 5.1 GUI Workflow: WFE Budget Allocation
 
+Refreshed 2026-07-07 (Phase R): Zemax import (Gap 26), ErrorBudget allocation
+panel (Gaps 23+28), and Zernike-mode evaluation are now real API and change
+Steps 2, 3, and the allocation tool below.
+
 ## Overview
-Tom needs to determine how much wavefront error his 40 cm Cassegrain can tolerate before image quality degrades unacceptably. The GUI should let him sweep WFE RMS and immediately see the impact on Strehl, MTF, EE, RER, and NIIRS.
+Tom needs to determine how much wavefront error his 40 cm Cassegrain can tolerate before image quality degrades unacceptably. The GUI should let him sweep WFE RMS and immediately see the impact on Strehl, MTF, EE, RER, and NIIRS — and run his actual Zernike prescription, not just the scalar total.
 
 ## Step-by-Step GUI Workflow
 
@@ -21,17 +25,25 @@ Tom needs to determine how much wavefront error his 40 cm Cassegrain can tolerat
 - WFE reference wavelength: 633 [nm] (HeNe interferometry default)
 - WFE input mode selector: Scalar RMS / Zernike / OPD Map
   - Tooltip: "Scalar RMS: total WFE as single number. Zernike: individual coefficient input. OPD Map: measured wavefront."
-  - Note: only Scalar RMS is currently functional
+  - Scalar RMS and Zernike are functional (Zernike via API-level `WavefrontError` injection; the GUI performs the injection — no YAML path yet); OPD Map is future
 - Operating wavelength display: auto-computed from filter band center
 - Show Marechal Strehl formula: S = exp(-(2*pi*OPD_rms/lambda)^2)
 
-### Step 3: Enter Zernike Coefficients (Reference Panel)
-- Table input for Zernike terms Z4--Z15:
-  - Columns: Index, Name, Coefficient [waves], Contribution [%]
-  - Auto-compute RSS total at bottom
-- Import from Zemax button (grayed out — not yet implemented)
-- Tooltip: "Individual Zernike-to-PSF not yet implemented. Total RMS is used for scalar mode."
-- Display: "Total Zernike RMS = 0.0513 waves → use this as scalar input"
+### Step 3: Import Zernike Coefficients (Gap 26 closed)
+- **Import from Zemax button** (live): calls
+  `radiant.io.zemax_zernike.load_zemax_zernike` on the "Zernike Standard
+  Coefficients" .txt export (`tom_zernike_zemax.txt`); handles UTF-16/UTF-8
+  encodings, validates Noll indices, captures the reference wavelength;
+  parse errors surface as actionable dialogs
+- Table view of parsed terms Z4–Z15:
+  - Columns: Index, Name, Coefficient [waves], Variance share [%]
+  - Auto-compute RSS total at bottom (0.0513 waves)
+- **ErrorBudget panel** (Gaps 23+28): allocation input (λ/14 = 0.0714 waves),
+  live RSS total, within/over-budget status, linear margin (+0.0201), and RSS
+  headroom (`remaining_allocation()` = 0.0497 waves) with a tooltip explaining
+  why the quadrature headroom exceeds the linear margin
+- Run mode: "Zernike (as-built)" evaluates the actual prescription; "Scalar
+  RMS" uses the total for the budget sweep
 
 ### Step 4: Configure WFE Sweep
 - Sweep control:
@@ -103,18 +115,21 @@ Tom needs to determine how much wavefront error his 40 cm Cassegrain can tolerat
 - Demonstrates why the same WFE is more damaging at shorter wavelengths
 - Toggle: "Show at reference wavelength" vs "Show at operating wavelength"
 
-### Zernike Allocation Tool (Future)
-- When Zernike-to-PSF is implemented:
-  - Individual coefficient sliders (Z4-Z15)
-  - Real-time PSF update
-  - Show which Zernike term dominates performance loss
-  - "What if I reduce coma by 0.01 waves?" → NIIRS change
+### Zernike Allocation Tool (now feasible — Zernike-to-PSF closed)
+- Individual coefficient sliders (Z4-Z15), real-time PSF update from the
+  actual modal mix
+- ErrorBudget variance shares show which Zernike term dominates (spherical
+  34.2%, coma-Y 23.7% for Tom's prescription)
+- "What if I reduce coma by 0.01 waves?" → NIIRS change
+- Comparison card: "Zernike (actual) vs scalar screen at same RMS" — the
+  Step 5b table (ΔRER +0.0285, ΔNIIRS +0.07), so users see what the shape
+  assumption costs
 
 ### Design Summary Panel
 - Auto-generated recommendation:
   - "Diffraction limit: WFE < 0.071 waves (Strehl > 0.80)"
   - "NIIRS-driven budget: WFE < 0.100 waves (dNIIRS < 0.5)"
-  - "Tom's current design: 0.051 waves (Strehl = 0.87, dNIIRS = −0.20, well within spec)"
+  - "Tom's current design: 0.0513 waves (Zernike mode: Strehl = 0.92, dNIIRS = −0.08; 0.0497 waves RSS headroom vs λ/14)"
 - Export: PDF report, Excel spreadsheet
 
 ### Performance Metrics Dashboard

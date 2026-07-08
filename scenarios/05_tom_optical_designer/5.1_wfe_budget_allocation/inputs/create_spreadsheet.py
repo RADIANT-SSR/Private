@@ -4,9 +4,10 @@
 Tom has a Zernike decomposition from Zemax for a 40 cm VNIR telescope.
 He wants to see the impact of WFE RMS on Strehl, MTF, EE, RER, and NIIRS.
 
-Note: RADIANT currently supports scalar RMS WFE mode only (not individual
-Zernike coefficients or field-dependent WFE). This scenario sweeps the
-total WFE RMS from 0 to 0.25 waves at the 633 nm reference wavelength.
+Also emits tom_zernike_zemax.txt — the same coefficients in the Zemax
+"Zernike Standard Coefficients" text-export format that
+radiant.io.zemax_zernike.load_zemax_zernike parses (Gap 26). The workbook
+sheet is retained for human review.
 
 Run:  python create_spreadsheet.py
 """
@@ -167,7 +168,30 @@ ws3[f"A{len(zernike_data) + 3}"] = "Total RMS"
 ws3[f"C{len(zernike_data) + 3}"] = round(rms, 4)
 ws3[f"D{len(zernike_data) + 3}"] = "RSS of all coefficients (waves at 633 nm)"
 
-out = "tom_wfe_budget_data.xlsx"
+from pathlib import Path
+
+out = Path(__file__).parent / "tom_wfe_budget_data.xlsx"
 wb.save(out)
 print(f"Wrote {out}")
 print(f"  Total Zernike RMS: {rms:.4f} waves at 633 nm")
+
+# ---------------------------------------------------------------------------
+# Zemax "Zernike Standard Coefficients" text export
+# (read by radiant.io.zemax_zernike.load_zemax_zernike, Gap 26)
+# ---------------------------------------------------------------------------
+zmx_out = Path(__file__).parent / "tom_zernike_zemax.txt"
+zmx_lines = [
+    "Zernike Standard Coefficients",
+    "",
+    "File : cassegrain_40cm_asbuilt.zmx",
+    "Title: TOM 40 CM CASSEGRAIN - AS-BUILT",
+    "",
+    "Wavelength           :     0.6330 µm",
+    "Surface              : Image",
+    "Field                : 0.0000, 0.0000 (deg)",
+    "",
+]
+for idx, name, coeff, _note in zernike_data:
+    zmx_lines.append(f"Z {idx:3d}    {coeff:14.8f}   :  {name}")
+zmx_out.write_text("\n".join(zmx_lines) + "\n", encoding="utf-8")
+print(f"Wrote {zmx_out}")

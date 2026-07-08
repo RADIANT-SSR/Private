@@ -5,16 +5,20 @@ He wants to know how increasing WFE RMS degrades Strehl, MTF, EE, RER, and
 NIIRS. He sweeps WFE from 0 to 0.25 waves (at 633 nm HeNe reference) and
 finds the budget threshold for each metric.
 
-Approach:
-  Run RADIANT at each WFE RMS value using optics.wfe_rms_waves. The optics
-  stage applies a random phase screen scaled to the requested RMS, producing
-  a degraded PSF. PerformanceStage then computes Strehl (Marechal), MTF,
-  EE, RER, SNR, and NIIRS from the aberrated EffectivePSF.
-
-  Since RADIANT uses a random phase screen (not individual Zernike modes),
-  a fixed random seed ensures deterministic results. The scalar RMS sweep
-  is physically correct for total WFE budget — individual Zernike allocation
-  requires the Zernike-to-PSF capability (not yet implemented; see gaps).
+Approach (refreshed 2026-07-07, Phase R):
+  1. Parse Tom's Zemax "Zernike Standard Coefficients" export with
+     radiant.io.zemax_zernike.load_zemax_zernike (Gap 26) and cross-check
+     against the workbook sheet.
+  2. Build the WFE allocation as a radiant.api.ErrorBudget (Gaps 23+28):
+     RSS contributors per Zernike mode, allocation = lambda/14, margin and
+     remaining-allocation queries.
+  3. Sweep scalar optics.wfe_rms_waves (random phase screen) for the budget
+     threshold curves — the total-RMS trade.
+  4. Run one chain evaluation with the ACTUAL Zernike prescription
+     (WavefrontError ZERNIKE mode injected via
+     stage_outputs["optics_config"]["wavefront_error"]) and compare against
+     the scalar-RMS point at the same total RMS — the shape effect that a
+     single RMS number cannot capture (cf. scenario 7.3's residual finding).
 
 Physics:
   - Strehl = exp(-(2*pi*OPD_rms/lambda)^2)  (Marechal approximation)
@@ -43,16 +47,20 @@ import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from radiant.api import Sensor
+from radiant.api import BudgetContributor, ErrorBudget, Sensor
+from radiant.api.session import RadiantSession
+from radiant.io.config import load_config
+from radiant.io.zemax_zernike import load_zemax_zernike
 
 # ---------------------------------------------------------------------------
 # Step 1: Read Tom's spreadsheet
 # ---------------------------------------------------------------------------
 
 INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_wfe_budget_data.xlsx"
+ZEMAX_FILE = Path(__file__).parent.parent / "inputs" / "tom_zernike_zemax.txt"
 OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "wfe_budget_results.xlsx"
 PLOT_DIR = Path(__file__).parent.parent / "outputs"
 
@@ -98,17 +106,59 @@ for k, v in specs.items():
 print(f"\n=== WFE Sweep Points ===")
 print(f"  WFE RMS = {wfe_values} [waves at 633 nm]")
 
-if zernike_data:
-    print(f"\n=== Tom's Zernike Coefficients (reference) ===")
-    print(f"  {'Index':>6s}  {'Name':<25s}  {'Coefficient':>12s}")
-    print(f"  {'-' * 6}  {'-' * 25}  {'-' * 12}")
-    for idx, name, coeff in zernike_data:
-        print(f"  Z{idx:<5d}  {name:<25s}  {coeff:>12.4f} [waves]")
-    total_rms = math.sqrt(sum(c**2 for _, _, c in zernike_data))
-    print(f"\n  Total Zernike RMS: {total_rms:.4f} [waves at 633 nm]")
-    print(f"  Note: RADIANT uses scalar RMS mode — individual Zernike-to-PSF")
-    print(f"        not yet implemented. Tom's {total_rms:.4f} waves total RMS")
-    print(f"        is one point on the sweep below.")
+# --- Parse the Zemax export (Gap 26) and cross-check the workbook sheet ---
+zemax = load_zemax_zernike(ZEMAX_FILE)
+
+print(f"\n=== Tom's Zernike Prescription (load_zemax_zernike, Gap 26) ===")
+print(f"  Source:              {zemax.source_file}")
+print(f"  Reference wavelength: {zemax.reference_wavelength_um} [µm]")
+print(f"  Terms parsed:         {zemax.n_terms} [--]")
+print(f"\n  {'Index':>6s}  {'Name':<25s}  {'Coefficient':>12s}")
+print(f"  {'-' * 6}  {'-' * 25}  {'-' * 12}")
+zern_names = {idx: name for idx, name, _ in zernike_data}
+for idx, coeff in sorted(zemax.zernike_coeffs.items()):
+    print(f"  Z{idx:<5d}  {zern_names.get(idx, '—'):<25s}  {coeff:>12.4f} [waves]")
+
+# Cross-check: workbook sheet vs Zemax export must agree.
+sheet_coeffs = {idx: coeff for idx, _, coeff in zernike_data}
+if sheet_coeffs != zemax.zernike_coeffs:
+    raise ValueError(
+        "Workbook 'Zernike Coefficients' sheet disagrees with the Zemax "
+        f"export: sheet={sheet_coeffs}, zemax={zemax.zernike_coeffs}"
+    )
+print(f"\n  Cross-check vs workbook sheet: MATCH ({len(sheet_coeffs)} terms)")
+
+total_rms = math.sqrt(sum(c**2 for c in zemax.zernike_coeffs.values()))
+
+# --- WFE allocation as an ErrorBudget (Gaps 23+28) ---
+# RSS budget: Noll-normalized Zernike coefficients ARE per-mode RMS
+# contributions, so total RMS = RSS of coefficients. Allocation = λ/14
+# (Maréchal diffraction-limited criterion, Strehl ≈ 0.80).
+WFE_ALLOCATION_WAVES = 1.0 / 14.0
+
+wfe_budget = ErrorBudget(
+    name="wfe",
+    unit="waves @ 633 nm",
+    contributors=tuple(
+        BudgetContributor(
+            name=f"Z{idx} {zern_names.get(idx, '')}".strip(),
+            value=coeff,
+        )
+        for idx, coeff in sorted(zemax.zernike_coeffs.items())
+    ),
+    allocation=WFE_ALLOCATION_WAVES,
+)
+
+print(f"\n=== WFE Error Budget (ErrorBudget, Gaps 23+28) ===")
+print(wfe_budget.table())
+assert wfe_budget.margin is not None
+print(f"\n  RSS total:            {wfe_budget.rss_total:.4f} [waves]")
+print(f"  Allocation (λ/14):    {WFE_ALLOCATION_WAVES:.4f} [waves]")
+print(f"  Over budget:          {wfe_budget.over_budget}")
+print(f"  Linear margin:        {wfe_budget.margin:+.4f} [waves]")
+print(f"  Remaining allocation: {wfe_budget.remaining_allocation():.4f} [waves]")
+print(f"  (RSS headroom — an assembly/thermal contributor of up to this RMS")
+print(f"   can be added before the λ/14 allocation is exceeded.)")
 
 # ---------------------------------------------------------------------------
 # Step 2: Convert to RADIANT canonical units
@@ -332,6 +382,78 @@ for wfe_rms in wfe_values:
 
     print(f"  {wfe_rms:>8.3f}  {strehl:>8.4f}  {mtf_nyq:>10.4f}  {ee_1x1:>8.4f}  "
           f"{ee_3x3:>8.4f}  {rer:>8.4f}  {snr:>8.1f}  {niirs:>8.2f}")
+
+# ---------------------------------------------------------------------------
+# Step 5b: Zernike-mode run — the actual prescription vs scalar RMS
+# ---------------------------------------------------------------------------
+# The scalar sweep above assumes a random phase screen at each RMS. Tom's
+# actual aberrations are structured (coma + spherical dominate), and shape
+# matters: the same total RMS distributed differently across modes lands
+# the aberrated energy differently (cf. scenario 7.3, where the scalar-WFE
+# shape assumption dominated the measured-vs-predicted MTF residual).
+#
+# Zernike mode has no scalar-parameter path — the WavefrontError object is
+# injected via stage_outputs["optics_config"]["wavefront_error"] (Rule 6:
+# file-derived objects are built by the IO/API layer and injected before
+# chain execution).
+
+print(f"\n{'=' * 80}")
+print(f"  ZERNIKE-MODE RUN — TOM'S ACTUAL PRESCRIPTION (Gap 26)")
+print(f"{'=' * 80}")
+
+wfe_zernike = zemax.to_wavefront_error()
+
+config_zern = {k: ({**v} if isinstance(v, dict) else v) for k, v in base_config.items()}
+config_zern["source"] = {
+    "target": {**base_config["source"]["target"]},
+    "background": {**base_config["source"]["background"]},
+}
+config_zern["optics"] = {**base_config["optics"], "wfe_rms_waves": 0.0}
+
+wl_grid = np.linspace(band_min_um, band_max_um, 500)  # matches Sensor default
+session_zern = RadiantSession(wavelength_um=wl_grid)
+params_zern = session_zern.default_params()
+load_config(config_zern, params_zern)
+params_zern.resolve()
+r_zern = session_zern.run(
+    params_zern,
+    extra_stage_outputs={"optics_config": {"wavefront_error": wfe_zernike}},
+)
+
+# Scalar-RMS run at exactly the same total RMS for a like-for-like pair.
+config_scal = {k: ({**v} if isinstance(v, dict) else v) for k, v in base_config.items()}
+config_scal["source"] = {
+    "target": {**base_config["source"]["target"]},
+    "background": {**base_config["source"]["background"]},
+}
+config_scal["optics"] = {**base_config["optics"], "wfe_rms_waves": total_rms}
+r_scal = Sensor.from_dict(config_scal).evaluate()
+
+print(f"\n  Both runs: total WFE RMS = {total_rms:.4f} [waves at 633 nm]")
+print(f"\n  {'Metric':<22s}  {'Zernike (actual)':>16s}  {'Scalar screen':>14s}  {'Δ':>10s}")
+print(f"  {'-' * 22}  {'-' * 16}  {'-' * 14}  {'-' * 10}")
+for label, key, fmt in [
+    ("Strehl [--]", "strehl", "{:.4f}"),
+    ("MTF@Nyquist [--]", "mtf_at_nyquist", "{:.4f}"),
+    ("EE(1x1) [--]", "ee_1x1", "{:.4f}"),
+    ("RER [--]", "rer", "{:.4f}"),
+    ("NIIRS [--]", "niirs", "{:.2f}"),
+    ("SNR [--]", "snr", "{:.1f}"),
+]:
+    vz = r_zern.metrics.get(key)
+    vs = r_scal.metrics.get(key)
+    if vz is None or vs is None:
+        continue
+    print(f"  {label:<22s}  {fmt.format(vz):>16s}  {fmt.format(vs):>14s}  "
+          f"{vz - vs:>+10.4f}")
+
+print(f"\n  Interpretation: both pupils carry the same {total_rms:.4f}-wave RMS, but")
+print(f"  the structured prescription (coma Z7/Z8 + spherical Z11 dominant)")
+print(f"  and the random screen distribute the aberrated energy differently.")
+print(f"  At this small RMS (Strehl ≈ 0.9) the difference is modest; it grows")
+print(f"  with WFE, and only the Zernike route reproduces aberration-specific")
+print(f"  PSF structure (coma asymmetry, spherical rings) — use it whenever a")
+print(f"  real prescription exists (cf. scenario 7.3's residual diagnosis).")
 
 # ---------------------------------------------------------------------------
 # Step 6: Metric degradation analysis
@@ -648,15 +770,15 @@ print(f"  Strehl:    {dl_result['strehl_radiant']:.4f} [--]")
 print(f"  MTF@Nyq:   {dl_result['mtf_nyq']:.4f} [--]")
 print(f"  dNIIRS:    {dl_result['niirs'] - baseline['niirs']:+.2f} [--]")
 
-if zernike_data:
-    total_rms = math.sqrt(sum(c**2 for _, _, c in zernike_data))
-    zern_result = min(results, key=lambda r: abs(r["wfe_rms"] - total_rms))
-    print(f"\n  --- At Tom's Zernike budget ({total_rms:.4f} waves RMS) ---")
-    print(f"  Nearest sweep point: WFE = {zern_result['wfe_rms']:.3f} [waves]")
-    print(f"  Strehl:    {zern_result['strehl_radiant']:.4f} [--]")
-    print(f"  MTF@Nyq:   {zern_result['mtf_nyq']:.4f} [--]")
-    print(f"  dNIIRS:    {zern_result['niirs'] - baseline['niirs']:+.2f} [--]")
-    print(f"  Assessment: Tom's WFE budget is well within diffraction-limited territory.")
+print(f"\n  --- At Tom's actual prescription ({total_rms:.4f} waves RMS, Zernike mode) ---")
+print(f"  Strehl:    {r_zern.metrics.get('strehl', 0.0):.4f} [--]")
+print(f"  MTF@Nyq:   {r_zern.metrics.get('mtf_at_nyquist', 0.0):.4f} [--]")
+print(f"  dNIIRS:    {(r_zern.metrics.get('niirs') or 0.0) - (baseline['niirs'] or 0.0):+.2f} [--]")
+print(f"  Budget:    RSS {wfe_budget.rss_total:.4f} vs allocation "
+      f"{WFE_ALLOCATION_WAVES:.4f} [waves] → margin {wfe_budget.margin:+.4f}, "
+      f"{'OVER' if wfe_budget.over_budget else 'within'} budget")
+print(f"  Assessment: Tom's WFE budget is well within diffraction-limited territory;")
+print(f"  {wfe_budget.remaining_allocation():.4f} waves RSS remain for assembly/thermal terms.")
 
 print(f"\n  Design recommendation:")
 print(f"    Allocate WFE budget to keep total RMS < 0.071 waves (lambda/14)")
@@ -665,10 +787,12 @@ print(f"    For NIIRS-driven systems, WFE up to ~0.10 waves is acceptable")
 print(f"    with < 0.25 NIIRS degradation.")
 
 print(f"\n  Limitations:")
-print(f"    - RADIANT uses scalar RMS WFE (random phase screen), not individual")
-print(f"      Zernike modes. Aberration-specific PSF shapes (coma vs. astigmatism)")
-print(f"      are not modeled. See Gap: Zernike-to-PSF.")
-print(f"    - Field-dependent WFE is defined but not yet implemented.")
+print(f"    - The scalar-RMS sweep uses a random phase screen; the SAME total RMS")
+print(f"      with a different modal mix lands differently (see Step 5b). The")
+print(f"      Zernike route (load_zemax_zernike + injected WavefrontError) is the")
+print(f"      shape-faithful path and is preferred when a prescription exists.")
+print(f"    - Zernike mode has no scalar-parameter/YAML path yet — the object is")
+print(f"      injected via stage_outputs['optics_config'] (API-level, not config).")
 print(f"    - Marechal approximation is inaccurate for Strehl < 0.3 (WFE > ~0.17 waves).")
 
 plt.show()

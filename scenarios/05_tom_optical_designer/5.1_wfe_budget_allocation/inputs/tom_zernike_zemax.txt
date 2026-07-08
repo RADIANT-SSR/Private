@@ -1,0 +1,21 @@
+Zernike Standard Coefficients
+
+File : cassegrain_40cm_asbuilt.zmx
+Title: TOM 40 CM CASSEGRAIN - AS-BUILT
+
+Wavelength           :     0.6330 µm
+Surface              : Image
+Field                : 0.0000, 0.0000 (deg)
+
+Z   4        0.02000000   :  Defocus
+Z   5        0.01500000   :  Astigmatism 0
+Z   6        0.01000000   :  Astigmatism 45
+Z   7        0.02500000   :  Coma Y
+Z   8        0.01800000   :  Coma X
+Z   9        0.00500000   :  Trefoil Y
+Z  10        0.00400000   :  Trefoil X
+Z  11        0.03000000   :  Spherical
+Z  12        0.00300000   :  2nd Astigmatism 0
+Z  13        0.00200000   :  2nd Astigmatism 45
+Z  14        0.00200000   :  2nd Coma Y
+Z  15        0.00100000   :  2nd Coma X

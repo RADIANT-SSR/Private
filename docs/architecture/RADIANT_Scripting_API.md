@@ -883,6 +883,8 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 
 **Target-library import (scenario 4.1).** `radiant.io.target_library.load_target_library(path, sheet=)` reads a mission target list from an Excel workbook (columns `target_name, length_m, width_m, height_m, temperature_K, emissivity, material`, any column order) into validated `TargetEntry` objects with the derived `projected_area_m2 = length × width` (overhead-look footprint). Duplicate names, non-numeric cells, and unphysical values raise `TargetLibraryError`. openpyxl is imported lazily (it lives in the `[scenarios]` extra) with an actionable error naming the extra — same optional-dependency pattern as the MODTRAN backend.
 
+**Johnson-criteria DRI ranges (scenario 4.2).** `radiant.performance.johnson_criteria` computes Detection/Recognition/Identification ranges from the resolved-cycles model. `johnson_range_m(critical_dimension_m, ifov_rad, n50_cycles)` (`R = D / (2·IFOV·N50)`), `resolved_cycles(critical_dimension_m, ifov_rad, range_m)`, and the standard `JOHNSON_N50` table (detection 1.0, orientation 1.4, recognition 4.0, identification 6.4). Sampling-limited form — counts geometric cycles across the target, does not fold in the MTF/contrast (MRT/MRC). Out-of-range inputs raise `JohnsonCriteriaError`.
+
 **Orbit-kinematics calculator (scenario 3.1).** `radiant.core.orbit` converts a circular LEO altitude into the orbital quantities coverage calculations consume (pure kinematics — same `core` category as `solar_geometry`). `orbital_velocity_m_s(altitude_m)` (`v = √(μ/a)`), `orbital_period_s(altitude_m)` (`T = 2π√(a³/μ)`), and `ground_track_speed_m_s(altitude_m)` (`v_g = v·R_E/a`, non-rotating Earth). Feeds the `ground_speed_m_s` input of `performance.access_rate`. New Earth constant `mu_earth_m3_s2` in `core.constants`; out-of-range altitude raises `OrbitError`.
 
 **Solar-geometry calculator (scenario 1.2).** `radiant.core.solar_geometry` converts date/latitude/time into the solar zenith angle for illumination geometry (pure kinematics — same `core` category as `slant_range_spherical_m`). `solar_declination_deg(day_of_year)` (Spencer's series, ~0.01°), `solar_zenith_angle_rad(latitude_deg, day_of_year, local_solar_time_hr)` (`cos θ_z = sin φ sin δ + cos φ cos δ cos h`), and `local_solar_time_from_ltan(ltan_hours)` (a sun-sync orbit holds ~constant local solar time along the daylit track, so LTAN ≈ target LST — documented approximation). Feeds `geometry.solar_zenith_rad`. Out-of-range inputs raise `SolarGeometryError`.
@@ -916,6 +918,7 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `load_aster_spectrum`, `AsterSpectrum` (`radiant.io.aster_library`, scenario 1.3) | Stable |
 | `solar_zenith_angle_rad`, `solar_declination_deg` (`radiant.core.solar_geometry`, scenario 1.2) | Stable |
 | `orbital_period_s`, `orbital_velocity_m_s`, `ground_track_speed_m_s` (`radiant.core.orbit`, scenario 3.1) | Stable |
+| `johnson_range_m`, `resolved_cycles`, `JOHNSON_N50` (`radiant.performance.johnson_criteria`, scenario 4.2) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |
 | `radiant.api.session.RadiantSession` | Semi-stable (wrapped by `Sensor`; not an alias) |
 | `radiant.core.*` | Semi-stable (plugin API) |

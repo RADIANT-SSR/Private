@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Johnson-criteria DRI calculator (scenario 4.2 prerequisite):
+  `radiant.performance.johnson_criteria` — `johnson_range_m`,
+  `resolved_cycles`, and the standard `JOHNSON_N50` cycle table
+  (detection/orientation/recognition/identification). Computes the range
+  at which a discrimination task's N50 cycles are resolved across a
+  target's critical dimension (`R = D / (2·IFOV·N50)`). Sampling-limited
+  form (no MRT/MRC coupling). New error class `JohnsonCriteriaError`.
 - Orbit-kinematics calculator (scenario 3.1 prerequisite):
   `radiant.core.orbit` — `orbital_velocity_m_s`, `orbital_period_s`, and
   `ground_track_speed_m_s` for a circular LEO altitude (two-body,

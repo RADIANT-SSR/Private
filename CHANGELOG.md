@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Solar-geometry calculator (scenario 1.2 prerequisite):
+  `radiant.core.solar_geometry` — `solar_zenith_angle_rad(latitude_deg,
+  day_of_year, local_solar_time_hr)`, `solar_declination_deg`
+  (Spencer's series), and `local_solar_time_from_ltan` for
+  sun-synchronous orbits. Converts date/latitude/LTAN into the solar
+  zenith angle for `geometry.solar_zenith_rad`. New error class
+  `SolarGeometryError`.
 - ASTER spectral-library import (scenario 1.3 prerequisite):
   `radiant.io.aster_library.load_aster_spectrum` parses JPL/NASA ASTER
   library text files (metadata header + wavelength/reflectance columns,

@@ -8,8 +8,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_background_vs_eta.png | figure (committed) | 4953c90 2026-04-19 |
-| fig2_position_vs_eta.png | figure (committed) | 4953c90 2026-04-19 |
-| fig3_noise_budget.png | figure (committed) | 4953c90 2026-04-19 |
-| fig4_snr_vs_eta.png | figure (committed) | 4953c90 2026-04-19 |
+| fig1_background_vs_eta.png | figure (committed) | 8333992 2026-07-07 |
+| fig2_position_vs_eta.png | figure (committed) | 8333992 2026-07-07 |
+| fig3_noise_budget.png | figure (committed) | 8333992 2026-07-07 |
+| fig4_snr_vs_eta.png | figure (committed) | 8333992 2026-07-07 |
 | cold_stop_sweep_results.xlsx | results workbook (not committed) | regenerate on demand |

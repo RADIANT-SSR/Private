@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- ASTER spectral-library import (scenario 1.3 prerequisite):
+  `radiant.io.aster_library.load_aster_spectrum` parses JPL/NASA ASTER
+  library text files (metadata header + wavelength/reflectance columns,
+  descending order handled) into an `AsterSpectrum` with `emissivity()`
+  (ε = 1 − ρ, opaque scene material) and `band_averaged_emissivity()`.
+  New error class `AsterLibraryError`. No extrapolation outside the
+  measured range.
 - Batch matrix execution (scenario 4.1 prerequisite):
   `radiant.api.batch.BatchRunner` — the `BatchRunner` named in the
   architecture's api layout — runs one evaluation per cell of a labeled

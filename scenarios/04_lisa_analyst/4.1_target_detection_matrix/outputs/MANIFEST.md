@@ -10,6 +10,6 @@ root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_detection_range_matrix.png | figure (committed) | (set on commit) |
-| fig2_nadir_scnr_by_target.png | figure (committed) | (set on commit) |
+| fig1_detection_range_matrix.png | figure (committed) | 4428422 2026-07-08 |
+| fig2_nadir_scnr_by_target.png | figure (committed) | 4428422 2026-07-08 |
 | detection_matrix_results.xlsx | results workbook (not committed) | regenerate on demand |

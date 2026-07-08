@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Batch matrix execution (scenario 4.1 prerequisite):
+  `radiant.api.batch.BatchRunner` — the `BatchRunner` named in the
+  architecture's api layout — runs one evaluation per cell of a labeled
+  cartesian grid (targets × atmospheres × sensors), with per-cell
+  parameter overrides and Rule 17 failure capture (a failed cell is a
+  recorded `error` row, never silently dropped). Returns a `BatchResult`
+  with a `pivot()` helper. New error class `BatchRunnerError`.
+- Target-library import (scenario 4.1 prerequisite):
+  `radiant.io.target_library.load_target_library` reads a mission target
+  list workbook into validated `TargetEntry` objects with derived
+  `projected_area_m2`; lazy openpyxl (actionable error naming the
+  `[scenarios]` extra). New error class `TargetLibraryError`.
 - Vendor detector-datasheet importers (scenario 2.1 prerequisites):
   `radiant.io.qe_csv.load_qe_csv` reads wavelength-vs-QE vendor CSVs
   (nm/µm × percent/fraction, header-token or explicit unit resolution)

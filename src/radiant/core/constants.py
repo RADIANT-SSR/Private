@@ -53,6 +53,12 @@ S_solar_W_per_m2: float = 1361.0
 # the two values differ by ~0.1% and are used in separate geometric contexts.
 R_EARTH_M: float = 6.378137e6
 
+# Earth standard gravitational parameter GM [m³/s²] — WGS-84 / EGM value
+# (G·M_earth). Used for circular-orbit kinematics (period, orbital velocity,
+# ground-track speed) in radiant.core.orbit.
+# https://earth-info.nga.mil/ (WGS-84 specification, GM).
+mu_earth_m3_s2: float = 3.986_004_418e14
+
 # ---------------------------------------------------------------------------
 # Derived convenience quantities
 # ---------------------------------------------------------------------------

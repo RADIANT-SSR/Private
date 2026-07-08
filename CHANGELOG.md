@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Orbit-kinematics calculator (scenario 3.1 prerequisite):
+  `radiant.core.orbit` — `orbital_velocity_m_s`, `orbital_period_s`, and
+  `ground_track_speed_m_s` for a circular LEO altitude (two-body,
+  spherical Earth, non-rotating ground track). Feeds the
+  `ground_speed_m_s` input that `performance.access_rate` could not
+  itself compute. New Earth gravitational-parameter constant
+  `mu_earth_m3_s2` in `core.constants`; new error class `OrbitError`.
 - Solar-geometry calculator (scenario 1.2 prerequisite):
   `radiant.core.solar_geometry` — `solar_zenith_angle_rad(latitude_deg,
   day_of_year, local_solar_time_hr)`, `solar_declination_deg`

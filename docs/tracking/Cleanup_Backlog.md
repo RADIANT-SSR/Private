@@ -195,6 +195,19 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: icon-style glyphs are meant to read at constant screen size; at extreme zoom the sun either dominates the viewport or vanishes.
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
+### CU-058 — Defocus (Gap 29) violates Rule 4: scalar-RMS WFE discarded from the MTF product path; two paths use different defocus models
+
+**Discovered**: Scenario 7.3 refresh (Scenario_Execution_Plan Phase R), 2026-07-07.
+**Status**: Open — needs an owner decision on the canonical defocus model (results-affecting Category C task).
+**File**: `src/radiant/optics/stage.py::_add_defocus_to_wfe` (SCALAR_RMS branch); defocus branch in `OpticsStage.run`.
+**Symptom**: any config combining scalar `optics.wfe_rms_waves` with nonzero `optics.defocus_um` fails the Rule 4 dual-path consistency check — scenario 7.3 (0.07 waves RMS + 5 µm defocus, VNIR f/3) logs `max_err_x = 0.169` vs tolerance 0.05 on every run. Reproduce: run scenario 7.3, or any Sensor config with both parameters set; with either parameter alone the check passes (0.043–0.046).
+**Root cause** (verified by isolation matrix 2026-07-07): two independent defects.
+  (a) `_add_defocus_to_wfe`'s SCALAR_RMS branch converts to a Z4-only Zernike and **drops the scalar-RMS screen entirely** (comment claims "defocus dominates" — false in general: for 7.3, Z4 = 0.062 waves < 0.07 waves RMS). The product path's `mtf_optics` then loses the WFE plateau (0.98 vs 0.81 at low frequency) while the PSF path keeps the random screen.
+  (b) The two paths model defocus differently by construction: PSF path applies a Gaussian kernel (σ = |δ|/(4·f/#·√3)); product path folds pupil Z4 into `mtf_optics`. Adding an analytic Gaussian term to the product would double-count (attempted and reverted during Phase R, see `git log 8a5d9e8..`); real defocus OTF is not Gaussian.
+**Why it still matters**: the consistency invariant (Rule 4) is the framework's guard against single-path degradations; a config that structurally fails it makes real regressions invisible in the noise. NIIRS/folded-MTF (product-path consumers) and spatial metrics (PSF-path consumers) silently disagree for defocused scalar-WFE systems.
+**Suggested fix**: stand-alone task (results-affecting, Category C): unify defocus as pupil Z4 on **both** paths (drop the PSF-path Gaussian kernel; the PSF already comes from the same pupil, so folding Z4 there gives exact agreement by Wiener–Khinchin), and make `_add_defocus_to_wfe` preserve scalar-RMS (screen + Z4 in one pupil phase). Requires new truth anchors + golden-baseline review. Effort M; category C.
+**Related**: the residual 0.052–0.057 exceedances seen in undersampled VNIR configs (Q ≈ 0.2) with all degradations off are the CU-003 rect-kernel discretization floor, not this defect.
+
 ---
 
 ## Resolved

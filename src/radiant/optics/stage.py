@@ -838,6 +838,13 @@ class OpticsStage:
                 sigma_def,
             )
 
+            # NOTE (CU pending): defocus enters the MTF product path via
+            # _add_defocus_to_wfe (pupil Z4 inside mtf_optics), NOT as a
+            # separate analytic term — adding one here would double-count.
+            # The two paths currently use different defocus models (Gaussian
+            # kernel here vs pupil Z4 there); see Cleanup_Backlog CU on
+            # defocus dual-path unification.
+
             logger.info(
                 "Defocus applied: δ=%.1f µm, σ=%.3f µm (%.3f pix), kernel %dx%d",
                 defocus_um,

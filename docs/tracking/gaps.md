@@ -686,6 +686,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | N/A — test-only addition. |
 
+---
+
+## Gap 42: lab_test / ground_test sub-cases unreachable from the Sensor config surface
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.4 refresh (Scenario_Execution_Plan Phase R, 2026-07-07) |
+| **Status** | OPEN |
+| **Description** | The `no_atmosphere` sub-cases `lab_test` and `ground_test` require a `UserSpectralBackground(L_bg: SpectralData)`, which can only be injected by constructing the descriptor manually and publishing it into `stage_outputs["source"]["background"]` (the integration-test pattern in `tests/integration/test_no_atm_subcases.py`). `Sensor.from_dict` / YAML has no L_bg path, and `atmosphere.model = "exo"` auto-infers sub-case `space`. Lab/TVAC scenarios therefore masquerade as `space`, which (a) forces a placeholder positive `platform.h_sensor` (e.g. 1.0 m bench height) to satisfy the Earth-limb validator, and (b) substitutes `ColdSpaceBackground` for the actual chamber radiance. |
+| **Workaround** | Model the chamber as `space` sub-case with `platform.h_sensor = 1.0` m and represent the chamber contents (cold plate / blackbody) as the extended target; acceptable when the scene fills the FOV and the true background term is negligible (77 K cold plate in MWIR). Used by scenario 7.4. |
+| **Impact** | Every lab/TVAC scenario (7.x family) carries a physically-mislabeled sub-case and a placeholder altitude; a lit-lab scenario whose chamber background is NOT negligible cannot be modeled from the config surface at all. |
+| **Fix location** | `io/config.py` + `source/_schema.py` — YAML/dict path for `source.no_atmosphere_subcase` plus a user-supplied background spectral radiance (file or grey-body spec); the illumination follow-on ADR flagged in `source/_inferrer.py` is the anchor. |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None outright (workaround exists); 7.2 radiometric calibration (T3) would benefit directly. |
+| **Rerun after fix** | Scenario 7.4; then drop the placeholder `platform.h_sensor` from the 7.x lab scripts. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -731,6 +747,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
+| 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | OPEN |
 
 ---
 

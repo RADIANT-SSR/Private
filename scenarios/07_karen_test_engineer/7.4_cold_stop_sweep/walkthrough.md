@@ -1,4 +1,9 @@
-# Scenario 7.4 Walkthrough: Cold Stop Efficiency Sweep
+# Scenario 7.4 Walkthrough: Cold Stop Leakage Sweep
+
+Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): the script now uses
+`Sensor.solve_for` (Gap 10), `optics.scalar_emissivity` (Gap 37), the
+`optics.nearfield_fraction` name (Gap 12), and the Stage-7
+`platform.h_sensor` precondition. Numbers below are from the refreshed run.
 
 ## The Problem
 
@@ -18,15 +23,17 @@ Every warm optical element radiates thermally according to the Planck function. 
 
 The cold stop (also called a cold shield or cold baffle) is a cryogenic enclosure around the FPA, typically cooled to the same 77 K as the detector. It blocks the warm optics from directly illuminating the FPA, allowing only light through the designed optical path (the aperture) to reach the detector.
 
-In RADIANT, this is modeled by the `cold_stop_efficiency` parameter, which controls how much of the warm-optics nearfield irradiance reaches the FPA:
+In RADIANT this is the `optics.nearfield_fraction` parameter (η_nf, formerly `cold_stop_efficiency` — renamed under Gap 12), the fraction of the FPA hemisphere filled by warm-emitting elements:
 
 ```
-E_nearfield = η_cold × Σ [ε_i × B(λ, T_optics) × Ω_i × τ_downstream]
+E_nearfield ∝ η_nf × ε_optics × B(λ, T_optics)
 ```
 
-**Important convention**: RADIANT's `cold_stop_efficiency` is the fraction of the FPA hemisphere filled by warm-emitting elements — essentially the *leakage* fraction. This is the opposite of the vendor convention where "100% cold stop efficiency" means complete blocking:
-- η_cold = 0.0 → perfect cold stop (blocks all warm radiation)
-- η_cold = 1.0 → no cold stop (all warm radiation reaches FPA)
+- η_nf = 0.0 → perfect cold stop (blocks all warm radiation)
+- η_nf = 1.0 → no cold stop (all warm radiation reaches FPA)
+- η_nf = 1 − vendor "cold stop efficiency" (the vendor convention counts blocking, not leakage)
+
+**Warm-optics emissivity is derived, not free (Rule 5 / Gap 37).** In scalar transmission mode the train is one lumped element. Treating the non-transmitted power as absorbed gives ε = 1 − τ = 1 − 0.68 = 0.32, set via `optics.scalar_emissivity`. Without it the lump defaults to the refractive assumption ε = 0 and the nearfield term is identically zero — the failure that made the first execution of this scenario non-functional (old Gap 4, now closed).
 
 ## How RADIANT Solves This
 
@@ -41,97 +48,95 @@ The script converts every parameter to RADIANT canonical units at the boundary:
 - 25 cm → 0.25 m (aperture)
 - 1000 mm → 1.0 m (focal length)
 - 20°C → 293.15 K (optics temperature)
-- 80 fA/pixel → 499.4 e-/s (dark current: fA × 1e-15 ÷ q_e)
+- 80 fA/pixel → 499,376 e-/s (dark current: fA × 1e-15 ÷ q_e)
 - 3700–4800 nm → 3.70–4.80 µm (bandpass)
 - 8 ms → 0.008 s (integration time)
-- 68% → 0.68 (transmission)
-- 75% → 0.75 (quantum efficiency)
+- 68% → 0.68 (transmission), and derived ε = 1 − τ = 0.32 (Kirchhoff)
+- vendor cold-stop efficiency % → η_nf = 1 − efficiency (leakage fraction)
 
-### Step 2: Establish the Baseline
+### Step 2: Configure the Vacuum Chamber
 
-RADIANT evaluates the full signal chain in two modes:
+The atmosphere model is "exo" (vacuum) since Karen is testing in TVAC with no atmospheric path. Two consequences of the current architecture (registry Gap 42):
 
-**Illuminated mode** (blackbody at 308 K, shroud at 293 K): This gives the operational performance baseline. With η_cold = 1.0 (no cold stop — maximum nearfield):
-- Signal: 2,916,027 e-
+- The exo backend auto-infers the `no_atmosphere` **space** sub-case (the `lab_test` sub-case has no `Sensor.from_dict` path), so the run carries a placeholder `platform.h_sensor = 1.0` m (≈ bench height) to satisfy the Stage-7 Earth-limb intercept check. The value has no radiometric effect here.
+- The blackbody fills the FOV → **extended regime**, and in this regime RADIANT skips the separate scene-background photon term entirely (matrix Decision #13): `background_e = 0` by design. The chamber-shroud parameters stay in the config but contribute no photons; the only background terms are warm-optics nearfield and dark current.
+
+### Step 3: Establish the Reference Point
+
+**Illuminated mode** (blackbody at 308 K), at η_nf = 1.0 (no cold stop — maximum leakage):
+- Signal: 2,994,945 e-
 - Nearfield: 812,493 e-
-- Scene background: 1,640,220 e-
-- SNR: 1,258
+- Scene background: 0 e- (extended regime, see above)
+- SNR: 1,534
 
-**Shuttered mode** (cold plate at 77 K blocking aperture): This models what Karen actually measures during the background test. At 77 K, the cold plate's MWIR emission is negligible. The only signal is from warm optics leaking through the cold stop:
-- At η_cold = 0: nearfield = 0 e- (perfect cold stop)
-- At η_cold = 1.0: nearfield = 812,493 e- (no cold stop)
+**Shuttered mode** (cold plate at 77 K blocking aperture) models what Karen actually measures. At 77 K, the cold plate's MWIR emission is negligible; the only signal is warm optics leaking past the cold stop:
+- At η_nf = 0: nearfield = 0 e- (perfect cold stop)
+- At η_nf = 1.0: nearfield = 812,493 e- (no cold stop)
 
-The atmosphere model is set to "exo" (vacuum) since Karen is testing in a TVAC chamber with no atmospheric path.
+Nearfield scales linearly with η_nf, so 1% of leakage ≈ 8,125 e- of shuttered background.
 
-### Step 3: Sweep and Match
+### Step 4: Invert Each Measurement with Sensor.solve_for
 
-The script sweeps cold_stop_efficiency from 0.00 to 1.00 in the shuttered configuration. Because nearfield scales linearly with η_cold, the sweep produces a straight line from 0 to 812,493 e-.
+The former sweep + linear-interpolation workaround (old Gap 1) is replaced by `Sensor.solve_for` (Gap 10) — Brent root-finding on the forward model with a callable metric (`nearfield_e + background_e`). Each measurement inverts in 6–7 forward-chain evaluations:
 
-For each of Karen's lab measurements, the script finds the η_cold that produces the same background signal by linear interpolation:
+| Test Point | Position [mm] | Measured [e-] | Matched η_nf [—] | Evals |
+|------------|---------------|---------------|------------------|-------|
+| CS-NOM     | 0.0           | 35,500        | 0.0437           | 6     |
+| CS-OFF-05  | 0.5           | 39,500        | 0.0486           | 6     |
+| CS-OFF-10  | 1.0           | 44,000        | 0.0542           | 7     |
+| CS-OFF-15  | 1.5           | 47,750        | 0.0588           | 6     |
+| CS-OFF-20  | 2.0           | 52,000        | 0.0640           | 7     |
+| CS-OFF-25  | 2.5           | 55,750        | 0.0686           | 6     |
 
-| Test Point | Position [mm] | Measured [e-] | Matched η_cold |
-|------------|---------------|---------------|----------------|
-| CS-NOM     | 0.0           | 35,500        | 0.044          |
-| CS-OFF-05  | 0.5           | 39,500        | 0.049          |
-| CS-OFF-10  | 1.0           | 44,000        | 0.054          |
-| CS-OFF-15  | 1.5           | 47,750        | 0.059          |
-| CS-OFF-20  | 2.0           | 52,000        | 0.064          |
-| CS-OFF-25  | 2.5           | 55,750        | 0.069          |
+Even at the nominal position, the cold stop has about 4.4% leakage — expected from manufacturing tolerances (no cold stop is truly perfect). The leakage increases linearly with offset, gaining about 1% per mm of misalignment. (The full 51-point sweep is retained only for the plots and the output workbook.)
 
-Even at the nominal position, the cold stop has about 4.4% leakage — this is expected from manufacturing tolerances (no cold stop is truly perfect). The leakage increases linearly with offset, gaining about 1% per mm of misalignment.
+### Step 5: Assess Requirements
 
-### Step 4: Assess Requirements
+Solving for the 40,000 e- limit gives η_nf ≤ 0.0492, i.e. vendor cold stop efficiency ≥ 95.08%.
 
-The 40,000 e- background requirement corresponds to η_cold ≤ 0.049.
-
-- **CS-NOM (0.0 mm)**: 35,500 e- → PASS (η = 0.044, well within limit)
-- **CS-OFF-05 (0.5 mm)**: 39,500 e- → PASS (η = 0.049, marginal)
-- **CS-OFF-10 (1.0 mm)**: 44,000 e- → FAIL (η = 0.054, 10% above limit)
+- **CS-NOM (0.0 mm)**: 35,500 e- → PASS (η_nf = 0.0437, within limit)
+- **CS-OFF-05 (0.5 mm)**: 39,500 e- → PASS (η_nf = 0.0486, marginal)
+- **CS-OFF-10 (1.0 mm)**: 44,000 e- → FAIL (η_nf = 0.0542, 10% above limit)
 
 Karen now knows that a 1.0 mm cold stop misalignment pushes the background above the requirement. The alignment tolerance is approximately ±0.5 mm.
 
-### Step 5: SNR Impact
+### Step 6: SNR Impact
 
 The script evaluates SNR at both the nominal and anomalous cold stop positions with the blackbody illuminated (operational conditions):
 
-| Metric | Nominal (η = 0.044) | Anomaly (η = 0.054) |
-|--------|---------------------|---------------------|
-| SNR | 1,360 | 1,359 |
-| Nearfield shot noise | 188 e- RMS | 210 e- RMS |
-| Nearfield noise fraction | 0.8% | 1.0% |
+| Metric | Nominal (η_nf = 0.0437) | Anomaly (η_nf = 0.0542) |
+|--------|-------------------------|-------------------------|
+| SNR [—] | 1,719.1 | 1,716.7 |
+| NEDT [mK] | 16.32 | 16.34 |
+| Nearfield shot noise [e- RMS] | 188.4 | 209.8 |
+| Nearfield noise fraction | 1.2% | 1.4% |
 
-**The SNR impact is negligible.** At 0.8–1.0% of total noise variance, nearfield shot noise is completely dominated by signal shot noise (1,708 e-) and scene background shot noise (1,281 e-). The cold stop leakage is a calibration concern, not a performance-limiting defect.
+**The SNR impact is negligible.** At 1.2–1.4% of total noise variance, nearfield shot noise is completely dominated by signal shot noise (1,731 e- RMS). The cold stop leakage is a calibration concern, not a performance-limiting defect.
 
 ## Key Takeaways
 
-1. **The nominal cold stop has 4.4% leakage (η = 0.044)**, which is normal for a real cryogenic baffle. No cold stop achieves exactly 0% leakage.
+1. **The nominal cold stop has 4.4% leakage (η_nf = 0.0437)**, which is normal for a real cryogenic baffle. No cold stop achieves exactly 0% leakage.
 
-2. **The alignment tolerance is ~0.5 mm.** Beyond that, the shuttered background exceeds the 40,000 e- requirement. Karen can provide this number to the mechanical team for alignment budgeting.
+2. **The alignment tolerance is ~0.5 mm.** Beyond that, the shuttered background exceeds the 40,000 e- requirement (η_nf > 0.0492). Karen can provide this number to the mechanical team for alignment budgeting.
 
-3. **Cold stop leakage does not significantly affect operational SNR.** Even at the worst tested position (2.5 mm offset, 55,750 e-), nearfield shot noise contributes only ~1% of total noise. The requirement on shuttered background is driven by calibration accuracy, not image quality.
+3. **Cold stop leakage does not significantly affect operational SNR.** Even at the worst tested position (2.5 mm offset, 55,750 e-), nearfield shot noise contributes only ~1.4% of total noise variance. The requirement on shuttered background is driven by calibration accuracy, not image quality.
 
-4. **RADIANT's cold_stop_efficiency convention is inverted from vendor convention.** The vendor says "100% efficient cold stop" meaning complete blocking; RADIANT's η_cold = 0 means complete blocking, η_cold = 1 means no blocking. This is a common source of confusion that a GUI should flag clearly.
+4. **The parameter name now matches the physics.** `optics.nearfield_fraction` states what the value is; the script converts once, explicitly, from the vendor convention (η_nf = 1 − vendor efficiency) at the input boundary.
 
-5. **The atmosphere model matters.** Karen's TVAC test uses "exo" (vacuum) mode, which sets atmospheric transmission to unity and path radiance to zero. Using the wrong atmosphere model (e.g., "simple" with an orbital altitude) would introduce spurious atmospheric absorption into a lab measurement comparison.
+5. **The scalar-mode emissivity must be declared, and it is derived, not free.** ε = 1 − τ by Kirchhoff for a reflective train. Forgetting `optics.scalar_emissivity` silently reverts to ε = 0 and a zero nearfield — exactly the failure mode of this scenario's first execution.
+
+6. **The atmosphere model matters — and so does the sub-case.** "exo" (vacuum) sets transmission to unity and path radiance to zero, but routes through the `space` sub-case, requiring the placeholder `platform.h_sensor` (registry Gap 42). Using the wrong atmosphere model (e.g., "simple" with an orbital altitude) would introduce spurious atmospheric absorption into a lab measurement comparison.
 
 ## Gaps Identified
 
-- **Gap 1 (Inverse solver)**: OPEN. RADIANT has no built-in "find the parameter value that matches a measurement" solver. The script does this by sweeping and interpolating. A dedicated solver (e.g., root-finding on a scalar objective) would be more efficient and could handle multiple parameters simultaneously.
+- ~~**Gap 1 (Inverse solver)**~~: **CLOSED** — `Sensor.solve_for` (registry Gap 10). Each lab measurement inverts in 6–7 forward-model evaluations instead of a 51-point sweep plus interpolation.
 
 - **Gap 2 (Thermal background breakdown)**: OPEN. RADIANT outputs `nearfield_e` (warm optics) and `background_e` (scene) separately, which is good. But there is no per-element breakdown — Karen cannot see how much each optical element (primary mirror, secondary, fold mirror, etc.) contributes to the nearfield. This would help identify which element is the largest contributor and whether the cold stop leakage is coming from one element's direction.
 
-- ~~**Gap 3 (NEDT)**~~: **CLOSED**. RADIANT now computes NEDT in the performance stage: `result.metrics["nedt_K"]`. The script now displays NEDT in baseline, sweep, and SNR impact sections.
+- ~~**Gap 3 (NEDT)**~~: **CLOSED**. `result.metrics["nedt_K"]`, displayed in baseline, sweep, and SNR impact sections.
 
-- **Gap 4 (Nearfield = 0 in scalar mode)**: OPEN. In scalar transmission mode, the lumped refractive element has ε = 0 by Kirchhoff's law (T + R = 1, so ε = 1 − T − R = 0). This means `nearfield_e = 0` regardless of cold_stop_efficiency, making the cold stop sweep non-functional. The fix requires using `key_elements` or `full_prescription` mode with individual mirrors (ε = 1 − R). See `gaps.md` for details.
+- ~~**Gap 4 (Nearfield = 0 in scalar mode)**~~: **CLOSED** — `optics.scalar_emissivity` (registry Gap 37) with the Kirchhoff-derived ε = 1 − τ. The sweep is now physically meaningful end-to-end.
 
-### Gaps Closed Since Last Run
+- **Gap 6 (lab_test sub-case unreachable from the config surface)**: OPEN — registry Gap 42. This TVAC scenario must masquerade as the `space` sub-case with a placeholder `platform.h_sensor`. Acceptable here (extended target fills the FOV; chamber background negligible), but a lit-lab scenario with a non-negligible chamber background cannot be modeled from `Sensor.from_dict` at all.
 
-| Metric | Previous Status | Current Status |
-|--------|----------------|----------------|
-| NEDT | Not available | `result.metrics["nedt_K"]` — CLOSED |
-| NIIRS | Not available | `result.metrics["niirs"]` — CLOSED |
-| GSD | Not available | `result.metrics["gsd_geometric_mean_m"]` — CLOSED |
-| Strehl | Not available | `result.metrics["strehl"]` — CLOSED |
-| Q parameter | Not available | `result.metrics["q_center"]` — CLOSED |
-| MTF budget | Not available | `mtf_budget.per_term_at_nyquist` — CLOSED |
-| Well margin | Not available | `result.metrics["well_margin_dB"]` — CLOSED |
+See `gaps.md` for the full per-gap records.

@@ -10,18 +10,26 @@ emission to reach the FPA through gaps in the cold stop baffle.
 
 This script:
   1. Reads Karen's spreadsheet (vendor/lab units: cm, mm, %, °C, nm, ms, fA)
-  2. Converts to RADIANT canonical units (m, fractions, K, µm, s, e⁻/s)
-  3. Runs RADIANT at cold_stop_efficiency = 1.0 to get the baseline
-  4. Sweeps cold_stop_efficiency from 0.80 to 1.00
-  5. For each efficiency, extracts:
+  2. Converts to RADIANT canonical units (m, fractions, K, µm, s, e⁻/s),
+     deriving the lumped-train emissivity ε = 1 − τ (Kirchhoff, Gap 37)
+  3. Runs RADIANT at nearfield_fraction = 1.0 (no cold stop) as the
+     maximum-leakage reference
+  4. Sweeps nearfield_fraction from 0.00 to 1.00
+  5. For each leakage value, extracts:
      - Nearfield signal (warm optics self-emission) [e⁻]
      - Background signal (scene contribution) [e⁻]
      - Total background = nearfield + scene background [e⁻]
      - Noise breakdown: nearfield shot, background shot, dark, read [e⁻ RMS]
      - SNR
-  6. Finds the cold stop efficiency that matches each lab measurement
+  6. Inverts each lab measurement to a nearfield_fraction with
+     Sensor.solve_for (Brent root-finding on the forward model, Gap 10)
   7. Compares model predictions against Karen's measurements
   8. Writes results to an output spreadsheet
+
+Parameter-name note: RADIANT's former `optics.cold_stop_efficiency` was
+renamed `optics.nearfield_fraction` (Gap 12) — the value is the fraction of
+the FPA hemisphere filled by warm-emitting elements (0 = perfect cold stop,
+1 = no cold stop), i.e. 1 − vendor "cold stop efficiency".
 
 Usage:
     python run_cold_stop_sweep.py
@@ -128,6 +136,13 @@ f_number = float(specs["f-number"])                                # dimensionle
 transmission = float(specs["End-to-end optical transmission"]) / 100.0  # % → fraction
 optics_temp_K = float(specs["Optics barrel temperature"]) + 273.15     # °C → K
 cold_stop_design = float(specs["Cold stop design efficiency"]) / 100.0  # % → fraction
+# RADIANT convention (Gap 12): nearfield_fraction is the LEAKAGE fraction,
+# i.e. 1 − vendor "cold stop efficiency" (where 100% efficient = full blocking).
+nearfield_design = 1.0 - cold_stop_design                          # vendor % → leakage fraction
+# Kirchhoff-derived lumped-train emissivity (Gap 37): the warm train is
+# reflective, so the non-transmitted fraction is absorbed → ε = 1 − τ.
+# (optics.scalar_emissivity requires ε + τ ≤ 1; equality holds here.)
+optics_emissivity = 1.0 - transmission                             # derived, not an input
 wfe_waves = float(specs["WFE (RMS)"])                              # already in waves
 
 # Detector
@@ -174,6 +189,8 @@ print(f"  {'f-number':<35s} {f_number:>14.1f}  {'—':<15s}  no conversion")
 print(f"  {'Optical transmission':<35s} {transmission:>14.4f}  {'fraction':<15s}  % ÷ 100")
 print(f"  {'Optics temperature':<35s} {optics_temp_K:>14.2f}  {'K':<15s}  °C + 273.15")
 print(f"  {'Cold stop design eff.':<35s} {cold_stop_design:>14.2f}  {'fraction':<15s}  % ÷ 100")
+print(f"  {'Nearfield fraction (design)':<35s} {nearfield_design:>14.2f}  {'fraction':<15s}  1 − vendor efficiency")
+print(f"  {'Optics emissivity (derived)':<35s} {optics_emissivity:>14.4f}  {'fraction':<15s}  ε = 1 − τ (Kirchhoff)")
 print(f"  {'WFE (RMS)':<35s} {wfe_waves:>14.4f}  {'waves':<15s}  no conversion")
 print(f"  {'Pixel pitch':<35s} {pixel_pitch_um:>14.1f}  {'µm':<15s}  no conversion")
 print(f"  {'Quantum efficiency':<35s} {qe:>14.4f}  {'fraction':<15s}  % ÷ 100")
@@ -190,15 +207,17 @@ print(f"  {'Band':<35s} {band_min_um:>6.2f}–{band_max_um:<6.2f}  {'µm':<15s} 
 print(f"  {'Integration time':<35s} {t_int_s:>14.6f}  {'s':<15s}  ms ÷ 1000")
 
 # ---------------------------------------------------------------------------
-# Step 3: Run RADIANT baseline (cold_stop_efficiency = 1.0)
+# Step 3: Run RADIANT baseline (nearfield_fraction = 1.0, no cold stop)
 # ---------------------------------------------------------------------------
 # This is a lab / TVAC test:
 #   - Atmosphere model: "exo" (vacuum chamber, no atmospheric path)
 #   - The blackbody fills the FOV → extended regime
-#   - Nearfield emission is enabled (optics at 293 K radiate thermally)
-#   - The cold stop controls how much of that nearfield reaches the FPA
+#   - Nearfield emission is enabled (optics at 293 K radiate thermally,
+#     ε = 1 − τ derived above)
+#   - nearfield_fraction controls how much of that nearfield reaches the FPA
 
 from radiant.api import Sensor
+from radiant.api.solve import SolveBracketError
 
 config = {
     "source": {
@@ -217,12 +236,21 @@ config = {
     "geometry": {
         "sensor_altitude_m": 0.0,   # Lab test — not orbital
     },
+    "platform": {
+        # Stage-7 stop-gap: the "exo" backend routes through the
+        # no_atmosphere 'space' sub-case, whose Earth-limb intercept check
+        # requires a positive user-set platform.h_sensor [m above MSL].
+        # 1.0 m ≈ optical-bench height; the value feeds only the
+        # limb-clearance check (no radiometric effect in this lab setup).
+        "h_sensor": 1.0,
+    },
     "optics": {
         "aperture_diameter_m": aperture_m,
         "focal_length_m": focal_length_m,
         "transmission_scalar": transmission,
+        "scalar_emissivity": optics_emissivity,    # ε = 1 − τ (Kirchhoff, Gap 37)
         "optics_temperature_K": optics_temp_K,
-        "cold_stop_efficiency": cold_stop_design,  # Start with design value (1.0)
+        "nearfield_fraction": 1.0,   # Baseline: no cold stop (max leakage)
     },
     "detector": {
         "pixel_pitch_x_um": pixel_pitch_um,
@@ -244,7 +272,7 @@ config = {
     },
 }
 
-print("\n=== Running RADIANT baseline (cold_stop_efficiency = 1.0) ===")
+print("\n=== Running RADIANT baseline (nearfield_fraction = 1.0, no cold stop) ===")
 sensor = Sensor.from_dict(config)
 result = sensor.evaluate()
 
@@ -273,44 +301,45 @@ print(f"  Regime:  {regime}")
 print(f"")
 print(f"  This is a lab/TVAC test with an extended-area blackbody at {bb_temp_K:.1f} K")
 print(f"  ({specs['Blackbody temperature']}°C) filling the sensor FOV → extended regime.")
-print(f"  The chamber shroud at {shroud_temp_K:.1f} K ({specs['Chamber shroud temperature']}°C)")
-print(f"  serves as the background for contrast SNR calculation.")
+print(f"")
+print(f"  UNUSED PARAMETER NOTE: in the extended regime the target fills the")
+print(f"  pixel IFOV, so RADIANT skips the separate scene-background photon")
+print(f"  term (background_e = 0 e⁻ by design — matrix Decision #13). The")
+print(f"  chamber-shroud temperature ({shroud_temp_K:.1f} K / "
+      f"{specs['Chamber shroud temperature']}°C) stays in the")
+print(f"  config for descriptor completeness but contributes no photons here;")
+print(f"  the only background terms are warm-optics nearfield and dark current.")
 print(f"")
 print(f"  COLD STOP PHYSICS:")
 print(f"    The cold stop is a cryogenic baffle (at ~77 K) that surrounds the FPA")
 print(f"    and blocks thermal radiation from the warm optics barrel ({optics_temp_K:.1f} K)")
-print(f"    from reaching the detector. When perfectly aligned (efficiency = 100%),")
-print(f"    it eliminates all warm-optics self-emission seen by the FPA.")
+print(f"    from reaching the detector. When perfectly aligned (vendor efficiency")
+print(f"    = 100%), it eliminates all warm-optics self-emission seen by the FPA.")
 print(f"")
 print(f"    In practice, manufacturing and alignment tolerances mean some warm")
-print(f"    radiation leaks through gaps. The cold_stop_efficiency parameter")
-print(f"    controls how much nearfield (warm optics) irradiance reaches the FPA:")
+print(f"    radiation leaks through gaps. RADIANT's nearfield_fraction parameter")
+print(f"    (η_nf, formerly cold_stop_efficiency — renamed under Gap 12) is the")
+print(f"    fraction of the FPA hemisphere filled by warm-emitting elements:")
 print(f"")
-print(f"      E_nearfield ∝ η_cold × Σ [ε_i × B(λ, T_optics) × Ω_i × τ_downstream]")
+print(f"      E_nearfield ∝ η_nf × ε_optics × B(λ, T_optics)")
 print(f"")
-print(f"    where η_cold = cold_stop_efficiency.")
+print(f"      η_nf = 0.0 → PERFECT cold stop: all warm radiation blocked")
+print(f"      η_nf = 1.0 → NO cold stop: all warm radiation reaches FPA")
+print(f"      η_nf = 1 − (vendor cold stop efficiency)")
 print(f"")
-print(f"    RADIANT CONVENTION (important!):")
-print(f"    RADIANT defines cold_stop_efficiency as the fraction of the FPA hemisphere")
-print(f"    filled by warm (nearfield-emitting) elements:")
-print(f"      η_cold = 1.0 → NO cold stop: all warm radiation reaches FPA")
-print(f"      η_cold = 0.0 → PERFECT cold stop: all warm radiation blocked")
+print(f"    WARM-OPTICS EMISSIVITY (Kirchhoff, Rule 5):")
+print(f"    In scalar transmission mode the train is one lumped element. Its")
+print(f"    emissivity is DERIVED, not free: treating the non-transmitted power")
+print(f"    as absorbed gives ε = 1 − τ = 1 − {transmission:.2f} = {optics_emissivity:.2f}")
+print(f"    (optics.scalar_emissivity, Gap 37). Without it the lump defaults to")
+print(f"    the refractive assumption ε = 0 and nearfield_e would be zero for")
+print(f"    every η_nf — the failure recorded as Gap 4 in this scenario's gaps.md.")
 print(f"")
-print(f"    This is the opposite of the vendor convention! The vendor datasheet")
-print(f"    says 'cold stop efficiency = 100%' meaning 100% blocking (η_cold ≈ 0).")
-print(f"    RADIANT's η_cold is the leakage fraction, not the blocking fraction.")
-print(f"    We sweep η_cold from 0 (perfect) to 1 (no cold stop) to find the")
-print(f"    leakage that matches Karen's measurements.")
+print(f"  Reference point:")
+print(f"    At nearfield_fraction = 1.0: nearfield_e = {baseline_nearfield_e:.0f} e⁻")
+print(f"    This is the maximum warm-optics contribution (no cold stop).")
 
-# Check the actual RADIANT convention by looking at the nearfield value
-# If nearfield_e is large at η_cold = 1.0, then η_cold = 1.0 means
-# "all warm radiation reaches FPA" (no cold stop rejection).
-print(f"")
-print(f"  RADIANT convention check:")
-print(f"    At cold_stop_efficiency = 1.0: nearfield_e = {baseline_nearfield_e:.0f} e⁻")
-print(f"    This represents the maximum warm-optics contribution (no cold stop).")
-
-print(f"\n=== Baseline Metrics (cold_stop_efficiency = 1.0) ===")
+print(f"\n=== Baseline Metrics (nearfield_fraction = 1.0) ===")
 print(f"  {'Metric':<35s} {'Value':>14s}  {'Unit'}")
 print(f"  {'-' * 35} {'-' * 14}  {'-' * 15}")
 print(f"  {'Signal (target)':<35s} {baseline_signal_e:>14.0f}  e⁻")
@@ -353,7 +382,7 @@ if mtf_budget is not None:
         print(f"  {label:<30s} {val_x:>10.4f}  {val_y:>10.4f}")
     print(f"  {'System':<30s} {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  {mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
 
-print(f"\n  Noise breakdown (at cold_stop_efficiency = 1.0):")
+print(f"\n  Noise breakdown (at nearfield_fraction = 1.0):")
 print(f"  {'Noise Term':<35s} {'Value [e⁻ RMS]':>14s}")
 print(f"  {'-' * 35} {'-' * 14}")
 for name in ["signal_shot", "background_shot", "nearfield_shot", "dark_shot",
@@ -362,15 +391,15 @@ for name in ["signal_shot", "background_shot", "nearfield_shot", "dark_shot",
         print(f"  {name:<35s} {noise_dict[name]:>14.2f}")
 
 # ---------------------------------------------------------------------------
-# Step 4: Sweep cold_stop_efficiency from 0.0 to 1.0
+# Step 4: Sweep nearfield_fraction from 0.0 to 1.0
 # ---------------------------------------------------------------------------
 # We sweep the full range to understand the relationship, then focus on
 # the region that matches Karen's measurements.
 #
-# For each efficiency value, we re-run RADIANT and extract the nearfield
+# For each leakage value, we re-run RADIANT and extract the nearfield
 # signal and noise terms. SNR changes because nearfield shot noise changes.
 
-eta_sweep = np.linspace(0.0, 1.0, 51)   # cold_stop_efficiency [fraction]
+eta_sweep = np.linspace(0.0, 1.0, 51)   # nearfield_fraction η_nf [fraction]
 
 sweep_nearfield_e = np.zeros_like(eta_sweep)
 sweep_background_e = np.zeros_like(eta_sweep)
@@ -384,10 +413,10 @@ sweep_signal_e = np.zeros_like(eta_sweep)
 sweep_nedt = np.full_like(eta_sweep, np.nan)
 sweep_niirs = np.full_like(eta_sweep, np.nan)
 
-print(f"\n=== Sweeping cold_stop_efficiency from 0.00 to 1.00 ===")
+print(f"\n=== Sweeping nearfield_fraction from 0.00 to 1.00 ===")
 
 for i, eta in enumerate(eta_sweep):
-    config["optics"]["cold_stop_efficiency"] = float(eta)
+    config["optics"]["nearfield_fraction"] = float(eta)
     sensor_i = Sensor.from_dict(config)
     result_i = sensor_i.evaluate()
 
@@ -411,8 +440,8 @@ for i, eta in enumerate(eta_sweep):
     sweep_dark_shot[i] = nd.get("dark_shot", 0.0)
     sweep_read_noise[i] = nd.get("read_noise", 0.0)
 
-print(f"\n=== Cold Stop Efficiency Sweep Results ===")
-print(f"  {'η_cold':>8s}  {'NF [e⁻]':>12s}  {'Bkg [e⁻]':>12s}  {'Total [e⁻]':>12s}  {'NF Shot':>10s}  {'SNR [—]':>10s}  {'NEDT [mK]':>10s}")
+print(f"\n=== Nearfield Fraction Sweep Results ===")
+print(f"  {'η_nf':>8s}  {'NF [e⁻]':>12s}  {'Bkg [e⁻]':>12s}  {'Total [e⁻]':>12s}  {'NF Shot':>10s}  {'SNR [—]':>10s}  {'NEDT [mK]':>10s}")
 print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}  {'-' * 10}  {'-' * 10}  {'-' * 10}")
 for i in range(0, len(eta_sweep), 5):
     nedt_str = f"{sweep_nedt[i] * 1e3:>10.2f}" if not np.isnan(sweep_nedt[i]) else f"{'N/A':>10s}"
@@ -420,10 +449,10 @@ for i in range(0, len(eta_sweep), 5):
           f"  {sweep_total_bkg_e[i]:>12.0f}  {sweep_nf_shot[i]:>10.1f}  {sweep_snr[i]:>10.1f}  {nedt_str}")
 
 # ---------------------------------------------------------------------------
-# Step 5: Find the cold stop efficiency that matches each lab measurement
+# Step 5: Find the nearfield fraction that matches each lab measurement
 # ---------------------------------------------------------------------------
 # Karen's lab data gives total background signal in e⁻ at each cold stop
-# position. We find the η_cold that produces the same total background.
+# position. We find the η_nf that produces the same total background.
 #
 # Note: Karen's "background signal" includes both scene background (from
 # the shuttered cold plate — but this isn't truly zero because the chamber
@@ -469,7 +498,7 @@ shut_total_bkg_e = np.zeros_like(eta_sweep)
 shut_snr = np.zeros_like(eta_sweep)
 
 for i, eta in enumerate(eta_sweep):
-    config_shuttered["optics"]["cold_stop_efficiency"] = float(eta)
+    config_shuttered["optics"]["nearfield_fraction"] = float(eta)
     sensor_i = Sensor.from_dict(config_shuttered)
     result_i = sensor_i.evaluate()
 
@@ -478,46 +507,50 @@ for i, eta in enumerate(eta_sweep):
     shut_total_bkg_e[i] = shut_nearfield_e[i] + shut_scene_bkg_e[i]
 
 print(f"\n=== Shuttered Sweep Results (background only) ===")
-print(f"  {'η_cold':>8s}  {'NF [e⁻]':>12s}  {'Scene Bkg':>12s}  {'Total Bkg':>12s}")
+print(f"  {'η_nf':>8s}  {'NF [e⁻]':>12s}  {'Scene Bkg':>12s}  {'Total Bkg':>12s}")
 print(f"  {'':>8s}  {'(warm optics)':>12s}  {'(cold plate)':>12s}  {'[e⁻]':>12s}")
 print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}")
 for i in range(0, len(eta_sweep), 5):
     print(f"  {eta_sweep[i]:>8.2f}  {shut_nearfield_e[i]:>12.0f}  {shut_scene_bkg_e[i]:>12.0f}"
           f"  {shut_total_bkg_e[i]:>12.0f}")
 
-# Find η_cold for each lab measurement using linear interpolation
-print(f"\n=== Matching Lab Measurements to Cold Stop Efficiency ===")
-print(f"  {'Test Point':<14s} {'Meas [e⁻]':>12s}  {'Best-fit η':>12s}  {'Model [e⁻]':>12s}  {'Δ [e⁻]':>10s}")
-print(f"  {'-' * 14} {'-' * 12}  {'-' * 12}  {'-' * 12}  {'-' * 10}")
+
+# Invert each lab measurement to a nearfield fraction with Sensor.solve_for
+# (Gap 10 — Brent root-finding on the forward model; replaces the former
+# sweep + linear-interpolation workaround recorded as Gap 1 in gaps.md).
+def total_background_e(r: object) -> float:
+    """Model total shuttered background [e⁻]: nearfield + scene."""
+    si = r.stage_outputs["spectral_integration"]
+    return float(si["nearfield_e"] + si["background_e"])
+
+
+sensor_shuttered = Sensor.from_dict(config_shuttered)
+
+print(f"\n=== Matching Lab Measurements to Nearfield Fraction (Sensor.solve_for) ===")
+print(f"  {'Test Point':<14s} {'Meas [e⁻]':>12s}  {'Best-fit η_nf':>13s}  {'Model [e⁻]':>12s}  {'Δ [e⁻]':>10s}  {'Evals':>6s}")
+print(f"  {'-' * 14} {'-' * 12}  {'-' * 13}  {'-' * 12}  {'-' * 10}  {'-' * 6}")
 
 matched_eta: list[float | None] = []
 for d in lab_data:
     measured_bkg = d["bkg_e"]
-
-    # Find where the model total crosses the measured value
-    best_eta = None
-    best_model = None
-    for j in range(1, len(eta_sweep)):
-        if (shut_total_bkg_e[j - 1] <= measured_bkg <= shut_total_bkg_e[j]) or \
-           (shut_total_bkg_e[j - 1] >= measured_bkg >= shut_total_bkg_e[j]):
-            # Linear interpolation
-            frac = (measured_bkg - shut_total_bkg_e[j - 1]) / (shut_total_bkg_e[j] - shut_total_bkg_e[j - 1])
-            best_eta = eta_sweep[j - 1] + frac * (eta_sweep[j] - eta_sweep[j - 1])
-            best_model = measured_bkg  # by construction
-            break
-
-    matched_eta.append(best_eta)
-
-    if best_eta is not None:
-        print(f"  {d['test_id']:<14s} {measured_bkg:>12.0f}  {best_eta:>12.4f}  {measured_bkg:>12.0f}  {'0':>10s}")
-    else:
-        # Check if measurement is out of the model range
-        if measured_bkg < shut_total_bkg_e[0]:
-            print(f"  {d['test_id']:<14s} {measured_bkg:>12.0f}  {'< 0.00':>12s}  {'—':>12s}  {'—':>10s}  (below model range)")
-        elif measured_bkg > shut_total_bkg_e[-1]:
-            print(f"  {d['test_id']:<14s} {measured_bkg:>12.0f}  {'> 1.00':>12s}  {'—':>12s}  {'—':>10s}  (above model range)")
+    try:
+        sol = sensor_shuttered.solve_for(
+            "optics.nearfield_fraction",
+            measured_bkg,
+            bounds=(0.0, 1.0),
+            metric=total_background_e,
+        )
+        matched_eta.append(sol.solution)
+        print(f"  {d['test_id']:<14s} {measured_bkg:>12.0f}  {sol.solution:>13.4f}"
+              f"  {sol.achieved:>12.0f}  {sol.achieved - measured_bkg:>10.1f}  {sol.n_evaluations:>6d}")
+    except SolveBracketError:
+        # Measurement outside the model's [0, 1] leakage range.
+        matched_eta.append(None)
+        if measured_bkg > shut_total_bkg_e[-1]:
+            note = "(above model range: > η_nf = 1)"
         else:
-            print(f"  {d['test_id']:<14s} {measured_bkg:>12.0f}  {'N/A':>12s}  {'—':>12s}  {'—':>10s}  (interpolation failed)")
+            note = "(below model range: < η_nf = 0)"
+        print(f"  {d['test_id']:<14s} {measured_bkg:>12.0f}  {'N/A':>13s}  {'—':>12s}  {'—':>10s}  {note}")
 
 # ---------------------------------------------------------------------------
 # Step 6: Assess requirements compliance
@@ -529,30 +562,31 @@ print(f"\n=== Requirements Assessment ===")
 print(f"  Maximum allowed background (shuttered): {MAX_BKG_E:.0f} e⁻")
 print(f"")
 
-# Find the η_cold where total background = MAX_BKG_E
-eta_max_bkg = None
-for j in range(1, len(eta_sweep)):
-    if (shut_total_bkg_e[j - 1] <= MAX_BKG_E <= shut_total_bkg_e[j]) or \
-       (shut_total_bkg_e[j - 1] >= MAX_BKG_E >= shut_total_bkg_e[j]):
-        frac = (MAX_BKG_E - shut_total_bkg_e[j - 1]) / (shut_total_bkg_e[j] - shut_total_bkg_e[j - 1])
-        eta_max_bkg = eta_sweep[j - 1] + frac * (eta_sweep[j] - eta_sweep[j - 1])
-        break
-
-if eta_max_bkg is not None:
-    print(f"  Cold stop efficiency at requirement limit: η_cold = {eta_max_bkg:.4f}")
-    print(f"  To meet the {MAX_BKG_E:.0f} e⁻ requirement, the cold stop efficiency")
-    print(f"  parameter must be ≤ {eta_max_bkg:.4f}.")
-else:
+# Find the η_nf where total background = MAX_BKG_E (Sensor.solve_for, Gap 10)
+try:
+    sol_req = sensor_shuttered.solve_for(
+        "optics.nearfield_fraction",
+        MAX_BKG_E,
+        bounds=(0.0, 1.0),
+        metric=total_background_e,
+    )
+    eta_max_bkg = sol_req.solution
+    print(f"  Nearfield fraction at requirement limit: η_nf = {eta_max_bkg:.4f} [—]")
+    print(f"  ({sol_req.n_evaluations} forward-model evaluations)")
+    print(f"  To meet the {MAX_BKG_E:.0f} e⁻ requirement, nearfield_fraction")
+    print(f"  must be ≤ {eta_max_bkg:.4f}, i.e. vendor cold stop efficiency")
+    print(f"  ≥ {(1.0 - eta_max_bkg) * 100:.2f} %.")
+except SolveBracketError:
     if MAX_BKG_E >= shut_total_bkg_e[-1]:
-        print(f"  Requirement met across entire sweep range (0.00–1.00).")
+        print(f"  Requirement met across entire sweep range (η_nf 0.00–1.00).")
         eta_max_bkg = 1.0
     else:
-        print(f"  Requirement not met even at η_cold = 0.00.")
+        print(f"  Requirement not met even at η_nf = 0.00.")
         eta_max_bkg = 0.0
 
 print(f"")
 print(f"  Lab measurement compliance:")
-print(f"  {'Test Point':<14s} {'Bkg [e⁻]':>12s}  {'Limit [e⁻]':>12s}  {'Status':>10s}  {'η_cold':>10s}")
+print(f"  {'Test Point':<14s} {'Bkg [e⁻]':>12s}  {'Limit [e⁻]':>12s}  {'Status':>10s}  {'η_nf [—]':>10s}")
 print(f"  {'-' * 14} {'-' * 12}  {'-' * 12}  {'-' * 10}  {'-' * 10}")
 for d, eta_m in zip(lab_data, matched_eta):
     status = "PASS" if d["bkg_e"] <= MAX_BKG_E else "FAIL"
@@ -577,10 +611,10 @@ anomaly_eta = next(e for e, d in zip(matched_eta, lab_data) if d["test_id"] == "
 for label, eta_val, meas_data in [("Nominal (CS-NOM)", nominal_eta, nominal_data),
                                     ("Anomaly (CS-OFF-10)", anomaly_eta, anomaly_data)]:
     if eta_val is None:
-        print(f"\n  {label}: could not determine η_cold from measurement")
+        print(f"\n  {label}: could not determine η_nf from measurement")
         continue
 
-    config["optics"]["cold_stop_efficiency"] = float(eta_val)
+    config["optics"]["nearfield_fraction"] = float(eta_val)
     sensor_i = Sensor.from_dict(config)
     result_i = sensor_i.evaluate()
 
@@ -600,7 +634,7 @@ for label, eta_val, meas_data in [("Nominal (CS-NOM)", nominal_eta, nominal_data
     nf_fraction = nd.get("nearfield_shot", 0.0)**2 / total_noise**2 * 100
 
     print(f"\n  {label}:")
-    print(f"    Matched η_cold:       {eta_val:.4f}")
+    print(f"    Matched η_nf:         {eta_val:.4f} [—]")
     print(f"    Measured bkg:         {meas_data['bkg_e']:.0f} e⁻")
     print(f"    Signal (target):      {sig_e:.0f} e⁻")
     print(f"    Nearfield (optics):   {nf_e:.0f} e⁻")
@@ -654,12 +688,12 @@ ax1.axhline(MAX_BKG_E / 1e3, color="red", linestyle="--", linewidth=1.2,
 # Max η annotation
 if eta_max_bkg is not None and 0 < eta_max_bkg < 1:
     ax1.axvline(eta_max_bkg, color="gray", linestyle=":", linewidth=1)
-    ax1.annotate(f"η_max = {eta_max_bkg:.3f}",
+    ax1.annotate(f"η_nf,max = {eta_max_bkg:.3f}",
                  xy=(eta_max_bkg, MAX_BKG_E / 1e3),
                  textcoords="offset points", xytext=(8, 8), fontsize=9,
                  arrowprops=dict(arrowstyle="->", color="gray"))
 
-ax1.set_xlabel("Cold Stop Efficiency η_cold [—]  (0 = perfect, 1 = no cold stop)", fontsize=11)
+ax1.set_xlabel("Nearfield Fraction η_nf [—]  (0 = perfect cold stop, 1 = no cold stop)", fontsize=11)
 ax1.set_ylabel("Background Signal [ke⁻]", fontsize=11)
 ax1.set_title("Shuttered Background vs. Cold Stop Leakage", fontsize=13, fontweight="bold")
 ax1.legend(loc="upper left", fontsize=9)
@@ -673,7 +707,7 @@ fig1.tight_layout()
 fig1.savefig(PLOT_DIR / "fig1_background_vs_eta.png", dpi=150)
 print(f"  Saved {PLOT_DIR / 'fig1_background_vs_eta.png'}")
 
-# ---- Plot 2: Cold stop position vs. matched η_cold -----------------------
+# ---- Plot 2: Cold stop position vs. matched η_nf -------------------------
 fig2, ax2 = plt.subplots(figsize=(8, 5))
 positions = [d["position_mm"] for d, e in zip(lab_data, matched_eta) if e is not None]
 etas_matched = [e for e in matched_eta if e is not None]
@@ -687,12 +721,12 @@ if len(positions) >= 2 and max(positions) > 0:
     fit_x = np.linspace(0, max(positions) * 1.1, 50)
     fit_y = np.polyval(coeffs, fit_x)
     ax2.plot(fit_x, fit_y, "b--", linewidth=1, alpha=0.6,
-             label=f"Linear fit: η = {coeffs[0]:.4f} × pos + {coeffs[1]:.4f}")
+             label=f"Linear fit: η_nf = {coeffs[0]:.4f} × pos + {coeffs[1]:.4f}")
 
 # Requirement limit
 if eta_max_bkg is not None and 0 < eta_max_bkg < 1:
     ax2.axhline(eta_max_bkg, color="red", linestyle="--", linewidth=1.2,
-                label=f"Max η_cold = {eta_max_bkg:.4f} (40 ke⁻ limit)")
+                label=f"Max η_nf = {eta_max_bkg:.4f} ({MAX_BKG_E / 1e3:.0f} ke⁻ limit)")
 
 for pos, eta_pt, d in zip(positions, etas_matched, lab_data):
     color = "green" if d["bkg_e"] <= MAX_BKG_E else "red"
@@ -701,7 +735,7 @@ for pos, eta_pt, d in zip(positions, etas_matched, lab_data):
                  color=color)
 
 ax2.set_xlabel("Cold Stop Offset Position [mm]", fontsize=11)
-ax2.set_ylabel("Matched η_cold [—]", fontsize=11)
+ax2.set_ylabel("Matched Nearfield Fraction η_nf [—]", fontsize=11)
 ax2.set_title("Cold Stop Misalignment vs. Effective Leakage", fontsize=13, fontweight="bold")
 ax2.legend(loc="upper left", fontsize=9)
 ax2.grid(True, alpha=0.3)
@@ -723,7 +757,7 @@ for ax, (label, eta_val, meas_data) in zip(
                 ("Anomaly (CS-OFF-10)", anomaly_eta, anomaly_data)]):
     if eta_val is None:
         continue
-    config["optics"]["cold_stop_efficiency"] = float(eta_val)
+    config["optics"]["nearfield_fraction"] = float(eta_val)
     sensor_i = Sensor.from_dict(config)
     result_i = sensor_i.evaluate()
     nd = {nt.name: nt.value_e for nt in result_i.noise_terms}
@@ -738,7 +772,7 @@ for ax, (label, eta_val, meas_data) in zip(
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 15,
                     f"{v:.0f}", ha="center", va="bottom", fontsize=8)
 
-    ax.set_title(f"{label}\nη = {eta_val:.4f}, Bkg = {meas_data['bkg_e']:.0f} e⁻",
+    ax.set_title(f"{label}\nη_nf = {eta_val:.4f}, Bkg = {meas_data['bkg_e']:.0f} e⁻",
                  fontsize=10, fontweight="bold")
     ax.set_ylabel("Noise [e⁻ RMS]" if ax == axes3[0] else "", fontsize=10)
     ax.grid(True, axis="y", alpha=0.3)
@@ -752,7 +786,7 @@ print(f"  Saved {PLOT_DIR / 'fig3_noise_budget.png'}")
 fig4, ax4a = plt.subplots(figsize=(9, 5))
 
 ax4a.plot(eta_sweep, sweep_snr, "b-", linewidth=2, label="SNR (308 K BB illuminated)")
-ax4a.set_xlabel("Cold Stop Efficiency η_cold [—]", fontsize=11)
+ax4a.set_xlabel("Nearfield Fraction η_nf [—]", fontsize=11)
 ax4a.set_ylabel("SNR [—]", fontsize=11, color="blue")
 ax4a.tick_params(axis="y", labelcolor="blue")
 
@@ -816,8 +850,11 @@ ws1.column_dimensions["E"].width = 16
 ws1.column_dimensions["F"].width = 16
 ws1.column_dimensions["G"].width = 16
 
-sweep_headers = ["η_cold [—]", "Nearfield [e⁻]", "Scene Bkg [e⁻]",
-                 "Total Bkg [e⁻]", "NF Shot [e⁻]", "Bkg Shot [e⁻]", "SNR [—]"]
+# Columns 2–4 are the SHUTTERED sweep (what Karen measures); columns 5–7
+# are from the ILLUMINATED sweep at the same η_nf (operational impact).
+sweep_headers = ["η_nf [—]", "Nearfield [e⁻]", "Scene Bkg [e⁻]",
+                 "Total Bkg [e⁻]", "NF Shot (illum) [e⁻]",
+                 "Bkg Shot (illum) [e⁻]", "SNR (illum) [—]"]
 for col, h_text in enumerate(sweep_headers, 1):
     cell = ws1.cell(row=3, column=col, value=h_text)
     cell.font = header_font_out
@@ -849,7 +886,7 @@ ws2.column_dimensions["C"].width = 18
 ws2.column_dimensions["D"].width = 18
 ws2.column_dimensions["E"].width = 14
 
-lab_headers = ["Test Point", "Position [mm]", "Meas Bkg [e⁻]", "Best-fit η_cold [—]", "Status"]
+lab_headers = ["Test Point", "Position [mm]", "Meas Bkg [e⁻]", "Best-fit η_nf [—]", "Status"]
 for col, h_text in enumerate(lab_headers, 1):
     cell = ws2.cell(row=3, column=col, value=h_text)
     cell.font = header_font_out
@@ -882,7 +919,7 @@ summary_items = [
     ("Spectral band", f"{band_min_um:.2f} – {band_max_um:.2f} µm"),
     ("Integration time", f"{t_int_s * 1000:.0f} ms"),
     ("", ""),
-    ("Baseline (η_cold = 1.0, no cold stop)", ""),
+    ("Baseline (η_nf = 1.0, no cold stop)", ""),
     ("Nearfield signal [e⁻]", f"{baseline_nearfield_e:.0f}"),
     ("Background signal [e⁻]", f"{baseline_background_e:.0f}"),
     ("SNR [—]", f"{baseline_snr:.1f}"),
@@ -894,7 +931,7 @@ summary_items = [
     ("", ""),
     ("Requirements", ""),
     ("Max shuttered background [e⁻]", f"{MAX_BKG_E:.0f}"),
-    ("Max η_cold to meet requirement [—]",
+    ("Max η_nf to meet requirement [—]",
      f"{eta_max_bkg:.4f}" if eta_max_bkg is not None else "N/A"),
     ("", ""),
     ("Lab Results", ""),
@@ -904,7 +941,7 @@ for d, eta_m in zip(lab_data, matched_eta):
     eta_str = f"{eta_m:.4f}" if eta_m is not None else "N/A"
     status = "PASS" if d["bkg_e"] <= MAX_BKG_E else "FAIL"
     summary_items.append((f"{d['test_id']} ({d['position_mm']:.1f} mm offset)",
-                          f"{d['bkg_e']:.0f} e⁻ → η = {eta_str} [{status}]"))
+                          f"{d['bkg_e']:.0f} e⁻ → η_nf = {eta_str} [{status}]"))
 
 for i, (label, value) in enumerate(summary_items, 3):
     cell_a = ws3.cell(row=i, column=1, value=label)

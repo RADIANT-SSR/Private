@@ -862,6 +862,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (differencing workaround); 4.3 and 4.4 would use it. |
 | **Rerun after fix** | Scenarios 4.3, 4.4 (replace the manual two-pixel differencing with the native metric). |
 
+---
+
+## Gap 53: Johnson DRI model is sampling-limited (no MRC/MRT coupling)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 4.2 execution (Phase T4), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `radiant.performance.johnson_criteria` computes DRI ranges by counting geometric resolved cycles across the target; it assumes adequate target contrast. A full acquisition model couples cycles to the minimum-resolvable-contrast (MRC, reflective) or minimum-resolvable-temperature (MRT, thermal) curve, which folds in the system MTF and scene contrast, so a low-contrast target identifies at shorter range than the geometric Johnson value. The current model is the optimistic (high-contrast) upper bound. |
+| **Workaround** | Use the sampling-limited DRI range as the best-case; note contrast dependence qualitatively (scenario 4.2). |
+| **Impact** | Medium — at resolution-limited ranges (small targets, low contrast, dusk) the true range is shorter; the model overstates it. Fine as a geometric bound and clearly documented as such. |
+| **Fix location** | New `performance/` module (MRC/MRT curve from system MTF + noise) feeding a contrast-limited `johnson_range_m` variant; Rule 19 (one analysis, one module). Consumes the existing MTF product path. |
+| **Effort** | Medium–Large. |
+| **Scenarios blocked** | None (geometric bound available); 4.2 and any acquisition-range scenario would use it. |
+| **Rerun after fix** | Scenario 4.2 (add contrast-limited ranges alongside the geometric ones). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -918,6 +934,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | OPEN |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | OPEN |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
+| 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | OPEN |
 
 ---
 
@@ -975,7 +992,7 @@ Require new physics models, analysis modes, or architectural additions beyond me
 | ~~23~~ | ~~1.2~~ | ~~Sarah~~ | ~~Solar geometry calculator (LTAN/date/lat → zenith)~~ — **DONE** `radiant.core.solar_geometry` (00efcc5) |
 | ~~24~~ | ~~3.1~~ | ~~Raj~~ | ~~Orbit → geometry calculator, pass planning~~ — **DONE** `radiant.core.orbit` (e32188e) |
 | 25 | 4.4 | Lisa | Time-varying scenario (diurnal temperature sweep) |
-| 26 | 4.2 | Lisa | Johnson criteria / DRI range model |
+| ~~26~~ | ~~4.2~~ | ~~Lisa~~ | ~~Johnson criteria / DRI range model~~ — **DONE** `radiant.performance.johnson_criteria` (0df9e15) |
 | 27 | 1.5 | Sarah | Arbitrary pupil mask (spider vanes), Strehl |
 | 28 | 4.5 | Lisa | Microbolometer noise model (NETD-specified) |
 | 29 | 3.3 | Raj | Multi-sensor comparison framework, compliance matrix |

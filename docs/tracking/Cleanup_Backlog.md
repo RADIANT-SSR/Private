@@ -195,18 +195,14 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: icon-style glyphs are meant to read at constant screen size; at extreme zoom the sun either dominates the viewport or vanishes.
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
-### CU-057 — Scenario scripts import `openpyxl`, which is not a declared dependency
-
-**Discovered**: Gap_Closure_Plan WP-1.1 (scenario 7.4 rerun attempt), 2026-07-07.
-**Status**: Open.
-**File**: `pyproject.toml` (`[project.optional-dependencies]`); 14 scripts under `scenarios/*/*/scripts/`.
-**Symptom**: `python run_cold_stop_sweep.py` (and 13 other scenario run scripts) fail at import with `ModuleNotFoundError: No module named 'openpyxl'` on a clean `pip install -e ".[dev]"` environment.
-**Why it still matters**: the gap registry's own protocol requires rerunning originating scenarios after fixes; the reruns are not reproducible from a documented install. Silent environment drift.
-**Suggested fix**: inline-fix-now — add `openpyxl>=3.1` to a `scenarios` optional-dependency group (or to `dev`), and note the extra in the scenario README/walkthrough convention. Effort: Trivial; category A.
-
 ---
 
 ## Resolved
+
+### CU-057 — Scenario scripts import `openpyxl`, which is not a declared dependency — RESOLVED 2026-07-07 (commit `0c14c9b`)
+
+**Discovered**: Gap_Closure_Plan WP-1.1 (scenario 7.4 rerun attempt), 2026-07-07.
+**Resolution**: New `[scenarios]` optional-dependency group in `pyproject.toml` (`openpyxl>=3.1`, `matplotlib>=3.8` — matplotlib was equally undeclared for the figure outputs) + install note in `scenarios/README.md`. Verified: scenario 7.4's Excel input parsing loads on the documented install.
 
 ### CU-049 — `RadiometricFrame.in_band_value` is `None` on `at_aperture` despite `signal_at("at_aperture")` working — RESOLVED 2026-07-06 (commit `a9b3bca`)
 

@@ -9,5 +9,5 @@ the console (no results workbook).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_diurnal_temperatures.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_detectability_vs_time.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_diurnal_temperatures.png | figure (committed) | 6257eee 2026-07-08 |
+| fig2_detectability_vs_time.png | figure (committed) | 6257eee 2026-07-08 |

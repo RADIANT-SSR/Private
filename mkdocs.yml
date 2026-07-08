@@ -51,6 +51,8 @@ nav:
     - Parameter Reference: guides/parameter_reference.md
     - Regime Selection: guides/regime_selection.md
     - Trade Studies: guides/trade_studies.md
+    - Scenario Testing: guides/scenario_testing.md
+    - Scenario Catalog: guides/scenario_catalog.md
   - Theory:
     - Radiometric Chain: theory/radiometric_chain.md
     - Noise Model: theory/noise_model.md
@@ -77,7 +79,6 @@ nav:
     - Physics Inventory: architecture/RADIANT_Physics_Inventory.md
     - Scope Decisions: architecture/RADIANT_Scope_Decisions.md
     - Personas: architecture/RADIANT_Personas.md
-    - Scenario Testing: architecture/RADIANT_Scenario_Testing_Instructions.md
     - File Tree: architecture/RADIANT_File_Tree.md
     - GUI Architecture (deferred): architecture/RADIANT_GUI_Architecture.md
     - Plugins (deferred): architecture/RADIANT_Plugins.md

@@ -49,6 +49,7 @@ GAP           → tracking/gaps.md (open)                    → marked closed i
 - *Where do CU task briefs go?* `reports/cu_tasks/`. They are point-in-time task specs — records, not plans.
 - *What if a spec becomes aspirational (describes unbuilt machinery)?* It stays in `architecture/` with a **DEFERRED** banner at top (e.g., Plugins, GUI). It moves to `archive/` only if the capability is cancelled.
 - *Can I edit a report to fix an error?* No. Write a short correction doc in the same `reports/` folder referencing the original.
+- *Are process instructions and content catalogs architecture docs?* No. `architecture/` holds normative claims about the **system**; how-to process rulebooks and content catalogs are `guides/` (lowercase_snake, mkdocs-published). Ruled 2026-07-07 when `RADIANT_Scenario_Testing_Instructions.md` → `guides/scenario_testing.md` and `expanded_scenarios.md` → `guides/scenario_catalog.md`. (`RADIANT_Testing_Validation.md` stays in `architecture/` — it defines the system's validation contract, not a workflow.)
 
 ## 3. Work Tracking Without JIRA
 

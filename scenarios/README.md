@@ -4,8 +4,8 @@ Persona-driven test cases for exercising the RADIANT tool. Each numbered folder
 is a persona archetype; each `N.M_*` subfolder is a self-contained scenario with
 its own inputs, scripts, and outputs.
 
-Scenario descriptions and execution order: `docs/architecture/expanded_scenarios.md`.
-Rules for building and validating scenarios: `docs/architecture/RADIANT_Scenario_Testing_Instructions.md`.
+Scenario descriptions and execution order: `docs/guides/scenario_catalog.md`.
+Rules for building and validating scenarios: `docs/guides/scenario_testing.md`.
 File placement and naming rules: `docs/OPERATING_MODEL.md` §5.
 
 ## Layout of an implemented scenario

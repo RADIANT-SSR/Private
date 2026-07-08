@@ -1,4 +1,4 @@
-# RADIANT Expanded Scenarios — Persona-Driven Test Cases
+# RADIANT Scenario Catalog — Persona-Driven Test Cases
 
 **Date:** 2026-04-15
 **Purpose:** 35 realistic usage scenarios (5 per persona) designed to stress-test

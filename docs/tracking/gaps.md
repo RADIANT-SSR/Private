@@ -736,7 +736,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 
 ## Scenario-Driven Capability Priority List
 
-Source: `docs/architecture/expanded_scenarios.md` — 35 persona-driven scenarios grouped by implementation tier. Earlier tiers build capabilities that unlock later ones.
+Source: `docs/guides/scenario_catalog.md` (formerly `docs/architecture/expanded_scenarios.md`) — 35 persona-driven scenarios grouped by implementation tier. Earlier tiers build capabilities that unlock later ones.
 
 ### Tier 1 — Executable today with scripting only (0 code changes)
 

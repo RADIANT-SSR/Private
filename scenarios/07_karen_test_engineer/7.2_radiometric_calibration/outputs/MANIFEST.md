@@ -9,7 +9,7 @@ not committed (see `docs/OPERATING_MODEL.md` Rule 26).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_dn_predicted_vs_measured.png | figure (committed) | (set on commit) |
-| fig2_linearity_dn_vs_radiance.png | figure (committed) | (set on commit) |
-| fig3_responsivity_uncertainty.png | figure (committed) | (set on commit) |
+| fig1_dn_predicted_vs_measured.png | figure (committed) | 7a132dd 2026-07-08 |
+| fig2_linearity_dn_vs_radiance.png | figure (committed) | 7a132dd 2026-07-08 |
+| fig3_responsivity_uncertainty.png | figure (committed) | 7a132dd 2026-07-08 |
 | calibration_results.xlsx | results workbook (not committed) | regenerate on demand |

@@ -1,5 +1,12 @@
 # Scenario 7.3: MTF Measurement vs. Prediction
 
+Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): measured data now
+imported via `load_measured_curve` and compared via `compare_mtf` (Gap 30);
+electronics MTF (Gap 32) and TIS scatter (Gap 31) exercised as residual
+explainers — both rejected by the data. The refresh also uncovered two
+framework defects: an odd-kernel crash (fixed, commit 8a5d9e8) and a Rule 4
+dual-path violation for scalar-WFE + defocus configs (filed as CU-058).
+
 ## Persona
 
 **Karen Martinez** — Integration & Test Engineer.  She measures sensor performance
@@ -55,9 +62,15 @@ Karen provides:
 
 - **Lab spreadsheet** (`karen_mtf_lab_data.xlsx`) containing:
   - System Configuration sheet: optics, spectral, detector, test setup parameters
-  - Measured MTF sheet: 50-point slanted-edge MTF from 0 to 100 cy/mm
+  - Measured MTF sheet: 50-point slanted-edge MTF from 0 to 100 cy/mm (human review copy)
   - As-Built WFE sheet: interferometric measurement (0.07 waves at 633 nm)
   - Focus Position sheet: defocus measurement (5 um) and sweep values
+
+- **Slanted-edge tool CSV export** (`karen_measured_mtf.csv`) — the same 50
+  points in the edge-analysis tool's native format (comment header + two
+  columns). The script reads this with `radiant.io.measurement.load_measured_curve`
+  (Gap 30): auto header/comment detection, ascending-x and numeric validation,
+  unit tag `cy/mm` attached at the boundary.
 
 - **Key unit conversions at the boundary:**
   - Aperture: 20 cm -> 0.20 m
@@ -73,11 +86,19 @@ Karen provides:
 
 ## Approach
 
-The script does NOT use RADIANT in a sweep -- it runs a single RADIANT evaluation
-with the as-built parameters to extract the predicted system MTF curve, then
-overlays it on Karen's measured data.
+The script runs a single RADIANT evaluation with the as-built parameters, then
+compares against the measurement with `radiant.api.compare_mtf` (Gap 30): the
+measured cy/mm axis is converted to canonical cy/m, the predicted curve is
+interpolated onto the measured points (overlap only — never extrapolated), and
+the result carries residual statistics plus a formatted `.table()`.
 
-RADIANT now provides an MTF budget decomposition API via
+It then runs a **residual-explainer grid**: candidate physical effects RADIANT
+now models — electronics blur (`readout.electronics_sigma_um`, Gap 32) and TIS
+surface-roughness scatter (`optics.surface_roughness_nm`, Gap 31) — are swept
+over a small grid, each re-compared via `compare_mtf`, and ranked by residual
+RMS. A hypothesis that does not reduce the residual is rejected.
+
+RADIANT also provides the MTF budget decomposition via
 `result.stage_outputs["performance"]["mtf_budget"]` (Gap 19 closed).  Defocus is
 modeled natively via `optics.defocus_um` (Gap 29 closed).
 
@@ -101,16 +122,16 @@ Component MTF curves are also computed analytically for comparison:
 | Gap # | Description | Previous Status | Current Status | Notes |
 |-------|-------------|-----------------|----------------|-------|
 | 19    | No MTF budget decomposition API | OPEN | **CLOSED** | `mtf_budget.per_term_at_nyquist` dict now available |
-| 29    | No defocus model | OPEN | **CLOSED** | `optics.defocus_um` parameter added |
-| 30    | No measurement data import API | OPEN | OPEN | Manual overlay in script |
-| 31    | No scatter/TIS model | OPEN | OPEN | Unmodeled MTF loss |
-| 32    | No electronics MTF model | OPEN | OPEN | Unmodeled bandwidth |
+| 29    | No defocus model | OPEN | **CLOSED** | `optics.defocus_um` parameter added (but see CU-058) |
+| 30    | No measurement data import API | OPEN | **CLOSED** | `load_measured_curve` + `compare_mtf`, exercised here |
+| 31    | No scatter/TIS model | OPEN | **CLOSED** | `optics.surface_roughness_nm`, exercised (and rejected) as residual explainer |
+| 32    | No electronics MTF model | OPEN | **CLOSED** | `readout.electronics_sigma_um`, exercised (and rejected) as residual explainer |
 
 ### Additional Metrics Now Available
 
 | Metric | Value | Unit | Notes |
 |--------|-------|------|-------|
-| Strehl | 0.8324 | -- | From EffectivePSF |
+| Strehl | 0.8256 | -- | Degraded-PSF peak over diffraction-limited reference |
 | RER | 0.6825 | -- | Relative edge response |
 | Q (center) | 0.195 | -- | Sampling parameter |
 | Q (min/max) | 0.165 / 0.225 | -- | Over band |
@@ -125,14 +146,24 @@ Component MTF curves are also computed analytically for comparison:
 
 | Component | MTF@Ny_x | MTF@Ny_y |
 |-----------|----------|----------|
-| Optics (diffraction + WFE + obscuration) | 0.8115 | 0.8115 |
+| Optics (diffraction + obscuration + defocus-Z4; **WFE screen missing — CU-058**) | 0.8115 | 0.8115 |
 | Pixel Aperture | 0.6364 | 0.6364 |
 | IPC | 0.9602 | 0.9602 |
 | Jitter | 1.0000 | 1.0000 |
 | Smear | 1.0000 | 1.0000 |
 | Charge Diffusion | 1.0000 | 1.0000 |
 | TDI | 1.0000 | 1.0000 |
+| Electronics | 1.0000 | 1.0000 |
 | **System (product)** | **0.4961** | **0.4961** |
+
+**CU-058 caveat**: when scalar `wfe_rms_waves` is combined with `defocus_um`,
+the product path folds defocus into the pupil as Zernike Z4 but drops the
+scalar-RMS screen while doing so — the budget's Optics term is therefore
+missing the WFE contribution, and the Rule 4 dual-path consistency check
+fails loudly (0.169 vs 0.05 tolerance) on every run of this scenario. The
+PSF path (used for all curves and metrics below: system 0.4080 at Nyquist)
+keeps both effects and is the trustworthy one here. Tracked in
+`docs/tracking/Cleanup_Backlog.md` CU-058.
 
 ### MTF at Nyquist (50 cy/mm)
 
@@ -164,6 +195,40 @@ Component MTF curves are also computed analytically for comparison:
 |-----------|--------|--------|
 | RADIANT   | 0.0881 | 0.1871 |
 | Analytic  | 0.0606 | 0.1092 |
+
+(Computed by `compare_mtf`: 50 measured points compared, 0 excluded as
+outside the predicted frequency grid.)
+
+### Residual Explainers (Gap 32 electronics, Gap 31 scatter) — Both Rejected
+
+Karen has no independent measurement of the amplifier bandwidth or the mirror
+micro-roughness, so the script tests each hypothesis by re-running the chain
+over a candidate grid and ranking by `compare_mtf` residual RMS:
+
+| σ_elec [µm] | Roughness [nm] | Resid RMS [--] | MTF@Ny [--] |
+|-------------|----------------|----------------|-------------|
+| 0.0 (as-built) | 0.0 | **0.0881** | 0.4080 |
+| 0.0 | 5.0 | 0.0922 | 0.4042 |
+| 1.0 | 0.0 | 0.0945 | 0.3885 |
+| 2.0 | 0.0 | 0.1172 | 0.3359 |
+| 3.0 | 0.0 | 0.1550 | 0.2634 |
+
+**Both hypotheses are rejected** — every added blur makes the fit worse. The
+diagnosis comes from the residual sign: the as-built prediction already sits
+*below* the measurement over most of the band (mean predicted − measured =
+−0.064), so additional blur can only widen the gap. The discrepancy is not a
+missing degradation; it is the **shape ambiguity of the scalar-WFE input**: a
+single RMS number fixes the Strehl but not where the aberrated energy lands.
+RADIANT's random-phase-screen model puts it in a compact halo (immediate
+low-frequency MTF drop toward the Strehl plateau ≈ 0.83), while the actual
+system's smooth aberrations keep low frequencies near 1. The fix is to feed
+RADIANT the as-built Zernike prescription via `io.load_zemax_zernike`
+(Gap 26 — exercised in scenario 5.1) so the pupil carries the true aberration
+shape and the ambiguity disappears.
+
+Testing and *rejecting* a hypothesis is the point of the residual-explainer
+workflow — the grid discriminates between "unmodeled blur" and "wrong WFE
+shape" from the residual's sign and spectral signature alone.
 
 ### Analytic MTF Budget at Nyquist
 
@@ -257,15 +322,18 @@ scales as delta/(2*f/#), giving only 0.83 um -- much smaller than the 10 um
 pixel pitch.  At faster f-numbers (f/1.5 or lower), defocus would matter much
 more.
 
-## Gaps Identified
+## Gaps and Defects Identified
 
-| Gap # | Description | Status | Impact |
-|-------|-------------|--------|--------|
-| 19    | No MTF budget decomposition API | **CLOSED** | Now available via `mtf_budget.per_term_at_nyquist` |
-| 29    | No defocus model (focus-shift parameter) | **CLOSED** | Now available via `optics.defocus_um` |
-| 30    | No measurement data import/overlay API | OPEN | Must manually read and overlay lab data |
-| 31    | No scatter/surface roughness (TIS) model | OPEN | Unmodeled MTF loss source |
-| 32    | No electronics MTF model (amplifier bandwidth) | OPEN | Unmodeled MTF loss source |
+| # | Description | Status | Impact |
+|---|-------------|--------|--------|
+| Gap 19 | No MTF budget decomposition API | **CLOSED** | `mtf_budget.per_term_at_nyquist` |
+| Gap 29 | No defocus model (focus-shift parameter) | **CLOSED** | `optics.defocus_um` (see CU-058 caveat) |
+| Gap 30 | No measurement data import/overlay API | **CLOSED** | `load_measured_curve` + `compare_mtf` |
+| Gap 31 | No scatter/surface roughness (TIS) model | **CLOSED** | `optics.surface_roughness_nm` |
+| Gap 32 | No electronics MTF model (amplifier bandwidth) | **CLOSED** | `readout.electronics_sigma_um` |
+| CU-058 | Scalar WFE + defocus violates Rule 4 (product path drops the WFE screen; two paths use different defocus models) | **FILED** (this refresh) | Consistency check fails on every run of this scenario; product-path consumers (budget, folded MTF, NIIRS) miss the WFE contribution |
+| 8a5d9e8 | Scatter/defocus kernel sizing crashed on even PSF grids when the 6σ span exceeded the grid | **FIXED** (this refresh) | Blocked the Gap 31 explainer run in this VNIR configuration |
+| — | Scalar `wfe_rms_waves` under-determines MTF shape | Inherent | Use Zernike input (`load_zemax_zernike`, Gap 26) when comparing to measured MTF |
 
 ## Outputs
 
@@ -277,14 +345,17 @@ more.
 
 ## What Karen Would Do Next
 
-1. **Refocus the sensor** to within 2 um of best focus (reduces defocus MTF loss
+1. **Request the as-built Zernike prescription** from the optical shop and feed
+   it to RADIANT via `io.load_zemax_zernike` (Gap 26) — this replaces the
+   scalar-RMS shape assumption that dominates the current residual
+2. **Track CU-058** — until the defocus/WFE product-path defect is fixed, use
+   PSF-path outputs (metrics, `mtf_x` curve) rather than the budget's Optics
+   term for defocused scalar-WFE configs
+3. **Corroborate the rejected hypotheses**: the explainer grid bounds the
+   electronics blur below ~1 µm and roughness below ~5 nm for this system —
+   worth a one-line check against the amplifier bandwidth spec and mirror
+   witness-sample data
+4. **Refocus the sensor** to within 2 um of best focus (reduces defocus MTF loss
    to < 0.1%, though this is already small)
-2. **Use RADIANT's MTF budget API** to compare per-component contributions
-   between model and measurement (Gap 19 now closed)
-3. **Use RADIANT's defocus model** (`optics.defocus_um`) to sweep focus position
-   and predict MTF vs. focus curve (Gap 29 now closed)
-4. **Investigate scatter losses** -- the remaining MTF gap after accounting for
-   all modeled components suggests ~5-10% unmodeled loss, likely from surface
-   roughness or stray light
 5. **Verify IPC coupling** independently and confirm whether the slanted-edge
    measurement should be corrected for IPC before comparing to the model

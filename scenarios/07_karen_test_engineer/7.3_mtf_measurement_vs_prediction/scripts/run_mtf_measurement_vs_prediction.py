@@ -5,16 +5,16 @@ lab and wants to overlay the RADIANT prediction.  She has as-built WFE (0.07 wav
 RMS at 633 nm) and knows the detector is 5 µm defocused from best focus.
 
 Approach:
-  1. Read Karen's lab spreadsheet: system config, measured MTF CSV, WFE, defocus.
+  1. Read Karen's lab spreadsheet (system config, WFE, defocus) and the
+     slanted-edge tool's CSV export via radiant.io load_measured_curve (Gap 30).
   2. Run RADIANT with as-built parameters to get predicted system MTF.
-  3. Compute component MTF curves analytically:
-     - Diffraction (circular aperture)
-     - Pixel aperture (sinc)
-     - Electronics/diffusion (Gaussian)
-     RADIANT's EffectivePSF already includes optical diffraction + WFE. We extract
-     the full system MTF from RADIANT and compare against measured.
-  4. Overlay measured vs. predicted MTF.
-  5. Compute MTF residual (predicted − measured) at each frequency.
+  3. Compare measured vs. predicted with radiant.api compare_mtf (Gap 30):
+     unit-aware (cy/mm -> cy/m), interpolates prediction onto measured points,
+     returns residual statistics.
+  4. Residual explainers: re-run with candidate effects RADIANT now models —
+     electronics MTF (readout.electronics_sigma_um, Gap 32) and TIS scatter
+     (optics.surface_roughness_nm, Gap 31) — and rank by residual RMS.
+  5. Compute component MTF curves analytically for the decomposition plot.
   6. Sweep defocus to show sensitivity.
 
 Physics:
@@ -32,11 +32,16 @@ Key concepts:
   - Nyquist frequency: f_Ny = 1/(2p) = 50,000 cy/m = 50 cy/mm for 10 µm pixels.
   - Diffraction cutoff: f_c = 1/(λ·f/#) = 512,821 cy/m = 512.8 cy/mm at 650 nm, f/3.
 
-Gaps revealed:
-  - No MTF budget decomposition API (must manually compute components)
-  - Defocus model now available via optics.defocus_um (Gap 29 closed)
-  - No measurement import/overlay capability in the API
-  - No cycles/mm display option (RADIANT stores cy/m only)
+Gap status (2026-07-07 refresh):
+  - Defocus model: optics.defocus_um (Gap 29 — closed)
+  - MTF budget decomposition: mtf_budget stage output (Gap 19 — closed)
+  - Measurement import + comparison: load_measured_curve / compare_mtf
+    (Gap 30 — closed; exercised here)
+  - Electronics MTF: readout.electronics_sigma_um (Gap 32 — closed;
+    exercised here as a residual explainer)
+  - Scatter: optics.surface_roughness_nm TIS model (Gap 31 — closed;
+    exercised here as a residual explainer)
+  - cy/mm display: performance.frequency_unit conversion (Gap 27 — closed)
 
 Usage:
     python run_mtf_measurement_vs_prediction.py
@@ -52,13 +57,15 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from radiant.api import Sensor
+from radiant.api import Sensor, compare_mtf
+from radiant.io.measurement import load_measured_curve
 
 # ---------------------------------------------------------------------------
-# Step 1: Read Karen's spreadsheet
+# Step 1: Read Karen's spreadsheet + the slanted-edge tool's CSV export
 # ---------------------------------------------------------------------------
 
 INPUT_FILE = Path(__file__).parent.parent / "inputs" / "karen_mtf_lab_data.xlsx"
+MEASURED_CSV = Path(__file__).parent.parent / "inputs" / "karen_measured_mtf.csv"
 OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "mtf_comparison_results.xlsx"
 PLOT_DIR = Path(__file__).parent.parent / "outputs"
 
@@ -82,21 +89,16 @@ for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
             specs[name] = value
         units[name] = str(row[2].value) if row[2].value else "—"
 
-# --- Measured MTF ---
-ws_mtf = wb_in["Measured MTF"]
-meas_freq_cy_mm: list[float] = []
-meas_mtf: list[float] = []
-for row in ws_mtf.iter_rows(min_row=6, max_col=2, values_only=True):
-    if row[0] is not None and row[1] is not None:
-        try:
-            meas_freq_cy_mm.append(float(row[0]))
-            meas_mtf.append(float(row[1]))
-        except (ValueError, TypeError):
-            pass
+# --- Measured MTF: vendor CSV via radiant.io (Gap 30) ---
+# The slanted-edge tool exports a comment-headed two-column CSV;
+# load_measured_curve handles comments/header detection and validates
+# ascending, numeric, de-duplicated frequency values.
+measured_curve = load_measured_curve(MEASURED_CSV, x_unit="cy/mm")
 
-meas_freq_cy_mm_arr = np.array(meas_freq_cy_mm)
-meas_mtf_arr = np.array(meas_mtf)
-meas_freq_cy_m = meas_freq_cy_mm_arr * 1000.0  # cy/mm → cy/m
+meas_freq_cy_mm_arr = measured_curve.x
+meas_mtf_arr = measured_curve.y
+meas_freq_cy_m = meas_freq_cy_mm_arr * 1000.0  # cy/mm → cy/m (for analytic curves)
+meas_freq_cy_mm = list(meas_freq_cy_mm_arr)
 
 # --- As-built WFE ---
 ws_wfe = wb_in["As-Built WFE"]
@@ -140,8 +142,10 @@ for k, v in specs.items():
     if k in units:
         print(f"  {k:<35s}: {v} [{units[k]}]")
 
-print(f"\n=== Measured MTF ===")
-print(f"  Points:        {len(meas_freq_cy_mm)} [--]")
+print(f"\n=== Measured MTF (load_measured_curve, Gap 30) ===")
+print(f"  Source:        {measured_curve.source_file}")
+print(f"  x unit:        {measured_curve.x_unit}")
+print(f"  Points:        {measured_curve.n_points} [--]")
 print(f"  Freq range:    {meas_freq_cy_mm_arr[0]:.1f} to {meas_freq_cy_mm_arr[-1]:.1f} [cy/mm]")
 print(f"  MTF at DC:     {meas_mtf_arr[0]:.4f} [--]")
 print(f"  MTF at Nyquist: ~{np.interp(50.0, meas_freq_cy_mm_arr, meas_mtf_arr):.4f} [--] (interpolated at 50 cy/mm)")
@@ -249,6 +253,13 @@ config = {
         "path_zenith_rad": 0.0,
         "solar_zenith_rad": 0.5,
     },
+    "platform": {
+        # Stage-7 stop-gap (registry Gap 42): "exo" routes through the
+        # no_atmosphere 'space' sub-case, whose Earth-limb check requires
+        # a positive user-set platform.h_sensor [m above MSL]. 1.0 m ≈
+        # bench height; feeds only the limb check, no radiometric effect.
+        "h_sensor": 1.0,
+    },
     "optics": {
         "aperture_diameter_m": aperture_m,
         "focal_length_m": focal_length_m,
@@ -282,6 +293,18 @@ config = {
 
 sensor = Sensor.from_dict(config)
 r = sensor.evaluate()
+
+# KNOWN ISSUE (CU-058): combining scalar optics.wfe_rms_waves with
+# optics.defocus_um logs a "Dual-path MTF consistency check FAILED"
+# warning (~0.17 vs 0.05) on every evaluation in this scenario. The MTF
+# product path folds defocus into the pupil as Zernike Z4 but DROPS the
+# scalar-RMS WFE screen while doing so; the PSF path keeps the screen.
+# The PSF path (metrics, mtf_x curve used below) is the more complete
+# one here. Tracked as CU-058 in docs/tracking/Cleanup_Backlog.md.
+print(f"\n  NOTE: the dual-path consistency warning above is expected in this")
+print(f"  configuration — scalar WFE + defocus triggers CU-058 (the MTF")
+print(f"  product path loses the WFE screen when defocus folds into the")
+print(f"  pupil). Curves below come from the PSF path, which keeps both.")
 
 # Extract predicted MTF curve from RADIANT
 perf_out = r.stage_outputs.get("performance", {})
@@ -411,21 +434,28 @@ print(f"\n  5. Composite Analytic System MTF (product of all components)")
 print(f"     MTF_sys at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_analytic_system):.4f} [--]")
 
 # ---------------------------------------------------------------------------
-# Step 5: Interpolate RADIANT prediction onto measurement grid for comparison
+# Step 5: Measured vs. predicted comparison via compare_mtf (Gap 30)
 # ---------------------------------------------------------------------------
 
 print(f"\n{'=' * 80}")
-print(f"  MEASURED vs. PREDICTED MTF COMPARISON")
+print(f"  MEASURED vs. PREDICTED MTF COMPARISON (compare_mtf, Gap 30)")
 print(f"{'=' * 80}")
 
-# Interpolate RADIANT's predicted MTF onto the measurement frequency grid
-pred_mtf_interp = np.interp(freq_eval_cy_m, pred_freq_cy_m, pred_mtf,
-                            left=1.0, right=0.0)
+# compare_mtf converts the measured cy/mm axis to canonical cy/m, interpolates
+# the predicted curve onto the measured points (overlap only, never
+# extrapolates) and returns residual statistics.
+cmp_asbuilt = compare_mtf(r, measured_curve, axis="x", frequency_unit="cy/mm")
 
-# Residual: predicted - measured
-residual_radiant = pred_mtf_interp - meas_mtf_arr
+print(f"\n  Compared {cmp_asbuilt.n_compared} measured points "
+      f"({cmp_asbuilt.n_excluded} outside predicted grid, excluded)")
+print()
+print(cmp_asbuilt.table(max_rows=12))
 
-# Also compute residual for analytic model
+# Keep sign convention of the original script: residual = predicted − measured
+# (MtfComparisonResult stores measured − predicted).
+residual_radiant = -cmp_asbuilt.residual
+
+# Also compute residual for the hand-rolled analytic model
 residual_analytic = mtf_analytic_system - meas_mtf_arr
 
 # Key comparison table (at selected frequencies)
@@ -451,9 +481,9 @@ for f_mm in key_freqs_cy_mm:
     print(f"  {freq_label:>8s}  {m_val:>10.4f}  {r_val:>10.4f}  {a_val:>10.4f}  "
           f"{res_r:>+10.4f}  {res_a:>+10.4f}")
 
-# Summary statistics
-rms_resid_radiant = float(np.sqrt(np.mean(residual_radiant**2)))
-max_resid_radiant = float(np.max(np.abs(residual_radiant)))
+# Summary statistics (RADIANT side from the compare_mtf result)
+rms_resid_radiant = cmp_asbuilt.rms_residual
+max_resid_radiant = cmp_asbuilt.max_abs_residual
 rms_resid_analytic = float(np.sqrt(np.mean(residual_analytic**2)))
 max_resid_analytic = float(np.max(np.abs(residual_analytic)))
 
@@ -467,8 +497,89 @@ if rms_resid_radiant < 0.03:
     print(f"    Residuals are consistent with slanted-edge measurement noise (~1.5%).")
 else:
     print(f"    RADIANT prediction differs from measurement (RMS = {rms_resid_radiant:.3f}).")
-    print(f"    Likely causes: defocus (not modeled in RADIANT), scatter,")
-    print(f"    or as-built aberrations beyond scalar WFE RMS.")
+    print(f"    Candidate explainers now modeled in RADIANT: electronics blur")
+    print(f"    (readout.electronics_sigma_um, Gap 32) and surface-roughness")
+    print(f"    scatter (optics.surface_roughness_nm, Gap 31) — tested next.")
+
+# ---------------------------------------------------------------------------
+# Step 5b: Residual explainers — electronics MTF (Gap 32), scatter (Gap 31)
+# ---------------------------------------------------------------------------
+# The as-built model (diffraction + WFE + defocus + pixel + IPC) leaves a
+# residual. Two physical effects RADIANT now models are candidate causes:
+#   - Electronics blur: finite amplifier bandwidth at the pixel clock acts as
+#     a Gaussian blur on the readout (x) axis: readout.electronics_sigma_um.
+#   - Surface-roughness scatter: TIS = 1 − exp(−(4πσ/λ)²) moves energy into a
+#     wide halo: optics.surface_roughness_nm (+ scatter_halo_sigma_um).
+# Karen has no independent measurement of either, so we test each hypothesis
+# by re-running the chain over a small candidate grid and ranking by the
+# compare_mtf residual RMS. A hypothesis that does not reduce the residual is
+# rejected — the discriminating power matters as much as the best fit.
+
+print(f"\n{'=' * 80}")
+print(f"  RESIDUAL EXPLAINERS — ELECTRONICS (Gap 32) AND SCATTER (Gap 31)")
+print(f"{'=' * 80}")
+
+explainer_grid: list[dict] = []
+for elec_sigma_um in [0.0, 1.0, 2.0, 3.0]:
+    for roughness_nm in [0.0, 5.0]:
+        cfg_i = {k: (dict(v) if isinstance(v, dict) else v) for k, v in config.items()}
+        cfg_i["readout"] = dict(cfg_i["readout"])
+        cfg_i["readout"]["electronics_sigma_um"] = elec_sigma_um
+        cfg_i["optics"] = dict(cfg_i["optics"])
+        cfg_i["optics"]["surface_roughness_nm"] = roughness_nm
+        r_i = Sensor.from_dict(cfg_i).evaluate()
+        cmp_i = compare_mtf(r_i, measured_curve, axis="x", frequency_unit="cy/mm")
+        explainer_grid.append({
+            "elec_sigma_um": elec_sigma_um,
+            "roughness_nm": roughness_nm,
+            "rms": cmp_i.rms_residual,
+            "max": cmp_i.max_abs_residual,
+            "mtf_nyq": r_i.metrics.get("mtf_at_nyquist", 0.0),
+            "result": r_i,
+            "cmp": cmp_i,
+        })
+
+print(f"\n  {'σ_elec [µm]':>12s}  {'roughness [nm]':>15s}  {'Resid RMS [--]':>15s}  "
+      f"{'Resid Max [--]':>15s}  {'MTF@Ny [--]':>12s}")
+print(f"  {'-' * 12}  {'-' * 15}  {'-' * 15}  {'-' * 15}  {'-' * 12}")
+for g in explainer_grid:
+    marker = "  <- as-built" if g["elec_sigma_um"] == 0.0 and g["roughness_nm"] == 0.0 else ""
+    print(f"  {g['elec_sigma_um']:>12.1f}  {g['roughness_nm']:>15.1f}  {g['rms']:>15.4f}  "
+          f"{g['max']:>15.4f}  {g['mtf_nyq']:>12.4f}{marker}")
+
+best = min(explainer_grid, key=lambda g: g["rms"])
+r_best = best["result"]
+cmp_best = best["cmp"]
+explainers_improved = best["rms"] < rms_resid_radiant - 1e-4
+mean_residual = float(np.mean(residual_radiant))  # predicted − measured
+
+print(f"\n  Best fit: σ_elec = {best['elec_sigma_um']:.1f} [µm], "
+      f"roughness = {best['roughness_nm']:.1f} [nm] "
+      f"(residual RMS {best['rms']:.4f} vs {rms_resid_radiant:.4f} as-built)")
+
+if explainers_improved:
+    print(f"  The best-fit blur terms reduce the residual — the measurement rolls")
+    print(f"  off faster than the as-built prediction, consistent with an")
+    print(f"  unmodeled focal-plane blur in the readout chain.")
+else:
+    print(f"  BOTH HYPOTHESES REJECTED: neither electronics blur nor scatter")
+    print(f"  improves the fit. Diagnosis from the residual sign: the as-built")
+    print(f"  prediction sits BELOW the measurement over most of the band")
+    print(f"  (mean predicted − measured = {mean_residual:+.4f}), so any added")
+    print(f"  blur can only widen the gap. The discrepancy is not a missing")
+    print(f"  degradation — it is the shape ambiguity of the scalar-WFE input:")
+    print(f"  RADIANT spreads the {wfe_rms_waves:.2f}-wave RMS error as a random")
+    print(f"  phase screen (energy into a compact halo → immediate low-frequency")
+    print(f"  MTF drop toward the Strehl plateau), while the lab tool's shape")
+    print(f"  keeps low frequencies near 1. A single RMS number cannot pin the")
+    print(f"  MTF shape; import the as-built Zernike prescription instead")
+    print(f"  (io.load_zemax_zernike, Gap 26) so the pupil carries the true")
+    print(f"  aberration and the shape ambiguity disappears.")
+
+# Use the best-fit prediction for the overlay/residual plots
+pred_freq_best_cy_m = np.array(r_best.stage_outputs["performance"]["mtf_freq_x"])
+pred_mtf_best = np.array(r_best.stage_outputs["performance"]["mtf_x"])
+residual_best = -cmp_best.residual  # predicted − measured
 
 # ---------------------------------------------------------------------------
 # Step 6: Defocus sensitivity sweep
@@ -635,7 +746,10 @@ fig1, ax1 = plt.subplots(figsize=(fig_w, fig_h))
 ax1.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7,
          label="Measured (slanted-edge)")
 ax1.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2,
-         label="RADIANT predicted (with defocus)")
+         label="RADIANT as-built (defocus, no electronics)")
+if explainers_improved:
+    ax1.plot(pred_freq_best_cy_m / 1000.0, pred_mtf_best, "g-", linewidth=2,
+             label=f"RADIANT best fit (+σ_elec={best['elec_sigma_um']:.0f} µm, Gap 32)")
 ax1.plot(freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5,
          label="Analytic system (with defocus)")
 
@@ -686,7 +800,10 @@ fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(fig_w, fig_h), height_ratios=[2
 ax3a.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7,
           label="Measured")
 ax3a.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2,
-          label="RADIANT (with defocus)")
+          label="RADIANT as-built")
+if explainers_improved:
+    ax3a.plot(pred_freq_best_cy_m / 1000.0, pred_mtf_best, "g-", linewidth=2,
+              label=f"RADIANT + σ_elec={best['elec_sigma_um']:.0f} µm")
 ax3a.plot(freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5,
           label="Analytic (with defocus)")
 ax3a.axvline(f_nyquist_cy_mm, color="gray", linestyle=":", alpha=0.5)
@@ -697,9 +814,14 @@ ax3a.grid(True, alpha=0.3)
 ax3a.set_xlim(0, 105.0)
 ax3a.set_ylim(0, 1.05)
 
-# Bottom: residual
-ax3b.plot(freq_eval_cy_mm, residual_radiant, "b.-", linewidth=1.5, markersize=3,
-          label=f"RADIANT − Measured (RMS={rms_resid_radiant:.3f})")
+# Bottom: residual (compare_mtf grids — overlap-only, never extrapolated)
+ax3b.plot(cmp_asbuilt.freq_cy_m / 1000.0, residual_radiant, "b.-",
+          linewidth=1.5, markersize=3,
+          label=f"As-built − Measured (RMS={rms_resid_radiant:.3f})")
+if explainers_improved:
+    ax3b.plot(cmp_best.freq_cy_m / 1000.0, residual_best, "g.-",
+              linewidth=1.5, markersize=3,
+              label=f"Best fit − Measured (RMS={best['rms']:.3f})")
 ax3b.plot(freq_eval_cy_mm, residual_analytic, "r.--", linewidth=1, markersize=3,
           label=f"Analytic − Measured (RMS={rms_resid_analytic:.3f})")
 ax3b.axhline(0, color="black", linewidth=0.5)
@@ -842,35 +964,59 @@ print(f"  As-built WFE: {wfe_rms_waves:.3f} waves RMS at {wfe_ref_nm:.0f} nm")
 print(f"  Q sampling:   {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
 
 print(f"\n  --- MTF at Nyquist ({f_nyquist_cy_mm:.0f} cy/mm) ---")
-print(f"  Measured:       {mtf_meas_ny:.4f} [--]")
-print(f"  RADIANT:        {mtf_nyq_radiant:.4f} [--] (includes defocus)")
-print(f"  Analytic:       {product:.4f} [--] (includes defocus)")
+print(f"  Measured:            {mtf_meas_ny:.4f} [--]")
+print(f"  RADIANT as-built:    {mtf_nyq_radiant:.4f} [--] (defocus, no electronics)")
+if explainers_improved:
+    print(f"  RADIANT best fit:    {best['mtf_nyq']:.4f} [--] "
+          f"(+σ_elec = {best['elec_sigma_um']:.0f} µm)")
+print(f"  Analytic:            {product:.4f} [--] (includes defocus)")
 
-print(f"\n  --- Residual (Predicted − Measured) ---")
-print(f"  RADIANT RMS:    {rms_resid_radiant:.4f} [--]")
-print(f"  Analytic RMS:   {rms_resid_analytic:.4f} [--]")
+print(f"\n  --- Residual RMS (Predicted − Measured) ---")
+print(f"  RADIANT as-built:    {rms_resid_radiant:.4f} [--]")
+if explainers_improved:
+    print(f"  RADIANT best fit:    {best['rms']:.4f} [--]")
+else:
+    print(f"  Explainer grid:      no improvement (hypotheses rejected — see")
+    print(f"                       residual-explainer section)")
+print(f"  Analytic:            {rms_resid_analytic:.4f} [--]")
 
 print(f"\n  --- MTF Budget at Nyquist ---")
 for name, val in components:
     print(f"  {name:<20s}:  {val:.4f} [--]")
 
 print(f"\n  Key findings:")
-print(f"    1. RADIANT predicts MTF higher than measured because it lacks a defocus model.")
-print(f"       The {defocus_um:.0f} µm defocus accounts for a {abs(kr['d_mtf_pct']):.1f}% MTF loss"
-      f" at Nyquist.")
-print(f"    2. Including analytic defocus in the MTF budget brings the prediction closer")
-print(f"       to measurement. Remaining residual ({rms_resid_analytic:.3f} RMS) is")
-print(f"       consistent with measurement noise and scatter/fabrication effects.")
-print(f"    3. The dominant MTF contributor at Nyquist is the pixel aperture")
+print(f"    1. The as-built model (diffraction + WFE + {defocus_um:.0f} µm defocus + pixel")
+print(f"       + IPC) leaves a systematic residual ({rms_resid_radiant:.3f} RMS,")
+print(f"       mean predicted − measured = {mean_residual:+.3f}).")
+if explainers_improved:
+    print(f"    2. Electronics blur σ_elec = {best['elec_sigma_um']:.0f} µm "
+          f"(readout.electronics_sigma_um,")
+    print(f"       Gap 32) reduces the residual to {best['rms']:.3f} RMS — the")
+    print(f"       slanted-edge method measures through the readout chain, so")
+    print(f"       amplifier bandwidth is part of the true system MTF.")
+else:
+    print(f"    2. The residual-explainer grid REJECTED both blur hypotheses")
+    print(f"       (electronics σ_elec, Gap 32; scatter roughness, Gap 31): the")
+    print(f"       prediction is already below the measurement, so extra blur")
+    print(f"       only widens the gap. Testing and rejecting a hypothesis is")
+    print(f"       exactly what the compare_mtf residual workflow is for.")
+    print(f"    3. The discrepancy is scalar-WFE shape ambiguity: a single RMS")
+    print(f"       number fixes the Strehl but not where the aberrated energy")
+    print(f"       lands. RADIANT's random-phase-screen halo is compact (low-")
+    print(f"       frequency MTF drop); the lab system's actual aberrations are")
+    print(f"       smoother. Fix: import the as-built Zernike prescription via")
+    print(f"       io.load_zemax_zernike (Gap 26) — exercised in scenario 5.1.")
+print(f"    4. The dominant MTF contributor at Nyquist is the pixel aperture")
 print(f"       (sinc rolloff), followed by diffraction.")
-print(f"    4. IPC provides a small apparent MTF boost ({mtf_ipc_ny:.4f} > 1.0).")
+print(f"    5. IPC provides a small apparent MTF boost ({mtf_ipc_ny:.4f} > 1.0).")
 
-print(f"\n  Limitations:")
-print(f"    - RADIANT now includes defocus via optics.defocus_um (Gap 29 closed)")
-print(f"      σ = |δ|/(4·f/#·√3) — Gaussian approximation, valid for small defocus")
-print(f"    - No measurement data import API — overlay done manually in script (Gap 30)")
-print(f"    - No MTF budget decomposition API — components computed manually (Gap 19)")
-print(f"    - Analytic diffraction MTF assumes no obscuration; RADIANT includes it")
-print(f"    - No scatter/surface roughness model (TIS not modeled)")
+print(f"\n  Remaining limitations:")
+print(f"    - Scalar wfe_rms_waves under-determines the MTF shape (see finding 3);")
+print(f"      Zernike input (Gap 26) removes the ambiguity but needs the as-built")
+print(f"      prescription from the optical shop")
+print(f"    - Defocus is a Gaussian approximation (σ = |δ|/(4·f/#·√3)), valid for")
+print(f"      small defocus only")
+print(f"    - Analytic decomposition curves assume no obscuration; RADIANT's")
+print(f"      pupil-autocorrelation MTF includes it (expected discrepancy)")
 
 plt.show()

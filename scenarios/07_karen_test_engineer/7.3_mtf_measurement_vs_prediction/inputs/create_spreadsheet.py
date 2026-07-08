@@ -5,6 +5,11 @@ Four sheets:
   2. "Measured MTF"         — slanted-edge MTF (50 points, spatial_freq in cy/mm)
   3. "As-Built WFE"         — measured wavefront error
   4. "Focus Position"       — measured defocus from best focus
+
+Also emits karen_measured_mtf.csv — the same 50 slanted-edge points in the
+vendor CSV format the edge-analysis tool exports (comment header + two
+columns). The run script reads this CSV via radiant.io.load_measured_curve
+(Gap 30); the Excel sheet is retained for human review.
 """
 
 import math
@@ -313,3 +318,16 @@ from pathlib import Path
 out = Path(__file__).parent / "karen_mtf_lab_data.xlsx"
 wb.save(out)
 print(f"Created {out}")
+
+# ---------------------------------------------------------------------------
+# Vendor CSV: slanted-edge tool export (read by load_measured_curve, Gap 30)
+# ---------------------------------------------------------------------------
+csv_out = Path(__file__).parent / "karen_measured_mtf.csv"
+with open(csv_out, "w", encoding="utf-8") as fh:
+    fh.write("# ISO 12233 slanted-edge MTF — cross-track axis\n")
+    fh.write("# 4 deg tilt, 100-frame average, 650 nm\n")
+    fh.write("# Date: 2026-04-10, Operator: K. Martinez, Setup: Optical bench #2\n")
+    fh.write("spatial_frequency_cy_mm,MTF\n")
+    for f_val, m_val in zip(freq_cy_mm, mtf_measured):
+        fh.write(f"{float(f_val):.3f},{float(m_val):.4f}\n")
+print(f"Created {csv_out}")

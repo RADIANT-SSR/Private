@@ -1,0 +1,17 @@
+# IRA-3541 InSb FPA — spectral quantum efficiency (vendor test report)
+# 77 K, per-pixel average over the full array
+wavelength_nm,QE_pct
+3000,68.0
+3250,74.0
+3500,79.0
+3750,83.0
+4000,86.0
+4250,88.0
+4500,89.0
+4750,88.0
+5000,85.0
+5200,78.0
+5300,65.0
+5400,40.0
+5450,15.0
+5500,3.0

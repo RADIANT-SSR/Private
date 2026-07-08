@@ -718,6 +718,38 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (6.3 documents the discrepancy). |
 | **Rerun after fix** | Scenario 6.3 (NEDT row should drop to <1%); NEDT consumers 7.1/7.5. |
 
+---
+
+## Gap 44: `detector.qe_table_path` is schema-only — spectral QE has no config surface
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 2.1 execution (Phase T3), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `detector.qe_table_path` is defined in `detector/_schema.py` (with a comment promising a "Phase 2C stage wrapper" XOR against `qe_value`) but nothing in the chain, IO layer, or API reads it. Spectral QE reaches the chain only via `stage_outputs["spectral_integration"]["qe_curve"]` injected through `RadiantSession.run(extra_stage_outputs=...)` — API-level, no YAML/dict path. |
+| **Workaround** | `radiant.io.qe_csv.load_qe_csv(...)` → `QeCurve.evaluate(wl_grid)` → inject (scenario 2.1 pattern). |
+| **Impact** | Schema drift (a documented parameter silently ignores user input if set via YAML); GUI/config users cannot supply a QE curve. Same config-surface family as Gap 42 (lab_test) and the Zernike injection (5.1). |
+| **Fix location** | `api/session.py` or `api/sensor.py` — when `detector.qe_table_path` is set, load via `load_qe_csv` at the Rule 6 boundary and inject; enforce the promised XOR with `qe_value`. |
+| **Effort** | Small (the loader exists). |
+| **Scenarios blocked** | None (injection route works); 1.3 dual-band also uses it. |
+| **Rerun after fix** | Scenario 2.1 (replace the manual injection with the config path). |
+
+---
+
+## Gap 45: Detector-comparison metrics (BLIP T, dark-current crossover T, NEI) are script-side
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 2.1 execution (Phase T3), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | The three standard detector-trade numbers have no native home: BLIP temperature (dark rate = photon rate), dark-current crossover temperature (dark shot = read noise), and NEI (σ_total/(QE·A_pix·t_int)). Scenario 2.1 computes each in 1–3 lines using `DarkCurrentCurve.temperature_at_rate` and chain outputs. |
+| **Workaround** | Script-side one-liners (scenario 2.1 shows all three, with definitions). |
+| **Impact** | Low — ergonomics only now that the loaders exist; NEI as `result.metrics["nei_photons_s_cm2"]` would need only quantities the chain already carries. |
+| **Fix location** | `radiant.api` detector-trade helper or `performance/` NEI metric module (Rule 19: one metric, one module). |
+| **Effort** | Small. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 2.1. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -765,6 +797,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
 | 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | OPEN |
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
+| 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | OPEN |
+| 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | OPEN |
 
 ---
 

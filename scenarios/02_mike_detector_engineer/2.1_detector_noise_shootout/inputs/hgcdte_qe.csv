@@ -1,0 +1,15 @@
+# MCT-5250 HgCdTe FPA — spectral quantum efficiency (vendor datasheet)
+# 77 K, lambda_cutoff = 5.25 um
+lambda_um,quantum_efficiency
+3.0,0.72
+3.3,0.74
+3.6,0.76
+3.9,0.77
+4.2,0.78
+4.5,0.8
+4.8,0.8
+5.0,0.79
+5.1,0.75
+5.2,0.6
+5.25,0.4
+5.3,0.18

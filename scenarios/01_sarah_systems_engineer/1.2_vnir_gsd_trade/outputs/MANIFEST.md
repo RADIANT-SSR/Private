@@ -9,5 +9,5 @@ to the console (no results workbook).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_snr_aperture_altitude.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_seasonal_snr.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_snr_aperture_altitude.png | figure (committed) | b34e518 2026-07-08 |
+| fig2_seasonal_snr.png | figure (committed) | b34e518 2026-07-08 |

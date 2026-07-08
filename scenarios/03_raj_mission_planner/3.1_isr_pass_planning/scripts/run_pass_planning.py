@@ -15,7 +15,7 @@ Every printed number carries units. Regime, unused parameters, and the
 non-obvious physics are explained inline (house rules).
 
 Run from the repo root:
-    python scenarios/03_raj_collection_planner/3.1_orbit_geometry_pass_planning/scripts/run_pass_planning.py
+    python scenarios/03_raj_mission_planner/3.1_isr_pass_planning/scripts/run_pass_planning.py
 """
 
 from __future__ import annotations

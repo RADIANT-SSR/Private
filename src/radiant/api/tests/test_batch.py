@@ -17,7 +17,7 @@ from radiant.core.exceptions import RadiantError
 class FakeSensor:
     """Records set() calls; stands in for radiant.api.Sensor."""
 
-    def __init__(self, base_config: dict) -> None:
+    def __init__(self, base_config: dict[str, object]) -> None:
         self.base_config = base_config
         self.overrides: dict[str, object] = {}
 
@@ -26,7 +26,7 @@ class FakeSensor:
         return self
 
 
-def fake_factory(base_config: dict) -> FakeSensor:
+def fake_factory(base_config: dict[str, object]) -> FakeSensor:
     return FakeSensor(base_config)
 
 
@@ -110,7 +110,10 @@ class TestValidation:
             BatchRunner(BASE, [("target", {})], sensor_factory=fake_factory)
 
     def test_duplicate_axis_name_raises(self) -> None:
-        axes = [("a", {"x": {}}), ("a", {"y": {}})]
+        axes: list[tuple[str, dict[str, dict[str, object]]]] = [
+            ("a", {"x": {}}),
+            ("a", {"y": {}}),
+        ]
         with pytest.raises(BatchRunnerError, match="duplicate"):
             BatchRunner(BASE, axes, sensor_factory=fake_factory)
 

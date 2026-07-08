@@ -24,7 +24,7 @@ Every printed number carries units. Regime, unused parameters, and the
 non-obvious physics are explained inline (house rules).
 
 Run from the repo root:
-    python scenarios/01_sarah_systems_engineer/1.2_vnir_gsd_trade/scripts/run_gsd_trade.py
+    python scenarios/01_sarah_systems_engineer/1.2_vnir_gsd_aperture_altitude/scripts/run_gsd_trade.py
 """
 
 from __future__ import annotations

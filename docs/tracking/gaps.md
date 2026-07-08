@@ -750,6 +750,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 2.1. |
 
+---
+
+## Gap 46: Calibration-analysis helpers (responsivity, linearity, calibration uncertainty) are script-side
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 7.2 execution (Phase T3), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | The standard calibration-verification quantities have no native home: responsivity dDN/dT (finite difference on a temperature sweep) and dDN/dL (against Planck band radiance), the gain/offset decomposition (`measured = a·predicted + b`), the linearity fit (DN vs L(T), % full-scale residuals), and calibration uncertainty (σ_DN, σ_T with N-frame scaling). Scenario 7.2 computes all of them in a few lines each from `Sensor.sweep(keep_results=True)` results. |
+| **Workaround** | Script-side recipes in scenario 7.2 (documented step by step). |
+| **Impact** | Low — ergonomics; a `radiant.api.calibrate` helper (sweep → fit report) would serve every calibration campaign, but the primitives all exist. |
+| **Fix location** | `radiant.api` calibration helper composing `Sensor.sweep`; Rule 19 — one analysis, one module. |
+| **Effort** | Small. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 7.2. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -799,6 +815,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
 | 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | OPEN |
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | OPEN |
+| 46 | Calibration-analysis helpers script-side | Small | 7.2 | OPEN |
 
 ---
 

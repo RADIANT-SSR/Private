@@ -1,0 +1,8 @@
+# Radiometric calibration run 2026-06-12 — bench MWIR sensor
+# 100-frame mean DN per set point, NIST-traceable blackbody
+T_K,DN_measured
+280.0,795.5
+300.0,1661.0
+320.0,3214.7
+340.0,5784.8
+360.0,9815.0

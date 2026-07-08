@@ -9,7 +9,7 @@ committed (see `docs/OPERATING_MODEL.md` Rule 26).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_snr_nedt_vs_temperature.png | figure (committed) | (set on commit) |
-| fig2_dark_current_arrhenius.png | figure (committed) | (set on commit) |
-| fig3_noise_budget_vs_temperature.png | figure (committed) | (set on commit) |
+| fig1_snr_nedt_vs_temperature.png | figure (committed) | c2ff2d0 2026-07-08 |
+| fig2_dark_current_arrhenius.png | figure (committed) | c2ff2d0 2026-07-08 |
+| fig3_noise_budget_vs_temperature.png | figure (committed) | c2ff2d0 2026-07-08 |
 | environmental_test_results.xlsx | results workbook (not committed) | regenerate on demand |

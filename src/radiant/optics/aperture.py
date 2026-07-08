@@ -73,7 +73,8 @@ class CircularAperture:
                 "0 ≤ ε < 1 (0 for unobscured; 1 would be a fully-blocked "
                 "pupil)."
             )
-        if self.n_spiders < 0 or not math.isfinite(self.spider_width_m) or self.spider_width_m < 0.0:
+        width_bad = not math.isfinite(self.spider_width_m) or self.spider_width_m < 0.0
+        if self.n_spiders < 0 or width_bad:
             raise ValueError(
                 f"CircularAperture '{self.name}': n_spiders = {self.n_spiders}, "
                 f"spider_width_m = {self.spider_width_m} are invalid. Both must "

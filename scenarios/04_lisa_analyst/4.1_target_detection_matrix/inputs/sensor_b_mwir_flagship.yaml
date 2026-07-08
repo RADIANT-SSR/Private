@@ -1,0 +1,36 @@
+# Sensor B: MWIR flagship imager (50 cm) — the program's exquisite asset
+source:
+  target:
+    temperature: 300.0        # K (overridden per target by the batch)
+    emissivity: 0.90
+
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 500000.0  # m (500 km)
+  path_zenith_rad: 0.0
+
+optics:
+  aperture_diameter_m: 0.50   # m
+  focal_length_m: 1.50        # m  (f/3.0)
+  transmission_scalar: 0.75
+
+detector:
+  pixel_pitch_x_um: 12.0      # um
+  pixel_pitch_y_um: 12.0      # um
+  qe_value: 0.78
+  dark_rate_e_per_s: 2000.0   # e-/s (75 K MWIR HgCdTe)
+  detector_temperature_K: 75.0
+
+spectral_integration:
+  filter_min_um: 3.6           # um
+  filter_max_um: 4.9           # um
+  integration_time_s: 0.004    # s
+
+readout:
+  read_noise_e_rms: 25.0      # e- RMS
+  gain_e_per_dn: 10.0         # e-/DN
+  adc_bits: 14
+  full_well_capacity_e: 900000.0

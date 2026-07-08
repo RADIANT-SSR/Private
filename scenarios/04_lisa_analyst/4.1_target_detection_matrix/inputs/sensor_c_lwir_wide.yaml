@@ -1,0 +1,40 @@
+# Sensor C: LWIR wide-area imager (35 cm)
+# NOTE: this config predates the Gap 12 rename and still uses the
+# OUTDATED parameter name optics.cold_stop_efficiency — RADIANT accepts
+# it through the deprecated-alias mechanism (with a DeprecationWarning).
+source:
+  target:
+    temperature: 300.0        # K (overridden per target by the batch)
+    emissivity: 0.90
+
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 500000.0  # m (500 km)
+  path_zenith_rad: 0.0
+
+optics:
+  aperture_diameter_m: 0.35   # m
+  focal_length_m: 0.70        # m  (f/2.0)
+  transmission_scalar: 0.65
+  cold_stop_efficiency: 1.0   # OUTDATED NAME (now optics.nearfield_fraction)
+
+detector:
+  pixel_pitch_x_um: 17.0      # um
+  pixel_pitch_y_um: 17.0      # um
+  qe_value: 0.65
+  dark_rate_e_per_s: 200000.0 # e-/s (60 K LWIR HgCdTe)
+  detector_temperature_K: 60.0
+
+spectral_integration:
+  filter_min_um: 8.0           # um
+  filter_max_um: 11.5          # um
+  integration_time_s: 0.002    # s
+
+readout:
+  read_noise_e_rms: 40.0      # e- RMS
+  gain_e_per_dn: 40.0         # e-/DN
+  adc_bits: 14
+  full_well_capacity_e: 3000000.0

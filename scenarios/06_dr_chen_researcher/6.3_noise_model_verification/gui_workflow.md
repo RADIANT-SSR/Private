@@ -2,11 +2,16 @@
 
 How this scenario would be completed in the RADIANT GUI.
 
+Refreshed 2026-07-07 (Phase R): the unit-aware import below is now backed by
+real API — `Sensor.set(value, unit="cm"/"%"/"ms"/"km")` (Gap 6) — so the GUI
+mapping dialog delegates conversion to the framework instead of converting
+itself.
+
 ---
 
 ## Step 1: Import Parameters
 
-**Script equivalent:** Read Excel, convert units, build `Sensor.from_dict()`
+**Script equivalent:** Read Excel, then `sensor.set(param, raw_value, unit=...)` (Gap 6) — RADIANT converts at the boundary; the script cross-checks the conversions
 
 **GUI interaction:**
 - **File > Import Spreadsheet** — user selects their `.xlsx` file
@@ -17,11 +22,14 @@ How this scenario would be completed in the RADIANT GUI.
     - e.g., `30 cm` -> `0.30 m` (green checkmark)
     - e.g., `70 %` -> `0.70` (green checkmark)
     - e.g., `5 ms` -> `0.005 s` (green checkmark)
+  - The conversion itself is `Sensor.set(..., unit=)` — the GUI passes the
+    raw vendor value + unit string through; provenance records both
+    (`user [30.0 'cm']`), so the audit trail keeps the original entry
 - **Smart matching**: GUI auto-matches obvious pairs ("Aperture diameter" -> `optics.aperture_diameter_m`) and highlights unmatched rows in yellow
 - User confirms or adjusts mappings, then clicks **Import**
 - Imported values populate the **Parameter Panel** (see below)
 
-**Key GUI requirement:** Unit-aware import with conversion preview. The user should never have to manually convert cm to m.
+**Key GUI requirement:** Unit-aware import with conversion preview, delegating to the Gap 6 boundary. The user should never have to manually convert cm to m — and neither should the GUI.
 
 ---
 

@@ -1,8 +1,12 @@
 # Scenario 6.3 Gaps: Noise Model Verification — Analytic vs. RADIANT
 
+Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
+`docs/tracking/gaps.md` (Gaps 6, 42, 43).
+
 ## Summary
 System: 30 cm f/4 MWIR (3.5–5.0 µm), 18 µm HgCdTe at 77 K, 293 K optics, 8 km airborne, exo atmosphere; GSD = 0.12 m, Q = 0.944.
-All six hand-verifiable noise terms PASS (< 5% tolerance): shot terms agree to ~3% (band-center photon-energy approximation in the hand calc), deterministic terms match exactly. Total RSS: 1551.52 (hand) vs. 1596.82 (RADIANT) e⁻ RMS = 2.92%. SNR 917.50 vs. 943.25 (2.81%); NEDT 30.43 vs. 28.18 mK (7.37%, expected from finite-difference dS/dT).
+All six hand-verifiable noise terms now PASS at **0.00%**: the refreshed hand model integrates photons spectrally and includes the Kirchhoff reflected-solar term (ρ = 1 − ε under the space sub-case's TOA solar illumination), matching RADIANT's signal to < 0.01% (1,640,137 vs 1,640,136 e⁻). background_shot = 0 on both sides (extended regime skips the scene-background photon stream by design, matrix Decision #13). Total RSS: 1280.83 vs 1280.83 e⁻ RMS. SNR 1280.52 vs 1280.52 (0.00%). NEDT 20.76 (RADIANT) vs 23.92 mK (exact hand) — 13.2%, root-caused and filed as **registry Gap 43**.
+Parameters entered RADIANT in vendor units via `Sensor.set(..., unit=)` (Gap 6), cross-checked against script conversions to 1e-12.
 
 ## Gap Closure Status
 
@@ -14,13 +18,16 @@ All six hand-verifiable noise terms PASS (< 5% tolerance): shot terms agree to ~
 | 4 | dS/dT (responsivity derivative) not exposed | Low | Open | NEDT verification must rebuild dL/dT via finite-difference Planck integration; only end-to-end NEDT is cross-checkable, not RADIANT's internal spectral derivative. Same as scenario 7.1 Gap 4 |
 | 5 | MTF budget only reachable via stage_outputs | Low | Open | Script reaches into `result.stage_outputs["performance"]["mtf_budget"]` and reconstructs x/y pairs by string-parsing `*_x`/`*_y` key suffixes; no first-class per-axis budget accessor |
 | 6 | Spreadsheet parameters with no config pass-through | Low | Open | "Number of optical elements" (informational only in scalar mode), "Number of TDI stages" (`readout.n_tdi` exists in the schema but the script never passes it; value = 1 so benign), "Look angle" (0° nadir; not wired into the config). All are read and printed but silently ignored — a non-default spreadsheet value would not change the result |
-| — | NEDT / NIIRS / GSD / Strehl / Q / MTF-budget metric exposure | Medium | **CLOSED** | All exposed: `result.metrics["nedt_K"]` = 28.18 mK, `["niirs"]` = 10.89, `["gsd_geometric_mean_m"]` = 0.12 m, `["strehl"]` = 1.0, `["q_center"]` = 0.9444; `mtf_budget.per_term_at_nyquist` with 7 terms |
+| 7 | NEDT stage uses the single-λ Planck-factor approximation | Medium | Open — **registry Gap 43** (filed this refresh) | `nedt.compute_nedt_from_snr` reads 13.2% low here (20.76 vs 23.92 mK exact): its SNR includes the temperature-independent reflected-solar signal, inflating apparent thermal sensitivity. Exact path `nedt.compute_nedt` exists but unwired |
+| — | Unit-aware input (registry Gap 6) | Medium | **CLOSED** (exercised this refresh) | `Sensor.set(value, unit="cm"/"%"/"ms"/"km")`; Step 3a cross-check vs script conversions matches to 1e-12 |
+| — | NEDT / NIIRS / GSD / Strehl / Q / MTF-budget metric exposure | Medium | **CLOSED** | All exposed: `result.metrics["nedt_K"]` = 20.76 mK, `["niirs"]` = 11.10, `["gsd_geometric_mean_m"]` = 0.12 m, `["strehl"]` = 1.0, `["q_center"]` = 0.9444; `mtf_budget.per_term_at_nyquist` with 8 terms |
 
 ## Non-Gap Observations
 
-- The ~3% signal/background shot-noise discrepancy is the **hand calc's** approximation, not a RADIANT error: the hand calc converts photons to electrons using a single band-center photon energy (λ = 4.25 µm), while RADIANT integrates spectral radiance × QE(λ) × filter(λ) per wavelength. RADIANT is the more physically accurate side of the comparison.
+- The former ~3% shot-noise discrepancy was the **hand calc's** band-center photon-energy approximation; the refreshed hand model uses the photon-weighted spectral integral and matches RADIANT to < 0.01%.
+- The former "background_shot" hand term modeled a scene construct that does not exist in the extended regime — RADIANT skips the separate scene-background photon stream by design (matrix Decision #13); the background inputs feed the contrast scene only. Both sides now report 0.
+- The reflected-solar term (ρ·E_TOA·cosθ/π, ρ = 1 − ε = 0.05, θ = 0.5 rad default) is **correct daytime physics** of the space sub-case, ~9% of the in-band signal. A thermal-only comparison is a nighttime verification; the scenario now verifies the scene RADIANT actually models.
 - Deterministic terms (dark_shot 0.71 e⁻, read_noise 20.00 e⁻, quantization = gain/√12 = 0.29 e⁻) match to 0.00% — they involve no spectral integration.
-- nearfield_shot = 0 is **correct physics** under the scalar-mode refractive-lump assumption (T + R = 1 → ε = 0); Gap 2 is a modeling-scope limitation, not a bug. The hand calc also predicts 0 for this configuration, so the verification row passes legitimately.
-- The 7.37% NEDT difference is expected: the hand calc uses a finite-difference dS/dT (±0.1 K) with a band-center photon energy, while RADIANT computes dL/dT spectrally. This compounds the same ~3% approximation that appears in the shot terms.
-- No unit-conversion gap: manual cm→m, %→fraction, ms→s, km→m conversions at the spreadsheet boundary are the intended workflow (canonical-units Rule 2). RADIANT accepted every converted parameter directly through `Sensor.from_dict`; no parameter required a manual correction or post-hoc scaling after the run.
-- The script contains **no re-implemented RADIANT physics used as a workaround** — the Planck integration in Steps 5 and 7 is the independent analytic reference the scenario exists to compare against, and it deliberately imports only `radiant.core.constants` (h, c, k_B) so both sides share CODATA values.
+- nearfield_shot = 0 is **correct physics** under the scalar-mode refractive-lump assumption (T + R = 1 → ε = 0) with `optics.scalar_emissivity` unset; the hand calc also predicts 0, so the row passes legitimately. Gap 37's `scalar_emissivity` now offers a declared-ε alternative for warm reflective trains.
+- Vendor-unit entry now flows through `Sensor.set(..., unit=)` (Gap 6) — RADIANT performs the cm/%/ms/km conversions at the boundary, and the script cross-checks them against its own conversions before running (a second, independent verification layer this scenario gains for free).
+- The script contains **no re-implemented RADIANT physics used as a workaround** — the Planck integration in Steps 5 and 7 is the independent analytic reference the scenario exists to compare against. It imports `radiant.core.constants` (h, c, k_B) and the `radiant.core.solar` TOA irradiance table so both sides share input data; the physics under test is not imported.

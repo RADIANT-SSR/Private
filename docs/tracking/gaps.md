@@ -700,7 +700,23 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Fix location** | `io/config.py` + `source/_schema.py` — YAML/dict path for `source.no_atmosphere_subcase` plus a user-supplied background spectral radiance (file or grey-body spec); the illumination follow-on ADR flagged in `source/_inferrer.py` is the anchor. |
 | **Effort** | Medium. |
 | **Scenarios blocked** | None outright (workaround exists); 7.2 radiometric calibration (T3) would benefit directly. |
-| **Rerun after fix** | Scenario 7.4; then drop the placeholder `platform.h_sensor` from the lab-bench scripts that carry it (7.1, 7.3, 7.4, 2.2, 2.5, 6.3). |
+| **Rerun after fix** | Scenario 7.4; then drop the placeholder `platform.h_sensor` from the lab-bench scripts that carry it (7.1, 7.3, 7.4, 2.2, 2.5). |
+
+---
+
+## Gap 43: NEDT stage uses the single-λ Planck-factor approximation; exact dS/dT path exists but is unwired
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 6.3 refresh (Scenario_Execution_Plan Phase R), 2026-07-07 |
+| **Status** | OPEN |
+| **Description** | `performance/stage.py` computes NEDT via `nedt.compute_nedt_from_snr` — the analytic approximation `NEDT = T / (SNR · x·eˣ/(eˣ−1))` at the band-effective wavelength. The exact formulation `nedt.compute_nedt(noise_e, ds_dt_e_per_K)` (σ/(dS/dT) with a band-integrated, photon-weighted derivative) exists in the same module but is never called by the chain. For scenario 6.3 (300 K target, 3.5–5 µm, daytime space sub-case) the approximation reads ~13% LOW (20.76 vs 23.92 mK exact) — the dominant bias is that SNR includes the temperature-independent reflected-solar signal (~9% of in-band e⁻), which inflates SNR without contributing to dS/dT, making the reported thermal sensitivity optimistic. |
+| **Workaround** | Post-process: compute dS/dT by finite difference (two chain runs at T ± ΔT) and divide the total noise by it — scenario 6.3's hand model shows the recipe. |
+| **Impact** | NEDT accuracy for wide bands, low-x regimes, and any daytime scene with a reflective signal component; NEDT-derived requirement verification inherits the bias. |
+| **Fix location** | `performance/stage.py` — wire `compute_nedt` with a chain-side finite-difference dS/dT (re-evaluate the source photon integral at T ± ΔT; no extra full-chain run needed since only the source term varies). Results-affecting (NEDT values change ~10–15% in affected regimes) — Category C with truth anchors. |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None (6.3 documents the discrepancy). |
+| **Rerun after fix** | Scenario 6.3 (NEDT row should drop to <1%); NEDT consumers 7.1/7.5. |
 
 ## Summary Table
 
@@ -748,6 +764,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
 | 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | OPEN |
+| 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
 
 ---
 

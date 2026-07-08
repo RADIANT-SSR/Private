@@ -138,56 +138,72 @@ print(f"  {'Integration time':<30s} {t_int:>14.6f}  {'s':<15s}  ms / 1000")
 print(f"  {'Sensor altitude':<30s} {altitude_m:>14.1f}  {'m':<15s}  km x 1000")
 
 # ---------------------------------------------------------------------------
-# Step 3: Run RADIANT
+# Step 3: Run RADIANT — parameters set in VENDOR units (Gap 6 unit-aware set)
 # ---------------------------------------------------------------------------
+# The Step 2 conversions above feed the HAND-CALCULATION anchors only.
+# RADIANT itself now receives the raw vendor values with their units;
+# Sensor.set(..., unit=...) converts once at the parameter boundary (Rule 2),
+# and Step 3a cross-checks RADIANT's conversion against the script's own.
 
 from radiant.api import Sensor
 
-config = {
-    "source": {
-        "target": {
-            "temperature": target_temp,
-            "emissivity": target_emiss,
-        },
-        "background": {
-            "temperature": bg_temp,
-            "emissivity": bg_emiss,
-        },
-    },
-    "atmosphere": {
-        "model": "exo",  # Lab/vacuum -- no atmospheric absorption
-    },
-    "geometry": {
-        "sensor_altitude_m": altitude_m,
-    },
-    "optics": {
-        "aperture_diameter_m": aperture_m,
-        "focal_length_m": focal_length_m,
-        "transmission_scalar": transmission,
-        "optics_temperature_K": optics_temp_K,
-    },
-    "detector": {
-        "pixel_pitch_x_um": pixel_pitch_um,
-        "pixel_pitch_y_um": pixel_pitch_um,
-        "qe_value": qe,
-        "dark_rate_e_per_s": dark_rate,
-        "detector_temperature_K": operating_temp,
-    },
-    "spectral_integration": {
-        "filter_min_um": band_min,
-        "filter_max_um": band_max,
-        "integration_time_s": t_int,
-    },
-    "readout": {
-        "read_noise_e_rms": read_noise,
-        "gain_e_per_dn": gain,
-        "adc_bits": adc_bits,
-        "full_well_capacity_e": fwc,
-    },
-}
+sensor = Sensor()
+# Vendor/lab units — converted by the unit-aware boundary (Gap 6):
+sensor.set("optics.aperture_diameter_m", params_raw["Aperture diameter"], unit="cm")
+sensor.set("optics.transmission_scalar", params_raw["Optical transmission"], unit="%")
+sensor.set("detector.qe_value", params_raw["Quantum efficiency"], unit="%")
+sensor.set("spectral_integration.integration_time_s",
+           params_raw["Integration time"], unit="ms")
+sensor.set("geometry.sensor_altitude_m", params_raw["Sensor altitude"], unit="km")
+# Stage-7 precondition: exo routes through the no_atmosphere 'space'
+# sub-case, whose Earth-limb check needs the sensor altitude. This sensor
+# has a genuine platform altitude (8 km — the exo model treats the path as
+# vacuum), so h_sensor is the real value, not a placeholder (unlike the
+# 7.x bench scenarios — registry Gap 42).
+sensor.set("platform.h_sensor", params_raw["Sensor altitude"], unit="km")
+# Already-canonical values — set without a unit tag:
+sensor.set("optics.focal_length_m", focal_length_m)  # derived: f/# × D
+sensor.set("optics.optics_temperature_K", optics_temp_K)
+sensor.set("detector.pixel_pitch_x_um", pixel_pitch_um)
+sensor.set("detector.pixel_pitch_y_um", pixel_pitch_um)
+sensor.set("detector.dark_rate_e_per_s", dark_rate)
+sensor.set("detector.detector_temperature_K", operating_temp)
+sensor.set("source.target.temperature", target_temp)
+sensor.set("source.target.emissivity", target_emiss)
+sensor.set("source.background.temperature", bg_temp)
+sensor.set("source.background.emissivity", bg_emiss)
+sensor.set("atmosphere.model", "exo")  # Above the atmosphere — vacuum path
+sensor.set("spectral_integration.filter_min_um", band_min)
+sensor.set("spectral_integration.filter_max_um", band_max)
+sensor.set("readout.read_noise_e_rms", read_noise)
+sensor.set("readout.gain_e_per_dn", gain)
+sensor.set("readout.adc_bits", adc_bits)
+sensor.set("readout.full_well_capacity_e", fwc)
+
+# --- Step 3a: cross-check RADIANT's boundary conversion vs the script's ---
+print("\n=== Step 3a: Unit-aware boundary conversion cross-check (Gap 6) ===")
+print(f"  {'Parameter':<38s} {'Vendor value':>14s}  {'RADIANT':>14s}  {'Script':>14s}  {'Match'}")
+print(f"  {'-' * 38} {'-' * 14}  {'-' * 14}  {'-' * 14}  {'-' * 5}")
+_checks = [
+    ("optics.aperture_diameter_m", f"{params_raw['Aperture diameter']:.1f} cm", aperture_m),
+    ("optics.transmission_scalar", f"{params_raw['Optical transmission']:.1f} %", transmission),
+    ("detector.qe_value", f"{params_raw['Quantum efficiency']:.1f} %", qe),
+    ("spectral_integration.integration_time_s",
+     f"{params_raw['Integration time']:.1f} ms", t_int),
+    ("geometry.sensor_altitude_m", f"{params_raw['Sensor altitude']:.1f} km", altitude_m),
+]
+for pname, vendor_str, script_val in _checks:
+    radiant_val = float(sensor.get(pname))
+    ok = abs(radiant_val - script_val) <= 1e-12 * max(1.0, abs(script_val))
+    print(f"  {pname:<38s} {vendor_str:>14s}  {radiant_val:>14.6g}  "
+          f"{script_val:>14.6g}  {'OK' if ok else 'MISMATCH'}")
+    if not ok:
+        raise ValueError(
+            f"Unit-aware set() disagrees with the script conversion for "
+            f"{pname}: RADIANT={radiant_val!r}, script={script_val!r}"
+        )
 
 print("\n=== Step 3: Running RADIANT evaluation ===")
-sensor = Sensor.from_dict(config)
 result = sensor.evaluate()
 
 # ---------------------------------------------------------------------------
@@ -265,24 +281,55 @@ L_bg_spectral = bg_emiss * planck_spectral_radiance(wavelengths_m, bg_temp)
 L_target_band = float(np.trapezoid(L_target_spectral, wavelengths_um))
 L_bg_band = float(np.trapezoid(L_bg_spectral, wavelengths_um))
 
-# Mean photon energy over the band
+# Mean photon energy over the band (textbook first-pass reference only)
 lam_center_m = np.mean(wavelengths_m)
 E_photon = h * c / lam_center_m  # [J]
 
-# Signal electrons: L x tau_optics x Omega x A_pixel x QE x t_int / E_photon
-signal_e_hand = L_target_band * transmission * omega_pixel * pixel_area_m2 * qe * t_int / E_photon
-bg_e_hand = L_bg_band * transmission * omega_pixel * pixel_area_m2 * qe * t_int / E_photon
+# --- Signal electrons: PHOTON-WEIGHTED spectral integral (exact) ---
+# Photon flux = ∫ L(λ)·λ/(hc) dλ. The band-center shortcut
+# (L_band / E_photon) underestimates by ~5% here because a 300 K source
+# emits its in-band photons preferentially at the long end of 3.5–5 µm.
+phot_target = float(np.trapezoid(L_target_spectral * wavelengths_m / (h * c), wavelengths_um))
+phot_bg = float(np.trapezoid(L_bg_spectral * wavelengths_m / (h * c), wavelengths_um))
+
+signal_e_thermal = phot_target * transmission * omega_pixel * pixel_area_m2 * qe * t_int
+signal_e_center_approx = (
+    L_target_band * transmission * omega_pixel * pixel_area_m2 * qe * t_int / E_photon
+)
+bg_e_hand = phot_bg * transmission * omega_pixel * pixel_area_m2 * qe * t_int
+
+# --- Reflected-solar term (Kirchhoff: ρ = 1 − ε) ---
+# The no_atmosphere 'space' sub-case illuminates the target with the
+# unattenuated TOA solar spectrum at the default solar zenith (0.5 rad).
+# A grey (ε, T) target therefore also REFLECTS ρ·E_sun·cosθ/π (Lambertian)
+# — ~9% of the in-band signal for ρ = 0.05 in the MWIR. The solar spectrum
+# is shared input data (radiant.core.solar), not the physics under test.
+from radiant.core.solar import toa_solar_spectral_irradiance
+
+SOLAR_ZENITH_RAD = 0.5  # geometry.solar_zenith_rad default
+rho_target = 1.0 - target_emiss
+E_sun_spectral = np.asarray(toa_solar_spectral_irradiance(wavelengths_um))  # W/m²/µm
+L_refl_spectral = rho_target * E_sun_spectral * math.cos(SOLAR_ZENITH_RAD) / math.pi
+phot_refl = float(np.trapezoid(L_refl_spectral * wavelengths_m / (h * c), wavelengths_um))
+signal_e_refl = phot_refl * transmission * omega_pixel * pixel_area_m2 * qe * t_int
+
+signal_e_hand = signal_e_thermal + signal_e_refl
 
 # Dark electrons
 dark_e_hand = dark_rate * t_int
 
 # Noise terms (hand calc)
-# Note: nearfield_shot is correctly zero in scalar transmission mode (eps = 0).
-# background_shot in exo atmosphere comes from scene background illumination
-# reaching the detector, not atmospheric path radiance.
+# Notes:
+#  - nearfield_shot is correctly zero in scalar transmission mode (eps = 0
+#    unless optics.scalar_emissivity is set).
+#  - background_shot is ZERO BY DESIGN in the extended regime: the target
+#    fills the pixel IFOV, so there is no separate scene-background photon
+#    stream (matrix Decision #13). The background temperature/emissivity
+#    inputs feed only the contrast-SNR/NEDT scene definition. bg_e_hand is
+#    retained above as a reference number only.
 hand_calc: dict[str, float] = {
     "signal_shot": math.sqrt(signal_e_hand),
-    "background_shot": math.sqrt(bg_e_hand),
+    "background_shot": 0.0,  # extended regime — no separate background stream
     "nearfield_shot": 0.0,  # eps = 0 for scalar refractive lumped element
     "dark_shot": math.sqrt(dark_e_hand),
     "read_noise": read_noise,
@@ -304,9 +351,15 @@ print(f"  {'Pixel area':<30s} {pixel_area_m2:>14.6e}  m\u00b2")
 print(f"  {'L_target (band-integrated)':<30s} {L_target_band:>14.6f}  W/m\u00b2/sr")
 print(f"  {'L_background (band-integ.)':<30s} {L_bg_band:>14.6f}  W/m\u00b2/sr")
 print(f"  {'E_photon (band center)':<30s} {E_photon:>14.6e}  J/photon")
-print(f"  {'Signal electrons (target)':<30s} {signal_e_hand:>14.2f}  e\u207b")
-print(f"  {'Signal electrons (background)':<30s} {bg_e_hand:>14.2f}  e\u207b")
-print(f"  {'Dark electrons':<30s} {dark_e_hand:>14.4f}  e\u207b")
+print(f"  {'Signal e\u207b (thermal, photon integral)':<38s} {signal_e_thermal:>14.2f}  e\u207b")
+print(f"  {'Signal e\u207b (band-center approx.)':<38s} {signal_e_center_approx:>14.2f}  e\u207b  "
+      f"({(signal_e_center_approx / signal_e_thermal - 1) * 100:+.1f}% vs integral)")
+print(f"  {'Signal e\u207b (reflected solar, \u03c1={:.2f})'.format(rho_target):<38s} "
+      f"{signal_e_refl:>14.2f}  e\u207b")
+print(f"  {'Signal e\u207b (total hand)':<38s} {signal_e_hand:>14.2f}  e\u207b")
+print(f"  {'Background e\u207b (reference only \u2014 not a':<38s}")
+print(f"  {'  photon term in extended regime)':<38s} {bg_e_hand:>14.2f}  e\u207b")
+print(f"  {'Dark electrons':<38s} {dark_e_hand:>14.4f}  e\u207b")
 
 # ---------------------------------------------------------------------------
 # Step 6: Comparison table
@@ -389,8 +442,10 @@ if nedt_K is not None:
     L_plus = target_emiss * planck_spectral_radiance(wavelengths_m, target_temp + delta_T)
     L_minus = target_emiss * planck_spectral_radiance(wavelengths_m, target_temp - delta_T)
     dL_dT = (L_plus - L_minus) / (2.0 * delta_T)  # W/m^2/sr/um per K
-    dL_dT_band = float(np.trapezoid(dL_dT, wavelengths_um))  # W/m^2/sr per K
-    dS_dT = dL_dT_band * transmission * omega_pixel * pixel_area_m2 * qe * t_int / E_photon  # e-/K
+    # Photon-weighted derivative (same integral as the signal term; the
+    # reflected-solar component does not depend on target temperature).
+    dphot_dT = float(np.trapezoid(dL_dT * wavelengths_m / (h * c), wavelengths_um))
+    dS_dT = dphot_dT * transmission * omega_pixel * pixel_area_m2 * qe * t_int  # e-/K
     hand_nedt = hand_total / dS_dT  # K
     nedt_err = abs(hand_nedt - nedt_K) / hand_nedt * 100.0 if hand_nedt > 0 else 0.0
 
@@ -405,6 +460,16 @@ if contrast_snr is not None:
 
 if nedt_K is not None:
     print(f"  {'NEDT':<30s} {nedt_K * 1000:>12.2f}  {hand_nedt * 1000:>12.2f}  {'mK':<15s}  {nedt_err:>7.2f}%")
+    print(f"    NEDT difference explained: RADIANT's performance stage uses the")
+    print(f"    single-wavelength Planck-factor approximation")
+    print(f"    NEDT = T / (SNR · x·eˣ/(eˣ−1)) at the band-effective wavelength")
+    print(f"    (nedt.compute_nedt_from_snr), while the hand value uses the exact")
+    print(f"    band-integrated photon-weighted derivative dS/dT. The dominant")
+    print(f"    bias: the SNR numerator includes the reflected-solar signal (~9%),")
+    print(f"    which does NOT vary with target temperature — inflated SNR →")
+    print(f"    RADIANT's NEDT reads LOW (optimistic thermal sensitivity).")
+    print(f"    An exact-dS/dT chain path exists (nedt.compute_nedt) but is not")
+    print(f"    wired to the stage — recorded in gaps.md (registry Gap 43).")
 
 if niirs is not None:
     print(f"  {'NIIRS':<30s} {niirs:>12.2f}  {'\u2014':>12s}  {'--':<15s}  {'\u2014':>8s}")
@@ -472,14 +537,24 @@ if mtf_budget is not None:
     print(f"  {'SYSTEM MTF':<30s} {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  {mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
 
 print(f"\n=== Physics Notes ===")
-print(f"  1. Signal and background shot noise show ~3% difference vs. hand calc.")
-print(f"     RADIANT integrates per-wavelength (spectral QE x Planck x filter),")
-print(f"     while the hand calc uses a mean photon energy at band center.")
-print(f"     This is expected and physically correct -- RADIANT is more accurate.")
-print(f"  2. Deterministic terms (dark_shot, read_noise, quantization) match exactly.")
-print(f"  3. nearfield_shot = 0 because scalar transmission mode models the optical")
-print(f"     train as a refractive element (eps = 0). To model mirror self-emission,")
-print(f"     use key_elements or full_prescription mode with explicit reflectances.")
+print(f"  1. signal_shot now matches to <0.01%: the hand model integrates photons")
+print(f"     spectrally (∫L·λ/hc dλ, not the band-center E_photon shortcut) AND")
+print(f"     includes the Kirchhoff reflected-solar term ρ·E_TOA·cosθ/π that the")
+print(f"     'space' sub-case adds to a grey (ε, T) target — ~9% of the in-band")
+print(f"     signal here. A textbook thermal-only model reads ~9% low, not because")
+print(f"     RADIANT is wrong but because the scene includes daytime illumination.")
+print(f"  2. background_shot = 0 BY DESIGN in the extended regime: the target")
+print(f"     fills the pixel IFOV, so there is no separate scene-background photon")
+print(f"     stream (matrix Decision #13). The background temperature/emissivity")
+print(f"     inputs define the contrast scene only.")
+print(f"  3. Deterministic terms (dark_shot, read_noise, quantization) match exactly.")
+print(f"  4. nearfield_shot = 0 because scalar transmission mode models the optical")
+print(f"     train as a refractive element (eps = 0 unless optics.scalar_emissivity")
+print(f"     is set — Gap 37). To model mirror self-emission, set scalar_emissivity")
+print(f"     or use key_elements / full_prescription mode.")
+print(f"  5. NEDT differs ~13%: RADIANT uses the single-λ Planck-factor")
+print(f"     approximation (compute_nedt_from_snr); the exact band-integrated")
+print(f"     dS/dT path (compute_nedt) exists but is not wired to the stage.")
 
 # ---------------------------------------------------------------------------
 # Step 8: Write results to output spreadsheet

@@ -1,5 +1,12 @@
 # Scenario 6.3: Noise Model Verification — Analytic vs. RADIANT
 
+Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): parameters now enter
+RADIANT in vendor units via the unit-aware `Sensor.set(..., unit=...)`
+boundary (Gap 6) with a conversion cross-check; the hand model was upgraded
+to the photon-weighted spectral integral plus the Kirchhoff reflected-solar
+term, after which **every noise term agrees to 0.00%**. The refresh also
+surfaced registry Gap 43 (NEDT single-λ approximation).
+
 ## The Problem
 
 Dr. Chen is writing a paper comparing RADIANT against analytic noise models
@@ -32,21 +39,37 @@ Dr. Chen is writing a paper comparing RADIANT against analytic noise models
 ## Approach
 
 1. Read parameters from Dr. Chen's Excel spreadsheet in vendor units
-2. Convert all inputs to RADIANT canonical units (m, fractions, seconds)
-3. Run RADIANT evaluation to get all 16 noise terms
-4. Compute hand-calculated values using first-principles Planck integration
-5. Compare each noise term with percent error and PASS/CHECK/FAIL status
-6. Report all performance metrics now available in RADIANT
+2. Convert inputs for the **hand-calculation anchors** (script-side, shown with conversion table)
+3. Hand RADIANT the **raw vendor values**: `Sensor.set(param, value, unit="cm"/"%"/"ms"/"km")`
+   converts once at the parameter boundary (Gap 6, Rule 2) — Step 3a cross-checks
+   RADIANT's conversions against the script's own (all match to 1e-12)
+4. Run RADIANT evaluation to get all noise terms
+5. Compute hand-calculated values using first-principles Planck integration
+6. Compare each noise term with percent error and PASS/CHECK/FAIL status
+7. Report all performance metrics now available in RADIANT
 
-### Hand Calculation Method
+### Hand Calculation Method (upgraded this refresh)
 
-Signal electrons are computed as:
+Signal electrons are the **photon-weighted spectral integral** plus the
+**Kirchhoff reflected-solar term**:
 
-    S = integral(eps * B(lam, T) * dlam) * tau_opt * Omega * A_pixel * QE * t_int / E_photon
+    S_thermal = ∫ ε·B(λ,T)·λ/(hc) dλ · τ_opt · Ω · A_pixel · QE · t_int
+    S_solar   = ∫ ρ·E_sun_TOA(λ)·cosθ_sun/π · λ/(hc) dλ · τ_opt · Ω · A_pixel · QE · t_int
+    S = S_thermal + S_solar,   with ρ = 1 − ε (Kirchhoff), θ_sun = 0.5 rad (default)
 
-where B(lam, T) is the Planck spectral radiance, Omega = pi / (4 f/#^2) is the pixel
-solid angle, and E_photon = hc / lam_center. The hand calc uses 1000 spectral samples
-across the 3.5-5.0 um band.
+where B(λ,T) is the Planck spectral radiance and Ω = π/(4·f/#²). Two upgrades
+over the original hand model, both required to match the current architecture:
+
+- **Photon integral, not band-center E_photon**: a 300 K source emits its
+  in-band photons preferentially at the long end of 3.5–5 µm; the band-center
+  shortcut reads ~5.5% low.
+- **Reflected solar**: the `no_atmosphere (space)` sub-case illuminates the
+  target with the unattenuated TOA solar spectrum, and a grey (ε = 0.95)
+  target reflects ρ = 0.05 of it — ~9% of the in-band signal. A thermal-only
+  textbook model is verifying a different (nighttime) scene.
+
+The hand calc uses 1000 spectral samples across the 3.5–5.0 µm band and
+shares only CODATA constants and the solar irradiance table with RADIANT.
 
 Shot noise terms are sqrt(N_electrons) for each source (signal, background, dark).
 Deterministic terms (read noise, quantization = gain/sqrt(12)) are exact.
@@ -57,27 +80,38 @@ Deterministic terms (read noise, quantization = gain/sqrt(12)) are exact.
 
 | Noise Term | Hand Calc [e- RMS] | RADIANT [e- RMS] | % Error | Status |
 |------------|-------------------:|------------------:|--------:|--------|
-| signal_shot | 1193.12 | 1227.28 | 2.86% | PASS |
-| background_shot | 991.61 | 1021.39 | 3.00% | PASS |
+| signal_shot | 1280.68 | 1280.68 | 0.00% | PASS |
+| background_shot | 0.00 | 0.00 | 0.00% | PASS |
 | nearfield_shot | 0.00 | 0.00 | 0.00% | PASS |
 | dark_shot | 0.71 | 0.71 | 0.00% | PASS |
 | read_noise | 20.00 | 20.00 | 0.00% | PASS |
 | quantization | 0.29 | 0.29 | 0.00% | PASS |
-| **TOTAL (RSS)** | **1551.52** | **1596.82** | **2.92%** | **PASS** |
+| **TOTAL (RSS)** | **1280.83** | **1280.83** | **0.00%** | **PASS** |
+
+signal_shot agrees to better than 0.01% once the hand model integrates
+photons spectrally and includes the reflected-solar term (1,506,203 thermal
++ 133,934 solar = 1,640,137 e⁻ vs RADIANT 1,640,136 e⁻).
+
+background_shot = 0 **by design** in the extended regime: the 300 K target
+fills the pixel IFOV, so there is no separate scene-background photon stream
+(matrix Decision #13). The background temperature/emissivity inputs define
+the contrast scene only. (The first execution predated this architecture
+and hand-modeled a 991.6 e⁻ RMS background term; that scene construct no
+longer exists in extended regime.)
 
 ### Performance Metrics
 
 | Metric | RADIANT | Hand Calc | Unit | % Error |
 |--------|--------:|----------:|------|--------:|
-| SNR | 943.25 | 917.50 | -- | 2.81% |
-| NEDT | 28.18 | 30.43 | mK | 7.37% |
-| NIIRS | 10.89 | -- | -- | -- |
+| SNR | 1280.52 | 1280.52 | -- | 0.00% |
+| NEDT | 20.76 | 23.92 | mK | 13.21% (Gap 43 — see below) |
+| NIIRS | 11.10 | -- | -- | -- |
 | GSD | 0.1200 | 0.1200 | m | 0.00% |
 | MTF at Nyquist | 0.2532 | -- | -- | -- |
 | Strehl | 1.0000 | -- | -- | -- |
 | Q (sampling) | 0.9444 | 0.9444 | -- | 0.00% |
 | EE (1x1) | 0.4699 | -- | -- | -- |
-| Well margin | 2.46 | -- | dB | -- |
+| Well margin | 1.72 | -- | dB | -- |
 
 ### MTF Budget (at Nyquist)
 
@@ -94,14 +128,26 @@ Deterministic terms (read noise, quantization = gain/sqrt(12)) are exact.
 
 ## Physics Discussion
 
-### Why the ~3% Difference in Shot Noise?
+### Why the Shot-Noise Match Is Now Exact
 
-The hand calculation uses a mean photon energy at band center (lam = 4.25 um)
-to convert from photons to electrons. RADIANT performs a proper per-wavelength
-integration: at each wavelength, it computes spectral radiance * QE(lam) * filter(lam)
-and integrates. Because the Planck function and photon energy both vary across
-the 3.5-5.0 um band, the band-center approximation introduces ~3% error.
-RADIANT's spectral integration is the more physically accurate approach.
+Two former approximations in the hand model were removed:
+
+1. **Band-center photon energy → spectral photon integral.** Converting the
+   band-integrated radiance with a single E_photon at 4.25 µm reads ~5.5%
+   low for a 300 K source in 3.5–5 µm, because in-band photons concentrate
+   at the long-wavelength end. The photon-weighted integral ∫L·λ/(hc) dλ
+   reproduces RADIANT's per-wavelength integration.
+2. **Thermal-only scene → thermal + reflected solar.** The space sub-case
+   illuminates the target with the TOA solar spectrum by default; Kirchhoff
+   gives the grey target ρ = 1 − ε = 0.05, contributing ~9% of the in-band
+   signal at the 0.5 rad default solar zenith. This is correct daytime
+   physics — a verification against a thermal-only textbook formula is
+   verifying a nighttime scene instead.
+
+With both corrections the hand and RADIANT signals agree to < 0.01%, which
+is a genuinely strong verification: it pins the Planck integral, the solar
+model coupling, the Kirchhoff reflectance, the pixel étendue (Ω·A), the QE
+and transmission application, and the shot-noise square root simultaneously.
 
 Deterministic noise terms (dark_shot, read_noise, quantization) match exactly
 because they do not depend on spectral integration.
@@ -119,18 +165,26 @@ systems (mirrors where eps = 1 - R), the user should specify individual optical
 elements using `key_elements` or `full_prescription` mode, which allows RADIANT
 to compute per-element emissivity via Kirchhoff's law (eps_mirror = 1 - R).
 
-### NEDT Interpretation
+### NEDT Interpretation (registry Gap 43)
 
-NEDT = 28.18 mK means the sensor can resolve temperature differences as small
-as ~28 mK against a 300 K background in the MWIR band. The 7.4% difference
-versus the hand calc is expected: the NEDT hand calculation uses a finite-difference
-approximation for dS/dT at band center, while RADIANT computes dL/dT spectrally.
+RADIANT reports NEDT = 20.76 mK; the exact hand calculation gives 23.92 mK
+(13.2% apart). The cause is identified and filed as **registry Gap 43**:
+the performance stage uses the single-wavelength Planck-factor approximation
+`NEDT = T / (SNR · x·eˣ/(eˣ−1))` (`nedt.compute_nedt_from_snr`), and its SNR
+numerator includes the reflected-solar signal — which does **not** vary with
+target temperature. The inflated SNR makes RADIANT's thermal sensitivity
+read optimistically low. The exact path (`nedt.compute_nedt` with a
+band-integrated dS/dT) exists in the module but is not wired to the stage.
+Until Gap 43 lands, the hand recipe (finite-difference photon integral at
+T ± 0.1 K) is the trustworthy NEDT for daytime scenes.
 
 ### NIIRS and Spatial Quality
 
-NIIRS = 10.89 is exceptionally high because this is an 8 km altitude airborne
+NIIRS = 11.10 is exceptionally high because this is an 8 km altitude airborne
 platform with a 30 cm aperture, yielding GSD = 0.12 m. The Q parameter of 0.94
-indicates near-optimal sampling (Q = 1 is ideal for Nyquist matching).
+indicates near-optimal sampling (Q = 1 is ideal for Nyquist matching). (Note:
+SNR = 1281 is far outside the GIQE-5 calibration range [2, 130]; RADIANT logs
+this extrapolation warning on every run.)
 
 ## Gaps
 
@@ -138,19 +192,21 @@ indicates near-optimal sampling (Q = 1 is ideal for Nyquist matching).
 
 | Gap | Status | Evidence |
 |-----|--------|----------|
-| No NEDT metric | **CLOSED** | `result.metrics["nedt_K"]` = 28.18 mK |
-| No NIIRS metric | **CLOSED** | `result.metrics["niirs"]` = 10.89 |
+| Unit-aware input (registry Gap 6) | **CLOSED** (exercised this refresh) | `Sensor.set(value, unit="cm"/"%"/"ms"/"km")`; Step 3a cross-check matches script conversions to 1e-12 |
+| No NEDT metric | **CLOSED** | `result.metrics["nedt_K"]` = 20.76 mK (but see Gap 43) |
+| No NIIRS metric | **CLOSED** | `result.metrics["niirs"]` = 11.10 |
 | No GSD metric | **CLOSED** | `result.metrics["gsd_geometric_mean_m"]` = 0.12 m |
 | No Strehl metric | **CLOSED** | `result.metrics["strehl"]` = 1.0 |
 | No Q parameter | **CLOSED** | `result.metrics["q_center"]` = 0.9444 |
-| No MTF budget | **CLOSED** | `mtf_budget.per_term_at_nyquist` with 7 terms |
+| No MTF budget | **CLOSED** | `mtf_budget.per_term_at_nyquist` with 8 terms |
 
 ### Remaining Gaps
 
 | Gap | Severity | Workaround |
 |-----|----------|------------|
+| NEDT single-λ approximation (registry Gap 43, filed this refresh) | Medium | Finite-difference dS/dT hand recipe (this scenario shows it) |
 | No noise sensitivity matrix (d(sigma_i)/d(p_j)) | Medium | Can be computed manually via parameter sweeps |
-| Scalar transmission mode does not support nearfield | Low | Use key_elements mode for reflective systems |
+| Scalar transmission mode defaults nearfield to 0 | Low | Set `optics.scalar_emissivity` (Gap 37) or use key_elements mode |
 
 ## What Dr. Chen Would Do Next
 

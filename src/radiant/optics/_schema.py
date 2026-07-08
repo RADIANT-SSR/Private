@@ -48,6 +48,54 @@ OBSCURATION_RATIO = ParameterDef(
     default_justification="Most operational apertures are unobscured; Cassegrains override.",
 )
 
+N_SPIDERS = ParameterDef(
+    name="optics.n_spiders",
+    description=(
+        "Number of secondary-support spider arms (radial struts). Default 0 "
+        "(no struts). A 4-arm spider produces the familiar four-point "
+        "diffraction spike. See RADIANT_Optics.md §3.3."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=0,
+    bounds=(0, 12),
+    tags=frozenset({"optics", "aperture"}),
+    default_justification="Apertures without modelled struts (most cases) have none.",
+)
+
+SPIDER_WIDTH_M = ParameterDef(
+    name="optics.spider_width_m",
+    description=(
+        "Width of each spider arm [m]. Converted to a fraction of the pupil "
+        "diameter for the mask; also subtracted from the radiometric clear "
+        "area (RADIANT_Optics.md §3.3). Default 0. Active only when "
+        "n_spiders > 0."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"optics", "aperture"}),
+    default_justification="No struts modelled by default.",
+)
+
+SPIDER_ANGLE_DEG = ParameterDef(
+    name="optics.spider_angle_deg",
+    description=(
+        "Orientation of the first spider arm about the optical axis [deg]; "
+        "remaining arms equally spaced. Default 0 (first arm along +x)."
+    ),
+    dtype=float,
+    canonical_unit="deg",
+    input_unit="deg",
+    default=0.0,
+    bounds=(0.0, 360.0),
+    tags=frozenset({"optics", "aperture"}),
+    default_justification="Pattern orientation is arbitrary; 0 is the conventional reference.",
+)
+
 # ---------------------------------------------------------------------------
 # Focal length / f-number consistency group
 # ---------------------------------------------------------------------------
@@ -434,6 +482,9 @@ PSF_N_WAVELENGTHS = ParameterDef(
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     APERTURE_DIAMETER_M,
     OBSCURATION_RATIO,
+    N_SPIDERS,
+    SPIDER_WIDTH_M,
+    SPIDER_ANGLE_DEG,
     FOCAL_LENGTH_M,
     F_NUMBER,
     TRANSMISSION_SCALAR,

@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from radiant.optics.pupil_amplitude import make_pupil_amplitude
+from radiant.optics.pupil_amplitude import SpiderVaneSpec, make_pupil_amplitude
 from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
 from radiant.optics.sampling import PSFSamplingConfig
 from radiant.optics.wavefront import WavefrontError, WfeMode
@@ -33,6 +33,7 @@ def compute_psf(
     config: PSFSamplingConfig,
     obscuration_ratio: float = 0.0,
     wfe: WavefrontError | None = None,
+    vanes: SpiderVaneSpec | None = None,
 ) -> npt.NDArray[np.float64]:
     """Compute the diffraction PSF via FFT of the complex pupil.
 
@@ -61,7 +62,7 @@ def compute_psf(
     npix = config.pupil_npix
     npad = config.padded_npix
 
-    amplitude = make_pupil_amplitude(npix, obscuration_ratio)
+    amplitude = make_pupil_amplitude(npix, obscuration_ratio, vanes)
 
     # --- Phase screen dispatch ---
     if wfe is None:

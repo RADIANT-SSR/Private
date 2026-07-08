@@ -17,6 +17,7 @@ import numpy.typing as npt
 from scipy.ndimage import zoom
 
 from radiant.optics.psf_mono import compute_psf
+from radiant.optics.pupil_amplitude import SpiderVaneSpec
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode
 
@@ -111,6 +112,7 @@ def compute_polychromatic_psf(
     psf_oversample: int = 8,
     store_per_wavelength: bool = False,
     chromatic_zernikes: dict[float, dict[int, float]] | None = None,
+    vanes: SpiderVaneSpec | None = None,
 ) -> PolychromaticPSFResult:
     """Compute a polychromatic PSF as the weighted sum of monochromatic PSFs.
 
@@ -188,7 +190,7 @@ def compute_polychromatic_psf(
             psf_oversample=psf_oversample,
         )
         wfe_i = _resolve_wfe_for_wavelength(wfe, float(wavelengths_um[0]), chromatic_zernikes)
-        psf = compute_psf(config, obscuration_ratio, wfe_i)
+        psf = compute_psf(config, obscuration_ratio, wfe_i, vanes)
         per_wl: dict[float, npt.NDArray[np.float64]] | None = None
         if store_per_wavelength:
             per_wl = {float(wavelengths_um[0]): psf.copy()}
@@ -241,7 +243,7 @@ def compute_polychromatic_psf(
         )
 
         wfe_i = _resolve_wfe_for_wavelength(wfe, float(wavelengths_um[i]), chromatic_zernikes)
-        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_i)
+        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_i, vanes)
 
         zoom_factor = lam_i / lam_max
 

@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Spider-vane / secondary-support struts (scenario 1.5 prerequisite):
+  new optics parameters `optics.n_spiders`, `optics.spider_width_m`,
+  `optics.spider_angle_deg` implement RADIANT_Optics.md §3.3 (previously
+  aspirational). Struts enter the pupil amplitude mask
+  (`make_pupil_amplitude` via the new `SpiderVaneSpec`), so they degrade
+  **both** spatial paths (PSF and MTF) per Rule 4, and subtract from the
+  radiometric clear area (`CircularAperture.clear_area_m2`).
+  **Results-affecting only when `n_spiders > 0` and `spider_width_m > 0`**
+  — lowers SNR (less collecting area), EE_box, and RER (diffraction
+  spikes); the `strehl` metric is unaffected (vanes are common-mode in
+  the WFE reference). Default (no struts) reproduces all existing results
+  byte-for-byte (496 optics + 10 golden tests unchanged).
 - Johnson-criteria DRI calculator (scenario 4.2 prerequisite):
   `radiant.performance.johnson_criteria` — `johnson_range_m`,
   `resolved_cycles`, and the standard `JOHNSON_N50` cycle table

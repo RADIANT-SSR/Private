@@ -31,9 +31,10 @@ from typing import Any
 class CircularAperture:
     """Circular clear aperture with optional central obscuration.
 
-    Implements the scalar-mode slice of RADIANT_Optics.md §3.1–3.2:
-    unapodized, no spiders, no pupil mask. Spiders, apodization, and
-    the full ``PupilDescription`` are deferred to later tasks.
+    Implements the scalar-mode slice of RADIANT_Optics.md §3.1–3.3:
+    unapodized, optional central obscuration and secondary-support
+    spiders. Apodization and the full ``PupilDescription`` are deferred
+    to later tasks.
 
     Parameters
     ----------
@@ -43,12 +44,18 @@ class CircularAperture:
         ``D_secondary / D_primary``. Must satisfy ``0 ≤ ε < 1``. An
         obscuration ratio of ``1`` (or greater) is unphysical — the
         secondary would occupy the entire aperture.
+    n_spiders:
+        Number of secondary-support spider arms (radial struts). 0 = none.
+    spider_width_m:
+        Width of each spider arm in metres (0 = no area removed).
     name:
         Optional human-readable label for provenance/logging.
     """
 
     aperture_diameter_m: float
     obscuration_ratio: float = 0.0
+    n_spiders: int = 0
+    spider_width_m: float = 0.0
     name: str = "circular_aperture"
     _kind: str = field(default="circular", init=False, repr=False)
 
@@ -66,6 +73,12 @@ class CircularAperture:
                 "0 ≤ ε < 1 (0 for unobscured; 1 would be a fully-blocked "
                 "pupil)."
             )
+        if self.n_spiders < 0 or not math.isfinite(self.spider_width_m) or self.spider_width_m < 0.0:
+            raise ValueError(
+                f"CircularAperture '{self.name}': n_spiders = {self.n_spiders}, "
+                f"spider_width_m = {self.spider_width_m} are invalid. Both must "
+                "be ≥ 0."
+            )
 
     # ------------------------------------------------------------------
     # Derived quantities
@@ -78,13 +91,23 @@ class CircularAperture:
 
     @property
     def clear_area_m2(self) -> float:
-        """Clear area after removing the central obscuration [m²].
+        """Clear area after removing the obscuration and spider arms [m²].
 
-        ``A_clear = (π/4) · D² · (1 − ε²)`` per RADIANT_Optics.md §3.2.
+        ``A_clear = (π/4) · D² · (1 − ε²) − A_spiders`` where
+        ``A_spiders ≈ n · width · (D/2 − D_secondary/2)`` is the radial
+        strut area between the secondary edge and the primary rim, per
+        RADIANT_Optics.md §3.2–3.3. Struts crossing the obscuration are
+        not double-counted (the length runs from the secondary rim out).
+        A_clear is floored at 0.
         """
         d = self.aperture_diameter_m
         eps = self.obscuration_ratio
-        return (math.pi / 4.0) * d * d * (1.0 - eps * eps)
+        a_circ = (math.pi / 4.0) * d * d * (1.0 - eps * eps)
+        if self.n_spiders <= 0 or self.spider_width_m <= 0.0:
+            return a_circ
+        strut_len = 0.5 * d * (1.0 - eps)  # secondary rim to primary rim
+        a_spiders = self.n_spiders * self.spider_width_m * strut_len
+        return max(0.0, a_circ - a_spiders)
 
     def solid_angle_at_focal_length(self, focal_length_m: float) -> float:
         """Approximate solid angle ``π / (4 · f/#²)`` [sr].

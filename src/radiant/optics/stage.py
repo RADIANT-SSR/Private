@@ -63,7 +63,7 @@ from radiant.optics.psf_mono import compute_psf
 from radiant.optics.psf_poly import (
     compute_polychromatic_psf,
 )
-from radiant.optics.pupil_amplitude import make_pupil_amplitude
+from radiant.optics.pupil_amplitude import SpiderVaneSpec, make_pupil_amplitude
 from radiant.optics.pupil_mtf import (
     polychromatic_pupil_mtf,
     pupil_autocorrelation_mtf_1d,
@@ -140,6 +140,25 @@ def _add_defocus_to_wfe(
     return wfe
 
 
+def _read_vane_spec(params: ParameterSet, aperture_m: float) -> SpiderVaneSpec | None:
+    """Build a SpiderVaneSpec from optics params, or None when inactive.
+
+    Converts the physical strut width [m] to a fraction of the pupil
+    diameter (Rule 2: unit conversion at the stage boundary). Returns None
+    when no struts are configured, so the pupil is byte-identical to the
+    historical (vane-free) mask.
+    """
+    n_struts: int = params.get("optics.n_spiders")
+    width_m: float = params.get("optics.spider_width_m")
+    if n_struts <= 0 or width_m <= 0.0:
+        return None
+    return SpiderVaneSpec(
+        n_struts=n_struts,
+        width_frac=width_m / aperture_m,
+        angle_offset_deg=params.get("optics.spider_angle_deg"),
+    )
+
+
 def _compute_optical_mtf_terms(
     state: ChainState,
     n_psf_wavelengths: int,
@@ -155,6 +174,7 @@ def _compute_optical_mtf_terms(
     chromatic_zernikes: dict[float, dict[int, float]] | None,
     defocus_um: float = 0.0,
     f_number: float = 0.0,
+    vanes: SpiderVaneSpec | None = None,
 ) -> ChainState:
     """Compute optical MTF via pupil autocorrelation and store in ChainState.
 
@@ -188,7 +208,7 @@ def _compute_optical_mtf_terms(
             psf_oversample=8,
         )
 
-        amplitude = make_pupil_amplitude(pupil_npix, obscuration)
+        amplitude = make_pupil_amplitude(pupil_npix, obscuration, vanes)
         if wfe_mtf is None:
             phase = np.zeros((pupil_npix, pupil_npix), dtype=np.float64)
         elif wfe_mtf.mode == WfeMode.SCALAR_RMS:
@@ -236,6 +256,7 @@ def _compute_optical_mtf_terms(
             pupil_npix=pupil_npix,
             psf_oversample=8,
             chromatic_zernikes=chromatic_zernikes,
+            vanes=vanes,
         )
 
     # Convert frequency from cycles/m to cycles/mrad.
@@ -279,6 +300,7 @@ def _build_effective_psf(
     pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
     obscuration: float = params.get("optics.obscuration_ratio")
     n_psf_wavelengths: int = params.get("optics.psf_n_wavelengths")
+    vanes = _read_vane_spec(params, aperture_m)
 
     # Set in the polychromatic branch; consumed by MTF computation.
     psf_wl_m: np.ndarray | None = None
@@ -295,7 +317,7 @@ def _build_effective_psf(
             pupil_npix=128,
             psf_oversample=8,
         )
-        psf_arr = compute_psf(config, obscuration, wfe)
+        psf_arr = compute_psf(config, obscuration, wfe, vanes)
         sample_spacing_m = config.focal_spacing_m
         wavelength_um = wavelength_m * 1e6
     else:
@@ -357,6 +379,7 @@ def _build_effective_psf(
             psf_oversample=8,
             store_per_wavelength=store_per_wl,
             chromatic_zernikes=chromatic_zernikes,
+            vanes=vanes,
         )
 
         psf_arr = poly_result.combined_psf
@@ -406,7 +429,7 @@ def _build_effective_psf(
     if wfe_is_null and chromatic_zernikes is None:
         ref_psf_arr = psf_arr
     elif n_psf_wavelengths <= 1:
-        ref_psf_arr = compute_psf(config, obscuration, None)
+        ref_psf_arr = compute_psf(config, obscuration, None, vanes)
     else:
         ref_result = compute_polychromatic_psf(
             wavelengths_m=psf_wl_m,
@@ -420,6 +443,7 @@ def _build_effective_psf(
             psf_oversample=8,
             store_per_wavelength=False,
             chromatic_zernikes=None,
+            vanes=vanes,
         )
         ref_psf_arr = ref_result.combined_psf
 
@@ -479,6 +503,7 @@ def _build_effective_psf(
         chromatic_zernikes=chromatic_zernikes,
         defocus_um=defocus_um,
         f_number=f_number,
+        vanes=_read_vane_spec(params, aperture_m),
     )
 
     state = state.with_stage_output("optics", "effective_psf", epsf)
@@ -639,6 +664,8 @@ class OpticsStage:
         aperture = CircularAperture(
             aperture_diameter_m=params.get("optics.aperture_diameter_m"),
             obscuration_ratio=params.get("optics.obscuration_ratio"),
+            n_spiders=params.get("optics.n_spiders"),
+            spider_width_m=params.get("optics.spider_width_m"),
         )
         focal_length_m: float = params.get("optics.focal_length_m")
 

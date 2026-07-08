@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from radiant.optics.pupil_amplitude import make_pupil_amplitude
+from radiant.optics.pupil_amplitude import SpiderVaneSpec, make_pupil_amplitude
 from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
 from radiant.optics.sampling import compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode
@@ -176,6 +176,7 @@ def polychromatic_pupil_mtf(
     pupil_npix: int = 128,
     psf_oversample: int = 8,
     chromatic_zernikes: dict[float, dict[int, float]] | None = None,
+    vanes: SpiderVaneSpec | None = None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Polychromatic optical MTF via weighted average of monochromatic pupil autocorrelations.
 
@@ -255,7 +256,7 @@ def polychromatic_pupil_mtf(
 
         # Build pupil.
         wfe_i = _resolve_wfe_for_wavelength(wfe, lam_i * 1e6, chromatic_zernikes)
-        amplitude = make_pupil_amplitude(pupil_npix, obscuration_ratio)
+        amplitude = make_pupil_amplitude(pupil_npix, obscuration_ratio, vanes)
         phase = _build_pupil_phase(pupil_npix, wfe_i, lam_i, obscuration_ratio)
 
         # Compute 2-D MTF from pupil autocorrelation.

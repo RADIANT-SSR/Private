@@ -86,12 +86,18 @@ A_clear = (π/4) · D² · (1 − ε²)
 
 ### 3.3 Spider arms
 
-Optional. Parameters: `n_spiders` (int, default 0), `spider_width_m`, `spider_angle_deg` (orientation of the first arm; remaining arms equally spaced). Spiders subtract from `A_clear`:
+Implemented. Parameters: `optics.n_spiders` (int, default 0), `optics.spider_width_m`, `optics.spider_angle_deg` (orientation of the first arm; remaining arms equally spaced radially). Two coupled effects:
+
+1. **Radiometric** — spiders subtract from `A_clear` (`CircularAperture.clear_area_m2`):
 ```
 A_spiders ≈ n_spiders · spider_width_m · (D/2 − D_secondary/2)
-A_clear -= A_spiders
+A_clear -= A_spiders          (floored at 0)
 ```
-The pupil mask carries the full geometry; the area subtraction is only for the radiometric `A_collect`. The PSF (in spatial) sees the actual masked pupil.
+so a vaned aperture collects fewer photons (lower SNR).
+
+2. **Spatial** — the struts are opaque radial bars in the pupil amplitude mask (`make_pupil_amplitude`, via `SpiderVaneSpec`). Because RADIANT derives **both** the PSF (FT of the complex pupil) and the optical MTF (pupil autocorrelation) from that one mask, the struts enter both spatial paths automatically, satisfying the Rule 4 dual-path consistency invariant. The observable signature is the familiar diffraction spikes: energy scatters out of the PSF core, lowering EE_box, RER, and the peak (the FWHM core is largely preserved). Strut width is converted from metres to a fraction of the pupil diameter at the stage boundary (Rule 2).
+
+The `strehl` metric (WFE-only, degraded-over-reference peak ratio) is *unaffected* by spiders: the reference PSF carries the same aperture geometry (obscuration and spiders), so the vane effect is common-mode and cancels — the vane degradation is correctly attributed to EE/RER/MTF, not to Strehl.
 
 ### 3.4 Apodization
 

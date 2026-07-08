@@ -846,6 +846,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (proxy available); a dedicated revisit scenario would use it. |
 | **Rerun after fix** | Scenario 3.1 (replace orbits/day proxy with true revisit). |
 
+---
+
+## Gap 52: No first-class extended target-vs-background differential
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 4.4 execution (Phase T4), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `SpectralIntegrationStage` builds `contrast_e = signal_e − background_e` only when an `at_aperture_background` frame exists — which happens in the sub-pixel regime (and point-source, where contrast_e = signal_e). In the EXTENDED regime, even with `source.background.temperature` set, the background-reference frame is not built (`spectral_integration/stage.py:283`, the "no background descriptor" branch), so `contrast_e` collapses to the whole-scene `signal_e` and the `contrast_snr` metric reports the absolute-scene SNR — it does NOT null at thermal crossover. Any scenario needing the extended two-surface differential (diurnal washout 4.4, camouflage 4.3, "target patch on terrain") must construct it by running the two pixels separately and differencing. |
+| **Workaround** | Run target-filled and background-filled extended pixels separately; contrast SNR = (S_t − S_b)/√(N_t²+N_b²) (scenarios 4.3, 4.4). |
+| **Impact** | Medium — the `contrast_snr` metric is misleading in the extended regime (name implies a differential; value is whole-scene SNR). A user trusting it for an extended target-vs-background scene would get a contrast that never washes out. |
+| **Fix location** | `spectral_integration/stage.py` — build the `at_aperture_background` reference frame whenever `source.background.temperature`/`emissivity` are set, not only in sub-pixel; then `contrast_e` is meaningful in the extended regime too. Coordinate with matrix Decision #13 (computed-extended cells deliberately skip the bg reference). |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None (differencing workaround); 4.3 and 4.4 would use it. |
+| **Rerun after fix** | Scenarios 4.3, 4.4 (replace the manual two-pixel differencing with the native metric). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -901,6 +917,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | OPEN |
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | OPEN |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | OPEN |
+| 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
 
 ---
 

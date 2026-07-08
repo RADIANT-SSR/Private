@@ -8,5 +8,5 @@ are printed to the console (no results workbook).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_offnadir_image_quality.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_access_corridor.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_offnadir_image_quality.png | figure (committed) | 760472c 2026-07-08 |
+| fig2_access_corridor.png | figure (committed) | 760472c 2026-07-08 |

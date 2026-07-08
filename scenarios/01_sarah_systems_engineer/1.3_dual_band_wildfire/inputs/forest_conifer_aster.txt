@@ -1,0 +1,41 @@
+Name: Conifer forest canopy (needleleaf, green)
+Type: vegetation
+Class: tree
+Subclass: needle
+Particle Size: n/a
+Sample No.: veg.needle.conifer.synthetic
+Owner: Program office (synthetic, ASTER-format)
+Wavelength Range: TIR
+Origin: Synthesized for scenario 1.3 following ASTER library conventions
+Description: Directional hemispherical reflectance of a green conifer
+canopy, 3.0-13.0 micrometers. Emissivity = 1 - reflectance (opaque).
+Measurement: Directional Hemispherical Reflectance
+First Column: X
+Second Column: Y
+X Units: Wavelength (micrometers)
+Y Units: Reflectance (percent)
+First X Value: 13.0
+Last X Value: 3.0
+Number of X Values: 21
+Additional Information: none
+ 13.00    1.60
+ 12.50    1.50
+ 12.00    1.40
+ 11.50    1.30
+ 11.00    1.30
+ 10.50    1.40
+ 10.00    1.50
+  9.50    1.80
+  9.00    2.20
+  8.50    2.60
+  8.00    3.00
+  7.50    3.40
+  7.00    3.60
+  6.50    3.50
+  6.00    3.20
+  5.50    3.40
+  5.00    3.80
+  4.50    4.40
+  4.00    5.00
+  3.50    5.60
+  3.00    6.40

@@ -208,6 +208,15 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Suggested fix**: stand-alone task (results-affecting, Category C): unify defocus as pupil Z4 on **both** paths (drop the PSF-path Gaussian kernel; the PSF already comes from the same pupil, so folding Z4 there gives exact agreement by Wiener–Khinchin), and make `_add_defocus_to_wfe` preserve scalar-RMS (screen + Z4 in one pupil phase). Requires new truth anchors + golden-baseline review. Effort M; category C.
 **Related**: the residual 0.052–0.057 exceedances seen in undersampled VNIR configs (Q ≈ 0.2) with all degradations off are the CU-003 rect-kernel discretization floor, not this defect.
 
+### CU-059 — Executed-scenario outputs and walkthrough numbers predate the current physics
+
+**Discovered**: Phase R verification sweep (Scenario_Execution_Plan), 2026-07-07 — rerunning the 14 executed scenario scripts regenerated visibly different committed figures for 1.4, 3.2, 3.4 (and would change the recorded numbers in most non-refreshed walkthroughs).
+**Status**: Open.
+**File**: `scenarios/*/outputs/*.png` + `walkthrough.md` for the executed scenarios NOT covered by Phase R (1.4, 2.2, 2.3, 2.5, 3.2, 3.4, 5.2, 5.3, 5.4, 7.1).
+**Symptom**: rerunning any of these run scripts produces figures that differ from the committed ones — the committed outputs were generated in April under superseded physics (most visibly the column-integrated atmospheric transmittance fix, which raises SNR ~40% in some scenes, and the extended-regime background-term removal, Decision #13). The Phase R verification restored the incidental regenerations rather than committing figures inconsistent with their walkthrough text.
+**Why it still matters**: walkthroughs are the scenario record of what RADIANT predicts; numbers that no longer reproduce undermine the "regenerate by running the script" contract in every outputs/MANIFEST.md.
+**Suggested fix**: stand-alone task — an outputs-refresh pass over the 10 non-Phase-R executed scenarios (rerun, update walkthrough numbers + figures + manifest SHAs, one commit per scenario), either as a Phase R2 appended to the Scenario_Execution_Plan or folded into each scenario's next touch. Effort M (mechanical, ~10 scenarios); category D (regression documentation).
+
 ---
 
 ## Resolved

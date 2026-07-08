@@ -878,6 +878,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (geometric bound available); 4.2 and any acquisition-range scenario would use it. |
 | **Rerun after fix** | Scenario 4.2 (add contrast-limited ranges alongside the geometric ones). |
 
+---
+
+## Gap 54: No arbitrary / measured pupil mask (only parametric shapes)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 1.5 execution (Phase T4), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `make_pupil_amplitude` builds the pupil from parametric shapes: circular aperture + central obscuration + radial spider arms. There is no path to inject an arbitrary measured 2-D pupil mask (segmented aperture, non-circular primary, wavefront-sensor pupil image). The grid could accept an injected amplitude array. |
+| **Workaround** | Use the parametric obscuration + spider shapes (cover the common Cassegrain/refractor cases). |
+| **Impact** | Low–Medium — segmented/exotic apertures cannot be modelled; parametric shapes cover mainstream designs. |
+| **Fix location** | `optics/pupil_amplitude.py` — optional `mask_override: NDArray` argument threaded like the `SpiderVaneSpec` (both PSF and MTF paths consume it → Rule 4 automatic). |
+| **Effort** | Low–Medium. |
+| **Scenarios blocked** | None; a segmented-aperture scenario would use it. |
+| **Rerun after fix** | Scenario 1.5 (add a measured-pupil case). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -935,6 +951,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | OPEN |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | OPEN |
+| 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | OPEN |
 
 ---
 
@@ -993,7 +1010,7 @@ Require new physics models, analysis modes, or architectural additions beyond me
 | ~~24~~ | ~~3.1~~ | ~~Raj~~ | ~~Orbit → geometry calculator, pass planning~~ — **DONE** `radiant.core.orbit` (e32188e) |
 | 25 | 4.4 | Lisa | Time-varying scenario (diurnal temperature sweep) |
 | ~~26~~ | ~~4.2~~ | ~~Lisa~~ | ~~Johnson criteria / DRI range model~~ — **DONE** `radiant.performance.johnson_criteria` (0df9e15) |
-| 27 | 1.5 | Sarah | Arbitrary pupil mask (spider vanes), Strehl |
+| ~~27~~ | ~~1.5~~ | ~~Sarah~~ | ~~Arbitrary pupil mask (spider vanes), Strehl~~ — **DONE** spider vanes (36286e7); arbitrary mask → Gap 54 |
 | 28 | 4.5 | Lisa | Microbolometer noise model (NETD-specified) |
 | 29 | 3.3 | Raj | Multi-sensor comparison framework, compliance matrix |
 | 30 | 6.1 | Dr. Chen | D* / NETD / NEP → component noise converters |

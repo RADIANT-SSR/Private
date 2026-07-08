@@ -819,10 +819,12 @@ class OpticsStage:
                         f_number,
                     )
 
-            # Kernel size: 6σ span, capped to PSF grid.
+            # Kernel size: 6σ span, capped to PSF grid (largest odd size —
+            # the kernel builders require odd npix, and the grid is even).
             sample_spacing_m = epsf.sample_spacing_m
             npix_needed = int(math.ceil(6.0 * sigma_def / sample_spacing_m)) | 1
-            npix_needed = min(npix_needed, epsf.data.shape[0])
+            npix_cap = epsf.data.shape[0] - (1 - epsf.data.shape[0] % 2)
+            npix_needed = min(npix_needed, npix_cap)
             npix_needed = max(npix_needed, 3)
 
             kernel = defocus_kernel_2d(npix_needed, sample_spacing_m, sigma_def)
@@ -856,7 +858,10 @@ class OpticsStage:
 
             spacing = epsf.sample_spacing_m
             npix_sc = int(math.ceil(6.0 * sigma_halo_m / spacing)) | 1
-            npix_sc = max(3, min(npix_sc, epsf.data.shape[0]))
+            # Cap to the largest odd size within the PSF grid — the kernel
+            # builder requires odd npix, and the grid is typically even.
+            npix_cap_sc = epsf.data.shape[0] - (1 - epsf.data.shape[0] % 2)
+            npix_sc = max(3, min(npix_sc, npix_cap_sc))
             k_scatter = scatter_kernel_2d(npix_sc, spacing, sigma_halo_m, tis)
             epsf = epsf.with_kernel("scatter", k_scatter)
             state = state.with_stage_output("optics", "effective_psf", epsf)

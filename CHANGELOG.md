@@ -20,6 +20,16 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- Scatter (Gap 31) and defocus (Gap 29) kernel sizing crashed with
+  `ValueError: npix must be a positive odd integer, got 256` whenever
+  the 6σ kernel span exceeded the PSF grid — the odd-forcing happened
+  before the cap to the (even) grid size. The cap now clamps to the
+  largest odd size within the grid. Fine-spacing configurations (VNIR
+  band, small pixels) with `optics.surface_roughness_nm` or large
+  `optics.defocus_um` now run; no numeric change for configurations
+  that previously ran. Found by the scenario 7.3 refresh.
+
 ### Deprecated
 - `optics.cold_stop_efficiency` renamed to `optics.nearfield_fraction`
   (Gap 12) — the old name inverted the vendor convention ("100%

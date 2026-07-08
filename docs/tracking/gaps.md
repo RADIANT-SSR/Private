@@ -766,6 +766,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 7.2. |
 
+---
+
+## Gap 47: Spectral target emissivity has no chain input (scalar ε only)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 4.3 execution (Phase T3), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `source.target.emissivity` is a scalar; there is no `emissivity_path` for a tabulated ε(λ) the way `source.target.reflectance_path` / `albedo_path` exist for reflective targets. A spectral thermal-emission target (measured/ASTER ε(λ)) can reach the chain only by pre-composing the radiance `L_t(λ) = ε(λ)·B(λ,T_surface)` and injecting it via the S8 `user_radiance_path` (→ `T6TabulatedAtSource`, "no physical model applied") — so the USER owns the Planck integral and the assumed surface temperature; the chain does not apply its atmosphere-coupled thermal-emission model to a spectral-ε target. |
+| **Workaround** | Compose L_t(λ) = ε(λ)·B(λ,T) at the file boundary and feed S8 (scenario 4.3 pattern). |
+| **Impact** | Spectral-emissivity targets (camouflage, material ID, any ASTER-emitter scene) can't use the chain's thermal-emission physics directly; the user re-implements the Planck integral. Parallel to Gaps 42/44 (config-surface coverage) and the S8 sub-pixel composition note in scenario 4.3's gaps.md. |
+| **Fix location** | `source/_schema.py` + `source/_inferrer.py` — add `source.target.emissivity_path` routing to a spectral `T1Thermal` descriptor (ε(λ) × Planck at the target temperature), mirroring the reflectance-path plumbing. |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None (S8 workaround); 4.3 and any spectral-emitter scene would use it. |
+| **Rerun after fix** | Scenario 4.3 (replace the manual L_t composition with the ε-path input). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -816,6 +832,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | OPEN |
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | OPEN |
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | OPEN |
+| 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
 
 ---
 

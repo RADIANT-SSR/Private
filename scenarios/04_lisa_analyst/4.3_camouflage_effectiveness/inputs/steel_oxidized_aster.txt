@@ -1,0 +1,34 @@
+Name: Steel, oxidized (weathered plate)
+Type: manmade
+Class: metal
+Subclass: steel
+Particle Size: n/a
+Sample No.: manmade.metal.steel.oxidized.synthetic
+Owner: Program office (synthetic, ASTER-format)
+Wavelength Range: TIR
+Origin: Synthesized for scenario 4.3 following ASTER library conventions
+Description: Directional hemispherical reflectance of weathered oxidized
+steel plate, 7.5-14.0 micrometers. Emissivity = 1 - reflectance (opaque).
+Measurement: Directional Hemispherical Reflectance
+First Column: X
+Second Column: Y
+X Units: Wavelength (micrometers)
+Y Units: Reflectance (percent)
+First X Value: 14.0
+Last X Value: 7.5
+Number of X Values: 14
+Additional Information: none
+ 14.00   21.90
+ 13.50   21.60
+ 13.00   21.30
+ 12.50   21.00
+ 12.00   20.70
+ 11.50   20.40
+ 11.00   20.10
+ 10.50   19.80
+ 10.00   19.50
+  9.50   19.20
+  9.00   18.90
+  8.50   18.60
+  8.00   18.30
+  7.50   18.00

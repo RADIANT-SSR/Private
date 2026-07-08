@@ -56,3 +56,4 @@ tests/golden/*.bak
 
 # Test artifacts (regeneratable plots)
 src/radiant/atmosphere/tests/artifacts/
+scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/outputs/derived/

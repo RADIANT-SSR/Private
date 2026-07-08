@@ -10,8 +10,8 @@ Rule 26).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_jdark_vs_temperature.png | figure (committed) | (set on commit) |
-| fig2_qe_curves.png | figure (committed) | (set on commit) |
-| fig3_noise_budget.png | figure (committed) | (set on commit) |
-| fig4_dark_shot_vs_temperature.png | figure (committed) | (set on commit) |
+| fig1_jdark_vs_temperature.png | figure (committed) | 2687bd2 2026-07-08 |
+| fig2_qe_curves.png | figure (committed) | 2687bd2 2026-07-08 |
+| fig3_noise_budget.png | figure (committed) | 2687bd2 2026-07-08 |
+| fig4_dark_shot_vs_temperature.png | figure (committed) | 2687bd2 2026-07-08 |
 | detector_shootout_results.xlsx | results workbook (not committed) | regenerate on demand |

@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- Vendor detector-datasheet importers (scenario 2.1 prerequisites):
+  `radiant.io.qe_csv.load_qe_csv` reads wavelength-vs-QE vendor CSVs
+  (nm/µm × percent/fraction, header-token or explicit unit resolution)
+  into a canonical-units `QeCurve` with grid evaluation and band
+  averaging; `radiant.io.dark_current_csv.load_dark_current_csv` reads
+  `T_K, Jdark_A_cm2` curves into a `DarkCurrentCurve` with
+  Arrhenius-faithful interpolation (ln J linear in 1/T),
+  `dark_rate_e_per_s(T, pixel_pitch_m=)` conversion (J·A_pixel/q), and
+  the inverse `temperature_at_rate`. New error classes `QeCsvParseError`
+  and `DarkCurrentCsvParseError` (both `RadiantError`). Neither loader
+  extrapolates outside the measured range by default.
+
 ### Fixed
 - Scatter (Gap 31) and defocus (Gap 29) kernel sizing crashed with
   `ValueError: npix must be a positive odd integer, got 256` whenever

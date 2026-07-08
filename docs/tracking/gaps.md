@@ -700,7 +700,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Fix location** | `io/config.py` + `source/_schema.py` — YAML/dict path for `source.no_atmosphere_subcase` plus a user-supplied background spectral radiance (file or grey-body spec); the illumination follow-on ADR flagged in `source/_inferrer.py` is the anchor. |
 | **Effort** | Medium. |
 | **Scenarios blocked** | None outright (workaround exists); 7.2 radiometric calibration (T3) would benefit directly. |
-| **Rerun after fix** | Scenario 7.4; then drop the placeholder `platform.h_sensor` from the 7.x lab scripts. |
+| **Rerun after fix** | Scenario 7.4; then drop the placeholder `platform.h_sensor` from the lab-bench scripts that carry it (7.1, 7.3, 7.4, 2.2, 2.5, 6.3). |
 
 ## Summary Table
 

@@ -47,3 +47,13 @@ Scalar transmission mode lumps all optical elements into a single τ and applies
 - 200–1500 K dynamic range (>6 orders of magnitude in MWIR flux) cannot be captured in a single frame on a 2 M e⁻ well — this is a fundamental radiometric constraint, not a RADIANT limitation.
 - BLIP regime at 200 K correctly identified (signal_shot 1.1% vs background_shot 98.5%).
 - Signal-limited regime at 400 K correctly identified (signal_shot 80.4%).
+
+## Drift Fix 2026-07-07 — Stage-7 h_sensor precondition (registry Gap 42)
+
+The script raised in `validate_no_atmosphere_subcase` after the Stage-7
+landing: `atmosphere.model = "exo"` auto-infers the `no_atmosphere / space`
+sub-case, which requires a positive user-set `platform.h_sensor` for the
+Earth-limb intercept check (the `lab_test` sub-case has no `Sensor.from_dict`
+path — registry Gap 42). Fixed in the Phase R sweep pass by adding the
+placeholder `platform.h_sensor = 1.0` m (bench height); no radiometric
+effect. Remove the placeholder when Gap 42 lands a first-class lab path.

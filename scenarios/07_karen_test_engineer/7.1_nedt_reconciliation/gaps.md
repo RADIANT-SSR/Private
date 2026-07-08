@@ -50,3 +50,13 @@ Mirrors have ε = 1 − R directly, not ε = 1 − T − R. The scalar mode cann
 - `nearfield_shot` = 0 in scalar transmission mode is **correct physics** under the refractive-lump assumption — it is a modeling-scope limitation, not a bug.
 - Measurements vs. prediction gap (26 mK at 25°C) most likely combines: (a) missing mirror self-emission (Gap 6), (b) spatial PRNU/DSNU inflating temporal NEDT, (c) TVAC chamber stray light, (d) blackbody calibration uncertainty (±0.02°C × dS/dT ≈ 100 e⁻).
 - NEDT trend vs. BB temperature is correct (1/√signal behavior confirmed).
+
+## Drift Fix 2026-07-07 — Stage-7 h_sensor precondition (registry Gap 42)
+
+The script raised in `validate_no_atmosphere_subcase` after the Stage-7
+landing: `atmosphere.model = "exo"` auto-infers the `no_atmosphere / space`
+sub-case, which requires a positive user-set `platform.h_sensor` for the
+Earth-limb intercept check (the `lab_test` sub-case has no `Sensor.from_dict`
+path — registry Gap 42). Fixed in the Phase R sweep pass by adding the
+placeholder `platform.h_sensor = 1.0` m (bench height); no radiometric
+effect. Remove the placeholder when Gap 42 lands a first-class lab path.

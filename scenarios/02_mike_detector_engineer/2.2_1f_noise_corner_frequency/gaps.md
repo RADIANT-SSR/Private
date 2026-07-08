@@ -50,3 +50,13 @@ Default behavior unchanged if corner is None.
 - 1/f noise is negligible in BLIP-limited LWIR NEDT (<1% penalty). Mike does not need to worry about 1/f for this spec.
 - Logarithmic dependence on frame rate is real physics — a 4× frame rate change only shifts σ_1f by 15%.
 - LWIR integration time is FWC-limited (100 µs), not frame-rate-limited.
+
+## Drift Fix 2026-07-07 — Stage-7 h_sensor precondition (registry Gap 42)
+
+The script raised in `validate_no_atmosphere_subcase` after the Stage-7
+landing: `atmosphere.model = "exo"` auto-infers the `no_atmosphere / space`
+sub-case, which requires a positive user-set `platform.h_sensor` for the
+Earth-limb intercept check (the `lab_test` sub-case has no `Sensor.from_dict`
+path — registry Gap 42). Fixed in the Phase R sweep pass by adding the
+placeholder `platform.h_sensor = 1.0` m (bench height); no radiometric
+effect. Remove the placeholder when Gap 42 lands a first-class lab path.

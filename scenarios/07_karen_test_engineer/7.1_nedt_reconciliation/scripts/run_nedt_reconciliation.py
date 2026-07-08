@@ -172,6 +172,13 @@ def make_config(target_temp_K: float) -> dict:
         "geometry": {
             "sensor_altitude_m": 0.0,  # Lab bench
         },
+        "platform": {
+            # Stage-7 stop-gap (registry Gap 42): "exo" routes through the
+            # no_atmosphere 'space' sub-case, whose Earth-limb check requires
+            # a positive user-set platform.h_sensor [m above MSL]. 1.0 m ≈
+            # bench height; feeds only the limb check, no radiometric effect.
+            "h_sensor": 1.0,
+        },
         "optics": {
             "aperture_diameter_m": aperture_m,
             "focal_length_m": focal_length_m,

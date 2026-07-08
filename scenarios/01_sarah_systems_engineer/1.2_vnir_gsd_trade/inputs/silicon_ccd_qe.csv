@@ -1,0 +1,16 @@
+# Front-illuminated silicon CCD QE (digitized from datasheet plot)
+# Digitization is a manual pre-step — the vendor plot is a JPEG
+wavelength_nm,QE_pct
+400,28.0
+450,52.0
+500,72.0
+550,84.0
+600,90.0
+650,91.0
+700,88.0
+750,82.0
+800,74.0
+850,63.0
+900,48.0
+950,33.0
+1000,18.0

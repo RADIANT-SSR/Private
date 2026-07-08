@@ -798,6 +798,38 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 7.5. |
 
+---
+
+## Gap 49: No diffraction-limited-resolution metric in result.metrics
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 1.2 execution (Phase T4), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | The Rayleigh ground spot (`1.22 λ (f/#)`, i.e. `1.22 λ · altitude / D` at nadir) is the optics-only resolution floor and the natural companion to `gsd_geometric_mean_m`, but it is not a surfaced metric. Scenario 1.2 computes it locally to draw the diffraction-limit constraint line and decide detector- vs diffraction-limited sampling. All inputs (aperture, focal length, band-center wavelength, range) already live in the chain — this is a surfacing gap, not a physics gap. |
+| **Workaround** | Compute `1.22 λ_center · altitude / D` script-side (scenario 1.2 `diffraction_limited_gsd_m`). |
+| **Impact** | Low — ergonomics; a designer comparing optics-limited vs detector-limited resolution should read it from the result, not re-derive it. Pairs with Gap 50. |
+| **Fix location** | `performance/` new one-computation module + `performance/stage.py` metric wiring (Rule 19). |
+| **Effort** | Trivial. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 1.2. |
+
+---
+
+## Gap 50: No detector-vs-diffraction-limited sampling-regime flag
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 1.2 execution (Phase T4), 2026-07-08 |
+| **Status** | OPEN |
+| **Description** | `q_center` (= λ·f/#/pitch) is already a metric, but the qualitative call it implies — detector-limited (`Q < 1`, undersampled/aliasing-risk) vs diffraction-limited (`Q ≳ 2`, oversampled) — is not surfaced. Scenario 1.2's whole takeaway is *where the design crosses that boundary*, and each trade script re-derives it from `q_center`. A `sampling_regime` enum/label metric would make the crossover a first-class output. |
+| **Workaround** | Threshold `q_center` script-side. |
+| **Impact** | Low — ergonomics; pairs with Gap 49. |
+| **Fix location** | `performance/stage.py` — derive a label from the existing `q_center`. |
+| **Effort** | Trivial. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 1.2. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -850,6 +882,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | OPEN |
 | 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
 | 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
+| 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | OPEN |
+| 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | OPEN |
 
 ---
 
@@ -904,7 +938,7 @@ Require new physics models, analysis modes, or architectural additions beyond me
 
 | Priority | Scenario | Persona | New capability |
 |----------|----------|---------|----------------|
-| 23 | 1.2 | Sarah | Solar geometry calculator (LTAN/date/lat → zenith) |
+| ~~23~~ | ~~1.2~~ | ~~Sarah~~ | ~~Solar geometry calculator (LTAN/date/lat → zenith)~~ — **DONE** `radiant.core.solar_geometry` (00efcc5) |
 | 24 | 3.1 | Raj | Orbit → geometry calculator, pass planning |
 | 25 | 4.4 | Lisa | Time-varying scenario (diurnal temperature sweep) |
 | 26 | 4.2 | Lisa | Johnson criteria / DRI range model |

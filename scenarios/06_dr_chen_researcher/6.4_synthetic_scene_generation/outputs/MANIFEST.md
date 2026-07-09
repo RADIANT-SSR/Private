@@ -8,5 +8,5 @@ console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_scene_strip.png | figure (committed) | PENDING |
-| fig2_roc_curves.png | figure (committed) | PENDING |
+| fig1_scene_strip.png | figure (committed) | 6ca0cb3 2026-07-09 |
+| fig2_roc_curves.png | figure (committed) | 6ca0cb3 2026-07-09 |

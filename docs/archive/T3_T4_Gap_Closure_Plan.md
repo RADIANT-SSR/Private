@@ -1,6 +1,10 @@
 # T3–T4 Gap Closure Plan
 
-Status: Active (2026-07-08)
+> **HISTORICAL — completed 2026-07-08 (coding agent).** All 13 gaps
+> (42–54) closed; archived per Rule 24. See `docs/tracking/gaps.md` for the
+> RESOLVED entries and commit SHAs.
+
+Status: Complete (2026-07-08)
 Author: Coding agent, approved by project owner
 Scope: Close the framework gaps discovered while executing the Tier-3 and
 Tier-4 scenarios — registry entries **Gap 42–54** in
@@ -108,29 +112,36 @@ Optional follow-on: migrate scenarios 4.3/4.4 off the manual workaround.
 
 ## Deferred — own charter
 
-| Gap | Why deferred | Re-audit |
-|-----|--------------|----------|
-| ~~53~~ | **DONE (b8418c0)** — `performance/minimum_resolvable.py` (MRT/MRC) + `mrt_at_nyquist_K` metric. Contrast-limited companion to the Johnson model; no 4.2 rescope needed. | — |
-| **42** | Config-loading + source-background architecture (see Wave B note). `space`-subcase workaround ships. | Next io/config task, or 2026-10-01 |
+All initially-deferred gaps were subsequently closed in this same pass:
+- **53** → DONE (b8418c0): `performance/minimum_resolvable.py` (MRT/MRC) +
+  `mrt_at_nyquist_K` metric.
+- **47** → DONE (d5b3eb2): `source.target.emissivity_path` spectral ε(λ).
+- **42** → DONE (bf43d5f): grey-body chamber background for
+  ground_test/lab_test from `source.background.*`.
 
 Also **out of this plan:** the 4.5 (microbolometer) / 6.1 (D*/NETD) noise-spec
-converter design decision — that is a *scenario* prerequisite tracked in the
-Scenario Execution Plan, not a T3/T4 registry gap.
+converter design decision — that was a *scenario* prerequisite tracked in the
+Scenario Execution Plan, and has since been implemented there.
+
+**Optional follow-ons** (not blocking; noted in the relevant `gaps.md`
+entries): migrate scenarios 4.3/4.4 off the manual two-pixel contrast
+workaround onto the native `source.contrast_reference.*` (Gap 52), and the
+lab-bench scripts (7.1/7.3/7.4/2.2/2.5) off the `space`-subcase +
+placeholder `h_sensor` workaround onto `lab_test` (Gap 42).
 
 ---
 
 ## Exit criteria
 
-- **Closed (12):** Gaps 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54 —
-  RESOLVED in `gaps.md` with commit SHAs, Summary-Table rows FIXED.
-- **Remaining (1):** Gap 42 (`lab_test`/`ground_test` config surface) — the
-  last open item; config-loading + source-background architecture.
+- **Closed (13 / 13):** Gaps 42–54 — all RESOLVED in `gaps.md` with commit
+  SHAs, Summary-Table rows FIXED. ✓
 - Only Gap 43 changed results (NEDT, small, owner-greenlit, provenance-
   pinned); every other closed gap is additive or default-preserving
-  (opt-in inputs, new metrics/models).
+  (opt-in inputs, new metrics/models). Gap 42 changed the ground/lab_test
+  behaviour but no golden used those sub-cases.
 - Every closed gap has a Level-0 test; `mypy --strict` clean on core/api;
   import-linter and org-rules pass. ✓
-- Plan archived per Rule 24 once Gap 42 lands; until then it stays Active.
+- **Plan complete and archived (2026-07-08) per Rule 24.**
 
 ---
 

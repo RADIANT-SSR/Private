@@ -693,7 +693,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.4 refresh (Scenario_Execution_Plan Phase R, 2026-07-07) |
-| **Status** | DEFERRED (architecture task) 2026-07-08 — extends `io/config.py` config-loading + the source-background injection path (illumination follow-on ADR anchor). `space`-subcase workaround ships (scenario 7.4). Gating: next io/config task; re-audit 2026-10-01. See `docs/plans/T3_T4_Gap_Closure_Plan.md`. |
+| **Status** | RESOLVED 2026-07-08 (bf43d5f) — `no_atmosphere_subcase` ∈ {ground_test, lab_test} builds a grey-body chamber background `L_bg=ε_bg·B(T_bg)` from `source.background.*` (Decision #15 blesses them here) instead of raising; warns on the default chamber temp. Lab/TVAC scenarios now run from config; a measured `L_bg(λ)` can still be injected. Follow-on (optional): migrate the lab-bench scripts (7.1/7.3/7.4/2.2/2.5) off the `space`-subcase + placeholder `h_sensor` workaround. |
 | **Description** | The `no_atmosphere` sub-cases `lab_test` and `ground_test` require a `UserSpectralBackground(L_bg: SpectralData)`, which can only be injected by constructing the descriptor manually and publishing it into `stage_outputs["source"]["background"]` (the integration-test pattern in `tests/integration/test_no_atm_subcases.py`). `Sensor.from_dict` / YAML has no L_bg path, and `atmosphere.model = "exo"` auto-infers sub-case `space`. Lab/TVAC scenarios therefore masquerade as `space`, which (a) forces a placeholder positive `platform.h_sensor` (e.g. 1.0 m bench height) to satisfy the Earth-limb validator, and (b) substitutes `ColdSpaceBackground` for the actual chamber radiance. |
 | **Workaround** | Model the chamber as `space` sub-case with `platform.h_sensor = 1.0` m and represent the chamber contents (cold plate / blackbody) as the extended target; acceptable when the scene fills the FOV and the true background term is negligible (77 K cold plate in MWIR). Used by scenario 7.4. |
 | **Impact** | Every lab/TVAC scenario (7.x family) carries a physically-mislabeled sub-case and a placeholder altitude; a lit-lab scenario whose chamber background is NOT negligible cannot be modeled from the config surface at all. |
@@ -939,7 +939,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
-| 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | DEFERRED (arch, re-audit 2026-10-01) |
+| 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | FIXED |
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | FIXED |
 | 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | FIXED |
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |

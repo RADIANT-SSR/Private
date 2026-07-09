@@ -8,4 +8,4 @@ benchmark table is printed to the console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_datasheet_benchmark.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_datasheet_benchmark.png | figure (committed) | 55b0175 2026-07-08 |

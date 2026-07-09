@@ -32,6 +32,14 @@ retroactively reconstructed.
   two pinned Option-C LWIR anchors were repinned with provenance. The
   single-λ form remains the fallback when no target temperature is set.
 
+### Added
+- Temperature retrieval + emissivity/temperature Jacobian (scenario 6.5):
+  `radiant.performance.temperature_retrieval` — `retrieve_temperature_K`
+  (invert a measured band radiance for surface T given an assumed ε, via
+  Brent), `band_planck_radiance`, and the Jacobians `emissivity_jacobian`
+  (∂L/∂ε = B̄(T)) and `temperature_jacobian` (∂L/∂T = ε·∫dB/dT). New error
+  class `TemperatureRetrievalError`. Analysis model — no chain change.
+
 ### Changed
 - Lab/ground-test scenarios reachable from the config surface (Gap 42):
   `source.no_atmosphere_subcase` ∈ {`ground_test`, `lab_test`} now builds a

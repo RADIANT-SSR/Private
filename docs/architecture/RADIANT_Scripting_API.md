@@ -927,6 +927,8 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `nodal_regression_rate_deg_per_day`, `sun_synchronous_inclination_deg`, `equatorial_ground_track_spacing_m`, `revisit_interval_days` (`radiant.core.repeat_ground_track`, Gap 51) | Stable |
 | `dark_shot_crossover_rate_e_per_s`, `blip_rate_e_per_s`, `noise_equivalent_irradiance_ph_s_cm2` (`radiant.performance`, Gap 45) | Stable |
 | `nep_from_dstar`/`dstar_from_nep` (`performance.detectivity`), `nep_from_noise_electrons`/`noise_electrons_from_nep`/`integrating_bandwidth_hz` (`performance.nep_electrons`), `netd_from_nep`/`nep_from_netd` (`performance.nep_netd`) — D*/NEP/NETD converters (scenarios 6.1, 4.5) | Stable |
+| `minimum_resolvable_temperature_K`/`minimum_resolvable_contrast` (`performance.minimum_resolvable`, Gap 53) | Stable |
+| `retrieve_temperature_K`, `band_planck_radiance`, `emissivity_jacobian`, `temperature_jacobian` (`performance.temperature_retrieval`, scenario 6.5) | Stable |
 | `analyze_calibration` + `CalibrationReport` (`radiant.api.calibration_analysis`, Gap 46) | Stable |
 | `johnson_range_m`, `resolved_cycles`, `JOHNSON_N50` (`radiant.performance.johnson_criteria`, scenario 4.2) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |

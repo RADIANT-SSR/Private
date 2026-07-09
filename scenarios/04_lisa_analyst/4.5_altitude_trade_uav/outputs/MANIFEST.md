@@ -8,4 +8,4 @@ NETD→D* conversion and altitude-trade table are printed to the console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_altitude_trade.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_altitude_trade.png | figure (committed) | efea031 2026-07-08 |

@@ -74,6 +74,28 @@ def compute_contrast_snr(state: ChainState) -> SNRResult:
             failure_reason="noiseless configuration",
         )
 
+    # ADR-0005 (Gap 52): when an extended contrast reference is configured,
+    # the contrast is a two-pixel spatial differential, so its noise is the
+    # combined noise of the target and reference pixels, √(N_t² + N_ref²).
+    # The reference pixel's noise differs from the target's only in the
+    # signal-shot term, so N_ref² = N_t² − S_t + S_ref. Exact for staring
+    # sensors (no TDI/binning); first-order otherwise.
+    si_out = state.stage_outputs.get("spectral_integration", {})
+    ref_signal_e = si_out.get("contrast_reference_signal_e")
+    if ref_signal_e is not None:
+        s_t_pre = si_out.get("signal_e")
+        s_t = ro_out.get("signal_e_final", s_t_pre)
+        scale = (s_t / s_t_pre) if (s_t_pre not in (None, 0.0)) else 1.0
+        s_ref = ref_signal_e * scale
+        n_ref_sq = max(0.0, noise_e**2 - s_t + s_ref)
+        combined_noise = math.sqrt(noise_e**2 + n_ref_sq)
+        if combined_noise > 0.0:
+            return SNRResult(
+                value=contrast_e / combined_noise,
+                signal_e=contrast_e,
+                noise_e=combined_noise,
+            )
+
     contrast_snr = contrast_e / noise_e
     return SNRResult(
         value=contrast_snr,

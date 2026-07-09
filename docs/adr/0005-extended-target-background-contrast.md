@@ -1,7 +1,7 @@
 # ADR-0005: Extended Target-vs-Background Contrast
 
 **Date:** 2026-07-08
-**Status:** Proposed
+**Status:** Accepted (implemented 2026-07-08)
 
 ## Context
 

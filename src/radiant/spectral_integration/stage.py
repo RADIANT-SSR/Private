@@ -43,6 +43,52 @@ from radiant.core.regime import RadiometricRegime
 logger = logging.getLogger(__name__)
 
 
+def _extended_contrast_reference_signal(
+    params: ParameterSet,
+    state: ChainState,
+    wl: np.ndarray,
+    lam_m: np.ndarray,
+    mask: np.ndarray,
+    wl_band: np.ndarray,
+    qe_curve: np.ndarray,
+    a_collect: float,
+    omega_pixel: float,
+    t_int: float,
+    optics_out: dict[str, object],
+) -> float | None:
+    """Reference-pixel signal S_b for the extended contrast (ADR-0005, Gap 52).
+
+    When ``source.contrast_reference.temperature > 0`` this builds the
+    in-band signal of a uniform reference scene in the neighbouring pixel —
+    ``L_ref = ε_ref·B(λ,T_ref)·τ_atm + L_path`` transported once through the
+    optics — for the extended ``contrast_snr`` differential. It is used ONLY
+    for the contrast metric and NEVER enters the noise budget (Decision #13
+    preserved). Returns None when no contrast reference is configured.
+    """
+    try:
+        t_ref: float = params.get("source.contrast_reference.temperature")
+    except (KeyError, TypeError):
+        return None
+    if not (np.isfinite(t_ref) and t_ref > 0.0):
+        return None
+    eps_ref: float = params.get("source.contrast_reference.emissivity")
+
+    atm_out = state.stage_outputs.get("atmosphere", {})
+    tau_atm = atm_out.get("tau_atm")
+    l_path = atm_out.get("L_path")
+    tau_opt = optics_out.get("tau_opt")
+    if tau_atm is None or l_path is None or tau_opt is None:
+        return None
+
+    b_ref = planck_spectral_radiance(wl, t_ref)  # W/m²/sr/µm
+    l_ref_at_aperture = eps_ref * b_ref * np.asarray(tau_atm) + np.asarray(l_path)
+    l_ref_post = l_ref_at_aperture * tau_opt
+    photon_rate = l_ref_post * a_collect * omega_pixel * (lam_m / hc)
+    e_rate = photon_rate * qe_curve
+    ref_e_per_s = float(np.trapezoid(e_rate[mask], wl_band))
+    return ref_e_per_s * t_int
+
+
 class SpectralIntegrationStage:
     """Chain stage for spectral-to-scalar integration."""
 
@@ -311,6 +357,28 @@ class SpectralIntegrationStage:
             # extended cells skip the bg photon reference entirely).
             background_e = 0.0
             contrast_e = signal_e
+            # ADR-0005 (Gap 52): if a contrast-reference scene is configured,
+            # make contrast_e a true target-vs-background differential
+            # signal_e − S_b. The reference is metric-only — background_e (and
+            # thus the noise budget) stays 0, preserving Decision #13.
+            ref_signal_e = _extended_contrast_reference_signal(
+                params,
+                state,
+                wl,
+                lam_m,
+                mask,
+                wl_band,
+                qe_curve,
+                A_collect,
+                Omega_pixel,
+                t_int,
+                optics_out,
+            )
+            if ref_signal_e is not None:
+                contrast_e = signal_e - ref_signal_e
+                state = state.with_stage_output(
+                    "spectral_integration", "contrast_reference_signal_e", ref_signal_e
+                )
 
         frame = RadiometricFrame(
             name="photoelectrons",

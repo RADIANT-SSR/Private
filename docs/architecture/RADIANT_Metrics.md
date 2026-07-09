@@ -168,6 +168,14 @@ CSNR = ΔS / σ_total
 
 **Regimes:** sub-pixel (and edge case point source where EE_box is the only spatial term).
 
+**Extended regime (ADR-0005, Gap 52):** by default the extended `contrast_snr` reports the whole-scene SNR (there is no adjacent background — Decision #13). Setting `source.contrast_reference.temperature > 0` supplies the uniform scene in the *neighbouring* extended pixel and makes it a true two-pixel spatial differential:
+```
+ΔS       = S_target − S_reference
+σ_contrast = √(N_target² + N_reference²)      (N_ref² = N_t² − S_t + S_ref)
+contrast_snr = ΔS / σ_contrast
+```
+It nulls at the radiance crossover `ε_t·B(λ,T_t) = ε_r·B(λ,T_r)`. The reference is metric-only — it never enters the noise budget, so the absolute SNR (and Decision #13's pinned anchors) are unchanged. `source.contrast_reference.*` is explicitly **not** the Decision-#15 `source.background.*` nor the Decision-#13 `BackgroundDescriptor`. Combined noise is exact for staring sensors; first-order for TDI/binned readouts.
+
 **Unit:** dimensionless.
 
 **Typical values:** 6–30 for detectable subpixel targets.

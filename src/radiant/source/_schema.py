@@ -148,6 +148,46 @@ BACKGROUND_EMISSIVITY = ParameterDef(
     default_justification="0.95 is typical for natural terrain in LWIR.",
 )
 
+# ADR-0005 (Gap 52): the extended target-vs-background contrast reference.
+# This is the uniform scene in the *neighbouring* extended pixel — a
+# metric-only concept, explicitly NOT the deprecated source.background.*
+# (adjacent-scene-behind-a-sub-pixel-target, Decision #15) and NOT the
+# BackgroundDescriptor (absent for extended, Decision #13). It drives the
+# extended contrast_snr differential ONLY; it never enters the noise budget,
+# so Decision #13's SNR architecture is preserved. Opt-in: temperature = 0
+# disables it (default), leaving all results unchanged.
+CONTRAST_REFERENCE_TEMPERATURE = ParameterDef(
+    name="source.contrast_reference.temperature",
+    description=(
+        "Temperature [K] of the reference (background) scene in the "
+        "neighbouring extended pixel, used only for the extended "
+        "contrast_snr differential (ADR-0005). 0 = no contrast reference "
+        "(default). Never enters the noise budget."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=0.0,
+    bounds=(0.0, 5000.0),
+    tags=frozenset({"source", "contrast_reference"}),
+    default_justification="0 K = disabled; the extended contrast_snr is not emitted.",
+)
+
+CONTRAST_REFERENCE_EMISSIVITY = ParameterDef(
+    name="source.contrast_reference.emissivity",
+    description=(
+        "Emissivity of the extended contrast-reference scene (ADR-0005). "
+        "Only used when source.contrast_reference.temperature > 0."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.95,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"source", "contrast_reference"}),
+    default_justification="0.95 is typical for natural terrain in LWIR.",
+)
+
 # ---------------------------------------------------------------------------
 # Regime override
 # ---------------------------------------------------------------------------
@@ -768,6 +808,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     FILL_FRACTION,
     BACKGROUND_TEMPERATURE,
     BACKGROUND_EMISSIVITY,
+    CONTRAST_REFERENCE_TEMPERATURE,
+    CONTRAST_REFERENCE_EMISSIVITY,
     REGIME_OVERRIDE,
     SCENE_TYPE,
     TARGET_LOCATION,

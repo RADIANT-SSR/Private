@@ -33,6 +33,17 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- Extended target-vs-background contrast (ADR-0005, Gap 52): new
+  parameters `source.contrast_reference.temperature` and
+  `source.contrast_reference.emissivity` make `contrast_snr` a true
+  two-pixel spatial differential in the extended regime — `ΔS = S_target −
+  S_reference`, combined noise `√(N_t² + N_ref²)` — which nulls at the
+  radiance crossover. The reference is metric-only: it never enters the
+  noise budget, so absolute SNR (and Decision #13's pinned anchors) are
+  unchanged. Opt-in (`temperature = 0` disables it, the default), so no
+  golden result moves. Supersedes the two-pixel-differencing workaround in
+  scenarios 4.3/4.4. New error class n/a; explicitly distinct from the
+  deprecated `source.background.*` (Decision #15).
 - D*/NEP/NETD noise-spec converters (scenarios 6.1, 4.5 prerequisite):
   `performance/detectivity.py` (`nep_from_dstar`/`dstar_from_nep`,
   `D* = √(A·Δf)/NEP`), `performance/nep_electrons.py`

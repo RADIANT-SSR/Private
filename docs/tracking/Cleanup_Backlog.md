@@ -13,6 +13,15 @@
 ## Open
 
 
+### CU-061 — `contrast_snr` with a contrast reference drifts when the pixel saturates
+
+- **Discovered**: Scenario 3.5 execution (Phase T4), 2026-07-09
+- **Status**: Open
+- **File**: `src/radiant/performance/contrast_snr.py:83-97` (the ADR-0005 combined-noise block)
+- **Symptom**: The combined-noise formula `n_ref² = N_t² − S_t + S_ref` uses the pre-full-well `signal_e` (`si_out["signal_e"]` / `ro_out["signal_e_final"]`). When the target pixel saturates (signal_e > full well), the reported `contrast_snr` diverges from the true two-pixel differential and can **exceed the absolute `snr`** — physically impossible for a differential. Reproduce: extended scene, `source.target.temperature=295`, `source.contrast_reference.temperature=288`, LWIR 8–12 µm, `readout.full_well_capacity_e=2e7` with `integration_time_s=1e-3` (signal_e ≈ 2.6e7 > FWC) → `contrast_snr` ≈ 6250 while `snr` ≈ 2447. Below full well the metric is exact (matches two-run differencing to the digit).
+- **Why it still matters**: the metric silently misreports detectability for any saturating target-vs-reference scene; a user sizing an integration time near full well gets a contrast SNR that is too optimistic. Rule 17 (no silently-wrong physics) — the metric should clamp to the post-well signal or emit a saturation `UserWarning` on the contrast term.
+- **Suggested fix**: (b) stand-alone task — recompute `S_t`/`S_ref` from the well-capped signals in the combined-noise block, or gate the reference-noise path on a not-saturated check and warn otherwise; add a Level-0 test at/above full well. Effort: Small. Category: B (metric-layer correctness).
+
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
 
 **Investigation extended 2026-07-07 (overnight run — STOP trigger fired, no code changed):** the task doc's Approach 1 (area-integration/anti-aliased rect kernel) was measured before implementation and does NOT meet the doc's own acceptance criterion. Empirical FFT-vs-analytic-sinc error on the exact `swir_aerial_gas` parameters (pitch 20 µm, spacing 1.6875 µm, npix 512):

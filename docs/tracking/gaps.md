@@ -926,6 +926,54 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None outright (6.4 stopgap); a true spatial-scene scenario would need it. |
 | **Rerun after fix** | Scenario 6.4 (replace the scripted strip with a rendered scene). |
 
+---
+
+## Gap 57: `standard_atmosphere` preset only sets emission temperature, not humidity/transmission
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.5 execution (Phase T4), 2026-07-09 |
+| **Status** | OPEN |
+| **Description** | Selecting `atmosphere.standard_atmosphere = "tropical"` (or any of the six presets) changes only the downwelling **emission temperature** via the sea-level temperature table (`atmosphere/simple.py` `_T_SEA_LEVEL_K`: tropical 299.65 K vs us_standard 288.15 K, used in `_effective_atmospheric_temperature_K`). It does **not** set the profile-appropriate water-vapour column, ozone, or transmission. Precipitable water is a *separate* independent parameter (`atmosphere.precipitable_water_cm`, default 1.4 cm = US-standard mid-latitude). A user who selects "tropical" but leaves PWV at default gets tropical emission temperature with **US-standard transmission** — silently wrong for MWIR/LWIR window radiometry, where the tropical humidity column is the dominant effect. |
+| **Workaround** | Set `precipitable_water_cm` explicitly to the climate-appropriate value alongside the preset (scenario 3.5 uses 4.1 cm for tropical). |
+| **Impact** | Medium — transmission error can be large in humid columns; the preset name implies a full profile it does not deliver. |
+| **Fix location** | `atmosphere/simple.py` — couple the preset to a default PWV (and ozone) table, or validate that PWV was set when a non-us_standard preset is chosen. Doc lock-step with `RADIANT_Atmosphere.md`. |
+| **Effort** | Small–Medium. |
+| **Scenarios blocked** | None (explicit-PWV workaround); any climate-zone scene relying on the preset alone is affected. |
+| **Rerun after fix** | Scenario 3.5. |
+
+---
+
+## Gap 58: No GeoTIFF / raster reader for surface maps
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.5 execution (Phase T4), 2026-07-09 |
+| **Status** | OPEN |
+| **Description** | RADIANT has no importer for GeoTIFF (or any raster) surface-temperature or land-cover maps. Raj's NOAA land-surface-temperature map cannot be ingested; the scenario transcribes it to a 1-D CSV strip as the workaround. A real reader would ingest the 2-D field and — with Gap 56's scene model — drive a per-pixel background. |
+| **Workaround** | Transcribe the raster to a CSV strip / scalar envelope (scenario 3.5 pattern). |
+| **Impact** | Low–Medium — a manual transcription step; blocks true map-driven backgrounds. |
+| **Fix location** | New `io/` raster reader (rasterio/GDAL or a minimal GeoTIFF parser); pairs with the `scene/` module (Gap 56). |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None (CSV workaround); map-driven scenes need it. |
+| **Rerun after fix** | Scenario 3.5. |
+
+---
+
+## Gap 59: No solar-dependence (day/night) analysis mode
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 3.5 execution (Phase T4), 2026-07-09 |
+| **Status** | OPEN |
+| **Description** | There is no first-class toggle to add/remove a reflected-solar term from an emissive scene and report the day/night delta. Scenario 3.5 computes the thermal-vs-reflected-solar comparison analytically (`core.blackbody`) script-side to demonstrate solar independence. A built-in mode would fold the reflected-solar term into the chain radiometry and expose a day/night comparison metric. |
+| **Workaround** | Compute reflected-solar band radiance analytically and compare to thermal emission (scenario 3.5 pattern). |
+| **Impact** | Low — the analytic side calculation is adequate; a mode would package it and couple it to the chain. |
+| **Fix location** | `source/` reflective-solar term + a chain flag; relates to the existing E_sky single-scatter work (Gap 38). |
+| **Effort** | Medium. |
+| **Scenarios blocked** | None (analytic workaround). |
+| **Rerun after fix** | Scenario 3.5. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -986,6 +1034,9 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 | 55 | No PDF spec-sheet parser | Large | 3.3 | OPEN |
 | 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | OPEN |
+| 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | OPEN |
+| 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | OPEN |
+| 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | OPEN |
 
 ---
 

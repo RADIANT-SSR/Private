@@ -9,4 +9,4 @@ console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_radar_comparison.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_radar_comparison.png | figure (committed) | 4455ad8 2026-07-08 |

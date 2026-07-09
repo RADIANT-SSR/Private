@@ -9,17 +9,14 @@ and the veiling-glare tolerance.
 Scene: daytime VNIR pan band (0.5–0.8 µm), rooftop target (ρ = 0.30) against
 vegetation (ρ = 0.15), airborne, solar zenith 30°.
 
-Two RADIANT stray-light levers, and an important caveat:
-  - `absolute_irradiance` mode is correct: Tom's 2.5 W/m² out-of-field stray
-    injects a real electron pedestal → shot noise → SNR/NIIRS loss.
-  - `veiling_glare` mode is CURRENTLY BROKEN (CU-062): it scales the in-FOV
-    irradiance by the pixel IFOV solid angle instead of the f-cone, so it
-    under-reports stray by ~(D/pitch)²·π/4 ≈ 10⁷–10⁸ and reports ZERO impact
-    for any VGI. This script demonstrates that, then routes Tom's 3 % VGI
-    through the correct physics via the identity  stray_e = VGI · S_scene
-    (a uniform scene scatters VGI of its own per-pixel flux onto each pixel),
-    expressed as an equivalent absolute irradiance so the chain — including
-    its GIQE/NIIRS — sees the right pedestal.
+Two RADIANT stray-light levers:
+  - `veiling_glare` mode: Tom's 3 % VGI. This scenario originally FOUND that
+    the mode was inert (CU-062: it scaled the in-FOV irradiance by the pixel
+    IFOV solid angle instead of the f-cone). That bug is now FIXED — the mode
+    correctly yields  stray_e = vgf · signal_e  for a uniform extended scene,
+    which Section 2 verifies against the identity before using it.
+  - `absolute_irradiance` mode: Tom's 2.5 W/m² out-of-field stray injects a
+    flat electron pedestal → shot noise → SNR/NIIRS loss.
 
 RADIANT models stray light as a uniform NOISE pedestal only: it adds shot
 noise and, because the pedestal is common to target and background, leaves
@@ -27,8 +24,8 @@ the contrast SIGNAL unchanged (contrast degrades purely through added
 noise). The classic veiling-glare MTF / contrast-modulation reduction is NOT
 modelled (gaps.md).
 
-Every printed number carries units; the model's assumptions and the VGI-mode
-bug are called out inline (house rules).
+Every printed number carries units; the model's assumptions and the
+(now-fixed) VGI-mode history are called out inline (house rules).
 
 Run from the repo root:
     python scenarios/05_tom_optical_designer/5.5_stray_light_veiling_glare/\
@@ -140,7 +137,6 @@ def main() -> None:
     ct = _run(RHO_TARGET)
     cb = _run(RHO_BG)
     c_csnr = _contrast_snr(ct, cb)
-    s_scene = 0.5 * (ct["signal_e"] + cb["signal_e"])  # mean in-FOV per-pixel flux
     print("-" * 80)
     print("1. CLEAN BASELINE (no stray light)")
     print("-" * 80)
@@ -149,36 +145,32 @@ def main() -> None:
         f"SNR {ct['snr']:.1f}, contrast SNR {c_csnr:.1f}, NIIRS {ct['niirs']:.3f}."
     )
 
-    # --- Demonstrate the veiling_glare-mode bug (CU-062) ---------------
+    # --- Verify the native veiling_glare mode (CU-062, now fixed) ------
     vgi_run = _run(RHO_TARGET, mode="veiling_glare", vgi=0.10)
     print()
     print("-" * 80)
-    print("2. NATIVE veiling_glare MODE IS INERT (bug CU-062)")
+    print("2. NATIVE veiling_glare MODE VERIFIED (CU-062 fixed)")
     print("-" * 80)
     print(
         f"  optics.stray.veiling_glare_fraction = 0.10 → stray_e = "
-        f"{vgi_run['stray_e']:.3e} e- (should be ~0.10 × {s_scene:.2e} ≈ "
-        f"{0.10 * s_scene:.2e} e-). SNR {vgi_run['snr']:.1f} vs clean {ct['snr']:.1f} — "
-        "UNCHANGED. The native mode scales by the pixel IFOV solid angle, not the "
-        "f-cone; it under-reports stray by ~(D/pitch)²·π/4 and does nothing. "
-        "Below we route VGI through the correct physics."
+        f"{vgi_run['stray_e']:.3e} e-, vs the identity 0.10 × signal = "
+        f"{0.10 * ct['signal_e']:.3e} e- — they agree. This scenario originally "
+        "found the mode inert (it used the pixel IFOV solid angle, not the f-cone); "
+        "the fix (f-cone Ω_cone = A_collect/focal²) restores stray_e = vgf·signal_e, "
+        "so Tom's veiling-glare index can be entered directly below."
     )
 
-    # --- Calibrate stray_e per W/m² from the correct absolute mode -----
-    ref_irr = 1.0
-    k_e_per_W = _run(RHO_TARGET, mode="absolute_irradiance", abs_irr=ref_irr)["stray_e"] / ref_irr
-    print(f"\n  Calibration: absolute-irradiance mode gives {k_e_per_W:.3e} stray e- per W/m².")
-
-    # --- Tom's two FRED inputs, done correctly -------------------------
+    # --- Tom's two FRED inputs -----------------------------------------
     print()
     print("-" * 80)
-    print("3. STRAY-LIGHT IMPACT — Tom's FRED inputs (correct physics)")
+    print("3. STRAY-LIGHT IMPACT — Tom's FRED inputs")
     print("-" * 80)
     print(f"{'case':>28}{'stray e-':>13}{'SNR':>9}{'contrast SNR':>15}{'NIIRS':>9}{'ΔNIIRS':>9}")
 
-    def stray_case(label: str, abs_irr: float) -> dict:
-        t = _run(RHO_TARGET, mode="absolute_irradiance", abs_irr=abs_irr)
-        b = _run(RHO_BG, mode="absolute_irradiance", abs_irr=abs_irr)
+    def stray_case(label: str, *, vgi: float = 0.0, abs_irr: float = 0.0) -> dict:
+        mode = "veiling_glare" if vgi > 0.0 else "absolute_irradiance"
+        t = _run(RHO_TARGET, mode=mode, vgi=vgi, abs_irr=abs_irr)
+        b = _run(RHO_BG, mode=mode, vgi=vgi, abs_irr=abs_irr)
         csnr = _contrast_snr(t, b)
         dn = t["niirs"] - ct["niirs"]
         print(
@@ -190,27 +182,25 @@ def main() -> None:
     print(
         f"{'clean':>28}{0.0:>13.3e}{ct['snr']:>9.1f}{c_csnr:>15.1f}{ct['niirs']:>9.3f}{0.0:>9.3f}"
     )
-    # VGI 3% → equivalent absolute irradiance via stray_e = VGI·S_scene
-    vgi_abs = VGI_FRED * s_scene / k_e_per_W
-    stray_case(f"veiling glare {VGI_FRED:.0%} (corrected)", vgi_abs)
-    stray_case(f"out-of-field {STRAY_ABS_W_M2} W/m²", STRAY_ABS_W_M2)
+    stray_case(f"veiling glare {VGI_FRED:.0%}", vgi=VGI_FRED)
+    oof_case = stray_case(f"out-of-field {STRAY_ABS_W_M2} W/m²", abs_irr=STRAY_ABS_W_M2)
     print(
-        f"\n  Tom's 3 % veiling glare adds {VGI_FRED * s_scene:.2e} stray e- (≈ 3 % of the "
-        "scene) — a modest noise penalty. His 2.5 W/m² out-of-field stray is far worse: "
-        f"{k_e_per_W * STRAY_ABS_W_M2:.2e} e-, several × the signal, cutting SNR and "
-        "costing NIIRS. Stray light degrades contrast SNR purely by added shot noise — "
+        f"\n  Tom's 3 % veiling glare adds ≈ {VGI_FRED * ct['signal_e']:.2e} stray e- "
+        "(≈ 3 % of the signal) — a modest noise penalty. His 2.5 W/m² out-of-field "
+        "stray is far worse: several × the signal, cutting SNR and costing a full "
+        "NIIRS level. Stray light degrades contrast SNR purely by added shot noise — "
         "the uniform pedestal cancels in the target−background difference, so the "
         "contrast SIGNAL is unchanged (RADIANT does not model the veiling-glare MTF "
         "reduction; gaps.md)."
     )
 
-    # --- VGI tolerance sweep -------------------------------------------
+    # --- VGI tolerance sweep (native veiling_glare) --------------------
     vgis = np.linspace(0.0, 0.10, 21)
     sweep = []
     for v in vgis:
-        abs_irr = v * s_scene / k_e_per_W
-        t = _run(RHO_TARGET, mode="absolute_irradiance", abs_irr=abs_irr)
-        b = _run(RHO_BG, mode="absolute_irradiance", abs_irr=abs_irr)
+        mode = "veiling_glare" if v > 0.0 else "absolute_irradiance"
+        t = _run(RHO_TARGET, mode=mode, vgi=v)
+        b = _run(RHO_BG, mode=mode, vgi=v)
         sweep.append((v, t["snr"], _contrast_snr(t, b), t["niirs"]))
     # tolerance: largest VGI keeping ΔNIIRS ≤ budget AND contrast SNR ≥ floor
     tol_vgi = 0.0
@@ -228,14 +218,14 @@ def main() -> None:
     )
 
     _figure_sweep(sweep, tol_vgi, ct["niirs"])
-    _figure_budget(ct, cb, stray_e_abs=k_e_per_W * STRAY_ABS_W_M2)
+    _figure_budget(ct, cb, stray_e_abs=oof_case["stray_e"])
 
     print()
     print("=" * 80)
     print(
         "SUMMARY: 3 % veiling glare is a mild noise penalty; the 2.5 W/m² out-of-field "
-        "stray is the real threat. NB: the native veiling_glare mode is inert (CU-062); "
-        "route VGI through absolute irradiance until fixed. See outputs/ + MANIFEST.md."
+        "stray is the real threat. The veiling_glare mode, found inert by this scenario "
+        "(CU-062), is now fixed and used directly. See outputs/ + MANIFEST.md."
     )
     print("=" * 80)
 

@@ -885,7 +885,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 1.5 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (f4224ad) — `make_pupil_amplitude` `mask_override`, injected via `optics_config["pupil_mask_override"]`; supersedes parametric geometry, enters both PSF and MTF paths. |
 | **Description** | `make_pupil_amplitude` builds the pupil from parametric shapes: circular aperture + central obscuration + radial spider arms. There is no path to inject an arbitrary measured 2-D pupil mask (segmented aperture, non-circular primary, wavefront-sensor pupil image). The grid could accept an injected amplitude array. |
 | **Workaround** | Use the parametric obscuration + spider shapes (cover the common Cassegrain/refractor cases). |
 | **Impact** | Low–Medium — segmented/exotic apertures cannot be modelled; parametric shapes cover mainstream designs. |
@@ -951,7 +951,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | OPEN |
-| 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | OPEN |
+| 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 
 ---
 

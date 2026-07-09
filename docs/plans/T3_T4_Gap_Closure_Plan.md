@@ -119,5 +119,9 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   Gap 45: `performance/dark_crossover_rate.py`, `blip_rate.py`,
   `noise_equivalent_irradiance.py` (detector FOM). Gap 46:
   `api/calibration_analysis.py` (`analyze_calibration` → `CalibrationReport`).
-  18 Level-0 tests; pure helpers, no chain change. **Wave A complete except
-  Gap 54 (pupil-mask injection).**
+  18 Level-0 tests; pure helpers, no chain change.
+- **2026-07-08 — Wave A complete: Gap 54 closed (f4224ad).**
+  `make_pupil_amplitude` `mask_override`, injected via
+  `optics_config["pupil_mask_override"]`; threaded into both PSF and MTF
+  paths (Rule 4). Default byte-identical — 504 optics + 10 golden tests
+  unchanged; 8 tests. **Wave A (Gaps 45, 46, 49, 50, 51, 54) done.**

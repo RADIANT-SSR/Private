@@ -13,6 +13,15 @@
 ## Open
 
 
+### CU-062 — Veiling-glare stray light uses the pixel IFOV solid angle, not the f-cone — mode is effectively inert
+
+- **Discovered**: Scenario 5.5 execution (Phase T4), 2026-07-09
+- **Status**: Open
+- **File**: `src/radiant/optics/stage.py:990-996` (in-FOV irradiance for `veiling_glare` mode)
+- **Symptom**: The `veiling_glare` stray-light mode builds its in-FOV image-plane irradiance as `in_fov_irr = L_post_optics * omega_pixel`, where `omega_pixel = (pitch_x·pitch_y)/focal²` (`stage.py:694`) is the **object-space pixel IFOV solid angle**. The at-FPA irradiance from a scene of radiance L is set by the **image-space f-cone solid angle** `Ω_cone = π·D²/(4·focal²) = π/(4·F#²)`, not the pixel IFOV. The signal path uses the correct etendue (`A_pixel·Ω_cone ≡ A_aperture·Ω_pixel`), so stray is under-computed by `Ω_cone/Ω_pixel = π·D²/(4·pitch²)` — ≈ 8×10⁷ for D=0.15 m, pitch=15 µm. Reproduce: bright VNIR extended scene, `optics.stray.input_mode=veiling_glare`, `veiling_glare_fraction=0.10` → `stray_e ≈ 1.3×10⁻³ e-` against `signal_e ≈ 1.04×10⁶ e-` (should be ~10 % of the in-FOV signal, ~10⁵ e-). SNR/NEDT/NIIRS are unchanged by any VGI in [0, 1] — the mode does nothing.
+- **Why it still matters**: `veiling_glare_fraction` is the natural, most-used stray-light input (matches vendor VGI / FRED veiling-glare-index numbers). It silently reports zero stray-light impact, so a user who specifies 3 % veiling glare gets a clean-optics answer — a Rule 16/17 silent-wrong-physics failure in a physics stage. The `absolute_irradiance` mode is correct (2.5 W/m² → stray_e 5.5×10⁶ e-, SNR 547→124), so scenario 5.5 routes Tom's VGI through the absolute mode via the identity `stray_e = VGI·S_scene` as the workaround.
+- **Suggested fix**: (a) inline-fix — set `in_fov_irr = L_post_optics * Omega_cone` with `Omega_cone = π/(4·F#²)` (F# = focal/D), or equivalently reuse the signal-path etendue; add a Level-0 test asserting `stray_e ≈ VGI·signal_e` for a uniform extended scene. Results-affecting (raises stray/noise wherever `veiling_glare` mode is used) → CHANGELOG + golden review. Effort: Small. Category: C (physics correctness).
+
 ### CU-061 — `contrast_snr` with a contrast reference drifts when the pixel saturates
 
 - **Discovered**: Scenario 3.5 execution (Phase T4), 2026-07-09

@@ -974,6 +974,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (analytic workaround). |
 | **Rerun after fix** | Scenario 3.5. |
 
+---
+
+## Gap 60: Stray light is a scalar noise pedestal only (no 2-D PSF, no MTF impact)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 5.5 execution (Phase T4), 2026-07-09 |
+| **Status** | OPEN |
+| **Description** | RADIANT models stray light as a spatially-uniform electron pedestal — veiling-glare fraction (`optics.stray.veiling_glare_fraction`, but see CU-062: currently inert) or absolute irradiance (`optics.stray.absolute_irradiance_W_m2`, correct) — that contributes shot noise to every pixel. It cannot ingest a 2-D stray-light PSF / PST map (FRED, Zemax `pst_file` mode raises `NotImplementedError`), and it does not model the veiling-glare **MTF / low-frequency contrast-modulation reduction**. The radiometric (noise) hit is captured; the spatial (resolution) hit is not. |
+| **Workaround** | Use the scalar `absolute_irradiance` pedestal for the noise/SNR/NIIRS impact (scenario 5.5); accept that the MTF/contrast-modulation effect is unmodelled. |
+| **Impact** | Low–Medium — noise impact is available; spatial-contrast impact and vendor-PSF ingestion are not. |
+| **Fix location** | `optics/stray_light.py` PST-file mode + a stray-light MTF term feeding the MTF product (Rule 4); pairs with Gap 58 (raster reader). |
+| **Effort** | Medium–Large. |
+| **Scenarios blocked** | None (scalar workaround); a full stray-light-PSF scenario needs it. |
+| **Rerun after fix** | Scenario 5.5. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1037,6 +1053,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | OPEN |
 | 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | OPEN |
 | 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | OPEN |
+| 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | OPEN |
 
 ---
 

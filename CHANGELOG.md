@@ -21,6 +21,12 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Repeat-ground-track & revisit model (Gap 51):
+  `radiant.core.repeat_ground_track` — `nodal_regression_rate_deg_per_day`
+  (J2 secular Ω̇), `sun_synchronous_inclination_deg`,
+  `equatorial_ground_track_spacing_m`, and a first-order
+  `revisit_interval_days`. New Earth constant `J2_earth`; new error class
+  `RepeatGroundTrackError`. Standalone analysis model — no chain change.
 - Diffraction-limited-resolution metrics (Gap 49):
   `diffraction_limit_angular_urad` (Rayleigh `1.22 λ_c / D`) and
   `diffraction_limit_ground_m` (projected to the slant range, companion to

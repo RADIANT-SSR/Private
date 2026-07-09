@@ -59,6 +59,11 @@ R_EARTH_M: float = 6.378137e6
 # https://earth-info.nga.mil/ (WGS-84 specification, GM).
 mu_earth_m3_s2: float = 3.986_004_418e14
 
+# Earth second zonal harmonic J2 [dimensionless] — WGS-84 value. Drives the
+# secular nodal regression of LEO orbits (sun-synchronous condition,
+# repeat-ground-track spacing) in radiant.core.repeat_ground_track.
+J2_earth: float = 1.082_626_68e-3
+
 # ---------------------------------------------------------------------------
 # Derived convenience quantities
 # ---------------------------------------------------------------------------

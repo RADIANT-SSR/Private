@@ -910,6 +910,22 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (workbook workaround). |
 | **Rerun after fix** | Scenario 3.3. |
 
+---
+
+## Gap 56: No multi-target spatial scene model (single-pixel radiometry only)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 6.4 execution (Phase T4), 2026-07-09 |
+| **Status** | OPEN |
+| **Description** | RADIANT is a single-pixel / single-target radiometry engine: one run yields one pixel's signal + noise for one source against one background. There is no 2-D scene model — no way to place multiple targets spatially, PSF-convolve them into a shared focal plane, mix per-pixel radiance from overlapping sources, or lay out a background field. Scenario 6.4 fakes a multi-target scene by running the chain once per target and assembling a 1-D pixel strip in the script, applying an analytic fill-fraction dilution for sub-pixel targets. This covers the radiometry but not the *spatial* scene (no PSF blur between neighbours, no sub-pixel placement, no 2-D layout). |
+| **Workaround** | Run the chain per target + background; assemble pixels in the scenario script; dilute sub-pixel targets by `ff = (size/GSD)²`. Works because extended per-pixel signals are range-independent (only `ff` varies). Adequate for per-target detectability/ROC studies; not for spatial-algorithm testing (edge detection, clutter, PSF-limited separation). |
+| **Impact** | Medium — per-pixel radiometry and per-target ROC are available today; true scene-level and spatial-algorithm work is not. |
+| **Fix location** | New `scene/` module (target masks, sub-pixel placement, PSF-convolved rendering, per-pixel mixed radiance). Large; belongs in the framework, not a scenario script. |
+| **Effort** | Large. |
+| **Scenarios blocked** | None outright (6.4 stopgap); a true spatial-scene scenario would need it. |
+| **Rerun after fix** | Scenario 6.4 (replace the scripted strip with a rendered scene). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -969,6 +985,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | FIXED (MRT/MRC model) |
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 | 55 | No PDF spec-sheet parser | Large | 3.3 | OPEN |
+| 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | OPEN |
 
 ---
 

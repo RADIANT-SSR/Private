@@ -113,7 +113,7 @@ workaround (ships, used by 4.3/4.4). Gating: ADR authored; re-audit
 | Gap | Why deferred | Re-audit |
 |-----|--------------|----------|
 | **53** | Johnson MRC/MRT contrast-limited DRI is Medium–Large and couples to a rescope of scenario 4.2. It needs its own Category-C charter (MRC/MRT curve from the system MTF + noise, then a contrast-limited `johnson_range_m` variant). Not blocking — the sampling-limited geometric bound is shipped and documented. | When scenario 4.2 is rescoped, or 2026-10-01 |
-| **52** | Extended target-vs-background differential — entangled with Decisions #13/#15; needs an ADR (Option A recommended). Two-pixel workaround ships (4.3/4.4). See Wave C note. | ADR authored, or 2026-10-01 |
+| **52** | Extended target-vs-background differential — entangled with Decisions #13/#15. **ADR-0005 drafted (Proposed, Option A).** Awaiting acceptance → implement. Two-pixel workaround ships (4.3/4.4). | ADR accepted, or 2026-10-01 |
 | **47** | Source spec-form router extension (see Wave B note). Architecture task; ε(λ) descriptor support already exists, S8 workaround ships. | Next source-subsystem task, or 2026-10-01 |
 | **42** | Config-loading + source-background architecture (see Wave B note). `space`-subcase workaround ships. | Next io/config task, or 2026-10-01 |
 

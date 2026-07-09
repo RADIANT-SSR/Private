@@ -111,7 +111,6 @@ Optional follow-on: migrate scenarios 4.3/4.4 off the manual workaround.
 | Gap | Why deferred | Re-audit |
 |-----|--------------|----------|
 | ~~53~~ | **DONE (b8418c0)** — `performance/minimum_resolvable.py` (MRT/MRC) + `mrt_at_nyquist_K` metric. Contrast-limited companion to the Johnson model; no 4.2 rescope needed. | — |
-| **47** | Source spec-form router extension (see Wave B note). Architecture task; ε(λ) descriptor support already exists, S8 workaround ships. | Next source-subsystem task, or 2026-10-01 |
 | **42** | Config-loading + source-background architecture (see Wave B note). `space`-subcase workaround ships. | Next io/config task, or 2026-10-01 |
 
 Also **out of this plan:** the 4.5 (microbolometer) / 6.1 (D*/NETD) noise-spec
@@ -122,17 +121,16 @@ Scenario Execution Plan, not a T3/T4 registry gap.
 
 ## Exit criteria
 
-- **Closed (10):** Gaps 43, 44, 45, 46, 48, 49, 50, 51, 52, 54 — RESOLVED in
-  `gaps.md` with commit SHAs, Summary-Table rows FIXED.
-- **Deferred with re-audit records (3):** Gaps 47, 42 (architecture tasks)
-  and 53 (own charter) — see the Deferred table (Rule 22).
+- **Closed (12):** Gaps 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54 —
+  RESOLVED in `gaps.md` with commit SHAs, Summary-Table rows FIXED.
+- **Remaining (1):** Gap 42 (`lab_test`/`ground_test` config surface) — the
+  last open item; config-loading + source-background architecture.
 - Only Gap 43 changed results (NEDT, small, owner-greenlit, provenance-
-  pinned); the other 9 closed gaps are additive or default-preserving
-  (Gap 52's contrast reference is opt-in).
+  pinned); every other closed gap is additive or default-preserving
+  (opt-in inputs, new metrics/models).
 - Every closed gap has a Level-0 test; `mypy --strict` clean on core/api;
   import-linter and org-rules pass. ✓
-- Plan archived per Rule 24 once the four deferrals are done or re-docketed;
-  until then it stays Active (the deferrals keep it open).
+- Plan archived per Rule 24 once Gap 42 lands; until then it stays Active.
 
 ---
 

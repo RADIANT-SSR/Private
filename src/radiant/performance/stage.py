@@ -28,7 +28,7 @@ from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.ground_range import compute_ground_range_m
 from radiant.performance.gsd import compute_gsd
 from radiant.performance.mtf_budget import compute_mtf_budget
-from radiant.performance.nedt import compute_nedt_from_snr
+from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.qsample import compute_q
 from radiant.performance.sampling_regime import classify_sampling_regime
@@ -474,6 +474,19 @@ def _compute_nedt_metric(
     snr = state.metrics.get("snr")
     if snr is None or snr <= 0.0:
         return state
+
+    # Prefer the exact band-integrated dS/dT (Gap 43) computed by
+    # SpectralIntegrationStage; fall back to the single-λ Planck-factor
+    # approximation when it is unavailable (e.g. no target temperature).
+    si_out = state.stage_outputs.get("spectral_integration", {})
+    ds_dt = si_out.get("ds_dt_e_per_K")
+    signal_e = si_out.get("signal_e")
+    if ds_dt is not None and ds_dt > 0.0 and signal_e is not None:
+        noise_e = signal_e / snr  # snr = signal_e / noise_e
+        result = compute_nedt(noise_e, ds_dt)
+        if result.ok:
+            state = state.with_metric("nedt_K", result.value_K)
+            return state.with_stage_output("performance", "nedt_result", result)
 
     try:
         target_temp: float = params.get("source.target.temperature")

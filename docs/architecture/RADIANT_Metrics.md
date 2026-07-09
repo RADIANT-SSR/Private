@@ -91,9 +91,16 @@ SNR = S / σ_total
 **Formula:**
 ```
 NEΔT = σ_total / (dS/dT)
-dS/dT = ∂/∂T [ ∫ ε(λ) · B(λ, T) · A·Ω·τ_atm·τ_opt·QE·λ/(hc) dλ × t_int ]
-       evaluated numerically by perturbing target temperature by 0.1 K
+dS/dT = ∫ [signal integrand](λ) · (∂B/∂T)/B (λ, T) dλ × (t_int, EE factors)
 ```
+The temperature sensitivity is the Planck **log-derivative** `(∂B/∂T)/B` of
+the target's blackbody function — in which emissivity and atmospheric
+transmission cancel — weighting the actual in-band signal integrand
+(`SpectralIntegrationStage.stage_outputs["ds_dt_e_per_K"]`, Gap 43). This
+is the exact band integral; it reduces **exactly** to the single-λ
+Planck-factor form `NEΔT = T / (SNR · x·eˣ/(eˣ−1))`, `x = hc/(λ_eff k_B T)`,
+in the narrow-band limit (`performance.nedt.compute_nedt_from_snr`, the
+fallback when no target temperature is available).
 
 **Required inputs:** everything for SNR plus `target.temperature_K`. Specifically requires that the target *has* a thermal source (either `ThermalSource` or `CombinedSource`); raises NaN with reason "no thermal contribution" otherwise.
 

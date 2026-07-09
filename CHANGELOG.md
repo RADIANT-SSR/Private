@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting (NEDT, small):** exact band-integrated NEDT dS/dT
+  (Gap 43). `SpectralIntegrationStage` now computes
+  `dS/dT = ∫ (signal integrand)·(∂B/∂T)/B dλ` — the exact Planck
+  log-derivative over the band — and `PerformanceStage` uses it (σ/(dS/dT))
+  in place of the single-λ (band-center) Planck-factor approximation. The
+  two agree **exactly** in the narrow-band limit; over a wide band NEDT
+  shifts by the Planck band curvature: ~+0.3% / −0.2% for LWIR cells,
+  ~+4.5% for a 3.5–5 µm MWIR band. No golden baseline asserted NEDT; the
+  two pinned Option-C LWIR anchors were repinned with provenance. The
+  single-λ form remains the fallback when no target temperature is set.
+
 ### Added
 - QE temperature dependence (Gap 48): new parameters
   `detector.qe_temperature_coeff_per_K` and `detector.qe_temperature_ref_K`

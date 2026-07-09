@@ -181,7 +181,11 @@ CELL28_PINNED = {
     # L_aperture is unchanged because the target-arm radiance transport
     # is unchanged.
     "snr": 315.54933814882156,
-    "nedt_K": 0.20598616453385415,
+    # NEDT repinned 2026-07-08 (Gap 43): exact band-integrated dS/dT via the
+    # Planck log-derivative replaced the single-λ (band-center) Planck-factor
+    # approximation. +0.29% for this LWIR cell; reduces to the old value
+    # exactly in the narrow-band limit. Was 0.20598616453385415.
+    "nedt_K": 0.20658998527586545,
     "mtf_at_nyquist": 0.07587823,
     "L_aperture_W_m2_sr_um": {
         8.0:  5.860529,
@@ -199,7 +203,9 @@ CELL58_PINNED = {
     # background_shot noise drops out of the RSS. SNR lifts from 6.47
     # (pre-Stage-4) to ~316.0. L_aperture is unchanged.
     "snr": 315.9745217365823,
-    "nedt_K": 0.18606860088514812,
+    # NEDT repinned 2026-07-08 (Gap 43): exact band-integrated dS/dT.
+    # −0.18% for this LWIR cell. Was 0.18606860088514812.
+    "nedt_K": 0.18574197176729387,
     "mtf_at_nyquist": 0.06690769,
     "L_aperture_W_m2_sr_um": {
         8.0:  6.485012,

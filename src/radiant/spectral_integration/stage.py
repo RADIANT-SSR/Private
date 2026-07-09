@@ -33,6 +33,7 @@ import warnings
 
 import numpy as np
 
+from radiant.core.blackbody import planck_spectral_radiance, planck_spectral_radiance_dT
 from radiant.core.chain import ChainState
 from radiant.core.constants import hc
 from radiant.core.parameters import ParameterSet
@@ -250,6 +251,34 @@ class SpectralIntegrationStage:
             # Extended: no EE_box. Sub-pixel: already mixed into L_mixed.
             signal_e = e_per_s * t_int
 
+        # --- Exact NEDT support (Gap 43): dS/dT of the in-band signal ---
+        # The temperature sensitivity of the signal is the Planck
+        # log-derivative (dB/dT)/B of the target's blackbody function,
+        # weighted by the actual in-band signal spectrum and integrated over
+        # the band. This is the exact band integral; it reduces *exactly* to
+        # the single-λ Planck-factor approximation
+        # (performance.nedt.compute_nedt_from_snr) in the narrow-band limit.
+        # Stored for PerformanceStage, which prefers it over the
+        # approximation when available.
+        try:
+            target_temp_K: float = params.get("source.target.temperature")
+        except (KeyError, TypeError):
+            target_temp_K = float("nan")
+        if np.isfinite(target_temp_K) and target_temp_K > 0.0:
+            b_planck = planck_spectral_radiance(wl, target_temp_K)
+            dbdt_planck = planck_spectral_radiance_dT(wl, target_temp_K)
+            log_deriv = np.zeros_like(wl)
+            nonzero = b_planck > 0.0
+            log_deriv[nonzero] = dbdt_planck[nonzero] / b_planck[nonzero]  # [1/K]
+            ds_dt_rate = e_rate * log_deriv  # [e-/s/µm/K]
+            ds_dt_per_s = float(np.trapezoid(ds_dt_rate[mask], wl_band))
+            if regime == RadiometricRegime.POINT_SOURCE:
+                ds_dt_e_per_K = ds_dt_per_s * t_int * EE_box
+            else:
+                ds_dt_e_per_K = ds_dt_per_s * t_int
+        else:
+            ds_dt_e_per_K = None
+
         # --- Background reference and contrast ---
         # Compute what a pure-background pixel would produce. The
         # contrast ΔS = signal_e − background_e is the detection-
@@ -315,6 +344,12 @@ class SpectralIntegrationStage:
             "contrast_e",
             contrast_e,
         )
+        if ds_dt_e_per_K is not None:
+            state = state.with_stage_output(
+                "spectral_integration",
+                "ds_dt_e_per_K",
+                ds_dt_e_per_K,
+            )
 
         # --- Nearfield and stray light electron integration ---
         # Convert irradiance at FPA [W/m²/µm] to electrons per pixel.

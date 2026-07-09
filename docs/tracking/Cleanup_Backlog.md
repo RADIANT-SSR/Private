@@ -13,15 +13,6 @@
 ## Open
 
 
-### CU-062 — Veiling-glare stray light uses the pixel IFOV solid angle, not the f-cone — mode is effectively inert
-
-- **Discovered**: Scenario 5.5 execution (Phase T4), 2026-07-09
-- **Status**: Open
-- **File**: `src/radiant/optics/stage.py:990-996` (in-FOV irradiance for `veiling_glare` mode)
-- **Symptom**: The `veiling_glare` stray-light mode builds its in-FOV image-plane irradiance as `in_fov_irr = L_post_optics * omega_pixel`, where `omega_pixel = (pitch_x·pitch_y)/focal²` (`stage.py:694`) is the **object-space pixel IFOV solid angle**. The at-FPA irradiance from a scene of radiance L is set by the **image-space f-cone solid angle** `Ω_cone = π·D²/(4·focal²) = π/(4·F#²)`, not the pixel IFOV. The signal path uses the correct etendue (`A_pixel·Ω_cone ≡ A_aperture·Ω_pixel`), so stray is under-computed by `Ω_cone/Ω_pixel = π·D²/(4·pitch²)` — ≈ 8×10⁷ for D=0.15 m, pitch=15 µm. Reproduce: bright VNIR extended scene, `optics.stray.input_mode=veiling_glare`, `veiling_glare_fraction=0.10` → `stray_e ≈ 1.3×10⁻³ e-` against `signal_e ≈ 1.04×10⁶ e-` (should be ~10 % of the in-FOV signal, ~10⁵ e-). SNR/NEDT/NIIRS are unchanged by any VGI in [0, 1] — the mode does nothing.
-- **Why it still matters**: `veiling_glare_fraction` is the natural, most-used stray-light input (matches vendor VGI / FRED veiling-glare-index numbers). It silently reports zero stray-light impact, so a user who specifies 3 % veiling glare gets a clean-optics answer — a Rule 16/17 silent-wrong-physics failure in a physics stage. The `absolute_irradiance` mode is correct (2.5 W/m² → stray_e 5.5×10⁶ e-, SNR 547→124), so scenario 5.5 routes Tom's VGI through the absolute mode via the identity `stray_e = VGI·S_scene` as the workaround.
-- **Suggested fix**: (a) inline-fix — set `in_fov_irr = L_post_optics * Omega_cone` with `Omega_cone = π/(4·F#²)` (F# = focal/D), or equivalently reuse the signal-path etendue; add a Level-0 test asserting `stray_e ≈ VGI·signal_e` for a uniform extended scene. Results-affecting (raises stray/noise wherever `veiling_glare` mode is used) → CHANGELOG + golden review. Effort: Small. Category: C (physics correctness).
-
 ### CU-061 — `contrast_snr` with a contrast reference drifts when the pixel saturates
 
 - **Discovered**: Scenario 3.5 execution (Phase T4), 2026-07-09
@@ -247,6 +238,10 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ---
 
 ## Resolved
+
+### CU-062 — Veiling-glare stray light used the pixel IFOV solid angle, not the f-cone — mode was inert — RESOLVED 2026-07-09 (commit `8cb0448`)
+
+**Discovered**: Scenario 5.5 execution (Phase T4), 2026-07-09. `OpticsStage` built the `veiling_glare` in-FOV image-plane irradiance as `L_post_optics × Ω_pixel` (pixel IFOV solid angle `pitch²/focal²`) instead of the f-cone solid angle `Ω_cone = A_collect/focal²`, under-counting stray by `A_collect/A_pixel ≈ (D/pitch)²·π/4` (~1e7–1e8) and making the mode inert. **Resolution**: `optics/stage.py` now uses `omega_fcone = aperture.clear_area_m2 / focal_length_m²`, so `stray_e = vgf·signal_e` for a uniform extended scene. Added chain-level `tests/test_veiling_glare_signal_consistency.py` and an optics-stage assertion; updated `RADIANT_Optics.md` §8 and CHANGELOG (Fixed, Results-affecting). Default fraction 0.0 → goldens unaffected (10/10).
 
 ### CU-057 — Scenario scripts import `openpyxl`, which is not a declared dependency — RESOLVED 2026-07-07 (commit `0c14c9b`)
 

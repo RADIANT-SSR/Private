@@ -8,5 +8,5 @@ retrieval-sweep tables print to the console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_retrieved_temperature.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_error_vs_error.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_retrieved_temperature.png | figure (committed) | d01fbad 2026-07-08 |
+| fig2_error_vs_error.png | figure (committed) | d01fbad 2026-07-08 |

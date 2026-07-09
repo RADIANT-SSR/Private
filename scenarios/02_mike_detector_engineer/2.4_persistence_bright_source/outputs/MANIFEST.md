@@ -7,5 +7,5 @@ frame-by-frame table and frames-to-clear print to the console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_persistence_decay.png | figure (committed) | PENDING 2026-07-08 |
-| fig2_snr_recovery.png | figure (committed) | PENDING 2026-07-08 |
+| fig1_persistence_decay.png | figure (committed) | f0b6d34 2026-07-08 |
+| fig2_snr_recovery.png | figure (committed) | f0b6d34 2026-07-08 |

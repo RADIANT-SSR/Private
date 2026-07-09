@@ -53,6 +53,14 @@ retroactively reconstructed.
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
 ### Fixed
+- Saturated `contrast_snr` is now flagged, not reported silently (CU-061).
+  When the pixel saturates the readout caps the signal (and its shot noise)
+  at full well but the contrast ΔS is not re-derived from the clipped
+  signals, so `contrast_snr = ΔS/σ` was inflated and unreliable.
+  `compute_contrast_snr` now detects the clip (`signal_e_final < signal_e`),
+  emits a `UserWarning`, and sets `failure_reason` on the `contrast_snr_result`
+  (so `.ok` is False). The metric value is unchanged for unsaturated runs
+  (no golden impact); only the flag/warning are new.
 - **Results-affecting (stray light / noise; large where used):** veiling-glare
   stray light (`optics.stray.input_mode = veiling_glare`) was effectively
   inert (CU-062). `OpticsStage` scaled the in-FOV image-plane irradiance by

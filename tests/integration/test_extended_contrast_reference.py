@@ -15,7 +15,14 @@ import pytest
 from radiant.api.session import RadiantSession
 
 
-def _run(target_temp: float, ref_temp: float | None, ref_eps: float = 0.95):
+def _run(
+    target_temp: float,
+    ref_temp: float | None,
+    ref_eps: float = 0.95,
+    *,
+    tint: float = 1e-4,
+    fwc: float = 6e6,
+):
     wl = np.linspace(7.5, 12.5, 220)
     session = RadiantSession(wavelength_um=wl)
     p = session.default_params()
@@ -35,11 +42,11 @@ def _run(target_temp: float, ref_temp: float | None, ref_eps: float = 0.95):
     p.set("geometry.sensor_altitude_m", 3000.0)
     p.set("spectral_integration.filter_min_um", 8.0)
     p.set("spectral_integration.filter_max_um", 12.0)
-    p.set("spectral_integration.integration_time_s", 1e-4)
+    p.set("spectral_integration.integration_time_s", tint)
     p.set("readout.read_noise_e_rms", 300.0)
     p.set("readout.gain_e_per_dn", 120.0)
     p.set("readout.adc_bits", 14)
-    p.set("readout.full_well_capacity_e", 6e6)
+    p.set("readout.full_well_capacity_e", fwc)
     p.resolve()
     return session.run(p)
 
@@ -82,3 +89,30 @@ class TestExtendedContrastReference:
         n_ref_sq = max(0.0, sigma_t**2 - s_t + s_ref)
         combined = np.sqrt(sigma_t**2 + n_ref_sq)
         assert res.metrics["contrast_snr"] == pytest.approx(contrast_e / combined, rel=1e-6)
+
+
+@pytest.mark.level2
+class TestContrastSnrSaturation:
+    """CU-061: when the pixel saturates the contrast_snr is unreliable
+    (ΔS uncapped, σ capped) and must be flagged, not reported silently."""
+
+    def test_saturation_flags_and_warns(self) -> None:
+        with pytest.warns(UserWarning, match="saturat"):
+            res = _run(300.0, 295.0, tint=1e-3, fwc=6e6)
+        # The readout clipped the signal to full well.
+        si = res.stage_outputs["spectral_integration"]
+        ro = res.stage_outputs["readout"]
+        assert ro["signal_e_final"] < si["signal_e"]
+        # The contrast result is flagged invalid via failure_reason.
+        result = res.stage_outputs["performance"]["contrast_snr_result"]
+        assert result.failure_reason is not None
+        assert not result.ok
+
+    def test_unsaturated_is_valid(self) -> None:
+        res = _run(300.0, 295.0, tint=1e-4, fwc=6e6)
+        si = res.stage_outputs["spectral_integration"]
+        ro = res.stage_outputs["readout"]
+        assert ro["signal_e_final"] == pytest.approx(si["signal_e"], rel=1e-9)  # no clip
+        result = res.stage_outputs["performance"]["contrast_snr_result"]
+        assert result.failure_reason is None
+        assert result.ok

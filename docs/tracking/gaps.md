@@ -853,7 +853,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 4.4 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | DEFERRED (needs ADR) 2026-07-08 — entangled with Decision #13 (`background_e` zeroed for extended → the SNR lift pinned in Option-C anchors; it feeds `compute_noise_budget`) and Decision #15 (`source.background.*` deprecated for extended as a path-radiance proxy). Closing it requires an ADR-level choice: **(A)** a new explicit background-reference input decoupled from the noise path, with a defined contrast-noise model (single-pixel vs combined √(N_t²+N_b²)) — recommended; **(B)** re-purpose `source.background.*` (contradicts Decision #15); **(C)** keep the two-pixel-differencing workaround (scenarios 4.3, 4.4, ships and works). Owner-directed 2026-07-08 to defer for a focused ADR pass. Gating: ADR authored; re-audit 2026-10-01. |
 | **Description** | `SpectralIntegrationStage` builds `contrast_e = signal_e − background_e` only when an `at_aperture_background` frame exists — which happens in the sub-pixel regime (and point-source, where contrast_e = signal_e). In the EXTENDED regime, even with `source.background.temperature` set, the background-reference frame is not built (`spectral_integration/stage.py:283`, the "no background descriptor" branch), so `contrast_e` collapses to the whole-scene `signal_e` and the `contrast_snr` metric reports the absolute-scene SNR — it does NOT null at thermal crossover. Any scenario needing the extended two-surface differential (diurnal washout 4.4, camouflage 4.3, "target patch on terrain") must construct it by running the two pixels separately and differencing. |
 | **Workaround** | Run target-filled and background-filled extended pixels separately; contrast SNR = (S_t − S_b)/√(N_t²+N_b²) (scenarios 4.3, 4.4). |
 | **Impact** | Medium — the `contrast_snr` metric is misleading in the extended regime (name implies a differential; value is whole-scene SNR). A user trusting it for an extended target-vs-background scene would get a contrast that never washes out. |
@@ -949,7 +949,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |
-| 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
+| 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | DEFERRED (needs ADR, re-audit 2026-10-01) |
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | DEFERRED (charter, re-audit 2026-10-01) |
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 

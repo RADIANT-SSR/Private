@@ -87,19 +87,33 @@ These change computed numbers. Each needs the golden-update protocol
 (`RADIANT_Testing_Validation.md §5.3`), a **Results-affecting:** CHANGELOG
 entry with direction/magnitude, and explicit owner-visible justification.
 
-| Gap | Deliverable | Result impact | Effort |
-|-----|-------------|---------------|--------|
-| **43** | NEDT exact `dS/dT` path (retire the single-λ Planck-factor approximation) | NEDT shifts slightly for all thermal configs | Small (code) + golden review |
-| **52** | First-class extended target-vs-background differential (build the bg reference frame in EXTENDED, not only sub-pixel) | `contrast_snr` becomes a true differential in the extended regime | Medium + golden review |
+| Gap | Deliverable | Result impact | Effort | Status |
+|-----|-------------|---------------|--------|--------|
+| **43** | NEDT exact `dS/dT` path (retire the single-λ Planck-factor approximation) | NEDT shifts slightly for all thermal configs | Small (code) + golden review | **DONE (0b33061)** |
+| **52** | First-class extended target-vs-background differential | `contrast_snr` a true differential in EXTENDED | Medium + golden review | **DEFERRED — needs ADR (see below)** |
 
-**Order:** 43 → 52. Both gated on owner acknowledgment of the golden-baseline
-changes.
+**Gap 43 done (owner-greenlit golden change):** exact band-integrated dS/dT
+via the Planck log-derivative; reduces to the old single-λ form exactly in
+the narrow-band limit; NEDT shifts ~±0.3% LWIR / +4.5% wide MWIR. No golden
+asserted NEDT; two Option-C anchors repinned with provenance.
+
+**Gap 52 deferred (owner-directed 2026-07-08) — needs an ADR.** It is
+entangled with two landed decisions: Decision #13 zeroes `background_e` for
+extended (the SNR lift pinned in the Option-C anchors; `background_e` feeds
+`compute_noise_budget`), and Decision #15 deprecates `source.background.*`
+for extended as a path-radiance proxy. Closing it requires an ADR choice:
+(A) a new explicit background-reference input decoupled from the noise path,
+with a defined contrast-noise model — recommended; (B) re-purpose
+`source.background.*` (contradicts Decision #15); (C) keep the two-pixel
+workaround (ships, used by 4.3/4.4). Gating: ADR authored; re-audit
+2026-10-01.
 
 ## Deferred — own charter
 
 | Gap | Why deferred | Re-audit |
 |-----|--------------|----------|
 | **53** | Johnson MRC/MRT contrast-limited DRI is Medium–Large and couples to a rescope of scenario 4.2. It needs its own Category-C charter (MRC/MRT curve from the system MTF + noise, then a contrast-limited `johnson_range_m` variant). Not blocking — the sampling-limited geometric bound is shipped and documented. | When scenario 4.2 is rescoped, or 2026-10-01 |
+| **52** | Extended target-vs-background differential — entangled with Decisions #13/#15; needs an ADR (Option A recommended). Two-pixel workaround ships (4.3/4.4). See Wave C note. | ADR authored, or 2026-10-01 |
 | **47** | Source spec-form router extension (see Wave B note). Architecture task; ε(λ) descriptor support already exists, S8 workaround ships. | Next source-subsystem task, or 2026-10-01 |
 | **42** | Config-loading + source-background architecture (see Wave B note). `space`-subcase workaround ships. | Next io/config task, or 2026-10-01 |
 
@@ -111,18 +125,16 @@ Scenario Execution Plan, not a T3/T4 registry gap.
 
 ## Exit criteria
 
-- **Closed (8):** Gaps 44, 45, 46, 48, 49, 50, 51, 54 — RESOLVED in
+- **Closed (9):** Gaps 43, 44, 45, 46, 48, 49, 50, 51, 54 — RESOLVED in
   `gaps.md` with commit SHAs, Summary-Table rows FIXED.
-- **Deferred with re-audit records (3):** Gaps 47, 42 (architecture tasks)
-  and 53 (own charter) — see the Deferred table (Rule 22).
-- **Awaiting owner golden-review gate (2):** Wave C Gaps 43, 52.
-- No golden result changed by the closed gaps (all additive or
-  default-preserving); Wave C will change goldens, each with a reviewed
-  **Results-affecting:** CHANGELOG entry.
+- **Deferred with re-audit records (4):** Gaps 47, 42 (architecture tasks),
+  52 (needs ADR) and 53 (own charter) — see the Deferred table (Rule 22).
+- Only Gap 43 changed results (NEDT, small, owner-greenlit, provenance-
+  pinned); the other 8 closed gaps are additive or default-preserving.
 - Every closed gap has a Level-0 test; `mypy --strict` clean on core/api;
   import-linter and org-rules pass. ✓
-- Plan archived per Rule 24 once Wave C lands and 47/42/53 are either done
-  or re-docketed; until then it stays Active (the deferrals keep it open).
+- Plan archived per Rule 24 once the four deferrals are done or re-docketed;
+  until then it stays Active (the deferrals keep it open).
 
 ---
 
@@ -134,6 +146,12 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   the old formula exactly in the narrow-band limit; NEDT shifts ~±0.3% LWIR,
   +4.5% wide MWIR. No golden asserted NEDT; 2 Option-C anchors repinned.
   4 new tests. **Owner greenlit the golden change.**
+- **2026-07-08 — Wave C, Gap 52 deferred (owner-directed).** On tracing, it
+  is entangled with Decisions #13 (`background_e` → noise, zeroed for
+  extended) and #15 (`source.background.*` deprecated for extended). Needs
+  an ADR (Option A recommended). Two-pixel workaround ships. **Gap-closure
+  pass complete: 9 gaps closed (Wave A ×6, B ×2, C ×1); 4 deferred with
+  re-audit records.**
 
 - **2026-07-08 — Wave A, Gaps 49 + 50 closed (63f599d).**
   `performance/diffraction_limit.py` (`diffraction_limit_angular_urad`,

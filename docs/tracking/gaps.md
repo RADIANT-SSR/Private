@@ -789,7 +789,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.5 execution (Phase T3), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (b4b7d2e) — `detector.qe_temperature_coeff_per_K` + `qe_temperature_ref_K`; linear QE(T) applied at the API layer. |
 | **Description** | `detector.qe_value` (and the QE-curve path, Gap 44) are temperature-independent; there is no QE(T) or QE(λ,T) model. A TVAC operating-temperature sweep must interpolate a measured QE(T) table externally and set the scalar per operating point. |
 | **Workaround** | Interpolate QE(T) and set `detector.qe_value` per sweep point (scenario 7.5 pattern). |
 | **Impact** | Low — scenario 7.5 shows QE(T) is second-order vs dark current (9% QE swing vs 294,612× dark over 70–95 K). A native QE(T) would let the chain co-vary QE with `detector.detector_temperature_K` automatically. |
@@ -945,7 +945,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | FIXED |
 | 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
-| 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
+| 48 | QE has no temperature dependence | Small | 7.5 | FIXED |
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |

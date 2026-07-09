@@ -129,3 +129,7 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   `detector.qe_table_path` → `io.qe_csv` → injected `qe_curve` (Rule 6).
   Default byte-identical (goldens intact); 4 integration tests. import-linter
   whitelist extended for the new api→io.qe_csv→core edge.
+- **2026-07-08 — Wave B, Gap 48 closed (b4b7d2e).** QE(T) via
+  `detector.qe_temperature_coeff_per_K` + `qe_temperature_ref_K`, applied
+  at the API layer (option b — Rule 11 keeps it out of the stage).
+  Results-affecting only when coeff≠0; default byte-identical; 4 tests.

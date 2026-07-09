@@ -104,4 +104,9 @@ Scenario Execution Plan, not a T3/T4 registry gap.
 
 ## Progress log
 
-_(updated as waves land)_
+- **2026-07-08 — Wave A, Gaps 49 + 50 closed (63f599d).**
+  `performance/diffraction_limit.py` (`diffraction_limit_angular_urad`,
+  `diffraction_limit_ground_m`) and `performance/sampling_regime.py`
+  (`sampling_regime_code`), wired into `PerformanceStage`. Additive
+  metrics; 10/10 goldens unchanged; 16 Level-0 tests. `gaps.md` entries
+  RESOLVED, Summary-Table rows FIXED.

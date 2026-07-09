@@ -805,7 +805,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 1.2 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (63f599d) — `performance/diffraction_limit.py`; metrics `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`. |
 | **Description** | The Rayleigh ground spot (`1.22 λ (f/#)`, i.e. `1.22 λ · altitude / D` at nadir) is the optics-only resolution floor and the natural companion to `gsd_geometric_mean_m`, but it is not a surfaced metric. Scenario 1.2 computes it locally to draw the diffraction-limit constraint line and decide detector- vs diffraction-limited sampling. All inputs (aperture, focal length, band-center wavelength, range) already live in the chain — this is a surfacing gap, not a physics gap. |
 | **Workaround** | Compute `1.22 λ_center · altitude / D` script-side (scenario 1.2 `diffraction_limited_gsd_m`). |
 | **Impact** | Low — ergonomics; a designer comparing optics-limited vs detector-limited resolution should read it from the result, not re-derive it. Pairs with Gap 50. |
@@ -821,7 +821,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 1.2 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (63f599d) — `performance/sampling_regime.py`; metric `sampling_regime_code` (0/1/2). |
 | **Description** | `q_center` (= λ·f/#/pitch) is already a metric, but the qualitative call it implies — detector-limited (`Q < 1`, undersampled/aliasing-risk) vs diffraction-limited (`Q ≳ 2`, oversampled) — is not surfaced. Scenario 1.2's whole takeaway is *where the design crosses that boundary*, and each trade script re-derives it from `q_center`. A `sampling_regime` enum/label metric would make the crossover a first-class output. |
 | **Workaround** | Threshold `q_center` script-side. |
 | **Impact** | Low — ergonomics; pairs with Gap 49. |
@@ -946,8 +946,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | OPEN |
 | 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
 | 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
-| 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | OPEN |
-| 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | OPEN |
+| 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |
+| 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | OPEN |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | OPEN |

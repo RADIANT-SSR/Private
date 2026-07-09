@@ -125,3 +125,7 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   `optics_config["pupil_mask_override"]`; threaded into both PSF and MTF
   paths (Rule 4). Default byte-identical — 504 optics + 10 golden tests
   unchanged; 8 tests. **Wave A (Gaps 45, 46, 49, 50, 51, 54) done.**
+- **2026-07-08 — Wave B, Gap 44 closed (dd1529f).** `RadiantSession` wires
+  `detector.qe_table_path` → `io.qe_csv` → injected `qe_curve` (Rule 6).
+  Default byte-identical (goldens intact); 4 integration tests. import-linter
+  whitelist extended for the new api→io.qe_csv→core edge.

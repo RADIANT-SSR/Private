@@ -725,7 +725,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 2.1 execution (Phase T3), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (dd1529f) — `RadiantSession` loads `qe_table_path` via `io.qe_csv` and injects `spectral_integration.qe_curve` (Rule 6). |
 | **Description** | `detector.qe_table_path` is defined in `detector/_schema.py` (with a comment promising a "Phase 2C stage wrapper" XOR against `qe_value`) but nothing in the chain, IO layer, or API reads it. Spectral QE reaches the chain only via `stage_outputs["spectral_integration"]["qe_curve"]` injected through `RadiantSession.run(extra_stage_outputs=...)` — API-level, no YAML/dict path. |
 | **Workaround** | `radiant.io.qe_csv.load_qe_csv(...)` → `QeCurve.evaluate(wl_grid)` → inject (scenario 2.1 pattern). |
 | **Impact** | Schema drift (a documented parameter silently ignores user input if set via YAML); GUI/config users cannot supply a QE curve. Same config-surface family as Gap 42 (lab_test) and the Zernike injection (5.1). |
@@ -941,7 +941,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
 | 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | OPEN |
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
-| 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | OPEN |
+| 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | FIXED |
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | FIXED |
 | 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |

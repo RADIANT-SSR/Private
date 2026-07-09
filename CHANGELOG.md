@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Spectral QE from a file (Gap 44): `detector.qe_table_path` — a
+  schema-only parameter until now — is wired. When set, `RadiantSession`
+  loads the wavelength-vs-QE CSV (`io.qe_csv`, Rule 6: file I/O in the api
+  layer) onto the wavelength grid and applies it spectrally, superseding
+  the scalar `detector.qe_value`; QE past the measured cutoff is zero.
+  Absent a path, the scalar `qe_value` behaviour is unchanged (goldens
+  intact).
 - Arbitrary / measured pupil-mask injection (Gap 54): inject
   `optics_config["pupil_mask_override"]` (a `(pupil_npix, pupil_npix)`
   amplitude array) via `extra_stage_outputs` to supersede the parametric

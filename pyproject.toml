@@ -202,6 +202,11 @@ ignore_imports = [
     "radiant.io.results -> radiant.core.provenance",
     "radiant.io.results -> radiant.core.radiometry",
     "radiant.io.results -> radiant.core.quantity",
+    # Gap 44: RadiantSession loads detector.qe_table_path via io.qe_csv
+    # (Rule 6 — file I/O in the api layer, not the stage). qe_csv pulls in
+    # io.measurement for load_measured_curve.
+    "radiant.io.qe_csv -> radiant.core.exceptions",
+    "radiant.io.measurement -> radiant.core.exceptions",
     # `to_provenance_record` reads `radiant.__version__` lazily; the
     # `radiant` package init re-exports `RadiantError` from
     # `radiant.core.exceptions`, so the `radiant -> radiant.core.exceptions`

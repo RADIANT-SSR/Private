@@ -29,6 +29,28 @@ from radiant.source.stage import SourceStage
 from radiant.spectral_integration.stage import SpectralIntegrationStage
 
 
+def _load_qe_curve(
+    params: ParameterSet, wavelength_um: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64] | None:
+    """Load ``detector.qe_table_path`` (if set) onto the wavelength grid.
+
+    Returns the spectral QE array, or None when no path is configured (the
+    scalar ``detector.qe_value`` is used instead). Rule 6: the file read
+    lives here in the API layer, not in a stage. Response past the measured
+    cutoff is zero (a QE curve does not extrapolate). Gap 44.
+    """
+    try:
+        path_str: str = params.get("detector.qe_table_path")
+    except (KeyError, TypeError):
+        return None
+    if not path_str:
+        return None
+    from radiant.io.qe_csv import load_qe_csv
+
+    curve = load_qe_csv(path_str)
+    return curve.evaluate(wavelength_um, out_of_range="zero")
+
+
 class RadiantSession:
     """High-level session for running the RADIANT signal chain.
 
@@ -90,6 +112,14 @@ class RadiantSession:
         initial: dict[str, dict[str, Any]] = {
             "atmosphere_config": {"model": atmosphere_model},
         }
+        # Spectral QE from a file (Gap 44): the schema param
+        # detector.qe_table_path names a wavelength-vs-QE CSV. Rule 6 keeps
+        # file I/O out of the stage, so load it here and inject the curve
+        # onto the wavelength grid as spectral_integration.qe_curve (which
+        # supersedes the scalar detector.qe_value). Past-cutoff QE is zero.
+        qe_curve = _load_qe_curve(params, self._wavelength_um)
+        if qe_curve is not None:
+            initial.setdefault("spectral_integration", {})["qe_curve"] = qe_curve
         for group, values in (extra_stage_outputs or {}).items():
             initial.setdefault(group, {}).update(values)
         state = self._runner.run(

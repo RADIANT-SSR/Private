@@ -70,7 +70,11 @@ QE_VALUE = ParameterDef(
 
 QE_TABLE_PATH = ParameterDef(
     name="detector.qe_table_path",
-    description="Path to a wavelength-vs-QE table (loaded by SpectralDataStore).",
+    description=(
+        "Path to a wavelength-vs-QE CSV. When set, RadiantSession loads it "
+        "(io.qe_csv) onto the wavelength grid and applies it spectrally, "
+        "superseding the scalar qe_value; past-cutoff QE is zero (Gap 44)."
+    ),
     dtype=str,
     canonical_unit="",
     input_unit="",

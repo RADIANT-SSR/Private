@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- QE temperature dependence (Gap 48): new parameters
+  `detector.qe_temperature_coeff_per_K` and `detector.qe_temperature_ref_K`
+  apply a linear QE(T) factor `1 + coeff·(T_det − T_ref)` to the scalar
+  `qe_value` or the `qe_table_path` curve, folded in at the API layer.
+  **Results-affecting only when `coeff ≠ 0`** (lower/higher QE shifts SNR
+  and NEDT); the default `coeff = 0` is byte-identical (goldens intact).
+  QE is clamped to [0, 1] with a `UserWarning` if the factor pushes it out
+  of range (Rule 17).
 - Spectral QE from a file (Gap 44): `detector.qe_table_path` — a
   schema-only parameter until now — is wired. When set, `RadiantSession`
   loads the wavelength-vs-QE CSV (`io.qe_csv`, Rule 6: file I/O in the api

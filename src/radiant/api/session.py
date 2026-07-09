@@ -7,6 +7,7 @@ stage set and exposes a ``.run(params)`` that returns a
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -29,26 +30,68 @@ from radiant.source.stage import SourceStage
 from radiant.spectral_integration.stage import SpectralIntegrationStage
 
 
+def _qe_temperature_factor(params: ParameterSet) -> float:
+    """QE(T) linear factor ``1 + coeff·(T_det − T_ref)`` (Gap 48).
+
+    Returns 1.0 when the coefficient is 0 (temperature-independent QE), so
+    the default path is exactly unchanged.
+    """
+    try:
+        coeff: float = params.get("detector.qe_temperature_coeff_per_K")
+    except (KeyError, TypeError):
+        return 1.0
+    if coeff == 0.0:
+        return 1.0
+    t_det: float = params.get("detector.detector_temperature_K")
+    t_ref: float = params.get("detector.qe_temperature_ref_K")
+    return 1.0 + coeff * (t_det - t_ref)
+
+
 def _load_qe_curve(
     params: ParameterSet, wavelength_um: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64] | None:
-    """Load ``detector.qe_table_path`` (if set) onto the wavelength grid.
+    """Build the spectral QE array from the config, or None for the scalar path.
 
-    Returns the spectral QE array, or None when no path is configured (the
-    scalar ``detector.qe_value`` is used instead). Rule 6: the file read
-    lives here in the API layer, not in a stage. Response past the measured
-    cutoff is zero (a QE curve does not extrapolate). Gap 44.
+    Combines two effects, both Rule 6 (file/parameter handling in the API
+    layer, not a stage):
+
+    - ``detector.qe_table_path`` (Gap 44): a wavelength-vs-QE CSV, evaluated
+      onto the grid (past-cutoff QE = 0), superseding the scalar qe_value.
+    - ``detector.qe_temperature_coeff_per_K`` (Gap 48): a linear QE(T)
+      factor applied to whichever base QE is in effect.
+
+    Returns None only when neither is active (no path *and* factor == 1), so
+    the historical scalar-``qe_value`` path — and all goldens — are
+    untouched by default. QE is clamped to [0, 1] with a ``UserWarning`` if
+    the temperature factor pushes it out of range (Rule 17: no silent clip).
     """
+    factor = _qe_temperature_factor(params)
     try:
         path_str: str = params.get("detector.qe_table_path")
     except (KeyError, TypeError):
-        return None
-    if not path_str:
-        return None
-    from radiant.io.qe_csv import load_qe_csv
+        path_str = ""
 
-    curve = load_qe_csv(path_str)
-    return curve.evaluate(wavelength_um, out_of_range="zero")
+    if not path_str and factor == 1.0:
+        return None
+
+    if path_str:
+        from radiant.io.qe_csv import load_qe_csv
+
+        base = load_qe_csv(path_str).evaluate(wavelength_um, out_of_range="zero")
+    else:
+        qe_value: float = params.get("detector.qe_value")
+        base = np.full_like(wavelength_um, qe_value)
+
+    qe = base * factor
+    if qe.min() < 0.0 or qe.max() > 1.0:
+        warnings.warn(
+            f"QE(T) factor {factor:.4g} pushed QE outside [0, 1] "
+            f"(min {qe.min():.4g}, max {qe.max():.4g}); clamping.",
+            UserWarning,
+            stacklevel=2,
+        )
+        qe = np.clip(qe, 0.0, 1.0)
+    return qe
 
 
 class RadiantSession:

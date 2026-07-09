@@ -83,6 +83,38 @@ QE_TABLE_PATH = ParameterDef(
     default_justification="Empty string signals 'use qe_value instead'.",
 )
 
+QE_TEMPERATURE_COEFF_PER_K = ParameterDef(
+    name="detector.qe_temperature_coeff_per_K",
+    description=(
+        "Linear QE temperature coefficient [1/K]. QE(T) = QE_base · "
+        "(1 + coeff·(detector_temperature_K − qe_temperature_ref_K)), applied "
+        "to the scalar qe_value or the qe_table_path curve. Default 0 "
+        "(temperature-independent QE). Gap 48."
+    ),
+    dtype=float,
+    canonical_unit="1/K",
+    input_unit="1/K",
+    default=0.0,
+    bounds=(-0.1, 0.1),
+    tags=frozenset({"detector", "qe"}),
+    default_justification="0 = no QE temperature dependence (historical behaviour).",
+)
+
+QE_TEMPERATURE_REF_K = ParameterDef(
+    name="detector.qe_temperature_ref_K",
+    description=(
+        "Reference temperature [K] at which the QE (qe_value / qe_table_path) "
+        "was characterised. Only used when qe_temperature_coeff_per_K ≠ 0."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=300.0,
+    bounds=(1.0, 1000.0),
+    tags=frozenset({"detector", "qe"}),
+    default_justification="Room-temperature nominal; irrelevant when coeff = 0.",
+)
+
 # ---------------------------------------------------------------------------
 # Dark current
 # ---------------------------------------------------------------------------
@@ -342,6 +374,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     FILL_FACTOR,
     QE_VALUE,
     QE_TABLE_PATH,
+    QE_TEMPERATURE_COEFF_PER_K,
+    QE_TEMPERATURE_REF_K,
     DARK_RATE_E_PER_S,
     DARK_REFERENCE_TEMP,
     DARK_ACTIVATION_EV,

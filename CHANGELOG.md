@@ -33,6 +33,16 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- D*/NEP/NETD noise-spec converters (scenarios 6.1, 4.5 prerequisite):
+  `performance/detectivity.py` (`nep_from_dstar`/`dstar_from_nep`,
+  `D* = √(A·Δf)/NEP`), `performance/nep_electrons.py`
+  (`nep_from_noise_electrons`/`noise_electrons_from_nep`,
+  `NEP = σ_e·hc/(η·λ·t_int)`, plus `integrating_bandwidth_hz`), and
+  `performance/nep_netd.py` (`netd_from_nep`/`nep_from_netd`,
+  `NETD = NEP/(dP/dT)`). Standard radiometric definitions relating
+  datasheet detector figures of merit to the chain's electron-domain
+  noise. New error classes `DetectivityError`, `NepElectronsError`,
+  `NepNetdError`. No chain change.
 - QE temperature dependence (Gap 48): new parameters
   `detector.qe_temperature_coeff_per_K` and `detector.qe_temperature_ref_K`
   apply a linear QE(T) factor `1 + coeff·(T_det − T_ref)` to the scalar

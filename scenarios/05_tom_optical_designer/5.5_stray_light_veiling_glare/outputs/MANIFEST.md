@@ -8,5 +8,5 @@ to the console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_vgi_tolerance.png | figure (committed) | 124f09c 2026-07-09 |
-| fig2_noise_budget.png | figure (committed) | 124f09c 2026-07-09 |
+| fig1_vgi_tolerance.png | figure (committed) | e20e917 2026-07-09 |
+| fig2_noise_budget.png | figure (committed) | e20e917 2026-07-09 |

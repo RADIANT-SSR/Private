@@ -35,6 +35,7 @@ def _make_params(
     f: float = 1.20,
     tau: float = 0.70,
     pitch: float = 18.0,
+    vgf: float | None = None,
 ) -> ParameterSet:
     from radiant.api._param_registry import _FNUMBER_GROUP
 
@@ -46,6 +47,9 @@ def _make_params(
     ps.set("detector.pixel_pitch_x_um", pitch)
     ps.set("detector.pixel_pitch_y_um", pitch)
     ps.set("detector.qe_value", 0.7)
+    if vgf is not None:
+        ps.set("optics.stray.input_mode", "veiling_glare")
+        ps.set("optics.stray.veiling_glare_fraction", vgf)
     ps.resolve()
     return ps
 
@@ -87,6 +91,30 @@ class TestOpticsStage:
         omega = out.stage_outputs["optics"]["Omega_pixel"]
         expected = (pitch_m**2) / (f**2)
         assert omega == pytest.approx(expected, rel=1e-10)
+
+    @pytest.mark.level0
+    def test_veiling_glare_uses_fcone_solid_angle(self, wl: np.ndarray) -> None:
+        """Veiling-glare in-FOV irradiance = vgf·L_post_optics·(A_collect/f²) (CU-062).
+
+        The image-plane irradiance uses the f-cone solid angle Ω_cone =
+        A_collect/focal², NOT the pixel IFOV solid angle Ω_pixel. Using
+        Ω_pixel under-counts by A_collect/A_pixel ≈ (D/pitch)²·π/4 and makes
+        the mode inert.
+        """
+        D, f, tau, pitch, vgf = 0.30, 1.20, 0.70, 18.0, 0.05
+        params = _make_params(D=D, f=f, tau=tau, pitch=pitch, vgf=vgf)
+        out = OpticsStage().run(_make_state(wl), params)
+        e_stray = out.stage_outputs["optics"]["stray_light_irradiance_at_fpa"].values
+        l_post = 2.0 * tau  # _make_state radiance (2.0) × tau
+        a_collect = math.pi / 4.0 * D**2
+        omega_cone = a_collect / f**2
+        expected = vgf * l_post * omega_cone
+        np.testing.assert_allclose(e_stray, expected, rtol=1e-10)
+        # Regression guard: the old (buggy) Ω_pixel value would be ~(pitch²/A_collect)
+        # smaller — assert we are nowhere near it.
+        omega_pixel = (pitch * 1e-6) ** 2 / f**2
+        buggy = vgf * l_post * omega_pixel
+        assert e_stray[0] > 1e6 * buggy
 
     @pytest.mark.level1
     def test_EE_box_not_written_by_optics(self, wl: np.ndarray) -> None:

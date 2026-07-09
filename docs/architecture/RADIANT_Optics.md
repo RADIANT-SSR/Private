@@ -364,7 +364,7 @@ Stray light is everything that reaches the FPA via a non-image-forming path: sca
 
 | Mode | Parameter | Conversion to `E_stray(λ)` |
 |------|-----------|----------------------------|
-| `veiling_glare` | `optics.stray.veiling_glare_fraction` (0–1) | `E_stray(λ) = vgf × E_in_fov(λ)` where `E_in_fov` is the image-plane irradiance from the in-FOV scene |
+| `veiling_glare` | `optics.stray.veiling_glare_fraction` (0–1) | `E_stray(λ) = vgf × E_in_fov(λ)` where `E_in_fov = L_post_optics × Ω_cone` is the image-plane irradiance from the in-FOV scene, `Ω_cone = A_collect / focal²` the f-cone solid angle (the etendue-invariant AΩ per unit detector area — **not** the pixel IFOV solid angle Ω_pixel). This makes `E_stray` consistent with the signal path, so `stray_e = vgf × signal_e` for a uniform extended scene. |
 | `absolute_irradiance` | `optics.stray.absolute_irradiance_W_m2` (in-band scalar) | Distributed flat across the wavelength grid (multiplied by inverse filter shape if a bandpass is present) |
 | `spectral_file` | `optics.stray.spectral_file` (FRED / TracePro export, W/m²/µm at FPA) | Loaded directly, interpolated onto global grid |
 | `pst_file` | `optics.stray.pst_file` (PST vs. off-axis angle table) | **Stubbed in v1.** Interface is reserved; raises `NotImplementedError`. Requires a scene radiance distribution to apply, which v1 does not have |

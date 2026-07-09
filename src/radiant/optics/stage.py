@@ -986,13 +986,22 @@ class OpticsStage:
         # For veiling_glare, compute in-FOV irradiance from post-optics frame.
         in_fov_irr = None
         if stray_config.input_mode == StrayLightInputMode.VEILING_GLARE:
-            # In-FOV irradiance at FPA = L_post_optics * Omega_pixel
+            # Image-plane irradiance at the FPA = radiance × the f-cone solid
+            # angle Ω_cone = A_collect / focal², i.e. the etendue-invariant AΩ
+            # per unit detector area (A_collect·Ω_pixel / A_pixel = A_collect /
+            # focal²).  This is NOT the pixel IFOV solid angle Ω_pixel: using
+            # Ω_pixel under-counts by A_collect / A_pixel ≈ (D/pitch)²·π/4 and
+            # makes veiling glare effectively inert.  With Ω_cone the stray
+            # electrons equal vgf × signal electrons for a uniform extended
+            # scene, because the signal path also collects L·A_collect·Ω_pixel
+            # onto the same pixel area.  (CU-062)
+            omega_fcone = aperture.clear_area_m2 / (focal_length_m**2)
             in_fov_irr = SpectralData(
                 name="in_fov_irradiance",
                 wavelength_um=state.wavelength_um.copy(),
-                values=L_post_optics * omega_pixel,
+                values=L_post_optics * omega_fcone,
                 unit="W/m^2/um",
-                source="L_post_optics * Omega_pixel",
+                source="L_post_optics * (A_collect / focal_length^2)  [f-cone solid angle]",
             )
 
         stray_irradiance = compute_stray_light_irradiance(

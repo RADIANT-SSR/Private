@@ -52,6 +52,19 @@ retroactively reconstructed.
   (∂L/∂ε = B̄(T)) and `temperature_jacobian` (∂L/∂T = ε·∫dB/dT). New error
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
+### Fixed
+- **Results-affecting (stray light / noise; large where used):** veiling-glare
+  stray light (`optics.stray.input_mode = veiling_glare`) was effectively
+  inert (CU-062). `OpticsStage` scaled the in-FOV image-plane irradiance by
+  the pixel IFOV solid angle `Ω_pixel = pitch²/focal²` instead of the f-cone
+  solid angle `Ω_cone = A_collect/focal²`, under-counting stray by
+  `A_collect/A_pixel ≈ (D/pitch)²·π/4` (~10⁷–10⁸) so any `veiling_glare_fraction`
+  produced ~zero stray. Now `stray_e = vgf × signal_e` for a uniform extended
+  scene. Only affects runs using `veiling_glare` mode with a non-zero fraction
+  (default 0.0 → no change; goldens unaffected); such runs gain the correct
+  stray-light shot-noise penalty (lower SNR/NIIRS). `absolute_irradiance` and
+  `spectral_file` modes were already correct.
+
 ### Changed
 - Lab/ground-test scenarios reachable from the config surface (Gap 42):
   `source.no_atmosphere_subcase` ∈ {`ground_test`, `lab_test`} now builds a

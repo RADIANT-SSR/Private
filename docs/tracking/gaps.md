@@ -693,7 +693,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.4 refresh (Scenario_Execution_Plan Phase R, 2026-07-07) |
-| **Status** | OPEN |
+| **Status** | DEFERRED (architecture task) 2026-07-08 — extends `io/config.py` config-loading + the source-background injection path (illumination follow-on ADR anchor). `space`-subcase workaround ships (scenario 7.4). Gating: next io/config task; re-audit 2026-10-01. See `docs/plans/T3_T4_Gap_Closure_Plan.md`. |
 | **Description** | The `no_atmosphere` sub-cases `lab_test` and `ground_test` require a `UserSpectralBackground(L_bg: SpectralData)`, which can only be injected by constructing the descriptor manually and publishing it into `stage_outputs["source"]["background"]` (the integration-test pattern in `tests/integration/test_no_atm_subcases.py`). `Sensor.from_dict` / YAML has no L_bg path, and `atmosphere.model = "exo"` auto-infers sub-case `space`. Lab/TVAC scenarios therefore masquerade as `space`, which (a) forces a placeholder positive `platform.h_sensor` (e.g. 1.0 m bench height) to satisfy the Earth-limb validator, and (b) substitutes `ColdSpaceBackground` for the actual chamber radiance. |
 | **Workaround** | Model the chamber as `space` sub-case with `platform.h_sensor = 1.0` m and represent the chamber contents (cold plate / blackbody) as the extended target; acceptable when the scene fills the FOV and the true background term is negligible (77 K cold plate in MWIR). Used by scenario 7.4. |
 | **Impact** | Every lab/TVAC scenario (7.x family) carries a physically-mislabeled sub-case and a placeholder altitude; a lit-lab scenario whose chamber background is NOT negligible cannot be modeled from the config surface at all. |
@@ -773,7 +773,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 4.3 execution (Phase T3), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | DEFERRED (architecture task) 2026-07-08 — extends the ADR-governed `source/_inferrer.py` spec-form router (new `emissivity_path` mode + mutual-exclusivity rules). `SurfaceMaterial.emissivity` already accepts ε(λ); S8 workaround ships (scenario 4.3). Gating: next source-subsystem task; re-audit 2026-10-01. See `docs/plans/T3_T4_Gap_Closure_Plan.md`. |
 | **Description** | `source.target.emissivity` is a scalar; there is no `emissivity_path` for a tabulated ε(λ) the way `source.target.reflectance_path` / `albedo_path` exist for reflective targets. A spectral thermal-emission target (measured/ASTER ε(λ)) can reach the chain only by pre-composing the radiance `L_t(λ) = ε(λ)·B(λ,T_surface)` and injecting it via the S8 `user_radiance_path` (→ `T6TabulatedAtSource`, "no physical model applied") — so the USER owns the Planck integral and the assumed surface temperature; the chain does not apply its atmosphere-coupled thermal-emission model to a spectral-ε target. |
 | **Workaround** | Compose L_t(λ) = ε(λ)·B(λ,T) at the file boundary and feed S8 (scenario 4.3 pattern). |
 | **Impact** | Spectral-emissivity targets (camouflage, material ID, any ASTER-emitter scene) can't use the chain's thermal-emission physics directly; the user re-implements the Planck integral. Parallel to Gaps 42/44 (config-surface coverage) and the S8 sub-pixel composition note in scenario 4.3's gaps.md. |
@@ -869,7 +869,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 4.2 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | DEFERRED (own charter) 2026-07-08 — Medium–Large; needs a Category-C MRC/MRT model (system-MTF + noise → contrast-limited `johnson_range_m`) and couples to a scenario-4.2 rescope. Sampling-limited geometric bound ships and is documented. Gating: scenario 4.2 rescope; re-audit 2026-10-01. See `docs/plans/T3_T4_Gap_Closure_Plan.md`. |
 | **Description** | `radiant.performance.johnson_criteria` computes DRI ranges by counting geometric resolved cycles across the target; it assumes adequate target contrast. A full acquisition model couples cycles to the minimum-resolvable-contrast (MRC, reflective) or minimum-resolvable-temperature (MRT, thermal) curve, which folds in the system MTF and scene contrast, so a low-contrast target identifies at shorter range than the geometric Johnson value. The current model is the optimistic (high-contrast) upper bound. |
 | **Workaround** | Use the sampling-limited DRI range as the best-case; note contrast dependence qualitatively (scenario 4.2). |
 | **Impact** | Medium — at resolution-limited ranges (small targets, low contrast, dusk) the true range is shorter; the model overstates it. Fine as a geometric bound and clearly documented as such. |
@@ -939,18 +939,18 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
-| 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | OPEN |
+| 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | DEFERRED (arch, re-audit 2026-10-01) |
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
 | 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | FIXED |
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | FIXED |
-| 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
+| 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | DEFERRED (arch, re-audit 2026-10-01) |
 | 48 | QE has no temperature dependence | Small | 7.5 | FIXED |
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
-| 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | OPEN |
+| 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | DEFERRED (charter, re-audit 2026-10-01) |
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 
 ---

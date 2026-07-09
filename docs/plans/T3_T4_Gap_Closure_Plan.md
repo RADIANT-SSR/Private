@@ -54,14 +54,32 @@ path. These are result-preserving because the default leaves the new input
 unset (scalar/legacy behavior). Gaps 44 and 47 share tabulated-spectral
 plumbing and should be done adjacently.
 
-| Gap | Deliverable | Location | Effort |
-|-----|-------------|----------|--------|
-| **44** | Spectral QE config path (wire `detector.qe_table_path`) | `detector/_schema.py` + QE evaluation + IO loader | Medium |
-| **47** | Spectral target emissivity path (`source.target.emissivity_path` → spectral thermal descriptor) | `source/_schema.py` + `source/_inferrer.py` | Medium |
-| **48** | QE temperature dependence (QE(T) or QE(λ,T)) | `detector/_schema.py` + QE evaluation | Small–Med |
-| **42** | `lab_test` / `ground_test` sub-cases reachable from config | `api`/`io` config surface + validation | Small |
+| Gap | Deliverable | Location | Effort | Status |
+|-----|-------------|----------|--------|--------|
+| **44** | Spectral QE config path (wire `detector.qe_table_path`) | `api/session.py` (Rule 6 IO) | Medium | **DONE (dd1529f)** |
+| **48** | QE temperature dependence (QE(T)) | `api/session.py` + `detector/_schema.py` | Small–Med | **DONE (b4b7d2e)** |
+| **47** | Spectral target emissivity path (`source.target.emissivity_path` → spectral thermal descriptor) | `source/_schema.py` + `source/_inferrer.py` | Medium | **RECLASSIFIED — architecture task (see below)** |
+| **42** | `lab_test` / `ground_test` sub-cases reachable from config | `io/config.py` + source background | Small→Medium | **RECLASSIFIED — architecture task (see below)** |
 
-**Order:** 44 → 47 (shared spectral plumbing) → 48 → 42.
+**Done (44, 48):** both reused the existing `spectral_integration.qe_curve`
+injection hook and are result-preserving by default (goldens intact).
+
+**Reclassified out of Wave B (47, 42):** on inspection these are not the
+simple config wiring the plan assumed — they extend architecture and carry
+real blast radius, so each becomes its own focused task:
+- **47** touches `source/_inferrer.py`, the ADR-governed source **spec-form
+  router** (S8/S11/S1…), and needs a new `emissivity_path` input mode with
+  mutual-exclusivity validation against `brightness_temperature_path` /
+  `user_radiance_path` / scalar emissivity. The physics is already
+  supported (`SurfaceMaterial.emissivity` accepts `ε(λ)` arrays); the risk
+  is the router logic, where a subtle bug mis-builds the source for many
+  configs beyond the golden set. Working S8 workaround exists (scenario 4.3).
+- **42** touches `io/config.py` config-loading + the source-background
+  injection path, with an "illumination follow-on ADR" anchor. Working
+  `space`-subcase workaround exists (scenario 7.4).
+
+Both should be started with the relevant ADR + internals read first, then a
+full source-suite + golden run. Not blocking — documented workarounds ship.
 
 ## Wave C — Results-affecting fidelity (golden review required)
 
@@ -79,9 +97,11 @@ changes.
 
 ## Deferred — own charter
 
-| Gap | Why deferred |
-|-----|--------------|
-| **53** | Johnson MRC/MRT contrast-limited DRI is Medium–Large and couples to a rescope of scenario 4.2. It needs its own Category-C charter (MRC/MRT curve from the system MTF + noise, then a contrast-limited `johnson_range_m` variant). Not blocking — the sampling-limited geometric bound is shipped and documented. |
+| Gap | Why deferred | Re-audit |
+|-----|--------------|----------|
+| **53** | Johnson MRC/MRT contrast-limited DRI is Medium–Large and couples to a rescope of scenario 4.2. It needs its own Category-C charter (MRC/MRT curve from the system MTF + noise, then a contrast-limited `johnson_range_m` variant). Not blocking — the sampling-limited geometric bound is shipped and documented. | When scenario 4.2 is rescoped, or 2026-10-01 |
+| **47** | Source spec-form router extension (see Wave B note). Architecture task; ε(λ) descriptor support already exists, S8 workaround ships. | Next source-subsystem task, or 2026-10-01 |
+| **42** | Config-loading + source-background architecture (see Wave B note). `space`-subcase workaround ships. | Next io/config task, or 2026-10-01 |
 
 Also **out of this plan:** the 4.5 (microbolometer) / 6.1 (D*/NETD) noise-spec
 converter design decision — that is a *scenario* prerequisite tracked in the
@@ -91,14 +111,18 @@ Scenario Execution Plan, not a T3/T4 registry gap.
 
 ## Exit criteria
 
-- Gaps 42–52 and 54 closed (moved to RESOLVED in `gaps.md` with commit SHAs;
-  Summary-Table rows FIXED). Gap 53 carries a deferral record with a
-  gating condition and re-audit date (Rule 22).
-- No golden result changed except by Wave C, each with a reviewed
+- **Closed (8):** Gaps 44, 45, 46, 48, 49, 50, 51, 54 — RESOLVED in
+  `gaps.md` with commit SHAs, Summary-Table rows FIXED.
+- **Deferred with re-audit records (3):** Gaps 47, 42 (architecture tasks)
+  and 53 (own charter) — see the Deferred table (Rule 22).
+- **Awaiting owner golden-review gate (2):** Wave C Gaps 43, 52.
+- No golden result changed by the closed gaps (all additive or
+  default-preserving); Wave C will change goldens, each with a reviewed
   **Results-affecting:** CHANGELOG entry.
 - Every closed gap has a Level-0 test; `mypy --strict` clean on core/api;
-  import-linter and org-rules pass.
-- Plan archived per Rule 24 in the PR that closes the last non-deferred gap.
+  import-linter and org-rules pass. ✓
+- Plan archived per Rule 24 once Wave C lands and 47/42/53 are either done
+  or re-docketed; until then it stays Active (the deferrals keep it open).
 
 ---
 
@@ -133,3 +157,9 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   `detector.qe_temperature_coeff_per_K` + `qe_temperature_ref_K`, applied
   at the API layer (option b — Rule 11 keeps it out of the stage).
   Results-affecting only when coeff≠0; default byte-identical; 4 tests.
+- **2026-07-08 — Wave B halted after 44 + 48; Gaps 47 & 42 reclassified.**
+  On reading the internals, 47 (source spec-form router) and 42 (config +
+  source background) proved to be architecture extensions, not simple
+  config wiring — reclassified as own-charter tasks with re-audit records
+  (see Deferred). Owner-approved stop. **8 gaps closed total this pass
+  (Wave A ×6 + 44 + 48); Wave C awaits the golden-review gate.**

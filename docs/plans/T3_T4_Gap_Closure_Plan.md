@@ -110,7 +110,7 @@ Optional follow-on: migrate scenarios 4.3/4.4 off the manual workaround.
 
 | Gap | Why deferred | Re-audit |
 |-----|--------------|----------|
-| **53** | Johnson MRC/MRT contrast-limited DRI is Medium–Large and couples to a rescope of scenario 4.2. It needs its own Category-C charter (MRC/MRT curve from the system MTF + noise, then a contrast-limited `johnson_range_m` variant). Not blocking — the sampling-limited geometric bound is shipped and documented. | When scenario 4.2 is rescoped, or 2026-10-01 |
+| ~~53~~ | **DONE (b8418c0)** — `performance/minimum_resolvable.py` (MRT/MRC) + `mrt_at_nyquist_K` metric. Contrast-limited companion to the Johnson model; no 4.2 rescope needed. | — |
 | **47** | Source spec-form router extension (see Wave B note). Architecture task; ε(λ) descriptor support already exists, S8 workaround ships. | Next source-subsystem task, or 2026-10-01 |
 | **42** | Config-loading + source-background architecture (see Wave B note). `space`-subcase workaround ships. | Next io/config task, or 2026-10-01 |
 

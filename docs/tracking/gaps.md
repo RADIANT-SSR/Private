@@ -869,7 +869,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 4.2 execution (Phase T4), 2026-07-08 |
-| **Status** | DEFERRED (own charter) 2026-07-08 — Medium–Large; needs a Category-C MRC/MRT model (system-MTF + noise → contrast-limited `johnson_range_m`) and couples to a scenario-4.2 rescope. Sampling-limited geometric bound ships and is documented. Gating: scenario 4.2 rescope; re-audit 2026-10-01. See `docs/plans/T3_T4_Gap_Closure_Plan.md`. |
+| **Status** | RESOLVED 2026-07-08 (b8418c0) — `performance/minimum_resolvable.py` (MRT = k·NETD/MTF, MRC = k·NEΔρ/MTF) + additive metric `mrt_at_nyquist_K`. Contrast-limited companion to the sampling-limited Johnson model (both ship); a contrast-limited range is composable at the scenario level (Johnson cycles + MRT at the task frequency). No scenario-4.2 rescope needed. Consumed by scenario 3.5. |
 | **Description** | `radiant.performance.johnson_criteria` computes DRI ranges by counting geometric resolved cycles across the target; it assumes adequate target contrast. A full acquisition model couples cycles to the minimum-resolvable-contrast (MRC, reflective) or minimum-resolvable-temperature (MRT, thermal) curve, which folds in the system MTF and scene contrast, so a low-contrast target identifies at shorter range than the geometric Johnson value. The current model is the optimistic (high-contrast) upper bound. |
 | **Workaround** | Use the sampling-limited DRI range as the best-case; note contrast dependence qualitatively (scenario 4.2). |
 | **Impact** | Medium — at resolution-limited ranges (small targets, low contrast, dusk) the true range is shorter; the model overstates it. Fine as a geometric bound and clearly documented as such. |
@@ -950,7 +950,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
 | 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | FIXED (ADR-0005) |
-| 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | DEFERRED (charter, re-audit 2026-10-01) |
+| 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | FIXED (MRT/MRC model) |
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 
 ---

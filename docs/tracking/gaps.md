@@ -1013,7 +1013,7 @@ Require new physics models, analysis modes, or architectural additions beyond me
 | ~~27~~ | ~~1.5~~ | ~~Sarah~~ | ~~Arbitrary pupil mask (spider vanes), Strehl~~ — **DONE** spider vanes (36286e7); arbitrary mask → Gap 54 |
 | 28 | 4.5 | Lisa | Microbolometer noise model (NETD-specified) |
 | 29 | 3.3 | Raj | Multi-sensor comparison framework, compliance matrix |
-| 30 | 6.1 | Dr. Chen | D* / NETD / NEP → component noise converters |
+| ~~30~~ | ~~6.1~~ | ~~Dr. Chen~~ | ~~D* / NETD / NEP → component noise converters~~ — **DONE** `performance.detectivity`/`nep_electrons`/`nep_netd` (ac59315) |
 | 31 | 2.4 | Mike | Multi-frame persistence model (temporal sequence) |
 | 32 | 6.5 | Dr. Chen | Temperature retrieval (inverse), Jacobian |
 | 33 | 6.4 | Dr. Chen | Multi-target scene, per-pixel simulation, ROC curve |

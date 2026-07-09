@@ -27,6 +27,7 @@ from radiant.performance.dynamic_range import compute_dynamic_range
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.ground_range import compute_ground_range_m
 from radiant.performance.gsd import compute_gsd
+from radiant.performance.minimum_resolvable import minimum_resolvable_temperature_K
 from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
@@ -503,6 +504,23 @@ def _compute_nedt_metric(
     return state
 
 
+def _compute_mrt_metric(
+    state: ChainState,
+    params: ParameterSet,
+) -> ChainState:
+    """Minimum resolvable temperature at Nyquist (Gap 53).
+
+    MRT(f_Ny) = k · NETD / MTF_sys(f_Ny) — the contrast-limited resolution
+    metric at the detector Nyquist frequency. Requires NETD and the
+    system MTF at Nyquist; skips gracefully otherwise.
+    """
+    netd = state.metrics.get("nedt_K")
+    mtf_ny = state.metrics.get("mtf_at_nyquist")
+    if netd is None or mtf_ny is None or mtf_ny <= 0.0:
+        return state
+    return state.with_metric("mrt_at_nyquist_K", minimum_resolvable_temperature_K(netd, mtf_ny))
+
+
 def _classify_band(lambda_center_um: float) -> str:
     """Classify spectral band from center wavelength for GIQE/IIRS dispatch."""
     if lambda_center_um < 1.0:
@@ -601,6 +619,9 @@ class PerformanceStage:
 
         # NEDT (Planck-derivative approximation, requires SNR).
         state = _compute_nedt_metric(state, params)
+
+        # Minimum resolvable temperature at Nyquist (Gap 53; needs NEDT + MTF).
+        state = _compute_mrt_metric(state, params)
 
         # NIIRS / IIRS (requires GSD, RER, SNR from earlier in this stage).
         state = _compute_niirs_metric(state, params)

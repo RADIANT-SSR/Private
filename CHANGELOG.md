@@ -33,6 +33,14 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- Minimum resolvable temperature / contrast (Gap 53):
+  `radiant.performance.minimum_resolvable` —
+  `minimum_resolvable_temperature_K` (MRT = k·NETD/MTF_sys(f)) and
+  `minimum_resolvable_contrast` (MRC = k·NEΔρ/MTF_sys(f)), the
+  contrast-limited resolution metrics (k = 2.25 observer SNR default). New
+  metric `mrt_at_nyquist_K` (additive; requires NEDT + MTF). New error
+  class `MinimumResolvableError`. Companion to the sampling-limited Johnson
+  model; consumed by scenario 3.5.
 - Extended target-vs-background contrast (ADR-0005, Gap 52): new
   parameters `source.contrast_reference.temperature` and
   `source.contrast_reference.emissivity` make `contrast_snr` a true

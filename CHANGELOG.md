@@ -33,6 +33,11 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- ROC / detection-probability model (scenario 6.4):
+  `radiant.performance.roc` — `roc_curve` (P_d vs P_fa from a detection
+  index / contrast SNR), `detection_probability` (`Q(Q⁻¹(P_fa)−SNR)`), and
+  `roc_auc` (`Φ(SNR/√2)`) for the equal-variance Gaussian model. New error
+  class `RocError`. No chain change.
 - Multi-frame persistence sequence (scenario 2.4):
   `radiant.detector.persistence_sequence` — `persistence_residual_e` /
   `persistence_residual_sequence_e` (residual ghost signal

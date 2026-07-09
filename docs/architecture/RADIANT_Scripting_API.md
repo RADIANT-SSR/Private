@@ -930,6 +930,7 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `minimum_resolvable_temperature_K`/`minimum_resolvable_contrast` (`performance.minimum_resolvable`, Gap 53) | Stable |
 | `retrieve_temperature_K`, `band_planck_radiance`, `emissivity_jacobian`, `temperature_jacobian` (`performance.temperature_retrieval`, scenario 6.5) | Stable |
 | `persistence_residual_sequence_e`, `persistence_residual_e`, `frames_to_clear` (`detector.persistence_sequence`, scenario 2.4) | Stable |
+| `roc_curve`, `detection_probability`, `roc_auc` (`performance.roc`, scenario 6.4) | Stable |
 | `analyze_calibration` + `CalibrationReport` (`radiant.api.calibration_analysis`, Gap 46) | Stable |
 | `johnson_range_m`, `resolved_cycles`, `JOHNSON_N50` (`radiant.performance.johnson_criteria`, scenario 4.2) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |

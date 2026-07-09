@@ -128,6 +128,13 @@ Scenario Execution Plan, not a T3/T4 registry gap.
 
 ## Progress log
 
+- **2026-07-08 — Wave C, Gap 43 closed (0b33061).** Exact band-integrated
+  NEDT dS/dT (Planck log-derivative) in `SpectralIntegrationStage`;
+  `PerformanceStage` uses σ/(dS/dT), single-λ form as fallback. Reduces to
+  the old formula exactly in the narrow-band limit; NEDT shifts ~±0.3% LWIR,
+  +4.5% wide MWIR. No golden asserted NEDT; 2 Option-C anchors repinned.
+  4 new tests. **Owner greenlit the golden change.**
+
 - **2026-07-08 — Wave A, Gaps 49 + 50 closed (63f599d).**
   `performance/diffraction_limit.py` (`diffraction_limit_angular_urad`,
   `diffraction_limit_ground_m`) and `performance/sampling_regime.py`

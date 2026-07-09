@@ -709,7 +709,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 6.3 refresh (Scenario_Execution_Plan Phase R), 2026-07-07 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (0b33061) — `SpectralIntegrationStage` computes exact band-integrated `dS/dT` (Planck log-derivative); `PerformanceStage` uses σ/(dS/dT). Results-affecting (NEDT small); repinned 2 Option-C anchors. |
 | **Description** | `performance/stage.py` computes NEDT via `nedt.compute_nedt_from_snr` — the analytic approximation `NEDT = T / (SNR · x·eˣ/(eˣ−1))` at the band-effective wavelength. The exact formulation `nedt.compute_nedt(noise_e, ds_dt_e_per_K)` (σ/(dS/dT) with a band-integrated, photon-weighted derivative) exists in the same module but is never called by the chain. For scenario 6.3 (300 K target, 3.5–5 µm, daytime space sub-case) the approximation reads ~13% LOW (20.76 vs 23.92 mK exact) — the dominant bias is that SNR includes the temperature-independent reflected-solar signal (~9% of in-band e⁻), which inflates SNR without contributing to dS/dT, making the reported thermal sensitivity optimistic. |
 | **Workaround** | Post-process: compute dS/dT by finite difference (two chain runs at T ± ΔT) and divide the total noise by it — scenario 6.3's hand model shows the recipe. |
 | **Impact** | NEDT accuracy for wide bands, low-x regimes, and any daytime scene with a reflective signal component; NEDT-derived requirement verification inherits the bias. |
@@ -940,7 +940,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
 | 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | DEFERRED (arch, re-audit 2026-10-01) |
-| 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
+| 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | FIXED |
 | 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | FIXED |
 | 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |
 | 46 | Calibration-analysis helpers script-side | Small | 7.2 | FIXED |

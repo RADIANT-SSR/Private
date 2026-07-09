@@ -1,6 +1,13 @@
 # Scenario Execution Plan
 
-Status: Active (2026-07-07; progress-refreshed 2026-07-08)
+> **HISTORICAL — completed 2026-07-09.** All 33 non-MODTRAN scenarios are
+> executed (the two MODTRAN-gated scenarios, 1.1 and 6.2, carry deferral
+> records). Archived per Rule 24. Superseded by the executed scenarios
+> themselves (each with its walkthrough/gaps/gui_workflow trio + MANIFEST)
+> and the gap/CU registries; do not resume this plan — open a new one for
+> any future scenario work.
+
+Status: Complete (2026-07-07 → 2026-07-09; progress-refreshed 2026-07-08)
 Author: Coding agent, approved by project owner
 Scope: Execute the 21 remaining scenarios and refresh the 4 whose workarounds
 the Gap_Closure_Plan made obsolete.
@@ -72,12 +79,10 @@ re-audit with Gaps 38/39 (2026-10-01 or on access).
 
 ## Phase T4 — Tier 4 scenarios (new models)
 
-**Status: IN PROGRESS (7 of 12 done, 2026-07-08).** Work the priority list
-order: 1.2 (solar geometry), 3.1 (orbit → geometry), 4.4 (diurnal sweep),
-4.2 (Johnson DRI), 1.5 (pupil mask), 4.5 (microbolometer), 3.3
-(multi-sensor), 6.1 (D*/NETD converters), 2.4 (persistence), 6.5
-(retrieval), 6.4 (ROC), 3.5 (tropical/GeoTIFF/MRT). Each new model is its
-own Category C task with truth anchors before the scenario that consumes it.
+**Status: COMPLETE (13 of 13 done, 2026-07-09).** Priority-list order plus
+one scenario (5.5) the priority list had omitted, discovered and executed on
+the final pass. Each new model is its own Category C task with truth anchors
+before the scenario that consumes it.
 
 ### Completed (each: model commit → scenario commit → MANIFEST-SHA commit)
 
@@ -90,6 +95,17 @@ own Category C task with truth anchors before the scenario that consumes it.
 | **1.5** Obscured aperture & spider vanes | spider-vane pupil masking (`optics.n_spiders`/`spider_width_m`/`spider_angle_deg`); implements RADIANT_Optics.md §3.3 | model 36286e7 (+style 6c35307) → scenario bbf9f6f → manifest 01da0e2 |
 | **6.1** Published-datasheet benchmark | D*/NEP/NETD converters (`performance.detectivity`/`nep_electrons`/`nep_netd`) | model ac59315 → scenario 55b0175 → manifest 81a97bc |
 | **4.5** Microbolometer UAV altitude trade | (same converters — NETD-specified detector) | scenario efea031 → manifest 521771d |
+| **3.3** Multi-sensor procurement comparison | data-driven (vendor workbook; no new model) | scenario 4455ad8 → manifest 979537a |
+| **2.4** Persistence / bright-source recovery | `detector.persistence_sequence` (multi-frame residual) | model c4a3a28 → scenario f0b6d34 → manifest 044b209 |
+| **6.5** Emissivity sensitivity for retrieval | `performance.temperature_retrieval` (inverse + Jacobian) | model 6623d0d → scenario d01fbad → manifest 03b25b8 |
+| **6.4** Synthetic scene / ROC | `performance.roc` (ROC curve, detection probability, AUC) | model c1ad64e → scenario 6ca0cb3 → manifest d9693f5 |
+| **3.5** Nighttime MWIR feasibility | consumes NEDT/MRT/contrast-reference; analytic solar comparison (no new model) | scenario c19bd21 → manifest 668a56e |
+| **5.5** Stray-light / veiling-glare (priority-list omission) | consumes existing stray-light surface; found bug CU-062 | scenario 124f09c → manifest 2ac2781 |
+
+New registry gaps filed on the final pass: 56 (multi-target scene), 57
+(preset humidity coupling), 58 (GeoTIFF reader), 59 (day/night mode), 60
+(stray-light 2-D PSF / MTF). CUs: 061 (contrast_snr saturation),
+062 (veiling_glare solid-angle bug).
 
 Priority-list items 23/24/26/27 in `gaps.md` marked DONE. New registry gaps
 filed: 49 (diffraction-limited-resolution metric), 50 (sampling-regime
@@ -119,17 +135,15 @@ datasheet (chain D* within 10% of spec); 4.5 turns a vendor NETD into D*
 (1.34e9 Jones, uncooled) for a UAV altitude trade (ceiling 8.5 km,
 sub-pixel-limited).
 
-### Remaining (5 scenarios, all new-model Category C, not yet started)
+### Remaining
 
-- **3.3** (multi-sensor comparison framework), **2.4** (multi-frame
-  persistence), **6.5** (temperature retrieval / Jacobian), **6.4**
-  (multi-target scene / ROC curve), **3.5** (tropical atmosphere / GeoTIFF
-  reader / MRT metric).
+None — all Phase T4 scenarios are executed (see the completed table above).
 
-## Exit criteria
+## Exit criteria — MET 2026-07-09
 
-- 33 of 35 scenarios executed (all but MODTRAN-gated 1.1, 6.2, which carry
+- ✔ 33 of 35 scenarios executed (all but MODTRAN-gated 1.1, 6.2, which carry
   deferral records); each meets the Definition of Done in
-  `scenarios/README.md`.
-- Registry hygiene: every scenario gap mirrored; plan archived per Rule 24
-  when the last non-deferred scenario lands.
+  `scenarios/README.md`. Verified: 33 scenario folders carry a `walkthrough.md`.
+- ✔ Registry hygiene: every scenario gap mirrored into `docs/tracking/gaps.md`
+  (through Gap 60) and `Cleanup_Backlog.md` (through CU-062); this plan
+  archived per Rule 24 on the landing of the last non-deferred scenario (5.5).

@@ -837,7 +837,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.1 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (c4c01b7) — `core/repeat_ground_track.py` (J2 nodal regression, sun-sync inclination, ground-track spacing, first-order revisit). Exact repeat-cycle revisit remains a documented out-of-scope extension. |
 | **Description** | `radiant.core.orbit` gives single-orbit kinematics (period, velocity, ground-track speed). True revisit time for a target latitude needs the sun-sync nodal-regression rate, the J2 repeat-cycle ground-track spacing, and the swath / access-corridor overlap between adjacent tracks — none of which is modeled. Scenario 3.1 reports orbits/day (86400/period) and the cross-track access corridor as coverage proxies. |
 | **Workaround** | Orbits/day + access-corridor half-width (scenario 3.1 pattern). |
 | **Impact** | Medium for coverage/revisit planning; a repeat-ground-track calculator is the natural layer above the orbit-kinematics model. Not blocking — orbits/day and the corridor answer the sizing question. |
@@ -948,7 +948,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |
 | 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
-| 51 | No revisit / repeat-ground-track model | Medium | 3.1 | OPEN |
+| 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | OPEN |
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | OPEN |
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | OPEN |

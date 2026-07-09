@@ -110,3 +110,8 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   (`sampling_regime_code`), wired into `PerformanceStage`. Additive
   metrics; 10/10 goldens unchanged; 16 Level-0 tests. `gaps.md` entries
   RESOLVED, Summary-Table rows FIXED.
+- **2026-07-08 — Wave A, Gap 51 closed (c4c01b7).**
+  `core/repeat_ground_track.py` — J2 nodal regression, sun-sync
+  inclination, ground-track spacing, first-order revisit; adds `J2_earth`.
+  Standalone model, no chain change; 12 Level-0 tests. Exact repeat-cycle
+  revisit noted out-of-scope. RESOLVED / FIXED.

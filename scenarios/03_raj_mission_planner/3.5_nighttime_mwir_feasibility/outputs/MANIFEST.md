@@ -8,5 +8,5 @@ solar-independence, and background-envelope tables print to the console.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_band_comparison.png | figure (committed) | PENDING |
-| fig2_solar_independence.png | figure (committed) | PENDING |
+| fig1_band_comparison.png | figure (committed) | c19bd21 2026-07-09 |
+| fig2_solar_independence.png | figure (committed) | c19bd21 2026-07-09 |

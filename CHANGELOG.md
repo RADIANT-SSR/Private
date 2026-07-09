@@ -33,6 +33,13 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- Multi-frame persistence sequence (scenario 2.4):
+  `radiant.detector.persistence_sequence` — `persistence_residual_e` /
+  `persistence_residual_sequence_e` (residual ghost signal
+  `prior·f·exp(−(n−1)Δt/τ)` over a frame sequence) and `frames_to_clear`
+  (frames until the residual drops below one LSB). Extends the existing
+  single-frame `persistence_noise` term to the temporal domain. New error
+  class `PersistenceSequenceError`. No chain change.
 - Temperature retrieval + emissivity/temperature Jacobian (scenario 6.5):
   `radiant.performance.temperature_retrieval` — `retrieve_temperature_K`
   (invert a measured band radiance for surface T given an assumed ε, via

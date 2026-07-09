@@ -1015,7 +1015,7 @@ Require new physics models, analysis modes, or architectural additions beyond me
 | 29 | 3.3 | Raj | Multi-sensor comparison framework, compliance matrix |
 | ~~30~~ | ~~6.1~~ | ~~Dr. Chen~~ | ~~D* / NETD / NEP → component noise converters~~ — **DONE** `performance.detectivity`/`nep_electrons`/`nep_netd` (ac59315) |
 | 31 | 2.4 | Mike | Multi-frame persistence model (temporal sequence) |
-| 32 | 6.5 | Dr. Chen | Temperature retrieval (inverse), Jacobian |
+| ~~32~~ | ~~6.5~~ | ~~Dr. Chen~~ | ~~Temperature retrieval (inverse), Jacobian~~ — **DONE** `performance.temperature_retrieval` (6623d0d) |
 | 33 | 6.4 | Dr. Chen | Multi-target scene, per-pixel simulation, ROC curve |
 | 34 | 3.5 | Raj | Tropical atmosphere, GeoTIFF reader, MRT metric |
 | 35 | 1.3 | Sarah | Detection probability model, dual-band comparison |

@@ -115,3 +115,9 @@ Scenario Execution Plan, not a T3/T4 registry gap.
   inclination, ground-track spacing, first-order revisit; adds `J2_earth`.
   Standalone model, no chain change; 12 Level-0 tests. Exact repeat-cycle
   revisit noted out-of-scope. RESOLVED / FIXED.
+- **2026-07-08 — Wave A, Gaps 45 + 46 closed (d916bd3).**
+  Gap 45: `performance/dark_crossover_rate.py`, `blip_rate.py`,
+  `noise_equivalent_irradiance.py` (detector FOM). Gap 46:
+  `api/calibration_analysis.py` (`analyze_calibration` → `CalibrationReport`).
+  18 Level-0 tests; pure helpers, no chain change. **Wave A complete except
+  Gap 54 (pupil-mask injection).**

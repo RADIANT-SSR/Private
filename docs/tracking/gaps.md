@@ -741,7 +741,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 2.1 execution (Phase T3), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (d916bd3) — `performance/dark_crossover_rate.py`, `blip_rate.py`, `noise_equivalent_irradiance.py`. |
 | **Description** | The three standard detector-trade numbers have no native home: BLIP temperature (dark rate = photon rate), dark-current crossover temperature (dark shot = read noise), and NEI (σ_total/(QE·A_pix·t_int)). Scenario 2.1 computes each in 1–3 lines using `DarkCurrentCurve.temperature_at_rate` and chain outputs. |
 | **Workaround** | Script-side one-liners (scenario 2.1 shows all three, with definitions). |
 | **Impact** | Low — ergonomics only now that the loaders exist; NEI as `result.metrics["nei_photons_s_cm2"]` would need only quantities the chain already carries. |
@@ -757,7 +757,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 7.2 execution (Phase T3), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-08 (d916bd3) — `radiant.api.calibration_analysis` (`analyze_calibration` → `CalibrationReport`). |
 | **Description** | The standard calibration-verification quantities have no native home: responsivity dDN/dT (finite difference on a temperature sweep) and dDN/dL (against Planck band radiance), the gain/offset decomposition (`measured = a·predicted + b`), the linearity fit (DN vs L(T), % full-scale residuals), and calibration uncertainty (σ_DN, σ_T with N-frame scaling). Scenario 7.2 computes all of them in a few lines each from `Sensor.sweep(keep_results=True)` results. |
 | **Workaround** | Script-side recipes in scenario 7.2 (documented step by step). |
 | **Impact** | Low — ergonomics; a `radiant.api.calibrate` helper (sweep → fit report) would serve every calibration campaign, but the primitives all exist. |
@@ -942,8 +942,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | OPEN |
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | OPEN |
 | 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | OPEN |
-| 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | OPEN |
-| 46 | Calibration-analysis helpers script-side | Small | 7.2 | OPEN |
+| 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |
+| 46 | Calibration-analysis helpers script-side | Small | 7.2 | FIXED |
 | 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | OPEN |
 | 48 | QE has no temperature dependence | Small | 7.5 | OPEN |
 | 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |

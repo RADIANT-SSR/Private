@@ -1,6 +1,6 @@
 # Scenario Execution Plan
 
-Status: Active (2026-07-07)
+Status: Active (2026-07-07; progress-refreshed 2026-07-08)
 Author: Coding agent, approved by project owner
 Scope: Execute the 21 remaining scenarios and refresh the 4 whose workarounds
 the Gap_Closure_Plan made obsolete.
@@ -72,13 +72,50 @@ re-audit with Gaps 38/39 (2026-10-01 or on access).
 
 ## Phase T4 — Tier 4 scenarios (new models)
 
-Work the priority list order: 1.2 (solar geometry), 3.1 (orbit → geometry),
-4.4 (diurnal sweep), 4.2 (Johnson DRI), 1.5 (pupil mask), 4.5
-(microbolometer), 3.3 (multi-sensor), 6.1 (D*/NETD converters), 2.4
-(persistence), 6.5 (retrieval), 6.4 (ROC), 3.5 (tropical/GeoTIFF/MRT).
-Each new model is its own Category C task with truth anchors before the
-scenario that consumes it; re-scope this phase when T3 completes (the tier
-list is re-prioritized as capabilities land).
+**Status: IN PROGRESS (5 of 12 done, 2026-07-08).** Work the priority list
+order: 1.2 (solar geometry), 3.1 (orbit → geometry), 4.4 (diurnal sweep),
+4.2 (Johnson DRI), 1.5 (pupil mask), 4.5 (microbolometer), 3.3
+(multi-sensor), 6.1 (D*/NETD converters), 2.4 (persistence), 6.5
+(retrieval), 6.4 (ROC), 3.5 (tropical/GeoTIFF/MRT). Each new model is its
+own Category C task with truth anchors before the scenario that consumes it.
+
+### Completed (each: model commit → scenario commit → MANIFEST-SHA commit)
+
+| Scenario | New capability (Category C model) | Commits |
+|----------|-----------------------------------|---------|
+| **1.2** VNIR GSD vs aperture vs altitude | `core.solar_geometry` (LTAN/date/lat → solar zenith; Spencer declination + hour-angle) | model 00efcc5 → scenario b34e518 → manifest 93c7281 |
+| **3.1** Orbit geometry & pass planning | `core.orbit` (period, orbital velocity, ground-track speed; adds `mu_earth_m3_s2`) | model e32188e → scenario 760472c → manifest 02eba95 |
+| **4.4** Diurnal time-of-day detectability | data-driven (no new model — profile is input data) | scenario 6257eee → manifest 49733ff |
+| **4.2** Maritime ship classification | `performance.johnson_criteria` (Detection/Recognition/ID ranges) | model 0df9e15 → scenario d1f2707 → manifest 89fe2ed |
+| **1.5** Obscured aperture & spider vanes | spider-vane pupil masking (`optics.n_spiders`/`spider_width_m`/`spider_angle_deg`); implements RADIANT_Optics.md §3.3 | model 36286e7 (+style 6c35307) → scenario bbf9f6f → manifest 01da0e2 |
+
+Priority-list items 23/24/26/27 in `gaps.md` marked DONE. New registry gaps
+filed: 49 (diffraction-limited-resolution metric), 50 (sampling-regime
+flag), 51 (revisit/repeat-ground-track), 52 (extended target-vs-background
+differential), 53 (Johnson MRC/MRT coupling), 54 (arbitrary pupil mask).
+Rule 4 preserved for spider vanes (496 optics + 10 golden tests unchanged;
+no-vane pupil byte-identical).
+
+### Side discovery, dispositioned
+
+Five executed-scenario folders had diverged from the canonical scaffold
+names, creating duplicate directories (Rule 23/27 violation introduced in
+T3/T4). Corrected in-tree: 3.1 relocated to `03_raj_mission_planner/
+3.1_isr_pass_planning` (eacd980); 1.2/1.3/2.1/7.5 renamed to their canonical
+scaffold names (f9d2426). Content unchanged; internal path references and
+one Cleanup_Backlog reference fixed.
+
+### Remaining (7 scenarios)
+
+- **4.5** (microbolometer) and **6.1** (D*/NETD converters) — **PAUSED for a
+  design decision.** Both are NETD/D*/NEP noise-spec converters and should
+  share one model; whether that model is a NETD-input-mode, a scaling-law
+  converter, or thermal-fluctuation-noise physics is a design call for the
+  owner. Resolving it unblocks both.
+- **3.3** (multi-sensor comparison framework), **2.4** (multi-frame
+  persistence), **6.5** (temperature retrieval / Jacobian), **6.4**
+  (multi-target scene / ROC curve), **3.5** (tropical atmosphere / GeoTIFF
+  reader / MRT metric) — each a new-model Category C task, not yet started.
 
 ## Exit criteria
 

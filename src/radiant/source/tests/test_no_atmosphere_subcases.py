@@ -651,32 +651,36 @@ class TestInferrerSpaceSubcase:
 
 
 class TestInferrerGroundTestSubcase:
-    """The inferrer raises for ground_test (legacy surface has no L_bg path)."""
+    """Gap 42: the inferrer builds a grey-body chamber background for ground_test."""
 
     @pytest.mark.level1
-    def test_ground_test_without_user_background_raises(self) -> None:
+    def test_ground_test_builds_chamber_background(self) -> None:
         from radiant.api._param_registry import build_parameter_set
+        from radiant.core.descriptors import UserSpectralBackground
         from radiant.source._inferrer import infer_descriptors
 
         params = build_parameter_set()
         params.set("source.target.temperature", 320.0)
         params.set("source.target.emissivity", 0.96)
+        params.set("source.background.temperature", 300.0)  # chamber walls
         params.set("atmosphere.model", "exo")
         params.set("source.target_location", "no_atmosphere")
         params.set("source.no_atmosphere_subcase", "ground_test")
         _seed_required_params(params)
         params.resolve()
         wl = _lwir_grid()
-        with pytest.raises(ParameterBoundsError, match="UserSpectralBackground"):
-            infer_descriptors(params, wl)
+        _, background, _ = infer_descriptors(params, wl)
+        assert isinstance(background, UserSpectralBackground)
+        assert background.L_bg is not None
 
 
 class TestInferrerLabTestSubcase:
-    """The inferrer raises for lab_test (legacy surface has no L_bg path)."""
+    """Gap 42: the inferrer builds a grey-body chamber background for lab_test."""
 
     @pytest.mark.level1
-    def test_lab_test_without_user_background_raises(self) -> None:
+    def test_lab_test_default_chamber_temp_warns(self) -> None:
         from radiant.api._param_registry import build_parameter_set
+        from radiant.core.descriptors import UserSpectralBackground
         from radiant.source._inferrer import infer_descriptors
 
         params = build_parameter_set()
@@ -688,8 +692,10 @@ class TestInferrerLabTestSubcase:
         _seed_required_params(params)
         params.resolve()
         wl = _lwir_grid()
-        with pytest.raises(ParameterBoundsError, match="UserSpectralBackground"):
-            infer_descriptors(params, wl)
+        # background.temperature left at default → warns, still builds.
+        with pytest.warns(UserWarning, match="chamber"):
+            _, background, _ = infer_descriptors(params, wl)
+        assert isinstance(background, UserSpectralBackground)
 
 
 # ---------------------------------------------------------------------------

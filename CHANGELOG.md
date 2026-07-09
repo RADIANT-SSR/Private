@@ -32,6 +32,18 @@ retroactively reconstructed.
   two pinned Option-C LWIR anchors were repinned with provenance. The
   single-λ form remains the fallback when no target temperature is set.
 
+### Changed
+- Lab/ground-test scenarios reachable from the config surface (Gap 42):
+  `source.no_atmosphere_subcase` ∈ {`ground_test`, `lab_test`} now builds a
+  grey-body chamber/test-range background `L_bg(λ) = ε_bg·B(λ, T_bg)` from
+  `source.background.temperature`/`.emissivity` (which Decision #15 makes
+  valid for the no-atmosphere sub-cases) instead of raising and requiring a
+  manual `UserSpectralBackground` injection. Warns if the chamber
+  temperature is left at the schema default (Rule 17). A measured `L_bg(λ)`
+  can still be injected directly. **Behaviour change:** these sub-cases
+  previously raised `ParameterBoundsError` at inference; they now run. No
+  golden change (no golden used these sub-cases).
+
 ### Added
 - Spectral target emissivity input (Gap 47): new parameter
   `source.target.emissivity_path` — a 2-column `(wavelength_um, emissivity)`

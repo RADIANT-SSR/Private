@@ -475,8 +475,10 @@ class TestFailureModes:
         )
 
     @pytest.mark.level1
-    def test_ground_test_subcase_raises_in_stage_2(self) -> None:
-        """Stage 2 has no UserSpectralBackground path; ground_test must raise."""
+    def test_ground_test_subcase_builds_chamber_background(self) -> None:
+        """Gap 42: ground_test builds a grey-body UserSpectralBackground from
+        source.background.* (Decision #15 makes them valid here), warning when
+        the chamber temperature was left at the schema default."""
         params = build_parameter_set()
         load_config(
             REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
@@ -486,8 +488,10 @@ class TestFailureModes:
         params.set("source.no_atmosphere_subcase", "ground_test")
         params.resolve()
         wl = np.linspace(8.0, 13.0, 11)
-        with pytest.raises(ParameterBoundsError, match="UserSpectralBackground"):
-            infer_descriptors(params, wl)
+        with pytest.warns(UserWarning, match="chamber"):
+            _, background, _ = infer_descriptors(params, wl)
+        assert isinstance(background, UserSpectralBackground)
+        assert background.L_bg is not None
 
 
 # ---------------------------------------------------------------------------

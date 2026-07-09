@@ -60,6 +60,7 @@ from typing import Any
 
 import numpy as np
 
+from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.descriptors import (
     AtApertureBackground,
     BackgroundDescriptor,
@@ -1739,55 +1740,46 @@ def _build_background_descriptor(
             # atmosphere.assembly.validate_no_atmosphere_subcase.
             return ColdSpaceBackground()
         if no_atmosphere_subcase in ("ground_test", "lab_test"):
-            # Matrix §7: ground_test / lab_test require a
-            # UserSpectralBackground (L_bg(λ) on the chain grid).  The
-            # legacy parameter surface has no user-L_bg path — a user
-            # driving the chain through the legacy YAML must construct a
-            # UserSpectralBackground manually and inject it into
-            # stage_outputs['source']['background'] before AtmosphereStage
-            # runs (this is the integration test pattern in Stage 7 of
-            # the Option C plan; a richer YAML-driven path is the
-            # SensorDescriptor / illumination follow-on).
+            # Gap 42: build the chamber / test-range background from the
+            # config surface.  Decision #15 (ADR-0002) makes
+            # source.background.* the *valid* adjacent-scene surface for the
+            # no_atmosphere sub-cases (unlike extended, where it is
+            # deprecated), so a grey-body chamber wall
+            # L_bg(λ) = ε_bg · B(λ, T_bg) is the natural config-driven
+            # UserSpectralBackground.  A user who has a measured L_bg(λ)
+            # still injects a UserSpectralBackground directly into
+            # stage_outputs['source']['background'].
             #
-            # Raising here is Rule 17 (no silent failure): the inferrer
-            # has no default to give and the Stage-7 AtmosphereStage
-            # validator will likewise raise.  We raise early so the user
-            # sees a clear, actionable error at descriptor construction
-            # rather than deep in assembly.
-            raise ParameterBoundsError(
-                what=(
+            # Rule 17: the chamber temperature has no universal default, so
+            # if the user left source.background.temperature at its schema
+            # default we warn that the ambient default was assumed rather
+            # than silently baking it in.
+            bg_T: float = params.get("source.background.temperature")
+            bg_eps: float = params.get("source.background.emissivity")
+            if not _is_user_set(params, "source.background.temperature"):
+                warnings.warn(
                     f"source._inferrer: no_atmosphere_subcase="
-                    f"{no_atmosphere_subcase!r} requires a user-supplied "
-                    f"UserSpectralBackground; the legacy parameter "
-                    f"surface does not carry L_bg(λ)."
+                    f"{no_atmosphere_subcase!r} built a grey-body chamber "
+                    f"background from the default source.background.temperature "
+                    f"= {bg_T} K (ε = {bg_eps}). Set source.background.temperature "
+                    "explicitly to the chamber / test-range wall temperature, or "
+                    "inject a measured UserSpectralBackground(L_bg) via "
+                    "stage_outputs['source']['background'].",
+                    UserWarning,
+                    stacklevel=3,
+                )
+            L_bg_vals = bg_eps * planck_spectral_radiance(wavelength_um, bg_T)
+            L_bg = SpectralData(
+                name="source.background.chamber",
+                wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+                values=np.asarray(L_bg_vals, dtype=np.float64),
+                unit="W/m^2/sr/um",
+                source=(
+                    f"source._inferrer grey-body chamber background "
+                    f"(ε={bg_eps}·B(T={bg_T} K); Gap 42)"
                 ),
-                why=(
-                    "Matrix §7: ground_test and lab_test sub-cases have no "
-                    "sensible default for test-range or chamber radiance. "
-                    "The user must supply UserSpectralBackground(L_bg: "
-                    "SpectralData in W/m²/sr/µm).  The Option C "
-                    "SourceStage legacy inferrer cannot construct L_bg "
-                    "from scalar parameters; this is a Stage-7 preset "
-                    "that runs through a direct-descriptor pathway "
-                    "(tests inject a UserSpectralBackground into "
-                    "stage_outputs['source']['background']).  The "
-                    "illumination follow-on ADR will add a YAML-driven "
-                    "path."
-                ),
-                action=(
-                    "Either (a) construct a UserSpectralBackground "
-                    "manually and publish it as "
-                    "stage_outputs['source']['background'] (see "
-                    "tests/integration/test_no_atm_subcases.py for the "
-                    "canonical pattern), or (b) leave "
-                    "source.target_location at 'auto' for a space / "
-                    "terrestrial / airborne scenario."
-                ),
-                context={
-                    "target_location": target_location,
-                    "no_atmosphere_subcase": no_atmosphere_subcase,
-                },
             )
+            return UserSpectralBackground(L_bg=L_bg)
         # Unknown sub-case — the descriptor constructor already rejects
         # these; this arm is defensive.
         raise ParameterBoundsError(  # pragma: no cover

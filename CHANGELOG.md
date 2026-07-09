@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Diffraction-limited-resolution metrics (Gap 49):
+  `diffraction_limit_angular_urad` (Rayleigh `1.22 λ_c / D`) and
+  `diffraction_limit_ground_m` (projected to the slant range, companion to
+  GSD) in the new `performance/diffraction_limit.py`. Analysis outputs
+  only — no existing result changes.
+- Sampling-regime flag (Gap 50): `sampling_regime_code` metric
+  (0 detector-limited / 1 near-critical / 2 diffraction-limited, from
+  `q_center`) in the new `performance/sampling_regime.py`. New error
+  classes `DiffractionLimitError`, `SamplingRegimeError`. Additive
+  metrics; goldens unchanged.
 - Spider-vane / secondary-support struts (scenario 1.5 prerequisite):
   new optics parameters `optics.n_spiders`, `optics.spider_width_m`,
   `optics.spider_angle_deg` implement RADIANT_Optics.md §3.3 (previously

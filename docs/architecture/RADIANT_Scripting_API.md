@@ -216,6 +216,9 @@ Keys observed in a standard extended-scene run (`examples/mwir_leo_minimal.yaml`
 | `mtf_system_at_nyquist_x`, `mtf_system_at_nyquist_y` | — | System MTF at Nyquist from the MTF-product budget |
 | `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` | — | Aliasing diagnostics |
 | `q_center`, `q_min`, `q_max` | — | Detector sampling Q over the band |
+| `diffraction_limit_angular_urad` | µrad | Rayleigh angular resolution `1.22 λ_c / D` (optics-only floor) |
+| `diffraction_limit_ground_m` | m | Rayleigh resolution projected to the ground at the slant range (companion to GSD; requires altitude) |
+| `sampling_regime_code` | — | 0 = detector-limited (Q<1), 1 = near-critical (1≤Q≤2), 2 = diffraction-limited (Q>2), from `q_center` |
 | `well_margin_dB`, `adc_margin_dB`, `dynamic_range_dB` | dB | Saturation and dynamic-range margins |
 | `swath_width_m`, `access_rate_m2_s` | m, m²/s | Scenario-dependent (require ground-speed / swath geometry inputs) |
 

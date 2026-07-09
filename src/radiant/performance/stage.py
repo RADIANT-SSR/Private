@@ -13,11 +13,16 @@ import logging
 import warnings
 
 from radiant.core.chain import ChainState
+from radiant.core.geometry import slant_range_spherical_m
 from radiant.core.parameters import ParameterSet
 from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
 from radiant.performance.consistency_check import check_dual_path_consistency
 from radiant.performance.contrast_snr import compute_contrast_snr
+from radiant.performance.diffraction_limit import (
+    diffraction_limited_angular_rad,
+    diffraction_limited_ground_m,
+)
 from radiant.performance.dynamic_range import compute_dynamic_range
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.ground_range import compute_ground_range_m
@@ -26,6 +31,7 @@ from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.nedt import compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.qsample import compute_q
+from radiant.performance.sampling_regime import classify_sampling_regime
 from radiant.performance.snr import compute_snr
 from radiant.performance.strehl import compute_strehl
 from radiant.performance.swath_width import compute_swath_width_m
@@ -377,6 +383,61 @@ def _compute_q_metrics(
     return state.with_metric("q_max", result.q_max)
 
 
+def _compute_diffraction_limit_metrics(
+    state: ChainState,
+    params: ParameterSet,
+) -> ChainState:
+    """Diffraction-limited resolution: angular (always) and ground (Gap 49).
+
+    Angular Rayleigh resolution needs only the band-center wavelength and
+    aperture; the ground projection additionally needs the slant range.
+    Skips gracefully when inputs are unavailable.
+    """
+    try:
+        aperture_m: float = params.get("optics.aperture_diameter_m")
+        lambda_min: float = params.get("spectral_integration.filter_min_um")
+        lambda_max: float = params.get("spectral_integration.filter_max_um")
+    except (KeyError, TypeError):
+        return state
+    if aperture_m <= 0.0 or lambda_min <= 0.0 or lambda_max <= 0.0:
+        return state
+
+    lambda_center_m = 0.5 * (lambda_min + lambda_max) * 1e-6
+    angular_rad = diffraction_limited_angular_rad(lambda_center_m, aperture_m)
+    state = state.with_metric("diffraction_limit_angular_urad", angular_rad * 1e6)
+
+    # Ground projection at the slant range, consistent with the GSD metric.
+    try:
+        altitude_m: float = params.get("geometry.sensor_altitude_m")
+    except (KeyError, TypeError):
+        return state
+    if altitude_m <= 0.0:
+        return state
+    try:
+        path_zenith_rad: float = params.get("geometry.path_zenith_rad")
+    except (KeyError, TypeError):
+        path_zenith_rad = 0.0
+
+    range_m = slant_range_spherical_m(altitude_m, path_zenith_rad)
+    ground_m = diffraction_limited_ground_m(lambda_center_m, aperture_m, range_m)
+    return state.with_metric("diffraction_limit_ground_m", ground_m)
+
+
+def _compute_sampling_regime_metric(
+    state: ChainState,
+    params: ParameterSet,
+) -> ChainState:
+    """Detector- vs diffraction-limited sampling regime code (Gap 50).
+
+    Derived from ``q_center`` (0.0 detector-limited, 1.0 near-critical,
+    2.0 diffraction-limited). Skips when Q is unavailable.
+    """
+    q = state.metrics.get("q_center")
+    if q is None or q <= 0.0:
+        return state
+    return state.with_metric("sampling_regime_code", classify_sampling_regime(q))
+
+
 def _compute_strehl_metric(
     state: ChainState,
     params: ParameterSet,
@@ -517,6 +578,10 @@ class PerformanceStage:
 
         # Sampling parameter Q.
         state = _compute_q_metrics(state, params)
+
+        # Diffraction-limited resolution (Gap 49) and sampling regime (Gap 50).
+        state = _compute_diffraction_limit_metrics(state, params)
+        state = _compute_sampling_regime_metric(state, params)
 
         # Strehl ratio (Marechal approximation).
         state = _compute_strehl_metric(state, params)

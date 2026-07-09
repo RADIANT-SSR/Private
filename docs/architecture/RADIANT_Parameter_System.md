@@ -191,6 +191,7 @@ atmosphere.r0_m                       # m (Fried parameter)
 
 source.target.temperature             # K
 source.target.emissivity              # dimensionless (0–1)
+source.target.emissivity_path         # str — 2-col CSV ε(λ); spectral thermal target ε(λ)·B(λ,T) (Gap 47); mutually exclusive with scalar ε / reflective / radiance / brightness-temp surfaces
 source.target.is_hot_target           # bool — MWIR routing opt-out (CU-007); see source._inferrer matrix §3.2
 source.target.reflectance             # dimensionless (0–1), Lambertian
 source.target.projected_area_m2       # m²

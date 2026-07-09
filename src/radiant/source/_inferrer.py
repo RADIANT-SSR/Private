@@ -77,6 +77,7 @@ from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
 from radiant.core.spectral import SpectralData
 from radiant.source._schema import validate_reflectance_albedo_exclusive
+from radiant.source.converters._csv import load_two_column_csv
 from radiant.source.converters.brightness_temperature import (
     brightness_temperature_to_descriptor,
     load_brightness_temperature_csv,
@@ -1463,6 +1464,86 @@ def _maybe_build_from_user_intensity(
     )
 
 
+_EMISSIVITY_PATH_CONFLICTS = (
+    "source.target.emissivity",
+    "source.target.reflectance",
+    "source.target.albedo",
+    "source.target.reflectance_path",
+    "source.target.albedo_path",
+    "source.target.brightness_temperature_K",
+    "source.target.brightness_temperature_path",
+    "source.target.radiance_temperature_K",
+    "source.target.user_radiance_path",
+    "source.target.user_intensity_path",
+)
+
+
+def _validate_emissivity_csv(eps_values: np.ndarray, *, csv_path: str) -> None:
+    """Raise on ε outside ``[0, 1]`` at the CSV boundary (Rule 15, Gap 47)."""
+    if eps_values.size == 0:
+        raise ParameterBoundsError(
+            what="emissivity_path: CSV produced zero-sample SpectralData",
+            why="The converter needs at least one (λ, ε) pair to emit a descriptor.",
+            action="Populate the CSV with at least two (wavelength_um, emissivity) rows.",
+            context={"path": csv_path},
+        )
+    if np.any(eps_values < 0.0) or np.any(eps_values > 1.0):
+        bad = float(eps_values.min()) if np.any(eps_values < 0.0) else float(eps_values.max())
+        raise ParameterBoundsError(
+            what=f"emissivity_path: ε = {bad} is outside [0, 1] in CSV {csv_path}",
+            why="Emissivity is a dimensionless fraction in [0, 1] (Kirchhoff: ε ≤ 1).",
+            action="Correct the CSV rows so every emissivity value is in [0, 1].",
+            context={"path": csv_path, "bad_value": bad},
+        )
+
+
+def _load_emissivity_on_grid(
+    params: ParameterSet, wavelength_um: np.ndarray
+) -> SpectralData | None:
+    """Spectral ε(λ) from ``source.target.emissivity_path``, or None (Gap 47).
+
+    Raises if emissivity_path is combined with any conflicting surface — the
+    thermal spectral-emissivity target is a single spec form (S1 with ε(λ)),
+    so scalar ε, reflective, radiance, and brightness/radiance-temperature
+    surfaces would over-specify it.
+    """
+    if not _is_user_set(params, "source.target.emissivity_path"):
+        return None
+    csv_path = str(params.get("source.target.emissivity_path"))
+    if not csv_path:
+        return None
+    for other in _EMISSIVITY_PATH_CONFLICTS:
+        if _is_user_set(params, other):
+            raise ParameterBoundsError(
+                what=f"source.target.emissivity_path is mutually exclusive with {other}",
+                why=(
+                    "emissivity_path defines a thermal target via ε(λ)·B(T); "
+                    "combining it with a scalar-ε, reflective, radiance, or "
+                    "brightness/radiance-temperature surface over-specifies the target."
+                ),
+                action=f"Set either source.target.emissivity_path or {other}, not both.",
+                context={"emissivity_path": csv_path, "conflict": other},
+            )
+    eps_native = load_two_column_csv(
+        csv_path,
+        value_unit="",
+        column_label="emissivity",
+        sd_name="source.target.emissivity",
+        sd_source_prefix="source.converters.emissivity",
+    )
+    _validate_emissivity_csv(np.asarray(eps_native.values, dtype=np.float64), csv_path=csv_path)
+    eps_on_grid = _resample_dimensionless_on_grid(
+        eps_native, wavelength_um, quantity_label="emissivity"
+    )
+    return SpectralData(
+        name="source.target.emissivity",
+        wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+        values=eps_on_grid,
+        unit="",
+        source=f"source.converters.emissivity (CSV → chain grid: {csv_path})",
+    )
+
+
 def _build_target_descriptor(
     params: ParameterSet,
     wavelength_um: np.ndarray,
@@ -1552,14 +1633,18 @@ def _build_target_descriptor(
     T_t: float = params.get("source.target.temperature")
     epsilon_scalar: float = params.get("source.target.emissivity")
 
-    # Build the grey ε(λ) SpectralData once — reused for both the target
-    # emissivity and the background fallback below.
-    epsilon = _grey_spectraldata(
-        wavelength_um=wavelength_um,
-        value=epsilon_scalar,
-        name="source.target.emissivity",
-        unit="",
-    )
+    # Spectral ε(λ) via source.target.emissivity_path (Gap 47) supersedes the
+    # grey scalar; otherwise build the grey ε(λ) SpectralData. Either way the
+    # descriptor consumes a SpectralData emissivity, so T1Thermal / T3Mixed
+    # get ε(λ)·B(λ,T) with no further change.
+    epsilon = _load_emissivity_on_grid(params, wavelength_um)
+    if epsilon is None:
+        epsilon = _grey_spectraldata(
+            wavelength_um=wavelength_um,
+            value=epsilon_scalar,
+            name="source.target.emissivity",
+            unit="",
+        )
 
     # Matrix §3.2 line 156: T1Thermal is the correct v1 variant for the
     # legacy ε+T parameter surface.  T2/T3/T5 enter the pipeline in later

@@ -33,6 +33,16 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- Spectral target emissivity input (Gap 47): new parameter
+  `source.target.emissivity_path` — a 2-column `(wavelength_um, emissivity)`
+  CSV. When set, the source inferrer builds the thermal descriptor with a
+  spectral ε(λ) (`L_t(λ) = ε(λ)·B(λ, source.target.temperature)`) instead of
+  a grey scalar, reusing the existing `SpectralData` emissivity that
+  `T1Thermal`/`T3Mixed` already accept. Mutually exclusive with the scalar
+  `source.target.emissivity` and every reflective / radiance /
+  brightness-temperature surface (raises `ParameterBoundsError`). Opt-in;
+  goldens unchanged. Retires the S8 `user_radiance_path` workaround for
+  spectral-emissivity thermal targets (scenario 4.3).
 - Minimum resolvable temperature / contrast (Gap 53):
   `radiant.performance.minimum_resolvable` —
   `minimum_resolvable_temperature_K` (MRT = k·NETD/MTF_sys(f)) and

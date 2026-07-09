@@ -688,6 +688,26 @@ ALBEDO_PATH = ParameterDef(
     default_justification=("Empty string = not set."),
 )
 
+EMISSIVITY_PATH = ParameterDef(
+    name="source.target.emissivity_path",
+    description=(
+        "Path to a 2-column CSV (wavelength_um, emissivity) carrying a "
+        "λ-dependent emissivity ε(λ) for a thermal target (Gap 47). When "
+        "set, the inferrer builds the thermal descriptor with L_t(λ) = "
+        "ε(λ)·B(λ, source.target.temperature) instead of a grey ε. "
+        "Mutually exclusive with the scalar source.target.emissivity and "
+        "with every reflective / radiance / brightness-temperature surface."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "target", "thermal", "S1"}),
+    default_justification=(
+        "Empty string = not set; pattern mirrors source.target.reflectance_path."
+    ),
+)
+
 USER_RADIANCE_PATH = ParameterDef(
     name="source.target.user_radiance_path",
     description=(
@@ -832,6 +852,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ALBEDO,
     REFLECTANCE_PATH,
     ALBEDO_PATH,
+    EMISSIVITY_PATH,
     USER_RADIANCE_PATH,
     USER_INTENSITY_PATH,
 )

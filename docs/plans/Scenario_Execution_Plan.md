@@ -72,7 +72,7 @@ re-audit with Gaps 38/39 (2026-10-01 or on access).
 
 ## Phase T4 — Tier 4 scenarios (new models)
 
-**Status: IN PROGRESS (5 of 12 done, 2026-07-08).** Work the priority list
+**Status: IN PROGRESS (7 of 12 done, 2026-07-08).** Work the priority list
 order: 1.2 (solar geometry), 3.1 (orbit → geometry), 4.4 (diurnal sweep),
 4.2 (Johnson DRI), 1.5 (pupil mask), 4.5 (microbolometer), 3.3
 (multi-sensor), 6.1 (D*/NETD converters), 2.4 (persistence), 6.5
@@ -88,6 +88,8 @@ own Category C task with truth anchors before the scenario that consumes it.
 | **4.4** Diurnal time-of-day detectability | data-driven (no new model — profile is input data) | scenario 6257eee → manifest 49733ff |
 | **4.2** Maritime ship classification | `performance.johnson_criteria` (Detection/Recognition/ID ranges) | model 0df9e15 → scenario d1f2707 → manifest 89fe2ed |
 | **1.5** Obscured aperture & spider vanes | spider-vane pupil masking (`optics.n_spiders`/`spider_width_m`/`spider_angle_deg`); implements RADIANT_Optics.md §3.3 | model 36286e7 (+style 6c35307) → scenario bbf9f6f → manifest 01da0e2 |
+| **6.1** Published-datasheet benchmark | D*/NEP/NETD converters (`performance.detectivity`/`nep_electrons`/`nep_netd`) | model ac59315 → scenario 55b0175 → manifest 81a97bc |
+| **4.5** Microbolometer UAV altitude trade | (same converters — NETD-specified detector) | scenario efea031 → manifest 521771d |
 
 Priority-list items 23/24/26/27 in `gaps.md` marked DONE. New registry gaps
 filed: 49 (diffraction-limited-resolution metric), 50 (sampling-regime
@@ -105,17 +107,24 @@ T3/T4). Corrected in-tree: 3.1 relocated to `03_raj_mission_planner/
 scaffold names (f9d2426). Content unchanged; internal path references and
 one Cleanup_Backlog reference fixed.
 
-### Remaining (7 scenarios)
+### 4.5 / 6.1 design decision — RESOLVED 2026-07-08
 
-- **4.5** (microbolometer) and **6.1** (D*/NETD converters) — **PAUSED for a
-  design decision.** Both are NETD/D*/NEP noise-spec converters and should
-  share one model; whether that model is a NETD-input-mode, a scaling-law
-  converter, or thermal-fluctuation-noise physics is a design call for the
-  owner. Resolving it unblocks both.
+Both are NETD/D*/NEP noise-spec scenarios. Owner-approved design: **one
+shared converter model** (`performance.detectivity` D*⇄NEP,
+`performance.nep_electrons` NEP⇄σ_e, `performance.nep_netd` NEP⇄NETD) built
+from standard radiometric definitions and reusing the exact `dS/dT`
+(Gap 43) — not a first-principles thermal-noise model. Priority-list items
+28 (4.5) and 30 (6.1) in `gaps.md` marked DONE. 6.1 benchmarks a published
+datasheet (chain D* within 10% of spec); 4.5 turns a vendor NETD into D*
+(1.34e9 Jones, uncooled) for a UAV altitude trade (ceiling 8.5 km,
+sub-pixel-limited).
+
+### Remaining (5 scenarios, all new-model Category C, not yet started)
+
 - **3.3** (multi-sensor comparison framework), **2.4** (multi-frame
   persistence), **6.5** (temperature retrieval / Jacobian), **6.4**
   (multi-target scene / ROC curve), **3.5** (tropical atmosphere / GeoTIFF
-  reader / MRT metric) — each a new-model Category C task, not yet started.
+  reader / MRT metric).
 
 ## Exit criteria
 

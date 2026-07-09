@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Detector figures of merit (Gap 45): `performance/dark_crossover_rate.py`
+  (`dark_shot_crossover_rate_e_per_s` = σ_read²/t_int),
+  `performance/blip_rate.py` (`blip_rate_e_per_s` = signal_e/t_int), and
+  `performance/noise_equivalent_irradiance.py`
+  (`noise_equivalent_irradiance_ph_s_cm2`). Standalone helpers for the
+  detector cooler-budget/sensitivity trade; new error classes. No chain
+  change.
+- Radiometric-calibration analysis (Gap 46):
+  `radiant.api.calibration_analysis` — `analyze_calibration` → a
+  `CalibrationReport` (gain/offset fit, temperature & radiance
+  responsivity, linearity residuals % full-scale, N-frame temperature
+  uncertainty), plus the underlying `gain_offset_fit`,
+  `linearity_residuals_pct_fs`, etc. New error `CalibrationAnalysisError`.
+  Pure sweep-array analysis; no chain change.
 - Repeat-ground-track & revisit model (Gap 51):
   `radiant.core.repeat_ground_track` — `nodal_regression_rate_deg_per_day`
   (J2 secular Ω̇), `sun_synchronous_inclination_deg`,

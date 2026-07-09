@@ -924,6 +924,8 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `solar_zenith_angle_rad`, `solar_declination_deg` (`radiant.core.solar_geometry`, scenario 1.2) | Stable |
 | `orbital_period_s`, `orbital_velocity_m_s`, `ground_track_speed_m_s` (`radiant.core.orbit`, scenario 3.1) | Stable |
 | `nodal_regression_rate_deg_per_day`, `sun_synchronous_inclination_deg`, `equatorial_ground_track_spacing_m`, `revisit_interval_days` (`radiant.core.repeat_ground_track`, Gap 51) | Stable |
+| `dark_shot_crossover_rate_e_per_s`, `blip_rate_e_per_s`, `noise_equivalent_irradiance_ph_s_cm2` (`radiant.performance`, Gap 45) | Stable |
+| `analyze_calibration` + `CalibrationReport` (`radiant.api.calibration_analysis`, Gap 46) | Stable |
 | `johnson_range_m`, `resolved_cycles`, `JOHNSON_N50` (`radiant.performance.johnson_criteria`, scenario 4.2) | Stable |
 | `radiant.api.plot`, `radiant.api.inspect` helpers | Stable |
 | `radiant.api.session.RadiantSession` | Semi-stable (wrapped by `Sensor`; not an alias) |

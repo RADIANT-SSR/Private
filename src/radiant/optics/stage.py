@@ -159,6 +159,19 @@ def _read_vane_spec(params: ParameterSet, aperture_m: float) -> SpiderVaneSpec |
     )
 
 
+def _read_pupil_mask_override(state: ChainState) -> np.ndarray | None:
+    """Measured/arbitrary pupil amplitude mask injected via optics_config.
+
+    Returns ``state.stage_outputs["optics_config"]["pupil_mask_override"]``
+    (a 2-D amplitude array) or None. Supersedes the parametric pupil
+    geometry when present (Gap 54); None (default) preserves all results.
+    """
+    override = state.stage_outputs.get("optics_config", {}).get("pupil_mask_override")
+    if override is None:
+        return None
+    return np.asarray(override, dtype=np.float64)
+
+
 def _compute_optical_mtf_terms(
     state: ChainState,
     n_psf_wavelengths: int,
@@ -175,6 +188,7 @@ def _compute_optical_mtf_terms(
     defocus_um: float = 0.0,
     f_number: float = 0.0,
     vanes: SpiderVaneSpec | None = None,
+    mask_override: np.ndarray | None = None,
 ) -> ChainState:
     """Compute optical MTF via pupil autocorrelation and store in ChainState.
 
@@ -208,7 +222,7 @@ def _compute_optical_mtf_terms(
             psf_oversample=8,
         )
 
-        amplitude = make_pupil_amplitude(pupil_npix, obscuration, vanes)
+        amplitude = make_pupil_amplitude(pupil_npix, obscuration, vanes, mask_override)
         if wfe_mtf is None:
             phase = np.zeros((pupil_npix, pupil_npix), dtype=np.float64)
         elif wfe_mtf.mode == WfeMode.SCALAR_RMS:
@@ -257,6 +271,7 @@ def _compute_optical_mtf_terms(
             psf_oversample=8,
             chromatic_zernikes=chromatic_zernikes,
             vanes=vanes,
+            mask_override=mask_override,
         )
 
     # Convert frequency from cycles/m to cycles/mrad.
@@ -301,6 +316,7 @@ def _build_effective_psf(
     obscuration: float = params.get("optics.obscuration_ratio")
     n_psf_wavelengths: int = params.get("optics.psf_n_wavelengths")
     vanes = _read_vane_spec(params, aperture_m)
+    mask_override = _read_pupil_mask_override(state)
 
     # Set in the polychromatic branch; consumed by MTF computation.
     psf_wl_m: np.ndarray | None = None
@@ -317,7 +333,7 @@ def _build_effective_psf(
             pupil_npix=128,
             psf_oversample=8,
         )
-        psf_arr = compute_psf(config, obscuration, wfe, vanes)
+        psf_arr = compute_psf(config, obscuration, wfe, vanes, mask_override)
         sample_spacing_m = config.focal_spacing_m
         wavelength_um = wavelength_m * 1e6
     else:
@@ -380,6 +396,7 @@ def _build_effective_psf(
             store_per_wavelength=store_per_wl,
             chromatic_zernikes=chromatic_zernikes,
             vanes=vanes,
+            mask_override=mask_override,
         )
 
         psf_arr = poly_result.combined_psf
@@ -429,7 +446,7 @@ def _build_effective_psf(
     if wfe_is_null and chromatic_zernikes is None:
         ref_psf_arr = psf_arr
     elif n_psf_wavelengths <= 1:
-        ref_psf_arr = compute_psf(config, obscuration, None, vanes)
+        ref_psf_arr = compute_psf(config, obscuration, None, vanes, mask_override)
     else:
         ref_result = compute_polychromatic_psf(
             wavelengths_m=psf_wl_m,
@@ -444,6 +461,7 @@ def _build_effective_psf(
             store_per_wavelength=False,
             chromatic_zernikes=None,
             vanes=vanes,
+            mask_override=mask_override,
         )
         ref_psf_arr = ref_result.combined_psf
 
@@ -504,6 +522,7 @@ def _build_effective_psf(
         defocus_um=defocus_um,
         f_number=f_number,
         vanes=_read_vane_spec(params, aperture_m),
+        mask_override=_read_pupil_mask_override(state),
     )
 
     state = state.with_stage_output("optics", "effective_psf", epsf)

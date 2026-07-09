@@ -53,6 +53,7 @@ def make_pupil_amplitude(
     npix: int,
     obscuration_ratio: float = 0.0,
     vanes: SpiderVaneSpec | None = None,
+    mask_override: npt.NDArray[np.float64] | None = None,
 ) -> npt.NDArray[np.float64]:
     """Generate a circular pupil amplitude mask.
 
@@ -72,13 +73,30 @@ def make_pupil_amplitude(
         (no struts / zero width) leaves the mask unchanged — so the
         default reproduces the historical unobscured/obscured pupil
         exactly.
+    mask_override:
+        Optional measured/arbitrary amplitude mask (segmented aperture,
+        non-circular primary, wavefront-sensor pupil image). When given it
+        **supersedes** the parametric circular/obscuration/vane geometry
+        entirely — the caller owns the full aperture. Must be a
+        ``(npix, npix)`` array of amplitudes in [0, 1]. ``None`` (default)
+        keeps the parametric mask, so results are unchanged. (Gap 54.)
 
     Returns
     -------
     ndarray of shape (npix, npix)
         Binary amplitude: 1.0 in clear aperture, 0.0 outside / obscured /
-        under a strut.
+        under a strut — or the supplied ``mask_override``.
     """
+    if mask_override is not None:
+        if mask_override.shape != (npix, npix):
+            raise ValueError(
+                f"mask_override shape {mask_override.shape} must equal (npix, npix) = "
+                f"({npix}, {npix})."
+            )
+        if mask_override.min() < 0.0 or mask_override.max() > 1.0:
+            raise ValueError("mask_override amplitudes must lie in [0, 1].")
+        return mask_override.astype(np.float64, copy=True)
+
     if not (0.0 <= obscuration_ratio < 1.0):
         raise ValueError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
 

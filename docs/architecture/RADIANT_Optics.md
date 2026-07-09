@@ -129,6 +129,10 @@ class PupilDescription:
 
 The mask and phase grids are not constructed at `OpticsState` build time — they are constructed lazily by the spatial module the first time it asks for them. This avoids paying the FFT-grid cost when the user only wants a noise budget.
 
+### 3.7 Arbitrary / measured pupil mask (Gap 54)
+
+For apertures the parametric shapes (circle + obscuration + spiders) cannot express — segmented primaries, non-circular apertures, a measured wavefront-sensor pupil image — an arbitrary amplitude mask may be injected via `ChainRunner.run(initial_stage_outputs=...)` / `RadiantSession.run(extra_stage_outputs=...)` as `optics_config["pupil_mask_override"]`: a `(pupil_npix, pupil_npix)` array of amplitudes in [0, 1]. When present it **supersedes** the parametric geometry entirely (the caller owns the full aperture). Because `make_pupil_amplitude` feeds both the PSF (FT of the pupil) and the optical MTF (pupil autocorrelation), the injected mask enters both spatial paths automatically (Rule 4). Absent the injection, the parametric mask is used and all results are unchanged.
+
 ---
 
 ## 4. Wavefront Error

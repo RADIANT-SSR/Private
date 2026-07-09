@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Arbitrary / measured pupil-mask injection (Gap 54): inject
+  `optics_config["pupil_mask_override"]` (a `(pupil_npix, pupil_npix)`
+  amplitude array) via `extra_stage_outputs` to supersede the parametric
+  circular/obscuration/spider pupil — for segmented or non-circular
+  apertures. Threaded through `make_pupil_amplitude` into both the PSF and
+  MTF paths (Rule 4). No default-behavior change (absent ⇒ parametric
+  mask; 504 optics + 10 golden tests unchanged).
 - Detector figures of merit (Gap 45): `performance/dark_crossover_rate.py`
   (`dark_shot_crossover_rate_e_per_s` = σ_read²/t_int),
   `performance/blip_rate.py` (`blip_rate_e_per_s` = signal_e/t_int), and

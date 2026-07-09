@@ -34,6 +34,7 @@ def compute_psf(
     obscuration_ratio: float = 0.0,
     wfe: WavefrontError | None = None,
     vanes: SpiderVaneSpec | None = None,
+    mask_override: npt.NDArray[np.float64] | None = None,
 ) -> npt.NDArray[np.float64]:
     """Compute the diffraction PSF via FFT of the complex pupil.
 
@@ -62,7 +63,7 @@ def compute_psf(
     npix = config.pupil_npix
     npad = config.padded_npix
 
-    amplitude = make_pupil_amplitude(npix, obscuration_ratio, vanes)
+    amplitude = make_pupil_amplitude(npix, obscuration_ratio, vanes, mask_override)
 
     # --- Phase screen dispatch ---
     if wfe is None:

@@ -177,6 +177,7 @@ def polychromatic_pupil_mtf(
     psf_oversample: int = 8,
     chromatic_zernikes: dict[float, dict[int, float]] | None = None,
     vanes: SpiderVaneSpec | None = None,
+    mask_override: npt.NDArray[np.float64] | None = None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Polychromatic optical MTF via weighted average of monochromatic pupil autocorrelations.
 
@@ -256,7 +257,7 @@ def polychromatic_pupil_mtf(
 
         # Build pupil.
         wfe_i = _resolve_wfe_for_wavelength(wfe, lam_i * 1e6, chromatic_zernikes)
-        amplitude = make_pupil_amplitude(pupil_npix, obscuration_ratio, vanes)
+        amplitude = make_pupil_amplitude(pupil_npix, obscuration_ratio, vanes, mask_override)
         phase = _build_pupil_phase(pupil_npix, wfe_i, lam_i, obscuration_ratio)
 
         # Compute 2-D MTF from pupil autocorrelation.

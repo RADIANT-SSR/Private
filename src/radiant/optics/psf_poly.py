@@ -113,6 +113,7 @@ def compute_polychromatic_psf(
     store_per_wavelength: bool = False,
     chromatic_zernikes: dict[float, dict[int, float]] | None = None,
     vanes: SpiderVaneSpec | None = None,
+    mask_override: npt.NDArray[np.float64] | None = None,
 ) -> PolychromaticPSFResult:
     """Compute a polychromatic PSF as the weighted sum of monochromatic PSFs.
 
@@ -190,7 +191,7 @@ def compute_polychromatic_psf(
             psf_oversample=psf_oversample,
         )
         wfe_i = _resolve_wfe_for_wavelength(wfe, float(wavelengths_um[0]), chromatic_zernikes)
-        psf = compute_psf(config, obscuration_ratio, wfe_i, vanes)
+        psf = compute_psf(config, obscuration_ratio, wfe_i, vanes, mask_override)
         per_wl: dict[float, npt.NDArray[np.float64]] | None = None
         if store_per_wavelength:
             per_wl = {float(wavelengths_um[0]): psf.copy()}
@@ -243,7 +244,7 @@ def compute_polychromatic_psf(
         )
 
         wfe_i = _resolve_wfe_for_wavelength(wfe, float(wavelengths_um[i]), chromatic_zernikes)
-        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_i, vanes)
+        psf_i = compute_psf(config_i_forced, obscuration_ratio, wfe_i, vanes, mask_override)
 
         zoom_factor = lam_i / lam_max
 

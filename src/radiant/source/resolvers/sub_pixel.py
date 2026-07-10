@@ -6,6 +6,7 @@ See RADIANT_Source_Target_System.md §6.3.
 from __future__ import annotations
 
 from radiant.core.regime import RadiometricRegime, TargetInputPath
+from radiant.source.errors import SourceValidationError
 from radiant.source.protocol import SpectralRadianceSource
 from radiant.source.resolvers.resolved_target import (
     ResolvedTarget,
@@ -46,7 +47,9 @@ def resolve_sub_pixel(
     """
     validate_range(range_m)
     if not (0.0 < fill_fraction <= 1.0):
-        raise ValueError(f"resolve_sub_pixel: fill_fraction must be in (0, 1], got {fill_fraction}")
+        raise SourceValidationError(
+            f"resolve_sub_pixel: fill_fraction must be in (0, 1], got {fill_fraction}"
+        )
 
     regime = regime_override or RadiometricRegime.SUB_PIXEL
 

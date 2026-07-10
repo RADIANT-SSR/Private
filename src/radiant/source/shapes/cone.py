@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.source.errors import SourceValidationError
 from radiant.source.shapes._helpers import validate_positive, view_to_body
 
 
@@ -47,7 +48,7 @@ class Cone:
         validate_positive("Cone", self.base_radius_m, "base_radius_m")
         validate_positive("Cone", self.height_m, "height_m")
         if self.n_facets < 3:
-            raise ValueError(
+            raise SourceValidationError(
                 f"Cone: n_facets must be >= 3, got {self.n_facets}. "
                 f"More facets improve projected-area accuracy."
             )

@@ -39,6 +39,10 @@ from radiant.core.constants import hc
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
+from radiant.spectral_integration.errors import (
+    SpectralIntegrationStateError,
+    SpectralIntegrationValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +122,7 @@ class SpectralIntegrationStage:
             if regime == RadiometricRegime.EXTENDED:
                 EE_box_maybe = 1.0  # never applied in extended regime (Rule 9)
             else:
-                raise RuntimeError(
+                raise SpectralIntegrationStateError(
                     "SpectralIntegrationStage: no EE_box found in "
                     "stage_outputs['platform'] or stage_outputs['optics'] "
                     f"but regime is '{regime.value}', which requires EE_box "
@@ -130,7 +134,7 @@ class SpectralIntegrationStage:
 
         # Guard: EE_box != 1.0 in extended regime is a programming error.
         if regime == RadiometricRegime.EXTENDED and EE_box != 1.0:
-            raise RuntimeError(
+            raise SpectralIntegrationStateError(
                 "SpectralIntegrationStage: EE_box != 1.0 but regime is "
                 f"'extended' (EE_box={EE_box}). In extended-scene mode, "
                 "EE_box must not be applied (Rule 9). This is a programming "
@@ -141,12 +145,12 @@ class SpectralIntegrationStage:
         post_optics = state.frames["post_optics"]
         L = post_optics.spectral_radiance
         if L is None:
-            raise ValueError(
+            raise SpectralIntegrationValidationError(
                 "SpectralIntegrationStage: 'post_optics' frame has no spectral_radiance."
             )
 
         if np.any(np.isnan(L)):
-            raise ValueError(
+            raise SpectralIntegrationValidationError(
                 "SpectralIntegrationStage: 'post_optics' spectral_radiance "
                 "contains NaN values. Check upstream stages for invalid inputs."
             )
@@ -185,7 +189,7 @@ class SpectralIntegrationStage:
             A_target: float = source_out["projected_area_m2"]
             R: float = source_out["range_m"]
             if A_target is None or R is None or R <= 0.0:
-                raise ValueError(
+                raise SpectralIntegrationValidationError(
                     "SpectralIntegrationStage: point_source regime requires "
                     "projected_area_m2 and range_m from SourceStage. "
                     f"Got A_target={A_target}, R={R}."
@@ -193,7 +197,7 @@ class SpectralIntegrationStage:
 
             L_aperture_target = state.frames["at_aperture_target"].spectral_radiance
             if L_aperture_target is None:
-                raise ValueError(
+                raise SpectralIntegrationValidationError(
                     "SpectralIntegrationStage: 'at_aperture_target' frame has no spectral_radiance."
                 )
             atm_out = state.stage_outputs["atmosphere"]
@@ -231,7 +235,7 @@ class SpectralIntegrationStage:
 
             L_aperture_target = state.frames["at_aperture_target"].spectral_radiance
             if L_aperture_target is None:
-                raise ValueError(
+                raise SpectralIntegrationValidationError(
                     "SpectralIntegrationStage: 'at_aperture_target' frame has no spectral_radiance."
                 )
 
@@ -263,7 +267,9 @@ class SpectralIntegrationStage:
             photon_rate = L_mixed * A_collect * Omega_pixel * (lam_m / hc)
 
         else:
-            raise ValueError(f"SpectralIntegrationStage: unknown regime {regime!r}.")
+            raise SpectralIntegrationValidationError(
+                f"SpectralIntegrationStage: unknown regime {regime!r}."
+            )
 
         # electron rate: × QE
         e_rate = photon_rate * qe_curve  # [e-/s/pixel/µm]
@@ -274,7 +280,7 @@ class SpectralIntegrationStage:
         e_rate_band = e_rate[mask]
 
         if wl_band.size < 2:
-            raise ValueError(
+            raise SpectralIntegrationValidationError(
                 f"SpectralIntegrationStage: filter [{lam_min}, {lam_max}] µm "
                 f"contains fewer than 2 wavelength samples in the grid. "
                 "Increase grid density or widen the filter."

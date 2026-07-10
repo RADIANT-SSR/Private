@@ -31,6 +31,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from radiant.optics.element import ElementTransferMode  # same-stage import (OK)
+from radiant.optics.errors import OpticsValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -104,37 +105,39 @@ class WavefrontError:
 
     def __post_init__(self) -> None:
         if self.reference_wavelength_um <= 0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"WavefrontError: reference_wavelength_um must be > 0, "
                 f"got {self.reference_wavelength_um}."
             )
 
         if self.mode == WfeMode.SCALAR_RMS:
             if self.rms_waves is None:
-                raise ValueError("WavefrontError: scalar_rms mode requires rms_waves.")
+                raise OpticsValidationError("WavefrontError: scalar_rms mode requires rms_waves.")
             if self.rms_waves < 0:
-                raise ValueError(f"WavefrontError: rms_waves must be >= 0, got {self.rms_waves}.")
+                raise OpticsValidationError(
+                    f"WavefrontError: rms_waves must be >= 0, got {self.rms_waves}."
+                )
         elif self.mode == WfeMode.ZERNIKE:
             if not self.zernike_coeffs:
-                raise ValueError(
+                raise OpticsValidationError(
                     "WavefrontError: zernike mode requires non-empty zernike_coeffs dict."
                 )
         elif self.mode == WfeMode.OPD_MAP:
             if self.opd_map is None:
-                raise ValueError("WavefrontError: opd_map mode requires opd_map array.")
+                raise OpticsValidationError("WavefrontError: opd_map mode requires opd_map array.")
             if self.opd_map.ndim != 2:
-                raise ValueError(
+                raise OpticsValidationError(
                     f"WavefrontError: opd_map must be 2-D, got shape {self.opd_map.shape}."
                 )
         elif self.mode == WfeMode.FIELD_DEPENDENT:
             if not self.field_table:
-                raise ValueError(
+                raise OpticsValidationError(
                     "WavefrontError: field_dependent mode requires non-empty field_table."
                 )
             # Validate no duplicate field positions.
             positions = [(s.field_x_deg, s.field_y_deg) for s in self.field_table]
             if len(set(positions)) != len(positions):
-                raise ValueError(
+                raise OpticsValidationError(
                     "WavefrontError: field_table contains duplicate field positions. "
                     "Each (field_x_deg, field_y_deg) must be unique."
                 )
@@ -142,7 +145,7 @@ class WavefrontError:
             if self.optical_type == ElementTransferMode.REFRACTIVE:
                 for sample in self.field_table:
                     if sample.chromatic_zernikes is None:
-                        raise ValueError(
+                        raise OpticsValidationError(
                             f"WavefrontError: REFRACTIVE optical_type requires "
                             f"chromatic_zernikes on every field sample, but the "
                             f"sample at ({sample.field_x_deg}, {sample.field_y_deg}) "
@@ -218,7 +221,9 @@ class WavefrontError:
             Estimated Strehl ratio in [0, 1].
         """
         if wavelength_um <= 0:
-            raise ValueError(f"strehl_marechal: wavelength_um must be > 0, got {wavelength_um}.")
+            raise OpticsValidationError(
+                f"strehl_marechal: wavelength_um must be > 0, got {wavelength_um}."
+            )
         sigma_m = self.rms_opd_m()
         lam_m = wavelength_um * 1e-6
         phase_var = (2.0 * math.pi * sigma_m / lam_m) ** 2
@@ -250,7 +255,9 @@ class WavefrontError:
             position is not in the field table.
         """
         if self.mode != WfeMode.FIELD_DEPENDENT:
-            raise ValueError(f"at_field() requires mode=FIELD_DEPENDENT, got {self.mode.value!r}.")
+            raise OpticsValidationError(
+                f"at_field() requires mode=FIELD_DEPENDENT, got {self.mode.value!r}."
+            )
         assert self.field_table is not None
 
         tol = 1e-12
@@ -262,7 +269,7 @@ class WavefrontError:
                 return sample
 
         available = [(s.field_x_deg, s.field_y_deg) for s in self.field_table]
-        raise ValueError(
+        raise OpticsValidationError(
             f"No field sample at ({field_x_deg}, {field_y_deg}) deg. "
             f"Available field positions: {available}. "
             f"Use at_field_nearest() for approximate lookup, or provide "
@@ -288,7 +295,7 @@ class WavefrontError:
             The nearest tabulated sample.
         """
         if self.mode != WfeMode.FIELD_DEPENDENT:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"at_field_nearest() requires mode=FIELD_DEPENDENT, got {self.mode.value!r}."
             )
         assert self.field_table is not None

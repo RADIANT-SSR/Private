@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.zernike_opd import evaluate_zernike_opd
 
 if TYPE_CHECKING:
@@ -58,7 +59,7 @@ def make_pupil_phase(
         Phase in radians.
     """
     if wfe_rms_waves < 0.0:
-        raise ValueError(f"wfe_rms_waves must be non-negative, got {wfe_rms_waves}")
+        raise OpticsValidationError(f"wfe_rms_waves must be non-negative, got {wfe_rms_waves}")
 
     if wfe_rms_waves == 0.0:
         return np.zeros((npix, npix), dtype=np.float64)

@@ -13,6 +13,8 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from radiant.detector.errors import DetectorValidationError
+
 
 @dataclass(frozen=True)
 class PixelGeometry:
@@ -47,19 +49,19 @@ class PixelGeometry:
         for attr in ("pitch_x_m", "pitch_y_m"):
             val = getattr(self, attr)
             if not math.isfinite(val) or val <= 0.0:
-                raise ValueError(
+                raise DetectorValidationError(
                     f"PixelGeometry '{self.name}': {attr} = {val} is "
                     "invalid. Pitch must be a positive finite number in metres."
                 )
         if not (0.0 < self.fill_factor <= 1.0):
-            raise ValueError(
+            raise DetectorValidationError(
                 f"PixelGeometry '{self.name}': fill_factor = {self.fill_factor} is outside (0, 1]."
             )
         if (
             not math.isfinite(self.charge_diffusion_length_m)
             or self.charge_diffusion_length_m < 0.0
         ):
-            raise ValueError(
+            raise DetectorValidationError(
                 f"PixelGeometry '{self.name}': charge_diffusion_length_m = "
                 f"{self.charge_diffusion_length_m} is invalid. Must be ≥ 0."
             )
@@ -90,7 +92,7 @@ class PixelGeometry:
         ``focal_length_m ≤ 0``.
         """
         if not math.isfinite(focal_length_m) or focal_length_m <= 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"PixelGeometry '{self.name}': focal_length_m = "
                 f"{focal_length_m} must be positive and finite."
             )
@@ -105,7 +107,7 @@ class PixelGeometry:
         simple 2B sensor model is Nyquist-pixel accurate.
         """
         if not math.isfinite(focal_length_m) or focal_length_m <= 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"PixelGeometry '{self.name}': focal_length_m = "
                 f"{focal_length_m} must be positive and finite."
             )

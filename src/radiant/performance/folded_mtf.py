@@ -27,6 +27,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.performance.errors import PerformanceValidationError
+
 
 @dataclass(frozen=True)
 class FoldedMTFResult:
@@ -90,13 +92,13 @@ def compute_folded_mtf(
     mtf_values = np.asarray(mtf_values, dtype=np.float64)
 
     if f_nyquist_cy_m <= 0.0:
-        raise ValueError(
+        raise PerformanceValidationError(
             f"f_nyquist_cy_m must be positive, got {f_nyquist_cy_m}. "
             f"Check that pixel_pitch_m is positive."
         )
 
     if np.any(mtf_values < 0.0):
-        raise ValueError(
+        raise PerformanceValidationError(
             "MTF values must be non-negative. Negative values indicate "
             "a computation error upstream."
         )

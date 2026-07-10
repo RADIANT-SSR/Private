@@ -30,6 +30,7 @@ from typing import Any
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -63,7 +64,7 @@ def _load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
     lines = path.read_text().strip().splitlines()
     if not lines:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated atmosphere CSV is empty: {path}. "
             "Provide a file with at least two rows of (wavelength_um, value)."
         )
@@ -79,7 +80,7 @@ def _load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
     for i, line in enumerate(lines[start:], start=start):
         parts = line.split(",")
         if len(parts) < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"Tabulated atmosphere CSV line {i + 1} in {path} has "
                 f"fewer than 2 columns: {line!r}. Expected (wavelength_um, value)."
             )
@@ -87,14 +88,14 @@ def _load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
             wl = float(parts[0].strip())
             val = float(parts[1].strip())
         except ValueError as err:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"Tabulated atmosphere CSV line {i + 1} in {path} cannot be "
                 f"parsed as floats: {line!r}."
             ) from err
         rows.append((wl, val))
 
     if len(rows) < 2:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated atmosphere CSV {path} has fewer than 2 data rows. "
             "At least 2 wavelength samples are required."
         )
@@ -111,30 +112,30 @@ def _validate_spectral_array(
 ) -> None:
     """Validate a loaded spectral array before constructing SpectralData."""
     if wavelength_um.ndim != 1:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated {label} from {source_path}: wavelength_um must be 1-D, "
             f"got shape {wavelength_um.shape}."
         )
     if values.ndim != 1:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated {label} from {source_path}: values must be 1-D, got shape {values.shape}."
         )
     if len(wavelength_um) != len(values):
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated {label} from {source_path}: wavelength_um length "
             f"({len(wavelength_um)}) != values length ({len(values)})."
         )
     if len(wavelength_um) < 2:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated {label} from {source_path}: at least 2 samples "
             f"required, got {len(wavelength_um)}."
         )
     if not np.all(np.diff(wavelength_um) > 0):
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated {label} from {source_path}: wavelength_um must be strictly ascending."
         )
     if np.any(wavelength_um <= 0.0):
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"Tabulated {label} from {source_path}: wavelength_um must be strictly positive."
         )
 
@@ -173,18 +174,18 @@ class TabulatedAtmosphere:
     def __post_init__(self) -> None:
         tau = self.transmittance_data.values
         if np.any(tau < 0.0) or np.any(tau > 1.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': transmittance values "
                 f"out of [0, 1] (min={float(tau.min()):g}, max={float(tau.max()):g}). "
                 "Transmittance is a probability and must be bounded."
             )
         if np.any(self.path_radiance_data.values < 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': path_radiance has "
                 "negative values. Path radiance must be non-negative."
             )
         if np.any(self.atm_emission_down_data.values < 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': atm_emission_down has "
                 "negative values. Downwelling emission must be non-negative."
             )
@@ -307,7 +308,7 @@ class TabulatedAtmosphere:
         required = ("wavelength_um", "transmittance", "path_radiance")
         for key in required:
             if key not in data:
-                raise ValueError(
+                raise AtmosphereValidationError(
                     f"Tabulated atmosphere NPZ {npz_path} is missing required "
                     f"key '{key}'. Required keys: {required}."
                 )
@@ -397,21 +398,21 @@ class TabulatedAtmosphere:
         """
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': wavelength_um must be "
                 f"1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': wavelength_um needs at "
                 f"least two samples, got {lam.size}."
             )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 
@@ -500,12 +501,12 @@ class TabulatedAtmosphere:
         # checks by constructing a grid directly (we do not need the
         # build_state product here).
         if lam.ndim != 1 or lam.size < 2 or not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': wavelength_um must be "
                 "a strictly ascending 1-D array of length ≥ 2."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"TabulatedAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 

@@ -17,6 +17,8 @@ import logging
 import math
 from dataclasses import dataclass
 
+from radiant.optics.errors import OpticsValidationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -113,17 +115,21 @@ def compute_sampling(
         If any input is non-positive or psf_oversample < 2.
     """
     if wavelength_m <= 0:
-        raise ValueError(f"wavelength_m must be positive, got {wavelength_m}")
+        raise OpticsValidationError(f"wavelength_m must be positive, got {wavelength_m}")
     if focal_length_m <= 0:
-        raise ValueError(f"focal_length_m must be positive, got {focal_length_m}")
+        raise OpticsValidationError(f"focal_length_m must be positive, got {focal_length_m}")
     if aperture_diameter_m <= 0:
-        raise ValueError(f"aperture_diameter_m must be positive, got {aperture_diameter_m}")
+        raise OpticsValidationError(
+            f"aperture_diameter_m must be positive, got {aperture_diameter_m}"
+        )
     if pixel_pitch_m <= 0:
-        raise ValueError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
+        raise OpticsValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
     if pupil_npix < 4:
-        raise ValueError(f"pupil_npix must be >= 4, got {pupil_npix}")
+        raise OpticsValidationError(f"pupil_npix must be >= 4, got {pupil_npix}")
     if psf_oversample < 2:
-        raise ValueError(f"psf_oversample must be >= 2 (Nyquist minimum), got {psf_oversample}")
+        raise OpticsValidationError(
+            f"psf_oversample must be >= 2 (Nyquist minimum), got {psf_oversample}"
+        )
 
     # Pupil sample spacing: aperture fills the grid.
     pupil_spacing_m = aperture_diameter_m / pupil_npix

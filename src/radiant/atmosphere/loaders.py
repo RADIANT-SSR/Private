@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.core.parameters import ParameterSet
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,7 @@ def _build_tabulated(params: ParameterSet) -> object:
     ldown_file = params.get("atmosphere.tabulated_downwelling_file")
 
     if not tau_file or not lpath_file:
-        raise ValueError(
+        raise AtmosphereValidationError(
             "build_atmosphere_model: model='tabulated' requires "
             "atmosphere.tabulated_transmittance_file and "
             "atmosphere.tabulated_path_radiance_file to be set."
@@ -148,7 +149,7 @@ def _build_interpolated(params: ParameterSet) -> object:
 
     data_dir = params.get("atmosphere.interpolated_data_dir")
     if not data_dir:
-        raise ValueError(
+        raise AtmosphereValidationError(
             "build_atmosphere_model: model='interpolated' requires "
             "atmosphere.interpolated_data_dir to be set."
         )
@@ -165,7 +166,7 @@ def _build_interpolated(params: ParameterSet) -> object:
 
     npz_files = sorted(data_path.glob("*.npz"))
     if len(npz_files) < 2:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"build_atmosphere_model: interpolated data directory {data_path} "
             f"must contain at least 2 NPZ files, found {len(npz_files)}."
         )
@@ -175,7 +176,7 @@ def _build_interpolated(params: ParameterSet) -> object:
         data = np.load(npz_file, allow_pickle=True)
 
         if "geometry" not in data:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"build_atmosphere_model: NPZ file {npz_file} is missing a "
                 "'geometry' key with coordinate values."
             )

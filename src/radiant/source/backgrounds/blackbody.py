@@ -17,6 +17,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.blackbody import planck_spectral_radiance
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -42,12 +43,12 @@ class BlackbodyBackground:
 
     def __post_init__(self) -> None:
         if self.temperature_K < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"BlackbodyBackground '{self.name}': temperature_K must be "
                 f">= 0, got {self.temperature_K}"
             )
         if not (0.0 <= self.emissivity <= 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"BlackbodyBackground '{self.name}': emissivity must be in "
                 f"[0, 1], got {self.emissivity}"
             )

@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 
 from radiant.core.spectral import SpectralData
+from radiant.detector.errors import DetectorValidationError
 
 
 @dataclass(frozen=True)
@@ -56,12 +57,12 @@ class QuantumEfficiency:
     def __post_init__(self) -> None:
         vals = self.table.values
         if vals.ndim != 1 or vals.size < 2:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"QuantumEfficiency '{self.name}': table must be 1-D with at "
                 f"least 2 samples, got shape {vals.shape}."
             )
         if np.any(vals < 0.0) or np.any(vals > 1.0):
-            raise ValueError(
+            raise DetectorValidationError(
                 f"QuantumEfficiency '{self.name}': values out of [0, 1] "
                 f"(min={float(vals.min()):g}, max={float(vals.max()):g}). QE "
                 "is a dimensionless fraction — photodetector gain lives in "
@@ -99,14 +100,16 @@ class QuantumEfficiency:
             Optional human-readable label.
         """
         if not (0.0 < value <= 1.0):
-            raise ValueError(f"QuantumEfficiency.constant: value = {value} must be in (0, 1].")
+            raise DetectorValidationError(
+                f"QuantumEfficiency.constant: value = {value} must be in (0, 1]."
+            )
         if lam_min_um <= 0.0 or lam_max_um <= 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"QuantumEfficiency.constant: lam_min_um = {lam_min_um} and "
                 f"lam_max_um = {lam_max_um} must be positive."
             )
         if lam_min_um >= lam_max_um:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"QuantumEfficiency.constant: lam_min_um ({lam_min_um}) must "
                 f"be strictly less than lam_max_um ({lam_max_um})."
             )
@@ -149,13 +152,13 @@ class QuantumEfficiency:
         """
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1 or lam.size < 1:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"QuantumEfficiency '{self.name}': wavelength_um must be a "
                 f"non-empty 1-D array, got shape {lam.shape}."
             )
         src_lam = self.table.wavelength_um
         if lam[0] < src_lam[0] - 1e-12 or lam[-1] > src_lam[-1] + 1e-12:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"QuantumEfficiency '{self.name}': requested range "
                 f"[{float(lam[0]):.4f}, {float(lam[-1]):.4f}] µm extends "
                 f"outside the QE table range "
@@ -181,7 +184,7 @@ class QuantumEfficiency:
         spectral integral is not needed.
         """
         if lam_max_um <= lam_min_um:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"band_averaged_qe: lam_max_um ({lam_max_um}) must be > lam_min_um ({lam_min_um})."
             )
         grid = np.linspace(lam_min_um, lam_max_um, 257)
@@ -226,7 +229,7 @@ def photon_energy_joules(wavelength_um: np.ndarray) -> np.ndarray:
 
     lam_m = np.asarray(wavelength_um, dtype=np.float64) * 1.0e-6
     if np.any(lam_m <= 0.0):
-        raise ValueError(
+        raise DetectorValidationError(
             f"photon_energy_joules: wavelength_um contains non-positive "
             f"entries (min={float(np.asarray(wavelength_um).min())} µm)."
         )

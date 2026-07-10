@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import enum
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 class SaturationStatus(enum.Enum):
     """Saturation check result."""
@@ -44,7 +46,7 @@ def check_well_saturation(
         is clipped to FWC and status is CLIPPED.
     """
     if full_well_capacity_e <= 0.0:
-        raise ValueError(
+        raise ReadoutValidationError(
             f"check_well_saturation: full_well_capacity_e = {full_well_capacity_e} must be > 0."
         )
     if signal_e <= full_well_capacity_e:
@@ -72,7 +74,7 @@ def check_adc_saturation(
         max_dn and status is CLIPPED.
     """
     if max_dn <= 0:
-        raise ValueError(f"check_adc_saturation: max_dn = {max_dn} must be > 0.")
+        raise ReadoutValidationError(f"check_adc_saturation: max_dn = {max_dn} must be > 0.")
     if signal_dn <= float(max_dn):
         return signal_dn, SaturationStatus.OK
     return float(max_dn), SaturationStatus.CLIPPED

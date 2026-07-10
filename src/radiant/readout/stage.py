@@ -52,6 +52,7 @@ from radiant.readout.coadds import (
     coadd_scale_temporal_noise,
 )
 from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
+from radiant.readout.errors import ReadoutValidationError
 from radiant.readout.saturation import (
     check_adc_saturation,
     check_well_saturation,
@@ -138,7 +139,7 @@ class ReadoutStage:
         budget_raw: NoiseBudget | None = det_out.get("noise_budget_raw")
 
         if budget_raw is None:
-            raise ValueError(
+            raise ReadoutValidationError(
                 "ReadoutStage: stage_outputs['detector']['noise_budget_raw'] "
                 "is missing. DetectorStage must run before ReadoutStage to "
                 "populate the raw NoiseBudget. Add DetectorStage to your "

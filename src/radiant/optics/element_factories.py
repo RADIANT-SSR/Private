@@ -21,6 +21,7 @@ from radiant.optics.element import (
     ElementTransferMode,
     OpticalElement,
 )
+from radiant.optics.errors import OpticsValidationError
 
 
 def _scalar_to_spectral(
@@ -32,7 +33,7 @@ def _scalar_to_spectral(
     if isinstance(value, SpectralData):
         return value
     if wavelength_um is None:
-        raise ValueError(
+        raise OpticsValidationError(
             f"'{name}': wavelength_um is required when input is a scalar. "
             "Provide a wavelength grid to broadcast the scalar value."
         )
@@ -175,7 +176,7 @@ def make_refractive_element(
         With transfer_mode=REFRACTIVE, eps = 0.
     """
     if kind in (ElementKind.MIRROR, ElementKind.COLD_STOP):
-        raise ValueError(
+        raise OpticsValidationError(
             f"make_refractive_element: kind={kind.value} is not refractive. "
             "Use make_reflective_element for mirrors."
         )
@@ -252,7 +253,7 @@ def make_refractive_cavity_element(
         With transfer_mode=REFRACTIVE, cavity model, and eps = eps_eff.
     """
     if kind in (ElementKind.MIRROR, ElementKind.COLD_STOP):
-        raise ValueError(
+        raise OpticsValidationError(
             f"make_refractive_cavity_element: kind={kind.value} is not refractive. "
             "Use make_reflective_element for mirrors."
         )

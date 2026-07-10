@@ -13,6 +13,8 @@ See §7 of ``docs/architecture/RADIANT_Detector_Complete.md``.
 
 from __future__ import annotations
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 def tdi_scale_signal(signal_e: float, n_tdi: int) -> float:
     """Scale per-stage signal by TDI stage count: ``S × N_tdi``.
@@ -21,7 +23,7 @@ def tdi_scale_signal(signal_e: float, n_tdi: int) -> float:
     a single readout.
     """
     if n_tdi < 1:
-        raise ValueError(f"tdi_scale_signal: n_tdi = {n_tdi} must be >= 1.")
+        raise ReadoutValidationError(f"tdi_scale_signal: n_tdi = {n_tdi} must be >= 1.")
     return signal_e * n_tdi
 
 
@@ -32,7 +34,7 @@ def tdi_scale_shot_noise(noise_e: float, n_tdi: int) -> float:
     ``σ_total = σ_per_stage × √N``.
     """
     if n_tdi < 1:
-        raise ValueError(f"tdi_scale_shot_noise: n_tdi = {n_tdi} must be >= 1.")
+        raise ReadoutValidationError(f"tdi_scale_shot_noise: n_tdi = {n_tdi} must be >= 1.")
     return noise_e * (n_tdi**0.5)
 
 
@@ -56,7 +58,7 @@ def tdi_scale_read_noise(noise_e: float, n_tdi: int = 1, digital: bool = False) 
     """
     if digital:
         if n_tdi < 1:
-            raise ValueError(f"tdi_scale_read_noise: n_tdi = {n_tdi} must be >= 1.")
+            raise ReadoutValidationError(f"tdi_scale_read_noise: n_tdi = {n_tdi} must be >= 1.")
         return noise_e * (n_tdi**0.5)
     return noise_e
 
@@ -68,5 +70,5 @@ def tdi_scale_fpn(noise_e: float, n_tdi: int) -> float:
     scales linearly with the signal: ``σ × N``.
     """
     if n_tdi < 1:
-        raise ValueError(f"tdi_scale_fpn: n_tdi = {n_tdi} must be >= 1.")
+        raise ReadoutValidationError(f"tdi_scale_fpn: n_tdi = {n_tdi} must be >= 1.")
     return noise_e * n_tdi

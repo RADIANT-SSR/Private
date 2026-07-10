@@ -12,6 +12,7 @@ See RADIANT_Spatial_Complete.md §2 and RADIANT_Signal_Chain_Architecture.md.
 
 from __future__ import annotations
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.psf.effective import EffectivePSF
 
 
@@ -39,5 +40,5 @@ def compute_ee_box(
         If n_pixels < 1.
     """
     if n_pixels < 1:
-        raise ValueError(f"n_pixels must be >= 1, got {n_pixels}")
+        raise OpticsValidationError(f"n_pixels must be >= 1, got {n_pixels}")
     return psf.ensquared_energy_nxn(n_pixels)

@@ -54,6 +54,7 @@ from radiant.atmosphere.assembly import (
     assemble_target_at_aperture,
     validate_no_atmosphere_subcase,
 )
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.loaders import FILE_BACKED_MODELS, build_atmosphere_model
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet, Provenance
@@ -89,7 +90,7 @@ class AtmosphereStage:
         model: object | None = atm_config.get("model")
         if model is None:
             if model_name in FILE_BACKED_MODELS:
-                raise ValueError(
+                raise AtmosphereValidationError(
                     f"AtmosphereStage: model='{model_name}' requires file I/O "
                     "and must be constructed before chain execution (Rule 6). "
                     "Run the chain via RadiantSession/Sensor (which injects "
@@ -109,7 +110,7 @@ class AtmosphereStage:
         los = source_out.get("los_geometry")
 
         if target_desc is None:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 "AtmosphereStage: SourceStage did not publish a TargetDescriptor "
                 "under stage_outputs['source']['target']. Stage 4 requires the "
                 "descriptor-driven path; run SourceStage before AtmosphereStage."

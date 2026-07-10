@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 
 from radiant.core.constants import k_B, q
+from radiant.detector.errors import DetectorValidationError
 
 
 def read_noise_term(sigma_rms: float) -> float:
@@ -25,7 +26,7 @@ def read_noise_term(sigma_rms: float) -> float:
     convention is handled by the readout stage.
     """
     if sigma_rms < 0.0:
-        raise ValueError(f"read_noise_term: sigma_rms = {sigma_rms} < 0.")
+        raise DetectorValidationError(f"read_noise_term: sigma_rms = {sigma_rms} < 0.")
     return sigma_rms
 
 
@@ -56,5 +57,7 @@ def ktc_reset_noise(node_capacitance_F: float, temp_K: float, cds_enabled: bool)
 def quantization_noise(gain_e_per_dn: float) -> float:
     """ADC quantization noise: ``LSB / √12`` [e- RMS]."""
     if gain_e_per_dn <= 0.0:
-        raise ValueError(f"quantization_noise: gain_e_per_dn = {gain_e_per_dn} must be > 0.")
+        raise DetectorValidationError(
+            f"quantization_noise: gain_e_per_dn = {gain_e_per_dn} must be > 0."
+        )
     return gain_e_per_dn / math.sqrt(12.0)

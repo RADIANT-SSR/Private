@@ -22,6 +22,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from radiant.platform.errors import PlatformValidationError
+
 
 def jitter_sigma_focal_m(
     jitter_rms_rad: float,
@@ -42,9 +44,9 @@ def jitter_sigma_focal_m(
         σ on the focal plane [m].
     """
     if jitter_rms_rad < 0.0:
-        raise ValueError(f"jitter_rms_rad must be non-negative, got {jitter_rms_rad}")
+        raise PlatformValidationError(f"jitter_rms_rad must be non-negative, got {jitter_rms_rad}")
     if focal_length_m <= 0.0:
-        raise ValueError(f"focal_length_m must be positive, got {focal_length_m}")
+        raise PlatformValidationError(f"focal_length_m must be positive, got {focal_length_m}")
     return jitter_rms_rad * focal_length_m
 
 
@@ -72,7 +74,7 @@ def jitter_mtf_1d(
         If sigma_m is negative.
     """
     if sigma_m < 0.0:
-        raise ValueError(f"sigma_m must be non-negative, got {sigma_m}")
+        raise PlatformValidationError(f"sigma_m must be non-negative, got {sigma_m}")
     if sigma_m == 0.0:
         return np.ones_like(freq)
     return np.exp(-2.0 * math.pi**2 * sigma_m**2 * freq**2)
@@ -130,13 +132,13 @@ def jitter_kernel_2d(
         Normalised kernel (sums to 1.0). Delta if both σ are zero.
     """
     if npix < 1 or npix % 2 == 0:
-        raise ValueError(f"npix must be a positive odd integer, got {npix}")
+        raise PlatformValidationError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
+        raise PlatformValidationError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
     if sigma_x_m < 0.0:
-        raise ValueError(f"sigma_x_m must be non-negative, got {sigma_x_m}")
+        raise PlatformValidationError(f"sigma_x_m must be non-negative, got {sigma_x_m}")
     if sigma_y_m < 0.0:
-        raise ValueError(f"sigma_y_m must be non-negative, got {sigma_y_m}")
+        raise PlatformValidationError(f"sigma_y_m must be non-negative, got {sigma_y_m}")
 
     c = npix // 2
     kernel = np.zeros((npix, npix), dtype=np.float64)

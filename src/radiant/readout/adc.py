@@ -21,6 +21,8 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from radiant.readout.errors import ReadoutValidationError
+
 # Pre-computed for clarity and to keep the √12 out of every call site.
 _SQRT_12: float = math.sqrt(12.0)
 
@@ -49,13 +51,13 @@ class AnalogToDigital:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.gain_e_per_dn) or self.gain_e_per_dn <= 0.0:
-            raise ValueError(
+            raise ReadoutValidationError(
                 f"AnalogToDigital '{self.name}': gain_e_per_dn = "
                 f"{self.gain_e_per_dn} is invalid. Must be a positive "
                 "finite number of electrons per DN."
             )
         if not isinstance(self.n_bits, int) or self.n_bits < 1:
-            raise ValueError(
+            raise ReadoutValidationError(
                 f"AnalogToDigital '{self.name}': n_bits = {self.n_bits} must be a positive integer."
             )
 
@@ -93,7 +95,7 @@ class AnalogToDigital:
             comparing to :attr:`max_dn`.
         """
         if not math.isfinite(electrons) or electrons < 0.0:
-            raise ValueError(
+            raise ReadoutValidationError(
                 f"AnalogToDigital '{self.name}': electrons = {electrons} is "
                 "invalid. The caller must resolve NaN/inf and sign errors "
                 "before quantising."

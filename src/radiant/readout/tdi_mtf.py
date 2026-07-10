@@ -19,6 +19,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 def tdi_misalign_mtf_1d(
     freq: npt.NDArray[np.float64],
@@ -46,7 +48,7 @@ def tdi_misalign_mtf_1d(
         If misalign_m is negative.
     """
     if misalign_m < 0.0:
-        raise ValueError(f"misalign_m must be non-negative, got {misalign_m}")
+        raise ReadoutValidationError(f"misalign_m must be non-negative, got {misalign_m}")
     if misalign_m == 0.0:
         return np.ones_like(freq)
     return np.abs(np.sinc(freq * misalign_m))
@@ -71,5 +73,5 @@ def tdi_misalign_m(
         Misalignment in metres.
     """
     if pixel_pitch_m <= 0.0:
-        raise ValueError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
+        raise ReadoutValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
     return abs(misalign_pixels) * pixel_pitch_m

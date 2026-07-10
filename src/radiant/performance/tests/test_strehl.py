@@ -244,8 +244,6 @@ class TestPsfDerivedStrehl:
         state, params = _make_psf_state_and_params()
         epsf = state.stage_outputs["optics"]["effective_psf"]
         wl = np.linspace(3.5, 5.0, 10)
-        bare = ChainState(wavelength_um=wl).with_stage_output(
-            "optics", "effective_psf", epsf
-        )
+        bare = ChainState(wavelength_um=wl).with_stage_output("optics", "effective_psf", epsf)
         out = _compute_spatial_metrics(bare, params)
         assert "strehl" not in out.metrics

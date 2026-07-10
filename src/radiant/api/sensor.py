@@ -26,6 +26,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.api._param_registry import build_parameter_set
+from radiant.api.errors import ApiValidationError
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
@@ -465,7 +466,7 @@ class Sensor:
         def _extract(result: ChainResult) -> float:
             val = result.metrics.get(metric_key)
             if val is None:
-                raise ValueError(
+                raise ApiValidationError(
                     f"Metric '{metric_key}' not found in result.metrics. "
                     f"Available: {list(result.metrics.keys())}"
                 )

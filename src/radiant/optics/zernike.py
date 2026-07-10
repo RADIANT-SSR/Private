@@ -21,6 +21,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
+
 
 def noll_to_nm(j: int) -> tuple[int, int]:
     """Convert Noll index *j* to radial/azimuthal orders (n, m).
@@ -41,7 +43,7 @@ def noll_to_nm(j: int) -> tuple[int, int]:
         If *j* < 1.
     """
     if j < 1:
-        raise ValueError(f"Noll index must be >= 1, got {j}")
+        raise OpticsValidationError(f"Noll index must be >= 1, got {j}")
 
     # Find radial order n: cumulative count up to order n is n(n+1)/2
     n = int((-1 + math.sqrt(1 + 8 * (j - 1))) / 2)

@@ -33,6 +33,7 @@ import numpy as np
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -63,7 +64,7 @@ class ThermalSource:
 
     def __post_init__(self) -> None:
         if self.temperature_K < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"ThermalSource '{self.name}': temperature_K = {self.temperature_K} K "
                 "is invalid. Temperature must be non-negative (use 0 for a zero-"
                 "radiance source)."
@@ -71,7 +72,7 @@ class ThermalSource:
         if isinstance(self.emissivity, SpectralData):
             vals = self.emissivity.values
             if np.any(vals < 0.0) or np.any(vals > 1.0):
-                raise ValueError(
+                raise SourceValidationError(
                     f"ThermalSource '{self.name}': spectral emissivity "
                     f"'{self.emissivity.name}' has values outside [0, 1] "
                     f"(min={vals.min():g}, max={vals.max():g}). Emissivity is "
@@ -81,7 +82,7 @@ class ThermalSource:
             # Scalar path — coerce to float and validate.
             eps = float(self.emissivity)
             if not (0.0 <= eps <= 1.0):
-                raise ValueError(
+                raise SourceValidationError(
                     f"ThermalSource '{self.name}': emissivity = {eps} is outside "
                     "[0, 1]. Emissivity is a dimensionless fraction bounded by "
                     "Kirchhoff's law (ε ≤ 1)."
@@ -116,7 +117,7 @@ class ThermalSource:
             # material property.
             eps_wl = self.emissivity.wavelength_um
             if lam[0] < eps_wl[0] or lam[-1] > eps_wl[-1]:
-                raise ValueError(
+                raise SourceValidationError(
                     f"ThermalSource '{self.name}': requested wavelength range "
                     f"[{lam[0]:.4f}, {lam[-1]:.4f}] µm extends outside the "
                     f"emissivity table range [{eps_wl[0]:.4f}, {eps_wl[-1]:.4f}] µm. "
@@ -154,7 +155,7 @@ class ThermalSource:
         elif eps_payload["kind"] == "scalar":
             eps = float(eps_payload["value"])
         else:
-            raise ValueError(
+            raise SourceValidationError(
                 f"ThermalSource.from_dict: unknown emissivity kind "
                 f"'{eps_payload['kind']}'. Expected 'scalar' or 'spectral'."
             )

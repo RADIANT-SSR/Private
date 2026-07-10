@@ -70,6 +70,7 @@ from typing import Any
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -225,25 +226,25 @@ class SimpleAtmosphere:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.visibility_km) or self.visibility_km <= 0.0:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': visibility_km = "
                 f"{self.visibility_km} is invalid. Visibility is the "
                 "meteorological range in km and must be a positive finite number."
             )
         if self.aerosol_type not in _AEROSOL_TABLE:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': aerosol_type = "
                 f"'{self.aerosol_type}' is not recognised. Choose one of "
                 f"{sorted(_AEROSOL_TABLE)}."
             )
         if not math.isfinite(self.precipitable_water_cm) or self.precipitable_water_cm < 0.0:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': precipitable_water_cm = "
                 f"{self.precipitable_water_cm} is invalid. It is a non-negative "
                 "column amount in cm of liquid-equivalent water vapour."
             )
         if self.standard_atmosphere not in _T_SEA_LEVEL_K:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': standard_atmosphere = "
                 f"'{self.standard_atmosphere}' is not recognised. Choose one "
                 f"of {sorted(_T_SEA_LEVEL_K)}."
@@ -427,20 +428,20 @@ class SimpleAtmosphere:
         """Compute the atmospheric state on the given grid."""
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um needs at "
                 f"least two samples, got {lam.size}."
             )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 
@@ -636,20 +637,20 @@ class SimpleAtmosphere:
 
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um needs at "
                 f"least two samples, got {lam.size}."
             )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 

@@ -25,6 +25,7 @@ from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.solar import toa_solar_spectral_irradiance
 from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.brdf_phong import PhongBRDF
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -72,33 +73,33 @@ class CombinedSource:
 
     def __post_init__(self) -> None:
         if self.temperature_K < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"CombinedSource '{self.name}': temperature_K must be "
                 f">= 0, got {self.temperature_K}"
             )
         eps = np.atleast_1d(np.asarray(self.emissivity, dtype=np.float64))
         if np.any(eps < 0.0) or np.any(eps > 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"CombinedSource '{self.name}': emissivity must be in "
                 f"[0, 1], got min={float(eps.min())}, max={float(eps.max())}"
             )
         if self.solar_zenith_rad < 0.0 or self.solar_zenith_rad > math.pi / 2.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"CombinedSource '{self.name}': solar_zenith_rad must be "
                 f"in [0, π/2], got {self.solar_zenith_rad}"
             )
         if self.observer_zenith_rad < 0.0 or self.observer_zenith_rad > math.pi / 2.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"CombinedSource '{self.name}': observer_zenith_rad must "
                 f"be in [0, π/2], got {self.observer_zenith_rad}"
             )
         if self.brdf_model not in ("lambertian", "phong"):
-            raise ValueError(
+            raise SourceValidationError(
                 f"CombinedSource '{self.name}': brdf_model must be "
                 f"'lambertian' or 'phong', got '{self.brdf_model}'"
             )
         if self.distance_au <= 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"CombinedSource '{self.name}': distance_au must be "
                 f"positive, got {self.distance_au}"
             )

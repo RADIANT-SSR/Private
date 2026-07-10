@@ -54,6 +54,7 @@ from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
 from radiant.optics.diffusion_kernel import make_diffusion_kernel_2d
 from radiant.optics.element import ElementTransferMode
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
 from radiant.optics.pixel_kernel import make_pixel_aperture_kernel_2d
 from radiant.optics.psf.builder import build_effective_psf
@@ -356,11 +357,10 @@ def _build_effective_psf(
         # (e.g. blackbody- vs solar-weighted PSF comparisons).
         override_sd = state.stage_outputs.get("optics_config", {}).get("psf_weighting_spectrum")
         if override_sd is not None:
-            if (
-                float(override_sd.wavelength_um[-1]) < float(psf_wl_um[0])
-                or float(override_sd.wavelength_um[0]) > float(psf_wl_um[-1])
-            ):
-                raise ValueError(
+            if float(override_sd.wavelength_um[-1]) < float(psf_wl_um[0]) or float(
+                override_sd.wavelength_um[0]
+            ) > float(psf_wl_um[-1]):
+                raise OpticsValidationError(
                     "OpticsStage: psf_weighting_spectrum grid "
                     f"[{float(override_sd.wavelength_um[0]):.3g}, "
                     f"{float(override_sd.wavelength_um[-1]):.3g}] µm does not "
@@ -743,7 +743,9 @@ class OpticsStage:
         at_aperture = state.frames["at_aperture"]
         L_at_aperture = at_aperture.spectral_radiance
         if L_at_aperture is None:
-            raise ValueError("OpticsStage: 'at_aperture' frame has no spectral_radiance.")
+            raise OpticsValidationError(
+                "OpticsStage: 'at_aperture' frame has no spectral_radiance."
+            )
 
         tau_vals = tx_result.transmission.values
         L_post_optics = L_at_aperture * tau_vals
@@ -786,7 +788,7 @@ class OpticsStage:
                     reference_wavelength_um=wfe_ref,
                 )
             else:
-                raise ValueError(
+                raise OpticsValidationError(
                     f"WFE mode '{wfe_mode_str}' requires a WavefrontError "
                     f"object injected via optics_config['wavefront_error']. "
                     f"Only 'scalar_rms' can be built from parameters alone."

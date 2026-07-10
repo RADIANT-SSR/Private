@@ -11,6 +11,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
+
 
 def compute_strehl(psf: npt.NDArray[np.float64], psf_ref: npt.NDArray[np.float64]) -> float:
     """Compute the Strehl ratio.
@@ -30,5 +32,5 @@ def compute_strehl(psf: npt.NDArray[np.float64], psf_ref: npt.NDArray[np.float64
     """
     ref_peak = psf_ref.max()
     if ref_peak == 0.0:
-        raise ValueError("Reference PSF peak is zero — cannot compute Strehl.")
+        raise OpticsValidationError("Reference PSF peak is zero — cannot compute Strehl.")
     return float(psf.max() / ref_peak)

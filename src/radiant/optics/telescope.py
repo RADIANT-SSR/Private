@@ -26,6 +26,7 @@ import numpy as np
 
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.fnumber import resolve_fnumber_group
 
 
@@ -71,7 +72,7 @@ class ScalarTelescope:
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.transmission_scalar <= 1.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"ScalarTelescope '{self.name}': transmission_scalar = "
                 f"{self.transmission_scalar} is outside [0, 1]. Transmission "
                 "is a dimensionless efficiency bounded by energy conservation."
@@ -119,20 +120,20 @@ class ScalarTelescope:
         """
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"ScalarTelescope '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"ScalarTelescope '{self.name}': wavelength_um needs at "
                 f"least two samples, got {lam.size}."
             )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"ScalarTelescope '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"ScalarTelescope '{self.name}': wavelength_um must be strictly positive."
             )
 

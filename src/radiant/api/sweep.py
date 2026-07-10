@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api.errors import ApiValidationError
 from radiant.core.parameters import ParameterSet
 from radiant.io.results import ChainResult
 
@@ -34,7 +35,7 @@ def _default_metric(result: ChainResult) -> float:
     """Extract SNR from a ChainResult."""
     snr = result.metrics.get("snr")
     if snr is None:
-        raise ValueError(
+        raise ApiValidationError(
             "sweep: default metric is 'snr' but it was not computed. "
             "Pass a custom metric function or ensure PerformanceStage runs."
         )

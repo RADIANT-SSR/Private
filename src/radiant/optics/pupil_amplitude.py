@@ -20,6 +20,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
+
 
 @dataclass(frozen=True)
 class SpiderVaneSpec:
@@ -89,16 +91,16 @@ def make_pupil_amplitude(
     """
     if mask_override is not None:
         if mask_override.shape != (npix, npix):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"mask_override shape {mask_override.shape} must equal (npix, npix) = "
                 f"({npix}, {npix})."
             )
         if mask_override.min() < 0.0 or mask_override.max() > 1.0:
-            raise ValueError("mask_override amplitudes must lie in [0, 1].")
+            raise OpticsValidationError("mask_override amplitudes must lie in [0, 1].")
         return mask_override.astype(np.float64, copy=True)
 
     if not (0.0 <= obscuration_ratio < 1.0):
-        raise ValueError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
+        raise OpticsValidationError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
 
     # Normalised coordinates: [-0.5, +0.5]
     x = np.linspace(-0.5, 0.5, npix, endpoint=False) + 0.5 / npix
@@ -112,7 +114,9 @@ def make_pupil_amplitude(
 
     if vanes is not None and vanes.active:
         if vanes.width_frac < 0.0:
-            raise ValueError(f"spider vane width_frac must be ≥ 0, got {vanes.width_frac}")
+            raise OpticsValidationError(
+                f"spider vane width_frac must be ≥ 0, got {vanes.width_frac}"
+            )
         half_w = 0.5 * vanes.width_frac
         for k in range(vanes.n_struts):
             theta = np.radians(vanes.angle_offset_deg + k * 360.0 / vanes.n_struts)

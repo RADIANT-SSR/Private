@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.core.exceptions import CoreValidationError
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -74,7 +76,7 @@ def slant_range_spherical_m(altitude_m: float, zenith_rad: float) -> float:
         (beyond the horizon).
     """
     if zenith_rad < 0.0:
-        raise ValueError(
+        raise CoreValidationError(
             f"slant_range_spherical_m: zenith_rad = {zenith_rad:.4f} rad "
             f"is negative.  Off-nadir angle must be >= 0."
         )
@@ -93,7 +95,7 @@ def slant_range_spherical_m(altitude_m: float, zenith_rad: float) -> float:
     if disc < 0.0:
         # Compute the horizon angle for the error message.
         horizon_deg = math.degrees(math.asin(R / Rh))
-        raise ValueError(
+        raise CoreValidationError(
             f"slant_range_spherical_m: zenith_rad = {zenith_rad:.4f} rad "
             f"({math.degrees(zenith_rad):.2f}°) is beyond the horizon.  "
             f"At altitude {altitude_m / 1000:.1f} km, the maximum off-nadir "
@@ -134,7 +136,7 @@ def incidence_angle_rad(altitude_m: float, zenith_rad: float) -> float:
         If zenith_rad < 0 or the incidence would exceed 90° (below horizon).
     """
     if zenith_rad < 0.0:
-        raise ValueError(
+        raise CoreValidationError(
             f"incidence_angle_rad: zenith_rad = {zenith_rad:.4f} rad "
             f"is negative.  Off-nadir angle must be >= 0."
         )
@@ -146,7 +148,7 @@ def incidence_angle_rad(altitude_m: float, zenith_rad: float) -> float:
 
     if sin_inc > 1.0:
         horizon_deg = math.degrees(math.asin(R / (R + altitude_m)))
-        raise ValueError(
+        raise CoreValidationError(
             f"incidence_angle_rad: zenith_rad = {zenith_rad:.4f} rad "
             f"({math.degrees(zenith_rad):.2f}°) produces an incidence "
             f"angle beyond 90° (below horizon).  At altitude "
@@ -220,11 +222,13 @@ def rotation_matrix_to_euler(
     """
     R = np.asarray(R, dtype=np.float64)
     if R.shape != (3, 3):
-        raise ValueError(f"rotation_matrix_to_euler: R must be (3, 3), got shape {R.shape}.")
+        raise CoreValidationError(
+            f"rotation_matrix_to_euler: R must be (3, 3), got shape {R.shape}."
+        )
 
     det = float(np.linalg.det(R))
     if abs(det - 1.0) > 1e-6:
-        raise ValueError(
+        raise CoreValidationError(
             f"rotation_matrix_to_euler: R is not a valid rotation matrix. "
             f"det(R) = {det:.6f}, expected 1.0. "
             f"Check that R was constructed from euler_to_rotation_matrix or an equivalent."
@@ -232,7 +236,7 @@ def rotation_matrix_to_euler(
 
     ortho_err = float(np.max(np.abs(R @ R.T - np.eye(3))))
     if ortho_err > 1e-6:
-        raise ValueError(
+        raise CoreValidationError(
             f"rotation_matrix_to_euler: R is not orthogonal. "
             f"max|R @ R.T - I| = {ortho_err:.2e}. "
             f"Check that R was constructed from euler_to_rotation_matrix or an equivalent."
@@ -272,13 +276,13 @@ class ObserverGeometry:
 
     def __post_init__(self) -> None:
         if self.altitude_m < 0:
-            raise ValueError(
+            raise CoreValidationError(
                 f"ObserverGeometry: altitude_m = {self.altitude_m} m is negative. "
                 f"Observer must be above the reference plane. "
                 f"Set altitude_m >= 0."
             )
         if not (0.0 <= self.look_angle_rad < math.pi / 2):
-            raise ValueError(
+            raise CoreValidationError(
                 f"ObserverGeometry: look_angle_rad = {self.look_angle_rad:.4f} rad "
                 f"({math.degrees(self.look_angle_rad):.2f}°) is out of range [0, π/2). "
                 f"Look angle must be between nadir (0) and horizon (π/2 exclusive)."
@@ -414,12 +418,12 @@ class SceneGeometry:
             ValueError: If focal_length_m or pixel_pitch_m <= 0.
         """
         if focal_length_m <= 0:
-            raise ValueError(
+            raise CoreValidationError(
                 f"gsd_m: focal_length_m must be > 0, got {focal_length_m}. "
                 f"Set focal_length_m to the effective focal length of the optics in meters."
             )
         if pixel_pitch_m <= 0:
-            raise ValueError(
+            raise CoreValidationError(
                 f"gsd_m: pixel_pitch_m must be > 0, got {pixel_pitch_m}. "
                 f"Set pixel_pitch_m to the detector pixel pitch in meters."
             )
@@ -441,12 +445,12 @@ class SceneGeometry:
             ValueError: If focal_length_m or pixel_pitch_m <= 0.
         """
         if focal_length_m <= 0:
-            raise ValueError(
+            raise CoreValidationError(
                 f"ifov_rad: focal_length_m must be > 0, got {focal_length_m}. "
                 f"Set focal_length_m to the effective focal length of the optics in meters."
             )
         if pixel_pitch_m <= 0:
-            raise ValueError(
+            raise CoreValidationError(
                 f"ifov_rad: pixel_pitch_m must be > 0, got {pixel_pitch_m}. "
                 f"Set pixel_pitch_m to the detector pixel pitch in meters."
             )

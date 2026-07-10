@@ -21,6 +21,7 @@ from __future__ import annotations
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -55,20 +56,20 @@ class ExoAtmosphere:
         """Return the trivial state ``(1, 0, 0)`` on ``wavelength_um``."""
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um needs at least "
                 f"two samples, got {lam.size}."
             )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 
@@ -128,20 +129,20 @@ class ExoAtmosphere:
         _ = los, params  # params/los unused in the trivial exo case
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um needs at least "
                 f"two samples, got {lam.size}."
             )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um must be strictly ascending."
             )
         if np.any(lam <= 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ExoAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 

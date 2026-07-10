@@ -12,6 +12,7 @@ import numpy as np
 
 from radiant.core.spectral import SpectralData
 from radiant.optics.element import OpticalElement
+from radiant.optics.errors import OpticsValidationError
 
 
 def compute_system_transmission(
@@ -33,7 +34,7 @@ def compute_system_transmission(
         System transmission, dimensionless [0, 1].
     """
     if not elements:
-        raise ValueError(
+        raise OpticsValidationError(
             "compute_system_transmission: element list must not be empty. "
             "Even scalar-mode optics requires at least one lumped element."
         )

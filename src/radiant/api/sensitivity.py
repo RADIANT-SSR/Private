@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api.errors import ApiValidationError
 from radiant.api.sweep import _clone_with
 from radiant.core.parameters import ParameterSet
 from radiant.io.results import ChainResult
@@ -201,5 +202,5 @@ def _default_snr_metric(result: ChainResult) -> float:
     """Extract SNR from a ChainResult."""
     snr = result.metrics.get("snr")
     if snr is None:
-        raise ValueError("sensitivity: default metric is 'snr' but it was not computed.")
+        raise ApiValidationError("sensitivity: default metric is 'snr' but it was not computed.")
     return float(snr)

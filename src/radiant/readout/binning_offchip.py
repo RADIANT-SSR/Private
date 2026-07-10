@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import math
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 def _validate_bin(px: int, py: int, label: str) -> None:
     if px < 1 or py < 1:
-        raise ValueError(f"{label}: binning factors must be >= 1, got ({px}, {py}).")
+        raise ReadoutValidationError(f"{label}: binning factors must be >= 1, got ({px}, {py}).")
 
 
 def offchip_scale_signal(signal_e: float, px: int, py: int) -> float:

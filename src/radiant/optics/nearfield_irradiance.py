@@ -22,6 +22,7 @@ import numpy as np
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.spectral import SpectralData
 from radiant.optics.element import OpticalElement
+from radiant.optics.errors import OpticsValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +106,9 @@ def compute_nearfield_irradiance(
         Both include the cold-stop efficiency scaling.
     """
     if not elements:
-        raise ValueError("compute_nearfield_irradiance: element list must not be empty.")
+        raise OpticsValidationError("compute_nearfield_irradiance: element list must not be empty.")
     if not 0.0 <= cold_stop_efficiency <= 1.0:
-        raise ValueError(
+        raise OpticsValidationError(
             f"compute_nearfield_irradiance: cold_stop_efficiency must be "
             f"in [0, 1], got {cold_stop_efficiency}."
         )

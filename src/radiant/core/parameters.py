@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from radiant.core.exceptions import RadiantError
+from radiant.core.exceptions import CoreStateError, CoreValidationError, RadiantError
 from radiant.core.units import convert, inverse_convert
 
 # ---------------------------------------------------------------------------
@@ -109,13 +109,15 @@ class ParameterDef:
 
     def __post_init__(self) -> None:
         if self.dtype not in (float, int, str, bool):
-            raise ValueError(f"ParameterDef '{self.name}': dtype must be float, int, str, or bool")
+            raise CoreValidationError(
+                f"ParameterDef '{self.name}': dtype must be float, int, str, or bool"
+            )
         if self.enum_values is not None and self.dtype is not str:
-            raise ValueError(f"ParameterDef '{self.name}': enum_values requires dtype=str")
+            raise CoreValidationError(f"ParameterDef '{self.name}': enum_values requires dtype=str")
         if self.bounds is not None and self.dtype not in (float, int):
-            raise ValueError(f"ParameterDef '{self.name}': bounds requires numeric dtype")
+            raise CoreValidationError(f"ParameterDef '{self.name}': bounds requires numeric dtype")
         if self.name in self.deprecated_aliases:
-            raise ValueError(f"ParameterDef '{self.name}': cannot alias itself")
+            raise CoreValidationError(f"ParameterDef '{self.name}': cannot alias itself")
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +159,7 @@ class Tolerance:
             return max(lo, min(hi, nominal))
         if d == "log_normal":
             return float(rng.lognormal(mean=0.0, sigma=p["sigma"])) * nominal
-        raise ValueError(f"Unknown distribution: {d}")
+        raise CoreValidationError(f"Unknown distribution: {d}")
 
 
 # ---------------------------------------------------------------------------
@@ -245,12 +247,12 @@ class ParameterSet:
         for pdef in schema:
             for alias in pdef.deprecated_aliases:
                 if alias in self._defs:
-                    raise ValueError(
+                    raise CoreValidationError(
                         f"ParameterDef '{pdef.name}': deprecated alias '{alias}' "
                         "collides with a defined parameter name"
                     )
                 if alias in self._aliases:
-                    raise ValueError(
+                    raise CoreValidationError(
                         f"ParameterDef '{pdef.name}': deprecated alias '{alias}' "
                         f"already maps to '{self._aliases[alias]}'"
                     )
@@ -270,7 +272,7 @@ class ParameterSet:
         for g in self._groups:
             for p in g.parameters:
                 if p not in self._defs:
-                    raise ValueError(
+                    raise CoreValidationError(
                         f"ConsistencyGroup '{g.name}' references unknown parameter '{p}'"
                     )
 
@@ -348,7 +350,7 @@ class ParameterSet:
         """Convert *value* from a caller-supplied unit to the input_unit."""
         pdef = self._defs[name]
         if pdef.dtype not in (float, int):
-            raise ValueError(
+            raise CoreValidationError(
                 f"Parameter '{name}' is {pdef.dtype.__name__}-typed; the "
                 "unit= argument applies only to numeric parameters. "
                 "Pass the value without a unit."
@@ -356,7 +358,7 @@ class ParameterSet:
         try:
             numeric = float(value)
         except (TypeError, ValueError) as exc:
-            raise ValueError(
+            raise CoreValidationError(
                 f"Parameter '{name}': cannot convert {value!r} from unit "
                 f"'{unit}' — value must be numeric."
             ) from exc
@@ -366,7 +368,7 @@ class ParameterSet:
             canonical = convert(numeric, unit, pdef.canonical_unit)
             return inverse_convert(canonical, pdef.canonical_unit, pdef.input_unit)
         except KeyError as exc:
-            raise ValueError(
+            raise CoreValidationError(
                 f"Parameter '{name}': no registered conversion from "
                 f"'{unit}' to '{pdef.canonical_unit or 'dimensionless'}'. "
                 f"Native input unit is '{pdef.input_unit or 'dimensionless'}'; "
@@ -468,7 +470,7 @@ class ParameterSet:
                 if all_required:
                     unresolvable.extend(unset)
         if unresolvable:
-            raise ValueError(
+            raise CoreValidationError(
                 f"Circular dependency detected: parameters {unresolvable} could not "
                 f"be resolved after {max_passes} passes. Check consistency groups for "
                 f"cycles (A derived from B, B derived from A)."
@@ -479,7 +481,7 @@ class ParameterSet:
             if name in self._resolved:
                 continue
             if pdef.default is None:
-                raise ValueError(
+                raise CoreValidationError(
                     f"Required parameter '{name}' is not set.\n"
                     f"  Description: {pdef.description}\n"
                     f"  Expected type: {pdef.dtype.__name__} in "
@@ -510,7 +512,7 @@ class ParameterSet:
             try:
                 value = float(raw_value)
             except (TypeError, ValueError) as exc:
-                raise ValueError(
+                raise CoreValidationError(
                     f"Parameter '{name}' expects float "
                     f"(unit: {pdef.input_unit or 'dimensionless'}), "
                     f"got {type(raw_value).__name__}: {raw_value!r}"
@@ -518,10 +520,12 @@ class ParameterSet:
         elif pdef.dtype is int:
             value = int(raw_value)
             if float(value) != float(raw_value):
-                raise ValueError(f"Parameter '{name}' expects int, got non-integer {raw_value}")
+                raise CoreValidationError(
+                    f"Parameter '{name}' expects int, got non-integer {raw_value}"
+                )
         elif pdef.dtype is bool:
             if not isinstance(raw_value, bool):
-                raise ValueError(
+                raise CoreValidationError(
                     f"Parameter '{name}' expects bool, "
                     f"got {type(raw_value).__name__}: {raw_value!r}"
                 )
@@ -533,7 +537,7 @@ class ParameterSet:
         if pdef.enum_values is not None:
             str_value = str(value)
             if str_value not in pdef.enum_values:
-                raise ValueError(
+                raise CoreValidationError(
                     f"Parameter '{name}' = {value!r}; must be one of {list(pdef.enum_values)}"
                 )
 
@@ -541,7 +545,7 @@ class ParameterSet:
         if pdef.bounds is not None:
             lo, hi = pdef.bounds
             if not (lo <= value <= hi):
-                raise ValueError(
+                raise CoreValidationError(
                     f"Parameter '{name}' = {value} out of bounds [{lo}, {hi}] ({pdef.input_unit})"
                 )
 
@@ -578,7 +582,7 @@ class ParameterSet:
                 return
             actual = self._resolved[free].value
             if abs(computed - actual) > group.tolerance * max(abs(actual), 1.0):
-                raise ValueError(
+                raise CoreValidationError(
                     f"Consistency group '{group.name}' is over-constrained:\n"
                     f"  Constraint: {group.constraint}\n"
                     f"  User-specified '{free}' = {actual}\n"
@@ -596,7 +600,9 @@ class ParameterSet:
             missing = unset_params[0]
             known = {p: self._resolved[p].value for p in set_params}
             if missing not in group.derivations:
-                raise ValueError(f"Group '{group.name}': no derivation rule for '{missing}'")
+                raise CoreValidationError(
+                    f"Group '{group.name}': no derivation rule for '{missing}'"
+                )
             derived_value = group.derivations[missing](known)
             pdef = self._defs[missing]
             input_value = (
@@ -649,7 +655,7 @@ class ParameterSet:
 
     def _require_resolved(self) -> None:
         if not self._resolved_flag:
-            raise RuntimeError(
+            raise CoreStateError(
                 "ParameterSet not resolved. Call .resolve() before accessing values."
             )
 

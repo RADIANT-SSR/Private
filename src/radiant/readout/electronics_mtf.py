@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 def electronics_mtf_1d(
     freq_cycles_per_m: npt.NDArray[np.float64],
@@ -41,7 +43,9 @@ def electronics_mtf_1d(
         MTF values in (0, 1]; all ones when sigma is zero.
     """
     if sigma_m < 0.0:
-        raise ValueError(f"electronics_mtf_1d: sigma_m must be non-negative, got {sigma_m}.")
+        raise ReadoutValidationError(
+            f"electronics_mtf_1d: sigma_m must be non-negative, got {sigma_m}."
+        )
     if sigma_m == 0.0:
         return np.ones_like(freq_cycles_per_m)
     return np.exp(-2.0 * np.pi**2 * sigma_m**2 * freq_cycles_per_m**2)
@@ -69,11 +73,11 @@ def electronics_kernel_2d(
         Normalised kernel (sums to 1.0). Delta if sigma is zero.
     """
     if npix < 1 or npix % 2 == 0:
-        raise ValueError(f"npix must be a positive odd integer, got {npix}")
+        raise ReadoutValidationError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
+        raise ReadoutValidationError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
     if sigma_m < 0.0:
-        raise ValueError(f"sigma_m must be non-negative, got {sigma_m}")
+        raise ReadoutValidationError(f"sigma_m must be non-negative, got {sigma_m}")
 
     c = npix // 2
     kernel = np.zeros((npix, npix), dtype=np.float64)

@@ -18,6 +18,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from radiant.detector.errors import DetectorValidationError
+
 
 def diffusion_sigma_m(diffusion_length_m: float) -> float:
     """Convert charge diffusion length to Gaussian σ [m].
@@ -38,7 +40,9 @@ def diffusion_sigma_m(diffusion_length_m: float) -> float:
         If diffusion_length_m is negative.
     """
     if diffusion_length_m < 0.0:
-        raise ValueError(f"diffusion_length_m must be non-negative, got {diffusion_length_m}")
+        raise DetectorValidationError(
+            f"diffusion_length_m must be non-negative, got {diffusion_length_m}"
+        )
     return diffusion_length_m / math.sqrt(2.0)
 
 
@@ -103,9 +107,9 @@ def diffusion_kernel_2d(
         diffusion_length_m < 0.
     """
     if npix < 1 or npix % 2 == 0:
-        raise ValueError(f"npix must be a positive odd integer, got {npix}")
+        raise DetectorValidationError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
+        raise DetectorValidationError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
 
     sigma = diffusion_sigma_m(diffusion_length_m)
 

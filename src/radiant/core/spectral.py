@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from radiant.core.exceptions import CoreValidationError
+
 if TYPE_CHECKING:
     import matplotlib.axes
 
@@ -58,17 +60,17 @@ class SpectralGrid:
         object.__setattr__(self, "wavelengths_um", wl)
 
         if wl.ndim != 1:
-            raise ValueError("SpectralGrid: wavelengths_um must be 1-D")
+            raise CoreValidationError("SpectralGrid: wavelengths_um must be 1-D")
         if len(wl) < 2:
-            raise ValueError(
+            raise CoreValidationError(
                 f"SpectralGrid: wavelengths_um must have at least 2 points, got {len(wl)}"
             )
         if np.any(wl < 0.0):
-            raise ValueError(
+            raise CoreValidationError(
                 "SpectralGrid: wavelengths_um must be non-negative (all values ≥ 0 µm)"
             )
         if not np.all(np.diff(wl) > 0):
-            raise ValueError("SpectralGrid: wavelengths_um must be strictly ascending")
+            raise CoreValidationError("SpectralGrid: wavelengths_um must be strictly ascending")
 
     # ------------------------------------------------------------------
     # Properties
@@ -116,9 +118,9 @@ class SpectralGrid:
         SpectralGrid
         """
         if n_points < 2:
-            raise ValueError(f"SpectralGrid.uniform: n_points must be ≥ 2, got {n_points}")
+            raise CoreValidationError(f"SpectralGrid.uniform: n_points must be ≥ 2, got {n_points}")
         if lam_min >= lam_max:
-            raise ValueError(
+            raise CoreValidationError(
                 f"SpectralGrid.uniform: lam_min ({lam_min}) must be < lam_max ({lam_max})"
             )
         return cls(wavelengths_um=np.linspace(lam_min, lam_max, n_points))
@@ -196,16 +198,16 @@ class SpectralData:
         self.values = np.asarray(self.values, dtype=np.float64)
 
         if self.wavelength_um.ndim != 1:
-            raise ValueError(f"{self.name}: wavelength_um must be 1-D")
+            raise CoreValidationError(f"{self.name}: wavelength_um must be 1-D")
         if self.values.ndim != 1:
-            raise ValueError(f"{self.name}: values must be 1-D")
+            raise CoreValidationError(f"{self.name}: values must be 1-D")
         if len(self.wavelength_um) != len(self.values):
-            raise ValueError(
+            raise CoreValidationError(
                 f"{self.name}: wavelength_um and values length mismatch "
                 f"({len(self.wavelength_um)} vs {len(self.values)})"
             )
         if not np.all(np.diff(self.wavelength_um) > 0):
-            raise ValueError(f"{self.name}: wavelength_um must be strictly ascending")
+            raise CoreValidationError(f"{self.name}: wavelength_um must be strictly ascending")
 
     # ------------------------------------------------------------------
     # Grid property
@@ -257,7 +259,7 @@ class SpectralData:
         s_max = float(self.wavelength_um[-1])
 
         if t_min < s_min or t_max > s_max:
-            raise ValueError(
+            raise CoreValidationError(
                 f"{self.name}: cannot resample — target grid [{t_min}, {t_max}] µm "
                 f"extends outside source range [{s_min}, {s_max}] µm. "
                 "Trim target_grid or extend the source data first."
@@ -283,7 +285,7 @@ class SpectralData:
 
     def _check_compatible(self, other: SpectralData) -> None:
         if not np.array_equal(self.wavelength_um, other.wavelength_um):
-            raise ValueError(
+            raise CoreValidationError(
                 f"Arithmetic requires identical wavelength grids. "
                 f"'{self.name}' and '{other.name}' have different grids. "
                 "Use SpectralData.resample() to align them first."
@@ -449,9 +451,9 @@ class SpectralDataStore:
             raw = np.asarray(grid_um, dtype=np.float64)
 
         if raw.ndim != 1 or len(raw) < 2:
-            raise ValueError("Grid must be a 1-D array with at least 2 points")
+            raise CoreValidationError("Grid must be a 1-D array with at least 2 points")
         if not np.all(np.diff(raw) > 0):
-            raise ValueError("Grid must be strictly ascending in wavelength")
+            raise CoreValidationError("Grid must be strictly ascending in wavelength")
         self._grid: np.ndarray = raw.astype(np.float64)
         self._data: dict[str, np.ndarray] = {}
         self._metadata: dict[str, SpectralData] = {}
@@ -478,7 +480,7 @@ class SpectralDataStore:
             If a SpectralData with this name has already been added.
         """
         if data.name in self._data:
-            raise ValueError(f"SpectralData '{data.name}' already in store")
+            raise CoreValidationError(f"SpectralData '{data.name}' already in store")
 
         # Check for extrapolation and warn
         if data.wavelength_um[0] > self._grid[0] or data.wavelength_um[-1] < self._grid[-1]:

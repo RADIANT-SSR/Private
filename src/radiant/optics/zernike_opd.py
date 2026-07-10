@@ -22,6 +22,7 @@ import warnings
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.zernike import zernike_polynomial
 
 
@@ -59,7 +60,7 @@ def evaluate_zernike_opd(
         If any Noll index < 1, or obscuration_ratio >= 1.
     """
     if not (0.0 <= obscuration_ratio < 1.0):
-        raise ValueError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
+        raise OpticsValidationError(f"obscuration_ratio must be in [0, 1), got {obscuration_ratio}")
 
     if obscuration_ratio > 0.30:
         warnings.warn(
@@ -73,7 +74,7 @@ def evaluate_zernike_opd(
 
     for j, c in coeffs.items():
         if j < 1:
-            raise ValueError(f"Noll index must be >= 1, got {j}")
+            raise OpticsValidationError(f"Noll index must be >= 1, got {j}")
         if abs(c) > 10.0:
             warnings.warn(
                 f"Zernike Z{j} coefficient = {c:.2f} waves exceeds 10 waves. "

@@ -31,6 +31,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.core.exceptions import CoreValidationError
+
 
 @dataclass(frozen=True)
 class RadiometricFrame:
@@ -86,7 +88,7 @@ class RadiometricFrame:
     def __post_init__(self) -> None:
         wl = np.asarray(self.wavelength_um, dtype=np.float64)
         if wl.ndim != 1 or wl.size < 2:
-            raise ValueError(
+            raise CoreValidationError(
                 f"RadiometricFrame '{self.name}': wavelength_um must be a 1-D "
                 f"array with at least 2 samples, got shape {wl.shape}."
             )
@@ -103,7 +105,7 @@ class RadiometricFrame:
                 continue
             a = np.asarray(arr, dtype=np.float64)
             if a.shape != wl.shape:
-                raise ValueError(
+                raise CoreValidationError(
                     f"RadiometricFrame '{self.name}': {field_name} has shape "
                     f"{a.shape} but wavelength_um has shape {wl.shape}. "
                     "Spectral arrays must align with the wavelength grid."
@@ -114,14 +116,14 @@ class RadiometricFrame:
         has_scalar = self.in_band_value is not None
 
         if any_spectral and has_scalar:
-            raise ValueError(
+            raise CoreValidationError(
                 f"RadiometricFrame '{self.name}': cannot hold both spectral "
                 "arrays and an in_band_value. Per CLAUDE.md Rule 8, spectral "
                 "integration happens exactly once — a frame is either pre- "
                 "or post-integration, never both."
             )
         if not any_spectral and not has_scalar:
-            raise ValueError(
+            raise CoreValidationError(
                 f"RadiometricFrame '{self.name}': must set either at least "
                 "one spectral array (spectral_radiance, spectral_irradiance, "
                 "or photon_rate) or in_band_value."
@@ -130,7 +132,7 @@ class RadiometricFrame:
         if has_scalar:
             v = float(self.in_band_value)  # type: ignore[arg-type]
             if not math.isfinite(v):
-                raise ValueError(
+                raise CoreValidationError(
                     f"RadiometricFrame '{self.name}': in_band_value = {v} is not finite."
                 )
             object.__setattr__(self, "in_band_value", v)
@@ -168,14 +170,16 @@ class NoiseTerm:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.value_e):
-            raise ValueError(f"NoiseTerm '{self.name}': value_e = {self.value_e} is not finite.")
+            raise CoreValidationError(
+                f"NoiseTerm '{self.name}': value_e = {self.value_e} is not finite."
+            )
         if self.value_e < 0.0:
-            raise ValueError(
+            raise CoreValidationError(
                 f"NoiseTerm '{self.name}': value_e = {self.value_e} is "
                 "negative. Noise sigmas are non-negative RMS values."
             )
         if not self.origin_frame:
-            raise ValueError(
+            raise CoreValidationError(
                 f"NoiseTerm '{self.name}': origin_frame must be a non-empty "
                 "string naming the frame where this noise was generated."
             )

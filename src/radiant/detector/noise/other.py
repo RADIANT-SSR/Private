@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import math
 
+from radiant.detector.errors import DetectorValidationError
+
 
 def persistence_noise(
     prior_signal_e: float,
@@ -39,12 +41,14 @@ def persistence_noise(
     if persistence_fraction <= 0.0 or prior_signal_e <= 0.0:
         return 0.0
     if persistence_tau_s <= 0.0:
-        raise ValueError(
+        raise DetectorValidationError(
             f"persistence_noise: persistence_tau_s = {persistence_tau_s} must be > 0 "
             "when persistence_fraction > 0."
         )
     if frame_interval_s <= 0.0:
-        raise ValueError(f"persistence_noise: frame_interval_s = {frame_interval_s} must be > 0.")
+        raise DetectorValidationError(
+            f"persistence_noise: frame_interval_s = {frame_interval_s} must be > 0."
+        )
     decay = 1.0 - math.exp(-frame_interval_s / persistence_tau_s)
     return persistence_fraction * prior_signal_e * math.sqrt(decay)
 
@@ -58,5 +62,5 @@ def glow_shot_noise(glow_e: float) -> float:
         Accumulated glow electrons ``R_glow × t_int``. Non-negative.
     """
     if glow_e < 0.0:
-        raise ValueError(f"glow_shot_noise: glow_e = {glow_e} < 0.")
+        raise DetectorValidationError(f"glow_shot_noise: glow_e = {glow_e} < 0.")
     return math.sqrt(glow_e)

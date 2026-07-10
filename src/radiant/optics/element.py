@@ -23,6 +23,7 @@ import numpy as np
 
 from radiant.core.exceptions import RadiantError
 from radiant.core.spectral import SpectralData
+from radiant.optics.errors import OpticsValidationError
 
 if TYPE_CHECKING:
     from radiant.optics.cavity_model import CavityModel
@@ -101,7 +102,7 @@ class OpticalElement:
     def __post_init__(self) -> None:
         # --- Wavelength grid compatibility ---
         if not np.array_equal(self.transmittance.wavelength_um, self.reflectance.wavelength_um):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"OpticalElement '{self.name}': transmittance and reflectance "
                 "must share the same wavelength grid."
             )
@@ -111,13 +112,13 @@ class OpticalElement:
         r_vals = self.reflectance.values
 
         if np.any(t_vals < 0.0) or np.any(t_vals > 1.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"OpticalElement '{self.name}': transmittance values must be "
                 f"in [0, 1], got range [{float(t_vals.min()):.6g}, "
                 f"{float(t_vals.max()):.6g}]."
             )
         if np.any(r_vals < 0.0) or np.any(r_vals > 1.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"OpticalElement '{self.name}': reflectance values must be "
                 f"in [0, 1], got range [{float(r_vals.min()):.6g}, "
                 f"{float(r_vals.max()):.6g}]."
@@ -161,12 +162,12 @@ class OpticalElement:
             if not np.array_equal(
                 self.declared_emissivity.wavelength_um, self.transmittance.wavelength_um
             ):
-                raise ValueError(
+                raise OpticsValidationError(
                     f"OpticalElement '{self.name}': declared_emissivity must "
                     "share the transmittance wavelength grid."
                 )
             if np.any(eps_decl < 0.0) or np.any(eps_decl > 1.0):
-                raise ValueError(
+                raise OpticsValidationError(
                     f"OpticalElement '{self.name}': declared_emissivity values "
                     f"must be in [0, 1], got range [{float(eps_decl.min()):.6g}, "
                     f"{float(eps_decl.max()):.6g}]."
@@ -183,16 +184,16 @@ class OpticalElement:
 
         # --- Geometry ---
         if self.temperature_K < 0.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"OpticalElement '{self.name}': temperature_K must be >= 0, "
                 f"got {self.temperature_K}."
             )
         if self.diameter_m <= 0.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"OpticalElement '{self.name}': diameter_m must be > 0, got {self.diameter_m}."
             )
         if self.distance_to_fpa_m <= 0.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"OpticalElement '{self.name}': distance_to_fpa_m must be > 0, "
                 f"got {self.distance_to_fpa_m}."
             )

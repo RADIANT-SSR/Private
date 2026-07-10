@@ -22,6 +22,7 @@ import numpy.typing as npt
 from radiant.core.solar import toa_solar_spectral_irradiance
 from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.brdf_phong import PhongBRDF
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -57,17 +58,17 @@ class ReflectedSolarSource:
 
     def __post_init__(self) -> None:
         if self.solar_zenith_rad < 0.0 or self.solar_zenith_rad > math.pi / 2.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"ReflectedSolarSource '{self.name}': solar_zenith_rad must "
                 f"be in [0, π/2], got {self.solar_zenith_rad}"
             )
         if self.observer_zenith_rad < 0.0 or self.observer_zenith_rad > math.pi / 2.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"ReflectedSolarSource '{self.name}': observer_zenith_rad "
                 f"must be in [0, π/2], got {self.observer_zenith_rad}"
             )
         if self.distance_au <= 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"ReflectedSolarSource '{self.name}': distance_au must be "
                 f"positive, got {self.distance_au}"
             )

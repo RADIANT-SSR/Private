@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api.errors import ApiValidationError
 from radiant.core.parameters import ParameterSet
 from radiant.io.results import ChainResult
 
@@ -137,10 +138,10 @@ def monte_carlo(
         If True, store every ChainResult (memory-heavy).
     """
     if n_trials < 1:
-        raise ValueError(f"monte_carlo: n_trials must be >= 1, got {n_trials}.")
+        raise ApiValidationError(f"monte_carlo: n_trials must be >= 1, got {n_trials}.")
 
     if not params._tolerances:
-        raise ValueError(
+        raise ApiValidationError(
             "monte_carlo: no tolerances set on params. Use "
             "params.set_tolerance(name, tolerance) before calling."
         )

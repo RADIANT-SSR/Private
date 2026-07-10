@@ -27,6 +27,7 @@ from typing import Any, Protocol, runtime_checkable
 import numpy as np
 import numpy.typing as npt
 
+from radiant.core.exceptions import CoreValidationError
 from radiant.core.parameters import ParameterSet
 from radiant.core.provenance import new_run_id
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
@@ -153,7 +154,7 @@ class ChainRunner:
         names = [s.name for s in stages]
         dupes = [n for n in names if names.count(n) > 1]
         if dupes:
-            raise ValueError(
+            raise CoreValidationError(
                 f"ChainRunner: duplicate stage names detected: {sorted(set(dupes))}. "
                 "Every stage in the chain must have a unique name."
             )

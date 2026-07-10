@@ -569,9 +569,7 @@ class TestPlatformStageEEBox:
         state, epsf = self._state_with_regime(RadiometricRegime.POINT_SOURCE)
         result = PlatformStage().run(state, _make_params())
         expected = epsf.ensquared_energy_nxn(1)
-        assert result.stage_outputs["platform"]["EE_box"] == pytest.approx(
-            expected, rel=1e-12
-        )
+        assert result.stage_outputs["platform"]["EE_box"] == pytest.approx(expected, rel=1e-12)
 
     @pytest.mark.level1
     def test_point_source_jitter_reduces_ee_box(self) -> None:

@@ -54,9 +54,7 @@ class TestRoundTrips:
                 np.testing.assert_allclose(back, freq, rtol=1e-12)
 
     def test_identity(self) -> None:
-        assert convert_spatial_frequency(123.0, "cy/m", "cy/m") == pytest.approx(
-            123.0, rel=1e-15
-        )
+        assert convert_spatial_frequency(123.0, "cy/m", "cy/m") == pytest.approx(123.0, rel=1e-15)
 
 
 class TestFailureModes:

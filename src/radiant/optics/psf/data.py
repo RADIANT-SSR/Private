@@ -18,6 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.sampling import PSFSamplingConfig
 
 
@@ -96,7 +97,7 @@ class PSFData:
         elif axis == "y":
             mtf_slice = mtf_2d[center:, center]
         else:
-            raise ValueError(f"axis must be 'x' or 'y', got {axis!r}")
+            raise OpticsValidationError(f"axis must be 'x' or 'y', got {axis!r}")
 
         # Spatial frequency grid.
         dx = self.config.focal_spacing_m

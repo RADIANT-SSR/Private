@@ -27,6 +27,7 @@ from typing import Any, Protocol, runtime_checkable
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData
@@ -103,18 +104,18 @@ class AtmosphericGeometry:
 
     def __post_init__(self) -> None:
         if self.sensor_altitude_m < 0.0:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"AtmosphericGeometry: sensor_altitude_m = {self.sensor_altitude_m} m "
                 "is negative. Altitudes are measured above mean sea level; set "
                 "sensor_altitude_m ≥ 0."
             )
         if self.target_altitude_m < 0.0:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"AtmosphericGeometry: target_altitude_m = {self.target_altitude_m} m "
                 "is negative. Set target_altitude_m ≥ 0."
             )
         if not (0.0 <= self.path_zenith_rad <= ZENITH_CEILING_RAD):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"AtmosphericGeometry: path_zenith_rad = {self.path_zenith_rad:.4f} rad "
                 f"({math.degrees(self.path_zenith_rad):.2f}°) is out of the supported "
                 f"range [0, {math.degrees(ZENITH_CEILING_RAD):.1f}°]. The simple "
@@ -122,7 +123,7 @@ class AtmosphericGeometry:
                 "a higher-fidelity atmosphere model."
             )
         if not (0.0 <= self.solar_zenith_rad < math.pi / 2):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"AtmosphericGeometry: solar_zenith_rad = {self.solar_zenith_rad:.4f} rad "
                 f"({math.degrees(self.solar_zenith_rad):.2f}°) is out of [0, 90°). "
                 "Set solar_zenith_rad < π/2; for night-side conditions disable the "
@@ -320,12 +321,12 @@ class AtmosphericState:
         # constructs three separate arrays still passes.
         wl = self.transmittance.wavelength_um
         if not np.array_equal(wl, self.path_radiance.wavelength_um):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 "AtmosphericState: transmittance and path_radiance must share "
                 "the same wavelength grid."
             )
         if not np.array_equal(wl, self.atm_emission_down.wavelength_um):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 "AtmosphericState: transmittance and atm_emission_down must "
                 "share the same wavelength grid."
             )
@@ -333,19 +334,21 @@ class AtmosphericState:
         # Sanity bounds — RADIANT_Atmosphere.md §9.
         tau = self.transmittance.values
         if np.any(tau < 0.0) or np.any(tau > 1.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"AtmosphericState: transmittance values out of [0, 1] "
                 f"(min={float(tau.min()):g}, max={float(tau.max()):g}). "
                 "Transmittance is a probability and must be bounded."
             )
         if np.any(self.path_radiance.values < 0.0):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 "AtmosphericState: path_radiance has negative values. "
                 "Path radiance is energy added to the line of sight and "
                 "must be non-negative."
             )
         if np.any(self.atm_emission_down.values < 0.0):
-            raise ValueError("AtmosphericState: atm_emission_down has negative values.")
+            raise AtmosphereValidationError(
+                "AtmosphericState: atm_emission_down has negative values."
+            )
 
     # ------------------------------------------------------------------
     # Derived geometry passthroughs

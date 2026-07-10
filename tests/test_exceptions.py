@@ -116,3 +116,84 @@ class TestRadiantErrorAsCatchAll:
                 why="x must be positive",
                 action="set x > 0",
             )
+
+
+@pytest.mark.level0
+class TestStageErrorClasses:
+    """CU-043: every stage package exposes RadiantError-derived error types."""
+
+    STAGE_CLASSES = [
+        ("radiant.core.exceptions", "CoreValidationError", ValueError),
+        ("radiant.core.exceptions", "CoreStateError", RuntimeError),
+        ("radiant.source.errors", "SourceValidationError", ValueError),
+        ("radiant.atmosphere.errors", "AtmosphereValidationError", ValueError),
+        ("radiant.atmosphere.errors", "AtmosphereStateError", RuntimeError),
+        ("radiant.optics.errors", "OpticsValidationError", ValueError),
+        ("radiant.platform.errors", "PlatformValidationError", ValueError),
+        (
+            "radiant.spectral_integration.errors",
+            "SpectralIntegrationValidationError",
+            ValueError,
+        ),
+        (
+            "radiant.spectral_integration.errors",
+            "SpectralIntegrationStateError",
+            RuntimeError,
+        ),
+        ("radiant.detector.errors", "DetectorValidationError", ValueError),
+        ("radiant.readout.errors", "ReadoutValidationError", ValueError),
+        ("radiant.performance.errors", "PerformanceValidationError", ValueError),
+        ("radiant.api.errors", "ApiValidationError", ValueError),
+    ]
+
+    @pytest.mark.parametrize("module,name,builtin", STAGE_CLASSES)
+    def test_class_hierarchy(self, module: str, name: str, builtin: type) -> None:
+        """Each class derives RadiantError AND its back-compat built-in."""
+        import importlib
+
+        from radiant import RadiantError
+
+        cls = getattr(importlib.import_module(module), name)
+        assert issubclass(cls, RadiantError)
+        assert issubclass(cls, builtin)
+
+    def test_live_raise_caught_as_radiant_error(self) -> None:
+        """A migrated raise site is caught by `except RadiantError`."""
+        from radiant import RadiantError
+        from radiant.core.blackbody import planck_spectral_radiance
+
+        with pytest.raises(RadiantError):
+            planck_spectral_radiance(4.0, -10.0)  # negative temperature
+
+    def test_live_raise_still_caught_as_value_error(self) -> None:
+        """...and still by the historical `except ValueError` pattern."""
+        from radiant.core.blackbody import planck_spectral_radiance
+
+        with pytest.raises(ValueError):
+            planck_spectral_radiance(4.0, -10.0)
+
+
+@pytest.mark.level0
+class TestNoBareBuiltinRaises:
+    """CU-043 regression guard: no bare ValueError/RuntimeError raises in
+    core or physics modules — only RadiantError subclasses."""
+
+    def test_source_tree_is_clean(self) -> None:
+        import re
+        from pathlib import Path
+
+        import radiant
+
+        root = Path(radiant.__file__).parent
+        pattern = re.compile(r"raise (ValueError|RuntimeError)\(")
+        offenders: list[str] = []
+        for path in root.rglob("*.py"):
+            if "tests" in path.parts:
+                continue
+            for i, line in enumerate(path.read_text().split("\n"), 1):
+                if pattern.search(line):
+                    offenders.append(f"{path.relative_to(root)}:{i}")
+        assert not offenders, (
+            "Bare built-in raises found (use a RadiantError subclass, "
+            f"Rule 15 / CU-043): {offenders}"
+        )

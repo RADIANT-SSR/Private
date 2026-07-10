@@ -17,6 +17,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.source.errors import SourceValidationError
+
 
 @dataclass(frozen=True)
 class LambertianBRDF:
@@ -34,7 +36,7 @@ class LambertianBRDF:
     def __post_init__(self) -> None:
         rho = np.atleast_1d(np.asarray(self.reflectance, dtype=np.float64))
         if np.any(rho < 0.0) or np.any(rho > 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"LambertianBRDF: reflectance must be in [0, 1], "
                 f"got min={float(rho.min())}, max={float(rho.max())}"
             )
@@ -69,7 +71,7 @@ class LambertianBRDF:
         if rho.size == 1:
             rho = np.full(n, rho.item(), dtype=np.float64)
         elif rho.size != n:
-            raise ValueError(
+            raise SourceValidationError(
                 f"LambertianBRDF: reflectance array length {rho.size} "
                 f"does not match wavelength grid length {n}"
             )
@@ -94,7 +96,7 @@ class LambertianBRDF:
         if rho.size == 1:
             rho = np.full(n, rho.item(), dtype=np.float64)
         elif rho.size != n:
-            raise ValueError(
+            raise SourceValidationError(
                 f"LambertianBRDF: reflectance array length {rho.size} "
                 f"does not match wavelength grid length {n}"
             )

@@ -28,6 +28,7 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 import numpy.typing as npt
 
+from radiant.core.exceptions import CoreValidationError
 from radiant.core.spectral import SpectralData
 
 
@@ -101,9 +102,9 @@ class ScalarLambertianReflectance:
     def __post_init__(self) -> None:
         vals = np.asarray(self.reflectance.values, dtype=np.float64)
         if vals.size == 0:
-            raise ValueError("ScalarLambertianReflectance: reflectance has zero samples")
+            raise CoreValidationError("ScalarLambertianReflectance: reflectance has zero samples")
         if np.any(vals < 0.0) or np.any(vals > 1.0):
-            raise ValueError(
+            raise CoreValidationError(
                 "ScalarLambertianReflectance: reflectance must be in [0, 1], "
                 f"got min={float(vals.min())}, max={float(vals.max())}"
             )

@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.psf.effective import EffectivePSF
 
 
@@ -95,7 +96,7 @@ def build_effective_psf(
 
         kn = kernel_2d.shape[0]
         if kn > n:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"Kernel '{name}' has size {kn} which exceeds PSF grid {n}. "
                 "Increase PSF grid size or reduce the degradation magnitude."
             )

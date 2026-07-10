@@ -24,6 +24,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.pupil_amplitude import SpiderVaneSpec, make_pupil_amplitude
 from radiant.optics.pupil_phase import make_pupil_phase_for_wfe
 from radiant.optics.sampling import compute_sampling
@@ -116,7 +117,7 @@ def pupil_autocorrelation_mtf_1d(
     elif axis == "y":
         mtf_slice = mtf_2d[center:, center]
     else:
-        raise ValueError(f"axis must be 'x' or 'y', got {axis!r}")
+        raise OpticsValidationError(f"axis must be 'x' or 'y', got {axis!r}")
 
     freq = np.arange(len(mtf_slice)) / (n * sample_spacing_m)
     return freq, mtf_slice

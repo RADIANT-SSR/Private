@@ -52,6 +52,22 @@ retroactively reconstructed.
   (∂L/∂ε = B̄(T)) and `temperature_jacobian` (∂L/∂T = ε·∫dB/dT). New error
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
+### Added
+- Stage-scoped error classes (CU-043, Rule 15): every stage package now
+  exposes a `<Stage>ValidationError(RadiantError, ValueError)` — plus
+  `CoreStateError`, `AtmosphereStateError`, and
+  `SpectralIntegrationStateError` co-inheriting `RuntimeError` — in its
+  `errors.py` (`CoreValidationError`/`CoreStateError` live in
+  `core/exceptions.py`). All 428 bare `raise ValueError`/`RuntimeError`
+  sites across core, the eight physics stages, and `api/` were migrated to
+  these classes, so `except RadiantError` now catches every framework
+  rejection. **No behavioral change for existing code**: the classes
+  co-inherit their historical built-in type (the sanctioned Rule 15
+  back-compat carve-out), so `except ValueError` /
+  `pytest.raises(ValueError)` call sites keep working unchanged. A
+  regression guard (`tests/test_exceptions.py::TestNoBareBuiltinRaises`)
+  forbids new bare built-in raises.
+
 ### Changed
 - **Results-affecting (non-default atmosphere profiles; large in
   water-sensitive bands):** the `atmosphere.standard_atmosphere` preset now

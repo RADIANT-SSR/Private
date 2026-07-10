@@ -13,6 +13,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.performance.errors import PerformanceValidationError
+
 
 def nyquist_freq(pixel_pitch_m: float) -> float:
     """Nyquist frequency for the detector [cycles/m].
@@ -30,7 +32,7 @@ def nyquist_freq(pixel_pitch_m: float) -> float:
         Nyquist frequency [cycles/m].
     """
     if pixel_pitch_m <= 0.0:
-        raise ValueError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
+        raise PerformanceValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
     return 1.0 / (2.0 * pixel_pitch_m)
 
 

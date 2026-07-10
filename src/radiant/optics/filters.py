@@ -18,6 +18,7 @@ import numpy as np
 
 from radiant.core.spectral import SpectralData
 from radiant.optics.element import ElementKind, OpticalElement
+from radiant.optics.errors import OpticsValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -78,33 +79,43 @@ class FilterSpec:
         ft = self.filter_type
         if ft == FilterType.BANDPASS:
             if self.center_um is None or self.fwhm_um is None:
-                raise ValueError(
+                raise OpticsValidationError(
                     f"FilterSpec '{self.name}': bandpass requires center_um and fwhm_um."
                 )
             if self.fwhm_um <= 0:
-                raise ValueError(f"FilterSpec '{self.name}': fwhm_um must be > 0.")
+                raise OpticsValidationError(f"FilterSpec '{self.name}': fwhm_um must be > 0.")
         elif ft == FilterType.LONGPASS:
             if self.cuton_um is None:
-                raise ValueError(f"FilterSpec '{self.name}': longpass requires cuton_um.")
+                raise OpticsValidationError(
+                    f"FilterSpec '{self.name}': longpass requires cuton_um."
+                )
         elif ft == FilterType.SHORTPASS:
             if self.cutoff_um is None:
-                raise ValueError(f"FilterSpec '{self.name}': shortpass requires cutoff_um.")
+                raise OpticsValidationError(
+                    f"FilterSpec '{self.name}': shortpass requires cutoff_um."
+                )
         elif ft == FilterType.NOTCH:
             if self.center_um is None or self.fwhm_um is None:
-                raise ValueError(f"FilterSpec '{self.name}': notch requires center_um and fwhm_um.")
+                raise OpticsValidationError(
+                    f"FilterSpec '{self.name}': notch requires center_um and fwhm_um."
+                )
             if self.min_transmission is None:
-                raise ValueError(f"FilterSpec '{self.name}': notch requires min_transmission.")
+                raise OpticsValidationError(
+                    f"FilterSpec '{self.name}': notch requires min_transmission."
+                )
         elif ft == FilterType.TABULATED:
             if self.transmission_file is None:
-                raise ValueError(f"FilterSpec '{self.name}': tabulated requires transmission_file.")
+                raise OpticsValidationError(
+                    f"FilterSpec '{self.name}': tabulated requires transmission_file."
+                )
 
         if not 0.0 <= self.peak_transmission <= 1.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"FilterSpec '{self.name}': peak_transmission must be in "
                 f"[0, 1], got {self.peak_transmission}."
             )
         if not 0.0 <= self.oob_rejection <= 1.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"FilterSpec '{self.name}': oob_rejection must be in "
                 f"[0, 1], got {self.oob_rejection}."
             )
@@ -317,13 +328,13 @@ def make_filter_transmission(
             spec.min_transmission,
         )
     elif ft == FilterType.TABULATED:
-        raise ValueError(
+        raise OpticsValidationError(
             f"FilterSpec '{spec.name}': tabulated filters must be loaded "
             "externally and passed as preloaded SpectralData. Use "
             "make_filter_transmission only for analytic filter shapes."
         )
     else:
-        raise ValueError(f"Unknown filter type: {ft}")
+        raise OpticsValidationError(f"Unknown filter type: {ft}")
 
     return SpectralData(
         name=f"filter.{spec.name}",

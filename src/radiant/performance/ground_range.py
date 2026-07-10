@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 
 from radiant.core.geometry import EARTH_RADIUS_M, slant_range_spherical_m
+from radiant.performance.errors import PerformanceValidationError
 
 
 def compute_ground_range_m(altitude_m: float, path_zenith_rad: float) -> float:
@@ -37,7 +38,7 @@ def compute_ground_range_m(altitude_m: float, path_zenith_rad: float) -> float:
         If ``path_zenith_rad`` < 0 or exceeds the horizon angle.
     """
     if path_zenith_rad < 0.0:
-        raise ValueError(
+        raise PerformanceValidationError(
             f"compute_ground_range_m: path_zenith_rad = {path_zenith_rad:.4f} "
             f"rad is negative.  Off-nadir angle must be >= 0."
         )

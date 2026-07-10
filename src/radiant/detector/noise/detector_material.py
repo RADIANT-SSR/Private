@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 
 from radiant.core.constants import k_B, q
+from radiant.detector.errors import DetectorValidationError
 
 
 def dark_shot_noise(dark_e: float) -> float:
@@ -28,7 +29,7 @@ def dark_shot_noise(dark_e: float) -> float:
         Accumulated dark electrons ``J_dark × t_int``. Non-negative.
     """
     if dark_e < 0.0:
-        raise ValueError(f"dark_shot_noise: dark_e = {dark_e} < 0.")
+        raise DetectorValidationError(f"dark_shot_noise: dark_e = {dark_e} < 0.")
     return math.sqrt(dark_e)
 
 
@@ -42,9 +43,9 @@ def gr_noise(dark_e: float, gr_factor: float) -> float:
     HgCdTe photovoltaic detectors).
     """
     if dark_e < 0.0:
-        raise ValueError(f"gr_noise: dark_e = {dark_e} < 0.")
+        raise DetectorValidationError(f"gr_noise: dark_e = {dark_e} < 0.")
     if gr_factor < 0.0:
-        raise ValueError(f"gr_noise: gr_factor = {gr_factor} < 0.")
+        raise DetectorValidationError(f"gr_noise: gr_factor = {gr_factor} < 0.")
     return math.sqrt(2.0 * gr_factor * dark_e)
 
 
@@ -109,9 +110,9 @@ def flicker_1f_noise(flicker_K: float, f_low_hz: float, f_high_hz: float) -> flo
     if flicker_K <= 0.0:
         return 0.0
     if f_low_hz <= 0.0:
-        raise ValueError(f"flicker_1f_noise: f_low_hz = {f_low_hz} must be > 0.")
+        raise DetectorValidationError(f"flicker_1f_noise: f_low_hz = {f_low_hz} must be > 0.")
     if f_high_hz <= f_low_hz:
-        raise ValueError(
+        raise DetectorValidationError(
             f"flicker_1f_noise: f_high_hz = {f_high_hz} must be > f_low_hz = {f_low_hz}."
         )
     return math.sqrt(flicker_K * math.log(f_high_hz / f_low_hz))

@@ -16,6 +16,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.regime import RadiometricRegime, TargetInputPath
+from radiant.source.errors import SourceValidationError
 from radiant.source.material import SurfaceMaterial
 from radiant.source.protocol import SpectralRadianceSource
 from radiant.source.shape import TargetShape
@@ -103,7 +104,7 @@ def angular_extent(projected_area_m2: float, range_m: float) -> float:
 def validate_range(range_m: float) -> None:
     """Raise ValueError if range_m is not positive."""
     if range_m <= 0.0:
-        raise ValueError(
+        raise SourceValidationError(
             f"range_m must be positive, got {range_m}. Distance from observer to target in meters."
         )
 
@@ -111,4 +112,4 @@ def validate_range(range_m: float) -> None:
 def validate_area(projected_area_m2: float) -> None:
     """Raise ValueError if projected_area_m2 is negative."""
     if projected_area_m2 < 0.0:
-        raise ValueError(f"projected_area_m2 must be >= 0, got {projected_area_m2}")
+        raise SourceValidationError(f"projected_area_m2 must be >= 0, got {projected_area_m2}")

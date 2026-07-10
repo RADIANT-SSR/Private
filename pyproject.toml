@@ -207,6 +207,10 @@ ignore_imports = [
     # io.measurement for load_measured_curve.
     "radiant.io.qe_csv -> radiant.core.exceptions",
     "radiant.io.measurement -> radiant.core.exceptions",
+    # CU-043: api.errors defines the RadiantError co-inherited api error
+    # types; the RadiantError base lives in core.exceptions (transitive
+    # through api, same carve-out as io.config above).
+    "radiant.api.errors -> radiant.core.exceptions",
     # `to_provenance_record` reads `radiant.__version__` lazily; the
     # `radiant` package init re-exports `RadiantError` from
     # `radiant.core.exceptions`, so the `radiant -> radiant.core.exceptions`

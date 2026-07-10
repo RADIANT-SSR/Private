@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import numpy.typing as npt
 
+from radiant.source.errors import SourceValidationError
+
 
 @dataclass(frozen=True)
 class ConstantBackground:
@@ -32,7 +34,7 @@ class ConstantBackground:
 
     def __post_init__(self) -> None:
         if self.radiance_W_m2_sr_um < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"ConstantBackground '{self.name}': radiance must be "
                 f">= 0, got {self.radiance_W_m2_sr_um}"
             )

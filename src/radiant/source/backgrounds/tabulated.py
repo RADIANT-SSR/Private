@@ -14,6 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.spectral import SpectralData
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class TabulatedBackground:
 
     def __post_init__(self) -> None:
         if np.any(self.radiance_data.values < 0.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"TabulatedBackground '{self.name}': radiance values "
                 f"must be non-negative (min={float(self.radiance_data.values.min())})"
             )
@@ -44,7 +45,7 @@ class TabulatedBackground:
         lam = np.asarray(wavelength_um, dtype=np.float64)
         src_wl = self.radiance_data.wavelength_um
         if lam[0] < src_wl[0] or lam[-1] > src_wl[-1]:
-            raise ValueError(
+            raise SourceValidationError(
                 f"TabulatedBackground '{self.name}': requested range "
                 f"[{lam[0]:.4f}, {lam[-1]:.4f}] µm outside table "
                 f"[{src_wl[0]:.4f}, {src_wl[-1]:.4f}] µm."

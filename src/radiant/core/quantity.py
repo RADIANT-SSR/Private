@@ -29,6 +29,7 @@ import enum
 from dataclasses import dataclass
 
 from radiant.core.chain import ChainState
+from radiant.core.exceptions import CoreValidationError
 
 
 class ReferenceFrame(enum.Enum):
@@ -232,7 +233,7 @@ class ChainQuantity:
         factor = _get_forward_factor(self.frame, target_frame, factors)
 
         if factor is None:
-            raise ValueError(
+            raise CoreValidationError(
                 f"Cannot propagate from {self.frame.value} to "
                 f"{target_frame.value}: missing transfer factor(s). "
                 f"Available factors: {list(factors.keys())}"
@@ -257,7 +258,7 @@ def signal_at(
     """
     pe_frame = state.frames.get("photoelectrons")
     if pe_frame is None or pe_frame.in_band_value is None:
-        raise ValueError(
+        raise CoreValidationError(
             "signal_at: no 'photoelectrons' frame with in_band_value. "
             "Run SpectralIntegrationStage first."
         )
@@ -293,7 +294,7 @@ def noise_at(
     if term_name is not None:
         matches = [nt for nt in state.noise_terms if nt.name == term_name]
         if not matches:
-            raise ValueError(
+            raise CoreValidationError(
                 f"noise_at: no noise term named '{term_name}'. "
                 f"Available: {[nt.name for nt in state.noise_terms]}"
             )
@@ -309,12 +310,12 @@ def noise_at(
 
     # Total noise: RSS of all terms
     if len(state.noise_terms) == 0:
-        raise ValueError("noise_at: no noise terms in ChainState.")
+        raise CoreValidationError("noise_at: no noise terms in ChainState.")
 
     # Verify all noise terms share the same origin frame.
     origins = {nt.origin_frame for nt in state.noise_terms}
     if len(origins) != 1:
-        raise ValueError(
+        raise CoreValidationError(
             f"noise_at: cannot RSS noise terms with mixed origin frames "
             f"{origins}. All terms must share one origin frame."
         )

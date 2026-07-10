@@ -73,8 +73,7 @@ class ErrorBudget:
     def __post_init__(self) -> None:
         if self.allocation is not None and self.allocation <= 0.0:
             raise ErrorBudgetError(
-                f"ErrorBudget '{self.name}': allocation must be positive, "
-                f"got {self.allocation}."
+                f"ErrorBudget '{self.name}': allocation must be positive, got {self.allocation}."
             )
         names = [c.name for c in self.contributors]
         dupes = {n for n in names if names.count(n) > 1}

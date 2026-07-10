@@ -19,6 +19,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.atmosphere.errors import AtmosphereValidationError
+
 
 def turbulence_mtf_1d(
     freq: npt.NDArray[np.float64],
@@ -47,9 +49,9 @@ def turbulence_mtf_1d(
         If r0_m <= 0 or wavelength_m <= 0.
     """
     if r0_m <= 0.0:
-        raise ValueError(f"r0_m must be positive, got {r0_m}")
+        raise AtmosphereValidationError(f"r0_m must be positive, got {r0_m}")
     if wavelength_m <= 0.0:
-        raise ValueError(f"wavelength_m must be positive, got {wavelength_m}")
+        raise AtmosphereValidationError(f"wavelength_m must be positive, got {wavelength_m}")
 
     arg = wavelength_m * freq / r0_m
     return np.exp(-3.44 * np.abs(arg) ** (5.0 / 3.0))
@@ -84,6 +86,6 @@ def turbulence_mtf_focal(
         Turbulence MTF values.
     """
     if focal_length_m <= 0.0:
-        raise ValueError(f"focal_length_m must be positive, got {focal_length_m}")
+        raise AtmosphereValidationError(f"focal_length_m must be positive, got {focal_length_m}")
     freq_angular = freq_focal * focal_length_m
     return turbulence_mtf_1d(freq_angular, wavelength_m, r0_m)

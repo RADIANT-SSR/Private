@@ -17,6 +17,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.optics.errors import OpticsValidationError
+
 
 @dataclass(frozen=True)
 class EffectivePSF:
@@ -67,7 +69,9 @@ class EffectivePSF:
         n = self.data.shape[0]
         kn = kernel.shape[0]
         if kn > n:
-            raise ValueError(f"Kernel '{name}' has size {kn} which exceeds PSF grid {n}.")
+            raise OpticsValidationError(
+                f"Kernel '{name}' has size {kn} which exceeds PSF grid {n}."
+            )
 
         # Pad kernel to PSF size, centered.
         padded = np.zeros((n, n), dtype=np.float64)
@@ -126,7 +130,7 @@ class EffectivePSF:
         elif axis == "y":
             mtf_slice = mtf_2d[center:, center]
         else:
-            raise ValueError(f"axis must be 'x' or 'y', got {axis!r}")
+            raise OpticsValidationError(f"axis must be 'x' or 'y', got {axis!r}")
 
         freq = np.arange(len(mtf_slice)) / (n * dx)
         return freq, mtf_slice
@@ -198,7 +202,7 @@ class EffectivePSF:
         elif axis == "y":
             lsf_vals = self.data.sum(axis=1)  # project cols → y profile
         else:
-            raise ValueError(f"axis must be 'x' or 'y', got {axis!r}")
+            raise OpticsValidationError(f"axis must be 'x' or 'y', got {axis!r}")
 
         pos = (np.arange(n) - center) * dx
         return pos, lsf_vals
@@ -254,7 +258,7 @@ class EffectivePSF:
         elif axis == "y":
             profile = self.data[center:, center]
         else:
-            raise ValueError(f"axis must be 'x' or 'y', got {axis!r}")
+            raise OpticsValidationError(f"axis must be 'x' or 'y', got {axis!r}")
 
         peak = profile[0]
         half_max = peak / 2.0
@@ -279,5 +283,5 @@ class EffectivePSF:
         """Strehl ratio = peak(self) / peak(reference)."""
         ref_peak = reference.peak
         if ref_peak == 0.0:
-            raise ValueError("Reference PSF peak is zero.")
+            raise OpticsValidationError("Reference PSF peak is zero.")
         return self.peak / ref_peak

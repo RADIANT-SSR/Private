@@ -41,6 +41,7 @@ import numpy as np
 
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.constants import R_sun_m, S_solar_W_per_m2, au_m
+from radiant.core.exceptions import CoreStateError, CoreValidationError
 
 SolarModel = Literal["blackbody_5778"]
 
@@ -72,7 +73,7 @@ def _compute_k_scale(model: SolarModel) -> float:
     if model in _K_SCALE_CACHE:
         return _K_SCALE_CACHE[model]
     if model != "blackbody_5778":
-        raise ValueError(
+        raise CoreValidationError(
             f"radiant.core.solar: unknown model '{model}'. Supported: 'blackbody_5778'."
         )
 
@@ -81,7 +82,7 @@ def _compute_k_scale(model: SolarModel) -> float:
     raw_irradiance = np.pi * radiance * _GEOMETRIC_DILUTION
     total = float(np.trapezoid(raw_irradiance, lam))
     if total <= 0.0:
-        raise RuntimeError(
+        raise CoreStateError(
             "radiant.core.solar: calibration integral is non-positive. "
             "Check the solar model constants."
         )
@@ -121,7 +122,7 @@ def toa_solar_spectral_irradiance(
         L_sun(λ) = E_sun(λ) / π   [W/m²/sr/µm]
     """
     if model != "blackbody_5778":
-        raise ValueError(
+        raise CoreValidationError(
             f"toa_solar_spectral_irradiance: unknown model '{model}'. Supported: 'blackbody_5778'."
         )
     lam = np.atleast_1d(np.asarray(wavelength_um, dtype=np.float64))

@@ -21,6 +21,7 @@ from typing import Any
 
 import numpy as np
 
+from radiant.api.errors import ApiValidationError
 from radiant.io.results import ChainResult
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ class ResultPlotNamespace:
 
         psf_data = self._result.stage_outputs.get("optics", {}).get("effective_psf")
         if psf_data is None:
-            raise ValueError("No effective PSF found in result stage_outputs['optics'].")
+            raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
         return plot_psf(psf_data, **kwargs)
 
     def noise_budget(self, **kwargs: Any) -> Any:
@@ -165,7 +166,7 @@ class ResultPlotNamespace:
 
         budget = self._result.stage_outputs.get("performance", {}).get("mtf_budget")
         if budget is None:
-            raise ValueError(
+            raise ApiValidationError(
                 "No MTF budget found in result stage_outputs['performance'] — "
                 "the chain must run PerformanceStage with an MTF product path."
             )

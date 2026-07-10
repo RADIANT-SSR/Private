@@ -35,6 +35,7 @@ from typing import Any
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import AtmosphereStateError, AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -157,26 +158,32 @@ class ModtranConfig:
         self.cache_dir = Path(self.cache_dir)
 
         if self.atmosphere_profile not in _PROFILE_MAP:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ModtranConfig: atmosphere_profile='{self.atmosphere_profile}' "
                 f"not recognised. Choose one of {sorted(_PROFILE_MAP)}."
             )
         if self.aerosol_model not in _IHAZE_MAP:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ModtranConfig: aerosol_model='{self.aerosol_model}' "
                 f"not recognised. Choose one of {sorted(_IHAZE_MAP)}."
             )
         if self.h2o_scale <= 0.0:
-            raise ValueError(f"ModtranConfig: h2o_scale={self.h2o_scale} must be positive.")
+            raise AtmosphereValidationError(
+                f"ModtranConfig: h2o_scale={self.h2o_scale} must be positive."
+            )
         if self.o3_scale <= 0.0:
-            raise ValueError(f"ModtranConfig: o3_scale={self.o3_scale} must be positive.")
+            raise AtmosphereValidationError(
+                f"ModtranConfig: o3_scale={self.o3_scale} must be positive."
+            )
         if self.spectral_resolution_cm1 <= 0.0:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ModtranConfig: spectral_resolution_cm1="
                 f"{self.spectral_resolution_cm1} must be positive."
             )
         if self.v1_cm1 >= self.v2_cm1:
-            raise ValueError(f"ModtranConfig: v1_cm1={self.v1_cm1} must be < v2_cm1={self.v2_cm1}.")
+            raise AtmosphereValidationError(
+                f"ModtranConfig: v1_cm1={self.v1_cm1} must be < v2_cm1={self.v2_cm1}."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -597,13 +604,13 @@ class ModtranAtmosphere:
         )
 
         if result.returncode != 0:
-            raise RuntimeError(
+            raise AtmosphereStateError(
                 f"MODTRAN exited with code {result.returncode}. stderr: {result.stderr[:500]}"
             )
 
         tape7_path = work_dir / "tape7"
         if not tape7_path.exists():
-            raise RuntimeError(
+            raise AtmosphereStateError(
                 f"MODTRAN completed but tape7 not found in {work_dir}. "
                 f"stdout: {result.stdout[:500]}"
             )
@@ -622,15 +629,21 @@ class ModtranAtmosphere:
         """
         lam = np.asarray(wavelength_um, dtype=np.float64)
         if lam.ndim != 1:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"ModtranAtmosphere: wavelength_um must be 1-D, got shape {lam.shape}."
             )
         if lam.size < 2:
-            raise ValueError("ModtranAtmosphere: wavelength_um needs at least two samples.")
+            raise AtmosphereValidationError(
+                "ModtranAtmosphere: wavelength_um needs at least two samples."
+            )
         if not np.all(np.diff(lam) > 0):
-            raise ValueError("ModtranAtmosphere: wavelength_um must be strictly ascending.")
+            raise AtmosphereValidationError(
+                "ModtranAtmosphere: wavelength_um must be strictly ascending."
+            )
         if np.any(lam <= 0.0):
-            raise ValueError("ModtranAtmosphere: wavelength_um must be strictly positive.")
+            raise AtmosphereValidationError(
+                "ModtranAtmosphere: wavelength_um must be strictly positive."
+            )
 
         tape5 = render_tape5(self._config, geometry)
         key = _cache_key(tape5)

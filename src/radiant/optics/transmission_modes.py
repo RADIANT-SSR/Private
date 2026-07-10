@@ -19,6 +19,7 @@ import numpy as np
 from radiant.core.spectral import SpectralData
 from radiant.optics.element import OpticalElement
 from radiant.optics.element_factories import make_lumped_element
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.filters import FilterSpec, filter_to_element, make_filter_transmission
 from radiant.optics.system_transmission import compute_system_transmission
 
@@ -157,7 +158,7 @@ def resolve_transmission(
     if mode == TransmissionInputMode.FULL_PRESCRIPTION:
         return _resolve_full_prescription(wavelength_um, full_elements)
 
-    raise ValueError(f"Unknown transmission mode: {mode}")
+    raise OpticsValidationError(f"Unknown transmission mode: {mode}")
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +176,9 @@ def _resolve_scalar(
 ) -> TransmissionResult:
     """Mode 1: scalar throughput broadcast to flat spectrum."""
     if transmission_scalar is None:
-        raise ValueError("resolve_transmission: SCALAR mode requires transmission_scalar.")
+        raise OpticsValidationError(
+            "resolve_transmission: SCALAR mode requires transmission_scalar."
+        )
     tau_sd = SpectralData(
         name="optics.transmission.scalar",
         wavelength_um=wavelength_um.copy(),
@@ -206,7 +209,9 @@ def _resolve_spectral_file(
 ) -> TransmissionResult:
     """Mode 2: spectral transmission from file (pre-loaded)."""
     if transmission_spectral is None:
-        raise ValueError("resolve_transmission: SPECTRAL_FILE mode requires transmission_spectral.")
+        raise OpticsValidationError(
+            "resolve_transmission: SPECTRAL_FILE mode requires transmission_spectral."
+        )
     lumped = make_lumped_element(
         transmission_spectral,
         temperature_K,
@@ -231,7 +236,7 @@ def _resolve_telescope_filters(
 ) -> TransmissionResult:
     """Mode 3: telescope broadband throughput * filter stack."""
     if telescope_transmission is None:
-        raise ValueError(
+        raise OpticsValidationError(
             "resolve_transmission: TELESCOPE_PLUS_FILTERS mode requires telescope_transmission."
         )
 
@@ -292,7 +297,7 @@ def _resolve_key_elements(
 ) -> TransmissionResult:
     """Mode 4: key elements plus a residual lumped transmission."""
     if not key_elements:
-        raise ValueError(
+        raise OpticsValidationError(
             "resolve_transmission: KEY_ELEMENTS mode requires at least one element in key_elements."
         )
 
@@ -346,7 +351,7 @@ def _resolve_full_prescription(
 ) -> TransmissionResult:
     """Mode 5: full element-by-element prescription."""
     if not full_elements:
-        raise ValueError(
+        raise OpticsValidationError(
             "resolve_transmission: FULL_PRESCRIPTION mode requires at "
             "least one element in full_elements."
         )

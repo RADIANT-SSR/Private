@@ -16,6 +16,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.ndimage import zoom
 
+from radiant.optics.errors import OpticsValidationError
 from radiant.optics.psf_mono import compute_psf
 from radiant.optics.pupil_amplitude import SpiderVaneSpec
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
@@ -168,14 +169,14 @@ def compute_polychromatic_psf(
     weights = np.asarray(weights, dtype=np.float64)
 
     if wavelengths_m.shape != weights.shape:
-        raise ValueError(
+        raise OpticsValidationError(
             f"wavelengths_m and weights must have the same length, "
             f"got {len(wavelengths_m)} and {len(weights)}"
         )
     if not np.all(weights > 0.0):
-        raise ValueError("All weights must be strictly positive.")
+        raise OpticsValidationError("All weights must be strictly positive.")
     if len(wavelengths_m) == 0:
-        raise ValueError("At least one wavelength is required.")
+        raise OpticsValidationError("At least one wavelength is required.")
 
     n_wl = len(wavelengths_m)
     wavelengths_um = wavelengths_m * 1e6

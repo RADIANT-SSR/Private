@@ -12,6 +12,8 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 @dataclass(frozen=True)
 class ReadNoise:
@@ -35,7 +37,7 @@ class ReadNoise:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.sigma_e_rms) or self.sigma_e_rms < 0.0:
-            raise ValueError(
+            raise ReadoutValidationError(
                 f"ReadNoise '{self.name}': sigma_e_rms = {self.sigma_e_rms} "
                 "is invalid. Read noise is a non-negative Gaussian RMS."
             )

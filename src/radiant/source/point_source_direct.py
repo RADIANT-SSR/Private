@@ -14,6 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.spectral import SpectralData
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,7 @@ class DirectIntensitySource:
 
     def __post_init__(self) -> None:
         if np.any(self.intensity_data.values < 0.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"DirectIntensitySource '{self.name}': intensity values "
                 f"must be non-negative (min={float(self.intensity_data.values.min())})"
             )
@@ -61,7 +62,7 @@ class DirectIntensitySource:
         lam = np.asarray(wavelength_um, dtype=np.float64)
         src_wl = self.intensity_data.wavelength_um
         if lam[0] < src_wl[0] or lam[-1] > src_wl[-1]:
-            raise ValueError(
+            raise SourceValidationError(
                 f"DirectIntensitySource '{self.name}': requested range "
                 f"[{lam[0]:.4f}, {lam[-1]:.4f}] µm outside table "
                 f"[{src_wl[0]:.4f}, {src_wl[-1]:.4f}] µm."
@@ -88,6 +89,8 @@ class DirectIntensitySource:
             Fictitious reference area [m²]. Default 1e-12.
         """
         if reference_area_m2 <= 0.0:
-            raise ValueError(f"reference_area_m2 must be positive, got {reference_area_m2}")
+            raise SourceValidationError(
+                f"reference_area_m2 must be positive, got {reference_area_m2}"
+            )
         intensity = self.spectral_intensity(wavelength_um)
         return np.asarray(intensity / reference_area_m2, dtype=np.float64)

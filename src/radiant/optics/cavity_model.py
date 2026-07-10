@@ -20,6 +20,7 @@ import numpy as np
 
 from radiant.core.spectral import SpectralData
 from radiant.optics.element import KirchhoffViolationError
+from radiant.optics.errors import OpticsValidationError
 
 _CAVITY_KIRCHHOFF_TOL: float = 1e-4
 
@@ -70,7 +71,9 @@ class CavityModel:
             ("n_refr", self.n_refr),
         ]:
             if not np.array_equal(sd.wavelength_um, ref_wl):
-                raise ValueError(f"CavityModel: '{name}' wavelength grid does not match R1.")
+                raise OpticsValidationError(
+                    f"CavityModel: '{name}' wavelength grid does not match R1."
+                )
 
         # Surface energy conservation: R + T <= 1 at each surface.
         for label, r_sd, t_sd in [("surface 1", self.R1, self.T1), ("surface 2", self.R2, self.T2)]:
@@ -84,21 +87,23 @@ class CavityModel:
 
         # Absorption coefficient must be non-negative.
         if np.any(self.alpha.values < 0.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 "CavityModel: absorption coefficient alpha must be >= 0 "
                 f"(gain is not physical). Min value: {float(self.alpha.values.min()):.6g}."
             )
 
         # Refractive index must be >= 1.
         if np.any(self.n_refr.values < 1.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 "CavityModel: refractive index n must be >= 1. "
                 f"Min value: {float(self.n_refr.values.min()):.6g}."
             )
 
         # Thickness must be non-negative.
         if self.thickness_m < 0.0:
-            raise ValueError(f"CavityModel: thickness_m must be >= 0, got {self.thickness_m}.")
+            raise OpticsValidationError(
+                f"CavityModel: thickness_m must be >= 0, got {self.thickness_m}."
+            )
 
         # Energy conservation: T_sys + R_sys <= 1 (absorptance >= 0).
         t_sys = self.T_sys.values

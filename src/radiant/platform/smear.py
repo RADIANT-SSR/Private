@@ -23,6 +23,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.platform.errors import PlatformValidationError
+
 
 def smear_mtf_1d(
     freq: npt.NDArray[np.float64],
@@ -50,7 +52,7 @@ def smear_mtf_1d(
         If smear_width_m is negative.
     """
     if smear_width_m < 0.0:
-        raise ValueError(f"smear_width_m must be non-negative, got {smear_width_m}")
+        raise PlatformValidationError(f"smear_width_m must be non-negative, got {smear_width_m}")
     if smear_width_m == 0.0:
         return np.ones_like(freq)
     # np.sinc(x) = sin(πx)/(πx)
@@ -91,11 +93,11 @@ def smear_width_m(
         If t_int_s < 0, focal_length_m <= 0, or altitude_m <= 0.
     """
     if t_int_s < 0.0:
-        raise ValueError(f"t_int_s must be non-negative, got {t_int_s}")
+        raise PlatformValidationError(f"t_int_s must be non-negative, got {t_int_s}")
     if focal_length_m <= 0.0:
-        raise ValueError(f"focal_length_m must be positive, got {focal_length_m}")
+        raise PlatformValidationError(f"focal_length_m must be positive, got {focal_length_m}")
     if altitude_m <= 0.0:
-        raise ValueError(f"altitude_m must be positive, got {altitude_m}")
+        raise PlatformValidationError(f"altitude_m must be positive, got {altitude_m}")
 
     angular_rate = abs(velocity_m_s) / altitude_m  # rad/s
     return angular_rate * focal_length_m * t_int_s
@@ -129,11 +131,11 @@ def smear_kernel_1d(
         smear_width_m < 0.
     """
     if npix < 1 or npix % 2 == 0:
-        raise ValueError(f"npix must be a positive odd integer, got {npix}")
+        raise PlatformValidationError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
+        raise PlatformValidationError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
     if smear_width_m < 0.0:
-        raise ValueError(f"smear_width_m must be non-negative, got {smear_width_m}")
+        raise PlatformValidationError(f"smear_width_m must be non-negative, got {smear_width_m}")
 
     c = npix // 2
     kernel = np.zeros(npix, dtype=np.float64)

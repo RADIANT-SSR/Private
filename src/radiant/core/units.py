@@ -12,6 +12,7 @@ Canonical units are defined in RADIANT_Conventions.md:
 import math
 
 from radiant.core.constants import c, h
+from radiant.core.exceptions import CoreValidationError
 
 # (from_unit, to_unit) -> multiplicative factor
 _CONVERSIONS: dict[tuple[str, str], float] = {
@@ -106,7 +107,7 @@ def wavelength_to_wavenumber(lam_um: float) -> float:
         ValueError: If lam_um <= 0.
     """
     if lam_um <= 0.0:
-        raise ValueError(f"wavelength must be > 0, got {lam_um} µm")
+        raise CoreValidationError(f"wavelength must be > 0, got {lam_um} µm")
     return 10000.0 / lam_um
 
 
@@ -123,7 +124,7 @@ def wavenumber_to_wavelength(nu_cm: float) -> float:
         ValueError: If nu_cm <= 0.
     """
     if nu_cm <= 0.0:
-        raise ValueError(f"wavenumber must be > 0, got {nu_cm} cm⁻¹")
+        raise CoreValidationError(f"wavenumber must be > 0, got {nu_cm} cm⁻¹")
     return 10000.0 / nu_cm
 
 
@@ -140,7 +141,7 @@ def photon_energy_J(lam_um: float) -> float:
         ValueError: If lam_um <= 0.
     """
     if lam_um <= 0.0:
-        raise ValueError(f"wavelength must be > 0, got {lam_um} µm")
+        raise CoreValidationError(f"wavelength must be > 0, got {lam_um} µm")
     lam_m = lam_um * 1e-6
     return h * c / lam_m
 

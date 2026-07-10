@@ -18,6 +18,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from radiant.detector.errors import DetectorValidationError
+
 
 def shot_noise_e(electrons: float) -> float:
     """Return ``√electrons`` for a non-negative scalar electron count.
@@ -38,12 +40,12 @@ def shot_noise_e(electrons: float) -> float:
         If ``electrons`` is negative or non-finite.
     """
     if not math.isfinite(electrons):
-        raise ValueError(
+        raise DetectorValidationError(
             f"shot_noise_e: electrons = {electrons} is non-finite. The "
             "caller must resolve NaN/inf before invoking shot-noise helpers."
         )
     if electrons < 0.0:
-        raise ValueError(
+        raise DetectorValidationError(
             f"shot_noise_e: electrons = {electrons} is negative. Shot noise "
             "is defined only for non-negative counts. Check the upstream "
             "signal path for sign errors or unit mismatches."
@@ -73,13 +75,13 @@ def shot_noise_e_array(
     """
     arr = np.asarray(electrons, dtype=np.float64)
     if not np.all(np.isfinite(arr)):
-        raise ValueError(
+        raise DetectorValidationError(
             "shot_noise_e_array: input contains non-finite entries. The "
             "caller must resolve NaN/inf before invoking shot-noise helpers."
         )
     if np.any(arr < 0.0):
         bad = float(arr.min())
-        raise ValueError(
+        raise DetectorValidationError(
             f"shot_noise_e_array: input has negative entries (min={bad}). "
             "Shot noise is defined only for non-negative counts."
         )
@@ -96,7 +98,7 @@ def combine_in_quadrature(*sigmas_e: float) -> float:
     total_sq = 0.0
     for i, s in enumerate(sigmas_e):
         if not math.isfinite(s) or s < 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"combine_in_quadrature: term[{i}] = {s} is invalid. "
                 "Each noise term must be a non-negative finite RMS value."
             )

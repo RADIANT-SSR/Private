@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from radiant.core.constants import k_B
+from radiant.detector.errors import DetectorValidationError
 
 
 @dataclass(frozen=True)
@@ -49,18 +50,18 @@ class DarkCurrent:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.rate_e_per_s) or self.rate_e_per_s < 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"DarkCurrent '{self.name}': rate_e_per_s = "
                 f"{self.rate_e_per_s} is invalid. Dark rate is a "
                 "non-negative electron count per second per pixel."
             )
         if not math.isfinite(self.reference_temperature_K) or self.reference_temperature_K <= 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"DarkCurrent '{self.name}': reference_temperature_K = "
                 f"{self.reference_temperature_K} K must be > 0."
             )
         if not math.isfinite(self.activation_energy_eV) or self.activation_energy_eV < 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"DarkCurrent '{self.name}': activation_energy_eV = "
                 f"{self.activation_energy_eV} must be ≥ 0."
             )
@@ -72,7 +73,7 @@ class DarkCurrent:
     def electrons_accumulated(self, integration_time_s: float) -> float:
         """Dark electrons accumulated over ``integration_time_s`` [e⁻]."""
         if not math.isfinite(integration_time_s) or integration_time_s < 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"DarkCurrent '{self.name}': integration_time_s = "
                 f"{integration_time_s} is invalid. Must be a non-negative "
                 "finite number in seconds."
@@ -99,7 +100,7 @@ class DarkCurrent:
         semiconductor.
         """
         if not math.isfinite(temperature_K) or temperature_K <= 0.0:
-            raise ValueError(
+            raise DetectorValidationError(
                 f"DarkCurrent '{self.name}': temperature_K = {temperature_K} K must be > 0."
             )
         if self.activation_energy_eV == 0.0:

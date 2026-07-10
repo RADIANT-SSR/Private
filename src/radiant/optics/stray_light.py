@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from radiant.core.spectral import SpectralData
+from radiant.optics.errors import OpticsValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -65,23 +66,25 @@ class StrayLightConfig:
     def __post_init__(self) -> None:
         if self.input_mode == StrayLightInputMode.VEILING_GLARE:
             if not 0.0 <= self.veiling_glare_fraction <= 1.0:
-                raise ValueError(
+                raise OpticsValidationError(
                     f"StrayLightConfig: veiling_glare_fraction must be in "
                     f"[0, 1], got {self.veiling_glare_fraction}."
                 )
         elif self.input_mode == StrayLightInputMode.ABSOLUTE_IRRADIANCE:
             if self.absolute_irradiance_W_m2 < 0.0:
-                raise ValueError(
+                raise OpticsValidationError(
                     f"StrayLightConfig: absolute_irradiance_W_m2 must be "
                     f">= 0, got {self.absolute_irradiance_W_m2}."
                 )
         elif self.input_mode == StrayLightInputMode.SPECTRAL_FILE:
             if not self.spectral_file:
-                raise ValueError(
+                raise OpticsValidationError(
                     "StrayLightConfig: spectral_file mode requires a non-empty spectral_file path."
                 )
         elif self.input_mode == StrayLightInputMode.PST_FILE and not self.pst_file:
-            raise ValueError("StrayLightConfig: pst_file mode requires a non-empty pst_file path.")
+            raise OpticsValidationError(
+                "StrayLightConfig: pst_file mode requires a non-empty pst_file path."
+            )
 
 
 def compute_stray_light_irradiance(
@@ -114,7 +117,7 @@ def compute_stray_light_irradiance(
 
     if mode == StrayLightInputMode.VEILING_GLARE:
         if in_fov_irradiance is None:
-            raise ValueError(
+            raise OpticsValidationError(
                 "compute_stray_light_irradiance: veiling_glare mode requires "
                 "in_fov_irradiance to be provided."
             )
@@ -130,7 +133,7 @@ def compute_stray_light_irradiance(
     if mode == StrayLightInputMode.ABSOLUTE_IRRADIANCE:
         bandwidth_um = float(wavelength_um[-1] - wavelength_um[0])
         if bandwidth_um <= 0:
-            raise ValueError(
+            raise OpticsValidationError(
                 "compute_stray_light_irradiance: wavelength grid must span a positive bandwidth."
             )
         spectral_density = config.absolute_irradiance_W_m2 / bandwidth_um
@@ -147,7 +150,7 @@ def compute_stray_light_irradiance(
 
     if mode == StrayLightInputMode.SPECTRAL_FILE:
         if preloaded_spectral is None:
-            raise ValueError(
+            raise OpticsValidationError(
                 "compute_stray_light_irradiance: spectral_file mode requires "
                 "preloaded_spectral to be provided. File I/O must happen "
                 "outside the stage run (Rule 6)."
@@ -167,4 +170,4 @@ def compute_stray_light_irradiance(
             "absolute_irradiance, or spectral_file modes instead."
         )
 
-    raise ValueError(f"Unknown stray light mode: {mode}")
+    raise OpticsValidationError(f"Unknown stray light mode: {mode}")

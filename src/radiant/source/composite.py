@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.source.errors import SourceValidationError
 from radiant.source.shape import TargetShape
 
 
@@ -37,7 +38,7 @@ class CompositeTarget:
 
     def __post_init__(self) -> None:
         if len(self.shapes) == 0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"CompositeTarget '{self.name}': shapes must be non-empty. "
                 f"Provide at least one TargetShape."
             )

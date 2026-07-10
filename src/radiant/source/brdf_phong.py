@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.source.errors import SourceValidationError
+
 
 @dataclass(frozen=True)
 class PhongBRDF:
@@ -47,16 +49,18 @@ class PhongBRDF:
     def __post_init__(self) -> None:
         rho = np.atleast_1d(np.asarray(self.reflectance, dtype=np.float64))
         if np.any(rho < 0.0) or np.any(rho > 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"PhongBRDF: reflectance must be in [0, 1], "
                 f"got min={float(rho.min())}, max={float(rho.max())}"
             )
         if not (0.0 <= self.specular_fraction <= 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"PhongBRDF: specular_fraction must be in [0, 1], got {self.specular_fraction}"
             )
         if self.phong_exponent < 0.0:
-            raise ValueError(f"PhongBRDF: phong_exponent must be >= 0, got {self.phong_exponent}")
+            raise SourceValidationError(
+                f"PhongBRDF: phong_exponent must be >= 0, got {self.phong_exponent}"
+            )
 
     def evaluate(
         self,
@@ -87,7 +91,7 @@ class PhongBRDF:
         if rho.size == 1:
             rho = np.full(n_wl, rho.item(), dtype=np.float64)
         elif rho.size != n_wl:
-            raise ValueError(
+            raise SourceValidationError(
                 f"PhongBRDF: reflectance array length {rho.size} "
                 f"does not match wavelength grid length {n_wl}"
             )
@@ -131,7 +135,7 @@ class PhongBRDF:
         if rho.size == 1:
             rho = np.full(n_wl, rho.item(), dtype=np.float64)
         elif rho.size != n_wl:
-            raise ValueError(
+            raise SourceValidationError(
                 f"PhongBRDF: reflectance array length {rho.size} "
                 f"does not match wavelength grid length {n_wl}"
             )

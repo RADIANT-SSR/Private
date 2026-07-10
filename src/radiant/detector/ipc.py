@@ -27,6 +27,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from radiant.detector.errors import DetectorValidationError
+
 
 def ipc_kernel(coupling: float) -> npt.NDArray[np.float64]:
     """Generate a 3×3 IPC kernel.
@@ -47,7 +49,7 @@ def ipc_kernel(coupling: float) -> npt.NDArray[np.float64]:
         If coupling is out of bounds.
     """
     if not (0.0 <= coupling < 0.25):
-        raise ValueError(f"IPC coupling must be in [0, 0.25), got {coupling}")
+        raise DetectorValidationError(f"IPC coupling must be in [0, 0.25), got {coupling}")
 
     kernel = np.zeros((3, 3), dtype=np.float64)
     kernel[1, 1] = 1.0 - 4.0 * coupling
@@ -87,9 +89,9 @@ def ipc_mtf_analytic(
         MTF values (same shape as freq_x).
     """
     if coupling < 0.0 or coupling >= 0.25:
-        raise ValueError(f"IPC coupling must be in [0, 0.25), got {coupling}")
+        raise DetectorValidationError(f"IPC coupling must be in [0, 0.25), got {coupling}")
     if pixel_pitch_m <= 0.0:
-        raise ValueError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
+        raise DetectorValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
 
     if coupling == 0.0:
         return np.ones_like(freq_x)
@@ -132,4 +134,4 @@ def ipc_mtf_1d(
         return ipc_mtf_analytic(freq, zero, coupling, pixel_pitch_m)
     if axis == "y":
         return ipc_mtf_analytic(zero, freq, coupling, pixel_pitch_m)
-    raise ValueError(f"axis must be 'x' or 'y', got {axis!r}")
+    raise DetectorValidationError(f"axis must be 'x' or 'y', got {axis!r}")

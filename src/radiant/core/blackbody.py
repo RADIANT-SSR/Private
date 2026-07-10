@@ -52,6 +52,7 @@ from __future__ import annotations
 import numpy as np
 
 from radiant.core.constants import hc_over_kB, two_hc2
+from radiant.core.exceptions import CoreValidationError
 
 # ---------------------------------------------------------------------------
 # Overflow threshold for exp(x) in float64.
@@ -95,7 +96,7 @@ def planck_spectral_radiance(
     region where the true value is below float64 underflow anyway.
     """
     if temperature_K < 0.0:
-        raise ValueError(
+        raise CoreValidationError(
             f"planck_spectral_radiance: temperature_K = {temperature_K} K is invalid. "
             "Planck's law requires non-negative absolute temperature. "
             "Set temperature_K ≥ 0 (use 0 for a zero-radiance source)."
@@ -104,7 +105,7 @@ def planck_spectral_radiance(
     lam_um = np.atleast_1d(np.asarray(wavelength_um, dtype=np.float64))
     if np.any(lam_um <= 0.0):
         bad = float(lam_um[lam_um <= 0.0][0])
-        raise ValueError(
+        raise CoreValidationError(
             f"planck_spectral_radiance: wavelength_um contains a non-positive "
             f"value ({bad} µm). All wavelengths must be strictly positive."
         )
@@ -169,7 +170,7 @@ def planck_spectral_radiance_dT(
         If ``temperature_K ≤ 0`` or any wavelength is ``≤ 0``.
     """
     if temperature_K <= 0.0:
-        raise ValueError(
+        raise CoreValidationError(
             f"planck_spectral_radiance_dT: temperature_K = {temperature_K} K is invalid. "
             "The derivative ∂B/∂T is not defined at T = 0. "
             "Set temperature_K > 0."
@@ -178,7 +179,7 @@ def planck_spectral_radiance_dT(
     lam_um = np.atleast_1d(np.asarray(wavelength_um, dtype=np.float64))
     if np.any(lam_um <= 0.0):
         bad = float(lam_um[lam_um <= 0.0][0])
-        raise ValueError(
+        raise CoreValidationError(
             f"planck_spectral_radiance_dT: wavelength_um contains a non-positive "
             f"value ({bad} µm). All wavelengths must be strictly positive."
         )

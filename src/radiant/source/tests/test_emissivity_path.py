@@ -57,9 +57,7 @@ class TestLoadEmissivity:
         csv = tmp_path / "eps.csv"
         _write_eps(csv, [(7.0, 0.60), (10.0, 0.80), (13.0, 0.95)])
         grid = np.linspace(8.0, 12.0, 60)
-        eps = _load_emissivity_on_grid(
-            _params(**{"source.target.emissivity_path": str(csv)}), grid
-        )
+        eps = _load_emissivity_on_grid(_params(**{"source.target.emissivity_path": str(csv)}), grid)
         assert eps is not None
         assert eps.values.shape == grid.shape
         # genuinely spectral (monotone ramp), all in [0, 1]

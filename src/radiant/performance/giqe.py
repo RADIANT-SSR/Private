@@ -20,6 +20,8 @@ import logging
 import math
 from dataclasses import dataclass
 
+from radiant.performance.errors import PerformanceValidationError
+
 logger = logging.getLogger(__name__)
 
 # GIQE-5 coefficients (published).
@@ -114,9 +116,11 @@ def compute_giqe5(
     warnings: list[str] = []
 
     if gsd_m_along <= 0.0 or gsd_m_cross <= 0.0:
-        raise ValueError(f"GSD must be positive, got along={gsd_m_along}, cross={gsd_m_cross}")
+        raise PerformanceValidationError(
+            f"GSD must be positive, got along={gsd_m_along}, cross={gsd_m_cross}"
+        )
     if snr <= 0.0:
-        raise ValueError(f"SNR must be positive, got {snr}")
+        raise PerformanceValidationError(f"SNR must be positive, got {snr}")
 
     # Geometric mean GSD in inches.
     gsd_geom_m = math.sqrt(gsd_m_along * gsd_m_cross)
@@ -124,7 +128,9 @@ def compute_giqe5(
 
     # Geometric mean RER.
     if rer_along <= 0.0 or rer_cross <= 0.0:
-        raise ValueError(f"RER must be positive, got along={rer_along}, cross={rer_cross}")
+        raise PerformanceValidationError(
+            f"RER must be positive, got along={rer_along}, cross={rer_cross}"
+        )
     rer = math.sqrt(rer_along * rer_cross)
 
     # Calibration-range checks (Gap 22): flag extrapolation, both ends.

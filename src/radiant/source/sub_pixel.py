@@ -21,6 +21,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.blackbody import planck_spectral_radiance
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -53,27 +54,27 @@ class SubPixelSource:
 
     def __post_init__(self) -> None:
         if self.fill_fraction <= 0.0 or self.fill_fraction > 1.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"SubPixelSource '{self.name}': fill_fraction must be in "
                 f"(0, 1], got {self.fill_fraction}"
             )
         if self.target_temperature_K < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"SubPixelSource '{self.name}': target_temperature_K must "
                 f"be >= 0, got {self.target_temperature_K}"
             )
         if self.background_temperature_K < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"SubPixelSource '{self.name}': background_temperature_K "
                 f"must be >= 0, got {self.background_temperature_K}"
             )
         if not (0.0 <= self.target_emissivity <= 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"SubPixelSource '{self.name}': target_emissivity must be "
                 f"in [0, 1], got {self.target_emissivity}"
             )
         if not (0.0 <= self.background_emissivity <= 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"SubPixelSource '{self.name}': background_emissivity must "
                 f"be in [0, 1], got {self.background_emissivity}"
             )

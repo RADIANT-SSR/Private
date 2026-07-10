@@ -41,6 +41,7 @@ import numpy as np
 from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -71,7 +72,7 @@ _GEOMETRY_FIELDS: frozenset[str] = frozenset(
 def _extract_geometry_coord(geometry: AtmosphericGeometry, axis: str) -> float:
     """Extract a named coordinate from an AtmosphericGeometry."""
     if axis not in _GEOMETRY_FIELDS:
-        raise ValueError(
+        raise AtmosphereValidationError(
             f"InterpolatedAtmosphere: axis '{axis}' is not a valid geometry "
             f"field. Choose from {sorted(_GEOMETRY_FIELDS)}."
         )
@@ -177,19 +178,21 @@ class InterpolatedAtmosphere:
         method: str = "linear",
     ) -> None:
         if len(points) < 2:
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"InterpolatedAtmosphere: at least 2 geometry points required, got {len(points)}."
             )
         if not axes:
-            raise ValueError("InterpolatedAtmosphere: at least one interpolation axis required.")
+            raise AtmosphereValidationError(
+                "InterpolatedAtmosphere: at least one interpolation axis required."
+            )
         for ax in axes:
             if ax not in _GEOMETRY_FIELDS:
-                raise ValueError(
+                raise AtmosphereValidationError(
                     f"InterpolatedAtmosphere: axis '{ax}' is not a valid "
                     f"geometry field. Choose from {sorted(_GEOMETRY_FIELDS)}."
                 )
         if method not in ("linear", "nearest"):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"InterpolatedAtmosphere: method='{method}' not supported. "
                 "Choose 'linear' or 'nearest'."
             )
@@ -202,7 +205,7 @@ class InterpolatedAtmosphere:
         for i, pt in enumerate(points):
             for ax in self._axes:
                 if ax not in pt.coordinates:
-                    raise ValueError(
+                    raise AtmosphereValidationError(
                         f"InterpolatedAtmosphere: point {i} is missing "
                         f"coordinate for axis '{ax}'. Available: "
                         f"{sorted(pt.coordinates)}."
@@ -212,7 +215,7 @@ class InterpolatedAtmosphere:
         ref_wl = points[0].transmittance.wavelength_um
         for i, pt in enumerate(points[1:], start=1):
             if not np.array_equal(ref_wl, pt.transmittance.wavelength_um):
-                raise ValueError(
+                raise AtmosphereValidationError(
                     f"InterpolatedAtmosphere: point {i} has a different "
                     "wavelength grid than point 0. All points must share "
                     "the same spectral grid. Pre-resample if needed."
@@ -363,7 +366,7 @@ class InterpolatedAtmosphere:
             Interpolation method.
         """
         if len(states) != len(geometries):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 f"InterpolatedAtmosphere.from_states: len(states)={len(states)} "
                 f"!= len(geometries)={len(geometries)}."
             )
@@ -410,7 +413,7 @@ class InterpolatedAtmosphere:
         lam = np.asarray(wavelength_um, dtype=np.float64)
 
         if not np.array_equal(lam, self._wavelength_um):
-            raise ValueError(
+            raise AtmosphereValidationError(
                 "InterpolatedAtmosphere: query wavelength grid does not "
                 "match the grid of the pre-computed points. Resample the "
                 "source data before constructing the interpolator, or "
@@ -429,7 +432,7 @@ class InterpolatedAtmosphere:
             lo, hi = bounds[ax]
             val = query_coords[j]
             if val < lo - 1e-12 or val > hi + 1e-12:
-                raise ValueError(
+                raise AtmosphereValidationError(
                     f"InterpolatedAtmosphere: query {ax}={val:.6g} is "
                     f"outside the available range [{lo:.6g}, {hi:.6g}]. "
                     "Interpolation does not extrapolate. Add more "
@@ -451,7 +454,7 @@ class InterpolatedAtmosphere:
 
             # LinearNDInterpolator returns NaN outside the convex hull.
             if np.any(np.isnan(log_tau_interp)):
-                raise ValueError(
+                raise AtmosphereValidationError(
                     "InterpolatedAtmosphere: query geometry is outside the "
                     "convex hull of available data points. Interpolation "
                     "does not extrapolate. Available bounds per axis: "

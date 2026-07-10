@@ -43,3 +43,21 @@ class RadiantError(Exception):
     RADIANT exception classes SHOULD inherit from :class:`RadiantError`
     only.
     """
+
+
+class CoreValidationError(RadiantError, ValueError):
+    """A ``radiant.core`` module rejected an input value or argument.
+
+    Co-inherits :class:`ValueError` per the Rule 15 back-compat carve-out:
+    these sites historically raised bare ``ValueError`` and are caught as
+    such throughout the test suite and user code (CU-043 migration).
+    """
+
+
+class CoreStateError(RadiantError, RuntimeError):
+    """A ``radiant.core`` object was used before it was ready.
+
+    E.g. reading a :class:`~radiant.core.parameters.ParameterSet` before
+    ``resolve()``. Co-inherits :class:`RuntimeError` per the Rule 15
+    back-compat carve-out (CU-043 migration).
+    """

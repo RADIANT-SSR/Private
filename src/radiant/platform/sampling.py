@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from radiant.platform.errors import PlatformValidationError
+
 
 def pixel_aperture_mtf_1d(
     freq: npt.NDArray[np.float64],
@@ -49,9 +51,9 @@ def pixel_aperture_mtf_1d(
         If pixel_pitch_m <= 0 or fill_factor out of (0, 1].
     """
     if pixel_pitch_m <= 0.0:
-        raise ValueError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
+        raise PlatformValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
     if not (0.0 < fill_factor <= 1.0):
-        raise ValueError(f"fill_factor must be in (0, 1], got {fill_factor}")
+        raise PlatformValidationError(f"fill_factor must be in (0, 1], got {fill_factor}")
 
     effective_width = pixel_pitch_m * fill_factor
     # np.sinc(x) = sin(πx)/(πx), so sinc(π·f·w) = np.sinc(f·w)
@@ -120,13 +122,13 @@ def pixel_aperture_kernel_1d(
         Normalised 1-D rect kernel (sums to 1.0).
     """
     if npix < 1 or npix % 2 == 0:
-        raise ValueError(f"npix must be a positive odd integer, got {npix}")
+        raise PlatformValidationError(f"npix must be a positive odd integer, got {npix}")
     if sample_spacing_m <= 0.0:
-        raise ValueError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
+        raise PlatformValidationError(f"sample_spacing_m must be positive, got {sample_spacing_m}")
     if pixel_pitch_m <= 0.0:
-        raise ValueError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
+        raise PlatformValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
     if not (0.0 < fill_factor <= 1.0):
-        raise ValueError(f"fill_factor must be in (0, 1], got {fill_factor}")
+        raise PlatformValidationError(f"fill_factor must be in (0, 1], got {fill_factor}")
 
     effective_width = pixel_pitch_m * fill_factor
     half_width = effective_width / 2.0

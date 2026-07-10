@@ -9,12 +9,13 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.core.geometry import euler_to_rotation_matrix
+from radiant.source.errors import SourceValidationError
 
 
 def validate_positive(name: str, value: float, field: str) -> None:
     """Raise ValueError if value is not strictly positive."""
     if value <= 0.0:
-        raise ValueError(
+        raise SourceValidationError(
             f"{name}: {field} must be positive, got {value}. All dimensions are in meters."
         )
 

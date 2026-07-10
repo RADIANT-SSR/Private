@@ -16,30 +16,32 @@ from __future__ import annotations
 
 import math
 
+from radiant.detector.errors import DetectorValidationError
+
 
 def signal_shot_noise(signal_e: float) -> float:
     """Signal photon-shot noise: ``√S`` [e- RMS]."""
     if signal_e < 0.0:
-        raise ValueError(f"signal_shot_noise: signal_e = {signal_e} < 0.")
+        raise DetectorValidationError(f"signal_shot_noise: signal_e = {signal_e} < 0.")
     return math.sqrt(signal_e)
 
 
 def background_shot_noise(background_e: float) -> float:
     """Background photon-shot noise: ``√S_bg`` [e- RMS]."""
     if background_e < 0.0:
-        raise ValueError(f"background_shot_noise: background_e = {background_e} < 0.")
+        raise DetectorValidationError(f"background_shot_noise: background_e = {background_e} < 0.")
     return math.sqrt(background_e)
 
 
 def nearfield_shot_noise(nearfield_e: float) -> float:
     """Nearfield (warm-optics) shot noise: ``√S_nf`` [e- RMS]."""
     if nearfield_e < 0.0:
-        raise ValueError(f"nearfield_shot_noise: nearfield_e = {nearfield_e} < 0.")
+        raise DetectorValidationError(f"nearfield_shot_noise: nearfield_e = {nearfield_e} < 0.")
     return math.sqrt(nearfield_e)
 
 
 def straylight_shot_noise(stray_e: float) -> float:
     """Stray-light shot noise: ``√S_stray`` [e- RMS]."""
     if stray_e < 0.0:
-        raise ValueError(f"straylight_shot_noise: stray_e = {stray_e} < 0.")
+        raise DetectorValidationError(f"straylight_shot_noise: stray_e = {stray_e} < 0.")
     return math.sqrt(stray_e)

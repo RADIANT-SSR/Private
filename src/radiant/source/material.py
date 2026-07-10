@@ -16,6 +16,7 @@ import numpy.typing as npt
 
 from radiant.source.combined import CombinedSource
 from radiant.source.emitted import ThermalSource
+from radiant.source.errors import SourceValidationError
 
 
 @dataclass(frozen=True)
@@ -49,28 +50,28 @@ class SurfaceMaterial:
 
     def __post_init__(self) -> None:
         if self.temperature_K < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"SurfaceMaterial '{self.name}': temperature_K must be "
                 f">= 0, got {self.temperature_K}"
             )
         eps = np.atleast_1d(np.asarray(self.emissivity, dtype=np.float64))
         if np.any(eps < 0.0) or np.any(eps > 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"SurfaceMaterial '{self.name}': emissivity must be in "
                 f"[0, 1], got min={float(eps.min())}, max={float(eps.max())}"
             )
         if self.brdf_model not in ("lambertian", "phong"):
-            raise ValueError(
+            raise SourceValidationError(
                 f"SurfaceMaterial '{self.name}': brdf_model must be "
                 f"'lambertian' or 'phong', got '{self.brdf_model}'"
             )
         if not (0.0 <= self.specular_fraction <= 1.0):
-            raise ValueError(
+            raise SourceValidationError(
                 f"SurfaceMaterial '{self.name}': specular_fraction must be "
                 f"in [0, 1], got {self.specular_fraction}"
             )
         if self.phong_exponent < 0.0:
-            raise ValueError(
+            raise SourceValidationError(
                 f"SurfaceMaterial '{self.name}': phong_exponent must be "
                 f">= 0, got {self.phong_exponent}"
             )

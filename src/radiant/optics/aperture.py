@@ -26,6 +26,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from radiant.optics.errors import OpticsValidationError
+
 
 @dataclass(frozen=True)
 class CircularAperture:
@@ -61,13 +63,13 @@ class CircularAperture:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.aperture_diameter_m) or self.aperture_diameter_m <= 0.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"CircularAperture '{self.name}': aperture_diameter_m = "
                 f"{self.aperture_diameter_m} is invalid. The clear primary "
                 "diameter must be a positive finite number in metres."
             )
         if not math.isfinite(self.obscuration_ratio) or not (0.0 <= self.obscuration_ratio < 1.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"CircularAperture '{self.name}': obscuration_ratio = "
                 f"{self.obscuration_ratio} is invalid. Must satisfy "
                 "0 ≤ ε < 1 (0 for unobscured; 1 would be a fully-blocked "
@@ -75,7 +77,7 @@ class CircularAperture:
             )
         width_bad = not math.isfinite(self.spider_width_m) or self.spider_width_m < 0.0
         if self.n_spiders < 0 or width_bad:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"CircularAperture '{self.name}': n_spiders = {self.n_spiders}, "
                 f"spider_width_m = {self.spider_width_m} are invalid. Both must "
                 "be ≥ 0."
@@ -130,7 +132,7 @@ class CircularAperture:
             Solid angle in steradians.
         """
         if not math.isfinite(focal_length_m) or focal_length_m <= 0.0:
-            raise ValueError(
+            raise OpticsValidationError(
                 f"CircularAperture '{self.name}': focal_length_m = "
                 f"{focal_length_m} is invalid for solid-angle computation. "
                 "Must be a positive finite number in metres."
@@ -155,7 +157,7 @@ class CircularAperture:
     def from_dict(cls, d: dict[str, Any]) -> CircularAperture:
         """Deserialize from a dict produced by :meth:`to_dict`."""
         if d.get("kind", "circular") != "circular":
-            raise ValueError(
+            raise OpticsValidationError(
                 f"CircularAperture.from_dict: expected kind='circular', got {d.get('kind')!r}."
             )
         return cls(

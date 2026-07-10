@@ -17,6 +17,8 @@ from __future__ import annotations
 import enum
 import math
 
+from radiant.readout.errors import ReadoutValidationError
+
 
 class CoaddMode(enum.Enum):
     """Coadd combination modes."""
@@ -28,7 +30,7 @@ class CoaddMode(enum.Enum):
 
 def _validate_k(n_coadds: int) -> None:
     if n_coadds < 1:
-        raise ValueError(f"n_coadds = {n_coadds} must be >= 1.")
+        raise ReadoutValidationError(f"n_coadds = {n_coadds} must be >= 1.")
 
 
 def coadd_scale_signal(signal: float, n_coadds: int, mode: CoaddMode) -> float:

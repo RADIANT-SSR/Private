@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import math
 
+from radiant.optics.errors import OpticsValidationError
+
 # Fractional tolerance at which the consistency group accepts the user
 # over-specifying two entries plus a derivable third. Chosen to match
 # MODTRAN-style rounding in datasheets (~0.1 %).
@@ -57,14 +59,14 @@ def resolve_fnumber_group(
         ("f_number", f_number),
     ):
         if val is not None and (not math.isfinite(val) or val <= 0.0):
-            raise ValueError(
+            raise OpticsValidationError(
                 f"resolve_fnumber_group: {name} = {val} is invalid. "
                 f"Must be a positive finite number."
             )
 
     supplied = sum(v is not None for v in (aperture_diameter_m, focal_length_m, f_number))
     if supplied < 2:
-        raise ValueError(
+        raise OpticsValidationError(
             "resolve_fnumber_group: at least two of "
             "{aperture_diameter_m, focal_length_m, f_number} must be supplied. "
             "The third is derived from f/# = focal_length_m / aperture_diameter_m."
@@ -86,7 +88,7 @@ def resolve_fnumber_group(
     assert aperture_diameter_m is not None and focal_length_m is not None and f_number is not None
     derived = focal_length_m / aperture_diameter_m
     if not math.isclose(derived, f_number, rel_tol=FNUMBER_CONSISTENCY_RTOL):
-        raise ValueError(
+        raise OpticsValidationError(
             f"resolve_fnumber_group: over-specified and inconsistent. "
             f"focal_length_m / aperture_diameter_m = "
             f"{focal_length_m} / {aperture_diameter_m} = {derived:.6f}, "

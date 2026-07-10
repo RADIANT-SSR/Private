@@ -6,11 +6,20 @@ scenario 4.3's subject; ROC-grade detection is planned T4 work).
 
 ## Summary
 5 m² hotspot vs 300 K conifer forest from 10 km (4 m GSD, 31% fill,
-sub-pixel with clutter σ = 0.03). At 600 K: MWIR SCNR 844 vs LWIR 123 —
-nearly equal band-integrated ΔL (374 vs 382 W/m²/sr), but LWIR's clutter
-is 350× MWIR's because its 300 K background is ~10× brighter in-band.
-Both bands P_d ≈ 1 at 400–1200 K; LWIR saturates from ≈800 K, MWIR from
-≈900 K at the fire-mode integrations. Recommendation: MWIR for detection.
+sub-pixel with clutter σ = 0.03). At 600 K (CU-060 fill-corrected): MWIR
+SCNR 449 vs LWIR 38 — nearly equal band-integrated ΔL (374 vs 382
+W/m²/sr), but LWIR's clutter is 350× MWIR's because its 300 K background
+is ~10× brighter in-band. MWIR P_d ≈ 1 at 400–1200 K; LWIR misses 400 K
+smolders (P_d 0.057); both bands saturate from ≈1200 K at the fire-mode
+integrations. Recommendation: MWIR for detection.
+
+## CU-060 correction (2026-07-09)
+The first execution left `source.target.fill_fraction` at its default 1.0
+— the sub-pixel regime weights the target by fill_fraction, not
+projected_area_m2, so the 31%-fill hotspot was modeled as pixel-filling
+and both bands' fire signals were ~3× overstated (SCNR 844/123 → 449/38;
+saturation onsets ≈800/900 K → ≈1200 K both). Fixed in the run script;
+walkthrough numbers and figures refreshed.
 
 ## Gap Closure Status (catalog "Gaps revealed" list)
 

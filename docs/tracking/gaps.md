@@ -933,7 +933,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.5 execution (Phase T4), 2026-07-09 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-09 — `build_atmosphere_model` now substitutes the profile's McClatchey/MODTRAN water column (`simple.PROFILE_PWV_CM`) when `precipitable_water_cm` is left at its schema default; explicit values win (provenance-based). Golden + Cell-28 anchor repinned; 10 Level-0 coupling tests. |
 | **Description** | Selecting `atmosphere.standard_atmosphere = "tropical"` (or any of the six presets) changes only the downwelling **emission temperature** via the sea-level temperature table (`atmosphere/simple.py` `_T_SEA_LEVEL_K`: tropical 299.65 K vs us_standard 288.15 K, used in `_effective_atmospheric_temperature_K`). It does **not** set the profile-appropriate water-vapour column, ozone, or transmission. Precipitable water is a *separate* independent parameter (`atmosphere.precipitable_water_cm`, default 1.4 cm = US-standard mid-latitude). A user who selects "tropical" but leaves PWV at default gets tropical emission temperature with **US-standard transmission** — silently wrong for MWIR/LWIR window radiometry, where the tropical humidity column is the dominant effect. |
 | **Workaround** | Set `precipitable_water_cm` explicitly to the climate-appropriate value alongside the preset (scenario 3.5 uses 4.1 cm for tropical). |
 | **Impact** | Medium — transmission error can be large in humid columns; the preset name implies a full profile it does not deliver. |
@@ -1050,7 +1050,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
 | 55 | No PDF spec-sheet parser | Large | 3.3 | OPEN |
 | 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | OPEN |
-| 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | OPEN |
+| 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | FIXED |
 | 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | OPEN |
 | 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | OPEN |
 | 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | OPEN |

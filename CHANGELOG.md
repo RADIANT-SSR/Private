@@ -52,6 +52,23 @@ retroactively reconstructed.
   (∂L/∂ε = B̄(T)) and `temperature_jacobian` (∂L/∂T = ε·∫dB/dT). New error
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
+### Changed
+- **Results-affecting (non-default atmosphere profiles; large in
+  water-sensitive bands):** the `atmosphere.standard_atmosphere` preset now
+  carries its standard water column (Gap 57). When
+  `precipitable_water_cm` is left at its schema default, the simple-model
+  loader substitutes the profile's McClatchey/MODTRAN column
+  (tropical 4.11 cm, midlat_summer 2.92, midlat_winter 0.85,
+  subarctic_summer 2.08, subarctic_winter 0.42; us_standard stays 1.4) —
+  previously "tropical" silently ran US-standard humidity. An explicitly
+  set `precipitable_water_cm` always wins (provenance-based). Configs
+  using a non-default profile without explicit PWV shift: the
+  `mwir_leo_minimal` golden (midlat_summer) drops 52% in signal / 31% in
+  SNR (more water → less MWIR transmission; regenerated via
+  `update_golden.py` with the §5.3 protocol), and the Cell-28 LWIR anchor
+  repins NEDT +0.9% / L@8µm −34%. Default-everything (us_standard)
+  configs are bit-identical.
+
 ### Fixed
 - **Results-affecting (defocused configs; moderate):** defocus is now
   unified as pupil Zernike Z4 on BOTH spatial paths (CU-058, Rule 4). The

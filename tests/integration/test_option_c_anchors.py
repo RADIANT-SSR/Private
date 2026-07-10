@@ -185,15 +185,23 @@ CELL28_PINNED = {
     # Planck log-derivative replaced the single-λ (band-center) Planck-factor
     # approximation. +0.29% for this LWIR cell; reduces to the old value
     # exactly in the narrow-band limit. Was 0.20598616453385415.
-    "nedt_K": 0.20658998527586545,
+    # NEDT + L_aperture repinned 2026-07-09 (Gap 57): the midlat_summer
+    # preset now carries its standard water column (2.92 cm) when
+    # precipitable_water_cm is left at its schema default, replacing the
+    # US-standard 1.4 cm. More water → lower τ, more path emission:
+    # L@8 µm drops 34% (water continuum at the band edge), NEDT +0.89%
+    # (was 0.20658998527586545). The SNR pin is unchanged because this
+    # cell saturates (signal 3.5e8 e- clips to full well), which makes
+    # snr ≈ √FWC scene-independent.
+    "nedt_K": 0.20841920600038896,
     "mtf_at_nyquist": 0.07587823,
     "L_aperture_W_m2_sr_um": {
-        8.0:  5.860529,
-        9.0:  7.922457,
-        10.0: 8.594942,
-        11.0: 8.561331,
-        12.0: 8.152427,
-        13.0: 7.557360,
+        8.0:  3.874043,
+        9.0:  6.658567,
+        10.0: 7.806023,
+        11.0: 8.047163,
+        12.0: 7.803374,
+        13.0: 7.312195,
     },
 }
 

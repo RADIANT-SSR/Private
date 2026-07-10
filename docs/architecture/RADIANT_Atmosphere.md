@@ -300,8 +300,8 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 |-----------|-------------|---------|-------|
 | `atmosphere.visibility_km` | km | 23.0 | "Clear" per Koschmieder; rejected if ≤ 0 |
 | `atmosphere.aerosol_type` | enum: `rural`, `urban`, `maritime` | `rural` | Sets Ångström α and SSA |
-| `atmosphere.precipitable_water_cm` | cm | 1.4 | US Standard mid-latitude annual mean |
-| `atmosphere.standard_atmosphere` | enum: `tropical`, `midlat_summer`, `midlat_winter`, `subarctic_summer`, `subarctic_winter`, `us_standard` | `us_standard` | Used for `T_atm_eff` lookup and aerosol/H₂O scale heights |
+| `atmosphere.precipitable_water_cm` | cm | 1.4 (US Standard) — **profile-coupled** | If left at its schema default while a non-default `standard_atmosphere` is selected, the loader substitutes the profile's McClatchey/MODTRAN standard column (`simple.PROFILE_PWV_CM`: tropical 4.11, midlat_summer 2.92, midlat_winter 0.85, subarctic_summer 2.08, subarctic_winter 0.42, us_standard 1.4). An explicitly set value always wins (provenance-based, Gap 57). |
+| `atmosphere.standard_atmosphere` | enum: `tropical`, `midlat_summer`, `midlat_winter`, `subarctic_summer`, `subarctic_winter`, `us_standard` | `us_standard` | Used for `T_atm_eff` lookup, aerosol/H₂O scale heights, and the default water column (above) |
 | `atmosphere.cloud_fraction` | dimensionless 0–1 | 0.0 | Stubbed in v1; non-zero raises `NotImplementedError` |
 | `atmosphere.cloud_optical_depth` | dimensionless | 0.0 | Same |
 

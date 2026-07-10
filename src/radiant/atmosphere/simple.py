@@ -161,6 +161,23 @@ _T_SEA_LEVEL_K: dict[str, float] = {
     "subarctic_winter": 257.15,
 }
 
+# Total precipitable water column [cm] per standard-atmosphere profile.
+# Values are the LOWTRAN/MODTRAN standard-profile water columns (McClatchey
+# et al. 1972, AFCRL-72-0497; carried into MODTRAN MODELs 1–6). Gap 57: the
+# climate preset implies its humidity — the loader applies these when the
+# user selects a profile but leaves ``precipitable_water_cm`` at its schema
+# default, so "tropical" does not silently run US-standard transmission.
+# ``us_standard`` is pinned to the schema default (1.4, vs McClatchey's
+# 1.42) so a default-everything configuration is bit-identical to before.
+PROFILE_PWV_CM: dict[str, float] = {
+    "us_standard": 1.4,
+    "tropical": 4.11,
+    "midlat_summer": 2.92,
+    "midlat_winter": 0.85,
+    "subarctic_summer": 2.08,
+    "subarctic_winter": 0.42,
+}
+
 # ICAO tropospheric lapse rate and tropopause clamp.
 _LAPSE_RATE_K_PER_M: float = 6.5e-3  # 6.5 K / km
 _TROPOPAUSE_T_K: float = 216.65  # ICAO isothermal tropopause temperature

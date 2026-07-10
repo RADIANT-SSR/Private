@@ -52,13 +52,35 @@ def build_atmosphere_model(params: ParameterSet) -> object:
         return _build_interpolated(params)
 
     # Default: simple parametric model.
-    from radiant.atmosphere.simple import SimpleAtmosphere
+    from radiant.atmosphere.simple import PROFILE_PWV_CM, SimpleAtmosphere
+    from radiant.core.parameters import Provenance
+
+    profile: str = params.get("atmosphere.standard_atmosphere")
+    pwv_cm: float = params.get("atmosphere.precipitable_water_cm")
+
+    # Gap 57: the climate preset implies its water column. If the user
+    # selected a profile but left precipitable_water_cm at its schema
+    # default, use the profile's standard column (McClatchey/MODTRAN) so
+    # e.g. "tropical" carries tropical humidity rather than the
+    # US-standard 1.4 cm. An explicitly set PWV always wins.
+    pwv_rv = params.get_resolved("atmosphere.precipitable_water_cm")
+    if pwv_rv.provenance is Provenance.DEFAULT and profile in PROFILE_PWV_CM:
+        profile_pwv = PROFILE_PWV_CM[profile]
+        if profile_pwv != pwv_cm:
+            logger.info(
+                "atmosphere.precipitable_water_cm left at default; using the "
+                "%s profile's standard water column %.2f cm (Gap 57). Set "
+                "precipitable_water_cm explicitly to override.",
+                profile,
+                profile_pwv,
+            )
+        pwv_cm = profile_pwv
 
     return SimpleAtmosphere(
         visibility_km=params.get("atmosphere.visibility_km"),
         aerosol_type=params.get("atmosphere.aerosol_type"),
-        precipitable_water_cm=params.get("atmosphere.precipitable_water_cm"),
-        standard_atmosphere=params.get("atmosphere.standard_atmosphere"),
+        precipitable_water_cm=pwv_cm,
+        standard_atmosphere=profile,
     )
 
 

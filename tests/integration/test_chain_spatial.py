@@ -294,8 +294,15 @@ class TestSNRUnchanged:
         (Decision #13/#15 — source.background.* is adjacent-scene only).
         The background_shot noise term goes to zero and SNR rises from
         the Stage-3 value of 666.21 to 866.11.
+
+        Repinned 2026-07-09 (Gap 57): this config selects midlat_summer
+        with precipitable_water_cm left at default, so it now carries the
+        profile's standard 2.92 cm water column instead of the US-standard
+        1.4 cm. Lower τ → less signal → SNR 866.11 → 604.97 (−30%,
+        MWIR is strongly water-sensitive). Set precipitable_water_cm
+        explicitly to reproduce the old value.
         """
-        expected_snr = 866.1139666994229
+        expected_snr = 604.9704201375013
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

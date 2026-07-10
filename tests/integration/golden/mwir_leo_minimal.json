@@ -2,67 +2,66 @@
   "_provenance": {
     "config": "examples/mwir_leo_minimal.yaml",
     "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
-    "chain_stages": ["source", "atmosphere", "optics", "spectral_integration", "detector", "readout", "performance"],
-    "generated_by": "CU-007 (2026-04-27): MWIR-overlap legacy ε+T scenarios route to T3Mixed by default (matrix §3.2). Adds the Kirchhoff reflected term (1−ε)·E_sky/π to the target arm.",
-    "notes": "CU-007 refresh (2026-04-27). Pre-CU-007 chain routed MWIR ε+T scenes to T1Thermal (pure-emit). Post-CU-007 routes them to T3Mixed (emit + Kirchhoff-reflected sky); ε=0.95 ⇒ ρ=0.05 lifts signal_e by ~5.5% (750264 → 791901 e-) and snr by 866 → 890 (signal-shot-limited regime). Hot-target opt-out lives at source.target.is_hot_target. Pre-CU-007 history: Stage 4 Option C (2026-04-19) dropped the legacy scalar L_background term (Decision #13/#15), lifting snr from 666.21 to 866.11."
+    "chain_stages": [
+      "source",
+      "atmosphere",
+      "optics",
+      "spectral_integration",
+      "detector",
+      "readout",
+      "performance"
+    ],
+    "generated_by": "scripts/update_golden.py",
+    "notes": "CU-007 refresh (2026-04-27). Pre-CU-007 chain routed MWIR \u03b5+T scenes to T1Thermal (pure-emit). Post-CU-007 routes them to T3Mixed (emit + Kirchhoff-reflected sky); \u03b5=0.95 \u21d2 \u03c1=0.05 lifts signal_e by ~5.5% (750264 \u2192 791901 e-) and snr by 866 \u2192 890 (signal-shot-limited regime). Hot-target opt-out lives at source.target.is_hot_target. Pre-CU-007 history: Stage 4 Option C (2026-04-19) dropped the legacy scalar L_background term (Decision #13/#15), lifting snr from 666.21 to 866.11.",
+    "last_updated": "2026-07-10T03:34:44.356196+00:00"
   },
-
   "signal_e": {
-    "value": 791901.0723407408,
+    "value": 379517.70992811443,
     "unit": "e-",
-    "provenance": "chain output, T3Mixed routing — target = ε·B(T_t) + (1−ε)·E_sky/π"
+    "provenance": "chain output, T3Mixed routing \u2014 target = \u03b5\u00b7B(T_t) + (1\u2212\u03b5)\u00b7E_sky/\u03c0"
   },
-
   "e_rate_per_s": {
-    "value": 158380214.46814817,
+    "value": 75903541.98562288,
     "unit": "e-/s",
     "provenance": "signal_e / t_int = 791901.07 / 0.005"
   },
-
   "A_collect": {
     "value": 0.07068583470577035,
     "unit": "m^2",
     "provenance": "hand calculation: pi/4 * 0.30^2 = 0.070686 m^2 (unchanged by CU-007)"
   },
-
   "Omega_pixel": {
-    "value": 2.25e-10,
+    "value": 2.2500000000000002e-10,
     "unit": "sr",
     "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr (unchanged by CU-007)"
   },
-
   "noise_shot": {
-    "value": 889.888235870517,
+    "value": 616.0500871910615,
     "unit": "e- RMS",
     "provenance": "sqrt(signal_e) = sqrt(791901.07) = 889.89 (lifted by reflected term)"
   },
-
   "noise_dark_shot": {
     "value": 0.7071067811865476,
     "unit": "e- RMS",
     "provenance": "hand calculation: sqrt(dark_rate * t_int) = sqrt(100 * 0.005) = sqrt(0.5) = 0.7071 (unchanged by CU-007)"
   },
-
   "noise_read": {
     "value": 5.0,
     "unit": "e- RMS",
     "provenance": "direct parameter: readout.read_noise_e_rms = 5.0 (unchanged by CU-007)"
   },
-
   "noise_quantization": {
     "value": 9.237604307034013,
     "unit": "e- RMS",
     "provenance": "hand calculation: gain / sqrt(12) = 32.0 / sqrt(12) = 9.2376 (unchanged by CU-007)"
   },
-
   "noise_rss": {
-    "value": 889.9505074295279,
+    "value": 616.1400354314333,
     "unit": "e- RMS",
     "provenance": "RSS of 16 noise terms: dominated by signal_shot (889.9); background_shot=0 (extended terrestrial has no BackgroundDescriptor); nearfield_shot=0 (simple refractive eps=0)."
   },
-
   "snr": {
-    "value": 889.8259686687675,
+    "value": 615.960152081935,
     "unit": "dimensionless",
     "provenance": "signal_e_final / sigma_total_e = 791901.07 / 889.95 = 889.83 (signal-shot-limited)"
   }

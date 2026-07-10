@@ -8,8 +8,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_snr_vs_ntdi.png | figure (committed) | c5a2a06 2026-04-16 |
-| fig2_signal_well_fill.png | figure (committed) | c5a2a06 2026-04-16 |
-| fig3_noise_budget.png | figure (committed) | c5a2a06 2026-04-16 |
-| fig4_niirs_vs_ntdi.png | figure (committed) | 4953c90 2026-04-19 |
+| fig1_snr_vs_ntdi.png | figure (committed) | 924b9e1 2026-07-09 |
+| fig2_signal_well_fill.png | figure (committed) | 924b9e1 2026-07-09 |
+| fig3_noise_budget.png | figure (committed) | 924b9e1 2026-07-09 |
+| fig4_niirs_vs_ntdi.png | figure (committed) | 924b9e1 2026-07-09 |
 | tdi_pushbroom_results.xlsx | results workbook (not committed) | regenerate on demand |

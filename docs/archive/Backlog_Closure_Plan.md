@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-07-10 (completed by the coding agent; all waves landed).** Wave 0 dispositions (`b733cb0`); Wave 1: CU-005 option b + Gap 40 (`c8a6f70`); Wave 2: CU-003 + CU-045 (`2d5da44`); Wave 3: CU-008 (`76b8bd1`), Gap 59 (`19ae3b9`), Gap 60 partial (`d3274ab`); Wave 4: CU-044 (`c0febaf`). Exit criteria verified: every CU and gap is Resolved (commit-linked) or carries a current Declined/Deferred record with gate + re-audit date; all gates green (full pytest, mypy --strict core/api, ruff, import-linter, check_org_rules; goldens bit-invariant except the documented §5.3 repins in Wave 2).
+
 # Backlog Closure Plan
 
-Status: Active (2026-07-10)
+Status: Complete (2026-07-10)
 Author: Coding agent, directed by project owner
 Owner constraints (2026-07-10): RADIANT stays a **single-pixel model** (no 2-D
 scene work); **no MODTRAN access**; **GUI work is imminent but not now**.

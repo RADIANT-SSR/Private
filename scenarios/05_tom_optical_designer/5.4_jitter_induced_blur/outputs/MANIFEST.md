@@ -8,8 +8,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| jitter_pixels_and_niirs.png | figure (committed) | 4953c90 2026-04-19 |
-| mtf_curves_vs_jitter.png | figure (committed) | 4953c90 2026-04-19 |
-| mtf_rer_vs_jitter.png | figure (committed) | 4953c90 2026-04-19 |
-| niirs_vs_jitter.png | figure (committed) | 4953c90 2026-04-19 |
+| jitter_pixels_and_niirs.png | figure (committed) | 1d35a82 2026-07-09 |
+| mtf_curves_vs_jitter.png | figure (committed) | 1d35a82 2026-07-09 |
+| mtf_rer_vs_jitter.png | figure (committed) | 1d35a82 2026-07-09 |
+| niirs_vs_jitter.png | figure (committed) | 1d35a82 2026-07-09 |
 | jitter_tolerance_results.xlsx | results workbook (not committed) | regenerate on demand |

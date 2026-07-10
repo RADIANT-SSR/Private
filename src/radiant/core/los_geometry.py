@@ -22,12 +22,15 @@ Boundary converter
 ------------------
 `theta_o_from_eta` is a module-level converter from the sensor-side off-nadir
 look angle ``eta`` (which depends on ``h_sensor``) to the target-side observer
-zenith ``theta_o`` (which does not).  **It is not wired into any stage yet.**
-``h_sensor`` is a SensorDescriptor concern (deferred to a follow-on ADR per
-matrix §4.4) and a Stage 7 no-atmosphere-space precondition.  Until those
-land, this converter is exercised only by unit tests — it is a boundary
-converter reserved for Stage 7 / SensorDescriptor follow-on use and is
-**not dead code**.
+zenith ``theta_o`` (which does not).  **It is deliberately unwired** — CU-005
+resolution (owner-directed, 2026-07-10): users supply the target-side zenith
+directly via the canonical ``geometry.path_zenith_rad`` (CU-009); an
+``eta``-input surface (``geometry.sensor_off_nadir_rad`` routed through this
+converter, with a precedence rule against ``path_zenith_rad``) is deferred
+behind the SensorDescriptor ADR rather than adding a second, redundant way
+to specify the same look geometry today.  The converter stays tested
+(``core/tests/test_los_geometry.py``) and reserved for that follow-on — it
+is **not dead code**.
 """
 
 from __future__ import annotations

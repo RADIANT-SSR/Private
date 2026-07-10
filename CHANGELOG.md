@@ -53,6 +53,13 @@ retroactively reconstructed.
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
 ### Added
+- `source.lab_test_mode` parameter (Gap 40): positive `dark`/`lit`
+  assertion for the ground_test/lab_test sub-cases. `dark` declares a
+  no-external-illumination configuration (the D-lab dark-cal sub-mode) and
+  is validated — a user-set `source.target.reflectance` contradicts it and
+  is rejected with an actionable error; `lit` is a recorded assertion;
+  the empty-string default is unasserted and preserves every existing
+  config byte-for-byte.
 - Stage-scoped error classes (CU-043, Rule 15): every stage package now
   exposes a `<Stage>ValidationError(RadiantError, ValueError)` — plus
   `CoreStateError`, `AtmosphereStateError`, and

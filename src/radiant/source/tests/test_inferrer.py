@@ -493,6 +493,77 @@ class TestFailureModes:
         assert isinstance(background, UserSpectralBackground)
         assert background.L_bg is not None
 
+    @pytest.mark.level1
+    def test_lab_test_mode_dark_rejects_reflectance_target(self) -> None:
+        """Gap 40: 'dark' asserts no external illumination — a user-set
+        reflectance target contradicts it and is rejected (Rule 16)."""
+        # Minimal PURE-reflective lab config (no template: its T/ε would
+        # trip the earlier ρ-vs-(ε,T) exclusivity check instead).
+        params = build_parameter_set()
+        params.set("optics.aperture_diameter_m", 0.15)
+        params.set("optics.focal_length_m", 0.60)
+        params.set("atmosphere.model", "exo")
+        params.set("geometry.sensor_altitude_m", 0.0)
+        params.set("spectral_integration.filter_min_um", 0.4)
+        params.set("spectral_integration.filter_max_um", 0.9)
+        params.set("spectral_integration.integration_time_s", 1e-3)
+        params.set("detector.pixel_pitch_x_um", 5.5)
+        params.set("detector.pixel_pitch_y_um", 5.5)
+        params.set("detector.qe_value", 0.8)
+        params.set("source.scene_type", "extended")
+        params.set("source.target.reflectance", 0.3)
+        params.set("source.target_location", "no_atmosphere")
+        params.set("source.no_atmosphere_subcase", "lab_test")
+        params.set("source.lab_test_mode", "dark")
+        params.set("source.background.temperature", 293.0)
+        params.resolve()
+        wl = np.linspace(0.4, 0.9, 11)
+        with pytest.raises(ParameterBoundsError, match="dark"):
+            infer_descriptors(params, wl)
+
+    @pytest.mark.level1
+    def test_lab_test_mode_dark_accepts_thermal_target(self) -> None:
+        """Gap 40: a thermal blackbody standard in a dark chamber IS the
+        D-lab dark-cal scene — the assertion passes."""
+        params = build_parameter_set()
+        load_config(
+            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            params,
+        )
+        params.set("source.target_location", "no_atmosphere")
+        params.set("source.no_atmosphere_subcase", "lab_test")
+        params.set("source.lab_test_mode", "dark")
+        params.set("source.background.temperature", 293.0)  # chamber wall
+        params.resolve()
+        wl = np.linspace(8.0, 13.0, 11)
+        _, background, _ = infer_descriptors(params, wl)
+        assert isinstance(background, UserSpectralBackground)
+
+    @pytest.mark.level1
+    def test_lab_test_mode_lit_is_behaviorally_inert(self) -> None:
+        """Gap 40: 'lit' is a positive assertion only — same descriptors as
+        the unasserted default."""
+        wl = np.linspace(8.0, 13.0, 11)
+
+        def _run(mode: str | None):
+            params = build_parameter_set()
+            load_config(
+                REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+                params,
+            )
+            params.set("source.target_location", "no_atmosphere")
+            params.set("source.no_atmosphere_subcase", "lab_test")
+            params.set("source.background.temperature", 293.0)
+            if mode is not None:
+                params.set("source.lab_test_mode", mode)
+            params.resolve()
+            return infer_descriptors(params, wl)
+
+        t_lit, bg_lit, _ = _run("lit")
+        t_def, bg_def, _ = _run(None)
+        assert type(t_lit) is type(t_def)
+        np.testing.assert_allclose(bg_lit.L_bg.values, bg_def.L_bg.values, rtol=1e-12)
+
 
 # ---------------------------------------------------------------------------
 # Tests 5: round-trip (Category B)

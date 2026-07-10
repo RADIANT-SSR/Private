@@ -1740,6 +1740,37 @@ def _build_background_descriptor(
             # atmosphere.assembly.validate_no_atmosphere_subcase.
             return ColdSpaceBackground()
         if no_atmosphere_subcase in ("ground_test", "lab_test"):
+            # Gap 40: positive dark/lit assertion.  In the use-case matrix
+            # "dark" means NO EXTERNAL ILLUMINATION (no lamp / no solar) —
+            # thermal self-emission of a blackbody standard is the canonical
+            # D-lab dark-cal scene.  'dark' is therefore validated against
+            # user-configured illumination inputs (a reflectance-driven
+            # target has nothing to reflect in a dark chamber, Rule 16);
+            # 'lit' and '' change nothing radiometrically.
+            lab_mode: str = params.get("source.lab_test_mode")
+            if lab_mode == "dark" and _is_user_set(params, "source.target.reflectance"):
+                refl: float = params.get("source.target.reflectance")
+                raise ParameterBoundsError(
+                    what=(
+                        f"source.lab_test_mode='dark' but "
+                        f"source.target.reflectance = {refl} was set"
+                    ),
+                    why=(
+                        "'dark' asserts no external illumination (no lamp, "
+                        "no solar) — a reflectance-driven target has nothing "
+                        "to reflect in a dark chamber, so the configuration "
+                        "is contradictory."
+                    ),
+                    action=(
+                        "Remove source.target.reflectance (use a thermal "
+                        "target for dark-chamber measurements), or drop "
+                        "lab_test_mode='dark' for an illuminated scene."
+                    ),
+                    context={
+                        "lab_test_mode": lab_mode,
+                        "target_reflectance": refl,
+                    },
+                )
             # Gap 42: build the chamber / test-range background from the
             # config surface.  Decision #15 (ADR-0002) makes
             # source.background.* the *valid* adjacent-scene surface for the

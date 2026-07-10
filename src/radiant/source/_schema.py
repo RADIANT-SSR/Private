@@ -294,6 +294,31 @@ NO_ATMOSPHERE_SUBCASE = ParameterDef(
     ),
 )
 
+LAB_TEST_MODE = ParameterDef(
+    name="source.lab_test_mode",
+    description=(
+        "Positive dark/lit assertion for the ground_test / lab_test "
+        "sub-cases (Gap 40). 'dark' declares a no-external-illumination "
+        "configuration (no lamp, no solar — thermal self-emission only, "
+        "the D-lab dark-cal sub-mode) and is VALIDATED: a user-set "
+        "source.target.reflectance contradicts it and is rejected. 'lit' "
+        "positively asserts an externally illuminated lab scene (recorded "
+        "for readability; unvalidated until a lamp surface exists). Empty "
+        "string = unasserted (back-compat)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    enum_values=("", "dark", "lit"),
+    tags=frozenset({"source", "descriptor", "lab"}),
+    default_justification=(
+        "Empty string preserves every existing lab/ground-test config "
+        "byte-for-byte; the flag is a readability/validation assertion, "
+        "not a radiometric input."
+    ),
+)
+
 # ---------------------------------------------------------------------------
 # Shape selection parameters (Target Definition Matrix §3 — Q3 resolution)
 # ---------------------------------------------------------------------------
@@ -834,6 +859,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SCENE_TYPE,
     TARGET_LOCATION,
     NO_ATMOSPHERE_SUBCASE,
+    LAB_TEST_MODE,
     SHAPE,
     SHAPE_RADIUS,
     SHAPE_LENGTH,

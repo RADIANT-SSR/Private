@@ -13,6 +13,35 @@
 ## Open
 
 
+### CU-063 — `ModtranConfig` has no visibility field (Card 2 hardcodes `VIS 0.000`)
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-1 (deck-builder audit), 2026-07-10, commit `fe57c74`
+**Status**: Open
+
+**File**: `src/radiant/atmosphere/modtran.py` (Card 2 rendering)
+**Symptom**: `render_tape5` always writes `VIS 0.000`, taking the IHAZE default visibility; degraded-visibility runs in the run matrix (D1, D3, D6, E4) cannot be expressed through `ModtranConfig`.
+**Why it still matters**: 4 of the 39 planned MODTRAN runs are blocked on it; SimpleAtmosphere's visibility axis (Koschmieder) would have no MODTRAN parity anchor.
+**Suggested fix**: stand-alone small task — add `visibility_km: float | None = None` to `ModtranConfig` and thread to Card 2 (write the value when set, keep `0.000` default), with a Level-0 deck-rendering test. Effort S; category B.
+
+### CU-064 — Deck builder has no solar-irradiance mode (IEMSCT = 2 only)
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-2 (deck-builder audit), 2026-07-10, commit `fe57c74`
+**Status**: Open
+
+**File**: `src/radiant/atmosphere/modtran.py` (Card 1 rendering)
+**Symptom**: the deck builder emits IEMSCT = 2 (thermal + solar scatter radiance) unconditionally; Block E of the run matrix (sky-irradiance / E_sky reference for Gap 38) needs IEMSCT = 3 plus the diffuse-flux option and cannot be expressed.
+**Why it still matters**: Gap 38's ω₀/E_sky validation runs (E1–E4) are blocked on it — the exact runs that gate the E_sky fidelity deferral.
+**Suggested fix**: stand-alone task — a run-mode enum on `ModtranConfig` (radiance / solar_irradiance) or a documented `extra_cards` recipe, whichever stays closer to the existing builder design; Level-0 deck-rendering test. Effort S–M; category B.
+
+### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted)
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10, commit `fe57c74`
+**Status**: DEFERRED — latent bug, never exercised (no MODTRAN binary has ever run a rendered deck). Gating condition: MODTRAN access (manual + binary needed to verify the convention). Re-audit: on access, alongside CU-011 — first real run must start with this check.
+**File**: `src/radiant/atmosphere/modtran.py` (`render_tape5`, Card 3)
+**Symptom**: RADIANT's `path_zenith_rad` is written directly as MODTRAN's ANGLE, but MODTRAN measures ANGLE from zenith **at H1 (the sensor)**: a nadir-looking space sensor needs ANGLE = 180°, not 0°. The run matrix carries both columns (`path_zenith_deg_radiant`, `modtran_angle_at_h1_deg`) so the decks are specified correctly regardless.
+**Why it still matters**: if unfixed, every slant-path deck RADIANT renders would compute the wrong geometry — silently, since tape7 parses fine either way.
+**Suggested fix**: verify against the MODTRAN user manual when access arrives; fix the Card 3 conversion with a Level-0 deck-rendering test asserting the nadir-from-space case renders ANGLE = 180. Effort S; category C.
+
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
 **Discovered**: Option C Stage 3 (2026-04-19)

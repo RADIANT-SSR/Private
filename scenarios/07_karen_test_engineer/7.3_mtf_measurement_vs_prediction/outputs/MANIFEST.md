@@ -9,8 +9,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_mtf_measured_vs_predicted.png | figure (committed) | 0c1bed9 2026-07-07 |
+| fig1_mtf_measured_vs_predicted.png | figure (committed) | bc2508d 2026-07-09 |
 | fig2_mtf_component_decomposition.png | figure (committed) | 0c1bed9 2026-07-07 |
-| fig3_mtf_residual.png | figure (committed) | 0c1bed9 2026-07-07 |
-| fig4_defocus_sensitivity.png | figure (committed) | 0c1bed9 2026-07-07 |
+| fig3_mtf_residual.png | figure (committed) | bc2508d 2026-07-09 |
+| fig4_defocus_sensitivity.png | figure (committed) | bc2508d 2026-07-09 |
 | mtf_comparison_results.xlsx | results workbook (not committed) | regenerate on demand |

@@ -194,7 +194,12 @@ CELL28_PINNED = {
     # cell saturates (signal 3.5e8 e- clips to full well), which makes
     # snr ≈ √FWC scene-independent.
     "nedt_K": 0.20841920600038896,
-    "mtf_at_nyquist": 0.07587823,
+    # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
+    # kernel is now area-integrated (anti-aliased edges) instead of a binary
+    # mask that quantised the rect width to the sample grid. The old kernel
+    # was effectively wider → over-blurred → MTF low by ~5.6% at Nyquist.
+    # Was 0.07587823.
+    "mtf_at_nyquist": 0.08012242959201417,
     "L_aperture_W_m2_sr_um": {
         8.0:  3.874043,
         9.0:  6.658567,
@@ -214,7 +219,9 @@ CELL58_PINNED = {
     # NEDT repinned 2026-07-08 (Gap 43): exact band-integrated dS/dT.
     # −0.18% for this LWIR cell. Was 0.18606860088514812.
     "nedt_K": 0.18574197176729387,
-    "mtf_at_nyquist": 0.06690769,
+    # MTF@Nyquist repinned 2026-07-10 (CU-003 option a — see Cell 28 note).
+    # Was 0.06690769 (+7.9%).
+    "mtf_at_nyquist": 0.07221495554327903,
     "L_aperture_W_m2_sr_um": {
         8.0:  6.485012,
         9.0:  7.268780,

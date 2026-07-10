@@ -43,7 +43,7 @@ Both paths originate from the same pupil. After all convolutions are applied to 
 
 Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`), the check is **unconditional** — it runs on every chain execution, not gated by a fidelity preset. Tolerance: `5e-2` absolute error on max(|MTF_psf − MTF_product|) below Nyquist on each axis. The check function is `check_dual_path_consistency` in `src/radiant/performance/consistency_check.py`; the result lives at `state.stage_outputs["performance"]["dual_path_consistency"]`.
 
-A failure means a degradation was added to one path but not the other — the build is broken. The `5e-2` tolerance is wide enough to absorb expected discretization mismatches (see CU-003 for the rect-kernel sampling story) but narrow enough to catch a missing convolution or an unmultiplied MTF term.
+A failure means a degradation was added to one path but not the other — the build is broken. The default `2e-2` tolerance (CU-045, 2026-07-10) sits ~2× above the worst measured full-chain discretization residual (~1e-2 at undersampled Q ≈ 0.2) now that the pixel-aperture rect kernel is area-integrated (anti-aliased edges — CU-003 option a; the old binary mask cost up to 4.5e-2 at Nyquist). Wide enough to absorb the remaining bin-average envelope, narrow enough to catch a missing convolution or an unmultiplied MTF term.
 
 ---
 
@@ -151,7 +151,7 @@ The function then:
 4. Recomputes the actual focal spacing from the rounded `N` for downstream consistency.
 5. Logs a warning if `samples_across_Airy_FWHM < 2`.
 
-The two free knobs (`pupil_npix=128`, `psf_oversample=8`) are **not** exposed as schema parameters in v1. They are the values that fit the entire scenario set without undersampling — see CU-003 for the one corner case (Q ≈ 0.34 with non-integer samples-per-pixel) where the pixel-aperture rect kernel sees discretization noise; that is a numerical edge of the rect kernel, not a sampling-knob deficiency.
+The two free knobs (`pupil_npix=128`, `psf_oversample=8`) are **not** exposed as schema parameters in v1. They are the values that fit the entire scenario set without undersampling — CU-003 (resolved 2026-07-10) had one corner case (non-integer samples-per-pixel) where the binary pixel-aperture rect kernel saw discretization noise; the kernel is now area-integrated (exact edge coverage), leaving only the irreducible sinc(πfΔ) bin-average envelope (~3.5e-3 at Nyquist worst-case) — a numerical property of any nonnegative sampled kernel, not a sampling-knob deficiency.
 
 **Open follow-up:** if a future scenario needs deeper pupil sampling (e.g., for very low Q or extreme aberrations), promote `optics.pupil_npix` and/or `optics.psf_oversample` to `_schema.py` parameters with defaults matching today's hard-coded values. There is no FidelityPreset to bundle them under.
 

@@ -76,6 +76,21 @@ retroactively reconstructed.
   forbids new bare built-in raises.
 
 ### Changed
+- **Results-affecting (PSF-path spatial metrics; small):** the
+  pixel-aperture rect kernel is now sampled by exact area overlap
+  (anti-aliased edges) instead of a binary inside/outside mask (CU-003
+  option a). The binary mask quantised the rect width to the PSF sample
+  grid, over- or under-blurring by up to half a sample; MTF-at-Nyquist,
+  RER, and EE shift by a few percent in configurations where the grid did
+  not divide the pitch (Option-C anchors: Cell 28 MTF@Ny +5.6%, Cell 58
+  +7.9% — repinned with provenance). FFT-vs-analytic-sinc agreement
+  improves ~13× (4.5e-2 → 3.6e-3 at Nyquist, worst config); the worst
+  full-chain dual-path residual drops from ~5.8e-2 to ~1e-2. Radiometric
+  goldens (signal/noise/SNR) are unaffected.
+- Dual-path consistency default tolerance tightened 5e-2 → 2e-2 (CU-045):
+  ~2× margin over the worst measured full-chain residual after CU-003.
+  The check remains warn-only by design — it is a diagnostic invariant,
+  and raising would abort runs whose physics is otherwise valid.
 - **Results-affecting (non-default atmosphere profiles; large in
   water-sensitive bands):** the `atmosphere.standard_atmosphere` preset now
   carries its standard water column (Gap 57). When

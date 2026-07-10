@@ -48,7 +48,7 @@ RADIANT maintains two parallel spatial paths, both rooted in the same complex pu
 - System MTF = product of all contributor MTFs: `MTF_sys(f) = Π_i MTF_i(f)`.
 - MTF budgets, MTF-at-Nyquist, folded MTF, and GIQE/NIIRS consume this path.
 
-**Consistency invariant**: Both paths originate from the same pupil. The FFT of the convolved `EffectivePSF` must agree with the MTF product; `performance/consistency_check.py` runs unconditionally on every chain execution with a default absolute tolerance of 5e-2 (floor set by rect-kernel discretization error — see CU-003/CU-045) and logs a warning on failure. A failure means a degradation was added to one path but not the other.
+**Consistency invariant**: Both paths originate from the same pupil. The FFT of the convolved `EffectivePSF` must agree with the MTF product; `performance/consistency_check.py` runs unconditionally on every chain execution with a default absolute tolerance of 2e-2 (worst measured full-chain discretization residual is ~1e-2 after the CU-003 area-integrated pixel kernel; the tolerance carries ~2× margin — see CU-003/CU-045) and logs a warning on failure. A failure means a degradation was added to one path but not the other.
 
 **What this rule forbids**:
 - Computing EE from one PSF and MTF from a different PSF (the old single-path failure mode).

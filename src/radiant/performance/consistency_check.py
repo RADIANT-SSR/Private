@@ -39,7 +39,7 @@ def check_dual_path_consistency(
     mtf_terms: Mapping[str, npt.NDArray[np.float64]],
     freq_cycles_per_mrad: npt.NDArray[np.float64],
     focal_length_m: float,
-    tolerance: float = 5e-2,
+    tolerance: float = 2e-2,
 ) -> DualPathConsistencyResult:
     """Compare FFT(convolved PSF) vs MTF product for both x and y.
 
@@ -55,7 +55,12 @@ def check_dual_path_consistency(
     focal_length_m:
         Effective focal length [m].
     tolerance:
-        Maximum allowed absolute error between paths.
+        Maximum allowed absolute error between paths. Default 2e-2
+        (CU-045, 2026-07-10): the worst measured full-chain residual after
+        the CU-003 area-integrated pixel kernel is ~1e-2 (undersampled
+        Q ≈ 0.2 VNIR), so the default carries ~2x margin. The check stays
+        warn-only by design — it is a diagnostic invariant, and raising
+        would abort user runs whose physics is otherwise valid.
 
     Returns
     -------

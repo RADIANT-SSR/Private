@@ -13,62 +13,6 @@
 ## Open
 
 
-### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml`
-
-**Investigation extended 2026-07-07 (overnight run — STOP trigger fired, no code changed):** the task doc's Approach 1 (area-integration/anti-aliased rect kernel) was measured before implementation and does NOT meet the doc's own acceptance criterion. Empirical FFT-vs-analytic-sinc error on the exact `swir_aerial_gas` parameters (pitch 20 µm, spacing 1.6875 µm, npix 512):
-
-| Kernel construction | max err (|f| ≤ detector Nyquist) | min kernel value |
-|---|---|---|
-| binary mask (current) | 4.50e-2 | 0.0 |
-| area-integration (task doc Approach 1) | 3.51e-3 | 0.0 |
-| band-limited (IFFT of analytic sinc on grid) | 2.2e-16 | −6.7e-3 |
-
-Root cause of the residual: any *nonnegative sampled* kernel carries the bin-average envelope `sinc(πΔf)` in its DFT (Poisson summation), an irreducible ~3.5e-3 floor at detector Nyquist for this Δ/pitch — the task doc's predicted ~1e-7 is unachievable by Approach 1, and its >1e-4 stop trigger fires. Decision needed (owner):
-(a) accept the area kernel as a 13× improvement and re-derive the consistency tolerance from the sinc_Δ envelope (could tighten 5e-2 → ~5e-3);
-(b) band-limited kernel — exact MTF agreement but introduces negative PSF lobes (EffectivePSF nonnegativity/EE invariant implications must be assessed first);
-(c) multiply the product-path analytic reference by sinc_Δ(f) — exact agreement, nonnegative kernel, but couples the MTF product path to the PSF sampling grid (the documented con of Approach 2).
-Measurement script preserved in this entry's table; reproduce with numpy per the three constructions above.
-
-**Discovered**: Option C Stage 0 (2026-04-19)
-**Investigated**: Phase 2 Track A (2026-04-24)
-**Status**: Open — escalated to a stand-alone Category C task (`docs/reports/cu_tasks/CU-003_Rect_Kernel_Fix_Task.md`) — this entry stays Open until the follow-on lands.
-
-**File**: `examples/templates/swir_aerial_gas.yaml`
-**Symptom**: MTF consistency check reports `max_err_x = max_err_y = 0.05196` vs tolerance `0.050` (~4% miss). All other 13 baseline scenarios pass cleanly.
-
-**Reproducer numbers** (Phase 2 investigation, 2026-04-24):
-- Aperture 0.12 m, focal 0.36 m (f/3.0), pixel pitch 20 µm, filter 2.0–2.5 µm.
-- `Q = λ·F#/pitch ≈ 0.338` at 2.25 µm — the lowest Q in the suite (next-lowest, `vnir_leo_highres`, has Q ≈ 1.0).
-- PSF spatial sampling: `sample_spacing = 1.6875 µm` → `pitch / sample_spacing ≈ 11.852` samples per pixel (non-integer).
-- Residual peaks near Nyquist (idx 35 of 64), monotonic at low frequency.
-
-**Per-term sensitivity** (drop-one-MTF-term probe on the product side, re-measure `max_err`):
-| Term dropped | max_err |
-|---|---|
-| (none — baseline) | 0.05196 |
-| optics | 0.131 |
-| pixel_aperture | 0.546 |
-| jitter / smear / ipc / diffusion | 0.05196 (no change) |
-
-Only optics × pixel_aperture matter for this scenario. Decisive verification: substituting the *discrete* rect kernel's actual FFT into the product (in place of the analytic `sinc(π·pitch·f)`) collapses `max_err` to **0.00000** (floating-point identity), proving the entire residual is the pixel-aperture term's PSF-path/MTF-product-path discretization mismatch.
-
-**Root cause**: `src/radiant/optics/pixel_kernel.py::_rect_1d` builds a binary mask `np.where(np.abs(x) <= pitch/2, 1.0, 0.0)` at `1.6875 µm` sample spacing. With `11.852` samples per pixel (non-integer), the kernel quantizes the rect's edges, so its FFT has lower roll-off than the analytic `sinc` that the MTF-product path uses. The PSF path therefore over-attenuates near Nyquist relative to the MTF-product path, and the divergence is greatest at low Q (when `pitch/λF#` is small the rect edges dominate).
-
-**Branch classification (per Phase 2 plan §Track A)**:
-- **Finding A** (real Rule-4 bug, missing/mis-applied degradation in one path) — **NO**. Both paths apply pixel-aperture; they disagree only on discretization.
-- **Finding B** (numerical edge intrinsic to sampling) — **YES**. Q = 0.338 is the suite minimum; the scenario sits at a corner of the sampled-rect's accuracy regime.
-- **Finding C** (inconsistent scenario YAML) — **NO**. The scenario inputs are self-consistent.
-
-**Why this is not a Phase-2 inline fix**: a proper fix is Category C (touches optics physics path, requires three numerical truth anchors, dimensional audit, fragility analysis, and golden-snapshot sweep). Two candidate approaches exist:
-1. Anti-aliased rect kernel — replace the binary mask in `_rect_1d` with an integrated rect (subpixel-area weighting at the edges, equivalent to convolving the binary rect with a sample-spacing impulse train and integrating). PSF-path FFT will then match the analytic `sinc` to ~1e-6 across all Q.
-2. FFT-based product path — compute the pixel-aperture MTF on the product side from `FFT(_rect_1d(...))` instead of the analytic `sinc`. Symmetric: both paths see the same discretization. Cheaper but couples the product path to the PSF sampling grid.
-
-Approach 1 is preferred (preserves the MTF-product path as the analytic reference; fixes the PSF path to match).
-
-**Why it still matters** (supersedes the earlier "low priority unless promoted to a regression anchor" framing, which is no longer accurate): the scenario *is* in `tests/integration/snapshots/option_c_baseline.yaml` and will be re-checked at every Option C stage. The miss is ~4% above tolerance, persistent, and the only failing cell. It needs a real fix before it gets confused with a Stage 6 physics drift.
-
-**Suggested fix**: stand-alone task (Category C, effort M) per `docs/reports/cu_tasks/CU-003_Rect_Kernel_Fix_Task.md` — the two candidate approaches above: (1) anti-aliased rect kernel in `_rect_1d` (preferred — preserves the MTF-product path as the analytic reference and fixes the PSF path to match), or (2) FFT-based product path (cheaper but couples the product path to the PSF sampling grid).
-
 ### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral
 
 **Discovered**: Option C Stage 2 (2026-04-19)
@@ -121,16 +65,6 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 **Why it still matters**: untunable physics constants outside schema/`constants.py` violate Rule 12 ("all tuneable quantities are parameters; nothing is hardcoded in physics modules"); the duplicated regime threshold can silently diverge if one site is edited without the other.
 **Suggested fix**: stand-alone task — promote genuinely tuneable quantities to `ParameterDef`s, move fixed physical/empirical constants to module-level named constants with citations, deduplicate the regime threshold. Effort M; category B/C.
 
-### CU-045 — Dual-path consistency check gating: warn-only at tolerance 5e-2
-
-**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
-**Status**: Open — blocked by CU-003 (the rect-kernel discretization error sets the tolerance floor). Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-003 lands).
-
-**File**: `src/radiant/performance/consistency_check.py`
-**Symptom**: the PSF-path vs MTF-product-path consistency check runs with default tolerance `5e-2`, unconditionally, and only warns on failure. CLAUDE.md Rule 4 previously claimed ~1e-6 gated at `standard` fidelity (doc corrected 2026-07-06 to describe actual behavior).
-**Why it still matters**: the Rule-4 consistency invariant is the guard against a spatial degradation landing in one path but not the other; a warn-only 5e-2 gate is too loose to catch small real divergences, and no strict mode exists for configurations that should agree tightly.
-**Suggested fix**: stand-alone decision task after CU-003 — decide whether to (a) tighten tolerance per-configuration, (b) add a strict mode that raises, or (c) accept warn-at-5e-2 permanently. Effort S; category C.
-
 ### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
@@ -168,6 +102,14 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml` — RESOLVED 2026-07-10 (commit `2d5da44`, investigation option a)
+
+**Discovered**: Option C era (2026-04); investigation completed 2026-07-07 with a three-way owner decision. **Resolution** (owner-directed close-the-backlog directive, Backlog_Closure_Plan Wave 2): option (a) — the pixel-aperture rect kernel is sampled by exact area overlap (anti-aliased edges) instead of a binary mask. Options (b) band-limited kernel and (c) sinc-envelope on the analytic reference were rejected for trading away PSF nonnegativity and path independence respectively. Measured: FFT-vs-analytic-sinc at Nyquist 4.5e-2 → 3.6e-3 (13×, the irreducible sinc(πfΔ) bin-average floor of any nonnegative sampled kernel); worst full-chain dual-path residual 5.8e-2 → 9.5e-3. Option-C MTF@Nyquist anchors repinned with provenance (+5.6%/+7.9% — the binary kernel over-blurred); radiometric goldens unaffected. `swir_aerial_gas`-class configs no longer warn.
+
+### CU-045 — Dual-path consistency check gating: warn-only at tolerance 5e-2 — RESOLVED 2026-07-10 (commit `2d5da44`)
+
+**Discovered**: architecture audit 2026-07-06; blocked on CU-003. **Resolution**: with CU-003 landed, the default tolerance is tightened 5e-2 → 2e-2 (~2× margin over the worst measured full-chain residual, 9.5e-3 at undersampled Q ≈ 0.2 VNIR). Gating decision: the check **stays warn-only by design** — it is a diagnostic invariant guarding the build, and raising would abort user runs whose physics is otherwise valid; the loud `UserWarning` plus the `dual_path_consistency` stage output remain the surfaced contract. Decision recorded in `consistency_check.py`, CLAUDE.md Rule 4, and RADIANT_Spatial_Complete.md. Full corpus passes under the tightened tolerance (784 tests).
 
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired — RESOLVED 2026-07-09 (commit `c8a6f70`, resolution option b)
 

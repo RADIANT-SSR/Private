@@ -8,9 +8,9 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| named_conditions_gonogo.png | figure (committed) | 4953c90 2026-04-19 |
-| niirs_2d_heatmap.png | figure (committed) | 4953c90 2026-04-19 |
-| niirs_vs_pwv.png | figure (committed) | 4953c90 2026-04-19 |
-| niirs_vs_visibility.png | figure (committed) | 4953c90 2026-04-19 |
-| noise_budget_baseline.png | figure (committed) | 4953c90 2026-04-19 |
+| named_conditions_gonogo.png | figure (committed) | 84ad9cf 2026-07-09 |
+| niirs_2d_heatmap.png | figure (committed) | 84ad9cf 2026-07-09 |
+| niirs_vs_pwv.png | figure (committed) | 84ad9cf 2026-07-09 |
+| niirs_vs_visibility.png | figure (committed) | 84ad9cf 2026-07-09 |
+| noise_budget_baseline.png | figure (committed) | 84ad9cf 2026-07-09 |
 | weather_sensitivity_results.xlsx | results workbook (not committed) | regenerate on demand |

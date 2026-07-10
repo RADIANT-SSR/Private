@@ -102,7 +102,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 
 **Discovered**: Option C Stage 3 (2026-04-19)
 **Re-audited**: 2026-04-24 (Stage 6 has landed); 2026-04-26 (refreshed after CU-009 escalation)
-**Status**: UNBLOCKED 2026-07-06 — CU-009 landed (commit `d846f07`); the producer side now exists, so the stand-alone Category C task in Suggested fix can be filed. Re-audit date: 2026-08-15. Prior context: the exercise path is now visible (post-CU-009, a YAML can plumb non-zero `geometry.solar_zenith_rad` through `_infer_los` to the MODTRAN backend), so the test fixture for the second TAPE7 invocation finally has somewhere to land. Stage 6 (E_sky decomposition, commit `b9244fd`) landed the consumer side; CU-009 lands the producer side; this CU completes the MODTRAN-backend slice. Currently anchor cells 28/58 use the analytic atmosphere, so the MODTRAN single-τ alias does not affect the pinned values directly — but any MWIR scenario that elects to route through MODTRAN with a non-zero `θ_s` would silently lose the solar-leg attenuation.
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — the fix is implementable but only exercisable/validatable with a MODTRAN binary; owner reconfirmed no MODTRAN access 2026-07-10. Gating condition: MODTRAN access. Re-audit: 2026-10-01 or on access, whichever comes first. Prior context: CU-009 landed the producer side (`d846f07`), so the task is otherwise unblocked. Prior context: the exercise path is now visible (post-CU-009, a YAML can plumb non-zero `geometry.solar_zenith_rad` through `_infer_los` to the MODTRAN backend), so the test fixture for the second TAPE7 invocation finally has somewhere to land. Stage 6 (E_sky decomposition, commit `b9244fd`) landed the consumer side; CU-009 lands the producer side; this CU completes the MODTRAN-backend slice. Currently anchor cells 28/58 use the analytic atmosphere, so the MODTRAN single-τ alias does not affect the pinned values directly — but any MWIR scenario that elects to route through MODTRAN with a non-zero `θ_s` would silently lose the solar-leg attenuation.
 
 **File**: `src/radiant/atmosphere/modtran.py`
 **Symptom (verified 2026-04-24)**: `modtran.py` lines 730–752 still emit the `UserWarning` and set `tau_sun = tau`, `tau_up = tau.copy()`, `tau_full_up = tau.copy()`, `L_path_up = lpath`, `L_path_full = lpath.copy()` from a single MODTRAN call. No second TAPE7 run keyed on `θ_s`, no analytic split.
@@ -112,7 +112,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ### CU-024 — Sun-zenith readout: `θ_s` (target) and `θ_sun,B` (background) collapse to identical values in flat-ground display
 
 **Discovered**: Geometry GUI Phase 10 (2026-04-26)
-**Status**: Open — flagged in PLAN.md §12 Phase-11 plan "Phase-10 CU sweep candidates".
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Previously: flagged in PLAN.md §12 Phase-11 plan "Phase-10 CU sweep candidates".
 
 **File**: `dev_tools/geometry_gui/app/view_model.py` (`_READOUT_FORMATTERS` `ro-solar-zenith` row); `dev_tools/geometry_gui/app/scene_builder/{sun_zenith_arc,solar_zenith_arc}.py`
 **Symptom**: Both arc helpers (`sun_zenith_at_target_rad(s_unit)` and `solar_zenith_at_b_rad(n_B, s_unit)`) reduce to `arccos(s_z)` whenever the surface normal at B equals `+ẑ` — which is *every* state the GUI currently renders, since the display assumes flat ground. The two on-figure labels (`θₛ` at target and `θ_sun,B` at the background point) sit at different anchors but encode the same numeric angle, and the readout panel shows only one row labeled "Solar zenith" without disambiguating which of the two physically-distinct angles is being read out.
@@ -122,7 +122,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ### CU-025 — Camera auto-frame is anchored to default-state geometry constants
 
 **Discovered**: Geometry GUI Phase 11 (2026-04-26)
-**Status**: Open — design choice, but the coupling needs to be captured before someone changes one of the display constants in isolation.
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Previously: design choice — the coupling needs capturing before the display constants change in isolation.
 
 **File**: `dev_tools/geometry_gui/app/scene_builder/_camera_frame.py` (`REFERENCE_HALF_EXTENT = 6.0`)
 **Symptom**: Phase-11 (d) introduces auto-framing via a bounding-box scan over all base-scene traces; the eye distance scales as `max(1.0, half_extent / REFERENCE_HALF_EXTENT)`. The constant `6.0` was hand-calibrated against the default state's bbox (driven by `OBSERVER_DISPLAY_DISTANCE = 4.0` and `SUN_DISPLAY_DISTANCE = 6.0` in `_display_constants.py`). Any future change to either display distance silently breaks the "default state framing matches Phase-10" invariant guarded by `tests/test_phase11_polish.py::test_camera_default_state_eye_unchanged`.
@@ -152,7 +152,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
-**Status**: Open. Re-audit date: 2026-08-15.
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first.
 **File**: `dev_tools/geometry_gui_v2/app/panels/parameters.py`
 **Symptom**: the parameters panel's slider interaction work ("headlining slider work" per `dev_tools/geometry_gui_v2/README.md` Phase-7 deferrals) is deferred; it gates the performance and memory test passes (CU-053, CU-054).
 **Why it still matters**: Phase 7 (hardening + handoff) cannot complete its acceptance bundle without it; two downstream CUs are blocked on it.
@@ -161,7 +161,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
-**Status**: Open — blocked on CU-052. Re-audit date: 2026-08-15.
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Blocked on CU-052.
 **File**: `dev_tools/geometry_gui_v2/` (scene rebuild path)
 **Symptom**: no performance test pass exists for interactive scene rebuilds; deferred from Phase 7 pending the slider work that would exercise it.
 **Why it still matters**: the tool is the visual-design prototype for the production GUI's geometry tab; rebuild latency regressions land silently without a gate.
@@ -170,7 +170,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
-**Status**: Open — blocked on CU-052. Re-audit date: 2026-08-15.
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Blocked on CU-052.
 **File**: `dev_tools/geometry_gui_v2/` (actor lifecycle)
 **Symptom**: no memory-leak pass over repeated scene rebuilds (VTK actor churn); deferred from Phase 7 pending the slider work that would exercise it.
 **Why it still matters**: long-lived desktop sessions with continuous parameter dragging will surface any actor leak; no gate exists.
@@ -179,7 +179,7 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
 
 **Discovered**: Geometry GUI v2 round-2 remediation (sun glyph rework); re-filed 2026-07-06 during loose-end cleanup (the docstring's CU number was never allocated in this registry and collided with the README's CI-deferral phantom).
-**Status**: Open. Re-audit date: 2026-08-15.
+**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first.
 **File**: `dev_tools/geometry_gui_v2/scene/glyphs/sun.py`
 **Symptom**: the sun disc + rays are sized in world space (tuned to ~24 px / 8 px at the round-2 default camera distance); zooming scales the glyph with the scene instead of holding fixed pixel size.
 **Why it still matters**: icon-style glyphs are meant to read at constant screen size; at extreme zoom the sun either dominates the viewport or vanishes.

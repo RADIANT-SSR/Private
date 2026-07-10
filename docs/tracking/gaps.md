@@ -324,7 +324,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.4 (Tom — jitter tolerance) |
-| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Status** | DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — Large; needs a PSD input-format design decision. Gated on a future platform-modeling task; re-audit 2026-10-01. |
 | **Deferral record** | Gating condition: a scenario or user request requiring colored-jitter blur/pointing partition (RMS assumption is standard for preliminary design; no scenario blocked). Re-audit: 2026-10-01. |
 | **Description** | The current jitter model assumes "well-sampled" jitter (many cycles during integration). Real jitter has a power spectral density (PSD). Low-frequency jitter (< 1/t_int) produces pointing error (frame shift), not blur. RADIANT should accept a jitter PSD and compute the in-band blur vs. out-of-band pointing error partition. |
 | **Workaround** | None — requires PSD-aware jitter model. |
@@ -625,7 +625,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, Open Q §8.6 (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Status** | DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — implementable without MODTRAN but not validatable to the parity fidelity the gap demands; owner reconfirmed no MODTRAN 2026-07-10. Re-audit 2026-10-01 or on MODTRAN access. |
 | **Deferral record** | Gating condition: MODTRAN lookup-table wiring lands (same blocker family as Gap 39 — no MODTRAN access since 2026-04-21, reconfirmed by owner 2026-07-07). Re-audit: 2026-10-01 or on MODTRAN access, whichever comes first. |
 | **Description** | The single-scatter sky irradiance formula `E_sky_scattered = E_TOA·cos(θ_s)·ω₀·(1−τ_down,vert)` is in place, but the single-scatter albedo ω₀ is a fixed scalar — it does not vary by aerosol regime or wavelength with MODTRAN-parity fidelity. Affects MWIR mixed emit+reflect scenes (use-case Cells 25, 40, 55) where thermal downwelling competes with scattered solar. No effect on LWIR (Cells 28, 58) or VIS/NIR-dominated cells. |
 | **Workaround** | Accept ~10–30% error on MWIR-band radiance in mixed emit+reflect scenes; expressibility is unaffected. |
@@ -642,7 +642,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, Table C (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
+| **Status** | DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner reconfirmed no MODTRAN access. Re-audit 2026-10-01 or on MODTRAN access, whichever comes first. |
 | **Deferral record** | Gating condition: licensed MODTRAN install or donated tape7 fixtures (no access since 2026-04-21, reconfirmed by owner 2026-07-07). Re-audit: 2026-10-01 or on MODTRAN access, whichever comes first. ~2 days of work once unblocked. |
 | **Description** | A3 partial-column transmission is wired end-to-end in `SimpleAtmosphere` and the Table C smoke tests pass monotonicity in h_tgt (`tests/integration/test_table_c_cells.py`), but MODTRAN-equivalent validation of τ(h_tgt, θ_o) requires a licensed MODTRAN install to generate reference tape7 fixtures. **BLOCKED: no MODTRAN access** (since 2026-04-21). The backend extension itself is ~2 days (two-run differential: full column + h_tgt→sensor legs, extending `ModtranAtmosphere.evaluate`). |
 | **Workaround** | Rely on smoke-tested, monotone `SimpleAtmosphere` values; not pinned against an external reference. Alternative reference (`lowtran` port or Beer-Lambert thin-atmosphere hand check) adds a dependency — not recommended for closure. |
@@ -901,7 +901,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.3 execution (Phase T4), 2026-07-08 |
-| **Status** | OPEN |
+| **Status** | DECLINED 2026-07-10 — large build (text extraction + plot digitisation) for low value; workbook transcription (scenario 3.3 pattern) is the accepted workflow (Backlog_Closure_Plan Wave 0). |
 | **Description** | Vendor sensor spec sheets arrive as PDFs (text + embedded QE plots); RADIANT has no PDF ingestion. Scenario 3.3 transcribes the vendor numbers into a workbook (the RADIANT-facing input) as the workaround. |
 | **Workaround** | Transcribe vendor specs into a structured workbook (scenario 3.3 pattern). |
 | **Impact** | Low — a manual transcription step for procurement comparisons; adequate for the workflow. |
@@ -917,7 +917,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 6.4 execution (Phase T4), 2026-07-09 |
-| **Status** | OPEN |
+| **Status** | DECLINED 2026-07-10 — owner decision: RADIANT stays a single-pixel model; 2-D scene work is out of scope. Re-open only on explicit re-scope (Backlog_Closure_Plan Wave 0). |
 | **Description** | RADIANT is a single-pixel / single-target radiometry engine: one run yields one pixel's signal + noise for one source against one background. There is no 2-D scene model — no way to place multiple targets spatially, PSF-convolve them into a shared focal plane, mix per-pixel radiance from overlapping sources, or lay out a background field. Scenario 6.4 fakes a multi-target scene by running the chain once per target and assembling a 1-D pixel strip in the script, applying an analytic fill-fraction dilution for sub-pixel targets. This covers the radiometry but not the *spatial* scene (no PSF blur between neighbours, no sub-pixel placement, no 2-D layout). |
 | **Workaround** | Run the chain per target + background; assemble pixels in the scenario script; dilute sub-pixel targets by `ff = (size/GSD)²`. Works because extended per-pixel signals are range-independent (only `ff` varies). Adequate for per-target detectability/ROC studies; not for spatial-algorithm testing (edge detection, clutter, PSF-limited separation). |
 | **Impact** | Medium — per-pixel radiometry and per-target ROC are available today; true scene-level and spatial-algorithm work is not. |
@@ -949,7 +949,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.5 execution (Phase T4), 2026-07-09 |
-| **Status** | OPEN |
+| **Status** | DEFERRED 2026-07-10 — value is predicated on map-driven backgrounds (Gap 56, declined); the CSV-transcription workaround is adequate. Gated on any future 2-D re-scope; re-audit alongside Gap 56. |
 | **Description** | RADIANT has no importer for GeoTIFF (or any raster) surface-temperature or land-cover maps. Raj's NOAA land-surface-temperature map cannot be ingested; the scenario transcribes it to a 1-D CSV strip as the workaround. A real reader would ingest the 2-D field and — with Gap 56's scene model — drive a per-pixel background. |
 | **Workaround** | Transcribe the raster to a CSV strip / scalar envelope (scenario 3.5 pattern). |
 | **Impact** | Low–Medium — a manual transcription step; blocks true map-driven backgrounds. |
@@ -1048,10 +1048,10 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | FIXED (ADR-0005) |
 | 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | FIXED (MRT/MRC model) |
 | 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
-| 55 | No PDF spec-sheet parser | Large | 3.3 | OPEN |
-| 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | OPEN |
+| 55 | No PDF spec-sheet parser | Large | 3.3 | DECLINED |
+| 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | DECLINED |
 | 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | FIXED |
-| 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | OPEN |
+| 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | DEFERRED |
 | 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | OPEN |
 | 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | OPEN |
 

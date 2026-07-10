@@ -44,16 +44,6 @@
 **Why it still matters**: a developer who bumps `OBSERVER_DISPLAY_DISTANCE` to make the observer chip more readable will trip the camera-frame test, but the failure message will point at `_camera_frame.py` rather than at the display constant they actually edited. The cross-module coupling is correct (the camera *must* track the bbox) but undocumented at the code-comment level.
 **Suggested fix**: inline-fix-now — add a one-line comment on `REFERENCE_HALF_EXTENT` linking it to `OBSERVER_DISPLAY_DISTANCE` / `SUN_DISPLAY_DISTANCE` and noting that any change to those constants requires re-calibration. Optional follow-up: derive `REFERENCE_HALF_EXTENT` programmatically from the default-state bbox at import time, eliminating the manual constant. Effort: < 30 LOC; Category A. Re-audit date: 2026-08-15 (calendar backstop; earlier if the next PR touching `dev_tools/geometry_gui/app/scene_builder/` picks up the inline fix).
 
-### CU-044 — Hardcoded tuneable quantities in physics modules (Rule 12)
-
-**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
-**Status**: Open
-
-**File**: `src/radiant/source/stage.py:84` and `src/radiant/source/_inferrer.py:200` (regime threshold `0.25 * ifov`, duplicated); `src/radiant/atmosphere/simple.py:92-165` (aerosol coefficient table, H2O band table, `RAYLEIGH_COEFF_KM` / `H2O_CONTINUUM_KM` / lapse rate); `src/radiant/performance/giqe.py:26-31,112` (GIQE-5 coefficients, m→inch conversion); `src/radiant/source/converters/brightness_temperature.py:56` (brightness-temperature threshold); `src/radiant/detector/ipc.py:37,50,90` (IPC coupling ceiling 0.25)
-**Symptom**: tuneable physics quantities are hardcoded inline in physics modules rather than registered as `ParameterDef`s in `_schema.py` or named constants; the regime threshold `0.25 * ifov` is duplicated at two sites.
-**Why it still matters**: untunable physics constants outside schema/`constants.py` violate Rule 12 ("all tuneable quantities are parameters; nothing is hardcoded in physics modules"); the duplicated regime threshold can silently diverge if one site is edited without the other.
-**Suggested fix**: stand-alone task — promote genuinely tuneable quantities to `ParameterDef`s, move fixed physical/empirical constants to module-level named constants with citations, deduplicate the regime threshold. Effort M; category B/C.
-
 ### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
@@ -91,6 +81,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-044 — Hardcoded tuneable quantities in physics modules (Rule 12) — RESOLVED 2026-07-10 (commit `c0febaf`)
+
+**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`. **Resolution**: Backlog_Closure_Plan Wave 4. IFOV regime decision boundaries deduped into `core/regime.py` (`REGIME_EXTENDED_IFOV_MULTIPLE`, `REGIME_POINT_SOURCE_IFOV_MULTIPLE`), imported by both former literal sites (`source/stage.py`, `source/_inferrer.py`); `optics/stage.py` PSF-FWHM finalization multipliers named locally (different basis, deliberately not shared); `performance/giqe.py` inline `0.0254` → `_M_PER_INCH` (NIST SP 811; GIQE-5 coefficients were already named); `detector/ipc.py` ceiling → `IPC_COUPLING_MAX` with the 1−4α>0 justification. Re-audited already conformant, no change: `atmosphere/simple.py` constant block and `brightness_temperature.py` thresholds (fixed by intervening work since the audit). No new `ParameterDef`s — every audited quantity is a published/definitional constant or a classification convention; user tuneability already exists where relevant (`source.regime_override`). Values unchanged, results bit-exact.
 
 ### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral — RESOLVED 2026-07-10 (commit `76b8bd1`)
 

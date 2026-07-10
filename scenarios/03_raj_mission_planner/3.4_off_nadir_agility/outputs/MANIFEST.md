@@ -8,8 +8,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_snr_transmission_vs_angle.png | figure (committed) | f3854a4 2026-04-16 |
-| fig2_gsd_vs_angle.png | figure (committed) | c3fec8d 2026-04-18 |
-| fig3_niirs_vs_angle.png | figure (committed) | 4953c90 2026-04-19 |
-| fig4_summary_panels.png | figure (committed) | f3854a4 2026-04-16 |
+| fig1_snr_transmission_vs_angle.png | figure (committed) | 9145941 2026-07-09 |
+| fig2_gsd_vs_angle.png | figure (committed) | 9145941 2026-07-09 |
+| fig3_niirs_vs_angle.png | figure (committed) | 9145941 2026-07-09 |
+| fig4_summary_panels.png | figure (committed) | 9145941 2026-07-09 |
 | off_nadir_results.xlsx | results workbook (not committed) | regenerate on demand |

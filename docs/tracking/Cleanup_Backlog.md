@@ -208,18 +208,13 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Suggested fix**: stand-alone task (results-affecting, Category C): unify defocus as pupil Z4 on **both** paths (drop the PSF-path Gaussian kernel; the PSF already comes from the same pupil, so folding Z4 there gives exact agreement by Wiener–Khinchin), and make `_add_defocus_to_wfe` preserve scalar-RMS (screen + Z4 in one pupil phase). Requires new truth anchors + golden-baseline review. Effort M; category C.
 **Related**: the residual 0.052–0.057 exceedances seen in undersampled VNIR configs (Q ≈ 0.2) with all degradations off are the CU-003 rect-kernel discretization floor, not this defect.
 
-### CU-060 — Sub-pixel scenarios must set `source.target.fill_fraction`; scenario 1.3 does not
-
-**Discovered**: Scenario 4.1 execution (Phase T3), 2026-07-08 — while debugging why the detection matrix did not vary with target size.
-**Status**: Open.
-**File**: `scenarios/01_sarah_systems_engineer/1.3_dual_band_mwir_lwir/scripts/run_dual_band_trade.py` (the `build_sensor` sub-pixel setup).
-**Symptom**: in the sub-pixel regime the chain weights the target by `source.target.fill_fraction` (default **1.0**), NOT by `source.target.projected_area_m2` — that parameter drives only the point-source A_t/R² path. A sub-pixel scenario that sets `projected_area_m2` but leaves `fill_fraction` at its default therefore models the target as **filling the pixel** regardless of its true size. Verified: changing `projected_area_m2` across 10 orders of magnitude leaves sub-pixel `contrast_e`/`signal_e` unchanged while `fill_fraction` stays 1.0; setting `fill_fraction = A_target/(IFOV·R)²` restores size dependence. Scenario 1.3's 5 m² hotspot in a 16 m² pixel (true fill 0.31) is modeled at fill 1.0 — its fire signal is ~3× overstated and its saturation temperatures are optimistically low.
-**Why it still matters**: absolute SCNR/contrast numbers and the MWIR/LWIR saturation temperatures in the committed 1.3 walkthrough are inaccurate. The scenario's *recommendation* (MWIR for detection; clutter-limited) is robust — the fill error is common-mode across both bands — so the conclusion stands, but the reported magnitudes do not.
-**Suggested fix**: (a) inline fix — set `source.target.fill_fraction = min(1, A_target/footprint)` in 1.3's `build_sensor`, rerun, refresh the walkthrough numbers + figures + manifest; and (b) audit any other sub-pixel scenario for the same omission (4.1 sets it correctly as of this session; 4.3 uses the extended regime and is unaffected). Effort S per scenario; category C (results-affecting). A framework-side mitigation (derive fill_fraction from projected_area + geometry when scene_type is sub_pixel, or raise if fill_fraction is left default in sub_pixel) would prevent recurrence — worth a registry gap if it recurs.
-
 ---
 
 ## Resolved
+
+### CU-060 — Sub-pixel scenario 1.3 did not set `source.target.fill_fraction` — RESOLVED 2026-07-09 (commit `c45be49`)
+
+**Discovered**: Scenario 4.1 execution (Phase T3), 2026-07-08. The sub-pixel regime weights the target by `fill_fraction` (default 1.0), not `projected_area_m2`; scenario 1.3's 31%-fill hotspot was modeled as pixel-filling, overstating fire signal ~3×. **Resolution**: `build_sensor` now sets `fill_fraction = min(1, A_target/footprint)`; walkthrough/figures/manifest refreshed (600 K SCNR 844→449 MWIR, 123→38 LWIR; saturation ≈800/900 K → ≈1200 K both bands; new finding — LWIR misses 400 K smolders, P_d 0.057). Audit item (b) complete: 4.1 is the only other sub-pixel scenario and already sets it correctly. The framework-side mitigation (derive-or-raise on default fill in sub_pixel) was not filed — one recurrence across two scenarios; re-file if it recurs.
 
 ### CU-059 — Executed-scenario outputs and walkthrough numbers predated the current physics — RESOLVED 2026-07-09 (commits `924b9e1`, `9145941`, `55d1c76`, `5e0df97`, `ea4917f`, `84ad9cf`, `a72013e`, `1d35a82`, `da04139`)
 

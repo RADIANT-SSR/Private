@@ -2,7 +2,7 @@
 
 ## The Problem
 
-Karen is a test engineer who has just completed TVAC testing of an as-built MWIR sensor. She measured NEDT at seven blackbody temperatures from 15°C to 50°C. Her primary measurement at 25°C gave NEDT = 127.0 mK, but RADIANT predicts 100.57 mK with the as-built parameters. Where does the 26.43 mK discrepancy come from?
+Karen is a test engineer who has just completed TVAC testing of an as-built MWIR sensor. She measured NEDT at seven blackbody temperatures from 15°C to 50°C. Her primary measurement at 25°C gave NEDT = 127.0 mK, but RADIANT predicts 74.17 mK with the as-built parameters. Where does the 52.83 mK discrepancy come from?
 
 This is the classic test-engineer question: **does the model match the measurement, and if not, what explains the gap?**
 
@@ -99,15 +99,15 @@ At each of Karen's seven measurement temperatures, the script runs RADIANT three
 
 | BB T [°C] | BB T [K] | Meas [mK] | Pred [mK] | Δ [mK] | Signal [e⁻] | dS/dT [e⁻/K] |
 |-----------|----------|-----------|-----------|--------|-------------|---------------|
-| 15.0 | 288.15 | 160.0 | 124.66 | 35.34 | 97,857 | 3,759 |
-| 20.0 | 293.15 | 142.0 | 111.50 | 30.50 | 118,204 | 4,393 |
-| **25.0** | **298.15** | **127.0** | **100.57** | **26.43** | **141,916** | **5,106** |
-| 30.0 | 303.15 | 114.0 | 91.40 | 22.60 | 169,401 | 5,903 |
-| 35.0 | 308.15 | 104.0 | 83.67 | 20.33 | 201,096 | 6,791 |
-| 40.0 | 313.15 | 95.0 | 77.08 | 17.92 | 237,468 | 7,775 |
-| 50.0 | 323.15 | 81.0 | 66.55 | 14.45 | 326,266 | 10,057 |
+| 15.0 | 288.15 | 160.0 | 83.86 | 76.14 | 99,144 | 3,759 |
+| 20.0 | 293.15 | 142.0 | 78.76 | 63.24 | 119,491 | 4,393 |
+| **25.0** | **298.15** | **127.0** | **74.17** | **52.83** | **143,203** | **5,106** |
+| 30.0 | 303.15 | 114.0 | 70.03 | 43.97 | 170,688 | 5,903 |
+| 35.0 | 308.15 | 104.0 | 66.28 | 37.72 | 202,383 | 6,791 |
+| 40.0 | 313.15 | 95.0 | 62.87 | 32.13 | 238,756 | 7,775 |
+| 50.0 | 323.15 | 81.0 | 56.93 | 24.07 | 327,553 | 10,057 |
 
-The predicted NEDT is systematically lower than measured by 14–35 mK (18–22%), with the gap larger at lower temperatures. Both curves show the expected 1/√(signal) behavior — NEDT decreases as the blackbody temperature increases because higher temperatures produce more signal.
+The predicted NEDT is systematically lower than measured by 24–76 mK (30–48%), with the gap larger at lower temperatures. Both curves show the expected 1/√(signal) behavior — NEDT decreases as the blackbody temperature increases because higher temperatures produce more signal. **The gap is larger than in older baselines** because the prediction no longer includes a spurious shroud `background_shot` term (Decision #13 — see the noise breakdown below); the cleaner prediction exposes the true model-vs-measurement discrepancy.
 
 ### Step 5: Noise Breakdown at Primary Test Point (25°C)
 
@@ -115,19 +115,17 @@ RADIANT's noise budget at the primary test point:
 
 | Noise Term | σ [e⁻ RMS] | NEDT_i [mK] | Fraction [%] |
 |------------|-----------|-------------|-------------|
-| signal_shot | 376.72 | 73.78 | 53.8 |
-| background_shot | 348.58 | 68.27 | 46.1 |
+| signal_shot | 378.42 | 74.12 | 99.9 |
 | read_noise | 14.20 | 2.78 | 0.1 |
 | quantization | 3.46 | 0.68 | <0.1 |
 | dark_shot | 0.26 | 0.05 | <0.1 |
+| background_shot | 0.00 | 0.00 | 0.0 |
 | nearfield_shot | 0.00 | 0.00 | 0.0 |
-| **RSS TOTAL** | **513.46** | **100.57** | **100.0** |
+| **RSS TOTAL** | **378.70** | **74.17** | **100.0** |
 
-The noise is overwhelmingly dominated by photon shot noise (signal + background = 99.9%). This is expected for a BLIP (Background-Limited Infrared Photodetector) system in MWIR with warm optics. Read noise and dark current are negligible at this signal level.
+The noise is now dominated almost entirely by **signal photon shot noise (99.9%)**. Read noise and dark current are negligible at this signal level.
 
-The two photon noise sources:
-- **signal_shot** (53.8%): Shot noise from the blackbody photons — the fundamental limit
-- **background_shot** (46.1%): Shot noise from the shroud (295.15 K, ε = 0.95) filling the rest of the FOV
+**Important — the shroud background shot noise is no longer counted, and that is correct.** Older baselines added a `background_shot` term (≈ 349 e⁻, 46 % of the budget) from the 295 K shroud. But during a NEDT measurement the large-area blackbody **fills the target pixel** — the shroud is not in that pixel — so there is no separable background there. Under ADR-0002 Decision #13 the extended-regime pixel is a single radiance field and `background_shot = 0`, removing what was a spurious double-count. This drops the *predicted* NEDT from ≈ 100 mK to 74 mK. The predicted-vs-measured gap therefore **widens** — not because a real term went missing, but because the old prediction was artificially inflated toward the measurement by a background that should not have been in the target pixel. The residual gap is now the *true* model-vs-measurement discrepancy.
 
 **Note**: `nearfield_shot = 0` is a known limitation (Gap 6 below). In scalar transmission mode, the lumped optical element is treated as refractive (ε = 0 by Kirchhoff's law: T + R = 1, ε = 1 − T − R = 0). Mirror self-emission requires `key_elements` or `full_prescription` mode.
 
@@ -137,11 +135,11 @@ The gap between predicted and measured NEDT implies additional noise sources:
 
 ```
 σ_measured  = NEDT_meas × dS/dT = 127.0 mK × 5,106 e⁻/K = 648.4 e⁻ RMS
-σ_predicted = 513.5 e⁻ RMS
-σ_missing   = √(648.4² − 513.5²) = 396.0 e⁻ RMS
+σ_predicted = 378.7 e⁻ RMS
+σ_missing   = √(648.4² − 378.7²) = 526.3 e⁻ RMS
 ```
 
-This missing noise of 396 e⁻ RMS is significant — it's 77% of the predicted noise. No single modeled noise term, if increased alone, could plausibly explain this gap. The most likely explanations are:
+This missing noise of 526 e⁻ RMS is large — 139% of the predicted noise. (It is larger than in older baselines because the prediction no longer includes the spurious shroud `background_shot`; the gap now reflects only genuinely unmodeled sources.) The most likely explanations:
 
 1. **Unmodeled ROIC glow** (5 e⁻/s in the spreadsheet, not currently modeled as a noise source in RADIANT)
 2. **Spatial non-uniformity in the NEDT measurement** — Karen measures NEDT as the spatial σ across a 100×100 ROI, which includes pixel-to-pixel responsivity variations (PRNU/DSNU) that inflate the measured temporal NEDT
@@ -161,29 +159,29 @@ Perturbing each parameter by ±1% reveals which parameters have the largest impa
 | Read noise | 0.001 | negligible |
 | Dark current | 0.000 | negligible |
 
-f-number and optical transmission dominate because they directly scale the photon flux reaching the detector. In the BLIP regime, NEDT ∝ 1/√(signal), and signal ∝ τ/f#². Read noise and dark current are irrelevant because they are 1000× smaller than the photon shot noise.
+f-number and optical transmission dominate because they directly scale the photon flux reaching the detector. In the shot-noise-limited regime, NEDT ∝ 1/√(signal), and signal ∝ τ/f#². Read noise and dark current are irrelevant because they are 1000× smaller than the photon shot noise.
 
 ### Step 8: Nominal vs. As-Built Comparison
 
 | Configuration | NEDT at 25°C [mK] |
 |---------------|-------------------|
-| Nominal design | 95.18 |
-| As-built | 100.57 |
+| Nominal design | 70.19 |
+| As-built | 74.17 |
 | Measured | 127.0 |
 
-The as-built parameters explain 5.38 mK of NEDT degradation from nominal (QE dropped 4%, transmission dropped 2%, f/# increased 1.25%, read noise increased 18%, dark current increased 35%). The remaining 26.43 mK gap is not explained by the known parameter deviations — it comes from noise sources not in the model (including unmodeled mirror self-emission; see Gap 6).
+The as-built parameters explain 3.98 mK of NEDT degradation from nominal (QE dropped 4%, transmission dropped 2%, f/# increased 1.25%, read noise increased 18%, dark current increased 35%). The remaining 52.83 mK gap is not explained by the known parameter deviations — it comes from noise sources not in the model, chiefly the shroud background shot noise the extended-regime model no longer counts (Decision #13) plus unmodeled mirror self-emission (see Gap 6).
 
 ## Key Takeaways
 
-1. **The sensor is BLIP-dominated.** 99.9% of the noise comes from photon shot noise (signal + background). Read noise and dark current are completely negligible. This means further improvements require cold optics, cold shielding, or spectral narrowing — not better detectors.
+1. **The sensor is signal-shot-limited (as modeled).** 99.9% of the predicted noise comes from signal photon shot noise. Read noise and dark current are completely negligible. Further improvements require cold optics, cold shielding, or spectral narrowing — not better detectors.
 
-2. **Background shot noise is almost as large as signal shot noise** (46.1% vs. 53.8%) because the shroud at 295 K is nearly as warm as the 298 K blackbody. In the MWIR band, a 3 K temperature difference produces only a small radiance contrast.
+2. **The old prediction was inflated by a spurious shroud background term.** Because the blackbody fills the target pixel, there is no separable background there; the ~349 e⁻ `background_shot` older baselines added was a double-count that Decision #13 correctly removed. This lowered the predicted NEDT to 74 mK and, honestly, *widened* the gap to the 127 mK measurement — the cleaner prediction exposes the true discrepancy.
 
-3. **The 26.43 mK gap is a real measurement-model discrepancy**, not a parameter error. The sensitivity analysis shows that no ±1% parameter perturbation can explain the gap. Likely causes: (a) unmodeled mirror self-emission from warm optics (nearfield_shot = 0 in scalar mode — see Gap 6), (b) spatial non-uniformity in the measurement (PRNU/DSNU inflating the temporal NEDT), and (c) unmodeled stray light from the TVAC chamber.
+3. **The 52.83 mK gap is a real measurement-model discrepancy**, not a parameter error and not the shroud. No ±1% parameter perturbation explains it. Likely causes: (a) unmodeled mirror self-emission from warm optics (nearfield_shot = 0 in scalar mode — see Gap 6), (b) spatial non-uniformity in the measurement (PRNU/DSNU inflating the temporal NEDT), and (c) unmodeled stray light and chamber reflections.
 
 4. **NEDT improves (decreases) at higher blackbody temperatures** because dS/dT increases faster than noise. This is the Planck function effect: ∂L/∂T increases with T in the Wien regime (for MWIR at 288–323 K), while shot noise grows only as √signal.
 
-5. **The as-built parameter deviations explain only 5.38 mK** of degradation. This tells Karen that the as-built sensor is performing close to its as-built specification — the gap is in the test setup or measurement method, not the sensor itself.
+5. **The as-built parameter deviations explain only 3.98 mK** of degradation. This tells Karen that the as-built sensor is performing close to its as-built specification — the gap is in the test setup or measurement method, not the sensor itself.
 
 ## Gaps Identified
 

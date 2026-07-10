@@ -43,47 +43,46 @@ This is more accurate than the analytic erfinv/erf approach used in the first ve
 | Parameter | Value | Unit |
 |---|---|---|
 | Signal | 9,463 | e- (9.5% well) |
-| Total noise | 137.7 | e- RMS |
-| SNR | 68.7 | -- |
+| Total noise | 97.4 | e- RMS |
+| SNR | 97.1 | -- |
 | MTF@Nyquist | 0.2409 | -- |
 | RER | 0.5547 | -- |
-| NIIRS | 6.27 | -- |
+| NIIRS | 6.50 | -- |
 
 ### Noise Budget
 | Noise Term | sigma [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 97.3 | 49.9 |
-| background_shot | 97.3 | 49.9 |
-| read_noise | 5.0 | 0.1 |
+| signal_shot | 97.3 | 99.7 |
+| read_noise | 5.0 | 0.3 |
 | quantization | 1.9 | 0.0 |
 | dark_shot | 0.1 | 0.0 |
 
-Signal and background shot noise dominate equally. This is a photon-noise-limited system where read noise is negligible.
+Signal shot noise dominates almost entirely. There is **no separate background_shot term** — the extended scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). This is a photon-noise-limited system where read noise is negligible.
 
 ## Key Results
 
 ### SNR Invariance
-SNR is exactly 68.73 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
+SNR is exactly 97.13 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
 
 ### Jitter Sweep
 | Jitter [urad] | sigma_fp [pixels] | MTF_jitter@Nyq [--] | MTF_sys@Nyq [--] | RER [--] | NIIRS [--] | delta_NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.0 | 0.000 | 1.0000 | 0.2409 | 0.5547 | 6.27 | +0.00 |
-| 0.2 | 0.125 | 0.9258 | 0.2230 | 0.5420 | 6.23 | -0.03 |
-| 0.5 | 0.312 | 0.6176 | 0.1488 | 0.4878 | 6.08 | -0.19 |
-| 0.8 | 0.500 | 0.2912 | 0.0702 | 0.4209 | 5.87 | -0.40 |
-| 1.0 | 0.625 | 0.1455 | 0.0351 | 0.3797 | 5.72 | -0.55 |
-| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2848 | 5.31 | -0.96 |
-| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2416 | 5.07 | -1.20 |
-| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1733 | 4.59 | -1.68 |
-| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1098 | 3.93 | -2.34 |
+| 0.0 | 0.000 | 1.0000 | 0.2409 | 0.5547 | 6.50 | +0.00 |
+| 0.2 | 0.125 | 0.9258 | 0.2230 | 0.5420 | 6.46 | -0.03 |
+| 0.5 | 0.312 | 0.6176 | 0.1488 | 0.4878 | 6.31 | -0.19 |
+| 0.8 | 0.500 | 0.2912 | 0.0702 | 0.4209 | 6.10 | -0.40 |
+| 1.0 | 0.625 | 0.1455 | 0.0351 | 0.3797 | 5.95 | -0.55 |
+| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2848 | 5.54 | -0.96 |
+| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2416 | 5.30 | -1.20 |
+| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1733 | 4.82 | -1.68 |
+| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1098 | 4.16 | -2.34 |
 
 ### Jitter Budget Thresholds
 | Threshold | Jitter [urad] | sigma_fp [um] | sigma_fp [pixels] |
 |---|---|---|---|
 | delta_NIIRS = -0.5 | 0.9 | 4.7 | 0.59 |
 | delta_NIIRS = -1.0 | 1.7 | 8.3 | 1.04 |
-| NIIRS = 6.0 floor | 0.6 | 3.1 | 0.39 |
+| NIIRS = 6.0 floor | 0.9 | 4.7 | 0.59 |
 
 ### Jitter in Context
 | Jitter [urad] | Fraction of IFOV | sigma_fp [pixels] | MTF@Nyq [--] | delta_NIIRS [--] |

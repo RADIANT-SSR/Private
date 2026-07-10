@@ -13,6 +13,16 @@
 ## Open
 
 
+### CU-066 — `Tape7Reader` column mapping is positional and mismatches the real IEMSCT=2 layout
+
+**Discovered**: tape7-format review against the MODTRAN 4/5 manual layout (follow-on to MODTRAN_Run_Matrix_Plan §6), 2026-07-10
+**Status**: Open — fixable now (header-name mapping); final verification against a real tape7 lands with run A1
+
+**File**: `src/radiant/atmosphere/modtran.py:325-331` (`_COL_*` constants) and `Tape7Reader.parse` (data-start heuristic)
+**Symptom**: (1) The reader hardcodes 0-indexed columns 3 → `path_scattered_radiance` and 4 → `ground_reflected_radiance`, but the real IEMSCT=2 column order is `FREQ, TOT TRANS, PTH THRML, THRML SCT, SURF EMIS, SOL SCAT, SNGL SCAT, GRND RFLT, DRCT RFLT, TOTAL RAD, …` — col 3 is THRML SCT (thermal scatter) and col 4 is SURF EMIS (surface emission), so two of four radiance channels would silently carry the wrong physics. The docstring says "the header row names provide the canonical mapping" but the code never reads them. (2) The data-start heuristic ("first field parses as float") fires on numeric card-echo lines in the real tape7 header, ingesting deck echoes as spectra. Synthetic fixtures were authored to match the parser, so tests cannot catch either defect.
+**Why it still matters**: every real tape7 from the run matrix would parse without error and return wrong `L_path_scattered` / `L_ground_reflected` — the silent-failure mode Rule 17 exists to prevent; blocks the Tape7Reader-validation purpose of run A1.
+**Suggested fix**: stand-alone task — map columns by header names (locate the `FREQ` header line, split fixed-width names, index by name with actionable errors for missing columns) and start data ingestion only after the header line; keep positional fallback with a loud warning for headerless files. Level-0 test with a manual-faithful IEMSCT=2 fixture (16-column, card echoes included). Final column-name verification against the first real tape7 (run A1) per MODTRAN version acquired. Effort S–M; category B.
+
 ### CU-063 — `ModtranConfig` has no visibility field (Card 2 hardcodes `VIS 0.000`)
 
 **Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-1 (deck-builder audit), 2026-07-10, commit `fe57c74`

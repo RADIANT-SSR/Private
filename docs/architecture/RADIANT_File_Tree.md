@@ -98,7 +98,7 @@ Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest p
 
 Top-level modules group by concern:
 
-- **Pupil + PSF (path-shared root):** `pupil_amplitude.py`, `pupil_phase.py`, `pupil_mtf.py`, `psf_mono.py`, `psf_poly.py`, `wavefront.py`, `zernike.py`, `zernike_opd.py`, `strehl.py`, `aperture.py`, `defocus.py`
+- **Pupil + PSF (path-shared root):** `pupil_amplitude.py`, `pupil_phase.py`, `pupil_mtf.py`, `psf_mono.py`, `psf_poly.py`, `wavefront.py`, `zernike.py`, `zernike_opd.py`, `strehl.py`, `aperture.py`
 - **Spatial-domain path:** `psf/` subpackage — `builder.py`, `data.py`, `effective.py` (the EffectivePSF that EE_box, RER, FWHM derive from)
 - **MTF product path:** `pupil_mtf.py` (optical MTF from autocorrelation), `pixel_kernel.py`, `diffusion_kernel.py`, `sampling.py`
 - **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`

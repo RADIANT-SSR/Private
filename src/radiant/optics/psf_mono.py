@@ -24,9 +24,9 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.optics.pupil_amplitude import SpiderVaneSpec, make_pupil_amplitude
-from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
+from radiant.optics.pupil_phase import make_pupil_phase_for_wfe
 from radiant.optics.sampling import PSFSamplingConfig
-from radiant.optics.wavefront import WavefrontError, WfeMode
+from radiant.optics.wavefront import WavefrontError
 
 
 def compute_psf(
@@ -65,27 +65,14 @@ def compute_psf(
 
     amplitude = make_pupil_amplitude(npix, obscuration_ratio, vanes, mask_override)
 
-    # --- Phase screen dispatch ---
-    if wfe is None:
-        phase = np.zeros((npix, npix), dtype=np.float64)
-    elif wfe.mode == WfeMode.SCALAR_RMS:
-        rms = wfe.rms_waves if wfe.rms_waves is not None else 0.0
-        phase = make_pupil_phase(npix, rms, config.wavelength_m)
-    elif wfe.mode == WfeMode.ZERNIKE:
-        assert wfe.zernike_coeffs is not None
-        ref_m = wfe.reference_wavelength_um * 1e-6
-        phase = make_pupil_phase_zernike(
-            npix,
-            wfe.zernike_coeffs,
-            reference_wavelength_m=ref_m,
-            operating_wavelength_m=config.wavelength_m,
-            obscuration_ratio=obscuration_ratio,
-        )
-    else:
-        raise NotImplementedError(
-            f"WFE mode {wfe.mode.value!r} is not supported in compute_psf. "
-            f"Supported modes: scalar_rms, zernike."
-        )
+    # --- Phase screen: single dispatch shared with the MTF product path
+    # (Rule 4 / CU-058 — both paths must build the identical pupil).
+    phase = make_pupil_phase_for_wfe(
+        npix,
+        wfe,
+        operating_wavelength_m=config.wavelength_m,
+        obscuration_ratio=obscuration_ratio,
+    )
 
     # Complex pupil function.
     pupil = amplitude * np.exp(1j * phase)

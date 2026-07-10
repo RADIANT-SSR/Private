@@ -191,17 +191,36 @@ class TestOpticsStage:
 
         epsf_pos = out_pos.stage_outputs["optics"]["effective_psf"]
         epsf_neg = out_neg.stage_outputs["optics"]["effective_psf"]
-        np.testing.assert_allclose(epsf_pos.data, epsf_neg.data, rtol=1e-12)
+        # Pure Z4 in a symmetric pupil (CU-058): ±defocus PSFs agree to
+        # machine precision, but tiny far-wing values need an absolute
+        # floor — elementwise rtol alone rejects ~1e-18 FFT noise.
+        np.testing.assert_allclose(epsf_pos.data, epsf_neg.data, rtol=1e-9, atol=1e-15)
 
-    @pytest.mark.level1
-    def test_defocus_sigma_stored(self, wl: np.ndarray) -> None:
-        """defocus_sigma_m stored in stage outputs."""
+    @pytest.mark.level0
+    def test_defocus_enters_pupil_not_kernel(self, wl: np.ndarray) -> None:
+        """CU-058: defocus enters as pupil Z4, not a spatial kernel.
+
+        The old Gaussian defocus kernel (and its defocus_sigma_m output) are
+        gone; defocus lives in the same complex pupil as the WFE, so the PSF
+        and MTF product paths agree by construction. The chain-level
+        consistency regression lives in
+        tests/integration/test_defocus_dual_path.py.
+        """
         params = _make_params()
+        params.set("optics.wfe_rms_waves", 0.07)
         params.set("optics.defocus_um", 5.0)
         params.resolve()
         out = OpticsStage().run(_make_state(wl), params)
-        sigma = out.stage_outputs["optics"]["defocus_sigma_m"]
-        assert sigma > 0.0
+        epsf = out.stage_outputs["optics"]["effective_psf"]
+        assert "defocus" not in epsf.convolution_history
+        assert "defocus_sigma_m" not in out.stage_outputs["optics"]
+        # The pupil fold degrades the PSF relative to WFE-only.
+        params_no = _make_params()
+        params_no.set("optics.wfe_rms_waves", 0.07)
+        params_no.resolve()
+        out_no = OpticsStage().run(_make_state(wl), params_no)
+        epsf_no = out_no.stage_outputs["optics"]["effective_psf"]
+        assert epsf.data.max() < epsf_no.data.max()  # peak drops with defocus
 
     @pytest.mark.level1
     def test_defocus_increases_fwhm(self, wl: np.ndarray) -> None:

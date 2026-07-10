@@ -25,7 +25,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.optics.pupil_amplitude import SpiderVaneSpec, make_pupil_amplitude
-from radiant.optics.pupil_phase import make_pupil_phase, make_pupil_phase_zernike
+from radiant.optics.pupil_phase import make_pupil_phase_for_wfe
 from radiant.optics.sampling import compute_sampling
 from radiant.optics.wavefront import WavefrontError, WfeMode
 
@@ -146,23 +146,13 @@ def _build_pupil_phase(
     wavelength_m: float,
     obscuration_ratio: float,
 ) -> npt.NDArray[np.float64]:
-    """Build the pupil phase screen — same dispatch as compute_psf."""
-    if wfe is None:
-        return np.zeros((npix, npix), dtype=np.float64)
-    if wfe.mode == WfeMode.SCALAR_RMS:
-        rms = wfe.rms_waves if wfe.rms_waves is not None else 0.0
-        return make_pupil_phase(npix, rms, wavelength_m)
-    if wfe.mode == WfeMode.ZERNIKE:
-        assert wfe.zernike_coeffs is not None
-        ref_m = wfe.reference_wavelength_um * 1e-6
-        return make_pupil_phase_zernike(
-            npix,
-            wfe.zernike_coeffs,
-            reference_wavelength_m=ref_m,
-            operating_wavelength_m=wavelength_m,
-            obscuration_ratio=obscuration_ratio,
-        )
-    raise NotImplementedError(f"WFE mode {wfe.mode.value!r} not supported.")
+    """Build the pupil phase screen — same dispatch as compute_psf (CU-058)."""
+    return make_pupil_phase_for_wfe(
+        npix,
+        wfe,
+        operating_wavelength_m=wavelength_m,
+        obscuration_ratio=obscuration_ratio,
+    )
 
 
 def polychromatic_pupil_mtf(

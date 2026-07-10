@@ -53,6 +53,24 @@ retroactively reconstructed.
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
 ### Fixed
+- **Results-affecting (defocused configs; moderate):** defocus is now
+  unified as pupil Zernike Z4 on BOTH spatial paths (CU-058, Rule 4). The
+  PSF path previously applied a Gaussian kernel (σ = |δ|/(4·f/#·√3)) while
+  the MTF product path folded Z4 into the pupil — and, when scalar-RMS WFE
+  was combined with defocus, discarded the RMS screen entirely, so any such
+  config structurally failed the dual-path consistency check (scenario 7.3:
+  max_err 0.169 vs tol 0.05). Now `_add_defocus_to_wfe` preserves the
+  scalar-RMS screen (screen + Z4 in one pupil phase), the fold happens once
+  before both paths, and the former Gaussian defocus kernel — plus the
+  `optics.defocus` module (`defocus_kernel_2d`, `defocus_sigma_m`) and the
+  `defocus_sigma_m` stage output — are removed. PSF-path spatial metrics for
+  defocused systems change (Gaussian → true Z4 defocus OTF, ~few % at
+  moderate defocus); configs with `defocus_um = 0` (all goldens) are
+  unchanged. Also fixes a latent reference-wavelength bug: the folded Z4 is
+  now rescaled to the WFE's reference wavelength, so the defocus OPD is
+  correct when `reference_wavelength_um` differs from band center. All three
+  pupil-phase dispatch sites now share one builder
+  (`pupil_phase.make_pupil_phase_for_wfe`).
 - Saturated `contrast_snr` is now flagged, not reported silently (CU-061).
   When the pixel saturates the readout caps the signal (and its shot noise)
   at full well but the contrast ΔS is not re-derived from the clipped

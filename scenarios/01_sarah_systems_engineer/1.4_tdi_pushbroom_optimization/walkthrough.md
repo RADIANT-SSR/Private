@@ -4,7 +4,7 @@
 Sarah, systems engineer. She is designing a VNIR panchromatic pushbroom imager (25 cm aperture, f/10, 7 um Si CCD) for a 500 km SSO. Ground velocity constrains the per-line integration time to ~0.2 ms. She needs TDI to build sufficient SNR and must find the optimal N_tdi.
 
 ## Why VNIR, Not MWIR
-The original concept specified MWIR. However, MWIR thermal scenes (300+ K) generate so many photons per pixel per line (~250,000 e- for a 30 cm aperture at 1 ms integration) that the well saturates at N_tdi=1. Adding TDI stages only grows noise while signal is clipped at FWC — NIIRS degrades monotonically. TDI is primarily a VNIR technology where reflected solar provides orders of magnitude less signal per pixel, making TDI essential for pushbroom operation.
+The original concept specified MWIR. However, MWIR thermal scenes (300+ K) generate so many photons per pixel per line (~250,000 e- for a 30 cm aperture at 1 ms integration) that the well saturates at N_tdi=1. Adding TDI stages then buys nothing — the signal is already clipped at FWC, so NIIRS cannot improve. TDI is primarily a VNIR technology where reflected solar provides orders of magnitude less signal per pixel, making TDI essential for pushbroom operation.
 
 ## System Configuration
 | Parameter | Value | Unit |
@@ -56,42 +56,59 @@ Smear MTF (1 pixel/line motion during each TDI stage) and TDI misalignment MTF a
 ### TDI Sweep
 | N_tdi | Signal [e-] | Well Fill [%] | SNR [--] | MTF@Nyq [--] | RER [--] | NIIRS [--] | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 3,118 | 5.2 | 38.8 | 0.1821 | 0.4790 | 4.86 | OK |
-| 2 | 6,236 | 10.4 | 55.3 | 0.1821 | 0.4790 | 5.10 | OK |
-| 4 | 12,473 | 20.8 | 78.6 | 0.1821 | 0.4790 | 5.34 | OK |
-| 8 | 24,945 | 41.6 | 111.4 | 0.1821 | 0.4790 | 5.57 | OK |
-| 16 | 49,891 | 83.2 | 157.8 | 0.1821 | 0.4790 | 5.81 | NEAR-SAT |
-| 32 | 60,000 | 100.0 | 150.0 | 0.1821 | 0.4790 | 5.78 | SATURATED |
-| 64 | 60,000 | 100.0 | 117.7 | 0.1821 | 0.4790 | 5.61 | SATURATED |
-| 96 | 60,000 | 100.0 | 100.1 | 0.1821 | 0.4790 | 5.50 | SATURATED |
-| 128 | 60,000 | 100.0 | 88.5 | 0.1821 | 0.4790 | 5.42 | SATURATED |
+| 1 | 3,118 | 5.2 | 53.9 | 0.1821 | 0.4790 | 5.08 | OK |
+| 2 | 6,236 | 10.4 | 77.6 | 0.1821 | 0.4790 | 5.33 | OK |
+| 4 | 12,473 | 20.8 | 110.7 | 0.1821 | 0.4790 | 5.57 | OK |
+| 8 | 24,945 | 41.6 | 157.2 | 0.1821 | 0.4790 | 5.81 | OK |
+| 16 | 49,891 | 83.2 | 222.9 | 0.1821 | 0.4790 | 6.04 | NEAR-SAT |
+| 32 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
+| 64 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
+| 96 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
+| 128 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
 
 ### Optimal N_tdi
-- **Peak NIIRS**: 5.81 at N_tdi = 16 (83% well fill, just below saturation)
-- **Conservative choice**: N_tdi = 8 (NIIRS = 5.57, 42% well fill, 80% margin)
-- **Saturation onset**: N_tdi = 32 (signal clipped at FWC = 60,000 e-)
+- **Peak NIIRS**: 6.11, reached at N_tdi = 32 and held (plateau) for all higher stages.
+- **Conservative choice**: N_tdi = 8 (NIIRS = 5.81, 42% well fill, 80% margin).
+- **Sweet spot**: N_tdi = 16 (NIIRS = 6.04, 83% well fill) — within 0.07 NIIRS of the
+  plateau while staying just below full saturation.
+- **Saturation onset**: N_tdi = 32 (signal first clips at FWC = 60,000 e-).
+
+Because this is an extended reflective scene, the background photon term is not a
+separate noise source (ADR-0002 Decision #13): the pixel sees one radiance field, so
+its shot noise is `signal_shot` alone. Once the signal clips at full well, the noise
+stops growing too, so **SNR and NIIRS plateau at saturation rather than degrading** —
+there is no sharp peak to sit below.
 
 ### SNR Scaling
 | N_tdi | SNR [--] | SNR/SNR_1 | sqrt(N) | Regime |
 |---|---|---|---|---|
-| 1 | 38.8 | 1.00 | 1.00 | baseline |
-| 2 | 55.3 | 1.43 | 1.41 | shot-limited |
-| 4 | 78.6 | 2.03 | 2.00 | shot-limited |
-| 8 | 111.4 | 2.87 | 2.83 | shot-limited |
-| 16 | 157.8 | 4.07 | 4.00 | shot-limited (near-sat) |
-| 32 | 150.0 | 3.87 | 5.66 | saturated |
+| 1 | 53.9 | 1.00 | 1.00 | baseline |
+| 2 | 77.6 | 1.44 | 1.41 | shot-limited |
+| 4 | 110.7 | 2.05 | 2.00 | shot-limited |
+| 8 | 157.2 | 2.92 | 2.83 | shot-limited |
+| 16 | 222.9 | 4.13 | 4.00 | shot-limited (near-sat) |
+| 32 | 244.5 | 4.53 | 5.66 | saturated (plateau) |
+| 64–128 | 244.5 | 4.53 | — | saturated (plateau) |
 
-Below saturation, SNR scales as exactly sqrt(N_tdi). This confirms the system is photon-shot-noise-limited (read noise = 15 e- is negligible compared to signal shot = 55-223 e-). Past saturation, signal is capped at FWC while background noise continues to grow, so SNR DECREASES.
+Below saturation, SNR scales as exactly sqrt(N_tdi) — the system is photon-shot-noise-
+limited (read noise = 15 e- is negligible against signal shot = 56–223 e-). At
+saturation the signal caps at FWC and, with no background term to keep growing, the
+total noise caps at √FWC ≈ 245 e-, so **SNR plateaus at 244.5 rather than decreasing**.
 
 ### Noise Budget
 | Noise Term | N=1 [e-] | N=8 [e-] | N=16 [e-] | N=32 [e-] | N=128 [e-] |
 |---|---|---|---|---|---|
 | signal_shot | 55.8 | 157.9 | 223.4 | 244.9 | 244.9 |
-| background_shot | 55.8 | 157.9 | 223.4 | 315.9 | 631.8 |
+| dark_shot | 0.0 | 0.1 | 0.1 | 0.2 | 0.4 |
 | read_noise | 15.0 | 15.0 | 15.0 | 15.0 | 15.0 |
-| TOTAL (RSS) | 80.4 | 223.9 | 316.2 | 400.0 | 677.8 |
+| quantization | 0.4 | 0.4 | 0.4 | 0.4 | 0.4 |
+| TOTAL (RSS) | 57.8 | 158.7 | 223.9 | 245.4 | 245.4 |
 
-Signal and background shot noise dominate equally, both scaling as sqrt(N). Read noise is constant at 15 e- (analog TDI advantage). Past saturation, signal_shot is capped (sqrt of clipped signal) but background_shot continues growing — this is why SNR degrades.
+Signal shot noise dominates throughout, scaling as √N below saturation. Read noise is
+constant at 15 e- (the analog-TDI advantage), and dark/quantization are negligible.
+There is **no background_shot term** — the extended scene contributes one radiance
+field, not a separable background (Decision #13). Past saturation, signal_shot caps at
+√FWC and the total plateaus at 245 e-, so SNR holds flat instead of degrading.
 
 ### MTF Budget
 | N_tdi | MTF_opt [--] | MTF_smear [--] | MTF_misalign [--] | MTF_sys [--] | Misalign [pix] |
@@ -120,17 +137,26 @@ In pushbroom imaging, the detector array scans across the ground as the satellit
 
 The analog TDI advantage is that read noise is injected only once, at the end of the charge accumulation. Digital TDI reads each stage independently, so read noise grows as sqrt(N) — less favorable but allows individual stage correction.
 
-### The Saturation Cliff
-When accumulated signal exceeds FWC, the charge is clipped. No additional TDI stages can add signal, but noise continues to grow:
-- Background shot: always grows as sqrt(N) because background photons keep arriving
-- Signal shot: capped at sqrt(FWC) since signal is clipped
-- Net effect: SNR = FWC / sqrt(FWC + N x bg_per_line + ...) → SNR decreases
+### The Saturation Plateau
+When accumulated signal exceeds FWC, the charge is clipped. No additional TDI stages
+can add signal, and — because this extended scene has no separable background photon
+term (Decision #13) — the noise stops growing too:
+- Signal shot: capped at sqrt(FWC) once the signal clips
+- No background_shot term to keep growing past saturation
+- Net effect: SNR = FWC / sqrt(FWC + small terms) → **SNR plateaus** at ≈ 245
 
-This creates a sharp NIIRS peak just below the saturation threshold. For this system:
+So the NIIRS curve rises with √N up to saturation and then holds flat (no sharp peak,
+no degradation). For this system:
 - Signal per line: 3,118 e-
 - FWC: 60,000 e-
-- Theoretical max N_tdi: 60,000 / 3,118 = 19.2
-- Optimal N_tdi: 16 (just below saturation)
+- Theoretical max N_tdi (100% fill): 60,000 / 3,118 = 19.2
+- Saturation first reached at N_tdi = 32; NIIRS plateaus at 6.11 from there on
+- Practical choice: N_tdi = 16 (NIIRS 6.04, 83% fill) for peak quality with saturation
+  margin, or N_tdi = 8 (NIIRS 5.81, 42% fill) for an 80% conservative margin
+
+(If the readout added digital-TDI read noise growth, or if a genuinely separable
+background dominated — e.g. a bright adjacent-scene sub-pixel case — the plateau would
+instead become a cliff. This extended reflective scene shows the plateau.)
 
 ### Smear MTF: Why It's Constant
 During each line period, the ground image moves by exactly 1 pixel (by design — the line rate is matched to the ground velocity). This produces a rect function blur of width = 1 pixel, giving:
@@ -150,7 +176,7 @@ At delta = 0.1 pixel/stage:
 - N_tdi=128: 1.13 pixel total → MTF_misalign = 0.55 (severe)
 
 ### Why NIIRS Doesn't Benefit from MTF Corrections
-In this scenario, NIIRS changes come entirely from the SNR term in GIQE-5 (1.559 x log10(SNR)). The RER term (3.32 x log10(RER)) is constant because RADIANT's ePSF does not include smear or TDI misalignment. Including these corrections would shift the absolute NIIRS values but would not change the location of the optimal N_tdi (which is determined by the saturation cliff).
+In this scenario, NIIRS changes come entirely from the SNR term in GIQE-5 (1.559 x log10(SNR)). The RER term (3.32 x log10(RER)) is constant because RADIANT's ePSF does not include smear or TDI misalignment. Including these corrections would shift the absolute NIIRS values but would not change where the NIIRS plateau begins (which is set by the saturation onset at N_tdi = 32).
 
 ## Gap Findings
 

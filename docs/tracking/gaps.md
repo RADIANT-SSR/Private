@@ -964,7 +964,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 3.5 execution (Phase T4), 2026-07-09 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-10 (commit `19ae3b9`, Backlog_Closure_Plan Wave 3) — `geometry.solar_illumination ∈ {day, night}` toggle; 'night' sets theta_s = None (assembly drops direct-solar + solar sky; thermal downwelling remains). Investigation found the chain ALREADY folds reflected solar into mixed scenes via T3Mixed — the missing piece was that the solar_zenith_rad default gave every T2/T3 scene a phantom sun, making night inexpressible. |
 | **Description** | There is no first-class toggle to add/remove a reflected-solar term from an emissive scene and report the day/night delta. Scenario 3.5 computes the thermal-vs-reflected-solar comparison analytically (`core.blackbody`) script-side to demonstrate solar independence. A built-in mode would fold the reflected-solar term into the chain radiometry and expose a day/night comparison metric. |
 | **Workaround** | Compute reflected-solar band radiance analytically and compare to thermal emission (scenario 3.5 pattern). |
 | **Impact** | Low — the analytic side calculation is adequate; a mode would package it and couple it to the chain. |
@@ -1051,7 +1051,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | DECLINED |
 | 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | FIXED |
 | 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | DEFERRED |
-| 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | OPEN |
+| 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | FIXED |
 | 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | OPEN |
 
 ---

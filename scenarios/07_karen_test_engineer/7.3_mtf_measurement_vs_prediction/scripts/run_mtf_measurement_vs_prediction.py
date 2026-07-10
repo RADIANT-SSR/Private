@@ -294,17 +294,16 @@ config = {
 sensor = Sensor.from_dict(config)
 r = sensor.evaluate()
 
-# KNOWN ISSUE (CU-058): combining scalar optics.wfe_rms_waves with
-# optics.defocus_um logs a "Dual-path MTF consistency check FAILED"
-# warning (~0.17 vs 0.05) on every evaluation in this scenario. The MTF
-# product path folds defocus into the pupil as Zernike Z4 but DROPS the
-# scalar-RMS WFE screen while doing so; the PSF path keeps the screen.
-# The PSF path (metrics, mtf_x curve used below) is the more complete
-# one here. Tracked as CU-058 in docs/tracking/Cleanup_Backlog.md.
-print(f"\n  NOTE: the dual-path consistency warning above is expected in this")
-print(f"  configuration — scalar WFE + defocus triggers CU-058 (the MTF")
-print(f"  product path loses the WFE screen when defocus folds into the")
-print(f"  pupil). Curves below come from the PSF path, which keeps both.")
+# CU-058 RESOLVED: scalar WFE + defocus previously failed the dual-path
+# consistency check (~0.17 vs 0.05) on every evaluation of this scenario
+# because the product path dropped the WFE screen when folding defocus to
+# Z4 and the PSF path used a Gaussian kernel instead. Defocus now enters
+# BOTH paths as pupil Z4 alongside the preserved screen, so the check
+# passes and the two paths agree by construction (Rule 4).
+print(f"\n  NOTE: scalar WFE + defocus previously tripped the dual-path")
+print(f"  consistency check on every run (CU-058); with defocus unified as")
+print(f"  pupil Z4 on both paths the check now passes — both paths carry")
+print(f"  diffraction + WFE screen + defocus from the same complex pupil.")
 
 # Extract predicted MTF curve from RADIANT
 perf_out = r.stage_outputs.get("performance", {})
@@ -409,23 +408,22 @@ spot_radius_m = abs(defocus_m) / (4.0 * f_number)  # geometric blur radius
 sigma_defocus_script = spot_radius_m / 1.0  # original script: σ = R (was R/2 before)
 sigma_defocus_radiant = abs(defocus_m) / (4.0 * f_number * math.sqrt(3.0))  # RADIANT formula
 
-# Use RADIANT's formula (physically correct RMS) for the analytic comparison
+# Use the Gaussian RMS form for KAREN'S HAND composite. Note the model
+# difference (CU-058): RADIANT itself no longer uses a Gaussian — it folds
+# defocus into the complex pupil as Zernike Z4, entering the PSF and MTF
+# product paths through the SAME pupil (Rule 4, exact defocus OTF). The
+# Gaussian here is the standard hand approximation for the composite.
 sigma_defocus_m = sigma_defocus_radiant
 mtf_defocus = np.exp(-2.0 * math.pi**2 * sigma_defocus_m**2 * freq_eval_cy_m**2)
 
-# RADIANT now includes defocus natively via optics.defocus_um
-radiant_defocus_sigma = r.stage_outputs.get("optics", {}).get("defocus_sigma_m")
-
-print(f"\n  4. Defocus MTF (now included in RADIANT via optics.defocus_um)")
+print(f"\n  4. Defocus MTF (RADIANT: pupil Z4 via optics.defocus_um — CU-058)")
 print(f"     Defocus: {defocus_um:.1f} [µm] from best focus")
 print(f"     Geometric spot radius: {spot_radius_m * 1e6:.2f} [µm]")
-print(f"     Gaussian σ_defocus (RADIANT): {sigma_defocus_radiant * 1e6:.3f} [µm]")
-if radiant_defocus_sigma is not None:
-    print(f"     RADIANT stage σ_defocus:      {radiant_defocus_sigma * 1e6:.3f} [µm]")
-    sigma_match = abs(radiant_defocus_sigma - sigma_defocus_radiant) / sigma_defocus_radiant < 0.001
-    print(f"     σ match (analytic vs RADIANT): {'YES' if sigma_match else 'NO'} [--]")
+print(f"     Hand-composite Gaussian σ:    {sigma_defocus_radiant * 1e6:.3f} [µm]")
 print(f"     MTF_defocus at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_defocus):.4f} [--]")
-print(f"     Formula: σ = |δ|/(4·f/#·√3), where √3 = RMS of uniform disk.")
+print(f"     Hand formula: σ = |δ|/(4·f/#·√3) (RMS of uniform disk) — an")
+print(f"     approximation; RADIANT's native defocus is Zernike Z4 in the")
+print(f"     pupil (exact OTF, identical on both spatial paths).")
 
 # Composite analytic system MTF
 mtf_analytic_system = mtf_diffraction * mtf_pixel * mtf_ipc * mtf_defocus

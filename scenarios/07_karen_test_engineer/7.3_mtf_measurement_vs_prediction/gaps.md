@@ -9,23 +9,25 @@ Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
 | # | Description | Status | Notes |
 |---|-------------|--------|-------|
 | Gap 19 | No MTF budget decomposition API | **CLOSED** | `result.stage_outputs["performance"]["mtf_budget"]` — `.per_term_at_nyquist`, `.system_mtf_at_nyquist_x/y` |
-| Gap 29 | No defocus model | **CLOSED** | `optics.defocus_um`; Gaussian kernel σ = \|δ\|/(4·f/#·√3) on the PSF path, pupil Z4 on the product path — see CU-058 |
+| Gap 29 | No defocus model | **CLOSED** | `optics.defocus_um`; pupil Zernike Z4 on BOTH spatial paths (CU-058 resolved 2026-07-09) |
 | Gap 30 | No measurement import/overlay API | **CLOSED** (this refresh) | `radiant.io.measurement.load_measured_curve` reads the slanted-edge tool's CSV; `radiant.api.compare_mtf` converts cy/mm → cy/m and returns residual statistics. Exercised end-to-end here. |
 | Gap 31 | No scatter/TIS model | **CLOSED** (this refresh) | `optics.surface_roughness_nm` + `optics.scatter_halo_sigma_um`; exercised as a residual explainer (rejected by the data — see walkthrough) |
 | Gap 32 | No electronics MTF model | **CLOSED** (this refresh) | `readout.electronics_sigma_um`; exercised as a residual explainer (rejected by the data — the residual sign points to WFE shape, not blur) |
 
 ## Defects Found by This Refresh
 
-### CU-058 — Scalar WFE + defocus violates Rule 4 (FILED)
-Combining scalar `optics.wfe_rms_waves` with `optics.defocus_um` makes the
+### CU-058 — Scalar WFE + defocus violated Rule 4 (FILED → RESOLVED 2026-07-09)
+Combining scalar `optics.wfe_rms_waves` with `optics.defocus_um` made the
 dual-path consistency check fail on every evaluation (max_err ≈ 0.169 vs
-tolerance 0.05): `_add_defocus_to_wfe` folds defocus into the pupil as
-Zernike Z4 for the MTF product path but **drops the scalar-RMS screen** in
-doing so, and the two paths model defocus differently (PSF: Gaussian kernel;
-product: pupil Z4). The PSF path is the complete one in this scenario; the
-budget's Optics term is missing the WFE contribution. Full isolation matrix
-and suggested unification (pupil Z4 on both paths) recorded in
-`docs/tracking/Cleanup_Backlog.md` CU-058.
+tolerance 0.05): `_add_defocus_to_wfe` folded defocus into the pupil as
+Zernike Z4 for the MTF product path but **dropped the scalar-RMS screen** in
+doing so, and the two paths modeled defocus differently (PSF: Gaussian
+kernel; product: pupil Z4). **Resolved** (commit f5c8fda): defocus now folds
+into the pupil once — screen preserved, Z4 alongside — and both paths build
+their pupil phase through one shared dispatch, so the consistency check
+passes on every run of this scenario and the budget's Optics term carries
+the full pupil (0.8115 → 0.6699 at Nyquist). This scenario's rerun under
+the fix is the closure evidence.
 
 ### Odd-kernel crash on even PSF grids (FIXED, commit 8a5d9e8)
 The Gap 31 explainer run initially crashed:

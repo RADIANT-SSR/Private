@@ -980,7 +980,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.5 execution (Phase T4), 2026-07-09 |
-| **Status** | PARTIALLY RESOLVED 2026-07-10 — MTF impact landed; PST/2-D import DEFERRED |
+| **Status** | PARTIALLY RESOLVED 2026-07-10 (d3274ab) — MTF impact landed; PST/2-D import DEFERRED |
 | **Description** | RADIANT modeled stray light as a spatially-uniform electron pedestal — veiling-glare fraction (`optics.stray.veiling_glare_fraction`; CU-062 inertness fixed 2026-07-07) or absolute irradiance (`optics.stray.absolute_irradiance_W_m2`) — that contributes shot noise to every pixel. It could not ingest a 2-D stray-light PSF / PST map (FRED, Zemax `pst_file` mode raises `NotImplementedError`) and did not model the veiling-glare **MTF / low-frequency contrast-modulation reduction**. |
 | **Resolution (partial)** | Veiling-glare spatial halo landed (Backlog_Closure_Plan Wave 3c): opt-in `optics.stray.veiling_glare_mtf` + `optics.stray.halo_sigma_um` re-image the stray fraction as a Gaussian halo on BOTH spatial paths (Rule 4) via the Gap-31 scatter builders — kernel `(1−vgf)·δ + vgf·G(σ)` on the `EffectivePSF`, exact analytic Fourier pair `(1−vgf) + vgf·exp(−2π²σ²f²)` on the MTF product (`mtf_stray_x/y`). Consistency-check clean; default-off (pedestal-only) is bit-identical. See `RADIANT_Optics.md` §8.3 and `tests/integration/test_stray_halo_chain.py`. |
 | **Deferred remainder** | 2-D PST / vendor-PSF ingestion (`pst_file` mode still raises `NotImplementedError`). Gating condition: the single-pixel scope decision (owner, 2026-07-07 — "not going to do 2D"); pairs with Gap 58 (raster reader). Re-audit when 2-D/imaging scope reopens. |

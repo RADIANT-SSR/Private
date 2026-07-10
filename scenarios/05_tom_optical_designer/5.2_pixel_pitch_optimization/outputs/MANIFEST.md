@@ -8,8 +8,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_Q_and_GSD_vs_pitch.png | figure (committed) | c2065c1 2026-04-16 |
-| fig2_MTF_EE_vs_pitch.png | figure (committed) | 4953c90 2026-04-19 |
-| fig3_SNR_signal_vs_pitch.png | figure (committed) | c3fec8d 2026-04-18 |
-| fig4_trade_space.png | figure (committed) | c3fec8d 2026-04-18 |
+| fig1_Q_and_GSD_vs_pitch.png | figure (committed) | 55d1c76 2026-07-09 |
+| fig2_MTF_EE_vs_pitch.png | figure (committed) | 55d1c76 2026-07-09 |
+| fig3_SNR_signal_vs_pitch.png | figure (committed) | 55d1c76 2026-07-09 |
+| fig4_trade_space.png | figure (committed) | 55d1c76 2026-07-09 |
 | pixel_pitch_trade_results.xlsx | results workbook (not committed) | regenerate on demand |

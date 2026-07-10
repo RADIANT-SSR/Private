@@ -129,16 +129,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Why it still matters**: a developer who bumps `OBSERVER_DISPLAY_DISTANCE` to make the observer chip more readable will trip the camera-frame test, but the failure message will point at `_camera_frame.py` rather than at the display constant they actually edited. The cross-module coupling is correct (the camera *must* track the bbox) but undocumented at the code-comment level.
 **Suggested fix**: inline-fix-now — add a one-line comment on `REFERENCE_HALF_EXTENT` linking it to `OBSERVER_DISPLAY_DISTANCE` / `SUN_DISPLAY_DISTANCE` and noting that any change to those constants requires re-calibration. Optional follow-up: derive `REFERENCE_HALF_EXTENT` programmatically from the default-state bbox at import time, eliminating the manual constant. Effort: < 30 LOC; Category A. Re-audit date: 2026-08-15 (calendar backstop; earlier if the next PR touching `dev_tools/geometry_gui/app/scene_builder/` picks up the inline fix).
 
-### CU-043 — Rule 15 error-type migration: 398 bare `raise ValueError/RuntimeError` across core + physics
-
-**Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
-**Status**: Open
-
-**File**: repo-wide across `src/radiant/` — core 69, source 52, atmosphere 80, optics 96, platform 20, spectral_integration 8, detector 50, readout 16, performance 7 (e.g. `src/radiant/core/units.py:105`, `src/radiant/core/radiometry.py:83`, `src/radiant/core/geometry.py:77`)
-**Symptom**: 398 `raise ValueError(...)` / `raise RuntimeError(...)` statements in core and physics modules use bare built-in exceptions rather than `RadiantError` subclasses with the what/why/action/context structure.
-**Why it still matters**: user code cannot catch `RadiantError` for framework rejections — the single-`except RadiantError` contract established by CU-018 is hollow wherever a bare built-in is raised. Violates Rule 15's actionable-error contract.
-**Suggested fix**: stand-alone task — migrate user-input validation paths first (`core/parameters`, `core/units`, `io/`), then physics invariant guards. Effort L; category A/B.
-
 ### CU-044 — Hardcoded tuneable quantities in physics modules (Rule 12)
 
 **Discovered**: architecture audit 2026-07-06, branch `fix/architecture-audit-2026-07`
@@ -196,6 +186,10 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-043 — Rule 15 error-type migration: 428 bare `raise ValueError/RuntimeError` across core + physics — RESOLVED 2026-07-09 (commit `d9de472`)
+
+**Discovered**: architecture audit 2026-07-06. 428 bare built-in raises (grown from 398 at audit) meant `except RadiantError` missed most framework rejections — the CU-018 contract was hollow. **Resolution**: stage-scoped `<Stage>ValidationError(RadiantError, ValueError)` classes (plus `RuntimeError`-co-inheriting StateError variants for core/atmosphere/spectral_integration) added per package in `errors.py` (`Core*` in `core/exceptions.py`); all 428 sites mechanically migrated with imports. Co-inheritance is the sanctioned Rule 15 back-compat carve-out, so the full suite (3287 tests, including every `pytest.raises(ValueError)`) passes unmodified — zero behavioral change. Regression guard `TestNoBareBuiltinRaises` scans the tree and forbids new bare raises. Gates: mypy --strict core+api, ruff, import-linter 5/5 (one sanctioned edge added: `api.errors → core.exceptions`). Note: messages were migrated as-is; upgrading individual messages to the full structured what/why/action/context payload remains incremental follow-on work at the sites that matter, not a blocking part of this CU.
 
 ### CU-058 — Defocus violated Rule 4: scalar-RMS WFE dropped from the MTF product path; two paths used different defocus models — RESOLVED 2026-07-09 (commit `f5c8fda`)
 

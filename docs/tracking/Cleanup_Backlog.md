@@ -208,15 +208,6 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Suggested fix**: stand-alone task (results-affecting, Category C): unify defocus as pupil Z4 on **both** paths (drop the PSF-path Gaussian kernel; the PSF already comes from the same pupil, so folding Z4 there gives exact agreement by Wiener–Khinchin), and make `_add_defocus_to_wfe` preserve scalar-RMS (screen + Z4 in one pupil phase). Requires new truth anchors + golden-baseline review. Effort M; category C.
 **Related**: the residual 0.052–0.057 exceedances seen in undersampled VNIR configs (Q ≈ 0.2) with all degradations off are the CU-003 rect-kernel discretization floor, not this defect.
 
-### CU-059 — Executed-scenario outputs and walkthrough numbers predate the current physics
-
-**Discovered**: Phase R verification sweep (Scenario_Execution_Plan), 2026-07-07 — rerunning the 14 executed scenario scripts regenerated visibly different committed figures for 1.4, 3.2, 3.4 (and would change the recorded numbers in most non-refreshed walkthroughs).
-**Status**: Open.
-**File**: `scenarios/*/outputs/*.png` + `walkthrough.md` for the executed scenarios NOT covered by Phase R (1.4, 2.2, 2.3, 2.5, 3.2, 3.4, 5.2, 5.3, 5.4, 7.1).
-**Symptom**: rerunning any of these run scripts produces figures that differ from the committed ones — the committed outputs were generated in April under superseded physics (most visibly the column-integrated atmospheric transmittance fix, which raises SNR ~40% in some scenes, and the extended-regime background-term removal, Decision #13). The Phase R verification restored the incidental regenerations rather than committing figures inconsistent with their walkthrough text.
-**Why it still matters**: walkthroughs are the scenario record of what RADIANT predicts; numbers that no longer reproduce undermine the "regenerate by running the script" contract in every outputs/MANIFEST.md.
-**Suggested fix**: stand-alone task — an outputs-refresh pass over the 10 non-Phase-R executed scenarios (rerun, update walkthrough numbers + figures + manifest SHAs, one commit per scenario), either as a Phase R2 appended to the Scenario_Execution_Plan or folded into each scenario's next touch. Effort M (mechanical, ~10 scenarios); category D (regression documentation).
-
 ### CU-060 — Sub-pixel scenarios must set `source.target.fill_fraction`; scenario 1.3 does not
 
 **Discovered**: Scenario 4.1 execution (Phase T3), 2026-07-08 — while debugging why the detection matrix did not vary with target size.
@@ -229,6 +220,10 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 ---
 
 ## Resolved
+
+### CU-059 — Executed-scenario outputs and walkthrough numbers predated the current physics — RESOLVED 2026-07-09 (commits `924b9e1`, `9145941`, `55d1c76`, `5e0df97`, `ea4917f`, `84ad9cf`, `a72013e`, `1d35a82`, `da04139`)
+
+**Discovered**: Phase R verification sweep, 2026-07-07. The 10 non-Phase-R executed scenarios (1.4, 2.2, 2.3, 2.5, 3.2, 3.4, 5.2, 5.3, 5.4, 7.1) carried April-era figures/numbers that no longer reproduced under the current physics (column-integrated transmittance fix + Decision #13 extended background-term removal). **Resolution**: reran each script and refreshed figures + walkthrough tables + narrative + MANIFEST SHAs, one commit per scenario. Seven needed table/figure updates (1.4, 3.4, 5.2, 3.2, 5.3, 5.4, plus 2.2/2.3/7.1 walkthrough-only since their committed figures were already current); **2.5 was verified already-current (no change needed)**. Notable physics-narrative corrections: 1.4 SNR/NIIRS now *plateau* (not degrade) past TDI saturation since there is no background_shot to keep growing; 3.4/3.2/2.2/2.3/5.2/5.3/5.4 absolute SNR rose and NEDT fell with the background-term removal; 7.1 predicted NEDT dropped 100.6→74.2 mK (the old shroud background_shot was a double-count — the blackbody fills the target pixel — so its removal is correct and the predicted-vs-measured gap legitimately widens). No new gaps: the 7.1 background removal was confirmed correct, not a missing term.
 
 ### CU-061 — `contrast_snr` unreliable when the pixel saturates — RESOLVED 2026-07-09 (commit `636f17f`)
 

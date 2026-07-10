@@ -45,12 +45,12 @@ RADIANT evaluates the full signal chain from source through atmosphere, optics, 
 
 The baseline results at 500 km with atmosphere:
 - System MTF at Nyquist: 0.2532 (above the 0.15 requirement)
-- SNR: 586 (well above the 100 requirement)
+- SNR: 809 (well above the 100 requirement)
 - EE 1x1: 0.4699 (below the 0.60 requirement — already fails at baseline)
 - GSD: 7.50 m (cross-track = along-track at nadir)
 - Q (sampling parameter): 0.944 (near-optimal Nyquist matching)
-- NEDT: 48.4 mK
-- NIIRS: 4.61
+- NEDT: 35.6 mK
+- NIIRS: 4.82
 - Strehl ratio: 1.000 (diffraction-limited, no WFE applied)
 
 The extended radiometric regime is active because the target (a 310 K ground scene) fills the entire pixel. In this regime, background temperature (295 K) only enters the contrast SNR calculation — it does not affect the primary signal or noise budget.
@@ -108,8 +108,8 @@ The trend (MTF decreasing with IPC) matches well, confirming that the model capt
 
 | Metric | Previous Status | Current Status |
 |--------|----------------|----------------|
-| NEDT | Not available | `result.metrics["nedt_K"]` = 48.4 mK |
-| NIIRS | Not available | `result.metrics["niirs"]` = 4.61 |
+| NEDT | Not available | `result.metrics["nedt_K"]` = 35.6 mK |
+| NIIRS | Not available | `result.metrics["niirs"]` = 4.82 |
 | GSD | Manual calculation | `result.metrics["gsd_cross_track_m"]` = 7.50 m |
 | Q parameter | Manual calculation | `result.metrics["q_center"]` = 0.944 |
 | Strehl | Not available | `result.metrics["strehl"]` = 1.000 |

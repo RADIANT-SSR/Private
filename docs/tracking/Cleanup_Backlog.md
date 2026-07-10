@@ -69,24 +69,6 @@ Approach 1 is preferred (preserves the MTF-product path as the analytic referenc
 
 **Suggested fix**: stand-alone task (Category C, effort M) per `docs/reports/cu_tasks/CU-003_Rect_Kernel_Fix_Task.md` — the two candidate approaches above: (1) anti-aliased rect kernel in `_rect_1d` (preferred — preserves the MTF-product path as the analytic reference and fixes the PSF path to match), or (2) FFT-based product path (cheaper but couples the product path to the PSF sampling grid).
 
-### CU-005 — `theta_o_from_eta` boundary converter is unwired
-
-**Discovered**: Option C Stage 1 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stages 7 and 8 have landed); 2026-04-26 (re-scoped — see Status); 2026-04-26 (refreshed after CU-009 escalation)
-**Status**: UNBLOCKED 2026-07-06 — CU-009 landed (commit `d846f07`); the forced choice described below is now live. Re-audit and decide: (a) introduce `geometry.sensor_off_nadir_rad` routed through `theta_o_from_eta` (Approach C of CU-009, deferred there), or (b) document the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Re-audit date: 2026-08-15. Prior context: the CU-009 escalated task answers the prerequisite question for CU-005: the canonical schema name for `theta_o` is `geometry.path_zenith_rad` (Approach A in CU-009's doc). When CU-009 lands, CU-005's resolution becomes a forced choice between (a) leaving `theta_o_from_eta` as the boundary converter that user-supplied `geometry.sensor_off_nadir_rad` would route through (Approach C of CU-009, deferred there), or (b) documenting the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Investigation 2026-04-26 found the original "Suggested fix" mis-framed:
-
-- The CU body conflated three things in `core/los_geometry.py`. Only one of them is unwired: the standalone `theta_o_from_eta` function. The `LineOfSightGeometry` class itself is heavily consumed (every atmosphere backend, the source stage, ~10 test files, all source-stage snapshots). `LineOfSightGeometry.intercepts_earth(h_sensor)` is wired into production at [src/radiant/atmosphere/assembly.py:204](../src/radiant/atmosphere/assembly.py#L204), called from `validate_no_atmosphere_subcase` against the already-registered `platform.h_sensor` parameter ([src/radiant/platform/_schema.py:127](../src/radiant/platform/_schema.py#L127), Stage-7 stop-gap).
-- Path (a) ("wire into `OpticsStage._finalize_regime()`'s Earth-intercept check") doesn't apply: the Earth-intercept check is `intercepts_earth()` (not `theta_o_from_eta`), it lives in AtmosphereStage (not OpticsStage), and it is already wired.
-- Path (b) ("move to `radiant.api.geometry`") is no improvement: the function only depends on `R_EARTH_M` and `ParameterBoundsError`, both already in `core/`. The file's own docstring (lines 22–30) explicitly justifies keeping it in `core/` adjacent to `LineOfSightGeometry`.
-- Path (c) ("delete") is premature: 5 unit tests at `core/tests/test_los_geometry.py:204–258` cover spherical-Earth sine-rule inversion with a horizon-tangent floating-point guard. The function is documented, tested, and reserved for the SensorDescriptor follow-on per the file docstring's "**not dead code**" note.
-
-The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry.eta` (or equivalent) schema parameter exists yet. Today users supply `theta_o` directly via `_inferrer.py::_infer_los`, or accept the hardcoded default `theta_o=0.0` — and that hardcoded default is the subject of **CU-009**. When CU-009 lands the `source.observer_geometry.*` schema parameters, the schema-design question becomes real: "does the user supply `theta_o` directly, or supply `(eta, h_sensor)` and let `theta_o_from_eta` convert?" That is where CU-005 actually gets answered. Solving it before CU-009 lands is solving an imaginary problem (same pattern as CU-011, also blocked on CU-009).
-
-**File**: `src/radiant/core/los_geometry.py::theta_o_from_eta`
-**Symptom (verified 2026-04-26)**: standalone `theta_o_from_eta` function has zero non-test callers in `src/radiant/`. Only sites: definition, the 5-test suite at `core/tests/test_los_geometry.py:204–258`, and the `core/__init__.py` export.
-**Why it still matters**: tracking, not urgency — once CU-009 lands the schema, this CU's resolution becomes a forced choice (wire in `_inferrer._infer_los`, or document the `eta` opt-out as deliberately deferred behind a SensorDescriptor ADR).
-**Suggested fix (deferred to post-CU-009 re-audit)**: when CU-009's escalated task lands and `_inferrer._infer_los` reads from the canonical `geometry.path_zenith_rad`, decide whether to (a) introduce `geometry.sensor_off_nadir_rad` and route through `theta_o_from_eta(eta, h_sensor, h_tgt)` (Approach C of CU-009, deferred there for scope reasons), with an explicit precedence rule against `geometry.path_zenith_rad`, or (b) document the η opt-out as deliberately deferred behind the SensorDescriptor ADR. Note: the CU-009 task doc explicitly defers the sensor-off-nadir surface here rather than co-resolving it. Re-audit date: 2026-08-15 (calendar backstop; earlier if CU-009 lands).
-
 ### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral
 
 **Discovered**: Option C Stage 2 (2026-04-19)
@@ -186,6 +168,10 @@ The real reason `theta_o_from_eta` has no consumer: no `source.observer_geometry
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-005 — `theta_o_from_eta` boundary converter is unwired — RESOLVED 2026-07-09 (commit `c8a6f70`, resolution option b)
+
+**Discovered**: Option C Stage 1 (2026-04-19); unblocked when CU-009 landed (`d846f07`). **Resolution** (owner-directed, Backlog_Closure_Plan Wave 1): option (b) — the η-input surface (`geometry.sensor_off_nadir_rad` routed through `theta_o_from_eta`, with a precedence rule against `geometry.path_zenith_rad`) is **deliberately deferred behind the SensorDescriptor ADR** rather than adding a second, redundant way to specify the same look geometry today. Users supply the target-side zenith directly via the canonical `geometry.path_zenith_rad` (CU-009). The decision is recorded in the `core/los_geometry.py` module docstring; the converter remains tested (`core/tests/test_los_geometry.py`) and reserved for the SensorDescriptor follow-on.
 
 ### CU-043 — Rule 15 error-type migration: 428 bare `raise ValueError/RuntimeError` across core + physics — RESOLVED 2026-07-09 (commit `d9de472`)
 

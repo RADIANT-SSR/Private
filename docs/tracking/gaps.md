@@ -659,8 +659,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, D-lab cells (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | DEFERRED (2026-07-07, Gap_Closure_Plan Phase 4) |
-| **Deferral record** | Gating condition: a user or GUI request for an explicit dark-cal flag (the registry entry itself says "when a user actually asks for it"; ergonomics only, not correctness). Re-audit: next GUI scenario touching D-lab cells. |
+| **Status** | RESOLVED 2026-07-09 (commit `c8a6f70`, Backlog_Closure_Plan Wave 1) — `source.lab_test_mode ∈ {'', dark, lit}` positive assertion added; 'dark' validated against user-set reflectance (no external illumination), 'lit' recorded, '' back-compat. Owner's close-the-backlog directive 2026-07-10 satisfied the "when a user asks" gate. |
 | **Description** | The use-case matrix's `no_atmosphere (lab_test)` dark-cal sub-mode (illumination=None) is expressible by simply not configuring a source illumination, but there is no positive assertion in the descriptor that this is dark-cal. The scenario YAML has no field explicitly flagging dark-cal vs lit-lab (~5 D-lab cells where illumination=None is intended). |
 | **Workaround** | Omit source illumination; cells pass. Readability/ergonomics gap only, not correctness. |
 | **Impact** | Scenario-YAML readability for D-lab dark-cal configurations; GUI clarity. |
@@ -1033,7 +1032,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | FIXED |
 | 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | DEFERRED |
 | 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
-| 40 | Lab dark-cal mode not first-class | Small | UC D-lab | DEFERRED |
+| 40 | Lab dark-cal mode not first-class | Small | UC D-lab | FIXED |
 | 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
 | 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | FIXED |
 | 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | FIXED |

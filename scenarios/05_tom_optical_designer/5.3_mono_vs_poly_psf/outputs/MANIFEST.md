@@ -8,5 +8,5 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| chromatic_psf_comparison.png | figure (committed) | 4953c90 2026-04-19 |
+| chromatic_psf_comparison.png | figure (committed) | a72013e 2026-07-09 |
 | chromatic_psf_results.xlsx | results workbook (not committed) | regenerate on demand |

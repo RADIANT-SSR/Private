@@ -39,6 +39,10 @@ GIQE5_GSD_INCH_RANGE: tuple[float, float] = (1.18, 31.5)  # 3-80 cm
 GIQE5_RER_RANGE: tuple[float, float] = (0.2, 0.95)
 GIQE5_SNR_RANGE: tuple[float, float] = (2.0, 130.0)
 
+# International inch, exact by definition (NIST SP 811). GIQE-5 consumes
+# GSD in inches; this is the one sanctioned m→inch conversion (CU-044).
+_M_PER_INCH: float = 0.0254
+
 
 @dataclass(frozen=True)
 class GIQEResult:
@@ -124,7 +128,7 @@ def compute_giqe5(
 
     # Geometric mean GSD in inches.
     gsd_geom_m = math.sqrt(gsd_m_along * gsd_m_cross)
-    gsd_inch = gsd_geom_m / 0.0254  # m → inches (exact)
+    gsd_inch = gsd_geom_m / _M_PER_INCH
 
     # Geometric mean RER.
     if rer_along <= 0.0 or rer_cross <= 0.0:

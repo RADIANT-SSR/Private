@@ -76,6 +76,10 @@ from radiant.core.descriptors import (
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
+from radiant.core.regime import (
+    REGIME_EXTENDED_IFOV_MULTIPLE,
+    REGIME_POINT_SOURCE_IFOV_MULTIPLE,
+)
 from radiant.core.spectral import SpectralData
 from radiant.source._schema import validate_reflectance_albedo_exclusive
 from radiant.source.converters._csv import load_two_column_csv
@@ -197,12 +201,12 @@ def _infer_scene_type(
         return "extended"
 
     # Matrix §3.2 line 172 / §1.1: IFOV-based discriminator, same constants
-    # as _classify_regime.
+    # as _classify_regime (shared via core.regime, CU-044).
     angular_extent = math.sqrt(projected_area_m2) / range_m
     ifov = pixel_pitch_m / focal_length_m
-    if angular_extent <= 0.25 * ifov:
+    if angular_extent <= REGIME_POINT_SOURCE_IFOV_MULTIPLE * ifov:
         return "point_source"
-    if angular_extent >= 2.0 * ifov:
+    if angular_extent >= REGIME_EXTENDED_IFOV_MULTIPLE * ifov:
         return "extended"
     return "sub_pixel"
 

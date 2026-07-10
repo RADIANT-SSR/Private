@@ -35,7 +35,11 @@ from radiant.core.descriptors import (
     warn_if_reflective_and_sun_below_horizon,
 )
 from radiant.core.parameters import ParameterSet
-from radiant.core.regime import RadiometricRegime
+from radiant.core.regime import (
+    REGIME_EXTENDED_IFOV_MULTIPLE,
+    REGIME_POINT_SOURCE_IFOV_MULTIPLE,
+    RadiometricRegime,
+)
 from radiant.source._inferrer import infer_descriptors
 
 
@@ -79,9 +83,9 @@ def _classify_regime(
     angular_extent = math.sqrt(projected_area_m2) / range_m
     ifov = pixel_pitch_m / focal_length_m
 
-    if angular_extent >= 2.0 * ifov:
+    if angular_extent >= REGIME_EXTENDED_IFOV_MULTIPLE * ifov:
         return RadiometricRegime.EXTENDED, angular_extent
-    if angular_extent <= 0.25 * ifov:
+    if angular_extent <= REGIME_POINT_SOURCE_IFOV_MULTIPLE * ifov:
         return RadiometricRegime.POINT_SOURCE, angular_extent
     return RadiometricRegime.SUB_PIXEL, angular_extent
 

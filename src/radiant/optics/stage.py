@@ -537,6 +537,15 @@ def _build_effective_psf(
     return state, epsf
 
 
+# PSF-FWHM-based regime finalization boundaries (Rule 10; Matrix §1.1).
+# Distinct from the IFOV-based tentative thresholds in ``core.regime`` —
+# the finalization compares the target's angular extent to the *achieved*
+# PSF width, not the geometric pixel footprint (CU-044: named, not shared,
+# because the bases differ).
+_EXTENDED_PSF_FWHM_MULTIPLE: float = 2.0
+_POINT_SOURCE_PSF_FWHM_MULTIPLE: float = 0.5
+
+
 def _finalize_regime(
     tentative: RadiometricRegime,
     angular_extent_rad: float,
@@ -570,9 +579,9 @@ def _finalize_regime(
     if not math.isfinite(angular_extent_rad) and angular_extent_rad > 0:
         return RadiometricRegime.EXTENDED
 
-    if angular_extent_rad >= 2.0 * psf_fwhm_rad:
+    if angular_extent_rad >= _EXTENDED_PSF_FWHM_MULTIPLE * psf_fwhm_rad:
         return RadiometricRegime.EXTENDED
-    if angular_extent_rad <= 0.5 * psf_fwhm_rad:
+    if angular_extent_rad <= _POINT_SOURCE_PSF_FWHM_MULTIPLE * psf_fwhm_rad:
         return RadiometricRegime.POINT_SOURCE
     return RadiometricRegime.SUB_PIXEL
 

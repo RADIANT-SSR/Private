@@ -29,6 +29,12 @@ import numpy.typing as npt
 
 from radiant.detector.errors import DetectorValidationError
 
+# Validity ceiling for the nearest-neighbour coupling fraction α (CU-044).
+# The 3×3 kernel's centre weight is 1 − 4α; α must stay strictly below
+# 1/4 or the centre weight goes non-positive and the kernel stops being
+# a physical charge-sharing redistribution.
+IPC_COUPLING_MAX: float = 0.25
+
 
 def ipc_kernel(coupling: float) -> npt.NDArray[np.float64]:
     """Generate a 3×3 IPC kernel.
@@ -48,8 +54,10 @@ def ipc_kernel(coupling: float) -> npt.NDArray[np.float64]:
     ValueError
         If coupling is out of bounds.
     """
-    if not (0.0 <= coupling < 0.25):
-        raise DetectorValidationError(f"IPC coupling must be in [0, 0.25), got {coupling}")
+    if not (0.0 <= coupling < IPC_COUPLING_MAX):
+        raise DetectorValidationError(
+            f"IPC coupling must be in [0, {IPC_COUPLING_MAX}), got {coupling}"
+        )
 
     kernel = np.zeros((3, 3), dtype=np.float64)
     kernel[1, 1] = 1.0 - 4.0 * coupling
@@ -88,8 +96,10 @@ def ipc_mtf_analytic(
     ndarray
         MTF values (same shape as freq_x).
     """
-    if coupling < 0.0 or coupling >= 0.25:
-        raise DetectorValidationError(f"IPC coupling must be in [0, 0.25), got {coupling}")
+    if coupling < 0.0 or coupling >= IPC_COUPLING_MAX:
+        raise DetectorValidationError(
+            f"IPC coupling must be in [0, {IPC_COUPLING_MAX}), got {coupling}"
+        )
     if pixel_pitch_m <= 0.0:
         raise DetectorValidationError(f"pixel_pitch_m must be positive, got {pixel_pitch_m}")
 

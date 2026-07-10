@@ -976,6 +976,38 @@ class OpticsStage:
             bool(stray_includes_thermal),
         )
 
+        # --- Veiling-glare spatial halo (Gap 60, opt-in) ---
+        # Rule 4: the veiling-glare fraction re-imaged as a Gaussian halo
+        # enters BOTH paths — kernel (1−vgf)·δ + vgf·G(σ) on the PSF path,
+        # exact analytic Fourier pair (1−vgf) + vgf·exp(−2π²σ²f²) on the
+        # MTF product path.  Same fractional-redistribution model as the
+        # TIS scatter halo (Gap 31), so the scatter builders are reused
+        # with vgf as the fraction.  Off by default: the radiometric
+        # pedestal above stays the always-on baseline.
+        vg_mtf_enabled: int = params.get("optics.stray.veiling_glare_mtf")
+        vgf = stray_config.veiling_glare_fraction
+        if (
+            vg_mtf_enabled
+            and stray_config.input_mode == StrayLightInputMode.VEILING_GLARE
+            and vgf > 0.0
+            and epsf is not None
+        ):
+            sigma_stray_m: float = params.get("optics.stray.halo_sigma_um")
+            spacing_vg = epsf.sample_spacing_m
+            npix_vg = int(math.ceil(6.0 * sigma_stray_m / spacing_vg)) | 1
+            npix_cap_vg = epsf.data.shape[0] - (1 - epsf.data.shape[0] % 2)
+            npix_vg = max(3, min(npix_vg, npix_cap_vg))
+            k_stray = scatter_kernel_2d(npix_vg, spacing_vg, sigma_stray_m, vgf)
+            epsf = epsf.with_kernel("stray_halo", k_stray)
+            state = state.with_stage_output("optics", "effective_psf", epsf)
+
+            freq_mrad_vg = state.spatial_freq_cycles_per_mrad
+            if freq_mrad_vg is not None:
+                freq_m_vg = freq_mrad_vg / (focal_length_m * 1e-3)
+                mtf_vg = scatter_mtf_1d(freq_m_vg, sigma_stray_m, vgf)
+                state = state.with_mtf("mtf_stray_x", mtf_vg)
+                state = state.with_mtf("mtf_stray_y", mtf_vg.copy())
+
         # --- Regime finalization (Rule 10) ---
         source_out = state.stage_outputs.get("source", {})
         tentative = source_out.get(

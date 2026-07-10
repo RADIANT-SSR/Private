@@ -980,14 +980,14 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenario 5.5 execution (Phase T4), 2026-07-09 |
-| **Status** | OPEN |
-| **Description** | RADIANT models stray light as a spatially-uniform electron pedestal — veiling-glare fraction (`optics.stray.veiling_glare_fraction`, but see CU-062: currently inert) or absolute irradiance (`optics.stray.absolute_irradiance_W_m2`, correct) — that contributes shot noise to every pixel. It cannot ingest a 2-D stray-light PSF / PST map (FRED, Zemax `pst_file` mode raises `NotImplementedError`), and it does not model the veiling-glare **MTF / low-frequency contrast-modulation reduction**. The radiometric (noise) hit is captured; the spatial (resolution) hit is not. |
-| **Workaround** | Use the scalar `absolute_irradiance` pedestal for the noise/SNR/NIIRS impact (scenario 5.5); accept that the MTF/contrast-modulation effect is unmodelled. |
-| **Impact** | Low–Medium — noise impact is available; spatial-contrast impact and vendor-PSF ingestion are not. |
-| **Fix location** | `optics/stray_light.py` PST-file mode + a stray-light MTF term feeding the MTF product (Rule 4); pairs with Gap 58 (raster reader). |
-| **Effort** | Medium–Large. |
-| **Scenarios blocked** | None (scalar workaround); a full stray-light-PSF scenario needs it. |
-| **Rerun after fix** | Scenario 5.5. |
+| **Status** | PARTIALLY RESOLVED 2026-07-10 — MTF impact landed; PST/2-D import DEFERRED |
+| **Description** | RADIANT modeled stray light as a spatially-uniform electron pedestal — veiling-glare fraction (`optics.stray.veiling_glare_fraction`; CU-062 inertness fixed 2026-07-07) or absolute irradiance (`optics.stray.absolute_irradiance_W_m2`) — that contributes shot noise to every pixel. It could not ingest a 2-D stray-light PSF / PST map (FRED, Zemax `pst_file` mode raises `NotImplementedError`) and did not model the veiling-glare **MTF / low-frequency contrast-modulation reduction**. |
+| **Resolution (partial)** | Veiling-glare spatial halo landed (Backlog_Closure_Plan Wave 3c): opt-in `optics.stray.veiling_glare_mtf` + `optics.stray.halo_sigma_um` re-image the stray fraction as a Gaussian halo on BOTH spatial paths (Rule 4) via the Gap-31 scatter builders — kernel `(1−vgf)·δ + vgf·G(σ)` on the `EffectivePSF`, exact analytic Fourier pair `(1−vgf) + vgf·exp(−2π²σ²f²)` on the MTF product (`mtf_stray_x/y`). Consistency-check clean; default-off (pedestal-only) is bit-identical. See `RADIANT_Optics.md` §8.3 and `tests/integration/test_stray_halo_chain.py`. |
+| **Deferred remainder** | 2-D PST / vendor-PSF ingestion (`pst_file` mode still raises `NotImplementedError`). Gating condition: the single-pixel scope decision (owner, 2026-07-07 — "not going to do 2D"); pairs with Gap 58 (raster reader). Re-audit when 2-D/imaging scope reopens. |
+| **Workaround (for deferred part)** | The scalar pedestal + opt-in Gaussian halo cover noise and first-order contrast impact; a vendor-measured PST halo shape is not representable. |
+| **Impact (remaining)** | Low — vendor-PSF ingestion only. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | Scenario 5.5 (optionally with `veiling_glare_mtf=1` to quantify the contrast hit). |
 
 ## Summary Table
 
@@ -1052,7 +1052,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | FIXED |
 | 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | DEFERRED |
 | 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | FIXED |
-| 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | OPEN |
+| 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | PARTIAL — MTF halo landed 2026-07-10; PST import deferred (single-pixel) |
 
 ---
 

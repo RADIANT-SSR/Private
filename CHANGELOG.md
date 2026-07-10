@@ -33,6 +33,19 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- Veiling-glare spatial halo, opt-in (Gap 60 partial): new parameters
+  `optics.stray.veiling_glare_mtf` (int 0/1, default 0) and
+  `optics.stray.halo_sigma_um` (default 50 µm). When enabled with
+  `veiling_glare_fraction > 0`, the stray fraction is re-imaged as a
+  Gaussian halo entering BOTH spatial paths (Rule 4): kernel
+  `(1−vgf)·δ + vgf·G(σ)` on the `EffectivePSF` and the exact Fourier
+  pair `(1−vgf) + vgf·exp(−2π²σ²f²)` on the MTF product
+  (`mtf_stray_x/y`) — the low-frequency contrast-modulation loss the
+  CU-062 radiometric pedestal cannot express. Default-off: existing
+  results are bit-identical; enabling it is results-affecting for
+  veiling-glare configs (MTF/RER/NIIRS drop toward the (1−vgf) floor).
+  The 2-D PST/vendor-PSF import (`pst_file`) stays deferred
+  (single-pixel scope decision).
 - ROC / detection-probability model (scenario 6.4):
   `radiant.performance.roc` — `roc_curve` (P_d vs P_fa from a detection
   index / contrast SNR), `detection_probability` (`Q(Q⁻¹(P_fa)−SNR)`), and

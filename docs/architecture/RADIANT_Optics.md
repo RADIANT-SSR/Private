@@ -385,6 +385,15 @@ Stray light measurements taken with a cold instrument (e.g., a TracePro export a
 
 The flag is recorded on `OpticsState.stray_includes_thermal` so downstream consumers can verify which convention is in force.
 
+### 8.3 Spatial impact — the veiling-glare halo (opt-in)
+
+§8.1's noise pedestal captures where stray photons *land statistically* but not what they do to *contrast*: veiling glare also fills in dark scene regions, depressing low-frequency modulation. The opt-in spatial model (`optics.stray.veiling_glare_mtf = 1`, default 0) re-images the veiling-glare fraction as a Gaussian halo of width `optics.stray.halo_sigma_um` (default 50 µm) on the focal plane, reusing the TIS scatter builders (§7.4b) with `vgf` as the redistributed fraction:
+
+- PSF path: kernel `(1−vgf)·δ + vgf·G(σ_halo)` convolved onto the `EffectivePSF` (`stray_halo` in the convolution history).
+- MTF product path: exact Fourier pair `(1−vgf) + vgf·exp(−2π²σ_halo²f²)` (`mtf_stray_x/y`), asymptoting to `(1−vgf)` at high frequency.
+
+Both paths get the term (Rule 4); it participates in the consistency check. Energy-conserving: the halo redistributes PSF energy, so the signal path and the §8.1 noise pedestal are untouched — the two models are complementary, not double-counted. Off by default because the Gaussian halo is a v1 approximation and enabling it changes MTF/RER/NIIRS for veiling-glare users; the true 2-D PST-driven halo import stays deferred with the `pst_file` stub (single-pixel scope decision, 2026-07).
+
 ---
 
 ## 9. Étendue vs. Nearfield Ω — The Subtle Point
@@ -467,6 +476,8 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 | `optics.stray.spectral_file` | path | None |
 | `optics.stray.pst_file` | path | None (stubbed) |
 | `optics.stray.includes_thermal` | bool | False |
+| `optics.stray.veiling_glare_mtf` | bool (int 0/1) | 0 (pedestal-only) |
+| `optics.stray.halo_sigma_um` | µm | 50.0 |
 
 ---
 

@@ -143,6 +143,8 @@ optics.surface_roughness_nm           # nm, effective train RMS roughness (TIS s
 optics.scatter_halo_sigma_um          # µm, Gaussian scatter-halo width on the focal plane
 optics.nearfield_fraction             # dimensionless (0–1); 0 = perfect cold stop, 1 = uncooled. INVERTED from vendor "cold stop efficiency" (= 1 − vendor). Deprecated alias: optics.cold_stop_efficiency (warns, Gap 12)
 optics.stray.veiling_glare_fraction   # dimensionless (0–1)
+optics.stray.veiling_glare_mtf        # int 0/1; 1 = spatial halo model (kernel + MTF pair), 0 = pedestal-only (default)
+optics.stray.halo_sigma_um            # µm, Gaussian veiling-glare halo width on the focal plane
 
 readout.electronics_sigma_um          # µm, equivalent Gaussian blur from amplifier bandwidth (x-axis only)
 

@@ -408,6 +408,50 @@ STRAY_ABSOLUTE_IRRADIANCE = ParameterDef(
     default_justification="0.0 = no stray light by default.",
 )
 
+STRAY_VEILING_GLARE_MTF = ParameterDef(
+    name="optics.stray.veiling_glare_mtf",
+    description=(
+        "Enable the SPATIAL veiling-glare model (Gap 60): the veiling-glare "
+        "fraction is re-imaged as a Gaussian halo, entering the PSF path as "
+        "a kernel (1−vgf)·δ + vgf·G(σ_halo) and the MTF product path as its "
+        "exact Fourier pair (1−vgf) + vgf·exp(−2π²σ²f²) — the low-frequency "
+        "contrast-modulation loss the radiometric pedestal cannot express. "
+        "0 (default) = pedestal-only (historical behavior); 1 = halo model "
+        "active when veiling_glare_fraction > 0. (int: 1=True, 0=False)."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=0,
+    bounds=(0, 1),
+    tags=frozenset({"optics", "stray_light"}),
+    default_justification=(
+        "Off by default: the spatial halo is a v1 approximation and turning "
+        "it on changes MTF/RER/NIIRS for veiling-glare users; the "
+        "radiometric pedestal remains the always-on baseline."
+    ),
+)
+
+STRAY_HALO_SIGMA_UM = ParameterDef(
+    name="optics.stray.halo_sigma_um",
+    description=(
+        "Gaussian half-width of the veiling-glare halo on the focal plane "
+        "[µm] (Gap 60). Must be small enough to fit the PSF grid for the "
+        "kernel and analytic MTF term to stay exact Fourier pairs (the "
+        "kernel is truncated at the grid edge)."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="um",
+    default=50.0,
+    bounds=(0.1, 1000.0),
+    tags=frozenset({"optics", "stray_light"}),
+    default_justification=(
+        "50 µm — a few pixels of halo, wide enough to kill high-frequency "
+        "contrast while remaining representable on the PSF grid."
+    ),
+)
+
 STRAY_INCLUDES_THERMAL = ParameterDef(
     name="optics.stray.includes_thermal",
     description=(
@@ -506,5 +550,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     STRAY_VEILING_GLARE_FRACTION,
     STRAY_ABSOLUTE_IRRADIANCE,
     STRAY_INCLUDES_THERMAL,
+    STRAY_VEILING_GLARE_MTF,
+    STRAY_HALO_SIGMA_UM,
     PSF_N_WAVELENGTHS,
 )

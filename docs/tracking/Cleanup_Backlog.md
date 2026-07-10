@@ -13,17 +13,6 @@
 ## Open
 
 
-### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral
-
-**Discovered**: Option C Stage 2 (2026-04-19)
-**Re-audited**: 2026-04-24 (Stages 3–8 have landed); 2026-04-26 (escalated — see Status)
-**Status**: investigated 2026-04-26; escalated to a stand-alone Category C task (`docs/reports/cu_tasks/CU-008_GroundBackground_Spectral_Task.md`) — this entry stays Open until the follow-on lands. Investigation found (a) the placeholder is at [_inferrer.py:1707–1726](../src/radiant/source/_inferrer.py#L1707), (b) **zero baseline scenarios route through it** — every one of the 14 scenarios in `tests/integration/snapshots/option_c_baseline.yaml` and `src/radiant/source/tests/snapshots/*.yaml` is `scene_type: extended` with `background: null` (extended scenes return `None` from `_build_background_descriptor` at line 1701), so the placeholder fires on no live scenario today; (c) the only live consumer is one unit-test fixture at `src/radiant/source/tests/test_inferrer.py:472`. The CU's "still emitted on every sub-pixel scenario" claim was correct in principle but not in the live code base — the placeholder is **dormant production code**, not silently-corrupting code. The fix lights up dormant code rather than refreshing existing snapshots.
-
-**File**: `src/radiant/source/_inferrer.py::_build_background_descriptor`
-**Symptom (verified 2026-04-24)**: `_inferrer.py` lines ~1842–1865 still call `_grey_spectraldata(wavelength_um=..., value=bg_eps_scalar, ...)` to construct `GroundBackground(epsilon_g=...)`. The `UserWarning` flagging "placeholder bg, will be replaced in Stage 3" is still emitted on every terrestrial / airborne sub-pixel scenario.
-**Why it still matters**: dormant Rule-17 antipattern. Once the first sub-pixel terrestrial / airborne scenario lands (likely soon — CU-009 schema work, future point-target scenarios), the placeholder warning starts firing in production and the silent-grey ε_g(λ) becomes a real radiometry bug for non-grey materials (vegetation NDVI, snow MWIR drop, urban asphalt SWIR). Stage 6's E_sky decomposition consumes ε_g spectrally via `_assemble_ground_background`; the bridge has to be built before a real consumer arrives.
-**Suggested fix**: see `docs/reports/cu_tasks/CU-008_GroundBackground_Spectral_Task.md`. Recommended approach (Approach 1 in that task doc): named spectral-library enum (`source.background.material ∈ {grey, vegetation, snow}`) + optional `source.background.emissivity_path` override, with the existing scalar `source.background.emissivity` preserved as the `material="grey"` back-compat path. Three numerical truth anchors (grey-limit identity, vegetation NDVI signature, snow MWIR drop). Zero existing-baseline drift; one or two new sub-pixel test fixtures added.
-
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
 **Discovered**: Option C Stage 3 (2026-04-19)
@@ -102,6 +91,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-008 — Stage-2 `GroundBackground` placeholder is grey, not spectral — RESOLVED 2026-07-10 (commit `76b8bd1`)
+
+**Discovered**: Option C Stage 2 (2026-04-19); escalated to `docs/reports/cu_tasks/CU-008_GroundBackground_Spectral_Task.md`. **Resolution**: task-doc Approach 1, adapted — the placeholder is replaced by a spectral ε_g(λ) surface: `source.background.emissivity_path` (CSV, wins) → `source.background.material` (named `radiant.data.SpectralLibrary` entry — the existing 19-material library supersedes the task doc's envisioned 3-entry YAML, Rule 27) → scalar grey back-compat (default, exact pre-CU-008 behavior, placeholder warning removed). Resolution happens in the API layer pre-chain (Rule 6) and injects via `stage_outputs["source_config"]["background_emissivity"]`; the inferrer resamples with a [0,1] validity check. Task-doc anchors A1–A6 covered; stop triggers held (all 14 baselines + Cells 28/58 bit-invariant, 1033 tests).
 
 ### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml` — RESOLVED 2026-07-10 (commit `2d5da44`, investigation option a)
 

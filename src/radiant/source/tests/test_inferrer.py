@@ -454,8 +454,10 @@ class TestFailureModes:
             infer_descriptors(params, wl)
 
     @pytest.mark.level1
-    def test_terrestrial_sub_pixel_placeholder_warns(self) -> None:
-        """Stage 2 placeholder warning: terrestrial+sub_pixel → grey GroundBackground."""
+    def test_terrestrial_sub_pixel_grey_background_no_warning(self) -> None:
+        """CU-008: terrestrial+sub_pixel grey GroundBackground is an explicit
+        choice (material='grey' default) — the Stage-2 placeholder warning is
+        gone and ε_g(λ) equals the scalar at every bin."""
         params = build_parameter_set()
         load_config(
             REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
@@ -470,9 +472,11 @@ class TestFailureModes:
             target, bg, _ = infer_descriptors(params, wl)
         assert isinstance(bg, GroundBackground)
         msgs = [str(w.message) for w in caught if issubclass(w.category, UserWarning)]
-        assert any("Stage-2 GroundBackground placeholder" in m for m in msgs), (
-            f"Expected Stage-2 placeholder warning, got: {msgs}"
+        assert not any("placeholder" in m for m in msgs), (
+            f"Placeholder warning should be gone (CU-008), got: {msgs}"
         )
+        expected = params.get("source.background.emissivity")
+        np.testing.assert_allclose(bg.epsilon_g.values, expected, atol=1e-15)
 
     @pytest.mark.level1
     def test_ground_test_subcase_builds_chamber_background(self) -> None:

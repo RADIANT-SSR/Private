@@ -53,6 +53,18 @@ retroactively reconstructed.
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
 ### Added
+- Spectral GroundBackground ε_g(λ) (CU-008): two new parameters give the
+  sub-pixel/point-source background a spectral emissivity surface —
+  `source.background.material` (a named `radiant.data.SpectralLibrary`
+  entry: vegetation_green, snow, soil_dry, asphalt, … ; default `grey`
+  keeps the exact scalar back-compat path) and
+  `source.background.emissivity_path` (measured two-column CSV; wins over
+  material). Resolution happens in the API layer pre-chain (Rule 6) and is
+  injected via `stage_outputs["source_config"]["background_emissivity"]`.
+  The Stage-2 "grey placeholder" `UserWarning` is removed — grey is now an
+  explicit choice, and all existing sub-pixel configs are numerically
+  unchanged. Unknown material names are rejected with the legal
+  vocabulary.
 - `source.lab_test_mode` parameter (Gap 40): positive `dark`/`lit`
   assertion for the ground_test/lab_test sub-cases. `dark` declares a
   no-external-illumination configuration (the D-lab dark-cal sub-mode) and

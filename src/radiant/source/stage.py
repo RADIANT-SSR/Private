@@ -152,6 +152,11 @@ class SourceStage:
         target_desc, background_desc, los_geometry = infer_descriptors(
             params=params,
             wavelength_um=state.wavelength_um,
+            # CU-008: spectral ε_g(λ) resolved by the API layer (library
+            # material / CSV override) and injected pre-chain (Rule 6).
+            background_emissivity=state.stage_outputs.get("source_config", {}).get(
+                "background_emissivity"
+            ),
         )
 
         # Target Definition Matrix Q3: when the user supplies a geometric

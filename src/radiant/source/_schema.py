@@ -319,6 +319,46 @@ LAB_TEST_MODE = ParameterDef(
     ),
 )
 
+BACKGROUND_MATERIAL = ParameterDef(
+    name="source.background.material",
+    description=(
+        "Named spectral-library material for the sub-pixel/point-source "
+        "GroundBackground emissivity ε_g(λ) (CU-008). 'grey' (default) uses "
+        "the scalar source.background.emissivity as a flat spectrum — the "
+        "back-compat path. Any other name is resolved against "
+        "radiant.data.SpectralLibrary (vegetation_green, snow, soil_dry, "
+        "asphalt, ...) by the API layer before chain execution (Rule 6); "
+        "unknown names are rejected with the legal vocabulary. "
+        "source.background.emissivity_path overrides this when set."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="grey",
+    tags=frozenset({"source", "background", "spectral"}),
+    default_justification=(
+        "'grey' reproduces the pre-CU-008 scalar behavior exactly, so "
+        "every existing sub-pixel configuration is unchanged."
+    ),
+)
+
+BACKGROUND_EMISSIVITY_PATH = ParameterDef(
+    name="source.background.emissivity_path",
+    description=(
+        "Two-column CSV (wavelength_um, emissivity) giving a measured "
+        "background emissivity spectrum ε_g(λ) for the sub-pixel/"
+        "point-source GroundBackground (CU-008). Loaded by the API layer "
+        "before chain execution (Rule 6) and resampled onto the chain "
+        "grid. Takes precedence over source.background.material."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"source", "background", "spectral"}),
+    default_justification="Empty string = no override (use material).",
+)
+
 # ---------------------------------------------------------------------------
 # Shape selection parameters (Target Definition Matrix §3 — Q3 resolution)
 # ---------------------------------------------------------------------------
@@ -860,6 +900,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TARGET_LOCATION,
     NO_ATMOSPHERE_SUBCASE,
     LAB_TEST_MODE,
+    BACKGROUND_MATERIAL,
+    BACKGROUND_EMISSIVITY_PATH,
     SHAPE,
     SHAPE_RADIUS,
     SHAPE_LENGTH,

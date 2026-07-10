@@ -211,6 +211,14 @@ ignore_imports = [
     # types; the RadiantError base lives in core.exceptions (transitive
     # through api, same carve-out as io.config above).
     "radiant.api.errors -> radiant.core.exceptions",
+    # CU-008: RadiantSession resolves source.background.material /
+    # .emissivity_path pre-chain (Rule 6 — library/file I/O in the api
+    # layer) via radiant.data.SpectralLibrary and the source CSV
+    # converter; both reach core transitively through api.
+    "radiant.api.session -> radiant.data.library",
+    "radiant.api.session -> radiant.source.converters._csv",
+    "radiant.data.library -> radiant.core.spectral",
+    "radiant.source.converters._csv -> radiant.core.spectral",
     # `to_provenance_record` reads `radiant.__version__` lazily; the
     # `radiant` package init re-exports `RadiantError` from
     # `radiant.core.exceptions`, so the `radiant -> radiant.core.exceptions`

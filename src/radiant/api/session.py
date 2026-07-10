@@ -94,6 +94,63 @@ def _load_qe_curve(
     return qe
 
 
+def _load_background_emissivity(params: ParameterSet) -> Any | None:
+    """Resolve spectral background emissivity ε_g(λ), or None for grey.
+
+    CU-008: the sub-pixel/point-source ``GroundBackground`` accepts a
+    spectral ε_g(λ) from two config surfaces, resolved here per Rule 6
+    (file/library I/O in the API layer, never in a stage):
+
+    - ``source.background.emissivity_path`` — a two-column CSV (wins).
+    - ``source.background.material`` — a named entry in
+      :class:`radiant.data.SpectralLibrary` (e.g. ``vegetation_green``,
+      ``snow``); ``"grey"`` (the default) returns None so the inferrer
+      keeps the exact scalar back-compat path.
+
+    Unknown material names are rejected with the legal vocabulary
+    (Rule 17). Returns a native-grid :class:`SpectralData`; the inferrer
+    resamples onto the chain grid.
+    """
+    try:
+        path_str: str = params.get("source.background.emissivity_path")
+    except (KeyError, TypeError):
+        path_str = ""
+    if path_str:
+        from radiant.source.converters._csv import load_two_column_csv
+
+        return load_two_column_csv(
+            path_str,
+            value_unit="",
+            column_label="emissivity",
+            sd_name="source.background.emissivity",
+            sd_source_prefix="source.background.emissivity_path",
+        )
+
+    try:
+        material: str = params.get("source.background.material")
+    except (KeyError, TypeError):
+        material = "grey"
+    if material == "grey":
+        return None
+
+    from radiant.core.parameters import ParameterBoundsError
+    from radiant.data.library import SpectralLibrary
+
+    library = SpectralLibrary()
+    known = library.materials()
+    if material not in known:
+        raise ParameterBoundsError(
+            what=f"source.background.material = {material!r} is not in the spectral library",
+            why="ε_g(λ) can only be resolved for library materials or 'grey'.",
+            action=(
+                f"Choose one of: grey, {', '.join(sorted(known))}; or supply "
+                "a measured spectrum via source.background.emissivity_path."
+            ),
+            context={"material": material, "known_materials": sorted(known)},
+        )
+    return library.material(material)
+
+
 class RadiantSession:
     """High-level session for running the RADIANT signal chain.
 
@@ -163,6 +220,12 @@ class RadiantSession:
         qe_curve = _load_qe_curve(params, self._wavelength_um)
         if qe_curve is not None:
             initial.setdefault("spectral_integration", {})["qe_curve"] = qe_curve
+        # Spectral background emissivity (CU-008): resolve the named
+        # library material / CSV override here (Rule 6) and inject; the
+        # source inferrer consumes it when building GroundBackground.
+        bg_eps = _load_background_emissivity(params)
+        if bg_eps is not None:
+            initial.setdefault("source_config", {})["background_emissivity"] = bg_eps
         for group, values in (extra_stage_outputs or {}).items():
             initial.setdefault(group, {}).update(values)
         state = self._runner.run(

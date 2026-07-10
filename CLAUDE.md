@@ -514,7 +514,7 @@ package returns when that spec is implemented.)
 | Physics stages (source through performance) | `radiant.core` ONLY |
 | `data/` | `radiant.core` ONLY (+ stdlib, numpy, yaml) |
 | `io/` | `radiant.core` + any physics stage (read-only for schema) |
-| `api/` | `radiant.core` + all physics stages + `radiant.io` |
+| `api/` | `radiant.core` + all physics stages + `radiant.io` + `radiant.data` (pre-chain library resolution, Rule 6) |
 | `cli/` | `radiant.api` + `radiant.io` |
 
 ---

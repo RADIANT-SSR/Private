@@ -1702,6 +1702,7 @@ def _build_background_descriptor(
     target_location: str,
     no_atmosphere_subcase: str,
     scene_type: str,
+    background_emissivity: SpectralData | None = None,
 ) -> BackgroundDescriptor | None:
     """Build the background descriptor matching ``target_location`` / subcase.
 
@@ -1858,23 +1859,47 @@ def _build_background_descriptor(
             )
         return None
 
-    # sub_pixel / point_source: need a GroundBackground.  Stage 2 has no
-    # spectral-ε_g surface yet (the backgrounds subsystem loads that),
-    # so we build a placeholder from the legacy scalar background params
-    # and emit a UserWarning per Rule 17.
+    # sub_pixel / point_source: need a GroundBackground (CU-008).
+    # Spectral ε_g(λ) comes from the API-layer injection
+    # (source.background.material library entry or .emissivity_path CSV,
+    # resolved pre-chain per Rule 6) when present; otherwise the scalar
+    # source.background.emissivity is an explicit grey choice
+    # (material="grey", the default) — no longer a warned placeholder.
     bg_T: float = params.get("source.background.temperature")
+    if background_emissivity is not None:
+        eps_vals = np.interp(
+            np.asarray(wavelength_um, dtype=np.float64),
+            np.asarray(background_emissivity.wavelength_um, dtype=np.float64),
+            np.asarray(background_emissivity.values, dtype=np.float64),
+        )
+        bad = (eps_vals < 0.0) | (eps_vals > 1.0)
+        if np.any(bad):
+            raise ParameterBoundsError(
+                what=(
+                    "source background ε_g(λ) is outside [0, 1] after "
+                    "resampling onto the chain grid"
+                ),
+                why="Emissivity is a dimensionless fraction of blackbody emission.",
+                action=(
+                    "Check the spectral-library entry / CSV covers the "
+                    "chain wavelength range with values in [0, 1]."
+                ),
+                context={
+                    "source": background_emissivity.source,
+                    "min": float(eps_vals.min()),
+                    "max": float(eps_vals.max()),
+                },
+            )
+        epsilon_g = SpectralData(
+            name="source.background.emissivity",
+            wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
+            values=eps_vals,
+            unit="",
+            source=f"CU-008 spectral ε_g ({background_emissivity.source})",
+        )
+        return GroundBackground(epsilon_g=epsilon_g, T_g=bg_T)
+
     bg_eps_scalar: float = params.get("source.background.emissivity")
-    warnings.warn(
-        (
-            "source._inferrer: terrestrial/airborne sub-pixel scenario is "
-            "using a Stage-2 GroundBackground placeholder built from "
-            "scalar source.background.temperature / .emissivity.  Stage 3 "
-            "of the Option C plan will replace this with spectral "
-            "emissivity inference.  Until then, spectral ε_g(λ) is grey."
-        ),
-        UserWarning,
-        stacklevel=3,
-    )
     epsilon_g = _grey_spectraldata(
         wavelength_um=wavelength_um,
         value=bg_eps_scalar,
@@ -1892,6 +1917,7 @@ def _build_background_descriptor(
 def infer_descriptors(
     params: ParameterSet,
     wavelength_um: np.ndarray,
+    background_emissivity: SpectralData | None = None,
 ) -> tuple[TargetDescriptor, BackgroundDescriptor | None, LineOfSightGeometry | None]:
     """Build the three Option-C descriptors from a legacy ParameterSet.
 
@@ -1995,6 +2021,7 @@ def infer_descriptors(
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         scene_type=scene_type,
+        background_emissivity=background_emissivity,
     )
 
     return target, background, los

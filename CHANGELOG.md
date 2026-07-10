@@ -53,6 +53,13 @@ retroactively reconstructed.
   class `TemperatureRetrievalError`. Analysis model — no chain change.
 
 ### Added
+- `geometry.solar_illumination` day/night toggle (Gap 59): `night` removes
+  the solar terms for reflective/mixed (T2/T3) targets (`theta_s = None` —
+  no direct-solar reflection, no single-scatter solar sky) while thermal
+  self-emission and reflected thermal downwelling remain. Previously the
+  `solar_zenith_rad` schema default (0.5 rad) gave every T2/T3 scene a
+  phantom daytime sun and night was inexpressible. The `day` default
+  preserves every existing configuration bit-for-bit.
 - Spectral GroundBackground ε_g(λ) (CU-008): two new parameters give the
   sub-pixel/point-source background a spectral emissivity surface —
   `source.background.material` (a named `radiant.data.SpectralLibrary`

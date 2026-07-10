@@ -177,6 +177,31 @@ SOLAR_AZIMUTH_RAD = ParameterDef(
     default_justification="Same meridional plane.",
 )
 
+SOLAR_ILLUMINATION = ParameterDef(
+    name="geometry.solar_illumination",
+    description=(
+        "Day/night solar toggle (Gap 59). 'day' (default) illuminates "
+        "reflective and mixed (T2/T3) targets with the sun at "
+        "geometry.solar_zenith_rad — the historical behavior, in which the "
+        "0.5 rad zenith default meant every T2/T3 scene carried a daytime "
+        "sun. 'night' removes the solar terms entirely (theta_s = None: no "
+        "direct-solar reflection, no single-scatter solar sky) while "
+        "thermal self-emission and reflected THERMAL downwelling remain — "
+        "the physically correct nighttime mixed scene. Pure-thermal "
+        "targets (T1) never carry a solar term either way."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="day",
+    enum_values=("day", "night"),
+    tags=frozenset({"geometry"}),
+    default_justification=(
+        "'day' preserves every existing configuration bit-for-bit; night "
+        "was previously inexpressible for T2/T3 targets."
+    ),
+)
+
 GROUND_SPEED_M_S = ParameterDef(
     name="geometry.ground_speed_m_s",
     description="Ground-track speed [m/s]. For LEO at 600 km: ~6900 m/s.",
@@ -453,5 +478,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PATH_ZENITH_RAD,
     SOLAR_ZENITH_RAD,
     SOLAR_AZIMUTH_RAD,
+    SOLAR_ILLUMINATION,
     GROUND_SPEED_M_S,
 )

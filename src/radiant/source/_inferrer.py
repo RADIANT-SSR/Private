@@ -311,7 +311,17 @@ def _infer_los(
         theta_o = float(params.get("geometry.path_zenith_rad"))
     except KeyError:
         theta_o = 0.0
-    if isinstance(target_descriptor, (T2Reflective, T3Mixed)):
+    # Gap 59: day/night toggle. 'night' removes the solar terms entirely
+    # (theta_s = None → assembly skips direct-solar reflection and the
+    # single-scatter solar sky) while thermal self-emission and reflected
+    # thermal downwelling remain. 'day' (default) preserves the historical
+    # behavior, where the solar_zenith_rad schema default gave every
+    # T2/T3 target a daytime sun.
+    try:
+        solar_illumination: str = str(params.get("geometry.solar_illumination"))
+    except KeyError:
+        solar_illumination = "day"
+    if solar_illumination == "day" and isinstance(target_descriptor, (T2Reflective, T3Mixed)):
         try:
             theta_s: float | None = float(params.get("geometry.solar_zenith_rad"))
         except KeyError:

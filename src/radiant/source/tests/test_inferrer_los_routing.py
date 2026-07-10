@@ -416,3 +416,54 @@ class TestA9ViewDirectionFromCanonicalParam:
         params = _los_params()
         view_dir = _view_direction_from_los(params, "terrestrial")
         np.testing.assert_array_equal(view_dir, np.array([0.0, 0.0, 1.0]))
+
+
+# ---------------------------------------------------------------------------
+# Gap 59 — geometry.solar_illumination day/night toggle
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+class TestSolarIlluminationToggle:
+    """Gap 59: 'night' removes the solar terms for T2/T3 targets.
+
+    Previously the solar_zenith_rad schema default (0.5 rad) meant every
+    T2/T3 target carried a daytime sun — night was inexpressible. 'night'
+    forces theta_s = None (assembly skips direct-solar reflection and the
+    single-scatter solar sky); thermal self-emission and reflected thermal
+    downwelling are untouched.
+    """
+
+    def test_day_default_gives_t3_a_sun(self) -> None:
+        """Back-compat: default ('day') keeps the historical solar terms."""
+        params = _los_params()
+        target = _t3_mixed_mwir()
+        los = _infer_los("terrestrial", params, target_descriptor=target)
+        assert los.theta_s is not None
+
+    def test_night_removes_sun_for_t3(self) -> None:
+        params = _los_params()
+        params.set("geometry.solar_illumination", "night")
+        params.resolve()
+        target = _t3_mixed_mwir()
+        los = _infer_los("terrestrial", params, target_descriptor=target)
+        assert los.theta_s is None
+        assert los.delta_phi is None
+
+    def test_night_removes_sun_for_t2(self) -> None:
+        params = _los_params()
+        params.set("geometry.solar_illumination", "night")
+        params.resolve()
+        target = _t2_reflective_vis()
+        los = _infer_los("terrestrial", params, target_descriptor=target)
+        assert los.theta_s is None
+
+    def test_t1_thermal_unaffected_either_way(self) -> None:
+        """Pure-thermal targets never had a solar term; both modes agree."""
+        for mode in ("day", "night"):
+            params = _los_params()
+            params.set("geometry.solar_illumination", mode)
+            params.resolve()
+            target = _t1_thermal()
+            los = _infer_los("terrestrial", params, target_descriptor=target)
+            assert los.theta_s is None

@@ -90,26 +90,25 @@ Running RADIANT at each frame rate with `flicker_K = 25000` and without:
 
 | Frame Rate | NEDT (no 1/f) [mK] | NEDT (with 1/f) [mK] | Δ NEDT [mK] | Δ [%] |
 |-----------|--------------------|--------------------|------------|-------|
-| 30 Hz | 37.6 | 37.9 | 0.3 | 0.8% |
-| 60 Hz | 37.6 | 37.8 | 0.2 | 0.6% |
-| 120 Hz | 37.6 | 37.8 | 0.2 | 0.5% |
+| 30 Hz | 27.4 | 27.8 | 0.4 | 1.5% |
+| 60 Hz | 27.4 | 27.7 | 0.3 | 1.1% |
+| 120 Hz | 27.4 | 27.7 | 0.3 | 1.1% |
 
-**1/f noise adds only 0.2–0.3 mK to NEDT** — less than 1% degradation. The reason: photon shot noise (signal + background + nearfield) completely dominates the noise budget in this BLIP-limited LWIR system.
+**1/f noise adds only 0.3–0.4 mK to NEDT** — about 1% degradation. The reason: signal photon shot noise completely dominates the noise budget in this shot-noise-limited LWIR system.
 
 ### Step 4: Noise Breakdown at 60 Hz
 
 | Noise Term | σ [e⁻ RMS] | NEDT_i [mK] | Fraction [%] |
 |------------|-----------|-------------|-------------|
-| signal_shot | 2,105.0 | 26.65 | 49.7 |
-| background_shot | 2,032.8 | 25.74 | 46.3 |
-| quantization | 352.2 | 4.46 | 1.4 |
-| read_noise | 350.0 | 4.43 | 1.4 |
-| **flicker_1f** | **332.5** | **4.21** | **1.2** |
+| signal_shot | 2,105.0 | 26.65 | 92.5 |
+| quantization | 352.2 | 4.46 | 2.6 |
+| read_noise | 350.0 | 4.43 | 2.6 |
+| **flicker_1f** | **332.5** | **4.21** | **2.3** |
 | dark_shot | 7.1 | 0.09 | <0.1 |
 | nearfield_shot | 0.0 | 0.00 | 0.0 |
-| **RSS TOTAL** | **2,986.7** | **37.81** | **100.0** |
+| **RSS TOTAL** | **2,188.2** | **27.70** | **100.0** |
 
-1/f noise (332.5 e⁻) is comparable to read noise (350.0 e⁻) and quantization noise (352.2 e⁻), but all three combined are dwarfed by the photon noise terms (signal_shot + background_shot = 2,927 e⁻ RSS). This is the definition of BLIP performance. Note: `nearfield_shot = 0` due to scalar-mode refractive-lump assumption (see Gap 5 — the full background is already captured in the extended regime's signal_shot since the scene fills the FOV).
+1/f noise (332.5 e⁻) is comparable to read noise (350.0 e⁻) and quantization noise (352.2 e⁻), but all three combined are dwarfed by the signal photon shot noise (2,105 e⁻ — 92.5% of the noise variance). This is the definition of shot-noise-limited performance. There is **no separate background_shot term**: in the extended regime the scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). `nearfield_shot = 0` due to the scalar-mode refractive-lump assumption (see Gap 5).
 
 ### Step 5: f_low Sweep
 
@@ -135,7 +134,7 @@ For Mike's LWIR system, none of these apply. The photon noise from the warm back
 
 4. **LWIR integration times are FWC-limited, not frame-rate-limited.** At f/2 with a 300 K scene in 8–10 µm, the well fills to 46% in just 100 µs. All three frame rates use the same 100 µs integration time because the well capacity — not the frame period — limits exposure.
 
-5. **Background shot noise dominates.** Signal_shot and background_shot together account for 96% of the noise variance. The warm background (295 K) produces almost as much photon flux as the target (300 K) in the LWIR band.
+5. **Signal shot noise dominates.** `signal_shot` alone accounts for 92.5% of the noise variance — the LWIR scene is bright enough that photon statistics swamp read, quantization, and 1/f noise. In the extended regime there is no separate background_shot term (Decision #13); the whole-FOV radiance is captured in `signal_shot`.
 
 ## Gaps Identified
 

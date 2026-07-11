@@ -11,6 +11,7 @@ Category C validation for ModtranAtmosphere:
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -60,6 +61,9 @@ def default_config(tmp_path: Path) -> ModtranConfig:
 def _write_synthetic_tape7(path: Path, n_points: int = 50) -> np.ndarray:
     """Write a synthetic tape7-like file for testing.
 
+    Headerless (no "FREQ" column-header line) — exercises the CU-066
+    positional-fallback path, which always warns.
+
     Returns the wavenumber grid [cm-1] in descending order.
     """
     # Descending wavenumber (MODTRAN convention).
@@ -77,6 +81,58 @@ def _write_synthetic_tape7(path: Path, n_points: int = 50) -> np.ndarray:
         )
     path.write_text("\n".join(lines))
     return nu
+
+
+def _write_realistic_tape7(path: Path, n_points: int = 20) -> dict[str, np.ndarray]:
+    """Write a manual-faithful IEMSCT=2 tape7: numeric card echo, then a
+    named 10-column header, then data (CU-066 regression fixture).
+
+    THRML SCT and SURF EMIS are given DISTINCT, easily-distinguished
+    values from SOL SCAT and GRNDRFLT so a positional (pre-CU-066)
+    reader and a name-based reader disagree observably.
+
+    Returns the per-column arrays (descending wavenumber) keyed by
+    their RADIANT semantic field names, for the test to compare
+    against ``ModtranNativeOutput``.
+    """
+    nu = np.linspace(5000, 2000, n_points)  # descending, MODTRAN convention
+    tot_trans = np.full_like(nu, 0.80)
+    pth_thrml = np.full_like(nu, 1.0e-6)
+    thrml_sct = np.full_like(nu, 9.0e-6)  # decoy: must NOT land in path_scattered
+    surf_emis = np.full_like(nu, 8.0e-6)  # decoy: must NOT land in ground_reflected
+    sol_scat = np.full_like(nu, 2.0e-6)  # real path_scattered_radiance source
+    sngl_scat = np.full_like(nu, 7.0e-6)
+    grnd_rflt = np.full_like(nu, 3.0e-6)  # real ground_reflected_radiance source
+    drct_rflt = np.full_like(nu, 6.0e-6)
+    total_rad = pth_thrml + thrml_sct + surf_emis + sol_scat + grnd_rflt
+
+    lines = [
+        # Numeric card-echo lines: a headerless-scan reader (pre-CU-066)
+        # would mistake these for spectral data since they start with
+        # numbers; a header-anchored reader must skip them.
+        "    1    5    0    6    0    2    2    1    0    0    0    1    0  0.000",
+        "    1    0    0    0    0    0  0.000  0.000  0.000  0.000  0.000",
+        "CARD 3    20.000     0.000     0.000     0.000     0.000     0    0.000",
+        (
+            "   FREQ   TOT TRANS   PTH THRML   THRML SCT   SURF EMIS   "
+            "SOL SCAT   SNGL SCAT   GRND RFLT   DRCT RFLT   TOTAL RAD"
+        ),
+    ]
+    for i in range(n_points):
+        lines.append(
+            f"{nu[i]:12.2f}{tot_trans[i]:12.6f}{pth_thrml[i]:12.4e}"
+            f"{thrml_sct[i]:12.4e}{surf_emis[i]:12.4e}{sol_scat[i]:12.4e}"
+            f"{sngl_scat[i]:12.4e}{grnd_rflt[i]:12.4e}{drct_rflt[i]:12.4e}"
+            f"{total_rad[i]:12.4e}"
+        )
+    path.write_text("\n".join(lines))
+    return {
+        "wavenumber_cm1": nu,
+        "total_transmittance": tot_trans,
+        "path_thermal_radiance": pth_thrml,
+        "path_scattered_radiance": sol_scat,
+        "ground_reflected_radiance": grnd_rflt,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +188,8 @@ class TestUnitConversion:
         tape7.write_text("\n".join(lines))
 
         reader = Tape7Reader(tape7)
-        wl, trans, lp, _ = reader.to_radiant_units()
+        with pytest.warns(UserWarning, match="CU-066"):
+            wl, trans, lp, _ = reader.to_radiant_units()
 
         # Ascending wavelength: [4.0, 5.0] um
         assert wl[0] == pytest.approx(4.0, abs=1e-10)
@@ -156,7 +213,8 @@ class TestUnitConversion:
         tape7.write_text("\n".join(lines))
 
         reader = Tape7Reader(tape7)
-        wl, trans, _, _ = reader.to_radiant_units()
+        with pytest.warns(UserWarning, match="CU-066"):
+            wl, trans, _, _ = reader.to_radiant_units()
 
         # Sorted to ascending wavelength: lam=3.33 (nu=3000), lam=5.0 (nu=2000)
         assert trans[0] == pytest.approx(0.75, abs=1e-10)  # nu=3000 -> lam=3.33
@@ -167,7 +225,8 @@ class TestUnitConversion:
         """Output wavelength array must be strictly ascending."""
         _write_synthetic_tape7(tmp_path / "tape7")
         reader = Tape7Reader(tmp_path / "tape7")
-        wl, _, _, _ = reader.to_radiant_units()
+        with pytest.warns(UserWarning, match="CU-066"):
+            wl, _, _, _ = reader.to_radiant_units()
 
         assert np.all(np.diff(wl) > 0), "Wavelength must be ascending"
 
@@ -184,7 +243,8 @@ class TestTape7Reader:
     def test_parse_synthetic(self, tmp_path: Path) -> None:
         nu = _write_synthetic_tape7(tmp_path / "tape7")
         reader = Tape7Reader(tmp_path / "tape7")
-        native = reader.parse()
+        with pytest.warns(UserWarning, match="CU-066"):
+            native = reader.parse()
 
         assert native.wavenumber_cm1.shape[0] == len(nu)
         assert np.allclose(native.wavenumber_cm1, nu)
@@ -204,6 +264,72 @@ class TestTape7Reader:
     def test_header_only_file(self, tmp_path: Path) -> None:
         (tmp_path / "tape7").write_text("Header only\nNo data here\n")
         with pytest.raises(Tape7ParseError, match="no numeric data"):
+            Tape7Reader(tmp_path / "tape7").parse()
+
+
+class TestTape7ReaderNamedColumns:
+    """CU-066: header-name-based column mapping on a manual-faithful tape7.
+
+    Regression coverage for the two silent-misassignment defects found
+    in the pre-fix positional reader: THRML SCT masquerading as
+    path_scattered_radiance (real column: SOL SCAT) and SURF EMIS
+    masquerading as ground_reflected_radiance (real column: GRND
+    RFLT); plus the numeric-card-echo-as-data defect (data start was
+    "first line with a numeric first field", which a real tape7's
+    card echo satisfies before the header even appears).
+    """
+
+    @pytest.mark.level1
+    def test_no_warning_with_named_header(self, tmp_path: Path) -> None:
+        """A labeled header must NOT trigger the positional-fallback warning."""
+        _write_realistic_tape7(tmp_path / "tape7")
+        reader = Tape7Reader(tmp_path / "tape7")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any warning fails the test
+            native = reader.parse()
+        assert native.wavenumber_cm1.shape[0] == 20
+
+    @pytest.mark.level1
+    def test_scattered_and_ground_reflected_not_swapped(self, tmp_path: Path) -> None:
+        """path_scattered <- SOL SCAT and ground_reflected <- GRND RFLT,
+        NOT the decoy THRML SCT / SURF EMIS columns (CU-066 defect)."""
+        expected = _write_realistic_tape7(tmp_path / "tape7")
+        native = Tape7Reader(tmp_path / "tape7").parse()
+
+        np.testing.assert_allclose(
+            native.path_scattered_radiance, expected["path_scattered_radiance"]
+        )
+        np.testing.assert_allclose(
+            native.ground_reflected_radiance, expected["ground_reflected_radiance"]
+        )
+        # The decoy values (9e-6, 8e-6) must not appear in either field.
+        assert not np.allclose(native.path_scattered_radiance, 9.0e-6)
+        assert not np.allclose(native.ground_reflected_radiance, 8.0e-6)
+
+    @pytest.mark.level1
+    def test_card_echo_lines_excluded_from_data(self, tmp_path: Path) -> None:
+        """Numeric card-echo lines preceding the header must not be
+        parsed as spectral data rows."""
+        expected = _write_realistic_tape7(tmp_path / "tape7")
+        native = Tape7Reader(tmp_path / "tape7").parse()
+
+        assert native.wavenumber_cm1.shape[0] == len(expected["wavenumber_cm1"])
+        # rtol accounts for the fixture's %12.2f text round-trip, not the
+        # reader under test.
+        np.testing.assert_allclose(native.wavenumber_cm1, expected["wavenumber_cm1"], rtol=1e-5)
+        np.testing.assert_allclose(native.total_transmittance, expected["total_transmittance"])
+
+    @pytest.mark.level1
+    def test_missing_required_label_raises(self, tmp_path: Path) -> None:
+        """A named header lacking a required RADIANT field (here, no
+        GRND RFLT column at all) raises rather than silently zeroing."""
+        lines = [
+            "   FREQ   TOT TRANS   PTH THRML   SOL SCAT",
+            "5000.00     0.800000   1.0000e-06   2.0000e-06",
+            "4000.00     0.800000   1.0000e-06   2.0000e-06",
+        ]
+        (tmp_path / "tape7").write_text("\n".join(lines))
+        with pytest.raises(Tape7ParseError, match="missing required label"):
             Tape7Reader(tmp_path / "tape7").parse()
 
 
@@ -236,6 +362,35 @@ class TestCardDeck:
         tape5 = render_tape5(config, default_geometry)
         assert "800.0" in tape5
         assert "5000.0" in tape5
+
+    @pytest.mark.level1
+    def test_default_card1_card2_unchanged(self, default_geometry: AtmosphericGeometry) -> None:
+        """CU-063/064 defaults must reproduce the pre-change deck exactly
+        (visibility_km=None, iemsct=2) — no behavior change for existing
+        callers."""
+        tape5 = render_tape5(ModtranConfig(), default_geometry)
+        lines = tape5.splitlines()
+        assert lines[0] == "T    5    0    6    0    2    2    1    0    0    0    1    0  0.000"
+        assert lines[2] == "    1    0    0    0    0    0  0.000  0.000  0.000  0.000  0.000"
+
+    @pytest.mark.level1
+    def test_visibility_km_in_card2(self, default_geometry: AtmosphericGeometry) -> None:
+        config = ModtranConfig(visibility_km=8.5)
+        tape5 = render_tape5(config, default_geometry)
+        assert "8.500" in tape5.splitlines()[2]
+
+    @pytest.mark.level1
+    def test_visibility_km_none_keeps_zero(self, default_geometry: AtmosphericGeometry) -> None:
+        config = ModtranConfig(visibility_km=None)
+        tape5 = render_tape5(config, default_geometry)
+        assert tape5.splitlines()[2].count("0.000") == 5
+
+    @pytest.mark.level1
+    def test_iemsct_solar_irradiance_mode(self, default_geometry: AtmosphericGeometry) -> None:
+        config = ModtranConfig(iemsct=3)
+        tape5 = render_tape5(config, default_geometry)
+        card1 = tape5.splitlines()[0]
+        assert card1 == "T    5    0    6    0    2    3    1    0    0    0    1    0  0.000"
 
     @pytest.mark.level1
     def test_deterministic_rendering(self, default_geometry: AtmosphericGeometry) -> None:
@@ -391,6 +546,21 @@ class TestConfigValidation:
     def test_bad_spectral_range(self) -> None:
         with pytest.raises(ValueError, match="v1_cm1"):
             ModtranConfig(v1_cm1=5000.0, v2_cm1=1000.0)
+
+    @pytest.mark.level1
+    def test_negative_visibility_km(self) -> None:
+        with pytest.raises(ValueError, match="visibility_km"):
+            ModtranConfig(visibility_km=-5.0)
+
+    @pytest.mark.level1
+    def test_zero_visibility_km(self) -> None:
+        with pytest.raises(ValueError, match="visibility_km"):
+            ModtranConfig(visibility_km=0.0)
+
+    @pytest.mark.level1
+    def test_invalid_iemsct(self) -> None:
+        with pytest.raises(ValueError, match="iemsct"):
+            ModtranConfig(iemsct=4)
 
 
 # ---------------------------------------------------------------------------

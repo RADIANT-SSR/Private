@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import subprocess
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -130,6 +131,21 @@ class ModtranConfig:
         Water vapor column scaling factor.
     o3_scale:
         Ozone column scaling factor.
+    visibility_km:
+        Meteorological visibility [km] (Card 2 VIS, CU-063). ``None``
+        (default) leaves VIS at ``0.000``, which tells MODTRAN to use
+        the IHAZE-default visibility; set explicitly to express a
+        degraded-visibility run independent of the aerosol type.
+    iemsct:
+        MODTRAN Card 1 IEMSCT mode (CU-064): ``2`` (default) = thermal
+        + solar/lunar path radiance with scattering, the mode this
+        deck builder was designed around; ``3`` = solar/lunar
+        irradiance at H2 (no path-radiance decomposition — used for
+        sky-irradiance / E_sky reference runs, e.g. Block E of
+        ``docs/plans/modtran_run_matrix.csv``); ``0``/``1`` are the
+        remaining MODTRAN-defined values (no emission; thermal-only).
+        See the CU-067 caveat on ``render_tape5`` for how this token's
+        position was identified.
     spectral_resolution_cm1:
         Spectral resolution in cm-1 for the MODTRAN run.
     v1_cm1:
@@ -148,6 +164,8 @@ class ModtranConfig:
     aerosol_model: str = "rural"
     h2o_scale: float = 1.0
     o3_scale: float = 1.0
+    visibility_km: float | None = None
+    iemsct: int = 2
     spectral_resolution_cm1: float = 1.0
     v1_cm1: float = 700.0  # ~14.3 um
     v2_cm1: float = 25000.0  # ~0.4 um
@@ -174,6 +192,16 @@ class ModtranConfig:
         if self.o3_scale <= 0.0:
             raise AtmosphereValidationError(
                 f"ModtranConfig: o3_scale={self.o3_scale} must be positive."
+            )
+        if self.visibility_km is not None and self.visibility_km <= 0.0:
+            raise AtmosphereValidationError(
+                f"ModtranConfig: visibility_km={self.visibility_km} must be "
+                "positive, or None to use the IHAZE default."
+            )
+        if self.iemsct not in (0, 1, 2, 3):
+            raise AtmosphereValidationError(
+                f"ModtranConfig: iemsct={self.iemsct} not recognised. "
+                "MODTRAN defines IEMSCT in {0, 1, 2, 3}."
             )
         if self.spectral_resolution_cm1 <= 0.0:
             raise AtmosphereValidationError(
@@ -254,15 +282,40 @@ def render_tape5(
     solar_az_deg = math.degrees(geometry.solar_azimuth_rad)
 
     # Card 1: MODRAN, SPEED, BINARY, LYMOLC, MODEL, T_BEST, ITYPE, IEMSCT, IMULT
-    # ITYPE=2 (slant path H1 to H2), IEMSCT=2 (thermal+solar radiance),
-    # IMULT=1 (multiple scattering via DISORT)
-    card1 = f"T    5    0    {model_code}    0    2    2    1    0    0    0    1    0  0.000"
+    # ITYPE=2 (slant path H1 to H2), IMULT=1 (multiple scattering via
+    # DISORT). IEMSCT defaults to 2 (thermal+solar path radiance,
+    # what this deck builder was designed around) and is configurable
+    # (CU-064) for IEMSCT=3 (solar/lunar irradiance mode, Block E of
+    # the run matrix).
+    #
+    # CU-067 caveat: the inline name list above does NOT line up
+    # index-for-index with the literal token positions below (e.g.
+    # LYMOLC would land on the atmosphere-model code, which is not
+    # what LYMOLC means) — the list is stale/miscounted, not a
+    # verified field map. The token this function treats as IEMSCT is
+    # identified instead from this docstring's own prior prose
+    # ("ITYPE=2 ... IEMSCT=2 ... IMULT=1"), which uniquely picks out
+    # the second of the two consecutive "2" tokens below (ITYPE then
+    # IEMSCT), followed by "1" (IMULT) — consistent 3-in-a-row. This
+    # is a best-effort identification, not a manual-verified one (see
+    # CU-065's identical caveat for Card 3 ANGLE); confirm against the
+    # MODTRAN user manual when access arrives.
+    itype = 2
+    iemsct = config.iemsct
+    imult = 1
+    card1 = (
+        f"T    5    0    {model_code}    0    {itype}    {iemsct}    {imult}"
+        "    0    0    0    1    0  0.000"
+    )
 
     # Card 1A: DIS, NSTR, LSUN
     card1a = "T    4 F F F F    0 0.00000  0.00000  0.00000  0.00000"
 
     # Card 2: IHAZE, ISEASN, IVULCN, ICSTL, ICLD, IVSA, VIS, WSS, WHH, RAINRT
-    card2 = f"    {ihaze}    0    0    0    0    0  0.000  0.000  0.000  0.000  0.000"
+    # VIS (CU-063): 0.000 tells MODTRAN to use the IHAZE-default
+    # visibility; a positive value overrides it independent of IHAZE.
+    vis_field = f"{config.visibility_km:7.3f}" if config.visibility_km is not None else "  0.000"
+    card2 = f"    {ihaze}    0    0    0    0    0{vis_field}  0.000  0.000  0.000  0.000"
 
     # Card 2C (water vapor scaling): H2OSTR
     h2o_str = f"{config.h2o_scale:.3f}g"
@@ -308,28 +361,92 @@ def render_tape5(
 # ---------------------------------------------------------------------------
 
 
+# Canonical MODTRAN tape7 (IEMSCT=2, "full" radiance-mode output)
+# column labels, MODTRAN 4/5 User's Manual, in their standard
+# left-to-right order. Header lines are fixed-width FORTRAN output
+# with two-word labels ("TOT TRANS", "PTH THRML", ...); naive
+# whitespace splitting cannot recover a 1:1 token-to-column mapping
+# from that, so CU-066 identifies each label's COLUMN ORDER by the
+# position its text starts at in the header line (left to right),
+# not by a literal token index.
+_TAPE7_COLUMN_LABELS: tuple[str, ...] = (
+    "FREQ",
+    "TOT TRANS",
+    "PTH THRML",
+    "THRML SCT",
+    "SURF EMIS",
+    "SOL SCAT",
+    "SNGL SCAT",
+    "GRND RFLT",
+    "DRCT RFLT",
+    "TOTAL RAD",
+)
+
+# RADIANT semantic field <- MODTRAN column label. THRML SCT / SURF
+# EMIS / SNGL SCAT / DRCT RFLT / TOTAL RAD are real tape7 columns but
+# have no ModtranNativeOutput field yet, so they are located (and
+# preserved in ``header`` for future use) but not consumed.
+_FIELD_TO_LABEL: dict[str, str] = {
+    "wavenumber_cm1": "FREQ",
+    "total_transmittance": "TOT TRANS",
+    "path_thermal_radiance": "PTH THRML",
+    "path_scattered_radiance": "SOL SCAT",
+    "ground_reflected_radiance": "GRND RFLT",
+}
+
+# Positional fallback (pre-CU-066 behavior) used only when no
+# named column header is found — e.g. headerless/synthetic input.
+# CU-066: cols 3/4 are wrong against the real IEMSCT=2 layout (THRML
+# SCT and SURF EMIS, not SOL SCAT and GRND RFLT); kept only as a
+# best-effort degraded mode, always paired with a UserWarning.
+_POSITIONAL_FALLBACK_COLUMNS: dict[str, int] = {
+    "FREQ": 0,
+    "TOT TRANS": 1,
+    "PTH THRML": 2,
+    "SOL SCAT": 3,
+    "GRND RFLT": 4,
+}
+
+
+def _locate_tape7_columns(header_line: str) -> dict[str, int] | None:
+    """Map tape7 column labels found in ``header_line`` to column indices.
+
+    Returns ``None`` if the line has no "FREQ" label (i.e. is not a
+    real column-header line). Otherwise returns ``{label: column_index}``
+    for every recognised label present, ordered by where its text
+    starts in the (whitespace-normalised) line — this recovers column
+    ORDER without depending on exact character widths, which vary by
+    MODTRAN version.
+    """
+    normalized = " ".join(header_line.split())
+    if "FREQ" not in normalized:
+        return None
+
+    found = [
+        (normalized.find(label), label)
+        for label in _TAPE7_COLUMN_LABELS
+        if normalized.find(label) >= 0
+    ]
+    found.sort(key=lambda pair: pair[0])
+    return {label: idx for idx, (_, label) in enumerate(found)}
+
+
 class Tape7Reader:
     """Parse MODTRAN tape7 fixed-column output.
 
     The tape7 format is a fixed-width text file with a header section
-    followed by spectral data columns.  The exact column layout depends
-    on the MODTRAN version and card-deck options; this reader supports
-    the standard transmittance/radiance output from IEMSCT=2 runs.
+    (including, on real MODTRAN output, a numeric card-echo of the
+    input deck) followed by a column-labeled spectral data table. The
+    exact column layout depends on the MODTRAN version and card-deck
+    options; this reader locates columns by their header LABELS
+    (CU-066), falling back to the historical positional assumption
+    with a ``UserWarning`` only when no labeled header is found.
 
     Parameters
     ----------
     tape7_path:
         Path to the tape7 output file.
     """
-
-    # Standard tape7 column positions for IEMSCT=2 output (0-indexed).
-    # These are approximate and version-dependent; the header row names
-    # provide the canonical mapping.
-    _COL_WAVENUMBER = 0
-    _COL_TOTAL_TRANS = 1
-    _COL_PATH_THERMAL = 2
-    _COL_PATH_SCATTERED = 3
-    _COL_GROUND_REFLECTED = 4
 
     def __init__(self, tape7_path: str | Path) -> None:
         self._path = Path(tape7_path)
@@ -360,28 +477,87 @@ class Tape7Reader:
         text = self._path.read_text()
         lines = text.strip().splitlines()
 
-        # Find the start of spectral data: skip header lines until we
-        # find a line where the first field parses as a float.
-        data_start = 0
+        # Pass 1: look for a named column-header line ("FREQ..."),
+        # recording preceding/surrounding non-numeric text as header
+        # metadata (card echoes on real tape7 output, decorative
+        # banners on synthetic fixtures) regardless of the outcome.
         header_info: dict[str, Any] = {}
+        column_index: dict[str, int] | None = None
+        header_line_no: int | None = None
         for i, line in enumerate(lines):
             stripped = line.strip()
             if not stripped:
                 continue
-            first_field = stripped.split()[0]
-            try:
-                float(first_field)
-                data_start = i
-                break
-            except ValueError:
-                # Accumulate header info.
-                if i < 20:
-                    header_info[f"header_line_{i}"] = stripped
+            if column_index is None:
+                candidate = _locate_tape7_columns(stripped)
+                if candidate is not None:
+                    column_index = candidate
+                    header_line_no = i
+            if i < 20:
+                header_info[f"header_line_{i}"] = stripped
+
+        if column_index is not None:
+            missing = [f for f in _FIELD_TO_LABEL.values() if f not in column_index]
+            if missing:
+                raise Tape7ParseError(
+                    f"MODTRAN tape7 {self._path}: column header found but "
+                    f"missing required label(s) {missing}. Labels present: "
+                    f"{sorted(column_index)}. This tape7 variant is not "
+                    "supported."
+                )
+            # Data starts on the first numeric-leading line strictly
+            # after the header — never before it, so numeric card
+            # echoes preceding the header cannot be mistaken for
+            # spectral data (the pre-CU-066 defect).
+            data_start = None
+            for i in range(header_line_no + 1, len(lines)):
+                stripped = lines[i].strip()
+                if not stripped:
+                    continue
+                try:
+                    float(stripped.split()[0])
+                    data_start = i
+                    break
+                except ValueError:
+                    continue
+            if data_start is None:
+                raise Tape7ParseError(
+                    f"MODTRAN tape7 {self._path}: found a column header "
+                    "but no numeric data followed it. The file may be "
+                    "truncated."
+                )
         else:
-            raise Tape7ParseError(
-                f"MODTRAN tape7 {self._path}: no numeric data found. "
-                "The file may be empty or corrupted."
+            # No labeled header: locate the first numeric-leading line
+            # (if any) BEFORE warning — a file with no data at all
+            # (empty, header-only) is a parse error, not a degraded
+            # fallback, and must not also claim to be "falling back".
+            data_start = None
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    float(stripped.split()[0])
+                    data_start = i
+                    break
+                except ValueError:
+                    continue
+            if data_start is None:
+                raise Tape7ParseError(
+                    f"MODTRAN tape7 {self._path}: no numeric data found. "
+                    "The file may be empty or corrupted."
+                )
+            # Rule 17: a degraded-confidence fallback must not be silent.
+            warnings.warn(
+                f"MODTRAN tape7 {self._path}: no 'FREQ' column-header "
+                "line found; falling back to the version-dependent "
+                "positional column assumption (CU-066). This may "
+                "misassign columns on real MODTRAN output — verify "
+                "against the tape7 header.",
+                UserWarning,
+                stacklevel=2,
             )
+            column_index = _POSITIONAL_FALLBACK_COLUMNS
 
         # Parse spectral data.
         rows: list[list[float]] = []
@@ -413,15 +589,17 @@ class Tape7Reader:
                 f"(wavenumber, transmittance, radiance), got {n_cols}."
             )
 
-        wavenumber = data[:, self._COL_WAVENUMBER]
-        total_trans = data[:, self._COL_TOTAL_TRANS]
-        path_thermal = data[:, self._COL_PATH_THERMAL] if n_cols > 2 else np.zeros_like(wavenumber)
-        path_scattered = (
-            data[:, self._COL_PATH_SCATTERED] if n_cols > 3 else np.zeros_like(wavenumber)
-        )
-        ground_reflected = (
-            data[:, self._COL_GROUND_REFLECTED] if n_cols > 4 else np.zeros_like(wavenumber)
-        )
+        def _column(label: str) -> np.ndarray:
+            idx = column_index.get(label)
+            if idx is None or idx >= n_cols:
+                return np.zeros(data.shape[0], dtype=np.float64)
+            return data[:, idx]
+
+        wavenumber = _column("FREQ")
+        total_trans = _column("TOT TRANS")
+        path_thermal = _column("PTH THRML")
+        path_scattered = _column("SOL SCAT")
+        ground_reflected = _column("GRND RFLT")
 
         self._native = ModtranNativeOutput(
             wavenumber_cm1=wavenumber,

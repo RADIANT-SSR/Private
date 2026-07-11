@@ -213,9 +213,9 @@ This section defines the binary boundary between RADIANT and MODTRAN. Everything
 
 | Card | Purpose | RADIANT-controlled fields |
 |------|---------|---------------------------|
-| 1 | Mode + atmosphere selection | `MODTRN=T`, `IEMSCT` (1=transmission, 2=radiance+thermal, 4=radiance+thermal+solar), `IMULT` (multiple scatter on/off), `MODEL` (1–6 for atmosphere profile), `M1–M6` profile selectors |
+| 1 | Mode + atmosphere selection | `MODTRN=T`, `IEMSCT` (MODTRAN-defined 0–3; RADIANT defaults to 2 = thermal+solar path radiance, the mode the deck builder targets, and exposes 3 = solar/lunar irradiance at H2 as `ModtranConfig.iemsct`, CU-064), `IMULT` (multiple scatter on/off), `MODEL` (1–6 for atmosphere profile), `M1–M6` profile selectors |
 | 1A | Spectral DOS / aerosol controls | `DIS=T` (DISORT solver), `NSTR=8` (8 streams; 4 for fast mode), `LSUN=T` (use Kurucz solar) |
-| 2 | Aerosol & cloud | `IHAZE` (1=rural, 4=urban, 3=maritime, 5=tropospheric, 0=none), `CTHIK`, `CALT`, `VIS`, `H2OSTR`, `O3STR` |
+| 2 | Aerosol & cloud | `IHAZE` (1=rural, 4=urban, 3=maritime, 5=tropospheric, 0=none), `CTHIK`, `CALT`, `VIS` (`ModtranConfig.visibility_km`, `None` = IHAZE default, CU-063), `H2OSTR`, `O3STR` |
 | 3 | Geometry | `H1` (sensor altitude km), `H2` (target altitude km), `ANGLE` (zenith deg), `RANGE` (slant range km — used only when `H1`/`H2` are ambiguous), `IDAY` (day of year for solar geometry) |
 | 3A1 | Solar / lunar | `IPARM=12`, `PARM1=solar_az_deg`, `PARM2=solar_zen_deg` |
 | 4 | Spectral range | `V1`, `V2` (cm⁻¹ start/stop), `DV` (resolution cm⁻¹), `FWHM` |
@@ -227,7 +227,7 @@ The deck is rendered to a tape5 file in a per-run temp directory. RADIANT does *
 
 ### 5.2 Tape7 parser
 
-`Tape7Reader` parses the fixed-column tape7 file into a `ModtranNativeOutput` dataclass:
+`Tape7Reader` parses the fixed-column tape7 file into a `ModtranNativeOutput` dataclass (see CU-068 — the field list below does not match the shipped 5-field dataclass; treat the code as authoritative until that CU closes):
 
 ```python
 @dataclass(frozen=True)
@@ -242,6 +242,8 @@ class ModtranNativeOutput:
     direct_solar_irradiance_W_cm2_cm1: np.ndarray
     header: dict[str, str]                # parsed cards 1-5 echo
 ```
+
+**Column identification (CU-066):** columns are located by their tape7 header LABEL (`FREQ`, `TOT TRANS`, `PTH THRML`, `SOL SCAT`, `GRND RFLT`, ...), matched by left-to-right order of appearance in the header line — not by a fixed token/character position, which varies by MODTRAN version and does not survive multi-word labels. A header lacking a required label raises `Tape7ParseError`. Tape7 files with no recognisable header (e.g. hand-authored fixtures) fall back to the pre-fix positional assumption with a `UserWarning`; that fallback has not been validated against a real tape7 and should not be relied on for MODTRAN-derived results.
 
 Conversion to RADIANT internal units happens in a separate `to_radiant_units()` method, which:
 1. Multiplies radiances by 10⁴ (W/cm² → W/m²) — *the* conversion from RADIANT_Conventions.md §3.

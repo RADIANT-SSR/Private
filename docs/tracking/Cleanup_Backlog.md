@@ -109,7 +109,7 @@
 
 ## Resolved
 
-### CU-068 — `RADIANT_Atmosphere.md` §5.2's `ModtranNativeOutput` code sample doesn't match the shipped dataclass — RESOLVED 2026-07-11 (commit pending stamp)
+### CU-068 — `RADIANT_Atmosphere.md` §5.2's `ModtranNativeOutput` code sample doesn't match the shipped dataclass — RESOLVED 2026-07-11 (commit `c349ea1`)
 
 **Discovered**: Rule-20 lock-step check while landing CU-066, 2026-07-10. **Resolution**: §5 rewritten wholesale to match shipped code — the drift was broader than the flagged dataclass sample: nonexistent `radiant.io.modtran_reader` module, phantom `ModtranCardDeck.render()` (actual: `ModtranConfig` + `render_tape5()`), wrong Card 1A/3A1 field claims, wrong cache-key formula (documented tape5+version; actual tape5 only — the version omission filed as CU-070, deferred on MODTRAN access), wrong cache storage (documented raw `.tape7`; actual parsed `.npz` arrays), fictional `radiant atm clear-cache` CLI, wrong `to_radiant_units` return type (documented three `SpectralData`; actual four `np.ndarray`s), and a `ModtranUnavailableWarning` class that never existed. The unimplemented richer radiance decomposition is now explicitly marked future work, and §5 opens with a verification-status caveat (no real deck ever run; CU-065/CU-067 open).
 

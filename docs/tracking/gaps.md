@@ -1050,14 +1050,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Scenarios 6.1 (2026-07-10), 6.2, 8.2 (2026-07-11) — three independent occurrences |
-| **Status** | OPEN |
-| **Description** | A scenario config with too-long integration time / too-generous well-fill saturates the detector (`well_status: clipped`, `signal_e_final` pinned at `full_well_capacity_e`) with no error and no visible warning outside `stage_outputs`. Two configs that should produce different SNR (different atmosphere, different profile) instead produce bit-identical SNR, which reads as "no effect" rather than "clipped" unless the author specifically checks `well_status`. |
-| **Workaround** | Manually inspect `result.stage_outputs["readout"]["well_status"]` whenever a comparison looks suspiciously flat; size integration time to the flux (documented per-scenario in 6.1/6.2/8.2's gaps.md/walkthrough.md each time it recurred). |
-| **Impact** | Medium — costs real debugging time on every affected scenario, and a run that isn't specifically checking for this could publish a wrong "atmosphere/profile has no effect" conclusion. |
-| **Fix location** | `radiant.performance` (`PerformanceStage`) or `radiant.readout` — emit a `UserWarning` when `well_status != "unclipped"`, visible by default rather than buried in `stage_outputs`. |
-| **Effort** | Small. |
-| **Scenarios blocked** | None currently (workaround known and documented), but will keep costing time until fixed. |
-| **Rerun after fix** | No rerun needed — a warning addition, not a physics change. |
+| **Status** | FIXED 2026-07-11 |
+| **Description** | A scenario config with too-long integration time / too-generous well-fill saturated the detector (`well_status: clipped`, `signal_e_final` pinned at `full_well_capacity_e`) with no error and no visible warning outside `stage_outputs`. Two configs that should produce different SNR (different atmosphere, different profile) instead produced bit-identical SNR, which read as "no effect" rather than "clipped" unless the author specifically checked `well_status`. |
+| **Resolution** | Two-part fix. (1) `ReadoutStage` now emits a `UserWarning` when either the well-capacity or ADC saturation check clips — this was also a latent Rule 17 violation ("no clipping to valid ranges without at minimum a UserWarning"); both clips were silent. (2) Root-cause accomplice: the scenario scripts blanket-suppressed all warnings (`warnings.simplefilter("ignore")` to quiet GIQE-extrapolation noise), which had also been hiding CU-061's pre-existing `contrast_snr` saturation warning; the four affected scripts (1.1, 6.2, 8.1, 8.2) now re-enable any warning matching "saturated" through the blanket filter. The new warning immediately caught a second live instance: all four scenario configs were still **ADC**-saturating (gain 16 e-/DN with 14-bit ADC caps the representable signal at ~2.6e5 e-, far below each config's FWC) — fixed by matching gain to FWC/2^bits per standard detector design; walkthrough tables re-baselined (~0.1% SNR shifts from the higher quantization noise). |
+| **Verification** | 3 new readout stage tests (warn on well clip, warn on ADC clip, no warning when unclipped); the original silently-failing 8.2 config now emits 3 warnings; all four scenario scripts run warning-free with corrected configs. |
+| **Rerun after fix** | Done in the same change — all four scenario scripts re-run, tables updated. |
 
 ## Summary Table
 
@@ -1127,7 +1124,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 62 | No PowerPoint/slide-table export from scenario results | Small | 1.1 | OPEN |
 | 63 | No libRadtran parser or implementation | Medium | 6.2 | OPEN |
 | 64 | No spectral residual / per-band error-analysis tool | Small-Medium | 6.2 | OPEN |
-| 65 | Full-well saturation is a recurring, silent failure mode | Small | 6.1, 6.2, 8.2 | OPEN |
+| 65 | Full-well saturation is a recurring, silent failure mode | Small | 6.1, 6.2, 8.2 | FIXED 2026-07-11 |
 
 ---
 

@@ -180,7 +180,7 @@ def make_config(
         },
         "readout": {
             "read_noise_e_rms": READ_NOISE_E,
-            "gain_e_per_dn": 16.0,
+            "gain_e_per_dn": 500.0,  # ~FWC/2^14 so full well maps within ADC range (Gap 65)
             "adc_bits": 14,
             "full_well_capacity_e": FULL_WELL_E,
         },
@@ -208,6 +208,9 @@ def run_sweep(atmosphere_source: str, d2_csv_paths: tuple[str, str] | None) -> l
         config = make_config(aperture_m, atmosphere_source, d2_csv_paths)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
+            # Gap 65: never suppress saturation warnings -- blanket "ignore"
+            # is how three scenarios missed silent full-well clipping.
+            warnings.filterwarnings("default", message=".*saturated.*")
             sensor = Sensor.from_dict(config)
             result = sensor.evaluate()
 

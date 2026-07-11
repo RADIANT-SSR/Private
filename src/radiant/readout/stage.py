@@ -24,6 +24,7 @@ applies all scaling and emits the final noise budget.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 
@@ -54,6 +55,7 @@ from radiant.readout.coadds import (
 from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
 from radiant.readout.errors import ReadoutValidationError
 from radiant.readout.saturation import (
+    SaturationStatus,
     check_adc_saturation,
     check_well_saturation,
 )
@@ -187,6 +189,25 @@ class ReadoutStage:
         signal_e_pre_clip = signal_e
         signal_e = min(signal_e, available_fwc)
 
+        # Rule 17: clipping to a valid range requires at minimum a
+        # UserWarning. Silent well saturation cost three scenarios
+        # (6.1, 6.2, 8.2) real debugging time: two configs that should
+        # produce different SNR instead produce bit-identical, clipped
+        # results that read as "no effect" (Gap 65).
+        if well_status is SaturationStatus.CLIPPED:
+            warnings.warn(
+                f"ReadoutStage: full well saturated — signal + dark + glow = "
+                f"{total_well_e:.4g} e- exceeds full_well_capacity_e = {fwc_e:.4g} e- "
+                f"(fill fraction {total_well_e / fwc_e:.2f}). Signal clipped to "
+                f"{signal_e:.4g} e-. Downstream SNR/NEDT/NIIRS reflect the CLIPPED "
+                f"signal and will not respond to scene/atmosphere changes. Reduce "
+                f"spectral_integration.integration_time_s, reduce aperture/throughput, "
+                f"or raise readout.full_well_capacity_e if this well is unrealistic. "
+                f"(readout.well_status = 'clipped'; Gap 65)",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # If well saturation clipped the signal, cap the signal_shot raw
         # term so that after TDI+onchip scaling it gives √(clipped_signal)
         # instead of √(signal_unclipped). Other shot terms (background,
@@ -210,7 +231,20 @@ class ReadoutStage:
         # ---- 8. Quantization noise already in budget_raw ----
 
         # ---- 9. ADC saturation check ----
+        signal_dn_pre_clip = signal_dn
         signal_dn, adc_status = check_adc_saturation(signal_dn, max_dn)
+        # Rule 17: same silent-clip warning as the well check above.
+        if adc_status is SaturationStatus.CLIPPED:
+            warnings.warn(
+                f"ReadoutStage: ADC saturated — signal {signal_dn_pre_clip:.4g} DN "
+                f"exceeds full scale {max_dn} DN ({adc_bits}-bit at "
+                f"{gain_e_per_dn:.4g} e-/DN). Signal clipped to {max_dn} DN. "
+                f"Increase readout.gain_e_per_dn or readout.adc_bits, or reduce "
+                f"the signal (integration time, aperture). "
+                f"(readout.adc_status = 'clipped'; Gap 65)",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # ---- 10-11. Off-chip binning and coadds on signal ----
         signal_dn_offchip = offchip_scale_signal(signal_dn, px_off, py_off)

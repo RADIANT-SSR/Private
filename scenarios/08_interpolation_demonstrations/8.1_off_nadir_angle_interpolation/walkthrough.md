@@ -42,8 +42,8 @@ synthetic; the absolute numbers are illustrative only.
 |----------|------------------------|-----------|
 | 30° (B1, exact) | 0.7037 | — |
 | 45° (B2, exact) | 0.6873 | — |
-| 37.5°, interpolated | 0.6952 | 642.4 |
-| 37.5°, naive nearest-neighbor (45°) | 0.6873 | 637.2 |
+| 37.5°, interpolated | 0.6952 | 641.4 |
+| 37.5°, naive nearest-neighbor (45°) | 0.6873 | 636.2 |
 
 - **The interpolated point sits correctly between the two bracketing
   values and on the expected monotonic curve** (`fig1`) — a good

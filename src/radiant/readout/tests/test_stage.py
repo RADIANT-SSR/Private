@@ -8,6 +8,7 @@ coadd scaling, and emits final scaled noise terms.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -227,6 +228,41 @@ class TestReadoutSaturation:
         )
         assert out.stage_outputs["readout"]["well_status"] == "ok"
         assert out.stage_outputs["readout"]["adc_status"] == "ok"
+
+    @pytest.mark.level1
+    def test_well_saturation_warns(self, wl: np.ndarray) -> None:
+        """Rule 17 / Gap 65: clipping to FWC must emit a UserWarning."""
+        signal = 200000.0
+        budget = compute_noise_budget(signal_e=signal)
+        with pytest.warns(UserWarning, match="full well saturated"):
+            ReadoutStage().run(
+                _make_state(wl, signal_e=signal, budget=budget),
+                _make_params(fwc=100000.0),
+            )
+
+    @pytest.mark.level1
+    def test_adc_saturation_warns(self, wl: np.ndarray) -> None:
+        """Rule 17 / Gap 65: clipping to ADC full scale must emit a UserWarning."""
+        signal = 50000.0
+        budget = compute_noise_budget(signal_e=signal)
+        with pytest.warns(UserWarning, match="ADC saturated"):
+            ReadoutStage().run(
+                _make_state(wl, signal_e=signal, budget=budget),
+                _make_params(bits=8, fwc=1e6),
+            )
+
+    @pytest.mark.level1
+    def test_no_saturation_no_warning(self, wl: np.ndarray) -> None:
+        """An unclipped run must NOT emit saturation warnings."""
+        signal = 1000.0
+        budget = compute_noise_budget(signal_e=signal)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = ReadoutStage().run(
+                _make_state(wl, signal_e=signal, budget=budget),
+                _make_params(fwc=100000.0),
+            )
+        assert out.stage_outputs["readout"]["well_status"] == "ok"
 
 
 class TestReadoutBinning:

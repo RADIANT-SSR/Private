@@ -67,10 +67,10 @@ MODTRAN run. Per `modtran/synthetic/README.md`:
 
 | Metric | SimpleAtmosphere | MODTRAN-D2 (synthetic) |
 |--------|-------------------|--------------------------|
-| SNR [-] | 1138.0 | 1161.4 |
+| SNR [-] | 1135.6 | 1158.6 |
 | NEDT [K] | 0.0208 | 0.0205 |
 | NIIRS [-] | 4.67 | 4.68 |
-| Detection range @ SNR=5 [km] | 1690.3 | 2842.7 |
+| Detection range @ SNR=5 [km] | 1689.8 | 2841.2 |
 | In-band transmittance [-] | 0.239 | 0.617 |
 
 - **The atmosphere source matters a lot for absolute transmittance**

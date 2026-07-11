@@ -53,12 +53,12 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 | Profile | τ SimpleAtmosphere | τ MODTRAN (synthetic) | τ residual | SNR SimpleAtmosphere | SNR MODTRAN | SNR residual |
 |---------|---------------------|-------------------------|------------|------------------------|--------------|----------------|
-| us_standard | 0.524 | 0.678 | +22.7% | 685.1 | 655.5 | −4.5% |
-| tropical | 0.161 | 0.615 | +73.8% | 608.5 | 659.0 | +7.7% |
-| midlat_summer | 0.269 | 0.639 | +57.9% | 629.7 | 651.0 | +3.3% |
-| midlat_winter | 0.670 | 0.705 | +4.9% | 718.2 | 651.0 | −10.3% |
-| subarctic_summer | 0.388 | 0.662 | +41.4% | 654.9 | 645.2 | −1.5% |
-| subarctic_winter | 0.814 | 0.729 | −11.6% | 751.3 | 660.0 | −13.8% |
+| us_standard | 0.524 | 0.678 | +22.7% | 684.1 | 654.6 | −4.5% |
+| tropical | 0.161 | 0.615 | +73.8% | 607.5 | 658.1 | +7.7% |
+| midlat_summer | 0.269 | 0.639 | +57.9% | 628.7 | 650.0 | +3.3% |
+| midlat_winter | 0.670 | 0.705 | +4.9% | 717.4 | 650.0 | −10.4% |
+| subarctic_summer | 0.388 | 0.662 | +41.4% | 654.0 | 644.2 | −1.5% |
+| subarctic_winter | 0.814 | 0.729 | −11.6% | 750.4 | 659.0 | −13.9% |
 
 (residual = (MODTRAN − Simple) / MODTRAN, %)
 

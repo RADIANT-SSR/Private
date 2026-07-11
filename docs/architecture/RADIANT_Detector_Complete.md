@@ -213,6 +213,8 @@ Step  Operation                          Domain    Signal           Noise (per-f
 
 Two saturation points: **well** (step 3) and **ADC** (step 8). They are checked independently. A user can have a 100,000 e- well with a 14-bit ADC and 1 e-/DN gain — the well saturates first. Or they can have a 1,000,000 e- well and 8-bit ADC with 100 e-/DN — the ADC saturates first. RADIANT reports both.
 
+**Neither clip is silent** (Rule 17, Gap 65): when either check clips, `ReadoutStage` emits a `UserWarning` naming the exceeded ceiling, the clipped value, and the actionable remedies (integration time / gain / ADC bits / FWC), in addition to setting the `well_status` / `adc_status` stage outputs. Silent clipping cost three scenarios (6.1, 6.2, 8.2) real debugging time — two configs that should produce different SNR instead produced bit-identical clipped results that read as "no effect."
+
 The "read noise injection happens ONCE" rule is the reason TDI gets a √N_tdi SNR improvement: the signal accumulates as N_tdi (analog) but the read noise is added once at the end. If anyone tries to add read noise before TDI accumulation, the chain has a sign of degradation and the test suite catches it.
 
 ---

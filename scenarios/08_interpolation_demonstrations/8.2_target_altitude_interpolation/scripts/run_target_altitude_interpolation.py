@@ -84,7 +84,7 @@ def _run_chain(trans_csv: str, radiance_csv: str) -> dict:
         },
         "readout": {
             "read_noise_e_rms": 25.0,
-            "gain_e_per_dn": 16.0,
+            "gain_e_per_dn": 200.0,  # ~FWC/2^14 so full well maps within ADC range (Gap 65)
             "adc_bits": 14,
             "full_well_capacity_e": 3.0e6,
         },
@@ -96,6 +96,9 @@ def _run_chain(trans_csv: str, radiance_csv: str) -> dict:
     }
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
+        # Gap 65: never suppress saturation warnings -- blanket "ignore"
+        # is how three scenarios missed silent full-well clipping.
+        warnings.filterwarnings("default", message=".*saturated.*")
         result = Sensor.from_dict(config).evaluate()
     tau_atm = np.asarray(result.stage_outputs["atmosphere"]["tau_atm"])
     return {"snr": result.metrics["snr"], "tau_inband": float(np.mean(tau_atm))}

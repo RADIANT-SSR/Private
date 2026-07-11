@@ -43,6 +43,14 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- Saturation warnings (Gap 65, Rule 17): `ReadoutStage` now emits a
+  `UserWarning` whenever the well-capacity or ADC saturation check clips
+  the signal, naming the exceeded ceiling, the clipped value, and the
+  remedies (integration time / gain / ADC bits / FWC). Previously both
+  clips were silent outside `stage_outputs["readout"]["well_status"]` /
+  `["adc_status"]`, which cost three scenarios (6.1, 6.2, 8.2) real
+  debugging time on bit-identical "no effect" results. No computed
+  values change — warning only.
 - MODTRAN deck-builder fields, opt-in (CU-063/064/069): `ModtranConfig.visibility_km`
   (`float | None`, default `None` = IHAZE default) threads to Card 2 VIS;
   `ModtranConfig.itype` (`int`, default `2`) and `ModtranConfig.iemsct`

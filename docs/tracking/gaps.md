@@ -989,6 +989,34 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | Scenario 5.5 (optionally with `veiling_glare_mtf=1` to quantify the contrast hit). |
 
+## Gap 61: Emissivity library has no wind-state ocean or rust-specific hull materials
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 1.1 execution, 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | `data/emissivity/` has one calm-water curve (`water_calm.csv`) and generic `steel.csv`; scenario 1.1's maritime target needs sea-state-3 (wind-roughened) ocean emissivity and a partially-rusted steel hull curve, neither of which exist. |
+| **Workaround** | Use `water_calm` and generic `steel` — affects absolute SNR/detection-range numbers, not the relative SimpleAtmosphere-vs-MODTRAN comparison scenario 1.1 is actually demonstrating. |
+| **Impact** | Low — cosmetic on a demonstration scenario; would matter more for a real maritime-sensor trade study. |
+| **Fix location** | `data/emissivity/` — add wind-speed-parameterized ocean model (Cox-Munk-style) and a rusted-steel curve. |
+| **Effort** | Small (data only) for a static rusted-steel curve; Medium for a real wind-state model. |
+| **Scenarios blocked** | None (workaround adequate for 1.1's actual purpose). |
+| **Rerun after fix** | Scenario 1.1. |
+
+## Gap 62: No PowerPoint/slide-table export from scenario results
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 1.1 execution, 2026-07-11 (originally flagged in the scenario catalog, 2026-04-15) |
+| **Status** | OPEN |
+| **Description** | Several scenarios (1.1 among them) want a one-click slide-ready summary table; today every scenario prints a text table and/or an xlsx sheet, with no PPTX or slide-image export. |
+| **Workaround** | Manual copy from the printed/xlsx summary table. |
+| **Impact** | Low — cosmetic/ergonomic, cross-scenario. |
+| **Fix location** | New small `radiant.io` or scenario-tooling helper (e.g. `python-pptx`-based table export); not chain-related. |
+| **Effort** | Small. |
+| **Scenarios blocked** | None. |
+| **Rerun after fix** | N/A (tooling addition, not a physics rerun). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1053,6 +1081,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | DEFERRED |
 | 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | FIXED |
 | 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | PARTIAL — MTF halo landed 2026-07-10; PST import deferred (single-pixel) |
+| 61 | Emissivity library has no wind-state ocean or rust-specific hull materials | Small-Medium | 1.1 | OPEN |
+| 62 | No PowerPoint/slide-table export from scenario results | Small | 1.1 | OPEN |
 
 ---
 

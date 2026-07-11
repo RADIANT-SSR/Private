@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- `atmosphere.modtran.tape7_sun_path` (CU-011, file flavor): optional
+  sun-leg tape7 for the Option C two-leg split. When set (requires
+  `tape7_path`), `tau_sun` comes from the sun-leg file's transmittance
+  instead of aliasing the up-leg value, the single-τ collapse
+  `UserWarning` is not emitted, and the assembly's direct-solar term
+  consumes the split. Unset, behavior is unchanged (alias + warning).
+  The binary-invocation two-run flavor and real-MODTRAN physics parity
+  remain deferred under CU-011.
 - `atmosphere.modtran.tape7_path`: first-class MODTRAN tape7 file import.
   Setting it (with `atmosphere.model="modtran"`) builds the atmospheric
   state directly from a tape7 file produced elsewhere — parsed before

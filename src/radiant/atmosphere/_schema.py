@@ -287,6 +287,27 @@ MODTRAN_TAPE7_PATH = ParameterDef(
     default_justification=("Empty string = not set; the binary-invocation flavor is the default."),
 )
 
+MODTRAN_TAPE7_SUN_PATH = ParameterDef(
+    name="atmosphere.modtran.tape7_sun_path",
+    description=(
+        "Optional sun-leg tape7 file for the two-leg split (CU-011, file "
+        "flavor). Requires atmosphere.modtran.tape7_path. When set, tau_sun "
+        "(the sun→target down-leg transmittance) comes from this file's "
+        "TOT TRANS column — a MODTRAN run along the solar-zenith slant "
+        "path — instead of aliasing the up-leg transmittance, and the "
+        "single-tau collapse warning is not emitted. Unset, tau_sun "
+        "aliases tau_up with a UserWarning, as before."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification=(
+        "Empty string = not set; single-file imports collapse the two-leg split with a warning."
+    ),
+)
+
 MODTRAN_BINARY_PATH = ParameterDef(
     name="atmosphere.modtran.binary_path",
     description="Path to the MODTRAN executable.",
@@ -479,6 +500,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TABULATED_DOWNWELLING_FILE,
     # MODTRAN
     MODTRAN_TAPE7_PATH,
+    MODTRAN_TAPE7_SUN_PATH,
     MODTRAN_BINARY_PATH,
     MODTRAN_CACHE_DIR,
     MODTRAN_ALLOW_FALLBACK,

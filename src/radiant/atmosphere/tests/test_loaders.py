@@ -105,6 +105,45 @@ class TestBuildAtmosphereModel:
             )
 
     @pytest.mark.level0
+    def test_modtran_tape7_sun_path_builds_both_imports(self, tmp_path: Path) -> None:
+        main = tmp_path / "up.tp7"
+        sun = tmp_path / "sun.tp7"
+        _write_named_header_tape7(main)
+        _write_named_header_tape7(sun)
+        model = build_atmosphere_model(
+            _make_params(
+                "modtran",
+                atmosphere__modtran__tape7_path=str(main),
+                atmosphere__modtran__tape7_sun_path=str(sun),
+            )
+        )
+        assert model._tape7_import is not None  # type: ignore[attr-defined]
+        assert model._tape7_sun_import is not None  # type: ignore[attr-defined]
+        assert model._tape7_sun_import.source_path == str(sun)  # type: ignore[attr-defined]
+
+    @pytest.mark.level0
+    def test_modtran_sun_path_without_main_raises(self, tmp_path: Path) -> None:
+        sun = tmp_path / "sun.tp7"
+        _write_named_header_tape7(sun)
+        with pytest.raises(ValueError, match="tape7_sun_path"):
+            build_atmosphere_model(
+                _make_params("modtran", atmosphere__modtran__tape7_sun_path=str(sun))
+            )
+
+    @pytest.mark.level0
+    def test_modtran_sun_path_missing_file_raises(self, tmp_path: Path) -> None:
+        main = tmp_path / "up.tp7"
+        _write_named_header_tape7(main)
+        with pytest.raises(FileNotFoundError, match="tape7_sun_path"):
+            build_atmosphere_model(
+                _make_params(
+                    "modtran",
+                    atmosphere__modtran__tape7_path=str(main),
+                    atmosphere__modtran__tape7_sun_path=str(tmp_path / "missing.tp7"),
+                )
+            )
+
+    @pytest.mark.level0
     def test_model_requires_prebuild(self, tmp_path: Path) -> None:
         assert model_requires_prebuild(_make_params("tabulated"))
         assert model_requires_prebuild(_make_params("interpolated"))

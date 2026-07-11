@@ -84,7 +84,9 @@ def _write_synthetic_tape7(path: Path, n_points: int = 50) -> np.ndarray:
     return nu
 
 
-def _write_realistic_tape7(path: Path, n_points: int = 20) -> dict[str, np.ndarray]:
+def _write_realistic_tape7(
+    path: Path, n_points: int = 20, tot_trans_value: float = 0.80
+) -> dict[str, np.ndarray]:
     """Write a manual-faithful IEMSCT=2 tape7: numeric card echo, then a
     named 10-column header, then data (CU-066 regression fixture).
 
@@ -97,7 +99,7 @@ def _write_realistic_tape7(path: Path, n_points: int = 20) -> dict[str, np.ndarr
     against ``ModtranNativeOutput``.
     """
     nu = np.linspace(5000, 2000, n_points)  # descending, MODTRAN convention
-    tot_trans = np.full_like(nu, 0.80)
+    tot_trans = np.full_like(nu, tot_trans_value)
     pth_thrml = np.full_like(nu, 1.0e-6)
     thrml_sct = np.full_like(nu, 9.0e-6)  # decoy: must NOT land in path_scattered
     surf_emis = np.full_like(nu, 8.0e-6)  # decoy: must NOT land in ground_reflected
@@ -713,6 +715,66 @@ class TestTape7Import:
         los = LineOfSightGeometry(h_tgt=5000.0, theta_o=0.0)
         with pytest.raises(NotImplementedError, match="tape7 file-import"):
             model.evaluate(wl, los, params)
+
+
+class TestTape7SunLegImport:
+    """CU-011 (file flavor): tape7_sun_path supplies tau_sun independently."""
+
+    @pytest.mark.level1
+    def test_sun_file_splits_tau_and_kills_warning(self, tmp_path: Path) -> None:
+        from radiant.api.session import RadiantSession
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        main = tmp_path / "up_leg.tp7"
+        _write_realistic_tape7(main)  # TOT TRANS = 0.80
+        sun = tmp_path / "sun_leg.tp7"
+        _write_realistic_tape7(sun, tot_trans_value=0.55)
+
+        config = ModtranConfig(
+            binary_path=tmp_path / "no_modtran",
+            cache_dir=tmp_path / "cache",
+            allow_fallback=False,
+        )
+        model = ModtranAtmosphere(
+            config,
+            tape7_import=Tape7Import.from_file(main),
+            tape7_sun_import=Tape7Import.from_file(sun),
+        )
+
+        wl = np.linspace(2.5, 4.5, 30)
+        params = _resolved_params_for_evaluate(RadiantSession, wl)
+        # Non-zero solar zenith: the sun leg is a genuinely different path.
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # the collapse warning must NOT fire
+            atm = model.evaluate(wl, los, params)
+
+        # tau_sun comes from the sun-leg file; tau_up from the up-leg file.
+        np.testing.assert_allclose(atm.tau_sun, np.full_like(wl, 0.55), rtol=0, atol=1e-6)
+        np.testing.assert_allclose(atm.tau_up, np.full_like(wl, 0.80), rtol=0, atol=1e-6)
+        assert not np.allclose(atm.tau_sun, atm.tau_up)
+        # The up-leg pair still aliases (surface target).
+        np.testing.assert_array_equal(atm.tau_up, atm.tau_full_up)
+
+    @pytest.mark.level1
+    def test_without_sun_file_warning_kept(self, tmp_path: Path) -> None:
+        """Single-file import keeps the single-tau collapse warning."""
+        from radiant.api.session import RadiantSession
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        main = tmp_path / "up_leg.tp7"
+        _write_realistic_tape7(main)
+        config = ModtranConfig(binary_path=tmp_path / "no_modtran", allow_fallback=False)
+        model = ModtranAtmosphere(config, tape7_import=Tape7Import.from_file(main))
+
+        wl = np.linspace(2.5, 4.5, 30)
+        params = _resolved_params_for_evaluate(RadiantSession, wl)
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
+
+        with pytest.warns(UserWarning, match="tape7_sun_path"):
+            atm = model.evaluate(wl, los, params)
+        np.testing.assert_array_equal(atm.tau_sun, atm.tau_up)
 
 
 def _resolved_params_for_evaluate(session_cls: type, wavelength_um: np.ndarray) -> object:

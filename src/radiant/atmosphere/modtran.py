@@ -841,15 +841,22 @@ class ModtranAtmosphere:
     tape7_import:
         Pre-parsed tape7 file (:class:`Tape7Import`), or ``None`` for
         the binary/cache path.
+    tape7_sun_import:
+        Optional pre-parsed sun-leg tape7 (CU-011, file flavor).  Only
+        meaningful together with *tape7_import*; its transmittance
+        column supplies ``tau_sun`` in :meth:`evaluate` instead of
+        aliasing the up-leg value.
     """
 
     def __init__(
         self,
         config: ModtranConfig,
         tape7_import: Tape7Import | None = None,
+        tape7_sun_import: Tape7Import | None = None,
     ) -> None:
         self._config = config
         self._tape7_import = tape7_import
+        self._tape7_sun_import = tape7_sun_import
         self._name = "modtran_atmosphere"
 
     @property
@@ -1006,11 +1013,18 @@ class ModtranAtmosphere:
     ) -> AtmosphericQuantities:
         """Option C thin adapter over the legacy MODTRAN ``build_state``.
 
-        MODTRAN's tape7 output pre-dates the two-leg split, so this adapter
-        collapses the legs the same way :class:`TabulatedAtmosphere` does:
+        A single tape7 (import or binary run) pre-dates the two-leg
+        split, so this adapter collapses the legs the same way
+        :class:`TabulatedAtmosphere` does:
 
         - ``tau_sun == tau_up == tau_full_up`` — the single MODTRAN
-          transmittance, re-evaluated at the cached up-leg geometry.
+          transmittance, re-evaluated at the cached up-leg geometry —
+          with a ``UserWarning``.  **Exception (CU-011, file flavor)**:
+          with a sun-leg import (``atmosphere.modtran.tape7_sun_path``),
+          ``tau_sun`` comes from that file's transmittance column
+          resampled to the chain grid, and the collapse warning is not
+          emitted (``tau_up == tau_full_up`` still alias — the up-leg
+          pair is exact for the surface targets this path permits).
         - ``L_path_up == L_path_full``.
         - ``E_sky_thermal == π · L_atm_down``.
         - ``E_sky_scattered == 0`` (Stage 6 deliverable).
@@ -1065,17 +1079,40 @@ class ModtranAtmosphere:
         lpath = np.asarray(legacy_state.path_radiance.values, dtype=np.float64)
         ldown = np.asarray(legacy_state.atm_emission_down.values, dtype=np.float64)
 
-        warnings.warn(
-            (
-                "ModtranAtmosphere.evaluate: the MODTRAN-tape7 backend does not "
-                "carry the Option C two-leg split — collapsing "
-                "τ_sun=τ_up=τ_full_up and L_path_up=L_path_full to the single "
-                "MODTRAN transmittance.  Two-leg scenarios need a richer MODTRAN "
-                "rendering (Stage 6+)."
-            ),
-            UserWarning,
-            stacklevel=2,
-        )
+        if self._tape7_sun_import is not None:
+            # CU-011 (file flavor): tau_sun from the sun-leg file's
+            # transmittance, resampled to the chain grid.  Deliberately
+            # NOT clipped — an out-of-range file fails loud in
+            # AtmosphericQuantities.__post_init__ (Rule 17; cf. CU-071
+            # on the up-leg builder's legacy clamp).
+            sun = self._tape7_sun_import
+            sun_sd = SpectralData(
+                name="atm.transmittance.modtran_sun",
+                wavelength_um=sun.wavelength_um,
+                values=sun.transmittance,
+                unit="",
+                source=f"MODTRAN tape7 sun-leg import: {sun.source_path}",
+                source_parameters={
+                    "model": "modtran",
+                    "cache_key": f"tape7-file:{sun.content_key}",
+                },
+            )
+            target_grid = SpectralGrid(wavelengths_um=np.asarray(wavelength_um, dtype=np.float64))
+            tau_sun = np.asarray(sun_sd.resample(target_grid).values, dtype=np.float64)
+        else:
+            tau_sun = tau
+            warnings.warn(
+                (
+                    "ModtranAtmosphere.evaluate: the MODTRAN-tape7 backend does not "
+                    "carry the Option C two-leg split — collapsing "
+                    "τ_sun=τ_up=τ_full_up and L_path_up=L_path_full to the single "
+                    "MODTRAN transmittance.  Provide a sun-leg file via "
+                    "atmosphere.modtran.tape7_sun_path (file-import flavor), or "
+                    "wait for the binary two-run flavor (CU-011)."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
 
         E_TOA = np.asarray(toa_solar_spectral_irradiance(wavelength_um), dtype=np.float64)
         E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
@@ -1083,7 +1120,7 @@ class ModtranAtmosphere:
 
         return AtmosphericQuantities(
             wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
-            tau_sun=tau,
+            tau_sun=tau_sun,
             tau_up=tau.copy(),
             tau_full_up=tau.copy(),
             E_TOA=E_TOA,

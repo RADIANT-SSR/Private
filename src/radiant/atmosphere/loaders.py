@@ -164,7 +164,18 @@ def _build_modtran(params: ParameterSet) -> object:
     )
 
     tape7_path = str(params.get("atmosphere.modtran.tape7_path"))
+    tape7_sun_path = str(params.get("atmosphere.modtran.tape7_sun_path"))
+    if tape7_sun_path and not tape7_path:
+        raise AtmosphereValidationError(
+            "build_atmosphere_model: atmosphere.modtran.tape7_sun_path is set "
+            "but atmosphere.modtran.tape7_path is not. The sun-leg file only "
+            "supplements a tape7 file import — set tape7_path (the "
+            "target→sensor up-leg file) too, or unset tape7_sun_path. The "
+            "binary-invocation flavor has no two-leg support yet (CU-011)."
+        )
+
     tape7_import = None
+    tape7_sun_import = None
     if tape7_path:
         if not Path(tape7_path).exists():
             raise FileNotFoundError(
@@ -178,8 +189,26 @@ def _build_modtran(params: ParameterSet) -> object:
             tape7_path,
             tape7_import.content_key,
         )
+        if tape7_sun_path:
+            if not Path(tape7_sun_path).exists():
+                raise FileNotFoundError(
+                    f"atmosphere.modtran.tape7_sun_path: file not found: "
+                    f"{tape7_sun_path}. Check the path, or unset the parameter "
+                    "to collapse tau_sun onto the up-leg transmittance (with a "
+                    "warning) instead."
+                )
+            tape7_sun_import = Tape7Import.from_file(tape7_sun_path)
+            logger.info(
+                "MODTRAN tape7 sun-leg import: %s (content_key=%s)",
+                tape7_sun_path,
+                tape7_sun_import.content_key,
+            )
 
-    return ModtranAtmosphere(config, tape7_import=tape7_import)
+    return ModtranAtmosphere(
+        config,
+        tape7_import=tape7_import,
+        tape7_sun_import=tape7_sun_import,
+    )
 
 
 def _build_interpolated(params: ParameterSet) -> object:

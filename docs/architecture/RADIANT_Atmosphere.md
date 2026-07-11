@@ -220,6 +220,7 @@ Setting `atmosphere.modtran.tape7_path` (with `atmosphere.model = "modtran"`) bu
 - **Precedence**: file set → file wins; binary, cache, and `allow_fallback` are irrelevant. File unset → §5.2–§5.5 behavior, bit-identical to before the import path existed.
 - **Geometry-agnostic**, like tabulated input (§3.2): the imported arrays are served as-is for any query geometry. The file encodes whatever geometry its MODTRAN run used; RADIANT does not re-scale it. Consequently an airborne target (`h_tgt > 0`) raises `NotImplementedError` — a single file cannot supply both the target-leg and the full-column transmittance the background branch needs (same restriction as `TabulatedAtmosphere`).
 - **Downwelling**: a standard IEMSCT=2 tape7 carries no downwelling column, so `L_atm_down ≡ 0` (identical to the tabulated side-door without a downwelling file); `E_sky_thermal = 0` follows.
+- **Two-leg split (CU-011, file flavor)**: optionally, `atmosphere.modtran.tape7_sun_path` names a second tape7 run along the sun→target slant path (the run matrix's B-block was designed as sun-leg data). When set, `τ_sun` comes from that file's transmittance column resampled to the chain grid, and the single-τ collapse `UserWarning` is not emitted; `τ_up == τ_full_up` still alias (exact for the surface targets this path permits). With only `tape7_path`, `τ_sun` aliases `τ_up` with the warning, as before. `tape7_sun_path` without `tape7_path` is a configuration error — the binary flavor has no two-leg support yet (CU-011's remaining deferral).
 - **Equivalence guarantee**: importing a tape7 directly produces chain outputs identical to the historical side-door (Tape7Reader → full-precision CSVs → `atmosphere.model="tabulated"`); `tests/integration/test_modtran_tape7_import.py` asserts exact equality.
 - **Provenance**: `derivation_chain` records the source path and `content_key`; `SpectralData.source_parameters` carries `cache_key="tape7-file:<content_key>"`.
 
@@ -320,6 +321,7 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 | Parameter | Unit / type | Default | Notes |
 |-----------|-------------|---------|-------|
 | `atmosphere.modtran.tape7_path` | path | `""` (unset) | Tape7 file import (§5.1). Set → the file wins; binary/cache/fallback never consulted. Geometry-agnostic; `h_tgt > 0` rejected |
+| `atmosphere.modtran.tape7_sun_path` | path | `""` (unset) | Optional sun-leg tape7 (§5.1, CU-011 file flavor). Requires `tape7_path`. Set → `τ_sun` from this file, no collapse warning; unset → `τ_sun` aliases `τ_up` with a warning |
 | `atmosphere.modtran.binary_path` | path | env var `RADIANT_MODTRAN_BIN`, then `/usr/local/bin/modtran` | Resolved at first use, not at config load |
 | `atmosphere.modtran.cache_dir` | path | `~/.radiant/modtran_cache/` | Created if missing |
 | `atmosphere.modtran.allow_fallback` | bool | `False` | If `True`, falls back to simple parametric on missing binary |

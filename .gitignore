@@ -47,6 +47,13 @@ site/
 # committed scenario figures are inventoried in each outputs/MANIFEST.md
 scenarios/*/*/outputs/*.xlsx
 
+# MODTRAN tape5 decks — deterministic from modtran_run_matrix.csv via
+# scripts/render_modtran_decks.py; regenerate-on-demand (Rule 26), not
+# committed. Real tape7 outputs (once obtained externally) are placed
+# by hand under tests/integration/fixtures/modtran/ or data/atmospheres/
+# per docs/plans/MODTRAN_Run_Matrix_Plan.md §7, not here.
+modtran/decks/
+
 # Data files (large assets shipped separately)
 data/solar/*.bin
 data/atmospheres/*.bin

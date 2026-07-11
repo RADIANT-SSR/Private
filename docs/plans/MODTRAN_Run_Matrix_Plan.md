@@ -130,29 +130,46 @@ ground-level only.
 
 ## 5. Batching by readiness
 
-| Batch | Runs | Precondition |
+**Status update 2026-07-10:** PW-1 and PW-2 are resolved (CU-063, CU-064, CU-069 — the
+ITYPE gap CU-064 didn't originally cover). All 39 decks are now expressible with
+`ModtranConfig` and pre-rendered under `modtran/decks/` (regenerate with
+`scripts/render_modtran_decks.py`; see that directory's README for what's committed vs.
+regenerate-on-demand). The batching below is preserved as a historical readiness record;
+it no longer gates deck rendering, only MODTRAN *execution*, which is still unblocked
+only by binary/tape7 access.
+
+| Batch | Runs | Precondition (historical) |
 |-------|------|--------------|
 | 1 | A1–A6, B1–B3, C1–C7, D2, D4, D5, F1, F2, G1–G5, H1, H2, H4 (29 runs) | None — expressible with the current deck builder (H runs are up-looking, so PW-3 is not in play). Highest value: unblocks Gap 39, CU-011, scenario 6.2, Gap 57 anchors, and the E_sky_thermal anchor in one sitting. |
-| 2 | D1, D3, D6, F3 (4 runs) | PW-1 (VIS field) for the D runs; F3 needs only a refraction sanity check. |
-| 3 | E1–E4 (4 runs) | PW-2 (irradiance mode); E4 also needs PW-1. |
+| 2 | D1, D3, D6, F3 (4 runs) | PW-1 (VIS field) for the D runs — **resolved** (CU-063); F3 needs only a refraction sanity check. |
+| 3 | E1–E4 (4 runs) | PW-2 (irradiance mode) — **resolved** (CU-064); E4 also needed PW-1 — **resolved** (CU-063). ITYPE was also hardcoded for these rows, found and resolved as CU-069. |
 
 ## 6. Deck-builder pre-work (findings from this audit)
 
 Three latent issues in `src/radiant/atmosphere/modtran.py` surfaced while assembling the
-matrix. **Each must be filed as a CU in `docs/tracking/Cleanup_Backlog.md` before the PR
-that lands this plan merges (Rule 21).**
+matrix, filed as CU-063/064/065 (Rule 21). A fourth (ITYPE, CU-069) and a fifth (Card 1's
+stale field-name comment, CU-067) surfaced while implementing PW-2. Status as of
+2026-07-10:
 
-- **PW-1 — `ModtranConfig` has no visibility field.** Card 2 hardcodes `VIS 0.000`
-  (IHAZE default), so degraded-visibility runs (D1, D3, D6, E4) cannot be expressed.
-  Small: add `visibility_km: float | None` and thread to Card 2.
-- **PW-2 — No solar-irradiance mode.** The deck builder emits IEMSCT = 2 only; Block E
-  needs IEMSCT = 3 plus the diffuse-flux option. Small-medium: mode enum on `ModtranConfig`
-  or a documented `extra_cards` recipe.
+- **PW-1 — `ModtranConfig` has no visibility field.** Card 2 hardcoded `VIS 0.000`
+  (IHAZE default), so degraded-visibility runs (D1, D3, D6, E4) could not be expressed.
+  **Resolved as CU-063**: `visibility_km: float | None` threads to Card 2.
+- **PW-2 — No solar-irradiance mode.** The deck builder emitted IEMSCT = 2 only; Block E
+  needs IEMSCT = 3. **Resolved as CU-064** (`ModtranConfig.iemsct`) plus a follow-on,
+  **CU-069**: ITYPE was also hardcoded to 2, but Block E's slant-to-space geometry needs
+  ITYPE = 3 too — `ModtranConfig.itype` added alongside `iemsct`. The diffuse-flux
+  option (IMULT) was already configurable via the existing `imult=1` default.
 - **PW-3 — Card 3 ANGLE convention is suspect.** `render_tape5` writes RADIANT's
   `path_zenith_rad` directly as ANGLE, but MODTRAN measures ANGLE from zenith at H1
   (sensor): a nadir-looking space sensor needs ANGLE = 180°, not 0°. Never exercised (no
-  binary has ever run), so it is a latent bug, not a regression. Verify against the MODTRAN
-  user manual when access arrives and fix with a Level-0 deck-rendering test.
+  binary has ever run), so it is a latent bug, not a regression. **Still open as CU-065**
+  — needs the MODTRAN manual + a real run to verify. Every deck under `modtran/decks/`
+  is generated with the RADIANT-convention angle and flagged in `MANIFEST.md` wherever
+  it differs from the matrix's independently-worked-out `modtran_angle_at_h1_deg`
+  column; verify before trusting `ANGLE` on any rendered deck.
+- **CU-067 (found during CU-064)** — Card 1's inline field-name comment doesn't align
+  index-for-index with its own tokens; the IEMSCT/ITYPE token positions used by CU-064/069
+  were re-derived from `render_tape5`'s prose docstring instead. Deferred alongside PW-3.
 
 ## 7. Ship-with-package plan
 

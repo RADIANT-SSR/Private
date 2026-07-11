@@ -5,7 +5,7 @@ Models
 - :class:`SimpleAtmosphere` — closed-form Beer-Lambert (Rayleigh + aerosol + H2O)
 - :class:`ExoAtmosphere` — vacuum (tau=1, L_path=0)
 - :class:`TabulatedAtmosphere` — user-provided spectral data from files
-- :class:`ModtranAtmosphere` — MODTRAN binary wrapper with caching
+- :class:`ModtranAtmosphere` — MODTRAN tape7 file import, or binary wrapper with caching
 - :class:`InterpolatedAtmosphere` — geometry-dependent interpolation between runs
 """
 
@@ -16,6 +16,7 @@ from radiant.atmosphere.modtran import (
     ModtranConfig,
     ModtranNativeOutput,
     ModtranUnavailableError,
+    Tape7Import,
     Tape7Reader,
 )
 from radiant.atmosphere.protocol import (
@@ -41,5 +42,6 @@ __all__ = [
     "ModtranUnavailableError",
     "SimpleAtmosphere",
     "TabulatedAtmosphere",
+    "Tape7Import",
     "Tape7Reader",
 ]

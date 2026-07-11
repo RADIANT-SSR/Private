@@ -13,8 +13,9 @@ Rule 6 — the atmosphere model is resolved before chain execution:
 :func:`radiant.atmosphere.loaders.build_atmosphere_model` (which owns any
 file I/O) and injects the model via
 ``stage_outputs["atmosphere_config"]["model"]``. This stage only falls
-back to building I/O-free models (simple, exo, modtran) inline for
-partial-chain use, and refuses to build file-backed models itself.
+back to building I/O-free models (simple, exo, modtran without a
+``tape7_path``) inline for partial-chain use, and refuses to build
+file-backed models itself (``loaders.model_requires_prebuild``).
 
 Produces
 --------
@@ -55,7 +56,7 @@ from radiant.atmosphere.assembly import (
     validate_no_atmosphere_subcase,
 )
 from radiant.atmosphere.errors import AtmosphereValidationError
-from radiant.atmosphere.loaders import FILE_BACKED_MODELS, build_atmosphere_model
+from radiant.atmosphere.loaders import build_atmosphere_model, model_requires_prebuild
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet, Provenance
 from radiant.core.radiometry import RadiometricFrame
@@ -80,7 +81,8 @@ class AtmosphereStage:
 
         # ------------------------------------------------------------------
         # 1. Resolve the atmospheric model. Rule 6: stages do not read
-        #    files, so file-backed models (tabulated, interpolated) must be
+        #    files, so file-backed models (tabulated, interpolated, modtran
+        #    with a tape7_path) must be
         #    built before chain execution and injected via
         #    stage_outputs["atmosphere_config"]["model"] — RadiantSession
         #    does this automatically. Models that need no file I/O are
@@ -89,10 +91,11 @@ class AtmosphereStage:
         atm_config = state.stage_outputs.get("atmosphere_config", {})
         model: object | None = atm_config.get("model")
         if model is None:
-            if model_name in FILE_BACKED_MODELS:
+            if model_requires_prebuild(params):
                 raise AtmosphereValidationError(
-                    f"AtmosphereStage: model='{model_name}' requires file I/O "
-                    "and must be constructed before chain execution (Rule 6). "
+                    f"AtmosphereStage: model='{model_name}' (with the current "
+                    "parameters) requires file I/O and must be constructed "
+                    "before chain execution (Rule 6). "
                     "Run the chain via RadiantSession/Sensor (which injects "
                     "stage_outputs['atmosphere_config']['model']), or build "
                     "the model with "

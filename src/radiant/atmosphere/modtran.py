@@ -1,10 +1,16 @@
-"""MODTRAN atmosphere interface — card deck builder, tape7 parser, and cache.
+"""MODTRAN atmosphere interface — tape7 import, card deck builder, parser, cache.
 
-Wraps MODTRAN as an external binary tool per
-``docs/architecture/RADIANT_Atmosphere.md`` section 5.  RADIANT builds a tape5 input
-deck, invokes the MODTRAN executable, parses the tape7 output, converts
-to RADIANT canonical units, and caches the result keyed by an SHA-256
-hash of the rendered deck.
+Two ways in, per ``docs/architecture/RADIANT_Atmosphere.md`` section 5:
+
+1. **Tape7 file import (primary)** — ``atmosphere.modtran.tape7_path``
+   names a tape7 file produced elsewhere.  The loader layer parses it
+   pre-chain (Rule 6) into a :class:`Tape7Import`; the binary, the
+   cache, and the fallback are never consulted.
+2. **Binary invocation (secondary, never yet exercised)** — RADIANT
+   builds a tape5 input deck, invokes a locally-installed MODTRAN
+   executable, parses the tape7 output, converts to RADIANT canonical
+   units, and caches the result keyed by an SHA-256 hash of the
+   rendered deck.
 
 Unit conversions (exactly once, in :meth:`Tape7Reader.to_radiant_units`):
 
@@ -687,6 +693,72 @@ class Tape7Reader:
 
 
 # ---------------------------------------------------------------------------
+# Tape7 file import
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Tape7Import:
+    """A tape7 file parsed to RADIANT canonical units before chain execution.
+
+    Built by the loader layer (``radiant.atmosphere.loaders._build_modtran``)
+    when ``atmosphere.modtran.tape7_path`` is set — Rule 6 keeps the file
+    read out of ``AtmosphereStage.run``.  Wraps the four ascending-wavelength
+    arrays from :meth:`Tape7Reader.to_radiant_units` plus provenance.
+
+    Like tabulated files, an imported tape7 is geometry-agnostic: the
+    arrays are served as-is for any query geometry.
+
+    Attributes
+    ----------
+    wavelength_um:
+        Wavelength grid [µm], strictly ascending.
+    transmittance:
+        Total path transmittance, dimensionless [0, 1].
+    path_radiance:
+        Total upwelling path radiance (thermal + scattered) [W/m²/sr/µm].
+    ground_reflected:
+        Ground-reflected radiance reaching the sensor [W/m²/sr/µm].
+    source_path:
+        Path the file was read from.
+    content_key:
+        First 16 hex chars of the SHA-256 of the file bytes — the
+        provenance analogue of the binary path's tape5 cache key.
+    """
+
+    wavelength_um: np.ndarray
+    transmittance: np.ndarray
+    path_radiance: np.ndarray
+    ground_reflected: np.ndarray
+    source_path: str
+    content_key: str
+
+    @classmethod
+    def from_file(cls, tape7_path: str | Path) -> Tape7Import:
+        """Parse *tape7_path* via :class:`Tape7Reader` and convert units.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file does not exist.
+        Tape7ParseError
+            If the file cannot be parsed as a tape7.
+        """
+        path = Path(tape7_path)
+        reader = Tape7Reader(path)
+        wavelength_um, transmittance, path_radiance, ground_reflected = reader.to_radiant_units()
+        content_key = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+        return cls(
+            wavelength_um=wavelength_um,
+            transmittance=transmittance,
+            path_radiance=path_radiance,
+            ground_reflected=ground_reflected,
+            source_path=str(path),
+            content_key=content_key,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Cache utilities
 # ---------------------------------------------------------------------------
 
@@ -747,20 +819,37 @@ def _load_cache(
 
 
 class ModtranAtmosphere:
-    """Atmosphere model wrapping the MODTRAN binary.
+    """Atmosphere model backed by MODTRAN — a tape7 file import or the binary.
 
     Implements the :class:`~radiant.atmosphere.protocol.Atmosphere`
     structural protocol.
+
+    Precedence: when *tape7_import* is provided (the loader builds it from
+    ``atmosphere.modtran.tape7_path``), the atmospheric state comes from
+    the file — the binary, the cache, and the SimpleAtmosphere fallback
+    are never consulted.  Without it, the legacy render-deck → cache →
+    binary → fallback sequence is unchanged.
 
     Parameters
     ----------
     config:
         MODTRAN configuration including binary path, cache location,
-        and model parameters.
+        and model parameters.  With a *tape7_import*, only ``config``
+        fields unrelated to deck rendering matter (the deck is never
+        rendered); the import's own provenance supersedes the profile /
+        aerosol knobs.
+    tape7_import:
+        Pre-parsed tape7 file (:class:`Tape7Import`), or ``None`` for
+        the binary/cache path.
     """
 
-    def __init__(self, config: ModtranConfig) -> None:
+    def __init__(
+        self,
+        config: ModtranConfig,
+        tape7_import: Tape7Import | None = None,
+    ) -> None:
         self._config = config
+        self._tape7_import = tape7_import
         self._name = "modtran_atmosphere"
 
     @property
@@ -815,7 +904,10 @@ class ModtranAtmosphere:
     ) -> AtmosphericState:
         """Compute the atmospheric state via MODTRAN.
 
-        Sequence: render tape5 -> check cache -> run MODTRAN (or use
+        With a tape7 import: resample the imported arrays to the query
+        grid and return — no deck, no cache, no binary.
+
+        Binary path: render tape5 -> check cache -> run MODTRAN (or use
         cache / fallback) -> parse tape7 -> convert units -> resample
         to query grid -> return AtmosphericState.
         """
@@ -835,6 +927,20 @@ class ModtranAtmosphere:
         if np.any(lam <= 0.0):
             raise AtmosphereValidationError(
                 "ModtranAtmosphere: wavelength_um must be strictly positive."
+            )
+
+        # Tape7 file import: the file wins unconditionally (precedence
+        # documented in RADIANT_Atmosphere.md §5). Geometry-agnostic —
+        # the imported arrays are served as-is, like tabulated files.
+        if self._tape7_import is not None:
+            imp = self._tape7_import
+            return self._build_state_from_arrays(
+                lam,
+                geometry,
+                imp.wavelength_um,
+                imp.transmittance,
+                imp.path_radiance,
+                f"tape7-file:{imp.content_key}",
             )
 
         tape5 = render_tape5(self._config, geometry)
@@ -911,14 +1017,30 @@ class ModtranAtmosphere:
         - ``E_TOA`` from the core solar irradiance so the direct-solar
           branch still works in the assembly.
 
-        Airborne targets (``h_tgt > 0``) are supported by setting
-        MODTRAN's H2 to ``los.h_tgt``; the tape5 content participates in
-        the SHA-256 cache key via :func:`_cache_key`, so distinct h_tgt
-        values produce distinct cache entries automatically.
+        Airborne targets (``h_tgt > 0``) are supported on the binary path
+        by setting MODTRAN's H2 to ``los.h_tgt``; the tape5 content
+        participates in the SHA-256 cache key via :func:`_cache_key`, so
+        distinct h_tgt values produce distinct cache entries
+        automatically.  On the tape7-import path a single file cannot
+        carry both the target-leg and the full-column transmittance, so
+        ``h_tgt > 0`` raises ``NotImplementedError`` — the same
+        surface-target restriction as :class:`TabulatedAtmosphere`.
         """
         import warnings
 
         from radiant.core.solar import toa_solar_spectral_irradiance
+
+        if self._tape7_import is not None and float(los.h_tgt) > 0.0:
+            raise NotImplementedError(
+                f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 is "
+                "not supported on the tape7 file-import path — a single "
+                "imported tape7 records one column and cannot supply both "
+                "the target→sensor leg (tau_up) and the ground→sensor full "
+                "column (tau_full_up) the background branch needs.  "
+                "Workaround: use the binary path (unset "
+                "atmosphere.modtran.tape7_path), SimpleAtmosphere, or a "
+                "surface-level target."
+            )
 
         # Reconstruct an AtmosphericGeometry from params; MODTRAN consumes it
         # via build_state below.  h_tgt flows through to MODTRAN H2.
@@ -1036,9 +1158,17 @@ class ModtranAtmosphere:
             ),
             geometry=geometry,
             derivation_chain=(
-                f"ModtranAtmosphere(profile={self._config.atmosphere_profile}, "
-                f"aerosol={self._config.aerosol_model})",
-                f"cache_key={cache_key}",
+                (
+                    f"ModtranAtmosphere(tape7 import: {self._tape7_import.source_path})",
+                    f"content_key={self._tape7_import.content_key}",
+                    "Geometry-agnostic: imported arrays not rescaled with viewing geometry",
+                )
+                if self._tape7_import is not None
+                else (
+                    f"ModtranAtmosphere(profile={self._config.atmosphere_profile}, "
+                    f"aerosol={self._config.aerosol_model})",
+                    f"cache_key={cache_key}",
+                )
             ),
         )
 

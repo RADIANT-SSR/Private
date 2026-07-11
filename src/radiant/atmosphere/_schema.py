@@ -267,6 +267,26 @@ TABULATED_DOWNWELLING_FILE = ParameterDef(
 # MODTRAN model
 # ---------------------------------------------------------------------------
 
+MODTRAN_TAPE7_PATH = ParameterDef(
+    name="atmosphere.modtran.tape7_path",
+    description=(
+        "Path to a MODTRAN tape7 output file produced elsewhere. When set "
+        "(with atmosphere.model='modtran'), the atmospheric state is built "
+        "from this file — parsed before chain execution (Rule 6) — and the "
+        "MODTRAN binary, cache, and fallback are never consulted. Unset "
+        "(empty) leaves the binary/cache/fallback behavior unchanged. Like "
+        "tabulated files, an imported tape7 is geometry-agnostic: the "
+        "arrays are served as-is for any query geometry, and airborne "
+        "targets (h_tgt > 0) are rejected."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification=("Empty string = not set; the binary-invocation flavor is the default."),
+)
+
 MODTRAN_BINARY_PATH = ParameterDef(
     name="atmosphere.modtran.binary_path",
     description="Path to the MODTRAN executable.",
@@ -458,6 +478,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TABULATED_PATH_RADIANCE_FILE,
     TABULATED_DOWNWELLING_FILE,
     # MODTRAN
+    MODTRAN_TAPE7_PATH,
     MODTRAN_BINARY_PATH,
     MODTRAN_CACHE_DIR,
     MODTRAN_ALLOW_FALLBACK,

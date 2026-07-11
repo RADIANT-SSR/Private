@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- `atmosphere.modtran.tape7_path`: first-class MODTRAN tape7 file import.
+  Setting it (with `atmosphere.model="modtran"`) builds the atmospheric
+  state directly from a tape7 file produced elsewhere — parsed before
+  chain execution (Rule 6), no MODTRAN binary, cache, or fallback
+  involved. Replaces the manual side-door (Tape7Reader → temp CSVs →
+  `atmosphere.model="tabulated"`) that every consumer hand-rolled;
+  outputs are identical to that side-door (integration-tested to exact
+  equality). Unset, the binary/cache/fallback behavior is unchanged.
+  Like tabulated files, an imported tape7 is geometry-agnostic, and
+  airborne targets (`h_tgt > 0`) are rejected. See
+  `RADIANT_Atmosphere.md` §5.1.
+
 ### Changed
 - **CU-066:** `Tape7Reader` now locates MODTRAN tape7 columns by their
   header label (left-to-right order of appearance), not a fixed token

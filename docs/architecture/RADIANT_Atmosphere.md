@@ -121,7 +121,7 @@ This is the escape hatch for:
 - Output from a higher-fidelity tool that is not MODTRAN (libRadtran, 6S, DIRSIG).
 - Measured transmittance from an FTIR campaign.
 - Unit-test fixtures and regression baselines.
-- "I have a tape7 from a colleague but no MODTRAN binary." (See §5 for a better answer to this.)
+- "I have a tape7 from a colleague but no MODTRAN binary." (The better answer: import it directly via `atmosphere.modtran.tape7_path`, §5.1 — no manual CSV conversion.)
 
 `L_atm_down(λ)` is optional for tabulated input; if not supplied, it is set to zero with a logged warning. Tabulated input is geometry-agnostic — RADIANT does *not* re-scale tabulated transmittance for a different slant path. If the user changes geometry after specifying a tabulated file, the parameter resolver flags a `GeometryDrift` warning.
 
@@ -143,9 +143,9 @@ This is not "no atmosphere"; it is "the atmosphere is the cosmic vacuum, and the
 
 ### 3.4 MODTRAN
 
-The high-fidelity option. RADIANT builds a MODTRAN card deck from the user's parameters and geometry, invokes the MODTRAN binary, parses the resulting tape7 file, converts units (cm⁻¹ → µm, W/cm² → W/m², descending → ascending), interpolates onto the global wavelength grid, and stores everything. The full native parsed output is preserved on the `AtmosphericState` for debugging. Detailed in §5.
+The high-fidelity option, with two flavors (precedence and detail in §5). **Tape7 file import** (primary): `atmosphere.modtran.tape7_path` names a tape7 produced elsewhere; RADIANT parses it pre-chain, converts units (cm⁻¹ → µm, W/cm² → W/m², descending → ascending), and resamples onto the global wavelength grid — no binary required. **Binary invocation** (secondary, never yet exercised): RADIANT builds a MODTRAN card deck from the user's parameters and geometry, invokes the MODTRAN binary, parses the resulting tape7, and caches the converted arrays.
 
-**Inputs**: `atmosphere.modtran.atmosphere_profile`, `atmosphere.modtran.aerosol_model`, `atmosphere.modtran.h2o_scale`, `atmosphere.modtran.o3_scale`, `atmosphere.modtran.cloud_model`, `atmosphere.modtran.binary_path`, `atmosphere.modtran.cache_dir`, plus all `geometry.*` parameters.
+**Inputs**: `atmosphere.modtran.tape7_path` (file import), or for the binary flavor `atmosphere.modtran.atmosphere_profile`, `atmosphere.modtran.aerosol_model`, `atmosphere.modtran.h2o_scale`, `atmosphere.modtran.o3_scale`, `atmosphere.modtran.cloud_model`, `atmosphere.modtran.binary_path`, `atmosphere.modtran.cache_dir`, plus all `geometry.*` parameters.
 
 ---
 
@@ -203,11 +203,27 @@ For unpolarized broadband radiation in a plane-parallel atmosphere, transmittanc
 
 ## 5. MODTRAN Interface
 
-This section defines the binary boundary between RADIANT and MODTRAN. Everything that depends on MODTRAN file formats lives in `radiant.atmosphere.modtran` — the deck builder (`render_tape5`), the parser (`Tape7Reader`), and the cache. No other module may know what a tape5, tape7, or `.tp7` file looks like.
+This section defines the file and binary boundary between RADIANT and MODTRAN. Everything that depends on MODTRAN file formats lives in `radiant.atmosphere.modtran` — the tape7 file import (`Tape7Import`), the deck builder (`render_tape5`), the parser (`Tape7Reader`), and the cache. No other module may know what a tape5, tape7, or `.tp7` file looks like.
+
+There are **two ways in**, with a fixed precedence:
+
+1. **Tape7 file import (§5.1) — the primary workflow.** `atmosphere.modtran.tape7_path` names a tape7 produced elsewhere (a colleague's licensed MODTRAN run, a donated fixture). When set, the file wins unconditionally: the binary, the cache, and the fallback are never consulted.
+2. **Binary invocation (§5.2–§5.5) — secondary, never yet exercised.** With `tape7_path` unset, RADIANT renders a tape5 deck and drives a locally-installed `modtran` executable, with caching and an opt-in fallback. This path is retained unchanged for when MODTRAN access arrives.
 
 **Verification status caveat**: no real MODTRAN binary has ever executed a RADIANT-rendered deck, and no real tape7 has ever passed through the parser — every `.tp7` in the test suite is a synthetic or hand-authored fixture. Field-position details below carry open verification CUs (CU-065: Card 3 ANGLE convention; CU-067: Card 1 token positions) that must be checked against the MODTRAN manual when access arrives. See `docs/plans/MODTRAN_Run_Matrix_Plan.md`.
 
-### 5.1 Card deck builder
+### 5.1 Tape7 file import (primary workflow)
+
+Setting `atmosphere.modtran.tape7_path` (with `atmosphere.model = "modtran"`) builds the atmospheric state from an existing tape7 file:
+
+- **Rule 6 boundary**: the file is parsed **before chain execution**, in `radiant.atmosphere.loaders._build_modtran`, via `Tape7Reader.to_radiant_units()`. The parsed arrays travel as a `Tape7Import` (frozen dataclass: four ascending-wavelength arrays + `source_path` + `content_key` = sha256(file bytes)[:16]) into `ModtranAtmosphere`, which resamples them to the chain grid exactly the way the binary path's cache-hit branch does. `AtmosphereStage` never reads the file; with `tape7_path` set, `modtran` counts as file-backed for the stage's Rule 6 refusal check (`loaders.model_requires_prebuild`).
+- **Precedence**: file set → file wins; binary, cache, and `allow_fallback` are irrelevant. File unset → §5.2–§5.5 behavior, bit-identical to before the import path existed.
+- **Geometry-agnostic**, like tabulated input (§3.2): the imported arrays are served as-is for any query geometry. The file encodes whatever geometry its MODTRAN run used; RADIANT does not re-scale it. Consequently an airborne target (`h_tgt > 0`) raises `NotImplementedError` — a single file cannot supply both the target-leg and the full-column transmittance the background branch needs (same restriction as `TabulatedAtmosphere`).
+- **Downwelling**: a standard IEMSCT=2 tape7 carries no downwelling column, so `L_atm_down ≡ 0` (identical to the tabulated side-door without a downwelling file); `E_sky_thermal = 0` follows.
+- **Equivalence guarantee**: importing a tape7 directly produces chain outputs identical to the historical side-door (Tape7Reader → full-precision CSVs → `atmosphere.model="tabulated"`); `tests/integration/test_modtran_tape7_import.py` asserts exact equality.
+- **Provenance**: `derivation_chain` records the source path and `content_key`; `SpectralData.source_parameters` carries `cache_key="tape7-file:<content_key>"`.
+
+### 5.2 Card deck builder
 
 `ModtranConfig` is a dataclass holding the MODTRAN knobs RADIANT exposes; the free function `render_tape5(config, geometry)` emits the fixed-format tape5 string. RADIANT does not expose every MODTRAN knob — only the ones that matter for the in-scope use cases: `atmosphere_profile` (MODEL 1–6), `aerosol_model` (IHAZE), `h2o_scale` / `o3_scale` (Card 2C column scaling), `visibility_km` (Card 2 VIS; `None` = IHAZE default, CU-063), `itype` (Card 1 path geometry; default 2 = slant path H1→H2, CU-069), `iemsct` (Card 1 mode; default 2 = thermal+solar path radiance, 3 = solar irradiance, CU-064), `spectral_resolution_cm1`, `v1_cm1` / `v2_cm1` (Card 4), plus `binary_path`, `cache_dir`, and `allow_fallback`.
 
@@ -215,7 +231,7 @@ This section defines the binary boundary between RADIANT and MODTRAN. Everything
 
 The deck is rendered to a tape5 in a per-run temp directory. RADIANT does *not* edit a user-supplied tape5 — the deck is built from scratch every run, so reproducibility is owned entirely by the parameter set, not by a hand-tuned input file.
 
-### 5.2 Tape7 parser
+### 5.3 Tape7 parser
 
 `Tape7Reader` parses the fixed-column tape7 file into a `ModtranNativeOutput` dataclass:
 
@@ -241,7 +257,7 @@ Conversion to RADIANT internal units happens in `to_radiant_units()`, which retu
 
 The conversion is implemented exactly *once*, in this method. No other module performs cm⁻¹↔µm or W/cm²↔W/m² arithmetic.
 
-### 5.3 Cache
+### 5.4 Cache
 
 MODTRAN runs are slow (seconds to minutes). The cache is keyed by a deterministic hash of the rendered tape5, and stores the **parsed, unit-converted arrays** (not the raw tape7):
 
@@ -255,7 +271,9 @@ On a run: render tape5 → compute key → on hit, load the `.npz` and skip MODT
 
 Cache eviction is **manual** — RADIANT never deletes cache entries on its own; remove files from `cache_dir` (default `~/.radiant/modtran_cache`) by hand. Entries are small (four float arrays per run), so accumulated cache is megabytes, not gigabytes.
 
-### 5.4 Error handling when MODTRAN is unavailable
+### 5.5 Error handling when MODTRAN is unavailable
+
+(Applies to the binary path only — the tape7 import (§5.1) never consults the binary.)
 
 The MODTRAN binary may be missing for legitimate reasons: CI runners, students, contractors without licenses. RADIANT degrades in this order:
 
@@ -301,6 +319,7 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 
 | Parameter | Unit / type | Default | Notes |
 |-----------|-------------|---------|-------|
+| `atmosphere.modtran.tape7_path` | path | `""` (unset) | Tape7 file import (§5.1). Set → the file wins; binary/cache/fallback never consulted. Geometry-agnostic; `h_tgt > 0` rejected |
 | `atmosphere.modtran.binary_path` | path | env var `RADIANT_MODTRAN_BIN`, then `/usr/local/bin/modtran` | Resolved at first use, not at config load |
 | `atmosphere.modtran.cache_dir` | path | `~/.radiant/modtran_cache/` | Created if missing |
 | `atmosphere.modtran.allow_fallback` | bool | `False` | If `True`, falls back to simple parametric on missing binary |
@@ -383,8 +402,8 @@ Per RADIANT_Signal_Chain_Architecture.md §2, `AtmosphereStage` is the second st
 
 Rule 6 forbids stages from reading files, so all file-backed model construction lives in `radiant/atmosphere/loaders.py`, which runs **before** chain execution:
 
-- `build_atmosphere_model(params)` dispatches on `atmosphere.model` and performs any file I/O the model needs (NPZ/CSV tables for `tabulated`, an NPZ directory scan for `interpolated`, MODTRAN setup for `modtran`); `exo` and `simple` need no I/O.
-- `FILE_BACKED_MODELS = frozenset({"tabulated", "interpolated"})` names the models that **must** be pre-built.
+- `build_atmosphere_model(params)` dispatches on `atmosphere.model` and performs any file I/O the model needs (NPZ/CSV tables for `tabulated`, an NPZ directory scan for `interpolated`, tape7 parsing for `modtran` with `tape7_path` set); `exo` and `simple` need no I/O.
+- `FILE_BACKED_MODELS = frozenset({"tabulated", "interpolated"})` names the models that **always** need files; `model_requires_prebuild(params)` is the parameter-aware check the stage uses — it additionally returns True for `modtran` when `atmosphere.modtran.tape7_path` is set (§5.1).
 - The API layer (`RadiantSession`, and therefore `Sensor`) calls the loader and injects the constructed model into the chain via `ChainRunner.run(..., initial_stage_outputs={"atmosphere_config": {"model": model}})`; `AtmosphereStage` reads it from `stage_outputs["atmosphere_config"]["model"]`.
 - If no injected model is present, the stage builds only non-file-backed models inline (partial-chain convenience). For a file-backed model it **refuses to build inline** and raises a `ValueError` directing the caller to `RadiantSession`/`Sensor` or to `build_atmosphere_model()` + manual injection.
 

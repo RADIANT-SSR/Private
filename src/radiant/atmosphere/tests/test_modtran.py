@@ -21,6 +21,7 @@ from radiant.atmosphere.modtran import (
     ModtranAtmosphere,
     ModtranConfig,
     ModtranUnavailableError,
+    Tape7Import,
     Tape7ParseError,
     Tape7Reader,
     _cache_key,
@@ -574,6 +575,169 @@ class TestConfigValidation:
     def test_invalid_itype(self) -> None:
         with pytest.raises(ValueError, match="itype"):
             ModtranConfig(itype=0)
+
+
+# ---------------------------------------------------------------------------
+# Tape7 file import (atmosphere.modtran.tape7_path)
+# ---------------------------------------------------------------------------
+
+
+class TestTape7Import:
+    """First-class tape7 file import — no binary, no cache, no fallback."""
+
+    @pytest.mark.level1
+    def test_from_file_matches_reader(self, tmp_path: Path) -> None:
+        """Tape7Import.from_file wraps Tape7Reader.to_radiant_units verbatim."""
+        tape7 = tmp_path / "run.tp7"
+        _write_realistic_tape7(tape7)
+
+        imp = Tape7Import.from_file(tape7)
+        wl, tau, lp, gr = Tape7Reader(tape7).to_radiant_units()
+
+        np.testing.assert_array_equal(imp.wavelength_um, wl)
+        np.testing.assert_array_equal(imp.transmittance, tau)
+        np.testing.assert_array_equal(imp.path_radiance, lp)
+        np.testing.assert_array_equal(imp.ground_reflected, gr)
+        assert imp.source_path == str(tape7)
+        assert len(imp.content_key) == 16
+        assert all(c in "0123456789abcdef" for c in imp.content_key)
+
+    @pytest.mark.level1
+    def test_from_file_missing_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="tape7"):
+            Tape7Import.from_file(tmp_path / "nope.tp7")
+
+    @pytest.mark.level1
+    def test_build_state_from_file_needs_no_binary(
+        self,
+        default_geometry: AtmosphericGeometry,
+        tmp_path: Path,
+    ) -> None:
+        """File import works with no binary, no cache, and fallback OFF."""
+        tape7 = tmp_path / "run.tp7"
+        _write_realistic_tape7(tape7)
+        imp = Tape7Import.from_file(tape7)
+
+        config = ModtranConfig(
+            binary_path=tmp_path / "no_modtran",
+            cache_dir=tmp_path / "cache",
+            allow_fallback=False,
+        )
+        model = ModtranAtmosphere(config, tape7_import=imp)
+        query_wl = np.linspace(2.5, 4.5, 40)
+        state = model.build_state(query_wl, default_geometry)
+
+        # Values are the imported arrays resampled to the query grid.
+        expected_tau = np.interp(query_wl, imp.wavelength_um, imp.transmittance)
+        np.testing.assert_allclose(state.transmittance.values, expected_tau, rtol=1e-12)
+        assert any("tape7 import" in step for step in state.derivation_chain)
+        assert imp.content_key in " ".join(state.derivation_chain)
+        # No cache entry was created — the cache path is never consulted.
+        assert not (tmp_path / "cache").exists()
+
+    @pytest.mark.level1
+    def test_file_wins_over_cache(
+        self,
+        default_geometry: AtmosphericGeometry,
+        tmp_path: Path,
+    ) -> None:
+        """Precedence: tape7_path beats a pre-populated cache entry."""
+        tape7 = tmp_path / "run.tp7"
+        _write_realistic_tape7(tape7)  # TOT TRANS = 0.80 everywhere
+        imp = Tape7Import.from_file(tape7)
+
+        cache_dir = tmp_path / "cache"
+        config = ModtranConfig(
+            binary_path=tmp_path / "no_modtran",
+            cache_dir=cache_dir,
+            allow_fallback=False,
+        )
+        # Pre-populate the cache the binary path would hit.
+        tape5 = render_tape5(config, default_geometry)
+        wl_cached = np.linspace(2.0, 5.0, 50)
+        _save_cache(
+            cache_dir,
+            _cache_key(tape5),
+            wl_cached,
+            np.full(50, 0.123),  # decoy transmittance != 0.80
+            np.zeros(50),
+            np.zeros(50),
+        )
+
+        model = ModtranAtmosphere(config, tape7_import=imp)
+        state = model.build_state(np.linspace(2.5, 4.5, 20), default_geometry)
+        np.testing.assert_allclose(state.transmittance.values, np.full(20, 0.80), rtol=0, atol=1e-6)
+
+    @pytest.mark.level1
+    def test_evaluate_single_file_warns_and_aliases_tau(self, tmp_path: Path) -> None:
+        """One imported file still collapses the two-leg split — with the warning."""
+        from radiant.api.session import RadiantSession
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        tape7 = tmp_path / "run.tp7"
+        _write_realistic_tape7(tape7)
+        imp = Tape7Import.from_file(tape7)
+        config = ModtranConfig(
+            binary_path=tmp_path / "no_modtran",
+            cache_dir=tmp_path / "cache",
+            allow_fallback=False,
+        )
+        model = ModtranAtmosphere(config, tape7_import=imp)
+
+        wl = np.linspace(2.5, 4.5, 30)
+        params = _resolved_params_for_evaluate(RadiantSession, wl)
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=0.5, delta_phi=0.0)
+
+        with pytest.warns(UserWarning, match="two-leg"):
+            atm = model.evaluate(wl, los, params)
+        np.testing.assert_array_equal(atm.tau_sun, atm.tau_up)
+        np.testing.assert_array_equal(atm.tau_up, atm.tau_full_up)
+
+    @pytest.mark.level1
+    def test_evaluate_airborne_target_raises(self, tmp_path: Path) -> None:
+        """File import is a single column — h_tgt > 0 must fail loud (Rule 17)."""
+        from radiant.api.session import RadiantSession
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        tape7 = tmp_path / "run.tp7"
+        _write_realistic_tape7(tape7)
+        imp = Tape7Import.from_file(tape7)
+        config = ModtranConfig(
+            binary_path=tmp_path / "no_modtran",
+            allow_fallback=False,
+        )
+        model = ModtranAtmosphere(config, tape7_import=imp)
+
+        wl = np.linspace(2.5, 4.5, 30)
+        params = _resolved_params_for_evaluate(RadiantSession, wl)
+        los = LineOfSightGeometry(h_tgt=5000.0, theta_o=0.0)
+        with pytest.raises(NotImplementedError, match="tape7 file-import"):
+            model.evaluate(wl, los, params)
+
+
+def _resolved_params_for_evaluate(session_cls: type, wavelength_um: np.ndarray) -> object:
+    """Minimal resolved ParameterSet for ModtranAtmosphere.evaluate tests."""
+    session = session_cls(wavelength_um=wavelength_um)
+    params = session.default_params()
+    params.set("source.target.temperature", 300.0)
+    params.set("source.target.emissivity", 0.95)
+    params.set("atmosphere.model", "modtran")
+    params.set("geometry.sensor_altitude_m", 20_000.0)
+    params.set("optics.aperture_diameter_m", 0.08)
+    params.set("optics.focal_length_m", 0.20)
+    params.set("optics.transmission_scalar", 0.60)
+    params.set("detector.pixel_pitch_x_um", 17.0)
+    params.set("detector.pixel_pitch_y_um", 17.0)
+    params.set("detector.qe_value", 0.55)
+    params.set("detector.dark_rate_e_per_s", 1000.0)
+    params.set("spectral_integration.filter_min_um", float(wavelength_um[0]))
+    params.set("spectral_integration.filter_max_um", float(wavelength_um[-1]))
+    params.set("spectral_integration.integration_time_s", 0.015)
+    params.set("readout.read_noise_e_rms", 20.0)
+    params.set("readout.gain_e_per_dn", 2.0)
+    params.set("readout.adc_bits", 14)
+    params.resolve()
+    return params
 
 
 # ---------------------------------------------------------------------------

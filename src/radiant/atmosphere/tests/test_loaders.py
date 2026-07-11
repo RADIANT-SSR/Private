@@ -7,25 +7,49 @@ build file-backed models inside run().
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from radiant.atmosphere.exo import ExoAtmosphere
-from radiant.atmosphere.loaders import FILE_BACKED_MODELS, build_atmosphere_model
+from radiant.atmosphere.loaders import (
+    FILE_BACKED_MODELS,
+    build_atmosphere_model,
+    model_requires_prebuild,
+)
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.atmosphere.stage import AtmosphereStage
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 
 
-def _make_params(model: str) -> ParameterSet:
+def _make_params(model: str, **extra: object) -> ParameterSet:
     from radiant.atmosphere._schema import ALL_PARAMETERS as ATM_PARAMS
 
     ps = ParameterSet(list(ATM_PARAMS), [])
     ps.set("atmosphere.model", model)
     ps.set("geometry.sensor_altitude_m", 500e3)
+    for dotpath, value in extra.items():
+        ps.set(dotpath.replace("__", "."), value)
     ps.resolve()
     return ps
+
+
+def _write_named_header_tape7(path: Path, n_points: int = 20) -> None:
+    """Minimal tape7 with a named column header (no CU-066 fallback warning)."""
+    nu = np.linspace(5000, 2000, n_points)
+    header = (
+        "   FREQ   TOT TRANS   PTH THRML   THRML SCT   SURF EMIS   "
+        "SOL SCAT   SNGL SCAT   GRND RFLT   DRCT RFLT   TOTAL RAD"
+    )
+    lines = [header]
+    for i in range(n_points):
+        lines.append(
+            f"{nu[i]:12.2f}{0.75:12.6f}{1.0e-6:12.4e}{0.0:12.4e}{0.0:12.4e}"
+            f"{2.0e-6:12.4e}{0.0:12.4e}{0.0:12.4e}{0.0:12.4e}{3.0e-6:12.4e}"
+        )
+    path.write_text("\n".join(lines))
 
 
 class TestBuildAtmosphereModel:
@@ -53,6 +77,46 @@ class TestBuildAtmosphereModel:
     def test_file_backed_registry(self) -> None:
         assert frozenset({"tabulated", "interpolated"}) == FILE_BACKED_MODELS
 
+    @pytest.mark.level0
+    def test_modtran_without_tape7_path_has_no_import(self) -> None:
+        model = build_atmosphere_model(_make_params("modtran"))
+        assert model._tape7_import is None  # type: ignore[attr-defined]
+
+    @pytest.mark.level0
+    def test_modtran_tape7_path_builds_import(self, tmp_path: Path) -> None:
+        tape7 = tmp_path / "run.tp7"
+        _write_named_header_tape7(tape7)
+        model = build_atmosphere_model(
+            _make_params("modtran", atmosphere__modtran__tape7_path=str(tape7))
+        )
+        imp = model._tape7_import  # type: ignore[attr-defined]
+        assert imp is not None
+        assert imp.source_path == str(tape7)
+        assert imp.wavelength_um[0] < imp.wavelength_um[-1]  # ascending µm
+
+    @pytest.mark.level0
+    def test_modtran_tape7_path_missing_file_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="tape7_path"):
+            build_atmosphere_model(
+                _make_params(
+                    "modtran",
+                    atmosphere__modtran__tape7_path=str(tmp_path / "missing.tp7"),
+                )
+            )
+
+    @pytest.mark.level0
+    def test_model_requires_prebuild(self, tmp_path: Path) -> None:
+        assert model_requires_prebuild(_make_params("tabulated"))
+        assert model_requires_prebuild(_make_params("interpolated"))
+        assert not model_requires_prebuild(_make_params("simple"))
+        assert not model_requires_prebuild(_make_params("exo"))
+        assert not model_requires_prebuild(_make_params("modtran"))
+        tape7 = tmp_path / "run.tp7"
+        _write_named_header_tape7(tape7)
+        assert model_requires_prebuild(
+            _make_params("modtran", atmosphere__modtran__tape7_path=str(tape7))
+        )
+
 
 class TestStageModelInjection:
     @pytest.mark.level1
@@ -62,6 +126,19 @@ class TestStageModelInjection:
         state = ChainState(wavelength_um=wl)
         with pytest.raises(ValueError, match="Rule 6"):
             AtmosphereStage().run(state, _make_params("tabulated"))
+
+    @pytest.mark.level1
+    def test_modtran_with_tape7_path_without_injection_raises(self, tmp_path: Path) -> None:
+        """Rule 6: modtran-with-tape7_path is file-backed — no inline build."""
+        tape7 = tmp_path / "run.tp7"
+        _write_named_header_tape7(tape7)
+        wl = np.linspace(3.0, 5.0, 20)
+        state = ChainState(wavelength_um=wl)
+        with pytest.raises(ValueError, match="Rule 6"):
+            AtmosphereStage().run(
+                state,
+                _make_params("modtran", atmosphere__modtran__tape7_path=str(tape7)),
+            )
 
     @pytest.mark.level1
     def test_injected_model_takes_precedence(self) -> None:

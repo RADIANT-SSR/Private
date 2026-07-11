@@ -8,9 +8,13 @@ including the file reads needed by the ``tabulated`` and
 result via ``stage_outputs["atmosphere_config"]["model"]``;
 ``AtmosphereStage`` consumes the injected model.
 
-The ``modtran`` model is constructed here without file I/O; its
-``evaluate()`` invokes the external MODTRAN binary (or its cache) at
-chain time, which is inherent to that model, not config-file reading.
+The ``modtran`` model has two flavors: with
+``atmosphere.modtran.tape7_path`` set, the tape7 file is parsed HERE
+(pre-chain, Rule 6) into a ``Tape7Import`` and the model never touches
+the binary; without it, the model is constructed with no file I/O and
+its ``evaluate()`` invokes the external MODTRAN binary (or its cache)
+at chain time, which is inherent to that model, not config-file
+reading.
 """
 
 from __future__ import annotations
@@ -26,10 +30,33 @@ from radiant.core.parameters import ParameterSet
 
 logger = logging.getLogger(__name__)
 
-#: Models whose construction requires reading data files. These MUST be
-#: built before chain execution (Rule 6); AtmosphereStage refuses to
-#: build them inside ``run()``.
+#: Models whose construction ALWAYS requires reading data files. These
+#: MUST be built before chain execution (Rule 6); AtmosphereStage refuses
+#: to build them inside ``run()``.  ``modtran`` becomes file-backed only
+#: when ``atmosphere.modtran.tape7_path`` is set — use
+#: :func:`model_requires_prebuild` for the parameter-aware check.
 FILE_BACKED_MODELS: frozenset[str] = frozenset({"tabulated", "interpolated"})
+
+
+def model_requires_prebuild(params: ParameterSet) -> bool:
+    """Rule 6: does the selected atmosphere model need file I/O to construct?
+
+    ``tabulated`` and ``interpolated`` always do; ``modtran`` joins them
+    only when ``atmosphere.modtran.tape7_path`` is set (the tape7
+    file-import flavor).  ``AtmosphereStage`` refuses to build any model
+    for which this returns True inside ``run()``.
+    """
+    model_name: str = params.get("atmosphere.model")
+    if model_name in FILE_BACKED_MODELS:
+        return True
+    if model_name != "modtran":
+        return False
+    try:
+        tape7_path = str(params.get("atmosphere.modtran.tape7_path"))
+    except KeyError:
+        # Partial-chain fixtures may not register the modtran schema.
+        return False
+    return bool(tape7_path)
 
 
 def build_atmosphere_model(params: ParameterSet) -> object:
@@ -111,8 +138,14 @@ def _build_tabulated(params: ParameterSet) -> object:
 
 
 def _build_modtran(params: ParameterSet) -> object:
-    """Construct a ModtranAtmosphere from parameters (no file I/O here)."""
-    from radiant.atmosphere.modtran import ModtranAtmosphere, ModtranConfig
+    """Construct a ModtranAtmosphere from parameters.
+
+    With ``atmosphere.modtran.tape7_path`` set, the tape7 file is parsed
+    here — before chain execution (Rule 6) — and the resulting
+    ``Tape7Import`` supersedes the binary/cache/fallback path.  Unset,
+    no file I/O happens here and the binary flavor is unchanged.
+    """
+    from radiant.atmosphere.modtran import ModtranAtmosphere, ModtranConfig, Tape7Import
 
     config = ModtranConfig(
         binary_path=Path(params.get("atmosphere.modtran.binary_path")),
@@ -129,7 +162,24 @@ def _build_modtran(params: ParameterSet) -> object:
         o3_scale=params.get("atmosphere.modtran.o3_scale"),
         spectral_resolution_cm1=params.get("atmosphere.modtran.spectral_resolution_cm1"),
     )
-    return ModtranAtmosphere(config)
+
+    tape7_path = str(params.get("atmosphere.modtran.tape7_path"))
+    tape7_import = None
+    if tape7_path:
+        if not Path(tape7_path).exists():
+            raise FileNotFoundError(
+                f"atmosphere.modtran.tape7_path: file not found: {tape7_path}. "
+                "Check the path, or unset the parameter to use the MODTRAN "
+                "binary / cache instead."
+            )
+        tape7_import = Tape7Import.from_file(tape7_path)
+        logger.info(
+            "MODTRAN tape7 import: %s (content_key=%s)",
+            tape7_path,
+            tape7_import.content_key,
+        )
+
+    return ModtranAtmosphere(config, tape7_import=tape7_import)
 
 
 def _build_interpolated(params: ParameterSet) -> object:
@@ -197,4 +247,4 @@ def _build_interpolated(params: ParameterSet) -> object:
     return InterpolatedAtmosphere(points, axes, method)
 
 
-__all__ = ["FILE_BACKED_MODELS", "build_atmosphere_model"]
+__all__ = ["FILE_BACKED_MODELS", "build_atmosphere_model", "model_requires_prebuild"]

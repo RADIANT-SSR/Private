@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **CU-066:** `Tape7Reader` now locates MODTRAN tape7 columns by their
+  header label (left-to-right order of appearance), not a fixed token
+  index. The prior positional mapping would have silently swapped
+  `path_scattered_radiance` and `ground_reflected_radiance` with the
+  wrong columns (THRML SCT / SURF EMIS instead of SOL SCAT / GRND
+  RFLT) on real MODTRAN output, and could ingest numeric card-echo
+  lines as spectral data. No shipped result is affected — no
+  MODTRAN-derived value has ever been computed by RADIANT. Tape7
+  files with no recognisable header now emit a `UserWarning` and use
+  the old positional mapping as a documented fallback.
 - **Results-affecting (NEDT, small):** exact band-integrated NEDT dS/dT
   (Gap 43). `SpectralIntegrationStage` now computes
   `dS/dT = ∫ (signal integrand)·(∂B/∂T)/B dλ` — the exact Planck
@@ -33,6 +43,11 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- MODTRAN deck-builder fields, opt-in (CU-063/064): `ModtranConfig.visibility_km`
+  (`float | None`, default `None` = IHAZE default) threads to Card 2 VIS;
+  `ModtranConfig.iemsct` (`int`, default `2`, unchanged behavior) threads to
+  Card 1, adding IEMSCT=3 (solar/lunar irradiance mode). Both defaults
+  reproduce the pre-change tape5 deck byte-for-byte.
 - Veiling-glare spatial halo, opt-in (Gap 60 partial): new parameters
   `optics.stray.veiling_glare_mtf` (int 0/1, default 0) and
   `optics.stray.halo_sigma_um` (default 50 µm). When enabled with

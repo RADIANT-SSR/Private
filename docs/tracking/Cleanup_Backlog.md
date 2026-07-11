@@ -13,36 +13,6 @@
 ## Open
 
 
-### CU-066 — `Tape7Reader` column mapping is positional and mismatches the real IEMSCT=2 layout
-
-**Discovered**: tape7-format review against the MODTRAN 4/5 manual layout (follow-on to MODTRAN_Run_Matrix_Plan §6), 2026-07-10
-**Status**: Open — fixable now (header-name mapping); final verification against a real tape7 lands with run A1
-
-**File**: `src/radiant/atmosphere/modtran.py:325-331` (`_COL_*` constants) and `Tape7Reader.parse` (data-start heuristic)
-**Symptom**: (1) The reader hardcodes 0-indexed columns 3 → `path_scattered_radiance` and 4 → `ground_reflected_radiance`, but the real IEMSCT=2 column order is `FREQ, TOT TRANS, PTH THRML, THRML SCT, SURF EMIS, SOL SCAT, SNGL SCAT, GRND RFLT, DRCT RFLT, TOTAL RAD, …` — col 3 is THRML SCT (thermal scatter) and col 4 is SURF EMIS (surface emission), so two of four radiance channels would silently carry the wrong physics. The docstring says "the header row names provide the canonical mapping" but the code never reads them. (2) The data-start heuristic ("first field parses as float") fires on numeric card-echo lines in the real tape7 header, ingesting deck echoes as spectra. Synthetic fixtures were authored to match the parser, so tests cannot catch either defect.
-**Why it still matters**: every real tape7 from the run matrix would parse without error and return wrong `L_path_scattered` / `L_ground_reflected` — the silent-failure mode Rule 17 exists to prevent; blocks the Tape7Reader-validation purpose of run A1.
-**Suggested fix**: stand-alone task — map columns by header names (locate the `FREQ` header line, split fixed-width names, index by name with actionable errors for missing columns) and start data ingestion only after the header line; keep positional fallback with a loud warning for headerless files. Level-0 test with a manual-faithful IEMSCT=2 fixture (16-column, card echoes included). Final column-name verification against the first real tape7 (run A1) per MODTRAN version acquired. Effort S–M; category B.
-
-### CU-063 — `ModtranConfig` has no visibility field (Card 2 hardcodes `VIS 0.000`)
-
-**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-1 (deck-builder audit), 2026-07-10, commit `fe57c74`
-**Status**: Open
-
-**File**: `src/radiant/atmosphere/modtran.py` (Card 2 rendering)
-**Symptom**: `render_tape5` always writes `VIS 0.000`, taking the IHAZE default visibility; degraded-visibility runs in the run matrix (D1, D3, D6, E4) cannot be expressed through `ModtranConfig`.
-**Why it still matters**: 4 of the 39 planned MODTRAN runs are blocked on it; SimpleAtmosphere's visibility axis (Koschmieder) would have no MODTRAN parity anchor.
-**Suggested fix**: stand-alone small task — add `visibility_km: float | None = None` to `ModtranConfig` and thread to Card 2 (write the value when set, keep `0.000` default), with a Level-0 deck-rendering test. Effort S; category B.
-
-### CU-064 — Deck builder has no solar-irradiance mode (IEMSCT = 2 only)
-
-**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-2 (deck-builder audit), 2026-07-10, commit `fe57c74`
-**Status**: Open
-
-**File**: `src/radiant/atmosphere/modtran.py` (Card 1 rendering)
-**Symptom**: the deck builder emits IEMSCT = 2 (thermal + solar scatter radiance) unconditionally; Block E of the run matrix (sky-irradiance / E_sky reference for Gap 38) needs IEMSCT = 3 plus the diffuse-flux option and cannot be expressed.
-**Why it still matters**: Gap 38's ω₀/E_sky validation runs (E1–E4) are blocked on it — the exact runs that gate the E_sky fidelity deferral.
-**Suggested fix**: stand-alone task — a run-mode enum on `ModtranConfig` (radiance / solar_irradiance) or a documented `extra_cards` recipe, whichever stays closer to the existing builder design; Level-0 deck-rendering test. Effort S–M; category B.
-
 ### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted)
 
 **Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10, commit `fe57c74`
@@ -51,6 +21,24 @@
 **Symptom**: RADIANT's `path_zenith_rad` is written directly as MODTRAN's ANGLE, but MODTRAN measures ANGLE from zenith **at H1 (the sensor)**: a nadir-looking space sensor needs ANGLE = 180°, not 0°. The run matrix carries both columns (`path_zenith_deg_radiant`, `modtran_angle_at_h1_deg`) so the decks are specified correctly regardless.
 **Why it still matters**: if unfixed, every slant-path deck RADIANT renders would compute the wrong geometry — silently, since tape7 parses fine either way.
 **Suggested fix**: verify against the MODTRAN user manual when access arrives; fix the Card 3 conversion with a Level-0 deck-rendering test asserting the nadir-from-space case renders ANGLE = 180. Effort S; category C.
+
+### CU-067 — Card 1's inline field-name comment does not align with its own token positions
+
+**Discovered**: implementing CU-064 (IEMSCT threading), 2026-07-10 — reverse-engineering which token is IEMSCT to add `ModtranConfig.iemsct` surfaced that `render_tape5`'s inline comment (`# Card 1: MODRAN, SPEED, BINARY, LYMOLC, MODEL, T_BEST, ITYPE, IEMSCT, IMULT`) cannot be paired index-for-index with the 14 literal tokens the function writes — e.g. the name-list's 4th entry, LYMOLC (a molecular-band-model flag), would land on the token that is actually the atmosphere `MODEL` code, which is meaningless as LYMOLC.
+**Status**: DEFERRED — same gate as CU-065 (needs the MODTRAN manual + a real run to verify Card 1's true field grammar); not urgent because IEMSCT's actual position was independently re-derived from the function's own prose docstring ("ITYPE=2 ... IEMSCT=2 ... IMULT=1"), which uniquely identifies it as the second of two consecutive `2` tokens — CU-064 shipped using that (documented, best-effort) identification, not the stale name list. Gating condition: MODTRAN access. Re-audit: on access, alongside CU-011/CU-065 — verify Card 1 field-by-field against the manual in the same pass.
+**File**: `src/radiant/atmosphere/modtran.py` (`render_tape5`, Card 1 comment + token construction)
+**Symptom**: the documentation comment above Card 1 is not a reliable map from field name to token index; a future reader (or agent) editing Card 1 by trusting that comment literally risks writing to the wrong field, the same failure class as CU-065's ANGLE bug but for the whole card, not just one field.
+**Why it still matters**: Card 1 carries MODEL, ITYPE, IEMSCT, IMULT — the four fields every run in the matrix depends on; an undetected misalignment here is not a niche corner case.
+**Suggested fix**: when MODTRAN access arrives, rebuild Card 1 field-by-field against the manual's true FORTRAN format spec, replace the stale inline comment, and add a Level-0 test asserting each field's token position directly (not just substring presence). Effort S; category C.
+
+### CU-068 — `RADIANT_Atmosphere.md` §5.2's `ModtranNativeOutput` code sample doesn't match the shipped dataclass
+
+**Discovered**: Rule-20 lock-step check while landing CU-066 (tape7 column-mapping fix), 2026-07-10 — the doc's sample shows 8 radiance-decomposition fields (`surface_reflected_radiance_W_cm2_sr_cm1`, `single_scatter_solar_radiance_W_cm2_sr_cm1`, `direct_solar_irradiance_W_cm2_cm1`, ...) and a `ModtranCardDeck` class with a `.render()` method; the actual code (`src/radiant/atmosphere/modtran.py`) has a 5-field `ModtranNativeOutput` and a plain `render_tape5()` function, no `ModtranCardDeck` class at all.
+**Status**: Open — pre-existing drift, orthogonal to CU-063/064/066/067; flagged with an inline doc note rather than rewritten in that PR to avoid an unreviewed large doc rewrite riding on a narrow code change.
+**File**: `docs/architecture/RADIANT_Atmosphere.md` §5.1–5.2 vs. `src/radiant/atmosphere/modtran.py`
+**Symptom**: the architecture doc describes an aspirational richer decomposition (thermal/solar-scatter/single-scatter/direct-solar split) that was apparently planned but never implemented; a reader would reasonably expect `ModtranNativeOutput` to expose fields it doesn't have.
+**Why it still matters**: exactly the aspirational-documentation failure mode Rule 20 exists to prevent — a future agent could write code against the documented (non-existent) API surface.
+**Suggested fix**: stand-alone small task — either (a) rewrite §5.1–5.2 to match the actual 5-field `ModtranNativeOutput`/function-based `render_tape5`, or (b) if the richer decomposition is still wanted, scope it as a real implementation task and mark the doc section as forward-looking/DEFERRED until then. Effort S; category A (doc-only).
 
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
@@ -120,6 +108,18 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-066 — `Tape7Reader` column mapping is positional and mismatches the real IEMSCT=2 layout — RESOLVED 2026-07-10 (commit `0927f57`)
+
+**Discovered**: tape7-format review against the MODTRAN 4/5 manual layout (follow-on to MODTRAN_Run_Matrix_Plan §6), 2026-07-10. **Resolution**: `Tape7Reader` locates columns by header label (left-to-right order of appearance, not token index) via `_locate_tape7_columns`; a header missing a required label raises `Tape7ParseError`; data ingestion starts strictly after the located header line so numeric card-echo lines can't be mistaken for data. Headerless files fall back to the pre-fix positional mapping with a `UserWarning`. New regression tests (`TestTape7ReaderNamedColumns`) prove SOL SCAT/GRND RFLT are correctly distinguished from the THRML SCT/SURF EMIS decoys and that card-echo lines are excluded. Final verification against a real tape7 still lands with run A1 (fixture-based coverage only, per the standing no-fabricated-MODTRAN-data constraint).
+
+### CU-063 — `ModtranConfig` has no visibility field (Card 2 hardcodes `VIS 0.000`) — RESOLVED 2026-07-10 (commit `0927f57`)
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-1 (deck-builder audit), 2026-07-10, commit `fe57c74`. **Resolution**: `ModtranConfig.visibility_km: float | None = None` threads to Card 2 VIS; `None` preserves the exact pre-change deck (validated byte-for-byte). Unblocks run-matrix rows D1, D3, D6, E4.
+
+### CU-064 — Deck builder has no solar-irradiance mode (IEMSCT = 2 only) — RESOLVED 2026-07-10 (commit `0927f57`)
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-2 (deck-builder audit), 2026-07-10, commit `fe57c74`. **Resolution**: `ModtranConfig.iemsct: int = 2` (validated to MODTRAN's defined {0,1,2,3}) threads to Card 1; default reproduces the pre-change deck byte-for-byte. Unblocks run-matrix rows E1–E4. The exact token position was re-derived from `render_tape5`'s prose docstring, not its stale inline name-list comment (see CU-067, filed as a follow-on and deferred to MODTRAN access like CU-065).
 
 ### CU-044 — Hardcoded tuneable quantities in physics modules (Rule 12) — RESOLVED 2026-07-10 (commit `c0febaf`)
 

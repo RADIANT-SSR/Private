@@ -65,7 +65,8 @@ MODTRAN data and might want the original geometry too.
   ("LWIR staring FPAs are integration-time-limited") — worth promoting
   from a per-scenario lesson to a standing scenario-authoring checklist
   item: **always check `well_status` before trusting a "no effect"
-  result.**
+  result.** (Recurred a third time in scenario 8.2 — escalated to
+  Gap 65 in `docs/tracking/gaps.md`.)
 - **SNR residuals do not track transmittance residuals.** Initially
   expected the two to move together; the extended-scene contrast
   term's target/background cancellation means they don't. Worth

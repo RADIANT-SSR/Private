@@ -1045,6 +1045,20 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None (workaround adequate for 6.2's current scope). |
 | **Rerun after fix** | Scenario 6.2 (richer residual figure). |
 
+## Gap 65: Full-well saturation is a recurring, silent failure mode across scenario authoring
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenarios 6.1 (2026-07-10), 6.2, 8.2 (2026-07-11) — three independent occurrences |
+| **Status** | OPEN |
+| **Description** | A scenario config with too-long integration time / too-generous well-fill saturates the detector (`well_status: clipped`, `signal_e_final` pinned at `full_well_capacity_e`) with no error and no visible warning outside `stage_outputs`. Two configs that should produce different SNR (different atmosphere, different profile) instead produce bit-identical SNR, which reads as "no effect" rather than "clipped" unless the author specifically checks `well_status`. |
+| **Workaround** | Manually inspect `result.stage_outputs["readout"]["well_status"]` whenever a comparison looks suspiciously flat; size integration time to the flux (documented per-scenario in 6.1/6.2/8.2's gaps.md/walkthrough.md each time it recurred). |
+| **Impact** | Medium — costs real debugging time on every affected scenario, and a run that isn't specifically checking for this could publish a wrong "atmosphere/profile has no effect" conclusion. |
+| **Fix location** | `radiant.performance` (`PerformanceStage`) or `radiant.readout` — emit a `UserWarning` when `well_status != "unclipped"`, visible by default rather than buried in `stage_outputs`. |
+| **Effort** | Small. |
+| **Scenarios blocked** | None currently (workaround known and documented), but will keep costing time until fixed. |
+| **Rerun after fix** | No rerun needed — a warning addition, not a physics change. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1113,6 +1127,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 62 | No PowerPoint/slide-table export from scenario results | Small | 1.1 | OPEN |
 | 63 | No libRadtran parser or implementation | Medium | 6.2 | OPEN |
 | 64 | No spectral residual / per-band error-analysis tool | Small-Medium | 6.2 | OPEN |
+| 65 | Full-well saturation is a recurring, silent failure mode | Small | 6.1, 6.2, 8.2 | OPEN |
 
 ---
 

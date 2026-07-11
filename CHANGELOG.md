@@ -43,6 +43,17 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
+- `ParameterDef.required_unless` (Gap 66): a required parameter may now
+  name an alternative that supersedes it — when the alternative is
+  explicitly set, the requirement is waived and the parameter is left
+  unresolved (never phantom-populated). First use: `detector.qe_value`
+  is required unless `detector.qe_table_path` is set, so a spectral QE
+  CSV now works WITHOUT also setting a meaningless scalar QE — the
+  schema always documented the table as superseding the scalar, but the
+  resolver rejected the config ("Required parameter 'detector.qe_value'
+  is not set"); scenarios 1.1 and 1.2 both hit this and worked around
+  it by band-averaging. The required-parameter error message now also
+  names the superseding alternative when one exists.
 - Saturation warnings (Gap 65, Rule 17): `ReadoutStage` now emits a
   `UserWarning` whenever the well-capacity or ADC saturation check clips
   the signal, naming the exceeded ceiling, the clipped value, and the

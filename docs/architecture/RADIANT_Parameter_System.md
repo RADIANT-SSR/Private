@@ -79,6 +79,7 @@ class ParameterDef:
     tags: frozenset[str] = frozenset()  # Metadata: {"detector", "noise", "mwir"}
     default_justification: str = ""     # One-line rationale for a non-obvious default
     deprecated_aliases: frozenset[str] = frozenset()  # Old names (renames), warn + redirect
+    required_unless: str | None = None  # Alternative param that supersedes this one (Gap 66)
 ```
 
 Key properties:
@@ -87,6 +88,7 @@ Key properties:
 - `default=None` means the parameter is **required** — the resolver will error if it's not provided.
 - `tags` enable filtering ("show me all detector parameters", "what parameters matter in LWIR?").
 - `deprecated_aliases` (Gap 12): old dot-paths for renamed parameters. `set`/`get`/`set_tolerance`/`clear_input` resolve an alias to the canonical name with a `DeprecationWarning`. Aliases may not collide with defined names and are validated at `ParameterSet` construction. Current aliases: `optics.cold_stop_efficiency` → `optics.nearfield_fraction`.
+- `required_unless` (Gap 66): names an alternative parameter that supersedes this required one. When the alternative is explicitly set (non-empty, non-None input), the requirement is waived and the parameter is left **unresolved** — `get()` raises if any code path reads it anyway, so no phantom value is ever consumed. An explicitly-set empty string does not waive the requirement. Only valid on required (`default=None`) parameters. Current use: `detector.qe_value` is required unless `detector.qe_table_path` is set (the spectral QE curve supersedes the scalar).
 
 ### Unit Conversion
 

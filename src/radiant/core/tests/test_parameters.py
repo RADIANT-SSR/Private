@@ -1043,3 +1043,95 @@ class TestDeprecatedAliases:
                 default=0.0,
                 deprecated_aliases=frozenset({"ns.a"}),
             )
+
+
+# ---------------------------------------------------------------------------
+# required_unless (Gap 66)
+# ---------------------------------------------------------------------------
+
+
+def _make_required_unless_schema() -> list[ParameterDef]:
+    """A required scalar superseded by an optional path parameter."""
+    return [
+        ParameterDef(
+            name="det.scalar",
+            description="required scalar",
+            dtype=float,
+            canonical_unit="",
+            input_unit="",
+            default=None,
+            required_unless="det.table_path",
+        ),
+        ParameterDef(
+            name="det.table_path",
+            description="superseding table path",
+            dtype=str,
+            canonical_unit="",
+            input_unit="",
+            default="",
+        ),
+    ]
+
+
+class TestRequiredUnless:
+    @pytest.mark.level0
+    def test_neither_set_raises_with_hint(self) -> None:
+        ps = ParameterSet(_make_required_unless_schema())
+        with pytest.raises(ValueError, match="det.scalar"):
+            ps.resolve()
+        try:
+            ps.resolve()
+        except ValueError as exc:
+            assert "supersedes" in str(exc)
+            assert "det.table_path" in str(exc)
+
+    @pytest.mark.level0
+    def test_alternative_set_silences_requirement(self) -> None:
+        ps = ParameterSet(_make_required_unless_schema())
+        ps.set("det.table_path", "some/file.csv", Provenance.USER_SET, "test")
+        ps.resolve()  # must not raise
+        # The skipped parameter is left unresolved, not phantom-populated.
+        with pytest.raises(KeyError, match="not resolved"):
+            ps.get("det.scalar")
+        assert ps.get("det.table_path") == "some/file.csv"
+
+    @pytest.mark.level0
+    def test_empty_string_alternative_does_not_silence(self) -> None:
+        ps = ParameterSet(_make_required_unless_schema())
+        ps.set("det.table_path", "", Provenance.USER_SET, "test")
+        with pytest.raises(ValueError, match="det.scalar"):
+            ps.resolve()
+
+    @pytest.mark.level0
+    def test_both_set_scalar_still_resolves(self) -> None:
+        ps = ParameterSet(_make_required_unless_schema())
+        ps.set("det.scalar", 0.7, Provenance.USER_SET, "test")
+        ps.set("det.table_path", "some/file.csv", Provenance.USER_SET, "test")
+        ps.resolve()
+        assert ps.get("det.scalar") == pytest.approx(0.7, abs=1e-12)
+
+    @pytest.mark.level0
+    def test_required_unless_on_defaulted_param_rejected(self) -> None:
+        with pytest.raises(ValueError, match="required_unless only applies"):
+            ParameterDef(
+                name="ns.a",
+                description="a",
+                dtype=float,
+                canonical_unit="",
+                input_unit="",
+                default=1.0,
+                required_unless="ns.b",
+            )
+
+    @pytest.mark.level0
+    def test_required_unless_self_reference_rejected(self) -> None:
+        with pytest.raises(ValueError, match="cannot reference itself"):
+            ParameterDef(
+                name="ns.a",
+                description="a",
+                dtype=float,
+                canonical_unit="",
+                input_unit="",
+                default=None,
+                required_unless="ns.a",
+            )

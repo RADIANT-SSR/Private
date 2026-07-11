@@ -25,7 +25,7 @@ def _write_qe_csv(path: Path, pairs: list[tuple[float, float]]) -> None:
             fh.write(f"{wl},{qe}\n")
 
 
-def _run(qe_path: str | None, qe_value: float = 0.6):
+def _run(qe_path: str | None, qe_value: float | None = 0.6):
     wl = np.linspace(BAND_MIN, BAND_MAX, 200)
     session = RadiantSession(wavelength_um=wl)
     p = session.default_params()
@@ -36,7 +36,8 @@ def _run(qe_path: str | None, qe_value: float = 0.6):
     p.set("optics.transmission_scalar", 0.8)
     p.set("detector.pixel_pitch_x_um", 25.0)
     p.set("detector.pixel_pitch_y_um", 25.0)
-    p.set("detector.qe_value", qe_value)
+    if qe_value is not None:
+        p.set("detector.qe_value", qe_value)
     if qe_path is not None:
         p.set("detector.qe_table_path", qe_path)
     p.set("detector.dark_rate_e_per_s", 1e5)
@@ -85,3 +86,21 @@ class TestQeTablePath:
         """Absent a path, the scalar QE drives the signal (no crash, finite)."""
         res = _run(None, qe_value=0.6)
         assert np.isfinite(res.stage_outputs["spectral_integration"]["signal_e"])
+
+    def test_table_path_without_qe_value(self, tmp_path: Path) -> None:
+        """Gap 66 regression: qe_table_path alone (no qe_value) must work.
+
+        The schema always documented the table as SUPERSEDING the scalar,
+        but the resolver rejected the config with "Required parameter
+        'detector.qe_value' is not set" — scenarios 1.1 and 1.2 both hit
+        this and worked around it by band-averaging to a scalar.
+        """
+        csv = tmp_path / "flat_qe.csv"
+        _write_qe_csv(csv, [(3.0, 0.6), (5.5, 0.6)])
+        with_scalar = _run(str(csv), qe_value=0.6)
+        without_scalar = _run(str(csv), qe_value=None)
+        s_with = with_scalar.stage_outputs["spectral_integration"]["signal_e"]
+        s_without = without_scalar.stage_outputs["spectral_integration"]["signal_e"]
+        # The scalar is superseded by the table, so its presence/absence
+        # must not change the result at all.
+        assert s_without == pytest.approx(s_with, rel=1e-12)

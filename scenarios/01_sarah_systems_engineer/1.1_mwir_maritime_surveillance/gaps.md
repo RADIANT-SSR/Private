@@ -78,12 +78,10 @@ colleague's tape7 would produce the same maritime-aerosol picture.
   raises. A single combined error message naming both missing files
   (already exists) is fine; the friction was not knowing path radiance
   was mandatory even when the scenario doesn't otherwise use it.
-- **`detector.qe_table_path` requires a `ConsistencyGroup` resolution
-  path this script didn't trigger correctly** (hit a "required parameter
-  `detector.qe_value` not set" error even with `qe_table_path` set).
-  Worked around by band-averaging the QE curve to a scalar
-  (`detector.qe_value`), matching scenario 1.2's established pattern.
-  Not filed as a new gap — 1.2 already worked around the same friction
-  the same way, so this is a repeated pattern worth a real fix
-  (`detector.qe_table_path` should be usable standalone without also
-  needing `qe_value` set/unset in some particular way).
+- **`detector.qe_table_path` alone was rejected** ("required parameter
+  `detector.qe_value` not set" even with `qe_table_path` set). Worked
+  around by band-averaging the QE curve to a scalar, matching scenario
+  1.2's established pattern. **Update 2026-07-11: filed and FIXED as
+  Gap 66** — the resolver now supports `ParameterDef.required_unless`,
+  so `qe_table_path` works standalone; this scenario's band-average
+  workaround remains valid (same in-band result) and is kept as-is.

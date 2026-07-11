@@ -50,12 +50,15 @@ FILL_FACTOR = ParameterDef(
 # Quantum efficiency
 # ---------------------------------------------------------------------------
 #
-# QE is specified exactly one of two ways:
+# QE is specified one of two ways:
 #   - ``detector.qe_value`` — scalar QE, applied uniformly in wavelength.
-#   - ``detector.qe_table_path`` — path to a wavelength-vs-QE table.
-# Exactly one must be set; the stage wrapper (Phase 2C) will enforce the
-# XOR via a ConsistencyGroup. At the primitives layer, both parameters
-# default to ``None`` and the loader picks whichever is populated.
+#   - ``detector.qe_table_path`` — path to a wavelength-vs-QE table, which
+#     supersedes the scalar (loaded by RadiantSession per Rule 6).
+# ``qe_value`` is required UNLESS ``qe_table_path`` is set — enforced via
+# ``ParameterDef.required_unless`` (the "Phase 2C ConsistencyGroup" this
+# comment previously promised was never built; two scenarios (1.2, 1.1)
+# independently hit the spurious "qe_value is not set" rejection before
+# the resolver learned about the alternative — Gap 66).
 
 QE_VALUE = ParameterDef(
     name="detector.qe_value",
@@ -66,6 +69,7 @@ QE_VALUE = ParameterDef(
     default=None,
     bounds=(0.0, 1.0),
     tags=frozenset({"detector", "qe"}),
+    required_unless="detector.qe_table_path",
 )
 
 QE_TABLE_PATH = ParameterDef(

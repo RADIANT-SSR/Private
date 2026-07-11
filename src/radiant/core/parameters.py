@@ -106,6 +106,12 @@ class ParameterDef:
     tags: frozenset[str] = frozenset()
     default_justification: str = ""
     deprecated_aliases: frozenset[str] = frozenset()  # old names; warn + redirect
+    # Dot-path of an alternative parameter that supersedes this one: when
+    # that parameter is explicitly set (non-empty), this required
+    # (default=None) parameter may stay unset and is left unresolved.
+    # Example: detector.qe_value is required UNLESS detector.qe_table_path
+    # is set (the spectral curve supersedes the scalar).
+    required_unless: str | None = None
 
     def __post_init__(self) -> None:
         if self.dtype not in (float, int, str, bool):
@@ -118,6 +124,16 @@ class ParameterDef:
             raise CoreValidationError(f"ParameterDef '{self.name}': bounds requires numeric dtype")
         if self.name in self.deprecated_aliases:
             raise CoreValidationError(f"ParameterDef '{self.name}': cannot alias itself")
+        if self.required_unless is not None:
+            if self.default is not None:
+                raise CoreValidationError(
+                    f"ParameterDef '{self.name}': required_unless only applies to "
+                    f"required parameters (default=None); this one has a default."
+                )
+            if self.required_unless == self.name:
+                raise CoreValidationError(
+                    f"ParameterDef '{self.name}': required_unless cannot reference itself"
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -481,12 +497,24 @@ class ParameterSet:
             if name in self._resolved:
                 continue
             if pdef.default is None:
+                if pdef.required_unless is not None and self._alternative_is_set(
+                    pdef.required_unless
+                ):
+                    # The superseding alternative is explicitly set — this
+                    # parameter stays unresolved (get() raises if any code
+                    # path reads it anyway, so nothing consumes a phantom).
+                    continue
+                unless_hint = (
+                    f"  (or set '{pdef.required_unless}' instead, which supersedes it)\n"
+                    if pdef.required_unless is not None
+                    else ""
+                )
                 raise CoreValidationError(
                     f"Required parameter '{name}' is not set.\n"
                     f"  Description: {pdef.description}\n"
                     f"  Expected type: {pdef.dtype.__name__} in "
                     f"{pdef.input_unit or 'dimensionless'}\n"
-                    f"  Set it via: params.set('{name}', value)"
+                    f"  Set it via: params.set('{name}', value)\n" + unless_hint
                 )
             self._resolved[name] = self._validate_and_convert(
                 name,
@@ -496,6 +524,21 @@ class ParameterSet:
             )
 
         self._resolved_flag = True
+
+    def _alternative_is_set(self, name: str) -> bool:
+        """True when the ``required_unless`` alternative is explicitly set.
+
+        Checks the explicit-inputs store (not ``_resolved``) so the answer
+        does not depend on schema iteration order during Stage 3.  An
+        empty-string or None input does not count as "set" — e.g. an
+        explicitly cleared ``detector.qe_table_path`` must not silence the
+        requirement on ``detector.qe_value``.
+        """
+        canonical = self._canonical(name) if name not in self._inputs else name
+        if canonical not in self._inputs:
+            return False
+        raw_value = self._inputs[canonical][0]
+        return raw_value is not None and raw_value != ""
 
     def _validate_and_convert(
         self,

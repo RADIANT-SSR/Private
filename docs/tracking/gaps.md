@@ -1056,6 +1056,17 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Verification** | 3 new readout stage tests (warn on well clip, warn on ADC clip, no warning when unclipped); the original silently-failing 8.2 config now emits 3 warnings; all four scenario scripts run warning-free with corrected configs. |
 | **Rerun after fix** | Done in the same change — all four scenario scripts re-run, tables updated. |
 
+## Gap 66: `detector.qe_table_path` unusable without a meaningless scalar `qe_value`
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 1.1 execution (2026-07-11); same friction independently hit by scenario 1.2 earlier (both worked around by band-averaging the QE curve to a scalar) |
+| **Status** | FIXED 2026-07-11 |
+| **Description** | The schema documents `detector.qe_table_path` as **superseding** the scalar `detector.qe_value`, and the loading machinery honors that (the injected `qe_curve` wins in `SpectralIntegrationStage`; the scalar is never read). But `qe_value` has `default=None`, and `ParameterSet.resolve()` treated `default=None` as unconditionally required — rejecting a table-only config with "Required parameter 'detector.qe_value' is not set." The schema's own comment promised a "Phase 2C ConsistencyGroup" XOR enforcement that was never built. |
+| **Resolution** | New generic `ParameterDef.required_unless` field: a required parameter names the alternative that supersedes it; when the alternative is explicitly set (non-empty), the requirement is waived and the parameter stays **unresolved** (`get()` raises if anything reads it — no phantom value). `detector.qe_value` now carries `required_unless="detector.qe_table_path"`. The required-parameter error message names the superseding alternative. 6 new core tests + 1 integration regression test (table-only config must produce bit-identical results to table+scalar, proving the scalar truly is superseded). |
+| **Verification** | Table-only config evaluates; neither-set still raises actionably (with the new hint); explicitly-empty path does NOT waive the requirement; scalar-only historical path unchanged. |
+| **Rerun after fix** | None required — scenarios 1.1/1.2's band-average workaround remains valid (it produces the same in-band result); future scenarios can now use the table directly. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1125,6 +1136,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 63 | No libRadtran parser or implementation | Medium | 6.2 | OPEN |
 | 64 | No spectral residual / per-band error-analysis tool | Small-Medium | 6.2 | OPEN |
 | 65 | Full-well saturation is a recurring, silent failure mode | Small | 6.1, 6.2, 8.2 | FIXED 2026-07-11 |
+| 66 | `detector.qe_table_path` unusable without a meaningless scalar `qe_value` | Small | 1.1, 1.2 | FIXED 2026-07-11 |
 
 ---
 

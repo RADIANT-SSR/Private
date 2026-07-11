@@ -8,4 +8,4 @@ running the script from the repo root.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_interpolation_vs_nearest_neighbor.png | figure (committed) | pending — stamp on next commit |
+| fig1_interpolation_vs_nearest_neighbor.png | figure (committed) | 5439b3d 2026-07-11 |

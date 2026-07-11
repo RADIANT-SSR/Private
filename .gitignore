@@ -54,6 +54,13 @@ scenarios/*/*/outputs/*.xlsx
 # per docs/plans/MODTRAN_Run_Matrix_Plan.md §7, not here.
 modtran/decks/
 
+# Synthetic (NOT real) tape7 outputs — deterministic from
+# modtran_run_matrix.csv via scripts/generate_synthetic_tape7.py;
+# regenerate-on-demand (Rule 26), not committed. See
+# modtran/synthetic/README.md for what these are (and are not) for.
+modtran/synthetic/*.tp7
+modtran/synthetic/_cache/
+
 # Data files (large assets shipped separately)
 data/solar/*.bin
 data/atmospheres/*.bin

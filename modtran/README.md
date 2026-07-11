@@ -1,15 +1,24 @@
 # MODTRAN Staging Directory
 
-This directory is the local staging area for RADIANT's MODTRAN validation
-effort (`docs/plans/MODTRAN_Run_Matrix_Plan.md`). It holds **input decks
-only**. RADIANT has never had real MODTRAN output pass through its
-parser — every `.tp7` used in tests today is a hand-authored synthetic
-fixture — so nothing in this repository fabricates a tape7 (MODTRAN's
-radiative-transfer *output*). Doing so would defeat the entire point of
-the plan: validating `SimpleAtmosphere` against an *independent*
-reference. A tape7 synthesized by RADIANT's own atmospheric-physics
-knowledge is not independent, no matter how physically motivated —
-it would just be circular validation dressed up as external truth.
+This directory is the local staging area for RADIANT's MODTRAN work
+(`docs/plans/MODTRAN_Run_Matrix_Plan.md`). It has two purposes that must
+stay clearly separated:
+
+1. **`decks/`** — real tape5 **input** decks, ready to run through an
+   actual MODTRAN binary. Deterministic card-image formatting; no
+   physics is computed here.
+2. **`synthetic/`** — synthetic (**not real MODTRAN**) tape7 **output**
+   files, for exercising the parsing/chain pipeline and scenario work
+   before real MODTRAN access exists. See `synthetic/README.md` — it
+   is not a substitute for real MODTRAN validation and must never be
+   used to close Gap 38/39/CU-011, which need an independent reference,
+   not RADIANT's own (however carefully sourced) approximation.
+
+RADIANT has never had real MODTRAN output pass through its parser —
+every `.tp7` used in the committed test suite today is a hand-authored
+minimal fixture. Nothing in this repository fabricates a tape7 and
+presents it as MODTRAN-equivalent physics; the `synthetic/` files are
+loudly labeled and physically documented as a lesser tier (see below).
 
 ## What's here
 
@@ -27,6 +36,19 @@ it would just be circular validation dressed up as external truth.
   `radiant.atmosphere.modtran.render_tape5`), so there is nothing to
   preserve in git; the generator script and the CSV are canonical
   (Rule 26/27).
+
+- `synthetic/` — 39 synthetic tape7 **outputs**, one per run, built from
+  real HITRAN line-by-line molecular transmittance (via RADIS) on an
+  independently-built layered atmosphere, plus a simplified (not
+  independent) aerosol/scattering term. **Not committed** — regenerate
+  with:
+
+  ```
+  python scripts/generate_synthetic_tape7.py
+  ```
+
+  Full fidelity/independence breakdown, known physics gaps vs. real
+  MODTRAN, and generation details: `synthetic/README.md`.
 
 ## What's not here (and where it goes instead)
 

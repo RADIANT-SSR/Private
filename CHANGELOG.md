@@ -43,10 +43,11 @@ retroactively reconstructed.
   single-λ form remains the fallback when no target temperature is set.
 
 ### Added
-- MODTRAN deck-builder fields, opt-in (CU-063/064): `ModtranConfig.visibility_km`
+- MODTRAN deck-builder fields, opt-in (CU-063/064/069): `ModtranConfig.visibility_km`
   (`float | None`, default `None` = IHAZE default) threads to Card 2 VIS;
-  `ModtranConfig.iemsct` (`int`, default `2`, unchanged behavior) threads to
-  Card 1, adding IEMSCT=3 (solar/lunar irradiance mode). Both defaults
+  `ModtranConfig.itype` (`int`, default `2`) and `ModtranConfig.iemsct`
+  (`int`, default `2`) thread to Card 1, adding ITYPE=3 (slant path to
+  space) and IEMSCT=3 (solar/lunar irradiance mode). All defaults
   reproduce the pre-change tape5 deck byte-for-byte.
 - Veiling-glare spatial halo, opt-in (Gap 60 partial): new parameters
   `optics.stray.veiling_glare_mtf` (int 0/1, default 0) and

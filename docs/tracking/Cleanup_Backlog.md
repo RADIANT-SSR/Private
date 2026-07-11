@@ -109,6 +109,10 @@
 
 ## Resolved
 
+### CU-069 — `ModtranConfig.itype` was hardcoded, blocking Block E irradiance runs — RESOLVED 2026-07-10 (commit `41c3afb`)
+
+**Discovered**: while rendering the full 39-run tape5 deck set from `modtran_run_matrix.csv` (post-CU-064), 2026-07-10. **Resolution**: `ModtranConfig.itype: int = 2` (validated to MODTRAN's defined {1,2,3}) threads to Card 1 alongside `iemsct`; default reproduces the pre-change deck byte-for-byte. Unblocks run-matrix rows E1–E4, which need ITYPE=3 (slant path to space) together with IEMSCT=3.
+
 ### CU-066 — `Tape7Reader` column mapping is positional and mismatches the real IEMSCT=2 layout — RESOLVED 2026-07-10 (commit `0927f57`)
 
 **Discovered**: tape7-format review against the MODTRAN 4/5 manual layout (follow-on to MODTRAN_Run_Matrix_Plan §6), 2026-07-10. **Resolution**: `Tape7Reader` locates columns by header label (left-to-right order of appearance, not token index) via `_locate_tape7_columns`; a header missing a required label raises `Tape7ParseError`; data ingestion starts strictly after the located header line so numeric card-echo lines can't be mistaken for data. Headerless files fall back to the pre-fix positional mapping with a `UserWarning`. New regression tests (`TestTape7ReaderNamedColumns`) prove SOL SCAT/GRND RFLT are correctly distinguished from the THRML SCT/SURF EMIS decoys and that card-echo lines are excluded. Final verification against a real tape7 still lands with run A1 (fixture-based coverage only, per the standing no-fabricated-MODTRAN-data constraint).

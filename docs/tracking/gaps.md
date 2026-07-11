@@ -1017,6 +1017,34 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Scenarios blocked** | None. |
 | **Rerun after fix** | N/A (tooling addition, not a physics rerun). |
 
+## Gap 63: No libRadtran parser or implementation
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 6.2 execution, 2026-07-11 (originally flagged in the scenario catalog, 2026-04-15) |
+| **Status** | OPEN |
+| **Description** | No libRadtran output-format parser exists anywhere in this repo, and no real libRadtran run has ever been made against RADIANT. Scenario 6.2's intercomparison is 2-way (SimpleAtmosphere vs. MODTRAN-synthetic) instead of the catalog's intended 3-way. |
+| **Workaround** | None by design — per the no-fabricated-independent-data policy (`modtran/synthetic/README.md`), hand-authoring plausible libRadtran numbers would defeat the purpose of an intercomparison the same way a fake MODTRAN dataset would. |
+| **Impact** | Medium — blocks the 3-way comparison specifically; the 2-way MODTRAN comparison is otherwise complete. |
+| **Fix location** | New `radiant.io` (or scenario-local) libRadtran output parser (nm, mW/m²/sr/nm — non-SI, needs unit conversion at the boundary like `Tape7Reader`); needs real libRadtran access or donated output to populate. |
+| **Effort** | Medium (parser) + external dependency (real libRadtran access). |
+| **Scenarios blocked** | Full 3-way completion of scenario 6.2. |
+| **Rerun after fix** | Scenario 6.2. |
+
+## Gap 64: No spectral residual / per-band error-analysis tool
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Scenario 6.2 execution, 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | The catalog wants "spectral residuals: RADIANT minus MODTRAN" and "band-by-band error analysis: where does the simple model break down?" Scenario 6.2 computes only an in-band mean residual per profile; no reusable spectral-residual or per-band-error RADIANT capability exists. |
+| **Workaround** | Ad-hoc `np.interp`-based comparison in the scenario script, not reusable. |
+| **Impact** | Low-Medium — affects any future model-comparison scenario, not just 6.2. |
+| **Fix location** | New small `radiant.performance` or scripting utility: two `SpectralData`-like series in, residual + per-band breakdown out. |
+| **Effort** | Small-Medium. |
+| **Scenarios blocked** | None (workaround adequate for 6.2's current scope). |
+| **Rerun after fix** | Scenario 6.2 (richer residual figure). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1083,6 +1111,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | PARTIAL — MTF halo landed 2026-07-10; PST import deferred (single-pixel) |
 | 61 | Emissivity library has no wind-state ocean or rust-specific hull materials | Small-Medium | 1.1 | OPEN |
 | 62 | No PowerPoint/slide-table export from scenario results | Small | 1.1 | OPEN |
+| 63 | No libRadtran parser or implementation | Medium | 6.2 | OPEN |
+| 64 | No spectral residual / per-band error-analysis tool | Small-Medium | 6.2 | OPEN |
 
 ---
 

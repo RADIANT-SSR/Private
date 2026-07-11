@@ -136,6 +136,14 @@ class ModtranConfig:
         (default) leaves VIS at ``0.000``, which tells MODTRAN to use
         the IHAZE-default visibility; set explicitly to express a
         degraded-visibility run independent of the aerosol type.
+    itype:
+        MODTRAN Card 1 ITYPE path geometry (CU-069): ``2`` (default) =
+        slant path between two altitudes (H1, H2, ANGLE), the mode
+        this deck builder was designed around; ``1`` = horizontal
+        (constant-altitude) path; ``3`` = slant path to space — used
+        by the ground-level solar-irradiance runs (Block E of
+        ``docs/plans/modtran_run_matrix.csv``, which look from H1=0
+        up through the full atmosphere).
     iemsct:
         MODTRAN Card 1 IEMSCT mode (CU-064): ``2`` (default) = thermal
         + solar/lunar path radiance with scattering, the mode this
@@ -165,6 +173,7 @@ class ModtranConfig:
     h2o_scale: float = 1.0
     o3_scale: float = 1.0
     visibility_km: float | None = None
+    itype: int = 2
     iemsct: int = 2
     spectral_resolution_cm1: float = 1.0
     v1_cm1: float = 700.0  # ~14.3 um
@@ -197,6 +206,11 @@ class ModtranConfig:
             raise AtmosphereValidationError(
                 f"ModtranConfig: visibility_km={self.visibility_km} must be "
                 "positive, or None to use the IHAZE default."
+            )
+        if self.itype not in (1, 2, 3):
+            raise AtmosphereValidationError(
+                f"ModtranConfig: itype={self.itype} not recognised. "
+                "MODTRAN defines ITYPE in {1, 2, 3}."
             )
         if self.iemsct not in (0, 1, 2, 3):
             raise AtmosphereValidationError(
@@ -300,7 +314,7 @@ def render_tape5(
     # is a best-effort identification, not a manual-verified one (see
     # CU-065's identical caveat for Card 3 ANGLE); confirm against the
     # MODTRAN user manual when access arrives.
-    itype = 2
+    itype = config.itype
     iemsct = config.iemsct
     imult = 1
     card1 = (

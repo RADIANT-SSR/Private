@@ -393,6 +393,14 @@ class TestCardDeck:
         assert card1 == "T    5    0    6    0    2    3    1    0    0    0    1    0  0.000"
 
     @pytest.mark.level1
+    def test_itype_slant_to_space(self, default_geometry: AtmosphericGeometry) -> None:
+        """CU-069: ITYPE=3 for solar-irradiance-mode runs looking to space."""
+        config = ModtranConfig(itype=3, iemsct=3)
+        tape5 = render_tape5(config, default_geometry)
+        card1 = tape5.splitlines()[0]
+        assert card1 == "T    5    0    6    0    3    3    1    0    0    0    1    0  0.000"
+
+    @pytest.mark.level1
     def test_deterministic_rendering(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig()
         t1 = render_tape5(config, default_geometry)
@@ -561,6 +569,11 @@ class TestConfigValidation:
     def test_invalid_iemsct(self) -> None:
         with pytest.raises(ValueError, match="iemsct"):
             ModtranConfig(iemsct=4)
+
+    @pytest.mark.level1
+    def test_invalid_itype(self) -> None:
+        with pytest.raises(ValueError, match="itype"):
+            ModtranConfig(itype=0)
 
 
 # ---------------------------------------------------------------------------

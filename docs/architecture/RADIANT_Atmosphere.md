@@ -203,83 +203,65 @@ For unpolarized broadband radiation in a plane-parallel atmosphere, transmittanc
 
 ## 5. MODTRAN Interface
 
-This section defines the binary boundary between RADIANT and MODTRAN. Everything that depends on MODTRAN file formats lives in `radiant.atmosphere.modtran` and `radiant.io.modtran_reader`. No other module may know what a tape5, tape7, or `.tp7` file looks like.
+This section defines the binary boundary between RADIANT and MODTRAN. Everything that depends on MODTRAN file formats lives in `radiant.atmosphere.modtran` — the deck builder (`render_tape5`), the parser (`Tape7Reader`), and the cache. No other module may know what a tape5, tape7, or `.tp7` file looks like.
+
+**Verification status caveat**: no real MODTRAN binary has ever executed a RADIANT-rendered deck, and no real tape7 has ever passed through the parser — every `.tp7` in the test suite is a synthetic or hand-authored fixture. Field-position details below carry open verification CUs (CU-065: Card 3 ANGLE convention; CU-067: Card 1 token positions) that must be checked against the MODTRAN manual when access arrives. See `docs/plans/MODTRAN_Run_Matrix_Plan.md`.
 
 ### 5.1 Card deck builder
 
-`ModtranCardDeck` is a dataclass with one field per MODTRAN card that RADIANT cares about, plus a `render()` method that emits a fixed-format tape5. RADIANT does not expose every MODTRAN knob — only the ones that matter for the in-scope use cases.
+`ModtranConfig` is a dataclass holding the MODTRAN knobs RADIANT exposes; the free function `render_tape5(config, geometry)` emits the fixed-format tape5 string. RADIANT does not expose every MODTRAN knob — only the ones that matter for the in-scope use cases: `atmosphere_profile` (MODEL 1–6), `aerosol_model` (IHAZE), `h2o_scale` / `o3_scale` (Card 2C column scaling), `visibility_km` (Card 2 VIS; `None` = IHAZE default, CU-063), `itype` (Card 1 path geometry; default 2 = slant path H1→H2, CU-069), `iemsct` (Card 1 mode; default 2 = thermal+solar path radiance, 3 = solar irradiance, CU-064), `spectral_resolution_cm1`, `v1_cm1` / `v2_cm1` (Card 4), plus `binary_path`, `cache_dir`, and `allow_fallback`.
 
-**Cards RADIANT writes:**
+**Cards RADIANT writes** (1, 1A, 2, 2C, 3, 3A1, 4, 5): geometry comes from `AtmosphericGeometry` — H1/H2 from sensor/target altitude, ANGLE from `path_zenith_rad` (written in RADIANT's own convention pending CU-065 verification), solar zenith/azimuth on Card 3A1 (IPARM=2). IMULT=1 (multiple scattering) is fixed. Anything not exposed is left at the literal values in `render_tape5`; the `ModtranConfig.extra_cards: dict[str, str]` field lets advanced users override a whole card line, and the override is part of the rendered deck and therefore of the cache key.
 
-| Card | Purpose | RADIANT-controlled fields |
-|------|---------|---------------------------|
-| 1 | Mode + atmosphere selection | `MODTRN=T`, `IEMSCT` (MODTRAN-defined 0–3; RADIANT defaults to 2 = thermal+solar path radiance, the mode the deck builder targets, and exposes 3 = solar/lunar irradiance at H2 as `ModtranConfig.iemsct`, CU-064), `IMULT` (multiple scatter on/off), `MODEL` (1–6 for atmosphere profile), `M1–M6` profile selectors |
-| 1A | Spectral DOS / aerosol controls | `DIS=T` (DISORT solver), `NSTR=8` (8 streams; 4 for fast mode), `LSUN=T` (use Kurucz solar) |
-| 2 | Aerosol & cloud | `IHAZE` (1=rural, 4=urban, 3=maritime, 5=tropospheric, 0=none), `CTHIK`, `CALT`, `VIS` (`ModtranConfig.visibility_km`, `None` = IHAZE default, CU-063), `H2OSTR`, `O3STR` |
-| 3 | Geometry | `H1` (sensor altitude km), `H2` (target altitude km), `ANGLE` (zenith deg), `RANGE` (slant range km — used only when `H1`/`H2` are ambiguous), `IDAY` (day of year for solar geometry) |
-| 3A1 | Solar / lunar | `IPARM=12`, `PARM1=solar_az_deg`, `PARM2=solar_zen_deg` |
-| 4 | Spectral range | `V1`, `V2` (cm⁻¹ start/stop), `DV` (resolution cm⁻¹), `FWHM` |
-| 5 | Repeat | `IRPT=0` (no repeat run) |
-
-The deck is rendered to a tape5 file in a per-run temp directory. RADIANT does *not* edit a user-supplied tape5 — the deck is built from scratch every run, so reproducibility is owned entirely by the parameter set, not by a hand-tuned input file.
-
-**RADIANT-controlled vs. MODTRAN defaults**: anything not in the table above is left at MODTRAN's default. The `ModtranCardDeck.extra_cards: dict[str, str]` field lets advanced users inject overrides, and the override is recorded in the cache key.
+The deck is rendered to a tape5 in a per-run temp directory. RADIANT does *not* edit a user-supplied tape5 — the deck is built from scratch every run, so reproducibility is owned entirely by the parameter set, not by a hand-tuned input file.
 
 ### 5.2 Tape7 parser
 
-`Tape7Reader` parses the fixed-column tape7 file into a `ModtranNativeOutput` dataclass (see CU-068 — the field list below does not match the shipped 5-field dataclass; treat the code as authoritative until that CU closes):
+`Tape7Reader` parses the fixed-column tape7 file into a `ModtranNativeOutput` dataclass:
 
 ```python
 @dataclass(frozen=True)
 class ModtranNativeOutput:
-    wavenumber_cm1: np.ndarray            # ascending cm⁻¹ as MODTRAN writes it
-    total_transmittance: np.ndarray
-    path_thermal_radiance_W_cm2_sr_cm1: np.ndarray
-    path_scattered_radiance_W_cm2_sr_cm1: np.ndarray
-    surface_reflected_radiance_W_cm2_sr_cm1: np.ndarray
-    single_scatter_solar_radiance_W_cm2_sr_cm1: np.ndarray
-    ground_reflected_radiance_W_cm2_sr_cm1: np.ndarray
-    direct_solar_irradiance_W_cm2_cm1: np.ndarray
-    header: dict[str, str]                # parsed cards 1-5 echo
+    wavenumber_cm1: np.ndarray           # cm⁻¹, MODTRAN-native descending order
+    total_transmittance: np.ndarray      # dimensionless
+    path_thermal_radiance: np.ndarray    # W/cm²/sr/cm⁻¹ (PTH THRML column)
+    path_scattered_radiance: np.ndarray  # W/cm²/sr/cm⁻¹ (SOL SCAT column)
+    ground_reflected_radiance: np.ndarray  # W/cm²/sr/cm⁻¹ (GRND RFLT column)
+    header: dict[str, Any]               # raw header lines (card echo etc.)
 ```
+
+The other real tape7 columns (`THRML SCT`, `SURF EMIS`, `SNGL SCAT`, `DRCT RFLT`, `TOTAL RAD`) are located by the parser but not yet consumed — a richer decomposition (e.g. exposing single-scatter solar separately) is future work, not a shipped surface.
 
 **Column identification (CU-066):** columns are located by their tape7 header LABEL (`FREQ`, `TOT TRANS`, `PTH THRML`, `SOL SCAT`, `GRND RFLT`, ...), matched by left-to-right order of appearance in the header line — not by a fixed token/character position, which varies by MODTRAN version and does not survive multi-word labels. A header lacking a required label raises `Tape7ParseError`. Tape7 files with no recognisable header (e.g. hand-authored fixtures) fall back to the pre-fix positional assumption with a `UserWarning`; that fallback has not been validated against a real tape7 and should not be relied on for MODTRAN-derived results.
 
-Conversion to RADIANT internal units happens in a separate `to_radiant_units()` method, which:
-1. Multiplies radiances by 10⁴ (W/cm² → W/m²) — *the* conversion from RADIANT_Conventions.md §3.
-2. Converts the spectral axis: `λ[i] = 10000 / ν[i]`.
-3. Reverses the arrays so wavelength is ascending.
-4. Applies the Jacobian: `L(λ) = L(ν) · ν² / 10000` for spectral radiance, `T(λ) = T(ν)` for transmittance (dimensionless).
-5. Returns three `SpectralData` objects on MODTRAN's native grid; the global-grid interpolation happens later in `SpectralDataStore`.
+Conversion to RADIANT internal units happens in `to_radiant_units()`, which returns four ascending-wavelength `np.ndarray`s — `(wavelength_um, transmittance, path_radiance, ground_reflected)`, where `path_radiance` is the sum of the thermal and scattered components in W/m²/sr/µm:
+1. Spectral axis: `λ [µm] = 10⁴ / ν [cm⁻¹]`, sorted ascending.
+2. Radiance: `L(λ) [W/m²/sr/µm] = L(ν) [W/cm²/sr/cm⁻¹] · ν²` — the single factor `ν²` combines the cm⁻²→m⁻² area conversion (10⁴) with the spectral Jacobian `|dν/dλ| = ν²/10⁴`.
+3. Transmittance is dimensionless and unchanged.
 
 The conversion is implemented exactly *once*, in this method. No other module performs cm⁻¹↔µm or W/cm²↔W/m² arithmetic.
 
-**Path radiance composition**: RADIANT's `L_path(λ)` is the sum of MODTRAN's `path_thermal`, `path_scattered`, and `single_scatter_solar` components. The decomposition is preserved on `ModtranNativeOutput` so a user can ask "how much of my path radiance is solar scatter vs. thermal" without re-running.
-
 ### 5.3 Cache
 
-MODTRAN runs are slow (seconds to minutes). The cache is keyed by a deterministic hash of the rendered tape5 plus the MODTRAN binary version string:
+MODTRAN runs are slow (seconds to minutes). The cache is keyed by a deterministic hash of the rendered tape5, and stores the **parsed, unit-converted arrays** (not the raw tape7):
 
 ```
-cache_key = sha256(rendered_tape5 + "\n" + modtran_version).hexdigest()[:16]
-cache_path = cache_dir / f"{cache_key}.tape7"
+cache_key  = sha256(rendered_tape5).hexdigest()[:16]
+cache_path = cache_dir / f"{cache_key}.npz"    # wavelength_um, transmittance,
+                                               # path_radiance, ground_reflected
 ```
 
-On a run:
-1. Build the deck → render tape5 → compute `cache_key`.
-2. If `cache_path` exists, parse it and skip MODTRAN.
-3. Otherwise, invoke MODTRAN, write tape7 to `cache_path`, parse it.
-4. Always store `cache_key` on the resulting `AtmosphericState` so a downstream user can re-run identical scenarios deterministically.
+On a run: render tape5 → compute key → on hit, load the `.npz` and skip MODTRAN; on miss, invoke the binary in a temp directory, parse the tape7, save the arrays, proceed. The MODTRAN binary version is **not** part of the key (CU-070): upgrading the binary silently reuses results cached from the old version — delete the cache directory after a MODTRAN upgrade until that CU closes.
 
-Cache eviction is **manual**. RADIANT never deletes cache entries on its own; the user runs `radiant atm clear-cache --older-than 30d` if they want to. Atmosphere runs are tiny (~100 KB tape7 each), so even a year of accumulated cache is megabytes. The pain of an over-zealous cache eviction is much greater than the pain of disk usage.
+Cache eviction is **manual** — RADIANT never deletes cache entries on its own; remove files from `cache_dir` (default `~/.radiant/modtran_cache`) by hand. Entries are small (four float arrays per run), so accumulated cache is megabytes, not gigabytes.
 
 ### 5.4 Error handling when MODTRAN is unavailable
 
 The MODTRAN binary may be missing for legitimate reasons: CI runners, students, contractors without licenses. RADIANT degrades in this order:
 
 1. **Cache hit**: if the rendered tape5 hashes to a key already in the cache, return it. The user never knows MODTRAN was missing.
-2. **Cache miss with `atmosphere.modtran.allow_fallback = True`** (default `False`): log a `ModtranUnavailableWarning`, build a `simple` atmosphere from the closest equivalent parameters (visibility from `VIS`, aerosol type from `IHAZE`, profile from `MODEL`), and proceed. The `derivation_chain` records "MODTRAN unavailable; fell back to simple parametric model with translated parameters."
-3. **Cache miss with `allow_fallback = False`**: raise `ModtranUnavailableError` with the rendered tape5 path, the cache key that would have been used, and a one-line instruction for installing MODTRAN or pre-populating the cache.
+2. **Cache miss with `allow_fallback = True`** (default `False`): log a warning ("MODTRAN binary not available … falling back to SimpleAtmosphere with translated parameters") and build the state from `SimpleAtmosphere` at the equivalent profile/aerosol settings.
+3. **Cache miss with `allow_fallback = False`**: raise `ModtranUnavailableError` naming the missing binary path and the two remedies (install MODTRAN / enable the fallback).
 
 Fallback is opt-in because a user running a sensitivity study almost always wants to know that MODTRAN silently disappeared from under them. CI and student users opt in explicitly in their config.
 

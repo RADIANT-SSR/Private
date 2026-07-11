@@ -31,14 +31,14 @@
 **Why it still matters**: Card 1 carries MODEL, ITYPE, IEMSCT, IMULT — the four fields every run in the matrix depends on; an undetected misalignment here is not a niche corner case.
 **Suggested fix**: when MODTRAN access arrives, rebuild Card 1 field-by-field against the manual's true FORTRAN format spec, replace the stale inline comment, and add a Level-0 test asserting each field's token position directly (not just substring presence). Effort S; category C.
 
-### CU-068 — `RADIANT_Atmosphere.md` §5.2's `ModtranNativeOutput` code sample doesn't match the shipped dataclass
+### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
 
-**Discovered**: Rule-20 lock-step check while landing CU-066 (tape7 column-mapping fix), 2026-07-10 — the doc's sample shows 8 radiance-decomposition fields (`surface_reflected_radiance_W_cm2_sr_cm1`, `single_scatter_solar_radiance_W_cm2_sr_cm1`, `direct_solar_irradiance_W_cm2_cm1`, ...) and a `ModtranCardDeck` class with a `.render()` method; the actual code (`src/radiant/atmosphere/modtran.py`) has a 5-field `ModtranNativeOutput` and a plain `render_tape5()` function, no `ModtranCardDeck` class at all.
-**Status**: Open — pre-existing drift, orthogonal to CU-063/064/066/067; flagged with an inline doc note rather than rewritten in that PR to avoid an unreviewed large doc rewrite riding on a narrow code change.
-**File**: `docs/architecture/RADIANT_Atmosphere.md` §5.1–5.2 vs. `src/radiant/atmosphere/modtran.py`
-**Symptom**: the architecture doc describes an aspirational richer decomposition (thermal/solar-scatter/single-scatter/direct-solar split) that was apparently planned but never implemented; a reader would reasonably expect `ModtranNativeOutput` to expose fields it doesn't have.
-**Why it still matters**: exactly the aspirational-documentation failure mode Rule 20 exists to prevent — a future agent could write code against the documented (non-existent) API surface.
-**Suggested fix**: stand-alone small task — either (a) rewrite §5.1–5.2 to match the actual 5-field `ModtranNativeOutput`/function-based `render_tape5`, or (b) if the richer decomposition is still wanted, scope it as a real implementation task and mark the doc section as forward-looking/DEFERRED until then. Effort S; category A (doc-only).
+**Discovered**: CU-068 doc rewrite, 2026-07-11 — the old §5.3 documented `cache_key = sha256(tape5 + modtran_version)`, but the shipped `_cache_key` hashes the tape5 alone.
+**Status**: DEFERRED — same gate as CU-011/CU-065/CU-067 (needs a real MODTRAN binary to even obtain a version string; the invocation path has never run). Re-audit on MODTRAN access, alongside the first real run.
+**File**: `src/radiant/atmosphere/modtran.py` (`_cache_key`)
+**Symptom**: two different MODTRAN versions producing different physics for the same deck hash to the same cache key; after upgrading the binary, RADIANT silently serves results computed by the old version.
+**Why it still matters**: violates the reproducibility intent the cache was designed for; a version-driven physics change would be invisible.
+**Suggested fix**: include the binary's version string (e.g. `modtran -version` output, or executable hash as a fallback) in the hash input; document the cache-directory flush as the interim workaround (now noted in `RADIANT_Atmosphere.md` §5.3). Effort S; category A.
 
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
@@ -108,6 +108,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-068 — `RADIANT_Atmosphere.md` §5.2's `ModtranNativeOutput` code sample doesn't match the shipped dataclass — RESOLVED 2026-07-11 (commit pending stamp)
+
+**Discovered**: Rule-20 lock-step check while landing CU-066, 2026-07-10. **Resolution**: §5 rewritten wholesale to match shipped code — the drift was broader than the flagged dataclass sample: nonexistent `radiant.io.modtran_reader` module, phantom `ModtranCardDeck.render()` (actual: `ModtranConfig` + `render_tape5()`), wrong Card 1A/3A1 field claims, wrong cache-key formula (documented tape5+version; actual tape5 only — the version omission filed as CU-070, deferred on MODTRAN access), wrong cache storage (documented raw `.tape7`; actual parsed `.npz` arrays), fictional `radiant atm clear-cache` CLI, wrong `to_radiant_units` return type (documented three `SpectralData`; actual four `np.ndarray`s), and a `ModtranUnavailableWarning` class that never existed. The unimplemented richer radiance decomposition is now explicitly marked future work, and §5 opens with a verification-status caveat (no real deck ever run; CU-065/CU-067 open).
 
 ### CU-069 — `ModtranConfig.itype` was hardcoded, blocking Block E irradiance runs — RESOLVED 2026-07-10 (commit `41c3afb`)
 

@@ -7,7 +7,7 @@
 Phase 1 gate satisfied), `docs/architecture/RADIANT_GUI_Architecture.md`
 **Supersedes:** `docs/archive/Geometry_GUI_v2_Plan.md` (geometry-viewer scope; archived
 2026-07-12 — its shipped tool at `dev_tools/geometry_gui_v2/` feeds Phases 6–7, and its
-open hardening items remain tracked as CU-052/053/054/055)
+open hardening items remain tracked as CU-052/053/054/056)
 **Executes as:** one phase = one agent task = one conversation (per CLAUDE.md task discipline)
 
 ---

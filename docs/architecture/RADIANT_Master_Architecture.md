@@ -103,7 +103,7 @@ The canonical accessor is `ChainResult.to_provenance_record() -> dict[str, Any]`
 The pure helpers that assemble the record (`new_run_id`, `git_commit`, `python_version_string`, `dependency_versions`, `hash_file`) live in `radiant.core.provenance` so they are import-safe from anywhere in the codebase. Loaders populate the file-hash list by calling `ParameterSet.record_loaded_file(path, sha256)`. Provenance helpers never raise on environmental edge cases (no git, missing dep) — they degrade to `"unknown"` rather than blocking a chain run.
 
 ### C14 — The Scripting API Is the Stable Surface
-The public API (`radiant.Sensor`, `radiant.RadiantError` — the top-level `__all__` in `src/radiant/__init__.py`) is the only surface with stability guarantees. `ChainResult` is importable from `radiant.io.results` but is not re-exported at the top level; `SensorConfig`, `ScenarioConfig`, and `BatchRunner` were dropped (see `docs/adr/ADR-C`). Internal modules (`radiant.core.*`, individual stage implementations) are semi-public at best. Breaking changes to the public API require a major version bump and a deprecation cycle.
+The public API (`radiant.Sensor`, `radiant.RadiantError` — the top-level `__all__` in `src/radiant/__init__.py`) is the only surface with stability guarantees. `ChainResult` is importable from `radiant.io.results` but is not re-exported at the top level; `SensorConfig` and `ScenarioConfig` were dropped (see `docs/adr/ADR-C`). `BatchRunner` was dropped from the top-level surface by ADR-C but a `BatchRunner` class was subsequently re-added under `radiant.api.batch` (commit `6492028`, scenario 4.1 prerequisite — ADR-C anticipated this "if batch features grow, file a Category B task" trigger); it is a semi-public `api.batch` class, NOT re-exported at the top level. (Note: ADR-C's literal "no BatchRunner exists anywhere" statement predates that re-addition and needs an amendment.) Internal modules (`radiant.core.*`, individual stage implementations) are semi-public at best. Breaking changes to the public API require a major version bump and a deprecation cycle.
 
 ### C15 — Test at Level 0 Before Level 2
 Physics correctness tests (Level 0) must pass before integration tests (Level 2) are trusted. A Level 2 test that passes while a Level 0 test fails is meaningless — the right answer for the wrong reason. CI enforces: Level 0 failure blocks Level 1; Level 1 failure blocks Level 2.
@@ -131,9 +131,13 @@ Full detail in RADIANT_Scope_Decisions.md. Summary:
 
 - Narcissus effect (LWIR self-emission of cold detector in warm optics)
 - MODTRAN polarization
-- Zernike coefficient OTF (replaced by Marechal approximation)
 - Spectral radiometric nonlinearity
 - Blooming / anti-blooming
+
+(Zernike WFE is **not** stubbed: it is fully modeled via the complex-pupil
+autocorrelation — `WfeMode.ZERNIKE`, injected as a `WavefrontError`. The
+Maréchal approximation survives only as the separate `strehl_marechal`
+diagnostic, not as a replacement for the Zernike OTF.)
 
 ### Deferred to v2 or later
 
@@ -274,7 +278,10 @@ performance/  → radiant.core only
 io/           → radiant.core, any physics subpackage (read-only)
 api/          → radiant.core, all physics, radiant.io
 cli/          → radiant.api, radiant.io
-plugins/      → radiant.core only (ABCs)
 ```
+
+(The `plugins/` package was removed 2026-07-06 — it was an empty stub. The
+extension-point design lives in `RADIANT_Plugins.md` under a DEFERRED banner;
+its `plugins/ → radiant.core only` import rule returns with the package.)
 
 Cross-stage imports at the physics level (e.g., `from radiant.optics import psf` inside `radiant.detector`) are never permitted. Shared physics must be promoted to `radiant.core`.

@@ -300,3 +300,125 @@ class TestSaveConfig:
         save_config(params, outfile)
         parsed = yaml.safe_load(outfile.read_text())
         assert isinstance(parsed, dict)
+
+
+# ---------------------------------------------------------------------------
+# _radiant metadata block (Gap 67)
+# ---------------------------------------------------------------------------
+
+
+class TestRadiantMetaBlock:
+    @pytest.mark.level1
+    def test_tolerances_applied_on_load(self) -> None:
+        cfg = _full_config_dict()
+        cfg["_radiant"] = {
+            "format": 1,
+            "tolerances": {
+                "detector.qe_value": {
+                    "distribution": "gaussian",
+                    "params": {"std": 0.02},
+                }
+            },
+        }
+        params = load_config(cfg, build_parameter_set())
+        tol = params.tolerances()["detector.qe_value"]
+        assert tol.distribution == "gaussian"
+        assert tol.params == {"std": 0.02}
+
+    @pytest.mark.level1
+    def test_meta_block_not_treated_as_parameters(self) -> None:
+        cfg = _full_config_dict()
+        cfg["_radiant"] = {"format": 1, "wavelength_points": 300}
+        params = load_config(cfg, build_parameter_set())
+        params.resolve()  # no unknown-parameter errors
+
+    @pytest.mark.level1
+    def test_caller_dict_not_mutated(self) -> None:
+        cfg = _full_config_dict()
+        cfg["_radiant"] = {"format": 1}
+        load_config(cfg, build_parameter_set())
+        assert "_radiant" in cfg
+
+    @pytest.mark.level1
+    def test_non_mapping_meta_raises(self) -> None:
+        cfg = _full_config_dict()
+        cfg["_radiant"] = ["not", "a", "mapping"]
+        with pytest.raises(ConfigError, match="_radiant.*mapping"):
+            load_config(cfg, build_parameter_set())
+
+    @pytest.mark.level1
+    def test_malformed_tolerance_spec_raises(self) -> None:
+        cfg = _full_config_dict()
+        cfg["_radiant"] = {"tolerances": {"detector.qe_value": {"std": 0.02}}}
+        with pytest.raises(ConfigError, match="distribution"):
+            load_config(cfg, build_parameter_set())
+
+    @pytest.mark.level1
+    def test_tolerance_on_unknown_parameter_raises(self) -> None:
+        cfg = _full_config_dict()
+        cfg["_radiant"] = {
+            "tolerances": {
+                "detector.nope": {"distribution": "gaussian", "params": {"std": 1.0}}
+            }
+        }
+        with pytest.raises(ConfigError, match="unknown parameter"):
+            load_config(cfg, build_parameter_set())
+
+    @pytest.mark.level1
+    def test_read_radiant_meta(self, tmp_path: Path) -> None:
+        from radiant.io.config import read_radiant_meta
+
+        p = tmp_path / "cfg.yaml"
+        p.write_text("_radiant:\n  wavelength_points: 250\noptics:\n  f_number: 4.0\n")
+        assert read_radiant_meta(p) == {"wavelength_points": 250}
+
+    @pytest.mark.level1
+    def test_read_radiant_meta_absent(self, tmp_path: Path) -> None:
+        from radiant.io.config import read_radiant_meta
+
+        p = tmp_path / "cfg.yaml"
+        p.write_text("optics:\n  f_number: 4.0\n")
+        assert read_radiant_meta(p) == {}
+
+
+class TestSaveConfigScopes:
+    @pytest.mark.level1
+    def test_inputs_scope_writes_only_explicit_inputs(self, tmp_path: Path) -> None:
+        params = load_config(_full_config_dict(), build_parameter_set())
+        params.resolve()
+        p = save_config(params, tmp_path / "inputs.yaml", scope="inputs")
+        raw = yaml.safe_load(p.read_text())
+        flat = _flatten(raw)
+        assert set(flat) == set(params.inputs())
+        # Derived f_number must NOT be written in inputs scope.
+        assert "optics.f_number" not in flat
+
+    @pytest.mark.level1
+    def test_resolved_scope_writes_defaults_too(self, tmp_path: Path) -> None:
+        params = load_config(_full_config_dict(), build_parameter_set())
+        params.resolve()
+        p = save_config(params, tmp_path / "resolved.yaml", scope="resolved")
+        flat = _flatten(yaml.safe_load(p.read_text()))
+        assert "optics.f_number" in flat  # derived value written
+
+    @pytest.mark.level1
+    def test_bad_scope_raises(self, tmp_path: Path) -> None:
+        params = load_config(_full_config_dict(), build_parameter_set())
+        params.resolve()
+        with pytest.raises(ConfigError, match="scope"):
+            save_config(params, tmp_path / "x.yaml", scope="everything")
+
+    @pytest.mark.level1
+    def test_meta_written_and_reloadable(self, tmp_path: Path) -> None:
+        params = load_config(_full_config_dict(), build_parameter_set())
+        params.resolve()
+        p = save_config(
+            params,
+            tmp_path / "meta.yaml",
+            meta={"format": 1, "wavelength_points": 123},
+            scope="inputs",
+        )
+        raw = yaml.safe_load(p.read_text())
+        assert raw["_radiant"] == {"format": 1, "wavelength_points": 123}
+        # And the file loads cleanly.
+        load_config(p, build_parameter_set()).resolve()

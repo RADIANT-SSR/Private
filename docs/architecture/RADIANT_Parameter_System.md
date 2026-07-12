@@ -539,6 +539,10 @@ ps.parameter_def(name)   # Single ParameterDef; alias-aware (DeprecationWarning)
                          # unknown names raise KeyError with a did-you-mean hint.
 ps.consistency_groups()  # tuple[ConsistencyGroup, ...] in registration order.
 ps.tolerances()          # Mapping[str, Tolerance] — read-only view.
+ps.inputs()              # Mapping[str, Any] — explicit inputs only (name → raw
+                         # input-unit value); defaults/derived excluded. The
+                         # persistence surface: re-setting exactly these on a
+                         # fresh set reproduces this resolution (Gap 67).
 ps.is_resolved           # bool property: resolve() has run and no input changed.
 ps.copy()                # Unresolved deep-enough copy: schema, groups, inputs
                          # (with provenance), tolerances, loaded-file records.

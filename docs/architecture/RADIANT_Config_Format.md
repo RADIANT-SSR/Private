@@ -186,6 +186,26 @@ _extends: sensors/baseline_mwir.yaml
 
 The schema version is a comment convention only — it is not a validated field in v1, and the current loader does not warn when it is absent. `save_config` writes the `# RADIANT config — schema v1` header on every file it produces.
 
+### 1.7 Session Metadata Block (`_radiant`) — implemented (Gap 67, 2026-07-11)
+
+`Sensor.save(path)` writes an optional top-level `_radiant` mapping carrying session-level state that is not a chain parameter:
+
+```yaml
+_radiant:
+  format: 1
+  wavelength_points: 500
+  tolerances:                      # only present when tolerances are set
+    detector.qe_value:
+      distribution: gaussian
+      params: {std: 0.02}
+optics:
+  aperture_diameter_m: 0.3
+# ... explicitly-set inputs only — defaults and derived values are NOT written,
+# so reloading reproduces the original resolution and provenance exactly.
+```
+
+Loader behavior: `load_config` strips the block before parameter flattening, applies `tolerances` via `ParameterSet.set_tolerance`, and raises `ConfigError` on a malformed block (non-mapping, missing `distribution`/`params`, unknown parameter name). `wavelength_points` is session-level: `Sensor.load(path)` consumes it (via `read_radiant_meta`); a bare `load_config` ignores it. Configs without `_radiant` are unaffected, and a `Sensor.save` file remains loadable by `from_yaml` and the CLI. `save_config(..., scope="inputs")` writes only explicit inputs (the `Sensor.save` mode); the default `scope="resolved"` remains the fully-specified documentation export.
+
 ---
 
 ## 2. XLSX Convenience View

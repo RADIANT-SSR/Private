@@ -703,6 +703,18 @@ class ParameterSet:
         """Read-only view of tolerances set via :meth:`set_tolerance`."""
         return MappingProxyType(self._tolerances)
 
+    def inputs(self) -> Mapping[str, Any]:
+        """Read-only snapshot of explicit inputs: name → raw input value.
+
+        Only parameters actually passed to :meth:`set` (by the user or a
+        config loader) appear here — defaults and derived values do not.
+        Values are as supplied, in input units. This is the persistence
+        surface: re-setting exactly these inputs on a fresh set and
+        resolving reproduces this set's resolution, including provenance
+        distinctions between explicit and defaulted parameters (Gap 67).
+        """
+        return MappingProxyType({name: val for name, (val, _prov, _src) in self._inputs.items()})
+
     @property
     def is_resolved(self) -> bool:
         """True when :meth:`resolve` has run and no input changed since."""

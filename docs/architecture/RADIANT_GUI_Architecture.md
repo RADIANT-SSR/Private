@@ -208,7 +208,7 @@ Stage strip button click           (navigation only — no API call)
 Sweep tab: Run Sweep               sweep = sensor.sweep(param, values, metric)
 Monte Carlo tab: Run MC            mc = sensor.monte_carlo(n_trials)
 Export YAML                        sensor.save(path)
-Export JSON result                 result.to_json(path)
+Export result archive              result.save(path)   # reload: ChainResult.load
 Console: type Python               direct IPython evaluation in sensor namespace
 ```
 
@@ -287,11 +287,11 @@ All three representations (GUI, Python script, YAML file) are views of the same 
 
 ### 4.1 GUI → YAML
 
-Clicking File → Export YAML calls `sensor.save(path)`. The saved YAML is a flat, fully-specified config with no `_extends` or `_imports` — all parameters are written explicitly with their provenance comments. The user can then load this YAML in a script.
+Clicking File → Export YAML calls `sensor.save(path)` (implemented, Gap 67 2026-07-11). The saved YAML holds the explicitly-set inputs plus a `_radiant` metadata block (wavelength_points, tolerances) — defaults and derived values are *not* written, so a reload reproduces the original resolution and provenance splits exactly (`RADIANT_Config_Format.md` §1.7). For a fully-specified documentation export with every resolved value, use `radiant.io.config.save_config(params, path, scope="resolved")`. The user can load the saved YAML in a script.
 
 ### 4.2 YAML → GUI
 
-File → Open YAML calls `Sensor.load(path)`. The GUI displays all parameters from the YAML, with provenance badges showing which came from parent configs. GUI edits override in the highest-priority layer (equivalent to CLI `--set`).
+File → Open YAML calls `Sensor.load(path)` (implemented, Gap 67 2026-07-11). The GUI displays all parameters from the YAML, with provenance badges distinguishing explicit values from defaults and derived values. GUI edits override in the highest-priority layer (equivalent to CLI `--set`).
 
 ### 4.3 Script → GUI (Hand-off)
 

@@ -49,11 +49,16 @@ s = Sensor.from_dict({
 
 # Fresh (empty) sensor — set everything programmatically:
 s = Sensor()
+
+# Reload a sensor saved with s.save(path) — restores parameters,
+# tolerances, and wavelength_points from the file's _radiant block
+# (Gap 67, 2026-07-11). Plain configs load exactly as from_yaml:
+s = Sensor.load("saved_sensor.yaml")
 ```
 
-All three constructors accept an optional keyword `wavelength_points` (default **500**). The spectral evaluation grid spans `spectral_integration.filter_min_um` to `spectral_integration.filter_max_um` with that many points.
+`from_yaml`/`from_dict` accept an optional keyword `wavelength_points` (default **500**). The spectral evaluation grid spans `spectral_integration.filter_min_um` to `spectral_integration.filter_max_um` with that many points. `Sensor.load` reads `wavelength_points` from the file's `_radiant` metadata block when present.
 
-There is **no** `Sensor.load()`, no separate `sensor=`/`scenario=` two-file loader, and no `Sensor.from_configs()` fluent-builder path. See Appendix A.
+There is no separate `sensor=`/`scenario=` two-file loader and no `Sensor.from_configs()` fluent-builder path. See Appendix A.
 
 ### 2.2 Core Methods
 
@@ -70,6 +75,8 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `KeyError` (with a did-you-mean suggestion) for unknown names, like `set()`. |
 | `s.parameter_defs()` | Read-only mapping of the full parameter schema keyed by dot-path (Gap 70). Each `ParameterDef` carries dtype, canonical/input units, bounds, enum values, default, description, and tags. |
 | `s.parameter_def(dotpath)` | Single `ParameterDef` lookup. Alias-aware; unknown names raise `KeyError` with a did-you-mean suggestion. |
+| `s.save(path)` | Write a YAML config restoring this Sensor via `Sensor.load` (Gap 67): explicitly-set inputs (input units) plus a `_radiant` block (`wavelength_points`, tolerance distributions). Defaults and derived values are *not* written, so reloading reproduces the original resolution — including provenance splits between explicit and defaulted parameters. Returns the written `Path`. |
+| `Sensor.load(path)` | Classmethod. Reload a `save()`d config (or any RADIANT YAML): parameters, tolerances, `wavelength_points`. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
 | `s.evaluate()` | Run the full signal chain. Returns `ChainResult` (§3). |
 | `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |
@@ -306,6 +313,17 @@ with open("run_provenance.json", "w") as f:
 ```
 
 There are no `result.to_json()` / `result.to_csv()` methods (Appendix A).
+
+### 3.9 Persistence (Gap 67, 2026-07-11)
+
+```python
+result.save("run.radiant")            # single-file zip archive
+r2 = ChainResult.load("run.radiant")  # full-fidelity reload
+```
+
+The archive (zip: `manifest.json` + `arrays.npz`) holds the complete `ChainState` — frames, noise terms, stage outputs, MTF terms, metrics, history — plus the provenance record **frozen at save time**: `r2.to_provenance_record()` reports the run that produced the archive (original `run_id`, versions, git commit, parameters), never the loading environment. All accessors work on the reloaded result, including `signal_at`/`noise_at`.
+
+Fidelity contract: JSON primitives, non-finite floats, dtype-preserving numpy arrays, tuples vs lists, str-keyed mappings, and radiant-defined enums/dataclasses all round-trip exactly; for the shipped chain **nothing is skipped** (enforced by `tests/integration/test_persistence_roundtrip.py`). A value the codec cannot encode (e.g. injected by a custom script) is listed in the manifest with a `UserWarning` at save time and reloads as an `UnserializedValue` placeholder — never silently dropped. Reload instantiates only `radiant.*` classes and reads arrays with `allow_pickle=False`; unlike pickle there is no arbitrary-code path. A reloaded result has no attached `ParameterSet` (resolved parameters live in the provenance record). Archives embedding full-resolution PSFs run tens of MB.
 
 ---
 
@@ -950,13 +968,13 @@ The 2026-04-07 revision of this document described the surface below. **None of 
 
 | Documented (old) | Status / replacement |
 |------------------|----------------------|
-| `Sensor.load(path)` / `Sensor.load(sensor=..., scenario=...)` | Use `Sensor.from_yaml(path)`; merge scenario overrides with `set_many()`. |
+| `Sensor.load(sensor=..., scenario=...)` two-file form | Not implemented. Single-path `Sensor.load(path)` landed with Gap 67 (2026-07-11); merge scenario overrides with `set_many()`. |
 | `Sensor.from_configs(...)`, `SensorConfig`, `ScenarioConfig` builders | Not implemented. Use YAML or `from_dict()`. |
 | `s.validate()` | Not implemented as a separate step. Validation happens at `set()`/resolve/evaluate; catch `RadiantError`. |
 | `s.schema()`, `s.params` proxy, parameter tab-completion | Schema enumeration landed as `s.parameter_defs()` / `s.parameter_def(dotpath)` (Gap 70, 2026-07-11). No `s.params` proxy or tab-completion. |
 | `s.copy()` | Use `s.clone()`. |
-| `s.save(path)` | Not implemented. Persist `result.to_provenance_record()` instead. |
-| `Sensor.load_result(...)`, `Sensor.from_provenance_record(...)` | Not implemented. |
+| `s.save(path)` | Landed with Gap 67 (2026-07-11) — see §2.2. |
+| `Sensor.load_result(...)`, `Sensor.from_provenance_record(...)` | Not implemented. Use `ChainResult.load(path)` on an archive written by `result.save(path)` (§3.9). |
 | `result.background_at(...)`, `result.target_at(...)` | Not implemented. Use `stage_outputs["spectral_integration"]["background_e"]` / `["signal_e"]` (e-). |
 | `result.noise_budget()` (NoiseBudget object with `.table()`/`.to_dataframe()`) | Use `result.noise_terms` + `inspect_result()` / `plot_noise_budget()`. |
 | `result.mtf_at_nyquist()`, `result.mtf_curve(term)`, `result.mtf_budget()` | Use `result.metrics["mtf_at_nyquist"]`, `result.state.mtf_terms`, `stage_outputs["performance"]["mtf_budget"]`. |

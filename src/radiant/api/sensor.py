@@ -33,7 +33,7 @@ from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.core.parameters import ParameterDef, ParameterSet, Provenance, Tolerance
-from radiant.io.config import load_config
+from radiant.io.config import load_config, read_radiant_meta, save_config
 from radiant.io.results import ChainResult
 
 logger = logging.getLogger(__name__)
@@ -116,6 +116,57 @@ class Sensor:
         sensor = cls(wavelength_points=wavelength_points)
         load_config(data, sensor._params)
         return sensor
+
+    # ------------------------------------------------------------------
+    # Persistence (Gap 67)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def load(cls, path: str | Path) -> Sensor:
+        """Load a Sensor saved with :meth:`save` (or any RADIANT YAML).
+
+        Restores parameters, tolerance distributions, and the spectral
+        grid size from the file's ``_radiant`` metadata block when
+        present; plain configs load exactly as with :meth:`from_yaml`.
+        """
+        meta = read_radiant_meta(path)
+        wl_points = meta.get("wavelength_points", _DEFAULT_WL_POINTS)
+        if not isinstance(wl_points, int) or wl_points < 2:
+            raise ApiValidationError(
+                f"Sensor.load: '_radiant.wavelength_points' must be an "
+                f"integer >= 2, got {wl_points!r} in {path}."
+            )
+        return cls.from_yaml(path, wavelength_points=wl_points)
+
+    def save(self, path: str | Path) -> Path:
+        """Save this Sensor to a YAML config that :meth:`load` restores.
+
+        Writes the explicitly-set inputs (input units) plus a
+        ``_radiant`` metadata block carrying ``wavelength_points`` and
+        any tolerance distributions. Reloading reproduces this Sensor
+        exactly: defaults re-apply, consistency groups re-derive, and
+        provenance distinctions between explicit and defaulted
+        parameters survive. The file is a normal RADIANT config: it
+        also loads via :meth:`from_yaml` or the CLI.
+        """
+        self._ensure_resolved()
+        meta: dict[str, Any] = {
+            "format": 1,
+            "wavelength_points": self._wl_points,
+        }
+        tolerances = {
+            name: {"distribution": tol.distribution, "params": dict(tol.params)}
+            for name, tol in self._params.tolerances().items()
+        }
+        if tolerances:
+            meta["tolerances"] = tolerances
+        return save_config(
+            self._params,
+            Path(path),
+            header="# RADIANT config — written by Sensor.save()\n",
+            meta=meta,
+            scope="inputs",
+        )
 
     # ------------------------------------------------------------------
     # Parameter access

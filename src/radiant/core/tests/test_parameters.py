@@ -1276,3 +1276,18 @@ class TestSchemaIntrospection:
         rv = dup.get_resolved("sensor.optics.aperture_diameter")
         assert rv.provenance is Provenance.CONFIG_FILE
         assert rv.source == "test.yaml"
+
+    @pytest.mark.level0
+    def test_inputs_snapshot(self) -> None:
+        ps = _make_ps()
+        ps.set("sensor.optics.aperture_diameter", 0.3)
+        ps.set("sensor.optics.focal_length", 1.2)
+        ps.resolve()
+        assert dict(ps.inputs()) == {
+            "sensor.optics.aperture_diameter": 0.3,
+            "sensor.optics.focal_length": 1.2,
+        }
+        # Derived f_number is resolved but not an input.
+        assert "sensor.optics.f_number" not in ps.inputs()
+        with pytest.raises(TypeError):
+            ps.inputs()["x"] = 1.0  # type: ignore[index]

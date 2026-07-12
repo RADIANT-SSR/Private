@@ -8,8 +8,10 @@ RADIANT_Master_Architecture.md §C13).
 
 from __future__ import annotations
 
+import copy
 import warnings
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -47,9 +49,19 @@ class ChainResult:
         and ``input_file_hashes`` block.
     """
 
-    def __init__(self, state: ChainState, params: ParameterSet | None = None) -> None:
+    def __init__(
+        self,
+        state: ChainState,
+        params: ParameterSet | None = None,
+        *,
+        saved_provenance: dict[str, Any] | None = None,
+    ) -> None:
         self._state = state
         self._params = params
+        # Set only by load(): the provenance record frozen at save time.
+        # A reloaded result reports the run that produced it, not the
+        # environment that loaded it.
+        self._saved_provenance = saved_provenance
 
     @property
     def state(self) -> ChainState:
@@ -213,6 +225,40 @@ class ChainResult:
         return float(self._state.metrics["niirs"])
 
     # ------------------------------------------------------------------
+    # Persistence (Gap 67)
+    # ------------------------------------------------------------------
+
+    def save(self, path: str | Path) -> Path:
+        """Save this result to a single-file archive (zip: JSON + npz).
+
+        The archive holds the full :class:`ChainState` — frames, noise
+        terms, stage outputs, MTF terms, metrics, history — plus the
+        provenance record frozen at save time. Reload with
+        :meth:`ChainResult.load`. Values that cannot be encoded (none,
+        for states produced by the shipped chain) are recorded in the
+        archive manifest with a ``UserWarning`` here.
+        """
+        from radiant.io.serialization import save_result_archive
+
+        return save_result_archive(path, self._state, self.to_provenance_record())
+
+    @classmethod
+    def load(cls, path: str | Path) -> ChainResult:
+        """Reload a result saved with :meth:`save`.
+
+        The reloaded result has no attached :class:`ParameterSet` (the
+        run's resolved parameters live in the provenance record, which
+        is preserved exactly as frozen at save time and returned by
+        :meth:`to_provenance_record`). All state accessors — metrics,
+        frames, noise terms, MTF terms, ``signal_at``/``noise_at`` —
+        work as on the original.
+        """
+        from radiant.io.serialization import load_result_archive
+
+        state, provenance = load_result_archive(path)
+        return cls(state, None, saved_provenance=provenance)
+
+    # ------------------------------------------------------------------
     # Provenance (RADIANT_Master_Architecture.md §C13)
     # ------------------------------------------------------------------
 
@@ -247,6 +293,10 @@ class ChainResult:
         no numpy arrays in the record.
         """
         from radiant import __version__ as _radiant_version
+
+        if self._saved_provenance is not None:
+            # Reloaded result: report the record frozen at save time.
+            return copy.deepcopy(self._saved_provenance)
 
         if self._params is not None:
             try:

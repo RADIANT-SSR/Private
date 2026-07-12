@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Persistence (Gap 67): `Sensor.save(path)` / `Sensor.load(path)` —
+  YAML round trip of explicit inputs, tolerance distributions, and
+  `wavelength_points` via a new `_radiant` config metadata block
+  (`RADIANT_Config_Format.md` §1.7); reloading reproduces the original
+  resolution and provenance exactly. `ChainResult.save(path)` /
+  `ChainResult.load(path)` — single-file zip archive (JSON manifest +
+  npz arrays) holding the full ChainState with dtype-preserving,
+  full-fidelity reload and the provenance record frozen at save time.
+  Supporting public surface: `ParameterSet.inputs()`,
+  `radiant.io.config.read_radiant_meta()`, `save_config(scope=)`,
+  `radiant.io.serialization` (`ResultArchiveError`,
+  `UnserializedValue`).
 - Public schema-introspection API (Gap 70): `ParameterSet.parameter_defs()`,
   `parameter_def(name)`, `consistency_groups()`, `tolerances()`,
   `is_resolved`, and `copy()`, plus `Sensor.parameter_defs()` /

@@ -484,7 +484,8 @@ src/radiant/
 │   ├── spectral.py       # SpectralData, SpectralDataStore
 │   ├── chain.py          # Stage Protocol, ChainState, ChainRunner
 │   ├── radiometry.py     # RadiometricFrame, NoiseTerm
-│   ├── geometry.py       # ObserverGeometry, SceneGeometry
+│   ├── geometry.py       # spherical-Earth helpers (slant range, incidence, Euler)
+│   ├── viewing_triangle.py  # θ_o-referenced spherical-triangle solutions (ADR-0006)
 │   └── regime.py         # RadiometricRegime enum
 ├── geometry/       # Stage 0: scene geometry — input modes, LOS, derived ranges (ADR-0006)
 ├── source/         # Stage 1: target + background spectral radiance

@@ -42,7 +42,8 @@ core/
 ├── radiometry.py        # RadiometricFrame, NoiseTerm
 ├── quantity.py          # ChainQuantity, ReferenceFrame enum, signal_at, noise_at
 ├── regime.py            # RadiometricRegime enum (EXTENDED, POINT, SUB_PIXEL)
-├── geometry.py          # SceneGeometry, ObserverGeometry helpers
+├── geometry.py          # spherical-Earth helpers (slant range, incidence, Euler)
+├── viewing_triangle.py  # θ_o-referenced spherical-triangle solutions (ADR-0006)
 ├── los_geometry.py      # LineOfSightGeometry (frozen, kw_only)
 ├── blackbody.py         # Planck function (used by source/, atmosphere/)
 ├── solar.py             # Solar spectral irradiance loader

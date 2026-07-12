@@ -6,8 +6,8 @@ the top-of-atmosphere altitude, and the three zenith/azimuth angles that the
 assembly equation needs to compute two-leg attenuation (τ_sun on the down-leg,
 τ_up on the up-leg) and single-scatter path radiance.
 
-This file is deliberately isolated from `core/geometry.py` (which houses
-`ObserverGeometry`, `TargetGeometry`, `SceneGeometry`) per Rule 19 — LOS
+This file is deliberately isolated from `core/geometry.py` (the spherical
+viewing-geometry helper functions) per Rule 19 — LOS
 geometry for atmospheric path assembly is a distinct computation from
 observer-kinematic rotation and flat-Earth slant range.
 

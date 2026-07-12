@@ -77,7 +77,7 @@ Decisions made during design review, in order:
 
 9. **Atmospheric refraction**: not modeled in v1. v2 only; becomes relevant at grazing geometries (θ_o → π/2).
 
-10. **`LineOfSightGeometry` module split**: lives in its own file `src/radiant/core/los_geometry.py` per Rule 19. `core/geometry.py` retains `ObserverGeometry` and `SceneGeometry`.
+10. **`LineOfSightGeometry` module split**: lives in its own file `src/radiant/core/los_geometry.py` per Rule 19. (`core/geometry.py`'s flat-Earth `ObserverGeometry`/`SceneGeometry` dataclasses were deleted 2026-07-12 — CU-094/ADR-0006; the module keeps the spherical helper functions.)
 
 11. **BackgroundDescriptor types (v1)**: four variants — `AtApertureBackground`, `ColdSpaceBackground`, `GroundBackground`, `UserSpectralBackground`. Earthlimb and cloud deferred to v2. For `no_atmosphere (space)` sub-case, if LOS intercepts Earth, raise (no v1 earthlimb model). `UserSpectralBackground` covers ground-test / lab-test sub-cases where the user supplies test-range or chamber radiance.
 

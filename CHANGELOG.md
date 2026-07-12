@@ -20,6 +20,14 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Removed
+- `radiant.core` no longer exports `ObserverGeometry`, `TargetGeometry`,
+  `SceneGeometry` (CU-094, ADR-0006 Phase 4). The flat-Earth scene
+  dataclasses had zero consumers outside their own tests and were
+  superseded by GeometryStage + `core.viewing_triangle`. The module's
+  live functions (`slant_range_spherical_m`, `incidence_angle_rad`,
+  Euler helpers) are unchanged.
+
 ### Deprecated
 - `platform.h_sensor` → folded into `geometry.sensor_altitude_m` (CU-090,
   ADR-0006 Phase 3). One sensor altitude, one owner; the old name keeps

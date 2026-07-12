@@ -22,7 +22,8 @@ and by performance metrics (`performance/gsd.py`, `ground_range.py`,
 
 | Module | Owns |
 |--------|------|
-| `core/geometry.py` | Spherical-Earth slant range, incidence angle, Euler↔rotation-matrix, `ObserverGeometry` / `TargetGeometry` / `SceneGeometry` (GSD, ground range, IFOV) |
+| `core/geometry.py` | Spherical-Earth slant range (η-referenced), incidence angle, Euler↔rotation-matrix |
+| `core/viewing_triangle.py` | θ_o-referenced spherical-triangle solutions (slant, ground range, η↔θ_o, V3 inverse) — the GeometryStage derivation path (ADR-0006) |
 | `core/los_geometry.py` | `LineOfSightGeometry` — the atmospheric-path geometry (slant range through atmosphere, airmass, Earth-intercept test) SourceStage publishes for AtmosphereStage |
 | `core/orbit.py` | Circular-orbit velocity, period, ground-track speed |
 | `core/repeat_ground_track.py` | J2 nodal regression, sun-synchronous inclination, equatorial track spacing, first-order revisit interval |
@@ -50,7 +51,7 @@ A single unified geoid is out of v1 scope (see §7).
 
 ---
 
-## 2. Viewing geometry (`geometry.py`, `SceneGeometry`)
+## 2. Viewing geometry (`geometry.py`, `viewing_triangle.py`)
 
 ### 2.1 Slant range — spherical Earth
 
@@ -79,20 +80,20 @@ At nadir, incidence = 0; at 45° from 600 km, incidence ≈ 50.7°. This is the 
 that matters for BRDF and projected-area effects at the ground, not the sensor
 look angle.
 
-### 2.3 `SceneGeometry` — the derived-quantity aggregate
+### 2.3 θ_o-referenced solutions (`core/viewing_triangle.py`, ADR-0006)
 
-`SceneGeometry(observer, target)` composes an `ObserverGeometry` (altitude, look
-angle, azimuth) and a `TargetGeometry` and exposes:
+The chain's canonical angle is the target-side path zenith θ_o
+(`geometry.path_zenith_rad`); `core/viewing_triangle.py` solves the same
+spherical triangle from that side: `eta_from_theta_o`,
+`slant_range_from_theta_o_m`, `ground_range_from_theta_o_m`, and the V3
+inverse `theta_o_from_ground_range_m`. GeometryStage derives every chain
+quantity through these once per run (RADIANT_Geometry.md).
 
-| Method | Formula |
-|--------|---------|
-| `altitude_difference_m` | `observer.altitude − target.altitude` |
-| `slant_range_m` | line-of-sight distance at the look angle |
-| `ground_range_m` | `altitude_difference · tan(look_angle)` |
-| `gsd_m(f, pitch)` | `pitch · slant_range / f` (accounts for off-nadir via slant range) |
-| `ifov_rad(f, pitch)` | `pitch / f` |
+(History: a flat-Earth `SceneGeometry`/`ObserverGeometry` aggregate lived in
+`geometry.py` with zero runtime consumers; deleted 2026-07-12 per CU-094 /
+Rule 27.)
 
-`gsd_m` / `ifov_rad` raise `CoreValidationError` on non-positive focal length or
+The η-referenced helpers raise `CoreValidationError` on non-positive focal length or
 pitch. These feed the `gsd_*_m` and `ground_range_m` performance metrics.
 
 ### 2.4 Attitude — Euler ↔ rotation matrix
@@ -203,10 +204,10 @@ non-rotating Earth for ground-track speed; plane-of-date solar geometry.
 - **Public API:** `Sensor.set_ground_velocity_from_orbit()` → `ground_track_speed_m_s`
   → `platform.ground_velocity_m_s` (identity-grouped with `geometry.ground_speed_m_s`,
   RADIANT_Parameter_System.md §Consistency-Groups).
-- **Performance metrics:** `performance/gsd.py` (`SceneGeometry.gsd_m`),
-  `ground_range.py` (`SceneGeometry.ground_range_m`), `swath_width.py`,
-  `access_rate.py`, and the diffraction-limit ground projection all build on
-  `SceneGeometry` and the orbital functions.
+- **Performance metrics:** GSD, ground range, swath width, access rate, and
+  the diffraction-limit ground projection consume the values GeometryStage
+  publishes (`stage_outputs["geometry"]` — ADR-0006 Phase 2), which are
+  derived once via `core/viewing_triangle.py` and `core/orbit.py`.
 - **Atmosphere:** `LineOfSightGeometry` (slant range, airmass, Earth-intercept)
   is published by SourceStage and consumed by AtmosphereStage (§3).
 

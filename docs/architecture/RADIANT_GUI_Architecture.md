@@ -1,7 +1,7 @@
 # RADIANT GUI Architecture
 
 **Date:** 2026-04-07
-**Status:** DESIGN TARGET — implementation not started; several contracts revised (see banner)
+**Status:** DESIGN TARGET — implementation not started; several contracts revised (see banner). Amended 2026-07-12: the workflow opens with the **Geometry** screen and the stage strip is 9 stages, geometry-first (ADR-0006).
 **Depends on:** RADIANT_Scripting_API.md, RADIANT_Personas.md, RADIANT_Signal_Chain_Architecture.md
 **Scope:** Defines the technology choice, layout, GUI-backend interface, and interoperability contract for the RADIANT desktop GUI. Implementation is deferred. This document ensures the scripting API and future GUI share the same backend.
 
@@ -92,7 +92,7 @@ Not: React + FastAPI backend. Not: Jupyter widgets.
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  File  Edit  View  Run  Tools  Help                                           │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│  ← Source │ Atmosphere │ Optics │ Platform │ Detector │ Readout │ Performance →│
+│ ← Geometry │ Source │ Atmosphere │ Optics │ Platform │ Detector │ Readout │ Performance →│
 │  [Signal chain strip — clickable stage tabs with health indicators]           │
 ├────────────────┬─────────────────────────────────────────────────────────────┤
 │  PARAMETERS    │  VISUALIZATION AREA                                          │
@@ -135,7 +135,7 @@ A horizontal strip of clickable stage buttons at the top of the main area. Each 
 
 ```
 ┌─────────┐  ┌────────────┐  ┌────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌─────────────┐
-│ Source  │→ │ Atmosphere │→ │ Optics │→ │ Platform │→ │ Detector │→ │ Readout │→ │ Performance │
+│ Geometry │→ │ Source  │→ │ Atmosphere │→ │ Optics │→ │ Platform │→ │ Detector │→ │ Readout │→ │ Performance │
 │   ●     │  │     ●      │  │   ●    │  │    ●     │  │    ●     │  │    ●    │  │     ●       │
 └─────────┘  └────────────┘  └────────┘  └──────────┘  └──────────┘  └─────────┘  └─────────────┘
    ● green = OK    ◑ yellow = warning    ○ red = error    ◌ gray = stale
@@ -176,6 +176,7 @@ A large matplotlib canvas embedded via `FigureCanvasQTAgg`. The displayed figure
 
 | Active stage | Default visualization |
 |-------------|----------------------|
+| Geometry | Scene diagram (sensor/target/sun), resolved input mode, derived slant/ground range, θ_o/η, solar angles — the ADR-0006 stage-0 screen; input-mode picker maps 1:1 to RADIANT_Geometry.md §2 |
 | Source | Spectral radiance at target: L_source(λ) [W/m²/sr/µm] |
 | Atmosphere | τ_atm(λ), L_path(λ), L_atm(λ) all overlaid |
 | Optics | Spectral radiance at aperture and post-optics; MTF curve |

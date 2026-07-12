@@ -87,7 +87,7 @@
 ### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
 
 **Discovered**: Capability audit 2026-07 (F-26), 2026-07-11
-**Status**: Stage-deferred (gating stage: GUI kickoff; re-audit at GUI kickoff)
+**Status**: Stage-deferred (gating stage: GUI implementation start; re-audit refreshed 2026-07-12 at the ADR-0006 geometry-stage landing — the pre-GUI prerequisite this CU was waiting behind: dev_tools/geometry_gui_v2 records unchanged by the plan, findings still stand; next re-audit when GUI implementation begins)
 **File**: `dev_tools/geometry_gui_v2/README.md`, `ARCHITECTURE.md` (claim slider panel deferred per CU-052 — but `app/panels/parameters.py` ships it wired); `tests/` (only golden_phase1 exists vs C8's "every phase" claim; round-3 report references 25 absent PNGs)
 **Symptom**: prototype's own records contradict its shipped code and test tree.
 **Why it still matters**: GUI-restart planning will double-count done work and mis-sequence CU-052/053/054 (whose gating claims may already be satisfied).

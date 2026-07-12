@@ -48,7 +48,7 @@ S_solar_W_per_m2: float = 1361.0
 # WGS-84 equatorial (semi-major axis) Earth radius [m] — exact by definition.
 # https://earth-info.nga.mil/ (WGS-84 specification).  Used for spherical-Earth
 # line-of-sight geometry (boundary converters, airmass, ray-sphere intersect).
-# The `ObserverGeometry` module elsewhere in core uses the US Standard 1976
+# The `geometry` module elsewhere in core uses the US Standard 1976
 # mean radius (6_371_000.0 m) for ground-incidence / slant-range calculations;
 # the two values differ by ~0.1% and are used in separate geometric contexts.
 R_EARTH_M: float = 6.378137e6

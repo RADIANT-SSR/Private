@@ -20,9 +20,6 @@ from radiant.core.descriptors import T3Mixed as T3Mixed
 from radiant.core.descriptors import T5AtAperture as T5AtAperture
 from radiant.core.descriptors import TargetDescriptor as TargetDescriptor
 from radiant.core.descriptors import UserSpectralBackground as UserSpectralBackground
-from radiant.core.geometry import ObserverGeometry as ObserverGeometry
-from radiant.core.geometry import SceneGeometry as SceneGeometry
-from radiant.core.geometry import TargetGeometry as TargetGeometry
 from radiant.core.geometry import euler_to_rotation_matrix as euler_to_rotation_matrix
 from radiant.core.geometry import rotation_matrix_to_euler as rotation_matrix_to_euler
 from radiant.core.los_geometry import LineOfSightGeometry as LineOfSightGeometry

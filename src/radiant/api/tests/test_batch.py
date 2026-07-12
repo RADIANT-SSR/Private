@@ -149,3 +149,24 @@ class TestBatchResult:
         result = BatchResult(axes=(("a", ("x",)),), rows=({"a": "x", "error": None},))
         with pytest.raises(AttributeError):
             result.rows = ()  # type: ignore[misc]
+
+
+class TestProgressAndCancel:
+    """Gap 72: BatchRunner progress/cancel hooks."""
+
+    def test_progress_called_per_cell(self) -> None:
+        calls: list[tuple[int, int]] = []
+        BatchRunner(BASE, AXES, sensor_factory=fake_factory).run(
+            lambda sensor, labels: {"snr": 1.0},
+            progress=lambda done, total: calls.append((done, total)),
+        )
+        assert calls == [(1, 4), (2, 4), (3, 4), (4, 4)]
+
+    def test_cancel_aborts(self) -> None:
+        from radiant.api._progress import OperationCancelledError
+
+        with pytest.raises(OperationCancelledError):
+            BatchRunner(BASE, AXES, sensor_factory=fake_factory).run(
+                lambda sensor, labels: {"snr": 1.0},
+                cancel=lambda: True,
+            )

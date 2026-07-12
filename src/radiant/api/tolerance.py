@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api.errors import ApiValidationError
 from radiant.core.parameters import ParameterSet
 from radiant.io.results import ChainResult
@@ -119,6 +120,8 @@ def monte_carlo(
     seed: int = 42,
     metric_names: tuple[str, ...] | None = None,
     keep_results: bool = False,
+    progress: ProgressFn | None = None,
+    cancel: CancelFn | None = None,
 ) -> MonteCarloResult:
     """Run Monte Carlo tolerance analysis.
 
@@ -136,6 +139,12 @@ def monte_carlo(
         Metric keys to record. If None, auto-detected from first trial.
     keep_results:
         If True, store every ChainResult (memory-heavy).
+    progress:
+        Optional ``progress(done, total)`` callback, called after each
+        trial (Gap 72).
+    cancel:
+        Optional ``cancel() -> bool`` poll; True aborts with
+        :class:`~radiant.api._progress.OperationCancelledError`.
     """
     if n_trials < 1:
         raise ApiValidationError(f"monte_carlo: n_trials must be >= 1, got {n_trials}.")
@@ -162,6 +171,7 @@ def monte_carlo(
     metric_rows: list[list[float]] = []
 
     for _trial in range(n_trials):
+        check_cancel(cancel, "monte_carlo", _trial, n_trials)
         ps = params.sample(rng)
 
         # Record sampled values
@@ -181,6 +191,9 @@ def monte_carlo(
 
         if keep_results:
             results_list.append(r)
+
+        if progress is not None:
+            progress(_trial + 1, n_trials)
 
     assert metric_names is not None  # guaranteed after first iteration
 

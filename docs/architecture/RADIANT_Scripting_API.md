@@ -72,15 +72,15 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.set_many({dotpath: value, ...})` | Set multiple parameters at once. Returns `self`. |
 | `s.get(dotpath)` | Get a resolved parameter value in **canonical units** (m, rad, s, K, e-). |
 | `s.get_input(dotpath)` | Get a resolved parameter value in **input (display) units** (e.g., µm for pixel pitch). |
-| `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `KeyError` (with a did-you-mean suggestion) for unknown names, like `set()`. |
+| `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `UnknownParameterError` (a `RadiantError` that co-inherits `KeyError`, with a did-you-mean suggestion) for unknown names, like `set()` (CU-073, 2026-07-11). |
 | `s.parameter_defs()` | Read-only mapping of the full parameter schema keyed by dot-path (Gap 70). Each `ParameterDef` carries dtype, canonical/input units, bounds, enum values, default, description, and tags. |
-| `s.parameter_def(dotpath)` | Single `ParameterDef` lookup. Alias-aware; unknown names raise `KeyError` with a did-you-mean suggestion. |
+| `s.parameter_def(dotpath)` | Single `ParameterDef` lookup. Alias-aware; unknown names raise `UnknownParameterError` with a did-you-mean suggestion. |
 | `s.save(path)` | Write a YAML config restoring this Sensor via `Sensor.load` (Gap 67): explicitly-set inputs (input units) plus a `_radiant` block (`wavelength_points`, tolerance distributions). Defaults and derived values are *not* written, so reloading reproduces the original resolution — including provenance splits between explicit and defaulted parameters. Returns the written `Path`. |
 | `Sensor.load(path)` | Classmethod. Reload a `save()`d config (or any RADIANT YAML): parameters, tolerances, `wavelength_points`. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
 | `s.evaluate(extra_stage_outputs=None)` | Run the full signal chain. Returns `ChainResult` (§3). The keyword takes one-off non-scalar pre-chain injections (Gap 68), merged over any set via `set_stage_output`. |
 | `s.set_stage_output(group, key, value)` | Attach a non-scalar pre-chain input (Gap 68 interim seam) used by `evaluate` **and** all trade studies: element lists, `WavefrontError` objects, spectral curves, filter stacks — e.g. `s.set_stage_output("optics_config", "element_list", elems)`. `value=None` removes it. Carried by `clone()`, **not** written by `save()` (arbitrary objects have no YAML form). Returns `self`. |
-| `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |
+| `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1, progress=None, cancel=None)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |
 | `s.sweep_2d(param1, values1, param2, values2, *, metric="snr")` | 2-D parameter sweep. Returns `Sweep2DResult` (§6.2). |
 | `s.monte_carlo(n_trials=1000, seed=42, *, metric_names=None, keep_results=False)` | Monte Carlo tolerance analysis. Returns `MonteCarloResult` (§7). |
 | `s.sensitivity(*, metric="snr", param_names=None, delta_fraction=0.01)` | One-at-a-time sensitivity analysis. Returns `SensitivityResult` (§8). |
@@ -109,7 +109,8 @@ sweep = s.sweep(param, values, metric="snr")
 - `values`: list or numpy array of values to sweep (in canonical units)
 - `metric`: string key looked up in `result.metrics` (§3.4), or a callable `f(ChainResult) -> float`
 - `keep_results`: if `True` (default), stores the full `ChainResult` at every point (enables `sweep["other_metric"]` lookup; memory-heavy for large sweeps)
-- `n_workers`: parallel workers; `1` (default) = sequential. Parallel execution falls back to sequential with a logged warning if the run function cannot be pickled.
+- `n_workers`: parallel workers; `1` (default) = sequential. Parallel execution falls back to sequential with a logged warning when the run function, parameter sets, **or returned results** cannot be pickled — the failure is caught both at submit time and at result time (CU-072, 2026-07-11).
+- `progress` / `cancel` (Gap 72, 2026-07-11 — also on `sweep_2d`, `monte_carlo`, `sensitivity`, and `BatchRunner.run`): `progress(done, total)` is called after each completed unit of work (sweep point, grid cell, MC trial, perturbed parameter, batch cell); `cancel()` is polled before each unit and returning `True` aborts by raising `radiant.api.OperationCancelledError` (a `RadiantError` carrying `operation`, `done`, `total`). No partial result is returned on cancel. Both callbacks run on the calling thread. `solve_for` has neither (its Brent iteration count is not predictable).
 
 Returns `SweepResult` (§6.1).
 

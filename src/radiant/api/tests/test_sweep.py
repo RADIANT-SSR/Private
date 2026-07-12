@@ -209,3 +209,125 @@ class TestSweep2D:
             metric=_mock_metric,
         )
         assert result.grid.shape == (5, 4)
+
+
+# -- Progress / cancel / parallel fallback (Gap 72, CU-072) --------------------
+
+
+@pytest.mark.level1
+class TestProgressAndCancel:
+    def test_sweep_progress_called_per_point(self) -> None:
+        calls: list[tuple[int, int]] = []
+        sweep(
+            _mock_run,
+            _make_params(),
+            "optics.aperture",
+            [0.1, 0.2, 0.3],
+            metric=_mock_metric,
+            progress=lambda done, total: calls.append((done, total)),
+        )
+        assert calls == [(1, 3), (2, 3), (3, 3)]
+
+    def test_sweep_cancel_aborts(self) -> None:
+        from radiant.api._progress import OperationCancelledError
+        from radiant.core.exceptions import RadiantError
+
+        seen: list[int] = []
+
+        def run(ps: ParameterSet) -> ChainResult:
+            seen.append(1)
+            return _mock_run(ps)
+
+        with pytest.raises(OperationCancelledError) as excinfo:
+            sweep(
+                run,
+                _make_params(),
+                "optics.aperture",
+                [0.1, 0.2, 0.3, 0.4],
+                metric=_mock_metric,
+                cancel=lambda: len(seen) >= 2,
+            )
+        assert isinstance(excinfo.value, RadiantError)
+        assert excinfo.value.done == 2
+        assert excinfo.value.total == 4
+        assert len(seen) == 2  # no further evaluations after cancel
+
+    def test_sweep_2d_progress_and_cancel(self) -> None:
+        from radiant.api._progress import OperationCancelledError
+
+        calls: list[tuple[int, int]] = []
+        sweep_2d(
+            _mock_run,
+            _make_params(),
+            "optics.aperture",
+            [0.1, 0.2],
+            "optics.focal_length",
+            [1.0, 2.0],
+            metric=_mock_metric,
+            progress=lambda done, total: calls.append((done, total)),
+        )
+        assert calls == [(1, 4), (2, 4), (3, 4), (4, 4)]
+
+        with pytest.raises(OperationCancelledError):
+            sweep_2d(
+                _mock_run,
+                _make_params(),
+                "optics.aperture",
+                [0.1, 0.2],
+                "optics.focal_length",
+                [1.0, 2.0],
+                metric=_mock_metric,
+                cancel=lambda: True,
+            )
+
+    def test_parallel_unpicklable_falls_back_sequential(self) -> None:
+        """CU-072: a closure run_fn cannot pickle; the sweep must fall
+        back to sequential instead of crashing with PicklingError."""
+        offset = 1.0  # captured by the closure -> unpicklable local fn
+
+        def run(ps: ParameterSet) -> ChainResult:
+            r = _mock_run(ps)
+            _ = offset
+            return r
+
+        result = sweep(
+            run,
+            _make_params(),
+            "optics.aperture",
+            [0.1, 0.2, 0.3],
+            metric=_mock_metric,
+            n_workers=2,
+        )
+        np.testing.assert_allclose(result.metric_values, [10.0, 20.0, 30.0], rtol=1e-12)
+
+    def test_parallel_fallback_reports_progress(self) -> None:
+        calls: list[tuple[int, int]] = []
+
+        def run(ps: ParameterSet) -> ChainResult:
+            return _mock_run(ps)
+
+        sweep(
+            run,
+            _make_params(),
+            "optics.aperture",
+            [0.1, 0.2],
+            metric=_mock_metric,
+            n_workers=2,
+            progress=lambda done, total: calls.append((done, total)),
+        )
+        assert calls[-1] == (2, 2)
+
+    def test_parallel_unpicklable_result_falls_back(self) -> None:
+        """CU-072 exact scenario: the callable pickles fine but the
+        returned ChainResult (MappingProxyType fields) does not — the
+        failure surfaces at fut.result() and must trigger the
+        sequential fallback, not crash."""
+        result = sweep(
+            _mock_run,  # module-level: picklable; its return is not
+            _make_params(),
+            "optics.aperture",
+            [0.1, 0.2, 0.3],
+            metric=_mock_metric,
+            n_workers=2,
+        )
+        np.testing.assert_allclose(result.metric_values, [10.0, 20.0, 30.0], rtol=1e-12)

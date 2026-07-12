@@ -536,7 +536,9 @@ ps.parameter_defs()      # Mapping[str, ParameterDef] — read-only live view of
                          # dtype, canonical/input units, bounds, enum_values,
                          # default, description, tags, group, deprecated_aliases.
 ps.parameter_def(name)   # Single ParameterDef; alias-aware (DeprecationWarning);
-                         # unknown names raise KeyError with a did-you-mean hint.
+                         # unknown names raise UnknownParameterError (a
+                         # RadiantError co-inheriting KeyError) with a
+                         # did-you-mean hint (CU-073).
 ps.consistency_groups()  # tuple[ConsistencyGroup, ...] in registration order.
 ps.tolerances()          # Mapping[str, Tolerance] — read-only view.
 ps.inputs()              # Mapping[str, Any] — explicit inputs only (name → raw

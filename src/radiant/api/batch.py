@@ -33,6 +33,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.core.exceptions import RadiantError
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,13 @@ class BatchRunner:
         self._axes = [(name, dict(labels)) for name, labels in axes]
         self._sensor_factory = sensor_factory
 
-    def run(self, evaluate: EvaluateFn) -> BatchResult:
+    def run(
+        self,
+        evaluate: EvaluateFn,
+        *,
+        progress: ProgressFn | None = None,
+        cancel: CancelFn | None = None,
+    ) -> BatchResult:
         """Evaluate every cell and return the tidy result table.
 
         Parameters
@@ -150,6 +157,12 @@ class BatchRunner:
             cell's overrides already applied; *labels* maps axis name →
             label. A raised :class:`RadiantError` marks the cell failed
             (``error`` column); other exceptions propagate.
+        progress:
+            Optional ``progress(done, total)`` callback, called after
+            each cell (Gap 72). ``total`` is the full grid size.
+        cancel:
+            Optional ``cancel() -> bool`` poll; True aborts with
+            :class:`~radiant.api._progress.OperationCancelledError`.
         """
         factory = self._sensor_factory
         if factory is None:  # pragma: no cover - exercised via scenarios
@@ -161,7 +174,10 @@ class BatchRunner:
         label_sets = [list(labels.keys()) for _, labels in self._axes]
         rows: list[dict[str, Any]] = []
 
-        for combo in itertools.product(*label_sets):
+        combos = list(itertools.product(*label_sets))
+        total = len(combos)
+        for i_cell, combo in enumerate(combos):
+            check_cancel(cancel, "BatchRunner.run", i_cell, total)
             labels = dict(zip(names, combo, strict=True))
             sensor = factory(self._base_config)
             for (_name, axis_labels), label in zip(self._axes, combo, strict=True):
@@ -177,6 +193,8 @@ class BatchRunner:
                 row.update(outputs)
                 row["error"] = None
             rows.append(row)
+            if progress is not None:
+                progress(i_cell + 1, total)
 
         paired = zip(names, label_sets, strict=True)
         return BatchResult(

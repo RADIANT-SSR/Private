@@ -10,13 +10,16 @@ parallelization, and result containers.
 from __future__ import annotations
 
 import logging
+import pickle
 from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
 
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api.errors import ApiValidationError
 from radiant.core.parameters import ParameterSet
 from radiant.io.results import ChainResult
@@ -144,6 +147,8 @@ def sweep(
     metric_name: str = "snr",
     keep_results: bool = True,
     n_workers: int = 1,
+    progress: ProgressFn | None = None,
+    cancel: CancelFn | None = None,
 ) -> SweepResult:
     """Run a 1-D parameter sweep.
 
@@ -166,12 +171,17 @@ def sweep(
         If True, store every ChainResult (memory-heavy for large sweeps).
     n_workers:
         Number of parallel workers. 1 = sequential (default).
+    progress:
+        Optional ``progress(done, total)`` callback, called after each
+        completed point (Gap 72).
+    cancel:
+        Optional ``cancel() -> bool`` poll; True aborts with
+        :class:`~radiant.api._progress.OperationCancelledError`.
     """
     if metric is None:
         metric = _default_metric
 
     vals = np.asarray(values, dtype=np.float64)
-    n = vals.size
 
     if n_workers > 1:
         metric_vals, results_list = _sweep_parallel(
@@ -182,16 +192,20 @@ def sweep(
             metric,
             keep_results,
             n_workers,
+            progress,
+            cancel,
         )
     else:
-        metric_vals = np.empty(n, dtype=np.float64)
-        results_list = []
-        for i, v in enumerate(vals):
-            ps = _clone_with(params, param_name, float(v))
-            r = run_fn(ps)
-            metric_vals[i] = metric(r)
-            if keep_results:
-                results_list.append(r)
+        metric_vals, results_list = _sweep_sequential(
+            run_fn,
+            params,
+            param_name,
+            vals,
+            metric,
+            keep_results,
+            progress,
+            cancel,
+        )
 
     return SweepResult(
         param_name=param_name,
@@ -202,6 +216,32 @@ def sweep(
     )
 
 
+def _sweep_sequential(
+    run_fn: Callable[[ParameterSet], ChainResult],
+    params: ParameterSet,
+    param_name: str,
+    vals: npt.NDArray[np.float64],
+    metric: MetricFn,
+    keep_results: bool,
+    progress: ProgressFn | None,
+    cancel: CancelFn | None,
+) -> tuple[npt.NDArray[np.float64], list[ChainResult]]:
+    """Execute sweep points one at a time on the calling thread."""
+    n = len(vals)
+    metric_vals = np.empty(n, dtype=np.float64)
+    results_list: list[ChainResult] = []
+    for i, v in enumerate(vals):
+        check_cancel(cancel, f"sweep({param_name})", i, n)
+        ps = _clone_with(params, param_name, float(v))
+        r = run_fn(ps)
+        metric_vals[i] = metric(r)
+        if keep_results:
+            results_list.append(r)
+        if progress is not None:
+            progress(i + 1, n)
+    return metric_vals, results_list
+
+
 def _sweep_parallel(
     run_fn: Callable[[ParameterSet], ChainResult],
     params: ParameterSet,
@@ -210,11 +250,20 @@ def _sweep_parallel(
     metric: MetricFn,
     keep_results: bool,
     n_workers: int,
+    progress: ProgressFn | None,
+    cancel: CancelFn | None,
 ) -> tuple[npt.NDArray[np.float64], list[ChainResult]]:
-    """Execute sweep points in parallel using ProcessPoolExecutor."""
-    # NOTE: ProcessPoolExecutor requires picklable callables. For now,
-    # fall back to sequential if pickling fails. Full parallel support
-    # requires moving run_fn to a module-level function.
+    """Execute sweep points in parallel using ProcessPoolExecutor.
+
+    ProcessPoolExecutor requires the callable, each ParameterSet, and
+    each returned ChainResult to pickle. Pickling is asynchronous —
+    submit-time succeeds and the failure surfaces at ``fut.result()``
+    as ``pickle.PicklingError`` (or the pool dies with
+    ``BrokenProcessPool``), so the fallback catches at both points
+    (CU-072). On any pickling failure the whole sweep re-runs
+    sequentially — futures that did complete are discarded rather than
+    mixed with re-runs.
+    """
     metric_vals = np.empty(len(vals), dtype=np.float64)
     results_list: list[ChainResult] = []
     try:
@@ -222,25 +271,30 @@ def _sweep_parallel(
             param_sets = [_clone_with(params, param_name, float(v)) for v in vals]
             try:
                 futures = [pool.submit(run_fn, ps) for ps in param_sets]
-            except (TypeError, AttributeError) as exc:
+            except (TypeError, AttributeError, pickle.PicklingError) as exc:
                 raise _PickleFallback(exc) from exc
+            n = len(futures)
             for i, fut in enumerate(futures):
-                r = fut.result()
+                check_cancel(cancel, f"sweep({param_name})", i, n)
+                try:
+                    r = fut.result()
+                except (pickle.PicklingError, BrokenProcessPool, TypeError, AttributeError) as exc:
+                    # Async pickling failure (CU-072): the documented
+                    # sequential fallback, previously unreachable.
+                    raise _PickleFallback(exc) from exc
                 metric_vals[i] = metric(r)
                 if keep_results:
                     results_list.append(r)
+                if progress is not None:
+                    progress(i + 1, n)
     except _PickleFallback as exc:
         logger.warning(
             "Parallel sweep failed (%s); falling back to sequential.",
             exc.__cause__,
         )
-        results_list = []
-        for i, v in enumerate(vals):
-            ps = _clone_with(params, param_name, float(v))
-            r = run_fn(ps)
-            metric_vals[i] = metric(r)
-            if keep_results:
-                results_list.append(r)
+        return _sweep_sequential(
+            run_fn, params, param_name, vals, metric, keep_results, progress, cancel
+        )
     return metric_vals, results_list
 
 
@@ -258,6 +312,8 @@ def sweep_2d(
     values2: Sequence[float] | npt.NDArray[np.float64],
     metric: MetricFn | None = None,
     metric_name: str = "snr",
+    progress: ProgressFn | None = None,
+    cancel: CancelFn | None = None,
 ) -> Sweep2DResult:
     """Run a 2-D parameter sweep.
 
@@ -275,6 +331,12 @@ def sweep_2d(
         Callable ``(ChainResult) -> float``. Defaults to ``snr``.
     metric_name:
         Label stored in the result.
+    progress:
+        Optional ``progress(done, total)`` callback, called after each
+        grid cell (Gap 72). ``total`` is ``len(values1) * len(values2)``.
+    cancel:
+        Optional ``cancel() -> bool`` poll; True aborts with
+        :class:`~radiant.api._progress.OperationCancelledError`.
     """
     if metric is None:
         metric = _default_metric
@@ -283,12 +345,19 @@ def sweep_2d(
     v2 = np.asarray(values2, dtype=np.float64)
     grid = np.empty((v1.size, v2.size), dtype=np.float64)
 
+    total = v1.size * v2.size
+    done = 0
+    op = f"sweep_2d({param1_name}, {param2_name})"
     for i, a in enumerate(v1):
         for j, b in enumerate(v2):
+            check_cancel(cancel, op, done, total)
             ps = _clone_with(params, param1_name, float(a))
             ps = _clone_with(ps, param2_name, float(b))
             r = run_fn(ps)
             grid[i, j] = metric(r)
+            done += 1
+            if progress is not None:
+                progress(done, total)
 
     return Sweep2DResult(
         param1_name=param1_name,

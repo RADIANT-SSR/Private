@@ -1291,3 +1291,26 @@ class TestSchemaIntrospection:
         assert "sensor.optics.f_number" not in ps.inputs()
         with pytest.raises(TypeError):
             ps.inputs()["x"] = 1.0  # type: ignore[index]
+
+    @pytest.mark.level0
+    def test_unknown_parameter_error_everywhere(self) -> None:
+        """CU-073: set/get/clear_input/set_tolerance/parameter_def all raise
+        UnknownParameterError (RadiantError + KeyError) with a suggestion."""
+        from radiant.core.parameters import UnknownParameterError
+
+        ps = _make_ps()
+        ps.set("sensor.optics.aperture_diameter", 0.3)
+        ps.set("sensor.optics.focal_length", 1.2)
+        ps.resolve()
+        for call in (
+            lambda: ps.set("sensor.optics.aperture_diamter", 0.3),
+            lambda: ps.clear_input("sensor.optics.aperture_diamter"),
+            lambda: ps.set_tolerance(
+                "sensor.optics.aperture_diamter",
+                Tolerance(distribution="gaussian", params={"std": 0.01}),
+            ),
+            lambda: ps.get("sensor.optics.aperture_diamter"),
+            lambda: ps.parameter_def("sensor.optics.aperture_diamter"),
+        ):
+            with pytest.raises(UnknownParameterError, match="Did you mean"):
+                call()

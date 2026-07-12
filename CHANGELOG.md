@@ -21,6 +21,28 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Progress and cancellation hooks (Gap 72): `progress(done, total)` and
+  `cancel() -> bool` keyword arguments on `Sensor.sweep`/`sweep_2d`/
+  `monte_carlo`/`sensitivity` (and the underlying API functions) and
+  `BatchRunner.run`. Cancellation raises the new
+  `radiant.api.OperationCancelledError` (a `RadiantError` carrying
+  operation/done/total). `solve_for` is excluded (unpredictable
+  iteration count).
+- `UnknownParameterError` (CU-073): typo'd parameter names in
+  `set`/`get`/`reset`/`set_tolerance`/`parameter_def` now raise a
+  `RadiantError` subclass (co-inheriting `KeyError` for back-compat)
+  with the did-you-mean suggestion — the documented `except
+  RadiantError` boundary now catches the most common user mistake.
+
+### Fixed
+- Parallel sweep crash (CU-072): `n_workers > 1` no longer dies with an
+  unhandled `PicklingError` when the run function or its returned
+  `ChainResult` cannot pickle (the common case — results carry
+  `MappingProxyType` fields). Pickling failures are now caught at both
+  submit time and result time and the sweep falls back to sequential
+  with a logged warning, as originally documented.
+
+### Added
 - Non-scalar input reachability (Gap 68): `Sensor.set_stage_output(group,
   key, value)` and `Sensor.evaluate(extra_stage_outputs=...)` forward
   pre-chain injections to every evaluation, including all trade studies

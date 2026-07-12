@@ -29,6 +29,18 @@ from radiant.core.units import convert, inverse_convert
 # ---------------------------------------------------------------------------
 
 
+class UnknownParameterError(RadiantError, KeyError):
+    """A dot-path names no parameter in the schema (CU-073).
+
+    Raised by ``ParameterSet.set/get/clear_input/set_tolerance/
+    parameter_def`` with a did-you-mean suggestion. Co-inherits
+    :class:`KeyError` so historical ``except KeyError`` /
+    ``pytest.raises(KeyError)`` callers keep working; ``RadiantError``
+    is the canonical base — the single framework-error boundary now
+    catches the most common user mistake (a typo'd parameter name).
+    """
+
+
 class ParameterBoundsError(RadiantError, ValueError):
     """A user-controlled parameter is out of its valid physical domain.
 
@@ -355,7 +367,7 @@ class ParameterSet:
         """
         name = self._canonical(name)
         if name not in self._defs:
-            raise KeyError(self._suggest(name))
+            raise UnknownParameterError(self._suggest(name))
         if unit is not None:
             converted = self._convert_from_user_unit(name, value, unit)
             source = f"{source} [{value!r} {unit}]"
@@ -413,7 +425,7 @@ class ParameterSet:
         """
         name = self._canonical(name)
         if name not in self._defs:
-            raise KeyError(self._suggest(name))
+            raise UnknownParameterError(self._suggest(name))
         if name not in self._inputs:
             return False
         del self._inputs[name]
@@ -423,7 +435,7 @@ class ParameterSet:
     def set_tolerance(self, name: str, tol: Tolerance) -> None:
         name = self._canonical(name)
         if name not in self._defs:
-            raise KeyError(self._suggest(name))
+            raise UnknownParameterError(self._suggest(name))
         self._tolerances[name] = tol
         self._resolved_flag = False
 
@@ -692,7 +704,7 @@ class ParameterSet:
         """
         name = self._canonical(name)
         if name not in self._defs:
-            raise KeyError(self._suggest(name))
+            raise UnknownParameterError(self._suggest(name))
         return self._defs[name]
 
     def consistency_groups(self) -> tuple[ConsistencyGroup, ...]:
@@ -746,7 +758,7 @@ class ParameterSet:
         if name not in self._resolved:
             if name in self._defs:
                 raise KeyError(f"Parameter '{name}' is not resolved")
-            raise KeyError(self._suggest(name))
+            raise UnknownParameterError(self._suggest(name))
         return self._resolved[name].value
 
     def get_resolved(self, name: str) -> ResolvedValue:

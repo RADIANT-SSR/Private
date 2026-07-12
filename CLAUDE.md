@@ -117,7 +117,7 @@ L = (2 * 6.626e-34 * (3e8)**2 / lam_m**5) / ...  # magic numbers
 Use the standard `logging` module. `print()` is permitted only in `cli/` entry points and examples.
 
 ### 15. Errors Are Actionable
-All RADIANT-defined exceptions derive from `radiant.core.exceptions.RadiantError` (re-exported as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError` (`core/parameters.py`), `KirchhoffViolationError` (`optics/element.py`), `ModtranUnavailableError` / `Tape7ParseError` (`atmosphere/modtran.py`), `ConfigError` (`io/config.py`), `ElementConfigError` (`io/element_config.py`). They MAY co-inherit from a built-in exception (`ValueError`, `RuntimeError`) for back-compat with existing `except`/`pytest.raises` patterns; new RADIANT exception classes SHOULD inherit from `RadiantError` only.
+All RADIANT-defined exceptions derive from `radiant.core.exceptions.RadiantError` (re-exported as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError`, `UnknownParameterError` (`core/parameters.py`), `KirchhoffViolationError` (`optics/element.py`), `ModtranUnavailableError` / `Tape7ParseError` (`atmosphere/modtran.py`), `ConfigError` (`io/config.py`), `ElementConfigError` (`io/element_config.py`), `OperationCancelledError` (`api/_progress.py`). They MAY co-inherit from a built-in exception (`ValueError`, `RuntimeError`) for back-compat with existing `except`/`pytest.raises` patterns; new RADIANT exception classes SHOULD inherit from `RadiantError` only.
 
 ```python
 # CORRECT:

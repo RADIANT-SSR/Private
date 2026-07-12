@@ -185,3 +185,29 @@ class TestSensitivity:
         sens_arr = result.sensitivities
         assert isinstance(sens_arr, np.ndarray)
         assert len(sens_arr) == 2
+
+
+@pytest.mark.level1
+class TestProgressAndCancel:
+    """Gap 72: sensitivity progress/cancel hooks."""
+
+    def test_progress_called_per_parameter(self) -> None:
+        calls: list[tuple[int, int]] = []
+        sensitivity(
+            _mock_run,
+            _make_params(),
+            param_names=["optics.aperture", "optics.focal_length"],
+            progress=lambda done, total: calls.append((done, total)),
+        )
+        assert calls == [(1, 2), (2, 2)]
+
+    def test_cancel_aborts(self) -> None:
+        from radiant.api._progress import OperationCancelledError
+
+        with pytest.raises(OperationCancelledError):
+            sensitivity(
+                _mock_run,
+                _make_params(),
+                param_names=["optics.aperture"],
+                cancel=lambda: True,
+            )

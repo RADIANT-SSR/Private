@@ -358,6 +358,8 @@ class Sensor:
         metric: str | Callable[[ChainResult], float] = "snr",
         keep_results: bool = True,
         n_workers: int = 1,
+        progress: Callable[[int, int], None] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> SweepResult:
         """Run a 1-D parameter sweep.
 
@@ -374,6 +376,11 @@ class Sensor:
             Store full ChainResult at each point.
         n_workers:
             Parallel workers (1 = sequential).
+        progress:
+            ``progress(done, total)`` callback per completed point (Gap 72).
+        cancel:
+            ``cancel() -> bool`` poll; True aborts with
+            :class:`~radiant.api._progress.OperationCancelledError`.
         """
         self._ensure_resolved()
         session = self._build_session()
@@ -387,6 +394,8 @@ class Sensor:
             metric_name=metric_name,
             keep_results=keep_results,
             n_workers=n_workers,
+            progress=progress,
+            cancel=cancel,
         )
 
     def solve_for(
@@ -434,6 +443,8 @@ class Sensor:
         values2: Sequence[float] | npt.NDArray[np.float64],
         *,
         metric: str | Callable[[ChainResult], float] = "snr",
+        progress: Callable[[int, int], None] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> Sweep2DResult:
         """Run a 2-D parameter sweep.
 
@@ -445,6 +456,11 @@ class Sensor:
             Arrays of values for each axis.
         metric:
             Metric key string or callable.
+        progress:
+            ``progress(done, total)`` callback per grid cell (Gap 72).
+        cancel:
+            ``cancel() -> bool`` poll; True aborts with
+            :class:`~radiant.api._progress.OperationCancelledError`.
         """
         self._ensure_resolved()
         session = self._build_session()
@@ -458,6 +474,8 @@ class Sensor:
             values2,
             metric=metric_fn,
             metric_name=metric_name,
+            progress=progress,
+            cancel=cancel,
         )
 
     def monte_carlo(
@@ -467,6 +485,8 @@ class Sensor:
         *,
         metric_names: tuple[str, ...] | None = None,
         keep_results: bool = False,
+        progress: Callable[[int, int], None] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> MonteCarloResult:
         """Run Monte Carlo tolerance analysis.
 
@@ -482,6 +502,11 @@ class Sensor:
             Metric keys to record. Auto-detected if None.
         keep_results:
             Store full ChainResult per trial.
+        progress:
+            ``progress(done, total)`` callback per trial (Gap 72).
+        cancel:
+            ``cancel() -> bool`` poll; True aborts with
+            :class:`~radiant.api._progress.OperationCancelledError`.
         """
         self._ensure_resolved()
         session = self._build_session()
@@ -492,6 +517,8 @@ class Sensor:
             seed=seed,
             metric_names=metric_names,
             keep_results=keep_results,
+            progress=progress,
+            cancel=cancel,
         )
 
     def sensitivity(
@@ -500,6 +527,8 @@ class Sensor:
         metric: str | Callable[[ChainResult], float] = "snr",
         param_names: Sequence[str] | None = None,
         delta_fraction: float = 0.01,
+        progress: Callable[[int, int], None] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> SensitivityResult:
         """Run one-at-a-time sensitivity analysis.
 
@@ -512,6 +541,11 @@ class Sensor:
             float parameters.
         delta_fraction:
             Fractional perturbation (0.01 = ±1%).
+        progress:
+            ``progress(done, total)`` callback per perturbed parameter (Gap 72).
+        cancel:
+            ``cancel() -> bool`` poll; True aborts with
+            :class:`~radiant.api._progress.OperationCancelledError`.
         """
         self._ensure_resolved()
         session = self._build_session()
@@ -523,6 +557,8 @@ class Sensor:
             metric_name=metric_name,
             param_names=list(param_names) if param_names is not None else None,
             delta_fraction=delta_fraction,
+            progress=progress,
+            cancel=cancel,
         )
 
     # ------------------------------------------------------------------

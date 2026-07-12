@@ -197,3 +197,32 @@ class TestNoBareBuiltinRaises:
             "Bare built-in raises found (use a RadiantError subclass, "
             f"Rule 15 / CU-043): {offenders}"
         )
+
+
+class TestUnknownParameterError:
+    """CU-073: unknown-parameter typos land inside the RadiantError boundary."""
+
+    @pytest.mark.level1
+    def test_is_radiant_error_and_key_error(self) -> None:
+        from radiant.core.exceptions import RadiantError
+        from radiant.core.parameters import UnknownParameterError
+
+        assert issubclass(UnknownParameterError, RadiantError)
+        assert issubclass(UnknownParameterError, KeyError)
+
+    @pytest.mark.level1
+    def test_sensor_typo_caught_by_radiant_error(self) -> None:
+        from radiant import RadiantError as TopLevelRadiantError
+        from radiant.api.sensor import Sensor
+
+        s = Sensor()
+        with pytest.raises(TopLevelRadiantError, match="Did you mean"):
+            s.set("optics.aperture_diamter_m", 0.3)
+
+    @pytest.mark.level1
+    def test_back_compat_key_error_pattern(self) -> None:
+        from radiant.api.sensor import Sensor
+
+        s = Sensor()
+        with pytest.raises(KeyError):
+            s.set("optics.aperture_diamter_m", 0.3)

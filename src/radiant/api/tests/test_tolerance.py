@@ -181,3 +181,48 @@ class TestMonteCarlo:
         mc = monte_carlo(_mock_run, params, n_trials=5, seed=42)
         with pytest.raises(KeyError, match="not found"):
             mc.mean("nonexistent")
+
+
+@pytest.mark.level1
+class TestProgressAndCancel:
+    """Gap 72: monte_carlo progress/cancel hooks."""
+
+    def test_progress_called_per_trial(self) -> None:
+        params = _make_params()
+        params.set_tolerance(
+            "optics.aperture",
+            Tolerance(distribution="gaussian", params={"std": 0.01}),
+        )
+        calls: list[tuple[int, int]] = []
+        monte_carlo(
+            _mock_run,
+            params,
+            n_trials=5,
+            seed=42,
+            progress=lambda done, total: calls.append((done, total)),
+        )
+        assert calls == [(1, 5), (2, 5), (3, 5), (4, 5), (5, 5)]
+
+    def test_cancel_aborts(self) -> None:
+        from radiant.api._progress import OperationCancelledError
+
+        params = _make_params()
+        params.set_tolerance(
+            "optics.aperture",
+            Tolerance(distribution="gaussian", params={"std": 0.01}),
+        )
+        count = [0]
+
+        def prog(done: int, total: int) -> None:
+            count[0] = done
+
+        with pytest.raises(OperationCancelledError):
+            monte_carlo(
+                _mock_run,
+                params,
+                n_trials=100,
+                seed=42,
+                progress=prog,
+                cancel=lambda: count[0] >= 3,
+            )
+        assert count[0] == 3

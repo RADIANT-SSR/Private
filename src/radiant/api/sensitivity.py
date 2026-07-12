@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api.errors import ApiValidationError
 from radiant.api.sweep import _clone_with
 from radiant.core.parameters import ParameterSet
@@ -92,6 +93,8 @@ def sensitivity(
     metric_name: str = "snr",
     param_names: Sequence[str] | None = None,
     delta_fraction: float = 0.01,
+    progress: ProgressFn | None = None,
+    cancel: CancelFn | None = None,
 ) -> SensitivityResult:
     """Run one-at-a-time sensitivity analysis.
 
@@ -110,6 +113,12 @@ def sensitivity(
         If no tolerances, uses all float parameters.
     delta_fraction:
         Fractional perturbation (0.01 = ±1%).
+    progress:
+        Optional ``progress(done, total)`` callback, called after each
+        perturbed parameter (Gap 72). ``total`` is the parameter count.
+    cancel:
+        Optional ``cancel() -> bool`` poll; True aborts with
+        :class:`~radiant.api._progress.OperationCancelledError`.
     """
     if metric is None:
         metric = _default_snr_metric
@@ -141,7 +150,9 @@ def sensitivity(
     m0 = metric(baseline)
 
     entries: list[SensitivityEntry] = []
-    for name in names:
+    n_names = len(names)
+    for i_name, name in enumerate(names):
+        check_cancel(cancel, "sensitivity", i_name, n_names)
         rv = resolved.get(name)
         if rv is None:
             continue
@@ -188,6 +199,9 @@ def sensitivity(
                 delta_fraction=delta_fraction,
             )
         )
+
+        if progress is not None:
+            progress(i_name + 1, n_names)
 
     # Sort by absolute sensitivity, descending
     entries.sort(key=lambda e: abs(e.sensitivity), reverse=True)

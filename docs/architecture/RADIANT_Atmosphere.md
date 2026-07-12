@@ -358,11 +358,11 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 
 ### 6.5 Geometry (consumed, not owned)
 
-These parameters live in `geometry.*` per RADIANT_Parameter_System.md, and the atmosphere module reads them through the parameter resolver:
+These parameters live in `geometry.*`, owned by GeometryStage since ADR-0006 (definitions in `geometry/_schema.py`, not this stage's schema); the atmosphere module reads them through the parameter resolver:
 
 `geometry.sensor_altitude_m`, `geometry.target_altitude_m`, `geometry.path_zenith_deg`, `geometry.solar_zenith_deg`, `geometry.solar_azimuth_deg`, `geometry.observer_type`, `geometry.target_type`, `geometry.day_of_year`.
 
-**Producer-side note (CU-009):** SourceStage's `_infer_los` reads `geometry.path_zenith_rad`, `geometry.solar_zenith_rad`, and `geometry.solar_azimuth_rad` to construct the `LineOfSightGeometry` it publishes for AtmosphereStage. The solar-zenith and solar-azimuth values propagate only when the target descriptor is solar-interacting (`T2Reflective`, `T3Mixed`); pure-thermal `T1Thermal` targets receive `theta_s = delta_phi = None` regardless of the registered solar params, honoring the `LineOfSightGeometry` "None for pure-thermal" docstring contract.
+**Producer-side note (CU-009; amended by ADR-0006 Phase 2):** SourceStage adopts the scene `LineOfSightGeometry` that GeometryStage publishes (`stage_outputs["geometry"]["los_geometry"]` — built once from the resolved viewing/solar input mode) and descriptor-adjusts it (`source/_inferrer._adjust_scene_los`); the legacy param-built `_infer_los` path survives only for direct `infer_descriptors` callers (source-only unit fixtures). The solar-zenith and solar-azimuth values propagate only when the target descriptor is solar-interacting (`T2Reflective`, `T3Mixed`); pure-thermal `T1Thermal` targets receive `theta_s = delta_phi = None` regardless of the registered solar params, honoring the `LineOfSightGeometry` "None for pure-thermal" docstring contract.
 
 ### 6.6 Turbulence (stubbed)
 

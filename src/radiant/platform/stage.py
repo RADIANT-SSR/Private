@@ -124,7 +124,12 @@ class PlatformStage:
             )
 
         # --- Smear (along-track motion blur) ---
-        smear_w_m = self._compute_smear_width(params, focal_length_m)
+        # ADR-0006: slant range is derived once by GeometryStage; None for
+        # partial fixtures that run PlatformStage without it (CU-096).
+        published_slant = state.stage_outputs.get("geometry", {}).get("slant_range_m")
+        smear_w_m = self._compute_smear_width(
+            params, focal_length_m, published_slant_m=published_slant
+        )
         state = state.with_stage_output("platform", "smear_width_m", smear_w_m)
 
         if smear_w_m > 0.0:
@@ -236,6 +241,7 @@ class PlatformStage:
     def _compute_smear_width(
         params: ParameterSet,
         focal_length_m: float,
+        published_slant_m: float | None = None,
     ) -> float:
         """Determine smear width on the focal plane [m].
 
@@ -286,14 +292,18 @@ class PlatformStage:
             )
             return 0.0
 
-        # Use slant range for off-nadir consistency.
-        try:
-            zenith_rad: float = params.get("geometry.path_zenith_rad")
-        except (KeyError, TypeError):
-            zenith_rad = 0.0
-
-        slant_m = slant_range_spherical_m(altitude_m, zenith_rad)
-        if slant_m <= 0.0:
-            slant_m = altitude_m
+        # Use slant range for off-nadir consistency — the GeometryStage
+        # published value when available (ADR-0006), else the legacy
+        # derivation for partial fixtures (CU-096).
+        if published_slant_m is not None and published_slant_m > 0.0:
+            slant_m = float(published_slant_m)
+        else:
+            try:
+                zenith_rad: float = params.get("geometry.path_zenith_rad")
+            except (KeyError, TypeError):
+                zenith_rad = 0.0
+            slant_m = slant_range_spherical_m(altitude_m, zenith_rad)
+            if slant_m <= 0.0:
+                slant_m = altitude_m
 
         return smear_width_m(velocity, t_int_s, focal_length_m, slant_m)

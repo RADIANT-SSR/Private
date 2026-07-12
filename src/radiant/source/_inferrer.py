@@ -347,7 +347,50 @@ def _infer_los(
     )
 
 
-def _view_direction_from_los(params: ParameterSet, target_location: str) -> np.ndarray:
+def _adjust_scene_los(
+    scene_los: LineOfSightGeometry,
+    target_location: str,
+    *,
+    target_descriptor: TargetDescriptor | None,
+) -> LineOfSightGeometry | None:
+    """Descriptor-adjust the GeometryStage-published scene LOS (ADR-0006).
+
+    GeometryStage publishes *scene* geometry: theta_s is set whenever the
+    scene is lit (day mode), independent of target type.  Whether a target
+    consumes the solar terms is a radiometric decision that stays here:
+
+      * ``at_aperture``     → ``None`` (the pass-through arm never
+        evaluates an atmospheric path — matrix §4.3), matching
+        :func:`_infer_los`.
+      * ``no_atmosphere``   → ``h_tgt`` forced to 0.0, matching
+        :func:`_infer_los` ("the space LOS is above everything"; the
+        no-atm path ignores it, and the Earth-limb intercept check keeps
+        its legacy geometry).
+      * T1 (non-T2/T3) targets → solar fields stripped (CU-009 predicate:
+        a pure-thermal radiance has no solar leg).  Night mode arrives
+        already stripped from GeometryStage.
+    """
+    if target_location == "at_aperture":
+        return None
+    h_tgt = 0.0 if target_location == "no_atmosphere" else scene_los.h_tgt
+    if isinstance(target_descriptor, (T2Reflective, T3Mixed)):
+        theta_s, delta_phi = scene_los.theta_s, scene_los.delta_phi
+    else:
+        theta_s, delta_phi = None, None
+    return LineOfSightGeometry(
+        h_tgt=h_tgt,
+        h_atm_top=scene_los.h_atm_top,
+        theta_o=scene_los.theta_o,
+        theta_s=theta_s,
+        delta_phi=delta_phi,
+    )
+
+
+def _view_direction_from_los(
+    params: ParameterSet,
+    target_location: str,
+    scene_theta_o: float | None = None,
+) -> np.ndarray:
     """Return the target→observer unit 3-vector in the target scene frame.
 
     The shape protocol (``TargetShape.projected_area``) expects a unit
@@ -375,10 +418,16 @@ def _view_direction_from_los(params: ParameterSet, target_location: str) -> np.n
     """
     if target_location == "at_aperture":
         return np.array([0.0, 0.0, 1.0], dtype=np.float64)
-    try:
-        theta_o = float(params.get("geometry.path_zenith_rad"))
-    except KeyError:
-        theta_o = 0.0
+    # ADR-0006: prefer the theta_o GeometryStage resolved (covers the
+    # off-nadir / ground-range / elevation input modes); the param read
+    # is the legacy fallback for direct infer_descriptors callers.
+    if scene_theta_o is not None:
+        theta_o = float(scene_theta_o)
+    else:
+        try:
+            theta_o = float(params.get("geometry.path_zenith_rad"))
+        except KeyError:
+            theta_o = 0.0
     if theta_o < 0.0:
         theta_o = 0.0
     if theta_o >= math.pi / 2.0:
@@ -572,6 +621,7 @@ def _validate_T_B_csv(T_B_values: np.ndarray, *, csv_path: str) -> None:
 def _resolve_projected_area_and_shape(
     params: ParameterSet,
     target_location: str,
+    scene_theta_o: float | None = None,
 ) -> tuple[float | None, TargetShape | None]:
     """Return ``(A_t, shape)`` per the Q3 shape-wins rule.
 
@@ -609,7 +659,7 @@ def _resolve_projected_area_and_shape(
         )
     if shape_obj is not None:
         shape_name: str = params.get("source.target.shape")
-        view_dir = _view_direction_from_los(params, target_location)
+        view_dir = _view_direction_from_los(params, target_location, scene_theta_o)
         a_shape = float(shape_obj.projected_area(view_dir))
         if user_area_set:
             warnings.warn(
@@ -634,6 +684,7 @@ def _maybe_build_from_brightness_temperature(
     target_location: str,
     no_atmosphere_subcase: str,
     h_tgt: float | None,
+    scene_theta_o: float | None = None,
 ) -> TargetDescriptor | None:
     """Return an S11-routed descriptor or None if T_B is not user-set.
 
@@ -780,7 +831,7 @@ def _maybe_build_from_brightness_temperature(
             },
         )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
 
     # Tabulated T_B(λ) via CSV (S11 brightness_temperature_path).
     # Gap G Step G.3: load native grid, validate T_B ∈ (0, 10000] K at the
@@ -856,6 +907,7 @@ def _maybe_build_from_radiance_temperature(
     target_location: str,
     no_atmosphere_subcase: str,
     h_tgt: float | None,
+    scene_theta_o: float | None = None,
 ) -> TargetDescriptor | None:
     """Return an S12-routed descriptor or None if T_R is not user-set.
 
@@ -1023,7 +1075,7 @@ def _maybe_build_from_radiance_temperature(
     T_R_K = float(t_r_rv.value)
     band = (float(lo_rv.value), float(hi_rv.value))
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
     return radiance_temperature_to_descriptor(
         T_R_K=T_R_K,
         band_um=band,
@@ -1046,6 +1098,7 @@ def _maybe_build_from_reflectance(
     target_location: str,
     no_atmosphere_subcase: str,
     h_tgt: float | None,
+    scene_theta_o: float | None = None,
 ) -> TargetDescriptor | None:
     """Return an S4/S5/S6-routed T2Reflective or None if ρ is not user-set.
 
@@ -1184,7 +1237,7 @@ def _maybe_build_from_reflectance(
             },
         )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
 
     # Tabulated ρ(λ) via CSV (S5 reflectance_path / S6 albedo_path).
     # Gap G Step G.2: load native grid, validate bounds at the boundary,
@@ -1248,6 +1301,7 @@ def _maybe_build_from_user_radiance(
     target_location: str,
     no_atmosphere_subcase: str,
     h_tgt: float | None,
+    scene_theta_o: float | None = None,
 ) -> TargetDescriptor | None:
     """Return an S8-routed T6TabulatedAtSource, or None if not user-set.
 
@@ -1350,7 +1404,7 @@ def _maybe_build_from_user_radiance(
         source=(f"source.converters.user_radiance (CSV → chain grid: {csv_path})"),
     )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
     return user_radiance_to_descriptor(
         L_t_source=L_sd,
         scene_type=scene_type,  # type: ignore[arg-type]
@@ -1568,6 +1622,7 @@ def _build_target_descriptor(
     target_location: str,
     no_atmosphere_subcase: str,
     h_tgt: float | None,
+    scene_theta_o: float | None = None,
 ) -> TargetDescriptor:
     """Dispatch on (target_location, scene_type) → TargetDescriptor variant.
 
@@ -1594,6 +1649,7 @@ def _build_target_descriptor(
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
+        scene_theta_o=scene_theta_o,
     )
     if s11 is not None:
         return s11
@@ -1606,6 +1662,7 @@ def _build_target_descriptor(
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
+        scene_theta_o=scene_theta_o,
     )
     if s12 is not None:
         return s12
@@ -1618,6 +1675,7 @@ def _build_target_descriptor(
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
+        scene_theta_o=scene_theta_o,
     )
     if s4 is not None:
         return s4
@@ -1630,6 +1688,7 @@ def _build_target_descriptor(
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
+        scene_theta_o=scene_theta_o,
     )
     if s8 is not None:
         return s8
@@ -1670,7 +1729,7 @@ def _build_target_descriptor(
     # Q3 shape-wins precedence (matrix §4, resolved 2026-04-21) is applied
     # inside ``_resolve_projected_area_and_shape`` — shared with the S11
     # brightness-temperature branch.
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location)
+    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
 
     # Matrix §3.2 routing (CU-007): MWIR-overlap targets default to
     # T3Mixed (Kirchhoff emit+reflect); the hot-target opt-out at
@@ -1934,6 +1993,7 @@ def infer_descriptors(
     params: ParameterSet,
     wavelength_um: np.ndarray,
     background_emissivity: SpectralData | None = None,
+    scene_los: LineOfSightGeometry | None = None,
 ) -> tuple[TargetDescriptor, BackgroundDescriptor | None, LineOfSightGeometry | None]:
     """Build the three Option-C descriptors from a legacy ParameterSet.
 
@@ -2018,6 +2078,12 @@ def infer_descriptors(
         h_tgt = h_tgt_raw if h_tgt_raw >= 0.0 else 0.0
 
     # --- Construct descriptors ---
+    # ADR-0006: when SourceStage passes the GeometryStage-published scene
+    # LOS, its theta_o feeds the shape view direction and the published
+    # LOS becomes the atmosphere contract (descriptor-adjusted below).
+    # scene_los=None is the legacy bridge for direct callers (unit
+    # fixtures) — geometry is then rebuilt from params exactly as before.
+    scene_theta_o: float | None = scene_los.theta_o if scene_los is not None else None
     # Target first so CU-009's T1/T2/T3 routing predicate in _infer_los
     # can dispatch on the runtime descriptor type.
     target = _build_target_descriptor(
@@ -2027,10 +2093,14 @@ def infer_descriptors(
         target_location=target_location,
         no_atmosphere_subcase=no_atmosphere_subcase,
         h_tgt=h_tgt,
+        scene_theta_o=scene_theta_o,
     )
 
     # --- LOS geometry ---
-    los = _infer_los(target_location, params, target_descriptor=target)
+    if scene_los is not None:
+        los = _adjust_scene_los(scene_los, target_location, target_descriptor=target)
+    else:
+        los = _infer_los(target_location, params, target_descriptor=target)
     background = _build_background_descriptor(
         params=params,
         wavelength_um=wavelength_um,

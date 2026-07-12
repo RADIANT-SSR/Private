@@ -20,6 +20,32 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Geometry input modes now steer the whole chain (ADR-0006 Phase 2).**
+  SourceStage adopts the GeometryStage-published scene LOS (so the off-nadir /
+  ground-range / elevation / site+time / night modes reach the atmospheric
+  assembly and shape view directions); PlatformStage consumes the published
+  slant range for velocity smear; PerformanceStage consumes the published
+  slant range, incidence angle, ground range, and ground speed (GSD, ground
+  metrics, diffraction ground projection, access rate — `circular_orbit`
+  now yields `access_rate_m2_s` with no manual speed entry).
+- **Results-affecting (off-nadir configurations only):** GSD, ground range,
+  diffraction ground projection, and velocity smear now derive from the
+  canonical target-side zenith θ_o via one spherical triangle
+  (`core.viewing_triangle`, R_E = 6378.137 km), where they previously
+  re-derived from `geometry.path_zenith_rad` *misread as the sensor-side
+  off-nadir angle* on a 6371 km Earth (CU-096; CU-097). At nadir — every
+  shipped golden baseline — values are unchanged (verified byte-identical).
+  At off-nadir the new values are the physically consistent ones; e.g. at
+  h = 500 km, θ_o = 45°: slant range 683.1 km (was 737.3 km when 45° was
+  treated as the sensor-side η) — metrics that scale with slant range shrink
+  by ~7 % there, more at steeper angles.
+
+### Added
+- `performance.gsd.compute_gsd_from_geometry` — GSD from already-derived
+  (slant range, incidence angle); the legacy `compute_gsd(altitude, angle)`
+  remains for direct callers (CU-096 tracks retiring it).
+
 ### Added
 - **GeometryStage — geometry is stage 0 of the chain (ADR-0006).** The signal
   chain is now `geometry → source → … → performance` (9 stages;

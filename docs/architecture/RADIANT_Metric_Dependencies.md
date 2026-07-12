@@ -236,7 +236,7 @@ CSNR
 ├── ΔS = ff · (S_target − S_background) · EE_box
 │   ├── ff
 │   │   ├── ★ target.area_m2
-│   │   ├── ★ geometry.slant_range_m         (or derived from platform.altitude + look angle)
+│   │   ├── ★ geometry.slant_range_m         (published by GeometryStage from the resolved input mode — ADR-0006)
 │   │   └── Ω_pixel                           [§2.1]
 │   ├── S_target                              [§2.1]
 │   ├── S_background

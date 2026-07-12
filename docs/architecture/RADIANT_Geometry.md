@@ -91,13 +91,17 @@ anchor every mode.
 | `orbital_period_s` | float \| None | circular-orbit mode only |
 | `viewing_mode`, `solar_mode`, `kinematics_mode` | str | which input mode resolved each family |
 
-**Consumption status (Phase 2 of `docs/plans/Geometry_Stage_Plan.md`):**
-downstream stages currently still read the canonical `geometry.*` parameters
-directly (the pre-ADR-0006 plumbing), so modes beyond V1/S1 are published but
-not yet steering the chain. Phase 2 rewires SourceStage/AtmosphereStage (LOS),
-PlatformStage (smear slant range), and PerformanceStage (GSD, ground range,
-access) to consume this contract, which also resolves the θ_o/η conflation
-(CU-096). This paragraph is deleted by the Phase 2 PR.
+**Consumers** (Geometry_Stage_Plan Phase 2, shipped): SourceStage adopts the
+published `los_geometry` (descriptor-adjusted in `_adjust_scene_los` — T1
+solar-strip, at_aperture → None, no_atmosphere h_tgt override) and feeds the
+published θ_o to shape view directions; AtmosphereStage receives the adopted
+LOS through source's output as before (ADR-0002 unchanged); PlatformStage
+consumes `slant_range_m` for velocity smear; PerformanceStage consumes
+`slant_range_m` / `incidence_angle_rad` (GSD, diffraction ground projection),
+`ground_range_m`, and `ground_speed_m_s` (access rate — enables the V6
+circular-orbit mode end-to-end). Legacy (altitude, angle) fallbacks survive
+only for partial fixtures that run a stage without GeometryStage; CU-096
+tracks retiring them.
 
 ## 4. Formula Standard
 

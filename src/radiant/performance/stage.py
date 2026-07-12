@@ -30,7 +30,7 @@ from radiant.performance.diffraction_limit import (
 from radiant.performance.dynamic_range import compute_dynamic_range
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.ground_range import compute_ground_range_m
-from radiant.performance.gsd import compute_gsd
+from radiant.performance.gsd import compute_gsd, compute_gsd_from_geometry
 from radiant.performance.minimum_resolvable import minimum_resolvable_temperature_K
 from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
@@ -302,19 +302,33 @@ def _compute_gsd_metrics(
     if focal_length_m <= 0.0:
         return state
 
-    # Read off-nadir angle; default to 0.0 (nadir) if not in schema.
-    try:
-        path_zenith_rad: float = params.get("geometry.path_zenith_rad")
-    except (KeyError, TypeError):
-        path_zenith_rad = 0.0
-
-    result = compute_gsd(
-        pitch_x_m,
-        pitch_y_m,
-        altitude_m,
-        focal_length_m,
-        path_zenith_rad=path_zenith_rad,
-    )
+    # ADR-0006: consume the slant range and incidence angle GeometryStage
+    # derived once from the canonical target-side zenith. Falls back to the
+    # legacy (altitude, angle) derivation only for partial fixtures that run
+    # PerformanceStage without GeometryStage (CU-096 tracks retiring it).
+    geo_out = state.stage_outputs.get("geometry", {})
+    slant_range_m = geo_out.get("slant_range_m")
+    incidence_rad = geo_out.get("incidence_angle_rad")
+    if slant_range_m is not None and incidence_rad is not None:
+        result = compute_gsd_from_geometry(
+            pitch_x_m,
+            pitch_y_m,
+            focal_length_m,
+            slant_range_m,
+            incidence_rad,
+        )
+    else:
+        try:
+            path_zenith_rad: float = params.get("geometry.path_zenith_rad")
+        except (KeyError, TypeError):
+            path_zenith_rad = 0.0
+        result = compute_gsd(
+            pitch_x_m,
+            pitch_y_m,
+            altitude_m,
+            focal_length_m,
+            path_zenith_rad=path_zenith_rad,
+        )
     state = state.with_metric("gsd_cross_track_m", result.cross_track_m)
     state = state.with_metric("gsd_along_track_m", result.along_track_m)
     state = state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
@@ -455,13 +469,16 @@ def _compute_access_metrics(
     if altitude_m <= 0.0:
         return state
 
-    # Ground range.
-    try:
-        path_zenith_rad: float = params.get("geometry.path_zenith_rad")
-    except (KeyError, TypeError):
-        path_zenith_rad = 0.0
-
-    ground_range = compute_ground_range_m(altitude_m, path_zenith_rad)
+    # Ground range — published by GeometryStage (ADR-0006); legacy
+    # derivation only for partial fixtures without the stage (CU-096).
+    geo_out = state.stage_outputs.get("geometry", {})
+    ground_range = geo_out.get("ground_range_m")
+    if ground_range is None:
+        try:
+            path_zenith_rad: float = params.get("geometry.path_zenith_rad")
+        except (KeyError, TypeError):
+            path_zenith_rad = 0.0
+        ground_range = compute_ground_range_m(altitude_m, path_zenith_rad)
     state = state.with_metric("ground_range_m", ground_range)
 
     # Swath width (requires n_pixels_cross > 0).
@@ -477,11 +494,16 @@ def _compute_access_metrics(
     swath = compute_swath_width_m(gsd_cross, n_pixels_cross)
     state = state.with_metric("swath_width_m", swath)
 
-    # Access area rate (requires ground_speed_m_s).
-    try:
-        ground_speed: float = params.get("geometry.ground_speed_m_s")
-    except (KeyError, TypeError):
-        return state
+    # Access area rate (requires ground_speed_m_s). GeometryStage publishes
+    # the resolved value (orbit-derived in circular_orbit mode, ADR-0006).
+    ground_speed_pub = geo_out.get("ground_speed_m_s")
+    if ground_speed_pub is not None:
+        ground_speed: float = ground_speed_pub
+    else:
+        try:
+            ground_speed = params.get("geometry.ground_speed_m_s")
+        except (KeyError, TypeError):
+            return state
 
     if ground_speed > 0.0:
         rate = compute_access_rate_m2_s(swath, ground_speed)
@@ -539,12 +561,17 @@ def _compute_diffraction_limit_metrics(
         return state
     if altitude_m <= 0.0:
         return state
-    try:
-        path_zenith_rad: float = params.get("geometry.path_zenith_rad")
-    except (KeyError, TypeError):
-        path_zenith_rad = 0.0
-
-    range_m = slant_range_spherical_m(altitude_m, path_zenith_rad)
+    # Slant range — published by GeometryStage (ADR-0006); legacy
+    # derivation only for partial fixtures without the stage (CU-096).
+    range_pub = state.stage_outputs.get("geometry", {}).get("slant_range_m")
+    if range_pub is not None:
+        range_m = float(range_pub)
+    else:
+        try:
+            path_zenith_rad: float = params.get("geometry.path_zenith_rad")
+        except (KeyError, TypeError):
+            path_zenith_rad = 0.0
+        range_m = slant_range_spherical_m(altitude_m, path_zenith_rad)
     ground_m = diffraction_limited_ground_m(lambda_center_m, aperture_m, range_m)
     return state.with_metric("diffraction_limit_ground_m", ground_m)
 

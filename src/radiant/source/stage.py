@@ -163,6 +163,11 @@ class SourceStage:
             background_emissivity=state.stage_outputs.get("source_config", {}).get(
                 "background_emissivity"
             ),
+            # ADR-0006: adopt the scene LOS GeometryStage resolved (covers
+            # the off-nadir / ground-range / elevation / site+time input
+            # modes); None for legacy source-only fixtures, which fall back
+            # to the param-built LOS inside the inferrer.
+            scene_los=state.stage_outputs.get("geometry", {}).get("los_geometry"),
         )
 
         # Target Definition Matrix Q3: when the user supplies a geometric

@@ -18,9 +18,19 @@ The optics module has one job: **deliver an `OpticsState` to the chain**. Five g
 
 ---
 
-## 2. The `OpticsState` Contract
+## 2. The `OpticsState` Contract **[DESIGN-TARGET]**
+
+> **Not implemented as a single object.** There is no `OpticsState` dataclass in
+> the codebase (only an aspirational mention in `aperture.py`'s module docstring).
+> `OpticsStage` writes its outputs directly into the immutable `ChainState`:
+> `A_collect`, `Ω_pixel`, `f_number`, `effective_psf`, `reference_psf`,
+> `nearfield_irradiance_at_fpa`, `stray_light_irradiance_at_fpa`, and the final
+> regime go into `stage_outputs["optics"]`; the optical MTF goes into `mtf_terms`
+> (`mtf_optics_x/y`); the transmitted radiance goes into a frame (§11). The block
+> below is the *conceptual* contract those outputs satisfy, not a literal type.
 
 ```python
+# DESIGN-TARGET — the fields below are produced into ChainState, not this dataclass.
 @dataclass(frozen=True)
 class OpticsState:
     """Everything the chain needs to know about the optical train."""
@@ -312,9 +322,16 @@ class OpticalElement:
 
 OOB rejection is a single-number floor, not a spectral curve. Users with measured OOB profiles use `tabulated`.
 
-### 6.3 Built-in element library
+### 6.3 Built-in element library **[DESIGN-TARGET]**
 
-Materials shipped under `data/optics/` keyed by name: `gold_protected`, `silver_protected`, `aluminum_uv`, `zns`, `zinc_selenide`, `germanium`, `silicon`, `caf2`, `bk7`, `fused_silica`, `bbar_vis`, `bbar_swir`, `bbar_mwir`, `bbar_lwir`. Each entry has reflectance and/or transmittance vs. wavelength on a 0.2–25 µm grid. The user references them by name on an `OpticalElement`:
+> **Not implemented.** There is no `data/optics/` directory and none of the
+> material names below exist anywhere in the tree (`data/` holds only
+> `atmospheres/`, `detectors/`, `emissivity/`, `solar/`). Element reflectance /
+> transmittance must be supplied as `SpectralData` on an injected `OpticalElement`
+> (transmission modes 4–5, §5.4–§5.5), or as a scalar (mode 1). A material-name
+> optics library is future work. The catalog below is the design target.
+
+Design-target materials keyed by name: `gold_protected`, `silver_protected`, `aluminum_uv`, `zns`, `zinc_selenide`, `germanium`, `silicon`, `caf2`, `bk7`, `fused_silica`, `bbar_vis`, `bbar_swir`, `bbar_mwir`, `bbar_lwir`. Each entry would have reflectance and/or transmittance vs. wavelength on a 0.2–25 µm grid, referenced by name on an `OpticalElement`:
 
 ```yaml
 elements:
@@ -440,32 +457,44 @@ The reason this is subtle: in many old performance tools, "warm optics" is compu
 All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.md.
 
 ### 10.1 Aperture & geometry
+
+**Shipped** (`optics/_schema.py`, verified 2026-07-12):
+
 | Parameter | Unit | Default | Notes |
 |-----------|------|---------|-------|
-| `optics.aperture_shape` | enum: `circular`, `rectangular`, `custom` | `circular` | |
-| `optics.aperture_diameter_m` | m | None (required for circular) | |
-| `optics.aperture_width_m` | m | None | rectangular only |
-| `optics.aperture_height_m` | m | None | rectangular only |
-| `optics.aperture_mask_file` | path | None | custom only |
+| `optics.aperture_diameter_m` | m | None (required) | circular aperture |
 | `optics.obscuration_ratio` | dimensionless | 0.0 | |
 | `optics.n_spiders` | int | 0 | |
 | `optics.spider_width_m` | m | 0.0 | |
 | `optics.spider_angle_deg` | deg | 0.0 | |
-| `optics.apodization_mode` | enum | `uniform` | |
-| `optics.apodization_sigma_norm` | dimensionless | 1.0 | gaussian only |
-| `optics.apodization_file` | path | None | tabulated only |
+| `optics.defocus_um` | µm | 0.0 | defocus WFE (feeds the pupil) |
 | `optics.focal_length_m` | m | None (required) | |
 | `optics.f_number` | dimensionless | derived from D and f | consistency-grouped |
 
+**[DESIGN-TARGET] — not in the schema** (see §3.1/§3.4 banners, CU-079):
+`optics.aperture_shape`, `optics.aperture_width_m`, `optics.aperture_height_m`,
+`optics.aperture_mask_file` (rectangular/custom apertures), and
+`optics.apodization_mode` / `optics.apodization_sigma_norm` /
+`optics.apodization_file` (apodization). Only the circular aperture with
+obscuration + spiders is reachable; an arbitrary pupil is injected pre-chain
+(`optics_config["pupil_mask_override"]`, §3.7), not via a `custom` file param.
+
 ### 10.2 Wavefront error
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `optics.wfe_mode` | enum: `scalar_rms`, `zernike`, `field_dependent` (`opd_map` removed from the enum — no pupil-phase representation in v1, Gap 68; `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]`) | `scalar_rms` |
-| `optics.wfe_rms_waves` | waves | 0.0 |
-| `optics.wfe_reference_wavelength_um` | µm | 0.633 |
-| `optics.wfe_zernike_coeffs` | dict | `{}` |
-| `optics.wfe_opd_file` | path | None |
-| `optics.wfe_field_table` | path | None |
+
+**Shipped:**
+
+| Parameter | Unit | Default | Notes |
+|-----------|------|---------|-------|
+| `optics.wfe_mode` | enum: `scalar_rms`, `zernike`, `field_dependent` | `scalar_rms` | `opd_map` removed (no pupil-phase rep in v1, Gap 68); `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]` |
+| `optics.wfe_rms_waves` | waves | 0.0 | |
+| `optics.wfe_reference_wavelength_um` | µm | 0.633 | |
+| `optics.field_position_x` | dimensionless | 0.0 | normalized field, for field-dependent WFE |
+| `optics.field_position_y` | dimensionless | 0.0 | |
+| `optics.psf_n_wavelengths` | int | (schema) | polychromatic-PSF sampling count |
+
+**[DESIGN-TARGET] — not in the schema:** `optics.wfe_zernike_coeffs`,
+`optics.wfe_opd_file`, `optics.wfe_field_table` (the Zernike/field WFE data
+arrives via the injected `WavefrontError`, not as scalar/path params).
 
 ### 10.3 Transmission
 | Parameter | Unit | Default | Mode |
@@ -498,6 +527,12 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 | `optics.stray.includes_thermal` | bool | False |
 | `optics.stray.veiling_glare_mtf` | bool (int 0/1) | 0 (pedestal-only) |
 | `optics.stray.halo_sigma_um` | µm | 50.0 |
+
+### 10.6 Surface-roughness scatter (TIS, §7.4b)
+| Parameter | Unit | Default |
+|-----------|------|---------|
+| `optics.surface_roughness_nm` | nm | 0.0 (off) |
+| `optics.scatter_halo_sigma_um` | µm | 100.0 |
 
 ---
 

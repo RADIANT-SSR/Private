@@ -264,7 +264,7 @@ These six enum positions are the *query* frames of the conversion machinery, and
 
 ### Forward propagation (signal)
 
-The conversion factors between adjacent frames are computed once per chain run and stored in `state.stage_outputs[stage]["forward_factor"]`. The full forward chain for an **extended scene** is:
+The conversion factors between adjacent frames are extracted from `stage_outputs` **at query time** by `_compute_transfer_factors` (`core/quantity.py`) — recomputed on each `ChainQuantity.to()` call from the stored `tau_atm`, `tau_opt`, `signal_e`, `signal_e_final`, `signal_dn_final`, and `gain_e_per_dn` outputs, not cached under a dedicated `forward_factor` key. The full forward chain for an **extended scene** is:
 
 ```
 L_at_target(λ)                                   [W/m²/sr/µm]

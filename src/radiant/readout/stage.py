@@ -383,6 +383,9 @@ class ReadoutStage:
         state = state.with_stage_output("readout", "signal_e_final", signal_e_final)
         state = state.with_stage_output("readout", "signal_dn_final", signal_dn_final)
         state = state.with_stage_output("readout", "signal_dn_pre_coadd", signal_dn)
+        # Stored so the post_readout->dn transfer factor stays computable when
+        # the well saturates and signal_e_final = 0 (Gap 73 well-fill).
+        state = state.with_stage_output("readout", "gain_e_per_dn", gain_e_per_dn)
         state = state.with_stage_output("readout", "well_status", well_status.value)
         state = state.with_stage_output("readout", "adc_status", adc_status.value)
         state = state.with_stage_output("readout", "sigma_temporal_e", sigma_temporal_e)

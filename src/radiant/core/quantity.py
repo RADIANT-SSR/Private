@@ -124,10 +124,21 @@ def _compute_transfer_factors(state: ChainState) -> dict[str, float]:
     if signal_e_final is not None and det_signal_e is not None and det_signal_e > 0.0:
         factors["photoelectrons->post_readout"] = signal_e_final / det_signal_e
 
-    # post_readout → dn: ÷ gain
+    # post_readout → dn: ÷ gain. When the signal survives the well/ADC, the
+    # net factor is the measured signal_dn_final / signal_e_final (captures
+    # coadd/binning). When the well saturates and signal_e_final = 0 (e.g. a
+    # bright background pedestal fills the well, Gap 73), that ratio is 0/0;
+    # fall back to the linear conversion 1/gain — off-chip binning and coadd
+    # scale DN and electrons identically, so the ratio is exactly 1/gain
+    # absent ADC clipping (and a 0-electron signal never ADC-clips). This
+    # keeps DN reachable so signal_at(DN) returns 0 instead of raising.
     signal_dn = ro_out.get("signal_dn_final")
     if signal_dn is not None and signal_e_final is not None and signal_e_final > 0.0:
         factors["post_readout->dn"] = signal_dn / signal_e_final
+    elif signal_e_final is not None and signal_e_final == 0.0:
+        gain = ro_out.get("gain_e_per_dn")
+        if gain is not None and gain > 0.0:
+            factors["post_readout->dn"] = 1.0 / gain
 
     return factors
 

@@ -21,6 +21,12 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- `ChainResult.signal_at(DN)` (and DN propagation generally) no longer
+  raises when the well fully saturates (`signal_e_final = 0`) — a state
+  now reachable when a bright point-source background pedestal fills the
+  well (Gap 73). The `post_readout→dn` transfer factor falls back to the
+  linear `1/gain` conversion, so a saturated pixel reports 0 DN instead
+  of a missing-transfer-factor error. New readout output `gain_e_per_dn`.
 - **Results-affecting (IPC coupling > 0 only):** the PSF-path IPC kernel is
   now resampled to the PSF sample grid (CU-083). The raw 3×3 kernel was
   convolved onto the sub-µm PSF grid, placing its α couplings one *sample*

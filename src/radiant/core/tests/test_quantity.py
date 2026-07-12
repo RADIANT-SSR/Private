@@ -79,6 +79,7 @@ def _make_chain_state(
     signal_dn = signal_e_final / gain
     state = state.with_stage_output("readout", "signal_e_final", signal_e_final)
     state = state.with_stage_output("readout", "signal_dn_final", signal_dn)
+    state = state.with_stage_output("readout", "gain_e_per_dn", gain)
 
     # Noise terms
     state = state.with_noise(
@@ -127,6 +128,21 @@ class TestTransferFactors:
         # post_readout→dn = signal_dn / signal_e_final
         assert "post_readout->dn" in factors
         assert factors["post_readout->dn"] == pytest.approx(0.5, rel=1e-10)
+
+    @pytest.mark.level1
+    def test_dn_factor_when_well_saturated(self) -> None:
+        """Gap 73 follow-up: when a bright background pedestal saturates the
+        well, signal_e_final = 0 and the DN factor falls back to 1/gain so
+        signal_at(DN) returns 0 instead of raising."""
+        state = _make_chain_state(gain=2.0)
+        # Overwrite the readout outputs to the saturated state.
+        state = state.with_stage_output("readout", "signal_e_final", 0.0)
+        state = state.with_stage_output("readout", "signal_dn_final", 0.0)
+        factors = _compute_transfer_factors(state)
+        assert factors["post_readout->dn"] == pytest.approx(0.5, rel=1e-10)
+        # And propagation to DN yields exactly 0, not a raise.
+        q = signal_at(state, ReferenceFrame.DN)
+        assert q.value == 0.0
 
 
 class TestForwardFactor:

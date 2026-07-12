@@ -60,9 +60,17 @@ In the target design every metric returns one of these; `value=NaN` with `failur
 
 ---
 
-## 3. The Metric Plugin Interface
+## 3. The Metric Plugin Interface **[DESIGN-TARGET]**
+
+> **Not implemented.** There is no `Metric` ABC and no `radiant.plugins.metric`
+> entry point (the `plugins/` package was removed 2026-07-06). Built-in metrics
+> are plain functions under `radiant/performance/` invoked by `PerformanceStage`
+> and described by the `MetricSpec` registry (§6); plugin entry-point loading is
+> v2-deferred (§6 says so). Rule 5 "plugins are first-class" (§1) is design intent.
+> The ABC below is the planned interface.
 
 ```python
+# DESIGN-TARGET — not in the codebase
 class Metric(ABC):
     name: str                          # canonical name; used as dict key
     unit: str
@@ -407,7 +415,16 @@ where `σ_temporal_dark` is the temporal noise evaluated at zero signal (dark fr
 
 ## 5. Cross-cutting: How metrics see the chain state
 
-A metric reads from `ChainState` only via documented keys. The key map:
+A metric reads from `ChainState` only via documented keys. The key map below is
+**illustrative** — the authoritative, CI-enforced dependency contract is each
+metric's `MetricSpec.requires_frames` / `requires_stage_outputs` /
+`requires_noise_terms` / `requires_metrics` / `requires_mtf_terms` in the registry
+(§6). Note the rows for `stage_outputs["spatial"]`, `stage_outputs["timing"]`,
+and the `OpticsState` / `DetectorState` / `TimingState` objects are
+**design-target**: there is no `spatial` or `timing` stage (spatial physics is
+distributed, §Spatial §0) and those State dataclasses are not implemented — the
+real keys are `stage_outputs["optics"]["effective_psf"]` / `["reference_psf"]`,
+`stage_outputs["platform"]["EE_box"]`, and `mtf_terms[...]`.
 
 | Key | Meaning |
 |-----|---------|

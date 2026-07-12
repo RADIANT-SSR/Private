@@ -1,8 +1,26 @@
 # RADIANT Metric Dependencies
 
-**Status**: Authoritative — first design pass
+**Status**: **Design-era reference — parameter names NOT reconciled to the shipped schema.**
 **Scope**: For every metric in `RADIANT_Metrics.md`, the complete dependency tree from the metric back to input parameters. Used by the parameter resolver to (1) validate required inputs before running, (2) emit specific error messages, (3) determine which metrics are computable from the current config, and (4) tell the user exactly what to add for a desired analysis.
 **Sister documents**: RADIANT_Parameter_System.md, RADIANT_Metrics.md, plus all six stage docs (Source/Target, Atmosphere, Optics, Spatial, Detector, Scan/Timing)
+
+> **Reconciliation banner (2026-07-12).** This document is a **design-era mirror**
+> and its dependency trees use parameter names that largely **do not exist in the
+> shipped schema**. Known-stale references include: `radiant.performance.dependencies`
+> (no such module — the authoritative machine-readable dependency contract is the
+> `MetricSpec` registry in `radiant/performance/registry.py`, whose `requires_*`
+> fields are CI-enforced, see RADIANT_Metrics.md §6); the `scan.*` namespace (no
+> `scan.*` parameters exist — timing is `spectral_integration.integration_time_s`
+> plus `platform.ground_velocity_m_s`); the QE model `detector.qe_input` /
+> `qe_material` / `qe_file` / `qe_peak` / `qe_cutoff_um` (real: `detector.qe_value`
+> or `detector.qe_table_path`, see RADIANT_Detector_Complete.md §3.1);
+> `optics.apodization_mode` and `optics.transmission_file` / `telescope_transmission`
+> / `filters` / `key_elements` / `residual_transmission` / `elements` (apodization is
+> unbuilt; transmission modes 2–5 arrive as `optics_config[...]` injections, not
+> path parameters, see RADIANT_Optics.md §5/§10). Treat the **structure** of the
+> trees (which intermediate quantity flows from which stage) as informative and the
+> **leaf parameter names** as design-target. This doc should be regenerated from the
+> registry when time permits (logged in the reconciliation findings).
 
 ---
 

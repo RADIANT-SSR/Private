@@ -1126,10 +1126,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-05), 2026-07-11 |
-| **Status** | OPEN — GUI-blocking (Tier 1) |
-| **Description** | `sweep`, `sweep_2d`, `monte_carlo`, `sensitivity`, `BatchRunner.run`, and `ChainRunner.run` are opaque blocking calls — no callback, cancel token, or per-stage timing seam anywhere in `api/` or `core/chain.py`. |
-| **Impact** | At the measured 0.22 s/run, a 30×30 sweep is ~3 min of frozen GUI with no progress bar or cancel — the classic embarrassing-GUI failure. Also blocks the live progress grid demanded by Lisa 4.1's matrix builder. |
-| **Workaround** | None from the public API. |
+| **Status** | FIXED (2026-07-11, commit `537a3a8`) — per-stage timing seam on `ChainRunner.run` not included (single runs are 0.22 s; add if a GUI stage-strip spinner ever needs it) |
+| **Description** | `sweep`, `sweep_2d`, `monte_carlo`, `sensitivity`, and `BatchRunner.run` were opaque blocking calls — no callback or cancel token anywhere in `api/`. |
+| **Fix** | `progress(done, total)` and `cancel() -> bool` keyword arguments on all five operations (API functions + `Sensor` wrappers + `BatchRunner.run`); cancellation raises `radiant.api.OperationCancelledError` (a `RadiantError` carrying operation/done/total, no partial result). Plumbing in `api/_progress.py`. `solve_for` excluded (Brent iteration count unpredictable). Docs: Scripting_API §2.3. |
+| **Impact** | GUI progress bars, cancel buttons, and Lisa 4.1's live progress grid have their seam. |
+| **Rerun after fix** | None — additive surface. |
 
 ## Gap 73: Point-source regime silently zeroes background and path photon noise
 

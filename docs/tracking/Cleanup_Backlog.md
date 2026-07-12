@@ -13,24 +13,6 @@
 ## Open
 
 
-### CU-072 — Parallel sweep (`n_workers>1`) crashes with unhandled PicklingError
-
-**Discovered**: Capability audit 2026-07 (`docs/reports/capability_audit_2026-07/` F-06), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/api/sweep.py:220-236`
-**Symptom**: the pickle fallback catches only `(TypeError, AttributeError)` at `pool.submit` time, but `ProcessPoolExecutor` pickles asynchronously — the failure surfaces at `fut.result()` as `_pickle.PicklingError`, which nothing catches; the documented sequential fallback never triggers.
-**Why it still matters**: the advertised parallelism knob crashes the exact long-sweep workload a GUI leans on.
-**Suggested fix**: inline-fix-now — catch `pickle.PicklingError` at result time (or probe-pickle the payload up front) and fall back to sequential. Effort S; category A.
-
-### CU-073 — Unknown-parameter errors are bare `KeyError`, not `RadiantError` (Rule 15 drift)
-
-**Discovered**: Capability audit 2026-07 (F-07), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/core/parameters.py:357,415,425,681-682`
-**Symptom**: `Sensor.set('optics.aperture_diamter_m', 0.3)` raises `KeyError`, escaping `except RadiantError` — the documented single framework-error boundary misses the most common user mistake.
-**Why it still matters**: a GUI or script window shows a raw traceback for every typo'd parameter name; contradicts Rule 15's "every framework-defined error lands here" claim.
-**Suggested fix**: stand-alone task — new `UnknownParameterError(RadiantError, KeyError)` preserving the did-you-mean suggestion and back-compat `except KeyError`. Effort S; category B.
-
 ### CU-074 — `fill_factor` applied on PSF path only: MTF product and radiometry ignore it (Rule 4 divergence)
 
 **Discovered**: Capability audit 2026-07 (F-11), 2026-07-11 — verified
@@ -261,6 +243,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-072 — Parallel sweep (`n_workers>1`) crashed with unhandled PicklingError — RESOLVED 2026-07-11 (commit `537a3a8`)
+
+**Discovered**: Capability audit 2026-07 (F-06), 2026-07-11. **Resolution**: pickling failures are now caught at both submit time and `fut.result()` time (`PicklingError`, `BrokenProcessPool`, `TypeError`, `AttributeError`) and the sweep re-runs sequentially with a logged warning — the documented fallback, previously unreachable. Regression tests cover both the unpicklable-callable and the unpicklable-*result* (MappingProxyType ChainResult) cases.
+
+### CU-073 — Unknown-parameter errors were bare `KeyError`, not `RadiantError` — RESOLVED 2026-07-11 (commit `537a3a8`)
+
+**Discovered**: Capability audit 2026-07 (F-07), 2026-07-11. **Resolution**: new `UnknownParameterError(RadiantError, KeyError)` raised by `ParameterSet.set/get/clear_input/set_tolerance/parameter_def`, preserving the did-you-mean suggestion and `except KeyError` back-compat. `Sensor.set` typos now land inside `except RadiantError` (test-enforced in `tests/test_exceptions.py`). CLAUDE.md Rule 15 class list updated.
 
 ### CU-078 — Metric registry drifted: declared metrics never computed, zero production consumers — RESOLVED 2026-07-11 (commit `68e1fec`)
 

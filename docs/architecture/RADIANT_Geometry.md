@@ -106,12 +106,13 @@ tracks retiring them.
 ## 4. Formula Standard
 
 All viewing solutions use one spherical triangle (Earth centre, target,
-sensor) on `constants.R_EARTH_M`, implemented in
+sensor) on `constants.R_EARTH_M` (6371.0 km mean radius, the single
+canonical Earth radius since CU-097), implemented in
 `core/viewing_triangle.py` — the θ_o-referenced counterpart of the
 η-referenced helpers in `core/geometry.py`. Downlooking only
 (`h_sensor > h_target`); uplooking is rejected loudly (owner ruling
-2026-07-11). Two known unifications are tracked: CU-096 (θ_o vs η in
-platform/performance) and CU-097 (6371 km vs 6378.137 km Earth radius).
+2026-07-11). One unification remains tracked: CU-096 (θ_o vs η in
+platform/performance).
 
 ## 5. Parameters
 

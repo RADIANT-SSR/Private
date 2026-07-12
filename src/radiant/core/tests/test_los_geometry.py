@@ -157,13 +157,13 @@ def test_slant_range_nadir_equals_column() -> None:
 def test_slant_range_spherical_60deg() -> None:
     """Truth anchor (independent hand computation).
 
-    At R_E = 6.378137e6 m, h_atm_top = 1.0e5 m, h_tgt = 0, θ_o = 60°:
+    At R_E = 6.371e6 m, h_atm_top = 1.0e5 m, h_tgt = 0, θ_o = 60°:
         slant = -r_t cos(θ) + √((r_t cos θ)² + (r_top² − r_t²))
-              = -6378137 * 0.5 + sqrt((6378137*0.5)² + (6478137² − 6378137²))
-              ≈ 195600.93 m (hand-calculated)
+              = -6371000 * 0.5 + sqrt((6371000*0.5)² + (6471000² − 6371000²))
+              ≈ 195566.44 m (hand-calculated)
     """
     los = LineOfSightGeometry(h_tgt=0.0, theta_o=math.radians(60))
-    expected = 195600.93  # m, hand-computed independently
+    expected = 195566.44  # m, hand-computed independently
     assert los.slant_range_atm == pytest.approx(expected, rel=1e-3)
 
 
@@ -192,7 +192,7 @@ def test_airmass_small_angle_matches_secant() -> None:
 def test_airmass_60deg_spherical_reference() -> None:
     """Truth anchor: spherical-Earth airmass at 60° with h_atm_top=100 km.
 
-    Hand-computed: slant ≈ 195.60 km, column = 100 km → airmass ≈ 1.956.
+    Hand-computed: slant ≈ 195.57 km, column = 100 km → airmass ≈ 1.956.
     This is *less* than sec(60°) = 2.0 — the spherical correction reduces
     the airmass by ~2%, which is the standard textbook result.
     """

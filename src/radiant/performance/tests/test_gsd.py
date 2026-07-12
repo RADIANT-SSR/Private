@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 
 from radiant.core.chain import ChainState
+from radiant.core.constants import R_EARTH_M
 from radiant.core.geometry import (
-    EARTH_RADIUS_M,
     incidence_angle_rad,
     slant_range_spherical_m,
 )
@@ -164,7 +164,7 @@ class TestSlantRangeSpherical:
     where θ is the off-nadir look angle and h is altitude above the surface.
     """
 
-    R_E = EARTH_RADIUS_M
+    R_E = R_EARTH_M
 
     @pytest.mark.level0
     def test_nadir_returns_altitude(self) -> None:

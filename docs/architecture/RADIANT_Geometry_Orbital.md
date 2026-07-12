@@ -36,18 +36,17 @@ the boundary unit. All lengths are metres (Conventions §3).
 
 ## 1. Earth-radius conventions (two, deliberately)
 
-RADIANT uses **two** Earth radii in separate geometric contexts, and this is
-intentional (documented in `core/constants.py`):
+RADIANT uses **one** canonical Earth radius for all spherical-Earth geometry,
+defined once in `core/constants.py` (CU-097 unification, 2026-07-12):
 
 | Constant | Value [m] | Where used |
 |----------|-----------|------------|
-| `constants.R_EARTH_M` | `6.378137e6` (WGS-84 equatorial semi-major axis) | Line-of-sight boundary converters, airmass, ray-sphere intersect (`los_geometry.py`) |
-| `geometry.EARTH_RADIUS_M` | `6_371_000.0` (US Standard 1976 mean radius) | Slant range / incidence (`geometry.py`) and all orbital mechanics (`orbit.py`, `repeat_ground_track.py`) |
+| `constants.R_EARTH_M` | `6.371e6` (IUGG / US Standard 1976 mean radius) | Line-of-sight boundary converters, airmass, ray-sphere intersect (`los_geometry.py`, `viewing_triangle.py`); slant range / incidence (`geometry.py`); ground range (`performance/ground_range.py`); and all orbital mechanics (`orbit.py`, `repeat_ground_track.py`) |
 
-The two differ by ~0.1%. Slant-range and orbital kinematics use the **mean**
-radius (a whole-Earth average is the right choice for a sub-satellite ground
-track); the atmospheric-path/airmass geometry uses the **equatorial** radius.
-A single unified geoid is out of v1 scope (see §7).
+The mean radius (a whole-Earth average) is the right choice for both the
+sub-satellite ground track and the atmospheric slant path. The former WGS-84
+equatorial value (6378.137 km) is no longer used anywhere in the geometry
+chain. A full ellipsoidal (WGS-84) geoid is out of v1 scope (see §7).
 
 ---
 

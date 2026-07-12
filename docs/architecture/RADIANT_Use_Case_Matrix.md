@@ -73,7 +73,7 @@ Decisions made during design review, in order:
 
 7. **AtmosphereStage geometry contract** = `LineOfSightGeometry` with {`h_tgt`, `h_atm_top`, `θ_o`, `θ_s`, `Δφ`}. Physical sensor altitude lives in `geometry.sensor_altitude_m`, owned by `GeometryStage` (ADR-0006 — the SensorDescriptor concept was superseded; see §4.4).
 
-8. **Earth model**: spherical, `R_E = 6378.137 km` in v1. Ellipsoidal (WGS84) is v2.
+8. **Earth model**: spherical, `R_E = 6371.0 km` (mean radius) in v1. Ellipsoidal (WGS84) is v2.
 
 9. **Atmospheric refraction**: not modeled in v1. v2 only; becomes relevant at grazing geometries (θ_o → π/2).
 

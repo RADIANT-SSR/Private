@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import math
 
-from radiant.core.geometry import EARTH_RADIUS_M, slant_range_spherical_m
+from radiant.core.constants import R_EARTH_M
+from radiant.core.geometry import slant_range_spherical_m
 from radiant.performance.errors import PerformanceValidationError
 
 
@@ -45,7 +46,7 @@ def compute_ground_range_m(altitude_m: float, path_zenith_rad: float) -> float:
     if path_zenith_rad == 0.0 or altitude_m <= 0.0:
         return 0.0
 
-    R = EARTH_RADIUS_M
+    R = R_EARTH_M
     r_sensor = R + altitude_m
 
     # Slant range via ray-sphere intersection (raises ValueError if

@@ -49,10 +49,10 @@ class TestOrbitalPeriod:
 
     def test_period_matches_2pi_a_over_v(self) -> None:
         """Identity: T = 2π a / v with a = R_E + h."""
-        from radiant.core.geometry import EARTH_RADIUS_M
+        from radiant.core.constants import R_EARTH_M
 
         alt = 650e3
-        a = EARTH_RADIUS_M + alt
+        a = R_EARTH_M + alt
         expected = 2.0 * math.pi * a / orbital_velocity_m_s(alt)
         assert orbital_period_s(alt) == pytest.approx(expected, rel=1e-12)
 

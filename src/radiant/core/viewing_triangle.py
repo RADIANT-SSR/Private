@@ -28,10 +28,10 @@ convention), so chain-level derivations use THESE functions; the
 pointing angle.  (CU-096 tracks the historical θ_o/η conflation in
 platform/performance.)
 
-Uses :data:`radiant.core.constants.R_EARTH_M` — the same radius as
-:mod:`radiant.core.los_geometry` — so every leg of the triangle and the
-atmospheric path live on the same Earth.  (CU-097 tracks the 6371 km vs
-6378.137 km duplicate-radius cleanup.)
+Uses :data:`radiant.core.constants.R_EARTH_M` (6371.0 km mean radius) —
+the single canonical Earth radius shared by :mod:`radiant.core.los_geometry`,
+:mod:`radiant.core.geometry`, and the orbital kinematics — so every leg of
+the triangle and the atmospheric path live on the same Earth.
 
 Downlooking only (``h_sensor > h_target``), matching the
 ``LineOfSightGeometry.theta_o ∈ [0, π/2)`` convention; uplooking geometry

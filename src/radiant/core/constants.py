@@ -45,13 +45,16 @@ au_m: float = 1.495_978_707e11
 # spectrum constructed from a 5778 K blackbody.
 S_solar_W_per_m2: float = 1361.0
 
-# WGS-84 equatorial (semi-major axis) Earth radius [m] — exact by definition.
-# https://earth-info.nga.mil/ (WGS-84 specification).  Used for spherical-Earth
-# line-of-sight geometry (boundary converters, airmass, ray-sphere intersect).
-# The `geometry` module elsewhere in core uses the US Standard 1976
-# mean radius (6_371_000.0 m) for ground-incidence / slant-range calculations;
-# the two values differ by ~0.1% and are used in separate geometric contexts.
-R_EARTH_M: float = 6.378137e6
+# Mean Earth radius [m] — spherical-approximation radius used for ALL
+# spherical-Earth geometry in RADIANT: line-of-sight boundary converters,
+# airmass, ray-sphere intersect (`los_geometry.py`, `viewing_triangle.py`),
+# slant range / incidence (`geometry.py`), ground range (`performance/`),
+# and orbital kinematics (`orbit.py`, `repeat_ground_track.py`).
+# Value: 6371.0 km — the IUGG mean radius R_1 = (2a + b)/3, also the
+# US Standard Atmosphere 1976 reference radius.  This is the single canonical
+# Earth radius (CU-097 unification); the former WGS-84 equatorial value
+# (6378.137 km) is not used anywhere in the geometry chain.
+R_EARTH_M: float = 6.371e6
 
 # Earth standard gravitational parameter GM [m³/s²] — WGS-84 / EGM value
 # (G·M_earth). Used for circular-orbit kinematics (period, orbital velocity,

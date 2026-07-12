@@ -30,9 +30,8 @@ from __future__ import annotations
 
 import math
 
-from radiant.core.constants import J2_earth, mu_earth_m3_s2
+from radiant.core.constants import R_EARTH_M, J2_earth, mu_earth_m3_s2
 from radiant.core.exceptions import RadiantError
-from radiant.core.geometry import EARTH_RADIUS_M
 from radiant.core.orbit import orbital_period_s
 
 __all__ = [
@@ -55,7 +54,7 @@ class RepeatGroundTrackError(RadiantError):
 def _mean_motion_rad_s(altitude_m: float) -> float:
     if altitude_m <= 0.0:
         raise RepeatGroundTrackError(f"altitude_m must be positive, got {altitude_m}.")
-    a = EARTH_RADIUS_M + altitude_m
+    a = R_EARTH_M + altitude_m
     return math.sqrt(mu_earth_m3_s2 / a**3)
 
 
@@ -68,9 +67,9 @@ def nodal_regression_rate_deg_per_day(altitude_m: float, inclination_deg: float)
     if not 0.0 <= inclination_deg <= 180.0:
         raise RepeatGroundTrackError(f"inclination_deg must be in [0, 180], got {inclination_deg}.")
     n = _mean_motion_rad_s(altitude_m)
-    a = EARTH_RADIUS_M + altitude_m
+    a = R_EARTH_M + altitude_m
     omega_dot_rad_s = (
-        -1.5 * n * J2_earth * (EARTH_RADIUS_M / a) ** 2 * math.cos(math.radians(inclination_deg))
+        -1.5 * n * J2_earth * (R_EARTH_M / a) ** 2 * math.cos(math.radians(inclination_deg))
     )
     return math.degrees(omega_dot_rad_s) * _SOLAR_DAY_S
 
@@ -83,9 +82,9 @@ def sun_synchronous_inclination_deg(altitude_m: float) -> float:
     (``|cos i| > 1`` — too high for the J2 torque to keep pace).
     """
     n = _mean_motion_rad_s(altitude_m)
-    a = EARTH_RADIUS_M + altitude_m
+    a = R_EARTH_M + altitude_m
     # Ω̇_deg_day = K · cos i, with K the prograde (negative) coefficient.
-    k_deg_day = math.degrees(-1.5 * n * J2_earth * (EARTH_RADIUS_M / a) ** 2) * _SOLAR_DAY_S
+    k_deg_day = math.degrees(-1.5 * n * J2_earth * (R_EARTH_M / a) ** 2) * _SOLAR_DAY_S
     cos_i = _SUN_SYNC_RATE_DEG_PER_DAY / k_deg_day
     if not -1.0 <= cos_i <= 1.0:
         raise RepeatGroundTrackError(
@@ -102,7 +101,7 @@ def equatorial_ground_track_spacing_m(altitude_m: float) -> float:
     one orbital period's worth of a solar day each revolution.
     """
     t_orbit = orbital_period_s(altitude_m)
-    return 2.0 * math.pi * EARTH_RADIUS_M * t_orbit / _SOLAR_DAY_S
+    return 2.0 * math.pi * R_EARTH_M * t_orbit / _SOLAR_DAY_S
 
 
 def revisit_interval_days(

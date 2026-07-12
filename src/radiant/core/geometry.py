@@ -17,15 +17,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from radiant.core.constants import R_EARTH_M
 from radiant.core.exceptions import CoreValidationError
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-# Mean Earth radius [m] — spherical approximation (consistent with US
-# Standard 1976 and the atmosphere module's EARTH_RADIUS_M).
-EARTH_RADIUS_M: float = 6_371_000.0
 
 # ---------------------------------------------------------------------------
 # Spherical-Earth geometry helpers
@@ -82,7 +75,7 @@ def slant_range_spherical_m(altitude_m: float, zenith_rad: float) -> float:
     if altitude_m <= 0.0:
         return 0.0
 
-    R = EARTH_RADIUS_M
+    R = R_EARTH_M
     Rh = R + altitude_m
     sin_zen = math.sin(zenith_rad)
     cos_zen = math.cos(zenith_rad)
@@ -142,7 +135,7 @@ def incidence_angle_rad(altitude_m: float, zenith_rad: float) -> float:
     if altitude_m <= 0.0 or zenith_rad == 0.0:
         return 0.0 if zenith_rad == 0.0 else zenith_rad
 
-    R = EARTH_RADIUS_M
+    R = R_EARTH_M
     sin_inc = (R + altitude_m) / R * math.sin(zenith_rad)
 
     if sin_inc > 1.0:

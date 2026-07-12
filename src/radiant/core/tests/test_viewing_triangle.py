@@ -86,12 +86,12 @@ class TestCrossChecks:
     def test_leo_45deg_eta_magnitude(self) -> None:
         """h = 500 km, θ_o = 45°: sin η = (R_E/(R_E+h))·sin 45° ⇒ η ≈ 40.97°.
 
-        Hand calculation: R_E = 6 378 137 m ⇒ ratio = 6378137/6878137
-        = 0.927306; sin η = 0.927306 × 0.707107 = 0.655707;
-        η = asin(0.655707) = 0.71512 rad = 40.973°.
+        Hand calculation: R_E = 6 371 000 m ⇒ ratio = 6371000/6871000
+        = 0.927230; sin η = 0.927230 × 0.707107 = 0.655651;
+        η = asin(0.655651) = 0.71504 rad = 40.969°.
         """
         eta = eta_from_theta_o(math.radians(45.0), H_LEO)
-        assert eta == pytest.approx(0.71512, abs=2e-5)
+        assert eta == pytest.approx(0.71504, abs=2e-5)
 
 
 class TestInternalConsistency:

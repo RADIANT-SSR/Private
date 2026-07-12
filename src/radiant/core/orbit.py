@@ -29,9 +29,8 @@ from __future__ import annotations
 
 import math
 
-from radiant.core.constants import mu_earth_m3_s2
+from radiant.core.constants import R_EARTH_M, mu_earth_m3_s2
 from radiant.core.exceptions import RadiantError
-from radiant.core.geometry import EARTH_RADIUS_M
 
 __all__ = [
     "OrbitError",
@@ -49,7 +48,7 @@ def _orbital_radius_m(altitude_m: float) -> float:
     """Circular-orbit radius a = R_E + h [m], validating altitude > 0."""
     if altitude_m <= 0.0:
         raise OrbitError(f"altitude_m must be positive (a LEO altitude), got {altitude_m}.")
-    return EARTH_RADIUS_M + altitude_m
+    return R_EARTH_M + altitude_m
 
 
 def orbital_velocity_m_s(altitude_m: float) -> float:
@@ -73,4 +72,4 @@ def ground_track_speed_m_s(altitude_m: float) -> float:
     """
     a = _orbital_radius_m(altitude_m)
     v = math.sqrt(mu_earth_m3_s2 / a)
-    return v * EARTH_RADIUS_M / a
+    return v * R_EARTH_M / a

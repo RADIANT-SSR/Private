@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: Earth radius unified to 6371.0 km mean (CU-097).**
+  RADIANT previously used two Earth radii: the atmospheric slant-path /
+  airmass geometry ran on the WGS-84 equatorial radius (6378.137 km) while
+  slant range, incidence, ground range, and orbital kinematics used the
+  6371.0 km mean radius. Both now use the single canonical
+  `constants.R_EARTH_M = 6.371e6 m` (IUGG / US Standard 1976 mean). Nadir
+  results are unchanged; off-nadir atmospheric path lengths and airmass
+  shift at the sub-percent level (−0.11 % radius, e.g. the 60° reference
+  slant path drops 195601 → 195566 m, ~0.018 %), in the
+  correct-consistency direction (one triangle, one Earth). No golden
+  baseline changed (all 14 sit at the nadir default).
+
 ### Removed
 - `radiant.core` no longer exports `ObserverGeometry`, `TargetGeometry`,
   `SceneGeometry` (CU-094, ADR-0006 Phase 4). The flat-Earth scene

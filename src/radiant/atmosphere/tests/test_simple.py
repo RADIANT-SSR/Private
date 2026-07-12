@@ -50,6 +50,7 @@ from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
 )
 from radiant.atmosphere.simple import (
+    AEROSOL_CLAMP_WAVELENGTH_UM,
     H_AER_M,
     H_MOL_M,
     KOSCHMIEDER,
@@ -845,3 +846,50 @@ def test_cos_scattering_angle_truth_anchors() -> None:
         solar_azimuth_rad=0.0,
     )
     assert g3.cos_scattering_angle() == pytest.approx(-1.0, abs=1e-12)
+
+
+class TestAerosolLwirClamp:
+    """CU-088: the Ångström power law is clamped at the MWIR–LWIR boundary."""
+
+    @pytest.mark.level0
+    def test_lwir_extinction_is_flat_at_boundary_value(self) -> None:
+        atm = SimpleAtmosphere(visibility_km=10.0, aerosol_type="rural")
+        boundary = atm._aerosol_extinction_km(np.array([AEROSOL_CLAMP_WAVELENGTH_UM]), 0.0)[0]
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            lwir = atm._aerosol_extinction_km(np.linspace(8.0, 13.0, 20), 0.0)
+        np.testing.assert_allclose(lwir, boundary, rtol=1e-12)
+
+    @pytest.mark.level0
+    def test_clamp_raises_extinction_above_power_law(self) -> None:
+        """The clamp increases LWIR extinction vs the unphysical power-law
+        extrapolation (absorption-dominated IR, not decaying)."""
+        atm = SimpleAtmosphere(visibility_km=10.0, aerosol_type="rural")
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            clamped_10 = atm._aerosol_extinction_km(np.array([10.0]), 0.0)[0]
+        alpha = 1.3
+        power_law_10 = (KOSCHMIEDER / 10.0) * (10.0 / 0.55) ** (-alpha)
+        assert clamped_10 > power_law_10
+
+    @pytest.mark.level0
+    def test_mwir_below_boundary_unaffected(self) -> None:
+        """MWIR (≤ 5 µm) uses the power law unchanged — no clamp, no warning."""
+        import warnings
+
+        atm = SimpleAtmosphere(visibility_km=10.0, aerosol_type="rural")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            mwir = atm._aerosol_extinction_km(np.linspace(3.5, 5.0, 10), 0.0)
+        # Power law still monotonic-decreasing across MWIR.
+        assert mwir[0] > mwir[-1]
+
+    @pytest.mark.level0
+    def test_warns_when_clamp_engages(self) -> None:
+        atm = SimpleAtmosphere(visibility_km=10.0, aerosol_type="rural")
+        with pytest.warns(UserWarning, match="aerosol extinction is clamped"):
+            atm._aerosol_extinction_km(np.linspace(8.0, 13.0, 10), 0.0)

@@ -20,6 +20,16 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting (`simple` atmosphere, wavelengths > 5 µm only):**
+  the aerosol Ångström power law is now clamped at the MWIR–LWIR boundary
+  (5 µm) instead of extrapolating toward zero into the LWIR, where real
+  aerosol extinction is absorption-dominated and roughly flat (CU-088).
+  Beyond 5 µm the extinction is frozen at its 5 µm value (raising LWIR
+  aerosol extinction vs the old extrapolation), and `SimpleAtmosphere`
+  warns once per run when the clamp engages. MWIR (≤ 5 µm) and the golden
+  baseline are unchanged; the clamp only affects LWIR `simple`-model runs.
+
 ### Changed
 - **Results-affecting (only when `dark_activation_energy_eV > 0` and the
   reference was left at its default):** `detector.dark_reference_temperature_K`

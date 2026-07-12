@@ -64,6 +64,7 @@ for narrow-band line absorption. Users with those needs run MODTRAN.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -103,6 +104,16 @@ H_H2O_M: float = 2_000.0
 # visibility." Per RADIANT_Atmosphere.md §3.1.
 KOSCHMIEDER: float = 3.912
 AEROSOL_REFERENCE_WAVELENGTH_UM: float = 0.550
+
+# Aerosol Ångström clamp wavelength [µm] (CU-088). The power law
+# σ_aer ∝ λ^{−α} models scattering: it is good in VIS/SWIR, "already weak"
+# but usable through MWIR, and *wrong* in LWIR where aerosol extinction is
+# absorption-dominated and roughly flat, not decaying
+# (RADIANT_Atmosphere.md §12 Open Question 2). The clamp is placed at the
+# MWIR–LWIR boundary so the "weak but usable" MWIR power law is preserved
+# and only the genuinely-wrong long-wave extrapolation is frozen at the
+# boundary value instead of decaying unphysically toward zero.
+AEROSOL_CLAMP_WAVELENGTH_UM: float = 5.0
 
 # Ångström exponents and single-scattering albedos per aerosol type,
 # from RADIANT_Atmosphere.md §3.1. The SSA values drive the per-species
@@ -303,7 +314,23 @@ class SimpleAtmosphere:
         """
         alpha = _AEROSOL_TABLE[self.aerosol_type]["angstrom"]
         sigma_550 = KOSCHMIEDER / self.visibility_km
-        scaled = sigma_550 * (wavelength_um / AEROSOL_REFERENCE_WAVELENGTH_UM) ** (-alpha)
+        # CU-088: clamp the Ångström fit beyond the SWIR-MWIR boundary. The
+        # power law keeps decreasing extinction with wavelength, which is
+        # wrong in LWIR; freeze it at the boundary value instead of
+        # extrapolating toward zero.
+        lam_eff = np.minimum(wavelength_um, AEROSOL_CLAMP_WAVELENGTH_UM)
+        scaled = sigma_550 * (lam_eff / AEROSOL_REFERENCE_WAVELENGTH_UM) ** (-alpha)
+        if np.any(wavelength_um > AEROSOL_CLAMP_WAVELENGTH_UM):
+            warnings.warn(
+                "SimpleAtmosphere: aerosol extinction is clamped to its "
+                f"{AEROSOL_CLAMP_WAVELENGTH_UM:.1f} µm (SWIR-MWIR boundary) value "
+                "for longer wavelengths — the Ångström power law is unreliable in "
+                "MWIR and wrong in LWIR (CU-088). Aerosol sensitivity to "
+                "visibility_km in those bands is approximate; use a MODTRAN or "
+                "tabulated aerosol model for quantitative MWIR/LWIR aerosol work.",
+                UserWarning,
+                stacklevel=2,
+            )
         height_factor = math.exp(-mean_altitude_m / H_AER_M)
         return np.asarray(scaled * height_factor, dtype=np.float64)
 

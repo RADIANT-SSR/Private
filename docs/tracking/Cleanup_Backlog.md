@@ -21,32 +21,14 @@
 **Why it still matters**: this is the published (mkdocs) parameter table — users sizing sensors from it miss real capability and read a wrong cryo default. A doc labeled auto-generated that silently drifts is worse than a hand-edited one (it claims freshness).
 **Suggested fix**: inline-fix-now — add a CI check (static job) that regenerates to a temp file and diffs against the committed copy, failing on mismatch (same pattern as `check_org_rules.py`); or a pre-commit hook when any `_schema.py` changes. Effort S; category A.
 
-### CU-097 — Two Earth radii in core: `constants.R_EARTH_M` (6378.137 km, WGS-84 equatorial) vs `geometry.EARTH_RADIUS_M` (6371 km, mean)
-
-**Discovered**: Geometry_Stage_Plan Phase 1 implementation, 2026-07-12
-**Status**: Open — unification folds into `docs/plans/Geometry_Stage_Plan.md` Phase 2 (same commit family as CU-096)
-**File**: `src/radiant/core/constants.py:54` (`R_EARTH_M = 6.378137e6` — consumed by `core/los_geometry.py`, i.e. all atmospheric path geometry); `src/radiant/core/geometry.py:29` (`EARTH_RADIUS_M = 6_371_000.0` — consumed by `slant_range_spherical_m`, `incidence_angle_rad`, `performance/ground_range.py`, `core/orbit.py`)
-**Symptom**: the same chain evaluates atmospheric slant paths on a 6378.137 km Earth and spatial/ground metrics on a 6371 km Earth — a 0.11 % radius disagreement baked in as two "constants" for one quantity.
-**Why it still matters**: sub-percent but systematic; the CU-096 fix (one consistent spherical triangle for all viewing quantities) is undermined if two functions in the same triangle use different radii. Also a Rule 13 spirit violation — one physical constant, two homes, different values.
-**Suggested fix**: pick one radius (recommend the spherical-approximation mean 6371.0 km, matching US Standard 1976 usage and `core/orbit.py`; or WGS-84 mean 6371.0088 km), define it once in `constants.py`, delete the duplicate in `geometry.py`, and CHANGELOG the (tiny) results shift. Effort S; category C.
-
 ### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance
 
 **Discovered**: Geometry_Stage_Plan Phase 1 implementation read-through, 2026-07-12
-**Status**: NARROWED 2026-07-12 (Geometry_Stage_Plan Phase 2 commit) — the chain-level conflation is fixed: GSD, ground range, diffraction ground projection, and velocity smear consume the θ_o-consistent values GeometryStage publishes (CHANGELOG [Unreleased] Results-affecting entry records the off-nadir shift, e.g. 737.3 → 683.1 km slant at h=500 km, θ_o=45°). **Residue**: the η-interpreting legacy derivations survive as partial-fixture fallbacks (`platform/stage.py`, `performance/stage.py`) and as the direct-call `compute_gsd(altitude, angle)` / `compute_ground_range_m` surfaces; retire or re-document them when the fixtures migrate (Phase 3/4 re-audit)
+**Status**: NARROWED 2026-07-12 (Geometry_Stage_Plan Phase 2 commit) — the chain-level conflation is fixed: GSD, ground range, diffraction ground projection, and velocity smear consume the θ_o-consistent values GeometryStage publishes (CHANGELOG [Unreleased] Results-affecting entry records the off-nadir shift, e.g. 737.3 → 683.1 km slant at h=500 km, θ_o=45°). **Residue**: the η-interpreting legacy derivations survive as partial-fixture fallbacks (`platform/stage.py`, `performance/stage.py`) and as the direct-call `compute_gsd(altitude, angle)` / `compute_ground_range_m` surfaces; retire or re-document them when the fixtures migrate. **Deferral refreshed 2026-07-12** (the prior gate — Geometry_Stage_Plan Phase 3/4 re-audit — was archived 2026-07-12 without this residue being retired; Rule 22 forbids silently carrying it): narrowed residue unchanged; new gate = retire/re-document the η-interpreting partial-fixture fallbacks when platform/performance fixtures migrate to GeometryStage outputs; re-audit date 2026-07-26 (GUI plan Phase 3 evaluate-loop regression pass)
 **File**: `src/radiant/core/geometry.py:52` (`slant_range_spherical_m(altitude_m, zenith_rad)` — ray-sphere from the **sensor**, i.e. the angle is sensor-side off-nadir η); `src/radiant/platform/stage.py:291-295` and `src/radiant/performance/stage.py:307,460,543` + `performance/ground_range.py:20` (all pass `geometry.path_zenith_rad` into it); vs `src/radiant/core/los_geometry.py:60-62` + CU-005/CU-009 canon (`path_zenith_rad` ↔ `LineOfSightGeometry.theta_o`, the **target-side** observer zenith)
 **Symptom**: `performance/ground_range.py`'s parameter is *named* `path_zenith_rad` but its docstring says "Off-nadir look angle" — the conflation is verbatim in the code. One parameter, two interpretations: atmosphere path physics reads it as θ_o at the target; slant-range/GSD/ground-range/smear read it as η at the sensor. The two differ by the spherical-Earth sine-rule correction (`theta_o_from_eta` docstring: up to ~8° at LEO off-nadir; e.g. h=500 km, θ_o=45° ⇒ η≈41°).
 **Why it still matters**: at any off-nadir geometry the chain's atmospheric attenuation and its spatial/ground metrics describe two *different* lines of sight. All 14 baselines sit at the nadir default (η = θ_o = 0) so goldens don't expose it.
 **Suggested fix**: stand-alone step inside Geometry_Stage_Plan Phase 2 — GeometryStage derives slant range, ground range, and η from the canonical θ_o via one consistent spherical triangle (law-of-cosines forms already derived in `los_geometry.intercepts_earth`); downstream consumes the published values. Any off-nadir golden drift is a **Results-affecting** CHANGELOG entry (direction: correct-physics fix). Effort M; category C.
-
-### CU-095 — gaps.md Summary Table stale: rows stop at Gap 66, entries run to Gap 84
-
-**Discovered**: Geometry_Stage_Plan Phase 0 (filing Gaps 83/84), 2026-07-12
-**Status**: Open
-**File**: `docs/tracking/gaps.md` (Summary Table section)
-**Symptom**: the Summary Table's last row is Gap 66; Gaps 67–84 exist as full entries above it but have no table row. A reader scanning the table for open capability gaps misses eighteen entries, including every gap from the 2026-07 capability audit.
-**Why it still matters**: the table exists to be the at-a-glance view of the registry; a half-populated index is worse than none (it implies completeness). Rule 25 makes gaps.md the single home for capability gaps — its own index should not misreport them.
-**Suggested fix**: inline-fix-now — append rows 67–84 (number, title, effort, scenarios, status) from the existing entries; or delete the Summary Table in favor of the entries themselves if maintenance keeps lapsing. Effort S; category A.
 
 ### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
 
@@ -214,6 +196,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-097 — Two Earth radii in core: `constants.R_EARTH_M` (6378.137 km, WGS-84 equatorial) vs `geometry.EARTH_RADIUS_M` (6371 km, mean) — RESOLVED 2026-07-12 (commit `7043288`)
+
+**Discovered**: Geometry_Stage_Plan Phase 1 implementation, 2026-07-12. **Resolution**: inline-fix — collapsed to one canonical `constants.R_EARTH_M = 6.371e6 m` (IUGG / US Standard 1976 mean radius); deleted `geometry.EARTH_RADIUS_M` and repointed every consumer (`geometry.py`, `orbit.py`, `repeat_ground_track.py`, `performance/ground_range.py`, and the atmospheric-path modules `los_geometry.py` / `viewing_triangle.py` that had used the WGS-84 equatorial value) to the single constant. One chain now evaluates every leg of the viewing triangle and the atmospheric slant path on one Earth. Results-affecting (CHANGELOG [Unreleased]): nadir unchanged; off-nadir atmospheric path/airmass shift sub-percent (−0.11 % radius) in the correct-consistency direction; no golden baseline changed (all 14 at the nadir default). Docs swept in lock-step (RADIANT_Geometry_Orbital, RADIANT_Geometry, RADIANT_Use_Case_Matrix — Rule 20). Full suite: core/performance/platform/geometry 978 passed; integration/golden 502 passed.
+
+### CU-095 — gaps.md Summary Table stale: rows stop at Gap 66, entries run to Gap 84 — RESOLVED 2026-07-12 (commit `81676f2`)
+
+**Discovered**: Geometry_Stage_Plan Phase 0 (filing Gaps 83/84), 2026-07-12. **Resolution**: inline-fix — appended rows 67–84 (number, title, effort, scenarios, status) to the Summary Table, each sourced from its own full entry, so the at-a-glance index no longer under-reports the registry it fronts (Rule 25). Doc-only.
 
 ### CU-098 — import-linter "cli imports only api and io" contract was broken at HEAD via transitive chains — RESOLVED 2026-07-12 (commit `cbd6910`)
 

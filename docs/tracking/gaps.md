@@ -1083,10 +1083,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-02), 2026-07-11 |
-| **Status** | OPEN — GUI-blocking (Tier 1) |
-| **Description** | Element lists, Zernike/OPD wavefronts, pupil masks, and spectral injections require `RadiantSession.run(extra_stage_outputs=...)`; `Sensor.evaluate/sweep/sweep_2d/monte_carlo/sensitivity/solve_for` never pass it (verified: zero references in `api/sensor.py`). Additionally schema-selectable modes always raise: optics transmission `spectral_file`/`telescope_plus_filters`/`key_elements` (`optics/stage.py:740-749` passes only scalar inputs), stray-light `spectral_file`/`pst_file`, WFE `opd_map` (NotImplementedError, no loader). |
-| **Impact** | A Sensor/YAML-backed GUI can express only scalar-throughput, scalar-WFE circular systems; every optical-designer workflow (Zemax import, element trains, measured pupils) is script-only; mode dropdowns generated from the schema offer options that error. |
-| **Workaround** | Direct `RadiantSession.run(extra_stage_outputs=...)` scripting (used by scenarios 5.x). |
+| **Status** | FIXED (2026-07-11, commit `5d338d9`) — interim seam per plan; full YAML config-surface routes remain future work |
+| **Description** | Element lists, Zernike/OPD wavefronts, pupil masks, and spectral injections required direct `RadiantSession.run(extra_stage_outputs=...)`; no `Sensor` method passed it. Schema-selectable modes raised unconditionally: optics transmission `spectral_file`/`telescope_plus_filters`/`key_elements`, stray-light `spectral_file`/`pst_file`, WFE `opd_map`. |
+| **Fix** | `Sensor.set_stage_output(group, key, value)` (held injections, used by evaluate + all five trade studies) and `Sensor.evaluate(extra_stage_outputs=)` (one-off). Optics stage wired to consume `optics_config` injections for transmission modes 2–4 and stray `spectral_file`, with grid resampling and actionable route-naming errors. Always-raising modes un-advertised via enum_values: `opd_map` and `pst_file` removed; remaining modes validated. Docs: `RADIANT_Optics.md` §5/§8/§10, Scripting_API §2.2. |
+| **Impact** | Optical-designer workflows (element trains, Zernike WFE, measured curves) now reach the chain through `Sensor`; schema-generated dropdowns no longer offer modes that error. Residual: YAML cannot express these objects — a config-surface route (file-path parameters + loaders) is GUI-phase work if needed. |
+| **Rerun after fix** | Scenarios 5.x can migrate from `RadiantSession.run(extra_stage_outputs=...)` to the `Sensor` seam opportunistically; results identical (no rerun required). |
 
 ## Gap 69: Bundled reference libraries not selectable from config (detector.qe_material, source.target.material)
 

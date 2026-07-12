@@ -244,3 +244,54 @@ class TestSchemaIntrospection:
     def test_parameter_def_unknown_suggests(self, sensor: Sensor) -> None:
         with pytest.raises(KeyError, match="Did you mean"):
             sensor.parameter_def("optics.aperture_diamter_m")
+
+
+class TestStageOutputInjection:
+    """Gap 68: non-scalar pre-chain inputs reach the chain through Sensor."""
+
+    def _curve(self, sensor: Sensor, value: float) -> Any:
+        import numpy as np
+
+        from radiant.core.spectral import SpectralData
+
+        wl = np.linspace(3.5, 5.0, 50)
+        return SpectralData(
+            name="tau_curve",
+            wavelength_um=wl,
+            values=np.full_like(wl, value),
+            unit="",
+            source="test",
+        )
+
+    @pytest.mark.level2
+    def test_evaluate_one_off_injection(self, sensor: Sensor) -> None:
+        sensor.set("optics.transmission_input_mode", "spectral_file")
+        result = sensor.evaluate(
+            extra_stage_outputs={
+                "optics_config": {"transmission_spectral": self._curve(sensor, 0.42)}
+            }
+        )
+        import numpy as np
+
+        np.testing.assert_allclose(result.stage_outputs["optics"]["tau_opt"], 0.42, rtol=1e-9)
+
+    @pytest.mark.level2
+    def test_held_injection_used_by_evaluate_and_sweep(self, sensor: Sensor) -> None:
+        sensor.set("optics.transmission_input_mode", "spectral_file")
+        sensor.set_stage_output("optics_config", "transmission_spectral", self._curve(sensor, 0.42))
+        import numpy as np
+
+        r = sensor.evaluate()
+        np.testing.assert_allclose(r.stage_outputs["optics"]["tau_opt"], 0.42, rtol=1e-9)
+
+        sw = sensor.sweep("optics.aperture_diameter_m", [0.2, 0.3], metric="snr")
+        assert len(sw.metric_values) == 2
+        assert all(v > 0 for v in sw.metric_values)
+
+    @pytest.mark.level2
+    def test_injection_removable(self, sensor: Sensor) -> None:
+        sensor.set("optics.transmission_input_mode", "spectral_file")
+        sensor.set_stage_output("optics_config", "transmission_spectral", self._curve(sensor, 0.42))
+        sensor.set_stage_output("optics_config", "transmission_spectral", None)
+        with pytest.raises(Exception, match="transmission_spectral"):
+            sensor.evaluate()

@@ -21,6 +21,26 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Non-scalar input reachability (Gap 68): `Sensor.set_stage_output(group,
+  key, value)` and `Sensor.evaluate(extra_stage_outputs=...)` forward
+  pre-chain injections to every evaluation, including all trade studies
+  (sweep/sweep_2d/monte_carlo/sensitivity/solve_for). Optics
+  transmission modes `spectral_file`/`telescope_plus_filters`/
+  `key_elements` and stray-light `spectral_file` now actually consume
+  their `optics_config` injections (previously these schema-selectable
+  modes raised unconditionally); injected curves are resampled onto the
+  chain grid with a loud out-of-coverage error.
+
+### Changed
+- `optics.transmission_input_mode`, `optics.wfe_mode`, and
+  `optics.stray.input_mode` now validate against explicit enum values
+  (Gap 68). The always-raising modes `opd_map` (no pupil-phase
+  representation in v1) and `pst_file` (needs a scene radiance
+  distribution v1 lacks) are no longer offered — setting them now fails
+  at `params.set`/resolve with the allowed list instead of deep in the
+  optics stage.
+
+### Added
 - Metric metadata contract (Gap 71): every computed metric now carries a
   non-empty unit, description, and kind via the reconciled metric
   registry; new `ChainResult.metric_records()` returns unit-labelled

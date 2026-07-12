@@ -161,12 +161,24 @@ TRANSMISSION_INPUT_MODE = ParameterDef(
     description=(
         "Which of the five transmission input modes to use: "
         "scalar, spectral_file, telescope_plus_filters, "
-        "key_elements, full_prescription."
+        "key_elements, full_prescription. Non-scalar modes read their "
+        "curves/elements from pre-chain injections under "
+        "stage_outputs['optics_config'] (transmission_spectral; "
+        "telescope_transmission + filter_specs; key_elements + "
+        "residual_transmission; element_list) — e.g. via "
+        "Sensor.evaluate(extra_stage_outputs=...)."
     ),
     dtype=str,
     canonical_unit="",
     input_unit="",
     default="scalar",
+    enum_values=(
+        "scalar",
+        "spectral_file",
+        "telescope_plus_filters",
+        "key_elements",
+        "full_prescription",
+    ),
     tags=frozenset({"optics", "throughput"}),
 )
 
@@ -207,11 +219,18 @@ OPTICS_DISTANCE_TO_FPA_M = ParameterDef(
 
 WFE_MODE = ParameterDef(
     name="optics.wfe_mode",
-    description=("Wavefront error input mode: scalar_rms, zernike, opd_map, or field_dependent."),
+    description=(
+        "Wavefront error input mode: scalar_rms (parameter-driven), or "
+        "zernike / field_dependent (WavefrontError object injected via "
+        "stage_outputs['optics_config']['wavefront_error']). opd_map is "
+        "not offered: OPD maps have no pupil-phase representation in v1 "
+        "(Gap 68 un-advertised the always-raising mode)."
+    ),
     dtype=str,
     canonical_unit="",
     input_unit="",
     default="scalar_rms",
+    enum_values=("scalar_rms", "zernike", "field_dependent"),
     tags=frozenset({"optics", "wavefront"}),
 )
 
@@ -369,12 +388,17 @@ NEARFIELD_ENABLED = ParameterDef(
 STRAY_INPUT_MODE = ParameterDef(
     name="optics.stray.input_mode",
     description=(
-        "Stray light input mode: veiling_glare, absolute_irradiance, spectral_file, or pst_file."
+        "Stray light input mode: veiling_glare, absolute_irradiance, or "
+        "spectral_file (curve injected via stage_outputs['optics_config']"
+        "['stray_light_spectral']). pst_file is not offered: PST-based "
+        "stray light needs a scene radiance distribution RADIANT v1 does "
+        "not model (Gap 68 un-advertised the always-raising mode)."
     ),
     dtype=str,
     canonical_unit="",
     input_unit="",
     default="veiling_glare",
+    enum_values=("veiling_glare", "absolute_irradiance", "spectral_file"),
     tags=frozenset({"optics", "stray_light"}),
 )
 

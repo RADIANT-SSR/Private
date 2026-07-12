@@ -170,6 +170,8 @@ class WavefrontError:
 
 All five modes produce the same internal representation: a single `transmission: SpectralData` and an `elements: tuple[OpticalElement, ...]` list. The `transmission_input_mode` field on `OpticsState` records which path was used so the parameter resolver and provenance log can report it.
 
+**Non-scalar input routing (Gap 68, 2026-07-11).** Modes 2–5 take objects, not scalars; per Rule 6 the stage never reads files, so these arrive as pre-chain injections under `stage_outputs["optics_config"]`: `transmission_spectral` (mode 2), `telescope_transmission` + `filter_specs` (mode 3), `key_elements` + `residual_transmission` (mode 4), `element_list` (mode 5 — also auto-selects the mode). Reachable from the scripting API via `Sensor.set_stage_output("optics_config", key, value)` or `Sensor.evaluate(extra_stage_outputs=...)`. Injected `SpectralData` curves are resampled onto the chain grid (loud error if the chain band extends outside the curve's coverage). Selecting a mode without its injection raises an actionable error naming the key.
+
 ### 5.1 Mode 1: scalar transmission
 
 Inputs: `optics.transmission_scalar` (e.g., 0.7).
@@ -195,15 +197,15 @@ This is the **one sanctioned exception** to the never-independent-emissivity rul
 
 ### 5.2 Mode 2: spectral transmission file
 
-Inputs: `optics.transmission_file` (CSV or .npz, ascending λ in µm).
+Inputs: a pre-loaded `SpectralData` curve injected as `optics_config["transmission_spectral"]` (there is no `optics.transmission_file` path parameter — the caller loads the CSV/.npz and injects the curve).
 
-The file is loaded, validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element, with the same `ε = 0` default as Mode 1. `optics.scalar_emissivity` applies to Mode 1 only; for spectral emissivity control use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
+The curve is validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element, with the same `ε = 0` default as Mode 1. `optics.scalar_emissivity` applies to Mode 1 only; for spectral emissivity control use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
 
 ### 5.3 Mode 3: telescope transmission + filter stack
 
-Inputs:
-- `optics.telescope_transmission` (scalar or spectral file) — broadband throughput of mirrors, windows, and any non-filter elements.
-- `optics.filters` (list of filter specs; see §6.2) — bandpass, longpass, shortpass, notch, or tabulated.
+Inputs (injected as `optics_config["telescope_transmission"]` / `optics_config["filter_specs"]`):
+- telescope transmission (float or `SpectralData`) — broadband throughput of mirrors, windows, and any non-filter elements.
+- filter specs (tuple of `FilterSpec`; see §6.2) — bandpass, longpass, shortpass, notch, or tabulated.
 
 Internally:
 ```
@@ -216,9 +218,9 @@ The elements list contains the telescope as one synthesized lumped element plus 
 
 The user supplies a partial element list — the elements they consider radiometrically important — and a *residual* lumped transmission for everything else.
 
-Inputs:
-- `optics.key_elements` (list of `OpticalElement` specs; see §6).
-- `optics.residual_transmission` (scalar or file) — accounts for everything not in the key list.
+Inputs (injected as `optics_config["key_elements"]` / `optics_config["residual_transmission"]`):
+- key elements (tuple of `OpticalElement`; see §6).
+- residual transmission (float or `SpectralData`) — accounts for everything not in the key list; defaults to 1.0.
 
 Internally:
 ```
@@ -366,8 +368,8 @@ Stray light is everything that reaches the FPA via a non-image-forming path: sca
 |------|-----------|----------------------------|
 | `veiling_glare` | `optics.stray.veiling_glare_fraction` (0–1) | `E_stray(λ) = vgf × E_in_fov(λ)` where `E_in_fov = L_post_optics × Ω_cone` is the image-plane irradiance from the in-FOV scene, `Ω_cone = A_collect / focal²` the f-cone solid angle (the etendue-invariant AΩ per unit detector area — **not** the pixel IFOV solid angle Ω_pixel). This makes `E_stray` consistent with the signal path, so `stray_e = vgf × signal_e` for a uniform extended scene. |
 | `absolute_irradiance` | `optics.stray.absolute_irradiance_W_m2` (in-band scalar) | Distributed flat across the wavelength grid (multiplied by inverse filter shape if a bandpass is present) |
-| `spectral_file` | `optics.stray.spectral_file` (FRED / TracePro export, W/m²/µm at FPA) | Loaded directly, interpolated onto global grid |
-| `pst_file` | `optics.stray.pst_file` (PST vs. off-axis angle table) | **Stubbed in v1.** Interface is reserved; raises `NotImplementedError`. Requires a scene radiance distribution to apply, which v1 does not have |
+| `spectral_file` | `SpectralData` curve (W/m²/µm at FPA, e.g. a FRED / TracePro export) injected as `optics_config["stray_light_spectral"]` (Gap 68) | Interpolated onto the global grid; loud error if the chain band exceeds the curve's coverage |
+| `pst_file` | — | **Removed from the schema enum (Gap 68).** PST-based stray light requires a scene radiance distribution v1 does not model; the mode raised `NotImplementedError` unconditionally, so it is no longer offered. Returns if/when a scene radiance model lands. |
 
 ### 8.1 Stray light is noise, not signal
 
@@ -439,7 +441,7 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 ### 10.2 Wavefront error
 | Parameter | Unit | Default |
 |-----------|------|---------|
-| `optics.wfe_mode` | enum: `scalar_rms`, `zernike`, `opd_map`, `field_dependent` | `scalar_rms` |
+| `optics.wfe_mode` | enum: `scalar_rms`, `zernike`, `field_dependent` (`opd_map` removed from the enum — no pupil-phase representation in v1, Gap 68; `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]`) | `scalar_rms` |
 | `optics.wfe_rms_waves` | waves | 0.0 |
 | `optics.wfe_reference_wavelength_um` | µm | 0.633 |
 | `optics.wfe_zernike_coeffs` | dict | `{}` |
@@ -452,12 +454,12 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 | `optics.transmission_input_mode` | enum | inferred | |
 | `optics.transmission_scalar` | dimensionless | None | mode 1 |
 | `optics.scalar_emissivity` | dimensionless (0–1) | 0.0 | mode 1 — declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1 |
-| `optics.transmission_file` | path | None | mode 2 |
-| `optics.telescope_transmission` | scalar or path | None | mode 3 |
-| `optics.filters` | list[FilterSpec] | `[]` | mode 3 |
-| `optics.key_elements` | list[ElementSpec] | `[]` | mode 4 |
-| `optics.residual_transmission` | scalar or path | None | mode 4 |
-| `optics.elements` | list[ElementSpec] | `[]` | mode 5 |
+| *(injection)* `optics_config["transmission_spectral"]` | SpectralData | — | mode 2 (Gap 68 — no path parameter; caller loads and injects) |
+| *(injection)* `optics_config["telescope_transmission"]` | float or SpectralData | — | mode 3 |
+| *(injection)* `optics_config["filter_specs"]` | tuple[FilterSpec, ...] | `()` | mode 3 |
+| *(injection)* `optics_config["key_elements"]` | tuple[OpticalElement, ...] | — | mode 4 |
+| *(injection)* `optics_config["residual_transmission"]` | float or SpectralData | 1.0 | mode 4 |
+| *(injection)* `optics_config["element_list"]` | tuple[OpticalElement, ...] | — | mode 5 (auto-selects the mode) |
 | `optics.optics_temperature_K` | K | 290 | default for synthesized elements |
 | `optics.optics_distance_to_fpa_m` | m | `focal_length_m` | default for synthesized elements |
 
@@ -470,11 +472,10 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 ### 10.5 Stray light
 | Parameter | Unit | Default |
 |-----------|------|---------|
-| `optics.stray.input_mode` | enum: `veiling_glare`, `absolute_irradiance`, `spectral_file`, `pst_file` | `veiling_glare` |
+| `optics.stray.input_mode` | enum: `veiling_glare`, `absolute_irradiance`, `spectral_file` (`pst_file` removed — Gap 68) | `veiling_glare` |
 | `optics.stray.veiling_glare_fraction` | dimensionless | 0.0 |
 | `optics.stray.absolute_irradiance_W_m2` | W/m² | 0.0 |
-| `optics.stray.spectral_file` | path | None |
-| `optics.stray.pst_file` | path | None (stubbed) |
+| *(injection)* `optics_config["stray_light_spectral"]` | SpectralData (W/m²/µm at FPA) | — (required for `spectral_file` mode) |
 | `optics.stray.includes_thermal` | bool | False |
 | `optics.stray.veiling_glare_mtf` | bool (int 0/1) | 0 (pedestal-only) |
 | `optics.stray.halo_sigma_um` | µm | 50.0 |

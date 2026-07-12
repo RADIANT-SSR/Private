@@ -152,13 +152,21 @@ def compute_stray_light_irradiance(
         if preloaded_spectral is None:
             raise OpticsValidationError(
                 "compute_stray_light_irradiance: spectral_file mode requires "
-                "preloaded_spectral to be provided. File I/O must happen "
-                "outside the stage run (Rule 6)."
+                "preloaded_spectral to be provided — inject it pre-chain via "
+                "stage_outputs['optics_config']['stray_light_spectral'] "
+                "(Rule 6: file I/O happens outside the stage run)."
             )
+        from radiant.core.spectral import SpectralGrid
+
+        on_grid = (
+            preloaded_spectral
+            if np.array_equal(preloaded_spectral.wavelength_um, wavelength_um)
+            else preloaded_spectral.resample(SpectralGrid(wavelengths_um=wavelength_um))
+        )
         return SpectralData(
             name="optics.stray_light.spectral_file",
             wavelength_um=wavelength_um.copy(),
-            values=preloaded_spectral.values.copy(),
+            values=on_grid.values.copy(),
             unit="W/m^2/um",
             source=f"Spectral file: {config.spectral_file}",
         )

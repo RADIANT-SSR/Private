@@ -11,6 +11,7 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
+from radiant.core.spectral import SpectralData
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
 from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
 from radiant.optics.element import ElementTransferMode
@@ -505,3 +506,108 @@ class TestOpticsStageFieldDependent:
 
         # PSFs should differ since chromatic vs achromatic WFE.
         assert not np.allclose(epsf_refl.data, epsf_refr.data, atol=1e-6)
+
+
+class TestNonScalarModeInjection:
+    """Gap 68: transmission modes 2-4 and stray spectral_file read their
+    non-scalar inputs from stage_outputs['optics_config'] injections."""
+
+    @pytest.fixture()
+    def wl(self) -> np.ndarray:
+        return np.linspace(3.5, 5.0, 50)
+
+    def _curve(self, wl: np.ndarray, value: float, name: str = "curve") -> SpectralData:
+        return SpectralData(
+            name=name,
+            wavelength_um=wl.copy(),
+            values=np.full_like(wl, value),
+            unit="",
+            source="test",
+        )
+
+    @pytest.mark.level1
+    def test_spectral_file_mode_via_injection(self, wl: np.ndarray) -> None:
+        params = _make_params()
+        params.set("optics.transmission_input_mode", "spectral_file")
+        params.resolve()
+        state = _make_state(wl).with_stage_output(
+            "optics_config", "transmission_spectral", self._curve(wl, 0.42)
+        )
+        out = OpticsStage().run(state, params)
+        np.testing.assert_allclose(out.stage_outputs["optics"]["tau_opt"], 0.42, rtol=1e-12)
+
+    @pytest.mark.level1
+    def test_spectral_file_mode_without_injection_actionable(self, wl: np.ndarray) -> None:
+        params = _make_params()
+        params.set("optics.transmission_input_mode", "spectral_file")
+        params.resolve()
+        with pytest.raises(ValueError, match="optics_config.*transmission_spectral"):
+            OpticsStage().run(_make_state(wl), params)
+
+    @pytest.mark.level1
+    def test_telescope_plus_filters_via_injection(self, wl: np.ndarray) -> None:
+        params = _make_params()
+        params.set("optics.transmission_input_mode", "telescope_plus_filters")
+        params.resolve()
+        state = _make_state(wl).with_stage_output("optics_config", "telescope_transmission", 0.8)
+        out = OpticsStage().run(state, params)
+        np.testing.assert_allclose(out.stage_outputs["optics"]["tau_opt"], 0.8, rtol=1e-12)
+
+    @pytest.mark.level1
+    def test_key_elements_via_injection(self, wl: np.ndarray) -> None:
+        from radiant.optics.element_factories import make_lumped_element
+
+        elem = make_lumped_element(self._curve(wl, 0.9, "elem"), 290.0, 0.3, 1.0)
+        params = _make_params()
+        params.set("optics.transmission_input_mode", "key_elements")
+        params.resolve()
+        state = _make_state(wl).with_stage_output("optics_config", "key_elements", (elem,))
+        state = state.with_stage_output("optics_config", "residual_transmission", 0.5)
+        out = OpticsStage().run(state, params)
+        np.testing.assert_allclose(out.stage_outputs["optics"]["tau_opt"], 0.9 * 0.5, rtol=1e-12)
+
+    @pytest.mark.level1
+    def test_key_elements_without_injection_actionable(self, wl: np.ndarray) -> None:
+        params = _make_params()
+        params.set("optics.transmission_input_mode", "key_elements")
+        params.resolve()
+        with pytest.raises(ValueError, match="optics_config.*key_elements"):
+            OpticsStage().run(_make_state(wl), params)
+
+    @pytest.mark.level1
+    def test_stray_spectral_file_via_injection(self, wl: np.ndarray) -> None:
+        from radiant.core.spectral import SpectralData
+
+        stray = SpectralData(
+            name="stray",
+            wavelength_um=wl.copy(),
+            values=np.full_like(wl, 1e-3),
+            unit="W/m^2/um",
+            source="test",
+        )
+        params = _make_params()
+        params.set("optics.stray.input_mode", "spectral_file")
+        params.resolve()
+        state = _make_state(wl).with_stage_output("optics_config", "stray_light_spectral", stray)
+        out = OpticsStage().run(state, params)
+        irr = out.stage_outputs["optics"]["stray_light_irradiance_at_fpa"]
+        np.testing.assert_allclose(irr.values, 1e-3, rtol=1e-12)
+
+    @pytest.mark.level1
+    def test_stray_spectral_file_without_injection_actionable(self, wl: np.ndarray) -> None:
+        params = _make_params()
+        params.set("optics.stray.input_mode", "spectral_file")
+        params.resolve()
+        with pytest.raises(ValueError, match="stray_light_spectral"):
+            OpticsStage().run(_make_state(wl), params)
+
+    @pytest.mark.level1
+    def test_dead_modes_rejected_at_set(self) -> None:
+        """Gap 68: opd_map / pst_file are no longer advertised."""
+        params = _make_params()
+        with pytest.raises(ValueError, match="must be one of"):
+            params.set("optics.wfe_mode", "opd_map")
+            params.resolve()
+        with pytest.raises(ValueError, match="must be one of"):
+            params.set("optics.stray.input_mode", "pst_file")
+            params.resolve()

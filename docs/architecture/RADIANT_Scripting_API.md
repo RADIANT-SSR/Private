@@ -78,7 +78,8 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.save(path)` | Write a YAML config restoring this Sensor via `Sensor.load` (Gap 67): explicitly-set inputs (input units) plus a `_radiant` block (`wavelength_points`, tolerance distributions). Defaults and derived values are *not* written, so reloading reproduces the original resolution — including provenance splits between explicit and defaulted parameters. Returns the written `Path`. |
 | `Sensor.load(path)` | Classmethod. Reload a `save()`d config (or any RADIANT YAML): parameters, tolerances, `wavelength_points`. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
-| `s.evaluate()` | Run the full signal chain. Returns `ChainResult` (§3). |
+| `s.evaluate(extra_stage_outputs=None)` | Run the full signal chain. Returns `ChainResult` (§3). The keyword takes one-off non-scalar pre-chain injections (Gap 68), merged over any set via `set_stage_output`. |
+| `s.set_stage_output(group, key, value)` | Attach a non-scalar pre-chain input (Gap 68 interim seam) used by `evaluate` **and** all trade studies: element lists, `WavefrontError` objects, spectral curves, filter stacks — e.g. `s.set_stage_output("optics_config", "element_list", elems)`. `value=None` removes it. Carried by `clone()`, **not** written by `save()` (arbitrary objects have no YAML form). Returns `self`. |
 | `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |
 | `s.sweep_2d(param1, values1, param2, values2, *, metric="snr")` | 2-D parameter sweep. Returns `Sweep2DResult` (§6.2). |
 | `s.monte_carlo(n_trials=1000, seed=42, *, metric_names=None, keep_results=False)` | Monte Carlo tolerance analysis. Returns `MonteCarloResult` (§7). |

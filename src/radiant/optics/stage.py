@@ -737,11 +737,19 @@ class OpticsStage:
                 mode.value,
             )
 
+        # Modes 2-4 (Gap 68): non-scalar inputs are injected pre-chain via
+        # stage_outputs["optics_config"] (Rule 6 — e.g.
+        # Sensor.evaluate(extra_stage_outputs=...)); the stage only reads them.
         tx_result = resolve_transmission(
             mode,
             state.wavelength_um,
             transmission_scalar=params.get("optics.transmission_scalar"),
             scalar_emissivity=scalar_emissivity,
+            transmission_spectral=optics_config.get("transmission_spectral"),
+            telescope_transmission=optics_config.get("telescope_transmission"),
+            filter_specs=tuple(optics_config.get("filter_specs", ())),
+            key_elements=tuple(optics_config.get("key_elements", ())),
+            residual_transmission=optics_config.get("residual_transmission"),
             full_elements=tuple(full_elements) if full_elements is not None else (),
             optics_temperature_K=optics_temp_K,
             optics_distance_to_fpa_m=optics_dist_m,
@@ -941,10 +949,24 @@ class OpticsStage:
 
         # --- Stray light ---
         stray_mode_str: str = params.get("optics.stray.input_mode")
+        # spectral_file mode (Gap 68): the curve is injected pre-chain via
+        # stage_outputs["optics_config"]["stray_light_spectral"] (Rule 6).
+        stray_spectral = optics_config.get("stray_light_spectral")
+        if stray_mode_str == "spectral_file" and stray_spectral is None:
+            raise OpticsValidationError(
+                "optics.stray.input_mode = 'spectral_file' requires a "
+                "SpectralData curve injected pre-chain via "
+                "stage_outputs['optics_config']['stray_light_spectral'] — e.g. "
+                "Sensor.evaluate(extra_stage_outputs={'optics_config': "
+                "{'stray_light_spectral': curve}}) (Rule 6: stages do not read files)."
+            )
         stray_config = StrayLightConfig(
             input_mode=StrayLightInputMode(stray_mode_str),
             veiling_glare_fraction=params.get("optics.stray.veiling_glare_fraction"),
             absolute_irradiance_W_m2=params.get("optics.stray.absolute_irradiance_W_m2"),
+            spectral_file=(stray_spectral.name or "<injected>")
+            if stray_spectral is not None
+            else None,
             includes_thermal=bool(stray_includes_thermal),
         )
 
@@ -973,6 +995,7 @@ class OpticsStage:
             stray_config,
             state.wavelength_um,
             in_fov_irradiance=in_fov_irr,
+            preloaded_spectral=stray_spectral,
         )
         state = state.with_stage_output(
             "optics",

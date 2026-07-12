@@ -61,6 +61,10 @@ class Sensor:
     def __init__(self, *, wavelength_points: int = _DEFAULT_WL_POINTS) -> None:
         self._params: ParameterSet = build_parameter_set()
         self._wl_points: int = wavelength_points
+        # Non-scalar pre-chain injections (Gap 68): group -> key -> object,
+        # forwarded to RadiantSession.run(extra_stage_outputs=...) on every
+        # evaluation, including trade studies. Not serialized by save().
+        self._extra_stage_outputs: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -269,11 +273,78 @@ class Sensor:
     # Evaluation
     # ------------------------------------------------------------------
 
-    def evaluate(self) -> ChainResult:
-        """Run the full signal chain and return the result."""
+    def set_stage_output(self, group: str, key: str, value: Any) -> Sensor:
+        """Attach a non-scalar pre-chain input (Gap 68 interim seam).
+
+        Stores *value* under ``stage_outputs[group][key]`` for every
+        subsequent evaluation — ``evaluate`` and all trade studies
+        (sweep, sweep_2d, monte_carlo, sensitivity, solve_for). This is
+        the Rule 6 injection route for element lists, Zernike/OPD
+        wavefronts, spectral curves, and filter stacks::
+
+            s.set_stage_output("optics_config", "element_list", elements)
+            s.set_stage_output("optics_config", "wavefront_error", wfe)
+
+        Pass ``None`` as *value* to remove a previously set injection.
+        Injections are session state, not parameters: they are carried
+        by :meth:`clone` but **not** written by :meth:`save` (arbitrary
+        objects have no YAML form — rebuild them when reloading).
+
+        Returns ``self`` for method chaining.
+        """
+        if value is None:
+            self._extra_stage_outputs.get(group, {}).pop(key, None)
+            if group in self._extra_stage_outputs and not self._extra_stage_outputs[group]:
+                del self._extra_stage_outputs[group]
+        else:
+            self._extra_stage_outputs.setdefault(group, {})[key] = value
+        return self
+
+    def _merged_extras(
+        self,
+        extra: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, dict[str, Any]] | None:
+        """Sensor-held injections with one-off *extra* merged on top."""
+        if not self._extra_stage_outputs and not extra:
+            return None
+        merged: dict[str, dict[str, Any]] = {
+            group: dict(values) for group, values in self._extra_stage_outputs.items()
+        }
+        for group, values in (extra or {}).items():
+            merged.setdefault(group, {}).update(values)
+        return merged
+
+    def _make_run_fn(self, session: RadiantSession) -> Callable[[ParameterSet], ChainResult]:
+        """Session runner carrying the sensor-held injections (Gap 68)."""
+        extras = self._merged_extras()
+        if extras is None:
+            return session.run
+
+        def _run(ps: ParameterSet) -> ChainResult:
+            return session.run(ps, extra_stage_outputs=extras)
+
+        return _run
+
+    def evaluate(
+        self,
+        *,
+        extra_stage_outputs: dict[str, dict[str, Any]] | None = None,
+    ) -> ChainResult:
+        """Run the full signal chain and return the result.
+
+        Parameters
+        ----------
+        extra_stage_outputs:
+            One-off non-scalar pre-chain injections (Gap 68), merged over
+            any set via :meth:`set_stage_output`, e.g.
+            ``{"optics_config": {"element_list": elements}}``.
+        """
         self._ensure_resolved()
         session = self._build_session()
-        return session.run(self._params)
+        merged = self._merged_extras(extra_stage_outputs)
+        if merged is None:
+            return session.run(self._params)
+        return session.run(self._params, extra_stage_outputs=merged)
 
     # ------------------------------------------------------------------
     # Trade studies
@@ -308,7 +379,7 @@ class Sensor:
         session = self._build_session()
         metric_fn, metric_name = self._resolve_metric(metric)
         return sweep(
-            session.run,
+            self._make_run_fn(session),
             self._params,
             param,
             values,
@@ -345,7 +416,7 @@ class Sensor:
         session = self._build_session()
         metric_fn, metric_name = self._resolve_metric(metric)
         return solve_for(
-            session.run,
+            self._make_run_fn(session),
             self._params,
             param,
             target,
@@ -379,7 +450,7 @@ class Sensor:
         session = self._build_session()
         metric_fn, metric_name = self._resolve_metric(metric)
         return sweep_2d(
-            session.run,
+            self._make_run_fn(session),
             self._params,
             param1,
             values1,
@@ -415,7 +486,7 @@ class Sensor:
         self._ensure_resolved()
         session = self._build_session()
         return monte_carlo(
-            session.run,
+            self._make_run_fn(session),
             self._params,
             n_trials=n_trials,
             seed=seed,
@@ -446,7 +517,7 @@ class Sensor:
         session = self._build_session()
         metric_fn, metric_name = self._resolve_metric(metric)
         return sensitivity(
-            session.run,
+            self._make_run_fn(session),
             self._params,
             metric=metric_fn,
             metric_name=metric_name,

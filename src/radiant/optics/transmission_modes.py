@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from radiant.core.spectral import SpectralData
+from radiant.core.spectral import SpectralData, SpectralGrid
 from radiant.optics.element import OpticalElement
 from radiant.optics.element_factories import make_lumped_element
 from radiant.optics.errors import OpticsValidationError
@@ -24,6 +24,21 @@ from radiant.optics.filters import FilterSpec, filter_to_element, make_filter_tr
 from radiant.optics.system_transmission import compute_system_transmission
 
 logger = logging.getLogger(__name__)
+
+
+def _on_grid(sd: SpectralData, wavelength_um: np.ndarray) -> SpectralData:
+    """Return *sd* on the chain wavelength grid, resampling if needed.
+
+    Injected curves (Gap 68) may arrive on their native grid;
+    ``SpectralData.resample`` interpolates linearly and raises loudly
+    when the chain grid extends outside the curve's coverage — no
+    silent extrapolation.
+    """
+    if sd.wavelength_um.shape == wavelength_um.shape and np.array_equal(
+        sd.wavelength_um, wavelength_um
+    ):
+        return sd
+    return sd.resample(SpectralGrid(wavelengths_um=wavelength_um))
 
 
 class TransmissionInputMode(enum.Enum):
@@ -210,8 +225,13 @@ def _resolve_spectral_file(
     """Mode 2: spectral transmission from file (pre-loaded)."""
     if transmission_spectral is None:
         raise OpticsValidationError(
-            "resolve_transmission: SPECTRAL_FILE mode requires transmission_spectral."
+            "resolve_transmission: SPECTRAL_FILE mode requires transmission_spectral "
+            "(a SpectralData curve). Inject it pre-chain via "
+            "stage_outputs['optics_config']['transmission_spectral'] — e.g. "
+            "Sensor.evaluate(extra_stage_outputs={'optics_config': "
+            "{'transmission_spectral': curve}}) (Rule 6: stages do not read files)."
         )
+    transmission_spectral = _on_grid(transmission_spectral, wavelength_um)
     lumped = make_lumped_element(
         transmission_spectral,
         temperature_K,
@@ -237,7 +257,11 @@ def _resolve_telescope_filters(
     """Mode 3: telescope broadband throughput * filter stack."""
     if telescope_transmission is None:
         raise OpticsValidationError(
-            "resolve_transmission: TELESCOPE_PLUS_FILTERS mode requires telescope_transmission."
+            "resolve_transmission: TELESCOPE_PLUS_FILTERS mode requires "
+            "telescope_transmission (scalar or SpectralData; filter_specs "
+            "optional). Inject pre-chain via stage_outputs['optics_config']"
+            "['telescope_transmission'] / ['filter_specs'] — e.g. "
+            "Sensor.evaluate(extra_stage_outputs={'optics_config': {...}})."
         )
 
     # Resolve telescope transmission to SpectralData.
@@ -250,7 +274,7 @@ def _resolve_telescope_filters(
             source=f"Telescope scalar: {telescope_transmission}",
         )
     else:
-        tele_sd = telescope_transmission
+        tele_sd = _on_grid(telescope_transmission, wavelength_um)
 
     # Compute net transmission: telescope * product of filters.
     net_vals = tele_sd.values.copy()
@@ -298,7 +322,11 @@ def _resolve_key_elements(
     """Mode 4: key elements plus a residual lumped transmission."""
     if not key_elements:
         raise OpticsValidationError(
-            "resolve_transmission: KEY_ELEMENTS mode requires at least one element in key_elements."
+            "resolve_transmission: KEY_ELEMENTS mode requires at least one "
+            "OpticalElement in key_elements (residual_transmission optional). "
+            "Inject pre-chain via stage_outputs['optics_config']['key_elements'] "
+            "— e.g. Sensor.evaluate(extra_stage_outputs={'optics_config': "
+            "{'key_elements': (elem1, elem2)}})."
         )
 
     # Resolve residual.
@@ -314,12 +342,12 @@ def _resolve_key_elements(
             source=f"Residual scalar: {residual_transmission}",
         )
     else:
-        res_sd = residual_transmission
+        res_sd = _on_grid(residual_transmission, wavelength_um)
 
     # System transmission = residual * product of key element net transmittances.
     net_vals = res_sd.values.copy()
     for elem in key_elements:
-        net_vals = net_vals * elem.net_transmittance.values
+        net_vals = net_vals * _on_grid(elem.net_transmittance, wavelength_um).values
 
     net_sd = SpectralData(
         name="optics.transmission.key_elements",
@@ -353,7 +381,11 @@ def _resolve_full_prescription(
     if not full_elements:
         raise OpticsValidationError(
             "resolve_transmission: FULL_PRESCRIPTION mode requires at "
-            "least one element in full_elements."
+            "least one element in full_elements. Inject the ordered element "
+            "list pre-chain via stage_outputs['optics_config']['element_list'] "
+            "— e.g. Sensor.evaluate(extra_stage_outputs={'optics_config': "
+            "{'element_list': elements}}); the stage then selects this mode "
+            "automatically."
         )
     tau_sd = compute_system_transmission(full_elements, wavelength_um)
     return TransmissionResult(

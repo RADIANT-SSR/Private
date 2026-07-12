@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-101 — `well_status` is only in `stage_outputs["readout"]`, never on the `ChainResult` metric surface — GUI cannot cheaply surface full-well saturation
+
+**Discovered**: GUI Development Plan Phase 0 — scenario `gui_workflow.md` requirements harvest, 2026-07-12
+**Status**: Open
+**File**: `src/radiant/readout/stage.py:389` (`state.with_stage_output("readout", "well_status", well_status.value)` — the only publication point); consumed only via `result.stage_outputs["readout"]["well_status"]`. No `ChainResult` property, metric, or badge exposes it. Compare `performance/saturation_metrics.py` (`MarginResult.is_saturated`), which is a separate margin metric, not the readout clip status.
+**Symptom**: five scenario workflows (1.3, 1.4, 2.5, 4.4, 8.2) require a prominent, persistent saturation indicator; 8.2 and its walkthrough explicitly note that three scenarios in a row (6.1, 6.2, 8.2) lost time to *silent* full-well clipping — the chain ran without error, clipped, and produced a misleadingly "atmosphere has zero effect" result. The saturation state exists (`SaturationStatus.CLIPPED`) but is buried one dict-hop deep in `stage_outputs`, below the `ChainResult` metric/badge surface the GUI (and casual script users) read.
+**Why it still matters**: the GUI v1 metric-badge set is SNR/NEDT/NIIRS/GSD/MTF@Nyquist (arch doc §4.4) — none of which reveal a clipped pixel. Until `well_status` is a first-class result surface, any GUI saturation banner must special-case a `stage_outputs` lookup rather than read a metric, and the underlying "silent clip" trap remains for scripting users too. This is the shipped-API half of the deferred GUI "saturation banner" capability (arch doc §7.2 row 8); the banner UI itself is a GUI capability tracked to `gaps.md` at GUI plan Phase 9.
+**Suggested fix**: stand-alone task — promote `well_status` (and ideally the clipped-electron count / well-fill fraction) to a `ChainResult` property or a named entry in the metrics mapping, with a `UserWarning` already emitted at the stage (present) preserved. Then the GUI reads a metric, not a stage-output dict. Effort S–M; category B (surface change, no physics change — the value already exists).
+
 ### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
 
 **Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12

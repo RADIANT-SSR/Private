@@ -1331,6 +1331,24 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 64 | No spectral residual / per-band error-analysis tool | Small-Medium | 6.2 | OPEN |
 | 65 | Full-well saturation is a recurring, silent failure mode | Small | 6.1, 6.2, 8.2 | FIXED 2026-07-11 |
 | 66 | `detector.qe_table_path` unusable without a meaningless scalar `qe_value` | Small | 1.1, 1.2 | FIXED 2026-07-11 |
+| 67 | No session/run persistence (save/load) | — | GUI File menu, session restore | FIXED 2026-07-11 |
+| 68 | Non-scalar chain inputs unreachable from Sensor/YAML | — | 5.x | FIXED 2026-07-11 |
+| 69 | Bundled libraries not selectable from config | Small | GUI material dropdowns | OPEN |
+| 70 | No public parameter-schema introspection API | — | GUI | FIXED 2026-07-11 |
+| 71 | result.metrics has no units/metadata | — | GUI | FIXED 2026-07-11 |
+| 72 | No progress/cancellation hooks | — | GUI, 4.1 | FIXED 2026-07-11 |
+| 73 | Point-source zeroes background/path photon noise | — | 6.x | FIXED 2026-07-11 |
+| 74 | Scan/timing subsystem unimplemented | Large | pushbroom/TDI | NARROWED 2026-07-11 |
+| 75 | Orbit/coverage kinematics unwired | Medium | 3.1 | NARROWED 2026-07-11 |
+| 76 | Solar spectrum is 5778 K blackbody only | Medium | VNIR bands, seasonal | OPEN |
+| 77 | No native SCNR / in-chain detection-range solver | Medium | 1.1, 1.3, 4.1–4.3 | NARROWED 2026-07-11 |
+| 78 | Decision-grade acquisition metrics library-only | — | 4.x, 6.x, 2.x | OPEN |
+| 79 | No multi-config compare primitive | — | 1.3, 3.3, 4.1, 6.1 | OPEN |
+| 80 | No multi-band / dual-band run concept | — | 1.3 | OPEN |
+| 81 | MODTRAN sky terms not ingestable (downwelling zeroed) | Medium | thermal-band scenes | NARROWED 2026-07-12 |
+| 82 | No cloud/rain/fog capability | — | 3.2 | OPEN |
+| 83 | No two-point geodetic geometry input | — | airborne mission planning (V5) | OPEN |
+| 84 | No time-based / orbital-ephemeris geometry | — | pass-geometry (V7/V8/S4) | OPEN |
 
 ---
 

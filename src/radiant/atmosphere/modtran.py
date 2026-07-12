@@ -297,9 +297,23 @@ def render_tape5(
     # H1 = sensor altitude [km], H2 = target altitude [km].
     h1_km = geometry.sensor_altitude_m / 1000.0
     h2_km = geometry.target_altitude_m / 1000.0
-    angle_deg = math.degrees(geometry.path_zenith_rad)
+    zenith_deg = math.degrees(geometry.path_zenith_rad)
     solar_zen_deg = math.degrees(geometry.solar_zenith_rad)
     solar_az_deg = math.degrees(geometry.solar_azimuth_rad)
+
+    # CU-065: MODTRAN measures Card 3 ANGLE from zenith AT H1 (the
+    # sensor), while RADIANT's path_zenith_rad is measured at the LOWER
+    # endpoint of the path (RADIANT_Atmosphere.md §4.1). Downlooking
+    # (H1 above H2) the sensor is the UPPER endpoint, so in the
+    # plane-parallel limit ANGLE = 180° − zenith — a nadir-looking
+    # space sensor renders ANGLE = 180, not 0. Uplooking (H1 at or
+    # below H2) the sensor IS the lower endpoint and ANGLE = zenith
+    # unchanged. This reproduces the hand-worked
+    # `modtran_angle_at_h1_deg` column of
+    # docs/plans/modtran_run_matrix.csv for every ITYPE=2 row.
+    # Residual CU-065 caveat: confirm the convention against the
+    # MODTRAN user manual when access arrives.
+    angle_deg = 180.0 - zenith_deg if h1_km > h2_km else zenith_deg
 
     # Card 1: MODRAN, SPEED, BINARY, LYMOLC, MODEL, T_BEST, ITYPE, IEMSCT, IMULT
     # ITYPE=2 (slant path H1 to H2), IMULT=1 (multiple scattering via

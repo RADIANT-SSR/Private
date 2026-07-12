@@ -359,6 +359,59 @@ class TestCardDeck:
         assert "20.000" in tape5
         assert "0.000" in tape5
 
+    @pytest.mark.level0
+    def test_card3_angle_nadir_from_space_renders_180(self) -> None:
+        """CU-065 Level 0: MODTRAN ANGLE is measured from zenith at H1 (the
+        sensor) — a nadir-looking space sensor must render ANGLE = 180."""
+        geometry = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.0,  # nadir path: zenith 0 at the ground endpoint
+            solar_zenith_rad=0.5,
+            solar_azimuth_rad=0.0,
+        )
+        tape5 = render_tape5(ModtranConfig(), geometry)
+        card3 = tape5.splitlines()[4]
+        h1, h2, angle = card3.split()[:3]
+        assert float(h1) == pytest.approx(100.0, abs=1e-9)
+        assert float(h2) == pytest.approx(0.0, abs=1e-9)
+        assert float(angle) == pytest.approx(180.0, abs=1e-9)
+
+    @pytest.mark.level0
+    def test_card3_angle_downlooking_slant(self) -> None:
+        """CU-065: 30 deg off-nadir from space -> ANGLE = 150 at H1 (run
+        matrix row B1: path_zenith_deg_radiant=30, modtran_angle_at_h1_deg=150)."""
+        import math
+
+        geometry = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=math.radians(30.0),
+            solar_zenith_rad=0.5,
+            solar_azimuth_rad=0.0,
+        )
+        tape5 = render_tape5(ModtranConfig(), geometry)
+        angle = float(tape5.splitlines()[4].split()[2])
+        assert angle == pytest.approx(150.0, abs=1e-9)
+
+    @pytest.mark.level0
+    def test_card3_angle_uplooking_unchanged(self) -> None:
+        """CU-065: ground sensor looking up — the sensor IS the lower
+        endpoint, so ANGLE = path zenith unchanged (run matrix row H2:
+        zenith 48.2 -> ANGLE 48.2)."""
+        import math
+
+        geometry = AtmosphericGeometry(
+            sensor_altitude_m=0.0,
+            target_altitude_m=100_000.0,
+            path_zenith_rad=math.radians(48.2),
+            solar_zenith_rad=0.5,
+            solar_azimuth_rad=0.0,
+        )
+        tape5 = render_tape5(ModtranConfig(), geometry)
+        angle = float(tape5.splitlines()[4].split()[2])
+        assert angle == pytest.approx(48.2, abs=1e-9)
+
     @pytest.mark.level1
     def test_spectral_range_in_card4(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig(v1_cm1=800.0, v2_cm1=5000.0)

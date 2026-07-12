@@ -73,16 +73,36 @@ def _row_to_geometry(row: dict[str, str]) -> AtmosphericGeometry:
     )
 
 
+def _rendered_card3_angle_deg(tape5: str) -> float:
+    """Read ANGLE back from the rendered deck's Card 3 (H1, H2, ANGLE, ...).
+
+    Parsed from the deck rather than recomputed here so the manifest
+    reports what render_tape5 actually wrote (no drift between the
+    renderer's CU-065 zenith→ANGLE conversion and this check).
+    """
+    return float(tape5.splitlines()[4].split()[2])
+
+
 def _angle_caveat(row: dict[str, str], rendered_angle_deg: float) -> str:
-    """CU-065: flag rows where the matrix's manually-worked-out MODTRAN
-    ANGLE differs from what this (unverified) deck builder rendered."""
+    """Flag rows where the deck's ANGLE differs from the matrix's
+    hand-worked H1-relative column.
+
+    Since the CU-065 deck-side fix, render_tape5 converts RADIANT's
+    lower-endpoint path zenith to MODTRAN's ANGLE-at-H1 convention
+    (nadir-from-space renders 180), so every ITYPE=2 row now matches
+    the matrix. A residual mismatch means this row's ANGLE is not
+    derivable from path_zenith at all (Block E drives it from solar
+    geometry instead) — hand-set it per the matrix before running.
+    CU-065 residue: the convention is verified against the run
+    matrix's own worked column, not yet the MODTRAN manual.
+    """
     expected = float(row["modtran_angle_at_h1_deg"])
     if abs(expected - rendered_angle_deg) > 1e-6:
         return (
-            f"CU-065: deck ANGLE={rendered_angle_deg:g} deg (from "
-            f"path_zenith_deg_radiant); matrix says MODTRAN wants "
-            f"{expected:g} deg at H1 — verify against the manual before "
-            "running, do not assume this deck is correct"
+            f"deck ANGLE={rendered_angle_deg:g} deg; matrix wants "
+            f"{expected:g} deg at H1 — this row's ANGLE is not derived "
+            "from path_zenith (see other caveats); set it per the matrix "
+            "before running"
         )
     return ""
 
@@ -116,7 +136,7 @@ def main() -> None:
         tape5 = render_tape5(config, geometry)
         (_OUTPUT_DIR / f"{run_id}.tp5").write_text(tape5)
 
-        rendered_angle_deg = math.degrees(geometry.path_zenith_rad)
+        rendered_angle_deg = _rendered_card3_angle_deg(tape5)
         caveats = []
         if not row["path_zenith_deg_radiant"].strip():
             caveats.append(

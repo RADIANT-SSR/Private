@@ -20,6 +20,20 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **CU-065 (deck-side):** `render_tape5` now converts RADIANT's
+  lower-endpoint path zenith to MODTRAN's Card 3 ANGLE-at-H1
+  convention: downlooking decks render `180° − zenith` (a nadir
+  space sensor renders ANGLE = 180, previously 0), uplooking decks
+  are unchanged. Matches `modtran_run_matrix.csv`'s hand-worked
+  `modtran_angle_at_h1_deg` column for every ITYPE=2 row; the
+  rendered decks in `modtran/decks/` (regenerable) are what a real
+  MODTRAN run will consume. No computed chain result changes (no
+  binary has ever run), but downlooking tape5 decks — and therefore
+  their SHA-256 cache keys — differ from pre-fix renders. CU-065's
+  remaining residue: confirm the convention against the MODTRAN
+  manual on access.
+
 ### Added
 - `atmosphere.modtran.tape7_sun_path` (CU-011, file flavor): optional
   sun-leg tape7 for the Option C two-leg split. When set (requires

@@ -67,15 +67,6 @@
 **Why it still matters**: schema-generated GUI forms render a no-op toggle; users entering pre-CDS datasheet noise are silently ~41 % low.
 **Suggested fix**: stand-alone task — implement both or delete parameter and doc claims in lock-step (Rule 20). Effort S-M; category C.
 
-### CU-078 — Metric registry drifted: declares metrics never computed, zero production consumers
-
-**Discovered**: Capability audit 2026-07 (F-04), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/performance/registry.py` (nedl :99, nedr :107, edge_slope :143, detection_range :190)
-**Symptom**: `can_compute/available_metrics` is consumed only by its own tests; it declares four metrics `stage.py` never computes and uses names that mismatch actual metric keys.
-**Why it still matters**: this is the natural GUI oracle for graying out unavailable metrics; today it lies.
-**Suggested fix**: stand-alone task — reconcile with `stage.py` (or fold into the Gap 71 metric-contract work) and wire one production consumer. Effort M; category B.
-
 ### CU-079 — "Authoritative" architecture docs describe unimplemented systems (aspirational-drift class)
 
 **Discovered**: Capability audit 2026-07 (F-20), 2026-07-11
@@ -270,6 +261,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-078 — Metric registry drifted: declared metrics never computed, zero production consumers — RESOLVED 2026-07-11 (commit `68e1fec`)
+
+**Discovered**: Capability audit 2026-07 (F-04), 2026-07-11. **Resolution**: folded into the Gap 71 metric-contract work as the audit suggested. Registry reconciled to exactly the 32 keys `PerformanceStage` computes (phantoms nedl/nedr/edge_slope/detection_range/csnr and misnamed nedt/ee/saturation_margin/dynamic_range removed; real keys registered with units/descriptions/kinds). Production consumer wired: `ChainResult.metric_records()` reads the registry on every metric render. Drift now fails CI via `tests/integration/test_metric_registry_reconciliation.py` (unregistered computed key, or `can_compute` returning False for a computed key).
 
 ### CU-086 — Re-audit PROVISIONAL atmosphere/MODTRAN audit findings after concurrent rework lands — RESOLVED 2026-07-11 (commit `bf70f73`)
 

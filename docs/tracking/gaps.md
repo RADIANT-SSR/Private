@@ -1114,10 +1114,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-04), 2026-07-11 |
-| **Status** | OPEN — GUI-blocking (Tier 1) |
-| **Description** | `ChainResult.metrics` is `Mapping[str, float]`; units live only in some key suffixes (`nedt_K`) and are absent from others (`snr`, `niirs`, `rer`); some entries are enums/booleans encoded as floats. The `RADIANT_Metrics.md` §2 MetricResult contract (name/value/unit/regime/failure_reason/derivation_chain) is unimplemented. See also CU-078 (registry drift). |
-| **Impact** | Violates the project hard rule that every displayed value carries units; every GUI table/plot/tooltip needs a hand-maintained name→unit map that drifts each time a metric is added. |
-| **Workaround** | Hand-maintained units map (each scenario script does this today). |
+| **Status** | FIXED (2026-07-11, commit `68e1fec`) — full MetricResult (regime/derivation_chain/inputs_used) remains a design target, banner in `RADIANT_Metrics.md` §2 |
+| **Description** | `ChainResult.metrics` was a bare `Mapping[str, float]`; units lived only in some key suffixes; some entries are enums/booleans encoded as floats with nothing marking them. |
+| **Fix** | Metric registry reconciled (CU-078, same commit) and made the single metadata source: every computed key has a `MetricSpec` with non-empty unit, description, and kind (float/flag/code). `ChainResult.metric_records()` returns unit-labelled `MetricRecord` tuples; `radiant.performance.metric_info(name)` for single lookups. Drift is CI-enforced (`tests/integration/test_metric_registry_reconciliation.py`): unregistered computed keys and can_compute contradictions fail. |
+| **Impact** | GUI tables/plots/tooltips bind to registry metadata; no hand-maintained units map. Scenario scripts can migrate opportunistically. |
+| **Rerun after fix** | None — additive surface; existing outputs unchanged. |
 
 ## Gap 72: No progress or cancellation hooks on long-running operations
 

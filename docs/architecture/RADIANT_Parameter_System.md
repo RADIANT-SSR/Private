@@ -207,7 +207,15 @@ source.background.emissivity          # dimensionless (0–1)
 platform.jitter_rms_urad              # rad (input: µrad)
 platform.ground_velocity_m_s          # m/s
 platform.smear_length_um              # µm (image-plane smear)
+
+performance.detection_snr_threshold   # dimensionless; SNR at which a point
+                                      # target counts as detected (Gap 77).
+                                      # Default 5.0 (Rose criterion). The
+                                      # in-chain detection-range solver bisects
+                                      # to this threshold.
 ```
+
+The nine parameter namespaces are `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, `geometry`, and `performance`. Every first segment is an owning stage (or `geometry`, the shared configuration block); `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
 
 ### Naming rules (per ADR-D, `docs/adr/ADR-D-parameter-naming.md`, 2026-07-06)
 

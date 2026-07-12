@@ -16,11 +16,11 @@
 ### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted)
 
 **Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10, commit `fe57c74`
-**Status**: DEFERRED — latent bug, never exercised (no MODTRAN binary has ever run a rendered deck). Gating condition: MODTRAN access (manual + binary needed to verify the convention). Re-audit: on access, alongside CU-011 — first real run must start with this check.
+**Status**: DEFERRED, NARROWED 2026-07-11 — the **deck-side conversion is implemented** (commit `2e707c7`): `render_tape5` now converts RADIANT's lower-endpoint path zenith to the believed-correct at-H1 convention (downlooking → `180° − zenith`, nadir-from-space renders 180; uplooking unchanged), with Level-0 tests (180 / 150 / 48.2 cases) and agreement with the run matrix's hand-worked `modtran_angle_at_h1_deg` column on all ITYPE=2 rows; `render_modtran_decks.py` reads ANGLE back from the rendered deck and its manifest caveat now flags only the four Block-E rows (ANGLE driven by solar geometry, not path zenith). **Remaining residue**: confirm the at-H1 convention against the MODTRAN user manual — the run-matrix column it now matches is itself best-effort. Gating condition: MODTRAN access (manual). Re-audit: on access, alongside CU-011 — first real run must start with this check.
 **File**: `src/radiant/atmosphere/modtran.py` (`render_tape5`, Card 3)
-**Symptom**: RADIANT's `path_zenith_rad` is written directly as MODTRAN's ANGLE, but MODTRAN measures ANGLE from zenith **at H1 (the sensor)**: a nadir-looking space sensor needs ANGLE = 180°, not 0°. The run matrix carries both columns (`path_zenith_deg_radiant`, `modtran_angle_at_h1_deg`) so the decks are specified correctly regardless.
-**Why it still matters**: if unfixed, every slant-path deck RADIANT renders would compute the wrong geometry — silently, since tape7 parses fine either way.
-**Suggested fix**: verify against the MODTRAN user manual when access arrives; fix the Card 3 conversion with a Level-0 deck-rendering test asserting the nadir-from-space case renders ANGLE = 180. Effort S; category C.
+**Symptom (pre-fix, for the record)**: RADIANT's `path_zenith_rad` was written directly as MODTRAN's ANGLE, but MODTRAN measures ANGLE from zenith **at H1 (the sensor)**: a nadir-looking space sensor needs ANGLE = 180°, not 0°.
+**Why it still matters**: the rendered decks in `modtran/decks/` are what will be handed to whoever runs real MODTRAN; a convention error there silently corrupts every slant-path validation run, since tape7 parses fine either way.
+**Suggested fix (remaining)**: on manual access, verify the at-H1 convention (and the E-block solar-geometry ANGLE handling) field-by-field; then close. Effort S; category C.
 
 ### CU-067 — Card 1's inline field-name comment does not align with its own token positions
 

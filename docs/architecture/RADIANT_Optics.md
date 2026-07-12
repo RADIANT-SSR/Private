@@ -69,6 +69,14 @@ class OpticsState:
 
 ### 3.1 Aperture shapes
 
+> **Reconciliation (CU-079, 2026-07-12).** Only the **`circular`** shape
+> (with central obscuration §3.2 and spider vanes §3.3) is reachable from
+> the parameter schema — there is no `aperture_width_m` / `aperture_height_m`
+> / `aperture_mask_file` / `aperture_shape` ParameterDef. `rectangular` is a
+> design target. A measured/arbitrary pupil mask is reachable only by
+> injecting a complex pupil pre-chain (Gap 54 route), not via the `custom`
+> file parameter below.
+
 | Shape | Parameters | Notes |
 |-------|------------|-------|
 | `circular` | `aperture_diameter_m` | Default; covers >95% of EO sensors |
@@ -101,6 +109,12 @@ The `strehl` metric (WFE-only, degraded-over-reference peak ratio) is *unaffecte
 
 ### 3.4 Apodization
 
+> **DEFERRED — DESIGN TARGET (CU-079, 2026-07-12).** Apodization is **not
+> implemented**: there is no `optics.apodization_mode` / `apodization_*`
+> ParameterDef in the shipped `_schema.py`, and `optics/aperture.py` states
+> apodization is deferred. The shipped pupil is a binary aperture mask
+> (circular/obscuration/spiders). The table below is a design target.
+
 | Mode | Parameters | Notes |
 |------|------------|-------|
 | `uniform` | (none) | Default; mask is binary 0/1 |
@@ -110,6 +124,11 @@ The `strehl` metric (WFE-only, degraded-over-reference peak ratio) is *unaffecte
 Apodization multiplies the pupil mask. The radiometric `A_collect` becomes `∫∫ A(x,y)² dx dy / max(A)²` for accurate energy throughput (so a perfectly Gaussian-apodized pupil has `A_collect ≈ 0.5 × A_geometric`).
 
 ### 3.5 `PupilDescription`
+
+> **DEFERRED — DESIGN TARGET (CU-079, 2026-07-12).** The `PupilDescription`
+> dataclass below is **not** the shipped surface; `optics/aperture.py`
+> defers it. The chain builds the complex pupil directly from the aperture
+> geometry parameters + WFE (see §4). Treat this as the planned unification.
 
 ```python
 @dataclass(frozen=True)

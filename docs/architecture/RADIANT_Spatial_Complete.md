@@ -180,9 +180,9 @@ psf_0 = psf_optical                                          # diffraction + WFE
 psf_1 = psf_0  ∗  rect(pixel_pitch_x, pixel_pitch_y)         # detector aperture
 psf_2 = psf_1  ∗  gauss(σ_diffusion_x, σ_diffusion_y)        # charge diffusion
 psf_3 = psf_2  ∗  rect(v_along · t_int, 0)                   # platform smear (along-track)
-psf_4 = psf_3  ∗  rect(0, v_cross · t_int)                   # scan smear (cross-track, if any)
+psf_4 = psf_3  ∗  rect(0, v_cross · t_int)                   # scan smear (cross-track) — NOT IMPLEMENTED (Gap 74)
 psf_5 = psf_4  ∗  rect(v_target_x · t_int_eff,
-                       v_target_y · t_int_eff)               # target motion (untracked only)
+                       v_target_y · t_int_eff)               # target motion — NOT IMPLEMENTED (Gap 74)
 psf_6 = psf_5  ∗  gauss(σ_jitter_x, σ_jitter_y)              # jitter
 psf_7 = psf_6  ∗  ipc_kernel_pitch_spaced(α, Δx, p)          # inter-pixel capacitance
 psf_8 = psf_7  ∗  kolmogorov_kernel(r0, λ)                   # turbulence (ground only)

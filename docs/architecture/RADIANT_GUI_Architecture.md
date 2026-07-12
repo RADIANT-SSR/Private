@@ -1,9 +1,24 @@
 # RADIANT GUI Architecture
 
 **Date:** 2026-04-07
-**Status:** Accepted (architecture only — implementation deferred to Phase 2)
+**Status:** DESIGN TARGET — implementation not started; several contracts revised (see banner)
 **Depends on:** RADIANT_Scripting_API.md, RADIANT_Personas.md, RADIANT_Signal_Chain_Architecture.md
 **Scope:** Defines the technology choice, layout, GUI-backend interface, and interoperability contract for the RADIANT desktop GUI. Implementation is deferred. This document ensures the scripting API and future GUI share the same backend.
+
+> **Reconciliation (2026-07-12, CU-079).** This document predates the
+> capability audit and several of its contracts have since been revised:
+> - **The `<100 ms` incremental-re-resolution / stale-DAG re-evaluation
+>   contract is DECLINED for GUI v1** (owner-ratified 2026-07-11). Measured
+>   full-chain evaluation is ~0.22 s, fast enough that simple full re-runs
+>   suffice; there is no incremental-DAG engine and none is planned for v1.
+>   Treat every "< 100 ms / incremental re-resolution / stale subgraph"
+>   claim below as design-target-only.
+> - **Parameter dot-paths quoted in examples are illustrative and may not
+>   match the shipped `_schema.py`** — generate the parameter surface from
+>   `Sensor.parameter_defs()` (Gap 70), never by transcribing this doc.
+> - The File-menu / persistence, schema-introspection, progress/cancel, and
+>   metric-metadata surfaces the GUI binds to **are** now implemented
+>   (Gaps 67/70/71/72). §4 already reflects those.
 
 ---
 

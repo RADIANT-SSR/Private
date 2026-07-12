@@ -1,8 +1,21 @@
 # RADIANT Source / Target System
 
-**Status**: Authoritative — first design pass, unified  
+**Status**: DESIGN TARGET (partially superseded) — see reconciliation banner
 **Scope**: All target and source modeling. Anything that produces a `SpectralRadiance` or `SpectralIntensity` for the chain to consume.  
 **Sister documents**: RADIANT_Conventions.md, RADIANT_Parameter_System.md, RADIANT_Signal_Chain_Architecture.md
+
+> **Reconciliation (2026-07-12, CU-079).** The unified `ResolvedTarget` /
+> ~70-parameter surface described here is **not** what the shipped chain
+> uses. The chain resolves the source via the descriptor system
+> (`radiant.source._inferrer` → `T1Thermal`/`T3Mixed`/… descriptors, ~38
+> resolved parameters). The `ResolvedTarget` class and the parallel
+> `resolve_*` / `CombinedSource` / `ReflectedSolarSource` machinery are
+> still publicly exported from `radiant.source` but are **not wired into
+> the chain** (CU-084) — do not spec the GUI's source panel against the
+> parameter surface below; enumerate it from `Sensor.parameter_defs()`
+> (Gap 70) instead. This doc is retained for the physics model and the
+> planned unification; treat the specific class/parameter contracts as
+> design targets pending the CU-084 disposition.
 
 ---
 

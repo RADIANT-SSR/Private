@@ -92,15 +92,6 @@
 **Why it still matters**: Rule 16 inspectability for MODTRAN products; a schema-generated GUI cannot express path type, irradiance mode, or spectral range for the binary flavor.
 **Suggested fix**: stand-alone task when the binary flavor becomes exercisable — thread `ground_reflected` into stage outputs (inspection-only) and add ParameterDefs for the deck knobs. Effort S-M; category B.
 
-### CU-088 — LWIR aerosol Ångström extrapolation: documented clamp plan unimplemented
-
-**Discovered**: Capability audit 2026-07 (F-19), confirmed surviving in CU-086 re-audit, 2026-07-11
-**Status**: Open
-**File**: `src/radiant/atmosphere/simple.py:290-307` (`_aerosol_extinction_km` applies `(λ/0.55)^-α` at all wavelengths); `docs/architecture/RADIANT_Atmosphere.md` §12 Open Question 2 ("it is wrong in LWIR. The current plan is to clamp…")
-**Symptom**: the default `simple` model extrapolates the visible-band Ångström power law unclamped into MWIR/LWIR, which the doc itself declares wrong; no warning fires.
-**Why it still matters**: LWIR NEDT/detection-range results from the default model embed an acknowledged-wrong aerosol term; users sweeping `visibility_km` in LWIR see spurious sensitivity.
-**Suggested fix**: inline-fix-now — clamp aerosol extinction at the SWIR/MWIR boundary per the doc's stated plan, warn once per run when the clamp engages, update the doc §12 in lock-step. Effort S; category C.
-
 ### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)
 
 **Discovered**: Gap 67 persistence task (pre-commit gate run), 2026-07-11
@@ -222,6 +213,10 @@
 ### CU-081 — Dark current temperature-inert by default — RESOLVED 2026-07-12 (commit `513c9c5`)
 
 **Discovered**: Capability audit 2026-07 (F-18), 2026-07-11. **Resolution**: `detector.dark_reference_temperature_K` default changed 300 K → 77 K to match the `detector_temperature_K` default, so the default config is self-consistent (no reference/operating mismatch). `DetectorStage` now warns when `detector_temperature_K` differs from the reference while `dark_activation_energy_eV = 0` — the temperature setting (e.g. a GUI slider) is otherwise silently inert. With the default `E_a = 0` the computed `dark_e` is unchanged, so the golden baseline is unaffected. Material-keyed activation-energy presets remain a future enhancement (pairs with Gap 69).
+
+### CU-088 — LWIR aerosol Ångström extrapolation clamp — RESOLVED 2026-07-12 (commit `eb22d5c`)
+
+**Discovered**: Capability audit 2026-07 (F-19), 2026-07-11. **Resolution**: `SimpleAtmosphere._aerosol_extinction_km` clamps the Ångström power law at `AEROSOL_CLAMP_WAVELENGTH_UM = 5.0 µm` (the MWIR–LWIR boundary): for λ > 5 µm the extinction is frozen at its 5 µm value instead of decaying unphysically toward zero, and a `UserWarning` fires once per run when the clamp engages. The boundary was placed at MWIR–LWIR (not the originally-doc-planned SWIR–MWIR / 3 µm) so the "weak but usable" MWIR power law and the flagship MWIR golden are preserved while only the genuinely-wrong long-wave extrapolation is corrected. Doc §12 updated in lock-step.
 
 ### CU-074 — `fill_factor` coupled inconsistently across PSF, MTF, and radiometry — RESOLVED 2026-07-11 (commit `3921e5d`)
 

@@ -1224,11 +1224,12 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-19), re-verified 2026-07-11 against the landed MODTRAN rework (`d56fd9c`) — CU-086 re-audit |
-| **Status** | OPEN — fix before GUI (Tier 2) |
-| **Description** | `_build_state_from_arrays` constructs `atm_emission_down` as zeros ("use separate downwelling run", `modtran.py:~1202`), so `E_sky_thermal = π·ldown = 0` for every MODTRAN-backed run; `E_sky_scattered` is likewise zeroed (documented "Stage 6 deliverable"). There is no `tape7_down_path` to ingest a downwelling run, even though the rework just proved the pattern with `tape7_sun_path`. |
-| **Impact** | Switching the atmosphere model from `simple` to `modtran` silently changes thermal-band physics — the reflected-downwelling and sky-scatter background terms disappear, making the nominally highest-fidelity model *lower*-fidelity than SimpleAtmosphere for background terms. The collapse warning does not mention it. |
-| **Workaround** | Use `atmosphere.model="simple"` for scenes where downwelling matters. |
-| **Suggested fix** | `atmosphere.modtran.tape7_down_path` mirroring the sun-leg import; ingest the tape7 SOL SCAT column for `E_sky_scattered` where present. |
+| **Status** | NARROWED (2026-07-12, commit `17943ba`) — un-silenced with a warning; full `tape7_down_path` ingestion deferred on MODTRAN access |
+| **Description** | `_build_state_from_arrays` constructs `atm_emission_down` as zeros, so `E_sky_thermal = π·ldown = 0` for every MODTRAN-backed run and `E_sky_scattered` is zeroed. There is no `tape7_down_path` to ingest a downwelling run. |
+| **Landed** | `_build_state_from_arrays` now emits a `UserWarning` naming the zeroed downwelling/scatter sky terms and the deferred fix — switching `atmosphere.model` from `simple` to `modtran` no longer *silently* drops the thermal-band background (the "collapse warning does not mention it" defect). Test-covered. |
+| **Still deferred** | The full ingestion — `atmosphere.modtran.tape7_down_path` mirroring the sun-leg import, plus the tape7 SOL SCAT column for `E_sky_scattered`. **Gating condition: MODTRAN access** — the import path has never run against a real binary and could only be validated synthetically (same gate as CU-011/065/070/087). Re-audit on MODTRAN access, alongside the first real run. Effort M; category C. |
+| **Impact** | The downwelling reduction is now loud instead of silent; MODTRAN thermal-band background fidelity still requires the deferred ingestion. |
+| **Workaround** | Use `atmosphere.model="simple"` for scenes where downwelling matters; heed the new warning. |
 
 ## Gap 82: No cloud, rain, or fog capability in any atmosphere model
 

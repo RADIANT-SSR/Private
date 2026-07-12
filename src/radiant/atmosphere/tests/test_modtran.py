@@ -799,9 +799,14 @@ class TestTape7SunLegImport:
         # Non-zero solar zenith: the sun leg is a genuinely different path.
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")  # the collapse warning must NOT fire
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             atm = model.evaluate(wl, los, params)
+        # The single-tau collapse warning (which the sun leg exists to kill)
+        # must NOT fire. The Gap 81 downwelling-zeroed warning is expected and
+        # tolerated — it is unrelated to the two-leg split.
+        collapse = [w for w in caught if "tape7_sun_path" in str(w.message)]
+        assert not collapse, [str(w.message) for w in collapse]
 
         # tau_sun comes from the sun-leg file; tau_up from the up-leg file.
         np.testing.assert_allclose(atm.tau_sun, np.full_like(wl, 0.55), rtol=0, atol=1e-6)
@@ -828,6 +833,22 @@ class TestTape7SunLegImport:
         with pytest.warns(UserWarning, match="tape7_sun_path"):
             atm = model.evaluate(wl, los, params)
         np.testing.assert_array_equal(atm.tau_sun, atm.tau_up)
+
+    @pytest.mark.level1
+    def test_downwelling_zeroed_warns(self, tmp_path: Path) -> None:
+        """Gap 81: a MODTRAN state warns that downwelling/scatter sky terms
+        are zeroed rather than silently dropping them."""
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        main = tmp_path / "up_leg.tp7"
+        _write_realistic_tape7(main)
+        config = ModtranConfig(binary_path=tmp_path / "no_modtran", allow_fallback=False)
+        model = ModtranAtmosphere(config, tape7_import=Tape7Import.from_file(main))
+        wl = np.linspace(2.5, 4.5, 30)
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
+        with pytest.warns(UserWarning, match="downwelling sky emission"):
+            state = model.build_state(wl, los)
+        assert np.all(state.atm_emission_down.values == 0.0)
 
 
 def _resolved_params_for_evaluate(session_cls: type, wavelength_um: np.ndarray) -> object:

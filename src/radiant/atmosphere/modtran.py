@@ -1180,6 +1180,26 @@ class ModtranAtmosphere:
         # in the standard IEMSCT=2 output.  Set to zeros; the user can
         # supply a separate downwelling run or use the simple-model
         # approximation for L_atm_down.
+        #
+        # Gap 81: this is a real physics reduction — the reflected-downwelling
+        # and sky-scatter background terms disappear, so a MODTRAN-backed run
+        # is *lower* fidelity than SimpleAtmosphere for the background in
+        # thermal bands. Warn loudly rather than let switching model= silently
+        # drop the terms. The full fix (ingest a separate downwelling run via
+        # atmosphere.modtran.tape7_down_path, mirroring tape7_sun_path) is
+        # gated on MODTRAN access, alongside CU-011/065/070.
+        warnings.warn(
+            "ModtranAtmosphere: downwelling sky emission (atm_emission_down / "
+            "E_sky_thermal) and scattered-solar sky radiance are set to ZERO — "
+            "the standard IEMSCT=2 tape7 carries no downwelling column. Any "
+            "reflected-downwelling or sky-scatter background term is dropped, so "
+            "in thermal bands this MODTRAN state is lower-fidelity than "
+            "SimpleAtmosphere for the background. Use atmosphere.model='simple' "
+            "where downwelling matters, or supply a separate downwelling run "
+            "(atmosphere.modtran.tape7_down_path — not yet implemented; Gap 81).",
+            UserWarning,
+            stacklevel=2,
+        )
         zeros = np.zeros_like(query_wavelength_um)
 
         return AtmosphericState(

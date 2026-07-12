@@ -20,6 +20,16 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- MODTRAN downwelling zeroing now warns (Gap 81, partial): a
+  MODTRAN-backed atmospheric state emits a `UserWarning` that the
+  downwelling sky emission (`atm_emission_down` / `E_sky_thermal`) and
+  scattered-solar sky radiance are set to zero (the standard IEMSCT=2
+  tape7 carries no downwelling column) — switching `atmosphere.model`
+  from `simple` to `modtran` no longer *silently* drops the thermal-band
+  background terms. The full fix (ingest a separate downwelling run via
+  `atmosphere.modtran.tape7_down_path`) is deferred on MODTRAN access.
+
 ### Fixed
 - **Results-affecting (`simple` atmosphere, wavelengths > 5 µm only):**
   the aerosol Ångström power law is now clamped at the MWIR–LWIR boundary

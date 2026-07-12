@@ -349,3 +349,33 @@ class TestGroundVelocityAndCollapse:
     def test_neither_set_defaults_zero(self, sensor: Sensor) -> None:
         assert sensor.get("platform.ground_velocity_m_s") == 0.0
         assert sensor.get("geometry.ground_speed_m_s") == 0.0
+
+
+class TestEnumValidation:
+    """CU-076: string-mode params reject typos via enum_values."""
+
+    @pytest.mark.level1
+    def test_tdi_mode_rejects_invalid(self, sensor: Sensor) -> None:
+        from radiant.core.exceptions import RadiantError
+
+        sensor.set("readout.tdi_mode", "Digital")  # wrong case → typo
+        with pytest.raises(RadiantError, match="must be one of"):
+            sensor.get("readout.tdi_mode")
+
+    @pytest.mark.level1
+    def test_tdi_mode_accepts_valid(self, sensor: Sensor) -> None:
+        sensor.set("readout.tdi_mode", "digital")
+        assert sensor.get("readout.tdi_mode") == "digital"
+
+    @pytest.mark.level1
+    def test_noise_regime_rejects_invalid(self, sensor: Sensor) -> None:
+        from radiant.core.exceptions import RadiantError
+
+        sensor.set("detector.noise_regime", "temporal_spatial")
+        with pytest.raises(RadiantError, match="must be one of"):
+            sensor.get("detector.noise_regime")
+
+    @pytest.mark.level1
+    def test_noise_regime_accepts_valid(self, sensor: Sensor) -> None:
+        sensor.set("detector.noise_regime", "detection")
+        assert sensor.get("detector.noise_regime") == "detection"

@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
-from typing import Any
+from typing import Any, ClassVar
 
 from radiant.core.exceptions import CoreStateError, CoreValidationError, RadiantError
 from radiant.core.units import convert, inverse_convert
@@ -168,6 +168,37 @@ class Tolerance:
 
     distribution: str
     params: dict[str, float]
+
+    # Required parameter keys per distribution (CU-085). A gaussian needs at
+    # least one of std/std_fraction, or Monte Carlo silently samples std = 0
+    # — a zero-spread "uncertainty" study that looks valid.
+    _REQUIRED: ClassVar[dict[str, tuple[frozenset[str], ...]]] = {
+        "gaussian": (frozenset({"std", "std_fraction"}),),
+        "uniform": (frozenset({"low"}), frozenset({"high"})),
+        "truncated_gaussian": (
+            frozenset({"std", "std_fraction"}),
+            frozenset({"low"}),
+            frozenset({"high"}),
+        ),
+        "log_normal": (frozenset({"sigma"}),),
+    }
+
+    def __post_init__(self) -> None:
+        required = self._REQUIRED.get(self.distribution)
+        if required is None:
+            raise CoreValidationError(
+                f"Tolerance: unknown distribution '{self.distribution}'. "
+                f"Valid: {sorted(self._REQUIRED)}."
+            )
+        for group in required:
+            if not (group & self.params.keys()):
+                opts = " or ".join(sorted(group))
+                raise CoreValidationError(
+                    f"Tolerance('{self.distribution}'): missing required "
+                    f"parameter {opts}. A '{self.distribution}' tolerance with "
+                    f"params={self.params} would silently sample zero spread "
+                    "(CU-085). Provide the distribution parameters explicitly."
+                )
 
     def sample(self, nominal: float, rng: Any) -> float:
         """Draw a single sample given a nominal value and a numpy Generator."""
@@ -629,13 +660,15 @@ class ParameterSet:
         n_total = len(group.parameters)
 
         if n_set == n_total:
-            # Over-specified — validate consistency
-            free = group.parameters[0]
+            # Over-specified — validate consistency. CU-085: choose a free
+            # variable that actually has a derivation rule; the old code used
+            # parameters[0] unconditionally and silently skipped the check
+            # (except KeyError: return) whenever the first parameter lacked one.
+            free = next((p for p in group.parameters if p in group.derivations), None)
+            if free is None:
+                return  # no derivation rules at all — cannot validate
             known = {p: self._resolved[p].value for p in group.parameters if p != free}
-            try:
-                computed = group.derivations[free](known)
-            except KeyError:
-                return
+            computed = group.derivations[free](known)
             actual = self._resolved[free].value
             if abs(computed - actual) > group.tolerance * max(abs(actual), 1.0):
                 raise CoreValidationError(

@@ -13,6 +13,7 @@ of ``NoiseTerm`` objects (after applying TDI/binning/coadd scaling).
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 
@@ -55,6 +56,23 @@ class DetectorStage:
         detector_temp_K: float = params.get("detector.detector_temperature_K")
         if dark.activation_energy_eV > 0.0:
             dark = dark.at_temperature(detector_temp_K)
+        elif abs(detector_temp_K - dark.reference_temperature_K) > 1.0:
+            # CU-081: with no Arrhenius activation energy, dark current is
+            # temperature-inert — the detector_temperature_K setting (e.g. a
+            # GUI slider) silently has no effect on dark noise. Warn loudly
+            # rather than let it read as "temperature doesn't matter".
+            warnings.warn(
+                f"DetectorStage: detector_temperature_K = {detector_temp_K:.1f} K "
+                f"differs from dark_reference_temperature_K = "
+                f"{dark.reference_temperature_K:.1f} K, but "
+                "detector.dark_activation_energy_eV = 0, so dark current does NOT "
+                "scale with temperature — the temperature setting has no effect on "
+                "dark noise. Set dark_activation_energy_eV (e.g. ~0.5 eV for MWIR "
+                "HgCdTe) for Arrhenius temperature scaling, or reference the "
+                "dark rate to the operating temperature (CU-081).",
+                UserWarning,
+                stacklevel=2,
+            )
         dark_e = dark.electrons_accumulated(t_int)
 
         # --- Glow ---
@@ -138,7 +156,9 @@ class DetectorStage:
             # IPC MTF (both axes).
             if ipc_coupling > 0.0:
                 mtf_ipc_x = ipc_mtf_1d(freq_m, ipc_coupling, pixel_pitch_x, axis="x")
-                mtf_ipc_y = ipc_mtf_1d(freq_m, ipc_coupling, pixel_pitch_x, axis="y")
+                # CU-085: the y-axis MTF must use the y pitch (was pixel_pitch_x —
+                # wrong for rectangular pixels; harmless when pitch_x == pitch_y).
+                mtf_ipc_y = ipc_mtf_1d(freq_m, ipc_coupling, pixel_pitch_y, axis="y")
             else:
                 mtf_ipc_x = np.ones_like(freq_m)
                 mtf_ipc_y = np.ones_like(freq_m)

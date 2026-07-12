@@ -137,6 +137,7 @@ TDI_MODE = ParameterDef(
     canonical_unit="",
     input_unit="",
     default="analog",
+    enum_values=("analog", "digital"),
     tags=frozenset({"readout", "tdi"}),
     default_justification="Analog TDI is the traditional CCD-based approach.",
 )

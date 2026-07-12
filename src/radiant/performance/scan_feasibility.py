@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from radiant.performance.errors import PerformanceValidationError
+
 
 @dataclass(frozen=True)
 class ScanFeasibility:
@@ -70,15 +72,21 @@ def scan_feasibility(
 
     Raises
     ------
-    ValueError
+    PerformanceValidationError
         If any input is non-positive.
     """
     if gsd_along_track_m <= 0.0:
-        raise ValueError(f"gsd_along_track_m must be positive, got {gsd_along_track_m}")
+        raise PerformanceValidationError(
+            f"gsd_along_track_m must be positive, got {gsd_along_track_m}"
+        )
     if ground_velocity_m_s <= 0.0:
-        raise ValueError(f"ground_velocity_m_s must be positive, got {ground_velocity_m_s}")
+        raise PerformanceValidationError(
+            f"ground_velocity_m_s must be positive, got {ground_velocity_m_s}"
+        )
     if integration_time_s <= 0.0:
-        raise ValueError(f"integration_time_s must be positive, got {integration_time_s}")
+        raise PerformanceValidationError(
+            f"integration_time_s must be positive, got {integration_time_s}"
+        )
 
     t_dwell = gsd_along_track_m / ground_velocity_m_s
     smear_pixels = integration_time_s / t_dwell

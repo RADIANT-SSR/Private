@@ -20,7 +20,34 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting (only when `dark_activation_energy_eV > 0` and the
+  reference was left at its default):** `detector.dark_reference_temperature_K`
+  default changed 300 K → 77 K to match the `detector_temperature_K` default
+  (CU-081), so the default config is self-consistent. With the default
+  `dark_activation_energy_eV = 0` the dark rate is temperature-inert, so
+  `dark_e` is unchanged for the default config and the golden baseline.
+
 ### Added
+- Enum validation on `readout.tdi_mode` (`analog`/`digital`) and
+  `detector.noise_regime` (`imaging`/`detection`) (CU-076): a typo now
+  raises at resolve instead of silently selecting the wrong model
+  (analog scaling / dropped spatial noise).
+- Dark-current temperature-inertness warning (CU-081): when
+  `detector_temperature_K` differs from the reference and
+  `dark_activation_energy_eV = 0`, `DetectorStage` warns that the
+  temperature setting has no effect on dark noise (a GUI temperature
+  slider that silently does nothing).
+- Validation hardening (CU-085): `Tolerance` now validates its
+  distribution and required spread parameters at construction (a
+  parameter-less gaussian previously sampled zero spread silently); the
+  consistency-group over-specification check no longer skips when the
+  first parameter lacks a derivation rule; velocity smear warns instead
+  of silently returning 0 when altitude/integration time is missing; the
+  IPC y-axis MTF uses the y pitch (was x — wrong for rectangular pixels);
+  the CLI provenance version reads `radiant.__version__` (was hardcoded
+  "0.1.0"); the `pixel_pitch_y_um` "defaults to x pitch" description
+  (false — it is required) is corrected.
 - SCNR and in-chain point-source detection range (Gap 77): new `scnr`
   metric (signal-to-clutter-plus-noise — target contrast over the
   clutter-inclusive total noise √(σ_temporal² + σ_spatial²), the detection

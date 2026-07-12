@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import math
+import warnings
 
 import numpy as np
 
@@ -250,23 +251,39 @@ class PlatformStage:
         if velocity <= 0.0:
             return 0.0
 
-        # Need altitude and integration time.
+        # Need altitude and integration time. CU-085: the user explicitly set
+        # a ground velocity, so a missing/zero altitude or integration time
+        # means the requested velocity smear is silently dropped — warn rather
+        # than return 0 quietly.
         try:
             altitude_m: float = params.get("geometry.sensor_altitude_m")
         except (KeyError, TypeError):
-            logger.debug("Smear: ground_velocity set but no altitude; skipping.")
-            return 0.0
-
+            altitude_m = 0.0
         if altitude_m <= 0.0:
+            warnings.warn(
+                "PlatformStage: platform.ground_velocity_m_s > 0 but "
+                "geometry.sensor_altitude_m is missing or ≤ 0, so the velocity "
+                "smear is not computed (returned 0). Set a positive altitude, "
+                "or provide platform.smear_length_um directly (CU-085).",
+                UserWarning,
+                stacklevel=2,
+            )
             return 0.0
 
         try:
             t_int_s: float = params.get("spectral_integration.integration_time_s")
         except (KeyError, TypeError):
-            logger.debug("Smear: ground_velocity set but no integration_time; skipping.")
-            return 0.0
-
+            t_int_s = 0.0
         if t_int_s <= 0.0:
+            warnings.warn(
+                "PlatformStage: platform.ground_velocity_m_s > 0 but "
+                "spectral_integration.integration_time_s is missing or ≤ 0, so "
+                "the velocity smear is not computed (returned 0). Set a positive "
+                "integration time, or provide platform.smear_length_um "
+                "directly (CU-085).",
+                UserWarning,
+                stacklevel=2,
+            )
             return 0.0
 
         # Use slant range for off-nadir consistency.

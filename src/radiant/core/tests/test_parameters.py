@@ -196,11 +196,21 @@ def test_tolerance_log_normal_positive() -> None:
 
 @pytest.mark.level0
 def test_tolerance_unknown_distribution() -> None:
-    """Unknown distribution raises ValueError."""
-    rng = np.random.default_rng(42)
-    tol = Tolerance("banana_distribution", {})
-    with pytest.raises(ValueError, match="Unknown distribution"):
-        tol.sample(1.0, rng)
+    """Unknown distribution raises ValueError at construction (fail-fast, CU-085)."""
+    with pytest.raises(ValueError, match="unknown distribution"):
+        Tolerance("banana_distribution", {})
+
+
+@pytest.mark.level0
+def test_tolerance_missing_params_raise() -> None:
+    """CU-085: a distribution with no spread parameter raises instead of
+    silently sampling zero spread."""
+    with pytest.raises(ValueError, match="missing required parameter"):
+        Tolerance("gaussian", {})
+    with pytest.raises(ValueError, match="missing required parameter"):
+        Tolerance("uniform", {"low": 0.0})  # missing high
+    with pytest.raises(ValueError, match="missing required parameter"):
+        Tolerance("log_normal", {})
 
 
 # ---------------------------------------------------------------------------
@@ -1314,3 +1324,25 @@ class TestSchemaIntrospection:
         ):
             with pytest.raises(UnknownParameterError, match="Did you mean"):
                 call()
+
+
+@pytest.mark.level0
+def test_overspec_check_when_first_param_lacks_derivation() -> None:
+    """CU-085: an over-specified consistency group is validated even when
+    parameters[0] has no derivation rule (previously silently skipped)."""
+    schema = [
+        ParameterDef(name="g.a", description="a", dtype=float, canonical_unit="", input_unit=""),
+        ParameterDef(name="g.b", description="b", dtype=float, canonical_unit="", input_unit=""),
+    ]
+    # Only 'g.b' has a derivation; 'g.a' (parameters[0]) does not.
+    group = ConsistencyGroup(
+        name="ident",
+        parameters=("g.a", "g.b"),
+        constraint="g.a == g.b",
+        derivations={"g.b": lambda kv: kv["g.a"]},
+    )
+    ps = ParameterSet(schema, [group])
+    ps.set("g.a", 5.0)
+    ps.set("g.b", 9.0)  # inconsistent with g.a
+    with pytest.raises(ValueError, match="over-constrained"):
+        ps.resolve()

@@ -198,7 +198,9 @@ def run(
             click.echo(f"Results written to {output_path}")
 
     if provenance_path is not None:
-        prov = params.to_provenance_record(radiant_version="0.1.0")
+        from radiant import __version__ as _radiant_version
+
+        prov = params.to_provenance_record(radiant_version=_radiant_version)
         Path(provenance_path).write_text(json.dumps(prov, indent=2), encoding="utf-8")
         if not quiet:
             click.echo(f"Provenance written to {provenance_path}")

@@ -8,6 +8,7 @@ per-pixel electron counts and the raw NoiseBudget in
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -166,3 +167,39 @@ class TestDetectorStage:
     @pytest.mark.level1
     def test_name(self) -> None:
         assert DetectorStage().name == "detector"
+
+
+class TestDarkTemperatureWarning:
+    """CU-081: warn when temperature is set but dark current is inert."""
+
+    @pytest.mark.level1
+    def test_warns_on_temp_mismatch_with_zero_activation(self) -> None:
+        params = _make_params()
+        params.set("detector.detector_temperature_K", 120.0)  # != 77 K reference
+        params.set("detector.dark_activation_energy_eV", 0.0)
+        params.resolve()
+        state = _make_state(np.linspace(3.5, 5.0, 50))
+        with pytest.warns(UserWarning, match="does NOT scale with temperature"):
+            DetectorStage().run(state, params)
+
+    @pytest.mark.level1
+    def test_no_warning_at_reference_temperature(self) -> None:
+        params = _make_params()
+        params.set("detector.detector_temperature_K", 77.0)  # == default reference
+        params.set("detector.dark_activation_energy_eV", 0.0)
+        params.resolve()
+        state = _make_state(np.linspace(3.5, 5.0, 50))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            DetectorStage().run(state, params)  # must not raise
+
+    @pytest.mark.level1
+    def test_no_warning_with_activation_energy(self) -> None:
+        params = _make_params()
+        params.set("detector.detector_temperature_K", 120.0)
+        params.set("detector.dark_activation_energy_eV", 0.5)
+        params.resolve()
+        state = _make_state(np.linspace(3.5, 5.0, 50))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            DetectorStage().run(state, params)  # temperature scaling active → no warning

@@ -25,7 +25,11 @@ PIXEL_PITCH_X = ParameterDef(
 
 PIXEL_PITCH_Y = ParameterDef(
     name="detector.pixel_pitch_y_um",
-    description="Pixel pitch along the along-track (y) axis. Defaults to x pitch.",
+    description=(
+        "Pixel pitch along the along-track (y) axis. Required — there is no "
+        "'defaults to x pitch' fallback; set it explicitly (equal to "
+        "pixel_pitch_x_um for square pixels)."
+    ),
     dtype=float,
     canonical_unit="m",
     input_unit="um",
@@ -141,9 +145,15 @@ DARK_REFERENCE_TEMP = ParameterDef(
     dtype=float,
     canonical_unit="K",
     input_unit="K",
-    default=300.0,
+    default=77.0,
     bounds=(1.0, 500.0),
     tags=frozenset({"detector", "dark"}),
+    default_justification=(
+        "Matches the detector_temperature_K default (77 K) so the default "
+        "config is self-consistent: with dark_activation_energy_eV = 0 the "
+        "dark rate is temperature-inert, and a mismatched reference would "
+        "otherwise make the default warn spuriously (CU-081)."
+    ),
 )
 
 DARK_ACTIVATION_EV = ParameterDef(
@@ -271,6 +281,7 @@ NOISE_REGIME = ParameterDef(
     canonical_unit="",
     input_unit="",
     default="imaging",
+    enum_values=("imaging", "detection"),
     tags=frozenset({"detector", "noise"}),
 )
 

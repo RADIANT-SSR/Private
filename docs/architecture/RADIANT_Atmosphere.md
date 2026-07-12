@@ -22,7 +22,22 @@ Five guiding rules:
 
 ## 2. The `AtmosphericState` Contract
 
+> **Implementation reality (reconciled 2026-07-12).** The shipped
+> `AtmosphericState` (`atmosphere/protocol.py`) is a frozen dataclass with **five
+> fields**: `transmittance`, `path_radiance`, `atm_emission_down` (all
+> `SpectralData`), `geometry` (`AtmosphericGeometry`), and `derivation_chain`.
+> The additional fields in the block below — `model`, `cache_key`, `air_mass`,
+> `slant_path_length_m`, `turbulence`, `native_output` — are **design-target,
+> deferred to a later phase** (the class docstring says so explicitly).
+> Consequently invariant 3 (`air_mass`/`slant_path_length_m` stored on the state)
+> and invariant 4 (`turbulence` field) below describe intended, not shipped,
+> behavior. `AtmosphereModel` is not a shipped enum type; the model is selected by
+> the `atmosphere.model` **string** parameter, whose five legal values are
+> `simple`, `exo`, `tabulated`, `modtran`, `interpolated` (§3).
+
 ```python
+# The `model`/`cache_key`/`air_mass`/`slant_path_length_m`/`turbulence`/
+# `native_output` fields below are DESIGN-TARGET — see the banner above.
 @dataclass(frozen=True)
 class AtmosphericState:
     """Everything the chain needs to know about the atmospheric path.
@@ -62,7 +77,14 @@ class AtmosphericState:
 
 ---
 
-## 3. The Four Unified Input Paths
+## 3. The Unified Input Paths
+
+> **Five models, not four.** In addition to the four paths below, a fifth model —
+> `interpolated` (`atmosphere/interpolated.py`, `InterpolatedAtmosphere`) — serves
+> `AtmosphericState` by interpolating between pre-computed MODTRAN runs at discrete
+> geometry points. It is file-backed (`FILE_BACKED_MODELS`, §8.1) like `tabulated`.
+> The diagram and subsections below predate it; treat `interpolated` as a sixth box
+> feeding the same single `AtmosphericState` contract.
 
 ```
               ┌──────────────────────────────────┐
@@ -102,7 +124,7 @@ A closed-form Beer-Lambert model with three knobs that map to the things a worki
 ```
 L_path(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · [1 − τ_atm(λ)]
 ```
-where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.75`. This is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
+where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.7` (`simple.HG_ASYMMETRY`). This is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
 
 **Atmospheric thermal emission** for the simple model uses a graybody approximation at the path-mean temperature:
 ```
@@ -294,7 +316,7 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 
 | Parameter | Unit / type | Default | Required for | Notes |
 |-----------|-------------|---------|--------------|-------|
-| `atmosphere.model` | enum: `simple`, `tabulated`, `modtran`, `exo` | auto from observer/target type | all | Auto: `exo` if both endpoints space; `simple` otherwise |
+| `atmosphere.model` | enum: `simple`, `exo`, `tabulated`, `modtran`, `interpolated` | `simple` (schema default) | all | Five legal values; `interpolated` interpolates between pre-computed runs |
 | `atmosphere.turbulence_enabled` | bool | `False` | ground only | Rejected if observer is space |
 
 ### 6.2 Simple parametric
@@ -430,9 +452,17 @@ The "soft" warning bounds are RADIANT-specific tripwires for the most common for
 
 ---
 
-## 10. Plugin Hook
+## 10. Plugin Hook **[DESIGN-TARGET]**
 
-Per RADIANT_File_Tree.md, atmosphere is a plugin extension point: users can register a custom `AtmospherePlugin` that returns an `AtmosphericState` from a parameter set. This is how a future libRadtran or 6S wrapper would integrate without touching core code.
+> **Not implemented.** The `plugins/` package was removed 2026-07-06 (see
+> `RADIANT_Plugins.md`, DEFERRED banner). There is no `AtmospherePlugin` ABC and
+> no `radiant.plugins.atmosphere` entry point. The five built-in models are
+> dispatched directly by `atmosphere/loaders.py` (`build_atmosphere_model`) and
+> `assembly.py`, **not** through a plugin registry — so the claim below that "the
+> plugin interface is the only interface" is design intent, not current behavior.
+> The extension-point design returns when `RADIANT_Plugins.md` is implemented.
+
+Per the (deferred) plugin design, atmosphere would be a plugin extension point: users could register a custom `AtmospherePlugin` that returns an `AtmosphericState` from a parameter set. This is how a future libRadtran or 6S wrapper would integrate without touching core code.
 
 ```python
 class AtmospherePlugin(ABC):

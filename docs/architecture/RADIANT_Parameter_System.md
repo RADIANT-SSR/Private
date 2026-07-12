@@ -184,7 +184,7 @@ geometry.ground_speed_m_s             # m/s
 # and (post-CU-009) by SourceStage's `_infer_los` for
 # `LineOfSightGeometry` construction.  See RADIANT_Atmosphere.md §6.5.
 
-atmosphere.model                      # enum: "unity", "simple", "tabulated", "modtran", "interpolated"
+atmosphere.model                      # enum: "simple", "exo", "tabulated", "modtran", "interpolated"
 atmosphere.visibility_km              # km
 atmosphere.precipitable_water_cm      # cm
 atmosphere.standard_atmosphere        # enum: "tropical", "midlat_summer", "midlat_winter",

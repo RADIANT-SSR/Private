@@ -13,6 +13,159 @@
 ## Open
 
 
+### CU-072 — Parallel sweep (`n_workers>1`) crashes with unhandled PicklingError
+
+**Discovered**: Capability audit 2026-07 (`docs/reports/capability_audit_2026-07/` F-06), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/api/sweep.py:220-236`
+**Symptom**: the pickle fallback catches only `(TypeError, AttributeError)` at `pool.submit` time, but `ProcessPoolExecutor` pickles asynchronously — the failure surfaces at `fut.result()` as `_pickle.PicklingError`, which nothing catches; the documented sequential fallback never triggers.
+**Why it still matters**: the advertised parallelism knob crashes the exact long-sweep workload a GUI leans on.
+**Suggested fix**: inline-fix-now — catch `pickle.PicklingError` at result time (or probe-pickle the payload up front) and fall back to sequential. Effort S; category A.
+
+### CU-073 — Unknown-parameter errors are bare `KeyError`, not `RadiantError` (Rule 15 drift)
+
+**Discovered**: Capability audit 2026-07 (F-07), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/core/parameters.py:357,415,425,681-682`
+**Symptom**: `Sensor.set('optics.aperture_diamter_m', 0.3)` raises `KeyError`, escaping `except RadiantError` — the documented single framework-error boundary misses the most common user mistake.
+**Why it still matters**: a GUI or script window shows a raw traceback for every typo'd parameter name; contradicts Rule 15's "every framework-defined error lands here" claim.
+**Suggested fix**: stand-alone task — new `UnknownParameterError(RadiantError, KeyError)` preserving the did-you-mean suggestion and back-compat `except KeyError`. Effort S; category B.
+
+### CU-074 — `fill_factor` applied on PSF path only: MTF product and radiometry ignore it (Rule 4 divergence)
+
+**Discovered**: Capability audit 2026-07 (F-11), 2026-07-11 — verified
+**Status**: Open
+**File**: `src/radiant/optics/pixel_kernel.py:57-58` (applies pitch×fill_factor) vs `src/radiant/detector/stage.py` (mtf_pixel sinc, no fill_factor) and `src/radiant/spectral_integration/stage.py` (A_pixel, no fill_factor)
+**Symptom**: any `fill_factor < 1` makes the two Rule-4 spatial paths diverge (consistency warning on every run) and collects unphysically high signal (full-pitch pixel area used radiometrically).
+**Why it still matters**: fill factor is a basic detector input; current behavior is silently wrong in three coupled places.
+**Suggested fix**: stand-alone task — thread fill_factor into detector MTF (sinc over active width) and radiometric A_pixel; add dual-path consistency test at fill_factor=0.8. Effort M; category C.
+
+### CU-075 — `scenarios/README.md` status table stale: 21 implemented scenarios marked "stub"
+
+**Discovered**: Capability audit 2026-07 (F-21), 2026-07-11 — the stale table misled the audit's own charter
+**Status**: Open
+**File**: `scenarios/README.md` (Status section)
+**Symptom**: table says "14 of 35 implemented"; per-folder inspection shows all 35 scenarios (plus 08_interpolation 8.1/8.2) fully executed 2026-07-08/09 with walkthrough/gaps/gui_workflow trios.
+**Why it still matters**: the canonical evidence index under-reports tool maturity by 60 %.
+**Suggested fix**: inline-fix-now — regenerate the table. Effort S; category A.
+
+### CU-076 — String-mode parameters lack enum validation (`readout.tdi_mode`, `detector.noise_regime`)
+
+**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/readout/stage.py:164`; `src/radiant/detector/_schema.py:264-275`
+**Symptom**: `tdi_mode='Digital'` (or any typo) silently selects analog scaling; `noise_regime='Detection'` silently selects imaging and drops all spatial noise from SNR. ParameterDef supports `enum_values`; these params don't use it.
+**Why it still matters**: YAML/script paths behind the GUI silently mis-model read noise (×1 vs ×√N) and FPN.
+**Suggested fix**: inline-fix-now — add `enum_values` to both; audit other free-string params. Effort S; category B.
+
+### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
+
+**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — verified (only consumer is a "deferred" docstring)
+**Status**: Open
+**File**: `src/radiant/readout/_schema.py:90`; `src/radiant/readout/read_noise.py:24`; `docs/architecture/RADIANT_Detector_Complete.md` §4.1
+**Symptom**: schema + three docs describe a √2 pre-CDS read-noise scaling and a 0.7 flicker-suppression factor; no code reads either.
+**Why it still matters**: schema-generated GUI forms render a no-op toggle; users entering pre-CDS datasheet noise are silently ~41 % low.
+**Suggested fix**: stand-alone task — implement both or delete parameter and doc claims in lock-step (Rule 20). Effort S-M; category C.
+
+### CU-078 — Metric registry drifted: declares metrics never computed, zero production consumers
+
+**Discovered**: Capability audit 2026-07 (F-04), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/performance/registry.py` (nedl :99, nedr :107, edge_slope :143, detection_range :190)
+**Symptom**: `can_compute/available_metrics` is consumed only by its own tests; it declares four metrics `stage.py` never computes and uses names that mismatch actual metric keys.
+**Why it still matters**: this is the natural GUI oracle for graying out unavailable metrics; today it lies.
+**Suggested fix**: stand-alone task — reconcile with `stage.py` (or fold into the Gap 71 metric-contract work) and wire one production consumer. Effort M; category B.
+
+### CU-079 — "Authoritative" architecture docs describe unimplemented systems (aspirational-drift class)
+
+**Discovered**: Capability audit 2026-07 (F-20), 2026-07-11
+**Status**: Open
+**File**: `docs/architecture/RADIANT_Source_Target_System.md` (ResolvedTarget + 70-param surface vs shipped 38-param descriptors); `RADIANT_Scan_Timing.md` (zero code — verified); `RADIANT_Spatial_Complete.md` (scan/target-motion smear sources); `RADIANT_Metrics.md` §2-3 (MetricResult/plugin contract); `RADIANT_GUI_Architecture.md` (wrong parameter dot-paths; unbacked <100 ms incremental-DAG contract); `RADIANT_Optics.md` §3.1/3.4/3.5 (aperture shapes, apodization, PupilDescription)
+**Symptom**: docs with Authoritative/Accepted status specify parameter surfaces, contracts, and latency budgets that grep proves absent from `src/`.
+**Why it still matters**: anyone speccing the GUI from the docs designs against phantom surfaces — the drift profile Rule 20 exists to prevent, at its largest recorded scale.
+**Suggested fix**: stand-alone task per doc — re-banner unbuilt sections DEFERRED-design or reconcile to shipped code; the GUI arch doc refresh must precede GUI kickoff. Effort M total; category A/B.
+
+### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README)
+
+**Discovered**: Capability audit 2026-07 (F-23), 2026-07-11
+**Status**: Open
+**File**: `data/detectors/*.csv` (no manifest/citations); `data/solar/solar_irradiance_am0.csv` (Planck fit labeled AM0, ±5 % TSI-only validation); `data/emissivity/*.csv` (19 materials on one identical synthetic 84-point grid, no committed generator — Rule 26 tension); `data/atmospheres/README.md` (names nonexistent `atmosphere.modtran_file` and `radiant.io.modtran`)
+**Symptom**: library dropdowns present untraceable representative curves as reference data; the README sends users to a parameter that raises.
+**Why it still matters**: users comparing against vendor datasheets get unexplained deviations; violates the manifest-per-data-family convention.
+**Suggested fix**: stand-alone task — manifests naming generator+source per family; fix the README; label or replace synthetic curves. Effort M; category A.
+
+### CU-081 — Dark current is temperature-inert by default (`dark_activation_energy_eV = 0`)
+
+**Discovered**: Capability audit 2026-07 (F-18), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/detector/_schema.py:149-160`; `src/radiant/detector/stage.py:54-55`
+**Symptom**: changing `detector_temperature_K` has zero effect on dark noise unless the user supplies an Arrhenius activation energy; dark-rate default (100 e-/s) is referenced to 300 K while temperature defaults to 77 K.
+**Why it still matters**: a GUI temperature slider — the most expected IR-tool control — silently does nothing in the default config; demo-embarrassing and physically misleading.
+**Suggested fix**: stand-alone task — material-keyed activation-energy presets (pairs with Gap 69 `qe_material`) or a loud warning when T ≠ T_ref with E_a = 0. Effort S-M; category C.
+
+### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
+
+**Discovered**: Capability audit 2026-07 (F-26), 2026-07-11
+**Status**: Stage-deferred (gating stage: GUI kickoff; re-audit at GUI kickoff)
+**File**: `dev_tools/geometry_gui_v2/README.md`, `ARCHITECTURE.md` (claim slider panel deferred per CU-052 — but `app/panels/parameters.py` ships it wired); `tests/` (only golden_phase1 exists vs C8's "every phase" claim; round-3 report references 25 absent PNGs)
+**Symptom**: prototype's own records contradict its shipped code and test tree.
+**Why it still matters**: GUI-restart planning will double-count done work and mis-sequence CU-052/053/054 (whose gating claims may already be satisfied).
+**Suggested fix**: inline-fix-now at GUI kickoff — refresh records, re-render goldens, re-audit the three deferred CUs. Effort S; category A.
+
+### CU-083 — IPC kernel applied at PSF sample spacing instead of pixel pitch (PSF-path effect far too small)
+
+**Discovered**: Capability audit 2026-07 (F-18; scenario 2.3 gaps evidence), 2026-07-11 — needs reproduction; Gap 1 was closed without covering kernel spacing
+**Status**: Open
+**File**: PSF-path IPC application (`EffectivePSF.with_kernel("ipc", ...)`, performance stage)
+**Symptom**: the 3×3 IPC kernel convolves at PSF sample spacing (sub-µm samples) rather than at pixel pitch, so the PSF-path IPC degradation is orders of magnitude smaller than the analytic MTF_IPC = 1−4α; scenario 2.3 fell back to the analytic formula as authoritative.
+**Why it still matters**: Rule 4 requires both paths to agree; PSF-path spatial metrics (RER, FWHM, EE) under-report IPC degradation.
+**Suggested fix**: stand-alone task — reproduce, resample the kernel to pitch (as pixel/electronics kernels do), add a dual-path IPC consistency test. Effort M; category C.
+
+### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27)
+
+**Discovered**: Capability audit 2026-07 (F-22), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/source/__init__.py` (exports ResolvedTarget, five `resolve_*` paths, CombinedSource, ReflectedSolarSource, SurfaceMaterial, SubPixelSource, CompositeTarget…)
+**Symptom**: a complete parallel source system is publicly importable but not connected to the chain; its CombinedSource applies no atmospheric attenuation to the solar term.
+**Why it still matters**: two "source systems" in the public API invite integrators (or the GUI) to bind the dead, physically wrong one; violates one-canonical-version.
+**Suggested fix**: delete-as-unused (or wire deliberately and document) — decide alongside the CU-079 Source doc reconciliation. Effort S-M; category B.
+
+### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots)
+
+**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — grouped as one sweep task; items are individually small and same-shaped
+**Status**: Open
+**File**: `core/parameters.py:144-178` (Tolerance unvalidated at construction; empty gaussian params silently sample std=0, so MC "uncertainty" studies can be zero-spread and look valid); `core/parameters.py:618-625` (ConsistencyGroup over-spec check silently passes when the first parameter lacks a derivation rule); `core/spectral.py:486-504` (SpectralDataStore.add constant-extrapolates non-covering curves at DEBUG level); `platform/stage.py:253-267` (velocity smear silently zero when altitude/t_int missing though the user explicitly set a velocity); `detector/_schema.py:26-35` (pixel_pitch_y "defaults to x pitch" is false — hard resolve error); `detector/stage.py:115-116` (IPC y-axis MTF uses x pitch); readout digital-TDI branches (zero test coverage anywhere); `cli/run.py:201` (hardcoded version "0.1.0" in provenance).
+**Symptom**: each item silently degrades, misdescribes, or leaves unverified a user-reachable path.
+**Why it still matters**: exactly the silent-failure class Rules 16/17 forbid; a GUI amplifies each into invisible wrong answers.
+**Suggested fix**: stand-alone sweep task — warn/raise/fix per item, one PR, one test each. Effort M; category B.
+
+### CU-086 — Re-audit PROVISIONAL atmosphere/MODTRAN audit findings after concurrent rework lands
+
+**Discovered**: Capability audit 2026-07 (F-19), 2026-07-11
+**Status**: Investigating — re-audit COMPLETE 2026-07-11 against landed rework (`d56fd9c`); dispositioned below; move to Resolved with the commit that lands this registry update
+**File**: `src/radiant/atmosphere/modtran.py`, `loaders.py`, `atmosphere/_schema.py`
+**Symptom**: audit findings recorded while another agent was actively editing these files. Re-audit dispositions (each grep-verified against `d56fd9c`): **(1) two-leg collapse** — RESOLVED by `tape7_sun_path` (dc348f7); warning now fires only when the sun-leg file is absent. **(2) Downwelling zeroed** — SURVIVES → **Gap 81**. **(3) E_sky_scattered zeroed** — SURVIVES → folded into **Gap 81**. **(4) Parsed tape7 columns dropped + remaining ModtranConfig knobs unwired** — SURVIVES (narrowed: `visibility_km` now wired via loaders) → **CU-087**. **(5) No cloud/rain** — SURVIVES → **Gap 82**. **(6) LWIR aerosol clamp unimplemented** — SURVIVES (untouched by rework) → **CU-088**. **(7) Uplooking geometry rejection** — Declined, owner-ratified 2026-07-11. **(8) CU-071 silent clamp** — unchanged, stays open (the new sun-leg path deliberately does not clip, citing CU-071).
+**Why it still matters**: closure record — supersedes the PROVISIONAL markers in `docs/reports/capability_audit_2026-07/Findings.md` (correction doc: `2026-07-11_modtran_reaudit.md` in that folder).
+**Suggested fix**: none remaining — close on commit. Effort done; category A.
+
+### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
+
+**Discovered**: CU-086 re-audit of the landed MODTRAN rework (`d56fd9c`), 2026-07-11
+**Status**: Stage-deferred (gating stage: MODTRAN binary flavor / CU-011 remainder; re-audit alongside CU-011's first-real-run check)
+**File**: `src/radiant/atmosphere/modtran.py` (`to_radiant_units` returns `ground_reflected`, cached and carried by `Tape7Import`, but `_build_state_from_arrays` (:1147-1155) takes no such argument — verified post-rework); `ModtranConfig` fields `itype`, `iemsct`, `v1_cm1`, `v2_cm1`, `extra_cards` still have no ParameterDef and are never passed by `loaders._build_modtran` (`visibility_km` was wired by the rework)
+**Symptom**: MODTRAN component radiances users expect to inspect (ground-reflected et al.) are parsed then silently dropped; deck-rendering knobs are reachable only by constructing `ModtranConfig` in Python.
+**Why it still matters**: Rule 16 inspectability for MODTRAN products; a schema-generated GUI cannot express path type, irradiance mode, or spectral range for the binary flavor.
+**Suggested fix**: stand-alone task when the binary flavor becomes exercisable — thread `ground_reflected` into stage outputs (inspection-only) and add ParameterDefs for the deck knobs. Effort S-M; category B.
+
+### CU-088 — LWIR aerosol Ångström extrapolation: documented clamp plan unimplemented
+
+**Discovered**: Capability audit 2026-07 (F-19), confirmed surviving in CU-086 re-audit, 2026-07-11
+**Status**: Open
+**File**: `src/radiant/atmosphere/simple.py:290-307` (`_aerosol_extinction_km` applies `(λ/0.55)^-α` at all wavelengths); `docs/architecture/RADIANT_Atmosphere.md` §12 Open Question 2 ("it is wrong in LWIR. The current plan is to clamp…")
+**Symptom**: the default `simple` model extrapolates the visible-band Ångström power law unclamped into MWIR/LWIR, which the doc itself declares wrong; no warning fires.
+**Why it still matters**: LWIR NEDT/detection-range results from the default model embed an acknowledged-wrong aerosol term; users sweeping `visibility_km` in LWIR see spurious sensitivity.
+**Suggested fix**: inline-fix-now — clamp aerosol extinction at the SWIR/MWIR boundary per the doc's stated plan, warn once per run when the clamp engages, update the doc §12 in lock-step. Effort S; category C.
+
 ### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted)
 
 **Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10, commit `fe57c74`

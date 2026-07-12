@@ -1067,6 +1067,167 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Verification** | Table-only config evaluates; neither-set still raises actionably (with the new hint); explicitly-empty path does NOT waive the requirement; scalar-only historical path unchanged. |
 | **Rerun after fix** | None required — scenarios 1.1/1.2's band-average workaround remains valid (it produces the same in-band result); future scenarios can now use the table directly. |
 
+## Gap 67: No session/run persistence (Sensor.save/load, ChainResult serialize/reload)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (`docs/reports/capability_audit_2026-07/`, F-01), 2026-07-11 |
+| **Status** | OPEN — GUI-blocking (Tier 1) |
+| **Description** | No `Sensor.save/load`, no `ChainResult.to_json/to_csv` or reload. Only metrics+noise JSON and provenance JSON exist (`cli/run.py`); `io/config.py:save_config` saves parameters only. `RADIANT_GUI_Architecture.md` binds File-Open/Save/Export directly to the missing methods; `RADIANT_Scripting_API.md` Appendix A lists them "Not implemented". |
+| **Impact** | GUI File menu, session restore, and cross-session run comparison have no backend; sweep/MC results (minutes of compute) are unrecoverable after process exit. |
+| **Workaround** | Re-run from YAML config; hand-pickle at your own risk (frozen dataclasses + MappingProxyType make this fragile). |
+
+## Gap 68: Non-scalar chain inputs unreachable from Sensor/YAML; schema advertises modes that always raise
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-02), 2026-07-11 |
+| **Status** | OPEN — GUI-blocking (Tier 1) |
+| **Description** | Element lists, Zernike/OPD wavefronts, pupil masks, and spectral injections require `RadiantSession.run(extra_stage_outputs=...)`; `Sensor.evaluate/sweep/sweep_2d/monte_carlo/sensitivity/solve_for` never pass it (verified: zero references in `api/sensor.py`). Additionally schema-selectable modes always raise: optics transmission `spectral_file`/`telescope_plus_filters`/`key_elements` (`optics/stage.py:740-749` passes only scalar inputs), stray-light `spectral_file`/`pst_file`, WFE `opd_map` (NotImplementedError, no loader). |
+| **Impact** | A Sensor/YAML-backed GUI can express only scalar-throughput, scalar-WFE circular systems; every optical-designer workflow (Zemax import, element trains, measured pupils) is script-only; mode dropdowns generated from the schema offer options that error. |
+| **Workaround** | Direct `RadiantSession.run(extra_stage_outputs=...)` scripting (used by scenarios 5.x). |
+
+## Gap 69: Bundled reference libraries not selectable from config (detector.qe_material, source.target.material)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-08), 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | `SpectralLibrary.detector_qe()` covers 6 materials but no `detector.qe_material` parameter exists (`api/session.py:_load_qe_curve` resolves only `qe_table_path`/`qe_value`); the 19-material emissivity library binds to `source.background.material` but there is no `source.target.material`. |
+| **Impact** | The most natural GUI selections — detector-material and target-material dropdowns — have nothing to bind to; background/target panels are inconsistent. |
+| **Workaround** | Export the library CSV and pass it as `qe_table_path` / `emissivity_path`. |
+
+## Gap 70: No public parameter-schema introspection API
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-03), 2026-07-11 |
+| **Status** | OPEN — GUI-blocking (Tier 1) |
+| **Description** | No public method enumerates ParameterDefs (dtype, bounds, enum values, units, defaults, descriptions, tags). Framework code itself reads privates: `cli/schema_cmd.py:37` (`ps._defs`), `api/sensitivity.py:133`, `api/sweep.py:318` (`params._groups`). Related expandability holes: unit registry is a private pair table with no `register_unit()`/enumeration, and only one ConsistencyGroup (f/#) is registered though the resolver supports chains. |
+| **Impact** | GUI parameter panels, unit dropdowns, bounds-aware widgets, and tooltips must couple to private internals that can change without deprecation. |
+| **Workaround** | Read `_defs` privates (as the CLI does today). |
+
+## Gap 71: result.metrics carries no units or metadata; no uniform metric contract
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-04), 2026-07-11 |
+| **Status** | OPEN — GUI-blocking (Tier 1) |
+| **Description** | `ChainResult.metrics` is `Mapping[str, float]`; units live only in some key suffixes (`nedt_K`) and are absent from others (`snr`, `niirs`, `rer`); some entries are enums/booleans encoded as floats. The `RADIANT_Metrics.md` §2 MetricResult contract (name/value/unit/regime/failure_reason/derivation_chain) is unimplemented. See also CU-078 (registry drift). |
+| **Impact** | Violates the project hard rule that every displayed value carries units; every GUI table/plot/tooltip needs a hand-maintained name→unit map that drifts each time a metric is added. |
+| **Workaround** | Hand-maintained units map (each scenario script does this today). |
+
+## Gap 72: No progress or cancellation hooks on long-running operations
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-05), 2026-07-11 |
+| **Status** | OPEN — GUI-blocking (Tier 1) |
+| **Description** | `sweep`, `sweep_2d`, `monte_carlo`, `sensitivity`, `BatchRunner.run`, and `ChainRunner.run` are opaque blocking calls — no callback, cancel token, or per-stage timing seam anywhere in `api/` or `core/chain.py`. |
+| **Impact** | At the measured 0.22 s/run, a 30×30 sweep is ~3 min of frozen GUI with no progress bar or cancel — the classic embarrassing-GUI failure. Also blocks the live progress grid demanded by Lisa 4.1's matrix builder. |
+| **Workaround** | None from the public API. |
+
+## Gap 73: Point-source regime silently zeroes background and path photon noise
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-10), 2026-07-11 |
+| **Status** | OPEN — fix before GUI (Tier 2, physics) |
+| **Description** | `spectral_integration/stage.py:342-364` hardcodes `background_e = 0.0` for POINT_SOURCE even when an at-aperture background frame exists, and the signal path strips L_path — so no background shot noise and no well fill from sky background. |
+| **Impact** | Point-target SNR/detection range against bright backgrounds (daytime sky, sunlit clouds) is optimistic; noise budget is discontinuous when a target-size sweep crosses the sub-pixel→point-source boundary. |
+| **Workaround** | None; results in this regime are simply optimistic against non-dark backgrounds. |
+
+## Gap 74: Scan/timing subsystem unimplemented (ScanMode, t_int derivation/feasibility, cross-track and target-motion smear)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-12), 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | `RADIANT_Scan_Timing.md` ("Authoritative") has zero code behind it: no ScanMode/TimingState, no t_int derivation from line rate/frame rate/dwell, no t_int ≤ line_period × n_tdi feasibility constraint (unphysical TDI timing accepted silently), and two of three documented smear sources (scan cross-track, target motion) have no ParameterDefs or kernels. Verified: zero grep hits for ScanMode/TimingState/cross_track_velocity in `src/`. Doc-drift half tracked as CU-079. |
+| **Impact** | Pushbroom/whiskbroom timing physics must be hand-derived in every scenario (Sarah 1.4 does); moving-target smear cannot be modeled; SNR for unflyable timing looks authoritative. |
+| **Workaround** | Hand-compute t_int and set `platform.smear_length_um` for along-track only. |
+
+## Gap 75: Orbit/coverage kinematics unwired; duplicate ground-speed and altitude parameters
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-13), 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | `core/orbit.py` and `core/repeat_ground_track.py` (period, ground-track speed, sun-sync inclination, revisit) are imported by nothing outside their tests; ground velocity is never derived from altitude. Duplicate params can silently disagree: `platform.ground_velocity_m_s` vs `geometry.ground_speed_m_s`, `platform.h_sensor` vs `geometry.sensor_altitude_m`. |
+| **Impact** | GUI cannot offer "enter altitude, get velocity"; two independent fields for one physical quantity produce self-inconsistent smear-vs-coverage results with no cross-validation. |
+| **Workaround** | Call `core/orbit.py` functions script-side and set both parameters manually (Raj 3.x pattern). |
+
+## Gap 76: Solar spectrum is a 5778 K blackbody only (no measured spectrum, no day-of-year)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-14), 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | `core/solar.py` raises on any model other than `blackbody_5778`; the bundled AM0 CSV is itself a Planck fit (no Fraunhofer/molecular structure), validated only to ±5 % integrated TSI; no day-of-year/Earth-Sun distance variation though `core/solar_geometry.py` has the declination math and no `geometry.day_of_year` parameter exists. |
+| **Impact** | 5-20 % band-dependent radiance error in narrow VNIR bands; seasonal studies inexpressible; solar spectral plots look visibly wrong to a radiometrist. |
+| **Workaround** | None at the framework level. |
+
+## Gap 77: No native SCNR metric and no in-chain detection-range solver
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-15), 2026-07-11 — demanded independently by Sarah 1.1/1.3 and Lisa 4.1/4.2/4.3 |
+| **Status** | OPEN — fix before GUI (Tier 2) |
+| **Description** | `snr`/`contrast_snr` carry temporal noise only; clutter-inclusive SCNR — the actual detection figure of merit in every sub-pixel detection trade — is assembled script-side in each scenario. Detection range (headline metric, `RADIANT_Metrics.md` §4.12 promises a geometry-aware bisection solve) is never computed in-chain; only constant-extinction library helpers exist, and each scenario hand-rolls a range-vs-zenith bisection over the spherical-Earth slant path. |
+| **Impact** | The number the analyst briefs is not one the framework reports; script-side assembly risks inconsistency across studies; GUI detection-range readout has no backend. |
+| **Workaround** | Scenario-script assembly (4.1's 144-cell matrix does this). |
+
+## Gap 78: Decision-grade acquisition metrics are library-only (Pd/ROC, Johnson DRI, NEDL/NEDR/MRC, D*/NEP/NEI)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-15), 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | `performance/roc.py`, `johnson_criteria.py`, `nedl.py`, `nedr.py`, `minimum_resolvable.py` (MRC branch), `detectivity.py`, `nep_*.py`, `noise_equivalent_irradiance.py`, `blip_rate.py`, `dark_crossover_rate.py`, `temperature_retrieval.py` are consumed only by tests and scenario scripts — never wired into PerformanceStage or `result.metrics`. No Pd-vs-range or contrast-limited DRI composition exists. |
+| **Impact** | Analyst persona outputs (Pd at Pfa, DRI ranges, confidence-level ranges) and detector-trade numbers (BLIP T, crossover T, NEI) require re-derivation by every user; GUI has no reachable entry point. |
+| **Workaround** | Import the library functions script-side (scenarios 4.x/6.x/2.x pattern). |
+
+## Gap 79: No multi-config compare primitive; trade-study ergonomics are per-script boilerplate
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-17), 2026-07-11 — demanded by Sarah 1.3, Raj 3.3, Lisa 4.1, Chen 6.1 |
+| **Status** | OPEN |
+| **Description** | No supported pattern for evaluating N sensor configs and diffing metrics as a table/compliance matrix; no sweep-level warning aggregation (~25 identical warnings across a 13×11 grid bury the one that matters); constrained two-axis sweeps (aperture×altitude at fixed GSD with focal length re-derived per point) are hand-rolled per scenario. |
+| **Impact** | The dominant workflow shape for three personas is unsupported boilerplate; the GUI comparison table and matrix views have no backend primitive. |
+| **Workaround** | Per-script config dicts + hand-built tables. |
+
+## Gap 80: No multi-band / dual-band run concept
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-16), 2026-07-11 |
+| **Status** | OPEN |
+| **Description** | Exactly one scalar `filter_min_um`/`filter_max_um` pair per run; no band-list structure anywhere in the API. Dual-band comparison (scenario 1.3) and band-set trades require externally orchestrated separate runs with hand-merged results. |
+| **Impact** | GUI band-selector/dual-band comparison screens must implement N-run orchestration and result merging themselves; shared-scene consistency across bands is the caller's problem. |
+| **Workaround** | Run per band and merge script-side (1.3 pattern). |
+
+## Gap 81: MODTRAN sky terms not ingestable — downwelling thermal hard-zeroed, scattered solar zeroed
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-19), re-verified 2026-07-11 against the landed MODTRAN rework (`d56fd9c`) — CU-086 re-audit |
+| **Status** | OPEN — fix before GUI (Tier 2) |
+| **Description** | `_build_state_from_arrays` constructs `atm_emission_down` as zeros ("use separate downwelling run", `modtran.py:~1202`), so `E_sky_thermal = π·ldown = 0` for every MODTRAN-backed run; `E_sky_scattered` is likewise zeroed (documented "Stage 6 deliverable"). There is no `tape7_down_path` to ingest a downwelling run, even though the rework just proved the pattern with `tape7_sun_path`. |
+| **Impact** | Switching the atmosphere model from `simple` to `modtran` silently changes thermal-band physics — the reflected-downwelling and sky-scatter background terms disappear, making the nominally highest-fidelity model *lower*-fidelity than SimpleAtmosphere for background terms. The collapse warning does not mention it. |
+| **Workaround** | Use `atmosphere.model="simple"` for scenes where downwelling matters. |
+| **Suggested fix** | `atmosphere.modtran.tape7_down_path` mirroring the sun-leg import; ingest the tape7 SOL SCAT column for `E_sky_scattered` where present. |
+
+## Gap 82: No cloud, rain, or fog capability in any atmosphere model
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Capability audit 2026-07 (F-19), re-verified 2026-07-11 — CU-086 re-audit; independently demanded by Raj 3.2 (fog/cloud go/no-go below ~2 km visibility) |
+| **Status** | OPEN |
+| **Description** | `render_tape5` hardwires `ICLD=0`/`RAINRT=0.000`; no cloud-related ParameterDef exists in any `_schema.py`; SimpleAtmosphere's aerosol model bottoms out at heavy-haze visibility. `RADIANT_Atmosphere.md` §11's claim that v1 clouds are "off or MODTRAN's canned cloud model" overstates the shipped surface (CU-079 class). |
+| **Impact** | Weather degradation is a first-class trade axis for EO sensor studies; a GUI scenario builder has no control to offer, and true fog/cloud go/no-go conditions are inexpressible. |
+| **Workaround** | Treat heavy haze (low `visibility_km`) as the worst expressible weather. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

@@ -27,8 +27,8 @@ F = 1.20
 TAU_OPT = 0.70
 PITCH_UM = 18.0
 PITCH_M = PITCH_UM * 1e-6
-A_COLLECT = math.pi / 4.0 * D ** 2
-OMEGA_PIXEL = PITCH_M ** 2 / F ** 2
+A_COLLECT = math.pi / 4.0 * D**2
+OMEGA_PIXEL = PITCH_M**2 / F**2
 T_INT = 0.005
 QE = 0.70
 T_TARGET = 500.0
@@ -141,11 +141,13 @@ class TestPointSourceInverseSquare:
         A_target = 1.0  # 1 m²
 
         result1 = _run_chain(
-            area_m2=A_target, range_m=R1,
+            area_m2=A_target,
+            range_m=R1,
             regime_override="point_source",
         )
         result2 = _run_chain(
-            area_m2=A_target, range_m=R2,
+            area_m2=A_target,
+            range_m=R2,
             regime_override="point_source",
         )
 
@@ -341,7 +343,8 @@ class TestRegimeClassification:
 
     def test_forced_point_source(self) -> None:
         result = _run_chain(
-            area_m2=1.0, range_m=100_000.0,
+            area_m2=1.0,
+            range_m=100_000.0,
             regime_override="point_source",
         )
         regime = result.stage_outputs["optics"]["regime"]
@@ -358,7 +361,8 @@ class TestRegimeClassification:
     def test_regime_override_propagates(self) -> None:
         """Source tentative → optics final, both matching the override."""
         result = _run_chain(
-            area_m2=1.0, range_m=100_000.0,
+            area_m2=1.0,
+            range_m=100_000.0,
             regime_override="point_source",
         )
         src_regime = result.stage_outputs["source"]["regime_tentative"]
@@ -423,9 +427,7 @@ class TestContrastSNR:
         contrast_e = result.stage_outputs["spectral_integration"]["contrast_e"]
         background_e = result.stage_outputs["spectral_integration"]["background_e"]
 
-        assert contrast_e > 0.0, (
-            f"Hot target contrast must be positive, got {contrast_e:.1f} e-"
-        )
+        assert contrast_e > 0.0, f"Hot target contrast must be positive, got {contrast_e:.1f} e-"
         assert contrast_snr > 0.0, (
             f"Hot target contrast SNR must be positive, got {contrast_snr:.2f}"
         )
@@ -443,9 +445,7 @@ class TestContrastSNR:
         contrast_snr = result.metrics["contrast_snr"]
         contrast_e = result.stage_outputs["spectral_integration"]["contrast_e"]
 
-        assert contrast_e < 0.0, (
-            f"Cold target contrast must be negative, got {contrast_e:.1f} e-"
-        )
+        assert contrast_e < 0.0, f"Cold target contrast must be negative, got {contrast_e:.1f} e-"
         assert contrast_snr < 0.0, (
             f"Cold target contrast SNR must be negative, got {contrast_snr:.2f}"
         )
@@ -475,8 +475,7 @@ class TestContrastSNR:
         # has its target energy spread by the PSF → small negative
         # contrast. Verify the sign is negative (EE_box effect).
         assert contrast_e < 0.0, (
-            f"Same-T contrast should be slightly negative due to EE_box<1, "
-            f"got {contrast_e:.1f} e-"
+            f"Same-T contrast should be slightly negative due to EE_box<1, got {contrast_e:.1f} e-"
         )
         assert contrast_snr < 0.0
 
@@ -538,5 +537,131 @@ class TestContrastSNR:
         # For point source, contrast_e should equal signal_e.
         si_out = result.stage_outputs["spectral_integration"]
         assert si_out["contrast_e"] == pytest.approx(
-            si_out["signal_e"], rel=1e-10,
+            si_out["signal_e"],
+            rel=1e-10,
         )
+
+
+# ======================================================================
+# Gap 73: point-source background pedestal (photon noise + well fill)
+# ======================================================================
+
+
+@pytest.mark.level2
+class TestPointSourceBackgroundPedestal:
+    """A compact point target sits on a full-pixel background pedestal.
+
+    The pedestal is NOT part of the target signal (contrast_e = signal_e),
+    but it is real photo-charge: it shot-noises and fills the well. Before
+    Gap 73 the point-source branch hardcoded background_e = 0, so a bright
+    daytime sky produced no background shot noise and no well fill — and the
+    noise budget jumped discontinuously across the sub-pixel→point-source
+    boundary.
+    """
+
+    def test_background_pedestal_nonzero_with_warm_background(self) -> None:
+        result = _run_chain(
+            area_m2=1.0,
+            range_m=100_000.0,
+            regime_override="point_source",
+            target_T=500.0,
+            bg_T=290.0,
+        )
+        si_out = result.stage_outputs["spectral_integration"]
+        assert si_out["background_e"] > 0.0
+        # Target signal unaffected: contrast_e is still the full target excess.
+        assert si_out["contrast_e"] == pytest.approx(si_out["signal_e"], rel=1e-10)
+
+    def test_background_shot_noise_matches_pedestal(self) -> None:
+        result = _run_chain(
+            area_m2=1.0,
+            range_m=100_000.0,
+            regime_override="point_source",
+            target_T=500.0,
+            bg_T=290.0,
+        )
+        background_e = result.stage_outputs["spectral_integration"]["background_e"]
+        budget = result.stage_outputs["detector"]["noise_budget_raw"]
+        # Poisson: σ_bg = √background_e.
+        assert budget.terms["background_shot"] == pytest.approx(math.sqrt(background_e), rel=1e-9)
+
+    def test_colder_background_gives_smaller_pedestal(self) -> None:
+        warm = _run_chain(
+            area_m2=1.0,
+            range_m=100_000.0,
+            regime_override="point_source",
+            target_T=500.0,
+            bg_T=290.0,
+        )
+        cold = _run_chain(
+            area_m2=1.0,
+            range_m=100_000.0,
+            regime_override="point_source",
+            target_T=500.0,
+            bg_T=150.0,
+        )
+        bg_warm = warm.stage_outputs["spectral_integration"]["background_e"]
+        bg_cold = cold.stage_outputs["spectral_integration"]["background_e"]
+        assert bg_cold < bg_warm
+
+    def test_pedestal_continuous_across_subpixel_boundary(self) -> None:
+        """The background pedestal is the same full-pixel formula in
+        sub-pixel and point-source regimes, so background_e is continuous
+        across the boundary (the discontinuity Gap 73 called out)."""
+        pt = _run_chain(
+            area_m2=1.0,
+            range_m=100_000.0,
+            regime_override="point_source",
+            target_T=500.0,
+            bg_T=290.0,
+        )
+        sub = _run_chain(
+            area_m2=1.0,
+            range_m=100_000.0,
+            regime_override="sub_pixel",
+            target_T=500.0,
+            bg_T=290.0,
+        )
+        bg_pt = pt.stage_outputs["spectral_integration"]["background_e"]
+        bg_sub = sub.stage_outputs["spectral_integration"]["background_e"]
+        assert bg_pt == pytest.approx(bg_sub, rel=1e-9)
+
+    def test_background_pedestal_fills_well(self) -> None:
+        """The point-source pedestal accumulates in the well (TDI × binning),
+        so a large enough pedestal drives saturation the target alone would
+        not. Compares available FWC headroom via well_status."""
+        import warnings
+
+        # Tiny target (negligible signal), bright warm background, small well.
+        session = RadiantSession(wavelength_um=WL)
+        params = session.default_params()
+        params.set("source.target.temperature", 300.0)
+        params.set("source.target.emissivity", 0.95)
+        params.set("source.target.projected_area_m2", 1e-6)  # negligible target
+        params.set("source.target.range_m", 100_000.0)
+        params.set("source.regime_override", "point_source")
+        params.set("source.background.temperature", 320.0)
+        params.set("source.background.emissivity", 0.98)
+        params.set("optics.aperture_diameter_m", D)
+        params.set("optics.focal_length_m", F)
+        params.set("optics.transmission_scalar", TAU_OPT)
+        params.set("detector.pixel_pitch_x_um", PITCH_UM)
+        params.set("detector.pixel_pitch_y_um", PITCH_UM)
+        params.set("detector.qe_value", QE)
+        params.set("detector.dark_rate_e_per_s", 100.0)
+        params.set("geometry.sensor_altitude_m", SENSOR_ALT)
+        params.set("atmosphere.standard_atmosphere", "midlat_summer")
+        params.set("spectral_integration.filter_min_um", FILTER_MIN)
+        params.set("spectral_integration.filter_max_um", FILTER_MAX)
+        params.set("spectral_integration.integration_time_s", T_INT)
+        params.set("readout.read_noise_e_rms", 5.0)
+        params.set("readout.gain_e_per_dn", 1.0)
+        params.set("readout.adc_bits", 16)
+        params.set("readout.full_well_capacity_e", 1.0e4)  # small well
+        params.resolve()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = session.run(params)
+        # The background pedestal (>> well) must trip the clipped status.
+        assert result.stage_outputs["spectral_integration"]["background_e"] > 1.0e4
+        assert result.stage_outputs["readout"]["well_status"] == "clipped"

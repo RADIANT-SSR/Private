@@ -14,6 +14,9 @@ Extended:
 Point source:
     photon_rate(λ) = L_post_optics(λ) · A_collect · (A_target / R²) · (λ / hc)
     signal_e = ∫ photon_rate(λ) · QE(λ) dλ · t_int · EE_box
+    background_e = full-pixel pedestal (Ω_pixel) when a background frame
+    exists (Gap 73): real photo-charge that shot-noises and fills the
+    well, but is NOT part of the target signal (contrast_e = signal_e).
 
 Sub-pixel:
     L_mixed(λ) = ff · L_target_post(λ) · EE_box + (1 − ff) · L_bg_post(λ)
@@ -45,6 +48,32 @@ from radiant.spectral_integration.errors import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _background_pedestal_e(
+    bg_spectral_radiance: np.ndarray,
+    tau_opt_bg: float,
+    lam_m: np.ndarray,
+    mask: np.ndarray,
+    wl_band: np.ndarray,
+    qe_curve: np.ndarray,
+    a_collect: float,
+    omega_pixel: float,
+    t_int: float,
+) -> float:
+    """Full-pixel background pedestal in electrons per pixel per integration.
+
+    The at-aperture background frame bundles ``L_bg·τ_full_up + L_path_full``;
+    this transports it once through the optics and integrates the full-pixel
+    photon flux (``Ω_pixel``) into electrons. Used identically by the
+    extended/sub-pixel background reference and the point-source pedestal
+    (Gap 73) — one computation, one place (Rule 19).
+    """
+    l_bg_post = bg_spectral_radiance * tau_opt_bg
+    bg_photon_rate = l_bg_post * a_collect * omega_pixel * (lam_m / hc)
+    bg_e_rate = bg_photon_rate * qe_curve
+    bg_e_per_s = float(np.trapezoid(bg_e_rate[mask], wl_band))
+    return bg_e_per_s * t_int
 
 
 def _extended_contrast_reference_signal(
@@ -340,23 +369,49 @@ class SpectralIntegrationStage:
         has_background = bg_frame_c is not None and bg_frame_c.spectral_radiance is not None
 
         if regime == RadiometricRegime.POINT_SOURCE:
-            # signal_e is already the target-only contribution (no
-            # background in the point source equation). The target
-            # signal IS the excess over background.
+            # signal_e is the target-only excess: the point-source equation
+            # uses Ω_target and strips path radiance, so the target signal
+            # IS the contrast over the background pedestal.
             contrast_e = signal_e
-            background_e = 0.0
+            if has_background:
+                # Gap 73: the sky/scene background fills the pixel IFOV
+                # (Ω_pixel) behind the compact target. This full-pixel
+                # pedestal is real photo-charge that shot-noises and fills
+                # the well even though it is NOT part of the target signal.
+                # Same full-pixel formula as the extended/sub-pixel branch,
+                # so the noise budget is continuous across the
+                # sub-pixel→point-source boundary.
+                tau_opt_bg = optics_out["tau_opt"]
+                background_e = _background_pedestal_e(
+                    bg_frame_c.spectral_radiance,
+                    tau_opt_bg,
+                    lam_m,
+                    mask,
+                    wl_band,
+                    qe_curve,
+                    A_collect,
+                    Omega_pixel,
+                    t_int,
+                )
+            else:
+                background_e = 0.0
         elif has_background:
             # Extended and sub-pixel: compute background-only pixel signal.
             # The at_aperture_background frame already bundles
             # L_bg · τ_full_up + L_path_full; transmit through the optics
             # once to reach the FPA.
-            tau_opt_bg: float = optics_out["tau_opt"]
-            L_bg_post = bg_frame_c.spectral_radiance * tau_opt_bg
-            bg_photon_rate = L_bg_post * A_collect * Omega_pixel * (lam_m / hc)
-            bg_e_rate = bg_photon_rate * qe_curve
-            bg_e_rate_band = bg_e_rate[mask]
-            bg_e_per_s = float(np.trapezoid(bg_e_rate_band, wl_band))
-            background_e = bg_e_per_s * t_int
+            tau_opt_bg = optics_out["tau_opt"]
+            background_e = _background_pedestal_e(
+                bg_frame_c.spectral_radiance,
+                tau_opt_bg,
+                lam_m,
+                mask,
+                wl_band,
+                qe_curve,
+                A_collect,
+                Omega_pixel,
+                t_int,
+            )
             contrast_e = signal_e - background_e
         else:
             # No background descriptor (matrix Decision #13 — computed-

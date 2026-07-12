@@ -20,6 +20,23 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting (point-source regime only):** point targets now sit
+  on a full-pixel background pedestal (Gap 73). Previously the
+  point-source branch hardcoded `background_e = 0`, so a compact target
+  against a bright background (daytime sky, sunlit cloud) had zero
+  background shot noise and zero well fill from the sky — optimistic
+  SNR/detection-range, and a discontinuous noise budget across the
+  sub-pixel→point-source boundary. Now `background_e` is the full-pixel
+  pedestal (same formula as the extended/sub-pixel background reference)
+  when an at-aperture background frame exists; it feeds background shot
+  noise and the readout well-fill (regime-gated — the pedestal is
+  additional well charge only in point-source, where signal_e is
+  target-only). Target signal and `contrast_e = signal_e` are unchanged;
+  extended/sub-pixel results and the golden baseline are unchanged.
+  Direction: point-source SNR against non-dark backgrounds decreases;
+  magnitude scales with background radiance.
+
 ### Added
 - Progress and cancellation hooks (Gap 72): `progress(done, total)` and
   `cancel() -> bool` keyword arguments on `Sensor.sweep`/`sweep_2d`/

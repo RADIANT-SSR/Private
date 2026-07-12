@@ -168,6 +168,9 @@ class ReadoutStage:
         # ---- Read non-signal electron sources for well fill check ----
         dark_e: float = det_out.get("dark_e", 0.0)
         glow_e: float = det_out.get("glow_e", 0.0)
+        background_e: float = det_out.get("background_e", 0.0)
+        regime = state.stage_outputs.get("optics", {}).get("regime")
+        regime_value = getattr(regime, "value", regime)
 
         # ---- 2. TDI scaling on signal ----
         signal_e = tdi_scale_signal(signal_e, n_tdi)
@@ -183,6 +186,13 @@ class ReadoutStage:
         # — the user controls nearfield via cold_stop_efficiency.
         m_onchip = mx_on * my_on
         non_signal_e = (dark_e + glow_e) * n_tdi * m_onchip
+        # Gap 73: in point-source regime signal_e is the target-only excess,
+        # so the full-pixel background pedestal is additional well charge that
+        # accumulates like signal (TDI stages + on-chip binning). In extended
+        # and sub-pixel regimes the background is already inside signal_e, so
+        # it must NOT be added again here.
+        if regime_value == "point_source":
+            non_signal_e += background_e * n_tdi * m_onchip
         total_well_e = signal_e + non_signal_e
         _, well_status = check_well_saturation(total_well_e, fwc_e)
         available_fwc = max(fwc_e - non_signal_e, 0.0)
@@ -196,7 +206,8 @@ class ReadoutStage:
         # results that read as "no effect" (Gap 65).
         if well_status is SaturationStatus.CLIPPED:
             warnings.warn(
-                f"ReadoutStage: full well saturated — signal + dark + glow = "
+                f"ReadoutStage: full well saturated — signal + dark + glow"
+                f"{' + background pedestal' if regime_value == 'point_source' else ''} = "
                 f"{total_well_e:.4g} e- exceeds full_well_capacity_e = {fwc_e:.4g} e- "
                 f"(fill fraction {total_well_e / fwc_e:.2f}). Signal clipped to "
                 f"{signal_e:.4g} e-. Downstream SNR/NEDT/NIIRS reflect the CLIPPED "

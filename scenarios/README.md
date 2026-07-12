@@ -45,53 +45,63 @@ workbooks are regenerate-on-demand and gitignored.
 
 ## Status
 
+**All 35 persona scenarios plus both interpolation demonstrations are
+implemented and executed** (walkthrough / gaps / gui_workflow trio present in
+every folder; executed 2026-07-08/09). The previous table under-reported
+maturity by marking 21 executed scenarios "stub" and omitting the 08 series
+(CU-075, corrected 2026-07-12).
+
 | Scenario | Status |
 |---|---|
 | **01 Sarah — systems engineer** | |
-| 1.1_mwir_maritime_surveillance | stub |
-| 1.2_vnir_gsd_aperture_altitude | stub |
-| 1.3_dual_band_mwir_lwir | stub |
-| 1.4_tdi_pushbroom_optimization | **implemented** |
-| 1.5_obscured_aperture_spider_vanes | stub |
+| 1.1_mwir_maritime_surveillance | implemented |
+| 1.2_vnir_gsd_aperture_altitude | implemented |
+| 1.3_dual_band_mwir_lwir | implemented |
+| 1.4_tdi_pushbroom_optimization | implemented |
+| 1.5_obscured_aperture_spider_vanes | implemented |
 | **02 Mike — detector engineer** | |
-| 2.1_insb_vs_hgcdte_noise_budget | stub |
-| 2.2_1f_noise_corner_frequency | **implemented** |
-| 2.3_ipc_impact_on_mtf | **implemented** |
-| 2.4_persistence_bright_source | stub |
-| 2.5_well_capacity_optimization | **implemented** |
+| 2.1_insb_vs_hgcdte_noise_budget | implemented |
+| 2.2_1f_noise_corner_frequency | implemented |
+| 2.3_ipc_impact_on_mtf | implemented |
+| 2.4_persistence_bright_source | implemented |
+| 2.5_well_capacity_optimization | implemented |
 | **03 Raj — mission planner** | |
-| 3.1_isr_pass_planning | stub |
-| 3.2_weather_sensitivity | **implemented** |
-| 3.3_multi_sensor_comparison | stub |
-| 3.4_off_nadir_agility | **implemented** |
-| 3.5_nighttime_mwir_feasibility | stub |
+| 3.1_isr_pass_planning | implemented |
+| 3.2_weather_sensitivity | implemented |
+| 3.3_multi_sensor_comparison | implemented |
+| 3.4_off_nadir_agility | implemented |
+| 3.5_nighttime_mwir_feasibility | implemented |
 | **04 Lisa — analyst** | |
-| 4.1_target_detection_matrix | stub |
-| 4.2_maritime_ship_classification | stub |
-| 4.3_camouflage_effectiveness | stub |
-| 4.4_time_of_day_analysis | stub |
-| 4.5_altitude_trade_uav | stub |
+| 4.1_target_detection_matrix | implemented |
+| 4.2_maritime_ship_classification | implemented |
+| 4.3_camouflage_effectiveness | implemented |
+| 4.4_time_of_day_analysis | implemented |
+| 4.5_altitude_trade_uav | implemented |
 | **05 Tom — optical designer** | |
-| 5.1_wfe_budget_allocation | **implemented** |
-| 5.2_pixel_pitch_optimization | **implemented** |
-| 5.3_mono_vs_poly_psf | **implemented** |
-| 5.4_jitter_induced_blur | **implemented** |
-| 5.5_stray_light_veiling_glare | stub |
+| 5.1_wfe_budget_allocation | implemented |
+| 5.2_pixel_pitch_optimization | implemented |
+| 5.3_mono_vs_poly_psf | implemented |
+| 5.4_jitter_induced_blur | implemented |
+| 5.5_stray_light_veiling_glare | implemented |
 | **06 Dr. Chen — researcher** | |
-| 6.1_published_snr_benchmark | stub |
-| 6.2_atmospheric_intercomparison | stub |
-| 6.3_noise_model_verification | **implemented** |
-| 6.4_synthetic_scene_generation | stub |
-| 6.5_spectral_emissivity_sensitivity | stub |
+| 6.1_published_snr_benchmark | implemented |
+| 6.2_atmospheric_intercomparison | implemented |
+| 6.3_noise_model_verification | implemented |
+| 6.4_synthetic_scene_generation | implemented |
+| 6.5_spectral_emissivity_sensitivity | implemented |
 | **07 Karen — test engineer** | |
-| 7.1_nedt_reconciliation | **implemented** |
-| 7.2_radiometric_calibration | stub |
-| 7.3_mtf_measurement_vs_prediction | **implemented** |
-| 7.4_cold_stop_sweep | **implemented** |
-| 7.5_environmental_temp_extremes | stub |
+| 7.1_nedt_reconciliation | implemented |
+| 7.2_radiometric_calibration | implemented |
+| 7.3_mtf_measurement_vs_prediction | implemented |
+| 7.4_cold_stop_sweep | implemented |
+| 7.5_environmental_temp_extremes | implemented |
+| **08 Interpolation demonstrations** | |
+| 8.1_off_nadir_angle_interpolation | implemented |
+| 8.2_target_altitude_interpolation | implemented |
 
-14 of 35 implemented. Stubs contain only the `inputs/scripts/outputs` skeleton
-(`.gitkeep` markers) and are intentional placeholders for the persona test plan.
+37 of 37 implemented (35 persona + 2 interpolation). Each folder carries the
+`walkthrough.md` / `gaps.md` / `gui_workflow.md` trio and executed
+`inputs/scripts/outputs`.
 
 ## Personas
 

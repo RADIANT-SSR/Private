@@ -71,3 +71,8 @@ tests/golden/*.bak
 # Test artifacts (regeneratable plots)
 src/radiant/atmosphere/tests/artifacts/
 scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/outputs/derived/
+
+# Local / transient Claude Code state (shared settings.json IS committed)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/

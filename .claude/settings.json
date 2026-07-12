@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m lint_imports)",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(git -C /Users/jforsyth/SSR_Tool branch -a)",
+      "Bash(git -C /Users/jforsyth/SSR_Tool worktree list --porcelain)",
+      "Bash(pytest)",
+      "Bash(pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(python3 -m pytest *)",
+      "Bash(mypy *)",
+      "Bash(python -m mypy *)",
+      "Bash(ruff check)",
+      "Bash(ruff check *)",
+      "Bash(ruff format --check *)",
+      "Bash(lint-imports)",
+      "Bash(lint-imports *)",
+      "Bash(import-linter *)",
+      "Bash(git add *)",
+      "Bash(git commit -m *)",
+      "Bash(git commit -F *)"
+    ]
+  }
+}

@@ -30,15 +30,6 @@
 **Why it still matters**: the canonical evidence index under-reports tool maturity by 60 %.
 **Suggested fix**: inline-fix-now — regenerate the table. Effort S; category A.
 
-### CU-076 — String-mode parameters lack enum validation (`readout.tdi_mode`, `detector.noise_regime`)
-
-**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/readout/stage.py:164`; `src/radiant/detector/_schema.py:264-275`
-**Symptom**: `tdi_mode='Digital'` (or any typo) silently selects analog scaling; `noise_regime='Detection'` silently selects imaging and drops all spatial noise from SNR. ParameterDef supports `enum_values`; these params don't use it.
-**Why it still matters**: YAML/script paths behind the GUI silently mis-model read noise (×1 vs ×√N) and FPN.
-**Suggested fix**: inline-fix-now — add `enum_values` to both; audit other free-string params. Effort S; category B.
-
 ### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — verified (only consumer is a "deferred" docstring)
@@ -66,15 +57,6 @@
 **Why it still matters**: users comparing against vendor datasheets get unexplained deviations; violates the manifest-per-data-family convention.
 **Suggested fix**: stand-alone task — manifests naming generator+source per family; fix the README; label or replace synthetic curves. Effort M; category A.
 
-### CU-081 — Dark current is temperature-inert by default (`dark_activation_energy_eV = 0`)
-
-**Discovered**: Capability audit 2026-07 (F-18), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/detector/_schema.py:149-160`; `src/radiant/detector/stage.py:54-55`
-**Symptom**: changing `detector_temperature_K` has zero effect on dark noise unless the user supplies an Arrhenius activation energy; dark-rate default (100 e-/s) is referenced to 300 K while temperature defaults to 77 K.
-**Why it still matters**: a GUI temperature slider — the most expected IR-tool control — silently does nothing in the default config; demo-embarrassing and physically misleading.
-**Suggested fix**: stand-alone task — material-keyed activation-energy presets (pairs with Gap 69 `qe_material`) or a loud warning when T ≠ T_ref with E_a = 0. Effort S-M; category C.
-
 ### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
 
 **Discovered**: Capability audit 2026-07 (F-26), 2026-07-11
@@ -96,11 +78,10 @@
 ### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots)
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — grouped as one sweep task; items are individually small and same-shaped
-**Status**: Open
-**File**: `core/parameters.py:144-178` (Tolerance unvalidated at construction; empty gaussian params silently sample std=0, so MC "uncertainty" studies can be zero-spread and look valid); `core/parameters.py:618-625` (ConsistencyGroup over-spec check silently passes when the first parameter lacks a derivation rule); `core/spectral.py:486-504` (SpectralDataStore.add constant-extrapolates non-covering curves at DEBUG level); `platform/stage.py:253-267` (velocity smear silently zero when altitude/t_int missing though the user explicitly set a velocity); `detector/_schema.py:26-35` (pixel_pitch_y "defaults to x pitch" is false — hard resolve error); `detector/stage.py:115-116` (IPC y-axis MTF uses x pitch); readout digital-TDI branches (zero test coverage anywhere); `cli/run.py:201` (hardcoded version "0.1.0" in provenance).
-**Symptom**: each item silently degrades, misdescribes, or leaves unverified a user-reachable path.
+**Status**: NARROWED (2026-07-12, commit `513c9c5`) — 6 of 8 sub-items fixed; 2 remain
+**Resolved sub-items (commit `513c9c5`)**: (1) `Tolerance.__post_init__` validates the distribution and required spread params — a parameter-less gaussian raises instead of silently sampling std=0; (2) consistency-group over-spec check picks a free variable that has a derivation rule (was silently skipped when `parameters[0]` lacked one); (4) velocity smear warns instead of returning 0 when altitude/t_int is missing though a velocity was set; (5) `detector.pixel_pitch_y_um` description corrected (required, no "defaults to x pitch" fallback); (6) IPC y-axis MTF uses `pixel_pitch_y` (was `pixel_pitch_x` — wrong for rectangular pixels); (8) `cli/run.py` provenance version reads `radiant.__version__` (was hardcoded "0.1.0").
+**Remaining sub-items**: (3) `core/spectral.py` SpectralDataStore.add constant-extrapolates non-covering curves at DEBUG level (should warn — deferred: risks warning noise on legitimate near-edge curves, needs a coverage-fraction threshold); (7) readout digital-TDI branches have zero test coverage (add tests). Effort S; category B.
 **Why it still matters**: exactly the silent-failure class Rules 16/17 forbid; a GUI amplifies each into invisible wrong answers.
-**Suggested fix**: stand-alone sweep task — warn/raise/fix per item, one PR, one test each. Effort M; category B.
 
 ### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
 
@@ -233,6 +214,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-076 — String-mode parameters lacked enum validation — RESOLVED 2026-07-12 (commit `513c9c5`)
+
+**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11. **Resolution**: added `enum_values` to `readout.tdi_mode` (`analog`/`digital`) and `detector.noise_regime` (`imaging`/`detection`). A typo (e.g. `tdi_mode='Digital'`, `noise_regime='Detection'`) now raises a `CoreValidationError` at resolve naming the allowed values, instead of silently falling through to analog scaling / imaging (spatial noise dropped). All existing usages verified to use valid values.
+
+### CU-081 — Dark current temperature-inert by default — RESOLVED 2026-07-12 (commit `513c9c5`)
+
+**Discovered**: Capability audit 2026-07 (F-18), 2026-07-11. **Resolution**: `detector.dark_reference_temperature_K` default changed 300 K → 77 K to match the `detector_temperature_K` default, so the default config is self-consistent (no reference/operating mismatch). `DetectorStage` now warns when `detector_temperature_K` differs from the reference while `dark_activation_energy_eV = 0` — the temperature setting (e.g. a GUI slider) is otherwise silently inert. With the default `E_a = 0` the computed `dark_e` is unchanged, so the golden baseline is unaffected. Material-keyed activation-energy presets remain a future enhancement (pairs with Gap 69).
 
 ### CU-074 — `fill_factor` coupled inconsistently across PSF, MTF, and radiometry — RESOLVED 2026-07-11 (commit `3921e5d`)
 

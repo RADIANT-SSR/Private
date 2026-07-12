@@ -1135,3 +1135,144 @@ class TestRequiredUnless:
                 default=None,
                 required_unless="ns.a",
             )
+
+
+# ---------------------------------------------------------------------------
+# Schema introspection (Gap 70)
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaIntrospection:
+    """Public introspection surface: parameter_defs / parameter_def /
+    consistency_groups / tolerances / is_resolved / copy."""
+
+    @pytest.mark.level0
+    def test_parameter_defs_enumerates_full_schema(self) -> None:
+        ps = _make_ps()
+        defs = ps.parameter_defs()
+        assert set(defs.keys()) == {
+            "sensor.optics.aperture_diameter",
+            "sensor.optics.focal_length",
+            "sensor.optics.f_number",
+        }
+        pdef = defs["sensor.optics.aperture_diameter"]
+        assert isinstance(pdef, ParameterDef)
+        assert pdef.input_unit == "m"
+
+    @pytest.mark.level0
+    def test_parameter_defs_view_is_read_only(self) -> None:
+        ps = _make_ps()
+        defs = ps.parameter_defs()
+        with pytest.raises(TypeError):
+            defs["x"] = None  # type: ignore[index]
+
+    @pytest.mark.level0
+    def test_parameter_def_lookup(self) -> None:
+        ps = _make_ps()
+        pdef = ps.parameter_def("sensor.optics.f_number")
+        assert pdef.name == "sensor.optics.f_number"
+
+    @pytest.mark.level0
+    def test_parameter_def_unknown_name_suggests(self) -> None:
+        ps = _make_ps()
+        with pytest.raises(KeyError, match="Did you mean"):
+            ps.parameter_def("sensor.optics.aperture_diamter")
+
+    @pytest.mark.level0
+    def test_parameter_def_resolves_alias_with_warning(self) -> None:
+        schema = [
+            ParameterDef(
+                name="ns.new_name",
+                description="renamed",
+                dtype=float,
+                canonical_unit="",
+                input_unit="",
+                default=1.0,
+                deprecated_aliases=frozenset({"ns.old_name"}),
+            )
+        ]
+        ps = ParameterSet(schema)
+        with pytest.warns(DeprecationWarning, match="deprecated"):
+            pdef = ps.parameter_def("ns.old_name")
+        assert pdef.name == "ns.new_name"
+
+    @pytest.mark.level0
+    def test_consistency_groups_returned(self) -> None:
+        ps = _make_ps()
+        groups = ps.consistency_groups()
+        assert isinstance(groups, tuple)
+        assert len(groups) == 1
+        assert groups[0].name == "optics_fno"
+
+    @pytest.mark.level0
+    def test_tolerances_view(self) -> None:
+        ps = _make_ps()
+        assert dict(ps.tolerances()) == {}
+        tol = Tolerance(distribution="gaussian", params={"std": 0.01})
+        ps.set_tolerance("sensor.optics.aperture_diameter", tol)
+        assert ps.tolerances()["sensor.optics.aperture_diameter"] is tol
+        with pytest.raises(TypeError):
+            ps.tolerances()["x"] = tol  # type: ignore[index]
+
+    @pytest.mark.level0
+    def test_is_resolved_lifecycle(self) -> None:
+        ps = _make_ps()
+        assert ps.is_resolved is False
+        ps.set("sensor.optics.aperture_diameter", 0.3)
+        ps.set("sensor.optics.focal_length", 1.2)
+        ps.resolve()
+        assert ps.is_resolved is True
+        ps.set("sensor.optics.aperture_diameter", 0.4)
+        assert ps.is_resolved is False
+
+    @pytest.mark.level0
+    def test_copy_carries_inputs_and_resolves_identically(self) -> None:
+        ps = _make_ps()
+        ps.set("sensor.optics.aperture_diameter", 0.3)
+        ps.set("sensor.optics.focal_length", 1.2)
+        dup = ps.copy()
+        assert dup.is_resolved is False
+        dup.resolve()
+        assert dup.get("sensor.optics.f_number") == pytest.approx(4.0, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_copy_is_independent_of_original(self) -> None:
+        ps = _make_ps()
+        ps.set("sensor.optics.aperture_diameter", 0.3)
+        ps.set("sensor.optics.focal_length", 1.2)
+        ps.resolve()
+        dup = ps.copy()
+        dup.set("sensor.optics.aperture_diameter", 0.6)
+        dup.resolve()
+        # Original untouched — still resolved with the old value
+        assert ps.is_resolved is True
+        assert ps.get("sensor.optics.aperture_diameter") == pytest.approx(0.3, rel=1e-12)
+        assert dup.get("sensor.optics.f_number") == pytest.approx(2.0, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_copy_carries_tolerances_and_loaded_files(self) -> None:
+        ps = _make_ps()
+        ps.set("sensor.optics.aperture_diameter", 0.3)
+        ps.set("sensor.optics.focal_length", 1.2)
+        tol = Tolerance(distribution="gaussian", params={"std": 0.01})
+        ps.set_tolerance("sensor.optics.aperture_diameter", tol)
+        ps.record_loaded_file("config.yaml", "abc123")
+        dup = ps.copy()
+        assert dup.tolerances()["sensor.optics.aperture_diameter"] is tol
+        assert dup.loaded_files == (("config.yaml", "abc123"),)
+
+    @pytest.mark.level0
+    def test_copy_preserves_input_provenance(self) -> None:
+        ps = _make_ps()
+        ps.set(
+            "sensor.optics.aperture_diameter",
+            0.3,
+            Provenance.CONFIG_FILE,
+            "test.yaml",
+        )
+        ps.set("sensor.optics.focal_length", 1.2)
+        dup = ps.copy()
+        dup.resolve()
+        rv = dup.get_resolved("sensor.optics.aperture_diameter")
+        assert rv.provenance is Provenance.CONFIG_FILE
+        assert rv.source == "test.yaml"

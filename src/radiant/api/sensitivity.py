@@ -115,25 +115,25 @@ def sensitivity(
         metric = _default_snr_metric
 
     # Ensure resolved without mutating the caller's ParameterSet.
-    if not params._resolved_flag:
-        from copy import deepcopy
-
-        params = deepcopy(params)
+    if not params.is_resolved:
+        params = params.copy()
         params.resolve()
+
+    resolved = params.all_resolved()
 
     # Determine which parameters to perturb
     if param_names is not None:
         names = list(param_names)
-    elif params._tolerances:
-        names = sorted(params._tolerances.keys())
+    elif params.tolerances():
+        names = sorted(params.tolerances().keys())
     else:
         # All float parameters with non-zero values
         names = [
             name
-            for name, pdef in params._defs.items()
+            for name, pdef in params.parameter_defs().items()
             if pdef.dtype is float
-            and params._resolved.get(name) is not None
-            and params._resolved[name].value != 0.0
+            and resolved.get(name) is not None
+            and resolved[name].value != 0.0
         ]
 
     # Baseline evaluation
@@ -142,7 +142,7 @@ def sensitivity(
 
     entries: list[SensitivityEntry] = []
     for name in names:
-        rv = params._resolved.get(name)
+        rv = resolved.get(name)
         if rv is None:
             continue
         nominal = float(rv.value)

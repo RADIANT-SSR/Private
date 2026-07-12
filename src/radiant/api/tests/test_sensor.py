@@ -217,3 +217,30 @@ class TestSummaryExplain:
         text = sensor.explain()
         assert "Chain Walkthrough" in text
         assert "Metrics" in text
+
+
+class TestSchemaIntrospection:
+    """Sensor passthroughs to the ParameterSet introspection surface (Gap 70)."""
+
+    @pytest.mark.level1
+    def test_parameter_defs_enumerates_schema(self, sensor: Sensor) -> None:
+        defs = sensor.parameter_defs()
+        assert "optics.aperture_diameter_m" in defs
+        pdef = defs["optics.aperture_diameter_m"]
+        assert pdef.dtype is float
+        assert pdef.canonical_unit == "m"
+
+    @pytest.mark.level1
+    def test_parameter_defs_read_only(self, sensor: Sensor) -> None:
+        with pytest.raises(TypeError):
+            sensor.parameter_defs()["x"] = None  # type: ignore[index]
+
+    @pytest.mark.level1
+    def test_parameter_def_single_lookup(self, sensor: Sensor) -> None:
+        pdef = sensor.parameter_def("detector.qe_value")
+        assert pdef.name == "detector.qe_value"
+
+    @pytest.mark.level1
+    def test_parameter_def_unknown_suggests(self, sensor: Sensor) -> None:
+        with pytest.raises(KeyError, match="Did you mean"):
+            sensor.parameter_def("optics.aperture_diamter_m")

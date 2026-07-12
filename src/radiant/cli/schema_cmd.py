@@ -34,7 +34,7 @@ def schema_cmd(fmt: str, stage_name: str | None) -> None:
         radiant schema --format json
     """
     ps = build_parameter_set()
-    defs = ps._defs
+    defs = dict(ps.parameter_defs())
 
     if stage_name is not None:
         prefix = stage_name if stage_name.endswith(".") else stage_name + "."
@@ -42,7 +42,8 @@ def schema_cmd(fmt: str, stage_name: str | None) -> None:
         if not defs:
             click.echo(f"No parameters found for stage '{stage_name}'.")
             click.echo(
-                "Available prefixes: " + ", ".join(sorted({k.split(".")[0] for k in ps._defs}))
+                "Available prefixes: "
+                + ", ".join(sorted({k.split(".")[0] for k in ps.parameter_defs()}))
             )
             return
 

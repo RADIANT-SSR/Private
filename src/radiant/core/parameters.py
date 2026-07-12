@@ -15,9 +15,10 @@ from __future__ import annotations
 import datetime as _dt
 import difflib
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from types import MappingProxyType
 from typing import Any
 
 from radiant.core.exceptions import CoreStateError, CoreValidationError, RadiantError
@@ -668,6 +669,60 @@ class ParameterSet:
         if n_set < n_total - 1:
             # Under-specified — defer; defaults may fill in, then re-check
             return
+
+    # -- Schema introspection (Gap 70) ---------------------------------------
+
+    def parameter_defs(self) -> Mapping[str, ParameterDef]:
+        """Read-only view of the full schema, keyed by dot-path name.
+
+        This is the public enumeration surface for GUIs, CLIs, and sweep
+        tooling: every :class:`ParameterDef` carries dtype, units, bounds,
+        enum values, default, description, and tags. The returned mapping
+        is a live read-only view — it cannot be mutated, and the schema
+        itself is fixed at construction.
+        """
+        return MappingProxyType(self._defs)
+
+    def parameter_def(self, name: str) -> ParameterDef:
+        """Return the :class:`ParameterDef` for *name*.
+
+        Deprecated aliases resolve to their canonical definition (with a
+        ``DeprecationWarning``). Unknown names raise ``KeyError`` with a
+        did-you-mean suggestion.
+        """
+        name = self._canonical(name)
+        if name not in self._defs:
+            raise KeyError(self._suggest(name))
+        return self._defs[name]
+
+    def consistency_groups(self) -> tuple[ConsistencyGroup, ...]:
+        """The registered consistency groups, in registration order."""
+        return tuple(self._groups)
+
+    def tolerances(self) -> Mapping[str, Tolerance]:
+        """Read-only view of tolerances set via :meth:`set_tolerance`."""
+        return MappingProxyType(self._tolerances)
+
+    @property
+    def is_resolved(self) -> bool:
+        """True when :meth:`resolve` has run and no input changed since."""
+        return self._resolved_flag
+
+    def copy(self) -> ParameterSet:
+        """Return an unresolved copy sharing no mutable state with this set.
+
+        Carries the schema, consistency groups, all explicit inputs (with
+        their provenance and source), tolerances, and loaded-file records.
+        The copy is returned unresolved; call :meth:`resolve` after any
+        overrides. This is the supported way to build sweep/clone variants
+        without touching private state.
+        """
+        new = ParameterSet(list(self._defs.values()), list(self._groups))
+        for name, (val, prov, src) in self._inputs.items():
+            new._inputs[name] = (val, prov, src)
+        new._tolerances.update(self._tolerances)
+        new._loaded_files.extend(self._loaded_files)
+        return new
 
     # -- Access --------------------------------------------------------------
 

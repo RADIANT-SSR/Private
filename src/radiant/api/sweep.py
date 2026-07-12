@@ -315,14 +315,9 @@ def _clone_with(
     Creates a fresh ParameterSet, copies all inputs from *params*,
     overrides *param_name*, and resolves.
     """
-    new = ParameterSet(list(params._defs.values()), params._groups)
-    for name, (val, prov, src) in params._inputs.items():
-        new.set(name, val, prov, src)
-    # Preserve tolerances from the original ParameterSet.
-    for tol_name, tol in params._tolerances.items():
-        new.set_tolerance(tol_name, tol)
     from radiant.core.parameters import Provenance
 
+    new = params.copy()
     new.set(param_name, value, Provenance.USER_SET, "sweep")
     new.resolve()
     return new

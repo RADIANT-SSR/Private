@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,7 @@ from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
-from radiant.core.parameters import ParameterSet, Provenance, Tolerance
+from radiant.core.parameters import ParameterDef, ParameterSet, Provenance, Tolerance
 from radiant.io.config import load_config
 from radiant.io.results import ChainResult
 
@@ -159,6 +159,24 @@ class Sensor:
         """Get a resolved parameter value in input (display) units."""
         self._ensure_resolved()
         return self._params.get_input(dotpath)
+
+    def parameter_defs(self) -> Mapping[str, ParameterDef]:
+        """Read-only view of the full parameter schema, keyed by dot-path.
+
+        Passthrough to :meth:`ParameterSet.parameter_defs` (Gap 70): each
+        :class:`ParameterDef` carries dtype, canonical/input units, bounds,
+        enum values, default, description, and tags — the enumeration
+        surface GUI panels and tooling generate from.
+        """
+        return self._params.parameter_defs()
+
+    def parameter_def(self, dotpath: str) -> ParameterDef:
+        """Return the :class:`ParameterDef` for one parameter.
+
+        Raises ``KeyError`` (with a did-you-mean suggestion) for unknown
+        names; deprecated aliases resolve with a ``DeprecationWarning``.
+        """
+        return self._params.parameter_def(dotpath)
 
     def reset(self, dotpath: str) -> Sensor:
         """Reset a parameter to its default value.
@@ -443,7 +461,7 @@ class Sensor:
 
     def _ensure_resolved(self) -> None:
         """Resolve the ParameterSet if it is not already resolved."""
-        if not self._params._resolved_flag:
+        if not self._params.is_resolved:
             self._params.resolve()
 
     def _build_session(self) -> RadiantSession:

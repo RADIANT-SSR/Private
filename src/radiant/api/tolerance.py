@@ -140,23 +140,21 @@ def monte_carlo(
     if n_trials < 1:
         raise ApiValidationError(f"monte_carlo: n_trials must be >= 1, got {n_trials}.")
 
-    if not params._tolerances:
+    if not params.tolerances():
         raise ApiValidationError(
             "monte_carlo: no tolerances set on params. Use "
             "params.set_tolerance(name, tolerance) before calling."
         )
 
     # Ensure resolved without mutating the caller's ParameterSet.
-    if not params._resolved_flag:
-        from copy import deepcopy
-
-        params = deepcopy(params)
+    if not params.is_resolved:
+        params = params.copy()
         params.resolve()
 
     rng = np.random.default_rng(seed)
 
     # Pre-allocate sampled param tracking
-    tol_names = sorted(params._tolerances.keys())
+    tol_names = sorted(params.tolerances().keys())
     sampled_arrays: dict[str, list[float]] = {name: [] for name in tol_names}
 
     first_result: ChainResult | None = None

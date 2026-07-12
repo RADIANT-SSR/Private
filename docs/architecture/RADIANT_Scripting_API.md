@@ -68,6 +68,8 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.get(dotpath)` | Get a resolved parameter value in **canonical units** (m, rad, s, K, e-). |
 | `s.get_input(dotpath)` | Get a resolved parameter value in **input (display) units** (e.g., µm for pixel pitch). |
 | `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `KeyError` (with a did-you-mean suggestion) for unknown names, like `set()`. |
+| `s.parameter_defs()` | Read-only mapping of the full parameter schema keyed by dot-path (Gap 70). Each `ParameterDef` carries dtype, canonical/input units, bounds, enum values, default, description, and tags. |
+| `s.parameter_def(dotpath)` | Single `ParameterDef` lookup. Alias-aware; unknown names raise `KeyError` with a did-you-mean suggestion. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
 | `s.evaluate()` | Run the full signal chain. Returns `ChainResult` (§3). |
 | `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |
@@ -951,7 +953,7 @@ The 2026-04-07 revision of this document described the surface below. **None of 
 | `Sensor.load(path)` / `Sensor.load(sensor=..., scenario=...)` | Use `Sensor.from_yaml(path)`; merge scenario overrides with `set_many()`. |
 | `Sensor.from_configs(...)`, `SensorConfig`, `ScenarioConfig` builders | Not implemented. Use YAML or `from_dict()`. |
 | `s.validate()` | Not implemented as a separate step. Validation happens at `set()`/resolve/evaluate; catch `RadiantError`. |
-| `s.schema()`, `s.params` proxy, parameter tab-completion | Not implemented. Use `s.summary()` and `docs/architecture/RADIANT_Parameter_System.md`. |
+| `s.schema()`, `s.params` proxy, parameter tab-completion | Schema enumeration landed as `s.parameter_defs()` / `s.parameter_def(dotpath)` (Gap 70, 2026-07-11). No `s.params` proxy or tab-completion. |
 | `s.copy()` | Use `s.clone()`. |
 | `s.save(path)` | Not implemented. Persist `result.to_provenance_record()` instead. |
 | `Sensor.load_result(...)`, `Sensor.from_provenance_record(...)` | Not implemented. |

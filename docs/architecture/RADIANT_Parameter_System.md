@@ -524,6 +524,36 @@ result.explain("snr")
 
 ---
 
+## Schema Introspection (Gap 70, 2026-07-11)
+
+`ParameterSet` exposes a public introspection surface so GUIs, CLIs, and sweep
+tooling never touch private state. This is the enumeration contract the GUI
+parameter panel generates from.
+
+```python
+ps.parameter_defs()      # Mapping[str, ParameterDef] — read-only live view of the
+                         # full schema keyed by dot-path; each ParameterDef carries
+                         # dtype, canonical/input units, bounds, enum_values,
+                         # default, description, tags, group, deprecated_aliases.
+ps.parameter_def(name)   # Single ParameterDef; alias-aware (DeprecationWarning);
+                         # unknown names raise KeyError with a did-you-mean hint.
+ps.consistency_groups()  # tuple[ConsistencyGroup, ...] in registration order.
+ps.tolerances()          # Mapping[str, Tolerance] — read-only view.
+ps.is_resolved           # bool property: resolve() has run and no input changed.
+ps.copy()                # Unresolved deep-enough copy: schema, groups, inputs
+                         # (with provenance), tolerances, loaded-file records.
+                         # The supported way to build sweep/clone variants.
+```
+
+The read-only views are `MappingProxyType` wrappers: mutation raises
+`TypeError`, and the schema itself is fixed at `ParameterSet` construction.
+Framework consumers (`cli/schema_cmd.py`, `api/sensitivity.py`,
+`api/sweep.py`, `api/tolerance.py`, `api/sensor.py`) use only this surface —
+`_defs`, `_groups`, `_inputs`, `_tolerances`, `_resolved_flag` are private and
+carry no compatibility guarantee.
+
+---
+
 ## Spectral Data Store
 
 ### Common wavelength grid

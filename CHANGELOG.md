@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- Public schema-introspection API (Gap 70): `ParameterSet.parameter_defs()`,
+  `parameter_def(name)`, `consistency_groups()`, `tolerances()`,
+  `is_resolved`, and `copy()`, plus `Sensor.parameter_defs()` /
+  `Sensor.parameter_def(dotpath)` passthroughs. GUIs/CLIs/sweep tooling
+  can now enumerate the full parameter schema (dtype, units, bounds,
+  enums, defaults, descriptions, tags) without touching private state;
+  all framework consumers migrated off the `_defs`/`_groups`/`_inputs`/
+  `_tolerances`/`_resolved_flag` privates. Side effect: sweep- and
+  sensitivity-cloned ParameterSets now carry loaded-file provenance
+  records (previously dropped by the private clone path).
+
 ### Fixed
 - **CU-065 (deck-side):** `render_tape5` now converts RADIANT's
   lower-endpoint path zenith to MODTRAN's Card 3 ANGLE-at-H1

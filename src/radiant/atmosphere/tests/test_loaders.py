@@ -26,8 +26,9 @@ from radiant.core.parameters import ParameterSet
 
 def _make_params(model: str, **extra: object) -> ParameterSet:
     from radiant.atmosphere._schema import ALL_PARAMETERS as ATM_PARAMS
+    from radiant.geometry._schema import ALL_PARAMETERS as GEO_PARAMS
 
-    ps = ParameterSet(list(ATM_PARAMS), [])
+    ps = ParameterSet(list(GEO_PARAMS + ATM_PARAMS), [])
     ps.set("atmosphere.model", model)
     ps.set("geometry.sensor_altitude_m", 500e3)
     for dotpath, value in extra.items():

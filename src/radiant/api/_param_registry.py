@@ -10,6 +10,7 @@ from __future__ import annotations
 from radiant.atmosphere._schema import ALL_PARAMETERS as ATMO_PARAMS
 from radiant.core.parameters import ConsistencyGroup, ParameterSet
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
+from radiant.geometry._schema import ALL_PARAMETERS as GEO_PARAMS
 from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
 from radiant.performance._schema import ALL_PARAMETERS as PERF_PARAMS
 from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS
@@ -65,7 +66,8 @@ _GROUND_SPEED_GROUP = ConsistencyGroup(
 def build_parameter_set() -> ParameterSet:
     """Return a :class:`ParameterSet` with the full 2B.5 schema."""
     schema = list(
-        SRC_PARAMS
+        GEO_PARAMS
+        + SRC_PARAMS
         + ATMO_PARAMS
         + OPT_PARAMS
         + PLAT_PARAMS

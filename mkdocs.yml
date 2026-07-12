@@ -66,6 +66,7 @@ nav:
   - Architecture Reference:
     - Config Format: architecture/RADIANT_Config_Format.md
     - Scripting API: architecture/RADIANT_Scripting_API.md
+    - Geometry Stage: architecture/RADIANT_Geometry.md
     - Source & Target System: architecture/RADIANT_Source_Target_System.md
     - Atmosphere: architecture/RADIANT_Atmosphere.md
     - Optics: architecture/RADIANT_Optics.md

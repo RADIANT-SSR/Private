@@ -25,6 +25,7 @@ Read documents in this order. Stop when you have what you need for your task.
 | [RADIANT_Signal_Chain_Architecture.md](RADIANT_Signal_Chain_Architecture.md) | Before implementing any stage | Stage protocol, ChainState, reference frames, regime dispatch |
 | [RADIANT_Reference_Frames.md](RADIANT_Reference_Frames.md) | Working on `signal_at`/`noise_at` or frame conversion | `ReferenceFrame` enum, `ChainQuantity`, transfer-factor chain, backward propagation, saturated-well fallback |
 | [RADIANT_Spectral_Integration.md](RADIANT_Spectral_Integration.md) | Implementing Stage 5 | Spectral→scalar collapse, regime signal assembly, EE_box coupling, fill factor, background pedestal |
+| [RADIANT_Geometry.md](RADIANT_Geometry.md) | Working on GeometryStage, scene setup, or input modes | Stage-0 contract: geometry.* parameters, input modes (V/S families), published outputs, mode-resolution rules |
 | [RADIANT_Geometry_Orbital.md](RADIANT_Geometry_Orbital.md) | Working on geometry, GSD, orbit, or revisit | Slant range, incidence, GSD, orbital velocity, J2 sun-sync, revisit, solar geometry |
 | [RADIANT_Physics_Inventory.md](RADIANT_Physics_Inventory.md) | Reference for physics scope | Complete inventory of physical effects by signal chain stage |
 | [RADIANT_Source_Target_System.md](RADIANT_Source_Target_System.md) | Implementing source/target | Source radiance models, BRDF, regime classification |
@@ -76,7 +77,7 @@ Target regime classification (extended / point / sub-pixel) is tentatively set i
 Every noise term carries a value in electrons RMS and an origin frame (the reference frame where the noise was generated). Conversion to other reference frames (DN, aperture-referred noise) happens at query time via the stored forward factors. No noise term is stored in any other unit or converted at generation time.
 
 ### C9 — No Cross-Stage Imports in Physics Modules
-Physics subpackages (`source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, `performance`) import only from `radiant.core`. They never import from each other. All inter-stage communication flows through `ChainState`. Enforcement: `import-linter` in CI.
+Physics subpackages (`geometry`, `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, `performance`) import only from `radiant.core`. They never import from each other. All inter-stage communication flows through `ChainState`. Enforcement: `import-linter` in CI.
 
 ### C10 — Every Parameter Has a ParameterDef
 Every user-facing parameter is defined once in a `_schema.py` file within its owning physics subpackage. The definition specifies: name (dot-path), dtype, canonical unit, input unit, default, bounds, enum values, consistency group, and tags. Parameters without a `ParameterDef` cannot exist in a valid RADIANT config.

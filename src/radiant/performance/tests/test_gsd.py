@@ -13,11 +13,6 @@ import math
 import numpy as np
 import pytest
 
-from radiant.atmosphere._schema import (
-    GROUND_SPEED_M_S,
-    PATH_ZENITH_RAD,
-    SENSOR_ALTITUDE_M,
-)
 from radiant.core.chain import ChainState
 from radiant.core.geometry import (
     EARTH_RADIUS_M,
@@ -29,6 +24,11 @@ from radiant.detector._schema import (
     N_PIXELS_CROSS,
     PIXEL_PITCH_X,
     PIXEL_PITCH_Y,
+)
+from radiant.geometry._schema import (
+    GROUND_SPEED_M_S,
+    PATH_ZENITH_RAD,
+    SENSOR_ALTITUDE_M,
 )
 from radiant.optics._schema import (
     APERTURE_DIAMETER_M,

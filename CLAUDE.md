@@ -6,7 +6,7 @@ This is the authoritative reference for all RADIANT coding agents. Read it fully
 
 ## What Is This Codebase
 
-RADIANT is a first-principles EO sensor performance modeling framework. It predicts SNR, NEDT, NIIRS, MTF, and detection range for space-based and airborne electro-optical sensors. The signal chain flows: source → atmosphere → optics → platform → spectral integration → detector → readout → performance metrics.
+RADIANT is a first-principles EO sensor performance modeling framework. It predicts SNR, NEDT, NIIRS, MTF, and detection range for space-based and airborne electro-optical sensors. The signal chain flows: geometry → source → atmosphere → optics → platform → spectral integration → detector → readout → performance metrics (geometry-first per ADR-0006).
 
 **Primary reference documents** (read before touching related code):
 - `docs/architecture/RADIANT_Master_Architecture.md` — non-negotiable constraints (15 rules)
@@ -87,7 +87,7 @@ Computed in `PlatformStage` from the fully degraded PSF (`stage_outputs["platfor
 ### 11. No Cross-Stage Imports in Physics Modules
 
 ```python
-# FORBIDDEN in source, atmosphere, optics, platform,
+# FORBIDDEN in geometry, source, atmosphere, optics, platform,
 # spectral_integration, detector, readout, performance:
 from radiant.optics import psf        # cross-stage physics import — NO
 from radiant.source import blackbody  # cross-stage — NO
@@ -486,6 +486,7 @@ src/radiant/
 │   ├── radiometry.py     # RadiometricFrame, NoiseTerm
 │   ├── geometry.py       # ObserverGeometry, SceneGeometry
 │   └── regime.py         # RadiometricRegime enum
+├── geometry/       # Stage 0: scene geometry — input modes, LOS, derived ranges (ADR-0006)
 ├── source/         # Stage 1: target + background spectral radiance
 ├── atmosphere/     # Stage 2: τ_atm, L_path, L_atm
 ├── optics/         # Stage 3: PSF, MTF, throughput, EE_box, regime final
@@ -511,7 +512,7 @@ package returns when that spec is implemented.)
 | Module | May import from |
 |--------|----------------|
 | `core/` | stdlib, numpy, scipy ONLY |
-| Physics stages (source through performance) | `radiant.core` ONLY |
+| Physics stages (geometry through performance) | `radiant.core` ONLY |
 | `data/` | `radiant.core` ONLY (+ stdlib, numpy, yaml) |
 | `io/` | `radiant.core` + any physics stage (read-only for schema) |
 | `api/` | `radiant.core` + all physics stages + `radiant.io` + `radiant.data` (pre-chain library resolution, Rule 6) |

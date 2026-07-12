@@ -21,6 +21,45 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GeometryStage — geometry is stage 0 of the chain (ADR-0006).** The signal
+  chain is now `geometry → source → … → performance` (9 stages;
+  `ChainResult.history` and provenance `active_models` gain a leading
+  `"geometry"` entry). The new stage owns the `geometry.*` namespace, resolves
+  the scene-geometry input mode, and publishes every derived quantity once via
+  `stage_outputs["geometry"]` (`los_geometry`, `theta_o_rad`, `eta_rad`,
+  `slant_range_m`, `ground_range_m`, `incidence_angle_rad`, solar geometry,
+  ground speed, and the mode labels). Zero numerical drift: existing
+  configurations resolve exactly as before (all goldens byte-identical);
+  downstream stages still read the canonical parameters until the Phase-2
+  re-plumb (`docs/plans/Geometry_Stage_Plan.md`).
+- **New geometry input modes** (published by the stage; chain-steering lands
+  with Phase 2): `geometry.sensor_off_nadir_rad` (off-nadir η — wires the
+  CU-005-reserved `theta_o_from_eta` converter), `geometry.ground_range_m`
+  (surface-arc entry), `geometry.elevation_angle_rad` (grazing-angle entry),
+  `geometry.solar_elevation_rad`, site+time solar inputs
+  (`geometry.site_latitude_rad`, `geometry.day_of_year`,
+  `geometry.local_solar_time_h`, `geometry.ltan_h` — wires the previously
+  consumer-less `core.solar_geometry`), and `geometry.circular_orbit`
+  (derives ground-track speed and orbital period from altitude via
+  `core.orbit`). Over-specified or mutually inconsistent entries raise the
+  new actionable `radiant.geometry.GeometrySpecificationError`.
+- `core.viewing_triangle` — θ_o-referenced spherical viewing-triangle
+  solutions (`eta_from_theta_o`, `slant_range_from_theta_o_m`,
+  `ground_range_from_theta_o_m`, `theta_o_from_ground_range_m`).
+
+### Deprecated
+- `source.target.range_m` → renamed `geometry.target_range_m` (ADR-0006).
+  The old name keeps working via `deprecated_aliases` (set/get redirect with
+  a `DeprecationWarning`) for one release cycle.
+
+### Changed
+- Uplooking configurations (`geometry.sensor_altitude_m` at or below
+  `geometry.target_altitude_m`) are now rejected by GeometryStage at the head
+  of the chain with an actionable error, instead of surfacing later as the
+  atmosphere Earth-limb check. Same v1 policy (uplooking rejection,
+  owner-ratified 2026-07-11); earlier, clearer error site.
+
+### Added
 - MODTRAN downwelling zeroing now warns (Gap 81, partial): a
   MODTRAN-backed atmospheric state emits a `UserWarning` that the
   downwelling sky emission (`atm_emission_down` / `E_sky_thermal`) and

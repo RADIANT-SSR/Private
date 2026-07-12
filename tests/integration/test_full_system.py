@@ -154,7 +154,7 @@ class TestAllRegimes:
 
     def test_complete_history_all_regimes(self) -> None:
         expected = (
-            "source", "atmosphere", "optics", "platform",
+            "geometry", "source", "atmosphere", "optics", "platform",
             "spectral_integration", "detector", "readout",
             "performance",
         )

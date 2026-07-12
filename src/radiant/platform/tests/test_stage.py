@@ -400,7 +400,7 @@ def _make_smear_params(**overrides: object) -> ParameterSet:
     Extends _make_params with geometry and spectral_integration schemas
     needed for velocity-based smear computation.
     """
-    from radiant.atmosphere._schema import (
+    from radiant.geometry._schema import (
         PATH_ZENITH_RAD,
         SENSOR_ALTITUDE_M,
     )

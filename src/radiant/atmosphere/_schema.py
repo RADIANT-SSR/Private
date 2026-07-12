@@ -115,104 +115,10 @@ STANDARD_ATMOSPHERE = ParameterDef(
 
 
 # ---------------------------------------------------------------------------
-# Viewing geometry (consumed by AtmosphereStage; namespace = geometry.*)
+# Viewing geometry: the geometry.* namespace moved to
+# radiant/geometry/_schema.py (ADR-0006 — GeometryStage owns it).
+# This schema is atmosphere-model parameters only.
 # ---------------------------------------------------------------------------
-
-SENSOR_ALTITUDE_M = ParameterDef(
-    name="geometry.sensor_altitude_m",
-    description="Sensor altitude above mean sea level [m].",
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=None,
-    bounds=(0.0, 1e8),
-    tags=frozenset({"geometry"}),
-)
-
-TARGET_ALTITUDE_M = ParameterDef(
-    name="geometry.target_altitude_m",
-    description="Target altitude above mean sea level [m].",
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e8),
-    tags=frozenset({"geometry"}),
-    default_justification="Ground-level target is the common case.",
-)
-
-PATH_ZENITH_RAD = ParameterDef(
-    name="geometry.path_zenith_rad",
-    description="Line-of-sight zenith angle [rad].",
-    dtype=float,
-    canonical_unit="rad",
-    input_unit="rad",
-    default=0.0,
-    bounds=(0.0, 1.562),  # ~89.5 deg
-    tags=frozenset({"geometry"}),
-    default_justification="Nadir (0 rad) is the standard staring geometry.",
-)
-
-SOLAR_ZENITH_RAD = ParameterDef(
-    name="geometry.solar_zenith_rad",
-    description="Solar zenith angle [rad].",
-    dtype=float,
-    canonical_unit="rad",
-    input_unit="rad",
-    default=0.5,
-    bounds=(0.0, 1.5707),
-    tags=frozenset({"geometry"}),
-    default_justification="~28.6° — moderate solar elevation.",
-)
-
-SOLAR_AZIMUTH_RAD = ParameterDef(
-    name="geometry.solar_azimuth_rad",
-    description="Sun-to-sensor relative azimuth [rad].",
-    dtype=float,
-    canonical_unit="rad",
-    input_unit="rad",
-    default=0.0,
-    bounds=(-6.2832, 6.2832),
-    tags=frozenset({"geometry"}),
-    default_justification="Same meridional plane.",
-)
-
-SOLAR_ILLUMINATION = ParameterDef(
-    name="geometry.solar_illumination",
-    description=(
-        "Day/night solar toggle (Gap 59). 'day' (default) illuminates "
-        "reflective and mixed (T2/T3) targets with the sun at "
-        "geometry.solar_zenith_rad — the historical behavior, in which the "
-        "0.5 rad zenith default meant every T2/T3 scene carried a daytime "
-        "sun. 'night' removes the solar terms entirely (theta_s = None: no "
-        "direct-solar reflection, no single-scatter solar sky) while "
-        "thermal self-emission and reflected THERMAL downwelling remain — "
-        "the physically correct nighttime mixed scene. Pure-thermal "
-        "targets (T1) never carry a solar term either way."
-    ),
-    dtype=str,
-    canonical_unit="",
-    input_unit="",
-    default="day",
-    enum_values=("day", "night"),
-    tags=frozenset({"geometry"}),
-    default_justification=(
-        "'day' preserves every existing configuration bit-for-bit; night "
-        "was previously inexpressible for T2/T3 targets."
-    ),
-)
-
-GROUND_SPEED_M_S = ParameterDef(
-    name="geometry.ground_speed_m_s",
-    description="Ground-track speed [m/s]. For LEO at 600 km: ~6900 m/s.",
-    dtype=float,
-    canonical_unit="m/s",
-    input_unit="m/s",
-    default=0.0,
-    bounds=(0.0, 50_000.0),
-    tags=frozenset({"geometry"}),
-    default_justification="0 = not set; access rate skipped.",
-)
 
 
 # ---------------------------------------------------------------------------
@@ -515,12 +421,4 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     INTERPOLATION_METHOD,
     # Turbulence
     FRIED_PARAMETER_M,
-    # Geometry
-    SENSOR_ALTITUDE_M,
-    TARGET_ALTITUDE_M,
-    PATH_ZENITH_RAD,
-    SOLAR_ZENITH_RAD,
-    SOLAR_AZIMUTH_RAD,
-    SOLAR_ILLUMINATION,
-    GROUND_SPEED_M_S,
 )

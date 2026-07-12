@@ -89,21 +89,9 @@ TARGET_PROJECTED_AREA = ParameterDef(
     ),
 )
 
-TARGET_RANGE = ParameterDef(
-    name="source.target.range_m",
-    description=(
-        "Observer-to-target slant range [m]. 0.0 = not specified (extended-scene default)."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e12),
-    tags=frozenset({"source", "target", "geometry"}),
-    default_justification=(
-        "0.0 signals 'range not provided' — regime classification defaults to extended scene."
-    ),
-)
+# Target slant range moved to radiant/geometry/_schema.py as
+# geometry.target_range_m (ADR-0006); the old source.target.range_m name
+# survives as a deprecated alias on that definition.
 
 # ---------------------------------------------------------------------------
 # Sub-pixel parameters
@@ -889,7 +877,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TARGET_EMISSIVITY,
     TARGET_IS_HOT_TARGET,
     TARGET_PROJECTED_AREA,
-    TARGET_RANGE,
     FILL_FRACTION,
     BACKGROUND_TEMPERATURE,
     BACKGROUND_EMISSIVITY,

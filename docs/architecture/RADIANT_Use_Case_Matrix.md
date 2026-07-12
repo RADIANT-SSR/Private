@@ -71,7 +71,7 @@ Decisions made during design review, in order:
 
 6. **At-aperture API**: user supplies `L_t_aperture(λ)` (required) + `L_bg_aperture(λ)` (optional, default 0). Forced extended-only. AtmosphereStage becomes validated pass-through; warns if atm parameters were supplied.
 
-7. **AtmosphereStage geometry contract** = `LineOfSightGeometry` with {`h_tgt`, `h_atm_top`, `θ_o`, `θ_s`, `Δφ`}. Physical sensor altitude lives in a separate `SensorDescriptor` consumed by OpticsStage/platform.
+7. **AtmosphereStage geometry contract** = `LineOfSightGeometry` with {`h_tgt`, `h_atm_top`, `θ_o`, `θ_s`, `Δφ`}. Physical sensor altitude lives in `geometry.sensor_altitude_m`, owned by `GeometryStage` (ADR-0006 — the SensorDescriptor concept was superseded; see §4.4).
 
 8. **Earth model**: spherical, `R_E = 6378.137 km` in v1. Ellipsoidal (WGS84) is v2.
 
@@ -407,9 +407,13 @@ class LineOfSightGeometry:
 - `θ_s ∈ [0, π]` if provided; downstream reflective terms zero when θ_s > π/2
 - `Δφ ∈ [−π, π]` if provided
 
-### 4.4 SensorDescriptor (partial — not fully scoped in this doc)
+### 4.4 SensorDescriptor — SUPERSEDED by ADR-0006 (2026-07-12)
 
-Carries physical sensor altitude `h_sensor` for OpticsStage / platform use. Not consumed by AtmosphereStage. Exact structure deferred to its own design review.
+The deferred design review happened: sensor altitude and all other scene-geometry
+inputs live in the `geometry.*` parameter namespace owned by `GeometryStage`
+(stage 0), not in a separate descriptor object. See
+[docs/adr/0006-geometry-stage.md](../adr/0006-geometry-stage.md) and
+[RADIANT_Geometry.md](RADIANT_Geometry.md).
 
 ---
 

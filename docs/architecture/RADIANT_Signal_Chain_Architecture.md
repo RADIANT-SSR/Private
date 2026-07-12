@@ -32,6 +32,8 @@ Not a free-form DAG. Not bare function composition. A `Chain` is an ordered list
 ### Stages in v1
 
 ```
+0. GeometryStage       — resolves the scene-geometry input mode (ADR-0006); publishes LOS,
+                         slant/ground range, solar geometry via stage_outputs["geometry"]
 1. SourceStage         — assembles target/background emission and reflection; classifies regime
 2. AtmosphereStage     — applies τ(λ), L_path(λ), L_atm(λ); adds turbulence MTF (ground-based only)
 3. OpticsStage         — applies A, Ω, τ_opt(λ), warm-optics emission, cold stop, narcissus;
@@ -86,6 +88,7 @@ class Stage(Protocol):
 
 | Stage | Consumes | Produces (radiometric) | Produces (spatial) |
 |-------|----------|------------------------|--------------------|
+| **GeometryStage** | params (`geometry.*` — altitudes, one viewing-mode entry, one solar-mode entry) | `stage_outputs["geometry"]`: `los_geometry`, θ_o, η, slant/ground range, θ_s/Δφ, ground speed, mode labels (no frames — scene geometry, not radiometry) | — |
 | **SourceStage** | params (target T, ε, ρ, area; background; geometry) | `L_source(λ)`, target solid angle, tentative regime | — |
 | **AtmosphereStage** | `L_source(λ)`, params (atmosphere model, geometry) | `L_at_aperture(λ)`, τ_atm(λ), L_path(λ), L_atm(λ) | MTF_turbulence(f) (ground-based only) |
 | **OpticsStage** | `L_at_aperture(λ)`, params (D, f, ε_obs, T_opt, ε_opt, η_cold, WFE, defocus, vignetting) | `L_post_optics(λ)`, A_collect, Ω_pixel, `effective_psf`, `reference_psf` (diffraction-limited reference with the same detector kernels, for PSF-derived Strehl), final regime | MTF_optics(f) — single term from the pupil autocorrelation; WFE and defocus enter via the pupil (Rule 4) |

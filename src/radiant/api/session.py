@@ -21,6 +21,7 @@ from radiant.atmosphere.stage import AtmosphereStage
 from radiant.core.chain import ChainRunner
 from radiant.core.parameters import ParameterSet
 from radiant.detector.stage import DetectorStage
+from radiant.geometry.stage import GeometryStage
 from radiant.io.results import ChainResult
 from radiant.optics.stage import OpticsStage
 from radiant.performance.stage import PerformanceStage
@@ -165,6 +166,7 @@ class RadiantSession:
         self._wavelength_um = np.asarray(wavelength_um, dtype=np.float64)
         self._runner = ChainRunner(
             [
+                GeometryStage(),
                 SourceStage(),
                 AtmosphereStage(),
                 OpticsStage(),

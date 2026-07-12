@@ -70,6 +70,7 @@ name = "core has no radiant imports"
 type = "forbidden"
 source_modules = ["radiant.core"]
 forbidden_modules = [
+    "radiant.geometry",
     "radiant.source",
     "radiant.atmosphere",
     "radiant.optics",
@@ -95,6 +96,7 @@ ignore_imports = [
 name = "physics stages import only core"
 type = "forbidden"
 source_modules = [
+    "radiant.geometry",
     "radiant.source",
     "radiant.atmosphere",
     "radiant.optics",
@@ -126,6 +128,7 @@ ignore_imports = [
 name = "no cross-stage physics imports"
 type = "independence"
 modules = [
+    "radiant.geometry",
     "radiant.source",
     "radiant.atmosphere",
     "radiant.optics",
@@ -143,6 +146,7 @@ ignore_imports = [
     # cross-stage independent — these exceptions cover the test seam only.
     "radiant.*.tests.* -> radiant.api._param_registry",
     "radiant.*.tests.* -> radiant.api.session",
+    "radiant.*.tests.* -> radiant.geometry._schema",
     "radiant.*.tests.* -> radiant.source._schema",
     "radiant.*.tests.* -> radiant.atmosphere._schema",
     "radiant.*.tests.* -> radiant.optics._schema",
@@ -165,6 +169,7 @@ type = "forbidden"
 source_modules = ["radiant.cli"]
 forbidden_modules = [
     "radiant.core",
+    "radiant.geometry",
     "radiant.source",
     "radiant.atmosphere",
     "radiant.optics",
@@ -179,6 +184,7 @@ ignore_imports = [
     # enforces that cli modules do not *directly* import physics stages.
     "radiant.api.session -> radiant.core.chain",
     "radiant.api.session -> radiant.core.parameters",
+    "radiant.api.session -> radiant.geometry.stage",
     "radiant.api.session -> radiant.source.stage",
     "radiant.api.session -> radiant.atmosphere.stage",
     "radiant.api.session -> radiant.atmosphere.loaders",
@@ -187,6 +193,7 @@ ignore_imports = [
     "radiant.api.session -> radiant.detector.stage",
     "radiant.api.session -> radiant.readout.stage",
     "radiant.api.session -> radiant.performance.stage",
+    "radiant.api._param_registry -> radiant.geometry._schema",
     "radiant.api._param_registry -> radiant.source._schema",
     "radiant.api._param_registry -> radiant.atmosphere._schema",
     "radiant.api._param_registry -> radiant.optics._schema",

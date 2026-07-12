@@ -716,10 +716,15 @@ class TestEarthLosInterceptNegativePath:
         return session, params
 
     def test_sensor_below_space_target_raises(self) -> None:
+        # Since ADR-0006, GeometryStage rejects the uplooking configuration
+        # (h_sensor below h_target) before the atmosphere's Earth-limb check
+        # can fire — same v1 policy (uplooking rejection ratified 2026-07-11),
+        # earlier and more specific error site. The Earth-limb validator
+        # itself stays covered by assembly unit tests.
         session, params = self._params(1_000.0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            with pytest.raises(ParameterBoundsError, match="intersects the Earth"):
+            with pytest.raises(ParameterBoundsError, match="not above"):
                 session.run(params)
 
     def test_sensor_above_space_target_runs(self) -> None:

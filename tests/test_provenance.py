@@ -395,7 +395,7 @@ class TestChainResultProvenanceEndToEnd:
     def test_active_models_mirrors_history(self, result: object) -> None:
         record = result.to_provenance_record()
         assert tuple(record["active_models"]) == result.history
-        assert len(record["active_models"]) == 8  # full chain
+        assert len(record["active_models"]) == 9  # full chain (geometry-first, ADR-0006)
 
     def test_json_serialisable_end_to_end(self, result: object) -> None:
         record = result.to_provenance_record()

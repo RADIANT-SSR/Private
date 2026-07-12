@@ -18,6 +18,7 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
+from radiant.geometry._schema import ALL_PARAMETERS as GEO_PARAMS
 
 # Minimal optics/detector params needed for IFOV calculation.
 from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
@@ -39,12 +40,13 @@ def _make_params(
 ) -> ParameterSet:
     from radiant.api._param_registry import _FNUMBER_GROUP
 
-    schema = list(SRC_PARAMS) + list(OPT_PARAMS) + list(DET_PARAMS)
+    schema = list(GEO_PARAMS) + list(SRC_PARAMS) + list(OPT_PARAMS) + list(DET_PARAMS)
     ps = ParameterSet(schema, [_FNUMBER_GROUP])
     ps.set("source.target.temperature", T)
     ps.set("source.target.emissivity", eps)
     ps.set("source.target.projected_area_m2", area_m2)
-    ps.set("source.target.range_m", range_m)
+    ps.set("geometry.target_range_m", range_m)
+    ps.set("geometry.sensor_altitude_m", 500_000.0)
     ps.set("source.target.fill_fraction", fill_fraction)
     ps.set("source.regime_override", regime_override)
     ps.set("source.background.temperature", bg_T)

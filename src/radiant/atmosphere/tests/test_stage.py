@@ -14,6 +14,7 @@ from radiant.core.descriptors import T1Thermal
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData
+from radiant.geometry._schema import ALL_PARAMETERS as GEO_PARAMS
 
 
 def _make_state_with_descriptors(
@@ -57,7 +58,7 @@ def _make_params(
     sensor_alt_m: float = 8000.0,
     model: str = "simple",
 ) -> ParameterSet:
-    ps = ParameterSet(list(ATMO_PARAMS))
+    ps = ParameterSet(list(GEO_PARAMS + ATMO_PARAMS))
     ps.set("geometry.sensor_altitude_m", sensor_alt_m)
     ps.set("atmosphere.model", model)
     ps.resolve()

@@ -55,6 +55,22 @@ core/
 └── tests/               # 15 test files mirroring the source modules
 ```
 
+### `geometry/` — stage 0 (ADR-0006)
+
+```
+geometry/
+├── __init__.py          # GeometryStage, GeometrySpecificationError re-exports
+├── _schema.py           # the geometry.* namespace (17 ParameterDefs)
+├── errors.py            # GeometrySpecificationError (over/under-specification)
+├── modes.py             # input-mode detection + resolution (V/S families)
+├── stage.py             # GeometryStage — publishes stage_outputs["geometry"]
+└── tests/               # mode matrix, stage contract, alias behavior
+```
+
+Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
+quantities. The θ_o-based spherical-triangle math lives in
+`core/viewing_triangle.py` (core, like its η-based siblings in `core/geometry.py`).
+
 ### `source/` — 40 source + 27 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.

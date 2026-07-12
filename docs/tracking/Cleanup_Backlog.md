@@ -12,6 +12,42 @@
 
 ## Open
 
+### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
+
+**Discovered**: Geometry_Stage_Plan Phase 1 (regenerating for the geometry namespace), 2026-07-12
+**Status**: Open
+**File**: `docs/guides/parameter_reference.md` (banner: "Auto-generated … re-run `python scripts/gen_param_reference.py`"); `scripts/gen_param_reference.py`
+**Symptom**: before the Phase-1 regeneration, the committed file said "134 parameters" while the registry held ~150+: missing `optics.n_spiders`/`spider_*`, `optics.stray.halo_sigma_um`/`veiling_glare_mtf`, `atmosphere.modtran.tape7_path`/`tape7_sun_path`, `source.lab_test_mode`, `source.background.material`/`emissivity_path`, `detector.qe_temperature_coeff_per_K`, and a drifted `detector.dark_reference_temperature_K` default (file said 300.0 K; schema says 77.0 K).
+**Why it still matters**: this is the published (mkdocs) parameter table — users sizing sensors from it miss real capability and read a wrong cryo default. A doc labeled auto-generated that silently drifts is worse than a hand-edited one (it claims freshness).
+**Suggested fix**: inline-fix-now — add a CI check (static job) that regenerates to a temp file and diffs against the committed copy, failing on mismatch (same pattern as `check_org_rules.py`); or a pre-commit hook when any `_schema.py` changes. Effort S; category A.
+
+### CU-098 — import-linter "cli imports only api and io" contract is broken at HEAD (pre-existing)
+
+**Discovered**: Geometry_Stage_Plan Phase 1 gate run, 2026-07-12 — verified broken on the pre-change tree (`git stash` → still 4 kept / 1 broken)
+**Status**: Open
+**File**: `pyproject.toml` (`[tool.importlinter.contracts]` "cli imports only api and io"); representative chains: `cli._common → api.sensor → core.orbit`, `cli.run → radiant → api.sensor → api.sweep → api._progress → core.exceptions`, `cli.schema_cmd → api._param_registry → performance._schema → core.parameters`, `cli.validate → api.session → io.results → io.serialization → core.exceptions`
+**Symptom**: `lint-imports` reports the cli contract BROKEN via transitive chains through api/io. The contract's intent (per its own comments) is "cli must not *directly* import physics/core," but a `forbidden` contract also flags transitive paths, and the hand-maintained `ignore_imports` list has fallen behind api/io's internal growth.
+**Why it still matters**: CLAUDE.md requires `import-linter` to pass before any task is declared complete; a permanently-broken contract trains contributors to ignore the tool. (CI is dormant — no remote — so this never surfaced as a red build.)
+**Suggested fix**: stand-alone task — either flip the contract to check only *direct* imports (`allow_indirect_imports` if the pinned import-linter supports it) or regenerate the transitive ignore list; verify all five contracts green. Effort S; category A.
+
+### CU-097 — Two Earth radii in core: `constants.R_EARTH_M` (6378.137 km, WGS-84 equatorial) vs `geometry.EARTH_RADIUS_M` (6371 km, mean)
+
+**Discovered**: Geometry_Stage_Plan Phase 1 implementation, 2026-07-12
+**Status**: Open — unification folds into `docs/plans/Geometry_Stage_Plan.md` Phase 2 (same commit family as CU-096)
+**File**: `src/radiant/core/constants.py:54` (`R_EARTH_M = 6.378137e6` — consumed by `core/los_geometry.py`, i.e. all atmospheric path geometry); `src/radiant/core/geometry.py:29` (`EARTH_RADIUS_M = 6_371_000.0` — consumed by `slant_range_spherical_m`, `incidence_angle_rad`, `performance/ground_range.py`, `core/orbit.py`)
+**Symptom**: the same chain evaluates atmospheric slant paths on a 6378.137 km Earth and spatial/ground metrics on a 6371 km Earth — a 0.11 % radius disagreement baked in as two "constants" for one quantity.
+**Why it still matters**: sub-percent but systematic; the CU-096 fix (one consistent spherical triangle for all viewing quantities) is undermined if two functions in the same triangle use different radii. Also a Rule 13 spirit violation — one physical constant, two homes, different values.
+**Suggested fix**: pick one radius (recommend the spherical-approximation mean 6371.0 km, matching US Standard 1976 usage and `core/orbit.py`; or WGS-84 mean 6371.0088 km), define it once in `constants.py`, delete the duplicate in `geometry.py`, and CHANGELOG the (tiny) results shift. Effort S; category C.
+
+### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance
+
+**Discovered**: Geometry_Stage_Plan Phase 1 implementation read-through, 2026-07-12
+**Status**: Open — resolution folds into `docs/plans/Geometry_Stage_Plan.md` Phase 2
+**File**: `src/radiant/core/geometry.py:52` (`slant_range_spherical_m(altitude_m, zenith_rad)` — ray-sphere from the **sensor**, i.e. the angle is sensor-side off-nadir η); `src/radiant/platform/stage.py:291-295` and `src/radiant/performance/stage.py:307,460,543` + `performance/ground_range.py:20` (all pass `geometry.path_zenith_rad` into it); vs `src/radiant/core/los_geometry.py:60-62` + CU-005/CU-009 canon (`path_zenith_rad` ↔ `LineOfSightGeometry.theta_o`, the **target-side** observer zenith)
+**Symptom**: `performance/ground_range.py`'s parameter is *named* `path_zenith_rad` but its docstring says "Off-nadir look angle" — the conflation is verbatim in the code. One parameter, two interpretations: atmosphere path physics reads it as θ_o at the target; slant-range/GSD/ground-range/smear read it as η at the sensor. The two differ by the spherical-Earth sine-rule correction (`theta_o_from_eta` docstring: up to ~8° at LEO off-nadir; e.g. h=500 km, θ_o=45° ⇒ η≈41°).
+**Why it still matters**: at any off-nadir geometry the chain's atmospheric attenuation and its spatial/ground metrics describe two *different* lines of sight. All 14 baselines sit at the nadir default (η = θ_o = 0) so goldens don't expose it.
+**Suggested fix**: stand-alone step inside Geometry_Stage_Plan Phase 2 — GeometryStage derives slant range, ground range, and η from the canonical θ_o via one consistent spherical triangle (law-of-cosines forms already derived in `los_geometry.intercepts_earth`); downstream consumes the published values. Any off-nadir golden drift is a **Results-affecting** CHANGELOG entry (direction: correct-physics fix). Effort M; category C.
+
 ### CU-095 — gaps.md Summary Table stale: rows stop at Gap 66, entries run to Gap 84
 
 **Discovered**: Geometry_Stage_Plan Phase 0 (filing Gaps 83/84), 2026-07-12

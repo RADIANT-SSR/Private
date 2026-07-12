@@ -2,14 +2,19 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 134**
+**Total parameters: 160**
 
 ## source
 
 | Parameter | Type | Default | Input Unit | Bounds | Description |
 |-----------|------|---------|------------|--------|-------------|
 | `source.background.emissivity` | float | 0.95 | --- | (0.0, 1.0) | Background surface emissivity for sub-pixel regime. |
+| `source.background.emissivity_path` | str |  | --- | --- | Two-column CSV (wavelength_um, emissivity) giving a measured background emissivity spectrum ε_g(λ) for the sub-pixel/point-source GroundBackground (CU-008). Loaded by the API layer before chain execution (Rule 6) and resampled onto the chain grid. Takes precedence over source.background.material. |
+| `source.background.material` | str | grey | --- | --- | Named spectral-library material for the sub-pixel/point-source GroundBackground emissivity ε_g(λ) (CU-008). 'grey' (default) uses the scalar source.background.emissivity as a flat spectrum — the back-compat path. Any other name is resolved against radiant.data.SpectralLibrary (vegetation_green, snow, soil_dry, asphalt, ...) by the API layer before chain execution (Rule 6); unknown names are rejected with the legal vocabulary. source.background.emissivity_path overrides this when set. |
 | `source.background.temperature` | float | 290.0 | K | (0.0, 5000.0) | Background surface temperature [K] for sub-pixel regime. |
+| `source.contrast_reference.emissivity` | float | 0.95 | --- | (0.0, 1.0) | Emissivity of the extended contrast-reference scene (ADR-0005). Only used when source.contrast_reference.temperature > 0. |
+| `source.contrast_reference.temperature` | float | 0.0 | K | (0.0, 5000.0) | Temperature [K] of the reference (background) scene in the neighbouring extended pixel, used only for the extended contrast_snr differential (ADR-0005). 0 = no contrast reference (default). Never enters the noise budget. |
+| `source.lab_test_mode` | str |  | --- | --- | Positive dark/lit assertion for the ground_test / lab_test sub-cases (Gap 40). 'dark' declares a no-external-illumination configuration (no lamp, no solar — thermal self-emission only, the D-lab dark-cal sub-mode) and is VALIDATED: a user-set source.target.reflectance contradicts it and is rejected. 'lit' positively asserts an externally illuminated lab scene (recorded for readability; unvalidated until a lamp surface exists). Empty string = unasserted (back-compat). |
 | `source.no_atmosphere_subcase` | str |  | --- | --- | Matrix §3.3 sub-case selector for target_location='no_atmosphere'. Empty string = not set (paired with target_location != 'no_atmosphere'). Allowed explicit values: 'space', 'ground_test', 'lab_test'. |
 | `source.regime_override` | str | auto | --- | --- | Force regime classification. 'auto' = use detection rule. 'extended', 'point_source', 'sub_pixel' = force that regime. |
 | `source.scene_type` | str | auto | --- | --- | Matrix §3.2 scene-type axis. 'auto' = infer from fill_fraction / geometry (default). 'extended' = fills the pixel; 'sub_pixel' = partial fill; 'point_source' = angular size ≪ IFOV. |
@@ -18,13 +23,13 @@
 | `source.target.brightness_temperature_K` | float | 0.0 | K | (0.0, 10000.0) | Scalar brightness temperature T_B [K] — the equivalent-blackbody temperature that produces the same spectral radiance as the source. When user-set (provenance != DEFAULT), routes through the S11 converter to a T1Thermal descriptor with ε≡1.  Mutually exclusive with source.target.brightness_temperature_path. |
 | `source.target.brightness_temperature_path` | str |  | --- | --- | Path to a 2-column CSV (wavelength_um, T_B_K) carrying a wavelength-dependent brightness temperature.  When set, routes through the S11 converter; λ-varying T_B emits T6TabulatedAtSource with L_source = B(λ, T_B(λ)) per ADR-0003. Mutually exclusive with source.target.brightness_temperature_K. |
 | `source.target.emissivity` | float | 0.95 | --- | (0.0, 1.0) | Scalar target emissivity used when no spectral emissivity table is supplied. Graybody approximation: ε(λ) = const. |
+| `source.target.emissivity_path` | str |  | --- | --- | Path to a 2-column CSV (wavelength_um, emissivity) carrying a λ-dependent emissivity ε(λ) for a thermal target (Gap 47). When set, the inferrer builds the thermal descriptor with L_t(λ) = ε(λ)·B(λ, source.target.temperature) instead of a grey ε. Mutually exclusive with the scalar source.target.emissivity and with every reflective / radiance / brightness-temperature surface. |
 | `source.target.fill_fraction` | float | 1.0 | --- | (0.0, 1.0) | Target fill fraction within the pixel. 1.0 = extended scene (default). Values in (0, 1) activate the sub-pixel regime. |
 | `source.target.is_hot_target` | bool | False | --- | --- | Hot-target opt-out for MWIR routing.  Per matrix §3.2 the legacy scalar-ε surface defaults MWIR scenes to T3Mixed (Kirchhoff emit+reflect) because ambient MWIR scenes are reflective-relevant.  Set true for ρ ≈ 0 hot-target scenes (engine plumes, missile signatures, calibration sources) where self-emission dominates and the legacy T1Thermal pure-emit treatment is the correct physics.  Ignored for non-MWIR wavelength grids. |
 | `source.target.projected_area_m2` | float | 0.0 | m2 | (0.0, 1000000000000.0) | Projected area of target facing the observer [m²]. 0.0 = not specified (extended-scene default). |
 | `source.target.radiance_temperature_K` | float | 0.0 | K | (0.0, 10000.0) | Band-averaged radiance temperature T_R [K] — the scalar equivalent-blackbody temperature that matches the in-band integrated radiance of the target over [λ_lo, λ_hi].  Must be paired with source.target.radiance_temperature_band_lo_um and source.target.radiance_temperature_band_hi_um when user-set.  Mutually exclusive with S11 brightness_temperature parameters. |
 | `source.target.radiance_temperature_band_hi_um` | float | 0.0 | um | (0.0, 1000.0) | Upper band edge [µm] for the S12 radiance-temperature specification. Required when source.target.radiance_temperature_K is user-set; must satisfy λ_lo < λ_hi. |
 | `source.target.radiance_temperature_band_lo_um` | float | 0.0 | um | (0.0, 1000.0) | Lower band edge [µm] for the S12 radiance-temperature specification. Required when source.target.radiance_temperature_K is user-set; must satisfy λ_lo < λ_hi. |
-| `source.target.range_m` | float | 0.0 | m | (0.0, 1000000000000.0) | Observer-to-target slant range [m]. 0.0 = not specified (extended-scene default). |
 | `source.target.reflectance` | float | 0.0 | --- | (0.0, 1.0) | Scalar target reflectance ρ [dimensionless, 0–1] — the fraction of incident radiance that is reflected from the target.  When user-set (provenance != DEFAULT), routes through the Step 3.2 inferrer to a T2Reflective descriptor with ρ(λ) ≡ this scalar. Mutually exclusive with source.target.albedo, source.target.reflectance_path, and the legacy (ε, T) surface. |
 | `source.target.reflectance_path` | str |  | --- | --- | Path to a 2-column CSV (wavelength_um, rho) carrying a λ-dependent reflectance ρ(λ).  When set, routes through the Step 3.2 inferrer to a T2Reflective descriptor (S5/S6).  Mutually exclusive with the scalar reflectance / albedo surfaces. |
 | `source.target.shape` | str | none | --- | --- | Geometric primitive for sub-pixel / point-source projected-area computation. 'none' = not specified (back-compat: use source.target.projected_area_m2).  Explicit values select a concrete shape; dimensional parameters are read from the source.target.shape_* scalars per the matrix §3 catalog. |
@@ -58,6 +63,8 @@
 | `atmosphere.modtran.h2o_scale` | float | 1.0 | --- | (0.01, 10.0) | Water vapor column scaling factor for MODTRAN. |
 | `atmosphere.modtran.o3_scale` | float | 1.0 | --- | (0.01, 10.0) | Ozone column scaling factor for MODTRAN. |
 | `atmosphere.modtran.spectral_resolution_cm1` | float | 1.0 | cm-1 | (0.1, 100.0) | Spectral resolution [cm-1] for the MODTRAN computation. |
+| `atmosphere.modtran.tape7_path` | str |  | --- | --- | Path to a MODTRAN tape7 output file produced elsewhere. When set (with atmosphere.model='modtran'), the atmospheric state is built from this file — parsed before chain execution (Rule 6) — and the MODTRAN binary, cache, and fallback are never consulted. Unset (empty) leaves the binary/cache/fallback behavior unchanged. Like tabulated files, an imported tape7 is geometry-agnostic: the arrays are served as-is for any query geometry, and airborne targets (h_tgt > 0) are rejected. |
+| `atmosphere.modtran.tape7_sun_path` | str |  | --- | --- | Optional sun-leg tape7 file for the two-leg split (CU-011, file flavor). Requires atmosphere.modtran.tape7_path. When set, tau_sun (the sun→target down-leg transmittance) comes from this file's TOT TRANS column — a MODTRAN run along the solar-zenith slant path — instead of aliasing the up-leg transmittance, and the single-tau collapse warning is not emitted. Unset, tau_sun aliases tau_up with a UserWarning, as before. |
 | `atmosphere.precipitable_water_cm` | float | 1.4 | cm | (0.0, 10.0) | Total column precipitable water in centimetres of liquid-equivalent water vapour. Drives the 5-band water-vapor extinction fit. |
 | `atmosphere.r0_m` | float | 0.0 | m | (0.0, 10.0) | Fried coherence diameter r₀ [m] at the operating wavelength. Controls long-exposure Kolmogorov turbulence MTF. Set to 0 to disable turbulence effects. |
 | `atmosphere.standard_atmosphere` | str | us_standard | --- | --- | Standard atmosphere profile selector. Used by the simple model for the path-mean temperature lookup and aerosol/H2O scale heights. |
@@ -70,12 +77,23 @@
 
 | Parameter | Type | Default | Input Unit | Bounds | Description |
 |-----------|------|---------|------------|--------|-------------|
+| `geometry.circular_orbit` | bool | False | --- | --- | Declare the platform a circular orbit at geometry.sensor_altitude_m — mode V6 entry. When true, the ground-track speed (and orbital period) are derived from the altitude via core.orbit; do not also set geometry.ground_speed_m_s unless it agrees. False = generic platform (airborne or static); ground speed is taken from geometry.ground_speed_m_s as before. |
+| `geometry.day_of_year` | int | 80 | --- | (1, 366) | Day of year, 1–366 — mode S3 entry (site + time solar geometry). |
+| `geometry.elevation_angle_rad` | float | 1.5707963 | rad | (0.0088, 1.5708) | Sensor elevation above the target's local horizon [rad] — mode V4 entry (grazing-angle framing). path zenith = pi/2 − elevation. Unused unless explicitly set. |
+| `geometry.ground_range_m` | float | 0.0 | m | (0.0, 20000000.0) | Surface arc distance from the sensor nadir point to the target [m] — mode V3 entry. The target-side path zenith is derived via the spherical viewing triangle. Unused unless explicitly set. |
 | `geometry.ground_speed_m_s` | float | 0.0 | m/s | (0.0, 50000.0) | Ground-track speed [m/s]. For LEO at 600 km: ~6900 m/s. |
-| `geometry.path_zenith_rad` | float | 0.0 | rad | (0.0, 1.562) | Line-of-sight zenith angle [rad]. |
+| `geometry.local_solar_time_h` | float | 12.0 | h | (0.0, 24.0) | Local solar time at the target [hours, 0–24; 12.0 = solar noon] — mode S3 entry. Mutually exclusive with geometry.ltan_h. |
+| `geometry.ltan_h` | float | 12.0 | h | (0.0, 24.0) | Local time of ascending node [hours] for a sun-synchronous orbit — mode S3 entry; the local solar time is derived via core.solar_geometry.local_solar_time_from_ltan. Mutually exclusive with geometry.local_solar_time_h. |
+| `geometry.path_zenith_rad` | float | 0.0 | rad | (0.0, 1.562) | Line-of-sight zenith angle at the TARGET (theta_o) [rad]. 0 = sensor at the target's zenith (nadir view). This is the target-side angle consumed by the atmospheric path; the sensor-side off-nadir angle is geometry.sensor_off_nadir_rad. |
 | `geometry.sensor_altitude_m` | float | **required** | m | (0.0, 100000000.0) | Sensor altitude above mean sea level [m]. |
+| `geometry.sensor_off_nadir_rad` | float | 0.0 | rad | (0.0, 1.5707) | Sensor off-nadir look angle eta [rad] — mode V2 entry. The target-side path zenith is derived via the spherical-Earth sine rule (core.los_geometry.theta_o_from_eta). Unused unless explicitly set; do not also set geometry.path_zenith_rad unless the two agree. |
+| `geometry.site_latitude_rad` | float | 0.0 | rad | (-1.5708, 1.5708) | Target geodetic latitude [rad], north positive — mode S3 entry (site + time solar geometry). Combined with geometry.day_of_year and geometry.local_solar_time_h (or geometry.ltan_h) to derive the solar zenith angle. Unused unless an S3 parameter is explicitly set. |
 | `geometry.solar_azimuth_rad` | float | 0.0 | rad | (-6.2832, 6.2832) | Sun-to-sensor relative azimuth [rad]. |
+| `geometry.solar_elevation_rad` | float | 1.0707963 | rad | (0.0, 1.5708) | Sun elevation above the target's local horizon [rad] — mode S2 entry. solar zenith = pi/2 − elevation. Unused unless explicitly set. |
+| `geometry.solar_illumination` | str | day | --- | --- | Day/night solar toggle (Gap 59). 'day' (default) illuminates reflective and mixed (T2/T3) targets with the sun at geometry.solar_zenith_rad — the historical behavior, in which the 0.5 rad zenith default meant every T2/T3 scene carried a daytime sun. 'night' removes the solar terms entirely (theta_s = None: no direct-solar reflection, no single-scatter solar sky) while thermal self-emission and reflected THERMAL downwelling remain — the physically correct nighttime mixed scene. Pure-thermal targets (T1) never carry a solar term either way. |
 | `geometry.solar_zenith_rad` | float | 0.5 | rad | (0.0, 1.5707) | Solar zenith angle [rad]. |
 | `geometry.target_altitude_m` | float | 0.0 | m | (0.0, 100000000.0) | Target altitude above mean sea level [m]. |
+| `geometry.target_range_m` | float | 0.0 | m | (0.0, 1000000000000.0) | Observer-to-target slant range [m]. 0.0 = not specified (extended-scene default). |
 
 ## optics
 
@@ -87,6 +105,7 @@
 | `optics.field_position_x` | float | 0.0 | deg | (-10.0, 10.0) | Normalized cross-track field coordinate for field-dependent WFE evaluation. 0.0 = on-axis. Maps to field_x_deg via the field table. |
 | `optics.field_position_y` | float | 0.0 | deg | (-10.0, 10.0) | Normalized along-track field coordinate for field-dependent WFE evaluation. 0.0 = on-axis. Maps to field_y_deg via the field table. |
 | `optics.focal_length_m` | float | **required** | m | (0.0001, 100.0) | Effective focal length of the telescope [m]. |
+| `optics.n_spiders` | int | 0 | --- | (0, 12) | Number of secondary-support spider arms (radial struts). Default 0 (no struts). A 4-arm spider produces the familiar four-point diffraction spike. See RADIANT_Optics.md §3.3. |
 | `optics.nearfield_enabled` | int | 1 | --- | (0, 1) | Enable nearfield (warm-optics) emission calculation. Set to 0 to disable (int: 1=True, 0=False). |
 | `optics.nearfield_fraction` | float | 1.0 | --- | (0.0, 1.0) | Nearfield fraction: fraction of the FPA hemisphere filled by warm (nearfield-emitting) elements. 0 = perfect cold stop (no warm-optics emission reaches the FPA); 1 = no cold stop (uncooled instrument). NOTE this is INVERTED from the vendor 'cold stop efficiency' convention, where 100% efficient means complete blocking: nearfield_fraction = 1 - vendor_efficiency. Formerly named optics.cold_stop_efficiency (deprecated alias still accepted, Gap 12). |
 | `optics.obscuration_ratio` | float | 0.0 | --- | (0.0, 0.99) | Central obscuration ratio ``D_secondary / D_primary``. Defaults to 0 (unobscured). Must satisfy 0 ≤ ε < 1. |
@@ -95,14 +114,18 @@
 | `optics.psf_n_wavelengths` | int | 1 | --- | (1, 101) | Number of wavelengths for polychromatic PSF computation. 1 = monochromatic at band center (default). Values > 1 compute a photon-flux-weighted average of monochromatic PSFs across the spectral band. |
 | `optics.scalar_emissivity` | float | 0.0 | --- | (0.0, 1.0) | Declared effective emissivity of the lumped optical train in scalar transmission mode [0, 1]. Zero (default) keeps the refractive-lump assumption (no warm-optics nearfield emission). Set nonzero for warm reflective trains — e.g. eps ≈ 1 - tau for an all-mirror train. Permitted only because the scalar lump is not a physical surface; Rule 5 (Kirchhoff-derived emissivity) still binds real elements. Requires eps + tau <= 1. Ignored in non-scalar transmission modes. |
 | `optics.scatter_halo_sigma_um` | float | 100.0 | um | (0.1, 10000.0) | Focal-plane sigma of the Gaussian scatter halo [µm] used by the TIS model. Sets where the scattered fraction lands; tune to a measured halo when available. Only meaningful when optics.surface_roughness_nm > 0. |
+| `optics.spider_angle_deg` | float | 0.0 | deg | (0.0, 360.0) | Orientation of the first spider arm about the optical axis [deg]; remaining arms equally spaced. Default 0 (first arm along +x). |
+| `optics.spider_width_m` | float | 0.0 | m | (0.0, 1.0) | Width of each spider arm [m]. Converted to a fraction of the pupil diameter for the mask; also subtracted from the radiometric clear area (RADIANT_Optics.md §3.3). Default 0. Active only when n_spiders > 0. |
 | `optics.stray.absolute_irradiance_W_m2` | float | 0.0 | W/m^2 | (0.0, 1000000.0) | Absolute in-band stray irradiance at the FPA [W/m^2]. Distributed flat across the wavelength grid. |
+| `optics.stray.halo_sigma_um` | float | 50.0 | um | (0.1, 1000.0) | Gaussian half-width of the veiling-glare halo on the focal plane [µm] (Gap 60). Must be small enough to fit the PSF grid for the kernel and analytic MTF term to stay exact Fourier pairs (the kernel is truncated at the grid edge). |
 | `optics.stray.includes_thermal` | int | 0 | --- | (0, 1) | If 1, the stray light measurement already includes warm-optics scatter; nearfield is suppressed to avoid double-counting. (int: 1=True, 0=False). |
-| `optics.stray.input_mode` | str | veiling_glare | --- | --- | Stray light input mode: veiling_glare, absolute_irradiance, spectral_file, or pst_file. |
+| `optics.stray.input_mode` | str | veiling_glare | --- | --- | Stray light input mode: veiling_glare, absolute_irradiance, or spectral_file (curve injected via stage_outputs['optics_config']['stray_light_spectral']). pst_file is not offered: PST-based stray light needs a scene radiance distribution RADIANT v1 does not model (Gap 68 un-advertised the always-raising mode). |
 | `optics.stray.veiling_glare_fraction` | float | 0.0 | --- | (0.0, 1.0) | Veiling glare fraction: fraction of in-FOV scene irradiance that becomes stray light [0, 1]. |
+| `optics.stray.veiling_glare_mtf` | int | 0 | --- | (0, 1) | Enable the SPATIAL veiling-glare model (Gap 60): the veiling-glare fraction is re-imaged as a Gaussian halo, entering the PSF path as a kernel (1−vgf)·δ + vgf·G(σ_halo) and the MTF product path as its exact Fourier pair (1−vgf) + vgf·exp(−2π²σ²f²) — the low-frequency contrast-modulation loss the radiometric pedestal cannot express. 0 (default) = pedestal-only (historical behavior); 1 = halo model active when veiling_glare_fraction > 0. (int: 1=True, 0=False). |
 | `optics.surface_roughness_nm` | float | 0.0 | nm | (0.0, 10000.0) | Effective RMS surface micro-roughness of the optical train [nm] for the TIS scatter model: TIS = 1 - exp(-(4πσ/λ)²) at band center. Zero (default) = no scatter. Smooth-surface limit — a warning fires when TIS > 0.3. Scattered energy lands in a Gaussian halo of width optics.scatter_halo_sigma_um (Rule 4: kernel on the PSF path + analytic MTF term, exact Fourier pair). |
-| `optics.transmission_input_mode` | str | scalar | --- | --- | Which of the five transmission input modes to use: scalar, spectral_file, telescope_plus_filters, key_elements, full_prescription. |
+| `optics.transmission_input_mode` | str | scalar | --- | --- | Which of the five transmission input modes to use: scalar, spectral_file, telescope_plus_filters, key_elements, full_prescription. Non-scalar modes read their curves/elements from pre-chain injections under stage_outputs['optics_config'] (transmission_spectral; telescope_transmission + filter_specs; key_elements + residual_transmission; element_list) — e.g. via Sensor.evaluate(extra_stage_outputs=...). |
 | `optics.transmission_scalar` | float | 0.7 | --- | (0.0, 1.0) | Flat broadband optical throughput ``τ_opt`` (Mode 1 of RADIANT_Optics.md §5.1). Dimensionless in [0, 1]. |
-| `optics.wfe_mode` | str | scalar_rms | --- | --- | Wavefront error input mode: scalar_rms, zernike, opd_map, or field_dependent. |
+| `optics.wfe_mode` | str | scalar_rms | --- | --- | Wavefront error input mode: scalar_rms (parameter-driven), or zernike / field_dependent (WavefrontError object injected via stage_outputs['optics_config']['wavefront_error']). opd_map is not offered: OPD maps have no pupil-phase representation in v1 (Gap 68 un-advertised the always-raising mode). |
 | `optics.wfe_reference_wavelength_um` | float | 0.633 | um | (0.1, 30.0) | Reference wavelength at which the WFE is specified [um]. HeNe 0.633 um is the standard interferometry wavelength. |
 | `optics.wfe_rms_waves` | float | 0.0 | waves | (0.0, 2.0) | RMS wavefront error in waves at the reference wavelength (scalar_rms mode). |
 
@@ -114,7 +137,7 @@
 | `detector.clutter_sigma` | float | 0.0 | --- | (0.0, 1.0) | Scene clutter coefficient (fractional). Zero disables. |
 | `detector.dark_activation_energy_eV` | float | 0.0 | eV | (0.0, 5.0) | Arrhenius activation energy for dark-rate temperature scaling. Zero disables scaling. |
 | `detector.dark_rate_e_per_s` | float | 100.0 | 1/s | (0.0, 1000000000.0) | Dark current generation rate per pixel [e-/s]. |
-| `detector.dark_reference_temperature_K` | float | 300.0 | K | (1.0, 500.0) | Temperature at which dark_rate_e_per_s is specified [K]. |
+| `detector.dark_reference_temperature_K` | float | 77.0 | K | (1.0, 500.0) | Temperature at which dark_rate_e_per_s is specified [K]. |
 | `detector.detector_temperature_K` | float | 77.0 | K | (1.0, 500.0) | Detector operating temperature [K]. |
 | `detector.dsnu_e_rms` | float | 0.0 | --- | (0.0, 1000000.0) | Dark-signal non-uniformity [e- RMS]. Zero disables. |
 | `detector.fill_factor` | float | 1.0 | --- | (0.0, 1.0) | Photosensitive fraction of the pixel cell. |
@@ -129,10 +152,12 @@
 | `detector.persistence_fraction` | float | 0.0 | --- | (0.0, 1.0) | Fraction of prior-frame signal that persists. Zero disables. |
 | `detector.persistence_tau_s` | float | 1.0 | s | (1e-06, 1000.0) | Persistence time constant [s]. |
 | `detector.pixel_pitch_x_um` | float | **required** | um | (0.1, 1000.0) | Pixel pitch along the cross-track (x) axis. |
-| `detector.pixel_pitch_y_um` | float | **required** | um | (0.1, 1000.0) | Pixel pitch along the along-track (y) axis. Defaults to x pitch. |
+| `detector.pixel_pitch_y_um` | float | **required** | um | (0.1, 1000.0) | Pixel pitch along the along-track (y) axis. Required — there is no 'defaults to x pitch' fallback; set it explicitly (equal to pixel_pitch_x_um for square pixels). |
 | `detector.prior_signal_e` | float | 0.0 | --- | (0.0, 1000000000.0) | Signal electrons from prior frame (for persistence). Zero disables. |
 | `detector.prnu_pct` | float | 0.0 | --- | (0.0, 100.0) | Photo-response non-uniformity [%]. Zero disables. |
-| `detector.qe_table_path` | str |  | --- | --- | Path to a wavelength-vs-QE table (loaded by SpectralDataStore). |
+| `detector.qe_table_path` | str |  | --- | --- | Path to a wavelength-vs-QE CSV. When set, RadiantSession loads it (io.qe_csv) onto the wavelength grid and applies it spectrally, superseding the scalar qe_value; past-cutoff QE is zero (Gap 44). |
+| `detector.qe_temperature_coeff_per_K` | float | 0.0 | 1/K | (-0.1, 0.1) | Linear QE temperature coefficient [1/K]. QE(T) = QE_base · (1 + coeff·(detector_temperature_K − qe_temperature_ref_K)), applied to the scalar qe_value or the qe_table_path curve. Default 0 (temperature-independent QE). Gap 48. |
+| `detector.qe_temperature_ref_K` | float | 300.0 | K | (1.0, 1000.0) | Reference temperature [K] at which the QE (qe_value / qe_table_path) was characterised. Only used when qe_temperature_coeff_per_K ≠ 0. |
 | `detector.qe_value` | float | **required** | --- | (0.0, 1.0) | Wavelength-independent scalar quantum efficiency. |
 | `detector.r0a_ohm_cm2` | float | 0.0 | ohm_cm2 | (0.0, 1000000000000.0) | Detector R₀A product [Ω·cm²]. Zero disables Johnson noise. |
 

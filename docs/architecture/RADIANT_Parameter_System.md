@@ -215,7 +215,9 @@ performance.detection_snr_threshold   # dimensionless; SNR at which a point
                                       # to this threshold.
 ```
 
-The nine parameter namespaces are `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, `geometry`, and `performance`. Every first segment is an owning stage (or `geometry`, the shared configuration block); `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
+The nine parameter namespaces are `geometry`, `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, and `performance`. Every first segment is an owning stage — since ADR-0006 `geometry.*` is owned by `GeometryStage` (stage 0), which resolves the scene-geometry input modes and publishes the derived quantities; it is no longer a stage-less shared block. `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
+
+Renames use `ParameterDef.deprecated_aliases` (warn-and-redirect at `set()`/`get()`): `source.target.range_m` → `geometry.target_range_m` (ADR-0006, 2026-07-12).
 
 ### Naming rules (per ADR-D, `docs/adr/ADR-D-parameter-naming.md`, 2026-07-06)
 

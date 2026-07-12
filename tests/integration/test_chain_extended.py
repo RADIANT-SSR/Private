@@ -88,6 +88,7 @@ class TestChainExtended:
 
     def test_history(self, result) -> None:
         assert result.history == (
+            "geometry",
             "source",
             "atmosphere",
             "optics",

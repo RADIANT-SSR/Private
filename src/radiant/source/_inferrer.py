@@ -186,7 +186,9 @@ def _infer_scene_type(
     """
     fill_fraction: float = params.get("source.target.fill_fraction")
     raw_area: float = params.get("source.target.projected_area_m2")
-    raw_range: float = params.get("source.target.range_m")
+    # Canonical name geometry.target_range_m (ADR-0006); the old
+    # source.target.range_m survives as a deprecated alias for users.
+    raw_range: float = params.get("geometry.target_range_m")
     projected_area_m2: float | None = raw_area if raw_area > 0.0 else None
     range_m: float | None = raw_range if raw_range > 0.0 else None
 

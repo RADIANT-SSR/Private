@@ -208,7 +208,7 @@ class TestGroundTruthMWIR:
 
     def test_history(self, result) -> None:
         assert result.history == (
-            "source", "atmosphere", "optics", "platform",
+            "geometry", "source", "atmosphere", "optics", "platform",
             "spectral_integration", "detector", "readout",
             "performance",
         )

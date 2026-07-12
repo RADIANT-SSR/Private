@@ -13,15 +13,6 @@
 ## Open
 
 
-### CU-074 — `fill_factor` applied on PSF path only: MTF product and radiometry ignore it (Rule 4 divergence)
-
-**Discovered**: Capability audit 2026-07 (F-11), 2026-07-11 — verified
-**Status**: Open
-**File**: `src/radiant/optics/pixel_kernel.py:57-58` (applies pitch×fill_factor) vs `src/radiant/detector/stage.py` (mtf_pixel sinc, no fill_factor) and `src/radiant/spectral_integration/stage.py` (A_pixel, no fill_factor)
-**Symptom**: any `fill_factor < 1` makes the two Rule-4 spatial paths diverge (consistency warning on every run) and collects unphysically high signal (full-pitch pixel area used radiometrically).
-**Why it still matters**: fill factor is a basic detector input; current behavior is silently wrong in three coupled places.
-**Suggested fix**: stand-alone task — thread fill_factor into detector MTF (sinc over active width) and radiometric A_pixel; add dual-path consistency test at fill_factor=0.8. Effort M; category C.
-
 ### CU-075 — `scenarios/README.md` status table stale: 21 implemented scenarios marked "stub"
 
 **Discovered**: Capability audit 2026-07 (F-21), 2026-07-11 — the stale table misled the audit's own charter
@@ -84,15 +75,6 @@
 **Symptom**: prototype's own records contradict its shipped code and test tree.
 **Why it still matters**: GUI-restart planning will double-count done work and mis-sequence CU-052/053/054 (whose gating claims may already be satisfied).
 **Suggested fix**: inline-fix-now at GUI kickoff — refresh records, re-render goldens, re-audit the three deferred CUs. Effort S; category A.
-
-### CU-083 — IPC kernel applied at PSF sample spacing instead of pixel pitch (PSF-path effect far too small)
-
-**Discovered**: Capability audit 2026-07 (F-18; scenario 2.3 gaps evidence), 2026-07-11 — needs reproduction; Gap 1 was closed without covering kernel spacing
-**Status**: Open
-**File**: PSF-path IPC application (`EffectivePSF.with_kernel("ipc", ...)`, performance stage)
-**Symptom**: the 3×3 IPC kernel convolves at PSF sample spacing (sub-µm samples) rather than at pixel pitch, so the PSF-path IPC degradation is orders of magnitude smaller than the analytic MTF_IPC = 1−4α; scenario 2.3 fell back to the analytic formula as authoritative.
-**Why it still matters**: Rule 4 requires both paths to agree; PSF-path spatial metrics (RER, FWHM, EE) under-report IPC degradation.
-**Suggested fix**: stand-alone task — reproduce, resample the kernel to pitch (as pixel/electronics kernels do), add a dual-path IPC consistency test. Effort M; category C.
 
 ### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27)
 
@@ -243,6 +225,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-074 — `fill_factor` coupled inconsistently across PSF, MTF, and radiometry — RESOLVED 2026-07-11 (commit `3921e5d`)
+
+**Discovered**: Capability audit 2026-07 (F-11), 2026-07-11. **Resolution**: `fill_factor` is now treated as the areal photosensitive fraction (per schema), so a square photosite has linear width `pitch·√FF`. That width drives BOTH Rule-4 spatial paths — the PSF-path pixel-aperture kernel (`optics/pixel_kernel`) and the MTF-product pixel sinc (`detector/stage`, previously full-pitch → divergent) — and the collecting area `pitch²·FF` scales the radiometric signal via an effective QE·FF collection (`spectral_integration/stage`, also applied to nearfield/stray). `platform/sampling` pixel MTF/kernel updated to √FF for consistency. Dual-path consistency now passes at FF=0.8 (test-enforced). At FF=1 every change is a no-op; golden unchanged. Docs: `spatial_model.md`, `RADIANT_Detector_Complete.md`.
+
+### CU-083 — IPC kernel applied at PSF sample spacing instead of pixel pitch — RESOLVED 2026-07-11 (commit `80f1a79`)
+
+**Discovered**: Capability audit 2026-07 (F-18; scenario 2.3), 2026-07-11. **Resolution**: new `ipc_kernel_pitch_spaced(α, Δx, pitch)` builds the IPC kernel on the PSF sample grid with the α couplings at ±pitch (linearly interpolated so the first moment is exactly at the pitch), replacing the raw 3×3 that placed them one sample away. The detector stage builds it (reading `Δx` from the optics EffectivePSF via stage outputs — no cross-stage import) and stores `ipc_kernel_psf`; the performance stage applies it. PSF-path RER/FWHM/EE/MTF-at-Nyquist now show the correct IPC degradation ((1−4α) at Nyquist) and the dual-path consistency check passes (max_err ~1.6e-3). Raw 3×3 `ipc_kernel` retained for provenance. At `ipc_coupling=0` (default) no kernel is built; golden unchanged. Docs: `RADIANT_Spatial_Complete.md` §6.
 
 ### CU-072 — Parallel sweep (`n_workers>1`) crashed with unhandled PicklingError — RESOLVED 2026-07-11 (commit `537a3a8`)
 

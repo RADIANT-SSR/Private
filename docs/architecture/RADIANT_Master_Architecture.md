@@ -23,6 +23,8 @@ Read documents in this order. Stop when you have what you need for your task.
 | [RADIANT_Conventions.md](RADIANT_Conventions.md) | Before writing any code | Units, coordinate system, spectral variable, physical constants |
 | [RADIANT_Parameter_System.md](RADIANT_Parameter_System.md) | Before adding parameters | How parameters are defined, resolved, validated, and tracked |
 | [RADIANT_Signal_Chain_Architecture.md](RADIANT_Signal_Chain_Architecture.md) | Before implementing any stage | Stage protocol, ChainState, reference frames, regime dispatch |
+| [RADIANT_Reference_Frames.md](RADIANT_Reference_Frames.md) | Working on `signal_at`/`noise_at` or frame conversion | `ReferenceFrame` enum, `ChainQuantity`, transfer-factor chain, backward propagation, saturated-well fallback |
+| [RADIANT_Spectral_Integration.md](RADIANT_Spectral_Integration.md) | Implementing Stage 5 | Spectral→scalar collapse, regime signal assembly, EE_box coupling, fill factor, background pedestal |
 | [RADIANT_Geometry_Orbital.md](RADIANT_Geometry_Orbital.md) | Working on geometry, GSD, orbit, or revisit | Slant range, incidence, GSD, orbital velocity, J2 sun-sync, revisit, solar geometry |
 | [RADIANT_Physics_Inventory.md](RADIANT_Physics_Inventory.md) | Reference for physics scope | Complete inventory of physical effects by signal chain stage |
 | [RADIANT_Source_Target_System.md](RADIANT_Source_Target_System.md) | Implementing source/target | Source radiance models, BRDF, regime classification |

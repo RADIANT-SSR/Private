@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-091 — Signal_Chain §5 frame table drifted from the shipped `ReferenceFrame` enum
+
+**Discovered**: RADIANT_Spectral_Integration.md / RADIANT_Reference_Frames.md doc-authoring pass, 2026-07-12
+**Status**: Open
+**File**: `docs/architecture/RADIANT_Signal_Chain_Architecture.md` §5 (frame table); `src/radiant/core/quantity.py` (`ReferenceFrame`); `src/radiant/spectral_integration/stage.py`
+**Symptom**: §5's reference-frame table lists seven positions including an `at_fpa` frame (photons/s/pixel/µm) and names the post-integration frame `electrons`. The shipped `ReferenceFrame` enum has six members, no `at_fpa`, and names the frame `photoelectrons`. §5 also lists `at_target` as a registered frame position, but no `at_target` `RadiometricFrame` is registered by any stage (AtmosphereStage registers `at_aperture_target`); the SpectralIntegrationStage registers only `photoelectrons`, not `at_fpa`. The `at_fpa` string in code appears solely as the optics-side stage-output keys `nearfield_irradiance_at_fpa` / `stray_light_irradiance_at_fpa`, which are not frames.
+**Why it still matters**: a reader implementing a frame query or a new stage against §5 would expect an `at_fpa` frame and an `electrons` frame name that do not exist, and would mis-name the target frame. Aspirational-doc drift of exactly the kind the 2026-07 reconciliation corrected. The two new docs (RADIANT_Reference_Frames.md §1/§6, RADIANT_Spectral_Integration.md §9) document the shipped reality and banner the mismatch, but §5 itself still carries the stale table.
+**Suggested fix**: inline-fix-now (doc-only, Rule 20) — reconcile Signal_Chain §5's frame table with the shipped six-member `ReferenceFrame` enum: drop `at_fpa`, rename `electrons`→`photoelectrons`, and note that `at_target` is an enum query position reachable via the τ_atm factor rather than a registered snapshot. Effort S; category A.
+
 ### CU-090 — Altitude duplicate not collapsed: `geometry.sensor_altitude_m` vs `platform.h_sensor`
 
 **Discovered**: Gap 75 work (ground-speed collapse), 2026-07-11

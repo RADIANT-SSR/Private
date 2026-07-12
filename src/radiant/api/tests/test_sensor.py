@@ -295,3 +295,57 @@ class TestStageOutputInjection:
         sensor.set_stage_output("optics_config", "transmission_spectral", None)
         with pytest.raises(Exception, match="transmission_spectral"):
             sensor.evaluate()
+
+
+class TestGroundVelocityAndCollapse:
+    """Gap 75: orbit-derived ground velocity + collapsed ground-speed pair."""
+
+    @pytest.mark.level1
+    def test_orbit_derives_ground_velocity(self, sensor: Sensor) -> None:
+        from radiant.core.orbit import ground_track_speed_m_s
+
+        sensor.set("geometry.sensor_altitude_m", 600_000.0)
+        sensor.set_ground_velocity_from_orbit()
+        assert sensor.get("platform.ground_velocity_m_s") == pytest.approx(
+            ground_track_speed_m_s(600_000.0), rel=1e-12
+        )
+
+    @pytest.mark.level1
+    def test_orbit_requires_altitude(self) -> None:
+        from radiant.api.errors import ApiValidationError
+
+        s = Sensor()
+        with pytest.raises(ApiValidationError, match="sensor_altitude_m must be set"):
+            s.set_ground_velocity_from_orbit()
+
+    @pytest.mark.level1
+    def test_set_velocity_derives_speed(self, sensor: Sensor) -> None:
+        """Collapse: setting platform.ground_velocity_m_s derives
+        geometry.ground_speed_m_s (one physical quantity)."""
+        sensor.set("platform.ground_velocity_m_s", 6900.0)
+        assert sensor.get("geometry.ground_speed_m_s") == pytest.approx(6900.0, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_set_speed_derives_velocity(self, sensor: Sensor) -> None:
+        sensor.set("geometry.ground_speed_m_s", 6900.0)
+        assert sensor.get("platform.ground_velocity_m_s") == pytest.approx(6900.0, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_disagreeing_values_raise(self, sensor: Sensor) -> None:
+        from radiant.core.exceptions import RadiantError
+
+        sensor.set("platform.ground_velocity_m_s", 7000.0)
+        sensor.set("geometry.ground_speed_m_s", 6500.0)
+        with pytest.raises(RadiantError, match="over-constrained"):
+            sensor.get("platform.ground_velocity_m_s")
+
+    @pytest.mark.level1
+    def test_equal_values_ok(self, sensor: Sensor) -> None:
+        sensor.set("platform.ground_velocity_m_s", 7000.0)
+        sensor.set("geometry.ground_speed_m_s", 7000.0)
+        assert sensor.get("platform.ground_velocity_m_s") == pytest.approx(7000.0, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_neither_set_defaults_zero(self, sensor: Sensor) -> None:
+        assert sensor.get("platform.ground_velocity_m_s") == 0.0
+        assert sensor.get("geometry.ground_speed_m_s") == 0.0

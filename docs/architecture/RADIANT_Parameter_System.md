@@ -340,7 +340,7 @@ class ConsistencyGroup:
 
 ### v1 consistency groups
 
-Groups are assembled in `radiant/api/_param_registry.py` (there is no module-level constant in `radiant.core.parameters`) and passed to the `ParameterSet` constructor: `ParameterSet(schema, groups)`. v1 defines one group:
+Groups are assembled in `radiant/api/_param_registry.py` (there is no module-level constant in `radiant.core.parameters`) and passed to the `ParameterSet` constructor: `ParameterSet(schema, groups)`. Two groups are defined:
 
 ```python
 # radiant/api/_param_registry.py
@@ -368,8 +368,36 @@ _FNUMBER_GROUP = ConsistencyGroup(
 
 def build_parameter_set() -> ParameterSet:
     schema = list(SRC_PARAMS + ATMO_PARAMS + OPT_PARAMS + ...)
-    return ParameterSet(schema, [_FNUMBER_GROUP])
+    return ParameterSet(schema, [_FNUMBER_GROUP, _GROUND_SPEED_GROUP])
 ```
+
+The second group **collapses a duplicate parameter** (Gap 75, 2026-07-11).
+`platform.ground_velocity_m_s` (consumed by smear) and
+`geometry.ground_speed_m_s` (consumed by the access-rate metric) are the same
+physical quantity — the along-track ground velocity. Linking them as an
+identity consistency group means setting either derives the other (one number
+feeds both consumers) and setting both to disagreeing values raises the
+over-specification error instead of silently using two different velocities:
+
+```python
+_GROUND_SPEED_GROUP = ConsistencyGroup(
+    name="ground_speed",
+    parameters=("platform.ground_velocity_m_s", "geometry.ground_speed_m_s"),
+    constraint="platform.ground_velocity_m_s == geometry.ground_speed_m_s",
+    derivations={
+        "platform.ground_velocity_m_s": lambda kv: kv["geometry.ground_speed_m_s"],
+        "geometry.ground_speed_m_s": lambda kv: kv["platform.ground_velocity_m_s"],
+    },
+    tolerance=1e-6,
+)
+```
+
+Both parameters default to `0.0`, so an unset pair resolves to `0` (no motion).
+The `Sensor.set_ground_velocity_from_orbit()` helper (Gap 75) derives the value
+from `geometry.sensor_altitude_m` via `radiant.core.orbit.ground_track_speed_m_s`
+for orbital platforms. The analogous altitude duplicate
+(`geometry.sensor_altitude_m` vs `platform.h_sensor`) is **not** yet collapsed —
+`h_sensor` carries stop-gap space-subcase semantics; see CU-090.
 
 ---
 

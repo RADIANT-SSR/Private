@@ -12,6 +12,14 @@
 
 ## Open
 
+### CU-090 — Altitude duplicate not collapsed: `geometry.sensor_altitude_m` vs `platform.h_sensor`
+
+**Discovered**: Gap 75 work (ground-speed collapse), 2026-07-11
+**Status**: Open
+**File**: `src/radiant/atmosphere/_schema.py` (`geometry.sensor_altitude_m`), `src/radiant/platform/_schema.py` (`platform.h_sensor`)
+**Symptom**: two parameters name the same physical quantity — sensor altitude above MSL. The ground-speed duplicate was collapsed into an identity consistency group (Gap 75, commit pending), but the altitude pair was left independent: `platform.h_sensor` carries stop-gap space-subcase semantics (the atmosphere assembly raises if it is left at its 0.0 default when `source.no_atmosphere_subcase == 'space'`) and is set by 20+ tests/scenarios, several possibly independent of `sensor_altitude_m`.
+**Why it still matters**: the two altitude fields can silently disagree, exactly the Gap 75 defect; a GUI would show two altitude widgets for one quantity.
+**Suggested fix**: stand-alone task — audit all `h_sensor` call sites, then either (a) collapse via an identity consistency group like the ground-speed pair (verifying no site sets the two to different values), or (b) fold `h_sensor` into `sensor_altitude_m` and delete it once the SensorDescriptor ADR (matrix §4.4) lands. Effort M; category B.
 
 ### CU-075 — `scenarios/README.md` status table stale: 21 implemented scenarios marked "stub"
 

@@ -39,11 +39,32 @@ _FNUMBER_GROUP = ConsistencyGroup(
     tolerance=1e-3,
 )
 
+# Ground-speed collapse (Gap 75): platform.ground_velocity_m_s (smear) and
+# geometry.ground_speed_m_s (access rate) are the SAME physical quantity — the
+# along-track ground velocity. Linking them as an identity consistency group
+# collapses the duplicate: setting either derives the other (so smear and
+# access rate read one number), and setting both to disagreeing values raises
+# an actionable over-specification error instead of silently using two
+# different velocities. Both default to 0.0, so an unset pair stays 0.
+_GROUND_SPEED_GROUP = ConsistencyGroup(
+    name="ground_speed",
+    parameters=(
+        "platform.ground_velocity_m_s",
+        "geometry.ground_speed_m_s",
+    ),
+    constraint="platform.ground_velocity_m_s == geometry.ground_speed_m_s",
+    derivations={
+        "platform.ground_velocity_m_s": lambda kv: kv["geometry.ground_speed_m_s"],
+        "geometry.ground_speed_m_s": lambda kv: kv["platform.ground_velocity_m_s"],
+    },
+    tolerance=1e-6,
+)
+
 
 def build_parameter_set() -> ParameterSet:
     """Return a :class:`ParameterSet` with the full 2B.5 schema."""
     schema = list(
         SRC_PARAMS + ATMO_PARAMS + OPT_PARAMS + PLAT_PARAMS + SI_PARAMS + DET_PARAMS + RO_PARAMS
     )
-    groups = [_FNUMBER_GROUP]
+    groups = [_FNUMBER_GROUP, _GROUND_SPEED_GROUP]
     return ParameterSet(schema, groups)

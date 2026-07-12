@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Orbit-derived ground velocity + duplicate collapse (Gap 75):
+  `Sensor.set_ground_velocity_from_orbit()` derives
+  `platform.ground_velocity_m_s` from `geometry.sensor_altitude_m` via the
+  circular-orbit sub-satellite ground-track speed (`radiant.core.orbit`,
+  previously wired to nothing). `platform.ground_velocity_m_s` and
+  `geometry.ground_speed_m_s` — the same physical quantity, previously two
+  independent fields that could silently disagree — are now a collapsed
+  identity consistency group: setting either derives the other, and
+  setting both to disagreeing values raises an over-specification error.
+  (The analogous altitude duplicate `sensor_altitude_m` vs
+  `platform.h_sensor` is deferred — CU-090.)
 - Pushbroom/TDI scan-timing feasibility guard (Gap 74, minimum slice):
   when `platform.ground_velocity_m_s` is set, `PerformanceStage` computes
   the per-line dwell `t_dwell = GSD_along / v_ground`, stores it as the new

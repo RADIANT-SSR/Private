@@ -32,6 +32,7 @@ from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
+from radiant.core.orbit import ground_track_speed_m_s
 from radiant.core.parameters import ParameterDef, ParameterSet, Provenance, Tolerance
 from radiant.io.config import load_config, read_radiant_meta, save_config
 from radiant.io.results import ChainResult
@@ -267,6 +268,33 @@ class Sensor:
         """
         tol = Tolerance(distribution=distribution, params=dict(kwargs))
         self._params.set_tolerance(dotpath, tol)
+        return self
+
+    def set_ground_velocity_from_orbit(self) -> Sensor:
+        """Derive ``platform.ground_velocity_m_s`` from the orbital altitude (Gap 75).
+
+        Computes the sub-satellite ground-track speed for a circular orbit
+        at ``geometry.sensor_altitude_m``
+        (:func:`radiant.core.orbit.ground_track_speed_m_s`) and sets
+        ``platform.ground_velocity_m_s`` — the "enter altitude, get
+        velocity" path. Because the two ground-speed parameters are a
+        collapsed consistency group (Gap 75), this one value feeds both
+        the smear (``platform``) and access-rate (``geometry``) consumers.
+
+        Requires ``geometry.sensor_altitude_m`` to be set first. Valid only
+        for orbital platforms — do **not** call it for airborne sensors,
+        whose ground speed is not the orbital ground track. Returns
+        ``self`` for chaining.
+        """
+        altitude_m = self._params.inputs().get("geometry.sensor_altitude_m")
+        if altitude_m is None:
+            raise ApiValidationError(
+                "set_ground_velocity_from_orbit: geometry.sensor_altitude_m must be "
+                "set first — it is the orbital altitude the ground velocity is "
+                "derived from."
+            )
+        v_ground = ground_track_speed_m_s(float(altitude_m))
+        self._params.set("platform.ground_velocity_m_s", v_ground, Provenance.DERIVED, "orbit")
         return self
 
     # ------------------------------------------------------------------

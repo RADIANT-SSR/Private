@@ -21,15 +21,6 @@
 **Why it still matters**: this is the published (mkdocs) parameter table — users sizing sensors from it miss real capability and read a wrong cryo default. A doc labeled auto-generated that silently drifts is worse than a hand-edited one (it claims freshness).
 **Suggested fix**: inline-fix-now — add a CI check (static job) that regenerates to a temp file and diffs against the committed copy, failing on mismatch (same pattern as `check_org_rules.py`); or a pre-commit hook when any `_schema.py` changes. Effort S; category A.
 
-### CU-098 — import-linter "cli imports only api and io" contract is broken at HEAD (pre-existing)
-
-**Discovered**: Geometry_Stage_Plan Phase 1 gate run, 2026-07-12 — verified broken on the pre-change tree (`git stash` → still 4 kept / 1 broken)
-**Status**: Open
-**File**: `pyproject.toml` (`[tool.importlinter.contracts]` "cli imports only api and io"); representative chains: `cli._common → api.sensor → core.orbit`, `cli.run → radiant → api.sensor → api.sweep → api._progress → core.exceptions`, `cli.schema_cmd → api._param_registry → performance._schema → core.parameters`, `cli.validate → api.session → io.results → io.serialization → core.exceptions`
-**Symptom**: `lint-imports` reports the cli contract BROKEN via transitive chains through api/io. The contract's intent (per its own comments) is "cli must not *directly* import physics/core," but a `forbidden` contract also flags transitive paths, and the hand-maintained `ignore_imports` list has fallen behind api/io's internal growth.
-**Why it still matters**: CLAUDE.md requires `import-linter` to pass before any task is declared complete; a permanently-broken contract trains contributors to ignore the tool. (CI is dormant — no remote — so this never surfaced as a red build.)
-**Suggested fix**: stand-alone task — either flip the contract to check only *direct* imports (`allow_indirect_imports` if the pinned import-linter supports it) or regenerate the transitive ignore list; verify all five contracts green. Effort S; category A.
-
 ### CU-097 — Two Earth radii in core: `constants.R_EARTH_M` (6378.137 km, WGS-84 equatorial) vs `geometry.EARTH_RADIUS_M` (6371 km, mean)
 
 **Discovered**: Geometry_Stage_Plan Phase 1 implementation, 2026-07-12
@@ -223,6 +214,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-098 — import-linter "cli imports only api and io" contract was broken at HEAD via transitive chains — RESOLVED 2026-07-12 (commit `cbd6910`)
+
+**Discovered**: Geometry_Stage_Plan Phase 1 gate run, 2026-07-12. **Resolution**: architectural — the `forbidden` contract followed transitive chains through api/ and io/ into core/performance and reported BROKEN, though cli has no illegal *direct* import (verified: no `radiant.cli.*` module imports a physics/core module directly). Reaching physics/core transitively through api/io is by design (CLAUDE.md import table: cli may import api + io; api imports all stages; io imports stages read-only for schema). Set `allow_indirect_imports = "true"` on the contract so it checks only direct cli edges, which retired the hand-maintained transitive `ignore_imports` list that had fallen behind api/io's internal growth. `lint-imports` now reports 5 kept, 0 broken. No Python code changed; CLAUDE.md's import table (cli → api + io) is unchanged in meaning (Rule 20 N/A); internal tooling fix with no user-observable effect (Rule 29 N/A).
 
 ### CU-094 — `ObserverGeometry` / `TargetGeometry` / `SceneGeometry` were dead code — RESOLVED 2026-07-12 (commit `967f900`)
 

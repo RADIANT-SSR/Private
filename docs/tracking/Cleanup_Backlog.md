@@ -66,24 +66,6 @@
 **Why it still matters**: Rule 27 (one canonical version) — two parallel geometry models where only one is real. An agent or contributor reaching for "the geometry class" finds the dead flat-Earth one first; the module-level functions (`slant_range_spherical_m`, `incidence_angle_rad`, Euler helpers) are the live surface.
 **Suggested fix**: delete-as-unused (owner-ratified 2026-07-12, ADR-0006) — remove the three dataclasses, their tests, and the `core/__init__` exports; keep the live module functions. Grep `io/`/serialization paths for `to_dict` round-trip consumers before deleting. Effort S; category A.
 
-### CU-093 — Slant range can silently disagree with itself: `source.target.range_m` vs range derived from altitude + zenith
-
-**Discovered**: geometry-ownership assessment (GUI mockup review), 2026-07-12
-**Status**: Open — execution scheduled: `docs/plans/Geometry_Stage_Plan.md` Phase 3
-**File**: `src/radiant/source/_schema.py:93` (`source.target.range_m`); `src/radiant/performance/stage.py:357` (detection-range reference reads the user range) vs `src/radiant/performance/stage.py:547` (GIQE path computes `slant_range_spherical_m(geometry.sensor_altitude_m, geometry.path_zenith_rad)` independently)
-**Symptom**: set `source.target.range_m = 500e3` with `geometry.sensor_altitude_m`/`path_zenith_rad` implying 700 km — the chain runs clean: regime classification and detection range use 500 km while GSD/GIQE ground metrics use 700 km. No consistency group, no warning.
-**Why it still matters**: two metrics in one result object computed at two different ranges is a silent physics incoherence (Rule 17 spirit); a GUI would present two disagreeing "range" displays with no explanation.
-**Suggested fix**: stand-alone task, executing as Geometry_Stage_Plan Phase 3 — GeometryStage over-specification check (user-set range vs user-set altitude+zenith implied range, 1 % tolerance → actionable `RadiantError`; unset range derives with `Provenance.DERIVED`). Effort M (inside the plan); category B.
-
-### CU-090 — Altitude duplicate not collapsed: `geometry.sensor_altitude_m` vs `platform.h_sensor`
-
-**Discovered**: Gap 75 work (ground-speed collapse), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/atmosphere/_schema.py` (`geometry.sensor_altitude_m`), `src/radiant/platform/_schema.py` (`platform.h_sensor`)
-**Symptom**: two parameters name the same physical quantity — sensor altitude above MSL. The ground-speed duplicate was collapsed into an identity consistency group (Gap 75, commit pending), but the altitude pair was left independent: `platform.h_sensor` carries stop-gap space-subcase semantics (the atmosphere assembly raises if it is left at its 0.0 default when `source.no_atmosphere_subcase == 'space'`) and is set by 20+ tests/scenarios, several possibly independent of `sensor_altitude_m`.
-**Why it still matters**: the two altitude fields can silently disagree, exactly the Gap 75 defect; a GUI would show two altitude widgets for one quantity.
-**Suggested fix**: stand-alone task — audit all `h_sensor` call sites, then either (a) collapse via an identity consistency group like the ground-speed pair (verifying no site sets the two to different values), or (b) fold `h_sensor` into `sensor_altitude_m` and delete it once the SensorDescriptor ADR (matrix §4.4) lands. Effort M; category B.
-
 ### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — verified (only consumer is a "deferred" docstring)
@@ -251,6 +233,14 @@
 
 ## Resolved
 
+### CU-093 — Slant range could silently disagree with itself: user range vs angle-implied range — RESOLVED 2026-07-12 (commit `f44c37a`)
+
+**Discovered**: geometry-ownership assessment (GUI mockup review), 2026-07-12. **Resolution**: Geometry_Stage_Plan Phase 3 — `geometry/modes.check_range_consistency`, called on every GeometryStage run: `geometry.target_range_m` set together with an explicit viewing-angle entry must agree with the angle-implied slant range within 1 % or an actionable `GeometrySpecificationError` is raised naming both distances; a user range against *defaulted* angles (mode V0) keeps the historical split (range → regime/detection; nadir → spatial) but the previously-silent disagreement now emits a `UserWarning`. Tested in `geometry/tests/test_stage.py::TestRangeConsistency` (raise / warn / silent-when-consistent). CHANGELOG entry under [Unreleased].
+
+### CU-090 — Altitude duplicate not collapsed: `geometry.sensor_altitude_m` vs `platform.h_sensor` — RESOLVED 2026-07-12 (commit `f44c37a`)
+
+**Discovered**: Gap 75 work (ground-speed collapse), 2026-07-11. **Resolution**: option (b) fold, executed as Geometry_Stage_Plan Phase 3 after the SensorDescriptor question was settled by ADR-0006 (geometry.* owns sensor altitude; no descriptor object). Audit of all 32 set-sites confirmed no scenario set the pair to different values in one ParameterSet — except Karen 7.2/7.5's deliberate bench stop-gap (`altitude=0`, `h_sensor=1`), collapsed to a single 1 m bench altitude in the same commit. `platform.h_sensor` is now a `deprecated_aliases` entry on `geometry.sensor_altitude_m` (warn-and-redirect); the platform ParameterDef is deleted; the no_atmosphere space Earth-limb check reads the canonical name. Gap 75's "Still deferred" altitude item is thereby done.
+
 ### CU-092 — Signal_Chain §5 claimed forward factors are stored under `stage_outputs[stage]["forward_factor"]` — RESOLVED 2026-07-12 (commit `984e69e`)
 
 **Discovered**: CU-091 fix (Signal_Chain §5 reconciliation), 2026-07-12. **Resolution**: reworded RADIANT_Signal_Chain_Architecture.md §5 "Forward propagation" — the transfer factors are extracted from `stage_outputs` at query time by `_compute_transfer_factors` (`core/quantity.py`) on each `ChainQuantity.to()` call, from the stored `tau_atm` / `tau_opt` / `signal_e` / `signal_e_final` / `signal_dn_final` / `gain_e_per_dn` outputs — not "computed once per chain run and stored" under a `forward_factor` key (no such key exists). RADIANT_Reference_Frames.md §3 already documented the shipped behaviour.
@@ -341,7 +331,7 @@
 
 ### CU-005 — `theta_o_from_eta` boundary converter is unwired — RESOLVED 2026-07-09 (commit `c8a6f70`, resolution option b)
 
-**Discovered**: Option C Stage 1 (2026-04-19); unblocked when CU-009 landed (`d846f07`). **Resolution** (owner-directed, Backlog_Closure_Plan Wave 1): option (b) — the η-input surface (`geometry.sensor_off_nadir_rad` routed through `theta_o_from_eta`, with a precedence rule against `geometry.path_zenith_rad`) is **deliberately deferred behind the SensorDescriptor ADR** rather than adding a second, redundant way to specify the same look geometry today. Users supply the target-side zenith directly via the canonical `geometry.path_zenith_rad` (CU-009). The decision is recorded in the `core/los_geometry.py` module docstring; the converter remains tested (`core/tests/test_los_geometry.py`) and reserved for the SensorDescriptor follow-on.
+**Discovered**: Option C Stage 1 (2026-04-19); unblocked when CU-009 landed (`d846f07`). **Resolution** (owner-directed, Backlog_Closure_Plan Wave 1): option (b) — the η-input surface (`geometry.sensor_off_nadir_rad` routed through `theta_o_from_eta`, with a precedence rule against `geometry.path_zenith_rad`) is **deliberately deferred behind the SensorDescriptor ADR** rather than adding a second, redundant way to specify the same look geometry today. Users supply the target-side zenith directly via the canonical `geometry.path_zenith_rad` (CU-009). The decision is recorded in the `core/los_geometry.py` module docstring; the converter remains tested (`core/tests/test_los_geometry.py`) and reserved for the SensorDescriptor follow-on. **Addendum 2026-07-12**: the reserved follow-on shipped — ADR-0006's GeometryStage wires `theta_o_from_eta` as input mode V2 (`geometry.sensor_off_nadir_rad`, commit `664fd08`), with the redundancy rule against `path_zenith_rad` enforced by provenance-based mode resolution.
 
 ### CU-043 — Rule 15 error-type migration: 428 bare `raise ValueError/RuntimeError` across core + physics — RESOLVED 2026-07-09 (commit `d9de472`)
 

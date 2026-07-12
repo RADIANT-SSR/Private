@@ -38,19 +38,20 @@ MODTRAN run. Per `modtran/synthetic/README.md`:
   reflective/thermal point-like target, not a diffuse-sky calculation.
 - **Do not** use this scenario's numbers to validate RADIANT's atmosphere
   physics — that is explicitly what `modtran/synthetic/README.md`
-  forbids. This scenario exists to prove the pipeline (`Tape7Reader` →
-  `atmosphere.model="tabulated"` → chain) works end-to-end.
+  forbids. This scenario exists to prove the pipeline (tape7 file →
+  `atmosphere.modtran.tape7_path` → chain) works end-to-end.
 
 ---
 
 ## How RADIANT solves this
 
-1. **Convert the tape7.** `Tape7Reader(D2_path).to_radiant_units()` gives
-   ascending-wavelength transmittance and path radiance; written to
-   temporary CSVs for `atmosphere.model="tabulated"`.
+1. **Import the tape7 directly.** `atmosphere.model="modtran"` +
+   `atmosphere.modtran.tape7_path` points the chain at D2's tape7;
+   RADIANT parses and unit-converts it pre-chain (no temp-CSV side
+   door — `RADIANT_Atmosphere.md` §5.1, no MODTRAN binary involved).
 2. **Two atmosphere configs, same geometry/target/detector**:
    `SimpleAtmosphere` (maritime aerosol, `midlat_summer`) vs. the
-   `D2`-tabulated data, so the comparison isolates the atmosphere term.
+   imported `D2` data, so the comparison isolates the atmosphere term.
 3. **Regime**: the 30×8 m ship at 532 km slant range is angularly
    *comparable to* the diffraction PSF at these apertures (not ≤ 10 % of
    it) — the point-source approximation's own validity check

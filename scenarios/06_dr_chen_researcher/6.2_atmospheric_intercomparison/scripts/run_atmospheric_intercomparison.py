@@ -24,7 +24,10 @@ hand-authoring plausible libRadtran numbers would defeat the purpose
 of an intercomparison. Filed as an open gap, not faked.
 
 This script:
-  1. Loads all 6 A-block synthetic tape7s via Tape7Reader
+  1. Loads all 6 A-block synthetic tape7s via Tape7Reader (for the
+     spectral overlay) and feeds each file directly to the chain via
+     atmosphere.model=modtran + atmosphere.modtran.tape7_path (the
+     first-class tape7 import; no temp-CSV side door)
   2. Runs SimpleAtmosphere at the matching profile/geometry for each
   3. Overlays spectral transmittance (RADIANT vs MODTRAN-synthetic)
   4. Computes in-band mean transmittance + residual per profile
@@ -37,8 +40,6 @@ Usage:
 
 from __future__ import annotations
 
-import csv
-import tempfile
 import warnings
 from pathlib import Path
 
@@ -82,7 +83,14 @@ FOCAL_LENGTH_M = 0.75
 PIXEL_PITCH_UM = 20.0
 
 
-def _prepare_csvs(run_id: str, tmp_dir: Path) -> tuple[np.ndarray, np.ndarray, str, str]:
+def _load_tape7(run_id: str) -> tuple[Path, np.ndarray, np.ndarray]:
+    """Locate a synthetic tape7 and parse it (fail-loud) for the overlay.
+
+    The chain itself consumes the file directly via
+    atmosphere.modtran.tape7_path; this parse exists for the spectral
+    figures/residuals and to fail loudly on the CU-066 fallback path
+    before any chain runs.
+    """
     tape7 = MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
     if not tape7.exists():
         raise FileNotFoundError(
@@ -91,28 +99,11 @@ def _prepare_csvs(run_id: str, tmp_dir: Path) -> tuple[np.ndarray, np.ndarray, s
         )
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        wl_um, trans, path_radiance, _gr = Tape7Reader(tape7).to_radiant_units()
-
-    trans_path = tmp_dir / f"{run_id}_trans.csv"
-    with trans_path.open("w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["wavelength_um", "transmittance"])
-        for wl, t in zip(wl_um, trans, strict=True):
-            w.writerow([f"{wl:.6f}", f"{t:.6f}"])
-
-    radiance_path = tmp_dir / f"{run_id}_lpath.csv"
-    with radiance_path.open("w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["wavelength_um", "path_radiance_W_m2_sr_um"])
-        for wl, lp in zip(wl_um, path_radiance, strict=True):
-            w.writerow([f"{wl:.6f}", f"{lp:.6e}"])
-
-    return wl_um, trans, str(trans_path), str(radiance_path)
+        wl_um, trans, _path_radiance, _gr = Tape7Reader(tape7).to_radiant_units()
+    return tape7, wl_um, trans
 
 
-def _make_config(
-    atmosphere_source: str, profile: str, trans_csv: str | None, radiance_csv: str | None
-) -> dict:
+def _make_config(atmosphere_source: str, profile: str, tape7_path: Path | None) -> dict:
     config: dict = {
         "source": {
             "scene_type": "extended",
@@ -147,10 +138,11 @@ def _make_config(
     if atmosphere_source == "simple":
         config["atmosphere"] = {"model": "simple", "standard_atmosphere": profile}
     else:
+        # First-class tape7 import: the file wins; no binary, no cache,
+        # no fallback (RADIANT_Atmosphere.md §5.1).
         config["atmosphere"] = {
-            "model": "tabulated",
-            "tabulated_transmittance_file": trans_csv,
-            "tabulated_path_radiance_file": radiance_csv,
+            "model": "modtran",
+            "modtran": {"tape7_path": str(tape7_path)},
         }
     return config
 
@@ -163,48 +155,44 @@ def main() -> None:
     )
 
     results = []
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        spectra = {}
-        for profile in PROFILES:
-            run_id = RUN_IDS[profile]
-            wl_um, trans, trans_csv, radiance_csv = _prepare_csvs(run_id, tmp_path)
-            spectra[profile] = (wl_um, trans)
+    spectra = {}
+    for profile in PROFILES:
+        run_id = RUN_IDS[profile]
+        tape7_path, wl_um, trans = _load_tape7(run_id)
+        spectra[profile] = (wl_um, trans)
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                # Gap 65: never suppress saturation warnings -- blanket "ignore"
-                # is how three scenarios missed silent full-well clipping.
-                warnings.filterwarnings("default", message=".*saturated.*")
-                s_simple = Sensor.from_dict(_make_config("simple", profile, None, None))
-                r_simple = s_simple.evaluate()
-                s_modtran = Sensor.from_dict(
-                    _make_config("modtran", profile, trans_csv, radiance_csv)
-                )
-                r_modtran = s_modtran.evaluate()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Gap 65: never suppress saturation warnings -- blanket "ignore"
+            # is how three scenarios missed silent full-well clipping.
+            warnings.filterwarnings("default", message=".*saturated.*")
+            s_simple = Sensor.from_dict(_make_config("simple", profile, None))
+            r_simple = s_simple.evaluate()
+            s_modtran = Sensor.from_dict(_make_config("modtran", profile, tape7_path))
+            r_modtran = s_modtran.evaluate()
 
-            tau_simple = np.asarray(r_simple.stage_outputs["atmosphere"]["tau_atm"])
-            tau_modtran_inband = np.interp(
-                np.linspace(BAND_MIN_UM, BAND_MAX_UM, len(tau_simple)), wl_um, trans
-            )
+        tau_simple = np.asarray(r_simple.stage_outputs["atmosphere"]["tau_atm"])
+        tau_modtran_inband = np.interp(
+            np.linspace(BAND_MIN_UM, BAND_MAX_UM, len(tau_simple)), wl_um, trans
+        )
 
-            row = {
-                "profile": profile,
-                "run_id": run_id,
-                "tau_simple_inband": float(np.mean(tau_simple)),
-                "tau_modtran_inband": float(np.mean(tau_modtran_inband)),
-                "snr_simple": r_simple.metrics["snr"],
-                "snr_modtran": r_modtran.metrics["snr"],
-            }
-            row["tau_residual_pct"] = (
-                100.0
-                * (row["tau_modtran_inband"] - row["tau_simple_inband"])
-                / row["tau_modtran_inband"]
-            )
-            row["snr_residual_pct"] = (
-                100.0 * (row["snr_modtran"] - row["snr_simple"]) / row["snr_modtran"]
-            )
-            results.append(row)
+        row = {
+            "profile": profile,
+            "run_id": run_id,
+            "tau_simple_inband": float(np.mean(tau_simple)),
+            "tau_modtran_inband": float(np.mean(tau_modtran_inband)),
+            "snr_simple": r_simple.metrics["snr"],
+            "snr_modtran": r_modtran.metrics["snr"],
+        }
+        row["tau_residual_pct"] = (
+            100.0
+            * (row["tau_modtran_inband"] - row["tau_simple_inband"])
+            / row["tau_modtran_inband"]
+        )
+        row["snr_residual_pct"] = (
+            100.0 * (row["snr_modtran"] - row["snr_simple"]) / row["snr_modtran"]
+        )
+        results.append(row)
 
     print(
         f"  {'Profile':<18s} {'tau_simple':>11s} {'tau_MODTRAN':>12s} {'residual%':>10s} "

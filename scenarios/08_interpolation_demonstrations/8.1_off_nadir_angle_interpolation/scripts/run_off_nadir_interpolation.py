@@ -35,12 +35,20 @@ from radiant.api import Sensor
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from scripts.synth_modtran.family_interpolate import interpolate_family
+from scripts.synth_modtran.family_interpolate import FAMILIES, interpolate_family
 
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
+MODTRAN_SYNTH_DIR = Path(__file__).resolve().parents[4] / "modtran" / "synthetic"
 FAMILY = "zenith_fan_us_standard"
 QUERY_ZENITH_DEG = 37.5  # customer requirement, between B1=30 and B2=45
 BAND_MIN_UM, BAND_MAX_UM = 3.5, 5.0
+
+
+def _matrix_point_tape7(family_name: str, axis_value: float) -> Path:
+    """The synthetic tape7 file behind an exact matrix point of a family."""
+    family = FAMILIES[family_name]
+    run_id = family.run_ids[family.axis_values.index(axis_value)]
+    return MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
 
 
 def _write_csvs(
@@ -61,7 +69,7 @@ def _write_csvs(
     return str(trans_path), str(radiance_path)
 
 
-def _run_chain(trans_csv: str, radiance_csv: str, zenith_deg: float) -> dict:
+def _run_chain(atmosphere: dict, zenith_deg: float) -> dict:
     config = {
         "source": {
             "scene_type": "extended",
@@ -92,11 +100,7 @@ def _run_chain(trans_csv: str, radiance_csv: str, zenith_deg: float) -> dict:
             "adc_bits": 14,
             "full_well_capacity_e": 2.0e6,
         },
-        "atmosphere": {
-            "model": "tabulated",
-            "tabulated_transmittance_file": trans_csv,
-            "tabulated_path_radiance_file": radiance_csv,
-        },
+        "atmosphere": atmosphere,
     }
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -139,17 +143,27 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
+        # Interpolated arrays exist only in memory -- the tabulated-CSV
+        # route is the right plumbing for them. The nearest-neighbor
+        # case IS an exact matrix point, so its tape7 file feeds the
+        # chain directly (atmosphere.modtran.tape7_path, no CSV round-trip).
         trans_csv_i, lp_csv_i = _write_csvs(wl_interp, trans_interp, lp_interp, tmp_path, "interp")
-        trans_csv_n, lp_csv_n = _write_csvs(
-            wl_30 if nearest_deg == 30.0 else wl_45,
-            trans_30 if nearest_deg == 30.0 else trans_45,
-            lp_30 if nearest_deg == 30.0 else lp_45,
-            tmp_path,
-            "nearest",
-        )
 
-        r_interp = _run_chain(trans_csv_i, lp_csv_i, QUERY_ZENITH_DEG)
-        r_nearest = _run_chain(trans_csv_n, lp_csv_n, QUERY_ZENITH_DEG)
+        r_interp = _run_chain(
+            {
+                "model": "tabulated",
+                "tabulated_transmittance_file": trans_csv_i,
+                "tabulated_path_radiance_file": lp_csv_i,
+            },
+            QUERY_ZENITH_DEG,
+        )
+        r_nearest = _run_chain(
+            {
+                "model": "modtran",
+                "modtran": {"tape7_path": str(_matrix_point_tape7(FAMILY, nearest_deg))},
+            },
+            QUERY_ZENITH_DEG,
+        )
 
     print("\n=== Full-chain SNR at the query geometry (37.5 deg) ===")
     print(f"  Using interpolated atmosphere:        SNR = {r_interp['snr']:.2f}")

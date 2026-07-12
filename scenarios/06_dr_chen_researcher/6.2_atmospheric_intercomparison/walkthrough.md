@@ -38,12 +38,15 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 ## How RADIANT solves this
 
-1. For each profile, `Tape7Reader(...).to_radiant_units()` converts
-   the tape7 to a wavelength-domain transmittance + path-radiance CSV
-   pair, fed to `atmosphere.model="tabulated"`.
+1. For each profile, the tape7 feeds the chain directly via
+   `atmosphere.model="modtran"` + `atmosphere.modtran.tape7_path`
+   (parsed and unit-converted pre-chain — `RADIANT_Atmosphere.md`
+   §5.1; no temp-CSV side door, no MODTRAN binary).
+   `Tape7Reader(...).to_radiant_units()` is still called once per
+   profile for the spectral overlay figures.
 2. The identical sensor config runs twice per profile — once with
    `atmosphere.model="simple"` at that profile, once with the
-   tabulated MODTRAN-synthetic data — isolating the atmosphere term.
+   imported MODTRAN-synthetic data — isolating the atmosphere term.
 3. In-band mean transmittance and full-chain SNR are compared,
    profile by profile.
 

@@ -34,7 +34,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from scripts.synth_modtran.family_interpolate import FAMILIES, interpolate_family
 
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
+MODTRAN_SYNTH_DIR = Path(__file__).resolve().parents[4] / "modtran" / "synthetic"
 FAMILY = "altitude_ladder_stratospheric"
+
+
+def _matrix_point_tape7(family_name: str, axis_value: float) -> Path:
+    """The synthetic tape7 file behind an exact matrix point of a family."""
+    family = FAMILIES[family_name]
+    run_id = family.run_ids[family.axis_values.index(axis_value)]
+    return MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
 QUERY_ALTITUDE_KM = 15.0  # between C4=10km and C5=20km
 BAND_MIN_UM, BAND_MAX_UM = 8.0, 12.0  # LWIR -- typical stratospheric-sensor band
 
@@ -57,7 +65,7 @@ def _write_csvs(
     return str(trans_path), str(radiance_path)
 
 
-def _run_chain(trans_csv: str, radiance_csv: str) -> dict:
+def _run_chain(atmosphere: dict) -> dict:
     config = {
         "source": {
             "scene_type": "extended",
@@ -88,11 +96,7 @@ def _run_chain(trans_csv: str, radiance_csv: str) -> dict:
             "adc_bits": 14,
             "full_well_capacity_e": 3.0e6,
         },
-        "atmosphere": {
-            "model": "tabulated",
-            "tabulated_transmittance_file": trans_csv,
-            "tabulated_path_radiance_file": radiance_csv,
-        },
+        "atmosphere": atmosphere,
     }
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -136,14 +140,25 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
+        # Interpolated arrays exist only in memory -- the tabulated-CSV
+        # route is the right plumbing for them. The nearest-neighbor
+        # case IS an exact matrix point, so its tape7 file feeds the
+        # chain directly (atmosphere.modtran.tape7_path, no CSV round-trip).
         trans_csv_i, lp_csv_i = _write_csvs(wl_interp, trans_interp, lp_interp, tmp_path, "interp")
-        _, trans_nearest, lp_nearest = interpolate_family(FAMILY, nearest_alt)
-        trans_csv_n, lp_csv_n = _write_csvs(
-            wl_interp, trans_nearest, lp_nearest, tmp_path, "nearest"
-        )
 
-        r_interp = _run_chain(trans_csv_i, lp_csv_i)
-        r_nearest = _run_chain(trans_csv_n, lp_csv_n)
+        r_interp = _run_chain(
+            {
+                "model": "tabulated",
+                "tabulated_transmittance_file": trans_csv_i,
+                "tabulated_path_radiance_file": lp_csv_i,
+            }
+        )
+        r_nearest = _run_chain(
+            {
+                "model": "modtran",
+                "modtran": {"tape7_path": str(_matrix_point_tape7(FAMILY, nearest_alt))},
+            }
+        )
 
     print("\n=== Full-chain SNR at the query altitude (15 km) ===")
     print(f"  Using interpolated atmosphere:           SNR = {r_interp['snr']:.2f}")

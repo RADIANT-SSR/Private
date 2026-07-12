@@ -15,8 +15,9 @@ demonstration, not a validated maritime-atmosphere trade study, until
 real MODTRAN data replaces D2.
 
 This script:
-  1. Loads D2's synthetic transmittance via Tape7Reader, writes it to a
-     tabulated-atmosphere CSV RADIANT can consume (atmosphere.model=tabulated)
+  1. Feeds D2's synthetic tape7 directly to RADIANT via
+     atmosphere.model=modtran + atmosphere.modtran.tape7_path (the
+     first-class tape7 import; no temp-CSV side door)
   2. Compares that MODTRAN-informed transmittance against RADIANT's own
      SimpleAtmosphere (maritime aerosol, same profile/geometry) at the
      same aperture sweep -- showing what the (synthetic) MODTRAN data
@@ -33,7 +34,6 @@ from __future__ import annotations
 
 import csv
 import math
-import tempfile
 import warnings
 from pathlib import Path
 
@@ -104,12 +104,10 @@ def _band_average_qe() -> float:
 QE_BAND_AVERAGE = _band_average_qe()  # scalar QE, band-averaged from the InSb curve above
 
 
-def _prepare_d2_csvs(tmp_dir: Path) -> tuple[str, str]:
-    """Convert D2's synthetic tape7 to tabulated-atmosphere CSVs.
-
-    Returns (transmittance_csv_path, path_radiance_csv_path). Both are
-    required by atmosphere.model='tabulated'.
-    """
+def _preflight_d2() -> None:
+    """Fail loudly before the sweep if D2 is missing or would hit the
+    CU-066 positional-fallback path (the loader's own parse happens
+    inside the sweep's warning-suppression context)."""
     if not D2_TAPE7.exists():
         raise FileNotFoundError(
             f"{D2_TAPE7} not found. Generate it first:\n"
@@ -117,29 +115,12 @@ def _prepare_d2_csvs(tmp_dir: Path) -> tuple[str, str]:
         )
     with warnings.catch_warnings():
         warnings.simplefilter("error")  # fail loudly on the CU-066 fallback path
-        wl_um, trans, path_radiance, _ground_reflected = Tape7Reader(D2_TAPE7).to_radiant_units()
-
-    trans_path = tmp_dir / "d2_transmittance.csv"
-    with trans_path.open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["wavelength_um", "transmittance"])
-        for wl, t in zip(wl_um, trans, strict=True):
-            writer.writerow([f"{wl:.6f}", f"{t:.6f}"])
-
-    radiance_path = tmp_dir / "d2_path_radiance.csv"
-    with radiance_path.open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["wavelength_um", "path_radiance_W_m2_sr_um"])
-        for wl, lp in zip(wl_um, path_radiance, strict=True):
-            writer.writerow([f"{wl:.6f}", f"{lp:.6e}"])
-
-    return str(trans_path), str(radiance_path)
+        Tape7Reader(D2_TAPE7).parse()
 
 
 def make_config(
     aperture_m: float,
     atmosphere_source: str,
-    d2_csv_paths: tuple[str, str] | None,
 ) -> dict:
     """Build a RADIANT config dict. atmosphere_source: 'simple' or 'modtran_d2'."""
     config: dict = {
@@ -192,20 +173,20 @@ def make_config(
             "standard_atmosphere": "midlat_summer",
         }
     else:
-        trans_path, radiance_path = d2_csv_paths
+        # First-class tape7 import: the file wins; no binary, no cache,
+        # no fallback (RADIANT_Atmosphere.md §5.1).
         config["atmosphere"] = {
-            "model": "tabulated",
-            "tabulated_transmittance_file": trans_path,
-            "tabulated_path_radiance_file": radiance_path,
+            "model": "modtran",
+            "modtran": {"tape7_path": str(D2_TAPE7)},
         }
     return config
 
 
-def run_sweep(atmosphere_source: str, d2_csv_paths: tuple[str, str] | None) -> list[dict]:
+def run_sweep(atmosphere_source: str) -> list[dict]:
     rows = []
     for ap_cm in APERTURES_CM:
         aperture_m = ap_cm / 100.0
-        config = make_config(aperture_m, atmosphere_source, d2_csv_paths)
+        config = make_config(aperture_m, atmosphere_source)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             # Gap 65: never suppress saturation warnings -- blanket "ignore"
@@ -274,24 +255,23 @@ def main() -> None:
     print("  not as more signal. A 'more SNR from a bigger telescope' trade")
     print("  requires varying f/# (or fixing focal length), not just aperture.")
 
-    with tempfile.TemporaryDirectory() as tmp:
-        d2_csv_paths = _prepare_d2_csvs(Path(tmp))
+    _preflight_d2()
 
-        print("\n=== Sweep: SimpleAtmosphere (maritime aerosol) ===")
-        rows_simple = run_sweep("simple", None)
-        for r in rows_simple:
-            print(
-                f"  D={r['aperture_cm']:5.1f} cm  SNR={r['snr']:7.2f}  NEDT={r['nedt_K']:.4f} K  "
-                f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  tau={r['tau_inband']:.4f}"
-            )
+    print("\n=== Sweep: SimpleAtmosphere (maritime aerosol) ===")
+    rows_simple = run_sweep("simple")
+    for r in rows_simple:
+        print(
+            f"  D={r['aperture_cm']:5.1f} cm  SNR={r['snr']:7.2f}  NEDT={r['nedt_K']:.4f} K  "
+            f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  tau={r['tau_inband']:.4f}"
+        )
 
-        print("\n=== Sweep: MODTRAN-D2 (synthetic, maritime aerosol) ===")
-        rows_modtran = run_sweep("modtran_d2", d2_csv_paths)
-        for r in rows_modtran:
-            print(
-                f"  D={r['aperture_cm']:5.1f} cm  SNR={r['snr']:7.2f}  NEDT={r['nedt_K']:.4f} K  "
-                f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  tau={r['tau_inband']:.4f}"
-            )
+    print("\n=== Sweep: MODTRAN-D2 (synthetic, maritime aerosol) ===")
+    rows_modtran = run_sweep("modtran_d2")
+    for r in rows_modtran:
+        print(
+            f"  D={r['aperture_cm']:5.1f} cm  SNR={r['snr']:7.2f}  NEDT={r['nedt_K']:.4f} K  "
+            f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  tau={r['tau_inband']:.4f}"
+        )
 
     # -----------------------------------------------------------------
     # Summary table (the "PPT slide" deliverable)

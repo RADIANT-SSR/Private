@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Results-affecting (IPC coupling > 0 only):** the PSF-path IPC kernel is
+  now resampled to the PSF sample grid (CU-083). The raw 3×3 kernel was
+  convolved onto the sub-µm PSF grid, placing its α couplings one *sample*
+  (not one pixel pitch) away — so the PSF-path IPC blur was orders of
+  magnitude too small and diverged from the analytic MTF-product term.
+  Now `ipc_kernel_pitch_spaced` places the couplings at ±pitch, so RER,
+  FWHM, EE, and MTF-at-Nyquist reflect the correct IPC degradation
+  (e.g. MTF at Nyquist × (1−4α)) and the dual-path consistency check
+  passes. At `ipc_coupling = 0` (default, golden baseline) no kernel is
+  built — golden unchanged. New `detector` stage output `ipc_kernel_psf`;
+  the raw 3×3 `ipc_kernel` output is retained for provenance.
 - **Results-affecting (fill_factor < 1 only):** `detector.fill_factor` now
   couples consistently across all three affected paths (CU-074). It is the
   areal photosensitive fraction, so a square photosite has linear width

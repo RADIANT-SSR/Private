@@ -20,7 +20,7 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.detector.dark_current import DarkCurrent
 from radiant.detector.diffusion import diffusion_mtf_1d
-from radiant.detector.ipc import ipc_kernel, ipc_mtf_1d
+from radiant.detector.ipc import ipc_kernel, ipc_kernel_pitch_spaced, ipc_mtf_1d
 from radiant.detector.noise.budget import compute_noise_budget
 
 
@@ -98,7 +98,25 @@ class DetectorStage:
         # --- IPC kernel (for downstream spatial metric convolution) ---
         ipc_coupling: float = params.get("detector.ipc_coupling")
         if ipc_coupling > 0.0:
+            # Raw 3×3 kernel (logical, pixel-grid — provenance/inspection).
             state = state.with_stage_output("detector", "ipc_kernel", ipc_kernel(ipc_coupling))
+            # PSF-path kernel: resample the couplings to one pixel pitch on the
+            # PSF sample grid (CU-083). The raw 3×3 would place them one sample
+            # (sub-µm) away, making the PSF-path IPC blur negligible. The PSF's
+            # sample spacing comes from the optics EffectivePSF via stage
+            # outputs (Rule 6/11: read-only, no cross-stage import).
+            optics_epsf = state.stage_outputs.get("optics", {}).get("effective_psf")
+            if optics_epsf is not None:
+                state = state.with_stage_output(
+                    "detector",
+                    "ipc_kernel_psf",
+                    ipc_kernel_pitch_spaced(
+                        ipc_coupling,
+                        optics_epsf.sample_spacing_m,
+                        pixel_pitch_x,
+                        pixel_pitch_y,
+                    ),
+                )
 
         # --- MTF product path: pixel aperture, IPC, charge diffusion ---
         freq_mrad = state.spatial_freq_cycles_per_mrad

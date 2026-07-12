@@ -184,7 +184,7 @@ psf_4 = psf_3  ∗  rect(0, v_cross · t_int)                   # scan smear (cr
 psf_5 = psf_4  ∗  rect(v_target_x · t_int_eff,
                        v_target_y · t_int_eff)               # target motion (untracked only)
 psf_6 = psf_5  ∗  gauss(σ_jitter_x, σ_jitter_y)              # jitter
-psf_7 = psf_6  ∗  ipc_kernel(α)                              # inter-pixel capacitance
+psf_7 = psf_6  ∗  ipc_kernel_pitch_spaced(α, Δx, p)          # inter-pixel capacitance
 psf_8 = psf_7  ∗  kolmogorov_kernel(r0, λ)                   # turbulence (ground only)
 psf_eff = psf_8
 ```
@@ -192,6 +192,8 @@ psf_eff = psf_8
 Order matters because some kernels are not commutative when truncated to the working grid (the detector aperture is much wider than the optical PSF and dominates the support of the result). The result is the same to within FFT round-off, but the working order above is the canonical one and `convolution_history` records it.
 
 `t_int_eff` for target-motion smear in TDI mode is `N_TDI × t_int_per_stage` (the target moves through every TDI stage's integration time before being read out).
+
+**IPC kernel is resampled to the PSF sample grid (CU-083).** The logical IPC kernel places the four nearest-neighbour couplings α one **pixel pitch** `p` away from the centre, but the PSF cascade is sampled at the sub-µm focal-plane spacing `Δx`. Convolving the raw 3×3 `ipc_kernel(α)` directly would place the couplings one *sample* away — orders of magnitude too close — making the PSF-path IPC blur negligible and divergent from the analytic MTF-product term `mtf_ipc`. `ipc_kernel_pitch_spaced(α, Δx, p)` (`detector/ipc.py`) builds the kernel on the sample grid with the couplings at `±p` (linearly interpolated between the two straddling samples so the first moment lands exactly at the pitch), so its DFT reproduces `(1−4α) + 2α·cos(2πf·p)` and both Rule-4 paths agree. The detector stage builds it (reading `Δx` from the optics `EffectivePSF` via stage outputs, Rule 11) and stores it as `stage_outputs["detector"]["ipc_kernel_psf"]`; the raw 3×3 `ipc_kernel` output is retained for provenance only.
 
 **TDI misalignment is not in the PSF cascade.** TDI line-to-line misalignment is a *readout* effect in v1 — it has an MTF term (see §9, term 9) but no spatial-domain kernel, so it appears in the MTF product path and is excluded from the dual-path comparison (`_EXCLUDED_PREFIXES = ("mtf_tdi",)` in `consistency_check.py`). If a future stage adds a spatial kernel for TDI shear, both paths must update together.
 

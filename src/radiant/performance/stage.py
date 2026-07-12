@@ -70,9 +70,14 @@ def _compute_spatial_metrics(
         logger.debug("Pixel pitch not available; skipping spatial metrics.")
         return state
 
-    # Apply IPC kernel if available from detector stage.
+    # Apply the PSF-path IPC kernel built by the detector stage. It is
+    # resampled to the PSF sample grid so its α couplings sit one *pixel
+    # pitch* away (CU-083); the raw 3×3 kernel would place them one sample
+    # away — orders of magnitude too close on the sub-µm PSF grid, making
+    # the PSF-path IPC effect negligible and divergent from the analytic
+    # MTF-product term (Rule 4).
     det_out = state.stage_outputs.get("detector", {})
-    ipc_kern = det_out.get("ipc_kernel")
+    ipc_kern = det_out.get("ipc_kernel_psf")
     if ipc_kern is not None:
         epsf = epsf.with_kernel("ipc", ipc_kern)
 

@@ -423,6 +423,27 @@ class TestIPCWiring:
         """IPC affects spatial metrics but not SNR."""
         assert result_with_ipc.metrics["snr"] == pytest.approx(result.metrics["snr"], rel=1e-6)
 
+    def test_ipc_psf_kernel_stored_and_pitch_spaced(self, result_with_ipc) -> None:
+        """CU-083: the detector stores a PSF-path kernel resampled to the
+        sample grid — much larger than the raw 3×3 (couplings a pitch away)."""
+        det = result_with_ipc.stage_outputs["detector"]
+        assert "ipc_kernel_psf" in det
+        assert det["ipc_kernel_psf"].shape[0] > 3
+
+    def test_ipc_dual_path_consistent(self, result_with_ipc) -> None:
+        """CU-083: with the pitch-spaced PSF kernel, the PSF path and the
+        analytic MTF product agree (Rule 4) — before the fix the PSF-path
+        IPC was orders of magnitude too small and the paths diverged."""
+        dp = result_with_ipc.stage_outputs["performance"]["dual_path_consistency"]
+        assert dp.passed_x, f"x diverged: {dp.max_absolute_error_x}"
+        assert dp.passed_y, f"y diverged: {dp.max_absolute_error_y}"
+
+    def test_ipc_psf_mtf_magnitude_matches_analytic(self, result, result_with_ipc) -> None:
+        """The PSF-path IPC now reduces MTF at Nyquist by the analytic
+        (1-4α) factor (α=0.03 → 0.88), not a negligible amount."""
+        ratio = result_with_ipc.metrics["mtf_at_nyquist"] / result.metrics["mtf_at_nyquist"]
+        assert ratio == pytest.approx(1.0 - 4.0 * 0.03, abs=0.02)
+
     def test_zero_ipc_matches_baseline(self) -> None:
         """IPC = 0 (default) should not create an IPC kernel in outputs."""
         wl = np.linspace(FILTER_MIN, FILTER_MAX, 100)

@@ -1102,10 +1102,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-03), 2026-07-11 |
-| **Status** | OPEN — GUI-blocking (Tier 1) |
-| **Description** | No public method enumerates ParameterDefs (dtype, bounds, enum values, units, defaults, descriptions, tags). Framework code itself reads privates: `cli/schema_cmd.py:37` (`ps._defs`), `api/sensitivity.py:133`, `api/sweep.py:318` (`params._groups`). Related expandability holes: unit registry is a private pair table with no `register_unit()`/enumeration, and only one ConsistencyGroup (f/#) is registered though the resolver supports chains. |
-| **Impact** | GUI parameter panels, unit dropdowns, bounds-aware widgets, and tooltips must couple to private internals that can change without deprecation. |
-| **Workaround** | Read `_defs` privates (as the CLI does today). |
+| **Status** | FIXED (2026-07-11, commit `5a42649`) |
+| **Description** | No public method enumerated ParameterDefs (dtype, bounds, enum values, units, defaults, descriptions, tags). Framework code itself read privates: `cli/schema_cmd.py:37` (`ps._defs`), `api/sensitivity.py:133`, `api/sweep.py:318` (`params._groups`). Related expandability holes: unit registry is a private pair table with no `register_unit()`/enumeration, and only one ConsistencyGroup (f/#) is registered though the resolver supports chains. |
+| **Fix** | `ParameterSet` gained a public introspection surface: `parameter_defs()` (read-only mapping view), `parameter_def(name)` (alias-aware, did-you-mean KeyError), `consistency_groups()`, `tolerances()`, `is_resolved`, and `copy()` (the supported sweep/clone seam). `Sensor.parameter_defs()`/`parameter_def(dotpath)` passthroughs complete the GUI reachability chain. All five private consumers (`cli/schema_cmd`, `api/sensitivity`, `api/sweep`, `api/tolerance`, `api/sensor`) migrated in the same commit. Docs: `RADIANT_Parameter_System.md` §Schema Introspection; `RADIANT_Scripting_API.md` §2.2 + Appendix A. 16 new tests. The unit-registry `register_unit()`/enumeration and additional ConsistencyGroups remain planned work (audit F-09 disposition — not part of this gap's closure). |
+| **Impact** | GUI parameter panels, unit dropdowns, bounds-aware widgets, and tooltips now bind to a stable public surface. |
+| **Rerun after fix** | None — no scenario blocked on this; GUI work consumes it going forward. |
 
 ## Gap 71: result.metrics carries no units or metadata; no uniform metric contract
 

@@ -126,6 +126,34 @@ _register(
 )
 _register(
     MetricSpec(
+        name="scnr",
+        unit="dimensionless",
+        description=(
+            "Signal-to-clutter-plus-noise ratio: target contrast over the "
+            "clutter-inclusive total noise √(σ_temporal² + σ_spatial²) — the "
+            "detection figure of merit (Gap 77)."
+        ),
+        requires_frames=frozenset({"photoelectrons"}),
+        requires_noise_terms=True,
+        requires_stage_outputs=frozenset({("spectral_integration", "contrast_e")}),
+    )
+)
+_register(
+    MetricSpec(
+        name="detection_range_m",
+        unit="m",
+        description=(
+            "Point-source detection range: the range at which SNR falls to "
+            "performance.detection_snr_threshold, inverse-square with constant "
+            "atmospheric extinction (Gap 77). Point-source regime only."
+        ),
+        requires_metrics=frozenset({"snr"}),
+        requires_stage_outputs=frozenset({("source", "range_m")}),
+        regimes=frozenset({"point_source"}),
+    )
+)
+_register(
+    MetricSpec(
         name="nedt_K",
         unit="K",
         description="Noise-equivalent differential temperature.",

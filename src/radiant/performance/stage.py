@@ -10,7 +10,10 @@ The stage writes all results as metrics and stage outputs.
 from __future__ import annotations
 
 import logging
+import math
 import warnings
+
+import numpy as np
 
 from radiant.core.chain import ChainState
 from radiant.core.geometry import slant_range_spherical_m
@@ -19,6 +22,7 @@ from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
 from radiant.performance.consistency_check import check_dual_path_consistency
 from radiant.performance.contrast_snr import compute_contrast_snr
+from radiant.performance.detection_beer_lambert import detection_range_beer_lambert
 from radiant.performance.diffraction_limit import (
     diffraction_limited_angular_rad,
     diffraction_limited_ground_m,
@@ -34,6 +38,7 @@ from radiant.performance.niirs import compute_niirs
 from radiant.performance.qsample import compute_q
 from radiant.performance.sampling_regime import classify_sampling_regime
 from radiant.performance.scan_feasibility import scan_feasibility
+from radiant.performance.scnr import compute_scnr
 from radiant.performance.snr import compute_snr
 from radiant.performance.strehl import compute_strehl
 from radiant.performance.swath_width import compute_swath_width_m
@@ -314,6 +319,70 @@ def _compute_gsd_metrics(
     state = state.with_metric("gsd_along_track_m", result.along_track_m)
     state = state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
     return _compute_scan_feasibility(state, params, result.along_track_m)
+
+
+def _compute_detection_range_metric(
+    state: ChainState,
+    params: ParameterSet,
+    snr_result: object,
+) -> ChainState:
+    """Point-source detection range via the Beer-Lambert solver (Gap 77).
+
+    Only meaningful in the point-source regime: the signal follows the
+    inverse-square law with range, attenuated by a constant atmospheric
+    extinction. Uses the current signal/noise at the source range as the
+    reference point and bisects for the range where SNR equals
+    ``performance.detection_snr_threshold``.
+
+    Constant-extinction assumption: α is derived from the band-mean
+    in-band transmittance over the source range (α = −ln(τ̄)/R). This is
+    exact in vacuum (α = 0, pure inverse-square) and a first-order model
+    for atmospheric paths; the full geometry-aware spherical-Earth
+    slant-path solve (varying α along the path) is deferred. Skips
+    gracefully outside the point-source regime or when the inputs are
+    unavailable.
+    """
+    optics_out = state.stage_outputs.get("optics", {})
+    regime = optics_out.get("regime")
+    regime_value = getattr(regime, "value", regime)
+    if regime_value != "point_source":
+        return state
+
+    signal_e = getattr(snr_result, "signal_e", None)
+    noise_e = getattr(snr_result, "noise_e", None)
+    if not signal_e or not noise_e or signal_e <= 0.0 or noise_e <= 0.0:
+        return state
+
+    source_out = state.stage_outputs.get("source", {})
+    ref_range_m = source_out.get("range_m")
+    if not ref_range_m or ref_range_m <= 0.0:
+        return state
+
+    # Constant extinction from the band-mean in-band transmittance.
+    alpha = 0.0
+    tau_atm = state.stage_outputs.get("atmosphere", {}).get("tau_atm")
+    if tau_atm is not None:
+        wl = state.wavelength_um
+        lam_min = params.get("spectral_integration.filter_min_um")
+        lam_max = params.get("spectral_integration.filter_max_um")
+        band = (wl >= lam_min) & (wl <= lam_max)
+        if band.any():
+            tau_bar = float(np.mean(np.asarray(tau_atm)[band]))
+            if 0.0 < tau_bar < 1.0:
+                alpha = -math.log(tau_bar) / ref_range_m
+
+    threshold: float = params.get("performance.detection_snr_threshold")
+    result = detection_range_beer_lambert(
+        signal_e_at_ref=float(signal_e),
+        noise_e=float(noise_e),
+        ref_range_m=float(ref_range_m),
+        extinction_coeff=alpha,
+        snr_threshold=threshold,
+    )
+    state = state.with_stage_output("performance", "detection_range_result", result)
+    if result.ok:
+        state = state.with_metric("detection_range_m", result.range_m)
+    return state
 
 
 def _compute_scan_feasibility(
@@ -653,6 +722,15 @@ class PerformanceStage:
             "contrast_snr_result",
             contrast_result,
         )
+
+        # SCNR: clutter-inclusive detection FoM (Gap 77) — always includes
+        # the spatial noise, unlike snr/contrast_snr.
+        scnr_result = compute_scnr(state)
+        state = state.with_metric("scnr", scnr_result.value)
+        state = state.with_stage_output("performance", "scnr_result", scnr_result)
+
+        # Point-source detection range (Gap 77).
+        state = _compute_detection_range_metric(state, params, result)
 
         # Compute spatial metrics if EffectivePSF is available from optics.
         state = _compute_spatial_metrics(state, params)

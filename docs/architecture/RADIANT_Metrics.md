@@ -334,14 +334,26 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 
 ### 4.12 Point source detection range
 
-**Formula:** Solve for the range R at which CSNR (with `ff` for a point source ≪ 1) equals the user's `detection_threshold` (default = 6):
-```
-S(R) = (I_target / R²) · A · τ_atm(R) · τ_opt · QE · EE_box · t_int · λ/(hc)
-R_detect = R such that S(R) / σ_total(R) = threshold
-```
-This is an iterative solve because `τ_atm(R)` depends on slant path. The framework solves with a 1-D bisection over `R ∈ [1 m, 10⁶ m]`.
+> **Implementation status (2026-07-11, Gap 77):** wired in-chain as the
+> `detection_range_m` metric, computed only in the point-source regime.
+> `PerformanceStage._compute_detection_range_metric` bisects the
+> Beer-Lambert solver (`performance.detection_beer_lambert`) using the
+> current signal/noise at `source.range_m` as the reference and
+> `performance.detection_snr_threshold` (default 5.0) as the target. The
+> extinction is **constant**: `α = −ln(τ̄)/R` from the band-mean in-band
+> transmittance — exact in vacuum (α = 0, pure inverse-square) and a
+> first-order model for atmospheric paths. The full geometry-aware
+> spherical-Earth slant-path solve (α varying along the path, τ_atm(R)
+> recomputed per range) described below is the deferred refinement.
 
-**Required inputs:** `target.intensity` (point source), `atmosphere.model`, `optics.*`, `detector.*`, plus `metric.detection_threshold`.
+**Formula:** Solve for the range R at which SNR equals the user's `performance.detection_snr_threshold`:
+```
+S(R) = S_ref · (R_ref / R)² · exp(−α · (R − R_ref))      # constant-α (implemented)
+R_detect = R such that S(R) / σ_noise = threshold
+```
+The design target recomputes `τ_atm(R)` along the slant path each iteration; the framework solves either form with a 1-D bisection.
+
+**Required inputs:** point-source signal + noise from the chain, `source.range_m`, band-mean `tau_atm`, `performance.detection_snr_threshold`.
 
 **Regimes:** point only (raises NaN otherwise).
 
@@ -443,7 +455,7 @@ def available_metrics(state: ChainState) -> set[str]: ...
 def missing_for(metric_name: str, state: ChainState) -> dict[str, list[str]]: ...
 ```
 
-**Reconciliation contract:** the catalog registers exactly the keys `PerformanceStage` can write — `snr`, `contrast_snr`, `nedt_K`, `mrt_at_nyquist_K`, `fwhm_x_m`, `fwhm_y_m`, `rer`, `ee_1x1`, `ee_3x3`, `mtf_at_nyquist`, `strehl`, `strehl_marechal`, `mtf_system_at_nyquist_x/_y`, `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist`, `niirs`, `niirs_extrapolated`, `well_margin_dB`, `adc_margin_dB`, `dynamic_range_dB`, `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `q_center`, `q_min`, `q_max`, `sampling_regime_code`, `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`, `max_integration_time_s` (Gap 74 — pushbroom/TDI dwell limit, parameter-gated on a ground velocity). Enforced by `tests/integration/test_metric_registry_reconciliation.py`: a chain run producing an unregistered key fails CI, and `can_compute` must return True for every key the chain actually computed. Designed-but-not-computed metrics (NEΔL, NEΔρ, edge slope, detection range — Gaps 77/78) are **not** registered; they enter with the commit that computes them.
+**Reconciliation contract:** the catalog registers exactly the keys `PerformanceStage` can write — `snr`, `contrast_snr`, `scnr` (Gap 77 — clutter-inclusive detection FoM), `detection_range_m` (Gap 77 — point-source only), `nedt_K`, `mrt_at_nyquist_K`, `fwhm_x_m`, `fwhm_y_m`, `rer`, `ee_1x1`, `ee_3x3`, `mtf_at_nyquist`, `strehl`, `strehl_marechal`, `mtf_system_at_nyquist_x/_y`, `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist`, `niirs`, `niirs_extrapolated`, `well_margin_dB`, `adc_margin_dB`, `dynamic_range_dB`, `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `q_center`, `q_min`, `q_max`, `sampling_regime_code`, `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`, `max_integration_time_s` (Gap 74 — pushbroom/TDI dwell limit, parameter-gated on a ground velocity). Enforced by `tests/integration/test_metric_registry_reconciliation.py`: a chain run producing an unregistered key fails CI, and `can_compute` must return True for every key the chain actually computed. Designed-but-not-computed metrics (NEΔL, NEΔρ, edge slope, Johnson DRI, Pd/ROC, D\*/NEP/NEI — Gap 78) are **not** registered; they enter with the commit that computes them. (`detection_range_m` and `scnr` landed with Gap 77, 2026-07-11.)
 
 `can_compute` covers state-level dependencies only; several metrics (GSD family, Q family, diffraction limits) are additionally parameter-gated (positive altitude, focal length, …). The production consumer is `ChainResult.metric_records()` (§2), which joins each computed value with its spec. Plugin entry-point loading is v2-deferred, and there is currently no `radiant metrics` CLI subcommand; `available_metrics(state)` / `missing_for(name, state)` are the programmatic equivalents.
 

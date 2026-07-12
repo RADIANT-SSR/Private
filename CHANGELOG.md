@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- SCNR and in-chain point-source detection range (Gap 77): new `scnr`
+  metric (signal-to-clutter-plus-noise — target contrast over the
+  clutter-inclusive total noise √(σ_temporal² + σ_spatial²), the detection
+  figure of merit, unlike `snr`/`contrast_snr` which respect
+  `noise_regime`); new `detection_range_m` metric, computed in the
+  point-source regime by bisecting the Beer-Lambert solver to the range
+  where SNR falls to the new `performance.detection_snr_threshold`
+  parameter (default 5.0). New modules `radiant.performance.scnr` and a
+  `radiant.performance._schema`. The detection range uses a constant
+  atmospheric extinction (exact in vacuum; first-order for atmospheric
+  paths) — the geometry-aware slant-path refinement is deferred (Gap 77
+  narrowed). The wider acquisition-metric family (Pd/ROC, Johnson DRI,
+  NEΔL/NEΔρ, D*/NEP/NEI) stays library-only pending GUI-phase surfacing
+  (Gap 78).
 - Orbit-derived ground velocity + duplicate collapse (Gap 75):
   `Sensor.set_ground_velocity_from_orbit()` derives
   `platform.ground_velocity_m_s` from `geometry.sensor_altitude_m` via the

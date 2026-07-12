@@ -193,7 +193,7 @@
 **File**: `dev_tools/geometry_gui_v2/app/panels/parameters.py`
 **Symptom**: the parameters panel's slider interaction work ("headlining slider work" per `dev_tools/geometry_gui_v2/README.md` Phase-7 deferrals) is deferred; it gates the performance and memory test passes (CU-053, CU-054).
 **Why it still matters**: Phase 7 (hardening + handoff) cannot complete its acceptance bundle without it; two downstream CUs are blocked on it.
-**Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7. Effort M; category A (GUI tooling).
+**Suggested fix**: stand-alone task per `docs/archive/Geometry_GUI_v2_Plan.md` Phase 7. Effort M; category A (GUI tooling).
 
 ### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044")
 
@@ -202,7 +202,7 @@
 **File**: `dev_tools/geometry_gui_v2/` (scene rebuild path)
 **Symptom**: no performance test pass exists for interactive scene rebuilds; deferred from Phase 7 pending the slider work that would exercise it.
 **Why it still matters**: the tool is the visual-design prototype for the production GUI's geometry tab; rebuild latency regressions land silently without a gate.
-**Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
+**Suggested fix**: stand-alone task per `docs/archive/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
 
 ### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045")
 
@@ -211,7 +211,7 @@
 **File**: `dev_tools/geometry_gui_v2/` (actor lifecycle)
 **Symptom**: no memory-leak pass over repeated scene rebuilds (VTK actor churn); deferred from Phase 7 pending the slider work that would exercise it.
 **Why it still matters**: long-lived desktop sessions with continuous parameter dragging will surface any actor leak; no gate exists.
-**Suggested fix**: stand-alone task per `docs/plans/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
+**Suggested fix**: stand-alone task per `docs/archive/Geometry_GUI_v2_Plan.md` Phase 7, after CU-052. Effort S–M; category A.
 
 ### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
 

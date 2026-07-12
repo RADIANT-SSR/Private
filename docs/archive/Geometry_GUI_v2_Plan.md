@@ -1,7 +1,20 @@
+> **HISTORICAL — archived 2026-07-12 (superseded; owner-ratified disposition).**
+> Mission accomplished: this plan set out to build the visual-design prototype of the
+> production RADIANT GUI's geometry view, and did — Phases 0–6 shipped as the working
+> PyVista + PySide6 tool at `dev_tools/geometry_gui_v2/`. Its successor is
+> `docs/plans/GUI_Development_Plan.md` (Phases 6–7: viewer technology spike +
+> production 3D geometry viewer), where the tool's `scene/` library is the presumptive
+> front-runner for lift-over via `pyvistaqt.QtInteractor`. Phase 7 hardening was in
+> progress at archive time; its remaining items stay tracked as CU-052/053/054/055 in
+> `docs/tracking/Cleanup_Backlog.md` — no further work lands against this plan. Note
+> the plan's integration boundary (`radiant.core.geometry`) was itself overtaken the
+> same day: ADR-0006 moved geometry ownership to the new `GeometryStage` and deleted
+> the `core/geometry.py` dataclasses (CU-094).
+
 # RADIANT Geometry GUI — Master Plan v2 (PyVista Rewrite)
 
 **Owner:** Jason Forsyth
-**Status:** Draft v2, 2026-04-26 — supersedes Plan v1
+**Status:** Superseded (2026-07-12) — archived; successor: `docs/plans/GUI_Development_Plan.md` Phases 6–7
 **Scope change:** This is no longer a developer-only diagnostic tool. **It is the visual-design prototype for what will eventually ship as the production RADIANT GUI.** Hold it to that bar.
 **Prior plan:** `PLAN.md` (v1, Plotly Dash, Phases 0–16). v1 is closed. No further work lands against it.
 

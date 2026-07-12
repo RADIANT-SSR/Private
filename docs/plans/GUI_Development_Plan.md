@@ -1,10 +1,13 @@
 # GUI Development Plan — RADIANT Desktop GUI v1
 
-**Status:** Draft (becomes Active on owner ratification)
+**Status:** Active (owner-ratified 2026-07-12)
 **Date:** 2026-07-12
 **Owner decisions record:** §2 (ratified by owner 2026-07-12 in plan-scoping session)
-**Depends on:** `docs/plans/Geometry_Stage_Plan.md` (must be Complete and archived before
-Phase 1 of this plan starts), `docs/architecture/RADIANT_GUI_Architecture.md`
+**Depends on:** `docs/plans/Geometry_Stage_Plan.md` (Complete and archived 2026-07-12 —
+Phase 1 gate satisfied), `docs/architecture/RADIANT_GUI_Architecture.md`
+**Supersedes:** `docs/archive/Geometry_GUI_v2_Plan.md` (geometry-viewer scope; archived
+2026-07-12 — its shipped tool at `dev_tools/geometry_gui_v2/` feeds Phases 6–7, and its
+open hardening items remain tracked as CU-052/053/054/055)
 **Executes as:** one phase = one agent task = one conversation (per CLAUDE.md task discipline)
 
 ---
@@ -33,6 +36,7 @@ These four decisions were put to the owner explicitly and are binding for v1:
 | D2 | First runnable milestone | **Evaluate loop first**: open YAML → parameter tree → Evaluate → metric badges + plot, end-to-end, before any other panel is built out. |
 | D3 | Geometry stage-0 dependency | **Wait for stage 0.** No GUI *implementation* (Phase 1+) starts until the Geometry_Stage_Plan is complete and merged. Phase 0 (doc-only spec work) may run before that. |
 | D4 | v1 must-haves beyond the core | **3D geometry viewer** and **scripting console** are in v1. **Sweep tab** and **Batch / Monte Carlo dialogs** are deferred to v1.1 (they remain in the architecture doc's layout as disabled/absent tabs; the backend already supports them via script). |
+| D5 | 3D viewer engine (ratified 2026-07-12) | **PyVista embedded in the PySide6 app via `pyvistaqt.QtInteractor`**, lifting the `dev_tools/geometry_gui_v2` scene library. The target/sensor/sun geometry is inherently 3D and PyVista is the proven engine for it — geometry_gui_v2 already runs this exact PySide6 + PyVista combination. Matplotlib remains the engine for all 2D plots. The former Phase 6 technology bake-off is cancelled; Phase 6 is now scoped to the visual-direction ADR and lift assessment only. |
 
 ---
 
@@ -96,9 +100,12 @@ These four decisions were put to the owner explicitly and are binding for v1:
    `pyproject.toml`, the import table in `CLAUDE.md`, and
    `docs/architecture/RADIANT_File_Tree.md` — same PR.
 4. **Dependencies:** new optional group in `pyproject.toml`:
-   `gui = ["PySide6>=6.6", "matplotlib>=3.8", "qtconsole>=5.5"]` (exact pins set in
-   Phase 1). Core RADIANT must remain importable and fully functional without the
-   `gui` extra.
+   `gui = ["PySide6>=6.6", "matplotlib>=3.8", "qtconsole>=5.5", "pyvista", "pyvistaqt"]`
+   (exact pins set in Phase 1; pyvista/pyvistaqt versions matched to what
+   `dev_tools/geometry_gui_v2` already pins, since its scene library is lifted in
+   Phase 7 — D5). Core RADIANT must remain importable and fully functional without
+   the `gui` extra. The app must degrade gracefully if OpenGL/VTK is unavailable:
+   the geometry viewer panel shows an actionable message; everything else works.
 5. **Threading:** Qt main thread never runs the chain. Evaluations run in a worker
    `QThread`; results delivered by signal. Note the arch doc's `EvaluationWorker`
    sketch shows an `on_stage_complete` callback that `Sensor.evaluate()` does **not**
@@ -117,12 +124,17 @@ These four decisions were put to the owner explicitly and are binding for v1:
    enforced `mypy --strict` gate stays scoped to `core`/`api` unless Phase 1 finds Qt
    stubs clean enough to add `gui` — Phase 1 decides and records the decision in its
    report and in `CLAUDE.md` if changed.
-9. **Testing:** `pytest-qt` (`qtbot`), headless via `QT_QPA_PLATFORM=offscreen`.
+9. **All styling flows through the design system.** The Phase 0 Design System spec
+   (distilled from the mockups) is implemented once as the QSS theme in
+   `gui/themes/` (Phase 1). No widget in any phase hardcodes a color, font, or
+   size outside `themes/` — review-blocking, so the app looks like the mockups at
+   every checkpoint and a palette change stays a one-file edit.
+10. **Testing:** `pytest-qt` (`qtbot`), headless via `QT_QPA_PLATFORM=offscreen`.
    Every menu/toolbar action added in a phase gets a programmatic trigger test (arch
    doc §8). GUI tests live in `src/radiant/gui/tests/` and run with
    `pytest src/radiant/gui/tests/ -v`. When a task touches only `gui/`, run the gui
    test suite plus one fast full-chain smoke — not the whole repo suite.
-10. **Rule 29 changelog:** each phase that adds user-observable capability (all of
+11. **Rule 29 changelog:** each phase that adds user-observable capability (all of
     them from Phase 1 on) adds a `CHANGELOG.md` entry under `[Unreleased]` —
     capability additions, never results-affecting.
 
@@ -170,17 +182,25 @@ Tasks:
    - Add the geometry viewer panel spec, condensed from the handoff doc, including
      the not-to-scale rule (altitudes shown via leader labels, geometry never
      translated to fake scale — owner-endorsed convention from `geometry_gui_v2`).
-3. File CUs (Rule 21) for anything found contradictory between mockups, arch doc, and
+3. **Distill the visual design language from the mockups** into a "Design System"
+   section of the arch doc: dark-theme palette (background/surface/accent/status
+   colors as hex values pulled from the mockup HTML/CSS), typography (families,
+   sizes, weights), spacing/border-radius conventions, and badge/health-dot styling.
+   This section is the binding spec for the Phase 1 QSS theme — Phase 1 implements
+   it, it does not invent it.
+4. File CUs (Rule 21) for anything found contradictory between mockups, arch doc, and
    shipped API during the harvest.
 
 Exit criteria: revised arch doc merged; requirements matrix complete; no code.
 Checkpoint: owner reads the revised doc's v1 scope + matrix and confirms.
 
-### Phase 1 — Scaffold, Shell, and Test Harness
+### Phase 1 — Scaffold, Shell, Design System, and Test Harness
 **Gate:** Geometry_Stage_Plan Complete and archived (D3). Verify before starting; if
 not merged, stop and report.
-**Category:** A · **Effort:** M
-**Read first:** revised `RADIANT_GUI_Architecture.md` §§1–2, 8; `CLAUDE.md` import rules
+**Category:** A · **Effort:** L (split point: skeleton + entry point + harness first;
+design-system theme second)
+**Read first:** revised `RADIANT_GUI_Architecture.md` §§1–2, Design System section, 8;
+`CLAUDE.md` import rules; `dev_tools/gui_mockups/radiant_ui/radiant_mid_fi.html`
 
 Tasks:
 1. `pyproject.toml`: add the `gui` optional-dependency group; pin versions.
@@ -189,14 +209,28 @@ Tasks:
    empty stage strip placeholder, empty dock panels, status bar.
 3. `radiant gui [CONFIG.yaml]` CLI subcommand (lazy import; actionable error naming
    the `pip install "radiant[gui]"` remedy if PySide6 is missing).
-4. Import-linter contracts + `CLAUDE.md` import table + `RADIANT_File_Tree.md` updated
+4. **Design-system theme (first-class deliverable, not polish):** implement the
+   Phase 0 Design System spec as the default dark QSS theme in `gui/themes/` —
+   palette, typography, spacing, control styling (buttons, inputs, combo boxes,
+   trees, tabs, dock titles, status bar), so every subsequent phase's checkpoint
+   already looks like the end product. One central theme module owns all colors and
+   fonts; **no widget ever hardcodes a color or font outside `themes/`** (this is a
+   review-blocking rule for every later phase). A basic light theme derives from the
+   same token set; visual parity with the mockups is judged at the checkpoint against
+   `pdf_shots/00-workspace.png`.
+5. Import-linter contracts + `CLAUDE.md` import table + `RADIANT_File_Tree.md` updated
    in the same PR (Rule 20).
-5. pytest-qt harness: offscreen fixture, window-opens smoke test, menu-action trigger
-   test pattern established. Decide and record the mypy scoping question (§4.8).
-6. `CHANGELOG.md`: `radiant gui` entry point added (Rule 29b).
+6. pytest-qt harness: offscreen fixture, window-opens smoke test, menu-action trigger
+   test pattern established; a theme test asserts every top-level widget class picks
+   up the stylesheet (no unstyled gray-Qt leaks). Decide and record the mypy scoping
+   question (§4.8).
+7. `CHANGELOG.md`: `radiant gui` entry point added (Rule 29b).
 
-Checkpoint: `radiant gui` opens an empty themed window with menus; closing it exits
-cleanly. Trivial to click through — the point is the toolchain works on the owner's Mac.
+Checkpoint: `radiant gui` opens an empty window with menus that already carries the
+mockups' look — dark palette, typography, styled chrome — side-by-side comparable to
+`pdf_shots/00-workspace.png`. Closing it exits cleanly. **This checkpoint is
+explicitly a look-and-feel review:** feedback on colors, fonts, and density is wanted
+now, while changes are one-file cheap, not after five phases of widgets exist.
 
 ### Phase 2 — Parameter Panel
 **Category:** A · **Effort:** L (split point: read-only tree lands first, editing second)
@@ -282,17 +316,35 @@ Tasks:
 Checkpoint: define a scenario geometry three different ways (e.g. angles-direct,
 orbit-derived, sun-from-date/time as available), watch derived angles agree.
 
-### Phase 6 — 3D Viewer Technology Spike
-**Category:** A · **Effort:** S — timeboxed; produces an ADR, minimal throwaway code
+### Phase 6 — 3D Viewer Visual-Direction ADR + Lift Assessment
+**Category:** A · **Effort:** S — timeboxed; produces an ADR, no production code
 **Read first:** `radiant_geometry_handoff.md`, `dev_tools/gui_mockups/geometry_viewer/geometry.js`,
-`dev_tools/geometry_gui_v2/ARCHITECTURE.md` (the working matplotlib-based tool)
+`dev_tools/geometry_gui_v2/ARCHITECTURE.md` and `README.md` (the working
+PyVista + PySide6 geometry tool — built as the visual-design prototype for exactly
+this panel, with a UI-shell-independent `scene/` library intended for lift-over)
 
-Compare, with a small prototype each, for the schematic viewer inside the Qt app:
-(a) `pyqtgraph.opengl.GLViewWidget`, (b) `QWebEngineView` embedding the existing JSX
-viewer with a QWebChannel bridge, (c) reusing the `geometry_gui_v2` matplotlib
-approach embedded in Qt. Criteria: orbit/pan/zoom feel, click-to-select angle arcs,
-text labeling quality, dependency weight, restricted-network friendliness. Decision
-recorded as `docs/adr/ADR-XXXX` (next number) — owner ratifies before Phase 7.
+The engine decision is made (D5: PyVista via `pyvistaqt.QtInteractor`, lifting the
+geometry_gui_v2 scene library). This phase settles what remains before
+implementation:
+
+1. **Visual direction (owner decision).** geometry_gui_v2 renders a lit/PBR scene;
+   the newer `geometry_viewer` mockup specifies an intentionally schematic
+   CAD-line-art look. Same engine can produce either. Render the default scenario
+   both ways (geometry_gui_v2 as-is vs. a flat-shaded/line-art restyle of it),
+   present side-by-side screenshots, owner picks (or blends — e.g. schematic
+   vectors/arcs over softly-lit shapes). Recorded in the ADR.
+2. **Lift assessment.** Inventory the geometry_gui_v2 `scene/` library against the
+   production needs: what lifts verbatim, what must rebind from the deleted
+   `core/geometry.py` dataclasses to the new `GeometryStage` outputs (ADR-0006),
+   what stays behind (app shell, settings, dialogs — the production GUI has its
+   own). Confirm the C7 no-UI-dependency contract still holds. Output: the
+   Phase 7 work list.
+3. **Theme integration check.** Confirm the viewer panel can follow the Phase 1
+   design-system tokens (background, accent colors, label typography) so the 3D
+   panel doesn't look like a different app embedded in the window.
+
+Decision recorded as `docs/adr/ADR-XXXX` (next number) — owner ratifies before
+Phase 7.
 
 ### Phase 7 — 3D Geometry Viewer
 **Category:** D · **Effort:** L (split point: static scene + vectors first;
@@ -300,8 +352,10 @@ click-to-reveal angles + shape library second)
 **Read first:** the Phase 6 ADR; handoff doc §§2, 4; geometry-stage doc
 
 Tasks:
-1. Implement the schematic viewer per the handoff spec: sun/sensor/target glyphs,
-   the four vectors, ground illumination point, target shape library, RPY triad.
+1. Lift the geometry_gui_v2 `scene/` library per the Phase 6 work list and implement
+   the viewer per the handoff spec and the visual-direction ADR: sun/sensor/target
+   glyphs, the four vectors, ground illumination point, target shape library, RPY
+   triad — rendered in `pyvistaqt.QtInteractor` inside the main window (D5).
 2. **The stage is the single source of angle truth.** The viewer renders angles taken
    from `stage_outputs["geometry"]`; the ported `geometry.js` math is used only for
    camera/projection/picking. A consistency test asserts viewer-local recomputation
@@ -382,7 +436,8 @@ Category A and the feedback list as the numbered scope.
 |------|------------|
 | Geometry stage-0 surface shifts after Phase 5/7 are built | Phases 5/7 bind only to `geometry/_schema.py` and `stage_outputs["geometry"]` — the stage plan's published contract. Schema-driven forms absorb renames; the consistency test in Phase 7 catches silent angle drift. |
 | Qt/PySide6 friction on macOS (theming, retina, offscreen tests) | Phase 1 exists to burn this down before any feature work; harness problems surface at the cheapest point. |
-| 3D viewer becomes a tar pit | Timeboxed spike (Phase 6) with owner-ratified ADR before implementation; the handoff doc's phase-2 polish list (earth curvature, presets, rulers) stays out of v1. |
+| 3D viewer becomes a tar pit | Engine is settled (D5) and the scene library already exists — Phase 7 is a lift-and-rebind, not a build-from-scratch. Timeboxed Phase 6 ADR settles the look before implementation; the handoff doc's phase-2 polish list (earth curvature, presets, rulers) stays out of v1. |
+| VTK/OpenGL fails on a target machine (headless CI, restricted GPU) | Viewer panel degrades to an actionable message while the rest of the app works (§4.4); viewer tests use VTK offscreen rendering, proven by geometry_gui_v2's existing test suite. |
 | qtconsole in-process kernel instability | Phase 8 is late and self-contained; if qtconsole proves fragile, fallback is a plain REPL widget over `code.InteractiveConsole` — decided in-phase, recorded as a CU if the vision item degrades. |
 | GUI drifts from arch doc (Rule 20 exposure) | Phase 0 makes the arch doc match reality *first*; every later phase that changes a documented surface updates the doc in the same PR. |
 | Scope creep via mockup fidelity | Mockups are visual spec, not contract (their README says so). Fidelity questions during a phase go to the owner as checkpoint feedback, not silent implementation. |

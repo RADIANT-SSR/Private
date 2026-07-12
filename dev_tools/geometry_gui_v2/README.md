@@ -5,7 +5,7 @@ prototype that will lift into the production GUI's geometry tab once
 CI / packaging settle.
 
 This is the geometry-only module of a larger RADIANT GUI (decision D2 in
-[Geometry_GUI_v2_Plan.md](../../docs/plans/Geometry_GUI_v2_Plan.md) §16); the "Vision Studio" naming
+[Geometry_GUI_v2_Plan.md](../../docs/archive/Geometry_GUI_v2_Plan.md) §16); the "Vision Studio" naming
 that appeared in early drafts is dropped.
 
 ## Quick start

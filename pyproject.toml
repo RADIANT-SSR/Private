@@ -179,81 +179,13 @@ forbidden_modules = [
     "radiant.readout",
     "radiant.performance",
 ]
-ignore_imports = [
-    # Transitive imports through api/ and io/ are allowed — the contract
-    # enforces that cli modules do not *directly* import physics stages.
-    "radiant.api.session -> radiant.core.chain",
-    "radiant.api.session -> radiant.core.parameters",
-    "radiant.api.session -> radiant.geometry.stage",
-    "radiant.api.session -> radiant.source.stage",
-    "radiant.api.session -> radiant.atmosphere.stage",
-    "radiant.api.session -> radiant.atmosphere.loaders",
-    "radiant.api.session -> radiant.optics.stage",
-    "radiant.api.session -> radiant.spectral_integration.stage",
-    "radiant.api.session -> radiant.detector.stage",
-    "radiant.api.session -> radiant.readout.stage",
-    "radiant.api.session -> radiant.performance.stage",
-    "radiant.api._param_registry -> radiant.geometry._schema",
-    "radiant.api._param_registry -> radiant.source._schema",
-    "radiant.api._param_registry -> radiant.atmosphere._schema",
-    "radiant.api._param_registry -> radiant.optics._schema",
-    "radiant.api._param_registry -> radiant.spectral_integration._schema",
-    "radiant.api._param_registry -> radiant.detector._schema",
-    "radiant.api._param_registry -> radiant.readout._schema",
-    "radiant.api._param_registry -> radiant.core.parameters",
-    "radiant.io.config -> radiant.core.parameters",
-    "radiant.io.config -> radiant.core.exceptions",
-    "radiant.io.config -> radiant.core.provenance",
-    "radiant.io.results -> radiant.core.chain",
-    "radiant.io.results -> radiant.core.parameters",
-    "radiant.io.results -> radiant.core.provenance",
-    "radiant.io.results -> radiant.core.radiometry",
-    "radiant.io.results -> radiant.core.quantity",
-    # Gap 44: RadiantSession loads detector.qe_table_path via io.qe_csv
-    # (Rule 6 — file I/O in the api layer, not the stage). qe_csv pulls in
-    # io.measurement for load_measured_curve.
-    "radiant.io.qe_csv -> radiant.core.exceptions",
-    "radiant.io.measurement -> radiant.core.exceptions",
-    # CU-043: api.errors defines the RadiantError co-inherited api error
-    # types; the RadiantError base lives in core.exceptions (transitive
-    # through api, same carve-out as io.config above).
-    "radiant.api.errors -> radiant.core.exceptions",
-    # CU-008: RadiantSession resolves source.background.material /
-    # .emissivity_path pre-chain (Rule 6 — library/file I/O in the api
-    # layer) via radiant.data.SpectralLibrary and the source CSV
-    # converter; both reach core transitively through api.
-    "radiant.api.session -> radiant.data.library",
-    "radiant.api.session -> radiant.source.converters._csv",
-    "radiant.data.library -> radiant.core.spectral",
-    "radiant.source.converters._csv -> radiant.core.spectral",
-    # `to_provenance_record` reads `radiant.__version__` lazily; the
-    # `radiant` package init re-exports `RadiantError` from
-    # `radiant.core.exceptions`, so the `radiant -> radiant.core.exceptions`
-    # edge gets attributed to any cli-reachable module that touches the
-    # provenance code path.
-    "radiant.io.results -> radiant",
-    "radiant -> radiant.core.exceptions",
-    "radiant.api.units -> radiant.core.units",
-    "radiant.api.sensor -> radiant.core.parameters",
-    "radiant.api.sensor -> radiant.api.tolerance",
-    "radiant.api.tolerance -> radiant.core.parameters",
-    "radiant.api.sensor -> radiant.api.sensitivity",
-    "radiant.api.sensitivity -> radiant.core.parameters",
-    "radiant.api.sweep -> radiant.core.parameters",
-    "radiant.api.solve -> radiant.core.exceptions",
-    "radiant.api.solve -> radiant.core.parameters",
-    "radiant.api.compare -> radiant.core.exceptions",
-    "radiant.api.compare -> radiant.performance.frequency_units",
-    "radiant.api.compare -> radiant.io.measurement",
-    "radiant.api.plot -> radiant.api.sweep",
-    "radiant.api.plot -> radiant.optics.psf.effective",
-    "radiant.api._param_registry -> radiant.platform._schema",
-    "radiant.api.session -> radiant.platform.stage",
-    "radiant.platform.stage -> radiant.core.chain",
-    "radiant.platform.stage -> radiant.core.parameters",
-    "radiant.platform.stage -> radiant.core.geometry",
-    "radiant.platform._schema -> radiant.core.parameters",
-]
+# CU-098: the contract's intent is that cli must not *directly* import
+# physics/core — reaching them transitively through api/ and io/ is by
+# design (CLAUDE.md import table: cli may import api + io; api imports all
+# stages; io imports stages read-only for schema). `allow_indirect_imports`
+# limits the check to direct cli edges, which retires the hand-maintained
+# transitive ignore list that had fallen behind api/io's internal growth.
+allow_indirect_imports = "true"
 
 [[tool.importlinter.contracts]]
 name = "data imports only core"

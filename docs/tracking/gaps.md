@@ -1137,10 +1137,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-10), 2026-07-11 |
-| **Status** | OPEN — fix before GUI (Tier 2, physics) |
-| **Description** | `spectral_integration/stage.py:342-364` hardcodes `background_e = 0.0` for POINT_SOURCE even when an at-aperture background frame exists, and the signal path strips L_path — so no background shot noise and no well fill from sky background. |
-| **Impact** | Point-target SNR/detection range against bright backgrounds (daytime sky, sunlit clouds) is optimistic; noise budget is discontinuous when a target-size sweep crosses the sub-pixel→point-source boundary. |
-| **Workaround** | None; results in this regime are simply optimistic against non-dark backgrounds. |
+| **Status** | FIXED (2026-07-11, commit `2d06ca4`) |
+| **Description** | The POINT_SOURCE branch hardcoded `background_e = 0.0` even when an at-aperture background frame existed — no background shot noise, no well fill from the sky pedestal. |
+| **Fix** | For POINT_SOURCE with a background frame, `background_e` is now the full-pixel pedestal (Ω_pixel), computed by the shared `_background_pedestal_e` helper (Rule 19) — the same formula as the extended/sub-pixel background reference. It feeds background shot noise (detector) and the readout well-fill (regime-gated: added to the well only in point-source, since extended/sub-pixel carry the background inside `signal_e`). Target signal and `contrast_e = signal_e` unchanged; noise budget now continuous across the sub-pixel→point-source boundary. Signal-chain doc §4 updated. The "strips L_path" note in the original description was a correct target-signal behavior, not a defect — path radiance fills Ω_pixel via the pedestal, not the target's Ω_target term. |
+| **Impact** | Point-target SNR/detection range against bright backgrounds is now realistic. Extended/sub-pixel and golden baseline unchanged. |
+| **Rerun after fix** | Point-source scenarios against non-dark backgrounds (Chen 6.x if any) will show lower SNR — rerun opportunistically to confirm. |
 
 ## Gap 74: Scan/timing subsystem unimplemented (ScanMode, t_int derivation/feasibility, cross-track and target-motion smear)
 

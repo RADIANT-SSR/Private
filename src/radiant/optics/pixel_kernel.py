@@ -1,8 +1,11 @@
 """Pixel aperture kernel for PSF convolution.
 
-The pixel integrates light over its active area, which is equivalent
-to convolving the PSF with a 2-D rect function of dimensions
-``(pitch_x × fill_factor, pitch_y × fill_factor)``.
+The pixel integrates light over its **photosensitive** area. With
+``fill_factor`` defined as the areal photosensitive fraction of the
+pixel cell (``detector._schema``), a square photosite has linear
+dimension ``pitch × √fill_factor`` per axis, so the pixel aperture is a
+2-D rect of dimensions ``(pitch_x·√FF, pitch_y·√FF)`` (CU-074, 2026-07).
+At ``FF = 1`` this reduces to the full-pitch rect.
 
 This is a separable kernel: the 2-D result is the outer product of
 two 1-D rect kernels.
@@ -22,6 +25,8 @@ See RADIANT_Spatial_Complete.md §6 step 1.
 """
 
 from __future__ import annotations
+
+import math
 
 import numpy as np
 import numpy.typing as npt
@@ -47,15 +52,17 @@ def make_pixel_aperture_kernel_2d(
     pixel_pitch_y_m:
         Pixel pitch along y [m].
     fill_factor:
-        Photosensitive fraction of the pixel cell, in (0, 1].
+        Areal photosensitive fraction of the pixel cell, in (0, 1]. The
+        photosite linear dimension per axis is ``pitch × √fill_factor``.
 
     Returns
     -------
     ndarray of shape ``(npix, npix)``
         Normalised 2-D rect kernel (sums to 1.0).
     """
-    kx = _rect_1d(npix, sample_spacing_m, pixel_pitch_x_m * fill_factor)
-    ky = _rect_1d(npix, sample_spacing_m, pixel_pitch_y_m * fill_factor)
+    sqrt_ff = math.sqrt(fill_factor)
+    kx = _rect_1d(npix, sample_spacing_m, pixel_pitch_x_m * sqrt_ff)
+    ky = _rect_1d(npix, sample_spacing_m, pixel_pitch_y_m * sqrt_ff)
 
     kernel = np.outer(ky, kx)
     total = kernel.sum()

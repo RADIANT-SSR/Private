@@ -86,12 +86,20 @@ $f_c = D / \lambda$.
 
 *Implementation: `src/radiant/platform/sampling.py`*
 
-The pixel acts as a spatial integrator, producing a sinc MTF:
+The pixel acts as a spatial integrator over its photosensitive area,
+producing a sinc MTF:
 
-$$\text{MTF}_{\text{det}}(f) = \left|\text{sinc}(\pi f \cdot p \cdot \text{FF})\right|$$
+$$\text{MTF}_{\text{det}}(f) = \left|\text{sinc}(\pi f \cdot p \cdot \sqrt{\text{FF}})\right|$$
 
-where $p$ is pixel pitch and FF is fill factor. Separable in x and y if
-pixel pitches differ.
+where $p$ is pixel pitch and FF is the **areal** fill factor (the
+photosensitive fraction of the pixel cell). A square photosite of area
+$\text{FF}\cdot p^2$ has linear width $p\sqrt{\text{FF}}$, which sets the
+sinc argument (CU-074). Separable in x and y if pixel pitches differ. At
+$\text{FF}=1$ this reduces to $\text{sinc}(\pi f p)$. The same width
+$p\sqrt{\text{FF}}$ is used by the PSF-path pixel-aperture kernel
+(`optics/pixel_kernel.py`), so the two Rule-4 paths agree; the
+radiometric collecting area is the photosensitive area $p^2\cdot\text{FF}$,
+so the collected signal scales by FF (`spectral_integration/stage.py`).
 
 ### IPC MTF
 

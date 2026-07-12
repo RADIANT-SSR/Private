@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Results-affecting (fill_factor < 1 only):** `detector.fill_factor` now
+  couples consistently across all three affected paths (CU-074). It is the
+  areal photosensitive fraction, so a square photosite has linear width
+  `pitch·√FF`: this width now drives BOTH the PSF-path pixel-aperture
+  kernel and the MTF-product pixel sinc (previously the sinc used the full
+  pitch, diverging the two Rule-4 paths and warning on every FF<1 run), and
+  the collecting area `pitch²·FF` scales the radiometric signal (previously
+  the full-pitch area was used, overcounting signal). Nearfield and stray
+  electrons also scale by FF. Direction at FF<1: signal ↓ by factor FF,
+  pixel MTF ↑ (narrower photosite). At FF=1 (the default and the golden
+  baseline) every change is an exact no-op — golden unchanged.
 - **Results-affecting (point-source regime only):** point targets now sit
   on a full-pixel background pedestal (Gap 73). Previously the
   point-source branch hardcoded `background_e = 0`, so a compact target

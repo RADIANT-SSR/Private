@@ -56,7 +56,7 @@ def _background_pedestal_e(
     lam_m: np.ndarray,
     mask: np.ndarray,
     wl_band: np.ndarray,
-    qe_curve: np.ndarray,
+    collection: np.ndarray,
     a_collect: float,
     omega_pixel: float,
     t_int: float,
@@ -71,7 +71,7 @@ def _background_pedestal_e(
     """
     l_bg_post = bg_spectral_radiance * tau_opt_bg
     bg_photon_rate = l_bg_post * a_collect * omega_pixel * (lam_m / hc)
-    bg_e_rate = bg_photon_rate * qe_curve
+    bg_e_rate = bg_photon_rate * collection
     bg_e_per_s = float(np.trapezoid(bg_e_rate[mask], wl_band))
     return bg_e_per_s * t_int
 
@@ -83,7 +83,7 @@ def _extended_contrast_reference_signal(
     lam_m: np.ndarray,
     mask: np.ndarray,
     wl_band: np.ndarray,
-    qe_curve: np.ndarray,
+    collection: np.ndarray,
     a_collect: float,
     omega_pixel: float,
     t_int: float,
@@ -117,7 +117,7 @@ def _extended_contrast_reference_signal(
     l_ref_at_aperture = eps_ref * b_ref * np.asarray(tau_atm) + np.asarray(l_path)
     l_ref_post = l_ref_at_aperture * tau_opt
     photon_rate = l_ref_post * a_collect * omega_pixel * (lam_m / hc)
-    e_rate = photon_rate * qe_curve
+    e_rate = photon_rate * collection
     ref_e_per_s = float(np.trapezoid(e_rate[mask], wl_band))
     return ref_e_per_s * t_int
 
@@ -202,6 +202,15 @@ class SpectralIntegrationStage:
         else:
             qe_value: float = params.get("detector.qe_value")
             qe_curve = np.full_like(wl, qe_value)
+
+        # Areal fill factor: only the photosensitive fraction FF of the pixel
+        # collects photons (CU-074). Fold it into an effective per-λ collection
+        # efficiency QE·FF used for every electron conversion; the stored
+        # qe_curve/qe_scalar provenance stays pure QE. At FF = 1 this is a
+        # no-op. The full-pitch pixel area is used only for the geometric
+        # Ω_pixel (IFOV/GSD), never for photon collection.
+        fill_factor: float = params.get("detector.fill_factor")
+        collection = qe_curve * fill_factor
 
         # --- Compute photon rate based on regime ---
 
@@ -300,8 +309,8 @@ class SpectralIntegrationStage:
                 f"SpectralIntegrationStage: unknown regime {regime!r}."
             )
 
-        # electron rate: × QE
-        e_rate = photon_rate * qe_curve  # [e-/s/pixel/µm]
+        # electron rate: × effective collection efficiency (QE·FF)
+        e_rate = photon_rate * collection  # [e-/s/pixel/µm]
 
         # Apply filter bandpass mask and integrate.
         mask = (wl >= lam_min) & (wl <= lam_max)
@@ -388,7 +397,7 @@ class SpectralIntegrationStage:
                     lam_m,
                     mask,
                     wl_band,
-                    qe_curve,
+                    collection,
                     A_collect,
                     Omega_pixel,
                     t_int,
@@ -407,7 +416,7 @@ class SpectralIntegrationStage:
                 lam_m,
                 mask,
                 wl_band,
-                qe_curve,
+                collection,
                 A_collect,
                 Omega_pixel,
                 t_int,
@@ -429,7 +438,7 @@ class SpectralIntegrationStage:
                 lam_m,
                 mask,
                 wl_band,
-                qe_curve,
+                collection,
                 A_collect,
                 Omega_pixel,
                 t_int,
@@ -490,10 +499,12 @@ class SpectralIntegrationStage:
         nearfield_e = 0.0
         stray_e = 0.0
 
+        # Nearfield and stray irradiance also collect only on the active area:
+        # use the effective QE·FF collection efficiency (CU-074).
         nf_sd = optics_out.get("nearfield_irradiance_at_fpa")
         if nf_sd is not None:
             nf_vals = nf_sd.values if hasattr(nf_sd, "values") else nf_sd
-            nf_e_rate = nf_vals * A_pixel * qe_curve * (lam_m / hc)
+            nf_e_rate = nf_vals * A_pixel * collection * (lam_m / hc)
             nf_e_rate_band = nf_e_rate[mask]
             if nf_e_rate_band.size >= 2:
                 nearfield_e = float(np.trapezoid(nf_e_rate_band, wl_band)) * t_int
@@ -501,7 +512,7 @@ class SpectralIntegrationStage:
         stray_sd = optics_out.get("stray_light_irradiance_at_fpa")
         if stray_sd is not None:
             stray_vals = stray_sd.values if hasattr(stray_sd, "values") else stray_sd
-            stray_e_rate = stray_vals * A_pixel * qe_curve * (lam_m / hc)
+            stray_e_rate = stray_vals * A_pixel * collection * (lam_m / hc)
             stray_e_rate_band = stray_e_rate[mask]
             if stray_e_rate_band.size >= 2:
                 stray_e = float(np.trapezoid(stray_e_rate_band, wl_band)) * t_int

@@ -12,6 +12,8 @@ of ``NoiseTerm`` objects (after applying TDI/binning/coadd scaling).
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from radiant.core.chain import ChainState
@@ -104,9 +106,14 @@ class DetectorStage:
             focal_length_m: float = params.get("optics.focal_length_m")
             freq_m = freq_mrad / (focal_length_m * 1e-3)
 
-            # Pixel aperture MTF = |sinc(f * pitch)| (anisotropic for rect pixels).
-            mtf_pixel_x = np.abs(np.sinc(freq_m * pixel_pitch_x))
-            mtf_pixel_y = np.abs(np.sinc(freq_m * pixel_pitch_y))
+            # Pixel aperture MTF = |sinc(f · pitch · √FF)| — the photosite
+            # linear width is pitch·√FF for areal fill factor FF (CU-074).
+            # This matches the PSF-path pixel_aperture kernel width exactly,
+            # so the two Rule-4 paths agree at fill_factor < 1.
+            fill_factor: float = params.get("detector.fill_factor")
+            sqrt_ff = math.sqrt(fill_factor)
+            mtf_pixel_x = np.abs(np.sinc(freq_m * pixel_pitch_x * sqrt_ff))
+            mtf_pixel_y = np.abs(np.sinc(freq_m * pixel_pitch_y * sqrt_ff))
             state = state.with_mtf("mtf_pixel_aperture_x", mtf_pixel_x)
             state = state.with_mtf("mtf_pixel_aperture_y", mtf_pixel_y)
 

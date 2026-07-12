@@ -70,10 +70,11 @@ class TestPixelApertureMTF1D:
 
     @pytest.mark.level0
     def test_fill_factor_shifts_zero(self) -> None:
-        """FF < 1 moves the first zero to 1/(p·FF)."""
+        """FF < 1 moves the first zero to 1/(p·√FF) — areal fill factor,
+        square photosite of linear width p·√FF (CU-074)."""
         pitch = 15e-6
         ff = 0.5
-        f_zero = 1.0 / (pitch * ff)
+        f_zero = 1.0 / (pitch * math.sqrt(ff))
         freq = np.array([f_zero])
         mtf = pixel_aperture_mtf_1d(freq, pitch, fill_factor=ff)
         assert mtf[0] == pytest.approx(0.0, abs=1e-10)

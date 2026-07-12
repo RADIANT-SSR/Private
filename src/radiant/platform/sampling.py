@@ -18,6 +18,8 @@ RADIANT_Detector_Complete.md §3.3.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import numpy.typing as npt
 
@@ -43,7 +45,7 @@ def pixel_aperture_mtf_1d(
     Returns
     -------
     ndarray
-        |sinc(π · f · p · FF)| at each frequency.
+        |sinc(π · f · p · √FF)| at each frequency.
 
     Raises
     ------
@@ -55,7 +57,8 @@ def pixel_aperture_mtf_1d(
     if not (0.0 < fill_factor <= 1.0):
         raise PlatformValidationError(f"fill_factor must be in (0, 1], got {fill_factor}")
 
-    effective_width = pixel_pitch_m * fill_factor
+    # Areal fill factor: square photosite linear width = pitch·√FF (CU-074).
+    effective_width = pixel_pitch_m * math.sqrt(fill_factor)
     # np.sinc(x) = sin(πx)/(πx), so sinc(π·f·w) = np.sinc(f·w)
     return np.abs(np.sinc(freq * effective_width))
 
@@ -69,7 +72,7 @@ def pixel_aperture_mtf_2d(
 ) -> npt.NDArray[np.float64]:
     """Compute the 2-D pixel aperture MTF (separable).
 
-    MTF(fx, fy) = |sinc(π·fx·px·FF)| · |sinc(π·fy·py·FF)|
+    MTF(fx, fy) = |sinc(π·fx·px·√FF)| · |sinc(π·fy·py·√FF)|
 
     Parameters
     ----------
@@ -103,7 +106,8 @@ def pixel_aperture_kernel_1d(
     """Generate a 1-D rectangular pixel aperture kernel.
 
     The kernel is a normalised rect function of width ``pixel_pitch_m *
-    fill_factor``, sampled at ``sample_spacing_m``.
+    √fill_factor`` (areal fill factor, square photosite; CU-074), sampled
+    at ``sample_spacing_m``.
 
     Parameters
     ----------
@@ -130,7 +134,7 @@ def pixel_aperture_kernel_1d(
     if not (0.0 < fill_factor <= 1.0):
         raise PlatformValidationError(f"fill_factor must be in (0, 1], got {fill_factor}")
 
-    effective_width = pixel_pitch_m * fill_factor
+    effective_width = pixel_pitch_m * math.sqrt(fill_factor)
     half_width = effective_width / 2.0
 
     c = npix // 2

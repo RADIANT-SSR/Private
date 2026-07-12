@@ -98,7 +98,7 @@ Out of scope for v1: physical readout multiplexing of two layers in time. The us
 | `detector.pixel_shape` | enum: `rect`, `circle` | `rect` |
 | `detector.charge_diffusion_length_um` | µm | 0.0 |
 
-The pixel-aperture MTF is `sinc(π·f_x·p_x·FF) · sinc(π·f_y·p_y·FF)` for rectangular fill, and the corresponding jinc for circular. Charge diffusion is a Gaussian convolution with `σ = L_d / √2`. Both feed the spatial PSF cascade per `RADIANT_Spatial_Complete.md` §6.
+The pixel-aperture MTF is `sinc(π·f_x·p_x·√FF) · sinc(π·f_y·p_y·√FF)` for rectangular fill (FF is the *areal* photosensitive fraction, so a square photosite has linear width `p·√FF`; CU-074), and the corresponding jinc for circular. The same `p·√FF` width drives the PSF-path pixel-aperture kernel (both Rule-4 paths agree), and the radiometric collecting area `p²·FF` scales the collected signal. Charge diffusion is a Gaussian convolution with `σ = L_d / √2`. Both feed the spatial PSF cascade per `RADIANT_Spatial_Complete.md` §6.
 
 ---
 

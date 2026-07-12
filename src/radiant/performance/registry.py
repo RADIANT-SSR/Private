@@ -396,6 +396,18 @@ _register(
         requires_metrics=frozenset({"diffraction_limit_angular_urad"}),
     )
 )
+_register(
+    MetricSpec(
+        name="max_integration_time_s",
+        unit="s",
+        description=(
+            "Longest per-line integration keeping along-track smear ≤ one "
+            "ground sample (GSD_along / ground_velocity) — the pushbroom/TDI "
+            "dwell feasibility limit (parameter-gated: needs a ground velocity)."
+        ),
+        requires_metrics=frozenset({"gsd_along_track_m"}),
+    )
+)
 
 
 def metric_info(name: str) -> MetricSpec:

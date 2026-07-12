@@ -20,6 +20,17 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- Pushbroom/TDI scan-timing feasibility guard (Gap 74, minimum slice):
+  when `platform.ground_velocity_m_s` is set, `PerformanceStage` computes
+  the per-line dwell `t_dwell = GSD_along / v_ground`, stores it as the new
+  `max_integration_time_s` metric, and warns when
+  `spectral_integration.integration_time_s` exceeds it (the along-track
+  image smears more than one ground sample per integration — an unphysical
+  TDI timing whose SNR would otherwise look authoritative). New module
+  `radiant.performance.scan_feasibility`. Parameter-gated: inert without a
+  ground velocity, so existing results are unchanged.
+
 ### Fixed
 - `ChainResult.signal_at(DN)` (and DN propagation generally) no longer
   raises when the well fully saturates (`signal_e_final = 0`) — a state

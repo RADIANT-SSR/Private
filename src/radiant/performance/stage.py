@@ -33,6 +33,7 @@ from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.qsample import compute_q
 from radiant.performance.sampling_regime import classify_sampling_regime
+from radiant.performance.scan_feasibility import scan_feasibility
 from radiant.performance.snr import compute_snr
 from radiant.performance.strehl import compute_strehl
 from radiant.performance.swath_width import compute_swath_width_m
@@ -311,7 +312,57 @@ def _compute_gsd_metrics(
     )
     state = state.with_metric("gsd_cross_track_m", result.cross_track_m)
     state = state.with_metric("gsd_along_track_m", result.along_track_m)
-    return state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
+    state = state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
+    return _compute_scan_feasibility(state, params, result.along_track_m)
+
+
+def _compute_scan_feasibility(
+    state: ChainState,
+    params: ParameterSet,
+    gsd_along_track_m: float,
+) -> ChainState:
+    """Pushbroom/TDI dwell-time feasibility guard (Gap 74, minimum slice).
+
+    When a ground velocity is set, warn if the integration exceeds the
+    per-line dwell (along-track smear > one ground sample) — a silently
+    unphysical TDI timing whose reported SNR would still look authoritative.
+    Stores ``max_integration_time_s``. Skips when no ground velocity is set.
+    """
+    try:
+        v_ground: float = params.get("platform.ground_velocity_m_s")
+        t_int: float = params.get("spectral_integration.integration_time_s")
+    except (KeyError, TypeError):
+        return state
+    if v_ground <= 0.0 or t_int <= 0.0 or gsd_along_track_m <= 0.0:
+        return state
+
+    feas = scan_feasibility(gsd_along_track_m, v_ground, t_int)
+    state = state.with_metric("max_integration_time_s", feas.max_integration_time_s)
+    if not feas.feasible:
+        try:
+            n_tdi: int = int(params.get("readout.n_tdi"))
+        except (KeyError, TypeError):
+            n_tdi = 1
+        tdi_note = (
+            f" With n_tdi = {n_tdi}, the TDI stages cannot stay registered to the moving image."
+            if n_tdi > 1
+            else ""
+        )
+        warnings.warn(
+            "ScanFeasibility: integration_time_s = "
+            f"{t_int:.4g} s exceeds the per-line dwell "
+            f"{feas.max_integration_time_s:.4g} s "
+            f"(GSD_along / ground_velocity); the along-track image smears "
+            f"{feas.smear_pixels:.2f} pixels during one integration, so the "
+            "reported SNR is optimistic (the smear MTF captures the blur, but "
+            f"the timing itself is infeasible).{tdi_note} Reduce "
+            "spectral_integration.integration_time_s to "
+            f"≤ {feas.max_integration_time_s:.4g} s, reduce "
+            "platform.ground_velocity_m_s, or coarsen the GSD.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return state
 
 
 def _compute_access_metrics(

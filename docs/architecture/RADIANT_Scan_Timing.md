@@ -1,8 +1,25 @@
 # RADIANT Scan & Timing
 
-**Status**: Authoritative — first design pass
+**Status**: DESIGN TARGET — mostly unimplemented (see Implementation Status below)
 **Scope**: Scan modes (stare, pushbroom, whiskbroom, step-stare), timing computation per mode, integration time derivation and consistency, ground-velocity computation, and the motion parameters that feed the spatial PSF cascade.
 **Sister documents**: RADIANT_Conventions.md, RADIANT_Spatial_Complete.md, RADIANT_Detector_Complete.md, RADIANT_Parameter_System.md
+
+> **Implementation status (2026-07-11, Gap 74).** The `TimingState` /
+> `ScanTimingStage` subsystem described below is a design target — there is no
+> `ScanMode` enum, no line-rate/frame-rate derivation, and no cross-track or
+> target-motion smear kernel. **What is implemented** is the single feasibility
+> guard the capability audit flagged as silently missing (Gap 74, minimum
+> slice): the pushbroom/TDI per-line **dwell-time** constraint. When a
+> `platform.ground_velocity_m_s` is set, `PerformanceStage` computes
+> `t_dwell = GSD_along / v_ground`, stores it as the `max_integration_time_s`
+> metric, and warns (`UserWarning`) when `spectral_integration.integration_time_s`
+> exceeds it — the along-track image then smears more than one ground sample per
+> integration, so the reported SNR is optimistic and (for TDI) the timing is
+> unphysical. Implementation: `radiant.performance.scan_feasibility`
+> (`scan_feasibility()` → `ScanFeasibility`), wired in
+> `performance/stage.py:_compute_scan_feasibility`. The full subsystem remains
+> future work; §84's `t_int ≤ line_period · n_tdi` form reduces to
+> `t_int ≤ t_dwell` when `line_period = GSD_along / v_ground` (see §3.2).
 
 ---
 

@@ -11,7 +11,7 @@
 
 There is **no separate "spatial stage"** in RADIANT. Spatial physics is interleaved through the radiometric chain: each stage that has a spatial effect publishes its MTF contribution to `state.mtf_terms` and (where it owns a kernel) convolves it into the propagating `EffectivePSF`. The accumulator is `ChainState`; the stages that contribute spatial terms are `OpticsStage`, `PlatformStage`, `DetectorStage`, `ReadoutStage`, and `AtmosphereStage` (turbulence, ground-based scenarios only). `PerformanceStage` reads the accumulated terms at the end and forms the system MTF.
 
-This is the actual implementation as of 2026-04-25 (post-Stage-8). Earlier docs implied a monolithic "spatial pass" or a configurable fidelity dial; neither exists. The dual-path discipline (PSF path + MTF product path) is enforced by the **unconditional** `check_dual_path_consistency` step in `PerformanceStage`, with a fixed tolerance of `5e-2` — see §1.4 and §9.3.
+This is the actual implementation as of 2026-04-25 (post-Stage-8). Earlier docs implied a monolithic "spatial pass" or a configurable fidelity dial; neither exists. The dual-path discipline (PSF path + MTF product path) is enforced by the **unconditional** `check_dual_path_consistency` step in `PerformanceStage`, with a fixed tolerance of `2e-2` — see §1.4 and §9.3.
 
 ---
 
@@ -41,9 +41,9 @@ The previous generation of EO performance tools computed MTF and EE independentl
 
 Both paths originate from the same pupil. After all convolutions are applied to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of the contributor MTFs (excluding terms that have no spatial-domain kernel — see §9.3) to within a fixed tolerance.
 
-Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`), the check is **unconditional** — it runs on every chain execution, not gated by a fidelity preset. Tolerance: `5e-2` absolute error on max(|MTF_psf − MTF_product|) below Nyquist on each axis. The check function is `check_dual_path_consistency` in `src/radiant/performance/consistency_check.py`; the result lives at `state.stage_outputs["performance"]["dual_path_consistency"]`.
+Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`), the check is **unconditional** — it runs on every chain execution, not gated by a fidelity preset. Tolerance: `2e-2` absolute error on max(|MTF_psf − MTF_product|) below Nyquist on each axis. The check function is `check_dual_path_consistency` in `src/radiant/performance/consistency_check.py`; the result lives at `state.stage_outputs["performance"]["dual_path_consistency"]`.
 
-A failure means a degradation was added to one path but not the other — the build is broken. The default `2e-2` tolerance (CU-045, 2026-07-10) sits ~2× above the worst measured full-chain discretization residual (~1e-2 at undersampled Q ≈ 0.2) now that the pixel-aperture rect kernel is area-integrated (anti-aliased edges — CU-003 option a; the old binary mask cost up to 4.5e-2 at Nyquist). Wide enough to absorb the remaining bin-average envelope, narrow enough to catch a missing convolution or an unmultiplied MTF term.
+A failure means a degradation was added to one path but not the other — the build is broken. The default `2e-2` tolerance (CU-045, 2026-07-10) sits ~2× above the worst measured full-chain discretization residual (~1e-2 at undersampled Q ≈ 0.2) now that the pixel-aperture rect kernel is area-integrated (anti-aliased edges — CU-003 option a; the old binary mask cost up to 4.2e-2 at Nyquist). Wide enough to absorb the remaining bin-average envelope, narrow enough to catch a missing convolution or an unmultiplied MTF term.
 
 ---
 
@@ -161,7 +161,7 @@ The two free knobs (`pupil_npix=128`, `psf_oversample=8`) are **not** exposed as
 
 **Removed.** Earlier drafts of this doc described a `FidelityPreset` enum (`draft` / `standard` / `high` / `publication`) that would gate (a) the consistency-check tolerance and (b) bundles of `pupil_npix` / `psf_oversample` / `n_wavelength_samples` defaults. Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`):
 
-- The dual-path consistency check is **unconditional** with tolerance `5e-2` (§1.4, §9.3). No "draft mode that skips the check" exists.
+- The dual-path consistency check is **unconditional** with tolerance `2e-2` (§1.4, §9.3). No "draft mode that skips the check" exists.
 - The two sampling knobs (`pupil_npix=128`, `psf_oversample=8`) are unconditional defaults. If a scenario needs different sampling, the schema gets two new parameters; it does not need a preset enum to bundle them.
 - Polychromatic sampling is controlled by the existing `optics.psf_n_wavelengths` parameter (§3.4), which is the only "fidelity-like" knob that ships.
 
@@ -294,14 +294,14 @@ product_x = product_over_i(mtf_terms[name]
                            if name.endswith("_x")
                            and not name.startswith("mtf_tdi"))
 errors = abs(product_x[:nyquist] − mtf_psf_x[:nyquist])
-passed_x = max(errors) <= 5e-2
+passed_x = max(errors) <= 2e-2
 ```
 
-The check runs unconditionally on every chain execution (default tolerance `5e-2`, the `tolerance` parameter of `check_dual_path_consistency`). The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`. On failure, `PerformanceStage` logs a warning with both per-axis errors and stores the failing result — it does **not** raise; the stored result is the machine-checkable record.
+The check runs unconditionally on every chain execution (default tolerance `2e-2`, the `tolerance` parameter of `check_dual_path_consistency`). The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`. On failure, `PerformanceStage` logs a warning with both per-axis errors and stores the failing result — it does **not** raise; the stored result is the machine-checkable record.
 
 **Excluded prefixes:** `mtf_tdi*` is excluded because TDI misalignment has no spatial-domain kernel in v1 (§6). When a kernel is added, the exclusion list shrinks; both paths must update together.
 
-**Why the wider tolerance than the previous doc claimed (5e-2 vs the old "1e-6"):** the rect kernel in `optics/pixel_kernel.py` is a binary mask sampled on the FPA grid, not the analytic `sinc` it pairs with on the product side; at low Q (long-wave SWIR, small focal length, e.g., `swir_aerial_gas` with Q ≈ 0.34) the discretization mismatch reaches ~5 % near Nyquist. CU-003 tracks the planned anti-aliased-rect fix that would let the tolerance tighten back to ~1e-6; until then, `5e-2` is calibrated to the real-world worst case across the baseline scenario set without masking any actual missing-degradation regressions.
+**Why the wider tolerance than the previous doc claimed (2e-2 vs the old "1e-6"):** the rect kernel in `optics/pixel_kernel.py` is a binary mask sampled on the FPA grid, not the analytic `sinc` it pairs with on the product side; at low Q (long-wave SWIR, small focal length, e.g., `swir_aerial_gas` with Q ≈ 0.34) the discretization mismatch reaches ~5 % near Nyquist. CU-003 tracks the planned anti-aliased-rect fix that would let the tolerance tighten back to ~1e-6; until then, `2e-2` is calibrated to the real-world worst case across the baseline scenario set without masking any actual missing-degradation regressions.
 
 ---
 
@@ -318,7 +318,7 @@ This section enumerates only parameters that ship today. Future-state spatial pa
 | `optics.f_number` | — | derived | |
 | `optics.obscuration_ratio` | — | 0.0 | |
 | `optics.defocus_um` | µm | 0.0 | |
-| `optics.wfe_mode` | enum | `none` | |
+| `optics.wfe_mode` | enum | `scalar_rms` | `scalar_rms`/`zernike`/`field_dependent` |
 | `optics.wfe_rms_waves` | waves | 0.0 | |
 | `optics.wfe_reference_wavelength_um` | µm | (band-center) | |
 | `optics.field_position_x` | deg | 0.0 | |
@@ -329,17 +329,21 @@ Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded i
 
 ### 10.2 Platform-side smear / motion / jitter
 
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `platform.velocity_m_s` | m/s | derived from orbit if `platform.orbit_*` set |
-| `platform.altitude_m` | m | required |
-| `platform.jitter_rms_urad` | µrad | 0.0 |
-| `platform.jitter_axes` | enum (`isotropic` / `anisotropic`) | `isotropic` |
-| `platform.jitter_rms_x_urad` | µrad | 0.0 (anisotropic only) |
-| `platform.jitter_rms_y_urad` | µrad | 0.0 (anisotropic only) |
-| `scan.cross_track_velocity_m_s` | m/s | 0.0 |
-| `target.velocity_x_m_s` | m/s | 0.0 |
-| `target.velocity_y_m_s` | m/s | 0.0 |
+| Parameter | Unit | Default | Notes |
+|-----------|------|---------|-------|
+| `platform.ground_velocity_m_s` | m/s | 0.0 | along-track velocity for smear; identity-grouped with `geometry.ground_speed_m_s` |
+| `platform.smear_length_um` | µm | 0.0 | image-plane smear length (direct) |
+| `platform.h_sensor` | m | (schema) | sensor altitude (space subcase; see CU-090 re: `geometry.sensor_altitude_m`) |
+| `platform.jitter_rms_urad` | µrad | 0.0 | |
+| `platform.jitter_axes` | enum (`isotropic` / `anisotropic`) | `isotropic` | |
+| `platform.jitter_rms_x_urad` | µrad | 0.0 (anisotropic only) | |
+| `platform.jitter_rms_y_urad` | µrad | 0.0 (anisotropic only) | |
+
+**[DESIGN-TARGET] — not in the schema:** `platform.velocity_m_s`,
+`platform.altitude_m` (use `ground_velocity_m_s` / `h_sensor`),
+`scan.cross_track_velocity_m_s`, `target.velocity_x_m_s`, `target.velocity_y_m_s`
+— cross-track scan smear and target-motion smear are the unbuilt Gap-74 cascade
+terms (§6, psf_4/psf_5 "NOT IMPLEMENTED").
 
 ### 10.3 Detector / readout / atmosphere pass-through
 
@@ -347,10 +351,10 @@ Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded i
 |-----------|------|---------|-------|
 | `detector.pixel_pitch_x_um` | µm | required | feeds `pixel_pitch_m` for sampling |
 | `detector.pixel_pitch_y_um` | µm | required | |
-| `detector.ipc_alpha` | — | 0.0 | term 4 in §9.2 |
-| `detector.diffusion_sigma_um` | µm | 0.0 | term 3 in §9.2 |
+| `detector.ipc_coupling` | — | 0.0 | term 4 in §9.2 (α); doc previously called this `ipc_alpha` |
+| `detector.charge_diffusion_length_m` | m | 0.0 | term 3 in §9.2; doc previously called this `diffusion_sigma_um` |
 | `readout.tdi_misalign_pixels` | pixels | 0.0 | term 9 in §9.2 |
-| `atmosphere.r0_cm` | cm | (consumed from atmosphere model) | term 10 in §9.2 |
+| `atmosphere.r0_m` | m | (consumed from atmosphere model) | term 10 in §9.2; canonical unit is metres, not cm |
 
 ---
 
@@ -362,7 +366,7 @@ Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded i
 | `samples_across_Airy_FWHM ≥ 2` | `optics/sampling.py::compute_sampling` | soft (logs warning) |
 | `psf.data` integrates to 1 ± numerical error | `optics/psf/builder.py` re-normalizes after each kernel | hard (always-true post-build) |
 | `mtf_2d` ≤ 1 + 1e-9 | `optics/psf/effective.py` per FFT normalization | hard |
-| Dual-path MTF consistency, tol = 5e-2 | `performance/consistency_check.py` (§9.3) | **unconditional**; soft on failure (logs a warning, result stored in stage outputs — does not raise) |
+| Dual-path MTF consistency, tol = 2e-2 | `performance/consistency_check.py` (§9.3) | **unconditional**; soft on failure (logs a warning, result stored in stage outputs — does not raise) |
 | `r0_cm > 0` if turbulence enabled | `atmosphere/turbulence.py` | hard |
 | `psf_eff` symmetric for symmetric inputs | unit tests | sanity |
 

@@ -488,8 +488,8 @@ obscuration + spiders is reachable; an arbitrary pupil is injected pre-chain
 | `optics.wfe_mode` | enum: `scalar_rms`, `zernike`, `field_dependent` | `scalar_rms` | `opd_map` removed (no pupil-phase rep in v1, Gap 68); `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]` |
 | `optics.wfe_rms_waves` | waves | 0.0 | |
 | `optics.wfe_reference_wavelength_um` | µm | 0.633 | |
-| `optics.field_position_x` | dimensionless | 0.0 | normalized field, for field-dependent WFE |
-| `optics.field_position_y` | dimensionless | 0.0 | |
+| `optics.field_position_x` | deg | 0.0 | field angle, for field-dependent WFE |
+| `optics.field_position_y` | deg | 0.0 | |
 | `optics.psf_n_wavelengths` | int | (schema) | polychromatic-PSF sampling count |
 
 **[DESIGN-TARGET] — not in the schema:** `optics.wfe_zernike_coeffs`,

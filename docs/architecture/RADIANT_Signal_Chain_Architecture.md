@@ -121,6 +121,9 @@ class ChainState:
     # Per-stage outputs (namespaced by stage name)
     stage_outputs: dict[str, dict[str, Any]]
 
+    # Noise terms accumulated across stages (each carries its origin frame)
+    noise_terms: tuple["NoiseTerm", ...]
+
     # MTF terms accumulated across stages (each stage writes its own terms)
     mtf_terms: dict[str, np.ndarray]   # term name -> MTF(f) array
     spatial_freq_cycles_per_mrad: np.ndarray | None
@@ -181,33 +184,41 @@ Not every frame uses every field — frames upstream of the optics carry radianc
 
 ### Dispatch: auto-detect with override
 
-The framework auto-detects the regime from the **angular extent of the target** vs. the **angular size of the diffraction PSF** and the **IFOV**:
+The framework auto-detects the regime in **two steps** (§ "Architectural placement" below). Both steps compare the target angular extent `sqrt(A_target)/R` against a reference scale, but the reference differs:
+
+**Step 1 — SourceStage (tentative), against the IFOV** (`core/regime.py` constants):
 
 ```
-target_angular_extent_rad = sqrt(A_target / R²)        # small-angle approximation
+angular_extent_rad = sqrt(A_target) / R              # small-angle approximation
 ifov_rad = pixel_pitch / focal_length
-psf_diameter_rad = 2.44 * lambda_c / D                  # Airy first dark ring
 
-if target_angular_extent_rad >= 2 * ifov_rad:
-    regime = "extended"
-elif target_angular_extent_rad <= 0.5 * psf_diameter_rad:
-    regime = "point"
-else:
-    regime = "subpixel"
+if angular_extent_rad >= 2.0  * ifov_rad:   regime = EXTENDED       # REGIME_EXTENDED_IFOV_MULTIPLE = 2.0
+elif angular_extent_rad <= 0.25 * ifov_rad: regime = POINT_SOURCE   # REGIME_POINT_SOURCE_IFOV_MULTIPLE = 0.25
+else:                                       regime = SUB_PIXEL
 ```
 
-The thresholds `2 * ifov_rad` and `0.5 * psf_diameter_rad` are deliberately conservative. When in doubt, the framework picks "subpixel" — which is the most general and reduces correctly to the other two regimes at the limits.
+**Step 2 — OpticsStage (final), against the diffraction PSF FWHM** (`optics/stage.py` constants). After the PSF is computed, `psf_fwhm_rad = fwhm_m / focal_length`:
+
+```
+if angular_extent_rad >= 2.0 * psf_fwhm_rad: regime = EXTENDED      # _EXTENDED_PSF_FWHM_MULTIPLE = 2.0
+elif angular_extent_rad <= 0.5 * psf_fwhm_rad: regime = POINT_SOURCE # _POINT_SOURCE_PSF_FWHM_MULTIPLE = 0.5
+else:                                          regime = SUB_PIXEL
+```
+
+The final classifier uses the **PSF FWHM**, not the Airy first-dark-ring diameter `2.44 λ/D`. When in doubt, the framework picks SUB_PIXEL — the most general regime, which reduces correctly to the other two at the limits.
 
 ### User override
 
-The user may force a regime via the parameter `target.regime`:
+The user may force a regime via the parameter `source.regime_override` (default `"auto"`):
 
 | Value | Meaning |
 |-------|---------|
-| `"auto"` (default) | Use the detection rule above |
-| `"extended"` | Force extended-scene equation; warn if target angular extent < 0.5 IFOV |
-| `"point"` | Force point-source equation; warn if target angular extent > 1 PSF |
-| `"subpixel"` | Force sub-pixel equation |
+| `"auto"` (default) | Use the two-step detection rule above |
+| `"extended"` | Force extended-scene equation |
+| `"point_source"` | Force point-source equation |
+| `"sub_pixel"` | Force sub-pixel equation |
+
+An override that conflicts with the geometry (e.g. forcing `point_source` on a target several PSF-FWHM across) logs a `UserWarning` from OpticsStage but is honored.
 
 ### Architectural placement
 

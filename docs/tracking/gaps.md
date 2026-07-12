@@ -1182,18 +1182,20 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-15), 2026-07-11 — demanded independently by Sarah 1.1/1.3 and Lisa 4.1/4.2/4.3 |
-| **Status** | OPEN — fix before GUI (Tier 2) |
-| **Description** | `snr`/`contrast_snr` carry temporal noise only; clutter-inclusive SCNR — the actual detection figure of merit in every sub-pixel detection trade — is assembled script-side in each scenario. Detection range (headline metric, `RADIANT_Metrics.md` §4.12 promises a geometry-aware bisection solve) is never computed in-chain; only constant-extinction library helpers exist, and each scenario hand-rolls a range-vs-zenith bisection over the spherical-Earth slant path. |
-| **Impact** | The number the analyst briefs is not one the framework reports; script-side assembly risks inconsistency across studies; GUI detection-range readout has no backend. |
-| **Workaround** | Scenario-script assembly (4.1's 144-cell matrix does this). |
+| **Status** | NARROWED (2026-07-11, commit `133fa41`) — SCNR + constant-extinction detection range landed; geometry-aware slant-path refinement deferred |
+| **Description** | `snr`/`contrast_snr` carried temporal (regime-dependent) noise only; the clutter-inclusive SCNR was assembled script-side. Detection range was never computed in-chain; only constant-extinction library helpers existed. |
+| **Landed** | New `scnr` metric (`performance/scnr.py`) — contrast over the always-clutter-inclusive noise √(σ_temporal² + σ_spatial²). New `detection_range_m` metric — `PerformanceStage` bisects the Beer-Lambert solver in the point-source regime to `performance.detection_snr_threshold` (default 5.0), with constant extinction `α = −ln(τ̄)/R` (exact in vacuum). |
+| **Still deferred** | The **geometry-aware** detection-range solve — α varying along a spherical-Earth slant path, τ_atm(R) recomputed per range — which matters for space targets whose path is mostly vacuum. The constant-α model is documented as a first-order approximation for atmospheric paths (`RADIANT_Metrics.md` §4.12). Effort M; category C. |
+| **Impact** | SCNR and point-source detection range are now framework metrics; the geometry-aware range refinement for long slant paths remains a follow-up. |
+| **Workaround** | For long-slant-path detection range, the script-side `detection_generic` callback solver still applies. |
 
 ## Gap 78: Decision-grade acquisition metrics are library-only (Pd/ROC, Johnson DRI, NEDL/NEDR/MRC, D*/NEP/NEI)
 
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-15), 2026-07-11 |
-| **Status** | OPEN |
-| **Description** | `performance/roc.py`, `johnson_criteria.py`, `nedl.py`, `nedr.py`, `minimum_resolvable.py` (MRC branch), `detectivity.py`, `nep_*.py`, `noise_equivalent_irradiance.py`, `blip_rate.py`, `dark_crossover_rate.py`, `temperature_retrieval.py` are consumed only by tests and scenario scripts — never wired into PerformanceStage or `result.metrics`. No Pd-vs-range or contrast-limited DRI composition exists. |
+| **Status** | OPEN — deferred to GUI-phase surfacing (2026-07-11 plan decision); SCNR + detection range split out and landed under Gap 77 |
+| **Description** | `performance/roc.py`, `johnson_criteria.py`, `nedl.py`, `nedr.py`, `minimum_resolvable.py` (MRC branch), `detectivity.py`, `nep_*.py`, `noise_equivalent_irradiance.py`, `blip_rate.py`, `dark_crossover_rate.py`, `temperature_retrieval.py` are consumed only by tests and scenario scripts — never wired into PerformanceStage or `result.metrics`. No Pd-vs-range or contrast-limited DRI composition exists. **Deferral rationale**: each of these needs a study-specific input the chain does not carry (Pfa for Pd/ROC; target dimensions + a resolution criterion for Johnson DRI; scene reflectance for NEΔρ; an electrical bandwidth for D\*/NEP/NEI). Surfacing them well means defining those inputs — a natural GUI-phase task where the study parameters are entered — rather than guessing defaults now. The two members that DO have clean in-chain inputs (SCNR, point-source detection range) were split out and landed under Gap 77. |
 | **Impact** | Analyst persona outputs (Pd at Pfa, DRI ranges, confidence-level ranges) and detector-trade numbers (BLIP T, crossover T, NEI) require re-derivation by every user; GUI has no reachable entry point. |
 | **Workaround** | Import the library functions script-side (scenarios 4.x/6.x/2.x pattern). |
 

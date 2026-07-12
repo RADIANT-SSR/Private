@@ -206,6 +206,8 @@ There are **no** `detection_range()`, `rer()`, `gsd()`, `mtf_at_nyquist()`, `mtf
 
 ### 3.4 Performance Metrics (`result.metrics`)
 
+`result.metrics` is the bare name → float mapping. For unit-labelled access — the project hard rule for anything displayed — use `result.metric_records()` (Gap 71, 2026-07-11): a tuple of `MetricRecord(name, value, unit, description, kind)` sorted by name, joined from the metric registry (`RADIANT_Metrics.md` §6). `kind` distinguishes physical floats from 0/1 flags (`niirs_extrapolated`) and enum codes (`sampling_regime_code`). Single-metric metadata: `radiant.performance.metric_info(name)`.
+
 Keys observed in a standard extended-scene run (`examples/mwir_leo_minimal.yaml`); presence is scenario-dependent:
 
 | Key | Unit | Meaning |

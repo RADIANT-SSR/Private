@@ -16,7 +16,33 @@
 
 ---
 
-## 2. The `MetricResult` Contract
+## 2. The Metric Metadata Contract
+
+> **Implementation status (2026-07-11, Gap 71):** the shipped contract is
+> `MetricRecord` + the registry (§6) — every computed metric key carries a
+> non-empty unit, description, and kind, joined to its value by
+> `ChainResult.metric_records()`. The richer per-computation `MetricResult`
+> below (regime, `failure_reason`, `derivation_chain`, `inputs_used`) remains
+> a design target: `state.metrics` stays `Mapping[str, float]`, and
+> result-typed failures live in the per-metric result objects
+> (`SNRResult.failure_reason`, `NEDTResult.failure_reason`, …) stored in
+> `stage_outputs["performance"]`.
+
+```python
+# Shipped (radiant.io.results):
+@dataclass(frozen=True)
+class MetricRecord:
+    name: str          # exact key in result.metrics
+    value: float
+    unit: str          # never empty — project hard rule
+    description: str
+    kind: str          # "float" | "flag" (0/1) | "code" (enum-as-float)
+
+result.metric_records()  # tuple[MetricRecord, ...], sorted by name;
+                         # raises KeyError on a registry-drift key (CU-078 tripwire)
+```
+
+Design target (unimplemented — do not call):
 
 ```python
 @dataclass(frozen=True)
@@ -30,7 +56,7 @@ class MetricResult:
     inputs_used: dict[str, Any]                 # snapshot of every chain-state field consumed
 ```
 
-Every metric returns one of these. `value=NaN` with `failure_reason` set is a successful "I cannot compute this for the given config" — distinct from a thrown exception, which means RADIANT itself is broken.
+In the target design every metric returns one of these; `value=NaN` with `failure_reason` set is a successful "I cannot compute this for the given config" — distinct from a thrown exception, which means RADIANT itself is broken.
 
 ---
 
@@ -393,26 +419,33 @@ A metric that depends on a key not in this list is malformed and the loader reje
 
 ## 6. The metric registry
 
-The registry lives in `radiant/performance/registry.py`. Each metric is described by a frozen `MetricSpec` and registered into the module-level `METRIC_SPECS` dict at import time:
+The registry lives in `radiant/performance/registry.py` (reconciled with the shipped chain 2026-07-11, Gap 71 + CU-078). Each metric is described by a frozen `MetricSpec` and registered into the module-level `METRIC_SPECS` dict at import time:
 
 ```python
 @dataclass(frozen=True)
 class MetricSpec:
-    name: str
+    name: str                                # exact state.metrics key
+    unit: str                                # non-empty, human-readable
+    description: str
+    kind: str = "float"                      # "float" | "flag" | "code"
     requires_frames: frozenset[str] = frozenset()
     requires_stage_outputs: frozenset[tuple[str, str]] = frozenset()
     requires_noise_terms: bool = False
     requires_metrics: frozenset[str] = frozenset()
-    regimes: frozenset[str] = frozenset()   # empty = all regimes
+    requires_mtf_terms: bool = False
+    regimes: frozenset[str] = frozenset()    # empty = all regimes
 
-METRIC_SPECS: dict[str, MetricSpec]         # 16 built-in specs
+METRIC_SPECS: dict[str, MetricSpec]          # one spec per computable key
 
+def metric_info(name: str) -> MetricSpec: ...
 def can_compute(metric_name: str, state: ChainState) -> bool: ...
 def available_metrics(state: ChainState) -> set[str]: ...
 def missing_for(metric_name: str, state: ChainState) -> dict[str, list[str]]: ...
 ```
 
-The 16 registered built-ins are: `snr`, `contrast_snr`, `nedt`, `nedl`, `nedr`, `csnr`, `niirs`, `rer`, `edge_slope`, `mtf_at_nyquist`, `ee`, `strehl`, `strehl_marechal`, `detection_range`, `saturation_margin`, `dynamic_range`. Plugin entry-point loading is v2-deferred, and there is currently no `radiant metrics` CLI subcommand; `available_metrics(state)` / `missing_for(name, state)` are the programmatic equivalents.
+**Reconciliation contract:** the catalog registers exactly the keys `PerformanceStage` can write — `snr`, `contrast_snr`, `nedt_K`, `mrt_at_nyquist_K`, `fwhm_x_m`, `fwhm_y_m`, `rer`, `ee_1x1`, `ee_3x3`, `mtf_at_nyquist`, `strehl`, `strehl_marechal`, `mtf_system_at_nyquist_x/_y`, `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist`, `niirs`, `niirs_extrapolated`, `well_margin_dB`, `adc_margin_dB`, `dynamic_range_dB`, `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `q_center`, `q_min`, `q_max`, `sampling_regime_code`, `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`. Enforced by `tests/integration/test_metric_registry_reconciliation.py`: a chain run producing an unregistered key fails CI, and `can_compute` must return True for every key the chain actually computed. Designed-but-not-computed metrics (NEΔL, NEΔρ, edge slope, detection range — Gaps 77/78) are **not** registered; they enter with the commit that computes them.
+
+`can_compute` covers state-level dependencies only; several metrics (GSD family, Q family, diffraction limits) are additionally parameter-gated (positive altitude, focal length, …). The production consumer is `ChainResult.metric_records()` (§2), which joins each computed value with its spec. Plugin entry-point loading is v2-deferred, and there is currently no `radiant metrics` CLI subcommand; `available_metrics(state)` / `missing_for(name, state)` are the programmatic equivalents.
 
 ---
 

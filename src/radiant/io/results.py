@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import warnings
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,22 @@ from radiant.core.quantity import (
 from radiant.core.quantity import noise_at as _quantity_noise_at
 from radiant.core.quantity import signal_at as _quantity_signal_at
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
+
+
+@dataclass(frozen=True)
+class MetricRecord:
+    """One computed metric joined with its registry metadata (Gap 71).
+
+    ``unit`` is always a non-empty human-readable string; ``kind`` is
+    "float", "flag" (0/1 boolean), or "code" (enumeration encoded as a
+    float — the description names the levels).
+    """
+
+    name: str
+    value: float
+    unit: str
+    description: str
+    kind: str
 
 
 class ChainResult:
@@ -95,8 +112,39 @@ class ChainResult:
 
     @property
     def metrics(self) -> Mapping[str, float]:
-        """Computed performance metrics (read-only mapping)."""
+        """Computed performance metrics (read-only mapping).
+
+        Bare name → value. For unit-labelled access use
+        :meth:`metric_records` (Gap 71 — every displayed value carries
+        units).
+        """
         return self._state.metrics
+
+    def metric_records(self) -> tuple[MetricRecord, ...]:
+        """All computed metrics with units and descriptions (Gap 71).
+
+        One :class:`MetricRecord` per ``metrics`` entry, in sorted-name
+        order, joining each value with its registry metadata
+        (:mod:`radiant.performance.registry`). Raises ``KeyError`` if a
+        metric key has no registry entry — that is a registry-drift bug
+        (CU-078); the reconciliation integration test catches it before
+        release.
+        """
+        from radiant.performance.registry import metric_info
+
+        records = []
+        for name in sorted(self._state.metrics):
+            spec = metric_info(name)  # KeyError on drift — deliberate
+            records.append(
+                MetricRecord(
+                    name=name,
+                    value=float(self._state.metrics[name]),
+                    unit=spec.unit,
+                    description=spec.description,
+                    kind=spec.kind,
+                )
+            )
+        return tuple(records)
 
     # ------------------------------------------------------------------
     # Backward propagation queries

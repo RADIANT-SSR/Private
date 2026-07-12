@@ -168,3 +168,28 @@ class TestChainResultMetricAccessors:
         result = ChainResult(ChainState(wavelength_um=wl))
         with pytest.raises(KeyError):
             result.snr()
+
+
+class TestMetricRecords:
+    """ChainResult.metric_records — unit-labelled metric table (Gap 71)."""
+
+    @pytest.mark.level1
+    def test_records_join_value_with_registry_metadata(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        state = ChainState(wavelength_um=wl)
+        state = state.with_metric("snr", 42.0)
+        state = state.with_metric("nedt_K", 0.05)
+        records = ChainResult(state).metric_records()
+        by_name = {r.name: r for r in records}
+        assert by_name["snr"].unit == "dimensionless"
+        assert by_name["snr"].value == pytest.approx(42.0, rel=0.0, abs=0.0)
+        assert by_name["nedt_K"].unit == "K"
+        assert by_name["nedt_K"].kind == "float"
+        assert by_name["nedt_K"].description
+
+    @pytest.mark.level1
+    def test_unregistered_metric_raises(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        state = ChainState(wavelength_um=wl).with_metric("bogus_metric", 1.0)
+        with pytest.raises(KeyError, match="Registered metrics"):
+            ChainResult(state).metric_records()

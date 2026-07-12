@@ -21,6 +21,24 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- Metric metadata contract (Gap 71): every computed metric now carries a
+  non-empty unit, description, and kind via the reconciled metric
+  registry; new `ChainResult.metric_records()` returns unit-labelled
+  `MetricRecord` tuples, and `radiant.performance.metric_info(name)`
+  exposes single-metric metadata. `MetricSpec` gains
+  `unit`/`description`/`kind`/`requires_mtf_terms` fields.
+
+### Removed
+- Metric registry phantoms (CU-078): the never-computed registry
+  entries `nedt`, `nedl`, `nedr`, `csnr`, `ee`, `edge_slope`,
+  `detection_range`, `saturation_margin`, `dynamic_range` are gone;
+  the catalog now registers exactly the 32 keys the performance stage
+  computes (real keys: `nedt_K`, `ee_1x1`/`ee_3x3`,
+  `well_margin_dB`/`adc_margin_dB`, `dynamic_range_dB`, …).
+  NEΔL/NEΔρ/edge-slope/detection-range specs return with the commits
+  that compute them (Gaps 77/78). Reconciliation is CI-enforced.
+
+### Added
 - Persistence (Gap 67): `Sensor.save(path)` / `Sensor.load(path)` —
   YAML round trip of explicit inputs, tolerance distributions, and
   `wavelength_points` via a new `_radiant` config metadata block

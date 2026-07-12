@@ -12,7 +12,7 @@ state.
 │  PySide6 desktop shell  (app/main.py)                              │
 │   ─ menu bar (File / View / Frame / Scene / Help)                  │
 │   ─ status bar (frame indicator | regime + projected area)         │
-│   ─ left dock: parameter panel (sliders deferred — CU-052)         │
+│   ─ left dock: parameter panel (sliders + spinboxes, debounced)    │
 │   ─ center: PyVistaQt QtInteractor (the 3D viewport)               │
 │   ─ right dock: ReadoutsPanel (objects / vectors / angles / regime)│
 │   ─ overlays: view-cube, frame-indicator HUD                       │
@@ -64,8 +64,9 @@ Data flow is one-way: state → view-model → scene. No mutation. The Qt
 shell holds the only mutable state (the `SceneState` held in a single
 Qt model object); every parameter change rebuilds an immutable
 `SceneState`, runs it through the view-model, and refreshes the scene.
-Phase 7's CU-053 promotes incremental actor-update over full rebuild
-once sliders land; today every change is a `clear_actors` + `build_scene`.
+CU-053 (gated on GUI_Development_Plan Phase 7) promotes incremental
+actor-update over full rebuild; today every change is a `clear_actors`
++ `build_scene`. Sliders shipped (CU-052 closed 2026-07-12).
 
 ## Module-by-module summary
 

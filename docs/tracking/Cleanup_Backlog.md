@@ -60,7 +60,7 @@
 ### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
 
 **Discovered**: Capability audit 2026-07 (F-26), 2026-07-11
-**Status**: Stage-deferred (gating stage: GUI implementation start; re-audit refreshed 2026-07-12 at the ADR-0006 geometry-stage landing — the pre-GUI prerequisite this CU was waiting behind: dev_tools/geometry_gui_v2 records unchanged by the plan, findings still stand; next re-audit when GUI implementation begins)
+**Status**: Stage-deferred (refreshed 2026-07-12 — the kickoff re-audit clause is executed: the GUI-kickoff re-audit dispositioned CU-024/025 (closed moot, v1 deleted), CU-052 (closed implemented, `270ee48`), and re-gated CU-053/054/056 onto GUI_Development_Plan Phase 7. Remaining substance: stale geometry_gui_v2 records (README/ARCHITECTURE) + golden pruning/re-render. New gate: GUI_Development_Plan Phase 6 — the lift assessment corrects the records and prunes/re-renders goldens. Re-audit: 2026-08-09)
 **File**: `dev_tools/geometry_gui_v2/README.md`, `ARCHITECTURE.md` (claim slider panel deferred per CU-052 — but `app/panels/parameters.py` ships it wired); `tests/` (only golden_phase1 exists vs C8's "every phase" claim; round-3 report references 25 absent PNGs)
 **Symptom**: prototype's own records contradict its shipped code and test tree.
 **Why it still matters**: GUI-restart planning will double-count done work and mis-sequence CU-052/053/054 (whose gating claims may already be satisfied).
@@ -148,39 +148,10 @@
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
-### CU-024 — Sun-zenith readout: `θ_s` (target) and `θ_sun,B` (background) collapse to identical values in flat-ground display
-
-**Discovered**: Geometry GUI Phase 10 (2026-04-26)
-**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Previously: flagged in PLAN.md §12 Phase-11 plan "Phase-10 CU sweep candidates".
-
-**File**: `dev_tools/geometry_gui/app/view_model.py` (`_READOUT_FORMATTERS` `ro-solar-zenith` row); `dev_tools/geometry_gui/app/scene_builder/{sun_zenith_arc,solar_zenith_arc}.py`
-**Symptom**: Both arc helpers (`sun_zenith_at_target_rad(s_unit)` and `solar_zenith_at_b_rad(n_B, s_unit)`) reduce to `arccos(s_z)` whenever the surface normal at B equals `+ẑ` — which is *every* state the GUI currently renders, since the display assumes flat ground. The two on-figure labels (`θₛ` at target and `θ_sun,B` at the background point) sit at different anchors but encode the same numeric angle, and the readout panel shows only one row labeled "Solar zenith" without disambiguating which of the two physically-distinct angles is being read out.
-**Why it still matters**: this is a *display* limitation, not a physics bug — the helpers are correct. The audit hit is that the GUI presents two visually-distinct decorations as if they were independent measurements, which would mislead a user driving a non-flat-ground scenario. The moment Phase 12+ adds ground-tilt or oblique-surface support (i.e., `n_B ≠ +ẑ`), `θ_sun,B` will diverge from `θ_s` and the readout panel needs to label them separately.
-**Suggested fix**: stand-alone Category B task — (a) add a `target_surface_normal` field to `SceneState` (default `+ẑ`); (b) split the readout row into `Solar zenith at target (θ_s)` and `Solar zenith at B (θ_sun,B)`; (c) on-figure label for `θ_sun,B` becomes redundant when `n_B = +ẑ` exactly — suppress the second arc in that case to avoid visual duplication. Tests: when normal is non-axial, both rows surface, both arcs render, and the values differ. Block on Phase 12+ scope (no current consumer). Re-audit date: 2026-08-15 (calendar backstop; earlier if Phase 12+ ground-tilt/oblique-surface scope lands).
-
-### CU-025 — Camera auto-frame is anchored to default-state geometry constants
-
-**Discovered**: Geometry GUI Phase 11 (2026-04-26)
-**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Previously: design choice — the coupling needs capturing before the display constants change in isolation.
-
-**File**: `dev_tools/geometry_gui/app/scene_builder/_camera_frame.py` (`REFERENCE_HALF_EXTENT = 6.0`)
-**Symptom**: Phase-11 (d) introduces auto-framing via a bounding-box scan over all base-scene traces; the eye distance scales as `max(1.0, half_extent / REFERENCE_HALF_EXTENT)`. The constant `6.0` was hand-calibrated against the default state's bbox (driven by `OBSERVER_DISPLAY_DISTANCE = 4.0` and `SUN_DISPLAY_DISTANCE = 6.0` in `_display_constants.py`). Any future change to either display distance silently breaks the "default state framing matches Phase-10" invariant guarded by `tests/test_phase11_polish.py::test_camera_default_state_eye_unchanged`.
-**Why it still matters**: a developer who bumps `OBSERVER_DISPLAY_DISTANCE` to make the observer chip more readable will trip the camera-frame test, but the failure message will point at `_camera_frame.py` rather than at the display constant they actually edited. The cross-module coupling is correct (the camera *must* track the bbox) but undocumented at the code-comment level.
-**Suggested fix**: inline-fix-now — add a one-line comment on `REFERENCE_HALF_EXTENT` linking it to `OBSERVER_DISPLAY_DISTANCE` / `SUN_DISPLAY_DISTANCE` and noting that any change to those constants requires re-calibration. Optional follow-up: derive `REFERENCE_HALF_EXTENT` programmatically from the default-state bbox at import time, eliminating the manual constant. Effort: < 30 LOC; Category A. Re-audit date: 2026-08-15 (calendar backstop; earlier if the next PR touching `dev_tools/geometry_gui/app/scene_builder/` picks up the inline fix).
-
-### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043")
-
-**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry).
-**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first.
-**File**: `dev_tools/geometry_gui_v2/app/panels/parameters.py`
-**Symptom**: the parameters panel's slider interaction work ("headlining slider work" per `dev_tools/geometry_gui_v2/README.md` Phase-7 deferrals) is deferred; it gates the performance and memory test passes (CU-053, CU-054).
-**Why it still matters**: Phase 7 (hardening + handoff) cannot complete its acceptance bundle without it; two downstream CUs are blocked on it.
-**Suggested fix**: stand-alone task per `docs/archive/Geometry_GUI_v2_Plan.md` Phase 7. Effort M; category A (GUI tooling).
-
 ### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
-**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Blocked on CU-052.
+**Status**: DEFERRED (refreshed 2026-07-12, GUI-kickoff re-audit) — unblocked: CU-052 closed 2026-07-12 (`270ee48`). Scope narrowed to the scene-rebuild path that GUI_Development_Plan Phase 7 lifts to production (`scene/` library; hardening the left-behind app shell has no production value). Gating condition: GUI_Development_Plan Phase 7. Re-audit: via the Phase 6 lift-assessment work list; 2026-08-09.
 **File**: `dev_tools/geometry_gui_v2/` (scene rebuild path)
 **Symptom**: no performance test pass exists for interactive scene rebuilds; deferred from Phase 7 pending the slider work that would exercise it.
 **Why it still matters**: the tool is the visual-design prototype for the production GUI's geometry tab; rebuild latency regressions land silently without a gate.
@@ -189,7 +160,7 @@
 ### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045")
 
 **Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06.
-**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first. Blocked on CU-052.
+**Status**: DEFERRED (refreshed 2026-07-12, GUI-kickoff re-audit) — unblocked: CU-052 closed 2026-07-12 (`270ee48`). Scope narrowed to the actor-lifecycle/memory pass on the scene library that GUI_Development_Plan Phase 7 lifts to production (hardening the left-behind app shell has no production value). Gating condition: GUI_Development_Plan Phase 7. Re-audit: via the Phase 6 lift-assessment work list; 2026-08-09.
 **File**: `dev_tools/geometry_gui_v2/` (actor lifecycle)
 **Symptom**: no memory-leak pass over repeated scene rebuilds (VTK actor churn); deferred from Phase 7 pending the slider work that would exercise it.
 **Why it still matters**: long-lived desktop sessions with continuous parameter dragging will surface any actor leak; no gate exists.
@@ -198,13 +169,25 @@
 ### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
 
 **Discovered**: Geometry GUI v2 round-2 remediation (sun glyph rework); re-filed 2026-07-06 during loose-end cleanup (the docstring's CU number was never allocated in this registry and collided with the README's CI-deferral phantom).
-**Status**: DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner: GUI work imminent but not now. Gating condition: Geometry-GUI-v2 track restart. Re-audit: at GUI kickoff or 2026-09-01, whichever comes first.
+**Status**: DEFERRED (refreshed 2026-07-12, GUI-kickoff re-audit) — symptom re-verified 2026-07-12 (glyph still world-space sized). Gating condition: GUI_Development_Plan Phase 7 — fix sizing screen-space (`vtkActor2D` or camera-change callback) at the production lift of the glyph library. Re-audit: via the Phase 6 lift-assessment work list; 2026-08-09.
 **File**: `dev_tools/geometry_gui_v2/scene/glyphs/sun.py`
 **Symptom**: the sun disc + rays are sized in world space (tuned to ~24 px / 8 px at the round-2 default camera distance); zooming scales the glyph with the scene instead of holding fixed pixel size.
 **Why it still matters**: icon-style glyphs are meant to read at constant screen size; at extreme zoom the sun either dominates the viewport or vanishes.
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-024 — Sun-zenith readout: `θ_s` (target) and `θ_sun,B` (background) collapse to identical values in flat-ground display — RESOLVED 2026-07-12 (commit `3acac3a`)
+
+**Discovered**: Geometry GUI Phase 10 (2026-04-26). **Resolution**: closed as moot at the GUI-kickoff re-audit (2026-07-12) — the v1 tool (`dev_tools/geometry_gui/`) carrying the symptom was deleted in ORG-C (`3acac3a`); geometry_gui_v2 renders a single `solar_zenith` readout (`app/view_model.py`), so the two-decoration collapse does not reproduce. The forward need — splitting θ_s (target) from θ_sun,B (background) once ground can tilt — is covered by GUI_Development_Plan Phase 7's target-frame/ground-frame angle-split spec.
+
+### CU-025 — Camera auto-frame is anchored to default-state geometry constants — RESOLVED 2026-07-12 (commit `3acac3a`)
+
+**Discovered**: Geometry GUI Phase 11 (2026-04-26). **Resolution**: closed as moot at the GUI-kickoff re-audit (2026-07-12) — the v1 file (`dev_tools/geometry_gui/app/scene_builder/_camera_frame.py`) was deleted in ORG-C (`3acac3a`); geometry_gui_v2 derives framing from scene state (`scene/framing.py::_target_half_extent`), which is this CU's own recommended fix (programmatic derivation, no hand-calibrated constant).
+
+### CU-052 — GUI v2 headlining slider work (Phase-7 deferral; formerly README "CU-043") — RESOLVED 2026-07-12 (commit `270ee48`)
+
+**Discovered**: Geometry GUI v2 Phase 7 deferral list (2026-05-02); re-filed 2026-07-06 during loose-end cleanup (the README's CU number was never allocated in this registry). **Resolution**: closed as implemented at the GUI-kickoff re-audit (2026-07-12) — the full slider stack (integer slider mapping, slider↔spinbox bidirectional sync, drag debounce, display↔canonical units) shipped in `dev_tools/geometry_gui_v2/app/panels/parameters.py` (landed `270ee48`, R8 left-dock parameter panel; tested by `tests/test_parameters_panel.py`); the tool's own README/ARCHITECTURE "sliders deferred" claims were stale (the double-count CU-082 warned of) and are corrected alongside this closure. The prototype app shell is not lifted to production (GUI_Development_Plan D5/Phase 7), so no production follow-on from this CU. Downstream CU-053/054 are unblocked.
 
 ### CU-097 — Two Earth radii in core: `constants.R_EARTH_M` (6378.137 km, WGS-84 equatorial) vs `geometry.EARTH_RADIUS_M` (6371 km, mean) — RESOLVED 2026-07-12 (commit `7043288`)
 

@@ -78,9 +78,10 @@ the only mutable state.
 
 Phase-7 deferrals are tracked in
 [../../docs/tracking/Cleanup_Backlog.md](../../docs/tracking/Cleanup_Backlog.md):
-performance pass (CU-053), memory pass (CU-054), CI integration
-(CU-055), and the headlining slider work (CU-052) that unblocks the
-performance / memory tests.
+performance pass (CU-053) and memory pass (CU-054), both gated on
+GUI_Development_Plan Phase 7. CI integration (CU-055) was resolved
+2026-07-06; the slider work (CU-052) shipped in
+`app/panels/parameters.py` and was closed 2026-07-12.
 
 ## Contributing
 

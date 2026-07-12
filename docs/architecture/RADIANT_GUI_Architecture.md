@@ -1,508 +1,713 @@
 # RADIANT GUI Architecture
 
-**Date:** 2026-04-07
-**Status:** DESIGN TARGET — implementation not started; several contracts revised (see banner). Amended 2026-07-12: the workflow opens with the **Geometry** screen and the stage strip is 9 stages, geometry-first (ADR-0006).
-**Depends on:** RADIANT_Scripting_API.md, RADIANT_Personas.md, RADIANT_Signal_Chain_Architecture.md
-**Scope:** Defines the technology choice, layout, GUI-backend interface, and interoperability contract for the RADIANT desktop GUI. Implementation is deferred. This document ensures the scripting API and future GUI share the same backend.
-
-> **Reconciliation (2026-07-12, CU-079).** This document predates the
-> capability audit and several of its contracts have since been revised:
-> - **The `<100 ms` incremental-re-resolution / stale-DAG re-evaluation
->   contract is DECLINED for GUI v1** (owner-ratified 2026-07-11). Measured
->   full-chain evaluation is ~0.22 s, fast enough that simple full re-runs
->   suffice; there is no incremental-DAG engine and none is planned for v1.
->   Treat every "< 100 ms / incremental re-resolution / stale subgraph"
->   claim below as design-target-only.
-> - **Parameter dot-paths quoted in examples are illustrative and may not
->   match the shipped `_schema.py`** — generate the parameter surface from
->   `Sensor.parameter_defs()` (Gap 70), never by transcribing this doc.
-> - The File-menu / persistence, schema-introspection, progress/cancel, and
->   metric-metadata surfaces the GUI binds to **are** now implemented
->   (Gaps 67/70/71/72). §4 already reflects those.
+**Date:** 2026-04-07 · **Ratified v1 spec:** 2026-07-12
+**Status:** Active — ratified v1 specification (2026-07-12). Supersedes the prior
+"DESIGN TARGET" draft. This document is the binding specification the GUI
+Development Plan (`docs/plans/GUI_Development_Plan.md`) implements phase by phase;
+it describes v1 scope, the GUI-backend contract, the layout, the geometry-viewer
+panel, the design system, and the scenario requirements matrix.
+**Depends on:** `RADIANT_Personas.md`, `RADIANT_Signal_Chain_Architecture.md`,
+`RADIANT_Geometry.md`, `api/sensor.py` (the scripting API this GUI is a view over).
+**Governed by:** `docs/plans/GUI_Development_Plan.md` §§2–4 (ratified decisions,
+scope, ground rules). Where this doc and the plan differ, the plan governs v1 scope
+and this doc is updated in lock-step (Rule 20).
 
 ---
 
-## 1. Technology Choice: PySide6 (Qt6 Native)
+## 1. Ratified v1 Decisions (owner, 2026-07-12)
 
-### Decision
+Four decisions were put to the owner explicitly (GUI plan §2) and are binding for v1;
+D5 (the 3D engine) was ratified the same day.
 
-**Native desktop application using PySide6 (Qt 6).**
+| # | Decision | Ruling |
+|---|----------|--------|
+| **D1** | Technology | **PySide6 / Qt6 native** (confirming the 2026-04-07 architecture decision, §2). The HTML/React mockups in `dev_tools/gui_mockups/` are the *visual spec*, ported to Qt — not the implementation medium. |
+| **D2** | First runnable milestone | **Evaluate loop first**: open YAML → parameter tree → Evaluate → metric badges + plot, end-to-end, before any other panel is built out (GUI plan Phase 3, Milestone A). |
+| **D3** | Geometry stage-0 dependency | **Wait for stage 0.** No GUI *implementation* starts until the Geometry stage is complete and merged (done 2026-07-12). Phase 0 doc-only spec work (this document) ran before that. |
+| **D4** | v1 must-haves beyond the core | **3D geometry viewer** and **scripting console** are in v1. **Sweep tab** and **Batch / Monte Carlo dialogs** are deferred to **v1.1** — they remain in this doc's layout as absent/disabled tabs; the backend already supports them via script (`sensor.sweep()`, `sensor.monte_carlo()`). |
+| **D5** | 3D viewer engine | **PyVista embedded via `pyvistaqt.QtInteractor`**, lifting the `dev_tools/geometry_gui_v2` scene library (the proven PySide6 + PyVista combination). Matplotlib remains the engine for all 2D plots. |
 
-Not: React + FastAPI backend. Not: Jupyter widgets.
+### 1.1 v1 Scope Split
 
-### Evaluation
+**In scope (v1)** — delivered across GUI plan Phases 1–9:
 
-#### Option A: Web (React + FastAPI)
+1. Application shell: main window, menus, **9-stage** geometry-first stage strip,
+   dockable parameter panel, central plot canvas, tabbed detail panel, status bar.
+2. Schema-driven parameter panel generated from `Sensor.parameter_defs()` — never a
+   transcribed parameter list (Gap 70).
+3. Evaluate loop: background-thread `sensor.evaluate()`, metric badges, actionable
+   error dialogs (`RadiantError` what/why/action), debounced full-chain re-evaluation.
+4. Detail tabs: Spectral, MTF, Noise Budget, Variable Explorer, YAML.
+5. Geometry screen: stage-0 input-mode forms bound to the `geometry.*` schema, with
+   live derived-angle readout from `stage_outputs["geometry"]`.
+6. 3D geometry viewer: the not-to-scale schematic (sun/sensor/target glyphs, vectors,
+   click-to-reveal angle annotations, target shape library, RPY triad).
+7. Scripting console: embedded IPython with live `sensor` / `result` objects.
+8. File round-trip: Open/Save/Recent YAML via `Sensor.load()` / `sensor.save()`;
+   undo/redo of parameter edits.
 
-**Pros:** Modern, browser-accessible, good visualization libraries (plotly, d3), cloud-deployable.
+**Out of scope (v1)** — do not implement, even partially:
 
-**Cons:**
-- Two separate runtime processes (FastAPI server + browser); adds deployment complexity.
-- State synchronization between browser and Python server introduces latency and race conditions.
-- Requires npm/node toolchain for build. Aerospace users on restricted networks often cannot install npm packages.
-- Cannot embed in a classified environment without an internal server.
-- The target users (Sarah, Mike, Tom) already work in Python environments. Browser-based tools add a layer of context-switching.
-- JSON serialization of spectral arrays (500+ points) across process boundary on every parameter change is expensive.
+- Sweep tab UI, Batch / Monte Carlo dialogs — **v1.1** (D4).
+- Everything in §9 "Deferred to Phase 2" (image simulator, library browser, report
+  generator, comparison mode, plugin UI, remote compute).
+- PyInstaller / standalone-binary packaging (v1.x; v1 runs from the repo venv).
+- Incremental / stale-DAG re-evaluation — **DECLINED for v1** (CU-079, owner-ratified
+  2026-07-11): full re-runs only. Measured full-chain evaluation is ~0.22 s, fast
+  enough that simple full re-runs suffice; there is no incremental-DAG engine and none
+  is planned for v1.
+- Any change to physics, schemas, or golden results. The GUI is results-neutral by
+  construction; a golden-test diff in any GUI PR is a defect.
 
-#### Option B: Jupyter Widgets (ipywidgets / panel)
+### 1.2 Binding Cross-Cutting Requirements
 
-**Pros:** Users who already use Jupyter get GUI-like interaction. No separate application to install. Notebook workflow preservation.
+These two ground rules (GUI plan §4.1, §4.6) are acceptance criteria for **every**
+phase and are restated here as the contract this architecture enforces:
 
-**Cons:**
-- Jupyter widgets are designed for notebook cells, not multi-panel professional applications. Building the signal chain strip, parameter panel, and detail tabs in ipywidgets produces brittle, hard-to-maintain code.
-- No standalone binary distribution. Requires a Jupyter server.
-- Poor experience outside Jupyter (VS Code Jupyter extension is good, but lab-style multi-panel layout is not suited to notebook cells).
-- Lisa (P4) wants a standalone app she can hand to an analyst who doesn't run Jupyter.
+- **R-API — The backend is the scripting API. One GUI action ↔ exactly one API call.**
+  The GUI has no data model of its own; it is a view over `Sensor` / `ChainResult`
+  (§3). No GUI component contains physics. If a GUI action needs a hook the API lacks,
+  the phase *stops* and files the gap in `docs/tracking/gaps.md` — GUI code never
+  reaches into stage internals or re-implements a computation.
+- **R-UNITS — Units on every displayed value, no exceptions.** Every numeric shown
+  anywhere in the GUI (badge, table cell, tooltip, axis, readout) carries its unit,
+  sourced from the `ParameterDef` / result metadata, never hardcoded. This is an owner
+  hard rule.
 
-#### Option C: PySide6 / Qt6 Native (Selected)
+---
 
-**Pros:**
-- Single-process: GUI and RADIANT backend run in the same Python process. No serialization, no IPC, no state sync. A `sensor.set()` call from the GUI is the same call the user makes in a script.
-- Cross-platform standalone binary via `PyInstaller`/`cx_Freeze`. Distributable without Python.
-- Mature ecosystem: Qt has been the standard for scientific instrumentation GUIs (FLIR tools, Zemax OpticStudio, etc.) for 30 years. The persona users are familiar with this style.
-- PySide6 is the official Qt Python binding (LGPL), no licensing cost.
-- Matplotlib integrates via `matplotlib.backends.backend_qtagg`. All `result.plot.*` methods work inside the GUI without modification.
-- Thread model: background computation in `QThread` or `concurrent.futures`, GUI remains responsive. Qt's signal/slot mechanism handles thread-safe result delivery.
-- `<100 ms` responsiveness requirement for parameter changes is achievable with incremental re-resolution (only stale subgraph is re-evaluated).
+## 2. Technology Choice: PySide6 (Qt6 Native)
 
-**Cons:**
-- Requires Qt installation. Mitigated by bundled binary distribution.
-- Qt styling (dark mode, custom themes) requires CSS-like QSS. More effort than browser CSS.
-- Not browser-accessible. If remote access is needed, a future web front-end can be layered on top of the same scripting API.
+**Native desktop application using PySide6 (Qt 6).** Not: React + FastAPI backend.
+Not: Jupyter widgets. (Ratified D1.)
 
-### Justification from Personas
+### 2.1 Evaluation
+
+**Option A — Web (React + FastAPI).** *Pros:* modern, browser-accessible, strong viz
+libraries, cloud-deployable. *Cons:* two runtime processes; browser↔server state sync
+adds latency and race conditions; needs npm/node (aerospace users on restricted
+networks often cannot install npm packages); cannot embed in a classified environment
+without an internal server; JSON serialization of 500-point spectral arrays across the
+process boundary on every parameter change is expensive.
+
+**Option B — Jupyter widgets (ipywidgets / panel).** *Pros:* GUI-like interaction for
+existing Jupyter users; no separate app. *Cons:* widgets target notebook cells, not
+multi-panel professional applications — the stage strip, parameter panel, and detail
+tabs become brittle; no standalone distribution; poor experience outside Jupyter.
+
+**Option C — PySide6 / Qt6 native (selected).** *Pros:*
+
+- **Single-process:** GUI and RADIANT backend run in the same Python process. A
+  `sensor.set()` call from the GUI is the same call the user makes in a script — no
+  serialization, no IPC, no state sync. This is what makes R-API cheap to honor.
+- Cross-platform; a future standalone binary via PyInstaller/cx_Freeze (v1.x).
+- Mature ecosystem: Qt is the 30-year standard for scientific-instrument GUIs (FLIR
+  tools, Zemax OpticStudio); persona users recognize this style. PySide6 is the
+  official LGPL Qt binding (no licensing cost).
+- Matplotlib integrates via `matplotlib.backends.backend_qtagg`; all `result.plot.*`
+  methods render inside the GUI unchanged.
+- Background computation in a `QThread`; Qt signal/slot delivers thread-safe results.
+
+*Cons:* requires Qt (mitigated by a bundled binary later); dark/custom theming needs
+QSS (§8 Design System addresses this once, centrally); not browser-accessible (a future
+web front-end can layer on the same scripting API if remote access is ever needed).
+
+### 2.2 Justification from Personas
 
 | Persona | GUI requirement | How PySide6 satisfies |
 |---------|----------------|----------------------|
-| Sarah (P1) | Parametric sweep plots, one-page summary export | Sweep UI triggers `sensor.sweep()`, renders into embedded matplotlib canvas |
-| Mike (P2) | Noise budget breakdown, drill-down into individual terms | Tabbed detail panel with noise budget tree; same data as `result.noise_budget()` |
-| Lisa (P4) | Standalone app, no coding required, batch execution | PySide6 bundles as standalone EXE/APP; batch dialog calls `BatchRunner` |
-| Tom (P5) | MTF plot with all components, RER, PSF viewer | MTF tab with individual MTF term overlays; PSF 2D image view |
-| Raj (P3) | Load sensor file, specify scenario, get answer | File open dialog → scenario panel → evaluate button → results panel |
-
----
-
-## 2. Layout
-
-### 2.1 Top-Level Window Structure
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  RADIANT v1.0.0 — leo_mwir_clear.yaml                                  [≡][□][X]│
-├──────────────────────────────────────────────────────────────────────────────┤
-│  File  Edit  View  Run  Tools  Help                                           │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ ← Geometry │ Source │ Atmosphere │ Optics │ Platform │ Detector │ Readout │ Performance →│
-│  [Signal chain strip — clickable stage tabs with health indicators]           │
-├────────────────┬─────────────────────────────────────────────────────────────┤
-│  PARAMETERS    │  VISUALIZATION AREA                                          │
-│  ─────────     │  ─────────────────                                          │
-│  [Search box]  │                                                              │
-│                │  [Main plot canvas — matplotlib figure]                      │
-│  ▶ Optics      │                                                              │
-│    D = 0.30 m  │  SNR = 47.3  NEDT = 23 mK  NIIRS = 5.4  GSD = 3.6 m       │
-│    f = 1.20 m  │                                                              │
-│    f/# = 4.0   │                                                              │
-│    WFE = 0.07λ │                                                              │
-│  ▶ Detector    │                                                              │
-│    HgCdTe      │                                                              │
-│    18 µm pitch │                                                              │
-│    80 K        │                                                              │
-│  ▶ Readout     │                                                              │
-│    5 ms        │                                                              │
-│    CDS on      │                                                              │
-│  ▶ Filter      │                                                              │
-│  ▶ Geometry    │                                                              │
-│  ▶ Atmosphere  │                                                              │
-│  ▶ Target      │                                                              │
-│  ▶ Background  │                                                              │
-│  ▶ Platform    │                                                              │
-├────────────────┴─────────────────────────────────────────────────────────────┤
-│  Spectral │ MTF │ Noise Budget │ Sweep │ Variable Explorer │ YAML │ Console   │
-│  ─────────────────────────────────────────────────────────────────────────── │
-│  [Detail tabs — current tab content fills this panel]                         │
-│                                                                               │
-│  [Status bar: "Evaluated in 0.23 s — 500 wavelength points" ]                │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 Signal Chain Strip
-
-A horizontal strip of clickable stage buttons at the top of the main area. Each button:
-- Shows the stage name
-- Shows a health indicator: green (evaluated, no issues), yellow (warning), red (error), gray (not yet evaluated)
-- Clicking a stage jumps the parameter panel to that stage's parameters and the visualization to the stage's primary output
-
-```
-┌─────────┐  ┌────────────┐  ┌────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌─────────────┐
-│ Geometry │→ │ Source  │→ │ Atmosphere │→ │ Optics │→ │ Platform │→ │ Detector │→ │ Readout │→ │ Performance │
-│   ●     │  │     ●      │  │   ●    │  │    ●     │  │    ●     │  │    ●    │  │     ●       │
-└─────────┘  └────────────┘  └────────┘  └──────────┘  └──────────┘  └─────────┘  └─────────────┘
-   ● green = OK    ◑ yellow = warning    ○ red = error    ◌ gray = stale
-```
-
-### 2.3 Parameter Panel (Left)
-
-A tree-structured parameter panel that mirrors the YAML hierarchy. Groups are collapsible. Each parameter is an editable row:
-
-```
-▼ sensor
-  ▼ optics
-      aperture_diameter    [0.30  ] m        ● derived: f_number = 4.0
-      focal_length         [1.20  ] m
-      f_number             [ 4.0  ]          ⚡ derived
-      obscuration_ratio    [0.33  ]
-      wfe_rms              [0.07  ] waves
-      temperature          [280   ] K
-  ▼ detector
-      material             [HgCdTe ▾]
-      pixel_pitch          [18.0  ] µm
-      cutoff_wavelength    [ 5.0  ] µm
-      ...
-```
-
-**Interaction design:**
-- Editable fields are text inputs with units displayed as suffix labels.
-- Changing a value immediately calls `sensor.set(param, value)` and triggers incremental re-evaluation in a background thread.
-- Derived parameters are shown with a ⚡ icon and are non-editable (grayed out).
-- Parameters with active tolerances show a ±σ badge.
-- Right-clicking any parameter shows: Copy dot-path, Set Tolerance, Explain, Reset to Default.
-
-**Search box:** Type any substring to filter the parameter tree. "aperture" matches `sensor.optics.aperture_diameter`. "temp" matches all temperature parameters across all sections.
-
-### 2.4 Visualization Area (Center)
-
-A large matplotlib canvas embedded via `FigureCanvasQTAgg`. The displayed figure depends on the active stage:
-
-| Active stage | Default visualization |
-|-------------|----------------------|
-| Geometry | Scene diagram (sensor/target/sun), resolved input mode, derived slant/ground range, θ_o/η, solar angles — the ADR-0006 stage-0 screen; input-mode picker maps 1:1 to RADIANT_Geometry.md §2 |
-| Source | Spectral radiance at target: L_source(λ) [W/m²/sr/µm] |
-| Atmosphere | τ_atm(λ), L_path(λ), L_atm(λ) all overlaid |
-| Optics | Spectral radiance at aperture and post-optics; MTF curve |
-| Detector | Spectral QE(λ); noise budget bar chart |
-| Readout | Noise budget table + bar chart |
-| Performance | System MTF; SNR vs. parameter (last sweep if any) |
-
-A row of metric badges above the canvas always shows the current performance summary:
-
-```
-SNR = 47.3    NEDT = 23 mK    NIIRS = 5.4    GSD = 3.6 m    MTF_nyq = 0.42
-```
-
-These update live (< 100 ms) for fast parameter changes.
-
-### 2.5 Tabbed Detail Panel (Bottom)
-
-Fixed-height panel with 7 tabs. All tabs show data from the last evaluated result.
-
-| Tab | Content |
-|-----|---------|
-| **Spectral** | Spectral radiance at all frames; wavelength grid info; filter bandpass overlay |
-| **MTF** | System MTF + all individual terms; MTF at Nyquist; RER; PSF plot; EE curve |
-| **Noise Budget** | Full noise budget table; bar chart; per-term explanation |
-| **Sweep** | Run a parameter sweep inline: parameter picker, value range, metric picker, plot |
-| **Variable Explorer** | `result.inspect()` tree rendered as collapsible tree widget |
-| **YAML** | Read-only view of current config in YAML format; Export button |
-| **Console** | Embedded IPython console with `sensor` and `result` pre-loaded |
+| Sarah (P1) | Parametric sweep plots, one-page summary export | Sweep UI (**v1.1**) triggers `sensor.sweep()`, renders into the embedded matplotlib canvas |
+| Mike (P2) | Noise budget breakdown, drill-down into terms | Noise Budget tab; same data as `result.noise_budget()` |
+| Lisa (P4) | Standalone app, batch execution | Bundled app (v1.x); batch/MC dialog (**v1.1**) calls `sensor.monte_carlo()` / `BatchRunner` |
+| Tom (P5) | MTF plot with all components, RER, PSF viewer | MTF tab with individual term overlays; PSF 2D view |
+| Raj (P3) | Load sensor file, specify scenario, get answer | File open → geometry/parameter panel → Evaluate → results |
 
 ---
 
 ## 3. GUI-Backend Interface
 
-### 3.1 The Backend is the Scripting API
+### 3.1 The Backend Is the Scripting API (R-API)
 
-The GUI does not have its own data model. It is a view over the scripting API's `Sensor` and `ChainResult` objects. Every action in the GUI maps to exactly one scripting API call.
+The GUI is a view over the scripting API's `Sensor` and `ChainResult` objects. Every
+action maps to exactly one scripting-API call:
 
 ```
 GUI Action                         Scripting API Call
 ──────────────────────────────────────────────────────
 Open YAML file                     sensor = Sensor.load(path)
-Edit parameter value               sensor.set(param_name, value)
+Edit parameter value               sensor.set(dotpath, value, unit=…)
 Click "Evaluate"                   result = sensor.evaluate()
 Stage strip button click           (navigation only — no API call)
-Sweep tab: Run Sweep               sweep = sensor.sweep(param, values, metric)
-Monte Carlo tab: Run MC            mc = sensor.monte_carlo(n_trials)
+Explain a parameter                sensor.explain(dotpath)
 Export YAML                        sensor.save(path)
 Export result archive              result.save(path)   # reload: ChainResult.load
-Console: type Python               direct IPython evaluation in sensor namespace
+Console: type Python               direct IPython evaluation in the sensor namespace
+Run Sweep       (v1.1)             sweep = sensor.sweep(param, values, metric=…)
+Monte Carlo     (v1.1)             mc = sensor.monte_carlo(n_trials)
 ```
 
 This mapping is one-to-one and explicit. No GUI component contains physics logic.
 
 ### 3.2 Threading Model
 
-The GUI runs on the Qt main thread. Signal chain evaluations run in a `QThread` worker. The worker emits signals when evaluation completes or when intermediate progress is available.
+The GUI runs on the Qt main thread. A full-chain evaluation runs in a `QThread`
+worker; the worker emits a signal when evaluation completes or fails.
+
+`Sensor.evaluate()` takes **no** progress or per-stage callback — its real signature is:
+
+```python
+def evaluate(self, *, extra_stage_outputs: dict[str, dict] | None = None) -> ChainResult
+```
+
+A full chain evaluates in ~0.22 s, so the worker emits only started / finished / failed
+and the status bar shows a busy indicator — there is **no** per-stage progress stream
+(the old `on_stage_complete` sketch described a callback the API does not have):
 
 ```python
 class EvaluationWorker(QThread):
-    result_ready = Signal(ChainResult)
-    progress = Signal(str, float)     # (stage_name, fraction_complete)
-    error_occurred = Signal(str)
+    finished_ok = Signal(object)      # ChainResult
+    failed = Signal(object)           # the exception (RadiantError or otherwise)
 
-    def __init__(self, sensor: Sensor):
+    def __init__(self, sensor: Sensor) -> None:
+        super().__init__()
         self._sensor = sensor
 
-    def run(self):
+    def run(self) -> None:
         try:
-            # emit progress per stage
-            result = self._sensor.evaluate(
-                on_stage_complete=lambda name, frac: self.progress.emit(name, frac)
-            )
-            self.result_ready.emit(result)
-        except Exception as e:
-            self.error_occurred.emit(str(e))
+            result = self._sensor.evaluate()
+        except Exception as exc:      # re-raised into the GUI thread via signal — never swallowed (Rules 15/17)
+            self.failed.emit(exc)
+        else:
+            self.finished_ok.emit(result)
 ```
 
-**Latency targets:**
+The `except Exception` here is a thread-boundary hand-off, not a swallow: the exception
+is re-emitted to the GUI thread, which renders it (RadiantError → what/why/action modal;
+anything else → error dialog with a traceback fold). Nothing is silently dropped.
 
-| Operation | Target latency | How achieved |
-|-----------|---------------|--------------|
-| Parameter edit → metric badge update | < 100 ms | Incremental re-resolution: only stale DAG subgraph re-evaluated |
-| Full chain evaluation (single band) | < 500 ms | All-numpy signal chain; no I/O except spectral data load |
-| Full chain with MODTRAN file load | < 2 s | MODTRAN file is cached after first load; subsequent evaluations reuse cached spectral data |
-| Parametric sweep (20 points) | < 5 s | Parallel execution via `BatchRunner(n_jobs=-1)` |
-| Monte Carlo (1000 trials) | < 30 s | BatchRunner with all cores; progress reported via worker signal |
+Per-point `progress(done, total)` / `cancel()` callbacks **do** exist on
+`sensor.sweep()` / `sweep_2d()` / `monte_carlo()` (Gap 72, `api/_progress.py`) and back
+the **v1.1** sweep/MC progress bars — not the v1 single-shot evaluate loop.
 
-Operations longer than 500 ms show a progress indicator in the status bar. Operations longer than 2 s show a modal progress dialog with cancel button.
+### 3.3 Re-Evaluation Policy
 
-### 3.3 Incremental Evaluation
-
-When a parameter changes, the GUI does not re-evaluate the full chain. It calls `sensor.set()`, which triggers the parameter resolver's invalidation logic (mark stale subgraph). The GUI then calls a fast re-evaluation that only runs stages downstream of the changed parameter.
-
-```
-Change: sensor.optics.aperture_diameter = 0.45 m
-
-Stale stages: OpticsStage, PlatformStage, SpectralIntegrationStage,
-              DetectorStage, ReadoutStage, PerformanceStage
-Clean stages: SourceStage, AtmosphereStage (atmosphere doesn't depend on aperture)
-
-→ Re-run from OpticsStage forward only.
-→ Elapsed: ~40 ms (vs. ~200 ms for full chain).
-```
-
-The parameter resolver's DAG makes stale-stage computation automatic. The GUI does not need to know which parameters affect which stages.
-
-### 3.4 Live Feedback Loops
-
-Certain parameters are "fast" (< 10 ms re-evaluation): those that only affect scalar post-processing (integration time, gain, ADC bits). For these, the GUI can update metric badges on every keystroke as the user types.
-
-Other parameters are "slow" (> 50 ms): those that require spectral reintegration or atmosphere re-evaluation. For these, the GUI debounces with a 200 ms timer — it waits until the user stops typing before triggering re-evaluation.
-
-Fast parameters (metric update on every keystroke): `integration_time`, `gain`, `n_tdi`, `n_coadds`, `adc_bits`, `target.temperature`
-
-Slow parameters (debounced 200 ms): `aperture_diameter`, `focal_length`, `pixel_pitch`, `filter.*`, `atmosphere.*`, `wfe_rms`
-
-Very slow (full re-evaluation with progress bar): `atmosphere.modtran_file` (triggers file I/O)
+On a parameter edit the GUI calls `sensor.set()` and then re-runs the **whole chain**
+in the worker, debounced by a 200 ms timer (edits within the window coalesce into one
+run). There is no incremental / stale-subgraph engine and none is planned for v1
+(CU-079, declined). A failed evaluation leaves the previous result displayed with a
+visible "stale — last evaluation failed" state; it never shows a blank or a partial mix.
 
 ---
 
-## 4. Interoperability: GUI ↔ Scripting API ↔ YAML
+## 4. Layout
 
-All three representations (GUI, Python script, YAML file) are views of the same `Sensor` object. They are interchangeable at any point.
+### 4.1 Top-Level Window Structure
 
-### 4.1 GUI → YAML
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  RADIANT — leo_mwir_clear.yaml                                        [≡][□][X]│
+├──────────────────────────────────────────────────────────────────────────────┤
+│  File  Edit  View  Run  Tools  Help                                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Geometry │ Source │ Atmosphere │ Optics │ Platform │ Spectral │ Detector │ Readout │ Performance │
+│  [9-stage geometry-first signal-chain strip — clickable, health dots]          │
+├────────────────┬─────────────────────────────────────────────────────────────┤
+│  PARAMETERS    │  VISUALIZATION AREA                                          │
+│  [Search box]  │  SNR 47.3  NEDT 23 mK  NIIRS 5.4  GSD 3.6 m  MTF_nyq 0.42   │
+│  ▶ Geometry    │                                                              │
+│  ▶ Source      │  [Main plot canvas — matplotlib figure]                      │
+│  ▶ Atmosphere  │                                                              │
+│  ▶ Optics      │                                                              │
+│  ▶ Detector    │                                                              │
+│  ▶ Readout     │                                                              │
+├────────────────┴─────────────────────────────────────────────────────────────┤
+│  Spectral │ MTF │ Noise Budget │ Variable Explorer │ YAML │ Console            │
+│  [Detail tabs — current tab content fills this panel]                         │
+│  [Status bar: "Evaluated in 0.22 s — 500 wavelength points" ]                │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
-Clicking File → Export YAML calls `sensor.save(path)` (implemented, Gap 67 2026-07-11). The saved YAML holds the explicitly-set inputs plus a `_radiant` metadata block (wavelength_points, tolerances) — defaults and derived values are *not* written, so a reload reproduces the original resolution and provenance splits exactly (`RADIANT_Config_Format.md` §1.7). For a fully-specified documentation export with every resolved value, use `radiant.io.config.save_config(params, path, scope="resolved")`. The user can load the saved YAML in a script.
+### 4.2 Signal-Chain Strip (9 stages, geometry-first)
 
-### 4.2 YAML → GUI
+A horizontal strip of clickable stage buttons, in chain order per ADR-0006
+(geometry-first): **Geometry → Source → Atmosphere → Optics → Platform → Spectral
+Integration → Detector → Readout → Performance.** Each button shows the stage name and
+a health dot:
 
-File → Open YAML calls `Sensor.load(path)` (implemented, Gap 67 2026-07-11). The GUI displays all parameters from the YAML, with provenance badges distinguishing explicit values from defaults and derived values. GUI edits override in the highest-priority layer (equivalent to CLI `--set`).
+```
+ ● green  = evaluated, no issues
+ ◑ yellow = warnings present
+ ○ red    = stage raised an error
+ ◌ gray   = stale / not yet evaluated
+```
 
-### 4.3 Script → GUI (Hand-off)
+Clicking a stage is navigation only (no API call): it scrolls the parameter panel to
+that stage's namespace and swaps the canvas to the stage's default visualization.
 
-A user running a sweep in a Jupyter notebook can open the interesting operating point in the GUI:
+> The mockups in `dev_tools/gui_mockups/radiant_ui/` predate ADR-0006 — they open on the
+> **Source** screen with an 8-stage strip. v1 opens on **Geometry** with the 9-stage
+> strip above; the mockups remain the visual spec for chrome and styling only.
+
+### 4.3 Parameter Panel (Left)
+
+A tree, grouped by dot-path namespace in chain order (Geometry group first), built
+**entirely** from `Sensor.parameter_defs()` — never transcribed from this doc (the
+example dot-paths below are illustrative and may not match the shipped `_schema.py`).
+
+```
+▼ geometry
+      input_mode           [angles_direct ▾]
+      sensor_altitude_m    [500000 ] m
+      off_nadir_angle      [0.0    ] rad        ⚡ or user-set per mode
+▼ optics
+      aperture_diameter    [0.30   ] m
+      focal_length         [1.20   ] m
+      f_number             [ 4.0   ]            ⚡ derived
+```
+
+Each row shows the value plus a **unit suffix from the schema** (R-UNITS). Derived
+parameters are ⚡-badged and read-only; a provenance badge (user-set / default /
+derived) comes from the resolved set. Editing calls `sensor.set(dotpath, value)`;
+`ParameterBoundsError` / `UnknownParameterError` / consistency-group violations render
+their what/why/action inline on the row and in a dialog, and the rejected value never
+sticks. A search box filters by substring across dot-paths. Right-click: Copy dot-path,
+Explain (`sensor.explain(dotpath)`), Reset to Default.
+
+### 4.4 Visualization Area (Center)
+
+A large matplotlib canvas (`FigureCanvasQTAgg`) rendering the existing `result.plot.*`
+figures — no plotting logic is reimplemented in GUI code. The default figure depends on
+the active stage:
+
+| Active stage | Default visualization |
+|-------------|----------------------|
+| Geometry | Stage-0 scene: resolved input mode, derived slant/ground range, θ_o/η, solar angles (the 3D viewer panel, §6) |
+| Source | Spectral radiance at target: L_source(λ) [W/m²/sr/µm] |
+| Atmosphere | τ_atm(λ), L_path(λ), L_atm(λ) overlaid |
+| Optics | Spectral radiance at aperture and post-optics; MTF curve |
+| Platform | Smear/jitter MTF terms |
+| Spectral Integration | In-band integrated radiance per frame |
+| Detector | Spectral QE(λ); noise budget bar chart |
+| Readout | Noise budget table + bar chart |
+| Performance | System MTF; SNR summary |
+
+A metric-badge row above the canvas always shows the current performance summary, every
+value with its unit (R-UNITS): **SNR · NEDT [mK] · NIIRS · GSD [m] · MTF@Nyquist.** A
+metric that returns a result-typed failure (Rule 17 carve-out) shows its
+`failure_reason`, not a blank.
+
+### 4.5 Tabbed Detail Panel (Bottom)
+
+v1 ships **six** tabs (the Sweep tab is v1.1 and absent from v1):
+
+| Tab | Content |
+|-----|---------|
+| **Spectral** | Spectral radiance at all frames; wavelength-grid info; filter bandpass overlay |
+| **MTF** | System MTF + all individual terms (table + overlay plot); MTF at Nyquist; RER; PSF plot; EE curve |
+| **Noise Budget** | Full noise-budget table; bar chart; per-term explanation (`result.explain(term)`) |
+| **Variable Explorer** | `result.inspect()` rendered as a collapsible tree |
+| **YAML** | Read-only view of current config with provenance coloring; Export button |
+| **Console** | Embedded IPython console with live `sensor` and `result` (GUI plan Phase 8) |
+| ~~Sweep~~ | **v1.1** — inline parameter sweep (`sensor.sweep()`); absent in v1 |
+
+---
+
+## 5. Interoperability: GUI ↔ Scripting API ↔ YAML
+
+All three representations (GUI, Python script, YAML file) are views of the same `Sensor`
+object and are interchangeable at any point.
+
+**GUI → YAML.** File → Export YAML calls `sensor.save(path)` (Gap 67). The saved YAML
+holds the explicitly-set inputs plus a `_radiant` metadata block; defaults and derived
+values are not written, so a reload reproduces the original resolution and provenance
+splits exactly (`RADIANT_Config_Format.md` §1.7). For a fully-resolved documentation
+export, `radiant.io.config.save_config(params, path, scope="resolved")`.
+
+**YAML → GUI.** File → Open YAML calls `Sensor.load(path)` (Gap 67). Provenance badges
+distinguish explicit values from defaults and derived values. GUI edits override in the
+highest-priority layer (equivalent to CLI `--set`).
+
+**Script → GUI hand-off.** The v1 entry point is a module function, not a `Sensor`
+method:
 
 ```python
-# In Jupyter:
+from radiant.gui import launch_gui   # lands in GUI plan Phase 1
 s = Sensor.load("config.yaml")
 s.set("sensor.optics.aperture_diameter", 0.35)   # operating point of interest
-
-# Launch the GUI, pre-loaded with this sensor state:
-s.gui()   # opens RADIANT GUI window with current sensor state
+launch_gui(s)                                     # opens the GUI on the current state
 ```
 
-`sensor.gui()` serializes the current state to a temporary YAML and launches the GUI process, which loads that YAML. The GUI is a subprocess; the Jupyter kernel continues running.
+> The prior draft referenced a `sensor.gui()` convenience method; **no such method
+> exists on `Sensor`** and none is planned for v1. The ratified entry point is
+> `launch_gui(sensor: Sensor | None)` (GUI plan §4.2). A `Sensor.gui()` sugar wrapper,
+> if ever added, is out of v1 scope.
 
-### 4.4 GUI → Script (Hand-off)
-
-In the GUI Console tab, `sensor` is a live reference to the current GUI sensor object. The user can type:
-
-```python
-# In the GUI Console tab:
-sweep = sensor.sweep("sensor.optics.aperture_diameter", [0.20, 0.25, 0.30, 0.35, 0.40])
-sweep.to_csv("/tmp/sweep_result.csv")
-```
-
-The Console tab is a full IPython terminal. Any scripting API call works. The result is immediately reflected in the GUI visualization area.
+**GUI → script hand-off.** In the Console tab `sensor` and `result` are live references
+to the current GUI objects; any scripting-API call works. After a console mutation the
+GUI marks its panels stale and offers one-click Refresh (explicit-and-honest beats magic
+sync; GUI plan Phase 8).
 
 ---
 
-## 5. Mock-up: Key Panels
+## 6. Geometry Viewer Panel (v1, GUI plan Phases 6–7)
 
-### 5.1 Noise Budget Tab (Bottom Panel)
+The Geometry Viewer is the Geometry stage's central visualization: a spatial schematic
+of the sun/sensor/target relationship, optimized for understanding the angles that drive
+the downstream radiometry. It is **not** a flight visualizer or a Cesium-style globe —
+it is a CAD / engineering-drawing view: line-art forward, schematic, every element
+labeled, every angle clickable. Engine: PyVista via `pyvistaqt.QtInteractor` (D5),
+lifting the `dev_tools/geometry_gui_v2` scene library. Condensed from
+`dev_tools/gui_mockups/geometry_viewer/radiant_geometry_handoff.md`.
 
-```
-Noise Budget                          Signal: 12,450 e-    SNR: 47.3
-────────────────────────────────────────────────────────────────────────
-■ photon_shot       111.6 e-  ████████████████████████░░░░░░░  18.0%
-■ dark_current_shot  89.2 e-  ████████████████████░░░░░░░░░░░  11.5%
-■ read_noise         25.0 e-  ████░░░░░░░░░░░░░░░░░░░░░░░░░░░   0.9%
-■ 1_over_f           12.0 e-  ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0.2%
-■ ipc_crosstalk       8.1 e-  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0.09%
-■ prnu_residual       7.3 e-  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0.08%
-■ dsnu_residual       4.2 e-  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0.03%
-■ quantization        3.2 e-  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0.02%
-────────────────────────────────────────────────────────────────────────
-Total (RSS)         263.3 e-                                  100.0%
+### 6.1 Not-To-Scale Rule (owner-endorsed, binding)
 
-                  [Export CSV]  [Copy Table]  [Explain Selected Term]
-```
+**Altitudes and distances are annotated via leader labels; the geometry is never
+rescaled or translated to fake proportionality.** A 500 km slant range and a 2 m target
+are not drawn to relative scale — the true angles are preserved and the magnitudes are
+shown as leader-label text (owner-endorsed convention from `geometry_gui_v2`). Resist
+applying PBR materials or realistic shading; keep the schematic line-art aesthetic.
 
-Clicking a row explains that noise term (calls `result.explain(term)`, shows physics derivation in a tooltip/popup).
+### 6.2 Contents
 
-### 5.2 MTF Tab (Bottom Panel)
+- 3D schematic viewport with orbit / pan / zoom (standard mouse drag / shift-drag / wheel).
+- Sun, sensor, target glyphs on a faint two-tone reference ground grid (reference, not
+  measurement).
+- **Vectors:** sun→target (always on); sensor→target (always on); sun→ground
+  illumination point G_i and sensor-LOS extension target→G_i (only when target
+  altitude > 0).
+- **Click-to-reveal angle annotations**, split by frame:
+  - *Target-frame* (anchored at the target): θₛ, θᵥ, φₛ, φᵥ, Δφ, phase angle g.
+  - *Ground-frame* (anchored at G_i, the radiometrically-relevant point when target
+    altitude > 0): θₛ_g, θᵥ_g, φₛ_g, φᵥ_g.
+- Target shape library: extended scene, plate, box, sphere, cylinder, cone, circle,
+  ellipsoid, point source, custom-mesh placeholder.
+- Target body-frame **RPY** (roll/pitch/yaw) with an on-target triad gizmo for 3D shapes
+  (color-coded pink=Roll, green=Pitch, purple=Yaw).
+- Right-side accordion side panel: live numeric readout of all angles (every value with
+  units, R-UNITS); sun/sensor/target editors.
 
-```
-MTF Budget                            MTF @ Nyquist = 0.42   RER = 0.28
-────────────────────────────────────────────────────────────────────────
-[Matplotlib MTF plot — spatial freq (cycles/mrad) on X, MTF on Y]
-    Curves: system (bold), diffraction, wfe, smear, jitter, pixel, ipc
+### 6.3 Stage Is the Single Source of Angle Truth
 
-Nyquist frequency: 27.8 cycles/mrad
-                        MTF @ Nyquist
-system:                    0.42
-  diffraction:             0.68
-  wfe (Marechal):          0.87
-  smear (3 µrad, 5 ms):    0.93
-  jitter (3 µrad RMS):     0.91
-  pixel aperture:          0.64
-  ipc (α=0.02):            0.96
+The viewer renders angles taken from `stage_outputs["geometry"]`. The ported
+`geometry.js` math is used **only** for camera / projection / picking — never as a second
+angle authority. A consistency test asserts viewer-local recomputation agrees with stage
+outputs to an explicit tolerance; divergence is a red build (GUI plan Phase 7). This
+keeps R-API intact: the panel is a view over stage outputs, not a re-implementation.
 
-          [Export Plot]  [Export CSV]  [Show PSF]  [Show EE Curve]
-```
+### 6.4 Interaction & Visual Conventions (port exactly)
 
-### 5.3 Sweep Tab (Bottom Panel)
+Click a vector → it becomes selected and its angle arcs/labels appear (clicking empty
+space deselects). Click a 3D target body → the RPY triad appears and the side panel
+switches to the RPY accordion. Editing side-panel values updates all readouts and the
+scene live.
 
-```
-Sweep Setup
-────────────────────────────────────────────────────────────────────────
-Parameter:  [sensor.optics.aperture_diameter          ▾]
-Min: [0.10] m   Max: [0.60] m   N: [26]   Scale: (●) Linear  ( ) Log
+Color roles (domain glyph palette, distinct from the app chrome palette): sun = amber,
+sensor = cyan, phase/azimuth = magenta, zenith = neutral, ground/projection = faded
+amber/cyan. Stroke weights: main vectors ≈ 1.6 px, arcs ≈ 0.9 px dashed, reference axes
+≈ 0.7 px dashed. Label boxes: monospace 10 px, fill rectangle with a thin stroke in the
+arc's color. The panel follows the §8 design-system tokens (background, accent, label
+typography) so it does not read as a different app embedded in the window.
 
-Metric:  [snr ▾]   Threshold: [40 ]   [▶ Run Sweep]
+### 6.5 Out of Scope for v1 (handoff Phase-2 polish)
 
-[Matplotlib sweep plot — parameter value on X, metric on Y]
-  Red dashed horizontal line at threshold=40
-  Vertical marker at threshold crossing: D = 0.31 m
+Painter's-algorithm depth ordering, hidden-line treatment, curved-Earth toggle, ruler
+ticks on vectors, hover-preview of angles, view presets, mini compass/sun rose,
+persistent radiometric callout card, time-stepped orbit animation, real satellite-mesh
+rendering. These stay out of v1 (GUI plan §8 risk register).
 
-Threshold crossing: sensor.optics.aperture_diameter = 0.31 m
-                    [Export CSV]  [Open at this Point]
-```
+### 6.6 Degradation
 
-"Open at this Point" sets `sensor.set("sensor.optics.aperture_diameter", 0.31)` and re-evaluates the full chain, updating all panels.
-
-### 5.4 YAML Tab (Bottom Panel)
-
-```yaml
-# YAML Tab — read-only view of current state
-# Generated: 2026-04-07T14:30:00Z  |  RADIANT v1.0.0
-# [Copy]  [Export YAML...]  [Diff vs. original...]
-
-sensor:
-  optics:
-    aperture_diameter: 0.30   # m (user_set — sensors/baseline_mwir.yaml)
-    focal_length: 1.20        # m (user_set — sensors/baseline_mwir.yaml)
-    f_number: 4.0             # derived: focal_length / aperture_diameter
-    obscuration_ratio: 0.33   # (user_set)
-    wfe_rms: 0.07             # waves (user_set)
-    temperature: 280          # K (user_set)
-  detector:
-    ...
-```
-
-Parameters modified from the GUI since file load are shown in a different color (amber). Parameters carrying their default value are shown in gray.
+If OpenGL/VTK is unavailable (headless CI, restricted GPU) the viewer panel shows an
+actionable message and the rest of the app works (GUI plan §4.4). Viewer tests use VTK
+offscreen rendering.
 
 ---
 
-## 6. Menu Structure
+## 7. Scenario Requirements Matrix
 
-```
-File
-  New                  Ctrl+N   — create blank config
-  Open YAML...         Ctrl+O   — open config file
-  Open Recent          →        — last 10 files
-  Save                 Ctrl+S   — save current state to YAML
-  Save As...           Ctrl+Shift+S
-  Export XLSX...                — export to Excel
-  Export JSON Result...         — export last result + provenance
-  ─────
-  Quit                 Ctrl+Q
+Harvested from all **37** `scenarios/**/gui_workflow.md` files (the count matches the
+GUI plan's estimate of 37). Each workflow's concrete GUI asks are mapped to the v1 phase
+that delivers them, or flagged **OUT-OF-V1** (requested but in no v1 phase → dispositioned
+to v1.1 or `gaps.md` at GUI plan Phase 9). The baseline asks present in nearly every
+scenario — a scripting/command window (Phase 8) and a schema-driven parameter panel with
+derived-value display (Phase 2) — are noted once here and not repeated per row.
 
-Edit
-  Undo                 Ctrl+Z   — undo last parameter change (20-level history)
-  Redo                 Ctrl+Shift+Z
-  Reset to Defaults             — reset all user-set values to schema defaults
-  Find Parameter       Ctrl+F   — focus search box in parameter panel
+### 7.1 Per-Scenario Summary
 
-View
-  Show/Hide Parameter Panel     F6
-  Show/Hide Detail Panel        F7
-  Stage: [stage name]           Ctrl+1..7  — jump to stage
-  Dark Mode
-  Font Size +/-
+| Scenario (persona) | Salient GUI asks → disposition |
+|---|---|
+| **1.1** Maritime MWIR (Sarah) | regime-error → suggest `sub_pixel` inline → **P3**; tape7 import UI · curve digitizer · atmosphere A/B toggle · PPT export → **OUT**; aperture sweep → **v1.1** |
+| **1.2** VNIR GSD/aperture (Sarah) | solar-geometry helpers → **P8**; sampling-regime band → **P4**; 2-D sweep + GSD→focal constraint · trade-surface cursor readout → **OUT** |
+| **1.3** Dual-band MWIR/LWIR (Sarah) | material-spectrum import · pre-run well advisory · P_d/ROC panel → **OUT**; band comparison cards → **deferred (comparison)**; fire-temp sweep → **v1.1** |
+| **1.4** TDI pushbroom (Sarah) | derived GSD/IFOV/Q/Airy → **P2**; noise stacked bar → **P4**; sensitivity sliders → **P3**; saturation status table → **OUT**; TDI sweep+progress/abort → **v1.1**; analog↔digital compare + PDF/Excel → **deferred** |
+| **1.5** Obscured aperture (Sarah) | strut slider → live PSF/EE/RER/SNR → **P3/P4**; Strehl caveat → **P4**; pupil-mask preview · measured-pupil import → **OUT**; multi-config table → **deferred** |
+| **2.1** InSb vs HgCdTe (Mike) | noise table/bars → **P4**; QE/dark-current CSV import · detector-bench preset · spectral-QE toggle · cooler-trade panel → **OUT**; FPA side-by-side → **deferred** |
+| **2.2** 1/f corner (Mike) | noise stacked bar + cards → **P4/P3**; XLSX import · 1/f PSD viewer → **OUT**; with/without-1/f toggle → **deferred**; frame-rate sweep → **v1.1** |
+| **2.3** IPC → MTF (Mike) | provenance badges → **P2**; regime badge → **P3/P4**; MTF per-term → **P4**; multi-sheet import + column mapper · threshold lines · lab-data overlay → **OUT**; IPC sweep → **v1.1** |
+| **2.4** Persistence (Mike) | config load → **P2/P9**; sequence from console → **P8**; decay panel · ghost-in-LSB overlay · dead-time readout → **OUT** |
+| **2.5** Well capacity (Mike) | what-if sliders → **P3** (some analytic → §7.3); import · 2-D sweep heatmap · dynamic-range/well-fill viz · feasibility cards → **OUT** |
+| **3.1** ISR pass planning (Raj) | off-nadir slider re-run + NIIRS-floor → **P3/P5**; orbit dashboard · access-corridor plot · coverage readout · revisit panel → **OUT** |
+| **3.2** Weather sensitivity (Raj) | weather sweep → **v1.1**; XLSX import + weather presets · 2-D grid heatmap · traffic-light go/no-go · GIQE-5 decomposition · analytic sliders · PPT export → **OUT** |
+| **3.3** Multi-sensor compare (Raj) | 3-way comparison table → **deferred (comparison)**; proposals import · compliance matrix · radar chart · leverage readout · PDF spec-sheet importer → **OUT** |
+| **3.4** Off-nadir agility (Raj) | performance dashboard → **P4**; off-nadir label/geometry → **P5**; angle sweep tabs → **v1.1**; off-nadir GSD/NIIRS physics (Gaps 33-36, §7.3) · access map · trade explorer → **OUT** |
+| **3.5** Nighttime MWIR (Raj) | dual-band side-by-side → **deferred**; scene/humidity preset coupling · LST GeoTIFF raster import · day/night toggle · draw-region-on-map → **OUT** |
+| **4.1** Detection matrix (Lisa) | deprecation banner → **P2**; matrix builder + BatchRunner grid → **v1.1 (Batch)**; target-library import → **deferred (library)**; detection-range traffic-light heatmap · worst-case panel · Excel export → **OUT** |
+| **4.2** Ship classification (Lisa) | derived √(L·H)/IFOV/horizon → **P2**; Johnson/horizon helpers → **P8**; what-if altitude → live matrix → **P3**; DRI matrix by binding-limit · range bars · cycles-vs-range drill → **OUT** |
+| **4.3** Camouflage (Lisa) | ASTER/measured-ε import + overlay · spectral-ε→radiance (Gap 47) · ΔL(λ) sub-band table · half-band seeker · detection-range bars → **OUT**; signature cards differenced → **deferred (comparison)** |
+| **4.4** Time-of-day (Lisa) | diurnal-profile CSV import · profile-driven temporal sweep · two-pixel differencing (Gap 52) · zero-crossing finder · well banner → **OUT**; contrast-SNR-vs-time → **v1.1** |
+| **4.5** Altitude trade UAV (Lisa) | NETD⇄NEP⇄D* converters → **P8**; NETD vendor input mode · altitude trade w/ apparent-contrast · fill-fraction/τ breakdown · detection-ceiling panel → **OUT**; altitude sweep → **v1.1** |
+| **5.1** WFE budget (Tom) | derived params → **P2**; dual-path consistency indicator · MTF overlay → **P4**; WFE input-mode selector · Zernike import + ErrorBudget · reverse NIIRS→WFE lookup · Zernike allocation tool → **OUT**; WFE sweep → **v1.1** |
+| **5.2** Pixel pitch (Tom) | sampling-regime/Q badges → **P4/P3**; folded-MTF tab → **P4**; multi-sheet import · PSF grid overlay · trade-space scatter · FoM optimizer + compliance filter → **OUT**; detector sweep → **v1.1**; PPT → **deferred** |
+| **5.3** Mono vs poly PSF (Tom) | config load → **P9**; chromatic MTF overlay → **P4**; per-λ PSF viewer + λ-slider · convergence plot · traffic-light chromaticism · FITS export → **OUT**; split-screen diff → **deferred** |
+| **5.4** Jitter blur (Tom) | dual-unit jitter (µrad/pixel/IFOV) → **P2**; XLSX import · jitter-source RSS budget · GIQE-5 decomposition → **OUT**; jitter sweep (analytic, §7.3) → **v1.1** |
+| **5.5** Stray-light glare (Tom) | clean vs with-stray noise bars → **P4**; stray-light side-by-side → **deferred (comparison)**; XLSX/FRED import · VGI tolerance slider · 2-D stray-light-PSF import (Gap 60) → **OUT/v1.1** |
+| **6.1** SNR benchmark (Chen) | noise breakdown → **P4**; D*/NEP/NETD converters → **P8**; datasheet auto-configure · benchmark PASS/FAIL panel → **OUT** |
+| **6.2** Atmospheric intercompare (Chen) | tape7/libRadtran import UI · atmosphere-swap A/B · six-profile small-multiples · residual/per-band panel → **OUT** |
+| **6.3** Noise-model verification (Chen) | provenance badges → **P2**; noise bar/table/pie → **P4**; MTF-budget sub-tab → **P4**; XLSX import + unit-mapping dialog · RADIANT-vs-hand-calc panel → **OUT**; multi-format export → **deferred** |
+| **6.4** Synthetic scene (Chen) | scene/target-table import → **P2/library**; per-target radiometry panel · 1-D scene strip + seed/re-roll · ROC/AUC panel · 2-D scene canvas (image sim) → **OUT/deferred** |
+| **6.5** Emissivity sensitivity (Chen) | config import → **P2**; retrieval sweep slider → **v1.1**; Jacobian panel · retrieval-tolerance readout · bias-vs-noise viz → **OUT** |
+| **7.1** NEDT reconciliation (Karen) | per-term noise breakdown → **P4**; NEDT-over-temps sweep → **v1.1**; multi-sheet lab import + nominal/as-built diff · TVAC preset · predicted-vs-measured overlay · tornado chart → **OUT** |
+| **7.2** Radiometric calibration (Karen) | DN-domain results → **P3/P4**; temperature-sweep calibration → **v1.1**; XLSX import + lab preset · self-emission panel · measured-curve import · calibration fit-card + "Apply calibration" → **OUT** |
+| **7.3** MTF measure vs predict (Karen) | **MTF component decomposition → P4 (the one bespoke viz that lands in v1)**; predicted-vs-measured overlay → **P3 canvas + OUT**; Rule-4 consistency trust banner (§7.3) → **P3/P4**; measured-MTF import · residual-explainer grid (Gaps 31/32) → **OUT**; defocus sweep → **v1.1** |
+| **7.4** Cold-stop sweep (Karen) | derived-badges + ε=0 warn → **P2**; exo→space auto-fill → **P5**; metrics dashboard → **P4**; nearfield sweep → **v1.1**; multi-sheet import · inverse `solve_for` UI · side-by-side compare → **OUT/deferred** |
+| **7.5** Env temp extremes (Karen) | co-varying J(T)+QE(T) sweep (Gap 48) → **v1.1 + OUT**; measured-curve import · lab preset · Arrhenius-knee panel · spec-compliance table → **OUT** |
+| **8.1** Off-nadir interpolation | MODTRAN family-coverage/interpolate-vs-nearest UI · family registry browser · one-call tabulated-atmosphere config → **OUT (library + atmosphere-config builder)** |
+| **8.2** Altitude interpolation | same tool as 8.1, plus **persistent non-dismissible `well_status` saturation banner** → **OUT** (flagged; 3 scenarios lost time to silent clipping — see CU-101) |
 
-Run
-  Evaluate             F5       — run full chain evaluation
-  Validate Only        Ctrl+R   — validate config without evaluating
-  Run Sweep...                  — open sweep dialog
-  Monte Carlo...               — open Monte Carlo dialog
-  Batch Run...                  — open batch execution dialog
+### 7.2 Consolidated OUT-OF-V1 Features (owner checkpoint reading)
 
-Tools
-  Python Console                — focus Console tab (same as clicking tab)
-  Parameter Schema Browser      — browse all ParameterDef objects
-  Explain Parameter...          — explain provenance for a named parameter
-  Preferences...                — font size, color theme, default paths, n_jobs
+Distinct capabilities requested by workflows but delivered by **no** v1 phase. Ranked by
+breadth of demand. Dispositioned at GUI plan Phase 9 (each becomes a `gaps.md` entry or a
+v1.1 line item); listed here so the owner can confirm the deferral is acceptable.
 
-Help
-  Documentation                 — open docs in browser
-  Example Configs               — open example config directory
-  About RADIANT
-```
+| # | Feature | Requesting scenarios | Suggested disposition |
+|---|---------|---------------------|----------------------|
+| 1 | **Spreadsheet / XLSX import with unit-mapping dialog** | 1.2,1.3,1.4,2.1,2.2,2.3,2.5,3.2,3.3,5.1,5.2,5.4,6.1,6.3,7.1,7.2,7.4,7.5 (18) | **v1.1** — highest-leverage add; `Sensor.set(unit=)` + io loaders exist, only the dialog is missing |
+| 2 | **Report / slide export (PDF, PowerPoint, XLSX)** | 1.1,1.4,2.2,2.3,2.5,3.2,5.1,5.2,5.3,5.4,6.3,7.1,7.2 (13) | **deferred (report generator, §9)**; near-universal — revisit priority in v1.1 |
+| 3 | **Comparison mode (2+ configs side-by-side)** | 1.3,1.5,2.1,2.2,3.3,3.5,4.3,5.3,5.5,7.4 (10) | **deferred (comparison mode, §9)**; heavily requested — promote in v1.1 planning |
+| 4 | **Measurement / reference-data overlay (lab points on model curves, residual sub-plot)** | 2.3,6.1,7.1,7.2,7.3,7.4,7.5 (7) | **gaps.md**; core to every persona-7 (test-engineer) workflow |
+| 5 | **Library / preset browser (target, ship-class, sensor, weather, lab/TVAC presets)** | 2.1,2.3,3.2,4.1,4.2,7.1,7.2,7.3,7.4,7.5 (10) | **deferred (library browser, §9)** |
+| 6 | **Detection / threshold traffic-light & go/no-go panels (DRI matrix, detection-range heatmap, ROC/P_d, feasibility)** | 1.3,2.5,3.2,4.1,4.2,4.5,6.4 (7) | **gaps.md** |
+| 7 | **Data importers (ASTER material, measured-ε/QE/dark CSV, tape7/libRadtran, NETD vendor, Zemax Zernike)** | 1.1,1.3,2.1,4.3,4.5,5.1,5.2,6.2,7.5,8.1 (10) | **v1.1** (io loaders exist; dialogs needed); tape7/libRadtran flagged specifically |
+| 8 | **Persistent `well_status` saturation banner** | 1.3,1.4,2.5,4.4,8.2 (5) | **gaps.md** + **CU-101** (the API-surface half: `well_status` is only in `stage_outputs`) |
+| 9 | **2-D / multi-axis sweep + live heatmap** (beyond v1.1 single-axis) | 1.2,2.5,3.2 (3) | **v1.1+** (Sweep tab is single-axis in v1.1; 2-D grid is a further increment) |
+| 10 | **Inverse-solve / optimizer UI (`solve_for`, reverse lookup, FoM optimize, constraint solve)** | 1.2,5.1,5.2,7.4 (4) | **gaps.md** (`solve_for` exists in API; no GUI surface) |
+| 11 | **Atmosphere-source A/B toggle (parametric vs imported)** | 1.1,6.2 (2) | **gaps.md** (explicitly flagged) |
+| 12 | **Curve digitizer (vendor PDF graph → CSV)** | 1.1 (1) | **gaps.md** |
+| 13 | **Bespoke analysis panels (cooler-trade, 1/f PSD, GIQE-5 decomp, tornado, Jacobian, calibration fit-card, RSS jitter budget, Arrhenius-knee, WFE ErrorBudget)** | 2.1,2.2,3.2,5.1,5.4,6.1,6.5,7.1,7.2,7.5 (10) | **gaps.md** (each one-off; none in v1) |
+| 14 | **Image simulator / 2-D scene / raster-map / stray-light-PSF / pupil-mask render** | 1.5,3.5,5.5,6.4 (4) | **deferred (image simulator, §9)** |
+| 15 | **Orbit / coverage / access dashboards + map view** | 3.1,3.4 (2) | **gaps.md** (helpers console-callable; panels not in v1) |
+| 16 | **Spectral-QE / co-varying QE(T) injection toggle** (Gaps 44/48) | 2.1,7.5 (2) | **gaps.md** (no config path — GUI-owned injection) |
+| 17 | **Profile-driven temporal sweep (sweep along a loaded time series)** | 4.4 (1) | **gaps.md** (distinct sweep mode) |
+
+**Read:** the dominant unmet demand is data ingestion (rows 1, 7) and results
+communication (rows 2, 3, 4) — not the physics, which the chain already computes. The v1
+evaluate-loop-plus-panels covers the compute; the deferred tail is mostly I/O and
+reporting ergonomics. Confirm this deferral shape is acceptable, or flag any single row
+that should be pulled into v1 (row 8, the saturation banner, is the strongest candidate —
+three scenarios report lost time to silent clipping).
+
+### 7.3 Assumptions in Workflows That the Shipped API / v1 Scope Does Not Meet
+
+Places where a workflow assumes behavior the v1 architecture or the shipped API does not
+provide. These are *not* defects to fix in Phase 0 — they are boundary notes so later
+phases don't silently build to a false assumption.
+
+1. **Sweep-with-progress-bar + Abort as the central run action** (1.4, 2.2, 2.5, 3.2,
+   5.1, 7.1). v1 Phase 3 is a single background `evaluate()` with no sweep engine and no
+   progress/abort surface; sweeps are **v1.1**. Per-point progress/cancel hooks exist on
+   `sweep()`/`monte_carlo()` (Gap 72) but not on `evaluate()`.
+2. **Live-streaming / incremental partial sweep results** (2.5, 3.2 — "heatmap updates as
+   each column completes"). v1's loop is a debounced single-shot; even the v1.1 Sweep tab
+   returns a completed `SweepResult`, not a streamed one.
+3. **Analytic "what-if" sliders that update metrics without re-running the chain** (5.4
+   "instant, no re-evaluation"; 3.2, 2.5). v1 Phase 3 always re-runs the full chain
+   (debounced). There is no analytic surrogate / post-hoc degradation model.
+4. **Inverse solve / reverse lookup as a first-class GUI action** (7.4 `solve_for`, 5.1
+   NIIRS→WFE, 1.2 GSD→focal, 5.2 FoM optimize). v1 is evaluate-only; `solve_for` exists
+   in the API but has no v1 surface (reachable only from the Phase-8 console).
+5. **Off-nadir GSD / NIIRS display depends on unshipped physics** (3.4). Requires
+   slant-range-based GSD and off-nadir NIIRS (framework Gaps 33–36; related to CU-096's
+   θ_o/η conflation). The GUI cannot render corrected values until the chain closes those
+   gaps — already tracked; no new CU.
+6. **`well_status` surfaced as a metric/banner** (8.2, 1.3, 4.4). The value lives only in
+   `stage_outputs["readout"]["well_status"]`, not on the `ChainResult` metric/badge
+   surface, and the v1 badge set (SNR/NEDT/NIIRS/GSD/MTF@Nyquist) omits it → **CU-101**.
+7. **Rule-4 dual-path consistency warning as a plain-language trust banner** (7.3, 5.1).
+   Not an enumerated v1 feature; foldable into the Phase-3 warning surface. Minor.
+8. **Richer default metric surface** (3.4, 5.x, 7.x treat contrast-SNR, SCNR, well-margin
+   dB, dynamic-range dB, Strehl, RER, Q, EE as dashboard cards). v1 badges only the five
+   above; the rest are reachable via the Phase-4 Variable Explorer, not as badges. Minor.
 
 ---
 
-## 7. Deferred to Phase 2
+## 8. Design System
 
-The following GUI capabilities are explicitly deferred. The Phase 1 architecture must not preclude them.
+The binding visual specification the Phase 1 QSS theme implements. **No widget in any
+phase hardcodes a color, font, or size outside `gui/themes/`** (GUI plan §4.9 —
+review-blocking). All values below are pulled verbatim from the mockup CSS in
+`dev_tools/gui_mockups/radiant_ui/radiant_mid_fi.html` and `radiant_scripting.html`
+(the `:root` light block and the `body.dark` override). **Dark is the v1 default**
+(GUI plan §4.4); the mockup HTML happens to default to light with a `body.dark`
+override — the app inverts that default but uses the same two token sets.
+
+### 8.1 Color Palette
+
+Named as design tokens (CSS-var names preserved so the QSS maps 1:1). **Dark theme —
+v1 default:**
+
+| Token | Hex (dark) | Role |
+|-------|-----------|------|
+| `bg` | `#0f1216` | window background |
+| `panel` | `#171a21` | panel / card surface |
+| `panel-2` | `#1d2029` | inset / header surface, hover |
+| `panel-3` | `#262a35` | raised hover surface |
+| `panel-4` | `#323744` | deepest inset (scripting console) |
+| `line` | `#2b3140` | default 1 px border |
+| `line-2` | `#3a4254` | emphasized border / hover border |
+| `ink` | `#e6e9ef` | primary text |
+| `ink-2` | `#c3c9d4` | secondary text |
+| `muted` | `#8b94a4` | labels, units, captions |
+| `muted-2` | `#6e7685` | faintest text |
+| `accent` | `#e08157` | terracotta accent — Run button, active, selection |
+| `accent-soft` | `#3a2218` | accent tint (backgrounds) |
+| `ok` | `#7fb987` | health OK (green dot, positive trend) |
+| `ok-soft` | `#1f2f22` | OK ring / tint |
+| `warn` | `#e0b249` | health warning (yellow) |
+| `warn-soft` | `#3a2f16` | warn ring / tint |
+| `err` | `#e07874` | health error (red) |
+| `err-soft` | `#3a1e1c` | err ring / tint |
+| `stale` | `#666b77` | stale / not-evaluated (gray) |
+| `stale-soft` | `#242832` | stale ring / tint |
+| `focus` | `#86a8df` | keyboard/selection focus (blue) |
+| `focus-soft` | `#1e2a3e` | focus tint (selected stage background) |
+
+**Light theme — alternate** (GUI plan Phase 9 toggle): `bg #ebeef2` · `panel #fafbfc` ·
+`panel-2 #f1f3f6` · `panel-3 #e6e9ee` · `line #cfd5de` · `line-2 #b7bfcb` · `ink #1b2230`
+· `ink-2 #384050` · `muted #6b7380` · `muted-2 #8a93a1` · `accent #b8431a` ·
+`accent-soft #f6e2d6` · `ok #2f7a3a` / `ok-soft #dcebdd` · `warn #a97c14` /
+`warn-soft #f5ebcf` · `err #a8302a` / `err-soft #f3dbd7` · `stale #9aa3b0` /
+`stale-soft #e6e9ee` · `focus #2f5aa8` / `focus-soft #dde6f4`.
+
+**Console syntax-highlight tokens** (`radiant_scripting.html`) — dark / light:
+keyword `#d69fd8` / `#8a2a8e` · string `#97c49e` / `#2f6b3a` · number `#e0a075` /
+`#a04018` · function `#9bb8e3` / `#2a5abf` · comment `#6a7385` / `#8a93a1`.
+
+**Window traffic-light dots** (macOS-style title chrome, raw hex, not themed):
+red `#ec6a5e` · yellow `#f4bf4f` · green `#61c555`. These are the window-decoration
+dots only; **stage health dots use the themed `ok`/`warn`/`err`/`stale` tokens** above.
+
+### 8.2 Typography
+
+| Role | Family | Size / weight |
+|------|--------|--------------|
+| Base UI text | `'IBM Plex Sans', system-ui, sans-serif` | 13 px / 400, line-height 1.35 |
+| **All numeric values, dot-paths, code, chips** | `'IBM Plex Mono', monospace` | see rows below (values are always mono) |
+| App title (h1) | Sans | 18 px / 600, letter-spacing −0.01em |
+| Panel title | Sans | 12.5 px / 600, uppercase, letter-spacing 0.04em |
+| Stage name (eyebrow) | Sans | 10.5 px / 500, uppercase, letter-spacing 0.06em |
+| Stage title | Sans | 14 px / 600 |
+| KPI/metric label | Sans | 10.5 px / 500, uppercase, letter-spacing 0.06em, `muted` |
+| **KPI/metric value** | Mono | 17 px / 600, `ink` |
+| KPI/metric unit | Sans | 11 px / 400, `muted`, small left margin |
+| Small labels / captions | Sans | 10.5–11.5 px |
+| Keycap (`kbd`) | Mono | 10.5 px, border-bottom-width 2 px (keycap effect) |
+
+Weights: 400 body, 500 labels/buttons, 600 titles and values. **Numeric values are
+always mono** — this is what carries the instrument-panel feel and keeps unit-suffixed
+readouts aligned.
+
+### 8.3 Spacing, Radius, Borders
+
+- **Border radius:** cards/panels 8–9 px · buttons & inputs 4–5 px · chips/kbd/badges
+  2–3 px · pill badges 9 px · dots 50%.
+- **Padding:** panels ~12 px 14 px · buttons 6–7 px 14 px · inputs 5 px 8 px ·
+  KPI cells 4 px 14 px · stage buttons 10 px 12 px.
+- **Gaps:** 6 px is the default inter-control gap; strip/panel padding 12 px 14 px.
+- **Borders:** 1 px solid `line` everywhere; hover raises to `line-2`. `kbd` uses a 2 px
+  bottom border for a keycap look.
+- **Transitions:** 0.12 s on `border-color` / `background` for hover/active feedback.
+
+### 8.4 Badges & Health Dots
+
+- **Health dot:** a 9–11 px circle filled with the themed status token (`ok`/`warn`/
+  `err`/`stale`), wrapped in a soft ring `box-shadow: 0 0 0 2px <token>-soft`. Used on
+  every stage-strip button (§4.2) and per-noise-term rows.
+- **Derived / provenance badge:** a small pill — 1 px `line` border, 9 px radius, mono
+  9.5 px, `muted` text. Renders the ⚡-derived marker and the user-set / default / derived
+  provenance state (§4.3).
+- **Stage state:** a warned/errored/stale stage button sets its background to the
+  `<status>-soft` tint and its border to the `<status>` token; a selected stage uses
+  `focus-soft` background + `focus` border.
+- **KPI stale marker:** when a result is stale the metric value appends a ` →?` glyph in
+  the `warn` color (`.v::after`), signaling "this number predates the last edit."
+- **Run button:** `accent` background, white text; when the config is dirty/stale it
+  flips to a `warn` background to signal "re-evaluate."
+
+### 8.5 Geometry-Viewer Glyph Palette (domain colors, separate layer)
+
+The 3D scene uses domain color *roles*, not the chrome tokens above (§6.4): sun = amber,
+sensor = cyan, phase/azimuth arcs = magenta, zenith = neutral, ground/projection = faded
+amber/cyan; RPY triad pink=Roll / green=Pitch / purple=Yaw. The panel's chrome (side
+panel, labels, background) still follows the §8.1 tokens so the panel matches the app.
+
+---
+
+## 9. Deferred to Phase 2 (post-v1)
+
+Explicitly deferred; the v1 architecture must not preclude them.
 
 | Capability | Why deferred | Precondition |
 |------------|-------------|-------------|
-| 2D image simulator (focal plane array visualization) | Requires scene/image modeling; separate module | RADIANT Scene module (future) |
-| Library browser (sensor library, target library) | Database/catalog UI; nontrivial | Library management system |
-| Report generator (auto-generated PDF summary) | Nice to have; high engineering effort | PDF templating |
+| 2D image simulator (focal-plane visualization) | Requires scene/image modeling | RADIANT Scene module (future) |
+| Library browser (sensor / target / atmosphere libraries) | Database/catalog UI | Library management system |
+| Report generator (auto PDF/PPT summary) | High engineering effort | Reporting templates |
+| Comparison mode (two+ sensors side-by-side) | Multi-result state management | Core API (stable) |
+| Plugin UI (custom stage panels) | UI integration effort | Plugin system |
+| Remote computation (submit to HPC) | Infrastructure | Cluster job management |
 | MATLAB bridge | Small user population; Python is primary | Stable API (done) |
-| Plugin UI (custom stage configuration panels) | Plugin API is stable; UI integration is effort | Phase 1 plugin system |
-| Remote computation (submit jobs to HPC cluster) | Infrastructure; separate from GUI | Cluster job management |
-| Real-time comparison mode (two sensors side by side) | UI complexity; multi-result state management | Core API (stable) |
 
-The scripting API is already sufficient for all of these use cases programmatically. The GUI Phase 2 work adds visual interfaces for workflows that are currently script-only.
+The scripting API already serves all of these programmatically; Phase-2 work adds visual
+interfaces for workflows that are currently script-only.
 
 ---
 
-## 8. Implementation Notes (for Phase 2 Planning)
+## 10. Menu Structure
 
-These are notes for the implementation team, not architecture decisions.
+```
+File   New · Open YAML… (Ctrl+O) · Open Recent → · Save (Ctrl+S) · Save As… ·
+       Export YAML… · Export JSON Result… · ───── · Quit (Ctrl+Q)
+Edit   Undo (Ctrl+Z) · Redo · Reset to Defaults · Find Parameter (Ctrl+F)
+View   Show/Hide Parameter Panel (F6) · Show/Hide Detail Panel (F7) ·
+       Stage: … (Ctrl+1..9) · Dark/Light Theme · Font Size +/−
+Run    Evaluate (F5) · Validate Only (Ctrl+R) ·
+       Run Sweep…  [v1.1] · Monte Carlo…  [v1.1] · Batch Run…  [v1.1]
+Tools  Python Console · Parameter Schema Browser · Explain Parameter… · Preferences…
+Help   Documentation · Example Configs · About RADIANT
+```
 
-**Framework version pinning:** Use PySide6 ≥ 6.6 (LTS). Pin the minor version in `pyproject.toml`. Qt6 APIs that break Qt5 compatibility are acceptable — there is no Qt5 target.
+Actions not yet implemented in a given phase are present but **disabled** (GUI plan
+Phase 1). Sweep / Monte Carlo / Batch remain disabled through v1 (D4).
 
-**Matplotlib backend:** Use `matplotlib.backends.backend_qtagg.FigureCanvasQTAgg`. The GUI's `result.plot.*` calls are identical to the scripting API calls — the figure is created by the same code in both cases. The only difference is whether the figure is shown in a Qt widget or a standalone matplotlib window.
+---
 
-**Main window class:** `RADIANTMainWindow(QMainWindow)`. Subcomponents are `QDockWidget`-based for the parameter panel and detail panel, allowing user-configurable docking.
+## 11. Implementation Notes
 
-**Theming:** Ship with one built-in dark theme (default) and one light theme. Use Qt QSS stylesheets stored in `radiant/gui/themes/`. Do not re-implement the entire Qt widget palette — customize only colors, not widget geometry.
-
-**Undo/redo:** `QUndoStack` with `QUndoCommand` wrapping each `sensor.set()` call. Maximum 20 levels. Commands are named: "Set aperture_diameter to 0.45 m". Redo is "Re-set aperture_diameter to 0.45 m".
-
-**Testing:** Qt GUI tests use `pytest-qt` (`qtbot` fixture). Every action in the menu structure has a corresponding test that triggers it programmatically and verifies the result without human interaction.
+- **PySide6 ≥ 6.6** (LTS); pin the minor version in `pyproject.toml`. Qt6-only, no Qt5
+  target. Optional-dependency group: `gui = ["PySide6>=6.6", "matplotlib>=3.8",
+  "qtconsole>=5.5", "pyvista", "pyvistaqt"]`; pyvista/pyvistaqt pinned to match
+  `dev_tools/geometry_gui_v2`. Core RADIANT stays importable without the `gui` extra.
+- **Matplotlib backend:** `backend_qtagg.FigureCanvasQTAgg`; the GUI's `result.plot.*`
+  calls are identical to the scripting-API calls.
+- **Main window:** `RADIANTMainWindow(QMainWindow)`; parameter and detail panels are
+  `QDockWidget`-based for user-configurable docking.
+- **Theming:** QSS stylesheets in `gui/themes/`, generated from the §8 tokens; customize
+  colors/typography, not widget geometry.
+- **Undo/redo:** `QUndoStack` wrapping each `sensor.set()`; 20 levels; named commands
+  ("Set aperture_diameter to 0.45 m").
+- **Testing:** `pytest-qt` (`qtbot`), headless via `QT_QPA_PLATFORM=offscreen`; every
+  menu/toolbar action gets a programmatic trigger test; a theme test asserts every
+  top-level widget picks up the stylesheet (no unstyled gray-Qt leaks).
+- **Errors:** `RadiantError` → modal with what/why/action/context verbatim; unexpected
+  exceptions → error dialog with a traceback fold. No `except Exception: pass` anywhere
+  in GUI code (Rules 15/17).

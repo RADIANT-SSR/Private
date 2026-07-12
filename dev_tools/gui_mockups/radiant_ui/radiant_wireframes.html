@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>RADIANT GUI — Wireframes</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --ink-soft:#3a3a3a;
+    --paper:#f6f2ea;
+    --paper-2:#efeadf;
+    --rule:#2a2a2a;
+    --accent:#c24a1a;     /* warning orange */
+    --ok:#3f7a3f;
+    --warn:#c99417;
+    --err:#b33131;
+    --stale:#888;
+    --blue:#2e5a8a;
+    --muted:#8a8578;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#e9e3d6;font-family:'Kalam',sans-serif;color:var(--ink)}
+  body{padding:24px 32px}
+
+  /* ---------- top toolbar ---------- */
+  .top{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:20px;margin-bottom:16px;flex-wrap:nowrap;
+  }
+  .top .title{flex-shrink:0;min-width:260px}
+  .top h1{font-family:'Caveat',cursive;font-size:34px;margin:0;line-height:1;font-weight:700;white-space:nowrap}
+  .top .sub{font-family:'Kalam';font-size:13px;color:#555;margin-top:4px;white-space:nowrap}
+
+  .tabs{
+    display:flex;gap:0;background:transparent;border-bottom:2px solid var(--ink);
+    padding-left:6px;flex:1;min-width:0;
+  }
+  .tabs button{
+    font-family:'Caveat',cursive;font-size:20px;font-weight:600;
+    background:transparent;border:2px solid var(--ink);border-bottom:none;
+    padding:5px 12px 6px;margin-right:5px;cursor:pointer;color:var(--ink);
+    border-top-left-radius:10px 14px;border-top-right-radius:10px 14px;
+    transform:rotate(-0.3deg);
+    position:relative;top:2px;background:#e0d9c8;
+    white-space:nowrap;
+  }
+  .tabs button .t-key{font-family:'JetBrains Mono',monospace;font-size:12px;color:#777;margin-right:6px}
+  .tabs button.active{background:var(--paper);top:3px;box-shadow:inset 0 -3px 0 var(--paper)}
+  .tabs button:hover{background:#ede6d4}
+
+  /* ---------- canvas / paper ---------- */
+  .stage{
+    background:var(--paper);
+    border:2px solid var(--ink);
+    border-radius:14px 16px 12px 18px / 14px 14px 16px 14px;
+    padding:20px 240px 20px 20px;position:relative;
+    box-shadow:3px 4px 0 rgba(0,0,0,.08);
+    min-height:900px;
+  }
+  body.anno-off .stage{padding-right:20px}
+  .stage::before{
+    /* subtle paper grain */
+    content:"";position:absolute;inset:0;pointer-events:none;opacity:.06;
+    background-image:radial-gradient(#000 1px,transparent 1px);
+    background-size:3px 3px;border-radius:inherit;
+  }
+
+  /* ---------- window chrome ---------- */
+  .win{
+    background:#fbf8f1;border:2px solid var(--ink);border-radius:8px;
+    box-shadow:4px 5px 0 rgba(0,0,0,.12);
+  }
+  .win-bar{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 12px;border-bottom:2px solid var(--ink);
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:#444;
+    background:#e8e2d2;border-radius:6px 6px 0 0;
+  }
+  .dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink);display:inline-block}
+  .dot.r{background:#e68c7c}.dot.y{background:#f0d37a}.dot.g{background:#93c58a}
+  .win-title{flex:1;text-align:center;font-weight:500}
+  .menu{
+    display:flex;gap:16px;padding:4px 12px;border-bottom:1.5px dashed #aaa;
+    font-family:'Kalam';font-size:14px;color:#333;
+  }
+  .menu span{cursor:default}
+  .menu span:hover{text-decoration:underline}
+
+  /* ---------- helpers ---------- */
+  .hand{font-family:'Kalam',cursive}
+  .scribble{font-family:'Caveat',cursive}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .label{font-family:'Caveat',cursive;font-weight:600;font-size:18px;letter-spacing:.3px}
+  .note{font-family:'Caveat',cursive;color:var(--accent);font-size:18px;transform:rotate(-1deg)}
+  .anno{
+    position:absolute;font-family:'Caveat',cursive;font-size:15px;color:var(--accent);
+    pointer-events:none;line-height:1.15;
+  }
+  .anno svg{position:absolute;overflow:visible;pointer-events:none}
+  /* margin-zone for annotations sits outside the .win chrome */
+  .margin-anno{
+    position:absolute;width:200px;font-family:'Caveat',cursive;font-size:14px;
+    color:var(--accent);line-height:1.2;pointer-events:none;
+  }
+  .arrow{stroke:var(--accent);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .arrow-ink{stroke:var(--ink);stroke-width:2;fill:none;stroke-linecap:round}
+  .rough{
+    border:2px solid var(--ink);border-radius:6px 8px 5px 9px / 8px 6px 9px 5px;
+  }
+  .rough-soft{border:1.5px solid #555;border-radius:5px 7px 4px 8px / 7px 5px 8px 4px}
+  .dashed{border:1.5px dashed #555;border-radius:5px}
+  .kbd{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    background:#e6e0d0;border:1px solid #999;border-bottom-width:2px;
+    padding:1px 5px;border-radius:3px;
+  }
+
+  /* health dots */
+  .h{
+    display:inline-block;width:12px;height:12px;border-radius:50%;
+    border:1.5px solid var(--ink);vertical-align:middle;
+  }
+  .h.ok{background:var(--ok)}.h.warn{background:var(--warn)}
+  .h.err{background:var(--err)}.h.stale{background:#ccc}
+  .h.evaluating{background:repeating-linear-gradient(45deg,#93c58a 0 4px,#e6e0d0 4px 8px)}
+
+  /* KPI badges */
+  .kpis{display:flex;gap:10px;flex-wrap:wrap}
+  .kpi{
+    padding:5px 10px;border:1.5px solid var(--ink);border-radius:14px 18px 12px 20px / 14px 12px 18px 14px;
+    background:#fbf6ea;font-family:'Kalam';font-size:14px;line-height:1;
+  }
+  .kpi b{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600}
+  .kpi.hl{background:#f5e6b8}
+
+  /* input-like rows */
+  .field{
+    display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px;
+  }
+  .field .name{font-family:'Kalam';flex:1}
+  .field .val{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    background:#fff8e5;border:1.5px solid #777;padding:2px 6px;min-width:60px;text-align:right;
+    border-radius:3px 4px 3px 5px;
+  }
+  .field .u{font-family:'JetBrains Mono',monospace;font-size:11px;color:#777;width:28px}
+  .field.derived .val{background:#efefef;color:#777}
+  .field .tag{font-family:'Caveat';font-size:14px;color:var(--warn)}
+
+  /* placeholder diagonal stripes */
+  .ph{
+    background:repeating-linear-gradient(135deg,#e8dfc8 0 6px,#f6f0dd 6px 14px);
+    border:1.5px dashed #666;border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:#555;text-align:center;padding:8px;
+  }
+
+  /* ----- STAGE PIPE COMPONENTS (used in several layouts) ----- */
+  .chain-h{display:flex;align-items:stretch;gap:0;}
+  .node{
+    flex:1;border:2px solid var(--ink);background:#fbf8f1;
+    padding:10px;position:relative;min-height:80px;
+    border-radius:8px 10px 7px 11px / 10px 8px 11px 7px;
+  }
+  .node + .node{margin-left:14px}
+  .node .nh{display:flex;align-items:center;gap:6px;justify-content:space-between}
+  .node .nm{font-family:'Caveat';font-size:21px;font-weight:700}
+  .node .ns{font-family:'JetBrains Mono';font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px}
+  .node .nsub{font-family:'Kalam';font-size:12px;color:#444;margin-top:6px;line-height:1.25}
+  .node.active{background:#fff3c8;box-shadow:inset 0 0 0 2px var(--ink),3px 3px 0 rgba(0,0,0,.15)}
+  .node.err{background:#fde3dc}
+  .node.warn{background:#fbf0cf}
+  .node.stale{background:#ece8dd;color:#777}
+  .node.stale .nm{color:#777}
+  .between{
+    width:26px;display:flex;align-items:center;justify-content:center;color:var(--ink);
+    font-family:'Caveat';font-size:24px;
+  }
+
+  /* ----- layout-specific containers ----- */
+  .L{ padding:14px; }
+
+  /* empty state */
+  .empty-wrap{
+    min-height:720px;display:flex;align-items:center;justify-content:center;flex-direction:column;
+    gap:16px;text-align:center;
+  }
+  .empty-wrap h2{font-family:'Caveat';font-size:44px;margin:0}
+  .empty-wrap .btn{
+    font-family:'Kalam';font-size:18px;padding:10px 22px;
+    border:2px solid var(--ink);border-radius:10px 14px 8px 16px / 14px 10px 16px 8px;
+    background:#fbf6ea;cursor:pointer;
+  }
+
+  /* overlays */
+  .overlay{position:absolute;inset:0;background:rgba(246,242,234,.82);display:flex;align-items:center;justify-content:center;z-index:5;border-radius:inherit}
+  .overlay .box{background:#fbf8f1;border:2px solid var(--ink);padding:18px 26px;border-radius:10px;box-shadow:4px 5px 0 rgba(0,0,0,.12);font-family:'Kalam';font-size:16px}
+
+  /* ---------- dark mode override ---------- */
+  body.dark{background:#17181a}
+  body.dark .stage{background:#1f2023;border-color:#d6d2c6;color:#eee}
+  body.dark .stage::before{opacity:.12}
+  body.dark h1,body.dark .label,body.dark .scribble{color:#f4f0e4}
+  body.dark .tabs{border-bottom-color:#d6d2c6}
+  body.dark .tabs button{background:#2b2c30;color:#eee;border-color:#d6d2c6}
+  body.dark .tabs button.active{background:#1f2023;box-shadow:inset 0 -3px 0 #1f2023}
+  body.dark .win,body.dark .node,body.dark .kpi{background:#2a2b2f;color:#eee;border-color:#d6d2c6}
+  body.dark .win-bar,body.dark .menu{background:#2a2b2f;color:#ddd;border-color:#555}
+  body.dark .field .val{background:#3b3c40;color:#eee;border-color:#888}
+  body.dark .field.derived .val{background:#2b2c30;color:#888}
+  body.dark .ph{background:repeating-linear-gradient(135deg,#2b2c30 0 6px,#34353a 6px 14px);color:#bbb}
+  body.dark .note,body.dark .anno{color:#f0a27a}
+  body.dark .arrow{stroke:#f0a27a}
+  body.dark .top .sub{color:#aaa}
+  body.dark .kpi.hl{background:#4a3e18;color:#f7e7a3}
+  body.dark .rough-soft{border-color:#aaa}
+  body.dark .empty-wrap .btn{background:#2a2b2f;color:#eee}
+  body.dark .node.active{background:#4a3e18}
+  body.dark .node.warn{background:#45390f}
+  body.dark .node.err{background:#4a1f1f}
+  body.dark .node.stale{background:#24252a;color:#888}
+
+  /* ---------- tweaks panel ---------- */
+  .tweaks{
+    position:fixed;right:20px;bottom:20px;z-index:100;
+    background:#fbf8f1;border:2px solid var(--ink);border-radius:10px;
+    padding:12px 14px;box-shadow:4px 5px 0 rgba(0,0,0,.12);
+    font-family:'Kalam';font-size:14px;max-width:260px;display:none;
+  }
+  .tweaks.show{display:block}
+  .tweaks h3{font-family:'Caveat';margin:0 0 8px;font-size:22px}
+  .tweaks .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0}
+  .tweaks select,.tweaks button{font-family:'Kalam';font-size:13px;padding:3px 8px;border:1.5px solid var(--ink);background:#fff;border-radius:4px;cursor:pointer}
+  body.dark .tweaks{background:#2a2b2f;color:#eee;border-color:#d6d2c6}
+  body.dark .tweaks select,body.dark .tweaks button{background:#3b3c40;color:#eee;border-color:#888}
+
+  /* ---------- layout E specific (sankey) ---------- */
+  .sankey-stage{
+    flex:1;position:relative;min-height:180px;border-top:2px dashed #888;border-bottom:2px dashed #888;
+    padding:8px;background:rgba(255,255,255,.4);
+  }
+  body.dark .sankey-stage{background:rgba(255,255,255,.03)}
+
+  /* prevent horizontal scroll from rotations */
+  .stage, body{overflow-x:hidden}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="title">
+    <h1>RADIANT — GUI Wireframes</h1>
+    <div class="sub">Low-fi · signal chain as primary nav · 5 layouts</div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-tab="A" class="active"><span class="t-key">A</span>Horizontal Flow</button>
+    <button data-tab="B"><span class="t-key">B</span>Vertical Spine</button>
+    <button data-tab="C"><span class="t-key">C</span>Radial Hub</button>
+    <button data-tab="D"><span class="t-key">D</span>Split Canvas</button>
+    <button data-tab="E"><span class="t-key">E</span>Sankey Budget</button>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <!-- Layouts injected by JS -->
+</div>
+
+<!-- Tweaks (shown when the toolbar toggle is on) -->
+<div class="tweaks" id="tweaks">
+  <h3>Tweaks</h3>
+  <div class="row">
+    <label>Layout</label>
+    <select id="tw-layout">
+      <option value="A">A · Horizontal Flow</option>
+      <option value="B">B · Vertical Spine</option>
+      <option value="C">C · Radial Hub</option>
+      <option value="D">D · Split Canvas</option>
+      <option value="E">E · Sankey Budget</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>State</label>
+    <select id="tw-state">
+      <option value="loaded">Loaded · evaluated</option>
+      <option value="empty">Empty · no YAML</option>
+      <option value="stale">Stale · params edited</option>
+      <option value="evaluating">Evaluating…</option>
+      <option value="error">Validation error</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Theme</label>
+    <select id="tw-theme">
+      <option value="light">Light paper</option>
+      <option value="dark">Dark</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Annotations</label>
+    <select id="tw-anno">
+      <option value="on">On</option>
+      <option value="off">Off</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Density</label>
+    <select id="tw-density">
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+      <option value="low">Low</option>
+    </select>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// TWEAK DEFAULTS — persisted via edit-mode protocol
+// ============================================================
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "layout": "A",
+  "state": "loaded",
+  "theme": "light",
+  "annotations": "on",
+  "density": "medium"
+}/*EDITMODE-END*/;
+
+// Persisted playback position of layout
+const LS_KEY = "radiant_wf_tab";
+
+// ============================================================
+// SHARED SUBCOMPONENTS (as string builders)
+// ============================================================
+
+const STAGES = [
+  {k:"source",   name:"Source",       sub:"L_src(λ)",            health:"ok"},
+  {k:"atm",      name:"Atmosphere",   sub:"τ, L_path, L_atm",    health:"ok"},
+  {k:"optics",   name:"Optics",       sub:"PSF · MTF · τ_opt",   health:"ok"},
+  {k:"platform", name:"Platform",     sub:"smear · jitter",      health:"warn"},
+  {k:"detector", name:"Detector",     sub:"QE · noise · dark",   health:"ok"},
+  {k:"readout",  name:"Readout",      sub:"TDI · CDS · ADC",     health:"ok"},
+  {k:"perf",     name:"Performance",  sub:"SNR · NEDT · NIIRS",  health:"ok"},
+];
+
+function winChrome(title, hash="leo_mwir_clear.yaml · unsaved") {
+  return `
+    <div class="win-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="win-title">RADIANT v1.0.0 — ${title}</span>
+      <span class="mono" style="color:#888">${hash}</span>
+    </div>
+    <div class="menu">
+      <span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Tools</span><span>Help</span>
+      <span style="flex:1"></span>
+      <span class="mono" style="font-size:11px;color:#666">F5 Evaluate · Ctrl+O Open · Ctrl+S Save</span>
+    </div>
+  `;
+}
+
+function kpiRow(state){
+  if(state==="empty") return `<div class="scribble" style="font-size:20px;color:#888">— load a config to see metrics —</div>`;
+  if(state==="evaluating") return `
+    <div class="kpis">
+      <div class="kpi">SNR <b>…</b></div>
+      <div class="kpi">NEDT <b>…</b></div>
+      <div class="kpi">NIIRS <b>…</b></div>
+      <div class="kpi">GSD <b>…</b></div>
+      <div class="kpi">MTF_nyq <b>…</b></div>
+    </div>`;
+  if(state==="error") return `
+    <div class="kpis">
+      <div class="kpi" style="background:#fadcd3;border-color:#b33131">⚠ 3 validation errors</div>
+    </div>`;
+  const stale = state==="stale";
+  return `
+    <div class="kpis">
+      <div class="kpi hl">SNR <b>${stale?"47.3 →?":"47.3"}</b></div>
+      <div class="kpi">NEDT <b>${stale?"23 mK →?":"23 mK"}</b></div>
+      <div class="kpi">NIIRS <b>5.4</b></div>
+      <div class="kpi">GSD <b>3.6 m</b></div>
+      <div class="kpi">MTF_nyq <b>0.42</b></div>
+    </div>`;
+}
+
+function healthForState(stage, st){
+  if(st==="empty") return "stale";
+  if(st==="evaluating") return stage==="perf" ? "stale" : "evaluating";
+  if(st==="stale" && ["optics","platform","detector","readout","perf"].includes(stage)) return "stale";
+  if(st==="error" && stage==="detector") return "err";
+  return STAGES.find(s=>s.k===stage).health;
+}
+
+function nodeHTML(stg, st, extra=""){
+  const h = healthForState(stg.k, st);
+  const cls = h==="ok"?"":(h==="warn"?"warn":(h==="err"?"err":(h==="stale"?"stale":"")));
+  const active = stg.k==="optics" ? " active" : "";
+  return `
+    <div class="node ${cls}${active}" data-stage="${stg.k}">
+      <div class="nh">
+        <span class="ns">${stg.k}</span>
+        <span class="h ${h==='evaluating'?'evaluating':h}"></span>
+      </div>
+      <div class="nm">${stg.name}</div>
+      <div class="nsub">${stg.sub}</div>
+      ${extra}
+    </div>`;
+}
+
+function paramTree(){
+  return `
+    <div style="padding:6px 2px;border-bottom:1.5px dashed #999;display:flex;align-items:center;gap:6px">
+      <span class="scribble" style="font-size:20px">Parameters</span>
+      <input placeholder="search…" style="flex:1;font-family:'Kalam';font-size:13px;padding:3px 8px;border:1.5px solid #888;background:#fff8e5;border-radius:4px" />
+    </div>
+    <div style="padding:6px 2px">
+      <div class="label" style="margin-top:4px">▼ sensor.optics</div>
+      <div class="field"><span class="name">aperture_diameter</span><span class="val">0.30</span><span class="u">m</span></div>
+      <div class="field"><span class="name">focal_length</span><span class="val">1.20</span><span class="u">m</span></div>
+      <div class="field derived"><span class="name">f_number</span><span class="val">4.0</span><span class="u"></span><span class="tag">⚡ derived</span></div>
+      <div class="field"><span class="name">obscuration_ratio</span><span class="val">0.33</span><span class="u"></span></div>
+      <div class="field"><span class="name">wfe_rms</span><span class="val">0.07</span><span class="u">λ</span></div>
+      <div class="field"><span class="name">temperature</span><span class="val">280</span><span class="u">K</span></div>
+
+      <div class="label" style="margin-top:10px">▼ sensor.detector</div>
+      <div class="field"><span class="name">material</span><span class="val">HgCdTe</span><span class="u"></span></div>
+      <div class="field"><span class="name">pixel_pitch</span><span class="val">18.0</span><span class="u">µm</span></div>
+      <div class="field"><span class="name">cutoff_wavelength</span><span class="val">5.0</span><span class="u">µm</span></div>
+      <div class="field"><span class="name">temperature</span><span class="val">80</span><span class="u">K</span></div>
+
+      <div class="label" style="margin-top:10px">▸ sensor.readout</div>
+      <div class="label" style="margin-top:4px">▸ scenario.atmosphere</div>
+      <div class="label" style="margin-top:4px">▸ scenario.geometry</div>
+      <div class="label" style="margin-top:4px">▸ scenario.target</div>
+      <div class="label" style="margin-top:4px">▸ scenario.background</div>
+      <div class="label" style="margin-top:4px">▸ scenario.platform</div>
+    </div>
+  `;
+}
+
+function detailTabsBar(active="MTF"){
+  const tabs=["Spectral","MTF","Noise Budget","Sweep","Var Explorer","YAML","Console"];
+  return `
+    <div style="display:flex;gap:0;border-bottom:1.5px solid #555">
+      ${tabs.map(t=>`<div class="${t===active?'label':''}" style="padding:4px 12px;${t===active?'border:1.5px solid #555;border-bottom:2px solid var(--paper);background:var(--paper);border-radius:6px 8px 0 0;margin-bottom:-1.5px':''};font-family:'Kalam';font-size:14px;color:${t===active?'':'#666'};cursor:default">${t}</div>`).join('')}
+    </div>
+  `;
+}
+
+function mtfPlot(){
+  return `
+    <svg viewBox="0 0 400 160" style="width:100%;height:100%">
+      <!-- axes -->
+      <line x1="40" y1="130" x2="390" y2="130" class="arrow-ink"/>
+      <line x1="40" y1="10" x2="40" y2="130" class="arrow-ink"/>
+      <text x="8" y="20" font-family="JetBrains Mono" font-size="9">1.0</text>
+      <text x="8" y="130" font-family="JetBrains Mono" font-size="9">0</text>
+      <text x="360" y="148" font-family="JetBrains Mono" font-size="9">ν_nyq</text>
+      <text x="180" y="152" font-family="Caveat" font-size="13" fill="#555">spatial freq →</text>
+      <!-- curves: dashed = components, solid = system -->
+      <path d="M40,14 Q120,30 200,60 T390,120" fill="none" stroke="#2e5a8a" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <path d="M40,14 Q120,22 200,40 T390,90" fill="none" stroke="#3f7a3f" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <path d="M40,14 Q120,50 200,80 T390,130" fill="none" stroke="#c24a1a" stroke-width="2.5"/>
+      <!-- labels -->
+      <text x="300" y="78" font-family="Caveat" font-size="13" fill="#c24a1a">system</text>
+      <text x="300" y="54" font-family="Caveat" font-size="11" fill="#3f7a3f">diffraction</text>
+      <text x="300" y="105" font-family="Caveat" font-size="11" fill="#2e5a8a">pixel</text>
+      <!-- nyquist marker -->
+      <line x1="340" y1="10" x2="340" y2="130" stroke="#888" stroke-dasharray="2 2"/>
+    </svg>
+  `;
+}
+
+function spectralPlot(){
+  return `
+    <svg viewBox="0 0 400 160" style="width:100%;height:100%">
+      <line x1="40" y1="130" x2="390" y2="130" class="arrow-ink"/>
+      <line x1="40" y1="10" x2="40" y2="130" class="arrow-ink"/>
+      <text x="5" y="20" font-family="JetBrains Mono" font-size="9">L(λ)</text>
+      <text x="180" y="152" font-family="Caveat" font-size="13" fill="#555">λ (µm)  3 → 5</text>
+      <!-- atmosphere transmission shaded -->
+      <path d="M40,40 L90,50 L130,90 L170,40 L220,35 L260,110 L320,55 L390,45 L390,130 L40,130 Z" fill="#d9e7d6" opacity=".6"/>
+      <!-- source -->
+      <path d="M40,90 Q110,45 200,30 Q280,35 390,70" fill="none" stroke="#c24a1a" stroke-width="2"/>
+      <!-- atm -->
+      <path d="M40,120 Q120,80 200,60 Q280,65 390,95" fill="none" stroke="#2e5a8a" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="200" y="28" font-family="Caveat" font-size="12" fill="#c24a1a">L_target</text>
+      <text x="280" y="88" font-family="Caveat" font-size="12" fill="#2e5a8a">at aperture</text>
+    </svg>
+  `;
+}
+
+function noiseBudget(){
+  const rows = [
+    ["photon_shot",      111.6, 78],
+    ["dark_current_shot", 89.2, 62],
+    ["read_noise",        25.0, 18],
+    ["1_over_f",          12.0,  8],
+    ["ipc_crosstalk",      8.1,  6],
+    ["prnu_residual",      7.3,  5],
+    ["dsnu_residual",      4.2,  3],
+    ["quantization",       3.2,  2],
+  ];
+  return `
+    <div class="mono" style="font-size:12px;line-height:1.7">
+      ${rows.map(([n,e,w])=>`
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:140px;color:#333">${n}</span>
+          <span style="width:50px;text-align:right">${e.toFixed(1)}</span>
+          <span style="flex:1;height:12px;background:#e8e0cc;border:1px solid #999;position:relative">
+            <span style="position:absolute;inset:0 ${100-w}% 0 0;background:${n.includes('shot')||n.includes('dark')?'#c24a1a':'#2e5a8a'}"></span>
+          </span>
+        </div>
+      `).join('')}
+      <div style="border-top:1.5px dashed #888;margin-top:8px;padding-top:4px">
+        <b>Total (RSS):</b> 263.3 e⁻ &nbsp; · &nbsp; Signal: 12,450 e⁻ &nbsp; · &nbsp; <b>SNR: 47.3</b>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// LAYOUT A — HORIZONTAL HERO FLOW
+// ============================================================
+function layoutA(st){
+  const annos = st==="loaded" ? `
+    <div class="margin-anno" style="top:120px;right:20px;transform:rotate(3deg)">
+      ← signal chain is the<br/>primary nav; click<br/>a stage to drill in
+    </div>
+    <div class="margin-anno" style="top:360px;right:20px;transform:rotate(-2deg)">
+      ← active stage highlighted<br/>amber; its params + viz<br/>focus below
+    </div>
+    <div class="margin-anno" style="bottom:120px;right:20px;transform:rotate(-2deg)">
+      ← metric strip always<br/>visible; updates &lt;100ms<br/>on edits
+    </div>` : "";
+  return `
+    <div class="win L">
+      ${winChrome("leo_mwir_clear.yaml")}
+
+      <!-- HERO SIGNAL CHAIN -->
+      <div style="padding:14px 14px 8px;position:relative">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+          <div class="scribble" style="font-size:24px">Signal chain</div>
+          <div class="mono" style="font-size:11px;color:#666">last eval: 0.23 s · 500 λ points</div>
+        </div>
+        <div class="chain-h">
+          ${STAGES.map(s=>nodeHTML(s,st)).join('<div class="between">→</div>')}
+        </div>
+        <div style="margin-top:10px">${kpiRow(st)}</div>
+      </div>
+
+      <!-- BODY: params | viz | detail -->
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:0;border-top:1.5px dashed #888;margin-top:10px;min-height:440px">
+        <div style="padding:8px 10px;border-right:1.5px dashed #888">
+          ${paramTree()}
+        </div>
+        <div style="padding:10px;display:grid;grid-template-rows:auto 1fr auto;gap:10px">
+          <div class="scribble" style="font-size:22px">Optics — stage output</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="rough" style="padding:8px">
+              <div class="label" style="font-size:14px">MTF</div>
+              <div style="height:160px">${mtfPlot()}</div>
+            </div>
+            <div class="rough" style="padding:8px">
+              <div class="label" style="font-size:14px">Spectral radiance</div>
+              <div style="height:160px">${spectralPlot()}</div>
+            </div>
+          </div>
+          <div class="rough-soft" style="padding:8px">
+            ${detailTabsBar("Noise Budget")}
+            <div style="padding:10px">${noiseBudget()}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1.5px solid #555;padding:4px 10px;font-family:'JetBrains Mono';font-size:11px;color:#555">
+        ${st==="evaluating"?"⟳ Evaluating stage 4/7 — Detector …":st==="stale"?"◐ Stale — press F5 or edit stops":st==="error"?"✕ 3 validation errors · see console":"✓ Evaluated 0.23 s · 500 λ points · provenance #7f3a"}
+      </div>
+    </div>
+    ${annos}
+    ${overlayFor(st)}
+  `;
+}
+
+// ============================================================
+// LAYOUT B — VERTICAL SPINE
+// ============================================================
+function layoutB(st){
+  const row = (stg, expanded=false) => {
+    const h = healthForState(stg.k, st);
+    return `
+      <div style="display:flex;align-items:stretch;min-height:${expanded?"170px":"64px"}">
+        <div style="width:40px;display:flex;flex-direction:column;align-items:center;position:relative">
+          <div class="h ${h==='evaluating'?'evaluating':h}" style="width:18px;height:18px;margin-top:18px;border-width:2px"></div>
+          <div style="flex:1;width:2px;background:#555;margin-top:6px"></div>
+        </div>
+        <div style="flex:1;border-bottom:1.5px dashed #aaa;padding:10px 12px;${expanded?'background:#fff3c8':''}">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <div class="scribble" style="font-size:22px">${stg.name}</div>
+            <div class="mono" style="font-size:11px;color:#555">${stg.sub}</div>
+            <div style="flex:1"></div>
+            <div class="mono" style="font-size:11px;color:#666">${expanded?"▼ collapse":"▸ expand"}</div>
+          </div>
+          ${expanded ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px">
+              <div>
+                <div class="field"><span class="name">aperture_diameter</span><span class="val">0.30</span><span class="u">m</span></div>
+                <div class="field"><span class="name">focal_length</span><span class="val">1.20</span><span class="u">m</span></div>
+                <div class="field derived"><span class="name">f_number</span><span class="val">4.0</span><span class="u"></span><span class="tag">⚡</span></div>
+                <div class="field"><span class="name">wfe_rms</span><span class="val">0.07</span><span class="u">λ</span></div>
+              </div>
+              <div class="rough-soft" style="padding:4px 6px">
+                <div class="label" style="font-size:13px">MTF @ nyq = 0.42</div>
+                <div style="height:100px">${mtfPlot()}</div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  };
+  const annos = st==="loaded" ? `
+    <div class="margin-anno" style="top:140px;right:20px;transform:rotate(2deg)">
+      ← spine = the chain itself;<br/>stages expand inline,<br/>no "jumping around"
+    </div>
+    <div class="margin-anno" style="top:440px;right:20px;transform:rotate(-2deg)">
+      ← each stage reveals its<br/>params + mini-viz when open
+    </div>`:"";
+  return `
+    <div class="win L">
+      ${winChrome("leo_mwir_clear.yaml")}
+
+      <!-- top metric bar -->
+      <div style="padding:10px 14px;border-bottom:1.5px dashed #888">
+        ${kpiRow(st)}
+      </div>
+
+      <div style="display:grid;grid-template-columns:520px 1fr;min-height:720px">
+        <!-- left: vertical spine -->
+        <div style="border-right:1.5px dashed #888">
+          ${STAGES.map((s,i)=>row(s, s.k==="optics")).join('')}
+          <div style="padding:8px 12px 12px 52px">
+            <div class="mono" style="font-size:11px;color:#666">▸ Click any stage to expand · drag to reorder view</div>
+          </div>
+        </div>
+
+        <!-- right: visualization -->
+        <div style="padding:14px;display:grid;grid-template-rows:auto 1fr 1fr;gap:12px">
+          <div class="scribble" style="font-size:22px">Visualization — active stage: Optics</div>
+          <div class="rough" style="padding:10px">
+            <div class="label" style="font-size:14px">Spectral radiance · source → aperture → post-optics</div>
+            <div style="height:200px">${spectralPlot()}</div>
+          </div>
+          <div class="rough-soft" style="padding:10px">
+            ${detailTabsBar("Noise Budget")}
+            <div style="padding:10px">${noiseBudget()}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1.5px solid #555;padding:4px 10px;font-family:'JetBrains Mono';font-size:11px;color:#555">
+        ${st==="evaluating"?"⟳ Evaluating stage 4/7":st==="stale"?"◐ Stale — incremental re-eval pending":st==="error"?"✕ config has errors":"✓ Evaluated 0.23 s · provenance #7f3a"}
+      </div>
+    </div>
+    ${annos}
+    ${overlayFor(st)}
+  `;
+}
+
+// ============================================================
+// LAYOUT C — RADIAL HUB
+// ============================================================
+function layoutC(st){
+  // Arrange 7 stages around a center circle.
+  const R = 220, cx=380, cy=300;
+  const stageNodes = STAGES.map((s,i)=>{
+    const angle = (-Math.PI/2) + i * (2*Math.PI/STAGES.length);
+    const x = cx + R*Math.cos(angle);
+    const y = cy + R*Math.sin(angle);
+    const h = healthForState(s.k, st);
+    return `
+      <div style="position:absolute;left:${x-80}px;top:${y-38}px;width:160px;">
+        <div class="node ${h==='warn'?'warn':h==='err'?'err':h==='stale'?'stale':''}${s.k==='optics'?' active':''}" style="min-height:60px;padding:8px">
+          <div class="nh"><span class="ns">${s.k}</span><span class="h ${h==='evaluating'?'evaluating':h}"></span></div>
+          <div class="nm" style="font-size:18px">${s.name}</div>
+          <div class="nsub" style="font-size:11px">${s.sub}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // flow arrows in SVG
+  let arcs='';
+  for(let i=0;i<STAGES.length;i++){
+    const a = (-Math.PI/2) + i*(2*Math.PI/STAGES.length);
+    const b = (-Math.PI/2) + ((i+1)%STAGES.length)*(2*Math.PI/STAGES.length);
+    const x1=cx+(R-80)*Math.cos(a), y1=cy+(R-80)*Math.sin(a);
+    const x2=cx+(R-80)*Math.cos(b), y2=cy+(R-80)*Math.sin(b);
+    if(i<STAGES.length-1){
+      arcs += `<path d="M${x1},${y1} A${R-80},${R-80} 0 0 1 ${x2},${y2}" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+    }
+  }
+
+  const annos = st==="loaded" ? `
+    <div class="margin-anno" style="top:160px;right:20px;transform:rotate(3deg)">
+      ← hub view: "everything<br/>collapses into metrics."<br/>good for explaining the<br/>model to new analysts
+    </div>
+    <div class="margin-anno" style="bottom:180px;right:20px;transform:rotate(-2deg)">
+      ← stage contribution bars<br/>show how each stage<br/>degrades the signal
+    </div>`:"";
+  return `
+    <div class="win L">
+      ${winChrome("leo_mwir_clear.yaml")}
+      <div style="display:grid;grid-template-columns:1fr 380px;min-height:760px">
+        <!-- left: radial diagram -->
+        <div style="position:relative;min-height:640px;border-right:1.5px dashed #888">
+          <svg width="760" height="600" style="position:absolute;top:0;left:0">
+            <!-- rings -->
+            <circle cx="${cx}" cy="${cy}" r="${R-80}" fill="none" stroke="#aaa" stroke-dasharray="3 3"/>
+            ${arcs}
+          </svg>
+          <div style="position:absolute;left:${cx-110}px;top:${cy-100}px;width:220px;text-align:center">
+            <div class="rough" style="padding:14px 10px;background:#fff3c8;box-shadow:3px 4px 0 rgba(0,0,0,.1)">
+              <div class="scribble" style="font-size:22px">Performance</div>
+              <div class="mono" style="font-size:11px;color:#555">live metrics</div>
+              <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+                <div class="kpi hl" style="margin:0 auto">SNR <b>${st==='evaluating'?'…':'47.3'}</b></div>
+                <div class="kpi" style="margin:0 auto">NEDT <b>23 mK</b></div>
+                <div class="kpi" style="margin:0 auto">NIIRS <b>5.4</b></div>
+                <div class="kpi" style="margin:0 auto">GSD <b>3.6 m</b></div>
+              </div>
+            </div>
+          </div>
+          ${stageNodes}
+          <div style="position:absolute;left:20px;top:20px" class="scribble">Signal chain · radial view</div>
+          <div style="position:absolute;left:20px;bottom:16px" class="mono" style="font-size:11px;color:#666">
+            click any stage to focus · double-click centre for summary
+          </div>
+        </div>
+
+        <!-- right: contextual panel -->
+        <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+          <div class="scribble" style="font-size:22px">Focused: Optics</div>
+          <div class="rough-soft" style="padding:8px">
+            ${paramTree()}
+          </div>
+          <div class="rough" style="padding:8px">
+            <div class="label" style="font-size:14px">Stage contribution (RSS)</div>
+            <div class="mono" style="font-size:11px;line-height:1.8">
+              <div>optics.diffraction &nbsp;<span style="display:inline-block;width:40%;height:9px;background:#2e5a8a"></span> 0.68</div>
+              <div>platform.smear &nbsp;&nbsp;&nbsp;<span style="display:inline-block;width:55%;height:9px;background:#3f7a3f"></span> 0.93</div>
+              <div>detector.pixel &nbsp;&nbsp;&nbsp;&nbsp;<span style="display:inline-block;width:32%;height:9px;background:#c24a1a"></span> 0.64</div>
+              <div>detector.ipc &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="display:inline-block;width:75%;height:9px;background:#c99417"></span> 0.96</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1.5px solid #555;padding:4px 10px;font-family:'JetBrains Mono';font-size:11px;color:#555">
+        ${st==="evaluating"?"⟳ Radial view — animating stage fills":st==="stale"?"◐ Stale":st==="error"?"✕ errors":"✓ Evaluated 0.23 s"}
+      </div>
+    </div>
+    ${annos}
+    ${overlayFor(st)}
+  `;
+}
+
+// ============================================================
+// LAYOUT D — SPLIT CANVAS (chain + live curves between stages)
+// ============================================================
+function layoutD(st){
+  // chain with mini plots BETWEEN nodes showing the radiance curve at each frame
+  const miniPlot = (phase) => `
+    <svg viewBox="0 0 60 40" style="width:60px;height:40px">
+      <path d="${phase==='src'?'M2,30 Q20,10 40,8 Q55,10 58,18':
+                 phase==='atm'?'M2,32 Q20,14 40,16 Q55,22 58,26':
+                 phase==='opt'?'M2,34 Q20,18 40,20 Q55,26 58,30':
+                 phase==='plat'?'M2,35 Q20,22 40,24 Q55,30 58,33':
+                 phase==='det'?'M2,36 Q20,28 40,30 Q55,34 58,36':
+                                'M2,37 Q20,32 40,34 Q55,36 58,38'}"
+        fill="none" stroke="#c24a1a" stroke-width="1.5"/>
+      <line x1="2" y1="38" x2="58" y2="38" stroke="#888" stroke-width=".7"/>
+    </svg>
+  `;
+  const phases=['src','atm','opt','plat','det','ro','perf'];
+  const chain = `
+    <div style="display:flex;align-items:flex-end;gap:6px;padding:0 4px">
+      ${STAGES.map((s,i)=>{
+        const h = healthForState(s.k, st);
+        return `
+          <div style="flex:1;text-align:center">
+            <div class="node ${s.k==='optics'?'active':''} ${h==='warn'?'warn':h==='err'?'err':''}" style="min-height:70px;padding:8px">
+              <div class="nh"><span class="ns">${s.k}</span><span class="h ${h==='evaluating'?'evaluating':h}"></span></div>
+              <div class="nm" style="font-size:18px">${s.name}</div>
+              <div class="nsub" style="font-size:11px">${s.sub}</div>
+            </div>
+          </div>
+          ${i<STAGES.length-1?`<div style="display:flex;flex-direction:column;align-items:center;padding:4px">
+            ${miniPlot(phases[i])}
+            <div class="mono" style="font-size:9px;color:#666">${['L_src','L_atm','L_opt','L_fpa','e⁻','DN'][i]}</div>
+          </div>`:''}
+        `;
+      }).join('')}
+    </div>
+  `;
+  const annos = st==="loaded" ? `
+    <div class="margin-anno" style="top:160px;right:20px;transform:rotate(-3deg)">
+      ← mini-plots between<br/>stages show how the<br/>radiance degrades
+    </div>
+    <div class="margin-anno" style="top:460px;right:20px;transform:rotate(2deg)">
+      ← persona-agnostic:<br/>Tom reads MTF,<br/>Mike reads noise,<br/>Sarah runs sweeps
+    </div>`:"";
+  return `
+    <div class="win L">
+      ${winChrome("leo_mwir_clear.yaml")}
+      <!-- hero: chain + between-stage curves -->
+      <div style="padding:14px;border-bottom:1.5px dashed #888">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <div class="scribble" style="font-size:22px">Radiance propagation</div>
+          ${kpiRow(st)}
+        </div>
+        <div style="margin-top:10px">${chain}</div>
+      </div>
+
+      <!-- 3-column workspace -->
+      <div style="display:grid;grid-template-columns:240px 1fr 280px;min-height:540px">
+        <div style="padding:10px;border-right:1.5px dashed #888">
+          ${paramTree()}
+        </div>
+        <div style="padding:12px;display:grid;grid-template-rows:1fr 1fr;gap:10px">
+          <div class="rough" style="padding:8px">
+            <div class="label" style="font-size:14px">MTF budget</div>
+            <div style="height:160px">${mtfPlot()}</div>
+          </div>
+          <div class="rough-soft" style="padding:8px">
+            ${detailTabsBar("Noise Budget")}
+            <div style="padding:10px">${noiseBudget()}</div>
+          </div>
+        </div>
+        <div style="padding:10px;border-left:1.5px dashed #888">
+          <div class="scribble" style="font-size:20px">Quick actions</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+            <div class="rough-soft" style="padding:6px 8px;font-size:13px">▶ Run full chain  <span class="kbd">F5</span></div>
+            <div class="rough-soft" style="padding:6px 8px;font-size:13px">⇄ Sweep aperture…</div>
+            <div class="rough-soft" style="padding:6px 8px;font-size:13px">🎲 Monte Carlo…</div>
+            <div class="rough-soft" style="padding:6px 8px;font-size:13px">📁 Open YAML  <span class="kbd">Ctrl+O</span></div>
+            <div class="rough-soft" style="padding:6px 8px;font-size:13px">💾 Export provenance</div>
+          </div>
+          <div class="scribble" style="font-size:20px;margin-top:14px">Recent</div>
+          <div class="mono" style="font-size:11px;line-height:1.7;color:#555">
+            leo_mwir_clear.yaml<br/>
+            geo_swir_hazy.yaml<br/>
+            baseline_lwir.yaml<br/>
+            sarah_sweep_17.yaml
+          </div>
+          <div class="scribble" style="font-size:20px;margin-top:14px">Regime</div>
+          <div class="kpi" style="margin-top:4px">extended scene</div>
+        </div>
+      </div>
+
+      <div style="border-top:1.5px solid #555;padding:4px 10px;font-family:'JetBrains Mono';font-size:11px;color:#555">
+        ${st==="evaluating"?"⟳ Evaluating… MODTRAN cached · atmosphere stage reused":st==="stale"?"◐ Stale (3 stages downstream of optics)":st==="error"?"✕ errors":"✓ Evaluated 0.23 s · 500 λ · regime: extended"}
+      </div>
+    </div>
+    ${annos}
+    ${overlayFor(st)}
+  `;
+}
+
+// ============================================================
+// LAYOUT E — SANKEY / RADIOMETRIC BUDGET WATERFALL
+// ============================================================
+function layoutE(st){
+  // widths represent signal (e⁻) declining through the chain, with noise accumulating below baseline
+  const widths = [100, 94, 82, 78, 72, 68, 58];  // signal %
+  const noise  = [ 0,   6, 18, 22, 28, 32, 42];  // noise % (complement)
+  const labels = ["L_src","after τ","at FPA","smear/jitter","QE · shot","readout","digitized"];
+  const sankey = STAGES.map((s,i)=>{
+    const w = widths[i], n = noise[i];
+    const h = healthForState(s.k, st);
+    return `
+      <div class="sankey-stage">
+        <div style="position:absolute;top:8px;left:8px;display:flex;align-items:center;gap:4px">
+          <span class="h ${h==='evaluating'?'evaluating':h}"></span>
+          <span class="scribble" style="font-size:18px">${s.name}</span>
+        </div>
+        <div style="position:absolute;bottom:38px;left:0;right:0;height:${w*0.7}px;background:#c99417;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);opacity:.82"></div>
+        <div style="position:absolute;bottom:8px;left:0;right:0;height:${n*0.8}px;background:repeating-linear-gradient(45deg,#b33131 0 6px,#7a2222 6px 12px);opacity:.7;border-top:1.5px solid #6a1a1a"></div>
+        <div style="position:absolute;bottom:10px;right:8px" class="mono" style="font-size:10px">${labels[i]}</div>
+        <div style="position:absolute;top:8px;right:8px" class="mono" style="font-size:10px;color:#333">${w}%</div>
+      </div>
+    `;
+  }).join('');
+
+  const annos = st==="loaded" ? `
+    <div class="margin-anno" style="top:150px;right:20px;transform:rotate(2deg)">
+      ← gold = signal retained,<br/>red hatch = noise added<br/>at each stage
+    </div>
+    <div class="margin-anno" style="top:460px;right:20px;transform:rotate(-2deg)">
+      ← experimental! good for<br/>presentations + teaching;<br/>may be too "artsy" for<br/>daily use
+    </div>`:"";
+  return `
+    <div class="win L">
+      ${winChrome("leo_mwir_clear.yaml")}
+
+      <div style="padding:12px 14px;border-bottom:1.5px dashed #888;display:flex;justify-content:space-between;align-items:baseline">
+        <div class="scribble" style="font-size:24px">Radiometric waterfall</div>
+        ${kpiRow(st)}
+      </div>
+
+      <!-- the waterfall itself -->
+      <div style="padding:14px 14px 0;">
+        <div style="display:flex;gap:0">${sankey}</div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-family:'Kalam';font-size:13px;color:#444">
+          <div><span style="display:inline-block;width:16px;height:10px;background:#c99417;vertical-align:middle;border:1px solid #333"></span> signal retained (e⁻)</div>
+          <div><span style="display:inline-block;width:16px;height:10px;background:repeating-linear-gradient(45deg,#b33131 0 4px,#7a2222 4px 8px);vertical-align:middle;border:1px solid #333"></span> noise contributed</div>
+          <div style="flex:1;text-align:right" class="mono" style="font-size:11px;color:#666">widths ∝ e⁻ / total photon budget</div>
+        </div>
+      </div>
+
+      <!-- body -->
+      <div style="display:grid;grid-template-columns:260px 1fr;min-height:420px;margin-top:14px;border-top:1.5px dashed #888">
+        <div style="padding:10px;border-right:1.5px dashed #888">
+          ${paramTree()}
+        </div>
+        <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="rough" style="padding:8px">
+            <div class="label" style="font-size:14px">Spectral · pre/post atmosphere</div>
+            <div style="height:160px">${spectralPlot()}</div>
+          </div>
+          <div class="rough" style="padding:8px">
+            <div class="label" style="font-size:14px">MTF contributors</div>
+            <div style="height:160px">${mtfPlot()}</div>
+          </div>
+          <div class="rough-soft" style="padding:8px;grid-column:1 / -1">
+            ${detailTabsBar("Noise Budget")}
+            <div style="padding:10px">${noiseBudget()}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1.5px solid #555;padding:4px 10px;font-family:'JetBrains Mono';font-size:11px;color:#555">
+        ${st==="evaluating"?"⟳ Building waterfall…":st==="stale"?"◐ Stale — widths will redraw on eval":st==="error"?"✕ errors":"✓ Evaluated 0.23 s · all 7 stages"}
+      </div>
+    </div>
+    ${annos}
+    ${overlayFor(st)}
+  `;
+}
+
+// ============================================================
+// OVERLAYS (state-specific)
+// ============================================================
+function overlayFor(st){
+  if(st==="empty"){
+    return `<div class="overlay"><div class="box" style="text-align:center;max-width:420px">
+      <div class="scribble" style="font-size:30px">No configuration loaded</div>
+      <div style="margin:10px 0 14px;font-size:15px">
+        Open a sensor YAML, start from a template,<br/>or use File → New to build one from scratch.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <div class="rough-soft" style="padding:8px 14px;cursor:pointer">📁 Open YAML…</div>
+        <div class="rough-soft" style="padding:8px 14px;cursor:pointer">✨ From template…</div>
+        <div class="rough-soft" style="padding:8px 14px;cursor:pointer">＋ New blank</div>
+      </div>
+    </div></div>`;
+  }
+  if(st==="evaluating"){
+    return `<div class="overlay" style="background:rgba(246,242,234,.35)"><div class="box">
+      <div class="scribble" style="font-size:24px">⟳ Evaluating chain…</div>
+      <div style="font-size:13px">stage 4/7 · Detector · ~0.4 s elapsed</div>
+      <div style="margin-top:6px;height:8px;background:#e6e0d0;border:1.5px solid #888">
+        <div style="width:57%;height:100%;background:#3f7a3f"></div>
+      </div>
+      <div style="margin-top:6px;text-align:right" class="mono" style="font-size:11px"><span class="kbd">Esc</span> cancel</div>
+    </div></div>`;
+  }
+  if(st==="error"){
+    return `<div class="overlay" style="background:rgba(255,228,220,.55)"><div class="box" style="border-color:#b33131">
+      <div class="scribble" style="font-size:24px;color:#b33131">✕ Validation failed — 3 errors</div>
+      <ul style="margin:8px 0 8px 20px;font-size:13px">
+        <li><b>sensor.detector.cutoff_wavelength = 0.5 µm</b> — out of bounds [1.0, 15.0]. Fix: check the value or switch material.</li>
+        <li><b>scenario.geometry.altitude</b> missing — required. Fix: set altitude in YAML or CLI.</li>
+        <li><b>sensor.optics.f_number</b> conflicts with aperture/focal_length. Fix: remove f_number (derived).</li>
+      </ul>
+      <div style="text-align:right"><span class="kbd">F5</span> revalidate</div>
+    </div></div>`;
+  }
+  return "";
+}
+
+// ============================================================
+// MOUNT + INTERACTIONS
+// ============================================================
+const layouts = {A:layoutA,B:layoutB,C:layoutC,D:layoutD,E:layoutE};
+
+const state = {...TWEAK_DEFAULTS};
+// restore prior layout from localStorage
+try{
+  const saved = localStorage.getItem(LS_KEY);
+  if(saved && layouts[saved]) state.layout = saved;
+}catch(_){}
+
+function render(){
+  const st = state.state;
+  const l  = state.layout;
+  const body = document.body;
+  body.classList.toggle("dark", state.theme==="dark");
+  body.classList.toggle("anno-off", state.annotations==="off");
+  document.getElementById("stage").innerHTML = layouts[l](st);
+  // density
+  const s = document.getElementById("stage");
+  s.style.fontSize = state.density==="high" ? "13px" : state.density==="low" ? "16px" : "14px";
+  // hide annotations if off
+  if(state.annotations==="off"){
+    s.querySelectorAll(".anno").forEach(el=>el.style.display="none");
+  }
+  // tabs active
+  document.querySelectorAll("#tabs button").forEach(b=>{
+    b.classList.toggle("active", b.dataset.tab===l);
+  });
+  // sync tweak selects
+  ["layout","state","theme","anno","density"].forEach(k=>{
+    const map={layout:"layout",state:"state",theme:"theme",anno:"annotations",density:"density"};
+    const el=document.getElementById("tw-"+k);
+    if(el) el.value = state[map[k]];
+  });
+  try{ localStorage.setItem(LS_KEY, state.layout);}catch(_){}
+}
+
+// tab clicks
+document.getElementById("tabs").addEventListener("click", e=>{
+  const b = e.target.closest("button");
+  if(!b) return;
+  state.layout = b.dataset.tab;
+  postEdit({layout:state.layout});
+  render();
+});
+
+// keyboard shortcuts A/B/C/D/E
+window.addEventListener("keydown", e=>{
+  if(e.target.matches("input,textarea,select")) return;
+  const k = e.key.toUpperCase();
+  if(layouts[k]){ state.layout=k; postEdit({layout:k}); render(); }
+});
+
+// tweak protocol
+function postEdit(edits){
+  try{
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits:Object.entries(edits).reduce((a,[k,v])=>{
+      // map short keys to JSON schema keys
+      const m={layout:"layout",state:"state",theme:"theme",annotations:"annotations",density:"density"};
+      a[m[k]||k]=v; return a;
+    },{})}, '*');
+  }catch(_){}
+}
+
+window.addEventListener("message", e=>{
+  const d=e.data||{};
+  if(d.type==="__activate_edit_mode"){ document.getElementById("tweaks").classList.add("show"); }
+  if(d.type==="__deactivate_edit_mode"){ document.getElementById("tweaks").classList.remove("show"); }
+});
+window.parent.postMessage({type:'__edit_mode_available'}, '*');
+
+// hook tweak selects
+["layout","state","theme","anno","density"].forEach(k=>{
+  const el = document.getElementById("tw-"+k);
+  if(!el) return;
+  el.addEventListener("change", ()=>{
+    const map={layout:"layout",state:"state",theme:"theme",anno:"annotations",density:"density"};
+    state[map[k]] = el.value;
+    postEdit({[map[k]]:el.value});
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>

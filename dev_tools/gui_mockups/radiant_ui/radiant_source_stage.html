@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1600" />
+<title>RADIANT — Source Stage</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ebeef2;
+    --panel:#fafbfc;
+    --panel-2:#f1f3f6;
+    --panel-3:#e6e9ee;
+    --panel-4:#dde2e9;
+    --line:#cfd5de;
+    --line-2:#b7bfcb;
+    --ink:#1b2230;
+    --ink-2:#384050;
+    --muted:#6b7380;
+    --muted-2:#8a93a1;
+    --accent:#b8431a;
+    --accent-soft:#f6e2d6;
+    --ok:#2f7a3a;
+    --ok-soft:#dcebdd;
+    --warn:#a97c14;
+    --warn-soft:#f5ebcf;
+    --err:#a8302a;
+    --err-soft:#f3dbd7;
+    --stale:#9aa3b0;
+    --stale-soft:#e6e9ee;
+    --focus:#2f5aa8;
+    --focus-soft:#dde6f4;
+    --grid-cell:#e6e9ee;
+    --grid-valid:#fafbfc;
+    --grid-invalid:repeating-linear-gradient(45deg,#eef0f4,#eef0f4 4px,#e0e3ea 4px,#e0e3ea 8px);
+  }
+  body.dark{
+    --bg:#0f1216;
+    --panel:#171a21;
+    --panel-2:#1d2029;
+    --panel-3:#262a35;
+    --panel-4:#2f3340;
+    --line:#2b3140;
+    --line-2:#3a4254;
+    --ink:#e6e9ef;
+    --ink-2:#c3c9d4;
+    --muted:#8b94a4;
+    --muted-2:#6e7685;
+    --accent:#e08157;
+    --accent-soft:#3a2218;
+    --ok:#7fb987;
+    --ok-soft:#1f2f22;
+    --warn:#e0b249;
+    --warn-soft:#3a2f16;
+    --err:#e07874;
+    --err-soft:#3a1e1c;
+    --stale:#666b77;
+    --stale-soft:#242832;
+    --focus:#86a8df;
+    --focus-soft:#1e2a3e;
+    --grid-cell:#1d2029;
+    --grid-valid:#1a1d24;
+    --grid-invalid:repeating-linear-gradient(45deg,#181b22,#181b22 4px,#22262f 4px,#22262f 8px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.35}
+  body{padding:18px 24px 24px}
+
+  /* ---------- page header ---------- */
+  .ph{display:flex;align-items:flex-end;gap:18px;margin-bottom:12px}
+  .ph .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .ph .mark{
+    width:26px;height:26px;border-radius:5px;
+    background:linear-gradient(135deg,var(--accent) 0%, var(--accent) 50%, var(--ink) 50%, var(--ink) 100%);
+  }
+  .ph h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .ph .sub{color:var(--muted);font-size:12px;margin-top:1px}
+  .ph .tabs{display:flex;gap:2px;flex:1;margin-left:20px;border-bottom:1px solid var(--line);min-width:0}
+  .ph .tabs button{
+    font:inherit;font-weight:500;font-size:13px;
+    background:transparent;border:1px solid transparent;border-bottom:none;
+    padding:7px 14px;cursor:pointer;color:var(--muted);
+    border-radius:5px 5px 0 0;white-space:nowrap;position:relative;top:1px;
+  }
+  .ph .tabs button.active{background:var(--panel);border-color:var(--line);color:var(--ink)}
+  .ph .tabs button:hover:not(.active){color:var(--ink);background:var(--panel-2)}
+  .ph .tabs .sp{flex:1}
+  .ph .tools{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}
+  .ph .tools kbd{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;
+    padding:1px 5px;border-radius:3px;color:var(--ink-2)
+  }
+
+  /* ---------- application window ---------- */
+  .app{
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    box-shadow:0 1px 0 rgba(0,0,0,.02), 0 8px 30px rgba(20,30,50,.08);
+    overflow:hidden;
+  }
+  .tb{
+    display:flex;align-items:center;gap:8px;
+    padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);
+    font-size:12px;color:var(--ink-2);
+  }
+  .tb .dots{display:flex;gap:6px}
+  .tb .dots i{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+  .tb .dots i.r{background:#ec6a5e}.tb .dots i.y{background:#f4bf4f}.tb .dots i.g{background:#61c555}
+  .tb .title{flex:1;text-align:center;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tb .title .sep{color:var(--muted);margin:0 6px}
+  .tb .chip{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 6px;
+    border:1px solid var(--line);border-radius:3px;background:var(--panel);color:var(--muted);
+    white-space:nowrap;
+  }
+  .mb{
+    display:flex;gap:2px;padding:2px 4px;border-bottom:1px solid var(--line);
+    background:var(--panel);font-size:12px;
+  }
+  .mb > span{padding:4px 10px;cursor:default;color:var(--ink-2);border-radius:4px}
+  .mb > span:hover{background:var(--panel-2)}
+
+  /* ---------- signal-chain strip (compact) ---------- */
+  .chain{
+    display:grid;grid-template-columns:repeat(7, 1fr);gap:6px;
+    padding:8px 14px;background:var(--panel-2);border-bottom:1px solid var(--line);
+  }
+  .stage{
+    position:relative;padding:7px 10px;background:var(--panel);
+    border:1px solid var(--line);border-radius:5px;cursor:pointer;
+    min-height:46px;
+  }
+  .stage:hover{background:var(--panel-3)}
+  .stage.active{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .stage .h{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .stage .n{font-size:9.5px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
+  .stage .t{font-size:12.5px;font-weight:600;margin-top:1px;color:var(--ink)}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.err{background:var(--err)}.dot.stale{background:var(--stale)}
+
+  /* ---------- main body grid ---------- */
+  .body{
+    display:grid;
+    grid-template-columns: 320px 1fr 280px;
+    min-height: 800px;
+  }
+  .body > .params{grid-column:1;border-right:1px solid var(--line);background:var(--panel);overflow:auto;max-height:800px}
+  .body > .canvas{grid-column:2;background:var(--panel);overflow:auto;max-height:800px}
+  .body > .validation{grid-column:3;background:var(--panel-2);border-left:1px solid var(--line);overflow:auto;max-height:800px}
+
+  /* ---------- scenario matrix ---------- */
+  .scenario-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .scenario-h .t{font-size:12px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.05em}
+  .scenario-h .crumb{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-2);
+    display:flex;align-items:center;gap:0;
+  }
+  .scenario-h .crumb .v{padding:1px 6px;background:var(--panel);border:1px solid var(--line);border-radius:3px}
+  .scenario-h .crumb .v.acc{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .scenario-h .crumb .sep{color:var(--muted-2);padding:0 4px}
+  .scenario-h .row-id{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-left:auto}
+  .scenario-h .show-tog{font-size:11.5px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px}
+
+  .matrix-wrap{display:grid;grid-template-columns: 76px repeat(15, 1fr);gap:2px;font-size:10.5px;font-family:'IBM Plex Mono',monospace}
+  .mx-h{
+    background:transparent;color:var(--muted);text-align:center;padding:3px 0;
+    font-weight:500;text-transform:uppercase;letter-spacing:.04em;
+  }
+  .mx-h.row{text-align:left;padding-left:0;color:var(--ink-2);font-weight:600;text-transform:none;letter-spacing:0;font-size:11.5px;font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center}
+  .mx-h.span2{grid-column:span 3}
+  .mx-h.subhead{font-size:9.5px;color:var(--muted-2)}
+  .mx-h.scn{padding:1px 0;border-top:1px solid var(--line);background:var(--panel-3)}
+  .mx-cell{
+    background:var(--grid-valid);border:1px solid var(--line);border-radius:2px;
+    height:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:10px;position:relative;
+  }
+  .mx-cell:hover{border-color:var(--ink-2);background:var(--panel-3)}
+  .mx-cell.invalid{background:var(--grid-invalid);cursor:not-allowed;color:transparent;border-color:transparent}
+  .mx-cell.invalid:hover{border-color:transparent;background:var(--grid-invalid)}
+  .mx-cell.sel{
+    background:var(--accent);border-color:var(--accent);color:#fff;
+    box-shadow:0 0 0 2px var(--accent-soft);font-weight:600;
+  }
+  .mx-cell.sel::after{content:"●"}
+  .mx-cell .tcode{font-size:9.5px;font-weight:500}
+  .mx-cell.t-T1{color:#7e3a98}.mx-cell.t-T2{color:#1f6c7c}.mx-cell.t-T3{color:#a4541b}
+  .mx-cell.t-T5{color:#5a607a}
+  .mx-cell.subcase{background:var(--panel-3)}
+  body.dark .mx-cell.t-T1{color:#cfa3df}body.dark .mx-cell.t-T2{color:#7fc8d4}body.dark .mx-cell.t-T3{color:#e0a76e}
+
+  .legend{display:flex;gap:14px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+  .legend .li{display:flex;align-items:center;gap:5px}
+  .legend .sw{width:14px;height:10px;border-radius:2px;border:1px solid var(--line);display:inline-block}
+  .legend .sw.invalid{background:var(--grid-invalid)}
+  .legend .sw.t1{background:#e9ddef}
+  .legend .sw.t2{background:#dceaee}
+  .legend .sw.t3{background:#f2dec5}
+  .legend .sw.t5{background:#e0e3ea}
+  .legend .sw.sub{background:var(--panel-3)}
+  body.dark .legend .sw.t1{background:#3a2c40}
+  body.dark .legend .sw.t2{background:#1f3940}
+  body.dark .legend .sw.t3{background:#3e2f1c}
+
+  /* ---------- params (left) ---------- */
+  .panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px 6px;border-bottom:1px solid var(--line);background:var(--panel-2);position:sticky;top:0;z-index:1}
+  .panel-h .t{font-size:11.5px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+  .panel-h .a{font-size:11px;color:var(--muted);display:flex;gap:8px;white-space:nowrap}
+  .panel-h .a span{cursor:pointer}
+  .panel-h .a span:hover{color:var(--ink)}
+
+  .group{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .group:last-child{border-bottom:none}
+  .gh{display:flex;align-items:center;gap:6px;margin-bottom:8px;color:var(--ink);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .gh .chev{color:var(--muted);font-family:'IBM Plex Mono',monospace;width:10px;display:inline-block}
+  .gh .ic{width:14px;height:14px;color:var(--muted)}
+  .gh .badge{
+    margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;
+    padding:1px 6px;background:var(--panel-3);border:1px solid var(--line);border-radius:3px;
+    color:var(--muted);text-transform:none;font-weight:500;letter-spacing:0;
+  }
+  .gh .badge.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+  .gh .badge.err{background:var(--err-soft);border-color:var(--err);color:var(--err)}
+
+  .field{
+    display:grid;grid-template-columns: 1fr 110px;gap:8px;align-items:center;
+    padding:3px 0;color:var(--ink-2);position:relative;
+  }
+  .field .lbl{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .field .lbl .u{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-left:4px}
+  .field input, .field select{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;text-align:right;
+    padding:3px 6px;border:1px solid var(--line);background:var(--panel-2);
+    border-radius:3px;color:var(--ink);outline:none;width:100%;
+  }
+  .field input:focus, .field select:focus{border-color:var(--focus);background:var(--panel)}
+  .field.error input, .field.error select{border-color:var(--err);background:var(--err-soft)}
+  .field.error::after{content:"!";position:absolute;right:-5px;top:5px;color:var(--err);font-weight:bold;font-size:11px;background:var(--err-soft);width:14px;height:14px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--err)}
+  .field.warn input, .field.warn select{border-color:var(--warn)}
+  .field.derived input{background:var(--panel-3);color:var(--muted);border-style:dashed}
+  .field.path .v{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    padding:3px 6px;border:1px solid var(--line);background:var(--panel-2);
+    border-radius:3px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    cursor:pointer;
+  }
+  .field.path .v:hover{background:var(--panel-3)}
+
+  .seg{
+    display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel-2);
+  }
+  .seg button{
+    flex:1;font:inherit;font-size:11.5px;padding:4px 6px;
+    background:transparent;border:none;color:var(--ink-2);cursor:pointer;border-right:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:var(--ink);color:var(--panel)}
+  body.dark .seg button.on{background:var(--ink-2);color:var(--panel)}
+
+  /* spec form picker (radio cards) */
+  .spec-cards{display:flex;flex-direction:column;gap:5px}
+  .spec-card{
+    display:grid;grid-template-columns: 18px 1fr;gap:8px;
+    padding:7px 10px;border:1px solid var(--line);border-radius:4px;
+    background:var(--panel-2);cursor:pointer;align-items:flex-start;
+  }
+  .spec-card:hover{background:var(--panel-3)}
+  .spec-card.on{background:var(--accent-soft);border-color:var(--accent)}
+  .spec-card.disabled{opacity:.4;cursor:not-allowed;background:var(--panel-2)}
+  .spec-card .rb{
+    width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line-2);background:var(--panel);
+    margin-top:1px;position:relative;flex-shrink:0;
+  }
+  .spec-card.on .rb{border-color:var(--accent)}
+  .spec-card.on .rb::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--accent)}
+  .spec-card .name{font-size:12px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;margin-bottom:1px}
+  .spec-card .name .code{font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:var(--muted);background:var(--panel);padding:0 5px;border:1px solid var(--line);border-radius:3px}
+  .spec-card .formula{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .spec-card .desc{font-size:11px;color:var(--muted);margin-top:1px}
+  .spec-card.on .name .code{background:var(--panel);border-color:var(--accent)}
+
+  /* shape picker (icon grid) */
+  .shape-grid{display:grid;grid-template-columns:repeat(4, 1fr);gap:5px}
+  .shape-tile{
+    border:1px solid var(--line);border-radius:4px;padding:8px 4px 4px;
+    background:var(--panel-2);cursor:pointer;text-align:center;
+  }
+  .shape-tile:hover{background:var(--panel-3)}
+  .shape-tile.on{background:var(--accent-soft);border-color:var(--accent)}
+  .shape-tile svg{width:32px;height:24px;color:var(--ink-2);margin-bottom:2px}
+  .shape-tile.on svg{color:var(--accent)}
+  .shape-tile .n{font-size:10.5px;color:var(--ink-2);font-weight:500}
+  .shape-tile.on .n{color:var(--accent)}
+
+  /* ---------- canvas (center) ---------- */
+  .ch{
+    display:flex;align-items:center;gap:12px;padding:10px 16px 8px;
+    border-bottom:1px solid var(--line);background:var(--panel-2);
+  }
+  .ch .label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .ch h2{margin:0;font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.005em}
+  .ch h2 .code{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);font-weight:500;margin-left:8px;padding:1px 6px;background:var(--accent-soft);border-radius:3px}
+  .ch .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .ch .crumb{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;gap:0;flex-wrap:wrap}
+  .ch .crumb .v{padding:1px 6px;background:var(--panel);border:1px solid var(--line);border-radius:3px}
+  .ch .crumb .v.acc{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .ch .crumb .sep{color:var(--muted-2);padding:0 4px}
+  .ch .preset-pop{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    padding:4px 10px;border:1px solid var(--line);background:var(--panel);border-radius:4px;color:var(--ink-2);cursor:pointer;
+  }
+  .ch .preset-pop:hover{background:var(--panel-3)}
+  .ch .preset-pop .ic{color:var(--muted);margin-right:4px}
+
+  .viz-tabs{
+    display:flex;gap:0;border-bottom:1px solid var(--line);padding:0 16px;background:var(--panel-2);
+  }
+  .viz-tabs button{
+    font:inherit;font-size:12px;padding:7px 14px;background:transparent;
+    border:none;border-bottom:2px solid transparent;cursor:pointer;color:var(--muted);
+    position:relative;top:1px;white-space:nowrap;
+  }
+  .viz-tabs button.on{color:var(--accent);border-color:var(--accent);font-weight:500}
+  .viz-tabs button:hover:not(.on){color:var(--ink)}
+  .viz-tabs .sp{flex:1}
+  .viz-tabs .meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);padding:9px 0}
+
+  .viz-body{padding:16px}
+
+  /* spectral plot */
+  .plot-card{
+    border:1px solid var(--line);border-radius:5px;background:var(--panel);
+    padding:12px 14px;
+  }
+  .plot-card + .plot-card{margin-top:12px}
+  .plot-card .ph2{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+  .plot-card .ph2 h3{margin:0;font-size:12.5px;font-weight:600}
+  .plot-card .ph2 .y{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+  .plot-svg{width:100%;height:180px;display:block}
+  .plot-card .legend2{display:flex;gap:14px;font-size:11px;color:var(--ink-2);margin-top:6px;font-family:'IBM Plex Mono',monospace}
+  .plot-card .legend2 .sw{width:14px;height:3px;border-radius:1px;display:inline-block;margin-right:4px;vertical-align:middle}
+
+  /* geometry diagram */
+  .geom-svg{width:100%;height:380px;display:block;background:var(--panel-2);border:1px solid var(--line);border-radius:5px}
+  .geom-tab .stat{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-top:10px}
+  .geom-tab .stat .c{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:8px 12px;
+  }
+  .geom-tab .stat .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .geom-tab .stat .v{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--ink);margin-top:2px}
+  .geom-tab .stat .v .u{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);font-weight:400;margin-left:3px}
+
+  /* scene-fill diagram */
+  .scn-svg{width:100%;height:340px;display:block;background:var(--panel-2);border:1px solid var(--line);border-radius:5px}
+
+  /* ---------- validation panel (right) ---------- */
+  .val-h{padding:10px 14px 6px;border-bottom:1px solid var(--line);background:var(--panel-2);position:sticky;top:0}
+  .val-h .t{font-size:11.5px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.05em}
+  .val-summary{display:flex;gap:8px;margin-top:6px;font-size:11.5px;font-family:'IBM Plex Mono',monospace}
+  .val-summary .pill{padding:2px 8px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;gap:4px}
+  .val-summary .pill.ok{color:var(--ok);background:var(--ok-soft);border-color:var(--ok)}
+  .val-summary .pill.warn{color:var(--warn);background:var(--warn-soft);border-color:var(--warn)}
+  .val-summary .pill.err{color:var(--err);background:var(--err-soft);border-color:var(--err)}
+  .val-list{padding:8px 0}
+  .val-item{
+    padding:8px 14px;border-left:3px solid transparent;cursor:pointer;font-size:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .val-item:hover{background:var(--panel-3)}
+  .val-item.err{border-left-color:var(--err)}
+  .val-item.warn{border-left-color:var(--warn)}
+  .val-item.info{border-left-color:var(--focus)}
+  .val-item .lvl{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  .val-item.err .lvl{color:var(--err)}
+  .val-item.warn .lvl{color:var(--warn)}
+  .val-item.info .lvl{color:var(--focus)}
+  .val-item .msg{margin-top:2px;color:var(--ink-2);line-height:1.4}
+  .val-item .field-ref{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:4px}
+  .val-item .field-ref::before{content:"→ ";color:var(--muted-2)}
+
+  .descriptor-card{
+    margin:8px 14px;padding:10px 12px;
+    border:1px solid var(--line);border-radius:4px;background:var(--panel);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-2);
+  }
+  .descriptor-card .dh{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .descriptor-card .dr{display:flex;justify-content:space-between;padding:1px 0}
+  .descriptor-card .dr .k{color:var(--muted)}
+  .descriptor-card .dr .v{color:var(--ink)}
+  .descriptor-card .dr .v.acc{color:var(--accent);font-weight:500}
+
+  /* ---------- status bar ---------- */
+  .sb{
+    display:flex;align-items:center;gap:14px;padding:6px 14px;
+    border-top:1px solid var(--line);background:var(--panel-2);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
+    white-space:nowrap;overflow:hidden;
+  }
+  .sb > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0}
+  .sb .ok{color:var(--ok)}.sb .warn{color:var(--warn)}.sb .err{color:var(--err)}
+  .sb .sp{flex:1}
+
+  /* ---------- tweaks ---------- */
+  .tw{
+    position:fixed;right:18px;bottom:18px;z-index:30;
+    background:var(--panel);border:1px solid var(--line-2);border-radius:7px;
+    box-shadow:0 8px 30px rgba(20,30,50,.18);width:300px;font-size:12px;display:none;
+  }
+  .tw.open{display:block}
+  .tw .twh{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);border-radius:7px 7px 0 0}
+  .tw .twh .t{font-weight:600}
+  .tw .twh button{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px}
+  .tw .body2{padding:10px 12px;display:flex;flex-direction:column;gap:9px}
+  .tw label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ink-2)}
+  .tw label .kk{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .tw select{font:inherit;font-size:11.5px;padding:3px 6px;border:1px solid var(--line);background:var(--panel-2);border-radius:3px;color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="ph">
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>RADIANT</h1>
+      <div class="sub">Source Stage · target + background + LOS geometry</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button onclick="location.href='RADIANT Mid-fi.html'" title="Open the visual signal-chain workspace"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;vertical-align:-2px;margin-right:6px"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg>Workspace</button>
+    <button class="active" title="You are here — Source Stage detail (a Workspace stage)"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px"></span>Workspace · Source Stage</button>
+    <button onclick="location.href='RADIANT Scripting.html'" title="Open the Python scripting workspace"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;vertical-align:-2px;margin-right:6px"><path d="M2 4 L5 7 L2 10"/><line x1="6" y1="11" x2="13" y2="11"/></svg>Scripting</button>
+    <div class="sp"></div>
+  </div>
+  <div class="tools">
+    <span>Layout</span><kbd>D</kbd>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- title bar -->
+  <div class="tb">
+    <div class="dots"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="title">leo_mwir_clear.yaml<span class="sep">—</span>RADIANT v1.0.0 — Source Stage</div>
+    <div class="chip">#7f3a · git b4e0c1</div>
+  </div>
+  <div class="mb">
+    <span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Tools</span><span>Help</span>
+  </div>
+
+  <!-- compact signal-chain strip -->
+  <div class="chain" id="chain"></div>
+
+  <!-- stage body grid -->
+  <div class="body">
+
+    <!-- PARAMS (left rail) -->
+    <div class="params">
+      <div class="panel-h">
+        <div class="t">Parameters</div>
+        <div class="a"><span title="Validate">⌥V</span><span title="Search">⌘F</span><span title="More">⋯</span></div>
+      </div>
+
+      <!-- Target -->
+      <div class="group">
+        <div class="gh"><span class="chev">▾</span>Target<span class="badge" id="bTarget">T3 mixed</span></div>
+
+        <div class="field">
+          <div class="lbl">Scene type</div>
+          <div class="seg">
+            <button class="on">extended</button>
+            <button>sub_pixel</button>
+            <button>point</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="lbl">Target location</div>
+          <select>
+            <option>terrestrial</option>
+            <option>airborne</option>
+            <option>no_atmosphere</option>
+            <option>at_aperture</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="lbl">Wavelength regime</div>
+          <select>
+            <option>VIS</option><option>NIR</option><option>SWIR</option><option selected>MWIR</option><option>LWIR</option>
+          </select>
+        </div>
+        <div class="field derived">
+          <div class="lbl">h_tgt <span class="u">m</span></div>
+          <input value="0">
+        </div>
+
+        <div style="margin-top:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px">Spec form</div></div>
+
+        <div class="spec-cards">
+          <div class="spec-card disabled" title="Reflective only — disabled in MWIR (mixed mandatory)">
+            <div class="rb"></div>
+            <div>
+              <div class="name">Graybody spectral <span class="code">S3</span></div>
+              <div class="formula">L(λ) = ε(λ) · B(λ, T)</div>
+            </div>
+          </div>
+          <div class="spec-card on">
+            <div class="rb"></div>
+            <div>
+              <div class="name">Mixed emit + reflect <span class="code">S7</span></div>
+              <div class="formula">L = ε·B(T) + (1−ε)·E_illum/π</div>
+              <div class="desc">MWIR ambient — Kirchhoff; mandatory per matrix §3.2</div>
+            </div>
+          </div>
+          <div class="spec-card disabled">
+            <div class="rb"></div>
+            <div>
+              <div class="name">User L at source <span class="code">S8</span></div>
+              <div class="formula">L_source(λ)  →  full atmosphere transport</div>
+            </div>
+          </div>
+          <div class="spec-card disabled">
+            <div class="rb"></div>
+            <div>
+              <div class="name">Brightness temperature <span class="code">S11</span></div>
+              <div class="formula">T_B(λ) — invert Planck</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px">Material · S7 inputs</div></div>
+
+        <div class="field">
+          <div class="lbl">T_t <span class="u">K</span></div>
+          <input value="295.0">
+        </div>
+        <div class="field path">
+          <div class="lbl">ε(λ)</div>
+          <div class="v" title="materials/painted_metal_v3.csv">painted_metal_v3.csv ⤴</div>
+        </div>
+        <div class="field derived">
+          <div class="lbl">ρ(λ) = 1−ε(λ)</div>
+          <input value="—" disabled>
+        </div>
+
+        <div style="margin-top:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px">Shape · sub_pixel only</div></div>
+
+        <div class="shape-grid" style="opacity:.5">
+          <div class="shape-tile"><svg viewBox="0 0 32 24"><circle cx="16" cy="12" r="9" stroke="currentColor" fill="none" stroke-width="1.5"/></svg><div class="n">disk</div></div>
+          <div class="shape-tile"><svg viewBox="0 0 32 24"><rect x="8" y="6" width="16" height="12" stroke="currentColor" fill="none" stroke-width="1.5"/></svg><div class="n">plate</div></div>
+          <div class="shape-tile"><svg viewBox="0 0 32 24"><circle cx="16" cy="12" r="9" stroke="currentColor" fill="none" stroke-width="1.5"/><ellipse cx="16" cy="12" rx="9" ry="3" stroke="currentColor" fill="none" stroke-width=".8"/></svg><div class="n">sphere</div></div>
+          <div class="shape-tile"><svg viewBox="0 0 32 24"><rect x="6" y="8" width="20" height="8" rx="4" stroke="currentColor" fill="none" stroke-width="1.5"/></svg><div class="n">cylinder</div></div>
+        </div>
+      </div>
+
+      <!-- Background -->
+      <div class="group">
+        <div class="gh"><span class="chev">▾</span>Background<span class="badge">B3 ground</span></div>
+        <div class="field">
+          <div class="lbl">Background type</div>
+          <select>
+            <option selected>GroundBackground</option>
+            <option>UserSpectralBackground</option>
+            <option>ColdSpaceBackground</option>
+            <option>AtApertureBackground</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="lbl">T_g <span class="u">K</span></div>
+          <input value="288.0">
+        </div>
+        <div class="field path">
+          <div class="lbl">ε_g(λ)</div>
+          <div class="v" title="materials/grass_dry.csv">grass_dry.csv ⤴</div>
+        </div>
+        <div class="field derived">
+          <div class="lbl">ρ_g(λ) = 1−ε_g</div>
+          <input value="—" disabled>
+        </div>
+      </div>
+
+      <!-- Illumination -->
+      <div class="group">
+        <div class="gh"><span class="chev">▾</span>Illumination<span class="badge">I1 solar+sky</span></div>
+        <div class="field">
+          <div class="lbl">Source</div>
+          <select><option>solar TOA + diffuse sky</option><option>solar direct only</option><option>none (thermal)</option><option>user E_illum(λ)</option></select>
+        </div>
+        <div class="field path">
+          <div class="lbl">Solar spectrum</div>
+          <div class="v" title="data/solar/Kurucz_2005.csv">Kurucz_2005.csv ⤴</div>
+        </div>
+        <div class="field warn">
+          <div class="lbl">θ_s <span class="u">deg</span></div>
+          <input value="42.5">
+        </div>
+        <div class="field">
+          <div class="lbl">Δφ <span class="u">deg</span></div>
+          <input value="35.0">
+        </div>
+      </div>
+
+      <!-- LOS Geometry -->
+      <div class="group">
+        <div class="gh"><span class="chev">▾</span>Observation geometry<span class="badge acc">defined here</span></div>
+        <div style="font-size:10.5px;color:var(--muted);line-height:1.4;margin:0 0 8px;padding:5px 7px;background:var(--panel-2);border-left:2px solid var(--accent);border-radius:0 3px 3px 0">Single definition point · published as <b>LineOfSightGeometry</b> + <b>SensorDescriptor</b>. Atmosphere &amp; Optics consume these read-only.</div>
+        <div class="field">
+          <div class="lbl">h_sensor (altitude) <span class="u">km</span></div>
+          <input value="500">
+        </div>
+        <div class="field">
+          <div class="lbl">η (off-nadir at sensor) <span class="u">deg</span></div>
+          <input value="20.5">
+        </div>
+        <div class="field derived">
+          <div class="lbl">θ_o (observer zenith @ tgt) <span class="u">deg</span></div>
+          <input value="22.0" disabled>
+        </div>
+        <div class="field derived">
+          <div class="lbl">slant range <span class="u">km</span></div>
+          <input value="567.3" disabled>
+        </div>
+        <div class="field derived">
+          <div class="lbl">airmass = sec θ_o</div>
+          <input value="1.079" disabled>
+        </div>
+        <div class="field">
+          <div class="lbl">h_atm_top <span class="u">m</span></div>
+          <input value="100000">
+        </div>
+        <div class="field">
+          <div class="lbl">R_E (Earth) <span class="u">km</span></div>
+          <input value="6378.137" disabled>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CANVAS (center) -->
+    <div class="canvas">
+      <div class="ch">
+        <div>
+          <div class="label">Active scenario · archetype #4</div>
+          <h2 id="scnTitle">MWIR · terrestrial · extended<span class="code" id="scnCode">T3 mixed</span></h2>
+        </div>
+        <div class="crumb" id="crumb" style="margin-left:18px"></div>
+        <div class="right">
+          <button class="preset-pop" title="Browse archetype matrix — 60+ valid cells"><span class="ic">⊞</span>archetype matrix…</button>
+          <button class="preset-pop"><span class="ic">⌘</span>load preset…</button>
+          <button class="preset-pop"><span class="ic">+</span>save preset…</button>
+        </div>
+      </div>
+
+      <div class="viz-tabs">
+        <button class="on" onclick="showViz('spectral')">Spectral preview</button>
+        <button onclick="showViz('geom')">LOS geometry</button>
+        <button onclick="showViz('scene')">Scene fill</button>
+        <button>Provenance</button>
+        <div class="sp"></div>
+        <span class="meta">500 λ pts · 3.0–5.0 µm · 1 nm grid</span>
+      </div>
+
+      <div class="viz-body">
+        <!-- spectral -->
+        <div id="vizSpectral">
+          <div class="plot-card">
+            <div class="ph2"><h3>Material spectra · ε(λ), ρ(λ)</h3><div class="y">dimensionless</div></div>
+            <svg class="plot-svg" id="plotMaterial" viewBox="0 0 700 180" preserveAspectRatio="none"></svg>
+            <div class="legend2">
+              <span><span class="sw" style="background:#b8431a"></span>ε_target(λ) painted_metal_v3</span>
+              <span><span class="sw" style="background:#2f5aa8"></span>ρ_target(λ) = 1−ε</span>
+              <span><span class="sw" style="background:#2f7a3a"></span>ε_g(λ) grass_dry</span>
+            </div>
+          </div>
+
+          <div class="plot-card">
+            <div class="ph2"><h3>Radiance components at target altitude</h3><div class="y">W·m⁻²·sr⁻¹·µm⁻¹</div></div>
+            <svg class="plot-svg" id="plotRadiance" viewBox="0 0 700 180" preserveAspectRatio="none"></svg>
+            <div class="legend2">
+              <span><span class="sw" style="background:#b8431a"></span>ε·B(T_t=295K) self-emit</span>
+              <span><span class="sw" style="background:#2f5aa8"></span>ρ·E_solar/π (direct)</span>
+              <span><span class="sw" style="background:#a97c14"></span>ρ·E_sky/π (diffuse)</span>
+              <span><span class="sw" style="background:#1b2230"></span>L_t total</span>
+            </div>
+          </div>
+
+          <div class="plot-card">
+            <div class="ph2"><h3>Illumination · E_TOA(λ), E_sky(λ, h_tgt)</h3><div class="y">W·m⁻²·µm⁻¹</div></div>
+            <svg class="plot-svg" id="plotIllum" viewBox="0 0 700 180" preserveAspectRatio="none"></svg>
+            <div class="legend2">
+              <span><span class="sw" style="background:#a97c14"></span>E_TOA · Kurucz 2005</span>
+              <span><span class="sw" style="background:#5a607a"></span>E_sky thermal-dominated (MWIR)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- geometry -->
+        <div id="vizGeom" class="geom-tab" style="display:none">
+          <svg class="geom-svg" id="geomSvg" viewBox="0 0 700 380"></svg>
+          <div class="stat">
+            <div class="c"><div class="k">h_tgt</div><div class="v">0<span class="u">m</span></div></div>
+            <div class="c"><div class="k">θ_o</div><div class="v">22.0<span class="u">deg</span></div></div>
+            <div class="c"><div class="k">θ_s</div><div class="v">42.5<span class="u">deg</span></div></div>
+            <div class="c"><div class="k">Δφ</div><div class="v">35.0<span class="u">deg</span></div></div>
+            <div class="c"><div class="k">slant range</div><div class="v">567.3<span class="u">km</span></div></div>
+            <div class="c"><div class="k">airmass (up)</div><div class="v">1.079</div></div>
+            <div class="c"><div class="k">h_atm_top</div><div class="v">100<span class="u">km</span></div></div>
+            <div class="c"><div class="k">R_E</div><div class="v">6378.137<span class="u">km</span></div></div>
+          </div>
+        </div>
+
+        <!-- scene fill -->
+        <div id="vizScene" style="display:none">
+          <svg class="scn-svg" id="scnSvg" viewBox="0 0 700 340"></svg>
+          <div style="margin-top:10px;font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.6">
+            scene_type = <b style="color:var(--accent)">extended</b> · pixel IFOV completely filled · A_t / Ω_pix not parameterized<br>
+            ff (fill fraction) = 1.0 · L_pixel = L_t · no shape required · BackgroundDescriptor populated only for sub_pixel / point_source / at_aperture
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VALIDATION (right rail) -->
+    <div class="validation">
+      <div class="val-h">
+        <div class="t">Validation · descriptor</div>
+        <div class="val-summary">
+          <div class="pill ok">✓ 0 err</div>
+          <div class="pill warn">⚠ 2 warn</div>
+          <div class="pill">i 1 info</div>
+        </div>
+      </div>
+
+      <div class="descriptor-card">
+        <div class="dh">TargetDescriptor</div>
+        <div class="dr"><span class="k">scene_type</span><span class="v acc">extended</span></div>
+        <div class="dr"><span class="k">target_location</span><span class="v acc">terrestrial</span></div>
+        <div class="dr"><span class="k">spec_form</span><span class="v acc">S7 mixed</span></div>
+        <div class="dr"><span class="k">descriptor</span><span class="v">T3Mixed</span></div>
+        <div class="dr"><span class="k">ε(λ)</span><span class="v">painted_metal_v3 · 500pts</span></div>
+        <div class="dr"><span class="k">T_t</span><span class="v">295.0 K</span></div>
+        <div class="dr"><span class="k">A_t</span><span class="v">— (extended)</span></div>
+        <div class="dr"><span class="k">shape</span><span class="v">— (extended)</span></div>
+      </div>
+
+      <div class="descriptor-card">
+        <div class="dh">BackgroundDescriptor</div>
+        <div class="dr"><span class="k">type</span><span class="v acc">GroundBackground</span></div>
+        <div class="dr"><span class="k">ε_g(λ)</span><span class="v">grass_dry · 500pts</span></div>
+        <div class="dr"><span class="k">T_g</span><span class="v">288.0 K</span></div>
+        <div class="dr"><span class="k">populated</span><span class="v">no — extended skips bg term</span></div>
+      </div>
+
+      <div class="descriptor-card">
+        <div class="dh">LineOfSightGeometry</div>
+        <div class="dr"><span class="k">h_tgt</span><span class="v">0 m</span></div>
+        <div class="dr"><span class="k">θ_o</span><span class="v">22.0° (0.384 rad)</span></div>
+        <div class="dr"><span class="k">θ_s</span><span class="v">42.5° (0.742 rad)</span></div>
+        <div class="dr"><span class="k">Δφ</span><span class="v">35.0° (0.611 rad)</span></div>
+        <div class="dr"><span class="k">h_atm_top</span><span class="v">100,000 m</span></div>
+      </div>
+
+      <div class="val-list">
+        <div class="val-item warn">
+          <div class="lvl">warn · S5.1</div>
+          <div class="msg">θ_s = 42.5° approaches grazing for MWIR diffuse-sky term; downwelling thermal dominates over scattered solar at this regime. Verify via separable E_sky decomposition (open question #6).</div>
+          <div class="field-ref">source.illumination.theta_s</div>
+        </div>
+        <div class="val-item warn">
+          <div class="lvl">warn · S5.2</div>
+          <div class="msg">ε(λ) sample count (500) does not match MODTRAN tape6 grid (1001). Linear interpolation will be applied at AtmosphereStage boundary.</div>
+          <div class="field-ref">source.target.epsilon_path</div>
+        </div>
+        <div class="val-item info">
+          <div class="lvl">info · S5.3</div>
+          <div class="msg">MWIR mixed model active — both ε·B(T) and ρ·E/π terms will be assembled. Pure thermal (T1) and pure reflective (T2) disabled per matrix §3.2.</div>
+          <div class="field-ref">source.target.spec_form</div>
+        </div>
+        <div class="val-item info">
+          <div class="lvl">info · S5.4</div>
+          <div class="msg">extended scene → BackgroundDescriptor populated for inspection only. SpectralIntegrationStage will skip the background photon term per decision #13.</div>
+          <div class="field-ref">source.background</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- status bar -->
+  <div class="sb">
+    <span class="ok">✓ Source descriptors valid</span>
+    <span>archetype #4 · MWIR/terrestrial/extended · 0 errors, 2 warnings</span>
+    <div class="sp"></div>
+    <span>provenance #7f3a · 500 λ pts · radiant 1.0.0rc3</span>
+  </div>
+</div>
+
+<!-- Tweaks -->
+<div class="tw" id="tw">
+  <div class="twh">
+    <div class="t">Tweaks · Source Stage</div>
+    <button onclick="closeTw()">✕</button>
+  </div>
+  <div class="body2">
+    <label><span class="kk">Scenario</span>
+      <select id="twScn" onchange="setScenario(this.value)">
+        <option value="t-mwir-ext">terrestrial · MWIR · extended</option>
+        <option value="t-lwir-ext">terrestrial · LWIR · extended</option>
+        <option value="t-vis-sub">terrestrial · VIS · sub_pixel</option>
+        <option value="a-mwir-pt">airborne · MWIR · point_source</option>
+        <option value="s-vis-pt">no_atm/space · VIS · point_source</option>
+        <option value="lab-mwir">no_atm/lab_test · MWIR · extended</option>
+        <option value="ap-vis">at_aperture · VIS · extended</option>
+      </select>
+    </label>
+    <label><span class="kk">State</span>
+      <select id="twSt" onchange="setState(this.value)">
+        <option value="ok">loaded · valid</option>
+        <option value="warn">loaded · warnings</option>
+        <option value="error">error</option>
+        <option value="empty">empty</option>
+      </select>
+    </label>
+    <label><span class="kk">Theme</span>
+      <select id="twTh" onchange="setTheme(this.value)">
+        <option value="light">light</option>
+        <option value="dark">dark</option>
+      </select>
+    </label>
+    <label><span class="kk">Spec form</span>
+      <select id="twSpec" onchange="setSpec(this.value)">
+        <option value="S7">S7 mixed</option>
+        <option value="S3">S3 graybody spectral</option>
+        <option value="S5">S5 reflective spectral</option>
+        <option value="S9">S9 user @ aperture</option>
+        <option value="S11">S11 brightness temperature</option>
+      </select>
+    </label>
+  </div>
+</div>
+
+<script>
+/*============================================================
+  Persisted tweak state
+============================================================*/
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "scenario": "lab-mwir",
+  "state": "warn",
+  "theme": "light",
+  "spec": "S3",
+  "matrixCollapsed": false
+}/*EDITMODE-END*/;
+
+/*============================================================
+  Signal-chain strip (compact)
+============================================================*/
+const STAGES = [
+  {k:"source",     n:"01", t:"Source",     h:"ok"},
+  {k:"atmosphere", n:"02", t:"Atmosphere", h:"ok"},
+  {k:"platform",   n:"03", t:"Platform",   h:"ok"},
+  {k:"optics",     n:"04", t:"Optics",     h:"ok"},
+  {k:"detector",   n:"05", t:"Detector",   h:"ok"},
+  {k:"readout",    n:"06", t:"Readout",    h:"ok"},
+  {k:"perf",       n:"07", t:"Performance",h:"ok"},
+];
+function renderChain(){
+  document.getElementById('chain').innerHTML = STAGES.map(s=>`
+    <div class="stage ${s.k==='source'?'active':''}" data-k="${s.k}">
+      <div class="h"><span class="n">${s.n}</span><span class="dot ${s.h}"></span></div>
+      <div class="t">${s.t}</div>
+    </div>`).join('');
+}
+renderChain();
+
+/*============================================================
+  Scenario matrix
+  rows: target locations (with no_atmosphere sub-cases)
+  cols: 5 regimes × 3 scene types = 15 cells per row
+============================================================*/
+const REGIMES = ["VIS","NIR","SWIR","MWIR","LWIR"];
+const SCENES  = ["ext","sub","pt"];
+const ROWS = [
+  {id:"at_ap",   label:"at_aperture",            kind:"std"},
+  {id:"terr",    label:"terrestrial",            kind:"std"},
+  {id:"air",     label:"airborne",               kind:"std"},
+  {id:"na_sp",   label:"no_atm · space",         kind:"sub"},
+  {id:"na_g",    label:"no_atm · ground_test",   kind:"sub"},
+  {id:"na_l",    label:"no_atm · lab_test",      kind:"sub"},
+];
+
+// Determine T-code & validity for each (row, regime, scene)
+function cellInfo(row, regime, scene){
+  // at_aperture: only extended is valid; T5 throughout
+  if(row==="at_ap"){
+    return scene==="ext" ? {t:"T5", valid:true} : {valid:false};
+  }
+  // determine T-code by regime (matrix §3.2)
+  let tcode;
+  if(regime==="LWIR") tcode = "T1";
+  else if(regime==="MWIR") tcode = "T3";
+  else tcode = "T2"; // VIS/NIR/SWIR
+  // sub-cases (no_atm ground_test / lab_test) can use any T1/T2/T3 by physics; we keep regime mapping
+  return {t:tcode, valid:true, sub: row.startsWith("na_")};
+}
+
+function renderMatrix(){
+  const m = document.getElementById('matrix');
+  // header row 1: regime spans
+  let html = `<div class="mx-h"></div>`;
+  REGIMES.forEach(r => html += `<div class="mx-h span2">${r}</div>`);
+  // header row 2: scene types
+  html += `<div class="mx-h"></div>`;
+  REGIMES.forEach(_ => SCENES.forEach(s => html += `<div class="mx-h subhead">${s}</div>`));
+  // data rows
+  ROWS.forEach(row => {
+    html += `<div class="mx-h row" title="${row.label}">${row.label}</div>`;
+    REGIMES.forEach(reg => {
+      SCENES.forEach(sc => {
+        const info = cellInfo(row.id, reg, sc);
+        const cellId = `${row.id}|${reg}|${sc}`;
+        const sel = (row.id==="terr" && reg==="MWIR" && sc==="ext") ? "sel" : "";
+        if(!info.valid){
+          html += `<div class="mx-cell invalid" title="invalid · at_aperture requires extended"></div>`;
+        } else {
+          const tcls = `t-${info.t}`;
+          const subcls = info.sub ? "subcase" : "";
+          const codeShort = info.t.replace("T","");
+          html += `<div class="mx-cell ${tcls} ${subcls} ${sel}" data-cell="${cellId}" title="${row.label} / ${reg} / ${sc} · ${info.t}" onclick="selectCell('${cellId}')">${sel?"":"<span class='tcode'>"+info.t+"</span>"}</div>`;
+        }
+      });
+    });
+  });
+  if(m) m.innerHTML = html;
+}
+renderMatrix();
+
+function selectCell(id){
+  // matrix removed; just keep crumb + title in sync
+  updateCrumb(id);
+  updateScnTitle(id);
+}
+
+function updateCrumb(id){
+  const [row, reg, sc] = id.split('|');
+  const info = cellInfo(row, reg, sc);
+  const rowLabel = ROWS.find(r=>r.id===row).label;
+  const sceneLabel = sc==="ext"?"extended":sc==="sub"?"sub_pixel":"point_source";
+  const crumb = document.getElementById('crumb');
+  if(!crumb) return;
+  crumb.innerHTML = `
+    <span class="v">${rowLabel}</span><span class="sep">▸</span>
+    <span class="v">${reg}</span><span class="sep">▸</span>
+    <span class="v">${sceneLabel}</span><span class="sep">▸</span>
+    <span class="v acc">${info.t}</span>
+  `;
+}
+function updateScnTitle(id){
+  const [row, reg, sc] = id.split('|');
+  const info = cellInfo(row, reg, sc);
+  const rowLabel = ROWS.find(r=>r.id===row).label;
+  const sceneLabel = sc==="ext"?"extended":sc==="sub"?"sub_pixel":"point_source";
+  const t = document.getElementById('scnTitle');
+  const c = document.getElementById('scnCode');
+  if(t && t.firstChild) t.firstChild.nodeValue = `${reg} · ${rowLabel} · ${sceneLabel}`;
+  if(c) c.textContent = `${info.t} ${info.t==='T1'?'thermal':info.t==='T2'?'reflective':info.t==='T3'?'mixed':'user @ aperture'}`;
+}
+updateCrumb('terr|MWIR|ext');
+
+function toggleMatrix(){
+  const m = document.getElementById('matrix');
+  const lg = document.querySelector('.legend');
+  const tog = document.getElementById('mxToggle');
+  const collapsed = m.style.display === 'none';
+  if(!collapsed){
+    m.style.display = 'none'; lg.style.display='none';
+    tog.textContent = '▸ expand matrix';
+  } else {
+    m.style.display = ''; lg.style.display = '';
+    tog.textContent = '▾ collapse matrix';
+  }
+}
+
+/*============================================================
+  Spectral plots
+============================================================*/
+function plotPath(svgId, fn, color, dash, width=1.6){
+  const svg = document.getElementById(svgId);
+  if(!svg) return;
+  const W=700, H=180, P=24;
+  let d = "";
+  for(let i=0;i<=200;i++){
+    const x = i/200;
+    const y = fn(x);
+    const px = P + x*(W-2*P);
+    const py = H-P - y*(H-2*P);
+    d += (i===0?"M":"L")+px.toFixed(1)+","+py.toFixed(1);
+  }
+  const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+  path.setAttribute("d",d);
+  path.setAttribute("stroke",color);
+  path.setAttribute("fill","none");
+  path.setAttribute("stroke-width",width);
+  if(dash) path.setAttribute("stroke-dasharray",dash);
+  svg.appendChild(path);
+}
+function plotAxes(svgId, xlabel, ylabel, xticks){
+  const svg = document.getElementById(svgId);
+  const W=700, H=180, P=24;
+  // axes
+  const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+  g.innerHTML = `
+    <line x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}" stroke="var(--line-2)" stroke-width="1"/>
+    <line x1="${P}" y1="${P}"   x2="${P}"   y2="${H-P}" stroke="var(--line-2)" stroke-width="1"/>
+    <text x="${W-P}" y="${H-P+14}" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">${xlabel}</text>
+    <text x="${P-2}" y="${P-4}" text-anchor="start" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">${ylabel}</text>
+  `;
+  // grid lines + ticks
+  const ticks = xticks || [0.2,0.4,0.6,0.8];
+  ticks.forEach(t=>{
+    const px = P + t*(W-2*P);
+    const tk = document.createElementNS("http://www.w3.org/2000/svg","line");
+    tk.setAttribute("x1",px); tk.setAttribute("x2",px);
+    tk.setAttribute("y1",H-P); tk.setAttribute("y2",H-P+3);
+    tk.setAttribute("stroke","var(--muted-2)"); tk.setAttribute("stroke-width",".8");
+    g.appendChild(tk);
+  });
+  svg.appendChild(g);
+}
+function clearSvg(svgId){ const s=document.getElementById(svgId); if(s) s.innerHTML=""; }
+
+function drawAllPlots(){
+  // material spectra
+  clearSvg("plotMaterial");
+  plotAxes("plotMaterial","λ [µm] · 3.0 — 5.0","ε,ρ [-]",[0.0,0.25,0.5,0.75,1.0]);
+  // ε_target: smooth high-emissivity dropping at long λ
+  plotPath("plotMaterial", x => 0.85 - 0.15*Math.sin(x*8) - 0.1*x, "#b8431a","");
+  // ρ_target = 1 - ε
+  plotPath("plotMaterial", x => 1 - (0.85 - 0.15*Math.sin(x*8) - 0.1*x), "#2f5aa8","4 3");
+  // ε_g grass
+  plotPath("plotMaterial", x => 0.92 + 0.04*Math.cos(x*12), "#2f7a3a","");
+
+  // radiance components
+  clearSvg("plotRadiance");
+  plotAxes("plotRadiance","λ [µm]","L [W/m²/sr/µm]");
+  // ε·B(T=295) — Planck-like peak at long λ in MWIR
+  plotPath("plotRadiance", x => Math.max(0, 0.05 + Math.pow(x,2.2)*0.7 - 0.05), "#b8431a","");
+  // ρ·E_solar/π — peak at short λ in MWIR
+  plotPath("plotRadiance", x => Math.max(0, 0.6*Math.exp(-Math.pow((x-0.05)*5,2))*0.55 + 0.05), "#2f5aa8","");
+  // ρ·E_sky/π — small contribution
+  plotPath("plotRadiance", x => 0.04 + 0.02*Math.sin(x*6), "#a97c14","2 2");
+  // total
+  plotPath("plotRadiance", x => {
+    const a = 0.05 + Math.pow(x,2.2)*0.7 - 0.05;
+    const b = 0.6*Math.exp(-Math.pow((x-0.05)*5,2))*0.55 + 0.05;
+    const c = 0.04 + 0.02*Math.sin(x*6);
+    return Math.max(0, a+b+c);
+  }, "#1b2230", null, 2);
+
+  // illumination
+  clearSvg("plotIllum");
+  plotAxes("plotIllum","λ [µm]","E [W/m²/µm]");
+  // E_TOA solar — Planck-like, peaks at short λ in MWIR
+  plotPath("plotIllum", x => Math.max(0, 0.85*Math.exp(-x*1.5)+0.05), "#a97c14","");
+  // E_sky thermal — peaks at long λ
+  plotPath("plotIllum", x => 0.1 + 0.4*Math.pow(x, 2), "#5a607a","3 3");
+}
+drawAllPlots();
+
+/*============================================================
+  Geometry diagram
+============================================================*/
+function drawGeom(){
+  const svg = document.getElementById("geomSvg");
+  if(!svg) return;
+  const W=700, H=380;
+  const cx = 360, cyEarth = 720;  // Earth center pulled below to show curvature
+  const rEarth = 720;
+  const rTop = rEarth + 60;       // h_atm_top exaggerated for clarity
+
+  // sky / atm shading
+  const ns = "http://www.w3.org/2000/svg";
+  const g = document.createElementNS(ns,"g");
+  g.innerHTML = `
+    <defs>
+      <linearGradient id="atmgrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#dde6f4" stop-opacity=".3"/>
+        <stop offset="100%" stop-color="#ebeef2" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- atmosphere band -->
+    <path d="M ${cx-rTop+20} ${cyEarth - rTop + 60} A ${rTop} ${rTop} 0 0 1 ${cx+rTop-20} ${cyEarth - rTop + 60} L ${cx+rEarth-20} ${cyEarth - rEarth + 60} A ${rEarth} ${rEarth} 0 0 0 ${cx-rEarth+20} ${cyEarth - rEarth + 60} Z"
+          fill="url(#atmgrad)" stroke="none"/>
+    <!-- earth surface -->
+    <path d="M ${cx-rEarth+20} ${cyEarth - rEarth + 60} A ${rEarth} ${rEarth} 0 0 1 ${cx+rEarth-20} ${cyEarth - rEarth + 60} L ${W} ${H} L 0 ${H} Z"
+          fill="var(--panel-3)" stroke="var(--ink-2)" stroke-width="1.5"/>
+    <!-- atmosphere top dashed line -->
+    <path d="M ${cx-rTop+20} ${cyEarth - rTop + 60} A ${rTop} ${rTop} 0 0 1 ${cx+rTop-20} ${cyEarth - rTop + 60}"
+          fill="none" stroke="var(--line-2)" stroke-width="1" stroke-dasharray="3 3"/>
+
+    <!-- target -->
+    <circle cx="${cx}" cy="${cyEarth - rEarth + 60}" r="5" fill="var(--accent)"/>
+    <text x="${cx+10}" y="${cyEarth - rEarth + 64}" font-family="IBM Plex Mono" font-size="11" fill="var(--accent)">target · h_tgt=0</text>
+
+    <!-- sensor (space) -->
+    <g transform="translate(560, 70)">
+      <rect x="-18" y="-8" width="36" height="16" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5" rx="2"/>
+      <rect x="-22" y="-10" width="6" height="20" fill="var(--ink)"/>
+      <rect x="16"  y="-10" width="6" height="20" fill="var(--ink)"/>
+      <text x="0" y="-14" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="var(--ink)">sensor (space)</text>
+    </g>
+
+    <!-- LOS (target to sensor) -->
+    <line x1="${cx}" y1="${cyEarth - rEarth + 60}" x2="560" y2="70" stroke="var(--accent)" stroke-width="1.8"/>
+    <text x="465" y="142" font-family="IBM Plex Mono" font-size="11" fill="var(--accent)">LOS · θ_o=22°</text>
+
+    <!-- nadir reference -->
+    <line x1="${cx}" y1="${cyEarth - rEarth + 60}" x2="${cx}" y2="${cyEarth - rTop - 40}" stroke="var(--muted-2)" stroke-width="1" stroke-dasharray="2 3"/>
+    <text x="${cx-30}" y="${cyEarth - rTop - 42}" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)">zenith</text>
+
+    <!-- θ_o arc -->
+    <path d="M ${cx} ${cyEarth - rEarth + 30} A 30 30 0 0 1 ${cx + 30*Math.sin(0.384)} ${cyEarth - rEarth + 60 - 30*Math.cos(0.384)}"
+          fill="none" stroke="var(--accent)" stroke-width="1.2"/>
+    <text x="${cx+18}" y="${cyEarth - rEarth + 38}" font-family="IBM Plex Mono" font-size="10" fill="var(--accent)">θ_o</text>
+
+    <!-- sun -->
+    <circle cx="120" cy="100" r="14" fill="#f4bf4f" stroke="#a97c14" stroke-width="1"/>
+    <text x="120" y="80" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">sun</text>
+
+    <!-- solar ray to target -->
+    <line x1="120" y1="100" x2="${cx}" y2="${cyEarth - rEarth + 60}" stroke="#a97c14" stroke-width="1.6" stroke-dasharray="5 3"/>
+    <text x="200" y="200" font-family="IBM Plex Mono" font-size="11" fill="#a97c14">θ_s = 42.5°</text>
+
+    <!-- θ_s arc -->
+    <path d="M ${cx-30} ${cyEarth - rEarth + 60} A 30 30 0 0 1 ${cx - 30*Math.sin(0.742)} ${cyEarth - rEarth + 60 - 30*Math.cos(0.742)}"
+          fill="none" stroke="#a97c14" stroke-width="1.2"/>
+
+    <!-- altitude labels -->
+    <text x="${W-20}" y="${cyEarth - rTop - 30}" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)">— h_atm_top = 100 km</text>
+    <text x="${W-20}" y="${cyEarth - rEarth + 80}" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)">— surface (h_tgt = 0)</text>
+
+    <!-- legend / title -->
+    <text x="20" y="28" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="var(--ink)">A2 · full two-way column · LOS geometry</text>
+    <text x="20" y="46" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">spherical Earth · R_E = 6378.137 km · refraction = off (v1)</text>
+  `;
+  svg.appendChild(g);
+}
+drawGeom();
+
+/*============================================================
+  Scene-fill diagram
+============================================================*/
+function drawScene(scene){
+  scene = scene || "ext";
+  const svg = document.getElementById("scnSvg");
+  if(!svg) return;
+  svg.innerHTML = "";
+  const ns = "http://www.w3.org/2000/svg";
+  const g = document.createElementNS(ns,"g");
+
+  // pixel IFOV box
+  const pix = `<rect x="200" y="60" width="300" height="220" fill="none" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="6 4"/>
+               <text x="350" y="50" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">pixel IFOV · Ω_pix</text>`;
+
+  let target = "";
+  if(scene === "ext"){
+    target = `<rect x="200" y="60" width="300" height="220" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+              <text x="350" y="180" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="var(--accent)">target fills pixel</text>
+              <text x="350" y="200" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="var(--accent)">ff = 1 · L_pixel = L_t</text>`;
+  } else if(scene === "sub"){
+    target = `<rect x="200" y="60" width="300" height="220" fill="var(--panel-2)" stroke="var(--ink-2)" stroke-width="1" stroke-dasharray="3 3"/>
+              <ellipse cx="350" cy="170" rx="65" ry="50" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+              <text x="350" y="173" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="var(--accent)">target Ω_t</text>
+              <text x="350" y="50" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">ff = Ω_t/Ω_pix</text>`;
+  } else { // pt
+    target = `<rect x="200" y="60" width="300" height="220" fill="var(--panel-2)" stroke="var(--ink-2)" stroke-width="1" stroke-dasharray="3 3"/>
+              <circle cx="350" cy="170" r="6" fill="var(--accent)"/>
+              <circle cx="350" cy="170" r="36" fill="none" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 3"/>
+              <text x="350" y="220" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="var(--accent)">point source · I(λ)</text>
+              <text x="350" y="240" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="var(--accent)">A_t pre-integrated · PSF dominates</text>`;
+  }
+
+  g.innerHTML = `
+    <text x="20" y="28" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="var(--ink)">scene_type = ${scene==="ext"?"extended":scene==="sub"?"sub_pixel":"point_source"}</text>
+    <text x="20" y="46" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">${scene==="ext"?"target radiance fills pixel · BackgroundDescriptor absent":scene==="sub"?"finite Ω_t < Ω_pix · ff sets weighted average L_pixel = ff·L_t + (1−ff)·L_bg":"unresolved · I(λ) [W/sr/µm] pre-integrated"}</text>
+    ${pix}
+    ${target}
+  `;
+  svg.appendChild(g);
+}
+drawScene("ext");
+
+/*============================================================
+  Viz tab switching
+============================================================*/
+function showViz(which){
+  document.querySelectorAll('.viz-tabs button').forEach(b => b.classList.remove('on'));
+  event && event.target && event.target.classList.add('on');
+  document.getElementById('vizSpectral').style.display = which==='spectral' ? '' : 'none';
+  document.getElementById('vizGeom').style.display     = which==='geom'     ? '' : 'none';
+  document.getElementById('vizScene').style.display    = which==='scene'    ? '' : 'none';
+}
+
+/*============================================================
+  Tweaks plumbing
+============================================================*/
+function postKeys(edits){
+  try{ window.parent.postMessage({type:'__edit_mode_set_keys', edits}, '*'); }catch(e){}
+}
+window.addEventListener('message', (ev)=>{
+  if(!ev.data||!ev.data.type) return;
+  if(ev.data.type==='__activate_edit_mode')   document.getElementById('tw').classList.add('open');
+  if(ev.data.type==='__deactivate_edit_mode') document.getElementById('tw').classList.remove('open');
+});
+function closeTw(){
+  document.getElementById('tw').classList.remove('open');
+  try{ window.parent.postMessage({type:'__edit_mode_dismissed'}, '*'); }catch(e){}
+}
+function setTheme(v){ document.body.classList.toggle('dark', v==='dark'); TWEAKS.theme=v; postKeys({theme:v}); drawAllPlots(); document.getElementById('geomSvg').innerHTML=''; drawGeom(); }
+function setState(v){ TWEAKS.state=v; postKeys({state:v}); }
+function setSpec(v){ TWEAKS.spec=v; postKeys({spec:v});
+  document.querySelectorAll('.spec-card').forEach(c=>c.classList.remove('on'));
+  // (light visual; not driving every field reshape)
+}
+function setScenario(v){ TWEAKS.scenario=v; postKeys({scenario:v});
+  // map to a matrix cell selection
+  const map = {
+    "t-mwir-ext":"terr|MWIR|ext",
+    "t-lwir-ext":"terr|LWIR|ext",
+    "t-vis-sub":"terr|VIS|sub",
+    "a-mwir-pt":"air|MWIR|pt",
+    "s-vis-pt":"na_sp|VIS|pt",
+    "lab-mwir":"na_l|MWIR|ext",
+    "ap-vis":"at_ap|VIS|ext",
+  };
+  selectCell(map[v]);
+}
+
+// signal it's ready for edit mode
+(function(){
+  // initial sync
+  document.body.classList.toggle('dark', TWEAKS.theme === 'dark');
+  document.getElementById('twSt').value = TWEAKS.state;
+  document.getElementById('twTh').value = TWEAKS.theme;
+  document.getElementById('twSpec').value = TWEAKS.spec;
+  document.getElementById('twScn').value = TWEAKS.scenario;
+  try{ window.parent.postMessage({type:'__edit_mode_available'}, '*'); }catch(e){}
+})();
+
+/*============================================================
+  Slide-index post (so workspace tab knows we're on Source)
+============================================================*/
+try { window.parent.postMessage({slideIndexChanged: 1}, '*'); } catch(e){}
+</script>
+</body>
+</html>

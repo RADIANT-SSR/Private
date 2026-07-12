@@ -1,0 +1,1586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>RADIANT — Stage Screens</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ebeef2; --panel:#fafbfc; --panel-2:#f1f3f6; --panel-3:#e6e9ee;
+    --line:#cfd5de; --line-2:#b7bfcb; --ink:#1b2230; --ink-2:#384050;
+    --muted:#6b7380; --muted-2:#8a93a1;
+    --accent:#b8431a; --accent-soft:#f6e2d6;
+    --ok:#2f7a3a; --ok-soft:#dcebdd;
+    --warn:#a97c14; --warn-soft:#f5ebcf;
+    --err:#a8302a; --err-soft:#f3dbd7;
+    --stale:#9aa3b0; --stale-soft:#e6e9ee;
+    --focus:#2f5aa8; --focus-soft:#dde6f4;
+  }
+  body.dark{
+    --bg:#0f1216; --panel:#171a21; --panel-2:#1d2029; --panel-3:#262a35;
+    --line:#2b3140; --line-2:#3a4254; --ink:#e6e9ef; --ink-2:#c3c9d4;
+    --muted:#8b94a4;
+    --accent:#e08157; --accent-soft:#3a2218;
+    --ok:#7fb987; --ok-soft:#1f2f22;
+    --warn:#e0b249; --warn-soft:#3a2f16;
+    --err:#e07874; --err-soft:#3a1e1c;
+    --stale:#666b77; --stale-soft:#242832;
+    --focus:#86a8df; --focus-soft:#1e2a3e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.35}
+  body{padding:20px 28px 28px;overflow-x:hidden}
+
+  /* header */
+  .ph{display:flex;align-items:flex-end;gap:18px;margin-bottom:14px}
+  .ph .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .ph .mark{width:26px;height:26px;border-radius:5px;background:linear-gradient(135deg,var(--accent) 0%, var(--accent) 50%, var(--ink) 50%, var(--ink) 100%)}
+  .ph h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .ph .sub{color:var(--muted);font-size:12px;margin-top:1px}
+  .ph .tabs{display:flex;gap:2px;flex:1;margin-left:20px;border-bottom:1px solid var(--line);min-width:0}
+  .ph .tabs button{font:inherit;font-weight:500;font-size:13px;background:transparent;border:1px solid transparent;border-bottom:none;color:var(--muted);padding:6px 12px;cursor:pointer;border-radius:5px 5px 0 0;white-space:nowrap;position:relative;top:1px}
+  .ph .tabs button.active{background:var(--panel);border-color:var(--line);color:var(--ink)}
+  .ph .tabs button:hover:not(.active){color:var(--ink);background:var(--panel-2)}
+  .ph .tabs .sp{flex:1}
+  .ph .tools{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}
+  .ph .tools kbd{font-family:'IBM Plex Mono',monospace;font-size:10.5px;background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:3px;color:var(--ink-2)}
+
+  /* app window */
+  .app{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,.02),0 8px 30px rgba(20,30,50,.08);overflow:hidden}
+  .tb{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);font-size:12px;color:var(--ink-2)}
+  .tb .dots{display:flex;gap:6px}
+  .tb .dots i{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+  .tb .dots i.r{background:#ec6a5e}.tb .dots i.y{background:#f4bf4f}.tb .dots i.g{background:#61c555}
+  .tb .title{flex:1;text-align:center;font-weight:500;color:var(--ink)}
+  .tb .title .sep{color:var(--muted);margin:0 6px}
+  .tb .chip{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--line);border-radius:3px;background:var(--panel);color:var(--muted);white-space:nowrap}
+  .mb{display:flex;gap:2px;padding:2px 4px;border-bottom:1px solid var(--line);background:var(--panel);font-size:12px}
+  .mb > span{padding:4px 10px;cursor:default;color:var(--ink-2);border-radius:4px}
+  .mb > span:hover{background:var(--panel-2)}
+
+  /* chain strip */
+  .chain{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:12px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+  .stage{position:relative;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;cursor:pointer;min-height:76px;transition:all .12s}
+  .stage:hover{border-color:var(--line-2);background:var(--panel-3)}
+  .stage.active{background:var(--focus-soft);border-color:var(--focus);box-shadow:inset 0 0 0 1px var(--focus)}
+  .stage.warn{background:var(--warn-soft);border-color:var(--warn)}
+  .stage .num{position:absolute;top:-7px;left:10px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:0 6px;font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--muted)}
+  .stage .h{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .stage .n{font-size:10.5px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .stage .t{font-size:14px;font-weight:600;margin-top:2px;color:var(--ink)}
+  .stage .s{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:5px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .dot.ok{background:var(--ok);box-shadow:0 0 0 2px var(--ok-soft)}
+  .dot.warn{background:var(--warn);box-shadow:0 0 0 2px var(--warn-soft)}
+  .dot.err{background:var(--err);box-shadow:0 0 0 2px var(--err-soft)}
+  .dot.stale{background:var(--stale);box-shadow:0 0 0 2px var(--stale-soft)}
+
+  /* stage hero */
+  .hero{display:flex;align-items:stretch;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line);gap:18px}
+  .hero .icon{width:56px;height:56px;border-radius:8px;background:var(--focus-soft);color:var(--focus);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;border:1px solid var(--focus)}
+  .hero .lead{flex:1;min-width:0}
+  .hero .crumb{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.04em}
+  .hero .crumb .cur{color:var(--ink)}
+  .hero h2{margin:2px 0 4px;font-size:22px;font-weight:600;letter-spacing:-.01em}
+  .hero .desc{font-size:13px;color:var(--ink-2);max-width:900px}
+  .hero .side{display:flex;gap:10px;align-items:center;flex-shrink:0}
+  .hero .meta{display:flex;flex-direction:column;gap:4px;align-items:flex-end;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+  .hero .meta b{color:var(--ink)}
+
+  /* body columns */
+  .body{display:grid;grid-template-columns:280px 1fr 300px}
+  .col{padding:14px 16px;border-top:1px solid var(--line);background:var(--panel);overflow:hidden}
+  .col.mid{border-left:1px solid var(--line);border-right:1px solid var(--line)}
+
+  .panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;min-width:0}
+  .panel-h .t{font-size:11.5px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+  .panel-h .a{font-size:11px;color:var(--muted);white-space:nowrap}
+  .panel-h .a span{cursor:pointer}
+  .panel-h .a span:hover{color:var(--ink)}
+
+  /* param tree (compact, stage-specific) */
+  .prows{font-size:12.5px}
+  .prow{display:grid;grid-template-columns:1fr 82px 34px;gap:6px;align-items:center;padding:3px 0}
+  .prow .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .v{font-family:'IBM Plex Mono',monospace;font-size:11.5px;text-align:right;padding:2px 6px;border:1px solid var(--line);background:var(--panel-2);border-radius:3px;color:var(--ink)}
+  .prow .u{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted)}
+  .prow.derived .v{background:var(--panel-3);color:var(--muted);border-style:dashed}
+  .prow.tol .n::after{content:" ±σ";font-size:10px;color:var(--warn);font-family:'IBM Plex Mono',monospace}
+  .prow.bad .v{border-color:var(--err);background:var(--err-soft);color:var(--err)}
+  .group-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 4px;font-weight:500;border-top:1px solid var(--line);padding-top:8px}
+  .group-label:first-child{border-top:none;padding-top:0;margin-top:0}
+
+  /* IO pipeline (right rail) */
+  .io-block{margin-bottom:14px}
+  .io-block h5{margin:0 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:6px}
+  .io-block h5 .arr{color:var(--ink-2)}
+  .io-list{display:flex;flex-direction:column;gap:3px}
+  .io-item{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;font-size:11.5px}
+  .io-item .nm{font-family:'IBM Plex Mono',monospace;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+  .io-item .tag{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;flex-shrink:0;white-space:nowrap}
+  .io-item.out{border-color:var(--ok);background:var(--ok-soft)}
+  .io-item.out .nm{color:var(--ok)}
+  .io-item.in{border-color:var(--focus)}
+  .io-item.noise{border-color:var(--accent);background:var(--accent-soft)}
+  .io-item.noise .nm{color:var(--accent)}
+  .io-item.mtf{border-color:var(--warn);background:var(--warn-soft)}
+
+  /* viz area */
+  .viz-big{border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:12px;display:flex;flex-direction:column;gap:8px}
+  .viz-big .vh{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0}
+  .viz-big .vh .t{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .viz-big .vh .m{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .viz-big .plot{min-height:200px}
+  .viz-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .viz-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+  /* metric cards (perf stage) */
+  .mcard{padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+  .mcard .mk{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+  .mcard .mv{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:var(--ink);margin:2px 0}
+  .mcard .mv .u{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px}
+  .mcard.primary{background:var(--accent-soft);border-color:var(--accent)}
+  .mcard.primary .mv{color:var(--accent)}
+  .mcard .trend{height:28px;margin-top:4px}
+
+  /* data tables */
+  .tbl{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+  .tbl th{text-align:left;font-weight:500;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .tbl td{padding:4px 8px;border-bottom:1px solid var(--line)}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tr:hover td{background:var(--panel-2)}
+  .tbl .num{text-align:right}
+  .bar{display:inline-block;height:8px;background:var(--accent);vertical-align:middle;border-radius:1px}
+
+  /* text blocks / equations */
+  .physbox{border:1px solid var(--line);border-radius:6px;background:var(--panel-2);padding:10px 14px}
+  .physbox h5{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+  .eq{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink);padding:3px 0;line-height:1.6}
+  .eq .c{color:var(--muted)}
+  .citeline{font-size:11px;color:var(--muted);margin-top:6px;font-style:italic}
+
+  /* status bar */
+  .sb{display:flex;align-items:center;gap:14px;padding:6px 14px;border-top:1px solid var(--line);background:var(--panel-2);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden}
+  .sb .ok{color:var(--ok)}.sb .warn{color:var(--warn)}
+  .sb .sp{flex:1}
+
+  /* tweaks */
+  .tweaks{position:fixed;right:22px;bottom:22px;z-index:100;background:var(--panel);border:1px solid var(--line-2);border-radius:6px;padding:12px 14px;box-shadow:0 8px 30px rgba(20,30,50,.15);font-size:12.5px;max-width:240px;display:none}
+  .tweaks.show{display:block}
+  .tweaks h3{margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .tweaks .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0}
+  .tweaks select{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:3px;cursor:pointer}
+
+  /* heatmap square (for PSF) */
+  .heatmap{position:relative;width:100%;aspect-ratio:1;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .heatmap svg{width:100%;height:100%;display:block}
+
+  /* small pill group */
+  .pills{display:flex;flex-wrap:wrap;gap:4px}
+  .pill{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+  .pill.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+  .pill.accent{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+  /* diagram lines */
+  .diagram{border:1px solid var(--line);border-radius:6px;background:var(--panel-2);padding:10px}
+
+  /* arrows between chain nodes (subtle) */
+  .stage + .stage::before{content:"";position:absolute;left:-8px;top:50%;width:8px;height:1px;background:var(--line-2)}
+
+  /* ---------- scenario crumb header (above stage body) ---------- */
+  .scn-bar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .scn-bar .label{font-size:10.5px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+  .scn-bar .crumb{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;flex-wrap:wrap;gap:0}
+  .scn-bar .crumb .v{padding:1px 6px;background:var(--panel);border:1px solid var(--line);border-radius:3px}
+  .scn-bar .crumb .v.acc{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .scn-bar .crumb .sep{color:var(--muted-2);padding:0 4px}
+  .scn-bar .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .scn-bar .preset-pop{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 9px;border:1px solid var(--line);background:var(--panel);border-radius:4px;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+  .scn-bar .preset-pop:hover{background:var(--panel-3)}
+  .scn-bar .preset-pop .ic{color:var(--muted);margin-right:4px}
+
+  /* ---------- viz tabs (inside center column) ---------- */
+  .viz-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin:-14px -16px 12px;padding:0 16px;background:var(--panel-2)}
+  .viz-tabs button{font:inherit;font-size:12px;padding:7px 14px;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:var(--muted);position:relative;top:1px;white-space:nowrap}
+  .viz-tabs button.on{color:var(--accent);border-color:var(--accent);font-weight:500}
+  .viz-tabs button:hover:not(.on){color:var(--ink)}
+  .viz-tabs .sp{flex:1}
+  .viz-tabs .meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);padding:9px 0}
+
+  /* ---------- params · enriched widgets ---------- */
+  .gh{display:flex;align-items:center;gap:6px;margin:14px 0 6px;color:var(--ink);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-top:1px solid var(--line);padding-top:10px}
+  .gh:first-child{border-top:none;padding-top:0;margin-top:0}
+  .gh .chev{color:var(--muted);font-family:'IBM Plex Mono',monospace;width:10px;display:inline-block}
+  .gh .badge{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:1px 6px;background:var(--panel-3);border:1px solid var(--line);border-radius:3px;color:var(--muted);text-transform:none;font-weight:500;letter-spacing:0}
+  .gh .badge.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+  .gh .badge.err{background:var(--err-soft);border-color:var(--err);color:var(--err)}
+  .gh .badge.acc{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+  .seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel-2);width:100%}
+  .seg button{flex:1;font:inherit;font-size:11px;padding:3px 5px;background:transparent;border:none;color:var(--ink-2);cursor:pointer;border-right:1px solid var(--line);white-space:nowrap}
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:var(--ink);color:var(--panel)}
+  body.dark .seg button.on{background:var(--ink-2);color:var(--panel)}
+
+  .filechip{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--line);background:var(--panel-2);border-radius:3px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-align:right}
+  .filechip:hover{background:var(--panel-3)}
+
+  .spec-cards{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+  .spec-card{display:grid;grid-template-columns:16px 1fr;gap:8px;padding:6px 9px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2);cursor:pointer;align-items:flex-start}
+  .spec-card:hover{background:var(--panel-3)}
+  .spec-card.on{background:var(--accent-soft);border-color:var(--accent)}
+  .spec-card.disabled{opacity:.45;cursor:not-allowed;background:var(--panel-2)}
+  .spec-card .rb{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line-2);background:var(--panel);margin-top:2px;position:relative;flex-shrink:0}
+  .spec-card.on .rb{border-color:var(--accent)}
+  .spec-card.on .rb::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--accent)}
+  .spec-card .name{font-size:11.5px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px}
+  .spec-card .name .code{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;color:var(--muted);background:var(--panel);padding:0 5px;border:1px solid var(--line);border-radius:3px}
+  .spec-card .formula{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .spec-card.on .name .code{background:var(--panel);border-color:var(--accent)}
+
+  /* ---------- descriptor cards (right rail) ---------- */
+  .descriptor-card{margin-bottom:10px;padding:10px 12px;border:1px solid var(--line);border-radius:5px;background:var(--panel);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-2)}
+  .descriptor-card .dh{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:10.5px;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .descriptor-card .dh .badge{font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:1px 5px;background:var(--panel-3);border:1px solid var(--line);border-radius:2px;color:var(--muted);font-weight:500;letter-spacing:0;text-transform:none;margin-left:auto}
+  .descriptor-card .dr{display:flex;justify-content:space-between;padding:1px 0;gap:8px}
+  .descriptor-card .dr .k{color:var(--muted);flex-shrink:0}
+  .descriptor-card .dr .v{color:var(--ink);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .descriptor-card .dr .v.acc{color:var(--accent);font-weight:500}
+  .descriptor-card .dr .v.warn{color:var(--warn)}
+  .descriptor-card .dr .v.err{color:var(--err)}
+
+  /* ---------- validation summary + items ---------- */
+  .val-summary{display:flex;gap:6px;margin-bottom:10px;font-size:11px;font-family:'IBM Plex Mono',monospace;flex-wrap:wrap}
+  .val-summary .pill{padding:2px 7px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;gap:4px;background:var(--panel-2);color:var(--muted)}
+  .val-summary .pill.ok{color:var(--ok);background:var(--ok-soft);border-color:var(--ok)}
+  .val-summary .pill.warn{color:var(--warn);background:var(--warn-soft);border-color:var(--warn)}
+  .val-summary .pill.err{color:var(--err);background:var(--err-soft);border-color:var(--err)}
+  .val-list{display:flex;flex-direction:column;margin-bottom:10px}
+  .val-item{padding:7px 10px;border-left:3px solid transparent;cursor:pointer;font-size:11.5px;border:1px solid var(--line);border-radius:4px;background:var(--panel);margin-bottom:6px}
+  .val-item:hover{background:var(--panel-2)}
+  .val-item.err{border-left-color:var(--err)}
+  .val-item.warn{border-left-color:var(--warn)}
+  .val-item.info{border-left-color:var(--focus)}
+  .val-item.ok{border-left-color:var(--ok)}
+  .val-item .lvl{font-family:'IBM Plex Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+  .val-item.err .lvl{color:var(--err)}
+  .val-item.warn .lvl{color:var(--warn)}
+  .val-item.info .lvl{color:var(--focus)}
+  .val-item.ok .lvl{color:var(--ok)}
+  .val-item .msg{margin-top:3px;color:var(--ink-2);line-height:1.4}
+  .val-item .field-ref{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px}
+  .val-item .field-ref::before{content:"→ ";color:var(--muted-2)}
+
+  /* ---------- collapsible right-rail sections ---------- */
+  .rail-section{margin-bottom:14px}
+  .rail-section .rh{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .rail-section .rh .arr{color:var(--ink-2)}
+  .rail-section .rh .count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);background:var(--panel-2);padding:1px 5px;border:1px solid var(--line);border-radius:2px;font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="ph">
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>RADIANT</h1>
+      <div class="sub">Stage detail · click any chain node · 1–7 hotkeys</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button onclick="location.href='RADIANT Mid-fi.html'" title="Open the visual signal-chain workspace"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;vertical-align:-2px;margin-right:6px"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg>Workspace</button>
+    <button class="active" title="You are here — stage detail (a Workspace stage)"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px"></span>Workspace · Stage detail</button>
+    <button onclick="location.href='RADIANT Scripting.html'" title="Open the Python scripting workspace"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;vertical-align:-2px;margin-right:6px"><path d="M2 4 L5 7 L2 10"/><line x1="6" y1="11" x2="13" y2="11"/></svg>Scripting</button>
+    <div class="sp"></div>
+  </div>
+  <div class="tools">
+    <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd>
+  </div>
+</div>
+
+<div id="root"></div>
+
+<div class="tweaks" id="tweaks">
+  <h3>Tweaks</h3>
+  <div class="row"><label>Stage</label>
+    <select id="tw-stage">
+      <option value="source">1 · Source</option>
+      <option value="atm">2 · Atmosphere</option>
+      <option value="platform">3 · Platform</option>
+      <option value="optics">4 · Optics</option>
+      <option value="detector">5 · Detector</option>
+      <option value="readout">6 · Readout</option>
+      <option value="perf">7 · Performance</option>
+    </select>
+  </div>
+  <div class="row"><label>Theme</label>
+    <select id="tw-theme"><option value="light">Light</option><option value="dark">Dark</option></select>
+  </div>
+</div>
+
+<script>
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "stage": "atm",
+  "theme": "light",
+  "focus": "optics"
+}/*EDITMODE-END*/;
+const LS_KEY="radiant_stages";
+
+const STAGES = [
+  {k:"source",   n:1, name:"Source",      sub:"L_src(λ)",           icon:"☀"},
+  {k:"atm",      n:2, name:"Atmosphere",  sub:"τ, L_path, L_atm",   icon:"≋"},
+  {k:"platform", n:3, name:"Platform",    sub:"smear · jitter",     icon:"⇢", warn:true},
+  {k:"optics",   n:4, name:"Optics",      sub:"PSF · MTF · τ_opt",  icon:"◎"},
+  {k:"detector", n:5, name:"Detector",    sub:"QE · noise · dark",  icon:"▦"},
+  {k:"readout",  n:6, name:"Readout",     sub:"TDI · CDS · ADC",    icon:"⎍"},
+  {k:"perf",     n:7, name:"Performance", sub:"SNR · NEDT · NIIRS", icon:"◈"},
+];
+
+// ---------- shared shell pieces ----------
+function titleBar(){return `
+  <div class="tb">
+    <div class="dots"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="title">leo_mwir_clear.yaml<span class="sep">—</span>RADIANT v1.0.0</div>
+    <div class="chip">#7f3a · git b4e0c1</div>
+  </div>
+  <div class="mb"><span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Tools</span><span>Help</span></div>`;}
+
+function chainStrip(focus){return `
+  <div class="chain">${STAGES.map(s=>{
+    const h = s.warn?"warn":"ok";
+    const active = s.k===focus;
+    return `<div class="stage ${active?'active':''} ${s.warn&&!active?'warn':''}" data-k="${s.k}">
+      <div class="num">${s.n}</div>
+      <div class="h"><span class="n">${s.k}</span><span class="dot ${h}"></span></div>
+      <div class="t">${s.name}</div>
+      <div class="s">${s.sub}</div>
+    </div>`;}).join("")}</div>`;}
+
+function hero(s, desc, meta){return `
+  <div class="hero">
+    <div class="icon">${s.icon}</div>
+    <div class="lead">
+      <div class="crumb">signal chain / <span class="cur">${s.n}. ${s.name}</span></div>
+      <h2>${s.name} <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);font-weight:400">· ${s.sub}</span></h2>
+      <div class="desc">${desc}</div>
+    </div>
+    <div class="side">
+      <div class="meta">${meta}</div>
+    </div>
+  </div>`;}
+
+function sb(msg){return `<div class="sb"><span class="ok">✓ Evaluated 0.23s</span><span>${msg}</span><div class="sp"></div><span>provenance #7f3a · radiant 1.0.0rc3</span></div>`;}
+
+// scenario crumb header — sits above the body grid; stage-specific archetype
+function scnHeader(crumbs, presets=true){
+  const html = crumbs.map((c,i)=>{
+    const sep = i>0?'<span class="sep">·</span>':'';
+    return `${sep}<span class="v ${c.acc?'acc':''}">${c.label}</span>`;
+  }).join('');
+  return `<div class="scn-bar">
+    <span class="label">Active scenario</span>
+    <div class="crumb">${html}</div>
+    <div class="right">${presets?`
+      <button class="preset-pop" title="Browse archetype matrix"><span class="ic">⊞</span>archetypes…</button>
+      <button class="preset-pop"><span class="ic">⌘</span>load preset…</button>
+    `:''}</div>
+  </div>`;
+}
+
+// viz tabs (above the canvas plots) — first is on by default; visual only
+function vizTabs(tabs, meta){
+  return `<div class="viz-tabs">
+    ${tabs.map((t,i)=>`<button class="${i===0?'on':''}">${t}</button>`).join('')}
+    <div class="sp"></div>
+    <span class="meta">${meta||''}</span>
+  </div>`;
+}
+
+// descriptor card — used in right rail (validation panel)
+function descCard(name, badge, rows){
+  return `<div class="descriptor-card">
+    <div class="dh">${name}${badge?`<span class="badge">${badge}</span>`:''}</div>
+    ${rows.map(([k,v,cls])=>`<div class="dr"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`).join('')}
+  </div>`;
+}
+
+// validation summary pills + items
+function valBlock(summary, items){
+  const sumHtml = summary.map(([cls,txt])=>`<div class="pill ${cls}">${txt}</div>`).join('');
+  const itemsHtml = items.map(([lvl,code,msg,ref])=>`
+    <div class="val-item ${lvl}">
+      <div class="lvl">${lvl} · ${code}</div>
+      <div class="msg">${msg}</div>
+      ${ref?`<div class="field-ref">${ref}</div>`:''}
+    </div>`).join('');
+  return `<div class="rail-section">
+    <div class="rh">Validation<span class="count">${items.length}</span></div>
+    <div class="val-summary">${sumHtml}</div>
+    <div class="val-list">${itemsHtml}</div>
+  </div>`;
+}
+
+// section wrapper for descriptor cards in right rail
+function descSection(title, count, cardsHtml){
+  return `<div class="rail-section">
+    <div class="rh">${title}<span class="count">${count}</span></div>
+    ${cardsHtml}
+  </div>`;
+}
+
+// param tree helper
+function pt(groups){
+  return groups.map(([label, rows])=>`
+    <div class="group-label">${label}</div>
+    <div class="prows">${rows.map(([n,v,u,c])=>`
+      <div class="prow ${c||''}"><span class="n">${n}</span><span class="v">${v}</span><span class="u">${u||''}</span></div>
+    `).join("")}</div>`).join("");
+}
+
+// IO list helper
+function io(title, items, arrow="▾"){return `
+  <div class="io-block">
+    <h5><span class="arr">${arrow}</span>${title}</h5>
+    <div class="io-list">${items.map(([nm,tag,cls])=>`
+      <div class="io-item ${cls||''}"><span class="nm">${nm}</span><span class="tag">${tag||''}</span></div>
+    `).join("")}</div>
+  </div>`;}
+
+// ====================== PLOTS ======================
+function plotPlanck(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="10" y="24">L(λ)</text>
+      <text x="10" y="180">0</text>
+      <text x="200" y="195">λ (µm) · 2 → 15</text>
+      <text x="70" y="195">3</text><text x="180" y="195">5</text><text x="290" y="195">8</text><text x="370" y="195">12</text>
+    </g>
+    <!-- Planck curves, diff T -->
+    <path d="M44,140 Q100,60 160,50 Q240,70 396,130" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+    <path d="M44,160 Q110,100 170,90 Q260,110 396,150" fill="none" stroke="var(--focus)" stroke-width="1.4" stroke-dasharray="4 3"/>
+    <path d="M44,170 Q120,130 200,120 Q280,135 396,165" fill="none" stroke="var(--warn)" stroke-width="1.2" stroke-dasharray="2 2"/>
+    <circle cx="160" cy="50" r="3.5" fill="var(--accent)"/>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="170" y="45" fill="var(--accent)" font-weight="600">T = 320 K (target)</text>
+      <text x="220" y="102" fill="var(--focus)">T = 280 K</text>
+      <text x="250" y="128" fill="var(--warn)">T = 240 K (background)</text>
+    </g>
+  </svg>`;}
+
+function plotAtm(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <!-- transmission as area -->
+    <path d="M44,40 L60,42 L80,160 L110,50 L140,45 L180,160 L220,60 L250,55 L290,155 L320,75 L360,70 L396,60 L396,180 L44,180 Z" fill="var(--ok-soft)" opacity=".9"/>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="10" y="24">1.0</text><text x="10" y="180">0</text>
+      <text x="200" y="195">λ (µm)</text>
+    </g>
+    <!-- L_path -->
+    <path d="M44,160 Q120,100 200,90 Q280,110 396,130" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="4 3"/>
+    <!-- L_atm -->
+    <path d="M44,170 Q120,150 200,135 Q280,145 396,150" fill="none" stroke="var(--warn)" stroke-width="1.4" stroke-dasharray="2 3"/>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="55" y="60" fill="var(--ok)" font-weight="600">τ(λ)</text>
+      <text x="240" y="82" fill="var(--accent)">L_path</text>
+      <text x="240" y="138" fill="var(--warn)">L_atm</text>
+    </g>
+  </svg>`;}
+
+function plotPSF(){
+  // radially Gaussian heatmap approximation via SVG circles
+  const circles = [];
+  for(let r=0;r<48;r+=3){
+    const o = Math.exp(-r*r/300);
+    circles.push(`<circle cx="100" cy="100" r="${50-r}" fill="none" stroke="var(--accent)" stroke-width="3" opacity="${o}"/>`);
+  }
+  return `
+  <svg viewBox="0 0 200 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <rect x="20" y="20" width="160" height="160" fill="var(--panel-3)" stroke="var(--line)"/>
+    ${circles.join('')}
+    <!-- pixel grid overlay -->
+    <g stroke="var(--ink-2)" stroke-width=".5" opacity=".35">
+      ${[50,80,110,140].map(p=>`<line x1="${p}" y1="20" x2="${p}" y2="180"/><line x1="20" y1="${p}" x2="180" y2="${p}"/>`).join('')}
+    </g>
+    <!-- center pixel highlighted -->
+    <rect x="80" y="80" width="30" height="30" fill="none" stroke="var(--focus)" stroke-width="2"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="22" y="192">−3</text><text x="170" y="192">3 px</text>
+      <text x="110" y="95" fill="var(--focus)" font-weight="600">EE_box</text>
+    </g>
+  </svg>`;}
+
+function plotMTF(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <line x1="340" y1="20" x2="340" y2="180" stroke="var(--muted)" stroke-dasharray="3 3" stroke-width=".8"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="18" y="24">1.0</text><text x="30" y="183">0</text>
+      <text x="330" y="195">ν_nyq</text>
+      <text x="180" y="195">cycles / mrad</text>
+    </g>
+    <path d="M44,22 Q120,32 200,54 T396,112" fill="none" stroke="var(--ok)" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <path d="M44,22 Q120,28 200,46 T396,96" fill="none" stroke="var(--focus)" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <path d="M44,22 Q120,40 200,78 T396,140" fill="none" stroke="var(--warn)" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <path d="M44,22 Q120,70 200,105 T396,168" fill="none" stroke="var(--accent)" stroke-width="2.4"/>
+    <circle cx="340" cy="135" r="3.5" fill="var(--accent)"/>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="290" y="96" fill="var(--accent)" font-weight="600">system = 0.42</text>
+      <text x="270" y="68" fill="var(--focus)">diffraction</text>
+      <text x="270" y="118" fill="var(--warn)">jitter</text>
+      <text x="270" y="148" fill="var(--ok)">pixel</text>
+    </g>
+  </svg>`;}
+
+function plotEE(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <path d="M44,180 Q120,90 200,55 Q280,35 396,25" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+    <line x1="130" y1="20" x2="130" y2="180" stroke="var(--focus)" stroke-dasharray="2 2"/>
+    <circle cx="130" cy="84" r="3.5" fill="var(--focus)"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="18" y="24">1.0</text><text x="30" y="183">0</text>
+      <text x="170" y="195">r (pixels)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--focus)">
+      <text x="135" y="98">EE_box(½ px) = 0.57</text>
+    </g>
+  </svg>`;}
+
+function plotQE(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <path d="M44,155 Q100,55 180,45 Q260,48 320,62 L340,175 L44,175 Z" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+    <line x1="320" y1="20" x2="320" y2="180" stroke="var(--warn)" stroke-dasharray="3 3"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="18" y="24">1.0</text><text x="30" y="183">0</text>
+      <text x="180" y="195">λ (µm) 1 → 6</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="120" y="60" fill="var(--accent)" font-weight="600">QE(λ) · HgCdTe</text>
+      <text x="270" y="42" fill="var(--warn)">λ_cutoff = 5.0 µm</text>
+    </g>
+  </svg>`;}
+
+function plotDark(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <!-- exponential dark current vs T -->
+    <path d="M44,30 Q120,60 200,110 Q280,150 396,172" fill="none" stroke="var(--err)" stroke-width="2.2"/>
+    <circle cx="180" cy="102" r="4" fill="var(--focus)"/>
+    <line x1="180" y1="20" x2="180" y2="102" stroke="var(--focus)" stroke-dasharray="2 2"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="5" y="24">10³ e⁻/s</text>
+      <text x="5" y="183">10⁻² e⁻/s</text>
+      <text x="180" y="195">T_det (K)</text>
+      <text x="70" y="195">60</text><text x="176" y="195">80</text><text x="290" y="195">120</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--focus)">
+      <text x="184" y="98">op · 80 K → 0.12 e⁻/s</text>
+    </g>
+  </svg>`;}
+
+function plotSweep(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <!-- threshold -->
+    <line x1="44" y1="120" x2="396" y2="120" stroke="var(--err)" stroke-dasharray="4 3"/>
+    <path d="M44,175 Q120,130 200,85 Q280,55 396,32" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+    <!-- data points -->
+    ${[0,1,2,3,4,5,6].map(i=>`<circle cx="${44+i*58}" cy="${175-i*22}" r="3" fill="var(--accent)"/>`).join('')}
+    <!-- crossing marker -->
+    <line x1="160" y1="20" x2="160" y2="180" stroke="var(--focus)" stroke-dasharray="2 2"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="20" y="24">60</text><text x="20" y="124">40</text><text x="25" y="183">20</text>
+      <text x="180" y="195">aperture D (m)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="300" y="26" fill="var(--accent)" font-weight="600">SNR vs D</text>
+      <text x="280" y="116" fill="var(--err)">SNR = 40 threshold</text>
+      <text x="165" y="100" fill="var(--focus)">D* = 0.31 m</text>
+    </g>
+  </svg>`;}
+
+function plotTiming(){return `
+  <svg viewBox="0 0 400 140" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="4" y="28">int</text>
+      <text x="4" y="60">CDS₁</text>
+      <text x="4" y="92">CDS₂</text>
+      <text x="4" y="124">frame</text>
+      <text x="340" y="138">t (ms)</text>
+    </g>
+    <!-- integration window -->
+    <rect x="50" y="16" width="220" height="18" fill="var(--accent-soft)" stroke="var(--accent)"/>
+    <text x="55" y="29" font-family="IBM Plex Mono" font-size="10" fill="var(--accent)" font-weight="600">5.0 ms integrate</text>
+    <!-- reset / sample pulses -->
+    <path d="M44,60 L50,60 L50,48 L55,48 L55,60 L260,60 L260,48 L265,48 L265,60 L396,60" fill="none" stroke="var(--focus)" stroke-width="1.5"/>
+    <path d="M44,92 L265,92 L265,80 L270,80 L270,92 L280,92 L280,80 L285,80 L285,92 L396,92" fill="none" stroke="var(--ok)" stroke-width="1.5"/>
+    <!-- frame tick -->
+    <line x1="50" y1="106" x2="50" y2="130" stroke="var(--ink-2)"/><line x1="340" y1="106" x2="340" y2="130" stroke="var(--ink-2)"/>
+    <line x1="50" y1="118" x2="340" y2="118" stroke="var(--ink-2)"/>
+    <text x="170" y="114" font-family="IBM Plex Mono" font-size="9" fill="var(--ink-2)">7.1 ms frame · 141 Hz</text>
+  </svg>`;}
+
+function plotLOS(){return `
+  <svg viewBox="0 0 400 140" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <!-- ground track representation -->
+    <rect x="10" y="20" width="380" height="100" fill="var(--panel-2)" stroke="var(--line)"/>
+    <!-- pixel boxes showing smear -->
+    <g>${[0,1,2,3].map(i=>`
+      <rect x="${40+i*80}" y="60" width="26" height="26" fill="none" stroke="var(--focus)" stroke-dasharray="2 2"/>
+      <rect x="${40+i*80+18}" y="60" width="26" height="26" fill="var(--accent-soft)" stroke="var(--accent)"/>
+    `).join('')}</g>
+    <!-- jitter cloud -->
+    <g opacity=".7">${[0,1,2,3].map(i=>{
+      const cx = 53+i*80+18, cy=73;
+      return `<ellipse cx="${cx}" cy="${cy}" rx="10" ry="5" fill="none" stroke="var(--warn)" stroke-dasharray="2 2"/>`;
+    }).join('')}</g>
+    <!-- arrow direction -->
+    <path d="M30,100 L370,100" stroke="var(--ink-2)" stroke-width="1"/>
+    <path d="M362,96 L370,100 L362,104" fill="none" stroke="var(--ink-2)"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="30" y="32">ideal ⟂</text>
+      <text x="30" y="132">ground-track</text>
+      <text x="260" y="132">along-track →</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="240" y="52" fill="var(--accent)" font-weight="600">smear 3 µrad/5ms</text>
+      <text x="240" y="40" fill="var(--warn)">jitter σ 3 µrad ⚠</text>
+    </g>
+  </svg>`;}
+
+function plotADC(){return `
+  <svg viewBox="0 0 400 200" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[40,80,120,160].map(y=>`<line x1="44" y1="${y}" x2="396" y2="${y}"/>`).join('')}</g>
+    <line x1="44" y1="180" x2="396" y2="180" stroke="var(--ink-2)"/>
+    <line x1="44" y1="20" x2="44" y2="180" stroke="var(--ink-2)"/>
+    <!-- staircase ADC -->
+    <path d="M44,176 L100,176 L100,156 L160,156 L160,130 L220,130 L220,100 L280,100 L280,70 L340,70 L340,40 L396,40" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    <!-- ideal linear dashed -->
+    <line x1="44" y1="178" x2="396" y2="28" stroke="var(--focus)" stroke-width="1" stroke-dasharray="3 3"/>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="10" y="24">16384 DN</text><text x="30" y="183">0</text>
+      <text x="180" y="195">e⁻ · 14-bit ADC</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink-2)">
+      <text x="280" y="64" fill="var(--accent)" font-weight="600">gain 1.0 e⁻/DN</text>
+      <text x="130" y="80" fill="var(--focus)">ideal</text>
+      <text x="50" y="172" fill="var(--muted)">σ_q = DN/√12</text>
+    </g>
+  </svg>`;}
+
+function plotSparkline(){return `
+  <svg viewBox="0 0 120 28" width="100%" height="100%" preserveAspectRatio="none">
+    <path d="M0,22 L15,20 L30,17 L45,14 L60,13 L75,11 L90,10 L105,9 L120,8" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  </svg>`;}
+
+// ====================== STAGE SCREENS ======================
+
+function stageSource(){
+  const s = STAGES[0];
+  return `
+    ${hero(s, "Computes <b>L_src(λ)</b> — the spectral radiance leaving the target per wavelength, before atmospheric propagation. Handles thermal emission (Planck), Lambertian solar reflection, and non-uniform temperature profiles.",
+      `<div>regime · <b>extended</b> (tentative)</div><div>T_t · <b>320 K</b> · ε <b>0.95</b></div><div>500 λ pts · 3 – 15 µm</div><div>spec form · <b>S7 mixed</b></div>`)}
+
+    ${scnHeader([
+      {label:"MWIR", acc:true},
+      {label:"terrestrial"},
+      {label:"extended"},
+      {label:"S7 mixed"},
+      {label:"archetype #4"},
+    ])}
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Target · descriptor</span><span class="a"><span title="Validate">⌥V</span> · <span title="Search">⌘F</span></span></div>
+
+        <div class="gh"><span class="chev">▾</span>Target<span class="badge acc">T3 mixed</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">Scene type</span><span class="v">extended</span><span class="u"></span></div>
+          <div class="prow"><span class="n">Target location</span><span class="v">terrestrial</span><span class="u"></span></div>
+          <div class="prow"><span class="n">Wavelength regime</span><span class="v">MWIR</span><span class="u"></span></div>
+          <div class="prow tol"><span class="n">T_t</span><span class="v">320</span><span class="u">K</span></div>
+          <div class="prow"><span class="n">emissivity ε</span><span class="v">0.95</span><span class="u"></span></div>
+          <div class="prow derived"><span class="n">h_tgt</span><span class="v">0</span><span class="u">m</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Spec form<span class="badge">S7</span></div>
+        <div class="spec-cards">
+          <div class="spec-card disabled" title="Reflective only — disabled in MWIR">
+            <div class="rb"></div><div><div class="name">Graybody <span class="code">S3</span></div><div class="formula">L = ε · B(λ,T)</div></div>
+          </div>
+          <div class="spec-card on">
+            <div class="rb"></div><div><div class="name">Mixed emit + reflect <span class="code">S7</span></div><div class="formula">L = ε·B(T) + (1−ε)·E/π</div></div>
+          </div>
+          <div class="spec-card disabled">
+            <div class="rb"></div><div><div class="name">User L at source <span class="code">S8</span></div><div class="formula">L_src(λ) → atmosphere</div></div>
+          </div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Illumination<span class="badge">I1 solar+sky</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">Source</span><span class="v">solar+sky</span><span class="u"></span></div>
+          <div class="prow"><span class="n">Solar spectrum</span><span class="v">Kurucz_2005</span><span class="u">⤴</span></div>
+          <div class="prow tol"><span class="n">θ_s</span><span class="v">42.5</span><span class="u">°</span></div>
+          <div class="prow"><span class="n">Δφ</span><span class="v">35.0</span><span class="u">°</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Observation geometry<span class="badge acc">defined here</span></div>
+        <div style="font-size:10.5px;color:var(--muted);line-height:1.4;margin:0 0 6px;padding:5px 7px;background:var(--panel-2);border-left:2px solid var(--accent);border-radius:0 3px 3px 0">Single definition point · published as <b>LineOfSightGeometry</b> + <b>SensorDescriptor</b>. Atmosphere &amp; Optics consume these read-only.</div>
+        <div class="prows">
+          <div class="prow"><span class="n">h_sensor (altitude)</span><span class="v">500</span><span class="u">km</span></div>
+          <div class="prow"><span class="n">η (off-nadir at sensor)</span><span class="v">20.5</span><span class="u">°</span></div>
+          <div class="prow derived"><span class="n">θ_o (observer zenith @ tgt)</span><span class="v">22.0</span><span class="u">°</span></div>
+          <div class="prow derived"><span class="n">slant range</span><span class="v">567.3</span><span class="u">km</span></div>
+          <div class="prow derived"><span class="n">airmass = sec θ_o</span><span class="v">1.079</span><span class="u"></span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["Spectral preview","LOS geometry","Scene fill","Provenance"], "500 λ pts · 3.0–5.0 µm · 1 nm")}
+        <div class="viz-big" style="margin-bottom:10px">
+          <div class="vh"><span class="t">L_src(λ) — Planck + Lambertian</span><span class="m">W/m²/sr/µm · 500 pts</span></div>
+          <div class="plot" style="height:240px">${plotPlanck()}</div>
+        </div>
+        <div class="viz-grid2">
+          <div class="physbox">
+            <h5>Thermal emission (Planck)</h5>
+            <div class="eq">L_BB(λ,T) = (2hc²/λ⁵) / (exp(hc/λkT) − 1)</div>
+            <div class="eq">L_src = ε · L_BB  <span class="c"># gray body</span></div>
+            <div class="citeline">refs: CODATA 2018 · Planck 1901</div>
+          </div>
+          <div class="physbox">
+            <h5>Mixed S7 — emit + reflect</h5>
+            <div class="eq">L = ε·B(T_t) + (1−ε)·E_illum/π</div>
+            <div class="eq">E_illum = E_solar·cos θ_s·τ_sun + E_sky</div>
+            <div class="citeline">Kirchhoff ε+ρ=1 · Lambertian</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="panel-h"><span class="t">Regime classification (tentative)</span></div>
+          <div class="pills">
+            <span class="pill accent">extended ← current</span>
+            <span class="pill">point source</span>
+            <span class="pill">sub-pixel</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:6px">
+            Finalized in OpticsStage once PSF diameter is known (C7).
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 0 err"],["warn","⚠ 2 warn"],["info","i 1 info"]],
+          [
+            ["warn","S5.1","θ_s = 42.5° approaches grazing for MWIR diffuse-sky term; downwelling thermal dominates over scattered solar at this regime.","source.illumination.theta_s"],
+            ["warn","S5.2","ε(λ) sample count (500) does not match MODTRAN tape6 grid (1001). Linear interpolation will be applied at AtmosphereStage.","source.target.epsilon_path"],
+            ["info","S5.3","MWIR mixed model active — both ε·B(T) and ρ·E/π terms will be assembled. Pure thermal/reflective disabled per matrix §3.2.","source.target.spec_form"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",3,
+          descCard("TargetDescriptor","T3Mixed",[
+            ["scene_type","extended","acc"],
+            ["target_location","terrestrial","acc"],
+            ["spec_form","S7 mixed","acc"],
+            ["ε(λ)","painted_metal_v3 · 500pts"],
+            ["T_t","320.0 K"],
+            ["A_t","— (extended)"],
+          ]) +
+          descCard("BackgroundDescriptor","B3 ground",[
+            ["type","GroundBackground","acc"],
+            ["ε_g(λ)","grass_dry · 500pts"],
+            ["T_g","288.0 K"],
+            ["populated","no — extended"],
+          ]) +
+          descCard("LineOfSightGeometry","A2",[
+            ["h_sensor","500 km"],
+            ["h_tgt","0 m"],
+            ["θ_o","22.0° (0.384 rad)"],
+            ["θ_s","42.5° (0.742 rad)","warn"],
+            ["Δφ","35.0° (0.611 rad)"],
+            ["h_atm_top","100 km"],
+          ])
+        )}
+      </div>
+    </div>
+    ${sb("L_src computed · 500 λ pts · S7 mixed · 0 err · 2 warn")}
+  `;
+}
+
+function stageAtm(){
+  const s = STAGES[1];
+  return `
+    ${hero(s,"Propagates source radiance through the atmosphere. Produces spectral transmittance <b>τ(λ)</b>, upwelling path radiance <b>L_path(λ)</b>, and atmospheric self-emission <b>L_atm(λ)</b>. Uses MODTRAN tape7 as primary model, Beer-Lambert as fallback.",
+      `<div>model · <b>MODTRAN 6</b></div><div>tape7 · <b>mls_clear_500km.t7</b></div><div>altitude · <b>500 km</b></div><div>zenith · <b>22°</b></div>`)}
+
+    ${scnHeader([
+      {label:"MODTRAN 6", acc:true},
+      {label:"mid-lat summer"},
+      {label:"500 km · LEO"},
+      {label:"clear · vis 23 km"},
+      {label:"slant 567 km"},
+    ])}
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Atmosphere · descriptor</span><span class="a"><span title="Validate">⌥V</span></span></div>
+
+        <div class="gh"><span class="chev">▾</span>Model<span class="badge acc">M2 MODTRAN</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">Engine</span><span class="v">MODTRAN 6</span><span class="u"></span></div>
+          <div class="prow"><span class="n">tape7 file</span><span class="v">mls_clear…</span><span class="u">⤴</span></div>
+          <div class="prow"><span class="n">profile</span><span class="v">mid-lat summer</span><span class="u"></span></div>
+          <div class="prow"><span class="n">aerosol</span><span class="v">rural</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Conditions<span class="badge">C1 clear</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">visibility</span><span class="v">23</span><span class="u">km</span></div>
+          <div class="prow"><span class="n">RH</span><span class="v">45</span><span class="u">%</span></div>
+          <div class="prow"><span class="n">CO₂</span><span class="v">420</span><span class="u">ppm</span></div>
+          <div class="prow"><span class="n">H₂O scale</span><span class="v">1.0</span><span class="u">×</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▸</span>Geometry<span class="badge">inherited</span></div>
+        <div style="font-size:10.5px;color:var(--muted);line-height:1.4;margin:0 0 6px;padding:5px 7px;background:var(--panel-2);border-left:2px solid var(--muted-2);border-radius:0 3px 3px 0">Consumed read-only from Source · <b>LineOfSightGeometry</b>. Path quantities derived here; edit angles on the Source stage.</div>
+        <div class="prows">
+          <div class="prow derived"><span class="n">θ_o (from Source)</span><span class="v">22.0</span><span class="u">°</span></div>
+          <div class="prow derived"><span class="n">h_sensor</span><span class="v">500</span><span class="u">km</span></div>
+          <div class="prow derived"><span class="n">slant range</span><span class="v">567.3</span><span class="u">km</span></div>
+          <div class="prow derived"><span class="n">airmass = sec θ_o</span><span class="v">1.079</span><span class="u"></span></div>
+          <div class="prow derived"><span class="n">earth model</span><span class="v">WGS84</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Turbulence<span class="badge">off</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">enabled</span><span class="v">false</span><span class="u"></span></div>
+          <div class="prow derived"><span class="n">Cn²</span><span class="v">—</span><span class="u">m⁻²ᐟ³</span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["τ, L_path, L_atm","Band summary","Slant geometry","Provenance"], "MODTRAN tape7 · 1001 λ pts · 3.0–5.0 µm")}
+        <div class="viz-big" style="margin-bottom:10px">
+          <div class="vh"><span class="t">Atmosphere output · τ(λ), L_path(λ), L_atm(λ)</span><span class="m">band 3–5 µm · cache hit · 3 ms</span></div>
+          <div class="plot" style="height:230px">${plotAtm()}</div>
+        </div>
+        <div class="viz-grid2">
+          <div class="physbox">
+            <h5>Radiative transfer</h5>
+            <div class="eq">L_app(λ) = τ·L_src + L_path + L_atm</div>
+            <div class="eq" style="color:var(--muted)">  τ      · transmittance</div>
+            <div class="eq" style="color:var(--muted)">  L_path · upwelling path rad.</div>
+            <div class="eq" style="color:var(--muted)">  L_atm  · self-emission</div>
+            <div class="citeline">ref: MODTRAN 6 User Manual §4</div>
+          </div>
+          <div class="physbox">
+            <h5>Band-integrated summary</h5>
+            <table class="tbl">
+              <tr><th>band</th><th>τ̄</th><th class="num">L_path</th><th class="num">L_atm</th></tr>
+              <tr><td>3.4–4.1 µm</td><td>0.82</td><td class="num">0.41</td><td class="num">0.08</td></tr>
+              <tr><td>4.1–4.8 µm</td><td>0.71</td><td class="num">0.58</td><td class="num">0.12</td></tr>
+              <tr><td>4.8–5.0 µm</td><td>0.63</td><td class="num">0.71</td><td class="num">0.18</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 0 err"],["warn","⚠ 1 warn"],["info","i 2 info"]],
+          [
+            ["warn","A2.1","tape7 grid (1001 pts @ 1 nm) does not match upstream ε(λ) grid (500 pts @ 4 nm). Linear interpolation at the boundary.","atm.modtran_file"],
+            ["info","A2.2","Aerosol profile = rural · visibility 23 km. Marine/urban variants available in materials/aerosols/.","atm.aerosol"],
+            ["info","A2.3","Turbulence disabled — Cn² profile not evaluated. Enable for &lt;3 km horizontal paths.","atm.turbulence.enabled"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",2,
+          descCard("AtmosphereDescriptor","M2",[
+            ["model","MODTRAN 6","acc"],
+            ["tape7","mls_clear_500km · 2.3 MB"],
+            ["sha","4a7c…a1"],
+            ["τ̄ (3–5 µm)","0.72"],
+            ["L_path (band)","0.57 W/m²/sr"],
+            ["L_atm (band)","0.13 W/m²/sr"],
+          ]) +
+          descCard("PathGeometry","inherited",[
+            ["θ_o (from Source)","22.0°"],
+            ["airmass","1.079"],
+            ["slant range","567.3 km"],
+            ["h_top","100 km"],
+            ["earth model","WGS84"],
+          ])
+        )}
+      </div>
+    </div>
+    ${sb("τ, L_path, L_atm computed · MODTRAN tape7 cache hit · 3 ms")}
+  `;
+}
+
+function stageOptics(){
+  const s = STAGES[3];
+  return `
+    ${hero(s,"Transforms source + atmosphere radiance into a focal-plane image. Applies throughput τ_opt, filter bandpass, diffraction PSF, WFE, obscuration, warm-optics self-emission, and finalizes the target <b>regime</b>.",
+      `<div>D · <b>0.30 m</b> · f/# 4.0</div><div>WFE · <b>0.07 λ</b> (Strehl 0.82)</div><div>T_opt · <b>280 K</b></div><div>EE_box · <b>0.57</b></div>`)}
+
+    ${scnHeader([
+      {label:"D = 0.30 m", acc:true},
+      {label:"f/4.0"},
+      {label:"4.2 µm · BP 1.2 µm"},
+      {label:"WFE 0.07 λ"},
+      {label:"T_opt 280 K"},
+    ])}
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Optics · descriptor</span></div>
+
+        <div class="gh"><span class="chev">▾</span>Aperture<span class="badge acc">A1 D=0.30</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">D</span><span class="v">0.30</span><span class="u">m</span></div>
+          <div class="prow"><span class="n">focal length</span><span class="v">1.20</span><span class="u">m</span></div>
+          <div class="prow derived"><span class="n">f/#</span><span class="v">4.0</span><span class="u"></span></div>
+          <div class="prow"><span class="n">obscuration</span><span class="v">0.33</span><span class="u"></span></div>
+          <div class="prow tol"><span class="n">WFE_rms</span><span class="v">0.07</span><span class="u">λ</span></div>
+          <div class="prow"><span class="n">T_opt</span><span class="v">280</span><span class="u">K</span></div>
+          <div class="prow"><span class="n">throughput τ_opt</span><span class="v">0.75</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Filter<span class="badge">F2 BP</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">type</span><span class="v">bandpass</span><span class="u"></span></div>
+          <div class="prow"><span class="n">center λ_c</span><span class="v">4.2</span><span class="u">µm</span></div>
+          <div class="prow"><span class="n">FWHM</span><span class="v">1.2</span><span class="u">µm</span></div>
+          <div class="prow"><span class="n">OOB rejection</span><span class="v">1e-4</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Cold stop<span class="badge">on</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">enabled</span><span class="v">true</span><span class="u"></span></div>
+          <div class="prow"><span class="n">f/# match</span><span class="v">4.0</span><span class="u"></span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["PSF · MTF · EE","Self-emission","Regime","Provenance"], "λ=4.2 µm · 64×64 px PSF grid")}
+        <div class="viz-grid3" style="margin-bottom:10px">
+          <div class="viz-big">
+            <div class="vh"><span class="t">PSF(x,y)</span><span class="m">λ=4.2 µm · Airy + WFE</span></div>
+            <div class="heatmap">${plotPSF()}</div>
+          </div>
+          <div class="viz-big">
+            <div class="vh"><span class="t">MTF terms</span><span class="m">diffraction · WFE · defocus</span></div>
+            <div class="plot" style="height:160px">${plotMTF()}</div>
+          </div>
+          <div class="viz-big">
+            <div class="vh"><span class="t">Encircled energy</span><span class="m">EE(r)</span></div>
+            <div class="plot" style="height:160px">${plotEE()}</div>
+          </div>
+        </div>
+        <div class="viz-grid2">
+          <div class="physbox">
+            <h5>Diffraction + WFE</h5>
+            <div class="eq">MTF_diff(ν) = (2/π)[acos(β) − β√(1−β²)]</div>
+            <div class="eq">S = exp(−(2π·σ_wfe)²) <span class="c"># Marechal</span></div>
+            <div class="eq">β = ν · λ · f/#</div>
+          </div>
+          <div class="physbox">
+            <h5>Warm-optics self-emission</h5>
+            <div class="eq">L_opt(λ) = (1 − τ_opt) · L_BB(λ, T_opt)</div>
+            <div class="citeline">important &gt; 3 µm; dominant for LWIR.</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="panel-h"><span class="t">Regime · finalized here (C7)</span></div>
+          <div class="pills">
+            <span class="pill accent">extended ← final</span>
+            <span class="pill">point</span>
+            <span class="pill">sub-pixel</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:6px">PSF FWHM = 1.8 px · target footprint = 9 px → extended-scene equations downstream.</div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 0 err"],["warn","⚠ 0 warn"],["info","i 3 info"]],
+          [
+            ["info","O4.1","Strehl 0.82 (Marechal). PSF FWHM = 1.8 px. Target footprint 9 px → regime FINAL = extended (C7).","optics.regime"],
+            ["info","O4.2","Cold stop on, f/# matched. Stray-light contribution from outside cold-stop modeled at 0.","optics.coldstop"],
+            ["info","O4.3","Warm-optics self-emission peaks 4.4 µm at T_opt = 280 K. Contributes 0.18 W/m²/sr in band.","optics.T_opt"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",3,
+          descCard("OpticsDescriptor","A1·F2",[
+            ["D","0.30 m","acc"],
+            ["f/#","4.0"],
+            ["WFE","0.07 λ"],
+            ["Strehl","0.82","acc"],
+            ["EE_box","0.57","acc"],
+            ["regime","extended (FINAL)","acc"],
+          ]) +
+          descCard("FilterDescriptor","F2",[
+            ["type","bandpass"],
+            ["λ_c","4.2 µm"],
+            ["FWHM","1.2 µm"],
+            ["OOB","1e-4"],
+          ]) +
+          descCard("MTFContribution","×3",[
+            ["diffraction","0.71"],
+            ["WFE (Marechal)","0.91"],
+            ["defocus","0.97"],
+            ["combined","0.62"],
+          ])
+        )}
+      </div>
+    </div>
+    ${sb("Optics resolved · PSF FWHM 1.8 px · Strehl 0.82 · EE_box 0.57")}
+  `;
+}
+
+function stagePlatform(){
+  const s = STAGES[2];
+  return `
+    ${hero(s,"Applies platform/line-of-sight motion effects: along-track <b>smear</b> from ground speed × integration time, Gaussian <b>jitter</b> from LOS stability, TDI mis-registration. All are MTF multipliers (no radiometric change).",
+      `<div style='color:var(--warn)'>⚠ jitter 3 µrad &gt; spec 2 µrad</div><div>ground speed · <b>7.5 km/s</b></div><div>int time · <b>5 ms</b></div><div>TDI · <b>8 stages</b></div>`)}
+
+    ${scnHeader([
+      {label:"LEO 500 km", acc:true},
+      {label:"v_g 7.5 km/s"},
+      {label:"t_int 5 ms"},
+      {label:"TDI 8 stages"},
+      {label:"jitter spec 2 µrad"},
+    ])}
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Platform · descriptor</span></div>
+
+        <div class="gh"><span class="chev">▾</span>Orbit / motion<span class="badge">P1 LEO</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">ground speed v_g</span><span class="v">7.5</span><span class="u">km/s</span></div>
+          <div class="prow derived"><span class="n">altitude</span><span class="v">500</span><span class="u">km</span></div>
+          <div class="prow"><span class="n">tilt</span><span class="v">0</span><span class="u">°</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Stabilization<span class="badge err">⚠ over spec</span></div>
+        <div class="prows">
+          <div class="prow bad"><span class="n">jitter_rms</span><span class="v">3.0</span><span class="u">µrad</span></div>
+          <div class="prow"><span class="n">jitter spec</span><span class="v">2.0</span><span class="u">µrad</span></div>
+          <div class="prow"><span class="n">drift @ 1Hz</span><span class="v">0.5</span><span class="u">µrad/s</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Scan / TDI<span class="badge">S2 along-track</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">TDI stages</span><span class="v">8</span><span class="u"></span></div>
+          <div class="prow"><span class="n">integration t</span><span class="v">5.0</span><span class="u">ms</span></div>
+          <div class="prow derived"><span class="n">TDI mis-reg</span><span class="v">0.05</span><span class="u">px</span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["LOS motion","Platform MTF","Equations","Provenance"], "px = 18 µm · IFOV 15 µrad")}
+        <div class="viz-big" style="margin-bottom:10px">
+          <div class="vh"><span class="t">LOS motion · smear + jitter over integration window</span><span class="m">v_g 7.5 km/s · t_int 5 ms</span></div>
+          <div class="plot" style="height:170px">${plotLOS()}</div>
+        </div>
+        <div class="viz-grid2" style="margin-bottom:10px">
+          <div class="viz-big">
+            <div class="vh"><span class="t">Platform MTF</span><span class="m">smear · jitter · TDI</span></div>
+            <div class="plot" style="height:170px">${plotMTF()}</div>
+          </div>
+          <div class="physbox">
+            <h5>Motion equations</h5>
+            <div class="eq">MTF_smear(ν) = sinc(ν · v · t_int)</div>
+            <div class="eq">MTF_jitter(ν) = exp(−2π²σ²ν²)</div>
+            <div class="eq">MTF_tdi(ν) ≈ sinc(ν · Δ_mis)</div>
+            <div class="citeline">refs: Holst 2011 · Fiete 2010</div>
+          </div>
+        </div>
+        <div class="physbox" style="border-color:var(--warn);background:var(--warn-soft)">
+          <h5 style="color:var(--warn)">⚠ Jitter out of spec</h5>
+          <div style="font-size:12.5px;color:var(--ink-2);line-height:1.5">
+            RMS jitter (3.0 µrad) exceeds system spec (2.0 µrad). Impact: MTF_jitter @ ν_nyq drops 0.96 → 0.91.
+            <b>Action:</b> review stabilization budget in <code>sensor.stabilization.jitter_rms</code>.
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 0 err"],["warn","⚠ 1 warn"],["info","i 1 info"]],
+          [
+            ["warn","P3.1","jitter_rms (3.0 µrad) exceeds spec (2.0 µrad). MTF_jitter @ ν_nyq: 0.96 → 0.91. Review stabilization budget.","sensor.stabilization.jitter_rms"],
+            ["info","P3.2","TDI mis-registration (0.05 px) within tolerance. MTF_tdi(ν_nyq) = 0.998.","sensor.scan.tdi_mis_reg"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",2,
+          descCard("PlatformDescriptor","P1",[
+            ["v_ground","7.5 km/s","acc"],
+            ["altitude","500 km"],
+            ["jitter_rms","3.0 µrad","warn"],
+            ["jitter_spec","2.0 µrad"],
+          ]) +
+          descCard("MTFContribution","×3",[
+            ["smear","0.93"],
+            ["jitter","0.91","warn"],
+            ["TDI mis-reg","0.998"],
+            ["combined","0.85","warn"],
+          ])
+        )}
+      </div>
+    </div>
+    ${sb("Platform applied · MTF_smear 0.93 · MTF_jitter 0.91 (⚠ spec)")}
+  `;
+}
+
+function stageDetector(){
+  const s = STAGES[4];
+  return `
+    ${hero(s,"Converts incident radiance to electrons. Applies QE(λ), dark current (Rule 07), pixel-aperture MTF, IPC/charge diffusion. This is also where <b>Spectral Integration</b> collapses the spectral dimension into per-pixel scalars (C5, exactly once).",
+      `<div>material · <b>HgCdTe</b></div><div>pitch · <b>18 µm</b> · λ_c 5.0 µm</div><div>T_det · <b>80 K</b> · dark 0.12 e⁻/s</div><div>8 noise terms active</div>`)}
+
+    ${scnHeader([
+      {label:"HgCdTe", acc:true},
+      {label:"18 µm pitch"},
+      {label:"λ_c = 5.0 µm"},
+      {label:"T_det 80 K"},
+      {label:"C5 spectral integration"},
+    ])}
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Detector · descriptor</span></div>
+
+        <div class="gh"><span class="chev">▾</span>FPA<span class="badge acc">D2 HgCdTe</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">material</span><span class="v">HgCdTe</span><span class="u"></span></div>
+          <div class="prow"><span class="n">pixel pitch</span><span class="v">18.0</span><span class="u">µm</span></div>
+          <div class="prow"><span class="n">λ_c</span><span class="v">5.0</span><span class="u">µm</span></div>
+          <div class="prow tol"><span class="n">T_det</span><span class="v">80</span><span class="u">K</span></div>
+          <div class="prow"><span class="n">fill factor</span><span class="v">0.95</span><span class="u"></span></div>
+          <div class="prow"><span class="n">well capacity</span><span class="v">2e6</span><span class="u">e⁻</span></div>
+          <div class="prow"><span class="n">QE peak</span><span class="v">0.78</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Crosstalk<span class="badge">X1 IPC</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">IPC α</span><span class="v">0.02</span><span class="u"></span></div>
+          <div class="prow"><span class="n">charge diffusion</span><span class="v">1.2</span><span class="u">µm</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Non-uniformity<span class="badge">N1 NUC</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">DSNU</span><span class="v">0.05</span><span class="u">%</span></div>
+          <div class="prow"><span class="n">PRNU</span><span class="v">0.8</span><span class="u">%</span></div>
+          <div class="prow"><span class="n">NUC residual</span><span class="v">0.2</span><span class="u">%</span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["QE & Dark","Noise budget","Spectral Integration","Provenance"], "8 noise terms · 12,450 e⁻ signal")}
+        <div class="viz-grid2" style="margin-bottom:10px">
+          <div class="viz-big">
+            <div class="vh"><span class="t">QE(λ)</span><span class="m">HgCdTe · λ_c 5.0 µm</span></div>
+            <div class="plot" style="height:200px">${plotQE()}</div>
+          </div>
+          <div class="viz-big">
+            <div class="vh"><span class="t">Dark current vs T</span><span class="m">Rule 07 · J_d(T)</span></div>
+            <div class="plot" style="height:200px">${plotDark()}</div>
+          </div>
+        </div>
+
+        <div class="viz-big" style="margin-bottom:10px">
+          <div class="vh"><span class="t">Noise budget · this stage</span><span class="m">e⁻ RMS</span></div>
+          <table class="tbl" style="margin-top:6px">
+            <tr><th>term</th><th class="num">e⁻</th><th>contribution</th><th class="num">%</th></tr>
+            <tr><td>photon_shot</td><td class="num">111.6</td><td><span class="bar" style="width:78%"></span></td><td class="num">18.0</td></tr>
+            <tr><td>dark_current_shot</td><td class="num">89.2</td><td><span class="bar" style="width:62%"></span></td><td class="num">11.5</td></tr>
+            <tr><td>ipc_crosstalk</td><td class="num">8.1</td><td><span class="bar" style="width:6%;background:var(--focus)"></span></td><td class="num">0.09</td></tr>
+            <tr><td>prnu_residual</td><td class="num">7.3</td><td><span class="bar" style="width:5%;background:var(--focus)"></span></td><td class="num">0.08</td></tr>
+            <tr><td>dsnu_residual</td><td class="num">4.2</td><td><span class="bar" style="width:3%;background:var(--focus)"></span></td><td class="num">0.03</td></tr>
+            <tr><td>nuc_residual</td><td class="num">3.5</td><td><span class="bar" style="width:2%;background:var(--focus)"></span></td><td class="num">0.02</td></tr>
+            <tr><td>glow</td><td class="num">2.0</td><td><span class="bar" style="width:1%;background:var(--focus)"></span></td><td class="num">0.01</td></tr>
+            <tr><td>persistence</td><td class="num">1.2</td><td><span class="bar" style="width:.8%;background:var(--focus)"></span></td><td class="num">0.00</td></tr>
+          </table>
+        </div>
+
+        <div class="physbox" style="background:var(--focus-soft);border-color:var(--focus)">
+          <h5>Spectral Integration (C5) · happens here, exactly once</h5>
+          <div class="eq">n_e = (A·t/hν) · ∫ L(λ)·τ(λ)·QE(λ)·BP(λ) dλ</div>
+          <div class="eq">EE_box applied here for point/sub-pixel regimes only (C6).</div>
+          <div class="citeline">After this stage: scalars per pixel. Upstream: spectral arrays.</div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 0 err"],["warn","⚠ 1 warn"],["info","i 2 info"]],
+          [
+            ["warn","D5.1","Photon-shot dominates noise (78%) — system is photon-limited at this scenario. Increasing aperture or t_int gives best SNR returns; reducing dark current has minor effect.","detector.noise"],
+            ["info","D5.2","C5 boundary: ∫L(λ)·τ(λ)·QE(λ)·BP(λ)dλ collapses spectral arrays to scalar n_e. Stages downstream operate on scalars only.","detector.spectral_integration"],
+            ["info","D5.3","Rule-07 dark = 0.12 e⁻/s @ T=80K. ×t_int (5 ms) = 0.0006 e⁻/pixel. Negligible at this T.","detector.T_det"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",2,
+          descCard("DetectorDescriptor","D2",[
+            ["material","HgCdTe","acc"],
+            ["pitch","18 µm"],
+            ["T_det","80 K"],
+            ["QE peak","0.78"],
+            ["dark","0.12 e⁻/s"],
+            ["n_signal","12,450 e⁻","acc"],
+          ]) +
+          descCard("NoiseTerms","×8",[
+            ["photon_shot","111.6 e⁻","acc"],
+            ["dark_shot","89.2 e⁻"],
+            ["IPC","8.1 e⁻"],
+            ["PRNU + DSNU","11.5 e⁻"],
+            ["NUC residual","3.5 e⁻"],
+            ["glow + persist","3.2 e⁻"],
+          ])
+        )}
+      </div>
+    </div>
+    ${sb("Detector applied · 12,450 e⁻ signal · 8 noise terms · spectral → scalar here")}
+  `;
+}
+
+function stageReadout(){
+  const s = STAGES[5];
+  return `
+    ${hero(s,"Reads out the accumulated charge. Applies TDI signal/noise scaling, binning, coadds, correlated double sampling (CDS) or Fowler-N, amplifier gain, and the ADC. Adds read/1/f/kTC/quantization noise; produces final DN per pixel.",
+      `<div>TDI · <b>8 stages</b></div><div>CDS · <b>on</b></div><div>ADC · <b>14-bit</b> · 1.0 e⁻/DN</div><div>frame · <b>141 Hz</b></div>`)}
+
+    ${scnHeader([
+      {label:"TDI 8 stages", acc:true},
+      {label:"CDS on"},
+      {label:"14-bit ADC"},
+      {label:"gain 1.0 e⁻/DN"},
+      {label:"frame 141 Hz"},
+    ])}
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Readout · descriptor</span></div>
+
+        <div class="gh"><span class="chev">▾</span>Readout chain<span class="badge acc">R2 CDS</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">integration t</span><span class="v">5.0</span><span class="u">ms</span></div>
+          <div class="prow"><span class="n">CDS</span><span class="v">on</span><span class="u"></span></div>
+          <div class="prow"><span class="n">Fowler N</span><span class="v">1</span><span class="u"></span></div>
+          <div class="prow"><span class="n">gain</span><span class="v">1.0</span><span class="u">e⁻/DN</span></div>
+          <div class="prow"><span class="n">ADC bits</span><span class="v">14</span><span class="u"></span></div>
+          <div class="prow"><span class="n">coadds</span><span class="v">1</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>TDI<span class="badge">T1</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">stages</span><span class="v">8</span><span class="u"></span></div>
+          <div class="prow"><span class="n">clock jitter</span><span class="v">0.1</span><span class="u">ns</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Readout noise<span class="badge">N3</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">read_noise</span><span class="v">25</span><span class="u">e⁻</span></div>
+          <div class="prow"><span class="n">1/f</span><span class="v">12</span><span class="u">e⁻</span></div>
+          <div class="prow derived"><span class="n">kTC</span><span class="v">0</span><span class="u">e⁻</span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["Timing · ADC","Noise · readout","Equations","Provenance"], "CDS √2 · 14-bit · 5 MHz")}
+        <div class="viz-grid2" style="margin-bottom:10px">
+          <div class="viz-big">
+            <div class="vh"><span class="t">Readout timing · CDS</span><span class="m">integrate · reset · sample</span></div>
+            <div class="plot" style="height:160px">${plotTiming()}</div>
+          </div>
+          <div class="viz-big">
+            <div class="vh"><span class="t">ADC transfer</span><span class="m">14-bit · gain 1.0 e⁻/DN</span></div>
+            <div class="plot" style="height:160px">${plotADC()}</div>
+          </div>
+        </div>
+
+        <div class="physbox">
+          <h5>Readout scaling</h5>
+          <div class="eq">N_sig_tdi  = N_sig · N_tdi · (1 − Δ_mis/px)²</div>
+          <div class="eq">σ_read_cds = σ_read · √2  <span class="c"># two reads</span></div>
+          <div class="eq">σ_quant    = (e⁻/DN) / √12</div>
+          <div class="eq">N_total = N_sig_tdi · n_coadds</div>
+          <div class="citeline">refs: Janesick 2007 · Holst 2011</div>
+        </div>
+
+        <div style="margin-top:10px">
+          <div class="panel-h"><span class="t">Readout noise terms</span></div>
+          <table class="tbl">
+            <tr><th>term</th><th class="num">e⁻</th><th>contribution</th><th>notes</th></tr>
+            <tr><td>read_noise</td><td class="num">25.0</td><td><span class="bar" style="width:22%"></span></td><td>CDS √2 applied</td></tr>
+            <tr><td>1/f noise</td><td class="num">12.0</td><td><span class="bar" style="width:11%"></span></td><td>integration-length scaling</td></tr>
+            <tr><td>kTC</td><td class="num">0.0</td><td>—</td><td>reset → cancelled by CDS</td></tr>
+            <tr><td>quantization</td><td class="num">3.2</td><td><span class="bar" style="width:3%"></span></td><td>DN/√12 · 14-bit</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 0 err"],["warn","⚠ 0 warn"],["info","i 2 info"]],
+          [
+            ["info","R6.1","CDS active — kTC reset noise cancelled (correlated subtraction). σ_read scales by √2 (two reads).","readout.cds"],
+            ["info","R6.2","ADC well utilization 76% (12,450 / 16,384 DN). Headroom OK; no saturation.","readout.adc"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",2,
+          descCard("ReadoutDescriptor","R2",[
+            ["CDS","on","acc"],
+            ["gain","1.0 e⁻/DN"],
+            ["ADC","14-bit"],
+            ["DN_out","12,450","acc"],
+            ["σ_total","263 e⁻"],
+          ]) +
+          descCard("NoiseTerms","×4",[
+            ["read (CDS √2)","35.4 e⁻"],
+            ["1/f","12 e⁻"],
+            ["kTC","cancelled"],
+            ["quantization","3.2 e⁻"],
+          ])
+        )}
+      </div>
+    </div>
+    ${sb("Readout applied · 12,450 e⁻ · σ_total 263 e⁻ · DN 12,450 · 14-bit")}
+  `;
+}
+
+function stagePerf(){
+  const s = STAGES[6];
+  return `
+    ${hero(s,"Computes the final radiometric performance metrics from the evaluated chain: <b>SNR</b>, <b>NEDT</b>, <b>NIIRS</b> (GIQE5 / IIRS), <b>GSD</b>, <b>MTF @ ν_nyq</b>, <b>RER</b>, <b>detection range</b>. This stage is read-only from ChainState — no new physics, only metric aggregation.",
+      `<div>evaluated · <b>0.23 s</b></div><div>500 λ pts · 8 noise terms</div><div>regime · <b>extended</b></div><div>provenance · <b>#7f3a</b></div>`)}
+
+    ${scnHeader([
+      {label:"6 metrics", acc:true},
+      {label:"5 PASS"},
+      {label:"1 WATCH"},
+      {label:"GIQE5"},
+      {label:"run #7f3a"},
+    ])}
+
+    <div style="padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line)">
+      <div class="panel-h"><span class="t">Performance metrics · evaluated</span><span class="a"><span>export CSV</span> · <span>copy to clipboard</span> · <span>diff vs last run</span></span></div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+        <div class="mcard primary"><div class="mk">SNR</div><div class="mv">47.3</div><div class="trend">${plotSparkline()}</div></div>
+        <div class="mcard"><div class="mk">NEDT</div><div class="mv">23<span class="u">mK</span></div><div class="trend">${plotSparkline()}</div></div>
+        <div class="mcard"><div class="mk">NIIRS (GIQE5)</div><div class="mv">5.4</div><div class="trend">${plotSparkline()}</div></div>
+        <div class="mcard"><div class="mk">GSD</div><div class="mv">3.6<span class="u">m</span></div><div class="trend">${plotSparkline()}</div></div>
+        <div class="mcard"><div class="mk">MTF @ ν_nyq</div><div class="mv">0.42</div><div class="trend">${plotSparkline()}</div></div>
+        <div class="mcard"><div class="mk">RER</div><div class="mv">0.28</div><div class="trend">${plotSparkline()}</div></div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="col">
+        <div class="panel-h"><span class="t">Performance · descriptor</span></div>
+
+        <div class="gh"><span class="chev">▾</span>Targets<span class="badge acc">P1</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">SNR threshold</span><span class="v">40</span><span class="u"></span></div>
+          <div class="prow"><span class="n">NEDT threshold</span><span class="v">30</span><span class="u">mK</span></div>
+          <div class="prow"><span class="n">NIIRS target</span><span class="v">5.0</span><span class="u"></span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Models<span class="badge">M1 GIQE5</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">NIIRS model</span><span class="v">GIQE5</span><span class="u"></span></div>
+          <div class="prow"><span class="n">detection</span><span class="v">johnson-nvl</span><span class="u"></span></div>
+          <div class="prow"><span class="n">EE box r</span><span class="v">0.5</span><span class="u">px</span></div>
+        </div>
+
+        <div class="gh"><span class="chev">▾</span>Range<span class="badge">R1</span></div>
+        <div class="prows">
+          <div class="prow"><span class="n">P_detect</span><span class="v">0.80</span><span class="u"></span></div>
+          <div class="prow"><span class="n">P_recognize</span><span class="v">0.50</span><span class="u"></span></div>
+          <div class="prow"><span class="n">P_identify</span><span class="v">0.30</span><span class="u"></span></div>
+        </div>
+      </div>
+
+      <div class="col mid">
+        ${vizTabs(["SNR · sweep","System MTF","Equations","Targets"], "GIQE5 · 8 noise terms · 500 λ")}
+        <div class="viz-grid2" style="margin-bottom:10px">
+          <div class="viz-big">
+            <div class="vh"><span class="t">SNR vs aperture (last sweep)</span><span class="m">D* = 0.31 m @ SNR=40</span></div>
+            <div class="plot" style="height:200px">${plotSweep()}</div>
+          </div>
+          <div class="viz-big">
+            <div class="vh"><span class="t">System MTF</span><span class="m">ν_nyq · RER</span></div>
+            <div class="plot" style="height:200px">${plotMTF()}</div>
+          </div>
+        </div>
+
+        <div class="viz-grid2">
+          <div class="physbox">
+            <h5>SNR · NEDT</h5>
+            <div class="eq">SNR = N_sig / √Σ σ²ᵢ</div>
+            <div class="eq">NEDT = σ_total / (∂N/∂T)</div>
+            <div class="eq">∂N/∂T · via finite diff on source at ±0.5 K</div>
+          </div>
+          <div class="physbox">
+            <h5>NIIRS · GIQE5 (EO), IIRS (IR)</h5>
+            <div class="eq">NIIRS = 9.57 + c·log(GSD) + ... </div>
+            <div class="eq">  · MTF @ ν_nyq · RER · SNR</div>
+            <div class="citeline">refs: IRARS GIQE5 · Leachtenauer 1997</div>
+          </div>
+          <div class="physbox">
+            <h5>Detection range</h5>
+            <div class="eq">R_det = f(char size, MRC, SNR, P_det)</div>
+            <div class="eq">target 1m @ P=0.8 → <b>4.2 km</b></div>
+          </div>
+          <div class="physbox">
+            <h5>RER</h5>
+            <div class="eq">RER = ½·|ESF(+½) − ESF(−½)|</div>
+            <div class="eq">proxy for ground-sampled resolution</div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <div class="panel-h"><span class="t">Targets · pass / fail</span></div>
+          <table class="tbl">
+            <tr><th>metric</th><th class="num">actual</th><th class="num">target</th><th>status</th></tr>
+            <tr><td>SNR</td><td class="num">47.3</td><td class="num">≥ 40</td><td><span class="pill ok">PASS</span></td></tr>
+            <tr><td>NEDT</td><td class="num">23 mK</td><td class="num">≤ 30 mK</td><td><span class="pill ok">PASS</span></td></tr>
+            <tr><td>NIIRS</td><td class="num">5.4</td><td class="num">≥ 5.0</td><td><span class="pill ok">PASS</span></td></tr>
+            <tr><td>Detection range @ P=0.8</td><td class="num">4.2 km</td><td class="num">≥ 3.5 km</td><td><span class="pill ok">PASS</span></td></tr>
+            <tr><td>MTF @ ν_nyq</td><td class="num">0.42</td><td class="num">≥ 0.35</td><td><span class="pill ok">PASS</span></td></tr>
+            <tr><td>jitter_rms</td><td class="num">3.0 µrad</td><td class="num">≤ 2.0 µrad</td><td><span class="pill warn">WATCH</span></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel-h"><span class="t">Validation</span></div>
+        ${valBlock(
+          [["ok","✓ 5 pass"],["warn","⚠ 1 watch"],["info","i 1 info"]],
+          [
+            ["warn","V7.1","jitter_rms (3.0 µrad) exceeds spec (2.0 µrad). MTF_jitter contribution acceptable but should be tracked. Source: PlatformStage.","sensor.stabilization.jitter_rms"],
+            ["info","V7.2","All 6 chain stages evaluated cleanly. 8 noise terms summed, 7 MTF terms multiplied. Provenance hash #7f3a9e2b.","perf.evaluation"],
+          ]
+        )}
+
+        ${descSection("Descriptors emitted",2,
+          descCard("ChainResult","#7f3a",[
+            ["SNR","47.3","acc"],
+            ["NEDT","23 mK","acc"],
+            ["NIIRS","5.4","acc"],
+            ["GSD","3.6 m"],
+            ["MTF @ ν_nyq","0.42"],
+            ["RER","0.28"],
+            ["range @ P=0.8","4.2 km"],
+          ]) +
+          descCard("Provenance","attached",[
+            ["run_id","#7f3a9e2b","acc"],
+            ["radiant","1.0.0rc3"],
+            ["git","b4e0c1"],
+            ["tape7","4a7c…a1"],
+            ["param sha","3d91…ea"],
+          ])
+        )}
+
+        <div class="physbox" style="margin-top:8px">
+          <h5>Next actions</h5>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;font-size:12px">
+            <span class="pill accent" style="cursor:pointer">⇄ Sweep any parameter</span>
+            <span class="pill" style="cursor:pointer">🎲 Monte Carlo (σ tags)</span>
+            <span class="pill" style="cursor:pointer">📄 Export 1-page summary PDF</span>
+            <span class="pill" style="cursor:pointer">⧉ Diff vs last run</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${sb("All metrics evaluated · 6 targets · 5 PASS · 1 WATCH")}
+  `;
+}
+
+const SCREENS = {source:stageSource, atm:stageAtm, optics:stageOptics, platform:stagePlatform, detector:stageDetector, readout:stageReadout, perf:stagePerf};
+
+// ----- mount -----
+const state = {...TWEAK_DEFAULTS};
+try{ const s = localStorage.getItem(LS_KEY); if(s) Object.assign(state, JSON.parse(s));}catch(_){}
+// honor #hash for cross-page navigation (e.g. RADIANT Stage Screens.html#optics)
+const STAGE_KEYS = new Set(STAGES.map(s=>s.k));
+const hashKey = (location.hash||"").replace("#","").trim();
+if(STAGE_KEYS.has(hashKey)) state.stage = hashKey;
+window.addEventListener("hashchange", ()=>{
+  const k = (location.hash||"").replace("#","").trim();
+  if(STAGE_KEYS.has(k)){ state.stage = k; postEdit({stage:k}); render(); }
+});
+
+function render(){
+  document.body.classList.toggle("dark", state.theme==="dark");
+  const root = document.getElementById("root");
+  root.innerHTML = `<div class="app">${titleBar()}${chainStrip(state.stage)}${SCREENS[state.stage]()}</div>`;
+  root.querySelectorAll(".stage[data-k]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      state.stage = el.dataset.k;
+      postEdit({stage:state.stage});
+      render();
+    });
+  });
+  const setSel = (id,v)=>{const e=document.getElementById(id); if(e) e.value=v};
+  setSel("tw-stage", state.stage); setSel("tw-theme", state.theme);
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state));}catch(_){}
+}
+
+window.addEventListener("keydown", e=>{
+  if(e.target.matches("input,textarea,select")) return;
+  const k = e.key;
+  const map = {"1":"source","2":"atm","3":"platform","4":"optics","5":"detector","6":"readout","7":"perf"};
+  if(map[k]){ state.stage = map[k]; postEdit({stage:state.stage}); render(); }
+});
+
+function postEdit(edits){ try{ window.parent.postMessage({type:'__edit_mode_set_keys', edits}, '*');}catch(_){}}
+window.addEventListener("message", e=>{
+  const d=e.data||{};
+  if(d.type==="__activate_edit_mode") document.getElementById("tweaks").classList.add("show");
+  if(d.type==="__deactivate_edit_mode") document.getElementById("tweaks").classList.remove("show");
+});
+window.parent.postMessage({type:'__edit_mode_available'}, '*');
+
+["stage","theme"].forEach(k=>{
+  const el=document.getElementById("tw-"+k); if(!el) return;
+  el.addEventListener("change", ()=>{ state[k]=el.value; postEdit({[k]:el.value}); render();});
+});
+
+render();
+</script>
+</body>
+</html>

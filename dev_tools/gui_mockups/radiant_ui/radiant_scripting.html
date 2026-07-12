@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>RADIANT — Scripting</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ebeef2; --panel:#fafbfc; --panel-2:#f1f3f6; --panel-3:#e6e9ee; --panel-4:#dde1e8;
+    --line:#cfd5de; --line-2:#b7bfcb; --ink:#1b2230; --ink-2:#384050;
+    --muted:#6b7380; --muted-2:#8a93a1;
+    --accent:#b8431a; --accent-soft:#f6e2d6;
+    --ok:#2f7a3a; --ok-soft:#dcebdd;
+    --warn:#a97c14; --warn-soft:#f5ebcf;
+    --err:#a8302a; --err-soft:#f3dbd7;
+    --focus:#2f5aa8; --focus-soft:#dde6f4;
+    --code-kw:#8a2a8e; --code-str:#2f6b3a; --code-num:#a04018; --code-fn:#2a5abf; --code-com:#8a93a1;
+  }
+  body.dark{
+    --bg:#0f1216; --panel:#171a21; --panel-2:#1d2029; --panel-3:#262a35; --panel-4:#323744;
+    --line:#2b3140; --line-2:#3a4254; --ink:#e6e9ef; --ink-2:#c3c9d4;
+    --muted:#8b94a4;
+    --accent:#e08157; --accent-soft:#3a2218;
+    --ok:#7fb987; --ok-soft:#1f2f22;
+    --warn:#e0b249; --warn-soft:#3a2f16;
+    --err:#e07874; --err-soft:#3a1e1c;
+    --focus:#86a8df; --focus-soft:#1e2a3e;
+    --code-kw:#d69fd8;--code-str:#97c49e;--code-num:#e0a075;--code-fn:#9bb8e3;--code-com:#6a7385;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.35}
+  body{padding:20px 28px 28px;overflow-x:hidden}
+
+  /* header */
+  .ph{display:flex;align-items:flex-end;gap:18px;margin-bottom:14px}
+  .ph .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .ph .mark{width:26px;height:26px;border-radius:5px;background:linear-gradient(135deg,var(--accent) 0%, var(--accent) 50%, var(--ink) 50%, var(--ink) 100%)}
+  .ph h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .ph .sub{color:var(--muted);font-size:12px;margin-top:1px}
+  .ph .nav{flex:1;text-align:center;color:var(--muted);font-size:12px}
+  .ph .nav kbd{font-family:'IBM Plex Mono',monospace;font-size:10.5px;background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:3px;color:var(--ink-2);margin:0 2px}
+
+  /* app window */
+  .app{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,.02),0 8px 30px rgba(20,30,50,.08);overflow:hidden}
+  .tb{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);font-size:12px;color:var(--ink-2)}
+  .tb .dots{display:flex;gap:6px}
+  .tb .dots i{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+  .tb .dots i.r{background:#ec6a5e}.tb .dots i.y{background:#f4bf4f}.tb .dots i.g{background:#61c555}
+  .tb .title{flex:1;text-align:center;font-weight:500;color:var(--ink)}
+  .tb .title .sep{color:var(--muted);margin:0 6px}
+  .tb .chip{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid var(--line);border-radius:3px;background:var(--panel);color:var(--muted);white-space:nowrap}
+  .mb{display:flex;gap:2px;padding:2px 4px;border-bottom:1px solid var(--line);background:var(--panel);font-size:12px}
+  .mb > span{padding:4px 10px;cursor:default;color:var(--ink-2);border-radius:4px}
+  .mb > span:hover{background:var(--panel-2)}
+
+  /* workspace/scripting tab switcher */
+  .tabs{display:flex;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel-2);gap:2px}
+  .tabs .tab{padding:9px 18px;font-size:12.5px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500;display:flex;align-items:center;gap:7px}
+  .tabs .tab:hover{color:var(--ink-2)}
+  .tabs .tab.active{color:var(--ink);border-bottom-color:var(--accent);background:var(--panel)}
+  .tabs .tab svg{width:13px;height:13px;flex-shrink:0}
+  .tabs .spacer{flex:1}
+  .tabs .session{padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .tabs .session .pulse{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--ok-soft)}
+
+  /* scripting toolbar */
+  .stb{display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .stb .btn{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2);font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .stb .btn:hover{background:var(--panel-3)}
+  .stb .btn.primary{background:var(--ok);color:white;border-color:var(--ok)}
+  .stb .btn.primary:hover{filter:brightness(1.05)}
+  .stb .btn.warn{color:var(--err);border-color:var(--err-soft);background:var(--err-soft)}
+  .stb .btn kbd{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:0 4px;border-radius:2px;background:rgba(0,0,0,.08);margin-left:2px}
+  .stb .btn.primary kbd{background:rgba(255,255,255,.2)}
+  .stb .sep{width:1px;height:20px;background:var(--line);margin:0 4px}
+  .stb .file-pick{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink)}
+  .stb .file-pick .dirty{color:var(--accent);font-weight:700;margin-left:2px}
+  .stb .spacer{flex:1}
+  .stb .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+
+  /* main grid */
+  .grid{display:grid;grid-template-columns:240px 1fr 300px;grid-template-rows:1fr 200px;background:var(--bg)}
+  .pane{background:var(--panel);border-right:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .pane:last-child{border-right:none}
+  .pane.left{grid-row:1 / 3}
+  .pane.editor{}
+  .pane.right{}
+  .pane.console{grid-column:2 / 4;border-right:none}
+  .pane-h{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel-2);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .pane-h .ttl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pane-h .act{color:var(--muted);font-size:11px;display:flex;gap:8px;font-weight:400;text-transform:none;letter-spacing:0}
+  .pane-h .act span{cursor:pointer}
+  .pane-h .act span:hover{color:var(--ink)}
+  .pane-h .pill{font-size:10px;font-weight:500;padding:1px 6px;border-radius:8px;background:var(--panel-3);color:var(--ink-2);border:1px solid var(--line)}
+
+  /* LEFT rail: files + chainstate */
+  .sec{border-bottom:1px solid var(--line)}
+  .sec:last-child{border-bottom:none}
+  .sec-h{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);cursor:pointer;user-select:none}
+  .sec-h .caret{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-right:4px}
+  .sec-body{padding:2px 0 8px}
+  .file-item{display:flex;align-items:center;gap:6px;padding:4px 10px 4px 24px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;cursor:pointer;color:var(--ink-2)}
+  .file-item:hover{background:var(--panel-2)}
+  .file-item.active{background:var(--focus-soft);color:var(--focus);border-left:2px solid var(--focus);padding-left:22px}
+  .file-item .ic{color:var(--muted);width:14px;text-align:center}
+  .file-item .dirty{color:var(--accent);margin-left:auto}
+
+  /* chainstate tree */
+  .ctree{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:0 6px 6px}
+  .ctree .node{display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;border-radius:3px}
+  .ctree .node:hover{background:var(--panel-2)}
+  .ctree .node .t{color:var(--muted);width:12px;text-align:center;flex-shrink:0}
+  .ctree .node .n{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ctree .node .shape{color:var(--muted);margin-left:auto;font-size:10px;flex-shrink:0;padding-left:6px}
+  .ctree .node .ty{color:var(--focus);font-size:10px;padding:0 4px;border:1px solid var(--focus);border-radius:2px;margin-left:4px;flex-shrink:0}
+  .ctree .indent-1{padding-left:16px}
+  .ctree .indent-2{padding-left:30px}
+  .ctree .indent-3{padding-left:44px}
+  .ctree .section-label{color:var(--ink);font-weight:600;margin-top:4px;padding:3px 4px;font-size:11px;border-bottom:1px solid var(--line);margin-bottom:3px}
+
+  /* EDITOR */
+  .ed-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--panel)}
+  .editor-area{flex:1;overflow:auto;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;position:relative;background:var(--panel);padding:0}
+  .cell{border-bottom:1px solid var(--line);position:relative}
+  .cell.active{background:var(--focus-soft)}
+  .cell.active .cell-gutter{background:var(--focus-soft)}
+  .cell-bar{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 52px;background:var(--panel-3);border-bottom:1px solid var(--line);font-size:11px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif}
+  .cell.active .cell-bar{background:var(--focus-soft);color:var(--focus)}
+  .cell-bar .run{cursor:pointer;color:var(--ok);font-weight:600;display:inline-flex;align-items:center;gap:3px}
+  .cell-bar .run:hover{text-decoration:underline}
+  .cell-bar .n{font-family:'IBM Plex Mono',monospace;font-weight:500}
+  .cell-bar .sp{flex:1}
+  .cell-bar .meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px}
+  .cell-body{display:flex}
+  .cell-gutter{flex-shrink:0;width:52px;text-align:right;padding:8px 10px 8px 0;background:var(--panel-2);border-right:1px solid var(--line);font-size:11px;color:var(--muted);user-select:none}
+  .cell-gutter .exec-marker{display:inline-block;padding:0 4px;color:var(--muted);font-size:10px}
+  .cell-gutter .exec-marker.done{color:var(--ok)}
+  .cell-code{flex:1;padding:8px 14px;white-space:pre;overflow-x:auto;min-width:0}
+  .cell-code .empty-hint{color:var(--muted);font-style:italic;opacity:.6}
+
+  /* code tokens */
+  .k{color:var(--code-kw);font-weight:500}
+  .s{color:var(--code-str)}
+  .n{color:var(--code-num)}
+  .f{color:var(--code-fn)}
+  .c{color:var(--code-com);font-style:italic}
+  .o{color:var(--ink-2)}
+  .b{color:var(--ink);font-weight:600}
+
+  /* RIGHT rail */
+  .vars{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:0}
+  .vars .row{display:grid;grid-template-columns:1fr 60px 80px;gap:6px;padding:5px 10px;border-bottom:1px solid var(--line);align-items:center;cursor:pointer}
+  .vars .row:hover{background:var(--panel-2)}
+  .vars .row .nm{color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vars .row .ty{color:var(--focus);font-size:10px;padding:1px 5px;border:1px solid var(--focus);border-radius:2px;text-align:center;justify-self:start}
+  .vars .row .val{color:var(--muted);font-size:10.5px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vars .header-row{display:grid;grid-template-columns:1fr 60px 80px;gap:6px;padding:4px 10px;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--line);background:var(--panel-2)}
+
+  /* snippets */
+  .snips{padding:4px 10px 8px;display:flex;flex-direction:column;gap:4px}
+  .snip{border:1px solid var(--line);border-radius:4px;padding:7px 10px;background:var(--panel-2);cursor:pointer;font-size:11.5px}
+  .snip:hover{background:var(--panel-3);border-color:var(--line-2)}
+  .snip .h{font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px}
+  .snip .h .ic{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:11px}
+  .snip .d{color:var(--muted);font-size:11px;margin-top:2px}
+  .snip .tag{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto}
+
+  /* figures dock */
+  .figs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 10px}
+  .fig{border:1px solid var(--line);border-radius:4px;background:var(--panel-2);overflow:hidden;cursor:pointer;position:relative;aspect-ratio:1.4}
+  .fig:hover{border-color:var(--accent)}
+  .fig .fh{padding:3px 6px;background:var(--panel-3);border-bottom:1px solid var(--line);font-size:9.5px;color:var(--muted);font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;align-items:center}
+  .fig .fh .popout{color:var(--focus);font-size:11px}
+  .fig .body{padding:4px;height:calc(100% - 22px)}
+  .fig svg{width:100%;height:100%;display:block}
+  .fig .prov{position:absolute;top:24px;right:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);background:var(--panel);padding:0 4px;border:1px solid var(--line);border-radius:2px;opacity:.85}
+
+  /* console */
+  .console-body{flex:1;overflow:auto;padding:6px 12px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:var(--panel);color:var(--ink-2)}
+  .console-body .ln{padding:1px 0;white-space:pre-wrap;word-break:break-all}
+  .console-body .ln.in{color:var(--ink)}
+  .console-body .ln.in::before{content:">>> ";color:var(--focus);font-weight:600}
+  .console-body .ln.out{color:var(--ink-2)}
+  .console-body .ln.warn{color:var(--warn)}
+  .console-body .ln.err{color:var(--err)}
+  .console-body .ln.ok{color:var(--ok)}
+  .console-body .ln.note{color:var(--muted);font-style:italic}
+  .console-body .ln.banner{background:var(--focus-soft);color:var(--focus);padding:3px 6px;border-radius:3px;margin:3px 0;border-left:2px solid var(--focus)}
+  .console-body .chip{font-size:10px;padding:1px 5px;border-radius:2px;background:var(--panel-3);color:var(--muted);margin-left:6px;border:1px solid var(--line);font-weight:500}
+  .console-prompt{border-top:1px solid var(--line);padding:6px 12px;background:var(--panel-2);display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+  .console-prompt .p{color:var(--focus);font-weight:600}
+  .console-prompt input{flex:1;background:transparent;border:none;outline:none;font:inherit;color:var(--ink)}
+
+  /* popout overlay */
+  .popout-ov{position:fixed;inset:0;background:rgba(10,14,20,.6);z-index:120;display:none;align-items:center;justify-content:center;padding:40px}
+  .popout-ov.show{display:flex}
+  .popout-win{background:var(--panel);border:1px solid var(--line-2);border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(900px,92vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+  .popout-win .ph2{display:flex;align-items:center;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--line);gap:10px}
+  .popout-win .ph2 .ttl{font-weight:600;flex:1}
+  .popout-win .ph2 .close{cursor:pointer;color:var(--muted);font-size:18px;line-height:1}
+  .popout-win .body{padding:18px 22px;overflow:auto}
+  .popout-win .figbig svg{width:100%;height:auto;display:block;max-height:560px}
+  .popout-win .toolbar{padding:8px 14px;border-top:1px solid var(--line);background:var(--panel-2);display:flex;gap:8px;align-items:center;font-size:11.5px}
+  .popout-win .toolbar .chip{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);padding:2px 6px;background:var(--panel-3);border:1px solid var(--line);border-radius:3px}
+  .popout-win .toolbar .sp{flex:1}
+  .popout-win .toolbar .btn{padding:4px 10px;font-size:11.5px;border:1px solid var(--line);background:var(--panel);border-radius:3px;cursor:pointer;color:var(--ink-2)}
+
+  /* status bar */
+  .sb{display:flex;align-items:center;gap:14px;padding:6px 14px;border-top:1px solid var(--line);background:var(--panel-2);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden}
+  .sb .ok{color:var(--ok)}.sb .warn{color:var(--warn)}
+  .sb .sp{flex:1}
+  .sb .pulse{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:5px;box-shadow:0 0 0 2px var(--ok-soft)}
+
+  /* tweaks */
+  .tweaks{position:fixed;right:22px;bottom:22px;z-index:100;background:var(--panel);border:1px solid var(--line-2);border-radius:6px;padding:12px 14px;box-shadow:0 8px 30px rgba(20,30,50,.15);font-size:12.5px;max-width:240px;display:none}
+  .tweaks.show{display:block}
+  .tweaks h3{margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .tweaks .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0}
+  .tweaks select{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:3px;cursor:pointer}
+
+  /* responsive-ish */
+  @media (max-width:1300px){
+    .pane.left{width:220px}
+    .pane.right{width:280px}
+  }
+</style>
+</head>
+<body>
+
+<div class="ph">
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>RADIANT</h1>
+      <div class="sub">Scripting workspace · Python trade studies</div>
+    </div>
+  </div>
+  <div class="nav">
+    <kbd>⇧⏎</kbd> run cell · <kbd>⌃⏎</kbd> run & advance · <kbd>⌘B</kbd> run all · <kbd>⌘K</kbd> command palette
+  </div>
+</div>
+
+<div id="root"></div>
+
+<div class="popout-ov" id="popout">
+  <div class="popout-win">
+    <div class="ph2">
+      <span class="ttl" id="po-title">Figure</span>
+      <span class="close" onclick="document.getElementById('popout').classList.remove('show')">×</span>
+    </div>
+    <div class="body figbig" id="po-body"></div>
+    <div class="toolbar">
+      <span class="chip" id="po-run">run · #7f3a</span>
+      <span class="chip" id="po-gen">generated · 14:32:18</span>
+      <span class="sp"></span>
+      <span class="btn">Pin to Workspace KPI strip</span>
+      <span class="btn">Export PNG</span>
+      <span class="btn">Copy code</span>
+    </div>
+  </div>
+</div>
+
+<div class="tweaks" id="tweaks">
+  <h3>Tweaks</h3>
+  <div class="row"><label>Script state</label>
+    <select id="tw-state">
+      <option value="live">Live bound</option>
+      <option value="dirty">Modified (unsaved)</option>
+      <option value="running">Running</option>
+      <option value="err">Error</option>
+    </select>
+  </div>
+  <div class="row"><label>Theme</label>
+    <select id="tw-theme"><option value="light">Light</option><option value="dark">Dark</option></select>
+  </div>
+</div>
+
+<script>
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "state": "live",
+  "theme": "light",
+  "focus": "source",
+  "layout": "D"
+}/*EDITMODE-END*/;
+const LS_KEY="radiant_scripting";
+const state = {...TWEAK_DEFAULTS, activeCell: 1, activeFile: "trade_aperture.py"};
+try{const s=localStorage.getItem(LS_KEY);if(s)Object.assign(state,JSON.parse(s));}catch(_){}
+
+// ---------- window chrome ----------
+function chrome(){return `
+  <div class="tb">
+    <div class="dots"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="title">leo_mwir_clear.yaml<span class="sep">—</span>RADIANT v1.0.0</div>
+    <div class="chip">#7f3a · git b4e0c1</div>
+  </div>
+  <div class="mb"><span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Kernel</span><span>Tools</span><span>Help</span></div>
+  <div class="tabs">
+    <div class="tab" data-tab="ws"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg>Workspace</div>
+    <div class="tab active" data-tab="sc"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4 L5 7 L2 10"/><line x1="6" y1="11" x2="13" y2="11"/></svg>Scripting</div>
+    <div class="spacer"></div>
+    <div class="session"><span class="pulse"></span>kernel · python 3.11 · radiant 1.0.0rc3 · idle</div>
+  </div>`;}
+
+// ---------- scripting toolbar ----------
+function stb(){
+  const stBadge = {live:"", dirty:"● unsaved", running:"⟳ running", err:"✕ error"}[state.state];
+  return `
+  <div class="stb">
+    <span class="btn primary">▶ Run Cell<kbd>⇧⏎</kbd></span>
+    <span class="btn">▷| Run & Advance<kbd>⌃⏎</kbd></span>
+    <span class="btn">▶▶ Run All<kbd>⌘B</kbd></span>
+    <span class="btn warn">■ Stop</span>
+    <span class="sep"></span>
+    <span class="btn">↻ Restart Kernel</span>
+    <span class="btn">⌫ Clear Output</span>
+    <span class="sep"></span>
+    <span class="file-pick">📄 trade_aperture.py ${state.state==='dirty'?'<span class="dirty">●</span>':''} ▾</span>
+    <span class="spacer"></span>
+    <span class="meta">session · ps + result bound from Workspace</span>
+  </div>`;
+}
+
+// ---------- LEFT rail ----------
+function leftPane(){return `
+  <div class="pane left">
+    <div class="pane-h"><span class="ttl">Project</span><span class="act"><span>+ new</span></span></div>
+    <div class="sec">
+      <div class="sec-h"><span><span class="caret">▾</span>SCRIPTS</span><span style="color:var(--muted)">4</span></div>
+      <div class="sec-body">
+        <div class="file-item active"><span class="ic">py</span>trade_aperture.py<span class="dirty">●</span></div>
+        <div class="file-item"><span class="ic">py</span>mc_jitter.py</div>
+        <div class="file-item"><span class="ic">py</span>modtran_compare.py</div>
+        <div class="file-item"><span class="ic">py</span>scratch.py</div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><span><span class="caret">▾</span>CHAINSTATE</span><span class="pill" style="font-family:'IBM Plex Mono',monospace">live</span></div>
+      <div class="ctree">
+        <div class="section-label">ps ·  ParameterSet</div>
+        <div class="node"><span class="t">▸</span><span class="n">sensor</span><span class="ty">dict</span></div>
+        <div class="node"><span class="t">▸</span><span class="n">scenario</span><span class="ty">dict</span></div>
+        <div class="node"><span class="t">▸</span><span class="n">performance</span><span class="ty">dict</span></div>
+
+        <div class="section-label" style="margin-top:8px">result · ChainResult</div>
+        <div class="node"><span class="t">·</span><span class="n">snr</span><span class="shape">47.3</span></div>
+        <div class="node"><span class="t">·</span><span class="n">nedt</span><span class="shape">0.023</span></div>
+        <div class="node"><span class="t">·</span><span class="n">niirs</span><span class="shape">5.4</span></div>
+        <div class="node"><span class="t">·</span><span class="n">gsd</span><span class="shape">3.6</span></div>
+        <div class="node"><span class="t">·</span><span class="n">mtf_nyq</span><span class="shape">0.42</span></div>
+
+        <div class="section-label" style="margin-top:8px">chain.state · ChainState</div>
+        <div class="node"><span class="t">▾</span><span class="n">frame</span><span class="ty">dict</span></div>
+        <div class="node indent-1"><span class="t">·</span><span class="n">"source"</span><span class="shape">(500,)</span></div>
+        <div class="node indent-1"><span class="t">·</span><span class="n">"atmosphere"</span><span class="shape">(500,)</span></div>
+        <div class="node indent-1"><span class="t">·</span><span class="n">"platform"</span><span class="shape">(500,)</span></div>
+        <div class="node indent-1"><span class="t">·</span><span class="n">"optics"</span><span class="shape">(500,)</span></div>
+        <div class="node indent-1"><span class="t">·</span><span class="n">"detector"</span><span class="shape">(256,256)</span></div>
+        <div class="node indent-1"><span class="t">·</span><span class="n">"readout"</span><span class="shape">(256,256)</span></div>
+        <div class="node"><span class="t">▸</span><span class="n">stage_outputs</span><span class="ty">dict</span></div>
+        <div class="node"><span class="t">▸</span><span class="n">noise_terms</span><span class="ty">list</span></div>
+        <div class="node"><span class="t">▸</span><span class="n">mtf_terms</span><span class="ty">list</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><span><span class="caret">▸</span>HISTORY</span><span style="color:var(--muted)">12</span></div>
+    </div>
+  </div>`;}
+
+// ---------- EDITOR ----------
+function cell({n, label, meta, code, active}){return `
+  <div class="cell ${active?'active':''}" data-cell="${n}">
+    <div class="cell-bar">
+      <span class="run">▶ Run</span>
+      <span class="n">In [${n}]</span>
+      <span style="margin-left:8px">${label||''}</span>
+      <span class="sp"></span>
+      <span class="meta">${meta||''}</span>
+    </div>
+    <div class="cell-body">
+      <div class="cell-gutter">
+        ${code.split('\n').map((_,i)=>`<div>${i+1}</div>`).join('')}
+      </div>
+      <div class="cell-code">${code}</div>
+    </div>
+  </div>`;}
+
+const CELL_1 = `<span class="c"># %% [markdown]</span>
+<span class="c"># Trade study — find D* such that SNR(D) = 40 for the MWIR LEO scenario.</span>
+<span class="c"># ps and result are pre-bound from the Workspace tab.</span>
+
+<span class="k">from</span> <span class="o">radiant</span> <span class="k">import</span> chain, sweep, plot
+<span class="k">import</span> <span class="o">numpy</span> <span class="k">as</span> np</span>
+
+<span class="c"># sanity check: session-bound objects</span>
+<span class="f">print</span>(<span class="s">f"Loaded: {ps.name} · result.snr = {result.snr:.2f}"</span>)
+`;
+
+const CELL_2 = `<span class="c"># %% sweep aperture 0.2 → 0.5 m · 8 points</span>
+D = np.linspace(<span class="n">0.20</span>, <span class="n">0.50</span>, <span class="n">8</span>)
+
+out = <span class="f">sweep</span>(
+    ps,
+    <span class="s">"sensor.optics.aperture_diameter"</span>, D,
+    keep=[<span class="s">"snr"</span>, <span class="s">"nedt"</span>, <span class="s">"niirs"</span>, <span class="s">"mtf_nyq"</span>],
+    recompute_from=<span class="s">"optics"</span>,  <span class="c"># reuse source+atm+platform</span>
+)
+
+out.<span class="f">head</span>()`;
+
+const CELL_3 = `<span class="c"># %% locate D* at SNR = 40 threshold (linear interp)</span>
+D_star = <span class="f">np.interp</span>(<span class="n">40.0</span>, out.snr, out.<span class="b">D</span>)
+<span class="f">print</span>(<span class="s">f"D* = {D_star*1000:.1f} mm  → SNR crosses 40"</span>)
+
+fig1 = <span class="f">plot.sweep</span>(out, x=<span class="s">"D"</span>, y=<span class="s">"snr"</span>, mark=(D_star, <span class="n">40.0</span>),
+                  title=<span class="s">"SNR vs aperture"</span>, xlabel=<span class="s">"D (m)"</span>, threshold=<span class="n">40</span>)
+fig1`;
+
+const CELL_4 = `<span class="c"># %% Monte Carlo at D = D* — 500 trials across σ-tagged params</span>
+mc = chain.<span class="f">monte_carlo</span>(ps.<span class="f">with_override</span>(
+    <span class="s">"sensor.optics.aperture_diameter"</span>=D_star
+), n=<span class="n">500</span>, seed=<span class="n">42</span>)
+
+<span class="f">print</span>(<span class="s">f"SNR: {mc.snr.mean():.2f} ± {mc.snr.std():.2f}  (p05={mc.snr.<span class="f">quantile</span>(0.05):.2f})"</span>)
+
+fig2 = <span class="f">plot.histogram</span>(mc.snr, bins=<span class="n">40</span>, title=<span class="s">"SNR distribution"</span>, overlay=<span class="s">"mean+ci"</span>)
+fig2`;
+
+function editorPane(){return `
+  <div class="pane editor">
+    <div class="pane-h"><span class="ttl">Editor · trade_aperture.py</span><span class="act"><span>▾ cells</span><span>↔ split</span><span>⛶ full</span></span></div>
+    <div class="ed-wrap">
+      <div class="editor-area">
+        ${cell({n:1, label:"session setup", meta:"ran · 0.04 s · 14:31:02", code:CELL_1, active:state.activeCell===1})}
+        ${cell({n:2, label:"sweep", meta:"ran · 1.8 s · 14:31:46", code:CELL_2, active:state.activeCell===2})}
+        ${cell({n:3, label:"SNR threshold · fig₁", meta:"ran · 0.09 s · 14:32:02", code:CELL_3, active:state.activeCell===3})}
+        ${cell({n:4, label:"monte carlo · fig₂", meta:"ran · 6.4 s · 14:32:18", code:CELL_4, active:state.activeCell===4})}
+      </div>
+    </div>
+  </div>`;}
+
+// ---------- RIGHT rail ----------
+function varsTable(){return `
+  <div class="vars">
+    <div class="header-row"><span>name</span><span>type</span><span>value/shape</span></div>
+    <div class="row"><span class="nm">D</span><span class="ty">ndarray</span><span class="val">(8,) float64</span></div>
+    <div class="row"><span class="nm">D_star</span><span class="ty">float</span><span class="val">0.3142</span></div>
+    <div class="row"><span class="nm">out</span><span class="ty">DataFrame</span><span class="val">8 × 5</span></div>
+    <div class="row"><span class="nm">mc</span><span class="ty">MCResult</span><span class="val">500 trials</span></div>
+    <div class="row"><span class="nm">fig1</span><span class="ty">Figure</span><span class="val">sweep plot</span></div>
+    <div class="row"><span class="nm">fig2</span><span class="ty">Figure</span><span class="val">histogram</span></div>
+    <div class="row" style="color:var(--muted)"><span class="nm">ps</span><span class="ty">ParamSet</span><span class="val">session</span></div>
+    <div class="row" style="color:var(--muted)"><span class="nm">result</span><span class="ty">Result</span><span class="val">session</span></div>
+    <div class="row" style="color:var(--muted)"><span class="nm">chain</span><span class="ty">Module</span><span class="val">session</span></div>
+  </div>`;}
+
+function figSweep(){return `
+  <svg viewBox="0 0 220 140" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[30,60,90,120].map(y=>`<line x1="28" y1="${y}" x2="215" y2="${y}"/>`).join('')}</g>
+    <line x1="28" y1="120" x2="215" y2="120" stroke="var(--ink-2)"/>
+    <line x1="28" y1="18" x2="28" y2="120" stroke="var(--ink-2)"/>
+    <line x1="28" y1="78" x2="215" y2="78" stroke="var(--err)" stroke-dasharray="3 2" stroke-width="1"/>
+    <path d="M28,118 Q70,92 115,64 Q160,42 215,28" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+    ${[0,1,2,3,4,5,6,7].map(i=>`<circle cx="${28+i*26.7}" cy="${118-i*12.5}" r="2" fill="var(--accent)"/>`).join('')}
+    <line x1="88" y1="18" x2="88" y2="120" stroke="var(--focus)" stroke-dasharray="2 2"/>
+    <circle cx="88" cy="78" r="3" fill="var(--focus)"/>
+    <g font-family="IBM Plex Mono" font-size="7" fill="var(--muted)">
+      <text x="8" y="24">60</text><text x="8" y="82">40</text><text x="8" y="122">20</text>
+      <text x="92" y="14" fill="var(--focus)">D*=314mm</text>
+      <text x="150" y="76" fill="var(--err)">SNR=40</text>
+    </g>
+  </svg>`;}
+
+function figHist(){return `
+  <svg viewBox="0 0 220 140" preserveAspectRatio="xMidYMid meet">
+    <g stroke="var(--line)" stroke-width=".5">${[30,60,90,120].map(y=>`<line x1="28" y1="${y}" x2="215" y2="${y}"/>`).join('')}</g>
+    <line x1="28" y1="120" x2="215" y2="120" stroke="var(--ink-2)"/>
+    <line x1="28" y1="18" x2="28" y2="120" stroke="var(--ink-2)"/>
+    ${(()=>{const bars=[5,9,14,22,30,38,50,62,74,88,90,82,70,55,42,30,22,15,10,6];
+      const w=(215-28)/bars.length; return bars.map((b,i)=>`<rect x="${28+i*w}" y="${120-b}" width="${w-1}" height="${b}" fill="var(--accent)" opacity=".7"/>`).join('')})()}
+    <line x1="120" y1="18" x2="120" y2="120" stroke="var(--focus)" stroke-dasharray="2 2"/>
+    <g font-family="IBM Plex Mono" font-size="7" fill="var(--muted)">
+      <text x="4" y="24">80</text><text x="4" y="122">0</text>
+      <text x="102" y="14" fill="var(--focus)">µ=47.1 σ=2.3</text>
+      <text x="150" y="132">SNR</text>
+    </g>
+  </svg>`;}
+
+function rightPane(){return `
+  <div class="pane right">
+    <div class="sec">
+      <div class="pane-h"><span class="ttl">Variables</span><span class="act"><span>filter</span><span>clear</span></span></div>
+      ${varsTable()}
+    </div>
+    <div class="sec">
+      <div class="pane-h"><span class="ttl">Figures</span><span class="act"><span>+ new</span><span>clear</span></span></div>
+      <div class="figs">
+        <div class="fig" data-fig="1">
+          <div class="fh"><span>fig1 · SNR vs D</span><span class="popout">⧉</span></div>
+          <div class="body">${figSweep()}</div>
+          <div class="prov">#7f3a · 14:32:02</div>
+        </div>
+        <div class="fig" data-fig="2">
+          <div class="fh"><span>fig2 · SNR hist</span><span class="popout">⧉</span></div>
+          <div class="body">${figHist()}</div>
+          <div class="prov">#7f3a · 14:32:18</div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="pane-h"><span class="ttl">Snippets</span><span class="act"><span>browse</span></span></div>
+      <div class="snips">
+        <div class="snip"><div class="h"><span class="ic">⇄</span>Sweep 1D<span class="tag">⌘1</span></div><div class="d">sweep one param across N values, keep metrics</div></div>
+        <div class="snip"><div class="h"><span class="ic">⚏</span>Sweep 2D (grid)<span class="tag">⌘2</span></div><div class="d">2-param surface, auto-heatmap</div></div>
+        <div class="snip"><div class="h"><span class="ic">🎲</span>Monte Carlo<span class="tag">⌘3</span></div><div class="d">propagate σ-tagged params, histograms</div></div>
+        <div class="snip"><div class="h"><span class="ic">⧉</span>Diff runs<span class="tag">⌘4</span></div><div class="d">compare two ChainResults parameter-by-parameter</div></div>
+        <div class="snip"><div class="h"><span class="ic">∑</span>Noise budget export<span class="tag">⌘5</span></div><div class="d">dump the 8 noise terms to CSV for report</div></div>
+        <div class="snip"><div class="h"><span class="ic">▦</span>Pixel-level noise map<span class="tag">⌘6</span></div><div class="d">per-pixel σ heatmap from current run</div></div>
+      </div>
+    </div>
+  </div>`;}
+
+// ---------- console ----------
+function consolePane(){return `
+  <div class="pane console">
+    <div class="pane-h"><span class="ttl">Console · Python 3.11</span><span class="act"><span>clear</span><span>↗ detach</span></span></div>
+    <div class="console-body">
+      <div class="ln note"># kernel started · radiant 1.0.0rc3 · session bound (ps, result, chain)</div>
+      <div class="ln in">run_cell(1)</div>
+      <div class="ln out">Loaded: leo_mwir_clear · result.snr = 47.30</div>
+      <div class="ln ok">✓ cell 1 · 0.04 s</div>
+      <div class="ln in">run_cell(2)</div>
+      <div class="ln note">sweep: 8 evaluations · recompute_from="optics" (cache source+atm+platform)</div>
+      <div class="ln out">    D    snr   nedt   niirs  mtf_nyq</div>
+      <div class="ln out">0  0.20  22.1  0.049   4.3    0.31</div>
+      <div class="ln out">1  0.24  28.6  0.038   4.7    0.34</div>
+      <div class="ln out">2  0.29  36.1  0.030   5.1    0.38</div>
+      <div class="ln out">3  0.33  44.2  0.024   5.4    0.42</div>
+      <div class="ln out">4  0.37  52.8  0.020   5.7    0.45</div>
+      <div class="ln out">...</div>
+      <div class="ln ok">✓ cell 2 · 1.8 s · 8 chain evals<span class="chip">run #7f3a</span></div>
+      <div class="ln in">run_cell(3)</div>
+      <div class="ln out">D* = 314.2 mm  → SNR crosses 40</div>
+      <div class="ln banner">📊 fig1 · SNR vs aperture · docked to Figures panel</div>
+      <div class="ln ok">✓ cell 3 · 0.09 s</div>
+      <div class="ln in">run_cell(4)</div>
+      <div class="ln warn">⚠ σ-tag on non-scalar: sensor.optics.filter.center (ignored — expected in C9)</div>
+      <div class="ln out">SNR: 47.08 ± 2.31  (p05=43.12)</div>
+      <div class="ln banner">📊 fig2 · SNR distribution · docked to Figures panel</div>
+      <div class="ln ok">✓ cell 4 · 6.4 s · 500 trials<span class="chip">mc seed=42</span></div>
+    </div>
+    <div class="console-prompt">
+      <span class="p">In [5] ▸</span>
+      <input type="text" placeholder="type python · ↑ history · tab to complete · ⏎ to run" />
+    </div>
+  </div>`;}
+
+function sb(){return `<div class="sb"><span class="pulse"></span><span class="ok">kernel idle</span><span>4 cells · 2 figures · 6 vars</span><span>trade_aperture.py <span style="color:var(--accent)">●</span></span><div class="sp"></div><span>ln 24, col 18 · UTF-8 · spaces:4</span><span>Python 3.11</span></div>`;}
+
+function render(){
+  document.body.classList.toggle("dark", state.theme==="dark");
+  document.getElementById("root").innerHTML = `
+    <div class="app">
+      ${chrome()}
+      ${stb()}
+      <div class="grid">
+        ${leftPane()}
+        ${editorPane()}
+        ${rightPane()}
+        ${consolePane()}
+      </div>
+      ${sb()}
+    </div>`;
+
+  // tab switcher -> jumps to Workspace file
+  document.querySelectorAll(".tab[data-tab]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      if(el.dataset.tab==="ws"){
+        // try to navigate to the mid-fi file in same directory
+        window.location.href = "RADIANT Mid-fi.html#workspace";
+      }
+    });
+  });
+
+  // cell activation
+  document.querySelectorAll(".cell[data-cell]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      state.activeCell = parseInt(el.dataset.cell,10);
+      postEdit({activeCell:state.activeCell});
+      render();
+    });
+  });
+
+  // figure pop-out
+  document.querySelectorAll(".fig[data-fig]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const n = el.dataset.fig;
+      const ov = document.getElementById("popout");
+      document.getElementById("po-title").textContent = n==="1"?"fig1 · SNR vs aperture":"fig2 · SNR distribution (500 MC)";
+      document.getElementById("po-body").innerHTML = n==="1"?figSweep():figHist();
+      document.getElementById("po-run").textContent = n==="1"?"run · #7f3a · sweep":"run · #7f3a · mc seed=42";
+      document.getElementById("po-gen").textContent = n==="1"?"generated · 14:32:02":"generated · 14:32:18";
+      ov.classList.add("show");
+    });
+  });
+
+  // tweaks
+  const sel = (id,v)=>{const e=document.getElementById(id); if(e) e.value=v};
+  sel("tw-state", state.state); sel("tw-theme", state.theme);
+
+  try{localStorage.setItem(LS_KEY, JSON.stringify(state));}catch(_){}
+}
+
+function postEdit(edits){try{window.parent.postMessage({type:'__edit_mode_set_keys',edits},'*');}catch(_){}}
+window.addEventListener("message", e=>{
+  const d=e.data||{};
+  if(d.type==="__activate_edit_mode") document.getElementById("tweaks").classList.add("show");
+  if(d.type==="__deactivate_edit_mode") document.getElementById("tweaks").classList.remove("show");
+});
+window.parent.postMessage({type:'__edit_mode_available'}, '*');
+
+["state","theme"].forEach(k=>{
+  document.body.addEventListener("change", e=>{
+    if(e.target.id==="tw-"+k){state[k]=e.target.value;postEdit({[k]:e.target.value});render();}
+  });
+});
+
+// ESC closes pop-out
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape") document.getElementById("popout").classList.remove("show");
+});
+
+render();
+</script>
+</body>
+</html>

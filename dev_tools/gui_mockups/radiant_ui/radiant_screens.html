@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RADIANT — Screen Gallery</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1b2230; --ink-2:#384050; --muted:#6b7380;
+    --accent:#b8431a; --line:#cfd5de; --panel:#fafbfc; --bg:#ebeef2;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#d8dce3;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink)}
+
+  /* each printed sheet */
+  .page{
+    width:1100px;height:850px;             /* US Letter landscape @ ~129 dpi */
+    margin:24px auto;background:#fff;position:relative;
+    box-shadow:0 4px 22px rgba(20,30,50,.16);
+    overflow:hidden;page-break-after:always;
+    display:flex;flex-direction:column;
+  }
+  .page:last-child{page-break-after:auto}
+
+  /* page chrome */
+  .ph{display:flex;align-items:center;gap:12px;padding:22px 34px 0}
+  .mark{width:22px;height:22px;border-radius:4px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent) 50%,var(--ink) 50%,var(--ink) 100%);flex-shrink:0}
+  .ph .wm{font-size:14px;font-weight:600;letter-spacing:.02em}
+  .ph .stage-no{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:3px 12px}
+  .cap{padding:10px 34px 4px}
+  .cap h2{margin:0;font-size:21px;font-weight:600;letter-spacing:-.01em}
+  .cap .sub{font-size:12.5px;color:var(--muted);margin-top:2px;max-width:900px;line-height:1.45}
+  .shot{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 34px 18px;min-height:0}
+  .shot img{max-width:100%;max-height:100%;object-fit:contain;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(20,30,50,.10)}
+  .pn{position:absolute;bottom:14px;right:34px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted)}
+  .pn-l{position:absolute;bottom:14px;left:34px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted)}
+
+  /* ---------- cover ---------- */
+  .cover{justify-content:center;align-items:flex-start;padding:0 78px;background:
+     radial-gradient(120% 80% at 80% 0%, #f4ede2 0%, #fff 55%)}
+  .cover .kicker{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+  .cover h1{margin:0;font-size:52px;font-weight:700;letter-spacing:-.02em;line-height:1.02}
+  .cover .tag{font-size:18px;color:var(--ink-2);margin-top:16px;max-width:680px;line-height:1.5}
+  .cover .brandrow{display:flex;align-items:center;gap:12px;margin-bottom:42px}
+  .cover .brandrow .mark{width:34px;height:34px;border-radius:6px}
+  .cover .brandrow .nm{font-size:22px;font-weight:700;letter-spacing:.01em}
+  .cover .meta{position:absolute;left:78px;bottom:64px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--muted);line-height:1.9}
+  .cover .meta b{color:var(--ink)}
+  .cover .chainrow{display:flex;gap:6px;margin-top:40px;flex-wrap:wrap}
+  .cover .chip{font-family:'IBM Plex Mono',monospace;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:5px 10px;background:var(--panel);color:var(--ink-2)}
+  .cover .chip b{color:var(--accent);font-weight:600}
+
+  /* contents page */
+  .toc{padding:30px 60px}
+  .toc h2{font-size:24px;margin:0 0 22px}
+  .toc ol{list-style:none;counter-reset:t;padding:0;margin:0;column-count:1}
+  .toc li{counter-increment:t;display:flex;align-items:baseline;gap:14px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
+  .toc li::before{content:counter(t,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:13px;width:30px}
+  .toc li .nm{font-weight:600}
+  .toc li .ds{color:var(--muted);font-size:13px;margin-left:auto;font-family:'IBM Plex Mono',monospace}
+
+  @media print{
+    html,body{background:#fff;margin:0;padding:0}
+    @page{size:11in 8.5in;margin:0}
+    .page{
+      margin:0;box-shadow:none;border:0;
+      width:11in;height:8.5in;
+      page-break-after:always;break-after:page;
+      page-break-inside:avoid;break-inside:avoid;
+    }
+    .page:last-child{page-break-after:auto;break-after:auto}
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="page cover">
+  <div style="margin-top:120px">
+    <div class="brandrow"><div class="mark"></div><div class="nm">RADIANT</div></div>
+    <div class="kicker">GUI Design · Screen Gallery</div>
+    <h1>Spatial · Spectral · Radiometric<br/>Sensor Modeling GUI</h1>
+    <div class="tag">A first-principles electro-optical sensor performance model — propagating spectral radiance through a seven-stage signal chain from source to digitized output.</div>
+    <div class="chainrow">
+      <span class="chip"><b>01</b> Source</span>
+      <span class="chip"><b>02</b> Atmosphere</span>
+      <span class="chip"><b>03</b> Platform</span>
+      <span class="chip"><b>04</b> Optics</span>
+      <span class="chip"><b>05</b> Detector</span>
+      <span class="chip"><b>06</b> Readout</span>
+      <span class="chip"><b>07</b> Performance</span>
+    </div>
+  </div>
+  <div class="meta">
+    RADIANT v1.0.0rc3 · PySide6 / Qt6 layout study<br/>
+    Workspace · Stage detail · Scripting<br/>
+    Generated <b>June 2026</b>
+  </div>
+</section>
+
+<!-- CONTENTS -->
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">contents</div></div>
+  <div class="toc">
+    <h2>Screens in this gallery</h2>
+    <ol>
+      <li><span class="nm">Workspace</span> &nbsp;— visual signal-chain home <span class="ds">Mid-fi</span></li>
+      <li><span class="nm">Source</span> &nbsp;— target, background &amp; LOS geometry <span class="ds">L_src(λ)</span></li>
+      <li><span class="nm">Atmosphere</span> &nbsp;— transmittance &amp; path radiance <span class="ds">τ · L_path · L_atm</span></li>
+      <li><span class="nm">Platform</span> &nbsp;— smear, jitter &amp; TDI <span class="ds">MTF</span></li>
+      <li><span class="nm">Optics</span> &nbsp;— PSF, MTF &amp; encircled energy <span class="ds">PSF · MTF · τ_opt</span></li>
+      <li><span class="nm">Detector</span> &nbsp;— QE, dark current &amp; noise <span class="ds">QE · noise · dark</span></li>
+      <li><span class="nm">Readout</span> &nbsp;— TDI, CDS &amp; ADC <span class="ds">DN per pixel</span></li>
+      <li><span class="nm">Performance</span> &nbsp;— SNR, NEDT, NIIRS &amp; range <span class="ds">metrics</span></li>
+      <li><span class="nm">Scripting</span> &nbsp;— Python trade-study workspace <span class="ds">sweeps · MC</span></li>
+    </ol>
+  </div>
+  <div class="pn-l">RADIANT — Screen Gallery</div>
+</section>
+
+<!-- SCREENS -->
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Workspace</div></div>
+  <div class="cap"><h2>Workspace</h2><div class="sub">The visual home — the seven-stage signal chain across the top with live health indicators, a parameter tree, the visualization canvas, and the per-stage drill-down beneath.</div></div>
+  <div class="shot"><img src="pdf-shots/00-workspace.png" alt="Workspace"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">01</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 01 · Source</div></div>
+  <div class="cap"><h2>Source</h2><div class="sub">Computes L_src(λ) — the spectral radiance leaving the target. Target descriptor, spec-form picker (S1–S12), illumination and line-of-sight geometry, with a live validation rail.</div></div>
+  <div class="shot"><img src="pdf-shots/01-source.png" alt="Source stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">02</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 02 · Atmosphere</div></div>
+  <div class="cap"><h2>Atmosphere</h2><div class="sub">Propagates source radiance through the atmosphere — spectral transmittance τ(λ), upwelling path radiance L_path(λ), and self-emission L_atm(λ) via MODTRAN tape7.</div></div>
+  <div class="shot"><img src="pdf-shots/02-atmosphere.png" alt="Atmosphere stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">03</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 03 · Platform</div></div>
+  <div class="cap"><h2>Platform</h2><div class="sub">Line-of-sight motion effects — along-track smear, Gaussian jitter, and TDI mis-registration as MTF multipliers. Flags the jitter-over-spec condition inline.</div></div>
+  <div class="shot"><img src="pdf-shots/03-platform.png" alt="Platform stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">04</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 04 · Optics</div></div>
+  <div class="cap"><h2>Optics</h2><div class="sub">Diffraction PSF, MTF terms and encircled energy; warm-optics self-emission; filter bandpass; and the point where the target regime is finalized (C7).</div></div>
+  <div class="shot"><img src="pdf-shots/04-optics.png" alt="Optics stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">05</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 05 · Detector</div></div>
+  <div class="cap"><h2>Detector</h2><div class="sub">Converts radiance to electrons — QE(λ), Rule-07 dark current, the eight-term noise budget, and the spectral-integration boundary (C5) where arrays collapse to per-pixel scalars.</div></div>
+  <div class="shot"><img src="pdf-shots/05-detector.png" alt="Detector stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">06</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 06 · Readout</div></div>
+  <div class="cap"><h2>Readout</h2><div class="sub">TDI / CDS timing and the ADC transfer — read, 1/f, kTC and quantization noise, producing the final digitized counts per pixel.</div></div>
+  <div class="shot"><img src="pdf-shots/06-readout.png" alt="Readout stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">07</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Stage 07 · Performance</div></div>
+  <div class="cap"><h2>Performance</h2><div class="sub">The climax of the chain — SNR, NEDT, NIIRS (GIQE5/IIRS), GSD, MTF @ Nyquist, RER and detection range, with a pass/fail target matrix and provenance manifest.</div></div>
+  <div class="shot"><img src="pdf-shots/07-performance.png" alt="Performance stage"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">08</div>
+</section>
+
+<section class="page">
+  <div class="ph"><div class="mark"></div><div class="wm">RADIANT</div><div class="stage-no">Scripting</div></div>
+  <div class="cap"><h2>Scripting</h2><div class="sub">The Python trade-study workspace — cell-based editor, live ChainState explorer, figures dock, and console, sharing the same backend as the visual Workspace.</div></div>
+  <div class="shot"><img src="pdf-shots/08-scripting.png" alt="Scripting workspace"></div>
+  <div class="pn-l">RADIANT — Screen Gallery</div><div class="pn">09</div>
+</section>
+
+</body>
+</html>

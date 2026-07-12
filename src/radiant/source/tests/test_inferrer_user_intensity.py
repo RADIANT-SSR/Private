@@ -138,7 +138,14 @@ class TestUserIntensityChainRun:
 
     @pytest.mark.level2
     def test_chain_runs_on_vacuum_path(self, tmp_path: Path) -> None:
-        I_value = 1.0  # W/sr/µm — sensible order-of-magnitude for LWIR
+        # I bright enough that the point target is detectable above the warm
+        # LWIR terrestrial background pedestal (Gap 73): a point source now
+        # sits on the full-pixel background, which for a 290 K ground scene
+        # in the 8–13 µm band is large. The seed's default 100 ke- well
+        # saturates on that pedestal at t_int = 10 ms, so this vacuum-path
+        # routing test uses a realistic staring-LWIR well and a short
+        # integration so the pixel does not saturate and the target survives.
+        I_value = 100.0  # W/sr/µm
         csv_path = _write_flat_csv(
             tmp_path / "user_intensity.csv",
             wl_um=_WL_LWIR,
@@ -155,6 +162,8 @@ class TestUserIntensityChainRun:
         params.set("source.target.range_m", 800_000.0)
         params.set("source.target.user_intensity_path", str(csv_path))
         _seed_optics_detector_readout_lwir(params)
+        params.set("readout.full_well_capacity_e", 1.0e8)
+        params.set("spectral_integration.integration_time_s", 1.0e-3)
         params.resolve()
 
         with warnings.catch_warnings():

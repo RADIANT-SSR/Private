@@ -1,8 +1,21 @@
 # RADIANT Detector Complete
 
-**Status**: Authoritative — first design pass, unified
+**Status**: Authoritative for the noise model and readout order; **partially design-target** for the QE-input model and the parameter inventory (see banner below).
 **Scope**: The detector and the readout chain in one document. QE, pixel geometry, the complete noise budget, TDI, on-chip and off-chip binning, coadds, two-stage saturation, and the readout-order rules that make all of this consistent. Splitting detector and readout into separate documents would break the noise-and-timing interactions, which is exactly the point of this combined design.
 **Sister documents**: RADIANT_Conventions.md, RADIANT_Optics.md, RADIANT_Spatial_Complete.md, RADIANT_Atmosphere.md, RADIANT_Signal_Chain_Architecture.md, RADIANT_Scan_Timing.md
+
+> **Implementation-reality banner (reconciled 2026-07-12).** This document was a
+> unified first design pass; parts of it describe abstractions that were never
+> built as written. What is **shipped and verified**: the 16-source noise model
+> (§4), the temporal/spatial split (§5), the canonical readout order and both
+> saturation checks (§6), TDI / binning / coadds scaling (§7–§10). What is
+> **design-target, not implemented**: the single `DetectorState` frozen dataclass
+> (§2 — the stages instead write signal, the noise-term tuple, and MTF arrays into
+> the immutable `ChainState`); the `QeInput` LIBRARY/CUSTOM enum with
+> material-name selection and cutoff-warping (§3.1 — only scalar `qe_value` and a
+> `qe_table_path` CSV are implemented); and sub-band / two-color weighting (§3.2).
+> The §11 parameter inventory has been rewritten to the real schema. Sections that
+> remain design-target are flagged inline with **[DESIGN-TARGET]**.
 
 ---
 
@@ -16,7 +29,17 @@
 
 ---
 
-## 2. The `DetectorState` Contract
+## 2. The `DetectorState` Contract **[DESIGN-TARGET]**
+
+> **Not implemented as a single object.** There is no `DetectorState` frozen
+> dataclass in the codebase. The `DetectorStage` and `ReadoutStage` write their
+> outputs into the immutable `ChainState` instead: per-pixel signal and the
+> realized scaling/saturation status go into `stage_outputs["detector"]` /
+> `stage_outputs["readout"]`, each noise source is appended to the
+> `ChainState.noise_terms` tuple as a `NoiseTerm` (§4), and the pixel-aperture,
+> charge-diffusion, and IPC MTFs go into `ChainState.mtf_terms`. The fields below
+> are the *conceptual* contract those outputs collectively satisfy — read them as
+> a checklist of what the two stages produce, not as a literal type.
 
 ```python
 @dataclass(frozen=True)
@@ -59,14 +82,31 @@ class DetectorState:
 
 ### 3.1 QE inputs
 
+**Implemented (two paths only):** QE is supplied either as a flat scalar
+`detector.qe_value` **or** as a wavelength-vs-QE CSV `detector.qe_table_path`
+(the two are mutually exclusive — `qe_value` is `required_unless` `qe_table_path`
+is set). An optional linear temperature correction is applied via
+`detector.qe_temperature_coeff_per_K` about `detector.qe_temperature_ref_K`.
+Material QE curves ship in `data/detectors/` (`hgcdte_mwir.csv`,
+`hgcdte_lwir.csv`, `ingaas.csv`, `inp_ingaasp.csv`, `silicon.csv`,
+`type2_sls.csv`) and are loadable through `radiant.data.SpectralLibrary`; a user
+selects one by pointing `qe_table_path` at it.
+
+> **[DESIGN-TARGET]** The `QeInput` LIBRARY/FILE/CUSTOM enum, material-name
+> selection with `detector.qe_cutoff_um` cutoff-warping, and the `CUSTOM`
+> parametric Fermi-edge curve (`qe_peak`, `qe_cuton_um`, `qe_rolloff_sharpness`)
+> below are **not implemented**. Only the scalar and CSV paths above exist. The
+> material table is a reference for the shipped CSVs, not a selectable enum.
+
 ```python
+# DESIGN-TARGET — not in the codebase
 class QeInput(StrEnum):
     LIBRARY = "library"          # one of the built-in materials
     FILE    = "file"             # user-supplied QE(λ) table
     CUSTOM  = "custom"           # parametric model with cutoff
 ```
 
-Built-in library, in `data/detectors/`:
+Reference cutoffs for the shipped material CSVs:
 
 | Material | Cutoff (µm) | Typical peak QE | Notes |
 |----------|-------------|-----------------|-------|
@@ -78,15 +118,13 @@ Built-in library, in `data/detectors/`:
 | InSb | 5.5 | 0.80 | Classic MWIR |
 | T2SL | 9.5 | 0.55 | Two-color superlattice |
 
-A `LIBRARY` choice is parameterized by `detector.qe_cutoff_um`, which warps the library curve via a polynomial fit (the long-wavelength edge moves; the short-wavelength shape is preserved). This is good enough for trade studies; users with measured QE on a specific FPA use `FILE`.
+### 3.2 Sub-band weighting **[DESIGN-TARGET]**
 
-`CUSTOM` accepts: `qe_peak`, `qe_cutoff_um`, `qe_cuton_um`, `qe_rolloff_sharpness`, and constructs a parametric Fermi-edge curve.
+> **Not implemented.** There is no `detector.qe_subbands` parameter and no
+> multi-layer / two-color per-band signal path. A single QE curve is applied per
+> run. The design below is retained as the intended future model.
 
-### 3.2 Sub-band weighting
-
-For multi-layer / two-color detectors, the user supplies a list of sub-bands, each with its own QE curve and the relative *electron* weight (not photon weight) per band. The framework computes the in-band signal for each layer separately and reports them in `DetectorState.noise_terms` keyed `signal_band_<n>`.
-
-Out of scope for v1: physical readout multiplexing of two layers in time. The user gets per-band signals as if they were read simultaneously.
+For multi-layer / two-color detectors, the user supplies a list of sub-bands, each with its own QE curve and the relative *electron* weight (not photon weight) per band. The framework computes the in-band signal for each layer separately and reports them per-band.
 
 ### 3.3 Pixel geometry
 
@@ -95,10 +133,14 @@ Out of scope for v1: physical readout multiplexing of two layers in time. The us
 | `detector.pixel_pitch_x_um` | µm | None (required) |
 | `detector.pixel_pitch_y_um` | µm | = pitch_x (square) |
 | `detector.fill_factor` | dimensionless | 1.0 |
-| `detector.pixel_shape` | enum: `rect`, `circle` | `rect` |
-| `detector.charge_diffusion_length_um` | µm | 0.0 |
+| `detector.charge_diffusion_length_m` | m | 0.0 |
 
-The pixel-aperture MTF is `sinc(π·f_x·p_x·√FF) · sinc(π·f_y·p_y·√FF)` for rectangular fill (FF is the *areal* photosensitive fraction, so a square photosite has linear width `p·√FF`; CU-074), and the corresponding jinc for circular. The same `p·√FF` width drives the PSF-path pixel-aperture kernel (both Rule-4 paths agree), and the radiometric collecting area `p²·FF` scales the collected signal. Charge diffusion is a Gaussian convolution with `σ = L_d / √2`. Both feed the spatial PSF cascade per `RADIANT_Spatial_Complete.md` §6.
+The canonical charge-diffusion parameter is `detector.charge_diffusion_length_m`
+(canonical unit metres, per the naming convention), **not** `_um`. There is no
+`detector.pixel_shape` parameter — the pixel-aperture model is rectangular fill
+only; the circular (`jinc`) variant is design-target.
+
+The pixel-aperture MTF is `sinc(π·f_x·p_x·√FF) · sinc(π·f_y·p_y·√FF)` for rectangular fill (FF is the *areal* photosensitive fraction, so a square photosite has linear width `p·√FF`; CU-074). The same `p·√FF` width drives the PSF-path pixel-aperture kernel (both Rule-4 paths agree), and the radiometric collecting area `p²·FF` scales the collected signal. Charge diffusion is a Gaussian convolution with `σ = L_d / √2`. Both feed the spatial PSF cascade per `RADIANT_Spatial_Complete.md` §6.
 
 ---
 
@@ -133,7 +175,13 @@ Photon-shot terms have **no free parameters** beyond the upstream electron rates
 | 10 | `ktc_reset_noise` | kT/C on the sense node | `√(kTC)/q`, suppressed by CDS | Snapshot pixels w/o CDS | `node_capacitance_F`, `T_det`, `cds_enabled` |
 | 11 | `quantization_noise` | ADC LSB | `LSB / √12` (e-) | Always (small unless under-bitted) | `gain_e_per_dn`, `adc_bits` |
 
-When `cds_enabled = True`, `ktc_reset_noise` is set to zero and a flag in derivation_chain records the suppression.
+When `cds_enabled = True`, the kTC term is set to zero and the suppression is recorded.
+
+> **Actual `NoiseTerm` keys.** The shipped keys for terms 10 and 11 are
+> `ktc_reset` and `quantization` (not `ktc_reset_noise` / `quantization_noise` as
+> written in the tables above). All 16 terms are produced; the ROIC/well/gain
+> controls they depend on live in `readout.*` (see §11.2), and `node_capacitance_F`
+> is read from `readout.node_capacitance_F`.
 
 ### Fixed-pattern (spatial) family
 | # | Term | Origin | Equation | When | Parameters |
@@ -321,42 +369,63 @@ For AVERAGE coadd mode, divide every column "× K coadds" entry by K (since sign
 
 ## 11. Parameter Inventory
 
-Roughly 60 parameters. Grouped:
+**44 parameters as shipped** — 27 in the `detector.*` namespace (owned by
+`DetectorStage`) and 17 in `readout.*` (owned by `ReadoutStage`). The original
+design pass listed ~54 parameters all under `detector.*`, but the built system
+splits gain/ADC/well/TDI/binning/coadd controls into `readout.*` (they act in
+the readout chain, §6) and never implemented ~20 of the designed names. This
+section is the authoritative, reconciled inventory (verified against
+`detector/_schema.py` and `readout/_schema.py`, 2026-07-12).
 
-### 11.1 QE (4)
-`detector.qe_input`, `detector.qe_material`, `detector.qe_file`, `detector.qe_cutoff_um`, `detector.qe_subbands` (list, optional).
+### 11.1 `detector.*` — 27 parameters
 
-### 11.2 Pixel (5)
-`detector.pixel_pitch_x_um`, `detector.pixel_pitch_y_um`, `detector.fill_factor`, `detector.pixel_shape`, `detector.charge_diffusion_length_um`.
+**QE (4):** `qe_value`, `qe_table_path`, `qe_temperature_coeff_per_K`,
+`qe_temperature_ref_K`.
 
-### 11.3 Dark current (4)
-`detector.dark_current_e_per_s`, `detector.dark_activation_energy_eV`, `detector.dark_reference_temperature_K`, `detector.detector_temperature_K`.
+**Pixel geometry (5):** `pixel_pitch_x_um`, `pixel_pitch_y_um`, `fill_factor`,
+`charge_diffusion_length_m`, `n_pixels_cross`.
 
-### 11.4 Other detector noise (8)
-`detector.gr_factor`, `detector.r0a_ohm_cm2`, `detector.flicker_K`, `detector.flicker_f_low_hz`, `detector.flicker_f_high_hz`, `detector.persistence_fraction`, `detector.persistence_tau_s`, `detector.glow_e_per_s`.
+**Dark current (4):** `dark_rate_e_per_s`, `dark_activation_energy_eV`,
+`dark_reference_temperature_K`, `detector_temperature_K`.
 
-### 11.5 ROIC (8)
-`detector.read_noise_e_rms`, `detector.read_noise_is_post_cds`, `detector.cds_enabled`, `detector.cds_1f_suppression`, `detector.node_capacitance_F`, `detector.full_well_capacity_e`, `detector.summing_well_capacity_e`, `detector.nonlinearity_coeffs`.
+**Other detector noise (9):** `gr_factor`, `r0a_ohm_cm2`, `flicker_K`,
+`flicker_f_low_hz`, `flicker_f_high_hz`, `persistence_fraction`,
+`persistence_tau_s`, `prior_signal_e`, `glow_e_per_s`.
 
-### 11.6 ADC and gain (4)
-`detector.gain_e_per_dn`, `detector.adc_bits`, `detector.adc_full_scale_dn`, `detector.bias_offset_dn`.
+**Fixed-pattern / regime (4):** `prnu_pct`, `dsnu_e_rms`, `clutter_sigma`,
+`noise_regime`.
 
-### 11.7 Fixed-pattern (3)
-`detector.prnu_pct`, `detector.dsnu_e_rms`, `detector.noise_regime`.
+**IPC (1):** `ipc_coupling`.
 
-### 11.8 TDI (5)
-`detector.n_tdi`, `detector.cte_per_transfer`, `detector.n_transfers_per_stage`, `detector.tdi_misalign_pixels`, `detector.tdi_velocity_match_pct`.
+### 11.2 `readout.*` — 17 parameters
 
-### 11.9 Binning and coadds (7)
-`detector.binning_x_onchip`, `detector.binning_y_onchip`, `detector.binning_x_offchip`, `detector.binning_y_offchip`, `detector.n_coadds`, `detector.coadd_mode`, `detector.prior_signal_e`.
+**Read / CDS (5):** `read_noise_e_rms`, `read_noise_is_post_cds`, `cds_enabled`,
+`node_capacitance_F`, `electronics_sigma_um`.
 
-### 11.10 IPC and crosstalk (2)
-`detector.ipc_coupling`, `detector.ipc_kernel_file`.
+**ADC and gain (2):** `gain_e_per_dn`, `adc_bits`.
 
-### 11.11 Misc (4)
-`detector.bad_pixel_fraction`, `detector.cosmic_ray_flux`, `detector.detector_material`, `detector.rolling_shutter` (stub flag).
+**Well (1):** `full_well_capacity_e`.
 
-Total: **54 parameters**, slightly under the prompt's "expect ~60." Adding the rad-damage subset (TID, shielding) and the rolling-shutter-edge case brings it to ~58.
+**TDI (3):** `n_tdi`, `tdi_misalign_pixels`, `tdi_mode`.
+
+**Binning (4):** `binning_x_onchip`, `binning_y_onchip`, `binning_x_offchip`,
+`binning_y_offchip`.
+
+**Coadds (2):** `n_coadds`, `coadd_mode`.
+
+### 11.3 Designed but not implemented
+
+The following design-pass names have **no ParameterDef** in either schema and no
+consuming code: `qe_input`, `qe_material`, `qe_file`, `qe_cutoff_um`,
+`qe_subbands`, `pixel_shape`, `summing_well_capacity_e`, `nonlinearity_coeffs`,
+`adc_full_scale_dn`, `bias_offset_dn`, `cte_per_transfer`,
+`n_transfers_per_stage`, `tdi_velocity_match_pct`, `cds_1f_suppression`,
+`bad_pixel_fraction`, `cosmic_ray_flux`, `detector_material`, `rolling_shutter`,
+`ipc_kernel_file`. Their corresponding models (CTE loss §7, summing-well
+capacity §8.1, ADC full-scale/bias §6, cosmic-ray statistic §4) are therefore
+design-target: the sections describing them stand as intent, not shipped
+behavior. `dark_current_e_per_s` in the design pass is the shipped
+`dark_rate_e_per_s`.
 
 ---
 

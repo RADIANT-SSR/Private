@@ -57,15 +57,6 @@
 **Why it still matters**: the table exists to be the at-a-glance view of the registry; a half-populated index is worse than none (it implies completeness). Rule 25 makes gaps.md the single home for capability gaps — its own index should not misreport them.
 **Suggested fix**: inline-fix-now — append rows 67–84 (number, title, effort, scenarios, status) from the existing entries; or delete the Summary Table in favor of the entries themselves if maintenance keeps lapsing. Effort S; category A.
 
-### CU-094 — `ObserverGeometry` / `TargetGeometry` / `SceneGeometry` are dead code (zero consumers)
-
-**Discovered**: geometry-ownership assessment (GUI mockup review), 2026-07-12
-**Status**: Open — execution scheduled: `docs/plans/Geometry_Stage_Plan.md` Phase 4
-**File**: `src/radiant/core/geometry.py:258-482` (the three dataclasses); `src/radiant/core/__init__.py:23-25` (re-exports)
-**Symptom**: the three dataclasses are exported from `radiant.core` but consumed by no stage, no `api/`, no `io/` code — grep hits only `core/__init__.py` and their own tests. `SceneGeometry.slant_range_m` is flat-Earth while every runtime consumer uses `slant_range_spherical_m`; `ObserverGeometry`'s yaw/pitch/roll attitude fields are read by nothing.
-**Why it still matters**: Rule 27 (one canonical version) — two parallel geometry models where only one is real. An agent or contributor reaching for "the geometry class" finds the dead flat-Earth one first; the module-level functions (`slant_range_spherical_m`, `incidence_angle_rad`, Euler helpers) are the live surface.
-**Suggested fix**: delete-as-unused (owner-ratified 2026-07-12, ADR-0006) — remove the three dataclasses, their tests, and the `core/__init__` exports; keep the live module functions. Grep `io/`/serialization paths for `to_dict` round-trip consumers before deleting. Effort S; category A.
-
 ### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — verified (only consumer is a "deferred" docstring)
@@ -232,6 +223,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-094 — `ObserverGeometry` / `TargetGeometry` / `SceneGeometry` were dead code — RESOLVED 2026-07-12 (commit `967f900`)
+
+**Discovered**: geometry-ownership assessment (GUI mockup review), 2026-07-12. **Resolution**: delete-as-unused, executed as Geometry_Stage_Plan Phase 4 (owner-ratified 2026-07-12, ADR-0006). Pre-deletion grep confirmed zero consumers in `io/`/`api/`/serialization paths. The three dataclasses, their tests, and the `core/__init__` re-exports removed; the live module functions kept; docs swept (Geometry_Orbital — whose §8 had *aspirationally* claimed `performance/gsd.py` built on `SceneGeometry.gsd_m`, never true — plus Use_Case_Matrix item 10, File_Tree, CLAUDE.md). CHANGELOG Removed entry.
 
 ### CU-093 — Slant range could silently disagree with itself: user range vs angle-implied range — RESOLVED 2026-07-12 (commit `f44c37a`)
 

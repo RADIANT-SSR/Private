@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-07-12 (completed by the coding agent; all four phases landed same-day).** Phase 0 design record (`4890a10`: ADR-0006, CU-093/094/095 filed, Gaps 83/84); Phase 1 GeometryStage (`664fd08`, zero drift); Phase 2 downstream consumption (`65720f0`, CU-096 narrowed, goldens intact); Phase 3 collapses (`f44c37a` + closures `17a3598`: CU-090, CU-093, CU-005 addendum); Phase 4 dead-code deletion + closeout (`967f900`, CU-094). Along the way: CU-096/097/098/099 filed (Rule 21). Completion definition verified — geometry-first 9-stage chain, all v1 input modes Level-0 tested, deferred modes gap-filed, docs lock-step, zero golden drift.
+
 # Geometry Stage Plan — Geometry as Stage 0 of the Chain
 
-**Status:** Active (2026-07-12)
+**Status:** Complete (2026-07-12) — archived
 **Owner decision record:** ADR-0006 (created by Phase 0 of this plan)
 **CUs referenced:** CU-090 (open), CU-093, CU-094 (filed by Phase 0)
 **Driver:** GUI mockup review (2026-07-12) exposed that scene geometry — where the sensor,

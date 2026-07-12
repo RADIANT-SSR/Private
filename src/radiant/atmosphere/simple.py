@@ -314,7 +314,7 @@ class SimpleAtmosphere:
         """
         alpha = _AEROSOL_TABLE[self.aerosol_type]["angstrom"]
         sigma_550 = KOSCHMIEDER / self.visibility_km
-        # CU-088: clamp the Ångström fit beyond the SWIR-MWIR boundary. The
+        # CU-088: clamp the Ångström fit beyond the MWIR-LWIR boundary. The
         # power law keeps decreasing extinction with wavelength, which is
         # wrong in LWIR; freeze it at the boundary value instead of
         # extrapolating toward zero.
@@ -323,7 +323,7 @@ class SimpleAtmosphere:
         if np.any(wavelength_um > AEROSOL_CLAMP_WAVELENGTH_UM):
             warnings.warn(
                 "SimpleAtmosphere: aerosol extinction is clamped to its "
-                f"{AEROSOL_CLAMP_WAVELENGTH_UM:.1f} µm (SWIR-MWIR boundary) value "
+                f"{AEROSOL_CLAMP_WAVELENGTH_UM:.1f} µm (MWIR-LWIR boundary) value "
                 "for longer wavelengths — the Ångström power law is unreliable in "
                 "MWIR and wrong in LWIR (CU-088). Aerosol sensitivity to "
                 "visibility_km in those bands is approximate; use a MODTRAN or "

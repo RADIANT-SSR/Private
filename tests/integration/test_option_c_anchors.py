@@ -41,6 +41,7 @@ def _sig_figs(x: float, n: int = 6) -> float:
     if not math.isfinite(x) or x == 0.0:
         return float(x)
     from math import floor, log10
+
     mag = floor(log10(abs(x)))
     factor = 10.0 ** (n - 1 - mag)
     return round(x * factor) / factor
@@ -193,20 +194,28 @@ CELL28_PINNED = {
     # (was 0.20658998527586545). The SNR pin is unchanged because this
     # cell saturates (signal 3.5e8 e- clips to full well), which makes
     # snr ≈ √FWC scene-independent.
-    "nedt_K": 0.20841920600038896,
+    # NEDT + L_aperture repinned 2026-07-12 (CU-088): the simple-model aerosol
+    # Ångström power law is now clamped at the MWIR-LWIR boundary (5 µm), so
+    # LWIR aerosol extinction is frozen at its 5 µm value instead of decaying
+    # unphysically toward zero. Slightly more LWIR extinction → marginally
+    # lower τ and at-aperture radiance; NEDT −0.008% (was 0.20841920600038896),
+    # L_aperture −0.4% to −0.6% across the band. SNR unchanged (saturation-
+    # limited). MTF unaffected (spatial). Cell 58 (vacuum) is unaffected.
+    "nedt_K": 0.20840328308841266,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel
     # was effectively wider → over-blurred → MTF low by ~5.6% at Nyquist.
     # Was 0.07587823.
     "mtf_at_nyquist": 0.08012242959201417,
+    # L_aperture repinned 2026-07-12 (CU-088 aerosol clamp — see nedt_K note).
     "L_aperture_W_m2_sr_um": {
-        8.0:  3.874043,
-        9.0:  6.658567,
-        10.0: 7.806023,
-        11.0: 8.047163,
-        12.0: 7.803374,
-        13.0: 7.312195,
+        8.0: 3.857458,
+        9.0: 6.625253,
+        10.0: 7.762615,
+        11.0: 7.998856,
+        12.0: 7.753734,
+        13.0: 7.263518,
     },
 }
 
@@ -223,8 +232,8 @@ CELL58_PINNED = {
     # Was 0.06690769 (+7.9%).
     "mtf_at_nyquist": 0.07221495554327903,
     "L_aperture_W_m2_sr_um": {
-        8.0:  6.485012,
-        9.0:  7.268780,
+        8.0: 6.485012,
+        9.0: 7.268780,
         10.0: 7.541965,
         11.0: 7.438298,
         12.0: 7.091011,

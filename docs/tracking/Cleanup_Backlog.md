@@ -157,6 +157,15 @@
 **Why it still matters**: LWIR NEDT/detection-range results from the default model embed an acknowledged-wrong aerosol term; users sweeping `visibility_km` in LWIR see spurious sensitivity.
 **Suggested fix**: inline-fix-now — clamp aerosol extinction at the SWIR/MWIR boundary per the doc's stated plan, warn once per run when the clamp engages, update the doc §12 in lock-step. Effort S; category C.
 
+### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)
+
+**Discovered**: Gap 67 persistence task (pre-commit gate run), 2026-07-11
+**Status**: Open
+**File**: `tests/integration/` (e.g. `test_dual_path_mtf.py:178` unused variable, `test_no_atm_subcases.py:32` unsorted imports; 18 errors total, 11 auto-fixable)
+**Symptom**: `ruff check tests/` reports 18 errors; the CLAUDE.md gate is `ruff check src/`, so the root `tests/` tree is unlinted and drifting.
+**Why it still matters**: lint drift in the integration suite hides real defects (the unused-variable class) and makes new-test review noisier; the gate's src/-only scope is undocumented.
+**Suggested fix**: inline-fix-now — run `ruff check tests/ --fix`, hand-fix the remainder, and widen the documented gate (CLAUDE.md "Running Tests Locally") to `ruff check src/ tests/`. Effort S; category A.
+
 ### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted)
 
 **Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10, commit `fe57c74`

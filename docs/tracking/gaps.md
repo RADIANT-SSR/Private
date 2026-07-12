@@ -1072,10 +1072,11 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (`docs/reports/capability_audit_2026-07/`, F-01), 2026-07-11 |
-| **Status** | OPEN — GUI-blocking (Tier 1) |
-| **Description** | No `Sensor.save/load`, no `ChainResult.to_json/to_csv` or reload. Only metrics+noise JSON and provenance JSON exist (`cli/run.py`); `io/config.py:save_config` saves parameters only. `RADIANT_GUI_Architecture.md` binds File-Open/Save/Export directly to the missing methods; `RADIANT_Scripting_API.md` Appendix A lists them "Not implemented". |
-| **Impact** | GUI File menu, session restore, and cross-session run comparison have no backend; sweep/MC results (minutes of compute) are unrecoverable after process exit. |
-| **Workaround** | Re-run from YAML config; hand-pickle at your own risk (frozen dataclasses + MappingProxyType make this fragile). |
+| **Status** | FIXED (2026-07-11, commit `addcf43`) — sweep/MC container persistence remains future work (see Impact) |
+| **Description** | No `Sensor.save/load`, no `ChainResult` serialize/reload existed. Only metrics+noise JSON and provenance JSON existed (`cli/run.py`); `io/config.py:save_config` saved parameters only. |
+| **Fix** | `Sensor.save(path)`/`Sensor.load(path)`: YAML round trip of explicit inputs + `_radiant` metadata block (wavelength_points, tolerance distributions) — reload reproduces resolution and provenance exactly (`RADIANT_Config_Format.md` §1.7). `ChainResult.save(path)`/`ChainResult.load(path)`: single-file zip archive (`radiant.io.serialization`, JSON manifest + npz) with full-fidelity ChainState reload — zero skipped values for the shipped chain (test-enforced), provenance frozen at save time, decode restricted to `radiant.*` classes (no pickle). Supporting surface: `ParameterSet.inputs()`, `save_config(scope=)`, `read_radiant_meta()`. 47 tests incl. `tests/integration/test_persistence_roundtrip.py`. |
+| **Impact** | GUI File menu, session restore, and cross-session run comparison now have a backend. Residual scope: `SweepResult`/`MonteCarloResult` container save/load (per-run ChainResults are saveable individually; a sweep container format can ride the GUI phase that needs it). |
+| **Rerun after fix** | None — new capability; scenario scripts unaffected. |
 
 ## Gap 68: Non-scalar chain inputs unreachable from Sensor/YAML; schema advertises modes that always raise
 

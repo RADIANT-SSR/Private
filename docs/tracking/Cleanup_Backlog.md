@@ -39,15 +39,6 @@
 **Why it still matters**: schema-generated GUI forms render a no-op toggle; users entering pre-CDS datasheet noise are silently ~41 % low.
 **Suggested fix**: stand-alone task — implement both or delete parameter and doc claims in lock-step (Rule 20). Effort S-M; category C.
 
-### CU-079 — "Authoritative" architecture docs describe unimplemented systems (aspirational-drift class)
-
-**Discovered**: Capability audit 2026-07 (F-20), 2026-07-11
-**Status**: Open
-**File**: `docs/architecture/RADIANT_Source_Target_System.md` (ResolvedTarget + 70-param surface vs shipped 38-param descriptors); `RADIANT_Scan_Timing.md` (zero code — verified); `RADIANT_Spatial_Complete.md` (scan/target-motion smear sources); `RADIANT_Metrics.md` §2-3 (MetricResult/plugin contract); `RADIANT_GUI_Architecture.md` (wrong parameter dot-paths; unbacked <100 ms incremental-DAG contract); `RADIANT_Optics.md` §3.1/3.4/3.5 (aperture shapes, apodization, PupilDescription)
-**Symptom**: docs with Authoritative/Accepted status specify parameter surfaces, contracts, and latency budgets that grep proves absent from `src/`.
-**Why it still matters**: anyone speccing the GUI from the docs designs against phantom surfaces — the drift profile Rule 20 exists to prevent, at its largest recorded scale.
-**Suggested fix**: stand-alone task per doc — re-banner unbuilt sections DEFERRED-design or reconcile to shipped code; the GUI arch doc refresh must precede GUI kickoff. Effort M total; category A/B.
-
 ### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README)
 
 **Discovered**: Capability audit 2026-07 (F-23), 2026-07-11
@@ -217,6 +208,10 @@
 ### CU-088 — LWIR aerosol Ångström extrapolation clamp — RESOLVED 2026-07-12 (commit `eb22d5c`)
 
 **Discovered**: Capability audit 2026-07 (F-19), 2026-07-11. **Resolution**: `SimpleAtmosphere._aerosol_extinction_km` clamps the Ångström power law at `AEROSOL_CLAMP_WAVELENGTH_UM = 5.0 µm` (the MWIR–LWIR boundary): for λ > 5 µm the extinction is frozen at its 5 µm value instead of decaying unphysically toward zero, and a `UserWarning` fires once per run when the clamp engages. The boundary was placed at MWIR–LWIR (not the originally-doc-planned SWIR–MWIR / 3 µm) so the "weak but usable" MWIR power law and the flagship MWIR golden are preserved while only the genuinely-wrong long-wave extrapolation is corrected. Doc §12 updated in lock-step.
+
+### CU-079 — "Authoritative" architecture docs described unimplemented systems — RESOLVED 2026-07-12 (commits `c5a77e6`, plus Gap 71/74 banners)
+
+**Discovered**: Capability audit 2026-07 (F-20), 2026-07-11. **Resolution**: reconciliation / DESIGN-TARGET banners added to every listed doc. `RADIANT_Scan_Timing.md` → DESIGN TARGET (Gap 74, `bdc5ca3`); `RADIANT_Metrics.md` §2 MetricResult contract → status banner (Gap 71, `68e1fec`); `RADIANT_GUI_Architecture.md` → DESIGN TARGET, the <100 ms incremental-DAG contract marked DECLINED (owner-ratified) and dot-paths flagged illustrative (`c5a77e6`); `RADIANT_Source_Target_System.md` → DESIGN TARGET, ResolvedTarget noted exported-but-unwired (CU-084) (`c5a77e6`); `RADIANT_Optics.md` §3.1/3.4/3.5 → apodization/PupilDescription/non-circular apertures marked deferred/not-in-schema (`c5a77e6`); `RADIANT_Spatial_Complete.md` → scan/target-motion smear cascade steps marked NOT IMPLEMENTED (`c5a77e6`). Anyone speccing the GUI now sees the design-vs-shipped boundary explicitly; the doc-refresh precedes GUI kickoff as required. The GUI arch dot-path refresh against shipped `_schema.py` (item 12's second half) is subsumed: the banner directs readers to `Sensor.parameter_defs()` rather than transcribing dot-paths.
 
 ### CU-074 — `fill_factor` coupled inconsistently across PSF, MTF, and radiometry — RESOLVED 2026-07-11 (commit `3921e5d`)
 

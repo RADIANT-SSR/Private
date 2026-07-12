@@ -21,15 +21,6 @@
 **Why it still matters**: the two altitude fields can silently disagree, exactly the Gap 75 defect; a GUI would show two altitude widgets for one quantity.
 **Suggested fix**: stand-alone task — audit all `h_sensor` call sites, then either (a) collapse via an identity consistency group like the ground-speed pair (verifying no site sets the two to different values), or (b) fold `h_sensor` into `sensor_altitude_m` and delete it once the SensorDescriptor ADR (matrix §4.4) lands. Effort M; category B.
 
-### CU-075 — `scenarios/README.md` status table stale: 21 implemented scenarios marked "stub"
-
-**Discovered**: Capability audit 2026-07 (F-21), 2026-07-11 — the stale table misled the audit's own charter
-**Status**: Open
-**File**: `scenarios/README.md` (Status section)
-**Symptom**: table says "14 of 35 implemented"; per-folder inspection shows all 35 scenarios (plus 08_interpolation 8.1/8.2) fully executed 2026-07-08/09 with walkthrough/gaps/gui_workflow trios.
-**Why it still matters**: the canonical evidence index under-reports tool maturity by 60 %.
-**Suggested fix**: inline-fix-now — regenerate the table. Effort S; category A.
-
 ### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — verified (only consumer is a "deferred" docstring)
@@ -212,6 +203,10 @@
 ### CU-079 — "Authoritative" architecture docs described unimplemented systems — RESOLVED 2026-07-12 (commits `c5a77e6`, plus Gap 71/74 banners)
 
 **Discovered**: Capability audit 2026-07 (F-20), 2026-07-11. **Resolution**: reconciliation / DESIGN-TARGET banners added to every listed doc. `RADIANT_Scan_Timing.md` → DESIGN TARGET (Gap 74, `bdc5ca3`); `RADIANT_Metrics.md` §2 MetricResult contract → status banner (Gap 71, `68e1fec`); `RADIANT_GUI_Architecture.md` → DESIGN TARGET, the <100 ms incremental-DAG contract marked DECLINED (owner-ratified) and dot-paths flagged illustrative (`c5a77e6`); `RADIANT_Source_Target_System.md` → DESIGN TARGET, ResolvedTarget noted exported-but-unwired (CU-084) (`c5a77e6`); `RADIANT_Optics.md` §3.1/3.4/3.5 → apodization/PupilDescription/non-circular apertures marked deferred/not-in-schema (`c5a77e6`); `RADIANT_Spatial_Complete.md` → scan/target-motion smear cascade steps marked NOT IMPLEMENTED (`c5a77e6`). Anyone speccing the GUI now sees the design-vs-shipped boundary explicitly; the doc-refresh precedes GUI kickoff as required. The GUI arch dot-path refresh against shipped `_schema.py` (item 12's second half) is subsumed: the banner directs readers to `Sensor.parameter_defs()` rather than transcribing dot-paths.
+
+### CU-075 — `scenarios/README.md` status table stale — RESOLVED 2026-07-12 (commit `268594b`)
+
+**Discovered**: Capability audit 2026-07 (F-21), 2026-07-11. **Resolution**: regenerated the status table. All 35 persona scenarios + the two 08-series interpolation demos carry the `walkthrough.md`/`gaps.md`/`gui_workflow.md` trio and executed `inputs/scripts/outputs` (verified by script); the table now reads 37/37 implemented instead of "14 of 35" with 21 executed scenarios mislabelled "stub" and the 08 series omitted.
 
 ### CU-074 — `fill_factor` coupled inconsistently across PSF, MTF, and radiometry — RESOLVED 2026-07-11 (commit `3921e5d`)
 

@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-095 — gaps.md Summary Table stale: rows stop at Gap 66, entries run to Gap 84
+
+**Discovered**: Geometry_Stage_Plan Phase 0 (filing Gaps 83/84), 2026-07-12
+**Status**: Open
+**File**: `docs/tracking/gaps.md` (Summary Table section)
+**Symptom**: the Summary Table's last row is Gap 66; Gaps 67–84 exist as full entries above it but have no table row. A reader scanning the table for open capability gaps misses eighteen entries, including every gap from the 2026-07 capability audit.
+**Why it still matters**: the table exists to be the at-a-glance view of the registry; a half-populated index is worse than none (it implies completeness). Rule 25 makes gaps.md the single home for capability gaps — its own index should not misreport them.
+**Suggested fix**: inline-fix-now — append rows 67–84 (number, title, effort, scenarios, status) from the existing entries; or delete the Summary Table in favor of the entries themselves if maintenance keeps lapsing. Effort S; category A.
+
+### CU-094 — `ObserverGeometry` / `TargetGeometry` / `SceneGeometry` are dead code (zero consumers)
+
+**Discovered**: geometry-ownership assessment (GUI mockup review), 2026-07-12
+**Status**: Open — execution scheduled: `docs/plans/Geometry_Stage_Plan.md` Phase 4
+**File**: `src/radiant/core/geometry.py:258-482` (the three dataclasses); `src/radiant/core/__init__.py:23-25` (re-exports)
+**Symptom**: the three dataclasses are exported from `radiant.core` but consumed by no stage, no `api/`, no `io/` code — grep hits only `core/__init__.py` and their own tests. `SceneGeometry.slant_range_m` is flat-Earth while every runtime consumer uses `slant_range_spherical_m`; `ObserverGeometry`'s yaw/pitch/roll attitude fields are read by nothing.
+**Why it still matters**: Rule 27 (one canonical version) — two parallel geometry models where only one is real. An agent or contributor reaching for "the geometry class" finds the dead flat-Earth one first; the module-level functions (`slant_range_spherical_m`, `incidence_angle_rad`, Euler helpers) are the live surface.
+**Suggested fix**: delete-as-unused (owner-ratified 2026-07-12, ADR-0006) — remove the three dataclasses, their tests, and the `core/__init__` exports; keep the live module functions. Grep `io/`/serialization paths for `to_dict` round-trip consumers before deleting. Effort S; category A.
+
+### CU-093 — Slant range can silently disagree with itself: `source.target.range_m` vs range derived from altitude + zenith
+
+**Discovered**: geometry-ownership assessment (GUI mockup review), 2026-07-12
+**Status**: Open — execution scheduled: `docs/plans/Geometry_Stage_Plan.md` Phase 3
+**File**: `src/radiant/source/_schema.py:93` (`source.target.range_m`); `src/radiant/performance/stage.py:357` (detection-range reference reads the user range) vs `src/radiant/performance/stage.py:547` (GIQE path computes `slant_range_spherical_m(geometry.sensor_altitude_m, geometry.path_zenith_rad)` independently)
+**Symptom**: set `source.target.range_m = 500e3` with `geometry.sensor_altitude_m`/`path_zenith_rad` implying 700 km — the chain runs clean: regime classification and detection range use 500 km while GSD/GIQE ground metrics use 700 km. No consistency group, no warning.
+**Why it still matters**: two metrics in one result object computed at two different ranges is a silent physics incoherence (Rule 17 spirit); a GUI would present two disagreeing "range" displays with no explanation.
+**Suggested fix**: stand-alone task, executing as Geometry_Stage_Plan Phase 3 — GeometryStage over-specification check (user-set range vs user-set altitude+zenith implied range, 1 % tolerance → actionable `RadiantError`; unset range derives with `Provenance.DERIVED`). Effort M (inside the plan); category B.
+
 ### CU-090 — Altitude duplicate not collapsed: `geometry.sensor_altitude_m` vs `platform.h_sensor`
 
 **Discovered**: Gap 75 work (ground-speed collapse), 2026-07-11

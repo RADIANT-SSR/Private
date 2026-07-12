@@ -1241,6 +1241,26 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Impact** | Weather degradation is a first-class trade axis for EO sensor studies; a GUI scenario builder has no control to offer, and true fog/cloud go/no-go conditions are inexpressible. |
 | **Workaround** | Treat heavy haze (low `visibility_km`) as the worst expressible weather. |
 
+## Gap 83: No two-point geodetic geometry input (sensor lat/lon/alt + target lat/lon/alt)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Geometry input-mode survey (`docs/plans/Geometry_Stage_Plan.md` §3, mode V5), 2026-07-12 |
+| **Status** | OPEN |
+| **Description** | The scene can only be defined sensor-relative (range, or altitude + an angle). Defining both endpoints geodetically — sensor lat/lon/alt and target lat/lon/alt, with range/zenith/azimuth derived from a spherical-Earth two-point solve — is the natural framing for airborne mission planning and site-specific studies, and would feed solar mode S3 (site latitude) for free. No solver exists in `core/`. |
+| **Impact** | Users with waypoint- or site-based inputs must hand-convert to altitude+zenith outside RADIANT; a GUI map-pick workflow ("click sensor, click target") has no parameter surface to bind to. |
+| **Workaround** | Convert lat/lon pairs to ground range and altitudes by hand (or script-side haversine), then use the altitude + ground-range mode (V3). |
+
+## Gap 84: No time-based or orbital-ephemeris geometry (TLE/elements, trajectory time series, solar ephemeris)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Geometry input-mode survey (`docs/plans/Geometry_Stage_Plan.md` §3, modes V7/V8/S4), 2026-07-12 |
+| **Status** | OPEN |
+| **Description** | Geometry is a single static snapshot. No path exists from orbital elements or a TLE + epoch to viewing geometry (V7 — needs a propagator; `RADIANT_Geometry_Orbital.md` scopes the theory but no code exists), from a platform trajectory time series to per-timestep geometry (V8 — pairs with the `SweepResult` machinery), or from an epoch + positions to an exact sun vector (S4). The circular-orbit shortcut (`core/orbit.py`, mode V6) and site+time solar (`core/solar_geometry.py`, mode S3) are the expressible ceiling. |
+| **Impact** | Pass-geometry studies (access windows, grazing-to-nadir sweeps along a pass, terminator crossings) require external tooling (STK etc.) to generate per-point inputs; RADIANT cannot answer "what does this sensor see over this pass" natively. |
+| **Workaround** | Propagate externally; feed each time step to RADIANT as a static V1/V2 geometry via `BatchRunner`. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

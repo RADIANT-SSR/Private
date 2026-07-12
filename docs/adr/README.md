@@ -12,6 +12,7 @@ This directory contains Architecture Decision Records (ADRs) for **RADIANT** —
 | [0003](0003-t6-tabulated-at-source.md) | T6 Tabulated Radiance at Source | Proposed |
 | [0004](0004-t7-intensity-at-source.md) | T7 Intensity at Source | Accepted |
 | [0005](0005-extended-target-background-contrast.md) | Extended Target-vs-Background Contrast | Accepted |
+| [0006](0006-geometry-stage.md) | Geometry Is Stage 0 of the Chain | Accepted |
 | [ADR-A](ADR-A-fidelity-preset.md) | Drop FidelityPreset | Accepted |
 | [ADR-B](ADR-B-metric-soft-fail.md) | Metric-Layer Soft Failures | Accepted |
 | [ADR-C](ADR-C-public-api-surface.md) | Public API Surface | Accepted |

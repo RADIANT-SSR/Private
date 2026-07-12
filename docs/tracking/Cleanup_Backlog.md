@@ -139,15 +139,6 @@
 **Why it still matters**: exactly the silent-failure class Rules 16/17 forbid; a GUI amplifies each into invisible wrong answers.
 **Suggested fix**: stand-alone sweep task — warn/raise/fix per item, one PR, one test each. Effort M; category B.
 
-### CU-086 — Re-audit PROVISIONAL atmosphere/MODTRAN audit findings after concurrent rework lands
-
-**Discovered**: Capability audit 2026-07 (F-19), 2026-07-11
-**Status**: Investigating — re-audit COMPLETE 2026-07-11 against landed rework (`d56fd9c`); dispositioned below; move to Resolved with the commit that lands this registry update
-**File**: `src/radiant/atmosphere/modtran.py`, `loaders.py`, `atmosphere/_schema.py`
-**Symptom**: audit findings recorded while another agent was actively editing these files. Re-audit dispositions (each grep-verified against `d56fd9c`): **(1) two-leg collapse** — RESOLVED by `tape7_sun_path` (dc348f7); warning now fires only when the sun-leg file is absent. **(2) Downwelling zeroed** — SURVIVES → **Gap 81**. **(3) E_sky_scattered zeroed** — SURVIVES → folded into **Gap 81**. **(4) Parsed tape7 columns dropped + remaining ModtranConfig knobs unwired** — SURVIVES (narrowed: `visibility_km` now wired via loaders) → **CU-087**. **(5) No cloud/rain** — SURVIVES → **Gap 82**. **(6) LWIR aerosol clamp unimplemented** — SURVIVES (untouched by rework) → **CU-088**. **(7) Uplooking geometry rejection** — Declined, owner-ratified 2026-07-11. **(8) CU-071 silent clamp** — unchanged, stays open (the new sun-leg path deliberately does not clip, citing CU-071).
-**Why it still matters**: closure record — supersedes the PROVISIONAL markers in `docs/reports/capability_audit_2026-07/Findings.md` (correction doc: `2026-07-11_modtran_reaudit.md` in that folder).
-**Suggested fix**: none remaining — close on commit. Effort done; category A.
-
 ### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
 
 **Discovered**: CU-086 re-audit of the landed MODTRAN rework (`d56fd9c`), 2026-07-11
@@ -270,6 +261,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-086 — Re-audit PROVISIONAL atmosphere/MODTRAN audit findings after concurrent rework lands — RESOLVED 2026-07-11 (commit `bf70f73`)
+
+**Discovered**: Capability audit 2026-07 (F-19), 2026-07-11. **Resolution**: re-audit executed 2026-07-11 against the landed MODTRAN rework (`d56fd9c`), correction doc `docs/reports/capability_audit_2026-07/2026-07-11_modtran_reaudit.md`; every PROVISIONAL finding dispositioned (grep-verified): **(1) two-leg collapse** — resolved by `tape7_sun_path` (dc348f7). **(2) Downwelling zeroed** — survives → **Gap 81**. **(3) E_sky_scattered zeroed** — survives → folded into **Gap 81**. **(4) Parsed tape7 columns dropped + remaining ModtranConfig knobs unwired** — survives (narrowed: `visibility_km` now wired) → **CU-087**. **(5) No cloud/rain** — survives → **Gap 82**. **(6) LWIR aerosol clamp unimplemented** — survives → **CU-088**. **(7) Uplooking geometry rejection** — Declined, owner-ratified 2026-07-11. **(8) CU-071 silent clamp** — unchanged, stays open. Registry updates and correction doc landed in `bf70f73`.
 
 ### CU-068 — `RADIANT_Atmosphere.md` §5.2's `ModtranNativeOutput` code sample doesn't match the shipped dataclass — RESOLVED 2026-07-11 (commit `c349ea1`)
 

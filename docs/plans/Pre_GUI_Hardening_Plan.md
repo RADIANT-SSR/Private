@@ -1,6 +1,6 @@
 # Pre-GUI Hardening Plan
 
-**Status:** Draft — awaiting owner activation
+**Status:** Active (activated 2026-07-11; audit landed in `bf70f73`)
 **Source:** `docs/reports/capability_audit_2026-07/` (Findings + Recommendation)
 **Goal:** close the GUI-blocking and fix-before-GUI registry items so GUI development
 starts on a stable, honest surface. This plan references registry entries; it does not

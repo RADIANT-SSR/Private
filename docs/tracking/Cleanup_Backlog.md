@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-092 — Signal_Chain §5 claims forward factors are stored under `stage_outputs[stage]["forward_factor"]`
+
+**Discovered**: CU-091 fix (Signal_Chain §5 reconciliation), 2026-07-12
+**Status**: Open
+**File**: `docs/architecture/RADIANT_Signal_Chain_Architecture.md` §5 ("Forward propagation"); `src/radiant/core/quantity.py` (`_compute_transfer_factors`, `ChainQuantity.to`)
+**Symptom**: §5 states "The conversion factors between adjacent frames are computed once per chain run and stored in `state.stage_outputs[stage]["forward_factor"]`." The shipped code writes no `forward_factor` key anywhere; `_compute_transfer_factors(state)` recomputes the factors from `stage_outputs` (`tau_atm`, `tau_opt`, `signal_e`, `signal_e_final`, `signal_dn_final`, `gain_e_per_dn`) on every `ChainQuantity.to()` call. Adjacent to CU-091 but a distinct claim, so left out of that fix's scope.
+**Why it still matters**: a reader looking for a cached `forward_factor` in stage outputs will not find one and may add a redundant one; the "computed once and stored" mental model is wrong (factors are query-time, not chain-time). RADIANT_Reference_Frames.md §3 documents the shipped behaviour correctly, but §5 still carries the stale claim.
+**Suggested fix**: inline-fix-now (doc-only, Rule 20) — reword §5 to say the factors are extracted from `stage_outputs` at query time by `_compute_transfer_factors`, not stored under a `forward_factor` key. Effort S; category A.
+
 ### CU-091 — Signal_Chain §5 frame table drifted from the shipped `ReferenceFrame` enum
 
 **Discovered**: RADIANT_Spectral_Integration.md / RADIANT_Reference_Frames.md doc-authoring pass, 2026-07-12

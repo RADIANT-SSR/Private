@@ -253,13 +253,12 @@ when the optics stage did not produce it.
 **Frame registered:** exactly one — **`photoelectrons`** (`in_band_value =
 signal_e`, `in_band_unit = "e-"`).
 
-> [DESIGN-TARGET] Signal_Chain §5's frame table lists an `at_fpa` frame
-> (photons/s/pixel/µm, "at the focal plane, before QE") as a canonical position.
-> **No `at_fpa` `RadiometricFrame` is registered by this stage or any other** —
-> the only `at_fpa` symbols in the code are the optics-side *stage-output* keys
-> `nearfield_irradiance_at_fpa` / `stray_light_irradiance_at_fpa` (§8), not
-> frames. The shipped stage collapses `post_optics` → `photoelectrons` in one
-> step. This drift is tracked as CU-091.
+> **Note:** **No `at_fpa` `RadiometricFrame` is registered by this stage or any
+> other** — the shipped stage collapses `post_optics` → `photoelectrons` in one
+> step. The only `at_fpa` symbols in the code are the optics-side *stage-output*
+> keys `nearfield_irradiance_at_fpa` / `stray_light_irradiance_at_fpa` (§8), which
+> are irradiance arrays, not frames. Signal_Chain §5's frame table was reconciled
+> to match this (CU-091).
 
 **Stage outputs written to `stage_outputs["spectral_integration"]`:**
 `signal_e`, `e_rate_per_s`, `background_e`, `contrast_e`, `ds_dt_e_per_K`

@@ -24,7 +24,7 @@ conversion is non-obvious and lives in one file, `core/quantity.py`:
   stages actually register in `state.frames`.
 
 None of that is legible from Signal_Chain §5 alone. This document is the mechanism's
-home. It also records where §5's frame table has drifted from the shipped enum
+home. It also records the reconciliation of §5's frame table with the shipped enum
 (§6, CU-091).
 
 **Module map:**
@@ -212,16 +212,16 @@ registered-frame distinction — all non-trivial, all in one file, none visible 
 §5. That separation is why the machinery earns a dedicated doc rather than more
 prose inside §5.
 
-**Known drift (tracked as CU-091):** Signal_Chain §5's frame table lists seven
-positions including an **`at_fpa`** frame (photons/s/pixel/µm) and names the
-post-integration frame **`electrons`**. The shipped `ReferenceFrame` enum has
-**six** members, has **no `at_fpa`**, and names the frame **`photoelectrons`**.
-The §5 table also lists `at_target` as a registered position, but no `at_target`
-`RadiometricFrame` is registered by any stage (AtmosphereStage registers
-`at_aperture_target`); `AT_TARGET` is reachable only as an enum query position via
-the `mean(τ_atm)` factor, not as a stored snapshot. These are documentation-side
-mismatches, not code bugs — the shipped enum and machinery are internally
-consistent. The reconciliation of §5's table with the shipped enum is CU-091.
+**Reconciled (CU-091):** Signal_Chain §5's frame table previously listed seven
+positions including an **`at_fpa`** frame (photons/s/pixel/µm) and named the
+post-integration frame **`electrons`**. It was reconciled to the shipped
+six-member `ReferenceFrame` enum: no `at_fpa` (the focal-plane irradiance lives
+only as the optics stage-outputs `nearfield_irradiance_at_fpa` /
+`stray_light_irradiance_at_fpa`), `photoelectrons` not `electrons`, and `at_target`
+noted as an enum query position reachable via the `mean(τ_atm)` factor rather than
+a stored `RadiometricFrame` snapshot (AtmosphereStage registers
+`at_aperture_target`, not `at_target`). The shipped enum and machinery were always
+internally consistent; the drift was documentation-side only.
 
 ---
 

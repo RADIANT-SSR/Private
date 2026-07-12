@@ -152,7 +152,7 @@ A `RadiometricFrame` is a snapshot of the radiometric state at one reference poi
 ```python
 @dataclass(frozen=True)
 class RadiometricFrame:
-    name: str                           # "at_target", "at_aperture", "at_fpa", "electrons", "dn"
+    name: str                           # registered snapshots, e.g. "at_aperture", "post_optics", "photoelectrons"
     wavelength_um: np.ndarray
     spectral_radiance: np.ndarray | None   # W/m²/sr/µm  — when meaningful
     spectral_irradiance: np.ndarray | None # W/m²/µm     — when meaningful
@@ -249,19 +249,18 @@ The "subpixel" auto-classification routes to whichever path is more numerically 
 
 ### The reference frame registry
 
-A user must be able to ask: *"What is the noise referred to the aperture?"* or *"What is the signal in DN?"* The architecture answers this via named reference frames stored in the state.
+A user must be able to ask: *"What is the noise referred to the aperture?"* or *"What is the signal in DN?"* The architecture answers this via the `ReferenceFrame` enum (`core/quantity.py`), whose members are the canonical **query positions** for `signal_at` / `noise_at`:
 
-Each radiometric reference frame has a canonical position in the chain:
-
-| Frame name | Position | Units |
+| Frame (`ReferenceFrame`) | Position | Units |
 |-----------|----------|-------|
 | `at_target` | Source emission, before atmosphere | W/m²/sr/µm |
 | `at_aperture` | After atmosphere, at the entrance pupil | W/m²/sr/µm |
-| `post_optics` | After optical throughput, before detector | W/m²/sr/µm + photon rate |
-| `at_fpa` | At the focal plane, before QE | photons/s/pixel/µm |
+| `post_optics` | After optical throughput, before detector | W/m²/sr/µm |
 | `photoelectrons` | After QE and integration time, before readout | e- (per pixel per integration) |
 | `post_readout` | After TDI/coadds/gain | e- (per output sample) |
 | `dn` | Digitized output | DN |
+
+These six enum positions are the *query* frames of the conversion machinery, and are **not** identical to the `RadiometricFrame` snapshots actually stored in `state.frames` (the atmosphere registers `at_aperture_target` / `at_aperture` / `at_aperture_background`, optics registers `post_optics`, spectral integration registers `photoelectrons`; source/detector/readout register none). In particular there is **no `at_fpa` frame** — the focal-plane irradiance lives only as the optics stage-outputs `nearfield_irradiance_at_fpa` / `stray_light_irradiance_at_fpa` — and `at_target` is a query position reachable through the `τ_atm` transfer factor, not a stored snapshot. The full mechanism (transfer-factor extraction, backward propagation, the saturated-well `1/gain` fallback) is specified in **RADIANT_Reference_Frames.md**.
 
 ### Forward propagation (signal)
 

@@ -185,7 +185,7 @@ def build_sensor(radiance_file: Path, band_min: float, band_max: float,
     s.set("atmosphere.standard_atmosphere", "midlat_summer")
     s.set("geometry.sensor_altitude_m", altitude_m)
     s.set("geometry.path_zenith_rad", zenith_rad)
-    s.set("source.target.range_m", r_slant)
+    s.set("geometry.target_range_m", r_slant)
     s.set("optics.aperture_diameter_m", spec["Aperture diameter"], unit="cm")
     s.set("optics.focal_length_m", spec["Focal length"], unit="cm")
     s.set("optics.transmission_scalar", spec["Optical transmission"], unit="%")

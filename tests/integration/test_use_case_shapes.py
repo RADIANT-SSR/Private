@@ -158,7 +158,7 @@ def _build_params(
     # guard fall in the same bucket.
     params.set("source.target_location", "auto")
     params.set("source.scene_type", "sub_pixel")
-    params.set("source.target.range_m", 1.0e6)
+    params.set("geometry.target_range_m", 1.0e6)
     params.set("source.target.fill_fraction", 0.5)
 
     # Shape — THE axis this test exercises.  projected_area_m2 is left
@@ -176,7 +176,6 @@ def _build_params(
     elif target_location == "no_atm_space":
         params.set("atmosphere.model", "exo")
         params.set("geometry.sensor_altitude_m", 800_000.0)
-        params.set("platform.h_sensor", 800_000.0)
     else:  # terrestrial
         params.set("geometry.target_altitude_m", 0.0)
         params.set("atmosphere.model", "simple")

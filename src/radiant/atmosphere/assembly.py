@@ -142,7 +142,8 @@ def validate_no_atmosphere_subcase(
         LineOfSightGeometry.  Required for the space sub-case
         Earth-intercept check; optional otherwise.
     h_sensor:
-        Sensor altitude above MSL [m], from ``params["platform.h_sensor"]``.
+        Sensor altitude above MSL [m], from ``params["geometry.sensor_altitude_m"]``
+        (``platform.h_sensor`` is a deprecated alias — CU-090).
         Only consulted for the space sub-case; ignored otherwise.
     h_sensor_user_set:
         ``True`` iff the user explicitly set ``platform.h_sensor``.  The
@@ -160,8 +161,8 @@ def validate_no_atmosphere_subcase(
                 what=(
                     f"assembly.validate_no_atmosphere_subcase: "
                     f"no_atmosphere_subcase='space' requires a positive "
-                    f"user-supplied platform.h_sensor (got h_sensor="
-                    f"{h_sensor!r}, user_set={h_sensor_user_set})"
+                    f"user-supplied geometry.sensor_altitude_m (got "
+                    f"h_sensor={h_sensor!r}, user_set={h_sensor_user_set})"
                 ),
                 why=(
                     "The space sub-case runs an Earth-intercept check on "
@@ -171,10 +172,9 @@ def validate_no_atmosphere_subcase(
                     "produce a non-physical result (Rule 17)."
                 ),
                 action=(
-                    "Set platform.h_sensor to the sensor altitude above "
-                    "MSL in meters (e.g. 800_000 for 800 km LEO).  This "
-                    "parameter is a Stage-7 stop-gap that the "
-                    "SensorDescriptor follow-on ADR will subsume."
+                    "Set geometry.sensor_altitude_m to the sensor altitude "
+                    "above MSL in meters (e.g. 800_000 for 800 km LEO). "
+                    "(platform.h_sensor is a deprecated alias — CU-090.)"
                 ),
                 context={
                     "h_sensor": h_sensor,

@@ -3,7 +3,7 @@
 Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): the script now uses
 `Sensor.solve_for` (Gap 10), `optics.scalar_emissivity` (Gap 37), the
 `optics.nearfield_fraction` name (Gap 12), and the Stage-7
-`platform.h_sensor` precondition. Numbers below are from the refreshed run.
+`geometry.sensor_altitude_m` precondition. Numbers below are from the refreshed run.
 
 ## The Problem
 
@@ -58,7 +58,7 @@ The script converts every parameter to RADIANT canonical units at the boundary:
 
 The atmosphere model is "exo" (vacuum) since Karen is testing in TVAC with no atmospheric path. Two consequences of the current architecture (registry Gap 42):
 
-- The exo backend auto-infers the `no_atmosphere` **space** sub-case (the `lab_test` sub-case has no `Sensor.from_dict` path), so the run carries a placeholder `platform.h_sensor = 1.0` m (≈ bench height) to satisfy the Stage-7 Earth-limb intercept check. The value has no radiometric effect here.
+- The exo backend auto-infers the `no_atmosphere` **space** sub-case (the `lab_test` sub-case has no `Sensor.from_dict` path), so the run carries a placeholder `geometry.sensor_altitude_m = 1.0` m (≈ bench height) to satisfy the Stage-7 Earth-limb intercept check. The value has no radiometric effect here.
 - The blackbody fills the FOV → **extended regime**, and in this regime RADIANT skips the separate scene-background photon term entirely (matrix Decision #13): `background_e = 0` by design. The chamber-shroud parameters stay in the config but contribute no photons; the only background terms are warm-optics nearfield and dark current.
 
 ### Step 3: Establish the Reference Point
@@ -125,7 +125,7 @@ The script evaluates SNR at both the nominal and anomalous cold stop positions w
 
 5. **The scalar-mode emissivity must be declared, and it is derived, not free.** ε = 1 − τ by Kirchhoff for a reflective train. Forgetting `optics.scalar_emissivity` silently reverts to ε = 0 and a zero nearfield — exactly the failure mode of this scenario's first execution.
 
-6. **The atmosphere model matters — and so does the sub-case.** "exo" (vacuum) sets transmission to unity and path radiance to zero, but routes through the `space` sub-case, requiring the placeholder `platform.h_sensor` (registry Gap 42). Using the wrong atmosphere model (e.g., "simple" with an orbital altitude) would introduce spurious atmospheric absorption into a lab measurement comparison.
+6. **The atmosphere model matters — and so does the sub-case.** "exo" (vacuum) sets transmission to unity and path radiance to zero, but routes through the `space` sub-case, requiring the placeholder `geometry.sensor_altitude_m` (registry Gap 42). Using the wrong atmosphere model (e.g., "simple" with an orbital altitude) would introduce spurious atmospheric absorption into a lab measurement comparison.
 
 ## Gaps Identified
 
@@ -137,6 +137,6 @@ The script evaluates SNR at both the nominal and anomalous cold stop positions w
 
 - ~~**Gap 4 (Nearfield = 0 in scalar mode)**~~: **CLOSED** — `optics.scalar_emissivity` (registry Gap 37) with the Kirchhoff-derived ε = 1 − τ. The sweep is now physically meaningful end-to-end.
 
-- **Gap 6 (lab_test sub-case unreachable from the config surface)**: OPEN — registry Gap 42. This TVAC scenario must masquerade as the `space` sub-case with a placeholder `platform.h_sensor`. Acceptable here (extended target fills the FOV; chamber background negligible), but a lit-lab scenario with a non-negligible chamber background cannot be modeled from `Sensor.from_dict` at all.
+- **Gap 6 (lab_test sub-case unreachable from the config surface)**: OPEN — registry Gap 42. This TVAC scenario must masquerade as the `space` sub-case with a placeholder `geometry.sensor_altitude_m`. Acceptable here (extended target fills the FOV; chamber background negligible), but a lit-lab scenario with a non-negligible chamber background cannot be modeled from `Sensor.from_dict` at all.
 
 See `gaps.md` for the full per-gap records.

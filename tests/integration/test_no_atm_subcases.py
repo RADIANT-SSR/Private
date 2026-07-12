@@ -188,7 +188,6 @@ class TestD58LWIRSpaceExtended:
         params.set("source.target.emissivity", 0.98)
         params.set("atmosphere.model", "exo")
         params.set("geometry.sensor_altitude_m", 800_000.0)
-        params.set("platform.h_sensor", 800_000.0)
         _seed_optics_detector_readout(params)
         params.resolve()
 
@@ -210,21 +209,26 @@ class TestD58LWIRSpaceExtended:
         L_expected = 0.98 * planck_spectral_radiance(np.array([10.0]), 285.0)[0]
         assert L[idx10] == pytest.approx(L_expected, rel=5e-3)
 
-    def test_space_subcase_rejects_missing_h_sensor(self) -> None:
-        """Matrix §7: running the space chain without setting platform.h_sensor
-        (it's left at its default) must raise at AtmosphereStage."""
+    def test_space_subcase_single_altitude_suffices(self) -> None:
+        """CU-090/ADR-0006: one user-set geometry.sensor_altitude_m is all the
+        space sub-case needs — the old failure mode (forgetting the separate
+        platform.h_sensor stop-gap while the altitude was set) is structurally
+        impossible now that h_sensor is a deprecated alias of the canonical
+        altitude.  The positive/user-set guard itself stays covered by the
+        assembly unit tests and test_sensor_below_space_target_raises."""
         session = RadiantSession(wavelength_um=LWIR_WL)
         params = session.default_params()
         params.set("source.target.temperature", 285.0)
         params.set("source.target.emissivity", 0.98)
         params.set("atmosphere.model", "exo")
         params.set("geometry.sensor_altitude_m", 800_000.0)
-        # NOTE: platform.h_sensor NOT set — provenance stays DEFAULT.
+        # NOTE: no separate h_sensor — the canonical altitude feeds the
+        # Earth-limb precondition check directly.
         _seed_optics_detector_readout(params)
         params.resolve()
 
-        with pytest.raises(ParameterBoundsError, match="platform.h_sensor"):
-            session.run(params)
+        result = session.run(params)
+        assert np.all(np.isfinite(result.frames["at_aperture_target"].spectral_radiance))
 
 
 # ---------------------------------------------------------------------------

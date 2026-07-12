@@ -42,6 +42,7 @@ from radiant.core.chain import ChainState
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.geometry.modes import (
+    check_range_consistency,
     resolve_kinematics,
     resolve_solar,
     resolve_viewing,
@@ -61,6 +62,9 @@ class GeometryStage:
         viewing = resolve_viewing(params)
         solar = resolve_solar(params)
         kinematics = resolve_kinematics(params)
+        # CU-093: user range vs angle-implied slant — raise on explicit
+        # contradiction, warn on range-vs-defaulted-geometry mismatch.
+        check_range_consistency(params, viewing)
 
         raw_range: float = float(params.get("geometry.target_range_m"))
         target_range_m: float | None = raw_range if raw_range > 0.0 else None
@@ -88,8 +92,12 @@ class GeometryStage:
             ("slant_range_m", viewing.slant_range_m),
             ("ground_range_m", viewing.ground_range_m),
             # On a spherical Earth the incidence angle at the target
-            # (LOS vs local vertical) IS the target-side zenith.
-            ("incidence_angle_rad", viewing.theta_o_rad),
+            # (LOS vs local vertical) IS the target-side zenith; None in
+            # the collocated (no-triangle) case, like the ranges.
+            (
+                "incidence_angle_rad",
+                viewing.theta_o_rad if viewing.slant_range_m is not None else None,
+            ),
             ("target_range_m", target_range_m),
             ("h_sensor_m", viewing.h_sensor_m),
             ("h_target_m", viewing.h_target_m),

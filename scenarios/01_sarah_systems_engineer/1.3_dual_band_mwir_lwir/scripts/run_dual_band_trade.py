@@ -136,7 +136,7 @@ def build_sensor(band: str, hotspot_T: float) -> Sensor:
     # Leaving it at the default 1.0 models the hotspot as pixel-filling and
     # overstates its signal by 1/fill (~3× here).
     s.set("source.target.fill_fraction", min(1.0, fill))
-    s.set("source.target.range_m", altitude_m)  # nadir
+    s.set("geometry.target_range_m", altitude_m)  # nadir
     s.set("source.background.temperature", shared["Forest background temperature"])
     s.set("source.background.emissivity", eps_forest[band])
     s.set("detector.clutter_sigma", shared["Scene clutter sigma"])

@@ -55,7 +55,7 @@ def _run_chain(
     params.set("source.target.temperature", target_T)
     params.set("source.target.emissivity", EPS_TARGET)
     params.set("source.target.projected_area_m2", area_m2)
-    params.set("source.target.range_m", range_m)
+    params.set("geometry.target_range_m", range_m)
     params.set("source.target.fill_fraction", fill_fraction)
     params.set("source.regime_override", regime_override)
     params.set("source.background.temperature", bg_T)
@@ -638,7 +638,7 @@ class TestPointSourceBackgroundPedestal:
         params.set("source.target.temperature", 300.0)
         params.set("source.target.emissivity", 0.95)
         params.set("source.target.projected_area_m2", 1e-6)  # negligible target
-        params.set("source.target.range_m", 100_000.0)
+        params.set("geometry.target_range_m", 100_000.0)
         params.set("source.regime_override", "point_source")
         params.set("source.background.temperature", 320.0)
         params.set("source.background.emissivity", 0.98)

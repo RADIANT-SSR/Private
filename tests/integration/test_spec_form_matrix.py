@@ -215,11 +215,11 @@ def _run_thermal_spec(scene: str, *, T_t: float, epsilon: float | None) -> None:
     params.set("geometry.target_altitude_m", 0.0)
     if scene == "sub_pixel":
         params.set("source.target.projected_area_m2", 100.0)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif scene == "point_source":
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
     _seed_optics_detector_readout(params, "LWIR")
     _assert_chain_ran(session, params)
@@ -251,11 +251,11 @@ def _run_reflective_spec(
     params.set("geometry.target_altitude_m", 0.0)
     if scene == "sub_pixel":
         params.set("source.target.projected_area_m2", 100.0)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif scene == "point_source":
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
     _seed_optics_detector_readout(params, "VIS")
     _assert_chain_ran(session, params)
@@ -274,11 +274,11 @@ def _run_user_radiance(scene: str, tmp_path: Path) -> None:
     params.set("geometry.target_altitude_m", 0.0)
     if scene == "sub_pixel":
         params.set("source.target.projected_area_m2", 100.0)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif scene == "point_source":
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
     _seed_optics_detector_readout(params, "LWIR")
     _assert_chain_ran(session, params)
@@ -361,7 +361,7 @@ def _run_user_intensity(scene: str, tmp_path: Path) -> None:
     params.set("atmosphere.standard_atmosphere", "midlat_summer")
     params.set("geometry.sensor_altitude_m", 800_000.0)
     params.set("geometry.target_altitude_m", 0.0)
-    params.set("source.target.range_m", 1e6)
+    params.set("geometry.target_range_m", 1e6)
     params.set("source.target.fill_fraction", 1.0)
     _seed_optics_detector_readout(params, "LWIR")
     _assert_chain_ran(session, params)
@@ -392,11 +392,11 @@ def _run_brightness_temperature(
     params.set("geometry.target_altitude_m", 0.0)
     if scene == "sub_pixel":
         params.set("source.target.projected_area_m2", 100.0)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif scene == "point_source":
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
     _seed_optics_detector_readout(params, "LWIR")
     _assert_chain_ran(session, params)
@@ -416,11 +416,11 @@ def _run_radiance_temperature(scene: str) -> None:
     params.set("geometry.target_altitude_m", 0.0)
     if scene == "sub_pixel":
         params.set("source.target.projected_area_m2", 100.0)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif scene == "point_source":
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
     _seed_optics_detector_readout(params, "LWIR")
     _assert_chain_ran(session, params)

@@ -111,10 +111,10 @@ sensor.set("source.target.emissivity", float(specs["Blackbody emissivity"]))
 sensor.set("source.background.temperature", float(specs["Lab ambient temperature"]) + 273.15)
 sensor.set("source.background.emissivity", float(specs["Lab ambient emissivity"]))
 sensor.set("atmosphere.model", "exo")  # bench path, no atmosphere
-sensor.set("geometry.sensor_altitude_m", 0.0)
-# Stage-7 stop-gap (registry Gap 42): the exo backend routes through the
-# no_atmosphere 'space' sub-case; 1.0 m ≈ bench height, limb check only.
-sensor.set("platform.h_sensor", 1.0)
+# 1.0 m ≈ bench height: the exo backend routes through the no_atmosphere
+# 'space' sub-case, whose Earth-limb check needs a positive sensor altitude
+# (ADR-0006: one canonical altitude; platform.h_sensor alias folded, CU-090).
+sensor.set("geometry.sensor_altitude_m", 1.0)
 sensor.set("spectral_integration.filter_min_um", band_min_um)
 sensor.set("spectral_integration.filter_max_um", band_max_um)
 sensor.set("spectral_integration.integration_time_s", t_int_s)

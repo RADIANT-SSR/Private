@@ -119,7 +119,7 @@ from radiant.api import Sensor
 
 sensor = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
 sensor.set("source.target.projected_area_m2", 10.0)  # 10 m^2 vehicle
-sensor.set("source.target.range_m", 8000.0)
+sensor.set("geometry.target_range_m", 8000.0)
 sensor.set("source.target.fill_fraction", 0.3)
 sub_result = sensor.evaluate()
 regime = sub_result.stage_outputs["optics"]["regime"]
@@ -138,7 +138,7 @@ from radiant.api import Sensor
 
 sensor = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
 sensor.set("source.target.projected_area_m2", 0.01)   # tiny
-sensor.set("source.target.range_m", 100000.0)          # 100 km
+sensor.set("geometry.target_range_m", 100000.0)          # 100 km
 result = sensor.evaluate()
 ```
 

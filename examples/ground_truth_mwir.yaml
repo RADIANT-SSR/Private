@@ -12,13 +12,7 @@ atmosphere:
   model: exo                 # vacuum: τ = 1, L_path = 0
 
 geometry:
-  sensor_altitude_m: 500000  # m (irrelevant for exo, but required)
-
-platform:
-  # Stage 7 (Option C): exo atmosphere routes to no_atmosphere=space, which
-  # requires a user-supplied platform.h_sensor for the Earth-intercept
-  # precondition check (matrix §7).  Matches geometry.sensor_altitude_m.
-  h_sensor: 500000           # m
+  sensor_altitude_m: 500000  # m — also feeds the no_atmosphere Earth-limb check (CU-090)
 
 optics:
   aperture_diameter_m: 0.30  # m

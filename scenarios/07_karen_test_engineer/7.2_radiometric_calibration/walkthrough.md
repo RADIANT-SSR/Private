@@ -49,7 +49,7 @@ full noise budget come from the per-point `ChainResult`s.
 Kirchhoff-derived ε = 1 − τ = 0.28 (Gap 37 `scalar_emissivity`), leaking
 past the cold stop at the 7.4-measured 5% (`nearfield_fraction`),
 contribute a constant 3,006 e⁻ = 24.0 DN at every set point. The bench as
-vacuum uses the standard exo + `platform.h_sensor` placeholder (Gap 42).
+vacuum uses the standard exo + `geometry.sensor_altitude_m` placeholder (Gap 42).
 
 **Regime note (unused parameters).** The blackbody fills the aperture →
 extended regime, so RADIANT skips the separate scene-background photon term

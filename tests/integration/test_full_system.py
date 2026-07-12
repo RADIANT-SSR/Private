@@ -82,7 +82,7 @@ def _run_point_source(area_m2: float = 1.0, range_m: float = 10000.0):
     ps = _base_params(session)
     ps.set("source.target.temperature", 500.0)
     ps.set("source.target.projected_area_m2", area_m2)
-    ps.set("source.target.range_m", range_m)
+    ps.set("geometry.target_range_m", range_m)
     ps.set("source.background.temperature", 290.0)
     ps.set("source.background.emissivity", 0.95)
     ps.set("source.regime_override", "point_source")

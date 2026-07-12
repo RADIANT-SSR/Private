@@ -29,13 +29,19 @@ from radiant.core.parameters import ParameterDef
 
 SENSOR_ALTITUDE_M = ParameterDef(
     name="geometry.sensor_altitude_m",
-    description="Sensor altitude above mean sea level [m].",
+    description=(
+        "Sensor altitude above mean sea level [m]. Also the altitude the "
+        "no_atmosphere 'space' sub-case uses for the Earth-limb intercept "
+        "check (formerly the separate platform.h_sensor stop-gap — folded "
+        "as a deprecated alias per CU-090/ADR-0006)."
+    ),
     dtype=float,
     canonical_unit="m",
     input_unit="m",
     default=None,
     bounds=(0.0, 1e8),
     tags=frozenset({"geometry"}),
+    deprecated_aliases=frozenset({"platform.h_sensor"}),
 )
 
 TARGET_ALTITUDE_M = ParameterDef(

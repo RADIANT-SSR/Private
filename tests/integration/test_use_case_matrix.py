@@ -409,14 +409,14 @@ def _run_terrestrial_or_airborne_cell(cell: CellSpec) -> None:
         # Sub-pixel target fills partial pixel; √A_t/R placed well above
         # the point-source reclassify threshold (0.01·PSF_FWHM).
         params.set("source.target.projected_area_m2", 100.0)  # 10 m × 10 m
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif cell.scene_type == "point_source":
         # The point-source angular-size guard (matrix §7) fires when
         # √A_t/d > 0.1·PSF_FWHM.  Use a small target/large range so the
         # descriptor genuinely is a point source.
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
 
     # Atmosphere model = simple (midlat_summer) for terrestrial/airborne.
@@ -460,16 +460,14 @@ def _run_no_atm_space_cell(cell: CellSpec) -> None:
     params.set("atmosphere.model", "exo")
     params.set("geometry.sensor_altitude_m", 800_000.0)
     # Stage 7 Earth-intercept precondition: platform.h_sensor must be user-set.
-    params.set("platform.h_sensor", 800_000.0)
-
     if cell.scene_type == "sub_pixel":
         params.set("source.target.projected_area_m2", 100.0)  # 10 m × 10 m
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 0.5)
     elif cell.scene_type == "point_source":
         # Small target, large range — true point source (≪ PSF_FWHM).
         params.set("source.target.projected_area_m2", 0.01)
-        params.set("source.target.range_m", 1e6)
+        params.set("geometry.target_range_m", 1e6)
         params.set("source.target.fill_fraction", 1.0)
 
     _seed_optics_detector_readout(params, cell.regime)
@@ -708,7 +706,6 @@ class TestEarthLosInterceptNegativePath:
         params.set("source.scene_type", "extended")
         params.set("atmosphere.model", "exo")  # -> no_atmosphere + space
         params.set("geometry.sensor_altitude_m", h_sensor_m)
-        params.set("platform.h_sensor", h_sensor_m)
         params.set("geometry.target_altitude_m", 90_000.0)
         params.set("geometry.path_zenith_rad", 0.0)
         _seed_optics_detector_readout(params, "LWIR")

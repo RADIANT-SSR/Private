@@ -10,7 +10,7 @@ DN at each, an as-built sensor spec — and a calibration report to write.
 - **File > Import Spreadsheet** with the unit-aware mapping dialog (cm, %,
   °C, ms — conversions delegated to `Sensor.set(..., unit=)`, Gap 6)
 - "Lab bench / flat-field source" preset sets exo atmosphere + the
-  `platform.h_sensor` placeholder (registry Gap 42) behind one checkbox
+  `geometry.sensor_altitude_m` placeholder (registry Gap 42) behind one checkbox
 - **Self-emission panel**: shows the Kirchhoff derivation ε = 1 − τ = 0.28
   feeding `optics.scalar_emissivity` (Gap 37) and the cold-stop leakage
   (`nearfield_fraction = 0.05` from the 7.4 campaign) with the resulting

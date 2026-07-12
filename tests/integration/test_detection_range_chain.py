@@ -23,7 +23,7 @@ def _point_source(atmosphere: str = "midlat_summer", threshold: float = 5.0, reg
     p.set("source.target.temperature", 500.0)
     p.set("source.target.emissivity", 0.95)
     p.set("source.target.projected_area_m2", 1.0)
-    p.set("source.target.range_m", 50_000.0)
+    p.set("geometry.target_range_m", 50_000.0)
     p.set("source.regime_override", regime)
     p.set("source.background.temperature", 250.0)
     p.set("source.background.emissivity", 0.95)
@@ -37,7 +37,6 @@ def _point_source(atmosphere: str = "midlat_summer", threshold: float = 5.0, reg
     p.set("geometry.sensor_altitude_m", 8000.0)
     if atmosphere == "exo":
         p.set("atmosphere.model", "exo")
-        p.set("platform.h_sensor", 8000.0)
     else:
         p.set("atmosphere.standard_atmosphere", atmosphere)
     p.set("spectral_integration.filter_min_um", 3.5)

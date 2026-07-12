@@ -30,7 +30,7 @@ can the cooler run?
   import per scenario 6.3's workflow: fF → F, cm → m, % → fraction,
   ms → s)
 - **Detector-only bench preset** (registry Gap 42): GUI sets exo
-  atmosphere + the `platform.h_sensor` bench placeholder behind a single
+  atmosphere + the `geometry.sensor_altitude_m` bench placeholder behind a single
   "Lab bench / flat-field source" checkbox with an explanatory tooltip
 - **Spectral QE toggle**: "Use imported QE curve" — the GUI evaluates the
   curve on the chain grid and performs the `qe_curve` injection (registry

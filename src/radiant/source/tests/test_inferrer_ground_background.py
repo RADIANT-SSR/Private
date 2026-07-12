@@ -148,7 +148,7 @@ class TestEndToEnd:
             params.set("source.regime_override", "sub_pixel")  # keep in-pixel bg
             params.set("source.target.fill_fraction", 0.3)
             params.set("source.target.projected_area_m2", 4.0)
-            params.set("source.target.range_m", 3000.0)
+            params.set("geometry.target_range_m", 3000.0)
             params.set("source.background.emissivity", 0.5)  # grey ≠ snow
             if material is not None:
                 params.set("source.background.material", material)

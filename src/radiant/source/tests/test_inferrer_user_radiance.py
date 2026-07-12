@@ -141,7 +141,6 @@ class TestUserRadianceChainRun:
         params = session.default_params()
         params.set("atmosphere.model", "exo")
         params.set("geometry.sensor_altitude_m", 800_000.0)
-        params.set("platform.h_sensor", 800_000.0)
         params.set("source.target.user_radiance_path", str(csv_path))
         _seed_optics_detector_readout_lwir(params)
         params.resolve()

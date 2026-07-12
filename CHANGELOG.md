@@ -20,6 +20,33 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Deprecated
+- `platform.h_sensor` → folded into `geometry.sensor_altitude_m` (CU-090,
+  ADR-0006 Phase 3). One sensor altitude, one owner; the old name keeps
+  working via `deprecated_aliases` (warn-and-redirect) for one release
+  cycle. The no_atmosphere 'space' Earth-limb check now reads the
+  canonical name (its error message names `geometry.sensor_altitude_m`).
+
+### Added
+- **Range-consistency enforcement (CU-093).** `geometry.target_range_m`
+  set together with an explicit viewing angle now must agree with the
+  angle-implied slant range within 1% or GeometryStage raises an
+  actionable `GeometrySpecificationError`. A user range combined with
+  *defaulted* viewing angles (mode V0) keeps the historical behavior —
+  range drives regime/detection, nadir drives spatial metrics — but the
+  previously silent disagreement now emits a `UserWarning` naming both
+  distances.
+
+### Fixed
+- Lab/bench configurations with `geometry.sensor_altitude_m = 0` (sensor
+  and target collocated) no longer trip the GeometryStage viewing
+  triangle: the degenerate case publishes `None` slant/ground/incidence
+  and the chain proceeds on the V0 range/regime path. (Regression
+  introduced by the Phase-1 stage landing earlier today; caught in the
+  CU-090 call-site audit — lab scenario scripts are not in the test
+  suite.) Uplooking (`sensor below target`) still raises, per the
+  owner-ratified v1 policy.
+
 ### Changed
 - **Geometry input modes now steer the whole chain (ADR-0006 Phase 2).**
   SourceStage adopts the GeometryStage-published scene LOS (so the off-nadir /

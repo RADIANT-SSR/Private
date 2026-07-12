@@ -204,7 +204,7 @@ def configure_geometry(sensor: Sensor, zenith_rad: float, area_m2: float) -> Non
     """
     r_slant = slant_range_spherical_m(ALTITUDE_M, zenith_rad)
     sensor.set("geometry.path_zenith_rad", zenith_rad)
-    sensor.set("source.target.range_m", r_slant)
+    sensor.set("geometry.target_range_m", r_slant)
     footprint_m2 = (_ifov_rad(sensor) * r_slant) ** 2
     sensor.set("source.target.projected_area_m2", min(area_m2, footprint_m2))
     sensor.set("source.target.fill_fraction", min(1.0, area_m2 / footprint_m2))

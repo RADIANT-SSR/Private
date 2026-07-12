@@ -27,6 +27,7 @@ Rules (normative, ADR-0006):
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass
 
 from radiant.core.los_geometry import theta_o_from_eta
@@ -51,13 +52,21 @@ _ABS_FLOOR_RAD = 1e-6
 
 @dataclass(frozen=True, kw_only=True)
 class ViewingResolution:
-    """Canonical viewing geometry after mode resolution."""
+    """Canonical viewing geometry after mode resolution.
+
+    The triangle-derived fields (``eta_rad``, ``slant_range_m``,
+    ``ground_range_m``) are ``None`` in the degenerate collocated case
+    (``h_sensor == h_target``, e.g. a lab bench at 0 m) where the
+    spherical viewing triangle does not exist.  Uplooking
+    (``h_sensor < h_target``) raises — v1 policy (owner-ratified
+    2026-07-11).
+    """
 
     mode: str  # which entry resolved theta_o
     theta_o_rad: float
-    eta_rad: float
-    slant_range_m: float
-    ground_range_m: float
+    eta_rad: float | None
+    slant_range_m: float | None
+    ground_range_m: float | None
     h_sensor_m: float
     h_target_m: float
 
@@ -169,9 +178,20 @@ def resolve_viewing(params: ParameterSet) -> ViewingResolution:
         mode = " + ".join(name for name, _ in candidates) + " (consistent)"
         theta_o = first
 
-    eta = eta_from_theta_o(theta_o, h_sensor, h_target) if theta_o > 0.0 else 0.0
-    slant = slant_range_from_theta_o_m(theta_o, h_sensor, h_target)
-    ground = ground_range_from_theta_o_m(theta_o, h_sensor, h_target) if theta_o > 0.0 else 0.0
+    if h_sensor == h_target:
+        # Degenerate collocated case (lab bench, ground test): no viewing
+        # triangle exists; angle-entry modes V2/V3 already raised above
+        # (their converters validate h_sensor > h_target).  The scene is
+        # still valid — regime/range come from geometry.target_range_m.
+        eta: float | None = None
+        slant: float | None = None
+        ground: float | None = None
+        mode += " (collocated — no viewing triangle)"
+    else:
+        # h_sensor < h_target raises inside the triangle (uplooking policy).
+        eta = eta_from_theta_o(theta_o, h_sensor, h_target) if theta_o > 0.0 else 0.0
+        slant = slant_range_from_theta_o_m(theta_o, h_sensor, h_target)
+        ground = ground_range_from_theta_o_m(theta_o, h_sensor, h_target) if theta_o > 0.0 else 0.0
     return ViewingResolution(
         mode=mode,
         theta_o_rad=theta_o,
@@ -307,4 +327,70 @@ def resolve_kinematics(params: ParameterSet) -> KinematicsResolution:
         mode="circular_orbit",
         ground_speed_m_s=v_orbit,
         orbital_period_s=orbital_period_s(h_sensor),
+    )
+
+
+def check_range_consistency(
+    params: ParameterSet,
+    viewing: ViewingResolution,
+) -> None:
+    """CU-093: a user range and a user angle must describe ONE distance.
+
+    ``geometry.target_range_m`` names the sensor→target slant range —
+    the same physical quantity the viewing triangle derives from the
+    resolved θ_o.  Decision matrix (ADR-0006 rule 2):
+
+    * range user-set AND an angle entry user-set AND the triangle exists
+      → the two slant ranges must agree within 1 % or this raises.
+    * range user-set with angles left at defaults (mode V0) → the range
+      wins for regime/detection purposes; if it disagrees with the
+      default-nadir slant by more than 1 %, a ``UserWarning`` is issued
+      (Rule 17 — the historical silent disagreement is never silent).
+    * no user range → nothing to check.
+    """
+    raw_range = float(params.get("geometry.target_range_m"))
+    if raw_range <= 0.0 or viewing.slant_range_m is None:
+        return
+    if _agree(raw_range, viewing.slant_range_m):
+        return
+
+    angle_entries = (
+        "geometry.path_zenith_rad",
+        "geometry.sensor_off_nadir_rad",
+        "geometry.ground_range_m",
+        "geometry.elevation_angle_rad",
+    )
+    angle_user_set = any(_provided(params, name) for name in angle_entries)
+    if angle_user_set:
+        raise GeometrySpecificationError(
+            what=(
+                f"geometry.target_range_m = {raw_range:.6g} m disagrees with the "
+                f"slant range implied by the viewing angles "
+                f"({viewing.slant_range_m:.6g} m from {viewing.mode})"
+            ),
+            why=(
+                "Both describe the sensor→target slant range; the chain "
+                "cannot use two different distances for one line of sight "
+                "(CU-093: regime/detection would use one, GSD/ground "
+                "metrics the other)."
+            ),
+            action=("Set exactly one of them (the other derives), or make them agree within 1%."),
+            context={
+                "geometry.target_range_m": raw_range,
+                "implied_slant_range_m": viewing.slant_range_m,
+                "viewing_mode": viewing.mode,
+            },
+        )
+    warnings.warn(
+        (
+            f"geometry.target_range_m = {raw_range:.6g} m differs from the "
+            f"nadir-default slant range ({viewing.slant_range_m:.6g} m at "
+            f"h_sensor = {viewing.h_sensor_m:.6g} m). The user range drives "
+            f"regime classification and detection range; spatial/ground "
+            f"metrics use the default-nadir geometry. Set a viewing angle "
+            f"(e.g. geometry.path_zenith_rad or geometry.sensor_off_nadir_rad) "
+            f"to make the scene self-consistent (CU-093)."
+        ),
+        UserWarning,
+        stacklevel=2,
     )

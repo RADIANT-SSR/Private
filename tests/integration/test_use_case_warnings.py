@@ -301,7 +301,7 @@ class TestSubPixelCollapsesToPointSource:
         # Tiny target (1 µm² cross-section), very long range → √A_t/d ≈ 1e-9
         # rad, which is ≪ 0.01·PSF_FWHM for a 0.15 m aperture at 10 µm.
         params.set("source.target.projected_area_m2", 1.0e-12)
-        params.set("source.target.range_m", 1.0e8)
+        params.set("geometry.target_range_m", 1.0e8)
 
         if target_location == "airborne":
             params.set("geometry.target_altitude_m", 10_000.0)
@@ -311,7 +311,6 @@ class TestSubPixelCollapsesToPointSource:
         elif target_location == "no_atm_space":
             params.set("atmosphere.model", "exo")
             params.set("geometry.sensor_altitude_m", 800_000.0)
-            params.set("platform.h_sensor", 800_000.0)
         else:
             params.set("geometry.target_altitude_m", 0.0)
             params.set("atmosphere.model", "simple")
@@ -369,7 +368,7 @@ class TestPointSourceAngularSizeRaise:
         # Oversized target: 10 km × 10 km at 10 km range → √A_t/d ≈ 1 rad,
         # which is ≫ 0.1·PSF_FWHM for any matrix regime.
         params.set("source.target.projected_area_m2", 1.0e8)
-        params.set("source.target.range_m", 1.0e4)
+        params.set("geometry.target_range_m", 1.0e4)
 
         if target_location == "airborne":
             params.set("geometry.target_altitude_m", 10_000.0)
@@ -379,7 +378,6 @@ class TestPointSourceAngularSizeRaise:
         elif target_location == "no_atm_space":
             params.set("atmosphere.model", "exo")
             params.set("geometry.sensor_altitude_m", 800_000.0)
-            params.set("platform.h_sensor", 800_000.0)
         else:
             params.set("geometry.target_altitude_m", 0.0)
             params.set("atmosphere.model", "simple")

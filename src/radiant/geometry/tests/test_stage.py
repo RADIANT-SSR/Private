@@ -157,3 +157,70 @@ class TestValidationSurface:
     def test_horizontal_view_rejected(self) -> None:
         with pytest.raises(Exception, match="bounds|π/2|horizon"):
             make_params(geometry__path_zenith_rad=math.pi / 2.0)
+
+
+class TestCollocatedDegenerate:
+    """Lab-bench case: h_sensor == h_target — no viewing triangle (Phase 3)."""
+
+    def test_bench_at_zero_altitude_runs(self) -> None:
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", 0.0)
+        ps.resolve()
+        out = run_stage(ps).stage_outputs["geometry"]
+        assert out["slant_range_m"] is None
+        assert out["ground_range_m"] is None
+        assert out["eta_rad"] is None
+        assert out["incidence_angle_rad"] is None
+        assert "collocated" in out["viewing_mode"]
+
+    def test_uplooking_still_raises(self) -> None:
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", 1000.0)
+        ps.set("geometry.target_altitude_m", 90_000.0)
+        ps.resolve()
+        with pytest.raises(Exception, match="not above"):
+            run_stage(ps)
+
+
+class TestRangeConsistency:
+    """CU-093: user range vs angle-implied slant range."""
+
+    def test_agreeing_range_and_angle_accepted(self) -> None:
+        from radiant.core.viewing_triangle import slant_range_from_theta_o_m
+
+        slant = slant_range_from_theta_o_m(0.5, H)
+        out = run_stage(
+            make_params(
+                geometry__path_zenith_rad=0.5,
+                geometry__target_range_m=slant,
+            )
+        ).stage_outputs["geometry"]
+        assert out["target_range_m"] == pytest.approx(slant, rel=1e-12)
+
+    def test_contradicting_range_and_angle_raises(self) -> None:
+        from radiant.geometry.errors import GeometrySpecificationError
+
+        with pytest.raises(GeometrySpecificationError, match="disagrees"):
+            run_stage(
+                make_params(
+                    geometry__path_zenith_rad=0.5,
+                    geometry__target_range_m=100_000.0,  # far from ~700 km slant
+                )
+            )
+
+    def test_range_only_mismatch_warns_not_raises(self) -> None:
+        with pytest.warns(UserWarning, match="CU-093"):
+            out = run_stage(make_params(geometry__target_range_m=100_000.0)).stage_outputs[
+                "geometry"
+            ]
+        assert out["target_range_m"] == pytest.approx(100_000.0)
+
+    def test_range_matching_nadir_slant_is_silent(self) -> None:
+        import warnings as _w
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", UserWarning)
+            out = run_stage(
+                make_params(geometry__target_range_m=H)  # == nadir slant
+            ).stage_outputs["geometry"]
+        assert out["target_range_m"] == pytest.approx(H)

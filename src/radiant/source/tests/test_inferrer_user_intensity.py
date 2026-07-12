@@ -95,7 +95,7 @@ def _user_intensity_params(
     params.set("detector.qe_value", 0.8)
     params.set("source.scene_type", "point_source")
     params.set("source.target_location", "terrestrial")
-    params.set("source.target.range_m", 100_000.0)
+    params.set("geometry.target_range_m", 100_000.0)
     params.set("source.target.user_intensity_path", str(csv_path))
     return params
 
@@ -156,10 +156,9 @@ class TestUserIntensityChainRun:
         params = session.default_params()
         params.set("atmosphere.model", "exo")
         params.set("geometry.sensor_altitude_m", 800_000.0)
-        params.set("platform.h_sensor", 800_000.0)
         params.set("source.scene_type", "point_source")
         params.set("source.target_location", "terrestrial")
-        params.set("source.target.range_m", 800_000.0)
+        params.set("geometry.target_range_m", 800_000.0)
         params.set("source.target.user_intensity_path", str(csv_path))
         _seed_optics_detector_readout_lwir(params)
         params.set("readout.full_well_capacity_e", 1.0e8)

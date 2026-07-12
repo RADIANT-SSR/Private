@@ -204,7 +204,7 @@ class TestSpaceSubcaseFailures:
                 T_t=285.0,
             )
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
-        with pytest.raises(ParameterBoundsError, match="platform.h_sensor"):
+        with pytest.raises(ParameterBoundsError, match="geometry.sensor_altitude_m"):
             validate_no_atmosphere_subcase(
                 target=target,
                 background=ColdSpaceBackground(),

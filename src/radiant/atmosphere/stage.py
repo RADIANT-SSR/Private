@@ -121,19 +121,20 @@ class AtmosphereStage:
 
         # ------------------------------------------------------------------
         # 2a. Stage 7 (Option C) — no_atmosphere sub-case preconditions.
-        # Matrix §7: space sub-case requires a positive user-set
-        # platform.h_sensor and the LOS must clear the Earth limb; the
-        # ground_test / lab_test sub-cases require a UserSpectralBackground
-        # on the background arm.  Fails loud per Rule 17 before any
-        # physics runs.
+        # Matrix §7: space sub-case requires a positive user-set sensor
+        # altitude and the LOS must clear the Earth limb; the ground_test /
+        # lab_test sub-cases require a UserSpectralBackground on the
+        # background arm.  Fails loud per Rule 17 before any physics runs.
+        # CU-090/ADR-0006: reads the canonical geometry.sensor_altitude_m
+        # (the old platform.h_sensor is a deprecated alias of it).
         # ------------------------------------------------------------------
         if getattr(target_desc, "target_location", None) == "no_atmosphere":
             try:
-                h_sensor_rv = params.get_resolved("platform.h_sensor")
+                h_sensor_rv = params.get_resolved("geometry.sensor_altitude_m")
                 h_sensor: float | None = float(h_sensor_rv.value)
                 h_sensor_user_set: bool = h_sensor_rv.provenance is not Provenance.DEFAULT
             except KeyError:
-                # Platform schema not registered in this ParameterSet (source-
+                # Geometry schema not registered in this ParameterSet (source-
                 # only unit-test fixture).  Treat as "not supplied".
                 h_sensor = None
                 h_sensor_user_set = False

@@ -2,7 +2,7 @@
 
 Refreshed 2026-07-07 (Phase R): parameter renamed to `optics.nearfield_fraction`
 (Gap 12), inverse matching now uses `Sensor.solve_for` (Gap 10), scalar-mode
-emissivity via `optics.scalar_emissivity` (Gap 37), Stage-7 `platform.h_sensor`
+emissivity via `optics.scalar_emissivity` (Gap 37), Stage-7 `geometry.sensor_altitude_m`
 precondition surfaced (registry Gap 42).
 
 ## Persona
@@ -37,7 +37,7 @@ Karen, test engineer. Running a TVAC background characterization test. She has a
   - Parameter panel organized by subsystem
   - Atmosphere model dropdown: "exo" selected (TVAC / vacuum, no atmospheric path)
   - Altitude field: 0 m (lab test, not orbital)
-  - **Sub-case notice** (registry Gap 42): GUI shows that "exo" routes through the `no_atmosphere / space` sub-case and auto-fills the required placeholder `platform.h_sensor = 1.0 m` with an explanatory tooltip ("Earth-limb check precondition; no radiometric effect in a lab setup"). When a first-class lab_test path lands, this notice disappears.
+  - **Sub-case notice** (registry Gap 42): GUI shows that "exo" routes through the `no_atmosphere / space` sub-case and auto-fills the required placeholder `geometry.sensor_altitude_m = 1.0 m` with an explanatory tooltip ("Earth-limb check precondition; no radiometric effect in a lab setup"). When a first-class lab_test path lands, this notice disappears.
   - Nearfield fraction slider: 0.0 to 1.0
   - **Convention tooltip** on nearfield_fraction: η_nf = 0.0 means perfect cold stop (blocks all warm radiation), η_nf = 1.0 means no cold stop. Vendor "100% efficient" = η_nf 0. The rename (from cold_stop_efficiency) makes the value self-describing; the GUI still shows the vendor-equivalent efficiency next to the slider.
   - Nearfield emission toggle: ON (required for cold stop analysis)
@@ -145,6 +145,6 @@ sol.solution, sol.achieved, sol.n_evaluations
 4. **Dual-mode evaluation** — illuminated (SNR analysis) vs. shuttered (background characterization)
 5. **Parameter sweep with lab data overlay** — visualize model vs. measurements
 6. **Inverse problem via Sensor.solve_for** — direct root-finding with eval-count feedback and out-of-bracket messaging
-7. **Sub-case transparency** — surface the exo→space masquerade and auto-filled `platform.h_sensor` placeholder (registry Gap 42)
+7. **Sub-case transparency** — surface the exo→space masquerade and auto-filled `geometry.sensor_altitude_m` placeholder (registry Gap 42)
 8. **Noise budget breakdown** — show that nearfield is not the dominant noise contributor
 9. **Metrics dashboard** — NEDT, Strehl, Q, MTF budget, well margin displayed automatically; N/A states explained

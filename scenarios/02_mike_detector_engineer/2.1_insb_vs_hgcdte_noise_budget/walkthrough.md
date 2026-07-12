@@ -65,7 +65,7 @@ registry Gap 44). The curve is evaluated onto the chain wavelength grid by
 band-averaged scalar `detector.qe_value` for comparison.
 
 **Bench as vacuum.** The 300 K plate fills the aperture → extended regime;
-`atmosphere.model = "exo"` with the `platform.h_sensor = 1.0` m bench
+`atmosphere.model = "exo"` with the `geometry.sensor_altitude_m = 1.0` m bench
 placeholder (registry Gap 42, same as the 7.x lab scenarios).
 
 ## Key Results

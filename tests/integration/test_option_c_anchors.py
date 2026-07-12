@@ -138,9 +138,6 @@ def cell58_result():
     # Stage 7 (Option C): exo atmosphere → no_atmosphere='space' sub-case,
     # which requires platform.h_sensor for the Earth-intercept precondition
     # check (matrix §7).  Same altitude as geometry.sensor_altitude_m.
-    params.set("platform.h_sensor", 800000.0)
-
-    # Optics: 0.15 m aperture, f/3.0.
     params.set("optics.aperture_diameter_m", 0.15)
     params.set("optics.focal_length_m", 0.45)
     params.set("optics.transmission_scalar", 0.62)

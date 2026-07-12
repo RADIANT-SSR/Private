@@ -15,7 +15,7 @@ tables, an acceptance spec, and an operating-point recommendation to sign.
 ## Step 2: Load the As-Built Sensor + Spec
 - Unit-aware workbook import (Gap 6); the spec limits (min SNR, max NEDT)
   load into a **compliance panel** the sweep will check against
-- Lab-bench preset (exo + `platform.h_sensor`, registry Gap 42)
+- Lab-bench preset (exo + `geometry.sensor_altitude_m`, registry Gap 42)
 
 ## Step 3: Temperature Sweep
 - "Sweep FPA temperature" runs each set point with **co-varying** J(T) and

@@ -160,7 +160,6 @@ sensor.set("geometry.sensor_altitude_m", params_raw["Sensor altitude"], unit="km
 # has a genuine platform altitude (8 km — the exo model treats the path as
 # vacuum), so h_sensor is the real value, not a placeholder (unlike the
 # 7.x bench scenarios — registry Gap 42).
-sensor.set("platform.h_sensor", params_raw["Sensor altitude"], unit="km")
 # Already-canonical values — set without a unit tag:
 sensor.set("optics.focal_length_m", focal_length_m)  # derived: f/# × D
 sensor.set("optics.optics_temperature_K", optics_temp_K)

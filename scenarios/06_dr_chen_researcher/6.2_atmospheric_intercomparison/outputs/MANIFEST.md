@@ -7,5 +7,5 @@ running the script from the repo root.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_transmittance_overlay_by_profile.png | figure (committed) | 5439b3d 2026-07-11 |
-| fig2_inband_transmittance_by_profile.png | figure (committed) | 5439b3d 2026-07-11 |
+| fig1_transmittance_overlay_by_profile.png | figure (committed) | ccad583 2026-07-11 |
+| fig2_inband_transmittance_by_profile.png | figure (committed) | ccad583 2026-07-11 |

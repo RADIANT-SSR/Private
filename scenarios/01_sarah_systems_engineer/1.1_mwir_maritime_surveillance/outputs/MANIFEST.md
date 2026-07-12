@@ -8,4 +8,4 @@ Regenerate by running the script from the repo root.
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_snr_and_range_vs_aperture.png | figure (committed) | 5439b3d 2026-07-11 |
+| fig1_snr_and_range_vs_aperture.png | figure (committed) | ccad583 2026-07-11 |

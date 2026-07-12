@@ -6,20 +6,21 @@
 starts on a stable, honest surface. This plan references registry entries; it does not
 re-enumerate them (Rule 25).
 
-## Phase 1 — GUI binding surface (blocking)
+## Phase 1 — GUI binding surface (blocking) — ✅ COMPLETE 2026-07-11
 
 Order chosen so each item unblocks the next: introspection feeds persistence feeds the
-GUI contract.
+GUI contract. All five items landed 2026-07-11; registry entries closed with SHAs.
 
-1. Gap 70 — public schema-introspection API (migrate `cli/schema_cmd.py`,
-   `api/sensitivity.py`, `api/sweep.py` off `_defs` privates in the same PR).
-2. Gap 67 — `Sensor.save/load` + `ChainResult` serialize/reload round-trip.
-3. Gap 71 + CU-078 — metric units/metadata contract; reconcile or delete the registry.
-4. Gap 68 — non-scalar input reachability (interim: `Sensor.evaluate(extra_stage_outputs=)`
-   passthrough; full: config-surface routes; either way stop advertising always-raising
-   modes in `_schema.py`).
-5. Gap 72 + CU-072 + CU-073 — progress/cancel hooks; fix parallel sweep; RadiantError for
-   unknown parameters.
+1. ~~Gap 70~~ — public schema-introspection API (`5a42649`; all five `_defs`/`_groups`/
+   `_inputs`/`_tolerances`/`_resolved_flag` consumers migrated).
+2. ~~Gap 67~~ — `Sensor.save/load` + `ChainResult.save/load` round-trip (`addcf43`).
+3. ~~Gap 71 + CU-078~~ — metric units/metadata contract; registry reconciled,
+   CI-enforced (`68e1fec`).
+4. ~~Gap 68~~ — non-scalar input reachability: `Sensor.set_stage_output` +
+   `evaluate(extra_stage_outputs=)`; transmission modes 2–4 and stray `spectral_file`
+   wired to injections; `opd_map`/`pst_file` un-advertised (`5d338d9`).
+5. ~~Gap 72 + CU-072 + CU-073~~ — progress/cancel hooks; parallel-sweep pickle
+   fallback fixed; `UnknownParameterError` (`537a3a8`).
 
 ## Phase 2 — correctness and demo-safety
 

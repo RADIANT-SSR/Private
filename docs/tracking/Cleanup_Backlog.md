@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
+
+**Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12
+**Status**: Open
+**File**: `src/radiant/atmosphere/protocol.py:41` (`EARTH_RADIUS_M: float = 6_371_000.0`; consumed at :196–198 by the atmospheric slant-path-through-shell computation)
+**Symptom**: after CU-097 collapsed the two *core* Earth radii into the single canonical `constants.R_EARTH_M` (6.371e6 m), `atmosphere/protocol.py` still defines a third, name-colliding copy of the constant. The value is identical (6 371 000.0 m == 6.371e6 m) so there is no results impact today, but it is a hardcoded physical constant in a physics module.
+**Why it still matters**: Rule 13 spirit — "No module may hardcode physical constants. Import from here." A separately-maintained copy can silently drift from the canonical value on any future radius change; it is the lone remaining duplicate Earth-radius home after CU-097. The atmosphere stage may import `radiant.core` (import table), so the fix is a one-line repoint.
+**Suggested fix**: inline-fix-now — `from radiant.core.constants import R_EARTH_M`, delete the local `EARTH_RADIUS_M`, repoint the two `:196–198` usages. Effort S; category A (no numeric change — the values are already equal).
+
 ### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
 
 **Discovered**: Geometry_Stage_Plan Phase 1 (regenerating for the geometry namespace), 2026-07-12

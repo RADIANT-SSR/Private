@@ -1148,10 +1148,12 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-12), 2026-07-11 |
-| **Status** | OPEN |
-| **Description** | `RADIANT_Scan_Timing.md` ("Authoritative") has zero code behind it: no ScanMode/TimingState, no t_int derivation from line rate/frame rate/dwell, no t_int ≤ line_period × n_tdi feasibility constraint (unphysical TDI timing accepted silently), and two of three documented smear sources (scan cross-track, target motion) have no ParameterDefs or kernels. Verified: zero grep hits for ScanMode/TimingState/cross_track_velocity in `src/`. Doc-drift half tracked as CU-079. |
-| **Impact** | Pushbroom/whiskbroom timing physics must be hand-derived in every scenario (Sarah 1.4 does); moving-target smear cannot be modeled; SNR for unflyable timing looks authoritative. |
-| **Workaround** | Hand-compute t_int and set `platform.smear_length_um` for along-track only. |
+| **Status** | NARROWED (2026-07-11, commit `bdc5ca3`) — feasibility guard landed; full subsystem still deferred |
+| **Description** | `RADIANT_Scan_Timing.md` (now banner-corrected to DESIGN TARGET) had zero code behind it: no ScanMode/TimingState, no t_int derivation from line/frame rate/dwell, no feasibility constraint (unphysical TDI timing accepted silently), and two of three documented smear sources (scan cross-track, target motion) have no ParameterDefs or kernels. |
+| **Minimum slice landed** | The pushbroom/TDI dwell-time feasibility guard: `PerformanceStage` computes `t_dwell = GSD_along / v_ground` (`max_integration_time_s` metric) and warns when `integration_time_s` exceeds it (along-track smear > one ground sample — unphysical TDI timing). `radiant.performance.scan_feasibility`; parameter-gated on `platform.ground_velocity_m_s`. Closes the "SNR for unflyable timing looks authoritative" defect. |
+| **Still deferred** | `ScanMode`/`TimingState` subsystem, t_int derivation from line/frame rate/dwell, cross-track scan smear and target-motion smear kernels + ParameterDefs — a chartered stand-alone task; the doc banner now marks the whole subsystem DESIGN TARGET. |
+| **Impact** | Unflyable-timing SNR now warns loudly; full pushbroom/whiskbroom timing derivation and moving-target smear still hand-rolled. |
+| **Workaround** | Hand-compute t_int and set `platform.smear_length_um` for along-track only; heed the new dwell-time warning. |
 
 ## Gap 75: Orbit/coverage kinematics unwired; duplicate ground-speed and altitude parameters
 

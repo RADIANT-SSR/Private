@@ -36,7 +36,7 @@ There is **no `sensor:` wrapper** — top-level keys are the stage namespace roo
 | Top-level key | Parameter namespace | Contents |
 |--------------|--------------------|-|
 | `source` | `source.*` | Target and background: `source.target.*`, `source.background.*` (temperature, emissivity, area, range, regime override) |
-| `atmosphere` | `atmosphere.*` | Model selection (`unity`, `simple`, `tabulated`, `modtran`, `interpolated`, `exo`), standard atmosphere, `atmosphere.modtran.*` sub-keys |
+| `atmosphere` | `atmosphere.*` | Model selection (`simple`, `exo`, `tabulated`, `modtran`, `interpolated`), standard atmosphere, `atmosphere.modtran.*` sub-keys |
 | `geometry` | `geometry.*` | Sensor/target altitudes, path/solar zenith, solar azimuth, ground speed |
 | `optics` | `optics.*` | Aperture, focal length, transmission, WFE, defocus, cold stop, `optics.stray.*` sub-keys |
 | `platform` | `platform.*` | Jitter, ground velocity, smear |

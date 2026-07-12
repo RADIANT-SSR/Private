@@ -216,9 +216,14 @@ api/
 └── _param_registry.py     # private — assembles the master schema
 ```
 
-### `plugins/` — 1 init, 0 source, 0 tests — **v2 deferred**
+### `plugins/` — **removed 2026-07-06** (no longer in the tree)
 
-`src/radiant/plugins/` is a 1-LOC stub. The plugin extension system (SourcePlugin / AtmospherePlugin / MetricPlugin / StagePlugin ABCs, entry-point discovery) is **deferred to v2**. See `docs/architecture/RADIANT_Plugins.md` for the v2 design — the file ships a "DEFERRED" banner so readers don't mistake it for current shipped behavior.
+`src/radiant/plugins/` no longer exists — the empty two-file stub was deleted
+2026-07-06 (same day this doc was last regenerated; this row lagged the deletion).
+The plugin extension system (SourcePlugin / AtmospherePlugin / MetricPlugin /
+StagePlugin ABCs, entry-point discovery) is **deferred to v2** and returns as a
+package only when implemented. See `docs/architecture/RADIANT_Plugins.md` (DEFERRED
+banner) for the v2 design.
 
 ### `data/` — 1 source + 4 tests
 
@@ -320,7 +325,7 @@ Numbers below exclude `__init__.py` files. Counts captured 2026-07-06.
 | io/                    | 3      | 3     | config, results, element_config |
 | cli/                   | 11     | 1     | subcommand-per-file |
 | api/                   | 9      | 7     | public + internal session |
-| **plugins/ (v2 deferred)** | 0  | 0     | 1-LOC stub |
+| **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |
 | **Subtotal**           | **184**| **128**| 312 non-init files |
 | Integration tests      | —      | 15    | `tests/integration/` |

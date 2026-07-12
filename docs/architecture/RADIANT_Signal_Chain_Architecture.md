@@ -339,14 +339,16 @@ result.signal_at("at_aperture")   # spectral radiance returned
 result.noise_at("electrons")      # 263 e- RMS total
 result.noise_at("dn")             # 2.63 DN RMS total
 result.noise_at("electrons", term_name="dark")  # 89.2 e- (just one term)
-result.noise_budget()             # full breakdown table
+# result.noise_budget() is NOT a method (Appendix A) — use result.noise_terms
+# (tuple of NoiseTerm) or inspect_result(result) for a formatted breakdown.
 
-# Spatial
-result.mtf_at_nyquist()           # 0.42
-result.mtf_curve("system")        # full MTF(f) array
-result.mtf_budget()               # all individual MTF terms
+# Spatial — NOTE: these convenience methods are NOT on ChainResult (see
+# RADIANT_Scripting_API.md Appendix A). Use the shipped equivalents:
+result.metrics["mtf_at_nyquist"]              # 0.42
+result.state.mtf_terms["mtf_optics_x"]        # individual MTF(f) arrays
+result.stage_outputs["performance"]["mtf_budget"]   # MTF budget
 
-# Performance
+# Performance — snr()/nedt()/niirs() ARE real methods on ChainResult
 result.snr()                      # 47.3
 result.nedt()                     # 23 mK
 result.niirs()                    # 5.4

@@ -204,6 +204,13 @@ class TestReadoutSaturation:
         assert out.stage_outputs["readout"]["well_status"] == "clipped"
         # Signal DN should be at most FWC/gain
         assert out.stage_outputs["readout"]["signal_dn_pre_coadd"] <= fwc
+        # CU-101: supporting well-charge numbers are published for the
+        # ChainResult.well_status() surface.
+        ro = out.stage_outputs["readout"]
+        assert ro["full_well_capacity_e"] == fwc
+        assert ro["total_well_e"] > fwc  # over capacity → clipped
+        assert ro["well_fill_fraction"] == pytest.approx(ro["total_well_e"] / fwc, rel=1e-12)
+        assert ro["well_fill_fraction"] > 1.0
 
     @pytest.mark.level1
     def test_adc_saturation_clips(self, wl: np.ndarray) -> None:
@@ -228,6 +235,12 @@ class TestReadoutSaturation:
         )
         assert out.stage_outputs["readout"]["well_status"] == "ok"
         assert out.stage_outputs["readout"]["adc_status"] == "ok"
+        # CU-101: fill fraction is < 1 when the well is not saturated.
+        ro = out.stage_outputs["readout"]
+        assert ro["well_fill_fraction"] < 1.0
+        assert ro["well_fill_fraction"] == pytest.approx(
+            ro["total_well_e"] / ro["full_well_capacity_e"], rel=1e-12
+        )
 
     @pytest.mark.level1
     def test_well_saturation_warns(self, wl: np.ndarray) -> None:

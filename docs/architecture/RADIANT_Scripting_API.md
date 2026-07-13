@@ -207,6 +207,19 @@ result.niirs()    # float, NIIRS scale        — reads metrics["niirs"]
 
 There are **no** `detection_range()`, `rer()`, `gsd()`, `mtf_at_nyquist()`, `mtf_curve()`, or `noise_budget()` methods. RER, GSD, and MTF-at-Nyquist are plain keys in `result.metrics` (§3.4); the noise budget is `result.noise_terms`; MTF curves live in `result.state.mtf_terms` (§3.7).
 
+**Full-well saturation status (CU-101).** `result.well_status()` returns a `WellStatus` record (importable as `radiant.api.WellStatus`) surfacing the readout stage's well-capacity clip decision so a GUI banner (or script) reads a first-class result instead of digging into `stage_outputs["readout"]`. It carries the clip state plus the supporting well-charge numbers, each with its unit documented on the dataclass:
+
+```python
+ws = result.well_status()
+ws.status                # "ok" | "clipped" — equals stage_outputs["readout"]["well_status"]
+ws.is_saturated          # bool — True iff status == "clipped"
+ws.fill_fraction         # dimensionless — total_well_e / full_well_capacity_e (> 1.0 iff clipped)
+ws.total_well_e          # e- — accumulated well charge before clipping
+ws.full_well_capacity_e  # e- — readout.full_well_capacity_e
+```
+
+`"clipped"` means the accumulated well charge exceeded `full_well_capacity_e` and the signal was hard-clipped; downstream SNR/NEDT/NIIRS then reflect the clipped signal and stop responding to scene/atmosphere changes (the silent-clip trap of Gap 65). Raises `KeyError` if the readout stage did not run for this result (mirrors `snr()`). The values live in `stage_outputs` so they survive `save()`/`load()`. This is a status accessor, not a metric — `well_status` is not in `result.metrics`.
+
 ### 3.4 Performance Metrics (`result.metrics`)
 
 `result.metrics` is the bare name → float mapping. For unit-labelled access — the project hard rule for anything displayed — use `result.metric_records()` (Gap 71, 2026-07-11): a tuple of `MetricRecord(name, value, unit, description, kind)` sorted by name, joined from the metric registry (`RADIANT_Metrics.md` §6). `kind` distinguishes physical floats from 0/1 flags (`niirs_extrapolated`) and enum codes (`sampling_regime_code`). Single-metric metadata: `radiant.performance.metric_info(name)`.
@@ -276,7 +289,7 @@ Every stage publishes named intermediate values. Keys observed in a standard run
 | `platform` | `EE_box`, `effective_psf` (fully degraded), `jitter_sigma_x_m`, `jitter_sigma_y_m`, `smear_width_m` |
 | `spectral_integration` | `signal_e`, `background_e`, `contrast_e`, `e_rate_per_s`, `qe_scalar` |
 | `detector` | `signal_e`, `background_e`, `dark_e`, `noise_budget_raw` |
-| `readout` | `signal_e_final`, `signal_dn_final`, `sigma_total_e`, `well_status`, `adc_status`, `noise_regime` |
+| `readout` | `signal_e_final`, `signal_dn_final`, `sigma_total_e`, `well_status`, `well_fill_fraction`, `total_well_e` [e-], `full_well_capacity_e` [e-], `adc_status`, `noise_regime` |
 | `performance` | `mtf_budget`, `mtf_x`, `mtf_y`, `folded_mtf_x`, `snr_result`, `nedt_result`, `niirs_result`, `dual_path_consistency` |
 
 **EE_box note (2026-07):** the ensquared-energy coupling factor is computed in **PlatformStage** from the fully degraded PSF (optics × jitter × smear × turbulence) and published as `stage_outputs["platform"]["EE_box"]`. It is applied exactly once, in `SpectralIntegrationStage`, only for point-source and sub-pixel regimes (Rule 9). For extended scenes `EE_box = 1.0` and it is not applied.

@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`ChainResult.well_status()` — full-well saturation on the result surface
+  (CU-101).** The readout stage's well-capacity clip decision is now a
+  first-class accessor returning a `WellStatus` record (exported as
+  `radiant.api.WellStatus`): `.status` (`"ok"`/`"clipped"`, equal to
+  `stage_outputs["readout"]["well_status"]`), `.is_saturated`, `.fill_fraction`
+  (dimensionless), `.total_well_e` [e-], and `.full_well_capacity_e` [e-]. The
+  readout stage additionally publishes `well_fill_fraction`, `total_well_e`, and
+  `full_well_capacity_e` to `stage_outputs["readout"]` (serialization-safe, so
+  the surface survives `save()`/`load()`). Lets the GUI saturation banner — and
+  scripting users — read a metric instead of digging into `stage_outputs`; the
+  underlying silent-clip trap (Gap 65) is now surfaced. Public-surface addition
+  only; no computed-result change.
 - **Schema-driven parameter tree in the GUI (GUI plan Phase 2, Task A —
   read-only half).** The parameter dock now populates a Parameter / Value /
   Source tree generated entirely from `Sensor.parameter_defs()` (never a

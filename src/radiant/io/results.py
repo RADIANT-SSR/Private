@@ -50,6 +50,52 @@ class MetricRecord:
     kind: str
 
 
+@dataclass(frozen=True)
+class WellStatus:
+    """Full-well saturation status for a completed run (CU-101).
+
+    Surfaces the readout stage's well-capacity clip decision as a
+    first-class :class:`ChainResult` result (via
+    :meth:`ChainResult.well_status`) so the GUI saturation banner — and
+    scripting users — read a metric instead of digging one dict-hop into
+    ``stage_outputs["readout"]``. The clip that this reports ran silently
+    for three scenarios before it was surfaced (Gap 65 / CU-101).
+
+    Every numeric field names its unit here so a renderer needs no
+    external lookup (project hard rule: displayed numbers carry units).
+
+    Attributes
+    ----------
+    status:
+        ``"ok"`` or ``"clipped"`` — the ``SaturationStatus`` value
+        (:class:`radiant.readout.SaturationStatus`). ``"clipped"`` means
+        the accumulated well charge exceeded ``full_well_capacity_e`` and
+        the signal was hard-clipped; downstream SNR/NEDT/NIIRS then
+        reflect the clipped signal and stop responding to
+        scene/atmosphere changes.
+    fill_fraction:
+        Well fill fraction [dimensionless] =
+        ``total_well_e / full_well_capacity_e``. Strictly ``> 1.0`` iff
+        ``status == "clipped"``.
+    total_well_e:
+        Accumulated well charge [e-] (signal + dark + glow, plus the
+        full-pixel background pedestal in the point-source regime) before
+        clipping.
+    full_well_capacity_e:
+        Full-well capacity [e-] (``readout.full_well_capacity_e``).
+    """
+
+    status: str
+    fill_fraction: float
+    total_well_e: float
+    full_well_capacity_e: float
+
+    @property
+    def is_saturated(self) -> bool:
+        """True iff the well saturated and the signal was clipped."""
+        return self.status == "clipped"
+
+
 class ChainResult:
     """Read-only view over a completed chain run.
 
@@ -271,6 +317,34 @@ class ChainResult:
             If NIIRS was not computed for this run.
         """
         return float(self._state.metrics["niirs"])
+
+    def well_status(self) -> WellStatus:
+        """Full-well saturation status for this run (CU-101).
+
+        Reads ``stage_outputs["readout"]`` — the single publication site
+        (``readout/stage.py``) — and returns a :class:`WellStatus`
+        carrying the clip state plus the supporting well-charge numbers
+        (each unit documented on the dataclass) so a GUI banner or script
+        can render *how full* the well is without a second lookup.
+
+        ``well_status().status`` equals
+        ``stage_outputs["readout"]["well_status"]`` exactly. The values
+        survive :meth:`save`/:meth:`load` because they live in
+        ``stage_outputs`` (Category-B serialization round-trip).
+
+        Raises
+        ------
+        KeyError
+            If the readout stage did not run for this result (e.g. a
+            synthetic or partial state), mirroring :meth:`snr`.
+        """
+        readout = self._state.stage_outputs["readout"]
+        return WellStatus(
+            status=readout["well_status"],
+            fill_fraction=float(readout["well_fill_fraction"]),
+            total_well_e=float(readout["total_well_e"]),
+            full_well_capacity_e=float(readout["full_well_capacity_e"]),
+        )
 
     # ------------------------------------------------------------------
     # Persistence (Gap 67)

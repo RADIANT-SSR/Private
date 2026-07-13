@@ -154,8 +154,14 @@ class TestAllRegimes:
 
     def test_complete_history_all_regimes(self) -> None:
         expected = (
-            "geometry", "source", "atmosphere", "optics", "platform",
-            "spectral_integration", "detector", "readout",
+            "geometry",
+            "source",
+            "atmosphere",
+            "optics",
+            "platform",
+            "spectral_integration",
+            "detector",
+            "readout",
             "performance",
         )
         for run_fn in [_run_extended, _run_point_source, _run_sub_pixel]:
@@ -244,7 +250,8 @@ class TestSweeps:
         ps.resolve()
 
         result = sweep(
-            session.run, ps,
+            session.run,
+            ps,
             "optics.aperture_diameter_m",
             np.linspace(0.10, 0.50, 5),
             metric=lambda r: float(r.metrics["snr"]),
@@ -260,7 +267,8 @@ class TestSweeps:
         ps.resolve()
 
         result = sweep(
-            session.run, ps,
+            session.run,
+            ps,
             "spectral_integration.integration_time_s",
             [0.001, 0.002, 0.005, 0.010, 0.020],
             metric=lambda r: float(r.metrics["snr"]),
@@ -276,7 +284,8 @@ class TestSweeps:
         ps.resolve()
 
         result = sweep(
-            session.run, ps,
+            session.run,
+            ps,
             "readout.read_noise_e_rms",
             [1.0, 5.0, 10.0, 25.0, 50.0],
             metric=lambda r: float(r.metrics["snr"]),
@@ -292,9 +301,12 @@ class TestSweeps:
         ps.resolve()
 
         result = sweep_2d(
-            session.run, ps,
-            "optics.aperture_diameter_m", [0.15, 0.30, 0.45],
-            "spectral_integration.integration_time_s", [0.001, 0.005],
+            session.run,
+            ps,
+            "optics.aperture_diameter_m",
+            [0.15, 0.30, 0.45],
+            "spectral_integration.integration_time_s",
+            [0.001, 0.005],
             metric=lambda r: float(r.metrics["snr"]),
         )
         assert result.grid.shape == (3, 2)
@@ -384,6 +396,67 @@ class TestSaturation:
         ro = result.stage_outputs["readout"]
         assert ro["well_status"] == "clipped"
 
+    def test_well_status_surface_matches_stage_outputs(self) -> None:
+        """CU-101: ChainResult.well_status() is populated after evaluate and
+        its status equals stage_outputs["readout"]["well_status"] exactly."""
+        result, _, _ = _run_extended()
+        ws = result.well_status()
+        ro = result.stage_outputs["readout"]
+        assert ws.status == ro["well_status"]
+        assert ws.status == "ok"
+        assert ws.is_saturated is False
+        # Supporting numbers match the stage outputs and are self-consistent.
+        assert ws.total_well_e == ro["total_well_e"]
+        assert ws.full_well_capacity_e == ro["full_well_capacity_e"]
+        assert ws.fill_fraction == ro["well_fill_fraction"]
+        assert ws.fill_fraction == pytest.approx(
+            ws.total_well_e / ws.full_well_capacity_e, rel=1e-12
+        )
+        assert ws.fill_fraction < 1.0
+
+    def test_well_status_surface_reports_saturation(self) -> None:
+        """CU-101: a saturating config surfaces status='clipped', is_saturated
+        True, and fill_fraction > 1 on the ChainResult surface."""
+        session = RadiantSession(wavelength_um=WL)
+        ps = _base_params(session)
+        ps.set("spectral_integration.integration_time_s", 10.0)
+        ps.set("readout.full_well_capacity_e", 1000.0)
+        ps.resolve()
+        with pytest.warns(UserWarning, match="full well saturated"):
+            result = session.run(ps)
+
+        ws = result.well_status()
+        assert ws.status == "clipped"
+        assert ws.status == result.stage_outputs["readout"]["well_status"]
+        assert ws.is_saturated is True
+        assert ws.fill_fraction > 1.0
+        assert ws.total_well_e > ws.full_well_capacity_e
+        assert ws.full_well_capacity_e == pytest.approx(1000.0, rel=1e-12)
+
+    def test_well_status_survives_save_load(self, tmp_path: object) -> None:
+        """CU-101 / Category-B round-trip: well_status() reads from
+        stage_outputs, so it survives ChainResult.save()/load()."""
+        from radiant.io.results import ChainResult
+
+        session = RadiantSession(wavelength_um=WL)
+        ps = _base_params(session)
+        ps.set("spectral_integration.integration_time_s", 10.0)
+        ps.set("readout.full_well_capacity_e", 1000.0)
+        ps.resolve()
+        with pytest.warns(UserWarning, match="full well saturated"):
+            result = session.run(ps)
+
+        path = result.save(tmp_path / "sat.zip")  # type: ignore[operator]
+        reloaded = ChainResult.load(path)
+
+        before = result.well_status()
+        after = reloaded.well_status()
+        assert after.status == before.status == "clipped"
+        assert after.is_saturated is True
+        assert after.total_well_e == pytest.approx(before.total_well_e, rel=1e-12)
+        assert after.full_well_capacity_e == pytest.approx(before.full_well_capacity_e, rel=1e-12)
+        assert after.fill_fraction == pytest.approx(before.fill_fraction, rel=1e-12)
+
     def test_adc_bits_affects_dn(self) -> None:
         """Reducing ADC bits should reduce max DN."""
         session = RadiantSession(wavelength_um=WL)
@@ -424,7 +497,7 @@ class TestNoiseBudget:
     def test_noise_rss_consistency(self) -> None:
         """Total noise = RSS of all individual terms."""
         result, _, _ = _run_extended()
-        noise_sq = sum(nt.value_e ** 2 for nt in result.noise_terms)
+        noise_sq = sum(nt.value_e**2 for nt in result.noise_terms)
         total_rss = math.sqrt(noise_sq)
 
         # Compare with performance stage total
@@ -544,7 +617,8 @@ class TestSensitivityAnalysis:
         ps.resolve()
 
         result = sensitivity(
-            session.run, ps,
+            session.run,
+            ps,
             metric=lambda r: float(r.metrics["snr"]),
             param_names=["optics.aperture_diameter_m"],
             delta_fraction=0.01,

@@ -387,6 +387,13 @@ class ReadoutStage:
         # the well saturates and signal_e_final = 0 (Gap 73 well-fill).
         state = state.with_stage_output("readout", "gain_e_per_dn", gain_e_per_dn)
         state = state.with_stage_output("readout", "well_status", well_status.value)
+        # CU-101: publish the supporting well-charge numbers so the
+        # ChainResult.well_status() surface (GUI saturation banner) carries
+        # everything a renderer needs — the clip state AND how full the well
+        # is — with each value serialization-safe (survives save/load).
+        state = state.with_stage_output("readout", "well_fill_fraction", total_well_e / fwc_e)
+        state = state.with_stage_output("readout", "total_well_e", total_well_e)
+        state = state.with_stage_output("readout", "full_well_capacity_e", fwc_e)
         state = state.with_stage_output("readout", "adc_status", adc_status.value)
         state = state.with_stage_output("readout", "sigma_temporal_e", sigma_temporal_e)
         state = state.with_stage_output("readout", "sigma_spatial_e", sigma_spatial_e)

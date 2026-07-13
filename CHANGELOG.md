@@ -29,6 +29,13 @@ retroactively reconstructed.
   shell (menus, empty stage strip, dock panels, status bar). Without the `gui`
   extra installed, `radiant gui` raises an actionable error naming the remedy and
   the rest of RADIANT is unaffected. Not results-affecting.
+- **GUI design-system theme (GUI plan Phase 1, Task B).** The shell now boots with
+  the ratified design-system look (arch doc §8): a **light** QSS theme is applied at
+  startup (the v1 launch default) with a **dark** alternate deriving from the same
+  token set. `radiant.gui.themes` is the single owner of every colour, font, and
+  spacing value; a mechanical test blocks any hardcoded colour/font literal elsewhere
+  in the GUI. Visual change only — no computed results, no public API change beyond
+  the internal `themes` helpers.
 
 ### Changed
 - **Results-affecting: Earth radius unified to 6371.0 km mean (CU-097).**

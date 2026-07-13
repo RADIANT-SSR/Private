@@ -6,13 +6,19 @@ token outside this package.** The light theme is the v1 launch default and the
 dark theme is the alternate; both derive from the same token set distilled from
 the mockups (``RADIANT_GUI_Architecture.md`` §8).
 
-Phase 1 **Task A** ships this as an empty stub — the shell it scaffolds runs on
-default Qt styling. Phase 1 **Task B** (a separate follow-up task) fills this
-package with the QSS theme and a loader that applies it to the
-:class:`QApplication`. Task A deliberately leaves the window unstyled so the
-look-and-feel review happens against Task B's deliverable, not a placeholder.
+Phase 1 **Task B** (this task) fills the package:
+
+* :mod:`~radiant.gui.themes.tokens` — the single owner of every colour, font,
+  spacing, and radius value (light default :data:`~radiant.gui.themes.tokens.LIGHT`,
+  dark alternate :data:`~radiant.gui.themes.tokens.DARK`).
+* :mod:`~radiant.gui.themes.stylesheet` — :func:`build_stylesheet` renders one QSS
+  template over either token set; :func:`apply_theme` installs it (plus a matching
+  base palette and font) on the :class:`QApplication` at bootstrap.
 """
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from radiant.gui.themes.stylesheet import apply_theme, build_stylesheet
+from radiant.gui.themes.tokens import DARK, LIGHT, Theme
+
+__all__ = ["apply_theme", "build_stylesheet", "Theme", "LIGHT", "DARK"]

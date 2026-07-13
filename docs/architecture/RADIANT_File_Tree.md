@@ -247,7 +247,9 @@ gui/
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
 ├── workers.py           # EvaluationWorker(QThread) — off-thread evaluate (Phase 3)
 ├── widgets/             # one widget class per file (Rule 19 spirit)
-├── themes/              # QSS design-system themes (light default / dark alternate)
+├── themes/              # QSS design-system theme — single owner of all visual tokens
+│   ├── tokens.py        # every colour/font/spacing/radius (LIGHT default, DARK alt)
+│   └── stylesheet.py    # build_stylesheet(theme) QSS generator + apply_theme(app)
 └── tests/               # pytest-qt tests (headless via QT_QPA_PLATFORM=offscreen)
 ```
 
@@ -364,10 +366,10 @@ command as the source of truth, per the header.
 | io/                    | 3      | 3     | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
 | api/                   | 9      | 7     | public + internal session |
-| gui/                   | 3      | 1     | PySide6 shell — optional `gui` extra (GUI plan Phase 1) |
+| gui/                   | 5      | 2     | PySide6 shell + design-system theme — optional `gui` extra (GUI plan Phase 1) |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |
-| **Subtotal**           | **184**| **128**| 312 non-init files |
+| **Subtotal**           | **186**| **129**| 315 non-init files |
 | Integration tests      | —      | 15    | `tests/integration/` |
 | Top-level tests        | —      | 3     | `tests/test_public_api.py`, `tests/test_exceptions.py`, `tests/test_provenance.py` |
 | **Grand total (non-init)** |    |       | **330** |

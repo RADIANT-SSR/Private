@@ -1,10 +1,11 @@
 """QApplication bootstrap and the :func:`launch_gui` entry point.
 
 This module owns the single :class:`QApplication` lifecycle for the RADIANT GUI.
-It is deliberately thin: it constructs (or reuses) the application object, builds
-the main window, and hands control to the Qt event loop. All UI structure lives
-in :mod:`radiant.gui.main_window`; all styling will live in
-:mod:`radiant.gui.themes` (GUI plan Phase 1 Task B — not applied here yet).
+It is deliberately thin: it constructs (or reuses) the application object, applies
+the design-system theme, builds the main window, and hands control to the Qt event
+loop. All UI structure lives in :mod:`radiant.gui.main_window`; all styling lives in
+:mod:`radiant.gui.themes` (the light theme is the v1 launch default, applied here at
+bootstrap — arch doc §8, Phase 0 checkpoint amendment 1).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication
 
 from radiant.gui.main_window import RADIANTMainWindow
+from radiant.gui.themes import LIGHT, apply_theme
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -47,8 +49,12 @@ def launch_gui(sensor: Sensor | None = None) -> int:
     existing = QApplication.instance()
 
     if existing is None:
-        # We create the application, so we own the event loop.
+        # We create the application, so we own the event loop and the styling:
+        # install the light design-system theme (v1 launch default) before any
+        # window is shown. A host that owns the app (the reuse branch below) owns
+        # its own styling, so we do not override it there.
         app = QApplication([])
+        apply_theme(app, LIGHT)
         window = RADIANTMainWindow(sensor=sensor)
         window.show()
         return int(app.exec())

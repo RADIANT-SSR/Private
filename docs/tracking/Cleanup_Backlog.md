@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-103 — IBM Plex fonts are the design target but are not bundled; the GUI falls back to the platform UI/mono font
+
+**Discovered**: GUI Development Plan Phase 1 Task B (design-system QSS theme), 2026-07-12
+**Status**: Open — punch-list candidate surfaced at the Phase 1 look-and-feel checkpoint; owner decides whether to bundle the OFL font files.
+**File**: `src/radiant/gui/themes/tokens.py` (`FONT_SANS`, `FONT_MONO` — the fallback stacks); `RADIANT_GUI_Architecture.md` §8.2 (specifies `IBM Plex Sans` 13px + `IBM Plex Mono` for numerics).
+**Symptom**: `QFontDatabase.families()` on the build machine (macOS) reports neither `IBM Plex Sans` nor `IBM Plex Mono` installed (313 families present; Menlo + Helvetica Neue are). The theme therefore leads its stacks with IBM Plex and falls back — sans → `"Helvetica Neue"`/system UI, mono → `"Menlo"`/monospace. The instrument-panel look (§8.2: "numeric values are always mono") is preserved via Menlo, but the exact letterforms/metrics differ from the mockups, so pixel-parity against `radiant_mid_fi.html` (which loads a webfont) is approximate, not exact.
+**Why it still matters**: §8.2 is the binding typography spec; without IBM Plex the app is close but not identical to the ratified visual target, and parity drifts further on Linux hosts with a different default UI font. The fallback keeps the app correct and legible everywhere (no missing-glyph boxes), so this is polish, not a defect — but the arch doc names a specific family the app does not guarantee.
+**Suggested fix**: stand-alone task (owner call) — bundle the IBM Plex Sans + Mono OFL `.ttf` files under `src/radiant/gui/themes/fonts/` and load them at bootstrap via `QFontDatabase.addApplicationFont(...)` before `apply_theme`, so the leading family in each stack resolves. Adds packaged binary assets (Rule 26 manifest + license note) and package-data wiring in `pyproject.toml`. Effort S–M; category A (no physics, no results). Deferred here rather than done inline because bundling font binaries is a licensing/packaging decision, not a theming one.
+
 ### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444)
 
 **Discovered**: GUI Development Plan Phase 1 Task A (adding the `gui/` package to the file tree), 2026-07-12

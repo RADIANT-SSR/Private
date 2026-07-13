@@ -5,12 +5,15 @@
 signal-chain strip (§4.2), the dockable parameter and detail panels (§4.3, §4.5),
 the central visualization area (§4.4), and the status bar.
 
-In GUI plan Phase 1 (Task A) this is a *shell*: the layout regions exist as empty,
-named placeholders and the menus are fully populated but every not-yet-implemented
-action is disabled. Later phases fill the regions (parameter tree — Phase 2;
-evaluate loop + canvas — Phase 3; stage strip + detail tabs — Phase 4) and enable
-their menu actions. No styling is applied here; the design-system QSS theme is
-GUI plan Phase 1 Task B and lives in :mod:`radiant.gui.themes`.
+In GUI plan Phase 1 this is the shell chrome filled with *static, behaviour-free*
+content: the signal-chain strip carries 9 stage chips with stale health dots, the
+KPI row shows the five metric badges awaiting evaluation, the parameter dock has a
+disabled filter box over an empty tree, the central canvas has the plot placeholder,
+and the detail dock has the five tabs with empty pages. The menus are fully populated
+but every not-yet-implemented action is disabled. Later phases wire behaviour in
+(parameter tree — Phase 2; evaluate loop + canvas — Phase 3; stage strip + detail
+tabs — Phase 4). Styling comes entirely from the design-system QSS theme in
+:mod:`radiant.gui.themes`; this module sets structure and object names only.
 """
 
 from __future__ import annotations
@@ -21,29 +24,25 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
-    QLabel,
     QMainWindow,
     QMenu,
     QWidget,
 )
 
+from radiant.gui.widgets.central_canvas import CentralCanvas
+from radiant.gui.widgets.detail_tabs import DetailTabs
+from radiant.gui.widgets.parameter_panel import ParameterPanel
+from radiant.gui.widgets.stage_strip import StageStrip
+
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
-# The signal chain in ADR-0006 order (geometry-first). Rendered as an empty,
-# non-interactive placeholder strip in Phase 1; Phase 4 makes the stages
-# clickable with health dots.
-_STAGE_NAMES: tuple[str, ...] = (
-    "Geometry",
-    "Source",
-    "Atmosphere",
-    "Optics",
-    "Platform",
-    "Spectral",
-    "Detector",
-    "Readout",
-    "Performance",
-)
+# Default window geometry and dock proportions, matching the mockup's balance
+# (1440×900 with a ~300 px parameter dock and a ~260 px detail dock).
+_DEFAULT_WIDTH: int = 1440
+_DEFAULT_HEIGHT: int = 900
+_PARAM_DOCK_WIDTH: int = 300
+_DETAIL_DOCK_HEIGHT: int = 260
 
 
 class RADIANTMainWindow(QMainWindow):
@@ -67,13 +66,14 @@ class RADIANTMainWindow(QMainWindow):
 
         self.setObjectName("radiantMainWindow")
         self.setWindowTitle(self._compose_title())
-        self.resize(1280, 800)
+        self.resize(_DEFAULT_WIDTH, _DEFAULT_HEIGHT)
 
         self._build_menu_bar()
         self._build_stage_strip()
         self._build_central_area()
         self._build_dock_panels()
         self._build_status_bar()
+        self._apply_dock_proportions()
 
     # -- public accessors ---------------------------------------------------
 
@@ -81,6 +81,26 @@ class RADIANTMainWindow(QMainWindow):
     def sensor(self) -> Sensor | None:
         """The sensor this window was opened on (``None`` if none)."""
         return self._sensor
+
+    @property
+    def stage_strip(self) -> StageStrip:
+        """The 9-stage signal-chain strip (static in Phase 1)."""
+        return self._stage_strip
+
+    @property
+    def central_canvas(self) -> CentralCanvas:
+        """The central KPI-row-plus-plot canvas (static in Phase 1)."""
+        return self._central
+
+    @property
+    def parameter_panel(self) -> ParameterPanel:
+        """The parameter dock body: filter box + empty tree (static in Phase 1)."""
+        return self._parameter_panel
+
+    @property
+    def detail_tabs(self) -> DetailTabs:
+        """The bottom detail dock's five-tab panel (static in Phase 1)."""
+        return self._detail_tabs
 
     def action(self, key: str) -> QAction:
         """Return the menu :class:`QAction` registered under *key*.
@@ -207,18 +227,12 @@ class RADIANTMainWindow(QMainWindow):
         self._add_action(help_menu, "help.about", "About RADIANT", enabled=False)
 
     def _build_stage_strip(self) -> None:
-        """Empty 9-stage strip placeholder (Phase 4 makes it interactive).
+        """The static 9-stage signal-chain strip (Phase 4 makes it interactive).
 
-        A named container is created so the Phase 1 Task B theme and the Phase 4
-        stage buttons have a stable anchor; it holds no interactive children yet.
+        The :class:`StageStrip` renders the nine chips with stale health dots; it is
+        held in a thin top dock band. Phase 4 wires clicks and drives the dots.
         """
-        strip = QWidget(self)
-        strip.setObjectName("stageStrip")
-        # A single non-interactive caption marks the region without pretending
-        # to be the finished strip. No colours/fonts set (Task B owns styling).
-        caption = QLabel(" · ".join(_STAGE_NAMES), strip)
-        caption.setObjectName("stageStripPlaceholder")
-        caption.setEnabled(False)
+        strip = StageStrip(self)
         self._stage_strip = strip
 
         # Docked at the top as a thin, non-floatable, non-closable band.
@@ -231,32 +245,46 @@ class RADIANTMainWindow(QMainWindow):
         self._stage_strip_dock = dock
 
     def _build_central_area(self) -> None:
-        """Empty central visualization area (Phase 3 adds the matplotlib canvas)."""
-        central = QWidget(self)
-        central.setObjectName("visualizationArea")
+        """The central canvas: KPI badge row above the plot placeholder (§4.4).
+
+        Phase 3 fills the badges and swaps the placeholder for the matplotlib canvas.
+        """
+        central = CentralCanvas(self)
         self.setCentralWidget(central)
         self._central = central
 
     def _build_dock_panels(self) -> None:
-        """Empty parameter (left) and detail (bottom) dock panels.
+        """Parameter (left) and detail (bottom) dock panels with static content.
 
-        Phase 2 fills the parameter tree; Phase 4 fills the detail tabs. Here they
-        are empty, named, dockable containers so the layout — and later the theme —
-        has its anchors from the start.
+        The parameter dock holds the disabled filter box + empty tree
+        (:class:`ParameterPanel`, Phase 2 fills it); the detail dock holds the
+        five-tab detail panel (:class:`DetailTabs`, Phase 4 fills the pages).
         """
+        param_panel = ParameterPanel(self)
         param_dock = QDockWidget("Parameters", self)
         param_dock.setObjectName("parameterDock")
-        param_dock.setWidget(QWidget(param_dock))
+        param_dock.setWidget(param_panel)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, param_dock)
         self._parameter_dock = param_dock
+        self._parameter_panel = param_panel
 
+        detail_tabs = DetailTabs(self)
         detail_dock = QDockWidget("Detail", self)
         detail_dock.setObjectName("detailDock")
-        detail_dock.setWidget(QWidget(detail_dock))
+        detail_dock.setWidget(detail_tabs)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, detail_dock)
         self._detail_dock = detail_dock
+        self._detail_tabs = detail_tabs
 
     def _build_status_bar(self) -> None:
         """Status bar with the initial ready/no-config message."""
         message = "Ready" if self._sensor is None else "Ready — sensor loaded"
         self.statusBar().showMessage(message)
+
+    def _apply_dock_proportions(self) -> None:
+        """Size the docks to the mockup's balance (~300 px params, ~260 px detail).
+
+        ``resizeDocks`` gives an initial split; the user can re-drag afterwards.
+        """
+        self.resizeDocks([self._parameter_dock], [_PARAM_DOCK_WIDTH], Qt.Orientation.Horizontal)
+        self.resizeDocks([self._detail_dock], [_DETAIL_DOCK_HEIGHT], Qt.Orientation.Vertical)

@@ -49,6 +49,33 @@ class TestLayoutRegions:
         dock_names = {d.objectName() for d in window.findChildren(QDockWidget)}
         assert {"stageStripDock", "parameterDock", "detailDock"} <= dock_names
 
+    def test_chrome_content_wired_in(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The static Phase-1 chrome (strip, KPI badges, tabs) is populated."""
+        window = RADIANTMainWindow()
+        qtbot.addWidget(window)
+
+        # 9-stage strip in chain order, all dots stale.
+        assert [c.stage_title for c in window.stage_strip.chips][0] == "Geometry"
+        assert len(window.stage_strip.chips) == 9
+        assert all(c.dot.status == "stale" for c in window.stage_strip.chips)
+
+        # Five KPI badges awaiting evaluation (em-dash values).
+        badges = window.central_canvas.kpi_row.badges
+        assert list(badges.keys()) == ["SNR", "NEDT", "NIIRS", "GSD", "MTF@Nyquist"]
+        assert all(b.value_text() == "—" for b in badges.values())
+
+        # Parameter dock: disabled filter, empty tree; detail dock: five tabs.
+        assert not window.parameter_panel.filter_box.isEnabled()
+        assert window.parameter_panel.tree.topLevelItemCount() == 0
+        assert window.detail_tabs.count() == 5
+
+    def test_default_window_size(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The window opens at the mockup-matched 1440×900 default."""
+        window = RADIANTMainWindow()
+        qtbot.addWidget(window)
+        assert window.size().width() == 1440
+        assert window.size().height() == 900
+
 
 class TestMenuSurface:
     def test_full_menu_surface_present(self, qtbot) -> None:  # type: ignore[no-untyped-def]

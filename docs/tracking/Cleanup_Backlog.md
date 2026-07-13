@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
+
+**Discovered**: GUI Development Plan Phase 1 checkpoint punch-list (populating the shell chrome), 2026-07-12
+**Status**: Open — polish; surfaced while porting the mockup typography to QSS.
+**File**: `src/radiant/gui/themes/stylesheet.py` (the `#stageChipEyebrow` / `#metricLabel` / `QDockWidget::title` rules); `RADIANT_GUI_Architecture.md` §8.2 (specifies `letter-spacing 0.06em` on eyebrows/KPI labels, `−0.01em` on the app title, and `text-transform: uppercase` on panel titles / eyebrows / KPI labels).
+**Symptom**: Qt's QSS subset supports neither `letter-spacing` nor `text-transform` on `QLabel`, so those §8.2 values cannot be applied in the stylesheet. The Phase-1 widgets work around uppercasing by calling `.upper()` in Python (`StageChip`, `MetricBadge`) and simply drop the letter-spacing (tracking) entirely. The chrome therefore reads correctly (uppercase eyebrows/labels) but without the specified tracking, so it is close to — not pixel-identical with — the mockup, which uses CSS `letter-spacing`.
+**Why it still matters**: §8.2 is the binding typography spec and names tracking values no test or QSS rule enforces (the aspirational-drift failure mode CLAUDE.md warns against). Two smells compound: (1) the uppercasing lives in widget Python, not the theme, so a design change to casing is no longer a one-file `themes/` edit (mild §4.9 tension); (2) the doc asserts tracking the app cannot deliver via its chosen styling mechanism.
+**Suggested fix**: stand-alone task (owner call) — either (a) implement tracking/casing via `QFont.setLetterSpacing(...)` + `QFont.setCapitalization(QFont.AllUppercase)` applied from a small theme helper (keeps values in `themes/`, restores §4.9 single-owner), or (b) amend §8.2 to record that letter-spacing is a nominal target Qt does not render and uppercasing is applied in-widget. Effort S; category A (no physics, no results).
+
 ### CU-103 — IBM Plex fonts are the design target but are not bundled; the GUI falls back to the platform UI/mono font
 
 **Discovered**: GUI Development Plan Phase 1 Task B (design-system QSS theme), 2026-07-12

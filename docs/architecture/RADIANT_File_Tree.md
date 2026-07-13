@@ -246,7 +246,17 @@ gui/
 ├── app.py               # QApplication bootstrap
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
 ├── workers.py           # EvaluationWorker(QThread) — off-thread evaluate (Phase 3)
-├── widgets/             # one widget class per file (Rule 19 spirit)
+├── widgets/             # one widget class per file (Rule 19 spirit) — Phase 1 shell chrome
+│   ├── health_dot.py    # HealthDot — themed status dot (§8.4)
+│   ├── stage_chip.py    # StageChip — one signal-chain stage tile
+│   ├── stage_strip.py   # StageStrip — the 9-stage geometry-first chain strip (§4.2)
+│   ├── metric_badge.py  # MetricBadge — one KPI cell (mono value slot, §8.2)
+│   ├── run_button.py    # RunButton — accent Evaluate button (#runButton hook)
+│   ├── kpi_badge_row.py # KpiBadgeRow — the five v1 metric badges + Run button (§4.4)
+│   ├── plot_placeholder.py  # PlotPlaceholder — empty-canvas prompt (§4.4)
+│   ├── central_canvas.py    # CentralCanvas — KPI row above the plot (visualizationArea)
+│   ├── parameter_panel.py   # ParameterPanel — filter box + empty Parameter/Value tree (§4.3)
+│   └── detail_tabs.py   # DetailTabs — the five detail tabs with placeholder pages (§4.5)
 ├── themes/              # QSS design-system theme — single owner of all visual tokens
 │   ├── tokens.py        # every colour/font/spacing/radius (LIGHT default, DARK alt)
 │   └── stylesheet.py    # build_stylesheet(theme) QSS generator + apply_theme(app)
@@ -366,7 +376,7 @@ command as the source of truth, per the header.
 | io/                    | 3      | 3     | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
 | api/                   | 9      | 7     | public + internal session |
-| gui/                   | 5      | 2     | PySide6 shell + design-system theme — optional `gui` extra (GUI plan Phase 1) |
+| gui/                   | 18     | 3     | PySide6 shell + widgets + design-system theme — optional `gui` extra (GUI plan Phase 1) |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |
 | **Subtotal**           | **186**| **129**| 315 non-init files |

@@ -128,21 +128,117 @@ QDockWidget > QWidget {{
 /* -- Named shell regions (main_window.py object names) ----------------- */
 #visualizationArea {{
     background-color: {t.panel};
-    border: {tokens.BORDER_WIDTH} solid {t.line};
-    border-radius: {tokens.RADIUS_PANEL};
 }}
+#parameterDock QWidget, #detailDock QWidget {{
+    background-color: {t.panel};
+}}
+
+/* -- Signal-chain strip + stage chips (§4.2) --------------------------- */
 #stageStrip {{
     background-color: {t.panel_2};
     border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
-    padding: {tokens.PAD_PANEL};
 }}
-#stageStripPlaceholder {{
+QFrame#stageChip {{
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: 6px;
+}}
+QFrame#stageChip:hover {{
+    border-color: {t.line_2};
+    background-color: {t.panel_3};
+}}
+QLabel#stageChipNum {{
+    color: {t.muted};
+    font-family: {tokens.FONT_MONO};
+    font-size: 9.5px;
+}}
+QLabel#stageChipEyebrow {{
     color: {t.muted};
     font-size: 10.5px;
     font-weight: 500;
 }}
-#parameterDock QWidget, #detailDock QWidget {{
+QLabel#stageChipTitle {{
+    color: {t.ink};
+    font-size: 14px;
+    font-weight: 600;
+}}
+QLabel#stageChipSub {{
+    color: {t.muted};
+    font-family: {tokens.FONT_MONO};
+    font-size: 10.5px;
+}}
+
+/* -- Health dots (§8.4) — colour keyed on the [status] property --------- */
+QFrame#healthDot {{
+    border-radius: 5px;
+}}
+QFrame#healthDot[status="ok"] {{
+    background-color: {t.ok};
+    border: 2px solid {t.ok_soft};
+}}
+QFrame#healthDot[status="warn"] {{
+    background-color: {t.warn};
+    border: 2px solid {t.warn_soft};
+}}
+QFrame#healthDot[status="err"] {{
+    background-color: {t.err};
+    border: 2px solid {t.err_soft};
+}}
+QFrame#healthDot[status="stale"] {{
+    background-color: {t.stale};
+    border: 2px solid {t.stale_soft};
+}}
+
+/* -- KPI badge row (§4.4) ---------------------------------------------- */
+#kpiRow {{
     background-color: {t.panel};
+    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+}}
+QFrame#metricBadge {{
+    border-right: {tokens.BORDER_WIDTH} solid {t.line};
+}}
+QLabel#metricLabel {{
+    color: {t.muted};
+    font-size: 10.5px;
+    font-weight: 500;
+}}
+QLabel#metricValue {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 17px;
+    font-weight: 600;
+}}
+QLabel#metricCaption {{
+    color: {t.muted};
+    font-size: 10.5px;
+}}
+/* Headline metric value is accent; awaiting muting wins (declared last). */
+QFrame#metricBadge[primary="true"] QLabel#metricValue {{
+    color: {t.accent};
+}}
+QFrame#metricBadge[state="awaiting"] QLabel#metricValue {{
+    color: {t.muted_2};
+}}
+
+/* -- Plot placeholder (§4.4 empty canvas) ------------------------------ */
+#plotPlaceholder {{
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+    margin: 12px 14px;
+}}
+QLabel#plotPlaceholderMsg {{
+    color: {t.muted};
+    font-size: 13px;
+}}
+
+/* -- Parameter dock body (§4.3) ---------------------------------------- */
+#parameterPanel {{
+    background-color: {t.panel};
+}}
+QLabel#detailPlaceholderMsg {{
+    color: {t.muted};
+    font-size: 13px;
 }}
 
 /* -- Status bar (§4.1) ------------------------------------------------- */

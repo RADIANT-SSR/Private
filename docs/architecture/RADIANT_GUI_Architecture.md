@@ -282,16 +282,29 @@ example dot-paths below are illustrative and may not match the shipped `_schema.
 
 Each row shows the value plus a **unit suffix from the schema** (R-UNITS). Derived
 parameters are ⚡-badged and read-only; a provenance badge (user-set / default /
-derived) comes from the resolved set. The shipped read-only tree (GUI plan Phase 2
-Task A) renders this as three columns — **Parameter / Value / Source** — where Value
-carries the value + unit (⚡-prefixed when derived) and Source is the provenance label;
-provenance is read from the resolved set via the public `Sensor.explain(dotpath)`
-surface (a structured accessor is tracked as CU-105). Editing calls
-`sensor.set(dotpath, value)`;
-`ParameterBoundsError` / `UnknownParameterError` / consistency-group violations render
-their what/why/action inline on the row and in a dialog, and the rejected value never
-sticks. A search box filters by substring across dot-paths. Right-click: Copy dot-path,
-Explain (`sensor.explain(dotpath)`), Reset to Default.
+derived) comes from the resolved set. The shipped tree (GUI plan Phase 2) renders this
+as three columns — **Parameter / Value / Source** — where Value carries the value + unit
+(⚡-prefixed when derived) and Source is the provenance label; provenance is read from
+the resolved set via the public `Sensor.explain(dotpath)` surface (a structured accessor
+is tracked as CU-105). A search box filters by substring across dot-paths.
+
+**Editing (Task B).** Double-click (or the platform edit key) on a non-derived row
+opens the editor its `ParameterDef` dtype calls for: a combo box for an enum (choices
+read from `ParameterDef.enum_values`, never hardcoded), a checkbox for a bool, a spin
+box for an int, a line edit for a float or free string. Each commit is exactly one
+`sensor.set(dotpath, value)` (§4.1). To keep the live sensor untouched on rejection, the
+value is first validated on a throwaway `sensor.clone()` (the API's own resolve does the
+validating — no reimplemented physics); only a clean value is applied to the live sensor
+and the row (value + provenance) is refreshed by re-reading the resolved set.
+`ParameterBoundsError` / `UnknownParameterError` / consistency-group violations (all
+surfaced by the resolver — the generic schema-bounds path raises a flat
+`CoreValidationError`, tracked as CU-107) render their what/why/action inline on the row
+(a themed error tint + banner) **and** in a modal `ActionableErrorDialog`; the rejected
+value never sticks. An unexpected exception raises `UnexpectedErrorDialog` with a
+traceback fold (Rules 15/17 — nothing swallowed). Right-click: Copy dot-path, Explain
+(renders `Sensor.explain(dotpath)` in a themed modal `ExplainDialog` — the surface chosen
+to match the `Tools → Explain Parameter…` menu), Reset to Default (`Sensor.reset(dotpath)`,
+which clears the input so the parameter reverts to its default or is re-derived).
 
 ### 4.4 Visualization Area (Center)
 

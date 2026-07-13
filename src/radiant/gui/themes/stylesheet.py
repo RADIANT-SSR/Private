@@ -20,6 +20,25 @@ from PySide6.QtWidgets import QApplication
 from radiant.gui.themes import tokens
 from radiant.gui.themes.tokens import Theme
 
+# The theme most recently installed by :func:`apply_theme`. Widgets that must
+# paint a token colour Qt cannot reach through QSS (e.g. a per-item error tint on
+# a ``QTreeWidgetItem``, which carries no object name or property selector) read
+# it from here so the colour value still lives in :mod:`radiant.gui.themes.tokens`
+# — never as a literal in the widget file. Defaults to the light launch theme so
+# widgets constructed before :func:`apply_theme` runs (e.g. in offscreen tests)
+# still get a valid token set.
+_ACTIVE_THEME: Theme = tokens.LIGHT
+
+
+def active_theme() -> Theme:
+    """Return the :class:`Theme` most recently installed by :func:`apply_theme`.
+
+    The single sanctioned way for a widget to read a design-system colour it
+    cannot express through QSS. The returned value is a token set, so no widget
+    ever hardcodes a colour — it references a token by name (GUI plan §4.9).
+    """
+    return _ACTIVE_THEME
+
 
 def build_stylesheet(theme: Theme) -> str:
     """Return the full application QSS for *theme*.
@@ -239,6 +258,48 @@ QLabel#plotPlaceholderMsg {{
 QLabel#detailPlaceholderMsg, QLabel#parameterEmptyMsg {{
     color: {t.muted};
     font-size: 13px;
+}}
+
+/* -- Parameter edit: rejected-value banner (§4.3, Rules 15/17) --------- */
+QLabel#parameterErrorBanner {{
+    background-color: {t.err_soft};
+    color: {t.err};
+    border: {tokens.BORDER_WIDTH} solid {t.err};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_INPUT};
+    font-size: 11px;
+}}
+
+/* -- Error / explain dialogs (§4.3, §11) ------------------------------- */
+#actionableErrorDialog, #unexpectedErrorDialog, #explainDialog {{
+    background-color: {t.panel};
+}}
+QLabel#errorDialogHeader {{
+    color: {t.err};
+    font-size: 14px;
+    font-weight: 600;
+}}
+QLabel#explainDialogHeader {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 13px;
+    font-weight: 600;
+}}
+QLabel#errorDialogKey {{
+    color: {t.muted};
+    font-weight: 600;
+}}
+QLabel#errorDialogValue {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+}}
+QPlainTextEdit#errorDialogTraceback, QPlainTextEdit#explainDialogBody {{
+    background-color: {t.panel_2};
+    color: {t.ink_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
 }}
 
 /* -- Status bar (§4.1) ------------------------------------------------- */
@@ -509,6 +570,8 @@ def apply_theme(app: QApplication, theme: Theme = tokens.LIGHT) -> None:
         :data:`~radiant.gui.themes.tokens.DARK` for the alternate; the Phase 9
         View-menu toggle simply re-invokes this with the other theme.
     """
+    global _ACTIVE_THEME
+    _ACTIVE_THEME = theme
     base_font = app.font()
     base_font.setPointSize(tokens.FONT_SIZE_BASE_PT)
     app.setFont(base_font)
@@ -516,4 +579,4 @@ def apply_theme(app: QApplication, theme: Theme = tokens.LIGHT) -> None:
     app.setStyleSheet(build_stylesheet(theme))
 
 
-__all__ = ["build_stylesheet", "apply_theme"]
+__all__ = ["build_stylesheet", "apply_theme", "active_theme"]

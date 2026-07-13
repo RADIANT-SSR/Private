@@ -38,10 +38,13 @@ if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
 # Default window geometry and dock proportions, matching the mockup's balance
-# (1440×900 with a ~300 px parameter dock and a ~260 px detail dock).
+# (1440×900 with a ~360 px parameter dock and a ~260 px detail dock). The
+# parameter dock is wide enough that a typical `sensor.*`/`target.*` leaf name
+# reads in full at first launch — the Task-2A checkpoint flagged 300 px as
+# truncating "sens…"/"targe…"; the stretchy Parameter column now has room.
 _DEFAULT_WIDTH: int = 1440
 _DEFAULT_HEIGHT: int = 900
-_PARAM_DOCK_WIDTH: int = 300
+_PARAM_DOCK_WIDTH: int = 360
 _DETAIL_DOCK_HEIGHT: int = 260
 
 
@@ -261,9 +264,13 @@ class RADIANTMainWindow(QMainWindow):
         five-tab detail panel (:class:`DetailTabs`, Phase 4 fills the pages).
         """
         param_panel = ParameterPanel(self)
-        # Populate the read-only tree from the live sensor (GUI plan Phase 2 Task A);
+        # Populate the editable tree from the live sensor (GUI plan Phase 2);
         # None (bare launch) leaves the themed "no configuration loaded" state.
         param_panel.populate(self._sensor)
+        # An accepted parameter edit means downstream results are out of date.
+        # Phase 3 wires the re-evaluate loop; for now surface the stale state in
+        # the status bar (the stage-strip dots are already stale pre-evaluate).
+        param_panel.parameterEdited.connect(self._on_parameter_edited)
         param_dock = QDockWidget("Parameters", self)
         param_dock.setObjectName("parameterDock")
         param_dock.setWidget(param_panel)
@@ -278,6 +285,15 @@ class RADIANTMainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, detail_dock)
         self._detail_dock = detail_dock
         self._detail_tabs = detail_tabs
+
+    def _on_parameter_edited(self, dotpath: str) -> None:
+        """React to an accepted parameter edit: results are now stale.
+
+        Phase 2 has no evaluate loop yet (Phase 3 adds it), so this only reflects
+        the stale state in the status bar. The stage-strip health dots are already
+        ``stale`` until the first evaluation, so no dot transition is needed here.
+        """
+        self.statusBar().showMessage(f"Edited {dotpath} — re-evaluate to update results (F5)")
 
     def _build_status_bar(self) -> None:
         """Status bar with the initial ready/no-config message."""

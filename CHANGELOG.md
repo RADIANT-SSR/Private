@@ -29,9 +29,15 @@ retroactively reconstructed.
   parameters carry a ⚡ marker; the Source column shows provenance (config /
   default / derived / user-set) read from the resolved set. A live filter box
   narrows rows by substring across dot-paths. Launched on a config the tree is
-  populated; launched bare it shows a "no configuration loaded" state. Read-only
-  in this task — parameter editing is Task B. Visual/UX capability only; no
-  computed-result or public-API change.
+  populated; launched bare it shows a "no configuration loaded" state. Visual/UX
+  capability only; no computed-result or public-API change.
+  **Task B (editing):** non-derived rows are now editable in place — a
+  schema-typed editor (combo for enums with schema-sourced choices, checkbox for
+  bools, spin box for ints, line edit for floats/strings), each commit one
+  `sensor.set`; rejected values (bounds / enum / consistency-group) render their
+  actionable what/why/action inline and in a modal and never stick; right-click
+  gives Copy dot-path, Explain (`sensor.explain`), and Reset to Default
+  (`sensor.reset`).
 - **`radiant gui` entry point and the `radiant.gui` package (GUI plan Phase 1,
   Task A).** A new PySide6 desktop-GUI shell — `launch_gui(sensor=None)` and the
   `radiant gui [CONFIG.yaml]` CLI subcommand — behind a new optional dependency

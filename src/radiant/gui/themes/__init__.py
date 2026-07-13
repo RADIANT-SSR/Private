@@ -18,7 +18,7 @@ Phase 1 **Task B** (this task) fills the package:
 
 from __future__ import annotations
 
-from radiant.gui.themes.stylesheet import apply_theme, build_stylesheet
+from radiant.gui.themes.stylesheet import active_theme, apply_theme, build_stylesheet
 from radiant.gui.themes.tokens import DARK, LIGHT, Theme
 
-__all__ = ["apply_theme", "build_stylesheet", "Theme", "LIGHT", "DARK"]
+__all__ = ["active_theme", "apply_theme", "build_stylesheet", "Theme", "LIGHT", "DARK"]

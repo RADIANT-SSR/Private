@@ -93,15 +93,11 @@ class TestRowRendering:
         for dotpath in derived:
             assert panel.value_text(dotpath).startswith(DERIVED_BADGE)
 
-    def test_rows_are_read_only(self, panel: ParameterPanel) -> None:
-        """Task A is read-only: no leaf item is editable."""
-        from PySide6.QtCore import Qt
-
-        for i in range(panel.tree.topLevelItemCount()):
-            group = panel.tree.topLevelItem(i)
-            for j in range(group.childCount()):
-                flags = group.child(j).flags()
-                assert not (flags & Qt.ItemFlag.ItemIsEditable)
+    def test_editability_follows_derived_flag(self, panel: ParameterPanel) -> None:
+        """Task B: non-derived leaves are editable; derived (⚡) leaves are not."""
+        for dotpath in panel.row_dotpaths():
+            derived = panel.source_text(dotpath) == "derived"
+            assert panel.is_editable(dotpath) is (not derived), dotpath
 
     def test_provenance_labels_from_resolved_set(
         self, panel: ParameterPanel, sensor: Sensor

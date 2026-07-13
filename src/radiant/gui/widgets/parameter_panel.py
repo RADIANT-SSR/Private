@@ -10,27 +10,52 @@ set via the public :meth:`Sensor.explain` surface (see
 :mod:`radiant.gui.param_format`). A live filter box narrows rows by substring across
 full dot-paths.
 
-GUI plan Phase 2 **Task A** ships this read-only: rows cannot be edited, there are no
-delegates, and no ``sensor.set`` is called. Editing, inline error rendering, and the
-right-click menu are Task B. Styling comes entirely from the design-system QSS theme;
-this module sets structure, object names, and text only (GUI plan §4.9).
+GUI plan Phase 2 **Task B** (this module) adds editing on top of the Task-A read-only
+tree:
+
+* Double-click (or the edit key) on an editable row opens the editor the parameter's
+  schema calls for (:class:`~radiant.gui.widgets.parameter_delegate.ParameterEditDelegate`)
+  — combo for enums, checkbox for bools, spin box for ints, line edit for floats/strings.
+  Derived (⚡) rows stay read-only.
+* Commit runs **one** ``sensor.set(dotpath, value)`` (§4.1). To keep the live sensor
+  untouched when a value is rejected, the edit is first validated on a throwaway
+  ``sensor.clone()`` (the API's own resolve does the validating — no reimplemented
+  physics); only a clean value is applied to the live sensor. A rejected value never
+  reaches the display and never mutates the sensor.
+* Rejections (``ParameterBoundsError`` / ``UnknownParameterError`` / consistency-group
+  violations — all surfaced by the resolver) render inline on the row (themed error
+  tint + tooltip + a themed banner) **and** in a modal
+  (:class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog`); an
+  unexpected exception raises
+  :class:`~radiant.gui.widgets.unexpected_error_dialog.UnexpectedErrorDialog` with a
+  traceback fold (Rules 15/17 — nothing swallowed).
+* Right-click: Copy dot-path, Explain (``sensor.explain`` in
+  :class:`~radiant.gui.widgets.explain_dialog.ExplainDialog`), Reset to Default
+  (``sensor.reset``).
+
+Styling comes entirely from the design-system QSS theme; this module sets structure,
+object names, and text only (GUI plan §4.9).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     format_value,
@@ -40,41 +65,63 @@ from radiant.gui.param_format import (
     provenance_from_explain,
     provenance_label,
 )
+from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
+from radiant.gui.widgets.explain_dialog import ExplainDialog
+from radiant.gui.widgets.parameter_delegate import (
+    DOTPATH_ROLE,
+    ERROR_ROLE,
+    ParameterEditDelegate,
+)
+from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
+    from radiant.core.parameters import ParameterDef
 
-# The three columns of the read-only parameter tree (§4.3): the leaf parameter
-# name, its value + unit suffix, and its provenance ("Source").
+# The three columns of the parameter tree (§4.3): the leaf parameter name, its
+# value + unit suffix, and its provenance ("Source").
 _COLUMNS: tuple[str, ...] = ("Parameter", "Value", "Source")
 
-# Qt item-data role carrying each leaf row's full dot-path (for filtering and the
-# both-directions schema-match test). UserRole is the first app-defined role.
-_DOTPATH_ROLE = int(Qt.ItemDataRole.UserRole)
+# Qt item-data role carrying each leaf row's full dot-path (for filtering, editing,
+# and the both-directions schema-match test). Shared with the edit delegate.
+_DOTPATH_ROLE = DOTPATH_ROLE
 
 _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
 
 # Compact fixed widths (px, layout geometry — not design tokens) for the Value and
 # Source columns, so the stretchy Parameter column keeps the most room in the dock.
-_VALUE_COL_WIDTH = 96
-_SOURCE_COL_WIDTH = 68
+_VALUE_COL_WIDTH = 104
+_SOURCE_COL_WIDTH = 72
 
 
 class ParameterPanel(QWidget):
-    """Filter box + schema-driven Parameter/Value/Source tree (read-only, Task A).
+    """Filter box + schema-driven Parameter/Value/Source tree, editable (Task B).
 
     Parameters
     ----------
     parent:
         The owning widget, if any.
+
+    Signals
+    -------
+    parameterEdited(str):
+        Emitted with the dot-path after an accepted edit or a reset, so the host
+        window can mark downstream state stale (a re-evaluation is due).
     """
+
+    parameterEdited = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("parameterPanel")
 
-        # dot-path -> leaf QTreeWidgetItem, for filtering and test introspection.
+        # The sensor currently displayed (None → empty state), and the dot-path ->
+        # leaf QTreeWidgetItem map for filtering, editing, and test introspection.
+        self._sensor: Sensor | None = None
         self._items: dict[str, QTreeWidgetItem] = {}
+        # The dot-path of the row whose last edit was rejected (themed error tint),
+        # or None when no row is in the error state.
+        self._error_dotpath: str | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -92,6 +139,26 @@ class ParameterPanel(QWidget):
         self._tree.setHeaderLabels(list(_COLUMNS))
         self._tree.setRootIsDecorated(True)
         self._tree.setAlternatingRowColors(True)
+        # Open the editor on double-click or the platform edit key (§4.3). Only
+        # rows carrying ItemIsEditable (non-derived leaves) actually open one.
+        self._tree.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked
+            | QAbstractItemView.EditTrigger.EditKeyPressed
+        )
+        # Right-click context menu (Copy dot-path / Explain / Reset to Default).
+        self._tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._show_context_menu)
+
+        # Value-column editor delegate: providers read the *live* sensor at edit
+        # time, and commits route through _commit_edit (one sensor.set per edit).
+        self._delegate = ParameterEditDelegate(
+            self._pdef_for,
+            self._input_value_for,
+            self._commit_edit,
+            self._tree,
+        )
+        self._tree.setItemDelegateForColumn(1, self._delegate)
+
         # Give the (often long) parameter names the stretch space; keep the Value
         # and Source columns compact so, in the narrow dock, names truncate last.
         header = self._tree.header()
@@ -107,9 +174,16 @@ class ParameterPanel(QWidget):
         self._empty_msg.setWordWrap(True)
         self._empty_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        # Themed inline error banner (hidden until a rejected edit); QSS owns colour.
+        self._error_banner = QLabel("", self)
+        self._error_banner.setObjectName("parameterErrorBanner")
+        self._error_banner.setWordWrap(True)
+        self._error_banner.setVisible(False)
+
         layout.addWidget(self._filter)
         layout.addWidget(self._tree, 1)
         layout.addWidget(self._empty_msg, 1)
+        layout.addWidget(self._error_banner)
 
         # A freshly constructed panel carries no sensor: show the empty state.
         self._show_empty_state()
@@ -126,6 +200,11 @@ class ParameterPanel(QWidget):
         """The Parameter/Value/Source tree built from the schema."""
         return self._tree
 
+    @property
+    def error_banner(self) -> QLabel:
+        """The themed inline error banner (visible only after a rejected edit)."""
+        return self._error_banner
+
     def row_dotpaths(self) -> set[str]:
         """Every parameter dot-path currently rendered as a tree row."""
         return set(self._items)
@@ -137,6 +216,14 @@ class ParameterPanel(QWidget):
     def source_text(self, dotpath: str) -> str:
         """The Source-column (provenance label) text for a row."""
         return self._items[dotpath].text(2)
+
+    def is_editable(self, dotpath: str) -> bool:
+        """True when the row for *dotpath* accepts edits (non-derived leaf)."""
+        return bool(self._items[dotpath].flags() & Qt.ItemFlag.ItemIsEditable)
+
+    def has_error(self, dotpath: str) -> bool:
+        """True when the row for *dotpath* is showing the rejected-edit state."""
+        return bool(self._items[dotpath].data(1, ERROR_ROLE))
 
     def visible_dotpaths(self) -> set[str]:
         """Dot-paths of the rows currently visible (not filtered out)."""
@@ -150,8 +237,10 @@ class ParameterPanel(QWidget):
         With a resolvable ``Sensor`` (the ``radiant gui CONFIG.yaml`` path) the
         tree fills from ``sensor.parameter_defs()``; ``None`` (a bare launch — a
         default ``Sensor()`` is not resolvable) leaves the themed "no configuration
-        loaded" state. Read-only: rows are not editable (Task A).
+        loaded" state. Rebuilding clears any transient rejected-edit state.
         """
+        self._sensor = sensor
+        self._clear_error_state()
         self._tree.clear()
         self._items.clear()
 
@@ -180,10 +269,11 @@ class ParameterPanel(QWidget):
         unit: str,
         description: str,
     ) -> QTreeWidgetItem:
-        """One leaf row: value + unit, ⚡-marked and provenance-labelled."""
+        """One leaf row: value + unit, ⚡-marked, provenance-labelled, editable."""
         provenance = provenance_from_explain(sensor.explain(dotpath))
+        derived = is_derived(provenance)
         value_text = format_value(self._resolved_value(sensor, dotpath), unit)
-        if is_derived(provenance):
+        if derived:
             value_text = f"{DERIVED_BADGE} {value_text}"
 
         # Leaf label is the dot-path remainder after the namespace prefix.
@@ -191,7 +281,10 @@ class ParameterPanel(QWidget):
         item = QTreeWidgetItem([leaf, value_text, provenance_label(provenance)])
         item.setData(0, _DOTPATH_ROLE, dotpath)
         item.setToolTip(0, f"{dotpath}\n{description}" if description else dotpath)
-        # Read-only (Task A): leave the default non-editable item flags untouched.
+        # Editable unless derived (Rule 4 / §4.3: ⚡ rows are read-only). The
+        # ItemIsEditable flag on column 1 is what lets the delegate open an editor.
+        if not derived:
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
         return item
 
     @staticmethod
@@ -207,6 +300,148 @@ class ParameterPanel(QWidget):
             return sensor.get_input(dotpath)
         except KeyError:
             return None
+
+    # -- editing ------------------------------------------------------------
+
+    def _pdef_for(self, dotpath: str) -> ParameterDef:
+        """The schema entry for *dotpath* (delegate uses it to choose the editor)."""
+        assert self._sensor is not None  # editing is disabled without a sensor
+        return self._sensor.parameter_def(dotpath)
+
+    def _input_value_for(self, dotpath: str) -> Any:
+        """The row's current input-unit value (seeds the editor)."""
+        assert self._sensor is not None
+        return self._resolved_value(self._sensor, dotpath)
+
+    def _commit_edit(self, dotpath: str, value: Any) -> None:
+        """Apply one edit: validate on a clone, then ``sensor.set`` if accepted.
+
+        The live sensor is mutated by exactly one ``set`` call, and only for a value
+        the API accepts. Validation runs first on a throwaway clone so a rejected
+        value leaves the live sensor — and therefore the displayed tree — untouched
+        (verified by the edit-reject test via the public API). Rejections surface
+        inline and in a modal; unexpected errors get a traceback dialog (Rules 15/17).
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+
+        trial = sensor.clone()
+        try:
+            trial.set(dotpath, value)
+            # Force a full resolve on the clone: bounds/enum/type checks and
+            # consistency-group validation all fire here (not at set() time).
+            trial.get_input(dotpath)
+        except RadiantError as exc:
+            self._reject_edit(dotpath, exc)
+            return
+        except Exception as exc:  # genuine bug, not a rejected input — never swallow
+            UnexpectedErrorDialog(exc, f"Editing “{dotpath}”", self).exec()
+            return
+
+        # Accepted: the single mandated API call on the live sensor.
+        sensor.set(dotpath, value)
+        self._clear_error_state()
+        self.populate(sensor)  # refresh value + provenance + any derived rows
+        self.parameterEdited.emit(dotpath)
+
+    def _reject_edit(self, dotpath: str, exc: RadiantError) -> None:
+        """Show the rejected-edit state inline + modal; the value never sticks."""
+        self._set_error_state(dotpath, exc)
+        ActionableErrorDialog(exc, dotpath, self).exec()
+
+    def _set_error_state(self, dotpath: str, exc: RadiantError) -> None:
+        """Mark *dotpath*'s row rejected (tint + tooltip) and show the banner."""
+        self._clear_error_state()
+        self._error_dotpath = dotpath
+        item = self._items.get(dotpath)
+        if item is not None:
+            item.setData(1, ERROR_ROLE, True)
+            item.setToolTip(1, str(exc))
+            self._tree.scrollToItem(item)
+            self._tree.setCurrentItem(item)
+        what = str(getattr(exc, "what", "") or exc)
+        action = str(getattr(exc, "action", "") or "")
+        leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath
+        summary = f"{leaf}: {what}"
+        if action:
+            summary = f"{summary} — {action}"
+        self._error_banner.setText(summary)
+        self._error_banner.setVisible(True)
+
+    def _clear_error_state(self) -> None:
+        """Drop any rejected-edit tint/tooltip and hide the banner."""
+        if self._error_dotpath is not None:
+            item = self._items.get(self._error_dotpath)
+            if item is not None:
+                item.setData(1, ERROR_ROLE, None)
+                item.setToolTip(1, "")
+            self._error_dotpath = None
+        self._error_banner.clear()
+        self._error_banner.setVisible(False)
+
+    # -- context menu -------------------------------------------------------
+
+    def _show_context_menu(self, pos: QPoint) -> None:
+        """Right-click menu on a leaf row: Copy dot-path / Explain / Reset (§4.3)."""
+        item = self._tree.itemAt(pos)
+        if item is None:
+            return
+        dotpath = item.data(0, _DOTPATH_ROLE)
+        if not dotpath:  # a namespace group header, not a parameter
+            return
+        dotpath = str(dotpath)
+
+        menu = QMenu(self._tree)
+        copy_action = menu.addAction("Copy dot-path")
+        explain_action = menu.addAction("Explain")
+        reset_action = menu.addAction("Reset to Default")
+        chosen = menu.exec(self._tree.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+        if chosen is copy_action:
+            self._copy_dotpath(dotpath)
+        elif chosen is explain_action:
+            self._explain(dotpath)
+        elif chosen is reset_action:
+            self._reset_to_default(dotpath)
+
+    def _copy_dotpath(self, dotpath: str) -> None:
+        """Put the full dot-path on the clipboard."""
+        QApplication.clipboard().setText(dotpath)
+
+    def _explain(self, dotpath: str) -> None:
+        """Render ``sensor.explain(dotpath)`` in a themed modal dialog."""
+        if self._sensor is None:
+            return
+        try:
+            text = self._sensor.explain(dotpath)
+        except Exception as exc:  # never swallow — surface it (Rules 15/17)
+            UnexpectedErrorDialog(exc, f"Explaining “{dotpath}”", self).exec()
+            return
+        ExplainDialog(dotpath, text, self).exec()
+
+    def _reset_to_default(self, dotpath: str) -> None:
+        """Reset *dotpath* to its schema default via ``Sensor.reset`` (§4.3).
+
+        ``Sensor.reset`` clears the user/config input so the parameter reverts to
+        its default (or is re-derived from a consistency group) on the next resolve.
+        Resetting a parameter that had no explicit input is a harmless no-op.
+        """
+        if self._sensor is None:
+            return
+        try:
+            self._sensor.reset(dotpath)
+            self._sensor.get_input(dotpath)  # force resolve; surfaces any error now
+        except RadiantError as exc:
+            self._reject_edit(dotpath, exc)
+            return
+        except Exception as exc:
+            UnexpectedErrorDialog(exc, f"Resetting “{dotpath}”", self).exec()
+            return
+        self._clear_error_state()
+        self.populate(self._sensor)
+        self.parameterEdited.emit(dotpath)
 
     # -- filtering ----------------------------------------------------------
 

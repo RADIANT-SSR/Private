@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI detail tabs — Spectral, MTF, Noise Budget, Variables, YAML (GUI plan
+  Phase 4 Task B).** The bottom detail dock's five tabs are now live, each its own
+  widget class and each populated on every successful evaluation from a public API
+  surface (no plotting or physics in GUI code): **Spectral** (a themed selector over
+  `result.plot.spectral_source()` / `spectral_atmosphere()` / `spectral_inband()`,
+  showing the accessor's actionable message when a frame is absent for the regime);
+  **MTF** (per-contributor MTF@Nyquist table discovered from the result's
+  `mtf_budget.per_term_at_nyquist`, x/y columns, dimensionless → bare numbers, plus the
+  `result.plot.mtf()` overlay); **Noise Budget** (per-term σ table in e- RMS from
+  `result.noise_terms`, `result.plot.noise_budget()` bars, and a click-a-term describe
+  panel from the `NoiseTerm` metadata); **Variables** (`radiant.api.inspect.inspect_result`
+  re-rendered as a collapsible tree); and **YAML** (read-only provenance-coloured current
+  config via `Sensor.save`, with an Export… button — the tab's only file I/O). Units on
+  every numeric cell (R-UNITS); all styling from theme tokens. Visual/UX capability only;
+  results-neutral.
 - **Spectral-radiance figure accessors on `result.plot.*` (Gap 86).** The
   `ResultPlotNamespace` gains three accessors — `spectral_source()` (target +
   optional background at-aperture radiance vs λ [W/m²/sr/µm]),

@@ -1283,6 +1283,28 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Fix location** | Add spectral accessors to `ResultPlotNamespace` (e.g. `spectral_source()`, `spectral_atmosphere()`, `spectral_inband()`) that pull the relevant frames/arrays off the `ChainResult` and delegate to the existing `plot_spectral`; then map those stages in `radiant.gui.stage_views.STAGE_VIEWS` from a gap view to a `KIND_PLOT` view. Effort S–M; category A (no physics, no results — a view accessor over already-computed frames). |
 | **Resolution** | `f678dfd` (2026-07-13) added `spectral_source()` / `spectral_atmosphere()` / `spectral_inband()` to `ResultPlotNamespace`, plus `plot_spectral_multi` and `plot_atmosphere_spectral` in `radiant.api.plot`. Each plots only real stored frames / stage outputs (no recomputation) and raises `ApiValidationError` when the required frame is absent. Since SourceStage stores no radiance frame, `spectral_source()` plots the earliest stored radiance (`at_aperture_target` / `at_aperture`, + optional `at_aperture_background`); the §4.4 "at target" label is unattainable without recomputation and is documented as at-aperture in `RADIANT_Scripting_API.md` §5.2. The GUI `stage_views` re-mapping (gap panel → `KIND_PLOT`) is the separate GUI plan Phase 4B task. |
 
+## Gap 87: `ChainResult` carries no public inspection/explanation convenience accessors (`result.inspect()`, `result.explain(term)`)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Development Plan Phase 4 Task B (Variables + Noise Budget detail tabs), 2026-07-13 |
+| **Status** | OPEN — GUI works around it via public equivalents; no faked surface. |
+| **Description** | Arch doc §4.5 names two `ChainResult` convenience accessors the detail tabs assume: **`result.inspect()`** (for the Variable Explorer tree) and **`result.explain(term)`** (a per-term noise explanation for the Noise Budget tab). Neither method exists on `ChainResult`. The public inspection surface is the module-level `radiant.api.inspect.inspect_result(result)`; there is **no** structured per-term noise-explanation accessor at all — the only per-term information is the `NoiseTerm` dataclass's own fields (`value_e`, `origin_frame`, `physical_basis`, `contributes_to`). |
+| **Impact** | The GUI must reach for the module function rather than a `result.inspect()` method (a cosmetic ergonomics gap — one public call either way) and, for noise, must render the `NoiseTerm`'s stored metadata as an honest "describe" panel instead of a purpose-built explanation string (physical formula, dominant driver, referral factors). Per ground rule §4.1 the GUI does **not** invent physics text; it shows what the public surface carries. No wrong information is shown — only less than the arch-doc prose implies. |
+| **Workaround** | Variable Explorer parses `inspect_result(result)`'s text into a tree (GUI plan Phase 4B); Noise Budget renders `describe_noise_term(term)` from the public `NoiseTerm` fields. |
+| **Fix location** | Add `ChainResult.inspect(stage=None)` sugar delegating to `radiant.api.inspect.inspect_result`, and a structured per-term explanation accessor (e.g. `ChainResult.explain_noise(term_name) -> NoiseExplanation`) carrying the term's physics basis, referral factors, and contribution share. Effort S–M; category B (a new public accessor over already-computed values — no physics change). Update arch doc §4.5 and the GUI Noise/Variables tabs to consume it when it lands. |
+
+## Gap 88: No in-memory / resolved-scope config serialize surface on the public API (only file-based `Sensor.save`, inputs scope)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Development Plan Phase 4 Task B (YAML detail tab), 2026-07-13 |
+| **Status** | OPEN — GUI works around it via a temp-file round-trip; no faked surface. |
+| **Description** | The public API's only config serialize surface is `Sensor.save(path)`, which writes to a **file** in the **inputs** scope (explicitly-set values plus a `_radiant` meta block; defaults and derived values are not written — they re-apply on load). There is no in-memory / string serialize (`Sensor.to_yaml() -> str`) and no public **resolved**-scope serialize (`radiant.io.config.save_config(..., scope="resolved")` exists but is not exposed on `Sensor`). |
+| **Impact** | The YAML detail tab, which wants to *display* the current config as text, must save to a throwaway temp file and read it back (`serialize_yaml`). It can only show the **inputs** scope, so defaults and derived parameters do not appear as lines — a fully-resolved "everything the run used" export is unreachable from the GUI. The displayed text still round-trips through `Sensor.load` exactly (the contract the tab relies on). |
+| **Workaround** | `radiant.gui.yaml_format.serialize_yaml(sensor)` saves to `tempfile.mkstemp` and reads the text back; the temp file is unlinked (a failed unlink is logged, not swallowed). |
+| **Fix location** | Add `Sensor.to_yaml(scope="inputs"|"resolved") -> str` (a string serialize over `radiant.io.config`), then have `serialize_yaml` call it directly (no temp file) and offer a resolved-scope toggle in the YAML tab. Effort S; category B (public-surface addition, no physics/results change). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1373,6 +1395,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 84 | No time-based / orbital-ephemeris geometry | — | pass-geometry (V7/V8/S4) | OPEN |
 | 85 | No mission-type-driven parameter relevance (declared type → param setup guidance) | M–L | operator setup guidance (all personas) | DEFERRED (post-v1) |
 | 86 | `result.plot` exposes no spectral-radiance figure accessor | S–M | Source/Atmosphere/Spectral-Integration GUI views | FIXED |
+| 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | S–M | GUI Variables + Noise Budget tabs | OPEN |
+| 88 | No in-memory / resolved-scope config serialize surface (only file `Sensor.save`) | S | GUI YAML tab | OPEN |
 
 ---
 

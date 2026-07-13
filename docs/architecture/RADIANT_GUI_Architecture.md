@@ -480,11 +480,25 @@ v1 ships **six** tabs (the Sweep tab is v1.1 and absent from v1):
 |-----|---------|
 | **Spectral** | Spectral radiance at all frames; wavelength-grid info; filter bandpass overlay |
 | **MTF** | System MTF + all individual terms (table + overlay plot); MTF at Nyquist; RER; PSF plot; EE curve |
-| **Noise Budget** | Full noise-budget table; bar chart; per-term explanation (`result.explain(term)`) |
-| **Variable Explorer** | `result.inspect()` rendered as a collapsible tree |
+| **Noise Budget** | Full noise-budget table; bar chart; per-term explanation |
+| **Variable Explorer** | Result inspection rendered as a collapsible tree |
 | **YAML** | Read-only view of current config with provenance coloring; Export button |
 | **Console** | Embedded IPython console with live `sensor` and `result` (GUI plan Phase 8) |
 | ~~Sweep~~ | **v1.1** — inline parameter sweep (`sensor.sweep()`); absent in v1 |
+
+**As shipped (GUI plan Phase 4 Task B).** The Spectral, MTF, Noise Budget, Variable
+Explorer, and YAML tabs are each a widget class in its own file (Rule 19 spirit;
+`radiant.gui.widgets.spectral_tab` … `yaml_tab`), wired into `DetailTabs`. Each renders
+only from a **public** API surface (one GUI action ↔ one API call, §1.2 R-API), and each
+carries its own themed evaluate-first state until the first result:
+
+| Tab | Shipped data source |
+|-----|---------------------|
+| **Spectral** | A themed selector over `result.plot.spectral_source()` / `spectral_atmosphere()` / `spectral_inband()`; an accessor that raises `ApiValidationError` (frame absent for the regime) shows its actionable message in place of the figure. |
+| **MTF** | Per-contributor MTF@Nyquist table (terms **discovered** from `stage_outputs["performance"]["mtf_budget"].per_term_at_nyquist`, never hardcoded; x/y columns) + `result.plot.mtf()` overlay. MTF is dimensionless → cells render as bare numbers through the shared `format_metric_value` helper (R-UNITS). |
+| **Noise Budget** | Per-term table (`term`, σ in **e- RMS**) from `result.noise_terms` + `result.plot.noise_budget()` bars; clicking a row shows that `NoiseTerm`'s stored metadata (value, physical basis, origin frame, contributions). **`result.explain(term)` does not exist** on `ChainResult` — the GUI shows the public `NoiseTerm` "describe" fields instead; the missing structured explain accessor is **Gap 87**. |
+| **Variable Explorer** | `radiant.api.inspect.inspect_result(result)` re-rendered as a collapsible tree. **`result.inspect()` does not exist** as a `ChainResult` method — the GUI calls the module-level `inspect_result` (the real public surface); the convenience method is **Gap 87**. Wrapped NumPy array reprs in the inspector text are folded onto their node (**CU-113**) so the tree stays structural. |
+| **YAML** | Read-only serialized config via `Sensor.save` (round-tripped in `yaml_format.serialize_yaml`), each line tinted by its provenance (user-set / config / default / derived / sampled) reusing the Phase-2 provenance path; an **Export…** button writes the YAML to a chosen file (the tab's only file I/O). Text is the **inputs** scope and round-trips through `Sensor.load` exactly; there is no in-memory / resolved-scope serialize surface (**Gap 88**). All provenance colours resolve from the active theme (§8), no literal in the widget. |
 
 ---
 

@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
+
+**Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13
+**Status**: Open — dead style rule; harmless (no widget carries the object name, so nothing renders it), but misleading to a reader.
+**File**: `src/radiant/gui/themes/stylesheet.py` (the `/* -- Stage gap panel … */` block: `#stageGapPanel`, `QLabel#stageGapHeader`, `QLabel#stageGapDetail`, `QLabel#stageGapTracked`, ~L264–281).
+**Symptom**: Phase 4 Task A deleted the `StageGapPanel` widget once the Gap-86 spectral accessors landed (arch doc §4.4 states "the former gap panel (`StageGapPanel`) is deleted"), but its four QSS rules were left behind. `grep -rn stageGapPanel src/radiant/gui` finds hits only in `themes/stylesheet.py`.
+**Why it still matters**: Rule 26/27 — a superseded artifact should be deleted with its replacement, not retained. The dead block invites a future reader to think a gap panel still exists and grows the theme sheet with unreachable rules.
+**Suggested fix**: (a) inline-fix-now — delete the four-rule block in the next PR touching `stylesheet.py`. Effort XS; category A (style-only, no behaviour). Deferred out of Phase 4B to keep that PR's stylesheet diff limited to the additive detail-tab section.
+
+### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
+
+**Discovered**: GUI Development Plan Phase 4 Task B (Variable Explorer tab), 2026-07-13
+**Status**: Open — verbosity, not incorrectness; the GUI folds the overflow, but the inspector text itself is bloated.
+**File**: `src/radiant/api/inspect.py` (`_fmt` / `_format_full`).
+**Symptom**: `_fmt` summarises a *top-level* `np.ndarray` as `ndarray(shape=…, dtype=…)`, but an array **nested inside** a stage-output object/tuple is printed via that object's `repr`, which expands the full array across hundreds of wrapped lines. For the shipped example, `inspect_result(result)` is 3938 lines, of which ~3757 are array-continuation lines; the real structural tree is ~182 nodes. The GUI Variable Explorer (`parse_inspect_tree`) folds each wrapped continuation onto its parent node to keep the tree structural, but the underlying inspector string is still enormous (slow to build, unwieldy in the console).
+**Why it still matters**: `inspect_result` is the public introspection surface (Gap 87) — a 3900-line dump for one evaluation is poor console ergonomics and makes the GUI tab do cleanup the API should. A reader printing `inspect_result(result)` at the REPL gets a wall of numbers.
+**Suggested fix**: (b) stand-alone task — have `_fmt` (or a NumPy print-options context in `inspect_result`) summarise **any** ndarray it encounters, including nested ones, to `ndarray(shape=…, dtype=…)` or a `np.array2string(threshold=…)` truncation. Effort S; category A (formatting only — no computed values change). Re-audit the GUI fold once done (it can then be simplified but stays correct either way).
+
 ### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13

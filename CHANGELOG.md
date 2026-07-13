@@ -21,6 +21,24 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI evaluate loop, live metric badges, and saturation banner (GUI plan
+  Phase 3 — Milestone A / D2).** `radiant gui` now runs the full chain: opening
+  or editing a config evaluates `sensor.evaluate()` on a background worker thread
+  (the Qt thread never runs the chain), driven by Run → Evaluate (F5) or the
+  accent Run button, and auto-re-evaluated after a 200 ms debounce on any
+  parameter edit (full chain — no incremental engine, CU-079). The five KPI
+  badges (SNR · NEDT · NIIRS · GSD · MTF@Nyquist) fill from the `ChainResult`
+  metric surface with each value's unit sourced from the result metadata
+  (`metric_records()`), a result-typed metric failure shows its `failure_reason`
+  (never a blank), and the central matplotlib canvas renders the existing
+  `result.plot.*` figure (default: the MTF overlay). A failed evaluation keeps
+  the previous result on screen, flagged stale ("last evaluation failed"), and
+  shows the actionable error (`RadiantError` → what/why/action; otherwise a
+  traceback dialog). A **non-dismissible saturation banner** appears whenever
+  `result.well_status().is_saturated`, showing the fill fraction and the
+  accumulated-vs-capacity electrons with units, and clears on the next
+  unsaturated result. Visual/UX capability only; the GUI is results-neutral (no
+  computed-result or public-API change).
 - **`ChainResult.well_status()` — full-well saturation on the result surface
   (CU-101).** The readout stage's well-capacity clip decision is now a
   first-class accessor returning a `WellStatus` record (exported as

@@ -200,6 +200,15 @@ The `except Exception` here is a thread-boundary hand-off, not a swallow: the ex
 is re-emitted to the GUI thread, which renders it (RadiantError → what/why/action modal;
 anything else → error dialog with a traceback fold). Nothing is silently dropped.
 
+**Thread isolation (as shipped, GUI plan Phase 3).** The main window hands the worker a
+private `sensor.clone()` taken on the GUI thread at schedule time, not the live sensor, so
+a parameter edit that lands on the GUI thread while the chain is mid-run cannot race the
+worker's read of the same object. The worker still performs exactly one `evaluate()` call
+(one GUI action ↔ one API call); the clone is a thread-isolation mechanism, not a second
+API surface. The status bar shows an indeterminate busy indicator while the worker runs,
+and only one evaluation runs at a time — an edit that arrives mid-run is coalesced and
+re-issued when the in-flight run finishes.
+
 Per-point `progress(done, total)` / `cancel()` callbacks **do** exist on
 `sensor.sweep()` / `sweep_2d()` / `monte_carlo()` (Gap 72, `api/_progress.py`) and back
 the **v1.1** sweep/MC progress bars — not the v1 single-shot evaluate loop.
@@ -325,9 +334,28 @@ the active stage:
 | Performance | System MTF; SNR summary |
 
 A metric-badge row above the canvas always shows the current performance summary, every
-value with its unit (R-UNITS): **SNR · NEDT [mK] · NIIRS · GSD [m] · MTF@Nyquist.** A
+value with its unit (R-UNITS): **SNR · NEDT · NIIRS · GSD · MTF@Nyquist.** A
 metric that returns a result-typed failure (Rule 17 carve-out) shows its
 `failure_reason`, not a blank.
+
+**As shipped (GUI plan Phase 3).** Each badge reads one metric from the `ChainResult`
+metric surface — SNR ← `snr`, NEDT ← `nedt_K`, NIIRS ← `niirs`, GSD ←
+`gsd_geometric_mean_m`, MTF@Nyquist ← `mtf_at_nyquist` — and its **unit is sourced from
+`ChainResult.metric_records()`** (the registry metadata), never hardcoded in the widget.
+Consequently NEDT renders in its canonical unit **K** (e.g. `0.04463 K`), not the
+mockup's illustrative `mK`; a per-metric display-scaling nicety (mK, µrad, …) is a later
+enhancement (CU-108). A pure ratio / rating-scale unit (`dimensionless`, `NIIRS level`)
+renders as a bare number, matching the mockup. The **default post-evaluate figure** while
+no stage is selected (the stage strip lands in Phase 4) is the **MTF overlay**
+(`result.plot.mtf()`) — the on-spec choice for the Performance row above, and the figure
+that visibly responds to the D2 aperture-diameter edit. The **saturation banner** (below)
+is placed **between the badge row and the canvas**.
+
+The full-well **saturation banner** (§7.2 row 8, owner amendment 2) is a persistent,
+non-dismissible banner shown whenever `result.well_status().is_saturated`; it renders the
+well fill fraction (as a `×` multiple) and the accumulated-versus-capacity charge in
+electrons (R-UNITS), and clears on the next unsaturated result. It reads the
+`ChainResult.well_status()` surface (CU-101), never a `stage_outputs` dict-hop.
 
 ### 4.5 Tabbed Detail Panel (Bottom)
 

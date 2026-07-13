@@ -66,15 +66,6 @@
 **Why it still matters**: Rule 20 / Rule 23 — a doc claiming a precise, wrong file count is aspirational-drift bait; a reader trusting "348" is misled. The doc self-declares `find` as the source of truth, which caps the harm, but the printed totals should either be regenerated or replaced with a generator command.
 **Suggested fix**: stand-alone task — regenerate the count header + subtotal/grand-total rows from `find src/radiant -name '*.py'` (split by `__init__.py` / `test_*.py` / source), or replace the static totals with the command and drop the hand-maintained numbers. Effort S; category A (doc-only, no code change).
 
-### CU-101 — `well_status` is only in `stage_outputs["readout"]`, never on the `ChainResult` metric surface — GUI cannot cheaply surface full-well saturation
-
-**Discovered**: GUI Development Plan Phase 0 — scenario `gui_workflow.md` requirements harvest, 2026-07-12
-**Status**: Open — pulled into GUI v1 at the 2026-07-12 Phase 0 checkpoint (owner amendment 2); gate/consumer = GUI plan Phase 3 (evaluate loop), where the GUI saturation banner lands; this CU (the API-surface half) is the Phase 3 prerequisite and lands first.
-**File**: `src/radiant/readout/stage.py:389` (`state.with_stage_output("readout", "well_status", well_status.value)` — the only publication point); consumed only via `result.stage_outputs["readout"]["well_status"]`. No `ChainResult` property, metric, or badge exposes it. Compare `performance/saturation_metrics.py` (`MarginResult.is_saturated`), which is a separate margin metric, not the readout clip status.
-**Symptom**: five scenario workflows (1.3, 1.4, 2.5, 4.4, 8.2) require a prominent, persistent saturation indicator; 8.2 and its walkthrough explicitly note that three scenarios in a row (6.1, 6.2, 8.2) lost time to *silent* full-well clipping — the chain ran without error, clipped, and produced a misleadingly "atmosphere has zero effect" result. The saturation state exists (`SaturationStatus.CLIPPED`) but is buried one dict-hop deep in `stage_outputs`, below the `ChainResult` metric/badge surface the GUI (and casual script users) read.
-**Why it still matters**: the GUI v1 metric-badge set is SNR/NEDT/NIIRS/GSD/MTF@Nyquist (arch doc §4.4) — none of which reveal a clipped pixel. Until `well_status` is a first-class result surface, any GUI saturation banner must special-case a `stage_outputs` lookup rather than read a metric, and the underlying "silent clip" trap remains for scripting users too. This is the shipped-API half of the deferred GUI "saturation banner" capability (arch doc §7.2 row 8); the banner UI itself is a GUI capability tracked to `gaps.md` at GUI plan Phase 9.
-**Suggested fix**: stand-alone task — promote `well_status` (and ideally the clipped-electron count / well-fill fraction) to a `ChainResult` property or a named entry in the metrics mapping, with a `UserWarning` already emitted at the stage (present) preserved. Then the GUI reads a metric, not a stage-output dict. Effort S–M; category B (surface change, no physics change — the value already exists).
-
 ### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
 
 **Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12
@@ -239,6 +230,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-101 — `well_status` is only in `stage_outputs["readout"]`, never on the `ChainResult` metric surface — RESOLVED 2026-07-12 (commit `4c26c90`)
+
+**Discovered**: GUI Development Plan Phase 0 — scenario `gui_workflow.md` requirements harvest, 2026-07-12. **Resolution**: added `ChainResult.well_status() -> WellStatus` (exported as `radiant.api.WellStatus`) surfacing the readout clip decision as a first-class result — `.status` (`"ok"`/`"clipped"`, equal to `stage_outputs["readout"]["well_status"]`), `.is_saturated`, `.fill_fraction` (dimensionless), `.total_well_e` [e-], `.full_well_capacity_e` [e-], each unit documented on the dataclass. `ReadoutStage` now also publishes `well_fill_fraction`, `total_well_e`, and `full_well_capacity_e` to `stage_outputs["readout"]`, so the surface is self-contained and survives `save()`/`load()`. The Rule-17 `UserWarning` at the stage is preserved. GUI saturation banner (GUI plan Phase 3) now reads a result accessor, not a `stage_outputs` special-case; the silent-clip trap (Gap 65) is surfaced for scripting users too. Public-surface addition only, no physics change — goldens untouched (integration 505 passed). Docs swept in lock-step (RADIANT_Scripting_API §3.3/§3.6, RADIANT_Signal_Chain_Architecture ChainResult stub — Rule 20); CHANGELOG [Unreleased] Added (Rule 29). `mypy --strict src/radiant/api` clean, ruff + import-linter + org-rules clean.
 
 ### CU-024 — Sun-zenith readout: `θ_s` (target) and `θ_sun,B` (background) collapse to identical values in flat-ground display — RESOLVED 2026-07-12 (commit `3acac3a`)
 

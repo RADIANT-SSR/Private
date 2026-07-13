@@ -88,7 +88,7 @@ These four decisions were put to the owner explicitly and are binding for v1:
    ├── main_window.py     # RADIANTMainWindow(QMainWindow)
    ├── widgets/           # one widget class per file (Rule 19 spirit)
    ├── workers.py         # QThread evaluation worker
-   ├── themes/            # QSS stylesheets (dark default, light)
+   ├── themes/            # QSS stylesheets (light default, dark alternate)
    └── tests/             # pytest-qt tests
    ```
 
@@ -128,7 +128,10 @@ These four decisions were put to the owner explicitly and are binding for v1:
    (distilled from the mockups) is implemented once as the QSS theme in
    `gui/themes/` (Phase 1). No widget in any phase hardcodes a color, font, or
    size outside `themes/` — review-blocking, so the app looks like the mockups at
-   every checkpoint and a palette change stays a one-file edit.
+   every checkpoint and a palette change stays a one-file edit. **Light is the v1
+   launch default, dark is the alternate** (Phase 0 checkpoint amendment 1,
+   2026-07-12); both ship from the same token set and the Phase 9 View-menu toggle
+   switches them.
 10. **Testing:** `pytest-qt` (`qtbot`), headless via `QT_QPA_PLATFORM=offscreen`.
    Every menu/toolbar action added in a phase gets a programmatic trigger test (arch
    doc §8). GUI tests live in `src/radiant/gui/tests/` and run with
@@ -193,6 +196,12 @@ Tasks:
 
 Exit criteria: revised arch doc merged; requirements matrix complete; no code.
 Checkpoint: owner reads the revised doc's v1 scope + matrix and confirms.
+**Checkpoint passed 2026-07-12** — owner confirmed (OUT-OF-V1 table accepted, v1 scope
+split confirmed, geometry-viewer contract confirmed, design system approved) with two
+amendments: (1) light theme is the v1 launch default, dark the alternate (was dark
+default); (2) the `well_status` saturation banner is pulled into v1 — the GUI banner
+lands in Phase 3, with CU-101 (expose `well_status` on the `ChainResult` surface) as its
+API-half prerequisite. Recorded in `RADIANT_GUI_Architecture.md` §1.3.
 
 ### Phase 1 — Scaffold, Shell, Design System, and Test Harness
 **Gate:** Geometry_Stage_Plan Complete and archived (D3). Verify before starting; if
@@ -210,14 +219,17 @@ Tasks:
 3. `radiant gui [CONFIG.yaml]` CLI subcommand (lazy import; actionable error naming
    the `pip install "radiant[gui]"` remedy if PySide6 is missing).
 4. **Design-system theme (first-class deliverable, not polish):** implement the
-   Phase 0 Design System spec as the default dark QSS theme in `gui/themes/` —
+   Phase 0 Design System spec as the default **light** QSS theme in `gui/themes/` —
    palette, typography, spacing, control styling (buttons, inputs, combo boxes,
    trees, tabs, dock titles, status bar), so every subsequent phase's checkpoint
    already looks like the end product. One central theme module owns all colors and
    fonts; **no widget ever hardcodes a color or font outside `themes/`** (this is a
-   review-blocking rule for every later phase). A basic light theme derives from the
-   same token set; visual parity with the mockups is judged at the checkpoint against
-   `pdf_shots/00-workspace.png`.
+   review-blocking rule for every later phase). A basic **dark** theme (the alternate)
+   derives from the same token set. Light is the v1 launch default per the Phase 0
+   checkpoint amendment (2026-07-12); visual parity with the mockups is judged at the
+   checkpoint against the **light** rendering of
+   `dev_tools/gui_mockups/radiant_ui/radiant_mid_fi.html` (its load default), **not**
+   `pdf_shots/00-workspace.png` (which is dark).
 5. Import-linter contracts + `CLAUDE.md` import table + `RADIANT_File_Tree.md` updated
    in the same PR (Rule 20).
 6. pytest-qt harness: offscreen fixture, window-opens smoke test, menu-action trigger
@@ -227,10 +239,11 @@ Tasks:
 7. `CHANGELOG.md`: `radiant gui` entry point added (Rule 29b).
 
 Checkpoint: `radiant gui` opens an empty window with menus that already carries the
-mockups' look — dark palette, typography, styled chrome — side-by-side comparable to
-`pdf_shots/00-workspace.png`. Closing it exits cleanly. **This checkpoint is
-explicitly a look-and-feel review:** feedback on colors, fonts, and density is wanted
-now, while changes are one-file cheap, not after five phases of widgets exist.
+mockups' look — light palette, typography, styled chrome — side-by-side comparable to the
+light rendering of `dev_tools/gui_mockups/radiant_ui/radiant_mid_fi.html` (its load
+default; **not** the dark `pdf_shots/00-workspace.png`). Closing it exits cleanly. **This
+checkpoint is explicitly a look-and-feel review:** feedback on colors, fonts, and density
+is wanted now, while changes are one-file cheap, not after five phases of widgets exist.
 
 ### Phase 2 — Parameter Panel
 **Category:** A · **Effort:** L (split point: read-only tree lands first, editing second)
@@ -269,8 +282,18 @@ Tasks:
 4. Auto re-evaluate on parameter edit, debounced 200 ms, full chain (no incremental
    engine — CU-079). A failed evaluation leaves the previous result displayed with a
    visible "stale — last evaluation failed" state.
-5. Integration tests: edit→evaluate→badges-update round trip offscreen; error dialog
-   on an invalid config; golden suite untouched (Category D regression statement).
+5. **`well_status` saturation banner** (pulled into v1 at the Phase 0 checkpoint —
+   owner amendment 2, 2026-07-12): a persistent, non-dismissible banner shown whenever
+   the detector well clips (`SaturationStatus.CLIPPED`), so silent full-well clipping is
+   never invisible (three scenarios lost time to it). **Prerequisite: CU-101** — the API
+   half must land first, exposing `well_status` on the `ChainResult` metric surface so
+   the banner reads a result property, not a `stage_outputs["readout"]` dict-hop. Confirm
+   CU-101 is resolved before building the banner; landing that surface change is the first
+   step of this phase. Per ground rule 1, if CU-101 turns out to need physics/schema work
+   (it does not — the value already exists), the phase stops and reports.
+6. Integration tests: edit→evaluate→badges-update round trip offscreen; error dialog
+   on an invalid config; the saturation banner appears on a clipping config and clears on
+   a non-clipping one; golden suite untouched (Category D regression statement).
 
 Checkpoint: the D2 milestone — open YAML, change aperture diameter, watch SNR/NEDT
 badges and the plot update; enter a bad value and read the error. **This checkpoint is

@@ -74,6 +74,21 @@ phase and are restated here as the contract this architecture enforces:
   sourced from the `ParameterDef` / result metadata, never hardcoded. This is an owner
   hard rule.
 
+### 1.3 Phase 0 Checkpoint Ratification (owner, 2026-07-12)
+
+The owner ran the GUI plan Phase 0 checkpoint against this document and **confirmed** it
+— OUT-OF-V1 table accepted (§7.2), v1 scope split confirmed (§1.1), geometry-viewer
+contract confirmed (§6), design system approved (§8) — with two amendments:
+
+- **Amendment 1 — light theme is the v1 launch default**, dark is the alternate. Both
+  derive from the same token set; the View-menu toggle (Phase 9) is unchanged. The owner
+  reviewed the light rendering live in `radiant_mid_fi.html` (its load default) on
+  2026-07-12. Recorded in §8.
+- **Amendment 2 — the `well_status` saturation banner is pulled into v1** (was §7.2 row 8,
+  dispositioned to `gaps.md`). The GUI half — a persistent banner when the detector well
+  clips — lands in GUI plan Phase 3; the API half is **CU-101** (expose `well_status` on
+  the `ChainResult` metric surface), now a Phase 3 prerequisite. Recorded in §7.2 row 8.
+
 ---
 
 ## 2. Technology Choice: PySide6 (Qt6 Native)
@@ -476,8 +491,10 @@ derived-value display (Phase 2) — are noted once here and not repeated per row
 
 ### 7.2 Consolidated OUT-OF-V1 Features (owner checkpoint reading)
 
-Distinct capabilities requested by workflows but delivered by **no** v1 phase. Ranked by
-breadth of demand. Dispositioned at GUI plan Phase 9 (each becomes a `gaps.md` entry or a
+Distinct capabilities requested by workflows but delivered by **no** v1 phase — with one
+exception: **row 8 (the `well_status` saturation banner) was pulled into v1** at the
+2026-07-12 Phase 0 checkpoint (owner amendment 2, §1.3). Ranked by breadth of demand. The
+remaining rows are dispositioned at GUI plan Phase 9 (each becomes a `gaps.md` entry or a
 v1.1 line item); listed here so the owner can confirm the deferral is acceptable.
 
 | # | Feature | Requesting scenarios | Suggested disposition |
@@ -489,7 +506,7 @@ v1.1 line item); listed here so the owner can confirm the deferral is acceptable
 | 5 | **Library / preset browser (target, ship-class, sensor, weather, lab/TVAC presets)** | 2.1,2.3,3.2,4.1,4.2,7.1,7.2,7.3,7.4,7.5 (10) | **deferred (library browser, §9)** |
 | 6 | **Detection / threshold traffic-light & go/no-go panels (DRI matrix, detection-range heatmap, ROC/P_d, feasibility)** | 1.3,2.5,3.2,4.1,4.2,4.5,6.4 (7) | **gaps.md** |
 | 7 | **Data importers (ASTER material, measured-ε/QE/dark CSV, tape7/libRadtran, NETD vendor, Zemax Zernike)** | 1.1,1.3,2.1,4.3,4.5,5.1,5.2,6.2,7.5,8.1 (10) | **v1.1** (io loaders exist; dialogs needed); tape7/libRadtran flagged specifically |
-| 8 | **Persistent `well_status` saturation banner** | 1.3,1.4,2.5,4.4,8.2 (5) | **gaps.md** + **CU-101** (the API-surface half: `well_status` is only in `stage_outputs`) |
+| 8 | **Persistent `well_status` saturation banner** | 1.3,1.4,2.5,4.4,8.2 (5) | **v1 (Phase 3 banner; CU-101 API half is the Phase 3 prerequisite)** — pulled into v1 at the 2026-07-12 Phase 0 checkpoint (owner amendment 2). The GUI half (a persistent banner when the detector well clips) lands in GUI plan Phase 3; the API half is **CU-101** (expose `well_status`, only in `stage_outputs`, on the `ChainResult` metric surface), now a Phase 3 prerequisite |
 | 9 | **2-D / multi-axis sweep + live heatmap** (beyond v1.1 single-axis) | 1.2,2.5,3.2 (3) | **v1.1+** (Sweep tab is single-axis in v1.1; 2-D grid is a further increment) |
 | 10 | **Inverse-solve / optimizer UI (`solve_for`, reverse lookup, FoM optimize, constraint solve)** | 1.2,5.1,5.2,7.4 (4) | **gaps.md** (`solve_for` exists in API; no GUI surface) |
 | 11 | **Atmosphere-source A/B toggle (parametric vs imported)** | 1.1,6.2 (2) | **gaps.md** (explicitly flagged) |
@@ -503,9 +520,11 @@ v1.1 line item); listed here so the owner can confirm the deferral is acceptable
 **Read:** the dominant unmet demand is data ingestion (rows 1, 7) and results
 communication (rows 2, 3, 4) — not the physics, which the chain already computes. The v1
 evaluate-loop-plus-panels covers the compute; the deferred tail is mostly I/O and
-reporting ergonomics. Confirm this deferral shape is acceptable, or flag any single row
-that should be pulled into v1 (row 8, the saturation banner, is the strongest candidate —
-three scenarios report lost time to silent clipping).
+reporting ergonomics. At the 2026-07-12 Phase 0 checkpoint the owner confirmed this
+deferral shape and pulled exactly one row into v1: **row 8, the saturation banner** (owner
+amendment 2) — three scenarios reported lost time to silent clipping; it lands in GUI plan
+Phase 3 with CU-101 (the API half) as its prerequisite. All other rows remain
+dispositioned as listed.
 
 ### 7.3 Assumptions in Workflows That the Shipped API / v1 Scope Does Not Meet
 
@@ -547,14 +566,17 @@ The binding visual specification the Phase 1 QSS theme implements. **No widget i
 phase hardcodes a color, font, or size outside `gui/themes/`** (GUI plan §4.9 —
 review-blocking). All values below are pulled verbatim from the mockup CSS in
 `dev_tools/gui_mockups/radiant_ui/radiant_mid_fi.html` and `radiant_scripting.html`
-(the `:root` light block and the `body.dark` override). **Dark is the v1 default**
-(GUI plan §4.4); the mockup HTML happens to default to light with a `body.dark`
-override — the app inverts that default but uses the same two token sets.
+(the `:root` light block and the `body.dark` override). **Light is the v1 launch
+default, dark is the alternate** (GUI plan §4.4, Phase 0 checkpoint amendment 1);
+both derive from the same token set, and the View-menu toggle (Phase 9) switches
+between them. The mockup HTML defaults to light, so the app matches that default.
+*Ratification note:* the owner reviewed the light rendering live in `radiant_mid_fi.html`
+(its load default) on 2026-07-12 and confirmed light-default at launch (§1.3).
 
 ### 8.1 Color Palette
 
 Named as design tokens (CSS-var names preserved so the QSS maps 1:1). **Dark theme —
-v1 default:**
+alternate** (both token sets ship in Phase 1; the View-menu toggle switches them):
 
 | Token | Hex (dark) | Role |
 |-------|-----------|------|
@@ -582,7 +604,8 @@ v1 default:**
 | `focus` | `#86a8df` | keyboard/selection focus (blue) |
 | `focus-soft` | `#1e2a3e` | focus tint (selected stage background) |
 
-**Light theme — alternate** (GUI plan Phase 9 toggle): `bg #ebeef2` · `panel #fafbfc` ·
+**Light theme — v1 launch default** (Phase 0 checkpoint amendment 1; the View-menu
+toggle switches to the dark alternate, GUI plan Phase 9): `bg #ebeef2` · `panel #fafbfc` ·
 `panel-2 #f1f3f6` · `panel-3 #e6e9ee` · `line #cfd5de` · `line-2 #b7bfcb` · `ink #1b2230`
 · `ink-2 #384050` · `muted #6b7380` · `muted-2 #8a93a1` · `accent #b8431a` ·
 `accent-soft #f6e2d6` · `ok #2f7a3a` / `ok-soft #dcebdd` · `warn #a97c14` /

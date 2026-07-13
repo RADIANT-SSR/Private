@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444)
+
+**Discovered**: GUI Development Plan Phase 1 Task A (adding the `gui/` package to the file tree), 2026-07-12
+**Status**: Open
+**File**: `docs/architecture/RADIANT_File_Tree.md` — the "Current file count" header line (~L8, "348 `.py` files … 184 source + 128 test + 36 `__init__.py`") and the "File Count Summary" table subtotal / grand-total rows (~L347–352, "Subtotal 184/128", "Grand total (non-init) 330").
+**Symptom**: `find src/radiant -name '*.py' | wc -l` returns **444** (40 `__init__.py`, 165 `test_*.py`), not the 348 the doc claims. The per-package inventory rows were updated in this task (cli 12/2, gui 3/1) but the roll-up totals were left at their 2026-07-06 values because the base is ~96 files stale from repo growth unrelated to this task — reconciling the whole table is out of Phase-1 scope. The header and totals now carry an inline "stale — see CU-102" note.
+**Why it still matters**: Rule 20 / Rule 23 — a doc claiming a precise, wrong file count is aspirational-drift bait; a reader trusting "348" is misled. The doc self-declares `find` as the source of truth, which caps the harm, but the printed totals should either be regenerated or replaced with a generator command.
+**Suggested fix**: stand-alone task — regenerate the count header + subtotal/grand-total rows from `find src/radiant -name '*.py'` (split by `__init__.py` / `test_*.py` / source), or replace the static totals with the command and drop the hand-maintained numbers. Effort S; category A (doc-only, no code change).
+
 ### CU-101 — `well_status` is only in `stage_outputs["readout"]`, never on the `ChainResult` metric surface — GUI cannot cheaply surface full-well saturation
 
 **Discovered**: GUI Development Plan Phase 0 — scenario `gui_workflow.md` requirements harvest, 2026-07-12

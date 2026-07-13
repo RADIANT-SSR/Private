@@ -499,7 +499,8 @@ src/radiant/
 ├── data/           # SpectralLibrary — loads reference CSVs from repo-root data/ (emissivity, QE, solar)
 ├── io/             # I/O layer — YAML, MODTRAN, results
 ├── api/            # Public API — Sensor, SensorConfig, BatchRunner
-└── cli/            # CLI — radiant run/validate/explain
+├── cli/            # CLI — radiant run/validate/explain/gui
+└── gui/            # Desktop GUI (PySide6) — view over the scripting API (optional `gui` extra)
 ```
 
 (`plugins/` was removed 2026-07-06 — it was an empty two-file stub. The extension-point
@@ -517,7 +518,8 @@ package returns when that spec is implemented.)
 | `data/` | `radiant.core` ONLY (+ stdlib, numpy, yaml) |
 | `io/` | `radiant.core` + any physics stage (read-only for schema) |
 | `api/` | `radiant.core` + all physics stages + `radiant.io` + `radiant.data` (pre-chain library resolution, Rule 6) |
-| `cli/` | `radiant.api` + `radiant.io` |
+| `cli/` | `radiant.api` + `radiant.io` + `radiant.gui` (lazy — the `radiant gui` subcommand) |
+| `gui/` | `radiant.api` + `radiant.core` ONLY (+ PySide6, matplotlib, qtconsole, pyvista/pyvistaqt). No physics stage directly, no `io`/`cli`. The GUI is a view over the scripting API (one action ↔ one API call). |
 
 ---
 

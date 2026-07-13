@@ -233,6 +233,24 @@ api/
 └── _param_registry.py     # private — assembles the master schema
 ```
 
+### `gui/` — desktop GUI (optional `gui` extra)
+
+PySide6 desktop application — a *view over the scripting API* (one GUI action ↔
+one `Sensor` / `ChainResult` call; no physics in GUI code). Built phase by phase
+per `docs/plans/GUI_Development_Plan.md`. Importable only when the optional `gui`
+extra is installed (`pip install "radiant[gui]"`); core RADIANT runs without it.
+
+```
+gui/
+├── __init__.py          # launch_gui(sensor) entry point
+├── app.py               # QApplication bootstrap
+├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
+├── workers.py           # EvaluationWorker(QThread) — off-thread evaluate (Phase 3)
+├── widgets/             # one widget class per file (Rule 19 spirit)
+├── themes/              # QSS design-system themes (light default / dark alternate)
+└── tests/               # pytest-qt tests (headless via QT_QPA_PLATFORM=offscreen)
+```
+
 ### `plugins/` — **removed 2026-07-06** (no longer in the tree)
 
 `src/radiant/plugins/` no longer exists — the empty two-file stub was deleted
@@ -326,7 +344,11 @@ SSR_Tool/
 
 ## File Count Summary
 
-Numbers below exclude `__init__.py` files. Counts captured 2026-07-06.
+Numbers below exclude `__init__.py` files. Per-package rows are current; the
+**subtotal / grand-total lines are a 2026-07-06 snapshot and are stale** — a
+`find src/radiant -name '*.py'` now returns 444 files (repo growth since the
+snapshot). Regenerating the totals is tracked as **CU-102**. Treat the find
+command as the source of truth, per the header.
 
 | Subpackage             | Source | Tests | Notes |
 |------------------------|--------|-------|-------|
@@ -340,8 +362,9 @@ Numbers below exclude `__init__.py` files. Counts captured 2026-07-06.
 | readout/               | 10     | 8     | TDI, ADC, binning, coadds |
 | performance/           | 28     | 16    | one metric per module (Rule 19) |
 | io/                    | 3      | 3     | config, results, element_config |
-| cli/                   | 11     | 1     | subcommand-per-file |
+| cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
 | api/                   | 9      | 7     | public + internal session |
+| gui/                   | 3      | 1     | PySide6 shell — optional `gui` extra (GUI plan Phase 1) |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |
 | **Subtotal**           | **184**| **128**| 312 non-init files |
@@ -355,7 +378,7 @@ Including `__init__.py` files, total `.py` count under `src/radiant/` is 348 (36
 
 ## Import Rules
 
-Enforced by `import-linter` in CI (5 contracts in `pyproject.toml`):
+Enforced by `import-linter` in CI (6 contracts in `pyproject.toml`):
 
 ```
                     stdlib, numpy, scipy
@@ -372,17 +395,18 @@ Enforced by `import-linter` in CI (5 contracts in `pyproject.toml`):
                            │
                           io/
                            │
-                          api/
-                           │
-                          cli/
+                          api/ ───────────────┐
+                           │                  │
+                          cli/ ─────────────▶ gui/   (Qt, matplotlib, qtconsole)
 ```
 
 1. `core/` → stdlib, numpy, scipy only. No other `radiant.*` imports.
 2. Physics subpackages (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`, `performance/`) → `radiant.core` only. **No cross-stage physics imports.**
 3. `io/` → `radiant.core` + any physics subpackage (read-only access for schema introspection). No imports from `api/` or `cli/`.
 4. `api/` → `radiant.core` + all physics subpackages + `radiant.io`. No `cli/` imports.
-5. `cli/` → `radiant.api` + `radiant.io`. No direct physics imports.
-6. `plugins/` (when populated for v2) → `radiant.core` only.
+5. `cli/` → `radiant.api` + `radiant.io` + `radiant.gui` (lazy — the `radiant gui` subcommand imports gui inside the command body). No direct physics imports.
+6. `gui/` → `radiant.api` + `radiant.core` only (+ external Qt/matplotlib/qtconsole/pyvista). No physics subpackage directly, no `io`/`cli`. The GUI is a view over the scripting API. Like the cli contract, this one uses `allow_indirect_imports` (CU-098 pattern): `gui → api → optics` transitively is by design, so only direct gui edges are checked.
+7. `plugins/` (when populated for v2) → `radiant.core` only.
 
 CI runs `import-linter --config pyproject.toml`; PRs that break a contract are blocked.
 

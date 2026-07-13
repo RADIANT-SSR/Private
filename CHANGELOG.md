@@ -20,6 +20,16 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`radiant gui` entry point and the `radiant.gui` package (GUI plan Phase 1,
+  Task A).** A new PySide6 desktop-GUI shell — `launch_gui(sensor=None)` and the
+  `radiant gui [CONFIG.yaml]` CLI subcommand — behind a new optional dependency
+  group, `pip install "radiant[gui]"`. The GUI is a view over the scripting API
+  (no physics, no computed-result changes); this phase ships only the window
+  shell (menus, empty stage strip, dock panels, status bar). Without the `gui`
+  extra installed, `radiant gui` raises an actionable error naming the remedy and
+  the rest of RADIANT is unaffected. Not results-affecting.
+
 ### Changed
 - **Results-affecting: Earth radius unified to 6371.0 km mean (CU-097).**
   RADIANT previously used two Earth radii: the atmospheric slant-path /

@@ -236,7 +236,7 @@ QLabel#plotPlaceholderMsg {{
 #parameterPanel {{
     background-color: {t.panel};
 }}
-QLabel#detailPlaceholderMsg {{
+QLabel#detailPlaceholderMsg, QLabel#parameterEmptyMsg {{
     color: {t.muted};
     font-size: 13px;
 }}
@@ -370,11 +370,23 @@ QHeaderView::section {{
 }}
 
 /* -- Tabs (§4.5 detail panel) ----------------------------------------- */
+QTabWidget {{
+    background-color: {t.panel};
+}}
 QTabWidget::pane {{
     background-color: {t.panel};
     border: {tokens.BORDER_WIDTH} solid {t.line};
     border-radius: {tokens.RADIUS_CONTROL};
     top: -1px;
+}}
+/* The tab-bar strip itself — including the empty region to the right of the
+ * last tab — is themed so macOS does not paint a default-gray band there. */
+QTabBar {{
+    background-color: {t.panel_2};
+    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+}}
+QTabWidget::tab-bar {{
+    alignment: left;
 }}
 QTabBar::tab {{
     background-color: {t.panel_2};

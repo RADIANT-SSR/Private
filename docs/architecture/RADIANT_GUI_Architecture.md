@@ -282,7 +282,12 @@ example dot-paths below are illustrative and may not match the shipped `_schema.
 
 Each row shows the value plus a **unit suffix from the schema** (R-UNITS). Derived
 parameters are ⚡-badged and read-only; a provenance badge (user-set / default /
-derived) comes from the resolved set. Editing calls `sensor.set(dotpath, value)`;
+derived) comes from the resolved set. The shipped read-only tree (GUI plan Phase 2
+Task A) renders this as three columns — **Parameter / Value / Source** — where Value
+carries the value + unit (⚡-prefixed when derived) and Source is the provenance label;
+provenance is read from the resolved set via the public `Sensor.explain(dotpath)`
+surface (a structured accessor is tracked as CU-105). Editing calls
+`sensor.set(dotpath, value)`;
 `ParameterBoundsError` / `UnknownParameterError` / consistency-group violations render
 their what/why/action inline on the row and in a dialog, and the rejected value never
 sticks. A search box filters by substring across dot-paths. Right-click: Copy dot-path,

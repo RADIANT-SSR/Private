@@ -94,7 +94,7 @@ class RADIANTMainWindow(QMainWindow):
 
     @property
     def parameter_panel(self) -> ParameterPanel:
-        """The parameter dock body: filter box + empty tree (static in Phase 1)."""
+        """The parameter dock body: filter box + schema-driven tree (Phase 2 Task A)."""
         return self._parameter_panel
 
     @property
@@ -261,6 +261,9 @@ class RADIANTMainWindow(QMainWindow):
         five-tab detail panel (:class:`DetailTabs`, Phase 4 fills the pages).
         """
         param_panel = ParameterPanel(self)
+        # Populate the read-only tree from the live sensor (GUI plan Phase 2 Task A);
+        # None (bare launch) leaves the themed "no configuration loaded" state.
+        param_panel.populate(self._sensor)
         param_dock = QDockWidget("Parameters", self)
         param_dock.setObjectName("parameterDock")
         param_dock.setWidget(param_panel)

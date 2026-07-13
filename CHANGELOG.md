@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Schema-driven parameter tree in the GUI (GUI plan Phase 2, Task A —
+  read-only half).** The parameter dock now populates a Parameter / Value /
+  Source tree generated entirely from `Sensor.parameter_defs()` (never a
+  transcribed list), grouped by dot-path namespace in chain order (geometry
+  first). Each row shows the resolved value with its schema unit suffix; derived
+  parameters carry a ⚡ marker; the Source column shows provenance (config /
+  default / derived / user-set) read from the resolved set. A live filter box
+  narrows rows by substring across dot-paths. Launched on a config the tree is
+  populated; launched bare it shows a "no configuration loaded" state. Read-only
+  in this task — parameter editing is Task B. Visual/UX capability only; no
+  computed-result or public-API change.
 - **`radiant gui` entry point and the `radiant.gui` package (GUI plan Phase 1,
   Task A).** A new PySide6 desktop-GUI shell — `launch_gui(sensor=None)` and the
   `radiant gui [CONFIG.yaml]` CLI subcommand — behind a new optional dependency

@@ -107,22 +107,26 @@ class TestKpiBadgeRow:
 
 
 class TestParameterPanel:
-    def test_filter_disabled_with_placeholder(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The filter box is present, disabled, with the expected placeholder text."""
+    def test_filter_present_with_placeholder(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The filter box is present with its placeholder; disabled until populated."""
         panel = ParameterPanel()
         qtbot.addWidget(panel)
+        # A bare panel (no sensor) shows the empty state, so the filter is disabled.
         assert not panel.filter_box.isEnabled()
         assert panel.filter_box.placeholderText() == "Filter parameters…"
 
-    def test_tree_empty_two_columns(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The tree is empty with the two Parameter/Value columns (Phase 2 fills it)."""
+    def test_tree_three_columns_empty_state(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A bare panel has the three Parameter/Value/Source columns and empty state."""
         panel = ParameterPanel()
         qtbot.addWidget(panel)
         assert panel.tree.topLevelItemCount() == 0
-        assert panel.tree.columnCount() == 2
+        assert panel.tree.columnCount() == 3
         header = panel.tree.headerItem()
         assert header.text(0) == "Parameter"
         assert header.text(1) == "Value"
+        assert header.text(2) == "Source"
+        # Empty state (no config): tree hidden, filter disabled.
+        assert not panel.tree.isVisible()
 
 
 class TestPlotPlaceholder:

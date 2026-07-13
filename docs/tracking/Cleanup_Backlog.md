@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-106 — GUI stage strip's `spectral` eyebrow token does not match the `spectral_integration` schema namespace
+
+**Discovered**: GUI Development Plan Phase 2 Task A (schema-driven parameter tree), 2026-07-12
+**Status**: Open — latent; harmless today, gated by GUI plan Phase 4 (stage-strip click → scroll parameter panel to namespace).
+**File**: `src/radiant/gui/widgets/stage_strip.py` (`STAGES` tuple, the `("spectral", "Spectral Int.", "∫ dλ")` row — eyebrow token `"spectral"`).
+**Symptom**: the strip's per-stage "eyebrow namespace token" for the 6th stage is `"spectral"`, but the actual chain stage name / parameter namespace is `"spectral_integration"` (confirmed via `RadiantSession.stage_names` and `Sensor.parameter_defs()` — all spectral params are under `spectral_integration.*`). The other eight tokens match their namespaces exactly. Phase 2A avoided the drift by deriving namespace order from the live API (`param_format.chain_namespace_order()`), so the parameter tree is unaffected.
+**Why it still matters**: GUI plan Phase 4 wires a stage-strip click to "scroll the parameter panel to that namespace." If that navigation keys off the eyebrow token, the Spectral Int. chip will fail to match the `spectral_integration` group (silent no-op scroll). A one-token mismatch now becomes a navigation bug later.
+**Suggested fix**: inline-fix-now-or-Phase-4 — either change the eyebrow token to `"spectral_integration"` (and let the chip display an abbreviated title, which it already does), or have Phase 4 map chips to namespaces via `chain_namespace_order()` rather than the eyebrow string. Effort XS; category A (no physics, no results).
+
+### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists
+
+**Discovered**: GUI Development Plan Phase 2 Task A (schema-driven parameter tree, provenance badges), 2026-07-12
+**Status**: Open — working but fragile; surfaced building the read-only parameter tree's Source column.
+**File**: `src/radiant/gui/param_format.py` (`provenance_from_explain`), consumed by `src/radiant/gui/widgets/parameter_panel.py`.
+**Symptom**: the tree's provenance ("Source") badge is sourced by scraping the `"  Provenance: <value>"` line out of `Sensor.explain(dotpath)` free text. The structured value (`ResolvedValue.provenance`) exists but only behind the private `Sensor._params` (`ParameterSet.get_resolved` / `all_resolved`); GUI plan ground rule §4.1 forbids reaching into that internal, so `explain()` is the only *public* surface carrying provenance. The GUI is therefore coupled to the exact text format of a human-readable method.
+**Why it still matters**: a future edit to `ParameterSet.explain`'s wording (it is a display method, not a contract) would silently blank every provenance badge — parsing returns `None` and the badge disappears rather than erroring. Task B (parameter editing) will also need provenance to re-render a row after `sensor.set`, widening the reliance on the parse.
+**Suggested fix**: stand-alone task — add a structured public accessor on `Sensor`, e.g. `Sensor.provenance(dotpath) -> Provenance` or `Sensor.resolved(dotpath) -> ResolvedValue` (thin passthrough to `ParameterSet.get_resolved`, already public on `ParameterSet`), and switch `param_format` to it; delete `provenance_from_explain`. Lock-step doc update to `RADIANT_GUI_Architecture.md` §4.3 (provenance source) and the API doc. Effort S; category A (no physics, no results).
+
 ### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
 
 **Discovered**: GUI Development Plan Phase 1 checkpoint punch-list (populating the shell chrome), 2026-07-12

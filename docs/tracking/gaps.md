@@ -1261,6 +1261,16 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Impact** | Pass-geometry studies (access windows, grazing-to-nadir sweeps along a pass, terminator crossings) require external tooling (STK etc.) to generate per-point inputs; RADIANT cannot answer "what does this sensor see over this pass" natively. |
 | **Workaround** | Propagate externally; feed each time step to RADIANT as a static V1/V2 geometry via `BatchRunner`. |
 
+## Gap 85: No mission-type-driven parameter relevance (declared scenario type guiding parameter setup)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | Owner request, GUI Phase 3 checkpoint feedback, 2026-07-13 |
+| **Status** | DEFERRED (post-v1; owner disposition 2026-07-13 "file for now, revisit after v1") |
+| **Description** | RADIANT derives the radiometric regime (`RadiometricRegime`: `EXTENDED` / `SUB_PIXEL` / `POINT_SOURCE`) from the configured parameters — tentatively in `SourceStage`, finalized in `OpticsStage` (Rule 10). The owner wants the inverse workflow available to operators: declare the mission/scenario type up front and have the tool identify which parameters need setting and which are irrelevant for that declared type (e.g., an extended scene needs a background but not a target temperature, or vice versa for a point source). Landing this needs, in order: (a) per-regime parameter-relevance metadata authored on the stage `_schema.py` `ParameterDef`s — this does not exist today and is the load-bearing prerequisite; (b) an API surface exposing which parameters are relevant/irrelevant for a declared type; (c) GUI work: a scenario-type selector, relevance filtering/badging in the parameter tree, and a declared-vs-derived regime cross-check warning surfaced after evaluate. |
+| **Impact** | Operators (all personas) have no setup guidance: they must know a priori which parameters matter for their mission type, and there is no guard that flags a declared extended-scene setup whose derived regime comes back point-source (or vice versa). The tool derives regime but never tells the user which knobs that regime actually consumes. |
+| **Workaround** | Rely on operator knowledge of the regime rules; inspect the derived regime in results after a run and reconcile by hand. Natural v1.1 companion to the deferred library/preset browser (`RADIANT_GUI` arch doc §7.2 row 5). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1349,6 +1359,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 82 | No cloud/rain/fog capability | — | 3.2 | OPEN |
 | 83 | No two-point geodetic geometry input | — | airborne mission planning (V5) | OPEN |
 | 84 | No time-based / orbital-ephemeris geometry | — | pass-geometry (V7/V8/S4) | OPEN |
+| 85 | No mission-type-driven parameter relevance (declared type → param setup guidance) | M–L | operator setup guidance (all personas) | DEFERRED (post-v1) |
 
 ---
 

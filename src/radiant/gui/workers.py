@@ -1,15 +1,18 @@
 """Background worker threads for the RADIANT GUI.
 
-The Qt main thread never runs the signal chain (arch doc §3.2): a full-chain
-evaluation runs in a :class:`QThread` worker that emits its result by signal.
-A full chain evaluates in ~0.22 s, so the worker reports only started / finished
-/ failed — there is no per-stage progress stream (``Sensor.evaluate()`` takes no
-progress callback).
+The Qt main thread never runs the signal chain (arch doc §3.2, GUI plan §4.5): a
+full-chain evaluation runs in a :class:`QThread` worker that emits its result by
+signal. A full chain evaluates in ~0.22 s, so the worker reports only finished /
+failed — there is no per-stage progress stream (``Sensor.evaluate()`` takes no
+progress callback); the status bar shows a plain busy indicator while it runs.
 
-Phase 1 (Task A) ships the *signature only*: the class, its signals, and the
-constructor. GUI plan Phase 3 implements :meth:`EvaluationWorker.run` (wrapping
-``sensor.evaluate()`` and emitting the outcome). Kept as a stub here so the
-threading contract is fixed and importable before the evaluate loop is built.
+The worker owns the :class:`~radiant.api.sensor.Sensor` it evaluates. The caller
+hands it a **private snapshot** (``sensor.clone()``, taken on the GUI thread at
+schedule time) so a parameter edit that lands on the GUI thread while the chain
+is mid-run cannot race the worker's read of the same sensor — the two threads
+never touch the same object. Cloning is the thread-isolation mechanism, not a
+second API surface: the worker still performs exactly one ``evaluate()`` call
+(one GUI action ↔ one API call, GUI plan §4.1).
 """
 
 from __future__ import annotations
@@ -25,6 +28,13 @@ if TYPE_CHECKING:
 class EvaluationWorker(QThread):
     """Run one full-chain ``sensor.evaluate()`` off the GUI thread.
 
+    Parameters
+    ----------
+    sensor:
+        The sensor to evaluate. The caller passes a private ``clone()`` so the
+        worker's read cannot race a concurrent GUI-thread edit (see module
+        docstring).
+
     Signals
     -------
     finished_ok(object)
@@ -34,11 +44,6 @@ class EvaluationWorker(QThread):
         failure. The exception is re-emitted to the GUI thread, never swallowed
         (Rules 15/17); the GUI renders it as a what/why/action modal or a
         traceback dialog.
-
-    Notes
-    -----
-    Phase 1 stub: :meth:`run` is intentionally unimplemented and raises
-    :class:`NotImplementedError`. GUI plan Phase 3 fills it in.
     """
 
     finished_ok = Signal(object)  # ChainResult
@@ -48,8 +53,17 @@ class EvaluationWorker(QThread):
         super().__init__()
         self._sensor = sensor
 
-    def run(self) -> None:  # noqa: D102  (documented on the class; Phase 3 implements)
-        raise NotImplementedError(
-            "EvaluationWorker.run is implemented in GUI plan Phase 3 (evaluate loop). "
-            "Phase 1 ships the threading-contract signature only."
-        )
+    def run(self) -> None:
+        """Evaluate the full chain, emitting the outcome on the GUI thread.
+
+        The ``except Exception`` is a thread-boundary hand-off, not a swallow
+        (arch doc §3.2): the exception is re-emitted via :attr:`failed` to the
+        GUI thread, which renders it (``RadiantError`` → what/why/action modal;
+        anything else → traceback dialog). Nothing is silently dropped.
+        """
+        try:
+            result = self._sensor.evaluate()
+        except Exception as exc:  # re-emitted to the GUI thread, never swallowed
+            self.failed.emit(exc)
+        else:
+            self.finished_ok.emit(result)

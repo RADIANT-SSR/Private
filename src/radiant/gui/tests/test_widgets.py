@@ -9,6 +9,7 @@ here — these widgets are deliberately behaviour-free in Phase 1.
 
 from __future__ import annotations
 
+from radiant.gui.metric_format import format_metric_value
 from radiant.gui.widgets.detail_tabs import TAB_LABELS, DetailTabs
 from radiant.gui.widgets.health_dot import VALID_STATUSES, HealthDot
 from radiant.gui.widgets.kpi_badge_row import METRIC_KEYS, KpiBadgeRow
@@ -90,13 +91,22 @@ class TestKpiBadgeRow:
         for badge in row.badges.values():
             assert badge.value_text() == "—"
 
-    def test_units_carried_for_dimensional_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Dimensional metrics carry their unit for the Phase-3 render (R-UNITS)."""
+    def test_units_sourced_from_api_not_hardcoded(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Badges carry no hardcoded unit; units come from result metadata (R-UNITS).
+
+        The old shell hardcoded a unit per badge ("mK", "m", …). Phase 3 removes
+        that — the unit is sourced from ``ChainResult.metric_records()`` at fill
+        time (see :func:`radiant.gui.metric_format.format_metric_value`). This
+        guards against a unit string creeping back into the widget.
+        """
         row = KpiBadgeRow()
         qtbot.addWidget(row)
-        assert row.badges["NEDT"].unit == "mK"
-        assert row.badges["GSD"].unit == "m"
-        assert row.badges["SNR"].unit == ""
+        assert not hasattr(row.badges["NEDT"], "unit")
+        # The formatting helper appends the API-supplied unit for a dimensional
+        # metric and omits it for a pure ratio / rating level.
+        assert format_metric_value(0.0446, "K") == "0.0446 K"
+        assert format_metric_value(615.96, "dimensionless") == "616"
+        assert format_metric_value(10.62, "NIIRS level") == "10.62"
 
     def test_run_button_present_and_disabled(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The accent Run button is present but disabled in Phase 1."""

@@ -231,12 +231,67 @@ QLabel#metricCaption {{
     color: {t.muted};
     font-size: 10.5px;
 }}
-/* Headline metric value is accent; awaiting muting wins (declared last). */
+/* Metric-value colour by state/flag. Equal-specificity selectors: order matters,
+ * later wins. Base ink → primary accent → awaiting muted → failed err → stale warn
+ * (§8.4: a stale value's marker is warn, so stale wins when set). */
 QFrame#metricBadge[primary="true"] QLabel#metricValue {{
     color: {t.accent};
 }}
 QFrame#metricBadge[state="awaiting"] QLabel#metricValue {{
     color: {t.muted_2};
+}}
+QFrame#metricBadge[state="failed"] QLabel#metricValue {{
+    color: {t.err};
+}}
+QFrame#metricBadge[state="failed"] QLabel#metricCaption {{
+    color: {t.err};
+}}
+QFrame#metricBadge[stale="true"] QLabel#metricValue {{
+    color: {t.warn};
+}}
+
+/* -- Full-well saturation banner (§4.4, owner amendment 2) -------------- *
+ * Non-dismissible; error token, below the badge row and above the canvas. */
+QLabel#saturationBanner {{
+    background-color: {t.err_soft};
+    color: {t.err};
+    border: {tokens.BORDER_WIDTH} solid {t.err};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_INPUT};
+    margin: 6px 14px 0px 14px;
+    font-weight: 600;
+}}
+
+/* -- Stale notice: shown when the last evaluation failed (Phase 3 task 4) */
+QLabel#staleNotice {{
+    background-color: {t.warn_soft};
+    color: {t.warn};
+    border: {tokens.BORDER_WIDTH} solid {t.warn};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_INPUT};
+    margin: 6px 14px 0px 14px;
+    font-weight: 600;
+}}
+
+/* -- Busy indicator (status-bar evaluate spinner, §3.2) ---------------- */
+QProgressBar#busyIndicator {{
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CHIP};
+    height: 8px;
+}}
+QProgressBar#busyIndicator::chunk {{
+    background-color: {t.accent};
+    border-radius: {tokens.RADIUS_CHIP};
+}}
+
+/* -- Embedded matplotlib canvas surround (§4.4) ------------------------ *
+ * The figure itself is matplotlib's; only this surround is themed. */
+QFrame#matplotlibCanvas {{
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+    margin: 12px 14px;
 }}
 
 /* -- Plot placeholder (§4.4 empty canvas) ------------------------------ */

@@ -20,22 +20,32 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
     QMainWindow,
     QMenu,
+    QProgressBar,
     QWidget,
 )
 
+from radiant.core.exceptions import RadiantError
+from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.detail_tabs import DetailTabs
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.stage_strip import StageStrip
+from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
+from radiant.gui.workers import EvaluationWorker
 
 if TYPE_CHECKING:
+    from radiant.api import ChainResult
     from radiant.api.sensor import Sensor
+
+# Re-evaluation debounce window (arch doc §3.3): parameter edits within this
+# window coalesce into a single full-chain run.
+_DEBOUNCE_MS: int = 200
 
 # Default window geometry and dock proportions, matching the mockup's balance
 # (1440×900 with a ~360 px parameter dock and a ~260 px detail dock). The
@@ -49,16 +59,31 @@ _DETAIL_DOCK_HEIGHT: int = 260
 
 
 class RADIANTMainWindow(QMainWindow):
-    """Top-level RADIANT GUI window (shell only in GUI plan Phase 1 Task A).
+    """Top-level RADIANT GUI window with the Phase 3 evaluate loop wired in.
+
+    The window opens on a :class:`~radiant.api.sensor.Sensor` (or empty). When a
+    sensor is loaded, Evaluate (F5 / the Run button) runs the full chain on a
+    worker thread (arch doc §3.2 — the GUI thread never runs the chain), and a
+    parameter edit auto-re-evaluates after a 200 ms debounce (§3.3). Results fill
+    the metric badges and the central plot; a failed evaluation leaves the previous
+    result displayed with a visible stale state and shows the actionable error.
 
     Parameters
     ----------
     sensor:
         The :class:`~radiant.api.sensor.Sensor` the window opens on, or ``None``
-        for an empty window. Stored for later phases (the parameter panel and
-        evaluate loop read it); Phase 1 only records it and reflects its presence
-        in the window title and status bar.
+        for an empty window.
+
+    Signals
+    -------
+    evaluationFinished(object):
+        Emitted after each evaluation attempt completes (success or failure), with
+        the current :class:`~radiant.api.ChainResult` (or the previous one on
+        failure, ``None`` if none yet). Tests use it to await the worker without
+        sleeps.
     """
+
+    evaluationFinished = Signal(object)
 
     def __init__(self, sensor: Sensor | None = None) -> None:
         super().__init__()
@@ -66,6 +91,14 @@ class RADIANTMainWindow(QMainWindow):
         # Registry of every menu action by a stable key, so tests and later
         # phases can look one up without walking the menu tree.
         self._actions: dict[str, QAction] = {}
+
+        # Evaluate-loop state (Phase 3): the in-flight worker, a coalescing flag
+        # for edits that land mid-run, the most recent result, and a count of
+        # completed evaluations (the debounce test asserts on it).
+        self._worker: EvaluationWorker | None = None
+        self._rerun_pending: bool = False
+        self._last_result: ChainResult | None = None
+        self._evaluation_count: int = 0
 
         self.setObjectName("radiantMainWindow")
         self.setWindowTitle(self._compose_title())
@@ -77,6 +110,13 @@ class RADIANTMainWindow(QMainWindow):
         self._build_dock_panels()
         self._build_status_bar()
         self._apply_dock_proportions()
+        self._wire_evaluate_loop()
+
+        # Auto-evaluate once on load so the badges and plot populate immediately
+        # (the D2 checkpoint opens on a filled dashboard). Deferred to the event
+        # loop so the worker's signals are delivered after the window is shown.
+        if self._sensor is not None:
+            QTimer.singleShot(0, self._evaluate_now)
 
     # -- public accessors ---------------------------------------------------
 
@@ -287,16 +327,30 @@ class RADIANTMainWindow(QMainWindow):
         self._detail_tabs = detail_tabs
 
     def _on_parameter_edited(self, dotpath: str) -> None:
-        """React to an accepted parameter edit: results are now stale.
+        """React to an accepted parameter edit: schedule a debounced re-evaluate.
 
-        Phase 2 has no evaluate loop yet (Phase 3 adds it), so this only reflects
-        the stale state in the status bar. The stage-strip health dots are already
-        ``stale`` until the first evaluation, so no dot transition is needed here.
+        The full chain re-runs after the 200 ms debounce window (arch doc §3.3);
+        rapid edits coalesce into a single run. There is no incremental engine
+        (CU-079, declined) — every re-evaluation is a full chain.
         """
-        self.statusBar().showMessage(f"Edited {dotpath} — re-evaluate to update results (F5)")
+        self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
+        self._debounce.start()
 
     def _build_status_bar(self) -> None:
-        """Status bar with the initial ready/no-config message."""
+        """Status bar with the initial ready/no-config message + a busy indicator.
+
+        The busy indicator is an indeterminate progress bar shown only while a
+        worker evaluation is in flight (arch doc §3.2: the status bar shows a busy
+        indicator, there being no per-stage progress stream).
+        """
+        self._busy = QProgressBar(self)
+        self._busy.setObjectName("busyIndicator")
+        self._busy.setRange(0, 0)  # indeterminate
+        self._busy.setTextVisible(False)
+        self._busy.setFixedWidth(120)
+        self._busy.setVisible(False)
+        self.statusBar().addPermanentWidget(self._busy)
+
         message = "Ready" if self._sensor is None else "Ready — sensor loaded"
         self.statusBar().showMessage(message)
 
@@ -307,3 +361,118 @@ class RADIANTMainWindow(QMainWindow):
         """
         self.resizeDocks([self._parameter_dock], [_PARAM_DOCK_WIDTH], Qt.Orientation.Horizontal)
         self.resizeDocks([self._detail_dock], [_DETAIL_DOCK_HEIGHT], Qt.Orientation.Vertical)
+
+    # -- evaluate loop (GUI plan Phase 3) ----------------------------------
+
+    @property
+    def evaluation_count(self) -> int:
+        """Number of evaluation attempts that have completed (ok or failed).
+
+        The debounce test asserts that a burst of rapid edits produces exactly one
+        additional completed evaluation.
+        """
+        return self._evaluation_count
+
+    @property
+    def last_result(self) -> ChainResult | None:
+        """The most recent successful :class:`~radiant.api.ChainResult`, if any."""
+        return self._last_result
+
+    def _wire_evaluate_loop(self) -> None:
+        """Enable and connect Evaluate (F5 / Run button) and the debounce timer.
+
+        Evaluate is enabled only with a loaded sensor — there is nothing to run
+        otherwise. The debounce timer is single-shot; each edit restarts it so a
+        run fires only after edits go quiet for the window (arch doc §3.3).
+        """
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(_DEBOUNCE_MS)
+        self._debounce.timeout.connect(self._evaluate_now)
+
+        evaluate_action = self.action("run.evaluate")
+        run_button = self._central.kpi_row.run_button
+        has_sensor = self._sensor is not None
+        evaluate_action.setEnabled(has_sensor)
+        run_button.setEnabled(has_sensor)
+        # F5 / menu and the accent Run button both trigger an immediate run.
+        evaluate_action.triggered.connect(self._evaluate_now)
+        run_button.clicked.connect(self._evaluate_now)
+
+    def _evaluate_now(self) -> None:
+        """Start a full-chain evaluation, or coalesce if one is already running.
+
+        The debounce timer is stopped (an explicit F5/Run pre-empts a pending
+        debounced run). If a worker is already in flight, the request is remembered
+        and re-issued when it finishes, so only one chain runs at a time.
+        """
+        if self._sensor is None:
+            return
+        self._debounce.stop()
+        if self._worker is not None and self._worker.isRunning():
+            self._rerun_pending = True
+            return
+        self._start_worker()
+
+    def _start_worker(self) -> None:
+        """Launch the evaluation worker on a private sensor snapshot (§3.2)."""
+        sensor = self._sensor
+        if sensor is None:  # pragma: no cover - guarded by caller
+            return
+        self._set_busy(True)
+        # Clone on the GUI thread so a concurrent edit cannot race the worker's
+        # read of the sensor (see workers.py). The worker still does one evaluate().
+        worker = EvaluationWorker(sensor.clone())
+        worker.finished_ok.connect(self._on_eval_ok)
+        worker.failed.connect(self._on_eval_failed)
+        worker.finished.connect(self._on_worker_finished)
+        self._worker = worker
+        worker.start()
+
+    def _on_eval_ok(self, result: ChainResult) -> None:
+        """Render a successful result into the badges, banner, and plot."""
+        self._last_result = result
+        try:
+            self._central.show_result(result)
+        except Exception as exc:  # rendering the API's own figure — surface, never swallow
+            self._central.mark_stale()
+            UnexpectedErrorDialog(exc, "Rendering the evaluation result", self).exec()
+            self.statusBar().showMessage("Evaluation succeeded, but the plot could not render")
+            return
+        self.statusBar().showMessage(self._evaluated_message(result))
+
+    def _on_eval_failed(self, exc: BaseException) -> None:
+        """Handle a failed evaluation: keep the previous result, show it as stale.
+
+        The previous badges and plot stay on screen (never a blank or partial mix)
+        but are flagged stale; the actionable error is shown — a ``RadiantError``
+        renders what/why/action, anything else gets a traceback dialog (Rules 15/17).
+        """
+        self._central.mark_stale()
+        self.statusBar().showMessage("Evaluation failed — showing the previous result (stale)")
+        if isinstance(exc, RadiantError):
+            ActionableErrorDialog(exc, "evaluate", self).exec()
+        else:
+            UnexpectedErrorDialog(exc, "Evaluating the signal chain", self).exec()
+
+    def _on_worker_finished(self) -> None:
+        """Per-run cleanup: clear busy, count the attempt, re-run if one was queued."""
+        self._evaluation_count += 1
+        self._set_busy(False)
+        self._worker = None
+        self.evaluationFinished.emit(self._last_result)
+        if self._rerun_pending:
+            self._rerun_pending = False
+            self._evaluate_now()
+
+    def _set_busy(self, busy: bool) -> None:
+        """Show/hide the status-bar busy indicator around a worker run."""
+        self._busy.setVisible(busy)
+        if busy:
+            self.statusBar().showMessage("Evaluating…")
+
+    @staticmethod
+    def _evaluated_message(result: ChainResult) -> str:
+        """A concise 'evaluated' status line: wavelength-grid size (arch doc §4.1)."""
+        n_points = int(result.wavelength_um.size)
+        return f"Evaluated — {n_points} wavelength points"

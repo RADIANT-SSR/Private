@@ -119,13 +119,17 @@ class TestStageViewsMapping:
         """Geometry's default is the angle-summary readout (no result.plot figure)."""
         assert stage_views.view_for("geometry").kind == stage_views.KIND_GEOMETRY
 
-    def test_spectral_domain_stages_are_gaps(self) -> None:
-        """Source/Atmosphere/Spectral-Integration map to the Gap-86 panel, not a fake plot."""
-        for namespace in ("source", "atmosphere", "spectral_integration"):
+    def test_spectral_domain_stages_map_to_spectral_accessors(self) -> None:
+        """Source/Atmosphere/Spectral-Integration now render their spectral figures (Gap 86)."""
+        expected = {
+            "source": "spectral_source",
+            "atmosphere": "spectral_atmosphere",
+            "spectral_integration": "spectral_inband",
+        }
+        for namespace, method in expected.items():
             view = stage_views.view_for(namespace)
-            assert view.kind == stage_views.KIND_GAP
-            assert view.gap_number == stage_views.SPECTRAL_FIGURE_GAP
-            assert view.gap_detail  # a described missing figure
+            assert view.kind == stage_views.KIND_PLOT
+            assert view.plot_method == method
 
     def test_default_view_is_mtf(self) -> None:
         """No stage selected → the MTF overlay (arch doc §4.4 default)."""

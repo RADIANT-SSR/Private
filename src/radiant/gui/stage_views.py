@@ -7,12 +7,12 @@ Qt-free source of that mapping: it names, for each chain namespace, **which exis
 (GUI plan §4.1). No plotting logic lives here or in GUI code; the canvas simply calls
 the named accessor on :class:`radiant.api.inspect.ResultPlotNamespace`.
 
-The ``result.plot`` surface exposes exactly four figures — ``mtf``, ``noise_budget``,
-``psf`` and ``mtf_budget``. Where the §4.4 table names a figure that surface does
-**not** carry (the *spectral-domain* radiance figures for Source, Atmosphere and
-Spectral Integration), the stage maps to a **gap** view rather than a faked figure
-(ground rule §4.1): the canvas shows a themed "visualization not yet available"
-panel keyed to :data:`SPECTRAL_FIGURE_GAP` (Gap 86 in ``docs/tracking/gaps.md``).
+The ``result.plot`` surface now exposes seven figures — ``mtf``, ``noise_budget``,
+``psf``, ``mtf_budget`` and the three spectral-radiance accessors added for Gap 86
+(``spectral_source``, ``spectral_atmosphere``, ``spectral_inband``). Every §4.4 row
+now maps to a real accessor: the Source / Atmosphere / Spectral-Integration rows that
+previously fell back to a "Gap 86" panel now render their spectral-radiance figures
+(GUI plan Phase 4 Task B, remapping the accessors landed in ``api`` commit f678dfd).
 Geometry maps to a bespoke **readout** of ``stage_outputs["geometry"]`` (the derived
 angles/ranges), the arch-doc "angle summary" — there is no ``result.plot`` figure for
 it and the 3D viewer is GUI plan Phases 6–7.
@@ -25,15 +25,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-# The single gaps.md entry (Gap 86) covering every stage whose §4.4 default figure is
-# a spectral-radiance plot the ``result.plot`` surface does not expose. Each gap view
-# carries this number plus a stage-specific description of the missing figure.
-SPECTRAL_FIGURE_GAP: Final[int] = 86
-
 # View kinds a stage can resolve to.
 KIND_PLOT: Final[str] = "plot"  # render result.plot.<method>()
 KIND_GEOMETRY: Final[str] = "geometry"  # render the geometry stage-output readout
-KIND_GAP: Final[str] = "gap"  # render the themed "not yet available (Gap N)" panel
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,22 +37,15 @@ class StageView:
     Attributes
     ----------
     kind:
-        One of :data:`KIND_PLOT`, :data:`KIND_GEOMETRY`, :data:`KIND_GAP`.
+        One of :data:`KIND_PLOT`, :data:`KIND_GEOMETRY`.
     plot_method:
         For :data:`KIND_PLOT`, the ``result.plot.*`` accessor name to call
-        (``"mtf"`` / ``"noise_budget"`` / …); ``None`` otherwise.
-    gap_number:
-        For :data:`KIND_GAP`, the ``docs/tracking/gaps.md`` gap number; ``None``
+        (``"mtf"`` / ``"noise_budget"`` / ``"spectral_source"`` / …); ``None``
         otherwise.
-    gap_detail:
-        For :data:`KIND_GAP`, a one-line description of the figure that is missing
-        (shown in the themed gap panel); ``None`` otherwise.
     """
 
     kind: str
     plot_method: str | None = None
-    gap_number: int | None = None
-    gap_detail: str | None = None
 
 
 # The default figure shown post-evaluate when *no* stage is selected: the MTF overlay
@@ -69,34 +56,20 @@ DEFAULT_VIEW: Final[StageView] = StageView(kind=KIND_PLOT, plot_method="mtf")
 # namespace -> default visualization, row-by-row from the §4.4 table. Keys are the
 # real chain namespaces (matching ``RadiantSession.stage_names`` /
 # ``Sensor.parameter_defs()`` — note ``spectral_integration``, not ``spectral``;
-# CU-106). Stages whose §4.4 row names *only* a spectral-radiance figure the
-# ``result.plot`` surface lacks resolve to a gap view; stages whose row names a
-# figure that surface *does* carry (MTF curve, noise-budget bar chart) render it.
+# CU-106). Every row now names a real ``result.plot`` accessor.
 STAGE_VIEWS: Final[dict[str, StageView]] = {
     # Angle summary — a readout of the derived geometry stage outputs (no plot).
     "geometry": StageView(kind=KIND_GEOMETRY),
-    # L_src(λ): no spectral accessor on result.plot → gap.
-    "source": StageView(
-        kind=KIND_GAP,
-        gap_number=SPECTRAL_FIGURE_GAP,
-        gap_detail="Source spectral radiance L_src(λ) [W/m²/sr/µm]",
-    ),
-    # τ_atm(λ), L_path(λ), L_atm(λ) overlay: no spectral accessor → gap.
-    "atmosphere": StageView(
-        kind=KIND_GAP,
-        gap_number=SPECTRAL_FIGURE_GAP,
-        gap_detail="Atmosphere transmittance τ(λ) with path/emission radiance overlay",
-    ),
+    # L_src(λ) at aperture — result.plot.spectral_source() (Gap 86, resolved).
+    "source": StageView(kind=KIND_PLOT, plot_method="spectral_source"),
+    # τ_atm(λ) + L_path(λ) overlay — result.plot.spectral_atmosphere() (Gap 86).
+    "atmosphere": StageView(kind=KIND_PLOT, plot_method="spectral_atmosphere"),
     # §4.4 Optics row names an "MTF curve" — result.plot.mtf() carries it.
     "optics": StageView(kind=KIND_PLOT, plot_method="mtf"),
     # §4.4 Platform row: "smear/jitter MTF terms" — the MTF overlay shows every term.
     "platform": StageView(kind=KIND_PLOT, plot_method="mtf"),
-    # In-band integrated radiance per frame: no accessor → gap.
-    "spectral_integration": StageView(
-        kind=KIND_GAP,
-        gap_number=SPECTRAL_FIGURE_GAP,
-        gap_detail="In-band integrated radiance per frame",
-    ),
+    # In-band integrand (post-optics) radiance — result.plot.spectral_inband() (Gap 86).
+    "spectral_integration": StageView(kind=KIND_PLOT, plot_method="spectral_inband"),
     # §4.4 Detector row names a "noise budget bar chart" — result.plot.noise_budget().
     "detector": StageView(kind=KIND_PLOT, plot_method="noise_budget"),
     # §4.4 Readout row: "noise budget table + bar chart" — the bar chart accessor.
@@ -118,10 +91,8 @@ def view_for(namespace: str | None) -> StageView:
 
 
 __all__ = [
-    "SPECTRAL_FIGURE_GAP",
     "KIND_PLOT",
     "KIND_GEOMETRY",
-    "KIND_GAP",
     "StageView",
     "DEFAULT_VIEW",
     "STAGE_VIEWS",

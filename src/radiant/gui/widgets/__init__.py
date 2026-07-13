@@ -31,7 +31,6 @@ from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.run_button import RunButton
 from radiant.gui.widgets.stage_chip import StageChip
-from radiant.gui.widgets.stage_gap_panel import StageGapPanel
 from radiant.gui.widgets.stage_strip import StageStrip
 
 __all__ = [
@@ -45,6 +44,5 @@ __all__ = [
     "PlotPlaceholder",
     "RunButton",
     "StageChip",
-    "StageGapPanel",
     "StageStrip",
 ]

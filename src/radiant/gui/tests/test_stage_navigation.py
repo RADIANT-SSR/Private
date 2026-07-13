@@ -2,8 +2,8 @@
 
 These drive the real main window on the shipped example config, offscreen: clicking
 each of the nine stage chips scrolls the parameter panel to that stage's namespace and
-swaps the central canvas to the stage's default visualization (a matplotlib figure, the
-geometry angle readout, or a gap panel). They also assert the health-dot life cycle:
+swaps the central canvas to the stage's default visualization (a matplotlib figure or the
+geometry angle readout). They also assert the health-dot life cycle:
 stale (pre-evaluate) → yellow (a warning run — the example's NIIRS extrapolation) →
 green (a clean run) → red (a failed evaluation), and edit → back to stale.
 """
@@ -22,11 +22,19 @@ _APERTURE = "optics.aperture_diameter_m"
 _WAIT_MS = 15000
 
 # Which plot-area pane each stage's default visualization lands on (arch doc §4.4):
-# geometry → the angle readout; the spectral-domain stages → the Gap-86 panel; the rest
-# → a real ``result.plot.*`` figure on the matplotlib canvas.
+# geometry → the angle readout; every other stage → a real ``result.plot.*`` figure on
+# the matplotlib canvas (the spectral-domain stages now render their Gap-86 accessors).
 _GEOMETRY_STAGES = ("geometry",)
-_GAP_STAGES = ("source", "atmosphere", "spectral_integration")
-_PLOT_STAGES = ("optics", "platform", "detector", "readout", "performance")
+_PLOT_STAGES = (
+    "source",
+    "atmosphere",
+    "optics",
+    "platform",
+    "spectral_integration",
+    "detector",
+    "readout",
+    "performance",
+)
 
 
 def _load_window(qtbot):  # type: ignore[no-untyped-def]
@@ -62,8 +70,6 @@ class TestStageNavigation:
             assert canvas.selected_stage == namespace
             if namespace in _GEOMETRY_STAGES:
                 assert canvas.active_pane is canvas.geometry_readout
-            elif namespace in _GAP_STAGES:
-                assert canvas.active_pane is canvas.gap_panel
             else:
                 assert namespace in _PLOT_STAGES
                 assert canvas.active_pane is canvas.matplotlib_canvas
@@ -85,14 +91,13 @@ class TestStageNavigation:
         # A structured stage output (los_geometry) is not part of the angle summary.
         assert "los_geometry" not in keys
 
-    def test_gap_panel_names_gap_86(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A spectral-domain stage shows the Gap-86 panel, not a faked figure."""
+    def test_spectral_stage_renders_a_real_figure(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A spectral-domain stage now renders its Gap-86 accessor figure, not a gap panel."""
         window = _load_window(qtbot)
         canvas = window.central_canvas
         window.stage_strip.stageClicked.emit("source")
-        assert canvas.active_pane is canvas.gap_panel
-        assert canvas.gap_panel.gap_number == 86
-        assert "Gap 86" in canvas.gap_panel.detail_text()
+        assert canvas.active_pane is canvas.matplotlib_canvas
+        assert canvas.matplotlib_canvas.has_figure()
 
 
 class TestHealthDotTransitions:

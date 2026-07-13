@@ -435,22 +435,23 @@ mapping (`radiant.gui.stage_views`) resolves each stage as:
 | Stage | Shipped default view | Source |
 |-------|---------------------|--------|
 | Geometry | Derived-angle **readout** of `stage_outputs["geometry"]` (symbols + units); the 3D viewer is Phases 6–7 | stage outputs (verbatim) |
-| Source | **Gap 86** panel (no spectral accessor on `result.plot`) | `gaps.md` Gap 86 |
-| Atmosphere | **Gap 86** panel | `gaps.md` Gap 86 |
+| Source | Source spectral radiance L_src(λ) [W/m²/sr/µm] | `result.plot.spectral_source()` |
+| Atmosphere | τ_atm(λ) + L_path(λ) twin-axis overlay | `result.plot.spectral_atmosphere()` |
 | Optics | MTF overlay | `result.plot.mtf()` |
 | Platform | MTF overlay (shows the smear/jitter terms) | `result.plot.mtf()` |
-| Spectral Integration | **Gap 86** panel | `gaps.md` Gap 86 |
+| Spectral Integration | In-band (post-optics) spectral radiance [W/m²/sr/µm] | `result.plot.spectral_inband()` |
 | Detector | Noise-budget bar chart | `result.plot.noise_budget()` |
 | Readout | Noise-budget bar chart | `result.plot.noise_budget()` |
 | Performance | MTF overlay (system MTF) | `result.plot.mtf()` |
 
-Where the §4.4 row names **only** a spectral-radiance figure the `result.plot` surface
-does not carry (Source, Atmosphere, Spectral Integration), the canvas shows a themed
-"visualization not yet available (Gap 86)" panel rather than a faked figure (ground rule
-§4.1); **Gap 86** tracks adding the spectral accessors. Stages whose row names a figure
-that surface *does* carry render it. Geometry's default is the angle summary — a
-key-value readout of the derived stage outputs with units and symbols (R-UNITS), read
-verbatim (data display, not physics).
+Every §4.4 row now names a real `result.plot` accessor. The Source / Atmosphere /
+Spectral Integration rows — which through Phase 4 Task A fell back to a themed "Gap 86"
+panel because `result.plot` carried no spectral-radiance figure — render their spectral
+figures directly once the three accessors landed (`api` commit f678dfd; the GUI
+re-mapping is Phase 4 Task B). **Gap 86 is resolved**; the former gap panel
+(`StageGapPanel`) is deleted. Geometry's default remains the angle summary — a key-value
+readout of the derived stage outputs with units and symbols (R-UNITS), read verbatim
+(data display, not physics).
 
 The full-well **saturation banner** (§7.2 row 8, owner amendment 2) is a persistent,
 non-dismissible banner shown whenever `result.well_status().is_saturated`; it renders the

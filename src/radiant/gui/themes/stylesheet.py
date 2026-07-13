@@ -166,6 +166,25 @@ QFrame#stageChip:hover {{
     border-color: {t.line_2};
     background-color: {t.panel_3};
 }}
+/* Chip health tint (§8.4): a warned/errored stage sets its background to the
+ * <status>-soft tint and its border to the <status> token. 'ok' and 'stale' keep the
+ * neutral panel surface (a green/gray wash on every chip would be noisy) — the health
+ * DOT carries those states; only the attention states (warn/err) tint the whole chip. */
+QFrame#stageChip[status="warn"] {{
+    background-color: {t.warn_soft};
+    border-color: {t.warn};
+}}
+QFrame#stageChip[status="err"] {{
+    background-color: {t.err_soft};
+    border-color: {t.err};
+}}
+/* Selected chip (§8.4): focus-soft background + focus border. Defined after the status
+ * rules so an equally-specific selection wins — a selected stage reads as selected even
+ * when it also carries a warn/err tint. */
+QFrame#stageChip[selected="true"] {{
+    background-color: {t.focus_soft};
+    border-color: {t.focus};
+}}
 QLabel#stageChipNum {{
     color: {t.muted};
     font-family: {tokens.FONT_MONO};
@@ -206,6 +225,59 @@ QFrame#healthDot[status="err"] {{
 QFrame#healthDot[status="stale"] {{
     background-color: {t.stale};
     border: 2px solid {t.stale_soft};
+}}
+
+/* -- Geometry readout (§4.4 / §6 — the Geometry stage default view) ----- *
+ * A titled key-value table of the derived geometry stage outputs: a symbol column,
+ * a label column, and a right-aligned value+unit column (values mono, R-UNITS). */
+#geometryReadout {{
+    background-color: {t.panel};
+}}
+QLabel#geoReadoutTitle {{
+    color: {t.ink};
+    background-color: {t.panel_2};
+    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 10px 14px;
+}}
+QWidget#geoReadoutBody {{
+    background-color: {t.panel};
+}}
+QLabel#geoReadoutSymbol {{
+    color: {t.accent};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#geoReadoutLabel {{
+    color: {t.ink_2};
+    font-size: 12.5px;
+}}
+QLabel#geoReadoutValue {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12.5px;
+    font-weight: 600;
+}}
+
+/* -- Stage gap panel (§4.1 — a §4.4 figure result.plot does not yet carry) */
+#stageGapPanel {{
+    background-color: {t.panel};
+}}
+QLabel#stageGapHeader {{
+    color: {t.muted};
+    font-size: 14px;
+    font-weight: 600;
+}}
+QLabel#stageGapDetail {{
+    color: {t.ink_2};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12.5px;
+}}
+QLabel#stageGapTracked {{
+    color: {t.muted_2};
+    font-size: 11px;
 }}
 
 /* -- KPI badge row (§4.4) ---------------------------------------------- */

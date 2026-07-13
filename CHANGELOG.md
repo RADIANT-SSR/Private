@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI stage-strip navigation, per-stage default visualizations, and live health
+  dots (GUI plan Phase 4 Task A).** The 9-stage signal-chain strip is now clickable:
+  a click scrolls the parameter panel to that stage's namespace group and swaps the
+  central canvas to the stage's default visualization (arch doc §4.4) — the derived
+  geometry angle/range **readout** (values with units + symbols) for Geometry, an
+  MTF overlay (`result.plot.mtf()`) for Optics/Platform/Performance, a noise-budget
+  bar chart (`result.plot.noise_budget()`) for Detector/Readout, and a themed
+  "visualization not yet available (Gap 86)" panel for Source/Atmosphere/Spectral
+  Integration whose spectral-radiance figure the `result.plot` surface does not yet
+  carry (no faked figure — ground rule §4.1). Every figure is one call on the public
+  `result.plot.*` surface (no plotting in GUI code). The per-stage **health dots**
+  now update live: gray/stale before a run and on any parameter edit, green after a
+  clean run, yellow on a run with chain warnings (whole-run, not per-stage), red on a
+  failed evaluation. Selecting a stage highlights its chip. Visual/UX capability
+  only; results-neutral.
 - **GUI display units — rows and the Parameter Editor show the user's unit (GUI
   plan Phase 3 checkpoint punch-list round 2, owner feedback 2026-07-13).** A
   parameter row now displays its value in the unit the user chose (an altitude set

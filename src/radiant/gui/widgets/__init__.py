@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.detail_tabs import DetailTabs
+from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.health_dot import HealthDot
 from radiant.gui.widgets.kpi_badge_row import KpiBadgeRow
 from radiant.gui.widgets.metric_badge import MetricBadge
@@ -30,11 +31,13 @@ from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.run_button import RunButton
 from radiant.gui.widgets.stage_chip import StageChip
+from radiant.gui.widgets.stage_gap_panel import StageGapPanel
 from radiant.gui.widgets.stage_strip import StageStrip
 
 __all__ = [
     "CentralCanvas",
     "DetailTabs",
+    "GeometryReadout",
     "HealthDot",
     "KpiBadgeRow",
     "MetricBadge",
@@ -42,5 +45,6 @@ __all__ = [
     "PlotPlaceholder",
     "RunButton",
     "StageChip",
+    "StageGapPanel",
     "StageStrip",
 ]

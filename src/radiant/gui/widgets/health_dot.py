@@ -55,9 +55,7 @@ class HealthDot(QFrame):
         silent failure (Rule 17), so the caller hears about a bad state immediately.
         """
         if status not in VALID_STATUSES:
-            raise ValueError(
-                f"HealthDot status must be one of {VALID_STATUSES}, got {status!r}"
-            )
+            raise ValueError(f"HealthDot status must be one of {VALID_STATUSES}, got {status!r}")
         self._status = status
         # QSS targets QFrame#healthDot[status="..."]; the property drives the colour.
         self.setProperty("status", status)

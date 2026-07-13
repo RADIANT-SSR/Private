@@ -15,10 +15,16 @@
 4. a themed **stale notice** — shown when the last evaluation failed, so the
    still-displayed previous result is honestly marked stale (GUI plan §4, Phase 3
    task 4);
-5. the plot area — a :class:`QStackedWidget` swapping the
-   :class:`~radiant.gui.widgets.plot_placeholder.PlotPlaceholder` (pre-evaluate)
-   for the :class:`~radiant.gui.widgets.matplotlib_canvas.MatplotlibCanvas`
-   (post-evaluate).
+5. the plot area — a :class:`QStackedWidget` that swaps between the
+   :class:`~radiant.gui.widgets.plot_placeholder.PlotPlaceholder` (pre-evaluate),
+   the :class:`~radiant.gui.widgets.matplotlib_canvas.MatplotlibCanvas` (a
+   ``result.plot.*`` figure), the
+   :class:`~radiant.gui.widgets.geometry_readout.GeometryReadout` (the Geometry
+   stage's angle summary), and the
+   :class:`~radiant.gui.widgets.stage_gap_panel.StageGapPanel` (a stage whose §4.4
+   figure the ``result.plot`` surface does not yet carry). The active pane follows
+   the selected stage (GUI plan Phase 4, arch doc §4.4 table via
+   :mod:`radiant.gui.stage_views`).
 
 It keeps the ``visualizationArea`` object name the shell layout contract uses. The
 stale-notice label is themed via its ``#staleNotice`` object name; this file holds
@@ -31,10 +37,14 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
 
+from radiant.api.inspect import ResultPlotNamespace
+from radiant.gui.stage_views import KIND_GAP, KIND_GEOMETRY, view_for
+from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.kpi_badge_row import KpiBadgeRow
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.saturation_banner import SaturationBanner
+from radiant.gui.widgets.stage_gap_panel import StageGapPanel
 from radiant.gui.widgets.warning_strip import WarningStrip
 
 if TYPE_CHECKING:
@@ -69,13 +79,22 @@ class CentralCanvas(QWidget):
         self._stale_notice.setWordWrap(True)
         self._stale_notice.setVisible(False)
 
-        # Plot area: placeholder (index 0) before the first evaluation, matplotlib
-        # canvas (index 1) after — swapped on the first successful result.
+        # Plot area: the placeholder shows pre-evaluate; after a result the active
+        # pane follows the selected stage (a matplotlib figure, the geometry readout,
+        # or a gap panel — GUI plan Phase 4). The last result and selected stage are
+        # remembered so re-evaluations and stage clicks re-render the right pane.
         self._plot_stack = QStackedWidget(self)
         self._placeholder = PlotPlaceholder(self)
         self._matplotlib_canvas = MatplotlibCanvas(self)
+        self._geometry_readout = GeometryReadout(self)
+        self._gap_panel = StageGapPanel(self)
         self._plot_stack.addWidget(self._placeholder)
         self._plot_stack.addWidget(self._matplotlib_canvas)
+        self._plot_stack.addWidget(self._geometry_readout)
+        self._plot_stack.addWidget(self._gap_panel)
+
+        self._result: ChainResult | None = None
+        self._selected_stage: str | None = None
 
         layout.addWidget(self._kpi_row)
         layout.addWidget(self._saturation_banner)
@@ -111,26 +130,82 @@ class CentralCanvas(QWidget):
         return self._matplotlib_canvas
 
     @property
+    def geometry_readout(self) -> GeometryReadout:
+        """The Geometry stage's angle-summary readout pane."""
+        return self._geometry_readout
+
+    @property
+    def gap_panel(self) -> StageGapPanel:
+        """The "visualization not yet available (Gap N)" pane."""
+        return self._gap_panel
+
+    @property
     def plot_placeholder(self) -> PlotPlaceholder:
         """The empty-canvas placeholder (shown until the first result)."""
         return self._placeholder
 
+    @property
+    def active_pane(self) -> QWidget:
+        """The plot-area pane currently shown (for tests: which visualization is live)."""
+        return self._plot_stack.currentWidget()
+
+    @property
+    def selected_stage(self) -> str | None:
+        """The stage whose default visualization is shown (``None`` → post-evaluate default)."""
+        return self._selected_stage
+
     # -- evaluate loop (Phase 3) --------------------------------------------
 
     def show_result(self, result: ChainResult) -> None:
-        """Display a fresh *result*: badges, saturation banner, and the plot.
+        """Display a fresh *result*: badges, saturation banner, and the plot pane.
 
         Clears any stale notice (the current result is live), fills the badges from
-        the metric surface, updates the saturation banner from
-        ``result.well_status()``, and renders the default figure into the canvas. The
-        chain warnings are delivered separately via :meth:`update_warnings` (they are
+        the metric surface, and updates the saturation banner from
+        ``result.well_status()``. The plot area then re-renders for the currently
+        selected stage (or the post-evaluate default when none is selected). The chain
+        warnings are delivered separately via :meth:`update_warnings` (they are
         captured by the worker, not read off the result).
         """
+        self._result = result
         self._stale_notice.setVisible(False)
         self._kpi_row.update_from_result(result)
         self._saturation_banner.update_from_status(result.well_status())
-        self._matplotlib_canvas.show_result(result)
-        self._plot_stack.setCurrentWidget(self._matplotlib_canvas)
+        self._render_selection()
+
+    def select_stage(self, namespace: str | None) -> None:
+        """Select *namespace*'s default visualization (GUI plan Phase 4, arch §4.4).
+
+        Navigation only — no API call beyond the one ``result.plot.*`` figure the
+        stage's view names. With no result yet the placeholder stays; the selection is
+        remembered and rendered on the next result.
+        """
+        self._selected_stage = namespace
+        self._render_selection()
+
+    def _render_selection(self) -> None:
+        """Swap the plot area to the selected stage's view of the current result.
+
+        Pre-evaluate (no result) shows the placeholder. Otherwise the stage's
+        :class:`~radiant.gui.stage_views.StageView` decides: the geometry readout, a
+        gap panel, or a ``result.plot.*`` figure. Figure production is one API call on
+        the public ``result.plot`` surface (GUI plan §4.1) — no plotting in GUI code.
+        """
+        if self._result is None:
+            self._plot_stack.setCurrentWidget(self._placeholder)
+            return
+        view = view_for(self._selected_stage)
+        if view.kind == KIND_GEOMETRY:
+            self._geometry_readout.populate(self._result.stage_outputs.get("geometry", {}))
+            self._plot_stack.setCurrentWidget(self._geometry_readout)
+        elif view.kind == KIND_GAP:
+            assert view.gap_number is not None and view.gap_detail is not None
+            self._gap_panel.show_gap(view.gap_number, view.gap_detail)
+            self._plot_stack.setCurrentWidget(self._gap_panel)
+        else:  # KIND_PLOT
+            assert view.plot_method is not None
+            figure = getattr(ResultPlotNamespace(self._result), view.plot_method)()
+            self._matplotlib_canvas.show_figure(figure)
+            self._plot_stack.setCurrentWidget(self._matplotlib_canvas)
 
     def update_warnings(self, messages: list[str]) -> None:
         """Show the chain warnings of the last evaluation in the strip (clear if none).

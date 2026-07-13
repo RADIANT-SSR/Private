@@ -268,6 +268,33 @@ a health dot:
 Clicking a stage is navigation only (no API call): it scrolls the parameter panel to
 that stage's namespace and swaps the canvas to the stage's default visualization.
 
+**As shipped (GUI plan Phase 4 Task A).** A click emits the chip's **real schema
+namespace** — not the shortened eyebrow display, which may abbreviate (the 6th stage
+displays `SPECTRAL` but navigates to `spectral_integration`; the eyebrow-vs-namespace
+drift is CU-106, resolved here, with a construction-time guard asserting every chip
+namespace is a real chain stage). The host then scrolls the parameter panel to that
+namespace group and swaps the central canvas to the stage's §4.4 default visualization.
+A selected chip carries `focus-soft` background + `focus` border (§8.4); a warned/errored
+chip also carries the `<status>-soft` tint, and selection wins visually when both apply.
+
+**Health-dot attribution (v1 decision, GUI plan Phase 4 Task A).** The dots are driven
+from the *whole run*, not per stage:
+
+- **gray / stale** — no result yet, or a parameter edit since the last run (the
+  `parameterEdited` signal flips every dot back to stale until the pending debounced
+  re-run lands).
+- **green / ok** — the run finished with **no** chain warnings.
+- **yellow / warn** — the run finished but carried **at least one** chain warning.
+  Warnings are **not** attributed to a single stage: the captured warnings are free text
+  (`warnings.catch_warnings`, arch doc §4.4) and not reliably mappable to one stage, so
+  v1 marks **every** dot yellow on any warning. Per-stage warning attribution is deferred.
+- **red / err** — the evaluation raised. The failing stage is **not** identified: the
+  public exception surface does not reliably carry the originating stage, so v1 marks
+  **every** dot red rather than guessing. Per-stage failure attribution is deferred.
+
+These two "whole-run" choices keep the health signal honest (it never claims a precision
+it cannot source); refining either to per-stage attribution is a later enhancement.
+
 > The mockups in `dev_tools/gui_mockups/radiant_ui/` predate ADR-0006 — they open on the
 > **Source** screen with an 8-stage strip. v1 opens on **Geometry** with the 9-stage
 > strip above; the mockups remain the visual spec for chrome and styling only.
@@ -398,6 +425,32 @@ no stage is selected (the stage strip lands in Phase 4) is the **MTF overlay**
 (`result.plot.mtf()`) — the on-spec choice for the Performance row above, and the figure
 that visibly responds to the D2 aperture-diameter edit. The **saturation banner** (below)
 is placed **between the badge row and the canvas**.
+
+**Per-stage default views as shipped (GUI plan Phase 4 Task A).** Selecting a stage swaps
+the canvas per the table above, but every figure is drawn **only** from the existing
+`result.plot.*` surface (`ResultPlotNamespace`: `mtf`, `noise_budget`, `psf`,
+`mtf_budget`) — one GUI action ↔ one API call, no plotting in GUI code (§1.2 R-API). The
+mapping (`radiant.gui.stage_views`) resolves each stage as:
+
+| Stage | Shipped default view | Source |
+|-------|---------------------|--------|
+| Geometry | Derived-angle **readout** of `stage_outputs["geometry"]` (symbols + units); the 3D viewer is Phases 6–7 | stage outputs (verbatim) |
+| Source | **Gap 86** panel (no spectral accessor on `result.plot`) | `gaps.md` Gap 86 |
+| Atmosphere | **Gap 86** panel | `gaps.md` Gap 86 |
+| Optics | MTF overlay | `result.plot.mtf()` |
+| Platform | MTF overlay (shows the smear/jitter terms) | `result.plot.mtf()` |
+| Spectral Integration | **Gap 86** panel | `gaps.md` Gap 86 |
+| Detector | Noise-budget bar chart | `result.plot.noise_budget()` |
+| Readout | Noise-budget bar chart | `result.plot.noise_budget()` |
+| Performance | MTF overlay (system MTF) | `result.plot.mtf()` |
+
+Where the §4.4 row names **only** a spectral-radiance figure the `result.plot` surface
+does not carry (Source, Atmosphere, Spectral Integration), the canvas shows a themed
+"visualization not yet available (Gap 86)" panel rather than a faked figure (ground rule
+§4.1); **Gap 86** tracks adding the spectral accessors. Stages whose row names a figure
+that surface *does* carry render it. Geometry's default is the angle summary — a
+key-value readout of the derived stage outputs with units and symbols (R-UNITS), read
+verbatim (data display, not physics).
 
 The full-well **saturation banner** (§7.2 row 8, owner amendment 2) is a persistent,
 non-dismissible banner shown whenever `result.well_status().is_saturated`; it renders the

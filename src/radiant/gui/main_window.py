@@ -270,12 +270,16 @@ class RADIANTMainWindow(QMainWindow):
         self._add_action(help_menu, "help.about", "About RADIANT", enabled=False)
 
     def _build_stage_strip(self) -> None:
-        """The static 9-stage signal-chain strip (Phase 4 makes it interactive).
+        """The clickable 9-stage signal-chain strip with live health dots (Phase 4).
 
-        The :class:`StageStrip` renders the nine chips with stale health dots; it is
-        held in a thin top dock band. Phase 4 wires clicks and drives the dots.
+        The :class:`StageStrip` renders the nine chips; a click emits the stage's real
+        schema namespace, which navigates the parameter panel and swaps the canvas to
+        that stage's default visualization (navigation only, no API call). The dots are
+        driven live from the last run's health (:meth:`_on_eval_ok` / ``_failed`` /
+        ``_on_parameter_edited``).
         """
         strip = StageStrip(self)
+        strip.stageClicked.connect(self._on_stage_selected)
         self._stage_strip = strip
 
         # Docked at the top as a thin, non-floatable, non-closable band.
@@ -327,14 +331,35 @@ class RADIANTMainWindow(QMainWindow):
         self._detail_tabs = detail_tabs
 
     def _on_parameter_edited(self, dotpath: str) -> None:
-        """React to an accepted parameter edit: schedule a debounced re-evaluate.
+        """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
 
-        The full chain re-runs after the 200 ms debounce window (arch doc §3.3);
-        rapid edits coalesce into a single run. There is no incremental engine
-        (CU-079, declined) — every re-evaluation is a full chain.
+        A parameter edit makes every downstream result out of date, so all stage
+        health dots flip back to gray/stale (§4.2) until the pending run lands. The
+        full chain re-runs after the 200 ms debounce window (arch doc §3.3); rapid
+        edits coalesce into a single run. There is no incremental engine (CU-079,
+        declined) — every re-evaluation is a full chain.
         """
+        self._stage_strip.set_all_status("stale")
         self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
         self._debounce.start()
+
+    def _on_stage_selected(self, namespace: str) -> None:
+        """Handle a stage-strip click: select the chip, navigate, swap the canvas.
+
+        Navigation only (no API call beyond the one ``result.plot.*`` figure the
+        stage's view names, GUI plan §4.1): the chip gets the selected state, the
+        parameter panel scrolls to the stage's namespace group, and the canvas swaps
+        to the stage's default visualization (arch doc §4.4). Pre-evaluate the canvas
+        keeps its placeholder; the selection is remembered and rendered on the next
+        result. A figure that fails to render is surfaced, never swallowed (Rules
+        15/17).
+        """
+        self._stage_strip.select(namespace)
+        self._parameter_panel.scroll_to_namespace(namespace)
+        try:
+            self._central.select_stage(namespace)
+        except Exception as exc:  # rendering the API's own figure — surface, never swallow
+            UnexpectedErrorDialog(exc, f"Rendering the {namespace} visualization", self).exec()
 
     def _build_status_bar(self) -> None:
         """Status bar with the initial ready/no-config message + a busy indicator.
@@ -439,6 +464,13 @@ class RADIANTMainWindow(QMainWindow):
         """
         self._last_result = result
         self._central.update_warnings(warnings)
+        # Drive the stage health dots (§4.2): green on a clean run, yellow when the
+        # run carried any chain warning. Per-stage warning attribution is deferred —
+        # the captured warnings are free-text and not reliably attributable to one
+        # stage, so v1 marks the whole run yellow-on-any-warning (arch doc §4.2, the
+        # documented decision). Done before the plot render so the health reflects the
+        # run even if the figure fails.
+        self._stage_strip.set_all_status("warn" if warnings else "ok")
         try:
             self._central.show_result(result)
         except Exception as exc:  # rendering the API's own figure — surface, never swallow
@@ -454,7 +486,13 @@ class RADIANTMainWindow(QMainWindow):
         The previous badges and plot stay on screen (never a blank or partial mix)
         but are flagged stale; the actionable error is shown — a ``RadiantError``
         renders what/why/action, anything else gets a traceback dialog (Rules 15/17).
+
+        Every stage dot goes red (§4.2). Per-stage failure attribution is deferred:
+        the public exception surface does not reliably carry the originating stage, so
+        v1 marks the whole run red rather than guessing a stage (arch doc §4.2, the
+        documented decision).
         """
+        self._stage_strip.set_all_status("err")
         self._central.mark_stale()
         self.statusBar().showMessage("Evaluation failed — showing the previous result (stale)")
         if isinstance(exc, RadiantError):

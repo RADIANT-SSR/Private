@@ -246,6 +246,23 @@ class ParameterPanel(QWidget):
         """Dot-paths of the rows currently visible (not filtered out)."""
         return {dotpath for dotpath, item in self._items.items() if not item.isHidden()}
 
+    def scroll_to_namespace(self, namespace: str) -> bool:
+        """Scroll to, expand, and select the *namespace* group header (stage-strip click).
+
+        Returns ``True`` if the group exists (and was scrolled to), ``False`` if no
+        such namespace is present — the caller (the stage strip navigation, GUI plan
+        Phase 4) then knows the parameter tree has no group for that stage. Navigation
+        only: no sensor mutation, no evaluation.
+        """
+        for i in range(self._tree.topLevelItemCount()):
+            group = self._tree.topLevelItem(i)
+            if group.text(0) == namespace:
+                group.setExpanded(True)
+                self._tree.scrollToItem(group, QAbstractItemView.ScrollHint.PositionAtTop)
+                self._tree.setCurrentItem(group)
+                return True
+        return False
+
     # -- population ---------------------------------------------------------
 
     def populate(self, sensor: Sensor | None) -> None:

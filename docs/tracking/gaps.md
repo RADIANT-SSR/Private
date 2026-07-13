@@ -1271,6 +1271,17 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Impact** | Operators (all personas) have no setup guidance: they must know a priori which parameters matter for their mission type, and there is no guard that flags a declared extended-scene setup whose derived regime comes back point-source (or vice versa). The tool derives regime but never tells the user which knobs that regime actually consumes. |
 | **Workaround** | Rely on operator knowledge of the regime rules; inspect the derived regime in results after a run and reconcile by hand. Natural v1.1 companion to the deferred library/preset browser (`RADIANT_GUI` arch doc §7.2 row 5). |
 
+## Gap 86: `result.plot` exposes no spectral-radiance figure accessor (Source / Atmosphere / Spectral Integration default views)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Development Plan Phase 4 Task A (per-stage default visualizations), 2026-07-13 |
+| **Status** | OPEN — GUI shows a themed "visualization not yet available (Gap 86)" panel for the three affected stages rather than faking a figure (GUI plan ground rule §4.1). |
+| **Description** | The public `result.plot` surface (`radiant.api.inspect.ResultPlotNamespace`) exposes exactly four figures — `mtf()`, `noise_budget()`, `psf()`, `mtf_budget()`. The arch-doc §4.4 per-stage default-visualization table names **spectral-domain radiance** figures for three stages that this surface does not carry: **Source** (`L_src(λ)` [W/m²/sr/µm]), **Atmosphere** (τ_atm(λ) with L_path(λ)/L_atm(λ) overlay), and **Spectral Integration** (in-band integrated radiance per frame). A module-level `radiant.api.plot.plot_spectral(wavelength_um, radiance, …)` function exists but is **not** wired onto the `result.plot` namespace and takes bare arrays, not a `ChainResult`, so the GUI cannot reach a stage's spectral radiance through the one-action-one-API-call surface. |
+| **Impact** | The Source/Atmosphere/Spectral-Integration stage-strip buttons swap the canvas to a themed gap panel naming this gap instead of their intended spectral plot. No wrong figure is shown (the panel is honest), but three of nine stages lack their arch-doc default visualization until the accessor lands. Optics/Detector/Readout/Performance are unaffected — their §4.4 rows name figures (`mtf`, `noise_budget`) that `result.plot` already carries. |
+| **Workaround** | Inspect spectral frames from the Phase-8 console via the module-level `radiant.api.plot.plot_spectral(...)` with arrays pulled from `result.frames` / `result.stage_outputs`. |
+| **Fix location** | Add spectral accessors to `ResultPlotNamespace` (e.g. `spectral_source()`, `spectral_atmosphere()`, `spectral_inband()`) that pull the relevant frames/arrays off the `ChainResult` and delegate to the existing `plot_spectral`; then map those stages in `radiant.gui.stage_views.STAGE_VIEWS` from a gap view to a `KIND_PLOT` view. Effort S–M; category A (no physics, no results — a view accessor over already-computed frames). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

@@ -59,9 +59,18 @@ class MatplotlibCanvas(QFrame):
         """Render *result*'s default figure (``result.plot.mtf()``) into the canvas.
 
         The prior figure is closed first, so re-evaluations do not accumulate
-        matplotlib figures.
+        matplotlib figures. Phase 4 selects a per-stage figure via :meth:`show_figure`;
+        this stays the no-stage default.
         """
-        figure = ResultPlotNamespace(result).mtf()
+        self._embed(ResultPlotNamespace(result).mtf())
+
+    def show_figure(self, figure: Figure) -> None:
+        """Embed an already-produced *figure* (a ``result.plot.*`` return value).
+
+        Phase 4's stage strip picks the per-stage default figure from the
+        ``result.plot`` surface (one GUI action ↔ one API call) and hands the figure
+        here; the prior figure is closed first so re-renders do not leak figures.
+        """
         self._embed(figure)
 
     def has_figure(self) -> bool:

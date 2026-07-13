@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI Parameter Editor dialog (GUI plan Phase 3 checkpoint punch-list).** The
+  parameter panel gains a full-detail editor box that opens on a parameter
+  (double-click its Parameter or Source column, or right-click → **Edit…**) and
+  shows the complete dot-path the narrow tree truncates, the schema description,
+  the current value with unit + provenance, the bounds, and the derived/read-only
+  state. It edits the value with a per-dtype control and, for a dimensional
+  parameter, a **unit selector** populated from the units the conversion registry
+  can convert to the canonical unit (public `radiant.api.units` seam, never a
+  hardcode); it previews the resulting canonical value (enter `8` `km` → `= 8000 m`)
+  and commits one `sensor.set(dotpath, value, unit=…)`, validated on a clone so a
+  rejected value never touches the live sensor and its actionable error renders in
+  the dialog. Derived parameters open read-only. The Value column keeps its
+  existing fast in-place editor (two complementary edit paths). Visual/UX capability
+  only; results-neutral.
 - **GUI evaluate loop, live metric badges, and saturation banner (GUI plan
   Phase 3 — Milestone A / D2).** `radiant gui` now runs the full chain: opening
   or editing a config evaluates `sensor.evaluate()` on a background worker thread

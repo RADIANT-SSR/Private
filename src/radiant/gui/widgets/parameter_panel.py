@@ -71,7 +71,9 @@ from radiant.gui.widgets.parameter_delegate import (
     DOTPATH_ROLE,
     ERROR_ROLE,
     ParameterEditDelegate,
+    ReadOnlyCellDelegate,
 )
+from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 
 if TYPE_CHECKING:
@@ -158,6 +160,13 @@ class ParameterPanel(QWidget):
             self._tree,
         )
         self._tree.setItemDelegateForColumn(1, self._delegate)
+        # Parameter (name) + Source columns never open an in-place editor: a
+        # double-click there opens the full ParameterEditorDialog instead (§4.3).
+        self._readonly_delegate = ReadOnlyCellDelegate(self._tree)
+        self._tree.setItemDelegateForColumn(0, self._readonly_delegate)
+        self._tree.setItemDelegateForColumn(2, self._readonly_delegate)
+        # Double-click on any column other than Value opens the detail editor dialog.
+        self._tree.doubleClicked.connect(self._on_double_click)
 
         # Give the (often long) parameter names the stretch space; keep the Value
         # and Source columns compact so, in the narrow dock, names truncate last.
@@ -393,18 +402,61 @@ class ParameterPanel(QWidget):
         dotpath = str(dotpath)
 
         menu = QMenu(self._tree)
+        edit_action = menu.addAction("Edit…")
+        menu.addSeparator()
         copy_action = menu.addAction("Copy dot-path")
         explain_action = menu.addAction("Explain")
         reset_action = menu.addAction("Reset to Default")
         chosen = menu.exec(self._tree.viewport().mapToGlobal(pos))
         if chosen is None:
             return
-        if chosen is copy_action:
+        if chosen is edit_action:
+            self._open_editor_dialog(dotpath)
+        elif chosen is copy_action:
             self._copy_dotpath(dotpath)
         elif chosen is explain_action:
             self._explain(dotpath)
         elif chosen is reset_action:
             self._reset_to_default(dotpath)
+
+    def _on_double_click(self, index: Any) -> None:
+        """Open the detail editor when a non-Value column is double-clicked (§4.3).
+
+        The Value column (1) keeps its fast in-place delegate editor; double-clicking
+        the Parameter (0) or Source (2) column — for any row, derived or not — opens the
+        full :class:`ParameterEditorDialog`. A namespace group header (no dot-path) is
+        ignored.
+        """
+        if index.column() == 1:
+            return
+        item = self._tree.itemFromIndex(index)
+        if item is None:
+            return
+        dotpath = item.data(0, _DOTPATH_ROLE)
+        if not dotpath:  # a namespace group header, not a parameter
+            return
+        self._open_editor_dialog(str(dotpath))
+
+    def _open_editor_dialog(self, dotpath: str) -> None:
+        """Open the full-detail Parameter Editor for *dotpath* (both entry points).
+
+        The dialog owns the value + unit entry, the canonical preview, and the inline
+        actionable-error surface; an accepted edit calls back into
+        :meth:`_after_dialog_commit`, which refreshes the tree and marks results stale
+        exactly as an in-place edit does.
+        """
+        if self._sensor is None:
+            return
+        dialog = ParameterEditorDialog(self._sensor, dotpath, self._after_dialog_commit, self)
+        dialog.exec()
+
+    def _after_dialog_commit(self, dotpath: str) -> None:
+        """Refresh the tree + emit the stale signal after a dialog-committed edit."""
+        if self._sensor is None:
+            return
+        self._clear_error_state()
+        self.populate(self._sensor)
+        self.parameterEdited.emit(dotpath)
 
     def _copy_dotpath(self, dotpath: str) -> None:
         """Put the full dot-path on the clipboard."""

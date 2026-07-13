@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list (Parameter Editor dialog), 2026-07-13
+**Status**: Open — working but awkward; the GUI's unit selector and the `radiant convert` CLI both enumerate off a name-mangled dict re-export rather than a first-class API.
+**File**: `src/radiant/api/units.py` (`__all__ = ["_CONVERSIONS", "convert"]` — re-exports the private `radiant.core.units._CONVERSIONS`); consumers `src/radiant/gui/widgets/parameter_editor_dialog.py` (`convertible_units`) and `src/radiant/cli/convert.py` (target enumeration).
+**Symptom**: to list the units a value may be entered in for a given parameter, the Parameter Editor dialog reads the raw `(from, to) -> factor` registry through `radiant.api.units._CONVERSIONS` and filters `{frm for (frm, to) in _CONVERSIONS if to == canonical_unit}`. That underscore-named dict is technically public (in `radiant.api.units.__all__`, the sanctioned `core`-to-`api` seam) but exposes an internal data structure and leading-underscore name as the only enumeration surface — the CLI already leans on the same pattern.
+**Why it still matters**: GUI plan ground rule §4.1 wants the GUI to consume *public* surfaces; consuming a `_`-prefixed dict re-export is the letter, not the spirit. A future change to the registry's shape (e.g. dimension grouping, or offset units like °C/°F that are not multiplicative) would silently break both the dialog's unit list and the CLI's target enumeration, with no typed accessor to migrate behind.
+**Suggested fix**: stand-alone task — add a named public accessor, e.g. `radiant.api.units.units_for(canonical_unit: str) -> tuple[str, ...]` (or `convertible_units`), backed by `radiant.core.units`, and switch both the GUI dialog and the CLI to it; drop the `_CONVERSIONS` re-export from `radiant.api.units.__all__`. Lock-step doc note in `RADIANT_GUI_Architecture.md` §4.3 (which currently cites the seam). Effort S; category A (no physics, no results).
+
 ### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
 
 **Discovered**: GUI Development Plan Phase 3 (evaluate loop / live badges), 2026-07-12

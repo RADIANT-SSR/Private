@@ -180,4 +180,32 @@ class ParameterEditDelegate(QStyledItemDelegate):
         return None
 
 
-__all__ = ["ParameterEditDelegate", "DOTPATH_ROLE", "ERROR_ROLE"]
+class ReadOnlyCellDelegate(QStyledItemDelegate):
+    """A delegate that never opens an in-place editor (returns no editor widget).
+
+    Set on the Parameter (name) and Source columns of the tree so their default
+    Qt rename editor never appears: those columns route a double-click to the full
+    :class:`~radiant.gui.widgets.parameter_editor_dialog.ParameterEditorDialog` instead
+    (opened by the panel from the view's ``doubleClicked`` signal, which fires for
+    derived rows too — the item-level ``ItemIsEditable`` flag it would otherwise need is
+    irrelevant here). Only the Value column keeps
+    :class:`ParameterEditDelegate`'s fast in-place editor (§4.3, two complementary
+    edit paths).
+    """
+
+    def createEditor(  # noqa: N802 (Qt override name)
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex,
+    ) -> QWidget | None:
+        """Never build an editor — these columns are non-editable in place."""
+        return None
+
+
+__all__ = [
+    "ParameterEditDelegate",
+    "ReadOnlyCellDelegate",
+    "DOTPATH_ROLE",
+    "ERROR_ROLE",
+]

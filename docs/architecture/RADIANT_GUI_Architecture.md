@@ -315,6 +315,33 @@ traceback fold (Rules 15/17 — nothing swallowed). Right-click: Copy dot-path, 
 to match the `Tools → Explain Parameter…` menu), Reset to Default (`Sensor.reset(dotpath)`,
 which clears the input so the parameter reverts to its default or is re-derived).
 
+**Parameter Editor dialog (Phase 3 checkpoint punch-list).** The narrow dock truncates
+long dot-paths, so a full-detail **Parameter Editor** (`ParameterEditorDialog`, one widget
+per file) opens on demand and shows the **complete** dot-path (selectable, mono), the
+schema description, the current value with unit + provenance, the schema bounds (with
+units), and the derived/read-only state. It offers a value editor per dtype (numeric field,
+enum combo from `enum_values`, bool checkbox) and — for a dimensional (numeric) parameter —
+a **unit selector** populated from the units the conversion registry can convert to the
+parameter's canonical unit, read through the public `radiant.api.units` seam (the same
+surface `radiant convert` enumerates from), never a hardcoded list. A canonical **preview**
+confirms the result before and after applying (enter `8` `km` → `= 8000 m`). Committing is
+exactly one `sensor.set(dotpath, value, unit=<chosen>)` (§4.1), validated first on a
+throwaway `sensor.clone()` so a rejected value never touches the live sensor; a rejection
+renders its what/why/action **inside** the dialog (themed error area) and keeps it open for
+correction, while an accepted edit refreshes the tree (the panel's existing refresh path)
+and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). A derived (⚡)
+parameter opens read-only: the value/unit editors are disabled and only a Close button is
+offered.
+
+**Two complementary edit paths.** The Value column keeps its fast in-place editor
+(double-click column 1 → `ParameterEditDelegate`); the Parameter (name) and Source columns
+open the full Parameter Editor dialog instead (double-click, or right-click → **Edit…** at
+the top of the menu). Those two columns carry a `ReadOnlyCellDelegate` so Qt's default
+rename editor never appears there, and the dialog is opened from the tree's `doubleClicked`
+signal (which fires for derived rows too). The unit-enumeration seam being the underscored
+`radiant.api.units._CONVERSIONS` re-export (rather than a named `units_for()` accessor) is
+tracked as CU-109.
+
 ### 4.4 Visualization Area (Center)
 
 A large matplotlib canvas (`FigureCanvasQTAgg`) rendering the existing `result.plot.*`

@@ -357,6 +357,40 @@ QPlainTextEdit#errorDialogTraceback, QPlainTextEdit#explainDialogBody {{
     font-size: 12px;
 }}
 
+/* -- Parameter Editor dialog (§4.3, Phase 3 checkpoint) ---------------- *
+ * The "open it up" box: full dot-path + description + value/unit entry, a
+ * canonical preview, and an inline actionable-error area. Reuses the shared
+ * errorDialogKey/errorDialogValue/errorDialogHeader label roles above. */
+#parameterEditorDialog {{
+    background-color: {t.panel};
+}}
+QLabel#paramEditorPath {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 13px;
+    font-weight: 600;
+}}
+QLabel#paramEditorDescription {{
+    color: {t.muted};
+    font-size: 12px;
+}}
+QLabel#paramEditorPreview {{
+    color: {t.accent};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#paramEditorDerivedNote {{
+    color: {t.warn};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QFrame#paramEditorError {{
+    background-color: {t.err_soft};
+    border: {tokens.BORDER_WIDTH} solid {t.err};
+    border-radius: {tokens.RADIUS_CONTROL};
+}}
+
 /* -- Status bar (§4.1) ------------------------------------------------- */
 QStatusBar {{
     background-color: {t.panel_2};

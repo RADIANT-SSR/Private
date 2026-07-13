@@ -21,10 +21,17 @@ from dataclasses import fields
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QColor, QImage, QPalette
+from PySide6.QtWidgets import QApplication, QLineEdit
 
+from radiant.api.sensor import Sensor
 from radiant.gui.themes import DARK, LIGHT, Theme, apply_theme, build_stylesheet
+from radiant.gui.widgets.parameter_panel import ParameterPanel
+
+# A clean bounded float in the shipped example config — the row the delegate opens
+# a line-edit over (the exact case in the 2026-07-12 illegible-editor bug report).
+_EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
+_EDIT_ROW = "source.target.temperature"
 
 # Every top-level widget class the Phase 1 shell (and the mockups) rely on. If the
 # generated QSS does not name each of these, some widget renders in default Qt gray.
@@ -120,6 +127,94 @@ class TestApplyTheme:
         finally:
             app.setPalette(previous_palette)
             app.setStyleSheet(previous_qss)
+
+
+@pytest.mark.parametrize("theme", [LIGHT, DARK], ids=lambda t: t.name)
+class TestInCellEditorLegible:
+    """The delegate editor stays legible when opened over a *selected* tree row.
+
+    Regression guard for the 2026-07-12 checkpoint bug: the in-cell line edit
+    inherited the generic input padding (``PAD_INPUT`` = 5 px vertical), which in a
+    ~16 px row clipped the mono glyphs top and bottom to illegible slivers. Two
+    independent contracts are asserted, in both themes:
+
+    * **Contrast** — the editor's effective Text colour differs from its Base
+      (background) colour, so it is never ink-on-ink.
+    * **Rendered legibility** — the actual rendered glyphs span most of the editor
+      height (they are not clipped). This is the check that fails on the padding
+      regression: the palette contrast alone passed even while the bug was live.
+    """
+
+    def _open_editor(self, theme: Theme, qtbot) -> QLineEdit:  # type: ignore[no-untyped-def]
+        """Populate a panel, apply *theme*, select the row, open its editor."""
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)
+        apply_theme(app, theme)
+        panel = ParameterPanel()
+        qtbot.addWidget(panel)
+        panel.resize(420, 600)
+        panel.populate(Sensor.from_yaml(_EXAMPLE))
+        panel.show()
+        item = panel._items[_EDIT_ROW]
+        tree = panel.tree
+        tree.setCurrentItem(item)  # the row is SELECTED (highlight painted behind)
+        tree.scrollToItem(item)
+        index = tree.indexFromItem(item, 1)
+        tree.openPersistentEditor(item, 1)
+        app.processEvents()
+        editor = tree.indexWidget(index)
+        assert isinstance(editor, QLineEdit)
+        return editor
+
+    def test_editor_text_contrasts_with_background(self, theme: Theme, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Effective Text colour differs from Base — never light-on-light ink."""
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)
+        prev_qss, prev_pal = app.styleSheet(), app.palette()
+        try:
+            editor = self._open_editor(theme, qtbot)
+            pal = editor.palette()
+            assert pal.color(QPalette.ColorRole.Text) != pal.color(QPalette.ColorRole.Base)
+        finally:
+            app.setStyleSheet(prev_qss)
+            app.setPalette(prev_pal)
+
+    def test_editor_glyphs_are_not_clipped(self, theme: Theme, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The rendered digits span most of the editor height (padding-clip guard).
+
+        The bug clipped the glyphs to a ~4 px band in a 16 px editor; the fix
+        restores an ~11 px span. Asserting the ink band is at least 45 % of the
+        editor height cleanly separates the two (and is font-fallback tolerant).
+        """
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)
+        prev_qss, prev_pal = app.styleSheet(), app.palette()
+        try:
+            editor = self._open_editor(theme, qtbot)
+            img: QImage = editor.grab().toImage()
+            bg = QColor(theme.panel)
+            rows_with_ink = [
+                y
+                for y in range(img.height())
+                if any(
+                    (
+                        abs(img.pixelColor(x, y).red() - bg.red())
+                        + abs(img.pixelColor(x, y).green() - bg.green())
+                        + abs(img.pixelColor(x, y).blue() - bg.blue())
+                    )
+                    > 120
+                    for x in range(img.width())
+                )
+            ]
+            assert rows_with_ink, f"{theme.name}: editor rendered no legible ink"
+            ink_span = max(rows_with_ink) - min(rows_with_ink) + 1
+            assert ink_span >= 0.45 * img.height(), (
+                f"{theme.name}: glyphs clipped — ink spans {ink_span}px "
+                f"of {img.height()}px editor (padding-clip regression)"
+            )
+        finally:
+            app.setStyleSheet(prev_qss)
+            app.setPalette(prev_pal)
 
 
 class TestTokenDiscipline:

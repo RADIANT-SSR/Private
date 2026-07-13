@@ -193,6 +193,11 @@ PAD_BUTTON = "6px 14px"  # buttons
 PAD_INPUT = "5px 8px"  # inputs
 PAD_KPI = "4px 14px"  # KPI cells
 PAD_STAGE = "10px 12px"  # stage buttons
+# In-cell tree/table editors (the delegate spawns these over a short row): the
+# 5px vertical of PAD_INPUT clips the glyphs to illegible slivers in a ~20px row
+# (Phase 2 checkpoint bug, 2026-07-12). Near-zero vertical padding keeps the
+# digits fully visible; the 6px horizontal keeps the text off the cell border.
+PAD_CELL_EDITOR = "1px 6px"
 
 GAP_DEFAULT = "6px"  # default inter-control gap
 BORDER_WIDTH = "1px"  # 1 px solid line everywhere
@@ -225,6 +230,7 @@ __all__ = [
     "PAD_INPUT",
     "PAD_KPI",
     "PAD_STAGE",
+    "PAD_CELL_EDITOR",
     "GAP_DEFAULT",
     "BORDER_WIDTH",
 ]

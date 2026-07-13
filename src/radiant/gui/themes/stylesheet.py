@@ -399,6 +399,25 @@ QComboBox QAbstractItemView {{
     outline: none;
 }}
 
+/* -- In-cell editors: delegate-spawned editors inside an item view -------
+ * The edit delegate (parameter_delegate.py) opens a line edit / spin box /
+ * combo *inside* the parameter-tree viewport, over the (usually selected) row.
+ * They inherit the generic input rules above — including PAD_INPUT's 5 px
+ * vertical padding — which, in a ~20 px row, clips the mono glyphs top and
+ * bottom to illegible slivers (Phase 2 checkpoint bug, 2026-07-12). Descendant
+ * selectors (matched only inside a QAbstractItemView, so the standalone filter
+ * box is untouched) give them near-zero vertical padding and re-assert
+ * ink-on-panel — legible digits in both themes, over the selection highlight. */
+QAbstractItemView QLineEdit,
+QAbstractItemView QAbstractSpinBox,
+QAbstractItemView QComboBox {{
+    background-color: {t.panel};
+    color: {t.ink};
+    padding: {tokens.PAD_CELL_EDITOR};
+    selection-background-color: {t.focus_soft};
+    selection-color: {t.ink};
+}}
+
 /* -- Trees / tables + headers (§4.3, §4.5) ----------------------------- */
 QTreeView, QTableView, QListView {{
     background-color: {t.panel};

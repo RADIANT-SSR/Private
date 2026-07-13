@@ -8,10 +8,14 @@
 2. the :class:`~radiant.gui.widgets.saturation_banner.SaturationBanner` — a
    non-dismissible full-well-clip banner, **below the badge row and above the
    canvas** (owner amendment 2, placement recorded here);
-3. a themed **stale notice** — shown when the last evaluation failed, so the
+3. the :class:`~radiant.gui.widgets.warning_strip.WarningStrip` — a themed, clickable
+   **warn-token** strip carrying the chain ``UserWarning``s of the last evaluation
+   (distinct from the red saturation banner), also between badge row and canvas
+   (owner feedback 2026-07-13);
+4. a themed **stale notice** — shown when the last evaluation failed, so the
    still-displayed previous result is honestly marked stale (GUI plan §4, Phase 3
    task 4);
-4. the plot area — a :class:`QStackedWidget` swapping the
+5. the plot area — a :class:`QStackedWidget` swapping the
    :class:`~radiant.gui.widgets.plot_placeholder.PlotPlaceholder` (pre-evaluate)
    for the :class:`~radiant.gui.widgets.matplotlib_canvas.MatplotlibCanvas`
    (post-evaluate).
@@ -31,6 +35,7 @@ from radiant.gui.widgets.kpi_badge_row import KpiBadgeRow
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.saturation_banner import SaturationBanner
+from radiant.gui.widgets.warning_strip import WarningStrip
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
@@ -58,6 +63,7 @@ class CentralCanvas(QWidget):
 
         self._kpi_row = KpiBadgeRow(self)
         self._saturation_banner = SaturationBanner(self)
+        self._warning_strip = WarningStrip(self)
         self._stale_notice = QLabel(_STALE_NOTICE, self)
         self._stale_notice.setObjectName("staleNotice")
         self._stale_notice.setWordWrap(True)
@@ -73,6 +79,7 @@ class CentralCanvas(QWidget):
 
         layout.addWidget(self._kpi_row)
         layout.addWidget(self._saturation_banner)
+        layout.addWidget(self._warning_strip)
         layout.addWidget(self._stale_notice)
         layout.addWidget(self._plot_stack, 1)
 
@@ -87,6 +94,11 @@ class CentralCanvas(QWidget):
     def saturation_banner(self) -> SaturationBanner:
         """The full-well saturation banner (visible only when clipped)."""
         return self._saturation_banner
+
+    @property
+    def warning_strip(self) -> WarningStrip:
+        """The clickable chain-warning strip (visible only when warnings were raised)."""
+        return self._warning_strip
 
     @property
     def stale_notice(self) -> QLabel:
@@ -110,13 +122,23 @@ class CentralCanvas(QWidget):
 
         Clears any stale notice (the current result is live), fills the badges from
         the metric surface, updates the saturation banner from
-        ``result.well_status()``, and renders the default figure into the canvas.
+        ``result.well_status()``, and renders the default figure into the canvas. The
+        chain warnings are delivered separately via :meth:`update_warnings` (they are
+        captured by the worker, not read off the result).
         """
         self._stale_notice.setVisible(False)
         self._kpi_row.update_from_result(result)
         self._saturation_banner.update_from_status(result.well_status())
         self._matplotlib_canvas.show_result(result)
         self._plot_stack.setCurrentWidget(self._matplotlib_canvas)
+
+    def update_warnings(self, messages: list[str]) -> None:
+        """Show the chain warnings of the last evaluation in the strip (clear if none).
+
+        The messages come from the worker's ``warnings.catch_warnings`` capture (arch
+        doc §4.4, owner feedback 2026-07-13); a warning-free run clears the strip.
+        """
+        self._warning_strip.update_from_warnings(messages)
 
     def mark_stale(self) -> None:
         """Mark the displayed result stale after a failed evaluation (task 4).

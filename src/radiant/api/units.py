@@ -8,6 +8,6 @@ This module is the public seam.
 
 from __future__ import annotations
 
-from radiant.core.units import _CONVERSIONS, convert
+from radiant.core.units import _CONVERSIONS, convert, inverse_convert
 
-__all__ = ["_CONVERSIONS", "convert"]
+__all__ = ["_CONVERSIONS", "convert", "inverse_convert"]

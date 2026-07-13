@@ -44,6 +44,8 @@ _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.
 # A clean, standalone bounded float in the example config (default 300 K, bounds
 # 0–5000 K) with no consistency-group entanglement — the reliable accept/reject probe.
 _TEMP = "source.target.temperature"
+# A length parameter (canonical/input m) for display-unit round-trips.
+_ALT = "geometry.sensor_altitude_m"
 
 
 @pytest.fixture
@@ -76,6 +78,40 @@ class _CapturingDialog:
 @pytest.fixture(autouse=True)
 def _reset_captures() -> None:
     _CapturingDialog.calls = []
+
+
+class TestDisplayUnits:
+    """Item 2 (owner feedback 2026-07-13): rows show — and accept — the user's unit."""
+
+    def test_inline_edit_is_symmetric_in_the_display_unit(
+        self, panel: ParameterPanel, sensor: Sensor
+    ) -> None:
+        """Type 550 into a km-displaying row → 550000 m canonical, row shows 550 km."""
+        # Adopt km as the altitude row's display unit, as a dialog commit would.
+        panel._after_dialog_commit(_ALT, "km")
+        assert panel.display_unit(_ALT) == "km"
+        assert panel.value_text(_ALT).endswith("km")
+
+        # The inline editor seeds in the display unit (what you see is what you edit).
+        seeded = panel._input_value_for(_ALT)
+        assert float(seeded) == pytest.approx(sensor.get(_ALT) / 1000.0, abs=0)
+
+        # The inline delegate commits the typed number interpreted in the display unit.
+        panel._commit_edit(_ALT, "550")
+        assert sensor.get(_ALT) == pytest.approx(550000.0, abs=0)  # canonical metres
+        assert panel.value_text(_ALT).endswith("550 km")  # what you type is what you read
+
+    def test_unsound_display_unit_falls_back_to_input_unit(self, panel: ParameterPanel) -> None:
+        """An offset unit (temperature only registers K) falls back — with its suffix."""
+        panel._display_units[_TEMP] = "degC"  # not a registered multiplicative conversion
+        panel.populate(panel._sensor)  # same sensor → preserves the override
+        text = panel.value_text(_TEMP)
+        assert text.endswith("300 K")  # fell back to the canonical/input unit, suffix present
+
+    def test_never_edited_row_keeps_canonical_display(self, panel: ParameterPanel) -> None:
+        """A row with no display-unit override still shows its schema input unit."""
+        assert panel.display_unit(_ALT) == panel._sensor.parameter_def(_ALT).input_unit
+        assert panel.value_text(_ALT).endswith("m")
 
 
 class TestEditAccept:

@@ -28,6 +28,7 @@ from typing import Any
 import numpy as np
 
 from radiant.api.session import RadiantSession
+from radiant.api.units import convert, inverse_convert
 from radiant.core.parameters import ParameterDef
 
 # The ⚡ marker the mockup (§4.3) puts on derived rows. A glyph, not a style token.
@@ -70,6 +71,33 @@ def format_value(value: Any, unit: str) -> str:
     else:
         text = str(value)
     return f"{text} {unit}" if unit else text
+
+
+def display_in_unit(
+    value: Any,
+    source_unit: str,
+    display_unit: str,
+    canonical_unit: str,
+) -> Any:
+    """Re-express *value* (given in *source_unit*) in *display_unit* — via the public seam.
+
+    The GUI shows a canonical/input value in whatever unit the user chose for a row
+    (owner feedback 2026-07-13: "the displayed units should be what the user chose").
+    This performs **no ad-hoc unit maths** — it routes through the public
+    :mod:`radiant.api.units` registry (``convert`` to the canonical unit, then
+    ``inverse_convert`` out to the display unit). The registry holds **only pure
+    multiplicative factors** — no additive offsets are registered (temperature keeps
+    only ``K``; a °C/°F conversion would need an offset and is deliberately absent), so
+    division-through-canonical is always invertible and sound for any *registered* unit.
+
+    Raises :class:`KeyError` when either leg is unregistered (a one-way or offset unit);
+    the caller falls back to displaying *source_unit* for that row rather than inventing
+    a conversion (Rule 2 — conversions happen only where the registry supports them).
+    """
+    if value is None or source_unit == display_unit:
+        return value
+    canonical = convert(float(value), source_unit, canonical_unit)
+    return inverse_convert(canonical, canonical_unit, display_unit)
 
 
 def provenance_from_explain(explain_text: str) -> str | None:
@@ -151,6 +179,7 @@ __all__ = [
     "UNSET_TEXT",
     "PROVENANCE_LABELS",
     "format_value",
+    "display_in_unit",
     "provenance_from_explain",
     "provenance_label",
     "is_derived",

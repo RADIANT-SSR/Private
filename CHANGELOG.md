@@ -21,6 +21,32 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI display units — rows and the Parameter Editor show the user's unit (GUI
+  plan Phase 3 checkpoint punch-list round 2, owner feedback 2026-07-13).** A
+  parameter row now displays its value in the unit the user chose (an altitude set
+  as 500 km reads `500 km`, not `500000 m`), not always the schema canonical/input
+  unit. Committing a Parameter-Editor edit with an explicit unit adopts that unit as
+  the row's display unit; the editor opens on it (Current line, value field, unit
+  combo, and bounds), and inline Value-column edits interpret the typed number in it
+  and write it back with the same unit (type `550` into a km row → `550000 m`
+  canonical, row shows `550 km`). All canonical↔display conversion routes through the
+  public `radiant.api.units` seam (no ad-hoc GUI maths); a unit that is not soundly
+  convertible (offset/one-way) falls back to the canonical unit. The unit suffix is
+  always part of the string. Session-scoped (QSettings persistence lands in Phase 9).
+  Visual/UX capability only; results-neutral.
+- **GUI in-window chain-warning strip (GUI plan Phase 3 checkpoint punch-list round
+  2, owner feedback 2026-07-13).** Chain `UserWarning`s (saturation clip, NIIRS
+  extrapolation, …) — which previously printed only to the terminal — are now
+  captured by the evaluation worker and shown in a themed **warn-token** strip
+  between the KPI badges and the canvas, reading `⚠ N warnings` with the first
+  message inline and, clicked, opening a dialog listing all messages verbatim. The
+  strip clears on a warning-free evaluation. Captured warnings are also re-logged, so
+  nothing is swallowed (Rule 17). Visual/UX capability only; results-neutral.
+- **`radiant.api.units.inverse_convert` re-export.** The public units seam now
+  re-exports `inverse_convert` (canonical → display-unit) alongside `convert` and
+  `_CONVERSIONS`, the sanctioned surface for output-side conversion (used by the GUI
+  display-unit feature). Additive-offset and one-way units remain unregistered, so it
+  is sound (invertible) for every registered conversion.
 - **GUI Parameter Editor dialog (GUI plan Phase 3 checkpoint punch-list).** The
   parameter panel gains a full-detail editor box that opens on a parameter
   (double-click its Parameter or Source column, or right-click → **Edit…**) and
@@ -97,6 +123,13 @@ retroactively reconstructed.
   spacing value; a mechanical test blocks any hardcoded colour/font literal elsewhere
   in the GUI. Visual change only — no computed results, no public API change beyond
   the internal `themes` helpers.
+
+### Fixed
+- **GUI Parameter-Editor unit dropdown no longer clips (GUI plan Phase 3
+  checkpoint punch-list round 2, owner feedback 2026-07-13).** The unit selector's
+  popup previously truncated unit names to ~2 characters ("cr", "kı"); the combo now
+  sizes to its contents and its popup view is sized to the widest unit label, so every
+  unit reads in full. Visual only.
 
 ### Changed
 - **Results-affecting: Earth radius unified to 6371.0 km mean (CU-097).**

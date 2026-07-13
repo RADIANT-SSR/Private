@@ -17,12 +17,21 @@ second API surface: the worker still performs exactly one ``evaluate()`` call
 
 from __future__ import annotations
 
+import logging
+import warnings
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread, Signal
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
+
+_log = logging.getLogger(__name__)
+
+
+def _format_warning(record: warnings.WarningMessage) -> str:
+    """One captured warning as a single display string (category + message)."""
+    return f"{record.category.__name__}: {record.message}"
 
 
 class EvaluationWorker(QThread):
@@ -37,8 +46,12 @@ class EvaluationWorker(QThread):
 
     Signals
     -------
-    finished_ok(object)
-        Emitted with the ``ChainResult`` on success.
+    finished_ok(object, object)
+        Emitted on success with ``(ChainResult, list[str])`` — the result and the
+        chain ``UserWarning`` messages captured during the run (saturation clip,
+        NIIRS extrapolation, …), so the GUI surfaces them in-window instead of
+        letting them print to the terminal (Rule 17 — warnings are surfaced, never
+        swallowed; they are also logged so script users lose nothing).
     failed(object)
         Emitted with the raised exception (``RadiantError`` or otherwise) on
         failure. The exception is re-emitted to the GUI thread, never swallowed
@@ -46,7 +59,7 @@ class EvaluationWorker(QThread):
         traceback dialog.
     """
 
-    finished_ok = Signal(object)  # ChainResult
+    finished_ok = Signal(object, object)  # (ChainResult, list[str])
     failed = Signal(object)  # Exception
 
     def __init__(self, sensor: Sensor) -> None:
@@ -56,14 +69,35 @@ class EvaluationWorker(QThread):
     def run(self) -> None:
         """Evaluate the full chain, emitting the outcome on the GUI thread.
 
-        The ``except Exception`` is a thread-boundary hand-off, not a swallow
-        (arch doc §3.2): the exception is re-emitted via :attr:`failed` to the
-        GUI thread, which renders it (``RadiantError`` → what/why/action modal;
-        anything else → traceback dialog). Nothing is silently dropped.
+        Chain warnings are captured with ``warnings.catch_warnings(record=True)`` and
+        ``simplefilter("always")`` so **every** warning is recorded regardless of the
+        process-wide filter state (pytest's ``filterwarnings=error`` cannot turn them
+        into exceptions inside this block, and no warning is deduplicated away by the
+        once-per-location registry). This is safe here because at most one worker runs
+        at a time (the window coalesces edits into a single run) and the GUI thread
+        never executes the chain, so the global filter mutation cannot race another
+        chain. Captured warnings are re-logged after the run — the normal Python
+        warning/logging machinery still sees them — and delivered to the GUI with the
+        result for the in-window warning strip.
+
+        The ``except Exception`` is a thread-boundary hand-off, not a swallow (arch doc
+        §3.2): the exception is re-emitted via :attr:`failed` to the GUI thread, which
+        renders it (``RadiantError`` → what/why/action modal; anything else → traceback
+        dialog). Nothing is silently dropped.
         """
-        try:
-            result = self._sensor.evaluate()
-        except Exception as exc:  # re-emitted to the GUI thread, never swallowed
-            self.failed.emit(exc)
-        else:
-            self.finished_ok.emit(result)
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            try:
+                result = self._sensor.evaluate()
+            except Exception as exc:  # re-emitted to the GUI thread, never swallowed
+                self._relog(captured)
+                self.failed.emit(exc)
+                return
+            self._relog(captured)
+            self.finished_ok.emit(result, [_format_warning(w) for w in captured])
+
+    @staticmethod
+    def _relog(captured: list[warnings.WarningMessage]) -> None:
+        """Re-emit captured warnings to the logging machinery (nothing is lost)."""
+        for record in captured:
+            _log.warning("chain warning: %s", _format_warning(record))

@@ -60,6 +60,7 @@ from radiant.api.units import _CONVERSIONS
 from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import (
     DERIVED_BADGE,
+    display_in_unit,
     format_value,
     is_derived,
     provenance_from_explain,
@@ -83,6 +84,10 @@ _PREVIEW_UNSET = "= —"
 
 # Friendly label for the dimensionless (empty-string) unit in the unit selector.
 _NO_UNIT_LABEL = "(none)"
+
+# Extra px added to the unit-combo popup width beyond the widest item's text advance,
+# covering the item margins and a possible scrollbar (layout geometry, not a token).
+_COMBO_POPUP_PADDING_PX = 40
 
 
 def convertible_units(canonical_unit: str, input_unit: str) -> list[str]:
@@ -111,25 +116,36 @@ class ParameterEditorDialog(QDialog):
     dotpath:
         The parameter to edit (full dot-path).
     on_committed:
-        ``dotpath -> None`` — called after a value is accepted and written to the live
-        sensor, so the owning panel can refresh the tree and mark results stale. Not
-        called on rejection or for a read-only (derived) parameter.
+        ``(dotpath, chosen_unit) -> None`` — called after a value is accepted and
+        written to the live sensor, so the owning panel can refresh the tree, adopt the
+        chosen unit as the row's display unit, and mark results stale. ``chosen_unit``
+        is the unit the user picked (``None`` for a non-numeric parameter). Not called
+        on rejection or for a read-only (derived) parameter.
     parent:
         The owning widget, if any.
+    display_unit:
+        The unit the value should open displayed in (owner feedback 2026-07-13) — the
+        row's current display unit. Defaults to the schema ``input_unit``. If it is not
+        soundly convertible from the input unit it falls back to the input unit.
     """
 
     def __init__(
         self,
         sensor: Sensor,
         dotpath: str,
-        on_committed: Callable[[str], None] | None = None,
+        on_committed: Callable[[str, str | None], None] | None = None,
         parent: QWidget | None = None,
+        display_unit: str | None = None,
     ) -> None:
         super().__init__(parent)
         self._sensor = sensor
         self._dotpath = dotpath
         self._on_committed = on_committed
         self._pdef: ParameterDef = sensor.parameter_def(dotpath)
+        # The unit the Current line / editor / bounds open displayed in. Validated for
+        # sound convertibility (falls back to input_unit) so no downstream conversion
+        # can raise. Only meaningful for numeric params; "" for the rest.
+        self._display_unit: str = self._sound_display_unit(display_unit or self._pdef.input_unit)
 
         # Read-only when the value is derived from a consistency group (⚡): the dialog
         # opens informative but the editors stay disabled (arch doc §4.3, Rule 4).
@@ -186,8 +202,10 @@ class ParameterEditorDialog(QDialog):
 
         if self._pdef.bounds is not None:
             lo, hi = self._pdef.bounds
-            unit = self._pdef.input_unit
-            bounds_text = f"{lo:g} – {hi:g} {unit}".rstrip()
+            # Bounds are declared in input_unit; show them in the display unit too when
+            # soundly convertible (owner feedback 2026-07-13), else in the input unit.
+            lo_d, hi_d = self._to_display(lo), self._to_display(hi)
+            bounds_text = f"{lo_d:g} – {hi_d:g} {self._display_unit}".rstrip()
             self._add_row(form, "Bounds", self._value_field(bounds_text))
 
         if self._read_only:
@@ -215,10 +233,13 @@ class ParameterEditorDialog(QDialog):
             combo.setObjectName("paramEditorUnitCombo")
             for unit in convertible_units(self._pdef.canonical_unit, self._pdef.input_unit):
                 combo.addItem(unit if unit else _NO_UNIT_LABEL, unit)
-            start = combo.findData(self._pdef.input_unit)
+            # Open on the row's display unit (owner feedback 2026-07-13), not always the
+            # input unit — so a km-displayed altitude opens with the combo on km.
+            start = combo.findData(self._display_unit)
             combo.setCurrentIndex(max(start, 0))
             combo.setEnabled(not self._read_only)
             combo.currentIndexChanged.connect(self._update_preview)
+            self._size_combo_popup(combo)
             row.addWidget(combo)
             self._unit_combo = combo
 
@@ -228,10 +249,38 @@ class ParameterEditorDialog(QDialog):
         layout.addWidget(container)
         return editor
 
+    def _size_combo_popup(self, combo: QComboBox) -> None:
+        """Size the unit combo + its popup to its widest item (owner punch-list item 1).
+
+        The default popup clipped unit names to ~2 characters ("cr", "kı"): the view had
+        no explicit width and Qt sized it to the collapsed box. ``AdjustToContents``
+        sizes the collapsed control, and a view minimum width taken from the font
+        metrics of the widest item (plus a scrollbar/margin allowance) guarantees the
+        dropdown shows every unit in full. Width is layout geometry, not a design token,
+        so it lives here; all colour/border still comes from the QSS theme.
+        """
+        combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        metrics = combo.fontMetrics()
+        widest = max(
+            (metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count())),
+            default=0,
+        )
+        combo.view().setMinimumWidth(widest + _COMBO_POPUP_PADDING_PX)
+
     def _make_value_editor(self) -> QWidget:
-        """Build the editor the parameter's dtype/enum calls for, seeded with its value."""
+        """Build the editor the parameter's dtype/enum calls for, seeded with its value.
+
+        A numeric editor is seeded in the dialog's **display unit** so entry and display
+        stay symmetric (owner feedback 2026-07-13): open a 500 km altitude and the field
+        shows ``500`` with the unit combo on ``km``. Enum/bool/str carry no unit, so
+        their seed is the raw input value.
+        """
         pdef = self._pdef
-        current = self._current_input_value()
+        current = (
+            self._current_display_value()
+            if pdef.dtype in (float, int)
+            else (self._current_input_value())
+        )
 
         if pdef.enum_values is not None:
             combo = QComboBox(self)
@@ -315,8 +364,12 @@ class ParameterEditorDialog(QDialog):
     # -- info rendering -----------------------------------------------------
 
     def _render_current(self, provenance: str | None) -> None:
-        """Set the Current row to ``<value> <unit>  ·  <provenance>`` (⚡ if derived)."""
-        value_text = format_value(self._current_input_value(), self._pdef.input_unit)
+        """Set the Current row to ``<value> <unit>  ·  <provenance>`` (⚡ if derived).
+
+        The value shows in the dialog's **display unit** (owner feedback 2026-07-13) so
+        an altitude the user set as 500 km reads ``500 km``, not ``500000 m``.
+        """
+        value_text = format_value(self._current_display_value(), self._display_unit)
         if self._read_only:
             value_text = f"{DERIVED_BADGE} {value_text}"
         label = provenance_label(provenance)
@@ -372,7 +425,9 @@ class ParameterEditorDialog(QDialog):
         self._render_current(provenance_from_explain(self._sensor.explain(self._dotpath)))
         self._update_preview()
         if self._on_committed is not None:
-            self._on_committed(self._dotpath)
+            # Hand back the chosen unit so the panel adopts it as the row's display
+            # unit (owner feedback 2026-07-13): the tree then shows the value in it too.
+            self._on_committed(self._dotpath, unit)
         if close:
             self.accept()
 
@@ -448,6 +503,35 @@ class ParameterEditorDialog(QDialog):
             return self._sensor.get_input(self._dotpath)
         except KeyError:
             return None
+
+    def _current_display_value(self) -> Any:
+        """The current value re-expressed in the dialog's display unit (owner feedback).
+
+        The input-unit value routed through the public registry seam; the display unit
+        was validated at construction, so this cannot raise.
+        """
+        return self._to_display(self._current_input_value())
+
+    def _to_display(self, input_value: Any) -> Any:
+        """Convert an input-unit value to the dialog's display unit (public seam)."""
+        return display_in_unit(
+            input_value, self._pdef.input_unit, self._display_unit, self._pdef.canonical_unit
+        )
+
+    def _sound_display_unit(self, requested: str) -> str:
+        """*requested* if it is soundly convertible from the input unit, else input_unit.
+
+        Guards the display path against a one-way / offset unit (e.g. a temperature
+        that only registers ``K``): rather than invent a conversion the dialog falls
+        back to the parameter's own input unit (Rule 2).
+        """
+        if requested == self._pdef.input_unit:
+            return requested
+        try:
+            display_in_unit(1.0, self._pdef.input_unit, requested, self._pdef.canonical_unit)
+        except KeyError:
+            return self._pdef.input_unit
+        return requested
 
     def _editor_value(self) -> Any:
         """Extract the native Python value from the value editor."""

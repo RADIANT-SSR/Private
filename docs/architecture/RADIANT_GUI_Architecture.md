@@ -342,6 +342,27 @@ signal (which fires for derived rows too). The unit-enumeration seam being the u
 `radiant.api.units._CONVERSIONS` re-export (rather than a named `units_for()` accessor) is
 tracked as CU-109.
 
+**Display units (owner feedback 2026-07-13).** A row shows its value in the unit the
+**user** chose, not always the schema canonical/input unit ("otherwise I'm doing math in my
+head every time" — an altitude the user set as 500 km reads `500 km`, not `500000 m`). The
+mechanism: the panel keeps a session-scoped `dict[dotpath -> display_unit]`; a row absent
+from it displays in its schema `input_unit` (unchanged), and a row gains an entry when the
+user commits a Parameter-Editor edit with an explicit unit choice (the dialog hands the
+chosen unit back through its `on_committed(dotpath, unit)` callback). The Parameter Editor
+opens on that display unit — the Current line, the value editor, the unit combo, and the
+bounds all read in it. **All canonical↔display conversion goes through the public
+`radiant.api.units` seam** (`convert` to the canonical unit, `inverse_convert` back out) —
+the GUI does **no** ad-hoc unit maths (Rule 2). The registry holds only pure multiplicative
+factors (no additive offsets are registered — temperature keeps only `K`), so
+division-through-canonical is always sound for a *registered* unit; a unit that is not
+soundly convertible (a one-way or offset unit) **falls back** to the row's canonical/input
+unit rather than inventing a conversion. Inline Value-column edits interpret the typed number
+in the row's display unit and write it with `sensor.set(dotpath, value, unit=display_unit)`
+so entry and display stay symmetric (type `550` into a km-displaying row → `550000 m`
+canonical, row shows `550 km`). The unit suffix is always part of the displayed string
+(R-UNITS). The preference is **session-scoped**; QSettings persistence across launches
+arrives in Phase 9. Loading a new sensor resets the preferences.
+
 ### 4.4 Visualization Area (Center)
 
 A large matplotlib canvas (`FigureCanvasQTAgg`) rendering the existing `result.plot.*`
@@ -383,6 +404,19 @@ non-dismissible banner shown whenever `result.well_status().is_saturated`; it re
 well fill fraction (as a `×` multiple) and the accumulated-versus-capacity charge in
 electrons (R-UNITS), and clears on the next unsaturated result. It reads the
 `ChainResult.well_status()` surface (CU-101), never a `stage_outputs` dict-hop.
+
+The **chain-warning strip** (`WarningStrip`, owner feedback 2026-07-13) sits between the
+badge row and the canvas, carrying the **warn** design token — deliberately distinct from
+the red saturation banner. Chain `UserWarning`s (saturation clip, NIIRS extrapolation, …)
+used to print only to the terminal, invisible to a GUI user; the `EvaluationWorker` now
+captures them with `warnings.catch_warnings(record=True)` + `simplefilter("always")` (so
+the process-wide filter — including pytest's `filterwarnings=error` — cannot suppress or
+raise them, and none is deduplicated away) and delivers them with the result. The strip
+reads `⚠ N warnings` with the first message inline and, clicked, opens a themed
+`WarningListDialog` listing every message verbatim; it clears on a warning-free evaluation.
+Captured warnings are also re-logged, so nothing is swallowed (Rule 17) — script users lose
+nothing. Capturing is safe against the global-filter mutation because at most one worker
+runs at a time (edits coalesce into a single run) and the Qt thread never runs the chain.
 
 ### 4.5 Tabbed Detail Panel (Bottom)
 

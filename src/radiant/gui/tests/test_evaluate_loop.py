@@ -21,6 +21,8 @@ import pytest
 from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.widgets import actionable_error_dialog as aed
+from radiant.gui.widgets.warning_list_dialog import WarningListDialog
+from radiant.gui.widgets.warning_strip import WarningStrip
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -131,6 +133,50 @@ class TestSaturationBanner:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit(_FULL_WELL)
         assert banner.isHidden() is True
+
+
+class TestWarningStrip:
+    """Item 3 (owner feedback 2026-07-13): chain warnings surface in-window, not the terminal."""
+
+    def test_chain_warnings_appear_in_the_strip(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """After evaluate, the warn-token strip carries the chain UserWarnings by count."""
+        window = _load_window(qtbot)
+        strip = window.central_canvas.warning_strip
+        # The example config's SNR is out of the GIQE range → a NIIRS extrapolation
+        # warning is always emitted; it now shows in-window instead of the terminal.
+        assert strip.isHidden() is False
+        assert strip.warning_count >= 1
+        assert "warning" in strip.text()
+        assert any("NIIRS" in m or "extrapolation" in m for m in strip.messages)
+
+    def test_saturation_adds_its_warning_and_the_list_dialog_shows_all(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A saturating edit adds the full-well warning; the dialog lists all verbatim."""
+        window = _load_window(qtbot)
+        strip = window.central_canvas.warning_strip
+        before = strip.warning_count
+
+        window.sensor.set(_FULL_WELL, 100000.0)  # forces a hard full-well clip
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit(_FULL_WELL)
+
+        assert strip.warning_count > before
+        assert any("saturat" in m.lower() for m in strip.messages)
+
+        # The click-through list dialog lists every captured warning verbatim.
+        dialog = WarningListDialog(strip.messages)
+        qtbot.addWidget(dialog)
+        assert dialog.messages == strip.messages
+        body = dialog.body.toPlainText()
+        assert all(m in body for m in strip.messages)
+
+    def test_strip_clears_on_a_warning_free_evaluation(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A warning-free result clears the strip (widget contract, offscreen)."""
+        strip = WarningStrip()
+        qtbot.addWidget(strip)
+        strip.update_from_warnings(["UserWarning: something", "UserWarning: else"])
+        assert strip.isHidden() is False and strip.warning_count == 2
+        strip.update_from_warnings([])  # a clean run
+        assert strip.isHidden() is True and strip.warning_count == 0
 
 
 class TestTriggersAndDebounce:

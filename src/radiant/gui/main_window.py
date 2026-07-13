@@ -429,9 +429,16 @@ class RADIANTMainWindow(QMainWindow):
         self._worker = worker
         worker.start()
 
-    def _on_eval_ok(self, result: ChainResult) -> None:
-        """Render a successful result into the badges, banner, and plot."""
+    def _on_eval_ok(self, result: ChainResult, warnings: list[str]) -> None:
+        """Render a successful result into the badges, banner, warning strip, and plot.
+
+        Chain warnings captured by the worker are shown in the in-window warning strip
+        (a warning-free run clears it) rather than printed to the terminal (owner
+        feedback 2026-07-13, Rule 17). The strip is updated before the plot render so a
+        render failure still leaves the warnings surfaced.
+        """
         self._last_result = result
+        self._central.update_warnings(warnings)
         try:
             self._central.show_result(result)
         except Exception as exc:  # rendering the API's own figure — surface, never swallow

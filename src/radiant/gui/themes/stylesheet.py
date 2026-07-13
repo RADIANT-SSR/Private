@@ -262,6 +262,42 @@ QLabel#saturationBanner {{
     font-weight: 600;
 }}
 
+/* -- Chain-warning strip (§4.4, owner feedback 2026-07-13) ------------- *
+ * Clickable, warn-token strip between the badge row and the canvas — the
+ * chain UserWarnings of the last evaluation, distinct from the red
+ * saturation banner. Hover deepens the border to read as clickable. */
+QLabel#warningStrip {{
+    background-color: {t.warn_soft};
+    color: {t.warn};
+    border: {tokens.BORDER_WIDTH} solid {t.warn};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_INPUT};
+    margin: 6px 14px 0px 14px;
+    font-size: 11px;
+    font-weight: 600;
+}}
+QLabel#warningStrip:hover {{
+    border-color: {t.ink};
+}}
+
+/* -- Warning list dialog (§4.4) — the expanded verbatim warning list --- */
+#warningListDialog {{
+    background-color: {t.panel};
+}}
+QLabel#warningDialogHeader {{
+    color: {t.warn};
+    font-size: 14px;
+    font-weight: 600;
+}}
+QPlainTextEdit#warningDialogBody {{
+    background-color: {t.panel_2};
+    color: {t.ink_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+
 /* -- Stale notice: shown when the last evaluation failed (Phase 3 task 4) */
 QLabel#staleNotice {{
     background-color: {t.warn_soft};

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QLabel, QLineEdit
 
 from radiant.api.sensor import Sensor
 from radiant.api.units import _CONVERSIONS
-from radiant.gui.param_format import provenance_from_explain, provenance_label
+from radiant.gui.param_format import display_in_unit, provenance_from_explain, provenance_label
 from radiant.gui.widgets import parameter_panel as panel_mod
 from radiant.gui.widgets.parameter_editor_dialog import (
     ParameterEditorDialog,
@@ -40,6 +40,7 @@ _ALT = "geometry.sensor_altitude_m"  # float, canonical m, editable, bounds (0, 
 _ENUM = "geometry.solar_illumination"  # str enum (day/night)
 _BOOL = "geometry.circular_orbit"  # bool
 _DERIVED = "optics.f_number"  # ⚡ derived (read-only)
+_TEMP = "source.target.temperature"  # float, canonical K — only K is registered
 
 
 @pytest.fixture
@@ -68,7 +69,7 @@ class _CapturingDialog:
 
     calls: list[tuple[Any, ...]] = []
 
-    def __init__(self, *args: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         type(self).calls.append(args)
 
     def exec(self) -> int:
@@ -91,6 +92,58 @@ class TestUnitEnumeration:
         """Even a single-unit dimension still lists its own units (never empty)."""
         units = convertible_units("K", "K")
         assert "K" in units and units  # temperature: only K is convertible, still present
+
+
+class TestUnitComboPopup:
+    """Item 1: the unit dropdown popup no longer clips unit names to ~2 characters."""
+
+    def test_popup_view_is_sized_to_its_widest_item(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The combo adjusts to contents and its popup is at least its widest label wide."""
+        d = _dialog(sensor, _ALT, qtbot)
+        combo = d.unit_combo
+        assert combo is not None
+        assert combo.sizeAdjustPolicy() == QComboBox.SizeAdjustPolicy.AdjustToContents
+        metrics = combo.fontMetrics()
+        widest = max(metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+        # No 2-char clip: the popup view is at least as wide as its widest unit label.
+        assert combo.view().minimumWidth() >= widest
+
+
+class TestDisplayUnits:
+    """Item 2: the dialog opens showing the value in the row's chosen display unit."""
+
+    def test_opens_in_the_given_display_unit(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Told to display km, the combo, Current line, and editor all read km."""
+        current_m = sensor.get_input(_ALT)
+        d = ParameterEditorDialog(sensor, _ALT, None, None, display_unit="km")
+        qtbot.addWidget(d)
+        assert d.unit_combo is not None
+        assert d.unit_combo.currentData() == "km"
+        # Current line and editor show the km value (no ad-hoc maths — via the seam).
+        expected_km = display_in_unit(current_m, "m", "km", "m")
+        assert "km" in d._current_label.text()
+        assert f"{expected_km:g}" in d._current_label.text()
+        assert float(d.value_editor.text()) == pytest.approx(expected_km, abs=0)
+
+    def test_bounds_shown_in_display_unit(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The bounds line is re-expressed in the display unit (km), not the input m."""
+        d = ParameterEditorDialog(sensor, _ALT, None, None, display_unit="km")
+        qtbot.addWidget(d)
+        lo, hi = sensor.parameter_def(_ALT).bounds  # in input_unit m
+        bounds_texts = [lbl.text() for lbl in d.findChildren(QLabel) if "–" in lbl.text()]
+        assert bounds_texts, "expected a bounds row"
+        text = bounds_texts[0]
+        assert text.endswith("km")
+        assert f"{display_in_unit(hi, 'm', 'km', 'm'):g}" in text
+
+    def test_non_multiplicative_unit_falls_back_to_canonical(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A temperature (only K registered) given an offset unit falls back to K safely."""
+        d = ParameterEditorDialog(sensor, _TEMP, None, None, display_unit="degC")
+        qtbot.addWidget(d)
+        assert d.unit_combo is not None
+        # 'degC' is not a registered (multiplicative) conversion → dialog falls back to K.
+        assert d.unit_combo.currentData() == "K"
+        assert "K" in d._current_label.text()
 
 
 class TestOpensInformative:
@@ -142,7 +195,12 @@ class TestUnitRoundTrip:
     def test_set_altitude_in_km_reports_canonical_metres(
         self, sensor: Sensor, panel: ParameterPanel, qtbot
     ) -> None:  # type: ignore[no-untyped-def]
-        """Enter 8 km → the sensor reports 8000 m canonical and the tree shows 8000 m."""
+        """Enter 8 km → sensor canonical is 8000 m and the tree shows the chosen 8 km.
+
+        The canonical round-trip is unchanged (8 km → 8000 m internally); the display
+        change (owner feedback 2026-07-13) is that the tree adopts the user's chosen
+        unit, so the row reads ``8 km``, not ``8000 m``.
+        """
         d = _dialog(sensor, _ALT, qtbot, on_committed=panel._after_dialog_commit)
         assert d.unit_combo is not None
         d.value_editor.setText("8")
@@ -154,7 +212,8 @@ class TestUnitRoundTrip:
 
         assert sensor.get(_ALT) == pytest.approx(8000.0, abs=0)  # canonical metres
         assert sensor.get_input(_ALT) == pytest.approx(8000.0, abs=0)
-        assert panel.value_text(_ALT).endswith("8000 m")  # tree refreshed via callback
+        assert panel.value_text(_ALT).endswith("8 km")  # tree shows the user's unit
+        assert panel.display_unit(_ALT) == "km"  # chosen unit adopted as display unit
         assert provenance_label(provenance_from_explain(sensor.explain(_ALT))) == "user-set"
 
     def test_apply_and_close_accepts_the_dialog(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]

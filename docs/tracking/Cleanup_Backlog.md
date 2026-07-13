@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13
+**Status**: Open — doc drift; harmless (the File_Tree is a navigational aid, not a contract a test enforces), but increasingly stale as the GUI grows.
+**File**: `docs/architecture/RADIANT_File_Tree.md` (the `gui/widgets/` block, ~L249–259).
+**Symptom**: the widgets listing enumerates only the nine Phase-1 shell widgets and is even headed "Phase 1 shell chrome". Every widget added since — `matplotlib_canvas.py`, `saturation_banner.py`, `actionable_error_dialog.py`, `unexpected_error_dialog.py`, `explain_dialog.py`, `parameter_delegate.py`, `parameter_editor_dialog.py`, and now `warning_strip.py` / `warning_list_dialog.py` — is absent. Phases 2 and 3 did not update this block, so it lags the package by ~9 files.
+**Why it still matters**: Rule 20/23 want the file-tree to reflect the shipped tree; a reader using it to navigate the GUI package will miss half the widgets. Not a functional bug, but the manifest's usefulness decays with each unlisted widget.
+**Suggested fix**: stand-alone doc task — regenerate the `gui/widgets/` block from the live directory (one line per widget class, per the Rule-19 one-class-per-file convention) and drop the "Phase 1 shell chrome" qualifier, then keep it in lock-step going forward. Effort XS; category A (doc-only).
+
+### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (display units), 2026-07-13
+**Status**: Open — minor cosmetic; the tree, the API, and the canonical preview are all correct; only the dialog's own informative "Current" line can momentarily disagree with the combo after an Apply-without-close.
+**File**: `src/radiant/gui/widgets/parameter_editor_dialog.py` (`_render_current` / `_current_display_value` use `self._display_unit`, fixed at construction, while the unit combo is user-mutable).
+**Symptom**: open the editor on a metre-displayed altitude, type `8`, change the unit combo to `km`, click **Apply** (not Apply & Close). The sensor is correctly `8 km` (`8000 m` canonical) and the tree adopts `km`, but the dialog's **Current** line re-renders as `8000 m` (the dialog's original display unit), so the Current line reads `m` while the combo reads `km` until the dialog is reopened.
+**Why it still matters**: purely a within-dialog presentation inconsistency (no wrong value, no wrong unit written) — but a technical-fellow owner watching the Current line after Apply sees it disagree with the combo. It is the same "doing math in my head" friction the punch-list item set out to remove, in a narrow corner.
+**Suggested fix**: inline-fix-now — after a successful `apply`, set `self._display_unit = unit` (the chosen unit) before `_render_current`, and re-seed the value editor + bounds from it, so the whole dialog re-expresses in the newly-adopted unit. Effort XS; category A (presentation only, no physics/results).
+
+### CU-110 — `EvaluationWorker` warning capture mutates the process-global `warnings` filter; safe only under the single-worker invariant
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
+**Status**: Open — latent fragility; correct today because the window runs at most one evaluation worker at a time and the Qt thread never runs the chain. Gated by any future concurrent-evaluation work (inline Sweep / Monte-Carlo workers, GUI plan Phase deferred). Re-audit when concurrent evaluation lands.
+**File**: `src/radiant/gui/workers.py` (`EvaluationWorker.run` uses `warnings.catch_warnings(record=True)` + `simplefilter("always")`).
+**Symptom**: `warnings.catch_warnings` saves/restores the **module-global** filter list and `showwarning`; if two chain evaluations ever run concurrently (two worker threads), one worker's enter/exit can clobber the other's filter state, losing or mis-capturing warnings, and the capture itself is not thread-safe against a concurrent `warnings.warn`.
+**Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
+**Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
+
 ### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list (Parameter Editor dialog), 2026-07-13

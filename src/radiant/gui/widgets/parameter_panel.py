@@ -58,6 +58,7 @@ from PySide6.QtWidgets import (
 from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import (
     DERIVED_BADGE,
+    display_in_unit,
     format_value,
     group_by_namespace,
     is_derived,
@@ -124,6 +125,13 @@ class ParameterPanel(QWidget):
         # The dot-path of the row whose last edit was rejected (themed error tint),
         # or None when no row is in the error state.
         self._error_dotpath: str | None = None
+        # Per-dot-path display-unit preference (owner feedback 2026-07-13: show the
+        # value in the unit the user chose, not always the canonical/input unit). A
+        # row absent here displays in its schema input_unit (unchanged behaviour); a
+        # row gains an entry when the user commits an edit through the Parameter Editor
+        # with an explicit unit choice. Session-scoped only — persistence across
+        # launches arrives with QSettings in Phase 9. Cleared when a new sensor loads.
+        self._display_units: dict[str, str] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -247,7 +255,14 @@ class ParameterPanel(QWidget):
         tree fills from ``sensor.parameter_defs()``; ``None`` (a bare launch — a
         default ``Sensor()`` is not resolvable) leaves the themed "no configuration
         loaded" state. Rebuilding clears any transient rejected-edit state.
+
+        A genuinely *new* sensor (a different object — the ``radiant gui CONFIG`` or an
+        Open action) resets the session's display-unit preferences; a refresh with the
+        *same* sensor object (the post-edit re-populate) preserves them so a row the
+        user re-unitted keeps that unit across edits.
         """
+        if sensor is not self._sensor:
+            self._display_units.clear()
         self._sensor = sensor
         self._clear_error_state()
         self._tree.clear()
@@ -263,7 +278,7 @@ class ParameterPanel(QWidget):
             group_item = QTreeWidgetItem([namespace, "", ""])
             self._tree.addTopLevelItem(group_item)
             for dotpath, pdef in grouped[namespace]:
-                child = self._build_row(sensor, dotpath, pdef.input_unit, pdef.description)
+                child = self._build_row(sensor, dotpath, pdef)
                 group_item.addChild(child)
                 self._items[dotpath] = child
             group_item.setExpanded(True)
@@ -275,13 +290,13 @@ class ParameterPanel(QWidget):
         self,
         sensor: Sensor,
         dotpath: str,
-        unit: str,
-        description: str,
+        pdef: ParameterDef,
     ) -> QTreeWidgetItem:
-        """One leaf row: value + unit, ⚡-marked, provenance-labelled, editable."""
+        """One leaf row: value + display unit, ⚡-marked, provenance-labelled, editable."""
         provenance = provenance_from_explain(sensor.explain(dotpath))
         derived = is_derived(provenance)
-        value_text = format_value(self._resolved_value(sensor, dotpath), unit)
+        value, unit = self._display_value_and_unit(sensor, dotpath, pdef)
+        value_text = format_value(value, unit)
         if derived:
             value_text = f"{DERIVED_BADGE} {value_text}"
 
@@ -289,7 +304,7 @@ class ParameterPanel(QWidget):
         leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath
         item = QTreeWidgetItem([leaf, value_text, provenance_label(provenance)])
         item.setData(0, _DOTPATH_ROLE, dotpath)
-        item.setToolTip(0, f"{dotpath}\n{description}" if description else dotpath)
+        item.setToolTip(0, f"{dotpath}\n{pdef.description}" if pdef.description else dotpath)
         # Editable unless derived (Rule 4 / §4.3: ⚡ rows are read-only). The
         # ItemIsEditable flag on column 1 is what lets the delegate open an editor.
         if not derived:
@@ -310,6 +325,47 @@ class ParameterPanel(QWidget):
         except KeyError:
             return None
 
+    # -- display units ------------------------------------------------------
+
+    def display_unit(self, dotpath: str) -> str:
+        """The unit a row's value is currently displayed in (owner feedback 2026-07-13).
+
+        Defaults to the parameter's schema ``input_unit`` (unchanged behaviour for a
+        never-edited row); overridden to the unit the user picked when they last
+        committed an edit through the Parameter Editor. Session-scoped (Phase 9 adds
+        QSettings persistence).
+        """
+        assert self._sensor is not None
+        override = self._display_units.get(dotpath)
+        if override is not None:
+            return override
+        return self._sensor.parameter_def(dotpath).input_unit
+
+    def _display_value_and_unit(
+        self,
+        sensor: Sensor,
+        dotpath: str,
+        pdef: ParameterDef,
+    ) -> tuple[Any, str]:
+        """The (value, unit) pair to show for a row, honouring its display-unit choice.
+
+        With no override (or an override equal to the schema input_unit) this is the
+        resolved input-unit value and the input_unit — the original behaviour. With an
+        override it re-expresses the value in that unit through the public registry
+        seam (:func:`~radiant.gui.param_format.display_in_unit`); if that unit is not
+        soundly convertible (unregistered / offset unit) it **falls back** to the
+        canonical/input unit for that row rather than inventing a conversion (Rule 2).
+        """
+        input_value = self._resolved_value(sensor, dotpath)
+        target = self._display_units.get(dotpath)
+        if target is None or target == pdef.input_unit:
+            return input_value, pdef.input_unit
+        try:
+            value = display_in_unit(input_value, pdef.input_unit, target, pdef.canonical_unit)
+        except KeyError:
+            return input_value, pdef.input_unit
+        return value, target
+
     # -- editing ------------------------------------------------------------
 
     def _pdef_for(self, dotpath: str) -> ParameterDef:
@@ -318,9 +374,17 @@ class ParameterPanel(QWidget):
         return self._sensor.parameter_def(dotpath)
 
     def _input_value_for(self, dotpath: str) -> Any:
-        """The row's current input-unit value (seeds the editor)."""
+        """The row's current value **in its display unit** (seeds the inline editor).
+
+        Entry and display are kept symmetric (owner feedback 2026-07-13): the editor
+        opens showing the same number the row shows, and :meth:`_commit_edit` writes it
+        back through the same unit — so what you type is what you read. With no
+        display-unit override this is the plain input-unit value (unchanged).
+        """
         assert self._sensor is not None
-        return self._resolved_value(self._sensor, dotpath)
+        pdef = self._sensor.parameter_def(dotpath)
+        value, _unit = self._display_value_and_unit(self._sensor, dotpath, pdef)
+        return value
 
     def _commit_edit(self, dotpath: str, value: Any) -> None:
         """Apply one edit: validate on a clone, then ``sensor.set`` if accepted.
@@ -330,14 +394,24 @@ class ParameterPanel(QWidget):
         value leaves the live sensor — and therefore the displayed tree — untouched
         (verified by the edit-reject test via the public API). Rejections surface
         inline and in a modal; unexpected errors get a traceback dialog (Rules 15/17).
+
+        The typed number is interpreted in the row's **display unit** (owner feedback
+        2026-07-13): when the row carries a display-unit override the value is written
+        with ``unit=<display_unit>`` so the API performs the single Rule-2 conversion
+        (type 550 into a km-displaying row → 550000 m canonical). With no override the
+        value is written unit-less, exactly as before.
         """
         sensor = self._sensor
         if sensor is None:
             return
 
+        unit = self._display_units.get(dotpath)
+        pdef = sensor.parameter_def(dotpath)
+        write_unit = unit if (unit is not None and unit != pdef.input_unit) else None
+
         trial = sensor.clone()
         try:
-            trial.set(dotpath, value)
+            self._set_on(trial, dotpath, value, write_unit)
             # Force a full resolve on the clone: bounds/enum/type checks and
             # consistency-group validation all fire here (not at set() time).
             trial.get_input(dotpath)
@@ -349,10 +423,18 @@ class ParameterPanel(QWidget):
             return
 
         # Accepted: the single mandated API call on the live sensor.
-        sensor.set(dotpath, value)
+        self._set_on(sensor, dotpath, value, write_unit)
         self._clear_error_state()
         self.populate(sensor)  # refresh value + provenance + any derived rows
         self.parameterEdited.emit(dotpath)
+
+    @staticmethod
+    def _set_on(sensor: Sensor, dotpath: str, value: Any, unit: str | None) -> None:
+        """One ``sensor.set`` — with ``unit=`` only when a display-unit override is active."""
+        if unit is not None:
+            sensor.set(dotpath, value, unit=unit)
+        else:
+            sensor.set(dotpath, value)
 
     def _reject_edit(self, dotpath: str, exc: RadiantError) -> None:
         """Show the rejected-edit state inline + modal; the value never sticks."""
@@ -447,13 +529,27 @@ class ParameterPanel(QWidget):
         """
         if self._sensor is None:
             return
-        dialog = ParameterEditorDialog(self._sensor, dotpath, self._after_dialog_commit, self)
+        dialog = ParameterEditorDialog(
+            self._sensor,
+            dotpath,
+            self._after_dialog_commit,
+            self,
+            display_unit=self.display_unit(dotpath),
+        )
         dialog.exec()
 
-    def _after_dialog_commit(self, dotpath: str) -> None:
-        """Refresh the tree + emit the stale signal after a dialog-committed edit."""
+    def _after_dialog_commit(self, dotpath: str, unit: str | None) -> None:
+        """Record the chosen display unit, refresh the tree, and mark results stale.
+
+        The unit the user picked in the Parameter Editor becomes the row's display
+        unit (owner feedback 2026-07-13), so the tree afterwards shows the value in
+        that unit. ``None`` (a non-numeric parameter carries no unit) leaves the row's
+        display unit untouched.
+        """
         if self._sensor is None:
             return
+        if unit is not None:
+            self._display_units[dotpath] = unit
         self._clear_error_state()
         self.populate(self._sensor)
         self.parameterEdited.emit(dotpath)

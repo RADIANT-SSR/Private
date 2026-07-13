@@ -11,6 +11,7 @@ Usage::
     radiant schema [--stage NAME]
     radiant template list|show|create
     radiant convert VALUE FROM_UNIT TO_UNIT
+    radiant gui [config.yaml]
 """
 
 import click
@@ -18,6 +19,7 @@ import click
 from radiant.cli.compare import compare
 from radiant.cli.convert import convert_cmd
 from radiant.cli.explain import explain
+from radiant.cli.gui import gui
 from radiant.cli.run import run
 from radiant.cli.schema_cmd import schema_cmd
 from radiant.cli.sweep_cmd import sweep_cmd
@@ -33,6 +35,7 @@ def cli() -> None:
 
 
 cli.add_command(run)
+cli.add_command(gui)
 cli.add_command(validate)
 cli.add_command(compare)
 cli.add_command(convert_cmd, "convert")

@@ -1,0 +1,73 @@
+"""QApplication bootstrap and the :func:`launch_gui` entry point.
+
+This module owns the single :class:`QApplication` lifecycle for the RADIANT GUI.
+It is deliberately thin: it constructs (or reuses) the application object, builds
+the main window, and hands control to the Qt event loop. All UI structure lives
+in :mod:`radiant.gui.main_window`; all styling will live in
+:mod:`radiant.gui.themes` (GUI plan Phase 1 Task B — not applied here yet).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
+
+from radiant.gui.main_window import RADIANTMainWindow
+
+if TYPE_CHECKING:
+    from radiant.api.sensor import Sensor
+
+
+def launch_gui(sensor: Sensor | None = None) -> int:
+    """Launch the RADIANT desktop GUI and run the Qt event loop.
+
+    Parameters
+    ----------
+    sensor:
+        An already-configured :class:`~radiant.api.sensor.Sensor` to open the
+        GUI on (the script → GUI hand-off, arch doc §5). ``None`` opens an empty
+        window with no sensor loaded — the state after ``radiant gui`` with no
+        config argument.
+
+    Returns
+    -------
+    int
+        The Qt event-loop exit code (``0`` on a clean quit). Returned rather than
+        passed to :func:`sys.exit` so callers (tests, the CLI) decide how to exit.
+
+    Notes
+    -----
+    Reuses an existing :class:`QApplication` if one is already running (e.g. under
+    ``pytest-qt``, which owns the app), otherwise creates one. When it creates the
+    app it runs the event loop; when it reuses a test-owned app it shows the window
+    and returns ``0`` without blocking, so ``qtbot``-driven tests stay in control.
+    """
+    existing = QApplication.instance()
+
+    if existing is None:
+        # We create the application, so we own the event loop.
+        app = QApplication([])
+        window = RADIANTMainWindow(sensor=sensor)
+        window.show()
+        return int(app.exec())
+
+    # A host (pytest-qt) already owns the loop; show the window, hand it back via
+    # a reference the host holds, and do not block.
+    window = RADIANTMainWindow(sensor=sensor)
+    window.show()
+    _retain_window(existing, window)
+    return 0
+
+
+def _retain_window(app: QCoreApplication, window: RADIANTMainWindow) -> None:
+    """Keep a reference to *window* alive on the host-owned *app*.
+
+    Without this, a window created under a test-owned :class:`QApplication` would
+    be garbage-collected the moment :func:`launch_gui` returns. Stored on the app
+    object (not a module global) so parallel apps do not clobber each other.
+    """
+    retained: list[RADIANTMainWindow] = getattr(app, "_radiant_windows", [])
+    retained.append(window)
+    app._radiant_windows = retained  # type: ignore[attr-defined]

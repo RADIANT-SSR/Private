@@ -684,6 +684,32 @@ QTabBar::tab:hover:!selected {{
     background-color: {t.panel_3};
 }}
 
+/* -- Detail tabs (§4.5) — Spectral / MTF / Noise / Variables / YAML ---- *
+ * Each tab's tables, trees, combos, and text views inherit the generic
+ * QTableView / QTreeView / QComboBox / QTextEdit rules above; these object-name
+ * rules add only the per-tab accents. No colour/font literal — tokens only. */
+QLabel#spectralSelectorLabel {{
+    color: {t.muted};
+    font-size: 11px;
+    font-weight: 500;
+}}
+QPlainTextEdit#noiseExplain {{
+    background-color: {t.panel_2};
+    color: {t.ink_2};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QTextEdit#yamlView {{
+    background-color: {t.panel_2};
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QTreeWidget#variableTree {{
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+
 /* -- Scrollbars (§8) --------------------------------------------------- */
 QScrollBar:vertical {{
     background-color: {t.bg};

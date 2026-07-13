@@ -142,7 +142,7 @@ class RADIANTMainWindow(QMainWindow):
 
     @property
     def detail_tabs(self) -> DetailTabs:
-        """The bottom detail dock's five-tab panel (static in Phase 1)."""
+        """The bottom detail dock's five-tab panel (live from Phase 4 Task B)."""
         return self._detail_tabs
 
     def action(self, key: str) -> QAction:
@@ -478,6 +478,14 @@ class RADIANTMainWindow(QMainWindow):
             UnexpectedErrorDialog(exc, "Rendering the evaluation result", self).exec()
             self.statusBar().showMessage("Evaluation succeeded, but the plot could not render")
             return
+        # Refresh the bottom detail tabs (Spectral / MTF / Noise / Variables / YAML) from
+        # the same result and the live sensor (GUI plan Phase 4 Task B). Kept in its own
+        # try/except so a detail-tab render failure surfaces but does not blank the badges
+        # or the central plot already shown above (Rules 15/17).
+        try:
+            self._detail_tabs.show_result(result, self._sensor)
+        except Exception as exc:  # rendering the API's own surface — surface, never swallow
+            UnexpectedErrorDialog(exc, "Populating the detail tabs", self).exec()
         self.statusBar().showMessage(self._evaluated_message(result))
 
     def _on_eval_failed(self, exc: BaseException) -> None:

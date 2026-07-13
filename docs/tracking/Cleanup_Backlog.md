@@ -66,15 +66,6 @@
 **Why it still matters**: Rule 15 mandates actionable errors (what/why/action). The most common GUI rejection path (any simple bounds/enum violation) only carries "what", so the owner sees a terse message rather than the guided remedy the dialog is built to display. This is an actionability gap in the exact surface Phase 2B ships, not a GUI bug.
 **Suggested fix**: stand-alone task — have the `ParameterSet` resolver raise `ParameterBoundsError` for bounds violations (and a similarly structured enum error) with `why`/`action`/`context` populated from the `ParameterDef` (bounds, unit, `default_justification`), replacing the flat `CoreValidationError`. Both classes already co-inherit `ValueError`, so existing `except`/`pytest.raises(CoreValidationError)` and `ValueError` callers keep working; audit the parameter tests for exact-type asserts first. Effort S–M; category B (error surface, no physics/results change).
 
-### CU-106 — GUI stage strip's `spectral` eyebrow token does not match the `spectral_integration` schema namespace
-
-**Discovered**: GUI Development Plan Phase 2 Task A (schema-driven parameter tree), 2026-07-12
-**Status**: Open — latent; harmless today, gated by GUI plan Phase 4 (stage-strip click → scroll parameter panel to namespace).
-**File**: `src/radiant/gui/widgets/stage_strip.py` (`STAGES` tuple, the `("spectral", "Spectral Int.", "∫ dλ")` row — eyebrow token `"spectral"`).
-**Symptom**: the strip's per-stage "eyebrow namespace token" for the 6th stage is `"spectral"`, but the actual chain stage name / parameter namespace is `"spectral_integration"` (confirmed via `RadiantSession.stage_names` and `Sensor.parameter_defs()` — all spectral params are under `spectral_integration.*`). The other eight tokens match their namespaces exactly. Phase 2A avoided the drift by deriving namespace order from the live API (`param_format.chain_namespace_order()`), so the parameter tree is unaffected.
-**Why it still matters**: GUI plan Phase 4 wires a stage-strip click to "scroll the parameter panel to that namespace." If that navigation keys off the eyebrow token, the Spectral Int. chip will fail to match the `spectral_integration` group (silent no-op scroll). A one-token mismatch now becomes a navigation bug later.
-**Suggested fix**: inline-fix-now-or-Phase-4 — either change the eyebrow token to `"spectral_integration"` (and let the chip display an abbreviated title, which it already does), or have Phase 4 map chips to namespaces via `chain_namespace_order()` rather than the eyebrow string. Effort XS; category A (no physics, no results).
-
 ### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists
 
 **Discovered**: GUI Development Plan Phase 2 Task A (schema-driven parameter tree, provenance badges), 2026-07-12
@@ -275,6 +266,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-106 — GUI stage strip's `spectral` eyebrow token does not match the `spectral_integration` schema namespace — RESOLVED 2026-07-13 (commit `04c9d72`)
+
+**Discovered**: GUI Development Plan Phase 2 Task A (schema-driven parameter tree), 2026-07-12. **Resolution**: fixed in GUI plan Phase 4 Task A (the gating stage), the resolution favouring both suggested fixes. `stage_strip.STAGES` rows are now 4-tuples `(namespace, eyebrow, title, subtitle)` carrying the **real** schema namespace separately from the shortened eyebrow display: the 6th stage's namespace is `spectral_integration` while its eyebrow still reads `SPECTRAL` on the tile. `StageChip` gained a `.namespace` property and its click emits that namespace (not the eyebrow); stage-strip navigation keys off it, so the click-to-scroll cannot no-op. A construction-time guard in `StageStrip.__init__` asserts every chip namespace is a real chain stage (`param_format.chain_namespace_order()`), and `test_stage_strip.py::TestStageStripNamespaces` locks `STAGE_NAMESPACES == chain_namespace_order()` and the spectral-chip mapping, so the drift cannot silently return. Verified end-to-end: clicking the Spectral Int. chip scrolls the parameter panel to the `spectral_integration` group (test_stage_navigation.py). No physics, no results (Category A); goldens untouched.
 
 ### CU-101 — `well_status` is only in `stage_outputs["readout"]`, never on the `ChainResult` metric surface — RESOLVED 2026-07-12 (commit `4c26c90`)
 

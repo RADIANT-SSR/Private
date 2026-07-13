@@ -293,3 +293,101 @@ def plot_spectral(
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     return cast("Figure", fig)
+
+
+def plot_spectral_multi(
+    wavelength_um: npt.NDArray[np.float64],
+    series: dict[str, npt.NDArray[np.float64]],
+    *,
+    title: str = "Spectral Radiance",
+    ylabel: str = "Radiance (W/m\u00b2/sr/\u00b5m)",
+    **kwargs: Any,
+) -> Figure:
+    """Plot several spectral curves that share one wavelength grid.
+
+    Used for the Source default view (target + background at-aperture
+    radiance), where every curve carries the same units and wavelength
+    axis so a single y-axis is unambiguous.
+
+    Parameters
+    ----------
+    wavelength_um:
+        Shared 1-D wavelength grid [\u00b5m].
+    series:
+        Mapping ``label -> y(\u03bb)``; each array aligns with ``wavelength_um``.
+    title:
+        Plot title.
+    ylabel:
+        Y-axis label (must carry units \u2014 every curve shares them).
+    **kwargs:
+        Passed to ``ax.plot()``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+    """
+    plt = _require_matplotlib()
+    fig, ax = plt.subplots()
+    for label, y in series.items():
+        ax.plot(wavelength_um, y, label=label, **kwargs)
+    ax.set_xlabel("Wavelength (\u00b5m)")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    if len(series) > 1:
+        ax.legend(fontsize="small")
+    fig.tight_layout()
+    return cast("Figure", fig)
+
+
+def plot_atmosphere_spectral(
+    wavelength_um: npt.NDArray[np.float64],
+    tau_atm: npt.NDArray[np.float64],
+    l_path: npt.NDArray[np.float64],
+    *,
+    title: str = "Atmospheric Transmittance and Path Radiance",
+    **kwargs: Any,
+) -> Figure:
+    """Plot atmospheric transmittance and path radiance vs wavelength.
+
+    Transmittance (dimensionless, [0, 1]) and path radiance
+    (W/m\u00b2/sr/\u00b5m) carry different units, so they render on twin y-axes
+    that are each unit-labelled (R-UNITS).
+
+    Parameters
+    ----------
+    wavelength_um:
+        Shared 1-D wavelength grid [\u00b5m].
+    tau_atm:
+        Atmospheric transmittance \u03c4_atm(\u03bb) [dimensionless].
+    l_path:
+        Atmospheric path radiance L_path(\u03bb) [W/m\u00b2/sr/\u00b5m].
+    title:
+        Plot title.
+    **kwargs:
+        Passed to ``ax.plot()`` for both curves.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+    """
+    plt = _require_matplotlib()
+    fig, ax_tau = plt.subplots()
+    (line_tau,) = ax_tau.plot(wavelength_um, tau_atm, color="C0", label="\u03c4_atm", **kwargs)
+    ax_tau.set_xlabel("Wavelength (\u00b5m)")
+    ax_tau.set_ylabel("Transmittance \u03c4_atm (dimensionless)", color="C0")
+    ax_tau.tick_params(axis="y", labelcolor="C0")
+    ax_tau.set_ylim(0.0, 1.05)
+    ax_tau.grid(True, alpha=0.3)
+
+    ax_lp = ax_tau.twinx()
+    (line_lp,) = ax_lp.plot(wavelength_um, l_path, color="C1", label="L_path", **kwargs)
+    ax_lp.set_ylabel("Path radiance L_path (W/m\u00b2/sr/\u00b5m)", color="C1")
+    ax_lp.tick_params(axis="y", labelcolor="C1")
+
+    ax_tau.set_title(title)
+    ax_tau.legend([line_tau, line_lp], ["\u03c4_atm", "L_path"], fontsize="small", loc="best")
+    fig.tight_layout()
+    return cast("Figure", fig)

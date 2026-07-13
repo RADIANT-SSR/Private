@@ -12,8 +12,10 @@ import pytest
 
 from radiant.api.plot import (
     Plottable,
+    plot_atmosphere_spectral,
     plot_noise_budget,
     plot_spectral,
+    plot_spectral_multi,
     plot_sweep,
     plot_sweep_2d,
 )
@@ -128,4 +130,39 @@ class TestPlotSpectral:
         assert isinstance(fig, Figure)
         ax = fig.axes[0]
         assert "Test Spectral" in ax.get_title()
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestPlotSpectralMulti:
+    def test_returns_figure_with_unit_labels(self) -> None:
+        wl = np.linspace(3.5, 5.0, 50)
+        series = {"target": np.exp(-wl), "background": 0.5 * np.exp(-wl)}
+        fig = plot_spectral_multi(wl, series)
+        assert isinstance(fig, Figure)
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "W/m²/sr/µm" in ax.get_ylabel()
+        assert len(ax.lines) == 2
+        matplotlib.pyplot.close(fig)
+
+    def test_single_series_no_legend_error(self) -> None:
+        wl = np.linspace(3.5, 5.0, 50)
+        fig = plot_spectral_multi(wl, {"target": np.exp(-wl)})
+        assert len(fig.axes[0].lines) == 1
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestPlotAtmosphereSpectral:
+    def test_returns_twin_unit_axes(self) -> None:
+        wl = np.linspace(3.5, 5.0, 50)
+        tau = 0.8 * np.ones_like(wl)
+        l_path = 0.3 * np.ones_like(wl)
+        fig = plot_atmosphere_spectral(wl, tau, l_path)
+        assert isinstance(fig, Figure)
+        ylabels = [a.get_ylabel() for a in fig.axes]
+        assert any("dimensionless" in y for y in ylabels)
+        assert any("W/m²/sr/µm" in y for y in ylabels)
+        assert "µm" in fig.axes[0].get_xlabel()
         matplotlib.pyplot.close(fig)

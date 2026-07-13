@@ -172,6 +172,92 @@ class ResultPlotNamespace:
             )
         return plot_mtf_budget(budget, **kwargs)
 
+    def spectral_source(self, **kwargs: Any) -> Any:
+        """Plot the source (target + background) spectral radiance vs λ.
+
+        Draws the target arm and, when present, the background arm from the
+        earliest stored spectral-radiance frames — ``at_aperture_target``
+        (falling back to the canonical ``at_aperture``) and
+        ``at_aperture_background`` — in W/m²/sr/µm. These are the real stored
+        frames closest to the arch-doc §4.4 Source default view; SourceStage
+        itself publishes no radiance frame (radiance assembly happens in
+        AtmosphereStage), so no at-target frame exists to plot without
+        recomputation.
+        """
+        from radiant.api.plot import plot_spectral_multi
+
+        frames = self._result.frames
+        target = frames.get("at_aperture_target") or frames.get("at_aperture")
+        if target is None or target.spectral_radiance is None:
+            raise ApiValidationError(
+                "No target spectral-radiance frame found in result.frames "
+                "('at_aperture_target' / 'at_aperture') — the chain must run "
+                "AtmosphereStage to assemble at-aperture radiance."
+            )
+        series: dict[str, Any] = {"target": target.spectral_radiance}
+        background = frames.get("at_aperture_background")
+        if background is not None and background.spectral_radiance is not None:
+            series["background"] = background.spectral_radiance
+        return plot_spectral_multi(
+            target.wavelength_um,
+            series,
+            title="Source spectral radiance (at aperture)",
+            ylabel="Radiance (W/m²/sr/µm)",
+            **kwargs,
+        )
+
+    def spectral_atmosphere(self, **kwargs: Any) -> Any:
+        """Plot atmospheric transmittance τ_atm(λ) and path radiance L_path(λ).
+
+        Draws the two stored ``stage_outputs['atmosphere']`` spectral arrays —
+        ``tau_atm`` (dimensionless) and ``L_path`` (W/m²/sr/µm) — on twin,
+        unit-labelled y-axes (arch-doc §4.4 Atmosphere default view).
+        """
+        from radiant.api.plot import plot_atmosphere_spectral
+
+        atmosphere = self._result.stage_outputs.get("atmosphere", {})
+        tau_atm = atmosphere.get("tau_atm")
+        l_path = atmosphere.get("L_path")
+        if tau_atm is None or l_path is None:
+            raise ApiValidationError(
+                "No atmospheric spectral arrays found in "
+                "stage_outputs['atmosphere'] ('tau_atm', 'L_path') — the chain "
+                "must run AtmosphereStage."
+            )
+        return plot_atmosphere_spectral(
+            self._result.state.wavelength_um,
+            tau_atm,
+            l_path,
+            **kwargs,
+        )
+
+    def spectral_inband(self, **kwargs: Any) -> Any:
+        """Plot the band-filtered post-optics spectral radiance vs λ.
+
+        Draws the stored ``post_optics`` frame — the at-FPA spectral radiance
+        (at-aperture radiance filtered by optical throughput) that
+        SpectralIntegrationStage integrates over the band — in W/m²/sr/µm
+        (arch-doc §4.4 Spectral Integration default view). It is the real
+        integrand frame; the collapsed in-band scalar is a single value, not a
+        spectrum.
+        """
+        from radiant.api.plot import plot_spectral
+
+        frame = self._result.frames.get("post_optics")
+        if frame is None or frame.spectral_radiance is None:
+            raise ApiValidationError(
+                "No 'post_optics' spectral-radiance frame found in "
+                "result.frames — the chain must run OpticsStage to produce the "
+                "band-filtered at-FPA radiance."
+            )
+        return plot_spectral(
+            frame.wavelength_um,
+            frame.spectral_radiance,
+            title="In-band spectral radiance (post-optics)",
+            ylabel="Radiance (W/m²/sr/µm)",
+            **kwargs,
+        )
+
 
 def _fmt(val: Any) -> str:
     """Format a value for tree display."""

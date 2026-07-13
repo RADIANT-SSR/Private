@@ -399,6 +399,8 @@ from radiant.api.plot import (
     plot_psf,            # EffectivePSF → log-scaled 2-D image
     plot_mtf_terms,      # {name: MTF array}, freq axis → all terms on one axis
     plot_spectral,       # wavelength [µm], radiance → spectral line plot
+    plot_spectral_multi, # wavelength [µm], {label: radiance} → multi-curve spectral plot
+    plot_atmosphere_spectral,  # wavelength [µm], τ_atm, L_path → twin-axis spectral plot
 )
 
 fig = plot_sweep(sweep)
@@ -417,10 +419,26 @@ A thin convenience wrapper around the same functions:
 from radiant.api.inspect import ResultPlotNamespace
 
 plots = ResultPlotNamespace(result)
-plots.psf()            # 2-D effective PSF (from stage_outputs["optics"]["effective_psf"])
-plots.noise_budget()   # horizontal bar chart of result.noise_terms [e- RMS]
-plots.mtf()            # all MTF terms vs spatial frequency [cycles/mrad]
+plots.psf()                # 2-D effective PSF (from stage_outputs["optics"]["effective_psf"])
+plots.noise_budget()       # horizontal bar chart of result.noise_terms [e- RMS]
+plots.mtf()                # all MTF terms vs spatial frequency [cycles/mrad]
+plots.mtf_budget()         # per-contributor MTF-at-Nyquist bar chart (Gap 19)
+plots.spectral_source()    # target (+ background) at-aperture radiance vs λ [W/m²/sr/µm]
+plots.spectral_atmosphere()# τ_atm(λ) [dimensionless] + L_path(λ) [W/m²/sr/µm] on twin axes
+plots.spectral_inband()    # band-filtered post-optics radiance vs λ [W/m²/sr/µm]
 ```
+
+The three spectral accessors (Gap 86) plot **only** real stored arrays, no
+recomputation:
+
+| Accessor | Source | Notes |
+|----------|--------|-------|
+| `spectral_source()` | `frames["at_aperture_target"]` (falls back to `at_aperture`) + optional `frames["at_aperture_background"]` | SourceStage stores **no** radiance frame — radiance is assembled in AtmosphereStage — so the earliest stored radiance (at-aperture) is plotted, not an at-target frame. |
+| `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Twin, unit-labelled y-axes (τ is dimensionless; L_path is W/m²/sr/µm). |
+| `spectral_inband()` | `frames["post_optics"]` | The band-filtered at-FPA radiance SpectralIntegrationStage integrates; the collapsed in-band scalar is a single value, not a spectrum. |
+
+Each raises `ApiValidationError` (an actionable `ValueError` subclass) when the
+required frame or stage output is absent, rather than drawing a blank figure.
 
 There is **no** `result.plot` attribute on `ChainResult` — construct the namespace explicitly (or call the module functions). The previously documented `result.plot.snr_breakdown()`, `.spectral_all()`, `.ee_curve()`, `.transmission()` do not exist (Appendix A).
 

@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Spectral-radiance figure accessors on `result.plot.*` (Gap 86).** The
+  `ResultPlotNamespace` gains three accessors — `spectral_source()` (target +
+  optional background at-aperture radiance vs λ [W/m²/sr/µm]),
+  `spectral_atmosphere()` (τ_atm(λ) [dimensionless] and L_path(λ) [W/m²/sr/µm]
+  on twin unit-labelled axes), and `spectral_inband()` (band-filtered
+  post-optics radiance vs λ [W/m²/sr/µm]) — plus two supporting module
+  functions in `radiant.api.plot` (`plot_spectral_multi`,
+  `plot_atmosphere_spectral`). Each accessor plots only real stored frames /
+  stage outputs (no recomputation) and raises an actionable `ApiValidationError`
+  when the required frame is absent. This carries the arch-doc §4.4 Source /
+  Atmosphere / Spectral-Integration default views and unblocks the GUI Phase 4B
+  Spectral detail tab. Public-surface addition; results-neutral.
 - **GUI stage-strip navigation, per-stage default visualizations, and live health
   dots (GUI plan Phase 4 Task A).** The 9-stage signal-chain strip is now clickable:
   a click scrolls the parameter panel to that stage's namespace group and swaps the

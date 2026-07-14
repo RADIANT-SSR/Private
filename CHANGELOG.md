@@ -28,6 +28,14 @@ retroactively reconstructed.
   computed results change.
 
 ### Fixed
+- **Twin-axis plot y-labels clipped at the figure edges in the narrow embedded pane (owner
+  feedback 2026-07-13).** The Atmosphere plot's rotated y-axis labels were spelled-out and
+  long — `"Transmittance τ_atm (dimensionless)"` and `"Path radiance L_path (W/m²/sr/µm)"` —
+  and overflowed the figure edges at GUI embedded width even under constrained_layout.
+  `plot_atmosphere_spectral` now labels the axes with the symbol + unit form only
+  (`"τ_atm (dimensionless)"`, `"L_path (W/m²/sr/µm)"`); the unit is always retained (R-UNITS).
+  All other builders already used short symbol + unit labels. View-only — no computed
+  results change.
 - **MTF Budget overlay legend blanketed the curves in the narrow embedded pane (CU-117).**
   `plot_mtf_terms` drew one legend entry per term — ~16 for an 8-contributor × x/y overlay —
   inside the axes, covering much of the curve area at GUI embedded width. Each contributor's

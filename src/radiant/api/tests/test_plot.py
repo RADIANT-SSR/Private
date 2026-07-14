@@ -169,6 +169,21 @@ class TestPlotAtmosphereSpectral:
         assert "µm" in fig.axes[0].get_xlabel()
         matplotlib.pyplot.close(fig)
 
+    def test_ylabels_are_shortened_symbol_first(self) -> None:
+        # Owner feedback 2026-07-13: the long spelled-out twin-axis y-labels clipped at the
+        # figure edges in the narrow embedded pane. The labels are shortened to symbol + unit
+        # (unit retained, R-UNITS), dropping the spelled-out "Transmittance"/"Path radiance"
+        # prefixes that overflowed.
+        wl = np.linspace(3.5, 5.0, 50)
+        fig = plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl))
+        ylabels = {a.get_ylabel() for a in fig.axes}
+        assert "τ_atm (dimensionless)" in ylabels
+        assert "L_path (W/m²/sr/µm)" in ylabels
+        # The over-long spelled-out prefixes are gone.
+        assert all("Transmittance" not in y for y in ylabels)
+        assert all("Path radiance" not in y for y in ylabels)
+        matplotlib.pyplot.close(fig)
+
 
 @pytest.mark.level1
 class TestConstrainedLayout:
@@ -203,6 +218,35 @@ class TestConstrainedLayout:
                 assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine), (
                     f"figure with title {fig.axes[0].get_title()!r} is not constrained-layout"
                 )
+        finally:
+            for fig in figs:
+                matplotlib.pyplot.close(fig)
+
+    def test_hardcoded_yaxis_labels_are_short_enough_not_to_clip(self) -> None:
+        # Owner feedback 2026-07-13: very long rotated y-axis labels overflowed the narrow
+        # embedded pane even under constrained_layout. Every builder that hardcodes a
+        # descriptive y-axis label keeps it to a symbol + unit form (unit always retained);
+        # this guards against a future spelled-out label creeping back in. 32 chars
+        # comfortably fits the ~700 px pane. (Sweep plots are excluded — their labels are
+        # data-driven parameter dot-paths, not descriptive labels this module controls.)
+        wl = np.linspace(3.5, 5.0, 50)
+        rad = np.exp(-wl)
+        terms = [_FakeNoiseTerm("photon_shot", 111.6), _FakeNoiseTerm("read_noise", 25.0)]
+        mtf_terms = {"mtf_optics_x": np.linspace(1.0, 0.0, 20)}
+        figs = [
+            plot_noise_budget(terms),
+            plot_mtf_terms(mtf_terms, np.arange(20, dtype=float)),
+            plot_spectral(wl, rad, title="t"),
+            plot_spectral_multi(wl, {"a": rad, "b": 0.5 * rad}),
+            plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl)),
+        ]
+        try:
+            for fig in figs:
+                for ax in fig.axes:
+                    ylabel = ax.get_ylabel()
+                    assert len(ylabel) <= 32, (
+                        f"y-axis label {ylabel!r} is too long and may clip in the GUI pane"
+                    )
         finally:
             for fig in figs:
                 matplotlib.pyplot.close(fig)

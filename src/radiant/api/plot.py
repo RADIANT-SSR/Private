@@ -423,14 +423,14 @@ def plot_atmosphere_spectral(
     fig, ax_tau = plt.subplots(constrained_layout=True)
     (line_tau,) = ax_tau.plot(wavelength_um, tau_atm, color="C0", label="\u03c4_atm", **kwargs)
     ax_tau.set_xlabel("Wavelength (\u00b5m)")
-    ax_tau.set_ylabel("Transmittance \u03c4_atm (dimensionless)", color="C0")
+    ax_tau.set_ylabel("\u03c4_atm (dimensionless)", color="C0")
     ax_tau.tick_params(axis="y", labelcolor="C0")
     ax_tau.set_ylim(0.0, 1.05)
     ax_tau.grid(True, alpha=0.3)
 
     ax_lp = ax_tau.twinx()
     (line_lp,) = ax_lp.plot(wavelength_um, l_path, color="C1", label="L_path", **kwargs)
-    ax_lp.set_ylabel("Path radiance L_path (W/m\u00b2/sr/\u00b5m)", color="C1")
+    ax_lp.set_ylabel("L_path (W/m\u00b2/sr/\u00b5m)", color="C1")
     ax_lp.tick_params(axis="y", labelcolor="C1")
 
     ax_tau.set_title(title)

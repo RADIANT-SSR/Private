@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-119 — `mypy --strict` on `radiant.api` is not clean: two `Legend | None` union-attr errors in `test_plot.py`
+
+**Discovered**: GUI polish (axis-label shortening), 2026-07-13 (commit `2132881` on branch `gui-phase1-task-a`) — surfaced when running the documented `mypy --strict src/radiant/core src/radiant/api` gate after touching `api/plot.py`.
+**Status**: Open — pre-existing, orthogonal to the polish task. The errors originate in commit `0aee880` (CU-117), not the current change; the axis-label edit only re-touched the file.
+**File**: `src/radiant/api/tests/test_plot.py:281`, `:293` (`fig.axes[0].get_legend().get_texts()`).
+**Symptom**: `mypy --strict src/radiant/api` reports 2 errors — `Item "None" of "Legend | None" has no attribute "get_texts"` — because `Axes.get_legend()` is typed `Legend | None` and the CU-117 legend tests call `.get_texts()` on the result without a `None`-guard/assert. The documented mypy gate (CLAUDE.md "Running Tests Locally") includes `src/radiant/api`, which sweeps `api/tests/`, so the gate is not green on this file today.
+**Why it still matters**: Code-style rule — "`mypy --strict` must pass on `radiant.core` and `radiant.api`" (Rule 1 / CLAUDE.md Code Style). A perpetually-red gate erodes the signal: a real new type error in `api` would blend into the two known failures.
+**Suggested fix**: (a) inline-fix-now — assign `legend = fig.axes[0].get_legend(); assert legend is not None` before `.get_texts()` in both tests (mirrors the existing `assert legend is not None` already used in `test_mtf_legend_below_axes_never_covers_curves`). Effort XS; category A (test-only, no behaviour/physics change). Not folded into the polish commits to keep each item's diff scoped to its owner-feedback change.
+
 ### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
 
 **Discovered**: GUI Outputs-readout R-UNITS fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)

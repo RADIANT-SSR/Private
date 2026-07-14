@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI contextual per-stage center + global Inspector (contextual-layout retrofit
+  Step B, arch doc §4.4 / §4.6 / §4.7).** Selecting a stage in the signal-chain strip now
+  makes the center show **only that stage's contextual composite** — its outputs readout
+  (scalar `stage_outputs` values with units, or the performance metric surface), its
+  plot(s) drawn from the public `result.plot.*` accessors, and its relocated detail content
+  (the MTF per-term table + overlay on Optics, the noise-budget table + bars + click-explain
+  on Detector, the geometry angle readout on Geometry). This replaces the single shared
+  canvas. Every Outputs / Metrics row carries a **pin affordance** that adds the value to
+  the right-rail Pinned panel — a stage-output pin re-reads `stage_outputs` on each run; a
+  metric pin reads the metric surface (CU-115 Step-B clause delivered). A new global
+  **Inspector** tool (Tools → Inspector / the menu-bar `◈ Inspector` button, `Ctrl+I`) opens
+  the full `inspect_result(result)` variable dump as a collapsible tree; it is disabled
+  until the first evaluation.
 - **GUI contextual-layout right rail — Pinned / Edit Config (YAML) / Messages
   (contextual-layout retrofit Step A, arch doc §4.5).** A persistent right-side dock now
   carries three sections: a **Pinned** panel of metric cards (default set = SNR · NEDT ·
@@ -198,6 +211,14 @@ retroactively reconstructed.
   baseline changed (all 14 sit at the nadir default).
 
 ### Removed
+- **GUI bottom detail-tabs dock (contextual-layout retrofit Step B, arch doc §4.7).**
+  The bottom `DetailTabs` dock and its five tab widgets are removed; their content is
+  **relocated**, not discarded: the MTF and Noise Budget tabs became the embeddable
+  `MtfPanel` / `NoiseBudgetPanel` (Optics / Detector center views), the Spectral tab's
+  three figures became per-stage plot sections (Source / Atmosphere / Spectral
+  Integration), the Variable Explorer tab became the global `InspectorDialog` tool, and
+  the read-only YAML tab was superseded by the Step-A right-rail Edit Config (YAML) modal.
+  The `View → Show/Hide Detail Panel` action is removed with the dock it toggled.
 - **GUI global metric-badge row and floating warning strip (contextual-layout
   retrofit Step A).** The `KpiBadgeRow`, `MetricBadge`, and `WarningStrip` widget
   classes are retired: the metrics relocated to the right-rail Pinned cards and the

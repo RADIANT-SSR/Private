@@ -454,6 +454,28 @@ that used to sit in the badge row now live in the right-rail *Pinned* panel (§4
 each stage owns its own plot region. A metric that returns a result-typed failure (Rule 17
 carve-out) shows its `failure_reason`, not a blank.
 
+*As shipped (contextual-layout retrofit Step B, 2026-07-13).* `StageCenter` (a
+`QStackedWidget` of one `StagePane` per stage over a pre-evaluate placeholder) replaces the
+single-canvas swap. Each pane assembles the §4.4.1 composition from existing widgets: the
+scalar-outputs readout (`OutputsReadout`, unit inferred from the stage-output key suffix),
+the relocated `MtfPanel` (Optics) / `NoiseBudgetPanel` (Detector) / `GeometryReadout`
+(Geometry), the `result.plot.*` plot sections, and the Performance metric readout. Every
+figure is one `result.plot.*` call, guarded so an `ApiValidationError` (a frame absent for
+the regime) shows its actionable message, never a blank (Rules 15/17). Selecting a stage
+still navigates the left tree (the Phase-4A behaviour, preserved); the first evaluation
+lands the center on the default stage (**Performance** — metrics + system MTF, the on-spec
+successor to the old default `result.plot.mtf()` figure). Only **[exists]** surfaces are
+built here; the **[GAP 89–92]** / bespoke items (Optics pupil & coating maps, the Source
+pre-atmosphere emission spectrum, the per-λ noise spectrum, the Detector pie/illustration
+and PSF-grid overlay) remain separate later per-stage tasks. Platform and Readout are
+v1-minimal: an outputs readout plus a themed note, no invented content.
+
+*Outputs pin affordance (Step B, CU-115 clause).* Each Outputs / Metrics row carries a pin
+control. A stage-output pin adds a card that **re-reads `stage_outputs[stage][key]` on each
+evaluation** (value + unit, R-UNITS); a metric pin uses the existing metric-surface card
+path. This delivers the §4.5 "pin any stage's metric or output value" capability. Pin-set
+persistence across sessions remains Phase 9 (CU-115, persistence clause).
+
 **Metric surface (retained from the shipped badge row).** The five performance metrics —
 SNR ← `snr`, NEDT ← `nedt_K`, NIIRS ← `niirs`, GSD ← `gsd_geometric_mean_m`, MTF@Nyquist ←
 `mtf_at_nyquist` — and their **units sourced from `ChainResult.metric_records()`** (never
@@ -570,6 +592,12 @@ folded per **CU-113**). The convenience method `result.inspect()` still does not
 `ChainResult` — the tool calls the module-level `inspect_result` (the real public surface);
 the sugar accessor remains **Gap 87**.
 
+*As shipped (Step B, 2026-07-13).* The `InspectorDialog` is reachable from **Tools →
+Inspector** (`Ctrl+I`) and the wireframe's right-aligned menu-bar `◈ Inspector` button;
+both trigger the same action, which is **disabled until the first evaluation** (nothing to
+dump) and opens **non-modally** against the most recent result so the operator can keep
+working with it open.
+
 ### 4.7 What the Redesign Relocates (the dissolved detail tabs)
 
 Nothing built in Phases 1–4 is discarded; the bottom detail tabs and the global badge row
@@ -590,6 +618,14 @@ The per-tab data sources that shipped (Phase 4 Task B) are unchanged; each is re
 its new container. The Sweep tab remains **v1.1** and absent from v1 (D4). The migration of
 the GUI Development Plan phases to this arrangement is the pending plan-revision task noted
 in the header.
+
+*As shipped (Step B, 2026-07-13).* The relocation is complete: the `DetailTabs` dock and
+its `SpectralTab` / `MtfTab` / `NoiseBudgetTab` / `VariableExplorerTab` / `YamlTab` widgets
+are deleted. `MtfTab` → `MtfPanel` and `NoiseBudgetTab` → `NoiseBudgetPanel` (embedded in
+the Optics / Detector center views, §4.4.1); the Spectral tab's figures became per-stage
+plot sections; the Variable Explorer became the global `InspectorDialog` (§4.6); the
+read-only YAML tab was superseded by the Step-A right-rail Edit Config (YAML) modal (§4.5).
+Nothing user-facing was lost — every surface has a new home in the contextual layout.
 
 ---
 

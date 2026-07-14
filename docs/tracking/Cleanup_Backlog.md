@@ -12,14 +12,25 @@
 
 ## Open
 
-### CU-115 — Right-rail Pinned panel: only metric-surface values are pinnable, and the pin set is not persisted
+### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes
+
+**Discovered**: GUI contextual-layout retrofit Step B, 2026-07-13 (commit on branch `gui-phase1-task-a`)
+**Status**: Open — resource-hygiene, non-blocking. Surfaces as matplotlib's "More than 20 figures have been opened" `RuntimeWarning` in the GUI test suite (many short-lived windows), not in a single interactive session.
+**File**: `src/radiant/gui/widgets/matplotlib_canvas.py`, `src/radiant/gui/widgets/stage_center.py`.
+**Symptom**: `StageCenter` builds one `StagePane` per stage, each holding its own `MatplotlibCanvas`(es). A canvas closes its prior figure only on `show_figure` re-embed (`_discard_current` → `plt.close`); a pane that has been visited keeps its embedded figure(s) live until the widget is destroyed. Visiting all nine stages holds ~10 pyplot figures open at once; across a test module that builds several windows, matplotlib's 20-figure warning fires.
+**Why it still matters**: Rule 26/hygiene — pyplot figures are a process-global resource; retaining them per visited stage is a slow leak in a long-lived session (the operator clicking through stages repeatedly re-renders on re-evaluation, which does close-and-replace, but the *count* is bounded by stages, not runs, so it is not unbounded). No correctness impact; the warning is noise that could mask a real leak later.
+**Suggested fix**: (a) inline-fix-now candidate — either lazily build/populate only the selected pane's canvas and discard others on switch, or close a pane's figures in a `hideEvent`/on deselect. Effort S; category A (no behaviour/physics change). Deferred out of Step B to keep that PR's diff focused on the relocation.
+
+### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions
 
 **Discovered**: GUI contextual-layout retrofit Step A, 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Status**: Stage-deferred — gating on contextual-layout **Step B** (per-stage center views) for stage-output pinning, and **GUI plan Phase 9** (View/preferences) for persistence. Re-audit when Step B lands.
-**File**: `src/radiant/gui/widgets/pin_picker_dialog.py`, `src/radiant/gui/widgets/pinned_panel.py`.
-**Symptom**: The `+ Pin…` picker lists only the performance metric surface (`ChainResult.metric_records()`); an arbitrary intermediate `stage_outputs` value cannot be pinned (arch doc §4.5 says the user can pin "any stage's metric or output value"). Separately, the pinned set is a plain session-scoped list on the rail — unpinning a default or pinning an extra metric is lost when the window closes (no `QSettings` round-trip).
-**Why it still matters**: Two ratified §4.5 capabilities are only partially delivered. Stage-output pinning wants each per-stage center view (Step B) to carry an in-place pin affordance rather than growing the picker into a whole-chain variable browser; persistence wants the Phase-9 preferences/`QSettings` surface. Neither belongs in the Step-A rearrangement, but both are promised by the doc.
-**Suggested fix**: (b) stand-alone tasks — (1) Step B: add a pin affordance to each stage view's Outputs section, emitting `(stage, key, label, unit)` the Pinned panel already accepts; (2) Phase 9: persist `PinnedPanel`'s session list via `QSettings` on the same path as the theme toggle. Effort S each; category D (UX). Re-audit date: at Step B landing.
+**Re-audited**: GUI contextual-layout retrofit Step B, 2026-07-13 — the Step-B (stage-output pinning) clause **fired and is delivered** (see below); the persistence clause is refreshed with its Phase-9 gate.
+**Status**: Stage-deferred — gating on **GUI plan Phase 9** (View/preferences, `QSettings`) for pin-set persistence. Re-audit when Phase 9 lands.
+**File**: `src/radiant/gui/widgets/pinned_panel.py`, `src/radiant/gui/widgets/pinned_card.py`.
+**Symptom (remaining)**: The pinned set is a plain session-scoped list on the `PinnedPanel` — unpinning a default or pinning an extra value is lost when the window closes (no `QSettings` round-trip).
+**Delivered in Step B (this branch)**: Stage-output pinning is implemented — each per-stage center Outputs/Metrics row carries a pin affordance (`OutputsReadout.pinOutputRequested(stage, key, label, unit)` / `pinMetricRequested(key, label)`), wired to `PinnedPanel.pin_stage_output(...)` / `pin(...)`. A stage-output card (`PinnedCard(output_ref=(stage, key, unit))`) re-reads `stage_outputs[stage][key]` on each evaluation with its unit (R-UNITS), honouring the Rule-17 `n/a` states. This delivers the ratified §4.5 "pin any stage's metric or output value" capability.
+**Why it still matters**: The persistence half of the two ratified §4.5 capabilities is still open — a pin set the operator curates does not survive a relaunch. It wants the Phase-9 preferences/`QSettings` surface (the same path as the theme toggle), not the Step-B rearrangement.
+**Suggested fix**: (b) stand-alone task — Phase 9: persist `PinnedPanel`'s session list (including `output` refs) via `QSettings` on the same path as the theme toggle. Effort S; category D (UX). Re-audit date: at Phase 9 landing.
 
 ### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
 

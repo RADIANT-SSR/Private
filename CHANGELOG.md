@@ -21,6 +21,22 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI 3D geometry viewer — interactions: angle annotations, shape library, RPY triad
+  (GUI plan Phase 7 Part B, ADR-0007).** The Geometry "3D View" becomes a split of the
+  viewport and a new accordion side panel (`GeometryAnglePanel`). (1) **Click-to-reveal
+  angle annotations:** per-angle toggles reveal an arc (off-nadir η, sun-zenith θ_s,
+  phase-angle α_t) with the numeric value pinned from `stage_outputs["geometry"]` verbatim
+  (never recomputed; the phase angle is symbol-only as it has no stage-output truth), split
+  target-frame vs ground-frame to match the Phase-5 readout — which the panel **shares**,
+  not duplicates. (2) **Target shape library:** a shape combo populated from the
+  `source.target.shape` schema `enum_values`; selecting a shape performs one `sensor.set`
+  and re-renders. (3) **RPY triad:** an on-target body-axes gizmo (pink=Roll / green=Pitch /
+  purple=Yaw) rendered from `source.target.shape_{yaw,pitch,roll}_rad`; editing those tilts
+  the triad and the orientation-dependent geometry. A **binding consistency test** asserts
+  the viewer's local angle recomputation (ported `geometry.js` math, used only for
+  camera/picking) agrees with the stage outputs within 1e-9 rad — the stage is the single
+  source of angle truth. In-scene VTK picking and platform-attitude are deferred
+  (CU-124/CU-122). View-only — no computed results change.
 - **GUI 3D geometry viewer — static bound scene (GUI plan Phase 7 Part A, ADR-0007).** The
   Geometry stage center becomes a two-tab composite — **Inputs** (the mode forms + angle
   readout) and **3D View** — the latter embedding a new `GeometryViewer`

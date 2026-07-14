@@ -751,12 +751,20 @@ angle authority. A consistency test asserts viewer-local recomputation agrees wi
 outputs to an explicit tolerance; divergence is a red build (GUI plan Phase 7). This
 keeps R-API intact: the panel is a view over stage outputs, not a re-implementation.
 
-### 6.4 Interaction & Visual Conventions (port exactly)
+### 6.4 Interaction & Visual Conventions
 
-Click a vector → it becomes selected and its angle arcs/labels appear (clicking empty
-space deselects). Click a 3D target body → the RPY triad appears and the side panel
-switches to the RPY accordion. Editing side-panel values updates all readouts and the
-scene live.
+**As shipped (Part B), reveal is driven from the accordion side panel** — the mockup's
+"click a vector in the scene" is realized as a per-angle **toggle checkbox** and a "show
+orientation triad" checkbox (an equally valid reveal surface, and the one the offscreen
+test suite can exercise; in-scene VTK point-picking + the lifted `highlight.py` re-stroke
+need a live interactor and are deferred, CU-124). Toggling an angle reveals its arc + the
+stage-output value pinned beside it; toggling the triad shows the on-target RPY gizmo.
+Editing a side-panel shape or RPY value performs the one `sensor.set` and updates the
+readouts and scene.
+
+The side panel is a `QToolBox` accordion with an **Angles** page (frame-grouped toggles +
+the **shared** Phase-5 `GeometryReadout`) and a **Target shape & orientation** page (the
+schema-driven shape combo + RPY spin boxes).
 
 Color roles (domain glyph palette, distinct from the app chrome palette): sun = amber,
 sensor = cyan, phase/azimuth = magenta, zenith = neutral, ground/projection = faded
@@ -822,6 +830,43 @@ shape library / RPY triad in §6.2 are **Part B**. What shipped:
 - **Mount.** The Geometry stage center is a two-tab composite (the §4.4 sub-view hook):
   **Inputs** (mode forms + `GeometryReadout`) and **3D View** (the `GeometryViewer`). The
   viewer re-renders the static scene after each evaluate.
+
+### 6.8 Part B — What Shipped (interactions; GUI plan Phase 7 Part B)
+
+Part B adds the interaction half over the Part-A static scene. The 3D View tab is now a
+split: the viewport (left) and the accordion side panel (right).
+
+- **Click-to-reveal angle annotations.** The angle-arc modules (`scene/arcs/` — off-nadir
+  η, sun-zenith θ_s, phase-angle α_t) are lifted; each reveals on demand a curved arc tube
+  plus a pinned value label. The **value comes from `stage_outputs["geometry"]` verbatim**
+  (`eta_rad`, `theta_s_rad`), formatted with its unit exactly as the readout formats it —
+  never recomputed from the scene. The phase angle has no stage-output truth, so it renders
+  **symbol-only** (arch §6.3), analogous to the Rule-4 MTF-only TDI term. The catalog of
+  annotatable angles (`scene/angle_annotations.py`) is the single source of the
+  target-frame / ground-frame split, and it matches the Phase-5 `GeometryReadout` grouping.
+- **Angle-truth consistency test (binding).** `scene/angle_truth.py` recomputes each
+  stage-backed angle from the ported `geometry.js` direction math and a test asserts it
+  agrees with `stage_outputs["geometry"]` within `ANGLE_CONSISTENCY_ABS_TOL_RAD = 1e-9`
+  rad (measured residual ~1e-15). Divergence is a red build — this enforces that the stage
+  is the single source of angle truth.
+- **Target shape library.** The side panel's shape combo is populated from the
+  `source.target.shape` schema `enum_values` (never a hardcoded list — Gap 70). Selecting a
+  shape performs one `sensor.set` and previews the new glyph immediately, then schedules the
+  full re-evaluation. A shape whose required dimensions are unset fails the physics re-run
+  through the normal actionable-error path (CU-125).
+- **RPY triad.** The target body-axes triad (`scene/frames/body_axes.py`) renders from
+  `source.target.shape_{yaw,pitch,roll}_rad` (the **target** orientation), colour-coded
+  pink=Roll / green=Pitch / purple=Yaw, using the same `euler_to_rotation_matrix` (ZYX) the
+  target body mesh uses, so tilting the target via those params rotates the gizmo. Platform/
+  sensor attitude still has **no stage owner** (CU-122): `observer_{yaw,pitch,roll}_rad`
+  remain defaulted to identity, so there is no platform-attitude triad yet.
+- **Accordion side panel** (`widgets/geometry_angle_panel.py`) — a `QToolBox` that **shares**
+  the Phase-5 `GeometryReadout` widget (not a duplicate) for the live frame-grouped numeric
+  readout, plus the annotation toggles and the shape/RPY editors. It emits intent signals;
+  the owning `StagePane` performs the one `sensor.set` per edit (R-API).
+- **Deferred (needs a live interactor):** in-scene VTK point-picking and the lifted
+  `scene/highlight.py` active-edit re-stroke (CU-124); the corner view-cube / world-axes
+  gnomon widgets stay out of v1.
 
 ---
 

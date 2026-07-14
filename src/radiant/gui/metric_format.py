@@ -1,9 +1,10 @@
-"""Presentation helpers for the KPI metric badges (arch doc §4.4, R-UNITS).
+"""Presentation helpers for the performance-metric cards (arch doc §4.4/§4.5, R-UNITS).
 
 These pure functions turn the *public* ``ChainResult`` metric surface
 (:meth:`ChainResult.metric_records`, which joins each value with its registry
-unit — Gap 71) into the text a :class:`~radiant.gui.widgets.metric_badge.MetricBadge`
-shows. Every dimensional value carries its unit, sourced from the result's own
+unit — Gap 71) into the text a :class:`~radiant.gui.widgets.pinned_card.PinnedCard`
+shows (the relocated metric badge). Every dimensional value carries its unit, sourced
+from the result's own
 metadata and never hardcoded in a widget (the owner's R-UNITS hard rule,
 GUI plan §4.6). Result-typed metric failures (Rule 17 carve-out) are surfaced as
 an explicit failure state, never a blank or a fake number.

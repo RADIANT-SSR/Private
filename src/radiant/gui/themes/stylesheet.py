@@ -280,46 +280,12 @@ QLabel#stageGapTracked {{
     font-size: 11px;
 }}
 
-/* -- KPI badge row (§4.4) ---------------------------------------------- */
-#kpiRow {{
+/* -- Center run bar (§4.4) --------------------------------------------- *
+ * The thin bar carrying the accent Evaluate button; it replaced the retired
+ * global metric-badge row (the metrics moved to the right-rail Pinned panel). */
+#runBar {{
     background-color: {t.panel};
     border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
-}}
-QFrame#metricBadge {{
-    border-right: {tokens.BORDER_WIDTH} solid {t.line};
-}}
-QLabel#metricLabel {{
-    color: {t.muted};
-    font-size: 10.5px;
-    font-weight: 500;
-}}
-QLabel#metricValue {{
-    color: {t.ink};
-    font-family: {tokens.FONT_MONO};
-    font-size: 17px;
-    font-weight: 600;
-}}
-QLabel#metricCaption {{
-    color: {t.muted};
-    font-size: 10.5px;
-}}
-/* Metric-value colour by state/flag. Equal-specificity selectors: order matters,
- * later wins. Base ink → primary accent → awaiting muted → failed err → stale warn
- * (§8.4: a stale value's marker is warn, so stale wins when set). */
-QFrame#metricBadge[primary="true"] QLabel#metricValue {{
-    color: {t.accent};
-}}
-QFrame#metricBadge[state="awaiting"] QLabel#metricValue {{
-    color: {t.muted_2};
-}}
-QFrame#metricBadge[state="failed"] QLabel#metricValue {{
-    color: {t.err};
-}}
-QFrame#metricBadge[state="failed"] QLabel#metricCaption {{
-    color: {t.err};
-}}
-QFrame#metricBadge[stale="true"] QLabel#metricValue {{
-    color: {t.warn};
 }}
 
 /* -- Full-well saturation banner (§4.4, owner amendment 2) -------------- *
@@ -334,22 +300,184 @@ QLabel#saturationBanner {{
     font-weight: 600;
 }}
 
-/* -- Chain-warning strip (§4.4, owner feedback 2026-07-13) ------------- *
- * Clickable, warn-token strip between the badge row and the canvas — the
- * chain UserWarnings of the last evaluation, distinct from the red
- * saturation banner. Hover deepens the border to read as clickable. */
-QLabel#warningStrip {{
-    background-color: {t.warn_soft};
-    color: {t.warn};
-    border: {tokens.BORDER_WIDTH} solid {t.warn};
-    border-radius: {tokens.RADIUS_CONTROL};
-    padding: {tokens.PAD_INPUT};
-    margin: 6px 14px 0px 14px;
+/* -- Right rail (arch doc §4.5): Pinned / Edit Config (YAML) / Messages - *
+ * A persistent right column. The metric-badge row became pinnable cards and
+ * the chain-warning strip became the Messages list; both are relocated here. */
+#rightRail {{
+    background-color: {t.panel_2};
+    border-left: {tokens.BORDER_WIDTH} solid {t.line};
+}}
+#rightRail QWidget {{
+    background-color: {t.panel_2};
+}}
+#rightRailDock > QWidget {{
+    border: none;
+}}
+
+/* Rail section headers (title + count line) */
+QLabel#railSectionTitle {{
+    color: {t.muted};
     font-size: 11px;
     font-weight: 600;
 }}
-QLabel#warningStrip:hover {{
+QLabel#railSectionCount {{
+    color: {t.muted_2};
+    font-size: 10.5px;
+}}
+
+/* Pinned metric cards (badges → pinnable cards). State/flag colour the value:
+ * base ink → primary accent → failed err → stale warn (§8.4, stale wins). */
+QFrame#pinnedCard {{
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+}}
+QLabel#pinnedCardLabel {{
+    color: {t.muted};
+    font-size: 9.5px;
+    font-weight: 500;
+}}
+QLabel#pinnedCardValue {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 17px;
+    font-weight: 600;
+}}
+QLabel#pinnedCardSource {{
+    color: {t.muted};
+    font-family: {tokens.FONT_MONO};
+    font-size: 10px;
+}}
+QFrame#pinnedCard[primary="true"] QLabel#pinnedCardValue {{
+    color: {t.accent};
+}}
+QFrame#pinnedCard[state="awaiting"] QLabel#pinnedCardValue {{
+    color: {t.muted_2};
+}}
+QFrame#pinnedCard[state="failed"] QLabel#pinnedCardValue {{
+    color: {t.err};
+}}
+QFrame#pinnedCard[state="failed"] QLabel#pinnedCardSource {{
+    color: {t.err};
+}}
+QFrame#pinnedCard[stale="true"] QLabel#pinnedCardValue {{
+    color: {t.warn};
+}}
+QToolButton#pinnedCardUnpin {{
+    color: {t.muted};
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CHIP};
+    padding: 1px 4px;
+}}
+QToolButton#pinnedCardUnpin:hover {{
+    color: {t.accent};
+    border-color: {t.accent};
+}}
+QPushButton#pinAddButton {{
+    color: {t.muted};
+    background-color: transparent;
+    border: {tokens.BORDER_WIDTH} dashed {t.line_2};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_BUTTON};
+    text-align: left;
+}}
+QPushButton#pinAddButton:hover {{
+    color: {t.accent};
+    border-color: {t.accent};
+}}
+
+/* Edit Config (YAML) button — focus-token primary action (§4.5) */
+QPushButton#yamlEditButton {{
+    color: {t.focus};
+    background-color: {t.focus_soft};
+    border: {tokens.BORDER_WIDTH} solid {t.focus};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: 10px 12px;
+    font-weight: 600;
+}}
+QPushButton#yamlEditButton:hover {{
+    background-color: {t.panel_3};
+}}
+QPushButton#yamlEditButton:disabled {{
+    color: {t.muted_2};
+    background-color: {t.panel_2};
+    border-color: {t.line};
+}}
+QLabel#yamlEditCaption {{
+    color: {t.muted};
+    font-size: 10.5px;
+}}
+
+/* Messages panel (warn/err items — the widened warning strip, §4.5) */
+QLabel#messageItem {{
+    border: {tokens.BORDER_WIDTH} solid {t.warn};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_INPUT};
+    font-size: 11px;
+    font-weight: 600;
+}}
+QLabel#messageItem[severity="warning"] {{
+    background-color: {t.warn_soft};
+    color: {t.warn};
+    border-color: {t.warn};
+}}
+QLabel#messageItem[severity="error"] {{
+    background-color: {t.err_soft};
+    color: {t.err};
+    border-color: {t.err};
+}}
+QLabel#messageItem:hover {{
     border-color: {t.ink};
+}}
+QLabel#messagesEmpty, QLabel#pinPickerEmpty {{
+    color: {t.muted};
+    font-size: 11px;
+}}
+
+/* Edit Config (YAML) editor modal + pin picker dialog (§4.5) */
+#yamlEditorDialog, #pinPickerDialog {{
+    background-color: {t.panel};
+}}
+QLabel#yamlEditorHeader, QLabel#pinPickerHeader {{
+    color: {t.ink};
+    font-size: 16px;
+    font-weight: 600;
+}}
+QPlainTextEdit#yamlEditorText {{
+    background-color: {t.panel_2};
+    color: {t.ink_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QLabel#yamlEditorCaption {{
+    color: {t.muted};
+    font-size: 11px;
+}}
+QListWidget#pinPickerList {{
+    background-color: {t.panel_2};
+    color: {t.ink_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QPushButton#yamlApplyButton {{
+    color: {t.panel};
+    background-color: {t.accent};
+    border: {tokens.BORDER_WIDTH} solid {t.accent};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_BUTTON};
+    font-weight: 600;
+}}
+QPushButton#yamlRevertButton, QPushButton#yamlCancelButton {{
+    color: {t.ink_2};
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line_2};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: {tokens.PAD_BUTTON};
 }}
 
 /* -- Warning list dialog (§4.4) — the expanded verbatim warning list --- */

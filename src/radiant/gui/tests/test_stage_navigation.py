@@ -115,7 +115,7 @@ class TestHealthDotTransitions:
         per-stage, so any warning marks the whole run yellow.
         """
         window = _load_window(qtbot)
-        assert window.central_canvas.warning_strip.warning_count >= 1
+        assert window.right_rail.messages.warning_count >= 1
         for chip in window.stage_strip.chips:
             assert chip.status == "warn"
 

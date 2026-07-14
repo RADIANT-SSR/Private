@@ -21,8 +21,8 @@ import pytest
 from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.widgets import actionable_error_dialog as aed
+from radiant.gui.widgets.messages_panel import MessagesPanel
 from radiant.gui.widgets.warning_list_dialog import WarningListDialog
-from radiant.gui.widgets.warning_strip import WarningStrip
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -43,20 +43,20 @@ def _load_window(qtbot):  # type: ignore[no-untyped-def]
 
 
 class TestEvaluateRoundTrip:
-    def test_badges_fill_with_real_values_and_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """After evaluate, every badge shows a real value; dimensional ones carry units."""
+    def test_pinned_cards_fill_with_real_values_and_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """After evaluate, every Pinned card shows a real value; dimensional ones carry units."""
         window = _load_window(qtbot)
-        badges = window.central_canvas.kpi_row.badges
+        cards = window.right_rail.pinned.cards
 
-        # No badge is left at the em-dash placeholder.
-        for badge in badges.values():
-            assert badge.value_text() != "—", badge.metric_key
+        # No card is left at the em-dash placeholder.
+        for card in cards.values():
+            assert card.value_text() != "—", card.pin_key
 
         # R-UNITS: dimensional metrics render their unit (sourced from metadata).
-        assert badges["NEDT"].value_text().endswith("K")
-        assert badges["GSD"].value_text().endswith("m")
+        assert cards["nedt_K"].value_text().endswith("K")
+        assert cards["gsd_geometric_mean_m"].value_text().endswith("m")
         # Dimensionless / rating-scale metrics render as a bare number.
-        assert badges["SNR"].value_text().replace(".", "").isdigit()
+        assert cards["snr"].value_text().replace(".", "").isdigit()
 
         # The canvas swapped from the placeholder to the real figure.
         assert window.central_canvas.matplotlib_canvas.has_figure()
@@ -64,8 +64,8 @@ class TestEvaluateRoundTrip:
     def test_edit_reevaluates_and_moves_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Editing the aperture re-runs the chain and changes SNR (the D2 click)."""
         window = _load_window(qtbot)
-        badges = window.central_canvas.kpi_row.badges
-        snr_before = badges["SNR"].value_text()
+        cards = window.right_rail.pinned.cards
+        snr_before = cards["snr"].value_text()
 
         # Simulate the parameter panel's edit: mutate the shared sensor and signal
         # the edit, which schedules the debounced re-evaluation.
@@ -73,7 +73,7 @@ class TestEvaluateRoundTrip:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit(_APERTURE)
 
-        snr_after = badges["SNR"].value_text()
+        snr_after = cards["snr"].value_text()
         assert snr_after != snr_before  # a bigger aperture moved SNR
         assert snr_after != "—"
 
@@ -84,8 +84,8 @@ class TestErrorPath:
     ) -> None:
         """An invalid config raises: dialog renders, previous result stays, stale shows."""
         window = _load_window(qtbot)
-        badges = window.central_canvas.kpi_row.badges
-        snr_before = badges["SNR"].value_text()
+        cards = window.right_rail.pinned.cards
+        snr_before = cards["snr"].value_text()
 
         # Capture the actionable dialog instead of letting it block the event loop.
         shown: list[aed.ActionableErrorDialog] = []
@@ -105,8 +105,10 @@ class TestErrorPath:
         assert len(shown) == 1
         # The previous result stays on screen, flagged stale (never blank/partial).
         assert window.central_canvas.stale_notice.isHidden() is False
-        assert badges["SNR"].value_text().startswith(snr_before)
-        assert badges["SNR"].value_text().endswith("→?")  # stale marker (§8.4)
+        assert cards["snr"].value_text().startswith(snr_before)
+        assert cards["snr"].value_text().endswith("→?")  # stale marker (§8.4)
+        # The error surfaces in the Messages panel too (§4.5, now carries errors).
+        assert window.right_rail.messages.has_error()
 
 
 class TestSaturationBanner:
@@ -135,48 +137,49 @@ class TestSaturationBanner:
         assert banner.isHidden() is True
 
 
-class TestWarningStrip:
-    """Item 3 (owner feedback 2026-07-13): chain warnings surface in-window, not the terminal."""
+class TestMessagesPanel:
+    """Item 3 (owner feedback 2026-07-13): chain warnings surface in-window, not the terminal.
 
-    def test_chain_warnings_appear_in_the_strip(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """After evaluate, the warn-token strip carries the chain UserWarnings by count."""
+    Relocated to the right-rail Messages panel (arch doc §4.5, contextual layout).
+    """
+
+    def test_chain_warnings_appear_in_messages(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """After evaluate, the Messages panel carries the chain UserWarnings by count."""
         window = _load_window(qtbot)
-        strip = window.central_canvas.warning_strip
+        messages = window.right_rail.messages
         # The example config's SNR is out of the GIQE range → a NIIRS extrapolation
         # warning is always emitted; it now shows in-window instead of the terminal.
-        assert strip.isHidden() is False
-        assert strip.warning_count >= 1
-        assert "warning" in strip.text()
-        assert any("NIIRS" in m or "extrapolation" in m for m in strip.messages)
+        assert messages.warning_count >= 1
+        assert any("NIIRS" in m or "extrapolation" in m for m in messages.warnings)
 
     def test_saturation_adds_its_warning_and_the_list_dialog_shows_all(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A saturating edit adds the full-well warning; the dialog lists all verbatim."""
         window = _load_window(qtbot)
-        strip = window.central_canvas.warning_strip
-        before = strip.warning_count
+        messages = window.right_rail.messages
+        before = messages.warning_count
 
         window.sensor.set(_FULL_WELL, 100000.0)  # forces a hard full-well clip
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit(_FULL_WELL)
 
-        assert strip.warning_count > before
-        assert any("saturat" in m.lower() for m in strip.messages)
+        assert messages.warning_count > before
+        assert any("saturat" in m.lower() for m in messages.warnings)
 
         # The click-through list dialog lists every captured warning verbatim.
-        dialog = WarningListDialog(strip.messages)
+        dialog = WarningListDialog(messages.warnings)
         qtbot.addWidget(dialog)
-        assert dialog.messages == strip.messages
+        assert dialog.messages == messages.warnings
         body = dialog.body.toPlainText()
-        assert all(m in body for m in strip.messages)
+        assert all(m in body for m in messages.warnings)
 
-    def test_strip_clears_on_a_warning_free_evaluation(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A warning-free result clears the strip (widget contract, offscreen)."""
-        strip = WarningStrip()
-        qtbot.addWidget(strip)
-        strip.update_from_warnings(["UserWarning: something", "UserWarning: else"])
-        assert strip.isHidden() is False and strip.warning_count == 2
-        strip.update_from_warnings([])  # a clean run
-        assert strip.isHidden() is True and strip.warning_count == 0
+    def test_messages_clear_on_a_warning_free_evaluation(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A warning-free result clears the warnings (widget contract, offscreen)."""
+        panel = MessagesPanel()
+        qtbot.addWidget(panel)
+        panel.set_warnings(["UserWarning: something", "UserWarning: else"])
+        assert panel.warning_count == 2
+        panel.set_warnings([])  # a clean run
+        assert panel.warning_count == 0
 
 
 class TestTriggersAndDebounce:
@@ -191,11 +194,11 @@ class TestTriggersAndDebounce:
     def test_run_button_enabled_with_sensor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The accent Run button is enabled once a sensor is loaded, disabled without."""
         window = _load_window(qtbot)
-        assert window.central_canvas.kpi_row.run_button.isEnabled()
+        assert window.central_canvas.run_button.isEnabled()
 
         empty = RADIANTMainWindow()
         qtbot.addWidget(empty)
-        assert not empty.central_canvas.kpi_row.run_button.isEnabled()
+        assert not empty.central_canvas.run_button.isEnabled()
         assert not empty.action("run.evaluate").isEnabled()
 
     def test_debounce_collapses_rapid_edits_into_one_run(self, qtbot) -> None:  # type: ignore[no-untyped-def]

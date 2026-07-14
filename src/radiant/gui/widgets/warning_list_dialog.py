@@ -1,11 +1,11 @@
 """Modal dialog listing the chain warnings captured during an evaluation (§4.4).
 
-:class:`WarningListDialog` is the expanded view behind the central warning strip
-(:class:`~radiant.gui.widgets.warning_strip.WarningStrip`). The strip shows the count
-and the first message inline; clicking it opens this dialog, which lists **every**
-captured warning verbatim (saturation clip, NIIRS extrapolation, …) so the owner reads
-them in-window rather than hunting the terminal (owner feedback 2026-07-13, Rule 17 —
-warnings surfaced, never swallowed).
+:class:`WarningListDialog` is the expanded view behind the right-rail Messages panel
+(:class:`~radiant.gui.widgets.messages_panel.MessagesPanel`). The panel lists each warning
+as a clickable row; clicking any opens this dialog, which lists **every** captured warning
+verbatim (saturation clip, NIIRS extrapolation, …) so the owner reads them in-window rather
+than hunting the terminal (owner feedback 2026-07-13, Rule 17 — warnings surfaced, never
+swallowed).
 
 One widget class per file (Rule 19). Styling is entirely from the design-system QSS
 theme via object names (GUI plan §4.9); this file sets structure and text only.

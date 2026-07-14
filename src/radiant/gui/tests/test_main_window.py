@@ -59,10 +59,17 @@ class TestLayoutRegions:
         assert len(window.stage_strip.chips) == 9
         assert all(c.dot.status == "stale" for c in window.stage_strip.chips)
 
-        # Five KPI badges awaiting evaluation (em-dash values).
-        badges = window.central_canvas.kpi_row.badges
-        assert list(badges.keys()) == ["SNR", "NEDT", "NIIRS", "GSD", "MTF@Nyquist"]
-        assert all(b.value_text() == "—" for b in badges.values())
+        # Right-rail Pinned panel: the five default performance metrics awaiting
+        # evaluation (em-dash values) — the relocated metric badges (arch doc §4.5).
+        cards = window.right_rail.pinned.cards
+        assert list(cards.keys()) == [
+            "snr",
+            "nedt_K",
+            "niirs",
+            "gsd_geometric_mean_m",
+            "mtf_at_nyquist",
+        ]
+        assert all(c.value_text() == "—" for c in cards.values())
 
         # Parameter dock: disabled filter, empty tree; detail dock: five tabs.
         assert not window.parameter_panel.filter_box.isEnabled()

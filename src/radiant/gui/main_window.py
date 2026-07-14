@@ -35,8 +35,10 @@ from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.detail_tabs import DetailTabs
 from radiant.gui.widgets.parameter_panel import ParameterPanel
+from radiant.gui.widgets.right_rail import RightRail
 from radiant.gui.widgets.stage_strip import StageStrip
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
+from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import EvaluationWorker
 
 if TYPE_CHECKING:
@@ -56,6 +58,7 @@ _DEFAULT_WIDTH: int = 1440
 _DEFAULT_HEIGHT: int = 900
 _PARAM_DOCK_WIDTH: int = 360
 _DETAIL_DOCK_HEIGHT: int = 260
+_RAIL_DOCK_WIDTH: int = 288
 
 
 class RADIANTMainWindow(QMainWindow):
@@ -142,8 +145,17 @@ class RADIANTMainWindow(QMainWindow):
 
     @property
     def detail_tabs(self) -> DetailTabs:
-        """The bottom detail dock's five-tab panel (live from Phase 4 Task B)."""
+        """The bottom detail dock's five-tab panel (live from Phase 4 Task B).
+
+        Retained pending contextual-layout Step B (the tabs dissolve into per-stage
+        center views + the global Inspector). Step A leaves them in place.
+        """
         return self._detail_tabs
+
+    @property
+    def right_rail(self) -> RightRail:
+        """The persistent right rail: Pinned cards / Edit Config (YAML) / Messages (§4.5)."""
+        return self._right_rail
 
     def action(self, key: str) -> QAction:
         """Return the menu :class:`QAction` registered under *key*.
@@ -330,6 +342,21 @@ class RADIANTMainWindow(QMainWindow):
         self._detail_dock = detail_dock
         self._detail_tabs = detail_tabs
 
+        # Right rail (arch doc §4.5): a persistent, full-height right column carrying
+        # the Pinned metric cards, the Edit Config (YAML) button, and the Messages
+        # panel. The rail owns no sensor, so its Edit Config click is surfaced and the
+        # window opens the editor against the live sensor.
+        right_rail = RightRail(self)
+        right_rail.editConfigRequested.connect(self._on_edit_config_requested)
+        rail_dock = QDockWidget("", self)
+        rail_dock.setObjectName("rightRailDock")
+        rail_dock.setTitleBarWidget(QWidget(rail_dock))  # hide the dock title bar
+        rail_dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        rail_dock.setWidget(right_rail)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, rail_dock)
+        self._right_rail_dock = rail_dock
+        self._right_rail = right_rail
+
     def _on_parameter_edited(self, dotpath: str) -> None:
         """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
 
@@ -384,7 +411,11 @@ class RADIANTMainWindow(QMainWindow):
 
         ``resizeDocks`` gives an initial split; the user can re-drag afterwards.
         """
-        self.resizeDocks([self._parameter_dock], [_PARAM_DOCK_WIDTH], Qt.Orientation.Horizontal)
+        self.resizeDocks(
+            [self._parameter_dock, self._right_rail_dock],
+            [_PARAM_DOCK_WIDTH, _RAIL_DOCK_WIDTH],
+            Qt.Orientation.Horizontal,
+        )
         self.resizeDocks([self._detail_dock], [_DETAIL_DOCK_HEIGHT], Qt.Orientation.Vertical)
 
     # -- evaluate loop (GUI plan Phase 3) ----------------------------------
@@ -416,10 +447,12 @@ class RADIANTMainWindow(QMainWindow):
         self._debounce.timeout.connect(self._evaluate_now)
 
         evaluate_action = self.action("run.evaluate")
-        run_button = self._central.kpi_row.run_button
+        run_button = self._central.run_button
         has_sensor = self._sensor is not None
         evaluate_action.setEnabled(has_sensor)
         run_button.setEnabled(has_sensor)
+        # The Edit Config (YAML) modal needs a sensor to serialize; gate it likewise.
+        self._right_rail.yaml_button.setEnabled(has_sensor)
         # F5 / menu and the accent Run button both trigger an immediate run.
         evaluate_action.triggered.connect(self._evaluate_now)
         run_button.clicked.connect(self._evaluate_now)
@@ -455,15 +488,17 @@ class RADIANTMainWindow(QMainWindow):
         worker.start()
 
     def _on_eval_ok(self, result: ChainResult, warnings: list[str]) -> None:
-        """Render a successful result into the badges, banner, warning strip, and plot.
+        """Render a successful result into the Pinned cards, Messages, banner, and plot.
 
-        Chain warnings captured by the worker are shown in the in-window warning strip
-        (a warning-free run clears it) rather than printed to the terminal (owner
-        feedback 2026-07-13, Rule 17). The strip is updated before the plot render so a
-        render failure still leaves the warnings surfaced.
+        The performance metrics fill the right-rail *Pinned* panel (§4.5, the relocated
+        badge row); chain warnings captured by the worker fill the right-rail *Messages*
+        panel (a warning-free run clears it) rather than printing to the terminal (owner
+        feedback 2026-07-13, Rule 17). Both are updated before the plot render so a render
+        failure still leaves the metrics and warnings surfaced.
         """
         self._last_result = result
-        self._central.update_warnings(warnings)
+        self._right_rail.pinned.update_from_result(result)
+        self._right_rail.messages.set_warnings(warnings)
         # Drive the stage health dots (§4.2): green on a clean run, yellow when the
         # run carried any chain warning. Per-stage warning attribution is deferred —
         # the captured warnings are free-text and not reliably attributable to one
@@ -499,9 +534,15 @@ class RADIANTMainWindow(QMainWindow):
         the public exception surface does not reliably carry the originating stage, so
         v1 marks the whole run red rather than guessing a stage (arch doc §4.2, the
         documented decision).
+
+        The error also surfaces in the right-rail *Messages* panel (§4.5, now carrying
+        errors as well as warnings) and the still-displayed Pinned cards flip to their
+        ``→?`` stale marker (§8.4), consistent with the stale plot notice.
         """
         self._stage_strip.set_all_status("err")
         self._central.mark_stale()
+        self._right_rail.pinned.set_stale(True)
+        self._right_rail.messages.set_error(exc)
         self.statusBar().showMessage("Evaluation failed — showing the previous result (stale)")
         if isinstance(exc, RadiantError):
             ActionableErrorDialog(exc, "evaluate", self).exec()
@@ -523,6 +564,39 @@ class RADIANTMainWindow(QMainWindow):
         self._busy.setVisible(busy)
         if busy:
             self.statusBar().showMessage("Evaluating…")
+
+    # -- Edit Config (YAML) modal (arch doc §4.5) --------------------------
+
+    def _on_edit_config_requested(self) -> None:
+        """Handle the right-rail Edit Config (YAML) click: open the modal editor."""
+        dialog = self.open_yaml_editor()
+        if dialog is not None:
+            dialog.exec()
+
+    def open_yaml_editor(self) -> YamlEditorDialog | None:
+        """Build the YAML editor against the live sensor, wired to apply-and-reevaluate.
+
+        Returns the dialog (not yet exec'd) so tests can drive Apply/Revert without
+        blocking on the modal event loop; the button handler exec's the returned dialog.
+        ``None`` when no sensor is loaded (nothing to serialize).
+        """
+        if self._sensor is None:
+            return None
+        dialog = YamlEditorDialog(self._sensor, self)
+        dialog.configApplied.connect(self._apply_new_config)
+        return dialog
+
+    def _apply_new_config(self, sensor: Sensor) -> None:
+        """Swap the live sensor for the Apply-parsed one and re-evaluate the whole GUI.
+
+        The new sensor was parsed on a throwaway in the dialog (the live sensor was never
+        touched on failure); here it becomes the session sensor, the parameter tree
+        re-populates from it, and a full re-evaluation refreshes every panel (§4.5).
+        """
+        self._sensor = sensor
+        self.setWindowTitle(self._compose_title())
+        self._parameter_panel.populate(sensor)
+        self._evaluate_now()
 
     @staticmethod
     def _evaluated_message(result: ChainResult) -> str:

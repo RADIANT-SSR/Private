@@ -1,14 +1,21 @@
-"""3D geometry viewer — the embedded PyVista scene over ``GeometryStage`` outputs.
+"""Geometry viewer — the embedded 2D orthographic **schematic** over ``GeometryStage``.
 
-Part A (ADR-0007 Phase 7 tasks 1–3): the lifted, Qt-free scene library
-(:mod:`radiant.gui.viewer.scene`), the ``ViewerState`` adapter
-(:mod:`radiant.gui.viewer.viewer_state`) that binds it to a chain evaluation, and the
-``GeometryViewer`` (:mod:`radiant.gui.viewer.viewer_widget`) that embeds
-``pyvistaqt.QtInteractor`` in the Geometry screen (with a graceful degradation panel when
-VTK/OpenGL is unavailable).
+The viewer is a crisp, antialiased line-schematic drawn with QPainter (ADR-0007,
+superseded 2026-07-14 — the PyVista/VTK raster could not match the mockup's SVG line-art):
 
-Part B adds the interactions: click-to-reveal angle arcs, the shape-library switcher, and
-the RPY body-axes triad.
+* :mod:`radiant.gui.viewer.projection` — the orthographic projection + direction math,
+  ported verbatim from the ``geometry_viewer`` mockup's ``geometry.js``;
+* :mod:`radiant.gui.viewer.schematic_view` — the ``SchematicView`` QPainter canvas that
+  draws the scene (ground grid, axes, four vectors, glyphs, wireframe target, legend);
+* :mod:`radiant.gui.viewer.viewer_state` — the ``ViewerState`` adapter binding a chain
+  evaluation to the display fields (reused unchanged across the pivot);
+* :mod:`radiant.gui.viewer.viewer_widget` — the ``GeometryViewer`` widget mounted in the
+  Geometry "Schematic" tab.
+
+Pass 1 is the renderer core (the look). Pass 2 adds the angle arcs, leader labels, the
+full shape library + dimension inputs, the RPY triad, and the angle-truth test — and
+removes the now-unwired lifted VTK scene library (:mod:`radiant.gui.viewer.scene`, kept in
+place but no longer rendered).
 """
 
 from __future__ import annotations

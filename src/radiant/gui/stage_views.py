@@ -73,7 +73,7 @@ class StageSubView:
     geometry_form, geometry_readout, geometry_viewer, mtf_panel, noise_panel, outputs, \
     metrics, plots, note:
         The same section fields as :class:`StageComposition`, scoped to this tab.
-        ``geometry_viewer`` embeds the 3D geometry viewer (ADR-0007, Geometry "3D View").
+        ``geometry_viewer`` embeds the geometry schematic viewer (ADR-0007, Geometry "Schematic").
     """
 
     title: str
@@ -113,8 +113,8 @@ class StageComposition:
     geometry_readout:
         Show the geometry angle/range readout (Geometry only).
     geometry_viewer:
-        Embed the 3D geometry viewer — the PyVista static scene bound to the geometry
-        outputs (Geometry "3D View" tab, ADR-0007 / GUI plan Phase 7).
+        Embed the geometry schematic viewer — the 2D orthographic line-schematic bound to
+        the geometry outputs (Geometry "Schematic" tab, ADR-0007 / GUI plan Phase 7).
     mtf_panel:
         Embed the MTF per-term table + overlay (relocated from the MTF detail tab).
     noise_panel:
@@ -171,15 +171,16 @@ _READOUT_NOTE: Final[str] = (
 # the real chain namespaces (matching ``RadiantSession.stage_names`` /
 # ``Sensor.parameter_defs()`` — note ``spectral_integration``, not ``spectral``; CU-106).
 STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
-    # Stage-0 is a two-tab composite (GUI plan Phase 7 "Forms | 3D View" split): an
+    # Stage-0 is a two-tab composite (GUI plan Phase 7 "Inputs | Schematic" split): an
     # "Inputs" tab with the input-mode forms (§4.4 Inputs, Phase 5) + the derived
-    # angles/ranges readout, and a "3D View" tab with the embedded PyVista geometry
-    # viewer (ADR-0007). The tabbed sub-view hook renders them as a QTabWidget.
+    # angles/ranges readout, and a "Schematic" tab with the embedded 2D geometry
+    # schematic viewer (ADR-0007, superseded 2026-07-14 — 2D orthographic Qt schematic).
+    # The tabbed sub-view hook renders them as a QTabWidget.
     "geometry": StageComposition(
         title="Geometry",
         subviews=(
             StageSubView(title="Inputs", geometry_form=True, geometry_readout=True),
-            StageSubView(title="3D View", geometry_viewer=True),
+            StageSubView(title="Schematic", geometry_viewer=True),
         ),
     ),
     # Source & background radiance at aperture — result.plot.spectral_source() (Gap 86).

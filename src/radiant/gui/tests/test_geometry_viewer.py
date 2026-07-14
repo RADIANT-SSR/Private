@@ -1,22 +1,26 @@
-"""Tests for the 3D geometry viewer (GUI plan Phase 7 Parts A + B, ADR-0007).
+"""Tests for the lifted geometry scene library + ViewerState adapter (ADR-0007).
 
-Category D coverage:
+**Scope note (2D schematic pivot, 2026-07-14).** The production viewer is now the pure-Qt
+2D orthographic schematic (:mod:`radiant.gui.viewer.schematic_view`), exercised in
+``test_schematic_view.py`` — that file owns the *widget*-level tests (render, availability,
+Pass-2 stubs, the "Inputs | Schematic" pane). This file keeps the tests that pin the still
+present (but no longer rendered) lifted VTK **scene library** and the ``ViewerState``
+adapter, until Pass 2 removes the scene lib (CU-132). The angle-arc / RPY / angle-truth
+scene-lib tests below cover code that Pass 2 either re-homes onto the 2D canvas or deletes.
+
+Coverage:
 
 * :class:`TestViewerStateMapping` — the ``ViewerState`` adapter binds ``stage_outputs``
-  and the source/optics/detector params by the ADR-0007 §2 rebind table.
+  and the source/optics/detector params by the ADR-0007 §2 rebind table (reused unchanged).
 * :class:`TestStaticSceneRender` — the lifted scene library renders **offscreen**
   (``pyvista.Plotter(off_screen=True)``) bound to a real evaluated geometry.
 * :class:`TestNotToScale` — the not-to-scale invariant (ADR-0007 §4): glyphs sit at
   schematic display distances via the leader helpers, never at true metric range, and
   positions do not scale with raw altitude.
-* :class:`TestGeometryViewerWidget` — the embedded widget renders headless (static-image
-  backend) and shows the actionable panel when the render is forced to fail.
 * :class:`TestSceneImportsNoPhysicsStage` — the lifted scene lib imports no physics stage
   (gui → api + core, import-linter contract).
-* :class:`TestGeometryPaneIntegration` — the Geometry stage center tabs "Inputs | 3D View"
-  and the viewer renders after a full-chain evaluate.
 
-Part B (interactions):
+Scene-library interaction coverage (re-homed or deleted in Pass 2):
 
 * :class:`TestAngleAnnotations` — click-to-reveal angle arcs draw their tube + a value
   label pinned from the stage output (never recomputed); the phase angle is symbol-only.
@@ -205,123 +209,6 @@ class TestNotToScale:
             plotter.close()
 
 
-class TestGeometryViewerWidget:
-    """The embedded widget: headless static-image backend + degradation panel."""
-
-    def test_image_backend_renders_headless(self, qtbot, evaluated) -> None:  # type: ignore[no-untyped-def]
-        from radiant.gui.viewer.viewer_widget import GeometryViewer
-
-        sensor, result = evaluated
-        viewer = GeometryViewer()
-        qtbot.addWidget(viewer)
-        viewer.resize(720, 520)
-        # Offscreen platform → no live interactor; the static-image backend is used.
-        assert viewer.mode == "image"
-        assert viewer.is_available and not viewer.is_degraded
-        viewer.show_result(result, sensor)
-        pixmap = viewer._image_label.pixmap()  # noqa: SLF001 — test inspects the render
-        assert pixmap is not None and not pixmap.isNull()
-
-    def test_degradation_panel_on_render_failure(self, qtbot, evaluated) -> None:  # type: ignore[no-untyped-def]
-        """When the render is forced to fail, the actionable panel replaces the viewport."""
-        from radiant.gui.viewer import viewer_widget
-        from radiant.gui.viewer.viewer_widget import GeometryViewer
-
-        sensor, result = evaluated
-        viewer = GeometryViewer()
-        qtbot.addWidget(viewer)
-
-        def _boom(state, plotter=None, theme=None, **kwargs):  # type: ignore[no-untyped-def]
-            raise RuntimeError("no OpenGL context")
-
-        # Break the scene render the interactor/image backend depends on.
-        monkey = pytest.MonkeyPatch()
-        monkey.setattr(viewer_widget, "build_static_scene", _boom)
-        try:
-            viewer.show_result(result, sensor)
-        finally:
-            monkey.undo()
-
-        assert viewer.is_degraded
-        assert viewer.mode == "unavailable"
-        assert "no OpenGL context" in (viewer.unavailable_reason or "")
-        # An actionable panel (objectName "viewerUnavailable") replaced the viewport.
-        from PySide6.QtWidgets import QLabel
-
-        panels = [w for w in viewer.findChildren(QLabel) if w.objectName() == "viewerUnavailable"]
-        assert panels, "degradation panel not shown"
-        assert "3D viewer unavailable" in panels[0].text()
-
-
-class TestViewerRepaint:
-    """Bug fix 2026-07-14: every re-render must repaint, and never snap the camera back.
-
-    The live ``QtInteractor`` cannot be exercised under the offscreen Qt platform (it
-    segfaults — see the module docstring), so the live path is driven with a spy stand-in
-    for the interactor: ``show_result`` on ``mode == "live"`` must call both the VTK
-    ``render()`` and the Qt ``update()`` (the combination that reliably repaints the GL
-    widget after a scene rebuild), and must *not* reset the camera on a re-render (which
-    would discard the pose the user rotated to). The image backend is exercised live.
-    """
-
-    def _live_viewer_with_spy(self, qtbot, monkeypatch, evaluated):  # type: ignore[no-untyped-def]
-        """A GeometryViewer forced into live mode with a spy interactor and stub scene."""
-        from unittest.mock import MagicMock
-
-        from radiant.gui.viewer import viewer_widget
-        from radiant.gui.viewer.viewer_widget import GeometryViewer
-
-        sensor, result = evaluated
-        viewer = GeometryViewer()
-        qtbot.addWidget(viewer)
-        # Swap the (absent) offscreen backend for a live spy: build_static_scene is stubbed
-        # so no real VTK/GL work touches the mock, isolating the repaint contract.
-        spy = MagicMock()
-        viewer._interactor = spy  # noqa: SLF001
-        viewer._image_label = None  # noqa: SLF001
-        viewer._mode = "live"  # noqa: SLF001
-        monkeypatch.setattr(viewer_widget, "build_static_scene", lambda *a, **k: None)
-        return viewer, spy, sensor, result
-
-    def test_live_show_result_renders_and_repaints(self, qtbot, monkeypatch, evaluated) -> None:  # type: ignore[no-untyped-def]
-        viewer, spy, sensor, result = self._live_viewer_with_spy(qtbot, monkeypatch, evaluated)
-        viewer.show_result(result, sensor)
-        assert spy.render.called, "live re-render must drive the VTK render()"
-        assert spy.update.called, "live re-render must force a Qt repaint via update()"
-
-    def test_live_toggle_repaints_each_time(self, qtbot, monkeypatch, evaluated) -> None:  # type: ignore[no-untyped-def]
-        """A subsequent annotation toggle re-renders and repaints again (owner's symptom)."""
-        viewer, spy, sensor, result = self._live_viewer_with_spy(qtbot, monkeypatch, evaluated)
-        viewer.show_result(result, sensor)
-        spy.reset_mock()
-        viewer.set_angle_revealed("sun_zenith", True)
-        assert spy.render.called and spy.update.called, "toggle must repaint the live view"
-
-    def test_live_rerender_does_not_reset_camera(self, qtbot, monkeypatch, evaluated) -> None:  # type: ignore[no-untyped-def]
-        """Re-render preserves the user's camera — reset_camera is never called here."""
-        viewer, spy, sensor, result = self._live_viewer_with_spy(qtbot, monkeypatch, evaluated)
-        viewer.show_result(result, sensor)
-        viewer.set_triad_visible(True)
-        assert not spy.reset_camera.called, "re-render must not snap the camera back"
-
-    def test_image_backend_repaints_on_rerender(self, qtbot, evaluated) -> None:  # type: ignore[no-untyped-def]
-        """The image backend refreshes its label pixmap on each show_result (real render)."""
-        from radiant.gui.viewer.viewer_widget import GeometryViewer
-
-        sensor, result = evaluated
-        viewer = GeometryViewer()
-        qtbot.addWidget(viewer)
-        viewer.resize(720, 520)
-        assert viewer.mode == "image"
-        viewer.show_result(result, sensor)
-        first = viewer._image_label.pixmap()  # noqa: SLF001
-        assert first is not None and not first.isNull()
-        # A toggle re-renders; the label carries a (fresh) non-null pixmap again.
-        viewer.set_angle_revealed("sun_zenith", True)
-        second = viewer._image_label.pixmap()  # noqa: SLF001
-        assert second is not None and not second.isNull()
-
-
 class TestSceneImportsNoPhysicsStage:
     """The lifted scene library must not import any physics stage (gui → api + core)."""
 
@@ -338,33 +225,6 @@ class TestSceneImportsNoPhysicsStage:
             if hits:
                 offenders[str(path)] = hits
         assert not offenders, f"physics-stage imports in the viewer: {offenders}"
-
-
-class TestGeometryPaneIntegration:
-    """Category D: the Geometry center tabs Inputs | 3D View and renders on evaluate."""
-
-    def test_geometry_pane_tabs_and_viewer(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        from radiant.gui.stage_views import STAGE_COMPOSITIONS
-        from radiant.gui.widgets.stage_center import StagePane
-
-        pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
-        qtbot.addWidget(pane)
-        assert pane.has_tabs
-        assert pane.tab_titles() == ["Inputs", "3D View"]
-        assert pane.geometry_form is not None
-        assert pane.geometry_readout is not None
-        assert pane.geometry_viewer is not None
-
-        sensor = Sensor.from_yaml(_EXAMPLE)
-        pane.bind_sensor(sensor, {})
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            result = sensor.evaluate()
-        pane.populate(result)
-        # The viewer produced a static render bound to the evaluation.
-        viewer = pane.geometry_viewer
-        assert viewer is not None and viewer.is_available
-        assert not viewer._image_label.pixmap().isNull()  # noqa: SLF001
 
 
 class TestAngleAnnotations:
@@ -403,33 +263,6 @@ class TestAngleAnnotations:
             assert not any(a.startswith("arc_") for a in plotter.actors)
         finally:
             plotter.close()
-
-    def test_value_text_equals_stage_output(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
-        """The pinned value is the stage output verbatim (with unit), never recomputed."""
-        from radiant.gui.param_format import format_value
-        from radiant.gui.viewer.viewer_widget import GeometryViewer
-
-        sensor, result = offnadir_sphere
-        geo = result.stage_outputs["geometry"]
-        viewer = GeometryViewer()
-        qtbot.addWidget(viewer)
-        viewer.show_result(result, sensor)
-        viewer.set_angle_revealed("off_nadir", True)
-        viewer.set_angle_revealed("sun_zenith", True)
-        texts = viewer._arc_value_texts()  # noqa: SLF001 — test inspects the formatting
-        assert texts["off_nadir"] == format_value(geo["eta_rad"], "rad")
-        assert texts["sun_zenith"] == format_value(geo["theta_s_rad"], "rad")
-
-    def test_phase_angle_has_no_fabricated_value(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
-        """The phase angle is symbol-only — the viewer pins no computed value for it."""
-        from radiant.gui.viewer.viewer_widget import GeometryViewer
-
-        sensor, result = offnadir_sphere
-        viewer = GeometryViewer()
-        qtbot.addWidget(viewer)
-        viewer.show_result(result, sensor)
-        viewer.set_angle_revealed("phase_angle", True)
-        assert "phase_angle" not in viewer._arc_value_texts()  # noqa: SLF001
 
     def test_toggle_updates_revealed_state(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
         from radiant.gui.viewer.viewer_widget import GeometryViewer

@@ -255,7 +255,7 @@ class StagePane(QWidget):
             self._geometry_readouts.append(geometry_readout)
             fills = True
         if spec.geometry_viewer:
-            # The 3D View is a split: the viewport (left, stretches) and the accordion
+            # The Schematic tab is a split: the viewport (left, stretches) and the accordion
             # side panel of angle-annotation toggles + shared readout + shape/RPY editor
             # (right). The panel emits intent; this pane performs the one sensor.set (§4.1).
             split = QSplitter(Qt.Orientation.Horizontal, parent)
@@ -330,7 +330,7 @@ class StagePane(QWidget):
 
     @property
     def geometry_viewer(self) -> GeometryViewer | None:
-        """The embedded 3D geometry viewer, if this stage has one (Geometry '3D View')."""
+        """The embedded geometry schematic viewer, if this stage has one (Geometry 'Schematic')."""
         return self._geometry_viewers[0] if self._geometry_viewers else None
 
     @property

@@ -31,6 +31,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
     QScrollArea,
+    QSplitter,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
@@ -48,6 +49,7 @@ from radiant.gui.stage_views import (
     composition_for,
 )
 from radiant.gui.viewer.viewer_widget import GeometryViewer
+from radiant.gui.widgets.geometry_angle_panel import GeometryAnglePanel
 from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
@@ -175,7 +177,9 @@ class StagePane(QWidget):
         self._geometry_forms: list[GeometryModeForm] = []
         self._geometry_readouts: list[GeometryReadout] = []
         self._geometry_viewers: list[GeometryViewer] = []
+        self._geometry_panels: list[GeometryAnglePanel] = []
         self._sensor: Sensor | None = None
+        self._last_result: ChainResult | None = None
         self._outputs_list: list[OutputsReadout] = []
         self._metrics_list: list[OutputsReadout] = []
         self._mtf_panels: list[MtfPanel] = []
@@ -237,9 +241,24 @@ class StagePane(QWidget):
             layout.addWidget(geometry_readout)
             self._geometry_readouts.append(geometry_readout)
         if spec.geometry_viewer:
-            geometry_viewer = GeometryViewer(parent)
-            layout.addWidget(geometry_viewer, 1)
+            # The 3D View is a split: the viewport (left, stretches) and the accordion
+            # side panel of angle-annotation toggles + shared readout + shape/RPY editor
+            # (right). The panel emits intent; this pane performs the one sensor.set (§4.1).
+            split = QSplitter(Qt.Orientation.Horizontal, parent)
+            split.setObjectName("geometryViewerSplit")
+            geometry_viewer = GeometryViewer(split)
+            geometry_panel = GeometryAnglePanel(split)
+            geometry_panel.angleToggled.connect(self._on_angle_toggled)
+            geometry_panel.triadToggled.connect(self._on_triad_toggled)
+            geometry_panel.shapeRequested.connect(self._on_shape_requested)
+            geometry_panel.orientationRequested.connect(self._on_orientation_requested)
+            split.addWidget(geometry_viewer)
+            split.addWidget(geometry_panel)
+            split.setStretchFactor(0, 3)
+            split.setStretchFactor(1, 1)
+            layout.addWidget(split, 1)
             self._geometry_viewers.append(geometry_viewer)
+            self._geometry_panels.append(geometry_panel)
         if spec.mtf_panel:
             mtf_panel = MtfPanel(parent)
             self._add_section(layout, "MTF budget", mtf_panel)
@@ -298,15 +317,77 @@ class StagePane(QWidget):
         """The embedded 3D geometry viewer, if this stage has one (Geometry '3D View')."""
         return self._geometry_viewers[0] if self._geometry_viewers else None
 
+    @property
+    def geometry_panel(self) -> GeometryAnglePanel | None:
+        """The 3D-viewer accordion side panel, if this stage has one (Part B)."""
+        return self._geometry_panels[0] if self._geometry_panels else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
         The sensor is also retained so the 3D geometry viewer can read the target-shape /
-        optics / detector parameters the geometry stage does not emit (ADR-0007 §2).
+        optics / detector parameters the geometry stage does not emit (ADR-0007 §2), and
+        the accordion side panel is configured from the schema (shape choices, RPY bounds
+        — never a hardcoded list, Gap 70).
         """
         self._sensor = sensor
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
+        if sensor is not None and self._geometry_panels:
+            self._configure_panels_from_schema(sensor)
+
+    def _configure_panels_from_schema(self, sensor: Sensor) -> None:
+        """Populate each side panel's shape choices + RPY bounds from the live schema."""
+        defs = sensor.parameter_defs()
+        shape_def = defs.get("source.target.shape")
+        yaw_def = defs.get("source.target.shape_yaw_rad")
+        choices = tuple(shape_def.enum_values) if shape_def and shape_def.enum_values else ()
+        bounds = yaw_def.bounds if yaw_def and yaw_def.bounds is not None else None
+        for panel in self._geometry_panels:
+            if choices:
+                panel.set_shape_choices(choices)
+            if bounds is not None:
+                panel.set_orientation_bounds(bounds)
+
+    # -- Part-B 3D-viewer interaction slots ---------------------------------
+
+    def _on_angle_toggled(self, name: str, revealed: bool) -> None:
+        """Reveal/hide an angle annotation in every embedded viewer (view-only)."""
+        for viewer in self._geometry_viewers:
+            viewer.set_angle_revealed(name, revealed)
+
+    def _on_triad_toggled(self, visible: bool) -> None:
+        """Show/hide the RPY triad in every embedded viewer (view-only)."""
+        for viewer in self._geometry_viewers:
+            viewer.set_triad_visible(visible)
+
+    def _on_shape_requested(self, value: str) -> None:
+        """Set the target shape (one ``sensor.set``), preview it, and re-evaluate.
+
+        The viewer previews the new shape immediately from the updated params against the
+        last result (the glyph does not need a fresh evaluation), then the shared
+        ``parameterEdited`` path schedules the full re-run for the physics.
+        """
+        if self._sensor is None:
+            return
+        self._sensor.set("source.target.shape", value)
+        self._preview_last_result()
+        self.parameterEdited.emit("source.target.shape")
+
+    def _on_orientation_requested(self, dotpath: str, value: float) -> None:
+        """Set an RPY value (one ``sensor.set``), preview the tilt, and re-evaluate."""
+        if self._sensor is None:
+            return
+        self._sensor.set(dotpath, value)
+        self._preview_last_result()
+        self.parameterEdited.emit(dotpath)
+
+    def _preview_last_result(self) -> None:
+        """Re-render the viewers from the last result + current params (shape/RPY preview)."""
+        if self._last_result is None or self._sensor is None:
+            return
+        for viewer in self._geometry_viewers:
+            viewer.show_result(self._last_result, self._sensor)
 
     @property
     def outputs_readout(self) -> OutputsReadout | None:
@@ -341,6 +422,7 @@ class StagePane(QWidget):
         Iterates the per-kind lists so a tabbed composite (each tab contributing its own
         sections) is filled exactly like the single flat pane.
         """
+        self._last_result = result
         stage_outputs = result.stage_outputs.get(self._namespace, {})
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)
@@ -349,6 +431,7 @@ class StagePane(QWidget):
         if self._sensor is not None:
             for geometry_viewer in self._geometry_viewers:
                 geometry_viewer.show_result(result, self._sensor)
+            self._sync_panels(stage_outputs)
         for outputs in self._outputs_list:
             outputs.show_stage_outputs(self._namespace, stage_outputs)
         for metrics in self._metrics_list:
@@ -359,6 +442,24 @@ class StagePane(QWidget):
             noise_panel.show_result(result)
         for section in self._plot_sections:
             section.render(result)
+
+    def _sync_panels(self, geometry_outputs: dict[str, object]) -> None:
+        """Refresh each side panel's readout + shape/RPY from the live sensor + outputs."""
+        if self._sensor is None:
+            return
+        shape = str(self._sensor.get("source.target.shape"))
+        rpy = {
+            dotpath: float(self._sensor.get(dotpath))
+            for dotpath in (
+                "source.target.shape_yaw_rad",
+                "source.target.shape_pitch_rad",
+                "source.target.shape_roll_rad",
+            )
+        }
+        for panel in self._geometry_panels:
+            panel.populate_readout(geometry_outputs)
+            panel.set_shape(shape)
+            panel.set_orientation(rpy)
 
 
 class StageCenter(QWidget):

@@ -267,6 +267,37 @@ QLabel#geoReadoutGroupHeader {{
     padding: 8px 0 2px 0;
 }}
 
+/* -- 3D-viewer accordion side panel (§6.2/§6.4 — GUI plan Phase 7 Part B) - *
+ * The right-hand accordion of the Geometry "3D View": angle-annotation toggles, the
+ * shared readout, and the target shape + RPY editor. Chrome from the design tokens. */
+#geometryAnglePanel {{
+    background-color: {t.panel};
+    border-left: {tokens.BORDER_WIDTH} solid {t.line};
+}}
+QToolBox#geometryAngleAccordion::tab {{
+    color: {t.ink_2};
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+}}
+QToolBox#geometryAngleAccordion::tab:selected {{
+    color: {t.ink};
+    background-color: {t.panel};
+}}
+QLabel#anglePanelGroupHeader {{
+    color: {t.muted};
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 8px 0 2px 0;
+}}
+QCheckBox#anglePanelToggle, QCheckBox#anglePanelTriadToggle {{
+    color: {t.ink};
+    font-size: 12px;
+    padding: 2px 0;
+}}
+
 /* -- Geometry input-mode forms (§4.4 Inputs section — GUI plan Phase 5) - *
  * The stage-0 mode selectors + schema-driven field rows. Each family is a card; the
  * active mode's fields are editable, the rest disabled (greyed). A family whose inputs

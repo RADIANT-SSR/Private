@@ -97,6 +97,11 @@ class GeometryViewer(QWidget):
         self._unavailable_reason: str | None = None
         self._mode: str = "unavailable"
 
+        # Part-B view state (angle annotations + RPY triad), both off by default so the
+        # first render is the static scene. Mutating either re-renders the bound result.
+        self._revealed_arcs: set[str] = set()
+        self._show_triad: bool = False
+
         if _display_can_host_interactor():
             try:
                 self._interactor = _create_interactor(self)
@@ -168,6 +173,45 @@ class GeometryViewer(QWidget):
         """The embedded live ``QtInteractor`` (``None`` unless mode is ``"live"``)."""
         return self._interactor
 
+    @property
+    def revealed_angles(self) -> frozenset[str]:
+        """The angle-annotation names currently revealed in the scene (Part B)."""
+        return frozenset(self._revealed_arcs)
+
+    @property
+    def triad_visible(self) -> bool:
+        """True when the target RPY body-axes triad is shown (Part B)."""
+        return self._show_triad
+
+    # -- Part-B view controls ----------------------------------------------
+
+    def set_angle_revealed(self, name: str, revealed: bool) -> None:
+        """Reveal (or hide) the named angle annotation and re-render.
+
+        *name* is an ``angle_annotations`` catalog name (``"off_nadir"`` / ``"sun_zenith"``
+        / ``"phase_angle"``). A no-op when the state is unchanged so redundant toggles do
+        not force a re-render.
+        """
+        changed = (name in self._revealed_arcs) != revealed
+        if revealed:
+            self._revealed_arcs.add(name)
+        else:
+            self._revealed_arcs.discard(name)
+        if changed:
+            self._rerender()
+
+    def set_triad_visible(self, visible: bool) -> None:
+        """Show or hide the target RPY body-axes triad and re-render."""
+        if visible == self._show_triad:
+            return
+        self._show_triad = visible
+        self._rerender()
+
+    def _rerender(self) -> None:
+        """Re-render the currently bound result with the current Part-B view state."""
+        if self._result is not None and self._params is not None:
+            self.show_result(self._result, self._params)
+
     # -- rendering ---------------------------------------------------------
 
     def set_theme(self, theme: Theme) -> None:
@@ -196,11 +240,39 @@ class GeometryViewer(QWidget):
         except Exception as exc:  # noqa: BLE001 — degrade to the actionable panel
             self._enter_unavailable(str(exc))
 
+    def _arc_value_texts(self) -> dict[str, str]:
+        """Format the stage-output value for each revealed, stage-backed angle arc.
+
+        The value is read **verbatim** from ``stage_outputs["geometry"]`` (the single
+        source of angle truth, arch doc §6.3) and formatted with its ``rad`` unit exactly
+        as the shared readout does — never recomputed from the scene geometry. Arcs with
+        no stage-output key (the phase angle) are absent, so they render symbol-only.
+        """
+        from radiant.gui.param_format import format_value
+        from radiant.gui.viewer.scene import angle_annotations
+
+        if self._result is None:
+            return {}
+        geometry = self._result.stage_outputs.get("geometry", {})
+        texts: dict[str, str] = {}
+        for name in self._revealed_arcs:
+            key = angle_annotations.annotation(name).stage_key
+            if key is not None and key in geometry:
+                texts[name] = format_value(geometry[key], "rad")
+        return texts
+
     def _render_live(self, state: ViewerState) -> None:
         """Rebuild the live interactor's scene from *state*."""
         assert self._interactor is not None
         self._interactor.clear()
-        build_static_scene(state, plotter=self._interactor, theme=self._theme)
+        build_static_scene(
+            state,
+            plotter=self._interactor,
+            theme=self._theme,
+            revealed_arcs=tuple(self._revealed_arcs),
+            arc_value_texts=self._arc_value_texts(),
+            show_triad=self._show_triad,
+        )
         self._interactor.render()
 
     def _render_image(self, state: ViewerState) -> None:
@@ -220,7 +292,14 @@ class GeometryViewer(QWidget):
 
         plotter = pv.Plotter(off_screen=True, window_size=list(size))
         try:
-            build_static_scene(state, plotter=plotter, theme=self._theme)
+            build_static_scene(
+                state,
+                plotter=plotter,
+                theme=self._theme,
+                revealed_arcs=tuple(self._revealed_arcs),
+                arc_value_texts=self._arc_value_texts(),
+                show_triad=self._show_triad,
+            )
             return np.asarray(plotter.screenshot(return_img=True))
         finally:
             plotter.close()

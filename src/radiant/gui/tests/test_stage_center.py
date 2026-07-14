@@ -26,6 +26,7 @@ import pytest
 
 from radiant.api.inspect import ResultPlotNamespace, inspect_result
 from radiant.api.sensor import Sensor
+from radiant.api.stage_output_units import stage_output_unit
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.metric_format import format_metric_value
 from radiant.gui.stage_views import DEFAULT_STAGE, STAGE_COMPOSITIONS, composition_for
@@ -182,7 +183,7 @@ class TestNoiseBudgetPanel:
 
 class TestOutputsReadout:
     def test_scalar_stage_outputs_with_units(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
-        """Scalar stage outputs render with an inferred unit; arrays are skipped."""
+        """Scalar stage outputs render with a framework-sourced unit; arrays are skipped."""
         readout = OutputsReadout()
         qtbot.addWidget(readout)
         readout.show_stage_outputs("platform", result.stage_outputs["platform"])
@@ -190,6 +191,43 @@ class TestOutputsReadout:
         assert "smear_width_m" in keys
         assert readout.value_text("smear_width_m").endswith("m")
         assert "effective_psf" not in keys  # structured object, not a scalar
+
+    def test_optics_dimensional_outputs_carry_their_unit(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """Regression: Optics A_collect → m², Omega_pixel → sr (owner R-UNITS bug).
+
+        These keys carry no canonical unit suffix, so the old suffix-inference showed
+        them as bare numbers. The unit now comes from the framework table.
+        """
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("optics", result.stage_outputs["optics"])
+        assert readout.value_text("A_collect").endswith("m²")
+        assert readout.value_text("Omega_pixel").endswith("sr")
+
+    def test_units_source_is_the_framework_table_not_a_row_literal(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """The rendered unit is exactly the table's ``(stage, key)`` entry, not a guess."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("optics", result.stage_outputs["optics"])
+        assert readout.value_text("A_collect").endswith(stage_output_unit("optics", "A_collect"))
+        # e_rate_per_s is electrons/s (e-/s), which the old suffix logic mislabelled 1/s.
+        readout.show_stage_outputs(
+            "spectral_integration", result.stage_outputs["spectral_integration"]
+        )
+        assert readout.value_text("e_rate_per_s").endswith("e-/s")
+
+    def test_non_numeric_and_dimensionless_outputs_render_unit_free(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """Booleans/strings and genuine dimensionless numerics carry no unit suffix."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("optics", result.stage_outputs["optics"])
+        # A string mode output — clean, no bogus unit appended.
+        assert readout.value_text("transmission_input_mode") == "scalar"
+        # A boolean — rendered lowercase, unit-free.
+        assert readout.value_text("stray_includes_thermal") == "false"
+        # A dimensionless fraction (EE_box) — bare number, no unit.
+        readout.show_stage_outputs("platform", result.stage_outputs["platform"])
+        assert readout.value_text("EE_box") == "1"
 
     def test_metric_rows_and_units(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
         """The metric readout renders the metric surface with its registry units."""

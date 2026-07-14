@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
+
+**Discovered**: GUI Outputs-readout R-UNITS fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)
+**Status**: Open — maintainability, non-blocking. The table is complete for today's scalar outputs and unit-tested; it must be extended by hand when a stage adds a new scalar output.
+**File**: `src/radiant/api/stage_output_units.py` (`STAGE_OUTPUT_UNITS`, `stage_output_unit`).
+**Symptom**: Stage outputs are computed values, not parameters, so — unlike the `_schema.py` `ParameterDef` surface — they carry no per-field unit metadata (Gap 87 notes there is no per-output unit accessor). The R-UNITS fix supplies units from a central `(stage, key) -> unit` dict in the api layer. A stage that later emits a new dimensional scalar output (e.g. a new `readout.*_e` or an irradiance term) will render as a bare number in the GUI Outputs readout until that key is added to this table — the table can silently drift behind the stages it describes. A test (`test_every_table_entry_uses_a_canonical_unit_string`) guards unit spelling but cannot detect a *missing* entry.
+**Why it still matters**: Rule 12/one-source hygiene — the authoritative unit for a computed quantity ideally lives with the code that computes it, not in a downstream lookup a contributor must remember to update. Aligned with Gap 87 (no per-output unit accessor on the framework).
+**Suggested fix**: (b) stand-alone task — let each stage *declare* its scalar outputs' units at (or near) the `with_stage_output(...)` site (e.g. a per-stage `OUTPUT_UNITS` mapping the stage owns, aggregated by the api accessor), or add an output-metadata surface analogous to the metric registry (`radiant.performance.registry`); then have `stage_output_unit` read the declared source and drop the central table. Effort M; category B (a framework accessor over declared metadata — no physics/results change). Re-audit when a stage next adds a scalar output.
+
 ### CU-117 — Dense MTF-terms overlay legend (16 entries) covers the curves in a narrow embedded pane
 
 **Discovered**: GUI plot-clipping fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)

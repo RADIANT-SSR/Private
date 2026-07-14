@@ -21,6 +21,22 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`radiant.api.stage_output_units.stage_output_unit(stage, key)` — canonical display unit
+  for a scalar stage output.** Stage outputs are computed values with no per-field unit
+  metadata (Gap 87); this new public accessor (and its `STAGE_OUTPUT_UNITS` table) supplies
+  the canonical unit string a renderer needs to honour the R-UNITS rule. View-only — no
+  computed results change.
+
+### Fixed
+- **GUI stage Outputs readout showed dimensional values as bare numbers (R-UNITS
+  violation).** The per-stage Outputs readout inferred a value's unit from the output key's
+  trailing suffix, so keys without a canonical suffix (`optics.A_collect`, `optics.Omega_pixel`)
+  rendered unit-free and a mid-key token (`readout.signal_e_final`, `spectral_integration.e_rate_per_s`)
+  was mislabelled or dropped. Units now come from the single authoritative framework table
+  (`radiant.api.stage_output_units`): `A_collect` → `m²`, `Omega_pixel` → `sr`,
+  `e_rate_per_s` → `e-/s`, etc. Booleans/strings and genuine dimensionless numerics stay
+  unit-free. View-only — no computed results change.
+
 - **GUI contextual per-stage center + global Inspector (contextual-layout retrofit
   Step B, arch doc §4.4 / §4.6 / §4.7).** Selecting a stage in the signal-chain strip now
   makes the center show **only that stage's contextual composite** — its outputs readout

@@ -11,10 +11,11 @@ Two row sources, one widget:
 
 * :meth:`show_stage_outputs` — the scalar entries of ``stage_outputs["<stage>"]`` (arrays
   and structured objects are skipped; they are shown as plots, not scalars). The unit is
-  **inferred from the output key's canonical suffix** (``_m`` → m, ``_e`` → e-, …, per
-  ``RADIANT_Conventions.md``); no unit maths happens here (Rule 2 — display only). A
-  pinned row routes to the stage-output pin path (the value is re-read from
-  ``stage_outputs`` on each evaluation).
+  read from the framework's single authoritative table
+  (:func:`radiant.api.stage_output_units.stage_output_unit`, keyed by ``(stage, key)`` per
+  ``RADIANT_Conventions.md``), never inferred in this widget; no unit maths happens here
+  (Rule 2 — display only). A pinned row routes to the stage-output pin path (the value is
+  re-read from ``stage_outputs`` on each evaluation).
 * :meth:`show_metrics` — the performance metric surface
   (:meth:`ChainResult.metric_records`), each value+unit via the shared
   :func:`~radiant.gui.metric_format.format_metric_value` helper. A pinned metric routes to
@@ -38,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.api.stage_output_units import stage_output_unit
 from radiant.gui.metric_format import format_metric_value
 from radiant.gui.param_format import format_value
 
@@ -47,35 +49,26 @@ if TYPE_CHECKING:
 # The pin affordance glyph (a push-pin). A glyph, not a style token.
 _PIN_GLYPH: Final[str] = "📌"
 
-# Canonical unit suffix → unit string (RADIANT_Conventions.md). Most-specific (longest)
-# suffix first so ``_e_per_s`` matches before ``_e`` and ``_m_s`` before ``_m``/``_s``.
-_UNIT_SUFFIXES: Final[tuple[tuple[str, str], ...]] = (
-    ("_e_per_s", "e-/s"),
-    ("_e_per_k", "e-/K"),
-    ("_per_s", "1/s"),
-    ("_m_s", "m/s"),
-    ("_m2", "m²"),
-    ("_rad", "rad"),
-    ("_e", "e-"),
-    ("_k", "K"),
-    ("_m", "m"),
-    ("_s", "s"),
+# Trailing tokens trimmed from a *label* (display only — the unit itself is sourced from
+# the framework table, not from these). Most-specific (longest) first so ``_e_per_s`` and
+# ``_e_per_k`` strip before ``_e``. These shorten "Jitter sigma x m" → "Jitter sigma x".
+_LABEL_TRIM_SUFFIXES: Final[tuple[str, ...]] = (
+    "_e_per_s",
+    "_e_per_k",
+    "_per_s",
+    "_m2",
+    "_rad",
+    "_e",
+    "_k",
+    "_m",
+    "_s",
 )
 
 
-def _unit_for(key: str) -> str:
-    """Infer the canonical unit of an output *key* from its suffix (``""`` if none)."""
-    lowered = key.lower()
-    for suffix, unit in _UNIT_SUFFIXES:
-        if lowered.endswith(suffix):
-            return unit
-    return ""
-
-
 def _humanize(key: str) -> str:
-    """A human label for an output *key*, trimming a known unit suffix."""
+    """A human label for an output *key*, trimming a known unit-token suffix."""
     label = key
-    for suffix, _unit in _UNIT_SUFFIXES:
+    for suffix in _LABEL_TRIM_SUFFIXES:
         if label.lower().endswith(suffix):
             label = label[: -len(suffix)]
             break
@@ -134,7 +127,7 @@ class OutputsReadout(QWidget):
         for key, value in outputs.items():
             if not _is_scalar(value):
                 continue
-            unit = _unit_for(key)
+            unit = stage_output_unit(stage, key)
             label = _humanize(key)
             self._add_row(row, key, label, format_value(value, unit))
             self._add_pin(

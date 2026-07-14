@@ -77,6 +77,16 @@ retroactively reconstructed.
   computed results change.
 
 ### Fixed
+- **GUI Geometry derived-angles readout had a short scrollbar that did not span the table
+  (owner report 2026-07-14).** On the Geometry "Inputs" tab the derived-angles readout sat
+  in its own inner scroll area *inside* the stage pane's outer scroll; the tall input form
+  above it crushed the readout to a ~100 px sliver, so its inner scrollbar covered only that
+  sliver instead of the full table. `GeometryReadout` gains a `scrollable` flag (default
+  `True`, keeping the inner scroll for the compact 3D-view accordion side panel); the Inputs
+  tab now uses `scrollable=False` so the table sizes to its full content and the pane's outer
+  scroll owns scrolling — one full-height scrollbar spans the whole form + derived table. The
+  stage pane omits its trailing stretch when a filling section (the readout or the 3D-view
+  split) is present so that section absorbs the slack. View-only — no computed results change.
 - **GUI 3D geometry viewer did not visually update on re-render (owner report 2026-07-14).**
   Parameter edits, re-evaluations, and annotation/triad toggles reached the viewer, but the
   embedded viewport showed the stale scene. On the live pyvistaqt `QtInteractor` (macOS /

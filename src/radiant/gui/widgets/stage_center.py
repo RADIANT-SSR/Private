@@ -201,26 +201,36 @@ class StagePane(QWidget):
                 tab_layout = QVBoxLayout(tab)
                 tab_layout.setContentsMargins(0, 8, 0, 0)
                 tab_layout.setSpacing(12)
-                self._build_sections(subview, tab_layout, tab)
-                tab_layout.addStretch(1)
+                fills = self._build_sections(subview, tab_layout, tab)
+                if not fills:
+                    tab_layout.addStretch(1)
                 self._tabs.addTab(tab, subview.title)
             self._body_layout.addWidget(self._tabs, 1)
         else:
             # Single flat pane (every v1 stage): sections stack in the body directly.
-            self._build_sections(composition, self._body_layout, body)
-            self._body_layout.addStretch(1)
+            fills = self._build_sections(composition, self._body_layout, body)
+            if not fills:
+                self._body_layout.addStretch(1)
 
     def _build_sections(
         self,
         spec: StageComposition | StageSubView,
         layout: QVBoxLayout,
         parent: QWidget,
-    ) -> None:
+    ) -> bool:
         """Build *spec*'s sections into *layout* (shared by the flat pane and each tab).
 
         Only the sections *spec* asks for are built; created widgets are appended to the
         per-kind lists so :meth:`populate` fills them uniformly.
+
+        Returns ``True`` when a section that *fills* the vertical slack was added (the
+        geometry readout — which owns its own inner scrollbar — or the 3D-view split). The
+        caller then omits its trailing ``addStretch`` so the filling section absorbs the
+        remaining height and its scrollbar spans the whole pane, rather than sharing the
+        slack with an empty stretch (owner report 2026-07-14: the derived-angles scrollbar
+        was short because a trailing stretch ate the space the readout should have filled).
         """
+        fills = False
         if spec.outputs:
             outputs = OutputsReadout(parent)
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
@@ -237,9 +247,13 @@ class StagePane(QWidget):
             layout.addWidget(geometry_form)
             self._geometry_forms.append(geometry_form)
         if spec.geometry_readout:
-            geometry_readout = GeometryReadout(parent)
-            layout.addWidget(geometry_readout)
+            # No inner scroll here: the readout sizes to its full content and the pane's
+            # outer scroll owns scrolling, so one full-height scrollbar spans the whole
+            # form + derived table instead of clipping the table to a short inner sliver.
+            geometry_readout = GeometryReadout(parent, scrollable=False)
+            layout.addWidget(geometry_readout, 1)
             self._geometry_readouts.append(geometry_readout)
+            fills = True
         if spec.geometry_viewer:
             # The 3D View is a split: the viewport (left, stretches) and the accordion
             # side panel of angle-annotation toggles + shared readout + shape/RPY editor
@@ -259,6 +273,7 @@ class StagePane(QWidget):
             layout.addWidget(split, 1)
             self._geometry_viewers.append(geometry_viewer)
             self._geometry_panels.append(geometry_panel)
+            fills = True
         if spec.mtf_panel:
             mtf_panel = MtfPanel(parent)
             self._add_section(layout, "MTF budget", mtf_panel)
@@ -276,6 +291,7 @@ class StagePane(QWidget):
             note.setObjectName("stageNote")
             note.setWordWrap(True)
             layout.addWidget(note)
+        return fills
 
     def _add_section(self, layout: QVBoxLayout, header: str, widget: QWidget) -> None:
         """Add a titled section (a header label over *widget*) to *layout*."""

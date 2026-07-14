@@ -264,6 +264,36 @@ class TestGeometryReadout:
         assert readout.value_text("theta_o_rad").endswith("rad")
         assert readout.value_text("slant_range_m").endswith("m")
 
+    def test_default_is_scrollable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The default (accordion) form keeps its own inner scroll area."""
+        readout = GeometryReadout()
+        qtbot.addWidget(readout)
+        assert readout._scroll is not None  # noqa: SLF001
+
+    def test_flat_readout_has_no_inner_scroll(self, qtbot, geometry_outputs: dict) -> None:  # type: ignore[no-untyped-def, type-arg]
+        """scrollable=False drops the inner scroll so the enclosing pane owns scrolling.
+
+        Bug fix 2026-07-14: nesting the readout's inner scroll inside the pane's outer
+        scroll clipped the derived table to a short sliver; the Inputs tab uses the flat
+        form so one full-height scrollbar spans the whole table.
+        """
+        readout = GeometryReadout(scrollable=False)
+        qtbot.addWidget(readout)
+        readout.populate(geometry_outputs)
+        assert readout._scroll is None  # noqa: SLF001
+        # The table still renders every scalar row (content sizes the widget, not a scroll).
+        assert "theta_o_rad" in readout.rendered_keys()
+
+    def test_inputs_tab_readout_is_flat(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Geometry Inputs-tab readout is the flat (pane-scrolled) form, not inner-scroll."""
+        from radiant.gui.stage_views import STAGE_COMPOSITIONS
+        from radiant.gui.widgets.stage_center import StagePane
+
+        pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
+        qtbot.addWidget(pane)
+        assert pane.geometry_readout is not None
+        assert pane.geometry_readout._scroll is None  # noqa: SLF001
+
 
 # ---------------------------------------------------------------------------
 # Integration — window wiring, conflict highlight, exact readout on the pane

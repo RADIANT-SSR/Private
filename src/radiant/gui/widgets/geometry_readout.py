@@ -152,11 +152,21 @@ class GeometryReadout(QWidget):
     ----------
     parent:
         The owning widget, if any.
+    scrollable:
+        When ``True`` (default) the table sits in its **own** inner scroll area — the
+        right form of the widget for the 3D-view accordion side panel, where the readout
+        shares a short, fixed page with other controls. When ``False`` the table is placed
+        directly (no inner scroll) so it sizes to its full content and the *enclosing*
+        pane's scroll area owns scrolling. The Inputs tab uses ``False``: nesting the
+        readout's inner scroll inside the pane's outer scroll clipped the derived table to
+        a sliver with a short scrollbar (owner report 2026-07-14) — one outer scroll over
+        the whole form + full table is what the user expects.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, scrollable: bool = True) -> None:
         super().__init__(parent)
         self.setObjectName("geometryReadout")
+        self._scrollable = scrollable
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -165,23 +175,29 @@ class GeometryReadout(QWidget):
         self._title = QLabel(_TITLE, self)
         self._title.setObjectName("geoReadoutTitle")
 
-        # A scroll area keeps a long angle set usable in a short canvas.
-        self._scroll = QScrollArea(self)
-        self._scroll.setObjectName("geoReadoutScroll")
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-
-        self._grid_host = QWidget(self._scroll)
+        self._grid_host = QWidget(self)
         self._grid_host.setObjectName("geoReadoutBody")
         self._grid = QGridLayout(self._grid_host)
         self._grid.setContentsMargins(14, 12, 14, 12)
         self._grid.setHorizontalSpacing(14)
         self._grid.setVerticalSpacing(6)
         self._grid.setColumnStretch(1, 1)  # let the label column take the slack
-        self._scroll.setWidget(self._grid_host)
 
         outer.addWidget(self._title)
-        outer.addWidget(self._scroll, 1)
+        if scrollable:
+            # A scroll area keeps a long angle set usable in a short, fixed canvas (the
+            # accordion side panel). The grid host is its scrolled widget.
+            self._scroll: QScrollArea | None = QScrollArea(self)
+            self._scroll.setObjectName("geoReadoutScroll")
+            self._scroll.setWidgetResizable(True)
+            self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+            self._grid_host.setParent(self._scroll)
+            self._scroll.setWidget(self._grid_host)
+            outer.addWidget(self._scroll, 1)
+        else:
+            # No inner scroll: the table sizes to content and the enclosing pane scrolls.
+            self._scroll = None
+            outer.addWidget(self._grid_host, 1)
 
         # dotpath-free: keyed by output key so tests can read a rendered value back.
         self._value_labels: dict[str, QLabel] = {}

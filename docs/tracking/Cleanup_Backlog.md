@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-122 — `dev_tools/geometry_gui_v2` app shell is broken against the deleted `core/geometry.py` dataclasses; viewer has no platform/target attitude source
+
+**Discovered**: GUI Development Plan Phase 6 (3D viewer visual-direction ADR / lift assessment), 2026-07-13 (commit on branch `gui-phase1-task-a`; ADR-0007)
+**Status**: Open — the prototype app shell is dead, but the Phase 7 lift target (`scene/`) is intact. Non-blocking for Phase 6 (Category A, no code); becomes live work in Phase 7.
+**File**: `dev_tools/geometry_gui_v2/app/view_model.py:34-37` (and `dev_tools/geometry_gui_v2/tests/test_integration_boundary.py:21`); attitude gap: `src/radiant/geometry/stage.py` (no attitude in `stage_outputs["geometry"]`) vs. `dev_tools/geometry_gui_v2/scene/target/_pose.py` + `scene/frames/body_axes.py` (consume `observer_/target_{yaw,pitch,roll}_rad`).
+**Symptom**: (a) `app/view_model.py` still does `from radiant.core.geometry import ObserverGeometry, SceneGeometry, TargetGeometry` — all three deleted 2026-07-12 by CU-094 (ADR-0006 Phase 4). `python -c "import dev_tools.geometry_gui_v2.app.view_model"` raises `ImportError`, so the full prototype window will not launch. The `scene/` library still imports and renders cleanly (`build_scene(default_state())` produced the ADR-0007 renders). (b) The scene library's RPY triad / body-axes modules read `observer_*`/`target_*` yaw/pitch/roll from `SceneState`, but `GeometryStage` emits **no** platform/target attitude (ADR-0006 §4 deferred it "until a consumer exists" — the viewer is that consumer). The Phase 7 rebind has no stage field to bind those to.
+**Why it still matters**: Rule 27 one-canonical-model drift left a dev tool pinned to a deleted API; and the Phase 7 viewer's attitude annotations (RPY triad, `target/_pose`, body axes) have no upstream truth source, so Phase 7 must either wire attitude into a stage or add a viewer-local attitude input. Both are architectural decisions, not incidental fixes.
+**Suggested fix**: (b) stand-alone task, folded into Phase 7 — (i) when the production viewer lifts `scene/`, leave `app/view_model.py` behind (superseded by `GeometryStage` + a `ViewerState` adapter; see ADR-0007 lift table), and either repair or delete the prototype's `view_model.py`/`test_integration_boundary.py` so the dev tool is not carried broken; (ii) resolve the attitude source — add platform/target attitude to `GeometryStage` outputs (re-audit ADR-0006 §4's "consumer exists" trigger, now satisfied) **or** define a viewer-local attitude input outside the chain. Effort M; category D. Re-audit at Phase 7 start.
+
 ### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately
 
 **Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13 (commit on branch `gui-phase1-task-a`)

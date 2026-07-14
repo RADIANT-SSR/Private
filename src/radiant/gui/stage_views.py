@@ -75,6 +75,7 @@ class StageSubView:
     """
 
     title: str
+    geometry_form: bool = False
     geometry_readout: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
@@ -103,6 +104,9 @@ class StageComposition:
     ----------
     title:
         The stage heading shown at the top of the center.
+    geometry_form:
+        Show the stage-0 input-mode forms — the mode selectors + schema-driven fields
+        (Geometry only; the arch-doc §4.4 "Inputs" section, GUI plan Phase 5).
     geometry_readout:
         Show the geometry angle/range readout (Geometry only).
     mtf_panel:
@@ -126,6 +130,7 @@ class StageComposition:
     """
 
     title: str
+    geometry_form: bool = False
     geometry_readout: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
@@ -159,8 +164,9 @@ _READOUT_NOTE: Final[str] = (
 # the real chain namespaces (matching ``RadiantSession.stage_names`` /
 # ``Sensor.parameter_defs()`` — note ``spectral_integration``, not ``spectral``; CU-106).
 STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
-    # Derived angles/ranges readout (the arch-doc "angle summary"); 3D viewer is Phases 6–7.
-    "geometry": StageComposition(title="Geometry", geometry_readout=True),
+    # Stage-0 input-mode forms (the §4.4 Inputs section, GUI plan Phase 5) + the derived
+    # angles/ranges readout (the arch-doc "angle summary"); 3D viewer is Phases 6–7.
+    "geometry": StageComposition(title="Geometry", geometry_form=True, geometry_readout=True),
     # Source & background radiance at aperture — result.plot.spectral_source() (Gap 86).
     "source": StageComposition(
         title="Source",

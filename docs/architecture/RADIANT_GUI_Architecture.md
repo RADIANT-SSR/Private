@@ -470,6 +470,29 @@ pre-atmosphere emission spectrum, the per-λ noise spectrum, the Detector pie/il
 and PSF-grid overlay) remain separate later per-stage tasks. Platform and Readout are
 v1-minimal: an outputs readout plus a themed note, no invented content.
 
+*Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
+first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a
+`GeometryModeForm` — the stage-0 **input-mode selectors** (`radiant.gui.geometry_modes`, a
+Qt-free manifest of the viewing / solar / kinematics families and their modes V0–V4, S1–S3
++ night, direct/circular). Each family carries a mode combo; only the **active** mode's
+fields are editable, the rest disabled, so the user drives exactly one door per family
+(ADR-0006 rule 1). The active mode is detected from **provenance** (mirroring
+`radiant.geometry.modes`), never guessed. Every field is schema-driven (`Sensor.parameter_def`
+— value/unit/bounds/editor), never transcribed (Gap 70); editing opens the shared
+`ParameterEditorDialog`, so a commit is one `sensor.set` validated on a clone first (the
+Phase-2 edit+reject discipline, actionable error inline) and the value shows in the row's
+display unit (the same session store the parameter tree uses, shared by reference). The
+`GeometryReadout` groups its derived angles by **reference frame** — *target-frame* (θ_o, θ_i,
+θ_s, Δφ) vs *ground/platform frame* (η, slant/ground range, altitudes, ground speed, orbital
+period) vs a *resolution* group (illumination + the three `*_mode` labels) — each value with
+its unit and symbol, read verbatim from `stage_outputs["geometry"]`. When an evaluation raises
+the stage's over-/under-specification `GeometrySpecificationError`, the window
+(`_highlight_geometry_conflict`) maps the error's context to the offending family
+(`implicated_families`), tints that selector, and jumps to the Geometry screen — a locator
+only; the actionable what/why/action is still shown by the error dialog and the Messages
+panel, and no geometry validation is invented GUI-side. The 3D scene viewer remains GUI plan
+Phases 6–7.
+
 *Tabbed sub-view hook (provisioned, deferred content).* A stage may declare named
 **sub-views**; when two or more are present, `StagePane` renders them as a `QTabWidget`
 (one scoped composite per tab) instead of a single scroll pane, so a future stage with
@@ -513,7 +536,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 
 | Stage | Ratified content | Classification |
 |-------|------------------|----------------|
-| **Geometry** | 3D scene viewer (§6) + derived-angle readout | **[exists]** readout from `stage_outputs["geometry"]` (symbols + units, verbatim); 3D viewer is GUI plan Phases 6–7 (§6) |
+| **Geometry** | Stage-0 input-mode forms + 3D scene viewer (§6) + derived-angle readout | **[exists]** `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit) + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector; 3D viewer is GUI plan Phases 6–7 (§6) |
 | **Source** | Target radiance plot | **[GAP 91]** — SourceStage persists no radiance frame; the earliest stored radiance is at-aperture (built in AtmosphereStage), so a pre-atmosphere *emitted* target spectrum is unreachable without recomputation |
 | **Source** | Background radiance plot | **[GAP 91]** — same missing pre-atmosphere source-emission frame (target + background) |
 | **Source** | Size / shape / orientation inputs, shown per scenario type | **[GUI-only]** display of existing schema — `source.target.shape`, `shape_radius_m`/`shape_length_m`/…, `projected_area_m2`, `shape_yaw_rad`/`shape_pitch_rad`/`shape_roll_rad`; the **per-scenario-type gating** (which inputs are relevant) ties to **[GAP 85]** (mission-type relevance) |

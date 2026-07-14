@@ -222,6 +222,16 @@ class ParameterPanel(QWidget):
         """The themed inline error banner (visible only after a rejected edit)."""
         return self._error_banner
 
+    @property
+    def display_units(self) -> dict[str, str]:
+        """The session display-unit store (dot-path → chosen unit), shared by reference.
+
+        The Geometry screen's input form (GUI plan Phase 5) binds this same dict so a
+        unit chosen in either the tree's Parameter Editor or the form's editor agrees.
+        Cleared in place on a new-sensor load, so a shared reference stays valid.
+        """
+        return self._display_units
+
     def row_dotpaths(self) -> set[str]:
         """Every parameter dot-path currently rendered as a tree row."""
         return set(self._items)

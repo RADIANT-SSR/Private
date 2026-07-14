@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI Geometry screen — stage-0 input-mode forms + frame-grouped derived-angle readout
+  (GUI plan Phase 5).** The Geometry stage's contextual center gains a `GeometryModeForm`
+  (new `radiant.gui.widgets.geometry_mode_form`, over a Qt-free `radiant.gui.geometry_modes`
+  manifest): a mode selector per family (viewing V0–V4 / solar S1–S3+night / kinematics
+  direct-or-circular) with only the active mode's fields editable, all fields schema-driven,
+  each edit one `sensor.set` through the shared Parameter Editor (validate-on-clone reject,
+  display-unit aware). The `GeometryReadout` now groups its values by reference frame
+  (target-frame vs ground/platform frame vs resolution), each with unit and symbol. An
+  over-/under-specified geometry (the stage's `GeometrySpecificationError`) highlights the
+  offending mode selector and navigates to the Geometry screen. `StageComposition` gained a
+  `geometry_form` field. View-only — no computed results change.
 - **GUI per-stage center tabbed sub-view hook (provision only, deferred content).** A stage's
   center composite can now be presented as multiple named tabs: `StageComposition` (in
   `radiant.gui.stage_views`) gained an optional `subviews` field of the new `StageSubView`,

@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately
+
+**Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13 (commit on branch `gui-phase1-task-a`)
+**Status**: Open — minor UX latency, non-blocking. The form is always correct after the (debounced) re-evaluation that every edit triggers.
+**File**: `src/radiant/gui/main_window.py` (`_on_parameter_edited`, `_on_eval_ok` → `stage_center.refresh_forms()`); `src/radiant/gui/widgets/geometry_mode_form.py` (`GeometryModeForm.refresh`).
+**Symptom**: A geometry parameter edited in the **left parameter tree** re-syncs into the Geometry screen's `GeometryModeForm` only when the next evaluation succeeds (`_on_eval_ok` calls `refresh_forms()`), not the instant the tree edit is accepted. The reverse direction is immediate (a form edit repopulates the tree in `_on_form_parameter_edited`). The shared post-edit handler `_on_parameter_edited` deliberately touches **no** resolve, because a caller may signal an intentionally-invalid edit (the error-path tests) and forcing `form.refresh()` (which reads `Sensor.explain`/`get_input` → a full resolve) would raise on a mid-edit invalid sensor.
+**Why it still matters**: Rule 15/17 hygiene vs. immediacy — a form open while the user edits the same geometry parameter in the tree shows a one-cycle-stale value until the debounced run lands (~200 ms + chain time). No correctness impact (the value is right after the run), but the two surfaces are momentarily out of step.
+**Suggested fix**: (a) inline-fix-now candidate — refresh the form on tree edits guarded by a resolvability check that does not swallow a real error (e.g. refresh only when `Sensor` is currently resolvable, surfacing any genuine failure through the existing error path), or expose a structured provenance/value accessor (CU-105) that reads one parameter without forcing a global resolve. Effort S; category D (UX). Re-audit with CU-105 (structured provenance accessor).
+
+### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure)
+
+**Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13 (commit on branch `gui-phase1-task-a`)
+**Status**: Open — coupling, non-blocking. Guarded against drift by a build-time assertion and a test.
+**File**: `src/radiant/gui/geometry_modes.py` (`VIEWING_FAMILY` / `SOLAR_FAMILY` / `KINEMATICS_FAMILY`, `all_mode_params`).
+**Symptom**: The mode → parameter *grouping* (which `geometry.*` dot-path is the V2 door, which are S3's site+time inputs, …) is named literally in the GUI manifest, because the import rules forbid `gui` importing `radiant.geometry` (where ADR-0006's mode structure lives). Every field's value/unit/bounds/editor is still schema-driven (`Sensor.parameter_def`), so only the *grouping* is transcribed — the same precedent as `geometry_readout._LABELS`. A schema/param rename to a mode-entry parameter would not be caught by the type checker; it is caught at runtime by `GeometryModeForm._assert_schema_present` (build-time assert) and `test_geometry_screen.py::test_manifest_covers_every_geometry_parameter`.
+**Why it still matters**: Gap 70 / one-source hygiene — the authoritative mode structure is ADR-0006, expressed in `radiant.geometry.modes` provenance detection and in `_schema.py` tags (`mode_entry`, `solar_site`), but there is no machine-readable "family → modes → params" manifest the GUI can consume without crossing the import boundary. The GUI re-encodes it.
+**Suggested fix**: (b) stand-alone task — expose the mode manifest as data the GUI may read through the public API (e.g. a `Sensor.geometry_modes()` accessor over a structure owned by `radiant.geometry`, or schema metadata on the mode-entry `ParameterDef`s that names each's family+mode), then have `geometry_modes.py` build `MODE_FAMILIES` from it and drop the literal grouping. Effort M; category B/D. Re-audit when a geometry input mode is added or a mode-entry parameter is renamed.
+
 ### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
 
 **Discovered**: GUI Outputs-readout R-UNITS fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)

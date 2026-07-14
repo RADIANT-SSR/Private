@@ -47,6 +47,7 @@ from radiant.gui.stage_views import (
     StageSubView,
     composition_for,
 )
+from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.mtf_panel import MtfPanel
@@ -56,6 +57,7 @@ from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
+    from radiant.api.sensor import Sensor
 
 # Minimum figure height so a composite with two plots stays readable in a scroll area.
 _PLOT_MIN_HEIGHT: int = 240
@@ -136,6 +138,7 @@ class StagePane(QWidget):
 
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
+    parameterEdited = Signal(str)
 
     def __init__(
         self,
@@ -168,6 +171,7 @@ class StagePane(QWidget):
         # Section widgets. Kept as lists so a tabbed composite (multiple tabs, each with
         # its own sections) and a flat composite (one of each at most) share one populate
         # path; the singular accessors return the first of a kind.
+        self._geometry_forms: list[GeometryModeForm] = []
         self._geometry_readouts: list[GeometryReadout] = []
         self._outputs_list: list[OutputsReadout] = []
         self._metrics_list: list[OutputsReadout] = []
@@ -220,6 +224,11 @@ class StagePane(QWidget):
             metrics.pinMetricRequested.connect(self.pinMetricRequested)
             self._add_section(layout, "Metrics", metrics)
             self._metrics_list.append(metrics)
+        if spec.geometry_form:
+            geometry_form = GeometryModeForm(parent)
+            geometry_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(geometry_form)
+            self._geometry_forms.append(geometry_form)
         if spec.geometry_readout:
             geometry_readout = GeometryReadout(parent)
             layout.addWidget(geometry_readout)
@@ -268,9 +277,19 @@ class StagePane(QWidget):
         return [self._tabs.tabText(i) for i in range(self._tabs.count())]
 
     @property
+    def geometry_form(self) -> GeometryModeForm | None:
+        """The stage-0 input-mode forms, if this stage has them (Geometry)."""
+        return self._geometry_forms[0] if self._geometry_forms else None
+
+    @property
     def geometry_readout(self) -> GeometryReadout | None:
         """The geometry angle readout, if this stage has one."""
         return self._geometry_readouts[0] if self._geometry_readouts else None
+
+    def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
+        """Bind the live *sensor* + shared display-unit store into any input form."""
+        for form in self._geometry_forms:
+            form.bind_sensor(sensor, display_units)
 
     @property
     def outputs_readout(self) -> OutputsReadout | None:
@@ -338,6 +357,7 @@ class StageCenter(QWidget):
 
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
+    parameterEdited = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -357,6 +377,7 @@ class StageCenter(QWidget):
             pane = StagePane(namespace, composition, self)
             pane.pinOutputRequested.connect(self.pinOutputRequested)
             pane.pinMetricRequested.connect(self.pinMetricRequested)
+            pane.parameterEdited.connect(self.parameterEdited)
             self._stack.addWidget(pane)
             self._panes[namespace] = pane
 
@@ -380,6 +401,44 @@ class StageCenter(QWidget):
     def pane(self, namespace: str) -> StagePane:
         """The :class:`StagePane` for *namespace* (KeyError if unknown — programmer error)."""
         return self._panes[namespace]
+
+    def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
+        """Bind the live *sensor* + shared display-unit store into every stage's forms.
+
+        Only stages carrying an input form (Geometry, GUI plan Phase 5) do anything; the
+        rest ignore it. Called by the window on sensor load and after a config swap.
+        """
+        for pane in self._panes.values():
+            pane.bind_sensor(sensor, display_units)
+
+    def refresh_forms(self) -> None:
+        """Re-read every stage's input form from its bound sensor (values + active mode).
+
+        Called after a clean evaluation and when navigating to a geometry conflict, so a
+        parameter the user changed in the tree is reflected in the form. Safe only when
+        the bound sensor resolves — both callers guarantee it (a clean run, or a geometry
+        over-spec whose parameters still resolve individually).
+        """
+        form = self._panes["geometry"].geometry_form
+        if form is not None:
+            form.refresh()
+
+    def highlight_geometry_error(self, what: str, context: dict[str, object] | None) -> set[str]:
+        """Highlight the geometry mode selector(s) an over/under-spec error names (task 3).
+
+        Returns the implicated family keys (empty when the geometry pane has no form or
+        the error does not localise). Selecting the Geometry stage then shows the tint.
+        """
+        form = self._panes["geometry"].geometry_form
+        if form is None:
+            return set()
+        return form.highlight_error(what, context)
+
+    def clear_geometry_highlight(self) -> None:
+        """Clear any geometry mode-selector conflict tint (a clean run/edit)."""
+        form = self._panes["geometry"].geometry_form
+        if form is not None:
+            form.clear_highlight()
 
     def active_pane(self) -> QWidget:
         """The stack pane currently shown (placeholder or a :class:`StagePane`)."""

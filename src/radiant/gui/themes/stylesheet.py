@@ -260,6 +260,68 @@ QLabel#geoReadoutValue {{
     font-size: 12.5px;
     font-weight: 600;
 }}
+QLabel#geoReadoutGroupHeader {{
+    color: {t.muted};
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 8px 0 2px 0;
+}}
+
+/* -- Geometry input-mode forms (§4.4 Inputs section — GUI plan Phase 5) - *
+ * The stage-0 mode selectors + schema-driven field rows. Each family is a card; the
+ * active mode's fields are editable, the rest disabled (greyed). A family whose inputs
+ * conflict at evaluate carries [state="conflict"] and tints its border/heading (task 3).
+ * Field values are flat mono buttons that open the shared Parameter Editor on click. */
+#geometryModeForm {{
+    background-color: {t.panel};
+}}
+QLabel#geoModeFormTitle {{
+    color: {t.ink};
+    background-color: {t.panel_2};
+    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 10px 14px;
+}}
+QWidget#geoModeFamily {{
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+}}
+QWidget#geoModeFamily[state="conflict"] {{
+    border: {tokens.BORDER_WIDTH} solid {t.err};
+    background-color: {t.err_soft};
+}}
+QLabel#geoModeFamilyTitle {{
+    color: {t.ink_2};
+    font-size: 11px;
+    font-weight: 600;
+}}
+QWidget#geoModeFamily[state="conflict"] QLabel#geoModeFamilyTitle {{
+    color: {t.err};
+}}
+QLabel#geoModeFieldLabel {{
+    color: {t.ink_2};
+    font-size: 12px;
+}}
+QPushButton#geoModeFieldValue {{
+    color: {t.ink};
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    padding: 3px 8px;
+    text-align: right;
+}}
+QPushButton#geoModeFieldValue:hover {{
+    border: {tokens.BORDER_WIDTH} solid {t.accent};
+}}
+QPushButton#geoModeFieldValue:disabled {{
+    color: {t.muted_2};
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+}}
 
 /* -- Stage gap panel (§4.1 — a §4.4 figure result.plot does not yet carry) */
 #stageGapPanel {{

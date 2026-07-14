@@ -5,6 +5,14 @@ the 3D viewer lands (GUI plan Phases 6–7). It renders the derived angle/range 
 from ``stage_outputs["geometry"]`` as a titled key-value table — each row a symbol, a
 human label, and the value **with its unit** (R-UNITS, an owner hard rule).
 
+The rows are grouped by **reference frame** (GUI plan Phase 5 task 2): a *target-frame*
+set (angles referenced at the target's local vertical — θ_o, θ_i, θ_s, Δφ — the angles
+the source/atmosphere consume) and a *ground/platform-frame* set (the sensor-side
+off-nadir angle η and the ranges, altitudes, and kinematics that describe the
+platform-to-ground geometry), plus a small *resolution* group naming the illumination
+and which input mode resolved each family. Any output key not classified falls into an
+"Other" group so a future stage output is never silently dropped.
+
 This is *data display, not physics*: the values are read **verbatim** from the stage
 output in their canonical units (angles in ``rad``, lengths in ``m``, speeds in
 ``m/s``, times in ``s`` — per ``RADIANT_Conventions.md``). No conversion happens here
@@ -57,6 +65,31 @@ _LABELS: Final[Mapping[str, tuple[str, str]]] = {
     "kinematics_mode": ("Kinematics mode", ""),
 }
 
+# Reference-frame grouping (Phase 5 task 2). Ordered (group title, output keys). A key
+# not listed here lands in the appended "Other" group so nothing is silently dropped.
+_TARGET_FRAME = "Target-frame angles"
+_GROUND_FRAME = "Ground / platform frame"
+_RESOLUTION = "Resolution"
+_OTHER = "Other"
+
+_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    (_TARGET_FRAME, ("theta_o_rad", "incidence_angle_rad", "theta_s_rad", "delta_phi_rad")),
+    (
+        _GROUND_FRAME,
+        (
+            "eta_rad",
+            "slant_range_m",
+            "ground_range_m",
+            "target_range_m",
+            "h_sensor_m",
+            "h_target_m",
+            "ground_speed_m_s",
+            "orbital_period_s",
+        ),
+    ),
+    (_RESOLUTION, ("solar_illumination", "viewing_mode", "solar_mode", "kinematics_mode")),
+)
+
 # Canonical unit suffix → unit string (RADIANT_Conventions.md). Longest suffix first
 # so ``_m_s`` (speed) matches before ``_m`` / ``_s``.
 _UNIT_SUFFIXES: Final[tuple[tuple[str, str], ...]] = (
@@ -90,6 +123,26 @@ def _label_and_symbol(key: str) -> tuple[str, str]:
 def _is_scalar(value: Any) -> bool:
     """True for the primitive scalars the readout renders (numbers, strings, None)."""
     return value is None or isinstance(value, (bool, int, float, str))
+
+
+def _grouped_keys(geometry_outputs: Mapping[str, Any]) -> list[tuple[str, list[str]]]:
+    """Bucket the present scalar output keys into frame groups, in group order.
+
+    Empty groups are dropped; any scalar key not classified is collected into a
+    trailing "Other" group so a new stage output is never silently omitted.
+    """
+    scalar_keys = [key for key, value in geometry_outputs.items() if _is_scalar(value)]
+    classified: set[str] = set()
+    groups: list[tuple[str, list[str]]] = []
+    for title, keys in _GROUPS:
+        present = [key for key in keys if key in scalar_keys]
+        classified.update(present)
+        if present:
+            groups.append((title, present))
+    extras = [key for key in scalar_keys if key not in classified]
+    if extras:
+        groups.append((_OTHER, extras))
+    return groups
 
 
 class GeometryReadout(QWidget):
@@ -132,37 +185,46 @@ class GeometryReadout(QWidget):
 
         # dotpath-free: keyed by output key so tests can read a rendered value back.
         self._value_labels: dict[str, QLabel] = {}
+        # group title -> the output keys rendered under it (for tests / grouping checks).
+        self._groups: dict[str, list[str]] = {}
 
     def populate(self, geometry_outputs: Mapping[str, Any]) -> None:
-        """Render the geometry stage outputs as symbol / label / value rows.
+        """Render the geometry stage outputs as frame-grouped symbol/label/value rows.
 
         Only scalar outputs (the derived angles, ranges, modes) are shown; structured
-        objects such as ``los_geometry`` are not part of the angle summary and are
-        skipped. Rows keep the stage-output key order so re-populating is stable.
+        objects such as ``los_geometry`` are skipped. Rows are grouped by reference
+        frame (target-frame vs ground/platform frame vs resolution), each group under a
+        sub-header; re-populating is stable.
         """
         self._clear()
         row = 0
-        for key, value in geometry_outputs.items():
-            if not _is_scalar(value):
-                continue
-            label, symbol = _label_and_symbol(key)
-            unit = _unit_for(key)
-            value_text = format_value(value, unit)
-
-            symbol_label = QLabel(symbol, self._grid_host)
-            symbol_label.setObjectName("geoReadoutSymbol")
-            name_label = QLabel(label, self._grid_host)
-            name_label.setObjectName("geoReadoutLabel")
-            value_label = QLabel(value_text, self._grid_host)
-            value_label.setObjectName("geoReadoutValue")
-            value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-
-            self._grid.addWidget(symbol_label, row, 0)
-            self._grid.addWidget(name_label, row, 1)
-            self._grid.addWidget(value_label, row, 2)
-            self._value_labels[key] = value_label
+        for title, keys in _grouped_keys(geometry_outputs):
+            header = QLabel(title, self._grid_host)
+            header.setObjectName("geoReadoutGroupHeader")
+            self._grid.addWidget(header, row, 0, 1, 3)
             row += 1
+            self._groups[title] = list(keys)
+            for key in keys:
+                label, symbol = _label_and_symbol(key)
+                unit = _unit_for(key)
+                value_text = format_value(geometry_outputs[key], unit)
+
+                symbol_label = QLabel(symbol, self._grid_host)
+                symbol_label.setObjectName("geoReadoutSymbol")
+                name_label = QLabel(label, self._grid_host)
+                name_label.setObjectName("geoReadoutLabel")
+                value_label = QLabel(value_text, self._grid_host)
+                value_label.setObjectName("geoReadoutValue")
+                value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                value_label.setAlignment(
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                )
+
+                self._grid.addWidget(symbol_label, row, 0)
+                self._grid.addWidget(name_label, row, 1)
+                self._grid.addWidget(value_label, row, 2)
+                self._value_labels[key] = value_label
+                row += 1
         self._grid.setRowStretch(row, 1)
 
     def value_text(self, key: str) -> str:
@@ -173,9 +235,18 @@ class GeometryReadout(QWidget):
         """The geometry output keys currently rendered as rows."""
         return set(self._value_labels)
 
+    def group_keys(self, group_title: str) -> list[str]:
+        """The output keys rendered under *group_title* (empty if the group is absent)."""
+        return list(self._groups.get(group_title, []))
+
+    def group_titles(self) -> list[str]:
+        """The frame-group titles currently rendered, in order."""
+        return list(self._groups)
+
     def _clear(self) -> None:
         """Remove all existing rows before a re-populate."""
         self._value_labels.clear()
+        self._groups.clear()
         while self._grid.count():
             item = self._grid.takeAt(0)
             widget = item.widget()

@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.geometry_modes import implicated_families
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
@@ -363,6 +364,11 @@ class RADIANTMainWindow(QMainWindow):
         stage_center = self._central.stage_center
         stage_center.pinOutputRequested.connect(right_rail.pinned.pin_stage_output)
         stage_center.pinMetricRequested.connect(right_rail.pinned.pin)
+        # Bind the live sensor + the panel's shared display-unit store into the per-stage
+        # input forms (Geometry, GUI plan Phase 5); an edit made in a form re-evaluates and
+        # refreshes the tree exactly like a tree edit.
+        stage_center.bind_sensor(self._sensor, param_panel.display_units)
+        stage_center.parameterEdited.connect(self._on_form_parameter_edited)
 
     def _on_parameter_edited(self, dotpath: str) -> None:
         """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
@@ -372,10 +378,28 @@ class RADIANTMainWindow(QMainWindow):
         full chain re-runs after the 200 ms debounce window (arch doc §3.3); rapid
         edits coalesce into a single run. There is no incremental engine (CU-079,
         declined) — every re-evaluation is a full chain.
+
+        Any geometry conflict tint is cleared: the pending run re-highlights it only if
+        the conflict survives (Rule 17 — the state is honest, never stale). This handler
+        touches no resolve (a caller may signal an intentionally-invalid edit to exercise
+        the failure path); the originating surface has already refreshed itself.
         """
+        self._central.stage_center.clear_geometry_highlight()
         self._stage_strip.set_all_status("stale")
         self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
         self._debounce.start()
+
+    def _on_form_parameter_edited(self, dotpath: str) -> None:
+        """React to an accepted edit from the Geometry input form (GUI plan Phase 5).
+
+        A form edit is validated on a throwaway clone (full resolve) before it touches the
+        live sensor, so the live sensor is guaranteed to resolve cleanly here — the tree is
+        safely repopulated so it reflects the new geometry value. Then the shared post-edit
+        handling (stale dots + debounced re-evaluate) runs.
+        """
+        if self._sensor is not None:
+            self._parameter_panel.populate(self._sensor)
+        self._on_parameter_edited(dotpath)
 
     def _on_stage_selected(self, namespace: str) -> None:
         """Handle a stage-strip click: select the chip, navigate, swap the canvas.
@@ -505,6 +529,11 @@ class RADIANTMainWindow(QMainWindow):
         failure still leaves the metrics and warnings surfaced.
         """
         self._last_result = result
+        # A clean run means any prior geometry mode conflict is resolved — clear the tint,
+        # and re-sync the Geometry input form to the (now clean) sensor so a value changed
+        # in the parameter tree is reflected there too (GUI plan Phase 5).
+        self._central.stage_center.clear_geometry_highlight()
+        self._central.stage_center.refresh_forms()
         self._right_rail.pinned.update_from_result(result)
         self._right_rail.messages.set_warnings(warnings)
         # Drive the stage health dots (§4.2): green on a clean run, yellow when the
@@ -548,10 +577,40 @@ class RADIANTMainWindow(QMainWindow):
         self._right_rail.pinned.set_stale(True)
         self._right_rail.messages.set_error(exc)
         self.statusBar().showMessage("Evaluation failed — showing the previous result (stale)")
+        # A geometry over/under-specification error localises to a mode family: tint the
+        # offending selector and jump to the Geometry screen so the user sees which mode's
+        # inputs conflict (GUI plan Phase 5 task 3). Purely a locator — the actionable text
+        # is still shown below and in the Messages panel; no GUI-side geometry validation.
+        self._highlight_geometry_conflict(exc)
         if isinstance(exc, RadiantError):
             ActionableErrorDialog(exc, "evaluate", self).exec()
         else:
             UnexpectedErrorDialog(exc, "Evaluating the signal chain", self).exec()
+
+    def _highlight_geometry_conflict(self, exc: BaseException) -> None:
+        """Tint + navigate to the geometry selector a mode conflict names (task 3).
+
+        Reads the structured ``what`` / ``context`` off the error (a
+        :class:`~radiant.geometry.errors.GeometrySpecificationError` carries both) and
+        asks the stage center to highlight the implicated family. Navigates to the
+        Geometry stage only when a family is actually implicated, so an unrelated error
+        does not hijack the view.
+        """
+        what = str(getattr(exc, "what", "") or exc)
+        raw_context = getattr(exc, "context", None)
+        context = raw_context if isinstance(raw_context, dict) else None
+        # implicated_families is pure (no resolve): decide first whether this is a geometry
+        # conflict at all, so a non-geometry failure (e.g. a bounds error) never triggers a
+        # form re-sync that would resolve an intentionally-broken sensor.
+        if not implicated_families(what, context):
+            self._central.stage_center.clear_geometry_highlight()
+            return
+        # A geometry over-spec is a stage check, not a bounds failure, so its parameters
+        # still resolve individually — re-syncing the form to show the conflicting values
+        # is safe. Then apply the tint and jump to the Geometry screen.
+        self._central.stage_center.refresh_forms()
+        self._central.stage_center.highlight_geometry_error(what, context)
+        self._on_stage_selected("geometry")
 
     def _on_worker_finished(self) -> None:
         """Per-run cleanup: clear busy, count the attempt, re-run if one was queued."""
@@ -618,6 +677,8 @@ class RADIANTMainWindow(QMainWindow):
         self._sensor = sensor
         self.setWindowTitle(self._compose_title())
         self._parameter_panel.populate(sensor)
+        # Rebind the new sensor (and its fresh display-unit store) into the input forms.
+        self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
         self._evaluate_now()
 
     @staticmethod

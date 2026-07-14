@@ -253,6 +253,75 @@ class TestGeometryViewerWidget:
         assert "3D viewer unavailable" in panels[0].text()
 
 
+class TestViewerRepaint:
+    """Bug fix 2026-07-14: every re-render must repaint, and never snap the camera back.
+
+    The live ``QtInteractor`` cannot be exercised under the offscreen Qt platform (it
+    segfaults — see the module docstring), so the live path is driven with a spy stand-in
+    for the interactor: ``show_result`` on ``mode == "live"`` must call both the VTK
+    ``render()`` and the Qt ``update()`` (the combination that reliably repaints the GL
+    widget after a scene rebuild), and must *not* reset the camera on a re-render (which
+    would discard the pose the user rotated to). The image backend is exercised live.
+    """
+
+    def _live_viewer_with_spy(self, qtbot, monkeypatch, evaluated):  # type: ignore[no-untyped-def]
+        """A GeometryViewer forced into live mode with a spy interactor and stub scene."""
+        from unittest.mock import MagicMock
+
+        from radiant.gui.viewer import viewer_widget
+        from radiant.gui.viewer.viewer_widget import GeometryViewer
+
+        sensor, result = evaluated
+        viewer = GeometryViewer()
+        qtbot.addWidget(viewer)
+        # Swap the (absent) offscreen backend for a live spy: build_static_scene is stubbed
+        # so no real VTK/GL work touches the mock, isolating the repaint contract.
+        spy = MagicMock()
+        viewer._interactor = spy  # noqa: SLF001
+        viewer._image_label = None  # noqa: SLF001
+        viewer._mode = "live"  # noqa: SLF001
+        monkeypatch.setattr(viewer_widget, "build_static_scene", lambda *a, **k: None)
+        return viewer, spy, sensor, result
+
+    def test_live_show_result_renders_and_repaints(self, qtbot, monkeypatch, evaluated) -> None:  # type: ignore[no-untyped-def]
+        viewer, spy, sensor, result = self._live_viewer_with_spy(qtbot, monkeypatch, evaluated)
+        viewer.show_result(result, sensor)
+        assert spy.render.called, "live re-render must drive the VTK render()"
+        assert spy.update.called, "live re-render must force a Qt repaint via update()"
+
+    def test_live_toggle_repaints_each_time(self, qtbot, monkeypatch, evaluated) -> None:  # type: ignore[no-untyped-def]
+        """A subsequent annotation toggle re-renders and repaints again (owner's symptom)."""
+        viewer, spy, sensor, result = self._live_viewer_with_spy(qtbot, monkeypatch, evaluated)
+        viewer.show_result(result, sensor)
+        spy.reset_mock()
+        viewer.set_angle_revealed("sun_zenith", True)
+        assert spy.render.called and spy.update.called, "toggle must repaint the live view"
+
+    def test_live_rerender_does_not_reset_camera(self, qtbot, monkeypatch, evaluated) -> None:  # type: ignore[no-untyped-def]
+        """Re-render preserves the user's camera — reset_camera is never called here."""
+        viewer, spy, sensor, result = self._live_viewer_with_spy(qtbot, monkeypatch, evaluated)
+        viewer.show_result(result, sensor)
+        viewer.set_triad_visible(True)
+        assert not spy.reset_camera.called, "re-render must not snap the camera back"
+
+    def test_image_backend_repaints_on_rerender(self, qtbot, evaluated) -> None:  # type: ignore[no-untyped-def]
+        """The image backend refreshes its label pixmap on each show_result (real render)."""
+        from radiant.gui.viewer.viewer_widget import GeometryViewer
+
+        sensor, result = evaluated
+        viewer = GeometryViewer()
+        qtbot.addWidget(viewer)
+        viewer.resize(720, 520)
+        assert viewer.mode == "image"
+        viewer.show_result(result, sensor)
+        first = viewer._image_label.pixmap()  # noqa: SLF001
+        assert first is not None and not first.isNull()
+        # A toggle re-renders; the label carries a (fresh) non-null pixmap again.
+        viewer.set_angle_revealed("sun_zenith", True)
+        second = viewer._image_label.pixmap()  # noqa: SLF001
+        assert second is not None and not second.isNull()
+
+
 class TestSceneImportsNoPhysicsStage:
     """The lifted scene library must not import any physics stage (gui → api + core)."""
 

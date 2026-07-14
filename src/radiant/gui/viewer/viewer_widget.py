@@ -262,7 +262,20 @@ class GeometryViewer(QWidget):
         return texts
 
     def _render_live(self, state: ViewerState) -> None:
-        """Rebuild the live interactor's scene from *state*."""
+        """Rebuild the live interactor's scene from *state* and force a repaint.
+
+        ``clear()`` + rebuild + ``render()`` alone is not reliable on the live pyvistaqt
+        ``QtInteractor`` (macOS / real display): the VTK ``render()`` does not always drive
+        the embedded GL widget's Qt repaint after a scene rebuild, so parameter edits and
+        annotation toggles appeared to do nothing (owner report 2026-07-14). We therefore
+        follow the VTK render with an explicit Qt ``update()`` of the interactor widget so
+        the repaint is scheduled unconditionally.
+
+        The user's current camera is **preserved** across re-renders: ``clear()`` leaves
+        PyVista's ``camera_set`` flag (and ``camera_position``) intact, so the
+        ``set_default_camera`` call inside :func:`build_static_scene` is a no-op after the
+        first render and never snaps the view back. We do not call ``reset_camera`` here.
+        """
         assert self._interactor is not None
         self._interactor.clear()
         build_static_scene(
@@ -273,7 +286,10 @@ class GeometryViewer(QWidget):
             arc_value_texts=self._arc_value_texts(),
             show_triad=self._show_triad,
         )
+        # VTK render, then a Qt repaint of the GL widget (the combination that reliably
+        # repaints pyvistaqt after a scene rebuild — render() alone can be a no-visual-op).
         self._interactor.render()
+        self._interactor.update()
 
     def _render_image(self, state: ViewerState) -> None:
         """Render *state* offscreen and show it in the image label."""
@@ -285,6 +301,8 @@ class GeometryViewer(QWidget):
         h, w, _ = arr.shape
         image = QImage(arr.tobytes(), w, h, 3 * w, QImage.Format.Format_RGB888)
         self._image_label.setPixmap(QPixmap.fromImage(image))
+        # Force the QLabel to repaint the new pixmap on re-render (param edit / toggle).
+        self._image_label.update()
 
     def _render_offscreen_array(self, state: ViewerState, size: tuple[int, int]) -> np.ndarray:
         """Render *state* with an offscreen ``pyvista.Plotter`` and return the RGB array."""

@@ -77,6 +77,16 @@ retroactively reconstructed.
   computed results change.
 
 ### Fixed
+- **GUI 3D geometry viewer did not visually update on re-render (owner report 2026-07-14).**
+  Parameter edits, re-evaluations, and annotation/triad toggles reached the viewer, but the
+  embedded viewport showed the stale scene. On the live pyvistaqt `QtInteractor` (macOS /
+  real display) a `clear()` → rebuild → `render()` sequence does not reliably repaint the GL
+  widget — the VTK `render()` alone can be a no-visual-op after a scene rebuild. `_render_live`
+  now follows the VTK `render()` with an explicit Qt `update()` of the interactor widget, and
+  the static-image backend now calls `update()` after `setPixmap`, so both backends repaint on
+  every re-render. The user's current camera is preserved (PyVista's `camera_set` flag survives
+  `clear()`, so the default-camera call is a no-op after the first render — the view is never
+  snapped back). View-only — no computed results change.
 - **GUI Evaluate button relocated to the right-rail footer (owner feedback 2026-07-13).**
   The accent Evaluate (F5) button sat in a thin run bar in the center of the window, which
   read as out-of-place. It now lives as a persistent footer pinned at the bottom-right of

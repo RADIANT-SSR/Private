@@ -21,15 +21,6 @@
 **Why it still matters**: Rule 12/one-source hygiene — the authoritative unit for a computed quantity ideally lives with the code that computes it, not in a downstream lookup a contributor must remember to update. Aligned with Gap 87 (no per-output unit accessor on the framework).
 **Suggested fix**: (b) stand-alone task — let each stage *declare* its scalar outputs' units at (or near) the `with_stage_output(...)` site (e.g. a per-stage `OUTPUT_UNITS` mapping the stage owns, aggregated by the api accessor), or add an output-metadata surface analogous to the metric registry (`radiant.performance.registry`); then have `stage_output_unit` read the declared source and drop the central table. Effort M; category B (a framework accessor over declared metadata — no physics/results change). Re-audit when a stage next adds a scalar output.
 
-### CU-117 — Dense MTF-terms overlay legend (16 entries) covers the curves in a narrow embedded pane
-
-**Discovered**: GUI plot-clipping fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Status**: Open — visual density, non-blocking. The reported title-overlap bug is fixed; this is the residual density issue the fix's scope note explicitly deferred.
-**File**: `src/radiant/api/plot.py` (`plot_mtf_terms`), consumed by `src/radiant/gui/widgets/mtf_panel.py` and the Optics/Performance stage centers.
-**Symptom**: `plot_mtf_terms` renders one legend entry per MTF term — with x/y-suffixed keys per contributor that is ~16 entries. The legend now sits **inside** the axes (upper-right) so it never overlaps the reserved title band (the fix), but in the GUI's narrow embedded canvas (the MTF panel gives the plot ~half a ~750 px pane) the 16-entry legend box covers much of the curve area and, at small window sizes, spills over the x-axis label. An outside-right legend was tried and rejected because it collapses the plot to a sliver in the narrow pane.
-**Why it still matters**: UX/legibility only — no physics or correctness impact. The overlay is meant to let the operator read each contributor's roll-off; a legend that blankets the curves undercuts that at small sizes.
-**Suggested fix**: (b) stand-alone task — legend redesign for density: e.g. group x/y into one entry per contributor (halving entries), draw a compact multi-column legend, move the legend to a collapsible side list in the GUI panel, or offer an interactive term toggle. Effort S–M; category D (UX). Keep the plot builder the single source (one GUI action ↔ one API call).
-
 ### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes
 
 **Discovered**: GUI contextual-layout retrofit Step B, 2026-07-13 (commit on branch `gui-phase1-task-a`)
@@ -322,6 +313,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-117 — Dense MTF-terms overlay legend (16 entries) covers the curves in a narrow embedded pane — RESOLVED 2026-07-13 (commit `138d8be`)
+
+**Discovered**: GUI plot-clipping fix, 2026-07-13 (commit on branch `gui-phase1-task-a`). **Resolution**: `plot_mtf_terms` (`src/radiant/api/plot.py`) redesigned for embedded-pane readability, favouring two of the suggested fixes (group x/y + compact multi-column legend). Each contributor's `_x`/`_y` curves are merged into **one** legend entry when they coincide (drawn as a single representative line via `np.allclose`), collapsing the standard 8-contributor × x/y overlay from ~16 labels to ~8; `_x`/`_y` that visibly differ keep both curves and both labels, so a real anisotropy is never hidden (honest — no curve dropped). The legend moved from inside the axes (upper-right, where it blanketed the curves) to **below** the axes in a compact multi-column block (`bbox_to_anchor=(0.5, -0.30)`, `ncol` scaled to the label count); `constrained_layout` reserves the strip so it re-fits on resize and never overlaps the curves or the x-axis label. Unlike the previously-rejected outside-right legend, a below-axes legend costs height not width, so the plot never collapses to a sliver in the narrow pane. Verified with a screenshot at ~400 px embedded width and in the Optics stage center. Tests (`api/tests/test_plot.py`): legend below the axes rectangle, coincident x/y merge to one entry (8 keys → 4 labels), anisotropic x/y keep both labels. View-only (Category A) — goldens untouched; RADIANT_Scripting_API §5.1 documents the legend behaviour (Rule 20); CHANGELOG [Unreleased] Fixed (Rule 29).
 
 ### CU-106 — GUI stage strip's `spectral` eyebrow token does not match the `spectral_integration` schema namespace — RESOLVED 2026-07-13 (commit `04c9d72`)
 

@@ -207,16 +207,45 @@ class TestConstrainedLayout:
             for fig in figs:
                 matplotlib.pyplot.close(fig)
 
-    def test_mtf_legend_inside_axes_below_title(self) -> None:
-        # The dense MTF-terms legend sits inside the axes so it never overlaps the title
-        # band that constrained_layout reserves above the axes (the reported overlap bug).
+    def test_mtf_legend_below_axes_never_covers_curves(self) -> None:
+        # CU-117: the legend sits BELOW the axes rectangle, so it never blankets the curves
+        # in the GUI's narrow embedded pane (and, being below, never reaches the title band
+        # constrained_layout reserves above the axes either).
         mtf_terms = {"mtf_optics_x": np.linspace(1.0, 0.0, 20)}
         fig = plot_mtf_terms(mtf_terms, np.arange(20, dtype=float))
-        legend = fig.axes[0].get_legend()
+        ax = fig.axes[0]
+        legend = ax.get_legend()
         assert legend is not None
         fig.canvas.draw()  # realise the renderer so bbox extents are populated
-        title_bbox = fig.axes[0].title.get_window_extent()
+        axes_bbox = ax.get_window_extent()
         legend_bbox = legend.get_window_extent()
-        # Legend top must sit at/below the title bottom — no vertical overlap.
-        assert legend_bbox.ymax <= title_bbox.ymin + 1.0
+        # Legend top must sit at/below the axes bottom — the plot area is unobstructed.
+        assert legend_bbox.ymax <= axes_bbox.ymin + 1.0
+        matplotlib.pyplot.close(fig)
+
+    def test_coincident_xy_terms_merge_to_one_legend_entry(self) -> None:
+        # CU-117: a contributor whose x/y roll-off coincides shows as ONE legend entry, so a
+        # full 16-line overlay (8 contributors × x/y) collapses to ~8 labels. No curve is
+        # dropped — identical x/y are represented by a single line.
+        roll = np.linspace(1.0, 0.2, 20)
+        mtf_terms = {
+            f"mtf_{name}_{axis}": roll.copy()
+            for name in ("optics", "jitter", "smear", "ipc")
+            for axis in ("x", "y")
+        }
+        fig = plot_mtf_terms(mtf_terms, np.arange(20, dtype=float))
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        assert labels == ["mtf_ipc", "mtf_jitter", "mtf_optics", "mtf_smear"]  # 8 keys → 4
+        matplotlib.pyplot.close(fig)
+
+    def test_anisotropic_xy_terms_keep_both_labels(self) -> None:
+        # Honesty: when x and y visibly differ, both curves and both labels are kept — a real
+        # anisotropy is never hidden behind a single merged entry.
+        mtf_terms = {
+            "mtf_optics_x": np.linspace(1.0, 0.0, 20),
+            "mtf_optics_y": np.linspace(1.0, 0.4, 20),
+        }
+        fig = plot_mtf_terms(mtf_terms, np.arange(20, dtype=float))
+        labels = {t.get_text() for t in fig.axes[0].get_legend().get_texts()}
+        assert labels == {"mtf_optics (x)", "mtf_optics (y)"}
         matplotlib.pyplot.close(fig)

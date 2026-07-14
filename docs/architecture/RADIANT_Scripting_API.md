@@ -406,7 +406,7 @@ from radiant.api.plot import (
     plot_sweep_2d,       # Sweep2DResult → filled contour
     plot_noise_budget,   # tuple of NoiseTerm → horizontal bar chart [e- RMS]
     plot_psf,            # EffectivePSF → log-scaled 2-D image
-    plot_mtf_terms,      # {name: MTF array}, freq axis → all terms on one axis
+    plot_mtf_terms,      # {name: MTF array}, freq axis → all terms on one axis (see legend note)
     plot_spectral,       # wavelength [µm], radiance → spectral line plot
     plot_spectral_multi, # wavelength [µm], {label: radiance} → multi-curve spectral plot
     plot_atmosphere_spectral,  # wavelength [µm], τ_atm, L_path → twin-axis spectral plot
@@ -419,6 +419,14 @@ frame = result.frames["at_aperture"]
 fig = plot_spectral(frame.wavelength_um, frame.spectral_radiance,
                     title="At-aperture spectral radiance")
 ```
+
+**`plot_mtf_terms` legend (CU-117).** A contributor's along-track (`_x`) and cross-track
+(`_y`) curves are merged into **one** legend entry when they coincide (drawn as a single
+representative line), so a full 8-contributor × x/y overlay shows ~8 labels instead of 16;
+`_x`/`_y` that visibly differ keep both curves and both labels (a real anisotropy is never
+hidden). The legend is placed **below** the axes in a compact multi-column block (not inside
+the axes), so it never covers the curves in a narrow embedded pane. All contributor curves
+are always plotted — only the labelling is de-densified.
 
 ### 5.2 Result plot namespace — `ResultPlotNamespace`
 

@@ -238,20 +238,69 @@ def plot_mtf_terms(
     """
     plt = _require_matplotlib()
     fig, ax = plt.subplots(constrained_layout=True)
-    for name, mtf_arr in sorted(mtf_terms.items()):
-        x = spatial_freq if spatial_freq is not None else np.arange(len(mtf_arr))
-        ax.plot(x, mtf_arr, label=name, **kwargs)
+
+    def _x_axis(arr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        if spatial_freq is not None:
+            return spatial_freq
+        return np.arange(len(arr), dtype=np.float64)
+
+    # Group per contributor, splitting the ``_x`` / ``_y`` axis suffix so a contributor's
+    # along-track and cross-track roll-off become one legend entry when they coincide
+    # (CU-117). This halves a ~16-line overlay (8 contributors × x/y) to ~8 labels without
+    # dropping any curve: identical x/y are drawn once (one representative line + one
+    # label); x/y that visibly differ keep both lines and both labels, so the overlay stays
+    # honest (a real anisotropy is never hidden behind a single entry).
+    grouped: dict[str, dict[str, npt.NDArray[np.float64]]] = {}
+    order: list[str] = []
+    for name in sorted(mtf_terms):
+        if name.endswith(("_x", "_y")):
+            base, axis = name[:-2], name[-1]
+        else:
+            base, axis = name, ""
+        if base not in grouped:
+            grouped[base] = {}
+            order.append(base)
+        grouped[base][axis] = mtf_terms[name]
+
+    n_labels = 0
+    for base in order:
+        axes = grouped[base]
+        xa, ya = axes.get("x"), axes.get("y")
+        if xa is not None and ya is not None and np.allclose(xa, ya, atol=1e-9):
+            # Isotropic contributor: one curve represents both axes — a single label.
+            ax.plot(_x_axis(xa), xa, label=base, **kwargs)
+            n_labels += 1
+        elif xa is not None and ya is not None:
+            # Anisotropic: keep both curves and both labels (honest — nothing merged away).
+            ax.plot(_x_axis(xa), xa, label=f"{base} (x)", **kwargs)
+            ax.plot(_x_axis(ya), ya, label=f"{base} (y)", **kwargs)
+            n_labels += 2
+        else:
+            # A lone axis or an unsuffixed term (e.g. "system").
+            for suffix, arr in axes.items():
+                label = base if not suffix else f"{base} ({suffix})"
+                ax.plot(_x_axis(arr), arr, label=label, **kwargs)
+                n_labels += 1
+
     ax.set_xlabel("Spatial frequency (cycles/mrad)" if spatial_freq is not None else "Index")
     ax.set_ylabel("MTF")
     ax.set_title("MTF Budget")
-    # constrained_layout reserves a title band above the axes, so an *inside* legend
-    # (upper-right, within the axes rectangle) never reaches the title — resolving the
-    # legend-over-title overlap at every canvas width, including narrow embedded panes
-    # where an outside legend would collapse the plot. With many contributor terms the
-    # legend still covers part of the curves; a denser-legend redesign is tracked as a CU.
-    ax.legend(fontsize="small", loc="upper right")
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1.05)
+    # Place the legend BELOW the axes in a compact multi-column block (constrained_layout
+    # reserves the strip, so it re-fits on every resize). Unlike the previous inside
+    # upper-right legend, a below-axes legend never blankets the curves in the GUI's narrow
+    # embedded pane (CU-117); unlike an outside-right legend (tried and rejected) it costs
+    # height, not width, so the plot never collapses to a sliver. Columns scale with the
+    # (already halved) label count to keep the block a few rows tall.
+    ncol = min(3, max(1, (n_labels + 3) // 4))
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.30),  # clears the x-axis label; constrained_layout reserves it
+        ncol=ncol,
+        fontsize="small",
+        frameon=False,
+    )
     return cast("Figure", fig)
 
 

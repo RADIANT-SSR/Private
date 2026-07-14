@@ -28,6 +28,13 @@ retroactively reconstructed.
   computed results change.
 
 ### Fixed
+- **MTF Budget overlay legend blanketed the curves in the narrow embedded pane (CU-117).**
+  `plot_mtf_terms` drew one legend entry per term — ~16 for an 8-contributor × x/y overlay —
+  inside the axes, covering much of the curve area at GUI embedded width. Each contributor's
+  `_x`/`_y` are now merged into a single legend entry when they coincide (~16 → ~8 labels;
+  differing x/y keep both), and the legend is placed below the axes in a compact multi-column
+  block so it never overlaps the curves. All contributor curves are still plotted. View-only —
+  no computed results change.
 - **GUI stage Outputs readout showed dimensional values as bare numbers (R-UNITS
   violation).** The per-stage Outputs readout inferred a value's unit from the output key's
   trailing suffix, so keys without a canonical suffix (`optics.A_collect`, `optics.Omega_pixel`)

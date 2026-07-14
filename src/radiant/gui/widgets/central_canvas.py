@@ -1,21 +1,20 @@
-"""The central area: run bar, saturation banner, and the contextual per-stage center (§4.4).
+"""The central area: saturation banner and the contextual per-stage center (§4.4).
 
 :class:`CentralCanvas` is the window's central widget. In the contextual layout (arch doc
 §4.4, owner-ratified 2026-07-13) the **global metric-badge row is gone** — the performance
 metrics now live in the right-rail *Pinned* panel (§4.5) — and the **chain-warning strip is
-gone** — warnings now live in the right-rail *Messages* panel (§4.5). What remains here,
-top to bottom:
+gone** — warnings now live in the right-rail *Messages* panel (§4.5). The accent Evaluate
+(F5) button also moved **out** of the center: it is now the right-rail footer (§4.5, owner
+feedback 2026-07-13 — the run action belongs in the persistence area at the bottom-right,
+not floating in the center). What remains here, top to bottom:
 
-1. a thin **run bar** carrying the accent
-   :class:`~radiant.gui.widgets.run_button.RunButton` (Evaluate / F5). The button moved
-   here when the badge row that used to host it was retired;
-2. the :class:`~radiant.gui.widgets.saturation_banner.SaturationBanner` — the persistent,
+1. the :class:`~radiant.gui.widgets.saturation_banner.SaturationBanner` — the persistent,
    non-dismissible full-well-clip banner. It is **retained in the center** (arch doc §4.4:
    the saturation banner renders at the top of the center column) — it is high-signal and
    deliberately kept out of the generic Messages list (Step-A placement decision);
-3. a themed **stale notice** — shown when the last evaluation failed, so the still-displayed
+2. a themed **stale notice** — shown when the last evaluation failed, so the still-displayed
    previous result is honestly marked stale;
-4. the :class:`~radiant.gui.widgets.stage_center.StageCenter` — the per-stage contextual
+3. the :class:`~radiant.gui.widgets.stage_center.StageCenter` — the per-stage contextual
    composite. Selecting a stage in the strip shows **only that stage's** outputs readout,
    plot(s), and relocated detail content (arch doc §4.4); this replaces the old
    single-canvas swap.
@@ -28,9 +27,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-from radiant.gui.widgets.run_button import RunButton
 from radiant.gui.widgets.saturation_banner import SaturationBanner
 from radiant.gui.widgets.stage_center import StageCenter
 
@@ -41,7 +39,7 @@ _STALE_NOTICE: str = "Stale — last evaluation failed; showing the previous res
 
 
 class CentralCanvas(QWidget):
-    """Run bar + saturation banner + stale notice + per-stage center (live in Phase 3).
+    """Saturation banner + stale notice + per-stage center (live in Phase 3).
 
     Parameters
     ----------
@@ -58,17 +56,6 @@ class CentralCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Thin run bar: the accent Evaluate button, right-aligned. It lived in the
-        # retired KPI badge row; the F5 / Run menu actions still drive the same slot.
-        run_bar = QWidget(self)
-        run_bar.setObjectName("runBar")
-        run_bar_layout = QHBoxLayout(run_bar)
-        run_bar_layout.setContentsMargins(14, 8, 14, 8)
-        run_bar_layout.setSpacing(0)
-        run_bar_layout.addStretch(1)
-        self._run_button = RunButton(run_bar)
-        run_bar_layout.addWidget(self._run_button)
-
         self._saturation_banner = SaturationBanner(self)
         self._stale_notice = QLabel(_STALE_NOTICE, self)
         self._stale_notice.setObjectName("staleNotice")
@@ -80,17 +67,11 @@ class CentralCanvas(QWidget):
         # re-evaluations and stage clicks re-render the right composite.
         self._stage_center = StageCenter(self)
 
-        layout.addWidget(run_bar)
         layout.addWidget(self._saturation_banner)
         layout.addWidget(self._stale_notice)
         layout.addWidget(self._stage_center, 1)
 
     # -- accessors ----------------------------------------------------------
-
-    @property
-    def run_button(self) -> RunButton:
-        """The accent Run/Evaluate button (relocated here from the retired badge row)."""
-        return self._run_button
 
     @property
     def saturation_banner(self) -> SaturationBanner:

@@ -453,7 +453,9 @@ class RADIANTMainWindow(QMainWindow):
         self._debounce.timeout.connect(self._evaluate_now)
 
         evaluate_action = self.action("run.evaluate")
-        run_button = self._central.run_button
+        # The accent Run button now lives in the right-rail footer (§4.5); F5 / the Run menu
+        # action and the footer button both drive the same evaluate slot.
+        run_button = self._right_rail.run_button
         has_sensor = self._sensor is not None
         evaluate_action.setEnabled(has_sensor)
         run_button.setEnabled(has_sensor)

@@ -167,8 +167,10 @@ class TestBadgeRowRemoved:
         """The retired global metric-badge row is gone from the central canvas."""
         window = _load_window(qtbot)
         assert not hasattr(window.central_canvas, "kpi_row")
-        # The run button relocated to the central canvas directly.
-        assert window.central_canvas.run_button.objectName() == "runButton"
+        # The run button relocated to the right-rail footer (§4.5); it is no longer on the
+        # central canvas at all (owner feedback 2026-07-13).
+        assert not hasattr(window.central_canvas, "run_button")
+        assert window.right_rail.run_button.objectName() == "runButton"
 
     def test_retired_widget_modules_are_deleted(self) -> None:
         """The KpiBadgeRow / MetricBadge / WarningStrip modules are removed (retired)."""

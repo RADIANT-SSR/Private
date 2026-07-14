@@ -280,12 +280,14 @@ QLabel#stageGapTracked {{
     font-size: 11px;
 }}
 
-/* -- Center run bar (§4.4) --------------------------------------------- *
- * The thin bar carrying the accent Evaluate button; it replaced the retired
- * global metric-badge row (the metrics moved to the right-rail Pinned panel). */
-#runBar {{
-    background-color: {t.panel};
-    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+/* -- Right-rail Evaluate footer (§4.5) --------------------------------- *
+ * The footer strip carrying the accent Evaluate (F5) button, pinned at the
+ * bottom-right of the right rail (owner feedback 2026-07-13 — the run action
+ * belongs in the persistence area, not floating in the center). A top border
+ * separates it from the Messages panel above. */
+#railFooter {{
+    border-top: {tokens.BORDER_WIDTH} solid {t.line};
+    padding-top: {tokens.GAP_DEFAULT};
 }}
 
 /* -- Full-well saturation banner (§4.4, owner amendment 2) -------------- *

@@ -28,6 +28,12 @@ retroactively reconstructed.
   computed results change.
 
 ### Fixed
+- **GUI Evaluate button relocated to the right-rail footer (owner feedback 2026-07-13).**
+  The accent Evaluate (F5) button sat in a thin run bar in the center of the window, which
+  read as out-of-place. It now lives as a persistent footer pinned at the bottom-right of
+  the right rail (the persistence area), below the Messages panel, so it never scrolls away.
+  The center run bar is removed. F5 and Run ▸ Evaluate still drive the same evaluation.
+  View-only — no computed results change.
 - **Twin-axis plot y-labels clipped at the figure edges in the narrow embedded pane (owner
   feedback 2026-07-13).** The Atmosphere plot's rotated y-axis labels were spelled-out and
   long — `"Transmittance τ_atm (dimensionless)"` and `"Path radiance L_path (W/m²/sr/µm)"` —

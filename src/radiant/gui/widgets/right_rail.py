@@ -1,7 +1,7 @@
-"""The persistent right rail: Pinned · Edit Config (YAML) · Messages (arch doc §4.5).
+"""The persistent right rail: Pinned · Edit Config (YAML) · Messages · Evaluate footer (§4.5).
 
 :class:`RightRail` is the always-visible right-side column of the contextual layout. Top
-to bottom it stacks three sections (arch doc §4.5):
+to bottom it stacks three sections plus a pinned footer (arch doc §4.5):
 
 1. :class:`~radiant.gui.widgets.pinned_panel.PinnedPanel` — the pinnable metric cards
    (default set = the five performance metrics; the relocated, now-extensible badge row);
@@ -10,7 +10,13 @@ to bottom it stacks three sections (arch doc §4.5):
    no sensor, so the click is surfaced as :attr:`editConfigRequested` and the main window
    builds the dialog against the live sensor;
 3. :class:`~radiant.gui.widgets.messages_panel.MessagesPanel` — the warnings + errors list
-   (the relocated warning strip, widened to carry errors).
+   (the relocated warning strip, widened to carry errors);
+4. the **Evaluate (F5)** footer — the accent
+   :class:`~radiant.gui.widgets.run_button.RunButton`, pinned at the bottom-right of the
+   rail as a persistent footer (owner feedback 2026-07-13: the Evaluate button belongs in
+   the persistence area at the bottom-right, not floating in the center). It sits below the
+   Messages panel (which takes the vertical stretch), so it never scrolls away; the main
+   window owns the F5 shortcut and the click → evaluate wiring.
 
 One widget class per file (Rule 19). Styling is entirely themed via object names
 (GUI plan §4.9); this file holds no colour/font/size literal.
@@ -19,10 +25,11 @@ One widget class per file (Rule 19). Styling is entirely themed via object names
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QFrame, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 from radiant.gui.widgets.messages_panel import MessagesPanel
 from radiant.gui.widgets.pinned_panel import PinnedPanel
+from radiant.gui.widgets.run_button import RunButton
 
 _YAML_LABEL: str = "⧉  Edit Config (YAML)"
 _YAML_CAP: str = "opens a roomy editor; Apply re-parses through the framework"
@@ -72,6 +79,19 @@ class RightRail(QWidget):
         self._messages = MessagesPanel(self)
         layout.addWidget(self._messages, 1)
 
+        # Evaluate (F5) footer: the accent Run button pinned at the bottom-right of the
+        # rail (owner feedback 2026-07-13). It sits after the stretchy Messages panel, so
+        # it stays visible at the foot of the rail rather than scrolling away.
+        footer = QFrame(self)
+        footer.setObjectName("railFooter")
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(0)
+        footer_layout.addStretch(1)
+        self._run_button = RunButton(footer)
+        footer_layout.addWidget(self._run_button)
+        layout.addWidget(footer)
+
     # -- accessors ----------------------------------------------------------
 
     @property
@@ -88,6 +108,11 @@ class RightRail(QWidget):
     def yaml_button(self) -> QPushButton:
         """The Edit Config (YAML) button."""
         return self._yaml_button
+
+    @property
+    def run_button(self) -> RunButton:
+        """The accent Evaluate (F5) button, pinned at the bottom-right rail footer (§4.5)."""
+        return self._run_button
 
 
 def _make_caption(text: str, parent: QWidget) -> QWidget:

@@ -535,10 +535,10 @@ already-computed physics (no results change). The pie chart, detector schematic,
 PSF-grid overlay are GUI-only reshapes; the per-scenario-type input gating rides on the
 already-filed Gap 85.
 
-### 4.5 Right Rail (persistent): Pinned · Edit Config · Messages
+### 4.5 Right Rail (persistent): Pinned · Edit Config · Messages · Evaluate footer
 
 A persistent right column, always visible regardless of the selected stage. Three
-sections, top to bottom:
+sections plus a pinned footer, top to bottom:
 
 **Pinned.** User-pinnable value cards. The user can pin **any** stage's metric or output
 value (via `+ pin a value` / the value's pin affordance); each card shows the label, the
@@ -581,6 +581,14 @@ column (§4.4, "renders at the top of the center column"). It is deliberately **
 into the Messages list — it is high-signal and non-dismissible (three scenarios lost time
 to silent clipping, Gap 65 / CU-101), so it keeps its own prominent strip rather than
 becoming one err item among many.
+
+**Evaluate (F5) footer.** The accent **Evaluate** button is a **rail footer** pinned at
+the **bottom-right** of the right rail (owner feedback 2026-07-13 — the run action belongs
+in the persistence area at the bottom-right, not floating in a center run bar). It sits
+below the stretchy Messages panel, so it is always visible and never scrolls away. F5 and
+the **Run ▸ Evaluate** menu action drive the same evaluate slot; the button carries the
+`#runButton` accent style and is enabled only once a sensor is loaded. The earlier center
+run bar (Step-A) is removed.
 
 ### 4.6 Global Inspector Tool
 

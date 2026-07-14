@@ -196,13 +196,13 @@ class TestTriggersAndDebounce:
         assert window.evaluation_count == count_before + 1
 
     def test_run_button_enabled_with_sensor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The accent Run button is enabled once a sensor is loaded, disabled without."""
+        """The accent Run button (right-rail footer) is enabled once a sensor is loaded."""
         window = _load_window(qtbot)
-        assert window.central_canvas.run_button.isEnabled()
+        assert window.right_rail.run_button.isEnabled()
 
         empty = RADIANTMainWindow()
         qtbot.addWidget(empty)
-        assert not empty.central_canvas.run_button.isEnabled()
+        assert not empty.right_rail.run_button.isEnabled()
         assert not empty.action("run.evaluate").isEnabled()
 
     def test_debounce_collapses_rapid_edits_into_one_run(self, qtbot) -> None:  # type: ignore[no-untyped-def]

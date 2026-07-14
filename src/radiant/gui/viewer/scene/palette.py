@@ -39,6 +39,15 @@ TARGET_VECTOR_FAMILY: Final[str] = "#5E8F8B"  # desaturated teal: phase-angle fa
 # a deliberate marker distinct from the teal target and the ground grid.
 ACCENT_COLOR: Final[str] = "#FF6B35"
 
+# -- Target body-frame RPY triad (Part B) ---------------------------------------
+# The on-target orientation gizmo color-codes its three body axes so the user reads
+# roll/pitch/yaw at a glance (ADR-0007 §8.5, arch doc §6.2: pink=Roll, green=Pitch,
+# purple=Yaw). These are *semantic* physics colors (which body axis is which), stable
+# across the app theme — they belong here, not in the theme chrome layer.
+BODY_AXIS_ROLL_COLOR: Final[str] = "#E56B9A"  # pink: roll (body +X, longitudinal)
+BODY_AXIS_PITCH_COLOR: Final[str] = "#4FB07A"  # green: pitch (body +Y, lateral)
+BODY_AXIS_YAW_COLOR: Final[str] = "#8E6FC7"  # purple: yaw (body +Z, vertical)
+
 # -- Glyph fills ----------------------------------------------------------------
 # Sun disc: a slightly brighter amber than ``SOLAR_FAMILY`` (same hue, lifted
 # lightness) so the disc body stands out from its rays.
@@ -57,6 +66,9 @@ __all__ = [
     "SOLAR_FAMILY",
     "TARGET_VECTOR_FAMILY",
     "ACCENT_COLOR",
+    "BODY_AXIS_ROLL_COLOR",
+    "BODY_AXIS_PITCH_COLOR",
+    "BODY_AXIS_YAW_COLOR",
     "SUN_DISC_FILL",
     "OBSERVER_FILL",
     "CONTACT_SHADOW_COLOR",

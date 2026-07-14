@@ -10,9 +10,10 @@ Lifted from the prototype ``scene/style.py`` (PLAN_v2 §6), trimmed to the const
   The color *names* are re-exported here so the lifted glyph modules keep reading
   ``style.TARGET_COLOR`` etc. unchanged, but **this file holds no color literal** — the
   token-discipline test (``tests/test_theme.py``) requires it.
-* **Part-B constants dropped.** The view-cube, world-axes gnomon, body-axes, and
-  angle-arc constants belong to modules deferred to Part B (interactions / RPY triad /
-  angle annotations) and are not lifted here; they return with those modules.
+* **Part-B constants (angle arcs + RPY triad) lifted.** The angle-arc tube/tip dimensions
+  and the body-axes triad length fraction / accent stroke return with the Part-B modules
+  (``arcs/``, ``frames/``, ``highlight.py``). The view-cube and world-axes gnomon corner
+  widgets stay behind — they are not part of the Part-B interaction scope.
 
 Every numeric value is a verbatim carry-over so the lifted primitives render identically.
 """
@@ -25,6 +26,9 @@ from typing import Final
 # in the lifted modules. The literals live only in ``palette.py`` (allowlisted).
 from radiant.gui.viewer.scene.palette import (
     ACCENT_COLOR,
+    BODY_AXIS_PITCH_COLOR,
+    BODY_AXIS_ROLL_COLOR,
+    BODY_AXIS_YAW_COLOR,
     CONTACT_SHADOW_COLOR,
     SATELLITE_FAMILY,
     SOLAR_FAMILY,
@@ -71,6 +75,27 @@ GROUND_CAP_BASE_OPACITY: Final[float] = 0.20
 CONTACT_SHADOW_OPACITY: Final[float] = 0.18
 CONTACT_SHADOW_RADIUS_FACTOR: Final[float] = 1.05
 
+# ---------------------------------------------------------------------------
+# Angle-arc tube + arrowhead (Part B — ``arcs/``). The arc renders as a curved
+# tube along the great circle between two unit vectors with a small cone tip.
+# ---------------------------------------------------------------------------
+ARC_TUBE_RADIUS_M: Final[float] = 0.022
+ARC_TIP_HEIGHT_M: Final[float] = 0.16
+ARC_TIP_RADIUS_M: Final[float] = 0.085
+# Font size (screen px) of the numeric angle value pinned to a revealed arc.
+ARC_VALUE_LABEL_FONT_SIZE: Final[int] = 13
+
+# ---------------------------------------------------------------------------
+# Target body-frame RPY triad (Part B — ``frames/body_axes.py``) + active-edit
+# highlight stroke (``highlight.py``).
+# ---------------------------------------------------------------------------
+# Triad arm length as a fraction of the target's characteristic body length. > 1 so the
+# gizmo protrudes clearly beyond the body silhouette rather than sitting inside it.
+BODY_AXES_LENGTH_FRACTION: Final[float] = 1.6
+# Minimum triad arm length (scene-m) so a tiny target still shows a legible gizmo.
+BODY_AXES_MIN_LENGTH_M: Final[float] = 2.2
+ACCENT_LINE_WIDTH: Final[float] = 2.5
+
 
 __all__ = [
     # re-exported colors (defined in palette.py)
@@ -81,6 +106,9 @@ __all__ = [
     "SOLAR_FAMILY",
     "TARGET_VECTOR_FAMILY",
     "ACCENT_COLOR",
+    "BODY_AXIS_ROLL_COLOR",
+    "BODY_AXIS_PITCH_COLOR",
+    "BODY_AXIS_YAW_COLOR",
     "CONTACT_SHADOW_COLOR",
     # numeric style constants
     "TARGET_OPACITY",
@@ -97,4 +125,11 @@ __all__ = [
     "GROUND_CAP_BASE_OPACITY",
     "CONTACT_SHADOW_OPACITY",
     "CONTACT_SHADOW_RADIUS_FACTOR",
+    "ARC_TUBE_RADIUS_M",
+    "ARC_TIP_HEIGHT_M",
+    "ARC_TIP_RADIUS_M",
+    "ARC_VALUE_LABEL_FONT_SIZE",
+    "BODY_AXES_LENGTH_FRACTION",
+    "BODY_AXES_MIN_LENGTH_M",
+    "ACCENT_LINE_WIDTH",
 ]

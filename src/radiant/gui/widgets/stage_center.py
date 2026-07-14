@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QScrollArea,
     QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +44,7 @@ from radiant.gui.stage_views import (
     STAGE_COMPOSITIONS,
     PlotSpec,
     StageComposition,
+    StageSubView,
     composition_for,
 )
 from radiant.gui.widgets.geometry_readout import GeometryReadout
@@ -107,6 +109,14 @@ class _PlotSection(QWidget):
 class StagePane(QWidget):
     """One stage's contextual composite, assembled from a :class:`StageComposition`.
 
+    With no declared sub-views (every v1 stage), the composite is a **single scroll
+    pane**: its sections stack top-to-bottom exactly as before. When the composition
+    declares **two or more** :class:`StageSubView` tabs (the deferred multi-tab hook, arch
+    doc §4.4), the pane instead renders a ``QTabWidget`` with one scoped composite per
+    tab; the single-pane accessors below then reflect the union across tabs (first-of-kind
+    for the singular ones), and :meth:`populate` fills every tab. The seam is data-driven:
+    a later phase turns a stage tabbed by populating ``subviews``, no widget rewrite.
+
     Parameters
     ----------
     namespace:
@@ -155,53 +165,89 @@ class StagePane(QWidget):
         outer.setSpacing(0)
         outer.addWidget(scroll)
 
-        # Section widgets (only those the composition asks for are built).
+        # Section widgets. Kept as lists so a tabbed composite (multiple tabs, each with
+        # its own sections) and a flat composite (one of each at most) share one populate
+        # path; the singular accessors return the first of a kind.
+        self._geometry_readouts: list[GeometryReadout] = []
+        self._outputs_list: list[OutputsReadout] = []
+        self._metrics_list: list[OutputsReadout] = []
+        self._mtf_panels: list[MtfPanel] = []
+        self._noise_panels: list[NoiseBudgetPanel] = []
+        self._plot_sections: list[_PlotSection] = []
+        self._tabs: QTabWidget | None = None
+
+        # Pane title (the stage heading), above either the flat sections or the tabs.
         self._title = QLabel(composition.title, body)
         self._title.setObjectName("stageCenterTitle")
         self._body_layout.addWidget(self._title)
 
-        self._geometry_readout: GeometryReadout | None = None
-        self._outputs: OutputsReadout | None = None
-        self._metrics: OutputsReadout | None = None
-        self._mtf_panel: MtfPanel | None = None
-        self._noise_panel: NoiseBudgetPanel | None = None
-        self._plot_sections: list[_PlotSection] = []
+        if len(composition.subviews) > 1:
+            # Tabbed composite (deferred hook): one scoped composite per named sub-view.
+            self._tabs = QTabWidget(body)
+            self._tabs.setObjectName("stageSubViewTabs")
+            for subview in composition.subviews:
+                tab = QWidget(self._tabs)
+                tab_layout = QVBoxLayout(tab)
+                tab_layout.setContentsMargins(0, 8, 0, 0)
+                tab_layout.setSpacing(12)
+                self._build_sections(subview, tab_layout, tab)
+                tab_layout.addStretch(1)
+                self._tabs.addTab(tab, subview.title)
+            self._body_layout.addWidget(self._tabs, 1)
+        else:
+            # Single flat pane (every v1 stage): sections stack in the body directly.
+            self._build_sections(composition, self._body_layout, body)
+            self._body_layout.addStretch(1)
 
-        if composition.outputs:
-            self._outputs = OutputsReadout(body)
-            self._outputs.pinOutputRequested.connect(self.pinOutputRequested)
-            self._add_section("Outputs", self._outputs)
-        if composition.metrics:
-            self._metrics = OutputsReadout(body)
-            self._metrics.pinMetricRequested.connect(self.pinMetricRequested)
-            self._add_section("Metrics", self._metrics)
-        if composition.geometry_readout:
-            self._geometry_readout = GeometryReadout(body)
-            self._body_layout.addWidget(self._geometry_readout)
-        if composition.mtf_panel:
-            self._mtf_panel = MtfPanel(body)
-            self._add_section("MTF budget", self._mtf_panel)
-        if composition.noise_panel:
-            self._noise_panel = NoiseBudgetPanel(body)
-            self._add_section("Noise budget", self._noise_panel)
-        for spec in composition.plots:
-            section = _PlotSection(spec, body)
+    def _build_sections(
+        self,
+        spec: StageComposition | StageSubView,
+        layout: QVBoxLayout,
+        parent: QWidget,
+    ) -> None:
+        """Build *spec*'s sections into *layout* (shared by the flat pane and each tab).
+
+        Only the sections *spec* asks for are built; created widgets are appended to the
+        per-kind lists so :meth:`populate` fills them uniformly.
+        """
+        if spec.outputs:
+            outputs = OutputsReadout(parent)
+            outputs.pinOutputRequested.connect(self.pinOutputRequested)
+            self._add_section(layout, "Outputs", outputs)
+            self._outputs_list.append(outputs)
+        if spec.metrics:
+            metrics = OutputsReadout(parent)
+            metrics.pinMetricRequested.connect(self.pinMetricRequested)
+            self._add_section(layout, "Metrics", metrics)
+            self._metrics_list.append(metrics)
+        if spec.geometry_readout:
+            geometry_readout = GeometryReadout(parent)
+            layout.addWidget(geometry_readout)
+            self._geometry_readouts.append(geometry_readout)
+        if spec.mtf_panel:
+            mtf_panel = MtfPanel(parent)
+            self._add_section(layout, "MTF budget", mtf_panel)
+            self._mtf_panels.append(mtf_panel)
+        if spec.noise_panel:
+            noise_panel = NoiseBudgetPanel(parent)
+            self._add_section(layout, "Noise budget", noise_panel)
+            self._noise_panels.append(noise_panel)
+        for plot_spec in spec.plots:
+            section = _PlotSection(plot_spec, parent)
             self._plot_sections.append(section)
-            self._body_layout.addWidget(section)
-        if composition.note is not None:
-            note = QLabel(composition.note, body)
+            layout.addWidget(section)
+        if spec.note is not None:
+            note = QLabel(spec.note, parent)
             note.setObjectName("stageNote")
             note.setWordWrap(True)
-            self._body_layout.addWidget(note)
+            layout.addWidget(note)
 
-        self._body_layout.addStretch(1)
-
-    def _add_section(self, header: str, widget: QWidget) -> None:
-        """Add a titled section (a header label over *widget*)."""
+    def _add_section(self, layout: QVBoxLayout, header: str, widget: QWidget) -> None:
+        """Add a titled section (a header label over *widget*) to *layout*."""
         label = QLabel(header, widget.parentWidget())
         label.setObjectName("stageSectionHeader")
-        self._body_layout.addWidget(label)
-        self._body_layout.addWidget(widget)
+        layout.addWidget(label)
+        layout.addWidget(widget)
 
     # -- accessors (tests) --------------------------------------------------
 
@@ -211,29 +257,40 @@ class StagePane(QWidget):
         return self._namespace
 
     @property
+    def has_tabs(self) -> bool:
+        """True when this stage renders its sub-views as a ``QTabWidget`` (the hook)."""
+        return self._tabs is not None
+
+    def tab_titles(self) -> list[str]:
+        """The tab labels, in order (empty when the pane is a single flat composite)."""
+        if self._tabs is None:
+            return []
+        return [self._tabs.tabText(i) for i in range(self._tabs.count())]
+
+    @property
     def geometry_readout(self) -> GeometryReadout | None:
         """The geometry angle readout, if this stage has one."""
-        return self._geometry_readout
+        return self._geometry_readouts[0] if self._geometry_readouts else None
 
     @property
     def outputs_readout(self) -> OutputsReadout | None:
         """The scalar stage-output readout, if this stage has one."""
-        return self._outputs
+        return self._outputs_list[0] if self._outputs_list else None
 
     @property
     def metrics_readout(self) -> OutputsReadout | None:
         """The performance-metric readout, if this stage has one."""
-        return self._metrics
+        return self._metrics_list[0] if self._metrics_list else None
 
     @property
     def mtf_panel(self) -> MtfPanel | None:
         """The MTF per-term table + overlay, if this stage embeds it."""
-        return self._mtf_panel
+        return self._mtf_panels[0] if self._mtf_panels else None
 
     @property
     def noise_panel(self) -> NoiseBudgetPanel | None:
         """The noise-budget table + bars + explain, if this stage embeds it."""
-        return self._noise_panel
+        return self._noise_panels[0] if self._noise_panels else None
 
     @property
     def plot_canvases(self) -> list[MatplotlibCanvas]:
@@ -243,19 +300,22 @@ class StagePane(QWidget):
     # -- result delivery ----------------------------------------------------
 
     def populate(self, result: ChainResult) -> None:
-        """Fill every section of this pane from *result* (one API call per figure)."""
-        if self._geometry_readout is not None:
-            self._geometry_readout.populate(result.stage_outputs.get(self._namespace, {}))
-        if self._outputs is not None:
-            self._outputs.show_stage_outputs(
-                self._namespace, result.stage_outputs.get(self._namespace, {})
-            )
-        if self._metrics is not None:
-            self._metrics.show_metrics(result)
-        if self._mtf_panel is not None:
-            self._mtf_panel.show_result(result)
-        if self._noise_panel is not None:
-            self._noise_panel.show_result(result)
+        """Fill every section of this pane from *result* (one API call per figure).
+
+        Iterates the per-kind lists so a tabbed composite (each tab contributing its own
+        sections) is filled exactly like the single flat pane.
+        """
+        stage_outputs = result.stage_outputs.get(self._namespace, {})
+        for geometry_readout in self._geometry_readouts:
+            geometry_readout.populate(stage_outputs)
+        for outputs in self._outputs_list:
+            outputs.show_stage_outputs(self._namespace, stage_outputs)
+        for metrics in self._metrics_list:
+            metrics.show_metrics(result)
+        for mtf_panel in self._mtf_panels:
+            mtf_panel.show_result(result)
+        for noise_panel in self._noise_panels:
+            noise_panel.show_result(result)
         for section in self._plot_sections:
             section.render(result)
 

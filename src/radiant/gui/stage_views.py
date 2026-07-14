@@ -19,6 +19,11 @@ pre-atmosphere emission spectrum (Gap 91), and the per-λ noise decomposition (G
 is **not** built here; those are separate later per-stage tasks. Platform and Readout are
 v1-minimal (owner-ratified): an outputs readout plus a themed note, no invented content.
 
+A stage may optionally declare named :class:`StageSubView` tabs (the deferred multi-tab
+hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably, a
+later phase populates ``StageComposition.subviews`` with two or more sub-views and the
+pane renders them as a ``QTabWidget``. v1 declares none — every stage is a single pane.
+
 Being pure data, the composition table is unit-tested directly.
 """
 
@@ -46,6 +51,40 @@ class PlotSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class StageSubView:
+    """One named tab of a stage's center composite — the deferred multi-tab hook.
+
+    A stage that would overload a single scroll pane (many plots / large tables across
+    distinct concerns) may declare **two or more** named sub-views; the
+    :class:`~radiant.gui.widgets.stage_center.StagePane` then renders each in a tab of a
+    ``QTabWidget`` instead of stacking everything in one pane (arch doc §4.4). Each
+    sub-view carries the **same content fields** as :class:`StageComposition` (minus the
+    stage title and nested sub-views) — so a tab is just a scoped composite.
+
+    v1 declares **no** sub-views: every shipped stage renders as a single pane
+    (``StageComposition.subviews`` empty). This class is the provisioned seam a later
+    detailed phase fills when a stage's content genuinely needs tab separation; adding it
+    now keeps that a data change (populate ``subviews``), not a widget rewrite.
+
+    Attributes
+    ----------
+    title:
+        The tab label.
+    geometry_readout, mtf_panel, noise_panel, outputs, metrics, plots, note:
+        The same section fields as :class:`StageComposition`, scoped to this tab.
+    """
+
+    title: str
+    geometry_readout: bool = False
+    mtf_panel: bool = False
+    noise_panel: bool = False
+    outputs: bool = False
+    metrics: bool = False
+    plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
+    note: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class StageComposition:
     """What one stage's contextual-center composite contains (arch doc §4.4).
 
@@ -53,6 +92,12 @@ class StageComposition:
     readout, embedded relocated widget (geometry readout / MTF panel / noise panel),
     plot section(s), performance-metric readout, themed note. A stage sets only the
     sections it owns; the rest stay empty.
+
+    A stage may **optionally** declare named :attr:`subviews`; when two or more are
+    present, :class:`~radiant.gui.widgets.stage_center.StagePane` renders them as tabs
+    (a ``QTabWidget``) instead of the single flat pane (the deferred multi-tab hook, arch
+    doc §4.4). With zero or one sub-view the stage renders as today — a single composite
+    pane from the section fields below. **Every v1 stage leaves** ``subviews`` **empty.**
 
     Attributes
     ----------
@@ -73,6 +118,11 @@ class StageComposition:
         Zero or more plot sections, each a :class:`PlotSpec`.
     note:
         An optional themed note (deferred content / v1-minimal rationale).
+    subviews:
+        Optional named tabs (the deferred multi-tab hook). Empty in v1 → single pane;
+        two or more → the pane renders a ``QTabWidget``. The section fields above then
+        describe the pane's title only; each tab's content comes from its
+        :class:`StageSubView`.
     """
 
     title: str
@@ -83,6 +133,7 @@ class StageComposition:
     metrics: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
     note: str | None = None
+    subviews: tuple[StageSubView, ...] = field(default_factory=tuple)
 
 
 # Deferred/minimal notes kept as named constants so they read once and stay honest.
@@ -175,6 +226,7 @@ def composition_for(namespace: str | None) -> StageComposition | None:
 
 __all__ = [
     "PlotSpec",
+    "StageSubView",
     "StageComposition",
     "STAGE_COMPOSITIONS",
     "DEFAULT_STAGE",

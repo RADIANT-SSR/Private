@@ -29,11 +29,19 @@ from radiant.api.sensor import Sensor
 from radiant.api.stage_output_units import stage_output_unit
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.metric_format import format_metric_value
-from radiant.gui.stage_views import DEFAULT_STAGE, STAGE_COMPOSITIONS, composition_for
+from radiant.gui.stage_views import (
+    DEFAULT_STAGE,
+    STAGE_COMPOSITIONS,
+    PlotSpec,
+    StageComposition,
+    StageSubView,
+    composition_for,
+)
 from radiant.gui.widgets.inspector_dialog import InspectorDialog, parse_inspect_tree
 from radiant.gui.widgets.mtf_panel import MtfPanel, _bases
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel, describe_noise_term
 from radiant.gui.widgets.outputs_readout import OutputsReadout
+from radiant.gui.widgets.stage_center import StagePane
 from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
@@ -387,6 +395,58 @@ class TestStageCenterInWindow:
         card = window.right_rail.pinned.cards[pin_key]
         card.update_from_result(window.last_result)
         assert card.value_text() != "—"
+
+
+class TestTabbedSubViewHook:
+    """The deferred multi-tab hook (arch doc §4.4): a stage MAY declare named sub-views;
+    the pane renders them as a QTabWidget. v1 stages declare none, so they stay single
+    panes. These prove the capability exists and the single-pane fallback is unchanged —
+    no v1 stage is turned tabbed (a synthetic composition is used, not a real stage edit).
+    """
+
+    def test_two_subviews_render_a_tab_widget_with_both_labels(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """A composition with two named sub-views renders a QTabWidget with both tabs."""
+        composition = StageComposition(
+            title="Synthetic",
+            subviews=(
+                StageSubView(
+                    title="Overview", metrics=True, plots=(PlotSpec("System MTF", "mtf"),)
+                ),
+                StageSubView(title="Budget", plots=(PlotSpec("MTF budget", "mtf_budget"),)),
+            ),
+        )
+        pane = StagePane("performance", composition)
+        qtbot.addWidget(pane)
+        assert pane.has_tabs
+        assert pane.tab_titles() == ["Overview", "Budget"]
+        # Both tabs' content populates from a real result (one figure per tab + the metrics).
+        pane.populate(result)
+        assert len(pane.plot_canvases) == 2
+        assert all(c.has_figure() for c in pane.plot_canvases)
+        assert pane.metrics_readout is not None
+        assert "snr" in pane.metrics_readout.rendered_keys()
+
+    def test_single_subview_falls_back_to_a_flat_pane(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Exactly one sub-view is below the >1 threshold: a single pane, no tabs."""
+        composition = StageComposition(
+            title="Synthetic",
+            subviews=(StageSubView(title="Only", outputs=True),),
+        )
+        pane = StagePane("optics", composition)
+        qtbot.addWidget(pane)
+        assert not pane.has_tabs
+        assert pane.tab_titles() == []
+
+    def test_v1_stage_renders_without_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Regression: a real (subview-free) stage composition stays a single flat pane."""
+        pane = StagePane("optics", STAGE_COMPOSITIONS["optics"])
+        qtbot.addWidget(pane)
+        assert not pane.has_tabs
+        assert pane.tab_titles() == []
+        # Its flat sections are still built (the PSF plot + the MTF panel).
+        assert pane.mtf_panel is not None
+        assert pane.plot_canvases  # the PSF figure section
+        assert all(not comp.subviews for comp in STAGE_COMPOSITIONS.values())  # none tabbed in v1
 
 
 class TestBottomTabsRemoved:

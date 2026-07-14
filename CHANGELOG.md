@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI per-stage center tabbed sub-view hook (provision only, deferred content).** A stage's
+  center composite can now be presented as multiple named tabs: `StageComposition` (in
+  `radiant.gui.stage_views`) gained an optional `subviews` field of the new `StageSubView`,
+  and `StagePane` renders a `QTabWidget` when two or more are declared, falling back to the
+  current single pane otherwise. **No v1 stage declares any sub-view** — every stage renders
+  exactly as before; this is the seam a later per-stage phase fills. View-only — no computed
+  results change.
 - **`radiant.api.stage_output_units.stage_output_unit(stage, key)` — canonical display unit
   for a scalar stage output.** Stage outputs are computed values with no per-field unit
   metadata (Gap 87); this new public accessor (and its `STAGE_OUTPUT_UNITS` table) supplies

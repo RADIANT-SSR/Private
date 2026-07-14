@@ -470,6 +470,15 @@ pre-atmosphere emission spectrum, the per-λ noise spectrum, the Detector pie/il
 and PSF-grid overlay) remain separate later per-stage tasks. Platform and Readout are
 v1-minimal: an outputs readout plus a themed note, no invented content.
 
+*Tabbed sub-view hook (provisioned, deferred content).* A stage may declare named
+**sub-views**; when two or more are present, `StagePane` renders them as a `QTabWidget`
+(one scoped composite per tab) instead of a single scroll pane, so a future stage with
+substantial, separable content (e.g. Optics pupil vs. coating diagnostics) can split it
+into tabs without a widget rewrite. **v1 stages declare none** — every stage renders as a
+single pane today; the hook is the data seam (`StageComposition.subviews` of
+`StageSubView`, `radiant.gui.stage_views`) a later detailed phase fills. A stage with zero
+or one sub-view falls back to the single flat pane.
+
 *Outputs pin affordance (Step B, CU-115 clause).* Each Outputs / Metrics row carries a pin
 control. A stage-output pin adds a card that **re-reads `stage_outputs[stage][key]` on each
 evaluation** (value + unit, R-UNITS); a metric pin uses the existing metric-surface card

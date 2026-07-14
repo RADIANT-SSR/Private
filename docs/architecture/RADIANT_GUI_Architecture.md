@@ -12,6 +12,19 @@ panel, the design system, and the scenario requirements matrix.
 scope, ground rules). Where this doc and the plan differ, the plan governs v1 scope
 and this doc is updated in lock-step (Rule 20).
 
+**Layout redesign (owner-ratified 2026-07-13).** §4 now specifies the **contextual
+per-stage workspace** (visual spec: the ratified wireframe reviewed 2026-07-13). This
+**supersedes** the earlier global-metric-badge-row + shared-canvas + bottom-detail-tabs
+layout (Rule 24/27). The redesign is a **rearrangement plus additions, not a rebuild**:
+every piece shipped in Phases 1–4 (application shell, QSS theme, left parameter tree,
+background evaluate loop/worker, 9-stage strip, the `result.plot.*` figures, metric
+badges, warning strip, YAML view) is **retained and relocated** — metric badges become
+pinnable right-rail cards, the warning strip becomes the Messages panel, the bottom detail
+tabs dissolve into per-stage center views and two global tools. Nothing built is discarded.
+The **GUI Development Plan phase revision that re-sequences the phases to this layout is
+pending** (a separate task); until it lands, the plan's phase list still describes the old
+arrangement and this §4 governs the target layout.
+
 ---
 
 ## 1. Ratified v1 Decisions (owner, 2026-07-12)
@@ -45,6 +58,13 @@ D5 (the 3D engine) was ratified the same day.
 7. Scripting console: embedded IPython with live `sensor` / `result` objects.
 8. File round-trip: Open/Save/Recent YAML via `Sensor.load()` / `sensor.save()`;
    undo/redo of parameter edits.
+
+> **Layout note.** Items 1 and 4 above name the *shipped* components (central plot canvas,
+> tabbed detail panel; the Spectral / MTF / Noise / Variables / YAML tabs). The
+> 2026-07-13 redesign (§4) keeps these components but **relocates** them: the shared
+> canvas + global badge row become per-stage contextual center views with a pinnable
+> right rail, and the detail tabs dissolve into per-stage center content plus two global
+> tools (§4.7). The scope is unchanged; only the arrangement is.
 
 **Out of scope (v1)** — do not implement, even partially:
 
@@ -223,7 +243,15 @@ visible "stale — last evaluation failed" state; it never shows a blank or a pa
 
 ---
 
-## 4. Layout
+## 4. Layout — Contextual Per-Stage Workspace (ratified 2026-07-13)
+
+The layout is a **contextual per-stage workspace**: the 9-stage strip is the single
+primary navigation, and clicking a stage makes the center show **only that stage's
+contextual content** (its editable inputs, its outputs with units, its plot(s)). A
+permanent left tree lists all parameters; a persistent right rail carries pinned values,
+the config editor, and messages. This supersedes the earlier global-badge-row +
+shared-canvas + bottom-tabs design (Rule 24/27); §4.7 records exactly where each
+superseded piece moved.
 
 ### 4.1 Top-Level Window Structure
 
@@ -231,31 +259,41 @@ visible "stale — last evaluation failed" state; it never shows a blank or a pa
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │  RADIANT — leo_mwir_clear.yaml                                        [≡][□][X]│
 ├──────────────────────────────────────────────────────────────────────────────┤
-│  File  Edit  View  Run  Tools  Help                                           │
+│  File  Edit  View  Run  Tools  Help                            ◈ Inspector    │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ Geometry │ Source │ Atmosphere │ Optics │ Platform │ Spectral │ Detector │ Readout │ Performance │
-│  [9-stage geometry-first signal-chain strip — clickable, health dots]          │
-├────────────────┬─────────────────────────────────────────────────────────────┤
-│  PARAMETERS    │  VISUALIZATION AREA                                          │
-│  [Search box]  │  SNR 47.3  NEDT 23 mK  NIIRS 5.4  GSD 3.6 m  MTF_nyq 0.42   │
-│  ▶ Geometry    │                                                              │
-│  ▶ Source      │  [Main plot canvas — matplotlib figure]                      │
-│  ▶ Atmosphere  │                                                              │
-│  ▶ Optics      │                                                              │
-│  ▶ Detector    │                                                              │
-│  ▶ Readout     │                                                              │
-├────────────────┴─────────────────────────────────────────────────────────────┤
-│  Spectral │ MTF │ Noise Budget │ Variable Explorer │ YAML │ Console            │
-│  [Detail tabs — current tab content fills this panel]                         │
-│  [Status bar: "Evaluated in 0.22 s — 500 wavelength points" ]                │
+│ Geometry │ Source │ ▣Atmosphere │ Optics │ Platform │ Spectral │ Detector │ Readout │ Performance │
+│  [9-stage geometry-first strip — the SINGLE primary navigation; health dots]   │
+├──────────────┬──────────────────────────────────────────────┬─────────────────┤
+│ ALL          │  03  ATMOSPHERE          [contextual view]    │ PINNED          │
+│ PARAMETERS   │  ── Inputs (editable · 1 edit → 1 set) ────   │  SNR   616      │
+│ [search ⌘F]  │   standard_atmosphere  visibility_km  …       │  NIIRS 10.62    │
+│  ▶ geometry  │  ── Outputs (read-only · with units) ─────    │  τ_atm 0.812    │
+│  ▶ source    │   τ_atm 0.812   L_path 0.94 W/m²/sr/µm  …     │  [+ pin a value]│
+│  ▼ atmosphere│  ── Plot(s) ─────────────────────────────    │ ┌─────────────┐ │
+│    visibility│   [τ_atm & L_path vs λ]                       │ │Edit Config  │ │
+│    path_type │   [source & bkgd radiance at aperture]        │ │  (YAML) ⎙   │ │
+│  ▶ optics    │                                               │ └─────────────┘ │
+│  ▶ …         │                                               │ MESSAGES        │
+│              │                                               │  ⚠ 1 warning    │
+├──────────────┴──────────────────────────────────────────────┴─────────────────┤
+│  [Status bar: "Evaluated in 0.22 s — 500 wavelength points" ]                  │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Signal-Chain Strip (9 stages, geometry-first)
+Three columns under the strip: **left** = permanent searchable *All Parameters* tree
+(§4.3, kept); **center** = the selected stage's contextual view (§4.4); **right** = the
+persistent rail — *Pinned* / *Edit Config (YAML)* button / *Messages* (§4.5). The full
+`result.inspect()` variable dump is a **global Inspector tool** on the menu/toolbar
+(§4.6), not a docked panel.
+
+### 4.2 Signal-Chain Strip (9 stages, geometry-first) — the single primary navigation
 
 A horizontal strip of clickable stage buttons, in chain order per ADR-0006
 (geometry-first): **Geometry → Source → Atmosphere → Optics → Platform → Spectral
-Integration → Detector → Readout → Performance.** Each button shows the stage name and
+Integration → Detector → Readout → Performance.** In the ratified layout the strip is the
+**single primary navigation**: there is **no global metric-badge row** (removed — a fixed
+badge row is non-contextual; the performance metrics live in the right-rail *Pinned* panel
+instead, §4.5, where any stage's value can join them). Each button shows the stage name and
 a health dot:
 
 ```
@@ -265,8 +303,10 @@ a health dot:
  ◌ gray   = stale / not yet evaluated
 ```
 
-Clicking a stage is navigation only (no API call): it scrolls the parameter panel to
-that stage's namespace and swaps the canvas to the stage's default visualization.
+Clicking a stage is navigation only (no API call): it scrolls the parameter panel to that
+stage's namespace and makes the **center show only that stage's contextual view** (§4.4) —
+its editable inputs, its outputs, and its plot(s). There is no shared canvas that all
+stages write into; each stage owns its center content.
 
 **As shipped (GUI plan Phase 4 Task A).** A click emits the chip's **real schema
 namespace** — not the shortened eyebrow display, which may abbreviate (the 6th stage
@@ -299,7 +339,12 @@ it cannot source); refining either to per-stage attribution is a later enhanceme
 > **Source** screen with an 8-stage strip. v1 opens on **Geometry** with the 9-stage
 > strip above; the mockups remain the visual spec for chrome and styling only.
 
-### 4.3 Parameter Panel (Left)
+### 4.3 All-Parameters Panel (permanent left column)
+
+The permanent left column of the contextual layout (§4.1): a searchable tree of **every**
+parameter across all stages, retained unchanged from the shipped design. It complements —
+does not duplicate — the center stage view's *Inputs* section (§4.4), which shows only the
+selected stage's editable inputs; the left tree is the global, cross-stage index.
 
 A tree, grouped by dot-path namespace in chain order (Geometry group first), built
 **entirely** from `Sensor.parameter_defs()` — never transcribed from this doc (the
@@ -390,115 +435,146 @@ canonical, row shows `550 km`). The unit suffix is always part of the displayed 
 (R-UNITS). The preference is **session-scoped**; QSettings persistence across launches
 arrives in Phase 9. Loading a new sensor resets the preferences.
 
-### 4.4 Visualization Area (Center)
+### 4.4 Center: Contextual Stage View
 
-A large matplotlib canvas (`FigureCanvasQTAgg`) rendering the existing `result.plot.*`
-figures — no plotting logic is reimplemented in GUI code. The default figure depends on
-the active stage:
+The center column shows the **selected stage's view and nothing else**. Every stage view
+is built from the same three sections, in order:
 
-| Active stage | Default visualization |
-|-------------|----------------------|
-| Geometry | Stage-0 scene: resolved input mode, derived slant/ground range, θ_o/η, solar angles (the 3D viewer panel, §6) |
-| Source | Spectral radiance at target: L_source(λ) [W/m²/sr/µm] |
-| Atmosphere | τ_atm(λ), L_path(λ), L_atm(λ) overlaid |
-| Optics | Spectral radiance at aperture and post-optics; MTF curve |
-| Platform | Smear/jitter MTF terms |
-| Spectral Integration | In-band integrated radiance per frame |
-| Detector | Spectral QE(λ); noise budget bar chart |
-| Readout | Noise budget table + bar chart |
-| Performance | System MTF; SNR summary |
+1. **Inputs** — the stage's editable parameters (the schema group for that namespace).
+   Each edit is exactly one `sensor.set()` (§4.1, R-API), validated on a throwaway
+   `sensor.clone()` before it touches the live sensor; each field carries its unit
+   (R-UNITS). Derived parameters are ⚡-badged read-only, as in the left tree.
+2. **Outputs** — the stage's read-only results from `stage_outputs["<stage>"]` (and, for
+   Performance, the metric surface), every value with its unit and symbol.
+3. **Plot(s)** — the stage's figure(s), drawn **only** from the public `result.plot.*`
+   surface — one GUI action ↔ one API call, no plotting logic in GUI code (§1.2 R-API).
 
-A metric-badge row above the canvas always shows the current performance summary, every
-value with its unit (R-UNITS): **SNR · NEDT · NIIRS · GSD · MTF@Nyquist.** A
-metric that returns a result-typed failure (Rule 17 carve-out) shows its
-`failure_reason`, not a blank.
+There is **no global metric-badge row and no shared canvas**: the performance metrics
+that used to sit in the badge row now live in the right-rail *Pinned* panel (§4.5), and
+each stage owns its own plot region. A metric that returns a result-typed failure (Rule 17
+carve-out) shows its `failure_reason`, not a blank.
 
-**As shipped (GUI plan Phase 3).** Each badge reads one metric from the `ChainResult`
-metric surface — SNR ← `snr`, NEDT ← `nedt_K`, NIIRS ← `niirs`, GSD ←
-`gsd_geometric_mean_m`, MTF@Nyquist ← `mtf_at_nyquist` — and its **unit is sourced from
-`ChainResult.metric_records()`** (the registry metadata), never hardcoded in the widget.
-Consequently NEDT renders in its canonical unit **K** (e.g. `0.04463 K`), not the
-mockup's illustrative `mK`; a per-metric display-scaling nicety (mK, µrad, …) is a later
-enhancement (CU-108). A pure ratio / rating-scale unit (`dimensionless`, `NIIRS level`)
-renders as a bare number, matching the mockup. The **default post-evaluate figure** while
-no stage is selected (the stage strip lands in Phase 4) is the **MTF overlay**
-(`result.plot.mtf()`) — the on-spec choice for the Performance row above, and the figure
-that visibly responds to the D2 aperture-diameter edit. The **saturation banner** (below)
-is placed **between the badge row and the canvas**.
+**Metric surface (retained from the shipped badge row).** The five performance metrics —
+SNR ← `snr`, NEDT ← `nedt_K`, NIIRS ← `niirs`, GSD ← `gsd_geometric_mean_m`, MTF@Nyquist ←
+`mtf_at_nyquist` — and their **units sourced from `ChainResult.metric_records()`** (never
+hardcoded) are unchanged; they are simply *relocated* from a fixed row into the pinnable
+rail (§4.5) and the Performance stage view (§4.4.1). NEDT renders in its canonical unit
+**K**; a per-metric display-scaling nicety (mK, µrad, …) remains CU-108. A pure ratio /
+rating-scale unit (`dimensionless`, `NIIRS level`) renders as a bare number.
 
-**Per-stage default views as shipped (GUI plan Phase 4 Task A).** Selecting a stage swaps
-the canvas per the table above, but every figure is drawn **only** from the existing
-`result.plot.*` surface (`ResultPlotNamespace`: `mtf`, `noise_budget`, `psf`,
-`mtf_budget`) — one GUI action ↔ one API call, no plotting in GUI code (§1.2 R-API). The
-mapping (`radiant.gui.stage_views`) resolves each stage as:
+**Saturation banner (retained).** The full-well **saturation banner** (§7.2 row 8, owner
+amendment 2) remains a persistent, non-dismissible banner shown whenever
+`result.well_status().is_saturated`; it renders the well fill fraction (as a `×` multiple)
+and the accumulated-versus-capacity charge in electrons (R-UNITS), and clears on the next
+unsaturated result. It reads the `ChainResult.well_status()` surface (CU-101). In the
+contextual layout it renders at the top of the center column (above the stage view) and,
+for the well it describes, most naturally alongside the Detector/Readout stage views;
+chain warnings and errors go to the right-rail *Messages* panel (§4.5), not a center strip.
 
-| Stage | Shipped default view | Source |
-|-------|---------------------|--------|
-| Geometry | Derived-angle **readout** of `stage_outputs["geometry"]` (symbols + units); the 3D viewer is Phases 6–7 | stage outputs (verbatim) |
-| Source | Source spectral radiance L_src(λ) [W/m²/sr/µm] | `result.plot.spectral_source()` |
-| Atmosphere | τ_atm(λ) + L_path(λ) twin-axis overlay | `result.plot.spectral_atmosphere()` |
-| Optics | MTF overlay | `result.plot.mtf()` |
-| Platform | MTF overlay (shows the smear/jitter terms) | `result.plot.mtf()` |
-| Spectral Integration | In-band (post-optics) spectral radiance [W/m²/sr/µm] | `result.plot.spectral_inband()` |
-| Detector | Noise-budget bar chart | `result.plot.noise_budget()` |
-| Readout | Noise-budget bar chart | `result.plot.noise_budget()` |
-| Performance | MTF overlay (system MTF) | `result.plot.mtf()` |
+#### 4.4.1 Per-Stage Content Spec (owner-ratified requirements, 2026-07-13)
 
-Every §4.4 row now names a real `result.plot` accessor. The Source / Atmosphere /
-Spectral Integration rows — which through Phase 4 Task A fell back to a themed "Gap 86"
-panel because `result.plot` carried no spectral-radiance figure — render their spectral
-figures directly once the three accessors landed (`api` commit f678dfd; the GUI
-re-mapping is Phase 4 Task B). **Gap 86 is resolved**; the former gap panel
-(`StageGapPanel`) is deleted. Geometry's default remains the angle summary — a key-value
-readout of the derived stage outputs with units and symbols (R-UNITS), read verbatim
-(data display, not physics).
+The ratified per-stage content. Each item is classified **[exists]** (a real API/plot
+surface backs it today — named), **[GUI-only]** (the data exists; the GUI reshapes/draws
+it, no new framework capability), or **[GAP N]** (needs a framework capability that does
+not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the shipped
+`result.plot.*` accessors (`ResultPlotNamespace`: `mtf`, `noise_budget`, `psf`,
+`mtf_budget`, `spectral_source`, `spectral_atmosphere`, `spectral_inband`).
 
-The full-well **saturation banner** (§7.2 row 8, owner amendment 2) is a persistent,
-non-dismissible banner shown whenever `result.well_status().is_saturated`; it renders the
-well fill fraction (as a `×` multiple) and the accumulated-versus-capacity charge in
-electrons (R-UNITS), and clears on the next unsaturated result. It reads the
-`ChainResult.well_status()` surface (CU-101), never a `stage_outputs` dict-hop.
+| Stage | Ratified content | Classification |
+|-------|------------------|----------------|
+| **Geometry** | 3D scene viewer (§6) + derived-angle readout | **[exists]** readout from `stage_outputs["geometry"]` (symbols + units, verbatim); 3D viewer is GUI plan Phases 6–7 (§6) |
+| **Source** | Target radiance plot | **[GAP 91]** — SourceStage persists no radiance frame; the earliest stored radiance is at-aperture (built in AtmosphereStage), so a pre-atmosphere *emitted* target spectrum is unreachable without recomputation |
+| **Source** | Background radiance plot | **[GAP 91]** — same missing pre-atmosphere source-emission frame (target + background) |
+| **Source** | Size / shape / orientation inputs, shown per scenario type | **[GUI-only]** display of existing schema — `source.target.shape`, `shape_radius_m`/`shape_length_m`/…, `projected_area_m2`, `shape_yaw_rad`/`shape_pitch_rad`/`shape_roll_rad`; the **per-scenario-type gating** (which inputs are relevant) ties to **[GAP 85]** (mission-type relevance) |
+| **Atmosphere** | τ_atm & L_path vs λ plot | **[exists]** `result.plot.spectral_atmosphere()` (twin-axis τ_atm + L_path) |
+| **Atmosphere** | Source & background radiance **at aperture** (post-atmosphere) | **[exists]** `result.plot.spectral_source()` — draws `at_aperture_target` + `at_aperture_background` frames (the at-aperture radiances the owner wants shown here now that atmosphere is applied) |
+| **Optics** | MTF | **[exists]** `result.plot.mtf()` |
+| **Optics** | PSF | **[exists]** `result.plot.psf()` (`stage_outputs["optics"]["effective_psf"]`) |
+| **Optics** | Pupil apodization (amplitude map) | **[GAP 89]** — the complex pupil is built internally (`make_pupil_amplitude`) but not persisted in `stage_outputs`, and `result.plot` has no pupil accessor |
+| **Optics** | Pupil wavefront-error (phase) map | **[GAP 89]** — same missing complex-pupil surface (`make_pupil_phase_for_wfe` output not persisted); amplitude + phase are two faces of one pupil, filed as one gap |
+| **Optics** | Coating performance & transmission spectra | **[GAP 90]** — per-element R/T/ε spectra live in `stage_outputs["optics"]["elements"]` (`OpticalElement.transmittance`/`reflectance`/`declared_emissivity` `SpectralData`) and system throughput in `tau_opt_spectral`, but no `result.plot` accessor renders them |
+| **Platform** | Minimal for v1 (does **not** need MTF) | **[TBD]** — v1-minimal; content deferred. The smear/jitter MTF terms remain reachable in the Optics/Performance MTF overlay, so Platform needs no dedicated MTF view |
+| **Spectral Integration** | Final plot of the signal spectral radiance | **[exists]** `result.plot.spectral_inband()` (post-optics integrand frame) |
+| **Spectral Integration** | Noise terms alongside the signal | **[exists (scalar)]** `result.plot.noise_budget()` — but noise is **scalar per term** (`NoiseTerm.value_e`, e- RMS, computed post-integration per Rule 8); a **per-wavelength** noise decomposition to show noise *as a spectrum* is **[GAP 92]** |
+| **Spectral Integration** | `integration_time_s` grouping | **[GUI-grouping note]** — the owner notes `integration_time_s` feels mis-placed here. The GUI **may** present integration time under a more operator-relevant stage; GUI grouping need not mirror the schema namespace. **No schema change** — this is a presentation choice only |
+| **Detector** | Detector illustration with size | **[GUI-only]** schematic drawn from `detector.pixel_pitch_x_um`/`pixel_pitch_y_um`, `fill_factor`, `n_pixels_*` (like the geometry schematic; no framework plot needed) |
+| **Detector** | PSF with detector/pixel-grid overlay | **[GUI-only]** — `EffectivePSF` carries `pixel_pitch_m` and `sample_spacing_m`, so a pixel-grid overlay over `result.plot.psf()` is a GUI draw over existing data |
+| **Detector** | Noise contributions as a **pie** chart | **[GUI-only]** reshape of the scalar `result.noise_terms` (the shipped surface plots a bar; a pie is the same data, different mark) |
+| **Readout** | Minimal for v1 | **[TBD]** — v1-minimal; content deferred (noise-budget view remains available via `result.plot.noise_budget()`) |
+| **Performance** | All metrics + plots | **[exists]** metric surface (`ChainResult.metrics` / `metric_records()`) + `result.plot.mtf()` (system MTF) and `result.plot.mtf_budget()` |
 
-The **chain-warning strip** (`WarningStrip`, owner feedback 2026-07-13) sits between the
-badge row and the canvas, carrying the **warn** design token — deliberately distinct from
-the red saturation banner. Chain `UserWarning`s (saturation clip, NIIRS extrapolation, …)
-used to print only to the terminal, invisible to a GUI user; the `EvaluationWorker` now
-captures them with `warnings.catch_warnings(record=True)` + `simplefilter("always")` (so
-the process-wide filter — including pytest's `filterwarnings=error` — cannot suppress or
-raise them, and none is deduplicated away) and delivers them with the result. The strip
-reads `⚠ N warnings` with the first message inline and, clicked, opens a themed
-`WarningListDialog` listing every message verbatim; it clears on a warning-free evaluation.
-Captured warnings are also re-logged, so nothing is swallowed (Rule 17) — script users lose
-nothing. Capturing is safe against the global-filter mutation because at most one worker
-runs at a time (edits coalesce into a single run) and the Qt thread never runs the chain.
+**Reading the spec.** Most of the ratified content **already has a backing surface** —
+every plot the shipped `result.plot.*` carries (MTF, PSF, noise budget, and the three
+spectral-radiance accessors) plus the metric/stage-output readouts. The genuinely new
+framework work is concentrated in **Optics diagnostics** (pupil map, coating spectra),
+the **Source pre-atmosphere emission frame**, and an optional **spectral noise
+decomposition** — four gaps total (89–92), all view/accessor additions over
+already-computed physics (no results change). The pie chart, detector schematic, and
+PSF-grid overlay are GUI-only reshapes; the per-scenario-type input gating rides on the
+already-filed Gap 85.
 
-### 4.5 Tabbed Detail Panel (Bottom)
+### 4.5 Right Rail (persistent): Pinned · Edit Config · Messages
 
-v1 ships **six** tabs (the Sweep tab is v1.1 and absent from v1):
+A persistent right column, always visible regardless of the selected stage. Three
+sections, top to bottom:
 
-| Tab | Content |
-|-----|---------|
-| **Spectral** | Spectral radiance at all frames; wavelength-grid info; filter bandpass overlay |
-| **MTF** | System MTF + all individual terms (table + overlay plot); MTF at Nyquist; RER; PSF plot; EE curve |
-| **Noise Budget** | Full noise-budget table; bar chart; per-term explanation |
-| **Variable Explorer** | Result inspection rendered as a collapsible tree |
-| **YAML** | Read-only view of current config with provenance coloring; Export button |
-| **Console** | Embedded IPython console with live `sensor` and `result` (GUI plan Phase 8) |
-| ~~Sweep~~ | **v1.1** — inline parameter sweep (`sensor.sweep()`); absent in v1 |
+**Pinned.** User-pinnable value cards. The user can pin **any** stage's metric or output
+value (via `+ pin a value` / the value's pin affordance); each card shows the label, the
+value with its unit (R-UNITS), and the source stage. The **default pinned set** is the
+five performance metrics — **SNR · NEDT · NIIRS · GSD · MTF@Nyquist** — so the summary the
+old badge row provided is present on launch, now movable and extensible (badges → pinnable
+cards). Cards read the same `ChainResult` metric / `stage_outputs` surfaces as before.
 
-**As shipped (GUI plan Phase 4 Task B).** The Spectral, MTF, Noise Budget, Variable
-Explorer, and YAML tabs are each a widget class in its own file (Rule 19 spirit;
-`radiant.gui.widgets.spectral_tab` … `yaml_tab`), wired into `DetailTabs`. Each renders
-only from a **public** API surface (one GUI action ↔ one API call, §1.2 R-API), and each
-carries its own themed evaluate-first state until the first result:
+**Edit Config (YAML) button.** A button that opens a **roomy modal editor** of the full
+config. **Apply re-parses the edited text through the framework** (`Sensor.load` on the
+text); **invalid YAML → an actionable error and the config is left unchanged** (the live
+sensor is never corrupted — the edit is parsed on a throwaway sensor first, exactly the
+§4.1 validate-before-commit discipline). This is the relocation of the shipped read-only
+YAML tab into an editable modal; it still round-trips through `Sensor.load`/`sensor.save`.
+As shipped, the serialized text is the **inputs** scope and there is no in-memory /
+resolved-scope serialize surface (**Gap 88**); the modal shows the inputs scope until that
+lands.
 
-| Tab | Shipped data source |
-|-----|---------------------|
-| **Spectral** | A themed selector over `result.plot.spectral_source()` / `spectral_atmosphere()` / `spectral_inband()`; an accessor that raises `ApiValidationError` (frame absent for the regime) shows its actionable message in place of the figure. |
-| **MTF** | Per-contributor MTF@Nyquist table (terms **discovered** from `stage_outputs["performance"]["mtf_budget"].per_term_at_nyquist`, never hardcoded; x/y columns) + `result.plot.mtf()` overlay. MTF is dimensionless → cells render as bare numbers through the shared `format_metric_value` helper (R-UNITS). |
-| **Noise Budget** | Per-term table (`term`, σ in **e- RMS**) from `result.noise_terms` + `result.plot.noise_budget()` bars; clicking a row shows that `NoiseTerm`'s stored metadata (value, physical basis, origin frame, contributions). **`result.explain(term)` does not exist** on `ChainResult` — the GUI shows the public `NoiseTerm` "describe" fields instead; the missing structured explain accessor is **Gap 87**. |
-| **Variable Explorer** | `radiant.api.inspect.inspect_result(result)` re-rendered as a collapsible tree. **`result.inspect()` does not exist** as a `ChainResult` method — the GUI calls the module-level `inspect_result` (the real public surface); the convenience method is **Gap 87**. Wrapped NumPy array reprs in the inspector text are folded onto their node (**CU-113**) so the tree stays structural. |
-| **YAML** | Read-only serialized config via `Sensor.save` (round-tripped in `yaml_format.serialize_yaml`), each line tinted by its provenance (user-set / config / default / derived / sampled) reusing the Phase-2 provenance path; an **Export…** button writes the YAML to a chosen file (the tab's only file I/O). Text is the **inputs** scope and round-trips through `Sensor.load` exactly; there is no in-memory / resolved-scope serialize surface (**Gap 88**). All provenance colours resolve from the active theme (§8), no literal in the widget. |
+**Messages.** Warnings and errors, replacing the old floating warning strip. Chain
+`UserWarning`s (saturation clip, NIIRS extrapolation, …) are captured by the
+`EvaluationWorker` (`warnings.catch_warnings(record=True)` + `simplefilter("always")`, so
+the process-wide filter cannot suppress them and none is deduplicated) and delivered with
+the result; the panel reads `⚠ N warnings` with the first inline and, clicked, lists every
+message verbatim (the shipped `WarningListDialog`). Captured warnings are also re-logged,
+so nothing is swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders
+its actionable **what / why / action** (Rule 15), and clicking opens the full message. This
+is the warning strip relocated and widened to carry errors as well as warnings.
+
+### 4.6 Global Inspector Tool
+
+The full `result.inspect()` variable dump — every intermediate value across the whole
+chain — is a **global tool** on the menu/toolbar (`◈ Inspector`), not a docked tab. This
+is the old Variable Explorer tab promoted to a global tool: it renders
+`radiant.api.inspect.inspect_result(result)` as a collapsible tree (wrapped NumPy reprs
+folded per **CU-113**). The convenience method `result.inspect()` still does not exist on
+`ChainResult` — the tool calls the module-level `inspect_result` (the real public surface);
+the sugar accessor remains **Gap 87**.
+
+### 4.7 What the Redesign Relocates (the dissolved detail tabs)
+
+Nothing built in Phases 1–4 is discarded; the bottom detail tabs and the global badge row
+are **relocated**, not removed. Precise mapping:
+
+| Shipped component (old layout) | New home (contextual layout) |
+|--------------------------------|------------------------------|
+| Global metric-badge row (SNR/NEDT/NIIRS/GSD/MTF@Nyq) | Right-rail **Pinned** cards (default set) + the **Performance** stage view (§4.4.1) |
+| Floating chain-warning strip | Right-rail **Messages** panel (now carries errors too) (§4.5) |
+| **Spectral** detail tab | **Source / Atmosphere / Spectral Integration** center views (the spectral accessors) (§4.4.1) |
+| **MTF** detail tab | **Optics / Platform / Performance** center views (`mtf`, `mtf_budget`) (§4.4.1) |
+| **Noise Budget** detail tab | **Detector / Readout** center views (bar/pie of `noise_terms`) (§4.4.1) |
+| **Variable Explorer** detail tab | **Global Inspector** tool (§4.6) |
+| **YAML** detail tab (read-only) | Right-rail **Edit Config (YAML)** modal (now editable, re-parsed via `Sensor.load`) (§4.5) |
+| **Console** tab | Unchanged — remains the embedded IPython console (GUI plan Phase 8), reachable from Tools/View |
+
+The per-tab data sources that shipped (Phase 4 Task B) are unchanged; each is re-hosted in
+its new container. The Sweep tab remains **v1.1** and absent from v1 (D4). The migration of
+the GUI Development Plan phases to this arrangement is the pending plan-revision task noted
+in the header.
 
 ---
 

@@ -1,7 +1,51 @@
-# ADR-0007: 3D Geometry Viewer — Visual Direction and Scene-Library Lift
+# ADR-0007: Geometry Viewer — Visual Direction and Scene-Library Lift
 
-**Date:** 2026-07-13
-**Status:** Proposed (awaiting owner ratification)
+**Date:** 2026-07-13 (updated 2026-07-14)
+**Status:** Accepted — **2D orthographic Qt schematic** (owner-ratified 2026-07-14). The
+original recommendation below (Direction B: flat/line-art **PyVista** render, §Decision 1)
+is **SUPERSEDED**: the PyVista/VTK raster could not match the mockup's crisp SVG line-art,
+so the viewer is reimplemented as a pure-Qt 2D orthographic schematic that ports the
+`dev_tools/gui_mockups/geometry_viewer` mockup. See **§Supersession (2026-07-14)** below.
+
+## Supersession (2026-07-14) — 2D orthographic Qt schematic
+
+The owner ratified, 2026-07-14, replacing the PyVista/VTK viewer with a **2D orthographic
+Qt schematic** drawn with `QPainter` over a Python port of the mockup's `geometry.js`
+projection. Rationale: the VTK raster (even flat-shaded on the light theme, §Decision 1)
+reads as a soft raster, not the crisp antialiased hairline line-art the mockup specifies;
+a Qt 2D canvas reproduces the mockup faithfully, adds **no** new dependency, and — being
+pure Qt — has **no** VTK/OpenGL requirement, so it renders and tests identically headless
+(`QWidget.grab()`) with no segfault-prone live interactor. The three-backend degradation
+ladder (live / offscreen-image / unavailable, §Decision, §6.6) collapses to a single
+always-available canvas with a minimal guard: **the "3D viewer unavailable" fragility is
+gone.**
+
+- **Pass 1 (shipped 2026-07-14):** the renderer core — the *look*. New modules
+  `radiant.gui.viewer.projection` (the ported `geometry.js` orthographic projection +
+  direction math) and `radiant.gui.viewer.schematic_view` (the `SchematicView` QPainter
+  canvas); `GeometryViewer` (`viewer_widget.py`) reimplemented over the canvas with its
+  StageCenter-facing surface preserved (`show_result`, `set_angle_revealed` /
+  `set_triad_visible` as Pass-2 no-op-safe stubs, `close_viewer`, `set_theme`). The
+  Geometry center tab is renamed **"3D View" → "Schematic"**. Draws: light background,
+  ground grid, X/Y ground axes + zenith Z axis (arrowheads + labels), the four labelled
+  vectors (sun→target amber solid, sensor→target blue solid, sun→ground amber dashed,
+  zenith grey), sun/sensor glyphs, a wireframe target (sphere great-circles / box / point
+  reticle), ground-projection dashed drop-lines, and the VECTORS legend overlay.
+  Orthographic yaw/pitch by mouse drag. The `ViewerState` adapter (`viewer_state.py`) is
+  **reused unchanged** across the pivot.
+- **Pass 2 (deferred, tracked CUs):** the θ_v/φ_v/θ_s angle arcs (CU-128), the h_s /
+  altitude leader labels (CU-129), the RPY body triad (CU-130), the full shape library +
+  dimension inputs (CU-131), the angle-truth consistency test ported onto the 2D math
+  (CU-133), and **removal of the now-unwired lifted VTK scene library**
+  (`radiant.gui.viewer.scene`, `pyvistaqt`/`pyvista` no longer rendered) (CU-132).
+- **PyVista-specific CUs re-audited:** CU-122 (broken `geometry_gui_v2` shell / no
+  attitude source), CU-124 (in-scene VTK point-picking + `highlight.py`), and CU-127
+  (live-interactor repaint regression) are **superseded by the 2D pivot** — the live VTK
+  interactor they gate no longer exists in the production path; they are dispositioned in
+  the Cleanup Backlog (2026-07-14).
+
+Everything from §Decision 1 onward is the **original 2026-07-13 PyVista recommendation**,
+retained for the decision history; it no longer describes the shipped viewer.
 
 ## Context
 

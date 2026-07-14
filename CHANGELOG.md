@@ -20,6 +20,24 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **GUI geometry viewer reimplemented as a 2D orthographic schematic — view-only
+  (ADR-0007 superseded 2026-07-14, Pass 1).** The Geometry stage's viewer is no longer a
+  PyVista/VTK render but a crisp, antialiased **2D orthographic line-schematic** drawn with
+  `QPainter`, porting the `geometry_viewer` mockup's `geometry.js` projection (new modules
+  `radiant.gui.viewer.projection` + `radiant.gui.viewer.schematic_view`). The Geometry
+  center tab is renamed **"3D View" → "Schematic"**. Pass 1 draws the ground grid, X/Y/Z
+  axes, the four labelled vectors (sun→target, sensor→target, sun→ground, zenith),
+  sun/sensor glyphs, a wireframe target (sphere/box/point), ground drop-lines, and the
+  VECTORS legend, with orthographic yaw/pitch by mouse drag. The `GeometryViewer` public
+  surface (`show_result`, `set_angle_revealed`/`set_triad_visible` as Pass-2 no-op-safe
+  stubs, `close_viewer`, `set_theme`) and the `ViewerState` adapter are preserved. The
+  three-backend "3D viewer unavailable" degradation ladder is removed — a pure-Qt canvas
+  has no VTK/OpenGL dependency and renders/tests faithfully headless. No computed results
+  change (the stage remains the single source of angle truth). Deferred to Pass 2: angle
+  arcs, altitude leader labels, RPY triad, shape library + dimensions, the angle-truth
+  test, and removal of the now-unwired lifted VTK scene library (CU-128–CU-133).
+
 ### Added
 - **GUI 3D geometry viewer — interactions: angle annotations, shape library, RPY triad
   (GUI plan Phase 7 Part B, ADR-0007).** The Geometry "3D View" becomes a split of the

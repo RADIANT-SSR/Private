@@ -712,9 +712,22 @@ The Geometry Viewer is the Geometry stage's central visualization: a spatial sch
 of the sun/sensor/target relationship, optimized for understanding the angles that drive
 the downstream radiometry. It is **not** a flight visualizer or a Cesium-style globe —
 it is a CAD / engineering-drawing view: line-art forward, schematic, every element
-labeled, every angle clickable. Engine: PyVista via `pyvistaqt.QtInteractor` (D5),
-lifting the `dev_tools/geometry_gui_v2` scene library. Condensed from
+labeled. Condensed from
 `dev_tools/gui_mockups/geometry_viewer/radiant_geometry_handoff.md`.
+
+> **Engine (updated 2026-07-14 — ADR-0007 superseded):** the viewer is a **2D orthographic
+> Qt schematic** drawn with `QPainter`, porting the mockup's `geometry.js` projection —
+> **not** the PyVista/VTK render of D5. The VTK raster could not match the mockup's crisp
+> antialiased SVG line-art; a pure-Qt 2D canvas reproduces it faithfully with **no** VTK/
+> OpenGL dependency. **Pass 1** (shipped) is the renderer core: `viewer/projection.py`
+> (ported projection + direction math) and `viewer/schematic_view.py` (the `SchematicView`
+> canvas), with `GeometryViewer` reimplemented over the canvas and the Geometry center tab
+> renamed **"3D View" → "Schematic"**. **Pass 2** adds the angle arcs (CU-128), altitude
+> leader labels (CU-129), the RPY triad (CU-130), the shape library + dimension inputs
+> (CU-131), the angle-truth test (CU-133), and removes the now-unwired lifted VTK scene
+> library (CU-132). §§6.7–6.8 below describe the retired PyVista Part A/B and are retained
+> for history; §6.1–6.4 (not-to-scale, contents, stage-as-angle-truth, conventions) still
+> hold for the 2D schematic. The `ViewerState` adapter (§6.7) is reused unchanged.
 
 ### 6.1 Not-To-Scale Rule (owner-endorsed, binding)
 
@@ -782,21 +795,19 @@ rendering. These stay out of v1 (GUI plan §8 risk register).
 
 ### 6.6 Degradation
 
-The viewer resolves one of three backends at construction, so it never crashes the shell
-(GUI plan §4.4, VTK-offscreen risk row):
+**As of the 2026-07-14 2D pivot the three-backend ladder is gone — this is a win.** A
+pure-Qt `QPainter` canvas has no VTK/OpenGL dependency, so it renders anywhere Qt runs
+(including the headless `offscreen` platform) and there is no segfault-prone live
+interactor. The viewer is therefore **always available** (`mode == "schematic"`); a
+**minimal** guard remains — if building the scene from a result raises, an actionable
+`"Geometry schematic unavailable: <reason>"` panel replaces the canvas (Rules 15/17) — but
+for a pure-Qt widget this is effectively unreachable. Viewer tests grab the canvas
+offscreen via `QWidget.grab()`, fully faithful.
 
-1. **live** — an embedded `pyvistaqt.QtInteractor` viewport, used when the Qt platform can
-   host a live VTK/OpenGL context (a real display: cocoa / xcb / windows).
-2. **static image** — a `pyvista.Plotter(off_screen=True)` render shown in a `QLabel`,
-   used when a live interactor cannot be embedded but VTK renders headless. Constructing a
-   `QtInteractor` under the Qt `offscreen` platform plugin *segfaults* (uncatchable), so it
-   is proactively avoided there; the static image is faithful because Part A is a static
-   scene. This is the backend the offscreen test suite and headless screenshots use.
-3. **unavailable** — an actionable panel ("3D viewer unavailable: <reason>; the rest of the
-   app works") when even the offscreen render fails (no VTK/GL at all).
-
-Viewer tests render through the confirmed-working `pyvista` offscreen path, never a live
-embedded interactor.
+*(Retired: the pre-pivot PyVista viewer resolved one of three backends — live
+`pyvistaqt.QtInteractor` / offscreen `pyvista.Plotter` image in a `QLabel` / unavailable
+panel — because embedding VTK needs a real display and constructing a `QtInteractor` under
+the Qt `offscreen` plugin segfaults. The 2D canvas removes that whole class of fragility.)*
 
 ### 6.7 Part A — What Shipped (static scene + vectors; GUI plan Phase 7 Part A)
 

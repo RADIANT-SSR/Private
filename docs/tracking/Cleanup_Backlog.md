@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-127 — Live-interactor 3D repaint fix is only spy-verified; no automated repaint regression on the live backend
+
+**Discovered**: GUI bug-fix pass (owner report 2026-07-14), commit `8014e97` on branch `gui-phase1-task-a`
+**Status**: Open — non-blocking; the fix is correct-by-construction and the shipped image backend is fully tested. Gated behind a live-display test lane.
+**File**: `src/radiant/gui/viewer/viewer_widget.py` (`GeometryViewer._render_live`, the `render()` + `update()` repaint pair).
+**Symptom**: The BUG-A fix adds `self._interactor.update()` after `self._interactor.render()` so the live pyvistaqt `QtInteractor` repaints after a scene rebuild. The live interactor segfaults under the Qt `offscreen` platform (CU-042 family), so the headless suite cannot exercise it — the new tests spy the interactor and assert `render()` + `update()` are called on each `show_result`/toggle (a guard against removing the fix), but they do **not** verify the calls actually produce a visible repaint on the real macOS/GL backend. That final link was confirmed only by manual owner verification.
+**Why it still matters**: Test-coverage completeness — a future change to the repaint sequence could regress the on-screen refresh without any headless test failing.
+**Suggested fix**: (b) stand-alone task on a display-capable CI lane (shares the gating condition with CU-124) — drive `GeometryViewer` in live mode and assert a frame delta after `show_result` via `QScreen.grabWindow` (per CU-042's note, `QWidget.grab()` cannot capture VTK's GL framebuffer). Effort S; category A. Re-audit when a live-interactor CI lane is added or at GUI Phase 9.
+
 ### CU-126 — Arc value-label unit `"rad"` is hardcoded in the viewer, not sourced from the output key
 
 **Discovered**: GUI Development Plan Phase 7 Part B (3D viewer interactions), 2026-07-13 (commit on branch `gui-phase1-task-a`; ADR-0007)

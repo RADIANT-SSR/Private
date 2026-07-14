@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI contextual-layout right rail — Pinned / Edit Config (YAML) / Messages
+  (contextual-layout retrofit Step A, arch doc §4.5).** A persistent right-side dock now
+  carries three sections: a **Pinned** panel of metric cards (default set = SNR · NEDT ·
+  NIIRS · GSD · MTF@Nyquist, each value + unit sourced from `ChainResult.metric_records()`,
+  with unpin and a `+ Pin…` picker over the metric surface; session-scoped); an **Edit
+  Config (YAML)** button that opens a roomy modal editor preloaded with the current config
+  and re-parses the edited text through `Sensor.load` on Apply (invalid YAML shows the
+  actionable error and leaves the live config untouched — validated on a throwaway sensor);
+  and a **Messages** panel listing chain warnings and errors (the widened warning strip),
+  each clickable to its full-text dialog. The full-well saturation banner stays in the
+  center column (high-signal, non-dismissible).
 - **GUI detail tabs — Spectral, MTF, Noise Budget, Variables, YAML (GUI plan
   Phase 4 Task B).** The bottom detail dock's five tabs are now live, each its own
   widget class and each populated on every successful evaluation from a public API
@@ -187,6 +198,12 @@ retroactively reconstructed.
   baseline changed (all 14 sit at the nadir default).
 
 ### Removed
+- **GUI global metric-badge row and floating warning strip (contextual-layout
+  retrofit Step A).** The `KpiBadgeRow`, `MetricBadge`, and `WarningStrip` widget
+  classes are retired: the metrics relocated to the right-rail Pinned cards and the
+  warnings to the Messages panel (nothing user-facing is lost — badges → pinnable
+  cards, strip → Messages). The accent Evaluate button that lived in the badge row
+  moved to the central canvas run bar.
 - `radiant.core` no longer exports `ObserverGeometry`, `TargetGeometry`,
   `SceneGeometry` (CU-094, ADR-0006 Phase 4). The flat-Earth scene
   dataclasses had zero consumers outside their own tests and were

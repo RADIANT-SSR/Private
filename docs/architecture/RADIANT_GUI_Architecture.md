@@ -525,6 +525,14 @@ five performance metrics — **SNR · NEDT · NIIRS · GSD · MTF@Nyquist** — 
 old badge row provided is present on launch, now movable and extensible (badges → pinnable
 cards). Cards read the same `ChainResult` metric / `stage_outputs` surfaces as before.
 
+*Step-A delivered scope (retrofit 2026-07-13):* the default set ships, plus a `+ Pin…`
+action that pins **any metric on the result surface** (`ChainResult.metric_records()`) via
+a small picker. Pinning an arbitrary intermediate `stage_outputs` value is deferred to
+Step B, where each per-stage center view carries a natural in-place pin affordance
+(**CU-115**). The pinned set is **session-scoped** (a list on the rail); persisting it
+across sessions via `QSettings` is Phase 9 (also CU-115). A failed / absent metric shows
+its `failure_reason` (Rule 17 carve-out), never a blank.
+
 **Edit Config (YAML) button.** A button that opens a **roomy modal editor** of the full
 config. **Apply re-parses the edited text through the framework** (`Sensor.load` on the
 text); **invalid YAML → an actionable error and the config is left unchanged** (the live
@@ -544,6 +552,13 @@ message verbatim (the shipped `WarningListDialog`). Captured warnings are also r
 so nothing is swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders
 its actionable **what / why / action** (Rule 15), and clicking opens the full message. This
 is the warning strip relocated and widened to carry errors as well as warnings.
+
+*Step-A saturation-banner placement (retrofit 2026-07-13):* the generic chain warnings
+move into this Messages panel, but the full-well **saturation banner stays in the center**
+column (§4.4, "renders at the top of the center column"). It is deliberately **not** folded
+into the Messages list — it is high-signal and non-dismissible (three scenarios lost time
+to silent clipping, Gap 65 / CU-101), so it keeps its own prominent strip rather than
+becoming one err item among many.
 
 ### 4.6 Global Inspector Tool
 

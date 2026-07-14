@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-115 — Right-rail Pinned panel: only metric-surface values are pinnable, and the pin set is not persisted
+
+**Discovered**: GUI contextual-layout retrofit Step A, 2026-07-13 (commit on branch `gui-phase1-task-a`)
+**Status**: Stage-deferred — gating on contextual-layout **Step B** (per-stage center views) for stage-output pinning, and **GUI plan Phase 9** (View/preferences) for persistence. Re-audit when Step B lands.
+**File**: `src/radiant/gui/widgets/pin_picker_dialog.py`, `src/radiant/gui/widgets/pinned_panel.py`.
+**Symptom**: The `+ Pin…` picker lists only the performance metric surface (`ChainResult.metric_records()`); an arbitrary intermediate `stage_outputs` value cannot be pinned (arch doc §4.5 says the user can pin "any stage's metric or output value"). Separately, the pinned set is a plain session-scoped list on the rail — unpinning a default or pinning an extra metric is lost when the window closes (no `QSettings` round-trip).
+**Why it still matters**: Two ratified §4.5 capabilities are only partially delivered. Stage-output pinning wants each per-stage center view (Step B) to carry an in-place pin affordance rather than growing the picker into a whole-chain variable browser; persistence wants the Phase-9 preferences/`QSettings` surface. Neither belongs in the Step-A rearrangement, but both are promised by the doc.
+**Suggested fix**: (b) stand-alone tasks — (1) Step B: add a pin affordance to each stage view's Outputs section, emitting `(stage, key, label, unit)` the Pinned panel already accepts; (2) Phase 9: persist `PinnedPanel`'s session list via `QSettings` on the same path as the theme toggle. Effort S each; category D (UX). Re-audit date: at Step B landing.
+
 ### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
 
 **Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13

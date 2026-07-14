@@ -23,12 +23,13 @@ literal.
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget
 
-from radiant.gui.metric_format import badge_display
+from radiant.gui.metric_format import NOT_AVAILABLE, badge_display, format_metric_value
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
@@ -55,6 +56,12 @@ class PinnedCard(QFrame):
         The source-stage line shown under the value (e.g. ``"performance"``).
     primary:
         Whether this is the headline metric (accent-coloured value).
+    output_ref:
+        For a **stage-output** pin, ``(stage, key, unit)`` — the card re-reads
+        ``stage_outputs[stage][key]`` on each evaluation and formats it with *unit*
+        (R-UNITS). ``None`` (the default) is a **metric** pin, read from the metric
+        surface via :func:`~radiant.gui.metric_format.badge_display` (the default-card
+        path). This is the CU-115 Step-B "pin any stage output value" capability (§4.5).
     parent:
         The owning widget, if any.
 
@@ -73,11 +80,13 @@ class PinnedCard(QFrame):
         source: str,
         *,
         primary: bool = False,
+        output_ref: tuple[str, str, str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._pin_key = pin_key
         self._source_text = source
+        self._output_ref = output_ref
         self._value_text = _AWAITING_VALUE
         self._stale = False
         self.setObjectName("pinnedCard")
@@ -141,9 +150,15 @@ class PinnedCard(QFrame):
         """Fill the card from *result*'s metric surface (unit from metadata, R-UNITS).
 
         Shows the value with its unit, a result-typed ``failure_reason``, or an
-        explicit "not computed" — never a blank. Filling clears any stale marker.
+        explicit "not computed" — never a blank. Filling clears any stale marker. A
+        stage-output pin (:attr:`_output_ref` set) re-reads its ``stage_outputs`` value;
+        a metric pin reads the metric surface.
         """
-        value_text, reason = badge_display(result, self._pin_key)
+        value_text, reason = (
+            self._output_display(result)
+            if self._output_ref is not None
+            else badge_display(result, self._pin_key)
+        )
         if reason is None:
             self._value_text = value_text
             self._source.setText(self._source_text)
@@ -153,6 +168,22 @@ class PinnedCard(QFrame):
             self._source.setText(reason)
             self._set_state("failed")
         self.set_stale(False)
+
+    def _output_display(self, result: ChainResult) -> tuple[str, str | None]:
+        """Read a pinned ``stage_outputs`` value: ``(value_text, failure_reason)``.
+
+        Reads ``stage_outputs[stage][key]`` from the public result surface and formats it
+        with the pinned unit (R-UNITS). A missing, non-numeric, or non-finite value yields
+        the honest ``n/a`` state with a reason — never a blank or a fake number (Rule 17).
+        """
+        assert self._output_ref is not None  # guarded by the caller
+        stage, key, unit = self._output_ref
+        value = result.stage_outputs.get(stage, {}).get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return NOT_AVAILABLE, "not a numeric stage output for this run"
+        if not math.isfinite(value):
+            return NOT_AVAILABLE, "unavailable (non-finite result)"
+        return format_metric_value(float(value), unit), None
 
     def set_stale(self, stale: bool) -> None:
         """Mark (or clear) the shown value as stale — appends/removes the ``→?`` marker."""

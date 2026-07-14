@@ -100,38 +100,35 @@ class TestStageStripHealth:
         assert strip.chip("geometry").status == "ok"
 
 
-class TestStageViewsMapping:
-    def test_every_chain_namespace_has_a_view(self) -> None:
-        """Every real chain stage resolves to a StageView (no unmapped stage)."""
+class TestStageCompositionMapping:
+    """The contextual per-stage composition spec (arch doc §4.4.1). Content assertions
+    live in ``test_stage_center.py``; here the mapping-integrity contract is checked."""
+
+    def test_every_chain_namespace_has_a_composition(self) -> None:
+        """Every real chain stage resolves to a StageComposition (no unmapped stage)."""
         for namespace in chain_namespace_order():
-            assert namespace in stage_views.STAGE_VIEWS
+            assert namespace in stage_views.STAGE_COMPOSITIONS
 
-    def test_plot_stages_name_real_result_plot_methods(self) -> None:
-        """Every KIND_PLOT view names an accessor that exists on the plot namespace."""
-        from radiant.api.inspect import ResultPlotNamespace
+    def test_geometry_is_the_readout_composition(self) -> None:
+        """Geometry's composite is the angle-summary readout (no result.plot figure)."""
+        comp = stage_views.composition_for("geometry")
+        assert comp is not None
+        assert comp.geometry_readout
+        assert comp.plots == ()
 
-        for view in stage_views.STAGE_VIEWS.values():
-            if view.kind == stage_views.KIND_PLOT:
-                assert view.plot_method is not None
-                assert callable(getattr(ResultPlotNamespace, view.plot_method))
-
-    def test_geometry_is_the_readout_view(self) -> None:
-        """Geometry's default is the angle-summary readout (no result.plot figure)."""
-        assert stage_views.view_for("geometry").kind == stage_views.KIND_GEOMETRY
-
-    def test_spectral_domain_stages_map_to_spectral_accessors(self) -> None:
-        """Source/Atmosphere/Spectral-Integration now render their spectral figures (Gap 86)."""
+    def test_spectral_domain_stages_carry_spectral_accessors(self) -> None:
+        """Source/Atmosphere/Spectral-Integration plot their spectral figures (Gap 86)."""
         expected = {
             "source": "spectral_source",
             "atmosphere": "spectral_atmosphere",
             "spectral_integration": "spectral_inband",
         }
         for namespace, method in expected.items():
-            view = stage_views.view_for(namespace)
-            assert view.kind == stage_views.KIND_PLOT
-            assert view.plot_method == method
+            comp = stage_views.composition_for(namespace)
+            assert comp is not None
+            assert method in {spec.method for spec in comp.plots}
 
-    def test_default_view_is_mtf(self) -> None:
-        """No stage selected → the MTF overlay (arch doc §4.4 default)."""
-        assert stage_views.view_for(None).kind == stage_views.KIND_PLOT
-        assert stage_views.view_for(None).plot_method == "mtf"
+    def test_default_stage_is_performance(self) -> None:
+        """No stage selected → the center lands on Performance (metrics + system MTF)."""
+        assert stage_views.DEFAULT_STAGE == "performance"
+        assert stage_views.composition_for(stage_views.DEFAULT_STAGE) is not None

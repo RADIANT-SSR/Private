@@ -47,7 +47,10 @@ class TestLayoutRegions:
 
         assert window.centralWidget().objectName() == "visualizationArea"
         dock_names = {d.objectName() for d in window.findChildren(QDockWidget)}
-        assert {"stageStripDock", "parameterDock", "detailDock"} <= dock_names
+        # Contextual layout: stage strip, left parameter dock, right rail — no bottom
+        # detail dock (its tabs dissolved into the per-stage center + Inspector, §4.7).
+        assert {"stageStripDock", "parameterDock", "rightRailDock"} <= dock_names
+        assert "detailDock" not in dock_names
 
     def test_chrome_content_wired_in(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The static Phase-1 chrome (strip, KPI badges, tabs) is populated."""
@@ -71,10 +74,14 @@ class TestLayoutRegions:
         ]
         assert all(c.value_text() == "—" for c in cards.values())
 
-        # Parameter dock: disabled filter, empty tree; detail dock: five tabs.
+        # Parameter dock: disabled filter, empty tree (no config loaded).
         assert not window.parameter_panel.filter_box.isEnabled()
         assert window.parameter_panel.tree.topLevelItemCount() == 0
-        assert window.detail_tabs.count() == 5
+
+        # Contextual center: the pre-evaluate placeholder is shown; the global Inspector
+        # tool is disabled until a result exists (§4.6).
+        assert window.central_canvas.stage_center.is_placeholder()
+        assert not window.action("tools.inspector").isEnabled()
 
     def test_default_window_size(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The window opens at the mockup-matched 1440×900 default."""

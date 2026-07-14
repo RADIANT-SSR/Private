@@ -1,17 +1,21 @@
-"""The Noise Budget detail tab (arch doc §4.5): per-term table, bars, and explain.
+"""The Noise Budget panel: per-term table, bars, and click-to-explain (arch doc §4.4.1).
 
-:class:`NoiseBudgetTab` shows the per-term noise table (term name + its σ in e- RMS,
-sourced from the public ``result.noise_terms`` surface), the ``result.plot.noise_budget()``
-bar chart, and a per-term explanation panel that updates when a table row is clicked.
+:class:`NoiseBudgetPanel` shows the per-term noise table (term name + its σ in e- RMS,
+from the public ``result.noise_terms`` surface), the ``result.plot.noise_budget()`` bar
+chart, and a per-term explanation panel that updates when a table row is clicked. It is
+the relocation of the old Noise Budget detail tab into the **Detector** contextual-center
+view (arch doc §4.7); the Readout view points at the same ``result.plot.noise_budget()``.
+The noise-contributions **pie** chart named in §4.4.1 is a later per-stage task — the bars
+(the shipped mark) stay here.
 
-**Explain surface (Gap 87).** Arch doc §4.5 names ``result.explain(term)`` for the
+**Explain surface (Gap 87).** Arch doc §4.4.1 names ``result.explain(term)`` for the
 per-term explanation, but no such public accessor exists on ``ChainResult``. Per ground
 rule §4.1 the GUI does not reach into stage internals or invent physics text; it shows the
 term's own stored :class:`~radiant.core.radiometry.NoiseTerm` metadata (physical basis,
-origin frame, the budgets it contributes to) — the honest, public "describe" surface —
-and the missing structured explain accessor is tracked as **Gap 87**.
+origin frame, the budgets it contributes to) — the honest, public "describe" surface — and
+the missing structured explain accessor is tracked as **Gap 87**.
 
-Pre-result the tab shows a themed "evaluate first" state; :meth:`show_result` fills it on
+Pre-result the panel shows a themed "evaluate first" state; :meth:`show_result` fills it on
 every successful evaluation. Every dimensional value carries its unit through the shared
 :func:`~radiant.gui.metric_format.format_metric_value` helper (e- RMS — R-UNITS). All
 colour/typography comes from the QSS theme (GUI plan §4.9).
@@ -65,8 +69,8 @@ def describe_noise_term(term: NoiseTerm) -> str:
     )
 
 
-class NoiseBudgetTab(QWidget):
-    """Per-term noise table + bar chart + per-term describe panel (arch doc §4.5).
+class NoiseBudgetPanel(QWidget):
+    """Per-term noise table + bar chart + per-term describe panel (arch doc §4.4.1).
 
     Parameters
     ----------
@@ -76,7 +80,7 @@ class NoiseBudgetTab(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setObjectName("noiseBudgetTab")
+        self.setObjectName("noiseBudgetPanel")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -91,7 +95,7 @@ class NoiseBudgetTab(QWidget):
 
         self._content = QWidget(self)
         content_layout = QHBoxLayout(self._content)
-        content_layout.setContentsMargins(10, 8, 10, 10)
+        content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(10)
 
         # Left column: table over the per-term describe panel.
@@ -191,3 +195,6 @@ def _plot_noise_budget(result: ChainResult):  # type: ignore[no-untyped-def]
     from radiant.api.inspect import ResultPlotNamespace
 
     return ResultPlotNamespace(result).noise_budget()
+
+
+__all__ = ["NoiseBudgetPanel", "describe_noise_term"]

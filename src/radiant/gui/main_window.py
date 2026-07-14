@@ -1,19 +1,20 @@
 """The RADIANT main application window.
 
 :class:`RADIANTMainWindow` lays out the top-level chrome described in
-``RADIANT_GUI_Architecture.md`` §4: the menu bar (§10), the 9-stage geometry-first
-signal-chain strip (§4.2), the dockable parameter and detail panels (§4.3, §4.5),
-the central visualization area (§4.4), and the status bar.
+``RADIANT_GUI_Architecture.md`` §4 (contextual per-stage workspace, owner-ratified
+2026-07-13): the menu bar (§10) with the global **Inspector** tool (§4.6), the 9-stage
+geometry-first signal-chain strip (§4.2, the single primary navigation), the permanent
+left parameter dock (§4.3), the central per-stage contextual view (§4.4), the persistent
+right rail (Pinned / Edit Config / Messages, §4.5), and the status bar.
 
-In GUI plan Phase 1 this is the shell chrome filled with *static, behaviour-free*
-content: the signal-chain strip carries 9 stage chips with stale health dots, the
-KPI row shows the five metric badges awaiting evaluation, the parameter dock has a
-disabled filter box over an empty tree, the central canvas has the plot placeholder,
-and the detail dock has the five tabs with empty pages. The menus are fully populated
-but every not-yet-implemented action is disabled. Later phases wire behaviour in
-(parameter tree — Phase 2; evaluate loop + canvas — Phase 3; stage strip + detail
-tabs — Phase 4). Styling comes entirely from the design-system QSS theme in
-:mod:`radiant.gui.themes`; this module sets structure and object names only.
+The signal-chain strip carries 9 stage chips with live health dots; clicking a stage
+navigates the left tree and swaps the center to **that stage's contextual composite**
+(its outputs, plot(s), and relocated detail content, §4.4). The full ``result.inspect()``
+variable dump is the global Inspector tool (§4.6), not a docked panel. The bottom detail
+tabs of the earlier layout are dissolved into the per-stage center and the Inspector
+(§4.7); nothing is discarded, only relocated. Styling comes entirely from the
+design-system QSS theme in :mod:`radiant.gui.themes`; this module sets structure and
+object names only.
 """
 
 from __future__ import annotations
@@ -27,13 +28,14 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QProgressBar,
+    QPushButton,
     QWidget,
 )
 
 from radiant.core.exceptions import RadiantError
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
-from radiant.gui.widgets.detail_tabs import DetailTabs
+from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
 from radiant.gui.widgets.stage_strip import StageStrip
@@ -57,7 +59,6 @@ _DEBOUNCE_MS: int = 200
 _DEFAULT_WIDTH: int = 1440
 _DEFAULT_HEIGHT: int = 900
 _PARAM_DOCK_WIDTH: int = 360
-_DETAIL_DOCK_HEIGHT: int = 260
 _RAIL_DOCK_WIDTH: int = 288
 
 
@@ -142,15 +143,6 @@ class RADIANTMainWindow(QMainWindow):
     def parameter_panel(self) -> ParameterPanel:
         """The parameter dock body: filter box + schema-driven tree (Phase 2 Task A)."""
         return self._parameter_panel
-
-    @property
-    def detail_tabs(self) -> DetailTabs:
-        """The bottom detail dock's five-tab panel (live from Phase 4 Task B).
-
-        Retained pending contextual-layout Step B (the tabs dissolve into per-stage
-        center views + the global Inspector). Step A leaves them in place.
-        """
-        return self._detail_tabs
 
     @property
     def right_rail(self) -> RightRail:
@@ -253,9 +245,6 @@ class RADIANTMainWindow(QMainWindow):
             enabled=False,
             shortcut="F6",
         )
-        self._add_action(
-            view_menu, "view.toggle_detail", "Show/Hide Detail Panel", enabled=False, shortcut="F7"
-        )
         self._add_action(view_menu, "view.theme", "Dark/Light Theme", enabled=False)
         self._add_action(view_menu, "view.font_larger", "Font Size +", enabled=False)
         self._add_action(view_menu, "view.font_smaller", "Font Size −", enabled=False)
@@ -271,6 +260,13 @@ class RADIANTMainWindow(QMainWindow):
         self._add_action(run_menu, "run.batch", "Batch Run…", enabled=False)
 
         tools_menu = bar.addMenu("&Tools")
+        # The global Inspector (arch doc §4.6) — the full result.inspect() variable dump.
+        # Disabled until the first result exists (nothing to dump); enabled in _on_eval_ok.
+        inspector_action = self._add_action(
+            tools_menu, "tools.inspector", "Inspector", enabled=False, shortcut="Ctrl+I"
+        )
+        inspector_action.triggered.connect(self._open_inspector)
+        tools_menu.addSeparator()
         self._add_action(tools_menu, "tools.console", "Python Console", enabled=False)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
@@ -280,6 +276,17 @@ class RADIANTMainWindow(QMainWindow):
         self._add_action(help_menu, "help.docs", "Documentation", enabled=False)
         self._add_action(help_menu, "help.examples", "Example Configs", enabled=False)
         self._add_action(help_menu, "help.about", "About RADIANT", enabled=False)
+
+        # The wireframe's right-aligned "◈ Inspector" menu-bar affordance: a corner button
+        # that triggers the same Tools → Inspector action (§4.1 menu bar). It shares the
+        # action's enabled state, so it greys out pre-evaluate too.
+        inspector_button = QPushButton("◈ Inspector", bar)
+        inspector_button.setObjectName("inspectorMenuButton")
+        inspector_button.setFlat(True)
+        inspector_button.setEnabled(False)
+        inspector_button.clicked.connect(self._open_inspector)
+        bar.setCornerWidget(inspector_button, Qt.Corner.TopRightCorner)
+        self._inspector_button = inspector_button
 
     def _build_stage_strip(self) -> None:
         """The clickable 9-stage signal-chain strip with live health dots (Phase 4).
@@ -313,11 +320,12 @@ class RADIANTMainWindow(QMainWindow):
         self._central = central
 
     def _build_dock_panels(self) -> None:
-        """Parameter (left) and detail (bottom) dock panels with static content.
+        """Parameter (left) dock and the persistent right rail (§4.3, §4.5).
 
-        The parameter dock holds the disabled filter box + empty tree
-        (:class:`ParameterPanel`, Phase 2 fills it); the detail dock holds the
-        five-tab detail panel (:class:`DetailTabs`, Phase 4 fills the pages).
+        The parameter dock holds the searchable schema-driven tree
+        (:class:`ParameterPanel`); the right rail holds the Pinned cards, the Edit Config
+        (YAML) button, and the Messages panel. The bottom detail dock of the earlier layout
+        is gone — its tabs dissolved into the per-stage center and the Inspector (§4.7).
         """
         param_panel = ParameterPanel(self)
         # Populate the editable tree from the live sensor (GUI plan Phase 2);
@@ -334,14 +342,6 @@ class RADIANTMainWindow(QMainWindow):
         self._parameter_dock = param_dock
         self._parameter_panel = param_panel
 
-        detail_tabs = DetailTabs(self)
-        detail_dock = QDockWidget("Detail", self)
-        detail_dock.setObjectName("detailDock")
-        detail_dock.setWidget(detail_tabs)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, detail_dock)
-        self._detail_dock = detail_dock
-        self._detail_tabs = detail_tabs
-
         # Right rail (arch doc §4.5): a persistent, full-height right column carrying
         # the Pinned metric cards, the Edit Config (YAML) button, and the Messages
         # panel. The rail owns no sensor, so its Edit Config click is surfaced and the
@@ -356,6 +356,13 @@ class RADIANTMainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, rail_dock)
         self._right_rail_dock = rail_dock
         self._right_rail = right_rail
+
+        # Pin affordances on the per-stage center's Outputs / Metrics rows route into the
+        # rail's Pinned panel (arch doc §4.5, CU-115 Step-B): a stage-output value re-reads
+        # from stage_outputs on each run; a metric pins from the metric surface.
+        stage_center = self._central.stage_center
+        stage_center.pinOutputRequested.connect(right_rail.pinned.pin_stage_output)
+        stage_center.pinMetricRequested.connect(right_rail.pinned.pin)
 
     def _on_parameter_edited(self, dotpath: str) -> None:
         """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
@@ -407,7 +414,7 @@ class RADIANTMainWindow(QMainWindow):
         self.statusBar().showMessage(message)
 
     def _apply_dock_proportions(self) -> None:
-        """Size the docks to the mockup's balance (~300 px params, ~260 px detail).
+        """Size the left parameter dock and the right rail to the mockup's balance.
 
         ``resizeDocks`` gives an initial split; the user can re-drag afterwards.
         """
@@ -416,7 +423,6 @@ class RADIANTMainWindow(QMainWindow):
             [_PARAM_DOCK_WIDTH, _RAIL_DOCK_WIDTH],
             Qt.Orientation.Horizontal,
         )
-        self.resizeDocks([self._detail_dock], [_DETAIL_DOCK_HEIGHT], Qt.Orientation.Vertical)
 
     # -- evaluate loop (GUI plan Phase 3) ----------------------------------
 
@@ -513,14 +519,10 @@ class RADIANTMainWindow(QMainWindow):
             UnexpectedErrorDialog(exc, "Rendering the evaluation result", self).exec()
             self.statusBar().showMessage("Evaluation succeeded, but the plot could not render")
             return
-        # Refresh the bottom detail tabs (Spectral / MTF / Noise / Variables / YAML) from
-        # the same result and the live sensor (GUI plan Phase 4 Task B). Kept in its own
-        # try/except so a detail-tab render failure surfaces but does not blank the badges
-        # or the central plot already shown above (Rules 15/17).
-        try:
-            self._detail_tabs.show_result(result, self._sensor)
-        except Exception as exc:  # rendering the API's own surface — surface, never swallow
-            UnexpectedErrorDialog(exc, "Populating the detail tabs", self).exec()
+        # A result now exists: enable the global Inspector tool (§4.6). It opens against
+        # the most recent result, so it stays enabled once armed.
+        self.action("tools.inspector").setEnabled(True)
+        self._inspector_button.setEnabled(True)
         self.statusBar().showMessage(self._evaluated_message(result))
 
     def _on_eval_failed(self, exc: BaseException) -> None:
@@ -564,6 +566,24 @@ class RADIANTMainWindow(QMainWindow):
         self._busy.setVisible(busy)
         if busy:
             self.statusBar().showMessage("Evaluating…")
+
+    # -- Global Inspector tool (arch doc §4.6) -----------------------------
+
+    def open_inspector(self) -> InspectorDialog | None:
+        """Build the Inspector dialog against the most recent result (``None`` if none).
+
+        Returned (not exec'd) so tests can inspect the populated tree without blocking on
+        a modal loop; the menu/toolbar handler shows it non-modally.
+        """
+        if self._last_result is None:
+            return None
+        return InspectorDialog(self._last_result, self)
+
+    def _open_inspector(self) -> None:
+        """Handle the Tools → Inspector action / corner button: show the dump non-modally."""
+        dialog = self.open_inspector()
+        if dialog is not None:
+            dialog.show()
 
     # -- Edit Config (YAML) modal (arch doc §4.5) --------------------------
 

@@ -2,10 +2,14 @@
 
 These drive the real main window on the shipped example config, offscreen: clicking
 each of the nine stage chips scrolls the parameter panel to that stage's namespace and
-swaps the central canvas to the stage's default visualization (a matplotlib figure or the
-geometry angle readout). They also assert the health-dot life cycle:
+swaps the center to that stage's contextual composite (arch doc §4.4). They also assert
+the health-dot life cycle:
 stale (pre-evaluate) → yellow (a warning run — the example's NIIRS extrapolation) →
 green (a clean run) → red (a failed evaluation), and edit → back to stale.
+
+The per-stage *composite content* (which plots/tables each stage shows) is covered in
+``test_stage_center.py``; here the focus is the navigation contract — the left tree and
+the selected-stage state track every chip click.
 """
 
 from __future__ import annotations
@@ -21,21 +25,6 @@ _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.
 _APERTURE = "optics.aperture_diameter_m"
 _WAIT_MS = 15000
 
-# Which plot-area pane each stage's default visualization lands on (arch doc §4.4):
-# geometry → the angle readout; every other stage → a real ``result.plot.*`` figure on
-# the matplotlib canvas (the spectral-domain stages now render their Gap-86 accessors).
-_GEOMETRY_STAGES = ("geometry",)
-_PLOT_STAGES = (
-    "source",
-    "atmosphere",
-    "optics",
-    "platform",
-    "spectral_integration",
-    "detector",
-    "readout",
-    "performance",
-)
-
 
 def _load_window(qtbot):  # type: ignore[no-untyped-def]
     """Build a window on the example config and wait for its auto-evaluation."""
@@ -47,10 +36,10 @@ def _load_window(qtbot):  # type: ignore[no-untyped-def]
 
 
 class TestStageNavigation:
-    def test_click_each_chip_navigates_panel_and_canvas(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Clicking every chip scrolls the panel to its namespace and swaps the canvas."""
+    def test_click_each_chip_navigates_panel_and_center(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Clicking every chip scrolls the panel to its namespace and swaps the center."""
         window = _load_window(qtbot)
-        canvas = window.central_canvas
+        center = window.central_canvas.stage_center
         panel = window.parameter_panel
 
         for namespace in STAGE_NAMESPACES:
@@ -66,22 +55,17 @@ class TestStageNavigation:
             assert current.text(0) == namespace
             assert current.isExpanded()
 
-            # (c) canvas swapped to the stage's default visualization pane.
-            assert canvas.selected_stage == namespace
-            if namespace in _GEOMETRY_STAGES:
-                assert canvas.active_pane is canvas.geometry_readout
-            else:
-                assert namespace in _PLOT_STAGES
-                assert canvas.active_pane is canvas.matplotlib_canvas
-                assert canvas.matplotlib_canvas.has_figure()
+            # (c) the center swapped to the stage's contextual composite.
+            assert center.selected_stage == namespace
+            assert center.active_pane() is center.pane(namespace)
 
     def test_geometry_readout_shows_angles_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Geometry pane renders derived stage-output angles/ranges with units."""
+        """The Geometry composite renders derived stage-output angles/ranges with units."""
         window = _load_window(qtbot)
-        canvas = window.central_canvas
         window.stage_strip.stageClicked.emit("geometry")
 
-        readout = canvas.geometry_readout
+        readout = window.central_canvas.stage_center.pane("geometry").geometry_readout
+        assert readout is not None
         keys = readout.rendered_keys()
         # A representative angle and a representative range are present, with units.
         assert "theta_s_rad" in keys
@@ -92,12 +76,12 @@ class TestStageNavigation:
         assert "los_geometry" not in keys
 
     def test_spectral_stage_renders_a_real_figure(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A spectral-domain stage now renders its Gap-86 accessor figure, not a gap panel."""
+        """A spectral-domain stage renders its Gap-86 accessor figure in the composite."""
         window = _load_window(qtbot)
-        canvas = window.central_canvas
         window.stage_strip.stageClicked.emit("source")
-        assert canvas.active_pane is canvas.matplotlib_canvas
-        assert canvas.matplotlib_canvas.has_figure()
+        pane = window.central_canvas.stage_center.pane("source")
+        assert pane.plot_canvases
+        assert all(c.has_figure() for c in pane.plot_canvases)
 
 
 class TestHealthDotTransitions:

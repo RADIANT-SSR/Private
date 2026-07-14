@@ -1,17 +1,19 @@
-"""The MTF detail tab (arch doc §4.5): per-term MTF@Nyquist table + overlay figure.
+"""The MTF panel: per-term MTF@Nyquist table + overlay figure (arch doc §4.4.1).
 
-:class:`MtfTab` shows, side by side, the per-contributor MTF-at-Nyquist table and the
-``result.plot.mtf()`` overlay of every MTF term. The table terms are **discovered** from
-the result's own MTF surface — ``stage_outputs["performance"]["mtf_budget"]``'s
-``per_term_at_nyquist`` (a :class:`~radiant.performance.mtf_budget.MTFBudgetResult`) — so
-no term name is hardcoded; the x/y-suffixed keys are grouped into their base contributor
-with an x- and a y-axis column. MTF is dimensionless, so cells render as bare numbers
-through the shared :func:`~radiant.gui.metric_format.format_metric_value` helper
-(a dimensionless unit shows no suffix — R-UNITS still honoured, the value simply carries
-no dimension).
+:class:`MtfPanel` shows, side by side, the per-contributor MTF-at-Nyquist table and the
+``result.plot.mtf()`` overlay of every MTF term. It is the relocation of the old MTF
+detail tab into the **Optics** contextual-center view (arch doc §4.7); the Platform and
+Performance views reach the same MTF terms through the Performance overlay. The table
+terms are **discovered** from the result's own MTF surface —
+``stage_outputs["performance"]["mtf_budget"]``'s ``per_term_at_nyquist`` (a
+:class:`~radiant.performance.mtf_budget.MTFBudgetResult`) — so no term name is hardcoded;
+the x/y-suffixed keys are grouped into their base contributor with an x- and a y-axis
+column. MTF is dimensionless, so cells render as bare numbers through the shared
+:func:`~radiant.gui.metric_format.format_metric_value` helper (a dimensionless unit shows
+no suffix — R-UNITS still honoured, the value simply carries no dimension).
 
-Pre-result the tab shows a themed "evaluate first" state; :meth:`show_result` fills it on
-every successful evaluation. All colour/typography comes from the QSS theme (GUI plan §4.9).
+Pre-result the panel shows a themed "evaluate first" state; :meth:`show_result` fills it
+on every successful evaluation. All colour/typography comes from the QSS theme (§4.9).
 """
 
 from __future__ import annotations
@@ -47,8 +49,8 @@ def _bases(per_term_at_nyquist: dict[str, float]) -> list[str]:
     return sorted({n[:-2] for n in per_term_at_nyquist if n.endswith(("_x", "_y"))})
 
 
-class MtfTab(QWidget):
-    """Per-term MTF@Nyquist table + ``result.plot.mtf()`` overlay (arch doc §4.5).
+class MtfPanel(QWidget):
+    """Per-term MTF@Nyquist table + ``result.plot.mtf()`` overlay (arch doc §4.4.1).
 
     Parameters
     ----------
@@ -58,7 +60,7 @@ class MtfTab(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setObjectName("mtfTab")
+        self.setObjectName("mtfPanel")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -73,7 +75,7 @@ class MtfTab(QWidget):
 
         self._content = QWidget(self)
         content_layout = QHBoxLayout(self._content)
-        content_layout.setContentsMargins(10, 8, 10, 10)
+        content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(10)
 
         self._table = QTableWidget(0, len(_HEADERS), self._content)
@@ -82,9 +84,7 @@ class MtfTab(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self._table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch
-        )
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
 
         self._canvas = MatplotlibCanvas(self._content)
 
@@ -147,3 +147,6 @@ def _plot_mtf(result: ChainResult):  # type: ignore[no-untyped-def]
     from radiant.api.inspect import ResultPlotNamespace
 
     return ResultPlotNamespace(result).mtf()
+
+
+__all__ = ["MtfPanel"]

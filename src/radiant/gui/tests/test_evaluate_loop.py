@@ -58,8 +58,12 @@ class TestEvaluateRoundTrip:
         # Dimensionless / rating-scale metrics render as a bare number.
         assert cards["snr"].value_text().replace(".", "").isdigit()
 
-        # The canvas swapped from the placeholder to the real figure.
-        assert window.central_canvas.matplotlib_canvas.has_figure()
+        # The center swapped from the placeholder to the default stage's composite,
+        # whose plot section rendered a real figure.
+        center = window.central_canvas.stage_center
+        assert not center.is_placeholder()
+        default_pane = center.pane(center.selected_stage)
+        assert any(c.has_figure() for c in default_pane.plot_canvases)
 
     def test_edit_reevaluates_and_moves_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Editing the aperture re-runs the chain and changes SNR (the D2 click)."""

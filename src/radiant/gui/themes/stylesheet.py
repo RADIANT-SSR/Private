@@ -148,7 +148,7 @@ QDockWidget > QWidget {{
 #visualizationArea {{
     background-color: {t.panel};
 }}
-#parameterDock QWidget, #detailDock QWidget {{
+#parameterDock QWidget {{
     background-color: {t.panel};
 }}
 
@@ -812,14 +812,50 @@ QTabBar::tab:hover:!selected {{
     background-color: {t.panel_3};
 }}
 
-/* -- Detail tabs (§4.5) — Spectral / MTF / Noise / Variables / YAML ---- *
- * Each tab's tables, trees, combos, and text views inherit the generic
+/* -- Contextual per-stage center (§4.4) — relocated detail content ----- *
+ * The center composite's tables, trees, and text views inherit the generic
  * QTableView / QTreeView / QComboBox / QTextEdit rules above; these object-name
- * rules add only the per-tab accents. No colour/font literal — tokens only. */
-QLabel#spectralSelectorLabel {{
+ * rules add the section headers, plot titles, notes, and the Outputs readout with
+ * its pin affordance. No colour/font literal — tokens only. */
+QLabel#stageCenterTitle {{
+    color: {t.ink};
+    font-size: 17px;
+    font-weight: 600;
+}}
+QLabel#stageSectionHeader, QLabel#stagePlotTitle {{
     color: {t.muted};
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
+}}
+QLabel#stageNote {{
+    color: {t.muted};
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: 8px 10px;
+    font-size: 12px;
+}}
+QLabel#stagePlotMessage {{
+    color: {t.muted};
+    font-size: 12px;
+}}
+QLabel#outputsRowLabel {{
+    color: {t.ink_2};
+    font-size: 12px;
+}}
+QLabel#outputsRowValue {{
+    color: {t.ink};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QToolButton#outputsPinButton {{
+    border: none;
+    background: transparent;
+    padding: 0 2px;
+}}
+QToolButton#outputsPinButton:hover {{
+    background-color: {t.panel_3};
+    border-radius: {tokens.RADIUS_CHIP};
 }}
 QPlainTextEdit#noiseExplain {{
     background-color: {t.panel_2};
@@ -827,11 +863,17 @@ QPlainTextEdit#noiseExplain {{
     font-family: {tokens.FONT_MONO};
     font-size: 12px;
 }}
-QTextEdit#yamlView {{
-    background-color: {t.panel_2};
-    color: {t.ink};
-    font-family: {tokens.FONT_MONO};
+QLabel#inspectorHeader {{
+    color: {t.muted};
     font-size: 12px;
+}}
+QPushButton#inspectorMenuButton {{
+    color: {t.accent};
+    font-weight: 600;
+    padding: 2px 10px;
+}}
+QPushButton#inspectorMenuButton:disabled {{
+    color: {t.muted};
 }}
 QTreeWidget#variableTree {{
     font-family: {tokens.FONT_MONO};

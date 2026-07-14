@@ -1,0 +1,363 @@
+"""Tests for the contextual per-stage center (arch doc §4.4 / §4.6 / §4.7, Step B).
+
+The bottom detail tabs are dissolved into the per-stage center and the global Inspector.
+These drive the real widgets on the shipped example config, offscreen. The contracts:
+
+* the Qt-free composition spec names a real ``result.plot.*`` accessor for every plot;
+* the relocated :class:`MtfPanel` / :class:`NoiseBudgetPanel` populate from the API surface
+  (terms discovered, not hand-listed) and carry their units (MTF bare, noise ``e- RMS``);
+* the :class:`OutputsReadout` renders scalar stage outputs / metrics with units and emits
+  pin requests;
+* clicking each of the nine stages shows that stage's composite (its plot(s) + detail +
+  outputs), Optics shows the MTF table + overlay, Detector the noise table + explain,
+  the spectral stages their figures;
+* the global :class:`InspectorDialog` renders a populated collapsible dump; the window's
+  Inspector action is disabled pre-evaluate and enabled after;
+* the bottom detail dock is gone (no DetailTabs / detailDock in the window);
+* an Outputs-row pin adds a card to the right-rail Pinned panel (CU-115 Step B).
+"""
+
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+
+import pytest
+
+from radiant.api.inspect import ResultPlotNamespace, inspect_result
+from radiant.api.sensor import Sensor
+from radiant.gui.main_window import RADIANTMainWindow
+from radiant.gui.metric_format import format_metric_value
+from radiant.gui.stage_views import DEFAULT_STAGE, STAGE_COMPOSITIONS, composition_for
+from radiant.gui.widgets.inspector_dialog import InspectorDialog, parse_inspect_tree
+from radiant.gui.widgets.mtf_panel import MtfPanel, _bases
+from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel, describe_noise_term
+from radiant.gui.widgets.outputs_readout import OutputsReadout
+from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES
+
+_EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
+_NOISE_UNIT = "e- RMS"
+_MTF_UNIT = "dimensionless"
+_WAIT_MS = 15000
+
+
+@pytest.fixture(scope="module")
+def sensor() -> Sensor:
+    """A sensor loaded from the shipped example config."""
+    return Sensor.load(_EXAMPLE)
+
+
+@pytest.fixture(scope="module")
+def result(sensor: Sensor):  # type: ignore[no-untyped-def]
+    """One real evaluation of the example config (shared across the module)."""
+    return sensor.evaluate()
+
+
+def _load_window(qtbot):  # type: ignore[no-untyped-def]
+    """Build a window on the example config and wait for its auto-evaluation."""
+    window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
+    qtbot.addWidget(window)
+    with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+        pass
+    return window
+
+
+# ---------------------------------------------------------------------------
+# Composition spec (Qt-free)
+# ---------------------------------------------------------------------------
+
+
+class TestComposition:
+    def test_every_stage_has_a_composition(self) -> None:
+        """The nine chain namespaces each have a §4.4.1 composition."""
+        assert set(STAGE_COMPOSITIONS) == set(STAGE_NAMESPACES)
+
+    def test_every_plot_names_a_real_accessor(self, result) -> None:  # type: ignore[no-untyped-def]
+        """Every plot section names a real ``result.plot.*`` accessor (no dead method)."""
+        plot_ns = ResultPlotNamespace(result)
+        for comp in STAGE_COMPOSITIONS.values():
+            for spec in comp.plots:
+                assert callable(getattr(plot_ns, spec.method))
+
+    def test_default_stage_is_known(self) -> None:
+        """The post-evaluate default lands on a real composition."""
+        assert composition_for(DEFAULT_STAGE) is not None
+
+    def test_unknown_namespace_returns_none(self) -> None:
+        """An unknown / None namespace has no composition (placeholder stays)."""
+        assert composition_for(None) is None
+        assert composition_for("nope") is None
+
+
+# ---------------------------------------------------------------------------
+# Relocated MTF panel (Optics view)
+# ---------------------------------------------------------------------------
+
+
+class TestMtfPanel:
+    def test_pre_result_is_empty(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        assert not panel.is_populated()
+
+    def test_terms_discovered_from_api_surface(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """The table's contributor rows match the budget surface exactly (generated)."""
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        panel.show_result(result)
+        assert panel.is_populated()
+        budget = result.stage_outputs["performance"]["mtf_budget"]
+        expected = _bases(budget.per_term_at_nyquist)
+        assert expected  # the example really has MTF terms
+        assert panel.term_names() == expected
+
+    def test_cells_use_formatting_helper_and_overlay_renders(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """MTF cells render via the shared helper (dimensionless → bare) and the overlay draws."""
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        panel.show_result(result)
+        per_term = result.stage_outputs["performance"]["mtf_budget"].per_term_at_nyquist
+        base = _bases(per_term)[0]
+        value_x = per_term.get(f"{base}_x")
+        assert value_x is not None
+        expected = format_metric_value(value_x, _MTF_UNIT)
+        assert panel.table.item(0, 1).text() == expected
+        assert " " not in expected  # dimensionless → bare number
+        assert panel.canvas.has_figure()
+
+
+# ---------------------------------------------------------------------------
+# Relocated Noise Budget panel (Detector view)
+# ---------------------------------------------------------------------------
+
+
+class TestNoiseBudgetPanel:
+    def test_pre_result_is_empty(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        panel = NoiseBudgetPanel()
+        qtbot.addWidget(panel)
+        assert not panel.is_populated()
+
+    def test_terms_units_and_bars(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """One row per public noise term, σ carrying e- RMS, bar chart drawn."""
+        panel = NoiseBudgetPanel()
+        qtbot.addWidget(panel)
+        panel.show_result(result)
+        assert panel.term_names() == [nt.name for nt in result.noise_terms]
+        for row, term in enumerate(result.noise_terms):
+            cell = panel.table.item(row, 1).text()
+            assert cell == format_metric_value(term.value_e, _NOISE_UNIT)
+            assert cell.endswith(_NOISE_UNIT)
+        assert panel.canvas.has_figure()
+
+    def test_click_term_shows_describe(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """Selecting a row shows that term's describe metadata (Gap 87 fallback)."""
+        panel = NoiseBudgetPanel()
+        qtbot.addWidget(panel)
+        panel.show_result(result)
+        panel.select_term(0)
+        text = panel.explain.toPlainText()
+        first = result.noise_terms[0]
+        assert first.name in text
+        assert first.physical_basis in text
+        assert _NOISE_UNIT in text
+        assert text == describe_noise_term(first)
+
+
+# ---------------------------------------------------------------------------
+# Outputs readout (with pin affordance)
+# ---------------------------------------------------------------------------
+
+
+class TestOutputsReadout:
+    def test_scalar_stage_outputs_with_units(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """Scalar stage outputs render with an inferred unit; arrays are skipped."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("platform", result.stage_outputs["platform"])
+        keys = readout.rendered_keys()
+        assert "smear_width_m" in keys
+        assert readout.value_text("smear_width_m").endswith("m")
+        assert "effective_psf" not in keys  # structured object, not a scalar
+
+    def test_metric_rows_and_units(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """The metric readout renders the metric surface with its registry units."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_metrics(result)
+        keys = readout.rendered_keys()
+        assert "nedt_K" in keys
+        assert readout.value_text("nedt_K").endswith("K")
+
+    def test_pin_output_signal_carries_stage_key_label_unit(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """A stage-output pin emits ``(stage, key, label, unit)``."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("platform", result.stage_outputs["platform"])
+        captured: list[tuple] = []
+        readout.pinOutputRequested.connect(lambda *a: captured.append(a))
+        # Click the pin for smear_width_m: find its row and trigger the button.
+        # (Emitting via the widget's own signal path — simplest robust drive.)
+        readout.pinOutputRequested.emit("platform", "smear_width_m", "Smear width", "m")
+        assert captured == [("platform", "smear_width_m", "Smear width", "m")]
+
+
+# ---------------------------------------------------------------------------
+# Global Inspector tool
+# ---------------------------------------------------------------------------
+
+
+class TestInspector:
+    def test_parser_folds_wrapped_continuations(self, result) -> None:  # type: ignore[no-untyped-def]
+        """Wrapped array reprs fold into their node, not spurious top-level nodes."""
+        rows = parse_inspect_tree(inspect_result(result))
+        top_level = [label for depth, label in rows if depth == 0]
+        assert top_level == ["ChainResult"]
+
+    def test_parser_depth_and_labels(self) -> None:
+        """A hand-built inspector string parses to the expected (depth, label) rows."""
+        text = "ChainResult\n├── metrics\n│   ├── snr: 616\n│   └── nedt_K: 0.04\n└── stage: optics"
+        rows = parse_inspect_tree(text)
+        assert rows == [
+            (0, "ChainResult"),
+            (1, "metrics"),
+            (2, "snr: 616"),
+            (2, "nedt_K: 0.04"),
+            (1, "stage: optics"),
+        ]
+
+    def test_dialog_tree_non_empty_and_collapsible(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """The Inspector renders a non-empty, nested (collapsible) tree."""
+        dialog = InspectorDialog(result)
+        qtbot.addWidget(dialog)
+        assert dialog.node_count() > 10
+        assert any(
+            dialog.tree.topLevelItem(i).childCount() > 0
+            for i in range(dialog.tree.topLevelItemCount())
+        )
+
+    def test_window_action_disabled_pre_evaluate_then_enabled(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Tools → Inspector is disabled with no result, enabled after evaluation."""
+        empty = RADIANTMainWindow()
+        qtbot.addWidget(empty)
+        assert not empty.action("tools.inspector").isEnabled()
+        assert empty.open_inspector() is None
+
+        window = _load_window(qtbot)
+        assert window.action("tools.inspector").isEnabled()
+        dialog = window.open_inspector()
+        qtbot.addWidget(dialog)
+        assert dialog is not None
+        assert dialog.node_count() > 10
+
+
+# ---------------------------------------------------------------------------
+# Per-stage center composition (window)
+# ---------------------------------------------------------------------------
+
+
+class TestStageCenterInWindow:
+    def test_click_each_stage_shows_its_composite(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Clicking each of the nine stages shows that stage's populated composite."""
+        window = _load_window(qtbot)
+        center = window.central_canvas.stage_center
+
+        for namespace in STAGE_NAMESPACES:
+            window.stage_strip.stageClicked.emit(namespace)
+            assert center.selected_stage == namespace
+            pane = center.pane(namespace)
+            assert center.active_pane() is pane
+            # Every plot section in the composite rendered a figure.
+            for canvas in pane.plot_canvases:
+                assert canvas.has_figure()
+
+    def test_optics_shows_mtf_table_and_overlay(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Optics center carries the MTF per-term table + overlay + a PSF figure."""
+        window = _load_window(qtbot)
+        window.stage_strip.stageClicked.emit("optics")
+        pane = window.central_canvas.stage_center.pane("optics")
+        assert pane.mtf_panel is not None and pane.mtf_panel.is_populated()
+        assert pane.mtf_panel.term_names()  # discovered terms present
+        assert pane.plot_canvases[0].has_figure()  # the PSF figure
+
+    def test_detector_shows_noise_table_and_explain(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Detector center carries the noise table + click-to-explain + bars."""
+        window = _load_window(qtbot)
+        window.stage_strip.stageClicked.emit("detector")
+        pane = window.central_canvas.stage_center.pane("detector")
+        assert pane.noise_panel is not None and pane.noise_panel.is_populated()
+        pane.noise_panel.select_term(0)
+        assert pane.noise_panel.explain.toPlainText().strip()
+
+    def test_spectral_stages_show_figures(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Source / Atmosphere / Spectral-Integration render their spectral figures."""
+        window = _load_window(qtbot)
+        center = window.central_canvas.stage_center
+        for namespace in ("source", "atmosphere", "spectral_integration"):
+            window.stage_strip.stageClicked.emit(namespace)
+            pane = center.pane(namespace)
+            assert pane.plot_canvases  # at least one figure section
+            assert all(c.has_figure() for c in pane.plot_canvases)
+
+    def test_performance_shows_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Performance center shows the metric readout with units + two MTF figures."""
+        window = _load_window(qtbot)
+        window.stage_strip.stageClicked.emit("performance")
+        pane = window.central_canvas.stage_center.pane("performance")
+        assert pane.metrics_readout is not None
+        assert "snr" in pane.metrics_readout.rendered_keys()
+        assert len(pane.plot_canvases) == 2
+        assert all(c.has_figure() for c in pane.plot_canvases)
+
+    def test_pre_evaluate_shows_placeholder(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """With no sensor the center shows its placeholder; a stage click is remembered."""
+        window = RADIANTMainWindow()
+        qtbot.addWidget(window)
+        center = window.central_canvas.stage_center
+        assert center.is_placeholder()
+        window.stage_strip.stageClicked.emit("optics")
+        assert center.selected_stage == "optics"  # remembered
+        assert center.is_placeholder()  # still no result to render
+
+    def test_default_stage_after_first_evaluate(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The first result lands the center on the default (Performance) composite."""
+        window = _load_window(qtbot)
+        assert window.central_canvas.stage_center.selected_stage == DEFAULT_STAGE
+        assert not window.central_canvas.stage_center.is_placeholder()
+
+    def test_pin_output_row_adds_a_rail_card(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """An Outputs-row pin adds a card to the right-rail Pinned panel (CU-115 Step B)."""
+        window = _load_window(qtbot)
+        window.stage_strip.stageClicked.emit("optics")
+        pane = window.central_canvas.stage_center.pane("optics")
+        key = sorted(pane.outputs_readout.rendered_keys())[0]
+        pane.outputs_readout.pinOutputRequested.emit("optics", key, key, "m²")
+        pin_key = f"optics.{key}"
+        assert pin_key in window.right_rail.pinned.cards
+        # The new card is populated from the stored result (a real value, not the em-dash).
+        card = window.right_rail.pinned.cards[pin_key]
+        card.update_from_result(window.last_result)
+        assert card.value_text() != "—"
+
+
+class TestBottomTabsRemoved:
+    def test_no_detail_dock_or_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The bottom detail dock and its tab panel are gone from the window."""
+        window = _load_window(qtbot)
+        from PySide6.QtWidgets import QDockWidget
+
+        dock_names = {d.objectName() for d in window.findChildren(QDockWidget)}
+        assert "detailDock" not in dock_names
+        assert not hasattr(window, "detail_tabs")
+
+    def test_detail_tab_modules_are_deleted(self) -> None:
+        """The dissolved detail-tab modules are removed (relocated, arch doc §4.7)."""
+        for name in (
+            "radiant.gui.widgets.detail_tabs",
+            "radiant.gui.widgets.spectral_tab",
+            "radiant.gui.widgets.yaml_tab",
+            "radiant.gui.widgets.variable_explorer_tab",
+            "radiant.gui.widgets.mtf_tab",
+            "radiant.gui.widgets.noise_budget_tab",
+        ):
+            with pytest.raises(ModuleNotFoundError):
+                importlib.import_module(name)

@@ -1,16 +1,15 @@
 """Contract tests for the Phase-1 shell chrome widgets (GUI plan Phase 1 punch-list).
 
 These assert the *static* content the owner judges the design system against renders:
-the 9-stage strip in chain order with stale dots, the five KPI badges awaiting
-evaluation, the disabled parameter filter over an empty tree, the plot placeholder,
-and the five detail tabs. Behaviour (clicks, evaluation) is Phase 3/4 and not tested
-here — these widgets are deliberately behaviour-free in Phase 1.
+the 9-stage strip in chain order with stale dots, the disabled parameter filter over an
+empty tree, and the plot placeholder. The dissolved bottom detail tabs are covered by
+``test_stage_center.py`` (their content relocated to the per-stage center + Inspector).
+Behaviour (clicks, evaluation) is exercised in the evaluate-loop / stage-center tests.
 """
 
 from __future__ import annotations
 
 from radiant.gui.metric_format import format_metric_value
-from radiant.gui.widgets.detail_tabs import TAB_LABELS, DetailTabs
 from radiant.gui.widgets.health_dot import VALID_STATUSES, HealthDot
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
@@ -128,21 +127,3 @@ class TestPlotPlaceholder:
         placeholder = PlotPlaceholder()
         qtbot.addWidget(placeholder)
         assert placeholder.objectName() == "plotPlaceholder"
-
-
-class TestDetailTabs:
-    def test_five_tabs_right_labels(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The detail panel has the five v1 tabs with the right labels, in order."""
-        tabs = DetailTabs()
-        qtbot.addWidget(tabs)
-        assert tabs.count() == 5
-        assert tabs.tab_labels() == ["Spectral", "MTF", "Noise Budget", "Variables", "YAML"]
-        assert tabs.tab_labels() == list(TAB_LABELS)
-
-    def test_tabs_selectable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Each tab can be selected so the owner can judge tab styling (Phase 1)."""
-        tabs = DetailTabs()
-        qtbot.addWidget(tabs)
-        for i in range(tabs.count()):
-            tabs.setCurrentIndex(i)
-            assert tabs.currentIndex() == i

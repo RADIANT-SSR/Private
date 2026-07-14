@@ -44,12 +44,18 @@ _PERFORMANCE_SOURCE: str = "performance"
 
 @dataclass(frozen=True)
 class _PinSpec:
-    """A pinned value's identity: metric key, display label, source stage, headline?"""
+    """A pinned value's identity: pin key, display label, source stage, headline?
+
+    ``output`` is ``None`` for a **metric** pin (read from the metric surface) or
+    ``(stage, key, unit)`` for a **stage-output** pin (re-read from ``stage_outputs``
+    on each evaluation) — the CU-115 Step-B "pin any stage output value" capability.
+    """
 
     key: str
     label: str
     source: str
     primary: bool
+    output: tuple[str, str, str] | None = None
 
 
 # The ratified default pinned set (arch doc §4.5) — the five performance metrics, in
@@ -142,10 +148,31 @@ class PinnedPanel(QWidget):
     # -- pin / unpin --------------------------------------------------------
 
     def pin(self, key: str, label: str, source: str = _PERFORMANCE_SOURCE) -> None:
-        """Add a card for *key* (no-op if already pinned); refresh from the last result."""
+        """Add a **metric** card for *key* (no-op if pinned); refresh from the last result."""
         if any(spec.key == key for spec in self._pins):
             return
         self._pins.append(_PinSpec(key=key, label=label, source=source, primary=False))
+        self._rebuild_cards()
+
+    def pin_stage_output(self, stage: str, key: str, label: str, unit: str) -> None:
+        """Pin a **stage-output** value ``stage_outputs[stage][key]`` (arch doc §4.5, CU-115).
+
+        The card re-reads the value from ``stage_outputs`` on each evaluation and shows it
+        with *unit* (R-UNITS). The pin key is the composite ``"<stage>.<key>"`` so a stage
+        output never collides with a same-named metric. No-op if already pinned.
+        """
+        pin_key = f"{stage}.{key}"
+        if any(spec.key == pin_key for spec in self._pins):
+            return
+        self._pins.append(
+            _PinSpec(
+                key=pin_key,
+                label=label,
+                source=stage,
+                primary=False,
+                output=(stage, key, unit),
+            )
+        )
         self._rebuild_cards()
 
     def unpin(self, key: str) -> None:
@@ -165,7 +192,12 @@ class PinnedPanel(QWidget):
         self._cards = {}
         for spec in self._pins:
             card = PinnedCard(
-                spec.key, spec.label, spec.source, primary=spec.primary, parent=self._cards_host
+                spec.key,
+                spec.label,
+                spec.source,
+                primary=spec.primary,
+                output_ref=spec.output,
+                parent=self._cards_host,
             )
             card.unpinRequested.connect(self.unpin)
             self._cards_layout.addWidget(card)

@@ -314,7 +314,7 @@
 
 ## Resolved
 
-### CU-119 — `mypy --strict` on `radiant.api` is not clean: two `Legend | None` union-attr errors in `test_plot.py` — RESOLVED 2026-07-13 (commit `64e2f6d`)
+### CU-119 — `mypy --strict` on `radiant.api` is not clean: two `Legend | None` union-attr errors in `test_plot.py` — RESOLVED 2026-07-13 (commit `a51b2fa`)
 
 **Discovered**: GUI polish (axis-label shortening), 2026-07-13 (commit `2132881` on branch `gui-phase1-task-a`). **Resolution**: applied the suggested inline fix — in both CU-117 legend tests (`test_coincident_xy_terms_merge_to_one_legend_entry`, `test_anisotropic_xy_terms_keep_both_labels`) the `fig.axes[0].get_legend()` result is now bound to a local and guarded with `assert legend is not None` before `.get_texts()`, mirroring the existing guard in `test_mtf_legend_below_axes_never_covers_curves`. `mypy --strict src/radiant/core src/radiant/api` is clean again (0 errors, 71 files). Test-only, no behaviour/physics/results change (Category A); goldens untouched.
 

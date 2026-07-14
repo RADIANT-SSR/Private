@@ -9,21 +9,29 @@ antialiased line-schematic of the sun / sensor / target geometry, drawn with
 SVG line-art, and a pure-Qt 2D canvas has **no** VTK/OpenGL dependency, so it renders and
 tests identically headless (``QWidget.grab``) with no segfault-prone live interactor.
 
-**Pass 1 (this file) is the renderer core — the *look*.** It draws, faithfully per the
-mockup: the light background, a faint ground grid, the ``X``/``Y`` ground axes and the
-vertical zenith (``Z``) axis with arrowheads + labels, the four labelled vectors
-(sun→target amber solid, sensor→target blue solid, sun→ground amber dashed, zenith grey),
-the sun and sensor glyphs, a wireframe target (sphere great-circles / box / point
-reticle), the ground-projection dashed drop-lines, and the VECTORS legend overlay. It
-supports orthographic yaw/pitch rotation by mouse drag. **Deferred to Pass 2** (each a
-tracked CU): the θ_v/φ_v/θ_s angle arcs, the h_s / altitude leader labels, the full shape
-library + dimension inputs, the RPY body triad, and the angle-truth consistency test.
+It draws, faithfully per the mockup: the light background, a faint ground grid, the
+``X``/``Y`` ground axes and the vertical zenith (``Z``) axis with arrowheads + labels, the
+four labelled vectors (sun→target amber solid, sensor→target blue solid, sun→ground amber
+dashed, zenith grey), the sun and sensor glyphs, the full **shape-library** wireframe
+target (sphere great-circles / box / cylinder / cone / flat-plate / point reticle), the
+ground-projection dashed drop-lines, and the VECTORS legend overlay. It supports
+orthographic yaw/pitch rotation by mouse drag.
+
+**Pass 2 (shipped) adds the annotations + interactions:** the revealable angle arcs
+(off-nadir η, sun-zenith θ_s, relative-azimuth Δφ, phase α_t) each with a DEGREE value
+pill sourced verbatim from ``stage_outputs["geometry"]`` (§6.3 — never recomputed from the
+scene; the arc *geometry* uses the ported projection math, the arc *value* comes from the
+stage), the h_s / h_t altitude leader labels (§6.1 not-to-scale magnitude annotation), the
+target body-axes **RPY triad** (roll/pitch/yaw, CU-130) with the body wireframe rotated by
+its ZYX Euler orientation, and the schema-driven per-shape dimension inputs (CU-131, wired
+in the side panel). The angle-truth consistency test (:mod:`radiant.gui.viewer.angle_truth`)
+proves the scene angle recomputation agrees with the stage within an explicit tolerance.
 
 **Not-to-scale (owner-endorsed, binding — ADR-0007 §4 / arch doc §6.1):** glyphs sit at
 *fixed abstract* display distances; the schematic is **never** rescaled or translated by
 the raw metric altitude/range. A 600 km slant range and a 1 m target cannot share a
-linear scale; true magnitudes are annotated as leader-label text (the label text is
-Pass 2). Direction (the angles) is preserved; magnitude is not.
+linear scale; true magnitudes are annotated as leader-label text (h_s / h_t pills).
+Direction (the angles) is preserved; magnitude is not.
 
 Token discipline (§4.9): chrome colours (background, grid, axes, labels, the neutral
 zenith grey, the legend pill) come from the active :class:`~radiant.gui.themes.tokens.Theme`;
@@ -38,12 +46,28 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath, QPen, QPolygonF
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+)
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from radiant.gui.themes.tokens import LIGHT, Theme
-from radiant.gui.viewer.projection import Camera, ProjectedPoint, dir_from_az_zen, make_camera
+from radiant.gui.viewer import angle_catalog
+from radiant.gui.viewer.projection import (
+    Camera,
+    ProjectedPoint,
+    arc_between,
+    dir_from_az_zen,
+    ground_azimuth_arc,
+    make_camera,
+)
 from radiant.gui.viewer.scene import palette
 from radiant.gui.viewer.viewer_state import ViewerState
 
@@ -69,11 +93,63 @@ _TARGET_AIRBORNE_Z: float = 0.9  # abstract lift for an airborne target (on/off 
 _GRID_N: int = 8
 _GRID_STEP: float = 0.8
 
-# -- Target wireframe abstract sizes (scene units; dimensions are Pass 2) --------
-_SPHERE_R: float = 0.55
-_BOX_W: float = 1.2
-_BOX_D: float = 0.9
-_BOX_H: float = 0.7
+# -- Target wireframe abstract proportions (scene units; NEVER metric magnitude) -
+# The full shape library (CU-131) draws each primitive at an *abstract* size that
+# reflects only the shape's own aspect ratio (the ratios among its dimension params),
+# never the raw metres — the not-to-scale rule (§6.1). A fully-dimensioned shape maps its
+# largest relevant dim to ``_SHAPE_UNIT`` and the rest proportionally, each clamped to
+# ``[_EXT_MIN, _EXT_MAX]`` so a very thin plate / long cylinder still reads; an
+# under-specified shape (a dim at the ``0.0`` sentinel) falls back to the per-shape default
+# proportions below.
+_SHAPE_UNIT: float = 1.0
+_EXT_MIN: float = 0.35
+_EXT_MAX: float = 1.25
+
+# Per-shape default abstract extents (used when the metric dims are unset). Aligned with
+# the mockup ``shapes.jsx`` proportions. Keys are the dims the shape uses (see
+# ``_SHAPE_DIMS``); order matches ``_SHAPE_DIMS``.
+_DEFAULT_EXTENTS: dict[str, tuple[float, ...]] = {
+    "sphere": (0.55,),  # (radius,)
+    "cylinder": (0.5, 1.1),  # (radius, length→height)
+    "cone": (0.65, 1.2),  # (base_radius, height)
+    "box": (1.1, 0.85, 0.7),  # (length→X, width→Y, height→Z)
+    "flat_plate": (1.5, 1.0),  # (length→X, width→Y)
+}
+
+# Shape → the ``ViewerState`` metric-dimension fields it consumes, in extent order.
+_SHAPE_DIMS: dict[str, tuple[str, ...]] = {
+    "sphere": ("target_radius_m",),
+    "cylinder": ("target_radius_m", "target_length_m"),
+    "cone": ("target_base_radius_m", "target_height_m"),
+    "box": ("target_length_m", "target_width_m", "target_height_m"),
+    "flat_plate": ("target_length_m", "target_width_m"),
+}
+
+# Stage-output key → the ``ViewerState`` field the angle arc reads its DISPLAY value from.
+# ``ViewerState`` binds each field verbatim from ``stage_outputs["geometry"]`` (§6.7), so
+# reading it here honours §6.3 (the value comes from the stage, never a scene recomputation);
+# the value is converted radians → degrees at the display boundary only (task-sanctioned).
+_STAGE_VALUE_FIELDS: dict[str, str] = {
+    "eta_rad": "observer_look_angle_rad",
+    "theta_s_rad": "solar_zenith_rad",
+    "delta_phi_rad": "relative_azimuth_rad",
+}
+
+# RPY body-axis name → (glyph, palette colour) for the on-target triad (CU-130).
+_TRIAD_AXES: dict[str, tuple[str, str]] = {
+    "roll": ("X′", palette.BODY_AXIS_ROLL_COLOR),
+    "pitch": ("Y′", palette.BODY_AXIS_PITCH_COLOR),
+    "yaw": ("Z′", palette.BODY_AXIS_YAW_COLOR),
+}
+
+
+def _format_km(km: float) -> str:
+    """Format an altitude/range magnitude with a sensible unit (owner showed '705 km')."""
+    if km >= 100.0:
+        return f"{km:.0f} km"
+    if km >= 1.0:
+        return f"{km:.1f} km"
+    return f"{km * 1000.0:.0f} m"
 
 # -- Line weights (px), mirroring the mockup stroke conventions -----------------
 _W_GRID: float = 0.6
@@ -81,8 +157,14 @@ _W_AXIS: float = 1.0
 _W_VECTOR: float = 2.0
 _W_DROP: float = 0.9
 _W_TARGET: float = 1.1
+_W_ARC: float = 1.2  # angle-arc stroke (dashed)
+_W_TRIAD: float = 1.8  # RPY body-axis stroke
 
 _ARROW_LEN_PX: float = 10.0  # arrowhead length in pixels
+_ARC_RADIUS: float = 1.0  # zenith/phase arc radius (scene units)
+_GROUND_ARC_RADIUS: float = 1.4  # relative-azimuth ground arc radius
+_TRIAD_LEN: float = 0.85  # RPY body-axis length (scene units)
+_LABEL_FONT_PX: float = 10.0  # value/leader pill font size
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +175,12 @@ class SchematicScene:
     ``sun_dir`` / ``sensor_dir`` are the true unit directions (angles preserved); the
     positions place the glyphs at fixed abstract radii along those directions. Consumed by
     :class:`SchematicView` for drawing; separated out so it is testable without a canvas.
+
+    ``target_edges`` are already rotated by the target body's RPY (ZYX Euler); ``body_axes``
+    holds the three post-rotation body-axis unit directions (roll +X′, pitch +Y′, yaw +Z′)
+    for the on-target triad; ``target_center`` is the body's rotation pivot (also the triad
+    origin). ``altitude_km`` / ``target_altitude_km`` are the leader-label magnitudes read
+    verbatim from the stage-bound state (§6.1 not-to-scale annotation).
     """
 
     sun_dir: np.ndarray
@@ -101,33 +189,46 @@ class SchematicScene:
     sensor_pos: np.ndarray
     target_top: np.ndarray  # where the sun/sensor vectors land (top of the body)
     target_z: float
+    target_center: np.ndarray  # body rotation pivot + triad origin
     ground_point: np.ndarray  # sensor-LOS → ground intersection (origin if on ground)
     airborne: bool
     target_shape: str
     target_edges: tuple[tuple[np.ndarray, np.ndarray], ...]
+    body_axes: tuple[tuple[str, np.ndarray], ...]  # (roll/pitch/yaw name, unit dir)
     is_point: bool
+    altitude_km: float
+    target_altitude_km: float
 
 
 def _origin() -> np.ndarray:
     return np.zeros(3, dtype=np.float64)
 
 
-def _sphere_edges(cz: float, r: float, n: int = 40) -> list[tuple[np.ndarray, np.ndarray]]:
+def _ring(cz: float, r: float, axis: str, n: int = 40) -> list[np.ndarray]:
+    """A circle of *n* points, radius *r*, centred at ``(0, 0, cz)`` on the given plane."""
+    pts: list[np.ndarray] = []
+    for i in range(n):
+        t = (i / n) * 2 * math.pi
+        c, s = math.cos(t), math.sin(t)
+        if axis == "z":
+            pts.append(np.array([r * c, r * s, cz], dtype=np.float64))
+        elif axis == "y":
+            pts.append(np.array([r * c, 0.0, cz + r * s], dtype=np.float64))
+        else:  # "x"
+            pts.append(np.array([0.0, r * c, cz + r * s], dtype=np.float64))
+    return pts
+
+
+def _close(pts: list[np.ndarray]) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Edges closing a ring of points into a loop."""
+    return [(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
+
+
+def _sphere_edges(cz: float, r: float) -> list[tuple[np.ndarray, np.ndarray]]:
     """Three great circles (``z``/``y``/``x`` planes) — the mockup's clean sphere look."""
     edges: list[tuple[np.ndarray, np.ndarray]] = []
     for axis in ("z", "y", "x"):
-        pts: list[np.ndarray] = []
-        for i in range(n):
-            t = (i / n) * 2 * math.pi
-            c, s = math.cos(t), math.sin(t)
-            if axis == "z":
-                pts.append(np.array([r * c, r * s, cz], dtype=np.float64))
-            elif axis == "y":
-                pts.append(np.array([r * c, 0.0, cz + r * s], dtype=np.float64))
-            else:
-                pts.append(np.array([0.0, r * c, cz + r * s], dtype=np.float64))
-        for i in range(n):
-            edges.append((pts[i], pts[(i + 1) % n]))
+        edges.extend(_close(_ring(cz, r, axis)))
     return edges
 
 
@@ -150,6 +251,117 @@ def _box_edges(cz: float, w: float, d: float, h: float) -> list[tuple[np.ndarray
     return [(c[a].astype(np.float64), c[b].astype(np.float64)) for a, b in idx]
 
 
+def _cylinder_edges(
+    cz: float, r: float, h: float, n: int = 28
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Top + bottom rings plus four silhouette generators (mockup ``cylinder``)."""
+    top = _ring(cz + h, r, "z", n)
+    bot = _ring(cz, r, "z", n)
+    edges = _close(top) + _close(bot)
+    for k in range(4):
+        idx = round((k / 4) * n) % n
+        edges.append((bot[idx], top[idx]))
+    return edges
+
+
+def _cone_edges(cz: float, r: float, h: float, n: int = 28) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Base ring plus four slant generators up to the apex (mockup ``cone``)."""
+    base = _ring(cz, r, "z", n)
+    apex = np.array([0.0, 0.0, cz + h], dtype=np.float64)
+    edges = _close(base)
+    for k in range(4):
+        idx = round((k / 4) * n) % n
+        edges.append((base[idx], apex))
+    return edges
+
+
+def _plate_edges(cz: float, w: float, d: float) -> list[tuple[np.ndarray, np.ndarray]]:
+    """A thin rectangular panel: outline + both diagonals (mockup ``plate``)."""
+    x0, x1 = -w / 2, w / 2
+    y0, y1 = -d / 2, d / 2
+    corners = [
+        np.array([x0, y0, cz]), np.array([x1, y0, cz]),
+        np.array([x1, y1, cz]), np.array([x0, y1, cz]),
+    ]
+    edges = _close(corners)
+    edges.append((corners[0], corners[2]))
+    edges.append((corners[1], corners[3]))
+    return edges
+
+
+def _extents(shape: str, state: ViewerState) -> tuple[float, ...]:
+    """Abstract wireframe extents for *shape* — its aspect ratio, never metric magnitude.
+
+    When every dimension the shape uses is set (``> 0``), the largest maps to
+    ``_SHAPE_UNIT`` and the rest proportionally (each clamped to ``[_EXT_MIN, _EXT_MAX]``);
+    otherwise the per-shape default proportions are used. The not-to-scale rule (§6.1): the
+    body reflects the ratio of its own dims, but the raw metres never set the on-screen size.
+    """
+    defaults = _DEFAULT_EXTENTS[shape]
+    metric = tuple(float(getattr(state, field)) for field in _SHAPE_DIMS[shape])
+    if all(v > 0.0 for v in metric):
+        biggest = max(metric)
+        return tuple(
+            min(_EXT_MAX, max(_EXT_MIN, _SHAPE_UNIT * (v / biggest))) for v in metric
+        )
+    return defaults
+
+
+def _euler_zyx_matrix(yaw: float, pitch: float, roll: float) -> np.ndarray:
+    """The ZYX Tait–Bryan rotation ``Rz(yaw)·Ry(pitch)·Rx(roll)`` (Rule 3; mockup scene.jsx).
+
+    Columns are the body axes expressed in the scene frame: column 0 = body +X (roll axis),
+    column 1 = body +Y (pitch axis), column 2 = body +Z (yaw axis).
+    """
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cr, sr = math.cos(roll), math.sin(roll)
+    return np.array(
+        [
+            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+            [-sp, cp * sr, cp * cr],
+        ],
+        dtype=np.float64,
+    )
+
+
+def _shape_edges(
+    shape: str, state: ViewerState, target_z: float
+) -> tuple[list[tuple[np.ndarray, np.ndarray]], float]:
+    """Build the base (unrotated) wireframe for *shape*; return ``(edges, top_z)``."""
+    ext = _extents(shape, state)
+    if shape == "sphere":
+        (r,) = ext
+        return _sphere_edges(target_z + r, r), target_z + 2 * r
+    if shape == "cylinder":
+        r, h = ext
+        return _cylinder_edges(target_z, r, h), target_z + h
+    if shape == "cone":
+        r, h = ext
+        return _cone_edges(target_z, r, h), target_z + h
+    if shape == "box":
+        w, d, h = ext
+        return _box_edges(target_z, w, d, h), target_z + h
+    if shape == "flat_plate":
+        w, d = ext
+        # A flat panel has no height; lift the vector-landing point a hair above the plate
+        # so the sun/sensor vectors and label do not collapse onto the ground plane.
+        return _plate_edges(target_z, w, d), target_z + _EXT_MIN * 0.5
+    return [], target_z
+
+
+def _rotate_edges(
+    edges: list[tuple[np.ndarray, np.ndarray]], matrix: np.ndarray, center: np.ndarray
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Rotate every edge vertex about *center* by *matrix* (target body RPY)."""
+
+    def rot(p: np.ndarray) -> np.ndarray:
+        return matrix @ (p - center) + center
+
+    return [(rot(a), rot(b)) for a, b in edges]
+
+
 def build_scene(state: ViewerState) -> SchematicScene:
     """Build the abstract world-space :class:`SchematicScene` from a bound *state*.
 
@@ -157,7 +369,8 @@ def build_scene(state: ViewerState) -> SchematicScene:
     ``relative_azimuth_rad``, ``observer_look_angle_rad``); the sensor is placed at
     azimuth 0 and the sun at the relative azimuth, so the *relative* geometry (the
     radiometrically-relevant quantity) is faithful. Distances are the fixed abstract radii
-    above — **never** the raw metric altitude/range (not-to-scale rule).
+    above — **never** the raw metric altitude/range (not-to-scale rule). The target body is
+    drawn from the full shape library (CU-131) and rotated by its RPY (CU-130).
     """
     sun_az = math.degrees(state.relative_azimuth_rad)
     sun_zen = math.degrees(state.solar_zenith_rad)
@@ -172,23 +385,23 @@ def build_scene(state: ViewerState) -> SchematicScene:
     target_z = _TARGET_AIRBORNE_Z if airborne else 0.0
 
     shape = state.target_shape
-    edges: list[tuple[np.ndarray, np.ndarray]] = []
-    is_point = False
-    if shape == "sphere":
-        edges = _sphere_edges(target_z + _SPHERE_R, _SPHERE_R)
-        top_z = target_z + 2 * _SPHERE_R
-    elif shape == "box":
-        edges = _box_edges(target_z, _BOX_W, _BOX_D, _BOX_H)
-        top_z = target_z + _BOX_H
-    elif shape in ("cylinder", "cone", "flat_plate"):
-        # Pass-1 stand-in wireframes: a box footprint keeps a discrete body on screen; the
-        # full shape library (true cylinder/cone/plate wireframes) is Pass 2 (CU-131).
-        edges = _box_edges(target_z, _BOX_W, _BOX_D, _BOX_H)
-        top_z = target_z + _BOX_H
-    else:
-        # "none" (extended / sub-pixel scene) or unknown → a point reticle at the target.
-        is_point = True
+    is_point = shape not in _SHAPE_DIMS
+    if is_point:
+        base_edges: list[tuple[np.ndarray, np.ndarray]] = []
         top_z = target_z
+    else:
+        base_edges, top_z = _shape_edges(shape, state, target_z)
+
+    target_center = np.array([0.0, 0.0, (target_z + top_z) * 0.5], dtype=np.float64)
+
+    # Rotate the body + derive its post-rotation triad axes (ZYX Euler, Rule 3).
+    matrix = _euler_zyx_matrix(state.target_yaw_rad, state.target_pitch_rad, state.target_roll_rad)
+    edges = _rotate_edges(base_edges, matrix, target_center) if base_edges else base_edges
+    body_axes: tuple[tuple[str, np.ndarray], ...] = (
+        ("roll", matrix[:, 0].copy()),
+        ("pitch", matrix[:, 1].copy()),
+        ("yaw", matrix[:, 2].copy()),
+    )
 
     target_top = np.array([0.0, 0.0, top_z], dtype=np.float64)
 
@@ -209,11 +422,15 @@ def build_scene(state: ViewerState) -> SchematicScene:
         sensor_pos=sensor_pos,
         target_top=target_top,
         target_z=target_z,
+        target_center=target_center,
         ground_point=ground_point,
         airborne=airborne,
         target_shape=shape,
         target_edges=tuple(edges),
+        body_axes=body_axes,
         is_point=is_point,
+        altitude_km=state.observer_altitude_m / 1000.0,
+        target_altitude_km=state.target_altitude_m / 1000.0,
     )
 
 
@@ -243,6 +460,9 @@ class SchematicView(QWidget):
         self._yaw: float = DEFAULT_YAW_DEG
         self._pitch: float = DEFAULT_PITCH_DEG
         self._drag_anchor: tuple[float, float, float, float] | None = None
+        # Pass-2 annotation state: which angle arcs are revealed + the RPY-triad toggle.
+        self._revealed: set[str] = set()
+        self._show_triad: bool = False
         self.setMinimumSize(320, 240)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(False)
@@ -285,6 +505,28 @@ class SchematicView(QWidget):
         self._yaw = yaw_deg
         self._pitch = max(_PITCH_MIN_DEG, min(_PITCH_MAX_DEG, pitch_deg))
         self.update()
+
+    # -- angle-arc / triad reveal (CU-128 / CU-130) -------------------------
+
+    def set_revealed_angles(self, names: set[str]) -> None:
+        """Set which angle arcs are drawn (by annotation name) and repaint."""
+        self._revealed = set(names)
+        self.update()
+
+    def set_triad_visible(self, visible: bool) -> None:
+        """Show/hide the on-target RPY triad and repaint."""
+        self._show_triad = visible
+        self.update()
+
+    @property
+    def revealed_angles(self) -> frozenset[str]:
+        """The angle arcs currently drawn."""
+        return frozenset(self._revealed)
+
+    @property
+    def triad_visible(self) -> bool:
+        """True when the RPY triad is drawn."""
+        return self._show_triad
 
     # -- mouse orbit (orthographic; mockup app.jsx) -------------------------
 
@@ -353,6 +595,10 @@ class SchematicView(QWidget):
         self._draw_target(painter, cam, scene)
         self._draw_glyphs(painter, cam, scene)
         self._draw_main_vectors(painter, cam, scene)
+        self._draw_angle_arcs(painter, cam, scene)
+        if self._show_triad and not scene.is_point:
+            self._draw_triad(painter, cam, scene)
+        self._draw_leader_labels(painter, cam, scene)
         self._draw_legend(painter)
         painter.end()
 
@@ -420,6 +666,123 @@ class SchematicView(QWidget):
     def _text(self, painter: QPainter, x: float, y: float, text: str, color: str) -> None:
         painter.setPen(QPen(QColor(color)))
         painter.drawText(QPointF(x, y), text)
+
+    def _label_font(self) -> QFont:
+        """A small font for value/leader pills (inherits the app family; size only)."""
+        font = QFont(self.font())
+        font.setPointSizeF(_LABEL_FONT_PX)
+        return font
+
+    def _label_pill(
+        self, painter: QPainter, x: float, y: float, text: str, color: str
+    ) -> None:
+        """A boxed value/leader label: rounded rect (theme fill, coloured stroke) + text.
+
+        Mirrors the mockup's boxed value labels (``scene.jsx`` ``AngleArc``/leader pills).
+        The fill is the theme background so the pill stays legible over the grid; the
+        stroke and text take the caller's semantic colour.
+        """
+        painter.setFont(self._label_font())
+        metrics = painter.fontMetrics()
+        pad_x, pad_y = 5.0, 3.0
+        text_w = metrics.horizontalAdvance(text)
+        text_h = metrics.height()
+        rect = QRectF(x, y - text_h + pad_y, text_w + 2 * pad_x, text_h + pad_y)
+        path = QPainterPath()
+        path.addRoundedRect(rect, 3.0, 3.0)
+        painter.setPen(self._pen(color, 0.6))
+        painter.setBrush(QColor(self._theme.bg))
+        painter.drawPath(path)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor(color)))
+        painter.drawText(QPointF(x + pad_x, y - metrics.descent()), text)
+        painter.setFont(self.font())
+
+    def _arc_label_text(self, ann: angle_catalog.AngleAnnotation) -> str:
+        """The pill text for an arc: ``symbol NN.N°`` from the stage value, or symbol alone.
+
+        A ``None`` stage_key (the phase angle) renders **symbol-only** — there is no
+        stage-output phase angle, so §6.3 forbids fabricating a number.
+        """
+        if ann.stage_key is None or self._state is None:
+            return ann.symbol
+        field = _STAGE_VALUE_FIELDS.get(ann.stage_key)
+        if field is None:
+            return ann.symbol
+        deg = math.degrees(float(getattr(self._state, field)))
+        return f"{ann.symbol} {deg:.1f}°"
+
+    def _arc_points(
+        self, scene: SchematicScene, name: str
+    ) -> list[np.ndarray]:
+        """The world-space arc polyline for annotation *name* (empty if not drawable)."""
+        zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        if name == "off_nadir":
+            return [
+                p + scene.target_top for p in arc_between(zenith, scene.sensor_dir, _ARC_RADIUS)
+            ]
+        if name == "sun_zenith":
+            return [
+                p + scene.target_top for p in arc_between(zenith, scene.sun_dir, _ARC_RADIUS * 1.15)
+            ]
+        if name == "phase_angle":
+            return [
+                p + scene.target_top
+                for p in arc_between(scene.sun_dir, scene.sensor_dir, _ARC_RADIUS * 0.85)
+            ]
+        if name == "relative_azimuth" and self._state is not None:
+            return ground_azimuth_arc(0.0, self._state.relative_azimuth_rad, _GROUND_ARC_RADIUS)
+        return []
+
+    def _draw_angle_arcs(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
+        """Draw each revealed angle arc + its degree pill (CU-128).
+
+        The arc GEOMETRY is placed by the ported projection math; the arc VALUE comes from
+        ``ViewerState`` (bound verbatim from ``stage_outputs["geometry"]``, §6.3) and is
+        shown in degrees. The phase arc is symbol-only (no stage truth).
+        """
+        for ann in angle_catalog.annotations():
+            if ann.name not in self._revealed:
+                continue
+            pts = self._arc_points(scene, ann.name)
+            if not pts:
+                continue
+            self._polyline(painter, cam, pts, self._pen(ann.color, _W_ARC, dashed=True))
+            mid = cam.project(pts[len(pts) // 2])
+            self._label_pill(painter, mid.x + 6, mid.y - 4, self._arc_label_text(ann), ann.color)
+
+    def _draw_triad(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
+        """Draw the on-target RPY body-axes triad (roll +X′, pitch +Y′, yaw +Z′) — CU-130."""
+        center = scene.target_center
+        pc = cam.project(center)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(self._theme.ink))
+        painter.drawEllipse(QPointF(pc.x, pc.y), 2.2, 2.2)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for name, direction in scene.body_axes:
+            glyph, color = _TRIAD_AXES[name]
+            tip = center + direction * _TRIAD_LEN
+            self._vector(painter, cam, center, tip, color, _W_TRIAD)
+            pt = cam.project(tip)
+            self._text(painter, pt.x + 4, pt.y, glyph, color)
+
+    def _draw_leader_labels(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
+        """Draw the not-to-scale altitude leader pills (h_s always; h_t when airborne) — CU-129.
+
+        The magnitudes are read verbatim from the stage-bound state and shown in km/m; the
+        geometry is never rescaled by them (§6.1 not-to-scale rule).
+        """
+        sp = cam.project(scene.sensor_pos)
+        self._label_pill(
+            painter, sp.x + 18, sp.y + 16,
+            f"h_s  {_format_km(scene.altitude_km)}", self._theme.muted,
+        )
+        if scene.airborne:
+            tp = cam.project(scene.target_top)
+            self._label_pill(
+                painter, tp.x + 12, tp.y + 22,
+                f"h_t  {_format_km(scene.target_altitude_km)}", self._theme.muted,
+            )
 
     def _draw_ground_grid(self, painter: QPainter, cam: Camera) -> None:
         pen = self._pen(self._theme.line, _W_GRID)

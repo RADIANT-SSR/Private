@@ -65,6 +65,16 @@ if TYPE_CHECKING:
 # Minimum figure height so a composite with two plots stays readable in a scroll area.
 _PLOT_MIN_HEIGHT: int = 240
 
+# The shape-dimension parameters the geometry side panel edits (bounds/units from the
+# schema; this list is the read/sync surface — the panel owns the shape→subset matrix).
+_SHAPE_DIMENSION_PATHS: tuple[str, ...] = (
+    "source.target.shape_radius_m",
+    "source.target.shape_length_m",
+    "source.target.shape_width_m",
+    "source.target.shape_height_m",
+    "source.target.shape_base_radius_m",
+)
+
 
 class _PlotSection(QWidget):
     """A titled plot region: a header over a guarded ``result.plot.*`` figure."""
@@ -266,6 +276,7 @@ class StagePane(QWidget):
             geometry_panel.triadToggled.connect(self._on_triad_toggled)
             geometry_panel.shapeRequested.connect(self._on_shape_requested)
             geometry_panel.orientationRequested.connect(self._on_orientation_requested)
+            geometry_panel.dimensionRequested.connect(self._on_dimension_requested)
             split.addWidget(geometry_viewer)
             split.addWidget(geometry_panel)
             split.setStretchFactor(0, 3)
@@ -353,17 +364,24 @@ class StagePane(QWidget):
             self._configure_panels_from_schema(sensor)
 
     def _configure_panels_from_schema(self, sensor: Sensor) -> None:
-        """Populate each side panel's shape choices + RPY bounds from the live schema."""
+        """Populate each side panel's shape choices + RPY/dimension bounds from the live schema."""
         defs = sensor.parameter_defs()
         shape_def = defs.get("source.target.shape")
         yaw_def = defs.get("source.target.shape_yaw_rad")
         choices = tuple(shape_def.enum_values) if shape_def and shape_def.enum_values else ()
         bounds = yaw_def.bounds if yaw_def and yaw_def.bounds is not None else None
+        dim_bounds: dict[str, tuple[float, float]] = {}
+        for dotpath in _SHAPE_DIMENSION_PATHS:
+            dim_def = defs.get(dotpath)
+            if dim_def is not None and dim_def.bounds is not None:
+                dim_bounds[dotpath] = dim_def.bounds
         for panel in self._geometry_panels:
             if choices:
                 panel.set_shape_choices(choices)
             if bounds is not None:
                 panel.set_orientation_bounds(bounds)
+            if dim_bounds:
+                panel.set_dimension_bounds(dim_bounds)
 
     # -- Part-B 3D-viewer interaction slots ---------------------------------
 
@@ -392,6 +410,14 @@ class StagePane(QWidget):
 
     def _on_orientation_requested(self, dotpath: str, value: float) -> None:
         """Set an RPY value (one ``sensor.set``), preview the tilt, and re-evaluate."""
+        if self._sensor is None:
+            return
+        self._sensor.set(dotpath, value)
+        self._preview_last_result()
+        self.parameterEdited.emit(dotpath)
+
+    def _on_dimension_requested(self, dotpath: str, value: float) -> None:
+        """Set a shape-dimension value (one ``sensor.set``), preview the wireframe, re-evaluate."""
         if self._sensor is None:
             return
         self._sensor.set(dotpath, value)
@@ -460,7 +486,7 @@ class StagePane(QWidget):
             section.render(result)
 
     def _sync_panels(self, geometry_outputs: dict[str, object]) -> None:
-        """Refresh each side panel's readout + shape/RPY from the live sensor + outputs."""
+        """Refresh each side panel's readout + shape/RPY/dimensions from the live sensor."""
         if self._sensor is None:
             return
         shape = str(self._sensor.get("source.target.shape"))
@@ -472,10 +498,12 @@ class StagePane(QWidget):
                 "source.target.shape_roll_rad",
             )
         }
+        dims = {dotpath: float(self._sensor.get(dotpath)) for dotpath in _SHAPE_DIMENSION_PATHS}
         for panel in self._geometry_panels:
             panel.populate_readout(geometry_outputs)
             panel.set_shape(shape)
             panel.set_orientation(rpy)
+            panel.set_dimensions(dims)
 
 
 class StageCenter(QWidget):

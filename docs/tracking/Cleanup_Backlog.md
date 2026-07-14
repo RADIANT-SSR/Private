@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-134 — `gui` extra still pins `pyvista`/`pyvistaqt` although no `radiant.gui` code imports them
+
+**Discovered**: Geometry viewer 2D-schematic pivot Pass 2 (CU-132 VTK removal), 2026-07-14, branch `gui-phase1-task-a`
+**Status**: Open — deferred (dependency-drop audit). Non-blocking: the pins are harmless (just unused install weight). CU-132 deleted the last `radiant.gui` importer of `pyvista`/`pyvistaqt`/`vtk`; a viewer-wide grep is clean and `test_geometry_viewer.py::test_no_pyvista_import_in_viewer` guards it. The pins were kept this task per the Pass-2 charter ("don't necessarily remove the pins; CU it if deferring").
+**File**: `pyproject.toml` (`[project.optional-dependencies] gui` — `pyvista>=0.43`, `pyvistaqt>=0.11`).
+**Symptom**: The `gui` extra installs `pyvista`/`pyvistaqt`/VTK, but nothing under `radiant.gui` imports them anymore (the 2D `QPainter` schematic replaced the VTK viewer). `pip install .[gui]` pulls a large native dependency chain (VTK) for no runtime use.
+**Why it still matters**: Install-footprint / supply-surface hygiene — an unused native dependency is attack surface and CI weight. No correctness impact.
+**Suggested fix**: (a) inline-fix-now candidate at the next `pyproject` touch — drop the three pins from the `gui` extra after confirming no example / dev-tool / doc build still imports them (`dev_tools/geometry_gui_v2` is separately broken/retired, CU-122). Effort S; category A. Re-audit at GUI Phase 9 or the next dependency review.
+
 ### CU-133 — Angle-truth consistency test not ported onto the 2D projection math (schematic Pass 2)
 
 **Discovered**: Geometry viewer 2D-schematic pivot Pass 1 (ADR-0007 superseded 2026-07-14), branch `gui-phase1-task-a`

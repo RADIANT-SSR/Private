@@ -23,8 +23,9 @@ A **minimal** guard remains: if building the scene from a result raises, an acti
 panel replaces the canvas (Rules 15/17) — but for a pure-Qt widget this is effectively
 unreachable. The public surface :class:`~radiant.gui.widgets.stage_center.StagePane`
 relies on is preserved: :meth:`show_result`, :meth:`set_angle_revealed` /
-:meth:`set_triad_visible` (Pass-2 no-op-safe stubs — the arcs and RPY triad return in
-Pass 2), :meth:`close_viewer`, :meth:`set_theme`, and the availability properties.
+:meth:`set_triad_visible` (Pass 2 — these now reveal the angle arcs and the RPY triad on
+the canvas and repaint), :meth:`close_viewer`, :meth:`set_theme`, and the availability
+properties.
 
 All colour/typography comes from the theme tokens + the allowlisted glyph palette (§4.9);
 this file holds no colour or font literal.
@@ -73,8 +74,7 @@ class GeometryViewer(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
 
-        # Pass-2 view state (angle annotations + RPY triad). Stored so a toggle is a safe
-        # no-op until Pass 2 wires the arcs/triad; the surface StagePane calls stays stable.
+        # View state (angle annotations + RPY triad) mirrored to the canvas on each toggle.
         self._revealed_arcs: set[str] = set()
         self._show_triad: bool = False
 
@@ -112,30 +112,30 @@ class GeometryViewer(QWidget):
 
     @property
     def revealed_angles(self) -> frozenset[str]:
-        """The angle-annotation names currently revealed (Pass-2 stub state)."""
+        """The angle-annotation names currently revealed on the canvas."""
         return frozenset(self._revealed_arcs)
 
     @property
     def triad_visible(self) -> bool:
-        """True when the target RPY triad is requested (Pass-2 stub state)."""
+        """True when the target RPY triad is drawn on the canvas."""
         return self._show_triad
 
-    # -- Pass-2 view controls (no-op-safe stubs) ---------------------------
+    # -- Pass-2 view controls (arcs + RPY triad; CU-128 / CU-130) -----------
 
     def set_angle_revealed(self, name: str, revealed: bool) -> None:
-        """Record a requested angle-annotation reveal (Pass-2 no-op; arcs land in Pass 2).
-
-        The state is tracked so :attr:`revealed_angles` reflects the request and the
-        Pass-2 wiring is a drop-in; no arc is drawn yet (CU-128).
-        """
+        """Reveal/hide the *name* angle arc on the canvas and repaint (CU-128)."""
         if revealed:
             self._revealed_arcs.add(name)
         else:
             self._revealed_arcs.discard(name)
+        if self._canvas is not None:
+            self._canvas.set_revealed_angles(self._revealed_arcs)
 
     def set_triad_visible(self, visible: bool) -> None:
-        """Record a requested RPY-triad reveal (Pass-2 no-op; the triad lands in Pass 2)."""
+        """Show/hide the on-target RPY triad on the canvas and repaint (CU-130)."""
         self._show_triad = visible
+        if self._canvas is not None:
+            self._canvas.set_triad_visible(visible)
 
     # -- rendering ---------------------------------------------------------
 

@@ -11,13 +11,16 @@ allowlists exactly this file). The colors here are **not chrome** — they encod
 * the point-source annotation accent, the sun-disc fill, the satellite face fill, and
   the contact-shadow black are the glyph fills those roles render with.
 
-Chrome that *must* follow the app theme (viewport background, leader lines, label pill)
-lives in :mod:`radiant.gui.viewer.scene.chrome`, resolved from a :class:`Theme` — it is
-**not** here. Keeping the two apart is what lets the Phase-9 theme toggle restyle the
-viewport without touching these semantic constants (ADR-0007 §3).
+Chrome that *must* follow the app theme (viewport background, grid, axes, leader/label
+pill) is resolved from the active :class:`~radiant.gui.themes.tokens.Theme` in the
+schematic canvas (:mod:`radiant.gui.viewer.schematic_view`) — it is **not** here. Keeping
+the two apart is what lets the Phase-9 theme toggle restyle the viewport without touching
+these semantic constants (ADR-0007 §3).
 
-Every value is a verbatim carry-over from the prototype ``scene/style.py`` (hues
-unchanged) so the lifted glyph modules render identically.
+This is the sole surviving module of the retired VTK scene library (CU-132); the 2D
+``QPainter`` schematic imports these glyph-colour constants directly. Every value is a
+verbatim carry-over from the prototype ``scene/style.py`` (hues unchanged) so the glyphs
+render identically to the mockup.
 """
 
 from __future__ import annotations
@@ -33,6 +36,10 @@ SATELLITE_FAMILY: Final[str] = "#3A6FAA"  # muted blue: satellite + boresight
 SURFACE_FAMILY: Final[str] = "#3A8A66"  # muted green: n_B, surface normals
 SOLAR_FAMILY: Final[str] = "#C28A1F"  # muted amber: s_t, s_B, sun glyph
 TARGET_VECTOR_FAMILY: Final[str] = "#5E8F8B"  # desaturated teal: phase-angle family
+# Azimuth / phase arc family — a deeper magenta, matching the mockup ``scene.jsx``
+# ``phi`` role (arch §6.4: "phase/azimuth = magenta"). Semantic (which angle family),
+# stable across the app theme — belongs here, not in the chrome layer.
+AZIMUTH_FAMILY: Final[str] = "#A8358C"
 
 # -- Annotation accent (point-source marker) ------------------------------------
 # The point-source crosshair renders in this orange so the regime annotation reads as
@@ -65,6 +72,7 @@ __all__ = [
     "SURFACE_FAMILY",
     "SOLAR_FAMILY",
     "TARGET_VECTOR_FAMILY",
+    "AZIMUTH_FAMILY",
     "ACCENT_COLOR",
     "BODY_AXIS_ROLL_COLOR",
     "BODY_AXIS_PITCH_COLOR",

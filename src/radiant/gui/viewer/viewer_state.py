@@ -105,12 +105,11 @@ class ViewerState:
 
     @classmethod
     def default(cls) -> ViewerState:
-        """A neutral airborne-ish baseline used only for anchor enumeration.
+        """A neutral airborne-ish baseline used only by tests / anchor enumeration.
 
-        The scene library's label-teardown path
-        (:func:`radiant.gui.viewer.scene.labels.remove_from_plotter`) needs a state to
-        enumerate the (state-independent) anchor *names*; this supplies one without a
-        chain evaluation. Not used for any bound render.
+        Supplies a fully-populated state (all shape dims + RPY) without a chain evaluation,
+        for the schematic's ``build_scene`` unit tests. Not used for any bound render (the
+        production path always builds from :meth:`from_chain_result`).
         """
         return cls(
             observer_altitude_m=8_000.0,

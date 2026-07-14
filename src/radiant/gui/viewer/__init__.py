@@ -10,12 +10,16 @@ superseded 2026-07-14 — the PyVista/VTK raster could not match the mockup's SV
 * :mod:`radiant.gui.viewer.viewer_state` — the ``ViewerState`` adapter binding a chain
   evaluation to the display fields (reused unchanged across the pivot);
 * :mod:`radiant.gui.viewer.viewer_widget` — the ``GeometryViewer`` widget mounted in the
-  Geometry "Schematic" tab.
+  Geometry "Schematic" tab;
+* :mod:`radiant.gui.viewer.annotations` — the Qt-free angle-annotation catalog (names,
+  symbols, frames, stage-truth keys) the schematic and the side panel share;
+* :mod:`radiant.gui.viewer.angle_truth` — the viewer-local angle recomputation the
+  consistency test checks against ``stage_outputs["geometry"]`` (§6.3, CU-133).
 
-Pass 1 is the renderer core (the look). Pass 2 adds the angle arcs, leader labels, the
-full shape library + dimension inputs, the RPY triad, and the angle-truth test — and
-removes the now-unwired lifted VTK scene library (:mod:`radiant.gui.viewer.scene`, kept in
-place but no longer rendered).
+Pass 1 shipped the renderer core (the look). Pass 2 (shipped) adds the angle arcs + degree
+labels, the altitude leader labels, the full shape library + dimension inputs, the RPY
+triad, and the angle-truth test — and removed the retired lifted VTK scene library
+(``radiant.gui.viewer.scene`` now holds only the allowlisted glyph ``palette``; CU-132).
 """
 
 from __future__ import annotations

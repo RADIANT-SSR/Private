@@ -20,6 +20,40 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **GUI geometry schematic — Pass 2 (annotations + shape editing; ADR-0007, view-only).**
+  The 2D orthographic schematic gains the annotations and shape-editing the mockup/owner
+  specify. (1) **Angle arcs + degree labels (CU-128):** revealable arcs for off-nadir η,
+  sun-zenith θ_s, relative-azimuth Δφ (ground), and phase α_t, each drawn with the ported
+  projection math but labelled with the angle **value from `stage_outputs["geometry"]`**
+  (bound verbatim into `ViewerState`) shown in **degrees** (§6.3); the phase arc is
+  symbol-only (no stage-output phase angle). The side-panel angle toggles now reveal/hide
+  the arcs and repaint. (2) **Altitude leader labels (CU-129):** `h_s` / `h_t` pills in
+  km/m, the not-to-scale magnitude annotation (§6.1). (3) **Full shape library + ALL
+  dimension inputs (CU-131 + owner request):** the schematic draws distinct
+  sphere/box/cylinder/cone/flat-plate wireframes (aspect ratio from the shape's own dims,
+  never metric magnitude), and the side panel exposes every relevant dimension input for
+  the selected shape (radius / length / width / height / base-radius), showing only the
+  subset the shape uses, each one `sensor.set` per edit. (4) **RPY triad (CU-130):** the
+  on-target body-axes gizmo (roll +X′ pink / pitch +Y′ green / yaw +Z′ purple) from
+  `source.target.shape_{yaw,pitch,roll}_rad`, with the body wireframe rotated by the same
+  ZYX Euler. New public GUI surface: `GeometryAnglePanel.dimensionRequested` signal +
+  `set_dimension_bounds`/`set_dimensions`/`dimension_spin`; `SchematicView.set_revealed_angles`;
+  new modules `radiant.gui.viewer.angle_catalog` / `radiant.gui.viewer.angle_truth`. A
+  **binding angle-truth consistency test** asserts the viewer's local angle recomputation
+  agrees with `stage_outputs["geometry"]` within `ANGLE_CONSISTENCY_ABS_TOL_RAD = 1e-9` rad
+  (measured residual ~1e-16). No computed results change (the stage remains the single
+  source of angle truth); golden untouched.
+
+### Removed
+- **GUI lifted VTK/PyVista scene library removed (CU-132, ADR-0007 Rule 27).** The
+  superseded `radiant.gui.viewer.scene` render library (~3.9 kLoC across `builder`,
+  `arcs/`, `frames/`, `glyphs/`, `ground/`, `labels/`, `target/`, `vectors/`) is deleted now
+  that the 2D `QPainter` schematic fully replaces it; only the allowlisted glyph-colour
+  module `radiant.gui.viewer.scene.palette` survives. `radiant.gui.viewer` no longer imports
+  `pyvista`/`pyvistaqt`/`vtk` (the `gui`-extra pins are retained pending a dependency-drop
+  audit — CU-134).
+
 ### Changed
 - **GUI geometry viewer reimplemented as a 2D orthographic schematic — view-only
   (ADR-0007 superseded 2026-07-14, Pass 1).** The Geometry stage's viewer is no longer a

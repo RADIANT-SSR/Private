@@ -722,12 +722,14 @@ labeled. Condensed from
 > OpenGL dependency. **Pass 1** (shipped) is the renderer core: `viewer/projection.py`
 > (ported projection + direction math) and `viewer/schematic_view.py` (the `SchematicView`
 > canvas), with `GeometryViewer` reimplemented over the canvas and the Geometry center tab
-> renamed **"3D View" → "Schematic"**. **Pass 2** adds the angle arcs (CU-128), altitude
-> leader labels (CU-129), the RPY triad (CU-130), the shape library + dimension inputs
-> (CU-131), the angle-truth test (CU-133), and removes the now-unwired lifted VTK scene
-> library (CU-132). §§6.7–6.8 below describe the retired PyVista Part A/B and are retained
-> for history; §6.1–6.4 (not-to-scale, contents, stage-as-angle-truth, conventions) still
-> hold for the 2D schematic. The `ViewerState` adapter (§6.7) is reused unchanged.
+> renamed **"3D View" → "Schematic"**. **Pass 2 (shipped)** added the angle arcs + degree
+> labels (CU-128), the altitude leader labels (CU-129), the RPY triad (CU-130), the full
+> shape library + per-shape dimension inputs (CU-131), and the angle-truth consistency test
+> (CU-133), and **removed** the retired lifted VTK scene library (CU-132 — only the
+> allowlisted glyph `palette` survives). The complete shipped viewer is described in **§6.9**;
+> §§6.7–6.8 describe the retired PyVista Part A/B and are retained for history; §6.1–6.4
+> (not-to-scale, contents, stage-as-angle-truth, conventions) hold for the 2D schematic. The
+> `ViewerState` adapter (§6.7) is reused unchanged.
 
 ### 6.1 Not-To-Scale Rule (owner-endorsed, binding)
 
@@ -878,6 +880,49 @@ split: the viewport (left) and the accordion side panel (right).
 - **Deferred (needs a live interactor):** in-scene VTK point-picking and the lifted
   `scene/highlight.py` active-edit re-stroke (CU-124); the corner view-cube / world-axes
   gnomon widgets stay out of v1.
+
+### 6.9 2D Schematic — Complete Shipped Viewer (Pass 1 + Pass 2, ADR-0007 superseded)
+
+The shipped viewer is a pure-Qt `QPainter` orthographic schematic. It supersedes §§6.7–6.8
+(PyVista Part A/B). Modules (all under `radiant.gui.viewer`, gui → api + core; **no**
+PyVista/VTK, no physics stage):
+
+- **`projection.py`** — the orthographic camera + direction math ported verbatim from the
+  mockup `geometry.js` (`dir_from_az_zen`, `Camera.project`), plus the Pass-2 additions
+  `compute_angles` (port of `computeAngles`), `arc_between` (great-circle arc), and
+  `ground_azimuth_arc`. These are used for arc **geometry/placement** and the angle-truth
+  check **only** — never as a second angle authority (§6.3).
+- **`schematic_view.py`** — the `SchematicView` canvas + the engine-independent
+  `build_scene`/`SchematicScene`. Draws: ground grid, X/Y/Z axes, the four labelled vectors,
+  sun/sensor glyphs, the **full shape-library** wireframe (sphere great-circles, box,
+  cylinder, cone, flat-plate, point reticle), rotated by the target's ZYX-Euler RPY; the
+  **revealable angle arcs** (off-nadir η, sun-zenith θ_s, relative-azimuth Δφ on the ground,
+  phase α_t) each with a **degree** value pill; the **h_s / h_t altitude leader labels**
+  (not-to-scale magnitudes, §6.1); and the on-target **RPY triad** (roll +X′ pink / pitch
+  +Y′ green / yaw +Z′ purple). Orthographic yaw/pitch by mouse drag.
+- **`angle_catalog.py`** — the Qt-free annotation catalog (name, symbol, frame, stage-truth
+  key, colour) the schematic and the side panel share; the single source of the
+  target-frame/ground-frame split (matches the Phase-5 `GeometryReadout` grouping).
+- **`angle_truth.py`** — the viewer-local recomputation the consistency test checks against
+  `stage_outputs["geometry"]` within `ANGLE_CONSISTENCY_ABS_TOL_RAD = 1e-9` rad (off-nadir,
+  sun-zenith, relative-azimuth; phase excluded — no stage truth). Divergence is a red build.
+- **`viewer_state.py` / `viewer_widget.py`** — the `ViewerState` adapter (reused unchanged)
+  and the `GeometryViewer` widget; `set_angle_revealed` / `set_triad_visible` now reveal the
+  arcs / triad on the canvas and repaint (a plain `update()`, no VTK render).
+
+**Angle value sourcing (§6.3, binding):** each arc's degree label is `math.degrees()` of the
+stage angle bound verbatim into `ViewerState` (`eta_rad`, `theta_s_rad`, `delta_phi_rad`) —
+the radians → degrees conversion is a **display-boundary** formatting step, not a physics
+computation. The phase arc renders **symbol-only** (no stage-output phase angle exists, so
+§6.3 forbids fabricating one — analogous to the Rule-4 MTF-only TDI term).
+
+**Shape dimensions (owner request, 2026-07-14):** the side panel exposes **every** relevant
+dimension input for the selected shape, schema-driven from `source.target.shape_*`
+(radius / length / width / height / base-radius), showing only the subset the shape uses
+(sphere → radius; cylinder → radius+length; flat_plate → length+width; box →
+length+width+height; cone → base-radius+height). Each is one `sensor.set` per edit (the
+Phase-2 edit/reject pattern, unit-carrying). The wireframe reflects the shape's own **aspect
+ratio** (dim ratios normalised to an abstract extent) but never the raw metres (§6.1).
 
 ---
 

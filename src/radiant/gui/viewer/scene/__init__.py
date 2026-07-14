@@ -1,29 +1,17 @@
-"""Scene library — Qt-free, PyVista-only (lifted from ``geometry_gui_v2`` per ADR-0007).
+"""Scene package — now only the physics-domain glyph palette (post 2D-schematic pivot).
 
-Contract (ADR-0007 §2, the prototype's C7): this package imports **no Qt binding** and
-**no physics stage** — it reads a :class:`~radiant.gui.viewer.viewer_state.ViewerState`
-(passed in by the GUI) plus ``radiant.core`` helpers only. That keeps the gui→api+core
-import-linter contract intact; the plotter object is consumed by the Qt shell via
-``pyvistaqt.QtInteractor``, but PyVista itself does not depend on Qt.
+The lifted PyVista/VTK scene library that once lived here (``builder``, ``arcs/``,
+``frames/``, ``glyphs/``, ``ground/``, ``labels/``, ``target/``, ``vectors/`` — ADR-0007
+Part A/B) was removed when the 2D orthographic ``QPainter`` schematic fully replaced it
+(CU-132, Rule 27 one-canonical-version). The **one** module that survives is
+:mod:`radiant.gui.viewer.scene.palette` — the allowlisted physics-domain glyph-colour
+constants the 2D canvas still imports (the ``tests/test_theme.py`` token-discipline
+allowlist keys on this exact path, so ``palette.py`` stays here rather than moving).
 
-The ``build_static_scene`` re-export is *lazy* via ``__getattr__`` so pure-constant
-modules (:mod:`scene.style`, :mod:`scene.palette`) can be imported in environments
-without PyVista; PyVista is imported the first time ``build_static_scene`` is touched.
+Nothing else remains: the schematic renders via
+:mod:`radiant.gui.viewer.schematic_view`, not ``build_static_scene``.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from radiant.gui.viewer.scene.builder import build_static_scene as build_static_scene
-
-__all__ = ["build_static_scene"]
-
-
-def __getattr__(name: str) -> Any:
-    if name == "build_static_scene":
-        from radiant.gui.viewer.scene.builder import build_static_scene
-
-        return build_static_scene
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+__all__: list[str] = []

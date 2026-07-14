@@ -278,7 +278,9 @@ class TestConstrainedLayout:
             for axis in ("x", "y")
         }
         fig = plot_mtf_terms(mtf_terms, np.arange(20, dtype=float))
-        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        labels = [t.get_text() for t in legend.get_texts()]
         assert labels == ["mtf_ipc", "mtf_jitter", "mtf_optics", "mtf_smear"]  # 8 keys → 4
         matplotlib.pyplot.close(fig)
 
@@ -290,6 +292,8 @@ class TestConstrainedLayout:
             "mtf_optics_y": np.linspace(1.0, 0.4, 20),
         }
         fig = plot_mtf_terms(mtf_terms, np.arange(20, dtype=float))
-        labels = {t.get_text() for t in fig.axes[0].get_legend().get_texts()}
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        labels = {t.get_text() for t in legend.get_texts()}
         assert labels == {"mtf_optics (x)", "mtf_optics (y)"}
         matplotlib.pyplot.close(fig)

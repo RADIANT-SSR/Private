@@ -110,10 +110,17 @@ class TestStageCompositionMapping:
             assert namespace in stage_views.STAGE_COMPOSITIONS
 
     def test_geometry_is_the_readout_composition(self) -> None:
-        """Geometry's composite is the angle-summary readout (no result.plot figure)."""
+        """Geometry's composite tabs the angle-summary readout + the 3D view (Phase 7).
+
+        The readout and input forms live on the "Inputs" sub-view; the 3D viewer on the
+        "3D View" sub-view (ADR-0007). Neither tab carries a ``result.plot`` figure.
+        """
         comp = stage_views.composition_for("geometry")
         assert comp is not None
-        assert comp.geometry_readout
+        assert [sv.title for sv in comp.subviews] == ["Inputs", "3D View"]
+        inputs, viewer = comp.subviews
+        assert inputs.geometry_readout and inputs.geometry_form
+        assert viewer.geometry_viewer
         assert comp.plots == ()
 
     def test_spectral_domain_stages_carry_spectral_accessors(self) -> None:

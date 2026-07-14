@@ -47,6 +47,7 @@ from radiant.gui.stage_views import (
     StageSubView,
     composition_for,
 )
+from radiant.gui.viewer.viewer_widget import GeometryViewer
 from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
@@ -173,6 +174,8 @@ class StagePane(QWidget):
         # path; the singular accessors return the first of a kind.
         self._geometry_forms: list[GeometryModeForm] = []
         self._geometry_readouts: list[GeometryReadout] = []
+        self._geometry_viewers: list[GeometryViewer] = []
+        self._sensor: Sensor | None = None
         self._outputs_list: list[OutputsReadout] = []
         self._metrics_list: list[OutputsReadout] = []
         self._mtf_panels: list[MtfPanel] = []
@@ -233,6 +236,10 @@ class StagePane(QWidget):
             geometry_readout = GeometryReadout(parent)
             layout.addWidget(geometry_readout)
             self._geometry_readouts.append(geometry_readout)
+        if spec.geometry_viewer:
+            geometry_viewer = GeometryViewer(parent)
+            layout.addWidget(geometry_viewer, 1)
+            self._geometry_viewers.append(geometry_viewer)
         if spec.mtf_panel:
             mtf_panel = MtfPanel(parent)
             self._add_section(layout, "MTF budget", mtf_panel)
@@ -286,8 +293,18 @@ class StagePane(QWidget):
         """The geometry angle readout, if this stage has one."""
         return self._geometry_readouts[0] if self._geometry_readouts else None
 
+    @property
+    def geometry_viewer(self) -> GeometryViewer | None:
+        """The embedded 3D geometry viewer, if this stage has one (Geometry '3D View')."""
+        return self._geometry_viewers[0] if self._geometry_viewers else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
-        """Bind the live *sensor* + shared display-unit store into any input form."""
+        """Bind the live *sensor* + shared display-unit store into any input form.
+
+        The sensor is also retained so the 3D geometry viewer can read the target-shape /
+        optics / detector parameters the geometry stage does not emit (ADR-0007 §2).
+        """
+        self._sensor = sensor
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
 
@@ -327,6 +344,11 @@ class StagePane(QWidget):
         stage_outputs = result.stage_outputs.get(self._namespace, {})
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)
+        # The 3D viewer needs the full result + the live sensor (for shape/optics params);
+        # it renders only when a sensor is bound (always true post-evaluate).
+        if self._sensor is not None:
+            for geometry_viewer in self._geometry_viewers:
+                geometry_viewer.show_result(result, self._sensor)
         for outputs in self._outputs_list:
             outputs.show_stage_outputs(self._namespace, stage_outputs)
         for metrics in self._metrics_list:

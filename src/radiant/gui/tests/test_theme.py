@@ -223,20 +223,31 @@ class TestTokenDiscipline:
     def _gui_python_files_outside_themes(self) -> list[Path]:
         """Every widget/app ``.py`` under ``radiant.gui`` that must own no visual literal.
 
-        ``themes/`` (the single owner) and ``tests/`` (assertions legitimately
-        reference token values) are excluded; everything else — app.py,
-        main_window.py, workers.py, widgets/, package inits — is the target the
-        review-blocking §4.9 rule governs.
+        Excluded owners of visual literals:
+
+        * ``themes/`` — the single owner of chrome tokens (GUI plan §4.9);
+        * ``tests/`` — assertions legitimately reference token values;
+        * ``viewer/scene/palette.py`` — the documented **physics-domain glyph palette**
+          (ADR-0007 §3/§8.5). These colors encode physical meaning (sun = amber,
+          sensor = blue, surface normal = green, target = teal) and are a separate
+          allowed domain layer, kept in this one module. Theme-bound *chrome* for the
+          viewer (viewport background, leader lines, label pill) still comes from a
+          ``Theme`` via ``viewer/scene/chrome.py`` and holds no literal.
+
+        Everything else — app.py, main_window.py, workers.py, widgets/, viewer/, package
+        inits — is the target the review-blocking §4.9 rule governs.
         """
         gui_root = Path(__file__).resolve().parents[1]
         themes_dir = gui_root / "themes"
         tests_dir = gui_root / "tests"
+        palette = gui_root / "viewer" / "scene" / "palette.py"
         return [
             p
             for p in gui_root.rglob("*.py")
             if themes_dir not in p.parents
             and tests_dir not in p.parents
             and p.parent != tests_dir
+            and p != palette
             and "__pycache__" not in p.parts
         ]
 

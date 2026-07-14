@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI 3D geometry viewer — static bound scene (GUI plan Phase 7 Part A, ADR-0007).** The
+  Geometry stage center becomes a two-tab composite — **Inputs** (the mode forms + angle
+  readout) and **3D View** — the latter embedding a new `GeometryViewer`
+  (`radiant.gui.viewer`). It renders a not-to-scale PyVista schematic of the sun / sensor /
+  target geometry (ground reference, target/regime glyph, the four vectors, sun/sensor
+  glyphs, deconflicted leader labels) bound to `stage_outputs["geometry"]` + the final
+  optics regime after each evaluate, via the new `ViewerState` adapter. The Qt-free scene
+  library is lifted from `dev_tools/geometry_gui_v2` into `radiant.gui.viewer.scene`
+  (imports no physics stage; gui → api + core kept). Viewport background and label/leader
+  chrome follow the design-system `Theme`; the physics-domain glyph palette
+  (sun = amber, sensor = blue, normal = green, target = teal) lives in one allowlisted
+  module. Three render backends (live `QtInteractor` / static offscreen image / actionable
+  degradation panel) keep the app alive where OpenGL/VTK is unavailable. `StageComposition`
+  and `StageSubView` gained a `geometry_viewer` field. Angle-arc annotations, the shape
+  library, and the RPY triad are deferred to Part B. View-only — no computed results change.
 - **GUI Geometry screen — stage-0 input-mode forms + frame-grouped derived-angle readout
   (GUI plan Phase 5).** The Geometry stage's contextual center gains a `GeometryModeForm`
   (new `radiant.gui.widgets.geometry_mode_form`, over a Qt-free `radiant.gui.geometry_modes`

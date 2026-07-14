@@ -536,7 +536,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 
 | Stage | Ratified content | Classification |
 |-------|------------------|----------------|
-| **Geometry** | Stage-0 input-mode forms + 3D scene viewer (§6) + derived-angle readout | **[exists]** `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit) + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector; 3D viewer is GUI plan Phases 6–7 (§6) |
+| **Geometry** | Two tabs: **Inputs** (stage-0 input-mode forms + derived-angle readout) and **3D View** (the 3D scene viewer, §6) | **[exists]** `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit) + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **3D View** tab embeds `GeometryViewer` — the static bound scene (GUI plan Phase 7 Part A, §6.7); interactions/shape-library/RPY are Part B |
 | **Source** | Target radiance plot | **[GAP 91]** — SourceStage persists no radiance frame; the earliest stored radiance is at-aperture (built in AtmosphereStage), so a pre-atmosphere *emitted* target spectrum is unreachable without recomputation |
 | **Source** | Background radiance plot | **[GAP 91]** — same missing pre-atmosphere source-emission frame (target + background) |
 | **Source** | Size / shape / orientation inputs, shown per scenario type | **[GUI-only]** display of existing schema — `source.target.shape`, `shape_radius_m`/`shape_length_m`/…, `projected_area_m2`, `shape_yaw_rad`/`shape_pitch_rad`/`shape_roll_rad`; the **per-scenario-type gating** (which inputs are relevant) ties to **[GAP 85]** (mission-type relevance) |
@@ -774,9 +774,54 @@ rendering. These stay out of v1 (GUI plan §8 risk register).
 
 ### 6.6 Degradation
 
-If OpenGL/VTK is unavailable (headless CI, restricted GPU) the viewer panel shows an
-actionable message and the rest of the app works (GUI plan §4.4). Viewer tests use VTK
-offscreen rendering.
+The viewer resolves one of three backends at construction, so it never crashes the shell
+(GUI plan §4.4, VTK-offscreen risk row):
+
+1. **live** — an embedded `pyvistaqt.QtInteractor` viewport, used when the Qt platform can
+   host a live VTK/OpenGL context (a real display: cocoa / xcb / windows).
+2. **static image** — a `pyvista.Plotter(off_screen=True)` render shown in a `QLabel`,
+   used when a live interactor cannot be embedded but VTK renders headless. Constructing a
+   `QtInteractor` under the Qt `offscreen` platform plugin *segfaults* (uncatchable), so it
+   is proactively avoided there; the static image is faithful because Part A is a static
+   scene. This is the backend the offscreen test suite and headless screenshots use.
+3. **unavailable** — an actionable panel ("3D viewer unavailable: <reason>; the rest of the
+   app works") when even the offscreen render fails (no VTK/GL at all).
+
+Viewer tests render through the confirmed-working `pyvista` offscreen path, never a live
+embedded interactor.
+
+### 6.7 Part A — What Shipped (static scene + vectors; GUI plan Phase 7 Part A)
+
+Part A (this phase) delivers the **static** bound scene; the interactions in §6.4 and the
+shape library / RPY triad in §6.2 are **Part B**. What shipped:
+
+- **Scene library lift.** The `dev_tools/geometry_gui_v2/scene` subset needed for a static
+  scene is lifted verbatim (path-rewritten) into `radiant.gui.viewer.scene`: the layout /
+  camera / framing / lighting / display-distance / direction helpers, the ground, target
+  shapes, four vectors, sun/sensor/background glyphs, regime overlays, and the leader-label
+  layer. The angle-arc modules (`arcs/`), the RPY body-axes triad (`frames/`), and the
+  corner widgets (`widgets/`) are **not** lifted — they return with Part B. The lifted
+  library imports no Qt and no physics stage (import-linter: gui → api + core; the scene
+  reads a `ViewerState`, not `radiant.geometry`).
+- **`ViewerState` adapter** (`radiant.gui.viewer.viewer_state`) — a frozen dataclass with
+  the prototype `SceneState` field names, built from a `ChainResult` + the live `Sensor`
+  via `ViewerState.from_chain_result`. Field mapping (ADR-0007 §2): `observer_altitude_m ←
+  h_sensor_m`, `observer_look_angle_rad ← eta_rad`, `target_altitude_m ← h_target_m`,
+  `solar_zenith_rad ← theta_s_rad`, `relative_azimuth_rad ← delta_phi_rad`, `regime_override
+  ← stage_outputs["optics"]["regime"]` (Rule 10), shape/dims ← `source.target.*` params,
+  `focal_length_m ← optics.focal_length_m`, `pixel_pitch_m ← detector.pixel_pitch_x_um`
+  (canonical m). Platform attitude has no stage owner (ADR-0006 §4 / CU-122), so
+  `observer_{yaw,pitch,roll}_rad` default to zero — the RPY triad that would render them is
+  Part B.
+- **Color split for theme integration.** Semantic *physics-domain glyph* colors (sun =
+  amber, sensor = blue, surface normal = green, target = teal) live in the one documented
+  allowlisted module `radiant.gui.viewer.scene.palette` (ADR-0007 §3/§8.5, exempted from
+  the §4.9 token-discipline test). Theme-bound *chrome* (viewport background, leader lines,
+  label pill) is resolved from the active `Theme` via `radiant.gui.viewer.scene.chrome` and
+  holds no literal, so the Phase-9 theme toggle restyles the viewport.
+- **Mount.** The Geometry stage center is a two-tab composite (the §4.4 sub-view hook):
+  **Inputs** (mode forms + `GeometryReadout`) and **3D View** (the `GeometryViewer`). The
+  viewer re-renders the static scene after each evaluate.
 
 ---
 

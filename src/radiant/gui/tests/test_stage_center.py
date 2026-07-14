@@ -446,7 +446,9 @@ class TestTabbedSubViewHook:
         # Its flat sections are still built (the PSF plot + the MTF panel).
         assert pane.mtf_panel is not None
         assert pane.plot_canvases  # the PSF figure section
-        assert all(not comp.subviews for comp in STAGE_COMPOSITIONS.values())  # none tabbed in v1
+        # Geometry is the only tabbed stage (Phase 7 "Inputs | 3D View"); the rest are flat.
+        tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
+        assert tabbed == {"geometry"}
 
 
 class TestBottomTabsRemoved:

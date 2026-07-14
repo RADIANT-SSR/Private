@@ -70,13 +70,16 @@ class StageSubView:
     ----------
     title:
         The tab label.
-    geometry_readout, mtf_panel, noise_panel, outputs, metrics, plots, note:
+    geometry_form, geometry_readout, geometry_viewer, mtf_panel, noise_panel, outputs, \
+    metrics, plots, note:
         The same section fields as :class:`StageComposition`, scoped to this tab.
+        ``geometry_viewer`` embeds the 3D geometry viewer (ADR-0007, Geometry "3D View").
     """
 
     title: str
     geometry_form: bool = False
     geometry_readout: bool = False
+    geometry_viewer: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     outputs: bool = False
@@ -109,6 +112,9 @@ class StageComposition:
         (Geometry only; the arch-doc §4.4 "Inputs" section, GUI plan Phase 5).
     geometry_readout:
         Show the geometry angle/range readout (Geometry only).
+    geometry_viewer:
+        Embed the 3D geometry viewer — the PyVista static scene bound to the geometry
+        outputs (Geometry "3D View" tab, ADR-0007 / GUI plan Phase 7).
     mtf_panel:
         Embed the MTF per-term table + overlay (relocated from the MTF detail tab).
     noise_panel:
@@ -132,6 +138,7 @@ class StageComposition:
     title: str
     geometry_form: bool = False
     geometry_readout: bool = False
+    geometry_viewer: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     outputs: bool = False
@@ -164,9 +171,17 @@ _READOUT_NOTE: Final[str] = (
 # the real chain namespaces (matching ``RadiantSession.stage_names`` /
 # ``Sensor.parameter_defs()`` — note ``spectral_integration``, not ``spectral``; CU-106).
 STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
-    # Stage-0 input-mode forms (the §4.4 Inputs section, GUI plan Phase 5) + the derived
-    # angles/ranges readout (the arch-doc "angle summary"); 3D viewer is Phases 6–7.
-    "geometry": StageComposition(title="Geometry", geometry_form=True, geometry_readout=True),
+    # Stage-0 is a two-tab composite (GUI plan Phase 7 "Forms | 3D View" split): an
+    # "Inputs" tab with the input-mode forms (§4.4 Inputs, Phase 5) + the derived
+    # angles/ranges readout, and a "3D View" tab with the embedded PyVista geometry
+    # viewer (ADR-0007). The tabbed sub-view hook renders them as a QTabWidget.
+    "geometry": StageComposition(
+        title="Geometry",
+        subviews=(
+            StageSubView(title="Inputs", geometry_form=True, geometry_readout=True),
+            StageSubView(title="3D View", geometry_viewer=True),
+        ),
+    ),
     # Source & background radiance at aperture — result.plot.spectral_source() (Gap 86).
     "source": StageComposition(
         title="Source",

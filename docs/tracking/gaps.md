@@ -1305,6 +1305,50 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Workaround** | `radiant.gui.yaml_format.serialize_yaml(sensor)` saves to `tempfile.mkstemp` and reads the text back; the temp file is unlinked (a failed unlink is logged, not swallowed). |
 | **Fix location** | Add `Sensor.to_yaml(scope="inputs"|"resolved") -> str` (a string serialize over `radiant.io.config`), then have `serialize_yaml` call it directly (no temp file) and offer a resolved-scope toggle in the YAML tab. Effort S; category B (public-surface addition, no physics/results change). |
 
+## Gap 89: Optics complex-pupil diagnostics not exposed (pupil apodization/amplitude map + wavefront-error phase map)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Architecture redesign, Optics stage contextual view (arch doc §4.4.1), 2026-07-13 |
+| **Status** | OPEN |
+| **Description** | The owner-ratified Optics stage view asks for the **pupil apodization (amplitude) map** and the **pupil wavefront-error (phase) map**. `OpticsStage` **builds** the complex pupil internally each run — `make_pupil_amplitude(pupil_npix, obscuration, vanes, mask_override)` for the amplitude and `make_pupil_phase_for_wfe(...)` for the WFE phase (`src/radiant/optics/stage.py` `_compute_optical_mtf`) — but neither the amplitude array nor the phase array is **persisted** in `stage_outputs["optics"]` (only the derived `effective_psf`, `reference_psf`, `tau_opt*`, and scalar/aperture outputs are). The public `result.plot` surface (`ResultPlotNamespace`) has **no** pupil accessor (`psf`, `mtf`, `mtf_budget`, `noise_budget`, `spectral_*` only). Amplitude and phase are two faces of one complex pupil (Rule 4's single pupil root), so they are filed as one capability. |
+| **Impact** | The Optics stage view cannot show the two most diagnostic optical figures — the apodization/obscuration mask (spider vanes, central obscuration, measured pupil override) and the aberration phase map (Zernike/WFE screen, defocus-as-Z4) — even though the chain computes both. A user debugging a WFE or obscuration budget (personas 5.1, 1.5) has no in-GUI view of the pupil that produced their PSF/MTF; only the downstream PSF is plottable. |
+| **Workaround** | From the Phase-8 console, rebuild the pupil with the public optics helpers (`make_pupil_amplitude` / `make_pupil_phase_for_wfe`) at the run's parameters and image it by hand — a re-computation, not a view over stored state. |
+| **Fix location** | Persist the complex pupil (or its amplitude and phase arrays, at the pupil sampling `pupil_npix`) in `stage_outputs["optics"]` (e.g. `pupil_amplitude`, `pupil_phase_waves`), then add `result.plot.pupil_amplitude()` / `pupil_phase()` accessors on `ResultPlotNamespace` delegating to a new `radiant.api.plot` imshow helper. Effort M; category A–B (a view/accessor over already-computed arrays — no physics, no results change). Update arch doc §4.4.1 when it lands. |
+
+## Gap 90: Optics coating / element spectral performance not exposed as a figure (per-element R/T/ε + system throughput spectra)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Architecture redesign, Optics stage contextual view (arch doc §4.4.1), 2026-07-13 |
+| **Status** | OPEN |
+| **Description** | The Optics stage view asks for **coating performance and transmission spectra**. The data exists in `stage_outputs["optics"]`: `elements` is a `tuple[OpticalElement, ...]`, each carrying `transmittance`, `reflectance`, and (for lumped pseudo-elements) `declared_emissivity` as `SpectralData` (Kirchhoff-derived ε = 1 − R for mirrors, 1 − T − R for transmissive; `src/radiant/optics/element.py`), and `tau_opt_spectral` is the assembled **system throughput** `SpectralData`. But the public `result.plot` surface has **no** accessor to render per-element coating curves or the system-throughput spectrum — only the scalar `tau_opt` values feed downstream. |
+| **Impact** | The Optics view cannot show how each coating/element contributes to (or limits) throughput across the band, nor the assembled system transmission curve — the natural companion to the MTF/PSF figures for an optics-train trade (per-element reflectance/transmission, cold-stop/emissivity contributions). The information is computed and stored but unreachable as a figure through the one-action-one-API-call surface. |
+| **Workaround** | From the Phase-8 console, pull `result.stage_outputs["optics"]["elements"]` / `["tau_opt_spectral"]` and plot the `SpectralData` arrays by hand. |
+| **Fix location** | Add `result.plot.optical_throughput()` (system `tau_opt_spectral`) and `result.plot.coating_spectra()` (per-element R/T/ε overlay) accessors on `ResultPlotNamespace`, delegating to `plot_spectral_multi` / a new twin-axis helper in `radiant.api.plot`. Effort S–M; category A (view accessor over stored `SpectralData` — no physics, no results change). Distinct capability from Gap 89 (pupil); update arch doc §4.4.1 when it lands. |
+
+## Gap 91: No pre-atmosphere source-emission spectral frame (Source stage target/background radiance at the source)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Architecture redesign, Source stage contextual view (arch doc §4.4.1), 2026-07-13 |
+| **Status** | OPEN |
+| **Description** | The Source stage view asks for plots of **both target and background radiance** at the source — i.e. the emitted spectral radiance **before** atmosphere (the owner puts the *at-aperture* radiances under the Atmosphere stage, "now that atmosphere is applied"). `SourceStage` persists **descriptors** (`stage_outputs["source"]["target"]`, `["background"]`, ranges, tentative regime) but stores **no `RadiometricFrame`** — radiance assembly happens in `AtmosphereStage`, whose earliest stored radiance frames are `at_aperture_target` / `at_aperture_background` (post-atmosphere). The existing `result.plot.spectral_source()` therefore draws the **at-aperture** frames, not the source emission; its own docstring notes the "at target" label is unattainable without recomputation. There is no stored pre-atmosphere target/background emitted-radiance spectrum to plot. |
+| **Impact** | The Source stage view cannot show the emitted target and background spectra on their own — the quantity that most directly reflects the *source* parameters (target/background temperature, emissivity, projected area) before the atmosphere modulates them. The GUI can only show the at-aperture result, which conflates source and atmosphere; separating "what the target emits" from "what reaches the aperture" (the owner's explicit Source-vs-Atmosphere split) is not possible with the stored frames. |
+| **Workaround** | Show the at-aperture radiance (`spectral_source()`) in the Source view and label it as post-atmosphere; or, from the console, recompute the source Planck/emissivity radiance at the source parameters by hand. |
+| **Fix location** | Have `SourceStage` (or the radiance-assembly step) persist a pre-atmosphere emitted-radiance frame for target and background (`at_source_target` / `at_source_background`, W/m²/sr/µm), then add a `result.plot.spectral_source_emission()` accessor. Effort M; category B–C (persisting an already-computed intermediate as a frame; verify no double-count with the at-aperture path). Update arch doc §4.4.1 and the Source default-view mapping when it lands. |
+
+## Gap 92: No per-wavelength noise decomposition (noise terms are post-integration scalars)
+
+| Field | Value |
+|-------|-------|
+| **Found in** | GUI Architecture redesign, Spectral Integration stage contextual view (arch doc §4.4.1), 2026-07-13 |
+| **Status** | OPEN (runs against Rule 8's once-only spectral integration — a design question, not a defect) |
+| **Description** | The Spectral Integration stage view asks for "final plots of **all** spectral radiances — signal **and** noise terms." The **signal** side exists (`result.plot.spectral_inband()` plots the post-optics integrand spectrum). The **noise** side does not exist as a spectrum: `NoiseTerm.value_e` is a **scalar** (electrons RMS) computed **after** spectral integration, per Rule 8 (spectral integration happens exactly once — before it, spectral arrays; after it, per-pixel scalars). There is no per-wavelength noise contribution stored anywhere, so noise cannot be plotted "as a spectrum" alongside the signal. |
+| **Impact** | The Spectral Integration view can show the signal spectrum and the **scalar** noise budget (`result.plot.noise_budget()` bar / a GUI pie), but not a spectral (per-λ) decomposition of where noise accrues across the band — which is what the owner's "spectral … noise terms" phrasing implies. Whether this is wanted as a true capability or satisfied by pairing the signal spectrum with the scalar budget is an open design decision. |
+| **Workaround** | Pair the signal spectrum (`spectral_inband()`) with the scalar noise budget (`noise_budget()`), presenting the two together in the stage view. |
+| **Fix location** | If a true per-λ noise decomposition is wanted, add a pre-integration spectral noise accounting (per-λ shot/background/dark contributions) surfaced as a `result.plot.spectral_noise()` accessor — this is a genuine new capability that must be reconciled with Rule 8 (the collapse to scalars stays once-only; the per-λ arrays would be a diagnostic side-channel, not a second integration). Effort M–L; category C (new physics accounting). Confirm scope with the owner before building. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1397,6 +1441,10 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 86 | `result.plot` exposes no spectral-radiance figure accessor | S–M | Source/Atmosphere/Spectral-Integration GUI views | FIXED |
 | 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | S–M | GUI Variables + Noise Budget tabs | OPEN |
 | 88 | No in-memory / resolved-scope config serialize surface (only file `Sensor.save`) | S | GUI YAML tab | OPEN |
+| 89 | Optics complex-pupil diagnostics not exposed (apodization map + WFE phase map) | M | GUI Optics view (5.1, 1.5) | OPEN |
+| 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | OPEN |
+| 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | OPEN |
+| 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
 
 ---
 

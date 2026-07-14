@@ -42,6 +42,10 @@ if TYPE_CHECKING:
 _EMPTY: Final[str] = "MTF budget — evaluate to populate."
 _MTF_UNIT: Final[str] = "dimensionless"  # MTF is a pure ratio → bare number
 _HEADERS: Final[tuple[str, ...]] = ("Contributor", "MTF @ Nyq (x)", "MTF @ Nyq (y)")
+# Keep the embedded overlay tall enough that its title/axis labels stay readable when
+# the window is short; the pane scrolls rather than collapsing the figure (matches the
+# per-stage plot sections' floor in :mod:`radiant.gui.widgets.stage_center`).
+_CANVAS_MIN_HEIGHT: Final[int] = 240
 
 
 def _bases(per_term_at_nyquist: dict[str, float]) -> list[str]:
@@ -84,12 +88,18 @@ class MtfPanel(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        # Every column sizes to its own contents (header + cells) so no header is clipped
+        # to "trib…"/"@ Nyq…" when the table shares a narrow pane; if the summed width
+        # exceeds the pane the table scrolls horizontally rather than truncating a header.
+        header = self._table.horizontalHeader()
+        for col in range(len(_HEADERS)):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
 
         self._canvas = MatplotlibCanvas(self._content)
+        self._canvas.setMinimumHeight(_CANVAS_MIN_HEIGHT)
 
-        content_layout.addWidget(self._table, 1)
-        content_layout.addWidget(self._canvas, 2)
+        content_layout.addWidget(self._table, 3)
+        content_layout.addWidget(self._canvas, 4)
 
         self._stack.addWidget(self._empty)
         self._stack.addWidget(self._content)

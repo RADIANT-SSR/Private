@@ -50,6 +50,9 @@ _EMPTY: Final[str] = "Noise budget — evaluate to populate."
 _NOISE_UNIT: Final[str] = "e- RMS"
 _HEADERS: Final[tuple[str, ...]] = ("Term", "σ")
 _EXPLAIN_HINT: Final[str] = "Select a noise term to see how it is generated."
+# Keep the embedded bar chart tall enough that its title/axis labels stay readable when
+# the window is short; the pane scrolls rather than collapsing the figure.
+_CANVAS_MIN_HEIGHT: Final[int] = 240
 
 
 def describe_noise_term(term: NoiseTerm) -> str:
@@ -120,6 +123,7 @@ class NoiseBudgetPanel(QWidget):
         left.addWidget(self._explain, 1)
 
         self._canvas = MatplotlibCanvas(self._content)
+        self._canvas.setMinimumHeight(_CANVAS_MIN_HEIGHT)
 
         content_layout.addLayout(left, 1)
         content_layout.addWidget(self._canvas, 2)

@@ -81,13 +81,12 @@ def plot_sweep(result: SweepResult, **kwargs: Any) -> Figure:
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     ax.plot(result.values, result.metric_values, "o-", **kwargs)
     ax.set_xlabel(result.param_name)
     ax.set_ylabel(result.metric_name)
     ax.set_title(f"{result.metric_name} vs {result.param_name}")
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -107,14 +106,13 @@ def plot_sweep_2d(result: Sweep2DResult, **kwargs: Any) -> Figure:
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     v1_grid, v2_grid = np.meshgrid(result.values1, result.values2, indexing="ij")
     cs = ax.contourf(v1_grid, v2_grid, result.grid, **kwargs)
     fig.colorbar(cs, ax=ax, label=result.metric_name)
     ax.set_xlabel(result.param1_name)
     ax.set_ylabel(result.param2_name)
     ax.set_title(f"{result.metric_name}")
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -137,7 +135,7 @@ def plot_noise_budget(
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     names = [nt.name for nt in noise_terms]
     values = [nt.value_e for nt in noise_terms]
     # Sort by magnitude
@@ -148,7 +146,6 @@ def plot_noise_budget(
     ax.set_xlabel("Noise (e- RMS)")
     ax.set_title("Noise Budget")
     ax.invert_yaxis()
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -163,7 +160,7 @@ def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
         Passed to ``ax.barh()``.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     bases = sorted(
         {n[:-2] for n in budget.per_term_at_nyquist if n.endswith(("_x", "_y"))},
         key=lambda b: budget.per_term_at_nyquist.get(f"{b}_x", 1.0),
@@ -180,7 +177,6 @@ def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
     ax.set_title("MTF budget at Nyquist")
     ax.legend()
     ax.invert_yaxis()
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -202,7 +198,7 @@ def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
     plt = _require_matplotlib()
     from matplotlib.colors import LogNorm
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     data = psf.data
     vmin = data[data > 0].min() if np.any(data > 0) else 1e-10
     defaults: dict[str, Any] = {
@@ -216,7 +212,6 @@ def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
     ax.set_title("Effective PSF")
     ax.set_xlabel("x (pixels)")
     ax.set_ylabel("y (pixels)")
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -242,17 +237,21 @@ def plot_mtf_terms(
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     for name, mtf_arr in sorted(mtf_terms.items()):
         x = spatial_freq if spatial_freq is not None else np.arange(len(mtf_arr))
         ax.plot(x, mtf_arr, label=name, **kwargs)
     ax.set_xlabel("Spatial frequency (cycles/mrad)" if spatial_freq is not None else "Index")
     ax.set_ylabel("MTF")
     ax.set_title("MTF Budget")
-    ax.legend(fontsize="small")
+    # constrained_layout reserves a title band above the axes, so an *inside* legend
+    # (upper-right, within the axes rectangle) never reaches the title — resolving the
+    # legend-over-title overlap at every canvas width, including narrow embedded panes
+    # where an outside legend would collapse the plot. With many contributor terms the
+    # legend still covers part of the curves; a denser-legend redesign is tracked as a CU.
+    ax.legend(fontsize="small", loc="upper right")
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1.05)
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -285,13 +284,12 @@ def plot_spectral(
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     ax.plot(wavelength_um, radiance, **kwargs)
     ax.set_xlabel("Wavelength (\u00b5m)")
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -328,7 +326,7 @@ def plot_spectral_multi(
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(constrained_layout=True)
     for label, y in series.items():
         ax.plot(wavelength_um, y, label=label, **kwargs)
     ax.set_xlabel("Wavelength (\u00b5m)")
@@ -337,7 +335,6 @@ def plot_spectral_multi(
     ax.grid(True, alpha=0.3)
     if len(series) > 1:
         ax.legend(fontsize="small")
-    fig.tight_layout()
     return cast("Figure", fig)
 
 
@@ -374,7 +371,7 @@ def plot_atmosphere_spectral(
         A matplotlib Figure.
     """
     plt = _require_matplotlib()
-    fig, ax_tau = plt.subplots()
+    fig, ax_tau = plt.subplots(constrained_layout=True)
     (line_tau,) = ax_tau.plot(wavelength_um, tau_atm, color="C0", label="\u03c4_atm", **kwargs)
     ax_tau.set_xlabel("Wavelength (\u00b5m)")
     ax_tau.set_ylabel("Transmittance \u03c4_atm (dimensionless)", color="C0")
@@ -389,5 +386,4 @@ def plot_atmosphere_spectral(
 
     ax_tau.set_title(title)
     ax_tau.legend([line_tau, line_lp], ["\u03c4_atm", "L_path"], fontsize="small", loc="best")
-    fig.tight_layout()
     return cast("Figure", fig)

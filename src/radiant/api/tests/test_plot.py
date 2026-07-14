@@ -13,6 +13,7 @@ import pytest
 from radiant.api.plot import (
     Plottable,
     plot_atmosphere_spectral,
+    plot_mtf_terms,
     plot_noise_budget,
     plot_spectral,
     plot_spectral_multi,
@@ -25,6 +26,7 @@ matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
 
 from matplotlib.figure import Figure  # noqa: E402  # backend must be set first
+from matplotlib.layout_engine import ConstrainedLayoutEngine  # noqa: E402
 
 # -- Fixtures --------------------------------------------------------------
 
@@ -165,4 +167,56 @@ class TestPlotAtmosphereSpectral:
         assert any("dimensionless" in y for y in ylabels)
         assert any("W/m²/sr/µm" in y for y in ylabels)
         assert "µm" in fig.axes[0].get_xlabel()
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestConstrainedLayout:
+    """Every plot builder must ship a constrained-layout figure so titles / axis labels /
+    legends always have reserved margin and re-fit when an embedded canvas is resized
+    (the GUI-clipping fix). tight_layout is a one-shot computation that clips on resize;
+    constrained_layout re-runs on every draw.
+    """
+
+    def _make_figs(self) -> list[Figure]:
+        wl = np.linspace(3.5, 5.0, 50)
+        rad = np.exp(-wl)
+        terms = [_FakeNoiseTerm("photon_shot", 111.6), _FakeNoiseTerm("read_noise", 25.0)]
+        mtf_terms = {
+            "mtf_optics_x": np.linspace(1.0, 0.0, 20),
+            "mtf_optics_y": np.linspace(1.0, 0.1, 20),
+        }
+        return [
+            plot_sweep(_make_sweep_result()),
+            plot_sweep_2d(_make_sweep_2d_result()),
+            plot_noise_budget(terms),
+            plot_mtf_terms(mtf_terms, np.arange(20, dtype=float)),
+            plot_spectral(wl, rad, title="t"),
+            plot_spectral_multi(wl, {"a": rad, "b": 0.5 * rad}),
+            plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl)),
+        ]
+
+    def test_all_builders_use_constrained_layout(self) -> None:
+        figs = self._make_figs()
+        try:
+            for fig in figs:
+                assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine), (
+                    f"figure with title {fig.axes[0].get_title()!r} is not constrained-layout"
+                )
+        finally:
+            for fig in figs:
+                matplotlib.pyplot.close(fig)
+
+    def test_mtf_legend_inside_axes_below_title(self) -> None:
+        # The dense MTF-terms legend sits inside the axes so it never overlaps the title
+        # band that constrained_layout reserves above the axes (the reported overlap bug).
+        mtf_terms = {"mtf_optics_x": np.linspace(1.0, 0.0, 20)}
+        fig = plot_mtf_terms(mtf_terms, np.arange(20, dtype=float))
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        fig.canvas.draw()  # realise the renderer so bbox extents are populated
+        title_bbox = fig.axes[0].title.get_window_extent()
+        legend_bbox = legend.get_window_extent()
+        # Legend top must sit at/below the title bottom — no vertical overlap.
+        assert legend_bbox.ymax <= title_bbox.ymin + 1.0
         matplotlib.pyplot.close(fig)

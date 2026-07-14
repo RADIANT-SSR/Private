@@ -125,6 +125,18 @@ class TestMtfPanel:
         assert " " not in expected  # dimensionless → bare number
         assert panel.canvas.has_figure()
 
+    def test_column0_header_text_and_sizes_to_contents(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Column 0 carries the real 'Contributor' header and sizes to contents so it is
+        never clipped to 'trib…' in a narrow pane (the reported truncation bug)."""
+        from PySide6.QtWidgets import QHeaderView
+
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        assert panel.table.horizontalHeaderItem(0).text() == "Contributor"
+        header = panel.table.horizontalHeader()
+        for col in range(panel.table.columnCount()):
+            assert header.sectionResizeMode(col) == QHeaderView.ResizeMode.ResizeToContents
+
 
 # ---------------------------------------------------------------------------
 # Relocated Noise Budget panel (Detector view)

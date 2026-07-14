@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-117 — Dense MTF-terms overlay legend (16 entries) covers the curves in a narrow embedded pane
+
+**Discovered**: GUI plot-clipping fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)
+**Status**: Open — visual density, non-blocking. The reported title-overlap bug is fixed; this is the residual density issue the fix's scope note explicitly deferred.
+**File**: `src/radiant/api/plot.py` (`plot_mtf_terms`), consumed by `src/radiant/gui/widgets/mtf_panel.py` and the Optics/Performance stage centers.
+**Symptom**: `plot_mtf_terms` renders one legend entry per MTF term — with x/y-suffixed keys per contributor that is ~16 entries. The legend now sits **inside** the axes (upper-right) so it never overlaps the reserved title band (the fix), but in the GUI's narrow embedded canvas (the MTF panel gives the plot ~half a ~750 px pane) the 16-entry legend box covers much of the curve area and, at small window sizes, spills over the x-axis label. An outside-right legend was tried and rejected because it collapses the plot to a sliver in the narrow pane.
+**Why it still matters**: UX/legibility only — no physics or correctness impact. The overlay is meant to let the operator read each contributor's roll-off; a legend that blankets the curves undercuts that at small sizes.
+**Suggested fix**: (b) stand-alone task — legend redesign for density: e.g. group x/y into one entry per contributor (halving entries), draw a compact multi-column legend, move the legend to a collapsible side list in the GUI panel, or offer an interactive term toggle. Effort S–M; category D (UX). Keep the plot builder the single source (one GUI action ↔ one API call).
+
 ### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes
 
 **Discovered**: GUI contextual-layout retrofit Step B, 2026-07-13 (commit on branch `gui-phase1-task-a`)

@@ -387,7 +387,7 @@ Both return strings — `print()` them.
 
 ## 5. Plotting
 
-matplotlib is an **optional** dependency; all plot helpers import it lazily and raise a clear `ImportError` if missing. Everything returns a `matplotlib.figure.Figure` — call `.savefig(...)` on it.
+matplotlib is an **optional** dependency; all plot helpers import it lazily and raise a clear `ImportError` if missing. Everything returns a `matplotlib.figure.Figure` — call `.savefig(...)` on it. Every returned figure uses matplotlib **constrained layout** (`plt.subplots(constrained_layout=True)`), so titles, axis labels, and legends always keep a reserved margin and re-fit when the figure is resized (e.g. embedded in a GUI canvas) — no clipped titles on `savefig` or on window resize.
 
 ### 5.1 Module functions — `radiant.api.plot`
 

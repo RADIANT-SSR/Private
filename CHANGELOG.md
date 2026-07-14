@@ -191,6 +191,19 @@ retroactively reconstructed.
   the internal `themes` helpers.
 
 ### Fixed
+- **Embedded matplotlib plots no longer clip titles / axis labels / legends
+  (owner feedback 2026-07-13).** Every `radiant.api.plot` builder (and thus every
+  `ResultPlotNamespace` / `result.plot.*` figure) now uses matplotlib constrained
+  layout instead of a one-shot `tight_layout()`, so titles, axis labels, and legends
+  keep a reserved margin and re-fit on resize — fixing the cut-off "Source spectral
+  radiance" title, the "MTF Budget" title overlapped by its legend, and edge-crowded
+  axis labels in the GUI (and improving `savefig` output for script users too). The
+  dense MTF-terms legend now sits inside the axes so it never reaches the title band at
+  any canvas width. In the GUI, the MTF per-term table's first column shows its full
+  "Contributor" header (was truncated to "trib…") and every column sizes to its
+  contents; the MTF/noise panels' embedded canvases keep a minimum height so a short
+  window scrolls rather than collapsing the figure. Visual only — no computed results
+  changed.
 - **GUI Parameter-Editor unit dropdown no longer clips (GUI plan Phase 3
   checkpoint punch-list round 2, owner feedback 2026-07-13).** The unit selector's
   popup previously truncated unit names to ~2 characters ("cr", "kı"); the combo now

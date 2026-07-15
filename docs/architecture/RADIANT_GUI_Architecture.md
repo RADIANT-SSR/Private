@@ -649,42 +649,56 @@ both trigger the same action, which is **disabled until the first evaluation** (
 dump) and opens **non-modally** against the most recent result so the operator can keep
 working with it open.
 
-### 4.6.1 Scripting Window (separate window — Command Window + Workspace)
+### 4.6.1 Scripting Window (separate window — Editor + Command Window + Workspace)
 
-*As shipped (Pass 1, owner-ratified 2026-07-15).* The MATLAB-style scripting environment is
-a **separate top-level window** (`ScriptingWindow`, title "RADIANT Scripting") — not a dock
-inside the main window — so the operator can move it to a second monitor. It is a **global
-tool**, launched from **Tools → Scripting Window** (`Ctrl+Shift+P`); the action is enabled
-once a sensor is loaded (nothing to bind before that), and re-triggering **raises/focuses the
-single existing instance** rather than spawning a duplicate. It **replaces the earlier
-bottom-dock console** (the retired `consoleDock` / `_toggle_console` / View-menu toggle are
-gone; Rule 27). The shortcut is `Ctrl+Shift+P` (⌘⇧P on macOS) rather than the earlier
-``Ctrl+` ``: Qt maps portable "Ctrl" to the macOS Command key, so ``Ctrl+` `` became ⌘` — an
-**OS-reserved** shortcut (cycle windows of the active app) that never reached the app, so the
-console would not open on macOS (owner report 2026-07-15).
+*As shipped (Pass 1 + Pass 2, owner-ratified 2026-07-15).* The MATLAB-style scripting
+environment is a **separate top-level window** (`ScriptingWindow`, title "RADIANT Scripting") —
+not a dock inside the main window — so the operator can move it to a second monitor. It is a
+**global tool**, launched from **Tools → Scripting Window** (`Ctrl+Shift+P`); the action is
+enabled once a sensor is loaded (nothing to bind before that), and re-triggering
+**raises/focuses the single existing instance** rather than spawning a duplicate. It
+**replaces the earlier bottom-dock console** (the retired `consoleDock` / `_toggle_console` /
+View-menu toggle are gone; Rule 27). The shortcut is `Ctrl+Shift+P` (⌘⇧P on macOS) rather than
+the earlier ``Ctrl+` ``: Qt maps portable "Ctrl" to the macOS Command key, so ``Ctrl+` ``
+became ⌘` — an **OS-reserved** shortcut (cycle windows of the active app) that never reached
+the app, so the console would not open on macOS (owner report 2026-07-15).
 
-The window hosts two of the vision's three panes, side-by-side in a horizontal splitter
-(Workspace left, Command Window right):
+The window is **complete** as of Pass 2: all three vision panes ship, in an outer vertical
+splitter with the **Editor** on top and the Command Window + Workspace row (a horizontal
+splitter, Workspace left, Command Window right) below.
 
+* the **Editor** (top/main pane, Pass 2) — a multi-tab Python `ScriptEditor` (a `QTabWidget` of
+  `ScriptTab` code panes) for authored, saved, re-runnable scripts. Several `.py` scripts open
+  at once; each tab shows its file name and a trailing `*` while it has unsaved edits. A File
+  menu + toolbar give **New / Open / Open Recent / Save / Save As** over plain `.py` text
+  (`Ctrl+N/O/S`, `Ctrl+Shift+S`) — **not** `Sensor.load`, since scripts are source, not configs;
+  the recent-scripts list persists via `SettingsStore` and is kept distinct from the config
+  recent list. Source is syntax-highlighted from the theme's `syntax_*` tokens. **Run** (F5 /
+  `Ctrl+Return`, or the toolbar button) executes the active tab's full text, and **Run
+  Selection** (`Ctrl+Shift+Return`) executes the selected lines — both through the Command
+  Window's `ScriptingConsole.run_script`, i.e. **in the same shared namespace** the command line
+  and Workspace use. A script's top-level `x = result.snr()` therefore leaves `x` bound for the
+  next command line and visible in the Workspace; stdout/stderr and any traceback route into the
+  Command Window transcript (surfaced, never swallowed — Rule 17); and a `sensor.set(...)` in a
+  script marks the GUI stale exactly like a typed command (the shared coherence path). A bad
+  file load surfaces the actionable/traceback error dialog and leaves the open tabs intact.
 * the **Command Window** — the reused `ScriptingConsole` REPL (unchanged; the binding,
   history, figure pop-out, and coherence model below are all the dock console's logic hosted
   in the new window); and
 * the **Workspace** — a `WorkspacePanel` live variable browser of the command namespace: a
   table of each variable's **name**, **type**, and a short **value / size** summary
   (`sensor: Sensor`, `result: ChainResult`, `x: ndarray (500,)`, `snr: float 616.0`). It
-  refreshes after each executed command (the console's `commandExecuted` signal) and after
-  every evaluate/refresh (a result re-bind outside a command). Selecting a variable shows a
-  fuller **detail** dump below the table — the full `inspect_result` tree for a `ChainResult`,
-  else the value's `repr`. This is related to but distinct from the global Inspector (§4.6),
-  which dumps one result; the Workspace lists the whole live namespace.
-
-The third pane — a **multi-tab script Editor** (open / write / save / run) — is **Pass 2**
-(deferred, CU-143), which will occupy the top/main area above these two.
+  refreshes after each executed command / Editor Run (the console's `commandExecuted` signal)
+  and after every evaluate/refresh (a result re-bind outside a command). Selecting a variable
+  shows a fuller **detail** dump below the table — the full `inspect_result` tree for a
+  `ChainResult`, else the value's `repr`. This is related to but distinct from the global
+  Inspector (§4.6), which dumps one result; the Workspace lists the whole live namespace.
 
 **Theme.** The design-system stylesheet is installed app-wide on the `QApplication`
 (`apply_theme`), so this separate top-level window is themed automatically and the View-menu
-light/dark toggle re-themes it in step — no per-window wiring, and no visual literal outside
-`themes/`.
+light/dark toggle re-themes it in step. The one exception is the Editor's syntax-highlight
+glyph colours (a `QSyntaxHighlighter`, outside QSS's reach): the toggle calls
+`ScriptingWindow.set_theme` to re-apply them. No visual literal lives outside `themes/`.
 
 **Live-object binding.** The console namespace carries live references: `sensor` (the
 window's live `Sensor` — the *same* object the parameter tree edits, so a `sensor.set(...)`

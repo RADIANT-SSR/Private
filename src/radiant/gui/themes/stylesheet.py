@@ -1086,6 +1086,37 @@ QPlainTextEdit#workspaceDetail {{
     padding: 6px;
 }}
 
+/* -- Script Editor (§4.6.1 Pass 2 — the multi-tab top pane) ------------ */
+QWidget#scriptEditor {{
+    background-color: {t.panel};
+}}
+QToolBar#scriptToolbar {{
+    background-color: {t.panel_2};
+    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+    spacing: 4px;
+    padding: 3px 6px;
+}}
+QToolBar#scriptToolbar QToolButton {{
+    color: {t.ink_2};
+    background-color: {t.panel_3};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: 4px 12px;
+}}
+QToolBar#scriptToolbar QToolButton:hover {{
+    color: {t.ink};
+    background-color: {t.panel_4};
+}}
+/* The code pane: deepest inset surface, mono, no wrap — a real editor field. */
+QPlainTextEdit#scriptEditorArea {{
+    background-color: {t.panel_4};
+    color: {t.ink};
+    border: none;
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    padding: 6px;
+}}
+
 /* -- Scrollbars (§8) --------------------------------------------------- */
 QScrollBar:vertical {{
     background-color: {t.bg};

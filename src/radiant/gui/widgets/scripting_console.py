@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import traceback
 from code import InteractiveConsole
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
@@ -101,6 +102,10 @@ _BANNER: Final[str] = (
 )
 
 _STALE_TEXT: Final[str] = "Console changed the sensor — the GUI is out of date."
+
+# The header echoed to the transcript before an Editor "Run" (a whole-script exec), so the
+# Command Window reads as a session log where authored runs and typed commands interleave.
+_RUN_HEADER: Final[str] = "# Run ▶ "
 
 
 class _ConsoleInput(QLineEdit):
@@ -348,6 +353,59 @@ class ScriptingConsole(QWidget):
         """Execute *source* as if typed at the prompt (one or more lines; for tests too)."""
         for line in source.splitlines() or [""]:
             self._run_line(line)
+
+    def run_script(self, source: str, *, label: str = "script") -> None:
+        """Execute *source* as a whole script in the **shared** namespace (the Editor's Run).
+
+        This is the MATLAB "Run" primitive for the multi-tab script Editor (arch doc §4.6.1,
+        Pass 2). It compiles and executes *source* as a module-level block in the *same*
+        namespace the command line and the Workspace share, so a script's top-level
+        ``x = result.snr()`` leaves ``x`` bound for the next command line and visible in the
+        Workspace. stdout, stderr, and any traceback route to this Command Window transcript
+        (the same tee the REPL uses) rather than the process streams — an exception is
+        **surfaced, never swallowed** (Rule 17). A ``sensor.set(...)`` in the script marks the
+        GUI stale exactly like a typed command (the shared coherence path), and
+        :attr:`commandExecuted` fires so the Workspace refreshes.
+
+        Parameters
+        ----------
+        source:
+            The script text to run (the active tab's full text, or a selection).
+        label:
+            A short name for the run (the tab's file name), shown in the transcript header and
+            used as the compiled code's filename so a traceback names the script.
+        """
+        self._append_text(f"{_RUN_HEADER}{label}\n")
+        # Snapshot the sensor so an in-place rebind inside the script is caught by identity,
+        # mirroring the per-statement REPL path.
+        self._stmt_before_sensor = self._namespace.get("sensor")
+        with self._captured_io():
+            try:
+                code_obj = compile(source, f"<script:{label}>", "exec")
+                exec(code_obj, self._namespace)  # the scripting window IS a REPL by design
+            except SystemExit:
+                # A script `exit()`/`quit()` must never tear down the GUI process.
+                self._append_text("(SystemExit ignored inside the embedded editor run)\n")
+            except SyntaxError as exc:
+                # Compile-time failure: SyntaxError formats its own file/line/caret; the
+                # framing (this module's) frames carry no useful information for the author.
+                self._append_text("".join(traceback.format_exception_only(type(exc), exc)))
+            except Exception:
+                # Runtime failure: surfaced to the transcript, never swallowed (Rule 17).
+                self._append_text(self._format_script_traceback())
+        self._flag_if_mutated(source)
+        self.commandExecuted.emit(source)
+
+    def _format_script_traceback(self) -> str:
+        """Format the live exception's traceback, dropping this module's ``exec`` frame.
+
+        The top frame is always :meth:`run_script`'s ``exec`` call; skipping it leaves a
+        traceback rooted in the author's own script lines (``<script:...>``), the way a
+        standalone ``python my_script.py`` failure reads.
+        """
+        exc_type, exc, tb = sys.exc_info()
+        user_tb = tb.tb_next if tb is not None else None
+        return "".join(traceback.format_exception(exc_type, exc, user_tb))
 
     def _on_return_pressed(self) -> None:
         line = self._input.text()

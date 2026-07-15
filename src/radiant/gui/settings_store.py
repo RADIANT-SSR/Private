@@ -25,6 +25,7 @@ _APP: str = "RADIANT GUI"
 _RECENT_LIMIT: int = 8
 
 _KEY_RECENT: str = "recent_files"
+_KEY_RECENT_SCRIPTS: str = "recent_scripts"
 _KEY_THEME: str = "theme"
 _KEY_PANEL: str = "panels"
 
@@ -64,6 +65,33 @@ class SettingsStore:
     def clear_recent_files(self) -> None:
         """Forget every remembered recent file."""
         self._settings.setValue(_KEY_RECENT, [])
+
+    # -- recent scripts (the scripting-window Editor, §4.6.1 Pass 2) --------
+
+    def recent_scripts(self) -> list[str]:
+        """The remembered recently-opened ``.py`` script paths, most-recent first (may be empty).
+
+        Kept separate from :meth:`recent_files` (config YAMLs) so the scripting window's
+        Editor **Open Recent** lists scripts and the main window's lists configs — two distinct
+        recent lists, one persistence surface.
+        """
+        raw = self._settings.value(_KEY_RECENT_SCRIPTS, [])
+        if raw is None:
+            return []
+        if isinstance(raw, str):  # a single value round-trips as a bare string
+            return [raw]
+        return [str(item) for item in raw]
+
+    def add_recent_script(self, path: str) -> None:
+        """Push *path* to the front of the recent-scripts list (deduped, capped)."""
+        path = str(path)
+        existing = [p for p in self.recent_scripts() if p != path]
+        updated = [path, *existing][:_RECENT_LIMIT]
+        self._settings.setValue(_KEY_RECENT_SCRIPTS, updated)
+
+    def clear_recent_scripts(self) -> None:
+        """Forget every remembered recent script."""
+        self._settings.setValue(_KEY_RECENT_SCRIPTS, [])
 
     # -- theme --------------------------------------------------------------
 

@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI scripting window — Pass 2: the multi-tab script Editor (arch doc §4.6.1, view-only).**
+  The scripting window now hosts all three MATLAB-style panes: a new **Editor** (top pane) over
+  the Pass-1 Command Window + Workspace. The Editor opens, writes, saves, and **runs** multiple
+  Python scripts at once — a tabbed set of `.py` buffers each with a file name + unsaved-edits
+  (`*`) marker, plain-text **New / Open / Open Recent / Save / Save As** (a persisted
+  recent-scripts list, kept distinct from the config recent list), syntax highlighting, and a
+  File/Run menu + toolbar (Run = F5 / ⌘⏎, Run Selection). **Run** executes the active tab in the
+  *same* namespace the Command Window and Workspace share, so a script's `x = result.snr()`
+  leaves `x` usable at the command line and visible in the Workspace; stdout/stderr and any
+  traceback route to the Command Window (surfaced, not swallowed), and a `sensor.set(...)` in a
+  script marks the main GUI stale exactly like a typed command. Completes the ratified
+  scripting-window vision (CU-143 closed).
 - **GUI scripting window — Pass 1: separate window + Command Window + Workspace (arch doc
   §4.6.1, view-only).** The MATLAB-style scripting environment is now a **separate top-level
   window** ("RADIANT Scripting"), launched from **Tools → Scripting Window** (`Ctrl+Shift+P`)

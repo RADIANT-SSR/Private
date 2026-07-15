@@ -470,7 +470,7 @@ class RADIANTMainWindow(QMainWindow):
         Refresh button drives :meth:`_refresh_from_console` (explicit-and-honest, not magic
         sync). A single instance is kept, so re-launching raises it rather than duplicating.
         """
-        scripting_window = ScriptingWindow(self)
+        scripting_window = ScriptingWindow(self, settings=self._settings)
         console = scripting_window.console
         console.bind_sensor(self._sensor)
         console.refreshRequested.connect(self._refresh_from_console)
@@ -1159,6 +1159,9 @@ class RADIANTMainWindow(QMainWindow):
         new_theme = LIGHT if active_theme().name == DARK.name else DARK
         apply_theme(app, new_theme)
         self._central.stage_center.set_theme(new_theme)
+        # The scripting window's Editor uses a QSyntaxHighlighter (outside QSS's reach), so its
+        # glyph colours are re-applied here to keep the Editor in step with the toggle (§4.6.1).
+        self._scripting_window.set_theme(new_theme)
         if self._last_result is not None:
             self._central.show_result(self._last_result)
         self._settings.set_theme_name(new_theme.name)

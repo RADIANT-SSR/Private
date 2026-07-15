@@ -768,18 +768,24 @@ keeps R-API intact: the panel is a view over stage outputs, not a re-implementat
 
 ### 6.4 Interaction & Visual Conventions
 
-**As shipped (Part B), reveal is driven from the accordion side panel** — the mockup's
-"click a vector in the scene" is realized as a per-angle **toggle checkbox** and a "show
-orientation triad" checkbox (an equally valid reveal surface, and the one the offscreen
-test suite can exercise; in-scene VTK point-picking + the lifted `highlight.py` re-stroke
-need a live interactor and are deferred, CU-124). Toggling an angle reveals its arc + the
-stage-output value pinned beside it; toggling the triad shows the on-target RPY gizmo.
-Editing a side-panel shape or RPY value performs the one `sensor.set` and updates the
-readouts and scene.
+**As shipped, reveal is driven from an on-canvas overlay** — the mockup's "click a vector
+in the scene" is realized as a per-angle **toggle checkbox**. Owner feedback 2026-07-14
+moved this **angle-arc selector out of the right-column accordion and onto the plot** as a
+compact **bottom-left overlay** (`AngleToggleOverlay`, `viewer/angle_overlay.py`) that
+mirrors the QPainter **VECTORS** legend at top-left — a real child `QWidget` parented to the
+`SchematicView` canvas, absolutely positioned bottom-left and repositioned in the canvas
+`resizeEvent`. Toggling an angle reveals its arc + the stage-output value pinned beside it.
+The "show orientation triad" checkbox stays in the accordion's shape page; toggling it shows
+the on-target RPY gizmo. Editing a side-panel shape or RPY value performs the one
+`sensor.set` and updates the scene. (The offscreen test suite exercises the overlay
+checkboxes directly; in-scene VTK point-picking + the lifted `highlight.py` re-stroke need a
+live interactor and are deferred, CU-124.)
 
-The side panel is a `QToolBox` accordion with an **Angles** page (frame-grouped toggles +
-the **shared** Phase-5 `GeometryReadout`) and a **Target shape & orientation** page (the
-schema-driven shape combo + RPY spin boxes).
+The right-column side panel is a `QToolBox` accordion with a **Geometry inputs** page (the
+reusable Phase-5 `GeometryModeForm`) and a **Target shape & orientation** page (the
+schema-driven shape combo + dimension inputs + RPY spin boxes + triad toggle). The angle-arc
+reveal toggles are **not** in the accordion — they are the on-canvas bottom-left overlay
+above.
 
 Color roles (domain glyph palette, distinct from the app chrome palette): sun = amber,
 sensor = cyan, phase/azimuth = magenta, zenith = neutral, ground/projection = faded
@@ -873,17 +879,20 @@ split: the viewport (left) and the accordion side panel (right).
   target body mesh uses, so tilting the target via those params rotates the gizmo. Platform/
   sensor attitude still has **no stage owner** (CU-122): `observer_{yaw,pitch,roll}_rad`
   remain defaulted to identity, so there is no platform-attitude triad yet.
-- **Accordion side panel** (`widgets/geometry_angle_panel.py`) — a `QToolBox` with three
+- **Accordion side panel** (`widgets/geometry_angle_panel.py`) — a `QToolBox` with two
   pages: **Geometry inputs** (the reusable Phase-5 `GeometryModeForm`, so geometry is
-  editable from the Schematic tab — owner request 2026-07-14), **Angles** (the annotation
-  reveal toggles), and **Target shape & orientation** (the shape/RPY/dimension editors). The
-  annotation/shape/RPY controls emit intent signals and the owning `StagePane` performs the
-  one `sensor.set` per edit (R-API); the embedded `GeometryModeForm` owns its own schema-driven
-  edit/commit path and the `StagePane` re-emits its `parameterEdited`. The derived-angles
-  `GeometryReadout` table is **not** on this panel (owner request 2026-07-14 — it duplicated
-  the Inputs tab; the derived values surface on the schematic itself as arc degree labels +
-  altitude leader labels). Both geometry forms (Inputs tab + Schematic panel) read the one
-  live sensor and re-sync on the next clean evaluation, so an edit on either reflects on both.
+  editable from the Schematic tab — owner request 2026-07-14) and **Target shape &
+  orientation** (the shape/RPY/dimension editors + triad toggle). The shape/RPY controls emit
+  intent signals and the owning `StagePane` performs the one `sensor.set` per edit (R-API);
+  the embedded `GeometryModeForm` owns its own schema-driven edit/commit path and the
+  `StagePane` re-emits its `parameterEdited`. The **angle-arc reveal toggles** are **not** on
+  this panel — owner feedback 2026-07-14 moved that selector onto the plot as the bottom-left
+  `AngleToggleOverlay` (§6.4), leaving the right column to geometry inputs + shape/attitude.
+  The derived-angles `GeometryReadout` table is **not** on this panel either (owner request
+  2026-07-14 — it duplicated the Inputs tab; the derived values surface on the schematic
+  itself as arc degree labels + altitude leader labels). Both geometry forms (Inputs tab +
+  Schematic panel) read the one live sensor and re-sync on the next clean evaluation, so an
+  edit on either reflects on both.
 - **Deferred (needs a live interactor):** in-scene VTK point-picking and the lifted
   `scene/highlight.py` active-edit re-stroke (CU-124); the corner view-cube / world-axes
   gnomon widgets stay out of v1.
@@ -906,7 +915,14 @@ PyVista/VTK, no physics stage):
   **revealable angle arcs** (off-nadir η, sun-zenith θ_s, relative-azimuth Δφ on the ground,
   phase α_t) each with a **degree** value pill; the **h_s / h_t altitude leader labels**
   (not-to-scale magnitudes, §6.1); and the on-target **RPY triad** (roll +X′ pink / pitch
-  +Y′ green / yaw +Z′ purple). Orthographic yaw/pitch by mouse drag.
+  +Y′ green / yaw +Z′ purple). Orthographic yaw/pitch by mouse drag. Hosts the interactive
+  `AngleToggleOverlay` as a bottom-left child widget (mirroring the top-left VECTORS legend),
+  repositioned in `resizeEvent`.
+- **`angle_overlay.py`** — the interactive `AngleToggleOverlay` reveal selector: one
+  frame-grouped checkbox per annotatable angle, mounted **on** the canvas bottom-left (owner
+  feedback 2026-07-14, moved out of the right-column accordion). Each toggle emits
+  `angleToggled`, wired by `GeometryViewer` to `set_angle_revealed` — the reveal path is
+  unchanged, only the control's location moved.
 - **`angle_catalog.py`** — the Qt-free annotation catalog (name, symbol, frame, stage-truth
   key, colour) the schematic and the side panel share; the single source of the
   target-frame/ground-frame split (matches the Phase-5 `GeometryReadout` grouping).

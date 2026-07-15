@@ -20,7 +20,7 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
-from PySide6.QtWidgets import QTabWidget  # noqa: E402
+from PySide6.QtWidgets import QTabWidget, QToolBox  # noqa: E402
 
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
@@ -65,21 +65,35 @@ def _load_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 
 # ---------------------------------------------------------------------------
-# Item 1 — the derived-angles table is gone from the Schematic side panel
+# Item 1 — the derived-angles table is gone from the Schematic side panel; the
+# angle-arc selector moved out of the accordion onto the plot (2026-07-14 relayout)
 # ---------------------------------------------------------------------------
 
 
 class TestDerivedReadoutRemovedFromSchematic:
-    def test_side_panel_has_no_derived_readout_but_keeps_arc_toggles(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Schematic panel drops the GeometryReadout table but keeps the reveal toggles."""
+    def test_side_panel_has_no_derived_readout_and_no_angle_toggles(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Schematic panel drops the GeometryReadout table and the angle-arc toggles.
+
+        The derived-angles readout stays on the Inputs tab; the angle-arc reveal selector
+        moved onto the plot as a bottom-left overlay (owner feedback 2026-07-14).
+        """
         panel = GeometryAnglePanel()
         qtbot.addWidget(panel)
         # The derived-angles table (and its accessor) are gone.
         assert not panel.findChildren(GeometryReadout)
         assert not hasattr(panel, "readout")
-        # The angle-arc reveal toggles (viewer controls, not the table) remain.
-        assert panel.angle_checkbox("off_nadir") is not None
-        assert panel.angle_checkbox("sun_zenith") is not None
+        # The angle-arc reveal toggles are gone from the accordion (they live on the plot).
+        assert not hasattr(panel, "angle_checkbox")
+        assert not hasattr(panel, "angleToggled")
+
+    def test_accordion_has_exactly_the_two_geometry_and_shape_pages(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The right-column accordion now holds only Geometry inputs + Target shape — no Angles."""
+        panel = GeometryAnglePanel()
+        qtbot.addWidget(panel)
+        toolbox = panel.findChild(QToolBox)
+        assert toolbox is not None
+        titles = [toolbox.itemText(i) for i in range(toolbox.count())]
+        assert titles == ["Geometry inputs", "Target shape & orientation"]
 
     def test_geometry_pane_keeps_one_readout_on_the_inputs_tab_only(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Exactly one GeometryReadout survives — the Inputs tab's — none in the side panel."""

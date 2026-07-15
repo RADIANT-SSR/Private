@@ -55,11 +55,14 @@ from PySide6.QtGui import (
     QPainterPath,
     QPen,
     QPolygonF,
+    QResizeEvent,
+    QShowEvent,
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from radiant.gui.themes.tokens import LIGHT, Theme
 from radiant.gui.viewer import angle_catalog
+from radiant.gui.viewer.angle_overlay import AngleToggleOverlay
 from radiant.gui.viewer.projection import (
     Camera,
     ProjectedPoint,
@@ -181,6 +184,9 @@ _EMPTY_SCALE: float = 80.0  # scale used before the first scene is bound (empty 
 _MIN_SIDE_PX: int = 360
 _HINT_W_PX: int = 520
 _HINT_H_PX: int = 480
+# Bottom-left inset for the interactive ANGLES overlay, mirroring the VECTORS legend's
+# top-left 14 px inset (see ``_draw_legend``) so the two panels read as a matched pair.
+_OVERLAY_MARGIN_PX: int = 14
 
 
 @dataclass(frozen=True, slots=True)
@@ -495,6 +501,13 @@ class SchematicView(QWidget):
         self.setMinimumSize(_MIN_SIDE_PX, _MIN_SIDE_PX)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(False)
+        # The interactive ANGLES reveal selector — a real child widget overlaid bottom-left
+        # (mirroring the QPainter VECTORS legend at top-left, owner feedback 2026-07-14). It
+        # is parented to this canvas, raised above the paint layer, and repositioned in
+        # ``resizeEvent`` so it always sits over the plot and never clips.
+        self._angle_overlay = AngleToggleOverlay(self)
+        self._angle_overlay.raise_()
+        self._position_overlay()
 
     def sizeHint(self) -> QSize:  # noqa: N802 — Qt override
         """A sensible default size — the canvas *fills* its viewport (Expanding), never grows.
@@ -504,6 +517,31 @@ class SchematicView(QWidget):
         that a scroll area would inflate (owner report 2026-07-14: the schematic ballooned
         taller than the viewport and the scene ended up bottom-anchored)."""
         return QSize(_HINT_W_PX, _HINT_H_PX)
+
+    # -- angle-overlay child (bottom-left, mirrors the top-left VECTORS legend) ------
+
+    @property
+    def angle_overlay(self) -> AngleToggleOverlay:
+        """The interactive bottom-left ANGLES reveal selector overlaid on the canvas."""
+        return self._angle_overlay
+
+    def _position_overlay(self) -> None:
+        """Anchor the ANGLES overlay bottom-left with the same inset as the VECTORS legend."""
+        self._angle_overlay.adjustSize()
+        hint = self._angle_overlay.sizeHint()
+        y = self.height() - hint.height() - _OVERLAY_MARGIN_PX
+        self._angle_overlay.setGeometry(_OVERLAY_MARGIN_PX, y, hint.width(), hint.height())
+        self._angle_overlay.raise_()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 — Qt override
+        """Keep the ANGLES overlay pinned bottom-left as the canvas resizes."""
+        super().resizeEvent(event)
+        self._position_overlay()
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
+        """Re-anchor the overlay once real geometry is known (first show)."""
+        super().showEvent(event)
+        self._position_overlay()
 
     # -- state / theme ------------------------------------------------------
 

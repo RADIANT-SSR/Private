@@ -76,6 +76,18 @@ retroactively reconstructed.
   audit — CU-134).
 
 ### Changed
+- **GUI geometry Schematic tab — angle-arc selector moved to a plot overlay (owner feedback
+  2026-07-14, view-only).** The angle-arc reveal toggles (θ_s sun zenith, Δφ relative
+  azimuth, α_t phase angle, η off nadir) moved **out** of the right-column accordion's
+  "Angles" page and **onto the schematic plot** as a compact **bottom-left overlay**
+  (`AngleToggleOverlay`, new module `radiant.gui.viewer.angle_overlay`), mirroring the
+  top-left VECTORS legend. It is a real child `QWidget` on the `SchematicView` canvas,
+  repositioned bottom-left on resize, and stays interactive — each checkbox still reveals its
+  arc via `GeometryViewer.set_angle_revealed` (reveal path unchanged). The right-column
+  accordion now holds only the **Geometry inputs** and **Target shape & orientation** pages.
+  Removed public GUI surface: `GeometryAnglePanel.angleToggled` signal + `angle_checkbox`
+  accessor (both now on `SchematicView.angle_overlay`). Golden untouched (the GUI is a view
+  over the scripting API).
 - **GUI geometry viewer reimplemented as a 2D orthographic schematic — view-only
   (ADR-0007 superseded 2026-07-14, Pass 1).** The Geometry stage's viewer is no longer a
   PyVista/VTK render but a crisp, antialiased **2D orthographic line-schematic** drawn with

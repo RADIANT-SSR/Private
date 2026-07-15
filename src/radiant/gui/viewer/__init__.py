@@ -11,6 +11,9 @@ superseded 2026-07-14 — the PyVista/VTK raster could not match the mockup's SV
   evaluation to the display fields (reused unchanged across the pivot);
 * :mod:`radiant.gui.viewer.viewer_widget` — the ``GeometryViewer`` widget mounted in the
   Geometry "Schematic" tab;
+* :mod:`radiant.gui.viewer.angle_overlay` — the interactive ``AngleToggleOverlay`` mounted
+  bottom-left **on** the canvas (owner feedback 2026-07-14), mirroring the top-left VECTORS
+  legend; each checkbox reveals/hides an angle arc via ``GeometryViewer.set_angle_revealed``;
 * :mod:`radiant.gui.viewer.annotations` — the Qt-free angle-annotation catalog (names,
   symbols, frames, stage-truth keys) the schematic and the side panel share;
 * :mod:`radiant.gui.viewer.angle_truth` — the viewer-local angle recomputation the

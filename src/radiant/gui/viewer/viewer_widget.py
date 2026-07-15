@@ -80,6 +80,11 @@ class GeometryViewer(QWidget):
 
         self._canvas: SchematicView | None = SchematicView(self, theme=self._theme)
         self._layout.addWidget(self._canvas)
+        # The bottom-left ANGLES reveal selector lives on the canvas (owner feedback
+        # 2026-07-14 — moved out of the right-column accordion onto the plot). Wire each
+        # toggle to the same reveal path the accordion used: checkbox → set_angle_revealed →
+        # arc repaint. The overlay is a child of the canvas; the viewer owns the wiring.
+        self._canvas.angle_overlay.angleToggled.connect(self.set_angle_revealed)
         self._unavailable_reason: str | None = None
         self._mode: str = "schematic"
 

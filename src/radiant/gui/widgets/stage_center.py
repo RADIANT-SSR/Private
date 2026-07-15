@@ -296,7 +296,9 @@ class StagePane(QWidget):
             split.setObjectName("geometryViewerSplit")
             geometry_viewer = GeometryViewer(split)
             geometry_panel = GeometryAnglePanel(split)
-            geometry_panel.angleToggled.connect(self._on_angle_toggled)
+            # The angle-arc reveal toggles now live on the plot as a bottom-left overlay
+            # (owner feedback 2026-07-14); the GeometryViewer wires that overlay directly to
+            # its own set_angle_revealed, so this pane no longer routes angle reveals.
             geometry_panel.triadToggled.connect(self._on_triad_toggled)
             geometry_panel.shapeRequested.connect(self._on_shape_requested)
             geometry_panel.orientationRequested.connect(self._on_orientation_requested)
@@ -425,11 +427,6 @@ class StagePane(QWidget):
                 panel.set_dimension_bounds(dim_bounds)
 
     # -- Part-B 3D-viewer interaction slots ---------------------------------
-
-    def _on_angle_toggled(self, name: str, revealed: bool) -> None:
-        """Reveal/hide an angle annotation in every embedded viewer (view-only)."""
-        for viewer in self._geometry_viewers:
-            viewer.set_angle_revealed(name, revealed)
 
     def _on_triad_toggled(self, visible: bool) -> None:
         """Show/hide the RPY triad in every embedded viewer (view-only)."""

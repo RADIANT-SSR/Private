@@ -292,10 +292,38 @@ QLabel#anglePanelGroupHeader {{
     font-weight: 600;
     padding: 8px 0 2px 0;
 }}
-QCheckBox#anglePanelToggle, QCheckBox#anglePanelTriadToggle {{
+QCheckBox#anglePanelTriadToggle {{
     color: {t.ink};
     font-size: 12px;
     padding: 2px 0;
+}}
+
+/* -- On-canvas ANGLES reveal overlay (§6.4 — owner feedback 2026-07-14) - *
+ * The interactive angle-arc reveal selector, moved out of the right-column accordion onto
+ * the schematic plot as a compact bottom-left panel that mirrors the QPainter VECTORS
+ * legend at top-left. Panel chrome from the design tokens (panel fill + line border),
+ * matching the legend treatment so the two read as a matched pair. */
+#angleOverlay {{
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+}}
+QLabel#angleOverlayTitle {{
+    color: {t.ink};
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 0 0 2px 0;
+}}
+QLabel#angleOverlayGroupHeader {{
+    color: {t.muted};
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 0 1px 0;
+}}
+QCheckBox#angleOverlayToggle {{
+    color: {t.ink};
+    font-size: 11.5px;
+    padding: 1px 0;
 }}
 
 /* -- Geometry input-mode forms (§4.4 Inputs section — GUI plan Phase 5) - *

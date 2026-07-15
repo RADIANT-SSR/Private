@@ -649,6 +649,57 @@ class TestViewerRevealWiring:
         assert viewer.canvas.revealed_angles == frozenset()
 
 
+class TestAngleOverlay:
+    """The angle-arc reveal selector is an on-canvas bottom-left overlay (2026-07-14 relayout)."""
+
+    def test_overlay_is_a_child_of_the_canvas(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The interactive ANGLES selector is parented to the SchematicView canvas."""
+        from radiant.gui.viewer.angle_overlay import AngleToggleOverlay
+
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        overlay = canvas.angle_overlay
+        assert isinstance(overlay, AngleToggleOverlay)
+        assert overlay.parent() is canvas
+        # One checkbox per annotatable angle, sourced from the single catalog.
+        for ann in angle_catalog.annotations():
+            assert overlay.angle_checkbox(ann.name) is not None
+
+    def test_toggling_overlay_checkbox_reveals_the_arc(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
+        """A checkbox on the overlay calls set_angle_revealed → the canvas reveals that arc."""
+        from radiant.gui.viewer.viewer_widget import GeometryViewer
+
+        sensor, result = offnadir_sphere
+        viewer = GeometryViewer()
+        qtbot.addWidget(viewer)
+        viewer.show_result(result, sensor)
+        assert viewer.canvas is not None
+        overlay = viewer.canvas.angle_overlay
+        overlay.angle_checkbox("relative_azimuth").setChecked(True)
+        assert viewer.revealed_angles == frozenset({"relative_azimuth"})
+        assert viewer.canvas.revealed_angles == frozenset({"relative_azimuth"})
+        overlay.angle_checkbox("relative_azimuth").setChecked(False)
+        assert viewer.canvas.revealed_angles == frozenset()
+
+    def test_overlay_anchors_bottom_left_after_resize(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The overlay re-pins to the canvas bottom-left corner when the canvas resizes."""
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        canvas.show()  # resizeEvent only fires once the widget is realised
+        canvas.resize(900, 700)
+        overlay = canvas.angle_overlay
+        geo = overlay.geometry()
+        # Left-anchored (small inset) and its bottom clears the canvas bottom by the inset.
+        assert geo.left() < canvas.width() / 2
+        assert geo.bottom() < canvas.height()
+        assert canvas.height() - geo.bottom() < 40  # near the bottom edge, not floating high
+        # A second, different size keeps it bottom-left (repositioned, not stale).
+        canvas.resize(600, 500)
+        geo2 = overlay.geometry()
+        assert geo2.left() < canvas.width() / 2
+        assert canvas.height() - geo2.bottom() < 40
+
+
 class TestDimensionPanel:
     """CU-131 + owner request: the side panel exposes ALL per-shape dimension inputs."""
 

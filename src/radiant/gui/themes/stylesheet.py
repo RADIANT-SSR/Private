@@ -1005,6 +1005,58 @@ QTreeWidget#variableTree {{
     font-size: 12px;
 }}
 
+/* -- Scripting console (§2.5 / §4.6 global tool) ----------------------- */
+QWidget#scriptingConsole {{
+    background-color: {t.panel};
+}}
+QPlainTextEdit#consoleOutput {{
+    background-color: {t.panel_4};
+    color: {t.ink};
+    border: 1px solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    padding: 6px;
+}}
+QLabel#consolePrompt {{
+    color: {t.accent};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLineEdit#consoleInput {{
+    background-color: {t.panel_4};
+    color: {t.ink};
+    border: 1px solid {t.line};
+    border-radius: {tokens.RADIUS_CHIP};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    padding: 4px 6px;
+}}
+QLineEdit#consoleInput:focus {{
+    border-color: {t.focus};
+}}
+QFrame#consoleStaleBanner {{
+    background-color: {t.warn_soft};
+    border: 1px solid {t.warn};
+    border-radius: {tokens.RADIUS_CHIP};
+}}
+QLabel#consoleStaleLabel {{
+    color: {t.warn};
+    font-weight: 600;
+}}
+QPushButton#consoleRefreshButton {{
+    background-color: {t.warn};
+    color: {t.panel};
+    border: none;
+    border-radius: {tokens.RADIUS_CHIP};
+    padding: 3px 14px;
+    font-weight: 600;
+}}
+QPushButton#consoleRefreshButton:hover {{
+    background-color: {t.accent};
+}}
+
 /* -- Scrollbars (§8) --------------------------------------------------- */
 QScrollBar:vertical {{
     background-color: {t.bg};

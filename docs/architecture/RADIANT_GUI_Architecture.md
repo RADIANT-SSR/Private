@@ -649,6 +649,44 @@ both trigger the same action, which is **disabled until the first evaluation** (
 dump) and opens **non-modally** against the most recent result so the operator can keep
 working with it open.
 
+### 4.6.1 Scripting Console (global tool)
+
+*As shipped (GUI plan Phase 8, 2026-07-15).* The MATLAB-style command window is a **global
+tool**, not a per-stage tab — the same precedent as the Inspector (§4.6). It is a
+:class:`ScriptingConsole` hosted in a bottom :class:`QDockWidget`, **hidden at launch** and
+revealed from **Tools → Python Console** (`Ctrl+`` ` ``) or the View-menu show/hide toggle;
+the action is enabled once a sensor is loaded (nothing to bind before that).
+
+**Live-object binding.** The console namespace carries live references: `sensor` (the
+window's live `Sensor` — the *same* object the parameter tree edits, so a `sensor.set(...)`
+in the console and a tree edit both mutate one object), `result` (the most recent
+`ChainResult`, re-bound after every evaluation), `plot` (`ResultPlotNamespace(result)` — the
+public `result.plot.*` figure surface, since `ChainResult` carries no `.plot` property,
+Gap 87), plus the conveniences `inspect_result` (Gap-87 sugar for `result.inspect()`) and
+`Sensor` (so a script can rebind).
+
+**REPL, not qtconsole (CU-138).** The plan prefers a `qtconsole` in-process Jupyter kernel,
+but explicitly sanctions a plain REPL over `code.InteractiveConsole` if qtconsole proves
+fragile or untestable offscreen. It is both (the module is not installed here and an
+in-process kernel under the `offscreen` QPA is hard to exercise headlessly), so v1 ships the
+sanctioned REPL fallback — same binding, same coherence model, fully testable offscreen. The
+`qtconsole` pin stays in the `gui` extra; restoring the kernel path is CU-138.
+
+**Figures.** A command that evaluates to a matplotlib `Figure` (e.g. `plot.mtf()`) is
+**popped out into its own window** (a `FigureCanvasQTAgg` in a top-level dialog) rather than
+rendered inline — dependency-light and backend-agnostic. The console keeps references so the
+windows are not garbage-collected and closes them on teardown.
+
+**GUI ↔ console coherence (explicit, not magic).** A console command can mutate `sensor`
+behind the GUI's back. After such a command the console raises a visible **"console changed
+state — Refresh"** banner and the window echoes the staleness (stage-health dots → stale +
+status bar); the one-click **Refresh** *adopts* the console's current `sensor` — covering both
+an in-place `sensor.set(...)` (same object, detected via the `sensor.set*`/`sensor.load`
+mutation surface, §3.1) and a full rebind `sensor = Sensor.load(...)` (a new object, detected
+by identity) — re-reads it into the parameter tree + input forms, and re-evaluates. A fresh
+evaluation clears the stale state. There is no live-sync (GUI plan Phase 8 — "explicit and
+honest beats magic sync").
+
 ### 4.7 What the Redesign Relocates (the dissolved detail tabs)
 
 Nothing built in Phases 1–4 is discarded; the bottom detail tabs and the global badge row
@@ -663,7 +701,7 @@ are **relocated**, not removed. Precise mapping:
 | **Noise Budget** detail tab | **Detector / Readout** center views (bar/pie of `noise_terms`) (§4.4.1) |
 | **Variable Explorer** detail tab | **Global Inspector** tool (§4.6) |
 | **YAML** detail tab (read-only) | Right-rail **Edit Config (YAML)** modal (now editable, re-parsed via `Sensor.load`) (§4.5) |
-| **Console** tab | Unchanged — remains the embedded IPython console (GUI plan Phase 8), reachable from Tools/View |
+| **Console** tab | **Global tool** — the embedded scripting console dock (§4.6.1, shipped GUI plan Phase 8), reachable from Tools → Python Console / the View toggle. A REPL over `code.InteractiveConsole` (CU-138), not qtconsole. |
 
 The per-tab data sources that shipped (Phase 4 Task B) are unchanged; each is re-hosted in
 its new container. The Sweep tab remains **v1.1** and absent from v1 (D4). The migration of
@@ -710,10 +748,11 @@ launch_gui(s)                                     # opens the GUI on the current
 > `launch_gui(sensor: Sensor | None)` (GUI plan §4.2). A `Sensor.gui()` sugar wrapper,
 > if ever added, is out of v1 scope.
 
-**GUI → script hand-off.** In the Console tab `sensor` and `result` are live references
-to the current GUI objects; any scripting-API call works. After a console mutation the
-GUI marks its panels stale and offers one-click Refresh (explicit-and-honest beats magic
-sync; GUI plan Phase 8).
+**GUI → script hand-off.** In the scripting console (§4.6.1, the global console dock)
+`sensor` and `result` are live references to the current GUI objects; any scripting-API call
+works. After a console mutation the GUI marks its state stale (the console's Refresh banner +
+stale stage dots) and one-click Refresh adopts the console's `sensor` and re-reads it
+(explicit-and-honest beats magic sync; GUI plan Phase 8).
 
 ---
 
@@ -1264,7 +1303,9 @@ Phase 1). Sweep / Monte Carlo / Batch remain disabled through v1 (D4).
 
 - **PySide6 ≥ 6.6** (LTS); pin the minor version in `pyproject.toml`. Qt6-only, no Qt5
   target. Optional-dependency group: `gui = ["PySide6>=6.6", "matplotlib>=3.8",
-  "qtconsole>=5.5", "pyvista", "pyvistaqt"]`; pyvista/pyvistaqt pinned to match
+  "qtconsole>=5.5", "pyvista", "pyvistaqt"]`. **The shipped console is a REPL over
+  `code.InteractiveConsole`, not qtconsole (§4.6.1, CU-138)** — the `qtconsole` pin is kept
+  for the deferred kernel path. pyvista/pyvistaqt pinned to match
   `dev_tools/geometry_gui_v2`. Core RADIANT stays importable without the `gui` extra.
 - **Matplotlib backend:** `backend_qtagg.FigureCanvasQTAgg`; the GUI's `result.plot.*`
   calls are identical to the scripting-API calls.

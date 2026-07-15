@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-138 — Scripting console ships as a `code.InteractiveConsole` REPL, not the preferred `qtconsole` in-process Jupyter kernel
+
+**Discovered**: GUI Development Plan Phase 8 (scripting console), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — plan-sanctioned degradation, non-blocking. GUI plan Phase 8 / arch doc §4.6.1 prefer an embedded `qtconsole` (`RichJupyterWidget` + `QtInProcessKernelManager`, pinned in the `gui` extra) but explicitly allow a plain REPL over `code.InteractiveConsole` if qtconsole is fragile or untestable offscreen. Both held here: `qtconsole` is not installed in this environment, and an in-process Jupyter kernel under the `offscreen` QPA is hard to exercise headlessly. The REPL fallback shipped — same live-object binding (`sensor`/`result`/`plot`), same figure pop-out, same GUI↔console coherence, and it is fully testable offscreen (16 tests).
+**File**: `src/radiant/gui/widgets/scripting_console.py` (`ScriptingConsole`, `_LiveInteractiveConsole`); `pyproject.toml` (`gui` extra still pins `qtconsole>=5.5`).
+**Symptom**: The console is a line-oriented REPL (single-line input + transcript), not the richer qtconsole (syntax highlighting, inline rich output, tab-completion, multi-line editing). The `qtconsole` pin is currently unused by any `radiant.gui` importer.
+**Why it still matters**: The owner's long-standing vision is a MATLAB-like command window; the REPL delivers the core interactive loop (query `result`, `sensor.set`, plot, Refresh) but not the polished editing/completion of a Jupyter widget. The unused pin is minor dead install weight (parallel to CU-134's pyvista pins).
+**Suggested fix**: (b) stand-alone task — restore the qtconsole in-process kernel path once a headless test strategy for the in-process kernel exists (or accept manual-verify for that path), binding the same namespace; keep the REPL as the graceful fallback when qtconsole import fails. If the kernel path is declined for v1, (c) drop the `qtconsole` pin alongside CU-134 in the next `pyproject` touch. Effort M; category D. Re-audit at GUI plan Phase 9 (closeout / `pyproject` housekeeping).
+
 ### CU-137 — `integration_time_s` presented on the Spectral-Integration view under an *Acquisition* heading; a cross-stage acquisition grouping is deferred
 
 **Discovered**: GUI Development Plan Phase PS-4 (Spectral-Integration stage instrument), 2026-07-15, branch `gui-framework-plots`

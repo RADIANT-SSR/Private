@@ -21,6 +21,22 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI embedded scripting console (GUI plan Phase 8, arch doc §4.6.1, view-only).** A
+  MATLAB-style command window as a **global tool** — a dockable `ScriptingConsole` (bottom
+  `QDockWidget`, hidden at launch) opened from **Tools → Python Console** (`Ctrl+`` ` ``) or the
+  View-menu toggle; enabled once a sensor is loaded. Its REPL namespace binds live objects:
+  `sensor` (the window's live `Sensor`), `result` (the last `ChainResult`, re-bound after each
+  evaluation), `plot` (`ResultPlotNamespace(result)` — the public `result.plot.*` figure surface),
+  plus `inspect_result` and `Sensor` conveniences. A command that returns a matplotlib `Figure`
+  (e.g. `plot.mtf()`) pops out into its own window. **GUI ↔ console coherence** is explicit, not
+  magic: after a command that mutates the sensor the console shows a *"console changed state —
+  Refresh"* banner and the window marks itself stale (stage dots + status bar); one-click
+  **Refresh** adopts the console's current `sensor` (covering both in-place `sensor.set(...)` and a
+  full `sensor = Sensor.load(...)` rebind), re-reads it into the parameter tree + input forms, and
+  re-evaluates. **Decision (CU-138):** shipped as a REPL over `code.InteractiveConsole`, not the
+  preferred `qtconsole` in-process kernel (not installed here + fragile/untestable under the
+  offscreen QPA) — the plan-sanctioned fallback; the `qtconsole` pin is retained for the deferred
+  kernel path. Golden suite untouched (a view over the scripting API).
 - **GUI Platform + Readout stage instruments (GUI plan Phase PS-5, arch doc §4.4.1
   Platform/Readout rows, v1-minimal, view-only).** Both stages' contextual centers become clean
   minimal instruments (single flat panes): editable schema-driven inputs as shared `FieldRow`s

@@ -39,6 +39,7 @@ from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
+from radiant.gui.widgets.scripting_console import ScriptingConsole
 from radiant.gui.widgets.stage_strip import StageStrip
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
@@ -113,6 +114,7 @@ class RADIANTMainWindow(QMainWindow):
         self._build_stage_strip()
         self._build_central_area()
         self._build_dock_panels()
+        self._build_console_dock()
         self._build_status_bar()
         self._apply_dock_proportions()
         self._wire_evaluate_loop()
@@ -149,6 +151,11 @@ class RADIANTMainWindow(QMainWindow):
     def right_rail(self) -> RightRail:
         """The persistent right rail: Pinned cards / Edit Config (YAML) / Messages (§4.5)."""
         return self._right_rail
+
+    @property
+    def console(self) -> ScriptingConsole:
+        """The embedded scripting console (global tool, arch doc §2.5/§4.6)."""
+        return self._console
 
     def action(self, key: str) -> QAction:
         """Return the menu :class:`QAction` registered under *key*.
@@ -239,6 +246,7 @@ class RADIANTMainWindow(QMainWindow):
         )
 
         view_menu = bar.addMenu("&View")
+        self._view_menu = view_menu
         self._add_action(
             view_menu,
             "view.toggle_params",
@@ -268,7 +276,13 @@ class RADIANTMainWindow(QMainWindow):
         )
         inspector_action.triggered.connect(self._open_inspector)
         tools_menu.addSeparator()
-        self._add_action(tools_menu, "tools.console", "Python Console", enabled=False)
+        # The embedded scripting console (arch doc §2.5/§4.6) — a global tool like the
+        # Inspector. Disabled until a sensor is loaded (nothing to bind); enabled in
+        # _wire_evaluate_loop. Its trigger toggles the console dock (built later in __init__).
+        console_action = self._add_action(
+            tools_menu, "tools.console", "Python Console", enabled=False, shortcut="Ctrl+`"
+        )
+        console_action.triggered.connect(self._toggle_console)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
         self._add_action(tools_menu, "tools.preferences", "Preferences…", enabled=False)
@@ -369,6 +383,81 @@ class RADIANTMainWindow(QMainWindow):
         # refreshes the tree exactly like a tree edit.
         stage_center.bind_sensor(self._sensor, param_panel.display_units)
         stage_center.parameterEdited.connect(self._on_form_parameter_edited)
+
+    def _build_console_dock(self) -> None:
+        """The embedded scripting console as a dockable global tool (arch doc §2.5/§4.6).
+
+        The console is a :class:`~radiant.gui.widgets.scripting_console.ScriptingConsole`
+        hosted in a bottom :class:`QDockWidget`, hidden until toggled (Tools → Python
+        Console / the View-menu toggle). Its namespace is bound to the live ``sensor`` here;
+        ``result`` is bound after each evaluation (:meth:`_on_eval_ok`). A console mutation
+        raises the console's stale banner and marks the window stale
+        (:meth:`_on_console_state_changed`); the Refresh button drives
+        :meth:`_refresh_from_console` (explicit-and-honest coherence, not magic sync).
+        """
+        console = ScriptingConsole(self)
+        console.bind_sensor(self._sensor)
+        console.refreshRequested.connect(self._refresh_from_console)
+        console.stateMaybeChanged.connect(self._on_console_state_changed)
+        self._console = console
+
+        dock = QDockWidget("Python Console", self)
+        dock.setObjectName("consoleDock")
+        dock.setWidget(console)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+        dock.setVisible(False)  # a global tool, revealed on demand — not shown at launch
+        self._console_dock = dock
+
+        # Discoverable from the View menu too (its checkable show/hide toggle).
+        toggle = dock.toggleViewAction()
+        toggle.setText("Show/Hide Python Console")
+        self._view_menu.addAction(toggle)
+        self._actions["view.toggle_console"] = toggle
+
+    def _toggle_console(self) -> None:
+        """Handle Tools → Python Console: reveal and focus the console, or hide it.
+
+        Uses the dock's explicit hidden state (not effective visibility) so the toggle is
+        correct even before the window is shown (e.g. offscreen tests).
+        """
+        if not self._console_dock.isHidden():
+            self._console_dock.setVisible(False)
+            return
+        self._console_dock.setVisible(True)
+        self._console_dock.raise_()
+        self._console.input_box.setFocus()
+
+    def _on_console_state_changed(self) -> None:
+        """A console command may have mutated the sensor: mark the GUI's own state stale.
+
+        The console already shows its 'console changed state — Refresh' banner; here the
+        window echoes the staleness in its primary surfaces (stage-health dots + status bar)
+        so the operator sees the GUI is out of date wherever they are looking (GUI plan
+        Phase 8 — explicit, not magic). Refresh (or a normal Evaluate) clears it.
+        """
+        self._stage_strip.set_all_status("stale")
+        self.statusBar().showMessage("Console changed the sensor — Refresh to re-read it")
+
+    def _refresh_from_console(self) -> None:
+        """Adopt the console's current ``sensor``, re-read it into the GUI, re-evaluate.
+
+        This is the one-click Refresh (GUI plan Phase 8). Adopting the console namespace's
+        ``sensor`` handles both an in-place ``sensor.set(...)`` (same object) and a full
+        rebind ``sensor = Sensor.load(...)`` (a new object the window never saw) — the honest
+        counterpart to magic live-sync. The parameter tree and the per-stage input forms are
+        repopulated from the adopted sensor, the console is rebound so identities agree again,
+        and a full re-evaluation refreshes every panel and the console's ``result``/``plot``.
+        """
+        console_sensor = self._console.namespace_sensor()
+        if console_sensor is None:
+            return
+        self._sensor = console_sensor
+        self.setWindowTitle(self._compose_title())
+        self._parameter_panel.populate(console_sensor)
+        self._central.stage_center.bind_sensor(console_sensor, self._parameter_panel.display_units)
+        self._console.bind_sensor(console_sensor)
+        self._console.set_stale(False)
+        self._evaluate_now()
 
     def _on_parameter_edited(self, dotpath: str) -> None:
         """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
@@ -485,6 +574,9 @@ class RADIANTMainWindow(QMainWindow):
         run_button.setEnabled(has_sensor)
         # The Edit Config (YAML) modal needs a sensor to serialize; gate it likewise.
         self._right_rail.yaml_button.setEnabled(has_sensor)
+        # The scripting console binds the live sensor/result; nothing to bind without a
+        # sensor, so it opens only once one is loaded (global tool, arch doc §2.5/§4.6).
+        self.action("tools.console").setEnabled(has_sensor)
         # F5 / menu and the accent Run button both trigger an immediate run.
         evaluate_action.triggered.connect(self._evaluate_now)
         run_button.clicked.connect(self._evaluate_now)
@@ -529,6 +621,9 @@ class RADIANTMainWindow(QMainWindow):
         failure still leaves the metrics and warnings surfaced.
         """
         self._last_result = result
+        # Bind the fresh result into the scripting console (updates `result`/`plot` and
+        # clears its stale banner — the GUI and console now agree, arch doc §2.5).
+        self._console.update_result(result)
         # A clean run means any prior geometry mode conflict is resolved — clear the tint,
         # and re-sync the Geometry input form to the (now clean) sensor so a value changed
         # in the parameter tree is reflected there too (GUI plan Phase 5).
@@ -679,6 +774,8 @@ class RADIANTMainWindow(QMainWindow):
         self._parameter_panel.populate(sensor)
         # Rebind the new sensor (and its fresh display-unit store) into the input forms.
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
+        # The console binds the same live sensor so a script sees the applied config too.
+        self._console.bind_sensor(sensor)
         self._evaluate_now()
 
     @staticmethod

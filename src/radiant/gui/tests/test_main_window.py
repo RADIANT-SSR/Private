@@ -130,7 +130,7 @@ class TestMenuSurface:
             "edit.redo",
             "run.evaluate",
             "run.sweep",
-            "tools.console",
+            "tools.scripting_window",
             "help.about",
         ):
             assert not window.action(key).isEnabled(), key

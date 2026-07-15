@@ -1,11 +1,12 @@
 """The embedded scripting console — a global tool with live ``sensor`` / ``result``.
 
-:class:`ScriptingConsole` is the MATLAB-style command window of the RADIANT GUI (arch doc
-§2.5 Console row, §4.6 global-tool precedent; GUI plan Phase 8). It is a **global tool**,
-not a per-stage tab: the window hosts it in a dockable :class:`QDockWidget` toggled from
-**Tools → Python Console** (and the dock's View-menu toggle), mirroring the global
-Inspector's wiring (§4.6). It embeds an interactive Python REPL whose namespace carries
-live references to the GUI's objects:
+:class:`ScriptingConsole` is the MATLAB-style **Command Window** of the RADIANT GUI (arch
+doc §2.5 Console row, §4.6 global-tool precedent; GUI plan Phase 8). It is hosted in the
+separate top-level :class:`~radiant.gui.widgets.scripting_window.ScriptingWindow` (Pass 1,
+owner-ratified 2026-07-15) alongside the live **Workspace** browser, launched from
+**Tools → Scripting Window** (`Ctrl+Shift+P`). The earlier bottom-dock host is retired; the
+REPL logic below is unchanged and reused verbatim. It embeds an interactive Python REPL
+whose namespace carries live references to the GUI's objects:
 
 * ``sensor``  — the window's live :class:`~radiant.api.sensor.Sensor` (the *same* object
   the parameter tree edits, so a ``sensor.set(...)`` in the console and an edit in the tree
@@ -300,6 +301,15 @@ class ScriptingConsole(QWidget):
     def namespace_sensor(self) -> Sensor | None:
         """The ``sensor`` currently bound in the console namespace (post-mutation-aware)."""
         return self._namespace.get("sensor")
+
+    def namespace_variables(self) -> dict[str, Any]:
+        """A snapshot of the live REPL namespace (name → value) for the Workspace browser.
+
+        A shallow copy so a caller (the Workspace pane) iterates a stable mapping while the
+        console keeps mutating its own; the *values* are the live objects, deliberately, so
+        the Workspace shows the same ``sensor``/``result`` the command line sees.
+        """
+        return dict(self._namespace)
 
     def figures_produced(self) -> list[Figure]:
         """The matplotlib figures the console has popped out (for tests)."""

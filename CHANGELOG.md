@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI scripting window — Pass 1: separate window + Command Window + Workspace (arch doc
+  §4.6.1, view-only).** The MATLAB-style scripting environment is now a **separate top-level
+  window** ("RADIANT Scripting"), launched from **Tools → Scripting Window** (`Ctrl+Shift+P`)
+  — movable to a second monitor, and re-launching raises the single existing instance rather
+  than spawning a duplicate. It hosts the reused **Command Window** REPL (live
+  `sensor`/`result`/`plot`/`inspect_result`, history, figure pop-out) beside a new live
+  **Workspace** variable browser that lists each namespace variable's name, type, and a short
+  value/size summary (e.g. `x: ndarray (500,)`, `snr: float 616.0`), refreshing after each
+  command and after every evaluate/refresh, with a detail dump (a `ChainResult`'s inspect
+  tree, else `repr`) for the selected variable. A `sensor.set(...)` typed in the window still
+  marks the main GUI stale and offers one-click Refresh (coherence unchanged). The multi-tab
+  script Editor is Pass 2 (deferred, CU-143).
 - **GUI file round-trip, undo/redo, and the light/dark theme toggle (GUI plan Phase 9, arch
   doc §10, view-only).** The **File** menu is complete: New, Open, **Open Recent** (persisted
   across launches via `QSettings`), Save, and Save As — all file I/O through `Sensor.load()` /
@@ -268,6 +280,12 @@ retroactively reconstructed.
   audit — CU-134).
 
 ### Changed
+- **GUI: `Tools → Python Console` (a bottom dock) → `Tools → Scripting Window` (a separate
+  window), view-only.** The menu action is renamed and repurposed to open the new separate
+  scripting window (action key `tools.console` → `tools.scripting_window`, shortcut unchanged
+  at `Ctrl+Shift+P`). The old `View → Show/Hide Python Console` dock toggle (`view.toggle_console`)
+  and the bottom-dock console host (`consoleDock`) are removed (Rule 27); the launcher replaces
+  them. No change to the REPL's behaviour, binding, or coherence model.
 - **GUI geometry Schematic tab — Target shape & orientation fields restyled to match the
   Geometry inputs (owner feedback 2026-07-14, view-only).** The **Target shape & orientation**
   accordion page's controls previously rendered with default-Qt chrome (a plain combo, and

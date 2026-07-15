@@ -649,19 +649,42 @@ both trigger the same action, which is **disabled until the first evaluation** (
 dump) and opens **non-modally** against the most recent result so the operator can keep
 working with it open.
 
-### 4.6.1 Scripting Console (global tool)
+### 4.6.1 Scripting Window (separate window — Command Window + Workspace)
 
-*As shipped (GUI plan Phase 8, 2026-07-15).* The MATLAB-style command window is a **global
-tool**, not a per-stage tab — the same precedent as the Inspector (§4.6). It is a
-:class:`ScriptingConsole` hosted in a bottom :class:`QDockWidget`, **hidden at launch** and
-revealed from **Tools → Python Console** (`Ctrl+Shift+P`) or the View-menu show/hide toggle;
-the action is enabled once a sensor is loaded (nothing to bind before that). The shortcut is
-`Ctrl+Shift+P` (⌘⇧P on macOS) rather than the earlier ``Ctrl+` ``: Qt maps portable "Ctrl"
-to the macOS Command key, so ``Ctrl+` `` became ⌘` — an **OS-reserved** shortcut (cycle
-windows of the active app) that never reached the app, so the console would not open on
-macOS (owner report 2026-07-15). On reveal the dock is raised front-most and resized to a
-usable height, and the console carries a ≥180 px minimum height, so a revealed console is
-never a zero/sliver-height strip (a macOS/cocoa bottom-dock reveal hazard).
+*As shipped (Pass 1, owner-ratified 2026-07-15).* The MATLAB-style scripting environment is
+a **separate top-level window** (`ScriptingWindow`, title "RADIANT Scripting") — not a dock
+inside the main window — so the operator can move it to a second monitor. It is a **global
+tool**, launched from **Tools → Scripting Window** (`Ctrl+Shift+P`); the action is enabled
+once a sensor is loaded (nothing to bind before that), and re-triggering **raises/focuses the
+single existing instance** rather than spawning a duplicate. It **replaces the earlier
+bottom-dock console** (the retired `consoleDock` / `_toggle_console` / View-menu toggle are
+gone; Rule 27). The shortcut is `Ctrl+Shift+P` (⌘⇧P on macOS) rather than the earlier
+``Ctrl+` ``: Qt maps portable "Ctrl" to the macOS Command key, so ``Ctrl+` `` became ⌘` — an
+**OS-reserved** shortcut (cycle windows of the active app) that never reached the app, so the
+console would not open on macOS (owner report 2026-07-15).
+
+The window hosts two of the vision's three panes, side-by-side in a horizontal splitter
+(Workspace left, Command Window right):
+
+* the **Command Window** — the reused `ScriptingConsole` REPL (unchanged; the binding,
+  history, figure pop-out, and coherence model below are all the dock console's logic hosted
+  in the new window); and
+* the **Workspace** — a `WorkspacePanel` live variable browser of the command namespace: a
+  table of each variable's **name**, **type**, and a short **value / size** summary
+  (`sensor: Sensor`, `result: ChainResult`, `x: ndarray (500,)`, `snr: float 616.0`). It
+  refreshes after each executed command (the console's `commandExecuted` signal) and after
+  every evaluate/refresh (a result re-bind outside a command). Selecting a variable shows a
+  fuller **detail** dump below the table — the full `inspect_result` tree for a `ChainResult`,
+  else the value's `repr`. This is related to but distinct from the global Inspector (§4.6),
+  which dumps one result; the Workspace lists the whole live namespace.
+
+The third pane — a **multi-tab script Editor** (open / write / save / run) — is **Pass 2**
+(deferred, CU-143), which will occupy the top/main area above these two.
+
+**Theme.** The design-system stylesheet is installed app-wide on the `QApplication`
+(`apply_theme`), so this separate top-level window is themed automatically and the View-menu
+light/dark toggle re-themes it in step — no per-window wiring, and no visual literal outside
+`themes/`.
 
 **Live-object binding.** The console namespace carries live references: `sensor` (the
 window's live `Sensor` — the *same* object the parameter tree edits, so a `sensor.set(...)`
@@ -707,7 +730,7 @@ are **relocated**, not removed. Precise mapping:
 | **Noise Budget** detail tab | **Detector / Readout** center views (bar/pie of `noise_terms`) (§4.4.1) |
 | **Variable Explorer** detail tab | **Global Inspector** tool (§4.6) |
 | **YAML** detail tab (read-only) | Right-rail **Edit Config (YAML)** modal (now editable, re-parsed via `Sensor.load`) (§4.5) |
-| **Console** tab | **Global tool** — the embedded scripting console dock (§4.6.1, shipped GUI plan Phase 8), reachable from Tools → Python Console / the View toggle. A REPL over `code.InteractiveConsole` (CU-138), not qtconsole. |
+| **Console** tab | **Global tool** — the Command Window of the separate scripting window (§4.6.1, Pass 1), reachable from Tools → Scripting Window (`Ctrl+Shift+P`). A REPL over `code.InteractiveConsole` (CU-138), not qtconsole; the earlier bottom-dock host is retired (Rule 27). |
 
 The per-tab data sources that shipped (Phase 4 Task B) are unchanged; each is re-hosted in
 its new container. The Sweep tab remains **v1.1** and absent from v1 (D4). The migration of
@@ -754,8 +777,8 @@ launch_gui(s)                                     # opens the GUI on the current
 > `launch_gui(sensor: Sensor | None)` (GUI plan §4.2). A `Sensor.gui()` sugar wrapper,
 > if ever added, is out of v1 scope.
 
-**GUI → script hand-off.** In the scripting console (§4.6.1, the global console dock)
-`sensor` and `result` are live references to the current GUI objects; any scripting-API call
+**GUI → script hand-off.** In the scripting window's Command Window (§4.6.1, the separate
+global tool) `sensor` and `result` are live references to the current GUI objects; any scripting-API call
 works. After a console mutation the GUI marks its state stale (the console's Refresh banner +
 stale stage dots) and one-click Refresh adopts the console's `sensor` and re-reads it
 (explicit-and-honest beats magic sync; GUI plan Phase 8).
@@ -1296,7 +1319,7 @@ View   Show/Hide Parameter Panel (F6) · Show/Hide Detail Panel (F7) ·
        Stage: … (Ctrl+1..9) · Dark/Light Theme · Font Size +/−
 Run    Evaluate (F5) · Validate Only (Ctrl+R) ·
        Run Sweep…  [v1.1] · Monte Carlo…  [v1.1] · Batch Run…  [v1.1]
-Tools  Python Console (Ctrl+Shift+P) · Parameter Schema Browser · Explain Parameter… · Preferences…
+Tools  Scripting Window (Ctrl+Shift+P) · Parameter Schema Browser · Explain Parameter… · Preferences…
 Help   Documentation · Example Configs · About RADIANT
 ```
 

@@ -1057,6 +1057,35 @@ QPushButton#consoleRefreshButton:hover {{
     background-color: {t.accent};
 }}
 
+/* -- Scripting window + Workspace (§4.6.1 — separate window) ----------- */
+QMainWindow#scriptingWindow {{
+    background-color: {t.bg};
+}}
+QWidget#workspacePanel {{
+    background-color: {t.panel};
+}}
+QLabel#workspaceHeader {{
+    color: {t.muted};
+    font-size: 12px;
+}}
+QTreeWidget#workspaceTree {{
+    background-color: {t.panel_4};
+    color: {t.ink};
+    border: 1px solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
+QPlainTextEdit#workspaceDetail {{
+    background-color: {t.panel_4};
+    color: {t.ink_2};
+    border: 1px solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+    padding: 6px;
+}}
+
 /* -- Scrollbars (§8) --------------------------------------------------- */
 QScrollBar:vertical {{
     background-color: {t.bg};

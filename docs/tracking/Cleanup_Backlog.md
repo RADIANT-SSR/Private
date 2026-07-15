@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-143 — Scripting window Pass 2: the multi-tab script Editor pane
+
+**Discovered**: Scripting window Pass 1 (separate window + Command Window + Workspace), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — planned follow-on, **owner-scoped**. The owner's scripting-window vision has three panes: a multi-tab script **Editor**, the **Command Window** (live REPL), and the **Workspace** (live variable browser). Pass 1 (this task) shipped the separate window shell + Command Window + Workspace; the Editor was explicitly deferred to Pass 2 and **not** built now. The `ScriptingWindow` splitter is laid out so the Editor can be added as the top/main pane above the Command Window + Workspace row without restructuring.
+**File**: `src/radiant/gui/widgets/scripting_window.py` (the host window; add an editor pane), plus a new `script_editor_*.py` widget (one-per-file, Rule 19).
+**Symptom**: The scripting window has no script Editor — the operator can run one-off commands in the Command Window but cannot open / write / save / run a multi-line `.py` script from the window. This is the third MATLAB-style pane the owner asked for.
+**Why it still matters**: Completes the ratified scripting-window vision (a MATLAB-like Editor + Command Window + Workspace). Command Window + Workspace alone cover interactive querying; the Editor covers authored, saved, re-runnable scripts.
+**Suggested fix**: (b) stand-alone task (Pass 2) — a multi-tab script editor (open / write / save / run into the shared namespace), hosted as the top/main pane of the existing `ScriptingWindow` splitter, reusing the same live `sensor`/`result` namespace and the Command Window's execution + coherence path. Effort M; category D (view-only). Re-audit when Pass 2 is chartered.
+
 ### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS
 
 **Discovered**: Console-open macOS fix (Tools → Python Console), 2026-07-15, branch `gui-framework-plots`

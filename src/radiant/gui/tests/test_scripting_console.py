@@ -1,8 +1,8 @@
-"""Tests for the embedded scripting console (GUI plan Phase 8, arch doc §2.5/§4.6).
+"""Tests for the Command Window REPL (GUI plan Phase 8, arch doc §4.6.1).
 
-The console is a **global tool** — a dockable REPL with the live ``sensor`` / ``result``
-bound in its namespace. These tests drive the real widget on the shipped example config,
-headless (``offscreen``), and cover:
+The console is the reused **Command Window** of the separate scripting window (Pass 1). It
+is a REPL with the live ``sensor`` / ``result`` bound in its namespace. These tests drive
+the real widget on the shipped example config, headless (``offscreen``), and cover:
 
   * the tool opens/closes cleanly and the REPL starts/stops without error offscreen;
   * ``sensor`` and ``result`` are bound in the namespace, and a metric query prints;
@@ -12,8 +12,9 @@ headless (``offscreen``), and cover:
   * a ``plot.*`` figure pops out into its own window;
   * app exit with the console open is clean (no hang / segfault).
 
-The qtconsole in-process kernel is **not** exercised — this ships the plan-sanctioned REPL
-fallback (CU-138); the qtconsole path, if ever restored, is manual-verify.
+The scripting *window* shell (the separate window + Workspace pane) is covered in
+``test_scripting_window.py``. The qtconsole in-process kernel is **not** exercised — this
+ships the plan-sanctioned REPL fallback (CU-138); the qtconsole path is manual-verify.
 """
 
 from __future__ import annotations
@@ -48,35 +49,17 @@ def _load_window(qtbot):  # type: ignore[no-untyped-def]
 
 
 class TestConsoleToolWiring:
-    def test_console_action_gated_on_sensor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Tools → Python Console action is disabled with no sensor, enabled with one."""
+    def test_scripting_action_gated_on_sensor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Tools → Scripting Window action is disabled with no sensor, enabled with one."""
         bare = RADIANTMainWindow()
         qtbot.addWidget(bare)
-        assert not bare.action("tools.console").isEnabled()
+        assert not bare.action("tools.scripting_window").isEnabled()
 
         window = _load_window(qtbot)
-        assert window.action("tools.console").isEnabled()
-
-    def test_console_dock_hidden_until_toggled(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The console is a global tool: its dock is hidden at launch, revealed on demand."""
-        window = _load_window(qtbot)
-        dock = window._console_dock
-        assert not dock.isVisible()
-
-        window.action("tools.console").trigger()
-        assert not dock.isHidden()  # revealed (ancestor-independent of an unshown window)
-        # A second trigger hides it again (toggle).
-        window.action("tools.console").trigger()
-        assert dock.isHidden()
-
-    def test_view_menu_has_console_toggle(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The console dock's show/hide toggle is discoverable from the View menu."""
-        window = _load_window(qtbot)
-        # The registry carries the dock's checkable toggle action (added to the View menu).
-        assert "view.toggle_console" in window._actions
+        assert window.action("tools.scripting_window").isEnabled()
 
     def test_console_shortcut_avoids_macos_reserved_binding(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The console shortcut is Ctrl+Shift+P, NOT the macOS-reserved Ctrl+` (⌘`).
+        """The launcher shortcut is Ctrl+Shift+P, NOT the macOS-reserved Ctrl+` (⌘`).
 
         Qt maps portable "Ctrl" to the macOS Command key, so the old Ctrl+` became ⌘` — an
         OS-reserved shortcut (cycle windows) that never reached the app, so the console
@@ -85,42 +68,9 @@ class TestConsoleToolWiring:
         display in CI).
         """
         window = _load_window(qtbot)
-        seq = window.action("tools.console").shortcut()
+        seq = window.action("tools.scripting_window").shortcut()
         assert seq == QKeySequence("Ctrl+Shift+P")
         assert seq != QKeySequence("Ctrl+`")
-
-    def test_console_reveal_has_adequate_height(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Triggering Tools → Python Console reveals a usable-height dock, never a sliver.
-
-        The console widget carries a >=180 px minimum-height floor so a revealed bottom
-        dock is always a visible panel even if cocoa hands it zero height before layout;
-        the window also resizes the dock to a larger target on reveal. The dock-size in
-        actual pixels once shown is asserted here; the on-screen reveal on macOS is
-        manual-verify.
-        """
-        window = _load_window(qtbot)
-        window.show()
-        qtbot.waitExposed(window)
-
-        window.action("tools.console").trigger()
-        dock = window._console_dock
-        assert dock.isVisible()
-        # Layout-independent floor: the console can never be a zero/sliver height.
-        assert window.console.minimumHeight() >= 180
-        # And once the window is laid out, the revealed dock actually honours that floor.
-        assert dock.height() >= 180
-
-    def test_view_toggle_also_reveals_console(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The View → Show/Hide Python Console toggle reveals the dock too (not just Tools)."""
-        window = _load_window(qtbot)
-        dock = window._console_dock
-        assert not dock.isVisible()
-
-        toggle = window.action("view.toggle_console")
-        toggle.trigger()
-        assert not dock.isHidden()  # revealed via the View-menu toggle
-        toggle.trigger()
-        assert dock.isHidden()  # and hides again
 
 
 class TestReplLifecycle:
@@ -194,7 +144,7 @@ class TestCoherenceAndRefresh:
     def test_stale_banner_shows_when_console_visible(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """With the console open, a mutation makes the 'Refresh' banner visible."""
         window = _load_window(qtbot)
-        window.action("tools.console").trigger()  # reveal the dock
+        window.action("tools.scripting_window").trigger()  # open the scripting window
         console = window.console
         console.run_command(f"sensor.set('{_APERTURE}', 0.3)")
         assert not console.stale_banner.isHidden()  # banner un-hidden on the mutation
@@ -244,7 +194,7 @@ class TestFigureAndExit:
     def test_app_exit_clean_with_console_open(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Closing the window with the console open (and a figure out) is clean."""
         window = _load_window(qtbot)
-        window.action("tools.console").trigger()  # open the console
+        window.action("tools.scripting_window").trigger()  # open the scripting window
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             with qtbot.waitSignal(window.console.figureProduced, timeout=_WAIT_MS):

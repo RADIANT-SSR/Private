@@ -47,6 +47,7 @@ from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
 from radiant.gui.widgets.scripting_console import ScriptingConsole
+from radiant.gui.widgets.scripting_window import ScriptingWindow
 from radiant.gui.widgets.set_parameter_command import SetParameterCommand
 from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
@@ -73,13 +74,6 @@ _RAIL_DOCK_WIDTH: int = 288
 # Undo/redo depth (arch doc §10, GUI plan Phase 9): the last ~20 parameter edits are
 # reversible; older commands fall off the bottom of the stack.
 _UNDO_LIMIT: int = 20
-
-# Height (px) the console dock is resized to when revealed, so a freshly-shown bottom
-# dock is a usable panel — never a zero/sliver-height strip. On macOS/cocoa a bottom
-# dock revealed before the window is laid out can otherwise come back at zero height
-# (owner report 2026-07-15); the console widget also carries its own minimum height as a
-# floor (see ``scripting_console._CONSOLE_MIN_HEIGHT``).
-_CONSOLE_DOCK_HEIGHT: int = 240
 
 # The RADIANT config file filter for the Open / Save-As dialogs.
 _YAML_FILTER: str = "RADIANT config (*.yaml *.yml);;All files (*)"
@@ -156,7 +150,7 @@ class RADIANTMainWindow(QMainWindow):
         self._build_stage_strip()
         self._build_central_area()
         self._build_dock_panels()
-        self._build_console_dock()
+        self._build_scripting_window()
         self._build_status_bar()
         self._apply_dock_proportions()
         self._wire_evaluate_loop()
@@ -205,8 +199,13 @@ class RADIANTMainWindow(QMainWindow):
 
     @property
     def console(self) -> ScriptingConsole:
-        """The embedded scripting console (global tool, arch doc §2.5/§4.6)."""
+        """The scripting window's Command Window REPL (global tool, arch doc §4.6.1)."""
         return self._console
+
+    @property
+    def scripting_window(self) -> ScriptingWindow:
+        """The separate top-level scripting window (Command Window + Workspace, §4.6.1)."""
+        return self._scripting_window
 
     def action(self, key: str) -> QAction:
         """Return the menu :class:`QAction` registered under *key*.
@@ -337,20 +336,27 @@ class RADIANTMainWindow(QMainWindow):
         )
         inspector_action.triggered.connect(self._open_inspector)
         tools_menu.addSeparator()
-        # The embedded scripting console (arch doc §2.5/§4.6) — a global tool like the
-        # Inspector. Disabled until a sensor is loaded (nothing to bind); enabled in
-        # _wire_evaluate_loop. Its trigger toggles the console dock (built later in __init__).
-        # Shortcut is Ctrl+Shift+P (⌘⇧P on macOS) — deliberately NOT the older Ctrl+` :
-        # Qt maps portable "Ctrl" to the macOS Command key, so Ctrl+` became ⌘`, which is
-        # an OS-reserved system shortcut (cycle windows of the active app) that never reached
-        # the app, so the console "wouldn't open" on macOS (owner report 2026-07-15). ⌘⇧P is
-        # unreserved on macOS and free on Windows/Linux, and collides with no other RADIANT
-        # binding (Ctrl+I, Ctrl+Z/Ctrl+Shift+Z, F5/F6/F7, Ctrl+1..9, Ctrl+O/S/Q/F/R).
-        console_action = self._add_action(
-            tools_menu, "tools.console", "Python Console", enabled=False, shortcut="Ctrl+Shift+P"
+        # The separate scripting window (arch doc §4.6.1) — the MATLAB-style Command Window +
+        # Workspace, a global tool like the Inspector. Disabled until a sensor is loaded
+        # (nothing to bind); enabled in _wire_evaluate_loop. Its trigger shows/raises the one
+        # window instance (built later in __init__). Shortcut is Ctrl+Shift+P (⌘⇧P on macOS)
+        # — deliberately NOT the older Ctrl+` : Qt maps portable "Ctrl" to the macOS Command
+        # key, so Ctrl+` became ⌘`, an OS-reserved shortcut (cycle windows of the active app)
+        # that never reached the app, so the console "wouldn't open" on macOS (owner report
+        # 2026-07-15). ⌘⇧P is unreserved on macOS and free on Windows/Linux, and collides with
+        # no other RADIANT binding (Ctrl+I, Ctrl+Z/Ctrl+Shift+Z, F5/F6/F7, Ctrl+1..9,
+        # Ctrl+O/S/Q/F/R).
+        scripting_action = self._add_action(
+            tools_menu,
+            "tools.scripting_window",
+            "Scripting Window",
+            enabled=False,
+            shortcut="Ctrl+Shift+P",
         )
-        console_action.setStatusTip("Show or hide the scripting console (Ctrl+Shift+P)")
-        console_action.triggered.connect(self._toggle_console)
+        scripting_action.setStatusTip(
+            "Open the scripting window — command line + workspace (Ctrl+Shift+P)"
+        )
+        scripting_action.triggered.connect(self._show_scripting_window)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
         self._add_action(tools_menu, "tools.preferences", "Preferences…", enabled=False)
@@ -452,66 +458,34 @@ class RADIANTMainWindow(QMainWindow):
         stage_center.bind_sensor(self._sensor, param_panel.display_units)
         stage_center.parameterEdited.connect(self._on_form_parameter_edited)
 
-    def _build_console_dock(self) -> None:
-        """The embedded scripting console as a dockable global tool (arch doc §2.5/§4.6).
+    def _build_scripting_window(self) -> None:
+        """Build the separate scripting window (Command Window + Workspace, arch doc §4.6.1).
 
-        The console is a :class:`~radiant.gui.widgets.scripting_console.ScriptingConsole`
-        hosted in a bottom :class:`QDockWidget`, hidden until toggled (Tools → Python
-        Console / the View-menu toggle). Its namespace is bound to the live ``sensor`` here;
-        ``result`` is bound after each evaluation (:meth:`_on_eval_ok`). A console mutation
-        raises the console's stale banner and marks the window stale
-        (:meth:`_on_console_state_changed`); the Refresh button drives
-        :meth:`_refresh_from_console` (explicit-and-honest coherence, not magic sync).
+        The window is a :class:`~radiant.gui.widgets.scripting_window.ScriptingWindow` — a
+        real separate top-level window (not a dock), hidden until launched from **Tools →
+        Scripting Window**. Its Command Window's namespace is bound to the live ``sensor``
+        here; ``result`` is bound after each evaluation (:meth:`_on_eval_ok`). The coherence
+        wiring is unchanged from the retired dock: a console mutation raises the console's
+        stale banner and marks the window stale (:meth:`_on_console_state_changed`); the
+        Refresh button drives :meth:`_refresh_from_console` (explicit-and-honest, not magic
+        sync). A single instance is kept, so re-launching raises it rather than duplicating.
         """
-        console = ScriptingConsole(self)
+        scripting_window = ScriptingWindow(self)
+        console = scripting_window.console
         console.bind_sensor(self._sensor)
         console.refreshRequested.connect(self._refresh_from_console)
         console.stateMaybeChanged.connect(self._on_console_state_changed)
+        scripting_window.refresh_workspace()  # reflect the just-bound sensor in the Workspace
+        self._scripting_window = scripting_window
         self._console = console
 
-        dock = QDockWidget("Python Console", self)
-        dock.setObjectName("consoleDock")
-        dock.setWidget(console)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
-        dock.setVisible(False)  # a global tool, revealed on demand — not shown at launch
-        self._console_dock = dock
+    def _show_scripting_window(self) -> None:
+        """Handle Tools → Scripting Window: show/raise the single window instance.
 
-        # Discoverable from the View menu too (its checkable show/hide toggle).
-        toggle = dock.toggleViewAction()
-        toggle.setText("Show/Hide Python Console")
-        self._view_menu.addAction(toggle)
-        self._actions["view.toggle_console"] = toggle
-
-    def _toggle_console(self) -> None:
-        """Handle Tools → Python Console: reveal and focus the console, or hide it.
-
-        Uses the dock's explicit hidden state (not effective visibility) so the toggle is
-        correct even before the window is shown (e.g. offscreen tests).
+        Idempotent — re-triggering raises and focuses the existing window rather than
+        spawning a duplicate (the reference is held on ``self._scripting_window``).
         """
-        if not self._console_dock.isHidden():
-            self._console_dock.setVisible(False)
-            return
-        self._reveal_console()
-
-    def _reveal_console(self) -> None:
-        """Make the console dock reliably visible, front-most, and adequately sized.
-
-        The menu item and the shortcut must ALWAYS produce a clearly-visible console, so
-        revealing does more than ``setVisible(True)``: the dock is raised above any other
-        bottom dock (front-most tab if it is tabbed behind one) and resized to a usable
-        height. On macOS/cocoa a bottom dock revealed before layout can otherwise come back
-        at zero height (owner report 2026-07-15); the resize plus the console's own minimum
-        height (``scripting_console._CONSOLE_MIN_HEIGHT``) guarantee it is never a sliver.
-        Then focus lands in the input box so the operator can type immediately.
-        """
-        dock = self._console_dock
-        dock.setVisible(True)
-        dock.raise_()  # front-most if tabbed behind another bottom dock
-        # Give it a concrete, usable height. resizeDocks is a no-op if the layout cannot
-        # honour it yet (e.g. before the window is shown); the widget's minimum height is
-        # the floor that still prevents a zero/sliver dock in that case.
-        self.resizeDocks([dock], [_CONSOLE_DOCK_HEIGHT], Qt.Orientation.Vertical)
-        self._console.input_box.setFocus()
+        self._scripting_window.show_and_raise()
 
     def _on_console_state_changed(self) -> None:
         """A console command may have mutated the sensor: mark the GUI's own state stale.
@@ -680,7 +654,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("run.evaluate").setEnabled(enabled)
         self._right_rail.run_button.setEnabled(enabled)
         self._right_rail.yaml_button.setEnabled(enabled)
-        self.action("tools.console").setEnabled(enabled)
+        self.action("tools.scripting_window").setEnabled(enabled)
         self.action("file.save").setEnabled(enabled)
         self.action("file.save_as").setEnabled(enabled)
 
@@ -725,8 +699,11 @@ class RADIANTMainWindow(QMainWindow):
         """
         self._last_result = result
         # Bind the fresh result into the scripting console (updates `result`/`plot` and
-        # clears its stale banner — the GUI and console now agree, arch doc §2.5).
+        # clears its stale banner — the GUI and console now agree, arch doc §2.5), then
+        # refresh the Workspace so it reflects the newly-bound `result` (a result re-bind
+        # outside a command does not fire commandExecuted, arch doc §4.6.1).
         self._console.update_result(result)
+        self._scripting_window.refresh_workspace()
         # A clean run means any prior geometry mode conflict is resolved — clear the tint,
         # and re-sync the Geometry input form to the (now clean) sensor so a value changed
         # in the parameter tree is reflected there too (GUI plan Phase 5).
@@ -929,6 +906,7 @@ class RADIANTMainWindow(QMainWindow):
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
         self._console.bind_sensor(sensor)
         self._console.set_stale(False)
+        self._scripting_window.refresh_workspace()  # the Workspace tracks the adopted sensor
         if add_recent and path is not None:
             self._settings.add_recent_file(str(path))
             self._rebuild_recent_menu()

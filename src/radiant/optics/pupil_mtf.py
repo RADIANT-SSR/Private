@@ -123,7 +123,7 @@ def pupil_autocorrelation_mtf_1d(
     return freq, mtf_slice
 
 
-def _resolve_wfe_for_wavelength(
+def resolve_wfe_for_wavelength(
     wfe: WavefrontError | None,
     wavelength_um: float,
     chromatic_zernikes: dict[float, dict[int, float]] | None,
@@ -247,7 +247,7 @@ def polychromatic_pupil_mtf(
         dx_i = (lam_i * focal_length_m) / (n_padded * config_i.pupil_spacing_m)
 
         # Build pupil.
-        wfe_i = _resolve_wfe_for_wavelength(wfe, lam_i * 1e6, chromatic_zernikes)
+        wfe_i = resolve_wfe_for_wavelength(wfe, lam_i * 1e6, chromatic_zernikes)
         amplitude = make_pupil_amplitude(pupil_npix, obscuration_ratio, vanes, mask_override)
         phase = _build_pupil_phase(pupil_npix, wfe_i, lam_i, obscuration_ratio)
 

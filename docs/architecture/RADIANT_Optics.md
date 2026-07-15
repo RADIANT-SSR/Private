@@ -28,6 +28,18 @@ The optics module has one job: **deliver an `OpticsState` to the chain**. Five g
 > regime go into `stage_outputs["optics"]`; the optical MTF goes into `mtf_terms`
 > (`mtf_optics_x/y`); the transmitted radiance goes into a frame (§11). The block
 > below is the *conceptual* contract those outputs satisfy, not a literal type.
+>
+> **Complex-pupil diagnostic maps (Gap 89).** OpticsStage also persists the two
+> diagnostic faces of the complex pupil it builds for the MTF autocorrelation —
+> `pupil_amplitude` (dimensionless apodization/transmission mask, incl.
+> obscuration + spider vanes + measured override) and `pupil_phase_waves` (the
+> wavefront-error map in **waves**, `phase_radians / 2π`, at `pupil_wavelength_um`
+> — band centre for polychromatic runs — zero outside the clear aperture), plus
+> `pupil_plane_extent_m` (physical pupil diameter for axis scaling). These are
+> **additive diagnostic views** captured verbatim from the same amplitude/phase
+> arrays the autocorrelation consumes; they are never read back into the PSF or
+> MTF computation, so Rule 4's pupil→MTF path is untouched (results-neutral).
+> Surfaced through `result.plot.pupil_amplitude()` / `pupil_phase()`.
 
 ```python
 # DESIGN-TARGET — the fields below are produced into ChainState, not this dataclass.

@@ -104,6 +104,72 @@ class TestResultPlotNamespace:
             ns.psf()
 
 
+def _make_pupil_result(*, with_phase: bool = True, extent_m: float = 0.30) -> ChainResult:
+    """Build a ChainResult carrying persisted complex-pupil diagnostic maps."""
+    wl = np.linspace(3.5, 5.0, 10)
+    state = ChainState(wavelength_um=wl)
+    npix = 16
+    amp = np.zeros((npix, npix), dtype=np.float64)
+    yy, xx = np.mgrid[0:npix, 0:npix]
+    r = np.sqrt((xx - npix / 2 + 0.5) ** 2 + (yy - npix / 2 + 0.5) ** 2)
+    amp[r <= npix / 2] = 1.0
+    amp[r <= npix / 6] = 0.0  # central obscuration
+    state = state.with_stage_output("optics", "pupil_amplitude", amp)
+    state = state.with_stage_output("optics", "pupil_plane_extent_m", extent_m)
+    if with_phase:
+        phase = np.where(amp > 0.0, 0.15 * (xx - npix / 2), 0.0).astype(np.float64)
+        state = state.with_stage_output("optics", "pupil_phase_waves", phase)
+        state = state.with_stage_output("optics", "pupil_wavelength_um", 4.25)
+    return ChainResult(state)
+
+
+class TestPupilAccessors:
+    def test_amplitude_returns_figure_with_units(self) -> None:
+        ns = ResultPlotNamespace(_make_pupil_result())
+        fig = ns.pupil_amplitude()
+        ax = fig.axes[0]
+        # Colorbar label carries the dimensionless-transmission unit.
+        cbar_labels = [a.get_ylabel() for a in fig.axes]
+        assert any("transmission" in lbl for lbl in cbar_labels)
+        assert "m)" in ax.get_xlabel()  # pupil x (m) — extent supplied
+        assert "apodization" in ax.get_title()
+
+    def test_amplitude_data_matches_output(self) -> None:
+        result = _make_pupil_result()
+        fig = ResultPlotNamespace(result).pupil_amplitude()
+        shown = fig.axes[0].images[0].get_array()
+        np.testing.assert_array_equal(
+            shown, result.stage_outputs["optics"]["pupil_amplitude"]
+        )
+
+    def test_phase_returns_figure_with_waves_colorbar(self) -> None:
+        ns = ResultPlotNamespace(_make_pupil_result())
+        fig = ns.pupil_phase()
+        cbar_labels = [a.get_ylabel() for a in fig.axes]
+        assert any("waves" in lbl for lbl in cbar_labels)
+        assert "wavefront error" in fig.axes[0].get_title()
+
+    def test_axes_fall_back_to_samples_without_extent(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        state = ChainState(wavelength_um=wl)
+        amp = np.ones((8, 8), dtype=np.float64)
+        state = state.with_stage_output("optics", "pupil_amplitude", amp)
+        fig = ResultPlotNamespace(ChainResult(state)).pupil_amplitude()
+        assert "samples" in fig.axes[0].get_xlabel()
+
+    def test_amplitude_raises_without_map(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
+        with pytest.raises(ApiValidationError, match="pupil amplitude map"):
+            ns.pupil_amplitude()
+
+    def test_phase_raises_without_map(self) -> None:
+        # Amplitude present but phase absent (unsupported WFE mode).
+        ns = ResultPlotNamespace(_make_pupil_result(with_phase=False))
+        with pytest.raises(ApiValidationError, match="pupil phase"):
+            ns.pupil_phase()
+
+
 def _make_spectral_result(*, with_background: bool = True) -> ChainResult:
     """Build a ChainResult carrying the real spectral frames/outputs.
 

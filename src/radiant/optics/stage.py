@@ -21,6 +21,15 @@ Stage outputs under ``stage_outputs["optics"]``:
     - ``reference_psf``: :class:`EffectivePSF` diffraction-limited
       reference (no WFE/defocus) with the same detector kernels, used
       for the PSF-derived Strehl ratio
+    - ``pupil_amplitude``: complex-pupil amplitude/apodization map
+      (np.ndarray, dimensionless transmission; Gap 89) — diagnostic view,
+      never read back into the MTF/PSF computation
+    - ``pupil_phase_waves``: complex-pupil wavefront-error map (np.ndarray,
+      waves at ``pupil_wavelength_um``, phase_rad/2π, 0 outside the clear
+      aperture; Gap 89) — diagnostic view only
+    - ``pupil_wavelength_um``: wavelength at which ``pupil_phase_waves`` is
+      expressed [µm] (band centre for polychromatic runs)
+    - ``pupil_plane_extent_m``: physical pupil diameter [m] for axis scaling
     - ``nearfield_irradiance_at_fpa``: SpectralData [W/m²/µm]
     - ``stray_light_irradiance_at_fpa``: SpectralData [W/m²/µm]
     - ``stray_includes_thermal``: bool
@@ -68,6 +77,7 @@ from radiant.optics.pupil_mtf import (
     polychromatic_pupil_mtf,
     pupil_autocorrelation_mtf_1d,
     pupil_autocorrelation_mtf_2d,
+    resolve_wfe_for_wavelength,
 )
 from radiant.optics.pupil_phase import make_pupil_phase_for_wfe
 from radiant.optics.sampling import compute_sampling
@@ -217,6 +227,14 @@ def _compute_optical_mtf_terms(
     """
     pupil_npix = 128
 
+    # Diagnostic pupil maps (Gap 89) — captured for persistence, NOT fed back
+    # into the MTF/PSF computation. Set in whichever branch runs below; the
+    # amplitude is wavelength-independent, the phase is expressed at
+    # ``pupil_ref_wl_m`` (band centre for the polychromatic case).
+    pupil_amp_map: np.ndarray | None = None
+    pupil_phase_rad: np.ndarray | None = None
+    pupil_ref_wl_m: float | None = None
+
     if n_psf_wavelengths <= 1:
         # Monochromatic: recompute pupil and autocorrelation MTF.
         assert wavelength_m is not None
@@ -250,6 +268,11 @@ def _compute_optical_mtf_terms(
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
         freq_m, mtf_x = pupil_autocorrelation_mtf_1d(mtf_2d, sample_spacing_m, "x")
         _, mtf_y = pupil_autocorrelation_mtf_1d(mtf_2d, sample_spacing_m, "y")
+
+        # The pupil built above IS the one the MTF used — persist it verbatim.
+        pupil_amp_map = amplitude
+        pupil_phase_rad = phase
+        pupil_ref_wl_m = wavelength_m
     else:
         # Polychromatic: weighted average of monochromatic pupil MTFs.
         assert psf_wl_m is not None
@@ -270,6 +293,25 @@ def _compute_optical_mtf_terms(
             mask_override=mask_override,
         )
 
+        # Representative diagnostic pupil at the band-centre wavelength (Gap 89).
+        # This mirrors one term of the weighted average above; it is a view for
+        # display only and is never fed back into the MTF product.
+        rep_wl_m = float(psf_wl_m[len(psf_wl_m) // 2])
+        rep_wfe = resolve_wfe_for_wavelength(wfe, rep_wl_m * 1e6, chromatic_zernikes)
+        pupil_amp_map = make_pupil_amplitude(pupil_npix, obscuration, vanes, mask_override)
+        try:
+            pupil_phase_rad = make_pupil_phase_for_wfe(
+                pupil_npix,
+                rep_wfe,
+                operating_wavelength_m=rep_wl_m,
+                obscuration_ratio=obscuration,
+            )
+            pupil_ref_wl_m = rep_wl_m
+        except NotImplementedError:
+            # Unsupported WFE mode has no pupil-phase representation — persist
+            # only the amplitude (obscuration/vanes/override still diagnostic).
+            pupil_phase_rad = None
+
     # Convert frequency from cycles/m to cycles/mrad.
     # f_angular [cycles/mrad] = f_focal [cycles/m] * focal_length_m * 1e-3
     # (1 mrad on the focal plane = focal_length_m * 1e-3 m)
@@ -277,7 +319,27 @@ def _compute_optical_mtf_terms(
 
     state = state.with_spatial_freq(freq_cycles_per_mrad)
     state = state.with_mtf("mtf_optics_x", mtf_x)
-    return state.with_mtf("mtf_optics_y", mtf_y)
+    state = state.with_mtf("mtf_optics_y", mtf_y)
+
+    # --- Gap 89: persist the diagnostic complex-pupil views (additive) ---
+    # Two faces of the same complex pupil the MTF autocorrelation consumed:
+    #   • pupil_amplitude    — dimensionless transmission mask (obscuration,
+    #                          spider vanes, measured override included).
+    #   • pupil_phase_waves  — wavefront error in WAVES at pupil_wavelength_um
+    #                          (phase_radians / 2π), masked to 0 outside the
+    #                          clear aperture. Waves is the natural WFE unit.
+    # Neither array is read back by any computation (Rule 4 unchanged).
+    if pupil_amp_map is not None:
+        state = state.with_stage_output("optics", "pupil_amplitude", pupil_amp_map)
+        state = state.with_stage_output("optics", "pupil_plane_extent_m", aperture_m)
+        if pupil_phase_rad is not None and pupil_ref_wl_m is not None:
+            phase_waves = pupil_phase_rad / (2.0 * np.pi)
+            phase_waves = np.where(pupil_amp_map > 0.0, phase_waves, 0.0)
+            state = state.with_stage_output("optics", "pupil_phase_waves", phase_waves)
+            state = state.with_stage_output(
+                "optics", "pupil_wavelength_um", pupil_ref_wl_m * 1e6
+            )
+    return state
 
 
 def _build_effective_psf(

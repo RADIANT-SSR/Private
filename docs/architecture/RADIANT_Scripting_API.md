@@ -285,7 +285,7 @@ Every stage publishes named intermediate values. Keys observed in a standard run
 |-------|---------------|
 | `source` | `regime_tentative`, `fill_fraction`, `projected_area_m2`, `range_m`, `angular_extent_rad`, `target`, `background` |
 | `atmosphere` | `tau_atm`, `L_path`, `E_sky_thermal`, `E_sky_scattered` |
-| `optics` | `regime` (final — Rule 10), `A_collect` [m²], `Omega_pixel` [sr], `tau_opt`, `effective_psf`, `reference_psf`, `wavefront_error`, `stray_light_irradiance_at_fpa` |
+| `optics` | `regime` (final — Rule 10), `A_collect` [m²], `Omega_pixel` [sr], `tau_opt`, `effective_psf`, `reference_psf`, `wavefront_error`, `stray_light_irradiance_at_fpa`, `pupil_amplitude` [transmission], `pupil_phase_waves` [waves], `pupil_wavelength_um` [µm], `pupil_plane_extent_m` [m] (Gap 89) |
 | `platform` | `EE_box`, `effective_psf` (fully degraded), `jitter_sigma_x_m`, `jitter_sigma_y_m`, `smear_width_m` |
 | `spectral_integration` | `signal_e`, `background_e`, `contrast_e`, `e_rate_per_s`, `qe_scalar` |
 | `detector` | `signal_e`, `background_e`, `dark_e`, `noise_budget_raw` |
@@ -439,6 +439,8 @@ from radiant.api.inspect import ResultPlotNamespace
 
 plots = ResultPlotNamespace(result)
 plots.psf()                # 2-D effective PSF (from stage_outputs["optics"]["effective_psf"])
+plots.pupil_amplitude()    # 2-D pupil apodization/amplitude map [transmission, dimensionless] (Gap 89)
+plots.pupil_phase()        # 2-D pupil wavefront-error map [waves] (Gap 89)
 plots.noise_budget()       # horizontal bar chart of result.noise_terms [e- RMS]
 plots.mtf()                # all MTF terms vs spatial frequency [cycles/mrad]
 plots.mtf_budget()         # per-contributor MTF-at-Nyquist bar chart (Gap 19)
@@ -457,6 +459,20 @@ recomputation:
 | `spectral_source_emission()` | `frames["at_source_target"]` + optional `frames["at_source_background"]` | Gap 91 — the **pre-atmosphere** emitted+reflected radiance *leaving the source* (`L_source`), before the up-leg τ/L_path. AtmosphereStage persists it; `at_aperture_target ≈ τ_up · at_source_target + L_path_up`. Isolates what the target emits from what reaches the aperture. |
 | `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Twin, unit-labelled y-axes (τ is dimensionless; L_path is W/m²/sr/µm). |
 | `spectral_inband()` | `frames["post_optics"]` | The band-filtered at-FPA radiance SpectralIntegrationStage integrates; the collapsed in-band scalar is a single value, not a spectrum. |
+
+The pupil accessors (Gap 89) render the two diagnostic faces of the **same
+complex pupil** OpticsStage builds for the MTF autocorrelation — both are stored
+verbatim, no recomputation (Rule 4's pupil→MTF path is untouched):
+
+| Accessor | Source | Notes |
+|----------|--------|-------|
+| `pupil_amplitude()` | `stage_outputs["optics"]["pupil_amplitude"]` | Dimensionless transmission mask across the pupil — central obscuration, spider vanes, and any measured `pupil_mask_override` included. Colorbar "transmission (dimensionless)". |
+| `pupil_phase()` | `stage_outputs["optics"]["pupil_phase_waves"]` | Wavefront error in **waves** (`phase_radians / 2π`) at `stage_outputs["optics"]["pupil_wavelength_um"]`, zero outside the clear aperture. Band centre for polychromatic runs. Colorbar "wavefront error (waves)"; symmetric diverging colormap so an unaberrated pupil renders flat. |
+
+Axes are scaled to `stage_outputs["optics"]["pupil_plane_extent_m"]` (physical
+pupil diameter) when present, else labelled in sample indices. `pupil_phase()`
+raises when no pupil-phase representation exists (a WFE mode such as `opd_map`);
+`pupil_amplitude` is still persisted in that case.
 
 Each raises `ApiValidationError` (an actionable `ValueError` subclass) when the
 required frame or stage output is absent, rather than drawing a blank figure.

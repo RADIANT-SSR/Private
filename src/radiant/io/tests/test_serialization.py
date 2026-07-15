@@ -115,6 +115,23 @@ class TestRoundTrip:
         assert out["c128"].dtype == np.complex128
         np.testing.assert_array_equal(out["two_d"], np.eye(3))
 
+    def test_pupil_maps_roundtrip(self, tmp_path: Path) -> None:
+        """Gap 89 complex-pupil diagnostic maps survive save/load losslessly."""
+        rng = np.random.default_rng(0)
+        amp = (rng.random((128, 128)) > 0.3).astype(np.float64)
+        phase = np.where(amp > 0.0, rng.standard_normal((128, 128)) * 0.2, 0.0)
+        st = _state(
+            pupil_amplitude=amp,
+            pupil_phase_waves=phase,
+            pupil_wavelength_um=4.25,
+            pupil_plane_extent_m=0.30,
+        )
+        out = _roundtrip(st, tmp_path).stage_outputs["source"]
+        np.testing.assert_array_equal(out["pupil_amplitude"], amp)
+        np.testing.assert_array_equal(out["pupil_phase_waves"], phase)
+        assert out["pupil_wavelength_um"] == 4.25
+        assert out["pupil_plane_extent_m"] == 0.30
+
     def test_tuple_vs_list_distinction(self, tmp_path: Path) -> None:
         st = _state(a_tuple=(1, 2, "x"), a_list=[1, 2, "x"])
         out = _roundtrip(st, tmp_path).stage_outputs["source"]

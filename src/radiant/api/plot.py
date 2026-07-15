@@ -215,6 +215,114 @@ def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
     return cast("Figure", fig)
 
 
+def _pupil_axes_labels(
+    ax: Any, extent_m: float | None
+) -> dict[str, Any]:
+    """Label pupil-plane axes; return imshow kwargs carrying the extent.
+
+    When the physical pupil diameter ``extent_m`` [m] is known the map is
+    drawn in metres across the pupil plane; otherwise axes fall back to
+    sample indices (labelled as such).
+    """
+    if extent_m is not None:
+        radius = 0.5 * extent_m
+        ax.set_xlabel("pupil x (m)")
+        ax.set_ylabel("pupil y (m)")
+        return {"extent": (-radius, radius, -radius, radius)}
+    ax.set_xlabel("pupil x (samples)")
+    ax.set_ylabel("pupil y (samples)")
+    return {}
+
+
+def plot_pupil_amplitude(
+    amplitude: npt.NDArray[np.float64],
+    extent_m: float | None = None,
+    **kwargs: Any,
+) -> Figure:
+    """Plot the pupil amplitude (apodization) map as a 2D image.
+
+    The amplitude is the dimensionless transmission across the pupil —
+    1.0 in the clear aperture, 0.0 under the central obscuration / spider
+    vanes, or the supplied measured mask. Mirrors :func:`plot_psf`.
+
+    Parameters
+    ----------
+    amplitude:
+        Pupil amplitude mask, shape ``(npix, npix)``.
+    extent_m:
+        Physical pupil diameter [m] for axis scaling. ``None`` labels axes
+        in sample indices.
+    **kwargs:
+        Passed to ``ax.imshow()``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+    """
+    plt = _require_matplotlib()
+
+    fig, ax = plt.subplots(constrained_layout=True)
+    defaults: dict[str, Any] = {
+        "cmap": "viridis",
+        "origin": "lower",
+        "vmin": 0.0,
+        "vmax": max(1.0, float(np.max(amplitude)) if amplitude.size else 1.0),
+    }
+    defaults.update(_pupil_axes_labels(ax, extent_m))
+    defaults.update(kwargs)
+    im = ax.imshow(amplitude, **defaults)
+    fig.colorbar(im, ax=ax, label="transmission (dimensionless)")
+    ax.set_title("Pupil amplitude (apodization)")
+    return cast("Figure", fig)
+
+
+def plot_pupil_phase(
+    phase_waves: npt.NDArray[np.float64],
+    extent_m: float | None = None,
+    **kwargs: Any,
+) -> Figure:
+    """Plot the pupil wavefront-error (phase) map as a 2D image.
+
+    The phase is the wavefront error across the pupil in **waves** (WFE),
+    zero outside the clear aperture. A symmetric diverging colormap centres
+    zero WFE, so an unaberrated pupil renders flat. Mirrors :func:`plot_psf`.
+
+    Parameters
+    ----------
+    phase_waves:
+        Pupil wavefront error in waves, shape ``(npix, npix)``.
+    extent_m:
+        Physical pupil diameter [m] for axis scaling. ``None`` labels axes
+        in sample indices.
+    **kwargs:
+        Passed to ``ax.imshow()``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+    """
+    plt = _require_matplotlib()
+
+    fig, ax = plt.subplots(constrained_layout=True)
+    amax = float(np.max(np.abs(phase_waves))) if phase_waves.size else 0.0
+    if amax == 0.0:
+        amax = 1.0  # flat (zero-WFE) map — avoid a degenerate colour range
+    defaults: dict[str, Any] = {
+        "cmap": "RdBu_r",
+        "origin": "lower",
+        "vmin": -amax,
+        "vmax": amax,
+    }
+    defaults.update(_pupil_axes_labels(ax, extent_m))
+    defaults.update(kwargs)
+    im = ax.imshow(phase_waves, **defaults)
+    fig.colorbar(im, ax=ax, label="wavefront error (waves)")
+    ax.set_title("Pupil wavefront error")
+    return cast("Figure", fig)
+
+
 def plot_mtf_terms(
     mtf_terms: dict[str, npt.NDArray[np.float64]],
     spatial_freq: npt.NDArray[np.float64] | None = None,

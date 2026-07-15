@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Complex-pupil diagnostic maps + `result.plot.pupil_amplitude()` / `pupil_phase()` (Gap 89,
+  GUI plan Phase FP-2).** `OpticsStage` now persists the two diagnostic faces of the complex
+  pupil it already builds for the MTF autocorrelation: `pupil_amplitude` (dimensionless
+  apodization/transmission mask — central obscuration, spider vanes, and any measured
+  `pupil_mask_override` included) and `pupil_phase_waves` (the wavefront-error map in **waves**,
+  `phase_radians / 2π`, at `pupil_wavelength_um` — band centre for polychromatic runs — masked
+  to zero outside the clear aperture), plus `pupil_plane_extent_m` (physical pupil diameter for
+  axis scaling) in `stage_outputs["optics"]`. New public accessors
+  `ResultPlotNamespace.pupil_amplitude()` (colorbar "transmission (dimensionless)") and
+  `pupil_phase()` (colorbar "wavefront error (waves)"), mirroring `psf()` (2-D imshow +
+  colorbar). Purely additive diagnostic views captured verbatim from the same arrays the
+  autocorrelation consumes — never read back into the PSF/MTF path (Rule 4 untouched); the full
+  golden suite is **byte-identical**. Also renames the internal
+  `pupil_mtf._resolve_wfe_for_wavelength` → `resolve_wfe_for_wavelength` (module-internal helper,
+  no public surface).
 - **Pre-atmosphere source-emission frames + `result.plot.spectral_source_emission()` (Gap 91,
   GUI plan Phase FP-1).** `AtmosphereStage` now persists two additive `RadiometricFrame`s —
   `at_source_target` (always) and `at_source_background` (when a background descriptor is

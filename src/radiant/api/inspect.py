@@ -144,6 +144,54 @@ class ResultPlotNamespace:
             raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
         return plot_psf(psf_data, **kwargs)
 
+    def pupil_amplitude(self, **kwargs: Any) -> Any:
+        """Plot the pupil amplitude (apodization) map (Gap 89).
+
+        Draws the dimensionless transmission across the complex pupil that
+        produced the PSF/MTF — central obscuration, spider vanes, and any
+        measured mask override — from ``stage_outputs['optics']
+        ['pupil_amplitude']`` (arch-doc §4.4.1 Optics view). Raises
+        :class:`ApiValidationError` when the map is absent.
+        """
+        from radiant.api.plot import plot_pupil_amplitude
+
+        optics = self._result.stage_outputs.get("optics", {})
+        amplitude = optics.get("pupil_amplitude")
+        if amplitude is None:
+            raise ApiValidationError(
+                "No pupil amplitude map found in result "
+                "stage_outputs['optics']['pupil_amplitude'] — the chain must "
+                "run OpticsStage to build the complex pupil."
+            )
+        return plot_pupil_amplitude(
+            amplitude, extent_m=optics.get("pupil_plane_extent_m"), **kwargs
+        )
+
+    def pupil_phase(self, **kwargs: Any) -> Any:
+        """Plot the pupil wavefront-error (phase) map in waves (Gap 89).
+
+        Draws the wavefront error across the complex pupil in **waves** at
+        ``stage_outputs['optics']['pupil_wavelength_um']`` (phase_radians / 2π,
+        zero outside the clear aperture), from ``stage_outputs['optics']
+        ['pupil_phase_waves']`` (arch-doc §4.4.1 Optics view). An unaberrated
+        system renders flat. Raises :class:`ApiValidationError` when the map is
+        absent (e.g. a WFE mode with no pupil-phase representation).
+        """
+        from radiant.api.plot import plot_pupil_phase
+
+        optics = self._result.stage_outputs.get("optics", {})
+        phase_waves = optics.get("pupil_phase_waves")
+        if phase_waves is None:
+            raise ApiValidationError(
+                "No pupil phase (WFE) map found in result "
+                "stage_outputs['optics']['pupil_phase_waves'] — the chain must "
+                "run OpticsStage with a WFE mode that has a pupil-phase "
+                "representation (scalar_rms / zernike)."
+            )
+        return plot_pupil_phase(
+            phase_waves, extent_m=optics.get("pupil_plane_extent_m"), **kwargs
+        )
+
     def noise_budget(self, **kwargs: Any) -> Any:
         """Plot the noise budget as a horizontal bar chart."""
         from radiant.api.plot import plot_noise_budget

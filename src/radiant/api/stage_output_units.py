@@ -11,9 +11,11 @@ This module is the **single authoritative source** for those display units: a ta
 by ``(stage, output_key)`` → canonical unit string, drawn from
 ``docs/architecture/RADIANT_Conventions.md`` (length **m**, area **m²**, solid angle
 **sr**, charge **e-**, temperature **K**, time **s**, digital number **DN**, in-band
-irradiance **W/m²**). It covers exactly the finite set of *scalar* outputs the five
-outputs-bearing stages emit (Optics, Platform, Spectral-Integration, Detector, Readout —
-Performance uses the metric registry via :meth:`ChainResult.metric_records`).
+irradiance **W/m²**). It covers exactly the finite set of *scalar* outputs the
+outputs-bearing stages emit (Source, Optics, Platform, Spectral-Integration, Detector,
+Readout — Performance uses the metric registry via :meth:`ChainResult.metric_records`).
+The Source rows back the Phase-PS-1 Source-stage Outputs readout (its ``regime_tentative``
+enum and ``regime_override`` string need no unit and are rendered unadorned).
 
 The table lists only **dimensional** numerics and the genuinely **dimensionless** ones
 (fractions/ratios such as ``EE_box``, ``qe_scalar``, ``well_fill_fraction``,
@@ -36,6 +38,11 @@ from typing import Final
 # genuinely dimensionless numeric (fraction/ratio), rendered as a bare number. Grouped by
 # stage; keys mirror the ``with_stage_output(...)`` sites in each stage's ``stage.py``.
 STAGE_OUTPUT_UNITS: Final[dict[tuple[str, str], str]] = {
+    # -- Source ---------------------------------------------------------------
+    ("source", "projected_area_m2"): "m²",  # target projected area facing the sensor
+    ("source", "range_m"): "m",  # target slant range
+    ("source", "fill_fraction"): "",  # in-pixel fill fraction
+    ("source", "angular_extent_rad"): "rad",  # target angular extent
     # -- Optics ---------------------------------------------------------------
     ("optics", "A_collect"): "m²",  # clear collecting area
     ("optics", "Omega_pixel"): "sr",  # pixel solid angle

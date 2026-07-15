@@ -12,7 +12,29 @@ from radiant.api.stage_output_units import STAGE_OUTPUT_UNITS, stage_output_unit
 
 # The canonical unit strings the table is allowed to emit (RADIANT_Conventions.md), plus
 # ``""`` for a dimensionless numeric. A typo (e.g. "m2" for "m²") would fail this.
-_CANONICAL_UNITS = {"", "m", "m²", "sr", "e-", "e-/s", "e-/K", "e-/DN", "DN", "K", "s", "W/m²"}
+_CANONICAL_UNITS = {
+    "",
+    "m",
+    "m²",
+    "sr",
+    "rad",
+    "e-",
+    "e-/s",
+    "e-/K",
+    "e-/DN",
+    "DN",
+    "K",
+    "s",
+    "W/m²",
+}
+
+
+def test_source_outputs_carry_their_unit() -> None:
+    """The Source-stage Outputs readout (Phase PS-1): dimensional keys carry their unit."""
+    assert stage_output_unit("source", "projected_area_m2") == "m²"
+    assert stage_output_unit("source", "range_m") == "m"
+    assert stage_output_unit("source", "angular_extent_rad") == "rad"
+    assert stage_output_unit("source", "fill_fraction") == ""  # fraction → bare number
 
 
 def test_owner_reported_optics_outputs_carry_their_unit() -> None:

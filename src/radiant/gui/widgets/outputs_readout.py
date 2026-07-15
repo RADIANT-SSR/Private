@@ -29,6 +29,7 @@ the QSS theme via object names (GUI plan §4.9); this file holds no colour/font/
 from __future__ import annotations
 
 from collections.abc import Mapping
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Final
 
 from PySide6.QtCore import Qt, Signal
@@ -76,8 +77,14 @@ def _humanize(key: str) -> str:
 
 
 def _is_scalar(value: Any) -> bool:
-    """True for the primitive scalars the readout renders (numbers, strings, None)."""
-    return value is None or isinstance(value, (bool, int, float, str))
+    """True for the primitive scalars the readout renders (numbers, strings, enums, None).
+
+    An :class:`~enum.Enum` (e.g. the Source stage's ``regime_tentative``
+    :class:`~radiant.core.regime.RadiometricRegime`) is a scalar for display purposes —
+    rendered by its ``.value`` in :meth:`OutputsReadout.show_stage_outputs`. Arrays and
+    structured objects are not scalars; they surface as plots, not readout rows.
+    """
+    return value is None or isinstance(value, (bool, int, float, str, Enum))
 
 
 class OutputsReadout(QWidget):
@@ -127,9 +134,12 @@ class OutputsReadout(QWidget):
         for key, value in outputs.items():
             if not _is_scalar(value):
                 continue
+            # An enum (e.g. regime_tentative) renders by its value string ("extended"),
+            # never its ``RadiometricRegime.EXTENDED`` repr.
+            display = value.value if isinstance(value, Enum) else value
             unit = stage_output_unit(stage, key)
             label = _humanize(key)
-            self._add_row(row, key, label, format_value(value, unit))
+            self._add_row(row, key, label, format_value(display, unit))
             self._add_pin(
                 row, lambda k=key, la=label, u=unit: self.pinOutputRequested.emit(stage, k, la, u)
             )

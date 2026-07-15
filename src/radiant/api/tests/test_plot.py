@@ -10,19 +10,23 @@ from typing import Any, cast
 import numpy as np
 import pytest
 
+from radiant.api.errors import ApiValidationError
 from radiant.api.plot import (
     Plottable,
     plot_atmosphere_spectral,
     plot_coating_spectra,
     plot_mtf_terms,
     plot_noise_budget,
+    plot_noise_pie,
     plot_optical_throughput,
+    plot_psf,
     plot_spectral,
     plot_spectral_multi,
     plot_sweep,
     plot_sweep_2d,
 )
 from radiant.api.sweep import Sweep2DResult, SweepResult
+from radiant.optics.psf.effective import EffectivePSF
 
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
@@ -122,6 +126,91 @@ class TestPlotNoiseBudget:
         ]
         fig = plot_noise_budget(terms)
         assert isinstance(fig, Figure)
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestPlotNoisePie:
+    """PS-3 Part A: the variance-weighted noise pie (result.plot.noise_pie builder)."""
+
+    def test_returns_figure(self) -> None:
+        terms = [_FakeNoiseTerm("photon_shot", 111.6), _FakeNoiseTerm("read_noise", 25.0)]
+        fig = plot_noise_pie(terms)
+        assert isinstance(fig, Figure)
+        matplotlib.pyplot.close(fig)
+
+    def test_slices_proportional_to_variance_not_sigma(self) -> None:
+        """The wedge spans track σ_i² (noise power), NOT σ_i (RMS values do not add)."""
+        terms = [_FakeNoiseTerm("a", 30.0), _FakeNoiseTerm("b", 40.0)]  # var 900 vs 1600
+        fig = plot_noise_pie(terms)
+        from matplotlib.patches import Wedge
+
+        wedges = [cast(Wedge, p) for p in fig.axes[0].patches]
+        spans = [w.theta2 - w.theta1 for w in wedges]  # sorted desc → [b(1600), a(900)]
+        total = sum(spans)
+        assert spans[0] / total == pytest.approx(1600.0 / 2500.0, abs=1e-6)
+        assert spans[1] / total == pytest.approx(900.0 / 2500.0, abs=1e-6)
+        matplotlib.pyplot.close(fig)
+
+    def test_labels_carry_e_rms_units(self) -> None:
+        """Every wedge label states its σ_i in e- RMS (owner hard rule)."""
+        fig = plot_noise_pie([_FakeNoiseTerm("photon_shot", 111.6)])
+        labels = [t.get_text() for t in fig.axes[0].texts]
+        assert any("e- RMS" in lbl for lbl in labels)
+        assert any("photon_shot" in lbl for lbl in labels)
+        matplotlib.pyplot.close(fig)
+
+    def test_zero_terms_omitted(self) -> None:
+        """A σ = 0 term carries no power and is dropped (no wedge, no label)."""
+        terms = [_FakeNoiseTerm("live", 10.0), _FakeNoiseTerm("dead", 0.0)]
+        fig = plot_noise_pie(terms)
+        assert len(fig.axes[0].patches) == 1  # only the live term
+        labels = " ".join(t.get_text() for t in fig.axes[0].texts)
+        assert "dead" not in labels
+        matplotlib.pyplot.close(fig)
+
+    def test_all_zero_raises_actionable(self) -> None:
+        """All-zero σ → nothing to apportion → an actionable ApiValidationError."""
+        with pytest.raises(ApiValidationError, match="non-zero noise terms"):
+            plot_noise_pie([_FakeNoiseTerm("a", 0.0), _FakeNoiseTerm("b", 0.0)])
+
+
+@pytest.mark.level1
+class TestPlotPsfPixelGrid:
+    """PS-3 Part A: plot_psf(pixel_grid=True) overlays the detector pixel grid + crops."""
+
+    @staticmethod
+    def _psf() -> EffectivePSF:
+        n = 128
+        yy, xx = np.mgrid[0:n, 0:n]
+        c = (n - 1) / 2.0
+        data = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * 3.0**2))
+        return EffectivePSF(
+            data=data / data.sum(),
+            sample_spacing_m=2.0e-6,
+            pixel_pitch_m=1.0e-5,  # 5 samples per detector pixel
+            wavelength_um=4.0,
+            convolution_history=("diffraction",),
+        )
+
+    def test_default_has_no_grid_and_shipped_title(self) -> None:
+        """pixel_grid defaults False → the shipped image, uncropped, titled 'Effective PSF'."""
+        fig = plot_psf(self._psf())
+        ax = fig.axes[0]
+        assert ax.get_title() == "Effective PSF"
+        assert not ax.get_lines()  # no gridlines
+        matplotlib.pyplot.close(fig)
+
+    def test_grid_overlays_lines_and_crops_and_titles_pitch(self) -> None:
+        """pixel_grid=True → gridlines drawn, view cropped to the core, pitch (µm) in title."""
+        psf = self._psf()
+        fig = plot_psf(psf, pixel_grid=True, pixel_grid_span=8)
+        ax = fig.axes[0]
+        assert ax.get_lines()  # pixel-boundary gridlines present
+        assert "µm pitch" in ax.get_title()
+        # Cropped to a window narrower than the full 128-sample array.
+        lo, hi = ax.get_xlim()
+        assert (hi - lo) < psf.data.shape[0]
         matplotlib.pyplot.close(fig)
 
 

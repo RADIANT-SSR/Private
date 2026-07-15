@@ -149,6 +149,70 @@ def plot_noise_budget(
     return cast("Figure", fig)
 
 
+def plot_noise_pie(
+    noise_terms: tuple[Any, ...] | list[Any],
+    **kwargs: Any,
+) -> Figure:
+    """Plot the noise-term contributions as a **variance-weighted** pie chart.
+
+    Presentation choice (physics-driven, documented): the total noise adds in
+    **quadrature** — ``σ_total² = Σ σ_i²`` — so the meaningful "share of the
+    noise" for a term is its fraction of the **variance** (σ_i²), not of σ_i.
+    A pie of the σ_i themselves would not sum to the total noise (RMS values
+    do not add linearly) and would visually overstate the small terms. The
+    slices are therefore proportional to each term's **variance** (σ_i²), so
+    they sum to 100 % of the noise **power**. Each wedge is labelled with the
+    term name, its σ_i in **e- RMS** (unit on the label, R-UNITS), and its % of
+    the total variance. Zero terms are omitted (they carry no power).
+
+    This is the pie sibling of :func:`plot_noise_budget` (same
+    ``result.noise_terms`` data, a different mark): the bar shows the absolute
+    σ_i in e- RMS; the pie shows the variance share.
+
+    Parameters
+    ----------
+    noise_terms:
+        Tuple of :class:`~radiant.core.radiometry.NoiseTerm` objects.
+    **kwargs:
+        Passed to ``ax.pie()``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+
+    Raises
+    ------
+    ApiValidationError
+        When every term's σ is zero (the variance shares are undefined — there
+        is no noise power to apportion).
+    """
+    from radiant.api.errors import ApiValidationError
+
+    plt = _require_matplotlib()
+    kept = [(nt.name, float(nt.value_e)) for nt in noise_terms if float(nt.value_e) > 0.0]
+    if not kept:
+        raise ApiValidationError(
+            "No non-zero noise terms to plot as a pie — every term's σ is zero, "
+            "so the noise variance has no share to apportion."
+        )
+    # Sort by variance descending so the dominant contributor leads the wedges.
+    kept.sort(key=lambda item: item[1], reverse=True)
+    names = [name for name, _ in kept]
+    sigmas = [sigma for _, sigma in kept]
+    variances = [sigma * sigma for sigma in sigmas]
+    total_var = float(sum(variances))
+    labels = [
+        f"{name}\n{sigma:.3g} e- RMS ({100.0 * var / total_var:.1f}%)"
+        for name, sigma, var in zip(names, sigmas, variances, strict=True)
+    ]
+    fig, ax = plt.subplots(constrained_layout=True)
+    ax.pie(variances, labels=labels, **kwargs)  # slices ∝ σ_i² (noise power)
+    ax.set_aspect("equal")
+    ax.set_title("Noise budget — share of variance (σ²; total noise power)")
+    return cast("Figure", fig)
+
+
 def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
     """Plot per-contributor MTF at Nyquist as a grouped bar chart (Gap 19).
 
@@ -180,13 +244,31 @@ def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
     return cast("Figure", fig)
 
 
-def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
+def plot_psf(
+    psf: EffectivePSF,
+    *,
+    pixel_grid: bool = False,
+    pixel_grid_span: int = 16,
+    **kwargs: Any,
+) -> Figure:
     """Plot an EffectivePSF as a 2D image with log scale.
 
     Parameters
     ----------
     psf:
         An :class:`EffectivePSF` object.
+    pixel_grid:
+        When ``True``, overlay the **detector pixel grid** — pixel-boundary
+        gridlines at the detector pixel pitch (``psf.pixel_pitch_m``) over the
+        PSF (sampled at ``psf.sample_spacing_m``), so the viewer sees how the
+        PSF spreads across detector pixels. The view is cropped to a window of
+        ``pixel_grid_span`` detector pixels centred on the PSF peak (the full
+        array spans many pixels — a whole-array grid would be an unreadable
+        mesh), and the title carries the pitch (with units). Default ``False``
+        leaves the plot byte-for-byte the shipped image.
+    pixel_grid_span:
+        Width of the cropped window, in detector pixels, when ``pixel_grid`` is
+        set. Ignored otherwise.
     **kwargs:
         Passed to ``ax.imshow()``.
 
@@ -209,10 +291,47 @@ def plot_psf(psf: EffectivePSF, **kwargs: Any) -> Figure:
     defaults.update(kwargs)
     im = ax.imshow(data, **defaults)
     fig.colorbar(im, ax=ax, label="PSF intensity")
-    ax.set_title("Effective PSF")
-    ax.set_xlabel("x (pixels)")
-    ax.set_ylabel("y (pixels)")
+    if pixel_grid:
+        pitch_um = psf.pixel_pitch_m * 1e6
+        ax.set_title(f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)")
+        ax.set_xlabel("x (PSF samples)")
+        ax.set_ylabel("y (PSF samples)")
+        _overlay_pixel_grid(ax, psf, pixel_grid_span)
+    else:
+        ax.set_title("Effective PSF")
+        ax.set_xlabel("x (pixels)")
+        ax.set_ylabel("y (pixels)")
     return cast("Figure", fig)
+
+
+def _overlay_pixel_grid(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
+    """Draw detector pixel-boundary gridlines over a PSF image and crop to the core.
+
+    The PSF array is sampled at ``psf.sample_spacing_m``; one detector pixel
+    spans ``psf.pixel_pitch_m / sample_spacing_m`` samples. Boundaries straddle
+    the centre sample so the central detector pixel is centred on the PSF peak.
+    The axes are cropped to ``span_pixels`` detector pixels so the grid is a
+    readable mesh over the concentrated PSF rather than hundreds of lines across
+    the (largely empty) full array.
+    """
+    dx = psf.sample_spacing_m
+    pitch = psf.pixel_pitch_m
+    n = psf.data.shape[0]
+    if dx <= 0.0 or pitch <= 0.0:
+        return
+    samples_per_pixel = pitch / dx
+    center = (n - 1) / 2.0
+    half_pixels = max(1, span_pixels // 2)
+    offsets = [(k + 0.5) * samples_per_pixel for k in range(half_pixels)]
+    positions = [center - off for off in offsets] + [center + off for off in offsets]
+    for pos in positions:
+        if -0.5 <= pos <= n - 0.5:
+            ax.axvline(pos, color="white", lw=0.5, alpha=0.5)
+            ax.axhline(pos, color="white", lw=0.5, alpha=0.5)
+    lo = max(-0.5, center - half_pixels * samples_per_pixel)
+    hi = min(n - 0.5, center + half_pixels * samples_per_pixel)
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
 
 
 def _pupil_axes_labels(

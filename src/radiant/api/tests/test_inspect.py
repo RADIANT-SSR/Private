@@ -104,6 +104,61 @@ class TestResultPlotNamespace:
             ns.psf()
 
 
+class TestNoisePieAccessor:
+    """PS-3 Part A: result.plot.noise_pie() — variance-share pie over result.noise_terms."""
+
+    def test_returns_figure_from_result_terms(self) -> None:
+        ns = ResultPlotNamespace(_make_result())
+        fig = ns.noise_pie()
+        assert fig.axes  # a drawn pie
+
+    def test_wedges_match_result_noise_terms_variance(self) -> None:
+        """Data fidelity: each wedge span is the term's σ² fraction of result.noise_terms."""
+        result = _make_result()
+        fig = ResultPlotNamespace(result).noise_pie()
+        spans = [w.theta2 - w.theta1 for w in fig.axes[0].patches]
+        variances = sorted((nt.value_e**2 for nt in result.noise_terms), reverse=True)
+        total = sum(variances)
+        for span, var in zip(spans, variances, strict=True):
+            assert span / sum(spans) == pytest.approx(var / total, abs=1e-6)
+
+    def test_raises_when_noise_terms_absent(self) -> None:
+        state = ChainState(wavelength_um=np.linspace(3.5, 5.0, 6))
+        ns = ResultPlotNamespace(ChainResult(state))
+        with pytest.raises(ApiValidationError, match="No noise terms"):
+            ns.noise_pie()
+
+
+class TestPsfPixelGridAccessor:
+    """PS-3 Part A: result.plot.psf_pixel_grid() — psf() with the detector pixel grid."""
+
+    def test_returns_figure_with_grid(self) -> None:
+        from radiant.optics.psf.effective import EffectivePSF
+
+        n = 96
+        yy, xx = np.mgrid[0:n, 0:n]
+        c = (n - 1) / 2.0
+        data = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * 2.0**2))
+        psf = EffectivePSF(
+            data=data / data.sum(),
+            sample_spacing_m=2.0e-6,
+            pixel_pitch_m=1.0e-5,
+            wavelength_um=4.0,
+            convolution_history=("diffraction",),
+        )
+        state = ChainState(wavelength_um=np.linspace(3.5, 5.0, 6))
+        state = state.with_stage_output("optics", "effective_psf", psf)
+        fig = ResultPlotNamespace(ChainResult(state)).psf_pixel_grid()
+        assert fig.axes[0].get_lines()  # pixel-grid lines present
+        assert "µm pitch" in fig.axes[0].get_title()
+
+    def test_raises_without_psf(self) -> None:
+        state = ChainState(wavelength_um=np.linspace(3.5, 5.0, 6))
+        ns = ResultPlotNamespace(ChainResult(state))
+        with pytest.raises(ApiValidationError, match="No effective PSF"):
+            ns.psf_pixel_grid()
+
+
 def _make_pupil_result(*, with_phase: bool = True, extent_m: float = 0.30) -> ChainResult:
     """Build a ChainResult carrying persisted complex-pupil diagnostic maps."""
     wl = np.linspace(3.5, 5.0, 10)

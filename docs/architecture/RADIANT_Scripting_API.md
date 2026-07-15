@@ -439,9 +439,11 @@ from radiant.api.inspect import ResultPlotNamespace
 
 plots = ResultPlotNamespace(result)
 plots.psf()                # 2-D effective PSF (from stage_outputs["optics"]["effective_psf"])
+plots.psf_pixel_grid()     # psf() + the detector pixel grid overlaid, cropped to the PSF core
 plots.pupil_amplitude()    # 2-D pupil apodization/amplitude map [transmission, dimensionless] (Gap 89)
 plots.pupil_phase()        # 2-D pupil wavefront-error map [waves] (Gap 89)
 plots.noise_budget()       # horizontal bar chart of result.noise_terms [e- RMS]
+plots.noise_pie()          # pie of result.noise_terms by VARIANCE share (σ_i²; e- RMS on labels)
 plots.mtf()                # all MTF terms vs spatial frequency [cycles/mrad]
 plots.mtf_budget()         # per-contributor MTF-at-Nyquist bar chart (Gap 19)
 plots.spectral_source()          # target (+ background) at-aperture radiance vs λ [W/m²/sr/µm]
@@ -758,6 +760,7 @@ for nt in sorted(result.noise_terms, key=lambda t: -t.value_e):
     print(f"  {nt.name:20s} {nt.value_e:10.2f} e- RMS")
 
 ResultPlotNamespace(result).noise_budget()     # horizontal bar chart [e- RMS]
+ResultPlotNamespace(result).noise_pie()        # pie by variance share (σ_i²; e- RMS on labels)
 ```
 
 ### Example 8: Spectral data at chain frames

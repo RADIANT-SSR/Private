@@ -144,6 +144,23 @@ class ResultPlotNamespace:
             raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
         return plot_psf(psf_data, **kwargs)
 
+    def psf_pixel_grid(self, **kwargs: Any) -> Any:
+        """Plot the effective PSF with the detector **pixel grid** overlaid.
+
+        Same figure as :meth:`psf`, plus pixel-boundary gridlines at the detector
+        pixel pitch (``EffectivePSF.pixel_pitch_m`` over samples spaced at
+        ``sample_spacing_m``) and a crop to the PSF core, so the viewer sees how
+        the PSF spreads across detector pixels (arch-doc §4.4.1 Detector row). A
+        GUI draw over already-computed data — no results change. Raises
+        :class:`ApiValidationError` when the effective PSF is absent.
+        """
+        from radiant.api.plot import plot_psf
+
+        psf_data = self._result.stage_outputs.get("optics", {}).get("effective_psf")
+        if psf_data is None:
+            raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
+        return plot_psf(psf_data, pixel_grid=True, **kwargs)
+
     def pupil_amplitude(self, **kwargs: Any) -> Any:
         """Plot the pupil amplitude (apodization) map (Gap 89).
 
@@ -197,6 +214,26 @@ class ResultPlotNamespace:
         from radiant.api.plot import plot_noise_budget
 
         return plot_noise_budget(self._result.noise_terms, **kwargs)
+
+    def noise_pie(self, **kwargs: Any) -> Any:
+        """Plot the noise budget as a variance-weighted pie chart.
+
+        Same ``result.noise_terms`` data as :meth:`noise_budget` (the bar), a
+        different mark: slices are proportional to each term's **variance**
+        (σ_i²) because noise adds in quadrature (σ_total² = Σ σ_i²), so the
+        wedges sum to 100 % of the noise **power** and each is labelled with the
+        term name, its σ_i in e- RMS, and its % of the variance (zero terms
+        omitted). Raises :class:`ApiValidationError` when the result carries no
+        noise terms (the chain must run through ReadoutStage).
+        """
+        from radiant.api.plot import plot_noise_pie
+
+        if not self._result.noise_terms:
+            raise ApiValidationError(
+                "No noise terms found in result.noise_terms — the chain must run "
+                "the detector/readout stages to assemble the noise budget."
+            )
+        return plot_noise_pie(self._result.noise_terms, **kwargs)
 
     def mtf(self, **kwargs: Any) -> Any:
         """Plot all MTF terms."""

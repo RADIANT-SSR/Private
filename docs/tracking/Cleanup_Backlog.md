@@ -30,15 +30,6 @@
 **Why it still matters**: Rule 12 / R-UNITS one-source hygiene — the unit for a computed quantity should be sourced from the quantity, not restated at the display site.
 **Suggested fix**: (a) inline-fix-now when a non-angle annotatable output is added — infer the arc's display unit from the annotation (the catalog could carry a `display_unit`), or read from the CU-118 stage-output-unit table once that lands. Effort S; category A. Re-audit with CU-118 or when a non-angle arc is added.
 
-### CU-125 — Target shape switch to a shape with unset dimensions fails the physics re-evaluation
-
-**Discovered**: GUI Development Plan Phase 7 Part B (3D viewer shape library), 2026-07-13 (commit on branch `gui-phase1-task-a`; ADR-0007)
-**Status**: Open — non-blocking; the failure is surfaced, not silent. The glyph preview still updates; only the physics re-run errors.
-**File**: `src/radiant/gui/widgets/stage_center.py` (`StagePane._on_shape_requested`); shape factory validation in `radiant.source` (Step 1.2, `ParameterBoundsError` when the chosen shape needs a dimension that is the `0.0` sentinel).
-**Symptom**: Selecting a shape (e.g. `box`) whose required dimensions (`shape_length_m` / `shape_width_m` / `shape_height_m`) are still the `0.0` "not set" sentinel makes the scheduled full re-evaluation raise `ParameterBoundsError` → the actionable error dialog; the previous metrics stay. The viewer's shape *preview* (glyph) updated fine because it reads params directly, but the physics is not re-run until the user also sets the dimensions in the parameter tree.
-**Why it still matters**: UX friction — a shape library where picking a shape can immediately error is confusing to a non-developer owner, even though the error is honest (Rule 15/17). No correctness impact.
-**Suggested fix**: (b) stand-alone task — either (i) seed sensible default dimensions when a shape is first selected (so a fresh pick evaluates), or (ii) gate the combo so a shape's required-dim fields are prompted inline before the re-run, or (iii) render the shape as a display-only preview and defer the physics re-run until dims are valid. Owner-facing decision. Effort M; category D (UX). Re-audit at GUI Phase 9 (requirements-matrix pass).
-
 ### CU-122 — `dev_tools/geometry_gui_v2` app shell is broken against the deleted `core/geometry.py` dataclasses; viewer has no platform/target attitude source
 
 **Discovered**: GUI Development Plan Phase 6 (3D viewer visual-direction ADR / lift assessment), 2026-07-13 (commit on branch `gui-phase1-task-a`; ADR-0007)
@@ -367,6 +358,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-125 — Target shape switch to a shape with unset dimensions fails the physics re-evaluation — RESOLVED 2026-07-14 (commit `d3694ae`)
+
+**Discovered**: GUI Development Plan Phase 7 Part B (3D viewer shape library), 2026-07-13 (branch `gui-phase1-task-a`; ADR-0007). **Resolution**: took suggested-fix (i) — seed sensible defaults on shape selection. `StagePane._on_shape_requested` now calls `_seed_nominal_dimensions(shape)`, which sets each of the shape's required dimensions to a nominal non-zero value from the new `geometry_angle_panel.NOMINAL_SHAPE_DIMENSIONS` map (sphere r=1 m; cylinder r=0.5 m + L=2 m; flat_plate L=W=1 m; box L=W=H=1 m; cone base-r=0.5 m + H=1 m) — one `sensor.set` each, applied only to a dimension currently at the `0.0` "not set" sentinel, so a user-set non-zero value is never overwritten. The scheduled re-evaluate then succeeds instead of raising `ParameterBoundsError` from the `radiant.source` shape factory. The schema keeps the `0.0` Rule-12 default (0.0 still means "shape not provided"); the nominal map is a GUI-side UX default only, documented once in `geometry_angle_panel.py` and covered by `test_geometry_schematic_edit.py::TestNominalShapeDimensions` (map covers every shape's required dims; each shape evaluates cleanly; a user value is not overwritten). Category D (UX); goldens untouched.
 
 ### CU-133 — Angle-truth consistency test not ported onto the 2D projection math (schematic Pass 2) — RESOLVED 2026-07-14 (commit `e4f7483`)
 

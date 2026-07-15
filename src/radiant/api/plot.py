@@ -495,6 +495,101 @@ def plot_spectral_multi(
     return cast("Figure", fig)
 
 
+def plot_optical_throughput(
+    wavelength_um: npt.NDArray[np.float64],
+    tau_opt: npt.NDArray[np.float64],
+    *,
+    title: str = "System optical throughput",
+    **kwargs: Any,
+) -> Figure:
+    """Plot the assembled system optical throughput τ_opt(λ).
+
+    Draws the dimensionless system transmission (product of every element's
+    net throughput along the signal path) against wavelength. Mirrors
+    :func:`plot_spectral`; the y-axis is bounded to [0, 1.05] and labelled
+    ``τ_opt (dimensionless)`` (R-UNITS, short-label clip fix).
+
+    Parameters
+    ----------
+    wavelength_um:
+        Wavelength grid [µm].
+    tau_opt:
+        System optical throughput τ_opt(λ) [dimensionless, in [0, 1]].
+    title:
+        Plot title.
+    **kwargs:
+        Passed to ``ax.plot()``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+    """
+    plt = _require_matplotlib()
+    fig, ax = plt.subplots(constrained_layout=True)
+    ax.plot(wavelength_um, tau_opt, **kwargs)
+    ax.set_xlabel("Wavelength (µm)")
+    ax.set_ylabel("τ_opt (dimensionless)")
+    ax.set_title(title)
+    ax.set_ylim(0.0, 1.05)
+    ax.grid(True, alpha=0.3)
+    return cast("Figure", fig)
+
+
+def plot_coating_spectra(
+    series: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
+    *,
+    title: str = "Per-element coating spectra",
+    **kwargs: Any,
+) -> Figure:
+    """Plot per-element reflectance / transmission / emissivity curves.
+
+    Each curve is a dimensionless spectral quantity (R, T, or ε) for one
+    optical element; every curve shares the same y-axis (all are in [0, 1])
+    but may carry its **own** wavelength grid, so each entry supplies its own
+    ``(wavelength_um, values)`` pair. Isolates each element's coating
+    contribution to (or limit on) throughput across the band.
+
+    Parameters
+    ----------
+    series:
+        Mapping ``label -> (wavelength_um [µm], values [dimensionless])``.
+        Labels are typically ``"<element> R"`` / ``"<element> T"`` /
+        ``"<element> ε"``.
+    title:
+        Plot title.
+    **kwargs:
+        Passed to ``ax.plot()`` for every curve.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+    """
+    plt = _require_matplotlib()
+    fig, ax = plt.subplots(constrained_layout=True)
+    for label, (wavelength_um, values) in series.items():
+        ax.plot(wavelength_um, values, label=label, **kwargs)
+    ax.set_xlabel("Wavelength (µm)")
+    ax.set_ylabel("R / T / ε (dimensionless)")
+    ax.set_title(title)
+    ax.set_ylim(0.0, 1.05)
+    ax.grid(True, alpha=0.3)
+    if series:
+        # A per-element × per-quantity overlay can grow large; a compact
+        # below-axes multi-column legend keeps the curves unobscured in the
+        # narrow embedded GUI pane (mirrors plot_mtf_terms, CU-117).
+        ncol = min(3, max(1, (len(series) + 3) // 4))
+        ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.30),
+            ncol=ncol,
+            fontsize="small",
+            frameon=False,
+        )
+    return cast("Figure", fig)
+
+
 def plot_atmosphere_spectral(
     wavelength_um: npt.NDArray[np.float64],
     tau_atm: npt.NDArray[np.float64],

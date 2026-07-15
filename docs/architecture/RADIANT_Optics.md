@@ -40,6 +40,15 @@ The optics module has one job: **deliver an `OpticsState` to the chain**. Five g
 > arrays the autocorrelation consumes; they are never read back into the PSF or
 > MTF computation, so Rule 4's pupil→MTF path is untouched (results-neutral).
 > Surfaced through `result.plot.pupil_amplitude()` / `pupil_phase()`.
+>
+> **Coating / throughput spectra (Gap 90).** The already-stored throughput
+> outputs — `tau_opt_spectral` (the assembled system τ_opt(λ)) and `elements`
+> (each carrying `reflectance`, `transmittance`, and the Kirchhoff-derived
+> `emissivity` as `SpectralData`) — are surfaced verbatim through
+> `result.plot.optical_throughput()` (system transmission) and
+> `result.plot.coating_spectra()` (per-element R / T / ε overlay). These are
+> **additive view accessors** over stored `SpectralData`; no computation is
+> touched (results-neutral).
 
 ```python
 # DESIGN-TARGET — the fields below are produced into ChainState, not this dataclass.

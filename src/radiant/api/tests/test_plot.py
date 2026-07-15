@@ -13,8 +13,10 @@ import pytest
 from radiant.api.plot import (
     Plottable,
     plot_atmosphere_spectral,
+    plot_coating_spectra,
     plot_mtf_terms,
     plot_noise_budget,
+    plot_optical_throughput,
     plot_spectral,
     plot_spectral_multi,
     plot_sweep,
@@ -186,6 +188,48 @@ class TestPlotAtmosphereSpectral:
 
 
 @pytest.mark.level1
+class TestPlotOpticalThroughput:
+    def test_returns_figure_with_units(self) -> None:
+        wl = np.linspace(3.5, 5.0, 50)
+        tau = 0.7 * np.ones_like(wl)
+        fig = plot_optical_throughput(wl, tau)
+        assert isinstance(fig, Figure)
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert ax.get_ylabel() == "τ_opt (dimensionless)"
+        assert len(ax.lines) == 1
+        np.testing.assert_array_equal(ax.lines[0].get_ydata(), tau)
+        assert ax.get_ylim() == (0.0, 1.05)
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestPlotCoatingSpectra:
+    def test_multi_element_units_and_own_grids(self) -> None:
+        wl_a = np.linspace(3.5, 5.0, 30)
+        wl_b = np.linspace(3.6, 5.1, 25)  # a distinct per-element grid
+        series = {
+            "m1 R": (wl_a, 0.95 * np.ones_like(wl_a)),
+            "m1 ε": (wl_a, 0.05 * np.ones_like(wl_a)),
+            "win T": (wl_b, 0.9 * np.ones_like(wl_b)),
+        }
+        fig = plot_coating_spectra(series)
+        assert isinstance(fig, Figure)
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "dimensionless" in ax.get_ylabel()
+        assert len(ax.lines) == 3
+        # Each curve keeps its own wavelength grid (no shared-grid assumption).
+        np.testing.assert_array_equal(ax.lines[2].get_xdata(), wl_b)
+        matplotlib.pyplot.close(fig)
+
+    def test_empty_series_no_legend_error(self) -> None:
+        fig = plot_coating_spectra({})
+        assert len(fig.axes[0].lines) == 0
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
 class TestConstrainedLayout:
     """Every plot builder must ship a constrained-layout figure so titles / axis labels /
     legends always have reserved margin and re-fit when an embedded canvas is resized
@@ -209,6 +253,8 @@ class TestConstrainedLayout:
             plot_spectral(wl, rad, title="t"),
             plot_spectral_multi(wl, {"a": rad, "b": 0.5 * rad}),
             plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl)),
+            plot_optical_throughput(wl, 0.7 * np.ones_like(wl)),
+            plot_coating_spectra({"m1 R": (wl, 0.9 * np.ones_like(wl))}),
         ]
 
     def test_all_builders_use_constrained_layout(self) -> None:
@@ -239,6 +285,8 @@ class TestConstrainedLayout:
             plot_spectral(wl, rad, title="t"),
             plot_spectral_multi(wl, {"a": rad, "b": 0.5 * rad}),
             plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl)),
+            plot_optical_throughput(wl, 0.7 * np.ones_like(wl)),
+            plot_coating_spectra({"m1 R": (wl, 0.9 * np.ones_like(wl))}),
         ]
         try:
             for fig in figs:

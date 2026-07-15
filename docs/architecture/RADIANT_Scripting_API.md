@@ -448,6 +448,8 @@ plots.spectral_source()          # target (+ background) at-aperture radiance vs
 plots.spectral_source_emission() # target (+ background) PRE-atmosphere source radiance vs λ [W/m²/sr/µm]
 plots.spectral_atmosphere()      # τ_atm(λ) [dimensionless] + L_path(λ) [W/m²/sr/µm] on twin axes
 plots.spectral_inband()          # band-filtered post-optics radiance vs λ [W/m²/sr/µm]
+plots.optical_throughput()       # system τ_opt(λ) vs λ [dimensionless] (Gap 90)
+plots.coating_spectra()          # per-element R / T / ε vs λ [dimensionless] (Gap 90)
 ```
 
 The spectral accessors (Gap 86, Gap 91) plot **only** real stored arrays, no
@@ -459,6 +461,14 @@ recomputation:
 | `spectral_source_emission()` | `frames["at_source_target"]` + optional `frames["at_source_background"]` | Gap 91 — the **pre-atmosphere** emitted+reflected radiance *leaving the source* (`L_source`), before the up-leg τ/L_path. AtmosphereStage persists it; `at_aperture_target ≈ τ_up · at_source_target + L_path_up`. Isolates what the target emits from what reaches the aperture. |
 | `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Twin, unit-labelled y-axes (τ is dimensionless; L_path is W/m²/sr/µm). |
 | `spectral_inband()` | `frames["post_optics"]` | The band-filtered at-FPA radiance SpectralIntegrationStage integrates; the collapsed in-band scalar is a single value, not a spectrum. |
+
+The optics coating accessors (Gap 90) plot the stored optics `SpectralData`
+verbatim — no physics, no recomputation:
+
+| Accessor | Source | Notes |
+|----------|--------|-------|
+| `optical_throughput()` | `stage_outputs["optics"]["tau_opt_spectral"]` | The assembled **system** transmission τ_opt(λ) [dimensionless] — product of every element's net throughput — on its own wavelength grid; y-axis bounded [0, 1.05]. |
+| `coating_spectra()` | `stage_outputs["optics"]["elements"]` | One overlaid curve per element × quantity: reflectance R, transmittance T, and Kirchhoff-derived emissivity ε (`element.emissivity`; ε = 1 − R for mirrors, declared train ε for lumped, 0 for simple refractives) — all dimensionless, one y-axis. A curve that is identically zero is omitted (a mirror shows R + ε only; a simple refractive shows T + R only). Each curve carries its own wavelength grid. |
 
 The pupil accessors (Gap 89) render the two diagnostic faces of the **same
 complex pupil** OpticsStage builds for the MTF autocorrelation — both are stored

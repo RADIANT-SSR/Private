@@ -36,6 +36,19 @@ retroactively reconstructed.
   golden suite is **byte-identical**. Also renames the internal
   `pupil_mtf._resolve_wfe_for_wavelength` → `resolve_wfe_for_wavelength` (module-internal helper,
   no public surface).
+- **Optics coating / throughput spectra — `result.plot.optical_throughput()` /
+  `coating_spectra()` (Gap 90, GUI plan Phase FP-3).** Two additive view accessors on
+  `ResultPlotNamespace` render the optics `SpectralData` OpticsStage already stores, with no
+  physics or results change. `optical_throughput()` plots the assembled system transmission
+  `stage_outputs["optics"]["tau_opt_spectral"]` — τ_opt(λ) [dimensionless] — vs wavelength.
+  `coating_spectra()` overlays, per element in `stage_outputs["optics"]["elements"]`, its
+  reflectance R, transmittance T, and Kirchhoff-derived emissivity ε (`element.emissivity`;
+  ε = 1 − R for mirrors, declared train ε for lumped, 0 for simple refractives) — all
+  dimensionless on one y-axis; an identically-zero curve is omitted (a mirror shows R + ε, a
+  simple refractive shows T + R). New plot builders `plot_optical_throughput` /
+  `plot_coating_spectra` in `radiant.api.plot`. Each accessor raises `ApiValidationError` when
+  the optics outputs / elements are absent. Purely additive: the golden suite is
+  **byte-identical**.
 - **Pre-atmosphere source-emission frames + `result.plot.spectral_source_emission()` (Gap 91,
   GUI plan Phase FP-1).** `AtmosphereStage` now persists two additive `RadiometricFrame`s —
   `at_source_target` (always) and `at_source_background` (when a background descriptor is

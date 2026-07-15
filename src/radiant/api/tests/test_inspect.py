@@ -311,3 +311,97 @@ class TestSpectralAccessors:
         ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
         with pytest.raises(ApiValidationError, match="post_optics"):
             ns.spectral_inband()
+
+
+def _make_optics_result() -> ChainResult:
+    """Build a ChainResult carrying the real optics coating outputs.
+
+    Mirrors what OpticsStage stores: the ``tau_opt_spectral`` system-throughput
+    ``SpectralData`` plus an ``elements`` tuple of ``OpticalElement`` — here a
+    mirror (T ≡ 0, R + ε=1-R) and a transmissive window (T + R), so both the
+    reflective-only and transmissive presentations are exercised.
+    """
+    from radiant.core.spectral import SpectralData
+    from radiant.optics.element import ElementKind, OpticalElement
+
+    wl = np.linspace(3.5, 5.0, 20)
+    mirror = OpticalElement(
+        name="primary_mirror",
+        kind=ElementKind.MIRROR,
+        temperature_K=250.0,
+        transmittance=SpectralData("T", wl, np.zeros_like(wl), "", "test"),
+        reflectance=SpectralData("R", wl, 0.96 * np.ones_like(wl), "", "test"),
+        diameter_m=0.3,
+        distance_to_fpa_m=0.5,
+    )
+    window = OpticalElement(
+        name="dewar_window",
+        kind=ElementKind.WINDOW,
+        temperature_K=200.0,
+        transmittance=SpectralData("T", wl, 0.90 * np.ones_like(wl), "", "test"),
+        reflectance=SpectralData("R", wl, 0.05 * np.ones_like(wl), "", "test"),
+        diameter_m=0.05,
+        distance_to_fpa_m=0.1,
+    )
+    tau = SpectralData("tau_opt", wl, 0.86 * np.ones_like(wl), "", "test")
+    state = ChainState(wavelength_um=wl)
+    state = state.with_stage_output("optics", "tau_opt_spectral", tau)
+    state = state.with_stage_output("optics", "elements", (mirror, window))
+    return ChainResult(state)
+
+
+@pytest.mark.level1
+class TestOpticsCoatingAccessors:
+    def test_throughput_returns_figure_with_units(self) -> None:
+        result = _make_optics_result()
+        fig = ResultPlotNamespace(result).optical_throughput()
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "dimensionless" in ax.get_ylabel()
+        # Plotted data is the stored SpectralData, untransformed.
+        stored = result.stage_outputs["optics"]["tau_opt_spectral"]
+        np.testing.assert_array_equal(ax.lines[0].get_ydata(), stored.values)
+        np.testing.assert_array_equal(ax.lines[0].get_xdata(), stored.wavelength_um)
+
+    def test_throughput_raises_without_output(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
+        with pytest.raises(ApiValidationError, match="tau_opt_spectral"):
+            ns.optical_throughput()
+
+    def test_coating_returns_figure_with_units(self) -> None:
+        fig = ResultPlotNamespace(_make_optics_result()).coating_spectra()
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "dimensionless" in ax.get_ylabel()
+
+    def test_coating_mirror_omits_zero_transmission(self) -> None:
+        # Mirror: T ≡ 0 (omitted) → contributes R and ε=1-R only.
+        # Window (simple refractive): T + R (both non-zero); ε ≡ 0 (omitted).
+        result = _make_optics_result()
+        fig = ResultPlotNamespace(result).coating_spectra()
+        labels = {line.get_label() for line in fig.axes[0].lines}
+        assert "primary_mirror R" in labels
+        assert "primary_mirror ε" in labels
+        assert "primary_mirror T" not in labels  # T ≡ 0 omitted
+        assert "dewar_window T" in labels
+        assert "dewar_window R" in labels
+
+    def test_coating_data_matches_stored_elements(self) -> None:
+        result = _make_optics_result()
+        mirror = result.stage_outputs["optics"]["elements"][0]
+        fig = ResultPlotNamespace(result).coating_spectra()
+        by_label = {line.get_label(): line for line in fig.axes[0].lines}
+        # R is the raw stored reflectance; ε is the element's Kirchhoff property.
+        np.testing.assert_array_equal(
+            by_label["primary_mirror R"].get_ydata(), mirror.reflectance.values
+        )
+        np.testing.assert_array_equal(
+            by_label["primary_mirror ε"].get_ydata(), mirror.emissivity.values
+        )
+
+    def test_coating_raises_without_elements(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
+        with pytest.raises(ApiValidationError, match="optical elements"):
+            ns.coating_spectra()

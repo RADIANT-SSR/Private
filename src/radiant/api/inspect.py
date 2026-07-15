@@ -290,6 +290,75 @@ class ResultPlotNamespace:
             **kwargs,
         )
 
+    def optical_throughput(self, **kwargs: Any) -> Any:
+        """Plot the assembled system optical throughput τ_opt(λ) (Gap 90).
+
+        Draws the stored ``stage_outputs['optics']['tau_opt_spectral']``
+        ``SpectralData`` — the dimensionless system transmission across the
+        band (the product of every element's net throughput) — against its
+        own wavelength grid (arch-doc §4.4.1 Optics view). Raises
+        :class:`ApiValidationError` when the optics outputs are absent.
+        """
+        from radiant.api.plot import plot_optical_throughput
+
+        optics = self._result.stage_outputs.get("optics", {})
+        tau_opt_spectral = optics.get("tau_opt_spectral")
+        if tau_opt_spectral is None:
+            raise ApiValidationError(
+                "No system optical throughput found in "
+                "stage_outputs['optics']['tau_opt_spectral'] — the chain must "
+                "run OpticsStage to assemble the optical transmission."
+            )
+        return plot_optical_throughput(
+            tau_opt_spectral.wavelength_um,
+            tau_opt_spectral.values,
+            **kwargs,
+        )
+
+    def coating_spectra(self, **kwargs: Any) -> Any:
+        """Plot per-element coating spectra — R / T / ε vs λ (Gap 90).
+
+        Draws, for each optical element in
+        ``stage_outputs['optics']['elements']``, its stored reflectance R and
+        transmittance T ``SpectralData`` plus its Kirchhoff-derived emissivity
+        ε (``element.emissivity``; ε = 1 − R for mirrors, the declared train
+        emissivity for lumped pseudo-elements, 0 for simple refractives) — all
+        dimensionless, on one y-axis (arch-doc §4.4.1 Optics view). A curve
+        that is identically zero is omitted (a mirror contributes only R and ε,
+        a simple refractive only T), so the overlay stays uncluttered without
+        hiding any non-trivial contribution. Raises
+        :class:`ApiValidationError` when no elements are present.
+        """
+        from radiant.api.plot import plot_coating_spectra
+
+        optics = self._result.stage_outputs.get("optics", {})
+        elements = optics.get("elements")
+        if not elements:
+            raise ApiValidationError(
+                "No optical elements found in "
+                "stage_outputs['optics']['elements'] — the chain must run "
+                "OpticsStage with a resolved element list."
+            )
+        series: dict[str, Any] = {}
+        for element in elements:
+            for symbol, curve in (
+                ("R", element.reflectance),
+                ("T", element.transmittance),
+                ("ε", element.emissivity),
+            ):
+                # Omit an all-zero curve: it carries no coating information and
+                # only clutters the legend (a mirror has T ≡ 0; a simple
+                # refractive has ε ≡ 0).
+                if not np.any(curve.values):
+                    continue
+                series[f"{element.name} {symbol}"] = (curve.wavelength_um, curve.values)
+        if not series:
+            raise ApiValidationError(
+                "Optical elements carry no non-zero coating spectra to plot "
+                "(all R/T/ε curves are identically zero)."
+            )
+        return plot_coating_spectra(series, **kwargs)
+
     def spectral_atmosphere(self, **kwargs: Any) -> Any:
         """Plot atmospheric transmittance τ_atm(λ) and path radiance L_path(λ).
 

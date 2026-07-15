@@ -23,9 +23,10 @@ Platform and Readout are v1-minimal (owner-ratified): an outputs readout plus a 
 note, no invented content.
 
 A stage may optionally declare named :class:`StageSubView` tabs (the deferred multi-tab
-hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably, a
-later phase populates ``StageComposition.subviews`` with two or more sub-views and the
-pane renders them as a ``QTabWidget``. v1 declares none — every stage is a single pane.
+hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably,
+``StageComposition.subviews`` carries two or more sub-views and the pane renders them as a
+``QTabWidget``. The **Geometry** (Inputs | Schematic) and **Optics** (Inputs | MTF | PSF &
+Pupil | Throughput, GUI plan Phase PS-2) stages use the hook; the rest are single panes.
 
 Being pure data, the composition table is unit-tested directly.
 """
@@ -64,10 +65,9 @@ class StageSubView:
     sub-view carries the **same content fields** as :class:`StageComposition` (minus the
     stage title and nested sub-views) — so a tab is just a scoped composite.
 
-    v1 declares **no** sub-views: every shipped stage renders as a single pane
-    (``StageComposition.subviews`` empty). This class is the provisioned seam a later
-    detailed phase fills when a stage's content genuinely needs tab separation; adding it
-    now keeps that a data change (populate ``subviews``), not a widget rewrite.
+    The **Geometry** and **Optics** (GUI plan Phase PS-2) stages declare sub-views; a stage
+    whose content fits one pane declares none (``StageComposition.subviews`` empty). Turning
+    a stage tabbed is a data change (populate ``subviews``), not a widget rewrite.
 
     Attributes
     ----------
@@ -85,6 +85,7 @@ class StageSubView:
     geometry_viewer: bool = False
     source_inputs: bool = False
     target_shape: bool = False
+    optics_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     outputs: bool = False
@@ -105,8 +106,9 @@ class StageComposition:
     A stage may **optionally** declare named :attr:`subviews`; when two or more are
     present, :class:`~radiant.gui.widgets.stage_center.StagePane` renders them as tabs
     (a ``QTabWidget``) instead of the single flat pane (the deferred multi-tab hook, arch
-    doc §4.4). With zero or one sub-view the stage renders as today — a single composite
-    pane from the section fields below. **Every v1 stage leaves** ``subviews`` **empty.**
+    doc §4.4). With zero or one sub-view the stage renders as a single composite pane from
+    the section fields below. The **Geometry** and **Optics** (GUI plan Phase PS-2) stages
+    declare sub-views; the rest leave ``subviews`` empty.
 
     Attributes
     ----------
@@ -127,6 +129,10 @@ class StageComposition:
         Show the shared target shape/size/orientation editor (shape combo + dimension fields
         + RPY) — the same widget the Geometry Schematic tab mounts, editing the one
         ``source.target.shape*`` parameter set (Source only, GUI plan Phase PS-1).
+    optics_inputs:
+        Show the Optics stage's editable inputs card — aperture / focal length / f-number /
+        obscuration / spiders / scalar throughput / WFE / optics temperature as schema-driven
+        :class:`FieldRow`s (Optics only, GUI plan Phase PS-2).
     mtf_panel:
         Embed the MTF per-term table + overlay (relocated from the MTF detail tab).
     noise_panel:
@@ -153,6 +159,7 @@ class StageComposition:
     geometry_viewer: bool = False
     source_inputs: bool = False
     target_shape: bool = False
+    optics_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     outputs: bool = False
@@ -224,12 +231,39 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             PlotSpec("Source & background radiance at aperture", "spectral_source"),
         ),
     ),
-    # MTF per-term table + overlay (relocated MTF tab) + the effective PSF.
+    # The Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows): the
+    # first production use of the tabbed sub-view hook. Four tabs — editable optics Inputs +
+    # the FINAL-regime outputs readout (Rule 10); the MTF per-term table + overlay (relocated
+    # MTF tab) plus the MTF-at-Nyquist budget; the effective PSF beside the FP-2 complex-pupil
+    # maps (apodization + wavefront-error, WAVES); and the FP-3 system throughput τ_opt(λ) with
+    # the per-element coating R/T/ε spectra. Editing an input re-evaluates and every tab
+    # refreshes (edit-and-watch: WFE → the pupil-phase map, aperture → MTF/PSF, τ_opt →
+    # throughput).
     "optics": StageComposition(
         title="Optics",
-        outputs=True,
-        mtf_panel=True,
-        plots=(PlotSpec("Effective PSF", "psf"),),
+        subviews=(
+            StageSubView(title="Inputs", optics_inputs=True, outputs=True),
+            StageSubView(
+                title="MTF",
+                mtf_panel=True,
+                plots=(PlotSpec("MTF-at-Nyquist budget", "mtf_budget"),),
+            ),
+            StageSubView(
+                title="PSF + Pupil",
+                plots=(
+                    PlotSpec("Effective PSF", "psf"),
+                    PlotSpec("Pupil apodization (amplitude / transmission)", "pupil_amplitude"),
+                    PlotSpec("Pupil wavefront error (waves)", "pupil_phase"),
+                ),
+            ),
+            StageSubView(
+                title="Throughput",
+                plots=(
+                    PlotSpec("System optical throughput τ_opt(λ)", "optical_throughput"),
+                    PlotSpec("Coating spectra — R / T / ε per element", "coating_spectra"),
+                ),
+            ),
+        ),
     ),
     # v1-minimal: a scalar outputs readout (jitter/smear/EE_box) + a themed note.
     "platform": StageComposition(title="Platform", outputs=True, note=_PLATFORM_NOTE),

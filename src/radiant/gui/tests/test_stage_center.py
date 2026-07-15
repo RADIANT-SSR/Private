@@ -329,13 +329,17 @@ class TestStageCenterInWindow:
                 assert canvas.has_figure()
 
     def test_optics_shows_mtf_table_and_overlay(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Optics center carries the MTF per-term table + overlay + a PSF figure."""
+        """The Optics center is tabbed (PS-2) and carries the MTF per-term table + overlay."""
         window = _load_window(qtbot)
         window.stage_strip.stageClicked.emit("optics")
         pane = window.central_canvas.stage_center.pane("optics")
+        # PS-2: Optics is the first production use of the tabbed sub-view hook.
+        assert pane.has_tabs
+        assert pane.tab_titles() == ["Inputs", "MTF", "PSF + Pupil", "Throughput"]
         assert pane.mtf_panel is not None and pane.mtf_panel.is_populated()
         assert pane.mtf_panel.term_names()  # discovered terms present
-        assert pane.plot_canvases[0].has_figure()  # the PSF figure
+        # Every diagnostic figure across the tabs rendered.
+        assert pane.plot_canvases and all(c.has_figure() for c in pane.plot_canvases)
 
     def test_detector_shows_noise_table_and_explain(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The Detector center carries the noise table + click-to-explain + bars."""
@@ -439,16 +443,17 @@ class TestTabbedSubViewHook:
 
     def test_v1_stage_renders_without_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Regression: a real (subview-free) stage composition stays a single flat pane."""
-        pane = StagePane("optics", STAGE_COMPOSITIONS["optics"])
+        pane = StagePane("detector", STAGE_COMPOSITIONS["detector"])
         qtbot.addWidget(pane)
         assert not pane.has_tabs
         assert pane.tab_titles() == []
-        # Its flat sections are still built (the PSF plot + the MTF panel).
-        assert pane.mtf_panel is not None
-        assert pane.plot_canvases  # the PSF figure section
-        # Geometry is the only tabbed stage (Phase 7 "Inputs | 3D View"); the rest are flat.
+        # Its flat sections are still built (the outputs readout + the noise panel).
+        assert pane.noise_panel is not None
+        assert pane.outputs_readout is not None
+        # Geometry (Phase 7 "Inputs | Schematic") and Optics (Phase PS-2) are the tabbed
+        # stages; the rest are flat.
         tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
-        assert tabbed == {"geometry"}
+        assert tabbed == {"geometry", "optics"}
 
 
 class TestBottomTabsRemoved:

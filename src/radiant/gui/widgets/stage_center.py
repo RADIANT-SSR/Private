@@ -60,6 +60,7 @@ from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.mtf_panel import MtfPanel
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
+from radiant.gui.widgets.optics_inputs_form import OpticsInputsForm
 from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
@@ -201,6 +202,9 @@ class StagePane(QWidget):
         # as the Geometry Schematic tab's panels (both edit source.target.shape*).
         self._source_forms: list[SourceInputsForm] = []
         self._target_panels: list[TargetShapePanel] = []
+        # The Optics-instrument Inputs form (GUI plan Phase PS-2): edit an optics param and
+        # every diagnostic tab refreshes (edit-and-watch). Bound/refreshed like the source form.
+        self._optics_forms: list[OpticsInputsForm] = []
         self._sensor: Sensor | None = None
         # The shared session display-unit store (bound in). The panel's field values are
         # formatted through it so a unit chosen on any surface reflects on all.
@@ -300,6 +304,14 @@ class StagePane(QWidget):
                 row.addWidget(target_panel, 1)
                 self._target_panels.append(target_panel)
             layout.addWidget(row_widget)
+        if spec.optics_inputs:
+            # The Optics instrument's editable inputs card (GUI plan Phase PS-2): one
+            # sensor.set per edit, and each accepted edit re-emits parameterEdited so the host
+            # re-evaluates and every Optics tab (MTF / PSF + Pupil / Throughput) refreshes.
+            optics_form = OpticsInputsForm(parent)
+            optics_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(optics_form)
+            self._optics_forms.append(optics_form)
         if spec.outputs:
             outputs = OutputsReadout(parent)
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
@@ -426,6 +438,11 @@ class StagePane(QWidget):
         """The Source stage's shared target-shape editor, if this stage has one (PS-1)."""
         return self._target_panels[0] if self._target_panels else None
 
+    @property
+    def optics_inputs_form(self) -> OpticsInputsForm | None:
+        """The Optics editable-inputs form, if this stage has one (Optics, PS-2)."""
+        return self._optics_forms[0] if self._optics_forms else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -441,6 +458,8 @@ class StagePane(QWidget):
             form.bind_sensor(sensor, display_units)
         for source_form in self._source_forms:
             source_form.bind_sensor(sensor, display_units)
+        for optics_form in self._optics_forms:
+            optics_form.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
@@ -587,6 +606,8 @@ class StagePane(QWidget):
         stage_outputs = result.stage_outputs.get(self._namespace, {})
         for source_form in self._source_forms:
             source_form.refresh()
+        for optics_form in self._optics_forms:
+            optics_form.refresh()
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)
         # The 3D viewer needs the full result + the live sensor (for shape/optics params);

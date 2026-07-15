@@ -75,15 +75,6 @@
 **Why it still matters**: R-UNITS/readability polish — "inf rad" and a phantom "Background —" row are confusing to an operator scanning the Source classification outputs. No correctness or physics impact (the regime label already conveys "extended").
 **Suggested fix**: (a) inline-fix-now candidate at the next `outputs_readout` touch — in `show_stage_outputs`, render a non-finite float as a themed sentinel (e.g. "∞ (extended)" or "—") and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) rather than showing it as "—". Alternatively curate an explicit per-stage display key-list. Effort S; category D (view-only). Re-audit at GUI Phase 9 polish.
 
-### CU-134 — `gui` extra still pins `pyvista`/`pyvistaqt` although no `radiant.gui` code imports them
-
-**Discovered**: Geometry viewer 2D-schematic pivot Pass 2 (CU-132 VTK removal), 2026-07-14, branch `gui-phase1-task-a`
-**Status**: Open — deferred (dependency-drop audit). Non-blocking: the pins are harmless (just unused install weight). CU-132 deleted the last `radiant.gui` importer of `pyvista`/`pyvistaqt`/`vtk`; a viewer-wide grep is clean and `test_geometry_viewer.py::test_no_pyvista_import_in_viewer` guards it. The pins were kept this task per the Pass-2 charter ("don't necessarily remove the pins; CU it if deferring").
-**File**: `pyproject.toml` (`[project.optional-dependencies] gui` — `pyvista>=0.43`, `pyvistaqt>=0.11`).
-**Symptom**: The `gui` extra installs `pyvista`/`pyvistaqt`/VTK, but nothing under `radiant.gui` imports them anymore (the 2D `QPainter` schematic replaced the VTK viewer). `pip install .[gui]` pulls a large native dependency chain (VTK) for no runtime use.
-**Why it still matters**: Install-footprint / supply-surface hygiene — an unused native dependency is attack surface and CI weight. No correctness impact.
-**Suggested fix**: (a) inline-fix-now candidate at the next `pyproject` touch — drop the three pins from the `gui` extra after confirming no example / dev-tool / doc build still imports them (`dev_tools/geometry_gui_v2` is separately broken/retired, CU-122). Effort S; category A. Re-audit at GUI Phase 9 or the next dependency review.
-
 ### CU-126 — Arc value-label unit `"rad"` is hardcoded in the viewer, not sourced from the output key
 
 **Discovered**: GUI Development Plan Phase 7 Part B (3D viewer interactions), 2026-07-13 (commit on branch `gui-phase1-task-a`; ADR-0007)
@@ -421,6 +412,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-134 — `gui` extra still pins `pyvista`/`pyvistaqt` although no `radiant.gui` code imports them — RESOLVED 2026-07-15 (commit `50cdb05`)
+
+**Discovered**: Geometry viewer 2D-schematic pivot Pass 2 (CU-132 VTK removal), 2026-07-14, branch `gui-phase1-task-a`. **Resolution**: dropped `pyvista>=0.43` and `pyvistaqt>=0.11` from the `[project.optional-dependencies] gui` extra (GUI plan Phase 9 housekeeping). The 2D `QPainter` schematic viewer (ADR-0007, D7) replaced the VTK viewer, so no `radiant.gui` module imports pyvista/pyvistaqt/vtk — confirmed by a package-wide grep and guarded going forward by the new `test_gui_dependencies.py::test_no_pyvista_import_in_gui` (broadening the viewer-only `test_no_pyvista_import_in_viewer`). `matplotlib` and `qtconsole` remain pinned (qtconsole for the deferred CU-138 kernel path). Doc lock-step: arch doc §11 optional-dependency line and `RADIANT_File_Tree.md` §gui import note updated; CHANGELOG `[Unreleased] → Removed`. No runtime behavior change (the pins were unused). Category A; goldens byte-identical.
 
 ### CU-125 — Target shape switch to a shape with unset dimensions fails the physics re-evaluation — RESOLVED 2026-07-14 (commit `d3694ae`)
 

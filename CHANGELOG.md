@@ -106,6 +106,14 @@ retroactively reconstructed.
   test, and removal of the now-unwired lifted VTK scene library (CU-128–CU-133).
 
 ### Fixed
+- **GUI geometry Schematic tab — inputs no longer clipped horizontally (owner bug
+  2026-07-14, view-only).** The right-column "Geometry inputs" form was wider than its
+  accordion column, so the value fields (e.g. `8000 m`, `1.5708 rad`) were cut off behind a
+  horizontal scrollbar. The mode-selector combos and field-value editors now size to the
+  available column width (expanding, minimum-contents sizing) instead of forcing their
+  content width, the long form title wraps, and the raw dot-path field labels elide (full
+  name on hover) — so the form fits its column and scrolls only vertically when tall, never
+  clipping horizontally. Golden untouched.
 - **GUI geometry schematic — centred + framed, no longer bottom-anchored (view-only).**
   The 2D orthographic schematic rendered anchored to the *bottom* of its panel with the
   canvas above it empty (owner screenshot 2026-07-14). Two compounding causes fixed:

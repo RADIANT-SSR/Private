@@ -34,12 +34,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -68,6 +70,43 @@ _TITLE = "Geometry inputs — pick one mode per family"
 _UNSET = "—"
 
 
+class _ElidingLabel(QLabel):
+    """A field label that elides with an ellipsis instead of forcing its full text width.
+
+    The geometry field labels are raw dot-path leaves (e.g. ``sensor_off_nadir_rad``); a
+    plain :class:`QLabel` demands its full text width as a hard minimum, which pushed the
+    field row past the right-column accordion and tripped its horizontal scrollbar (owner
+    bug 2026-07-14). This label reports a *small* minimum width (so the row shrinks to the
+    column and the value field stays fully visible), keeps its full width as the *preferred*
+    hint (so a wide column still shows the whole name), and elides the displayed text to the
+    available width — the full name stays available as a hover tooltip. QSS styling is
+    preserved (the base :class:`QLabel` still paints the text, only the string is elided).
+    """
+
+    _MIN_CHARS = 4
+
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full = text
+        self.setToolTip(text)
+        super().setText(text)
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 — Qt override
+        """A few characters wide, so the row can shrink to the column (value stays visible)."""
+        fm = QFontMetrics(self.font())
+        return QSize(fm.averageCharWidth() * self._MIN_CHARS, super().minimumSizeHint().height())
+
+    def sizeHint(self) -> QSize:  # noqa: N802 — Qt override
+        """The full label width when the column has room (elides only when it does not)."""
+        fm = QFontMetrics(self.font())
+        return QSize(fm.horizontalAdvance(self._full), super().sizeHint().height())
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 — Qt override
+        super().resizeEvent(event)
+        fm = QFontMetrics(self.font())
+        super().setText(fm.elidedText(self._full, Qt.TextElideMode.ElideRight, self.width()))
+
+
 class _FieldRow(QWidget):
     """One schema-driven parameter field: a label + a value button that opens the editor.
 
@@ -86,15 +125,24 @@ class _FieldRow(QWidget):
         row = QGridLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
         row.setHorizontalSpacing(10)
-        row.setColumnStretch(0, 1)
+        # The value field takes the slack (column 1 stretches); the label keeps its natural
+        # width (column 0). This makes the field editors *expand to the available column
+        # width* rather than forcing a fixed too-wide row that overflows the right-column
+        # accordion and trips its horizontal scrollbar (owner bug 2026-07-14).
+        row.setColumnStretch(0, 0)
+        row.setColumnStretch(1, 1)
 
-        self._label = QLabel(label, self)
+        self._label = _ElidingLabel(label, self)
         self._label.setObjectName("geoModeFieldLabel")
         self._label.setWordWrap(False)
 
         self._value = QPushButton(_UNSET, self)
         self._value.setObjectName("geoModeFieldValue")
         self._value.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Expand horizontally to fill the column (shrinking to a modest minimum) so a long
+        # value never pushes the row wider than its column — no horizontal clip/scrollbar.
+        self._value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._value.setMinimumWidth(64)
         self._value.clicked.connect(lambda: self._on_edit(self._dotpath))
 
         row.addWidget(self._label, 0, 0)
@@ -151,6 +199,16 @@ class _FamilyBlock(QWidget):
 
         self._selector = QComboBox(self)
         self._selector.setObjectName("geoModeSelector")
+        # Size the combo to the available column width, not to its longest item: a mode label
+        # like "Path zenith θ_o (V1)" is wide, and adjusting-to-contents made the combo (and so
+        # the whole form) demand more width than the accordion column, tripping its horizontal
+        # scrollbar (owner bug 2026-07-14). Minimum-contents sizing + an Expanding policy lets
+        # the closed combo elide its display text and shrink to the column.
+        self._selector.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._selector.setMinimumContentsLength(6)
+        self._selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         for mode in family.modes:
             self._selector.addItem(mode.label, mode.key)
         self._selector.currentIndexChanged.connect(self._apply_active_mode)
@@ -246,6 +304,9 @@ class GeometryModeForm(QWidget):
 
         self._title = QLabel(_TITLE, self)
         self._title.setObjectName("geoModeFormTitle")
+        # Wrap rather than force the full title width — a long single-line title otherwise
+        # set the form's minimum width wider than the accordion column (owner bug 2026-07-14).
+        self._title.setWordWrap(True)
         layout.addWidget(self._title)
 
         self._blocks: dict[str, _FamilyBlock] = {}

@@ -740,3 +740,80 @@ class TestDimensionPanel:
     def test_dimension_suffix_is_metres(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         panel = self._panel(qtbot)
         assert panel.dimension_spin("source.target.shape_radius_m").suffix() == " m"
+
+
+class TestGeometryInputsFitColumn:
+    """Owner bug 2026-07-14: the Schematic-tab Geometry inputs must fit their column.
+
+    The right-column accordion form was wider than its column (long mode-selector combos + a
+    long single-line title + full-width dot-path labels), so the QToolBox page showed a
+    horizontal scrollbar and clipped the value fields. The form's field editors + combos must
+    now size to the available column width, so the inputs page never scrolls horizontally.
+    """
+
+    def _mounted_window(self, qtbot, width: int):  # type: ignore[no-untyped-def]
+        """A bounded window with the Geometry StagePane on its Schematic tab, evaluated.
+
+        Returns the window (kept alive by the caller) so its child pane is not GC-collected.
+        """
+        from PySide6.QtWidgets import QMainWindow, QTabWidget
+
+        from radiant.gui.stage_views import STAGE_COMPOSITIONS
+        from radiant.gui.widgets.stage_center import StagePane
+
+        pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
+        win = QMainWindow()
+        qtbot.addWidget(win)
+        win.setCentralWidget(pane)
+        win.resize(width, 820)
+        win.show()
+        pane.findChild(QTabWidget).setCurrentIndex(1)  # Schematic
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pane.bind_sensor(sensor, {})
+        pane.populate(_evaluate(sensor))
+        for _ in range(4):
+            qtbot.wait(1)
+        return win
+
+    def _inputs_scrollarea(self, panel):  # type: ignore[no-untyped-def]
+        """The QToolBox inner scroll area that hosts the Geometry inputs form (its ancestor)."""
+        from PySide6.QtWidgets import QScrollArea
+
+        form = panel.geometry_form
+        for area in panel.findChildren(QScrollArea):
+            if area.isAncestorOf(form):
+                return area
+        raise AssertionError("no scroll area hosts the geometry inputs form")
+
+    def test_inputs_form_fits_column_no_horizontal_scrollbar(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """At a realistic column width the inputs page has no horizontal scrollbar."""
+        win = self._mounted_window(qtbot, 1440)
+        panel = win.centralWidget().geometry_panel
+        assert panel is not None
+        area = self._inputs_scrollarea(panel)
+        # No horizontal overflow: the scrolled content is not wider than the viewport.
+        assert area.horizontalScrollBar().maximum() == 0
+        # The form's minimum width fits inside the viewport it is shown in.
+        assert panel.geometry_form.minimumSizeHint().width() <= area.viewport().width()
+
+    def test_no_value_field_clipped(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Every value button's right edge stays within the form (no clipped value)."""
+        from PySide6.QtWidgets import QPushButton
+
+        win = self._mounted_window(qtbot, 1440)
+        form = win.centralWidget().geometry_panel.geometry_form  # type: ignore[union-attr]
+        for btn in form.findChildren(QPushButton):
+            if btn.objectName() == "geoModeFieldValue" and btn.isVisible():
+                right = btn.mapTo(form, btn.rect().topRight()).x()
+                assert right <= form.width() + 1
+
+    def test_fits_when_column_dragged_narrow(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Even a narrow column keeps the inputs page free of a horizontal scrollbar."""
+        win = self._mounted_window(qtbot, 1440)
+        panel = win.centralWidget().geometry_panel
+        assert panel is not None
+        panel.setMinimumWidth(240)
+        panel.resize(240, panel.height())
+        for _ in range(4):
+            qtbot.wait(1)
+        assert self._inputs_scrollarea(panel).horizontalScrollBar().maximum() == 0

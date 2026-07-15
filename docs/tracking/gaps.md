@@ -1321,7 +1321,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | GUI Architecture redesign, Optics stage contextual view (arch doc §4.4.1), 2026-07-13 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-14 (77e0adf) — two additive view accessors on `ResultPlotNamespace` render the optics `SpectralData` OpticsStage already stores, no physics/results change (golden suite byte-identical, 507/507): `optical_throughput()` plots the system `tau_opt_spectral` (τ_opt(λ) [dimensionless]) and `coating_spectra()` overlays per-element R / T / Kirchhoff-derived ε (`element.emissivity`), all dimensionless, omitting identically-zero curves (mirror → R+ε, simple refractive → T+R). New builders `plot_optical_throughput` / `plot_coating_spectra` in `radiant.api.plot`; both accessors raise `ApiValidationError` when the optics outputs / elements are absent. |
 | **Description** | The Optics stage view asks for **coating performance and transmission spectra**. The data exists in `stage_outputs["optics"]`: `elements` is a `tuple[OpticalElement, ...]`, each carrying `transmittance`, `reflectance`, and (for lumped pseudo-elements) `declared_emissivity` as `SpectralData` (Kirchhoff-derived ε = 1 − R for mirrors, 1 − T − R for transmissive; `src/radiant/optics/element.py`), and `tau_opt_spectral` is the assembled **system throughput** `SpectralData`. But the public `result.plot` surface has **no** accessor to render per-element coating curves or the system-throughput spectrum — only the scalar `tau_opt` values feed downstream. |
 | **Impact** | The Optics view cannot show how each coating/element contributes to (or limits) throughput across the band, nor the assembled system transmission curve — the natural companion to the MTF/PSF figures for an optics-train trade (per-element reflectance/transmission, cold-stop/emissivity contributions). The information is computed and stored but unreachable as a figure through the one-action-one-API-call surface. |
 | **Workaround** | From the Phase-8 console, pull `result.stage_outputs["optics"]["elements"]` / `["tau_opt_spectral"]` and plot the `SpectralData` arrays by hand. |
@@ -1442,7 +1442,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | S–M | GUI Variables + Noise Budget tabs | OPEN |
 | 88 | No in-memory / resolved-scope config serialize surface (only file `Sensor.save`) | S | GUI YAML tab | OPEN |
 | 89 | Optics complex-pupil diagnostics not exposed (apodization map + WFE phase map) | M | GUI Optics view (5.1, 1.5) | RESOLVED 2026-07-14 (d89f423) |
-| 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | OPEN |
+| 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | RESOLVED 2026-07-14 (77e0adf) |
 | 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | FIXED 2026-07-14 (6f37734) |
 | 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
 

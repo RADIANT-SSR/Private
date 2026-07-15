@@ -28,6 +28,7 @@ the QSS theme via object names (GUI plan §4.9); this file holds no colour/font/
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Final
@@ -41,7 +42,11 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.api.stage_output_units import stage_output_unit
-from radiant.gui.metric_format import format_metric_value
+from radiant.gui.metric_format import (
+    NOT_AVAILABLE,
+    format_metric_value,
+    metric_failure_reason,
+)
 from radiant.gui.param_format import format_value
 
 if TYPE_CHECKING:
@@ -150,13 +155,31 @@ class OutputsReadout(QWidget):
         """Render the performance metric surface (name + value + unit) as rows.
 
         Each metric row's pin routes to :attr:`pinMetricRequested` (the metric-card path).
-        Units come from :meth:`ChainResult.metric_records` (registry-sourced, R-UNITS).
+        Units come from :meth:`ChainResult.metric_records` (registry-sourced, R-UNITS). A
+        **result-typed metric failure** (a non-finite value — Rule 17 carve-out for the
+        ``radiant.performance`` metric layer, e.g. an SNR/NEDT that could not compute) is
+        rendered as ``n/a (<failure_reason>)`` rather than a ``nan`` or a blank, so a failed
+        metric always reads as an explicit, named failure and never as a real number.
         """
         self._clear()
         for row, rec in enumerate(result.metric_records()):
-            self._add_row(row, rec.name, rec.name, format_metric_value(rec.value, rec.unit))
+            self._add_row(row, rec.name, rec.name, self._metric_value_text(result, rec))
             self._add_pin(row, lambda k=rec.name: self.pinMetricRequested.emit(k, k))
         self._grid.setRowStretch(self._grid.rowCount(), 1)
+
+    @staticmethod
+    def _metric_value_text(result: ChainResult, rec: Any) -> str:
+        """The value+unit text for a metric record, or its named failure (Rule 17 carve-out).
+
+        A finite value renders through :func:`format_metric_value` (value + registry unit); a
+        non-finite value renders as ``n/a (<failure_reason>)`` — the ``failure_reason`` from the
+        metric's result object when one exists, else a generic non-finite note. Never a bare
+        ``nan``, never a blank.
+        """
+        if math.isfinite(rec.value):
+            return format_metric_value(rec.value, rec.unit)
+        reason = metric_failure_reason(result, rec.name) or "unavailable (non-finite result)"
+        return f"{NOT_AVAILABLE} ({reason})"
 
     # -- accessors (tests) --------------------------------------------------
 

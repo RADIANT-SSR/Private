@@ -389,10 +389,13 @@ scalar noise budget.
 **Gate:** none. **Category:** A · **Effort:** S
 **Read first:** arch doc §4.4.1 (Platform, Readout rows — both **[TBD] v1-minimal**);
 `platform/_schema.py`, `readout/_schema.py`.
-**Delivers:** v1-minimal center views for Platform and Readout — a unit-carrying Outputs
-readout plus a themed "v1-minimal" note; **no invented content**. Platform needs no
-dedicated MTF view (smear/jitter terms remain in the Optics/Performance MTF overlay);
-Readout's noise stays reachable via `noise_budget()`. **Housekeeping (CU-122):** this phase
+**Delivers (shipped 2026-07-15):** v1-minimal center views for Platform and Readout —
+editable schema-driven inputs as shared `FieldRow`s (Platform: `PlatformInputsForm`, jitter +
+smear knobs; Readout: `ReadoutInputsForm`, read-noise/ADC/full-well knobs) beside a
+unit-carrying Outputs readout plus a themed "v1-minimal" note; no bespoke invented content.
+Platform needs no dedicated MTF view (smear/jitter terms remain in the Optics/Performance MTF
+overlay); Readout adds the scalar `noise_budget()` (read noise + quantization live in this
+stage). **Housekeeping (CU-122):** this phase
 is the natural place to re-audit the **platform/sensor attitude has no stage owner** decision
 (ADR-0006 §4) — the Platform stage is where a platform-attitude output would live. v1 does
 not require it (the target RPY triad already ships from `source.target.*`); this phase either
@@ -404,11 +407,15 @@ v1-minimal scope is acceptable.
 **Gate:** none (all **[exists]**). **Category:** A · **Effort:** S
 **Read first:** arch doc §4.4.1 (Performance row); `api/inspect.py`
 (`ChainResult.metrics` / `metric_records()`).
-**Delivers:** the Performance center view polish — the metric surface (SNR/NEDT/NIIRS/GSD/
-MTF@Nyquist, units from `metric_records()`) + `mtf()` (system MTF) + `mtf_budget()`, all of
-which **exist today** and land on the default post-evaluate stage. This phase is layout/
-polish only (grouping, labels, the pin affordances), not new capability. A result-typed
-metric failure shows its `failure_reason`, never a blank (Rule 17 carve-out).
+**Delivers (shipped 2026-07-15):** the Performance center view polish — the metric surface
+(SNR/NEDT/NIIRS/GSD/MTF@Nyquist and the full `metric_records()` set, units from
+`metric_records()`) as an `OutputsReadout` metric summary + `mtf()` (system MTF) +
+`mtf_budget()`, all landing on the default post-evaluate stage. Layout/polish + the pin
+affordances, not new capability. A result-typed metric failure (a non-finite value) renders as
+`n/a (<failure_reason>)` from the metric's result object, never a bare `nan`/blank (Rule 17
+carve-out — `OutputsReadout.show_metrics` reads `metric_format.metric_failure_reason`). This
+completes all nine per-stage instruments (Geometry / Source / Atmosphere / Optics / Platform /
+Spectral Integration / Detector / Readout / Performance).
 **Checkpoint:** open Performance, read every metric with units, view system MTF + the MTF
 budget, pin a metric to the right rail.
 

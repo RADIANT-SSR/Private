@@ -21,6 +21,32 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI Platform + Readout stage instruments (GUI plan Phase PS-5, arch doc §4.4.1
+  Platform/Readout rows, v1-minimal, view-only).** Both stages' contextual centers become clean
+  minimal instruments (single flat panes): editable schema-driven inputs as shared `FieldRow`s
+  beside the scalar outputs readout and a themed *v1-minimal* note. **Platform** — a new
+  `PlatformInputsForm` (jitter RMS isotropic + cross/along-track under a *Jitter* heading,
+  `ground_velocity_m_s` + `smear_length_um` under a *Motion & smear* heading) beside the
+  outputs (`jitter_sigma_x_m`/`jitter_sigma_y_m`/`smear_width_m` in m, `EE_box` fraction); no
+  dedicated MTF (owner-ratified — the smear/jitter MTF terms stay in the Optics/Performance
+  overlays). **Readout** — a new `ReadoutInputsForm` (`read_noise_e_rms` under *Read noise*,
+  `gain_e_per_dn` + `adc_bits` under *ADC*, `full_well_capacity_e` under *Full well*) beside the
+  outputs (`signal_dn_final` DN, `sigma_total_e`/`total_well_e` e-, `well_fill_fraction`, …) and
+  the scalar noise budget (`result.plot.noise_budget()` — read noise + quantization live in this
+  stage; §4.7 relocates the Noise Budget detail tab to the Detector/Readout views). Editing any
+  input is one `sensor.set` (validate-on-a-clone reject discipline) and re-evaluates so the
+  outputs (and the Readout noise budget) refresh (edit-and-watch). Group headings are a
+  presentation choice only — **no schema change**. Golden suite untouched (view over the API).
+- **GUI Performance stage instrument metric-failure surfacing (GUI plan Phase PS-6, arch doc
+  §4.4.1 Performance row, view-only).** The Performance center's metric summary
+  (`OutputsReadout.show_metrics` over `result.metric_records()`) now renders a **result-typed
+  metric failure** — a non-finite metric value (Rule 17 carve-out for the `radiant.performance`
+  metric layer, e.g. an SNR/NEDT that could not compute) — as `n/a (<failure_reason>)`, reading
+  the structured `failure_reason` from the metric's result object (`stage_outputs["performance"]`),
+  never a bare `nan` and never a blank. Finite metrics render value + registry unit unchanged
+  (SNR/NEDT/NIIRS/GSD/MTF@Nyquist and every other `metric_records()` entry), above the system-MTF
+  (`result.plot.mtf()`) and MTF-budget (`result.plot.mtf_budget()`) plots. This completes all nine
+  per-stage instruments. Golden suite untouched.
 - **GUI Spectral-Integration stage instrument (GUI plan Phase PS-4, arch doc §4.4.1
   Spectral-Integration rows, view-only).** The Spectral-Integration stage's contextual center
   becomes an instrument (a single flat pane, owner judgment): editable band + acquisition

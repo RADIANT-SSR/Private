@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QHBoxLayout,
     QLabel,
     QScrollArea,
     QSplitter,
@@ -62,6 +63,8 @@ from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
 from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
+from radiant.gui.widgets.source_inputs_form import SourceInputsForm
+from radiant.gui.widgets.target_shape_panel import TargetShapePanel
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
@@ -193,6 +196,11 @@ class StagePane(QWidget):
         self._geometry_readouts: list[GeometryReadout] = []
         self._geometry_viewers: list[GeometryViewer] = []
         self._geometry_panels: list[GeometryAnglePanel] = []
+        # Source-instrument sections (GUI plan Phase PS-1): the radiometric Inputs form and
+        # the shared target-shape editor. The shape panels share the same edit/seed/sync path
+        # as the Geometry Schematic tab's panels (both edit source.target.shape*).
+        self._source_forms: list[SourceInputsForm] = []
+        self._target_panels: list[TargetShapePanel] = []
         self._sensor: Sensor | None = None
         # The shared session display-unit store (bound in). The panel's field values are
         # formatted through it so a unit chosen on any surface reflects on all.
@@ -270,6 +278,28 @@ class StagePane(QWidget):
         was short because a trailing stretch ate the space the readout should have filled).
         """
         fills = False
+        if spec.source_inputs or spec.target_shape:
+            # The Source instrument's Inputs row: radiometric fields (left) beside the shared
+            # shape/orientation editor (right), so the emission-spectrum headline below stays
+            # near both — the Geometry-screen "edit-and-watch" layout (arch doc §4.4.1 Source).
+            row_widget = QWidget(parent)
+            row_widget.setObjectName("sourceInputsRow")
+            row = QHBoxLayout(row_widget)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(12)
+            if spec.source_inputs:
+                source_form = SourceInputsForm(row_widget)
+                source_form.parameterEdited.connect(self.parameterEdited)
+                row.addWidget(source_form, 1)
+                self._source_forms.append(source_form)
+            if spec.target_shape:
+                # No triad toggle: the Source stage has no 3D scene to overlay a triad on.
+                target_panel = TargetShapePanel(row_widget, show_triad_toggle=False)
+                target_panel.shapeRequested.connect(self._on_shape_requested)
+                target_panel.editRequested.connect(self._on_panel_edit_requested)
+                row.addWidget(target_panel, 1)
+                self._target_panels.append(target_panel)
+            layout.addWidget(row_widget)
         if spec.outputs:
             outputs = OutputsReadout(parent)
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
@@ -386,6 +416,16 @@ class StagePane(QWidget):
         """The 3D-viewer accordion side panel, if this stage has one (Part B)."""
         return self._geometry_panels[0] if self._geometry_panels else None
 
+    @property
+    def source_inputs_form(self) -> SourceInputsForm | None:
+        """The Source radiometric Inputs form, if this stage has one (Source, PS-1)."""
+        return self._source_forms[0] if self._source_forms else None
+
+    @property
+    def target_shape_panel(self) -> TargetShapePanel | None:
+        """The Source stage's shared target-shape editor, if this stage has one (PS-1)."""
+        return self._target_panels[0] if self._target_panels else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -399,7 +439,9 @@ class StagePane(QWidget):
         self._display_units = display_units
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
-        if sensor is not None and self._geometry_panels:
+        for source_form in self._source_forms:
+            source_form.bind_sensor(sensor, display_units)
+        if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
     def refresh_geometry_forms(self) -> None:
@@ -423,9 +465,12 @@ class StagePane(QWidget):
         defs = sensor.parameter_defs()
         shape_def = defs.get("source.target.shape")
         choices = tuple(shape_def.enum_values) if shape_def and shape_def.enum_values else ()
+        if not choices:
+            return
         for panel in self._geometry_panels:
-            if choices:
-                panel.set_shape_choices(choices)
+            panel.set_shape_choices(choices)
+        for target_panel in self._target_panels:
+            target_panel.set_shape_choices(choices)
 
     # -- Part-B 3D-viewer interaction slots ---------------------------------
 
@@ -540,6 +585,8 @@ class StagePane(QWidget):
         """
         self._last_result = result
         stage_outputs = result.stage_outputs.get(self._namespace, {})
+        for source_form in self._source_forms:
+            source_form.refresh()
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)
         # The 3D viewer needs the full result + the live sensor (for shape/optics params);
@@ -560,18 +607,18 @@ class StagePane(QWidget):
             section.render(result)
 
     def _sync_panels(self) -> None:
-        """Refresh each side panel's shape/RPY/dimensions from the live sensor.
+        """Refresh each shape panel's shape/RPY/dimensions from the live sensor.
 
-        The panel no longer carries the derived-angles readout (removed 2026-07-14 — it
-        duplicated the Inputs tab; the key derived values surface on the schematic itself as
-        arc/leader labels), so this syncs only the shape-library controls.
+        Covers both the Geometry Schematic tab's :class:`GeometryAnglePanel` and the Source
+        instrument's :class:`TargetShapePanel` (both edit the one ``source.target.shape*``
+        parameter set). The panels carry no derived-angles readout; this syncs only the
+        shape-library controls. Each field's value is formatted in its chosen display unit
+        through the shared formatter, so the panels' value buttons read identically to the
+        Inputs form's fields (value + unit suffix, R-UNITS) — a panel never touches the sensor.
         """
         if self._sensor is None:
             return
         shape = str(self._sensor.get("source.target.shape"))
-        # Format each field's value in its chosen display unit through the shared formatter,
-        # so the panel's value buttons read identically to the Inputs-tab form's fields
-        # (value + unit suffix, R-UNITS) — the panel itself never touches the sensor.
         rpy = {
             dotpath: field_display_text(self._sensor, dotpath, self._display_units)
             for dotpath in (
@@ -584,7 +631,7 @@ class StagePane(QWidget):
             dotpath: field_display_text(self._sensor, dotpath, self._display_units)
             for dotpath in _SHAPE_DIMENSION_PATHS
         }
-        for panel in self._geometry_panels:
+        for panel in (*self._geometry_panels, *self._target_panels):
             panel.set_shape(shape)
             panel.set_orientation(rpy)
             panel.set_dimensions(dims)

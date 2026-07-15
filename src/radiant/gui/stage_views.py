@@ -13,11 +13,14 @@ composite from existing widgets, and every figure it draws is one call on the pu
 Every content item is a **[exists]** surface today (arch doc §4.4.1): the shipped
 ``result.plot.*`` accessors (``mtf``, ``noise_budget``, ``psf``, ``mtf_budget``,
 ``spectral_source``, ``spectral_atmosphere``, ``spectral_inband``), the metric surface,
-and the ``stage_outputs`` scalar readouts. Bespoke per-stage content that needs a new
-framework capability — the Optics pupil/coating maps (Gaps 89/90), the Source
-pre-atmosphere emission spectrum (Gap 91), and the per-λ noise decomposition (Gap 92) —
-is **not** built here; those are separate later per-stage tasks. Platform and Readout are
-v1-minimal (owner-ratified): an outputs readout plus a themed note, no invented content.
+and the ``stage_outputs`` scalar readouts. The Source stage instrument (GUI plan Phase
+PS-1) consumes the FP-1
+``spectral_source_emission`` accessor (Gap 91 closed) and adds editable radiometric inputs
+plus the shared target-shape editor. Bespoke per-stage content that still needs a new
+framework capability — the Optics pupil/coating maps (Gaps 89/90) and the per-λ noise
+decomposition (Gap 92) — is **not** built here; those are separate later per-stage tasks.
+Platform and Readout are v1-minimal (owner-ratified): an outputs readout plus a themed
+note, no invented content.
 
 A stage may optionally declare named :class:`StageSubView` tabs (the deferred multi-tab
 hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably, a
@@ -80,6 +83,8 @@ class StageSubView:
     geometry_form: bool = False
     geometry_readout: bool = False
     geometry_viewer: bool = False
+    source_inputs: bool = False
+    target_shape: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     outputs: bool = False
@@ -115,6 +120,13 @@ class StageComposition:
     geometry_viewer:
         Embed the geometry schematic viewer — the 2D orthographic line-schematic bound to
         the geometry outputs (Geometry "Schematic" tab, ADR-0007 / GUI plan Phase 7).
+    source_inputs:
+        Show the Source stage's radiometric Inputs card — target/background/contrast-reference
+        (ε, T) as schema-driven :class:`FieldRow`s (Source only, GUI plan Phase PS-1).
+    target_shape:
+        Show the shared target shape/size/orientation editor (shape combo + dimension fields
+        + RPY) — the same widget the Geometry Schematic tab mounts, editing the one
+        ``source.target.shape*`` parameter set (Source only, GUI plan Phase PS-1).
     mtf_panel:
         Embed the MTF per-term table + overlay (relocated from the MTF detail tab).
     noise_panel:
@@ -139,6 +151,8 @@ class StageComposition:
     geometry_form: bool = False
     geometry_readout: bool = False
     geometry_viewer: bool = False
+    source_inputs: bool = False
+    target_shape: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     outputs: bool = False
@@ -150,8 +164,9 @@ class StageComposition:
 
 # Deferred/minimal notes kept as named constants so they read once and stay honest.
 _SOURCE_NOTE: Final[str] = (
-    "Shown: source & background radiance at aperture (post-atmosphere). "
-    "The pre-atmosphere emitted target/background spectrum is deferred (Gap 91)."
+    "Shown: pre-atmosphere target/background emission (primary) + at-aperture radiance "
+    "(post-atmosphere). All source inputs are shown ungated; per-scenario-type input "
+    "relevance is deferred (Gap 85)."
 )
 _PLATFORM_NOTE: Final[str] = (
     "Platform view is v1-minimal (owner-ratified: no dedicated MTF here). The smear and "
@@ -183,10 +198,22 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             StageSubView(title="Schematic", geometry_viewer=True),
         ),
     ),
-    # Source & background radiance at aperture — result.plot.spectral_source() (Gap 86).
+    # The Source stage instrument (GUI plan Phase PS-1, arch doc §4.4.1 Source rows):
+    # editable radiometric inputs + shared shape/orientation editor + the tentative-regime
+    # outputs readout + the pre-atmosphere emission spectra (target + background, FP-1) with
+    # the at-aperture radiance kept as a secondary plot.
     "source": StageComposition(
         title="Source",
-        plots=(PlotSpec("Source & background radiance at aperture", "spectral_source"),),
+        source_inputs=True,
+        target_shape=True,
+        outputs=True,
+        plots=(
+            PlotSpec(
+                "Target & background emission (before atmosphere)",
+                "spectral_source_emission",
+            ),
+            PlotSpec("Source & background radiance at aperture", "spectral_source"),
+        ),
         note=_SOURCE_NOTE,
     ),
     # τ_atm & L_path overlay + the at-aperture radiance now that atmosphere is applied.

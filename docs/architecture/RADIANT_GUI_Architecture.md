@@ -785,10 +785,12 @@ checkboxes directly; in-scene VTK point-picking + the lifted `highlight.py` re-s
 live interactor and are deferred, CU-124.)
 
 The right-column side panel is a `QToolBox` accordion with a **Geometry inputs** page (the
-reusable Phase-5 `GeometryModeForm`) and a **Target shape & orientation** page (the
-schema-driven shape combo + dimension inputs + RPY spin boxes + triad toggle). The angle-arc
-reveal toggles are **not** in the accordion — they are the on-canvas bottom-left overlay
-above.
+reusable Phase-5 `GeometryModeForm`) and a **Target shape & orientation** page. The Target
+page is built from the **same** parts as the Inputs page — `geoModeFamily` cards holding a
+`geoModeSelector`-styled shape combo and the shared `FieldRow` (label + value button) for
+each dimension and RPY value — so the two pages are visually indistinguishable (owner
+feedback 2026-07-14), plus a triad toggle. The angle-arc reveal toggles are **not** in the
+accordion — they are the on-canvas bottom-left overlay above.
 
 Color roles (domain glyph palette, distinct from the app chrome palette): sun = amber,
 sensor = cyan, phase/azimuth = magenta, zenith = neutral, ground/projection = faded
@@ -885,10 +887,17 @@ split: the viewport (left) and the accordion side panel (right).
 - **Accordion side panel** (`widgets/geometry_angle_panel.py`) — a `QToolBox` with two
   pages: **Geometry inputs** (the reusable Phase-5 `GeometryModeForm`, so geometry is
   editable from the Schematic tab — owner request 2026-07-14) and **Target shape &
-  orientation** (the shape/RPY/dimension editors + triad toggle). The shape/RPY controls emit
-  intent signals and the owning `StagePane` performs the one `sensor.set` per edit (R-API);
-  the embedded `GeometryModeForm` owns its own schema-driven edit/commit path and the
-  `StagePane` re-emits its `parameterEdited`. The **angle-arc reveal toggles** are **not** on
+  orientation** (the shape combo + dimension + RPY editors + triad toggle). The dimension and
+  RPY editors reuse the **same** shared `FieldRow` building block (`widgets/field_row.py`) and
+  QSS object names as the `GeometryModeForm` fields, so the two pages render identically by
+  construction (owner feedback 2026-07-14 — the target fields "should be just like the
+  geometry boxes"). The panel stays a **view + control surface only** (it never touches the
+  `Sensor`): the shape combo emits `shapeRequested`, and clicking a dimension/RPY value emits
+  `editRequested(dotpath)`. On `editRequested` the owning `StagePane` opens the shared
+  `ParameterEditorDialog` (the same value/unit/reject path as the parameter tree), so the edit
+  is exactly one `sensor.set` validated on a clone first; the embedded `GeometryModeForm` owns
+  its own copy of that edit/commit path and the `StagePane` re-emits its `parameterEdited`. The
+  **angle-arc reveal toggles** are **not** on
   this panel — owner feedback 2026-07-14 moved that selector onto the plot as the bottom-left
   `AngleToggleOverlay` (§6.4), leaving the right column to geometry inputs + shape/attitude.
   The derived-angles `GeometryReadout` table is **not** on this panel either (owner request

@@ -18,15 +18,20 @@ Two accordion pages (``QToolBox``):
    watch the scene move. The derived-angles table is deliberately **not** here (it lives on
    the Inputs tab; the key derived values surface on the schematic itself as arc degree labels
    + leader labels — owner request 2026-07-14).
-2. **Target shape & orientation** — a combo box populated from the ``source.target.shape``
-   schema ``enum_values`` (never a hardcoded list — Gap 70); the per-shape **dimension**
-   inputs (radius / length / width / height / base-radius, schema bounds + units, only the
-   subset the selected shape uses shown — CU-131); and the yaw / pitch / roll spin boxes
-   plus a "show orientation triad" checkbox. Editing any of them requests one ``sensor.set``
-   (the owner performs it) and, for shape/RPY/dims, updates the on-canvas wireframe + triad.
-   Selecting a shape whose required dimensions are still the ``0.0`` "not set" sentinel seeds
-   them to :data:`NOMINAL_SHAPE_DIMENSIONS` (owner performs the sets) so the re-evaluate
-   succeeds instead of tripping the shape factory (CU-125).
+2. **Target shape & orientation** — the same building blocks as the Inputs-tab
+   :class:`GeometryModeForm`, so the two pages are visually indistinguishable (owner feedback
+   2026-07-14): ``geoModeFamily`` cards holding a shape combo styled like a geometry mode
+   selector (``geoModeSelector``, populated from the ``source.target.shape`` schema
+   ``enum_values`` — never a hardcoded list, Gap 70), the per-shape **dimension** fields
+   (radius / length / width / height / base-radius — only the subset the selected shape uses
+   is shown, CU-131), and the yaw / pitch / roll fields, each rendered as the shared
+   :class:`~radiant.gui.widgets.field_row.FieldRow` (label + value button). Clicking a
+   dimension or RPY value emits :attr:`GeometryAnglePanel.editRequested`; the owner opens the
+   shared :class:`ParameterEditorDialog` on that dot-path (one ``sensor.set`` on commit, the
+   same value/unit/reject discipline as the parameter tree). Selecting a shape emits
+   ``shapeRequested``; a shape whose required dimensions are still the ``0.0`` "not set"
+   sentinel is seeded to :data:`NOMINAL_SHAPE_DIMENSIONS` (owner performs the sets) so the
+   re-evaluate succeeds instead of tripping the shape factory (CU-125).
 
 The **angle-arc reveal toggles** are no longer in this accordion: owner feedback 2026-07-14
 moved that selector **onto the plot** as a bottom-left overlay
@@ -40,18 +45,18 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
-    QFormLayout,
     QLabel,
+    QSizePolicy,
     QToolBox,
     QVBoxLayout,
     QWidget,
 )
 
+from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 
 # RPY spin-box dot-paths (the schema owns bounds/units; the grouping is the only literal,
@@ -61,8 +66,6 @@ _RPY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Pitch", "source.target.shape_pitch_rad"),
     ("Roll", "source.target.shape_roll_rad"),
 )
-
-_DEFAULT_RPY_BOUNDS: Final[tuple[float, float]] = (-6.283185307179586, 6.283185307179586)
 
 # Every shape-dimension dot-path (the schema owns bounds/units; the label + the
 # shape→subset matrix below are the grouping literals, tracked under CU-120/CU-131).
@@ -89,8 +92,6 @@ _SHAPE_DIMENSIONS: Final[Mapping[str, tuple[str, ...]]] = {
     ),
     "cone": ("source.target.shape_base_radius_m", "source.target.shape_height_m"),
 }
-
-_DEFAULT_DIM_BOUNDS: Final[tuple[float, float]] = (0.0, 1e6)
 
 # Nominal (sensible non-zero) body dimensions seeded when a shape is first selected while
 # its required dims are still the ``0.0`` "not set" sentinel (CU-125). Keyed shape → dotpath
@@ -130,27 +131,26 @@ class GeometryAnglePanel(QWidget):
         The RPY-triad checkbox changed.
     shapeRequested(str):
         The user picked a target shape — the owner performs ``sensor.set``.
-    orientationRequested(str, float):
-        The user edited an RPY value — ``(dotpath, value_rad)``; owner performs the set.
-    dimensionRequested(str, float):
-        The user edited a shape-dimension value — ``(dotpath, value_m)``; owner sets it.
+    editRequested(str):
+        The user clicked a dimension or RPY value field — ``(dotpath,)``; the owner opens
+        the shared :class:`ParameterEditorDialog` on that dot-path (one ``sensor.set`` on
+        commit). One edit-intent signal for every schema-driven field, matching the
+        Inputs-tab :class:`GeometryModeForm` (both open the same dialog on click).
     """
 
     triadToggled = Signal(bool)
     shapeRequested = Signal(str)
-    orientationRequested = Signal(str, float)
-    dimensionRequested = Signal(str, float)
+    editRequested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("geometryAnglePanel")
         # A usable minimum so the accordion labels and value columns are never clipped.
         self.setMinimumWidth(300)
-        # Guards so programmatic sync (set_shape / set_orientation) does not echo a signal.
+        # Guards so programmatic sync (set_shape) does not echo a signal.
         self._suppress = False
-        self._rpy_spins: dict[str, QDoubleSpinBox] = {}
-        self._dim_spins: dict[str, QDoubleSpinBox] = {}
-        self._dim_labels: dict[str, QLabel] = {}
+        self._rpy_rows: dict[str, FieldRow] = {}
+        self._dim_rows: dict[str, FieldRow] = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -185,58 +185,52 @@ class GeometryAnglePanel(QWidget):
         return page
 
     def _build_target_page(self) -> QWidget:
+        """The **Target shape & orientation** page — built from the same parts as the form.
+
+        The shape combo, the per-shape dimension fields, and the RPY fields are rendered as
+        the identical card + field-row building blocks the Inputs-tab :class:`GeometryModeForm`
+        uses (``geoModeFamily`` cards, ``geoModeSelector`` combo, shared :class:`FieldRow`),
+        so the two pages read as one design (owner feedback 2026-07-14). Editing a dimension
+        or RPY field emits :attr:`editRequested`; the owner opens the shared editor dialog and
+        performs the one ``sensor.set`` (view + control surface only — R-API §4.1).
+        """
         page = QWidget(self._toolbox)
         layout = QVBoxLayout(page)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setSpacing(10)
 
-        shape_header = QLabel("Target shape library", page)
-        shape_header.setObjectName("anglePanelGroupHeader")
-        layout.addWidget(shape_header)
-        self._shape_combo = QComboBox(page)
-        self._shape_combo.setObjectName("anglePanelShapeCombo")
+        # Shape-library card — a titled family card + the schema-driven shape combo, styled
+        # exactly like a geometry mode selector (same object name + sizing so it elides and
+        # shrinks to the accordion column rather than tripping a horizontal scrollbar).
+        shape_card, shape_box = self._card("Target shape library", page)
+        self._shape_combo = QComboBox(shape_card)
+        self._shape_combo.setObjectName("geoModeSelector")
+        self._shape_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._shape_combo.setMinimumContentsLength(6)
+        self._shape_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._shape_combo.currentTextChanged.connect(self._emit_shape)
-        layout.addWidget(self._shape_combo)
+        shape_box.addWidget(self._shape_combo)
+        layout.addWidget(shape_card)
 
-        # Shape-dimension inputs — every dim field (schema-driven bounds/units); only the
-        # subset the selected shape uses is shown (CU-131 + owner request: ALL dims per shape).
-        dim_header = QLabel("Dimensions", page)
-        dim_header.setObjectName("anglePanelGroupHeader")
-        layout.addWidget(dim_header)
-        self._dim_form = QFormLayout()
-        self._dim_form.setContentsMargins(0, 0, 0, 0)
+        # Dimensions card — every dim field as a shared FieldRow (schema-driven bounds/units,
+        # opened in the shared editor dialog); only the subset the selected shape uses shows
+        # (CU-131 + owner request: ALL dims per shape).
+        dim_card, dim_box = self._card("Dimensions", page)
         for label, dotpath in _DIM_FIELDS:
-            spin = QDoubleSpinBox(page)
-            spin.setObjectName("anglePanelDimSpin")
-            spin.setRange(*_DEFAULT_DIM_BOUNDS)
-            spin.setDecimals(3)
-            spin.setSingleStep(0.1)
-            spin.setSuffix(" m")
-            spin.valueChanged.connect(lambda value, path=dotpath: self._emit_dimension(path, value))
-            label_widget = QLabel(label, page)
-            self._dim_form.addRow(label_widget, spin)
-            self._dim_spins[dotpath] = spin
-            self._dim_labels[dotpath] = label_widget
-        layout.addLayout(self._dim_form)
+            row = FieldRow(dotpath, label, self._request_edit)
+            dim_box.addWidget(row)
+            self._dim_rows[dotpath] = row
+        layout.addWidget(dim_card)
 
-        rpy_header = QLabel("Body orientation (RPY)", page)
-        rpy_header.setObjectName("anglePanelGroupHeader")
-        layout.addWidget(rpy_header)
-        form = QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
+        # Body-orientation (RPY) card — the same shared FieldRow for each yaw/pitch/roll.
+        rpy_card, rpy_box = self._card("Body orientation (RPY)", page)
         for label, dotpath in _RPY_FIELDS:
-            spin = QDoubleSpinBox(page)
-            spin.setObjectName("anglePanelRpySpin")
-            spin.setRange(*_DEFAULT_RPY_BOUNDS)
-            spin.setDecimals(4)
-            spin.setSingleStep(0.05)
-            spin.setSuffix(" rad")
-            spin.valueChanged.connect(
-                lambda value, path=dotpath: self._emit_orientation(path, value)
-            )
-            form.addRow(label, spin)
-            self._rpy_spins[dotpath] = spin
-        layout.addLayout(form)
+            row = FieldRow(dotpath, label, self._request_edit)
+            rpy_box.addWidget(row)
+            self._rpy_rows[dotpath] = row
+        layout.addWidget(rpy_card)
 
         self._triad_check = QCheckBox("Show orientation triad", page)
         self._triad_check.setObjectName("anglePanelTriadToggle")
@@ -244,6 +238,28 @@ class GeometryAnglePanel(QWidget):
         layout.addWidget(self._triad_check)
         layout.addStretch(1)
         return page
+
+    @staticmethod
+    def _card(title: str, parent: QWidget) -> tuple[QWidget, QVBoxLayout]:
+        """A ``geoModeFamily`` card (title + content column) — the geometry form's card shell.
+
+        Returns the card widget and its content layout so the caller adds the combo / field
+        rows into the same bordered, titled card the Inputs-tab family blocks use, keeping
+        the two pages visually identical (same object names → same QSS).
+        """
+        card = QWidget(parent)
+        card.setObjectName("geoModeFamily")
+        # A bare QWidget paints no QSS background/border unless styled-background is on
+        # (the same Qt gotcha the geometry family cards handle).
+        card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        card.setProperty("state", "normal")
+        box = QVBoxLayout(card)
+        box.setContentsMargins(12, 10, 12, 10)
+        box.setSpacing(6)
+        heading = QLabel(title, card)
+        heading.setObjectName("geoModeFamilyTitle")
+        box.addWidget(heading)
+        return card, box
 
     # -- signal emitters (guarded) -----------------------------------------
 
@@ -253,19 +269,16 @@ class GeometryAnglePanel(QWidget):
         if not self._suppress and value:
             self.shapeRequested.emit(value)
 
-    def _emit_orientation(self, dotpath: str, value: float) -> None:
+    def _request_edit(self, dotpath: str) -> None:
+        """A dimension/RPY value field was clicked — ask the owner to open the editor."""
         if not self._suppress:
-            self.orientationRequested.emit(dotpath, value)
-
-    def _emit_dimension(self, dotpath: str, value: float) -> None:
-        if not self._suppress:
-            self.dimensionRequested.emit(dotpath, value)
+            self.editRequested.emit(dotpath)
 
     def _update_visible_dims(self, shape: str) -> None:
         """Show only the dimension rows the *shape* uses (schema shape→dims matrix)."""
         visible = set(_SHAPE_DIMENSIONS.get(shape, ()))
-        for dotpath, spin in self._dim_spins.items():
-            self._dim_form.setRowVisible(spin, dotpath in visible)
+        for dotpath, row in self._dim_rows.items():
+            row.setVisible(dotpath in visible)
 
     # -- programmatic sync (from the owner, does not echo signals) ----------
 
@@ -290,36 +303,23 @@ class GeometryAnglePanel(QWidget):
             self._suppress = False
         self._update_visible_dims(value)
 
-    def set_orientation_bounds(self, bounds: tuple[float, float]) -> None:
-        """Apply the schema RPY bounds to every spin box."""
-        for spin in self._rpy_spins.values():
-            spin.setRange(*bounds)
+    def set_dimensions(self, texts: Mapping[str, str]) -> None:
+        """Reflect the sensor's current shape dimensions as display text (dotpath → text).
 
-    def set_dimension_bounds(self, bounds: Mapping[str, tuple[float, float]]) -> None:
-        """Apply schema bounds to each dimension spin (dotpath → (lo, hi))."""
-        for dotpath, spin in self._dim_spins.items():
-            if dotpath in bounds:
-                spin.setRange(*bounds[dotpath])
+        The owner formats each value in its display unit (the shared
+        :func:`radiant.gui.param_format.field_display_text`) and passes the ready string,
+        so the panel stays a pure view (no ``Sensor`` access) — the value+unit presentation
+        is identical to the Inputs-tab form's fields.
+        """
+        for dotpath, row in self._dim_rows.items():
+            if dotpath in texts:
+                row.set_value_text(texts[dotpath])
 
-    def set_dimensions(self, values: Mapping[str, float]) -> None:
-        """Reflect the sensor's current shape dimensions (dotpath → m) without emitting."""
-        self._suppress = True
-        try:
-            for dotpath, spin in self._dim_spins.items():
-                if dotpath in values:
-                    spin.setValue(float(values[dotpath]))
-        finally:
-            self._suppress = False
-
-    def set_orientation(self, values: Mapping[str, float]) -> None:
-        """Reflect the sensor's current RPY (dotpath → rad) without emitting."""
-        self._suppress = True
-        try:
-            for dotpath, spin in self._rpy_spins.items():
-                if dotpath in values:
-                    spin.setValue(float(values[dotpath]))
-        finally:
-            self._suppress = False
+    def set_orientation(self, texts: Mapping[str, str]) -> None:
+        """Reflect the sensor's current RPY as display text (dotpath → text) — pure view."""
+        for dotpath, row in self._rpy_rows.items():
+            if dotpath in texts:
+                row.set_value_text(texts[dotpath])
 
     # -- accessors (tests) --------------------------------------------------
 
@@ -338,21 +338,21 @@ class GeometryAnglePanel(QWidget):
         """The 'show orientation triad' checkbox."""
         return self._triad_check
 
-    def rpy_spin(self, dotpath: str) -> QDoubleSpinBox:
-        """The RPY spin box for *dotpath* (KeyError if unknown)."""
-        return self._rpy_spins[dotpath]
+    def rpy_row(self, dotpath: str) -> FieldRow:
+        """The RPY field row for *dotpath* (KeyError if unknown)."""
+        return self._rpy_rows[dotpath]
 
-    def dimension_spin(self, dotpath: str) -> QDoubleSpinBox:
-        """The shape-dimension spin box for *dotpath* (KeyError if unknown)."""
-        return self._dim_spins[dotpath]
+    def dimension_row(self, dotpath: str) -> FieldRow:
+        """The shape-dimension field row for *dotpath* (KeyError if unknown)."""
+        return self._dim_rows[dotpath]
 
     def visible_dimensions(self) -> tuple[str, ...]:
         """The dimension dot-paths whose rows are currently shown (for tests).
 
-        Uses ``not isHidden()`` (the per-row ``setRowVisible`` state) rather than
-        ``isVisibleTo`` so it is correct even when the accordion page is not the current one.
+        Uses ``not isHidden()`` (the per-row visibility state) rather than ``isVisibleTo``
+        so it is correct even when the accordion page is not the current one.
         """
-        return tuple(dotpath for dotpath, spin in self._dim_spins.items() if not spin.isHidden())
+        return tuple(dotpath for dotpath, row in self._dim_rows.items() if not row.isHidden())
 
     def set_toolbox_page(self, index: int) -> None:
         """Select an accordion page (0 = Geometry inputs, 1 = Target) — shape/RPY flow."""

@@ -85,6 +85,22 @@ retroactively reconstructed.
   audit — CU-134).
 
 ### Changed
+- **GUI geometry Schematic tab — Target shape & orientation fields restyled to match the
+  Geometry inputs (owner feedback 2026-07-14, view-only).** The **Target shape & orientation**
+  accordion page's controls previously rendered with default-Qt chrome (a plain combo, and
+  `QDoubleSpinBox`es with native up/down arrows for the dimension and yaw/pitch/roll values),
+  which looked nothing like the styled **Geometry inputs** fields. They are now built from the
+  **same** building blocks as the `GeometryModeForm`: `geoModeFamily` cards, a
+  `geoModeSelector`-styled shape combo, and the shared `FieldRow` (label + value button) —
+  factored into a new `radiant.gui.widgets.field_row` module (`FieldRow`, `ElidingLabel`) that
+  both surfaces import, so they cannot visually diverge again. Editing a dimension or RPY value
+  now opens the shared `ParameterEditorDialog` (value + unit + validate-on-a-clone reject path,
+  one `sensor.set` on commit) instead of a bare spin box, matching the Inputs-tab fields.
+  Changed public GUI surface: `GeometryAnglePanel` replaces its `dimensionRequested(str,float)`
+  / `orientationRequested(str,float)` signals + `dimension_spin` / `rpy_spin` accessors with a
+  single `editRequested(str)` signal + `dimension_row` / `rpy_row` (returning `FieldRow`), and
+  drops `set_orientation_bounds` / `set_dimension_bounds` (the dialog now enforces schema
+  bounds). Golden untouched (the GUI is a view over the scripting API).
 - **GUI geometry Schematic tab — angle-arc selector moved to a plot overlay (owner feedback
   2026-07-14, view-only).** The angle-arc reveal toggles (θ_s sun zenith, Δφ relative
   azimuth, α_t phase angle, η off nadir) moved **out** of the right-column accordion's

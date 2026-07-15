@@ -23,13 +23,16 @@ it. That text coupling is tracked as CU-105 (recommend a structured
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from radiant.api.session import RadiantSession
 from radiant.api.units import convert, inverse_convert
 from radiant.core.parameters import ParameterDef
+
+if TYPE_CHECKING:
+    from radiant.api.sensor import Sensor
 
 # The ⚡ marker the mockup (§4.3) puts on derived rows. A glyph, not a style token.
 DERIVED_BADGE = "⚡"
@@ -98,6 +101,36 @@ def display_in_unit(
         return value
     canonical = convert(float(value), source_unit, canonical_unit)
     return inverse_convert(canonical, canonical_unit, display_unit)
+
+
+def field_display_text(
+    sensor: Sensor,
+    dotpath: str,
+    display_units: Mapping[str, str],
+) -> str:
+    """The value+unit text for *dotpath* in its chosen display unit (— if unset).
+
+    The single formatter shared by every schema-driven field surface (the Geometry
+    Inputs-tab :class:`~radiant.gui.widgets.geometry_mode_form.GeometryModeForm` and the
+    Schematic-tab target dimension/RPY rows), so a value reads identically wherever it is
+    shown. Reads the resolved input value off the public :meth:`Sensor.get_input` surface,
+    then re-expresses it in whatever unit the user picked for the row (*display_units*,
+    the shared session store) via the public registry seam — falling back to the schema
+    ``input_unit`` when the target unit is not soundly convertible (Rule 2).
+    """
+    pdef = sensor.parameter_def(dotpath)
+    try:
+        value = sensor.get_input(dotpath)
+    except KeyError:
+        value = None
+    target = display_units.get(dotpath)
+    if target is None or target == pdef.input_unit:
+        return format_value(value, pdef.input_unit)
+    try:
+        shown = display_in_unit(value, pdef.input_unit, target, pdef.canonical_unit)
+    except KeyError:
+        return format_value(value, pdef.input_unit)
+    return format_value(shown, target)
 
 
 def provenance_from_explain(explain_text: str) -> str | None:
@@ -180,6 +213,7 @@ __all__ = [
     "PROVENANCE_LABELS",
     "format_value",
     "display_in_unit",
+    "field_display_text",
     "provenance_from_explain",
     "provenance_label",
     "is_derived",

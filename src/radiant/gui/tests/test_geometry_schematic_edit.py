@@ -228,3 +228,76 @@ class TestNominalShapeDimensions:
         pane.geometry_panel.shape_combo.setCurrentText("sphere")  # type: ignore[union-attr]
         assert float(sensor.get("source.target.shape_radius_m")) == pytest.approx(3.0)
         assert _evaluate(sensor) is not None
+
+
+# ---------------------------------------------------------------------------
+# The target dimension + RPY fields match the geometry fields by construction: clicking
+# one opens the shared ParameterEditorDialog → one sensor.set (owner feedback 2026-07-14)
+# ---------------------------------------------------------------------------
+
+
+class TestTargetFieldEditing:
+    def _edit_via_dialog(self, qtbot, monkeypatch, dotpath, text):  # type: ignore[no-untyped-def]
+        """Click *dotpath*'s value field, fill the shared editor with *text*, and commit.
+
+        Returns ``(sensor, pane, set_calls, edited)`` — the live-sensor set calls counted and
+        the pane's parameterEdited emissions, so the caller asserts exactly one set + one
+        re-evaluate for the edited parameter.
+        """
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pane = _geometry_pane(qtbot, sensor)
+        panel = pane.geometry_panel
+        assert panel is not None
+        panel.shape_combo.setCurrentText("cylinder")  # seed nominal dims (radius, length)
+
+        # Count only the sets on the LIVE sensor (the dialog validates on a clone first).
+        set_calls: list[str] = []
+        orig_set = type(sensor).set
+
+        def counting_set(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if self is sensor and args:
+                set_calls.append(args[0])
+            return orig_set(self, *args, **kwargs)
+
+        monkeypatch.setattr(type(sensor), "set", counting_set)
+
+        from radiant.gui.widgets import stage_center as sc
+
+        def fake_exec(self):  # type: ignore[no-untyped-def]
+            self.value_editor.setText(text)  # float param → QLineEdit
+            self.apply(close=True)
+            return 0
+
+        monkeypatch.setattr(sc.ParameterEditorDialog, "exec", fake_exec)
+
+        edited: list[str] = []
+        pane.parameterEdited.connect(edited.append)
+        # Click the value button → editRequested → the pane opens the dialog → one sensor.set.
+        row = panel.dimension_row(dotpath) if dotpath.endswith("_m") else panel.rpy_row(dotpath)
+        row.value_button.click()
+        return sensor, pane, set_calls, edited
+
+    def test_dimension_edit_sets_once_and_reevaluates(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        dotpath = "source.target.shape_radius_m"
+        sensor, _pane, set_calls, edited = self._edit_via_dialog(
+            qtbot, monkeypatch, dotpath, "1.75"
+        )
+        assert set_calls.count(dotpath) == 1
+        assert float(sensor.get_input(dotpath)) == pytest.approx(1.75)
+        assert edited == [dotpath]
+
+    def test_rpy_edit_sets_once_and_reevaluates(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        dotpath = "source.target.shape_yaw_rad"
+        sensor, _pane, set_calls, edited = self._edit_via_dialog(qtbot, monkeypatch, dotpath, "0.3")
+        assert set_calls.count(dotpath) == 1
+        assert float(sensor.get_input(dotpath)) == pytest.approx(0.3)
+        assert edited == [dotpath]
+
+    def test_panel_field_reflects_committed_value(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """After a commit the panel's field text re-syncs to the new value + unit (pure view)."""
+        dotpath = "source.target.shape_radius_m"
+        _sensor, pane, _set_calls, _edited = self._edit_via_dialog(
+            qtbot, monkeypatch, dotpath, "1.75"
+        )
+        text = pane.geometry_panel.dimension_row(dotpath).value_text()  # type: ignore[union-attr]
+        assert text == format_value(1.75, "m")

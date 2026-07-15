@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.errors import ApiValidationError
 from radiant.api.inspect import ResultPlotNamespace
+from radiant.gui.param_format import field_display_text
 from radiant.gui.stage_views import (
     DEFAULT_STAGE,
     STAGE_COMPOSITIONS,
@@ -59,6 +60,7 @@ from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.mtf_panel import MtfPanel
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
 from radiant.gui.widgets.outputs_readout import OutputsReadout
+from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 
 if TYPE_CHECKING:
@@ -192,6 +194,9 @@ class StagePane(QWidget):
         self._geometry_viewers: list[GeometryViewer] = []
         self._geometry_panels: list[GeometryAnglePanel] = []
         self._sensor: Sensor | None = None
+        # The shared session display-unit store (bound in). The panel's field values are
+        # formatted through it so a unit chosen on any surface reflects on all.
+        self._display_units: dict[str, str] = {}
         self._last_result: ChainResult | None = None
         self._outputs_list: list[OutputsReadout] = []
         self._metrics_list: list[OutputsReadout] = []
@@ -301,8 +306,7 @@ class StagePane(QWidget):
             # its own set_angle_revealed, so this pane no longer routes angle reveals.
             geometry_panel.triadToggled.connect(self._on_triad_toggled)
             geometry_panel.shapeRequested.connect(self._on_shape_requested)
-            geometry_panel.orientationRequested.connect(self._on_orientation_requested)
-            geometry_panel.dimensionRequested.connect(self._on_dimension_requested)
+            geometry_panel.editRequested.connect(self._on_panel_edit_requested)
             # The panel embeds an editable GeometryModeForm (owner request 2026-07-14): geometry
             # is settable from the Schematic tab. It is registered as a geometry form so the
             # shared bind_sensor / refresh path binds and syncs it exactly like the Inputs-tab
@@ -387,10 +391,12 @@ class StagePane(QWidget):
 
         The sensor is also retained so the 3D geometry viewer can read the target-shape /
         optics / detector parameters the geometry stage does not emit (ADR-0007 §2), and
-        the accordion side panel is configured from the schema (shape choices, RPY bounds
-        — never a hardcoded list, Gap 70).
+        the accordion side panel is configured from the schema (shape choices — never a
+        hardcoded list, Gap 70). The shared *display_units* store is retained so the panel's
+        dimension/RPY field values format in the same chosen units as every other surface.
         """
         self._sensor = sensor
+        self._display_units = display_units
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
         if sensor is not None and self._geometry_panels:
@@ -407,24 +413,19 @@ class StagePane(QWidget):
             form.refresh()
 
     def _configure_panels_from_schema(self, sensor: Sensor) -> None:
-        """Populate each side panel's shape choices + RPY/dimension bounds from the live schema."""
+        """Populate each side panel's shape choices from the live schema (Gap 70).
+
+        Dimension/RPY bounds are no longer pushed to the panel: those fields now open the
+        shared :class:`ParameterEditorDialog`, which enforces the schema bounds (and units)
+        itself on a throwaway clone before the one ``sensor.set`` — the same reject path as
+        every other schema field, so the panel needs no bounds of its own.
+        """
         defs = sensor.parameter_defs()
         shape_def = defs.get("source.target.shape")
-        yaw_def = defs.get("source.target.shape_yaw_rad")
         choices = tuple(shape_def.enum_values) if shape_def and shape_def.enum_values else ()
-        bounds = yaw_def.bounds if yaw_def and yaw_def.bounds is not None else None
-        dim_bounds: dict[str, tuple[float, float]] = {}
-        for dotpath in _SHAPE_DIMENSION_PATHS:
-            dim_def = defs.get(dotpath)
-            if dim_def is not None and dim_def.bounds is not None:
-                dim_bounds[dotpath] = dim_def.bounds
         for panel in self._geometry_panels:
             if choices:
                 panel.set_shape_choices(choices)
-            if bounds is not None:
-                panel.set_orientation_bounds(bounds)
-            if dim_bounds:
-                panel.set_dimension_bounds(dim_bounds)
 
     # -- Part-B 3D-viewer interaction slots ---------------------------------
 
@@ -463,19 +464,37 @@ class StagePane(QWidget):
             if float(self._sensor.get(dotpath)) == 0.0:
                 self._sensor.set(dotpath, nominal)
 
-    def _on_orientation_requested(self, dotpath: str, value: float) -> None:
-        """Set an RPY value (one ``sensor.set``), preview the tilt, and re-evaluate."""
-        if self._sensor is None:
-            return
-        self._sensor.set(dotpath, value)
-        self._preview_last_result()
-        self.parameterEdited.emit(dotpath)
+    def _on_panel_edit_requested(self, dotpath: str) -> None:
+        """Open the shared Parameter Editor on a target dimension/RPY field (§4.3).
 
-    def _on_dimension_requested(self, dotpath: str, value: float) -> None:
-        """Set a shape-dimension value (one ``sensor.set``), preview the wireframe, re-evaluate."""
+        The user clicked a dimension or RPY value field on the Schematic side panel; open the
+        same :class:`ParameterEditorDialog` the Inputs-tab form and parameter tree use — one
+        ``sensor.set`` on commit, validated on a throwaway clone first (a rejected value never
+        touches the live sensor; the actionable what/why/action shows inline). This keeps the
+        panel a pure view + control surface (R-API §4.1): the panel emits the intent, the pane
+        performs the one API call via the dialog.
+        """
         if self._sensor is None:
             return
-        self._sensor.set(dotpath, value)
+        dialog = ParameterEditorDialog(
+            self._sensor,
+            dotpath,
+            self._after_panel_commit,
+            self,
+            display_unit=self._display_units.get(dotpath),
+        )
+        dialog.exec()
+
+    def _after_panel_commit(self, dotpath: str, unit: str | None) -> None:
+        """After an accepted dimension/RPY edit: adopt the unit, preview, re-evaluate.
+
+        Records the chosen display unit (shared with every surface), re-syncs the panel's
+        field text off the now-mutated sensor, previews the tilt/wireframe from the updated
+        params, then re-emits ``parameterEdited`` so the full physics re-run is scheduled.
+        """
+        if unit is not None:
+            self._display_units[dotpath] = unit
+        self._sync_panels()
         self._preview_last_result()
         self.parameterEdited.emit(dotpath)
 
@@ -550,15 +569,21 @@ class StagePane(QWidget):
         if self._sensor is None:
             return
         shape = str(self._sensor.get("source.target.shape"))
+        # Format each field's value in its chosen display unit through the shared formatter,
+        # so the panel's value buttons read identically to the Inputs-tab form's fields
+        # (value + unit suffix, R-UNITS) — the panel itself never touches the sensor.
         rpy = {
-            dotpath: float(self._sensor.get(dotpath))
+            dotpath: field_display_text(self._sensor, dotpath, self._display_units)
             for dotpath in (
                 "source.target.shape_yaw_rad",
                 "source.target.shape_pitch_rad",
                 "source.target.shape_roll_rad",
             )
         }
-        dims = {dotpath: float(self._sensor.get(dotpath)) for dotpath in _SHAPE_DIMENSION_PATHS}
+        dims = {
+            dotpath: field_display_text(self._sensor, dotpath, self._display_units)
+            for dotpath in _SHAPE_DIMENSION_PATHS
+        }
         for panel in self._geometry_panels:
             panel.set_shape(shape)
             panel.set_orientation(rpy)

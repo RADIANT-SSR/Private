@@ -286,12 +286,6 @@ QToolBox#geometryAngleAccordion::tab:selected {{
     color: {t.ink};
     background-color: {t.panel};
 }}
-QLabel#anglePanelGroupHeader {{
-    color: {t.muted};
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 8px 0 2px 0;
-}}
 QCheckBox#anglePanelTriadToggle {{
     color: {t.ink};
     font-size: 12px;

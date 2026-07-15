@@ -729,17 +729,51 @@ class TestDimensionPanel:
             panel.set_shape(shape)
             assert set(panel.visible_dimensions()) == expected
 
-    def test_dimension_edit_emits_request(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_dimension_edit_emits_edit_request(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Clicking a dimension value field emits one editRequested(dotpath) — the owner
+        opens the shared editor dialog and performs the one sensor.set."""
         panel = self._panel(qtbot)
         panel.set_shape("sphere")
-        captured: list[tuple[str, float]] = []
-        panel.dimensionRequested.connect(lambda path, value: captured.append((path, value)))
-        panel.dimension_spin("source.target.shape_radius_m").setValue(2.5)
-        assert ("source.target.shape_radius_m", 2.5) in captured
+        captured: list[str] = []
+        panel.editRequested.connect(captured.append)
+        panel.dimension_row("source.target.shape_radius_m").value_button.click()
+        assert captured == ["source.target.shape_radius_m"]
 
-    def test_dimension_suffix_is_metres(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_rpy_edit_emits_edit_request(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Clicking an RPY value field emits one editRequested(dotpath) — same edit path."""
         panel = self._panel(qtbot)
-        assert panel.dimension_spin("source.target.shape_radius_m").suffix() == " m"
+        captured: list[str] = []
+        panel.editRequested.connect(captured.append)
+        panel.rpy_row("source.target.shape_yaw_rad").value_button.click()
+        assert captured == ["source.target.shape_yaw_rad"]
+
+    def test_fields_and_combo_match_the_geometry_form_by_construction(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The target dim/RPY fields + shape combo reuse the SAME widget types + QSS object
+        names as GeometryModeForm's fields, so the two pages cannot visually diverge again
+        (owner feedback 2026-07-14). A regression to bespoke widgets fails here."""
+        from radiant.gui.widgets.field_row import FieldRow
+        from radiant.gui.widgets.geometry_mode_form import GeometryModeForm, _FieldRow
+
+        # The shared FieldRow IS the geometry form's field row (one building block).
+        assert _FieldRow is FieldRow
+
+        panel = self._panel(qtbot)
+        panel.set_shape("cylinder")
+        # Every dim + RPY field is the shared FieldRow with the geometry field object names.
+        rows = [
+            panel.dimension_row("source.target.shape_radius_m"),
+            panel.dimension_row("source.target.shape_length_m"),
+            panel.rpy_row("source.target.shape_yaw_rad"),
+        ]
+        for row in rows:
+            assert isinstance(row, FieldRow)
+            assert row.objectName() == "geoModeFieldRow"
+            assert row.value_button.objectName() == "geoModeFieldValue"
+        # The shape combo carries the geometry mode-selector object name (styled combo).
+        form = GeometryModeForm()
+        qtbot.addWidget(form)
+        assert panel.shape_combo.objectName() == form.selector("solar").objectName()
+        assert panel.shape_combo.objectName() == "geoModeSelector"
 
 
 class TestGeometryInputsFitColumn:

@@ -454,34 +454,30 @@ identical state) and toggles the theme.
 
 ## 8. Decisions for Owner (ratify to lock the go-forward sequence)
 
-These are the choices this revision surfaces. The orchestrator brings them to the owner;
-ratifying them (with any amendments) converts §7 from proposal to Active.
+**Status: RATIFIED (owner, 2026-07-14).** The owner ratified the revised plan's
+go-forward sequence (§7) — converting it from proposal to Active — and all five decisions
+below as proposed (no amendments). Each decision records its ratified ruling.
 
-1. **Framework-plot scope for v1.** Are **all three** framework-plot gaps (Gap 91 Source
-   emission, Gap 89 Optics pupil/WFE, Gap 90 Optics coating spectra) in v1, or are some
-   deferred to v1.1? They are the only genuinely new framework work; deferring any one
-   drops its paired per-stage instrument content (PS-1 loses the emission split; PS-2 loses
-   the pupil/coating tabs) to a shipped-surface-only view.
-2. **Detector noise-pie: framework accessor vs GUI-side reshape.** Proposal is a framework
-   `result.plot.noise_pie()` (symmetry with the shipped `noise_budget()` bar; console
-   reuse; R-API "one action ↔ one API call"). The alternative is a GUI-side reshape of the
-   scalar `result.noise_terms`. Owner picks (PS-3).
-3. **Gap 92 (per-λ noise spectrum) stays DEFERRED.** The proposal keeps the owner's
-   "noise as a spectrum" out of v1 — it runs against Rule 8's once-only spectral
-   integration and is a new physics accounting (Category C), not a view. v1 pairs the
-   signal spectrum with the scalar noise budget (PS-4). Confirm the deferral, or charter
-   the per-λ decomposition as its own physics task.
-4. **CU-122 — platform/sensor attitude owner.** The **target** RPY triad already ships
-   (from `source.target.*`). The **platform/sensor** attitude (`observer_{yaw,pitch,roll}`)
-   has **no stage owner** (ADR-0006 §4 deferred it "until a consumer exists"). Direction
-   options: (a) add platform attitude to `GeometryStage`/`PlatformStage` outputs; (b) keep
-   a viewer-local attitude input outside the chain; (c) leave deferred (no v1 consumer
-   needs it). Proposal: **(c) leave deferred**, re-audited at PS-5. Owner confirms the
-   direction.
-5. **Phase ordering / grouping.** The proposal builds **all** framework-plot phases before
-   the per-stage instruments that consume them (§7). An alternative interleaves each FP
-   phase with its instrument (FP-1→PS-1, FP-2+FP-3→PS-2). Owner picks the ordering, and
-   confirms Console = Phase 8 and Closeout = Phase 9 remain last.
+1. **Framework-plot scope for v1.** **RATIFIED (2026-07-14): all three** framework-plot
+   gaps (Gap 91 Source emission, Gap 89 Optics pupil/WFE, Gap 90 Optics coating spectra)
+   are **in v1**. They are the only genuinely new framework work; each keeps its paired
+   per-stage instrument content (PS-1 the emission split; PS-2 the pupil/coating tabs).
+2. **Detector noise-pie: framework accessor vs GUI-side reshape.** **RATIFIED
+   (2026-07-14): framework `result.plot.noise_pie()` accessor** (symmetry with the shipped
+   `noise_budget()` bar; console reuse; R-API "one action ↔ one API call"), not a GUI-side
+   reshape of the scalar `result.noise_terms` (PS-3).
+3. **Gap 92 (per-λ noise spectrum) stays DEFERRED.** **RATIFIED (2026-07-14): DEFERRED.**
+   The owner's "noise as a spectrum" stays out of v1 — it runs against Rule 8's once-only
+   spectral integration and is a new physics accounting (Category C), not a view. v1 pairs
+   the signal spectrum with the scalar noise budget (PS-4).
+4. **CU-122 — platform/sensor attitude owner.** **RATIFIED (2026-07-14): option (c) —
+   leave deferred**, re-audited at PS-5. The **target** RPY triad already ships (from
+   `source.target.*`); the **platform/sensor** attitude (`observer_{yaw,pitch,roll}`) has
+   **no stage owner** (ADR-0006 §4 deferred it "until a consumer exists") and no v1
+   consumer needs it.
+5. **Phase ordering / grouping.** **RATIFIED (2026-07-14): framework-plot-first ordering.**
+   All framework-plot phases build before the per-stage instruments that consume them (§7);
+   Console = Phase 8 and Closeout = Phase 9 remain last.
 
 ---
 

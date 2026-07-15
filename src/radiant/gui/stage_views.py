@@ -90,6 +90,7 @@ class StageSubView:
     optics_inputs: bool = False
     detector_inputs: bool = False
     detector_illustration: bool = False
+    spectral_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     noise_panel_chart: bool = True
@@ -145,6 +146,13 @@ class StageComposition:
     detector_illustration:
         Show the Detector pixel schematic — a Qt-drawn, not-to-scale pixel labelled with its
         pitch (µm) and fill factor (Detector only, GUI plan Phase PS-3).
+    spectral_inputs:
+        Show the Spectral-Integration stage's editable inputs card — the filter bandpass edges
+        (``filter_min_um`` / ``filter_max_um``) under a *Filter bandpass* heading and the
+        acquisition ``integration_time_s`` under an *Acquisition* heading, as schema-driven
+        :class:`FieldRow`s (Spectral Integration only, GUI plan Phase PS-4). The integration-time
+        grouping is a presentation choice only (arch doc §4.4.1 GUI-grouping note); the schema is
+        unchanged.
     mtf_panel:
         Embed the MTF per-term table + overlay (relocated from the MTF detail tab).
     noise_panel:
@@ -178,6 +186,7 @@ class StageComposition:
     optics_inputs: bool = False
     detector_inputs: bool = False
     detector_illustration: bool = False
+    spectral_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     noise_panel_chart: bool = True
@@ -286,9 +295,15 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     ),
     # v1-minimal: a scalar outputs readout (jitter/smear/EE_box) + a themed note.
     "platform": StageComposition(title="Platform", outputs=True, note=_PLATFORM_NOTE),
-    # In-band signal spectral radiance + the scalar electron budget + the Gap-92 note.
+    # The Spectral-Integration stage instrument (GUI plan Phase PS-4, arch doc §4.4.1
+    # Spectral-Integration rows): the editable band + acquisition inputs (filter edges +
+    # integration time, one sensor.set per edit — edit the band and the in-band spectrum
+    # re-clips) beside the scalar electron budget, the in-band signal spectral radiance as the
+    # primary plot, and the Gap-92 note (per-λ noise is scalar per term, computed once post-
+    # integration per Rule 8 — the per-wavelength noise spectrum is deferred). Single flat pane.
     "spectral_integration": StageComposition(
         title="Spectral Integration",
+        spectral_inputs=True,
         outputs=True,
         plots=(PlotSpec("In-band signal spectral radiance", "spectral_inband"),),
         note=_SPECTRAL_NOTE,

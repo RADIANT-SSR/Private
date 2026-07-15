@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-137 — `integration_time_s` presented on the Spectral-Integration view under an *Acquisition* heading; a cross-stage acquisition grouping is deferred
+
+**Discovered**: GUI Development Plan Phase PS-4 (Spectral-Integration stage instrument), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — presentation-grouping, non-blocking. The owner notes (arch doc §4.4.1 GUI-grouping note) that `integration_time_s` reads as an *acquisition* setting rather than a spectral-integration one. PS-4 addresses the immediate ask by presenting it under a distinct **Acquisition** heading (separate from the *Filter bandpass* edges) in the Spectral-Integration inputs card; a fuller relocation to a dedicated operator-facing acquisition grouping/stage that spans schema namespaces is deferred.
+**File**: `src/radiant/gui/widgets/spectral_integration_inputs_form.py` (`_ACQUISITION_FIELDS`); `src/radiant/gui/stage_views.py` (`spectral_integration` composition, `spectral_inputs`).
+**Symptom**: Integration time still lives on the Spectral-Integration center only. A future "Acquisition"/"Timing" operator grouping might want it alongside other acquisition-time knobs (e.g. TDI stages, binning) drawn from several schema namespaces; the GUI has no cross-stage grouping surface yet, so today the presentation is per-stage.
+**Why it still matters**: UX-grouping hygiene only — **no schema change** and no physics impact (the sensor path stays `spectral_integration.integration_time_s`, one `sensor.set` per edit). The arch note explicitly permits this deferral (GUI grouping need not mirror the schema namespace).
+**Suggested fix**: (b) stand-alone task — when an operator-facing acquisition grouping is designed (a cross-stage "Acquisition" card/tab pulling `integration_time_s` + TDI/binning timing knobs), move the presentation there and drop the per-stage heading. Effort M; category D. Re-audit when the acquisition grouping is specced or when a second acquisition-timing knob is added to the GUI.
+
 ### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels
 
 **Discovered**: GUI Development Plan Phase PS-3 (Detector stage instrument), 2026-07-15, branch `gui-framework-plots`

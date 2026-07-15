@@ -67,6 +67,7 @@ from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.source_inputs_form import SourceInputsForm
+from radiant.gui.widgets.spectral_integration_inputs_form import SpectralIntegrationInputsForm
 from radiant.gui.widgets.target_shape_panel import TargetShapePanel
 
 if TYPE_CHECKING:
@@ -213,6 +214,11 @@ class StagePane(QWidget):
         # sensor's pixel geometry (populated each result, edit-and-watch).
         self._detector_forms: list[DetectorInputsForm] = []
         self._detector_illustrations: list[DetectorIllustration] = []
+        # The Spectral-Integration-instrument Inputs form (GUI plan Phase PS-4): edit the band
+        # or the integration time and every dependent view refreshes — editing the filter edges
+        # re-clips the in-band spectrum, editing the integration time scales the electron budget.
+        # Bound/refreshed like the source/optics/detector forms.
+        self._spectral_forms: list[SpectralIntegrationInputsForm] = []
         self._sensor: Sensor | None = None
         # The shared session display-unit store (bound in). The panel's field values are
         # formatted through it so a unit chosen on any surface reflects on all.
@@ -328,6 +334,14 @@ class StagePane(QWidget):
             detector_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(detector_form)
             self._detector_forms.append(detector_form)
+        if spec.spectral_inputs:
+            # The Spectral-Integration instrument's editable inputs card (GUI plan Phase PS-4):
+            # one sensor.set per edit; each accepted edit re-emits parameterEdited so the host
+            # re-evaluates and the in-band spectrum + the Outputs electron budget refresh.
+            spectral_form = SpectralIntegrationInputsForm(parent)
+            spectral_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(spectral_form)
+            self._spectral_forms.append(spectral_form)
         if spec.detector_illustration:
             illustration = DetectorIllustration(parent)
             self._add_section(layout, "Detector pixel", illustration)
@@ -476,6 +490,11 @@ class StagePane(QWidget):
         """The Detector pixel schematic, if this stage has one (Detector, PS-3)."""
         return self._detector_illustrations[0] if self._detector_illustrations else None
 
+    @property
+    def spectral_inputs_form(self) -> SpectralIntegrationInputsForm | None:
+        """The Spectral-Integration editable-inputs form, if this stage has one (PS-4)."""
+        return self._spectral_forms[0] if self._spectral_forms else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -495,6 +514,8 @@ class StagePane(QWidget):
             optics_form.bind_sensor(sensor, display_units)
         for detector_form in self._detector_forms:
             detector_form.bind_sensor(sensor, display_units)
+        for spectral_form in self._spectral_forms:
+            spectral_form.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
@@ -645,6 +666,8 @@ class StagePane(QWidget):
             optics_form.refresh()
         for detector_form in self._detector_forms:
             detector_form.refresh()
+        for spectral_form in self._spectral_forms:
+            spectral_form.refresh()
         self._refresh_detector_illustration()
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)

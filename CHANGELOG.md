@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI Spectral-Integration stage instrument (GUI plan Phase PS-4, arch doc §4.4.1
+  Spectral-Integration rows, view-only).** The Spectral-Integration stage's contextual center
+  becomes an instrument (a single flat pane, owner judgment): editable band + acquisition
+  inputs (a new `SpectralIntegrationInputsForm` — the filter bandpass edges
+  `spectral_integration.filter_min_um` / `filter_max_um` under a *Filter bandpass* heading and
+  `integration_time_s` under an *Acquisition* heading, per the §4.4.1 GUI-grouping note — as
+  shared `FieldRow`s), the scalar electron-budget outputs readout (`signal_e`, `e_rate_per_s`,
+  `background_e`, `contrast_e`, `qe_scalar`, …, units from `api.stage_output_units`), the in-band
+  signal spectral radiance as the primary plot (`result.plot.spectral_inband()`), and a themed
+  note that the per-λ noise spectrum is deferred (Gap 92; noise is scalar per term, computed once
+  post-integration — Rule 8). Editing any input is one `sensor.set` (validate-on-a-clone reject
+  discipline) and re-evaluates, so the in-band spectrum re-clips to the new band and the electron
+  budget re-scales with the integration time (edit-and-watch). The `integration_time_s` grouping
+  is a presentation choice only — **no schema change** (the sensor path is unchanged). Golden
+  suite untouched (the GUI is a view over the scripting API).
 - **`result.plot.noise_pie()` framework accessor (GUI plan Phase PS-3 Part A, owner-ratified
   §8 decision 2, results-neutral).** A new pie-chart accessor on `ResultPlotNamespace` (builder
   `radiant.api.plot.plot_noise_pie`), the pie sibling of the shipped `noise_budget()` bar over

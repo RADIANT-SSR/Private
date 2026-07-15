@@ -353,6 +353,14 @@ QLabel#geoModeFamilyTitle {{
 QWidget#geoModeFamily[state="conflict"] QLabel#geoModeFamilyTitle {{
     color: {t.err};
 }}
+QLabel#geoModeGroupHeading {{
+    color: {t.muted};
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding-top: 2px;
+}}
 QLabel#geoModeFieldLabel {{
     color: {t.ink_2};
     font-size: 12px;

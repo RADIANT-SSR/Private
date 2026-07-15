@@ -21,6 +21,23 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI Source stage instrument (GUI plan Phase PS-1, arch doc §4.4.1 Source rows,
+  view-only).** The Source stage's contextual center is brought to the Geometry-screen
+  standard. It now shows: the pre-atmosphere **target + background emission spectra**
+  (`result.plot.spectral_source_emission()`, FP-1) as the primary plot, with the at-aperture
+  radiance (`spectral_source()`) kept as a secondary plot; editable **radiometric inputs**
+  (`source.target`/`background`/`contrast_reference` ε & T) as shared `FieldRow`s, one
+  `sensor.set` per edit with the validate-on-a-clone reject discipline; the shared
+  **shape / size / orientation** editor (`source.target.shape*`) — the same `TargetShapePanel`
+  the Geometry Schematic tab mounts, with nominal-dim seeding on shape-select (CU-125); and an
+  **Outputs readout** carrying the tentative regime (`stage_outputs["source"]["regime_tentative"]`,
+  Rule 10) plus `projected_area_m2`/`range_m`/`fill_fraction`/`angular_extent_rad`, each with its
+  unit. Editing any input re-evaluates and the spectra + readout refresh (edit-and-watch). New
+  widgets `TargetShapePanel` (factored out of the Geometry `GeometryAnglePanel` — one
+  target-shape editor, two homes, Rule 19) and `SourceInputsForm`; `OutputsReadout` now renders
+  an enum output (the regime) by its value; `radiant.api.stage_output_units` gains the Source
+  scalar-output units. Golden suite untouched (the GUI is a view over the scripting API).
+  Per-scenario-type input relevance stays deferred (Gap 85).
 - **Complex-pupil diagnostic maps + `result.plot.pupil_amplitude()` / `pupil_phase()` (Gap 89,
   GUI plan Phase FP-2).** `OpticsStage` now persists the two diagnostic faces of the complex
   pupil it already builds for the MTF autocorrelation: `pupil_amplitude` (dimensionless

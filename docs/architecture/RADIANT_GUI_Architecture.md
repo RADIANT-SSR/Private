@@ -538,9 +538,11 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 | Stage | Ratified content | Classification |
 |-------|------------------|----------------|
 | **Geometry** | Two tabs: **Inputs** (stage-0 input-mode forms + derived-angle readout) and **3D View** (the 3D scene viewer, §6) | **[exists]** `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit) + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **3D View** tab embeds `GeometryViewer` — the static bound scene (GUI plan Phase 7 Part A, §6.7); interactions/shape-library/RPY are Part B |
-| **Source** | Target radiance plot | **[exists — GAP 91 CLOSED]** `result.plot.spectral_source_emission()` — draws the pre-atmosphere `at_source_target` frame (emitted+reflected radiance leaving the target, before the up-leg), persisted by AtmosphereStage |
-| **Source** | Background radiance plot | **[exists — GAP 91 CLOSED]** same accessor draws the optional `at_source_background` arm alongside the target |
-| **Source** | Size / shape / orientation inputs, shown per scenario type | **[GUI-only]** display of existing schema — `source.target.shape`, `shape_radius_m`/`shape_length_m`/…, `projected_area_m2`, `shape_yaw_rad`/`shape_pitch_rad`/`shape_roll_rad`; the **per-scenario-type gating** (which inputs are relevant) ties to **[GAP 85]** (mission-type relevance) |
+| **Source** | Target radiance plot | **[SHIPPED — GUI plan Phase PS-1]** `result.plot.spectral_source_emission()` — draws the pre-atmosphere `at_source_target` frame (emitted+reflected radiance leaving the target, before the up-leg), persisted by AtmosphereStage. It is the Source stage's **primary** center plot; `spectral_source()` (at-aperture) is kept as a secondary plot |
+| **Source** | Background radiance plot | **[SHIPPED — GUI plan Phase PS-1]** same accessor draws the optional `at_source_background` arm alongside the target |
+| **Source** | Radiometric inputs (target/background/contrast-reference ε, T) | **[SHIPPED — GUI plan Phase PS-1]** `SourceInputsForm` — `source.target.temperature`/`emissivity`, `source.background.temperature`/`emissivity`, `source.contrast_reference.temperature`/`emissivity` as shared `FieldRow`s, one `sensor.set` per edit (the Geometry-form edit/reject discipline); editing re-evaluates and the emission spectra + Outputs readout refresh |
+| **Source** | Size / shape / orientation inputs, shown per scenario type | **[SHIPPED — GUI plan Phase PS-1]** the shared `TargetShapePanel` (shape combo from `source.target.shape` enum + `shape_radius_m`/`shape_length_m`/… + `shape_yaw_rad`/`shape_pitch_rad`/`shape_roll_rad`) — the **same** widget the Geometry Schematic tab mounts, editing the one `source.target.shape*` set; nominal-dim seeding on shape-select applies (CU-125). The **per-scenario-type gating** (which inputs are relevant) stays deferred to **[GAP 85]** (mission-type relevance) — v1 shows all inputs ungated |
+| **Source** | Tentative-regime + classification outputs | **[SHIPPED — GUI plan Phase PS-1]** `OutputsReadout` over `stage_outputs["source"]` — the tentative regime (`regime_tentative`, Rule 10) plus `projected_area_m2` (m²), `range_m` (m), `fill_fraction`, `angular_extent_rad` (rad), each with its unit (units from `api.stage_output_units`) |
 | **Atmosphere** | τ_atm & L_path vs λ plot | **[exists]** `result.plot.spectral_atmosphere()` (twin-axis τ_atm + L_path) |
 | **Atmosphere** | Source & background radiance **at aperture** (post-atmosphere) | **[exists]** `result.plot.spectral_source()` — draws `at_aperture_target` + `at_aperture_background` frames (the at-aperture radiances the owner wants shown here now that atmosphere is applied) |
 | **Optics** | MTF | **[exists]** `result.plot.mtf()` |
@@ -561,12 +563,12 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 **Reading the spec.** Most of the ratified content **already has a backing surface** —
 every plot the shipped `result.plot.*` carries (MTF, PSF, noise budget, and the three
 spectral-radiance accessors) plus the metric/stage-output readouts. The genuinely new
-framework work is concentrated in **Optics diagnostics** (pupil map, coating spectra),
-the **Source pre-atmosphere emission frame**, and an optional **spectral noise
-decomposition** — four gaps total (89–92), all view/accessor additions over
-already-computed physics (no results change). The pie chart, detector schematic, and
-PSF-grid overlay are GUI-only reshapes; the per-scenario-type input gating rides on the
-already-filed Gap 85.
+framework work is concentrated in **Optics diagnostics** (pupil map, coating spectra) and
+an optional **spectral noise decomposition** — Gaps 89/90/92, all view/accessor additions
+over already-computed physics (no results change). The **Source pre-atmosphere emission
+frame** (Gap 91) is closed and shipped in the Source stage instrument (GUI plan Phase
+PS-1). The pie chart, detector schematic, and PSF-grid overlay are GUI-only reshapes; the
+per-scenario-type input gating rides on the still-deferred Gap 85.
 
 ### 4.5 Right Rail (persistent): Pinned · Edit Config · Messages · Evaluate footer
 

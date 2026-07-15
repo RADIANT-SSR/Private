@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
+
+**Discovered**: GUI Development Plan Phase PS-1 (Source stage instrument), 2026-07-14, branch `gui-framework-plots`
+**Status**: Open — cosmetic, non-blocking. Both are honest (nothing is hidden or wrong), just noisy. The values are read verbatim from `stage_outputs["source"]`; the readout invents nothing.
+**File**: `src/radiant/gui/widgets/outputs_readout.py` (`OutputsReadout.show_stage_outputs`); source values from `src/radiant/source/stage.py` (`angular_extent_rad`, `background`).
+**Symptom**: On the Source stage Outputs readout, (a) an **extended / fills-pixel** target shows `Angular extent  inf rad` — `SourceStage` classifies an unbounded-extent (extended) target with `angular_extent_rad = inf`, which the readout displays literally as "inf rad"; and (b) when **no background descriptor** is present, `stage_outputs["source"]["background"]` is `None`, which passes the scalar filter and renders a `Background  —` row, whereas a *present* background is a descriptor object and is (correctly) skipped — so the row appears only in the absent case, which reads backwards.
+**Why it still matters**: R-UNITS/readability polish — "inf rad" and a phantom "Background —" row are confusing to an operator scanning the Source classification outputs. No correctness or physics impact (the regime label already conveys "extended").
+**Suggested fix**: (a) inline-fix-now candidate at the next `outputs_readout` touch — in `show_stage_outputs`, render a non-finite float as a themed sentinel (e.g. "∞ (extended)" or "—") and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) rather than showing it as "—". Alternatively curate an explicit per-stage display key-list. Effort S; category D (view-only). Re-audit at GUI Phase 9 polish.
+
 ### CU-134 — `gui` extra still pins `pyvista`/`pyvistaqt` although no `radiant.gui` code imports them
 
 **Discovered**: Geometry viewer 2D-schematic pivot Pass 2 (CU-132 VTK removal), 2026-07-14, branch `gui-phase1-task-a`

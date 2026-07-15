@@ -1332,7 +1332,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | GUI Architecture redesign, Source stage contextual view (arch doc §4.4.1), 2026-07-13 |
-| **Status** | OPEN |
+| **Status** | RESOLVED 2026-07-14 (6f37734) — `AtmosphereStage` now persists `at_source_target` / `at_source_background` `RadiometricFrame`s (pre-atmosphere `L_source` = emitted+reflected radiance leaving the target/background, before the up-leg τ/L_path), and `ResultPlotNamespace.spectral_source_emission()` plots them. New assembly functions `assemble_target_source_emission` / `assemble_background_source_emission` reuse the existing per-term decomposition — no computation changed; goldens byte-identical. |
 | **Description** | The Source stage view asks for plots of **both target and background radiance** at the source — i.e. the emitted spectral radiance **before** atmosphere (the owner puts the *at-aperture* radiances under the Atmosphere stage, "now that atmosphere is applied"). `SourceStage` persists **descriptors** (`stage_outputs["source"]["target"]`, `["background"]`, ranges, tentative regime) but stores **no `RadiometricFrame`** — radiance assembly happens in `AtmosphereStage`, whose earliest stored radiance frames are `at_aperture_target` / `at_aperture_background` (post-atmosphere). The existing `result.plot.spectral_source()` therefore draws the **at-aperture** frames, not the source emission; its own docstring notes the "at target" label is unattainable without recomputation. There is no stored pre-atmosphere target/background emitted-radiance spectrum to plot. |
 | **Impact** | The Source stage view cannot show the emitted target and background spectra on their own — the quantity that most directly reflects the *source* parameters (target/background temperature, emissivity, projected area) before the atmosphere modulates them. The GUI can only show the at-aperture result, which conflates source and atmosphere; separating "what the target emits" from "what reaches the aperture" (the owner's explicit Source-vs-Atmosphere split) is not possible with the stored frames. |
 | **Workaround** | Show the at-aperture radiance (`spectral_source()`) in the Source view and label it as post-atmosphere; or, from the console, recompute the source Planck/emissivity radiance at the source parameters by hand. |
@@ -1443,7 +1443,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | 88 | No in-memory / resolved-scope config serialize surface (only file `Sensor.save`) | S | GUI YAML tab | OPEN |
 | 89 | Optics complex-pupil diagnostics not exposed (apodization map + WFE phase map) | M | GUI Optics view (5.1, 1.5) | OPEN |
 | 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | OPEN |
-| 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | OPEN |
+| 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | FIXED 2026-07-14 (6f37734) |
 | 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
 
 ---

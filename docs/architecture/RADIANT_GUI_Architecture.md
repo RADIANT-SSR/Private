@@ -744,9 +744,12 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
 - 3D schematic viewport with orbit / pan / zoom (standard mouse drag / shift-drag / wheel).
 - Sun, sensor, target glyphs on a faint two-tone reference ground grid (reference, not
   measurement).
-- **Vectors:** sun→target (always on); sensor→target (always on); sun→ground
-  illumination point G_i and sensor-LOS extension target→G_i (only when target
-  altitude > 0).
+- **Vectors:** sun→target (always on); sensor→target (always on); and, **only when the
+  target is elevated** (target altitude > 0), **sensor→ground** (blue, dashed) and
+  **sun→ground** (amber, dashed), both landing at the target's **ground projection** G_i
+  (the nadir footprint directly below the body on the ground plane) — a ground target has
+  target == ground, so these are degenerate and absent (owner request 2026-07-14). The
+  legend rows for the two ground vectors are shown only when they are drawn.
 - **Click-to-reveal angle annotations**, split by frame:
   - *Target-frame* (anchored at the target): θₛ, θᵥ, φₛ, φᵥ, Δφ, phase angle g.
   - *Ground-frame* (anchored at G_i, the radiometrically-relevant point when target
@@ -909,7 +912,9 @@ PyVista/VTK, no physics stage):
   `ground_azimuth_arc`. These are used for arc **geometry/placement** and the angle-truth
   check **only** — never as a second angle authority (§6.3).
 - **`schematic_view.py`** — the `SchematicView` canvas + the engine-independent
-  `build_scene`/`SchematicScene`. Draws: ground grid, X/Y/Z axes, the four labelled vectors,
+  `build_scene`/`SchematicScene`. Draws: ground grid, X/Y/Z axes, the labelled vectors
+  (sun→target, sensor→target, zenith always; sensor→ground + sun→ground only for an elevated
+  target, landing at its nadir ground projection `scene.ground_point` — §6.2),
   sun/sensor glyphs, the **full shape-library** wireframe (sphere great-circles, box,
   cylinder, cone, flat-plate, point reticle), rotated by the target's ZYX-Euler RPY; the
   **revealable angle arcs** (off-nadir η, sun-zenith θ_s, relative-azimuth Δφ on the ground,

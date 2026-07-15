@@ -11,11 +11,13 @@ tests identically headless (``QWidget.grab``) with no segfault-prone live intera
 
 It draws, faithfully per the mockup: the light background, a faint ground grid, the
 ``X``/``Y`` ground axes and the vertical zenith (``Z``) axis with arrowheads + labels, the
-four labelled vectors (sun→target amber solid, sensor→target blue solid, sun→ground amber
-dashed, zenith grey), the sun and sensor glyphs, the full **shape-library** wireframe
-target (sphere great-circles / box / cylinder / cone / flat-plate / point reticle), the
-ground-projection dashed drop-lines, and the VECTORS legend overlay. It supports
-orthographic yaw/pitch rotation by mouse drag.
+labelled vectors (sun→target amber solid, sensor→target blue solid, zenith grey; and — only
+for an **elevated** target, ``target_altitude_m > 0`` — sensor→ground blue dashed and
+sun→ground amber dashed, both landing at the target's nadir ground projection), the sun and
+sensor glyphs, the full **shape-library** wireframe target (sphere great-circles / box /
+cylinder / cone / flat-plate / point reticle), the ground-projection dashed drop-lines, and
+the VECTORS legend overlay (the ground rows shown only when those vectors are present). It
+supports orthographic yaw/pitch rotation by mouse drag.
 
 **Pass 2 (shipped) adds the annotations + interactions:** the revealable angle arcs
 (off-nadir η, sun-zenith θ_s, relative-azimuth Δφ, phase α_t) each with a DEGREE value
@@ -212,7 +214,7 @@ class SchematicScene:
     target_top: np.ndarray  # where the sun/sensor vectors land (top of the body)
     target_z: float
     target_center: np.ndarray  # body rotation pivot + triad origin
-    ground_point: np.ndarray  # sensor-LOS → ground intersection (origin if on ground)
+    ground_point: np.ndarray  # target's ground projection / nadir footprint (origin if on ground)
     airborne: bool
     target_shape: str
     target_edges: tuple[tuple[np.ndarray, np.ndarray], ...]
@@ -440,15 +442,11 @@ def build_scene(state: ViewerState) -> SchematicScene:
 
     target_top = np.array([0.0, 0.0, top_z], dtype=np.float64)
 
-    # Ground illumination point: where the sensor→target ray, extended, meets z = 0.
-    # For a ground target this is the origin; for an airborne target it walks out.
-    ground_point = _origin()
-    if airborne:
-        dz = sensor_pos[2] - target_top[2]
-        if abs(dz) > 1e-6:
-            t = sensor_pos[2] / dz
-            ground_point = sensor_pos + t * (target_top - sensor_pos)
-            ground_point[2] = 0.0
+    # The target's ground projection (nadir footprint): the point on the ground plane (z = 0)
+    # directly below the body. For a ground target this is the origin (target == ground); for
+    # an elevated target it is where the SENSOR→GROUND and SUN→GROUND vectors land (§6.2, owner
+    # request 2026-07-14). The body sits at x = y = 0, so the projection is directly below it.
+    ground_point = np.array([target_top[0], target_top[1], 0.0], dtype=np.float64)
 
     return SchematicScene(
         sun_dir=sun_dir,
@@ -738,7 +736,7 @@ class SchematicView(QWidget):
         if self._show_triad and not scene.is_point:
             self._draw_triad(painter, cam, scene)
         self._draw_leader_labels(painter, cam, scene)
-        self._draw_legend(painter)
+        self._draw_legend(painter, scene)
         painter.end()
 
     def _draw_empty(self, painter: QPainter) -> None:
@@ -971,32 +969,39 @@ class SchematicView(QWidget):
             self._line(painter, cam, pos, sub, pen)  # vertical drop to sub-point
             self._line(painter, cam, _origin(), sub, pen)  # radial to origin
 
-    def _draw_ground_vectors(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
+    def _ground_vectors(
+        self, scene: SchematicScene
+    ) -> list[tuple[str, np.ndarray, np.ndarray, str]]:
+        """The SENSOR→GROUND + SUN→GROUND vectors for an elevated target (§6.2).
+
+        Present **only** when the target is above the ground (``target_altitude_m > 0``); both
+        land at the target's ground projection (nadir footprint, ``scene.ground_point``). A
+        ground target has target == ground, so they are degenerate and omitted (owner request
+        2026-07-14). Each entry is ``(legend label, start, end, palette colour)`` so the drawing
+        and the legend derive from one source. Colours are the allowlisted physics palette
+        (sensor = blue, sun = amber), consistent with the SENSOR→TARGET / SUN→TARGET vectors.
+        """
         if not scene.airborne:
+            return []
+        return [
+            ("SENSOR → GROUND", scene.sensor_pos, scene.ground_point, palette.SATELLITE_FAMILY),
+            ("SUN → GROUND", scene.sun_pos, scene.ground_point, palette.SOLAR_FAMILY),
+        ]
+
+    def _draw_ground_vectors(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
+        """Draw SENSOR→GROUND (blue) + SUN→GROUND (amber), both dashed, for an elevated target.
+
+        Both vectors terminate at the target's ground projection (nadir footprint); a small
+        neutral marker pins that ground intersection. Nothing is drawn for a ground target.
+        """
+        vectors = self._ground_vectors(scene)
+        if not vectors:
             return
-        # Sun → ground illumination point (amber dashed) + the ground-point marker.
-        self._vector(
-            painter,
-            cam,
-            scene.sun_pos,
-            scene.ground_point,
-            palette.SOLAR_FAMILY,
-            _W_TARGET + 0.3,
-            dashed=True,
-        )
-        # Sensor LOS extension: target → ground point (blue dashed).
-        self._vector(
-            painter,
-            cam,
-            scene.target_top,
-            scene.ground_point,
-            palette.SATELLITE_FAMILY,
-            _W_TARGET,
-            dashed=True,
-        )
+        for _label, start, end, color in vectors:
+            self._vector(painter, cam, start, end, color, _W_TARGET, dashed=True)
         gp = cam.project(scene.ground_point)
-        painter.setPen(self._pen(palette.SOLAR_FAMILY, 1.0))
-        painter.setBrush(QColor(palette.SOLAR_FAMILY))
+        painter.setPen(self._pen(self._theme.muted, 1.0))
+        painter.setBrush(QColor(self._theme.muted))
         painter.drawEllipse(QPointF(gp.x, gp.y), 2.0, 2.0)
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
@@ -1071,14 +1076,25 @@ class SchematicView(QWidget):
             painter, cam, scene.sensor_pos, scene.target_top, palette.SATELLITE_FAMILY, _W_VECTOR
         )
 
-    def _draw_legend(self, painter: QPainter) -> None:
-        """The VECTORS legend overlay (top-left), drawn in screen space (mockup overlay)."""
-        entries = (
+    def _legend_entries(self, scene: SchematicScene) -> list[tuple[str, str, bool]]:
+        """The VECTORS legend rows ``(label, colour, dashed)`` for *scene*.
+
+        The SENSOR→TARGET / SUN→TARGET / ZENITH rows are always present; the SENSOR→GROUND and
+        SUN→GROUND rows appear **only** when the target is elevated (they are drawn only then),
+        so the legend matches what is on the canvas (§6.2, owner request 2026-07-14).
+        """
+        entries: list[tuple[str, str, bool]] = [
             ("SUN → TARGET", palette.SOLAR_FAMILY, False),
             ("SENSOR → TARGET", palette.SATELLITE_FAMILY, False),
-            ("SUN → GROUND", palette.SOLAR_FAMILY, True),
-            ("ZENITH", self._theme.muted, False),
-        )
+        ]
+        for label, _start, _end, color in self._ground_vectors(scene):
+            entries.append((label, color, True))
+        entries.append(("ZENITH", self._theme.muted, False))
+        return entries
+
+    def _draw_legend(self, painter: QPainter, scene: SchematicScene) -> None:
+        """The VECTORS legend overlay (top-left), drawn in screen space (mockup overlay)."""
+        entries = self._legend_entries(scene)
         x0, y0 = 14.0, 14.0
         row_h = 18.0
         box_w = 168.0

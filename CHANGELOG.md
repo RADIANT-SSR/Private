@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI geometry schematic — ground vectors for elevated targets (owner feedback 2026-07-14,
+  view-only).** When the target is above the ground (`geometry.target_altitude_m > 0`) the
+  Schematic tab now additionally draws a **SENSOR→GROUND** vector (blue, dashed) and a
+  **SUN→GROUND** vector (amber, dashed), both landing at the target's **ground projection**
+  (nadir footprint, directly below the body on the ground plane). The VECTORS legend gains
+  matching rows, shown only when the vectors are present. A ground target (altitude 0) has
+  target == ground, so the two vectors are degenerate and absent — unchanged behaviour there.
+  Colours come from the allowlisted physics palette (sensor = blue, sun = amber). Golden
+  untouched (the GUI is a view over the scripting API).
 - **GUI geometry Schematic tab — editable + nominal shape dims (owner feedback 2026-07-14,
   view-only).** Three changes to the Geometry stage's Schematic tab (golden untouched — the
   GUI is a view over the scripting API): (1) **Geometry is now settable from the Schematic

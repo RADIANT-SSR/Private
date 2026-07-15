@@ -817,3 +817,77 @@ class TestGeometryInputsFitColumn:
         for _ in range(4):
             qtbot.wait(1)
         assert self._inputs_scrollarea(panel).horizontalScrollBar().maximum() == 0
+
+
+class TestElevatedTargetGroundVectors:
+    """Owner request 2026-07-14: an elevated target (altitude > 0) also shows ground vectors.
+
+    A SENSOR→GROUND and a SUN→GROUND vector, both landing at the target's ground projection
+    (nadir footprint), plus matching conditional legend rows. A ground target (altitude 0) has
+    target == ground, so the vectors are degenerate and absent (unchanged behaviour).
+    """
+
+    def _state(self, **overrides: object) -> ViewerState:
+        base = ViewerState.default()
+        return ViewerState(**{**base.__dict__, **overrides})
+
+    def test_elevated_target_builds_both_ground_vectors(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        scene = build_scene(self._state(target_altitude_m=5_000.0))
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        vectors = canvas._ground_vectors(scene)  # noqa: SLF001 — exercises the build path
+        labels = [label for label, *_ in vectors]
+        assert labels == ["SENSOR → GROUND", "SUN → GROUND"]
+        # SENSOR→GROUND starts at the sensor; SUN→GROUND starts at the sun; both end at ground.
+        by_label = {label: (start, end) for label, start, end, _color in vectors}
+        assert np.allclose(by_label["SENSOR → GROUND"][0], scene.sensor_pos)
+        assert np.allclose(by_label["SUN → GROUND"][0], scene.sun_pos)
+        for _label, (_start, end) in by_label.items():
+            assert np.allclose(end, scene.ground_point)
+
+    def test_intersection_is_target_ground_projection(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The ground intersection is the target's nadir projection (directly below it)."""
+        scene = build_scene(self._state(target_altitude_m=5_000.0))
+        # Nadir footprint: same x, y as the body, on the ground plane z = 0.
+        assert scene.ground_point[2] == pytest.approx(0.0, abs=1e-12)
+        assert np.allclose(scene.ground_point, [scene.target_top[0], scene.target_top[1], 0.0])
+
+    def test_ground_target_has_no_ground_vectors(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        scene = build_scene(self._state(target_altitude_m=0.0))
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        assert not scene.airborne
+        assert canvas._ground_vectors(scene) == []  # noqa: SLF001
+
+    def test_legend_shows_ground_rows_only_when_elevated(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        elevated = [
+            row[0]
+            for row in canvas._legend_entries(build_scene(self._state(target_altitude_m=5_000.0)))
+        ]  # noqa: SLF001, E501
+        grounded = [
+            row[0]
+            for row in canvas._legend_entries(build_scene(self._state(target_altitude_m=0.0)))
+        ]  # noqa: SLF001, E501
+        assert "SENSOR → GROUND" in elevated and "SUN → GROUND" in elevated
+        assert "SENSOR → GROUND" not in grounded and "SUN → GROUND" not in grounded
+
+    def test_ground_vectors_use_allowlisted_palette(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The ground variants reuse the physics palette (sensor = blue, sun = amber)."""
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        scene = build_scene(self._state(target_altitude_m=5_000.0))
+        vectors = {label: color for label, _s, _e, color in canvas._ground_vectors(scene)}  # noqa: SLF001
+        assert vectors["SENSOR → GROUND"] == palette.SATELLITE_FAMILY
+        assert vectors["SUN → GROUND"] == palette.SOLAR_FAMILY
+
+    def test_elevated_render_paints_both_ground_colours(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The full render of an elevated target paints the sensor-blue + sun-amber vectors."""
+        canvas = SchematicView(theme=LIGHT)
+        qtbot.addWidget(canvas)
+        canvas.resize(900, 600)
+        canvas.set_state(self._state(target_shape="sphere", target_altitude_m=5_000.0))
+        img = canvas.grab().toImage()
+        assert _has_color(img, palette.SATELLITE_FAMILY)
+        assert _has_color(img, palette.SOLAR_FAMILY)

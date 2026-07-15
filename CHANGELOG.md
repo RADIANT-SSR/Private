@@ -72,6 +72,22 @@ retroactively reconstructed.
   arcs, altitude leader labels, RPY triad, shape library + dimensions, the angle-truth
   test, and removal of the now-unwired lifted VTK scene library (CU-128–CU-133).
 
+### Fixed
+- **GUI geometry schematic — centred + framed, no longer bottom-anchored (view-only).**
+  The 2D orthographic schematic rendered anchored to the *bottom* of its panel with the
+  canvas above it empty (owner screenshot 2026-07-14). Two compounding causes fixed:
+  (1) the schematic canvas ballooned taller than its tab viewport — the Geometry
+  "Schematic" tab shares a `QTabWidget` stack with the tall "Inputs" tab, whose full-height
+  derived-angles readout inflated the shared minimum height; each non-canvas sub-view is now
+  wrapped in its own `QScrollArea` so the canvas fills the viewport (with a sensible
+  `Expanding` policy + 360×360 minimum + concrete `sizeHint`) instead of growing unbounded;
+  (2) the orthographic fit anchored the scene origin low (`cy = 0.72·height`) with a
+  width-limited scale, so on a too-tall canvas the scene clustered near the bottom — the
+  camera now scales the projected scene bounding box to the *live* paint rect with a
+  symmetric margin and centres it on both axes, recomputed every paint so the scene stays
+  centred and framed on resize (short / tall / wide). No computed results change; golden
+  untouched.
+
 ### Added
 - **GUI 3D geometry viewer — interactions: angle annotations, shape library, RPY triad
   (GUI plan Phase 7 Part B, ADR-0007).** The Geometry "3D View" becomes a split of the

@@ -214,13 +214,34 @@ class StagePane(QWidget):
                 fills = self._build_sections(subview, tab_layout, tab)
                 if not fills:
                     tab_layout.addStretch(1)
-                self._tabs.addTab(tab, subview.title)
+                self._tabs.addTab(self._wrap_subview(subview, tab), subview.title)
             self._body_layout.addWidget(self._tabs, 1)
         else:
             # Single flat pane (every v1 stage): sections stack in the body directly.
             fills = self._build_sections(composition, self._body_layout, body)
             if not fills:
                 self._body_layout.addStretch(1)
+
+    def _wrap_subview(self, spec: StageSubView, tab: QWidget) -> QWidget:
+        """Give a tall sub-view its own scroll; let a canvas sub-view fill the tab viewport.
+
+        A ``QTabWidget``'s stacked pages share one height (the tallest page's minimum). The
+        Geometry "Inputs" tab (form + full-height derived-angles readout) is tall, so without
+        its own scroll it inflated the shared stack and *ballooned* the sibling "Schematic"
+        canvas taller than the viewport — the scene then rendered bottom-anchored with empty
+        space above (owner report 2026-07-14). Wrapping every non-canvas sub-view in its own
+        ``QScrollArea`` bounds its contributed height (one full-height scrollbar spans the
+        whole form + table, as the owner asked), while the canvas sub-view is returned bare so
+        it fills the tab viewport with no scrollbar.
+        """
+        if spec.geometry_viewer:
+            return tab
+        scroll = QScrollArea()
+        scroll.setObjectName("stageSubViewScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(tab)
+        return scroll
 
     def _build_sections(
         self,

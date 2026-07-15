@@ -46,7 +46,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -151,6 +151,7 @@ def _format_km(km: float) -> str:
         return f"{km:.1f} km"
     return f"{km * 1000.0:.0f} m"
 
+
 # -- Line weights (px), mirroring the mockup stroke conventions -----------------
 _W_GRID: float = 0.6
 _W_AXIS: float = 1.0
@@ -165,6 +166,21 @@ _ARC_RADIUS: float = 1.0  # zenith/phase arc radius (scene units)
 _GROUND_ARC_RADIUS: float = 1.4  # relative-azimuth ground arc radius
 _TRIAD_LEN: float = 0.85  # RPY body-axis length (scene units)
 _LABEL_FONT_PX: float = 10.0  # value/leader pill font size
+
+# -- Fit-to-viewport constants (the scene is centred in the live paint rect) -----
+# The orthographic camera scales the projected scene bounding box to fill the current
+# widget rect with a symmetric margin, then translates so the bbox centre lands on the rect
+# centre — so the schematic stays centred and framed at any window size / aspect (owner
+# report 2026-07-14: the scene was bottom-anchored on a too-tall canvas). Recomputed every
+# paint from ``self.width()``/``self.height()`` so it tracks live resizes.
+_FIT_MARGIN_FRAC: float = 0.12  # symmetric margin as a fraction of the smaller rect side
+_MIN_SCALE: float = 40.0  # floor on scene-unit → px so a tiny rect never collapses the scene
+_EMPTY_SCALE: float = 80.0  # scale used before the first scene is bound (empty canvas)
+# The canvas fills its tab viewport (Expanding policy); these bound its self-reported size so
+# it neither collapses nor balloons taller than the viewport (owner report 2026-07-14).
+_MIN_SIDE_PX: int = 360
+_HINT_W_PX: int = 520
+_HINT_H_PX: int = 480
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,15 +254,28 @@ def _box_edges(cz: float, w: float, d: float, h: float) -> list[tuple[np.ndarray
     y0, y1 = -d / 2, d / 2
     z0, z1 = cz, cz + h
     c = [
-        np.array([x0, y0, z0]), np.array([x1, y0, z0]),
-        np.array([x1, y1, z0]), np.array([x0, y1, z0]),
-        np.array([x0, y0, z1]), np.array([x1, y0, z1]),
-        np.array([x1, y1, z1]), np.array([x0, y1, z1]),
+        np.array([x0, y0, z0]),
+        np.array([x1, y0, z0]),
+        np.array([x1, y1, z0]),
+        np.array([x0, y1, z0]),
+        np.array([x0, y0, z1]),
+        np.array([x1, y0, z1]),
+        np.array([x1, y1, z1]),
+        np.array([x0, y1, z1]),
     ]
     idx = [
-        (0, 1), (1, 2), (2, 3), (3, 0),
-        (4, 5), (5, 6), (6, 7), (7, 4),
-        (0, 4), (1, 5), (2, 6), (3, 7),
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 0),
+        (4, 5),
+        (5, 6),
+        (6, 7),
+        (7, 4),
+        (0, 4),
+        (1, 5),
+        (2, 6),
+        (3, 7),
     ]
     return [(c[a].astype(np.float64), c[b].astype(np.float64)) for a, b in idx]
 
@@ -280,8 +309,10 @@ def _plate_edges(cz: float, w: float, d: float) -> list[tuple[np.ndarray, np.nda
     x0, x1 = -w / 2, w / 2
     y0, y1 = -d / 2, d / 2
     corners = [
-        np.array([x0, y0, cz]), np.array([x1, y0, cz]),
-        np.array([x1, y1, cz]), np.array([x0, y1, cz]),
+        np.array([x0, y0, cz]),
+        np.array([x1, y0, cz]),
+        np.array([x1, y1, cz]),
+        np.array([x0, y1, cz]),
     ]
     edges = _close(corners)
     edges.append((corners[0], corners[2]))
@@ -301,9 +332,7 @@ def _extents(shape: str, state: ViewerState) -> tuple[float, ...]:
     metric = tuple(float(getattr(state, field)) for field in _SHAPE_DIMS[shape])
     if all(v > 0.0 for v in metric):
         biggest = max(metric)
-        return tuple(
-            min(_EXT_MAX, max(_EXT_MIN, _SHAPE_UNIT * (v / biggest))) for v in metric
-        )
+        return tuple(min(_EXT_MAX, max(_EXT_MIN, _SHAPE_UNIT * (v / biggest))) for v in metric)
     return defaults
 
 
@@ -463,9 +492,18 @@ class SchematicView(QWidget):
         # Pass-2 annotation state: which angle arcs are revealed + the RPY-triad toggle.
         self._revealed: set[str] = set()
         self._show_triad: bool = False
-        self.setMinimumSize(320, 240)
+        self.setMinimumSize(_MIN_SIDE_PX, _MIN_SIDE_PX)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(False)
+
+    def sizeHint(self) -> QSize:  # noqa: N802 — Qt override
+        """A sensible default size — the canvas *fills* its viewport (Expanding), never grows.
+
+        The concrete hint (with the Expanding policy + :data:`_MIN_SIDE_PX` minimum) keeps the
+        canvas filling its tab viewport rather than reporting an unbounded/degenerate size
+        that a scroll area would inflate (owner report 2026-07-14: the schematic ballooned
+        taller than the viewport and the scene ended up bottom-anchored)."""
+        return QSize(_HINT_W_PX, _HINT_H_PX)
 
     # -- state / theme ------------------------------------------------------
 
@@ -560,14 +598,77 @@ class SchematicView(QWidget):
 
     # -- projection helpers -------------------------------------------------
 
+    def _fit_points(self, scene: SchematicScene) -> list[np.ndarray]:
+        """World points whose projected bounding box the fit-to-viewport centres on.
+
+        The semantic scene extremes — the ground axes, the zenith top, the sun/sensor glyphs,
+        the target body + its ground point — so centring frames the *content*. The faint
+        ground grid (larger than the content) deliberately extends past the rect edges as a
+        background rather than shrinking the scene to fit its corners.
+        """
+        pts: list[np.ndarray] = [
+            _origin(),
+            np.array([_AXIS_LEN, 0.0, 0.0]),
+            np.array([-_AXIS_LEN, 0.0, 0.0]),
+            np.array([0.0, _AXIS_LEN, 0.0]),
+            np.array([0.0, -_AXIS_LEN, 0.0]),
+            np.array([0.0, 0.0, _ZENITH_LEN]),
+            scene.sun_pos,
+            scene.sensor_pos,
+            scene.target_top,
+            scene.ground_point,
+        ]
+        for a, b in scene.target_edges:
+            pts.append(a)
+            pts.append(b)
+        return pts
+
     def _camera(self) -> Camera:
-        """The orthographic camera fit to the current widget size (scale-to-fit)."""
+        """The orthographic camera that fits + centres the scene in the live paint rect.
+
+        The projected bounding box of :meth:`_fit_points` is scaled to fill the current
+        ``width()``×``height()`` rect (minus a symmetric margin) and translated so the bbox
+        centre lands on the rect centre. Reading the live size every paint keeps the scene
+        centred and framed on resize, at any aspect (owner report 2026-07-14: the scene was
+        anchored to the bottom of a too-tall canvas)."""
         w = max(1, self.width())
         h = max(1, self.height())
-        cx = w / 2.0
-        cy = h * 0.72  # scene origin sits low so the zenith axis has headroom (mockup 0.78)
-        scale = max(60.0, min(w / 7.5, h / 5.6))
+        if self._scene is None:
+            return make_camera(self._yaw, self._pitch, _EMPTY_SCALE, w / 2.0, h / 2.0)
+        # Probe the projection at unit scale / zero offset to read each point's (x2, -z2).
+        probe = make_camera(self._yaw, self._pitch, 1.0, 0.0, 0.0)
+        projected = [probe.project(p) for p in self._fit_points(self._scene)]
+        xs = [p.x for p in projected]
+        ys = [p.y for p in projected]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        raw_w = max(max_x - min_x, 1e-6)
+        raw_h = max(max_y - min_y, 1e-6)
+        margin = _FIT_MARGIN_FRAC * min(w, h)
+        avail_w = max(1.0, w - 2.0 * margin)
+        avail_h = max(1.0, h - 2.0 * margin)
+        scale = max(_MIN_SCALE, min(avail_w / raw_w, avail_h / raw_h))
+        center_raw_x = (min_x + max_x) / 2.0
+        center_raw_y = (min_y + max_y) / 2.0
+        # Place the bbox centre on the rect centre: screen = (cx + x2·s, cy + (-z2)·s).
+        cx = w / 2.0 - center_raw_x * scale
+        cy = h / 2.0 - center_raw_y * scale
         return make_camera(self._yaw, self._pitch, scale, cx, cy)
+
+    def projected_content_bounds(self) -> tuple[float, float, float, float] | None:
+        """The projected scene bbox ``(min_x, min_y, max_x, max_y)`` in the live paint rect.
+
+        The bounding box of :meth:`_fit_points` after the fit-to-viewport camera — its centre
+        lands on the rect centre and it clears the rect edges by the fit margin. ``None`` before
+        the first :meth:`set_state`. Exposed so a test can assert the scene is centred + framed
+        rather than bottom-anchored (owner report 2026-07-14)."""
+        if self._scene is None:
+            return None
+        cam = self._camera()
+        projected = [cam.project(p) for p in self._fit_points(self._scene)]
+        xs = [p.x for p in projected]
+        ys = [p.y for p in projected]
+        return (min(xs), min(ys), max(xs), max(ys))
 
     @staticmethod
     def _pt(p: ProjectedPoint) -> QPointF:
@@ -618,9 +719,7 @@ class SchematicView(QWidget):
             pen.setDashPattern([4.0, 3.0])
         return pen
 
-    def _polyline(
-        self, painter: QPainter, cam: Camera, pts: list[np.ndarray], pen: QPen
-    ) -> None:
+    def _polyline(self, painter: QPainter, cam: Camera, pts: list[np.ndarray], pen: QPen) -> None:
         painter.setPen(pen)
         poly = QPolygonF([self._pt(cam.project(p)) for p in pts])
         painter.drawPolyline(poly)
@@ -673,9 +772,7 @@ class SchematicView(QWidget):
         font.setPointSizeF(_LABEL_FONT_PX)
         return font
 
-    def _label_pill(
-        self, painter: QPainter, x: float, y: float, text: str, color: str
-    ) -> None:
+    def _label_pill(self, painter: QPainter, x: float, y: float, text: str, color: str) -> None:
         """A boxed value/leader label: rounded rect (theme fill, coloured stroke) + text.
 
         Mirrors the mockup's boxed value labels (``scene.jsx`` ``AngleArc``/leader pills).
@@ -712,9 +809,7 @@ class SchematicView(QWidget):
         deg = math.degrees(float(getattr(self._state, field)))
         return f"{ann.symbol} {deg:.1f}°"
 
-    def _arc_points(
-        self, scene: SchematicScene, name: str
-    ) -> list[np.ndarray]:
+    def _arc_points(self, scene: SchematicScene, name: str) -> list[np.ndarray]:
         """The world-space arc polyline for annotation *name* (empty if not drawable)."""
         zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
         if name == "off_nadir":
@@ -774,14 +869,20 @@ class SchematicView(QWidget):
         """
         sp = cam.project(scene.sensor_pos)
         self._label_pill(
-            painter, sp.x + 18, sp.y + 16,
-            f"h_s  {_format_km(scene.altitude_km)}", self._theme.muted,
+            painter,
+            sp.x + 18,
+            sp.y + 16,
+            f"h_s  {_format_km(scene.altitude_km)}",
+            self._theme.muted,
         )
         if scene.airborne:
             tp = cam.project(scene.target_top)
             self._label_pill(
-                painter, tp.x + 12, tp.y + 22,
-                f"h_t  {_format_km(scene.target_altitude_km)}", self._theme.muted,
+                painter,
+                tp.x + 12,
+                tp.y + 22,
+                f"h_t  {_format_km(scene.target_altitude_km)}",
+                self._theme.muted,
             )
 
     def _draw_ground_grid(self, painter: QPainter, cam: Camera) -> None:
@@ -790,13 +891,19 @@ class SchematicView(QWidget):
         for i in range(-_GRID_N, _GRID_N + 1):
             y = i * _GRID_STEP
             self._line(
-                painter, cam,
-                np.array([-span, y, 0.0]), np.array([span, y, 0.0]), pen,
+                painter,
+                cam,
+                np.array([-span, y, 0.0]),
+                np.array([span, y, 0.0]),
+                pen,
             )
             x = i * _GRID_STEP
             self._line(
-                painter, cam,
-                np.array([x, -span, 0.0]), np.array([x, span, 0.0]), pen,
+                painter,
+                cam,
+                np.array([x, -span, 0.0]),
+                np.array([x, span, 0.0]),
+                pen,
             )
 
     def _draw_axes(self, painter: QPainter, cam: Camera) -> None:
@@ -831,13 +938,23 @@ class SchematicView(QWidget):
             return
         # Sun → ground illumination point (amber dashed) + the ground-point marker.
         self._vector(
-            painter, cam, scene.sun_pos, scene.ground_point,
-            palette.SOLAR_FAMILY, _W_TARGET + 0.3, dashed=True,
+            painter,
+            cam,
+            scene.sun_pos,
+            scene.ground_point,
+            palette.SOLAR_FAMILY,
+            _W_TARGET + 0.3,
+            dashed=True,
         )
         # Sensor LOS extension: target → ground point (blue dashed).
         self._vector(
-            painter, cam, scene.target_top, scene.ground_point,
-            palette.SATELLITE_FAMILY, _W_TARGET, dashed=True,
+            painter,
+            cam,
+            scene.target_top,
+            scene.ground_point,
+            palette.SATELLITE_FAMILY,
+            _W_TARGET,
+            dashed=True,
         )
         gp = cam.project(scene.ground_point)
         painter.setPen(self._pen(palette.SOLAR_FAMILY, 1.0))
@@ -868,8 +985,12 @@ class SchematicView(QWidget):
         # Sun glyph: amber disc + ray ticks.
         sp = cam.project(scene.sun_pos)
         self._draw_star_glyph(
-            painter, sp, palette.SUN_DISC_FILL, palette.SOLAR_FAMILY,
-            6.0, (0, 60, 120, 180, 240, 300),
+            painter,
+            sp,
+            palette.SUN_DISC_FILL,
+            palette.SOLAR_FAMILY,
+            6.0,
+            (0, 60, 120, 180, 240, 300),
         )
         self._text(painter, sp.x + 20, sp.y - 8, "SUN", palette.SOLAR_FAMILY)
         # Sensor glyph: blue disc + 4 cardinal ticks (fewer ticks → distinct from sun).
@@ -907,9 +1028,7 @@ class SchematicView(QWidget):
 
     def _draw_main_vectors(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
         # Sun → target (amber solid) and sensor → target (blue solid).
-        self._vector(
-            painter, cam, scene.sun_pos, scene.target_top, palette.SOLAR_FAMILY, _W_VECTOR
-        )
+        self._vector(painter, cam, scene.sun_pos, scene.target_top, palette.SOLAR_FAMILY, _W_VECTOR)
         self._vector(
             painter, cam, scene.sensor_pos, scene.target_top, palette.SATELLITE_FAMILY, _W_VECTOR
         )

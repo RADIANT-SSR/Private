@@ -202,6 +202,75 @@ class TestSchematicCanvas:
         assert canvas.pitch_deg == pytest.approx(2.0)
 
 
+class TestFitToViewport:
+    """Owner report 2026-07-14: the scene must be CENTRED + framed, never bottom-anchored.
+
+    The orthographic camera fits the projected scene bounding box into the *live* paint rect
+    with a symmetric margin and centres it — so the schematic stays centred at any size and
+    the too-tall-canvas bottom-anchoring is gone. Also asserts the canvas *fills* its viewport
+    (Expanding policy + a sensible minimum) rather than reporting an unbounded size.
+    """
+
+    def _canvas(self, qtbot, offnadir_sphere, w: int, h: int) -> SchematicView:  # type: ignore[no-untyped-def]
+        sensor, result = offnadir_sphere
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        canvas.set_state(ViewerState.from_chain_result(result, sensor))
+        canvas.resize(w, h)
+        return canvas
+
+    def test_scene_bbox_is_centred_in_rect(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
+        canvas = self._canvas(qtbot, offnadir_sphere, 760, 620)
+        bounds = canvas.projected_content_bounds()
+        assert bounds is not None
+        min_x, min_y, max_x, max_y = bounds
+        cx, cy = (min_x + max_x) / 2.0, (min_y + max_y) / 2.0
+        # The scene bbox centre lands on the rect centre (both axes), not near the bottom.
+        assert cx == pytest.approx(760 / 2, abs=2.0)
+        assert cy == pytest.approx(620 / 2, abs=2.0)
+
+    def test_scene_fits_with_margin_not_flush(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
+        canvas = self._canvas(qtbot, offnadir_sphere, 760, 620)
+        min_x, min_y, max_x, max_y = canvas.projected_content_bounds()  # type: ignore[misc]
+        # Every side clears the rect edge by a real margin — the scene is framed, not clipped.
+        assert min_x > 8.0 and min_y > 8.0
+        assert max_x < 760 - 8.0 and max_y < 620 - 8.0
+
+    def test_centring_holds_when_tall(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
+        """A tall panel keeps the scene centred (the exact regression the owner saw)."""
+        canvas = self._canvas(qtbot, offnadir_sphere, 760, 1000)
+        min_x, min_y, max_x, max_y = canvas.projected_content_bounds()  # type: ignore[misc]
+        assert (min_x + max_x) / 2.0 == pytest.approx(760 / 2, abs=2.0)
+        assert (min_y + max_y) / 2.0 == pytest.approx(1000 / 2, abs=2.0)
+        # Not bottom-anchored: the top margin is a real fraction of the panel, not ~0.
+        assert min_y > 40.0
+
+    def test_centring_holds_when_wide(self, qtbot, offnadir_sphere) -> None:  # type: ignore[no-untyped-def]
+        canvas = self._canvas(qtbot, offnadir_sphere, 1200, 600)
+        min_x, min_y, max_x, max_y = canvas.projected_content_bounds()  # type: ignore[misc]
+        assert (min_x + max_x) / 2.0 == pytest.approx(1200 / 2, abs=2.0)
+        assert (min_y + max_y) / 2.0 == pytest.approx(600 / 2, abs=2.0)
+
+    def test_canvas_fills_not_grows_unbounded(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The canvas policy fills its viewport with a sane minimum — no unbounded growth."""
+        from PySide6.QtWidgets import QSizePolicy
+
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        assert canvas.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
+        assert canvas.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Expanding
+        # A concrete, bounded sizeHint + minimum — never the degenerate (-1, -1) a scroll
+        # area would inflate.
+        hint = canvas.sizeHint()
+        assert hint.isValid() and 300 <= hint.height() <= 1200
+        assert canvas.minimumSize().width() >= 360 and canvas.minimumSize().height() >= 360
+
+    def test_bounds_none_before_state(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        assert canvas.projected_content_bounds() is None
+
+
 class TestGeometryViewerWidget:
     """The embedded widget's preserved public surface (2D pivot)."""
 
@@ -303,6 +372,44 @@ class TestGeometryPaneIntegration:
         assert viewer is not None and viewer.is_available
         assert viewer.canvas is not None and viewer.canvas.scene is not None
 
+    def test_schematic_canvas_fills_bounded_window_not_balloons(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Mounted in a bounded window the Schematic canvas fills the viewport, never taller.
+
+        Owner report 2026-07-14: the tall "Inputs" tab inflated the shared stack and ballooned
+        the sibling "Schematic" canvas past the window height (scene then bottom-anchored). The
+        canvas must stay within the window it is shown in.
+        """
+        from PySide6.QtWidgets import QMainWindow, QTabWidget
+
+        from radiant.gui.stage_views import STAGE_COMPOSITIONS
+        from radiant.gui.widgets.stage_center import StagePane
+
+        pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
+        win = QMainWindow()
+        qtbot.addWidget(win)
+        win.setCentralWidget(pane)
+        win.resize(1000, 760)
+        win.show()
+        tabs = pane.findChild(QTabWidget)
+        assert tabs is not None
+        tabs.setCurrentIndex(1)  # Schematic
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pane.bind_sensor(sensor, {})
+        pane.populate(_evaluate(sensor))
+        for _ in range(4):
+            qtbot.wait(1)
+
+        canvas = pane.geometry_viewer.canvas  # type: ignore[union-attr]
+        assert canvas is not None
+        # The canvas must not balloon taller than the window it lives in.
+        assert canvas.height() <= win.height()
+        # And it still frames the scene centred within that bounded height.
+        bounds = canvas.projected_content_bounds()
+        assert bounds is not None
+        cy = (bounds[1] + bounds[3]) / 2.0
+        assert cy == pytest.approx(canvas.height() / 2, abs=3.0)
+
 
 class TestShapeLibrary:
     """CU-131: the full shape library draws distinct wireframes reflecting dim aspect ratio."""
@@ -350,12 +457,17 @@ class TestShapeLibrary:
     def test_display_size_ignores_metric_magnitude(self) -> None:
         """Not-to-scale: scaling both dims by 1000 (same ratio) leaves the wireframe unchanged."""
         small = build_scene(
-            self._state(target_shape="box", target_length_m=2.0, target_width_m=1.0,
-                        target_height_m=1.0)
+            self._state(
+                target_shape="box", target_length_m=2.0, target_width_m=1.0, target_height_m=1.0
+            )
         )
         huge = build_scene(
-            self._state(target_shape="box", target_length_m=2000.0, target_width_m=1000.0,
-                        target_height_m=1000.0)
+            self._state(
+                target_shape="box",
+                target_length_m=2000.0,
+                target_width_m=1000.0,
+                target_height_m=1000.0,
+            )
         )
         for (a0, b0), (a1, b1) in zip(small.target_edges, huge.target_edges, strict=True):
             assert np.allclose(a0, a1) and np.allclose(b0, b1)

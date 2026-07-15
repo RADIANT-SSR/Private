@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI geometry Schematic tab — editable + nominal shape dims (owner feedback 2026-07-14,
+  view-only).** Three changes to the Geometry stage's Schematic tab (golden untouched — the
+  GUI is a view over the scripting API): (1) **Geometry is now settable from the Schematic
+  tab.** Its side panel gains a **Geometry inputs** accordion page hosting the reusable
+  Phase-5 `GeometryModeForm`, wired through the same edit → one `sensor.set` → debounced
+  re-evaluate → schematic re-render path as the Inputs tab, so the user can edit geometry and
+  watch the schematic + arcs move. Both geometry forms (Inputs + Schematic) read the one live
+  sensor and re-sync on the next clean evaluation. New public GUI surface:
+  `GeometryAnglePanel.geometry_form` property; `StagePane.refresh_geometry_forms`. (2)
+  **Shapes load with nominal dimensions (CU-125).** Selecting a target shape whose required
+  dimensions are still the `0.0` "not set" sentinel now seeds them to nominal non-zero values
+  (`geometry_angle_panel.NOMINAL_SHAPE_DIMENSIONS`) — one `sensor.set` each, only where unset,
+  never overwriting a user value — so the re-evaluate succeeds instead of tripping the
+  `radiant.source` shape factory. The schema keeps the `0.0` Rule-12 default; the nominal map
+  is a GUI-side UX default only.
 - **GUI geometry schematic — Pass 2 (annotations + shape editing; ADR-0007, view-only).**
   The 2D orthographic schematic gains the annotations and shape-editing the mockup/owner
   specify. (1) **Angle arcs + degree labels (CU-128):** revealable arcs for off-nadir η,
@@ -46,6 +61,12 @@ retroactively reconstructed.
   source of angle truth); golden untouched.
 
 ### Removed
+- **GUI geometry Schematic tab — redundant derived-angles table removed (owner feedback
+  2026-07-14, view-only).** The Schematic tab's side panel no longer carries the derived
+  "Geometry — derived angles & ranges" `GeometryReadout` (it duplicated the Inputs tab; the
+  key derived values surface on the schematic itself as arc degree labels + altitude leader
+  labels). The angle-arc reveal toggles remain; the Inputs-tab readout is unchanged. Removed
+  public GUI surface: `GeometryAnglePanel.readout` property + `populate_readout` method.
 - **GUI lifted VTK/PyVista scene library removed (CU-132, ADR-0007 Rule 27).** The
   superseded `radiant.gui.viewer.scene` render library (~3.9 kLoC across `builder`,
   `arcs/`, `frames/`, `glyphs/`, `ground/`, `labels/`, `target/`, `vectors/`) is deleted now

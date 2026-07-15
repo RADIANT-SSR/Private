@@ -873,10 +873,17 @@ split: the viewport (left) and the accordion side panel (right).
   target body mesh uses, so tilting the target via those params rotates the gizmo. Platform/
   sensor attitude still has **no stage owner** (CU-122): `observer_{yaw,pitch,roll}_rad`
   remain defaulted to identity, so there is no platform-attitude triad yet.
-- **Accordion side panel** (`widgets/geometry_angle_panel.py`) — a `QToolBox` that **shares**
-  the Phase-5 `GeometryReadout` widget (not a duplicate) for the live frame-grouped numeric
-  readout, plus the annotation toggles and the shape/RPY editors. It emits intent signals;
-  the owning `StagePane` performs the one `sensor.set` per edit (R-API).
+- **Accordion side panel** (`widgets/geometry_angle_panel.py`) — a `QToolBox` with three
+  pages: **Geometry inputs** (the reusable Phase-5 `GeometryModeForm`, so geometry is
+  editable from the Schematic tab — owner request 2026-07-14), **Angles** (the annotation
+  reveal toggles), and **Target shape & orientation** (the shape/RPY/dimension editors). The
+  annotation/shape/RPY controls emit intent signals and the owning `StagePane` performs the
+  one `sensor.set` per edit (R-API); the embedded `GeometryModeForm` owns its own schema-driven
+  edit/commit path and the `StagePane` re-emits its `parameterEdited`. The derived-angles
+  `GeometryReadout` table is **not** on this panel (owner request 2026-07-14 — it duplicated
+  the Inputs tab; the derived values surface on the schematic itself as arc degree labels +
+  altitude leader labels). Both geometry forms (Inputs tab + Schematic panel) read the one
+  live sensor and re-sync on the next clean evaluation, so an edit on either reflects on both.
 - **Deferred (needs a live interactor):** in-scene VTK point-picking and the lifted
   `scene/highlight.py` active-edit re-stroke (CU-124); the corner view-cube / world-axes
   gnomon widgets stay out of v1.
@@ -923,6 +930,16 @@ dimension input for the selected shape, schema-driven from `source.target.shape_
 length+width+height; cone → base-radius+height). Each is one `sensor.set` per edit (the
 Phase-2 edit/reject pattern, unit-carrying). The wireframe reflects the shape's own **aspect
 ratio** (dim ratios normalised to an abstract extent) but never the raw metres (§6.1).
+
+**Nominal dimensions on shape selection (CU-125, owner request 2026-07-14):** selecting a
+shape whose required dimensions are still the `0.0` "not set" sentinel would trip the
+`radiant.source` shape factory (`ParameterBoundsError`) on the scheduled re-evaluate. The
+owning `StagePane` therefore seeds each required dimension still at `0.0` to a nominal
+non-zero value (`geometry_angle_panel.NOMINAL_SHAPE_DIMENSIONS` — sphere r=1 m; cylinder
+r=0.5 m + L=2 m; flat_plate L=W=1 m; box L=W=H=1 m; cone base-r=0.5 m + H=1 m) with one
+`sensor.set` each, so the re-run succeeds. A user-set non-zero value is **never** overwritten,
+and the schema keeps the `0.0` Rule-12 default (0.0 still means "shape not provided"); the
+nominal map is a GUI-side UX default only. Magnitudes are not-to-scale (§6.1).
 
 ---
 

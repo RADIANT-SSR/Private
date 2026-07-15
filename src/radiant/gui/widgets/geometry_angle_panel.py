@@ -1,24 +1,36 @@
-"""The 3D-viewer accordion side panel — annotation toggles, readout, shape + RPY editor.
+"""The Schematic-tab accordion side panel — geometry inputs, angle toggles, shape + RPY editor.
 
-This is the right-hand accordion of the Geometry "3D View" tab (arch doc §6.2/§6.4, GUI
-plan Phase 7 Part B). It is a **view + control surface only**: it emits intent signals and
-never touches the ``Sensor`` itself — the owning ``StagePane``
-(:mod:`radiant.gui.widgets.stage_center`) performs the one ``sensor.set`` per edit (one
-GUI action ↔ one API call, GUI plan §4.1).
+This is the right-hand accordion of the Geometry "Schematic" tab (arch doc §6.2/§6.4, GUI
+plan Phase 7 Part B). For the annotation/shape/RPY controls it is a **view + control
+surface only**: it emits intent signals and never touches the ``Sensor`` itself — the owning
+``StagePane`` (:mod:`radiant.gui.widgets.stage_center`) performs the one ``sensor.set`` per
+edit (one GUI action ↔ one API call, GUI plan §4.1). The embedded **Geometry inputs** form
+is the one exception: it is the Phase-5 :class:`GeometryModeForm`, which owns its own
+schema-driven edit/reject path (one ``sensor.set`` on commit) — mounted here so the user can
+edit geometry and watch the schematic + arcs update live (owner request 2026-07-14). The
+owning ``StagePane`` binds it to the same live sensor as the Inputs-tab form and re-emits its
+``parameterEdited`` so an edit here re-evaluates and re-renders the schematic.
 
 Three accordion pages (``QToolBox``):
 
-1. **Angles** — one checkbox per annotatable angle, grouped by reference frame
+1. **Geometry inputs** — the Phase-5 :class:`GeometryModeForm` (mode selectors + schema-driven
+   fields), letting the user set viewing/solar/kinematics geometry from the Schematic tab and
+   watch the scene move. The derived-angles table is deliberately **not** here (it lives on
+   the Inputs tab; the key derived values surface on the schematic itself as arc degree labels
+   + leader labels — owner request 2026-07-14).
+2. **Angles** — one checkbox per annotatable angle, grouped by reference frame
    (target-frame vs ground/platform-frame, matching the Phase-5
-   :class:`~radiant.gui.widgets.geometry_readout.GeometryReadout` split), plus the **shared**
-   ``GeometryReadout`` widget showing the live numeric readout (not duplicated — the same
-   widget class Phase 5 ships). Toggling a checkbox reveals/hides that arc in the 3D scene.
-2. **Target shape & orientation** — a combo box populated from the ``source.target.shape``
+   :class:`~radiant.gui.widgets.geometry_readout.GeometryReadout` split). Toggling a checkbox
+   reveals/hides that arc in the schematic.
+3. **Target shape & orientation** — a combo box populated from the ``source.target.shape``
    schema ``enum_values`` (never a hardcoded list — Gap 70); the per-shape **dimension**
    inputs (radius / length / width / height / base-radius, schema bounds + units, only the
    subset the selected shape uses shown — CU-131); and the yaw / pitch / roll spin boxes
    plus a "show orientation triad" checkbox. Editing any of them requests one ``sensor.set``
    (the owner performs it) and, for shape/RPY/dims, updates the on-canvas wireframe + triad.
+   Selecting a shape whose required dimensions are still the ``0.0`` "not set" sentinel seeds
+   them to :data:`NOMINAL_SHAPE_DIMENSIONS` (owner performs the sets) so the re-evaluate
+   succeeds instead of tripping the shape factory (CU-125).
 
 The annotation list is read from the ``angle_annotations`` catalog (the single source), so
 a new annotatable angle appears here without transcription. All colour/typography comes
@@ -28,7 +40,7 @@ from the QSS theme via object names (GUI plan §4.9); this file holds no colour/
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -43,7 +55,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.gui.viewer import angle_catalog
-from radiant.gui.widgets.geometry_readout import GeometryReadout
+from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 
 if TYPE_CHECKING:
     from radiant.gui.viewer.angle_catalog import AngleAnnotation
@@ -92,6 +104,34 @@ _SHAPE_DIMENSIONS: Final[Mapping[str, tuple[str, ...]]] = {
 
 _DEFAULT_DIM_BOUNDS: Final[tuple[float, float]] = (0.0, 1e6)
 
+# Nominal (sensible non-zero) body dimensions seeded when a shape is first selected while
+# its required dims are still the ``0.0`` "not set" sentinel (CU-125). Keyed shape → dotpath
+# → metres; each shape's keys are exactly its ``_SHAPE_DIMENSIONS`` required subset (a test
+# asserts that invariant). These are display/UX defaults only — the schema keeps the ``0.0``
+# Rule-12 sentinel (0.0 still means "shape not provided"); the owner applies a nominal value
+# only to a dim currently at 0.0, never overwriting a user-set non-zero value. Magnitudes are
+# not-to-scale (§6.1): they only need to be positive and give a recognisable aspect ratio.
+NOMINAL_SHAPE_DIMENSIONS: Final[Mapping[str, Mapping[str, float]]] = {
+    "sphere": {"source.target.shape_radius_m": 1.0},
+    "cylinder": {
+        "source.target.shape_radius_m": 0.5,
+        "source.target.shape_length_m": 2.0,
+    },
+    "flat_plate": {
+        "source.target.shape_length_m": 1.0,
+        "source.target.shape_width_m": 1.0,
+    },
+    "box": {
+        "source.target.shape_length_m": 1.0,
+        "source.target.shape_width_m": 1.0,
+        "source.target.shape_height_m": 1.0,
+    },
+    "cone": {
+        "source.target.shape_base_radius_m": 0.5,
+        "source.target.shape_height_m": 1.0,
+    },
+}
+
 
 class GeometryAnglePanel(QWidget):
     """Accordion side controls for the 3D geometry viewer (Part B).
@@ -136,10 +176,30 @@ class GeometryAnglePanel(QWidget):
         self._toolbox.setObjectName("geometryAngleAccordion")
         outer.addWidget(self._toolbox)
 
+        # The Phase-5 GeometryModeForm, mounted here so geometry is editable from the
+        # Schematic tab (owner request 2026-07-14). It owns its own schema-driven edit path;
+        # the owning StagePane binds it to the live sensor and re-emits its parameterEdited.
+        self._geometry_form = GeometryModeForm(self)
+        self._toolbox.addItem(self._build_inputs_page(), "Geometry inputs")
         self._toolbox.addItem(self._build_angles_page(), "Angles")
         self._toolbox.addItem(self._build_target_page(), "Target shape & orientation")
 
     # -- page construction --------------------------------------------------
+
+    def _build_inputs_page(self) -> QWidget:
+        """The **Geometry inputs** accordion page — the editable Phase-5 mode form.
+
+        Hosts the :class:`GeometryModeForm` so geometry is settable from the Schematic tab
+        (edit-and-watch, owner request 2026-07-14). The form is scrollable so the three
+        family cards stay usable in the short accordion page.
+        """
+        page = QWidget(self._toolbox)
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(6)
+        self._geometry_form.setParent(page)
+        layout.addWidget(self._geometry_form, 1)
+        return page
 
     def _build_angles_page(self) -> QWidget:
         page = QWidget(self._toolbox)
@@ -147,7 +207,9 @@ class GeometryAnglePanel(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(6)
 
-        # Annotation toggles, grouped by reference frame (target vs ground).
+        # Annotation toggles, grouped by reference frame (target vs ground). The derived-angles
+        # readout is deliberately absent here (it lives on the Inputs tab; owner request
+        # 2026-07-14) — the key derived values surface on the schematic as arc/leader labels.
         by_frame: dict[str, list[AngleAnnotation]] = {}
         for ann in angle_catalog.annotations():
             by_frame.setdefault(ann.frame, []).append(ann)
@@ -164,13 +226,7 @@ class GeometryAnglePanel(QWidget):
                 check.toggled.connect(lambda on, name=ann.name: self._emit_angle(name, on))
                 layout.addWidget(check)
                 self._angle_checks[ann.name] = check
-
-        readout_header = QLabel("Live readout", page)
-        readout_header.setObjectName("anglePanelGroupHeader")
-        layout.addWidget(readout_header)
-        # SHARED with Phase 5 — the same GeometryReadout widget class, frame-grouped.
-        self._readout = GeometryReadout(page)
-        layout.addWidget(self._readout, 1)
+        layout.addStretch(1)
         return page
 
     def _build_target_page(self) -> QWidget:
@@ -201,9 +257,7 @@ class GeometryAnglePanel(QWidget):
             spin.setDecimals(3)
             spin.setSingleStep(0.1)
             spin.setSuffix(" m")
-            spin.valueChanged.connect(
-                lambda value, path=dotpath: self._emit_dimension(path, value)
-            )
+            spin.valueChanged.connect(lambda value, path=dotpath: self._emit_dimension(path, value))
             label_widget = QLabel(label, page)
             self._dim_form.addRow(label_widget, spin)
             self._dim_spins[dotpath] = spin
@@ -316,16 +370,12 @@ class GeometryAnglePanel(QWidget):
         finally:
             self._suppress = False
 
-    def populate_readout(self, geometry_outputs: Mapping[str, Any]) -> None:
-        """Refresh the shared frame-grouped numeric readout from stage outputs."""
-        self._readout.populate(geometry_outputs)
-
     # -- accessors (tests) --------------------------------------------------
 
     @property
-    def readout(self) -> GeometryReadout:
-        """The shared frame-grouped :class:`GeometryReadout` instance."""
-        return self._readout
+    def geometry_form(self) -> GeometryModeForm:
+        """The embedded editable :class:`GeometryModeForm` (Schematic-tab geometry inputs)."""
+        return self._geometry_form
 
     def angle_checkbox(self, name: str) -> QCheckBox:
         """The annotation checkbox for *name* (KeyError if unknown)."""
@@ -355,13 +405,11 @@ class GeometryAnglePanel(QWidget):
         Uses ``not isHidden()`` (the per-row ``setRowVisible`` state) rather than
         ``isVisibleTo`` so it is correct even when the accordion page is not the current one.
         """
-        return tuple(
-            dotpath for dotpath, spin in self._dim_spins.items() if not spin.isHidden()
-        )
+        return tuple(dotpath for dotpath, spin in self._dim_spins.items() if not spin.isHidden())
 
     def set_toolbox_page(self, index: int) -> None:
         """Select an accordion page (0 = Angles, 1 = Target) — used by the shape/RPY flow."""
         self._toolbox.setCurrentIndex(index)
 
 
-__all__ = ["GeometryAnglePanel"]
+__all__ = ["NOMINAL_SHAPE_DIMENSIONS", "GeometryAnglePanel"]

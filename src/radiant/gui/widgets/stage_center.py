@@ -49,7 +49,10 @@ from radiant.gui.stage_views import (
     composition_for,
 )
 from radiant.gui.viewer.viewer_widget import GeometryViewer
-from radiant.gui.widgets.geometry_angle_panel import GeometryAnglePanel
+from radiant.gui.widgets.geometry_angle_panel import (
+    NOMINAL_SHAPE_DIMENSIONS,
+    GeometryAnglePanel,
+)
 from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
@@ -298,6 +301,13 @@ class StagePane(QWidget):
             geometry_panel.shapeRequested.connect(self._on_shape_requested)
             geometry_panel.orientationRequested.connect(self._on_orientation_requested)
             geometry_panel.dimensionRequested.connect(self._on_dimension_requested)
+            # The panel embeds an editable GeometryModeForm (owner request 2026-07-14): geometry
+            # is settable from the Schematic tab. It is registered as a geometry form so the
+            # shared bind_sensor / refresh path binds and syncs it exactly like the Inputs-tab
+            # form; its parameterEdited re-emits so an edit re-evaluates and re-renders the scene.
+            schematic_form = geometry_panel.geometry_form
+            schematic_form.parameterEdited.connect(self.parameterEdited)
+            self._geometry_forms.append(schematic_form)
             split.addWidget(geometry_viewer)
             split.addWidget(geometry_panel)
             split.setStretchFactor(0, 3)
@@ -384,6 +394,16 @@ class StagePane(QWidget):
         if sensor is not None and self._geometry_panels:
             self._configure_panels_from_schema(sensor)
 
+    def refresh_geometry_forms(self) -> None:
+        """Re-read every geometry input form from the bound sensor (Inputs + Schematic tabs).
+
+        Both the Inputs-tab form and the Schematic-tab form read the one live sensor, so a
+        value edited on either surface (or in the parameter tree) is reflected on both after
+        the next clean evaluation, keeping the two tabs in sync.
+        """
+        for form in self._geometry_forms:
+            form.refresh()
+
     def _configure_panels_from_schema(self, sensor: Sensor) -> None:
         """Populate each side panel's shape choices + RPY/dimension bounds from the live schema."""
         defs = sensor.parameter_defs()
@@ -417,17 +437,34 @@ class StagePane(QWidget):
             viewer.set_triad_visible(visible)
 
     def _on_shape_requested(self, value: str) -> None:
-        """Set the target shape (one ``sensor.set``), preview it, and re-evaluate.
+        """Set the target shape (one ``sensor.set``), seed nominal dims, preview, re-evaluate.
 
         The viewer previews the new shape immediately from the updated params against the
         last result (the glyph does not need a fresh evaluation), then the shared
-        ``parameterEdited`` path schedules the full re-run for the physics.
+        ``parameterEdited`` path schedules the full re-run for the physics. Any required
+        dimension still at the ``0.0`` "not set" sentinel is seeded to its nominal value first
+        (CU-125) so the scheduled re-evaluate succeeds instead of tripping the shape factory.
         """
         if self._sensor is None:
             return
         self._sensor.set("source.target.shape", value)
+        self._seed_nominal_dimensions(value)
         self._preview_last_result()
         self.parameterEdited.emit("source.target.shape")
+
+    def _seed_nominal_dimensions(self, shape: str) -> None:
+        """Seed *shape*'s required dims to nominal non-zero values where still unset (CU-125).
+
+        Only a dimension currently at the ``0.0`` Rule-12 "not set" sentinel is seeded; a
+        user-set non-zero value is never overwritten. Each seed is one ``sensor.set``. The
+        schema keeps the ``0.0`` default (0.0 still means "shape not provided") — this is a
+        GUI-side UX default so a freshly-picked shape evaluates cleanly.
+        """
+        if self._sensor is None:
+            return
+        for dotpath, nominal in NOMINAL_SHAPE_DIMENSIONS.get(shape, {}).items():
+            if float(self._sensor.get(dotpath)) == 0.0:
+                self._sensor.set(dotpath, nominal)
 
     def _on_orientation_requested(self, dotpath: str, value: float) -> None:
         """Set an RPY value (one ``sensor.set``), preview the tilt, and re-evaluate."""
@@ -494,7 +531,7 @@ class StagePane(QWidget):
         if self._sensor is not None:
             for geometry_viewer in self._geometry_viewers:
                 geometry_viewer.show_result(result, self._sensor)
-            self._sync_panels(stage_outputs)
+            self._sync_panels()
         for outputs in self._outputs_list:
             outputs.show_stage_outputs(self._namespace, stage_outputs)
         for metrics in self._metrics_list:
@@ -506,8 +543,13 @@ class StagePane(QWidget):
         for section in self._plot_sections:
             section.render(result)
 
-    def _sync_panels(self, geometry_outputs: dict[str, object]) -> None:
-        """Refresh each side panel's readout + shape/RPY/dimensions from the live sensor."""
+    def _sync_panels(self) -> None:
+        """Refresh each side panel's shape/RPY/dimensions from the live sensor.
+
+        The panel no longer carries the derived-angles readout (removed 2026-07-14 — it
+        duplicated the Inputs tab; the key derived values surface on the schematic itself as
+        arc/leader labels), so this syncs only the shape-library controls.
+        """
         if self._sensor is None:
             return
         shape = str(self._sensor.get("source.target.shape"))
@@ -521,7 +563,6 @@ class StagePane(QWidget):
         }
         dims = {dotpath: float(self._sensor.get(dotpath)) for dotpath in _SHAPE_DIMENSION_PATHS}
         for panel in self._geometry_panels:
-            panel.populate_readout(geometry_outputs)
             panel.set_shape(shape)
             panel.set_orientation(rpy)
             panel.set_dimensions(dims)
@@ -600,16 +641,15 @@ class StageCenter(QWidget):
             pane.bind_sensor(sensor, display_units)
 
     def refresh_forms(self) -> None:
-        """Re-read every stage's input form from its bound sensor (values + active mode).
+        """Re-read every geometry input form from its bound sensor (values + active mode).
 
         Called after a clean evaluation and when navigating to a geometry conflict, so a
-        parameter the user changed in the tree is reflected in the form. Safe only when
-        the bound sensor resolves — both callers guarantee it (a clean run, or a geometry
-        over-spec whose parameters still resolve individually).
+        parameter the user changed in the tree (or in either geometry tab's form) is
+        reflected in both the Inputs-tab and Schematic-tab forms. Safe only when the bound
+        sensor resolves — every caller guarantees it (a clean run, or a geometry over-spec
+        whose parameters still resolve individually).
         """
-        form = self._panes["geometry"].geometry_form
-        if form is not None:
-            form.refresh()
+        self._panes["geometry"].refresh_geometry_forms()
 
     def highlight_geometry_error(self, what: str, context: dict[str, object] | None) -> set[str]:
         """Highlight the geometry mode selector(s) an over/under-spec error names (task 3).

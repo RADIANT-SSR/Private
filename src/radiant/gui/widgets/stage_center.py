@@ -65,7 +65,9 @@ from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
 from radiant.gui.widgets.optics_inputs_form import OpticsInputsForm
 from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
+from radiant.gui.widgets.platform_inputs_form import PlatformInputsForm
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
+from radiant.gui.widgets.readout_inputs_form import ReadoutInputsForm
 from radiant.gui.widgets.source_inputs_form import SourceInputsForm
 from radiant.gui.widgets.spectral_integration_inputs_form import SpectralIntegrationInputsForm
 from radiant.gui.widgets.target_shape_panel import TargetShapePanel
@@ -219,6 +221,11 @@ class StagePane(QWidget):
         # re-clips the in-band spectrum, editing the integration time scales the electron budget.
         # Bound/refreshed like the source/optics/detector forms.
         self._spectral_forms: list[SpectralIntegrationInputsForm] = []
+        # The Platform + Readout instrument Inputs forms (GUI plan Phase PS-5, v1-minimal): edit
+        # a jitter/smear or read-noise/ADC/well param and the Outputs readout (+ the Readout noise
+        # budget) refresh. Bound/refreshed like the source/optics/detector/spectral forms.
+        self._platform_forms: list[PlatformInputsForm] = []
+        self._readout_forms: list[ReadoutInputsForm] = []
         self._sensor: Sensor | None = None
         # The shared session display-unit store (bound in). The panel's field values are
         # formatted through it so a unit chosen on any surface reflects on all.
@@ -342,6 +349,22 @@ class StagePane(QWidget):
             spectral_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(spectral_form)
             self._spectral_forms.append(spectral_form)
+        if spec.platform_inputs:
+            # The Platform instrument's editable inputs card (GUI plan Phase PS-5, v1-minimal):
+            # one sensor.set per edit; each accepted edit re-emits parameterEdited so the host
+            # re-evaluates and the Outputs readout refreshes (edit-and-watch).
+            platform_form = PlatformInputsForm(parent)
+            platform_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(platform_form)
+            self._platform_forms.append(platform_form)
+        if spec.readout_inputs:
+            # The Readout instrument's editable inputs card (GUI plan Phase PS-5, v1-minimal):
+            # one sensor.set per edit; each accepted edit re-emits parameterEdited so the host
+            # re-evaluates and the Outputs readout + the noise budget refresh (edit-and-watch).
+            readout_form = ReadoutInputsForm(parent)
+            readout_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(readout_form)
+            self._readout_forms.append(readout_form)
         if spec.detector_illustration:
             illustration = DetectorIllustration(parent)
             self._add_section(layout, "Detector pixel", illustration)
@@ -495,6 +518,16 @@ class StagePane(QWidget):
         """The Spectral-Integration editable-inputs form, if this stage has one (PS-4)."""
         return self._spectral_forms[0] if self._spectral_forms else None
 
+    @property
+    def platform_inputs_form(self) -> PlatformInputsForm | None:
+        """The Platform editable-inputs form, if this stage has one (Platform, PS-5)."""
+        return self._platform_forms[0] if self._platform_forms else None
+
+    @property
+    def readout_inputs_form(self) -> ReadoutInputsForm | None:
+        """The Readout editable-inputs form, if this stage has one (Readout, PS-5)."""
+        return self._readout_forms[0] if self._readout_forms else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -516,6 +549,10 @@ class StagePane(QWidget):
             detector_form.bind_sensor(sensor, display_units)
         for spectral_form in self._spectral_forms:
             spectral_form.bind_sensor(sensor, display_units)
+        for platform_form in self._platform_forms:
+            platform_form.bind_sensor(sensor, display_units)
+        for readout_form in self._readout_forms:
+            readout_form.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
@@ -668,6 +705,10 @@ class StagePane(QWidget):
             detector_form.refresh()
         for spectral_form in self._spectral_forms:
             spectral_form.refresh()
+        for platform_form in self._platform_forms:
+            platform_form.refresh()
+        for readout_form in self._readout_forms:
+            readout_form.refresh()
         self._refresh_detector_illustration()
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)

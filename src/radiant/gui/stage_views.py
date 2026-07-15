@@ -91,6 +91,8 @@ class StageSubView:
     detector_inputs: bool = False
     detector_illustration: bool = False
     spectral_inputs: bool = False
+    platform_inputs: bool = False
+    readout_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     noise_panel_chart: bool = True
@@ -143,6 +145,14 @@ class StageComposition:
         Show the Detector stage's editable inputs card — quantum efficiency / dark rate /
         pixel pitch x,y / fill factor / detector temperature as schema-driven
         :class:`FieldRow`s (Detector only, GUI plan Phase PS-3).
+    platform_inputs:
+        Show the Platform stage's editable inputs card — jitter RMS (isotropic + cross/along-
+        track) and the smear knobs (ground velocity + focal-plane smear length) as schema-driven
+        :class:`FieldRow`s (Platform only, GUI plan Phase PS-5, v1-minimal).
+    readout_inputs:
+        Show the Readout stage's editable inputs card — read noise / conversion gain / ADC bit
+        depth / full-well capacity as schema-driven :class:`FieldRow`s (Readout only, GUI plan
+        Phase PS-5, v1-minimal).
     detector_illustration:
         Show the Detector pixel schematic — a Qt-drawn, not-to-scale pixel labelled with its
         pitch (µm) and fill factor (Detector only, GUI plan Phase PS-3).
@@ -187,6 +197,8 @@ class StageComposition:
     detector_inputs: bool = False
     detector_illustration: bool = False
     spectral_inputs: bool = False
+    platform_inputs: bool = False
+    readout_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     noise_panel_chart: bool = True
@@ -204,16 +216,19 @@ _SOURCE_NOTE: Final[str] = (
     "relevance is deferred (Gap 85)."
 )
 _PLATFORM_NOTE: Final[str] = (
-    "Platform view is v1-minimal (owner-ratified: no dedicated MTF here). The smear and "
-    "jitter MTF terms appear in the Optics and Performance MTF overlays."
+    "Platform view is v1-minimal (owner-ratified: no dedicated MTF here — more detail is a "
+    "post-v1 task). The smear and jitter MTF terms appear in the Optics and Performance MTF "
+    "overlays. Platform/sensor attitude has no stage owner yet (ADR-0006 §4 / CU-122); the "
+    "target RPY triad ships from source.target.*."
 )
 _SPECTRAL_NOTE: Final[str] = (
     "A per-wavelength noise spectrum is deferred (Gap 92); noise is scalar per term, "
     "computed post-integration (Rule 8) — see the Detector view for the noise budget."
 )
 _READOUT_NOTE: Final[str] = (
-    "Readout view is v1-minimal (owner-ratified: TBD). The full noise budget is on the "
-    "Detector view (result.plot.noise_budget)."
+    "Readout view is v1-minimal (owner-ratified — more detail is a post-v1 task). The noise "
+    "budget shown here (read noise + quantization live in this stage) is the same "
+    "result.plot.noise_budget as the Detector view."
 )
 
 
@@ -293,8 +308,16 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             ),
         ),
     ),
-    # v1-minimal: a scalar outputs readout (jitter/smear/EE_box) + a themed note.
-    "platform": StageComposition(title="Platform", outputs=True, note=_PLATFORM_NOTE),
+    # The Platform stage instrument (GUI plan Phase PS-5, arch doc §4.4.1 Platform row):
+    # v1-minimal (owner-ratified — no dedicated MTF). Editable jitter/smear inputs beside the
+    # scalar outputs readout (jitter_sigma_x/y_m, smear_width_m, EE_box) + a themed v1-minimal
+    # note (attitude ownership deferred, CU-122). Single flat pane.
+    "platform": StageComposition(
+        title="Platform",
+        platform_inputs=True,
+        outputs=True,
+        note=_PLATFORM_NOTE,
+    ),
     # The Spectral-Integration stage instrument (GUI plan Phase PS-4, arch doc §4.4.1
     # Spectral-Integration rows): the editable band + acquisition inputs (filter edges +
     # integration time, one sensor.set per edit — edit the band and the in-band spectrum
@@ -334,8 +357,18 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             ),
         ),
     ),
-    # v1-minimal: a scalar outputs readout + a themed note pointing at the noise budget.
-    "readout": StageComposition(title="Readout", outputs=True, note=_READOUT_NOTE),
+    # The Readout stage instrument (GUI plan Phase PS-5, arch doc §4.4.1 Readout row):
+    # v1-minimal (owner-ratified). Editable read-noise/ADC/well inputs beside the scalar outputs
+    # readout (signal_dn_final, sigma_total_e, total_well_e, well_fill_fraction, …) + the scalar
+    # noise budget (read noise + quantization live in this stage — §4.7 relocates the Noise
+    # Budget detail tab to the Detector/Readout views) + a themed v1-minimal note. Single flat pane.
+    "readout": StageComposition(
+        title="Readout",
+        readout_inputs=True,
+        outputs=True,
+        plots=(PlotSpec("Noise budget", "noise_budget"),),
+        note=_READOUT_NOTE,
+    ),
     # All metrics (values + units) + system MTF and the MTF budget.
     "performance": StageComposition(
         title="Performance",

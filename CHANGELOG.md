@@ -21,6 +21,22 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows,
+  view-only).** The Optics stage's contextual center becomes the richest per-stage view and
+  the **first production use of the tabbed sub-view hook** (`StageComposition.subviews`): four
+  tabs — **Inputs** (editable optics `FieldRow`s — aperture / focal length / f-number /
+  obscuration / spiders / scalar throughput / WFE / optics temperature — beside the
+  **FINAL-regime** outputs readout, `stage_outputs["optics"]["regime"]`, Rule 10), **MTF** (the
+  per-term MTF@Nyquist table + `mtf()` overlay via `MtfPanel`, plus the `mtf_budget()` bar),
+  **PSF + Pupil** (`psf()` beside the FP-2 `pupil_amplitude()` apodization map and
+  `pupil_phase()` wavefront-error map in waves), and **Throughput** (the FP-3
+  `optical_throughput()` τ_opt(λ) + per-element `coating_spectra()`). Editing any optics input
+  is one `sensor.set` (validate-on-a-clone reject discipline) and re-evaluates, so every tab
+  refreshes — editing `wfe_rms_waves` makes the pupil-phase map gain structure, editing the
+  aperture updates MTF/PSF, editing the coating updates throughput (edit-and-watch). New widget
+  `OpticsInputsForm`; the `optics` composition gains its four `StageSubView` tabs (the hook is
+  now used by Geometry and Optics). Golden suite untouched (the GUI is a view over the scripting
+  API).
 - **GUI Source stage instrument (GUI plan Phase PS-1, arch doc §4.4.1 Source rows,
   view-only).** The Source stage's contextual center is brought to the Geometry-screen
   standard. It now shows: the pre-atmosphere **target + background emission spectra**

@@ -493,14 +493,17 @@ only; the actionable what/why/action is still shown by the error dialog and the 
 panel, and no geometry validation is invented GUI-side. The 3D scene viewer remains GUI plan
 Phases 6–7.
 
-*Tabbed sub-view hook (provisioned, deferred content).* A stage may declare named
-**sub-views**; when two or more are present, `StagePane` renders them as a `QTabWidget`
-(one scoped composite per tab) instead of a single scroll pane, so a future stage with
-substantial, separable content (e.g. Optics pupil vs. coating diagnostics) can split it
-into tabs without a widget rewrite. **v1 stages declare none** — every stage renders as a
-single pane today; the hook is the data seam (`StageComposition.subviews` of
-`StageSubView`, `radiant.gui.stage_views`) a later detailed phase fills. A stage with zero
-or one sub-view falls back to the single flat pane.
+*Tabbed sub-view hook (in production).* A stage may declare named **sub-views**; when two
+or more are present, `StagePane` renders them as a `QTabWidget` (one scoped composite per
+tab) instead of a single scroll pane, so a stage with substantial, separable content can
+split it into tabs without a widget rewrite. The **Geometry** stage (Inputs | Schematic)
+was the first to declare sub-views; the **Optics** stage (GUI plan Phase PS-2) is the first
+*production* use of the full mechanism — four tabs (**Inputs | MTF | PSF + Pupil |
+Throughput**) carrying the richest per-stage content (editable inputs + FINAL-regime
+outputs, the MTF table + overlay + budget, the PSF + FP-2 complex-pupil maps, and the FP-3
+throughput + coating spectra). The hook is the data seam (`StageComposition.subviews` of
+`StageSubView`, `radiant.gui.stage_views`); a stage with zero or one sub-view falls back to
+the single flat pane.
 
 *Outputs pin affordance (Step B, CU-115 clause).* Each Outputs / Metrics row carries a pin
 control. A stage-output pin adds a card that **re-reads `stage_outputs[stage][key]` on each
@@ -545,11 +548,12 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 | **Source** | Tentative-regime + classification outputs | **[SHIPPED — GUI plan Phase PS-1]** `OutputsReadout` over `stage_outputs["source"]` — the tentative regime (`regime_tentative`, Rule 10) plus `projected_area_m2` (m²), `range_m` (m), `fill_fraction`, `angular_extent_rad` (rad), each with its unit (units from `api.stage_output_units`) |
 | **Atmosphere** | τ_atm & L_path vs λ plot | **[exists]** `result.plot.spectral_atmosphere()` (twin-axis τ_atm + L_path) |
 | **Atmosphere** | Source & background radiance **at aperture** (post-atmosphere) | **[exists]** `result.plot.spectral_source()` — draws `at_aperture_target` + `at_aperture_background` frames (the at-aperture radiances the owner wants shown here now that atmosphere is applied) |
-| **Optics** | MTF | **[exists]** `result.plot.mtf()` |
-| **Optics** | PSF | **[exists]** `result.plot.psf()` (`stage_outputs["optics"]["effective_psf"]`) |
-| **Optics** | Pupil apodization (amplitude map) | **[GAP 89]** — the complex pupil is built internally (`make_pupil_amplitude`) but not persisted in `stage_outputs`, and `result.plot` has no pupil accessor |
-| **Optics** | Pupil wavefront-error (phase) map | **[GAP 89]** — same missing complex-pupil surface (`make_pupil_phase_for_wfe` output not persisted); amplitude + phase are two faces of one pupil, filed as one gap |
-| **Optics** | Coating performance & transmission spectra | **[GAP 90]** — per-element R/T/ε spectra live in `stage_outputs["optics"]["elements"]` (`OpticalElement.transmittance`/`reflectance`/`declared_emissivity` `SpectralData`) and system throughput in `tau_opt_spectral`, but no `result.plot` accessor renders them |
+| **Optics** | MTF | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.mtf()` overlay + the per-term MTF@Nyquist table (`MtfPanel`) + the `mtf_budget()` bar, in the Optics **MTF** tab |
+| **Optics** | PSF | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.psf()` (`stage_outputs["optics"]["effective_psf"]`), in the Optics **PSF + Pupil** tab |
+| **Optics** | Pupil apodization (amplitude map) | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.pupil_amplitude()` (Gap 89 closed, FP-2) — the dimensionless transmission across the complex pupil (obscuration + spiders), in the **PSF + Pupil** tab |
+| **Optics** | Pupil wavefront-error (phase) map | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.pupil_phase()` (Gap 89 closed, FP-2) — the WFE map in **waves** (colorbar carries the unit; an unaberrated config renders flat, a non-zero `wfe_rms_waves` shows structure), in the **PSF + Pupil** tab |
+| **Optics** | Coating performance & transmission spectra | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.optical_throughput()` (system τ_opt(λ)) + `result.plot.coating_spectra()` (per-element R/T/ε) (Gap 90 closed, FP-3), in the Optics **Throughput** tab |
+| **Optics** | Editable optics inputs + final regime | **[SHIPPED — GUI plan Phase PS-2]** `OpticsInputsForm` — aperture / focal length / f-number / obscuration / spiders / scalar throughput / WFE / optics temperature as shared `FieldRow`s (one `sensor.set` per edit, the edit+reject discipline), beside the FINAL-regime `OutputsReadout` (`stage_outputs["optics"]["regime"]`, Rule 10), in the Optics **Inputs** tab; editing re-evaluates and every tab refreshes (edit-and-watch) |
 | **Platform** | Minimal for v1 (does **not** need MTF) | **[TBD]** — v1-minimal; content deferred. The smear/jitter MTF terms remain reachable in the Optics/Performance MTF overlay, so Platform needs no dedicated MTF view |
 | **Spectral Integration** | Final plot of the signal spectral radiance | **[exists]** `result.plot.spectral_inband()` (post-optics integrand frame) |
 | **Spectral Integration** | Noise terms alongside the signal | **[exists (scalar)]** `result.plot.noise_budget()` — but noise is **scalar per term** (`NoiseTerm.value_e`, e- RMS, computed post-integration per Rule 8); a **per-wavelength** noise decomposition to show noise *as a spectrum* is **[GAP 92]** |

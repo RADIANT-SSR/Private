@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS
+
+**Discovered**: Console-open macOS fix (Tools → Python Console), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — usability, non-blocking; **pre-existing**, surfaced while fixing the console shortcut. On modern macOS the top-row keys default to hardware functions (brightness / Mission Control / media), so a bare `F5` / `F6` / `F7` app shortcut only fires when the user also holds **Fn** (or has enabled "Use F1, F2, etc. keys as standard function keys"). RADIANT binds Evaluate = `F5`, Show/Hide Parameter Panel = `F6`, Show/Hide Right Rail = `F7`. The equivalent menu items and buttons still work; only the bare-key accelerators are affected. (The console shortcut was moved off `Ctrl+` `` and onto `Ctrl+Shift+P` in this same fix specifically to avoid a keyboard-reachability trap, but the pre-existing F-key bindings were left as-is — out of this task's scope.)
+**File**: `src/radiant/gui/main_window.py` (`run.evaluate` `shortcut="F5"`, `view.toggle_params` `"F6"`, `view.toggle_rail` `"F7"`).
+**Symptom**: On a stock Mac, pressing F5/F6/F7 triggers the OS hardware function, not the RADIANT action, unless Fn is held. The action is still reachable from the menu (Run → Evaluate, View → Show/Hide …) and, for Evaluate, the right-rail Run button.
+**Why it still matters**: Keyboard-reachability consistency across platforms — the same class of "the keypress never reaches the app on macOS" problem that hid the console. Low severity because every affected action has a visible menu/button fallback.
+**Suggested fix**: (b) stand-alone task — either add Ctrl/Cmd-based alternates (e.g. `Ctrl+Return` for Evaluate) alongside the F-keys, or document the Fn requirement in the GUI docs. Effort S; category D (view-only). Re-audit at the next View/Run-menu touch or a macOS acceptance pass.
+
 ### CU-141 — Undo of a Source-shape change does not reverse the nominal dimensions seeded alongside it
 
 **Discovered**: GUI Development Plan Phase 9 (undo/redo), 2026-07-15, branch `gui-framework-plots`

@@ -25,6 +25,8 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from PySide6.QtGui import QKeySequence  # noqa: E402
+
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
 from radiant.gui.widgets.scripting_console import ScriptingConsole  # noqa: E402
@@ -72,6 +74,53 @@ class TestConsoleToolWiring:
         window = _load_window(qtbot)
         # The registry carries the dock's checkable toggle action (added to the View menu).
         assert "view.toggle_console" in window._actions
+
+    def test_console_shortcut_avoids_macos_reserved_binding(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The console shortcut is Ctrl+Shift+P, NOT the macOS-reserved Ctrl+` (⌘`).
+
+        Qt maps portable "Ctrl" to the macOS Command key, so the old Ctrl+` became ⌘` — an
+        OS-reserved shortcut (cycle windows) that never reached the app, so the console
+        "wouldn't open" on macOS (owner report 2026-07-15). Assert the string, which is what
+        Qt hands the platform; the actual on-screen keypress is manual-verify (no cocoa
+        display in CI).
+        """
+        window = _load_window(qtbot)
+        seq = window.action("tools.console").shortcut()
+        assert seq == QKeySequence("Ctrl+Shift+P")
+        assert seq != QKeySequence("Ctrl+`")
+
+    def test_console_reveal_has_adequate_height(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Triggering Tools → Python Console reveals a usable-height dock, never a sliver.
+
+        The console widget carries a >=180 px minimum-height floor so a revealed bottom
+        dock is always a visible panel even if cocoa hands it zero height before layout;
+        the window also resizes the dock to a larger target on reveal. The dock-size in
+        actual pixels once shown is asserted here; the on-screen reveal on macOS is
+        manual-verify.
+        """
+        window = _load_window(qtbot)
+        window.show()
+        qtbot.waitExposed(window)
+
+        window.action("tools.console").trigger()
+        dock = window._console_dock
+        assert dock.isVisible()
+        # Layout-independent floor: the console can never be a zero/sliver height.
+        assert window.console.minimumHeight() >= 180
+        # And once the window is laid out, the revealed dock actually honours that floor.
+        assert dock.height() >= 180
+
+    def test_view_toggle_also_reveals_console(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The View → Show/Hide Python Console toggle reveals the dock too (not just Tools)."""
+        window = _load_window(qtbot)
+        dock = window._console_dock
+        assert not dock.isVisible()
+
+        toggle = window.action("view.toggle_console")
+        toggle.trigger()
+        assert not dock.isHidden()  # revealed via the View-menu toggle
+        toggle.trigger()
+        assert dock.isHidden()  # and hides again
 
 
 class TestReplLifecycle:

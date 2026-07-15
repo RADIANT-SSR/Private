@@ -314,6 +314,14 @@ retroactively reconstructed.
   test, and removal of the now-unwired lifted VTK scene library (CU-128–CU-133).
 
 ### Fixed
+- **GUI scripting console now opens on macOS (owner report 2026-07-15, view-only).** The
+  **Tools → Python Console** shortcut was the portable ``Ctrl+` ``, which Qt maps to ⌘` on
+  macOS — an OS-reserved shortcut (cycle windows) that never reaches the app, so the console
+  "wouldn't open". Rebound to **Ctrl+Shift+P** (⌘⇧P on macOS; unreserved and free on
+  Windows/Linux, no collision with existing bindings). The reveal path is also hardened so
+  the menu item and shortcut always produce a clearly-visible console: the dock is raised
+  front-most and resized to a usable height on reveal, and the console carries a ≥180 px
+  minimum height so it is never a zero/sliver-height strip. Golden untouched.
 - **GUI geometry Schematic tab — inputs no longer clipped horizontally (owner bug
   2026-07-14, view-only).** The right-column "Geometry inputs" form was wider than its
   accordion column, so the value fields (e.g. `8000 m`, `1.5708 rad`) were cut off behind a

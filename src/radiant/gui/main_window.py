@@ -74,6 +74,13 @@ _RAIL_DOCK_WIDTH: int = 288
 # reversible; older commands fall off the bottom of the stack.
 _UNDO_LIMIT: int = 20
 
+# Height (px) the console dock is resized to when revealed, so a freshly-shown bottom
+# dock is a usable panel — never a zero/sliver-height strip. On macOS/cocoa a bottom
+# dock revealed before the window is laid out can otherwise come back at zero height
+# (owner report 2026-07-15); the console widget also carries its own minimum height as a
+# floor (see ``scripting_console._CONSOLE_MIN_HEIGHT``).
+_CONSOLE_DOCK_HEIGHT: int = 240
+
 # The RADIANT config file filter for the Open / Save-As dialogs.
 _YAML_FILTER: str = "RADIANT config (*.yaml *.yml);;All files (*)"
 
@@ -333,9 +340,16 @@ class RADIANTMainWindow(QMainWindow):
         # The embedded scripting console (arch doc §2.5/§4.6) — a global tool like the
         # Inspector. Disabled until a sensor is loaded (nothing to bind); enabled in
         # _wire_evaluate_loop. Its trigger toggles the console dock (built later in __init__).
+        # Shortcut is Ctrl+Shift+P (⌘⇧P on macOS) — deliberately NOT the older Ctrl+` :
+        # Qt maps portable "Ctrl" to the macOS Command key, so Ctrl+` became ⌘`, which is
+        # an OS-reserved system shortcut (cycle windows of the active app) that never reached
+        # the app, so the console "wouldn't open" on macOS (owner report 2026-07-15). ⌘⇧P is
+        # unreserved on macOS and free on Windows/Linux, and collides with no other RADIANT
+        # binding (Ctrl+I, Ctrl+Z/Ctrl+Shift+Z, F5/F6/F7, Ctrl+1..9, Ctrl+O/S/Q/F/R).
         console_action = self._add_action(
-            tools_menu, "tools.console", "Python Console", enabled=False, shortcut="Ctrl+`"
+            tools_menu, "tools.console", "Python Console", enabled=False, shortcut="Ctrl+Shift+P"
         )
+        console_action.setStatusTip("Show or hide the scripting console (Ctrl+Shift+P)")
         console_action.triggered.connect(self._toggle_console)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
@@ -477,8 +491,26 @@ class RADIANTMainWindow(QMainWindow):
         if not self._console_dock.isHidden():
             self._console_dock.setVisible(False)
             return
-        self._console_dock.setVisible(True)
-        self._console_dock.raise_()
+        self._reveal_console()
+
+    def _reveal_console(self) -> None:
+        """Make the console dock reliably visible, front-most, and adequately sized.
+
+        The menu item and the shortcut must ALWAYS produce a clearly-visible console, so
+        revealing does more than ``setVisible(True)``: the dock is raised above any other
+        bottom dock (front-most tab if it is tabbed behind one) and resized to a usable
+        height. On macOS/cocoa a bottom dock revealed before layout can otherwise come back
+        at zero height (owner report 2026-07-15); the resize plus the console's own minimum
+        height (``scripting_console._CONSOLE_MIN_HEIGHT``) guarantee it is never a sliver.
+        Then focus lands in the input box so the operator can type immediately.
+        """
+        dock = self._console_dock
+        dock.setVisible(True)
+        dock.raise_()  # front-most if tabbed behind another bottom dock
+        # Give it a concrete, usable height. resizeDocks is a no-op if the layout cannot
+        # honour it yet (e.g. before the window is shown); the widget's minimum height is
+        # the floor that still prevents a zero/sliver dock in that case.
+        self.resizeDocks([dock], [_CONSOLE_DOCK_HEIGHT], Qt.Orientation.Vertical)
         self._console.input_box.setFocus()
 
     def _on_console_state_changed(self) -> None:

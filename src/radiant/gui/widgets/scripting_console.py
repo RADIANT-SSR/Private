@@ -79,6 +79,12 @@ if TYPE_CHECKING:
 _PROMPT: Final[str] = ">>> "
 _CONT: Final[str] = "... "
 
+# Minimum on-screen height (px) for the console. This is the floor that keeps a revealed
+# console dock from collapsing to a zero/sliver height the operator cannot see — a failure
+# observed when the bottom dock is revealed before layout on macOS/cocoa (owner report
+# 2026-07-15). The window also resizes the dock to a larger target on reveal.
+_CONSOLE_MIN_HEIGHT: Final[int] = 180
+
 # A console command that mutates the live sensor makes the GUI stale. In-place mutation
 # (a shared object) cannot be detected by identity, so the canonical mutation surface —
 # ``sensor.set*`` and ``sensor.load`` (arch doc §3.1) — is detected in the command source;
@@ -179,6 +185,9 @@ class ScriptingConsole(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("scriptingConsole")
+        # Floor the height so a revealed console dock is always a visible panel, never a
+        # zero/sliver strip (owner report 2026-07-15 — macOS/cocoa bottom-dock reveal).
+        self.setMinimumHeight(_CONSOLE_MIN_HEIGHT)
 
         # Live-object namespace. `sensor`/`result`/`plot` are (re)bound by the window; the
         # convenience `inspect_result` is the public inspect surface (Gap 87 sugar), and

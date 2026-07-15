@@ -654,8 +654,14 @@ working with it open.
 *As shipped (GUI plan Phase 8, 2026-07-15).* The MATLAB-style command window is a **global
 tool**, not a per-stage tab — the same precedent as the Inspector (§4.6). It is a
 :class:`ScriptingConsole` hosted in a bottom :class:`QDockWidget`, **hidden at launch** and
-revealed from **Tools → Python Console** (`Ctrl+`` ` ``) or the View-menu show/hide toggle;
-the action is enabled once a sensor is loaded (nothing to bind before that).
+revealed from **Tools → Python Console** (`Ctrl+Shift+P`) or the View-menu show/hide toggle;
+the action is enabled once a sensor is loaded (nothing to bind before that). The shortcut is
+`Ctrl+Shift+P` (⌘⇧P on macOS) rather than the earlier ``Ctrl+` ``: Qt maps portable "Ctrl"
+to the macOS Command key, so ``Ctrl+` `` became ⌘` — an **OS-reserved** shortcut (cycle
+windows of the active app) that never reached the app, so the console would not open on
+macOS (owner report 2026-07-15). On reveal the dock is raised front-most and resized to a
+usable height, and the console carries a ≥180 px minimum height, so a revealed console is
+never a zero/sliver-height strip (a macOS/cocoa bottom-dock reveal hazard).
 
 **Live-object binding.** The console namespace carries live references: `sensor` (the
 window's live `Sensor` — the *same* object the parameter tree edits, so a `sensor.set(...)`
@@ -1290,7 +1296,7 @@ View   Show/Hide Parameter Panel (F6) · Show/Hide Detail Panel (F7) ·
        Stage: … (Ctrl+1..9) · Dark/Light Theme · Font Size +/−
 Run    Evaluate (F5) · Validate Only (Ctrl+R) ·
        Run Sweep…  [v1.1] · Monte Carlo…  [v1.1] · Batch Run…  [v1.1]
-Tools  Python Console · Parameter Schema Browser · Explain Parameter… · Preferences…
+Tools  Python Console (Ctrl+Shift+P) · Parameter Schema Browser · Explain Parameter… · Preferences…
 Help   Documentation · Example Configs · About RADIANT
 ```
 

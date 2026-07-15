@@ -12,14 +12,23 @@
 
 ## Open
 
-### CU-143 — Scripting window Pass 2: the multi-tab script Editor pane
+### CU-145 — Script Editor has syntax highlighting but no line-number margin
 
-**Discovered**: Scripting window Pass 1 (separate window + Command Window + Workspace), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — planned follow-on, **owner-scoped**. The owner's scripting-window vision has three panes: a multi-tab script **Editor**, the **Command Window** (live REPL), and the **Workspace** (live variable browser). Pass 1 (this task) shipped the separate window shell + Command Window + Workspace; the Editor was explicitly deferred to Pass 2 and **not** built now. The `ScriptingWindow` splitter is laid out so the Editor can be added as the top/main pane above the Command Window + Workspace row without restructuring.
-**File**: `src/radiant/gui/widgets/scripting_window.py` (the host window; add an editor pane), plus a new `script_editor_*.py` widget (one-per-file, Rule 19).
-**Symptom**: The scripting window has no script Editor — the operator can run one-off commands in the Command Window but cannot open / write / save / run a multi-line `.py` script from the window. This is the third MATLAB-style pane the owner asked for.
-**Why it still matters**: Completes the ratified scripting-window vision (a MATLAB-like Editor + Command Window + Workspace). Command Window + Workspace alone cover interactive querying; the Editor covers authored, saved, re-runnable scripts.
-**Suggested fix**: (b) stand-alone task (Pass 2) — a multi-tab script editor (open / write / save / run into the shared namespace), hosted as the top/main pane of the existing `ScriptingWindow` splitter, reusing the same live `sensor`/`result` namespace and the Command Window's execution + coherence path. Effort M; category D (view-only). Re-audit when Pass 2 is chartered.
+**Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — nice-to-have polish, non-blocking. Pass 2 shipped a Python `QSyntaxHighlighter` (keywords / strings / numbers / comments / def-class names, from the theme's `syntax_*` tokens) but deliberately **skipped** a line-number gutter to keep the pass focused on open/write/save/run (the chartered nice-to-have was "include if cleanly done; else skip and CU it"). Without a gutter the author cannot read the line a Run traceback names (`File "<script:foo.py>", line 7`) against a visible margin.
+**File**: `src/radiant/gui/widgets/script_tab.py` (`ScriptTab`, a plain `QPlainTextEdit`; a gutter needs a side-area paint + `blockCountChanged`/`updateRequest` wiring).
+**Symptom**: The Editor code pane shows no line numbers; a traceback's line number must be counted by hand.
+**Why it still matters**: Editor usability — line numbers are standard for locating a run error and for Run-Selection targeting. No correctness/physics impact.
+**Suggested fix**: (a) inline-fix-now candidate — add the standard `QPlainTextEdit` line-number-area pattern (a sibling widget painting numbers in the left margin, sized from `blockCount`), themed from tokens. Effort S; category D (view-only). Re-audit at the next scripting-window touch or a v1.1 polish pass.
+
+### CU-144 — Script Editor closing / New-tab discards unsaved edits without a confirmation prompt
+
+**Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — UX safety gap, non-blocking; the same class as CU-140 (main-window File → New/Open). Closing a *dirty* Editor tab (the tab-bar `×`) discards its unsaved edits with no "save changes?" prompt; the `*` marker is the visible signal but there is no guard before the destructive close. A Save/Discard/Cancel `QMessageBox` was deliberately omitted for v1 to keep the offscreen tests free of a modal loop and the scope minimal (mirroring CU-140).
+**File**: `src/radiant/gui/widgets/script_editor.py` (`ScriptEditor._on_close_requested` — removes the tab with no dirty check).
+**Symptom**: Closing a tab with unsaved edits loses them without asking. (App/window close does not force-save either, but the buffers are in-memory scratch, not the session config.)
+**Why it still matters**: Data-loss safety — the standard desktop pattern prompts on discard. Low severity: scripts are easily re-typed scratch buffers and the `*` marker mitigates surprise, but an accidental `×` click still loses work.
+**Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `tab.is_dirty` before a tab close (and window close), with a test hook to auto-answer under the offscreen QPA; fold together with CU-140's main-window prompt. Effort S; category D. Re-audit with CU-140 or at the acceptance walkthrough.
 
 ### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS
 
@@ -430,6 +439,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-143 — Scripting window Pass 2: the multi-tab script Editor pane — RESOLVED 2026-07-15 (commit `8d3dff6`)
+
+**Discovered**: Scripting window Pass 1 (separate window + Command Window + Workspace), 2026-07-15, branch `gui-framework-plots`. **Resolution**: shipped the third pane — a multi-tab Python **Editor** (`ScriptEditor` = a `QTabWidget` of `ScriptTab` code panes) — as the top/main pane of `ScriptingWindow`, above the Pass-1 Command Window + Workspace (an outer vertical splitter over the Pass-1 horizontal one). The Editor opens / writes / saves / runs multiple `.py` scripts: per-tab file name + unsaved-edits `*` marker; a File menu + toolbar for **New / Open / Open Recent / Save / Save As** over plain `.py` text (`Ctrl+N/O/S`, `Ctrl+Shift+S`; recent-scripts persisted via `SettingsStore`, distinct from the config recent list); syntax highlighting from the theme's `syntax_*` tokens (`PythonHighlighter`, re-applied on the light/dark toggle via `ScriptingWindow.set_theme`). **Run** (F5 / `Ctrl+Return` / toolbar) and **Run Selection** (`Ctrl+Shift+Return`) execute the active tab through the new `ScriptingConsole.run_script` — in the *same* shared namespace the command line and Workspace use, so a script's top-level `x = result.snr()` leaves `x` usable at the command line and visible in the Workspace; stdout/stderr and any traceback route to the Command Window (surfaced, never swallowed — Rule 17); and a `sensor.set(...)` marks the main GUI stale exactly like a typed command (the shared coherence path). Covered by `test_script_editor.py` (13 tests: New/independent tabs, dirty marker, Open→recent, Save round-trip, Run shares the namespace, Run Selection, traceback surfaced, coherence). Lock-step: arch doc §4.6.1 updated (window now complete: Editor + Command Window + Workspace); CHANGELOG `[Unreleased] → Added`. View-only (Category D); goldens untouched. Deferred nice-to-haves filed as CU-144 (close-tab discard prompt) and CU-145 (line-number gutter).
 
 ### CU-134 — `gui` extra still pins `pyvista`/`pyvistaqt` although no `radiant.gui` code imports them — RESOLVED 2026-07-15 (commit `50cdb05`)
 

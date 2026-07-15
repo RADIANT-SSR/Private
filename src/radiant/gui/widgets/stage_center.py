@@ -51,6 +51,8 @@ from radiant.gui.stage_views import (
     composition_for,
 )
 from radiant.gui.viewer.viewer_widget import GeometryViewer
+from radiant.gui.widgets.detector_illustration import DetectorIllustration
+from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
 from radiant.gui.widgets.geometry_angle_panel import (
     NOMINAL_SHAPE_DIMENSIONS,
     GeometryAnglePanel,
@@ -205,6 +207,12 @@ class StagePane(QWidget):
         # The Optics-instrument Inputs form (GUI plan Phase PS-2): edit an optics param and
         # every diagnostic tab refreshes (edit-and-watch). Bound/refreshed like the source form.
         self._optics_forms: list[OpticsInputsForm] = []
+        # The Detector-instrument Inputs form + pixel illustration (GUI plan Phase PS-3): edit a
+        # detector param and every tab refreshes — the dark rate shifts the noise pie, the pixel
+        # pitch redraws the illustration + PSF grid. The illustration is drawn from the live
+        # sensor's pixel geometry (populated each result, edit-and-watch).
+        self._detector_forms: list[DetectorInputsForm] = []
+        self._detector_illustrations: list[DetectorIllustration] = []
         self._sensor: Sensor | None = None
         # The shared session display-unit store (bound in). The panel's field values are
         # formatted through it so a unit chosen on any surface reflects on all.
@@ -312,6 +320,18 @@ class StagePane(QWidget):
             optics_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(optics_form)
             self._optics_forms.append(optics_form)
+        if spec.detector_inputs:
+            # The Detector instrument's editable inputs card (GUI plan Phase PS-3): one
+            # sensor.set per edit; each accepted edit re-emits parameterEdited so the host
+            # re-evaluates and every Detector tab (Noise pie, illustration, PSF grid) refreshes.
+            detector_form = DetectorInputsForm(parent)
+            detector_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(detector_form)
+            self._detector_forms.append(detector_form)
+        if spec.detector_illustration:
+            illustration = DetectorIllustration(parent)
+            self._add_section(layout, "Detector pixel", illustration)
+            self._detector_illustrations.append(illustration)
         if spec.outputs:
             outputs = OutputsReadout(parent)
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
@@ -369,7 +389,10 @@ class StagePane(QWidget):
             self._add_section(layout, "MTF budget", mtf_panel)
             self._mtf_panels.append(mtf_panel)
         if spec.noise_panel:
-            noise_panel = NoiseBudgetPanel(parent)
+            # The Detector view suppresses the embedded bar (noise_panel_chart=False) so the
+            # framework noise **pie** is the primary chart (drawn as a plot section) and the
+            # panel contributes only the table + click-to-explain (GUI plan Phase PS-3).
+            noise_panel = NoiseBudgetPanel(parent, show_chart=spec.noise_panel_chart)
             self._add_section(layout, "Noise budget", noise_panel)
             self._noise_panels.append(noise_panel)
         for plot_spec in spec.plots:
@@ -443,6 +466,16 @@ class StagePane(QWidget):
         """The Optics editable-inputs form, if this stage has one (Optics, PS-2)."""
         return self._optics_forms[0] if self._optics_forms else None
 
+    @property
+    def detector_inputs_form(self) -> DetectorInputsForm | None:
+        """The Detector editable-inputs form, if this stage has one (Detector, PS-3)."""
+        return self._detector_forms[0] if self._detector_forms else None
+
+    @property
+    def detector_illustration(self) -> DetectorIllustration | None:
+        """The Detector pixel schematic, if this stage has one (Detector, PS-3)."""
+        return self._detector_illustrations[0] if self._detector_illustrations else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -460,6 +493,8 @@ class StagePane(QWidget):
             source_form.bind_sensor(sensor, display_units)
         for optics_form in self._optics_forms:
             optics_form.bind_sensor(sensor, display_units)
+        for detector_form in self._detector_forms:
+            detector_form.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
@@ -608,6 +643,9 @@ class StagePane(QWidget):
             source_form.refresh()
         for optics_form in self._optics_forms:
             optics_form.refresh()
+        for detector_form in self._detector_forms:
+            detector_form.refresh()
+        self._refresh_detector_illustration()
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)
         # The 3D viewer needs the full result + the live sensor (for shape/optics params);
@@ -626,6 +664,26 @@ class StagePane(QWidget):
             noise_panel.show_result(result)
         for section in self._plot_sections:
             section.render(result)
+
+    def _refresh_detector_illustration(self) -> None:
+        """Redraw the pixel schematic from the live sensor's pixel geometry (edit-and-watch).
+
+        Reads the pitch in input units (µm) and the fill factor via the public
+        ``Sensor.get_input`` surface (no unit maths here, Rule 2 — display only), so editing
+        the pitch or fill factor on the Inputs tab redraws the pixel next evaluation.
+        """
+        if self._sensor is None or not self._detector_illustrations:
+            return
+
+        def _num(dotpath: str, fallback: float) -> float:
+            value = self._sensor.get_input(dotpath) if self._sensor is not None else None
+            return fallback if value is None else float(value)
+
+        pitch_x = _num("detector.pixel_pitch_x_um", 0.0)
+        pitch_y = _num("detector.pixel_pitch_y_um", 0.0)
+        fill = _num("detector.fill_factor", 1.0)
+        for illustration in self._detector_illustrations:
+            illustration.set_pixel_geometry(pitch_x, pitch_y, fill)
 
     def _sync_panels(self) -> None:
         """Refresh each shape panel's shape/RPY/dimensions from the live sensor.

@@ -81,9 +81,10 @@ class NoiseBudgetPanel(QWidget):
         The owning widget, if any.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, show_chart: bool = True) -> None:
         super().__init__(parent)
         self.setObjectName("noiseBudgetPanel")
+        self._show_chart = show_chart
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -126,7 +127,15 @@ class NoiseBudgetPanel(QWidget):
         self._canvas.setMinimumHeight(_CANVAS_MIN_HEIGHT)
 
         content_layout.addLayout(left, 1)
-        content_layout.addWidget(self._canvas, 2)
+        # The Detector view suppresses the embedded bar (``show_chart=False``): the noise
+        # **pie** (result.plot.noise_pie) is the primary chart there, drawn as its own section,
+        # so the bar would be a redundant second mark of the same data (owner: "a pie, not a
+        # bar"). The panel then contributes only the per-term table + click-to-explain, which
+        # take the full width. Every other consumer keeps the bar beside the table.
+        if self._show_chart:
+            content_layout.addWidget(self._canvas, 2)
+        else:
+            self._canvas.setVisible(False)
 
         self._stack.addWidget(self._empty)
         self._stack.addWidget(self._content)
@@ -171,7 +180,8 @@ class NoiseBudgetPanel(QWidget):
         self._result = result
         self._terms = tuple(result.noise_terms)
         self._fill_table()
-        self._canvas.show_figure(_plot_noise_budget(result))
+        if self._show_chart:
+            self._canvas.show_figure(_plot_noise_budget(result))
         self._explain.setPlainText(_EXPLAIN_HINT)
         self._stack.setCurrentWidget(self._content)
 

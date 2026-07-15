@@ -25,8 +25,9 @@ note, no invented content.
 A stage may optionally declare named :class:`StageSubView` tabs (the deferred multi-tab
 hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably,
 ``StageComposition.subviews`` carries two or more sub-views and the pane renders them as a
-``QTabWidget``. The **Geometry** (Inputs | Schematic) and **Optics** (Inputs | MTF | PSF &
-Pupil | Throughput, GUI plan Phase PS-2) stages use the hook; the rest are single panes.
+``QTabWidget``. The **Geometry** (Inputs | Schematic), **Optics** (Inputs | MTF | PSF &
+Pupil | Throughput, GUI plan Phase PS-2), and **Detector** (Inputs | Noise | Detector + PSF,
+GUI plan Phase PS-3) stages use the hook; the rest are single panes.
 
 Being pure data, the composition table is unit-tested directly.
 """
@@ -65,9 +66,10 @@ class StageSubView:
     sub-view carries the **same content fields** as :class:`StageComposition` (minus the
     stage title and nested sub-views) — so a tab is just a scoped composite.
 
-    The **Geometry** and **Optics** (GUI plan Phase PS-2) stages declare sub-views; a stage
-    whose content fits one pane declares none (``StageComposition.subviews`` empty). Turning
-    a stage tabbed is a data change (populate ``subviews``), not a widget rewrite.
+    The **Geometry**, **Optics** (GUI plan Phase PS-2), and **Detector** (GUI plan Phase PS-3)
+    stages declare sub-views; a stage whose content fits one pane declares none
+    (``StageComposition.subviews`` empty). Turning a stage tabbed is a data change (populate
+    ``subviews``), not a widget rewrite.
 
     Attributes
     ----------
@@ -86,8 +88,11 @@ class StageSubView:
     source_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
+    detector_inputs: bool = False
+    detector_illustration: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
+    noise_panel_chart: bool = True
     outputs: bool = False
     metrics: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
@@ -107,8 +112,8 @@ class StageComposition:
     present, :class:`~radiant.gui.widgets.stage_center.StagePane` renders them as tabs
     (a ``QTabWidget``) instead of the single flat pane (the deferred multi-tab hook, arch
     doc §4.4). With zero or one sub-view the stage renders as a single composite pane from
-    the section fields below. The **Geometry** and **Optics** (GUI plan Phase PS-2) stages
-    declare sub-views; the rest leave ``subviews`` empty.
+    the section fields below. The **Geometry**, **Optics** (GUI plan Phase PS-2), and
+    **Detector** (GUI plan Phase PS-3) stages declare sub-views; the rest leave ``subviews`` empty.
 
     Attributes
     ----------
@@ -133,11 +138,22 @@ class StageComposition:
         Show the Optics stage's editable inputs card — aperture / focal length / f-number /
         obscuration / spiders / scalar throughput / WFE / optics temperature as schema-driven
         :class:`FieldRow`s (Optics only, GUI plan Phase PS-2).
+    detector_inputs:
+        Show the Detector stage's editable inputs card — quantum efficiency / dark rate /
+        pixel pitch x,y / fill factor / detector temperature as schema-driven
+        :class:`FieldRow`s (Detector only, GUI plan Phase PS-3).
+    detector_illustration:
+        Show the Detector pixel schematic — a Qt-drawn, not-to-scale pixel labelled with its
+        pitch (µm) and fill factor (Detector only, GUI plan Phase PS-3).
     mtf_panel:
         Embed the MTF per-term table + overlay (relocated from the MTF detail tab).
     noise_panel:
         Embed the noise per-term table + bars + click-to-explain (relocated from the
         Noise Budget detail tab).
+    noise_panel_chart:
+        Whether the embedded noise panel shows its bar chart (default ``True``). The Detector
+        view sets it ``False`` so the noise **pie** (``result.plot.noise_pie``) is the primary
+        chart and the panel contributes only the table + click-to-explain (GUI plan Phase PS-3).
     outputs:
         Show a scalar readout of ``stage_outputs["<stage>"]`` (values with units).
     metrics:
@@ -160,8 +176,11 @@ class StageComposition:
     source_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
+    detector_inputs: bool = False
+    detector_illustration: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
+    noise_panel_chart: bool = True
     outputs: bool = False
     metrics: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
@@ -274,8 +293,32 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         plots=(PlotSpec("In-band signal spectral radiance", "spectral_inband"),),
         note=_SPECTRAL_NOTE,
     ),
-    # Noise per-term table + bars + click-to-explain (relocated Noise Budget tab).
-    "detector": StageComposition(title="Detector", outputs=True, noise_panel=True),
+    # The Detector stage instrument (GUI plan Phase PS-3, arch doc §4.4.1 Detector rows): a
+    # tabbed composite (the §4.4 sub-view hook, as Optics). Three tabs — editable detector
+    # Inputs (QE / dark rate / pixel pitch x,y / fill factor / temperature) beside the scalar
+    # outputs (signal_e, dark_e, …); the Noise budget as the ratified framework **pie**
+    # (result.plot.noise_pie — slices ∝ variance, the primary chart) above the per-term table +
+    # click-to-explain (the bar is suppressed, noise_panel_chart=False); and the Detector +
+    # PSF tab — the Qt-drawn pixel illustration beside result.plot.psf_pixel_grid (the PSF with
+    # the detector pixel grid overlaid). Editing a detector input re-evaluates and every tab
+    # refreshes: the dark rate shifts the pie, the pixel pitch redraws the illustration + grid.
+    "detector": StageComposition(
+        title="Detector",
+        subviews=(
+            StageSubView(title="Inputs", detector_inputs=True, outputs=True),
+            StageSubView(
+                title="Noise",
+                noise_panel=True,
+                noise_panel_chart=False,
+                plots=(PlotSpec("Noise budget — share of variance", "noise_pie"),),
+            ),
+            StageSubView(
+                title="Detector + PSF",
+                detector_illustration=True,
+                plots=(PlotSpec("PSF with detector pixel grid", "psf_pixel_grid"),),
+            ),
+        ),
+    ),
     # v1-minimal: a scalar outputs readout + a themed note pointing at the noise budget.
     "readout": StageComposition(title="Readout", outputs=True, note=_READOUT_NOTE),
     # All metrics (values + units) + system MTF and the MTF budget.

@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels
+
+**Discovered**: GUI Development Plan Phase PS-3 (Detector stage instrument), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — cosmetic, non-blocking. The imprecision is pre-existing (predates PS-3); PS-3 only surfaced it while adding the pixel-grid overlay. The new `psf_pixel_grid()` path already uses the accurate "x (PSF samples)" label + a µm-pitch title; only the **default** `psf()` label is left as the historical "x (pixels)" to keep the shipped Optics-tab image unchanged.
+**File**: `src/radiant/api/plot.py` (`plot_psf`, the `else` branch: `ax.set_xlabel("x (pixels)")` / `set_ylabel("y (pixels)")`).
+**Symptom**: `result.plot.psf()` labels its axes "x (pixels)" / "y (pixels)", but with default (non-grid) rendering the imshow extent is the PSF **sample** grid (spacing `EffectivePSF.sample_spacing_m`), not the detector pixel grid (pitch `pixel_pitch_m`). For an oversampled PSF (e.g. ~8.5 samples per detector pixel in `mwir_leo_minimal`) one detector pixel spans several axis units, so "pixels" reads as detector pixels when it is really samples.
+**Why it still matters**: R-UNITS / label-accuracy hygiene — a reader inferring detector-pixel counts from the axis would be off by the sampling factor. No physics or computed-result impact (labels only).
+**Suggested fix**: (a) inline-fix-now at the next `plot_psf` touch — relabel the default axes "x (PSF samples)" / "y (PSF samples)" (as the pixel-grid branch already does), or add a secondary detector-pixel axis. Confirm no doc/test asserts the old string (none does today). Effort S; category A. Re-audit at GUI Phase 9 polish.
+
 ### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
 
 **Discovered**: GUI Development Plan Phase PS-1 (Source stage instrument), 2026-07-14, branch `gui-framework-plots`

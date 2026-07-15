@@ -21,6 +21,34 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`result.plot.noise_pie()` framework accessor (GUI plan Phase PS-3 Part A, owner-ratified
+  §8 decision 2, results-neutral).** A new pie-chart accessor on `ResultPlotNamespace` (builder
+  `radiant.api.plot.plot_noise_pie`), the pie sibling of the shipped `noise_budget()` bar over
+  the same `result.noise_terms` data. Presentation choice (documented): noise adds in
+  **quadrature** (σ_total² = Σ σ_i²), so the slices are proportional to each term's **variance**
+  (σ_i²) and sum to 100 % of the noise **power**; each wedge is labelled with the term name, its
+  σ_i in **e- RMS**, and its % of the variance (zero terms omitted). Raises `ApiValidationError`
+  when the result carries no noise terms. Purely additive — no computed result changes; the
+  golden suite is byte-identical.
+- **`result.plot.psf_pixel_grid()` framework accessor (GUI plan Phase PS-3 Part B,
+  results-neutral).** `psf()` with the **detector pixel grid** overlaid — pixel-boundary
+  gridlines at the detector pixel pitch (`EffectivePSF.pixel_pitch_m` over samples spaced at
+  `sample_spacing_m`), cropped to the PSF core, with the pitch (µm) in the title. Implemented as
+  an optional `pixel_grid` parameter on `plot_psf` (default `False` leaves the shipped image
+  unchanged). A view over already-computed data — no results change.
+- **GUI Detector stage instrument (GUI plan Phase PS-3, arch doc §4.4.1 Detector rows,
+  view-only).** The Detector stage's contextual center becomes a tabbed instrument (the §4.4
+  sub-view hook, now used by Geometry, Optics, and Detector): three tabs — **Inputs** (editable
+  detector `FieldRow`s — quantum efficiency / dark rate / pixel pitch x,y / fill factor /
+  detector temperature — beside the scalar outputs readout, `signal_e`/`dark_e`/…), **Noise**
+  (the ratified `noise_pie()` variance pie as the primary chart above the per-term table +
+  click-to-explain; the redundant bar is suppressed), and **Detector + PSF** (a new Qt-drawn
+  pixel illustration labelled with the pitch in µm + fill factor, beside `psf_pixel_grid()`).
+  Editing any detector input is one `sensor.set` (validate-on-a-clone reject discipline) and
+  re-evaluates, so every tab refreshes — editing the dark rate shifts the noise pie, editing the
+  pixel pitch redraws the illustration and the PSF grid (edit-and-watch). New widgets
+  `DetectorInputsForm`, `DetectorIllustration`; `NoiseBudgetPanel` gains a `show_chart` toggle.
+  Golden suite untouched (the GUI is a view over the scripting API).
 - **GUI Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows,
   view-only).** The Optics stage's contextual center becomes the richest per-stage view and
   the **first production use of the tabbed sub-view hook** (`StageComposition.subviews`): four

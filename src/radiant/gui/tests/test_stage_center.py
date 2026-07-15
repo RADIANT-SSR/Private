@@ -342,7 +342,8 @@ class TestStageCenterInWindow:
         assert pane.plot_canvases and all(c.has_figure() for c in pane.plot_canvases)
 
     def test_detector_shows_noise_table_and_explain(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Detector center carries the noise table + click-to-explain + bars."""
+        """The Detector center carries the noise table + click-to-explain (bar suppressed; the
+        variance **pie** is the primary chart on this view — Phase PS-3)."""
         window = _load_window(qtbot)
         window.stage_strip.stageClicked.emit("detector")
         pane = window.central_canvas.stage_center.pane("detector")
@@ -443,17 +444,17 @@ class TestTabbedSubViewHook:
 
     def test_v1_stage_renders_without_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Regression: a real (subview-free) stage composition stays a single flat pane."""
-        pane = StagePane("detector", STAGE_COMPOSITIONS["detector"])
+        pane = StagePane("spectral_integration", STAGE_COMPOSITIONS["spectral_integration"])
         qtbot.addWidget(pane)
         assert not pane.has_tabs
         assert pane.tab_titles() == []
-        # Its flat sections are still built (the outputs readout + the noise panel).
-        assert pane.noise_panel is not None
+        # Its flat sections are still built (the outputs readout + the in-band plot).
         assert pane.outputs_readout is not None
-        # Geometry (Phase 7 "Inputs | Schematic") and Optics (Phase PS-2) are the tabbed
-        # stages; the rest are flat.
+        assert pane.plot_canvases
+        # Geometry (Phase 7 "Inputs | Schematic"), Optics (Phase PS-2), and Detector (Phase
+        # PS-3) are the tabbed stages; the rest are flat.
         tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
-        assert tabbed == {"geometry", "optics"}
+        assert tabbed == {"geometry", "optics", "detector"}
 
 
 class TestBottomTabsRemoved:

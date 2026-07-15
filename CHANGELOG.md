@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Pre-atmosphere source-emission frames + `result.plot.spectral_source_emission()` (Gap 91,
+  GUI plan Phase FP-1).** `AtmosphereStage` now persists two additive `RadiometricFrame`s —
+  `at_source_target` (always) and `at_source_background` (when a background descriptor is
+  present) — carrying the emitted+reflected spectral radiance *leaving the source*
+  (`L_source`, W/m²/sr/µm) **before** the atmospheric up-leg, satisfying
+  `at_aperture_target ≈ τ_up · at_source_target + L_path_up`. New public accessor
+  `ResultPlotNamespace.spectral_source_emission()` draws the target (+ optional background)
+  emission spectrum, isolating what the target emits from what reaches the aperture (vs the
+  post-atmosphere `spectral_source()`). New assembly functions
+  `assemble_target_source_emission` / `assemble_background_source_emission`. Purely additive:
+  the new frames feed no metric and the full golden suite is **byte-identical** (505/505
+  integration tests pass unchanged).
 - **GUI geometry schematic — ground vectors for elevated targets (owner feedback 2026-07-14,
   view-only).** When the target is above the ground (`geometry.target_altitude_m > 0`) the
   Schematic tab now additionally draws a **SENSOR→GROUND** vector (blue, dashed) and a

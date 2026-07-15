@@ -206,6 +206,42 @@ class ResultPlotNamespace:
             **kwargs,
         )
 
+    def spectral_source_emission(self, **kwargs: Any) -> Any:
+        """Plot the pre-atmosphere source emission (target + background) vs λ.
+
+        Draws the target arm and, when present, the background arm from the
+        stored source-emission frames — ``at_source_target`` and
+        ``at_source_background`` — in W/m²/sr/µm. These are the emitted+reflected
+        radiance *leaving the source* **before** the atmospheric up-leg (Gap 91):
+        the ``L_source`` the at-aperture assembly consumes, so
+        ``at_aperture_target ≈ τ_up · at_source_target + L_path_up``. Unlike
+        :meth:`spectral_source` (which draws the *at-aperture* frames, post
+        atmosphere), this accessor isolates what the target/background emit and
+        reflect before the atmosphere modulates them (arch-doc §4.4.1 Source
+        view). Raises :class:`ApiValidationError` when the frame is absent.
+        """
+        from radiant.api.plot import plot_spectral_multi
+
+        frames = self._result.frames
+        target = frames.get("at_source_target")
+        if target is None or target.spectral_radiance is None:
+            raise ApiValidationError(
+                "No source-emission frame found in result.frames "
+                "('at_source_target') — the chain must run AtmosphereStage to "
+                "assemble the pre-atmosphere source radiance."
+            )
+        series: dict[str, Any] = {"target": target.spectral_radiance}
+        background = frames.get("at_source_background")
+        if background is not None and background.spectral_radiance is not None:
+            series["background"] = background.spectral_radiance
+        return plot_spectral_multi(
+            target.wavelength_um,
+            series,
+            title="Source emission spectral radiance (before atmosphere)",
+            ylabel="Radiance (W/m²/sr/µm)",
+            **kwargs,
+        )
+
     def spectral_atmosphere(self, **kwargs: Any) -> Any:
         """Plot atmospheric transmittance τ_atm(λ) and path radiance L_path(λ).
 

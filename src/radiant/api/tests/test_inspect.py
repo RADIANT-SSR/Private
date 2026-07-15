@@ -114,6 +114,8 @@ def _make_spectral_result(*, with_background: bool = True) -> ChainResult:
     wl = np.linspace(3.5, 5.0, 20)
     l_target = np.exp(-((wl - 4.2) ** 2) / 0.2) * 5.0
     l_bg = np.exp(-((wl - 4.4) ** 2) / 0.3) * 3.0
+    l_source_target = l_target / 0.8  # pre-atmosphere (L_ap = τ·L_src, τ=0.8)
+    l_source_bg = l_bg / 0.8
     l_post = l_target * 0.6
     tau = 0.8 * np.ones_like(wl)
     l_path = 0.5 * np.ones_like(wl)
@@ -125,10 +127,20 @@ def _make_spectral_result(*, with_background: bool = True) -> ChainResult:
     state = state.with_frame(
         RadiometricFrame(name="at_aperture", wavelength_um=wl, spectral_radiance=l_target)
     )
+    state = state.with_frame(
+        RadiometricFrame(
+            name="at_source_target", wavelength_um=wl, spectral_radiance=l_source_target
+        )
+    )
     if with_background:
         state = state.with_frame(
             RadiometricFrame(
                 name="at_aperture_background", wavelength_um=wl, spectral_radiance=l_bg
+            )
+        )
+        state = state.with_frame(
+            RadiometricFrame(
+                name="at_source_background", wavelength_um=wl, spectral_radiance=l_source_bg
             )
         )
     state = state.with_frame(
@@ -168,6 +180,33 @@ class TestSpectralAccessors:
         ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
         with pytest.raises(ApiValidationError, match="target spectral-radiance frame"):
             ns.spectral_source()
+
+    def test_source_emission_returns_figure_with_units(self) -> None:
+        ns = ResultPlotNamespace(_make_spectral_result())
+        fig = ns.spectral_source_emission()
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "W/m²/sr/µm" in ax.get_ylabel()
+        assert "before atmosphere" in ax.get_title()
+
+    def test_source_emission_plots_target_and_background(self) -> None:
+        result = _make_spectral_result(with_background=True)
+        fig = ResultPlotNamespace(result).spectral_source_emission()
+        ax = fig.axes[0]
+        assert len(ax.lines) == 2
+        expected = result.frames["at_source_target"].spectral_radiance
+        np.testing.assert_array_equal(ax.lines[0].get_ydata(), expected)
+
+    def test_source_emission_target_only(self) -> None:
+        ns = ResultPlotNamespace(_make_spectral_result(with_background=False))
+        fig = ns.spectral_source_emission()
+        assert len(fig.axes[0].lines) == 1
+
+    def test_source_emission_raises_without_frame(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
+        with pytest.raises(ApiValidationError, match="at_source_target"):
+            ns.spectral_source_emission()
 
     def test_atmosphere_returns_twin_unit_axes(self) -> None:
         ns = ResultPlotNamespace(_make_spectral_result())

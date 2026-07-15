@@ -1030,6 +1030,149 @@ def _assemble_t5(target: T5AtAperture, atm: AtmosphericQuantities) -> np.ndarray
 
 
 # ---------------------------------------------------------------------------
+# Source-emission extraction (Gap 91 — pre-atmosphere emitted+reflected radiance)
+# ---------------------------------------------------------------------------
+
+
+def assemble_target_source_emission(
+    target: TargetDescriptor,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+) -> np.ndarray:
+    """Emitted+reflected target radiance **leaving the source**, pre-atmosphere.
+
+    This is ``L_source`` in the §6.1 at-aperture equation
+    ``L_aperture = L_source · τ_up + L_path_up`` — the spectral radiance the
+    target emits and reflects **before** the atmospheric up-leg attenuates
+    it and adds path radiance.  It is not a new computation: it reuses the
+    per-term decomposition already produced by
+    :func:`assemble_target_at_aperture` (``report_components=True``) and
+    sums the four pre-τ constituents::
+
+        L_source = self_emission            (ε·B(T_t), or user L_t_source)
+                 + direct_solar             (ρ·τ_sun·E_TOA·cosθ_s/π)
+                 + diffuse_sky_scattered    (ρ·E_sky_scattered/π)
+                 + diffuse_sky_thermal      (ρ·E_sky_thermal/π)
+
+    so by construction ``assemble_target_at_aperture(...) ≈
+    assemble_target_source_emission(...) · atm.tau_up + atm.L_path_up``
+    (equal to within floating-point re-association of the diffuse-sky
+    split — see :func:`_diffuse_sky_term`).
+
+    Special case — ``target_location == "at_aperture"`` (T5): the user
+    supplied the radiance already propagated to the pupil, so there is no
+    pre-atmosphere source distinct from it (τ_up ≡ 1, L_path_up ≡ 0 by
+    construction).  The pass-through spectrum **is** the source emission,
+    so this function returns the T5 ``total`` unchanged.
+
+    Parameters
+    ----------
+    target:
+        The :class:`TargetDescriptor` published by SourceStage.
+    atm:
+        The :class:`AtmosphericQuantities` on the chain wavelength grid.
+    los:
+        The :class:`LineOfSightGeometry` (required for non-at_aperture
+        targets — solar/observer zenith); may be ``None`` only for T5.
+
+    Returns
+    -------
+    numpy.ndarray
+        1-D pre-atmosphere source radiance [W/m²/sr/µm] on the atm grid.
+    """
+    comps = assemble_target_at_aperture(target, atm, los, report_components=True)
+    if target.target_location == "at_aperture":
+        # T5 pass-through: the at-aperture spectrum is the source emission.
+        return np.asarray(comps.total, dtype=np.float64)
+    return np.asarray(
+        comps.self_emission
+        + comps.direct_solar
+        + comps.diffuse_sky_scattered
+        + comps.diffuse_sky_thermal,
+        dtype=np.float64,
+    )
+
+
+def assemble_background_source_emission(
+    background: BackgroundDescriptor | None,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+) -> np.ndarray | None:
+    """Emitted+reflected background radiance **leaving the source**, pre-atmosphere.
+
+    Companion to :func:`assemble_target_source_emission` for the background
+    arm.  Returns ``L_bg,source`` — the pre-atmosphere background radiance —
+    or ``None`` when the background is absent (Decision #13).
+
+    Dispatch mirrors :func:`assemble_background_at_aperture`:
+
+    ==========================  =========================================
+    Variant                     Source emission
+    ==========================  =========================================
+    None                        None (Decision #13)
+    AtApertureBackground        L_bg_aperture (or zeros) — already at pupil
+    ColdSpaceBackground         zeros
+    UserSpectralBackground      L_bg — chamber/test-range background (no
+                                atmospheric transport; τ ≡ 1, path ≡ 0)
+    GroundBackground            ε_g·B(T_g) + reflected diffuse+direct
+                                (the pre-τ_full_up self+reflected term)
+    ==========================  =========================================
+
+    For every pass-through variant the atmosphere is A0 / trivial, so the
+    source emission equals the at-aperture radiance
+    (:func:`assemble_background_at_aperture`).  Only ``GroundBackground``
+    has a real up-leg; its source emission is the shared
+    :func:`_ground_background_source_emission` term, so
+    ``assemble_background_at_aperture(...) ==
+    assemble_background_source_emission(...) · atm.tau_full_up + atm.L_path_full``
+    holds exactly for that arm.
+    """
+    if background is None:
+        return None
+
+    if isinstance(background, AtApertureBackground):
+        if background.L_bg_aperture is None:
+            return np.zeros_like(atm.wavelength_um, dtype=np.float64)
+        return _extract_sd_values(background.L_bg_aperture, atm)
+
+    if isinstance(background, ColdSpaceBackground):
+        return np.zeros_like(atm.wavelength_um, dtype=np.float64)
+
+    if isinstance(background, UserSpectralBackground):
+        assert background.L_bg is not None  # constructor invariant
+        return _extract_sd_values(background.L_bg, atm)
+
+    if isinstance(background, GroundBackground):
+        if los is None:
+            raise ParameterBoundsError(
+                what=(
+                    "assembly: GroundBackground source emission requires a "
+                    "LineOfSightGeometry; got None"
+                ),
+                why=(
+                    "Ground self-emission + reflected diffuse/direct terms are "
+                    "derived from the observer/solar zenith carried by the LOS."
+                ),
+                action=(
+                    "Make sure SourceStage publishes LOS geometry for "
+                    "terrestrial / airborne scenarios."
+                ),
+                context={},
+            )
+        return _ground_background_source_emission(background, atm, los)
+
+    raise ParameterBoundsError(
+        what=(
+            f"assembly: unsupported BackgroundDescriptor variant "
+            f"{type(background).__name__} in source-emission extraction"
+        ),
+        why="Stage 3 of Option C only knows AtAperture/ColdSpace/Ground/UserSpectral.",
+        action="Extend assembly with the new variant (update ADR-0002 first).",
+        context={"variant": type(background).__name__},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Background assembly
 # ---------------------------------------------------------------------------
 
@@ -1125,6 +1268,32 @@ def _assemble_ground_background(
     scope.  Stage 6+ may add the direct-solar reflected term to the
     ground branch if MWIR mixed cells require it.
     """
+    # L_self + direct + diffuse (the pre-τ_full_up source term) is shared
+    # with the Gap-91 source-emission path via
+    # :func:`_ground_background_source_emission`; the up-leg attenuation and
+    # additive path radiance are applied here.  Naming the intermediate is
+    # byte-identical to the previous inlined expression.
+    source_emission = _ground_background_source_emission(bg, atm, los)
+    return np.asarray(
+        source_emission * atm.tau_full_up + atm.L_path_full,
+        dtype=np.float64,
+    )
+
+
+def _ground_background_source_emission(
+    bg: GroundBackground,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry,
+) -> np.ndarray:
+    """ε_g·B(T_g) + reflected (direct + diffuse) — ground radiance pre-τ_full_up.
+
+    The self-emission plus reflected-diffuse (and coherent direct-solar)
+    terms a Kirchhoff graybody ground surface radiates at ``h = 0``, before
+    the ground-to-sensor column attenuates it.  Shared by
+    :func:`_assemble_ground_background` (which multiplies by ``τ_full_up``
+    and adds ``L_path_full``) and :func:`assemble_background_source_emission`
+    (Gap 91), so the two never drift.
+    """
     assert bg.epsilon_g is not None  # constructor invariant
     epsilon_g = _extract_sd_values(bg.epsilon_g, atm)
     rho_g = 1.0 - epsilon_g
@@ -1133,24 +1302,20 @@ def _assemble_ground_background(
     # Self-emission at ground temperature.
     L_self = epsilon_g * planck_spectral_radiance(atm.wavelength_um, bg.T_g)
 
-    # Ground reflects diffuse sky terms; direct-solar reflected term on
-    # the background is deferred per the docstring above.
+    # Ground reflects diffuse sky terms; the direct-solar reflected
+    # component is kept for coherence with T3 — the ground *is* a Kirchhoff
+    # surface and matrix §6.1 includes the direct beam on the target arm.
     diffuse = _diffuse_sky_term(rho_g, atm)
-    # Keep the direct-solar reflected component for coherence with T3 —
-    # the ground *is* a Kirchhoff surface and matrix §6.1 includes direct
-    # beam on the target arm.  Including it on the background matches the
-    # "ground treated as a T3 at h=0" view.
     direct = _direct_solar_term(rho_g, atm, cos_ts)
 
-    return np.asarray(
-        (L_self + direct + diffuse) * atm.tau_full_up + atm.L_path_full,
-        dtype=np.float64,
-    )
+    return np.asarray(L_self + direct + diffuse, dtype=np.float64)
 
 
 __all__ = [
     "AssemblyComponents",
     "assemble_background_at_aperture",
+    "assemble_background_source_emission",
     "assemble_target_at_aperture",
+    "assemble_target_source_emission",
     "validate_no_atmosphere_subcase",
 ]

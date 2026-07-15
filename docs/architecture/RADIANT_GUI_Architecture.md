@@ -532,13 +532,14 @@ surface backs it today — named), **[GUI-only]** (the data exists; the GUI resh
 it, no new framework capability), or **[GAP N]** (needs a framework capability that does
 not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the shipped
 `result.plot.*` accessors (`ResultPlotNamespace`: `mtf`, `noise_budget`, `psf`,
-`mtf_budget`, `spectral_source`, `spectral_atmosphere`, `spectral_inband`).
+`mtf_budget`, `spectral_source`, `spectral_source_emission`, `spectral_atmosphere`,
+`spectral_inband`).
 
 | Stage | Ratified content | Classification |
 |-------|------------------|----------------|
 | **Geometry** | Two tabs: **Inputs** (stage-0 input-mode forms + derived-angle readout) and **3D View** (the 3D scene viewer, §6) | **[exists]** `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit) + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **3D View** tab embeds `GeometryViewer` — the static bound scene (GUI plan Phase 7 Part A, §6.7); interactions/shape-library/RPY are Part B |
-| **Source** | Target radiance plot | **[GAP 91]** — SourceStage persists no radiance frame; the earliest stored radiance is at-aperture (built in AtmosphereStage), so a pre-atmosphere *emitted* target spectrum is unreachable without recomputation |
-| **Source** | Background radiance plot | **[GAP 91]** — same missing pre-atmosphere source-emission frame (target + background) |
+| **Source** | Target radiance plot | **[exists — GAP 91 CLOSED]** `result.plot.spectral_source_emission()` — draws the pre-atmosphere `at_source_target` frame (emitted+reflected radiance leaving the target, before the up-leg), persisted by AtmosphereStage |
+| **Source** | Background radiance plot | **[exists — GAP 91 CLOSED]** same accessor draws the optional `at_source_background` arm alongside the target |
 | **Source** | Size / shape / orientation inputs, shown per scenario type | **[GUI-only]** display of existing schema — `source.target.shape`, `shape_radius_m`/`shape_length_m`/…, `projected_area_m2`, `shape_yaw_rad`/`shape_pitch_rad`/`shape_roll_rad`; the **per-scenario-type gating** (which inputs are relevant) ties to **[GAP 85]** (mission-type relevance) |
 | **Atmosphere** | τ_atm & L_path vs λ plot | **[exists]** `result.plot.spectral_atmosphere()` (twin-axis τ_atm + L_path) |
 | **Atmosphere** | Source & background radiance **at aperture** (post-atmosphere) | **[exists]** `result.plot.spectral_source()` — draws `at_aperture_target` + `at_aperture_background` frames (the at-aperture radiances the owner wants shown here now that atmosphere is applied) |

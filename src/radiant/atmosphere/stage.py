@@ -29,6 +29,16 @@ Frame ``"at_aperture_background"`` with spectral radiance, **only when**
     the background descriptor is non-``None`` (Decision #13: extended
     terrestrial / airborne cells skip this term entirely).
 
+Frame ``"at_source_target"`` with spectral radiance = the pre-atmosphere
+    source emission (emitted+reflected radiance LEAVING the target, before
+    the up-leg τ/L_path) — Gap 91.  This is the ``L_source`` the at-aperture
+    assembly consumes; ``at_aperture_target ≈ τ_up · at_source_target +
+    L_path_up`` by construction.  Purely additive (feeds no metric).
+
+Frame ``"at_source_background"`` with the background pre-atmosphere source
+    emission, **only when** the background descriptor is non-``None``
+    (Gap 91; same Decision #13 gate as ``at_aperture_background``).
+
 Stage outputs under ``stage_outputs["atmosphere"]``:
     - ``atm_quantities``: the :class:`AtmosphericQuantities` bundle
       (the eight spectral fields used by §6.1 assembly).
@@ -52,7 +62,9 @@ import numpy as np
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.assembly import (
     assemble_background_at_aperture,
+    assemble_background_source_emission,
     assemble_target_at_aperture,
+    assemble_target_source_emission,
     validate_no_atmosphere_subcase,
 )
 from radiant.atmosphere.errors import AtmosphereValidationError
@@ -165,6 +177,21 @@ class AtmosphereStage:
             atm_quantities,
             los,
         )
+        # Gap 91: pre-atmosphere source emission (emitted+reflected radiance
+        # LEAVING the target/background, before the up-leg τ/L_path).  This is
+        # the L_source that the at-aperture assembly above consumes — published
+        # here (the stage that assembles it, Rule 6) as a persisted frame.
+        # Purely additive: it does not feed any existing frame or metric.
+        L_source_target: np.ndarray = assemble_target_source_emission(
+            target_desc,
+            atm_quantities,
+            los,
+        )
+        L_source_background: np.ndarray | None = assemble_background_source_emission(
+            background_desc,
+            atm_quantities,
+            los,
+        )
 
         # ------------------------------------------------------------------
         # 4. Emit frames + stage outputs.
@@ -191,9 +218,21 @@ class AtmosphereStage:
                 f"variant={type(target_desc).__name__}"
             ),
         )
+        # Gap 91: pre-atmosphere source-emission frame (target arm).
+        at_source_target_frame = RadiometricFrame(
+            name="at_source_target",
+            wavelength_um=state.wavelength_um,
+            spectral_radiance=L_source_target,
+            notes=(
+                "pre-atmosphere source emission (emitted+reflected radiance "
+                f"leaving the target, before τ_up/L_path); model={model_name}; "
+                f"variant={type(target_desc).__name__}"
+            ),
+        )
         state = (
             state.with_frame(target_frame)
             .with_frame(at_aperture_frame)
+            .with_frame(at_source_target_frame)
             .with_stage_output("atmosphere", "atm_quantities", atm_quantities)
             .with_stage_output("atmosphere", "tau_atm", atm_quantities.tau_up)
             .with_stage_output("atmosphere", "L_path", atm_quantities.L_path_up)
@@ -225,6 +264,21 @@ class AtmosphereStage:
                 ),
             )
             state = state.with_frame(background_frame)
+
+        # Gap 91: pre-atmosphere source-emission frame (background arm), when a
+        # background is present (Decision #13: computed-extended cells skip it).
+        if L_source_background is not None:
+            at_source_background_frame = RadiometricFrame(
+                name="at_source_background",
+                wavelength_um=state.wavelength_um,
+                spectral_radiance=L_source_background,
+                notes=(
+                    "pre-atmosphere source emission (background arm), before "
+                    f"τ_up/L_path; model={model_name}; "
+                    f"variant={type(background_desc).__name__}"
+                ),
+            )
+            state = state.with_frame(at_source_background_frame)
 
         # Turbulence: store Fried parameter for downstream stages.
         try:

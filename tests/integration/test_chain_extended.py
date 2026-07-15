@@ -155,6 +155,29 @@ class TestChainExtended:
         L_expected = EPS_TARGET * B * tau + L_path
         np.testing.assert_allclose(L_aa, L_expected, rtol=1e-10)
 
+    def test_source_emission_frame_present(self, result) -> None:
+        """Gap 91: the pre-atmosphere source-emission frame is persisted."""
+        assert "at_source_target" in result.frames
+        L_src = result.frames["at_source_target"].spectral_radiance
+        assert L_src is not None
+        assert L_src.shape == result.wavelength_um.shape
+
+    def test_source_emission_no_double_count(self, result) -> None:
+        """at_aperture_target = τ_up · at_source_target + L_path_up (full chain).
+
+        Proves the persisted L_source is exactly the quantity the at-aperture
+        assembly consumes — no double-count against the at-aperture path.
+        """
+        L_src = result.frames["at_source_target"].spectral_radiance
+        L_aat = result.frames["at_aperture_target"].spectral_radiance
+        atm_q = result.stage_outputs["atmosphere"]["atm_quantities"]
+        np.testing.assert_allclose(
+            atm_q.tau_up * L_src + atm_q.L_path_up, L_aat, rtol=1e-10, atol=1e-12
+        )
+        # And for this T1Thermal (ρ=0) case the source emission is ε·B(T_t).
+        B = planck_spectral_radiance(result.wavelength_um, T_TARGET)
+        np.testing.assert_allclose(L_src, EPS_TARGET * B, rtol=1e-10)
+
     def test_L_post_optics_formula(self, result) -> None:
         """L_post_optics = L_at_aperture × τ_opt."""
         L_aa = result.frames["at_aperture"].spectral_radiance

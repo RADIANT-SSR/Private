@@ -261,7 +261,7 @@ result.metrics["gsd_geometric_mean_m"]   # 0.12 m
 
 ### 3.5 Radiometric Frames (`result.frames`)
 
-Frames registered in a standard run: `at_aperture`, `at_aperture_target`, `post_optics`, `photoelectrons`. Each `RadiometricFrame` has:
+Frames registered in a standard run: `at_source_target`, `at_aperture`, `at_aperture_target`, `post_optics`, `photoelectrons` (plus `at_source_background` / `at_aperture_background` when a background descriptor is present). `at_source_target` / `at_source_background` are the **pre-atmosphere** source emission (`L_source`); `at_aperture*` are the **post-atmosphere** at-aperture radiances (Gap 91). Each `RadiometricFrame` has:
 
 - `.name` — frame name
 - `.wavelength_um` — spectral grid [µm]
@@ -442,17 +442,19 @@ plots.psf()                # 2-D effective PSF (from stage_outputs["optics"]["ef
 plots.noise_budget()       # horizontal bar chart of result.noise_terms [e- RMS]
 plots.mtf()                # all MTF terms vs spatial frequency [cycles/mrad]
 plots.mtf_budget()         # per-contributor MTF-at-Nyquist bar chart (Gap 19)
-plots.spectral_source()    # target (+ background) at-aperture radiance vs λ [W/m²/sr/µm]
-plots.spectral_atmosphere()# τ_atm(λ) [dimensionless] + L_path(λ) [W/m²/sr/µm] on twin axes
-plots.spectral_inband()    # band-filtered post-optics radiance vs λ [W/m²/sr/µm]
+plots.spectral_source()          # target (+ background) at-aperture radiance vs λ [W/m²/sr/µm]
+plots.spectral_source_emission() # target (+ background) PRE-atmosphere source radiance vs λ [W/m²/sr/µm]
+plots.spectral_atmosphere()      # τ_atm(λ) [dimensionless] + L_path(λ) [W/m²/sr/µm] on twin axes
+plots.spectral_inband()          # band-filtered post-optics radiance vs λ [W/m²/sr/µm]
 ```
 
-The three spectral accessors (Gap 86) plot **only** real stored arrays, no
+The spectral accessors (Gap 86, Gap 91) plot **only** real stored arrays, no
 recomputation:
 
 | Accessor | Source | Notes |
 |----------|--------|-------|
-| `spectral_source()` | `frames["at_aperture_target"]` (falls back to `at_aperture`) + optional `frames["at_aperture_background"]` | SourceStage stores **no** radiance frame — radiance is assembled in AtmosphereStage — so the earliest stored radiance (at-aperture) is plotted, not an at-target frame. |
+| `spectral_source()` | `frames["at_aperture_target"]` (falls back to `at_aperture`) + optional `frames["at_aperture_background"]` | The **at-aperture** (post-atmosphere) radiance — earliest stored radiance conflating source + atmosphere. |
+| `spectral_source_emission()` | `frames["at_source_target"]` + optional `frames["at_source_background"]` | Gap 91 — the **pre-atmosphere** emitted+reflected radiance *leaving the source* (`L_source`), before the up-leg τ/L_path. AtmosphereStage persists it; `at_aperture_target ≈ τ_up · at_source_target + L_path_up`. Isolates what the target emits from what reaches the aperture. |
 | `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Twin, unit-labelled y-axes (τ is dimensionless; L_path is W/m²/sr/µm). |
 | `spectral_inband()` | `frames["post_optics"]` | The band-filtered at-FPA radiance SpectralIntegrationStage integrates; the collapsed in-band scalar is a single value, not a spectrum. |
 

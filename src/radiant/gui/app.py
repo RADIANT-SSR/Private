@@ -16,13 +16,24 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication
 
 from radiant.gui.main_window import RADIANTMainWindow
-from radiant.gui.themes import LIGHT, apply_theme
+from radiant.gui.settings_store import SettingsStore
+from radiant.gui.themes import DARK, LIGHT, apply_theme
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
 
-def launch_gui(sensor: Sensor | None = None) -> int:
+def _persisted_theme(settings: SettingsStore):  # type: ignore[no-untyped-def]
+    """The theme to launch with — the persisted View-menu choice, else the light default.
+
+    Light is the v1 launch default (Phase 0 checkpoint amendment 1); a prior run's
+    View → Dark/Light toggle is honoured via :class:`~radiant.gui.settings_store.SettingsStore`
+    (Phase 9), so the app reopens in the theme the operator last chose.
+    """
+    return DARK if settings.theme_name() == DARK.name else LIGHT
+
+
+def launch_gui(sensor: Sensor | None = None, path: str | None = None) -> int:
     """Launch the RADIANT desktop GUI and run the Qt event loop.
 
     Parameters
@@ -32,6 +43,10 @@ def launch_gui(sensor: Sensor | None = None) -> int:
         GUI on (the script → GUI hand-off, arch doc §5). ``None`` opens an empty
         window with no sensor loaded — the state after ``radiant gui`` with no
         config argument.
+    path:
+        The config path *sensor* was loaded from, if any — shown in the window
+        title (with the dirty marker) and seeded into the recent-files list. The
+        ``radiant gui <config>`` command passes it so the launched file is named.
 
     Returns
     -------
@@ -47,21 +62,22 @@ def launch_gui(sensor: Sensor | None = None) -> int:
     and returns ``0`` without blocking, so ``qtbot``-driven tests stay in control.
     """
     existing = QApplication.instance()
+    settings = SettingsStore()
 
     if existing is None:
         # We create the application, so we own the event loop and the styling:
-        # install the light design-system theme (v1 launch default) before any
-        # window is shown. A host that owns the app (the reuse branch below) owns
-        # its own styling, so we do not override it there.
+        # install the design-system theme (persisted choice, else the light v1
+        # default) before any window is shown. A host that owns the app (the reuse
+        # branch below) owns its own styling, so we do not override it there.
         app = QApplication([])
-        apply_theme(app, LIGHT)
-        window = RADIANTMainWindow(sensor=sensor)
+        apply_theme(app, _persisted_theme(settings))
+        window = RADIANTMainWindow(sensor=sensor, path=path, settings=settings)
         window.show()
         return int(app.exec())
 
     # A host (pytest-qt) already owns the loop; show the window, hand it back via
     # a reference the host holds, and do not block.
-    window = RADIANTMainWindow(sensor=sensor)
+    window = RADIANTMainWindow(sensor=sensor, path=path, settings=settings)
     window.show()
     _retain_window(existing, window)
     return 0

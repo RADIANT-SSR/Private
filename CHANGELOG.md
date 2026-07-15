@@ -21,6 +21,25 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI file round-trip, undo/redo, and the light/dark theme toggle (GUI plan Phase 9, arch
+  doc §10, view-only).** The **File** menu is complete: New, Open, **Open Recent** (persisted
+  across launches via `QSettings`), Save, and Save As — all file I/O through `Sensor.load()` /
+  `Sensor.save()` only (one action ↔ one API call, §4.1). The window **title** shows the current
+  config's file name with a `*` **dirty marker** that sets on any edit (tree, stage form, YAML
+  editor, console) and clears on save; Open / New swap the sensor through the shared adopt path
+  so every panel + the console rebind and re-evaluate, and a bad file surfaces an actionable
+  error (Rule 15). **Edit → Undo / Redo** (Ctrl+Z / Ctrl+Shift+Z) reverse the last ~20 parameter
+  edits via a `QUndoStack` of named `sensor.set` commands (each labelled e.g. *"Set
+  optics.aperture_diameter_m = 0.5 m"*); an undo re-reads the value into the parameter panel/forms
+  and re-evaluates. Whole-config swaps (Open / New / YAML-editor Apply / console Refresh) clear the
+  undo history (documented — explicit beats a fragile merge). **View** menu: a **light/dark theme
+  toggle** that re-applies the design-system QSS + palette, re-themes the custom-painted widgets
+  (the 2D schematic viewer and the detector pixel illustration via their `set_theme`), and
+  persists the choice (`QSettings`) so the next launch reopens in the same theme; plus panel
+  show/hide (Parameter Panel F6, Right Rail F7, both persisted) and stage-jump shortcuts
+  (Ctrl+1..9). New public entry surface: `launch_gui(sensor, path=...)` threads the launched
+  config path into the title/recent list. Golden suite untouched (a view over the scripting API;
+  no physics, schema, or result changed).
 - **GUI embedded scripting console (GUI plan Phase 8, arch doc §4.6.1, view-only).** A
   MATLAB-style command window as a **global tool** — a dockable `ScriptingConsole` (bottom
   `QDockWidget`, hidden at launch) opened from **Tools → Python Console** (`Ctrl+`` ` ``) or the
@@ -228,6 +247,12 @@ retroactively reconstructed.
   source of angle truth); golden untouched.
 
 ### Removed
+- **`gui` extra no longer pins `pyvista` / `pyvistaqt` (CU-134, GUI plan Phase 9).** The 2D
+  `QPainter` schematic viewer (ADR-0007) replaced the PyVista/VTK 3D viewer, and no
+  `radiant.gui` module imports pyvista/pyvistaqt/vtk (grep-guarded by
+  `test_no_pyvista_import_in_gui`), so the two pins were dropped from the optional `gui`
+  extra. `pip install "radiant[gui]"` no longer pulls the VTK native dependency chain;
+  `matplotlib` and `qtconsole` remain pinned. No runtime behavior change (the pins were unused).
 - **GUI geometry Schematic tab — redundant derived-angles table removed (owner feedback
   2026-07-14, view-only).** The Schematic tab's side panel no longer carries the derived
   "Geometry — derived angles & ranges" `GeometryReadout` (it duplicated the Inputs tab; the

@@ -60,7 +60,7 @@ def gui(config: str | None) -> None:
         ) from exc
 
     sensor = _load_sensor(config)
-    sys.exit(launch_gui(sensor))
+    sys.exit(launch_gui(sensor, path=config))
 
 
 def _load_sensor(config: str | None) -> Sensor | None:

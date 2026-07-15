@@ -50,6 +50,7 @@ from radiant.gui.stage_views import (
     StageSubView,
     composition_for,
 )
+from radiant.gui.themes import Theme
 from radiant.gui.viewer.viewer_widget import GeometryViewer
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
@@ -556,6 +557,21 @@ class StagePane(QWidget):
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
+    def set_theme(self, theme: Theme) -> None:
+        """Re-theme this pane's custom-painted widgets (Phase-9 theme toggle).
+
+        Only the ``QPainter`` widgets that read design tokens from a stored
+        :class:`~radiant.gui.themes.tokens.Theme` (the geometry schematic viewer and the
+        detector pixel illustration) need telling — every QSS-styled widget re-styles
+        automatically when the app stylesheet is re-applied. The ``result.plot.*``
+        matplotlib figures are drawn by the API with their own styling and are theme-neutral
+        (tracked as CU-139); they are left as-is.
+        """
+        for viewer in self._geometry_viewers:
+            viewer.set_theme(theme)
+        for illustration in self._detector_illustrations:
+            illustration.set_theme(theme)
+
     def refresh_geometry_forms(self) -> None:
         """Re-read every geometry input form from the bound sensor (Inputs + Schematic tabs).
 
@@ -851,6 +867,11 @@ class StageCenter(QWidget):
         """
         for pane in self._panes.values():
             pane.bind_sensor(sensor, display_units)
+
+    def set_theme(self, theme: Theme) -> None:
+        """Re-theme every stage pane's custom-painted widgets (Phase-9 theme toggle)."""
+        for pane in self._panes.values():
+            pane.set_theme(theme)
 
     def refresh_forms(self) -> None:
         """Re-read every geometry input form from its bound sensor (values + active mode).

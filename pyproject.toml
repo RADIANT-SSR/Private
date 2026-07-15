@@ -31,15 +31,14 @@ scenarios = [
     "matplotlib>=3.8",
 ]
 # Desktop GUI (RADIANT GUI v1, docs/plans/GUI_Development_Plan.md). Core RADIANT
-# stays fully importable and runnable without this extra. pyvista/pyvistaqt are
-# pinned to match dev_tools/geometry_gui_v2 (its scene library is lifted in the
-# GUI plan's Phase 7 3D-viewer work).
+# stays fully importable and runnable without this extra. The geometry viewer is a
+# pure-Qt QPainter 2D schematic (ADR-0007, D7) — no PyVista/VTK/OpenGL dependency,
+# so those pins were dropped (CU-134). qtconsole is retained for the deferred
+# in-process Jupyter-kernel console path (CU-138); the shipped console is a REPL.
 gui = [
     "PySide6>=6.6",
     "matplotlib>=3.8",
     "qtconsole>=5.5",
-    "pyvista>=0.43",
-    "pyvistaqt>=0.11",
 ]
 
 [project.scripts]

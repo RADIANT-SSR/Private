@@ -1297,16 +1297,27 @@ Help   Documentation · Example Configs · About RADIANT
 Actions not yet implemented in a given phase are present but **disabled** (GUI plan
 Phase 1). Sweep / Monte Carlo / Batch remain disabled through v1 (D4).
 
+**Shipped (GUI plan Phase 9):** File → New / Open / **Open Recent** (persisted via
+`QSettings`) / Save / Save As are wired through `Sensor.load()` / `Sensor.save()` only
+(§4.1); the window title shows the current file name with a `*` **dirty marker** that sets
+on any edit and clears on save. Edit → **Undo / Redo** (Ctrl+Z / Ctrl+Shift+Z) reverse the
+last ~20 parameter edits via a `QUndoStack` of named `sensor.set` commands (a whole-config
+swap — Open / New / YAML-editor Apply / console Refresh — clears the stack). View → the
+**light/dark theme toggle** re-applies the QSS + re-themes the custom-painted widgets
+(schematic viewer, detector illustration) and persists the choice; panel show/hide
+(Parameter Panel F6, Right Rail F7) and stage-jump shortcuts (Ctrl+1..9) are wired.
+
 ---
 
 ## 11. Implementation Notes
 
 - **PySide6 ≥ 6.6** (LTS); pin the minor version in `pyproject.toml`. Qt6-only, no Qt5
   target. Optional-dependency group: `gui = ["PySide6>=6.6", "matplotlib>=3.8",
-  "qtconsole>=5.5", "pyvista", "pyvistaqt"]`. **The shipped console is a REPL over
-  `code.InteractiveConsole`, not qtconsole (§4.6.1, CU-138)** — the `qtconsole` pin is kept
-  for the deferred kernel path. pyvista/pyvistaqt pinned to match
-  `dev_tools/geometry_gui_v2`. Core RADIANT stays importable without the `gui` extra.
+  "qtconsole>=5.5"]`. **The shipped console is a REPL over `code.InteractiveConsole`, not
+  qtconsole (§4.6.1, CU-138)** — the `qtconsole` pin is kept for the deferred kernel path.
+  The pre-D7 `pyvista`/`pyvistaqt` pins were **dropped** (CU-134, GUI plan Phase 9): the
+  geometry viewer is a pure-Qt 2D `QPainter` schematic (ADR-0007) with no VTK/OpenGL
+  dependency. Core RADIANT stays importable without the `gui` extra.
 - **Matplotlib backend:** `backend_qtagg.FigureCanvasQTAgg`; the GUI's `result.plot.*`
   calls are identical to the scripting-API calls.
 - **Main window:** `RADIANTMainWindow(QMainWindow)`; parameter and detail panels are

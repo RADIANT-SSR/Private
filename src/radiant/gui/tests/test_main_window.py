@@ -100,18 +100,34 @@ class TestMenuSurface:
         for expected in ("&File", "&Edit", "&View", "&Run", "&Tools", "&Help"):
             assert expected in titles
 
-    def test_only_quit_enabled_in_phase1(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Phase 1 implements only Quit; every other action is present-but-disabled."""
+    def test_action_enablement_on_empty_window(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """On a bare (no-sensor) window, only the sensor-independent actions are enabled.
+
+        Phase 9 wired the File / Edit / View menus: New / Open and the View toggles work
+        without a loaded sensor, while sensor-gated actions (Save, Evaluate, Console) and
+        the empty-stack Undo/Redo stay disabled; Sweep / Monte Carlo / Batch remain disabled
+        through v1 (D4). This supersedes the Phase-1 "only Quit enabled" assertion.
+        """
         window = RADIANTMainWindow()
         qtbot.addWidget(window)
 
-        assert window.action("file.quit").isEnabled()
-        # A representative sample of not-yet-implemented actions across menus.
+        # Enabled without a sensor.
         for key in (
+            "file.quit",
+            "file.new",
             "file.open",
-            "file.save",
-            "edit.undo",
             "view.theme",
+            "view.toggle_params",
+            "view.toggle_rail",
+        ):
+            assert window.action(key).isEnabled(), key
+
+        # Disabled without a sensor / with an empty undo stack / deferred to v1.1.
+        for key in (
+            "file.save",
+            "file.save_as",
+            "edit.undo",
+            "edit.redo",
             "run.evaluate",
             "run.sweep",
             "tools.console",

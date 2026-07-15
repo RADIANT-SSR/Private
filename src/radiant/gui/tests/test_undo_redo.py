@@ -1,0 +1,86 @@
+"""Undo / redo tests for the parameter-edit stack (GUI plan Phase 9, arch doc §10).
+
+Drives the Edit → Undo / Redo ``QUndoStack`` end to end, offscreen: a parameter edit pushes
+a named command, undo restores the previous value and re-evaluates, redo re-applies it, and a
+whole-config swap (YAML-editor Apply / console Refresh) clears the stack (the documented
+Phase-9 behaviour). Golden results are untouched — the GUI is a view over the scripting API.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from PySide6.QtCore import QSettings
+
+from radiant.api.sensor import Sensor
+from radiant.gui.main_window import RADIANTMainWindow
+from radiant.gui.settings_store import SettingsStore
+
+_EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
+_APERTURE = "optics.aperture_diameter_m"
+_WAIT_MS = 15000
+
+
+def _window(qtbot, tmp_path: Path):  # type: ignore[no-untyped-def]
+    settings = SettingsStore(QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat))
+    window = RADIANTMainWindow(Sensor.load(_EXAMPLE), path=str(_EXAMPLE), settings=settings)
+    qtbot.addWidget(window)
+    with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+        pass
+    return window
+
+
+def _edit(window, dotpath: str, value: float) -> None:
+    """Mimic the panel's edit path: apply the value, then signal the window."""
+    window.sensor.set(dotpath, value)
+    window._on_parameter_edited(dotpath)
+
+
+class TestUndoRedo:
+    def test_edit_pushes_named_command(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """A parameter edit records one reversible, human-labelled command."""
+        window = _window(qtbot, tmp_path)
+        _edit(window, _APERTURE, 0.6)
+        assert window._undo_stack.count() == 1
+        assert window._undo_stack.canUndo()
+        assert window.action("edit.undo").isEnabled()
+        assert window._undo_stack.command(0).text() == f"Set {_APERTURE} = 0.6 m"
+
+    def test_undo_restores_value_and_reevaluates(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Undo restores the previous value, refreshes the panel, and re-evaluates."""
+        window = _window(qtbot, tmp_path)
+        original = window.sensor.get_input(_APERTURE)
+        _edit(window, _APERTURE, 0.6)
+        assert window.sensor.get_input(_APERTURE) == 0.6
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+
+        assert window.sensor.get_input(_APERTURE) == original
+        # The parameter panel re-read the restored value (view matches the sensor).
+        assert window.parameter_panel.value_text(_APERTURE).startswith(f"{original:g}")
+        assert window.action("edit.redo").isEnabled()
+
+    def test_redo_reapplies_value(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Redo re-applies the undone edit and re-evaluates."""
+        window = _window(qtbot, tmp_path)
+        _edit(window, _APERTURE, 0.6)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.redo").trigger()
+        assert window.sensor.get_input(_APERTURE) == 0.6
+
+    def test_config_swap_clears_the_stack(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """A whole-config Apply (YAML editor / console) resets the undo history."""
+        window = _window(qtbot, tmp_path)
+        _edit(window, _APERTURE, 0.6)
+        assert window._undo_stack.count() == 1
+
+        replacement = Sensor.load(_EXAMPLE)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window._apply_new_config(replacement)
+
+        assert window._undo_stack.count() == 0
+        assert not window.action("edit.undo").isEnabled()
+        assert window.sensor is replacement

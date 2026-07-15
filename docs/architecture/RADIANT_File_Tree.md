@@ -417,7 +417,7 @@ Enforced by `import-linter` in CI (6 contracts in `pyproject.toml`):
 3. `io/` → `radiant.core` + any physics subpackage (read-only access for schema introspection). No imports from `api/` or `cli/`.
 4. `api/` → `radiant.core` + all physics subpackages + `radiant.io`. No `cli/` imports.
 5. `cli/` → `radiant.api` + `radiant.io` + `radiant.gui` (lazy — the `radiant gui` subcommand imports gui inside the command body). No direct physics imports.
-6. `gui/` → `radiant.api` + `radiant.core` only (+ external Qt/matplotlib/qtconsole/pyvista). No physics subpackage directly, no `io`/`cli`. The GUI is a view over the scripting API. Like the cli contract, this one uses `allow_indirect_imports` (CU-098 pattern): `gui → api → optics` transitively is by design, so only direct gui edges are checked.
+6. `gui/` → `radiant.api` + `radiant.core` only (+ external Qt/matplotlib/qtconsole). No physics subpackage directly, no `io`/`cli`. The GUI is a view over the scripting API. Like the cli contract, this one uses `allow_indirect_imports` (CU-098 pattern): `gui → api → optics` transitively is by design, so only direct gui edges are checked. (The pre-D7 PyVista/VTK dependency was dropped with the pure-Qt 2D schematic viewer — CU-134.)
 7. `plugins/` (when populated for v2) → `radiant.core` only.
 
 CI runs `import-linter --config pyproject.toml`; PRs that break a contract are blocked.

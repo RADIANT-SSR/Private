@@ -19,12 +19,15 @@ object names only.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
+    QApplication,
     QDockWidget,
+    QFileDialog,
     QMainWindow,
     QMenu,
     QProgressBar,
@@ -32,22 +35,26 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.geometry_modes import implicated_families
+from radiant.gui.param_format import format_value
+from radiant.gui.settings_store import SettingsStore
+from radiant.gui.themes import DARK, LIGHT, active_theme, apply_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
 from radiant.gui.widgets.scripting_console import ScriptingConsole
-from radiant.gui.widgets.stage_strip import StageStrip
+from radiant.gui.widgets.set_parameter_command import SetParameterCommand
+from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import EvaluationWorker
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
-    from radiant.api.sensor import Sensor
 
 # Re-evaluation debounce window (arch doc §3.3): parameter edits within this
 # window coalesce into a single full-chain run.
@@ -62,6 +69,13 @@ _DEFAULT_WIDTH: int = 1440
 _DEFAULT_HEIGHT: int = 900
 _PARAM_DOCK_WIDTH: int = 360
 _RAIL_DOCK_WIDTH: int = 288
+
+# Undo/redo depth (arch doc §10, GUI plan Phase 9): the last ~20 parameter edits are
+# reversible; older commands fall off the bottom of the stack.
+_UNDO_LIMIT: int = 20
+
+# The RADIANT config file filter for the Open / Save-As dialogs.
+_YAML_FILTER: str = "RADIANT config (*.yaml *.yml);;All files (*)"
 
 
 class RADIANTMainWindow(QMainWindow):
@@ -91,12 +105,33 @@ class RADIANTMainWindow(QMainWindow):
 
     evaluationFinished = Signal(object)
 
-    def __init__(self, sensor: Sensor | None = None) -> None:
+    def __init__(
+        self,
+        sensor: Sensor | None = None,
+        *,
+        path: str | None = None,
+        settings: SettingsStore | None = None,
+    ) -> None:
         super().__init__()
         self._sensor = sensor
         # Registry of every menu action by a stable key, so tests and later
         # phases can look one up without walking the menu tree.
         self._actions: dict[str, QAction] = {}
+
+        # File-round-trip state (Phase 9): the config path the current sensor was
+        # loaded from / last saved to (None → unsaved), and whether it carries
+        # unsaved edits (the title's dirty marker). Preferences (recent files,
+        # theme, panel state) persist through the injected settings store.
+        self._settings: SettingsStore = settings if settings is not None else SettingsStore()
+        self._current_path: Path | None = Path(path) if path else None
+        self._dirty: bool = False
+
+        # Undo/redo (Phase 9): a bounded stack of reversible parameter edits, plus a
+        # snapshot of the committed input values so an edit's before-value is known
+        # when the panel signals it (the signal fires after the set is applied).
+        self._undo_stack = QUndoStack(self)
+        self._undo_stack.setUndoLimit(_UNDO_LIMIT)
+        self._input_snapshot: dict[str, Any] = {}
 
         # Evaluate-loop state (Phase 3): the in-flight worker, a coalescing flag
         # for edits that land mid-run, the most recent result, and a count of
@@ -118,11 +153,20 @@ class RADIANTMainWindow(QMainWindow):
         self._build_status_bar()
         self._apply_dock_proportions()
         self._wire_evaluate_loop()
+        self._wire_file_menu()
+        self._wire_edit_menu()
+        self._wire_view_menu()
+        # Custom-painted widgets read a stored theme, so a launch in the persisted
+        # (possibly dark) theme must be pushed to them once the tree is built.
+        self._central.stage_center.set_theme(active_theme())
 
         # Auto-evaluate once on load so the badges and plot populate immediately
         # (the D2 checkpoint opens on a filled dashboard). Deferred to the event
         # loop so the worker's signals are delivered after the window is shown.
         if self._sensor is not None:
+            if self._current_path is not None:
+                self._settings.add_recent_file(str(self._current_path))
+                self._rebuild_recent_menu()
             QTimer.singleShot(0, self._evaluate_now)
 
     # -- public accessors ---------------------------------------------------
@@ -169,11 +213,18 @@ class RADIANTMainWindow(QMainWindow):
     # -- construction helpers ----------------------------------------------
 
     def _compose_title(self) -> str:
-        """Window title: app name plus the loaded config, if any."""
+        """Window title: ``[*] <file> — RADIANT`` (arch doc §10 / GUI plan Phase 9).
+
+        With no sensor the title is the bare app name. A loaded/saved config shows its
+        base file name; a sensor with no file yet (the script hand-off or File → New)
+        shows ``untitled``. A leading ``*`` marks unsaved edits (the dirty marker), so
+        the operator always sees whether the on-screen config matches the file on disk.
+        """
         if self._sensor is None:
             return "RADIANT"
-        source = getattr(self._sensor, "source_path", None)
-        return f"RADIANT — {source}" if source else "RADIANT"
+        name = self._current_path.name if self._current_path is not None else "untitled"
+        marker = "* " if self._dirty else ""
+        return f"{marker}{name} — RADIANT"
 
     def _add_action(
         self,
@@ -215,7 +266,10 @@ class RADIANTMainWindow(QMainWindow):
             enabled=False,
             shortcut=QKeySequence.StandardKey.Open,
         )
-        self._add_action(file_menu, "file.open_recent", "Open Recent", enabled=False)
+        # Open Recent is a live submenu, rebuilt from the persisted recent-files list
+        # (QSettings, Phase 9). Disabled while the list is empty (nothing to reopen).
+        self._recent_menu = file_menu.addMenu("Open Recent")
+        self._recent_menu.setEnabled(False)
         self._add_action(
             file_menu, "file.save", "Save", enabled=False, shortcut=QKeySequence.StandardKey.Save
         )
@@ -451,13 +505,14 @@ class RADIANTMainWindow(QMainWindow):
         console_sensor = self._console.namespace_sensor()
         if console_sensor is None:
             return
-        self._sensor = console_sensor
-        self.setWindowTitle(self._compose_title())
-        self._parameter_panel.populate(console_sensor)
-        self._central.stage_center.bind_sensor(console_sensor, self._parameter_panel.display_units)
-        self._console.bind_sensor(console_sensor)
-        self._console.set_stale(False)
-        self._evaluate_now()
+        # A console mutation may have edited the live sensor in place or rebound it to a
+        # whole new object (`sensor = Sensor.load(...)`), so the undo stack is cleared and
+        # the config is marked dirty (the console's changes are unsaved). The file path is
+        # kept as-is — the console cannot report a new one. (GUI plan Phase 9: console /
+        # YAML-editor changes reset the undo history; explicit beats a fragile merge.)
+        self._adopt_sensor(
+            console_sensor, path=self._current_path, dirty=True, add_recent=False, evaluate=True
+        )
 
     def _on_parameter_edited(self, dotpath: str) -> None:
         """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
@@ -474,6 +529,10 @@ class RADIANTMainWindow(QMainWindow):
         the failure path); the originating surface has already refreshed itself.
         """
         self._central.stage_center.clear_geometry_highlight()
+        # Record the edit as a reversible command (Edit → Undo/Redo, Phase 9) and mark the
+        # config dirty (its title * marker) — both before scheduling the re-run.
+        self._push_edit_command(dotpath)
+        self._mark_dirty()
         self._stage_strip.set_all_status("stale")
         self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
         self._debounce.start()
@@ -569,17 +628,29 @@ class RADIANTMainWindow(QMainWindow):
         # The accent Run button now lives in the right-rail footer (§4.5); F5 / the Run menu
         # action and the footer button both drive the same evaluate slot.
         run_button = self._right_rail.run_button
-        has_sensor = self._sensor is not None
-        evaluate_action.setEnabled(has_sensor)
-        run_button.setEnabled(has_sensor)
-        # The Edit Config (YAML) modal needs a sensor to serialize; gate it likewise.
-        self._right_rail.yaml_button.setEnabled(has_sensor)
-        # The scripting console binds the live sensor/result; nothing to bind without a
-        # sensor, so it opens only once one is loaded (global tool, arch doc §2.5/§4.6).
-        self.action("tools.console").setEnabled(has_sensor)
+        # Every sensor-gated action (Evaluate, the Run button, Edit Config, the console,
+        # Save/Save As) is enabled together — a bare window with no sensor cannot run,
+        # serialize, or save (arch doc §3.2/§4.5/§10). File → Open / New swap a sensor in
+        # and re-enable them via _set_sensor_actions_enabled (Phase 9).
+        self._set_sensor_actions_enabled(self._sensor is not None)
         # F5 / menu and the accent Run button both trigger an immediate run.
         evaluate_action.triggered.connect(self._evaluate_now)
         run_button.clicked.connect(self._evaluate_now)
+
+    def _set_sensor_actions_enabled(self, enabled: bool) -> None:
+        """Enable/disable every action that needs a loaded sensor (Phase 9).
+
+        Evaluate + the right-rail Run button run the chain; Edit Config (YAML) and the
+        scripting console bind the live sensor; Save / Save As serialize it. None of them
+        makes sense on an empty window, so they toggle together as a sensor is loaded,
+        swapped (File → Open / New), or when the window opens bare.
+        """
+        self.action("run.evaluate").setEnabled(enabled)
+        self._right_rail.run_button.setEnabled(enabled)
+        self._right_rail.yaml_button.setEnabled(enabled)
+        self.action("tools.console").setEnabled(enabled)
+        self.action("file.save").setEnabled(enabled)
+        self.action("file.save_as").setEnabled(enabled)
 
     def _evaluate_now(self) -> None:
         """Start a full-chain evaluation, or coalesce if one is already running.
@@ -649,6 +720,10 @@ class RADIANTMainWindow(QMainWindow):
         # the most recent result, so it stays enabled once armed.
         self.action("tools.inspector").setEnabled(True)
         self._inspector_button.setEnabled(True)
+        # A clean run is the committed baseline for undo: snapshot the resolved input
+        # values so the next edit's before-value is known (the panel signals an edit only
+        # after applying it, so the pre-edit value must come from this snapshot).
+        self._refresh_snapshot()
         self.statusBar().showMessage(self._evaluated_message(result))
 
     def _on_eval_failed(self, exc: BaseException) -> None:
@@ -766,17 +841,329 @@ class RADIANTMainWindow(QMainWindow):
         """Swap the live sensor for the Apply-parsed one and re-evaluate the whole GUI.
 
         The new sensor was parsed on a throwaway in the dialog (the live sensor was never
-        touched on failure); here it becomes the session sensor, the parameter tree
-        re-populates from it, and a full re-evaluation refreshes every panel (§4.5).
+        touched on failure); here it becomes the session sensor via the shared adopt path
+        (parameter tree + forms + console rebind, then a full re-evaluation, §4.5). The
+        edited YAML is unsaved (dirty) and keeps the current file path; the undo stack is
+        reset (a whole-config replace, not a single reversible edit — GUI plan Phase 9).
+        """
+        self._adopt_sensor(
+            sensor, path=self._current_path, dirty=True, add_recent=False, evaluate=True
+        )
+
+    # -- File round-trip (arch doc §10, GUI plan Phase 9) ------------------
+
+    def _wire_file_menu(self) -> None:
+        """Enable and connect New / Open / Open Recent / Save / Save As (Phase 9).
+
+        New and Open work with or without a sensor already loaded; Save / Save As are
+        gated on a sensor (:meth:`_set_sensor_actions_enabled`). All file I/O goes through
+        :meth:`Sensor.load` / :meth:`Sensor.save` — the GUI owns no reader/writer (§4.1).
+        """
+        new_action = self.action("file.new")
+        new_action.setEnabled(True)
+        new_action.triggered.connect(self._on_new)
+        open_action = self.action("file.open")
+        open_action.setEnabled(True)
+        open_action.triggered.connect(self._on_open)
+        self.action("file.save").triggered.connect(self._on_save)
+        self.action("file.save_as").triggered.connect(self._on_save_as)
+        self._rebuild_recent_menu()
+
+    def _adopt_sensor(
+        self,
+        sensor: Sensor | None,
+        *,
+        path: Path | None,
+        dirty: bool,
+        add_recent: bool,
+        evaluate: bool,
+    ) -> None:
+        """Make *sensor* the session sensor and rebind every panel (the shared swap path).
+
+        The one place a new sensor becomes live: File → Open / New, the YAML-editor Apply,
+        and the console Refresh all route here. It rebinds the parameter tree, the per-stage
+        input forms, and the console; resets the undo stack (a whole-sensor swap is not a
+        reversible single edit); updates the title (file name + dirty marker); optionally
+        records the file in the recent list; and either re-evaluates (a real config) or just
+        snapshots the inputs (a blank File → New that cannot resolve yet).
         """
         self._sensor = sensor
+        self._current_path = path
+        self._dirty = dirty
+        self._undo_stack.clear()
+        self._set_sensor_actions_enabled(sensor is not None)
         self.setWindowTitle(self._compose_title())
         self._parameter_panel.populate(sensor)
-        # Rebind the new sensor (and its fresh display-unit store) into the input forms.
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
-        # The console binds the same live sensor so a script sees the applied config too.
         self._console.bind_sensor(sensor)
-        self._evaluate_now()
+        self._console.set_stale(False)
+        if add_recent and path is not None:
+            self._settings.add_recent_file(str(path))
+            self._rebuild_recent_menu()
+        if evaluate and sensor is not None:
+            self._evaluate_now()
+        else:
+            self._refresh_snapshot()
+
+    def _on_new(self) -> None:
+        """File → New: open a blank config (schema defaults, no file, not yet evaluable)."""
+        self._adopt_sensor(Sensor(), path=None, dirty=False, add_recent=False, evaluate=False)
+        self.statusBar().showMessage("New configuration — edit parameters, then Evaluate")
+
+    def _on_open(self) -> None:
+        """File → Open: pick a YAML and load it through :meth:`Sensor.load`."""
+        start_dir = str(self._current_path.parent) if self._current_path is not None else ""
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open RADIANT config", start_dir, _YAML_FILTER
+        )
+        if filename:
+            self._open_path(filename)
+
+    def _open_path(self, path: str) -> None:
+        """Load *path* via :meth:`Sensor.load`, swap it in, and re-evaluate (Rule 15 errors).
+
+        A malformed or missing config surfaces its actionable error (a ``RadiantError`` shows
+        what/why/action; an I/O or parse error gets the traceback dialog) and leaves the
+        current sensor untouched — never a blank or half-swapped state (Rules 15/17).
+        """
+        try:
+            sensor = Sensor.load(path)
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, "open", self).exec()
+            return
+        except (OSError, ValueError) as exc:
+            UnexpectedErrorDialog(exc, f"Opening {path}", self).exec()
+            return
+        self._adopt_sensor(sensor, path=Path(path), dirty=False, add_recent=True, evaluate=True)
+        self.statusBar().showMessage(f"Opened {Path(path).name}")
+
+    def _rebuild_recent_menu(self) -> None:
+        """Repopulate File → Open Recent from the persisted list (QSettings, Phase 9)."""
+        self._recent_menu.clear()
+        recent = self._settings.recent_files()
+        self._recent_menu.setEnabled(bool(recent))
+        for entry in recent:
+            action = self._recent_menu.addAction(entry)
+            action.triggered.connect(lambda _checked=False, p=entry: self._open_path(p))
+
+    def _on_save(self) -> None:
+        """File → Save: write to the current file, or fall back to Save As if none yet."""
+        if self._current_path is None:
+            self._on_save_as()
+        else:
+            self._save_to_path(self._current_path)
+
+    def _on_save_as(self) -> None:
+        """File → Save As: pick a destination and write through :meth:`Sensor.save`."""
+        if self._sensor is None:
+            return
+        start = str(self._current_path) if self._current_path is not None else ""
+        filename, _ = QFileDialog.getSaveFileName(self, "Save RADIANT config", start, _YAML_FILTER)
+        if filename:
+            self._save_to_path(Path(filename))
+
+    def _save_to_path(self, path: Path) -> None:
+        """Write the live sensor to *path* via :meth:`Sensor.save`; clear the dirty marker.
+
+        A serialization failure (an unresolved config, an I/O error) surfaces its actionable
+        error and leaves the dirty state as-is (Rules 15/17). On success the file becomes the
+        current path, the title's ``*`` clears, and the file joins the recent list.
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+        try:
+            written = sensor.save(path)
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, "save", self).exec()
+            return
+        except OSError as exc:
+            UnexpectedErrorDialog(exc, f"Saving {path}", self).exec()
+            return
+        self._current_path = Path(written)
+        self._dirty = False
+        self.setWindowTitle(self._compose_title())
+        self._settings.add_recent_file(str(written))
+        self._rebuild_recent_menu()
+        self.statusBar().showMessage(f"Saved {Path(written).name}")
+
+    def _mark_dirty(self) -> None:
+        """Flag unsaved edits and refresh the title's ``*`` marker (idempotent)."""
+        if self._sensor is not None and not self._dirty:
+            self._dirty = True
+            self.setWindowTitle(self._compose_title())
+
+    # -- Undo / redo (arch doc §10, GUI plan Phase 9) ----------------------
+
+    def _wire_edit_menu(self) -> None:
+        """Wire Edit → Undo / Redo to the parameter-edit :class:`QUndoStack` (Phase 9)."""
+        undo_action = self.action("edit.undo")
+        redo_action = self.action("edit.redo")
+        undo_action.triggered.connect(self._undo_stack.undo)
+        redo_action.triggered.connect(self._undo_stack.redo)
+        # The stack drives the actions' enabled state so they grey out at the ends.
+        self._undo_stack.canUndoChanged.connect(undo_action.setEnabled)
+        self._undo_stack.canRedoChanged.connect(redo_action.setEnabled)
+        undo_action.setEnabled(self._undo_stack.canUndo())
+        redo_action.setEnabled(self._undo_stack.canRedo())
+
+    def _refresh_snapshot(self) -> None:
+        """Snapshot the resolved input values (the undo before-value baseline).
+
+        Rebuilt after each clean evaluation and on a sensor swap. Reads the public
+        :meth:`Sensor.get_input` surface; a parameter that is present-but-unresolved raises
+        ``KeyError`` (skipped), and a whole config that does not resolve yet (a blank File →
+        New) raises a ``RadiantError`` — caught so the baseline is simply empty until the
+        first clean run fills it. No silent physics swallow (Rule 17): this is undo
+        bookkeeping over already-validated inputs.
+        """
+        snapshot: dict[str, Any] = {}
+        sensor = self._sensor
+        if sensor is not None:
+            try:
+                for dotpath in sensor.parameter_defs():
+                    try:
+                        value = sensor.get_input(dotpath)
+                    except KeyError:
+                        continue
+                    if value is not None:
+                        snapshot[dotpath] = value
+            except RadiantError:
+                snapshot = {}
+        self._input_snapshot = snapshot
+
+    def _push_edit_command(self, dotpath: str) -> None:
+        """Record *dotpath*'s just-applied edit as a reversible command (Phase 9).
+
+        The panel signals an edit only after applying it, so the *new* value is read from
+        the sensor and the *old* value from the committed snapshot. A non-scalar, unresolved,
+        or no-op edit records nothing (there is nothing meaningful to reverse); a shape/enum
+        change records the shape value alone (any nominal dimensions seeded alongside it are
+        not part of this single reversible edit — documented Phase-9 limitation).
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+        try:
+            new_value = sensor.get_input(dotpath)
+            pdef = sensor.parameter_def(dotpath)
+        except (KeyError, RadiantError):
+            return
+        if new_value is None:
+            return
+        old_value = self._input_snapshot.get(dotpath, new_value)
+        self._input_snapshot[dotpath] = new_value
+        if old_value == new_value:
+            return
+        text = f"Set {dotpath} = {format_value(new_value, pdef.input_unit)}"
+        command = SetParameterCommand(
+            sensor,
+            dotpath,
+            old_value,
+            new_value,
+            pdef.input_unit or None,
+            self._apply_undo_redo,
+            text,
+        )
+        self._undo_stack.push(command)
+
+    def _apply_undo_redo(self, dotpath: str) -> None:
+        """Re-read the panels and re-evaluate after an undo/redo mutates the sensor.
+
+        Called by :class:`~radiant.gui.widgets.set_parameter_command.SetParameterCommand`
+        from within undo()/redo() — it must not push a new command (no recursion). Repopulates
+        the parameter tree + geometry forms from the restored value, keeps the snapshot in
+        step, marks the config dirty (it now differs from the file again), and schedules the
+        debounced full-chain re-run.
+        """
+        sensor = self._sensor
+        if sensor is not None:
+            self._parameter_panel.populate(sensor)
+            self._central.stage_center.refresh_forms()
+            try:
+                value = sensor.get_input(dotpath)
+            except (KeyError, RadiantError):
+                value = None
+            if value is not None:
+                self._input_snapshot[dotpath] = value
+        self._mark_dirty()
+        self._stage_strip.set_all_status("stale")
+        self.statusBar().showMessage(f"{dotpath} — re-evaluating…")
+        self._debounce.start()
+
+    # -- View menu (arch doc §10, GUI plan Phase 9) ------------------------
+
+    def _wire_view_menu(self) -> None:
+        """Wire the View menu: theme toggle, panel show/hide, stage-jump shortcuts (Phase 9)."""
+        # Light/Dark theme toggle. Checked ⇔ dark; the state is seeded from the theme the
+        # app actually launched in (the persisted choice, applied in app.py).
+        theme_action = self.action("view.theme")
+        theme_action.setEnabled(True)
+        theme_action.setCheckable(True)
+        theme_action.setChecked(active_theme().name == DARK.name)
+        theme_action.triggered.connect(self._on_toggle_theme)
+
+        # Parameter-dock show/hide (F6), restored from the persisted panel state.
+        params_action = self.action("view.toggle_params")
+        params_action.setEnabled(True)
+        params_action.setCheckable(True)
+        params_visible = self._settings.panel_visible("parameters", True)
+        self._parameter_dock.setVisible(params_visible)
+        params_action.setChecked(params_visible)
+        params_action.toggled.connect(self._on_toggle_params)
+
+        # Right-rail show/hide (F7 — the arch-§10 "Detail Panel" slot; the rail is v1's
+        # persistent detail column).
+        rail_action = self._add_action(
+            self._view_menu, "view.toggle_rail", "Show/Hide Right Rail", enabled=True, shortcut="F7"
+        )
+        rail_action.setCheckable(True)
+        rail_visible = self._settings.panel_visible("right_rail", True)
+        self._right_rail_dock.setVisible(rail_visible)
+        rail_action.setChecked(rail_visible)
+        rail_action.toggled.connect(self._on_toggle_rail)
+
+        # Stage-jump shortcuts (Ctrl+1..9 → the nine signal-chain stages, arch doc §10).
+        stage_menu = self._view_menu.addMenu("Go to Stage")
+        for index, namespace in enumerate(STAGE_NAMESPACES, start=1):
+            action = QAction(f"{index}  {namespace}", self)
+            action.setShortcut(f"Ctrl+{index}")
+            action.triggered.connect(
+                lambda _checked=False, ns=namespace: self._on_stage_selected(ns)
+            )
+            stage_menu.addAction(action)
+            self._actions[f"view.stage_{index}"] = action
+
+    def _on_toggle_theme(self, _checked: bool = False) -> None:
+        """Switch the app between the light and dark themes and re-theme every surface.
+
+        Re-applies the design-system stylesheet + palette (restyling every QSS-driven
+        widget), then re-themes the custom-painted widgets (the schematic viewer, the
+        detector illustration — which read a stored theme, not QSS) and re-renders the
+        current stage composite so its figures redraw in step. The choice persists via
+        ``QSettings`` so the next launch reopens in the same theme (GUI plan Phase 9).
+        """
+        app = QApplication.instance()
+        if not isinstance(app, QApplication):
+            return
+        new_theme = LIGHT if active_theme().name == DARK.name else DARK
+        apply_theme(app, new_theme)
+        self._central.stage_center.set_theme(new_theme)
+        if self._last_result is not None:
+            self._central.show_result(self._last_result)
+        self._settings.set_theme_name(new_theme.name)
+        self.action("view.theme").setChecked(new_theme.name == DARK.name)
+        self.statusBar().showMessage(f"{new_theme.name.title()} theme")
+
+    def _on_toggle_params(self, visible: bool) -> None:
+        """Show/hide the parameter dock and persist the choice."""
+        self._parameter_dock.setVisible(visible)
+        self._settings.set_panel_visible("parameters", visible)
+
+    def _on_toggle_rail(self, visible: bool) -> None:
+        """Show/hide the right rail and persist the choice."""
+        self._right_rail_dock.setVisible(visible)
+        self._settings.set_panel_visible("right_rail", visible)
 
     @staticmethod
     def _evaluated_message(result: ChainResult) -> str:

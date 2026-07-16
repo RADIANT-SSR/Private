@@ -335,7 +335,7 @@ class TestStageCenterInWindow:
         pane = window.central_canvas.stage_center.pane("optics")
         # PS-2: Optics is the first production use of the tabbed sub-view hook.
         assert pane.has_tabs
-        assert pane.tab_titles() == ["Inputs", "MTF", "PSF + Pupil", "Throughput"]
+        assert pane.tab_titles() == ["Inputs", "Elements", "MTF", "PSF + Pupil", "Throughput"]
         assert pane.mtf_panel is not None and pane.mtf_panel.is_populated()
         assert pane.mtf_panel.term_names()  # discovered terms present
         # Every diagnostic figure across the tabs rendered.

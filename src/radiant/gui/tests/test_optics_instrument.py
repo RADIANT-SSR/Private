@@ -29,7 +29,7 @@ from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 _WAIT_MS = 15000
-_TAB_TITLES = ["Inputs", "MTF", "PSF + Pupil", "Throughput"]
+_TAB_TITLES = ["Inputs", "Elements", "MTF", "PSF + Pupil", "Throughput"]
 
 
 def _evaluate(sensor: Sensor) -> object:
@@ -62,7 +62,7 @@ def _load_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 
 class TestOpticsComposition:
-    def test_optics_declares_four_subview_tabs(self) -> None:
+    def test_optics_declares_five_subview_tabs(self) -> None:
         """PS-2: the Optics composition is the first stage to populate ``subviews``."""
         comp = STAGE_COMPOSITIONS["optics"]
         assert [sv.title for sv in comp.subviews] == _TAB_TITLES
@@ -96,7 +96,7 @@ class TestOpticsComposition:
 
 class TestOpticsPane:
     def test_center_renders_as_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Optics center renders a QTabWidget with the four sub-view titles."""
+        """The Optics center renders a QTabWidget with the five sub-view titles."""
         pane = _optics_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         assert pane.has_tabs
         assert pane.tab_titles() == _TAB_TITLES

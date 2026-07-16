@@ -64,6 +64,7 @@ from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.mtf_panel import MtfPanel
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
+from radiant.gui.widgets.optical_element_editor import OpticalElementEditor
 from radiant.gui.widgets.optics_inputs_form import OpticsInputsForm
 from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
@@ -212,6 +213,9 @@ class StagePane(QWidget):
         # The Optics-instrument Inputs form (GUI plan Phase PS-2): edit an optics param and
         # every diagnostic tab refreshes (edit-and-watch). Bound/refreshed like the source form.
         self._optics_forms: list[OpticsInputsForm] = []
+        # The Optics element-train editor (GS-4): Apply commits the declarative document
+        # (one set_optical_elements call) and relays through the parameterEdited pipeline.
+        self._element_editors: list[OpticalElementEditor] = []
         # The Detector-instrument Inputs form + pixel illustration (GUI plan Phase PS-3): edit a
         # detector param and every tab refreshes — the dark rate shifts the noise pie, the pixel
         # pitch redraws the illustration + PSF grid. The illustration is drawn from the live
@@ -347,6 +351,14 @@ class StagePane(QWidget):
             optics_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(optics_form)
             self._optics_forms.append(optics_form)
+        if spec.element_editor:
+            # The Optics Elements tab (GS-4): the ADR-0009 element-document editor. A
+            # successful Apply emits the pseudo-path through the standard edit pipeline
+            # (stale dots + debounced re-evaluate); an invalid document never commits.
+            element_editor = OpticalElementEditor(parent)
+            element_editor.elementsApplied.connect(self.parameterEdited)
+            layout.addWidget(element_editor)
+            self._element_editors.append(element_editor)
         if spec.detector_inputs:
             # The Detector instrument's editable inputs card (GUI plan Phase PS-3): one
             # sensor.set per edit; each accepted edit re-emits parameterEdited so the host
@@ -547,6 +559,11 @@ class StagePane(QWidget):
         """The Atmosphere editable-inputs form, if this stage has one (GS-2)."""
         return self._atmosphere_forms[0] if self._atmosphere_forms else None
 
+    @property
+    def element_editor(self) -> OpticalElementEditor | None:
+        """The Optics element-train editor, if this stage has one (GS-4)."""
+        return self._element_editors[0] if self._element_editors else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -574,6 +591,8 @@ class StagePane(QWidget):
             readout_form.bind_sensor(sensor, display_units)
         for atmosphere_form in self._atmosphere_forms:
             atmosphere_form.bind_sensor(sensor, display_units)
+        for element_editor in self._element_editors:
+            element_editor.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 

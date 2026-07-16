@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: Optics element-train editor (GUI Capability Expansion plan GS-4, results-neutral).**
+  New **Elements** tab on the Optics stage: author the mixed-train element list in a table
+  (per-element name, transfer mode, kind, R/T as scalar or spectral-CSV path, temperature,
+  geometry); *Apply* commits through one `Sensor.set_optical_elements` call (io-parser
+  validation — a Kirchhoff violation or bad file shows the actionable dialog and never touches
+  the live sensor); ε is a **derived read-only** column (Rule 5); the authored train persists
+  through Save/Open (ADR-0009 D4) and drives full-prescription optics on the next evaluation.
+  Also fixed: an empty/directory spectral-file reference in `io/element_config.py` now raises
+  the actionable `ElementConfigError` instead of leaking `IsADirectoryError` (Rule 15).
 - **GUI: Source Inputs — reflective/solar pathway + scene-type declaration (GUI Capability
   Expansion plan GS-1, results-neutral).** The Source card grows from 6 thermal fields to four
   groups: Thermal (T/ε + hot-target opt-out), **Reflective (solar)** (`source.target.reflectance`

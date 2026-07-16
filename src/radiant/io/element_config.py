@@ -43,10 +43,13 @@ class ElementConfigError(RadiantError, ValueError):
 
 def _load_spectral_csv(path: Path, name: str) -> SpectralData:
     """Load a two-column CSV (wavelength_um, value) into SpectralData."""
-    if not path.exists():
+    # is_file(), not exists(): an empty or directory path must raise the actionable
+    # error below, never leak IsADirectoryError from open() (Rule 15).
+    if not path.is_file():
         raise ElementConfigError(
             f"Spectral data file not found: {path}. "
-            f"Check the file path for element property '{name}'."
+            f"Check the file path for element property '{name}' "
+            f"(a scalar value or an existing two-column CSV is required)."
         )
     wavelengths: list[float] = []
     values: list[float] = []

@@ -89,6 +89,7 @@ class StageSubView:
     atmosphere_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
+    element_editor: bool = False
     detector_inputs: bool = False
     detector_illustration: bool = False
     spectral_inputs: bool = False
@@ -147,6 +148,10 @@ class StageComposition:
         Show the Optics stage's editable inputs card — aperture / focal length / f-number /
         obscuration / spiders / scalar throughput / WFE / optics temperature as schema-driven
         :class:`FieldRow`s (Optics only, GUI plan Phase PS-2).
+    element_editor:
+        Show the optical element-train table editor — the ADR-0009 D2 declarative-document
+        editor committing through one ``Sensor.set_optical_elements`` call, ε derived
+        read-only per Rule 5 (Optics "Elements" tab, GUI Capability Expansion plan GS-4).
     detector_inputs:
         Show the Detector stage's editable inputs card — quantum efficiency / dark rate /
         pixel pitch x,y / fill factor / detector temperature as schema-driven
@@ -201,6 +206,7 @@ class StageComposition:
     atmosphere_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
+    element_editor: bool = False
     detector_inputs: bool = False
     detector_illustration: bool = False
     spectral_inputs: bool = False
@@ -308,6 +314,10 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         title="Optics",
         subviews=(
             StageSubView(title="Inputs", optics_inputs=True, outputs=True),
+            # The Elements tab (GUI Capability Expansion plan GS-4, audit O-1): the
+            # ADR-0009 D2 element-train editor — per-element R/T/temperature/geometry,
+            # ε derived read-only (Rule 5), Apply = one Sensor.set_optical_elements call.
+            StageSubView(title="Elements", element_editor=True),
             StageSubView(
                 title="MTF",
                 mtf_panel=True,

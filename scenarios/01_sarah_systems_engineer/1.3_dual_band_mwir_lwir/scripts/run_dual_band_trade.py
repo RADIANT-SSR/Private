@@ -130,7 +130,7 @@ def build_sensor(band: str, hotspot_T: float) -> Sensor:
     s.set("source.regime_override", "sub_pixel")  # keep in-pixel background
     s.set("source.target.temperature", hotspot_T)
     s.set("source.target.emissivity", shared["Hotspot emissivity"])
-    s.set("source.target.projected_area_m2", shared["Hotspot area"])
+    s.set("geometry.target.projected_area_m2", shared["Hotspot area"])
     # CU-060: the sub-pixel regime weights the target by fill_fraction, NOT
     # by projected_area_m2 (which drives only the point-source A/R² path).
     # Leaving it at the default 1.0 models the hotspot as pixel-filling and

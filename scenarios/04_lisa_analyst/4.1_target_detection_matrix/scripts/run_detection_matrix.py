@@ -122,7 +122,7 @@ TARGET_AXIS = {
     t.target_name: {
         "source.target.temperature": t.temperature_K,
         "source.target.emissivity": t.emissivity,
-        "source.target.projected_area_m2": t.projected_area_m2,
+        "geometry.target.projected_area_m2": t.projected_area_m2,
     }
     for t in targets
 }
@@ -206,7 +206,7 @@ def configure_geometry(sensor: Sensor, zenith_rad: float, area_m2: float) -> Non
     sensor.set("geometry.path_zenith_rad", zenith_rad)
     sensor.set("geometry.target_range_m", r_slant)
     footprint_m2 = (_ifov_rad(sensor) * r_slant) ** 2
-    sensor.set("source.target.projected_area_m2", min(area_m2, footprint_m2))
+    sensor.set("geometry.target.projected_area_m2", min(area_m2, footprint_m2))
     sensor.set("source.target.fill_fraction", min(1.0, area_m2 / footprint_m2))
 
 
@@ -231,7 +231,7 @@ def evaluate_cell(sensor: Sensor, labels: dict[str, str]) -> dict[str, float]:
     sensor.set("detector.clutter_sigma", CLUTTER_SIGMA)
 
     overrides = TARGET_AXIS[labels["target"]]
-    area_true = overrides["source.target.projected_area_m2"]
+    area_true = overrides["geometry.target.projected_area_m2"]
 
     scnr_nadir = scnr_at(sensor, 0.0, area_true)
     niirs_nadir = sensor.evaluate().metrics.get("niirs")

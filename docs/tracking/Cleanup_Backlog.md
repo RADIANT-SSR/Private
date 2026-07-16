@@ -440,7 +440,7 @@
 
 ## Resolved
 
-### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped schema — RESOLVED 2026-07-16 (commit `291dc0c`)
+### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped schema — RESOLVED 2026-07-16 (commit `ecf96c5`)
 
 **Discovered**: ADR-0008 drafting, 2026-07-15. **Resolution**: ADR-0008 Phase A migrated the target spatial-extent params to the `geometry.target.*` namespace and rewrote `RADIANT_Source_Target_System.md` §8.2/§8.3 to the **shipped** canonical names (`geometry.target.shape`, `geometry.target.shape_*_m`, `geometry.target.shape_*_rad`, `geometry.target.projected_area_m2`), with the deprecated `source.target.*` aliases listed alongside. The stale aspirational `source.geometry.*`/`source.orientation.*` names (which never shipped) are gone; §8 now matches the enforced schema. Doc + schema moved together (Rule 20). Category A; goldens byte-identical.
 

@@ -1,16 +1,18 @@
 # RADIANT GUI Architecture
 
-**Date:** 2026-04-07 · **Ratified v1 spec:** 2026-07-12
-**Status:** Active — ratified v1 specification (2026-07-12). Supersedes the prior
-"DESIGN TARGET" draft. This document is the binding specification the GUI
-Development Plan (`docs/plans/GUI_Development_Plan.md`) implements phase by phase;
-it describes v1 scope, the GUI-backend contract, the layout, the geometry-viewer
-panel, the design system, and the scenario requirements matrix.
+**Date:** 2026-04-07 · **Ratified v1 spec:** 2026-07-12 · **v1 shipped / plan closed:** 2026-07-15
+**Status:** Active — ratified v1 specification. **GUI v1 is shipped** and the GUI
+Development Plan closed at Phase 9 (2026-07-15); this document now describes the **shipped**
+application (all nine per-stage instruments, the 2D schematic viewer, the scripting window,
+and file round-trip / undo-redo / theme toggle). It supersedes the prior "DESIGN TARGET"
+draft, and describes v1 scope, the GUI-backend contract, the layout, the geometry-viewer
+panel, the design system, and the scenario requirements matrix. This remains the authoritative
+GUI-content surface; post-v1 work updates it in lock-step (Rule 20).
 **Depends on:** `RADIANT_Personas.md`, `RADIANT_Signal_Chain_Architecture.md`,
 `RADIANT_Geometry.md`, `api/sensor.py` (the scripting API this GUI is a view over).
-**Governed by:** `docs/plans/GUI_Development_Plan.md` §§2–4 (ratified decisions,
-scope, ground rules). Where this doc and the plan differ, the plan governs v1 scope
-and this doc is updated in lock-step (Rule 20).
+**Implemented by:** `docs/archive/GUI_Development_Plan.md` (Complete, archived 2026-07-15) —
+§§2–4 record the ratified decisions, scope, and ground rules. Post-v1 GUI features and the
+v1.1 backlog live in `docs/tracking/gaps.md` (GUI-1…GUI-17), not in this doc's prose.
 
 **Layout redesign (owner-ratified 2026-07-13).** §4 now specifies the **contextual
 per-stage workspace** (visual spec: the ratified wireframe reviewed 2026-07-13). This
@@ -21,9 +23,8 @@ background evaluate loop/worker, 9-stage strip, the `result.plot.*` figures, met
 badges, warning strip, YAML view) is **retained and relocated** — metric badges become
 pinnable right-rail cards, the warning strip becomes the Messages panel, the bottom detail
 tabs dissolve into per-stage center views and two global tools. Nothing built is discarded.
-The **GUI Development Plan phase revision that re-sequences the phases to this layout is
-pending** (a separate task); until it lands, the plan's phase list still describes the old
-arrangement and this §4 governs the target layout.
+The GUI Development Plan was re-sequenced to this layout (revision landed 2026-07-14) and has
+since closed (archived 2026-07-15); §4 describes the shipped layout.
 
 ---
 
@@ -1135,25 +1136,14 @@ exception: **row 8 (the `well_status` saturation banner) was pulled into v1** at
 remaining rows are dispositioned at GUI plan Phase 9 (each becomes a `gaps.md` entry or a
 v1.1 line item); listed here so the owner can confirm the deferral is acceptable.
 
-| # | Feature | Requesting scenarios | Suggested disposition |
-|---|---------|---------------------|----------------------|
-| 1 | **Spreadsheet / XLSX import with unit-mapping dialog** | 1.2,1.3,1.4,2.1,2.2,2.3,2.5,3.2,3.3,5.1,5.2,5.4,6.1,6.3,7.1,7.2,7.4,7.5 (18) | **v1.1** — highest-leverage add; `Sensor.set(unit=)` + io loaders exist, only the dialog is missing |
-| 2 | **Report / slide export (PDF, PowerPoint, XLSX)** | 1.1,1.4,2.2,2.3,2.5,3.2,5.1,5.2,5.3,5.4,6.3,7.1,7.2 (13) | **deferred (report generator, §9)**; near-universal — revisit priority in v1.1 |
-| 3 | **Comparison mode (2+ configs side-by-side)** | 1.3,1.5,2.1,2.2,3.3,3.5,4.3,5.3,5.5,7.4 (10) | **deferred (comparison mode, §9)**; heavily requested — promote in v1.1 planning |
-| 4 | **Measurement / reference-data overlay (lab points on model curves, residual sub-plot)** | 2.3,6.1,7.1,7.2,7.3,7.4,7.5 (7) | **gaps.md**; core to every persona-7 (test-engineer) workflow |
-| 5 | **Library / preset browser (target, ship-class, sensor, weather, lab/TVAC presets)** | 2.1,2.3,3.2,4.1,4.2,7.1,7.2,7.3,7.4,7.5 (10) | **deferred (library browser, §9)** |
-| 6 | **Detection / threshold traffic-light & go/no-go panels (DRI matrix, detection-range heatmap, ROC/P_d, feasibility)** | 1.3,2.5,3.2,4.1,4.2,4.5,6.4 (7) | **gaps.md** |
-| 7 | **Data importers (ASTER material, measured-ε/QE/dark CSV, tape7/libRadtran, NETD vendor, Zemax Zernike)** | 1.1,1.3,2.1,4.3,4.5,5.1,5.2,6.2,7.5,8.1 (10) | **v1.1** (io loaders exist; dialogs needed); tape7/libRadtran flagged specifically |
-| 8 | **Persistent `well_status` saturation banner** | 1.3,1.4,2.5,4.4,8.2 (5) | **v1 (Phase 3 banner; CU-101 API half is the Phase 3 prerequisite)** — pulled into v1 at the 2026-07-12 Phase 0 checkpoint (owner amendment 2). The GUI half (a persistent banner when the detector well clips) lands in GUI plan Phase 3; the API half is **CU-101** (expose `well_status`, only in `stage_outputs`, on the `ChainResult` metric surface), now a Phase 3 prerequisite |
-| 9 | **2-D / multi-axis sweep + live heatmap** (beyond v1.1 single-axis) | 1.2,2.5,3.2 (3) | **v1.1+** (Sweep tab is single-axis in v1.1; 2-D grid is a further increment) |
-| 10 | **Inverse-solve / optimizer UI (`solve_for`, reverse lookup, FoM optimize, constraint solve)** | 1.2,5.1,5.2,7.4 (4) | **gaps.md** (`solve_for` exists in API; no GUI surface) |
-| 11 | **Atmosphere-source A/B toggle (parametric vs imported)** | 1.1,6.2 (2) | **gaps.md** (explicitly flagged) |
-| 12 | **Curve digitizer (vendor PDF graph → CSV)** | 1.1 (1) | **gaps.md** |
-| 13 | **Bespoke analysis panels (cooler-trade, 1/f PSD, GIQE-5 decomp, tornado, Jacobian, calibration fit-card, RSS jitter budget, Arrhenius-knee, WFE ErrorBudget)** | 2.1,2.2,3.2,5.1,5.4,6.1,6.5,7.1,7.2,7.5 (10) | **gaps.md** (each one-off; none in v1) |
-| 14 | **Image simulator / 2-D scene / raster-map / stray-light-PSF / pupil-mask render** | 1.5,3.5,5.5,6.4 (4) | **deferred (image simulator, §9)** |
-| 15 | **Orbit / coverage / access dashboards + map view** | 3.1,3.4 (2) | **gaps.md** (helpers console-callable; panels not in v1) |
-| 16 | **Spectral-QE / co-varying QE(T) injection toggle** (Gaps 44/48) | 2.1,7.5 (2) | **gaps.md** (no config path — GUI-owned injection) |
-| 17 | **Profile-driven temporal sweep (sweep along a loaded time series)** | 4.4 (1) | **gaps.md** (distinct sweep mode) |
+**Registry moved (Rule 25).** The 17-row consolidated disposition table now lives in
+`docs/tracking/gaps.md` → **"GUI v1.1 & Deferred-Feature Backlog (arch doc §7.2 migration)"**
+(entries **GUI-1 … GUI-17**), migrated at GUI plan Phase 9 closeout so capability gaps live
+only in the registry. Each row keeps its owner-ratified disposition (v1.1 / deferred-§9 /
+gaps.md) and cross-references the underlying physics gap where only the GUI surface is new.
+Row 8 (the `well_status` saturation banner) was **pulled into v1** (shipped Phase 3; CU-101)
+and is therefore not in the deferred backlog. The interpretive reading below is retained
+here as analysis, not as a registry.
 
 **Read:** the dominant unmet demand is data ingestion (rows 1, 7) and results
 communication (rows 2, 3, 4) — not the physics, which the chain already computes. The v1

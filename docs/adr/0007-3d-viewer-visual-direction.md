@@ -49,7 +49,7 @@ retained for the decision history; it no longer describes the shipped viewer.
 
 ## Context
 
-GUI Development Plan Phase 6 (`docs/plans/GUI_Development_Plan.md` §6) settles what
+GUI Development Plan Phase 6 (`docs/archive/GUI_Development_Plan.md` §6) settles what
 remains before the production 3D geometry viewer (Phase 7) can be built. The engine
 decision is already made — **D5** (ratified 2026-07-12): PyVista embedded via
 `pyvistaqt.QtInteractor`, lifting the `dev_tools/geometry_gui_v2` scene library. VTK
@@ -237,7 +237,7 @@ unblocks Phase 7; ratifying A or the blend later is a token swap.
 ## References
 
 - ADR-0006 (`0006-geometry-stage.md`) — GeometryStage, θ_o conventions, dataclass deletion
-- `docs/plans/GUI_Development_Plan.md` §2 (D5), §6 (Phase 6), §7 (Phase 7)
+- `docs/archive/GUI_Development_Plan.md` §2 (D5), §6 (Phase 6), §7 (Phase 7)
 - `dev_tools/gui_mockups/geometry_viewer/radiant_geometry_handoff.md` §§1, 5, 7
 - `dev_tools/geometry_gui_v2/ARCHITECTURE.md` (C1–C8 contracts, C7)
 - `src/radiant/gui/themes/tokens.py`; `docs/architecture/RADIANT_GUI_Architecture.md` §8

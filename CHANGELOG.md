@@ -21,6 +21,22 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **RADIANT Desktop GUI v1 — complete (GUI Development Plan closed, view-only capability).**
+  `radiant gui [config.yaml]` launches the PySide6 contextual per-stage workspace: a 9-stage
+  geometry-first strip, a schema-driven All-Parameters tree, per-stage **instruments** for all
+  nine stages at the Geometry gold standard (Inputs → one `sensor.set` per edit / unit-carrying
+  Outputs from `stage_outputs` / stage plots from `result.plot.*`), a persistent right rail
+  (pinned metric cards, Edit-Config-YAML modal, Messages, Evaluate footer), the 2D `QPainter`
+  geometry schematic viewer (ADR-0007), the embedded scripting window (Command Window + Workspace
+  + multi-tab script Editor), and full File round-trip / undo-redo / light-dark theme toggle. The
+  four framework-plot additions that back the Source and Optics instruments ship as public
+  accessors — `result.plot.spectral_source_emission()` (Gap 91), `pupil_amplitude()` / `pupil_phase()`
+  (Gap 89), `optical_throughput()` / `coating_spectra()` (Gap 90), plus `noise_pie()` /
+  `psf_pixel_grid()` — reusable from any script or the console. The GUI is a pure view over the
+  scripting API (one action ↔ one API call); **golden results are byte-identical to pre-GUI**.
+  Out-of-v1 GUI features and the v1.1 Sweep/Batch tab are tracked in `docs/tracking/gaps.md`
+  (GUI-1…GUI-17); the completed plan is archived at `docs/archive/GUI_Development_Plan.md`. The
+  entries below record the individual phases that composed this capability.
 - **GUI scripting window — Pass 2: the multi-tab script Editor (arch doc §4.6.1, view-only).**
   The scripting window now hosts all three MATLAB-style panes: a new **Editor** (top pane) over
   the Pass-1 Command Window + Workspace. The Editor opens, writes, saves, and **runs** multiple

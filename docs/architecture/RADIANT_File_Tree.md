@@ -237,7 +237,7 @@ api/
 
 PySide6 desktop application — a *view over the scripting API* (one GUI action ↔
 one `Sensor` / `ChainResult` call; no physics in GUI code). Built phase by phase
-per `docs/plans/GUI_Development_Plan.md`. Importable only when the optional `gui`
+per `docs/archive/GUI_Development_Plan.md` (Complete, archived 2026-07-15). Importable only when the optional `gui`
 extra is installed (`pip install "radiant[gui]"`); core RADIANT runs without it.
 
 ```

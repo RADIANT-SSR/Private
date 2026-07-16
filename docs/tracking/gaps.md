@@ -1349,6 +1349,50 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Workaround** | Pair the signal spectrum (`spectral_inband()`) with the scalar noise budget (`noise_budget()`), presenting the two together in the stage view. |
 | **Fix location** | If a true per-λ noise decomposition is wanted, add a pre-integration spectral noise accounting (per-λ shot/background/dark contributions) surfaced as a `result.plot.spectral_noise()` accessor — this is a genuine new capability that must be reconciled with Rule 8 (the collapse to scalars stays once-only; the per-λ arrays would be a diagnostic side-channel, not a second integration). Effort M–L; category C (new physics accounting). Confirm scope with the owner before building. |
 
+## GUI v1.1 & Deferred-Feature Backlog (arch doc §7.2 migration)
+
+**Migrated here at GUI Development Plan Phase 9 closeout (2026-07-15, commit — see Resolved
+note in the plan archive).** The GUI v1 requirements harvest (`RADIANT_GUI_Architecture.md`
+§7) mapped every scenario's GUI asks to a v1 phase or flagged them **OUT-OF-V1**. §7.2
+consolidated 17 distinct OUT-OF-V1 capabilities with owner-ratified dispositions
+(2026-07-12 Phase 0 checkpoint). Per **Rule 25** (capability gaps live only in this
+registry), those dispositions now live here; arch doc §7.2 points at this section and keeps
+only its interpretive reading. Row 8 (the `well_status` saturation banner) is **not** here —
+it was pulled **into v1** (shipped, Phase 3; CU-101) and is intentionally omitted.
+
+Dispositions: **v1.1** = planned for the next GUI increment · **deferred (§9)** = a
+Phase-2 subsystem in arch doc §9 (image simulator, library browser, report generator,
+comparison mode) · **gaps.md** = tracked capability, no scheduled GUI surface. "Underlying
+gap" cross-references an existing registry entry where the *physics/primitive* is already
+tracked and only the **GUI surface** is new (Rule 25 — not duplicated, referenced).
+
+| GUI id | Feature | Requesting scenarios (count) | Disposition | Underlying gap |
+|--------|---------|------------------------------|-------------|----------------|
+| GUI-1 | Spreadsheet / XLSX import with unit-mapping dialog | 1.2,1.3,1.4,2.1,2.2,2.3,2.5,3.2,3.3,5.1,5.2,5.4,6.1,6.3,7.1,7.2,7.4,7.5 (18) | **v1.1** — highest leverage; `Sensor.set(unit=)` + io loaders exist, only the dialog is missing | — (GUI surface only) |
+| GUI-2 | Report / slide export (PDF, PowerPoint, XLSX) | 1.1,1.4,2.2,2.3,2.5,3.2,5.1,5.2,5.3,5.4,6.3,7.1,7.2 (13) | **deferred (§9 report generator)**; revisit priority in v1.1 | — |
+| GUI-3 | Comparison mode (2+ configs side-by-side) | 1.3,1.5,2.1,2.2,3.3,3.5,4.3,5.3,5.5,7.4 (10) | **deferred (§9 comparison mode)**; promote in v1.1 planning | **Gap 79** (multi-config compare primitive) |
+| GUI-4 | Measurement / reference-data overlay (lab points on model curves + residual sub-plot) | 2.3,6.1,7.1,7.2,7.3,7.4,7.5 (7) | **gaps.md** — core to every persona-7 (test-engineer) workflow | — |
+| GUI-5 | Library / preset browser (target, ship-class, sensor, weather, lab/TVAC presets) | 2.1,2.3,3.2,4.1,4.2,7.1,7.2,7.3,7.4,7.5 (10) | **deferred (§9 library browser)** | **Gap 85** (mission-type relevance — v1.1 companion) |
+| GUI-6 | Detection / threshold traffic-light & go/no-go panels (DRI matrix, detection-range heatmap, ROC/Pd, feasibility) | 1.3,2.5,3.2,4.1,4.2,4.5,6.4 (7) | **gaps.md** | **Gap 78** (decision-grade acquisition metrics library-only) |
+| GUI-7 | Data importers (ASTER material, measured ε/QE/dark CSV, tape7/libRadtran, NETD vendor, Zemax Zernike) | 1.1,1.3,2.1,4.3,4.5,5.1,5.2,6.2,7.5,8.1 (10) | **v1.1** (io loaders exist; dialogs needed) | **Gap 81** (MODTRAN sky terms), **Gap 76** (measured solar spectrum) |
+| GUI-8 | Inverse-solve / optimizer UI (`solve_for`, reverse lookup, FoM optimize, constraint solve) | 1.2,5.1,5.2,7.4 (4) | **gaps.md** — `solve_for` exists in API; no GUI surface | — (GUI surface only) |
+| GUI-9 | 2-D / multi-axis sweep + live heatmap (beyond v1.1 single-axis) | 1.2,2.5,3.2 (3) | **v1.1+** (Sweep tab is single-axis in v1.1; 2-D grid a further increment) | see GUI-16 (Sweep/Batch, D4) |
+| GUI-10 | Atmosphere-source A/B toggle (parametric vs imported) | 1.1,6.2 (2) | **gaps.md** (explicitly flagged) | **Gap 81** |
+| GUI-11 | Curve digitizer (vendor PDF graph → CSV) | 1.1 (1) | **gaps.md** | — |
+| GUI-12 | Bespoke analysis panels (cooler-trade, 1/f PSD, GIQE-5 decomp, tornado, Jacobian, calibration fit-card, RSS jitter budget, Arrhenius-knee, WFE ErrorBudget) | 2.1,2.2,3.2,5.1,5.4,6.1,6.5,7.1,7.2,7.5 (10) | **gaps.md** (each one-off; none in v1) | — |
+| GUI-13 | Image simulator / 2-D scene / raster-map / stray-light-PSF / pupil-mask render | 1.5,3.5,5.5,6.4 (4) | **deferred (§9 image simulator)** | **Gap 33** (multi-target scene / per-pixel sim) |
+| GUI-14 | Orbit / coverage / access dashboards + map view | 3.1,3.4 (2) | **gaps.md** — helpers console-callable; panels not in v1 | **Gap 75** (orbit/coverage kinematics unwired) |
+| GUI-15 | Spectral-QE / co-varying QE(T) injection toggle | 2.1,7.5 (2) | **gaps.md** — no config path (GUI-owned injection) | Gaps 44/48 (QE(λ)/QE(T) — physics side) |
+| GUI-16 | Profile-driven temporal sweep (sweep along a loaded time series) | 4.4 (1) | **gaps.md** (distinct sweep mode) | **Gap 25 / Gap 84** (time-varying / ephemeris geometry) |
+| GUI-17 | Single-axis **Sweep** tab + **Batch / Monte Carlo** dialogs | near-universal (per-run trade studies) | **v1.1 (core — owner decision D4)** | **Gap 72** (progress/cancel hooks exist on `sweep()`/`monte_carlo()`) |
+
+All GUI-1…GUI-17 are **OPEN** (post-v1). Re-audit at GUI v1.1 planning kickoff. The
+underlying-gap cross-references mean several are unblocked on the *physics* side and need
+only the GUI surface; GUI-3/6/13/14 additionally depend on the arch doc §9 Phase-2 subsystem
+they name.
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

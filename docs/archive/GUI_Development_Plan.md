@@ -1,6 +1,15 @@
 # GUI Development Plan — RADIANT Desktop GUI v1
 
-**Status:** Active (owner-ratified 2026-07-12; revised 2026-07-14)
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-07-15. GUI v1 shipped: all go-forward phases
+> (FP-1…FP-3, PS-1…PS-6, Phase 8, Phase 9) landed. This plan is retained as the historical
+> record of the v1 build; it is no longer edited. The **shipped** application is described by
+> `docs/architecture/RADIANT_GUI_Architecture.md` (authoritative content surface); post-v1 GUI
+> work and the v1.1 backlog live in `docs/tracking/gaps.md` (GUI-1…GUI-17). See §11 for the
+> what-done-looks-like checklist as closed out.
+
+**Status:** Complete — archived 2026-07-15 (all phases shipped; closeout done).
+Owner-ratified 2026-07-12; revised 2026-07-14; **closed 2026-07-15**.
+*(Prior: Active, owner-ratified 2026-07-12; revised 2026-07-14.)*
 **Date:** 2026-07-12 · **Revised:** 2026-07-14 (redesign reconciliation + go-forward sequence)
 **Owner decisions record:** §2 (D1–D7)
 **Depends on:** `docs/plans/Geometry_Stage_Plan.md` (Complete and archived 2026-07-12),
@@ -531,19 +540,27 @@ Category A and the feedback list as the numbered scope.
 
 ---
 
-## 11. What Done Looks Like
+## 11. What Done Looks Like — Closeout Status (2026-07-15)
 
-- `radiant gui` launches a themed contextual 9-stage application from any example YAML.
-- Every stage is a bespoke instrument at the Geometry gold standard: schema-driven Inputs
+All criteria met at closeout:
+
+- ✅ `radiant gui` launches a themed contextual 9-stage application from any example YAML.
+- ✅ Every stage is a bespoke instrument at the Geometry gold standard: schema-driven Inputs
   (one `sensor.set` per edit), unit-carrying Outputs from `stage_outputs`, and the stage's
-  plots from `result.plot.*` — including the four framework-plot additions (Gaps 89–91;
-  Gap 92 deferred).
-- The 2D schematic viewer, scripting console, and file round-trip / undo-redo all work.
-- Every scenario row marked v1 in the arch doc §7 requirements matrix is demonstrable.
-- All GUI tests pass headless in CI; golden results byte-identical to pre-GUI.
-- `RADIANT_GUI_Architecture.md` describes the shipped application with zero aspirational
-  claims; deferred items live in `gaps.md`, not in doc prose.
-- CU-134 (pyvista pins) resolved; CU-122 (attitude) closed or with a refreshed deferral.
-- This plan is in `docs/archive/` with a completion banner.
+  plots from `result.plot.*` — including the four framework-plot additions (Gaps 89–91
+  resolved; Gap 92 deferred by owner decision 3).
+- ✅ The 2D schematic viewer, scripting window (Command Window + Workspace + multi-tab Editor),
+  and file round-trip / undo-redo all work.
+- ✅ Every scenario row marked v1 in the arch doc §7 requirements matrix is delivered by a
+  shipped phase; the OUT-OF-V1 rows are dispositioned into `gaps.md` (GUI-1…GUI-17) at this
+  closeout.
+- ✅ All GUI tests pass headless (399 passed, offscreen QPA, 2026-07-15); golden results
+  byte-identical to pre-GUI (every GUI/FP phase is a view/accessor over already-computed data).
+- ✅ `RADIANT_GUI_Architecture.md` describes the shipped application; the §7.2 disposition
+  table moved to `gaps.md` (Rule 25) and the stale "revision pending" / "implements phase by
+  phase" header claims were reconciled.
+- ✅ CU-134 (pyvista pins) resolved (commit `50cdb05`); CU-122 (attitude) re-audited at
+  Phase 9 closeout with the deferral refreshed to post-v1 (no v1 consumer).
+- ✅ This plan is in `docs/archive/` with a HISTORICAL banner (this document).
 </content>
 </invoke>

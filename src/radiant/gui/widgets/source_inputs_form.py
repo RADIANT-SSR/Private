@@ -44,20 +44,57 @@ from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
-# The key source radiometric parameters (label, dot-path), in the reading order the owner's
-# Source split implies: target first, then background, then the extended contrast reference.
-# Bounds/units/description all come from the live schema (never transcribed) — only the
-# human label + the grouping is a literal here (tracked with the geometry manifest, CU-120).
-_RADIOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+# The source radiometric + scene-declaration parameters (label, dot-path), grouped (GUI
+# Capability Expansion plan GS-1 — audit S-1…S-6: the pre-GS-1 card could only express a
+# graybody thermal emitter; the reflective/solar pathway, the scene-type declaration, and
+# the sub-pixel knobs were invisible). Bounds/units/choices/description all come from the
+# live schema (never transcribed) — only the labels + grouping are literals here (CU-120).
+#
+# Reflective note: `source.target.albedo`/`albedo_path` are user-facing *aliases* of
+# reflectance (mutually exclusive) — the form exposes only `reflectance` so the GUI never
+# invites an over-specified pair; the aliases stay reachable in the All-Parameters tree.
+_THERMAL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Target temperature", "source.target.temperature"),
     ("Target emissivity", "source.target.emissivity"),
+    ("Hot target (force pure-emit)", "source.target.is_hot_target"),
+)
+
+_REFLECTIVE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Target reflectance ρ (VIS/solar)", "source.target.reflectance"),
+    ("Solar illumination", "geometry.solar_illumination"),
+    ("Solar zenith angle", "geometry.solar_zenith_rad"),
+    ("Solar azimuth angle", "geometry.solar_azimuth_rad"),
+)
+
+_BACKGROUND_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Background temperature", "source.background.temperature"),
     ("Background emissivity", "source.background.emissivity"),
+    ("Background material (library)", "source.background.material"),
     ("Contrast ref. temperature", "source.contrast_reference.temperature"),
     ("Contrast ref. emissivity", "source.contrast_reference.emissivity"),
 )
 
-_TITLE = "Source radiometry — target, background, contrast reference"
+_SCENE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Scene type (declared)", "source.scene_type"),
+    ("Regime override (force)", "source.regime_override"),
+    ("Fill fraction (sub-pixel)", "source.target.fill_fraction"),
+)
+
+# The flat union, in display order — the single manifest tests and hosts iterate.
+_RADIOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    _THERMAL_FIELDS + _REFLECTIVE_FIELDS + _BACKGROUND_FIELDS + _SCENE_FIELDS
+)
+
+# (heading, fields) in reading order: what the target emits, what it reflects, what
+# surrounds it, and what the operator declares the scene to be.
+_GROUPS: Final[tuple[tuple[str, tuple[tuple[str, str], ...]], ...]] = (
+    ("Thermal (emissive)", _THERMAL_FIELDS),
+    ("Reflective (solar)", _REFLECTIVE_FIELDS),
+    ("Background & contrast reference", _BACKGROUND_FIELDS),
+    ("Scene type & regime", _SCENE_FIELDS),
+)
+
+_TITLE = "Source — thermal & reflective radiometry, scene declaration"
 
 
 class SourceInputsForm(QWidget):
@@ -105,10 +142,14 @@ class SourceInputsForm(QWidget):
         box.addWidget(title)
 
         self._rows: dict[str, FieldRow] = {}
-        for label, dotpath in _RADIOMETRY_FIELDS:
-            row = FieldRow(dotpath, label, self._open_editor)
-            box.addWidget(row)
-            self._rows[dotpath] = row
+        for heading, fields in _GROUPS:
+            group_label = QLabel(heading, card)
+            group_label.setObjectName("geoModeGroupHeading")
+            box.addWidget(group_label)
+            for label, dotpath in fields:
+                row = FieldRow(dotpath, label, self._open_editor)
+                box.addWidget(row)
+                self._rows[dotpath] = row
 
         layout.addWidget(card)
 

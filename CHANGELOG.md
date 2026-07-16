@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: Source Inputs — reflective/solar pathway + scene-type declaration (GUI Capability
+  Expansion plan GS-1, results-neutral).** The Source card grows from 6 thermal fields to four
+  groups: Thermal (T/ε + hot-target opt-out), **Reflective (solar)** (`source.target.reflectance`
+  pure-ρ pathway + `geometry.solar_illumination` day/night + solar zenith/azimuth), Background &
+  contrast reference (+ `source.background.material` library name), and **Scene type & regime**
+  (`source.scene_type` declared, `source.regime_override` force, fill fraction). VIS reflective
+  and MWIR mixed emit+reflect scenarios are now configurable in the GUI; the ADR-0008 T2
+  declared-vs-derived warning surfaces in the Messages panel. View-only — no computed value
+  changes.
 - **GUI: Detector Inputs expanded to the full schema (GUI Capability Expansion plan GS-3,
   results-neutral).** The Detector Inputs tab grows from 6 fields to every `detector.*`
   parameter (27), grouped: pixel geometry & temperature, QE (scalar / CSV curve import /

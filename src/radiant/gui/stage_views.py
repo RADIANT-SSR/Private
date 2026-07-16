@@ -219,8 +219,11 @@ class StageComposition:
 # Deferred/minimal notes kept as named constants so they read once and stay honest.
 _SOURCE_NOTE: Final[str] = (
     "Shown: pre-atmosphere target/background emission (primary) + at-aperture radiance "
-    "(post-atmosphere). All source inputs are shown ungated; per-scenario-type input "
-    "relevance is deferred (Gap 85)."
+    "(post-atmosphere). Pathways (mutually exclusive by engine design): thermal ε+T "
+    "(Kirchhoff ρ=1−ε adds a daytime reflected-solar term — mixed emit+reflect); pure "
+    "reflectance ρ alone (VIS/solar); declared scene type cross-checks the derived regime "
+    "(warning on mismatch). All inputs shown ungated; per-scenario-type relevance is the "
+    "Gap 85 fast-follow."
 )
 _PLATFORM_NOTE: Final[str] = (
     "Platform view is v1-minimal (owner-ratified: no dedicated MTF here — more detail is a "

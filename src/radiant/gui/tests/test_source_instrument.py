@@ -189,3 +189,62 @@ class TestSourceEditAndWatch:
             assert edited == ["geometry.target.shape"]
             # The subsequent physics re-evaluate succeeds (no ParameterBoundsError).
             assert _evaluate(sensor) is not None
+
+
+class TestReflectiveAndSceneType:
+    """GS-1 (GUI Capability Expansion plan): reflective/solar path + scene-type declaration."""
+
+    def test_manifest_exposes_reflective_solar_and_scene_fields(self) -> None:
+        paths = {dotpath for _label, dotpath in _RADIOMETRY_FIELDS}
+        for required in (
+            "source.target.reflectance",
+            "geometry.solar_illumination",
+            "geometry.solar_zenith_rad",
+            "source.scene_type",
+            "source.regime_override",
+            "source.target.fill_fraction",
+            "source.target.is_hot_target",
+            "source.background.material",
+        ):
+            assert required in paths, f"GS-1 field missing from form: {required}"
+
+    def test_manifest_paths_exist_in_schema(self) -> None:
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        defs = sensor.parameter_defs()
+        for _label, dotpath in _RADIOMETRY_FIELDS:
+            assert dotpath in defs, f"unknown parameter in manifest: {dotpath}"
+
+    def test_day_night_toggle_changes_reflective_signal(self) -> None:
+        """The GS-1 checkpoint physics: on the mixed emit+reflect path (T3 — ε+T set,
+        Kirchhoff ρ = 1−ε), toggling day → night removes the reflected-solar term and
+        the collected signal must drop. (Pure-reflective T2 is ρ-alone by design: the
+        engine rejects ρ combined with ε/T with an actionable error — the form's editor
+        reject discipline surfaces that message verbatim.)"""
+
+        def run(illumination: str) -> float:
+            s = Sensor.from_yaml(_EXAMPLE)
+            s.set("source.target.emissivity", 0.7)  # Kirchhoff: rho = 0.3 reflected
+            s.set("geometry.solar_zenith_rad", 0.5)
+            s.set("geometry.solar_illumination", illumination)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                r = s.evaluate()
+            return float(r.stage_outputs["spectral_integration"]["signal_e"])
+
+        day = run("day")
+        night = run("night")
+        assert day > night, (
+            f"reflected-solar term had no effect: day={day:.4g} e- vs night={night:.4g} e-"
+        )
+
+    def test_declared_scene_type_mismatch_warns(self) -> None:
+        """Declaring point_source on the extended example fires the T2 cross-check warning."""
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.set("source.scene_type", "point_source")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            s.evaluate()
+        texts = [str(w.message) for w in caught]
+        assert any(
+            "scene_type" in t or "declared" in t.lower() for t in texts
+        ), f"no declared-vs-derived warning; warnings seen: {texts[:5]}"

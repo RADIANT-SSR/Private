@@ -86,6 +86,7 @@ class StageSubView:
     geometry_readout: bool = False
     geometry_viewer: bool = False
     source_inputs: bool = False
+    atmosphere_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
     detector_inputs: bool = False
@@ -133,6 +134,11 @@ class StageComposition:
     source_inputs:
         Show the Source stage's radiometric Inputs card — target/background/contrast-reference
         (ε, T) as schema-driven :class:`FieldRow`s (Source only, GUI plan Phase PS-1).
+    atmosphere_inputs:
+        Show the Atmosphere stage's editable Inputs card — the ``atmosphere.model`` selector
+        with the active backend's parameters (simple / MODTRAN tape7 / tabulated files /
+        interpolated run-matrix / exo note) + turbulence r₀ as schema-driven
+        :class:`FieldRow`s (Atmosphere only, GUI Capability Expansion plan GS-2).
     target_shape:
         Show the shared target shape/size/orientation editor (shape combo + dimension fields
         + RPY) — the same widget the Geometry Schematic tab mounts, editing the one
@@ -192,6 +198,7 @@ class StageComposition:
     geometry_readout: bool = False
     geometry_viewer: bool = False
     source_inputs: bool = False
+    atmosphere_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
     detector_inputs: bool = False
@@ -267,11 +274,23 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         note=_SOURCE_NOTE,
     ),
     # τ_atm & L_path overlay + the at-aperture radiance now that atmosphere is applied.
+    # The Atmosphere stage instrument (GUI Capability Expansion plan GS-2, audit A-1…A-5):
+    # the editable model-selector Inputs card (model enum + the active backend's knobs +
+    # turbulence r₀ — the audit's "no atmosphere form at all" P0), the scalar outputs
+    # readout, and the propagation story told as before/after: what the source emits
+    # (pre-atmosphere), what the atmosphere does (τ & L_path — transmission loss vs the
+    # path's own radiance, separately visible), and what reaches the aperture.
     "atmosphere": StageComposition(
         title="Atmosphere",
+        atmosphere_inputs=True,
+        outputs=True,
         plots=(
             PlotSpec("τ_atm & L_path vs wavelength", "spectral_atmosphere"),
-            PlotSpec("Source & background radiance at aperture", "spectral_source"),
+            PlotSpec(
+                "Before atmosphere — target & background emission",
+                "spectral_source_emission",
+            ),
+            PlotSpec("After atmosphere — radiance at aperture", "spectral_source"),
         ),
     ),
     # The Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows): the

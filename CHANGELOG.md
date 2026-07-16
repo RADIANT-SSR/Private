@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: Atmosphere stage Inputs card (GUI Capability Expansion plan GS-2, results-neutral).**
+  The Atmosphere stage gains its first editable inputs (audit A-1…A-4): the `atmosphere.model`
+  selector (`simple`/`exo`/`tabulated`/`modtran`/`interpolated`) showing only the active
+  backend's parameter group (simple profile/aerosol/visibility/PWV; MODTRAN tape7 import +
+  profile/aerosol/H₂O/O₃ scaling; tabulated file paths; interpolated run-matrix dir/axes/method;
+  exo note) plus turbulence r₀ — all schema-driven `FieldRow`s, one `sensor.set` per edit. The
+  stage also gains a scalar Outputs readout and tells propagation as before/after: pre-atmosphere
+  emission (`spectral_source_emission`) beside τ/L_path and the at-aperture radiance. View-only —
+  no computed value changes.
 - **Optical-element document facade + config persistence (ADR-0009 / GUI plan FW-1,
   results-neutral).** New public surface for authoring the mixed-train element list as a
   declarative document: `Sensor.set_optical_elements(entries, base_dir=...)` /

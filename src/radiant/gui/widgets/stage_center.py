@@ -52,6 +52,7 @@ from radiant.gui.stage_views import (
 )
 from radiant.gui.themes import Theme
 from radiant.gui.viewer.viewer_widget import GeometryViewer
+from radiant.gui.widgets.atmosphere_inputs_form import AtmosphereInputsForm
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
 from radiant.gui.widgets.geometry_angle_panel import (
@@ -227,6 +228,10 @@ class StagePane(QWidget):
         # budget) refresh. Bound/refreshed like the source/optics/detector/spectral forms.
         self._platform_forms: list[PlatformInputsForm] = []
         self._readout_forms: list[ReadoutInputsForm] = []
+        # The Atmosphere-instrument Inputs form (GUI Capability Expansion plan GS-2): the
+        # model selector + the active backend's knobs. Edit the model (or a knob) and the
+        # τ/L_path + before/after-aperture plots refresh (edit-and-watch).
+        self._atmosphere_forms: list[AtmosphereInputsForm] = []
         self._sensor: Sensor | None = None
         # The shared session display-unit store (bound in). The panel's field values are
         # formatted through it so a unit chosen on any surface reflects on all.
@@ -326,6 +331,14 @@ class StagePane(QWidget):
                 row.addWidget(target_panel, 1)
                 self._target_panels.append(target_panel)
             layout.addWidget(row_widget)
+        if spec.atmosphere_inputs:
+            # The Atmosphere instrument's editable inputs card (GS-2): one sensor.set per
+            # edit; each accepted edit re-emits parameterEdited so the host re-evaluates and
+            # the τ_atm/L_path + before/after radiance plots refresh (edit-and-watch).
+            atmosphere_form = AtmosphereInputsForm(parent)
+            atmosphere_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(atmosphere_form)
+            self._atmosphere_forms.append(atmosphere_form)
         if spec.optics_inputs:
             # The Optics instrument's editable inputs card (GUI plan Phase PS-2): one
             # sensor.set per edit, and each accepted edit re-emits parameterEdited so the host
@@ -529,6 +542,11 @@ class StagePane(QWidget):
         """The Readout editable-inputs form, if this stage has one (Readout, PS-5)."""
         return self._readout_forms[0] if self._readout_forms else None
 
+    @property
+    def atmosphere_inputs_form(self) -> AtmosphereInputsForm | None:
+        """The Atmosphere editable-inputs form, if this stage has one (GS-2)."""
+        return self._atmosphere_forms[0] if self._atmosphere_forms else None
+
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
 
@@ -554,6 +572,8 @@ class StagePane(QWidget):
             platform_form.bind_sensor(sensor, display_units)
         for readout_form in self._readout_forms:
             readout_form.bind_sensor(sensor, display_units)
+        for atmosphere_form in self._atmosphere_forms:
+            atmosphere_form.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 
@@ -725,6 +745,8 @@ class StagePane(QWidget):
             platform_form.refresh()
         for readout_form in self._readout_forms:
             readout_form.refresh()
+        for atmosphere_form in self._atmosphere_forms:
+            atmosphere_form.refresh()
         self._refresh_detector_illustration()
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)

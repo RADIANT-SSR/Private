@@ -4,9 +4,11 @@
 **Status:** Accepted (owner-ratified 2026-07-15). **Phase A shipped 2026-07-16** (commit
 `ecf96c5`). **Decision 4 refined by Amendment 1 (2026-07-16)** — the declared scenario type
 already partly exists as `source.scene_type` / `source.regime_override`. **Decision 2 refined by
-Amendment 2 (2026-07-16, owner-ratified)** — Phase B moves only the *projected-area* computation
-to Geometry; the tentative regime classification **stays in SourceStage** (it is entangled with
-descriptor inference). See both amendments at the end of this ADR before executing Phase B/T2.
+Amendment 2 then CLOSED by Amendment 3 (2026-07-16, owner-ratified)** — Phase B is **not
+implemented**: relocating the projected-area computation to Geometry is structurally blocked (the
+downstream value is T7-descriptor-coupled and Rule 7 forbids the write-back), so the computation
+**stays in SourceStage**. Phase A already delivered the namespace/GUI split. See the amendments at
+the end of this ADR.
 
 ## Context
 
@@ -252,3 +254,44 @@ to GeometryStage collides with real entanglement the ADR did not anticipate:
 **Consequence for the plan:** `Target_Extent_Geometry_Plan.md` Phase B is rescoped to
 "projected-area relocation only" and its Rule-10 doc-update row is dropped (Rule 10 does not change).
 Results-neutral still governs: the full golden suite must be byte-identical.
+
+*(Superseded by Amendment 3 below — even the projected-area-only relocation is blocked.)*
+
+---
+
+## Amendment 3 (2026-07-16, owner-ratified) — Phase B is closed, not implemented
+
+**Discovered while implementing Amendment 2:** even the projected-area-only relocation cannot be
+done cleanly, for two hard reasons found by tracing the actual consumers:
+
+1. **The one functional downstream consumer needs a value only Source can produce.** The sole
+   non-diagnostic reader of the published area is `spectral_integration/stage.py`
+   (`source_out["projected_area_m2"]`). For a direct-intensity point source (`T7IntensityAtSource`,
+   input Path 4) that value is **not** geometric — Source injects a fictitious `REFERENCE_AREA` so
+   spectral integration has a non-None solid angle (it cancels algebraically). This override is
+   **descriptor-type-dependent**, computable only inside SourceStage after inference. GeometryStage
+   cannot produce it.
+2. **Rule 7 forbids the only workaround.** ChainState is immutable and a later stage never overwrites
+   an earlier stage's outputs, so SourceStage **cannot** write the T7-adjusted value back into
+   `stage_outputs["geometry"]["projected_area_m2"]`. The `projected_area_m2` key therefore cannot move
+   to Geometry, and Source must keep computing and publishing it.
+
+A GeometryStage that computed a *parallel* geometric area would be pure redundancy: Source would still
+recompute it for the descriptor's shape-wins `A_t` and still own the downstream key. Net: added
+computation and results-neutrality risk for **no** user-visible or architectural gain.
+
+**Decision (owner-ratified 2026-07-16): Phase B is CLOSED, not implemented.** The projected-area
+computation **stays in SourceStage**, co-located with the descriptor inference that the T7 coupling
+ties it to — this *is* the honest stage boundary. What ADR-0008 set out to achieve that has real
+meaning — the spatial-vs-spectral **parameter-namespace** split and the GUI Geometry-tab ownership of
+shape/orientation — **shipped in Phase A** (`geometry.target.*`, commit `ecf96c5`). Decisions 1–3's
+value is realized at the schema/GUI surface; the physics-stage relocation is not pursued.
+
+**Follow-ups filed:** CU-147 (write-only `TargetDescriptor.shape`) and CU-148 (the "both-set"
+inconsistency: when both `geometry.target.shape` and `projected_area_m2` are set, the *published* area
+— and thus regime + solid angle — uses the param while the descriptor `A_t` and the shape-wins warning
+use the shape; a latent, results-affecting correctness question). CU-122 (attitude owner) stays
+deferred: Phase B did not relocate computation, so Geometry gained no new attitude consumer.
+
+**T2 is unaffected** — it builds on the existing `source.scene_type` per Amendment 1 and does not
+depend on Phase B. Phase G (scenario-script path migration + full regression) also stands.

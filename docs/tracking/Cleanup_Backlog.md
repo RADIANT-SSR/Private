@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-148 — "Both-set" projected-area inconsistency: published area uses the param while the descriptor uses the shape
+
+**Discovered**: ADR-0008 Phase B feasibility trace, 2026-07-16, branch `arch/target-extent-phase-b`
+**Status**: Open — latent correctness question, **results-affecting to fix** (so not fixable under a results-neutral change). When a config sets **both** `geometry.target.shape` (a concrete shape) **and** `geometry.target.projected_area_m2` (> 0), the two projected-area consumers disagree: `_inferrer._resolve_projected_area_and_shape` applies "shape wins" so the **descriptor `A_t`** and the emitted `UserWarning` use the **shape** area (`a_shape`), but `source/stage.py` publishes `stage_outputs["source"]["projected_area_m2"]` from the **param** value (the post-inference republish at `stage.py:192` only fires when the param was unset), so the **regime classification** and the **spectral-integration solid angle** (`spectral_integration/stage.py:227`) use the **param** area. Same run, two different projected areas.
+**File**: `src/radiant/source/stage.py:105-125,183-216` (publishes param area; republish gated on `projected_area_m2 is None`) vs. `src/radiant/source/_inferrer.py:660-677` (`_resolve_projected_area_and_shape`, shape-wins → descriptor `A_t`).
+**Symptom**: Set e.g. `geometry.target.shape='sphere'`, `shape_radius_m=1.0` (→ a_shape=π m²) **and** `projected_area_m2=10.0`. The "shape wins (A_projected=3.14 m²)" warning fires and the descriptor carries A_t=3.14, but regime + solid angle are computed from 10.0. Whichever the user "meant", one of the two is wrong.
+**Why it still matters**: Physics correctness — a single scenario should have one projected area. Today the warning tells the user "shape wins" while the SNR-bearing path (solid angle → signal electrons) silently uses the param. Under-tested (no golden appears to exercise the both-set case, which is why Phase A/B stayed byte-identical).
+**Suggested fix**: (b) stand-alone task — decide the intended precedence (shape-wins is what the warning promises), make `source/stage.py` publish the same `A_t` the descriptor uses (drop the `is None` gate, or read `descriptor.A_t` unconditionally), add a Level-0 both-set test, and **review as results-affecting** (regenerate any golden that moves, with owner sign-off per RADIANT_Testing_Validation §5.3). Effort M; category C. Re-audit next time regime/projected-area is touched.
+
 ### CU-147 — `TargetDescriptor.shape` field is write-only (stored on every descriptor, no downstream reader)
 
 **Discovered**: ADR-0008 Phase B kickoff (target-extent investigation), 2026-07-16, branch `arch/target-extent-phase-b`

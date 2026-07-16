@@ -1,6 +1,11 @@
 # Target-Extent-to-Geometry Migration Plan
 
-**Status:** Active (drafted 2026-07-15)
+**Status:** Active (drafted 2026-07-15). **Phase A shipped** (`ecf96c5`, 2026-07-16). **Phase B
+CLOSED** — not implemented (ADR-0008 Amendment 3): projected-area relocation is blocked by the T7
+descriptor coupling + Rule 7, so it stays in Source. Remaining scope: **Phase G** (scenario-script
+path migration + full regression — the GUI param-path part already landed in Phase A) and **T2**
+(declared-vs-derived cross-check on the existing `source.scene_type`, per Amendment 1). The **§4
+Update Matrix "B" column is moot** (Phase B not implemented).
 **Date:** 2026-07-15
 **Implements:** `docs/adr/0008-target-extent-to-geometry-and-scenario-type.md` (Accepted 2026-07-15)
 **Depends on:** ADR-0006 (Geometry Stage 0, Accepted) — this plan completes the extent it left in Source
@@ -75,30 +80,18 @@ identical. Close **CU-146** by rewriting RADIANT_Source_Target_System §8.2/§8.
 provenance shows `geometry.target.shape`; round-trip test passes.
 **Docs:** §4 rows A.
 
-### Phase B — Relocate the projected-area computation to Geometry (REVISED per ADR-0008 Amendment 2)
-**Category:** C · **Effort:** M · **Gate in:** Phase A merged.
-**REVISED (owner-ratified 2026-07-16):** move **only the projected-area computation** to
-GeometryStage. The **tentative regime classification STAYS in SourceStage** (entangled with
-descriptor inference — `fill_fraction`, `regime_override`, the T7 reference-area case). **Rule 10 is
-unchanged** and is NOT a doc-update target here.
-**Scope:** `GeometryStage` builds the shape from `geometry.target.shape*` and computes
-`projected_area_m2` (shape-based via its own LOS view direction, applying shape-wins-over-param; else
-the `geometry.target.projected_area_m2` param), publishing `stage_outputs["geometry"]["projected_area_m2"]`.
-`SourceStage` / `_inferrer` **read** that value as `A_t` instead of recomputing it. The Source-side
-descriptor semantics stay in Source: the shape-wins `UserWarning`, the S9/`at_aperture` guard (both
-`target_location`-dependent), the descriptor `shape` field, the T7 reference-area case, and
-`_classify_regime` (tentative regime). Move the `stage_output_units.py` key
-`("source","projected_area_m2")` → `("geometry","projected_area_m2")` **and every reader of that
-stage-output key** (api + GUI) in this same phase (ground rule 3). `regime_tentative` stays under
-`stage_outputs["source"]`. **Re-audit CU-122** (attitude owner) — Geometry now owns more target
-extent; close or refresh the deferral.
-**Files:** `geometry/stage.py` (+ maybe `geometry/_projected_area.py` helper), `source/stage.py`,
-`source/_inferrer.py`, `api/stage_output_units.py`, GUI readers of the moved key. Extract the shape
-projected-area helper so both stages share one definition (no cross-stage import — put the shared kernel
-in `core` or `geometry`).
-**Gate:** goldens byte-identical; regime-transition logging unchanged; `import-linter` clean.
-**Docs:** §4 rows B — **minus the Rule-10 row** (Rule 10 unchanged); Geometry/Source/Signal-Chain
-ownership note that Geometry publishes `projected_area_m2`.
+### Phase B — CLOSED, not implemented (ADR-0008 Amendment 3, owner-ratified 2026-07-16)
+**Status: CLOSED — the projected-area computation stays in SourceStage.** Tracing the actual
+consumers showed the relocation is structurally blocked: the sole functional reader of the published
+area (`spectral_integration/stage.py`) needs the **T7 reference-area** value, which is
+descriptor-type-dependent and computable only in SourceStage; and **Rule 7** forbids SourceStage from
+writing the adjusted value back into `stage_outputs["geometry"]`. So the key cannot move and Source
+must keep computing it; a parallel Geometry computation would be pure redundancy for no gain. The
+spatial-vs-spectral value ADR-0008 targeted — the `geometry.target.*` **parameter-namespace** split and
+GUI Geometry-tab ownership of shape/orientation — **shipped in Phase A** (`ecf96c5`). Full rationale:
+ADR-0008 Amendment 3. **Follow-ups:** CU-147 (write-only `desc.shape`), CU-148 (the both-set area
+inconsistency). CU-122 (attitude) stays deferred — no computation moved, so Geometry gained no new
+consumer. **No code, no golden change; Rule 10 unchanged.**
 
 ### Phase G — GUI Phase-I regression + backend migration (no UX change)
 **Category:** D · **Effort:** M · **Gate in:** Phase B merged.

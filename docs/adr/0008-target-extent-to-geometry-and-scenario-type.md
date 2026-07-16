@@ -3,8 +3,10 @@
 **Date:** 2026-07-15
 **Status:** Accepted (owner-ratified 2026-07-15). **Phase A shipped 2026-07-16** (commit
 `ecf96c5`). **Decision 4 refined by Amendment 1 (2026-07-16)** — the declared scenario type
-already partly exists as `source.scene_type` / `source.regime_override`; see the amendment at
-the end of this ADR before executing Phase T2.
+already partly exists as `source.scene_type` / `source.regime_override`. **Decision 2 refined by
+Amendment 2 (2026-07-16, owner-ratified)** — Phase B moves only the *projected-area* computation
+to Geometry; the tentative regime classification **stays in SourceStage** (it is entangled with
+descriptor inference). See both amendments at the end of this ADR before executing Phase B/T2.
 
 ## Context
 
@@ -208,3 +210,45 @@ what exists.** This changes nothing in Phase A/B; it re-scopes T2.
 
 **Also refine §8-reconcile note:** `RADIANT_Source_Target_System.md` §8.10 (regime control) and §7
 should document the `scene_type` vs `regime_override` distinction explicitly when T2 lands.
+
+---
+
+## Amendment 2 (2026-07-16, owner-ratified) — Phase B moves projected-area only; tentative regime stays in Source
+
+**Discovered at Phase B kickoff** (reading `source/stage.py` + `source/_inferrer.py`): the Decision-2
+plan to relocate **both** the projected-area computation **and** the tentative regime classification
+to GeometryStage collides with real entanglement the ADR did not anticipate:
+
+1. **Shape → projected-area is embedded in Source's descriptor inference.**
+   `_inferrer._resolve_projected_area_and_shape` builds the `TargetShape`, computes
+   `A_t = shape.projected_area(view_dir)`, applies the Q3 shape-wins-over-`projected_area` rule (with a
+   `UserWarning`), enforces the S9/`at_aperture` incompatibility guard, and threads `A_t` **and the
+   shape object** into the `TargetDescriptor`. It is not a standalone geometry function.
+2. **Tentative regime is genuinely cross-cutting** (`source/stage.py::_classify_regime`): it mixes
+   geometry (`√A/range`), detector/optics (IFOV = `pixel_pitch/focal_length`), **and** source concerns
+   (`fill_fraction`, `regime_override`, and the **T7 intensity** reference-area case, which depends on
+   the *descriptor type* known only inside Source inference). It is called twice (before/after
+   inference). Forcing it into Geometry (stage 0) would make Geometry read detector/optics/source
+   params and still could not resolve the T7 descriptor-derived-area case cleanly.
+3. **Latent finding (CU filed):** the `TargetDescriptor.shape` field is stored but has **no downstream
+   reader** — write-only today (the "stages narrow via `isinstance`" comment describes no live
+   consumer). Tracked separately; not resolved by Phase B.
+
+**Refined Decision 2 (owner-ratified 2026-07-16):**
+- **Phase B moves only the projected-area computation to GeometryStage.** Geometry builds the shape
+  from `geometry.target.shape*`, computes `projected_area_m2` (shape-based via its own LOS view
+  direction, else the `geometry.target.projected_area_m2` param), and publishes
+  `stage_outputs["geometry"]["projected_area_m2"]` (the pure geometric quantity). SourceStage **reads**
+  that value instead of recomputing it.
+- **The tentative regime classification STAYS in SourceStage.** It is inherently entangled with
+  descriptor inference (`fill_fraction`, `regime_override`, T7 reference area). **Rule 10 is
+  unchanged** — tentative in SourceStage, final in OpticsStage. This is a more honest stage boundary
+  than pushing descriptor-coupled regime logic into stage 0.
+- The Source-side concerns that are *not* pure geometry — the shape-wins `UserWarning`, the
+  S9/`at_aperture` guard (both `target_location`-dependent), the descriptor `shape` field, and the T7
+  reference-area regime case — **stay in Source**. Geometry publishes the number; Source keeps the
+  descriptor semantics.
+
+**Consequence for the plan:** `Target_Extent_Geometry_Plan.md` Phase B is rescoped to
+"projected-area relocation only" and its Rule-10 doc-update row is dropped (Rule 10 does not change).
+Results-neutral still governs: the full golden suite must be byte-identical.

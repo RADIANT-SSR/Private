@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-147 — `TargetDescriptor.shape` field is write-only (stored on every descriptor, no downstream reader)
+
+**Discovered**: ADR-0008 Phase B kickoff (target-extent investigation), 2026-07-16, branch `arch/target-extent-phase-b`
+**Status**: Open — latent dead-ish field, non-blocking. `TargetDescriptor` subclasses (T1Thermal, T2Reflective, …) carry a `shape: object | None` field (`core/descriptors.py:344`) that the inferrer populates with the built `TargetShape`, and the field's comment claims "stages narrow via `isinstance(desc.shape, TargetShape)` when needed" — but a package-wide grep finds **no live consumer**: nothing outside `source/` reads `desc.shape`. Downstream stages use `A_t` (the projected area), never the shape object. The field is effectively write-only.
+**File**: `src/radiant/core/descriptors.py:343-346` (and the T1/T2/T5 subclasses that repeat it); populated in `source/_inferrer.py` (`shape=shape_obj`).
+**Symptom**: `grep -rn "\.shape" src/radiant | grep -v "/tests/"` outside source/gui shows only numpy `.shape`; no `isinstance(desc.shape, TargetShape)` narrowing exists. The stored object is never consumed.
+**Why it still matters**: Dead-but-serialized state — it inflates the descriptor, invites a false "the shape is available downstream" assumption (the comment actively asserts a consumer that doesn't exist), and couples the descriptor to `TargetShape` for no functional reason. Relevant to ADR-0008 Phase B: because the field is write-only, the shape object does **not** need to survive to downstream stages, which is why Phase B can publish `projected_area_m2` from Geometry and leave the descriptor's `shape` field alone without any downstream impact.
+**Suggested fix**: (c) delete-as-unused candidate — remove the `shape` field from the descriptors (or, if a future spatial-per-target consumer is genuinely planned, correct the comment to say "reserved, no current consumer" and file the consumer as a gap). Effort S; category B. Re-audit when a per-target spatial consumer lands or at the next descriptor touch.
+
 ### CU-145 — Script Editor has syntax highlighting but no line-number margin
 
 **Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`

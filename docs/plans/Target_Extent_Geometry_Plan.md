@@ -75,23 +75,30 @@ identical. Close **CU-146** by rewriting RADIANT_Source_Target_System §8.2/§8.
 provenance shows `geometry.target.shape`; round-trip test passes.
 **Docs:** §4 rows A.
 
-### Phase B — Relocate projected-area computation + tentative regime to Geometry
-**Category:** C–D · **Effort:** L · **Gate in:** Phase A merged.
-**Scope:** Move the shape kernels + `projected_area(view_direction)` evaluation into `GeometryStage`
-(which already owns the LOS/view-direction). Geometry emits
-`stage_outputs["geometry"]["projected_area_m2"]` and computes the **tentative** regime →
-`stage_outputs["geometry"]["regime_tentative"]` (θ_target = √(projected_area)/range vs θ_IFOV, §7.3
-stage-1). `SourceStage` now **reads** `projected_area_m2` from geometry and drops its extent/regime
-logic. `OpticsStage` **final** regime is unchanged (Rule 10 stage-2). Move the
-`stage_output_units.py` keys `("source","projected_area_m2")` / `("source","regime_tentative")` →
-`("geometry", …)`. **Re-audit CU-122** (attitude owner) — the Platform/Geometry attitude question and
-this relocation touch the same seam; close or refresh the deferral.
-**Files:** `geometry/stage.py`, `source/stage.py`, `source/_inferrer.py`, `api/stage_output_units.py`,
-`core/regime.py` docstring, the shape modules if they physically move (`source/shape.py`,
-`composite.py` → geometry, or a shared `core` helper if cleaner — decide in-phase, no cross-stage
-import).
+### Phase B — Relocate the projected-area computation to Geometry (REVISED per ADR-0008 Amendment 2)
+**Category:** C · **Effort:** M · **Gate in:** Phase A merged.
+**REVISED (owner-ratified 2026-07-16):** move **only the projected-area computation** to
+GeometryStage. The **tentative regime classification STAYS in SourceStage** (entangled with
+descriptor inference — `fill_fraction`, `regime_override`, the T7 reference-area case). **Rule 10 is
+unchanged** and is NOT a doc-update target here.
+**Scope:** `GeometryStage` builds the shape from `geometry.target.shape*` and computes
+`projected_area_m2` (shape-based via its own LOS view direction, applying shape-wins-over-param; else
+the `geometry.target.projected_area_m2` param), publishing `stage_outputs["geometry"]["projected_area_m2"]`.
+`SourceStage` / `_inferrer` **read** that value as `A_t` instead of recomputing it. The Source-side
+descriptor semantics stay in Source: the shape-wins `UserWarning`, the S9/`at_aperture` guard (both
+`target_location`-dependent), the descriptor `shape` field, the T7 reference-area case, and
+`_classify_regime` (tentative regime). Move the `stage_output_units.py` key
+`("source","projected_area_m2")` → `("geometry","projected_area_m2")` **and every reader of that
+stage-output key** (api + GUI) in this same phase (ground rule 3). `regime_tentative` stays under
+`stage_outputs["source"]`. **Re-audit CU-122** (attitude owner) — Geometry now owns more target
+extent; close or refresh the deferral.
+**Files:** `geometry/stage.py` (+ maybe `geometry/_projected_area.py` helper), `source/stage.py`,
+`source/_inferrer.py`, `api/stage_output_units.py`, GUI readers of the moved key. Extract the shape
+projected-area helper so both stages share one definition (no cross-stage import — put the shared kernel
+in `core` or `geometry`).
 **Gate:** goldens byte-identical; regime-transition logging unchanged; `import-linter` clean.
-**Docs:** §4 rows B (incl. **CLAUDE.md Rule 10**).
+**Docs:** §4 rows B — **minus the Rule-10 row** (Rule 10 unchanged); Geometry/Source/Signal-Chain
+ownership note that Geometry publishes `projected_area_m2`.
 
 ### Phase G — GUI Phase-I regression + backend migration (no UX change)
 **Category:** D · **Effort:** M · **Gate in:** Phase B merged.

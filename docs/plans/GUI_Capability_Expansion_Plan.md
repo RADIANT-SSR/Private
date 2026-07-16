@@ -1,7 +1,8 @@
 # GUI Capability Expansion Plan — "GUI v2" Exposure Increment
 
-**Status:** Draft — **ADR-0009 ratified and FW-1 authorized to execute (owner, 2026-07-16)**;
-the GS/GX sequence remains pending full ratification (§5.1) and the TEG Phase-G gate.
+**Status:** Active — owner-ratified 2026-07-16 (ADR-0009, FW-1 executed same day, and the
+deferral list + Gap-85 fast-follow, §5.1). GS/GX phases dispatch in the §5 order once the TEG
+Phase-G gate is green.
 **Date:** 2026-07-16
 **Scope (owner-directed 2026-07-16, revised same day):** **exposure-only** — surface capabilities
 the engine already has behind existing `ParameterDef`s, loaders, and API calls. The owner's
@@ -261,16 +262,18 @@ exists.
 
 ---
 
-## 5.1 Decisions for owner (ratify to lock the sequence)
+## 5.1 Decisions for owner
 
-1. **Ratify ADR-0009** (config facade + declarative documents + persistence parity + import-dialog
-   contract). FW-1 and GS-4 sit on it.
-2. **Ratify the phase set and ordering** (§5), including the suggested GS order and the split-phase
-   marker on GS-4.
-3. **Confirm the deferral list** (§1): sweep/MC/Batch surface, Comparison, and the report/export
-   layer stay out of this increment and return in a later-tier plan.
-4. **Gap-85 relevance metadata**: confirm it stays a post-increment fast-follow (GS-1 ships the
-   selector ungated).
+1. **Ratify ADR-0009.** — **RATIFIED (owner, 2026-07-16)**; FW-1 executed and shipped same day.
+2. **Ratify the phase set and ordering** (§5). — Phase set implicit in decisions 1/3; the GS
+   order runs as suggested (GS-2 Atmosphere → GS-3 Detector → GS-1 Source → GS-4 Optics) unless
+   the owner reorders before dispatch.
+3. **Confirm the deferral list** (§1). — **RATIFIED (owner, 2026-07-16)**: sweep/MC/Batch
+   surface, Comparison mode (Gap 79), and the report/export layer (Gap 88) stay out of this
+   increment and return in a later-tier plan.
+4. **Gap-85 relevance metadata stays a post-increment fast-follow.** — **RATIFIED (owner,
+   2026-07-16)**: GS-1 ships the scene-type selector ungated; relevance filtering/badging follows
+   once the per-regime schema metadata exists.
 
 ---
 

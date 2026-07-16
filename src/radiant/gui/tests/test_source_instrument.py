@@ -109,8 +109,8 @@ class TestSourcePane:
         assert isinstance(panel, TargetShapePanel)
         # Shape choices come from the schema enum (never hardcoded, Gap 70).
         assert panel.shape_combo.count() > 1
-        assert isinstance(panel.dimension_row("source.target.shape_radius_m"), FieldRow)
-        assert isinstance(panel.rpy_row("source.target.shape_yaw_rad"), FieldRow)
+        assert isinstance(panel.dimension_row("geometry.target.shape_radius_m"), FieldRow)
+        assert isinstance(panel.rpy_row("geometry.target.shape_yaw_rad"), FieldRow)
         # No 3D scene on the Source stage → no triad toggle.
         assert not panel.triad_checkbox.isVisible()
 
@@ -186,6 +186,6 @@ class TestSourceEditAndWatch:
             panel.shape_combo.setCurrentText(shape)  # emits shapeRequested → pane seeds dims
             for dotpath, nominal in NOMINAL_SHAPE_DIMENSIONS[shape].items():
                 assert float(sensor.get(dotpath)) == pytest.approx(nominal)
-            assert edited == ["source.target.shape"]
+            assert edited == ["geometry.target.shape"]
             # The subsequent physics re-evaluate succeeds (no ParameterBoundsError).
             assert _evaluate(sensor) is not None

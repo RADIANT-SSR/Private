@@ -100,7 +100,9 @@ class SourceStage:
     def run(self, state: ChainState, params: ParameterSet) -> ChainState:
         # --- Regime classification ---
         # 0.0 is the sentinel for "not provided" (see _schema.py).
-        raw_area: float = params.get("source.target.projected_area_m2")
+        # Canonical name geometry.target.projected_area_m2 (ADR-0008); the
+        # old source.target.projected_area_m2 survives as a deprecated alias.
+        raw_area: float = params.get("geometry.target.projected_area_m2")
         # Canonical name geometry.target_range_m (ADR-0006); the old
         # source.target.range_m survives as a deprecated alias for users.
         raw_range: float = params.get("geometry.target_range_m")

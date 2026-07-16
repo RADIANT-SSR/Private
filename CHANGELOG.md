@@ -308,6 +308,18 @@ retroactively reconstructed.
   audit — CU-134).
 
 ### Changed
+- **Target spatial extent moved from the `source.target.*` to the `geometry.target.*` parameter
+  namespace (ADR-0008 Phase A, public surface — goldens byte-identical).** The target's shape,
+  dimensions, orientation, and projected area — `shape`, `shape_radius_m`, `shape_length_m`,
+  `shape_width_m`, `shape_height_m`, `shape_base_radius_m`, `shape_yaw_rad`, `shape_pitch_rad`,
+  `shape_roll_rad`, `projected_area_m2` — are now defined under `geometry.target.*` (the Geometry
+  stage owns the extent → projected-area → angular-subtense chain). The old `source.target.*`
+  names keep working as **deprecated aliases** (a `DeprecationWarning` redirects them; provenance
+  records the canonical name). The **spectral/material** target params (`source.target.temperature`,
+  `emissivity`, `reflectance`, BRDF) and the sub-pixel `source.target.fill_fraction` are **unchanged**
+  — the namespace was split, not renamed wholesale. Results-neutral: this relocates parameter
+  definitions only; no computation changed and the full golden suite is byte-identical. Closes the
+  §8 inventory drift (CU-146).
 - **GUI scripting window — Editor Run auto-displays top-level bare expressions (arch doc §4.6.1,
   view-only).** A whole-script **Run** now behaves like the command line: `run_script` executes the
   source one top-level statement at a time, so a bare expression on its own line (e.g. `plot.mtf()`

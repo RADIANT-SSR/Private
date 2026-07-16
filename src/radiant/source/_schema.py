@@ -68,30 +68,11 @@ TARGET_IS_HOT_TARGET = ParameterDef(
     ),
 )
 
-# ---------------------------------------------------------------------------
-# Geometry parameters for regime classification
-# ---------------------------------------------------------------------------
-
-TARGET_PROJECTED_AREA = ParameterDef(
-    name="source.target.projected_area_m2",
-    description=(
-        "Projected area of target facing the observer [m²]. "
-        "0.0 = not specified (extended-scene default)."
-    ),
-    dtype=float,
-    canonical_unit="m2",
-    input_unit="m2",
-    default=0.0,
-    bounds=(0.0, 1e12),
-    tags=frozenset({"source", "target", "geometry"}),
-    default_justification=(
-        "0.0 signals 'geometry not provided' — regime classification defaults to extended scene."
-    ),
-)
-
-# Target slant range moved to radiant/geometry/_schema.py as
-# geometry.target_range_m (ADR-0006); the old source.target.range_m name
-# survives as a deprecated alias on that definition.
+# Target spatial-extent parameters (projected area, shape, dimensions,
+# orientation) moved to radiant/geometry/_schema.py as geometry.target.*
+# (ADR-0008); the old source.target.* names survive as deprecated aliases
+# on those definitions.  Target slant range likewise moved to
+# geometry.target_range_m (ADR-0006), aliasing source.target.range_m.
 
 # ---------------------------------------------------------------------------
 # Sub-pixel parameters
@@ -347,185 +328,12 @@ BACKGROUND_EMISSIVITY_PATH = ParameterDef(
     default_justification="Empty string = no override (use material).",
 )
 
-# ---------------------------------------------------------------------------
-# Shape selection parameters (Target Definition Matrix §3 — Q3 resolution)
-# ---------------------------------------------------------------------------
-#
-# Step 1.1 of the Target Definition Matrix Implementation Plan registers the
-# shape-selection surface so YAML loaders / ``params.set`` accept it.  Wiring
-# into ``_inferrer`` (construction of ``TargetShape`` instances, precedence
-# over ``projected_area_m2``, view-direction-dependent projection) is Step
-# 1.2 and deliberately not performed here.
-#
-# Design note — why flattened scalar params instead of a ``shape_params``
-# dict:
-#   The original task prompt proposed ``source.target.shape_params`` as a
-#   free-form ``dict``.  ``ParameterDef`` (core) restricts dtype to
-#   ``(float, int, str, bool)`` and Rule 16 forbids passing raw dicts from
-#   user input into physics; so the plan resolves (owner-approved
-#   2026-04-21) to flatten shape parameters into individual scalar
-#   ParameterDefs.  The resolver in Step 1.2 picks the subset relevant to
-#   the selected ``shape`` and ignores the rest.
-#
-# Bounds policy: each dimensional scalar uses ``bounds=(0.0, 1e6)`` so that
-# the default sentinel ``0.0`` is accepted.  Step 1.2's ``build_shape``
-# raises :class:`ParameterBoundsError` when a value is at the sentinel but
-# the shape requires it to be strictly positive.  Canonical unit for all
-# lengths is metres (Rule 2).
-
-SHAPE = ParameterDef(
-    name="source.target.shape",
-    description=(
-        "Geometric primitive for sub-pixel / point-source projected-area "
-        "computation. 'none' = not specified (back-compat: use "
-        "source.target.projected_area_m2).  Explicit values select a "
-        "concrete shape; dimensional parameters are read from the "
-        "source.target.shape_* scalars per the matrix §3 catalog."
-    ),
-    dtype=str,
-    canonical_unit="",
-    input_unit="",
-    default="none",
-    enum_values=("none", "sphere", "cylinder", "flat_plate", "box", "cone"),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
-    default_justification=(
-        "'none' is the Rule-12 sentinel for 'shape not provided'; the "
-        "descriptor falls back to source.target.projected_area_m2.  Users "
-        "opt into shape-driven projection by naming a concrete shape."
-    ),
-)
-
-SHAPE_RADIUS = ParameterDef(
-    name="source.target.shape_radius_m",
-    description=(
-        "Radius [m] for shapes with a single radius parameter "
-        "(sphere, cylinder).  Must be > 0 when the selected shape "
-        "requires it; validation is enforced by the Step 1.2 shape "
-        "factory, not here.  Ignored for shapes that do not take a "
-        "radius (flat_plate, box)."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
-    default_justification=(
-        "0.0 is the 'not set' sentinel; the Step 1.2 factory raises "
-        "ParameterBoundsError if the chosen shape needs radius_m > 0."
-    ),
-)
-
-SHAPE_LENGTH = ParameterDef(
-    name="source.target.shape_length_m",
-    description=(
-        "Length [m] for shapes with a length axis (cylinder axial "
-        "extent, flat_plate body-X extent, box body-X extent).  "
-        "Ignored for sphere and cone."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
-    default_justification="0.0 = not set; see SHAPE_RADIUS.",
-)
-
-SHAPE_WIDTH = ParameterDef(
-    name="source.target.shape_width_m",
-    description=(
-        "Width [m] for rectangular shapes (flat_plate body-Y extent, "
-        "box body-Y extent).  Ignored for sphere, cylinder, cone."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
-    default_justification="0.0 = not set; see SHAPE_RADIUS.",
-)
-
-SHAPE_HEIGHT = ParameterDef(
-    name="source.target.shape_height_m",
-    description=(
-        "Height [m] for shapes with a body-Z extent (box height, cone "
-        "apex-to-base height).  Ignored for sphere, cylinder, "
-        "flat_plate."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
-    default_justification="0.0 = not set; see SHAPE_RADIUS.",
-)
-
-SHAPE_BASE_RADIUS = ParameterDef(
-    name="source.target.shape_base_radius_m",
-    description=(
-        "Base-circle radius [m] for the cone shape.  Separate from "
-        "source.target.shape_radius_m because the cone class names the "
-        "parameter base_radius_m (see shapes/cone.py).  Ignored for "
-        "non-cone shapes."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
-    default_justification="0.0 = not set; see SHAPE_RADIUS.",
-)
-
-# Orientation (body-frame yaw/pitch/roll in radians, ZYX Euler per Rule 3).
-# Default (0, 0, 0) aligns the shape's body axes with the scene frame so
-# that sphere / cone / cylinder / flat_plate / box hit their canonical
-# projected-area identities (π r², 2rL side-on, WH normal-on, etc.) out
-# of the box.  Step 1.2 passes the tuple into the concrete TargetShape's
-# ``orientation_rad`` field.
-
-SHAPE_YAW = ParameterDef(
-    name="source.target.shape_yaw_rad",
-    description=(
-        "Target body yaw [rad] about scene +Z (ZYX Euler, Rule 3).  "
-        "Applied to the selected TargetShape's ``orientation_rad`` "
-        "tuple in Step 1.2."
-    ),
-    dtype=float,
-    canonical_unit="rad",
-    input_unit="rad",
-    default=0.0,
-    bounds=(-6.283185307179586, 6.283185307179586),  # [-2π, 2π]
-    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
-    default_justification=("0.0 = body +X aligned with scene +X (canonical alignment)."),
-)
-
-SHAPE_PITCH = ParameterDef(
-    name="source.target.shape_pitch_rad",
-    description=("Target body pitch [rad] about scene +Y (ZYX Euler, Rule 3)."),
-    dtype=float,
-    canonical_unit="rad",
-    input_unit="rad",
-    default=0.0,
-    bounds=(-6.283185307179586, 6.283185307179586),
-    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
-    default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
-)
-
-SHAPE_ROLL = ParameterDef(
-    name="source.target.shape_roll_rad",
-    description=("Target body roll [rad] about scene +X (ZYX Euler, Rule 3)."),
-    dtype=float,
-    canonical_unit="rad",
-    input_unit="rad",
-    default=0.0,
-    bounds=(-6.283185307179586, 6.283185307179586),
-    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
-    default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
-)
+# Shape-selection and orientation parameters (shape, shape_*_m,
+# shape_{yaw,pitch,roll}_rad) moved to radiant/geometry/_schema.py as
+# geometry.target.* (ADR-0008 — spatial extent belongs to Geometry).  The
+# old source.target.shape* names survive as deprecated aliases on those
+# definitions; the shape factory and inferrer now read the geometry.target.*
+# canonical names.
 
 # ---------------------------------------------------------------------------
 # S11 — brightness temperature T_B (Target Definition Matrix §1, Plan 2.1)
@@ -567,7 +375,7 @@ BRIGHTNESS_TEMPERATURE_K = ParameterDef(
     default_justification=(
         "0.0 K is the Rule-12 'not set' sentinel; the inferrer checks "
         "provenance (not value) to decide whether the user opted into "
-        "S11, mirroring source.target.projected_area_m2 / shape_radius_m."
+        "S11, mirroring geometry.target.projected_area_m2 / shape_radius_m."
     ),
 )
 
@@ -876,7 +684,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TARGET_TEMPERATURE,
     TARGET_EMISSIVITY,
     TARGET_IS_HOT_TARGET,
-    TARGET_PROJECTED_AREA,
     FILL_FRACTION,
     BACKGROUND_TEMPERATURE,
     BACKGROUND_EMISSIVITY,
@@ -889,15 +696,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     LAB_TEST_MODE,
     BACKGROUND_MATERIAL,
     BACKGROUND_EMISSIVITY_PATH,
-    SHAPE,
-    SHAPE_RADIUS,
-    SHAPE_LENGTH,
-    SHAPE_WIDTH,
-    SHAPE_HEIGHT,
-    SHAPE_BASE_RADIUS,
-    SHAPE_YAW,
-    SHAPE_PITCH,
-    SHAPE_ROLL,
     BRIGHTNESS_TEMPERATURE_K,
     BRIGHTNESS_TEMPERATURE_PATH,
     RADIANCE_TEMPERATURE_K,

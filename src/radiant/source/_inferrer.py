@@ -39,7 +39,7 @@ belong to the atmosphere subsystem, not the source.  The test
 ``test_inferrer.py::test_round_trip`` documents the lossy subset
 (``source.target.temperature``, ``source.target.emissivity``,
 ``source.scene_type``, ``source.target_location``, ``source.target.range_m``,
-``source.target.projected_area_m2``, ``source.target.fill_fraction``).
+``geometry.target.projected_area_m2``, ``source.target.fill_fraction``).
 
 Stage 2 placeholder — GroundBackground
 --------------------------------------
@@ -185,7 +185,7 @@ def _infer_scene_type(
     OpticsStage per ADR-0002.
     """
     fill_fraction: float = params.get("source.target.fill_fraction")
-    raw_area: float = params.get("source.target.projected_area_m2")
+    raw_area: float = params.get("geometry.target.projected_area_m2")
     # Canonical name geometry.target_range_m (ADR-0006); the old
     # source.target.range_m survives as a deprecated alias for users.
     raw_range: float = params.get("geometry.target_range_m")
@@ -629,15 +629,15 @@ def _resolve_projected_area_and_shape(
     and the S11 brightness-temperature branch; both paths apply the
     shape-over-projected_area precedence identically.
     """
-    projected_area: float = params.get("source.target.projected_area_m2")
+    projected_area: float = params.get("geometry.target.projected_area_m2")
     user_area_set: bool = projected_area > 0.0
 
     shape_obj: TargetShape | None = build_shape(params)
     if shape_obj is not None and target_location == "at_aperture":
-        shape_name_tmp: str = params.get("source.target.shape")
+        shape_name_tmp: str = params.get("geometry.target.shape")
         raise ParameterBoundsError(
             what=(
-                f"source.target.shape = {shape_name_tmp!r} is incompatible "
+                f"geometry.target.shape = {shape_name_tmp!r} is incompatible "
                 f"with target_location='at_aperture' (S9)"
             ),
             why=(
@@ -647,7 +647,7 @@ def _resolve_projected_area_and_shape(
                 "to operate on."
             ),
             action=(
-                "Either remove source.target.shape to use the at-aperture "
+                "Either remove geometry.target.shape to use the at-aperture "
                 "radiance directly, or switch target_location away from "
                 "'at_aperture' so the shape is evaluated against a "
                 "physical line of sight."
@@ -658,7 +658,7 @@ def _resolve_projected_area_and_shape(
             },
         )
     if shape_obj is not None:
-        shape_name: str = params.get("source.target.shape")
+        shape_name: str = params.get("geometry.target.shape")
         view_dir = _view_direction_from_los(params, target_location, scene_theta_o)
         a_shape = float(shape_obj.projected_area(view_dir))
         if user_area_set:
@@ -2148,9 +2148,13 @@ def descriptors_to_params(
         # Grey emissivity is a constant array; pull the first sample.
         if target.epsilon is not None and target.epsilon.values.size > 0:
             d["source.target.emissivity"] = float(target.epsilon.values[0])
-        d["source.target.projected_area_m2"] = float(target.A_t) if target.A_t is not None else 0.0
+        d["geometry.target.projected_area_m2"] = (
+            float(target.A_t) if target.A_t is not None else 0.0
+        )
     elif isinstance(target, T2Reflective):
-        d["source.target.projected_area_m2"] = float(target.A_t) if target.A_t is not None else 0.0
+        d["geometry.target.projected_area_m2"] = (
+            float(target.A_t) if target.A_t is not None else 0.0
+        )
     elif isinstance(target, T5AtAperture):
         # At-aperture: no target params round-trip.
         pass

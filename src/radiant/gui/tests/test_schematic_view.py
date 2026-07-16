@@ -69,8 +69,8 @@ def offnadir_sphere() -> tuple[Sensor, object]:
     """An off-nadir sensor with a discrete sphere target (fresh, mutable)."""
     sensor = Sensor.from_yaml(_EXAMPLE)
     sensor.set("geometry.path_zenith_rad", 0.4)
-    sensor.set("source.target.shape", "sphere")
-    sensor.set("source.target.shape_radius_m", 1.0)
+    sensor.set("geometry.target.shape", "sphere")
+    sensor.set("geometry.target.shape_radius_m", 1.0)
     return sensor, _evaluate(sensor)
 
 
@@ -714,15 +714,15 @@ class TestDimensionPanel:
     def test_visible_dimensions_per_shape(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         panel = self._panel(qtbot)
         cases = {
-            "sphere": {"source.target.shape_radius_m"},
-            "cylinder": {"source.target.shape_radius_m", "source.target.shape_length_m"},
-            "flat_plate": {"source.target.shape_length_m", "source.target.shape_width_m"},
+            "sphere": {"geometry.target.shape_radius_m"},
+            "cylinder": {"geometry.target.shape_radius_m", "geometry.target.shape_length_m"},
+            "flat_plate": {"geometry.target.shape_length_m", "geometry.target.shape_width_m"},
             "box": {
-                "source.target.shape_length_m",
-                "source.target.shape_width_m",
-                "source.target.shape_height_m",
+                "geometry.target.shape_length_m",
+                "geometry.target.shape_width_m",
+                "geometry.target.shape_height_m",
             },
-            "cone": {"source.target.shape_base_radius_m", "source.target.shape_height_m"},
+            "cone": {"geometry.target.shape_base_radius_m", "geometry.target.shape_height_m"},
             "none": set(),
         }
         for shape, expected in cases.items():
@@ -736,16 +736,16 @@ class TestDimensionPanel:
         panel.set_shape("sphere")
         captured: list[str] = []
         panel.editRequested.connect(captured.append)
-        panel.dimension_row("source.target.shape_radius_m").value_button.click()
-        assert captured == ["source.target.shape_radius_m"]
+        panel.dimension_row("geometry.target.shape_radius_m").value_button.click()
+        assert captured == ["geometry.target.shape_radius_m"]
 
     def test_rpy_edit_emits_edit_request(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Clicking an RPY value field emits one editRequested(dotpath) — same edit path."""
         panel = self._panel(qtbot)
         captured: list[str] = []
         panel.editRequested.connect(captured.append)
-        panel.rpy_row("source.target.shape_yaw_rad").value_button.click()
-        assert captured == ["source.target.shape_yaw_rad"]
+        panel.rpy_row("geometry.target.shape_yaw_rad").value_button.click()
+        assert captured == ["geometry.target.shape_yaw_rad"]
 
     def test_fields_and_combo_match_the_geometry_form_by_construction(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The target dim/RPY fields + shape combo reuse the SAME widget types + QSS object
@@ -761,9 +761,9 @@ class TestDimensionPanel:
         panel.set_shape("cylinder")
         # Every dim + RPY field is the shared FieldRow with the geometry field object names.
         rows = [
-            panel.dimension_row("source.target.shape_radius_m"),
-            panel.dimension_row("source.target.shape_length_m"),
-            panel.rpy_row("source.target.shape_yaw_rad"),
+            panel.dimension_row("geometry.target.shape_radius_m"),
+            panel.dimension_row("geometry.target.shape_length_m"),
+            panel.rpy_row("geometry.target.shape_yaw_rad"),
         ]
         for row in rows:
             assert isinstance(row, FieldRow)

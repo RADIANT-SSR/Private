@@ -176,6 +176,10 @@ spectral_integration.integration_time_s  # s
 
 geometry.sensor_altitude_m            # m
 geometry.target_altitude_m            # m
+geometry.target.shape                 # enum: none/sphere/cylinder/flat_plate/box/cone — target spatial extent (ADR-0008; was source.target.shape, now a deprecated alias)
+geometry.target.shape_radius_m        # m   (+ shape_length_m/width_m/height_m/base_radius_m)
+geometry.target.shape_yaw_rad         # rad (+ shape_pitch_rad/shape_roll_rad) — body ZYX Euler
+geometry.target.projected_area_m2     # m²  — projected area facing observer (0.0 = extended default)
 geometry.path_zenith_rad              # rad (input: deg)
 geometry.solar_zenith_rad             # rad (input: deg)
 geometry.solar_azimuth_rad            # rad (input: deg)
@@ -198,9 +202,11 @@ source.target.emissivity              # dimensionless (0–1)
 source.target.emissivity_path         # str — 2-col CSV ε(λ); spectral thermal target ε(λ)·B(λ,T) (Gap 47); mutually exclusive with scalar ε / reflective / radiance / brightness-temp surfaces
 source.target.is_hot_target           # bool — MWIR routing opt-out (CU-007); see source._inferrer matrix §3.2
 source.target.reflectance             # dimensionless (0–1), Lambertian
-source.target.projected_area_m2       # m²
-source.target.range_m                 # m
-source.target.fill_fraction           # dimensionless (0–1)
+# Target spatial extent (shape/dims/orientation/projected_area) moved to the
+# geometry.target.* namespace (ADR-0008); source.target.shape*/projected_area_m2
+# remain as deprecated aliases. Spectral/material params above stay in source.
+source.target.range_m                 # m — deprecated alias of geometry.target_range_m (ADR-0006)
+source.target.fill_fraction           # dimensionless (0–1) — sub-pixel, stays in source
 source.background.temperature         # K
 source.background.emissivity          # dimensionless (0–1)
 

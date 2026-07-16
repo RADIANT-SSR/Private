@@ -480,35 +480,35 @@ All parameters use the dot-path namespace `source.*` and `regime.*`. Tolerances 
 | `source.name` | User-facing target name | str | — | "target" | — | — |
 | `source.range_m` | Observer-target range | float | m | — (required) | [1.0, 1e9] | 1% |
 
-### 8.2 Geometry shape parameters (Path 2 / Path 5) (15 parameters)
+> **Namespace note (ADR-0008, 2026-07-15).** The target's **spatial extent** — shape,
+> dimensions, orientation, and projected area — moved from `source.target.*` to the
+> **`geometry.target.*`** namespace (the extent → projected-area → angular-subtense chain is a
+> geometry computation; the Geometry stage owns it). The old `source.target.*` names survive as
+> **deprecated aliases** (a `DeprecationWarning` redirects them). Only the extent params below
+> moved; the **spectral/material** params (§8.4, temperature/emissivity/reflectance/BRDF) and the
+> sub-pixel `source.target.fill_fraction` **stay in `source.*`**. This table is the shipped
+> inventory (it supersedes the earlier aspirational `source.geometry.*`/`source.orientation.*`
+> names that never shipped — CU-146).
 
-| Name | Description | Type | Unit | Default | Range |
-|------|-------------|------|------|---------|-------|
-| `source.geometry.shape` | Primitive type | enum | — | — | sphere, cylinder, box, flat_plate, cone, composite |
-| `source.geometry.sphere.radius` | Sphere radius | float | m | — | (0, 1e6] |
-| `source.geometry.cylinder.radius` | Cylinder radius | float | m | — | (0, 1e6] |
-| `source.geometry.cylinder.length` | Cylinder length | float | m | — | (0, 1e6] |
-| `source.geometry.box.length` | Box length (along body X) | float | m | — | (0, 1e6] |
-| `source.geometry.box.width` | Box width (along body Y) | float | m | — | (0, 1e6] |
-| `source.geometry.box.height` | Box height (along body Z) | float | m | — | (0, 1e6] |
-| `source.geometry.flat_plate.length` | Flat plate length | float | m | — | (0, 1e6] |
-| `source.geometry.flat_plate.width` | Flat plate width | float | m | — | (0, 1e6] |
-| `source.geometry.cone.base_radius` | Cone base radius | float | m | — | (0, 1e6] |
-| `source.geometry.cone.height` | Cone height | float | m | — | (0, 1e6] |
-| `source.geometry.composite_file` | Path to composite definition (YAML) | str | — | — | — |
-| `source.geometry.facet_density` | Facet count multiplier | float | — | 1.0 | [0.25, 16.0] |
-| `source.geometry.position_x` | Body origin X in scene frame | float | m | 0.0 | [-1e9, 1e9] |
-| `source.geometry.position_y` | Body origin Y in scene frame | float | m | 0.0 | [-1e9, 1e9] |
-| `source.geometry.position_z` | Body origin Z in scene frame | float | m | 0.0 | [-1e9, 1e9] |
+### 8.2 Target shape + projected area (Path 2 / Path 5) — `geometry.target.*` (7 parameters)
 
-### 8.3 Geometry orientation (4 parameters)
+| Name (canonical) | Deprecated alias | Description | Type | Unit | Default | Range |
+|------|------|-------------|------|------|---------|-------|
+| `geometry.target.shape` | `source.target.shape` | Primitive type ('none' = use projected_area) | enum | — | none | none, sphere, cylinder, flat_plate, box, cone |
+| `geometry.target.shape_radius_m` | `source.target.shape_radius_m` | Radius (sphere, cylinder) | float | m | 0.0 | [0, 1e6] |
+| `geometry.target.shape_length_m` | `source.target.shape_length_m` | Length (cylinder, flat_plate, box body-X) | float | m | 0.0 | [0, 1e6] |
+| `geometry.target.shape_width_m` | `source.target.shape_width_m` | Width (flat_plate, box body-Y) | float | m | 0.0 | [0, 1e6] |
+| `geometry.target.shape_height_m` | `source.target.shape_height_m` | Height (box, cone body-Z) | float | m | 0.0 | [0, 1e6] |
+| `geometry.target.shape_base_radius_m` | `source.target.shape_base_radius_m` | Cone base-circle radius | float | m | 0.0 | [0, 1e6] |
+| `geometry.target.projected_area_m2` | `source.target.projected_area_m2` | Projected area facing observer (0.0 = extended-scene default) | float | m² | 0.0 | [0, 1e12] |
 
-| Name | Description | Type | Unit | Default | Range | Tolerance |
-|------|-------------|------|------|---------|-------|-----------|
-| `source.orientation.yaw` | Yaw (intrinsic Z) | float | deg → rad | 0.0 | [-180, 180] | 1.0 deg |
-| `source.orientation.pitch` | Pitch (intrinsic Y) | float | deg → rad | 0.0 | [-90, 90] | 1.0 deg |
-| `source.orientation.roll` | Roll (intrinsic X) | float | deg → rad | 0.0 | [-180, 180] | 1.0 deg |
-| `source.orientation.frame` | Reference frame for Euler angles | enum | — | "scene" | scene, lvlh, eci | — |
+### 8.3 Target orientation (body-frame ZYX Euler, Rule 3) — `geometry.target.*` (3 parameters)
+
+| Name (canonical) | Deprecated alias | Description | Type | Unit | Default | Range |
+|------|------|-------------|------|------|---------|-------|
+| `geometry.target.shape_yaw_rad` | `source.target.shape_yaw_rad` | Body yaw about scene +Z | float | rad | 0.0 | [-2π, 2π] |
+| `geometry.target.shape_pitch_rad` | `source.target.shape_pitch_rad` | Body pitch about scene +Y | float | rad | 0.0 | [-2π, 2π] |
+| `geometry.target.shape_roll_rad` | `source.target.shape_roll_rad` | Body roll about scene +X | float | rad | 0.0 | [-2π, 2π] |
 
 ### 8.4 Material parameters (single-material case) (12 parameters)
 

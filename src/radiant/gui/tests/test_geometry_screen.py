@@ -76,8 +76,18 @@ def _bound_form(qtbot, sensor: Sensor) -> GeometryModeForm:
 
 class TestModeManifest:
     def test_manifest_covers_every_geometry_parameter(self, sensor: Sensor) -> None:
-        """Every ``geometry.*`` schema parameter appears exactly once in the manifest."""
-        schema_geometry = {p for p in sensor.parameter_defs() if p.startswith("geometry.")}
+        """Every ``geometry.*`` input-mode schema parameter appears exactly once in the manifest.
+
+        The ``geometry.target.*`` extent params (shape, dimensions,
+        orientation, projected area — migrated from ``source.target.*`` per
+        ADR-0008) are rendered by ``TargetShapePanel``, not the V/S input-mode
+        forms, so they are excluded from the mode-manifest coverage set.
+        """
+        schema_geometry = {
+            p
+            for p in sensor.parameter_defs()
+            if p.startswith("geometry.") and not p.startswith("geometry.target.")
+        }
         manifest = set(all_mode_params())
         assert manifest == schema_geometry
         assert len(all_mode_params()) == len(schema_geometry)  # no duplicates

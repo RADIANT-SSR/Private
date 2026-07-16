@@ -116,12 +116,20 @@ platform/performance).
 
 ## 5. Parameters
 
-Seventeen `ParameterDef`s in `geometry/_schema.py` — the seven canonical
+Twenty-seven `ParameterDef`s in `geometry/_schema.py` — the seven canonical
 definitions moved verbatim from `atmosphere/_schema.py`, plus
 `geometry.target_range_m` (moved from `source/_schema.py`;
 `source.target.range_m` survives as a deprecated alias, warn-and-redirect),
-plus nine mode-entry parameters. See `docs/guides/parameter_reference.md`
-for the full table with units, bounds, and defaults.
+plus nine mode-entry parameters, plus the ten **`geometry.target.*` target-extent
+parameters** (shape, five dimensions, three orientation angles, projected area)
+moved from `source.target.*` per ADR-0008 (the old `source.target.*` names survive
+as deprecated aliases). Note: these extent params are **not** input-mode-form
+parameters — they are rendered by the GUI `TargetShapePanel`, not the V/S mode
+forms, and are excluded from the mode-form manifest. Phase A moves the parameter
+namespace only; relocating the projected-area **computation** and the tentative
+regime classification into this stage is ADR-0008 Phase B. See
+`docs/guides/parameter_reference.md` for the full table with units, bounds, and
+defaults.
 
 ## 6. Boundaries and Seams
 

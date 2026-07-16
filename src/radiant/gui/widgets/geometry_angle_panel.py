@@ -14,7 +14,7 @@ plan Phase 7 Part B). It composes two accordion pages (``QToolBox``):
    :class:`~radiant.gui.widgets.target_shape_panel.TargetShapePanel` (shape combo + per-shape
    dimension fields + RPY fields). This is the **same** widget the Source stage instrument
    mounts (GUI plan Phase PS-1) — one target-shape editor, two homes (Rule 19) — editing the
-   same ``source.target.shape*`` parameters. For the shape/RPY controls this panel is a **view
+   same ``geometry.target.shape*`` parameters. For the shape/RPY controls this panel is a **view
    + control surface only**: it re-emits the :class:`TargetShapePanel` intent signals and never
    touches a ``Sensor`` — the owning ``StagePane`` performs the one ``sensor.set`` per edit (one
    GUI action ↔ one API call, GUI plan §4.1).

@@ -223,10 +223,10 @@ class TestNominalShapeDimensions:
     def test_user_set_dimension_is_never_overwritten(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A dim the user already set to a non-zero value survives a later shape pick."""
         sensor = Sensor.from_yaml(_EXAMPLE)
-        sensor.set("source.target.shape_radius_m", 3.0)
+        sensor.set("geometry.target.shape_radius_m", 3.0)
         pane = _geometry_pane(qtbot, sensor)
         pane.geometry_panel.shape_combo.setCurrentText("sphere")  # type: ignore[union-attr]
-        assert float(sensor.get("source.target.shape_radius_m")) == pytest.approx(3.0)
+        assert float(sensor.get("geometry.target.shape_radius_m")) == pytest.approx(3.0)
         assert _evaluate(sensor) is not None
 
 
@@ -278,7 +278,7 @@ class TestTargetFieldEditing:
         return sensor, pane, set_calls, edited
 
     def test_dimension_edit_sets_once_and_reevaluates(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-        dotpath = "source.target.shape_radius_m"
+        dotpath = "geometry.target.shape_radius_m"
         sensor, _pane, set_calls, edited = self._edit_via_dialog(
             qtbot, monkeypatch, dotpath, "1.75"
         )
@@ -287,7 +287,7 @@ class TestTargetFieldEditing:
         assert edited == [dotpath]
 
     def test_rpy_edit_sets_once_and_reevaluates(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-        dotpath = "source.target.shape_yaw_rad"
+        dotpath = "geometry.target.shape_yaw_rad"
         sensor, _pane, set_calls, edited = self._edit_via_dialog(qtbot, monkeypatch, dotpath, "0.3")
         assert set_calls.count(dotpath) == 1
         assert float(sensor.get_input(dotpath)) == pytest.approx(0.3)
@@ -295,7 +295,7 @@ class TestTargetFieldEditing:
 
     def test_panel_field_reflects_committed_value(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         """After a commit the panel's field text re-syncs to the new value + unit (pure view)."""
-        dotpath = "source.target.shape_radius_m"
+        dotpath = "geometry.target.shape_radius_m"
         _sensor, pane, _set_calls, _edited = self._edit_via_dialog(
             qtbot, monkeypatch, dotpath, "1.75"
         )

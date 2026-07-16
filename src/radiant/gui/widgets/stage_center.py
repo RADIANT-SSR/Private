@@ -83,11 +83,11 @@ _PLOT_MIN_HEIGHT: int = 240
 # The shape-dimension parameters the geometry side panel edits (bounds/units from the
 # schema; this list is the read/sync surface — the panel owns the shape→subset matrix).
 _SHAPE_DIMENSION_PATHS: tuple[str, ...] = (
-    "source.target.shape_radius_m",
-    "source.target.shape_length_m",
-    "source.target.shape_width_m",
-    "source.target.shape_height_m",
-    "source.target.shape_base_radius_m",
+    "geometry.target.shape_radius_m",
+    "geometry.target.shape_length_m",
+    "geometry.target.shape_width_m",
+    "geometry.target.shape_height_m",
+    "geometry.target.shape_base_radius_m",
 )
 
 
@@ -205,7 +205,7 @@ class StagePane(QWidget):
         self._geometry_panels: list[GeometryAnglePanel] = []
         # Source-instrument sections (GUI plan Phase PS-1): the radiometric Inputs form and
         # the shared target-shape editor. The shape panels share the same edit/seed/sync path
-        # as the Geometry Schematic tab's panels (both edit source.target.shape*).
+        # as the Geometry Schematic tab's panels (both edit geometry.target.shape*).
         self._source_forms: list[SourceInputsForm] = []
         self._target_panels: list[TargetShapePanel] = []
         # The Optics-instrument Inputs form (GUI plan Phase PS-2): edit an optics param and
@@ -591,7 +591,7 @@ class StagePane(QWidget):
         every other schema field, so the panel needs no bounds of its own.
         """
         defs = sensor.parameter_defs()
-        shape_def = defs.get("source.target.shape")
+        shape_def = defs.get("geometry.target.shape")
         choices = tuple(shape_def.enum_values) if shape_def and shape_def.enum_values else ()
         if not choices:
             return
@@ -618,10 +618,10 @@ class StagePane(QWidget):
         """
         if self._sensor is None:
             return
-        self._sensor.set("source.target.shape", value)
+        self._sensor.set("geometry.target.shape", value)
         self._seed_nominal_dimensions(value)
         self._preview_last_result()
-        self.parameterEdited.emit("source.target.shape")
+        self.parameterEdited.emit("geometry.target.shape")
 
     def _seed_nominal_dimensions(self, shape: str) -> None:
         """Seed *shape*'s required dims to nominal non-zero values where still unset (CU-125).
@@ -769,7 +769,7 @@ class StagePane(QWidget):
         """Refresh each shape panel's shape/RPY/dimensions from the live sensor.
 
         Covers both the Geometry Schematic tab's :class:`GeometryAnglePanel` and the Source
-        instrument's :class:`TargetShapePanel` (both edit the one ``source.target.shape*``
+        instrument's :class:`TargetShapePanel` (both edit the one ``geometry.target.shape*``
         parameter set). The panels carry no derived-angles readout; this syncs only the
         shape-library controls. Each field's value is formatted in its chosen display unit
         through the shared formatter, so the panels' value buttons read identically to the
@@ -777,13 +777,13 @@ class StagePane(QWidget):
         """
         if self._sensor is None:
             return
-        shape = str(self._sensor.get("source.target.shape"))
+        shape = str(self._sensor.get("geometry.target.shape"))
         rpy = {
             dotpath: field_display_text(self._sensor, dotpath, self._display_units)
             for dotpath in (
-                "source.target.shape_yaw_rad",
-                "source.target.shape_pitch_rad",
-                "source.target.shape_roll_rad",
+                "geometry.target.shape_yaw_rad",
+                "geometry.target.shape_pitch_rad",
+                "geometry.target.shape_roll_rad",
             )
         }
         dims = {

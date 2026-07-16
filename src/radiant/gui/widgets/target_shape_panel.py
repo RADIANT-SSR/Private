@@ -9,7 +9,7 @@ it can be mounted **verbatim** on two surfaces (Rule 19 — one implementation, 
 * the **Source** stage instrument (arch-doc §4.4.1 Source "size / shape / orientation"),
   where the same controls set the target's projected-area shape (GUI plan Phase PS-1).
 
-Both edit the **same** ``source.target.shape`` / ``source.target.shape_*`` schema
+Both edit the **same** ``geometry.target.shape`` / ``geometry.target.shape_*`` schema
 parameters — there is only one target in the model, so the two surfaces are two views of
 one parameter set (a shape set from the Source stage shows on the Geometry schematic and
 vice-versa after the next evaluation). This panel is a **view + control surface only**: it
@@ -20,7 +20,7 @@ action ↔ one API call, GUI plan §4.1).
 The controls are the identical building blocks the Inputs-tab
 :class:`~radiant.gui.widgets.geometry_mode_form.GeometryModeForm` uses — ``geoModeFamily``
 cards holding a shape combo styled like a geometry mode selector (``geoModeSelector``,
-populated from the ``source.target.shape`` schema ``enum_values`` — never a hardcoded list,
+populated from the ``geometry.target.shape`` schema ``enum_values`` — never a hardcoded list,
 Gap 70), the per-shape **dimension** fields (radius / length / width / height / base-radius
 — only the subset the selected shape uses is shown, CU-131), and the yaw / pitch / roll
 fields, each rendered as the shared :class:`~radiant.gui.widgets.field_row.FieldRow`
@@ -50,19 +50,19 @@ from radiant.gui.widgets.field_row import FieldRow
 # RPY field dot-paths (the schema owns bounds/units; the grouping is the only literal,
 # tracked alongside the geometry mode-form's manifest under CU-120).
 _RPY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    ("Yaw", "source.target.shape_yaw_rad"),
-    ("Pitch", "source.target.shape_pitch_rad"),
-    ("Roll", "source.target.shape_roll_rad"),
+    ("Yaw", "geometry.target.shape_yaw_rad"),
+    ("Pitch", "geometry.target.shape_pitch_rad"),
+    ("Roll", "geometry.target.shape_roll_rad"),
 )
 
 # Every shape-dimension dot-path (the schema owns bounds/units; the label + the
 # shape→subset matrix below are the grouping literals, tracked under CU-120/CU-131).
 _DIM_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    ("Radius", "source.target.shape_radius_m"),
-    ("Length", "source.target.shape_length_m"),
-    ("Width", "source.target.shape_width_m"),
-    ("Height", "source.target.shape_height_m"),
-    ("Base radius", "source.target.shape_base_radius_m"),
+    ("Radius", "geometry.target.shape_radius_m"),
+    ("Length", "geometry.target.shape_length_m"),
+    ("Width", "geometry.target.shape_width_m"),
+    ("Height", "geometry.target.shape_height_m"),
+    ("Base radius", "geometry.target.shape_base_radius_m"),
 )
 
 # Which dimension dot-paths each shape uses (from the source._schema.py descriptions — each
@@ -70,15 +70,15 @@ _DIM_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 # dimension inputs, per shape). ``none`` (extended/sub-pixel scene) exposes no body dims.
 _SHAPE_DIMENSIONS: Final[Mapping[str, tuple[str, ...]]] = {
     "none": (),
-    "sphere": ("source.target.shape_radius_m",),
-    "cylinder": ("source.target.shape_radius_m", "source.target.shape_length_m"),
-    "flat_plate": ("source.target.shape_length_m", "source.target.shape_width_m"),
+    "sphere": ("geometry.target.shape_radius_m",),
+    "cylinder": ("geometry.target.shape_radius_m", "geometry.target.shape_length_m"),
+    "flat_plate": ("geometry.target.shape_length_m", "geometry.target.shape_width_m"),
     "box": (
-        "source.target.shape_length_m",
-        "source.target.shape_width_m",
-        "source.target.shape_height_m",
+        "geometry.target.shape_length_m",
+        "geometry.target.shape_width_m",
+        "geometry.target.shape_height_m",
     ),
-    "cone": ("source.target.shape_base_radius_m", "source.target.shape_height_m"),
+    "cone": ("geometry.target.shape_base_radius_m", "geometry.target.shape_height_m"),
 }
 
 # Nominal (sensible non-zero) body dimensions seeded when a shape is first selected while
@@ -89,23 +89,23 @@ _SHAPE_DIMENSIONS: Final[Mapping[str, tuple[str, ...]]] = {
 # only to a dim currently at 0.0, never overwriting a user-set non-zero value. Magnitudes are
 # not-to-scale (§6.1): they only need to be positive and give a recognisable aspect ratio.
 NOMINAL_SHAPE_DIMENSIONS: Final[Mapping[str, Mapping[str, float]]] = {
-    "sphere": {"source.target.shape_radius_m": 1.0},
+    "sphere": {"geometry.target.shape_radius_m": 1.0},
     "cylinder": {
-        "source.target.shape_radius_m": 0.5,
-        "source.target.shape_length_m": 2.0,
+        "geometry.target.shape_radius_m": 0.5,
+        "geometry.target.shape_length_m": 2.0,
     },
     "flat_plate": {
-        "source.target.shape_length_m": 1.0,
-        "source.target.shape_width_m": 1.0,
+        "geometry.target.shape_length_m": 1.0,
+        "geometry.target.shape_width_m": 1.0,
     },
     "box": {
-        "source.target.shape_length_m": 1.0,
-        "source.target.shape_width_m": 1.0,
-        "source.target.shape_height_m": 1.0,
+        "geometry.target.shape_length_m": 1.0,
+        "geometry.target.shape_width_m": 1.0,
+        "geometry.target.shape_height_m": 1.0,
     },
     "cone": {
-        "source.target.shape_base_radius_m": 0.5,
-        "source.target.shape_height_m": 1.0,
+        "geometry.target.shape_base_radius_m": 0.5,
+        "geometry.target.shape_height_m": 1.0,
     },
 }
 

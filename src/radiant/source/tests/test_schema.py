@@ -1,10 +1,10 @@
 """Schema-layer tests for the source stage shape-selection parameters.
 
 Step 1.1 of the Target Definition Matrix Implementation Plan registers
-the ``source.target.shape*`` scalars so YAML loaders / ``params.set``
+the ``geometry.target.shape*`` scalars so YAML loaders / ``params.set``
 accept them.  This file locks the schema contract:
 
-    * the ``source.target.shape`` enum accepts the v1 shape catalog
+    * the ``geometry.target.shape`` enum accepts the v1 shape catalog
       (``sphere``, ``cylinder``, ``flat_plate``, ``box``, ``cone``);
     * unknown shape names (``pyramid``) are rejected at
       ``ParameterSet.resolve()``;
@@ -23,15 +23,45 @@ from __future__ import annotations
 import pytest
 
 from radiant.core.parameters import ParameterBoundsError, ParameterSet
+from radiant.geometry._schema import (
+    SHAPE,
+    SHAPE_BASE_RADIUS,
+    SHAPE_HEIGHT,
+    SHAPE_LENGTH,
+    SHAPE_PITCH,
+    SHAPE_RADIUS,
+    SHAPE_ROLL,
+    SHAPE_WIDTH,
+    SHAPE_YAW,
+    TARGET_PROJECTED_AREA,
+)
 from radiant.source._schema import (
     ALL_PARAMETERS,
     validate_reflectance_albedo_exclusive,
 )
 
+# The target spatial-extent scalars (shape, shape_*_m, orientation,
+# projected_area_m2) moved to the ``geometry.target.*`` namespace per
+# ADR-0008.  Register just those defs alongside the source schema so the
+# shape-schema contract can be exercised without pulling the full geometry
+# schema (which carries a required geometry.sensor_altitude_m).
+_GEO_TARGET_EXTENT = (
+    TARGET_PROJECTED_AREA,
+    SHAPE,
+    SHAPE_RADIUS,
+    SHAPE_LENGTH,
+    SHAPE_WIDTH,
+    SHAPE_HEIGHT,
+    SHAPE_BASE_RADIUS,
+    SHAPE_YAW,
+    SHAPE_PITCH,
+    SHAPE_ROLL,
+)
+
 
 def _fresh_params() -> ParameterSet:
-    """Return a source-only ParameterSet with every registered default."""
-    return ParameterSet(list(ALL_PARAMETERS))
+    """Return a ParameterSet with the source defaults + geometry extent defs."""
+    return ParameterSet(list(ALL_PARAMETERS) + list(_GEO_TARGET_EXTENT))
 
 
 # ---------------------------------------------------------------------------
@@ -45,15 +75,15 @@ def test_shape_defaults_resolve() -> None:
     params = _fresh_params()
     params.resolve()
 
-    assert params.get("source.target.shape") == "none"
-    assert params.get("source.target.shape_radius_m") == 0.0
-    assert params.get("source.target.shape_length_m") == 0.0
-    assert params.get("source.target.shape_width_m") == 0.0
-    assert params.get("source.target.shape_height_m") == 0.0
-    assert params.get("source.target.shape_base_radius_m") == 0.0
-    assert params.get("source.target.shape_yaw_rad") == 0.0
-    assert params.get("source.target.shape_pitch_rad") == 0.0
-    assert params.get("source.target.shape_roll_rad") == 0.0
+    assert params.get("geometry.target.shape") == "none"
+    assert params.get("geometry.target.shape_radius_m") == 0.0
+    assert params.get("geometry.target.shape_length_m") == 0.0
+    assert params.get("geometry.target.shape_width_m") == 0.0
+    assert params.get("geometry.target.shape_height_m") == 0.0
+    assert params.get("geometry.target.shape_base_radius_m") == 0.0
+    assert params.get("geometry.target.shape_yaw_rad") == 0.0
+    assert params.get("geometry.target.shape_pitch_rad") == 0.0
+    assert params.get("geometry.target.shape_roll_rad") == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -65,12 +95,12 @@ def test_shape_defaults_resolve() -> None:
 def test_shape_accepts_sphere_with_radius() -> None:
     """``shape="sphere"`` + ``shape_radius_m=1.0`` resolves without raising."""
     params = _fresh_params()
-    params.set("source.target.shape", "sphere")
-    params.set("source.target.shape_radius_m", 1.0)
+    params.set("geometry.target.shape", "sphere")
+    params.set("geometry.target.shape_radius_m", 1.0)
     params.resolve()
 
-    assert params.get("source.target.shape") == "sphere"
-    assert params.get("source.target.shape_radius_m") == pytest.approx(1.0, abs=0.0)
+    assert params.get("geometry.target.shape") == "sphere"
+    assert params.get("geometry.target.shape_radius_m") == pytest.approx(1.0, abs=0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -83,10 +113,10 @@ def test_shape_accepts_sphere_with_radius() -> None:
 def test_shape_enum_accepts_every_catalog_entry(shape_name: str) -> None:
     """Every §3 catalog entry is accepted by the schema enum."""
     params = _fresh_params()
-    params.set("source.target.shape", shape_name)
+    params.set("geometry.target.shape", shape_name)
     params.resolve()
 
-    assert params.get("source.target.shape") == shape_name
+    assert params.get("geometry.target.shape") == shape_name
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +128,7 @@ def test_shape_enum_accepts_every_catalog_entry(shape_name: str) -> None:
 def test_shape_rejects_unknown_name() -> None:
     """``shape="pyramid"`` raises at resolve time (not in enum)."""
     params = _fresh_params()
-    params.set("source.target.shape", "pyramid")
+    params.set("geometry.target.shape", "pyramid")
 
     with pytest.raises(ValueError, match="must be one of"):
         params.resolve()
@@ -118,7 +148,7 @@ def test_shape_radius_rejects_dict_input() -> None:
     ``shape_*_m`` parameters and refuses opaque containers per Rule 16.
     """
     params = _fresh_params()
-    params.set("source.target.shape_radius_m", {"radius_m": 1.0})
+    params.set("geometry.target.shape_radius_m", {"radius_m": 1.0})
 
     with pytest.raises(ValueError, match="expects float"):
         params.resolve()
@@ -132,11 +162,11 @@ def test_shape_radius_rejects_dict_input() -> None:
 @pytest.mark.parametrize(
     "param_name",
     [
-        "source.target.shape_radius_m",
-        "source.target.shape_length_m",
-        "source.target.shape_width_m",
-        "source.target.shape_height_m",
-        "source.target.shape_base_radius_m",
+        "geometry.target.shape_radius_m",
+        "geometry.target.shape_length_m",
+        "geometry.target.shape_width_m",
+        "geometry.target.shape_height_m",
+        "geometry.target.shape_base_radius_m",
     ],
 )
 @pytest.mark.level1
@@ -157,9 +187,9 @@ def test_shape_dim_rejects_negative(param_name: str) -> None:
 @pytest.mark.parametrize(
     "param_name",
     [
-        "source.target.shape_yaw_rad",
-        "source.target.shape_pitch_rad",
-        "source.target.shape_roll_rad",
+        "geometry.target.shape_yaw_rad",
+        "geometry.target.shape_pitch_rad",
+        "geometry.target.shape_roll_rad",
     ],
 )
 @pytest.mark.level1
@@ -177,9 +207,9 @@ def test_shape_orientation_accepts_in_range(param_name: str) -> None:
 @pytest.mark.parametrize(
     "param_name",
     [
-        "source.target.shape_yaw_rad",
-        "source.target.shape_pitch_rad",
-        "source.target.shape_roll_rad",
+        "geometry.target.shape_yaw_rad",
+        "geometry.target.shape_pitch_rad",
+        "geometry.target.shape_roll_rad",
     ],
 )
 @pytest.mark.level1

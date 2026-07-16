@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped `source.target.*` schema
-
-**Discovered**: ADR-0008 drafting (target-extent-to-geometry architecture), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — **Planned**: reconciled by ADR-0008 tier-1 (the `source.target.*` → `geometry.target.*` migration, which re-authors this inventory). Not a standalone fix; folded into that task so the doc and schema move together (Rule 20). Doc-only drift, no code/physics impact.
-**File**: `docs/architecture/RADIANT_Source_Target_System.md` §8.2 (shape params), §8.3 (orientation params).
-**Symptom**: §8 inventories the target shape/orientation params as `source.geometry.*` / `source.orientation.*` (e.g. `source.geometry.shape`, `source.orientation.yaw`), but the shipped schema (`src/radiant/source/_schema.py`) names them `source.target.shape`, `source.target.shape_radius_m`, `source.target.shape_yaw_rad`, `source.target.projected_area_m2`, etc. The inventory predates the shipped names.
-**Why it still matters**: A reader/agent trusting §8 sets a non-existent parameter path. Aspirational-doc drift of exactly the kind Rule 20 guards against; benign today only because the schema is the enforced surface.
-**Suggested fix**: (a) fold into ADR-0008 tier-1 — when the params migrate to `geometry.target.*`, rewrite §8.2/§8.3 to the new canonical names (and note the retired `source.target.*` aliases). Effort trivial within that task; category A. Re-audit at ADR-0008 tier-1 landing.
-
 ### CU-145 — Script Editor has syntax highlighting but no line-number margin
 
 **Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
@@ -448,6 +439,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped schema — RESOLVED 2026-07-16 (commit `291dc0c`)
+
+**Discovered**: ADR-0008 drafting, 2026-07-15. **Resolution**: ADR-0008 Phase A migrated the target spatial-extent params to the `geometry.target.*` namespace and rewrote `RADIANT_Source_Target_System.md` §8.2/§8.3 to the **shipped** canonical names (`geometry.target.shape`, `geometry.target.shape_*_m`, `geometry.target.shape_*_rad`, `geometry.target.projected_area_m2`), with the deprecated `source.target.*` aliases listed alongside. The stale aspirational `source.geometry.*`/`source.orientation.*` names (which never shipped) are gone; §8 now matches the enforced schema. Doc + schema moved together (Rule 20). Category A; goldens byte-identical.
 
 ### CU-143 — Scripting window Pass 2: the multi-tab script Editor pane — RESOLVED 2026-07-15 (commit `8d3dff6`)
 

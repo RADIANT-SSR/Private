@@ -61,7 +61,7 @@ core/
 ```
 geometry/
 ├── __init__.py          # GeometryStage, GeometrySpecificationError re-exports
-├── _schema.py           # the geometry.* namespace (17 ParameterDefs)
+├── _schema.py           # the geometry.* namespace (27 ParameterDefs, incl. the geometry.target.* extent params — ADR-0008)
 ├── errors.py            # GeometrySpecificationError (over/under-specification)
 ├── modes.py             # input-mode detection + resolution (V/S families)
 ├── stage.py             # GeometryStage — publishes stage_outputs["geometry"]

@@ -37,11 +37,39 @@ import pytest
 # read ``geometry.target_altitude_m`` without KeyError fallbacks).
 from radiant.api._param_registry import build_parameter_set
 from radiant.core.parameters import ParameterBoundsError
+from radiant.geometry._schema import (
+    SHAPE,
+    SHAPE_BASE_RADIUS,
+    SHAPE_HEIGHT,
+    SHAPE_LENGTH,
+    SHAPE_PITCH,
+    SHAPE_RADIUS,
+    SHAPE_ROLL,
+    SHAPE_WIDTH,
+    SHAPE_YAW,
+    TARGET_PROJECTED_AREA,
+)
 from radiant.io.config import load_config
 from radiant.source._inferrer import infer_descriptors
 from radiant.source._schema import ALL_PARAMETERS as SRC_PARAMS
 from radiant.source.resolvers.shape_factory import build_shape
 from radiant.source.shapes import Box, Cone, Cylinder, FlatPlate, Sphere
+
+# Target spatial-extent scalars moved to geometry.target.* (ADR-0008).
+# Register just those defs alongside source for the standalone factory
+# tests (avoids pulling the required geometry.sensor_altitude_m).
+_GEO_TARGET_EXTENT = (
+    TARGET_PROJECTED_AREA,
+    SHAPE,
+    SHAPE_RADIUS,
+    SHAPE_LENGTH,
+    SHAPE_WIDTH,
+    SHAPE_HEIGHT,
+    SHAPE_BASE_RADIUS,
+    SHAPE_YAW,
+    SHAPE_PITCH,
+    SHAPE_ROLL,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 _LWIR_TEMPLATE = REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml"
@@ -338,14 +366,15 @@ class TestShapeFactoryDispatch:
         expected_type: type,
     ) -> None:
         """build_shape produces the matching concrete class for every enum."""
-        # Source-only ParameterSet is sufficient — the factory only
-        # touches source.target.shape* scalars.
+        # The factory reads the geometry.target.shape* scalars (moved from
+        # source.target.* per ADR-0008), so the geometry schema must be
+        # registered alongside source.
         from radiant.core.parameters import ParameterSet
 
-        params = ParameterSet(list(SRC_PARAMS))
-        params.set("source.target.shape", shape_name)
+        params = ParameterSet(list(SRC_PARAMS) + list(_GEO_TARGET_EXTENT))
+        params.set("geometry.target.shape", shape_name)
         for key, value in dims.items():
-            params.set(f"source.target.{key}", value)
+            params.set(f"geometry.target.{key}", value)
         params.resolve()
 
         result = build_shape(params)
@@ -356,7 +385,7 @@ class TestShapeFactoryDispatch:
         """build_shape returns None when shape='none' (back-compat)."""
         from radiant.core.parameters import ParameterSet
 
-        params = ParameterSet(list(SRC_PARAMS))
+        params = ParameterSet(list(SRC_PARAMS) + list(_GEO_TARGET_EXTENT))
         params.resolve()
 
         assert build_shape(params) is None

@@ -22,12 +22,12 @@ rebind table:
 ``solar_zenith_rad``         ``stage_outputs["geometry"]["theta_s_rad"]``
 ``relative_azimuth_rad``     ``stage_outputs["geometry"]["delta_phi_rad"]``
 ``regime_override``          ``stage_outputs["optics"]["regime"]`` (final, Rule 10)
-``target_shape`` + dims      ``source.target.shape`` / ``source.target.shape_*``
+``target_shape`` + dims      ``geometry.target.shape`` / ``geometry.target.shape_*``
 ``target_fill_fraction``     ``source.target.fill_fraction``
 ``focal_length_m``           ``optics.focal_length_m``
 ``pixel_pitch_m``            ``detector.pixel_pitch_x_um`` (returned canonical m)
 ``observer_{yaw,pitch,roll}``  **no stage owner** — defaulted to 0 (CU-122)
-``target_{yaw,pitch,roll}``  ``source.target.shape_{yaw,pitch,roll}_rad``
+``target_{yaw,pitch,roll}``  ``geometry.target.shape_{yaw,pitch,roll}_rad``
 ===========================  ==================================================
 
 Attitude gap (CU-122): ADR-0006 §4 deferred platform/target *attitude* "until a
@@ -158,15 +158,15 @@ class ViewerState:
             observer_pitch_rad=0.0,
             observer_roll_rad=0.0,
             target_altitude_m=float(geometry.get("h_target_m", 0.0)),
-            target_shape=_shape_of(params.get("source.target.shape")),
-            target_radius_m=float(params.get("source.target.shape_radius_m")),  # type: ignore[arg-type]
-            target_length_m=float(params.get("source.target.shape_length_m")),  # type: ignore[arg-type]
-            target_width_m=float(params.get("source.target.shape_width_m")),  # type: ignore[arg-type]
-            target_height_m=float(params.get("source.target.shape_height_m")),  # type: ignore[arg-type]
-            target_base_radius_m=float(params.get("source.target.shape_base_radius_m")),  # type: ignore[arg-type]
-            target_yaw_rad=float(params.get("source.target.shape_yaw_rad")),  # type: ignore[arg-type]
-            target_pitch_rad=float(params.get("source.target.shape_pitch_rad")),  # type: ignore[arg-type]
-            target_roll_rad=float(params.get("source.target.shape_roll_rad")),  # type: ignore[arg-type]
+            target_shape=_shape_of(params.get("geometry.target.shape")),
+            target_radius_m=float(params.get("geometry.target.shape_radius_m")),  # type: ignore[arg-type]
+            target_length_m=float(params.get("geometry.target.shape_length_m")),  # type: ignore[arg-type]
+            target_width_m=float(params.get("geometry.target.shape_width_m")),  # type: ignore[arg-type]
+            target_height_m=float(params.get("geometry.target.shape_height_m")),  # type: ignore[arg-type]
+            target_base_radius_m=float(params.get("geometry.target.shape_base_radius_m")),  # type: ignore[arg-type]
+            target_yaw_rad=float(params.get("geometry.target.shape_yaw_rad")),  # type: ignore[arg-type]
+            target_pitch_rad=float(params.get("geometry.target.shape_pitch_rad")),  # type: ignore[arg-type]
+            target_roll_rad=float(params.get("geometry.target.shape_roll_rad")),  # type: ignore[arg-type]
             target_fill_fraction=float(params.get("source.target.fill_fraction")),  # type: ignore[arg-type]
             focal_length_m=float(params.get("optics.focal_length_m")),  # type: ignore[arg-type]
             # get() returns the canonical value (metres) despite the ``_um`` input-unit
@@ -180,7 +180,7 @@ class ViewerState:
 
 
 def _shape_of(value: object) -> ShapeKind:
-    """Coerce a ``source.target.shape`` parameter value to a :data:`ShapeKind`.
+    """Coerce a ``geometry.target.shape`` parameter value to a :data:`ShapeKind`.
 
     The schema sentinel ``"none"`` (shape not provided) passes through; the production
     builder renders no target *body* for it (an extended/sub-pixel scene has no discrete

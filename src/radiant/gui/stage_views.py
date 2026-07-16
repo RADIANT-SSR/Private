@@ -136,7 +136,7 @@ class StageComposition:
     target_shape:
         Show the shared target shape/size/orientation editor (shape combo + dimension fields
         + RPY) — the same widget the Geometry Schematic tab mounts, editing the one
-        ``source.target.shape*`` parameter set (Source only, GUI plan Phase PS-1).
+        ``geometry.target.shape*`` parameter set (Source only, GUI plan Phase PS-1).
     optics_inputs:
         Show the Optics stage's editable inputs card — aperture / focal length / f-number /
         obscuration / spiders / scalar throughput / WFE / optics temperature as schema-driven

@@ -156,6 +156,188 @@ TARGET_RANGE_M = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
+# Target spatial extent — projected area, shape, dimensions, orientation
+# (moved verbatim from source/_schema.py per ADR-0008; the old
+# source.target.* names survive as deprecated aliases).  These feed the
+# projected-area computation that determines theta_target and hence the
+# tentative regime — a geometry computation that previously lived in Source.
+# ---------------------------------------------------------------------------
+
+TARGET_PROJECTED_AREA = ParameterDef(
+    name="geometry.target.projected_area_m2",
+    description=(
+        "Projected area of target facing the observer [m²]. "
+        "0.0 = not specified (extended-scene default)."
+    ),
+    dtype=float,
+    canonical_unit="m2",
+    input_unit="m2",
+    default=0.0,
+    bounds=(0.0, 1e12),
+    tags=frozenset({"source", "target", "geometry"}),
+    default_justification=(
+        "0.0 signals 'geometry not provided' — regime classification defaults to extended scene."
+    ),
+    deprecated_aliases=frozenset({"source.target.projected_area_m2"}),
+)
+
+SHAPE = ParameterDef(
+    name="geometry.target.shape",
+    description=(
+        "Geometric primitive for sub-pixel / point-source projected-area "
+        "computation. 'none' = not specified (back-compat: use "
+        "geometry.target.projected_area_m2).  Explicit values select a "
+        "concrete shape; dimensional parameters are read from the "
+        "geometry.target.shape_* scalars per the matrix §3 catalog."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="none",
+    enum_values=("none", "sphere", "cylinder", "flat_plate", "box", "cone"),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification=(
+        "'none' is the Rule-12 sentinel for 'shape not provided'; the "
+        "descriptor falls back to geometry.target.projected_area_m2.  Users "
+        "opt into shape-driven projection by naming a concrete shape."
+    ),
+    deprecated_aliases=frozenset({"source.target.shape"}),
+)
+
+SHAPE_RADIUS = ParameterDef(
+    name="geometry.target.shape_radius_m",
+    description=(
+        "Radius [m] for shapes with a single radius parameter "
+        "(sphere, cylinder).  Must be > 0 when the selected shape "
+        "requires it; validation is enforced by the Step 1.2 shape "
+        "factory, not here.  Ignored for shapes that do not take a "
+        "radius (flat_plate, box)."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification=(
+        "0.0 is the 'not set' sentinel; the Step 1.2 factory raises "
+        "ParameterBoundsError if the chosen shape needs radius_m > 0."
+    ),
+    deprecated_aliases=frozenset({"source.target.shape_radius_m"}),
+)
+
+SHAPE_LENGTH = ParameterDef(
+    name="geometry.target.shape_length_m",
+    description=(
+        "Length [m] for shapes with a length axis (cylinder axial "
+        "extent, flat_plate body-X extent, box body-X extent).  "
+        "Ignored for sphere and cone."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+    deprecated_aliases=frozenset({"source.target.shape_length_m"}),
+)
+
+SHAPE_WIDTH = ParameterDef(
+    name="geometry.target.shape_width_m",
+    description=(
+        "Width [m] for rectangular shapes (flat_plate body-Y extent, "
+        "box body-Y extent).  Ignored for sphere, cylinder, cone."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+    deprecated_aliases=frozenset({"source.target.shape_width_m"}),
+)
+
+SHAPE_HEIGHT = ParameterDef(
+    name="geometry.target.shape_height_m",
+    description=(
+        "Height [m] for shapes with a body-Z extent (box height, cone "
+        "apex-to-base height).  Ignored for sphere, cylinder, "
+        "flat_plate."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+    deprecated_aliases=frozenset({"source.target.shape_height_m"}),
+)
+
+SHAPE_BASE_RADIUS = ParameterDef(
+    name="geometry.target.shape_base_radius_m",
+    description=(
+        "Base-circle radius [m] for the cone shape.  Separate from "
+        "geometry.target.shape_radius_m because the cone class names the "
+        "parameter base_radius_m (see shapes/cone.py).  Ignored for "
+        "non-cone shapes."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"source", "target", "geometry", "shape"}),
+    default_justification="0.0 = not set; see SHAPE_RADIUS.",
+    deprecated_aliases=frozenset({"source.target.shape_base_radius_m"}),
+)
+
+SHAPE_YAW = ParameterDef(
+    name="geometry.target.shape_yaw_rad",
+    description=(
+        "Target body yaw [rad] about scene +Z (ZYX Euler, Rule 3).  "
+        "Applied to the selected TargetShape's ``orientation_rad`` "
+        "tuple in Step 1.2."
+    ),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),  # [-2π, 2π]
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    default_justification=("0.0 = body +X aligned with scene +X (canonical alignment)."),
+    deprecated_aliases=frozenset({"source.target.shape_yaw_rad"}),
+)
+
+SHAPE_PITCH = ParameterDef(
+    name="geometry.target.shape_pitch_rad",
+    description=("Target body pitch [rad] about scene +Y (ZYX Euler, Rule 3)."),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
+    deprecated_aliases=frozenset({"source.target.shape_pitch_rad"}),
+)
+
+SHAPE_ROLL = ParameterDef(
+    name="geometry.target.shape_roll_rad",
+    description=("Target body roll [rad] about scene +X (ZYX Euler, Rule 3)."),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
+    deprecated_aliases=frozenset({"source.target.shape_roll_rad"}),
+)
+
+# ---------------------------------------------------------------------------
 # Viewing input modes — alternate doors into theta_o (V2, V3, V4)
 # Defaults are inert; mode detection is by provenance.
 # ---------------------------------------------------------------------------
@@ -334,6 +516,16 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SOLAR_ILLUMINATION,
     GROUND_SPEED_M_S,
     TARGET_RANGE_M,
+    TARGET_PROJECTED_AREA,
+    SHAPE,
+    SHAPE_RADIUS,
+    SHAPE_LENGTH,
+    SHAPE_WIDTH,
+    SHAPE_HEIGHT,
+    SHAPE_BASE_RADIUS,
+    SHAPE_YAW,
+    SHAPE_PITCH,
+    SHAPE_ROLL,
     SENSOR_OFF_NADIR_RAD,
     GROUND_RANGE_M,
     ELEVATION_ANGLE_RAD,

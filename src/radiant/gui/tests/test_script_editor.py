@@ -219,6 +219,63 @@ class TestRunSharesNamespace:
         assert "boom from script" in transcript
 
 
+class TestRunAutoDisplaysBareExpressions:
+    """Run auto-displays top-level bare expressions like the command line (arch doc §4.6.1).
+
+    A bare ``plot.mtf()`` on its own line pops its figure and a bare ``result.snr()`` echoes
+    its value with **no** ``show()`` / ``sys.displayhook(...)`` wrapper — the MATLAB "run a
+    script, see the plots" behaviour. These need the live ``result`` / ``plot`` a real
+    evaluation binds, so they drive the full window.
+    """
+
+    def test_bare_plot_call_pops_a_figure(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _load_window(qtbot, tmp_path)
+        scripting = window.scripting_window
+        console = scripting.console
+        scripting.editor.current_tab().setPlainText("plot.mtf()")  # bare, no show()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(console.figureProduced, timeout=_WAIT_MS):
+                scripting._on_run()
+        assert len(console.figures_produced()) == 1
+        assert "figure opened in its own window" in console.output_text()
+
+    def test_bare_metric_echoes_its_value(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _load_window(qtbot, tmp_path)
+        scripting = window.scripting_window
+        console = scripting.console
+        before = console.output_text()
+        scripting.editor.current_tab().setPlainText("result.snr()")  # bare expression
+        scripting._on_run()
+        delta = console.output_text()[len(before) :]
+        # The metric's value was echoed into the transcript (it fired the displayhook).
+        assert any(ch.isdigit() for ch in delta)
+
+    def test_bare_sensor_set_does_not_echo_none(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _load_window(qtbot, tmp_path)
+        scripting = window.scripting_window
+        console = scripting.console
+        before = console.output_text()
+        scripting.editor.current_tab().setPlainText(f"sensor.set('{_APERTURE}', 0.24)")
+        scripting._on_run()
+        delta = console.output_text()[len(before) :]
+        assert "None" not in delta  # a None-returning bare call stays silent
+
+    def test_explicit_displayhook_path_still_works(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Backward compatible: the old ``sys.displayhook(fig)`` wrapper still pops a figure."""
+        window = _load_window(qtbot, tmp_path)
+        scripting = window.scripting_window
+        console = scripting.console
+        scripting.editor.current_tab().setPlainText(
+            "import sys\nfig = plot.mtf()\nsys.displayhook(fig)"
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(console.figureProduced, timeout=_WAIT_MS):
+                scripting._on_run()
+        assert len(console.figures_produced()) == 1  # exactly one, not doubled
+
+
 class TestRunCoherence:
     def test_script_sensor_set_marks_main_window_stale(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _load_window(qtbot, tmp_path)

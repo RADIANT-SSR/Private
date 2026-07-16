@@ -682,6 +682,16 @@ splitter, Workspace left, Command Window right) below.
   Command Window transcript (surfaced, never swallowed — Rule 17); and a `sensor.set(...)` in a
   script marks the GUI stale exactly like a typed command (the shared coherence path). A bad
   file load surfaces the actionable/traceback error dialog and leaves the open tabs intact.
+  **Run auto-displays top-level bare expressions**, exactly as the command line does: `run_script`
+  parses the source once and executes it one top-level statement at a time, compiling each bare
+  expression statement (an `ast.Expr` — e.g. a lone `plot.mtf()` or `result.snr()`) in interactive
+  `"single"` mode so its value fires `sys.displayhook` (a Figure pops out into its own window, any
+  other value echoes its `repr`, `None` stays silent) and every other statement in `"exec"` mode.
+  So a bare `plot.mtf()` on its own line pops its figure with **no** `show()` / `sys.displayhook(...)`
+  wrapper — the MATLAB "run a script, see the plots" behaviour — while the explicit
+  `sys.displayhook(fig)` pattern still works unchanged. Statement order and side effects are
+  preserved; a runtime exception halts the run at the offending statement (like a standalone script)
+  and surfaces its traceback (Rule 17).
 * the **Command Window** — the reused `ScriptingConsole` REPL (unchanged; the binding,
   history, figure pop-out, and coherence model below are all the dock console's logic hosted
   in the new window); and

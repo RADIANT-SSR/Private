@@ -292,6 +292,14 @@ retroactively reconstructed.
   audit — CU-134).
 
 ### Changed
+- **GUI scripting window — Editor Run auto-displays top-level bare expressions (arch doc §4.6.1,
+  view-only).** A whole-script **Run** now behaves like the command line: `run_script` executes the
+  source one top-level statement at a time, so a bare expression on its own line (e.g. `plot.mtf()`
+  or `result.snr()`) fires the display hook — a Figure pops out into its own window, any other value
+  echoes its `repr`, `None` stays silent. A script's bare `plot.mtf()` therefore pops its figure with
+  **no** `show()` / `sys.displayhook(...)` wrapper (the MATLAB "run a script, see the plots"
+  behaviour). Statement order and side effects are preserved; the explicit `sys.displayhook(fig)`
+  pattern still works; a runtime exception still surfaces its traceback and halts the run (Rule 17).
 - **GUI: `Tools → Python Console` (a bottom dock) → `Tools → Scripting Window` (a separate
   window), view-only.** The menu action is renamed and repurposed to open the new separate
   scripting window (action key `tools.console` → `tools.scripting_window`, shortcut unchanged

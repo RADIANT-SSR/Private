@@ -49,6 +49,7 @@ only and holds no colour/font/size literal.
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import sys
 import traceback
@@ -358,14 +359,28 @@ class ScriptingConsole(QWidget):
         """Execute *source* as a whole script in the **shared** namespace (the Editor's Run).
 
         This is the MATLAB "Run" primitive for the multi-tab script Editor (arch doc §4.6.1,
-        Pass 2). It compiles and executes *source* as a module-level block in the *same*
-        namespace the command line and the Workspace share, so a script's top-level
-        ``x = result.snr()`` leaves ``x`` bound for the next command line and visible in the
-        Workspace. stdout, stderr, and any traceback route to this Command Window transcript
-        (the same tee the REPL uses) rather than the process streams — an exception is
-        **surfaced, never swallowed** (Rule 17). A ``sensor.set(...)`` in the script marks the
-        GUI stale exactly like a typed command (the shared coherence path), and
-        :attr:`commandExecuted` fires so the Workspace refreshes.
+        Pass 2). It parses *source* once and executes it **one top-level statement at a time**
+        in the *same* namespace the command line and the Workspace share, so a script's
+        top-level ``x = result.snr()`` leaves ``x`` bound for the next command line and visible
+        in the Workspace.
+
+        Each top-level **bare expression** (an :class:`ast.Expr` — e.g. ``plot.mtf()`` or a
+        lone ``result.snr()``) is compiled in interactive ``"single"`` mode so its value is
+        routed through :meth:`_displayhook`, exactly as it is at the command line: a Figure
+        pops out into its own window and any other value echoes its ``repr`` (``None`` stays
+        silent). Every other statement (assignments, imports, loops, ``def``, and
+        None-returning calls like ``sensor.set(...)`` / ``print(...)``) is compiled in
+        ``"exec"`` mode. Statement order and side effects are preserved. This makes a script's
+        bare ``plot.mtf()`` pop a figure with no ``show()`` / ``sys.displayhook(...)`` wrapper
+        — the MATLAB "run a script, see the plots" behaviour — while the explicit
+        ``sys.displayhook(fig)`` pattern still works unchanged.
+
+        stdout, stderr, and any traceback route to this Command Window transcript (the same tee
+        the REPL uses) rather than the process streams — an exception is **surfaced, never
+        swallowed** (Rule 17) and halts the run at the offending statement, like a real script.
+        A ``sensor.set(...)`` in the script marks the GUI stale exactly like a typed command
+        (the shared coherence path), and :attr:`commandExecuted` fires so the Workspace
+        refreshes.
 
         Parameters
         ----------
@@ -379,22 +394,54 @@ class ScriptingConsole(QWidget):
         # Snapshot the sensor so an in-place rebind inside the script is caught by identity,
         # mirroring the per-statement REPL path.
         self._stmt_before_sensor = self._namespace.get("sensor")
+        filename = f"<script:{label}>"
         with self._captured_io():
             try:
-                code_obj = compile(source, f"<script:{label}>", "exec")
+                tree = ast.parse(source, filename=filename, mode="exec")
+            except SyntaxError as exc:
+                # Compile-time failure: SyntaxError formats its own file/line/caret; the
+                # framing (this module's) frames carry no useful information for the author.
+                # Nothing runs.
+                self._append_text("".join(traceback.format_exception_only(type(exc), exc)))
+            else:
+                self._exec_statements(tree, filename)
+        self._flag_if_mutated(source)
+        self.commandExecuted.emit(source)
+
+    def _exec_statements(self, tree: ast.Module, filename: str) -> None:
+        """Execute *tree*'s top-level statements in order, firing the displayhook on bare exprs.
+
+        A bare expression statement (:class:`ast.Expr`) is compiled in interactive ``"single"``
+        mode so exec routes its value through :attr:`sys.displayhook` (installed as
+        :meth:`_displayhook` by :meth:`_captured_io`) — popping out Figures and echoing other
+        reprs, exactly as the command line does. Every other statement is compiled in ``"exec"``
+        mode. The shared namespace threads across statements, so order and side effects are
+        preserved. A runtime exception is surfaced to the transcript and halts the run at the
+        offending statement (Rule 17); a script ``exit()``/``quit()`` is swallowed so it never
+        tears down the GUI process.
+        """
+        for stmt in tree.body:
+            if isinstance(stmt, ast.Expr):
+                # A bare expression: compile as interactive so its value fires the displayhook.
+                node: ast.Interactive | ast.Module = ast.Interactive(body=[stmt])
+                mode = "single"
+            else:
+                node = ast.Module(body=[stmt], type_ignores=[])
+                mode = "exec"
+            ast.copy_location(node, stmt)
+            ast.fix_missing_locations(node)
+            try:
+                code_obj = compile(node, filename, mode)
                 exec(code_obj, self._namespace)  # the scripting window IS a REPL by design
             except SystemExit:
                 # A script `exit()`/`quit()` must never tear down the GUI process.
                 self._append_text("(SystemExit ignored inside the embedded editor run)\n")
-            except SyntaxError as exc:
-                # Compile-time failure: SyntaxError formats its own file/line/caret; the
-                # framing (this module's) frames carry no useful information for the author.
-                self._append_text("".join(traceback.format_exception_only(type(exc), exc)))
+                return
             except Exception:
-                # Runtime failure: surfaced to the transcript, never swallowed (Rule 17).
+                # Runtime failure: surfaced to the transcript, never swallowed (Rule 17). The
+                # run halts here, like a standalone script hitting the same line.
                 self._append_text(self._format_script_traceback())
-        self._flag_if_mutated(source)
-        self.commandExecuted.emit(source)
+                return
 
     def _format_script_traceback(self) -> str:
         """Format the live exception's traceback, dropping this module's ``exec`` frame.

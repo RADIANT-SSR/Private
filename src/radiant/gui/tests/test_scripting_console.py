@@ -204,6 +204,71 @@ class TestFigureAndExit:
         assert not window.isVisible()
 
 
+class TestRunScriptAutoDisplay:
+    """``run_script`` auto-displays top-level bare expressions like the command line.
+
+    A whole-script Run executes each top-level statement so a bare expression fires the
+    display hook — a Figure pops out, another value echoes its ``repr``, ``None`` stays
+    silent — exactly as typing the same line at the prompt does (arch doc §4.6.1). These
+    cases need no live sensor/result, so they drive a standalone console directly; the
+    figure / ``sensor.set`` / backward-compat cases live in ``test_script_editor.py`` where a
+    real result (and ``plot``) is bound.
+    """
+
+    def test_bare_expression_echoes_repr(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        console.run_script("1 + 1")
+        assert "2" in console.output_text()  # bare expr fired the displayhook
+
+    def test_statement_order_preserved_and_later_expr_sees_earlier_binding(  # type: ignore[no-untyped-def]
+        self, qtbot
+    ) -> None:
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        before = console.output_text()
+        console.run_script("x = 2\nx * 3")
+        delta = console.output_text()[len(before) :]
+        assert "6" in delta  # the assignment ran first, then the bare expr echoed 6
+        assert console.namespace_variables()["x"] == 2
+
+    def test_none_returning_bare_call_does_not_echo_none(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        before = console.output_text()
+        console.run_script("print('hi')")
+        delta = console.output_text()[len(before) :]
+        assert "hi" in delta  # the print's own output shows...
+        assert "None" not in delta  # ...but the None the call returns is NOT echoed
+
+    def test_assignments_imports_and_loops_share_the_namespace(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        console.run_script(
+            "import math\ntotal = 0\nfor i in range(4):\n    total += i\nroot = math.sqrt(total)"
+        )
+        ns = console.namespace_variables()
+        assert ns["total"] == 6  # 0+1+2+3
+        assert ns["root"] == pytest.approx(6**0.5, rel=1e-12)
+
+    def test_mid_script_exception_surfaces_traceback_and_halts(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        # A bare expression that raises mid-script stops the run at that statement (Rule 17).
+        console.run_script("a = 1\nundefined_name\na = 99")
+        transcript = console.output_text()
+        assert "Traceback" in transcript
+        assert "NameError" in transcript
+        assert console.namespace_variables()["a"] == 1  # halted before `a = 99`
+
+    def test_syntax_error_runs_nothing(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        console.run_script("b = 5\ndef (")  # compile-time failure
+        assert "SyntaxError" in console.output_text()
+        assert "b" not in console.namespace_variables()  # nothing ran
+
+
 class TestHistory:
     def test_up_arrow_recalls_previous_command(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Submitting a line then pressing Up recalls it into the input box."""

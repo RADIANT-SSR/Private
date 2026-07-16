@@ -1,7 +1,10 @@
 # ADR-0008: Target Spatial Extent Belongs to Geometry; a Declared Scenario Type Guides Setup
 
 **Date:** 2026-07-15
-**Status:** Accepted (owner-ratified 2026-07-15)
+**Status:** Accepted (owner-ratified 2026-07-15). **Phase A shipped 2026-07-16** (commit
+`ecf96c5`). **Decision 4 refined by Amendment 1 (2026-07-16)** — the declared scenario type
+already partly exists as `source.scene_type` / `source.regime_override`; see the amendment at
+the end of this ADR before executing Phase T2.
 
 ## Context
 
@@ -163,3 +166,45 @@ GUI Phase II can consume the clean boundary early while the guided-setup metadat
 - RADIANT_Source_Target_System.md §3 (source types), §5 (target geometry), §6 (five input paths),
   §7 (auto regime detection), §8 (parameter inventory — names to reconcile)
 - `src/radiant/core/regime.py` (`RadiometricRegime`, `TargetInputPath`, thresholds)
+
+---
+
+## Amendment 1 (2026-07-16) — the declared scenario type already partly exists; refine Decision 4
+
+**Discovered during Phase A** (inspecting `source/_schema.py`): the "declared scenario type"
+Decision 4 proposed adding as a *new* `scenario.type` param is **already present**, split across
+two existing parameters. Decision 4 is refined — **do not add a new `scenario.type`; build T2 on
+what exists.** This changes nothing in Phase A/B; it re-scopes T2.
+
+**What already exists:**
+- **`source.scene_type`** — enum `("auto", "extended", "sub_pixel", "point_source")`, default
+  `"auto"` (a distinct "user did not set this" sentinel). It is the **matrix §3.2 declared
+  scene-type axis**: when set explicitly it **wins over inference** and drives which descriptor /
+  spec-form is built (`core/descriptors.py` `TargetDescriptor.scene_type`: extended→radiance `L`,
+  sub_pixel/point→intensity `I`). This *is* the "declare intent up front" surface (Decision 4a)
+  — it exists and is wired.
+- **`source.regime_override`** — enum `("auto", "extended", "point_source", "sub_pixel")`, default
+  `"auto"`. It **forces** the regime in `SourceStage`'s tentative classification
+  (`stage.py`: `if regime_override != "auto": regime = RadiometricRegime(regime_override)`). This
+  *is* the "force the physics" surface (Decision 4b) — it exists and is wired.
+
+**What does NOT exist (the genuinely new T2 work):**
+- The **declared-vs-derived cross-check**: nothing compares the declared `source.scene_type` (or
+  the regime it implies) against the **OpticsStage final** regime after evaluate and warns on a
+  mismatch (Decision 4c). This is the real new capability — a surfaced, non-fatal warning.
+- The **per-regime parameter-relevance metadata** + relevance surface (Gap 85 / Decision 4a's
+  "guides which parameters matter"). Still to author.
+
+**Refined Decision 4 (for T2):**
+1. Use the **existing `source.scene_type`** as the declared axis — do **not** mint `scenario.type`.
+   Whether to *relocate/rename* it (e.g. to `geometry.target.scenario_type`, alongside the extent
+   it now sits near, or leave it in `source`) is a T2 sub-decision; default is **leave it as
+   `source.scene_type`** to avoid a second migration, and reconcile naming only if T2 shows cause.
+2. Keep **`source.regime_override`** as the force-physics axis (unchanged). Clarify in docs that
+   `scene_type` = declared intent (guides + cross-checked, non-binding) while `regime_override` =
+   hard force (binding). The two are distinct and both stay.
+3. T2's build list shrinks to: (a) the **declared-vs-derived cross-check warning**, and (b) the
+   **relevance metadata** (Gap 85) — not a new declaration param.
+
+**Also refine §8-reconcile note:** `RADIANT_Source_Target_System.md` §8.10 (regime control) and §7
+should document the `scene_type` vs `regime_override` distinction explicitly when T2 lands.

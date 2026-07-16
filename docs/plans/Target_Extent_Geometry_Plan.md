@@ -112,18 +112,24 @@ the 2 smoke-run scenarios execute cleanly.
 **Docs:** §4 rows G (GUI arch doc note that instruments read `geometry.target.*`; the *presentation
 regroup* itself is Phase II, not here).
 
-### Phase T2 — Declared `scenario.type` + declared-vs-derived cross-check
-**Category:** C–D · **Effort:** M · **Gate in:** Phase B merged (G may run in parallel).
-**Scope:** Add `scenario.type` (enum `auto | extended | sub_pixel | point_source`, default `auto`) to
-the schema; wire it to (a) optionally seed the `regime.override` default and (b) a post-evaluate
-**declared-vs-derived** cross-check that raises a **non-fatal, surfaced** warning on mismatch (Rule 17
-— named, never silent) on the result object. GUI: surface the warning in the Messages panel; no
-selector UI yet. **Does not** drive relevance yet (that is T3).
-**Files:** `geometry/_schema.py` (or a new `scenario` namespace — per ADR, `scenario.type`), the
-cross-check site (result assembly / performance surface), `api` result surface, GUI Messages binding.
-**Gate:** a declared `extended` config whose derived regime is `point_source` surfaces the warning;
-no results change (warning-only surface); goldens byte-identical.
-**Docs:** §4 rows T2.
+### Phase T2 — Declared-vs-derived cross-check (build on the existing `source.scene_type`)
+**Category:** C–D · **Effort:** S–M · **Gate in:** Phase B merged (G may run in parallel).
+**REVISED per ADR-0008 Amendment 1 (2026-07-16):** do **NOT** add a new `scenario.type` param — the
+declared axis already exists as **`source.scene_type`** (enum `auto/extended/sub_pixel/point_source`,
+wins over inference, drives descriptor spec-form) and the force axis already exists as
+**`source.regime_override`**. T2's only new work is the cross-check + doc clarification.
+**Scope:** (a) a post-evaluate **declared-vs-derived** cross-check comparing the declared
+`source.scene_type` (or its implied regime) against the **OpticsStage final** regime, raising a
+**non-fatal, surfaced** warning on mismatch (Rule 17 — named, never silent) on the result object;
+(b) docs clarifying `scene_type` = declared intent (guides + cross-checked, non-binding) vs
+`regime_override` = hard force (binding). GUI: surface the warning in the Messages panel; no selector
+UI yet. Relevance metadata is T3. Naming of `source.scene_type` is left as-is unless T2 shows cause
+(Amendment 1 default).
+**Files:** the cross-check site (result assembly / performance surface), `api` result surface, GUI
+Messages binding. **No new schema param.**
+**Gate:** a declared `scene_type='extended'` config whose derived final regime is `point_source`
+surfaces the warning; no results change (warning-only surface); goldens byte-identical.
+**Docs:** §4 rows T2 + RADIANT_Source_Target_System §7/§8.10 (scene_type vs regime_override distinction).
 
 ### Phase T3 — Gap-85 guided setup (relevance metadata + selector) — *bleeds into Phase II*
 **Category:** D · **Effort:** L · **Gate in:** T2 merged.

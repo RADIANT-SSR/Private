@@ -36,6 +36,14 @@ retroactively reconstructed.
   `sections=`. `io.element_config.parse_element_entries` is the new document-level parser seam
   under `load_element_list`. Goldens byte-identical (view/plumbing only — an attached train
   changes results exactly as the same train injected manually always did).
+- **Declared-vs-derived regime cross-check (ADR-0008 T2, results-neutral).** When a config
+  **declares** an explicit `source.scene_type` (`extended` / `sub_pixel` / `point_source`, i.e. not
+  `auto`) that disagrees with the radiometric regime the chain **derives** from the target angular
+  size vs the PSF/IFOV, OpticsStage now surfaces a `UserWarning` naming both (Rule 17 — never silent).
+  The run still uses the derived regime; to *force* a regime, use `source.regime_override` (the hard
+  binding) rather than `scene_type` (the soft declaration). Warning-only — no computed value changes;
+  goldens byte-identical. Clarifies the `scene_type` (declared intent) vs `regime_override` (hard
+  force) distinction in `RADIANT_Source_Target_System` §8.10.
 - **RADIANT Desktop GUI v1 — complete (GUI Development Plan closed, view-only capability).**
   `radiant gui [config.yaml]` launches the PySide6 contextual per-stage workspace: a 9-stage
   geometry-first strip, a schema-driven All-Parameters tree, per-stage **instruments** for all

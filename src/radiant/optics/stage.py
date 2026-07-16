@@ -656,6 +656,40 @@ _POINT_SOURCE_ANGULAR_SIZE_LIMIT: float = 0.1
 _SUBPIXEL_RECLASSIFICATION_THRESHOLD: float = 0.01
 
 
+def _warn_declared_regime_mismatch(
+    declared_scene_type: str,
+    regime: RadiometricRegime,
+) -> None:
+    """Cross-check the user's DECLARED scene type against the derived regime (T2).
+
+    ``source.scene_type`` is the user's declared intent; ``'auto'`` means "no
+    declaration — infer", so only an explicit declaration is checked. When the
+    declared type disagrees with the finalized (derived) :class:`RadiometricRegime`
+    the mismatch is surfaced as a :class:`UserWarning`, never silent (Rule 17) — e.g.
+    the user declared ``'extended'`` but the target angular size against the PSF/IFOV
+    derived ``'point_source'``.
+
+    This is a **soft notice**: the chain uses the *derived* regime regardless;
+    ``source.regime_override`` is the hard force (see RADIANT_Source_Target_System
+    §8.10). Distinct from :func:`_validate_psf_regime_consistency`, which guards the
+    point/sub-pixel PSF-breakdown *physics* (raise/warn), not the declaration.
+    The declared scene-type strings map 1:1 onto the regime enum values
+    (``extended`` / ``sub_pixel`` / ``point_source``).
+    """
+    if declared_scene_type == "auto":
+        return
+    if RadiometricRegime(declared_scene_type) == regime:
+        return
+    warnings.warn(
+        f"Declared source.scene_type={declared_scene_type!r} does not match the "
+        f"derived radiometric regime {regime.value!r} (finalized from the target "
+        f"angular size against the PSF/IFOV). The chain used the derived regime; "
+        f"to force a regime instead, set source.regime_override.",
+        UserWarning,
+        stacklevel=2,
+    )
+
+
 def _validate_psf_regime_consistency(
     scene_type: str,
     angular_extent_rad: float,
@@ -1137,6 +1171,13 @@ class OpticsStage:
                 epsf=epsf,
                 focal_length_m=focal_length_m,
             )
+
+        # Declared-vs-derived regime cross-check (ADR-0008 Amendment 1 / T2).
+        # SourceStage publishes the declared scene_type; default 'auto' (no
+        # cross-check) when absent (degenerate chains / minimal stage tests).
+        _warn_declared_regime_mismatch(
+            source_out.get("scene_type_declared", "auto"), regime
+        )
 
         # EE_box is computed in PlatformStage from the fully degraded PSF
         # (jitter, smear, turbulence included) and applied once in

@@ -24,8 +24,12 @@ import numpy as np
 import pytest
 
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.regime import RadiometricRegime
 from radiant.optics.psf.effective import EffectivePSF
-from radiant.optics.stage import _validate_psf_regime_consistency
+from radiant.optics.stage import (
+    _validate_psf_regime_consistency,
+    _warn_declared_regime_mismatch,
+)
 
 # ---------------------------------------------------------------------------
 # Helper: build a minimal EffectivePSF with a known FWHM
@@ -215,3 +219,36 @@ def test_nonfinite_angular_extent_noop() -> None:
         epsf=epsf,
         focal_length_m=f_m,
     )
+
+
+# ---------------------------------------------------------------------------
+# Declared-vs-derived regime cross-check (ADR-0008 Amendment 1 / T2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level1
+def test_declared_auto_never_warns() -> None:
+    """scene_type='auto' is 'no declaration' — never cross-checked, whatever the regime."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning would fail the test
+        for regime in RadiometricRegime:
+            _warn_declared_regime_mismatch("auto", regime)
+
+
+@pytest.mark.level1
+def test_declared_matches_derived_no_warning() -> None:
+    """An explicit declaration that matches the derived regime is silent."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _warn_declared_regime_mismatch("extended", RadiometricRegime.EXTENDED)
+        _warn_declared_regime_mismatch("sub_pixel", RadiometricRegime.SUB_PIXEL)
+        _warn_declared_regime_mismatch("point_source", RadiometricRegime.POINT_SOURCE)
+
+
+@pytest.mark.level1
+def test_declared_mismatch_warns() -> None:
+    """A declaration that disagrees with the derived regime surfaces a UserWarning (Rule 17)."""
+    with pytest.warns(UserWarning, match="does not match the derived radiometric regime"):
+        _warn_declared_regime_mismatch("extended", RadiometricRegime.POINT_SOURCE)
+    with pytest.warns(UserWarning, match="scene_type='point_source'"):
+        _warn_declared_regime_mismatch("point_source", RadiometricRegime.EXTENDED)

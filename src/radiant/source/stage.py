@@ -110,6 +110,10 @@ class SourceStage:
         range_m: float | None = raw_range if raw_range > 0.0 else None
         fill_fraction: float = params.get("source.target.fill_fraction")
         regime_override: str = params.get("source.regime_override")
+        # Declared scene type ('auto' = no declaration). Published so OpticsStage
+        # can run the declared-vs-derived regime cross-check (ADR-0008 T2) without
+        # reaching back into a source param (which minimal stage tests may omit).
+        scene_type_declared: str = params.get("source.scene_type")
 
         # Pixel pitch and focal length for IFOV.
         pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
@@ -151,6 +155,12 @@ class SourceStage:
             "source",
             "regime_override",
             regime_override,
+        )
+        # Declared scene type for the OpticsStage declared-vs-derived cross-check (T2).
+        state = state.with_stage_output(
+            "source",
+            "scene_type_declared",
+            scene_type_declared,
         )
 
         # --- Option C descriptors — the authoritative Stage 4 output.

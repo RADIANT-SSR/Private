@@ -588,13 +588,31 @@ For multi-material objects, the user specifies a material map file (`source.mate
 | `source.background.material` | Material name (ground BG) | str | — | "concrete" | — | — |
 | `source.background.include_in_signal` | Add BG to in-pixel radiance | bool | — | True | — | — |
 
-### 8.10 Regime control (3 parameters)
+### 8.10 Regime control
+
+> **Declared intent vs hard force (ADR-0008 Amendment 1 / T2).** Two distinct, shipped
+> parameters shape the regime — do not conflate them:
+> - **`source.scene_type`** (enum `auto | extended | sub_pixel | point_source`, default `auto`) —
+>   the **declared scene type**. It drives which descriptor / spec-form is built (extended → radiance
+>   `L`; sub_pixel / point_source → intensity `I`; §6). It is **soft**: the chain still *derives* the
+>   radiometric regime from the target angular size vs the PSF/IFOV (§7, Rule 10). When the user
+>   declares a non-`auto` scene_type that disagrees with the derived regime, **OpticsStage surfaces a
+>   `UserWarning`** (declared-vs-derived cross-check, `_warn_declared_regime_mismatch`) — the run uses
+>   the derived regime, never silently (Rule 17).
+> - **`source.regime_override`** (enum `auto | extended | sub_pixel | point_source`, default `auto`) —
+>   the **hard force**. A non-`auto` value forces the classification (SourceStage tentative +
+>   OpticsStage final honor it). Use this to *bind* the regime; use `scene_type` to *declare intent*.
+>
+> The threshold knobs below tune the auto classifier. *(Naming note: this table historically wrote
+> `regime.*`; the shipped schema names are `source.regime_override` and the `regime.*` thresholds —
+> the leading-namespace drift for the two override/threshold names is tracked for reconciliation.)*
 
 | Name | Description | Type | Unit | Default | Range |
 |------|-------------|------|------|---------|-------|
+| `source.scene_type` | Declared scene type (soft; drives spec-form; cross-checked) | enum | — | "auto" | auto, extended, sub_pixel, point_source |
+| `source.regime_override` | Force a regime (hard, binding) | enum | — | "auto" | auto, extended, sub_pixel, point_source |
 | `regime.point_source_threshold` | α_point | float | — | 0.3 | (0.0, 1.0] |
 | `regime.extended_threshold` | α_ext | float | — | 3.0 | [1.0, 100.0] |
-| `regime.override` | Force a regime | enum | — | "auto" | auto, force_point, force_subpixel, force_extended |
 
 ### 8.11 Parameter count
 

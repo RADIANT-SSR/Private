@@ -19,6 +19,7 @@ object names only.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
+    QInputDialog,
     QMainWindow,
     QMenu,
     QProgressBar,
@@ -43,9 +45,11 @@ from radiant.gui.settings_store import SettingsStore
 from radiant.gui.themes import DARK, LIGHT, active_theme, apply_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
+from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
+from radiant.gui.widgets.schema_browser_dialog import SchemaBrowserDialog
 from radiant.gui.widgets.scripting_console import ScriptingConsole
 from radiant.gui.widgets.scripting_window import ScriptingWindow
 from radiant.gui.widgets.set_parameter_command import SetParameterCommand
@@ -657,6 +661,14 @@ class RADIANTMainWindow(QMainWindow):
         self.action("tools.scripting_window").setEnabled(enabled)
         self.action("file.save").setEnabled(enabled)
         self.action("file.save_as").setEnabled(enabled)
+        # GX-1 wire-ups: schema browser / explain / YAML export all read the live
+        # sensor; JSON-result export additionally needs a result (armed with the
+        # Inspector when the first result lands).
+        self.action("file.export_yaml").setEnabled(enabled)
+        self.action("tools.schema").setEnabled(enabled)
+        self.action("tools.explain").setEnabled(enabled)
+        if not enabled:
+            self.action("file.export_json").setEnabled(False)
 
     def _evaluate_now(self) -> None:
         """Start a full-chain evaluation, or coalesce if one is already running.
@@ -728,6 +740,7 @@ class RADIANTMainWindow(QMainWindow):
         # A result now exists: enable the global Inspector tool (§4.6). It opens against
         # the most recent result, so it stays enabled once armed.
         self.action("tools.inspector").setEnabled(True)
+        self.action("file.export_json").setEnabled(True)
         self._inspector_button.setEnabled(True)
         # A clean run is the committed baseline for undo: snapshot the resolved input
         # values so the next edit's before-value is known (the panel signals an edit only
@@ -876,6 +889,12 @@ class RADIANTMainWindow(QMainWindow):
         open_action.triggered.connect(self._on_open)
         self.action("file.save").triggered.connect(self._on_save)
         self.action("file.save_as").triggered.connect(self._on_save_as)
+        # GX-1: exports + schema/explain tools — every handler is one API call
+        # (Sensor.save / ChainResult.to_provenance_record / parameter_defs / explain).
+        self.action("file.export_yaml").triggered.connect(self._on_export_yaml)
+        self.action("file.export_json").triggered.connect(self._on_export_json)
+        self.action("tools.schema").triggered.connect(self._on_schema_browser)
+        self.action("tools.explain").triggered.connect(self._on_explain_parameter)
         self._rebuild_recent_menu()
 
     def _adopt_sensor(
@@ -1004,6 +1023,64 @@ class RADIANTMainWindow(QMainWindow):
             self.setWindowTitle(self._compose_title())
 
     # -- Undo / redo (arch doc §10, GUI plan Phase 9) ----------------------
+
+    def _on_export_yaml(self) -> None:
+        """File → Export YAML…: write the config to a chosen path (one Sensor.save call).
+
+        Unlike Save As, exporting does not adopt the destination as the current file and
+        does not clear the dirty marker — it is a snapshot, not a rebind.
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+        filename, _ = QFileDialog.getSaveFileName(self, "Export RADIANT config", "", _YAML_FILTER)
+        if not filename:
+            return
+        try:
+            sensor.save(Path(filename))
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, "export_yaml", self).exec()
+            return
+        self.statusBar().showMessage(f"Exported config to {filename}")
+
+    def _on_export_json(self) -> None:
+        """File → Export JSON Result…: write the last result's provenance record as JSON.
+
+        One API call (ChainResult.to_provenance_record) + json.dump. A value the record
+        cannot serialize raises and surfaces — never a silently-truncated export (Rule 17).
+        """
+        result = self._last_result
+        if result is None:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export result (JSON)", "", "JSON (*.json);;All files (*)"
+        )
+        if not filename:
+            return
+        try:
+            record = result.to_provenance_record()
+            Path(filename).write_text(json.dumps(record, indent=2), encoding="utf-8")
+        except (TypeError, ValueError, OSError) as exc:
+            UnexpectedErrorDialog(exc, "Exporting the result as JSON", self).exec()
+            return
+        self.statusBar().showMessage(f"Exported result record to {filename}")
+
+    def _on_schema_browser(self) -> None:
+        """Tools → Parameter Schema Browser: the read-only Gap-70 schema tree."""
+        if self._sensor is None:
+            return
+        SchemaBrowserDialog(self._sensor, self).exec()
+
+    def _on_explain_parameter(self) -> None:
+        """Tools → Explain Parameter…: pick a dot-path, show Sensor.explain(dotpath)."""
+        sensor = self._sensor
+        if sensor is None:
+            return
+        names = sorted(sensor.parameter_defs())
+        dotpath, ok = QInputDialog.getItem(self, "Explain Parameter", "Parameter:", names, 0, False)
+        if not ok or not dotpath:
+            return
+        ExplainDialog(dotpath, sensor.explain(dotpath), self).exec()
 
     def _wire_edit_menu(self) -> None:
         """Wire Edit → Undo / Redo to the parameter-edit :class:`QUndoStack` (Phase 9)."""

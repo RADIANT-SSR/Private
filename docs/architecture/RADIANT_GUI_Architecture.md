@@ -1331,7 +1331,7 @@ interfaces for workflows that are currently script-only.
 
 ```
 File   New · Open YAML… (Ctrl+O) · Open Recent → · Save (Ctrl+S) · Save As… ·
-       Export YAML… · Export JSON Result… · ───── · Quit (Ctrl+Q)
+       Export YAML… [SHIPPED GX-1 → sensor.save] · Export JSON Result… [SHIPPED GX-1 → result.to_provenance_record] · ───── · Quit (Ctrl+Q)
 Edit   Undo (Ctrl+Z) · Redo · Reset to Defaults · Find Parameter (Ctrl+F)
 View   Show/Hide Parameter Panel (F6) · Show/Hide Detail Panel (F7) ·
        Stage: … (Ctrl+1..9) · Dark/Light Theme · Font Size +/−

@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: existing-API menu wire-ups (GUI Capability Expansion plan GX-1, results-neutral).**
+  Enabled four disabled menu placeholders, each one API call: File → Export YAML…
+  (`Sensor.save` snapshot — does not rebind the current file), File → Export JSON Result…
+  (`ChainResult.to_provenance_record` as JSON, armed once a result exists), Tools → Parameter
+  Schema Browser (new read-only, filterable tree over `Sensor.parameter_defs()`, Gap 70), and
+  Tools → Explain Parameter… (parameter picker → `Sensor.explain`). Run-menu sweep/MC/Batch
+  placeholders stay disabled (deferred tier, owner ruling 2026-07-16); Edit → Reset to Defaults
+  stays disabled pending a public provenance/reset-all accessor (new Gap 93). View-only.
 - **GUI: Optics element-train editor (GUI Capability Expansion plan GS-4, results-neutral).**
   New **Elements** tab on the Optics stage: author the mixed-train element list in a table
   (per-element name, transfer mode, kind, R/T as scalar or spectral-CSV path, temperature,

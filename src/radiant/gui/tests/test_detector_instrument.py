@@ -219,3 +219,46 @@ class TestDetectorEditAndWatch:
         # The pixel schematic re-read the new cross-track pitch.
         assert pane.detector_illustration is not None
         assert pane.detector_illustration.pixel_geometry[0] == pytest.approx(30.0)
+
+
+class TestFullSchemaExpansion:
+    """GS-3 (GUI Capability Expansion plan): the form exposes the full detector schema."""
+
+    def test_manifest_covers_every_detector_parameter(self) -> None:
+        """Audit D-1…D-9 closed: every detector.* ParameterDef has a row (nothing hidden)."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        schema_paths = {name for name in sensor.parameter_defs() if name.startswith("detector.")}
+        manifest_paths = {dotpath for _label, dotpath in _DETECTOR_FIELDS}
+        assert manifest_paths == schema_paths, (
+            f"missing from form: {sorted(schema_paths - manifest_paths)}; "
+            f"unknown in form: {sorted(manifest_paths - schema_paths)}"
+        )
+
+    def test_flicker_edit_changes_noise_budget(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The GS-3 checkpoint physics: setting a 1/f coefficient adds a flicker noise term."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        baseline = _evaluate(sensor.clone())
+        sensor.set("detector.flicker_K", 5.0)
+        with_flicker = _evaluate(sensor)
+        names_before = {t.name for t in baseline.noise_terms}
+        names_after = {t.name for t in with_flicker.noise_terms}
+        flicker_markers = ("flicker", "1_f", "one_over_f")
+        flicker_terms = {n for n in names_after if any(m in n for m in flicker_markers)}
+        assert flicker_terms - names_before or (
+            with_flicker.metrics["snr"] < baseline.metrics["snr"]
+        ), "1/f coefficient had no observable effect on the noise budget"
+
+    def test_persistence_fields_present_and_editable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pane = StagePane("detector", STAGE_COMPOSITIONS["detector"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(sensor, {})
+        form = pane.detector_inputs_form
+        assert form is not None
+        for dotpath in (
+            "detector.persistence_fraction",
+            "detector.ipc_coupling",
+            "detector.noise_regime",
+            "detector.qe_table_path",
+        ):
+            assert form.row(dotpath) is not None

@@ -21,6 +21,12 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: Detector Inputs expanded to the full schema (GUI Capability Expansion plan GS-3,
+  results-neutral).** The Detector Inputs tab grows from 6 fields to every `detector.*`
+  parameter (27), grouped: pixel geometry & temperature, QE (scalar / CSV curve import /
+  temperature coefficients), dark current & glow, 1/f noise, G-R & Johnson, fixed-pattern
+  noise & regime, persistence, IPC & diffusion. A manifest-equals-schema test keeps the form
+  complete as the schema grows. View-only — no computed value changes.
 - **GUI: Atmosphere stage Inputs card (GUI Capability Expansion plan GS-2, results-neutral).**
   The Atmosphere stage gains its first editable inputs (audit A-1…A-4): the `atmosphere.model`
   selector (`simple`/`exo`/`tabulated`/`modtran`/`interpolated`) showing only the active

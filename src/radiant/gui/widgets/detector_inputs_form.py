@@ -44,21 +44,88 @@ from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
-# The key detector parameters (label, dot-path), grouped as detection efficiency (QE),
-# dark generation, pixel geometry (cross/along-track pitch + fill factor), and the
-# operating temperature. Bounds/units/description all come from the live schema (never
-# transcribed) — only the human label + the grouping is a literal here (CU-120, tracked
-# with the geometry/source/optics manifests).
-_DETECTOR_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    ("Quantum efficiency", "detector.qe_value"),
-    ("Dark rate", "detector.dark_rate_e_per_s"),
+# The full detector schema as grouped (label, dot-path) manifests (GUI Capability
+# Expansion plan GS-3 — audit D-1…D-9: the engine's richest noise model was 6/27 exposed).
+# Bounds/units/choices/description all come from the live schema (never transcribed) —
+# only the human labels + the grouping are literals here (CU-120, tracked with the
+# geometry/source/optics manifests). Grouping is presentation only; no schema change.
+_GEOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Pixel pitch x (cross-track)", "detector.pixel_pitch_x_um"),
     ("Pixel pitch y (along-track)", "detector.pixel_pitch_y_um"),
     ("Fill factor", "detector.fill_factor"),
+    ("Cross-track pixel count", "detector.n_pixels_cross"),
     ("Detector temperature", "detector.detector_temperature_K"),
 )
 
-_TITLE = "Detector — quantum efficiency, dark rate, pixel geometry, temperature"
+_QE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Quantum efficiency (scalar)", "detector.qe_value"),
+    ("QE curve CSV (import)", "detector.qe_table_path"),
+    ("QE temperature coefficient", "detector.qe_temperature_coeff_per_K"),
+    ("QE reference temperature", "detector.qe_temperature_ref_K"),
+)
+
+_DARK_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Dark rate", "detector.dark_rate_e_per_s"),
+    ("Dark reference temperature", "detector.dark_reference_temperature_K"),
+    ("Dark activation energy", "detector.dark_activation_energy_eV"),
+    ("ROIC glow", "detector.glow_e_per_s"),
+)
+
+_FLICKER_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("1/f coefficient K", "detector.flicker_K"),
+    ("1/f band low edge", "detector.flicker_f_low_hz"),
+    ("1/f band high edge", "detector.flicker_f_high_hz"),
+)
+
+_GR_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("G-R factor (HgCdTe)", "detector.gr_factor"),
+    ("R₀A product (Johnson)", "detector.r0a_ohm_cm2"),
+)
+
+_FPN_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("PRNU", "detector.prnu_pct"),
+    ("DSNU", "detector.dsnu_e_rms"),
+    ("Clutter σ (SCNR)", "detector.clutter_sigma"),
+    ("Noise regime", "detector.noise_regime"),
+)
+
+_PERSISTENCE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Persistence fraction", "detector.persistence_fraction"),
+    ("Persistence time constant", "detector.persistence_tau_s"),
+    ("Prior-frame signal", "detector.prior_signal_e"),
+)
+
+_COUPLING_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("IPC coupling α", "detector.ipc_coupling"),
+    ("Charge-diffusion length", "detector.charge_diffusion_length_m"),
+)
+
+# The flat union, in display order — the single manifest tests and hosts iterate.
+_DETECTOR_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    _GEOMETRY_FIELDS
+    + _QE_FIELDS
+    + _DARK_FIELDS
+    + _FLICKER_FIELDS
+    + _GR_FIELDS
+    + _FPN_FIELDS
+    + _PERSISTENCE_FIELDS
+    + _COUPLING_FIELDS
+)
+
+# (heading, fields) in reading order: geometry first (what the pixel is), then signal
+# efficiency, then the noise-model groups in signal-chain order.
+_GROUPS: Final[tuple[tuple[str, tuple[tuple[str, str], ...]], ...]] = (
+    ("Pixel geometry & temperature", _GEOMETRY_FIELDS),
+    ("Quantum efficiency", _QE_FIELDS),
+    ("Dark current & glow", _DARK_FIELDS),
+    ("1/f noise", _FLICKER_FIELDS),
+    ("G-R & Johnson noise", _GR_FIELDS),
+    ("Fixed-pattern noise & regime", _FPN_FIELDS),
+    ("Persistence", _PERSISTENCE_FIELDS),
+    ("IPC & diffusion", _COUPLING_FIELDS),
+)
+
+_TITLE = "Detector — geometry, QE, dark, noise model (full schema)"
 
 
 class DetectorInputsForm(QWidget):
@@ -106,10 +173,14 @@ class DetectorInputsForm(QWidget):
         box.addWidget(title)
 
         self._rows: dict[str, FieldRow] = {}
-        for label, dotpath in _DETECTOR_FIELDS:
-            row = FieldRow(dotpath, label, self._open_editor)
-            box.addWidget(row)
-            self._rows[dotpath] = row
+        for heading, fields in _GROUPS:
+            group_label = QLabel(heading, card)
+            group_label.setObjectName("geoModeGroupHeading")
+            box.addWidget(group_label)
+            for label, dotpath in fields:
+                row = FieldRow(dotpath, label, self._open_editor)
+                box.addWidget(row)
+                self._rows[dotpath] = row
 
         layout.addWidget(card)
 

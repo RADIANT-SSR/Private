@@ -24,6 +24,7 @@ from typing import Final
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
+from radiant.gui.errors import GuiValidationError
 from radiant.gui.param_format import chain_namespace_order
 from radiant.gui.widgets.stage_chip import StageChip
 
@@ -78,7 +79,7 @@ class StageStrip(QWidget):
         chain = set(chain_namespace_order())
         unknown = [ns for ns in STAGE_NAMESPACES if ns not in chain]
         if unknown:
-            raise ValueError(
+            raise GuiValidationError(
                 f"StageStrip namespaces are not chain stages: {unknown} "
                 f"(known stages: {sorted(chain)})"
             )

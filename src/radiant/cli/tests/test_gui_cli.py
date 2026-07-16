@@ -50,7 +50,7 @@ class TestGuiSubcommand:
         """With the extra present, `radiant gui` calls launch_gui(None) and exits."""
         calls: list[object] = []
 
-        def fake_launch(sensor: object = None) -> int:
+        def fake_launch(sensor: object = None, path: object = None) -> int:
             calls.append(sensor)
             return 0
 
@@ -63,7 +63,7 @@ class TestGuiSubcommand:
         self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A named config that does not exist is reported before launching."""
-        monkeypatch.setattr("radiant.gui.launch_gui", lambda sensor=None: 0)
+        monkeypatch.setattr("radiant.gui.launch_gui", lambda sensor=None, path=None: 0)
         result = runner.invoke(cli, ["gui", "does_not_exist.yaml"], standalone_mode=False)
         assert result.exit_code == 1
         assert "file not found" in result.output

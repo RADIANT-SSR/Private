@@ -16,6 +16,8 @@ from typing import Final
 
 from PySide6.QtWidgets import QFrame, QWidget
 
+from radiant.gui.errors import GuiValidationError
+
 # The valid health states, matching the themed tokens (§8.1/§8.4). The setter fails
 # loudly (ValueError) on an unknown state rather than silently rendering unstyled.
 VALID_STATUSES: Final[tuple[str, ...]] = ("ok", "warn", "err", "stale")
@@ -55,7 +57,9 @@ class HealthDot(QFrame):
         silent failure (Rule 17), so the caller hears about a bad state immediately.
         """
         if status not in VALID_STATUSES:
-            raise ValueError(f"HealthDot status must be one of {VALID_STATUSES}, got {status!r}")
+            raise GuiValidationError(
+                f"HealthDot status must be one of {VALID_STATUSES}, got {status!r}"
+            )
         self._status = status
         # QSS targets QFrame#healthDot[status="..."]; the property drives the colour.
         self.setProperty("status", status)

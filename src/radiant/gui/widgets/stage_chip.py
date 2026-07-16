@@ -20,6 +20,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from radiant.gui.errors import GuiValidationError
 from radiant.gui.widgets.health_dot import VALID_STATUSES, HealthDot
 
 
@@ -149,7 +150,9 @@ class StageChip(QFrame):
         :meth:`HealthDot.set_status`).
         """
         if status not in VALID_STATUSES:
-            raise ValueError(f"StageChip status must be one of {VALID_STATUSES}, got {status!r}")
+            raise GuiValidationError(
+                f"StageChip status must be one of {VALID_STATUSES}, got {status!r}"
+            )
         self._status = status
         self._dot.set_status(status)
         self.setProperty("status", status)

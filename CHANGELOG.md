@@ -368,6 +368,14 @@ retroactively reconstructed.
   test, and removal of the now-unwired lifted VTK scene library (CU-128–CU-133).
 
 ### Fixed
+- **GUI: three widget validation guards now raise a `RadiantError` subclass, not bare
+  `ValueError` (Rule 15).** `HealthDot.set_status`, `StageChip.set_status`, and the `StageStrip`
+  namespace-drift check raised bare `ValueError`, tripping the `tests/test_exceptions.py`
+  no-bare-builtin-raises guard on the full suite (they were missed by the scoped GUI test runs).
+  New `radiant.gui.errors.GuiValidationError(RadiantError, ValueError)` (mirrors
+  `SourceValidationError`) — co-inherits `ValueError` so any `except ValueError` still works.
+  Also fixes a stale `test_gui_cli` double whose `fake_launch` did not accept the `path=` kwarg
+  the CLI passes since the Phase-9 `launch_gui(sensor, path=...)` signature. No behavior change.
 - **GUI scripting console now opens on macOS (owner report 2026-07-15, view-only).** The
   **Tools → Python Console** shortcut was the portable ``Ctrl+` ``, which Qt maps to ⌘` on
   macOS — an OS-reserved shortcut (cycle windows) that never reaches the app, so the console

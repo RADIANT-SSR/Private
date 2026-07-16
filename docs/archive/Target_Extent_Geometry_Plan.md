@@ -1,11 +1,17 @@
 # Target-Extent-to-Geometry Migration Plan
 
-**Status:** Active (drafted 2026-07-15). **Phase A shipped** (`ecf96c5`, 2026-07-16). **Phase B
-CLOSED** — not implemented (ADR-0008 Amendment 3): projected-area relocation is blocked by the T7
-descriptor coupling + Rule 7, so it stays in Source. Remaining scope: **Phase G** (scenario-script
-path migration + full regression — the GUI param-path part already landed in Phase A) and **T2**
-(declared-vs-derived cross-check on the existing `source.scene_type`, per Amendment 1). The **§4
-Update Matrix "B" column is moot** (Phase B not implemented).
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-07-16. All actionable steps are resolved:
+> **Phase A** shipped (`ecf96c5`), **Phase B** closed as structurally infeasible (ADR-0008
+> Amendment 3), **Phase G** shipped (`da00f34`), **T2** shipped (`995782f`), and **T3** handed
+> off to GUI Phase II (Gap 85). The shipped surfaces are described by ADR-0008 (+ its amendments)
+> and `RADIANT_Source_Target_System.md`; this plan is retained as the historical record only and
+> is no longer edited.
+
+**Status:** Complete — archived 2026-07-16. *(Prior: Active, drafted 2026-07-15.)* **Phase A shipped**
+(`ecf96c5`). **Phase B CLOSED** — not implemented (ADR-0008 Amendment 3): projected-area relocation is
+blocked by the T7 descriptor coupling + Rule 7, so it stays in Source. **Phase G shipped** (`da00f34`).
+**T2 shipped** (`995782f`). **T3 handed off** to GUI Phase II (Gap 85). The **§4 Update Matrix "B"
+column is moot** (Phase B not implemented; Rule 10 unchanged).
 **Date:** 2026-07-15
 **Implements:** `docs/adr/0008-target-extent-to-geometry-and-scenario-type.md` (Accepted 2026-07-15)
 **Depends on:** ADR-0006 (Geometry Stage 0, Accepted) — this plan completes the extent it left in Source
@@ -131,16 +137,14 @@ Messages binding. **No new schema param.**
 surfaces the warning; no results change (warning-only surface); goldens byte-identical.
 **Docs:** §4 rows T2 + RADIANT_Source_Target_System §7/§8.10 (scene_type vs regime_override distinction).
 
-### Phase T3 — Gap-85 guided setup (relevance metadata + selector) — *bleeds into Phase II*
-**Category:** D · **Effort:** L · **Gate in:** T2 merged.
-**Scope:** Author per-regime **parameter-relevance metadata** on the `_schema.py` ParameterDefs
-(relevance as a function of `regime × the dispatched phenomenology`, §8.5), expose an API relevance
-surface, and build the GUI `scenario.type` selector + relevance filtering/badging in the parameter
-tree. This is **Gap 85** and is where the migration meets GUI Phase II — it may be sequenced as the
-first Phase-II instrument task rather than the tail of this plan. Decide placement at the §5 handoff.
-**Gate:** selecting `extended` badges target-temperature as not-relevant for a thermal-dispatch config;
-no results change.
-**Docs:** §4 rows T3; Gap 85 status DEFERRED → in-progress → resolved.
+### Phase T3 — Gap-85 guided setup — HANDED OFF to GUI Phase II (2026-07-16)
+**Status: HANDED OFF.** Per this plan's own §7 hand-off provision, T3 (per-regime
+parameter-**relevance metadata** on `_schema.py` + API relevance surface + GUI scenario-type selector
++ relevance filtering/badging) is sequenced as **GUI Phase II** instrument work, not the tail of this
+plan. Rationale: it is subjective per-parameter physics judgment (owner-guided), it is Phase-II-scale,
+and it no longer gates on the ADR-0008 migration. **Gap 85** is updated to PARTIAL → handed to GUI
+Phase II. Note: Gap 85 sub-part (c)'s **declared-vs-derived cross-check** already shipped as **T2**
+(`995782f`) — only the relevance metadata/selector remains, and that is the Phase-II task.
 
 ---
 

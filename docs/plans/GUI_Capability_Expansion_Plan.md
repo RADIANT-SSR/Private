@@ -1,8 +1,9 @@
 # GUI Capability Expansion Plan — "GUI v2" Exposure Increment
 
-**Status:** Active — owner-ratified 2026-07-16 (ADR-0009, FW-1 executed same day, and the
-deferral list + Gap-85 fast-follow, §5.1). GS/GX phases dispatch in the §5 order once the TEG
-Phase-G gate is green.
+**Status:** Active — owner-ratified 2026-07-16; **FW-1 + GS-2 + GS-3 + GS-1 + GS-4 + GX-1 all
+SHIPPED 2026-07-16** (sequential run, owner-directed; TEG Phase G went green the same day).
+Remaining: **GX-2 closeout** — the owner acceptance walkthrough + registry hygiene + archiving
+this plan (needs an owner-driven session; see the GX-2 checkpoint).
 **Date:** 2026-07-16
 **Scope (owner-directed 2026-07-16, revised same day):** **exposure-only** — surface capabilities
 the engine already has behind existing `ParameterDef`s, loaders, and API calls. The owner's
@@ -183,7 +184,7 @@ s.evaluate()` runs full-prescription; `s.save(p); Sensor.load(p)` → identical 
 ### Per-stage GUI phases (Gate: TEG Phase G green, + listed gates)
 
 **GS-1 — Source instrument v2: reflective path + scene-type selector.** Category D · Effort M–L ·
-Gate: TEG G.
+Gate: TEG G. **SHIPPED 2026-07-16** (`4f5df42`).
 Adds to the Source Inputs card: reflectance/albedo (scalar; spectral via path param, D1 import
 dialog), day/night `geometry.solar_illumination` toggle with the solar-geometry echo
 (zenith/azimuth read-outs), fill-fraction, hot-target opt-out, and the **scene-type selector**
@@ -195,8 +196,8 @@ term in the source spectra); declare `sub_pixel` and see the T2 mismatch warning
 extended-scene config.
 
 **GS-2 — Atmosphere instrument: model selector + inputs + import.** Category D · Effort M ·
-Gate: TEG G (+ FW-1 only for the preview dialog; a plain file-picker fallback keeps this phase
-unblocked if FW-1 lags).
+Gate: TEG G. **SHIPPED 2026-07-16** (file-picker fallback for imports; the D5 preview dialog
+remains a follow-on).
 The Atmosphere stage finally gets an Inputs card: the `atmosphere.model` selector driving a
 per-model form (simple: profile / aerosol / visibility / PWV; modtran: tape7 path + profile /
 aerosol / H2O / O3 scaling; tabulated: the three file params; interpolated: data dir + axes +
@@ -207,6 +208,7 @@ separately (audit A-5). **Checkpoint:** switch `simple → modtran(tape7)` and w
 import a tape7 with the preview dialog; read before/after spectra side by side.
 
 **GS-3 — Detector instrument expansion (full schema).** Category D · Effort M · Gate: TEG G.
+**SHIPPED 2026-07-16** (`bd9eb91` — manifest-equals-schema test enforces completeness).
 Expand the Detector Inputs tab from 6 fields to the full schema, grouped: QE (scalar / `qe_table_path`
 import via D5 / temperature coefficients), Dark (rate / reference T / activation energy), 1/f
 (K, f_low, f_high), G-R & Johnson, FPN (PRNU / DSNU / clutter σ / `noise_regime`), Persistence
@@ -216,6 +218,9 @@ pie refreshes per edit. **Checkpoint:** run Mike's 2.2 1/f setup in the GUI (set
 
 **GS-4 — Optics element/coating editor.** Category D · Effort L (split: editor table first;
 spectral-file rows + WFE-mode selector second) · Gate: TEG G + **FW-1 merged**.
+**Split 1 SHIPPED 2026-07-16** (`2329bb3` — Elements-tab table editor, scalar + CSV-path cells,
+derived-ε column, Apply → one `set_optical_elements` call, save/load round-trip). Split 2 (the
+WFE-mode selector + Zemax import UI) remains.
 The ADR-0009 D2 structured editor: an element-list table (add/remove/reorder rows: kind, transfer
 mode, T_K, R/T scalar-or-CSV, cavity fields), ε rendered **derived read-only** per Rule 5 (editable
 only on LUMPED rows), committed through the FW-1 facade; the `transmission_input_mode` selector
@@ -228,6 +233,8 @@ Throughput tab's coating-spectra plot now reflects the authored train. **Checkpo
 ### Cross-cutting phases (Gate: TEG Phase G green)
 
 **GX-1 — Existing-API menu wire-ups.** Category A · Effort S · Gate: TEG G.
+**SHIPPED 2026-07-16** (`a162ade` — Export YAML/JSON, Schema Browser, Explain; Reset-to-Defaults
+stays disabled pending Gap 93).
 Enable the disabled placeholders that are pure one-call wire-ups over the shipped API — zero new
 backend: File → Export YAML (`Sensor.save`), File → Export JSON Result (`ChainResult.save`),
 Tools → Schema Browser (Gap 70 introspection surface), Tools → Explain Parameter…

@@ -14,6 +14,7 @@ This directory contains Architecture Decision Records (ADRs) for **RADIANT** —
 | [0005](0005-extended-target-background-contrast.md) | Extended Target-vs-Background Contrast | Accepted |
 | [0006](0006-geometry-stage.md) | Geometry Is Stage 0 of the Chain | Accepted |
 | [0007](0007-3d-viewer-visual-direction.md) | 3D Geometry Viewer — Visual Direction and Scene-Library Lift | Proposed |
+| [0008](0008-target-extent-to-geometry-and-scenario-type.md) | Target Spatial Extent Belongs to Geometry; Declared Scenario Type | Accepted |
 | [ADR-A](ADR-A-fidelity-preset.md) | Drop FidelityPreset | Accepted |
 | [ADR-B](ADR-B-metric-soft-fail.md) | Metric-Layer Soft Failures | Accepted |
 | [ADR-C](ADR-C-public-api-surface.md) | Public API Surface | Accepted |

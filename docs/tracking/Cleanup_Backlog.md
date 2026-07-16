@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped `source.target.*` schema
+
+**Discovered**: ADR-0008 drafting (target-extent-to-geometry architecture), 2026-07-15, branch `gui-framework-plots`
+**Status**: Open — **Planned**: reconciled by ADR-0008 tier-1 (the `source.target.*` → `geometry.target.*` migration, which re-authors this inventory). Not a standalone fix; folded into that task so the doc and schema move together (Rule 20). Doc-only drift, no code/physics impact.
+**File**: `docs/architecture/RADIANT_Source_Target_System.md` §8.2 (shape params), §8.3 (orientation params).
+**Symptom**: §8 inventories the target shape/orientation params as `source.geometry.*` / `source.orientation.*` (e.g. `source.geometry.shape`, `source.orientation.yaw`), but the shipped schema (`src/radiant/source/_schema.py`) names them `source.target.shape`, `source.target.shape_radius_m`, `source.target.shape_yaw_rad`, `source.target.projected_area_m2`, etc. The inventory predates the shipped names.
+**Why it still matters**: A reader/agent trusting §8 sets a non-existent parameter path. Aspirational-doc drift of exactly the kind Rule 20 guards against; benign today only because the schema is the enforced surface.
+**Suggested fix**: (a) fold into ADR-0008 tier-1 — when the params migrate to `geometry.target.*`, rewrite §8.2/§8.3 to the new canonical names (and note the retired `source.target.*` aliases). Effort trivial within that task; category A. Re-audit at ADR-0008 tier-1 landing.
+
 ### CU-145 — Script Editor has syntax highlighting but no line-number margin
 
 **Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`

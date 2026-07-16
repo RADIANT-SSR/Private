@@ -40,6 +40,15 @@ logger = logging.getLogger(__name__)
 # they are an error (not implemented) — never silently stripped (CU-050).
 _RESERVED_KEYS = frozenset({"_extends", "_imports", "_vars"})
 
+# Structured document sections (ADR-0009 D4): top-level keys that carry a
+# declarative document, not parameters. They are parsed by their own io
+# loaders (e.g. ``optical_elements`` -> element_config.parse_element_entries)
+# and attached by the API layer (Sensor.from_yaml / Sensor.load). A bare
+# load_config caller must opt in via ``sections_out``; otherwise the section
+# raises rather than being silently dropped (Rule 17 — skipping it would
+# silently change the physics the config describes).
+_SECTION_KEYS = frozenset({"optical_elements"})
+
 # Top-level metadata block written by Sensor.save() (Gap 67):
 # format marker, wavelength_points, and tolerance distributions.
 _META_KEY = "_radiant"
@@ -115,6 +124,7 @@ def load_config(
     params: ParameterSet,
     *,
     provenance: Provenance = Provenance.CONFIG_FILE,
+    sections_out: dict[str, Any] | None = None,
 ) -> ParameterSet:
     """Load a YAML config file (or nested dict) into *params*.
 
@@ -129,6 +139,14 @@ def load_config(
         afterward.
     provenance:
         Provenance tag applied to every loaded value.
+    sections_out:
+        Structured-section opt-in (ADR-0009). When a dict is passed,
+        any structured document section present (``optical_elements``)
+        is popped into it for the caller to parse and attach. When
+        ``None`` (default), a config carrying a section raises — a bare
+        loader must never silently drop a section that changes physics
+        (Rule 17). ``Sensor.from_yaml`` / ``Sensor.load`` opt in and
+        attach the sections.
 
     Returns
     -------
@@ -139,8 +157,8 @@ def load_config(
     Raises
     ------
     ConfigError
-        On YAML parse failure, non-dict top-level, or unknown parameter
-        names.
+        On YAML parse failure, non-dict top-level, unknown parameter
+        names, or a structured section without ``sections_out``.
     """
     path: Path | None = None
 
@@ -177,10 +195,27 @@ def load_config(
             path=path,
         )
 
+    # Split off structured document sections (ADR-0009). With sections_out
+    # the caller takes them; without it a section-bearing config is an
+    # error, never a silent skip (Rule 17).
+    raw = dict(raw)
+    sections_present = sorted(_SECTION_KEYS & raw.keys())
+    if sections_present:
+        if sections_out is None:
+            keys = ", ".join(f"'{k}'" for k in sections_present)
+            raise ConfigError(
+                f"Config carries structured section(s) {keys}, which this "
+                "loader does not attach. Load the file with Sensor.load() / "
+                "Sensor.from_yaml() (which parse and attach sections), or "
+                "remove the section for parameter-only loading.",
+                path=path,
+            )
+        for key in sections_present:
+            sections_out[key] = raw.pop(key)
+
     # Split off the Sensor.save() metadata block (Gap 67). Tolerances are
     # applied here; wavelength_points is session-level and consumed by
     # Sensor.load() (read_radiant_meta) — a bare load_config ignores it.
-    raw = dict(raw)
     meta = raw.pop(_META_KEY, None)
     if meta is not None and not isinstance(meta, dict):
         raise ConfigError(
@@ -278,6 +313,7 @@ def save_config(
     header: str = "# RADIANT config — schema v1\n",
     meta: dict[str, Any] | None = None,
     scope: str = "resolved",
+    sections: dict[str, Any] | None = None,
 ) -> Path:
     """Serialise a resolved ParameterSet to a YAML file.
 
@@ -302,6 +338,11 @@ def save_config(
         groups re-derive, and provenance-sensitive logic (e.g. the
         source inferrer's mutual-exclusivity checks) sees the same
         explicit/defaulted split as the original (Gap 67 round-trip).
+    sections:
+        Optional structured document sections (ADR-0009 D4) written as
+        top-level keys, e.g. ``{"optical_elements": [...]}``. Keys must
+        be registered section keys; ``load_config`` hands them back via
+        ``sections_out`` on reload.
 
     Returns
     -------
@@ -310,12 +351,22 @@ def save_config(
     """
     if scope not in ("resolved", "inputs"):
         raise ConfigError(f"save_config: scope must be 'resolved' or 'inputs', got {scope!r}.")
+    if sections is not None:
+        unknown = sorted(set(sections) - _SECTION_KEYS)
+        if unknown:
+            keys = ", ".join(f"'{k}'" for k in unknown)
+            raise ConfigError(
+                f"save_config: unknown structured section(s) {keys}; "
+                f"registered sections: {sorted(_SECTION_KEYS)}."
+            )
     if scope == "inputs":
         flat = dict(params.inputs())
     else:
         resolved = params.all_resolved()
         flat = {name: rv.input_value for name, rv in resolved.items()}
     nested = _unflatten(flat)
+    if sections is not None:
+        nested.update(sections)
     if meta is not None:
         nested[_META_KEY] = meta
 

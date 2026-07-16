@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Optical-element document facade + config persistence (ADR-0009 / GUI plan FW-1,
+  results-neutral).** New public surface for authoring the mixed-train element list as a
+  declarative document: `Sensor.set_optical_elements(entries, base_dir=...)` /
+  `Sensor.optical_elements()` (validate-and-attach; parsed onto the evaluation grid per run and
+  injected as `optics_config.element_list`), and `radiant.api.preview_optical_elements` /
+  `normalize_element_document` / `ElementPreview` (parse-for-display without mutation — feeds the
+  GUI import-preview dialog; emissivity reported Kirchhoff-derived per Rule 5). The
+  `optical_elements:` YAML section now **round-trips**: `Sensor.save` writes it and
+  `Sensor.load` / `from_yaml` / `from_dict` re-attach it (previously the section was
+  API-injection-only and vanished on save). A bare `io.config.load_config` call now **raises an
+  actionable `ConfigError`** on a section-bearing config instead of the old "Unknown parameter"
+  failure (never a silent skip; opt-in via new `sections_out=`); `save_config` gains
+  `sections=`. `io.element_config.parse_element_entries` is the new document-level parser seam
+  under `load_element_list`. Goldens byte-identical (view/plumbing only — an attached train
+  changes results exactly as the same train injected manually always did).
 - **RADIANT Desktop GUI v1 — complete (GUI Development Plan closed, view-only capability).**
   `radiant gui [config.yaml]` launches the PySide6 contextual per-stage workspace: a 9-stage
   geometry-first strip, a schema-driven All-Parameters tree, per-stage **instruments** for all

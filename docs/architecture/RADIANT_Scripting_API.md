@@ -80,7 +80,9 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
 | `s.set_ground_velocity_from_orbit()` | Derive `platform.ground_velocity_m_s` from the orbital altitude `geometry.sensor_altitude_m` (circular-orbit sub-satellite ground-track speed; Gap 75). Requires the altitude set first; orbital platforms only. The ground-speed parameters are a collapsed consistency group, so this one value feeds both smear and access-rate. Returns `self`. |
 | `s.evaluate(extra_stage_outputs=None)` | Run the full signal chain. Returns `ChainResult` (§3). The keyword takes one-off non-scalar pre-chain injections (Gap 68), merged over any set via `set_stage_output`. |
-| `s.set_stage_output(group, key, value)` | Attach a non-scalar pre-chain input (Gap 68 interim seam) used by `evaluate` **and** all trade studies: element lists, `WavefrontError` objects, spectral curves, filter stacks — e.g. `s.set_stage_output("optics_config", "element_list", elems)`. `value=None` removes it. Carried by `clone()`, **not** written by `save()` (arbitrary objects have no YAML form). Returns `self`. |
+| `s.set_stage_output(group, key, value)` | Attach a non-scalar pre-chain input (Gap 68 interim seam) used by `evaluate` **and** all trade studies: element lists, `WavefrontError` objects, spectral curves, filter stacks — e.g. `s.set_stage_output("optics_config", "element_list", elems)`. `value=None` removes it. Carried by `clone()`, **not** written by `save()` (arbitrary objects have no YAML form; for element trains use `set_optical_elements`, which does persist). An explicitly injected `element_list` overrides an attached element document for that run. Returns `self`. |
+| `s.set_optical_elements(entries, base_dir=None)` | Attach a declarative `optical_elements` **document** (ADR-0009, §2.6): the same entry dicts the YAML section carries (`RADIANT_Config_Format.md` §1.8). Validated immediately through the io parser (fail-fast — Kirchhoff checks included; ε is always derived, never an input, Rule 5); relative spectral-file references under `base_dir` are absolutized; the document is parsed onto the evaluation grid per run and injected as `optics_config.element_list` (the optics stage then runs full-prescription). Unlike raw injections, the document **is** written by `save()` and restored by `load()` (persistence parity, ADR-0009 D4). `entries=None` removes it. Returns `self`. |
+| `s.optical_elements()` | The attached element document (normalized deep copy), or `None`. |
 | `s.sweep(param, values, *, metric="snr", keep_results=True, n_workers=1, progress=None, cancel=None)` | 1-D parameter sweep. Returns `SweepResult` (§6.1). |
 | `s.sweep_2d(param1, values1, param2, values2, *, metric="snr")` | 2-D parameter sweep. Returns `Sweep2DResult` (§6.2). |
 | `s.monte_carlo(n_trials=1000, seed=42, *, metric_names=None, keep_results=False)` | Monte Carlo tolerance analysis. Returns `MonteCarloResult` (§7). |
@@ -136,6 +138,36 @@ sens = s.sensitivity(metric="snr", param_names=None, delta_fraction=0.01)
 ```
 
 Perturbs each parameter by `±delta_fraction × value` (central difference) and computes the normalized elasticity `(ΔM/M)/(Δp/p)`. If `param_names` is `None`, uses the toleranced parameters; if no tolerances are set, uses all non-zero float parameters (expensive). Returns `SensitivityResult` (§8).
+
+### 2.6 Optical-Element Documents — `radiant.api.config_io` (ADR-0009, 2026-07-16)
+
+The config-document facade: structured configuration is authored as **declarative documents**
+(the `optical_elements:` entry dicts of `RADIANT_Config_Format.md` §1.8) and bridged to the io
+parsers here — the GUI cannot import `radiant.io` (import contract), and validation lives in
+exactly one place (`io.element_config.parse_element_entries`).
+
+```python
+from radiant.api import preview_optical_elements, normalize_element_document
+
+entries = [
+    {"name": "M1", "transfer_mode": "REFLECTIVE", "reflectance": 0.97,
+     "temperature_K": 293.0, "diameter_m": 0.30, "distance_to_fpa_m": 0.9},
+    {"name": "cold_filter", "transfer_mode": "REFRACTIVE", "kind": "FILTER",
+     "transmittance": 0.90, "temperature_K": 240.0},
+]
+previews = preview_optical_elements(entries)      # no sensor, no mutation
+previews[0].emissivity_mean                       # 0.03 — Kirchhoff-derived (1 − R), never an input
+s.set_optical_elements(entries)                   # validate + attach; persists via s.save()
+s.save("with_train.yaml"); s2 = Sensor.load("with_train.yaml")   # round-trips exactly
+```
+
+| Function | Purpose |
+|----------|---------|
+| `preview_optical_elements(entries, *, wavelength_um=None, base_dir=None)` | Parse a document through the real io parser and return `ElementPreview` tuples (name, kind, transfer mode, T/geometry scalars, band-mean R/T/**derived ε**, which keys referenced spectral files). Feeds the GUI import-preview dialog (ADR-0009 D5); a document that previews cleanly attaches cleanly. Band means use the 0.4–20 µm preview grid unless a band is passed. |
+| `normalize_element_document(entries, *, base_dir=None)` | Validate (fail-fast) and return a deep copy with relative spectral-file references absolutized against `base_dir` — the form `Sensor.set_optical_elements` stores and `Sensor.save` writes. |
+
+Both raise `ElementConfigError` (a `RadiantError`) with the same actionable message attach-time
+parsing would produce. Errors name the element and the missing/invalid field.
 
 ---
 

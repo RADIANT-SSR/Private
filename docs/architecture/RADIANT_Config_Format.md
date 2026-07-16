@@ -206,6 +206,34 @@ optics:
 
 Loader behavior: `load_config` strips the block before parameter flattening, applies `tolerances` via `ParameterSet.set_tolerance`, and raises `ConfigError` on a malformed block (non-mapping, missing `distribution`/`params`, unknown parameter name). `wavelength_points` is session-level: `Sensor.load(path)` consumes it (via `read_radiant_meta`); a bare `load_config` ignores it. Configs without `_radiant` are unaffected, and a `Sensor.save` file remains loadable by `from_yaml` and the CLI. `save_config(..., scope="inputs")` writes only explicit inputs (the `Sensor.save` mode); the default `scope="resolved"` remains the fully-specified documentation export.
 
+### 1.8 Structured Document Sections (`optical_elements`) — implemented (ADR-0009, 2026-07-16)
+
+A config may carry **structured document sections**: top-level keys that hold a declarative
+document rather than parameters. The one registered section is `optical_elements` — the
+mixed-train element list (`io/element_config.py` schema; per-element `name`, `transfer_mode`,
+`kind`, `temperature_K`, geometry, and R/T values that are scalars **or** spectral-CSV paths).
+Emissivity never appears in an entry — it is Kirchhoff-derived (Rule 5).
+
+```yaml
+optics:
+  aperture_diameter_m: 0.3
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0,
+     diameter_m: 0.30, distance_to_fpa_m: 0.9}
+  - {name: cold_filter, transfer_mode: REFRACTIVE, kind: FILTER, transmittance: 0.90,
+     temperature_K: 240.0}
+```
+
+Loader behavior (Rule 17 — never a silent skip): `Sensor.from_yaml` / `Sensor.load` /
+`Sensor.from_dict` parse and **attach** the section (equivalent to
+`Sensor.set_optical_elements`); the document then persists back out through `Sensor.save`
+(relative spectral-file paths are absolutized at attach so the saved config loads from
+anywhere). A **bare** `load_config` call raises an actionable `ConfigError` on a
+section-bearing config unless the caller opts in via `sections_out` — a loader that cannot
+attach the section must not silently drop physics the config describes. The CLI
+(`radiant run` / `validate`) currently takes the bare path and therefore rejects
+section-bearing configs with that actionable error (CU-153).
+
 ---
 
 ## 2. XLSX Convenience View

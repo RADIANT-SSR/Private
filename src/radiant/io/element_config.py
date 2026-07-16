@@ -207,6 +207,56 @@ def _parse_element(
     )
 
 
+def parse_element_entries(
+    entries: Any,
+    wavelength_um: np.ndarray | None = None,
+    base_dir: str | Path | None = None,
+    *,
+    source_label: str = "<document>",
+) -> list[OpticalElement]:
+    """Parse a declarative ``optical_elements`` document into elements.
+
+    This is the document-level seam under :func:`load_element_list`
+    (ADR-0009 D2): the same entry dicts, whether read from a YAML file
+    or authored in memory (GUI element editor, scripting), pass through
+    this one parser — it is the single validation authority for element
+    documents.
+
+    Parameters
+    ----------
+    entries:
+        The ``optical_elements`` document: a non-empty list of mappings.
+    wavelength_um:
+        Wavelength grid for broadcasting scalar inputs.  Required when
+        any element property is specified as a scalar.
+    base_dir:
+        Directory against which relative spectral-file references are
+        resolved.  Defaults to the current working directory.
+    source_label:
+        Name used in error messages (a file name or ``"<document>"``).
+
+    Returns
+    -------
+    list[OpticalElement]
+        Ordered list of optical elements from source to focal plane.
+    """
+    if not isinstance(entries, list) or not entries:
+        raise ElementConfigError(
+            f"'optical_elements' in '{source_label}' must be a non-empty list."
+        )
+
+    config_dir = Path(base_dir) if base_dir is not None else Path.cwd()
+    elements: list[OpticalElement] = []
+
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ElementConfigError(
+                f"Element {i} in '{source_label}' must be a mapping, got {type(entry).__name__}."
+            )
+        elements.append(_parse_element(entry, wavelength_um, config_dir))
+    return elements
+
+
 def load_element_list(
     yaml_path: str | Path,
     wavelength_um: np.ndarray | None = None,
@@ -239,21 +289,12 @@ def load_element_list(
             f"Config file '{yaml_path.name}' must contain an 'optical_elements' top-level key."
         )
 
-    entries = config["optical_elements"]
-    if not isinstance(entries, list) or not entries:
-        raise ElementConfigError(
-            f"'optical_elements' in '{yaml_path.name}' must be a non-empty list."
-        )
-
-    config_dir = yaml_path.parent
-    elements: list[OpticalElement] = []
-
-    for i, entry in enumerate(entries):
-        if not isinstance(entry, dict):
-            raise ElementConfigError(
-                f"Element {i} in '{yaml_path.name}' must be a mapping, got {type(entry).__name__}."
-            )
-        elements.append(_parse_element(entry, wavelength_um, config_dir))
+    elements = parse_element_entries(
+        config["optical_elements"],
+        wavelength_um,
+        base_dir=yaml_path.parent,
+        source_label=yaml_path.name,
+    )
 
     logger.info(
         "Loaded %d optical elements from '%s'.",

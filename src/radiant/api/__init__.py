@@ -2,6 +2,11 @@
 
 from radiant.api._progress import OperationCancelledError
 from radiant.api.compare import MtfComparisonResult, compare_mtf
+from radiant.api.config_io import (
+    ElementPreview,
+    normalize_element_document,
+    preview_optical_elements,
+)
 from radiant.api.error_budget import BudgetContributor, ErrorBudget
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
@@ -24,4 +29,7 @@ __all__ = [
     "SolveResult",
     "compare_mtf",
     "MtfComparisonResult",
+    "ElementPreview",
+    "preview_optical_elements",
+    "normalize_element_document",
 ]

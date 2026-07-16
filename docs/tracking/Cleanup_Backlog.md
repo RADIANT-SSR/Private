@@ -12,6 +12,26 @@
 
 ## Open
 
+### CU-153 — CLI `run`/`validate` reject `optical_elements`-bearing configs (bare-loader path)
+
+**Discovered**: GUI plan FW-1 (ADR-0009 config facade), 2026-07-16
+**Status**: Open
+**File**: `src/radiant/cli/run.py:114`, `src/radiant/cli/validate.py:39`
+**Symptom**: `radiant run <cfg>` / `radiant validate <cfg>` on a config carrying an
+`optical_elements:` section (e.g. one written by `Sensor.save()` after
+`set_optical_elements`) raise the new actionable `ConfigError` ("load with Sensor.load()…")
+because both commands call the bare `io.config.load_config` without `sections_out`. Before
+FW-1 the same config failed with the worse "Unknown parameter: 'optical_elements'" — an
+error-message improvement, not a regression, but the CLI still cannot execute a config the
+API can round-trip.
+**Why it still matters**: `Sensor.save` output should be runnable by every RADIANT front end
+(Config_Format §1.7 promises CLI loadability; §1.8 documents this exception). CLI users with
+element trains have no path but the API/GUI.
+**Suggested fix**: (b) stand-alone task — route `cli/run.py` and `cli/validate.py` through
+`Sensor.load()` (which attaches sections and inherits `wavelength_points` handling) instead of
+the bare loader; effort S, category A. Alternative: pass `sections_out` and inject manually
+(duplicates Sensor logic — dispreferred).
+
 ### CU-148 — "Both-set" projected-area inconsistency: published area uses the param while the descriptor uses the shape
 
 **Discovered**: ADR-0008 Phase B feasibility trace, 2026-07-16, branch `arch/target-extent-phase-b`

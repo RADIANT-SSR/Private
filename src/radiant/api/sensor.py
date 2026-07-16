@@ -26,6 +26,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.api._param_registry import build_parameter_set
+from radiant.api.config_io import normalize_element_document
 from radiant.api.errors import ApiValidationError
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
@@ -35,6 +36,7 @@ from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.core.orbit import ground_track_speed_m_s
 from radiant.core.parameters import ParameterDef, ParameterSet, Provenance, Tolerance
 from radiant.io.config import load_config, read_radiant_meta, save_config
+from radiant.io.element_config import parse_element_entries
 from radiant.io.results import ChainResult
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,10 @@ class Sensor:
         # forwarded to RadiantSession.run(extra_stage_outputs=...) on every
         # evaluation, including trade studies. Not serialized by save().
         self._extra_stage_outputs: dict[str, dict[str, Any]] = {}
+        # Declarative optical-element document (ADR-0009 D4): the
+        # `optical_elements:` entries, normalized (absolute file refs).
+        # Parsed onto the evaluation grid per run and serialized by save().
+        self._element_document: list[dict[str, Any]] | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -93,7 +99,12 @@ class Sensor:
             A new Sensor with the config applied (not yet resolved).
         """
         sensor = cls(wavelength_points=wavelength_points)
-        load_config(Path(path), sensor._params)
+        sections: dict[str, Any] = {}
+        load_config(Path(path), sensor._params, sections_out=sections)
+        if "optical_elements" in sections:
+            sensor.set_optical_elements(
+                sections["optical_elements"], base_dir=Path(path).parent
+            )
         return sensor
 
     @classmethod
@@ -119,7 +130,10 @@ class Sensor:
             A new Sensor with the config applied.
         """
         sensor = cls(wavelength_points=wavelength_points)
-        load_config(data, sensor._params)
+        sections: dict[str, Any] = {}
+        load_config(data, sensor._params, sections_out=sections)
+        if "optical_elements" in sections:
+            sensor.set_optical_elements(sections["optical_elements"])
         return sensor
 
     # ------------------------------------------------------------------
@@ -165,12 +179,16 @@ class Sensor:
         }
         if tolerances:
             meta["tolerances"] = tolerances
+        sections: dict[str, Any] | None = None
+        if self._element_document is not None:
+            sections = {"optical_elements": copy.deepcopy(self._element_document)}
         return save_config(
             self._params,
             Path(path),
             header="# RADIANT config — written by Sensor.save()\n",
             meta=meta,
             scope="inputs",
+            sections=sections,
         )
 
     # ------------------------------------------------------------------
@@ -328,19 +346,69 @@ class Sensor:
             self._extra_stage_outputs.setdefault(group, {})[key] = value
         return self
 
+    def set_optical_elements(
+        self,
+        entries: Sequence[Mapping[str, Any]] | None,
+        *,
+        base_dir: str | Path | None = None,
+    ) -> Sensor:
+        """Attach a declarative optical-element document (ADR-0009).
+
+        *entries* is the ``optical_elements:`` document — the same entry
+        dicts the YAML section carries (see ``RADIANT_Config_Format.md``).
+        The document is validated immediately through the io parser
+        (fail-fast; the single validation authority, Kirchhoff checks
+        included), normalized (relative spectral-file references under
+        *base_dir* become absolute), and stored. On every evaluation it
+        is parsed onto the current wavelength grid and injected as
+        ``stage_outputs["optics_config"]["element_list"]`` — the optics
+        stage then runs in full-prescription mode. Unlike raw
+        :meth:`set_stage_output` objects, the document **is** written by
+        :meth:`save` and restored by :meth:`load` (persistence parity).
+
+        Pass ``None`` to remove a previously attached document.
+        Element emissivity is Kirchhoff-derived by construction — it is
+        never an input field (Rule 5).
+
+        Returns ``self`` for method chaining.
+        """
+        if entries is None:
+            self._element_document = None
+            return self
+        self._element_document = normalize_element_document(
+            [dict(entry) for entry in entries], base_dir=base_dir
+        )
+        return self
+
+    def optical_elements(self) -> list[dict[str, Any]] | None:
+        """The attached optical-element document (normalized copy), or None."""
+        return copy.deepcopy(self._element_document)
+
     def _merged_extras(
         self,
         extra: dict[str, dict[str, Any]] | None = None,
     ) -> dict[str, dict[str, Any]] | None:
-        """Sensor-held injections with one-off *extra* merged on top."""
-        if not self._extra_stage_outputs and not extra:
-            return None
-        merged: dict[str, dict[str, Any]] = {
-            group: dict(values) for group, values in self._extra_stage_outputs.items()
-        }
+        """Sensor-held injections with one-off *extra* merged on top.
+
+        Merge order (later wins): the parsed element document (ADR-0009),
+        then :meth:`set_stage_output` injections, then the one-off
+        *extra* — so an explicitly injected ``element_list`` overrides
+        the document for that run.
+        """
+        merged: dict[str, dict[str, Any]] = {}
+        if self._element_document is not None:
+            self._ensure_resolved()
+            elements = parse_element_entries(
+                self._element_document,
+                self._wavelength_grid(),
+                source_label="Sensor.optical_elements",
+            )
+            merged["optics_config"] = {"element_list": elements}
+        for group, values in self._extra_stage_outputs.items():
+            merged.setdefault(group, {}).update(values)
         for group, values in (extra or {}).items():
             merged.setdefault(group, {}).update(values)
-        return merged
+        return merged or None
 
     def _make_run_fn(self, session: RadiantSession) -> Callable[[ParameterSet], ChainResult]:
         """Session runner carrying the sensor-held injections (Gap 68)."""
@@ -650,12 +718,15 @@ class Sensor:
         if not self._params.is_resolved:
             self._params.resolve()
 
-    def _build_session(self) -> RadiantSession:
-        """Build a RadiantSession with the appropriate wavelength grid."""
+    def _wavelength_grid(self) -> npt.NDArray[np.float64]:
+        """The evaluation wavelength grid (filter band × wavelength_points)."""
         fmin: float = self._params.get("spectral_integration.filter_min_um")
         fmax: float = self._params.get("spectral_integration.filter_max_um")
-        wl = np.linspace(fmin, fmax, self._wl_points)
-        return RadiantSession(wavelength_um=wl)
+        return np.linspace(fmin, fmax, self._wl_points)
+
+    def _build_session(self) -> RadiantSession:
+        """Build a RadiantSession with the appropriate wavelength grid."""
+        return RadiantSession(wavelength_um=self._wavelength_grid())
 
     @staticmethod
     def _resolve_metric(

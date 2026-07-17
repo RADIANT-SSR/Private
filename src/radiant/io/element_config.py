@@ -53,7 +53,7 @@ def _load_spectral_csv(path: Path, name: str) -> SpectralData:
         )
     wavelengths: list[float] = []
     values: list[float] = []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         reader = csv.reader(f)
         for row in reader:
             if not row or row[0].startswith("#"):
@@ -334,7 +334,7 @@ def load_element_list(
     if not yaml_path.exists():
         raise ElementConfigError(f"Config file not found: {yaml_path}")
 
-    with open(yaml_path) as f:
+    with open(yaml_path, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     if not isinstance(config, dict) or "optical_elements" not in config:

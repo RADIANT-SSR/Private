@@ -49,8 +49,12 @@ from radiant.api.config_io import preview_zemax_zernike
 from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
+from radiant.gui.widgets.field_row import (
+    LABEL_COLUMN_WIDTH,
+    VALUE_BOX_MAX,
+    FieldRow,
+)
 from radiant.gui.widgets.field_row import UNSET as _UNSET
-from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 
 if TYPE_CHECKING:
@@ -136,6 +140,7 @@ class OpticsInputsForm(QWidget):
         # the scalar WFE path.
         self._import_zernike = QPushButton("Import Zemax Zernike…", card)
         self._import_zernike.setObjectName("importZernikeButton")
+        self._import_zernike.setMaximumWidth(LABEL_COLUMN_WIDTH + VALUE_BOX_MAX + 10)
         self._import_zernike.clicked.connect(self._on_import_zernike)
         box.addWidget(self._import_zernike)
 

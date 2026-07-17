@@ -45,8 +45,12 @@ from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import field_display_text
+from radiant.gui.widgets.field_row import (
+    LABEL_COLUMN_WIDTH,
+    VALUE_BOX_MAX,
+    FieldRow,
+)
 from radiant.gui.widgets.field_row import UNSET as _UNSET
-from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.import_preview_dialog import ImportPreviewDialog
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 
@@ -161,6 +165,7 @@ class AtmosphereInputsForm(QWidget):
         modtran_box = self._groups["modtran"].layout()
         self._import_tape7 = QPushButton("Import tape7 (preview)…", self._groups["modtran"])
         self._import_tape7.setObjectName("importTape7Button")
+        self._import_tape7.setMaximumWidth(LABEL_COLUMN_WIDTH + VALUE_BOX_MAX + 10)
         self._import_tape7.clicked.connect(self._on_import_tape7)
         modtran_box.addWidget(self._import_tape7)
         self._groups["tabulated"] = self._add_group(box, card, "Tabulated files", _TABULATED_FIELDS)

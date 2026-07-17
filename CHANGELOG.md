@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Bulk parameter reset + CLI element-config support + integration-time mirror (Gap 93 /
+  CU-153, results-neutral).** New `Sensor.reset_all(scope="user_set"|"all")` (over the new
+  `ParameterSet.input_provenances()` snapshot); the GUI's Edit → Reset to Defaults is now live —
+  with a current file it reverts by clean reload (exact file state), without one it clears to
+  schema defaults, both behind confirmation. `radiant run`/`validate` now accept
+  `optical_elements`-bearing configs (CU-153): run injects the parsed train pre-chain, validate
+  checks the section through the same facade the API uses. The Readout card additionally shows
+  the (shared) `spectral_integration.integration_time_s` under an "Acquisition" heading —
+  presentation only, same parameter, no schema change.
 - **Inline spectral tables + type-or-paste spectrum entry (owner request, ADR-0009 follow-on).**
   Element-document R/T values now accept an inline `{wavelength_um: [...], values: [...]}` table
   (persists in the YAML — no external CSV needed) alongside scalars and CSV paths. New GUI

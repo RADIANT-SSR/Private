@@ -7,9 +7,11 @@ from pathlib import Path
 
 import click
 
+from radiant.api.config_io import normalize_element_document
 from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
 from radiant.io.config import ConfigError, load_config
+from radiant.io.element_config import ElementConfigError
 
 
 @click.command()
@@ -33,13 +35,20 @@ def validate(config: str, overrides: tuple[str, ...]) -> None:
         click.echo(f"Error: file not found: {config_path}", err=True)
         sys.exit(1)
 
-    # Load.
+    # Load. Structured sections validate through the same facade Sensor uses
+    # (native-grid structural + Kirchhoff checks, CU-153).
+    sections: dict[str, object] = {}
     try:
         params = RadiantSession.default_params()
-        load_config(config_path, params)
+        load_config(config_path, params, sections_out=sections)
     except ConfigError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
+    if "optical_elements" in sections:
+        try:
+            normalize_element_document(sections["optical_elements"], base_dir=config_path.parent)
+        except ElementConfigError as exc:
+            errors.append(f"optical_elements: {exc}")
 
     # Apply overrides — collect errors instead of exiting on first.
     try:

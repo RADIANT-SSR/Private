@@ -66,6 +66,15 @@ _WELL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Full well capacity", "readout.full_well_capacity_e"),
 )
 
+# Acquisition timing (owner request 2026-07-16): the SAME parameter the Spectral
+# Integration card edits — schema-owned by spectral_integration (Rule 8: t_int is
+# consumed in the one spectral→scalar collapse), mirrored here because operators
+# look for integration time beside the readout knobs. Presentation only; both
+# surfaces edit the one dot-path and stay in sync through the shared refresh.
+_ACQUISITION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Integration time", "spectral_integration.integration_time_s"),
+)
+
 _TITLE = "Readout — read noise, ADC & full well (v1-minimal)"
 _NOISE_HEADING = "Read noise"
 _ADC_HEADING = "ADC"
@@ -120,6 +129,7 @@ class ReadoutInputsForm(QWidget):
         self._add_group(box, card, _NOISE_HEADING, _NOISE_FIELDS)
         self._add_group(box, card, _ADC_HEADING, _ADC_FIELDS)
         self._add_group(box, card, _WELL_HEADING, _WELL_FIELDS)
+        self._add_group(box, card, "Acquisition (shared)", _ACQUISITION_FIELDS)
 
         layout.addWidget(card)
 

@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QWidget,
@@ -667,6 +668,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("file.export_yaml").setEnabled(enabled)
         self.action("tools.schema").setEnabled(enabled)
         self.action("tools.explain").setEnabled(enabled)
+        self.action("edit.reset_defaults").setEnabled(enabled)
         if not enabled:
             self.action("file.export_json").setEnabled(False)
 
@@ -1093,6 +1095,51 @@ class RADIANTMainWindow(QMainWindow):
         self._undo_stack.canRedoChanged.connect(redo_action.setEnabled)
         undo_action.setEnabled(self._undo_stack.canUndo())
         redo_action.setEnabled(self._undo_stack.canRedo())
+        # Gap 93 closed: Reset to Defaults reverts every USER_SET input (edits since
+        # load) via the one Sensor.reset_all() call; config-file inputs survive.
+        self.action("edit.reset_defaults").triggered.connect(self._on_reset_defaults)
+
+    def _on_reset_defaults(self) -> None:
+        """Edit → Reset to Defaults: discard every edit made since the config loaded.
+
+        With a current file, the honest revert is a clean reload (one
+        ``Sensor.load`` call) — an edit replaces an input's provenance, so a
+        provenance-scoped reset cannot restore an edited config value (see
+        ``Sensor.reset_all``). Without a file (File → New), every explicit input
+        clears to schema defaults via ``Sensor.reset_all(scope="all")``. Both run
+        behind an explicit confirmation and re-adopt through the shared swap path
+        (rebind + undo-stack clear + re-evaluation).
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+        if self._current_path is not None:
+            message = (
+                f"Discard all edits and reload {self._current_path.name}?\n"
+                "The configuration reverts exactly to the file on disk."
+            )
+        else:
+            message = (
+                "Reset every parameter to its schema default?\n"
+                "This unsaved configuration has no file to revert to."
+            )
+        answer = QMessageBox.question(self, "Reset to Defaults", message)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if self._current_path is not None:
+            try:
+                fresh = Sensor.load(self._current_path)
+            except RadiantError as exc:
+                ActionableErrorDialog(exc, str(self._current_path), self).exec()
+                return
+            self._adopt_sensor(
+                fresh, path=self._current_path, dirty=False, add_recent=False, evaluate=True
+            )
+            self.statusBar().showMessage(f"Reverted to {self._current_path.name}")
+        else:
+            sensor.reset_all(scope="all")
+            self._adopt_sensor(sensor, path=None, dirty=False, add_recent=False, evaluate=False)
+            self.statusBar().showMessage("Reset to schema defaults")
 
     def _refresh_snapshot(self) -> None:
         """Snapshot the resolved input values (the undo before-value baseline).

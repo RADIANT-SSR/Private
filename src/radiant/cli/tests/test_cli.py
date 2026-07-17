@@ -651,3 +651,62 @@ def _extract_snr(output: str) -> float:
         if line.strip().startswith("SNR:"):
             return float(line.split(":")[1].strip())
     raise ValueError(f"SNR not found in output:\n{output}")
+
+
+class TestElementSectionConfigs:
+    """CU-153: run/validate accept optical_elements-bearing configs (Sensor.save output)."""
+
+    @staticmethod
+    def _element_config(tmp_path):
+        from radiant.api import Sensor
+
+        repo = Path(__file__).resolve()
+        while not (repo / "pyproject.toml").exists():
+            repo = repo.parent
+        s = Sensor.from_yaml(repo / "examples" / "mwir_leo_minimal.yaml")
+        s.set_optical_elements(
+            [
+                {
+                    "name": "M1",
+                    "transfer_mode": "REFLECTIVE",
+                    "reflectance": 0.97,
+                    "temperature_K": 293.0,
+                    "diameter_m": 0.3,
+                    "distance_to_fpa_m": 1.0,
+                }
+            ]
+        )
+        path = tmp_path / "with_elements.yaml"
+        s.save(path)
+        return path
+
+    def test_run_executes_element_config(self, tmp_path) -> None:
+        from click.testing import CliRunner
+
+        from radiant.cli.run import run
+
+        path = self._element_config(tmp_path)
+        result = CliRunner().invoke(run, [str(path), "--quiet"])
+        assert result.exit_code == 0, result.output
+        assert "SNR" in result.output
+
+    def test_validate_accepts_element_config(self, tmp_path) -> None:
+        from click.testing import CliRunner
+
+        from radiant.cli.validate import validate
+
+        path = self._element_config(tmp_path)
+        result = CliRunner().invoke(validate, [str(path)])
+        assert result.exit_code == 0, result.output
+
+    def test_validate_reports_bad_element_section(self, tmp_path) -> None:
+        from click.testing import CliRunner
+
+        from radiant.cli.validate import validate
+
+        path = self._element_config(tmp_path)
+        text = path.read_text().replace("transfer_mode: REFLECTIVE", "transfer_mode: SIDEWAYS")
+        path.write_text(text)
+        result = CliRunner().invoke(validate, [str(path)])
+        assert result.exit_code != 0
+        assert "optical_elements" in result.output

@@ -264,6 +264,29 @@ class Sensor:
         self._params.clear_input(dotpath)
         return self
 
+    def reset_all(self, *, scope: str = "user_set") -> Sensor:
+        """Reset parameters in bulk by provenance scope (Gap 93).
+
+        ``scope="user_set"`` (default) removes every input whose provenance is
+        ``USER_SET`` (``Sensor.set`` / GUI edits). Inputs still carrying config-file
+        provenance survive — but note an edit **replaces** an input's provenance, so
+        a config value that was later edited reverts to its *schema default*, not to
+        the file value (there is no layered history). To revert to the file exactly,
+        reload it (``Sensor.load``). ``scope="all"`` removes every explicit input,
+        reverting to pure schema defaults (an incomplete config will then fail
+        resolution with its normal actionable errors).
+
+        Returns ``self`` for method chaining.
+        """
+        if scope not in ("user_set", "all"):
+            raise ApiValidationError(
+                f"reset_all: scope must be 'user_set' or 'all', got {scope!r}."
+            )
+        for name, provenance in list(self._params.input_provenances().items()):
+            if scope == "all" or provenance is Provenance.USER_SET:
+                self._params.clear_input(name)
+        return self
+
     def set_tolerance(
         self,
         dotpath: str,

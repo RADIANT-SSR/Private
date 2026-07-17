@@ -760,6 +760,16 @@ class ParameterSet:
         """
         return MappingProxyType({name: val for name, (val, _prov, _src) in self._inputs.items()})
 
+    def input_provenances(self) -> Mapping[str, Provenance]:
+        """Read-only snapshot of explicit inputs: name → provenance tag.
+
+        The provenance-aware companion of :meth:`inputs` (Gap 93): lets callers
+        distinguish config-file inputs from interactive edits (``USER_SET``)
+        without touching internals — the surface ``Sensor.reset_all`` uses to
+        revert edits-since-load.
+        """
+        return MappingProxyType({name: prov for name, (_val, prov, _src) in self._inputs.items()})
+
     @property
     def is_resolved(self) -> bool:
         """True when :meth:`resolve` has run and no input changed since."""

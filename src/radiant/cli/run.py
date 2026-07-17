@@ -13,6 +13,7 @@ import numpy as np
 from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
 from radiant.io.config import ConfigError, load_config
+from radiant.io.element_config import ElementConfigError, parse_element_entries
 
 
 def _parse_overrides(overrides: tuple[str, ...]) -> dict[str, str]:
@@ -108,10 +109,13 @@ def run(
         radiant run examples/mwir_leo_minimal.yaml --set optics.aperture_diameter_m=0.5
         radiant run examples/mwir_leo_minimal.yaml --output result.json
     """
-    # Load config.
+    # Load config. Structured sections (optical_elements, ADR-0009 / CU-153) are
+    # taken via sections_out and injected pre-chain below — the same route
+    # Sensor.from_yaml uses, so a Sensor.save'd element config runs from the CLI.
+    sections: dict[str, object] = {}
     try:
         params = RadiantSession.default_params()
-        load_config(Path(config), params)
+        load_config(Path(config), params, sections_out=sections)
     except ConfigError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
@@ -142,9 +146,24 @@ def run(
     fmax = wl_max if wl_max is not None else params.get("spectral_integration.filter_max_um")
     wl = np.linspace(fmin, fmax, wl_n)
 
+    # Parse any optical_elements section onto the run grid (Rule 6 pre-chain IO).
+    extra_stage_outputs: dict[str, dict[str, object]] | None = None
+    if "optical_elements" in sections:
+        try:
+            elements = parse_element_entries(
+                sections["optical_elements"], wl, base_dir=Path(config).parent
+            )
+        except ElementConfigError as exc:
+            click.echo(f"Error in optical_elements: {exc}", err=True)
+            sys.exit(1)
+        extra_stage_outputs = {"optics_config": {"element_list": elements}}
+
     # Run chain.
     session = RadiantSession(wavelength_um=wl)
-    result = session.run(params)
+    if extra_stage_outputs is not None:
+        result = session.run(params, extra_stage_outputs=extra_stage_outputs)
+    else:
+        result = session.run(params)
 
     # -- Output --------------------------------------------------------
 

@@ -248,3 +248,39 @@ class TestLoaderGuard:
                 scope="inputs",
                 sections={"not_a_section": []},
             )
+
+
+class TestResetAll:
+    """Gap 93: Sensor.reset_all reverts edits by provenance scope."""
+
+    def test_user_set_scope_clears_edits_keeps_config_inputs(self) -> None:
+        s = Sensor.from_yaml(_EXAMPLE)
+        # An input NOT in the config file, set interactively: cleared by reset.
+        s.set("platform.jitter_rms_urad", 5.0)
+        s.reset_all()
+        assert "platform.jitter_rms_urad" not in s._params.inputs()
+        # Untouched config-file inputs survive: the sensor still resolves.
+        assert "optics.aperture_diameter_m" in s._params.inputs()
+        s.evaluate()
+
+    def test_edited_config_value_reverts_to_default_not_file(self) -> None:
+        """An edit replaces provenance: reset gives the schema default, not the
+        file value — the documented no-layered-history semantics (Gap 93)."""
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.set("optics.aperture_diameter_m", 0.5)  # config value, edited → USER_SET
+        s.reset_all()
+        assert "optics.aperture_diameter_m" not in s._params.inputs()
+
+    def test_all_scope_clears_everything(self) -> None:
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.reset_all(scope="all")
+        from radiant.core.parameters import ParameterSet  # noqa: F401 — type check only
+
+        assert dict(s._params.inputs()) == {}
+
+    def test_bad_scope_raises_actionable(self) -> None:
+        from radiant.api.errors import ApiValidationError
+
+        s = Sensor.from_yaml(_EXAMPLE)
+        with pytest.raises(ApiValidationError, match="scope"):
+            s.reset_all(scope="everything")

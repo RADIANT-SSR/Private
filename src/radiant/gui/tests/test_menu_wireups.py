@@ -103,3 +103,40 @@ class TestSchemaBrowser:
         for name in visible:
             pdef = sensor.parameter_def(name)
             assert "aperture_diameter" in name or "aperture_diameter" in pdef.description
+
+
+class TestResetDefaults:
+    """Gap 93 closed: Edit → Reset to Defaults reverts edits since load."""
+
+    def test_reset_reloads_file_and_discards_edit(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        window = _window(qtbot)
+        assert window.action("edit.reset_defaults").isEnabled()
+        # Give the window its file identity (the helper constructs from a Sensor,
+        # not via File → Open, so the current path is unset).
+        window._current_path = _EXAMPLE  # noqa: SLF001
+        window.sensor.set("platform.jitter_rms_urad", 7.0)
+
+        from radiant.gui import main_window as mw
+
+        monkeypatch.setattr(
+            mw.QMessageBox,
+            "question",
+            staticmethod(lambda *a, **k: mw.QMessageBox.StandardButton.Yes),
+        )
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.reset_defaults").trigger()
+        # The reload discarded the edit (jitter back to its schema default of 0).
+        assert window.sensor.get_input("platform.jitter_rms_urad") in (0, 0.0, None)
+
+    def test_reset_declined_keeps_edit(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        window = _window(qtbot)
+        window.sensor.set("platform.jitter_rms_urad", 7.0)
+        from radiant.gui import main_window as mw
+
+        monkeypatch.setattr(
+            mw.QMessageBox,
+            "question",
+            staticmethod(lambda *a, **k: mw.QMessageBox.StandardButton.No),
+        )
+        window.action("edit.reset_defaults").trigger()
+        assert window.sensor.get_input("platform.jitter_rms_urad") == 7.0

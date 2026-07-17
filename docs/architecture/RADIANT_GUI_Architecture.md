@@ -1308,6 +1308,29 @@ panel, labels, background) still follows the §8.1 tokens so the panel matches t
 
 ---
 
+## 8b. Sweep Surface (Tier-2 GT-1 — SHIPPED 2026-07-16)
+
+**Run → Run Sweep…** opens `SweepDialog` (Rule 20 content spec; sequence in the Trade-Study
+plan):
+
+- **Parameter picker(s)**: every float `ParameterDef`, schema-driven; an optional second
+  parameter turns the run into a 2-D grid.
+- **Range entry in the parameter's input unit** (unit label beside the picker, R-UNITS);
+  converted once at the dialog boundary to canonical units (Rule 2). Linear or log spacing.
+- **Metric picker**: the live metric set from the last result (fallback `snr`).
+- **Execution**: `Sensor.sweep` / `sweep_2d` on a **clone** (a trade study never mutates the
+  session config), on a worker `QThread` with the Gap 72 `progress(done,total)` / `cancel()`
+  hooks driving a progress bar. **Cancel is a first-class outcome**: the API returns no partial
+  results by contract and the dialog reports "Cancelled at k/N — no partial results" honestly.
+- **Result**: 1-D curve (log x when log-spaced) or 2-D heatmap with colorbar into the dialog
+  canvas; the completed `SweepResult`/`Sweep2DResult` is retained on the main window
+  (`last_sweep_result`) for export (`to_csv`, Gap 88 surfaces).
+- **Copy as script**: emits the equivalent `sensor.sweep(...)` one-liner to the clipboard —
+  the dialog-to-console graduation path (owner-shaped D3: the GUI teaches the API).
+
+Monte Carlo / Batch deliberately have **no dialogs** (owner D3): they are console workflows;
+their Run-menu items become script scaffolds (GT-2).
+
 ## 9. Deferred to Phase 2 (post-v1)
 
 Explicitly deferred; the v1 architecture must not preclude them.

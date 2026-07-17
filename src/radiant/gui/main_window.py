@@ -55,6 +55,7 @@ from radiant.gui.widgets.scripting_console import ScriptingConsole
 from radiant.gui.widgets.scripting_window import ScriptingWindow
 from radiant.gui.widgets.set_parameter_command import SetParameterCommand
 from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
+from radiant.gui.widgets.sweep_dialog import SweepDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import EvaluationWorker
@@ -145,6 +146,8 @@ class RADIANTMainWindow(QMainWindow):
         self._worker: EvaluationWorker | None = None
         self._rerun_pending: bool = False
         self._last_result: ChainResult | None = None
+        # GT-1: the last completed sweep (SweepResult | Sweep2DResult), for export.
+        self.last_sweep_result: object | None = None
         self._evaluation_count: int = 0
 
         self.setObjectName("radiantMainWindow")
@@ -700,6 +703,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("tools.schema").setEnabled(enabled)
         self.action("tools.explain").setEnabled(enabled)
         self.action("edit.reset_defaults").setEnabled(enabled)
+        self.action("run.sweep").setEnabled(enabled)
         if not enabled:
             self.action("file.export_json").setEnabled(False)
 
@@ -928,6 +932,8 @@ class RADIANTMainWindow(QMainWindow):
         self.action("file.export_json").triggered.connect(self._on_export_json)
         self.action("tools.schema").triggered.connect(self._on_schema_browser)
         self.action("tools.explain").triggered.connect(self._on_explain_parameter)
+        # GT-1 (Tier-2): the sweep surface — worker-threaded, Gap 72 progress/cancel.
+        self.action("run.sweep").triggered.connect(self._on_run_sweep)
         self._rebuild_recent_menu()
 
     def _adopt_sensor(
@@ -1130,6 +1136,28 @@ class RADIANTMainWindow(QMainWindow):
             UnexpectedErrorDialog(exc, "Exporting the result as JSON", self).exec()
             return
         self.statusBar().showMessage(f"Exported result record to {filename}")
+
+    def _on_run_sweep(self) -> None:
+        """Run → Run Sweep… (GT-1): the 1-D/2-D sweep dialog over a sensor clone.
+
+        Metric choices come from the last result when one exists (the live metric
+        set), else a minimal default. The finished result is retained on the window
+        (`last_sweep_result`) for export (`SweepResult.to_csv`, FW-B).
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+        if self._last_result is not None:
+            metric_names = tuple(sorted(self._last_result.metrics))
+        else:
+            metric_names = ("snr",)
+        dialog = SweepDialog(sensor, metric_names, self)
+        dialog.exec()
+        if dialog.sweep_result is not None:
+            self.last_sweep_result = dialog.sweep_result
+            self.statusBar().showMessage(
+                "Sweep complete — result retained (export via SweepResult.to_csv)"
+            )
 
     def _on_schema_browser(self) -> None:
         """Tools → Parameter Schema Browser: the read-only Gap-70 schema tree."""

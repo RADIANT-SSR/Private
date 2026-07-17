@@ -359,6 +359,40 @@ def save_config(
                 f"save_config: unknown structured section(s) {keys}; "
                 f"registered sections: {sorted(_SECTION_KEYS)}."
             )
+    text = serialize_config(params, header=header, meta=meta, scope=scope, sections=sections)
+    out = Path(dest)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # Rule 30: explicit encoding; newline="\n" keeps the YAML byte-stable across platforms.
+    with open(out, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    return out
+
+
+def serialize_config(
+    params: ParameterSet,
+    *,
+    header: str = "# RADIANT config — schema v1\n",
+    meta: dict[str, Any] | None = None,
+    scope: str = "resolved",
+    sections: dict[str, Any] | None = None,
+) -> str:
+    """Serialise a resolved ParameterSet to a YAML **string** (Gap 88).
+
+    The in-memory twin of :func:`save_config` (which delegates here) — same
+    scopes, same ``_radiant`` meta block, same structured sections. This is
+    the surface ``Sensor.to_yaml`` exposes so the GUI's YAML tab no longer
+    needs a temp-file round trip.
+    """
+    if scope not in ("resolved", "inputs"):
+        raise ConfigError(f"serialize_config: scope must be 'resolved' or 'inputs', got {scope!r}.")
+    if sections is not None:
+        unknown = sorted(set(sections) - _SECTION_KEYS)
+        if unknown:
+            keys = ", ".join(f"'{k}'" for k in unknown)
+            raise ConfigError(
+                f"serialize_config: unknown structured section(s) {keys}; "
+                f"registered sections: {sorted(_SECTION_KEYS)}."
+            )
     if scope == "inputs":
         flat = dict(params.inputs())
     else:
@@ -369,14 +403,9 @@ def save_config(
         nested.update(sections)
     if meta is not None:
         nested[_META_KEY] = meta
-
-    out = Path(dest)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    text = header + yaml.dump(
+    return header + yaml.dump(
         nested,
         default_flow_style=False,
         sort_keys=True,
         allow_unicode=True,
     )
-    out.write_text(text, encoding="utf-8")
-    return out

@@ -15,6 +15,7 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
@@ -90,6 +91,33 @@ class SweepResult:
             dtype=np.float64,
         )
 
+    def to_csv(self, path: str | Path) -> Path:
+        """Write the sweep as CSV: param column + the primary metric — Gap 88.
+
+        With kept results, every metric across all points is included (one
+        column per metric key). Rule 30: UTF-8, ``newline=""``.
+        """
+        import csv as _csv
+
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        extra_names: list[str] = []
+        if self.results:
+            extra_names = sorted(
+                set().union(*(set(r.metrics) for r in self.results)) - {self.metric_name}
+            )
+        with open(out, "w", encoding="utf-8", newline="") as f:
+            writer = _csv.writer(f)
+            writer.writerow([self.param_name, self.metric_name, *extra_names])
+            for i, (v, m) in enumerate(zip(self.values, self.metric_values, strict=True)):
+                extras = (
+                    [repr(self.results[i].metrics.get(name, float("nan"))) for name in extra_names]
+                    if self.results
+                    else []
+                )
+                writer.writerow([repr(float(v)), repr(float(m)), *extras])
+        return out
+
     def at_metric_threshold(
         self,
         threshold: float,
@@ -131,6 +159,22 @@ class Sweep2DResult:
     values2: npt.NDArray[np.float64]
     grid: npt.NDArray[np.float64]
     metric_name: str = "metric"
+
+    def to_csv(self, path: str | Path) -> Path:
+        """Write the 2-D grid in long form (param1,param2,metric) — Gap 88."""
+        import csv as _csv
+
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w", encoding="utf-8", newline="") as f:
+            writer = _csv.writer(f)
+            writer.writerow([self.param1_name, self.param2_name, self.metric_name])
+            for i, v1 in enumerate(self.values1):
+                for j, v2 in enumerate(self.values2):
+                    writer.writerow(
+                        [repr(float(v1)), repr(float(v2)), repr(float(self.grid[i, j]))]
+                    )
+        return out
 
 
 # ------------------------------------------------------------------

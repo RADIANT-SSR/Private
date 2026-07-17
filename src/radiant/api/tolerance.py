@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
@@ -53,6 +54,22 @@ class MonteCarloResult:
     metric_array: npt.NDArray[np.float64]
     sampled_params: dict[str, npt.NDArray[np.float64]] = field(default_factory=dict)
     results: tuple[ChainResult, ...] = field(default_factory=tuple)
+
+    def to_csv(self, path: str | Path) -> Path:
+        """Write per-trial rows: sampled params + metrics — Gap 88."""
+        import csv as _csv
+
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        param_names = sorted(self.sampled_params)
+        with open(out, "w", encoding="utf-8", newline="") as f:
+            writer = _csv.writer(f)
+            writer.writerow(["trial", *param_names, *self.metric_names])
+            for trial in range(self.n_trials):
+                sampled = [repr(float(self.sampled_params[p][trial])) for p in param_names]
+                metrics = [repr(float(v)) for v in self.metric_array[trial]]
+                writer.writerow([trial, *sampled, *metrics])
+        return out
 
     # -- Statistical summaries ------------------------------------------
 

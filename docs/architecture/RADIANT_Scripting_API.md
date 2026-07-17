@@ -76,6 +76,7 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.parameter_defs()` | Read-only mapping of the full parameter schema keyed by dot-path (Gap 70). Each `ParameterDef` carries dtype, canonical/input units, bounds, enum values, default, description, and tags. |
 | `s.parameter_def(dotpath)` | Single `ParameterDef` lookup. Alias-aware; unknown names raise `UnknownParameterError` with a did-you-mean suggestion. |
 | `s.save(path)` | Write a YAML config restoring this Sensor via `Sensor.load` (Gap 67): explicitly-set inputs (input units) plus a `_radiant` block (`wavelength_points`, tolerance distributions). Defaults and derived values are *not* written, so reloading reproduces the original resolution — including provenance splits between explicit and defaulted parameters. Returns the written `Path`. |
+| `s.to_yaml(scope="inputs")` | Serialize to a YAML **string** (Gap 88 — no temp file): `"inputs"` is byte-identical in body to `save()` (explicit inputs + `_radiant` meta + `optical_elements` section) and reloads exactly; `"resolved"` writes every resolved parameter (defaults + derived) as a documentation export. |
 | `Sensor.load(path)` | Classmethod. Reload a `save()`d config (or any RADIANT YAML): parameters, tolerances, `wavelength_points`. |
 | `s.reset_all(scope="user_set")` | Bulk reset by provenance (Gap 93): `"user_set"` clears every interactively-set input (note: an *edited* config value reverts to its schema default, not the file value — an edit replaces provenance; reload the file to revert exactly); `"all"` clears every explicit input. Returns `self`. Backed by the new `ParameterSet.input_provenances()` read-only snapshot. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
@@ -394,7 +395,7 @@ with open("run_provenance.json", "w") as f:
     json.dump(result.to_provenance_record(), f, indent=2)
 ```
 
-There are no `result.to_json()` / `result.to_csv()` methods (Appendix A).
+`result.to_records()` returns metrics as plain dicts (name/value/unit/description) and `result.to_csv(path)` writes them as CSV (Gap 88, 2026-07-16); `SweepResult` / `Sweep2DResult` / `MonteCarloResult` carry matching `to_csv`. There is still no `result.to_json()` (the `.radiant` archive in §3.9 is the full-fidelity persistence).
 
 ### 3.9 Persistence (Gap 67, 2026-07-11)
 

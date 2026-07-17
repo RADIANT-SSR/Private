@@ -35,7 +35,7 @@ from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.core.orbit import ground_track_speed_m_s
 from radiant.core.parameters import ParameterDef, ParameterSet, Provenance, Tolerance
-from radiant.io.config import load_config, read_radiant_meta, save_config
+from radiant.io.config import load_config, read_radiant_meta, save_config, serialize_config
 from radiant.io.element_config import parse_element_entries
 from radiant.io.results import ChainResult
 
@@ -188,6 +188,34 @@ class Sensor:
             header="# RADIANT config — written by Sensor.save()\n",
             meta=meta,
             scope="inputs",
+            sections=sections,
+        )
+
+    def to_yaml(self, *, scope: str = "inputs") -> str:
+        """Serialize this Sensor to a YAML string (Gap 88 — no temp file).
+
+        ``scope="inputs"`` (default) is byte-identical to what :meth:`save`
+        writes (explicit inputs + the ``_radiant`` meta block + any attached
+        ``optical_elements`` document) and reloads exactly.
+        ``scope="resolved"`` writes every resolved parameter — defaults and
+        derived values included — as a fully-specified documentation export.
+        """
+        self._ensure_resolved()
+        meta: dict[str, Any] = {"format": 1, "wavelength_points": self._wl_points}
+        tolerances = {
+            name: {"distribution": tol.distribution, "params": dict(tol.params)}
+            for name, tol in self._params.tolerances().items()
+        }
+        if tolerances:
+            meta["tolerances"] = tolerances
+        sections: dict[str, Any] | None = None
+        if self._element_document is not None:
+            sections = {"optical_elements": copy.deepcopy(self._element_document)}
+        return serialize_config(
+            self._params,
+            header="# RADIANT config — written by Sensor.to_yaml()\n",
+            meta=meta,
+            scope=scope,
             sections=sections,
         )
 

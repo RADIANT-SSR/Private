@@ -1299,7 +1299,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | GUI Development Plan Phase 4 Task B (YAML detail tab), 2026-07-13 |
-| **Status** | OPEN — GUI works around it via a temp-file round-trip; no faked surface. |
+| **Status** | FIXED (2026-07-16, Tier-2 FW-B) — `io.config.serialize_config` (string twin of `save_config`) + `Sensor.to_yaml(scope="inputs"|"resolved")`; the GUI YAML tab now calls `to_yaml` directly (temp-file round-trip removed). Companion export surfaces landed with it: `ChainResult.to_records()/to_csv`, `SweepResult`/`Sweep2DResult`/`MonteCarloResult.to_csv` (UTF-8, csv-module newline discipline — Rule 30). |
 | **Description** | The public API's only config serialize surface is `Sensor.save(path)`, which writes to a **file** in the **inputs** scope (explicitly-set values plus a `_radiant` meta block; defaults and derived values are not written — they re-apply on load). There is no in-memory / string serialize (`Sensor.to_yaml() -> str`) and no public **resolved**-scope serialize (`radiant.io.config.save_config(..., scope="resolved")` exists but is not exposed on `Sensor`). |
 | **Impact** | The YAML detail tab, which wants to *display* the current config as text, must save to a throwaway temp file and read it back (`serialize_yaml`). It can only show the **inputs** scope, so defaults and derived parameters do not appear as lines — a fully-resolved "everything the run used" export is unreachable from the GUI. The displayed text still round-trips through `Sensor.load` exactly (the contract the tab relies on). |
 | **Workaround** | `radiant.gui.yaml_format.serialize_yaml(sensor)` saves to `tempfile.mkstemp` and reads the text back; the temp file is unlinked (a failed unlink is logged, not swallowed). |
@@ -1498,7 +1498,7 @@ they name.
 | 85 | No mission-type-driven parameter relevance (declared type → param setup guidance) | M–L | operator setup guidance (all personas) | DEFERRED (post-v1) |
 | 86 | `result.plot` exposes no spectral-radiance figure accessor | S–M | Source/Atmosphere/Spectral-Integration GUI views | FIXED |
 | 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | S–M | GUI Variables + Noise Budget tabs | OPEN |
-| 88 | No in-memory / resolved-scope config serialize surface (only file `Sensor.save`) | S | GUI YAML tab | OPEN |
+| 88 | No in-memory / resolved-scope config serialize surface | — | GUI YAML tab | FIXED |
 | 89 | Optics complex-pupil diagnostics not exposed (apodization map + WFE phase map) | M | GUI Optics view (5.1, 1.5) | RESOLVED 2026-07-14 (d89f423) |
 | 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | RESOLVED 2026-07-14 (77e0adf) |
 | 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | FIXED 2026-07-14 (6f37734) |

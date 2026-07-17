@@ -192,6 +192,39 @@ class ChainResult:
             )
         return tuple(records)
 
+    def to_records(self) -> list[dict[str, object]]:
+        """Metrics as plain dicts (name / value / unit / description) — Gap 88.
+
+        The JSON/CSV-friendly view of :meth:`metric_records` for exports and
+        table widgets.
+        """
+        return [
+            {
+                "name": rec.name,
+                "value": rec.value,
+                "unit": rec.unit,
+                "description": rec.description,
+            }
+            for rec in self.metric_records()
+        ]
+
+    def to_csv(self, path: str | Path) -> Path:
+        """Write the metrics as a CSV (name,value,unit,description) — Gap 88.
+
+        Rule 30: UTF-8, explicit ``newline=""`` (the csv-module contract).
+        """
+        import csv as _csv
+        from pathlib import Path as _Path
+
+        out = _Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w", encoding="utf-8", newline="") as f:
+            writer = _csv.writer(f)
+            writer.writerow(["name", "value", "unit", "description"])
+            for rec in self.metric_records():
+                writer.writerow([rec.name, repr(rec.value), rec.unit, rec.description])
+        return out
+
     # ------------------------------------------------------------------
     # Backward propagation queries
     # ------------------------------------------------------------------

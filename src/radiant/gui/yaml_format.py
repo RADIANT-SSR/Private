@@ -26,8 +26,6 @@ still lives in ``themes/`` (GUI plan §4.9, review-blocking).
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
@@ -52,28 +50,14 @@ PROVENANCE_TOKEN: Mapping[str, str] = {
 
 
 def serialize_yaml(sensor: Sensor) -> str:
-    """Return the current config serialised to YAML via the public ``Sensor.save`` surface.
+    """Return the current config serialised to YAML (inputs scope).
 
-    ``Sensor.save`` is the only public serialize surface (there is no string / in-memory
-    variant — Gap 88), so the text is obtained by saving to a throwaway temp file and
-    reading it back. The text is the *inputs* scope: it round-trips through the loader
-    exactly (the round-trip contract the YAML tab's export relies on).
+    One public call — ``Sensor.to_yaml(scope="inputs")`` (Gap 88 closed
+    2026-07-16; the historical temp-file round trip through ``Sensor.save``
+    is gone). The text round-trips through the loader exactly (the contract
+    the YAML tab's export relies on).
     """
-    fd, tmp_path = tempfile.mkstemp(suffix=".yaml", prefix="radiant_gui_yaml_")
-    os.close(fd)
-    try:
-        sensor.save(tmp_path)
-        with open(tmp_path, encoding="utf-8") as handle:
-            return handle.read()
-    finally:
-        # Best-effort cleanup of the throwaway temp file. A failed unlink is
-        # benign (the OS reclaims the temp dir), but it is *logged*, never
-        # silently swallowed (Rule 17) — the caller's serialization already
-        # succeeded, so this cannot mask a real failure of that work.
-        try:
-            os.unlink(tmp_path)
-        except OSError as exc:
-            logger.debug("Could not remove temp YAML file %s: %s", tmp_path, exc)
+    return sensor.to_yaml(scope="inputs")
 
 
 def dotpath_provenance(sensor: Sensor) -> dict[str, str]:

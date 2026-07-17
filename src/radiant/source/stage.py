@@ -182,14 +182,17 @@ class SourceStage:
             scene_los=state.stage_outputs.get("geometry", {}).get("los_geometry"),
         )
 
-        # Target Definition Matrix Q3: when the user supplies a geometric
-        # shape (shape wins over projected_area_m2), the inferrer writes
-        # the shape-derived A onto descriptor.A_t.  Republish it to
-        # stage_outputs["source"]["projected_area_m2"] so downstream
-        # stages (SpectralIntegrationStage point_source branch, regime
-        # reclassification) see the shape area — without this propagation
-        # a shape-only scenario reports A=None and spectral integration
-        # raises in point/sub-pixel regimes.
+        # Target Definition Matrix Q3: the descriptor's ``A_t`` is the
+        # AUTHORITATIVE projected area — the inferrer already applied the
+        # shape-wins-over-projected_area_m2 precedence when building it. Adopt
+        # it unconditionally so the published area (→ regime classification and
+        # the SpectralIntegrationStage solid angle) is the SAME area the
+        # descriptor and the shape-wins warning report (CU-148). Previously this
+        # only fired when the ``projected_area_m2`` param was unset, so a config
+        # that set BOTH a shape and the param published the *param* area to the
+        # regime/solid-angle path while the descriptor + warning used the *shape*
+        # area — an inconsistency. For a shape-only or T7 config the value is
+        # unchanged; only the both-set case now correctly resolves to shape.
         descriptor_area = getattr(target_desc, "A_t", None)
         # T7IntensityAtSource: point-source intensity carries no user A_t,
         # but SpectralIntegrationStage still needs a non-None projected
@@ -199,7 +202,7 @@ class SourceStage:
         # ADR-0004 §Assembly contract.
         if descriptor_area is None and isinstance(target_desc, T7IntensityAtSource):
             descriptor_area = T7IntensityAtSource.REFERENCE_AREA_M2
-        if projected_area_m2 is None and descriptor_area is not None:
+        if descriptor_area is not None:
             projected_area_m2 = float(descriptor_area)
             regime, angular_extent_rad = _classify_regime(
                 projected_area_m2=projected_area_m2,

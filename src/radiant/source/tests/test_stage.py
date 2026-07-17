@@ -352,3 +352,47 @@ class TestClassifyRegime:
             regime_override="auto",
         )
         assert regime == RadiometricRegime.POINT_SOURCE
+
+
+class TestCU148BothSetShapeWins:
+    """CU-148: when BOTH a shape and projected_area_m2 are set, the published area
+    (→ regime + spectral-integration solid angle) must be the SHAPE area, matching
+    the descriptor A_t and the shape-wins warning — not the param area."""
+
+    @pytest.mark.level1
+    def test_published_area_is_shape_not_param_when_both_set(self) -> None:
+        import warnings as _w
+
+        from radiant.api._param_registry import _FNUMBER_GROUP
+
+        schema = list(GEO_PARAMS) + list(SRC_PARAMS) + list(OPT_PARAMS) + list(DET_PARAMS)
+        ps = ParameterSet(schema, [_FNUMBER_GROUP])
+        ps.set("source.target.temperature", 300.0)
+        ps.set("source.target.emissivity", 0.95)
+        # Both set: sphere r=1 → A_proj = π m²; param says 5.0 m². Shape must win.
+        ps.set("geometry.target.shape", "sphere")
+        ps.set("geometry.target.shape_radius_m", 1.0)
+        ps.set("geometry.target.projected_area_m2", 5.0)
+        ps.set("geometry.target_range_m", 100_000.0)
+        ps.set("geometry.sensor_altitude_m", 500_000.0)
+        ps.set("source.background.temperature", 290.0)
+        ps.set("source.background.emissivity", 0.95)
+        ps.set("detector.pixel_pitch_x_um", 18.0)
+        ps.set("detector.pixel_pitch_y_um", 18.0)
+        ps.set("detector.qe_value", 0.7)
+        ps.set("optics.focal_length_m", 1.2)
+        ps.set("optics.aperture_diameter_m", 0.3)
+        ps.set("optics.transmission_scalar", 0.7)
+        ps.resolve()
+
+        state = ChainState(wavelength_um=np.linspace(3.0, 5.0, 100))
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)  # the shape-wins warning is expected
+            out = SourceStage().run(state, ps)
+
+        published = out.stage_outputs["source"]["projected_area_m2"]
+        target = out.stage_outputs["source"]["target"]
+        # Published area = shape area (π), NOT the param area (5.0), and it agrees
+        # with the descriptor A_t (the CU-148 fix — previously it was 5.0).
+        assert published == pytest.approx(math.pi, rel=1e-12, abs=0.0)
+        assert published == pytest.approx(target.A_t, rel=1e-12, abs=0.0)

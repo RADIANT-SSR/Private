@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting (both-set configs only): `geometry.target.shape` now wins over
+  `geometry.target.projected_area_m2` in the *published* projected area, not just the descriptor
+  (CU-148).** When a config set **both** a concrete shape and an explicit `projected_area_m2`, the
+  inferrer applied "shape wins" to the descriptor `A_t` and emitted a `shape wins` warning, but
+  `SourceStage` still published the **param** area to the regime classification and the
+  SpectralIntegration solid angle — so the SNR-bearing path silently used a different area than the
+  descriptor and the warning reported. `SourceStage` now adopts the descriptor's authoritative `A_t`
+  unconditionally, so the published area, the descriptor, and the warning agree. **Direction/magnitude:**
+  affects only configs that set both a shape and `projected_area_m2`; for those, regime and SNR shift by
+  the ratio of shape-area to param-area. **No existing golden or example uses that combination, so all
+  baselines are byte-identical** (verified full-suite); a new `test_stage.py` both-set test covers the fix.
+
 ### Added
 - **Scene-type parameter relevance gating (Gap 85 partial, results-neutral).** Source-stage
   parameters now carry `regime:<scene_type>` schema tags (background + contrast-reference +

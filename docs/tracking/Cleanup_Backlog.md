@@ -48,24 +48,6 @@
 **Why it still matters**: Rule 30 (cross-platform portability), Rule 17 (no silent failures) — mojibake in loaded metadata is a silent data corruption; it also bites any collaborator on a non-UTF-8 locale, not just Windows.
 **Suggested fix**: (a) inline-fix-now — mechanical sweep adding `encoding="utf-8"` to every text-mode `open()`/`read_text()`/`write_text()` in `src/`, `scripts/`, `dev_tools/`; add the ruff rule `PLW1514` (`unspecified-encoding`) so new call sites can't regress. Effort S; category A (no results change on macOS). Re-audit after the ruff rule is enabled.
 
-### CU-148 — "Both-set" projected-area inconsistency: published area uses the param while the descriptor uses the shape
-
-**Discovered**: ADR-0008 Phase B feasibility trace, 2026-07-16, branch `arch/target-extent-phase-b`
-**Status**: Open — latent correctness question, **results-affecting to fix** (so not fixable under a results-neutral change). When a config sets **both** `geometry.target.shape` (a concrete shape) **and** `geometry.target.projected_area_m2` (> 0), the two projected-area consumers disagree: `_inferrer._resolve_projected_area_and_shape` applies "shape wins" so the **descriptor `A_t`** and the emitted `UserWarning` use the **shape** area (`a_shape`), but `source/stage.py` publishes `stage_outputs["source"]["projected_area_m2"]` from the **param** value (the post-inference republish at `stage.py:192` only fires when the param was unset), so the **regime classification** and the **spectral-integration solid angle** (`spectral_integration/stage.py:227`) use the **param** area. Same run, two different projected areas.
-**File**: `src/radiant/source/stage.py:105-125,183-216` (publishes param area; republish gated on `projected_area_m2 is None`) vs. `src/radiant/source/_inferrer.py:660-677` (`_resolve_projected_area_and_shape`, shape-wins → descriptor `A_t`).
-**Symptom**: Set e.g. `geometry.target.shape='sphere'`, `shape_radius_m=1.0` (→ a_shape=π m²) **and** `projected_area_m2=10.0`. The "shape wins (A_projected=3.14 m²)" warning fires and the descriptor carries A_t=3.14, but regime + solid angle are computed from 10.0. Whichever the user "meant", one of the two is wrong.
-**Why it still matters**: Physics correctness — a single scenario should have one projected area. Today the warning tells the user "shape wins" while the SNR-bearing path (solid angle → signal electrons) silently uses the param. Under-tested (no golden appears to exercise the both-set case, which is why Phase A/B stayed byte-identical).
-**Suggested fix**: (b) stand-alone task — decide the intended precedence (shape-wins is what the warning promises), make `source/stage.py` publish the same `A_t` the descriptor uses (drop the `is None` gate, or read `descriptor.A_t` unconditionally), add a Level-0 both-set test, and **review as results-affecting** (regenerate any golden that moves, with owner sign-off per RADIANT_Testing_Validation §5.3). Effort M; category C. Re-audit next time regime/projected-area is touched.
-
-### CU-147 — `TargetDescriptor.shape` field is write-only (stored on every descriptor, no downstream reader)
-
-**Discovered**: ADR-0008 Phase B kickoff (target-extent investigation), 2026-07-16, branch `arch/target-extent-phase-b`
-**Status**: Open — latent dead-ish field, non-blocking. `TargetDescriptor` subclasses (T1Thermal, T2Reflective, …) carry a `shape: object | None` field (`core/descriptors.py:344`) that the inferrer populates with the built `TargetShape`, and the field's comment claims "stages narrow via `isinstance(desc.shape, TargetShape)` when needed" — but a package-wide grep finds **no live consumer**: nothing outside `source/` reads `desc.shape`. Downstream stages use `A_t` (the projected area), never the shape object. The field is effectively write-only.
-**File**: `src/radiant/core/descriptors.py:343-346` (and the T1/T2/T5 subclasses that repeat it); populated in `source/_inferrer.py` (`shape=shape_obj`).
-**Symptom**: `grep -rn "\.shape" src/radiant | grep -v "/tests/"` outside source/gui shows only numpy `.shape`; no `isinstance(desc.shape, TargetShape)` narrowing exists. The stored object is never consumed.
-**Why it still matters**: Dead-but-serialized state — it inflates the descriptor, invites a false "the shape is available downstream" assumption (the comment actively asserts a consumer that doesn't exist), and couples the descriptor to `TargetShape` for no functional reason. Relevant to ADR-0008 Phase B: because the field is write-only, the shape object does **not** need to survive to downstream stages, which is why Phase B can publish `projected_area_m2` from Geometry and leave the descriptor's `shape` field alone without any downstream impact.
-**Suggested fix**: (c) delete-as-unused candidate — remove the `shape` field from the descriptors (or, if a future spatial-per-target consumer is genuinely planned, correct the comment to say "reserved, no current consumer" and file the consumer as a gap). Effort S; category B. Re-audit when a per-target spatial consumer lands or at the next descriptor touch.
-
 ### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS
 
 **Discovered**: Console-open macOS fix (Tools → Python Console), 2026-07-15, branch `gui-framework-plots`
@@ -466,6 +448,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-148 — "Both-set" projected-area inconsistency: published area used the param while the descriptor used the shape — RESOLVED 2026-07-16 (commit `86ee013`)
+
+**Discovered**: ADR-0008 Phase B feasibility trace, 2026-07-16. **Resolution** (owner-ratified precedence: **shape-wins**): `SourceStage` now adopts the descriptor's authoritative `A_t` unconditionally (dropped the `projected_area_m2 is None` gate at `stage.py`), so the published `stage_outputs["source"]["projected_area_m2"]` — which feeds regime classification and the SpectralIntegration solid angle — agrees with the descriptor `A_t` and the shape-wins `UserWarning`. Previously a config that set both a shape and the param published the *param* area to the SNR-bearing path while the descriptor/warning used the *shape* area. Results-affecting for both-set configs only (regime + SNR shift by the shape/param area ratio); shape-only, param-only, T7, and extended configs unchanged. No existing golden or example is both-set → all baselines byte-identical (full suite verified). New `test_stage.py::TestCU148BothSetShapeWins` covers it. Category C.
+
+### CU-147 — `TargetDescriptor.shape` field was write-only (stored on every descriptor, no downstream reader) — RESOLVED 2026-07-16 (commit `3bd8d1f`)
+
+**Discovered**: ADR-0008 Phase B kickoff, 2026-07-16. **Resolution** (suggested fix (c) delete-as-unused): removed the `shape: object | None` field from all `TargetDescriptor` subclasses (T1Thermal, T2Reflective, T3Mixed, T6TabulatedAtSource) and the T6 docstring bullet; renamed `_inferrer._resolve_projected_area_and_shape` → `_resolve_projected_area` (returns `float | None`; the shape is still built internally to compute `a_shape`, just no longer returned/stored); dropped `shape=` from the 8 descriptor/converter constructions and the 4 converter modules' passthrough; removed the `isinstance(target.shape, …)` test assertions (the `A_t` assertions preserve shape-dispatch coverage). Regenerated 14 descriptor snapshots (diff is exactly `14 × "-  shape: null"`). **Results-neutral** — the field had no production reader; no computed value changed. Category B.
 
 ### CU-153 — CLI `run`/`validate` reject `optical_elements`-bearing configs (bare-loader path)
 

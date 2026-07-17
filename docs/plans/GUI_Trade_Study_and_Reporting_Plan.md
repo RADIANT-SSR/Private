@@ -28,8 +28,13 @@ stay **out** (§2.3).
 
 1. **Sweep surface** — Run → Run Sweep… as a first-class GUI flow: 1-D and 2-D parameter
    sweeps with live progress/cancel, plotted into the center canvas.
-2. **Monte Carlo + Batch dialogs** — tolerance-driven MC and the BatchRunner matrix, same
-   progress discipline.
+2. **Tolerance annotation + console-first Monte Carlo/Batch** (owner-shaped 2026-07-16):
+   tolerances edited *on the parameter* (a small optional section in the existing
+   ParameterEditorDialog, ± badges in the tree — never a standalone 130-row editor; the
+   `_radiant.tolerances` YAML block already persists them, Gap 67); MC and Batch run in the
+   **scripting window**, with the Run-menu items becoming **script scaffolds** that open the
+   console prefilled from current state (toleranced params + a ready-to-run
+   `sensor.monte_carlo(...)` / `BatchRunner` snippet) — the GUI teaches the API.
 3. **Comparison mode** — N configs side-by-side: aligned metric table, deltas vs a baseline,
    best-per-metric; the atmosphere A/B toggle (GUI-10) falls out as a special case.
 4. **Reporting/export** — resolved-scope YAML, metrics/sweep CSV, per-chart PNG/SVG, and an
@@ -136,17 +141,25 @@ heatmap second). Gate: GX-2 closed.
 Run → Run Sweep…: schema-driven parameter picker (unit-aware range builder — linspace / log /
 explicit list, entered in the display unit), metric selector from `metric_records()`, worker
 execution with progress + cancel, live curve (1-D) / heatmap (2-D) into the center canvas,
-result held for GT-4 export and console reuse. Arch-doc §9 sweep spec in the same PR.
+result held for GT-4 export and console reuse; a **"Copy as script"** button emits the
+equivalent `sensor.sweep(...)` one-liner so a GUI-configured sweep graduates to the console.
+Arch-doc §9 sweep spec in the same PR.
 **Checkpoint:** sweep aperture 10 points watching SNR live; abort mid-run and keep the partial
-curve; run a visibility×PWV heatmap.
+curve; run a visibility×PWV heatmap; Copy as script reproduces the run in the console.
 
-**GT-2 — Monte Carlo + Batch dialogs.** Category D · M. Gate: GT-1 (shares the progress/
-result plumbing).
-MC dialog: a small tolerance table (add/edit `set_tolerance` rows — distribution + params) +
-trials/seed + histogram/percentile readout of `MonteCarloResult`. Batch dialog: the BatchRunner
-matrix with the per-cell failure surface (failed cells shown as failures, never dropped).
-**Checkpoint:** 200-trial MC on two toleranced parameters, read the percentile table; run a
-2×3 batch with one failing cell and see it reported.
+**GT-2 — Tolerance annotation + MC/Batch console scaffolds.** Category D · M. Gate: GX-2.
+(Reshaped per owner decision D3, 2026-07-16 — no MC/Batch dialogs.)
+(a) ParameterEditorDialog gains an optional **Tolerance** section (distribution combo +
+params, default none) committing via the existing `sensor.set_tolerance`; toleranced rows get
+a ± badge in the All-Parameters tree; the `_radiant.tolerances` YAML block already round-trips
+them (Gap 67 — this completes the missing GUI face of an existing surface).
+(b) Run → Monte Carlo… / Batch Run… become **script scaffolds**: open the scripting window
+with a snippet prefilled from current state (the toleranced params listed,
+`mc = sensor.monte_carlo(n_trials=500, seed=42)` + a percentile printout; a `BatchRunner`
+skeleton for Batch) — edit and run in the console.
+**Checkpoint:** tolerance QE ±0.02 gaussian from its editor dialog (badge appears; Save →
+reload keeps it); Run → Monte Carlo… drops the prefilled snippet into the console; running it
+prints percentiles.
 
 **GT-3 — Comparison mode.** Category D · M. Gate: FW-A + GX-2.
 Compare view over `compare_configs`: current sensor + N loaded configs, aligned metric table
@@ -206,8 +219,10 @@ FW-B ───────────┼────────────┼
    their own charter (§2.3).
 2. **D2 — XLSX dependency:** approve `openpyxl` as a GUI-extra dependency for the GT-4
    workbook, or drop XLSX and ship CSV/PNG/YAML only.
-3. **MC tolerance editor scope (GT-2):** the minimal in-dialog tolerance table as proposed,
-   or defer MC to a later tier and ship sweeps + batch only.
+3. **MC tolerance editor scope (GT-2):** **RESOLVED (owner, 2026-07-16)** — no MC/Batch
+   dialogs. Tolerances are per-parameter annotations in the ParameterEditorDialog (+ tree
+   badges); MC/Batch run console-first via Run-menu script scaffolds; the sweep dialog stays
+   (sweeps are frequent enough to earn dedicated UI) and gains "Copy as script".
 4. **Ordering** — confirm FW-A/FW-B immediately on ratification, GT phases after GX-2
    closeout, in the §5 order (or reorder).
 5. **GT-7 depth:** close Gap 85 fully in this tier as proposed, or keep the tree badging only

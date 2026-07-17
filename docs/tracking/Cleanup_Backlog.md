@@ -12,26 +12,6 @@
 
 ## Open
 
-### CU-153 — CLI `run`/`validate` reject `optical_elements`-bearing configs (bare-loader path)
-
-**Discovered**: GUI plan FW-1 (ADR-0009 config facade), 2026-07-16
-**Status**: Open
-**File**: `src/radiant/cli/run.py:114`, `src/radiant/cli/validate.py:39`
-**Symptom**: `radiant run <cfg>` / `radiant validate <cfg>` on a config carrying an
-`optical_elements:` section (e.g. one written by `Sensor.save()` after
-`set_optical_elements`) raise the new actionable `ConfigError` ("load with Sensor.load()…")
-because both commands call the bare `io.config.load_config` without `sections_out`. Before
-FW-1 the same config failed with the worse "Unknown parameter: 'optical_elements'" — an
-error-message improvement, not a regression, but the CLI still cannot execute a config the
-API can round-trip.
-**Why it still matters**: `Sensor.save` output should be runnable by every RADIANT front end
-(Config_Format §1.7 promises CLI loadability; §1.8 documents this exception). CLI users with
-element trains have no path but the API/GUI.
-**Suggested fix**: (b) stand-alone task — route `cli/run.py` and `cli/validate.py` through
-`Sensor.load()` (which attaches sections and inherits `wavelength_points` handling) instead of
-the bare loader; effort S, category A. Alternative: pass `sections_out` and inject manually
-(duplicates Sensor logic — dispreferred).
-
 ### CU-148 — "Both-set" projected-area inconsistency: published area uses the param while the descriptor uses the shape
 
 **Discovered**: ADR-0008 Phase B feasibility trace, 2026-07-16, branch `arch/target-extent-phase-b`
@@ -50,24 +30,6 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Why it still matters**: Dead-but-serialized state — it inflates the descriptor, invites a false "the shape is available downstream" assumption (the comment actively asserts a consumer that doesn't exist), and couples the descriptor to `TargetShape` for no functional reason. Relevant to ADR-0008 Phase B: because the field is write-only, the shape object does **not** need to survive to downstream stages, which is why Phase B can publish `projected_area_m2` from Geometry and leave the descriptor's `shape` field alone without any downstream impact.
 **Suggested fix**: (c) delete-as-unused candidate — remove the `shape` field from the descriptors (or, if a future spatial-per-target consumer is genuinely planned, correct the comment to say "reserved, no current consumer" and file the consumer as a gap). Effort S; category B. Re-audit when a per-target spatial consumer lands or at the next descriptor touch.
 
-### CU-145 — Script Editor has syntax highlighting but no line-number margin
-
-**Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — nice-to-have polish, non-blocking. Pass 2 shipped a Python `QSyntaxHighlighter` (keywords / strings / numbers / comments / def-class names, from the theme's `syntax_*` tokens) but deliberately **skipped** a line-number gutter to keep the pass focused on open/write/save/run (the chartered nice-to-have was "include if cleanly done; else skip and CU it"). Without a gutter the author cannot read the line a Run traceback names (`File "<script:foo.py>", line 7`) against a visible margin.
-**File**: `src/radiant/gui/widgets/script_tab.py` (`ScriptTab`, a plain `QPlainTextEdit`; a gutter needs a side-area paint + `blockCountChanged`/`updateRequest` wiring).
-**Symptom**: The Editor code pane shows no line numbers; a traceback's line number must be counted by hand.
-**Why it still matters**: Editor usability — line numbers are standard for locating a run error and for Run-Selection targeting. No correctness/physics impact.
-**Suggested fix**: (a) inline-fix-now candidate — add the standard `QPlainTextEdit` line-number-area pattern (a sibling widget painting numbers in the left margin, sized from `blockCount`), themed from tokens. Effort S; category D (view-only). Re-audit at the next scripting-window touch or a v1.1 polish pass.
-
-### CU-144 — Script Editor closing / New-tab discards unsaved edits without a confirmation prompt
-
-**Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — UX safety gap, non-blocking; the same class as CU-140 (main-window File → New/Open). Closing a *dirty* Editor tab (the tab-bar `×`) discards its unsaved edits with no "save changes?" prompt; the `*` marker is the visible signal but there is no guard before the destructive close. A Save/Discard/Cancel `QMessageBox` was deliberately omitted for v1 to keep the offscreen tests free of a modal loop and the scope minimal (mirroring CU-140).
-**File**: `src/radiant/gui/widgets/script_editor.py` (`ScriptEditor._on_close_requested` — removes the tab with no dirty check).
-**Symptom**: Closing a tab with unsaved edits loses them without asking. (App/window close does not force-save either, but the buffers are in-memory scratch, not the session config.)
-**Why it still matters**: Data-loss safety — the standard desktop pattern prompts on discard. Low severity: scripts are easily re-typed scratch buffers and the `*` marker mitigates surprise, but an accidental `×` click still loses work.
-**Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `tab.is_dirty` before a tab close (and window close), with a test hook to auto-answer under the offscreen QPA; fold together with CU-140's main-window prompt. Effort S; category D. Re-audit with CU-140 or at the acceptance walkthrough.
-
 ### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS
 
 **Discovered**: Console-open macOS fix (Tools → Python Console), 2026-07-15, branch `gui-framework-plots`
@@ -85,15 +47,6 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Symptom**: After Undo of a shape change, the shape reverts but the (auto-seeded) dimension values remain at their nominal seeds rather than their pre-change values. No physics error — the values are all valid — just not a clean single-step reversal.
 **Why it still matters**: Undo-completeness hygiene — a compound edit (shape + seeded dims) should reverse atomically for the operator's mental model. No correctness/physics impact.
 **Suggested fix**: (a) inline-fix-now candidate — have the shape-change path emit a **macro** command (`QUndoStack.beginMacro`/`endMacro`) grouping the shape set and each dimension seed, or signal all affected dotpaths so `_push_edit_command` records each. Effort S; category D (view-only). Re-audit when the undo stack is next touched.
-
-### CU-140 — File → New / Open discard unsaved edits without a confirmation prompt
-
-**Discovered**: GUI Development Plan Phase 9 (File round-trip), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — UX safety gap, non-blocking. File → New and File → Open swap the live sensor immediately; if the current config carries unsaved edits (the title's `*` marker), those edits are silently discarded with no "save changes?" prompt. The dirty state is *visible* (the `*`), so nothing is hidden, but there is no guard before a destructive swap.
-**File**: `src/radiant/gui/main_window.py` (`_on_new`, `_on_open` / `_open_path` — no dirty check before `_adopt_sensor`).
-**Symptom**: With unsaved edits, choosing New or Open (or an Open Recent entry) replaces the config without asking, losing the edits. A confirm prompt was deliberately omitted for v1 (keeps the offscreen tests free of a modal `QMessageBox` and the scope minimal).
-**Why it still matters**: Data-loss safety — the standard desktop pattern is to prompt on discard. The `*` marker mitigates it but does not prevent an accidental click.
-**Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `self._dirty` before New / Open / Open-Recent / (and window close), with a test hook to auto-answer under the offscreen QPA. Effort S–M; category D. Re-audit at the acceptance walkthrough or the next File-menu touch.
 
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 
@@ -477,6 +430,57 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-153 — CLI `run`/`validate` reject `optical_elements`-bearing configs (bare-loader path)
+
+**Discovered**: GUI plan FW-1 (ADR-0009 config facade), 2026-07-16
+**Status**: **RESOLVED 2026-07-16** (commit `80f44f9`) — CLI `run`/`validate` now load `optical_elements` sections: run parses the train onto the run grid and injects it pre-chain; validate checks it through the api facade. 3 CLI tests.
+**File**: `src/radiant/cli/run.py:114`, `src/radiant/cli/validate.py:39`
+**Symptom**: `radiant run <cfg>` / `radiant validate <cfg>` on a config carrying an
+`optical_elements:` section (e.g. one written by `Sensor.save()` after
+`set_optical_elements`) raise the new actionable `ConfigError` ("load with Sensor.load()…")
+because both commands call the bare `io.config.load_config` without `sections_out`. Before
+FW-1 the same config failed with the worse "Unknown parameter: 'optical_elements'" — an
+error-message improvement, not a regression, but the CLI still cannot execute a config the
+API can round-trip.
+**Why it still matters**: `Sensor.save` output should be runnable by every RADIANT front end
+(Config_Format §1.7 promises CLI loadability; §1.8 documents this exception). CLI users with
+element trains have no path but the API/GUI.
+**Suggested fix**: (b) stand-alone task — route `cli/run.py` and `cli/validate.py` through
+`Sensor.load()` (which attaches sections and inherits `wavelength_points` handling) instead of
+the bare loader; effort S, category A. Alternative: pass `sections_out` and inject manually
+(duplicates Sensor logic — dispreferred).
+
+
+### CU-145 — Script Editor has syntax highlighting but no line-number margin
+
+**Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
+**Status**: **RESOLVED 2026-07-16** (commit `2afdef9`) — Script Editor gained the standard Qt line-number margin (width tracks blockCount; Theme panel/muted tokens; follows the light/dark toggle). — nice-to-have polish, non-blocking. Pass 2 shipped a Python `QSyntaxHighlighter` (keywords / strings / numbers / comments / def-class names, from the theme's `syntax_*` tokens) but deliberately **skipped** a line-number gutter to keep the pass focused on open/write/save/run (the chartered nice-to-have was "include if cleanly done; else skip and CU it"). Without a gutter the author cannot read the line a Run traceback names (`File "<script:foo.py>", line 7`) against a visible margin.
+**File**: `src/radiant/gui/widgets/script_tab.py` (`ScriptTab`, a plain `QPlainTextEdit`; a gutter needs a side-area paint + `blockCountChanged`/`updateRequest` wiring).
+**Symptom**: The Editor code pane shows no line numbers; a traceback's line number must be counted by hand.
+**Why it still matters**: Editor usability — line numbers are standard for locating a run error and for Run-Selection targeting. No correctness/physics impact.
+**Suggested fix**: (a) inline-fix-now candidate — add the standard `QPlainTextEdit` line-number-area pattern (a sibling widget painting numbers in the left margin, sized from `blockCount`), themed from tokens. Effort S; category D (view-only). Re-audit at the next scripting-window touch or a v1.1 polish pass.
+
+
+### CU-144 — Script Editor closing / New-tab discards unsaved edits without a confirmation prompt
+
+**Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
+**Status**: **RESOLVED 2026-07-16** (commit `2afdef9`) — Closing a dirty script tab now asks Discard / Cancel; clean tabs close silently. — UX safety gap, non-blocking; the same class as CU-140 (main-window File → New/Open). Closing a *dirty* Editor tab (the tab-bar `×`) discards its unsaved edits with no "save changes?" prompt; the `*` marker is the visible signal but there is no guard before the destructive close. A Save/Discard/Cancel `QMessageBox` was deliberately omitted for v1 to keep the offscreen tests free of a modal loop and the scope minimal (mirroring CU-140).
+**File**: `src/radiant/gui/widgets/script_editor.py` (`ScriptEditor._on_close_requested` — removes the tab with no dirty check).
+**Symptom**: Closing a tab with unsaved edits loses them without asking. (App/window close does not force-save either, but the buffers are in-memory scratch, not the session config.)
+**Why it still matters**: Data-loss safety — the standard desktop pattern prompts on discard. Low severity: scripts are easily re-typed scratch buffers and the `*` marker mitigates surprise, but an accidental `×` click still loses work.
+**Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `tab.is_dirty` before a tab close (and window close), with a test hook to auto-answer under the offscreen QPA; fold together with CU-140's main-window prompt. Effort S; category D. Re-audit with CU-140 or at the acceptance walkthrough.
+
+
+### CU-140 — File → New / Open discard unsaved edits without a confirmation prompt
+
+**Discovered**: GUI Development Plan Phase 9 (File round-trip), 2026-07-15, branch `gui-framework-plots`
+**Status**: **RESOLVED 2026-07-16** (commit `2afdef9`) — File → New / Open / Open Recent now ask Save / Discard / Cancel on a dirty config; a cancelled Save As cancels the swap. Also fixed the pre-existing File → New crash the guard tests exposed (safe_provenance fallbacks). — UX safety gap, non-blocking. File → New and File → Open swap the live sensor immediately; if the current config carries unsaved edits (the title's `*` marker), those edits are silently discarded with no "save changes?" prompt. The dirty state is *visible* (the `*`), so nothing is hidden, but there is no guard before a destructive swap.
+**File**: `src/radiant/gui/main_window.py` (`_on_new`, `_on_open` / `_open_path` — no dirty check before `_adopt_sensor`).
+**Symptom**: With unsaved edits, choosing New or Open (or an Open Recent entry) replaces the config without asking, losing the edits. A confirm prompt was deliberately omitted for v1 (keeps the offscreen tests free of a modal `QMessageBox` and the scope minimal).
+**Why it still matters**: Data-loss safety — the standard desktop pattern is to prompt on discard. The `*` marker mitigates it but does not prevent an accidental click.
+**Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `self._dirty` before New / Open / Open-Recent / (and window close), with a test hook to auto-answer under the offscreen QPA. Effort S–M; category D. Re-audit at the acceptance walkthrough or the next File-menu touch.
+
 
 ### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped schema — RESOLVED 2026-07-16 (commit `ecf96c5`)
 

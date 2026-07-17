@@ -1399,7 +1399,8 @@ they name.
 | | |
 |---|---|
 | **Found in** | GUI Capability Expansion plan GX-1 (menu wire-ups), 2026-07-16 |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-16, commit `80f44f9`) |
+| **Fix** | `ParameterSet.input_provenances()` (read-only name→Provenance snapshot) + `Sensor.reset_all(scope="user_set"\|"all")`. Documented honestly: an edit replaces provenance, so an edited config value reverts to its schema default (no layered history) — the GUI's Edit → Reset to Defaults therefore reverts via clean `Sensor.load` when a file exists, `reset_all(scope="all")` otherwise, both behind confirmation. |
 | **Description** | The GUI's Edit → "Reset to Defaults" menu item needs to reset every parameter the *user edited since load* — i.e. all inputs with `USER_SET` provenance — back to the config/default state. `Sensor.reset(dotpath)` resets one parameter, but there is no public accessor enumerating inputs by provenance (`ParameterSet.all_resolved()` carries it, but `Sensor._params` is private and the GUI is API-only by the import contract). The parameter tree shows per-row provenance via its own populate path; a bulk reset has no public surface. |
 | **Impact** | Edit → Reset to Defaults stays a disabled placeholder (GX-1 wired every other existing-API menu item). |
 | **Fix location** | `radiant/api/sensor.py` — e.g. `Sensor.inputs(provenance=...)` or `Sensor.reset_all(scope="user_set")`. Effort S; category A (accessor over existing state, results-neutral). |
@@ -1502,7 +1503,7 @@ they name.
 | 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | RESOLVED 2026-07-14 (77e0adf) |
 | 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | FIXED 2026-07-14 (6f37734) |
 | 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
-| 93 | No public provenance / reset-all surface on `Sensor` | S | GUI Edit → Reset to Defaults (GX-1) | OPEN |
+| 93 | No public provenance / reset-all surface on `Sensor` | — | GUI Edit → Reset to Defaults (GX-1) | FIXED |
 
 ---
 

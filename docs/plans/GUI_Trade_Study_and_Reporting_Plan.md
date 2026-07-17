@@ -134,8 +134,38 @@ types. Also retires the GUI YAML-tab temp-file workaround (Gap 88's original sym
 **Checkpoint (script):** print resolved YAML (defaults + derived marked); write metrics and
 sweep CSVs; inputs-scope output byte-identical to `Sensor.save`.
 
-**GT-0 — Walkthrough punch list (reserved).** Category A · size unknown.
-The GX-2 acceptance findings, fixed before new surfaces land on top of them.
+**GT-0 — Walkthrough punch list.** Category A–D · growing as the walkthrough proceeds.
+The GX-2 acceptance findings, fixed before new surfaces land on top of them. Items agreed so
+far (owner feedback 2026-07-16, Source-screen review):
+
+1. **Source-screen rework** (owner-shaped design):
+   - Remove the stale `TargetShapePanel` from Source — target extent moved to
+     `geometry.target.*` (TEG migration); the same widget already lives on Geometry →
+     Schematic. Source shows radiometry only.
+   - Re-tab Source with the sub-view hook, in the owner's order:
+     **1 · Scene & regime** (scene_type / regime_override / fill fraction + the regime
+     outputs readout — declaring here drives the Gap-85 dimming on the other tabs);
+     **2 · Target — thermal** (T / ε / hot-target + the pre-atmosphere emission plot);
+     **3 · Target — reflective** (ρ + day/night + solar zenith/azimuth + the at-aperture
+     plot; note the engine's ρ-alone (T2) vs ε+T (T3, ρ=1−ε) exclusivity);
+     **4 · Background & contrast** (the three ε definition routes — scalar / library
+     material / ε(λ) CSV via the D5 preview dialog — + contrast-reference T/ε + the
+     background emission plot).
+   - **Derived ground-albedo readout** on tab 4: a read-only band-mean
+     "implied ρ_g = 1 − ε_g" beside the emissivity — the assembly's daytime reflected
+     ground term uses exactly that Kirchhoff ρ (`assembly._ground_background_source_emission`),
+     and in VIS ρ_g is the number the user's intuition checks (no mental 1−ε; R-UNITS
+     spirit). Include a one-line note that daytime ground reflection follows from ε and
+     that spectral routes (material / CSV) are the realistic choice in VIS, where the
+     scalar ε=0.95 default implies near-black ρ=0.05 ground.
+   - Follow-on noted, not in GT-0: no accessor isolates the *reflected-solar component*
+     of the at-aperture radiance (tab 3 shows the total moving with day/night); an
+     FP-style accessor would enable a dedicated reflected-component curve. File as a gap
+     when the tab lands if the owner wants the curve.
+   - Candidate gap (owner to confirm): background reflection is Lambertian-diffuse only —
+     no BRDF/glint ground (target-side BRDFs exist; the background arm does not use them).
+
+2. *(next walkthrough findings append here)*
 
 **GT-1 — Sweep surface.** Category D · L (split: 1-D dialog + live curve first; 2-D grid +
 heatmap second). Gate: GX-2 closed.

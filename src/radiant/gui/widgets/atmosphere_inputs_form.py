@@ -41,12 +41,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
+from radiant.gui.widgets.import_preview_dialog import ImportPreviewDialog
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 
 if TYPE_CHECKING:
@@ -155,6 +156,13 @@ class AtmosphereInputsForm(QWidget):
         self._add_group(box, card, "Model", _MODEL_FIELDS)
         self._groups["simple"] = self._add_group(box, card, "Parametric (simple)", _SIMPLE_FIELDS)
         self._groups["modtran"] = self._add_group(box, card, "MODTRAN", _MODTRAN_FIELDS)
+        # D5 confirm-before-Apply import lives inside the MODTRAN group container so
+        # it shows/hides with the model selection.
+        modtran_box = self._groups["modtran"].layout()
+        self._import_tape7 = QPushButton("Import tape7 (preview)…", self._groups["modtran"])
+        self._import_tape7.setObjectName("importTape7Button")
+        self._import_tape7.clicked.connect(self._on_import_tape7)
+        modtran_box.addWidget(self._import_tape7)
         self._groups["tabulated"] = self._add_group(box, card, "Tabulated files", _TABULATED_FIELDS)
         self._groups["interpolated"] = self._add_group(
             box, card, "Interpolated run matrix", _INTERPOLATED_FIELDS
@@ -190,6 +198,20 @@ class AtmosphereInputsForm(QWidget):
             self._rows[dotpath] = row
         box.addWidget(group)
         return group
+
+    def _on_import_tape7(self) -> None:
+        """Preview a MODTRAN tape7 (D5 dialog); on Apply bind modtran.tape7_path."""
+        if self._sensor is None:
+            return
+        dialog = ImportPreviewDialog("tape7", self)
+        if dialog.exec() != int(dialog.DialogCode.Accepted):
+            return
+        path = dialog.selected_path()
+        if path is None:
+            return
+        self._sensor.set("atmosphere.modtran.tape7_path", path)
+        self.refresh()
+        self.parameterEdited.emit("atmosphere.modtran.tape7_path")
 
     # -- binding / refresh --------------------------------------------------
 

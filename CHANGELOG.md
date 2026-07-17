@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: confirm-before-Apply import previews (ADR-0009 D5, results-neutral).** New shared
+  `ImportPreviewDialog`: pick a file, see the parsed curve + unit-labeled parse facts (point
+  count, λ span, value ranges), then Apply commits the path with one `sensor.set` — or the
+  loader's actionable error shows inline and Apply stays disabled. Wired for vendor QE CSVs
+  (Detector → "Import QE curve (preview)…" → `detector.qe_table_path`) and MODTRAN tape7s
+  (Atmosphere → MODTRAN → "Import tape7 (preview)…" → `atmosphere.modtran.tape7_path`; shows
+  transmittance + path radiance). Backed by the new `radiant.api.preview_spectral_import`.
 - **Zemax Zernike wavefront via config (`optics.zernike_file`) + GUI import (GS-4 split 2).**
   New parameter: point at a Zemax 'Zernike Standard Coefficients' export and the API layer loads
   it pre-chain, injecting the ZERNIKE-mode wavefront (supersedes the scalar WFE; the report's

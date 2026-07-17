@@ -32,6 +32,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
+from radiant.api.errors import ApiValidationError
 from radiant.io.element_config import parse_element_entries
 from radiant.io.zemax_zernike import load_zemax_zernike
 from radiant.optics.errors import OpticsValidationError
@@ -206,6 +207,8 @@ def normalize_element_document(
 
 __all__ = [
     "ElementPreview",
+    "SpectralImportPreview",
+    "preview_spectral_import",
     "ZernikePreview",
     "preview_zemax_zernike",
     "preview_optical_elements",
@@ -242,4 +245,57 @@ def preview_zemax_zernike(path: str | Path) -> ZernikePreview:
         reference_wavelength_um=result.reference_wavelength_um,
         rms_waves=rms,
         coefficients=tuple(sorted(result.zernike_coeffs.items())),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SpectralImportPreview:
+    """Displayable parse of a spectral import file (D5 confirm-before-Apply view).
+
+    ``series`` holds (label-with-unit, values) pairs over ``wavelength_um`` —
+    one pair for a QE curve, transmittance + path radiance for a tape7.
+    """
+
+    kind: str
+    source: str
+    n_points: int
+    wavelength_um: npt.NDArray[np.float64]
+    series: tuple[tuple[str, npt.NDArray[np.float64]], ...]
+
+
+def preview_spectral_import(kind: str, path: str | Path) -> SpectralImportPreview:
+    """Parse a spectral import file for display, without mutating anything.
+
+    ``kind="qe_csv"`` runs the vendor QE loader (header unit auto-detection —
+    the same parse attach-time takes via ``detector.qe_table_path``);
+    ``kind="tape7"`` runs the MODTRAN tape7 reader (canonical units — the same
+    parse ``atmosphere.modtran.tape7_path`` takes). Same errors as attach time.
+    """
+    if kind == "qe_csv":
+        from radiant.io.qe_csv import load_qe_csv
+
+        curve = load_qe_csv(path)
+        return SpectralImportPreview(
+            kind=kind,
+            source=str(path),
+            n_points=curve.n_points,
+            wavelength_um=curve.wavelength_um,
+            series=(("QE [fraction]", curve.qe),),
+        )
+    if kind == "tape7":
+        from radiant.atmosphere.modtran import Tape7Import
+
+        imported = Tape7Import.from_file(path)
+        return SpectralImportPreview(
+            kind=kind,
+            source=str(path),
+            n_points=int(imported.wavelength_um.size),
+            wavelength_um=imported.wavelength_um,
+            series=(
+                ("Transmittance [-]", imported.transmittance),
+                ("Path radiance [W/m²/sr/µm]", imported.path_radiance),
+            ),
+        )
+    raise ApiValidationError(
+        f"preview_spectral_import: unknown kind {kind!r} (expected 'qe_csv' or 'tape7')."
     )

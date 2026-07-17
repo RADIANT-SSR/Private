@@ -40,6 +40,7 @@ from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWi
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
+from radiant.gui.widgets.import_preview_dialog import ImportPreviewDialog
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
 
@@ -192,6 +193,12 @@ class DetectorInputsForm(QWidget):
                 self._define_qe.setObjectName("defineQeButton")
                 self._define_qe.clicked.connect(self._on_define_qe)
                 box.addWidget(self._define_qe)
+                # D5 confirm-before-Apply import: preview the parsed curve (header
+                # unit auto-detection shown) before the one sensor.set commits it.
+                self._import_qe = QPushButton("Import QE curve (preview)…", card)
+                self._import_qe.setObjectName("importQeButton")
+                self._import_qe.clicked.connect(self._on_import_qe)
+                box.addWidget(self._import_qe)
 
         layout.addWidget(card)
 
@@ -213,6 +220,20 @@ class DetectorInputsForm(QWidget):
         if not filename:
             return
         self.define_qe_table(dialog.spectrum(), Path(filename))
+
+    def _on_import_qe(self) -> None:
+        """Preview a vendor QE CSV (D5 dialog); on Apply bind detector.qe_table_path."""
+        if self._sensor is None:
+            return
+        dialog = ImportPreviewDialog("qe_csv", self)
+        if dialog.exec() != int(dialog.DialogCode.Accepted):
+            return
+        path = dialog.selected_path()
+        if path is None:
+            return
+        self._sensor.set("detector.qe_table_path", path)
+        self.refresh()
+        self.parameterEdited.emit("detector.qe_table_path")
 
     def define_qe_table(self, spectrum: dict[str, list[float]], path: Path) -> None:
         """Write *spectrum* as a QE CSV at *path* and bind it — one ``sensor.set``.

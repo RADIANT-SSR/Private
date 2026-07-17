@@ -26,7 +26,6 @@ from radiant.gui.widgets.source_inputs_form import _RADIOMETRY_FIELDS  # noqa: E
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 from radiant.gui.widgets.target_shape_panel import (  # noqa: E402
     NOMINAL_SHAPE_DIMENSIONS,
-    TargetShapePanel,
 )
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"

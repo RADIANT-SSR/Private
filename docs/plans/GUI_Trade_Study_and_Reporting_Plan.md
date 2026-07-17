@@ -1,9 +1,10 @@
 # GUI Trade-Study & Reporting Plan — the Tier-2 Increment
 
-**Status:** **Ratified (owner, 2026-07-16) — EXECUTION ON HOLD** (owner directive: concurrent
-agent work is in flight; no phase dispatches until the owner lifts the hold). When lifted:
-FW-A/FW-B may start immediately; GUI phases additionally wait for the Exposure Increment's
-GX-2 closeout (so the acceptance-walkthrough punch list folds into GT-0 rather than colliding).
+**Status:** **Ratified — Active (hold lifted by owner, 2026-07-16 evening, overnight run).**
+In flight overnight: FW-A, FW-B, GT-0 item 1 (agreed Source rework), GT-7 — none touching the
+concurrent agent's uncommitted files (`scripting_window.py`, `detector_illustration.py`,
+`viewer/projection.py`). GT-1…GT-6 remain gated on the Exposure Increment's GX-2 closeout
+(owner acceptance walkthrough).
 **Date:** 2026-07-16
 **Scope:** the work the owner deferred out of the Exposure Increment ("I don't think we need
 sweeps and MC — I really want to expose existing capabilities", 2026-07-16) now returns as its

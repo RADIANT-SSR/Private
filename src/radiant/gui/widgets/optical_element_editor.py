@@ -61,7 +61,9 @@ ELEMENT_EDIT_PATH: Final[str] = "optics_config.element_list"
 _TITLE = "Optical element train — per-element R/T, temperature, geometry (ε derived)"
 _HINT = (
     "R/T cells take a scalar (0.97) or a spectral-CSV path. ε is Kirchhoff-derived "
-    "(read-only). Apply commits the train (one API call); Save persists it in the config."
+    "(read-only). Kind is a descriptive label for refractive elements (legend/reporting; "
+    "the physics comes from R/T and temperature) — a REFLECTIVE row is always a mirror. "
+    "Apply commits the train (one API call); Save persists it in the config."
 )
 
 _TRANSFER_CHOICES: Final[tuple[str, ...]] = ("REFLECTIVE", "REFRACTIVE")
@@ -230,6 +232,13 @@ class OpticalElementEditor(QWidget):
         kind_combo.addItems(list(_KIND_CHOICES))
         kind_combo.setCurrentText(str(entry.get("kind", "lens")).lower())
         self._table.setCellWidget(row, _COL_KIND, kind_combo)
+        # Kind applies to refractive rows only (a REFLECTIVE row is always a mirror —
+        # the factory forces it and entries() omits kind). Keep the combo honest:
+        # locked to "mirror" and disabled while the row is reflective.
+        transfer_combo.currentTextChanged.connect(
+            lambda text, combo=kind_combo: self._sync_kind_combo(combo, text)
+        )
+        self._sync_kind_combo(kind_combo, transfer)
 
         self._table.setItem(row, _COL_VALUE, QTableWidgetItem(str(value)))
         self._table.setItem(
@@ -242,6 +251,28 @@ class OpticalElementEditor(QWidget):
         eps_item = QTableWidgetItem("—")
         eps_item.setFlags(eps_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         self._table.setItem(row, _COL_EPS, eps_item)
+
+    @staticmethod
+    def _sync_kind_combo(kind_combo: QComboBox, transfer_text: str) -> None:
+        """Lock Kind to "mirror" (disabled) on a REFLECTIVE row; free it on REFRACTIVE.
+
+        Kind is a descriptive label for refractive elements; a reflective element is
+        a mirror by construction, so showing an editable refractive kind there would
+        misstate the document (owner report 2026-07-16).
+        """
+        reflective = transfer_text.upper() == "REFLECTIVE"
+        if reflective:
+            if kind_combo.findText("mirror") < 0:
+                kind_combo.insertItem(0, "mirror")
+            kind_combo.setCurrentText("mirror")
+            kind_combo.setEnabled(False)
+        else:
+            kind_combo.setEnabled(True)
+            mirror_idx = kind_combo.findText("mirror")
+            if mirror_idx >= 0:
+                if kind_combo.currentText() == "mirror":
+                    kind_combo.setCurrentText("lens")
+                kind_combo.removeItem(mirror_idx)
 
     def _remove_current(self) -> None:
         row = self._table.currentRow()

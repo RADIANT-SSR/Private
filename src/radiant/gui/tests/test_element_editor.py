@@ -175,3 +175,30 @@ class TestEditorRoundTrip:
         assert _evaluate(reloaded).metrics["snr"] == pytest.approx(
             _evaluate(sensor).metrics["snr"], rel=1e-12
         )
+
+
+class TestKindColumn:
+    """Kind is a refractive-only descriptive label; reflective rows lock to mirror."""
+
+    def test_reflective_row_locks_kind_to_mirror(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(Sensor.from_yaml(_EXAMPLE), {})
+        editor._add_mirror.click()
+        kind = editor.table.cellWidget(0, 2)
+        assert kind.currentText() == "mirror"
+        assert not kind.isEnabled()
+
+    def test_switching_to_refractive_frees_kind(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(Sensor.from_yaml(_EXAMPLE), {})
+        editor._add_mirror.click()
+        transfer = editor.table.cellWidget(0, 1)
+        transfer.setCurrentText("REFRACTIVE")
+        kind = editor.table.cellWidget(0, 2)
+        assert kind.isEnabled()
+        assert kind.currentText() != "mirror"
+        # entries() carries kind for the refractive row only.
+        entry = editor.entries()[0]
+        assert entry["kind"] == kind.currentText()

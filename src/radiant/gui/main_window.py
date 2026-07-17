@@ -290,6 +290,12 @@ class RADIANTMainWindow(QMainWindow):
         self._add_action(file_menu, "file.save_as", "Save As…", enabled=False)
         self._add_action(file_menu, "file.export_yaml", "Export YAML…", enabled=False)
         self._add_action(file_menu, "file.export_json", "Export JSON Result…", enabled=False)
+        self._add_action(
+            file_menu, "file.export_resolved_yaml", "Export Resolved YAML…", enabled=False
+        )
+        self._add_action(file_menu, "file.export_metrics_csv", "Export Metrics CSV…", enabled=False)
+        self._add_action(file_menu, "file.export_sweep_csv", "Export Sweep CSV…", enabled=False)
+        self._add_action(file_menu, "file.export_xlsx", "Export XLSX Workbook…", enabled=False)
         file_menu.addSeparator()
         quit_action = self._add_action(
             file_menu, "file.quit", "Quit", enabled=True, shortcut=QKeySequence.StandardKey.Quit
@@ -701,6 +707,11 @@ class RADIANTMainWindow(QMainWindow):
         # sensor; JSON-result export additionally needs a result (armed with the
         # Inspector when the first result lands).
         self.action("file.export_yaml").setEnabled(enabled)
+        self.action("file.export_resolved_yaml").setEnabled(enabled)
+        if not enabled:
+            self.action("file.export_metrics_csv").setEnabled(False)
+            self.action("file.export_sweep_csv").setEnabled(False)
+            self.action("file.export_xlsx").setEnabled(False)
         self.action("tools.schema").setEnabled(enabled)
         self.action("tools.explain").setEnabled(enabled)
         self.action("edit.reset_defaults").setEnabled(enabled)
@@ -782,6 +793,8 @@ class RADIANTMainWindow(QMainWindow):
         # the most recent result, so it stays enabled once armed.
         self.action("tools.inspector").setEnabled(True)
         self.action("file.export_json").setEnabled(True)
+        self.action("file.export_metrics_csv").setEnabled(True)
+        self.action("file.export_xlsx").setEnabled(True)
         self._inspector_button.setEnabled(True)
         # A clean run is the committed baseline for undo: snapshot the resolved input
         # values so the next edit's before-value is known (the panel signals an edit only
@@ -934,6 +947,11 @@ class RADIANTMainWindow(QMainWindow):
         # (Sensor.save / ChainResult.to_provenance_record / parameter_defs / explain).
         self.action("file.export_yaml").triggered.connect(self._on_export_yaml)
         self.action("file.export_json").triggered.connect(self._on_export_json)
+        # GT-4 (Tier-2): the FW-B export surfaces.
+        self.action("file.export_resolved_yaml").triggered.connect(self._on_export_resolved_yaml)
+        self.action("file.export_metrics_csv").triggered.connect(self._on_export_metrics_csv)
+        self.action("file.export_sweep_csv").triggered.connect(self._on_export_sweep_csv)
+        self.action("file.export_xlsx").triggered.connect(self._on_export_xlsx)
         self.action("tools.schema").triggered.connect(self._on_schema_browser)
         self.action("tools.explain").triggered.connect(self._on_explain_parameter)
         # GT-1 (Tier-2): the sweep surface — worker-threaded, Gap 72 progress/cancel.
@@ -1165,6 +1183,7 @@ class RADIANTMainWindow(QMainWindow):
         dialog.exec()
         if dialog.sweep_result is not None:
             self.last_sweep_result = dialog.sweep_result
+            self.action("file.export_sweep_csv").setEnabled(True)
             self.statusBar().showMessage(
                 "Sweep complete — result retained (export via SweepResult.to_csv)"
             )
@@ -1243,6 +1262,60 @@ class RADIANTMainWindow(QMainWindow):
             'print(f"failed cells: {batch.n_failed}")\n'
         )
         self._open_script_scaffold("Batch", snippet)
+
+    def _save_dialog(self, title: str, default: str, filter_: str) -> str | None:
+        filename, _ = QFileDialog.getSaveFileName(self, title, default, filter_)
+        return filename or None
+
+    def _on_export_resolved_yaml(self) -> None:
+        """File → Export Resolved YAML… (GT-4): the fully-specified export (FW-B)."""
+        sensor = self._sensor
+        if sensor is None:
+            return
+        filename = self._save_dialog("Export resolved YAML", "resolved.yaml", _YAML_FILTER)
+        if filename is None:
+            return
+        try:
+            text = sensor.to_yaml(scope="resolved")
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, "export_resolved_yaml", self).exec()
+            return
+        Path(filename).write_text(text, encoding="utf-8")
+        self.statusBar().showMessage(f"Resolved config exported to {filename}")
+
+    def _on_export_metrics_csv(self) -> None:
+        """File → Export Metrics CSV… (GT-4): one ChainResult.to_csv call (FW-B)."""
+        if self._last_result is None:
+            return
+        filename = self._save_dialog("Export metrics CSV", "metrics.csv", "CSV (*.csv)")
+        if filename is None:
+            return
+        self._last_result.to_csv(filename)
+        self.statusBar().showMessage(f"Metrics exported to {filename}")
+
+    def _on_export_sweep_csv(self) -> None:
+        """File → Export Sweep CSV… (GT-4): the retained sweep's to_csv (FW-B)."""
+        sweep = self.last_sweep_result
+        if sweep is None:
+            return
+        filename = self._save_dialog("Export sweep CSV", "sweep.csv", "CSV (*.csv)")
+        if filename is None:
+            return
+        sweep.to_csv(filename)
+        self.statusBar().showMessage(f"Sweep exported to {filename}")
+
+    def _on_export_xlsx(self) -> None:
+        """File → Export XLSX Workbook… (GT-4, owner D2): config + metrics + sweep."""
+        sensor = self._sensor
+        if sensor is None:
+            return
+        filename = self._save_dialog("Export XLSX workbook", "radiant.xlsx", "XLSX (*.xlsx)")
+        if filename is None:
+            return
+        from radiant.gui.xlsx_export import export_workbook
+
+        export_workbook(filename, sensor, self._last_result, self.last_sweep_result)
+        self.statusBar().showMessage(f"Workbook exported to {filename}")
 
     def _on_schema_browser(self) -> None:
         """Tools → Parameter Schema Browser: the read-only Gap-70 schema tree."""

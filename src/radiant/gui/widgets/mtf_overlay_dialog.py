@@ -35,7 +35,7 @@ from radiant.core.exceptions import RadiantError
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 
 if TYPE_CHECKING:
-    from radiant.io.results import ChainResult
+    from radiant.api import ChainResult
 
 _FREQ_UNITS = ("cy/m", "cy/mm", "cy/px", "normalized")
 

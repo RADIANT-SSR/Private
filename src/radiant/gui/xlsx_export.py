@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any
 from radiant.core.exceptions import RadiantError
 
 if TYPE_CHECKING:
+    from radiant.api import ChainResult
     from radiant.api.sensor import Sensor
-    from radiant.io.results import ChainResult
 
 
 def export_workbook(

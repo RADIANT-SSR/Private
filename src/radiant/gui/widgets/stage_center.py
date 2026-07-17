@@ -169,6 +169,10 @@ class StagePane(QWidget):
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
     parameterEdited = Signal(str)
+    # A compound edit: several dot-paths changed by one user action that must undo as a
+    # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
+    # payload is the list of affected dot-paths, primary first.
+    compoundParameterEdited = Signal(list)
 
     def __init__(
         self,
@@ -658,23 +662,32 @@ class StagePane(QWidget):
         if self._sensor is None:
             return
         self._sensor.set("geometry.target.shape", value)
-        self._seed_nominal_dimensions(value)
+        seeded = self._seed_nominal_dimensions(value)
         self._preview_last_result()
-        self.parameterEdited.emit("geometry.target.shape")
+        # Emit the shape edit and any dimensions seeded alongside it as ONE compound edit
+        # so the host records them under a single undo macro — undoing the shape pick then
+        # reverses the seeded dims too, in one step (CU-141), instead of leaving them behind.
+        self.compoundParameterEdited.emit(["geometry.target.shape", *seeded])
 
-    def _seed_nominal_dimensions(self, shape: str) -> None:
+    def _seed_nominal_dimensions(self, shape: str) -> list[str]:
         """Seed *shape*'s required dims to nominal non-zero values where still unset (CU-125).
 
         Only a dimension currently at the ``0.0`` Rule-12 "not set" sentinel is seeded; a
         user-set non-zero value is never overwritten. Each seed is one ``sensor.set``. The
         schema keeps the ``0.0`` default (0.0 still means "shape not provided") — this is a
         GUI-side UX default so a freshly-picked shape evaluates cleanly.
+
+        Returns the list of dot-paths actually seeded, so the caller can bundle them with the
+        shape edit into a single undo macro (CU-141).
         """
         if self._sensor is None:
-            return
+            return []
+        seeded: list[str] = []
         for dotpath, nominal in NOMINAL_SHAPE_DIMENSIONS.get(shape, {}).items():
             if float(self._sensor.get(dotpath)) == 0.0:
                 self._sensor.set(dotpath, nominal)
+                seeded.append(dotpath)
+        return seeded
 
     def _on_panel_edit_requested(self, dotpath: str) -> None:
         """Open the shared Parameter Editor on a target dimension/RPY field (§4.3).
@@ -856,6 +869,10 @@ class StageCenter(QWidget):
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
     parameterEdited = Signal(str)
+    # A compound edit: several dot-paths changed by one user action that must undo as a
+    # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
+    # payload is the list of affected dot-paths, primary first.
+    compoundParameterEdited = Signal(list)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -876,6 +893,7 @@ class StageCenter(QWidget):
             pane.pinOutputRequested.connect(self.pinOutputRequested)
             pane.pinMetricRequested.connect(self.pinMetricRequested)
             pane.parameterEdited.connect(self.parameterEdited)
+            pane.compoundParameterEdited.connect(self.compoundParameterEdited)
             self._stack.addWidget(pane)
             self._panes[namespace] = pane
 

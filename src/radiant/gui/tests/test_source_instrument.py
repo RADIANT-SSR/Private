@@ -181,12 +181,16 @@ class TestSourceEditAndWatch:
             pane = _source_pane(qtbot, sensor)
             panel = pane.target_shape_panel
             assert panel is not None
-            edited: list[str] = []
-            pane.parameterEdited.connect(edited.append)
+            compound: list[list[str]] = []
+            pane.compoundParameterEdited.connect(compound.append)
             panel.shape_combo.setCurrentText(shape)  # emits shapeRequested → pane seeds dims
             for dotpath, nominal in NOMINAL_SHAPE_DIMENSIONS[shape].items():
                 assert float(sensor.get(dotpath)) == pytest.approx(nominal)
-            assert edited == ["geometry.target.shape"]
+            # CU-141: the shape pick + the dims seeded alongside it are emitted as ONE
+            # compound edit (shape first) so the host records them under a single undo macro.
+            assert len(compound) == 1
+            assert compound[0][0] == "geometry.target.shape"
+            assert set(compound[0][1:]) == set(NOMINAL_SHAPE_DIMENSIONS[shape].keys())
             # The subsequent physics re-evaluate succeeds (no ParameterBoundsError).
             assert _evaluate(sensor) is not None
 

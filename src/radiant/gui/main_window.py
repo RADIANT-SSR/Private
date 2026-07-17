@@ -324,7 +324,15 @@ class RADIANTMainWindow(QMainWindow):
         self._add_action(view_menu, "view.font_smaller", "Font Size −", enabled=False)
 
         run_menu = bar.addMenu("&Run")
-        self._add_action(run_menu, "run.evaluate", "Evaluate", enabled=False, shortcut="F5")
+        evaluate_action = self._add_action(
+            run_menu, "run.evaluate", "Evaluate", enabled=False, shortcut="F5"
+        )
+        # CU-142: a bare F5 needs the Fn modifier on stock macOS (top-row keys default
+        # to hardware functions), so the app's most-used action would be unreachable by
+        # keyboard there. Add a reachable chord alternate — Ctrl+Return maps to
+        # ⌘+Return on macOS and Ctrl+Return on Windows/Linux — while keeping the
+        # familiar F5=Run convention. (Ctrl+R is already bound to Validate Only.)
+        evaluate_action.setShortcuts([QKeySequence("F5"), QKeySequence("Ctrl+Return")])
         self._add_action(
             run_menu, "run.validate", "Validate Only", enabled=False, shortcut="Ctrl+R"
         )
@@ -462,6 +470,7 @@ class RADIANTMainWindow(QMainWindow):
         # refreshes the tree exactly like a tree edit.
         stage_center.bind_sensor(self._sensor, param_panel.display_units)
         stage_center.parameterEdited.connect(self._on_form_parameter_edited)
+        stage_center.compoundParameterEdited.connect(self._on_compound_parameter_edited)
 
     def _build_scripting_window(self) -> None:
         """Build the separate scripting window (Command Window + Workspace, arch doc §4.6.1).
@@ -546,6 +555,28 @@ class RADIANTMainWindow(QMainWindow):
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
         self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
+        self._debounce.start()
+
+    def _on_compound_parameter_edited(self, dotpaths: list[str]) -> None:
+        """Record a multi-dot-path edit (e.g. a shape pick + seeded dims) as one undo step.
+
+        A single user action changed several parameters that must reverse atomically (CU-141).
+        The individual :meth:`_push_edit_command` calls are wrapped in a ``QUndoStack`` macro so
+        one Undo reverses the whole compound; the dirty / stale / re-evaluate side effects fire
+        once, exactly as for a single edit. A single-element compound takes the ordinary path
+        (no empty-macro artifact on the stack).
+        """
+        self._central.stage_center.clear_geometry_highlight()
+        if len(dotpaths) > 1:
+            self._undo_stack.beginMacro(f"Set {dotpaths[0]} (+{len(dotpaths) - 1} seeded)")
+            for dotpath in dotpaths:
+                self._push_edit_command(dotpath)
+            self._undo_stack.endMacro()
+        elif dotpaths:
+            self._push_edit_command(dotpaths[0])
+        self._mark_dirty()
+        self._stage_strip.set_all_status("stale")
+        self.statusBar().showMessage(f"Edited {dotpaths[0]} — re-evaluating…")
         self._debounce.start()
 
     def _on_form_parameter_edited(self, dotpath: str) -> None:
@@ -1204,9 +1235,9 @@ class RADIANTMainWindow(QMainWindow):
 
         The panel signals an edit only after applying it, so the *new* value is read from
         the sensor and the *old* value from the committed snapshot. A non-scalar, unresolved,
-        or no-op edit records nothing (there is nothing meaningful to reverse); a shape/enum
-        change records the shape value alone (any nominal dimensions seeded alongside it are
-        not part of this single reversible edit — documented Phase-9 limitation).
+        or no-op edit records nothing (there is nothing meaningful to reverse). A shape pick
+        and the dimensions seeded alongside it are recorded together under one undo macro via
+        :meth:`_on_compound_parameter_edited` (CU-141), so they reverse as a single step.
         """
         sensor = self._sensor
         if sensor is None:

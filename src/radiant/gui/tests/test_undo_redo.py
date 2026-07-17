@@ -11,10 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
+from PySide6.QtGui import QKeySequence
 
 from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.settings_store import SettingsStore
+from radiant.gui.widgets.target_shape_panel import NOMINAL_SHAPE_DIMENSIONS
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 _APERTURE = "optics.aperture_diameter_m"
@@ -84,3 +86,45 @@ class TestUndoRedo:
         assert window._undo_stack.count() == 0
         assert not window.action("edit.undo").isEnabled()
         assert window.sensor is replacement
+
+
+class TestCU141ShapeMacroUndo:
+    """CU-141: a shape pick + the dims seeded alongside it reverse in a single Undo."""
+
+    def test_shape_and_seeded_dims_undo_as_one_macro(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _window(qtbot, tmp_path)
+        panel = window._central.stage_center.pane("source").target_shape_panel
+        assert panel is not None
+
+        shape = "box"
+        dims = list(NOMINAL_SHAPE_DIMENSIONS[shape])
+        shape_before = window.sensor.get("geometry.target.shape")
+        for dp in dims:
+            assert float(window.sensor.get(dp)) == 0.0
+        before = window._undo_stack.count()
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            panel.shape_combo.setCurrentText(shape)  # shape pick → seeds dims → one macro
+
+        # Exactly ONE new stack entry — the macro — not the shape plus N separate commands.
+        assert window._undo_stack.count() == before + 1
+        assert window.sensor.get("geometry.target.shape") == shape
+        for dp in dims:
+            assert float(window.sensor.get(dp)) > 0.0
+
+        # A single Undo reverses the shape AND every seeded dimension atomically.
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window._undo_stack.undo()
+        assert window.sensor.get("geometry.target.shape") == shape_before
+        for dp in dims:
+            assert float(window.sensor.get(dp)) == 0.0
+
+
+class TestCU142EvaluateShortcut:
+    """CU-142: Evaluate keeps F5 and gains a macOS-reachable Ctrl+Return alternate."""
+
+    def test_evaluate_has_f5_and_ctrl_return(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _window(qtbot, tmp_path)
+        seqs = window.action("run.evaluate").shortcuts()
+        assert QKeySequence("F5") in seqs
+        assert QKeySequence("Ctrl+Return") in seqs

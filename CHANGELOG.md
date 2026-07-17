@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **GUI: undoing a target-shape pick now also reverses the dimensions seeded alongside it, in one
+  step (CU-141, view-only).** Picking a shape auto-seeds any still-unset required dimensions to
+  nominal values (CU-125); previously Undo reversed only the shape enum and left the seeds behind.
+  The shape edit and its seeds are now recorded under a single `QUndoStack` macro, so one Undo
+  restores the exact pre-pick state (shape *and* dimensions). Golden results untouched.
+- **GUI: Evaluate gains a `Ctrl+Return` (⌘+Return on macOS) shortcut alongside `F5` (CU-142,
+  view-only).** A bare `F5` needs the Fn modifier on stock macOS, leaving the app's most-used action
+  keyboard-unreachable there; the added chord fixes reachability while keeping the familiar F5=Run
+  convention. Menu items and the Run button are unchanged.
 - **Results-affecting (both-set configs only): `geometry.target.shape` now wins over
   `geometry.target.projected_area_m2` in the *published* projected area, not just the descriptor
   (CU-148).** When a config set **both** a concrete shape and an explicit `projected_area_m2`, the

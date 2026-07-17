@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
@@ -93,6 +94,8 @@ _GROUPS: Final[tuple[tuple[str, tuple[tuple[str, str], ...]], ...]] = (
     ("Background & contrast reference", _BACKGROUND_FIELDS),
     ("Scene type & regime", _SCENE_FIELDS),
 )
+
+_SCENE_TYPE_PATH = "source.scene_type"
 
 _TITLE = "Source — thermal & reflective radiometry, scene declaration"
 
@@ -167,9 +170,51 @@ class SourceInputsForm(QWidget):
         self.refresh()
 
     def refresh(self) -> None:
-        """Re-read every field's value+unit text from the bound sensor (— if no sensor)."""
+        """Re-read every field and gate rows on the declared scene type (Gap 85).
+
+        A parameter carrying ``regime:<type>`` schema tags matters only for those
+        declared scene types: when ``source.scene_type`` is declared (not ``auto``)
+        and excludes a row's regimes, the row disables with an explanatory tooltip
+        (badged, never hidden — the field stays discoverable). ``auto`` (or an
+        unresolvable in-progress config) gates nothing. The tags live on the
+        ``ParameterDef``s (never transcribed here).
+        """
+        declared = self._declared_scene_type()
         for dotpath, row in self._rows.items():
             row.set_value_text(self._value_text(dotpath))
+            regimes = self._regime_tags(dotpath)
+            relevant = (
+                declared in (None, "auto")
+                or not regimes
+                or dotpath == _SCENE_TYPE_PATH
+                or declared in regimes
+            )
+            if relevant:
+                row.set_editable(True)
+                row.setToolTip("")
+            else:
+                row.set_editable(False)
+                row.setToolTip(
+                    f"Not used for declared scene type '{declared}' "
+                    f"(relevant for: {', '.join(sorted(regimes))}). "
+                    "Set Scene type to 'auto' to edit freely."
+                )
+
+    def _declared_scene_type(self) -> str | None:
+        """The declared source.scene_type, or None with no / unresolvable sensor."""
+        if self._sensor is None:
+            return None
+        try:
+            return str(self._sensor.get_input(_SCENE_TYPE_PATH))
+        except RadiantError:
+            return None
+
+    def _regime_tags(self, dotpath: str) -> set[str]:
+        """The regime:<type> tag values on *dotpath* (empty = regime-independent)."""
+        if self._sensor is None:
+            return set()
+        pdef = self._sensor.parameter_def(dotpath)
+        return {tag.split(":", 1)[1] for tag in pdef.tags if tag.startswith("regime:")}
 
     def _value_text(self, dotpath: str) -> str:
         """The value+unit text for *dotpath* in its display unit (— if unset)."""

@@ -248,3 +248,52 @@ class TestReflectiveAndSceneType:
         assert any("scene_type" in t or "declared" in t.lower() for t in texts), (
             f"no declared-vs-derived warning; warnings seen: {texts[:5]}"
         )
+
+
+class TestRelevanceGating:
+    """Gap 85 (source stage): declared scene type gates parameter relevance."""
+
+    def _form(self, qtbot, sensor):  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.source_inputs_form import SourceInputsForm
+
+        form = SourceInputsForm()
+        qtbot.addWidget(form)
+        form.bind_sensor(sensor, {})
+        return form
+
+    def test_auto_gates_nothing(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        form = self._form(qtbot, sensor)
+        for dotpath in ("source.target.fill_fraction", "source.contrast_reference.temperature"):
+            assert form.row(dotpath).isEnabled(), dotpath
+
+    def test_extended_disables_subpixel_fields(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set("source.scene_type", "extended")
+        form = self._form(qtbot, sensor)
+        # Sub-pixel-only knobs gate off; the explanation names the declared type.
+        for dotpath in ("source.target.fill_fraction", "source.background.temperature"):
+            assert not form.row(dotpath).isEnabled(), dotpath
+            assert "extended" in form.row(dotpath).toolTip()
+        # Extended-relevant + regime-independent fields stay editable.
+        assert form.row("source.contrast_reference.temperature").isEnabled()
+        assert form.row("source.target.temperature").isEnabled()
+        # The scene-type selector itself never gates (the way back out).
+        assert form.row("source.scene_type").isEnabled()
+
+    def test_sub_pixel_disables_contrast_reference(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set("source.scene_type", "sub_pixel")
+        form = self._form(qtbot, sensor)
+        assert not form.row("source.contrast_reference.temperature").isEnabled()
+        assert form.row("source.target.fill_fraction").isEnabled()
+        assert form.row("source.background.temperature").isEnabled()
+
+    def test_declaring_back_to_auto_reenables(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set("source.scene_type", "extended")
+        form = self._form(qtbot, sensor)
+        assert not form.row("source.target.fill_fraction").isEnabled()
+        sensor.set("source.scene_type", "auto")
+        form.refresh()
+        assert form.row("source.target.fill_fraction").isEnabled()

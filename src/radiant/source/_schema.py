@@ -89,7 +89,7 @@ FILL_FRACTION = ParameterDef(
     input_unit="",
     default=1.0,
     bounds=(0.0, 1.0),
-    tags=frozenset({"source", "target", "sub_pixel"}),
+    tags=frozenset({"source", "target", "sub_pixel", "regime:sub_pixel"}),
     default_justification="1.0 = extended scene (most common case).",
 )
 
@@ -101,7 +101,7 @@ BACKGROUND_TEMPERATURE = ParameterDef(
     input_unit="K",
     default=290.0,
     bounds=(0.0, 5000.0),
-    tags=frozenset({"source", "background"}),
+    tags=frozenset({"source", "background", "regime:sub_pixel"}),
     default_justification="290 K is Earth-ambient background.",
 )
 
@@ -113,7 +113,7 @@ BACKGROUND_EMISSIVITY = ParameterDef(
     input_unit="",
     default=0.95,
     bounds=(0.0, 1.0),
-    tags=frozenset({"source", "background"}),
+    tags=frozenset({"source", "background", "regime:sub_pixel"}),
     default_justification="0.95 is typical for natural terrain in LWIR.",
 )
 
@@ -138,7 +138,7 @@ CONTRAST_REFERENCE_TEMPERATURE = ParameterDef(
     input_unit="K",
     default=0.0,
     bounds=(0.0, 5000.0),
-    tags=frozenset({"source", "contrast_reference"}),
+    tags=frozenset({"source", "contrast_reference", "regime:extended"}),
     default_justification="0 K = disabled; the extended contrast_snr is not emitted.",
 )
 
@@ -153,7 +153,7 @@ CONTRAST_REFERENCE_EMISSIVITY = ParameterDef(
     input_unit="",
     default=0.95,
     bounds=(0.0, 1.0),
-    tags=frozenset({"source", "contrast_reference"}),
+    tags=frozenset({"source", "contrast_reference", "regime:extended"}),
     default_justification="0.95 is typical for natural terrain in LWIR.",
 )
 
@@ -304,7 +304,7 @@ BACKGROUND_MATERIAL = ParameterDef(
     canonical_unit="",
     input_unit="",
     default="grey",
-    tags=frozenset({"source", "background", "spectral"}),
+    tags=frozenset({"source", "background", "spectral", "regime:sub_pixel"}),
     default_justification=(
         "'grey' reproduces the pre-CU-008 scalar behavior exactly, so "
         "every existing sub-pixel configuration is unchanged."
@@ -324,7 +324,7 @@ BACKGROUND_EMISSIVITY_PATH = ParameterDef(
     canonical_unit="",
     input_unit="",
     default="",
-    tags=frozenset({"source", "background", "spectral"}),
+    tags=frozenset({"source", "background", "spectral", "regime:sub_pixel"}),
     default_justification="Empty string = no override (use material).",
 )
 

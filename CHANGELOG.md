@@ -21,6 +21,12 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Scene-type parameter relevance gating (Gap 85 partial, results-neutral).** Source-stage
+  parameters now carry `regime:<scene_type>` schema tags (background + contrast-reference +
+  fill-fraction); with a declared `source.scene_type`, the GUI Source form **disables** (never
+  hides) rows irrelevant to that type with a tooltip naming the relevant regimes — declare
+  `extended` and the sub-pixel knobs gate off, declare `sub_pixel` and the contrast reference
+  gates off, `auto` gates nothing. Metadata-only schema change; no computed value changes.
 - **GUI: confirm-before-Apply import previews (ADR-0009 D5, results-neutral).** New shared
   `ImportPreviewDialog`: pick a file, see the parsed curve + unit-labeled parse facts (point
   count, λ span, value ranges), then Apply commits the path with one `sensor.set` — or the

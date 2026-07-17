@@ -245,6 +245,6 @@ class TestReflectiveAndSceneType:
             warnings.simplefilter("always")
             s.evaluate()
         texts = [str(w.message) for w in caught]
-        assert any(
-            "scene_type" in t or "declared" in t.lower() for t in texts
-        ), f"no declared-vs-derived warning; warnings seen: {texts[:5]}"
+        assert any("scene_type" in t or "declared" in t.lower() for t in texts), (
+            f"no declared-vs-derived warning; warnings seen: {texts[:5]}"
+        )

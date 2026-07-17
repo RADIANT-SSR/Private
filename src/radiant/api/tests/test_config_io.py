@@ -284,3 +284,42 @@ class TestResetAll:
         s = Sensor.from_yaml(_EXAMPLE)
         with pytest.raises(ApiValidationError, match="scope"):
             s.reset_all(scope="everything")
+
+
+class TestInlineSpectralTables:
+    """Inline {wavelength_um, values} element values (owner request 2026-07-16)."""
+
+    def test_io_parser_accepts_inline_table(self) -> None:
+        from radiant.io.element_config import parse_element_entries
+
+        entries = [
+            {
+                "name": "M1",
+                "transfer_mode": "REFLECTIVE",
+                "reflectance": {"wavelength_um": [3.0, 5.0], "values": [0.97, 0.98]},
+                "temperature_K": 293.0,
+                "diameter_m": 0.3,
+                "distance_to_fpa_m": 1.0,
+            }
+        ]
+        grid = np.linspace(3.4, 5.0, 30)
+        (element,) = parse_element_entries(entries, grid)
+        assert 0.97 <= float(element.reflectance.values.mean()) <= 0.98
+        # Preview reports the derived epsilon from the inline table (Rule 5).
+        (preview,) = preview_optical_elements(entries, wavelength_um=grid)
+        assert preview.emissivity_mean == pytest.approx(
+            1.0 - float(element.reflectance.values.mean()), abs=1e-9
+        )
+
+    def test_io_parser_rejects_malformed_inline_table(self) -> None:
+        from radiant.io.element_config import ElementConfigError, parse_element_entries
+
+        entries = [
+            {
+                "name": "M1",
+                "transfer_mode": "REFLECTIVE",
+                "reflectance": {"wavelength_um": [3.0, 5.0], "values": [0.97]},
+            }
+        ]
+        with pytest.raises(ElementConfigError, match="equal-length"):
+            parse_element_entries(entries, np.linspace(3.4, 5.0, 10))

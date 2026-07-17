@@ -15,16 +15,12 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
-import numpy as np  # noqa: E402
-
-from radiant.api import preview_optical_elements  # noqa: E402
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.widgets.optical_element_editor import OpticalElementEditor  # noqa: E402
 from radiant.gui.widgets.spectral_table_dialog import (  # noqa: E402
     SpectralTableDialog,
     parse_spectrum_text,
 )
-from radiant.io.element_config import ElementConfigError, parse_element_entries  # noqa: E402
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -60,37 +56,6 @@ class TestDialog:
 
 
 class TestInlineSpectrumDocument:
-    def test_io_parser_accepts_inline_table(self) -> None:
-        entries = [
-            {
-                "name": "M1",
-                "transfer_mode": "REFLECTIVE",
-                "reflectance": {"wavelength_um": [3.0, 5.0], "values": [0.97, 0.98]},
-                "temperature_K": 293.0,
-                "diameter_m": 0.3,
-                "distance_to_fpa_m": 1.0,
-            }
-        ]
-        grid = np.linspace(3.4, 5.0, 30)
-        (element,) = parse_element_entries(entries, grid)
-        assert 0.97 <= float(element.reflectance.values.mean()) <= 0.98
-        # Preview reports the derived epsilon from the inline table (Rule 5).
-        (preview,) = preview_optical_elements(entries, wavelength_um=grid)
-        assert preview.emissivity_mean == pytest.approx(
-            1.0 - float(element.reflectance.values.mean()), abs=1e-9
-        )
-
-    def test_io_parser_rejects_malformed_inline_table(self) -> None:
-        entries = [
-            {
-                "name": "M1",
-                "transfer_mode": "REFLECTIVE",
-                "reflectance": {"wavelength_um": [3.0, 5.0], "values": [0.97]},
-            }
-        ]
-        with pytest.raises(ElementConfigError, match="equal-length"):
-            parse_element_entries(entries, np.linspace(3.4, 5.0, 10))
-
     def test_editor_spectrum_round_trips_through_save(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         """Author a spectral mirror in the editor → Apply → save → load → intact."""
         sensor = Sensor.from_yaml(_EXAMPLE)

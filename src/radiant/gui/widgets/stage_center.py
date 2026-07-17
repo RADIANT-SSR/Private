@@ -269,7 +269,11 @@ class StagePane(QWidget):
                 fills = self._build_sections(subview, tab_layout, tab)
                 if not fills:
                     tab_layout.addStretch(1)
-                self._tabs.addTab(self._wrap_subview(subview, tab), subview.title)
+                # "&" is a Qt mnemonic marker in tab titles ("Scene & regime" rendered as
+                # "Scene _regime", visual QA 2026-07-17) — escape it for display.
+                self._tabs.addTab(
+                    self._wrap_subview(subview, tab), subview.title.replace("&", "&&")
+                )
             self._body_layout.addWidget(self._tabs, 1)
         else:
             # Single flat pane (every v1 stage): sections stack in the body directly.

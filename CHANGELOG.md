@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: unsaved-edit guards, script-editor line numbers, File → New crash fix (CU-140 /
+  CU-144 / CU-145, results-neutral).** File → New / Open / Open Recent now ask
+  Save / Discard / Cancel when the config has unsaved edits; closing a dirty script tab asks
+  Discard / Cancel; the script Editor pane gains a theme-aware line-number margin.
+  **Fixed:** File → New crashed (uncaught resolution error) — every provenance/value display
+  surface now falls back to an unset display on a not-yet-resolvable config (new
+  `safe_provenance` helper used across the parameter tree, geometry forms, YAML view, and the
+  editor dialog), so a blank config is editable as intended.
 - **Bulk parameter reset + CLI element-config support + integration-time mirror (Gap 93 /
   CU-153, results-neutral).** New `Sensor.reset_all(scope="user_set"|"all")` (over the new
   `ParameterSet.input_provenances()` snapshot); the GUI's Edit → Reset to Defaults is now live —

@@ -63,8 +63,8 @@ from radiant.gui.param_format import (
     display_in_unit,
     format_value,
     is_derived,
-    provenance_from_explain,
     provenance_label,
+    safe_provenance,
 )
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 
@@ -149,7 +149,7 @@ class ParameterEditorDialog(QDialog):
 
         # Read-only when the value is derived from a consistency group (⚡): the dialog
         # opens informative but the editors stay disabled (arch doc §4.3, Rule 4).
-        provenance = provenance_from_explain(sensor.explain(dotpath))
+        provenance = safe_provenance(sensor, dotpath)
         self._read_only = is_derived(provenance)
 
         self.setObjectName("parameterEditorDialog")
@@ -422,7 +422,7 @@ class ParameterEditorDialog(QDialog):
         self._clear_error()
         # Refresh the dialog's own informative readouts (the "after"), then let the
         # panel refresh the tree + mark results stale.
-        self._render_current(provenance_from_explain(self._sensor.explain(self._dotpath)))
+        self._render_current(safe_provenance(self._sensor, self._dotpath))
         self._update_preview()
         if self._on_committed is not None:
             # Hand back the chosen unit so the panel adopts it as the row's display

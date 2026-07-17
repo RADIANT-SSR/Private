@@ -29,6 +29,7 @@ import numpy as np
 
 from radiant.api.session import RadiantSession
 from radiant.api.units import convert, inverse_convert
+from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterDef
 
 if TYPE_CHECKING:
@@ -103,6 +104,20 @@ def display_in_unit(
     return inverse_convert(canonical, canonical_unit, display_unit)
 
 
+def safe_provenance(sensor: Sensor, dotpath: str) -> str:
+    """Provenance token for *dotpath*, or "" when the sensor cannot resolve yet.
+
+    ``Sensor.explain`` resolves internally; on a config that cannot resolve (a blank
+    File → New with required parameters unset) it raises — every display surface
+    that only wants a provenance label uses this guard instead of crashing
+    (found 2026-07-16 with the CU-140 guard tests).
+    """
+    try:
+        return provenance_from_explain(sensor.explain(dotpath))
+    except RadiantError:
+        return ""
+
+
 def field_display_text(
     sensor: Sensor,
     dotpath: str,
@@ -121,7 +136,10 @@ def field_display_text(
     pdef = sensor.parameter_def(dotpath)
     try:
         value = sensor.get_input(dotpath)
-    except KeyError:
+    except (KeyError, RadiantError):
+        # KeyError: present-but-unresolved parameter. RadiantError: the whole config
+        # cannot resolve yet (a blank File → New) — the field shows unset, not a crash
+        # (found 2026-07-16 with the CU-140 guard tests).
         value = None
     target = display_units.get(dotpath)
     if target is None or target == pdef.input_unit:
@@ -215,6 +233,7 @@ __all__ = [
     "display_in_unit",
     "field_display_text",
     "provenance_from_explain",
+    "safe_provenance",
     "provenance_label",
     "is_derived",
     "chain_namespace_order",

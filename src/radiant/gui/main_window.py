@@ -936,13 +936,41 @@ class RADIANTMainWindow(QMainWindow):
         else:
             self._refresh_snapshot()
 
+    def _confirm_discard_edits(self) -> bool:
+        """CU-140 guard: with unsaved edits, offer Save / Discard / Cancel.
+
+        Returns True when it is safe to replace the current config (clean state,
+        the user saved, or the user chose Discard); False cancels the action.
+        Save routes through the ordinary :meth:`_on_save` path (Save As when the
+        config has no file yet) and re-checks the dirty flag — a cancelled Save
+        As leaves the edits unsaved, so the swap is cancelled too.
+        """
+        if self._sensor is None or not self._dirty:
+            return True
+        answer = QMessageBox.question(
+            self,
+            "Unsaved changes",
+            "The configuration has unsaved edits. Save them first?",
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+        )
+        if answer == QMessageBox.StandardButton.Save:
+            self._on_save()
+            return not self._dirty
+        return answer == QMessageBox.StandardButton.Discard
+
     def _on_new(self) -> None:
-        """File → New: open a blank config (schema defaults, no file, not yet evaluable)."""
+        """File → New: open a blank config (guarded against losing unsaved edits, CU-140)."""
+        if not self._confirm_discard_edits():
+            return
         self._adopt_sensor(Sensor(), path=None, dirty=False, add_recent=False, evaluate=False)
         self.statusBar().showMessage("New configuration — edit parameters, then Evaluate")
 
     def _on_open(self) -> None:
-        """File → Open: pick a YAML and load it through :meth:`Sensor.load`."""
+        """File → Open: pick a YAML and load it (guarded, CU-140)."""
+        if not self._confirm_discard_edits():
+            return
         start_dir = str(self._current_path.parent) if self._current_path is not None else ""
         filename, _ = QFileDialog.getOpenFileName(
             self, "Open RADIANT config", start_dir, _YAML_FILTER
@@ -975,7 +1003,12 @@ class RADIANTMainWindow(QMainWindow):
         self._recent_menu.setEnabled(bool(recent))
         for entry in recent:
             action = self._recent_menu.addAction(entry)
-            action.triggered.connect(lambda _checked=False, p=entry: self._open_path(p))
+            action.triggered.connect(lambda _checked=False, p=entry: self._open_recent(p))
+
+    def _open_recent(self, path: str) -> None:
+        """Open a recent entry (guarded against losing unsaved edits, CU-140)."""
+        if self._confirm_discard_edits():
+            self._open_path(path)
 
     def _on_save(self) -> None:
         """File → Save: write to the current file, or fall back to Save As if none yet."""

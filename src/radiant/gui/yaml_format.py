@@ -31,7 +31,7 @@ import tempfile
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from radiant.gui.param_format import provenance_from_explain
+from radiant.gui.param_format import safe_provenance
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -85,7 +85,7 @@ def dotpath_provenance(sensor: Sensor) -> dict[str, str]:
     """
     mapping: dict[str, str] = {}
     for dotpath in sensor.parameter_defs():
-        token = provenance_from_explain(sensor.explain(dotpath))
+        token = safe_provenance(sensor, dotpath)
         if token is not None:
             mapping[dotpath] = token
     return mapping

@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.core.exceptions import RadiantError
 from radiant.gui.geometry_modes import (
     MODE_FAMILIES,
     GeometryModeFamily,
@@ -52,7 +53,7 @@ from radiant.gui.geometry_modes import (
 )
 from radiant.gui.param_format import (
     field_display_text,
-    provenance_from_explain,
+    safe_provenance,
 )
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow as _FieldRow
@@ -257,15 +258,20 @@ class GeometryModeForm(QWidget):
     @staticmethod
     def _is_provided(sensor: Sensor, dotpath: str) -> bool:
         """True when *dotpath* resolved from an explicit input (not its schema default)."""
-        provenance = provenance_from_explain(sensor.explain(dotpath))
+        provenance = safe_provenance(sensor, dotpath)
         return provenance is not None and provenance != "default"
 
     @staticmethod
     def _input_value(sensor: Sensor, dotpath: str) -> Any:
-        """The resolved input value, or ``None`` if unset."""
+        """The resolved input value, or ``None`` if unset / not yet resolvable.
+
+        ``RadiantError`` covers a whole config that cannot resolve (a blank
+        File → New) — the field shows unset instead of crashing bind (found
+        2026-07-16 with the CU-140 guard tests).
+        """
         try:
             return sensor.get_input(dotpath)
-        except KeyError:
+        except (KeyError, RadiantError):
             return None
 
     # -- value formatting (display unit, R-UNITS) ---------------------------

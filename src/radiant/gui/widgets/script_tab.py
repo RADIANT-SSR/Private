@@ -17,7 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QRect, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPaintEvent, QResizeEvent
 from PySide6.QtWidgets import QPlainTextEdit, QWidget
 
 from radiant.gui.themes import Theme
@@ -25,6 +26,26 @@ from radiant.gui.widgets.python_highlighter import PythonHighlighter
 
 # The tab label shown for a buffer that has never been saved to a file.
 _UNTITLED: str = "untitled"
+
+
+class _LineNumberArea(QWidget):
+    """The left line-number margin of a :class:`ScriptTab` (CU-145).
+
+    The standard Qt pattern: a sibling widget the editor positions in its left
+    viewport margin and repaints from ``blockCount``. Colours come from the stored
+    :class:`Theme` tokens (``panel`` background, ``muted`` digits) so the margin
+    follows the light/dark toggle like every custom-painted widget.
+    """
+
+    def __init__(self, editor: ScriptTab) -> None:
+        super().__init__(editor)
+        self._editor = editor
+
+    def sizeHint(self) -> QSize:  # noqa: N802 — Qt override
+        return QSize(self._editor.line_number_width(), 0)
+
+    def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 — Qt override
+        self._editor.paint_line_numbers(event)
 
 
 class ScriptTab(QPlainTextEdit):
@@ -70,6 +91,13 @@ class ScriptTab(QPlainTextEdit):
         self._loading: bool = False
 
         self._highlighter = PythonHighlighter(self.document(), theme)
+        # CU-145: the line-number margin (standard Qt pattern) — width tracks the
+        # block count; scrolling and edits repaint it.
+        self._theme: Theme | None = theme
+        self._line_numbers = _LineNumberArea(self)
+        self.blockCountChanged.connect(self._update_line_number_width)
+        self.updateRequest.connect(self._update_line_number_area)
+        self._update_line_number_width()
 
         self.set_text(text)
         self.textChanged.connect(self._on_text_changed)
@@ -122,9 +150,59 @@ class ScriptTab(QPlainTextEdit):
 
     # -- theme --------------------------------------------------------------
 
+    # -- line numbers (CU-145) ------------------------------------------------
+
+    def line_number_width(self) -> int:
+        """The margin width for the current digit count (min 3 digits)."""
+        digits = max(3, len(str(max(1, self.blockCount()))))
+        return 10 + self.fontMetrics().horizontalAdvance("9") * digits
+
+    def _update_line_number_width(self, _count: int = 0) -> None:
+        self.setViewportMargins(self.line_number_width(), 0, 0, 0)
+
+    def _update_line_number_area(self, rect: QRect, dy: int) -> None:
+        if dy:
+            self._line_numbers.scroll(0, dy)
+        else:
+            self._line_numbers.update(0, rect.y(), self._line_numbers.width(), rect.height())
+        if rect.contains(self.viewport().rect()):
+            self._update_line_number_width()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 — Qt override
+        super().resizeEvent(event)
+        rect = self.contentsRect()
+        self._line_numbers.setGeometry(
+            QRect(rect.left(), rect.top(), self.line_number_width(), rect.height())
+        )
+
+    def paint_line_numbers(self, event: QPaintEvent) -> None:
+        """Paint visible block numbers into the margin (Theme panel/muted tokens)."""
+        from radiant.gui.themes import active_theme
+
+        theme = self._theme or active_theme()
+        painter = QPainter(self._line_numbers)
+        painter.fillRect(event.rect(), QColor(theme.panel))
+        painter.setPen(QColor(theme.muted))
+        block = self.firstVisibleBlock()
+        number = block.blockNumber() + 1
+        top = round(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + round(self.blockBoundingRect(block).height())
+        width = self._line_numbers.width() - 6
+        height = self.fontMetrics().height()
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                painter.drawText(0, top, width, height, Qt.AlignmentFlag.AlignRight, str(number))
+            block = block.next()
+            top = bottom
+            bottom = top + round(self.blockBoundingRect(block).height())
+            number += 1
+        painter.end()
+
     def set_theme(self, theme: Theme) -> None:
         """Re-colour the source for *theme* (the app light/dark toggle re-applies it)."""
         self._highlighter.set_theme(theme)
+        self._theme = theme
+        self._line_numbers.update()
 
 
 __all__ = ["ScriptTab"]

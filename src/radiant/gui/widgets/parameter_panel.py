@@ -63,8 +63,8 @@ from radiant.gui.param_format import (
     group_by_namespace,
     is_derived,
     ordered_namespaces,
-    provenance_from_explain,
     provenance_label,
+    safe_provenance,
 )
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.explain_dialog import ExplainDialog
@@ -319,10 +319,20 @@ class ParameterPanel(QWidget):
         dotpath: str,
         pdef: ParameterDef,
     ) -> QTreeWidgetItem:
-        """One leaf row: value + display unit, ⚡-marked, provenance-labelled, editable."""
-        provenance = provenance_from_explain(sensor.explain(dotpath))
+        """One leaf row: value + display unit, ⚡-marked, provenance-labelled, editable.
+
+        A sensor that cannot resolve yet (a blank File → New: required parameters
+        unset) still gets a full tree — every row falls back to an unset display
+        (no provenance label, — value) instead of crashing populate (found
+        2026-07-16: `explain`/`get_input` resolve internally and raised
+        `CoreValidationError` through the File → New path).
+        """
+        provenance = safe_provenance(sensor, dotpath)
         derived = is_derived(provenance)
-        value, unit = self._display_value_and_unit(sensor, dotpath, pdef)
+        try:
+            value, unit = self._display_value_and_unit(sensor, dotpath, pdef)
+        except RadiantError:
+            value, unit = None, (pdef.input_unit or "")
         value_text = format_value(value, unit)
         if derived:
             value_text = f"{DERIVED_BADGE} {value_text}"

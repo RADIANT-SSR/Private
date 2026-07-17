@@ -25,7 +25,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMessageBox, QTabWidget, QVBoxLayout, QWidget
 
 from radiant.gui.themes import Theme, active_theme
 from radiant.gui.widgets.script_tab import ScriptTab
@@ -129,12 +129,21 @@ class ScriptEditor(QWidget):
     def _on_close_requested(self, index: int) -> None:
         """Close the tab at *index*, keeping at least one buffer open.
 
-        Closing a *dirty* tab discards its unsaved edits without a prompt — a deliberate v1
-        simplification (the ``*`` marker is the visible signal; a Save/Discard/Cancel prompt is
-        the same deferred UX as the main window's File → New/Open guard, CU-140/CU-144). If the
-        last tab is closed, a fresh blank buffer takes its place so the Editor is never empty.
+        Closing a *dirty* tab asks Discard / Cancel first (CU-144) — the tab's own
+        Save routes through the window's File → Save, so this guard only prevents
+        silent loss. If the last tab is closed, a fresh blank buffer takes its
+        place so the Editor is never empty.
         """
         widget = self._tabs.widget(index)
+        if isinstance(widget, ScriptTab) and widget.is_dirty:
+            answer = QMessageBox.question(
+                self,
+                "Unsaved script",
+                f"'{widget.tab_title().lstrip('* ')}' has unsaved edits — discard them?",
+                QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Discard:
+                return
         self._tabs.removeTab(index)
         if widget is not None:
             widget.deleteLater()

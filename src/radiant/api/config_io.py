@@ -209,6 +209,7 @@ __all__ = [
     "ElementPreview",
     "SpectralImportPreview",
     "preview_spectral_import",
+    "load_measured_curve_file",
     "ZernikePreview",
     "preview_zemax_zernike",
     "preview_optical_elements",
@@ -299,3 +300,15 @@ def preview_spectral_import(kind: str, path: str | Path) -> SpectralImportPrevie
     raise ApiValidationError(
         f"preview_spectral_import: unknown kind {kind!r} (expected 'qe_csv' or 'tape7')."
     )
+
+
+def load_measured_curve_file(path: str | Path, **kwargs: Any) -> Any:
+    """Load a two-column measured curve (GT-5 facade over ``io.measurement``).
+
+    The gui import contract forbids ``radiant.gui → radiant.io``; the overlay
+    dialog reaches the loader through this one re-export. Same signature and
+    errors as :func:`radiant.io.measurement.load_measured_curve`.
+    """
+    from radiant.io.measurement import load_measured_curve
+
+    return load_measured_curve(path, **kwargs)

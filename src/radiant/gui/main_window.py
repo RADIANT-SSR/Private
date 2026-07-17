@@ -795,6 +795,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("file.export_json").setEnabled(True)
         self.action("file.export_metrics_csv").setEnabled(True)
         self.action("file.export_xlsx").setEnabled(True)
+        self.action("tools.mtf_overlay").setEnabled(True)
         self._inspector_button.setEnabled(True)
         # A clean run is the committed baseline for undo: snapshot the resolved input
         # values so the next edit's before-value is known (the panel signals an edit only
@@ -962,6 +963,8 @@ class RADIANTMainWindow(QMainWindow):
         self.action("run.batch").triggered.connect(self._on_batch_scaffold)
         # GT-3 (Tier-2): the comparison view over compare_configs (Gap 79).
         self.action("tools.compare").triggered.connect(self._on_compare_configs)
+        # GT-5 (Tier-2): the measurement overlay (GUI-4) over compare_mtf.
+        self.action("tools.mtf_overlay").triggered.connect(self._on_mtf_overlay)
         self._rebuild_recent_menu()
 
     def _adopt_sensor(
@@ -1187,6 +1190,14 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage(
                 "Sweep complete — result retained (export via SweepResult.to_csv)"
             )
+
+    def _on_mtf_overlay(self) -> None:
+        """Tools → Compare Measured MTF… (GT-5): lab points over the predicted curve."""
+        if self._last_result is None:
+            return
+        from radiant.gui.widgets.mtf_overlay_dialog import MtfOverlayDialog
+
+        MtfOverlayDialog(self._last_result, self).exec()
 
     def _on_compare_configs(self) -> None:
         """Tools → Compare Configurations… (GT-3): current config vs loaded files."""

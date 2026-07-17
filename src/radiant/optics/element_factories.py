@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from radiant.core.spectral import SpectralData
+from radiant.core.spectral import SpectralData, SpectralGrid
 from radiant.optics.cavity_model import CavityModel
 from radiant.optics.element import (
     ElementKind,
@@ -29,8 +29,18 @@ def _scalar_to_spectral(
     wavelength_um: np.ndarray | None,
     name: str,
 ) -> SpectralData:
-    """Convert a scalar to flat SpectralData, or pass through SpectralData."""
+    """Convert a scalar to flat SpectralData, or align SpectralData to the grid.
+
+    A spectral input carrying its own grid (a coating CSV, an inline λ-table) is
+    resampled onto *wavelength_um* when one is given — element arithmetic in the
+    optics stage requires a shared grid, and an off-grid spectrum previously
+    broadcast-crashed at evaluate. ``SpectralData.resample`` interpolates linearly
+    and raises (never extrapolates silently) when the run band extends beyond the
+    source data's span.
+    """
     if isinstance(value, SpectralData):
+        if wavelength_um is not None and not np.array_equal(value.wavelength_um, wavelength_um):
+            return value.resample(SpectralGrid(np.asarray(wavelength_um, dtype=np.float64)))
         return value
     if wavelength_um is None:
         raise OpticsValidationError(

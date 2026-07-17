@@ -108,8 +108,13 @@ class FieldRow(QWidget):
         self._value.setCursor(Qt.CursorShape.PointingHandCursor)
         # Expand horizontally to fill the column (shrinking to a modest minimum) so a long
         # value never pushes the row wider than its column — no horizontal clip/scrollbar.
+        # Bounded above (owner report 2026-07-16): in a wide stage-center pane an unbounded
+        # value button became a giant bar and starved the label column into ellipses
+        # ("Fill fac…"); the cap returns that width to the labels. Narrow columns (the
+        # schematic accordion) sit below the cap and are unaffected.
         self._value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._value.setMinimumWidth(64)
+        self._value.setMaximumWidth(280)
         self._value.clicked.connect(lambda: self._on_edit(self._dotpath))
 
         row.addWidget(self._label, 0, 0)

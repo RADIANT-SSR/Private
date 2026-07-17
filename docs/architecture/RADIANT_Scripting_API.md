@@ -169,6 +169,13 @@ s.save("with_train.yaml"); s2 = Sensor.load("with_train.yaml")   # round-trips e
 Both raise `ElementConfigError` (a `RadiantError`) with the same actionable message attach-time
 parsing would produce. Errors name the element and the missing/invalid field.
 
+R/T values in an entry may be a scalar, a spectral-CSV path, or an **inline spectral table**
+(`{"wavelength_um": [...], "values": [...]}` — persists in the YAML, no external file).
+Spectral inputs carrying their own grid are **resampled onto the evaluation grid** at parse
+time (linear; never silently extrapolated — a run band wider than the table raises the
+actionable range error). Facade validation/preview runs on each entry's native grid, so a
+narrow-band coating table validates regardless of any assumed default band.
+
 ---
 
 ## 3. `ChainResult`

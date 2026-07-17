@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
 from radiant.api.config_io import preview_optical_elements
 from radiant.core.exceptions import RadiantError
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
+from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -58,9 +59,15 @@ if TYPE_CHECKING:
 # commit (not a scalar parameter; undo skips it, dirty/stale/re-evaluate all apply).
 ELEMENT_EDIT_PATH: Final[str] = "optics_config.element_list"
 
+# Item-data role carrying a row's inline spectral table (the value cell shows a
+# "spectral (N pts)" sentinel; the dict itself rides in this role).
+_SPECTRUM_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 1
+_SPECTRUM_SENTINEL: Final[str] = "spectral ("
+
 _TITLE = "Optical element train — per-element R/T, temperature, geometry (ε derived)"
 _HINT = (
-    "R/T cells take a scalar (0.97) or a spectral-CSV path. ε is Kirchhoff-derived "
+    "R/T cells take a scalar (0.97), a spectral-CSV path, or an inline λ-table "
+    "(Spectrum… button). ε is Kirchhoff-derived "
     "(read-only). Kind is a descriptive label for refractive elements (legend/reporting; "
     "the physics comes from R/T and temperature) — a REFLECTIVE row is always a mirror. "
     "Apply commits the train (one API call); Save persists it in the config."
@@ -173,9 +180,20 @@ class OpticalElementEditor(QWidget):
         self._remove = QPushButton("Remove", buttons)
         self._up = QPushButton("↑", buttons)
         self._down = QPushButton("↓", buttons)
+        self._spectrum = QPushButton("Spectrum…", buttons)
+        self._spectrum.setToolTip(
+            "Define the selected row's R/T as an inline λ-table (type or paste)"
+        )
         self._apply = QPushButton("Apply train", buttons)
         self._apply.setObjectName("elementApplyButton")
-        for b in (self._add_mirror, self._add_refractive, self._remove, self._up, self._down):
+        for b in (
+            self._add_mirror,
+            self._add_refractive,
+            self._remove,
+            self._up,
+            self._down,
+            self._spectrum,
+        ):
             button_row.addWidget(b)
         button_row.addStretch(1)
         button_row.addWidget(self._apply)
@@ -186,6 +204,7 @@ class OpticalElementEditor(QWidget):
         self._remove.clicked.connect(self._remove_current)
         self._up.clicked.connect(lambda: self._move_current(-1))
         self._down.clicked.connect(lambda: self._move_current(+1))
+        self._spectrum.clicked.connect(self._edit_spectrum)
         self._apply.clicked.connect(self.apply_train)
 
         layout.addWidget(card)
@@ -220,6 +239,10 @@ class OpticalElementEditor(QWidget):
 
         transfer = str(entry.get("transfer_mode", "REFLECTIVE")).upper()
         value = entry.get("reflectance" if transfer == "REFLECTIVE" else "transmittance", "")
+        spectrum: dict[str, Any] | None = None
+        if isinstance(value, dict):
+            spectrum = value
+            value = f"spectral ({len(value.get('wavelength_um', ()))} pts)"
 
         self._table.setItem(row, _COL_NAME, QTableWidgetItem(str(entry.get("name", ""))))
 
@@ -240,7 +263,10 @@ class OpticalElementEditor(QWidget):
         )
         self._sync_kind_combo(kind_combo, transfer)
 
-        self._table.setItem(row, _COL_VALUE, QTableWidgetItem(str(value)))
+        value_item = QTableWidgetItem(str(value))
+        if spectrum is not None:
+            value_item.setData(_SPECTRUM_ROLE, spectrum)
+        self._table.setItem(row, _COL_VALUE, value_item)
         self._table.setItem(
             row, _COL_TEMP, QTableWidgetItem(str(entry.get("temperature_K", 293.0)))
         )
@@ -317,14 +343,21 @@ class OpticalElementEditor(QWidget):
                 "diameter_m": self._cell_number(row, _COL_DIAM),
                 "distance_to_fpa_m": self._cell_number(row, _COL_DIST),
             }
-            # A value cell is a scalar when it parses, else a spectral-CSV path
-            # string — the two forms the document schema accepts.
+            # A value cell is: an inline λ-table (dict in _SPECTRUM_ROLE, cell shows
+            # the "spectral (N pts)" sentinel), a scalar when the text parses, or a
+            # spectral-CSV path string — the three forms the document schema accepts.
+            # Typing over the sentinel discards the stored table (the text wins).
+            value_item = self._table.item(row, _COL_VALUE)
+            stored = value_item.data(_SPECTRUM_ROLE) if value_item is not None else None
             text = self._cell_text(row, _COL_VALUE)
             value: Any
-            try:
-                value = float(text)
-            except ValueError:
-                value = text
+            if isinstance(stored, dict) and text.startswith(_SPECTRUM_SENTINEL):
+                value = stored
+            else:
+                try:
+                    value = float(text)
+                except ValueError:
+                    value = text
             if transfer == "REFLECTIVE":
                 entry["reflectance"] = value
             else:
@@ -343,6 +376,33 @@ class OpticalElementEditor(QWidget):
             return float(text)
         except ValueError:
             return text  # let the io parser reject it with its actionable message
+
+    def _edit_spectrum(self) -> None:
+        """Open the λ-table dialog for the selected row's R/T value (type or paste).
+
+        OK stores the inline table on the cell (shown as "spectral (N pts)"); the
+        document form is `{"wavelength_um": [...], "values": [...]}` — the same
+        structure the YAML section carries, so it persists with the train.
+        """
+        row = self._table.currentRow()
+        if row < 0:
+            return
+        value_item = self._table.item(row, _COL_VALUE)
+        stored = value_item.data(_SPECTRUM_ROLE) if value_item is not None else None
+        name = self._cell_text(row, _COL_NAME) or f"element {row}"
+        dialog = SpectralTableDialog(
+            self,
+            title=f"Spectral R/T — {name}",
+            initial=stored if isinstance(stored, dict) else None,
+        )
+        if dialog.exec() != int(dialog.DialogCode.Accepted):
+            return
+        spectrum = dialog.spectrum()
+        if value_item is None:
+            value_item = QTableWidgetItem()
+            self._table.setItem(row, _COL_VALUE, value_item)
+        value_item.setData(_SPECTRUM_ROLE, spectrum)
+        value_item.setText(f"spectral ({len(spectrum['wavelength_um'])} pts)")
 
     # -- commit (one API call) -------------------------------------------------
 

@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Inline spectral tables + type-or-paste spectrum entry (owner request, ADR-0009 follow-on).**
+  Element-document R/T values now accept an inline `{wavelength_um: [...], values: [...]}` table
+  (persists in the YAML — no external CSV needed) alongside scalars and CSV paths. New GUI
+  `SpectralTableDialog`: define a spectral response by typing rows or pasting two columns from a
+  spreadsheet (live validation; λ-sorted). Wired in two places: the Optics element editor's
+  **Spectrum…** button (per-row R/T λ-table) and the Detector form's **Define QE(λ) table…**
+  button (writes a QE CSV and sets `detector.qe_table_path` in one call). **Fixed (latent
+  engine bug):** spectral element inputs carrying their own grid (coating CSVs, inline tables)
+  previously broadcast-crashed the optics stage when their grid differed from the run grid —
+  `_scalar_to_spectral` now resamples onto the evaluation grid (linear, never silent
+  extrapolation; a run band wider than the table raises the actionable range error). Facade
+  validation/preview now runs on each entry's native grid. GUI polish: FieldRow value buttons
+  are width-capped so labels no longer truncate in wide panes; element-editor Kind column locks
+  to mirror on reflective rows.
 - **GUI: existing-API menu wire-ups (GUI Capability Expansion plan GX-1, results-neutral).**
   Enabled four disabled menu placeholders, each one API call: File → Export YAML…
   (`Sensor.save` snapshot — does not rebind the current file), File → Export JSON Result…

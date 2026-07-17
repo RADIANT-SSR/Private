@@ -75,6 +75,53 @@ def _load_spectral_csv(path: Path, name: str) -> SpectralData:
     )
 
 
+def _spectral_from_inline(mapping: dict[str, Any], name: str) -> SpectralData:
+    """Build SpectralData from an inline ``{wavelength_um: [...], values: [...]}`` table.
+
+    The inline form (ADR-0009 follow-on, owner request 2026-07-16) lets an element
+    document carry a spectral response directly — pasted or typed in the GUI's
+    spectrum dialog, or hand-written in YAML — with no external CSV dependency; it
+    round-trips through ``Sensor.save``/``load`` verbatim.
+    """
+    unknown = sorted(set(mapping) - {"wavelength_um", "values"})
+    if unknown:
+        raise ElementConfigError(
+            f"Inline spectrum for '{name}': unknown key(s) {unknown}. "
+            "An inline spectral table has exactly two keys: "
+            "'wavelength_um' and 'values'."
+        )
+    try:
+        wavelengths = np.asarray(mapping["wavelength_um"], dtype=np.float64)
+        values = np.asarray(mapping["values"], dtype=np.float64)
+    except KeyError as exc:
+        raise ElementConfigError(
+            f"Inline spectrum for '{name}': missing required key {exc}. "
+            "Provide both 'wavelength_um' and 'values' lists."
+        ) from exc
+    except (TypeError, ValueError) as exc:
+        raise ElementConfigError(
+            f"Inline spectrum for '{name}': entries must be numeric "
+            f"({exc}). Provide two equal-length numeric lists."
+        ) from exc
+    if wavelengths.ndim != 1 or values.ndim != 1 or wavelengths.size != values.size:
+        raise ElementConfigError(
+            f"Inline spectrum for '{name}': 'wavelength_um' and 'values' must be "
+            f"equal-length 1-D lists, got {wavelengths.shape} vs {values.shape}."
+        )
+    if wavelengths.size < 2:
+        raise ElementConfigError(
+            f"Inline spectrum for '{name}' must have at least 2 points, "
+            f"got {wavelengths.size}."
+        )
+    return SpectralData(
+        name=name,
+        wavelength_um=wavelengths,
+        values=values,
+        unit="",
+        source="inline table",
+    )
+
+
 def _resolve_spectral_or_scalar(
     value: Any,
     name: str,
@@ -82,12 +129,15 @@ def _resolve_spectral_or_scalar(
 ) -> float | SpectralData:
     """Resolve a YAML value to float or SpectralData.
 
-    If the value is a string, treat it as a file path (relative to
-    config_dir) and load spectral data from CSV.  Otherwise return as float.
+    A string is a CSV file path (relative to config_dir); a mapping is an inline
+    ``{wavelength_um: [...], values: [...]}`` spectral table; anything else is a
+    scalar.
     """
     if isinstance(value, str):
         path = config_dir / value
         return _load_spectral_csv(path, name)
+    if isinstance(value, dict):
+        return _spectral_from_inline(value, name)
     return float(value)
 
 

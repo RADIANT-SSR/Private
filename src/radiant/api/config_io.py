@@ -33,6 +33,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.io.element_config import parse_element_entries
+from radiant.optics.errors import OpticsValidationError
 
 # Entry keys whose string values are spectral-file references (resolved
 # against base_dir by the io parser; absolutized by normalization).
@@ -85,6 +86,32 @@ class ElementPreview:
     spectral_files: tuple[str, ...]
 
 
+def _parse_entry_for_display(
+    entry: dict[str, Any],
+    base_dir: str | Path | None,
+    wavelength_um: npt.NDArray[np.float64] | None,
+) -> Any:
+    """Parse one entry for validation/preview, on its own spectral grid.
+
+    With an explicit *wavelength_um* the entry parses (and resamples) onto that
+    grid — the in-band view. Without one, the entry parses on its **native** grid
+    (a spectral table keeps its own span; band coverage is checked at evaluate
+    time against the sensor band, not here), falling back to the wide preview
+    grid only when the entry is scalar-only and needs a broadcast grid. This
+    keeps structural/Kirchhoff validation independent of any assumed band — a
+    3–5 µm coating table must not fail a 0.4–20 µm default (found 2026-07-16).
+    """
+    if wavelength_um is not None:
+        return parse_element_entries([entry], wavelength_um, base_dir=base_dir)[0]
+    try:
+        return parse_element_entries([entry], None, base_dir=base_dir)[0]
+    except OpticsValidationError as exc:
+        if "wavelength_um is required" not in str(exc):
+            raise
+        # Scalar-only entry: any grid broadcasts it losslessly.
+        return parse_element_entries([entry], _PREVIEW_GRID_UM, base_dir=base_dir)[0]
+
+
 def preview_optical_elements(
     entries: list[dict[str, Any]],
     *,
@@ -103,8 +130,10 @@ def preview_optical_elements(
     entries:
         The ``optical_elements`` document (list of entry mappings).
     wavelength_um:
-        Grid for scalar broadcasting and band means. Defaults to the
-        0.4–20 µm preview grid; pass the sensor band for in-band means.
+        Grid for scalar broadcasting and band means. Pass the sensor
+        band for in-band means; without it each element previews on its
+        **own** spectral grid (scalar-only entries broadcast on the
+        0.4–20 µm preview grid), so means are over the data's span.
     base_dir:
         Directory for relative spectral-file references (default: cwd).
 
@@ -113,8 +142,8 @@ def preview_optical_elements(
     radiant.io.element_config.ElementConfigError
         On any invalid entry — same error, same message, as attach time.
     """
-    grid = _PREVIEW_GRID_UM if wavelength_um is None else np.asarray(wavelength_um, np.float64)
-    elements = parse_element_entries(entries, grid, base_dir=base_dir)
+    grid = None if wavelength_um is None else np.asarray(wavelength_um, np.float64)
+    elements = [_parse_entry_for_display(entry, base_dir, grid) for entry in entries]
     previews: list[ElementPreview] = []
     for entry, element in zip(entries, elements, strict=True):
         files = tuple(k for k in _SPECTRAL_FILE_KEYS if isinstance(entry.get(k), str))
@@ -156,9 +185,11 @@ def normalize_element_document(
     radiant.io.element_config.ElementConfigError
         On any invalid entry.
     """
-    # Fail fast through the single validation authority (preview grid —
-    # scalar broadcasting only; values are discarded).
-    parse_element_entries(entries, _PREVIEW_GRID_UM, base_dir=base_dir)
+    # Fail fast through the single validation authority. Each entry validates on
+    # its own spectral grid (band coverage is evaluate-time, not authoring-time);
+    # parsed values are discarded.
+    for entry in entries:
+        _parse_entry_for_display(entry, base_dir, None)
 
     root = Path(base_dir) if base_dir is not None else Path.cwd()
     normalized: list[dict[str, Any]] = []

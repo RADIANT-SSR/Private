@@ -31,15 +31,17 @@ per file (Rule 19).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
+from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -181,8 +183,54 @@ class DetectorInputsForm(QWidget):
                 row = FieldRow(dotpath, label, self._open_editor)
                 box.addWidget(row)
                 self._rows[dotpath] = row
+            if fields is _QE_FIELDS:
+                # Define QE(λ) inline (owner request 2026-07-16): type or paste a λ-vs-QE
+                # table; the dialog's points are written to a user-chosen CSV and
+                # detector.qe_table_path is set in one API call — the same loader path a
+                # hand-made vendor CSV takes (io/qe_csv.py auto-detects the units).
+                self._define_qe = QPushButton("Define QE(λ) table…", card)
+                self._define_qe.setObjectName("defineQeButton")
+                self._define_qe.clicked.connect(self._on_define_qe)
+                box.addWidget(self._define_qe)
 
         layout.addWidget(card)
+
+    # -- QE(λ) table authoring (owner request 2026-07-16) ---------------------
+
+    def _on_define_qe(self) -> None:
+        """Open the λ-table dialog, save the points as a QE CSV, set qe_table_path."""
+        if self._sensor is None:
+            return
+        current = str(self._sensor.get_input("detector.qe_table_path") or "")
+        dialog = SpectralTableDialog(self, title="Quantum efficiency QE(λ)")
+        if current and Path(current).is_file():
+            dialog.load_text(Path(current).read_text(encoding="utf-8"))
+        if dialog.exec() != int(dialog.DialogCode.Accepted):
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save QE curve CSV", "qe_curve.csv", "CSV (*.csv);;All files (*)"
+        )
+        if not filename:
+            return
+        self.define_qe_table(dialog.spectrum(), Path(filename))
+
+    def define_qe_table(self, spectrum: dict[str, list[float]], path: Path) -> None:
+        """Write *spectrum* as a QE CSV at *path* and bind it — one ``sensor.set``.
+
+        The CSV header ``wavelength_um,qe`` lets the io loader auto-detect µm +
+        fraction; the file is ordinary user data, re-importable anywhere.
+        """
+        if self._sensor is None:
+            return
+        lines = ["wavelength_um,qe"]
+        lines += [
+            f"{wl:g},{qe:g}"
+            for wl, qe in zip(spectrum["wavelength_um"], spectrum["values"], strict=True)
+        ]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self._sensor.set("detector.qe_table_path", str(path))
+        self.refresh()
+        self.parameterEdited.emit("detector.qe_table_path")
 
     # -- binding / refresh --------------------------------------------------
 

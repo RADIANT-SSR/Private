@@ -211,7 +211,7 @@ Loader behavior: `load_config` strips the block before parameter flattening, app
 A config may carry **structured document sections**: top-level keys that hold a declarative
 document rather than parameters. The one registered section is `optical_elements` — the
 mixed-train element list (`io/element_config.py` schema; per-element `name`, `transfer_mode`,
-`kind`, `temperature_K`, geometry, and R/T values that are scalars **or** spectral-CSV paths).
+`kind`, `temperature_K`, geometry, and R/T values that are scalars, spectral-CSV paths, **or inline spectral tables** — `{wavelength_um: [...], values: [...]}`, the form the GUI's type-or-paste spectrum dialog writes; it persists in the YAML with no external file).
 Emissivity never appears in an entry — it is Kirchhoff-derived (Rule 5).
 
 ```yaml

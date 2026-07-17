@@ -140,6 +140,21 @@ sens = s.sensitivity(metric="snr", param_names=None, delta_fraction=0.01)
 
 Perturbs each parameter by `±delta_fraction × value` (central difference) and computes the normalized elasticity `(ΔM/M)/(Δp/p)`. If `param_names` is `None`, uses the toleranced parameters; if no tolerances are set, uses all non-zero float parameters (expensive). Returns `SensitivityResult` (§8).
 
+### 2.5b Multi-Config Comparison — `compare_configs` (Gap 79, 2026-07-16)
+
+```python
+from radiant.api import compare_configs
+cmp = compare_configs([("baseline", r0), ("50 cm", r1)], baseline=0)
+cmp.row("snr").deltas      # per-config value − baseline value (None where absent)
+print(cmp.to_table())      # aligned text table, * marks best-per-metric
+```
+
+Takes **pre-evaluated** `(label, ChainResult)` pairs (the caller controls when chains run).
+Rows cover the union of metric names with units/descriptions from the metric registry; a
+metric absent from a config shows `None`, never a zero-fill. Best-per-metric marking is
+conservative: higher-is-better default, NEDT/GSD/FWHM lower-is-better, flags/codes unmarked.
+Raises `ComparisonError` (a `RadiantError`) on fewer than two configs or a bad baseline index.
+
 ### 2.6 Optical-Element Documents — `radiant.api.config_io` (ADR-0009, 2026-07-16)
 
 The config-document facade: structured configuration is authored as **declarative documents**

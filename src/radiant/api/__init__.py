@@ -1,7 +1,14 @@
 """Public API: Sensor, ChainResult, and analysis result types."""
 
 from radiant.api._progress import OperationCancelledError
-from radiant.api.compare import MtfComparisonResult, compare_mtf
+from radiant.api.compare import (
+    ComparisonError,
+    ComparisonResult,
+    ComparisonRow,
+    MtfComparisonResult,
+    compare_configs,
+    compare_mtf,
+)
 from radiant.api.config_io import (
     ElementPreview,
     normalize_element_document,
@@ -28,6 +35,10 @@ __all__ = [
     "OperationCancelledError",
     "SolveResult",
     "compare_mtf",
+    "compare_configs",
+    "ComparisonResult",
+    "ComparisonRow",
+    "ComparisonError",
     "MtfComparisonResult",
     "ElementPreview",
     "preview_optical_elements",

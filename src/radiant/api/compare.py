@@ -15,6 +15,7 @@ extrapolation — extrapolated MTF is not physics) and counted in
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -227,3 +228,152 @@ def compare_mtf(
         n_compared=n_compared,
         n_excluded=n_excluded,
     )
+
+
+# ---------------------------------------------------------------------------
+# Multi-config comparison (Gap 79 / Tier-2 FW-A)
+# ---------------------------------------------------------------------------
+
+
+class ComparisonError(RadiantError):
+    """Raised when a multi-config comparison cannot be built (Gap 79)."""
+
+
+@dataclass(frozen=True)
+class ComparisonColumn:
+    """One compared configuration: its label and evaluated result."""
+
+    label: str
+    result: ChainResult
+
+
+@dataclass(frozen=True)
+class ComparisonRow:
+    """One metric across every compared configuration.
+
+    ``values`` aligns with the parent result's ``labels`` order; a config
+    missing this metric carries ``None`` (shown as absent, never zero-filled
+    — Rule 17). ``deltas`` are ``value − baseline_value`` (None where either
+    side is absent); ``best_index`` marks the best value under ``sense``
+    ("higher" / "lower" / None when the registry declares no preference or
+    fewer than two values exist).
+    """
+
+    name: str
+    unit: str
+    description: str
+    values: tuple[float | None, ...]
+    deltas: tuple[float | None, ...]
+    best_index: int | None
+
+
+@dataclass(frozen=True)
+class ComparisonResult:
+    """Aligned metric matrix over N evaluated configurations (Gap 79).
+
+    Build with :func:`compare_configs`. ``rows`` cover the union of metric
+    names across all results (sorted), each with units from the metric
+    registry; ``baseline_index`` names the delta reference column.
+    """
+
+    labels: tuple[str, ...]
+    rows: tuple[ComparisonRow, ...]
+    baseline_index: int
+
+    def row(self, name: str) -> ComparisonRow:
+        """The row for metric *name* (KeyError if absent)."""
+        for r in self.rows:
+            if r.name == name:
+                return r
+        raise KeyError(f"ComparisonResult: no metric {name!r}; have {[r.name for r in self.rows]}")
+
+    def to_table(self) -> str:
+        """A plain-text aligned table (console/report convenience)."""
+        header = ["metric", "unit", *self.labels]
+        body: list[list[str]] = []
+        for r in self.rows:
+            cells = [r.name, r.unit]
+            for i, v in enumerate(r.values):
+                text = "—" if v is None else f"{v:.6g}"
+                if r.best_index is not None and i == r.best_index:
+                    text = f"*{text}"
+                cells.append(text)
+            body.append(cells)
+        widths = [max(len(row[i]) for row in [header, *body]) for i in range(len(header))]
+        lines = ["  ".join(c.ljust(w) for c, w in zip(header, widths, strict=True))]
+        lines += ["  ".join(c.ljust(w) for c, w in zip(row, widths, strict=True)) for row in body]
+        return "\n".join(lines)
+
+
+# Metrics where smaller is better; everything else defaults to higher-is-better
+# except flags/codes, which carry no preference. Kept deliberately small and
+# conservative — a wrong "best" mark is worse than none.
+_LOWER_IS_BETTER: frozenset[str] = frozenset({"nedt", "nedt_mk", "gsd_m", "fwhm_m", "fwhm_urad"})
+
+
+def _row_best_index(name: str, kind: str, values: tuple[float | None, ...]) -> int | None:
+    present = [(i, v) for i, v in enumerate(values) if v is not None]
+    if len(present) < 2 or kind in ("flag", "code"):
+        return None
+    lower = any(name == key or name.startswith(key) for key in _LOWER_IS_BETTER)
+    chooser = min if lower else max
+    return chooser(present, key=lambda pair: pair[1])[0]
+
+
+def compare_configs(
+    items: Sequence[tuple[str, ChainResult]],
+    *,
+    baseline: int = 0,
+) -> ComparisonResult:
+    """Compare N evaluated configurations as an aligned metric matrix (Gap 79).
+
+    Parameters
+    ----------
+    items:
+        ``(label, ChainResult)`` pairs — **pre-evaluated** results, so the
+        caller controls when chains run (the GUI never re-evaluates behind
+        the user's back; a script may pass ``(name, sensor.evaluate())``).
+    baseline:
+        Index of the delta-reference column (default: the first).
+
+    Returns
+    -------
+    ComparisonResult
+        Union-of-metrics rows (a metric absent from a config shows ``None``,
+        never a zero), units/descriptions from the metric registry via
+        ``metric_records()``, per-row deltas vs the baseline column, and a
+        conservative best-per-metric mark (higher-is-better default;
+        NEDT/GSD/FWHM lower-is-better; flags/codes unmarked).
+    """
+    if len(items) < 2:
+        raise ComparisonError(
+            f"compare_configs needs at least 2 configurations, got {len(items)}. "
+            "Pass two or more (label, ChainResult) pairs."
+        )
+    if not (0 <= baseline < len(items)):
+        raise ComparisonError(
+            f"baseline index {baseline} out of range for {len(items)} configurations. "
+            f"Pass 0 <= baseline < {len(items)}."
+        )
+
+    labels = tuple(label for label, _ in items)
+    per_config = [{rec.name: rec for rec in result.metric_records()} for _label, result in items]
+    names = sorted(set().union(*(set(records) for records in per_config)))
+
+    rows: list[ComparisonRow] = []
+    for name in names:
+        somewhere = next(records[name] for records in per_config if name in records)
+        values = tuple((records[name].value if name in records else None) for records in per_config)
+        base = values[baseline]
+        deltas = tuple((None if (v is None or base is None) else v - base) for v in values)
+        rows.append(
+            ComparisonRow(
+                name=name,
+                unit=somewhere.unit,
+                description=somewhere.description,
+                values=values,
+                deltas=deltas,
+                best_index=_row_best_index(name, somewhere.kind, values),
+            )
+        )
+    return ComparisonResult(labels=labels, rows=tuple(rows), baseline_index=baseline)

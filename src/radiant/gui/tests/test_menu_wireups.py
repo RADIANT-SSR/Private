@@ -41,11 +41,12 @@ class TestActionStates:
         for key in ("file.export_yaml", "tools.schema", "tools.explain", "file.export_json"):
             assert window.action(key).isEnabled(), key
 
-    def test_run_menu_trade_studies_stay_disabled(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Owner ruling 2026-07-16: sweep/MC/Batch surfaces are a deferred tier."""
+    def test_run_menu_trade_studies_now_enabled(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Tier-2 shipped the trade-study surfaces (GT-1 sweep dialog; GT-2 MC/Batch
+        script scaffolds per owner D3) — the placeholders are live."""
         window = _window(qtbot)
         for key in ("run.sweep", "run.monte_carlo", "run.batch"):
-            assert not window.action(key).isEnabled(), key
+            assert window.action(key).isEnabled(), key
 
 
 class TestExports:

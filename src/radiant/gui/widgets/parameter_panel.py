@@ -340,6 +340,12 @@ class ParameterPanel(QWidget):
         # set in this row's editor dialog; persisted via _radiant.tolerances).
         if dotpath in sensor.tolerances():
             value_text = f"± {value_text}"
+        # GT-7 (Gap 85 close-out): a declared scene type dims rows whose regime tags
+        # exclude it — textual badge + tooltip, theme-neutral, never hidden and never
+        # blocked (the tree stays the escape hatch; the stage forms do the disabling).
+        excluded_by = self._regime_exclusion(sensor, dotpath)
+        if excluded_by is not None:
+            value_text = f"{value_text}  (n/a: {excluded_by})"
 
         # Leaf label is the dot-path remainder after the namespace prefix.
         leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath
@@ -381,6 +387,29 @@ class ParameterPanel(QWidget):
         if override is not None:
             return override
         return self._sensor.parameter_def(dotpath).input_unit
+
+    @staticmethod
+    def _regime_exclusion(sensor: Sensor, dotpath: str) -> str | None:
+        """The declared scene type that excludes *dotpath*, or None (Gap 85).
+
+        A parameter carrying ``regime:<type>`` schema tags matters only for those
+        declared types; with ``source.scene_type`` declared (not ``auto``) and not
+        among them, the row badges "(n/a: <declared>)". Unresolvable configs and
+        the scene-type selector itself never badge.
+        """
+        if dotpath == "source.scene_type":
+            return None
+        pdef = sensor.parameter_def(dotpath)
+        regimes = {tag.split(":", 1)[1] for tag in pdef.tags if tag.startswith("regime:")}
+        if not regimes:
+            return None
+        try:
+            declared = str(sensor.get_input("source.scene_type"))
+        except (KeyError, RadiantError):
+            return None
+        if declared in ("auto", "None") or declared in regimes:
+            return None
+        return declared
 
     def _display_value_and_unit(
         self,

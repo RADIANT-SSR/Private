@@ -99,3 +99,35 @@ class TestScaffolds:
         window._parameter_panel.populate(window.sensor)  # noqa: SLF001
         item = window._parameter_panel._items["detector.qe_value"]  # noqa: SLF001
         assert "±" in item.text(1)
+
+
+class TestRelevanceBadging:
+    """GT-7 (Gap 85 close-out): the All-Parameters tree badges excluded rows."""
+
+    def test_declared_extended_badges_subpixel_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        window = self._window_for_badging(qtbot)
+        window.sensor.set("source.scene_type", "extended")
+        window._parameter_panel.populate(window.sensor)  # noqa: SLF001
+        items = window._parameter_panel._items  # noqa: SLF001
+        # Sub-pixel-only knobs badge; regime-independent + matching rows do not.
+        assert "(n/a: extended)" in items["source.target.fill_fraction"].text(1)
+        assert "(n/a: extended)" in items["geometry.target.shape"].text(1)
+        assert "(n/a" not in items["source.contrast_reference.temperature"].text(1)
+        assert "(n/a" not in items["source.target.temperature"].text(1)
+        # The selector itself never badges (the way back out).
+        assert "(n/a" not in items["source.scene_type"].text(1)
+
+    def test_auto_badges_nothing(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        window = self._window_for_badging(qtbot)
+        window._parameter_panel.populate(window.sensor)  # noqa: SLF001
+        items = window._parameter_panel._items  # noqa: SLF001
+        assert "(n/a" not in items["source.target.fill_fraction"].text(1)
+
+    def _window_for_badging(self, qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
+        qtbot.addWidget(window)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            pass
+        return window

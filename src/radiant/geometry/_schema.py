@@ -174,7 +174,7 @@ TARGET_PROJECTED_AREA = ParameterDef(
     input_unit="m2",
     default=0.0,
     bounds=(0.0, 1e12),
-    tags=frozenset({"source", "target", "geometry"}),
+    tags=frozenset({"source", "target", "geometry", "regime:sub_pixel", "regime:point_source"}),
     default_justification=(
         "0.0 signals 'geometry not provided' — regime classification defaults to extended scene."
     ),
@@ -195,7 +195,7 @@ SHAPE = ParameterDef(
     input_unit="",
     default="none",
     enum_values=("none", "sphere", "cylinder", "flat_plate", "box", "cone"),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "regime:sub_pixel", "regime:point_source"}),
     default_justification=(
         "'none' is the Rule-12 sentinel for 'shape not provided'; the "
         "descriptor falls back to geometry.target.projected_area_m2.  Users "
@@ -218,7 +218,7 @@ SHAPE_RADIUS = ParameterDef(
     input_unit="m",
     default=0.0,
     bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "regime:sub_pixel", "regime:point_source"}),
     default_justification=(
         "0.0 is the 'not set' sentinel; the Step 1.2 factory raises "
         "ParameterBoundsError if the chosen shape needs radius_m > 0."
@@ -238,7 +238,7 @@ SHAPE_LENGTH = ParameterDef(
     input_unit="m",
     default=0.0,
     bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "regime:sub_pixel", "regime:point_source"}),
     default_justification="0.0 = not set; see SHAPE_RADIUS.",
     deprecated_aliases=frozenset({"source.target.shape_length_m"}),
 )
@@ -254,7 +254,7 @@ SHAPE_WIDTH = ParameterDef(
     input_unit="m",
     default=0.0,
     bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "regime:sub_pixel", "regime:point_source"}),
     default_justification="0.0 = not set; see SHAPE_RADIUS.",
     deprecated_aliases=frozenset({"source.target.shape_width_m"}),
 )
@@ -271,7 +271,7 @@ SHAPE_HEIGHT = ParameterDef(
     input_unit="m",
     default=0.0,
     bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "regime:sub_pixel", "regime:point_source"}),
     default_justification="0.0 = not set; see SHAPE_RADIUS.",
     deprecated_aliases=frozenset({"source.target.shape_height_m"}),
 )
@@ -289,7 +289,7 @@ SHAPE_BASE_RADIUS = ParameterDef(
     input_unit="m",
     default=0.0,
     bounds=(0.0, 1e6),
-    tags=frozenset({"source", "target", "geometry", "shape"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "regime:sub_pixel", "regime:point_source"}),
     default_justification="0.0 = not set; see SHAPE_RADIUS.",
     deprecated_aliases=frozenset({"source.target.shape_base_radius_m"}),
 )
@@ -306,7 +306,7 @@ SHAPE_YAW = ParameterDef(
     input_unit="rad",
     default=0.0,
     bounds=(-6.283185307179586, 6.283185307179586),  # [-2π, 2π]
-    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation", "regime:sub_pixel", "regime:point_source"}),
     default_justification=("0.0 = body +X aligned with scene +X (canonical alignment)."),
     deprecated_aliases=frozenset({"source.target.shape_yaw_rad"}),
 )
@@ -319,7 +319,7 @@ SHAPE_PITCH = ParameterDef(
     input_unit="rad",
     default=0.0,
     bounds=(-6.283185307179586, 6.283185307179586),
-    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation", "regime:sub_pixel", "regime:point_source"}),
     default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
     deprecated_aliases=frozenset({"source.target.shape_pitch_rad"}),
 )
@@ -332,7 +332,7 @@ SHAPE_ROLL = ParameterDef(
     input_unit="rad",
     default=0.0,
     bounds=(-6.283185307179586, 6.283185307179586),
-    tags=frozenset({"source", "target", "geometry", "shape", "orientation"}),
+    tags=frozenset({"source", "target", "geometry", "shape", "orientation", "regime:sub_pixel", "regime:point_source"}),
     default_justification="0.0 = canonical alignment; see SHAPE_YAW.",
     deprecated_aliases=frozenset({"source.target.shape_roll_rad"}),
 )

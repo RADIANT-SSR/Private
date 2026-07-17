@@ -12,6 +12,42 @@
 
 ## Open
 
+### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`
+**Status**: Open — dev-tooling only, non-blocking. The geometry-GUI-v2 dependency installer is a `.sh` shell script that cannot run on a stock Windows machine (needs WSL or Git-Bash). Library code is unaffected.
+**File**: `dev_tools/geometry_gui_v2/install_deps.sh`
+**Symptom**: On Windows, `install_deps.sh` is not executable; a developer must read the script and run the pip commands by hand.
+**Why it still matters**: Rule 30 (cross-platform portability) — dev tooling should be runnable on both supported platforms, or its README must state the manual steps.
+**Suggested fix**: (a) inline-fix-now candidate — replace with a `pip install`-able requirements file or a short cross-platform Python script, or document the equivalent manual commands in the tool's README. Effort S; category A. Re-audit at the next geometry_gui_v2 touch.
+
+### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`
+**Status**: Open — portability nit, degrades gracefully. The schema default for the MODTRAN executable is a POSIX path that can never exist on Windows. The failure mode is already actionable (`ModtranUnavailableError` at `modtran.py:894` when `binary_path.exists()` is false), so nothing crashes — but the default is dead weight on Windows and every Windows config must override it to a `modtran.exe` path.
+**File**: `src/radiant/atmosphere/modtran.py:174` (`ModtranConfig.binary_path` default) and `src/radiant/atmosphere/_schema.py:223` (`default="/usr/local/bin/modtran"`).
+**Symptom**: On Windows, any MODTRAN-mode run without an explicit `atmosphere.modtran.binary_path` raises `ModtranUnavailableError` pointing at a path form (`/usr/local/bin/...`) that is meaningless on the platform.
+**Why it still matters**: Rule 30 (cross-platform portability) + Rule 15 (actionable errors) — the error should suggest a platform-appropriate remedy, and a platform-conditional default (or no default + required-when-modtran-mode) would remove the trap.
+**Suggested fix**: (b) stand-alone task — either make the default platform-conditional (`shutil.which("modtran")` fallback) or drop the default and require the parameter in MODTRAN mode, updating the error's `action` text to name a Windows example path. Effort S; category B (schema default change — check no golden depends on it). Re-audit at the next atmosphere/modtran touch.
+
+### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`
+**Status**: Open — latent reproducibility risk, blocking-adjacent for a Windows checkout. The repo has no `.gitattributes`, so text files' working-tree line endings depend on each clone's `core.autocrlf`. A Windows checkout with `autocrlf=true` rewrites every text file to CRLF: Python/YAML parsing is unaffected, but any text file compared byte-for-byte (golden baselines, reference CSVs hashed for provenance) and the MODTRAN `tape5` written via `Path.write_text` inherit platform newlines, so "same inputs → identical outputs" can silently differ across platforms.
+**File**: repo root (missing `.gitattributes`); `src/radiant/atmosphere/modtran.py:898` (`tape5_path.write_text(tape5)` — platform-default newlines).
+**Symptom**: `git config core.autocrlf true` + fresh clone on Windows yields CRLF working-tree files; byte-level comparisons and checksums of text artifacts diverge from a macOS clone.
+**Why it still matters**: Rule 30 (cross-platform portability) and the traceability requirement (same inputs → identical outputs) — cross-platform runs should produce byte-identical text artifacts.
+**Suggested fix**: (a) inline-fix-now — add a root `.gitattributes` with `* text=auto eol=lf` (plus explicit `-text` entries for binaries: `.png`, `.h5`, `.xlsx`), and pass `newline="\n"` where a written text artifact's bytes matter (tape5). Effort S; category A. Re-audit after the first Windows clone.
+
+### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default)
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`
+**Status**: Open — real bug risk on Windows, silent-corruption class. Several readers open text files with no `encoding=` argument, so they use the locale preferred encoding — UTF-8 on macOS/Linux but cp1252 on stock Windows (until PEP 686 lands in Python 3.15). The codebase's data and config files legitimately contain non-ASCII (`µ`, `°`, `⁻`): read as cp1252 these either raise mid-parse or silently mojibake (`µm` → `Âµm`) into loaded strings.
+**File**: `src/radiant/io/element_config.py:53,234` (YAML element configs), `src/radiant/data/library.py:44,79` (spectral-library CSVs + manifest), `src/radiant/source/converters/_csv.py:114`, `src/radiant/atmosphere/tabulated.py:65`, `src/radiant/atmosphere/modtran.py:511` (`read_text()`), `src/radiant/atmosphere/modtran.py:898` (`write_text()`); sweep the whole tree for other text-mode `open()`/`read_text()`/`write_text()` without `encoding=`.
+**Symptom**: On a stock Windows Python (no `PYTHONUTF8=1`), loading any UTF-8 file containing `µ` through these paths mis-decodes or raises `UnicodeDecodeError` with no RADIANT-actionable message.
+**Why it still matters**: Rule 30 (cross-platform portability), Rule 17 (no silent failures) — mojibake in loaded metadata is a silent data corruption; it also bites any collaborator on a non-UTF-8 locale, not just Windows.
+**Suggested fix**: (a) inline-fix-now — mechanical sweep adding `encoding="utf-8"` to every text-mode `open()`/`read_text()`/`write_text()` in `src/`, `scripts/`, `dev_tools/`; add the ruff rule `PLW1514` (`unspecified-encoding`) so new call sites can't regress. Effort S; category A (no results change on macOS). Re-audit after the ruff rule is enabled.
+
 ### CU-148 — "Both-set" projected-area inconsistency: published area uses the param while the descriptor uses the shape
 
 **Discovered**: ADR-0008 Phase B feasibility trace, 2026-07-16, branch `arch/target-extent-phase-b`

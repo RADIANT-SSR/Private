@@ -216,6 +216,17 @@ The repo root `CHANGELOG.md` (Keep a Changelog format, `## [Unreleased]` section
 
 Refactors, doc-only, test-only, and internal changes with no observable effect get no entry — the changelog is a user-facing record, not a commit log. The changelog entry complements, never replaces, the registry updates (Rules 21–22) and lock-step doc updates (Rule 20). Enforced via the PR-template checklist, the same mechanism as Rule 20. The changelog begins 2026-07-07; earlier history is git log plus the tracking registries, not retroactively reconstructed.
 
+### 30. Code Runs on Windows and macOS
+RADIANT is developed on macOS and must run unmodified on Windows. Every change — library, scripts, dev tools, tests — is written cross-platform:
+
+- **Paths**: build paths with `pathlib.Path`; never concatenate path segments with `"/"` string operations; never hardcode absolute POSIX paths (`/tmp`, `/usr/...`, `/Users/...`) in code or defaults. A platform-dependent default (e.g. an external binary location) must fail with an actionable error (Rule 15) on the platform where it doesn't apply.
+- **Encoding**: every text-mode `open()`, `Path.read_text()`, and `Path.write_text()` passes `encoding="utf-8"` explicitly. Windows' locale default is cp1252, which mis-decodes the `µ`/`°` characters this codebase uses (CU-149).
+- **Newlines**: when a written text artifact's exact bytes matter (checksummed files, MODTRAN decks, golden text baselines), pass `newline="\n"` explicitly; otherwise accept platform newlines. Repo-side normalization is `.gitattributes`' job (CU-150).
+- **APIs**: no POSIX-only stdlib modules (`fcntl`, `termios`, `pty`, `os.fork`, `signal`-based timeouts) in library code. Platform-specific code paths require an explicit `sys.platform` branch covering both platforms, and a reason.
+- **Case**: never rely on filesystem case-insensitivity — two paths differing only in case are the same file on default macOS/Windows and different files on Linux CI.
+
+New code that violates any of these is review-blocking even if it passes tests on the development machine — the tests only exercise the platform they run on.
+
 ---
 
 ## Agent Task Discipline
@@ -382,9 +393,10 @@ Run this mentally before declaring any task complete.
 - Are tests testing real behavior, or just passing trivially?
 - Is there any test that would still pass if I gutted the implementation?
 - Any hidden state, globals, or side effects I missed?
+- Would this run on Windows? (paths via pathlib, `encoding="utf-8"` on text I/O, no POSIX-only APIs — R30)
 
 ### Architecture
-- Does this respect all 29 rules above?
+- Does this respect all 30 rules above?
 - If I touched a documented surface (public API, schema, error class, stage protocol, ChainState field, architectural rule), did I update the matching `RADIANT_*.md` doc in this PR? (R20)
 - If this change affects computed results or a public surface, did I add a `CHANGELOG.md` entry under `[Unreleased]`? (R29)
 - Did I uncover any latent issue (placeholder, suppressed warning, dead helper, schema drift) that I left undocumented? If yes, file a CU before merge. (R21)
@@ -586,6 +598,9 @@ package returns when that spec is implemented.)
 | Carry a stage-deferred CU across a gating-stage landing without re-audit | Violates Rule 22 — silent perpetual deferral |
 | Add a normative claim to a `RADIANT_*.md` doc that no test, contract, or type check enforces | Produces aspirational drift (the failure mode that created the 16 Phase-4 audit findings) |
 | Land a results-affecting or public-surface change without a `CHANGELOG.md` entry | Violates Rule 29 — untracked behavior change |
+| Text-mode `open()`/`read_text()`/`write_text()` without `encoding="utf-8"` | Violates Rule 30 — cp1252 mojibake on Windows |
+| Hardcode an absolute POSIX path or build paths by string concatenation | Violates Rule 30 — breaks on Windows |
+| Import a POSIX-only stdlib module (`fcntl`, `termios`, `pty`, `os.fork`) in library code | Violates Rule 30 — breaks on Windows |
 
 ---
 

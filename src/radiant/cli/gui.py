@@ -72,7 +72,12 @@ def _load_sensor(config: str | None) -> Sensor | None:
     subclasses.
     """
     if config is None:
-        return None
+        # From-scratch flow (owner report 2026-07-17): a bare `radiant gui` opens an
+        # editable blank configuration (schema defaults, no file) — the File → New
+        # state — instead of a dead window with everything disabled.
+        from radiant.api.sensor import Sensor
+
+        return Sensor()
 
     config_path = Path(config)
     if not config_path.exists():

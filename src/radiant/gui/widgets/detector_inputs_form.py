@@ -45,8 +45,12 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.gui.param_format import field_display_text
+from radiant.gui.widgets.field_row import (
+    LABEL_COLUMN_WIDTH,
+    VALUE_BOX_MAX,
+    FieldRow,
+)
 from radiant.gui.widgets.field_row import UNSET as _UNSET
-from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.import_preview_dialog import ImportPreviewDialog
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
@@ -211,12 +215,14 @@ class DetectorInputsForm(QWidget):
                 # hand-made vendor CSV takes (io/qe_csv.py auto-detects the units).
                 self._define_qe = QPushButton("Define QE(λ) table…", block)
                 self._define_qe.setObjectName("defineQeButton")
+                self._define_qe.setMaximumWidth(LABEL_COLUMN_WIDTH + VALUE_BOX_MAX + 10)
                 self._define_qe.clicked.connect(self._on_define_qe)
                 block_box.addWidget(self._define_qe)
                 # D5 confirm-before-Apply import: preview the parsed curve (header
                 # unit auto-detection shown) before the one sensor.set commits it.
                 self._import_qe = QPushButton("Import QE curve (preview)…", block)
                 self._import_qe.setObjectName("importQeButton")
+                self._import_qe.setMaximumWidth(LABEL_COLUMN_WIDTH + VALUE_BOX_MAX + 10)
                 self._import_qe.clicked.connect(self._on_import_qe)
                 block_box.addWidget(self._import_qe)
             block_box.addStretch(1)

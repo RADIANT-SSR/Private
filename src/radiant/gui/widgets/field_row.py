@@ -35,6 +35,16 @@ from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QSizePolicy, QWi
 UNSET = "—"
 
 
+# The uniform field-layout contract (owner request 2026-07-17: "consistent size and
+# shape throughout the entire project"). Every FieldRow shares these — labels form a
+# constant-width column (elide + tooltip beyond; a floor keeps narrow panels safe) and
+# value boxes share one bounded shape. Changing the numbers here restyles every form.
+LABEL_COLUMN_WIDTH = 170
+LABEL_COLUMN_MIN = 70
+VALUE_BOX_MIN = 72
+VALUE_BOX_MAX = 280
+
+
 class ElidingLabel(QLabel):
     """A field label that elides with an ellipsis instead of forcing its full text width.
 
@@ -58,14 +68,14 @@ class ElidingLabel(QLabel):
         super().setText(text)
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802 — Qt override
-        """A few characters wide, so the row can shrink to the column (value stays visible)."""
-        fm = QFontMetrics(self.font())
-        return QSize(fm.averageCharWidth() * self._MIN_CHARS, super().minimumSizeHint().height())
+        """The narrow floor (LABEL_COLUMN_MIN) so tight panels shrink without clipping."""
+        return QSize(LABEL_COLUMN_MIN, super().minimumSizeHint().height())
 
     def sizeHint(self) -> QSize:  # noqa: N802 — Qt override
-        """The full label width when the column has room (elides only when it does not)."""
-        fm = QFontMetrics(self.font())
-        return QSize(fm.horizontalAdvance(self._full), super().sizeHint().height())
+        """The **uniform** column width (LABEL_COLUMN_WIDTH) — constant regardless of
+        text length, so every label edge lines up across every form (owner request
+        2026-07-17); long names elide with the tooltip carrying the full text."""
+        return QSize(LABEL_COLUMN_WIDTH, super().sizeHint().height())
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 — Qt override
         super().resizeEvent(event)
@@ -113,8 +123,8 @@ class FieldRow(QWidget):
         # ("Fill fac…"); the cap returns that width to the labels. Narrow columns (the
         # schematic accordion) sit below the cap and are unaffected.
         self._value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._value.setMinimumWidth(64)
-        self._value.setMaximumWidth(280)
+        self._value.setMinimumWidth(VALUE_BOX_MIN)
+        self._value.setMaximumWidth(VALUE_BOX_MAX)
         self._value.clicked.connect(lambda: self._on_edit(self._dotpath))
 
         row.addWidget(self._label, 0, 0)
@@ -144,4 +154,12 @@ class FieldRow(QWidget):
         return self._value
 
 
-__all__ = ["UNSET", "ElidingLabel", "FieldRow"]
+__all__ = [
+    "UNSET",
+    "LABEL_COLUMN_WIDTH",
+    "LABEL_COLUMN_MIN",
+    "VALUE_BOX_MIN",
+    "VALUE_BOX_MAX",
+    "ElidingLabel",
+    "FieldRow",
+]

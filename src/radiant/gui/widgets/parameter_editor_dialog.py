@@ -58,6 +58,8 @@ from PySide6.QtWidgets import (
 
 from radiant.api.units import _CONVERSIONS
 from radiant.core.exceptions import RadiantError
+from radiant.core.parameters import ParameterBoundsError
+from radiant.core.units import convert
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -163,6 +165,12 @@ class ParameterEditorDialog(QDialog):
         self._build_header(layout)
         self._build_info(layout, provenance)
         self._value_editor: QWidget = self._build_editor_row(layout)
+        # GT-2 tolerance annotation — placed BELOW the main value (owner request
+        # 2026-07-17): the value is the headline, the Monte-Carlo spread annotates it.
+        self._tol_distribution: QComboBox | None = None
+        self._tol_params: dict[str, QLineEdit] = {}
+        if self._pdef.dtype is float and not self._read_only:
+            self._build_tolerance_section(layout)
         self._build_preview(layout)
         self._build_error_area(layout)
         self._build_buttons(layout)
@@ -198,15 +206,6 @@ class ParameterEditorDialog(QDialog):
         self._current_label.setObjectName("errorDialogValue")
         self._current_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._add_row(form, "Current", self._current_label)
-        # GT-2 (Tier-2): the tolerance annotation section — a tolerance is a property
-        # of the parameter, edited where the value is edited (owner-shaped 2026-07-16:
-        # never a standalone 130-row editor). Float parameters only; commits via the
-        # one Sensor.set_tolerance / clear_tolerance call on Apply.
-        self._tol_distribution: QComboBox | None = None
-        self._tol_params: dict[str, QLineEdit] = {}
-        if self._pdef.dtype is float and not self._read_only:
-            self._build_tolerance_section(layout)
-
         self._render_current(provenance)
 
         if self._pdef.bounds is not None:
@@ -532,10 +531,73 @@ class ParameterEditorDialog(QDialog):
                 trial.set(self._dotpath, value)
             canonical = trial.get(self._dotpath)
         except RadiantError as exc:
+            # Differential test (from-scratch bootstrap, 2026-07-17): if the config
+            # fails to resolve identically WITHOUT this edit, the failure is the
+            # config's incompleteness, not this value — accept the edit (the
+            # per-value bounds/enum checks already ran inside set()); Evaluate
+            # remains the surface that reports what is still missing. Only a
+            # failure this edit *introduces* is a rejection.
+            baseline = self._sensor.clone()
+            try:
+                baseline.get(self._dotpath)
+            except RadiantError:
+                # Pre-existing incompleteness — but the VALUE itself must still pass
+                # the schema checks (Rule 16: a negative aperture is wrong regardless
+                # of how incomplete the config is).
+                shallow = self._validate_value_shallow(value, unit)
+                if shallow is not None:
+                    return None, shallow, None
+                return None, None, None
             return None, exc, None
         except Exception as exc:  # genuine bug, not a rejected input — never swallow
             return None, None, exc
         return canonical, None, None
+
+    def _validate_value_shallow(self, value: Any, unit: str | None) -> RadiantError | None:
+        """Schema-only value check for configs that cannot fully resolve yet.
+
+        Bounds (canonical units, converted once from the chosen/input unit) and
+        enum membership — the checks a full resolve would have run for this one
+        parameter. Returns the rejection or None.
+        """
+        pdef = self._pdef
+        if pdef.enum_values is not None and value not in pdef.enum_values:
+            return ParameterBoundsError(
+                what=f"{self._dotpath} = {value!r} is not a valid choice",
+                why=f"Allowed values: {', '.join(pdef.enum_values)}.",
+                action="Pick one of the listed values.",
+                context={"param": self._dotpath, "value": value},
+            )
+        if pdef.dtype is float and pdef.bounds is not None:
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                return ParameterBoundsError(
+                    what=f"{self._dotpath} = {value!r} is not a number",
+                    why="This parameter takes a numeric value.",
+                    action="Enter a number.",
+                    context={"param": self._dotpath, "value": value},
+                )
+            # ParameterDef.bounds are in the INPUT unit (Parameter System doc: "the
+            # user thinks in input units; validation should too") — convert only when
+            # a different display unit was chosen, then compare in input units.
+            from_unit = unit or pdef.input_unit
+            in_input_unit = numeric
+            if from_unit and from_unit != pdef.input_unit:
+                in_input_unit = convert(numeric, from_unit, pdef.input_unit)
+            lo, hi = pdef.bounds
+            if not (lo <= in_input_unit <= hi):
+                return ParameterBoundsError(
+                    what=(f"{self._dotpath} = {numeric:g} {from_unit or ''} is out of bounds"),
+                    why=f"Allowed range: [{lo:g}, {hi:g}] {pdef.input_unit or ''}.",
+                    action="Enter a value inside the allowed range.",
+                    context={
+                        "param": self._dotpath,
+                        "value": in_input_unit,
+                        "bounds": (lo, hi),
+                    },
+                )
+        return None
 
     def _update_preview(self) -> None:
         """Recompute the canonical preview for the current editor value + unit.
@@ -580,10 +642,12 @@ class ParameterEditorDialog(QDialog):
     # -- value extraction ---------------------------------------------------
 
     def _current_input_value(self) -> Any:
-        """The parameter's current resolved value in input units, or ``None`` if unset."""
+        """The parameter's resolved input value, or None while the config cannot
+        resolve yet (a from-scratch File → New — the dialog must still open so the
+        user can enter the very first values; found 2026-07-17)."""
         try:
             return self._sensor.get_input(self._dotpath)
-        except KeyError:
+        except (KeyError, RadiantError):
             return None
 
     def _current_display_value(self) -> Any:

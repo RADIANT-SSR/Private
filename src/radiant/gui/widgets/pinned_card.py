@@ -106,6 +106,9 @@ class PinnedCard(QFrame):
         self._label.setObjectName("pinnedCardLabel")
 
         self._value = QLabel(_AWAITING_VALUE, self)
+        # Wrap rather than clip when the rail is at its narrow floor (owner report
+        # 2026-07-17): a wrapped value is readable; a clipped one is garbage.
+        self._value.setWordWrap(True)
         self._value.setObjectName("pinnedCardValue")
 
         self._source = QLabel(source, self)

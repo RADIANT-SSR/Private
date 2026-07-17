@@ -176,7 +176,15 @@ class RADIANTMainWindow(QMainWindow):
             if self._current_path is not None:
                 self._settings.add_recent_file(str(self._current_path))
                 self._rebuild_recent_menu()
-            QTimer.singleShot(0, self._evaluate_now)
+            if self._sensor_can_resolve(self._sensor):
+                QTimer.singleShot(0, self._evaluate_now)
+            else:
+                # From-scratch launch (owner report 2026-07-17): an incomplete config
+                # opens editable with guidance — never an auto-evaluate into a modal.
+                self.statusBar().showMessage(
+                    "Configuration incomplete — set required parameters, then Evaluate "
+                    "(F5) to see what is still missing"
+                )
 
     # -- public accessors ---------------------------------------------------
 
@@ -468,6 +476,10 @@ class RADIANTMainWindow(QMainWindow):
         rail_dock.setObjectName("rightRailDock")
         rail_dock.setTitleBarWidget(QWidget(rail_dock))  # hide the dock title bar
         rail_dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        # The rail must stay readable at small window sizes (owner report
+        # 2026-07-17: pinned values clipped mid-glyph when not fullscreen) — give
+        # the dock a floor instead of letting Qt squeeze it arbitrarily.
+        right_rail.setMinimumWidth(240)
         rail_dock.setWidget(right_rail)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, rail_dock)
         self._right_rail_dock = rail_dock
@@ -1006,10 +1018,18 @@ class RADIANTMainWindow(QMainWindow):
         if add_recent and path is not None:
             self._settings.add_recent_file(str(path))
             self._rebuild_recent_menu()
-        if evaluate and sensor is not None:
+        if evaluate and sensor is not None and self._sensor_can_resolve(sensor):
             self._evaluate_now()
         else:
             self._refresh_snapshot()
+            if sensor is not None and evaluate:
+                # A config that cannot resolve yet (from-scratch / blank New): do NOT
+                # auto-evaluate into a modal error at open (owner report 2026-07-17) —
+                # guide instead; Evaluate (F5) reports exactly what is missing.
+                self.statusBar().showMessage(
+                    "Configuration incomplete — set required parameters, then Evaluate (F5) "
+                    "to see what is still missing"
+                )
 
     def _confirm_discard_edits(self) -> bool:
         """CU-140 guard: with unsaved edits, offer Save / Discard / Cancel.
@@ -1034,6 +1054,20 @@ class RADIANTMainWindow(QMainWindow):
             self._on_save()
             return not self._dirty
         return answer == QMessageBox.StandardButton.Discard
+
+    @staticmethod
+    def _sensor_can_resolve(sensor: Sensor) -> bool:
+        """Whether *sensor* resolves — gates the automatic adopt-time evaluation.
+
+        A blank / incomplete config must open editable with guidance, not a modal
+        error (owner report 2026-07-17). Checked on a clone; the live sensor's
+        resolution state is untouched.
+        """
+        try:
+            sensor.clone().get_input("optics.aperture_diameter_m")
+        except (KeyError, RadiantError):
+            return False
+        return True
 
     def _on_new(self) -> None:
         """File → New: open a blank config (guarded against losing unsaved edits, CU-140)."""

@@ -35,7 +35,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QGridLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
@@ -176,29 +183,45 @@ class DetectorInputsForm(QWidget):
         box.addWidget(title)
 
         self._rows: dict[str, FieldRow] = {}
-        for heading, fields in _GROUPS:
-            group_label = QLabel(heading, card)
+        # Two-column group grid (owner layout report 2026-07-16): the full-schema form
+        # is 27 fields — one long column read badly. Each group is a self-contained
+        # block placed left/right alternately; the flat _rows dict is unchanged, so
+        # binding/refresh and every test iterate exactly as before.
+        grid_host = QWidget(card)
+        grid = QGridLayout(grid_host)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(18)
+        grid.setVerticalSpacing(10)
+        for index, (heading, fields) in enumerate(_GROUPS):
+            block = QWidget(grid_host)
+            block_box = QVBoxLayout(block)
+            block_box.setContentsMargins(0, 0, 0, 0)
+            block_box.setSpacing(6)
+            group_label = QLabel(heading, block)
             group_label.setObjectName("geoModeGroupHeading")
-            box.addWidget(group_label)
+            block_box.addWidget(group_label)
             for label, dotpath in fields:
                 row = FieldRow(dotpath, label, self._open_editor)
-                box.addWidget(row)
+                block_box.addWidget(row)
                 self._rows[dotpath] = row
             if fields is _QE_FIELDS:
                 # Define QE(λ) inline (owner request 2026-07-16): type or paste a λ-vs-QE
                 # table; the dialog's points are written to a user-chosen CSV and
                 # detector.qe_table_path is set in one API call — the same loader path a
                 # hand-made vendor CSV takes (io/qe_csv.py auto-detects the units).
-                self._define_qe = QPushButton("Define QE(λ) table…", card)
+                self._define_qe = QPushButton("Define QE(λ) table…", block)
                 self._define_qe.setObjectName("defineQeButton")
                 self._define_qe.clicked.connect(self._on_define_qe)
-                box.addWidget(self._define_qe)
+                block_box.addWidget(self._define_qe)
                 # D5 confirm-before-Apply import: preview the parsed curve (header
                 # unit auto-detection shown) before the one sensor.set commits it.
-                self._import_qe = QPushButton("Import QE curve (preview)…", card)
+                self._import_qe = QPushButton("Import QE curve (preview)…", block)
                 self._import_qe.setObjectName("importQeButton")
                 self._import_qe.clicked.connect(self._on_import_qe)
-                box.addWidget(self._import_qe)
+                block_box.addWidget(self._import_qe)
+            block_box.addStretch(1)
+            grid.addWidget(block, index // 2, index % 2, Qt.AlignmentFlag.AlignTop)
+        box.addWidget(grid_host)
 
         layout.addWidget(card)
 

@@ -45,7 +45,6 @@ target:
   h_tgt: 0.0
   no_atmosphere_subcase: space
   scene_type: extended
-  shape: null
   target_location: no_atmosphere
 wavelength_um:
 - 3.999

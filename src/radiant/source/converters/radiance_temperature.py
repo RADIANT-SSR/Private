@@ -115,7 +115,6 @@ def radiance_temperature_to_descriptor(
     no_atmosphere_subcase: NoAtmosphereSubcase | None = None,
     h_tgt: float | None = None,
     A_t: float | None = None,
-    shape: object | None = None,
 ) -> TargetDescriptor:
     """Convert a scalar T_R + band into a canonical TargetDescriptor.
 
@@ -133,7 +132,7 @@ def radiance_temperature_to_descriptor(
         descriptor.  ``at_aperture`` is rejected — that cell is the S9
         domain (T5AtAperture) and has no atmospheric transport for T_R
         to inform.
-    A_t, shape:
+    A_t:
         Optional projected-area surface; passed through to the descriptor.
 
     Returns
@@ -183,7 +182,6 @@ def radiance_temperature_to_descriptor(
         epsilon=_grey_epsilon(lam),
         T_t=float(T_R_K),
         A_t=A_t,
-        shape=shape,
     )
 
 

@@ -55,7 +55,6 @@ class TestHappyPath:
             target_location="airborne",
             h_tgt=3000.0,
             A_t=12.5,
-            shape=None,
         )
         assert isinstance(desc, T1Thermal)
         assert desc.A_t == 12.5

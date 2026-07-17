@@ -131,7 +131,6 @@ def reflectance_to_descriptor(
     no_atmosphere_subcase: NoAtmosphereSubcase | None = None,
     h_tgt: float | None = None,
     A_t: float | None = None,
-    shape: object | None = None,
 ) -> TargetDescriptor:
     """Convert a user-supplied ρ (scalar or SpectralData) into a T2Reflective.
 
@@ -150,13 +149,13 @@ def reflectance_to_descriptor(
         Matrix-axes metadata, passed through to T2Reflective.
         ``at_aperture`` is rejected — that cell is the S9 domain and has
         no incident irradiance for ρ to modulate.
-    A_t, shape:
+    A_t:
         Projected-area surface; passed through to the descriptor.
 
     Returns
     -------
     TargetDescriptor
-        :class:`T2Reflective` with ``rho`` populated and ``A_t`` / shape
+        :class:`T2Reflective` with ``rho`` populated and ``A_t``
         from the matrix-Q3 resolution.
 
     Raises
@@ -199,7 +198,6 @@ def reflectance_to_descriptor(
         h_tgt=h_tgt,
         rho=rho_descriptor,
         A_t=A_t,
-        shape=shape,
     )
 
 

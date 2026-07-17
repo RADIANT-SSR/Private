@@ -618,12 +618,12 @@ def _validate_T_B_csv(T_B_values: np.ndarray, *, csv_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_projected_area_and_shape(
+def _resolve_projected_area(
     params: ParameterSet,
     target_location: str,
     scene_theta_o: float | None = None,
-) -> tuple[float | None, TargetShape | None]:
-    """Return ``(A_t, shape)`` per the Q3 shape-wins rule.
+) -> float | None:
+    """Return ``A_t`` per the Q3 shape-wins rule.
 
     Shared between the legacy ε/T path in ``_build_target_descriptor``
     and the S11 brightness-temperature branch; both paths apply the
@@ -674,7 +674,7 @@ def _resolve_projected_area_and_shape(
         A_t: float | None = a_shape if a_shape > 0.0 else None
     else:
         A_t = projected_area if user_area_set else None
-    return A_t, shape_obj
+    return A_t
 
 
 def _maybe_build_from_brightness_temperature(
@@ -831,7 +831,7 @@ def _maybe_build_from_brightness_temperature(
             },
         )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
+    A_t = _resolve_projected_area(params, target_location, scene_theta_o)
 
     # Tabulated T_B(λ) via CSV (S11 brightness_temperature_path).
     # Gap G Step G.3: load native grid, validate T_B ∈ (0, 10000] K at the
@@ -869,7 +869,6 @@ def _maybe_build_from_brightness_temperature(
             ),
             h_tgt=h_tgt,
             A_t=A_t,
-            shape=shape_obj,
         )
 
     # Scalar T_B: lift to a flat SpectralData on the chain grid and run
@@ -896,7 +895,6 @@ def _maybe_build_from_brightness_temperature(
         ),
         h_tgt=h_tgt,
         A_t=A_t,
-        shape=shape_obj,
     )
 
 
@@ -1075,7 +1073,7 @@ def _maybe_build_from_radiance_temperature(
     T_R_K = float(t_r_rv.value)
     band = (float(lo_rv.value), float(hi_rv.value))
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
+    A_t = _resolve_projected_area(params, target_location, scene_theta_o)
     return radiance_temperature_to_descriptor(
         T_R_K=T_R_K,
         band_um=band,
@@ -1087,7 +1085,6 @@ def _maybe_build_from_radiance_temperature(
         ),
         h_tgt=h_tgt,
         A_t=A_t,
-        shape=shape_obj,
     )
 
 
@@ -1237,7 +1234,7 @@ def _maybe_build_from_reflectance(
             },
         )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
+    A_t = _resolve_projected_area(params, target_location, scene_theta_o)
 
     # Tabulated ρ(λ) via CSV (S5 reflectance_path / S6 albedo_path).
     # Gap G Step G.2: load native grid, validate bounds at the boundary,
@@ -1273,7 +1270,6 @@ def _maybe_build_from_reflectance(
             ),
             h_tgt=h_tgt,
             A_t=A_t,
-            shape=shape_obj,
         )
 
     # Scalar ρ — take whichever surface is user-set (validator already
@@ -1290,7 +1286,6 @@ def _maybe_build_from_reflectance(
         ),
         h_tgt=h_tgt,
         A_t=A_t,
-        shape=shape_obj,
     )
 
 
@@ -1404,7 +1399,7 @@ def _maybe_build_from_user_radiance(
         source=(f"source.converters.user_radiance (CSV → chain grid: {csv_path})"),
     )
 
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
+    A_t = _resolve_projected_area(params, target_location, scene_theta_o)
     return user_radiance_to_descriptor(
         L_t_source=L_sd,
         scene_type=scene_type,  # type: ignore[arg-type]
@@ -1414,7 +1409,6 @@ def _maybe_build_from_user_radiance(
         ),
         h_tgt=h_tgt,
         A_t=A_t,
-        shape=shape_obj,
     )
 
 
@@ -1727,9 +1721,9 @@ def _build_target_descriptor(
     # stages when reflectance, mixed, or at-aperture data are surfaced.
     #
     # Q3 shape-wins precedence (matrix §4, resolved 2026-04-21) is applied
-    # inside ``_resolve_projected_area_and_shape`` — shared with the S11
+    # inside ``_resolve_projected_area`` — shared with the S11
     # brightness-temperature branch.
-    A_t, shape_obj = _resolve_projected_area_and_shape(params, target_location, scene_theta_o)
+    A_t = _resolve_projected_area(params, target_location, scene_theta_o)
 
     # Matrix §3.2 routing (CU-007): MWIR-overlap targets default to
     # T3Mixed (Kirchhoff emit+reflect); the hot-target opt-out at
@@ -1750,7 +1744,6 @@ def _build_target_descriptor(
             epsilon=epsilon,
             T_t=T_t,
             A_t=A_t,
-            shape=shape_obj,
         )
     return T1Thermal(
         scene_type=scene_type,  # type: ignore[arg-type]
@@ -1762,7 +1755,6 @@ def _build_target_descriptor(
         epsilon=epsilon,
         T_t=T_t,
         A_t=A_t,
-        shape=shape_obj,
     )
 
 

@@ -106,7 +106,6 @@ def user_radiance_to_descriptor(
     no_atmosphere_subcase: NoAtmosphereSubcase | None = None,
     h_tgt: float | None = None,
     A_t: float | None = None,
-    shape: object | None = None,
 ) -> TargetDescriptor:
     """Convert a user-supplied ``L_t_source(λ)`` into a T6TabulatedAtSource.
 
@@ -119,7 +118,7 @@ def user_radiance_to_descriptor(
         Matrix-axes metadata, passed through to T6TabulatedAtSource.
         ``at_aperture`` is rejected — S9 is the T5AtAperture domain and
         carries aperture-plane radiance, not target-plane radiance.
-    A_t, shape:
+    A_t:
         Optional projected-area surface; passed through to the
         descriptor.
 
@@ -127,7 +126,7 @@ def user_radiance_to_descriptor(
     -------
     TargetDescriptor
         :class:`T6TabulatedAtSource` with ``L_t_source`` populated and
-        ``A_t`` / shape from the matrix-Q3 resolution.
+        ``A_t`` from the matrix-Q3 resolution.
 
     Raises
     ------
@@ -161,7 +160,6 @@ def user_radiance_to_descriptor(
         h_tgt=h_tgt,
         L_t_source=L_t_source,
         A_t=A_t,
-        shape=shape,
     )
 
 

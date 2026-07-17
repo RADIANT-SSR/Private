@@ -341,9 +341,6 @@ class T1Thermal(TargetDescriptor):
     epsilon: SpectralData | None = None
     T_t: float = 0.0
     A_t: float | None = None
-    shape: object | None = None  # TargetShape | None; typed as ``object`` because
-    # ``radiant.core`` cannot import from ``radiant.source`` (Rule 11).  Source
-    # stages narrow via ``isinstance(desc.shape, TargetShape)`` when needed.
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -383,7 +380,6 @@ class T2Reflective(TargetDescriptor):
 
     rho: ReflectanceDescriptor | None = None
     A_t: float | None = None
-    shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -438,7 +434,6 @@ class T3Mixed(TargetDescriptor):
     epsilon: SpectralData | None = None
     T_t: float = 0.0
     A_t: float | None = None
-    shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -528,14 +523,10 @@ class T6TabulatedAtSource(TargetDescriptor):
         wavelength grid.  Must be non-negative everywhere.
     A_t:
         Optional projected area [m²] for sub_pixel / point_source regimes.
-    shape:
-        Optional :class:`~radiant.source.shape.TargetShape`; typed as
-        ``object`` to respect Rule 11 (no cross-stage import).
     """
 
     L_t_source: SpectralData | None = None
     A_t: float | None = None
-    shape: object | None = None  # TargetShape | None; see T1Thermal.shape.
 
     def __post_init__(self) -> None:
         super().__post_init__()

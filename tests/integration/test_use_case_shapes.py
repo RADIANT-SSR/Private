@@ -26,8 +26,10 @@ Assertions per (shape, cell):
 1. ``session.run(params)`` completes (no raise) — the full chain honors
    shape-driven A_t without aborting.
 2. Signal in DN at the detector output is finite and non-negative.
-3. ``descriptor.shape`` is an instance of the expected concrete shape
-   class from [radiant.source.shapes](../../src/radiant/source/shapes/).
+3. ``descriptor.A_t`` is a positive, finite shape-derived projected area
+   (the built shape from [radiant.source.shapes](../../src/radiant/source/shapes/)
+   dispatched correctly; the shape object itself is not retained on the
+   descriptor — CU-147).
 4. ``result.metrics['snr']`` is finite.
 
 Negative path
@@ -226,12 +228,18 @@ class TestShapeSubPixelIntegration:
             f"cell {cell_id} / {shape_name}: signal_DN has negative values"
         )
 
-        # 3. Descriptor carries the expected concrete shape class.
+        # 3. Descriptor carries a positive shape-derived projected area
+        #    A_t (the shape object itself is not retained — CU-147).  Only
+        #    the correct concrete shape dispatch yields a positive A_t here.
         target_desc = result.stage_outputs["source"]["target"]
-        assert isinstance(target_desc.shape, expected_cls), (
-            f"cell {cell_id} / {shape_name}: descriptor.shape is "
-            f"{type(target_desc.shape).__name__}, expected "
-            f"{expected_cls.__name__}"
+        assert (
+            target_desc.A_t is not None
+            and np.isfinite(target_desc.A_t)
+            and target_desc.A_t > 0.0
+        ), (
+            f"cell {cell_id} / {shape_name} ({expected_cls.__name__}): "
+            f"descriptor.A_t is {target_desc.A_t!r}, expected a positive "
+            f"shape-derived projected area"
         )
 
         # 4. SNR metric is finite.

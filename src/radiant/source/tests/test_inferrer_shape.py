@@ -118,7 +118,6 @@ class TestTruthAnchorSphere:
             warnings.simplefilter("ignore", UserWarning)
             target, _, _ = infer_descriptors(params, _WL_LWIR)
 
-        assert isinstance(target.shape, Sphere)
         assert target.A_t == pytest.approx(math.pi, rel=1e-12, abs=0.0)
 
 
@@ -146,7 +145,6 @@ class TestTruthAnchorCylinderSide:
             warnings.simplefilter("ignore", UserWarning)
             target, _, _ = infer_descriptors(params, _WL_LWIR)
 
-        assert isinstance(target.shape, Cylinder)
         assert target.A_t == pytest.approx(20.0, rel=1e-12, abs=1e-12)
 
 
@@ -172,7 +170,6 @@ class TestTruthAnchorFlatPlate:
             warnings.simplefilter("ignore", UserWarning)
             target, _, _ = infer_descriptors(params, _WL_LWIR)
 
-        assert isinstance(target.shape, FlatPlate)
         assert target.A_t == pytest.approx(6.0, rel=1e-12, abs=0.0)
 
     @pytest.mark.level1
@@ -190,7 +187,6 @@ class TestTruthAnchorFlatPlate:
             warnings.simplefilter("ignore", UserWarning)
             target, _, _ = infer_descriptors(params, _WL_LWIR)
 
-        assert isinstance(target.shape, FlatPlate)
         # Edge-on: A collapses to 0 up to float noise from sin(π/2)·cos(π/2).
         assert target.A_t is None or target.A_t == pytest.approx(0.0, abs=1e-12)
 
@@ -225,9 +221,7 @@ class TestQ3Precedence:
             f"Expected exactly one shape-wins UserWarning, got "
             f"{len(shape_wins)}: {[str(w.message) for w in shape_wins]}"
         )
-        # Shape instance landed on the descriptor, and A_t reflects
-        # shape.projected_area (π), not the user-supplied 5.0.
-        assert isinstance(target.shape, Sphere)
+        # A_t reflects shape.projected_area (π), not the user-supplied 5.0.
         assert target.A_t == pytest.approx(math.pi, rel=1e-12, abs=0.0)
 
     @pytest.mark.level1
@@ -249,7 +243,6 @@ class TestQ3Precedence:
             and "wins" in str(w.message).lower()
         ]
         assert shape_wins == []
-        assert target.shape is None
         assert target.A_t == pytest.approx(5.0, rel=1e-12, abs=0.0)
 
 
@@ -298,7 +291,6 @@ class TestAdditionalShapes:
             warnings.simplefilter("ignore", UserWarning)
             target, _, _ = infer_descriptors(params, _WL_LWIR)
 
-        assert isinstance(target.shape, Cone)
         # Smoke: cone projected area is positive under nadir view.
         assert target.A_t is not None and target.A_t > 0.0
 
@@ -315,7 +307,6 @@ class TestAdditionalShapes:
             warnings.simplefilter("ignore", UserWarning)
             target, _, _ = infer_descriptors(params, _WL_LWIR)
 
-        assert isinstance(target.shape, Box)
         # Nadir view sees the top face (L·W = 2 m²) plus the 0-cosine
         # side faces; the box projected-area formula in body frame is
         # L·W at pitch=0 when v_body = (0,0,1).

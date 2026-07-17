@@ -144,7 +144,6 @@ def brightness_temperature_to_descriptor(
     no_atmosphere_subcase: NoAtmosphereSubcase | None = None,
     h_tgt: float | None = None,
     A_t: float | None = None,
-    shape: object | None = None,
     constant_threshold_K: float = _CONSTANT_THRESHOLD_K,
 ) -> TargetDescriptor:
     """Convert a user-supplied T_B(λ) into a canonical TargetDescriptor.
@@ -160,7 +159,7 @@ def brightness_temperature_to_descriptor(
         descriptor.  ``at_aperture`` is rejected — that cell is the S9
         domain (T5AtAperture) and has no atmospheric transport for T_B
         to inform.
-    A_t, shape:
+    A_t:
         Optional projected-area surface; passed through to the descriptor.
     constant_threshold_K:
         Peak-to-peak T_B window inside which the spectrum is treated as
@@ -220,7 +219,6 @@ def brightness_temperature_to_descriptor(
             epsilon=_grey_epsilon(lam),
             T_t=T_t,
             A_t=A_t,
-            shape=shape,
         )
 
     # λ-varying T_B → T6 with L_source precomputed on the chain grid.
@@ -239,7 +237,6 @@ def brightness_temperature_to_descriptor(
         h_tgt=h_tgt,
         L_t_source=L_source,
         A_t=A_t,
-        shape=shape,
     )
 
 

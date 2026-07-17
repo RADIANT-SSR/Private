@@ -44,7 +44,6 @@ target:
   h_tgt: 0.0
   no_atmosphere_subcase: null
   scene_type: extended
-  shape: null
   target_location: terrestrial
 wavelength_um:
 - 1.0

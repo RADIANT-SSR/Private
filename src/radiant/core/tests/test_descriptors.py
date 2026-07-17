@@ -114,7 +114,6 @@ def test_cell_17_terrestrial_vis_sub_pixel_t2() -> None:
         h_tgt=0.0,
         rho=rho_vis(),
         A_t=1.0,
-        shape="sphere",
     )
     assert t.A_t == 1.0
 
@@ -655,7 +654,6 @@ def test_roundtrip_t2_reflective() -> None:
         h_tgt=0.0,
         rho=rho_vis(),
         A_t=1.5,
-        shape="sphere",
     )
     d = _descriptor_to_plain_dict(orig)
     rebuilt = _rebuild_from_plain_dict(d, T2Reflective)

@@ -137,6 +137,10 @@ optics.focal_length_m                 # m
 optics.f_number                       # dimensionless
 optics.obscuration_ratio              # dimensionless (0–1)
 optics.wfe_rms_waves                  # waves (at optics.wfe_reference_wavelength_um)
+optics.zernike_file                   # path — Zemax 'Zernike Standard Coefficients' export; loaded
+                                      #   pre-chain (Rule 6), injects a ZERNIKE WavefrontError that
+                                      #   supersedes the scalar WFE; report wavelength honored,
+                                      #   wfe_reference_wavelength_um is the no-header fallback
 optics.transmission_scalar            # dimensionless (0–1)
 optics.scalar_emissivity              # dimensionless (0–1), scalar mode only; declared lumped-train emissivity, ε + τ ≤ 1
 optics.optics_temperature_K           # K

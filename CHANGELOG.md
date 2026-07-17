@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Zemax Zernike wavefront via config (`optics.zernike_file`) + GUI import (GS-4 split 2).**
+  New parameter: point at a Zemax 'Zernike Standard Coefficients' export and the API layer loads
+  it pre-chain, injecting the ZERNIKE-mode wavefront (supersedes the scalar WFE; the report's
+  reference wavelength is honored, `optics.wfe_reference_wavelength_um` is the fallback). Persists
+  via Save/Open and works from the CLI. The Optics Inputs card gains the WFE fields (reference
+  wavelength, Zernike file, defocus) and an **Import Zemax Zernike…** button with a
+  confirm-before-Apply summary (terms, non-piston RSS waves, reference λ — new
+  `radiant.api.preview_zemax_zernike`). Results-neutral unless the parameter is set.
 - **GUI: unsaved-edit guards, script-editor line numbers, File → New crash fix (CU-140 /
   CU-144 / CU-145, results-neutral).** File → New / Open / Open Recent now ask
   Save / Discard / Cancel when the config has unsaved edits; closing a dirty script tab asks

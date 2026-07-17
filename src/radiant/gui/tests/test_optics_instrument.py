@@ -217,3 +217,78 @@ class TestOpticsEditAndWatch:
         tau = window.last_result.stage_outputs["optics"]["tau_opt_spectral"]
         assert float(tau.values.max()) == pytest.approx(0.55, abs=1e-9)
         assert pane.plot_canvases and all(c.has_figure() for c in pane.plot_canvases)
+
+
+class TestZernikeImport:
+    """GS-4 split 2: WFE fields + the Zemax Zernike import (D5 confirm flow)."""
+
+    _FIXTURE = (
+        Path(__file__).resolve().parents[4]
+        / "src/radiant/io/tests/fixtures/zernike_standard_utf8.txt"
+    )
+
+    def test_wfe_fields_exposed(self) -> None:
+        from radiant.gui.widgets.optics_inputs_form import _OPTICS_FIELDS
+
+        paths = {dotpath for _l, dotpath in _OPTICS_FIELDS}
+        for required in (
+            "optics.wfe_rms_waves",
+            "optics.wfe_reference_wavelength_um",
+            "optics.zernike_file",
+            "optics.defocus_um",
+        ):
+            assert required in paths, required
+
+    def test_import_confirm_sets_param_and_changes_strehl(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets import optics_inputs_form as oif
+        from radiant.gui.widgets.optics_inputs_form import OpticsInputsForm
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        baseline = _evaluate(sensor.clone()).metrics["strehl"]
+        form = OpticsInputsForm()
+        qtbot.addWidget(form)
+        form.bind_sensor(sensor, {})
+
+        monkeypatch.setattr(
+            oif.QFileDialog,
+            "getOpenFileName",
+            staticmethod(lambda *a, **k: (str(self._FIXTURE), "")),
+        )
+        monkeypatch.setattr(
+            oif.QMessageBox,
+            "question",
+            staticmethod(lambda *a, **k: oif.QMessageBox.StandardButton.Yes),
+        )
+        with qtbot.waitSignal(form.parameterEdited, timeout=2000) as blocker:
+            form._on_import_zernike()  # noqa: SLF001
+        assert blocker.args == ["optics.zernike_file"]
+        assert sensor.get_input("optics.zernike_file") == str(self._FIXTURE)
+        assert _evaluate(sensor).metrics["strehl"] != baseline
+
+    def test_import_declined_leaves_param_unset(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets import optics_inputs_form as oif
+        from radiant.gui.widgets.optics_inputs_form import OpticsInputsForm
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        form = OpticsInputsForm()
+        qtbot.addWidget(form)
+        form.bind_sensor(sensor, {})
+        monkeypatch.setattr(
+            oif.QFileDialog,
+            "getOpenFileName",
+            staticmethod(lambda *a, **k: (str(self._FIXTURE), "")),
+        )
+        monkeypatch.setattr(
+            oif.QMessageBox,
+            "question",
+            staticmethod(lambda *a, **k: oif.QMessageBox.StandardButton.No),
+        )
+        form._on_import_zernike()  # noqa: SLF001
+        assert sensor.get_input("optics.zernike_file") in ("", None)
+
+    def test_facade_preview_reports_terms_and_rms(self) -> None:
+        from radiant.api.config_io import preview_zemax_zernike
+
+        preview = preview_zemax_zernike(self._FIXTURE)
+        assert preview.n_terms >= 4
+        assert preview.rms_waves > 0

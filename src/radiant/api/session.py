@@ -48,6 +48,28 @@ def _qe_temperature_factor(params: ParameterSet) -> float:
     return 1.0 + coeff * (t_det - t_ref)
 
 
+def _load_zernike_wavefront(params: ParameterSet) -> Any | None:
+    """Load optics.zernike_file into a ZERNIKE WavefrontError, or None when unset.
+
+    The export's own reference wavelength is honored;
+    ``optics.wfe_reference_wavelength_um`` is the fallback when the report has no
+    parseable Wavelength header (both Rule 6 pre-chain: the stage never reads files).
+    """
+    try:
+        path_str: str = params.get("optics.zernike_file")
+    except (KeyError, TypeError):
+        path_str = ""
+    if not path_str:
+        return None
+    from radiant.io.zemax_zernike import load_zemax_zernike
+
+    result = load_zemax_zernike(path_str)
+    if result.reference_wavelength_um is not None:
+        return result.to_wavefront_error()
+    fallback: float = params.get("optics.wfe_reference_wavelength_um")
+    return result.to_wavefront_error(reference_wavelength_um=fallback)
+
+
 def _load_qe_curve(
     params: ParameterSet, wavelength_um: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64] | None:
@@ -228,6 +250,14 @@ class RadiantSession:
         bg_eps = _load_background_emissivity(params)
         if bg_eps is not None:
             initial.setdefault("source_config", {})["background_emissivity"] = bg_eps
+        # Zemax Zernike wavefront from a file (GS-4 split 2): optics.zernike_file
+        # names a 'Zernike Standard Coefficients' export. Rule 6 keeps file I/O out
+        # of the stage: load here, inject the ZERNIKE WavefrontError (supersedes the
+        # scalar wfe_mode path; an explicit extra_stage_outputs injection still wins
+        # because extras merge after this block).
+        zernike_wfe = _load_zernike_wavefront(params)
+        if zernike_wfe is not None:
+            initial.setdefault("optics_config", {})["wavefront_error"] = zernike_wfe
         for group, values in (extra_stage_outputs or {}).items():
             initial.setdefault(group, {}).update(values)
         state = self._runner.run(

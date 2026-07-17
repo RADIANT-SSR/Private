@@ -234,6 +234,23 @@ WFE_MODE = ParameterDef(
     tags=frozenset({"optics", "wavefront"}),
 )
 
+ZERNIKE_FILE = ParameterDef(
+    name="optics.zernike_file",
+    description=(
+        "Path to a Zemax 'Zernike Standard Coefficients' text export. When set, the "
+        "API layer loads it pre-chain (Rule 6) and injects the resulting ZERNIKE-mode "
+        "WavefrontError via stage_outputs['optics_config']['wavefront_error'], which "
+        "supersedes wfe_mode/wfe_rms_waves. The report's own reference wavelength is "
+        "honored; optics.wfe_reference_wavelength_um is the fallback when the export "
+        "has no Wavelength header. Empty = disabled (scalar/parameter-driven WFE)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"optics", "wavefront", "file"}),
+)
+
 WFE_RMS_WAVES = ParameterDef(
     name="optics.wfe_rms_waves",
     description=("RMS wavefront error in waves at the reference wavelength (scalar_rms mode)."),
@@ -548,6 +565,7 @@ PSF_N_WAVELENGTHS = ParameterDef(
 
 
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
+    ZERNIKE_FILE,
     APERTURE_DIAMETER_M,
     OBSCURATION_RATIO,
     N_SPIDERS,

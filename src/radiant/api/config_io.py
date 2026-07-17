@@ -33,6 +33,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.io.element_config import parse_element_entries
+from radiant.io.zemax_zernike import load_zemax_zernike
 from radiant.optics.errors import OpticsValidationError
 
 # Entry keys whose string values are spectral-file references (resolved
@@ -205,6 +206,40 @@ def normalize_element_document(
 
 __all__ = [
     "ElementPreview",
+    "ZernikePreview",
+    "preview_zemax_zernike",
     "preview_optical_elements",
     "normalize_element_document",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class ZernikePreview:
+    """Displayable summary of a Zemax Zernike export (no physics objects).
+
+    ``rms_waves`` is the RSS of every non-piston coefficient (piston Z1 carries
+    no image-quality information); ``coefficients`` are (Noll index, waves)
+    pairs in index order for the GUI's confirmation table.
+    """
+
+    n_terms: int
+    reference_wavelength_um: float | None
+    rms_waves: float
+    coefficients: tuple[tuple[int, float], ...]
+
+
+def preview_zemax_zernike(path: str | Path) -> ZernikePreview:
+    """Parse a Zemax Zernike export for display — the D5 confirm-before-Apply view.
+
+    Runs the real io parser (same errors as attach time); nothing is mutated.
+    The GUI shows this summary before committing ``optics.zernike_file``.
+    """
+    result = load_zemax_zernike(path)
+    non_piston = [c for noll, c in result.zernike_coeffs.items() if noll != 1]
+    rms = float(np.sqrt(np.sum(np.square(non_piston)))) if non_piston else 0.0
+    return ZernikePreview(
+        n_terms=result.n_terms,
+        reference_wavelength_um=result.reference_wavelength_um,
+        rms_waves=rms,
+        coefficients=tuple(sorted(result.zernike_coeffs.items())),
+    )

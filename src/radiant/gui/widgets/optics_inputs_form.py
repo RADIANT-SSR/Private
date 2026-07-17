@@ -32,12 +32,23 @@ holds no colour/font literal. One widget class per file (Rule 19).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
+from radiant.api.config_io import preview_zemax_zernike
+from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import field_display_text
+from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
@@ -58,7 +69,10 @@ _OPTICS_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Obscuration ratio", "optics.obscuration_ratio"),
     ("Spider arms", "optics.n_spiders"),
     ("Scalar throughput τ_opt", "optics.transmission_scalar"),
-    ("WFE RMS", "optics.wfe_rms_waves"),
+    ("WFE RMS (scalar)", "optics.wfe_rms_waves"),
+    ("WFE reference wavelength", "optics.wfe_reference_wavelength_um"),
+    ("Zernike file (Zemax export)", "optics.zernike_file"),
+    ("Defocus", "optics.defocus_um"),
     ("Optics temperature", "optics.optics_temperature_K"),
 )
 
@@ -115,7 +129,54 @@ class OpticsInputsForm(QWidget):
             box.addWidget(row)
             self._rows[dotpath] = row
 
+        # GS-4 split 2: import a Zemax 'Zernike Standard Coefficients' export. The
+        # D5 confirm-before-Apply flow: parse for display (api facade), show the
+        # summary, and only on Yes commit optics.zernike_file (one sensor.set) —
+        # the session loads the file pre-chain and the ZERNIKE wavefront supersedes
+        # the scalar WFE path.
+        self._import_zernike = QPushButton("Import Zemax Zernike…", card)
+        self._import_zernike.setObjectName("importZernikeButton")
+        self._import_zernike.clicked.connect(self._on_import_zernike)
+        box.addWidget(self._import_zernike)
+
         layout.addWidget(card)
+
+    # -- Zemax Zernike import (GS-4 split 2, ADR-0009 D5 flow) ----------------
+
+    def _on_import_zernike(self) -> None:
+        """Pick a Zemax export, preview it, and on confirm set optics.zernike_file."""
+        if self._sensor is None:
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Import Zemax Zernike export", "", "Zemax export (*.txt);;All files (*)"
+        )
+        if not filename:
+            return
+        try:
+            preview = preview_zemax_zernike(filename)
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, "optics.zernike_file", self).exec()
+            return
+        ref = (
+            f"{preview.reference_wavelength_um:g} µm (from report)"
+            if preview.reference_wavelength_um is not None
+            else "none in report — optics.wfe_reference_wavelength_um applies"
+        )
+        answer = QMessageBox.question(
+            self,
+            "Apply Zernike wavefront?",
+            (
+                f"{Path(filename).name}: {preview.n_terms} terms, "
+                f"RSS {preview.rms_waves:.4g} waves (non-piston)\n"
+                f"Reference wavelength: {ref}\n\n"
+                "Apply as the wavefront error (supersedes the scalar WFE)?"
+            ),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._sensor.set("optics.zernike_file", filename)
+        self.refresh()
+        self.parameterEdited.emit("optics.zernike_file")
 
     # -- binding / refresh --------------------------------------------------
 

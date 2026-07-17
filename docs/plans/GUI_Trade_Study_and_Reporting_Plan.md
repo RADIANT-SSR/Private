@@ -1,8 +1,9 @@
 # GUI Trade-Study & Reporting Plan — the Tier-2 Increment
 
-**Status:** Draft — pending owner ratification (§6). Phases dispatch only after ratification;
-FW phases may then start immediately, GUI phases after the Exposure Increment's GX-2 closeout
-(so the acceptance-walkthrough punch list can fold into §5's slot rather than colliding).
+**Status:** **Ratified (owner, 2026-07-16) — EXECUTION ON HOLD** (owner directive: concurrent
+agent work is in flight; no phase dispatches until the owner lifts the hold). When lifted:
+FW-A/FW-B may start immediately; GUI phases additionally wait for the Exposure Increment's
+GX-2 closeout (so the acceptance-walkthrough punch list folds into GT-0 rather than colliding).
 **Date:** 2026-07-16
 **Scope:** the work the owner deferred out of the Exposure Increment ("I don't think we need
 sweeps and MC — I really want to expose existing capabilities", 2026-07-16) now returns as its
@@ -215,18 +216,19 @@ FW-B ───────────┼────────────┼
 
 ## 6. Decisions for owner (ratify to lock)
 
-1. **Ratify the tier scope** — including that GUI-6/Gap 78 detection panels stay out pending
-   their own charter (§2.3).
-2. **D2 — XLSX dependency:** approve `openpyxl` as a GUI-extra dependency for the GT-4
-   workbook, or drop XLSX and ship CSV/PNG/YAML only.
+1. **Ratify the tier scope** — **RATIFIED (owner, 2026-07-16)**, including the GUI-6/Gap 78
+   exclusion (§2.3).
+2. **D2 — XLSX dependency:** **RATIFIED as proposed (owner, 2026-07-16)** — `openpyxl` joins
+   the `gui` extra for the GT-4 workbook (CSV remains the guaranteed floor).
 3. **MC tolerance editor scope (GT-2):** **RESOLVED (owner, 2026-07-16)** — no MC/Batch
    dialogs. Tolerances are per-parameter annotations in the ParameterEditorDialog (+ tree
    badges); MC/Batch run console-first via Run-menu script scaffolds; the sweep dialog stays
    (sweeps are frequent enough to earn dedicated UI) and gains "Copy as script".
-4. **Ordering** — confirm FW-A/FW-B immediately on ratification, GT phases after GX-2
-   closeout, in the §5 order (or reorder).
-5. **GT-7 depth:** close Gap 85 fully in this tier as proposed, or keep the tree badging only
-   and defer non-source tagging until a scenario demands it.
+4. **Ordering** — **RATIFIED (owner, 2026-07-16)** with an execution hold on top: nothing
+   dispatches (FW included) until the owner lifts the hold; then FW-A/FW-B first, GT phases
+   after GX-2 closeout, in the §5 order.
+5. **GT-7 depth:** **RATIFIED as proposed (owner, 2026-07-16)** — close Gap 85 fully in this
+   tier (non-source tags where relevance genuinely varies + tree badging).
 
 ---
 

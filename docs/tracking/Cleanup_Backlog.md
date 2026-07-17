@@ -48,24 +48,6 @@
 **Why it still matters**: Rule 30 (cross-platform portability), Rule 17 (no silent failures) — mojibake in loaded metadata is a silent data corruption; it also bites any collaborator on a non-UTF-8 locale, not just Windows.
 **Suggested fix**: (a) inline-fix-now — mechanical sweep adding `encoding="utf-8"` to every text-mode `open()`/`read_text()`/`write_text()` in `src/`, `scripts/`, `dev_tools/`; add the ruff rule `PLW1514` (`unspecified-encoding`) so new call sites can't regress. Effort S; category A (no results change on macOS). Re-audit after the ruff rule is enabled.
 
-### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS
-
-**Discovered**: Console-open macOS fix (Tools → Python Console), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — usability, non-blocking; **pre-existing**, surfaced while fixing the console shortcut. On modern macOS the top-row keys default to hardware functions (brightness / Mission Control / media), so a bare `F5` / `F6` / `F7` app shortcut only fires when the user also holds **Fn** (or has enabled "Use F1, F2, etc. keys as standard function keys"). RADIANT binds Evaluate = `F5`, Show/Hide Parameter Panel = `F6`, Show/Hide Right Rail = `F7`. The equivalent menu items and buttons still work; only the bare-key accelerators are affected. (The console shortcut was moved off `Ctrl+` `` and onto `Ctrl+Shift+P` in this same fix specifically to avoid a keyboard-reachability trap, but the pre-existing F-key bindings were left as-is — out of this task's scope.)
-**File**: `src/radiant/gui/main_window.py` (`run.evaluate` `shortcut="F5"`, `view.toggle_params` `"F6"`, `view.toggle_rail` `"F7"`).
-**Symptom**: On a stock Mac, pressing F5/F6/F7 triggers the OS hardware function, not the RADIANT action, unless Fn is held. The action is still reachable from the menu (Run → Evaluate, View → Show/Hide …) and, for Evaluate, the right-rail Run button.
-**Why it still matters**: Keyboard-reachability consistency across platforms — the same class of "the keypress never reaches the app on macOS" problem that hid the console. Low severity because every affected action has a visible menu/button fallback.
-**Suggested fix**: (b) stand-alone task — either add Ctrl/Cmd-based alternates (e.g. `Ctrl+Return` for Evaluate) alongside the F-keys, or document the Fn requirement in the GUI docs. Effort S; category D (view-only). Re-audit at the next View/Run-menu touch or a macOS acceptance pass.
-
-### CU-141 — Undo of a Source-shape change does not reverse the nominal dimensions seeded alongside it
-
-**Discovered**: GUI Development Plan Phase 9 (undo/redo), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — minor UX imprecision, non-blocking. When the user picks a target shape on the Source / Geometry-Schematic shape panel, `StagePane._on_shape_requested` performs one `sensor.set("source.target.shape", …)` **plus** several `sensor.set(...)` calls that seed any still-`0.0` required dimensions to nominal non-zero values (CU-125). The Phase-9 undo command captures only the single `source.target.shape` edit signalled via `parameterEdited`, so undoing it reverts the shape enum but leaves the seeded dimensions in place.
-**File**: `src/radiant/gui/widgets/stage_center.py` (`StagePane._on_shape_requested`, `_seed_nominal_dimensions`); `src/radiant/gui/main_window.py` (`_push_edit_command` — one command per signalled dotpath).
-**Symptom**: After Undo of a shape change, the shape reverts but the (auto-seeded) dimension values remain at their nominal seeds rather than their pre-change values. No physics error — the values are all valid — just not a clean single-step reversal.
-**Why it still matters**: Undo-completeness hygiene — a compound edit (shape + seeded dims) should reverse atomically for the operator's mental model. No correctness/physics impact.
-**Suggested fix**: (a) inline-fix-now candidate — have the shape-change path emit a **macro** command (`QUndoStack.beginMacro`/`endMacro`) grouping the shape set and each dimension seed, or signal all affected dotpaths so `_push_edit_command` records each. Effort S; category D (view-only). Re-audit when the undo stack is next touched.
-
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 
 **Discovered**: GUI Development Plan Phase 9 (theme toggle), 2026-07-15, branch `gui-framework-plots`
@@ -448,6 +430,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS — RESOLVED 2026-07-16 (commit `c7aeb13`)
+
+**Discovered**: Console-open macOS fix, 2026-07-15. **Resolution** (suggested fix (b), owner-ratified: add a chord alternate): Evaluate — the most-used action — now carries **both `F5` and `Ctrl+Return`** (`Cmd+Return` on macOS), so it is keyboard-reachable on stock macOS without the Fn modifier while keeping the F5=Run convention. `run.evaluate` uses `setShortcuts([F5, Ctrl+Return])`. The lower-frequency `view.toggle_params`/`toggle_rail` (F6/F7) keep their menu-item fallback (owner scope: fix the high-value action, avoid platform branching). `test_undo_redo.py::TestCU142EvaluateShortcut` covers it. Category D (view-only); goldens untouched.
+
+### CU-141 — Undo of a Source-shape change did not reverse the nominal dimensions seeded alongside it — RESOLVED 2026-07-16 (commit `c7aeb13`)
+
+**Discovered**: GUI Development Plan Phase 9, 2026-07-15. **Resolution** (suggested fix (a), owner-ratified: macro): `StagePane._on_shape_requested` now emits a new `compoundParameterEdited` signal carrying `[shape, *seeded_dims]` (`_seed_nominal_dimensions` returns the seeded dot-paths); `main_window._on_compound_parameter_edited` records them under one `QUndoStack.beginMacro/endMacro`, so a single Undo restores the exact pre-pick state (shape *and* dimensions) atomically. A single-path compound still takes the ordinary single-command path (no empty-macro artifact). `test_undo_redo.py::TestCU141ShapeMacroUndo` covers the atomic reversal; the source-instrument shape test now asserts the compound signal. Category D (view-only); goldens untouched.
 
 ### CU-148 — "Both-set" projected-area inconsistency: published area used the param while the descriptor used the shape — RESOLVED 2026-07-16 (commit `86ee013`)
 

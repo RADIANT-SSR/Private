@@ -1,10 +1,13 @@
 # GUI Trade-Study & Reporting Plan — the Tier-2 Increment
 
-**Status:** **Ratified — Active (hold lifted by owner, 2026-07-16 evening, overnight run).**
-In flight overnight: FW-A, FW-B, GT-0 item 1 (agreed Source rework), GT-7 — none touching the
-concurrent agent's uncommitted files (`scripting_window.py`, `detector_illustration.py`,
-`viewer/projection.py`). GT-1…GT-6 remain gated on the Exposure Increment's GX-2 closeout
-(owner acceptance walkthrough).
+**Status:** **Ratified — EXECUTED (overnight run, 2026-07-16→17).** All phases shipped:
+FW-A `90aa515` (Gap 79 closed) · FW-B `a56ed14` (Gap 88 closed) · GT-0.1 `25d473c` (Source
+rework) · GT-1 `7a3ee2f` (sweep dialog) · GT-2 `3c24f6a` (tolerance annotation + MC/Batch
+scaffolds) · GT-3 `58dd0ac` (comparison) · GT-4 `b834c58` (export + XLSX) · GT-5 `f92056a`
+(measured-MTF overlay) · GT-6 `e300773` (inverse solve) · GT-7 `d780f96` (relevance badging;
+Gap 85 closed). **Remaining: GT-8 closeout** — the owner acceptance pass over the new
+surfaces, then registry re-audit of the touched GUI-1…17 rows and archival of this plan
+(and of the Exposure Increment plan, whose GX-2 folds into the same acceptance session).
 **Date:** 2026-07-16
 **Scope:** the work the owner deferred out of the Exposure Increment ("I don't think we need
 sweeps and MC — I really want to expose existing capabilities", 2026-07-16) now returns as its

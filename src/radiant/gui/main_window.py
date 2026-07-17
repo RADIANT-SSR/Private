@@ -718,6 +718,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("run.sweep").setEnabled(enabled)
         self.action("run.monte_carlo").setEnabled(enabled)
         self.action("tools.compare").setEnabled(enabled)
+        self.action("tools.solve").setEnabled(enabled)
         self.action("run.batch").setEnabled(enabled)
         if not enabled:
             self.action("file.export_json").setEnabled(False)
@@ -965,6 +966,8 @@ class RADIANTMainWindow(QMainWindow):
         self.action("tools.compare").triggered.connect(self._on_compare_configs)
         # GT-5 (Tier-2): the measurement overlay (GUI-4) over compare_mtf.
         self.action("tools.mtf_overlay").triggered.connect(self._on_mtf_overlay)
+        # GT-6 (Tier-2): the inverse-solve face on Sensor.solve_for (GUI-8).
+        self.action("tools.solve").triggered.connect(self._on_solve)
         self._rebuild_recent_menu()
 
     def _adopt_sensor(
@@ -1190,6 +1193,18 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage(
                 "Sweep complete — result retained (export via SweepResult.to_csv)"
             )
+
+    def _on_solve(self) -> None:
+        """Tools → Solve for Parameter… (GT-6): the GUI face on solve_for."""
+        sensor = self._sensor
+        if sensor is None:
+            return
+        metric_names = (
+            tuple(sorted(self._last_result.metrics)) if self._last_result is not None else ("snr",)
+        )
+        from radiant.gui.widgets.solve_dialog import SolveDialog
+
+        SolveDialog(sensor, metric_names, self).exec()
 
     def _on_mtf_overlay(self) -> None:
         """Tools → Compare Measured MTF… (GT-5): lab points over the predicted curve."""

@@ -374,6 +374,7 @@ class RADIANTMainWindow(QMainWindow):
         )
         scripting_action.triggered.connect(self._show_scripting_window)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
+        self._add_action(tools_menu, "tools.compare", "Compare Configurations…", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
         self._add_action(tools_menu, "tools.preferences", "Preferences…", enabled=False)
 
@@ -705,6 +706,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("edit.reset_defaults").setEnabled(enabled)
         self.action("run.sweep").setEnabled(enabled)
         self.action("run.monte_carlo").setEnabled(enabled)
+        self.action("tools.compare").setEnabled(enabled)
         self.action("run.batch").setEnabled(enabled)
         if not enabled:
             self.action("file.export_json").setEnabled(False)
@@ -940,6 +942,8 @@ class RADIANTMainWindow(QMainWindow):
         # scripting window with a ready-to-run scaffold (the GUI teaches the API).
         self.action("run.monte_carlo").triggered.connect(self._on_monte_carlo_scaffold)
         self.action("run.batch").triggered.connect(self._on_batch_scaffold)
+        # GT-3 (Tier-2): the comparison view over compare_configs (Gap 79).
+        self.action("tools.compare").triggered.connect(self._on_compare_configs)
         self._rebuild_recent_menu()
 
     def _adopt_sensor(
@@ -1164,6 +1168,14 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage(
                 "Sweep complete — result retained (export via SweepResult.to_csv)"
             )
+
+    def _on_compare_configs(self) -> None:
+        """Tools → Compare Configurations… (GT-3): current config vs loaded files."""
+        if self._sensor is None:
+            return
+        from radiant.gui.widgets.comparison_dialog import ComparisonDialog
+
+        ComparisonDialog(self._sensor, self).exec()
 
     def _open_script_scaffold(self, title: str, snippet: str) -> None:
         """Open the scripting window with *snippet* in a fresh editor tab (GT-2).

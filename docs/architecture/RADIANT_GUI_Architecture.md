@@ -1331,6 +1331,21 @@ plan):
 Monte Carlo / Batch deliberately have **no dialogs** (owner D3): they are console workflows;
 their Run-menu items become script scaffolds (GT-2).
 
+## 8c. Comparison Mode (Tier-2 GT-3 — SHIPPED 2026-07-16)
+
+**Tools → Compare Configurations…** opens `ComparisonDialog` (content spec per Rule 20):
+
+- **Columns**: the current live config (always first, evaluated on a clone) plus N config
+  files added via a file picker; baseline column selectable.
+- **Execution**: each column evaluates once, sequentially, on a worker thread with progress;
+  a failed column reports which config failed and why (actionable), never a partial table.
+- **Matrix**: `compare_configs` (Gap 79) — union-of-metrics rows, registry units, per-metric
+  Δ against the baseline shown inline, best-per-metric marked ✓ + bold (conservative sense:
+  higher-is-better default, NEDT/GSD/FWHM lower, flags unmarked), absent metrics shown "—"
+  (never zero-filled, Rule 17); metric descriptions as tooltips.
+- The **atmosphere A/B swap** (GUI-10) is this flow: save the current config, flip
+  `atmosphere.model`, add the saved file.
+
 ## 9. Deferred to Phase 2 (post-v1)
 
 Explicitly deferred; the v1 architecture must not preclude them.

@@ -65,19 +65,28 @@ def _load_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 class TestSourceComposition:
     def test_emission_is_the_primary_plot(self) -> None:
-        """The Source composition leads with the FP-1 pre-atmosphere emission accessor."""
+        """GT-0: the thermal tab leads with the FP-1 emission accessor; the reflective
+        tab carries the at-aperture radiance (owner: keep it available)."""
         comp = STAGE_COMPOSITIONS["source"]
-        methods = [p.method for p in comp.plots]
+        methods = [p.method for sub in comp.subviews for p in sub.plots]
         assert methods[0] == "spectral_source_emission"
-        # The at-aperture radiance is kept as a secondary plot (owner: keep it available).
         assert "spectral_source" in methods
 
-    def test_source_declares_inputs_shape_and_outputs(self) -> None:
-        """The instrument sections are declared: radiometric inputs, shape, outputs."""
+    def test_source_declares_scene_first_tabs_without_shape(self) -> None:
+        """GT-0: four owner-ordered tabs, scene declaration first; the shape editor is
+        GONE from Source (extent is geometry content post-TEG)."""
         comp = STAGE_COMPOSITIONS["source"]
-        assert comp.source_inputs is True
-        assert comp.target_shape is True
-        assert comp.outputs is True
+        titles = [sub.title for sub in comp.subviews]
+        assert titles == [
+            "Scene & regime",
+            "Target — thermal",
+            "Target — reflective",
+            "Background & contrast",
+        ]
+        assert comp.subviews[0].source_groups == ("scene",)
+        assert comp.subviews[0].outputs is True
+        assert not any(sub.target_shape for sub in comp.subviews)
+        assert comp.target_shape is False
 
 
 # ---------------------------------------------------------------------------
@@ -95,22 +104,29 @@ class TestSourcePane:
     def test_inputs_are_the_shared_field_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Every radiometric input is the shared FieldRow (by-construction consistency)."""
         pane = _source_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        form = pane.source_inputs_form
-        assert form is not None
+        forms = pane._source_forms  # noqa: SLF001 — one per GT-0 tab
+        assert len(forms) == 4
+        rows: dict[str, FieldRow] = {}
+        for form in forms:
+            for dotpath in form.field_dotpaths():
+                rows[dotpath] = form.row(dotpath)
         for _label, dotpath in _RADIOMETRY_FIELDS:
-            assert isinstance(form.row(dotpath), FieldRow)
+            assert isinstance(rows[dotpath], FieldRow)
+        thermal = next(f for f in forms if "source.target.temperature" in f.field_dotpaths())
         # The value carries its unit (R-UNITS): temperature reads in K.
-        assert form.field_value_text("source.target.temperature").endswith("K")
+        assert thermal.field_value_text("source.target.temperature").endswith("K")
 
-    def test_shape_panel_is_present_and_shared(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Source stage mounts the shared TargetShapePanel; its dim/RPY rows are FieldRows."""
-        pane = _source_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        panel = pane.target_shape_panel
-        assert isinstance(panel, TargetShapePanel)
-        # Shape choices come from the schema enum (never hardcoded, Gap 70).
-        assert panel.shape_combo.count() > 1
-        assert isinstance(panel.dimension_row("geometry.target.shape_radius_m"), FieldRow)
-        assert isinstance(panel.rpy_row("geometry.target.shape_yaw_rad"), FieldRow)
+    def test_shape_panel_removed_from_source_but_kept_on_geometry(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """GT-0 regression guard: extent editing left Source (it is geometry content);
+        the Geometry Schematic tab still mounts the shared TargetShapePanel."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        source_pane = _source_pane(qtbot, sensor)
+        assert source_pane.target_shape_panel is None
+        geo_pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
+        qtbot.addWidget(geo_pane)
+        geo_pane.bind_sensor(sensor, {})
+        panel = geo_pane.geometry_panel
+        assert panel is not None and panel.shape_combo.count() > 1
         # No 3D scene on the Source stage → no triad toggle.
         assert not panel.triad_checkbox.isVisible()
 
@@ -141,8 +157,8 @@ class TestSourceEditAndWatch:
         center = window.central_canvas.stage_center
         window.stage_strip.stageClicked.emit("source")
         pane = center.pane("source")
-        form = pane.source_inputs_form
-        assert form is not None
+        forms = pane._source_forms  # noqa: SLF001 — one per GT-0 tab
+        form = next(f for f in forms if "source.target.temperature" in f.field_dotpaths())
 
         dotpath = "source.target.temperature"
         live = window.sensor
@@ -178,8 +194,12 @@ class TestSourceEditAndWatch:
         """Picking a shape on the Source stage seeds nominal dims (CU-125) and evaluates clean."""
         for shape in _ALL_SHAPES:
             sensor = Sensor.from_yaml(_EXAMPLE)
-            pane = _source_pane(qtbot, sensor)
-            panel = pane.target_shape_panel
+            # GT-0: extent editing lives on Geometry now; the seeding contract is the
+            # same (shared panel, one compound edit).
+            pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
+            qtbot.addWidget(pane)
+            pane.bind_sensor(sensor, {})
+            panel = pane.geometry_panel
             assert panel is not None
             compound: list[list[str]] = []
             pane.compoundParameterEdited.connect(compound.append)

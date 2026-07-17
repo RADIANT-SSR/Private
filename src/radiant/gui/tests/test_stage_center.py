@@ -451,10 +451,10 @@ class TestTabbedSubViewHook:
         # Its flat sections are still built (the outputs readout + the in-band plot).
         assert pane.outputs_readout is not None
         assert pane.plot_canvases
-        # Geometry (Phase 7 "Inputs | Schematic"), Optics (Phase PS-2), and Detector (Phase
-        # PS-3) are the tabbed stages; the rest are flat.
+        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), and Source (GT-0 rework,
+        # 2026-07-16) are the tabbed stages; the rest are flat.
         tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
-        assert tabbed == {"geometry", "optics", "detector"}
+        assert tabbed == {"geometry", "optics", "detector", "source"}
 
 
 class TestBottomTabsRemoved:

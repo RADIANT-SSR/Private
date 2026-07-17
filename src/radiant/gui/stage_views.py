@@ -86,6 +86,7 @@ class StageSubView:
     geometry_readout: bool = False
     geometry_viewer: bool = False
     source_inputs: bool = False
+    source_groups: tuple[str, ...] = ()
     atmosphere_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
@@ -133,8 +134,11 @@ class StageComposition:
         Embed the geometry schematic viewer — the 2D orthographic line-schematic bound to
         the geometry outputs (Geometry "Schematic" tab, ADR-0007 / GUI plan Phase 7).
     source_inputs:
-        Show the Source stage's radiometric Inputs card — target/background/contrast-reference
-        (ε, T) as schema-driven :class:`FieldRow`s (Source only, GUI plan Phase PS-1).
+        Show the Source stage's radiometric Inputs card — schema-driven
+        :class:`FieldRow`s (Source only; GT-0 re-tabbed it per pathway).
+    source_groups:
+        Which keyed Source input groups this pane/tab mounts ("scene" /
+        "thermal" / "reflective" / "background"); empty = all (GT-0).
     atmosphere_inputs:
         Show the Atmosphere stage's editable Inputs card — the ``atmosphere.model`` selector
         with the active backend's parameters (simple / MODTRAN tape7 / tabulated files /
@@ -203,6 +207,7 @@ class StageComposition:
     geometry_readout: bool = False
     geometry_viewer: bool = False
     source_inputs: bool = False
+    source_groups: tuple[str, ...] = ()
     atmosphere_inputs: bool = False
     target_shape: bool = False
     optics_inputs: bool = False
@@ -268,17 +273,59 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # editable radiometric inputs + shared shape/orientation editor + the tentative-regime
     # outputs readout + the pre-atmosphere emission spectra (target + background, FP-1) with
     # the at-aperture radiance kept as a secondary plot.
+    # The Source stage instrument, GT-0 rework (owner-shaped 2026-07-16): scene
+    # declaration FIRST (it drives the Gap-85 relevance dimming everywhere), then the
+    # two target pathways, then the background — each tab pairing its inputs with the
+    # spectrum those inputs drive (edit-and-watch). The target shape/orientation editor
+    # is GONE from Source: extent is geometry content post-TEG (geometry.target.*) and
+    # lives on Geometry → Schematic.
     "source": StageComposition(
         title="Source",
-        source_inputs=True,
-        target_shape=True,
-        outputs=True,
-        plots=(
-            PlotSpec(
-                "Target & background emission (before atmosphere)",
-                "spectral_source_emission",
+        subviews=(
+            StageSubView(
+                title="Scene & regime",
+                source_inputs=True,
+                source_groups=("scene",),
+                outputs=True,
             ),
-            PlotSpec("Source & background radiance at aperture", "spectral_source"),
+            StageSubView(
+                title="Target — thermal",
+                source_inputs=True,
+                source_groups=("thermal",),
+                plots=(
+                    PlotSpec(
+                        "Target & background emission (before atmosphere)",
+                        "spectral_source_emission",
+                    ),
+                ),
+            ),
+            StageSubView(
+                title="Target — reflective",
+                source_inputs=True,
+                source_groups=("reflective",),
+                plots=(
+                    PlotSpec(
+                        "Radiance at aperture (day/night moves the reflected term)",
+                        "spectral_source",
+                    ),
+                ),
+                note=(
+                    "Pure-reflective targets: set reflectance ρ alone (T2). Mixed "
+                    "emit+reflect: set ε+T and Kirchhoff supplies ρ = 1−ε (T3) — the "
+                    "engine rejects setting both ρ and ε/T for the same target."
+                ),
+            ),
+            StageSubView(
+                title="Background & contrast",
+                source_inputs=True,
+                source_groups=("background",),
+                plots=(
+                    PlotSpec(
+                        "Target & background emission (before atmosphere)",
+                        "spectral_source_emission",
+                    ),
+                ),
+            ),
         ),
         note=_SOURCE_NOTE,
     ),

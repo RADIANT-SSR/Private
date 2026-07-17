@@ -134,7 +134,10 @@ class TestStageCompositionMapping:
         for namespace, method in expected.items():
             comp = stage_views.composition_for(namespace)
             assert comp is not None
-            assert method in {spec.method for spec in comp.plots}
+            # A tabbed stage (Source post-GT-0) carries its plots on the subviews.
+            methods = {spec.method for spec in comp.plots}
+            methods |= {spec.method for sub in comp.subviews for spec in sub.plots}
+            assert method in methods
 
     def test_default_stage_is_performance(self) -> None:
         """No stage selected → the center lands on Performance (metrics + system MTF)."""

@@ -327,7 +327,7 @@ class StagePane(QWidget):
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(12)
             if spec.source_inputs:
-                source_form = SourceInputsForm(row_widget)
+                source_form = SourceInputsForm(row_widget, groups=spec.source_groups or None)
                 source_form.parameterEdited.connect(self.parameterEdited)
                 row.addWidget(source_form, 1)
                 self._source_forms.append(source_form)

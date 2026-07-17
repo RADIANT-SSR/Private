@@ -93,7 +93,9 @@ class TestCU141ShapeMacroUndo:
 
     def test_shape_and_seeded_dims_undo_as_one_macro(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _window(qtbot, tmp_path)
-        panel = window._central.stage_center.pane("source").target_shape_panel
+        # GT-0 (2026-07-16): the shape editor left Source; the macro contract is
+        # exercised through the Geometry pane's shared panel.
+        panel = window._central.stage_center.pane("geometry").geometry_panel
         assert panel is not None
 
         shape = "box"

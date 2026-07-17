@@ -88,11 +88,13 @@ _RADIOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 
 # (heading, fields) in reading order: what the target emits, what it reflects, what
 # surrounds it, and what the operator declares the scene to be.
-_GROUPS: Final[tuple[tuple[str, tuple[tuple[str, str], ...]], ...]] = (
-    ("Thermal (emissive)", _THERMAL_FIELDS),
-    ("Reflective (solar)", _REFLECTIVE_FIELDS),
-    ("Background & contrast reference", _BACKGROUND_FIELDS),
-    ("Scene type & regime", _SCENE_FIELDS),
+# (key, heading, fields): the key is the GT-0 tab filter handle (stage_views
+# names the groups each Source tab mounts).
+_GROUPS: Final[tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...]] = (
+    ("scene", "Scene type & regime", _SCENE_FIELDS),
+    ("thermal", "Thermal (emissive)", _THERMAL_FIELDS),
+    ("reflective", "Reflective (solar)", _REFLECTIVE_FIELDS),
+    ("background", "Background & contrast reference", _BACKGROUND_FIELDS),
 )
 
 _SCENE_TYPE_PATH = "source.scene_type"
@@ -118,9 +120,20 @@ class SourceInputsForm(QWidget):
 
     parameterEdited = Signal(str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        groups: tuple[str, ...] | None = None,
+    ) -> None:
+        """*groups* filters which keyed groups render (None = all — the flat card).
+
+        The GT-0 Source tabs each mount one group ("scene" / "thermal" /
+        "reflective" / "background"); the tab label then provides the context,
+        so a filtered card suppresses the big title.
+        """
         super().__init__(parent)
         self.setObjectName("sourceInputsForm")
+        self._groups_filter = groups
 
         self._sensor: Sensor | None = None
         self._display_units: dict[str, str] = {}
@@ -139,13 +152,17 @@ class SourceInputsForm(QWidget):
         box.setContentsMargins(12, 10, 12, 10)
         box.setSpacing(6)
 
-        title = QLabel(_TITLE, card)
-        title.setObjectName("geoModeFamilyTitle")
-        title.setWordWrap(True)
-        box.addWidget(title)
+        if groups is None:
+            title = QLabel(_TITLE, card)
+            title.setObjectName("geoModeFamilyTitle")
+            title.setWordWrap(True)
+            box.addWidget(title)
 
         self._rows: dict[str, FieldRow] = {}
-        for heading, fields in _GROUPS:
+        self._albedo_note: QLabel | None = None
+        for key, heading, fields in _GROUPS:
+            if groups is not None and key not in groups:
+                continue
             group_label = QLabel(heading, card)
             group_label.setObjectName("geoModeGroupHeading")
             box.addWidget(group_label)
@@ -153,6 +170,15 @@ class SourceInputsForm(QWidget):
                 row = FieldRow(dotpath, label, self._open_editor)
                 box.addWidget(row)
                 self._rows[dotpath] = row
+            if key == "background":
+                # GT-0 derived-albedo readout (owner, 2026-07-16): the assembly's
+                # daytime reflected-ground term uses exactly ρ_g = 1 − ε_g
+                # (Kirchhoff); in VIS this is the number intuition checks, so it
+                # shows derived and read-only — never an input (Rule 5 spirit).
+                self._albedo_note = QLabel("", card)
+                self._albedo_note.setObjectName("stageCenterNote")
+                self._albedo_note.setWordWrap(True)
+                box.addWidget(self._albedo_note)
 
         layout.addWidget(card)
 
@@ -180,6 +206,7 @@ class SourceInputsForm(QWidget):
         ``ParameterDef``s (never transcribed here).
         """
         declared = self._declared_scene_type()
+        self._refresh_albedo_note()
         for dotpath, row in self._rows.items():
             row.set_value_text(self._value_text(dotpath))
             regimes = self._regime_tags(dotpath)
@@ -199,6 +226,40 @@ class SourceInputsForm(QWidget):
                     f"(relevant for: {', '.join(sorted(regimes))}). "
                     "Set Scene type to 'auto' to edit freely."
                 )
+
+    def _refresh_albedo_note(self) -> None:
+        """Fill the derived ground-albedo line (ρ_g = 1 − ε_g, the Kirchhoff term).
+
+        Scalar ε → a number; a library material or ε(λ) CSV → a spectral note
+        (the band-dependent ρ(λ) = 1 − ε(λ) is what the physics uses).
+        """
+        if self._albedo_note is None:
+            return
+        sensor = self._sensor
+        if sensor is None:
+            self._albedo_note.setText("")
+            return
+        try:
+            material = str(sensor.get_input("source.background.material") or "")
+            eps_path = str(sensor.get_input("source.background.emissivity_path") or "")
+            eps = sensor.get_input("source.background.emissivity")
+        except RadiantError:
+            self._albedo_note.setText("")
+            return
+        if eps_path or (material and material not in ("", "grey", "gray")):
+            self._albedo_note.setText(
+                "Implied ground albedo: ρ(λ) = 1 − ε(λ) from the spectral background "
+                "(daytime reflected-ground term uses it directly)."
+            )
+        elif eps is not None:
+            rho = 1.0 - float(eps)
+            self._albedo_note.setText(
+                f"Implied ground albedo ρ = 1 − ε = {rho:.3f} (derived — the daytime "
+                f"reflected-ground radiance uses this; in VIS pick ε so ρ matches "
+                f"your ground)."
+            )
+        else:
+            self._albedo_note.setText("")
 
     def _declared_scene_type(self) -> str | None:
         """The declared source.scene_type, or None with no / unresolvable sensor."""

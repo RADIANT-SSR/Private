@@ -704,6 +704,8 @@ class RADIANTMainWindow(QMainWindow):
         self.action("tools.explain").setEnabled(enabled)
         self.action("edit.reset_defaults").setEnabled(enabled)
         self.action("run.sweep").setEnabled(enabled)
+        self.action("run.monte_carlo").setEnabled(enabled)
+        self.action("run.batch").setEnabled(enabled)
         if not enabled:
             self.action("file.export_json").setEnabled(False)
 
@@ -934,6 +936,10 @@ class RADIANTMainWindow(QMainWindow):
         self.action("tools.explain").triggered.connect(self._on_explain_parameter)
         # GT-1 (Tier-2): the sweep surface — worker-threaded, Gap 72 progress/cancel.
         self.action("run.sweep").triggered.connect(self._on_run_sweep)
+        # GT-2 (owner D3): MC/Batch are console workflows — the menu items open the
+        # scripting window with a ready-to-run scaffold (the GUI teaches the API).
+        self.action("run.monte_carlo").triggered.connect(self._on_monte_carlo_scaffold)
+        self.action("run.batch").triggered.connect(self._on_batch_scaffold)
         self._rebuild_recent_menu()
 
     def _adopt_sensor(
@@ -1158,6 +1164,73 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage(
                 "Sweep complete — result retained (export via SweepResult.to_csv)"
             )
+
+    def _open_script_scaffold(self, title: str, snippet: str) -> None:
+        """Open the scripting window with *snippet* in a fresh editor tab (GT-2).
+
+        Uses only the scripting window's existing public surface (show + editor
+        new_tab + tab.set_text) — the console namespace already binds ``sensor``.
+        """
+        self._scripting_window.show_and_raise()
+        tab = self._scripting_window.editor.new_tab()
+        tab.set_text(snippet)
+        self.statusBar().showMessage(f"{title} scaffold opened in the script editor — edit and Run")
+
+    def _on_monte_carlo_scaffold(self) -> None:
+        """Run → Monte Carlo…: prefill an MC script from current state (owner D3)."""
+        sensor = self._sensor
+        if sensor is None:
+            return
+        tolerances = sensor.tolerances()
+        if tolerances:
+            tol_lines = "\n".join(
+                f"# toleranced: {name} ~ {tol.distribution}{dict(tol.params)}"
+                for name, tol in sorted(tolerances.items())
+            )
+        else:
+            tol_lines = (
+                "# No tolerances set yet — annotate parameters first, e.g.:\n"
+                '# sensor.set_tolerance("detector.qe_value", "gaussian", std=0.02)\n'
+                "# (or use the Tolerance section in any parameter editor dialog)"
+            )
+        snippet = (
+            "# Monte Carlo scaffold (Run → Monte Carlo…)\n"
+            f"{tol_lines}\n"
+            "mc = sensor.monte_carlo(n_trials=500, seed=42)\n"
+            "for name in mc.metric_names:\n"
+            "    p5 = mc.percentile(name, 5)\n"
+            "    p50 = mc.percentile(name, 50)\n"
+            "    p95 = mc.percentile(name, 95)\n"
+            '    print(f"{name}: p5={p5:.4g}  median={p50:.4g}  p95={p95:.4g}")\n'
+            '# mc.to_csv("mc_trials.csv")  # per-trial export (Gap 88)\n'
+        )
+        self._open_script_scaffold("Monte Carlo", snippet)
+
+    def _on_batch_scaffold(self) -> None:
+        """Run → Batch Run…: prefill a BatchRunner skeleton (owner D3)."""
+        if self._sensor is None:
+            return
+        snippet = (
+            "# Batch scaffold (Run → Batch Run…) — cartesian product of labeled axes\n"
+            "from radiant.api.batch import BatchRunner\n"
+            "\n"
+            "base = {}  # or a nested config dict; cells start from Sensor.from_dict(base)\n"
+            "axes = [\n"
+            '    ("aperture", {"25cm": {"optics.aperture_diameter_m": 0.25},\n'
+            '                  "35cm": {"optics.aperture_diameter_m": 0.35}}),\n'
+            '    ("t_int",    {"2ms": {"spectral_integration.integration_time_s": 0.002},\n'
+            '                  "5ms": {"spectral_integration.integration_time_s": 0.005}}),\n'
+            "]\n"
+            "\n"
+            "def evaluate(cell_sensor, labels):\n"
+            "    r = cell_sensor.evaluate()\n"
+            '    return {"snr": r.metrics["snr"]}\n'
+            "\n"
+            "batch = BatchRunner(base, axes).run(evaluate)\n"
+            'print(batch.pivot("snr", rows="aperture", cols="t_int"))\n'
+            'print(f"failed cells: {batch.n_failed}")\n'
+        )
+        self._open_script_scaffold("Batch", snippet)
 
     def _on_schema_browser(self) -> None:
         """Tools → Parameter Schema Browser: the read-only Gap-70 schema tree."""

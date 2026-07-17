@@ -37,7 +37,7 @@ theme via object names; this module sets structure and text only (GUI plan §4.9
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -198,6 +198,15 @@ class ParameterEditorDialog(QDialog):
         self._current_label.setObjectName("errorDialogValue")
         self._current_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._add_row(form, "Current", self._current_label)
+        # GT-2 (Tier-2): the tolerance annotation section — a tolerance is a property
+        # of the parameter, edited where the value is edited (owner-shaped 2026-07-16:
+        # never a standalone 130-row editor). Float parameters only; commits via the
+        # one Sensor.set_tolerance / clear_tolerance call on Apply.
+        self._tol_distribution: QComboBox | None = None
+        self._tol_params: dict[str, QLineEdit] = {}
+        if self._pdef.dtype is float and not self._read_only:
+            self._build_tolerance_section(layout)
+
         self._render_current(provenance)
 
         if self._pdef.bounds is not None:
@@ -391,6 +400,74 @@ class ParameterEditorDialog(QDialog):
 
     # -- edit / commit ------------------------------------------------------
 
+    # Distribution → its parameter fields (labels carry units: absolute spreads are
+    # in the parameter's input unit; fractions are of nominal).
+    _TOL_FIELDS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "gaussian": ("std",),
+        "uniform": ("low", "high"),
+        "truncated_gaussian": ("std", "low", "high"),
+        "log_normal": ("sigma",),
+    }
+
+    def _build_tolerance_section(self, layout: QVBoxLayout) -> None:
+        """The optional Monte-Carlo tolerance annotation (GT-2)."""
+        heading = QLabel("Tolerance (Monte Carlo)", self)
+        heading.setObjectName("geoModeGroupHeading")
+        layout.addWidget(heading)
+        row_host = QWidget(self)
+        row = QHBoxLayout(row_host)
+        row.setContentsMargins(0, 0, 0, 0)
+        self._tol_distribution = QComboBox(row_host)
+        self._tol_distribution.addItems(["none", *self._TOL_FIELDS])
+        row.addWidget(self._tol_distribution)
+        for key in ("std", "low", "high", "sigma"):
+            field = QLineEdit(row_host)
+            field.setPlaceholderText(key)
+            field.setMaximumWidth(90)
+            self._tol_params[key] = field
+            row.addWidget(field)
+        row.addStretch(1)
+        layout.addWidget(row_host)
+        self._tol_distribution.currentTextChanged.connect(self._sync_tolerance_fields)
+
+        # Pre-fill from the live sensor's existing tolerance, if any.
+        existing = self._sensor.tolerances().get(self._dotpath)
+        if existing is not None:
+            self._tol_distribution.setCurrentText(existing.distribution)
+            for key, value in existing.params.items():
+                if key in self._tol_params:
+                    self._tol_params[key].setText(f"{value:g}")
+        self._sync_tolerance_fields(self._tol_distribution.currentText())
+
+    def _sync_tolerance_fields(self, distribution: str) -> None:
+        wanted = set(self._TOL_FIELDS.get(distribution, ()))
+        for key, field in self._tol_params.items():
+            field.setVisible(key in wanted)
+
+    def _apply_tolerance(self) -> str | None:
+        """Commit the tolerance section (one API call); returns an error text or None."""
+        if self._tol_distribution is None:
+            return None
+        distribution = self._tol_distribution.currentText()
+        existing = self._sensor.tolerances().get(self._dotpath)
+        if distribution == "none":
+            if existing is not None:
+                self._sensor.clear_tolerance(self._dotpath)
+            return None
+        try:
+            kwargs = {
+                key: float(self._tol_params[key].text())
+                for key in self._TOL_FIELDS[distribution]
+                if self._tol_params[key].text().strip()
+            }
+            missing = set(self._TOL_FIELDS[distribution]) - set(kwargs)
+            if missing:
+                return f"tolerance {distribution} needs {sorted(missing)}"
+            self._sensor.set_tolerance(self._dotpath, distribution, **kwargs)
+        except (ValueError, RadiantError) as exc:
+            return str(exc)
+        return None
+
     def apply(self, close: bool) -> None:
         """Validate on a clone, commit one ``sensor.set`` if accepted, else show error.
 
@@ -411,6 +488,11 @@ class ParameterEditorDialog(QDialog):
             return
         if unexpected is not None:
             UnexpectedErrorDialog(unexpected, f"Editing “{self._dotpath}”", self).exec()
+            return
+
+        tol_error = self._apply_tolerance()
+        if tol_error is not None:
+            self._show_error(f"Tolerance not applied — {tol_error}")
             return
 
         # Accepted: the single mandated API call on the live sensor.

@@ -336,6 +336,10 @@ class ParameterPanel(QWidget):
         value_text = format_value(value, unit)
         if derived:
             value_text = f"{DERIVED_BADGE} {value_text}"
+        # GT-2: a toleranced parameter shows a ± badge (the Monte Carlo annotation,
+        # set in this row's editor dialog; persisted via _radiant.tolerances).
+        if dotpath in sensor.tolerances():
+            value_text = f"± {value_text}"
 
         # Leaf label is the dot-path remainder after the namespace prefix.
         leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath

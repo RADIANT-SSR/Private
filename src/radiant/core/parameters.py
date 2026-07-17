@@ -744,6 +744,18 @@ class ParameterSet:
         """The registered consistency groups, in registration order."""
         return tuple(self._groups)
 
+    def clear_tolerance(self, name: str) -> bool:
+        """Remove the tolerance on *name* (GT-2 GUI annotation surface).
+
+        Returns True if one was removed, False if none was set. Raises
+        ``UnknownParameterError`` for a name not in the schema (parity with
+        :meth:`clear_input`).
+        """
+        name = self._canonical(name)
+        if name not in self._defs:
+            raise UnknownParameterError(self._suggest(name))
+        return self._tolerances.pop(name, None) is not None
+
     def tolerances(self) -> Mapping[str, Tolerance]:
         """Read-only view of tolerances set via :meth:`set_tolerance`."""
         return MappingProxyType(self._tolerances)

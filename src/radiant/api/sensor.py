@@ -339,6 +339,19 @@ class Sensor:
         self._params.set_tolerance(dotpath, tol)
         return self
 
+    def tolerances(self) -> Mapping[str, Tolerance]:
+        """Read-only view of the set tolerance distributions (GT-2 surface).
+
+        Feeds the GUI ± badges and the Monte Carlo script scaffold; the same
+        data ``save``/``to_yaml`` persist in the ``_radiant.tolerances`` block.
+        """
+        return self._params.tolerances()
+
+    def clear_tolerance(self, dotpath: str) -> Sensor:
+        """Remove the tolerance on *dotpath* (no-op if none). Returns ``self``."""
+        self._params.clear_tolerance(dotpath)
+        return self
+
     def set_ground_velocity_from_orbit(self) -> Sensor:
         """Derive ``platform.ground_velocity_m_s`` from the orbital altitude (Gap 75).
 

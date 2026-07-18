@@ -1,25 +1,48 @@
 # Atmosphere Data
 
-RADIANT does **not** ship pre-tabulated atmospheric transmission or path
-radiance spectra. Atmospheric profiles are computed at runtime by the
-`AtmosphereStage` using analytic models (e.g., Beer–Lambert with
-standard-atmosphere molecular absorption coefficients).
+This directory ships RADIANT's **nominal atmosphere library**: NPZ
+spectra derived from a real MODTRAN 6 run matrix (2026-07-17), packaged
+for the `tabulated` and `interpolated` atmosphere models so users
+without a MODTRAN license get real-radiative-transfer atmospheres out
+of the box.
 
-For high-fidelity work, users can supply MODTRAN `.tp5`/`.tp6` output
-files via the configuration's `atmosphere.modtran_file` parameter. The
-RADIANT I/O layer (`radiant.io.modtran`) parses MODTRAN tape output
-and converts to the internal spectral format.
+See [`MANIFEST.md`](MANIFEST.md) for the full design record: family
+tables, run provenance, spectral degradation, packaging decisions, and
+known limitations. Generator: `scripts/build_atmosphere_library.py`
+(requires the gitignored `modtran/real_runs/` staging set).
 
-## Why no CSV files here?
+## What ships
 
-Unlike material emissivity or detector QE, atmospheric transmission is a
-strong function of:
+| Family | Model | Contents |
+|--------|-------|----------|
+| `profiles/` | `tabulated` | Six standard atmospheres, nadir full column (us_standard and tropical include real downwelling sky radiance) |
+| `us_standard_zenith_fan/` | `interpolated` | LOS zenith 0–60° fan |
+| `midlat_summer_ladders/` | `interpolated` | Sensor (35 km–GEO) × target altitude (0–29 km) grid |
+| `validation/` | point data | Off-grid 45° and up-looking anchors |
 
-- Observer altitude and slant path geometry
-- Target altitude
-- Atmospheric profile (temperature, humidity, aerosol loading)
-- Wavelength (molecular absorption lines are narrow and numerous)
+Example (shipped profile through the chain):
 
-Pre-tabulating a useful set of atmospheric spectra would require thousands
-of files for different geometries and atmospheric conditions. The analytic
-model or MODTRAN interface is the correct approach.
+```yaml
+atmosphere:
+  model: tabulated
+  tabulated_transmittance_file: data/atmospheres/profiles/us_standard.npz
+  tabulated_path_radiance_file: data/atmospheres/profiles/us_standard.npz
+```
+
+## What deliberately does not ship
+
+- **Aerosol/visibility variants** (run-matrix Blocks D/E) — condition-
+  specific studies, regenerate-on-demand.
+- **Full-resolution (1 cm⁻¹) spectra** — the library is slit-degraded to
+  5 cm⁻¹ FWHM (band-integrating metrics are insensitive; keeps the
+  library ~4 MB). Full-resolution data lives in the committed test
+  fixtures (`tests/integration/fixtures/`, plan §7.1) and the local
+  staging set.
+- **Every-geometry pre-tabulation** — arbitrary geometries remain the
+  job of the analytic `simple` model or a user's own MODTRAN runs via
+  `atmosphere.modtran.tape7_path`.
+
+*(Historical note: this README previously said pre-tabulation "would
+require thousands of files". That predated `InterpolatedAtmosphere`'s
+log-τ structured-grid interpolation, which is what makes the small
+node set above useful — see `RADIANT_Atmosphere.md` §3.)*

@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Shipped nominal atmosphere library (`data/atmospheres/`).** Committed NPZ spectra derived
+  from the real 2026-07-17 MODTRAN 6 run matrix: six standard-profile nadir columns (tabulated;
+  us_standard/tropical include real downwelling sky radiance from the up-looking H-runs), a
+  us_standard LOS-zenith fan 0–60° (interpolated), and a midlat_summer sensor×target-altitude
+  grid spanning 35 km–GEO × 0–29 km (interpolated, with a 40,000 km duplicate node so orbital
+  sensors fall inside the hull). Slit-degraded to 5 cm⁻¹ FWHM (~4 MB). Users without a MODTRAN
+  license now get real-radiative-transfer atmospheres via `atmosphere.model="tabulated"` /
+  `"interpolated"`. Generator: `scripts/build_atmosphere_library.py`; design record:
+  `data/atmospheres/MANIFEST.md`. Known limitation: the interpolated families require the
+  session to run on the library grid (CU-156).
 - **`ModtranFluxReader` — reader for MODTRAN 6 spectral flux CSVs (CU-154).** Block E irradiance
   runs export their direct/diffuse solar irradiance to a separate `*_flux.csv` (UP/DOWN/SOLAR per
   altitude level), a format nothing read before. `parse()` returns per-level native flux

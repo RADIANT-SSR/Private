@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-156 — `InterpolatedAtmosphere` requires query grid == stored grid, limiting the shipped interpolated library
+
+**Discovered**: building the shipped atmosphere library (plan §7.2), 2026-07-17.
+**Status**: Open — usability limitation, documented in `data/atmospheres/MANIFEST.md`.
+**File**: `src/radiant/atmosphere/interpolated.py` (`build_state` wavelength-grid equality check).
+**Symptom**: `build_state` raises `AtmosphereValidationError` unless the query wavelength grid exactly equals the pre-computed points' grid ("Resample the source data before constructing the interpolator, or query on the same grid"). A chain session on its own grid therefore cannot consume the shipped `us_standard_zenith_fan/` or `midlat_summer_ladders/` families directly; only the `profiles/` (tabulated — resamples freely) are grid-agnostic.
+**Why it still matters**: the shipped interpolated families are the first real consumer of this contract, and the restriction turns "load the shipped fan" into "run your whole session on the library's 2 cm⁻¹ grid" — correct but unfriendly. `TabulatedAtmosphere` already demonstrates the safe resample-on-query pattern (`SpectralData.resample`).
+**Suggested fix**: (b) stand-alone task — resample each `GeometryPoint`'s spectra onto the query grid at `build_state` time (or pre-resample in `loaders._build_interpolated` once the session grid is known), preserving the no-extrapolation geometry contract. Effort S–M; category B (behavior addition to a documented refusal — update `RADIANT_Atmosphere.md` and the interpolated docstring in lock-step).
+
 ### CU-155 — SimpleAtmosphere `E_sky_thermal` underestimates real downwelling by ~7× (LWIR) / ~25–50× (MWIR) for high-altitude sensors
 
 **Discovered**: MODTRAN_Run_Matrix_Plan §8 criterion #5 parity check against the real H-runs, 2026-07-17.

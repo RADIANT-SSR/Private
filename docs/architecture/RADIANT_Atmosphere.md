@@ -151,6 +151,8 @@ This is the escape hatch for:
 
 **Inputs**: `atmosphere.tabulated_transmittance_file`, `atmosphere.tabulated_path_radiance_file`, `atmosphere.tabulated_downwelling_file` (optional).
 
+**Shipped nominal library (`data/atmospheres/`, 2026-07-17):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard and tropical carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), and a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated; the 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull — vacuum above TOA makes the duplication exact). Slit-degraded to 5 cm⁻¹ FWHM (~4 MB); full per-file provenance, packaging decisions, and known limitations (including the interpolated grid-match restriction, CU-156) in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py`.
+
 ### 3.3 Exo-atmospheric
 
 For sensors above the atmosphere observing targets above the atmosphere (typical space surveillance, satellite-to-satellite imaging, deep-space). All three spectral outputs are constants:

@@ -35,6 +35,12 @@ from radiant.atmosphere.modtran import Tape7Reader
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SYNTH_DIR = _REPO_ROOT / "modtran" / "synthetic"
+_REAL_DIR = _REPO_ROOT / "modtran" / "real_runs"
+
+# Real MODTRAN 6 runs (2026-07-17 set) are preferred when staged; the
+# synthetic files are the fallback. Consumers (scenario 8.1) read this
+# flag to banner which tier the numbers came from.
+DATA_IS_REAL: bool = _REAL_DIR.exists()
 
 
 @dataclass(frozen=True)
@@ -92,11 +98,21 @@ class FamilyInterpolationError(ValueError):
     """Raised when a query cannot be served by any family without extrapolating."""
 
 
+def tape7_path(run_id: str) -> Path:
+    """The tape7 behind a run id: real (staged) preferred, synthetic fallback."""
+    if DATA_IS_REAL:
+        real = _REAL_DIR / f"{run_id}.tp7"
+        if real.exists():
+            return real
+    return _SYNTH_DIR / f"{run_id}.synthetic.tp7"
+
+
 def _load_tape7(run_id: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    tape7 = _SYNTH_DIR / f"{run_id}.synthetic.tp7"
+    tape7 = tape7_path(run_id)
     if not tape7.exists():
         raise FileNotFoundError(
-            f"{tape7} not found. Generate it first:\n"
+            f"{tape7} not found. Stage the real run set (modtran/real_runs/"
+            "README.md) or generate the synthetic fallback:\n"
             f"  python scripts/generate_synthetic_tape7.py --run-id {run_id}"
         )
     import warnings

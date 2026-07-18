@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-160 — Zenith-angle interpolation should be in airmass (sec θ) space, not linear in angle
+
+**Discovered**: scenario 8.1 holdout validation against the real B-fan, 2026-07-17 — the first ground-truth test of the interpolation method.
+**Status**: Open — quantified improvement, affects both the dev helper and the shipped library's fan queries.
+**File**: `scripts/synth_modtran/family_interpolate.py` (axis handling) and `src/radiant/atmosphere/interpolated.py` (`path_zenith_rad` axis of `InterpolatedAtmosphere`, which the shipped `data/atmospheres/us_standard_zenith_fan/` uses).
+**Symptom**: predicting the real 45° run from the 30°+60° nodes: log-τ linear **in angle** lands −4.07% in in-band τ; log-τ linear **in airmass sec(θ)** lands −0.10% — a 40× accuracy gain from the correct physical axis (optical depth scales with airmass, not angle). Mid-node queries of the shipped zenith fan carry the same ~−4% τ bias today.
+**Why it still matters**: the shipped fan is a committed runtime capability; a knowable, fixable −4% band-τ bias at off-node zenith queries is worth removing, and the fix is a coordinate transform, not new data.
+**Suggested fix**: (b) small stand-alone task — interpolate over `sec(path_zenith_rad)` (transform at query/construction time) in both `family_interpolate` and `InterpolatedAtmosphere` (or document a recommended `airmass` axis convention for angle grids). Guard with the 8.1 holdout numbers as a test. Results-affecting for off-node fan queries (CHANGELOG on landing). Effort S; category C.
+
 ### CU-159 — Six bare built-in `raise`s in GUI widgets trip the Rule-15 tree scan
 
 **Discovered**: MODTRAN closeout pre-completion gate run, 2026-07-17 — `tests/test_exceptions.py::TestNoBareBuiltinRaises::test_source_tree_is_clean` fails on committed pre-session GUI code (landed across `15a2d2b` spectral tables, `7a3ee2f` sweep dialog, `4dc3a54` import previews; unrelated to the MODTRAN work).

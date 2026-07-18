@@ -7,10 +7,12 @@ scripts/synth_modtran/family_interpolate.py: log-transmittance-linear
 interpolation between the two bracketing runs, quantified against the
 naive "just use the nearest neighbor" alternative.
 
-*** SYNTHETIC DATA, NOT REAL MODTRAN *** -- see modtran/synthetic/README.md.
-This scenario demonstrates the INTERPOLATION METHOD (which is
-independent of whether the underlying data is real or synthetic); the
-absolute transmittance/SNR numbers are illustrative, not validated.
+ATMOSPHERE DATA SOURCE (auto-detected via family_interpolate):
+real MODTRAN 6 (modtran/real_runs/, 2026-07-17 run set) when staged;
+synthetic fallback with a loud banner otherwise. With real data this
+adds a HOLDOUT VALIDATION the synthetic era could not: interpolate the
+45 deg point from its 30/60 deg neighbors and compare against the real
+45 deg run -- a ground-truth test of the log-tau method itself.
 
 Usage:
     python run_off_nadir_interpolation.py
@@ -27,28 +29,33 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 from radiant.api import Sensor
 
-import sys
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from scripts.synth_modtran.family_interpolate import FAMILIES, interpolate_family
+from scripts.synth_modtran.family_interpolate import (
+    DATA_IS_REAL,
+    FAMILIES,
+    interpolate_family,
+    tape7_path,
+)
 
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
-MODTRAN_SYNTH_DIR = Path(__file__).resolve().parents[4] / "modtran" / "synthetic"
 FAMILY = "zenith_fan_us_standard"
 QUERY_ZENITH_DEG = 37.5  # customer requirement, between B1=30 and B2=45
 BAND_MIN_UM, BAND_MAX_UM = 3.5, 5.0
+SOURCE_LABEL = "MODTRAN 6 (real)" if DATA_IS_REAL else "MODTRAN (synthetic)"
 
 
 def _matrix_point_tape7(family_name: str, axis_value: float) -> Path:
-    """The synthetic tape7 file behind an exact matrix point of a family."""
+    """The tape7 file behind an exact matrix point (real preferred)."""
     family = FAMILIES[family_name]
     run_id = family.run_ids[family.axis_values.index(axis_value)]
-    return MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
+    return tape7_path(run_id)
 
 
 def _write_csvs(
@@ -114,10 +121,56 @@ def _run_chain(atmosphere: dict, zenith_deg: float) -> dict:
 
 def main() -> None:
     print("=== Scenario 8.1: Off-Nadir Angle Interpolation ===")
+    print(f"  Atmosphere data: {SOURCE_LABEL}", end="")
+    print(" (2026-07-17 run set)" if DATA_IS_REAL else " -- see modtran/synthetic/README.md")
     print(
         f"  Family: {FAMILY} (0/30/45/60 deg zenith fan, us_standard, 100km sensor, nadir target)"
     )
     print(f"  Query: {QUERY_ZENITH_DEG} deg off-nadir (customer requirement, not a matrix point)\n")
+
+    # ------------------------------------------------------------------
+    # Holdout validation of the method itself (real data only): rebuild
+    # the 45 deg point from its 30/60 deg neighbors and compare against
+    # the real 45 deg run. frac = (45-30)/(60-30) = 0.5.
+    # ------------------------------------------------------------------
+    if DATA_IS_REAL:
+        wl_b1, tau_b1, _ = interpolate_family(FAMILY, 30.0)  # exact node
+        wl_b3, tau_b3, _ = interpolate_family(FAMILY, 60.0)  # exact node
+        wl_b2, tau_b2, _ = interpolate_family(FAMILY, 45.0)  # exact node = truth
+        tau_holdout = np.exp(
+            0.5 * np.log(np.clip(tau_b1, 1e-300, 1.0))
+            + 0.5 * np.log(np.clip(tau_b3, 1e-300, 1.0))
+        )
+        hold_mask = (wl_b2 >= BAND_MIN_UM) & (wl_b2 <= BAND_MAX_UM)
+        tau_true = float(np.mean(tau_b2[hold_mask]))
+        tau_pred = float(np.mean(tau_holdout[hold_mask]))
+        holdout_err_pct = 100.0 * (tau_pred - tau_true) / tau_true
+        # Nearest-neighbor "prediction" of 45 deg would grab 30 or 60.
+        tau_nn_30 = float(np.mean(tau_b1[hold_mask]))
+        nn_err_pct = 100.0 * (tau_nn_30 - tau_true) / tau_true
+        # Airmass-space alternative (CU-160): optical depth scales with
+        # airmass = sec(zenith), so interpolating log-tau linearly in
+        # sec(theta) rather than theta is the physically exact axis.
+        sec = lambda d: 1.0 / math.cos(math.radians(d))  # noqa: E731
+        frac_sec = (sec(45.0) - sec(30.0)) / (sec(60.0) - sec(30.0))
+        tau_sec = np.exp(
+            (1.0 - frac_sec) * np.log(np.clip(tau_b1, 1e-300, 1.0))
+            + frac_sec * np.log(np.clip(tau_b3, 1e-300, 1.0))
+        )
+        tau_sec_pred = float(np.mean(tau_sec[hold_mask]))
+        sec_err_pct = 100.0 * (tau_sec_pred - tau_true) / tau_true
+        print("=== Holdout validation: predict the 45 deg run from 30 + 60 deg ===")
+        print(f"  Real 45 deg (B2) in-band tau [-]:         {tau_true:.4f}")
+        print(
+            f"  Log-tau, linear in angle (the method):    {tau_pred:.4f}  "
+            f"({holdout_err_pct:+.2f}%)"
+        )
+        print(
+            f"  Log-tau, linear in airmass sec(theta):    {tau_sec_pred:.4f}  "
+            f"({sec_err_pct:+.2f}%)  <- CU-160"
+        )
+        print(f"  Nearest-neighbor (30 deg) for reference:  {tau_nn_30:.4f}  ({nn_err_pct:+.2f}%)")
+        print("  => the method's real-data credential for the 37.5 deg query below.\n")
 
     wl_interp, trans_interp, lp_interp = interpolate_family(FAMILY, QUERY_ZENITH_DEG)
     wl_30, trans_30, lp_30 = interpolate_family(FAMILY, 30.0)
@@ -189,7 +242,7 @@ def main() -> None:
         taus,
         "o-",
         color="C0",
-        label="Matrix points (exact)",
+        label=f"Matrix points ({SOURCE_LABEL})",
     )
     ax.plot(
         [QUERY_ZENITH_DEG],

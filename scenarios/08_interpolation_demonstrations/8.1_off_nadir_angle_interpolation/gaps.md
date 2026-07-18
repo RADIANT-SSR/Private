@@ -38,3 +38,23 @@ duplication.
   neighbor. The demonstrated ~1% error is representative of the
   worst-case nearest-neighbor error for this family's 15°/10° spacing,
   which is the honest point of picking a midpoint query.
+
+---
+
+## Upgrade record (2026-07-17): real MODTRAN data + holdout validation
+
+The real MODTRAN 6 zenith fan replaced the synthetic data
+(`family_interpolate` auto-detects `modtran/real_runs/`; synthetic
+remains the loud fallback). The new holdout test — predict the real
+45° run from 30°+60° — validated the method (−4.07% vs +6.84% for
+nearest-neighbor) and surfaced a quantified improvement:
+
+### Interpolation axis should be airmass sec(θ), not angle — CU-160
+**Severity:** Low-Medium (knowable −4% in-band τ bias at off-node
+zenith queries; affects `family_interpolate` and the shipped
+`data/atmospheres/us_standard_zenith_fan/` through
+`InterpolatedAtmosphere`'s `path_zenith_rad` axis).
+**Evidence:** same log-τ machinery interpolated in sec(θ) reproduces
+the real 45° run to −0.10% (vs −4.07% linear-in-angle).
+**Fix:** coordinate transform at the axis, no new data; mirrored to
+`docs/tracking/Cleanup_Backlog.md` CU-160.

@@ -9,12 +9,14 @@ of the MODTRAN run matrix's zenith-fan points (0°, 30°, 45°, 60°, all
 `us_standard`/100 km sensor/nadir target). Does interpolating between
 the two bracketing runs actually beat just grabbing the nearest one?
 
-**Status: pipeline/method demonstration.** Atmosphere data is
-*synthetic* (see `modtran/synthetic/README.md`). This scenario
-demonstrates the *interpolation method* — log-transmittance-linear
-between bracketing runs, `scripts/synth_modtran/family_interpolate.py`
-— which is independent of whether the underlying data is real or
-synthetic; the absolute numbers are illustrative only.
+**Status: validated method demonstration (upgraded 2026-07-17).**
+Atmosphere data is the **real MODTRAN 6 zenith fan** (A1/B1/B2/B3 of
+the 2026-07-17 run set; `family_interpolate` auto-detects the staged
+`modtran/real_runs/` and falls back to synthetic with a loud banner).
+The upgrade adds something the synthetic era could not: a **holdout
+validation** — predict the 45° run from its 30°/60° neighbors and
+compare against the real 45° run, a ground-truth test of the
+interpolation method itself.
 
 ---
 
@@ -36,24 +38,44 @@ synthetic; the absolute numbers are illustrative only.
 
 ---
 
-## Results
+## Holdout validation (real data): predict 45° from 30° + 60°
 
-| Geometry | In-band transmittance | Chain SNR |
-|----------|------------------------|-----------|
-| 30° (B1, exact) | 0.7037 | — |
-| 45° (B2, exact) | 0.6873 | — |
-| 37.5°, interpolated | 0.6952 | 641.4 |
-| 37.5°, naive nearest-neighbor (45°) | 0.6873 | 636.2 |
+| Predictor of the real 45° run | In-band τ (3.5–5.0 µm) [-] | Error |
+|---|---|---|
+| Real B2 (truth) | 0.4988 | — |
+| Log-τ, linear **in angle** (the method) | 0.4785 | **−4.07%** |
+| Log-τ, linear **in airmass sec θ** | 0.4983 | **−0.10%** |
+| Nearest-neighbor (30°) | 0.5329 | +6.84% |
+
+- **The method beats nearest-neighbor ~1.7×** against ground truth —
+  the scenario's original claim, now validated on real MODTRAN.
+- **The −4% residual has a knowable cause and a 40× better fix**:
+  optical depth scales with *airmass* (sec θ), not angle. Interpolating
+  log-τ linearly in sec θ instead of θ reproduces the real 45° run to
+  −0.10%. This scenario's own physics note always said airmass was the
+  physical variable; the tooling just didn't use it as the axis. Filed
+  as **CU-160** (affects `family_interpolate` *and* the shipped
+  `data/atmospheres/us_standard_zenith_fan/` via
+  `InterpolatedAtmosphere`'s angle axis).
+
+---
+
+## Results (real MODTRAN 6, 2026-07-17)
+
+| Geometry | In-band transmittance [-] | Chain SNR [-] |
+|----------|---------------------------|---------------|
+| 30° (B1, exact) | 0.5329 | — |
+| 45° (B2, exact) | 0.4988 | — |
+| 37.5°, interpolated | 0.5153 | 554.5 |
+| 37.5°, naive nearest-neighbor (45°) | 0.4988 | 545.7 |
 
 - **The interpolated point sits correctly between the two bracketing
-  values and on the expected monotonic curve** (`fig1`) — a good
-  visual sanity check that the log-space interpolation is behaving.
-- **Nearest-neighbor error at this query point is modest but real**:
-  −1.1% transmittance, −0.8% SNR. At 37.5° (near the family's
-  midpoint), the error is close to the family's worst case for this
-  10–15°-spaced grid; a query closer to one bracketing point would
-  show a *smaller* nearest-neighbor error, and a coarser family
-  (larger angle spacing) would show a larger one.
+  values and on the expected monotonic curve** (`fig1`).
+- **Nearest-neighbor error at this query point**: −3.2% transmittance,
+  −1.6% SNR — roughly 3× larger than the synthetic-era numbers
+  suggested (real MODTRAN's angle dependence in this band is stronger
+  than the synthetic generator's). At 37.5° (near the family's
+  midpoint) this is close to the worst case for a 15°-spaced grid.
 
 ---
 
@@ -63,8 +85,11 @@ synthetic; the absolute numbers are illustrative only.
   gives τ = exp(−σ·path), so σ·path (optical depth) is what varies
   linearly with the physical quantity changing (here, airmass via
   1/cos θ) — interpolating in log-τ space respects that; interpolating
-  raw τ linearly would not (and would be wrong in the same way linear-
-  interpolating a decaying exponential is always wrong).
+  raw τ linearly would not.
+- **And why the axis should be airmass, not angle (CU-160):** the
+  holdout table above is the empirical demonstration — same log-τ
+  machinery, correct physical axis, 40× smaller error. The needed
+  change is a coordinate transform, not new data.
 - **This is a 1-D interpolation problem by design** — the family holds
   every other geometry axis fixed. A genuinely multi-axis query (e.g.
   a new profile *and* a new angle simultaneously) is out of scope for
@@ -75,4 +100,5 @@ synthetic; the absolute numbers are illustrative only.
 
 ## Gaps Identified
 
-See `gaps.md`.
+See `gaps.md` — the angle-vs-airmass axis finding (CU-160) is the
+headline addition from the real-data upgrade.

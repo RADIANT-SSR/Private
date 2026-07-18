@@ -1,7 +1,7 @@
 # MODTRAN Staging Directory
 
 This directory is the local staging area for RADIANT's MODTRAN work
-(`docs/plans/MODTRAN_Run_Matrix_Plan.md`). It has two purposes that must
+(`docs/archive/MODTRAN_Run_Matrix_Plan.md`). It has two purposes that must
 stay clearly separated:
 
 1. **`decks/`** — real tape5 **input** decks, ready to run through an
@@ -54,7 +54,7 @@ loudly labeled and physically documented as a lesser tier (see below).
 
 Once a real MODTRAN binary or donated tape7s become available, run the
 decks in `decks/` and route the outputs per
-`docs/plans/MODTRAN_Run_Matrix_Plan.md` §7 — **not** back into this
+`docs/archive/MODTRAN_Run_Matrix_Plan.md` §7 — **not** back into this
 directory:
 
 - **`tests/integration/fixtures/modtran/`** — the ~10 committed golden

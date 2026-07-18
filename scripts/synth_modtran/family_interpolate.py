@@ -1,6 +1,6 @@
 """Lightweight per-family atmosphere interpolation — NOT a general database.
 
-Design rationale (see conversation record / docs/plans/MODTRAN_Run_Matrix_Plan.md):
+Design rationale (see conversation record / docs/archive/MODTRAN_Run_Matrix_Plan.md):
 the 39-run matrix is not a dense N-D grid you could query at an arbitrary
 point — it is several small, deliberately single-axis FAMILIES (the
 B-block only varies zenith angle at fixed altitude; the C/G-blocks only

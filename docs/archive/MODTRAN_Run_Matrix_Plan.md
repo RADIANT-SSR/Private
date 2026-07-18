@@ -1,9 +1,19 @@
+> **HISTORICAL — archived 2026-07-17 (completed by the coding agent; owner-directed closeout).**
+> The full 39-run matrix was executed externally on real MODTRAN 6 and delivered
+> 2026-07-17 (staged gitignored in `modtran/real_runs/`). All eight §8 acceptance
+> criteria are dispositioned in §9 (added at closure): six met, two honestly
+> deferred with tracked residues (CU-011 binary flavor; Gap 38 model swap /
+> CU-157 flux wiring). The companion CSV **stays live** at
+> `docs/plans/modtran_run_matrix.csv` — it is a machine-readable input consumed
+> by `scripts/render_modtran_decks.py`, `scripts/generate_synthetic_tape7.py`,
+> and the test suite, not part of the archived narrative.
+
 # MODTRAN Run Matrix — Acquisition and Integration Plan
 
-**Status:** Draft
+**Status:** Complete (2026-07-17)
 **Owner:** Jason Forsyth
 **Created:** 2026-07-10
-**Companion artifact:** [`modtran_run_matrix.csv`](modtran_run_matrix.csv) — the machine-readable run list this document explains.
+**Companion artifact:** `docs/plans/modtran_run_matrix.csv` — the machine-readable run list this document explains (live; not archived with this plan).
 
 ---
 
@@ -229,5 +239,36 @@ update `RADIANT_Atmosphere.md`.
 
 ---
 
-*When this plan completes, move it to `docs/archive/` with a HISTORICAL banner in the same
-PR (Rule 24).*
+## 9. Closure disposition (added 2026-07-17)
+
+The real MODTRAN 6 run set (39 tape7 + 4 E-block flux CSVs) was delivered
+2026-07-17 and staged in `modtran/real_runs/` (gitignored, ~296 MB,
+irreplaceable without a binary — see its README). Acceptance-table
+disposition:
+
+| §8 item | Disposition |
+|---------|-------------|
+| Tape7 parser validation | **Met** (`e69d0a6`) — after extending the reader to the MODTRAN 6 underscore variant (CU-154, the delivery's surprise blocker), real A1 round-trips with hand anchors in LWIR/MWIR/VIS; all 39 files parse. |
+| Gap 39 | **Met** (Gap CLOSED) — C-ladder τ(h_tgt) goldens committed (`MODTRAN_C_LADDER_TAU`); `test_table_c_cells.py::TestTableCModtranPinned` asserts the chain inside the characterized envelope (simple optimistic ≤ +0.13 band-mean τ). The `ModtranAtmosphere.evaluate` two-run differential named in the criterion is the CU-011 binary residue (below), not required for the validation gap the criterion served. |
+| CU-011 | **Deferred (narrowed)** — file-import two-leg flavor was already resolved; real A1/B-fan reference now exists and validates the airmass physics. The binary-invocation second run keyed on (h_tgt, θ_s) still requires a runnable MODTRAN binary, which the delivered *files* do not provide. Gate: binary access. |
+| Gap 38 | **Substantially met; residue tracked** — ω₀_eff(λ, aerosol) derived from the E-runs and pinned (`OMEGA0_EFF`); Cells 25/40/55 re-audited with quantified error (simple's effective ω₀ ≈ 1.0 for space columns; 1.3–5× diffuse-sky over-prediction). Remaining: swap the model to the lookup (Gap 38, open-narrowed) and wire flux DOWN into the import path per the owner's band-limited decision (CU-157). |
+| E_sky_thermal parity | **Met as specified** — error characterized per band against H2/H4 (π·L at 48.2°, methodology validated ~15% vs the E1 flux): simple is ~7× low LWIR / ~25–50× low MWIR for space columns. Tolerance decision recorded: parity not achievable with the current graybody; documented + pinned; improvement filed as CU-155. |
+| Scenario 6.2 | **Met** — upgraded to the real A-block; validated finding: SimpleAtmosphere over-responds to profile PWV (τ 0.16–0.81 vs real 0.42–0.57 in-band). |
+| Scenario 1.1 | **Met** — upgraded to real D2 maritime; τ 0.239 vs 0.432, detection range +25%. |
+| Shipped library | **Met** — `data/atmospheres/` NPZ set (profiles + zenith fan + altitude ladders + validation points, ~4 MB, 5 cm⁻¹) loads via `tabulated`/`interpolated`; READMEs + `RADIANT_Atmosphere.md` rewritten in lock-step; MANIFEST records the §7.2 packaging decisions (40,000 km orbital node duplication chosen). |
+
+**Deviation from §7.1 (recorded):** the ~10 full-resolution committed tape7
+fixtures were **superseded, not committed**. The protection they were for —
+regression-testing Gap 39/CU-011/Gap 38 without a MODTRAN license — is
+provided instead by committed band-mean goldens (τ ladder, ω₀ table, E_sky
+anchors) plus the committed slit-degraded library, at ~4 MB instead of
+~120 MB of git history; skipif-guarded tests re-derive every golden from the
+staged full-resolution set wherever it is present. The plan §7.1 prose also
+drifted from the CSV (it listed 10 fixtures; the CSV marks 12 —
+H2/H4 included). If full-resolution fixtures are ever wanted in-repo, the
+staged set is the source and this decision can be revisited.
+
+Registry cross-references: CU-154/065/067 resolved (`e69d0a6`); CU-155/156/157
+filed; CU-011/070 narrowed with binary-access gates; Gap 39 closed; Gap 38
+narrowed. CHANGELOG entries under `[Unreleased]` cover the reader, the
+library, and the scenario upgrades.

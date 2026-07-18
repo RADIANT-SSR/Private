@@ -2,7 +2,7 @@
 
 Repackages the 2026-07-17 MODTRAN 6 run matrix (staged, gitignored, in
 ``modtran/real_runs/``) into the committed NPZ library under
-``data/atmospheres/`` per ``docs/plans/MODTRAN_Run_Matrix_Plan.md`` §7.2.
+``data/atmospheres/`` per ``docs/archive/MODTRAN_Run_Matrix_Plan.md`` §7.2.
 
 Families produced (see ``data/atmospheres/MANIFEST.md`` for the full
 design record):

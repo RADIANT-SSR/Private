@@ -10,7 +10,7 @@ not fabricate tape7 OUTPUT — tape5 rendering is deterministic (pure
 card-image formatting), but the radiative-transfer result is not;
 synthesizing plausible-looking tape7 data would misrepresent RADIANT's
 own physics as an independent reference and defeat the purpose of
-``docs/plans/MODTRAN_Run_Matrix_Plan.md``. Running each deck through a
+``docs/archive/MODTRAN_Run_Matrix_Plan.md``. Running each deck through a
 real MODTRAN binary remains a manual step.
 
 Usage::

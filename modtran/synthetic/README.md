@@ -6,7 +6,7 @@ so RADIANT's MODTRAN backend, `Tape7Reader`, and scenarios 1.1/6.2 can be
 exercised end-to-end before real MODTRAN access is available. Do not
 use these files to close Gap 38, Gap 39, or CU-011 — those need a real,
 independently-run MODTRAN (or donated real tape7s), which is what
-`docs/plans/MODTRAN_Run_Matrix_Plan.md` and `modtran/decks/` are for.
+`docs/archive/MODTRAN_Run_Matrix_Plan.md` and `modtran/decks/` are for.
 
 ## Regenerate
 
@@ -63,6 +63,6 @@ Not committed (Rule 26 — deterministic from the CSV + these scripts;
 
 Once real MODTRAN access or donated tape7s arrive, do **not** replace
 files in this directory with them — route them per
-`docs/plans/MODTRAN_Run_Matrix_Plan.md` §7:
+`docs/archive/MODTRAN_Run_Matrix_Plan.md` §7:
 `tests/integration/fixtures/modtran/` (committed goldens) or
 `data/atmospheres/` (shipped runtime library).

@@ -9,7 +9,7 @@
 **Description:** `FAMILIES` in `family_interpolate.py` is a small,
 explicit dict, not auto-detected from `modtran_run_matrix.csv`'s
 `block` column. This was a deliberate scope decision (see the design
-conversation recorded in `docs/plans/MODTRAN_Run_Matrix_Plan.md` and
+conversation recorded in `docs/archive/MODTRAN_Run_Matrix_Plan.md` and
 the module's own docstring) — auto-detection was assessed as
 unwarranted complexity for a 39-run matrix with only a handful of
 genuinely single-axis families.

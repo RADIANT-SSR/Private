@@ -237,6 +237,78 @@ class TestShippedLadders:
             taus.append(_band_mean(ladders.wavelength_um, state.transmittance.values, 8.0, 13.0))
         assert taus == sorted(taus)
 
+    def test_evaluate_two_leg_airborne_target(self) -> None:
+        """Gap 94: ``evaluate()`` serves h_tgt > 0 from the ladder grid.
+
+        Consistency (not a new golden): the adapter's τ_up must equal the
+        underlying interpolator queried at (sensor, h_tgt) and its
+        τ_full_up the query at (sensor, 0) — two queries, one grid.
+        """
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        ladders = _load_interpolated(
+            "midlat_summer_ladders", ["sensor_altitude_m", "target_altitude_m"]
+        )
+        wl = ladders.wavelength_um
+        session = RadiantSession(wavelength_um=wl)
+        params = session.default_params()
+        params.set("source.target.temperature", 300.0)
+        params.set("source.target.emissivity", 0.95)
+        params.set("atmosphere.model", "interpolated")
+        params.set("atmosphere.interpolated_data_dir", str(_LIB / "midlat_summer_ladders"))
+        params.set("atmosphere.interpolation_axes", "sensor_altitude_m,target_altitude_m")
+        params.set("geometry.sensor_altitude_m", 100_000.0)
+        params.set("optics.aperture_diameter_m", 0.10)
+        params.set("optics.focal_length_m", 0.25)
+        params.set("optics.transmission_scalar", 0.60)
+        params.set("detector.pixel_pitch_x_um", 17.0)
+        params.set("detector.pixel_pitch_y_um", 17.0)
+        params.set("detector.qe_value", 0.55)
+        params.set("detector.dark_rate_e_per_s", 1000.0)
+        params.set("spectral_integration.filter_min_um", 8.0)
+        params.set("spectral_integration.filter_max_um", 13.0)
+        params.set("spectral_integration.integration_time_s", 0.015)
+        params.set("readout.read_noise_e_rms", 20.0)
+        params.set("readout.gain_e_per_dn", 2.0)
+        params.set("readout.adc_bits", 14)
+        params.resolve()
+
+        los = LineOfSightGeometry(h_tgt=10_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            q = ladders.evaluate(wl, los, params)
+
+        up_ref = ladders.build_state(
+            wl,
+            AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=10_000.0,
+                path_zenith_rad=0.0,
+                solar_zenith_rad=0.0,
+                solar_azimuth_rad=0.0,
+            ),
+        )
+        full_ref = ladders.build_state(
+            wl,
+            AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=0.0,
+                path_zenith_rad=0.0,
+                solar_zenith_rad=0.0,
+                solar_azimuth_rad=0.0,
+            ),
+        )
+        np.testing.assert_array_equal(q.tau_up, up_ref.transmittance.values)
+        np.testing.assert_array_equal(q.tau_full_up, full_ref.transmittance.values)
+        np.testing.assert_array_equal(q.L_path_up, up_ref.path_radiance.values)
+        np.testing.assert_array_equal(q.L_path_full, full_ref.path_radiance.values)
+        # Physics: the partial column is more transparent than the full one.
+        band_up = _band_mean(wl, q.tau_up, 8.0, 13.0)
+        band_full = _band_mean(wl, q.tau_full_up, 8.0, 13.0)
+        assert band_up > band_full
+        # Same G3 anchor the build_state golden pins (slit-degraded ~0.923).
+        assert band_up == pytest.approx(0.9253, abs=5e-3)
+
 
 @pytest.mark.level2
 def test_chain_end_to_end_on_shipped_profile() -> None:

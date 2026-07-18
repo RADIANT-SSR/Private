@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-162 — Committed tree fails the CLAUDE.md lint gate: `ruff check src/` (9 × E501) and `ruff format --check` (17 files) on HEAD
+
+**Discovered**: Gap 94 verification sweep, 2026-07-18 (measured on a clean stash of `fix/cu-147-148-descriptor`, i.e. committed content only).
+**Status**: Open.
+**File**: `src/radiant/geometry/_schema.py:198,221,241` and 6 further E501 sites (`ruff check src/` lists them); 17 files fail `ruff format --check src/` (e.g. `src/radiant/optics/tests/test_stage_pupil_maps.py`, `src/radiant/atmosphere/tests/test_interpolated.py`).
+**Symptom**: `ruff check src/` reports 9 errors and `ruff format --check src/` 17 would-reformat files on HEAD, while CLAUDE.md ("Running Tests Locally") requires both to pass before any PR — so every PR author inherits pre-existing failures that mask their own.
+**Why it still matters**: a permanently-red lint gate stops distinguishing new violations from old ones; contributors learn to ignore it (the failure mode Rule 21 exists to catch early).
+**Suggested fix**: (a) inline-fix-now in a dedicated hygiene commit — `ruff format src/` + wrap the 9 long lines; zero behavior change, no CHANGELOG (Rule 29 internal-only). Effort S; category A. Coordinate around in-flight branches to avoid churn.
+
+### CU-163 — Geometry schematic's "unavailable" guard panel is one-way (canvas destroyed, never rebuilt)
+
+**Discovered**: night-mode crash triage (owner bug 2026-07-18) — the reported "schematic dies" was `ViewerState.from_chain_result` raising on `float(None)` (fixed same day), but the *dying* behavior is this panel.
+**Status**: Open.
+**File**: `src/radiant/gui/viewer/viewer_widget.py` (`show_result` → `_enter_unavailable`).
+**Symptom**: any exception during state-building deletes the canvas (`deleteLater`) and sets `_mode = "unavailable"` permanently — every later `show_result` returns early, so one transient adapter error kills the schematic for the rest of the session even after the offending input is corrected.
+**Why it still matters**: the guard exists to degrade gracefully (Rules 15/17), but an unrecoverable degrade turns a one-evaluate hiccup into "restart the app"; the night bug demonstrated exactly this failure mode reaching users.
+**Suggested fix**: (a) inline-fix-now — on a successful `show_result` while in `unavailable` mode, rebuild the canvas and re-enter `schematic` mode (keep the panel only while errors persist). Effort S; category A (GUI resilience, no physics). Test: force one `_boom` build (the existing monkeypatch pattern), then a good result → canvas returns.
+
 ### CU-161 — SimpleAtmosphere's MWIR water-vapor response is ~5× too steep (linear-Beer PWV scaling vs saturated-band curve of growth)
 
 **Discovered**: scenario re-validation pass against the real MODTRAN 6 run set, 2026-07-17 — measured three independent ways in one day.
@@ -33,7 +51,7 @@
 ### CU-156 — `InterpolatedAtmosphere` requires query grid == stored grid, limiting the shipped interpolated library
 
 **Discovered**: building the shipped atmosphere library (plan §7.2), 2026-07-17.
-**Status**: Open — usability limitation, documented in `data/atmospheres/MANIFEST.md`.
+**Status**: FIX IMPLEMENTED 2026-07-18 (commit pending, this branch — move to Resolved with the SHA when it lands): `build_state` now geometry-interpolates on the stored grid and linearly resamples the result onto any query grid inside the stored spectral range (the suggested `SpectralData.resample` pattern); out-of-range queries fail loud (no spectral extrapolation). Level-0 tests (`test_interpolated.py`: in-range resample exact on flat spectra; out-of-range raises) + the end-to-end default-library chain run; `RADIANT_Atmosphere.md` + `data/atmospheres/MANIFEST.md` + CHANGELOG in lock-step. Unblocked the 2026-07-18 owner bug "choosing interpolated atmosphere errors out of the box".
 **File**: `src/radiant/atmosphere/interpolated.py` (`build_state` wavelength-grid equality check).
 **Symptom**: `build_state` raises `AtmosphereValidationError` unless the query wavelength grid exactly equals the pre-computed points' grid ("Resample the source data before constructing the interpolator, or query on the same grid"). A chain session on its own grid therefore cannot consume the shipped `us_standard_zenith_fan/` or `midlat_summer_ladders/` families directly; only the `profiles/` (tabulated — resamples freely) are grid-agnostic.
 **Why it still matters**: the shipped interpolated families are the first real consumer of this contract, and the restriction turns "load the shipped fan" into "run your whole session on the library's 2 cm⁻¹ grid" — correct but unfriendly. `TabulatedAtmosphere` already demonstrates the safe resample-on-query pattern (`SpectralData.resample`).

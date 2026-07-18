@@ -70,9 +70,42 @@ class TestBuildAtmosphereModel:
             build_atmosphere_model(_make_params("tabulated"))
 
     @pytest.mark.level0
-    def test_interpolated_without_dir_raises(self) -> None:
+    def test_interpolated_without_dir_defaults_to_shipped_fan(self) -> None:
+        """Unset data dir + default axes → the shipped us_standard_zenith_fan
+        family loads (owner request 2026-07-18: interpolated works out of the box)."""
+        from radiant.atmosphere.interpolated import InterpolatedAtmosphere
+        from radiant.atmosphere.loaders import _SHIPPED_ATMOSPHERES_DIR
+
+        if not (_SHIPPED_ATMOSPHERES_DIR / "us_standard_zenith_fan").exists():
+            pytest.skip("shipped atmosphere library not present")
+        model = build_atmosphere_model(_make_params("interpolated"))
+        assert isinstance(model, InterpolatedAtmosphere)
+        assert model.axes == ["path_zenith_rad"]
+
+    @pytest.mark.level0
+    def test_interpolated_without_dir_defaults_to_shipped_ladders(self) -> None:
+        """Unset data dir + the sensor×target axes → the midlat_summer_ladders family."""
+        from radiant.atmosphere.interpolated import InterpolatedAtmosphere
+        from radiant.atmosphere.loaders import _SHIPPED_ATMOSPHERES_DIR
+
+        if not (_SHIPPED_ATMOSPHERES_DIR / "midlat_summer_ladders").exists():
+            pytest.skip("shipped atmosphere library not present")
+        model = build_atmosphere_model(
+            _make_params(
+                "interpolated",
+                atmosphere__interpolation_axes="sensor_altitude_m,target_altitude_m",
+            )
+        )
+        assert isinstance(model, InterpolatedAtmosphere)
+        assert model.axes == ["sensor_altitude_m", "target_altitude_m"]
+
+    @pytest.mark.level0
+    def test_interpolated_without_dir_and_uncovered_axes_raises(self) -> None:
+        """No shipped family covers the axes → the actionable error still fires."""
         with pytest.raises(ValueError, match="interpolated_data_dir"):
-            build_atmosphere_model(_make_params("interpolated"))
+            build_atmosphere_model(
+                _make_params("interpolated", atmosphere__interpolation_axes="solar_zenith_rad")
+            )
 
     @pytest.mark.level0
     def test_file_backed_registry(self) -> None:
@@ -129,6 +162,45 @@ class TestBuildAtmosphereModel:
         with pytest.raises(ValueError, match="tape7_sun_path"):
             build_atmosphere_model(
                 _make_params("modtran", atmosphere__modtran__tape7_sun_path=str(sun))
+            )
+
+    @pytest.mark.level0
+    def test_modtran_tape7_up_path_builds_both_imports(self, tmp_path: Path) -> None:
+        full = tmp_path / "full.tp7"
+        up = tmp_path / "up.tp7"
+        _write_named_header_tape7(full)
+        _write_named_header_tape7(up)
+        model = build_atmosphere_model(
+            _make_params(
+                "modtran",
+                atmosphere__modtran__tape7_path=str(full),
+                atmosphere__modtran__tape7_up_path=str(up),
+            )
+        )
+        assert model._tape7_import is not None  # type: ignore[attr-defined]
+        assert model._tape7_up_import is not None  # type: ignore[attr-defined]
+        assert model._tape7_up_import.source_path == str(up)  # type: ignore[attr-defined]
+
+    @pytest.mark.level0
+    def test_modtran_up_path_without_main_raises(self, tmp_path: Path) -> None:
+        up = tmp_path / "up.tp7"
+        _write_named_header_tape7(up)
+        with pytest.raises(ValueError, match="tape7_up_path"):
+            build_atmosphere_model(
+                _make_params("modtran", atmosphere__modtran__tape7_up_path=str(up))
+            )
+
+    @pytest.mark.level0
+    def test_modtran_up_path_missing_file_raises(self, tmp_path: Path) -> None:
+        full = tmp_path / "full.tp7"
+        _write_named_header_tape7(full)
+        with pytest.raises(FileNotFoundError, match="tape7_up_path"):
+            build_atmosphere_model(
+                _make_params(
+                    "modtran",
+                    atmosphere__modtran__tape7_path=str(full),
+                    atmosphere__modtran__tape7_up_path=str(tmp_path / "missing.tp7"),
+                )
             )
 
     @pytest.mark.level0
@@ -198,3 +270,37 @@ class TestStageModelInjection:
         # reaching it proves the injected model bypassed the Rule 6 guard.
         with pytest.raises(ValueError, match="SourceStage"):
             AtmosphereStage().run(state, _make_params("tabulated"))
+
+
+class TestInterpolatedRootDirDescent:
+    """Owner bug 2026-07-18 (second report): picking the library ROOT
+    (data/atmospheres/) instead of a family folder must not dead-end."""
+
+    @pytest.mark.level0
+    def test_library_root_descends_into_axes_matching_family(self) -> None:
+        from radiant.atmosphere.interpolated import InterpolatedAtmosphere
+        from radiant.atmosphere.loaders import _SHIPPED_ATMOSPHERES_DIR
+
+        if not (_SHIPPED_ATMOSPHERES_DIR / "us_standard_zenith_fan").exists():
+            pytest.skip("shipped atmosphere library not present")
+        model = build_atmosphere_model(
+            _make_params(
+                "interpolated",
+                atmosphere__interpolated_data_dir=str(_SHIPPED_ATMOSPHERES_DIR),
+            )
+        )
+        assert isinstance(model, InterpolatedAtmosphere)
+        assert model.axes == ["path_zenith_rad"]
+
+    @pytest.mark.level0
+    def test_runless_dir_error_names_family_subfolders(self, tmp_path: Path) -> None:
+        (tmp_path / "some_family").mkdir()
+        (tmp_path / "some_family" / "a.npz").write_bytes(b"")
+        with pytest.raises(ValueError, match="some_family"):
+            build_atmosphere_model(
+                _make_params(
+                    "interpolated",
+                    atmosphere__interpolated_data_dir=str(tmp_path),
+                    atmosphere__interpolation_axes="solar_zenith_rad",
+                )
+            )

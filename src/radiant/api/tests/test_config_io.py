@@ -134,9 +134,22 @@ class TestSensorAttach:
         baseline = s.clone().evaluate()
         s.set_optical_elements(_train())
         with_train = s.evaluate()
-        # The 0.97*0.96*0.90 train is lossier than the scalar default:
-        # signal must drop, and the change must be real (not noise).
-        assert with_train.metrics["snr"] < baseline.metrics["snr"]
+        # Two physical consequences of attaching the 0.97·0.96·0.90 train:
+        # (1) the SCENE-transmitted signal drops (lossier than the scalar
+        #     default), and (2) the warm elements EMIT per Kirchhoff
+        #     (ε = 1 − T − R), appearing as a new nearfield term. Total
+        #     signal/SNR may move either way in the MWIR — the emission
+        #     gain can outweigh a small throughput deficit — so the
+        #     assertion is on the decomposed components, not raw SNR
+        #     (pre-CU-161 the raw-SNR inequality held only marginally and
+        #     flipped with the atmosphere recalibration).
+        si_base = baseline.stage_outputs["spectral_integration"]
+        si_train = with_train.stage_outputs["spectral_integration"]
+        scene_base = float(si_base["signal_e"]) - float(si_base["nearfield_e"])
+        scene_train = float(si_train["signal_e"]) - float(si_train["nearfield_e"])
+        assert scene_train < scene_base  # throughput loss is real
+        assert float(si_train["nearfield_e"]) > 0.0  # Kirchhoff emission present
+        assert float(si_base["nearfield_e"]) == 0.0  # scalar path has no train
 
     def test_clear_with_none_restores_baseline(self) -> None:
         s = Sensor.from_yaml(_EXAMPLE)

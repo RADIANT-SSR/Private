@@ -107,16 +107,19 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
 
 ## Known limitations (recorded per plan §7.2)
 
-- **Grid-match requirement (CU-156):** `InterpolatedAtmosphere.build_state`
-  requires the query wavelength grid to equal the stored grid — the
-  interpolated families (fan, ladders) therefore serve sessions running
-  on the library grid, until resampling support lands. The tabulated
-  `profiles/` have no such restriction.
-- **Chain consumption of `h_tgt > 0`:** `InterpolatedAtmosphere.evaluate`
-  (the Option-C chain path) raises `NotImplementedError` for airborne
-  targets, so the ladders are not yet reachable from a chain run — they
-  ship as the reference data that unblocks that extension (Gap 39
-  closed against them; CU-011 binary flavor still open).
+- **Grid-match requirement (CU-156) — lifted 2026-07-18:**
+  `InterpolatedAtmosphere.build_state` now serves any query wavelength
+  grid inside the stored spectral range by linear resampling of the
+  geometry-interpolated spectra (the `TabulatedAtmosphere` pattern);
+  queries extending outside the stored range still fail loud. The
+  historical restriction (query grid must equal the stored grid) no
+  longer applies.
+- **Chain consumption of `h_tgt > 0` — lifted 2026-07-18 (Gap 94):**
+  `InterpolatedAtmosphere.evaluate` serves airborne targets from a
+  `target_altitude_m` grid axis with a real two-leg up/full split, so
+  the ladders are reachable from a chain run (targets 0–29 km; beyond
+  the hull still refuses — no extrapolation). CU-011's binary flavor
+  remains open.
 - **Aerosol/visibility variants (Blocks D/E) deliberately do not ship** —
   condition-specific studies, regenerate-on-demand (plan §7.2).
 

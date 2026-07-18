@@ -60,7 +60,7 @@ from radiant.atmosphere.protocol import (
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.core.solar import toa_solar_spectral_irradiance
-from radiant.core.spectral import SpectralData
+from radiant.core.spectral import SpectralData, SpectralGrid
 
 logger = logging.getLogger(__name__)
 
@@ -450,10 +450,13 @@ class InterpolatedAtmosphere:
         Parameters
         ----------
         wavelength_um:
-            Query wavelength grid.  Must match the grid of the
-            pre-computed points (resampling is not supported here —
-            resample the source data before constructing the
-            interpolator).
+            Query wavelength grid.  May differ from the stored points'
+            grid as long as it lies inside their spectral range: the
+            geometry-interpolated spectra are then linearly resampled
+            onto the query grid (CU-156, the same
+            ``SpectralData.resample`` pattern ``TabulatedAtmosphere``
+            uses).  A query extending outside the stored range fails
+            loud — extrapolation is never performed.
         geometry:
             The query geometry.  Coordinates for each interpolation
             axis are extracted automatically.
@@ -462,17 +465,11 @@ class InterpolatedAtmosphere:
         ------
         ValueError
             If the query geometry is outside the bounds of the
-            available data (no extrapolation).
+            available data (no extrapolation), or the query wavelength
+            grid extends outside the stored spectral range.
         """
         lam = np.asarray(wavelength_um, dtype=np.float64)
-
-        if not np.array_equal(lam, self._wavelength_um):
-            raise AtmosphereValidationError(
-                "InterpolatedAtmosphere: query wavelength grid does not "
-                "match the grid of the pre-computed points. Resample the "
-                "source data before constructing the interpolator, or "
-                "query on the same grid."
-            )
+        resample_needed = not np.array_equal(lam, self._wavelength_um)
 
         # Extract query coordinates.
         query_coords = np.array(
@@ -533,6 +530,31 @@ class InterpolatedAtmosphere:
         lpath_interp = np.maximum(lpath_interp, 0.0)
         ldown_interp = np.maximum(ldown_interp, 0.0)
 
+        if resample_needed:
+            # CU-156: geometry interpolation ran on the stored grid; serve any
+            # query grid inside the stored spectral range by linear resampling
+            # (the TabulatedAtmosphere pattern). resample() fails loud on a
+            # query outside the stored range — no spectral extrapolation.
+            target = SpectralGrid(wavelengths_um=lam)
+
+            def _to_query_grid(name: str, values: np.ndarray, unit: str) -> np.ndarray:
+                source = SpectralData(
+                    name=name,
+                    wavelength_um=self._wavelength_um,
+                    values=values,
+                    unit=unit,
+                    source="InterpolatedAtmosphere (stored-grid intermediate)",
+                )
+                return np.asarray(source.resample(target).values, dtype=np.float64)
+
+            tau_interp = _to_query_grid("atm.transmittance.interpolated", tau_interp, "")
+            lpath_interp = _to_query_grid(
+                "atm.path_radiance.interpolated", lpath_interp, "W/m²/sr/µm"
+            )
+            ldown_interp = _to_query_grid(
+                "atm.emission_down.interpolated", ldown_interp, "W/m²/sr/µm"
+            )
+
         provenance: dict[str, Any] = {
             "model": "interpolated",
             "grid_type": self._grid_type,
@@ -583,56 +605,93 @@ class InterpolatedAtmosphere:
     ) -> AtmosphericQuantities:
         """Thin adapter over the interpolator's 3-field legacy output.
 
-        Same degradation contract as :meth:`TabulatedAtmosphere.evaluate`:
-        τ_sun = τ_up = τ_full_up and L_path_up = L_path_full are
-        interpolated from the legacy three-field data set, with E_TOA
-        drawn from ``radiant.core.solar`` and E_sky_thermal = π · L_atm_down.
+        Same sun-leg degradation contract as
+        :meth:`TabulatedAtmosphere.evaluate`: there is no independent
+        sun-leg data set, so τ_sun aliases τ_up with a ``UserWarning``,
+        with E_TOA drawn from ``radiant.core.solar`` and
+        E_sky_thermal = π · L_atm_down.
 
-        v1 limitation: ``h_tgt > 0`` raises :class:`NotImplementedError`.
+        Airborne targets (Gap 94): when the sample grid carries a
+        ``target_altitude_m`` axis (e.g. the shipped
+        ``data/atmospheres/midlat_summer_ladders/`` family), ``h_tgt > 0``
+        is served with the real two-leg up/full split from two
+        interpolator queries at the same sensor/zenith coordinates:
+
+        - up leg (τ_up, L_path_up): query at ``target_altitude_m = h_tgt``
+          — the target→sensor partial column;
+        - full column (τ_full_up, L_path_full): query at
+          ``target_altitude_m = 0`` — the ground→sensor column the
+          background branch needs.
+
+        L_atm_down (→ E_sky_thermal) is taken from the up-leg query — the
+        downwelling at the target is what illuminates it.  A query
+        outside the grid's target-altitude hull fails with the
+        interpolator's no-extrapolation error (e.g. the shipped ladders
+        cover 0–29 km; a 90 km target is refused, not extrapolated).
+
+        Without a ``target_altitude_m`` axis, ``h_tgt > 0`` raises
+        :class:`NotImplementedError` — a single-column grid cannot
+        supply both legs.
         """
         import warnings
 
-        if los.h_tgt > 0.0:
+        has_target_axis = "target_altitude_m" in self._axes
+        if los.h_tgt > 0.0 and not has_target_axis:
             raise NotImplementedError(
                 f"InterpolatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
-                "is not supported — the interpolator's sample grid records "
-                "only sensor-altitude / zenith-angle axes for the full "
-                "(h_tgt = 0) column, and there is no species-resolved "
-                "profile to rescale to a partial column.  See Option C "
-                "Stage 5 §8.3 open question 'partial-column rescaling for "
-                "tabulated/interpolated backends'.  Workaround: use "
-                "SimpleAtmosphere or extend the interpolator sample grid "
-                "to include h_tgt."
+                "needs a 'target_altitude_m' interpolation axis, and this "
+                f"grid interpolates only over {self._axes} for the full "
+                "(h_tgt = 0) column — one column cannot supply both the "
+                "target→sensor leg (tau_up) and the ground→sensor full "
+                "column (tau_full_up) the background branch needs (Gap 94). "
+                "Workaround: point atmosphere.interpolated_data_dir at a "
+                "grid with a target-altitude axis (e.g. the shipped "
+                "data/atmospheres/midlat_summer_ladders/ family, 0–29 km) "
+                "and add 'target_altitude_m' to "
+                "atmosphere.interpolation_axes, or use SimpleAtmosphere."
             )
 
-        # Build a legacy AtmosphericGeometry to reuse the interpolator's
-        # coordinate-extraction logic.  h_sensor comes from params.
+        # Build legacy AtmosphericGeometry queries to reuse the
+        # interpolator's coordinate-extraction logic.  h_sensor comes
+        # from params.
         h_sensor_m = float(params.get("geometry.sensor_altitude_m"))
         theta_s = float(los.theta_s) if los.theta_s is not None else 0.0
         delta_phi = float(los.delta_phi) if los.delta_phi is not None else 0.0
-        geometry = AtmosphericGeometry(
-            sensor_altitude_m=h_sensor_m,
-            target_altitude_m=0.0,
-            path_zenith_rad=los.theta_o,
-            solar_zenith_rad=theta_s,
-            solar_azimuth_rad=delta_phi,
+
+        def _query_geometry(target_altitude_m: float) -> AtmosphericGeometry:
+            return AtmosphericGeometry(
+                sensor_altitude_m=h_sensor_m,
+                target_altitude_m=target_altitude_m,
+                path_zenith_rad=los.theta_o,
+                solar_zenith_rad=theta_s,
+                solar_azimuth_rad=delta_phi,
+            )
+
+        full_state = self.build_state(wavelength_um, _query_geometry(0.0))
+        up_state = (
+            self.build_state(wavelength_um, _query_geometry(float(los.h_tgt)))
+            if los.h_tgt > 0.0
+            else full_state
         )
-        atm_state = self.build_state(wavelength_um, geometry)
-        lam = atm_state.wavelength_um
+        lam = full_state.wavelength_um
 
         warnings.warn(
             (
                 "InterpolatedAtmosphere.evaluate: backend does not carry the "
-                "Option C two-leg split — collapsing τ_sun=τ_up=τ_full_up and "
-                "L_path_up=L_path_full to the single interpolated value."
+                "Option C two-leg split for the sun leg — collapsing τ_sun "
+                "onto the up-leg transmittance (τ_sun=τ_up; for a surface "
+                "target also τ_up=τ_full_up and L_path_up=L_path_full, the "
+                "single interpolated column)."
             ),
             UserWarning,
             stacklevel=2,
         )
 
-        tau = np.asarray(atm_state.transmittance.values, dtype=np.float64)
-        lpath = np.asarray(atm_state.path_radiance.values, dtype=np.float64)
-        ldown = np.asarray(atm_state.atm_emission_down.values, dtype=np.float64)
+        tau_up = np.asarray(up_state.transmittance.values, dtype=np.float64)
+        tau_full = np.asarray(full_state.transmittance.values, dtype=np.float64)
+        lpath_up = np.asarray(up_state.path_radiance.values, dtype=np.float64)
+        lpath_full = np.asarray(full_state.path_radiance.values, dtype=np.float64)
+        ldown = np.asarray(up_state.atm_emission_down.values, dtype=np.float64)
 
         E_TOA = np.asarray(toa_solar_spectral_irradiance(lam), dtype=np.float64)
         E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
@@ -640,12 +699,12 @@ class InterpolatedAtmosphere:
 
         return AtmosphericQuantities(
             wavelength_um=lam,
-            tau_sun=tau,
-            tau_up=tau.copy(),
-            tau_full_up=tau.copy(),
+            tau_sun=tau_up.copy(),
+            tau_up=tau_up.copy(),
+            tau_full_up=tau_full.copy(),
             E_TOA=E_TOA,
             E_sky_scattered=E_sky_scattered,
             E_sky_thermal=E_sky_thermal,
-            L_path_up=lpath,
-            L_path_full=lpath.copy(),
+            L_path_up=lpath_up.copy(),
+            L_path_full=lpath_full.copy(),
         )

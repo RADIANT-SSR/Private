@@ -40,6 +40,7 @@ from radiant.api.session import RadiantSession
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.simple import (
     H_AER_M,
+    H_H2O_M,
     H_MOL_M,
     KOSCHMIEDER,
     RAYLEIGH_COEFF_KM,
@@ -447,10 +448,10 @@ class TestAnchor3HandCalculatedOD:
     def test_backend_tau_up_matches_hand_calc_at_4um(self) -> None:
         """Backend τ_up at λ=4µm, h_tgt=10km, nadir must match hand calc.
 
-        Computes OD_mol + OD_aer by hand (both species have closed-form
-        column integrals over the exponential profile), then lets the
-        backend compute OD_h2o (same 5-band Lorentzian model) and
-        compares the composite τ = exp(-OD_total) with the backend output.
+        Computes OD_mol + OD_aer + OD_gas by hand (closed-form column
+        integrals; the CU-161 well-mixed floor is 0.4497 × col_mol/8 km
+        in the 3.5–5 µm region), then checks the small residual equals
+        the calibrated water term for the thin 10–100 km water column.
         """
         # Wavelength grid containing λ = 4.0 µm exactly.
         lam = np.linspace(3.0, 5.0, 201)  # 0.01 µm spacing, 4.0 µm at idx 100
@@ -480,19 +481,22 @@ class TestAnchor3HandCalculatedOD:
         # Specifically: -ln(τ_up(4µm)) - od_mol - od_aer == od_h2o (non-negative).
         tau_4um = float(q.tau_up[100])
         od_total_backend = -math.log(tau_4um)
-        od_h2o_derived = od_total_backend - od_mol - od_aer
-
-        # H2O OD must be non-negative and small at 4 µm in a clear
-        # 10-100 km column (the 3.2 µm band tail is the dominant contribution).
-        assert od_h2o_derived >= -1e-12, (
-            f"Implied H2O OD at 4 µm, 10-100km column = {od_h2o_derived:g} < 0; "
-            "the mol+aer hand calc exceeds the full backend OD, which is "
-            "unphysical — check the backend partial-column integration."
+        # CU-161: 4 µm is in the 3.5–5 µm region — the residual above
+        # mol+aer is the well-mixed floor (0.4497 · col_mol/8 km) plus a
+        # tiny water term for the near-dry 10–100 km water column
+        # (w_eff = 1.4 · col_h2o/2 km ≈ 0.009 cm → OD ≈ 2e-3).
+        od_gas = 0.4497 * (col_mol_km / (H_MOL_M / 1000.0))
+        col_h2o_km = (H_H2O_M / 1000.0) * (
+            math.exp(-h_low / H_H2O_M) - math.exp(-h_high / H_H2O_M)
         )
-        # And the total OD should be small (< 0.01) in this near-vacuum window.
-        assert od_total_backend < 0.01, (
-            f"Total OD at 4 µm, 10-100km column = {od_total_backend:g} — "
-            "this is a thin residual column; the value is unexpectedly large."
+        w_eff = 1.4 * col_h2o_km / (H_H2O_M / 1000.0)
+        od_h2o = 0.0944 * w_eff**0.808
+
+        od_residual = od_total_backend - od_mol - od_aer
+        assert od_residual == pytest.approx(od_gas + od_h2o, rel=1e-6), (
+            f"Residual OD at 4 µm, 10–100 km column = {od_residual:g}; hand "
+            f"calc gas+water = {od_gas + od_h2o:g} — the CU-161 partial-"
+            "column terms do not reconcile."
         )
 
 

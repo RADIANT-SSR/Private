@@ -1402,6 +1402,20 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Re-open the config file (File → Open Recent) to discard edits; or reset parameters one at a time from the tree. |
 ---
 
+## Gap 94: Elevated targets (h_tgt > 0) unreachable on every file-backed atmosphere path — shipped ladder library stranded
+
+| | |
+|---|---|
+| **Found in** | MODTRAN integration triage (GUI "Cannot set" error, h_tgt = 90 km near-space scenario), 2026-07-17 |
+| **Status** | FIXED 2026-07-18 (commit pending, this branch) — see **Fix** row |
+| **Fix** | (1) `InterpolatedAtmosphere.evaluate()` serves `h_tgt > 0` from a `target_altitude_m` grid axis via the two-query up/full split (ladders family un-stranded; hull still enforced, so 90 km on the 0–29 km ladders is refused loud with the model options named). (2) New `atmosphere.modtran.tape7_up_path` imports a second target→sensor tape7 alongside the full column — the 90 km scenario runs by adding one MODTRAN deck with H2 = 90 km. Level 0 + integration tests; `RADIANT_Atmosphere.md` + CHANGELOG in lock-step. **Remainder (declined)**: `TabulatedAtmosphere` keeps its surface-target restriction — its single-NPZ format has no second column by construction, and both fixed paths cover the elevated-target use cases. |
+| **Description** | All three file-backed atmosphere backends reject `h_tgt > 0` at `evaluate()`: `ModtranAtmosphere` tape7-import (`modtran.py:1329`), `TabulatedAtmosphere` (`tabulated.py:486`), and `InterpolatedAtmosphere` (`interpolated.py:595`). Each refusal is individually documented and correct for a *single-column* data set (one file cannot supply both the target→sensor leg τ_up and the ground→sensor full column τ_full_up the background branch needs). But the shipped `data/atmospheres/midlat_summer_ladders/` family (2026-07-17) carries `target_altitude_m` as an interpolation coordinate on an 18-node sensor(35 km/100 km/GEO) × target(0–29 km) grid — built expressly for elevated targets — and `InterpolatedAtmosphere.evaluate()` hardcodes `target_altitude_m=0.0` and raises before the interpolator is ever consulted. The underlying `build_state()` interpolates the target-altitude axis fine (the Table-C/G-block parity tests exercise it); only the chain-facing adapter refuses. Net effect: the only chain paths that accept an elevated target are `SimpleAtmosphere` (analytic, `0 ≤ h_tgt < h_atm_top`) and the MODTRAN *binary* flavor (needs a license) — the entire real-MODTRAN file library is unusable for the boost-phase / near-space scenarios it was partly commissioned for. |
+| **Impact** | Any airborne/near-space-target scenario (missile boost, hypersonic, balloon; UC Table C and G geometries) cannot use MODTRAN-fidelity atmospheres without a binary. The GUI surfaces this as a hard "Cannot set" evaluate error. |
+| **Two-leg structure needed** | τ_up + L_path_up on the target→sensor partial column; τ_full_up + L_path_full on the ground→sensor full column. The ladder grid supplies exactly this: query (sensor, h_tgt) for the up-leg and (sensor, 0) for the full column — two interpolator queries, no new data. Special case worth keeping cheap: for h_tgt at/above the data's TOA (MODTRAN column top = 100 km), the up-leg degenerates to τ_up = 1, L_path_up = 0 and the full column comes straight from the single file — this would un-block the single-tape7 import for exo-altitude targets too. |
+| **Fix location** | `atmosphere/interpolated.py` `evaluate()` — when the grid carries a `target_altitude_m` axis, pass `los.h_tgt` through and make the two queries above (no-extrapolation hull rule unchanged); refuse only when the axis is absent. Optionally extend the tape7-import flavor with the degenerate above-TOA branch. Effort M; category C (results-affecting for elevated-target scenarios; Table C/G parity tests are the anchors). Doc lock-step: `RADIANT_Atmosphere.md` §3 + this table. |
+| **Workaround** | `atmosphere.model = "simple"` for h_tgt < 100 km (validated to +0.13 τ envelope vs MODTRAN per Gap 39); `"exo"` when the target and background are both effectively above the atmosphere. |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1499,6 +1513,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | FIXED 2026-07-14 (6f37734) |
 | 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
 | 93 | No public provenance / reset-all surface on `Sensor` | — | GUI Edit → Reset to Defaults (GX-1) | FIXED |
+| 94 | Elevated targets (h_tgt > 0) unreachable on file-backed atmosphere paths; shipped ladder library stranded | M | Near-space / boost-phase (UC Tables C, G) | FIXED 2026-07-18 |
 
 ---
 

@@ -1,0 +1,182 @@
+"""Fit SimpleAtmosphere's calibrated gas-band region table (CU-161).
+
+Derives, per spectral region, the three-parameter transmittance model
+
+    OD_region(w) = floor + k · w^b        [nadir full column, w in cm PWV]
+
+from the real MODTRAN 6 water ladder (runs D4 / A1 / D5: us_standard,
+rural 23 km, H₂O ×0.5 / ×1 / ×2 — geometric spacing makes the exponent
+solvable in closed form), then converts it into the constants pasted
+into ``radiant.atmosphere.simple``:
+
+- ``floor_add`` = max(0, floor − OD_nonwater_model): the well-mixed-gas
+  absorption (CO₂/N₂O/O₃/O₂/CH₄) the 3-species model lacked, minus what
+  its Rayleigh+aerosol already provide in that region (never negative —
+  regions where aerosol over-absorbs, e.g. the VIS, get no floor).
+- ``(k, b)``: the water term, replacing the former linear-in-w
+  Lorentzian-wing model whose MWIR response was ~5× too steep.
+
+Anchors are band means of ``Tape7Reader.to_radiant_units`` transmittance
+over the staged run set (``modtran/real_runs/``, gitignored, 2026-07-17).
+Cross-validation against the six profile anchors (A2–A6) is printed.
+
+Usage::
+
+    python scripts/fit_simple_atmosphere_gas_bands.py
+
+Prints the ``_CALIBRATED_GAS_REGIONS`` table to paste into simple.py.
+"""
+
+from __future__ import annotations
+
+import sys
+import warnings
+from pathlib import Path
+
+import numpy as np
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "src"))
+
+from radiant.atmosphere.modtran import Tape7Reader  # noqa: E402
+
+REAL_RUNS = REPO / "modtran" / "real_runs"
+
+# Spectral partition [µm]. First/last regions clamp to (0, ∞) in the model.
+SEGMENTS: tuple[tuple[float, float], ...] = (
+    (0.30, 0.45),
+    (0.45, 0.70),
+    (0.70, 1.30),
+    (1.30, 1.50),
+    (1.50, 1.75),
+    (1.75, 2.05),
+    (2.05, 2.40),
+    (2.40, 3.10),
+    (3.10, 3.50),
+    (3.50, 5.00),
+    (5.00, 7.50),
+    (7.50, 8.00),
+    (8.00, 10.00),
+    (10.00, 12.00),
+    (12.00, 14.29),
+)
+
+LADDER = (("D4", 0.7), ("A1", 1.4), ("D5", 2.8))
+PROFILES = (("A6", 0.42), ("A4", 0.85), ("A5", 2.08), ("A3", 2.92), ("A2", 4.11))
+
+B_MIN, B_MAX = 0.10, 2.50  # exponent guard for noisy/transparent segments
+
+
+def _band_od(wl: np.ndarray, tau: np.ndarray, lo: float, hi: float) -> float:
+    band = (wl >= lo) & (wl <= hi)
+    return -float(np.log(max(float(tau[band].mean()), 1e-9)))
+
+
+def _model_nonwater_od() -> dict[tuple[float, float], float]:
+    """Current model's non-water band OD (w→0) at the anchor geometry."""
+    from radiant.api.session import RadiantSession
+    from radiant.atmosphere.simple import SimpleAtmosphere
+    from radiant.core.los_geometry import LineOfSightGeometry
+
+    wl = np.linspace(0.30, 14.29, 3000)
+    session = RadiantSession(wavelength_um=wl)
+    params = session.default_params()
+    for key, val in [
+        ("source.target.temperature", 300.0),
+        ("source.target.emissivity", 0.95),
+        ("atmosphere.model", "simple"),
+        ("geometry.sensor_altitude_m", 100_000.0),
+        ("optics.aperture_diameter_m", 0.08),
+        ("optics.focal_length_m", 0.20),
+        ("optics.transmission_scalar", 0.60),
+        ("detector.pixel_pitch_x_um", 17.0),
+        ("detector.pixel_pitch_y_um", 17.0),
+        ("detector.qe_value", 0.55),
+        ("detector.dark_rate_e_per_s", 1000.0),
+        ("spectral_integration.filter_min_um", 0.30),
+        ("spectral_integration.filter_max_um", 14.29),
+        ("spectral_integration.integration_time_s", 0.015),
+        ("readout.read_noise_e_rms", 20.0),
+        ("readout.gain_e_per_dn", 2.0),
+        ("readout.adc_bits", 14),
+    ]:
+        params.set(key, val)
+    params.resolve()
+    atm = SimpleAtmosphere(precipitable_water_cm=1e-9)
+    los = LineOfSightGeometry(
+        h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=None, delta_phi=None
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        q = atm.evaluate(wl, los, params)
+    tau = np.asarray(q.tau_up)
+    return {seg: _band_od(wl, tau, *seg) for seg in SEGMENTS}
+
+
+def main() -> int:
+    if not REAL_RUNS.exists():
+        print(f"ERROR: {REAL_RUNS} not staged.", file=sys.stderr)
+        return 1
+
+    spectra = {}
+    for run, _w in (*LADDER, *PROFILES):
+        wl, tau, _, _ = Tape7Reader(REAL_RUNS / f"{run}.tp7").to_radiant_units()
+        spectra[run] = (wl, tau)
+
+    nonwater = _model_nonwater_od()
+
+    rows = []
+    print(f"{'segment':16} {'OD0':>7} {'k':>8} {'b':>6} {'nonwater':>9} {'floor_add':>9}")
+    for lo, hi in SEGMENTS:
+        od = [
+            _band_od(*spectra[run], lo, hi) for run, _w in LADDER
+        ]
+        d1, d2 = od[1] - od[0], od[2] - od[1]
+        if d1 <= 1e-4:  # no measurable water response in this segment
+            k, b, od0 = 0.0, 1.0, od[1]
+        else:
+            b = float(np.clip(np.log2(max(d2, 1e-9) / d1), B_MIN, B_MAX))
+            k = d1 / (1.4**b - 0.7**b)
+            od0 = od[0] - k * 0.7**b
+            if od0 < 0.0:
+                # Deeply saturated segment: the 3-point closed form wants a
+                # negative floor. Refit floor-free, anchored exactly at the
+                # default column (w = 1.4) with the exponent from the
+                # endpoint ratio — symmetric error at the extremes.
+                b = float(np.clip(np.log(od[2] / od[0]) / np.log(4.0), B_MIN, B_MAX))
+                k = od[1] / 1.4**b
+                od0 = 0.0
+        floor_add = max(od0 - nonwater[(lo, hi)], 0.0)
+        rows.append((lo, hi, floor_add, k, b))
+        print(
+            f"{lo:5.2f}–{hi:5.2f} µm  {od0:7.3f} {k:8.4f} {b:6.3f} "
+            f"{nonwater[(lo, hi)]:9.3f} {floor_add:9.3f}"
+        )
+
+    print("\n# Paste into radiant/atmosphere/simple.py:")
+    print("_CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (")
+    for lo, hi, floor, k, b in rows:
+        print(
+            f"    _GasRegion(lo_um={lo}, hi_um={hi}, "
+            f"floor_od={floor:.4f}, k_h2o={k:.4f}, b_h2o={b:.3f}),"
+        )
+    print(")")
+
+    # Cross-validation: reconstruct each profile anchor's per-window τ from
+    # the fit (floor_add + nonwater ≈ OD0) and compare.
+    print("\nCross-validation (fit τ − real τ), water-relevant windows:")
+    checks = [(0.70, 1.30), (1.50, 1.75), (3.50, 5.00), (8.00, 10.00), (10.00, 12.00)]
+    for run, w in PROFILES:
+        deltas = []
+        for lo, hi in checks:
+            row = next(r for r in rows if r[0] == lo)
+            od0_fit = row[2] + nonwater[(lo, hi)]
+            tau_fit = float(np.exp(-(od0_fit + row[3] * w ** row[4])))
+            tau_real = float(np.exp(-_band_od(*spectra[run], lo, hi)))
+            deltas.append(f"{lo:g}–{hi:g}:{tau_fit - tau_real:+.3f}")
+        print(f"  {run} (w={w}): " + "  ".join(deltas))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

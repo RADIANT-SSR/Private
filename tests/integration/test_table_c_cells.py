@@ -161,13 +161,16 @@ MODTRAN_C_LADDER_TAU: dict[float, tuple[float, float]] = {
 class TestTableCModtranPinned:
     """Gap 39: A3 partial-column τ_up pinned against real MODTRAN.
 
-    Characterization (2026-07-17): the simple backend's partial column is
-    consistently *optimistic* (too transparent). Broad-band 8–13 µm the
-    excess is +0.12 τ at h_tgt = 1 km, shrinking with altitude — but the
-    simple model reaches τ = 1.000 by ~20 km while MODTRAN floors near
-    0.95–0.98 (stratospheric O₃ and continuum absorption above the
-    target are absent from the 3-component model). In the clean
-    10–12 µm window the agreement is much tighter (+0.08 → +0.002).
+    Characterization (re-measured 2026-07-18 after the CU-161 gas-band
+    recalibration): the pre-CU-161 model was consistently *optimistic*
+    (up to +0.12 band-mean τ at h_tgt = 1 km, saturating at τ = 1.000
+    by 20 km with no stratospheric absorbers). The calibrated model —
+    well-mixed gas floor on the molecular scale height + curve-of-growth
+    water — is 3–5× tighter and two-sided: Δτ(8–13 µm) ∈ [−0.026, +0.031]
+    across the ladder, Δτ(10–12 µm window) ∈ [−0.009, +0.006]. The
+    remaining structure is the partial-column scaling approximation
+    (region-mean b applied to the traversed column fraction), not a
+    missing species.
     """
 
     def test_modtran_reference_monotonic(self) -> None:
@@ -182,14 +185,14 @@ class TestTableCModtranPinned:
     def test_tau_up_parity_with_modtran(self, airborne_results, h_tgt_m: float) -> None:
         """Chain τ_up (simple A3 partial column) vs the MODTRAN golden.
 
-        Asserts the characterized envelope: simple minus MODTRAN in
-        [-0.01, +0.13] for the 8–13 µm band mean and [-0.01, +0.09] for
-        the 10–12 µm window mean. The lower bound documents the sign
-        (simple is never meaningfully *pessimistic*); the upper bound is
-        the measured worst case (+0.123 / +0.080 at h = 1 km) with
-        margin. If the simple model gains stratospheric absorbers or a
-        continuum, these bounds tighten — update them with the model
-        change (same PR, Rule 20/29).
+        Asserts the characterized envelope (CU-161 model, 2026-07-18):
+        simple minus MODTRAN in [-0.04, +0.05] for the 8–13 µm band mean
+        and [-0.02, +0.02] for the 10–12 µm window mean — the measured
+        worst cases (−0.026/+0.031 band, −0.009/+0.006 window) with
+        margin. Pre-CU-161 the envelope was one-sided and 3–5× wider
+        ([-0.01, +0.13] / [-0.01, +0.09]); a regression past these
+        bounds means the water/gas calibration drifted — update bounds
+        only with a model change (same PR, Rule 20/29).
         """
         atm_q = airborne_results[h_tgt_m].stage_outputs["atmosphere"]["atm_quantities"]
         tau_up = np.asarray(atm_q.tau_up, dtype=np.float64)
@@ -202,11 +205,11 @@ class TestTableCModtranPinned:
         d813 = band_813 - ref_813
         d1012 = band_1012 - ref_1012
 
-        assert -0.01 <= d813 <= 0.13, (
+        assert -0.04 <= d813 <= 0.05, (
             f"h={h_tgt_m} m: simple−MODTRAN τ (8–13 µm) = {d813:+.4f} outside "
-            "the Gap-39 characterized envelope [-0.01, +0.13]"
+            "the Gap-39/CU-161 characterized envelope [-0.04, +0.05]"
         )
-        assert -0.01 <= d1012 <= 0.09, (
+        assert -0.02 <= d1012 <= 0.02, (
             f"h={h_tgt_m} m: simple−MODTRAN τ (10–12 µm) = {d1012:+.4f} outside "
-            "the Gap-39 characterized envelope [-0.01, +0.09]"
+            "the Gap-39/CU-161 characterized envelope [-0.02, +0.02]"
         )

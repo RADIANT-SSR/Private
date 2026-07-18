@@ -425,6 +425,126 @@ class TestTabulatedAtmosphereEvaluate:
 
 
 # ---------------------------------------------------------------------------
+# InterpolatedAtmosphere
+# ---------------------------------------------------------------------------
+
+
+def _spectral(name: str, wl: np.ndarray, values: np.ndarray, unit: str = ""):
+    from radiant.core.spectral import SpectralData
+
+    return SpectralData(
+        name=name,
+        wavelength_um=wl,
+        values=values,
+        unit=unit,
+        source="test fixture",
+    )
+
+
+def _interp_with_target_axis(wl: np.ndarray):
+    """Two-node grid over target_altitude_m: t=0 (τ=0.7) and t=10 km (τ=0.9)."""
+    from radiant.atmosphere.interpolated import GeometryPoint, InterpolatedAtmosphere
+
+    points = [
+        GeometryPoint(
+            coordinates={"target_altitude_m": 0.0},
+            transmittance=_spectral("tau0", wl, 0.7 * np.ones_like(wl)),
+            path_radiance=_spectral("lp0", wl, 0.05 * np.ones_like(wl), "W/m²/sr/µm"),
+            atm_emission_down=_spectral("ld0", wl, 0.02 * np.ones_like(wl), "W/m²/sr/µm"),
+        ),
+        GeometryPoint(
+            coordinates={"target_altitude_m": 10_000.0},
+            transmittance=_spectral("tau1", wl, 0.9 * np.ones_like(wl)),
+            path_radiance=_spectral("lp1", wl, 0.02 * np.ones_like(wl), "W/m²/sr/µm"),
+            atm_emission_down=_spectral("ld1", wl, 0.01 * np.ones_like(wl), "W/m²/sr/µm"),
+        ),
+    ]
+    return InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+
+
+class TestInterpolatedAtmosphereEvaluate:
+    """Gap 94: the adapter serves h_tgt > 0 from a target_altitude_m axis."""
+
+    @pytest.mark.level0
+    def test_two_leg_split_for_airborne_target(
+        self, lwir_wavelengths: np.ndarray, lwir_params
+    ) -> None:
+        """Level 0 anchor: log-τ interpolation at the grid midpoint.
+
+        τ_up(h=5 km) = exp((ln 0.7 + ln 0.9)/2) = √0.63 ≈ 0.793725; the
+        full column stays the t=0 node (τ=0.7).  L_path and L_atm_down
+        interpolate linearly: L_path_up = 0.035, L_atm_down = 0.015
+        [W/m²/sr/µm], E_sky_thermal = π·0.015 [W/m²/µm].
+        """
+        model = _interp_with_target_axis(lwir_wavelengths)
+        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0, h_atm_top=1.0e5)
+
+        with pytest.warns(UserWarning, match="two-leg"):
+            q = model.evaluate(lwir_wavelengths, los, lwir_params)
+
+        assert isinstance(q, AtmosphericQuantities)
+        expected_tau_up = float(np.sqrt(0.63))
+        np.testing.assert_allclose(q.tau_up, expected_tau_up, rtol=1e-9)
+        np.testing.assert_allclose(q.tau_full_up, 0.7, rtol=1e-9)
+        np.testing.assert_allclose(q.L_path_up, 0.035, rtol=1e-9)
+        np.testing.assert_allclose(q.L_path_full, 0.05, rtol=1e-9)
+        # Sun leg still collapses onto the up leg (no sun-leg data set).
+        np.testing.assert_array_equal(q.tau_sun, q.tau_up)
+        # Downwelling comes from the up-leg (target-local) query.
+        np.testing.assert_allclose(q.E_sky_thermal, np.pi * 0.015, rtol=1e-9)
+
+    @pytest.mark.level1
+    def test_surface_target_single_column_unchanged(
+        self, lwir_wavelengths: np.ndarray, lwir_params
+    ) -> None:
+        """h_tgt = 0 keeps the pre-Gap-94 contract: one column, all legs alias."""
+        model = _interp_with_target_axis(lwir_wavelengths)
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
+        with pytest.warns(UserWarning, match="two-leg"):
+            q = model.evaluate(lwir_wavelengths, los, lwir_params)
+        np.testing.assert_allclose(q.tau_up, 0.7, rtol=1e-9)
+        np.testing.assert_array_equal(q.tau_up, q.tau_full_up)
+        np.testing.assert_array_equal(q.L_path_up, q.L_path_full)
+
+    @pytest.mark.level1
+    def test_airborne_without_target_axis_raises(
+        self, lwir_wavelengths: np.ndarray, lwir_params
+    ) -> None:
+        """A grid without a target-altitude axis cannot supply both legs."""
+        from radiant.atmosphere.interpolated import GeometryPoint, InterpolatedAtmosphere
+
+        points = [
+            GeometryPoint(
+                coordinates={"path_zenith_rad": z},
+                transmittance=_spectral(
+                    "tau", lwir_wavelengths, t * np.ones_like(lwir_wavelengths)
+                ),
+                path_radiance=_spectral(
+                    "lp", lwir_wavelengths, 0.05 * np.ones_like(lwir_wavelengths), "W/m²/sr/µm"
+                ),
+                atm_emission_down=_spectral(
+                    "ld", lwir_wavelengths, 0.02 * np.ones_like(lwir_wavelengths), "W/m²/sr/µm"
+                ),
+            )
+            for z, t in ((0.0, 0.8), (0.5, 0.7))
+        ]
+        model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        with pytest.raises(NotImplementedError, match="target_altitude_m"):
+            model.evaluate(lwir_wavelengths, los, lwir_params)
+
+    @pytest.mark.level1
+    def test_airborne_above_hull_refused(self, lwir_wavelengths: np.ndarray, lwir_params) -> None:
+        """No extrapolation: h_tgt above the grid's target range fails loud."""
+        from radiant.atmosphere.errors import AtmosphereValidationError
+
+        model = _interp_with_target_axis(lwir_wavelengths)
+        los = LineOfSightGeometry(h_tgt=90_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        with pytest.raises(AtmosphereValidationError, match="outside the available range"):
+            model.evaluate(lwir_wavelengths, los, lwir_params)
+
+
+# ---------------------------------------------------------------------------
 # Stage-4 guard: ensure the deleted shadow-mode helper does not return.
 # ---------------------------------------------------------------------------
 

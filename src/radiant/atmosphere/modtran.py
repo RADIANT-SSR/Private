@@ -1128,6 +1128,13 @@ class ModtranAtmosphere:
         meaningful together with *tape7_import*; its transmittance
         column supplies ``tau_sun`` in :meth:`evaluate` instead of
         aliasing the up-leg value.
+    tape7_up_import:
+        Optional pre-parsed target→sensor up-leg tape7 (Gap 94, file
+        flavor).  Only meaningful together with *tape7_import* (which
+        then supplies the ground→sensor full column); its transmittance
+        and path-radiance columns supply ``tau_up`` / ``L_path_up`` in
+        :meth:`evaluate`, enabling airborne targets (``h_tgt > 0``) on
+        the file-import path.
     """
 
     def __init__(
@@ -1135,10 +1142,12 @@ class ModtranAtmosphere:
         config: ModtranConfig,
         tape7_import: Tape7Import | None = None,
         tape7_sun_import: Tape7Import | None = None,
+        tape7_up_import: Tape7Import | None = None,
     ) -> None:
         self._config = config
         self._tape7_import = tape7_import
         self._tape7_sun_import = tape7_sun_import
+        self._tape7_up_import = tape7_up_import
         self._name = "modtran_atmosphere"
 
     @property
@@ -1306,8 +1315,17 @@ class ModtranAtmosphere:
           ``tau_sun`` comes from that file's transmittance column
           resampled to the chain grid, and the collapse warning is not
           emitted (``tau_up == tau_full_up`` still alias — the up-leg
-          pair is exact for the surface targets this path permits).
-        - ``L_path_up == L_path_full``.
+          pair is exact for surface targets).  **Exception (Gap 94,
+          file flavor)**: with an up-leg import
+          (``atmosphere.modtran.tape7_up_path``), ``tau_up`` and
+          ``L_path_up`` come from that file's columns resampled to the
+          chain grid while the primary file keeps the full column —
+          the two-leg split is real and airborne targets are accepted.
+          Without a sun-leg file, ``tau_sun`` then aliases the up-leg
+          ``tau_up`` (the nearer leg to the TOA→target sun path for a
+          space sensor), still under the collapse warning.
+        - ``L_path_up == L_path_full`` (unless the up-leg import splits
+          them).
         - ``E_sky_thermal == π · L_atm_down``.
         - ``E_sky_scattered == 0`` (Stage 6 deliverable).
         - ``E_TOA`` from the core solar irradiance so the direct-solar
@@ -1317,23 +1335,36 @@ class ModtranAtmosphere:
         by setting MODTRAN's H2 to ``los.h_tgt``; the tape5 content
         participates in the SHA-256 cache key via :func:`_cache_key`, so
         distinct h_tgt values produce distinct cache entries
-        automatically.  On the tape7-import path a single file cannot
-        carry both the target-leg and the full-column transmittance, so
-        ``h_tgt > 0`` raises ``NotImplementedError`` — the same
-        surface-target restriction as :class:`TabulatedAtmosphere`.
+        automatically.  On the tape7-import path a single file records
+        one column and cannot supply both the target-leg and the
+        full-column transmittance; airborne targets need a second
+        target→sensor run imported via
+        ``atmosphere.modtran.tape7_up_path`` (Gap 94) — ``tau_up`` /
+        ``L_path_up`` then come from that file while the primary file
+        keeps supplying the ground→sensor full column.  Without the
+        up-leg file, ``h_tgt > 0`` raises ``NotImplementedError`` — the
+        same surface-target restriction as :class:`TabulatedAtmosphere`.
+        The importer cannot verify the up-leg file's H2 against
+        ``los.h_tgt`` (a tape7 does not record its deck geometry); the
+        user owns that consistency, as with every file import.
         """
         import warnings
 
         from radiant.core.solar import toa_solar_spectral_irradiance
 
-        if self._tape7_import is not None and float(los.h_tgt) > 0.0:
+        if (
+            self._tape7_import is not None
+            and float(los.h_tgt) > 0.0
+            and self._tape7_up_import is None
+        ):
             raise NotImplementedError(
-                f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 is "
-                "not supported on the tape7 file-import path — a single "
-                "imported tape7 records one column and cannot supply both "
-                "the target→sensor leg (tau_up) and the ground→sensor full "
-                "column (tau_full_up) the background branch needs.  "
-                "Workaround: use the binary path (unset "
+                f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 needs "
+                "two columns on the tape7 file-import path — the "
+                "target→sensor leg (tau_up) and the ground→sensor full "
+                "column (tau_full_up) the background branch needs — and only "
+                "one file was supplied.  Provide the target→sensor leg via "
+                "atmosphere.modtran.tape7_up_path (a MODTRAN run with H2 = "
+                "the target altitude), or use the binary path (unset "
                 "atmosphere.modtran.tape7_path), SimpleAtmosphere, or a "
                 "surface-level target."
             )
@@ -1361,6 +1392,46 @@ class ModtranAtmosphere:
         lpath = np.asarray(legacy_state.path_radiance.values, dtype=np.float64)
         ldown = np.asarray(legacy_state.atm_emission_down.values, dtype=np.float64)
 
+        target_grid = SpectralGrid(wavelengths_um=np.asarray(wavelength_um, dtype=np.float64))
+        if self._tape7_import is not None and self._tape7_up_import is not None:
+            # Gap 94 (file flavor): the primary file is the ground→sensor
+            # full column; the up-leg file supplies the target→sensor
+            # partial column for the target-signal branch.
+            up = self._tape7_up_import
+            up_provenance = {
+                "model": "modtran",
+                "cache_key": f"tape7-file:{up.content_key}",
+            }
+            tau_up = np.asarray(
+                SpectralData(
+                    name="atm.transmittance.modtran_up",
+                    wavelength_um=up.wavelength_um,
+                    values=up.transmittance,
+                    unit="",
+                    source=f"MODTRAN tape7 up-leg import: {up.source_path}",
+                    source_parameters=up_provenance,
+                )
+                .resample(target_grid)
+                .values,
+                dtype=np.float64,
+            )
+            lpath_up = np.asarray(
+                SpectralData(
+                    name="atm.path_radiance.modtran_up",
+                    wavelength_um=up.wavelength_um,
+                    values=up.path_radiance,
+                    unit="W/m²/sr/µm",
+                    source=f"MODTRAN tape7 up-leg import: {up.source_path}",
+                    source_parameters=up_provenance,
+                )
+                .resample(target_grid)
+                .values,
+                dtype=np.float64,
+            )
+        else:
+            tau_up = tau.copy()
+            lpath_up = lpath.copy()
+
         if self._tape7_sun_import is not None:
             # CU-011 (file flavor): tau_sun from the sun-leg file's
             # transmittance, resampled to the chain grid.  Deliberately
@@ -1379,16 +1450,18 @@ class ModtranAtmosphere:
                     "cache_key": f"tape7-file:{sun.content_key}",
                 },
             )
-            target_grid = SpectralGrid(wavelengths_um=np.asarray(wavelength_um, dtype=np.float64))
             tau_sun = np.asarray(sun_sd.resample(target_grid).values, dtype=np.float64)
         else:
-            tau_sun = tau
+            # No sun-leg data: alias τ_sun onto the up-leg transmittance
+            # (identical to the full column without an up-leg import).
+            tau_sun = tau_up.copy()
             warnings.warn(
                 (
                     "ModtranAtmosphere.evaluate: the MODTRAN-tape7 backend does not "
-                    "carry the Option C two-leg split — collapsing "
-                    "τ_sun=τ_up=τ_full_up and L_path_up=L_path_full to the single "
-                    "MODTRAN transmittance.  Provide a sun-leg file via "
+                    "carry the Option C two-leg split for the sun leg — collapsing "
+                    "τ_sun onto the up-leg transmittance (τ_sun=τ_up; without an "
+                    "up-leg import also τ_up=τ_full_up and L_path_up=L_path_full, "
+                    "the single MODTRAN column).  Provide a sun-leg file via "
                     "atmosphere.modtran.tape7_sun_path (file-import flavor), or "
                     "wait for the binary two-run flavor (CU-011)."
                 ),
@@ -1403,12 +1476,12 @@ class ModtranAtmosphere:
         return AtmosphericQuantities(
             wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
             tau_sun=tau_sun,
-            tau_up=tau.copy(),
+            tau_up=tau_up,
             tau_full_up=tau.copy(),
             E_TOA=E_TOA,
             E_sky_scattered=E_sky_scattered,
             E_sky_thermal=E_sky_thermal,
-            L_path_up=lpath,
+            L_path_up=lpath_up,
             L_path_full=lpath.copy(),
         )
 

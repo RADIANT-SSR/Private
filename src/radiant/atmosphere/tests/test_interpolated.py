@@ -537,22 +537,44 @@ class TestEdgeCases:
             InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
     @pytest.mark.level1
-    def test_query_grid_mismatch_raises(self, wl: np.ndarray) -> None:
+    def test_in_range_query_grid_is_resampled(self, wl: np.ndarray) -> None:
+        """CU-156: a query grid inside the stored spectral range is served by
+        linear resampling of the geometry-interpolated spectra (the
+        TabulatedAtmosphere pattern). Spectrally-flat data resample exactly."""
         points = [
             _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
             _make_point({"path_zenith_rad": 1.0}, wl, 0.5 * np.ones_like(wl)),
         ]
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
-        different_wl = np.linspace(3.0, 5.0, 30)
+        different_wl = np.linspace(3.0, 5.0, 30)  # same range, different sampling
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.0,
+            solar_zenith_rad=0.3,
+        )
+        state = model.build_state(different_wl, geom)
+        assert state.transmittance.wavelength_um.shape == different_wl.shape
+        np.testing.assert_allclose(state.transmittance.values, 0.9, rtol=1e-12)
+
+    def test_query_grid_outside_stored_range_raises(self, wl: np.ndarray) -> None:
+        """CU-156: no spectral extrapolation — an out-of-range query fails loud."""
+        points = [
+            _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
+            _make_point({"path_zenith_rad": 1.0}, wl, 0.5 * np.ones_like(wl)),
+        ]
+        model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+
+        beyond_wl = np.linspace(2.0, 6.0, 30)  # extends past [3, 5] µm stored range
         geom = AtmosphericGeometry(
             sensor_altitude_m=10_000.0,
             target_altitude_m=0.0,
             path_zenith_rad=0.5,
             solar_zenith_rad=0.3,
         )
-        with pytest.raises(ValueError, match="does not match"):
-            model.build_state(different_wl, geom)
+        with pytest.raises(ValueError, match="outside source range"):
+            model.build_state(beyond_wl, geom)
 
 
 # ---------------------------------------------------------------------------

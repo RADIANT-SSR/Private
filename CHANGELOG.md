@@ -20,7 +20,72 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Airborne targets (h_tgt > 0) on the file-backed atmosphere paths (Gap 94).**
+  (1) `InterpolatedAtmosphere.evaluate()` now serves elevated targets when the grid
+  carries a `target_altitude_m` axis — two interpolator queries give the real two-leg
+  split (target→sensor τ_up/L_path_up at `h_tgt`, ground→sensor τ_full_up/L_path_full
+  at 0 m), which un-strands the shipped `data/atmospheres/midlat_summer_ladders/`
+  family (0–29 km targets, 35 km–GEO sensors) for boost-phase / near-space scenarios.
+  No extrapolation: targets beyond the grid hull are still refused loud.
+  (2) New parameter `atmosphere.modtran.tape7_up_path`: a second target→sensor tape7
+  (a MODTRAN run with H2 = target altitude) imported alongside `tape7_path`'s full
+  column, enabling h_tgt > 0 on the tape7 file-import path. Surface-target results are
+  unchanged on both paths (previously these configurations raised
+  `NotImplementedError`). The no-sun-file collapse warning on both backends now states
+  precisely what is aliased (τ_sun onto τ_up).
+- **GUI: Browse… picker on path parameters.** The Parameter Editor dialog adds a native
+  file/directory picker next to the value field for every `*_path`/`*_file`/`*_dir`
+  parameter (e.g. `atmosphere.interpolated_data_dir`), so paths no longer have to be
+  typed by hand. Commit still goes through the single validated `sensor.set` on Apply.
+  An empty field's picker opens on the parameter's shipped-data home (`atmosphere.*` →
+  `data/atmospheres/`, `detector.*` → `data/detectors/`, `source.*` →
+  `data/emissivity/`), not the working directory.
+- **`atmosphere.model = "interpolated"` works out of the box.** With
+  `atmosphere.interpolated_data_dir` unset, the loader now defaults to the shipped
+  library family matching `atmosphere.interpolation_axes` (`path_zenith_rad` →
+  `us_standard_zenith_fan`; `sensor_altitude_m,target_altitude_m` →
+  `midlat_summer_ladders`), with a logged notice; an explicit directory always wins and
+  uncovered axes still raise the actionable error. Previously an unset directory always
+  errored. Pointing `interpolated_data_dir` at a library ROOT (e.g. `data/atmospheres/`
+  itself) now descends into the family folder matching the axes instead of failing with
+  "found 0 NPZ files"; a directory with no matching family fails with the family
+  subfolders listed.
+- **`InterpolatedAtmosphere` accepts any query wavelength grid inside the stored
+  spectral range (CU-156).** `build_state` linearly resamples the
+  geometry-interpolated spectra onto the query grid (the `TabulatedAtmosphere`
+  pattern) instead of requiring an exact grid match; out-of-range queries still fail
+  loud. Sessions no longer need to run on the library's grid to use the shipped
+  interpolated families.
+
+### Fixed
+- **GUI: night scenes no longer kill the geometry schematic.** With
+  `geometry.solar_illumination = "night"` the geometry stage publishes the solar
+  angles as `None`; the schematic adapter crashed on `float(None)` and the viewer
+  degraded to its permanent "unavailable" panel. Night scenes now render with the sun
+  (glyph, SUN→TARGET / SUN→GROUND vectors, drop lines, legend rows, and the θ_s / Δφ /
+  phase angle annotations) simply absent; the sensor/target geometry is unchanged.
+
 ### Changed
+- **Results-affecting (all simple-atmosphere configs): SimpleAtmosphere recalibrated against
+  the real MODTRAN 6 run set (CU-161).** Two model changes: (1) the five-Lorentzian water fit —
+  whose far wings made the MWIR water response ~5× too steep — is replaced by a 15-region
+  curve-of-growth model `OD_h2o = k(λ)·w_eff^b(λ)` fit to the real water ladder (D4/A1/D5,
+  H₂O ×0.5/×1/×2; sub-linear b in saturated bands, super-linear b≈1.3–1.75 in the LWIR
+  continuum); (2) a **well-mixed-gas absorption floor** (CO₂ 4.3/15 µm, N₂O, O₃ 9.6 µm, O₂/CH₄)
+  is added per region — the term whose absence made the old model attribute the MWIR CO₂ floor
+  to water. The gas term also enters the single-scattering-albedo denominator (pure absorber),
+  improving the ω₀ ≈ 1 space-column defect (Gap 38). **Direction/magnitude:** MWIR signals rise
+  substantially where water over-absorbed (golden `mwir_leo_minimal` signal_e +147%, SNR
+  616→968 — verified against a real-MODTRAN chain run at 869k e-/SNR 932: the old golden was
+  2.3× too low, the new model is within 8% of truth); LWIR at-aperture spectra reshape
+  (brighter 8–9 µm, darker 12–13 µm, toward the real anchors); dry/arctic profiles darken
+  slightly. Cross-validated to ≤ ±0.012 band-mean τ on five non-calibration profile anchors;
+  partial-column parity vs the real C-ladder tightens 3–5× (envelope now two-sided
+  [−0.04, +0.05] band-mean). Goldens re-baselined per Testing §5.3: `mwir_leo_minimal.json`,
+  Cell 28 NEDT/L_aperture, `test_chain_spatial` SNR (604.97→945.94), table-C envelope.
+  Calibration generator: `scripts/fit_simple_atmosphere_gas_bands.py`; anchors pinned in
+  `test_simple.py::test_cu161_water_ladder_anchor`.
 - **Results-affecting (off-node zenith queries only): `InterpolatedAtmosphere` and the
   run-matrix family interpolator now interpolate zenith-angle axes in airmass sec(θ) space
   (CU-160).** Optical depth scales with airmass, so log-τ linear in sec(θ) is Beer-Lambert-

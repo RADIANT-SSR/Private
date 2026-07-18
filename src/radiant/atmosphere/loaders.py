@@ -30,6 +30,19 @@ from radiant.core.parameters import ParameterSet
 
 logger = logging.getLogger(__name__)
 
+#: Repo-root ``data/atmospheres/`` — the shipped MODTRAN-derived library
+#: (same file-relative resolution pattern as ``radiant.data.library``).
+_SHIPPED_ATMOSPHERES_DIR = Path(__file__).resolve().parents[3] / "data" / "atmospheres"
+
+#: Shipped library family to use when ``atmosphere.interpolated_data_dir`` is
+#: left unset, keyed by the (normalized) ``atmosphere.interpolation_axes``
+#: value. Only axes combinations a shipped family actually covers appear here;
+#: anything else still requires an explicit data dir.
+_SHIPPED_FAMILY_BY_AXES: dict[str, str] = {
+    "path_zenith_rad": "us_standard_zenith_fan",
+    "sensor_altitude_m,target_altitude_m": "midlat_summer_ladders",
+}
+
 #: Models whose construction ALWAYS requires reading data files. These
 #: MUST be built before chain execution (Rule 6); AtmosphereStage refuses
 #: to build them inside ``run()``.  ``modtran`` becomes file-backed only
@@ -165,6 +178,7 @@ def _build_modtran(params: ParameterSet) -> object:
 
     tape7_path = str(params.get("atmosphere.modtran.tape7_path"))
     tape7_sun_path = str(params.get("atmosphere.modtran.tape7_sun_path"))
+    tape7_up_path = str(params.get("atmosphere.modtran.tape7_up_path"))
     if tape7_sun_path and not tape7_path:
         raise AtmosphereValidationError(
             "build_atmosphere_model: atmosphere.modtran.tape7_sun_path is set "
@@ -173,9 +187,18 @@ def _build_modtran(params: ParameterSet) -> object:
             "target→sensor up-leg file) too, or unset tape7_sun_path. The "
             "binary-invocation flavor has no two-leg support yet (CU-011)."
         )
+    if tape7_up_path and not tape7_path:
+        raise AtmosphereValidationError(
+            "build_atmosphere_model: atmosphere.modtran.tape7_up_path is set "
+            "but atmosphere.modtran.tape7_path is not. The up-leg file only "
+            "supplements a tape7 file import — set tape7_path (the "
+            "ground→sensor full-column file the background branch needs) "
+            "too, or unset tape7_up_path (Gap 94)."
+        )
 
     tape7_import = None
     tape7_sun_import = None
+    tape7_up_import = None
     if tape7_path:
         if not Path(tape7_path).exists():
             raise FileNotFoundError(
@@ -203,11 +226,26 @@ def _build_modtran(params: ParameterSet) -> object:
                 tape7_sun_path,
                 tape7_sun_import.content_key,
             )
+        if tape7_up_path:
+            if not Path(tape7_up_path).exists():
+                raise FileNotFoundError(
+                    f"atmosphere.modtran.tape7_up_path: file not found: "
+                    f"{tape7_up_path}. Check the path, or unset the parameter "
+                    "(airborne targets are then rejected on the file-import "
+                    "path — Gap 94)."
+                )
+            tape7_up_import = Tape7Import.from_file(tape7_up_path)
+            logger.info(
+                "MODTRAN tape7 up-leg import: %s (content_key=%s)",
+                tape7_up_path,
+                tape7_up_import.content_key,
+            )
 
     return ModtranAtmosphere(
         config,
         tape7_import=tape7_import,
         tape7_sun_import=tape7_sun_import,
+        tape7_up_import=tape7_up_import,
     )
 
 
@@ -227,15 +265,36 @@ def _build_interpolated(params: ParameterSet) -> object:
     from radiant.atmosphere.tabulated import TabulatedAtmosphere
 
     data_dir = params.get("atmosphere.interpolated_data_dir")
-    if not data_dir:
-        raise AtmosphereValidationError(
-            "build_atmosphere_model: model='interpolated' requires "
-            "atmosphere.interpolated_data_dir to be set."
-        )
-
     axes_str: str = params.get("atmosphere.interpolation_axes")
     axes = [a.strip() for a in axes_str.split(",")]
     method: str = params.get("atmosphere.interpolation_method")
+
+    if not data_dir:
+        # Owner request 2026-07-18: selecting the interpolated model with no
+        # directory must work out of the box. Default to the shipped library
+        # family matching the interpolation axes (mirrors the Gap 57
+        # profile→PWV pattern: a loud, logged default; an explicit dir wins).
+        family = _SHIPPED_FAMILY_BY_AXES.get(",".join(axes))
+        default_dir = _SHIPPED_ATMOSPHERES_DIR / family if family else None
+        if family is None or default_dir is None or not default_dir.exists():
+            raise AtmosphereValidationError(
+                "build_atmosphere_model: model='interpolated' requires "
+                "atmosphere.interpolated_data_dir to be set — no shipped "
+                f"library family covers interpolation_axes='{axes_str}' "
+                f"(shipped: {sorted(_SHIPPED_FAMILY_BY_AXES)} under "
+                f"{_SHIPPED_ATMOSPHERES_DIR}). Point interpolated_data_dir "
+                "at a directory of NPZ runs with 'geometry' coordinates for "
+                "those axes."
+            )
+        logger.info(
+            "atmosphere.interpolated_data_dir left unset; using the shipped "
+            "%s family (%s) matching interpolation_axes='%s'. Set "
+            "interpolated_data_dir to override.",
+            family,
+            default_dir,
+            axes_str,
+        )
+        data_dir = str(default_dir)
 
     data_path = Path(data_dir)
     if not data_path.exists():
@@ -245,10 +304,40 @@ def _build_interpolated(params: ParameterSet) -> object:
 
     npz_files = sorted(data_path.glob("*.npz"))
     if len(npz_files) < 2:
-        raise AtmosphereValidationError(
-            f"build_atmosphere_model: interpolated data directory {data_path} "
-            f"must contain at least 2 NPZ files, found {len(npz_files)}."
-        )
+        # A library ROOT (e.g. data/atmospheres/) keeps its runs one level down
+        # in family folders — the natural directory to pick in a file browser
+        # (owner bug 2026-07-18). If the family matching the interpolation axes
+        # is a direct child with runs, descend into it; otherwise fail with the
+        # family folders that were found so the fix is one click away.
+        family = _SHIPPED_FAMILY_BY_AXES.get(",".join(axes))
+        family_dir = data_path / family if family else None
+        if family_dir is not None and len(sorted(family_dir.glob("*.npz"))) >= 2:
+            logger.info(
+                "atmosphere.interpolated_data_dir %s holds no NPZ runs itself; "
+                "descending into its %s family (matching "
+                "interpolation_axes='%s').",
+                data_path,
+                family,
+                axes_str,
+            )
+            data_path = family_dir
+            npz_files = sorted(data_path.glob("*.npz"))
+        else:
+            subdirs_with_runs = sorted(
+                d.name for d in data_path.iterdir() if d.is_dir() and any(d.glob("*.npz"))
+            )
+            hint = (
+                f" Its subdirectories with NPZ runs: {subdirs_with_runs} — pick "
+                "the family folder matching atmosphere.interpolation_axes "
+                f"('{axes_str}'), or leave interpolated_data_dir empty to use "
+                "the shipped default."
+                if subdirs_with_runs
+                else ""
+            )
+            raise AtmosphereValidationError(
+                f"build_atmosphere_model: interpolated data directory {data_path} "
+                f"must contain at least 2 NPZ files, found {len(npz_files)}.{hint}"
+            )
 
     points: list[GeometryPoint] = []
     for npz_file in npz_files:

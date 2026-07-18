@@ -88,6 +88,18 @@ class AtmosphericState:
 > between nodes, validated by a 45° holdout against the real MODTRAN B-fan (−0.1%
 > band-mean τ vs −4% under the earlier linear-in-angle axis). Zenith nodes ≥ ~88.8°
 > are refused (sec diverges at the horizon).
+> **Query wavelength grid (CU-156, lifted 2026-07-18):** `build_state` serves any
+> query grid inside the stored spectral range by linearly resampling the
+> geometry-interpolated spectra (the `TabulatedAtmosphere` pattern); a query
+> extending outside the stored range fails loud — no spectral extrapolation.
+> **Airborne targets (Gap 94):** when the grid carries a `target_altitude_m` axis
+> (the shipped `midlat_summer_ladders/` family), `evaluate()` serves `h_tgt > 0`
+> with a real two-leg split from two queries at the same sensor/zenith coordinates —
+> up leg (`τ_up`, `L_path_up`) at `target_altitude_m = h_tgt`, full column
+> (`τ_full_up`, `L_path_full`) at `target_altitude_m = 0`; `L_atm_down` comes from
+> the target-local (up-leg) query. No extrapolation: an `h_tgt` beyond the grid's
+> target hull (ladders: 0–29 km) is refused. Without a target axis, `h_tgt > 0`
+> raises `NotImplementedError` — one column cannot supply both legs.
 > The diagram and subsections below predate it; treat `interpolated` as a sixth box
 > feeding the same single `AtmosphericState` contract.
 
@@ -117,13 +129,16 @@ class AtmosphericState:
 A closed-form Beer-Lambert model with three knobs that map to the things a working radiometrist actually has on hand: visibility, humidity, and aerosol type. Suitable for trade studies, scoping, regression tests, and any case where the user does not have a MODTRAN license or cares more about gradient than absolute accuracy.
 
 ```
-τ_atm(λ) = exp[ −σ_total(λ) · L_slant ]
-σ_total(λ) = σ_mol(λ) + σ_aer(λ; visibility, type) + σ_h2o(λ; rh, T)
+τ_atm(λ) = exp[ −OD_total(λ) · air_mass ]
+OD_total(λ) = OD_mol + OD_aer + OD_h2o(λ; w) + OD_gas(λ)
 ```
 
 - **Molecular (Rayleigh)**: σ_mol(λ) = 0.0088 · λ_µm⁻⁴·⁰⁹ km⁻¹ at sea level (Bucholtz 1995); scaled to slant path by an exponential atmosphere `exp(−h/H_mol)` with H_mol = 8 km.
 - **Aerosol (Mie)**: σ_aer is fit from the Koschmieder visibility relation `σ_aer(550 nm) = 3.912 / V_km`, with a wavelength dependence drawn from one of three canonical Ångström exponents: `rural` (α = 1.3), `urban` (α = 1.5), `maritime` (α = 0.7). Aerosol scale height is 1.2 km.
-- **Water vapor**: a five-band continuum + absorption fit (1.4, 1.9, 2.7, 3.2, 6.3 µm) parameterized by precipitable water w_pw [cm]. The fit is calibrated against MODTRAN US Standard at the band centers and is *not* claimed to be accurate elsewhere; outside the bands, water vapor contributes only the continuum.
+- **Water vapor (CU-161, recalibrated 2026-07-17)**: a 15-region curve-of-growth model, `OD_h2o = k(λ) · w_eff^b(λ)`, where `w_eff` is the path water amount (total precipitable water × the traversed fraction of the H_h2o = 2 km exponential column). Fit region-by-region against the real MODTRAN 6 water ladder (D4/A1/D5, H₂O ×0.5/×1/×2): sub-linear `b ≈ 0.2–0.8` in the saturated absorption bands, super-linear `b ≈ 1.3–1.75` in the LWIR where the e-type continuum dominates. Replaces the original five-Lorentzian fit whose far wings made the MWIR water response ~5× too steep (the defect scenarios 6.2/1.1/3.2 quantified). Generator: `scripts/fit_simple_atmosphere_gas_bands.py`; anchors pinned in `test_simple.py::test_cu161_water_ladder_anchor`.
+- **Well-mixed gases (CU-161, new)**: a water-independent absorption floor per region (CO₂ 4.3/15 µm, N₂O, O₃ 9.6 µm, O₂/CH₄ overtones) on the molecular scale height — e.g. band-mean OD 0.45 in the MWIR, 1.35 at 5–7.5 µm. The term whose absence made the pre-CU-161 model attribute the MWIR CO₂ floor to water (effective ω₀ ≈ 1 for space columns, Gap 38; the gas term now also enters the ω₀ denominator as a pure absorber). Spectral shape within a region is flat — the model's contract is band-integrated fidelity, not line structure.
+
+Cross-validated against the five non-calibration profile anchors (A2–A6) to ≤ ±0.012 band-mean τ in the water-relevant windows. **Known fragilities** (documented, unfixed): region-flat spectral shape (no 4.3 µm notch structure); the airmass factor stays linear while real saturated bands grow sub-linearly off-nadir (measured: MWIR OD ×1.18 at 45° vs Beer's ×1.41); λ outside 0.30–14.29 µm clamps to the edge regions' calibration; VIS aerosol absolute OD remains ~2× high at rural-23 (scenario 3.4's finding — aerosol was deliberately not recalibrated here).
 
 **Path radiance** for the simple model uses a single-scatter approximation:
 ```
@@ -156,7 +171,7 @@ This is the escape hatch for:
 
 **Inputs**: `atmosphere.tabulated_transmittance_file`, `atmosphere.tabulated_path_radiance_file`, `atmosphere.tabulated_downwelling_file` (optional).
 
-**Shipped nominal library (`data/atmospheres/`, 2026-07-17):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard and tropical carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), and a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated; the 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull — vacuum above TOA makes the duplication exact). Slit-degraded to 5 cm⁻¹ FWHM (~4 MB); full per-file provenance, packaging decisions, and known limitations (including the interpolated grid-match restriction, CU-156) in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py`.
+**Shipped nominal library (`data/atmospheres/`, 2026-07-17):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard and tropical carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), and a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated; the 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull — vacuum above TOA makes the duplication exact). Slit-degraded to 5 cm⁻¹ FWHM (~4 MB); full per-file provenance, packaging decisions, and known limitations in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py`. **Out-of-the-box default (2026-07-18):** `atmosphere.model = "interpolated"` with `interpolated_data_dir` unset loads the shipped family matching `interpolation_axes` — `path_zenith_rad` → `us_standard_zenith_fan`, `sensor_altitude_m,target_altitude_m` → `midlat_summer_ladders` — with a logged notice; an explicit directory always wins, and axes no shipped family covers still require one.
 
 ### 3.3 Exo-atmospheric
 
@@ -249,7 +264,8 @@ Setting `atmosphere.modtran.tape7_path` (with `atmosphere.model = "modtran"`) bu
 
 - **Rule 6 boundary**: the file is parsed **before chain execution**, in `radiant.atmosphere.loaders._build_modtran`, via `Tape7Reader.to_radiant_units()`. The parsed arrays travel as a `Tape7Import` (frozen dataclass: four ascending-wavelength arrays + `source_path` + `content_key` = sha256(file bytes)[:16]) into `ModtranAtmosphere`, which resamples them to the chain grid exactly the way the binary path's cache-hit branch does. `AtmosphereStage` never reads the file; with `tape7_path` set, `modtran` counts as file-backed for the stage's Rule 6 refusal check (`loaders.model_requires_prebuild`).
 - **Precedence**: file set → file wins; binary, cache, and `allow_fallback` are irrelevant. File unset → §5.2–§5.5 behavior, bit-identical to before the import path existed.
-- **Geometry-agnostic**, like tabulated input (§3.2): the imported arrays are served as-is for any query geometry. The file encodes whatever geometry its MODTRAN run used; RADIANT does not re-scale it. Consequently an airborne target (`h_tgt > 0`) raises `NotImplementedError` — a single file cannot supply both the target-leg and the full-column transmittance the background branch needs (same restriction as `TabulatedAtmosphere`).
+- **Geometry-agnostic**, like tabulated input (§3.2): the imported arrays are served as-is for any query geometry. The file encodes whatever geometry its MODTRAN run used; RADIANT does not re-scale it. Consequently an airborne target (`h_tgt > 0`) raises `NotImplementedError` **unless** a second target→sensor run is imported via `atmosphere.modtran.tape7_up_path` (Gap 94, below) — a single file cannot supply both the target-leg and the full-column transmittance the background branch needs (same restriction as `TabulatedAtmosphere`).
+- **Airborne-target two-leg split (Gap 94, file flavor)**: optionally, `atmosphere.modtran.tape7_up_path` names a second tape7 run along the target→sensor partial column (a deck with H2 = the target altitude, like the run matrix's C/G blocks). When set, `τ_up` and `L_path_up` come from that file's columns resampled to the chain grid, `tape7_path` keeps supplying the ground→sensor full column (`τ_full_up`, `L_path_full`), and airborne targets are accepted. Without a sun-leg file, `τ_sun` then aliases the up-leg `τ_up` under the collapse warning. RADIANT cannot verify the file's H2 against the scenario's `h_tgt` (a tape7 does not record its deck geometry) — the user owns that consistency, as with every file import. `tape7_up_path` without `tape7_path` is a configuration error.
 - **Downwelling**: a standard IEMSCT=2 tape7 carries no downwelling column, so `L_atm_down ≡ 0` (identical to the tabulated side-door without a downwelling file); `E_sky_thermal = 0` follows.
 - **Two-leg split (CU-011, file flavor)**: optionally, `atmosphere.modtran.tape7_sun_path` names a second tape7 run along the sun→target slant path (the run matrix's B-block was designed as sun-leg data). When set, `τ_sun` comes from that file's transmittance column resampled to the chain grid, and the single-τ collapse `UserWarning` is not emitted; `τ_up == τ_full_up` still alias (exact for the surface targets this path permits). With only `tape7_path`, `τ_sun` aliases `τ_up` with the warning, as before. `tape7_sun_path` without `tape7_path` is a configuration error — the binary flavor has no two-leg support yet (CU-011's remaining deferral).
 - **Equivalence guarantee**: importing a tape7 directly produces chain outputs identical to the historical side-door (Tape7Reader → full-precision CSVs → `atmosphere.model="tabulated"`); `tests/integration/test_modtran_tape7_import.py` asserts exact equality.
@@ -355,8 +371,9 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 
 | Parameter | Unit / type | Default | Notes |
 |-----------|-------------|---------|-------|
-| `atmosphere.modtran.tape7_path` | path | `""` (unset) | Tape7 file import (§5.1). Set → the file wins; binary/cache/fallback never consulted. Geometry-agnostic; `h_tgt > 0` rejected |
+| `atmosphere.modtran.tape7_path` | path | `""` (unset) | Tape7 file import (§5.1). Set → the file wins; binary/cache/fallback never consulted. Geometry-agnostic; `h_tgt > 0` rejected unless `tape7_up_path` supplies the target leg |
 | `atmosphere.modtran.tape7_sun_path` | path | `""` (unset) | Optional sun-leg tape7 (§5.1, CU-011 file flavor). Requires `tape7_path`. Set → `τ_sun` from this file, no collapse warning; unset → `τ_sun` aliases `τ_up` with a warning |
+| `atmosphere.modtran.tape7_up_path` | path | `""` (unset) | Optional target→sensor up-leg tape7 (§5.1, Gap 94). Requires `tape7_path` (the full column). Set → `τ_up`/`L_path_up` from this file and airborne targets (`h_tgt > 0`) accepted; unset → airborne targets rejected on the file-import path |
 | `atmosphere.modtran.binary_path` | path | env var `RADIANT_MODTRAN_BIN`, then `/usr/local/bin/modtran` | Resolved at first use, not at config load |
 | `atmosphere.modtran.cache_dir` | path | `~/.radiant/modtran_cache/` | Created if missing |
 | `atmosphere.modtran.allow_fallback` | bool | `False` | If `True`, falls back to simple parametric on missing binary |

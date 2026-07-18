@@ -10,7 +10,7 @@ through an exponential atmosphere::
 
     OD_vert(λ) = Σ_species σ₀(λ) · H_s · [exp(−h_tgt/H_s) − exp(−h_sen/H_s)]
 
-with three contributions:
+with four contributions:
 
 - **Molecular (Rayleigh)** — Bucholtz 1995 sea-level coefficient
   ``σ_mol(λ) = 0.0088 · λ_µm⁻⁴·⁰⁹ km⁻¹`` with exponential scale
@@ -19,11 +19,17 @@ with three contributions:
   ``σ_aer(550 nm) = 3.912 / V_km`` with three canonical Ångström
   exponents (rural ``α=1.3``, urban ``α=1.5``, maritime ``α=0.7``).
   Aerosol scale height ``H_aer = 1.2 km``.
-- **Water vapor** — five-band Lorentzian-like absorption fit centered
-  at 1.4, 1.9, 2.7, 3.2, and 6.3 µm, parameterised by precipitable
-  water ``w_pw [cm]``. Scale height ``H_h2o = 2 km``. Calibrated
-  against MODTRAN US Standard at the band centres; *not* claimed
-  accurate elsewhere.
+- **Water vapor** (CU-161, 2026-07-17) — per-region curve-of-growth
+  power law ``OD = k(λ) · w_eff^b(λ)`` in the path water amount,
+  calibrated region-by-region against the real MODTRAN 6 water ladder
+  (sub-linear ``b < 1`` in the saturated bands, super-linear
+  ``b ≈ 1.5–1.75`` in the LWIR e-type continuum). Scale height
+  ``H_h2o = 2 km``. Replaces the former five-Lorentzian fit whose far
+  wings over-responded to water ~5× in the MWIR.
+- **Well-mixed gases** (CU-161) — water-independent absorption floor
+  per region (CO₂ 4.3/15 µm, N₂O, O₃ 9.6 µm, O₂/CH₄ overtones) on the
+  molecular scale height; the term whose absence made the old model
+  attribute the MWIR CO₂ floor to water.
 
 This cut implements the full §3.1 simple-model triple:
 
@@ -132,32 +138,55 @@ _AEROSOL_TABLE: dict[str, dict[str, float]] = {
 HG_ASYMMETRY: float = 0.7
 
 
-# Five-band water-vapor absorption fit. Each entry: centre wavelength
-# (µm), peak extinction coefficient per cm precipitable water [1/km/cm],
-# and the half-width-at-half-max (HWHM, µm) of a Lorentzian-shaped band.
-# The values are tuned to give monotone OD scaling with w_pw and band
-# depths consistent with US Standard MODTRAN runs at the band centres.
-# Outside the bands the contribution falls off as 1/(1 + (Δλ/HWHM)²)
-# and is dominated at long wavelengths by the continuum term below.
+# Calibrated gas-band region table (CU-161, 2026-07-17). Replaces the
+# former five-Lorentzian water fit whose far wings made the MWIR water
+# response ~5× too steep and which modeled no well-mixed gases at all.
+#
+# Per spectral region, the nadir full-column optical depth is
+#
+#     OD(w) = floor_od + k_h2o · w_eff^b_h2o
+#
+# where ``floor_od`` is the water-INDEPENDENT well-mixed-gas absorption
+# (CO₂ 4.3/15 µm, N₂O, O₃ 9.6 µm, O₂/CH₄ overtones) in excess of what
+# Rayleigh + aerosol already provide, and the water term is a
+# curve-of-growth power law in the path water amount ``w_eff`` [cm]
+# (sub-linear b < 1 in the saturated absorption bands; super-linear
+# b ≈ 1.5–1.75 in the LWIR where the e-type continuum dominates).
+#
+# Generator: ``scripts/fit_simple_atmosphere_gas_bands.py`` — closed-form
+# fits to the real MODTRAN 6 water ladder D4/A1/D5 (us_standard,
+# rural 23 km, H₂O ×0.5/×1/×2, 2026-07-17 run set), cross-validated
+# against the five other standard-profile anchors to ≤ ±0.012 τ in the
+# water-relevant windows (worst: NIR on the driest profile, −0.034).
+# Regions where the pre-existing Rayleigh+aerosol terms already meet or
+# exceed the measured floor (VIS/UV — the aerosol there over-absorbs,
+# see scenario 3.4's validation note) get floor_od = 0, never negative.
 @dataclass(frozen=True)
-class _H2OBand:
-    centre_um: float
-    extinction_km_per_cm: float  # [1/km per cm precipitable water]
-    hwhm_um: float
+class _GasRegion:
+    lo_um: float
+    hi_um: float
+    floor_od: float  # vertical full-column well-mixed-gas OD [-]
+    k_h2o: float  # water OD at 1 cm effective path water [per cm^b]
+    b_h2o: float  # water curve-of-growth exponent [-]
 
 
-_H2O_BANDS: tuple[_H2OBand, ...] = (
-    _H2OBand(centre_um=1.4, extinction_km_per_cm=0.6, hwhm_um=0.06),
-    _H2OBand(centre_um=1.9, extinction_km_per_cm=1.4, hwhm_um=0.10),
-    _H2OBand(centre_um=2.7, extinction_km_per_cm=3.5, hwhm_um=0.15),
-    _H2OBand(centre_um=3.2, extinction_km_per_cm=0.8, hwhm_um=0.10),
-    _H2OBand(centre_um=6.3, extinction_km_per_cm=4.0, hwhm_um=0.40),
+_CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
+    _GasRegion(lo_um=0.30, hi_um=0.45, floor_od=0.0000, k_h2o=0.0000, b_h2o=1.000),
+    _GasRegion(lo_um=0.45, hi_um=0.70, floor_od=0.0000, k_h2o=0.0025, b_h2o=0.874),
+    _GasRegion(lo_um=0.70, hi_um=1.30, floor_od=0.0000, k_h2o=0.1245, b_h2o=0.434),
+    _GasRegion(lo_um=1.30, hi_um=1.50, floor_od=0.0000, k_h2o=1.0933, b_h2o=0.327),
+    _GasRegion(lo_um=1.50, hi_um=1.75, floor_od=0.0133, k_h2o=0.0282, b_h2o=0.645),
+    _GasRegion(lo_um=1.75, hi_um=2.05, floor_od=0.0000, k_h2o=1.1186, b_h2o=0.216),
+    _GasRegion(lo_um=2.05, hi_um=2.40, floor_od=0.0725, k_h2o=0.0320, b_h2o=0.843),
+    _GasRegion(lo_um=2.40, hi_um=3.10, floor_od=0.7434, k_h2o=0.9666, b_h2o=0.560),
+    _GasRegion(lo_um=3.10, hi_um=3.50, floor_od=0.1366, k_h2o=0.5824, b_h2o=0.457),
+    _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4497, k_h2o=0.0944, b_h2o=0.808),
+    _GasRegion(lo_um=5.00, hi_um=7.50, floor_od=1.3543, k_h2o=1.7850, b_h2o=0.530),
+    _GasRegion(lo_um=7.50, hi_um=8.00, floor_od=0.9424, k_h2o=0.9210, b_h2o=0.673),
+    _GasRegion(lo_um=8.00, hi_um=10.00, floor_od=0.2751, k_h2o=0.0877, b_h2o=1.268),
+    _GasRegion(lo_um=10.00, hi_um=12.00, floor_od=0.0471, k_h2o=0.0602, b_h2o=1.750),
+    _GasRegion(lo_um=12.00, hi_um=14.29, floor_od=0.5956, k_h2o=0.1398, b_h2o=1.583),
 )
-
-# Continuum water-vapor extinction at long wavelengths [1/km/(cm pwv)].
-# Tiny but nonzero — represents the rotational line wing buildup that
-# is the leading background term in MWIR/LWIR for the simple model.
-H2O_CONTINUUM_KM: float = 0.002
 
 # Sea-level air temperature [K] per standard-atmosphere profile.
 # Values from U.S. Committee on Extension to the Standard Atmosphere
@@ -388,18 +417,23 @@ class SimpleAtmosphere:
         sigma_mol: np.ndarray,
         sigma_aer: np.ndarray,
         sigma_h2o: np.ndarray,
+        sigma_gas: np.ndarray | None = None,
     ) -> np.ndarray:
         """Extinction-weighted single-scattering albedo ``ω₀(λ)``.
 
         ``ω₀ = σ_scat / σ_ext`` where ``σ_scat`` counts molecular
         (pure scatter) plus aerosol ``ω_aer · σ_aer`` and ``σ_ext``
-        counts everything including H₂O absorption. Bounded in
-        ``[0, 1]`` by construction; returns zero wherever the total
-        extinction vanishes.
+        counts everything including H₂O and well-mixed-gas absorption
+        (the gas term entered with CU-161 — pure absorbers belong in
+        the denominator only, which also moves ω₀ off the unphysical
+        ≈1.0 it showed for space columns, Gap 38). Bounded in ``[0, 1]``
+        by construction; returns zero wherever extinction vanishes.
         """
         omega_aer = float(_AEROSOL_TABLE[self.aerosol_type]["ssa"])
         scat = sigma_mol + omega_aer * sigma_aer
         ext = sigma_mol + sigma_aer + sigma_h2o
+        if sigma_gas is not None:
+            ext = ext + sigma_gas
         omega0 = np.zeros_like(ext)
         safe = ext > 0.0
         omega0[safe] = scat[safe] / ext[safe]
@@ -422,26 +456,68 @@ class SimpleAtmosphere:
         t_eff = t_sea - _LAPSE_RATE_K_PER_M * h_eval_m
         return max(t_eff, _TROPOPAUSE_T_K)
 
-    def _h2o_extinction_km(self, wavelength_um: np.ndarray) -> np.ndarray:
-        """Water-vapor extinction [1/km].
+    @staticmethod
+    def _region_params(wavelength_um: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Per-wavelength (floor_od, k_h2o, b_h2o) from the region table.
 
-        Five Lorentzian bands plus a flat continuum. Both contributions
-        scale linearly with precipitable water. The OD-per-km
-        normalisation assumes the water column is concentrated in the
-        boundary layer (the dominant case for working radiometry).
+        Wavelengths beyond the table's ends clamp to the first/last
+        region (the table spans 0.30–14.29 µm; anything outside carries
+        that edge region's calibration — documented fragility, the
+        anchors do not constrain it).
+        """
+        lam = np.asarray(wavelength_um, dtype=np.float64)
+        floor = np.empty_like(lam)
+        k = np.empty_like(lam)
+        b = np.empty_like(lam)
+        for i, region in enumerate(_CALIBRATED_GAS_REGIONS):
+            if i == 0:
+                mask = lam < region.hi_um
+            elif i == len(_CALIBRATED_GAS_REGIONS) - 1:
+                mask = lam >= region.lo_um
+            else:
+                mask = (lam >= region.lo_um) & (lam < region.hi_um)
+            floor[mask] = region.floor_od
+            k[mask] = region.k_h2o
+            b[mask] = region.b_h2o
+        return floor, k, b
+
+    def _h2o_vertical_od(self, wavelength_um: np.ndarray, col_h2o_km: float) -> np.ndarray:
+        """Water-vapor vertical optical depth for a partial column.
+
+        Curve of growth in the PATH water amount: the effective water in
+        the column is ``w_eff = w · col_h2o/H_h2o`` (the fraction of the
+        exponential water profile the path traverses), and
+
+            OD_h2o(λ) = k(λ) · w_eff^b(λ)
+
+        — sub-linear (b < 1) in the saturated bands, super-linear
+        (b ≈ 1.5–1.75) in the LWIR continuum, per the CU-161 calibration
+        against the real MODTRAN 6 water ladder. For the full column
+        ``col_h2o = H_h2o`` and ``w_eff`` is the total precipitable
+        water, reproducing the anchors exactly.
         """
         w = float(self.precipitable_water_cm)
-        if w == 0.0:
-            return np.zeros_like(wavelength_um, dtype=np.float64)
+        if w <= 0.0 or col_h2o_km <= 0.0:
+            return np.zeros_like(np.asarray(wavelength_um, dtype=np.float64))
+        _floor, k, b = self._region_params(wavelength_um)
+        w_eff = w * col_h2o_km / (H_H2O_M / 1000.0)
+        return k * np.power(w_eff, b)
 
-        sigma = np.zeros_like(wavelength_um, dtype=np.float64)
-        for band in _H2O_BANDS:
-            dx = (wavelength_um - band.centre_um) / band.hwhm_um
-            lorentz = 1.0 / (1.0 + dx * dx)
-            sigma += band.extinction_km_per_cm * w * lorentz
+    @staticmethod
+    def _gas_floor_vertical_od(wavelength_um: np.ndarray, col_mol_km: float) -> np.ndarray:
+        """Well-mixed-gas vertical optical depth for a partial column.
 
-        sigma += H2O_CONTINUUM_KM * w
-        return np.asarray(sigma, dtype=np.float64)
+        The calibrated ``floor_od`` is the full-column value; well-mixed
+        gases (CO₂, N₂O, O₃-as-modeled, O₂, CH₄) follow the molecular
+        scale height, so a partial column carries the fraction
+        ``col_mol/H_mol`` of it. Water-independent by construction
+        (CU-161 — this is the term whose absence made the simple model
+        attribute the MWIR's CO₂ floor to water).
+        """
+        if col_mol_km <= 0.0:
+            return np.zeros_like(np.asarray(wavelength_um, dtype=np.float64))
+        floor, _k, _b = SimpleAtmosphere._region_params(wavelength_um)
+        return floor * (col_mol_km / (H_MOL_M / 1000.0))
 
     # ------------------------------------------------------------------
     # Atmosphere protocol
@@ -479,7 +555,6 @@ class SimpleAtmosphere:
         # Sea-level extinction coefficients [1/km] — for column OD.
         sigma_mol_0 = self._rayleigh_extinction_km(lam, 0.0)
         sigma_aer_0 = self._aerosol_extinction_km(lam, 0.0)
-        sigma_h2o_0 = self._h2o_extinction_km(lam)
 
         # Column-integrated vertical optical depth through exponential
         # atmosphere profiles.  Each species integrates σ₀·exp(-h/H)
@@ -493,31 +568,37 @@ class SimpleAtmosphere:
         col_h2o = self._column_length_km(h_low_m, h_high_m, H_H2O_M)
 
         # Vertical OD per species [dimensionless arrays over wavelength].
+        # Water and well-mixed gases come from the CU-161 calibrated
+        # region model (curve of growth in path water; CO₂/N₂O/O₃ floor).
         od_mol = sigma_mol_0 * col_mol
         od_aer = sigma_aer_0 * col_aer
-        od_h2o = sigma_h2o_0 * col_h2o
+        od_h2o = self._h2o_vertical_od(lam, col_h2o)
+        od_gas = self._gas_floor_vertical_od(lam, col_mol)
 
         # Apply geometric air mass factor for off-nadir viewing.
         airmass = geometry.air_mass()
-        od_total = (od_mol + od_aer + od_h2o) * airmass
+        od_total = (od_mol + od_aer + od_h2o + od_gas) * airmass
 
         # Beer-Lambert.  OD ≥ 0 by construction → τ ∈ (0, 1].
         tau = np.exp(-od_total)
 
         # Mean-altitude extinctions [1/km] — used only for the
         # *relative* species weights in SSA and phase function, not
-        # for optical depth.  The H₂O term now includes altitude
-        # scaling consistent with Rayleigh and aerosol.
+        # for optical depth.  Water and gas-floor "extinctions" are the
+        # column-mean values (OD/column) scaled to the mean altitude by
+        # their scale heights, keeping the weights consistent with the
+        # OD actually in the path.
         sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
         sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
         h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
-        sigma_h2o = sigma_h2o_0 * h2o_scale
+        sigma_h2o = (od_h2o / max(col_h2o, 1e-12)) * h2o_scale
+        sigma_gas = (od_gas / max(col_mol, 1e-12)) * math.exp(-mean_alt_m / H_MOL_M)
 
         t_atm_eff_K = self._effective_atmospheric_temperature_K(geometry.sensor_altitude_m)
 
         cos_theta_sun = math.cos(geometry.solar_zenith_rad)
         cos_theta_scatter = geometry.cos_scattering_angle()
-        omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
+        omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
         phase = self._single_scatter_phase_function(cos_theta_scatter, sigma_mol, sigma_aer)
 
         provenance: dict[str, Any] = {
@@ -799,10 +880,10 @@ class SimpleAtmosphere:
             airmass_sun = 1.0  # vertical column — irrelevant when sun term is zero
 
         # --- Column-integrated OD ---
-        # Sea-level extinction per species [1/km].
+        # Sea-level extinction per species [1/km]; water + well-mixed
+        # gases come from the CU-161 calibrated region model.
         sigma_mol_0 = self._rayleigh_extinction_km(lam, 0.0)
         sigma_aer_0 = self._aerosol_extinction_km(lam, 0.0)
-        sigma_h2o_0 = self._h2o_extinction_km(lam)
 
         # Up-leg column length: [h_tgt, h_sensor_m] for A3, [0, h_sensor_m]
         # for the h_tgt=0 surface-target case (unchanged).
@@ -810,7 +891,12 @@ class SimpleAtmosphere:
         col_aer_up = self._column_length_km(h_tgt, h_sensor_m, H_AER_M)
         col_h2o_up = self._column_length_km(h_tgt, h_sensor_m, H_H2O_M)
 
-        od_vert_up = sigma_mol_0 * col_mol_up + sigma_aer_0 * col_aer_up + sigma_h2o_0 * col_h2o_up
+        od_vert_up = (
+            sigma_mol_0 * col_mol_up
+            + sigma_aer_0 * col_aer_up
+            + self._h2o_vertical_od(lam, col_h2o_up)
+            + self._gas_floor_vertical_od(lam, col_mol_up)
+        )
         od_slant_up = od_vert_up * airmass_up
         tau_up = np.exp(-od_slant_up)
 
@@ -820,7 +906,10 @@ class SimpleAtmosphere:
         col_aer_sun = self._column_length_km(h_tgt, los.h_atm_top, H_AER_M)
         col_h2o_sun = self._column_length_km(h_tgt, los.h_atm_top, H_H2O_M)
         od_vert_sun = (
-            sigma_mol_0 * col_mol_sun + sigma_aer_0 * col_aer_sun + sigma_h2o_0 * col_h2o_sun
+            sigma_mol_0 * col_mol_sun
+            + sigma_aer_0 * col_aer_sun
+            + self._h2o_vertical_od(lam, col_h2o_sun)
+            + self._gas_floor_vertical_od(lam, col_mol_sun)
         )
         od_slant_sun = od_vert_sun * airmass_sun
         tau_sun = np.exp(-od_slant_sun)
@@ -836,7 +925,10 @@ class SimpleAtmosphere:
             col_aer_full = self._column_length_km(0.0, h_sensor_m, H_AER_M)
             col_h2o_full = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
             od_vert_full = (
-                sigma_mol_0 * col_mol_full + sigma_aer_0 * col_aer_full + sigma_h2o_0 * col_h2o_full
+                sigma_mol_0 * col_mol_full
+                + sigma_aer_0 * col_aer_full
+                + self._h2o_vertical_od(lam, col_h2o_full)
+                + self._gas_floor_vertical_od(lam, col_mol_full)
             )
             od_slant_full = od_vert_full * airmass_up
             tau_full_up = np.exp(-od_slant_full)
@@ -854,7 +946,15 @@ class SimpleAtmosphere:
         sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
         sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
         h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
-        sigma_h2o = sigma_h2o_0 * h2o_scale
+        # Column-mean water/gas "extinctions" from the up-leg ODs (CU-161),
+        # scaled to the mean altitude by their scale heights — relative
+        # weights for SSA/phase only, not optical depth.
+        sigma_h2o = (
+            self._h2o_vertical_od(lam, col_h2o_up) / max(col_h2o_up, 1e-12)
+        ) * h2o_scale
+        sigma_gas = (
+            self._gas_floor_vertical_od(lam, col_mol_up) / max(col_mol_up, 1e-12)
+        ) * math.exp(-mean_alt_m / H_MOL_M)
 
         # Solar-zenith fallback: when the LOS does not carry theta_s (the
         # LWIR-friendly Stage-2 inferrer default), the simple backend
@@ -886,7 +986,7 @@ class SimpleAtmosphere:
         # only construct it when the sun is meaningfully above the
         # horizon (cos_theta_sun > the same horizon tolerance used by
         # E_sky_scattered below — keeps the two branches in sync).
-        omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
+        omega0 = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
         if cos_theta_sun > 1.0e-12:
             scatter_geom = AtmosphericGeometry(
                 sensor_altitude_m=h_sensor_m,
@@ -922,7 +1022,14 @@ class SimpleAtmosphere:
             sigma_mol_full = self._rayleigh_extinction_km(lam, mean_alt_full_m)
             sigma_aer_full = self._aerosol_extinction_km(lam, mean_alt_full_m)
             h2o_scale_full = math.exp(-mean_alt_full_m / H_H2O_M)
-            sigma_h2o_full = sigma_h2o_0 * h2o_scale_full
+            col_h2o_full_w = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
+            col_mol_full_w = self._column_length_km(0.0, h_sensor_m, H_MOL_M)
+            sigma_h2o_full = (
+                self._h2o_vertical_od(lam, col_h2o_full_w) / max(col_h2o_full_w, 1e-12)
+            ) * h2o_scale_full
+            sigma_gas_full = (
+                self._gas_floor_vertical_od(lam, col_mol_full_w) / max(col_mol_full_w, 1e-12)
+            ) * math.exp(-mean_alt_full_m / H_MOL_M)
             # Scatter geometry for the ground-based full column: the
             # observer zenith is still θ_o at the target, but the target
             # is now on the ground.  Reuse the legacy target_altitude_m=0
@@ -939,7 +1046,7 @@ class SimpleAtmosphere:
                 )
                 cos_theta_scatter_full = scatter_geom_full.cos_scattering_angle()
                 omega0_full = self._single_scattering_albedo(
-                    sigma_mol_full, sigma_aer_full, sigma_h2o_full
+                    sigma_mol_full, sigma_aer_full, sigma_h2o_full, sigma_gas_full
                 )
                 phase_full = self._single_scatter_phase_function(
                     cos_theta_scatter_full, sigma_mol_full, sigma_aer_full
@@ -998,7 +1105,7 @@ class SimpleAtmosphere:
         #     and E_sky_scattered → 0 (vacuum limit) — mirrors E_sky_thermal.
         #   • The ceiling is E_TOA · cos(θ_s) since ω₀ ≤ 1 and (1−τ) ≤ 1
         #     (energy-conservation check in the single-scatter limit).
-        omega0_up = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o)
+        omega0_up = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
         # Sun-below-horizon guard: cos(π/2) evaluates to ~6e-17 in IEEE-754
         # due to π round-off; treat cosines below a small tolerance as
         # exactly zero so the diffuse-sky term is strictly null for

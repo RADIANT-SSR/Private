@@ -296,13 +296,19 @@ class TestSNRUnchanged:
         the Stage-3 value of 666.21 to 866.11.
 
         Repinned 2026-07-09 (Gap 57): this config selects midlat_summer
-        with precipitable_water_cm left at default, so it now carries the
+        with precipitable_water_cm left at default, so it carries the
         profile's standard 2.92 cm water column instead of the US-standard
-        1.4 cm. Lower τ → less signal → SNR 866.11 → 604.97 (−30%,
-        MWIR is strongly water-sensitive). Set precipitable_water_cm
-        explicitly to reproduce the old value.
+        1.4 cm (SNR 866.11 → 604.97).
+
+        Repinned 2026-07-18 (CU-161): the gas-band recalibration replaced
+        the linear-in-w Lorentzian water model whose MWIR response was ~5×
+        too steep — at 2.92 cm the old model over-absorbed heavily, and the
+        calibrated curve-of-growth response recovers most of it (the same
+        correction scenario 6.2 measured: midlat_summer MWIR τ was −41%
+        vs real MODTRAN). SNR 604.97 → 945.94 (+56%, toward the
+        MODTRAN-anchored truth).
         """
-        expected_snr = 604.9704201375013
+        expected_snr = 945.936088266035
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

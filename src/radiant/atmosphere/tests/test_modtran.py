@@ -1218,6 +1218,65 @@ class TestTape7SunLegImport:
         assert np.all(state.atm_emission_down.values == 0.0)
 
 
+class TestTape7UpLegImport:
+    """Gap 94 (file flavor): tape7_up_path supplies the target→sensor leg."""
+
+    @pytest.mark.level1
+    def test_up_file_enables_airborne_target(self, tmp_path: Path) -> None:
+        """With an up-leg file, h_tgt > 0 is accepted and the legs split:
+        tau_up from the up-leg file, tau_full_up from the primary file."""
+        from radiant.api.session import RadiantSession
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        full = tmp_path / "full_column.tp7"
+        _write_realistic_tape7(full)  # TOT TRANS = 0.80 (ground→sensor)
+        up = tmp_path / "up_leg.tp7"
+        _write_realistic_tape7(up, tot_trans_value=0.95)  # target→sensor
+
+        config = ModtranConfig(
+            binary_path=tmp_path / "no_modtran",
+            cache_dir=tmp_path / "cache",
+            allow_fallback=False,
+        )
+        model = ModtranAtmosphere(
+            config,
+            tape7_import=Tape7Import.from_file(full),
+            tape7_up_import=Tape7Import.from_file(up),
+        )
+
+        wl = np.linspace(2.5, 4.5, 30)
+        params = _resolved_params_for_evaluate(RadiantSession, wl)
+        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            atm = model.evaluate(wl, los, params)
+
+        np.testing.assert_allclose(atm.tau_up, np.full_like(wl, 0.95), rtol=0, atol=1e-6)
+        np.testing.assert_allclose(atm.tau_full_up, np.full_like(wl, 0.80), rtol=0, atol=1e-6)
+        assert not np.allclose(atm.tau_up, atm.tau_full_up)
+        # Without a sun-leg file, tau_sun aliases the up leg.
+        np.testing.assert_array_equal(atm.tau_sun, atm.tau_up)
+
+    @pytest.mark.level1
+    def test_airborne_without_up_file_still_raises(self, tmp_path: Path) -> None:
+        """The single-file restriction is unchanged when no up-leg file is given
+        (same guard TestTape7FileImport.test_evaluate_airborne_target_raises pins);
+        the error now names the tape7_up_path remedy."""
+        from radiant.api.session import RadiantSession
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        full = tmp_path / "full_column.tp7"
+        _write_realistic_tape7(full)
+        config = ModtranConfig(binary_path=tmp_path / "no_modtran", allow_fallback=False)
+        model = ModtranAtmosphere(config, tape7_import=Tape7Import.from_file(full))
+        wl = np.linspace(2.5, 4.5, 30)
+        params = _resolved_params_for_evaluate(RadiantSession, wl)
+        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0)
+        with pytest.raises(NotImplementedError, match="tape7_up_path"):
+            model.evaluate(wl, los, params)
+
+
 def _resolved_params_for_evaluate(session_cls: type, wavelength_um: np.ndarray) -> object:
     """Minimal resolved ParameterSet for ModtranAtmosphere.evaluate tests."""
     session = session_cls(wavelength_um=wavelength_um)

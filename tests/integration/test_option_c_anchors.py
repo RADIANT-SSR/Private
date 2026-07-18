@@ -198,21 +198,33 @@ CELL28_PINNED = {
     # lower τ and at-aperture radiance; NEDT −0.008% (was 0.20841920600038896),
     # L_aperture −0.4% to −0.6% across the band. SNR unchanged (saturation-
     # limited). MTF unaffected (spatial). Cell 58 (vacuum) is unaffected.
-    "nedt_K": 0.20840328308841266,
+    # NEDT repinned 2026-07-18 (CU-161 gas-band recalibration): the LWIR
+    # water response is now curve-of-growth (super-linear continuum) and a
+    # well-mixed O₃/CO₂ floor exists; at this 2 km midlat_summer column the
+    # band-integrated dS/dT and noise mix shift slightly. −2.4%
+    # (was 0.20840328308841266).
+    "nedt_K": 0.2034629042771887,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel
     # was effectively wider → over-blurred → MTF low by ~5.6% at Nyquist.
     # Was 0.07587823.
     "mtf_at_nyquist": 0.08012242959201417,
-    # L_aperture repinned 2026-07-12 (CU-088 aerosol clamp — see nedt_K note).
+    # L_aperture repinned 2026-07-18 (CU-161 gas-band recalibration; prior
+    # repin 2026-07-12 CU-088). The calibrated region model reshapes the
+    # in-band spectrum toward the real MODTRAN 6 anchors: brighter at the
+    # 8–9 µm edge (the old 6.3 µm Lorentzian far-wing over-absorbed there,
+    # +72% at 8 µm) and darker at 12–13 µm (the 12–14.29 µm region carries
+    # the real CO₂ 15 µm wing floor + super-linear water continuum, −34%
+    # at 12 µm). Band-integrated values move the anchors toward the real
+    # A3/F-run band means (scenario 3.5 validation note).
     "L_aperture_W_m2_sr_um": {
-        8.0: 3.857458,
-        9.0: 6.625253,
-        10.0: 7.762615,
-        11.0: 7.998856,
-        12.0: 7.753734,
-        13.0: 7.263518,
+        8.0: 6.643141,
+        9.0: 7.193199,
+        10.0: 7.751573,
+        11.0: 7.477523,
+        12.0: 5.112159,
+        13.0: 4.690788,
     },
 }
 

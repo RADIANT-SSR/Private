@@ -182,8 +182,10 @@ MODTRAN_TAPE7_PATH = ParameterDef(
         "MODTRAN binary, cache, and fallback are never consulted. Unset "
         "(empty) leaves the binary/cache/fallback behavior unchanged. Like "
         "tabulated files, an imported tape7 is geometry-agnostic: the "
-        "arrays are served as-is for any query geometry, and airborne "
-        "targets (h_tgt > 0) are rejected."
+        "arrays are served as-is for any query geometry. Airborne targets "
+        "(h_tgt > 0) additionally require the target→sensor leg via "
+        "atmosphere.modtran.tape7_up_path; with only this single "
+        "(ground→sensor) file they are rejected."
     ),
     dtype=str,
     canonical_unit="",
@@ -211,6 +213,30 @@ MODTRAN_TAPE7_SUN_PATH = ParameterDef(
     tags=frozenset({"atmosphere", "modtran"}),
     default_justification=(
         "Empty string = not set; single-file imports collapse the two-leg split with a warning."
+    ),
+)
+
+MODTRAN_TAPE7_UP_PATH = ParameterDef(
+    name="atmosphere.modtran.tape7_up_path",
+    description=(
+        "Optional target→sensor up-leg tape7 file for airborne targets "
+        "(Gap 94, file flavor). Requires atmosphere.modtran.tape7_path "
+        "(which then supplies the ground→sensor full column the "
+        "background branch needs). When set, tau_up and L_path_up (the "
+        "target→sensor partial column) come from this file — a MODTRAN "
+        "run with H2 = the target altitude — enabling h_tgt > 0 on the "
+        "file-import path. The user owns geometry consistency: nothing "
+        "in the file records H2, so this file must actually be the run "
+        "matching the scenario's target altitude and LOS zenith. Unset, "
+        "airborne targets are rejected on the file-import path."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification=(
+        "Empty string = not set; single-file imports serve surface targets only."
     ),
 )
 
@@ -331,15 +357,22 @@ INTERPOLATED_DATA_DIR = ParameterDef(
     name="atmosphere.interpolated_data_dir",
     description=(
         "Directory containing pre-computed atmosphere runs (NPZ files) "
-        "at discrete geometry points for the interpolated model. "
-        "Required when atmosphere.model='interpolated'."
+        "at discrete geometry points for the interpolated model. Empty "
+        "(the default) uses the shipped data/atmospheres library family "
+        "matching atmosphere.interpolation_axes: 'path_zenith_rad' → "
+        "us_standard_zenith_fan (LOS zenith 0–60°), "
+        "'sensor_altitude_m,target_altitude_m' → midlat_summer_ladders "
+        "(35 km–GEO × 0–29 km). Other axes combinations require an "
+        "explicit directory."
     ),
     dtype=str,
     canonical_unit="",
     input_unit="",
     default="",
     tags=frozenset({"atmosphere", "interpolated"}),
-    default_justification="Empty string = not set; only required for interpolated model.",
+    default_justification=(
+        "Empty string = use the shipped library family matching interpolation_axes."
+    ),
 )
 
 INTERPOLATION_AXES = ParameterDef(
@@ -407,6 +440,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     # MODTRAN
     MODTRAN_TAPE7_PATH,
     MODTRAN_TAPE7_SUN_PATH,
+    MODTRAN_TAPE7_UP_PATH,
     MODTRAN_BINARY_PATH,
     MODTRAN_CACHE_DIR,
     MODTRAN_ALLOW_FALLBACK,

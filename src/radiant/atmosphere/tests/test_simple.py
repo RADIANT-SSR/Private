@@ -227,12 +227,15 @@ def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
 
 @pytest.mark.level1
 def test_cross_model_simple_high_visibility_approaches_exo() -> None:
-    """``SimpleAtmosphere(V→∞, w=0)`` is close to but not equal to Exo.
+    """``SimpleAtmosphere(V→∞, w=0)`` approaches Exo only where no gas
+    absorbs — and must NOT approach it inside the well-mixed-gas bands.
 
-    Rayleigh scattering still bites at short wavelengths, so the gap
-    is wavelength-dependent. The test asserts both:
-      - τ_simple ≈ τ_exo to within a few percent in the SWIR/MWIR
+    Post-CU-161 the model carries a water-independent CO₂/N₂O/O₃ floor,
+    so a real atmosphere never looks exo-atmospheric in the MWIR/LWIR
+    even with the aerosol and water turned off. The test asserts:
+      - τ_simple ≈ τ_exo in the NIR window (no floor, Rayleigh tiny)
       - τ_simple < 1 in the VIS due to Rayleigh
+      - the gas floor bites at 5 µm and 10 µm (physically required)
     """
     geo = _horizontal_geometry(5.0)
     grid = np.array([0.4, 0.55, 1.0, 2.5, 5.0, 10.0])
@@ -250,9 +253,13 @@ def test_cross_model_simple_high_visibility_approaches_exo() -> None:
     # VIS: Rayleigh still attenuates noticeably (more than 0.1 % at 400 nm)
     assert s_tau[0] < 0.999
 
-    # MWIR/LWIR: λ⁻⁴·⁰⁹ kills Rayleigh; the gap is < 1e-4
-    assert abs(s_tau[-1] - 1.0) < 1e-4
-    assert abs(s_tau[-2] - 1.0) < 1e-4
+    # NIR window (1.0 µm): no gas floor; only Rayleigh (OD ≈ 0.033 over
+    # this ~3.7 km column) separates it from exo → within 4%
+    assert abs(s_tau[2] - 1.0) < 4e-2
+    # 5 µm sits in the 5.0–7.5 µm region (floor OD 1.354) and 10 µm in
+    # 10–12 (floor 0.047): the floor must absorb, unlike the exo model.
+    assert s_tau[4] < 0.9  # strong CO₂/N₂O absorption at 5 µm
+    assert s_tau[5] < 0.999  # weak O₃/continuum floor at 10 µm
 
 
 # ---------------------------------------------------------------------------
@@ -389,12 +396,26 @@ def test_negative_pwv_rejected() -> None:
 
 @pytest.mark.level0
 def test_zero_pwv_disables_water_vapor() -> None:
-    """w_pw = 0 must zero out the H₂O term cleanly."""
+    """w_pw = 0 must zero the H₂O term — but NOT the well-mixed-gas floor.
+
+    Post-CU-161 the 2.7/6.3 µm regions carry water-independent CO₂/N₂O
+    floors, so τ stays well below 1 even bone-dry; what w=0 removes is
+    exactly the water OD (asserted directly on the model's own term),
+    and adding water must strictly reduce τ from the dry baseline.
+    """
     atm = SimpleAtmosphere(precipitable_water_cm=0.0, visibility_km=1e9)
     grid = np.array([2.7, 6.3])
-    state = atm.build_state(grid, _horizontal_geometry(5.0))
-    # Both band centres should be ~ Rayleigh-only — very high transmittance.
-    assert np.all(state.transmittance.values > 0.999)
+    # The water term itself is exactly zero at w = 0.
+    assert np.all(atm._h2o_vertical_od(grid, 2.0) == 0.0)  # noqa: SLF001
+
+    dry = atm.build_state(grid, _horizontal_geometry(5.0)).transmittance.values
+    wet = (
+        SimpleAtmosphere(precipitable_water_cm=2.0, visibility_km=1e9)
+        .build_state(grid, _horizontal_geometry(5.0))
+        .transmittance.values
+    )
+    assert np.all(wet < dry)  # water strictly adds absorption
+    assert np.all(dry < 1.0)  # the gas floor persists at w = 0
 
 
 # ---------------------------------------------------------------------------
@@ -436,10 +457,11 @@ def test_orbital_altitude_high_transmittance() -> None:
 def test_orbital_altitude_column_od_hand_calc() -> None:
     """Verify column-integrated OD matches hand calculation at 500 km.
 
-    At 4.25 µm, Rayleigh-only (V→∞, w_pw=0):
-      σ₀ = 0.0088 × 4.25⁻⁴·⁰⁹ = 0.0088 / 4.25⁴·⁰⁹
-      col_length = 8 × [exp(0) − exp(−500/8)] = 8 × 1 = 8.000 km
-      OD = σ₀ × 8.0
+    At 4.25 µm with V→∞ and w_pw=0, three terms survive:
+      Rayleigh: σ₀ = 0.0088 × 4.25⁻⁴·⁰⁹; col = 8 × [1 − exp(−500/8)] km
+      aerosol:  Koschmieder/1e9 (negligible but nonzero)
+      gas floor (CU-161): the 3.50–5.00 µm region's well-mixed CO₂/N₂O
+        floor OD 0.4497 × (col_mol / 8 km) — full column ⇒ ≈ 0.4497
     """
     atm = SimpleAtmosphere(visibility_km=1e9, precipitable_water_cm=0.0)
     geo = AtmosphericGeometry(
@@ -458,7 +480,11 @@ def test_orbital_altitude_column_od_hand_calc() -> None:
     sigma_aer_0 = KOSCHMIEDER / 1e9 * (4.25 / 0.55) ** (-1.3)
     col_aer = (H_AER_M / 1000.0) * (1.0 - math.exp(-500_000.0 / H_AER_M))
 
-    od_expected = sigma_mol_0 * col_mol + sigma_aer_0 * col_aer
+    # CU-161 gas floor: 4.25 µm is in the 3.50–5.00 µm region
+    # (floor_od = 0.4497, full vertical column on the molecular scale height).
+    od_gas = 0.4497 * (col_mol / (H_MOL_M / 1000.0))
+
+    od_expected = sigma_mol_0 * col_mol + sigma_aer_0 * col_aer + od_gas
     tau_expected = math.exp(-od_expected)
     assert tau == pytest.approx(tau_expected, rel=1e-10)
 
@@ -645,8 +671,12 @@ def test_l_atm_down_nonnegative_and_bounded_by_planck() -> None:
 def test_l_atm_down_truth_anchor_opaque_limit() -> None:
     """At a wavelength where τ ≈ 0, L_atm_down → B(λ, T_atm_eff) exactly.
 
-    The 6.3 µm water-vapor band with heavy precipitable water drives τ
-    very close to zero, so (1 − τ) · B ≈ B.
+    The 6.3 µm water band with heavy precipitable water drives τ near
+    zero, so (1 − τ) · B ≈ B. Post-CU-161 the calibrated band OD is
+    bounded (curve of growth — real saturated bands stop deepening
+    linearly), so "opaque" means τ ≲ 2×10⁻³ rather than the old
+    fit's τ < 10⁻⁶; the graybody identity is asserted exactly and the
+    B-limit to the corresponding (1 − τ) tolerance.
     """
     from radiant.core.blackbody import planck_spectral_radiance
 
@@ -663,10 +693,15 @@ def test_l_atm_down_truth_anchor_opaque_limit() -> None:
     planck = planck_spectral_radiance(grid, t_expected)
     tau = state.transmittance.values
 
-    # With w_pw = 10 cm at the 6.3 µm band centre, OD is enormous.
-    assert np.all(tau < 1e-6)
-    # L_atm_down should match the Planck curve to < 0.1% at the centre.
-    assert np.allclose(state.atm_emission_down.values, planck, rtol=1e-3, atol=0.0)
+    # With w_pw = 10 cm at the 6.3 µm band centre the calibrated band
+    # is effectively opaque (curve-of-growth-bounded OD ≈ 6.2 → τ ≈ 2.1e-3).
+    assert np.all(tau < 2.5e-3)
+    # Graybody identity holds exactly: L_atm_down = (1 − τ) · B.
+    np.testing.assert_allclose(
+        state.atm_emission_down.values, (1.0 - tau) * planck, rtol=1e-12
+    )
+    # And approaches the Planck curve to within the (1 − τ) shortfall.
+    assert np.allclose(state.atm_emission_down.values, planck, rtol=3e-3, atol=0.0)
 
 
 @pytest.mark.level1
@@ -893,3 +928,64 @@ class TestAerosolLwirClamp:
         atm = SimpleAtmosphere(visibility_km=10.0, aerosol_type="rural")
         with pytest.warns(UserWarning, match="aerosol extinction is clamped"):
             atm._aerosol_extinction_km(np.linspace(8.0, 13.0, 10), 0.0)
+
+
+# ---------------------------------------------------------------------------
+# CU-161 calibration anchors — real MODTRAN 6 band means (2026-07-17 set)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+@pytest.mark.parametrize(
+    ("w_cm", "band", "tau_real"),
+    [
+        # us_standard water ladder (runs D4/A1/D5, rural 23 km, nadir full column)
+        (0.7, (3.5, 5.0), 0.5856),
+        (1.4, (3.5, 5.0), 0.5553),
+        (2.8, (3.5, 5.0), 0.5060),
+        (0.7, (8.0, 12.0), 0.7912),
+        (1.4, (8.0, 12.0), 0.7322),
+        (2.8, (8.0, 12.0), 0.5878),
+        (1.4, (1.5, 2.4), 0.6870),
+    ],
+)
+def test_cu161_water_ladder_anchor(w_cm: float, band: tuple[float, float], tau_real: float) -> None:
+    """The calibrated gas-region model reproduces the real MODTRAN 6
+    water-ladder anchors (D4/A1/D5) to ±0.02 band-mean τ.
+
+    These are the CU-161 truth anchors: real MODTRAN 6 (2026-07-17 run
+    set), us_standard, rural 23 km visibility, nadir 100 km→0 column,
+    H₂O column scaled ×0.5/×1/×2. Values extracted by
+    ``scripts/fit_simple_atmosphere_gas_bands.py``'s anchor pass;
+    the staged tape7s (gitignored) are the primary source.
+    """
+    lam = np.linspace(band[0], band[1], 400)
+    atm = SimpleAtmosphere(precipitable_water_cm=w_cm)  # rural, 23 km default
+    geo = AtmosphericGeometry(
+        sensor_altitude_m=100_000.0,
+        target_altitude_m=0.0,
+        path_zenith_rad=0.0,
+    )
+    tau = atm.build_state(lam, geo).transmittance.values
+    assert float(np.mean(tau)) == pytest.approx(tau_real, abs=0.02)
+
+
+@pytest.mark.level0
+def test_cu161_water_response_slope_mwir() -> None:
+    """The MWIR water response is weak and sub-linear (CU-161): doubling
+    the column from 1.4 to 2.8 cm costs ≈ 0.05 τ (the old linear model
+    lost 0.24 — the 5× over-response this calibration fixed)."""
+    lam = np.linspace(3.5, 5.0, 400)
+    geo = AtmosphericGeometry(
+        sensor_altitude_m=100_000.0, target_altitude_m=0.0, path_zenith_rad=0.0
+    )
+    atm_1x = SimpleAtmosphere(precipitable_water_cm=1.4)
+    atm_2x = SimpleAtmosphere(precipitable_water_cm=2.8)
+    tau_1x = float(np.mean(atm_1x.build_state(lam, geo).transmittance.values))
+    tau_2x = float(np.mean(atm_2x.build_state(lam, geo).transmittance.values))
+    drop = tau_1x - tau_2x
+    assert 0.02 < drop < 0.09, (
+        f"MWIR τ drop for 2× water = {drop:.3f}; the calibrated response "
+        "is ≈ 0.05 (real MODTRAN) — a large value means the linear "
+        "over-response is back."
+    )

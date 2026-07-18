@@ -12,6 +12,19 @@ intercomparison. Registry items mirrored into `docs/tracking/gaps.md`.
 mapping fixed by CU-066 (2026-07-10). This scenario is a real consumer
 across all six profiles.
 
+### Synthetic-data caveat (RESOLVED 2026-07-17)
+The scenario originally ran on the synthetic A-block ("pipeline
+demonstration, not a validated benchmark"). The real MODTRAN 6 run set
+(2026-07-17, `modtran/real_runs/`) replaced it: the script auto-detects
+the staged real data (synthetic remains the loud fallback for bare
+clones), the walkthrough's results table and figures are regenerated
+from the real runs, and the residuals are now a validated
+SimpleAtmosphere-vs-MODTRAN measure. Headline finding: SimpleAtmosphere
+over-responds to profile PWV (in-band τ spans 0.16–0.81 vs real
+MODTRAN's 0.42–0.57; nearly exact at us_standard, ±40–60% at the
+climate extremes). The "band-averaging divergence worth a follow-up"
+below is thereby confirmed and quantified.
+
 ---
 
 ## OPEN

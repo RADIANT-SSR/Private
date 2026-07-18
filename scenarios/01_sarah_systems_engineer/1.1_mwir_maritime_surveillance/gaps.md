@@ -52,14 +52,14 @@ for a PowerPoint slide deck" — this scenario prints a text table and
 saves a PNG figure, no PPTX export exists.
 **Workaround:** manual copy from the printed summary table.
 
-### Real (non-synthetic) MODTRAN data still absent
-**Severity:** Medium (scenario-defining)
-**Description:** `D2.synthetic.tp7` is HITRAN-line-by-line based, not a
-real MODTRAN run (see `modtran/synthetic/README.md`). This scenario
-proves the *pipeline* works; it does not validate that a real
-colleague's tape7 would produce the same maritime-aerosol picture.
-**Workaround:** none — gated on real MODTRAN access
-(`docs/plans/MODTRAN_Run_Matrix_Plan.md`).
+### Real (non-synthetic) MODTRAN data still absent — RESOLVED 2026-07-17
+The real MODTRAN 6 run set delivered 2026-07-17 supplies `D2.tp7`
+(`modtran/real_runs/`); the script auto-detects it (synthetic remains
+the loud fallback for bare clones) and the walkthrough's results table
+and figure are regenerated from the real data. Headline: real maritime
+in-band τ = 0.432 vs SimpleAtmosphere's 0.239 (~45% too absorbing —
+consistent with scenario 6.2's PWV over-response finding), detection
+range 2114 vs 1690 km (+25%).
 
 ---
 

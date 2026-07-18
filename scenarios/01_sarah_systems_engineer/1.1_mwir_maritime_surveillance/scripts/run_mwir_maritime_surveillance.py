@@ -4,10 +4,12 @@ Sarah is proposing a ship-detection sensor for a 500 km SSO. Customer wants
 to detect a 30 m steel-hulled fishing vessel against open ocean, 20 deg
 off-nadir, aperture 15-45 cm (f/2.5), 15 um InSb 640x512.
 
-*** ATMOSPHERE DATA IS SYNTHETIC, NOT REAL MODTRAN ***
-This scenario consumes modtran/synthetic/D2.synthetic.tp7 (maritime
-aerosol, midlat_summer) -- a HITRAN-line-by-line-based synthetic tape7,
-NOT a real MODTRAN run (see modtran/synthetic/README.md). TOT TRANS is
+ATMOSPHERE DATA SOURCE (auto-detected): the real MODTRAN 6 D2 run
+(modtran/real_runs/D2.tp7, maritime aerosol, midlat_summer profile,
+delivered 2026-07-17) when the gitignored staging set is present --
+the validated maritime-atmosphere trade study this scenario was built
+for. Falls back to modtran/synthetic/D2.synthetic.tp7 (HITRAN
+line-by-line synthetic; see modtran/synthetic/README.md), where
 genuine independent physics (HITRAN); path radiance is not used here
 (target is a reflective/point-source case, background computed by
 RADIANT's own source model). Treat this scenario as a pipeline
@@ -15,12 +17,12 @@ demonstration, not a validated maritime-atmosphere trade study, until
 real MODTRAN data replaces D2.
 
 This script:
-  1. Feeds D2's synthetic tape7 directly to RADIANT via
+  1. Feeds the D2 tape7 directly to RADIANT via
      atmosphere.model=modtran + atmosphere.modtran.tape7_path (the
      first-class tape7 import; no temp-CSV side door)
   2. Compares that MODTRAN-informed transmittance against RADIANT's own
      SimpleAtmosphere (maritime aerosol, same profile/geometry) at the
-     same aperture sweep -- showing what the (synthetic) MODTRAN data
+     same aperture sweep -- showing what the MODTRAN data
      changes relative to the parametric fallback
   3. Sweeps aperture 15-45 cm, computing SNR, NEDT, detection range
      (SNR=5 threshold), and NIIRS for both atmosphere sources
@@ -48,7 +50,12 @@ from radiant.atmosphere.modtran import Tape7Reader
 from radiant.performance.detection_beer_lambert import detection_range_beer_lambert
 
 SCENARIO_DIR = Path(__file__).parent.parent
-D2_TAPE7 = SCENARIO_DIR.parent.parent.parent / "modtran" / "synthetic" / "D2.synthetic.tp7"
+_REPO = SCENARIO_DIR.parent.parent.parent
+_D2_REAL = _REPO / "modtran" / "real_runs" / "D2.tp7"
+_D2_SYNTH = _REPO / "modtran" / "synthetic" / "D2.synthetic.tp7"
+USE_REAL = _D2_REAL.exists()
+D2_TAPE7 = _D2_REAL if USE_REAL else _D2_SYNTH
+SOURCE_LABEL = "MODTRAN 6 (real D2)" if USE_REAL else "MODTRAN (synthetic D2)"
 QE_CSV = SCENARIO_DIR / "inputs" / "insb_qe_representative.csv"
 OUTPUT_DIR = SCENARIO_DIR / "outputs"
 
@@ -110,7 +117,8 @@ def _preflight_d2() -> None:
     inside the sweep's warning-suppression context)."""
     if not D2_TAPE7.exists():
         raise FileNotFoundError(
-            f"{D2_TAPE7} not found. Generate it first:\n"
+            f"{D2_TAPE7} not found. Stage the real run set "
+            "(modtran/real_runs/README.md) or generate the synthetic fallback:\n"
             "  python scripts/generate_synthetic_tape7.py --run-id D2"
         )
     with warnings.catch_warnings():
@@ -243,8 +251,11 @@ def main() -> None:
         f"  Band: {BAND_MIN_UM}-{BAND_MAX_UM} um, InSb {PIXEL_PITCH_UM:.0f} um pixel, f/{F_NUMBER}"
     )
     print()
-    print("  *** Atmosphere: modtran_d2 uses SYNTHETIC (not real MODTRAN) data ***")
-    print("  *** See modtran/synthetic/README.md for what's genuinely independent. ***")
+    if USE_REAL:
+        print("  Atmosphere: modtran_d2 uses REAL MODTRAN 6 data (2026-07-17 run set)")
+    else:
+        print("  *** Atmosphere: modtran_d2 uses SYNTHETIC (not real MODTRAN) data ***")
+        print("  *** See modtran/synthetic/README.md for what's genuinely independent. ***")
     print()
     print("  PHYSICS NOTE: the aperture sweep holds f/# fixed at 2.5 (focal length")
     print("  scales with aperture). At fixed f/#, per-pixel etendue -- and thus")
@@ -262,15 +273,17 @@ def main() -> None:
     for r in rows_simple:
         print(
             f"  D={r['aperture_cm']:5.1f} cm  SNR={r['snr']:7.2f}  NEDT={r['nedt_K']:.4f} K  "
-            f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  tau={r['tau_inband']:.4f}"
+            f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  "
+            f"tau={r['tau_inband']:.4f}"
         )
 
-    print("\n=== Sweep: MODTRAN-D2 (synthetic, maritime aerosol) ===")
+    print(f"\n=== Sweep: {SOURCE_LABEL} (maritime aerosol) ===")
     rows_modtran = run_sweep("modtran_d2")
     for r in rows_modtran:
         print(
             f"  D={r['aperture_cm']:5.1f} cm  SNR={r['snr']:7.2f}  NEDT={r['nedt_K']:.4f} K  "
-            f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  tau={r['tau_inband']:.4f}"
+            f"NIIRS={r['niirs']:.2f}  det.range={r['detection_range_km']:.1f} km  "
+            f"tau={r['tau_inband']:.4f}"
         )
 
     # -----------------------------------------------------------------
@@ -278,19 +291,23 @@ def main() -> None:
     # -----------------------------------------------------------------
     print("\n=== Summary Table (aperture=30 cm, mid-range) ===")
     mid_idx = len(APERTURES_CM) // 2
-    print(f"  {'Metric':<28s} {'SimpleAtmosphere':>18s} {'MODTRAN-D2 (synthetic)':>24s}")
+    print(f"  {'Metric':<28s} {'SimpleAtmosphere':>18s} {SOURCE_LABEL:>24s}")
     print(f"  {'-' * 28} {'-' * 18} {'-' * 24}")
     print(
-        f"  {'SNR [-]':<28s} {rows_simple[mid_idx]['snr']:>18.2f} {rows_modtran[mid_idx]['snr']:>24.2f}"
+        f"  {'SNR [-]':<28s} {rows_simple[mid_idx]['snr']:>18.2f} "
+        f"{rows_modtran[mid_idx]['snr']:>24.2f}"
     )
     print(
-        f"  {'NEDT [K]':<28s} {rows_simple[mid_idx]['nedt_K']:>18.4f} {rows_modtran[mid_idx]['nedt_K']:>24.4f}"
+        f"  {'NEDT [K]':<28s} {rows_simple[mid_idx]['nedt_K']:>18.4f} "
+        f"{rows_modtran[mid_idx]['nedt_K']:>24.4f}"
     )
     print(
-        f"  {'NIIRS [-]':<28s} {rows_simple[mid_idx]['niirs']:>18.2f} {rows_modtran[mid_idx]['niirs']:>24.2f}"
+        f"  {'NIIRS [-]':<28s} {rows_simple[mid_idx]['niirs']:>18.2f} "
+        f"{rows_modtran[mid_idx]['niirs']:>24.2f}"
     )
     print(
-        f"  {'Detection range @SNR=5 [km]':<28s} {rows_simple[mid_idx]['detection_range_km']:>18.1f} "
+        f"  {'Detection range @SNR=5 [km]':<28s} "
+        f"{rows_simple[mid_idx]['detection_range_km']:>18.1f} "
         f"{rows_modtran[mid_idx]['detection_range_km']:>24.1f}"
     )
     print(
@@ -306,7 +323,7 @@ def main() -> None:
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
     ax1.plot(APERTURES_CM, [r["niirs"] for r in rows_simple], "o-", label="SimpleAtmosphere")
     ax1.plot(
-        APERTURES_CM, [r["niirs"] for r in rows_modtran], "s--", label="MODTRAN-D2 (synthetic)"
+        APERTURES_CM, [r["niirs"] for r in rows_modtran], "s--", label=SOURCE_LABEL
     )
     ax1.set_xlabel("Aperture diameter [cm]")
     ax1.set_ylabel("NIIRS [-]")
@@ -321,7 +338,7 @@ def main() -> None:
         APERTURES_CM,
         [r["detection_range_km"] for r in rows_modtran],
         "s--",
-        label="MODTRAN-D2 (synthetic)",
+        label=SOURCE_LABEL,
     )
     ax2.axhline(SLANT_RANGE_M / 1000.0, color="gray", linestyle=":", label="Nominal slant range")
     ax2.set_xlabel("Aperture diameter [cm]")

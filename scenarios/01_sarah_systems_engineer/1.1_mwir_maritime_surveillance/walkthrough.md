@@ -7,11 +7,13 @@ detection range vary with aperture — and how much does using a real
 atmospheric-transmittance dataset (vs. RADIANT's own parametric model)
 change the answer?
 
-**Status: pipeline demonstration, not a validated trade study.** The
-atmosphere data is *synthetic* (HITRAN-line-by-line-based, not a real
-MODTRAN run — see below). Treat the numbers as illustrating the pipeline
-and the *shape* of the MODTRAN-vs-parametric comparison, not as design
-guidance, until real MODTRAN data replaces run `D2`.
+**Status: validated trade study (upgraded 2026-07-17).** The atmosphere
+data is the **real MODTRAN 6 `D2` run** (maritime aerosol, midlat_summer,
+2026-07-17 run set, `modtran/real_runs/D2.tp7`) — the numbers below are
+a real MODTRAN-vs-parametric comparison. The script auto-detects the
+gitignored real-run staging set and falls back to the synthetic D2
+(with a loud banner) where it isn't staged, so the scenario stays
+runnable from a bare clone.
 
 ---
 
@@ -20,7 +22,8 @@ guidance, until real MODTRAN data replaces run `D2`.
 | File | Represents |
 |------|-----------|
 | `inputs/insb_qe_representative.csv` | Representative InSb QE curve (cutoff ~5.4 µm, peak ~0.84 near 3.5 µm) — Sarah's vendor PDF has a QE *graph*, not data points; this is a typical-InSb digitization, not a specific vendor's curve (the catalog's stated gap — no PDF exists to digitize from). Band-averaged to a scalar QE for the chain (`detector.qe_value`), matching scenario 1.2's approach. |
-| `modtran/synthetic/D2.synthetic.tp7` | The MODTRAN tape7 Sarah's colleague gave her — **synthetic**, not real MODTRAN (see next section). `midlat_summer` profile, maritime aerosol (IHAZE=3). |
+| `modtran/real_runs/D2.tp7` | The MODTRAN tape7 Sarah's colleague gave her — real MODTRAN 6 (2026-07-17 run set; gitignored staging, see `modtran/real_runs/README.md`). `midlat_summer` profile, maritime aerosol (IHAZE=3), 23 km visibility, nadir 100 km→0. |
+| `modtran/synthetic/D2.synthetic.tp7` | Fallback when the real set isn't staged (loud banner; pipeline-demo mode only). |
 | `data/emissivity/steel.csv` | Ship-hull emissivity (RADIANT's library "steel" curve; catalog says "0.7–0.85 depending on paint, partially rusted" — no rust-specific curve exists, see gaps.md). |
 | `data/emissivity/water_calm.csv` | Ocean background emissivity (catalog wants wind-state/sea-state dependence — not modeled, see gaps.md). |
 
@@ -28,18 +31,16 @@ guidance, until real MODTRAN data replaces run `D2`.
 
 ## Atmosphere data: what's real, what isn't
 
-`D2` comes from `scripts/generate_synthetic_tape7.py` — **not** a real
-MODTRAN run. Per `modtran/synthetic/README.md`:
-- `TOT TRANS` (what this scenario consumes) is genuine independent
-  physics: real HITRAN line-by-line molecular transmittance on an
-  independently-built layered atmosphere.
-- The path-radiance/scattering columns are a simplified approximation,
-  not multiple-scattering DISORT — not relevant here since the ship is a
-  reflective/thermal point-like target, not a diffuse-sky calculation.
-- **Do not** use this scenario's numbers to validate RADIANT's atmosphere
-  physics — that is explicitly what `modtran/synthetic/README.md`
-  forbids. This scenario exists to prove the pipeline (tape7 file →
-  `atmosphere.modtran.tape7_path` → chain) works end-to-end.
+`D2` is a **real MODTRAN 6 run** (2026-07-17 set): full DISORT
+multiple-scattering radiance and band-model transmittance, with the
+deck conventions verified against this very run set (CU-065/CU-067).
+Two residual caveats:
+- The exact MODTRAN build/band-model version string is pending from the
+  run operator (recorded in `data/atmospheres/MANIFEST.md` when known).
+- In synthetic-fallback mode (real set not staged) the old rules apply
+  unchanged: `TOT TRANS` is genuine HITRAN line-by-line physics, the
+  scattering columns are simplified, and nothing from that mode
+  validates RADIANT's atmosphere physics (`modtran/synthetic/README.md`).
 
 ---
 
@@ -64,21 +65,28 @@ MODTRAN run. Per `modtran/synthetic/README.md`:
 
 ---
 
-## Results (aperture = 30 cm, mid-sweep)
+## Results (aperture = 30 cm, mid-sweep; real MODTRAN 6, 2026-07-17)
 
-| Metric | SimpleAtmosphere | MODTRAN-D2 (synthetic) |
-|--------|-------------------|--------------------------|
-| SNR [-] | 1135.6 | 1158.6 |
-| NEDT [K] | 0.0208 | 0.0205 |
-| NIIRS [-] | 4.67 | 4.68 |
-| Detection range @ SNR=5 [km] | 1689.8 | 2841.2 |
-| In-band transmittance [-] | 0.239 | 0.617 |
+| Metric | SimpleAtmosphere | MODTRAN 6 (real D2) |
+|--------|-------------------|----------------------|
+| SNR [-] | 1135.6 | 957.3 |
+| NEDT [K] | 0.0208 | 0.0253 |
+| NIIRS [-] | 4.69 | 4.58 |
+| Detection range @ SNR=5 [km] | 1689.8 | 2113.8 |
+| In-band transmittance [-] | 0.239 | 0.432 |
 
-- **The atmosphere source matters a lot for absolute transmittance**
-  (0.24 vs. 0.62 — 2.6×) but only mildly for SNR at this operating point,
-  because the system is already comfortably above the SNR=5 threshold at
-  532 km; the detection-range extrapolation amplifies the transmittance
-  difference into a much larger range delta (1690 → 2843 km).
+- **SimpleAtmosphere is ~45% too absorbing for this maritime MWIR
+  column** (τ̄ 0.239 vs 0.432 real) — the same PWV over-response that
+  scenario 6.2 quantified across all six profiles (midlat_summer:
+  +41% τ residual there, consistent with this run). The detection-range
+  extrapolation turns that into a +25% range difference (1690 →
+  2114 km): a proposal quoting the parametric model would understate
+  achievable maritime detection range by a quarter.
+- **SNR moves the other way** (1136 → 957, −16%): the real atmosphere
+  is more transparent but carries real DISORT path radiance that raises
+  the background/noise floor — the parametric model's lower τ was
+  partially compensating for its simpler path-radiance term. τ, SNR,
+  and range do not move together; quote the metric the decision needs.
 - **This is the entire point of scenario 1.1's original gap**: before
   `Tape7Reader`/CU-066, RADIANT had no way to *consume* a colleague's
   MODTRAN tape7 at all — Sarah was stuck re-deriving atmosphere from the
@@ -92,14 +100,14 @@ MODTRAN run. Per `modtran/synthetic/README.md`:
   f/# fixed at 2.5, so focal length scales with aperture. At fixed f/#,
   per-pixel étendue — and thus photon flux for both the sub-pixel target
   and the extended ocean background — is invariant with aperture. The
-  aperture benefit shows up entirely as resolution: NIIRS rises from 3.67
-  to 5.26 as the diffraction-limited PSF shrinks. A genuine "SNR from a
+  aperture benefit shows up entirely as resolution: NIIRS rises from 3.58
+  to 5.16 (real D2) as the diffraction-limited PSF shrinks. A genuine "SNR from a
   bigger telescope" trade needs a fixed-focal-length (varying f/#) sweep,
   not a fixed-f/# aperture sweep — worth remembering for the next
   aperture trade study.
 - **Detection range is a Beer-Lambert point-source extrapolation**, not a
   full-chain re-evaluation at each range — it assumes the extinction
-  coefficient measured at 532 km holds out to ~1700–2800 km, which is
+  coefficient measured at 532 km holds out to ~1700–2100 km, which is
   unrealistic (curvature, refraction, and the actual atmosphere profile
   all change over that distance). Treat the range numbers as illustrating
   the *relative* SimpleAtmosphere-vs-MODTRAN sensitivity, not an
@@ -112,7 +120,8 @@ MODTRAN run. Per `modtran/synthetic/README.md`:
 
 ## Gaps Identified
 
-See `gaps.md` for the full list; summary: wind-state ocean emissivity,
-rust-specific hull emissivity, and a real (non-synthetic) MODTRAN dataset
-are the three open items. The MODTRAN tape7 *parsing* gap the original
-catalog entry flagged is closed (CU-066 + this scenario).
+See `gaps.md` for the full list; summary: wind-state ocean emissivity
+and rust-specific hull emissivity remain open. The "real MODTRAN
+dataset" item closed 2026-07-17 (this upgrade), and the MODTRAN tape7
+*parsing* gap the original catalog entry flagged closed earlier
+(CU-066 + this scenario).

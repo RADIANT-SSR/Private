@@ -20,6 +20,22 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Scenarios 1.1 (MWIR maritime) and 6.2 (atmospheric intercomparison) upgraded from
+  synthetic to real MODTRAN 6 data (2026-07-17 run set).** Both scripts auto-detect the
+  staged real runs (synthetic remains a loud fallback); walkthroughs, figures, and results
+  tables regenerated. The comparisons are now validated benchmarks: SimpleAtmosphere
+  over-responds to profile water vapor (6.2: in-band MWIR τ spans 0.16–0.81 vs real
+  MODTRAN's 0.42–0.57, near-exact at us_standard, ±40–60% at climate extremes; 1.1:
+  maritime τ 0.239 vs real 0.432 → detection range understated by ~25%). Model behavior
+  is unchanged — these are data/scenario updates; the SimpleAtmosphere accuracy findings
+  are tracked in Gap 38/gaps.md and CU-155.
+- **Gap 39 closed (A3 partial-column MODTRAN parity):** the chain's τ_up(h_tgt) is now
+  pinned against real MODTRAN C-ladder goldens on every test run
+  (`tests/integration/test_table_c_cells.py::TestTableCModtranPinned`), with the
+  characterized envelope (simple optimistic by up to +0.13 band-mean τ at low altitude)
+  recorded in the registry.
+
 ### Added
 - **Shipped nominal atmosphere library (`data/atmospheres/`).** Committed NPZ spectra derived
   from the real 2026-07-17 MODTRAN 6 run matrix: six standard-profile nadir columns (tabulated;

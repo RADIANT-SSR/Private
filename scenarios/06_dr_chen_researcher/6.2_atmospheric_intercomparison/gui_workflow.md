@@ -39,7 +39,7 @@ capture.)
 >>> from radiant.atmosphere.modtran import Tape7Reader
 >>> results = {}
 >>> for profile, run_id in {"tropical": "A2", "us_standard": "A1"}.items():
-...     wl, tau, lp, gr = Tape7Reader(f"{run_id}.synthetic.tp7").to_radiant_units()
+...     wl, tau, lp, gr = Tape7Reader(f"{run_id}.tp7")  # real runs; .synthetic.tp7 fallback.to_radiant_units()
 ...     results[profile] = tau.mean()
 >>> results
 {'tropical': 0.6148, 'us_standard': 0.6775}

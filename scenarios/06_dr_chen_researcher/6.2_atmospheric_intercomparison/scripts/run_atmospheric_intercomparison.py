@@ -4,12 +4,13 @@ Dr. Chen wants to compare RADIANT's own Beer-Lambert (SimpleAtmosphere)
 transmittance against MODTRAN, across all six named standard-atmosphere
 profiles, for the same nadir/100 km-sensor path.
 
-*** ATMOSPHERE DATA IS SYNTHETIC, NOT REAL MODTRAN ***
-Consumes modtran/synthetic/A1-A6.synthetic.tp7 (see
-modtran/synthetic/README.md). TOT TRANS is genuine independent physics
-(HITRAN line-by-line on an independently-built layered atmosphere);
-treat this as demonstrating the comparison PIPELINE, not a validated
-model-vs-model benchmark, until real MODTRAN data replaces A1-A6.
+ATMOSPHERE DATA SOURCE (auto-detected):
+- **Real MODTRAN 6** (modtran/real_runs/A1-A6.tp7, delivered 2026-07-17)
+  when the gitignored staging set is present — this is the validated
+  model-vs-model benchmark the scenario was built for.
+- Falls back to the synthetic A-block (modtran/synthetic/, HITRAN
+  line-by-line; see modtran/synthetic/README.md) with a loud banner —
+  pipeline demonstration only in that mode.
 
 Deviation from the original catalog framing: the catalog specifies
 "10 deg off-nadir, 500 km path, midlat summer" for a single profile;
@@ -53,8 +54,15 @@ from radiant.api import Sensor
 from radiant.atmosphere.modtran import Tape7Reader
 
 SCENARIO_DIR = Path(__file__).parent.parent
-MODTRAN_SYNTH_DIR = SCENARIO_DIR.parent.parent.parent / "modtran" / "synthetic"
+REPO_ROOT = SCENARIO_DIR.parent.parent.parent
+MODTRAN_REAL_DIR = REPO_ROOT / "modtran" / "real_runs"
+MODTRAN_SYNTH_DIR = REPO_ROOT / "modtran" / "synthetic"
 OUTPUT_DIR = SCENARIO_DIR / "outputs"
+
+# Real MODTRAN 6 data (2026-07-17 run set) is used when staged; the
+# synthetic A-block is the loud fallback.
+USE_REAL = MODTRAN_REAL_DIR.exists()
+SOURCE_LABEL = "MODTRAN 6 (real)" if USE_REAL else "MODTRAN (synthetic)"
 
 PROFILES = [
     "us_standard",
@@ -84,19 +92,27 @@ PIXEL_PITCH_UM = 20.0
 
 
 def _load_tape7(run_id: str) -> tuple[Path, np.ndarray, np.ndarray]:
-    """Locate a synthetic tape7 and parse it (fail-loud) for the overlay.
+    """Locate the A-block tape7 (real preferred) and parse it fail-loud.
 
     The chain itself consumes the file directly via
     atmosphere.modtran.tape7_path; this parse exists for the spectral
     figures/residuals and to fail loudly on the CU-066 fallback path
     before any chain runs.
     """
-    tape7 = MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
-    if not tape7.exists():
-        raise FileNotFoundError(
-            f"{tape7} not found. Generate it first:\n"
-            f"  python scripts/generate_synthetic_tape7.py --run-id {run_id}"
-        )
+    if USE_REAL:
+        tape7 = MODTRAN_REAL_DIR / f"{run_id}.tp7"
+        if not tape7.exists():
+            raise FileNotFoundError(
+                f"{tape7} not found although {MODTRAN_REAL_DIR} exists — "
+                "the staging set is incomplete (see modtran/real_runs/README.md)."
+            )
+    else:
+        tape7 = MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
+        if not tape7.exists():
+            raise FileNotFoundError(
+                f"{tape7} not found. Generate it first:\n"
+                f"  python scripts/generate_synthetic_tape7.py --run-id {run_id}"
+            )
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         wl_um, trans, _path_radiance, _gr = Tape7Reader(tape7).to_radiant_units()
@@ -149,10 +165,12 @@ def _make_config(atmosphere_source: str, profile: str, tape7_path: Path | None) 
 
 def main() -> None:
     print("=== Scenario 6.2: Atmospheric Model Intercomparison ===")
-    print("  *** Atmosphere source 'modtran' is SYNTHETIC, not real MODTRAN ***")
-    print(
-        "  *** See modtran/synthetic/README.md. libRadtran comparison NOT included -- see gaps.md ***\n"
-    )
+    if USE_REAL:
+        print("  Atmosphere source: REAL MODTRAN 6 (2026-07-17 run set, modtran/real_runs/)")
+    else:
+        print("  *** Atmosphere source 'modtran' is SYNTHETIC, not real MODTRAN ***")
+        print("  *** See modtran/synthetic/README.md ***")
+    print("  libRadtran comparison NOT included -- see gaps.md\n")
 
     results = []
     spectra = {}
@@ -201,7 +219,8 @@ def main() -> None:
     print(f"  {'-' * 18} {'-' * 11} {'-' * 12} {'-' * 10} {'-' * 11} {'-' * 12} {'-' * 10}")
     for r in results:
         print(
-            f"  {r['profile']:<18s} {r['tau_simple_inband']:>11.4f} {r['tau_modtran_inband']:>12.4f} "
+            f"  {r['profile']:<18s} {r['tau_simple_inband']:>11.4f} "
+            f"{r['tau_modtran_inband']:>12.4f} "
             f"{r['tau_residual_pct']:>9.1f}% {r['snr_simple']:>11.2f} {r['snr_modtran']:>12.2f} "
             f"{r['snr_residual_pct']:>9.1f}%"
         )
@@ -210,10 +229,15 @@ def main() -> None:
     print(
         f"\n  Largest transmittance residual: {worst['profile']} ({worst['tau_residual_pct']:.1f}%)"
     )
-    print("  Interpretation caveat: since 'MODTRAN' here is HITRAN-line-by-line synthetic data")
-    print("  (not real MODTRAN, and RADIANT's own SimpleAtmosphere uses a DIFFERENT simplified")
-    print("  band-fit approach), this residual reflects a genuine difference in modeling approach")
-    print("  (line-by-line vs. empirical band fit), not a validated 'error' in either model.")
+    if USE_REAL:
+        print("  Interpretation: 'MODTRAN' is the real MODTRAN 6 A-block (2026-07-17), so the")
+        print("  residual IS a validated measure of SimpleAtmosphere's in-band error against a")
+        print("  full radiative-transfer reference for this nadir/100 km geometry.")
+    else:
+        print("  Interpretation caveat: since 'MODTRAN' here is HITRAN-line-by-line synthetic data")
+        print("  (not real MODTRAN, and RADIANT's own SimpleAtmosphere uses a DIFFERENT simplified")
+        print("  band-fit approach), this residual reflects a genuine modeling-approach")
+        print("  (line-by-line vs. empirical band fit), not a validated 'error' in either model.")
 
     # -----------------------------------------------------------------
     # Figures
@@ -224,7 +248,7 @@ def main() -> None:
     for ax, profile in zip(axes.flat, PROFILES, strict=True):
         wl_um, trans = spectra[profile]
         mask = (wl_um >= BAND_MIN_UM) & (wl_um <= BAND_MAX_UM)
-        ax.plot(wl_um[mask], trans[mask], lw=0.8, label="MODTRAN (synthetic)", color="C1")
+        ax.plot(wl_um[mask], trans[mask], lw=0.8, label=SOURCE_LABEL, color="C1")
         ax.axhline(
             next(r["tau_simple_inband"] for r in results if r["profile"] == profile),
             color="C0",
@@ -237,7 +261,7 @@ def main() -> None:
         ax.grid(alpha=0.3)
     axes.flat[0].legend(fontsize=8)
     fig.suptitle(
-        "Scenario 6.2: RADIANT SimpleAtmosphere vs. MODTRAN-synthetic transmittance, 3.5-5.0 um"
+        f"Scenario 6.2: RADIANT SimpleAtmosphere vs. {SOURCE_LABEL} transmittance, 3.5-5.0 um"
     )
     fig.tight_layout()
     fig1_path = OUTPUT_DIR / "fig1_transmittance_overlay_by_profile.png"
@@ -249,7 +273,7 @@ def main() -> None:
     x = np.arange(len(PROFILES))
     ax.bar(x - 0.2, [r["tau_simple_inband"] for r in results], width=0.4, label="SimpleAtmosphere")
     ax.bar(
-        x + 0.2, [r["tau_modtran_inband"] for r in results], width=0.4, label="MODTRAN (synthetic)"
+        x + 0.2, [r["tau_modtran_inband"] for r in results], width=0.4, label=SOURCE_LABEL
     )
     ax.set_xticks(x)
     ax.set_xticklabels(PROFILES, rotation=30, ha="right")

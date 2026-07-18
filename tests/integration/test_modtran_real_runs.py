@@ -106,6 +106,79 @@ def test_c_ladder_pinned_constants_match_files() -> None:
 
 
 # ---------------------------------------------------------------------------
+# ω₀(λ, aerosol) derivation from the E-runs (Gap 38 — plan §8 criterion #4)
+# ---------------------------------------------------------------------------
+
+# Empirical band-median single-scattering albedo derived 2026-07-17 by
+# inverting the simple model's own closed form against the real E-run
+# flux tables:  ω₀_eff(λ) = E_diffuse(λ) / [E_TOA(λ)·cos θ_s·(1−τ_vert(λ))]
+# with E_diffuse from the flux DOWN column (ground level), τ_vert from the
+# paired nadir full-column tape7 (rural→A1, maritime→D2, urban→D3), and
+# E_TOA from radiant.core.solar. Valid in the solar-dominated region
+# (≤ 2.5 µm; thermal contamination of DOWN is negligible there — the
+# owner-ratified band-limited convention, gaps.md Gap 38).
+#
+# aerosol -> {band: ω₀_eff}. For contrast: the simple backend's effective
+# ω₀ for a space-sensor column is ≈ 1.000 in ALL of these cells (its
+# extinction-weighted formula evaluates at the column mean altitude,
+# where only pure-scattering molecules survive) — a 1.2–5× over-
+# prediction of diffuse sky irradiance, largest for urban and in SWIR.
+OMEGA0_EFF: dict[str, dict[str, float]] = {
+    "rural": {"VIS": 0.791, "NIR": 0.698, "SWIR": 0.187},
+    "maritime": {"VIS": 0.835, "NIR": 0.758, "SWIR": 0.339},
+    "urban": {"VIS": 0.423, "NIR": 0.430, "SWIR": 0.263},
+}
+
+_OMEGA0_BANDS = {"VIS": (0.4, 0.7), "NIR": (0.7, 1.4), "SWIR": (1.4, 2.5)}
+_OMEGA0_CASES = [
+    ("rural", "E1", "A1"),
+    ("maritime", "E3", "D2"),
+    ("urban", "E4", "D3"),
+]
+
+
+@pytest.mark.level2
+def test_omega0_eff_derivation_matches_pinned_table() -> None:
+    """Re-derive OMEGA0_EFF from the staged flux + tape7 files and assert
+    the committed table (Gap 38 reference; guards transcription drift)."""
+    from radiant.atmosphere.modtran import ModtranFluxReader
+    from radiant.core.solar import toa_solar_spectral_irradiance
+
+    cos_s = np.cos(np.radians(30.0))
+    for aerosol, flux_run, tau_run in _OMEGA0_CASES:
+        wl, _e_direct, e_diffuse = ModtranFluxReader(
+            _REAL_RUNS / f"{flux_run}_flux.csv"
+        ).to_radiant_units()
+        wl_t, tau, _, _ = Tape7Reader(_REAL_RUNS / f"{tau_run}.tp7").to_radiant_units()
+        np.testing.assert_allclose(wl, wl_t)
+
+        e_toa = toa_solar_spectral_irradiance(wl)
+        denom = e_toa * cos_s * (1.0 - tau)
+        good = denom > 1e-6
+        omega = np.where(good, e_diffuse / np.maximum(denom, 1e-30), np.nan)
+
+        for band, (lo, hi) in _OMEGA0_BANDS.items():
+            in_band = (wl >= lo) & (wl <= hi) & good
+            derived = float(np.nanmedian(omega[in_band]))
+            assert derived == pytest.approx(OMEGA0_EFF[aerosol][band], abs=2e-3), (
+                f"{aerosol}/{band}: derived ω₀_eff {derived:.3f} != pinned "
+                f"{OMEGA0_EFF[aerosol][band]:.3f}"
+            )
+
+
+@pytest.mark.level2
+def test_omega0_aerosol_ordering_physical() -> None:
+    """Physics sanity on the pinned table: urban (soot-absorbing) is the
+    darkest aerosol in the VIS/NIR; every ω₀ falls from VIS to SWIR for
+    the continental types (scattering dies faster than absorption)."""
+    for band in ("VIS", "NIR"):
+        assert OMEGA0_EFF["urban"][band] < OMEGA0_EFF["rural"][band]
+        assert OMEGA0_EFF["urban"][band] < OMEGA0_EFF["maritime"][band]
+    for aerosol in ("rural", "maritime", "urban"):
+        assert OMEGA0_EFF[aerosol]["SWIR"] < OMEGA0_EFF[aerosol]["VIS"]
+
+
+# ---------------------------------------------------------------------------
 # E_sky_thermal parity (MODTRAN_Run_Matrix_Plan §8 criterion #5)
 # ---------------------------------------------------------------------------
 

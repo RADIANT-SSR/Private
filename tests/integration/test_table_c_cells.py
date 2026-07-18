@@ -23,7 +23,6 @@ import pytest
 
 from radiant.api.session import RadiantSession
 
-
 LWIR_WL = np.linspace(8.0, 13.0, 501)
 
 
@@ -124,7 +123,7 @@ class TestTableCAirborneLWIRExtended:
             tau_up_by_h[h] = float(atm_q.tau_up[idx_10um])
 
         sorted_h = sorted(TABLE_C_ALTITUDES_M)
-        for a, b in zip(sorted_h, sorted_h[1:]):
+        for a, b in zip(sorted_h, sorted_h[1:], strict=False):
             assert tau_up_by_h[b] >= tau_up_by_h[a] - 1e-12, (
                 f"τ_up not monotonic: h={a} m → {tau_up_by_h[a]}, "
                 f"h={b} m → {tau_up_by_h[b]}"
@@ -132,4 +131,82 @@ class TestTableCAirborneLWIRExtended:
 
         assert tau_up_by_h[29000.0] > tau_up_by_h[1000.0], (
             "τ_up(29 km) should exceed τ_up(1 km) at 10 µm"
+        )
+
+
+# ---------------------------------------------------------------------------
+# MODTRAN-pinned assertions (Gap 39 — MODTRAN_Run_Matrix_Plan §8)
+# ---------------------------------------------------------------------------
+
+# Band-mean τ_up(h_tgt) extracted 2026-07-17 from the real MODTRAN 6
+# C-ladder (midlat_summer, sensor 35 km, nadir — the exact Cell 43
+# geometry): runs C2–C6 of docs/plans/modtran_run_matrix.csv, parsed via
+# Tape7Reader.to_radiant_units(), arithmetic mean of total transmittance
+# over the stated wavelength window. These constants are committed
+# goldens; the generating tape7s live gitignored in modtran/real_runs/
+# (a skipif-guarded consistency test in test_modtran_real_runs.py
+# re-derives them from the files where present).
+#
+# h_tgt [m] -> (tau_mean 8–13 µm, tau_mean 10–12 µm window)
+MODTRAN_C_LADDER_TAU: dict[float, tuple[float, float]] = {
+    1000.0: (0.694822, 0.803384),
+    5000.0: (0.891342, 0.977861),
+    10000.0: (0.925255, 0.990453),
+    20000.0: (0.951597, 0.994288),
+    29000.0: (0.981652, 0.998192),
+}
+
+
+@pytest.mark.level2
+class TestTableCModtranPinned:
+    """Gap 39: A3 partial-column τ_up pinned against real MODTRAN.
+
+    Characterization (2026-07-17): the simple backend's partial column is
+    consistently *optimistic* (too transparent). Broad-band 8–13 µm the
+    excess is +0.12 τ at h_tgt = 1 km, shrinking with altitude — but the
+    simple model reaches τ = 1.000 by ~20 km while MODTRAN floors near
+    0.95–0.98 (stratospheric O₃ and continuum absorption above the
+    target are absent from the 3-component model). In the clean
+    10–12 µm window the agreement is much tighter (+0.08 → +0.002).
+    """
+
+    def test_modtran_reference_monotonic(self) -> None:
+        """Sanity on the pinned constants: τ_up rises with h_tgt in both
+        windows (less atmosphere above the target)."""
+        hs = sorted(MODTRAN_C_LADDER_TAU)
+        for lo_h, hi_h in zip(hs, hs[1:], strict=False):
+            assert MODTRAN_C_LADDER_TAU[hi_h][0] > MODTRAN_C_LADDER_TAU[lo_h][0]
+            assert MODTRAN_C_LADDER_TAU[hi_h][1] > MODTRAN_C_LADDER_TAU[lo_h][1]
+
+    @pytest.mark.parametrize("h_tgt_m", TABLE_C_ALTITUDES_M)
+    def test_tau_up_parity_with_modtran(self, airborne_results, h_tgt_m: float) -> None:
+        """Chain τ_up (simple A3 partial column) vs the MODTRAN golden.
+
+        Asserts the characterized envelope: simple minus MODTRAN in
+        [-0.01, +0.13] for the 8–13 µm band mean and [-0.01, +0.09] for
+        the 10–12 µm window mean. The lower bound documents the sign
+        (simple is never meaningfully *pessimistic*); the upper bound is
+        the measured worst case (+0.123 / +0.080 at h = 1 km) with
+        margin. If the simple model gains stratospheric absorbers or a
+        continuum, these bounds tighten — update them with the model
+        change (same PR, Rule 20/29).
+        """
+        atm_q = airborne_results[h_tgt_m].stage_outputs["atmosphere"]["atm_quantities"]
+        tau_up = np.asarray(atm_q.tau_up, dtype=np.float64)
+
+        band_813 = float(tau_up.mean())  # LWIR_WL spans exactly 8–13 µm
+        window = (LWIR_WL >= 10.0) & (LWIR_WL <= 12.0)
+        band_1012 = float(tau_up[window].mean())
+
+        ref_813, ref_1012 = MODTRAN_C_LADDER_TAU[h_tgt_m]
+        d813 = band_813 - ref_813
+        d1012 = band_1012 - ref_1012
+
+        assert -0.01 <= d813 <= 0.13, (
+            f"h={h_tgt_m} m: simple−MODTRAN τ (8–13 µm) = {d813:+.4f} outside "
+            "the Gap-39 characterized envelope [-0.01, +0.13]"
+        )
+        assert -0.01 <= d1012 <= 0.09, (
+            f"h={h_tgt_m} m: simple−MODTRAN τ (10–12 µm) = {d1012:+.4f} outside "
+            "the Gap-39 characterized envelope [-0.01, +0.09]"
         )

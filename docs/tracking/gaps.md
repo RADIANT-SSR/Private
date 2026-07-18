@@ -642,15 +642,10 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, Table C (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — owner reconfirmed no MODTRAN access. Re-audit 2026-10-01 or on MODTRAN access, whichever comes first. |
-| **Deferral record** | Gating condition: licensed MODTRAN install or donated tape7 fixtures (no access since 2026-04-21, reconfirmed by owner 2026-07-07). Re-audit: 2026-10-01 or on MODTRAN access, whichever comes first. ~2 days of work once unblocked. |
-| **Description** | A3 partial-column transmission is wired end-to-end in `SimpleAtmosphere` and the Table C smoke tests pass monotonicity in h_tgt (`tests/integration/test_table_c_cells.py`), but MODTRAN-equivalent validation of τ(h_tgt, θ_o) requires a licensed MODTRAN install to generate reference tape7 fixtures. **BLOCKED: no MODTRAN access** (since 2026-04-21). The backend extension itself is ~2 days (two-run differential: full column + h_tgt→sensor legs, extending `ModtranAtmosphere.evaluate`). |
-| **Workaround** | Rely on smoke-tested, monotone `SimpleAtmosphere` values; not pinned against an external reference. Alternative reference (`lowtran` port or Beer-Lambert thin-atmosphere hand check) adds a dependency — not recommended for closure. |
-| **Impact** | Table C (use-case Cells 31–45) accuracy is unpinned against an external reference. |
-| **Fix location** | `src/radiant/atmosphere/modtran.py` — extend `ModtranAtmosphere.evaluate` with the two-run differential once MODTRAN access (licensed install or donated tape7 fixtures) is available. |
-| **Effort** | Small (~2 days) once unblocked. |
-| **Scenarios blocked** | None. |
-| **Rerun after fix** | Table C cells (`tests/integration/test_table_c_cells.py`, `test_use_case_matrix.py`). |
+| **Status** | CLOSED 2026-07-17 — the real MODTRAN 6 run set (delivered 2026-07-17) supplies the reference the gap was blocked on. The C-ladder (C2–C6: midlat_summer, 35 km sensor, nadir, h_tgt 1–29 km — the exact Cell 43 geometry) is extracted into committed band-mean τ goldens (`MODTRAN_C_LADDER_TAU` in `tests/integration/test_table_c_cells.py`) and `TestTableCModtranPinned` asserts the chain's A3 τ_up against them on every run. **Measured parity**: simple is consistently optimistic — Δτ(8–13 µm band mean) = +0.12 at h_tgt = 1 km shrinking with altitude, but simple saturates at τ = 1.000 by ~20 km while MODTRAN floors at 0.95–0.98 (no stratospheric O₃/continuum in the 3-component model); the clean 10–12 µm window agrees to +0.08 → +0.002. The pinned envelope ([−0.01, +0.13] band / [−0.01, +0.09] window) is the recorded tolerance. A skipif-guarded test re-derives the goldens from the staged tape7s to guard transcription drift. The `ModtranAtmosphere.evaluate` two-run-differential backend extension (this gap's original fix-location) remains tracked under CU-011's binary-flavor remainder — it needs RADIANT itself invoking a binary, which the delivered files don't provide. |
+| **Description** | A3 partial-column transmission is wired end-to-end in `SimpleAtmosphere` and the Table C smoke tests pass monotonicity in h_tgt (`tests/integration/test_table_c_cells.py`), but MODTRAN-equivalent validation of τ(h_tgt, θ_o) required reference tape7 fixtures. Delivered 2026-07-17; parity measured and pinned. |
+| **Impact (was)** | Table C (use-case Cells 31–45) accuracy was unpinned against an external reference — now pinned with the characterized optimism envelope above. |
+| **Rerun after fix** | Done — `tests/integration/test_table_c_cells.py` (27 pass incl. the new pinned class). |
 
 ---
 

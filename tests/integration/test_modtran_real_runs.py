@@ -88,6 +88,23 @@ def test_airmass_monotonicity_confirms_angle_convention() -> None:
     assert tau_45 == pytest.approx(tau_nadir**np.sqrt(2.0), rel=0.02)
 
 
+@pytest.mark.level2
+def test_c_ladder_pinned_constants_match_files() -> None:
+    """The committed MODTRAN_C_LADDER_TAU goldens in test_table_c_cells.py
+    must equal what the staged tape7s actually contain — guards the
+    pinned constants against transcription drift (Gap 39)."""
+    from tests.integration.test_table_c_cells import MODTRAN_C_LADDER_TAU
+
+    run_by_h = {1000.0: "C2", 5000.0: "C3", 10000.0: "C4", 20000.0: "C5", 29000.0: "C6"}
+    for h, run in run_by_h.items():
+        wl, trans, _, _ = Tape7Reader(_REAL_RUNS / f"{run}.tp7").to_radiant_units()
+        band_813 = float(trans[(wl >= 8.0) & (wl <= 13.0)].mean())
+        band_1012 = float(trans[(wl >= 10.0) & (wl <= 12.0)].mean())
+        ref_813, ref_1012 = MODTRAN_C_LADDER_TAU[h]
+        assert band_813 == pytest.approx(ref_813, abs=1e-5)
+        assert band_1012 == pytest.approx(ref_1012, abs=1e-5)
+
+
 # ---------------------------------------------------------------------------
 # E_sky_thermal parity (MODTRAN_Run_Matrix_Plan §8 criterion #5)
 # ---------------------------------------------------------------------------

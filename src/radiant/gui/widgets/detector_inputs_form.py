@@ -74,6 +74,7 @@ _GEOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 _QE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Quantum efficiency (scalar)", "detector.qe_value"),
     ("QE curve CSV (import)", "detector.qe_table_path"),
+    ("QE material (library)", "detector.qe_material"),
     ("QE temperature coefficient", "detector.qe_temperature_coeff_per_K"),
     ("QE reference temperature", "detector.qe_temperature_ref_K"),
 )

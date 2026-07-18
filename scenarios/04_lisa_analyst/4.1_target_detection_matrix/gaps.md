@@ -67,3 +67,14 @@ workbook (or use `Sensor.get_input`) when you need the display unit.**
   the horizon (68° at 500 km).
 - **BatchRunner's failure capture was exercised**: 0 cells failed, but the
   `error`-column path is unit-tested (`RadiantError` → recorded row).
+
+---
+
+## Real-data validation (2026-07-17)
+
+A-block anchors rerank the condition axis: real MWIR τ spread across
+the four climate cells is 1.3× where SimpleAtmosphere claimed 5×
+(tropical_haze ~2.9× understated, arctic_clear ~1.35× overstated —
+CU-161 water over-response). LWIR condition-insensitivity claim
+weakens (real tropical LWIR carries ~22% continuum penalty). Target-
+axis conclusions unaffected. See the walkthrough's validation note.

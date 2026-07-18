@@ -123,6 +123,42 @@ tropical_haze (aerosol extinction); the LWIR sensor C's ranges are
 identical across columns because its 8–11.5 µm band is far less
 aerosol-sensitive and the target–background *thermal* contrast dominates.
 
+## Real-MODTRAN validation note (added 2026-07-17)
+
+The real MODTRAN 6 A-block (2026-07-17 run set) pins this matrix's
+condition axis. Band-mean full-column nadir τ, real vs SimpleAtmosphere
+at the matching profile (visibility-23 baseline; the visibility *axis*
+itself is separately validated in scenario 3.2):
+
+| Condition (profile) | MWIR real/simple | LWIR real/simple |
+|---|---|---|
+| clear, haze (midlat_summer) | **1.87×** | 0.84× |
+| tropical_haze (tropical) | **2.89×** | 0.78× |
+| arctic_clear (subarctic_winter) | **0.74×** | 0.88× |
+
+Consequences for the matrix:
+
+- **The MWIR condition axis substantially reranks.** SimpleAtmosphere
+  spans τ 0.16–0.81 across these profiles (5×); real MODTRAN spans
+  0.47–0.60 (**1.3×**). The tropical_haze column's MWIR detection
+  ranges are understated roughly 3× in τ terms, and arctic_clear's
+  overstated ~1.35× — the dramatic clear→tropical collapse this
+  walkthrough reports is mostly the parametric model's water
+  over-response (CU-161), not real atmospheric behavior. The real
+  condition spread is far flatter.
+- **The "Atmosphere matters for MWIR, not LWIR" claim survives but
+  weakens.** Real LWIR τ does vary across the conditions (0.47–0.82,
+  driven by the H₂O continuum the simple model lacks) — the tropical
+  cell's LWIR ranges carry a real ~22% τ penalty the model misses.
+- **Target-axis conclusions (which target is hardest, EE_box occlusion,
+  aperture-vs-size) are unaffected** — they compare targets under a
+  common atmosphere and don't depend on its absolute accuracy.
+
+Numbers not re-baselined (144-cell parametric matrix demonstration);
+this note records the accuracy context. Anchors: `modtran/real_runs/`
+A2/A3/A6 vs `SimpleAtmosphere` at profile-coupled PWV; model defect
+consolidated in CU-161.
+
 ## Gaps and a Bug Caught
 
 See `gaps.md`. The two importer gaps (target-library Excel, projected-area)

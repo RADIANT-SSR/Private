@@ -125,3 +125,5 @@ and rust-specific hull emissivity remain open. The "real MODTRAN
 dataset" item closed 2026-07-17 (this upgrade), and the MODTRAN tape7
 *parsing* gap the original catalog entry flagged closed earlier
 (CU-066 + this scenario).
+
+**Postscript (2026-07-18):** the SimpleAtmosphere maritime over-absorption documented above was substantially corrected by CU-161 (commit `0aebdda`); committed comparison numbers reflect the pre-fix model — re-run for current behavior.

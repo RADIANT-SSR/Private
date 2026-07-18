@@ -56,35 +56,39 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 ---
 
-## Results (real MODTRAN 6, 2026-07-17)
+## Results (real MODTRAN 6; re-run 2026-07-18 after the CU-161 recalibration)
 
 | Profile | τ SimpleAtmosphere [-] | τ MODTRAN 6 [-] | τ residual | SNR Simple [-] | SNR MODTRAN [-] | SNR residual |
 |---------|------------------------|------------------|------------|----------------|------------------|----------------|
-| us_standard | 0.524 | 0.517 | −1.4% | 684.1 | 575.9 | −18.8% |
-| tropical | 0.161 | 0.421 | +61.8% | 607.5 | 582.5 | −4.3% |
-| midlat_summer | 0.269 | 0.458 | +41.3% | 628.7 | 579.5 | −8.5% |
-| midlat_winter | 0.670 | 0.544 | −23.2% | 717.4 | 574.0 | −25.0% |
-| subarctic_summer | 0.388 | 0.492 | +21.2% | 654.0 | 570.7 | −14.6% |
-| subarctic_winter | 0.814 | 0.571 | −42.5% | 750.4 | 582.3 | −28.9% |
+| us_standard | 0.554 | 0.517 | −7.3% | 577.7 | 575.9 | −0.3% |
+| tropical | 0.467 | 0.421 | −10.7% | 528.0 | 582.5 | +9.4% |
+| midlat_summer | 0.501 | 0.458 | −9.4% | 548.0 | 579.5 | +5.4% |
+| midlat_winter | 0.578 | 0.544 | −6.2% | 590.4 | 574.0 | −2.9% |
+| subarctic_summer | 0.529 | 0.492 | −7.5% | 563.7 | 570.7 | +1.2% |
+| subarctic_winter | 0.599 | 0.571 | −4.8% | 601.7 | 582.3 | −3.3% |
+
+**This table is the CU-161 acceptance evidence.** The first real-data
+run of this scenario (2026-07-17) found residuals spanning **−43% to
++62%** — SimpleAtmosphere over-responding to profile water in both
+directions. The gas-band recalibration that finding triggered (CU-161,
+landed 2026-07-18: curve-of-growth water + well-mixed CO₂/N₂O floor,
+fit to the D-block water ladder) collapses the residuals **6×, to a
+uniform −5%…−11%**, and SNR residuals from −29%…−4% to ±9%. The small
+remaining τ offset is systematic (simple slightly transparent — largely
+the band-mean comparison convention this script uses) rather than
+profile-dependent: the water physics now scales correctly across
+climates.
 
 (residual = (MODTRAN − Simple) / MODTRAN, %; τ is the 3.5–5.0 µm
 band-mean total transmittance, dimensionless; SNR is the full-chain
 extended-scene contrast SNR, dimensionless)
 
-- **SimpleAtmosphere over-responds to profile water vapor — in both
-  directions.** Real MODTRAN's profile-to-profile band-mean τ spans a
-  narrow 0.42–0.57 (~26% spread): the MWIR band is anchored by the
-  saturated, well-mixed CO₂ 4.3 µm core and a continuum floor that no
-  climate profile escapes. SimpleAtmosphere spans 0.16–0.81 (5×) —
-  too absorbing for wet profiles (tropical +62% residual), too
-  transparent for dry ones (subarctic_winter −43%).
-- **The band fit is nearly exact at us_standard (−1.4%)** and degrades
-  monotonically as PWV departs from it in either direction — the
-  signature of a fit calibrated at one reference profile whose
-  H₂O-window weighting extrapolates poorly across climates. (Gap 57's
-  profile-coupled PWV substitution moves the *input* water column
-  correctly; this residual is in the *band-model response* to that
-  column.)
+- **(Historical, fixed by CU-161)** The pre-recalibration model
+  over-responded to profile water in both directions (τ span 0.16–0.81
+  vs real 0.42–0.57; +62% tropical, −43% subarctic_winter) because its
+  linear-in-w Lorentzian fit attributed the MWIR's saturated CO₂ floor
+  to water. The recalibrated model spans 0.47–0.60 — matching real
+  MODTRAN's narrow climate spread.
 - **SNR residuals (−4% to −29%) are smaller than the worst τ residuals
   and don't track them** (tropical: worst τ, best SNR). The
   extended-scene contrast term attenuates target and background by the

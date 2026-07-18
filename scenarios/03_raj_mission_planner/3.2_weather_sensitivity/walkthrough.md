@@ -159,3 +159,5 @@ See [gaps.md](gaps.md) for full detail with severity and status.
 - **Gap 6 (Band-mean transmittance not scalar)**: still open.
 - **Gap 7 (Visibility-to-aerosol doc missing)**: still open.
 - **Gap 8 (NEW — Nearfield = 0 in scalar transmission mode)**: HIGH severity cross-scenario. Mirror self-emission from warm optics (293 K, 4 elements) not modeled. Under-predicts noise; the NIIRS here is slightly optimistic — real-world NIIRS would be ~0.02–0.04 lower depending on nearfield contribution.
+
+**Postscript (2026-07-18):** the PWV over-response documented above was fixed by CU-161 (curve-of-growth water refit, commit `0aebdda`) — this scenario's committed sweep numbers still show the pre-fix model; re-run the script for current behavior. The visibility-axis validation stands.

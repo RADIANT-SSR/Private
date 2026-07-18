@@ -156,3 +156,5 @@ note records the accuracy context. Anchor: `modtran/real_runs/F1.tp7`.
   emitted-vs-reflected crossover for terrestrial temperatures sits inside
   3–5 µm, so a 295 K surface in-band is emission-dominated but only modestly
   (×5), while LWIR is overwhelmingly emission-dominated (×986).
+
+**Postscript (2026-07-18):** both band errors documented above (MWIR 2.2× too absorbing, LWIR 1.23× too transparent) were fixed by CU-161 (commit `0aebdda`); committed numbers reflect the pre-fix model — re-run for current behavior.

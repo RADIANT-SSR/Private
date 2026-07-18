@@ -303,3 +303,5 @@ comparison script in the session record for commit-linked provenance.
    absorption, so the transmission penalty at off-nadir would be more severe
 4. **Request RADIANT add off-nadir GSD** (Gap 33) so the full chain gives
    correct NIIRS at any look angle without manual correction
+
+**Postscript (2026-07-18):** CU-161 (commit `0aebdda`) recalibrated the gas/water optical depths; the absolute-OD excess noted above is reduced in the IR bands (VIS aerosol untouched). Committed numbers reflect the pre-fix model.

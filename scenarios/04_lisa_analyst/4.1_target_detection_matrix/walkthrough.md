@@ -190,3 +190,5 @@ scenario-side and fixed here:
    rate is the operational figure of merit
 4. **Vary target temperature by time-of-day** (scenario 4.4) — the thermal
    contrast that drives sub-pixel detection swings diurnally
+
+**Postscript (2026-07-18):** the condition-axis distortion documented above was fixed by CU-161 (commit `0aebdda`) — the recalibrated model's climate spread matches real MODTRAN's. The committed 144-cell matrix still shows the pre-fix model; re-run for current behavior.

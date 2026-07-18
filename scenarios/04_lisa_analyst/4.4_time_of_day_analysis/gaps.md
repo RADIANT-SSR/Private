@@ -54,3 +54,14 @@ extended differential — build the background reference frame whenever
   detectability actually vanishes) is offset ~1 h from the temperature
   crossover. A scenario that only tracked ΔT = 0 would mis-time the
   washout.
+
+---
+
+## Real-data validation (2026-07-17)
+
+The "MODTRAN would change absolute signals but not the crossover
+structure" claim was tested against the real run set: structure holds
+exactly (τ cannot move the contrast null; crossover count unchanged),
+and the real ~7× larger downwelling sky radiance (CU-155) shifts the
+crossover *times* by ≈ ±10 min via the Δε-weighted sky-reflection
+term. Conclusions stand. See the walkthrough's validation note.

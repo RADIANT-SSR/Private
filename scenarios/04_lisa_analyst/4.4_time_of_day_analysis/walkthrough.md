@@ -118,6 +118,37 @@ the *temperature* crossover would mis-time the washout by ~1 hour; the
 
 ---
 
+## Real-MODTRAN validation note (added 2026-07-17)
+
+This walkthrough's Physics note claimed *"a MODTRAN LWIR path would
+change absolute signals but not the crossover structure."* The real
+MODTRAN 6 run set (2026-07-17) lets that claim be tested rather than
+asserted. Result: **the claim holds, with a quantified refinement.**
+
+- **Structure: exactly right, and provably so for the τ part.** The
+  differenced contrast is C(t) = τ·[ε_t·B(T_t) − ε_b·B(T_b) +
+  (ε_b−ε_t)·L_sky] — transmittance multiplies the bracket and cannot
+  move its zeros. The only atmosphere term that *can* shift a crossover
+  is the sky-reflection term, weighted by Δε = 0.03.
+- **Timing: real downwelling shifts the crossovers ≈ ±10 min.** The
+  real hemispheric sky radiance (up-looking H2 run, band 8–12 µm:
+  6.64 W/m²/sr) is ~7× the simple model's (0.95 W/m²/sr — CU-155).
+  Re-solving the radiance-crossover times on this scenario's own
+  diurnal profile: morning 05:21 → 05:10 (−11 min), evening 18:37 →
+  18:47 (+10 min). Crossover *count* is unchanged (2/day in all cases:
+  no-sky, simple sky, real sky).
+- **Interpretation:** the wash-out windows Lisa plans around move by
+  ~10 minutes when the sky term is corrected — within the slack any
+  real collection plan carries, so the scenario's conclusions stand.
+  The direction is physical: a brighter sky raises the less-emissive
+  target's apparent radiance, so the (hotter-background) morning
+  crossing arrives earlier and the evening one later.
+
+Numbers not re-baselined into the Results section (the scenario runs
+the parametric model deliberately); this note records the real-data
+accuracy context. Sky-radiance source: `modtran/real_runs/H2.tp7` via
+`Tape7Reader`; CU-155 documents the simple-model downwelling deficit.
+
 ## Assumptions & fragility
 
 - The diurnal profile is a smooth two-sinusoid model; real surfaces show

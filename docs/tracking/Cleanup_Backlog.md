@@ -30,25 +30,6 @@
 **Why it still matters**: the shipped fan is a committed runtime capability; a knowable, fixable −4% band-τ bias at off-node zenith queries is worth removing, and the fix is a coordinate transform, not new data.
 **Suggested fix**: (b) small stand-alone task — interpolate over `sec(path_zenith_rad)` (transform at query/construction time) in both `family_interpolate` and `InterpolatedAtmosphere` (or document a recommended `airmass` axis convention for angle grids). Guard with the 8.1 holdout numbers as a test. Results-affecting for off-node fan queries (CHANGELOG on landing). Effort S; category C.
 
-### CU-159 — Six bare built-in `raise`s in GUI widgets trip the Rule-15 tree scan
-
-**Discovered**: MODTRAN closeout pre-completion gate run, 2026-07-17 — `tests/test_exceptions.py::TestNoBareBuiltinRaises::test_source_tree_is_clean` fails on committed pre-session GUI code (landed across `15a2d2b` spectral tables, `7a3ee2f` sweep dialog, `4dc3a54` import previews; unrelated to the MODTRAN work).
-**Status**: Open — CI-gate breakage in the GUI track.
-**File**: `src/radiant/gui/widgets/spectral_table_dialog.py:54,58`, `sweep_dialog.py:243,246,279`, `import_preview_dialog.py:56`.
-**Symptom**: the Rule-15 enforcement test lists six `raise ValueError`-class offenders; the full-suite gate cannot go green on this branch.
-**Why it still matters**: Rule 15 requires RADIANT exceptions (actionable, `RadiantError`-derived) in library code; the scan is the CI enforcement for it (CU-043 lineage). Whether these six are user-input validation (must convert) or internal invariants (may become asserts/internal errors per the widget contract) needs the GUI owner's call.
-**Suggested fix**: (a) inline-fix-now for the GUI track — convert to an appropriate `RadiantError` subclass (or restructure the dialog validation to surface via the GUI's message path). Effort S; category A. Same gate-hygiene family as CU-158.
-
-### CU-158 — Gate breakage from `6f71722` (GUI from-scratch fix): broken import contract + stale CLI test
-
-**Discovered**: MODTRAN closeout pre-completion gate run, 2026-07-17 (both defects landed earlier in `6f71722`, the GUI from-scratch workflow fix — unrelated to the MODTRAN work; GUI area also carries uncommitted owner working-tree changes, so not touched by this push).
-**Status**: Open — CI-gate breakage, one root commit, two symptoms.
-**File**: `src/radiant/gui/tests/test_from_scratch.py:26` and `src/radiant/cli/tests/test_gui_cli.py:60`.
-**Symptom (1)**: `lint-imports` reports "5 kept, 1 broken" — `radiant.gui.tests.test_from_scratch` does `from radiant.cli.gui import _load_sensor`, violating the import table (gui may import `radiant.api` + `radiant.core` only; cli imports gui lazily, never the reverse).
-**Symptom (2)**: `test_gui_cli.py::TestGuiSubcommand::test_launches_with_no_config` fails — `6f71722` changed the no-config CLI loader to hand the GUI a *blank Sensor* (the from-scratch workflow), but this older CLI test still asserts the pre-change contract (`launch_gui(None)`).
-**Why it still matters**: both the import contract and the test suite are CI-enforced; any PR from this branch trips them regardless of its content (this MODTRAN push's suites are otherwise green: 3633 passed, this single unrelated failure).
-**Suggested fix**: (a) inline-fix-now for whoever owns the GUI area — move the loader assertion into a `cli`-side test (or lift `_load_sensor` to a layer both may import), and update `test_launches_with_no_config` to the blank-Sensor contract. Effort S; category A.
-
 ### CU-157 — Wire MODTRAN flux-file downwelling into the tape7-import path (`atmosphere.modtran.flux_path`)
 
 **Discovered**: Gap 38 closeout work, 2026-07-17 — the reader exists (`ModtranFluxReader`, CU-154) and the owner's sourcing decision is ratified (gaps.md Gap 38), but nothing consumes the flux data in the chain yet.
@@ -476,6 +457,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-159 — Six bare built-in `raise`s in GUI widgets trip the Rule-15 tree scan — RESOLVED 2026-07-17 (commit `06e029d`)
+
+**Discovered**: MODTRAN closeout gate run, 2026-07-17 (offenders landed in `15a2d2b`/`7a3ee2f`/`4dc3a54`). **Resolution** (owner cleared the GUI area for the fix): all six sites — `spectral_table_dialog.py` paste-parse (2), `sweep_dialog.py` axis validation (3), `import_preview_dialog.py` kind guard (1) — now raise the pre-existing `radiant.gui.errors.GuiValidationError` (RadiantError + ValueError co-inherit, Rule 15 carve-out), so every `except ValueError` call site is behavior-identical. Exceptions tree-scan green (29 passed); 494 GUI tests pass.
+
+### CU-158 — Gate breakage from `6f71722` (GUI from-scratch fix): broken import contract + stale CLI test — RESOLVED 2026-07-17 (commit `06e029d`)
+
+**Discovered**: MODTRAN closeout gate run, 2026-07-17 (both defects from `6f71722`). **Resolution**: (1) the CLI-loader blank-Sensor assertion moved from `gui/tests/test_from_scratch.py` to `cli/tests/test_gui_cli.py::test_loader_returns_blank_sensor_for_no_config` — gui (tests included) no longer imports `radiant.cli`; import-linter reports 6/6 contracts kept. (2) `test_launches_with_no_config` updated to the from-scratch contract: `radiant gui` with no config hands `launch_gui` a blank editable `Sensor` (asserted blank via `inputs() == {}`), not `None`.
 
 ### CU-154 — `Tape7Reader` did not support the MODTRAN 6 underscore-header tape7 variant — RESOLVED 2026-07-17 (commit `e69d0a6`)
 

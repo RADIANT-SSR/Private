@@ -1189,7 +1189,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-15), 2026-07-11 |
-| **Status** | FIXED (2026-07-16, Tier-2 FW-A, commit `90aa515`) — `radiant.api.compare.compare_configs` (aligned union-of-metrics matrix over pre-evaluated results; units from the metric registry; deltas vs a chosen baseline; conservative best-per-metric marks; `ComparisonError` on misuse). The GUI comparison view (GT-3) consumes it. SCNR + detection range had already split out under Gap 77. |
+| **Status** | OPEN — deferred to GUI-phase surfacing (2026-07-11 plan decision); SCNR + detection range split out and landed under Gap 77. Stays out of Tier-2 (needs its own study-inputs charter — see the Trade-Study plan §2.3). |
 | **Description** | `performance/roc.py`, `johnson_criteria.py`, `nedl.py`, `nedr.py`, `minimum_resolvable.py` (MRC branch), `detectivity.py`, `nep_*.py`, `noise_equivalent_irradiance.py`, `blip_rate.py`, `dark_crossover_rate.py`, `temperature_retrieval.py` are consumed only by tests and scenario scripts — never wired into PerformanceStage or `result.metrics`. No Pd-vs-range or contrast-limited DRI composition exists. **Deferral rationale**: each of these needs a study-specific input the chain does not carry (Pfa for Pd/ROC; target dimensions + a resolution criterion for Johnson DRI; scene reflectance for NEΔρ; an electrical bandwidth for D\*/NEP/NEI). Surfacing them well means defining those inputs — a natural GUI-phase task where the study parameters are entered — rather than guessing defaults now. The two members that DO have clean in-chain inputs (SCNR, point-source detection range) were split out and landed under Gap 77. |
 | **Impact** | Analyst persona outputs (Pd at Pfa, DRI ranges, confidence-level ranges) and detector-trade numbers (BLIP T, crossover T, NEI) require re-derivation by every user; GUI has no reachable entry point. |
 | **Workaround** | Import the library functions script-side (scenarios 4.x/6.x/2.x pattern). |
@@ -1199,7 +1199,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-17), 2026-07-11 — demanded by Sarah 1.3, Raj 3.3, Lisa 4.1, Chen 6.1 |
-| **Status** | OPEN |
+| **Status** | FIXED (2026-07-16, Tier-2 FW-A, commit `90aa515`) — `radiant.api.compare_configs`: aligned union-of-metrics matrix over pre-evaluated (label, ChainResult) pairs; registry units; deltas vs a chosen baseline; conservative best-per-metric marks; `to_table()`; `ComparisonError` on misuse. The GT-3 GUI comparison view (`58dd0ac`) consumes it. Sweep-level warning aggregation and constrained two-axis sweeps remain per-script (not re-scoped into this fix). |
 | **Description** | No supported pattern for evaluating N sensor configs and diffing metrics as a table/compliance matrix; no sweep-level warning aggregation (~25 identical warnings across a 13×11 grid bury the one that matters); constrained two-axis sweeps (aperture×altitude at fixed GSD with focal length re-derived per point) are hand-rolled per scenario. |
 | **Impact** | The dominant workflow shape for three personas is unsupported boilerplate; the GUI comparison table and matrix views have no backend primitive. |
 | **Workaround** | Per-script config dicts + hand-built tables. |

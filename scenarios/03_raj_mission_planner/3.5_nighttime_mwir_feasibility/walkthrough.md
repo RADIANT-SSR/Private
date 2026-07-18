@@ -112,6 +112,38 @@ with wide margin and is fully solar-independent; LWIR is the stronger band.
 
 ---
 
+## Real-MODTRAN validation note (added 2026-07-17)
+
+Run F1 of the real MODTRAN 6 set (2026-07-17) is this scenario's exact
+atmosphere geometry — 3 km airborne sensor, nadir, tropical — making
+3.5 the only scenario with a geometry-exact real anchor. Band-mean
+total transmittance:
+
+| Band | Real F1 τ [-] | Simple τ [-] | real/simple |
+|---|---|---|---|
+| MWIR 3.5–5.0 µm | 0.529 | 0.240 | **2.20×** (simple too absorbing — CU-161 water over-response on the 4.1 cm column) |
+| LWIR 8–12 µm | 0.539 | 0.665 | **0.81×** (simple too transparent — missing e-type H₂O continuum, CU-155/CU-161 addendum) |
+
+Consequences for this walkthrough's conclusions (first-order, scaling
+contrast SNR by the τ ratio; path-radiance/noise terms shift it
+somewhat):
+
+- **MWIR contrast SNR ≈ 26 modeled → ≈ 58 with the real atmosphere; LWIR
+  ≈ 134 → ≈ 108.** The night-MWIR feasibility verdict *strengthens* —
+  the real tropical atmosphere is twice as kind to the MWIR as the
+  parametric model claimed.
+- **The MWIR-vs-LWIR comparison narrows from ~5:1 to ~2:1.** The
+  qualitative ordering (LWIR still ahead for a 7 K scene) survives, but
+  the margin this walkthrough quotes overstates LWIR's advantage —
+  both of the parametric model's water errors (MWIR too absorbing,
+  LWIR too transparent) pushed the same direction in the ratio.
+- Directionally consistent with scenario 6.2 (tropical is the simple
+  model's worst profile) — but measured here at the scenario's own
+  3 km column rather than the full column.
+
+Numbers not re-baselined (parametric-workflow demonstration); this
+note records the accuracy context. Anchor: `modtran/real_runs/F1.tp7`.
+
 ## Truth anchors
 
 - **Contrast-reference metric = two-run differencing** to the digit when

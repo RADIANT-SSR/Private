@@ -71,3 +71,13 @@ extended differential) were closed by prior work and are consumed; the two
 genuinely-missing capabilities (tropical humidity coupling, GeoTIFF reader)
 plus the solar-mode gap are filed (Gaps 57–59), and the saturation
 interaction is CU'd.
+
+---
+
+## Real-data validation (2026-07-17)
+
+Real F1 (geometry-exact anchor: 3 km nadir tropical) shows simple 2.2×
+too absorbing in MWIR and 1.23× too transparent in LWIR — the
+night-MWIR verdict strengthens (first-order MWIR contrast SNR ~26→~58)
+and the MWIR-vs-LWIR margin narrows ~5:1→~2:1. See the walkthrough's
+validation note; model defect consolidated in CU-161 (+ addendum).

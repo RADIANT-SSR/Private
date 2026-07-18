@@ -87,28 +87,30 @@ class TestLogTauInterpolation:
 
     @pytest.mark.level0
     def test_midpoint_is_geometric_mean(self, wl: np.ndarray) -> None:
-        """At the midpoint of two zenith values, tau should be the
-        geometric mean: tau_mid = sqrt(tau_0 * tau_1).
+        """On a zenith axis, log-tau interpolates linearly in AIRMASS
+        sec(θ), not the angle itself (CU-160 — key equation):
 
-        This is the key equation for log-tau interpolation:
-            ln(tau_mid) = 0.5 * ln(tau_0) + 0.5 * ln(tau_1)
-            tau_mid = exp(0.5 * ln(tau_0) + 0.5 * ln(tau_1))
-                    = (tau_0 * tau_1)^0.5
+            f = (sec θ_q − sec θ_0) / (sec θ_1 − sec θ_0)
+            ln τ(θ_q) = (1 − f)·ln τ_0 + f·ln τ_1
+            τ(θ_q) = τ_0^(1−f) · τ_1^f
         """
         tau_0 = 0.9 * np.ones_like(wl)
         tau_1 = 0.4 * np.ones_like(wl)
-        expected_tau = np.sqrt(tau_0 * tau_1)
+        theta_0, theta_1, theta_q = 0.0, 1.0, 0.5
+        sec = lambda t: 1.0 / np.cos(t)  # noqa: E731
+        frac = (sec(theta_q) - sec(theta_0)) / (sec(theta_1) - sec(theta_0))
+        expected_tau = tau_0 ** (1.0 - frac) * tau_1**frac
 
         points = [
-            _make_point({"path_zenith_rad": 0.0}, wl, tau_0),
-            _make_point({"path_zenith_rad": 1.0}, wl, tau_1),
+            _make_point({"path_zenith_rad": theta_0}, wl, tau_0),
+            _make_point({"path_zenith_rad": theta_1}, wl, tau_1),
         ]
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
         geom = AtmosphericGeometry(
             sensor_altitude_m=10_000.0,
             target_altitude_m=0.0,
-            path_zenith_rad=0.5,  # midpoint
+            path_zenith_rad=theta_q,
             solar_zenith_rad=0.3,
         )
         result = model.build_state(wl, geom)
@@ -120,8 +122,43 @@ class TestLogTauInterpolation:
         )
 
     @pytest.mark.level0
+    def test_beer_lambert_exact_on_zenith_axis(self, wl: np.ndarray) -> None:
+        """The marquee CU-160 property: if the nodes follow Beer-Lambert
+        exactly — τ(θ) = τ_vert^sec(θ) — then airmass-space log-τ
+        interpolation reproduces Beer at EVERY query angle, not just the
+        nodes. (Linear-in-angle interpolation cannot do this; it carried
+        a measured ~−4% in-band bias at the real B-fan midpoint.)"""
+        tau_vert = 0.7
+        thetas = (0.0, np.radians(30.0), np.radians(60.0))
+        sec = lambda t: 1.0 / np.cos(t)  # noqa: E731
+        points = [
+            _make_point(
+                {"path_zenith_rad": th}, wl, (tau_vert ** sec(th)) * np.ones_like(wl)
+            )
+            for th in thetas
+        ]
+        model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+
+        for query_deg in (15.0, 37.5, 45.0, 52.0):
+            theta_q = np.radians(query_deg)
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=10_000.0,
+                target_altitude_m=0.0,
+                path_zenith_rad=theta_q,
+                solar_zenith_rad=0.3,
+            )
+            result = model.build_state(wl, geom)
+            np.testing.assert_allclose(
+                result.transmittance.values,
+                tau_vert ** sec(theta_q),
+                rtol=1e-10,
+                err_msg=f"Beer-Lambert not reproduced at {query_deg} deg",
+            )
+
+    @pytest.mark.level0
     def test_quarter_point_interpolation(self, wl: np.ndarray) -> None:
-        """At 1/4 of the way between two points:
+        """Altitude axes have no angle transform — plain log-τ linear in
+        the coordinate. At 1/4 of the way between two points:
         ln(tau) = 0.75 * ln(tau_0) + 0.25 * ln(tau_1)
         tau = tau_0^0.75 * tau_1^0.25
         """
@@ -130,14 +167,14 @@ class TestLogTauInterpolation:
         expected_tau = tau_0**0.75 * tau_1**0.25
 
         points = [
-            _make_point({"path_zenith_rad": 0.0}, wl, tau_0),
-            _make_point({"path_zenith_rad": 1.0}, wl, tau_1),
+            _make_point({"target_altitude_m": 0.0}, wl, tau_0),
+            _make_point({"target_altitude_m": 1000.0}, wl, tau_1),
         ]
-        model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+        model = InterpolatedAtmosphere(points, axes=["target_altitude_m"])
 
         geom = AtmosphericGeometry(
             sensor_altitude_m=10_000.0,
-            target_altitude_m=0.0,
+            target_altitude_m=250.0,
             path_zenith_rad=0.25,
             solar_zenith_rad=0.3,
         )
@@ -151,20 +188,21 @@ class TestLogTauInterpolation:
 
     @pytest.mark.level0
     def test_lpath_interpolation_is_linear(self, wl: np.ndarray) -> None:
-        """L_path should be interpolated linearly (not in log space)."""
+        """L_path interpolates linearly (not log) — checked on an altitude
+        axis where the coordinate is untransformed."""
         lp_0 = 0.01 * np.ones_like(wl)
         lp_1 = 0.05 * np.ones_like(wl)
         expected_lp = 0.03 * np.ones_like(wl)  # midpoint
 
         points = [
-            _make_point({"path_zenith_rad": 0.0}, wl, np.ones_like(wl), lp_0),
-            _make_point({"path_zenith_rad": 1.0}, wl, np.ones_like(wl), lp_1),
+            _make_point({"target_altitude_m": 0.0}, wl, np.ones_like(wl), lp_0),
+            _make_point({"target_altitude_m": 1000.0}, wl, np.ones_like(wl), lp_1),
         ]
-        model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+        model = InterpolatedAtmosphere(points, axes=["target_altitude_m"])
 
         geom = AtmosphericGeometry(
             sensor_altitude_m=10_000.0,
-            target_altitude_m=0.0,
+            target_altitude_m=500.0,
             path_zenith_rad=0.5,
             solar_zenith_rad=0.3,
         )
@@ -175,6 +213,21 @@ class TestLogTauInterpolation:
             expected_lp,
             rtol=1e-10,
         )
+
+    @pytest.mark.level0
+    def test_horizon_zenith_node_refused(self, wl: np.ndarray) -> None:
+        """sec(θ) diverges at the horizon: a zenith NODE at
+        ≥ _MAX_ZENITH_RAD is refused at construction (CU-160 guard).
+        A horizon-ward QUERY beyond the node range is already caught by
+        the ordinary no-extrapolation bounds check."""
+        from radiant.atmosphere.errors import AtmosphereValidationError
+
+        points = [
+            _make_point({"path_zenith_rad": 0.0}, wl, 0.9 * np.ones_like(wl)),
+            _make_point({"path_zenith_rad": 1.56}, wl, 0.4 * np.ones_like(wl)),
+        ]
+        with pytest.raises(AtmosphereValidationError, match="airmass"):
+            InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
 
 
 # ---------------------------------------------------------------------------

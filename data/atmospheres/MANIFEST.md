@@ -97,6 +97,14 @@ to interpolate honestly, so they ship as point data for validating the
 θ×h_tgt coupling of any future partial-column model. H1 is the nadir
 up-looking downwelling anchor (H2's 48.2° sibling).
 
+## Interpolation-space note (CU-160, 2026-07-17)
+
+`InterpolatedAtmosphere` interpolates zenith-angle axes in **airmass
+sec(θ) space** (internally; coordinates stay in radians). For the
+`us_standard_zenith_fan/` this reproduces Beer-Lambert exactly between
+nodes — validated by a 45° holdout against the real node (−0.1%
+band-mean τ, vs −4% under the earlier linear-in-angle axis).
+
 ## Known limitations (recorded per plan §7.2)
 
 - **Grid-match requirement (CU-156):** `InterpolatedAtmosphere.build_state`

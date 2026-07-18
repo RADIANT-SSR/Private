@@ -126,6 +126,49 @@ class TestShippedZenithFan:
         # Between the 30° (0.8257) and 45° (0.7925) node values.
         assert 0.7925 < tau_37 < 0.8257
 
+    def test_airmass_interpolation_holdout_45deg(self) -> None:
+        """CU-160 acceptance on committed data: build the fan from ONLY the
+        30° and 60° nodes, query 45°, and compare against the real 45° node
+        (zen45.npz) held out as truth. Airmass-space interpolation lands
+        within 0.5% band-mean τ (measured −0.1%); the pre-CU-160
+        linear-in-angle axis was −4%."""
+        points = []
+        for name in ("zen30", "zen60"):
+            npz_file = _LIB / "us_standard_zenith_fan" / f"{name}.npz"
+            data = np.load(npz_file, allow_pickle=True)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                tab = TabulatedAtmosphere.from_npz(npz_file)
+            points.append(
+                GeometryPoint(
+                    coordinates=data["geometry"].item(),
+                    transmittance=tab.transmittance_data,
+                    path_radiance=tab.path_radiance_data,
+                    atm_emission_down=tab.atm_emission_down_data,
+                )
+            )
+        fan_2node = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=np.radians(45.0),
+            solar_zenith_rad=0.5,
+            solar_azimuth_rad=0.0,
+        )
+        predicted = fan_2node.build_state(fan_2node.wavelength_um, geom)
+        wl = fan_2node.wavelength_um
+        tau_pred = _band_mean(wl, predicted.transmittance.values, 3.5, 5.0)
+
+        truth = TabulatedAtmosphere.from_npz(_LIB / "us_standard_zenith_fan" / "zen45.npz")
+        tau_true = _band_mean(
+            truth.transmittance_data.wavelength_um, truth.transmittance_data.values, 3.5, 5.0
+        )
+        assert tau_pred == pytest.approx(tau_true, rel=5e-3), (
+            f"45° holdout: predicted {tau_pred:.4f} vs real node {tau_true:.4f} — "
+            "airmass-space interpolation (CU-160) should land within 0.5%"
+        )
+
     def test_refuses_extrapolation_beyond_60deg(self) -> None:
         from radiant.atmosphere.errors import AtmosphereValidationError
 

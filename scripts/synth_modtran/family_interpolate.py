@@ -53,12 +53,35 @@ class Family:
     run_ids: tuple[str, ...]
     axis_values: tuple[float, ...]
     fixed_geometry: str  # human-readable description of what's held constant
+    # Interpolation-space transform for the axis (CU-160): "sec_deg" maps a
+    # zenith angle [deg] to airmass sec(θ) before computing the bracket
+    # fraction — optical depth scales with airmass, not angle, so log-τ
+    # linear in sec(θ) reproduces Beer-Lambert exactly (validated against
+    # the real B-fan 45° holdout: −0.10% vs −4.07% linear-in-angle).
+    axis_transform: str | None = None
 
     def __post_init__(self) -> None:
         if len(self.run_ids) != len(self.axis_values):
             raise ValueError(f"Family {self.name}: run_ids and axis_values length mismatch")
         if list(self.axis_values) != sorted(self.axis_values):
             raise ValueError(f"Family {self.name}: axis_values must be ascending")
+
+    def to_interp_space(self, value: float) -> float:
+        """Map an axis value to its interpolation space (CU-160)."""
+        if self.axis_transform is None:
+            return value
+        if self.axis_transform == "sec_deg":
+            import math
+
+            if not 0.0 <= value < 88.8:
+                raise FamilyInterpolationError(
+                    f"Family {self.name}: zenith {value}° outside [0, 88.8) — "
+                    "sec(θ) diverges at the horizon."
+                )
+            return 1.0 / math.cos(math.radians(value))
+        raise FamilyInterpolationError(
+            f"Family {self.name}: unknown axis_transform {self.axis_transform!r}"
+        )
 
 
 # Hand-curated from docs/plans/modtran_run_matrix.csv. Only families with
@@ -74,6 +97,7 @@ FAMILIES: dict[str, Family] = {
         run_ids=("A1", "B1", "B2", "B3"),
         axis_values=(0.0, 30.0, 45.0, 60.0),
         fixed_geometry="us_standard profile, sensor_altitude=100km, target_altitude=0km",
+        axis_transform="sec_deg",
     ),
     "altitude_ladder_stratospheric": Family(
         name="altitude_ladder_stratospheric",
@@ -158,7 +182,12 @@ def interpolate_family(
     # Bracket.
     hi_idx = next(i for i, v in enumerate(values) if v > query_value)
     lo_idx = hi_idx - 1
-    frac = (query_value - values[lo_idx]) / (values[hi_idx] - values[lo_idx])
+    # Bracket fraction in the axis's interpolation space (CU-160): airmass
+    # sec(θ) for zenith families, identity otherwise.
+    q_t = family.to_interp_space(query_value)
+    lo_t = family.to_interp_space(values[lo_idx])
+    hi_t = family.to_interp_space(values[hi_idx])
+    frac = (q_t - lo_t) / (hi_t - lo_t)
 
     wl_lo, trans_lo, lp_lo = _load_tape7(family.run_ids[lo_idx])
     wl_hi, trans_hi, lp_hi = _load_tape7(family.run_ids[hi_idx])

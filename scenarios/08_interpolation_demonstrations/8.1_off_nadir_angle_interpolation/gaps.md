@@ -49,7 +49,7 @@ remains the loud fallback). The new holdout test — predict the real
 45° run from 30°+60° — validated the method (−4.07% vs +6.84% for
 nearest-neighbor) and surfaced a quantified improvement:
 
-### Interpolation axis should be airmass sec(θ), not angle — CU-160
+### Interpolation axis should be airmass sec(θ), not angle — CU-160 (RESOLVED same day)
 **Severity:** Low-Medium (knowable −4% in-band τ bias at off-node
 zenith queries; affects `family_interpolate` and the shipped
 `data/atmospheres/us_standard_zenith_fan/` through
@@ -58,3 +58,9 @@ zenith queries; affects `family_interpolate` and the shipped
 the real 45° run to −0.10% (vs −4.07% linear-in-angle).
 **Fix:** coordinate transform at the axis, no new data; mirrored to
 `docs/tracking/Cleanup_Backlog.md` CU-160.
+
+**Resolution (2026-07-17):** landed in both `family_interpolate`
+(`axis_transform="sec_deg"` on the zenith fan) and
+`InterpolatedAtmosphere` (zenith axes auto-transform to sec θ), with
+Level-0 Beer-exactness tests and a committed-library 45° holdout test.
+This scenario's figures/tables regenerated with the method live.

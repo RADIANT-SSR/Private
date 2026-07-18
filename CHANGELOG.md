@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting (off-node zenith queries only): `InterpolatedAtmosphere` and the
+  run-matrix family interpolator now interpolate zenith-angle axes in airmass sec(θ) space
+  (CU-160).** Optical depth scales with airmass, so log-τ linear in sec(θ) is Beer-Lambert-
+  exact between nodes; the previous linear-in-angle axis carried a measured −4% in-band τ
+  bias at fan midpoints. Direction/magnitude: mid-angle zenith queries of angle-gridded data
+  (e.g. the shipped `us_standard_zenith_fan/`) gain up to ~+4% band-mean τ, converging on the
+  real MODTRAN holdout truth (45° from 30°/60°: −0.10% vs −4.07%). Node queries are unchanged.
+  Zenith nodes ≥ ~88.8° are now refused (sec diverges at the horizon). Level-0 Beer-exactness
+  tests + a committed-library holdout test pin the property.
 - **Scenario 8.1 (off-nadir interpolation) upgraded to the real MODTRAN 6 zenith fan**, adding a
   holdout validation of the interpolation method itself: predicting the real 45° run from its
   30°/60° neighbors lands −4.07% (log-τ linear in angle) vs +6.84% for nearest-neighbor — and

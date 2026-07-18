@@ -148,9 +148,10 @@ def main() -> None:
         # Nearest-neighbor "prediction" of 45 deg would grab 30 or 60.
         tau_nn_30 = float(np.mean(tau_b1[hold_mask]))
         nn_err_pct = 100.0 * (tau_nn_30 - tau_true) / tau_true
-        # Airmass-space alternative (CU-160): optical depth scales with
-        # airmass = sec(zenith), so interpolating log-tau linearly in
-        # sec(theta) rather than theta is the physically exact axis.
+        # Airmass-space (CU-160, now THE method in family_interpolate and
+        # InterpolatedAtmosphere): optical depth scales with airmass =
+        # sec(zenith); the linear-in-angle blend is kept for the
+        # before/after comparison.
         sec = lambda d: 1.0 / math.cos(math.radians(d))  # noqa: E731
         frac_sec = (sec(45.0) - sec(30.0)) / (sec(60.0) - sec(30.0))
         tau_sec = np.exp(
@@ -162,12 +163,12 @@ def main() -> None:
         print("=== Holdout validation: predict the 45 deg run from 30 + 60 deg ===")
         print(f"  Real 45 deg (B2) in-band tau [-]:         {tau_true:.4f}")
         print(
-            f"  Log-tau, linear in angle (the method):    {tau_pred:.4f}  "
+            f"  Log-tau, linear in angle (pre-CU-160):    {tau_pred:.4f}  "
             f"({holdout_err_pct:+.2f}%)"
         )
         print(
-            f"  Log-tau, linear in airmass sec(theta):    {tau_sec_pred:.4f}  "
-            f"({sec_err_pct:+.2f}%)  <- CU-160"
+            f"  Log-tau, linear in airmass (the method):  {tau_sec_pred:.4f}  "
+            f"({sec_err_pct:+.2f}%)  <- CU-160 landed"
         )
         print(f"  Nearest-neighbor (30 deg) for reference:  {tau_nn_30:.4f}  ({nn_err_pct:+.2f}%)")
         print("  => the method's real-data credential for the 37.5 deg query below.\n")

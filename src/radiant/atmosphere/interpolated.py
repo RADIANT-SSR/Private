@@ -13,6 +13,17 @@ Interpolation strategy
   ln(tau) space preserves this linearity.  Values are clamped to
   ``[TAU_FLOOR, 1.0]`` before taking the log to avoid ``-inf``.
 
+- **Zenith-angle axes interpolate in airmass space** (CU-160):
+  ``path_zenith_rad`` / ``solar_zenith_rad`` coordinates are mapped
+  θ → sec(θ) before interpolation, completing the same Beer-Lambert
+  motivation — the path length along a zenith axis is ∝ sec(θ), so
+  log-τ linear in sec(θ) reproduces Beer exactly, where linear-in-angle
+  carried a measured ~−4% in-band τ bias at fan midpoints (real
+  MODTRAN 6 B-fan holdout, scenario 8.1).  The transform is internal:
+  user-facing coordinates, bounds, and errors stay in radians.  Angles
+  ≥ ``_MAX_ZENITH_RAD`` (≈ 88.8°) are refused — sec(θ) diverges at the
+  horizon.
+
 - **Path radiance** (L_path) and **downwelling emission** (L_atm_down):
   interpolated linearly.  These are additive quantities with no
   multiplicative structure that would benefit from log-space.
@@ -67,6 +78,41 @@ _GEOMETRY_FIELDS: frozenset[str] = frozenset(
         "solar_azimuth_rad",
     }
 )
+
+# Zenith-angle axes are interpolated in AIRMASS space, sec(θ), not in the
+# angle itself (CU-160). Optical depth scales with path length, and the
+# path length along a zenith axis is ∝ sec(θ) — so log-τ linear in sec(θ)
+# reproduces Beer-Lambert exactly, while linear-in-angle carries a ~−4%
+# in-band τ bias at fan midpoints (measured against the real MODTRAN 6
+# B-fan holdout, scenario 8.1). The transform is internal: coordinates,
+# bounds, and error messages remain in radians.
+_AIRMASS_AXES: frozenset[str] = frozenset({"path_zenith_rad", "solar_zenith_rad"})
+
+# sec(θ) diverges at the horizon; refuse angles this close to π/2 rather
+# than interpolate on an exploding coordinate (≈ 88.85°, airmass ≈ 50).
+_MAX_ZENITH_RAD: float = 1.55
+
+
+def _axis_to_interp_space(axis: str, values: np.ndarray | float) -> np.ndarray | float:
+    """Map coordinate values to the axis's interpolation space.
+
+    Zenith-angle axes map θ → sec(θ) (airmass, CU-160); all other axes
+    are identity. Raises for angles at/beyond ``_MAX_ZENITH_RAD`` where
+    sec(θ) diverges.
+    """
+    if axis not in _AIRMASS_AXES:
+        return values
+    arr = np.asarray(values, dtype=np.float64)
+    if np.any(arr < 0.0) or np.any(arr >= _MAX_ZENITH_RAD):
+        raise AtmosphereValidationError(
+            f"InterpolatedAtmosphere: axis '{axis}' value(s) outside "
+            f"[0, {_MAX_ZENITH_RAD}) rad — the airmass transform sec(θ) "
+            "diverges toward the horizon. Keep zenith angles below "
+            f"{np.degrees(_MAX_ZENITH_RAD):.1f}°, or interpolate over a "
+            "different axis."
+        )
+    result = 1.0 / np.cos(arr)
+    return float(result) if np.isscalar(values) else result
 
 
 def _extract_geometry_coord(geometry: AtmosphericGeometry, axis: str) -> float:
@@ -239,10 +285,17 @@ class InterpolatedAtmosphere:
             lpath[i, :] = pt.path_radiance.values
             ldown[i, :] = pt.atm_emission_down.values
 
+        # Original-unit coordinates: bounds reporting and hull checks stay
+        # in the user's units (radians for angles). The interpolators run
+        # on the transformed coordinates (airmass for zenith axes, CU-160).
         self._coords = coords
+        interp_coords = coords.copy()
+        for j, ax in enumerate(self._axes):
+            interp_coords[:, j] = _axis_to_interp_space(ax, coords[:, j])
 
-        # Detect structured vs scattered grid.
-        is_struct, unique_per_axis = _is_structured_grid(coords, len(self._axes))
+        # Detect structured vs scattered grid (transform is monotonic, so
+        # grid structure is preserved either way).
+        is_struct, unique_per_axis = _is_structured_grid(interp_coords, len(self._axes))
 
         if is_struct and len(self._axes) >= 1:
             self._grid_type = "regular"
@@ -251,10 +304,11 @@ class InterpolatedAtmosphere:
             # Reshape values to grid shape + n_wl for RegularGridInterpolator.
             grid_shape = tuple(len(u) for u in unique_per_axis)
 
-            # Build a mapping from coordinate tuple -> point index.
+            # Build a mapping from coordinate tuple -> point index
+            # (in interpolation space, matching unique_per_axis).
             coord_to_idx: dict[tuple[float, ...], int] = {}
             for i in range(n_pts):
-                key = tuple(float(coords[i, j]) for j in range(len(self._axes)))
+                key = tuple(float(interp_coords[i, j]) for j in range(len(self._axes)))
                 coord_to_idx[key] = i
 
             # Fill grid arrays.
@@ -293,10 +347,10 @@ class InterpolatedAtmosphere:
             )
         else:
             self._grid_type = "scattered"
-            # LinearNDInterpolator for unstructured data.
-            self._interp_log_tau = LinearNDInterpolator(coords, log_tau)
-            self._interp_lpath = LinearNDInterpolator(coords, lpath)
-            self._interp_ldown = LinearNDInterpolator(coords, ldown)
+            # LinearNDInterpolator for unstructured data (interp space).
+            self._interp_log_tau = LinearNDInterpolator(interp_coords, log_tau)
+            self._interp_lpath = LinearNDInterpolator(interp_coords, lpath)
+            self._interp_ldown = LinearNDInterpolator(interp_coords, ldown)
 
         logger.info(
             "InterpolatedAtmosphere: %d points, %d axes (%s), %s grid, %d wavelengths",
@@ -440,8 +494,16 @@ class InterpolatedAtmosphere:
                     "the query to the available range."
                 )
 
-        # Interpolate.
-        query_point = query_coords.reshape(1, -1)
+        # Interpolate — query mapped to interpolation space per axis
+        # (airmass sec(θ) for zenith axes, identity otherwise; CU-160).
+        query_interp = np.array(
+            [
+                float(np.asarray(_axis_to_interp_space(ax, query_coords[j])))
+                for j, ax in enumerate(self._axes)
+            ],
+            dtype=np.float64,
+        )
+        query_point = query_interp.reshape(1, -1)
 
         if self._grid_type == "regular":
             log_tau_interp = self._interp_log_tau(query_point)[0]
@@ -507,7 +569,8 @@ class InterpolatedAtmosphere:
             geometry=geometry,
             derivation_chain=(
                 f"InterpolatedAtmosphere({self._grid_type}, n={self.n_points}, axes={self._axes})",
-                "tau interpolated in log-space (optical depth)",
+                "tau interpolated in log-space (optical depth); "
+                "zenith axes in airmass sec(θ) space (CU-160)",
                 "L_path, L_atm_down interpolated linearly",
             ),
         )

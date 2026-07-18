@@ -24,9 +24,9 @@ interpolation method itself.
 
 1. `interpolate_family("zenith_fan_us_standard", 37.5)` locates the
    bracketing runs (B1=30°, B2=45°), interpolates
-   `log(transmittance)` linearly in zenith angle (Beer-Lambert-
-   consistent — matches `InterpolatedAtmosphere`'s own convention),
-   and linearly interpolates path radiance.
+   `log(transmittance)` linearly in **airmass sec θ** (Beer-Lambert-
+   exact — CU-160; matches `InterpolatedAtmosphere`'s convention),
+   and linearly interpolates path radiance on the same axis.
 2. For comparison, "naive nearest-neighbor" — an operator who just
    grabs the closer matrix point (45°, since 37.5° is nominally
    equidistant... **note**: 37.5 is exactly the midpoint of 30/45; the
@@ -43,20 +43,20 @@ interpolation method itself.
 | Predictor of the real 45° run | In-band τ (3.5–5.0 µm) [-] | Error |
 |---|---|---|
 | Real B2 (truth) | 0.4988 | — |
-| Log-τ, linear **in angle** (the method) | 0.4785 | **−4.07%** |
-| Log-τ, linear **in airmass sec θ** | 0.4983 | **−0.10%** |
+| Log-τ, linear **in angle** (pre-CU-160) | 0.4785 | −4.07% |
+| Log-τ, linear **in airmass sec θ** (**the method — CU-160 landed**) | 0.4983 | **−0.10%** |
 | Nearest-neighbor (30°) | 0.5329 | +6.84% |
 
 - **The method beats nearest-neighbor ~1.7×** against ground truth —
   the scenario's original claim, now validated on real MODTRAN.
-- **The −4% residual has a knowable cause and a 40× better fix**:
-  optical depth scales with *airmass* (sec θ), not angle. Interpolating
-  log-τ linearly in sec θ instead of θ reproduces the real 45° run to
-  −0.10%. This scenario's own physics note always said airmass was the
-  physical variable; the tooling just didn't use it as the axis. Filed
-  as **CU-160** (affects `family_interpolate` *and* the shipped
-  `data/atmospheres/us_standard_zenith_fan/` via
-  `InterpolatedAtmosphere`'s angle axis).
+- **The −4% angle-axis residual had a knowable cause and a 40× fix,
+  which has now landed (CU-160)**: optical depth scales with *airmass*
+  (sec θ), not angle. Both `family_interpolate` and
+  `InterpolatedAtmosphere` (and therefore the shipped
+  `data/atmospheres/us_standard_zenith_fan/`) now interpolate zenith
+  axes in sec θ space — the holdout row above is the acceptance
+  evidence, and `test_shipped_atmosphere_library.py` pins it on the
+  committed library.
 
 ---
 
@@ -66,13 +66,13 @@ interpolation method itself.
 |----------|---------------------------|---------------|
 | 30° (B1, exact) | 0.5329 | — |
 | 45° (B2, exact) | 0.4988 | — |
-| 37.5°, interpolated | 0.5153 | 554.5 |
+| 37.5°, interpolated (airmass axis, CU-160) | 0.5185 | 556.2 |
 | 37.5°, naive nearest-neighbor (45°) | 0.4988 | 545.7 |
 
 - **The interpolated point sits correctly between the two bracketing
   values and on the expected monotonic curve** (`fig1`).
-- **Nearest-neighbor error at this query point**: −3.2% transmittance,
-  −1.6% SNR — roughly 3× larger than the synthetic-era numbers
+- **Nearest-neighbor error at this query point**: −3.8% transmittance,
+  −1.9% SNR — roughly 3× larger than the synthetic-era numbers
   suggested (real MODTRAN's angle dependence in this band is stronger
   than the synthetic generator's). At 37.5° (near the family's
   midpoint) this is close to the worst case for a 15°-spaced grid.
@@ -86,10 +86,10 @@ interpolation method itself.
   linearly with the physical quantity changing (here, airmass via
   1/cos θ) — interpolating in log-τ space respects that; interpolating
   raw τ linearly would not.
-- **And why the axis should be airmass, not angle (CU-160):** the
+- **And why the axis is airmass, not angle (CU-160, landed):** the
   holdout table above is the empirical demonstration — same log-τ
-  machinery, correct physical axis, 40× smaller error. The needed
-  change is a coordinate transform, not new data.
+  machinery, correct physical axis, 40× smaller error. The change was
+  a coordinate transform, not new data.
 - **This is a 1-D interpolation problem by design** — the family holds
   every other geometry axis fixed. A genuinely multi-axis query (e.g.
   a new profile *and* a new angle simultaneously) is out of scope for
@@ -100,5 +100,5 @@ interpolation method itself.
 
 ## Gaps Identified
 
-See `gaps.md` — the angle-vs-airmass axis finding (CU-160) is the
-headline addition from the real-data upgrade.
+See `gaps.md` — the angle-vs-airmass axis finding (CU-160, since
+landed) is the headline addition from the real-data upgrade.

@@ -83,6 +83,11 @@ class AtmosphericState:
 > `interpolated` (`atmosphere/interpolated.py`, `InterpolatedAtmosphere`) — serves
 > `AtmosphericState` by interpolating between pre-computed MODTRAN runs at discrete
 > geometry points. It is file-backed (`FILE_BACKED_MODELS`, §8.1) like `tabulated`.
+> Transmittance interpolates in log-τ (optical-depth) space; **zenith-angle axes
+> additionally interpolate in airmass sec(θ) space** (CU-160) — Beer-Lambert-exact
+> between nodes, validated by a 45° holdout against the real MODTRAN B-fan (−0.1%
+> band-mean τ vs −4% under the earlier linear-in-angle axis). Zenith nodes ≥ ~88.8°
+> are refused (sec diverges at the horizon).
 > The diagram and subsections below predate it; treat `interpolated` as a sixth box
 > feeding the same single `AtmosphericState` contract.
 

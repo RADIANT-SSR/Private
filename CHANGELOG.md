@@ -20,6 +20,25 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`ModtranFluxReader` — reader for MODTRAN 6 spectral flux CSVs (CU-154).** Block E irradiance
+  runs export their direct/diffuse solar irradiance to a separate `*_flux.csv` (UP/DOWN/SOLAR per
+  altitude level), a format nothing read before. `parse()` returns per-level native flux
+  (`ModtranFluxOutput`); `to_radiant_units()` returns ground-level `(wavelength_um, e_direct,
+  e_diffuse_down)` in W/m²/µm via the same ν² Jacobian as the radiance path. Validated on the real
+  E1 run (LWIR direct beam = 0, downwelling diffuse ≈ π·B near surface, VIS direct ≈ TOA·τ·cos θ_s).
+  Not yet wired into the chain — that is the open Gap 38 decision.
+- **`Tape7Reader` now reads MODTRAN 6 tape7 output (CU-154).** The parser recognised only the
+  classic space-delimited column vocabulary (`TOT TRANS`, `PTH THRML`, `SOL SCAT`, `GRND RFLT`);
+  the first real MODTRAN run set (2026-07-17) is MODTRAN 6, whose tape7 uses underscore labels
+  (`TOT_TRANS`, `THRML_EM`, `GRND_RFLT`) and splits the combined solar-scatter column into
+  `MULT_SCAT` + `SING_SCAT`. Both vocabularies are now accepted (one reader per binary);
+  `path_scattered_radiance` uses the classic `SOL_SCAT` when present, else the `MULT_SCAT +
+  SING_SCAT` sum. MODTRAN's `-9999.` end-of-block sentinel is now detected and excluded. This is
+  the enabling change for real-MODTRAN integration (Gap 39/38, CU-011, the shipped atmosphere
+  library); the delivered 39-run matrix all parses. No change to results for existing
+  (synthetic-fixture / SimpleAtmosphere) configs.
+
 ### Fixed
 - **GUI: undoing a target-shape pick now also reverses the dimensions seeded alongside it, in one
   step (CU-141, view-only).** Picking a shape auto-seeds any still-unset required dimensions to

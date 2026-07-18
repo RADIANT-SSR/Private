@@ -20,6 +20,7 @@ import pytest
 from radiant.atmosphere.modtran import (
     ModtranAtmosphere,
     ModtranConfig,
+    ModtranFluxReader,
     ModtranUnavailableError,
     Tape7Import,
     Tape7ParseError,
@@ -134,6 +135,68 @@ def _write_realistic_tape7(
         "total_transmittance": tot_trans,
         "path_thermal_radiance": pth_thrml,
         "path_scattered_radiance": sol_scat,
+        "ground_reflected_radiance": grnd_rflt,
+    }
+
+
+def _write_modtran6_tape7(
+    path: Path, n_points: int = 20, tot_trans_value: float = 0.80
+) -> dict[str, np.ndarray]:
+    """Write a MODTRAN 6 (underscore-header) IEMSCT=2 tape7 (CU-154).
+
+    MODTRAN 6 tape7 uses single-token underscore column labels and
+    splits the classic combined ``SOL SCAT`` column into ``MULT_SCAT``
+    (multiple) + ``SING_SCAT`` (single); the expected
+    path_scattered_radiance is their sum. ``THRML_SCT`` / ``SURF_EMIS``
+    / ``DRCT_RFLT`` carry distinct decoy values that must not leak into
+    any consumed field. The block terminates with MODTRAN's ``-9999.``
+    end-of-data sentinel — a lone float that must NOT be read as a data
+    row.
+
+    Returns the per-column expected arrays keyed by RADIANT semantic
+    field name, in descending-wavenumber order.
+    """
+    nu = np.linspace(5000, 2000, n_points)  # descending, MODTRAN convention
+    tot_trans = np.full_like(nu, tot_trans_value)
+    thrml_em = np.full_like(nu, 1.0e-6)
+    thrml_sct = np.full_like(nu, 9.0e-6)  # decoy: must NOT reach path_scattered
+    surf_emis = np.full_like(nu, 8.0e-6)  # decoy: must NOT reach ground_reflected
+    mult_scat = np.full_like(nu, 2.0e-6)  # real solar multiple scatter
+    sing_scat = np.full_like(nu, 5.0e-7)  # real solar single scatter
+    grnd_rflt = np.full_like(nu, 3.0e-6)  # real ground_reflected_radiance
+    drct_rflt = np.full_like(nu, 6.0e-6)  # decoy
+    total_rad = thrml_em + thrml_sct + surf_emis + mult_scat + sing_scat + grnd_rflt
+    ref_sol = np.zeros_like(nu)
+    sol_obs = np.zeros_like(nu)
+    depth = np.full_like(nu, 30.0)
+    dir_em = np.ones_like(nu)
+    toa_sun = np.full_like(nu, 1.2e-7)
+    bbody_t = np.full_like(nu, 250.0)
+
+    lines = [
+        # Numeric card-echo lines preceding the header (must be skipped).
+        "    1    1    1    3    0    0  23.00000   0.00000   0.00000",
+        "   361976 U S STANDARD",
+        (
+            "    FREQ  TOT_TRANS   THRML_EM  THRML_SCT  SURF_EMIS  "
+            "MULT_SCAT  SING_SCAT  GRND_RFLT  DRCT_RFLT  TOTAL_RAD  "
+            "REF_SOL  SOL@OBS   DEPTH DIR_EM    TOA_SUN BBODY_T[K]"
+        ),
+    ]
+    for i in range(n_points):
+        vals = [
+            nu[i], tot_trans[i], thrml_em[i], thrml_sct[i], surf_emis[i],
+            mult_scat[i], sing_scat[i], grnd_rflt[i], drct_rflt[i], total_rad[i],
+            ref_sol[i], sol_obs[i], depth[i], dir_em[i], toa_sun[i], bbody_t[i],
+        ]
+        lines.append(" ".join(f"{v:.6e}" for v in vals))
+    lines.append("  -9999.")  # MODTRAN end-of-block sentinel
+    path.write_text("\n".join(lines))
+    return {
+        "wavenumber_cm1": nu,
+        "total_transmittance": tot_trans,
+        "path_thermal_radiance": thrml_em,
+        "path_scattered_radiance": mult_scat + sing_scat,
         "ground_reflected_radiance": grnd_rflt,
     }
 
@@ -332,8 +395,297 @@ class TestTape7ReaderNamedColumns:
             "4000.00     0.800000   1.0000e-06   2.0000e-06",
         ]
         (tmp_path / "tape7").write_text("\n".join(lines))
-        with pytest.raises(Tape7ParseError, match="missing required label"):
+        with pytest.raises(Tape7ParseError, match="missing required column"):
             Tape7Reader(tmp_path / "tape7").parse()
+
+
+class TestTape7ReaderModtran6:
+    """CU-154: MODTRAN 6 underscore-header tape7 variant.
+
+    The first real MODTRAN run set (2026-07-17) is MODTRAN 6, whose
+    tape7 uses underscore column labels ("TOT_TRANS", "THRML_EM") and
+    splits the classic combined SOL SCAT column into MULT_SCAT +
+    SING_SCAT. The pre-CU-154 reader recognised only the classic
+    space-delimited vocabulary and rejected every real file. These
+    verify the extended reader on the new vocabulary, the solar-scatter
+    summation, and the "-9999." end-of-block sentinel.
+    """
+
+    @pytest.mark.level1
+    def test_no_warning_with_underscore_header(self, tmp_path: Path) -> None:
+        """A MODTRAN 6 labeled header must NOT trip the positional-fallback
+        warning (it is a fully recognised named header)."""
+        _write_modtran6_tape7(tmp_path / "tape7")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any warning fails the test
+            native = Tape7Reader(tmp_path / "tape7").parse()
+        assert native.wavenumber_cm1.shape[0] == 20
+
+    @pytest.mark.level1
+    def test_scatter_is_mult_plus_sing(self, tmp_path: Path) -> None:
+        """path_scattered_radiance <- MULT_SCAT + SING_SCAT, not either
+        alone and not the THRML_SCT decoy."""
+        expected = _write_modtran6_tape7(tmp_path / "tape7")
+        native = Tape7Reader(tmp_path / "tape7").parse()
+        np.testing.assert_allclose(
+            native.path_scattered_radiance,
+            expected["path_scattered_radiance"],
+            rtol=1e-5,
+        )
+        # 2.0e-6 (MULT alone) and 9.0e-6 (THRML_SCT decoy) must not appear.
+        assert not np.allclose(native.path_scattered_radiance, 2.0e-6)
+        assert not np.allclose(native.path_scattered_radiance, 9.0e-6)
+
+    @pytest.mark.level1
+    def test_columns_mapped_correctly(self, tmp_path: Path) -> None:
+        """TOT_TRANS / THRML_EM / GRND_RFLT land in the right fields; the
+        SURF_EMIS (8e-6) and DRCT_RFLT (6e-6) decoys do not."""
+        expected = _write_modtran6_tape7(tmp_path / "tape7")
+        native = Tape7Reader(tmp_path / "tape7").parse()
+        np.testing.assert_allclose(
+            native.total_transmittance, expected["total_transmittance"], rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            native.path_thermal_radiance, expected["path_thermal_radiance"], rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            native.ground_reflected_radiance,
+            expected["ground_reflected_radiance"],
+            rtol=1e-5,
+        )
+        assert not np.allclose(native.ground_reflected_radiance, 8.0e-6)
+
+    @pytest.mark.level1
+    def test_sentinel_row_excluded(self, tmp_path: Path) -> None:
+        """The lone "-9999." terminator is float-parseable but must be
+        detected as a footer (column-count mismatch) and excluded."""
+        _write_modtran6_tape7(tmp_path / "tape7", n_points=12)
+        native = Tape7Reader(tmp_path / "tape7").parse()
+        assert native.wavenumber_cm1.shape[0] == 12
+        assert not np.any(native.wavenumber_cm1 == -9999.0)
+
+    @pytest.mark.level1
+    def test_missing_scatter_raises(self, tmp_path: Path) -> None:
+        """MULT_SCAT present but no SING_SCAT and no SOL_SCAT: the solar
+        scatter term is unavailable, so parsing raises (Rule 17), not
+        silently zeros."""
+        lines = [
+            "    FREQ  TOT_TRANS   THRML_EM  GRND_RFLT  MULT_SCAT",
+            "5000.0 0.80 1.0e-6 3.0e-6 2.0e-6",
+            "4000.0 0.80 1.0e-6 3.0e-6 2.0e-6",
+        ]
+        (tmp_path / "tape7").write_text("\n".join(lines))
+        with pytest.raises(Tape7ParseError, match="solar-scatter"):
+            Tape7Reader(tmp_path / "tape7").parse()
+
+
+# Real MODTRAN A1 tape7 — staged, gitignored, in modtran/real_runs/ until
+# the fixture subset is committed (MODTRAN_Run_Matrix_Plan §7.1). The
+# acceptance test below runs only where that file is present locally.
+_REAL_A1_TAPE7 = (
+    Path(__file__).resolve().parents[4] / "modtran" / "real_runs" / "A1.tp7"
+)
+
+
+@pytest.mark.skipif(
+    not _REAL_A1_TAPE7.exists(),
+    reason="real MODTRAN A1 tape7 not staged (modtran/real_runs/ is gitignored "
+    "until the fixture subset is committed — plan §7.1)",
+)
+class TestRealModtranA1:
+    """Acceptance criterion #1 (MODTRAN_Run_Matrix_Plan §8): Tape7Reader
+    round-trips >= 1 real tape7 (A1) with unit-conversion checks against
+    hand-computed values at >= 3 wavelengths.
+
+    This is the first real MODTRAN output ever exercised through the
+    parser. Anchors span LWIR (thermal-dominated), MWIR, and VIS
+    (solar-scatter-dominated) so the Jacobian and the scatter summation
+    are both checked on real data.
+    """
+
+    def test_parses_without_fallback(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # no positional-fallback warning
+            native = Tape7Reader(_REAL_A1_TAPE7).parse()
+        assert native.wavenumber_cm1.size > 20_000
+        assert np.all(np.isfinite(native.total_transmittance))
+        assert np.all(native.total_transmittance >= 0.0)
+
+    def test_ascending_ir_to_vis_range(self) -> None:
+        wl, trans, l_path, l_ground = Tape7Reader(_REAL_A1_TAPE7).to_radiant_units()
+        assert np.all(np.diff(wl) > 0.0)  # strictly ascending
+        assert wl[0] == pytest.approx(0.3750, abs=1e-3)
+        assert wl[-1] == pytest.approx(14.388, abs=1e-2)
+        assert np.all(l_path >= 0.0)
+        assert np.all((trans >= 0.0) & (trans <= 1.0))
+
+    def test_unit_conversion_hand_anchors(self) -> None:
+        """Hand-computed L(lambda) = L(nu) * nu^2 and tau passthrough at
+        three wavenumbers, verified against to_radiant_units output.
+
+        Anchor values were hand-computed offline from A1's native
+        columns; they are literal truth anchors, not recomputations of
+        the reader under test.
+        """
+        wl, trans, l_path, _ = Tape7Reader(_REAL_A1_TAPE7).to_radiant_units()
+        # (wavelength_um, transmittance, path_radiance W/m2/sr/um)
+        anchors = [
+            (14.285714, 0.000000, 2.207695e00),  # nu=700  cm-1, LWIR, thermal
+            (2.500000, 0.336426, 9.357310e-03),  # nu=4000 cm-1, MWIR
+            (0.500000, 0.599329, 4.492120e01),  # nu=20000 cm-1, VIS, scatter
+        ]
+        for lam, tau_exp, l_exp in anchors:
+            k = int(np.argmin(np.abs(wl - lam)))
+            assert wl[k] == pytest.approx(lam, rel=1e-5)
+            assert trans[k] == pytest.approx(tau_exp, abs=1e-5)
+            assert l_path[k] == pytest.approx(l_exp, rel=1e-4)
+
+
+# ---------------------------------------------------------------------------
+# Flux table reader (MODTRAN spectral flux CSV — Block E irradiance runs)
+# ---------------------------------------------------------------------------
+
+
+def _write_modtran_flux_csv(
+    path: Path, n_freq: int = 4, levels: tuple[float, ...] = (0.0, 1.0, 5.0)
+) -> dict[str, np.ndarray]:
+    """Write a MODTRAN 6 flux CSV fixture (case-brace block, num-freq /
+    num-column metadata, UP/DOWN/SOLAR triple per level, closing brace).
+
+    Each (level, kind) gets a distinct constant so column mapping is
+    observable: UP = 1e-4·(j+1), DOWN = 2e-4·(j+1), SOLAR = 3e-4·(j+1)
+    for level index j. UP is a decoy that must not reach either returned
+    irradiance.
+    """
+    nu = np.linspace(5000.0, 2000.0, n_freq)  # descending, MODTRAN convention
+    n_lev = len(levels)
+    up = np.array([1.0e-4 * (j + 1) for j in range(n_lev)])
+    down = np.array([2.0e-4 * (j + 1) for j in range(n_lev)])
+    solar = np.array([3.0e-4 * (j + 1) for j in range(n_lev)])
+
+    lines = [
+        "case index 0 = {",
+        f"num freq, {n_freq}",
+        f"num column, {3 * n_lev}",
+        ", ".join(["Freq"] + ["UP", "DOWN", "SOLAR"] * n_lev),
+        ", ".join(["[cm-1]"] + [f"{a:g} KM" for a in levels for _ in range(3)]),
+    ]
+    for i in range(n_freq):
+        vals = [nu[i]]
+        for j in range(n_lev):
+            vals += [up[j], down[j], solar[j]]
+        lines.append(", ".join(f"{v:.6e}" for v in vals))
+    lines.append("}")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return {
+        "wavenumber_cm1": nu,
+        "altitude_km": np.asarray(levels, dtype=float),
+        "flux_up": up,
+        "flux_down": down,
+        "flux_direct_solar": solar,
+    }
+
+
+class TestModtranFluxReader:
+    """CU-154 follow-on: MODTRAN 6 spectral flux CSV reader (Block E).
+
+    The E-block direct/diffuse solar irradiance lives in a separate
+    ``*_flux.csv`` export (UP/DOWN/SOLAR per altitude level), a format
+    the codebase had no reader for. These verify the structural parse,
+    the level axis, the column mapping, and the ν² unit-conversion
+    Jacobian (identical to the radiance case — no per-steradian factor).
+    """
+
+    @pytest.mark.level1
+    def test_parse_shapes_and_levels(self, tmp_path: Path) -> None:
+        _write_modtran_flux_csv(tmp_path / "flux.csv", n_freq=6)
+        native = ModtranFluxReader(tmp_path / "flux.csv").parse()
+        assert native.wavenumber_cm1.shape == (6,)
+        assert native.flux_down.shape == (6, 3)
+        np.testing.assert_allclose(native.altitude_km, [0.0, 1.0, 5.0])
+        assert native.header["num_freq"] == 6
+        assert native.header["num_column"] == 9
+
+    @pytest.mark.level1
+    def test_column_mapping_up_down_solar(self, tmp_path: Path) -> None:
+        _write_modtran_flux_csv(tmp_path / "flux.csv")
+        native = ModtranFluxReader(tmp_path / "flux.csv").parse()
+        # Ground (level 0): UP=1e-4, DOWN=2e-4, SOLAR=3e-4.
+        np.testing.assert_allclose(native.flux_up[:, 0], 1.0e-4, rtol=1e-6)
+        np.testing.assert_allclose(native.flux_down[:, 0], 2.0e-4, rtol=1e-6)
+        np.testing.assert_allclose(native.flux_direct_solar[:, 0], 3.0e-4, rtol=1e-6)
+        # Level 2 (5 km) scales by (j+1)=3.
+        np.testing.assert_allclose(native.flux_down[:, 2], 6.0e-4, rtol=1e-6)
+
+    @pytest.mark.level1
+    def test_to_radiant_units_ground_jacobian(self, tmp_path: Path) -> None:
+        """E(λ) = E(ν)·ν² at ground; e_direct <- SOLAR, e_diffuse <- DOWN,
+        never the UP decoy."""
+        _write_modtran_flux_csv(tmp_path / "flux.csv")
+        wl, e_direct, e_diffuse = ModtranFluxReader(tmp_path / "flux.csv").to_radiant_units()
+        assert np.all(np.diff(wl) > 0.0)  # ascending
+        nu = 10000.0 / wl
+        np.testing.assert_allclose(e_direct, 3.0e-4 * nu * nu, rtol=1e-5)
+        np.testing.assert_allclose(e_diffuse, 2.0e-4 * nu * nu, rtol=1e-5)
+        # UP (1e-4) must not appear in either.
+        assert not np.allclose(e_direct, 1.0e-4 * nu * nu)
+        assert not np.allclose(e_diffuse, 1.0e-4 * nu * nu)
+
+    @pytest.mark.level1
+    def test_missing_level_header_raises(self, tmp_path: Path) -> None:
+        lines = [
+            "case index 0 = {",
+            "num freq, 2",
+            "num column, 3",
+            "Freq, UP, DOWN, SOLAR",
+            "5000.0, 1e-4, 2e-4, 3e-4",
+            "}",
+        ]
+        (tmp_path / "flux.csv").write_text("\n".join(lines), encoding="utf-8")
+        with pytest.raises(Tape7ParseError, match="level-label"):
+            ModtranFluxReader(tmp_path / "flux.csv").parse()
+
+
+# Real MODTRAN E1 flux CSV — staged, gitignored, in modtran/real_runs/.
+_REAL_E1_FLUX = (
+    Path(__file__).resolve().parents[4] / "modtran" / "real_runs" / "E1_flux.csv"
+)
+
+
+@pytest.mark.skipif(
+    not _REAL_E1_FLUX.exists(),
+    reason="real MODTRAN E1 flux CSV not staged (modtran/real_runs/ is gitignored "
+    "until the fixture subset is committed — plan §7.1)",
+)
+class TestRealModtranE1Flux:
+    """Real-data validation of the flux reader on E1 (rural, θ_s=30°).
+
+    Physical anchors: in the LWIR the direct solar beam is zero and the
+    downwelling diffuse flux approaches π·B(T_near-surface); in the VIS
+    the direct beam approximates TOA solar attenuated by transmittance
+    and the solar-zenith cosine.
+    """
+
+    def test_parses_full_grid(self) -> None:
+        native = ModtranFluxReader(_REAL_E1_FLUX).parse()
+        assert native.wavenumber_cm1.size == 25_976
+        assert native.altitude_km.shape == (36,)
+        assert native.altitude_km[0] == 0.0
+        assert native.altitude_km[-1] == 100.0
+
+    def test_lwir_direct_zero_diffuse_thermal(self) -> None:
+        wl, e_direct, e_diffuse = ModtranFluxReader(_REAL_E1_FLUX).to_radiant_units()
+        # Longest wavelength (~14.4 µm, 695 cm-1): no direct sun.
+        assert e_direct[-1] == 0.0
+        # Downwelling diffuse ~ π·B near surface air temp: O(10) W/m²/µm.
+        assert 12.0 < e_diffuse[-1] < 25.0
+
+    def test_vis_direct_beam_magnitude(self) -> None:
+        """Direct beam at 0.5 µm ≈ TOA(0.5µm)·τ·cos(30°) ~ 1e3 W/m²/µm."""
+        wl, e_direct, e_diffuse = ModtranFluxReader(_REAL_E1_FLUX).to_radiant_units()
+        k = int(np.argmin(np.abs(wl - 0.5)))
+        assert e_direct[k] == pytest.approx(1020.9, rel=0.02)
+        assert e_diffuse[k] > 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +702,21 @@ class TestCardDeck:
         tape5 = render_tape5(config, default_geometry)
         # MODEL=1 for tropical should appear in Card 1.
         assert "1" in tape5.splitlines()[0]
+
+    @pytest.mark.level0
+    def test_card1_token_positions(self, default_geometry: AtmosphericGeometry) -> None:
+        """CU-067: pin the Card 1 tokens RADIANT controls to their verified
+        whitespace-split positions — [3]=MODEL, [5]=ITYPE, [6]=IEMSCT,
+        [7]=IMULT — confirmed field-by-field against the real 2026-07-17
+        MODTRAN 6 run set. Distinct values (6/2/3/1) make each position
+        independently asserted, replacing the pre-fix stale comment that
+        no test enforced (the original CU-067 defect)."""
+        config = ModtranConfig(atmosphere_profile="us_standard", iemsct=3)  # itype default 2
+        card1 = render_tape5(config, default_geometry).splitlines()[0].split()
+        assert card1[3] == "6"  # MODEL: us_standard -> 6
+        assert card1[5] == "2"  # ITYPE: default slant H1->H2
+        assert card1[6] == "3"  # IEMSCT: irradiance mode
+        assert card1[7] == "1"  # IMULT: multiple scattering (fixed)
 
     @pytest.mark.level1
     def test_geometry_in_card3(self, default_geometry: AtmosphericGeometry) -> None:

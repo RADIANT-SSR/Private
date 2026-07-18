@@ -54,6 +54,15 @@ scenarios/*/*/outputs/*.xlsx
 # per docs/plans/MODTRAN_Run_Matrix_Plan.md §7, not here.
 modtran/decks/
 
+# Real MODTRAN outputs — gitignored local staging for the 2026-07-17
+# run set (39 tape7 + 4 E-block flux CSVs, ~296 MB). NOT a permanent
+# home: once the parser reads them and golden tests pass, the fixture
+# subset is committed to tests/integration/fixtures/modtran/ and the
+# shipped subset repackaged into data/atmospheres/ per plan §7. These
+# cannot be regenerated locally (no MODTRAN binary), so preserve them.
+# See modtran/real_runs/README.md for the provenance manifest.
+modtran/real_runs/
+
 # Synthetic (NOT real) tape7 outputs — deterministic from
 # modtran_run_matrix.csv via scripts/generate_synthetic_tape7.py;
 # regenerate-on-demand (Rule 26), not committed. See

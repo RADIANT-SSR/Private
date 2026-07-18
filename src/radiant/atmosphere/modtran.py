@@ -315,25 +315,31 @@ def render_tape5(
     # MODTRAN user manual when access arrives.
     angle_deg = 180.0 - zenith_deg if h1_km > h2_km else zenith_deg
 
-    # Card 1: MODRAN, SPEED, BINARY, LYMOLC, MODEL, T_BEST, ITYPE, IEMSCT, IMULT
-    # ITYPE=2 (slant path H1 to H2), IMULT=1 (multiple scattering via
-    # DISORT). IEMSCT defaults to 2 (thermal+solar path radiance,
-    # what this deck builder was designed around) and is configurable
-    # (CU-064) for IEMSCT=3 (solar/lunar irradiance mode, Block E of
-    # the run matrix).
-    #
-    # CU-067 caveat: the inline name list above does NOT line up
-    # index-for-index with the literal token positions below (e.g.
-    # LYMOLC would land on the atmosphere-model code, which is not
-    # what LYMOLC means) — the list is stale/miscounted, not a
-    # verified field map. The token this function treats as IEMSCT is
-    # identified instead from this docstring's own prior prose
-    # ("ITYPE=2 ... IEMSCT=2 ... IMULT=1"), which uniquely picks out
-    # the second of the two consecutive "2" tokens below (ITYPE then
-    # IEMSCT), followed by "1" (IMULT) — consistent 3-in-a-row. This
-    # is a best-effort identification, not a manual-verified one (see
-    # CU-065's identical caveat for Card 3 ANGLE); confirm against the
-    # MODTRAN user manual when access arrives.
+    # Card 1 — whitespace-split token positions (CU-067, verified against
+    # the real 2026-07-17 MODTRAN 6 run set):
+    #   [0] 'T'   MODTRN band-model flag
+    #   [1] '5'   fixed literal default
+    #   [2] '0'   fixed literal default
+    #   [3] MODEL         atmosphere profile 1–6  ← confirmed: A1–A6 vary
+    #                     this token and produced the matching standard
+    #                     profile (US Standard, tropical, …) in each tape7.
+    #   [4] '0'   fixed literal default
+    #   [5] ITYPE         path geometry (2 = slant H1→H2, 3 = slant-to-space)
+    #   [6] IEMSCT        radiance/irradiance mode (2 = thermal+solar path
+    #                     radiance, 3 = irradiance) — confirmed: the E-block
+    #                     runs set [5]=[6]=3 and produced the flux/irradiance
+    #                     output, every other run set 2/2 and produced tape7
+    #                     radiance. ITYPE precedes IEMSCT (MODTRAN canonical
+    #                     order); the deck writes them in that order.
+    #   [7] IMULT '1'     multiple scattering (DISORT) — confirmed: the
+    #                     MULT_SCAT/SING_SCAT columns are populated.
+    #   [8..13] fixed literal defaults ('0 0 0 1 0 0.000'). These are
+    #   unchanged for every run; their individual MODTRAN field identities
+    #   are not independently asserted here, but an error in any of them
+    #   would have broken all 39 runs, which it did not.
+    # Superseded the pre-2026-07-17 stale name-list comment that did not
+    # line up index-for-index with these tokens (the original CU-067
+    # defect). RADIANT only controls [3] MODEL, [5] ITYPE, [6] IEMSCT.
     itype = config.itype
     iemsct = config.iemsct
     imult = 1
@@ -403,66 +409,89 @@ def render_tape5(
 # from that, so CU-066 identifies each label's COLUMN ORDER by the
 # position its text starts at in the header line (left to right),
 # not by a literal token index.
-_TAPE7_COLUMN_LABELS: tuple[str, ...] = (
-    "FREQ",
-    "TOT TRANS",
-    "PTH THRML",
-    "THRML SCT",
-    "SURF EMIS",
-    "SOL SCAT",
-    "SNGL SCAT",
-    "GRND RFLT",
-    "DRCT RFLT",
-    "TOTAL RAD",
-)
-
-# RADIANT semantic field <- MODTRAN column label. THRML SCT / SURF
-# EMIS / SNGL SCAT / DRCT RFLT / TOTAL RAD are real tape7 columns but
-# have no ModtranNativeOutput field yet, so they are located (and
-# preserved in ``header`` for future use) but not consumed.
-_FIELD_TO_LABEL: dict[str, str] = {
-    "wavenumber_cm1": "FREQ",
-    "total_transmittance": "TOT TRANS",
-    "path_thermal_radiance": "PTH THRML",
-    "path_scattered_radiance": "SOL SCAT",
-    "ground_reflected_radiance": "GRND RFLT",
+# Tape7 column vocabulary across MODTRAN output-format variants.
+#
+# MODTRAN writes its spectral columns under one of two label
+# conventions. Classic MODTRAN 4/5 tape7 uses space-delimited two-word
+# names ("TOT TRANS", "PTH THRML"); MODTRAN 6 uses single-token
+# underscore names ("TOT_TRANS", "THRML_EM") and splits the classic
+# combined solar-scatter column ("SOL SCAT") into separate multiple-
+# and single-scatter columns ("MULT_SCAT", "SING_SCAT"). Both
+# vocabularies are recognised so one reader serves either binary
+# (CU-154 — the 2026-07-17 run set is MODTRAN 6). The two label sets are
+# disjoint as substrings (space vs underscore), so a header is matched
+# by exactly one vocabulary.
+#
+# Every recognised raw header label maps to a canonical internal key.
+# THRML_SCT / SURF_EMIS / DRCT_RFLT / TOTAL_RAD are real tape7 columns
+# with no ModtranNativeOutput field yet: they are located (and their
+# labels preserved in ``header`` for future use) but not consumed.
+_TAPE7_LABEL_ALIASES: dict[str, str] = {
+    "FREQ": "FREQ",
+    "TOT TRANS": "TOT_TRANS", "TOT_TRANS": "TOT_TRANS",
+    "PTH THRML": "THRML_EM", "THRML_EM": "THRML_EM",
+    "THRML SCT": "THRML_SCT", "THRML_SCT": "THRML_SCT",
+    "SURF EMIS": "SURF_EMIS", "SURF_EMIS": "SURF_EMIS",
+    # Classic combined solar scatter; MODTRAN 6 splits it in two.
+    "SOL SCAT": "SOL_SCAT",
+    "MULT_SCAT": "MULT_SCAT",
+    "SNGL SCAT": "SING_SCAT", "SING_SCAT": "SING_SCAT",
+    "GRND RFLT": "GRND_RFLT", "GRND_RFLT": "GRND_RFLT",
+    "DRCT RFLT": "DRCT_RFLT", "DRCT_RFLT": "DRCT_RFLT",
+    "TOTAL RAD": "TOTAL_RAD", "TOTAL_RAD": "TOTAL_RAD",
 }
 
-# Positional fallback (pre-CU-066 behavior) used only when no
-# named column header is found — e.g. headerless/synthetic input.
-# CU-066: cols 3/4 are wrong against the real IEMSCT=2 layout (THRML
-# SCT and SURF EMIS, not SOL SCAT and GRND RFLT); kept only as a
-# best-effort degraded mode, always paired with a UserWarning.
+# Canonical keys that must be present to build a ModtranNativeOutput.
+# The solar path-scatter term is required too but has variant-dependent
+# sourcing (SOL_SCAT, or MULT_SCAT + SING_SCAT) — checked separately.
+_REQUIRED_TAPE7_KEYS: tuple[str, ...] = (
+    "FREQ",
+    "TOT_TRANS",
+    "THRML_EM",
+    "GRND_RFLT",
+)
+
+# Positional fallback (pre-CU-066 behavior) used only when no named
+# column header is found — e.g. headerless/synthetic input. CU-066:
+# cols 3/4 are wrong against the real IEMSCT=2 layout (THRML_SCT and
+# SURF_EMIS, not SOL_SCAT and GRND_RFLT); kept only as a best-effort
+# degraded mode, always paired with a UserWarning.
 _POSITIONAL_FALLBACK_COLUMNS: dict[str, int] = {
     "FREQ": 0,
-    "TOT TRANS": 1,
-    "PTH THRML": 2,
-    "SOL SCAT": 3,
-    "GRND RFLT": 4,
+    "TOT_TRANS": 1,
+    "THRML_EM": 2,
+    "SOL_SCAT": 3,
+    "GRND_RFLT": 4,
 }
 
 
 def _locate_tape7_columns(header_line: str) -> dict[str, int] | None:
-    """Map tape7 column labels found in ``header_line`` to column indices.
+    """Map tape7 columns found in ``header_line`` to their indices.
 
     Returns ``None`` if the line has no "FREQ" label (i.e. is not a
-    real column-header line). Otherwise returns ``{label: column_index}``
-    for every recognised label present, ordered by where its text
-    starts in the (whitespace-normalised) line — this recovers column
-    ORDER without depending on exact character widths, which vary by
-    MODTRAN version.
+    real column-header line). Otherwise returns ``{canonical_key:
+    column_index}`` for every recognised label present — in either the
+    classic space-delimited or the MODTRAN 6 underscore vocabulary —
+    ordered by where the label starts in the whitespace-normalised
+    line. This recovers column ORDER without depending on exact
+    character widths, which vary by MODTRAN version.
+
+    The index is the rank among recognised columns, which equals the
+    true column index as long as the recognised leading columns are
+    contiguous from FREQ — true for both real MODTRAN layouts (any
+    unrecognised columns trail the consumed ones).
     """
     normalized = " ".join(header_line.split())
     if "FREQ" not in normalized:
         return None
 
     found = [
-        (normalized.find(label), label)
-        for label in _TAPE7_COLUMN_LABELS
-        if normalized.find(label) >= 0
+        (normalized.find(raw_label), canonical)
+        for raw_label, canonical in _TAPE7_LABEL_ALIASES.items()
+        if normalized.find(raw_label) >= 0
     ]
     found.sort(key=lambda pair: pair[0])
-    return {label: idx for idx, (_, label) in enumerate(found)}
+    return {canonical: idx for idx, (_, canonical) in enumerate(found)}
 
 
 class Tape7Reader:
@@ -531,13 +560,21 @@ class Tape7Reader:
                 header_info[f"header_line_{i}"] = stripped
 
         if column_index is not None:
-            missing = [f for f in _FIELD_TO_LABEL.values() if f not in column_index]
-            if missing:
+            missing = [k for k in _REQUIRED_TAPE7_KEYS if k not in column_index]
+            # Solar path scatter: classic single SOL_SCAT column, or the
+            # MODTRAN 6 MULT_SCAT + SING_SCAT pair that replaces it.
+            has_scatter = "SOL_SCAT" in column_index or (
+                "MULT_SCAT" in column_index and "SING_SCAT" in column_index
+            )
+            if missing or not has_scatter:
+                detail = list(missing)
+                if not has_scatter:
+                    detail.append("solar-scatter (SOL_SCAT, or MULT_SCAT + SING_SCAT)")
                 raise Tape7ParseError(
                     f"MODTRAN tape7 {self._path}: column header found but "
-                    f"missing required label(s) {missing}. Labels present: "
-                    f"{sorted(column_index)}. This tape7 variant is not "
-                    "supported."
+                    f"missing required column(s) {detail}. Recognised "
+                    f"columns: {sorted(column_index)}. This tape7 variant "
+                    "is not supported."
                 )
             # Data starts on the first numeric-leading line strictly
             # after the header — never before it, so numeric card
@@ -595,6 +632,7 @@ class Tape7Reader:
 
         # Parse spectral data.
         rows: list[list[float]] = []
+        n_expected: int | None = None
         for line in lines[data_start:]:
             stripped = line.strip()
             if not stripped:
@@ -605,6 +643,15 @@ class Tape7Reader:
             try:
                 row = [float(p) for p in parts]
             except ValueError:
+                break
+            # A row whose column count differs from the established
+            # width is a footer/sentinel, not spectral data — MODTRAN
+            # terminates the block with a lone numeric marker (e.g.
+            # "-9999."), which is float-parseable and would otherwise
+            # corrupt the array. Stop at the first such row.
+            if n_expected is None:
+                n_expected = len(row)
+            elif len(row) != n_expected:
                 break
             rows.append(row)
 
@@ -630,10 +677,20 @@ class Tape7Reader:
             return data[:, idx]
 
         wavenumber = _column("FREQ")
-        total_trans = _column("TOT TRANS")
-        path_thermal = _column("PTH THRML")
-        path_scattered = _column("SOL SCAT")
-        ground_reflected = _column("GRND RFLT")
+        total_trans = _column("TOT_TRANS")
+        path_thermal = _column("THRML_EM")
+        # Solar path scatter. The classic format's combined SOL_SCAT
+        # column is the full solar scatter and takes priority (classic
+        # tape7 also carries a separate SNGL_SCAT column that must NOT be
+        # double-counted); MODTRAN 6 has no SOL_SCAT and instead splits
+        # the term into MULT_SCAT + SING_SCAT, whose sum is the classic
+        # value. Thermal scatter (THRML_SCT) is intentionally excluded —
+        # the path-radiance contract is thermal emission + solar scatter.
+        if "SOL_SCAT" in column_index:
+            path_scattered = _column("SOL_SCAT")
+        else:
+            path_scattered = _column("MULT_SCAT") + _column("SING_SCAT")
+        ground_reflected = _column("GRND_RFLT")
 
         self._native = ModtranNativeOutput(
             wavenumber_cm1=wavenumber,
@@ -704,6 +761,217 @@ class Tape7Reader:
         l_ground_radiant = l_ground_radiant[sort_idx]
 
         return wavelength_um, trans, l_path_radiant, l_ground_radiant
+
+
+# ---------------------------------------------------------------------------
+# Flux table reader (MODTRAN spectral flux CSV — Block E irradiance runs)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ModtranFluxOutput:
+    """Raw MODTRAN spectral flux table in native units.
+
+    MODTRAN's flux export (the ``*_flux.csv`` sidecar of a run-matrix
+    Block E irradiance run) reports, at each atmospheric level, three
+    spectral irradiances: upward diffuse (UP), downward diffuse (DOWN —
+    thermal emission + scattered solar), and the direct solar beam
+    (SOLAR). Arrays are in MODTRAN-native descending wavenumber and
+    native spectral-flux units W/cm²/cm⁻¹.
+
+    Attributes
+    ----------
+    wavenumber_cm1:
+        Wavenumber grid [cm⁻¹], descending. Shape ``(N,)``.
+    altitude_km:
+        Atmospheric level altitudes [km], ascending. Shape ``(M,)``.
+    flux_up, flux_down, flux_direct_solar:
+        Upward-diffuse, downward-diffuse, and direct-solar spectral
+        flux [W/cm²/cm⁻¹]. Shape ``(N, M)`` — wavenumber × level.
+    header:
+        Parsed file metadata (``num_freq``, ``num_column``, column names).
+    """
+
+    wavenumber_cm1: np.ndarray
+    altitude_km: np.ndarray
+    flux_up: np.ndarray
+    flux_down: np.ndarray
+    flux_direct_solar: np.ndarray
+    header: dict[str, Any] = field(default_factory=dict)
+
+
+class ModtranFluxReader:
+    """Parse a MODTRAN spectral flux CSV into a :class:`ModtranFluxOutput`.
+
+    File format (MODTRAN 6 flux export)::
+
+        case index 0 = {
+        num freq, 25976
+        num column, 108
+        Freq,   UP,   DOWN,  SOLAR,   UP,   DOWN,  SOLAR, ...   <- 3 per level
+        [cm-1], 0 KM, 0 KM,  0 KM,  1 KM,  1 KM,  1 KM,   ...   <- level per column
+        695, <108 flux values>
+        ...
+        }
+
+    The data columns are 3 × n_levels, ordered (UP, DOWN, SOLAR) per
+    ascending level. Brace, ``num …``, and label lines are metadata;
+    data rows are the numeric-leading lines. The trailing ``}`` closes
+    the block.
+    """
+
+    def __init__(self, flux_path: str | Path) -> None:
+        self._path = Path(flux_path)
+        self._native: ModtranFluxOutput | None = None
+
+    def parse(self) -> ModtranFluxOutput:
+        """Parse the flux CSV into native MODTRAN units (W/cm²/cm⁻¹).
+
+        Raises
+        ------
+        Tape7ParseError
+            If the file has no level-label header or no data rows, or a
+            column count that is not a multiple of 3.
+        """
+        if self._native is not None:
+            return self._native
+
+        lines = self._path.read_text(encoding="utf-8").splitlines()
+
+        header: dict[str, Any] = {}
+        level_labels: list[str] | None = None
+        data_start: int | None = None
+        for i, raw in enumerate(lines):
+            s = raw.strip()
+            if not s or s == "}" or s.endswith("{"):
+                continue
+            low = s.lower()
+            if low.startswith("num freq"):
+                header["num_freq"] = int(s.split(",")[1])
+                continue
+            if low.startswith("num column"):
+                header["num_column"] = int(s.split(",")[1])
+                continue
+            toks = [t.strip() for t in s.split(",")]
+            if toks[0].lower() == "freq":
+                header["column_names"] = toks
+                continue
+            if toks[0].lower().startswith("[cm"):
+                level_labels = toks
+                continue
+            try:
+                float(toks[0])
+            except (ValueError, IndexError):
+                continue
+            data_start = i
+            break
+
+        if data_start is None or level_labels is None:
+            raise Tape7ParseError(
+                f"MODTRAN flux file {self._path}: no data rows or no "
+                "level-label ('[cm-1], 0 KM, ...') header found. The file "
+                "may be truncated or not a MODTRAN flux CSV."
+            )
+
+        # Level axis: labels after the Freq column, one triple per level.
+        labels = level_labels[1:]
+        n_cols = len(labels)
+        if n_cols == 0 or n_cols % 3 != 0:
+            raise Tape7ParseError(
+                f"MODTRAN flux file {self._path}: {n_cols} data columns is "
+                "not a positive multiple of 3 (UP, DOWN, SOLAR per level)."
+            )
+        n_levels = n_cols // 3
+        altitude_km = np.array(
+            [
+                float(labels[3 * j].lower().replace("km", "").strip())
+                for j in range(n_levels)
+            ],
+            dtype=np.float64,
+        )
+
+        # Data rows: numeric, 1 + 3·n_levels wide; stop at the closing
+        # brace or any width/parse mismatch (footer).
+        rows: list[list[float]] = []
+        expected = 1 + n_cols
+        for raw in lines[data_start:]:
+            s = raw.strip()
+            if not s or s == "}":
+                break
+            parts = [p for p in (t.strip() for t in s.split(",")) if p != ""]
+            try:
+                row = [float(p) for p in parts]
+            except ValueError:
+                break
+            if len(row) != expected:
+                break
+            rows.append(row)
+
+        if len(rows) < 2:
+            raise Tape7ParseError(
+                f"MODTRAN flux file {self._path}: fewer than 2 spectral data "
+                "rows parsed. The output may be incomplete."
+            )
+
+        data = np.array(rows, dtype=np.float64)
+        wavenumber = data[:, 0]
+        # Columns run (UP, DOWN, SOLAR) per level, level-major.
+        flux = data[:, 1:].reshape(data.shape[0], n_levels, 3)
+
+        self._native = ModtranFluxOutput(
+            wavenumber_cm1=wavenumber,
+            altitude_km=altitude_km,
+            flux_up=flux[:, :, 0],
+            flux_down=flux[:, :, 1],
+            flux_direct_solar=flux[:, :, 2],
+            header=header,
+        )
+        return self._native
+
+    def to_radiant_units(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Ground-level direct and diffuse-downwelling irradiance in
+        RADIANT canonical units.
+
+        Returns
+        -------
+        wavelength_um:
+            Wavelength grid [µm], strictly ascending.
+        e_direct:
+            Direct solar beam spectral irradiance at the ground
+            (MODTRAN SOLAR column) [W/m²/µm].
+        e_diffuse_down:
+            Downward diffuse spectral irradiance at the ground (MODTRAN
+            DOWN column — thermal emission + scattered solar) [W/m²/µm].
+
+        Notes
+        -----
+        The spectral-flux Jacobian is identical to the radiance case
+        (there is no per-steradian factor to alter it)::
+
+            E(λ) [W/m²/µm] = E(ν) [W/cm²/cm⁻¹] · ν²
+
+        where ν² absorbs both cm⁻² → m⁻² (1e4) and |dν/dλ| = ν²/1e4.
+        """
+        native = self.parse()
+        ground = int(np.argmin(native.altitude_km))  # lowest level (0 km)
+
+        nu = native.wavenumber_cm1
+        mask = nu > 0.0
+        nu = nu[mask]
+        e_direct = native.flux_direct_solar[mask, ground]
+        e_diffuse = native.flux_down[mask, ground]
+
+        wavelength_um = 10000.0 / nu
+        jacobian = nu * nu
+        e_direct_r = e_direct * jacobian
+        e_diffuse_r = e_diffuse * jacobian
+
+        sort_idx = np.argsort(wavelength_um)
+        return (
+            wavelength_um[sort_idx],
+            e_direct_r[sort_idx],
+            e_diffuse_r[sort_idx],
+        )
 
 
 # ---------------------------------------------------------------------------

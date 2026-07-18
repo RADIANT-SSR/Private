@@ -625,8 +625,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Use-case matrix audit, Open Q §8.6 (folded from Use_Case_gaps.md, 2026-07-06) |
-| **Status** | DEFERRED (refreshed 2026-07-10, Backlog_Closure_Plan Wave 0) — implementable without MODTRAN but not validatable to the parity fidelity the gap demands; owner reconfirmed no MODTRAN 2026-07-10. Re-audit 2026-10-01 or on MODTRAN access. |
-| **Deferral record** | Gating condition: MODTRAN lookup-table wiring lands (same blocker family as Gap 39 — no MODTRAN access since 2026-04-21, reconfirmed by owner 2026-07-07). Re-audit: 2026-10-01 or on MODTRAN access, whichever comes first. |
+| **Status** | GATE OPENED 2026-07-17 — real MODTRAN 6 E-block flux data (E1–E4) delivered and now readable via `ModtranFluxReader` (CU-154). Reference data for ω₀ / E_sky_scattered now exists; chain-wiring is the remaining work. Re-audit active. |
+| **Deferral record** | Gating condition (MODTRAN access) now satisfied. Remaining work: wire the flux-derived diffuse irradiance into `E_sky_scattered`. **Owner decision 2026-07-17:** source `E_sky_scattered` from the flux **DOWN** column as-is, band-limited to the reflective-solar region where thermal downwelling is negligible (do NOT difference against a thermal-only Block H run). Accepts a small overcount in the SWIR/MWIR thermal overlap. |
 | **Description** | The single-scatter sky irradiance formula `E_sky_scattered = E_TOA·cos(θ_s)·ω₀·(1−τ_down,vert)` is in place, but the single-scatter albedo ω₀ is a fixed scalar — it does not vary by aerosol regime or wavelength with MODTRAN-parity fidelity. Affects MWIR mixed emit+reflect scenes (use-case Cells 25, 40, 55) where thermal downwelling competes with scattered solar. No effect on LWIR (Cells 28, 58) or VIS/NIR-dominated cells. |
 | **Workaround** | Accept ~10–30% error on MWIR-band radiance in mixed emit+reflect scenes; expressibility is unaffected. |
 | **Impact** | MWIR mixed-scene radiance accuracy (~10–30%). Not a release blocker. |

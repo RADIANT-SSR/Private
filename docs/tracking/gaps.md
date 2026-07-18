@@ -1283,7 +1283,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | GUI Development Plan Phase 4 Task B (Variables + Noise Budget detail tabs), 2026-07-13 |
-| **Status** | OPEN — GUI works around it via public equivalents; no faked surface. |
+| **Status** | FIXED (2026-07-17) — `ChainResult.inspect(stage=None)` (sugar over `inspect_result`) and `ChainResult.explain_noise(term) → NoiseExplanation` (structured: value/origin/basis/budgets + share-of-variance; shares sum to 1; KeyError names available terms). GUI adoption of the accessors (Variables tab + noise describe panel) is a small follow-up, deferred to avoid colliding with the concurrent gui error-class sweep. |
 | **Description** | Arch doc §4.5 names two `ChainResult` convenience accessors the detail tabs assume: **`result.inspect()`** (for the Variable Explorer tree) and **`result.explain(term)`** (a per-term noise explanation for the Noise Budget tab). Neither method exists on `ChainResult`. The public inspection surface is the module-level `radiant.api.inspect.inspect_result(result)`; there is **no** structured per-term noise-explanation accessor at all — the only per-term information is the `NoiseTerm` dataclass's own fields (`value_e`, `origin_frame`, `physical_basis`, `contributes_to`). |
 | **Impact** | The GUI must reach for the module function rather than a `result.inspect()` method (a cosmetic ergonomics gap — one public call either way) and, for noise, must render the `NoiseTerm`'s stored metadata as an honest "describe" panel instead of a purpose-built explanation string (physical formula, dominant driver, referral factors). Per ground rule §4.1 the GUI does **not** invent physics text; it shows what the public surface carries. No wrong information is shown — only less than the arch-doc prose implies. |
 | **Workaround** | Variable Explorer parses `inspect_result(result)`'s text into a tree (GUI plan Phase 4B); Noise Budget renders `describe_noise_term(term)` from the public `NoiseTerm` fields. |
@@ -1492,7 +1492,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 84 | No time-based / orbital-ephemeris geometry | — | pass-geometry (V7/V8/S4) | OPEN |
 | 85 | No mission-type-driven parameter relevance (declared type → param setup guidance) | M–L | operator setup guidance (all personas) | DEFERRED (post-v1) |
 | 86 | `result.plot` exposes no spectral-radiance figure accessor | S–M | Source/Atmosphere/Spectral-Integration GUI views | FIXED |
-| 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | S–M | GUI Variables + Noise Budget tabs | OPEN |
+| 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | — | GUI Variables + Noise Budget tabs | FIXED |
 | 88 | No in-memory / resolved-scope config serialize surface | — | GUI YAML tab | FIXED |
 | 89 | Optics complex-pupil diagnostics not exposed (apodization map + WFE phase map) | M | GUI Optics view (5.1, 1.5) | RESOLVED 2026-07-14 (d89f423) |
 | 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | RESOLVED 2026-07-14 (77e0adf) |

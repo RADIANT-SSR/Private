@@ -20,7 +20,7 @@ from radiant.api.sensor import Sensor
 from radiant.api.solve import SolveResult
 from radiant.api.sweep import Sweep2DResult, SweepResult
 from radiant.api.tolerance import MonteCarloResult
-from radiant.io.results import ChainResult, WellStatus
+from radiant.io.results import ChainResult, NoiseExplanation, WellStatus
 
 __all__ = [
     "Sensor",
@@ -30,6 +30,7 @@ __all__ = [
     "SensitivityResult",
     "ChainResult",
     "WellStatus",
+    "NoiseExplanation",
     "ErrorBudget",
     "BudgetContributor",
     "OperationCancelledError",

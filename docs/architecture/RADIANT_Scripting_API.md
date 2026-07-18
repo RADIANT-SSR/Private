@@ -411,6 +411,21 @@ Fidelity contract: JSON primitives, non-finite floats, dtype-preserving numpy ar
 
 ---
 
+### 3.10 Inspect + Explain Accessors (Gap 87, 2026-07-17)
+
+```python
+print(result.inspect())            # the full readable tree (== inspect_result(result))
+print(result.inspect("optics"))    # one stage's outputs
+exp = result.explain_noise("dark_shot")
+exp.value_e, exp.origin_frame, exp.physical_basis, exp.share_of_variance
+print(exp.description)             # rendered text incl. units + variance share
+```
+
+`explain_noise` returns a structured `NoiseExplanation` (name, σ in e- RMS at the origin
+frame, mechanism tag, budgets, **share of total variance** — the pie fraction, shares sum to
+1); unknown terms raise `KeyError` naming the available set. The GUI Variables/Noise surfaces
+can now consume these instead of their Gap-87 workarounds (adoption tracked separately).
+
 ## 4. Inspection
 
 ### 4.1 `inspect_result()` — tree view

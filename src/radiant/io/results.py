@@ -51,6 +51,26 @@ class MetricRecord:
 
 
 @dataclass(frozen=True)
+class NoiseExplanation:
+    """Structured explanation of one noise term (Gap 87).
+
+    Everything a noise-budget UI or console user asks of a term, as fields
+    rather than prose: identity, magnitude at origin, the physical mechanism
+    tag, which budgets it sums into, and its share of the total variance
+    (value² / Σ value² — the pie-chart fraction). ``description`` carries the
+    human-readable text (`describe_noise_term`) for display surfaces.
+    """
+
+    name: str
+    value_e: float
+    origin_frame: str
+    physical_basis: str
+    contributes_to: tuple[str, ...]
+    share_of_variance: float
+    description: str
+
+
+@dataclass(frozen=True)
 class WellStatus:
     """Full-well saturation status for a completed run (CU-101).
 
@@ -191,6 +211,49 @@ class ChainResult:
                 )
             )
         return tuple(records)
+
+    def inspect(self, stage: str | None = None) -> str:
+        """The readable result tree (Gap 87 sugar over ``inspect_result``).
+
+        One call replaces the module-function reach-around the GUI Variables tab
+        used: ``result.inspect()`` is the full tree; ``result.inspect("optics")``
+        scopes to one stage. Delegates lazily to :mod:`radiant.api.inspect` (the
+        api layer is fully imported by the time any result exists).
+        """
+        from radiant.api.inspect import inspect_result
+
+        return inspect_result(self, stage=stage)
+
+    def explain_noise(self, term_name: str) -> NoiseExplanation:
+        """Structured explanation of the named noise term (Gap 87).
+
+        Raises ``KeyError`` naming the available terms when *term_name* is
+        unknown — never a None (Rule 17).
+        """
+        terms = {term.name: term for term in self.noise_terms}
+        if term_name not in terms:
+            raise KeyError(f"explain_noise: unknown term {term_name!r}; available: {sorted(terms)}")
+        term = terms[term_name]
+        total_variance = sum(t.value_e**2 for t in self.noise_terms)
+        share = (term.value_e**2 / total_variance) if total_variance > 0 else 0.0
+        contributes = ", ".join(term.contributes_to)
+        description = (
+            f"{term.name}\n"
+            f"  value:             {term.value_e:.4g} e- RMS\n"
+            f"  physical basis:    {term.physical_basis}\n"
+            f"  origin frame:      {term.origin_frame}\n"
+            f"  contributes to:    {contributes}\n"
+            f"  share of variance: {share:.1%}"
+        )
+        return NoiseExplanation(
+            name=term.name,
+            value_e=term.value_e,
+            origin_frame=term.origin_frame,
+            physical_basis=term.physical_basis,
+            contributes_to=tuple(term.contributes_to),
+            share_of_variance=share,
+            description=description,
+        )
 
     def to_records(self) -> list[dict[str, object]]:
         """Metrics as plain dicts (name / value / unit / description) — Gap 88.

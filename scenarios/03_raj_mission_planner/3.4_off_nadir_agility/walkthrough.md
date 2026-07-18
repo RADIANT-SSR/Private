@@ -229,6 +229,41 @@ At 45 deg off-nadir, Raj can image a target 527 km from nadir ground track,
 but at the cost of -1.00 NIIRS.  Whether this trade is acceptable depends on
 the mission's minimum NIIRS requirement.
 
+## Real-MODTRAN validation note (added 2026-07-17)
+
+The real MODTRAN 6 zenith fan (A1/B1/B2/B3, us_standard, 2026-07-17 run
+set) now pins this scenario's atmospheric component. Band-mean total
+transmittance in the pan band (0.45–0.90 µm), 100 km nadir column:
+
+| Off-nadir | Real MODTRAN τ [-] | Simple τ [-] | Real τ(θ)/τ(0) | Simple ratio | Ratio error |
+|---|---|---|---|---|---|
+| 0° | 0.668 | 0.466 | 1.000 | 1.000 | — |
+| 30° | 0.628 | 0.420 | 0.940 | 0.902 | −4.0% |
+| 45° | 0.565 | 0.356 | 0.845 | 0.763 | −9.7% |
+| 60° | 0.440 | 0.251 | 0.659 | 0.539 | −18.2% |
+
+Two findings:
+
+- **The real atmosphere follows textbook Beer–airmass scaling almost
+  exactly in this band**: exp(−OD₀·(sec 45° − 1)) predicts 0.846 vs the
+  measured 0.845 ratio. The physics this scenario assumed for the
+  angular trade is correct.
+- **SimpleAtmosphere's absolute pan-band optical depth is ~1.9× too
+  high** (τ₀ 0.466 vs 0.668), and that error compounds through the
+  airmass exponent — so this scenario's *atmospheric* off-nadir penalty
+  (the SNR-vs-angle degradation and "atmospheric veiling" magnitudes in
+  the Results section) is **overstated, by ~10% in the τ ratio at the
+  45° design point**. The geometry conclusions (GSD foreshortening,
+  along/cross asymmetry, access-radius trade) are unaffected — they
+  contain no atmosphere. Raj's qualitative answer ("still useful at
+  45°") strengthens: the real atmosphere is kinder than modeled.
+
+Numbers were not re-baselined into the tables above (the scenario
+deliberately demonstrates the parametric-model workflow); this note is
+the accuracy context. Validation source:
+`tests/integration/test_modtran_real_runs.py` (airmass fan) and the
+comparison script in the session record for commit-linked provenance.
+
 ## Gaps Identified
 
 | Gap # | Description | Status | Impact |

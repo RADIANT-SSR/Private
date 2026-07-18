@@ -67,3 +67,14 @@ and for a transmission-only model T is the total throughput with R = 0).
 | 34    | NIIRS not recomputed with off-nadir GSD | NIIRS overpredicted at off-nadir | Script applies -3.32*log10(GSD_ratio) correction |
 | 35    | No along-track vs cross-track GSD at off-nadir | Along-track GSD diverges from cross-track at high angles | Script computes both with ground projection |
 | 36    | No swath width / access geometry calculator | Must compute externally | Script uses n_pixels * GSD_cross |
+
+---
+
+## Real-data validation (2026-07-17)
+
+The real MODTRAN 6 B-fan validated the angular physics and quantified a
+model bias: real VNIR transmittance follows Beer–airmass scaling to
+<0.2%, but SimpleAtmosphere's absolute pan-band optical depth is ~1.9×
+too high, overstating the off-nadir τ penalty by ~10% (45°) to ~18%
+(60°) in ratio terms. Geometry conclusions unaffected. See the
+walkthrough's "Real-MODTRAN validation note".

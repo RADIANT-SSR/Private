@@ -21,15 +21,6 @@
 **Why it still matters**: PWV is the axis mission planners sweep for weather go/no-go (scenario 3.2's PWV conclusions are ~5× overstated; its visibility threshold is roughly right). Physics: MWIR water absorption is dominated by saturated bands whose curve of growth is sub-linear (√/log regime) in absorber amount; a linear-Beer OD ∝ PWV model over-responds by construction, in both directions from its us_standard calibration point.
 **Suggested fix**: (b) stand-alone Category C task — refit the H₂O band term with a sub-linear absorber-amount dependence (two-parameter curve-of-growth, e.g. τ_H2O = exp(−a·w^b) with b ≈ 0.3–0.6 fit per band), anchored to the now-available real τ(PWV) points (D4/A1/D5) and the six profile anchors; results-affecting (CHANGELOG + golden review; Cells 25/40/55 and scenarios 3.2/6.2 re-audit on landing). The pinned constants in `tests/integration/test_modtran_real_runs.py` and the shipped profile NPZs are the fit's reference data. Effort M.
 
-### CU-160 — Zenith-angle interpolation should be in airmass (sec θ) space, not linear in angle
-
-**Discovered**: scenario 8.1 holdout validation against the real B-fan, 2026-07-17 — the first ground-truth test of the interpolation method.
-**Status**: Open — quantified improvement, affects both the dev helper and the shipped library's fan queries.
-**File**: `scripts/synth_modtran/family_interpolate.py` (axis handling) and `src/radiant/atmosphere/interpolated.py` (`path_zenith_rad` axis of `InterpolatedAtmosphere`, which the shipped `data/atmospheres/us_standard_zenith_fan/` uses).
-**Symptom**: predicting the real 45° run from the 30°+60° nodes: log-τ linear **in angle** lands −4.07% in in-band τ; log-τ linear **in airmass sec(θ)** lands −0.10% — a 40× accuracy gain from the correct physical axis (optical depth scales with airmass, not angle). Mid-node queries of the shipped zenith fan carry the same ~−4% τ bias today.
-**Why it still matters**: the shipped fan is a committed runtime capability; a knowable, fixable −4% band-τ bias at off-node zenith queries is worth removing, and the fix is a coordinate transform, not new data.
-**Suggested fix**: (b) small stand-alone task — interpolate over `sec(path_zenith_rad)` (transform at query/construction time) in both `family_interpolate` and `InterpolatedAtmosphere` (or document a recommended `airmass` axis convention for angle grids). Guard with the 8.1 holdout numbers as a test. Results-affecting for off-node fan queries (CHANGELOG on landing). Effort S; category C.
-
 ### CU-157 — Wire MODTRAN flux-file downwelling into the tape7-import path (`atmosphere.modtran.flux_path`)
 
 **Discovered**: Gap 38 closeout work, 2026-07-17 — the reader exists (`ModtranFluxReader`, CU-154) and the owner's sourcing decision is ratified (gaps.md Gap 38), but nothing consumes the flux data in the chain yet.
@@ -457,6 +448,10 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-160 — Zenith-angle interpolation should be in airmass (sec θ) space, not linear in angle — RESOLVED 2026-07-17 (commit `863e923`)
+
+**Discovered**: scenario 8.1 holdout validation against the real B-fan, 2026-07-17. **Resolution**: `InterpolatedAtmosphere` maps zenith-angle axis coordinates (`path_zenith_rad`, `solar_zenith_rad`) to airmass sec(θ) internally before interpolation (coordinates, bounds, and errors stay in radians; nodes ≥ ~88.8° refused — sec diverges at the horizon), and `family_interpolate` gains `axis_transform="sec_deg"` on the zenith fan. Log-τ linear in sec(θ) is Beer-Lambert-exact between nodes — proven by a new Level-0 test (τ(θ)=τ_vert^sec θ nodes reproduce Beer at every query angle to 1e-10) and accepted against ground truth: the real B-fan 45° holdout lands −0.10% (was −4.07% linear-in-angle); a committed-library holdout test (`test_shipped_atmosphere_library.py`) pins the property on the shipped fan. Results-affecting for off-node zenith queries (~+4% band-mean τ at fan midpoints, toward truth) — CHANGELOG entry added; Level-0 key-equation tests rewritten to the new contract; docs + library MANIFEST updated in lock-step.
 
 ### CU-159 — Six bare built-in `raise`s in GUI widgets trip the Rule-15 tree scan — RESOLVED 2026-07-17 (commit `06e029d`)
 

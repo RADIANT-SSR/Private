@@ -130,7 +130,9 @@ where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full
 ```
 L_atm_down(λ) = [1 − τ_atm(λ)] · B(λ, T_atm_eff)
 ```
-with `T_atm_eff` from the standard-atmosphere lookup at 0.5 × sensor altitude. Adequate for MWIR/LWIR scoping.
+with `T_atm_eff` from the standard-atmosphere lookup at 0.5 × sensor altitude (clamped to the 216.65 K tropopause above 22 km).
+
+> **Measured accuracy caveat (CU-155, 2026-07-17):** compared against real MODTRAN 6 up-looking runs (H2/H4), this graybody underestimates downwelling sky irradiance by **~7× in the LWIR and ~25–50× in the MWIR for space-sensor columns** — the 0.5·h heuristic lands on the tropopause instead of the ~280 K near-surface air that dominates real downwelling, and the model has no H₂O continuum. Adequate only when the reflected-sky term is unimportant (high-ε targets); for low-ε MWIR/LWIR scenes use MODTRAN-derived data. Characterization pinned in `tests/integration/test_modtran_real_runs.py`; improvement tracked as CU-155.
 
 **Inputs** (all parameters are user-facing; see §6):
 `atmosphere.visibility_km`, `atmosphere.aerosol_type`, `atmosphere.precipitable_water_cm`, `atmosphere.standard_atmosphere`.

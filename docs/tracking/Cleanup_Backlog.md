@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-155 — SimpleAtmosphere `E_sky_thermal` underestimates real downwelling by ~7× (LWIR) / ~25–50× (MWIR) for high-altitude sensors
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §8 criterion #5 parity check against the real H-runs, 2026-07-17.
+**Status**: Open — characterized, not fixed. The parity comparison is pinned in `tests/integration/test_modtran_real_runs.py::test_esky_thermal_simple_vs_modtran_characterization`, which asserts the MODTRAN reference magnitudes *and* the deficit band, so any future model improvement flips the test and forces this record to be updated in the same PR.
+**File**: `src/radiant/atmosphere/simple.py` (`_effective_atmospheric_temperature_K`; the graybody `E_sky_thermal = (1 − τ_down,vert) · π · B(T_atm_eff)` in `evaluate`).
+**Symptom**: band-integrated E_sky_thermal vs π·L_sky(48.2°) from the real up-looking H-runs: us_standard (H2) — simple 2.98 vs MODTRAN 20.87 W/m² in LWIR 8–12 µm (ratio 0.14), 0.05 vs 2.44 W/m² in MWIR 3–5 µm (0.02); tropical (H4) — 9.73 vs 66.76 W/m² LWIR (0.15), 0.18 vs 4.11 W/m² MWIR (0.04). The diffusivity-angle methodology is itself validated to ~15% against the E1 flux table's true hemispheric DOWN, so the deficit is real, not approximation noise.
+**Why it still matters**: two compounding causes. (1) `T_atm_eff` evaluates at `0.5·h_sensor` and clamps to the 216.65 K tropopause for any sensor ≥ 22 km — but downwelling emission at the ground is dominated by ~280 K near-surface air (the E1 flux DOWN at 14.4 µm ≈ π·B(283 K) confirms). The 0.5·h heuristic was designed for airborne sensors and is applied unmodified to space columns. (2) No H₂O continuum in the 3-component model → LWIR window too transparent → (1−τ_down) under-emits. Consequence: the reflected-downwelling term on low-ε LWIR/MWIR targets is grossly underestimated whenever the simple backend serves a space sensor; high-ε targets are barely affected (term is small).
+**Suggested fix**: (b) stand-alone Category C task — for the *downwelling* term only, evaluate the emission temperature from the near-surface-weighted column (e.g. `h_eval = min(0.5·h_sensor, ~1–2 km)` or an emission-weighted closed form), and consider a continuum-augmented LWIR window emissivity; validate against H2/H4 (goldens already pinned) and the E-flux DOWN. Results-affecting when landed (CHANGELOG + golden review per Rule 29 / Testing §5.3). Effort M. Until then: MWIR/LWIR low-ε scenes needing sky-reflection fidelity should use MODTRAN-derived data (tape7 import / shipped library), not the simple backend.
+
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`

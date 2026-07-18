@@ -73,7 +73,7 @@ QE_VALUE = ParameterDef(
     default=None,
     bounds=(0.0, 1.0),
     tags=frozenset({"detector", "qe"}),
-    required_unless="detector.qe_table_path",
+    required_unless="detector.qe_table_path,detector.qe_material",
 )
 
 QE_TABLE_PATH = ParameterDef(
@@ -90,6 +90,23 @@ QE_TABLE_PATH = ParameterDef(
     tags=frozenset({"detector", "qe"}),
     default_justification="Empty string signals 'use qe_value instead'.",
 )
+
+QE_MATERIAL = ParameterDef(
+    name="detector.qe_material",
+    description=(
+        "Named bundled detector QE curve (Gap 69): a material in the data/detectors "
+        "library (e.g. 'insb', 'hgcdte_mwir', 'silicon' — the API rejects unknown names "
+        "with the legal vocabulary). Resolved pre-chain by the API layer (Rule 6) onto the "
+        "wavelength grid, QE = 0 past the data span. Precedence: qe_table_path (explicit "
+        "file) > qe_material (library) > qe_value (scalar). Empty = disabled."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"detector", "qe", "library"}),
+)
+
 
 QE_TEMPERATURE_COEFF_PER_K = ParameterDef(
     name="detector.qe_temperature_coeff_per_K",
@@ -384,6 +401,7 @@ N_PIXELS_CROSS = ParameterDef(
 )
 
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
+    QE_MATERIAL,
     PIXEL_PITCH_X,
     PIXEL_PITCH_Y,
     FILL_FACTOR,

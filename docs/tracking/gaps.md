@@ -1089,7 +1089,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-08), 2026-07-11 |
-| **Status** | OPEN |
+| **Status** | NARROWED (2026-07-17) — **detector half landed**: `detector.qe_material` ParameterDef selects a bundled library curve (session-resolved per Rule 6; unknown names rejected with the vocabulary; precedence path > material > scalar; `required_unless` extended to comma-lists so a material-only config resolves). **Remaining**: `source.target.material` needs an inferrer injection seam — the source stage cannot import `radiant.data` (import rules) and the target ε(λ) pathway currently loads inside `_inferrer` (S1/Gap 47), so the material route must resolve in the session and thread through `infer_descriptors` like `background_emissivity` does. Deferred for a reviewed inferrer change, not an overnight edit. |
 | **Description** | `SpectralLibrary.detector_qe()` covers 6 materials but no `detector.qe_material` parameter exists (`api/session.py:_load_qe_curve` resolves only `qe_table_path`/`qe_value`); the 19-material emissivity library binds to `source.background.material` but there is no `source.target.material`. |
 | **Impact** | The most natural GUI selections — detector-material and target-material dropdowns — have nothing to bind to; background/target panels are inconsistent. |
 | **Workaround** | Export the library CSV and pass it as `qe_table_path` / `emissivity_path`. |

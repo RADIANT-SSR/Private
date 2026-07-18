@@ -570,14 +570,18 @@ class ParameterSet:
         self._resolved_flag = True
 
     def _alternative_is_set(self, name: str) -> bool:
-        """True when the ``required_unless`` alternative is explicitly set.
+        """True when any ``required_unless`` alternative is explicitly set.
 
-        Checks the explicit-inputs store (not ``_resolved``) so the answer
-        does not depend on schema iteration order during Stage 3.  An
-        empty-string or None input does not count as "set" — e.g. an
+        ``name`` may be a single dot-path or a comma-separated list (Gap 69:
+        ``detector.qe_value`` is superseded by *either* ``qe_table_path`` or
+        ``qe_material``). Checks the explicit-inputs store (not ``_resolved``)
+        so the answer does not depend on schema iteration order during Stage 3.
+        An empty-string or None input does not count as "set" — e.g. an
         explicitly cleared ``detector.qe_table_path`` must not silence the
         requirement on ``detector.qe_value``.
         """
+        if "," in name:
+            return any(self._alternative_is_set(part.strip()) for part in name.split(","))
         canonical = self._canonical(name) if name not in self._inputs else name
         if canonical not in self._inputs:
             return False

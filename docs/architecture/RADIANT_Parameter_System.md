@@ -89,7 +89,7 @@ Key properties:
 - `tags` enable filtering ("show me all detector parameters", "what parameters matter in LWIR?").
 - `deprecated_aliases` (Gap 12): old dot-paths for renamed parameters. `set`/`get`/`set_tolerance`/`clear_input` resolve an alias to the canonical name with a `DeprecationWarning`. Aliases may not collide with defined names and are validated at `ParameterSet` construction. Current aliases: `optics.cold_stop_efficiency` → `optics.nearfield_fraction`.
 - `tags` regime-relevance convention (Gap 85, 2026-07-16): a tag of the form `regime:<scene_type>` (`regime:extended` / `regime:sub_pixel` / `regime:point_source`) declares that the parameter matters only for those **declared** scene types (`source.scene_type`). A def with no `regime:` tag is regime-independent. Consumed by the GUI Source form, which disables (never hides) irrelevant rows with an explanatory tooltip when a scene type is declared; `auto` gates nothing. Currently authored on the source-stage background / contrast-reference / fill-fraction parameters; other stages are unauthored (relevance there is regime-independent until tagged).
-- `required_unless` (Gap 66): names an alternative parameter that supersedes this required one. When the alternative is explicitly set (non-empty, non-None input), the requirement is waived and the parameter is left **unresolved** — `get()` raises if any code path reads it anyway, so no phantom value is ever consumed. An explicitly-set empty string does not waive the requirement. Only valid on required (`default=None`) parameters. Current use: `detector.qe_value` is required unless `detector.qe_table_path` is set (the spectral QE curve supersedes the scalar).
+- `required_unless` (Gap 66; comma-list since Gap 69): names one or more comma-separated alternative parameters, any of which supersedes this required one. When the alternative is explicitly set (non-empty, non-None input), the requirement is waived and the parameter is left **unresolved** — `get()` raises if any code path reads it anyway, so no phantom value is ever consumed. An explicitly-set empty string does not waive the requirement. Only valid on required (`default=None`) parameters. Current use: `detector.qe_value` is required unless `detector.qe_table_path` is set (the spectral QE curve supersedes the scalar).
 
 ### Unit Conversion
 
@@ -664,7 +664,7 @@ Each spectral quantity has a registered generator that either computes from scal
 
 | Spectral Data | Generator Input | Source |
 |---------------|----------------|--------|
-| `qe` | `detector.qe_value` (flat) or `detector.qe_table_path` (file) | Constant array or loaded from file |
+| `qe` | `detector.qe_value` (flat), `detector.qe_table_path` (file), or `detector.qe_material` (bundled library curve — Gap 69; path > material > scalar) | Constant array, loaded file, or library curve (0 past data span) |
 | `filter_transmission` | `spectral_integration.filter_min_um`, `spectral_integration.filter_max_um` | Computed top-hat bandpass |
 | `tau_atm` | `atmosphere.model` + model params (e.g. `atmosphere.tabulated_transmittance_file`) | Loaded from file or computed from simple model |
 | `path_radiance` | `atmosphere.model` + model params | Loaded from file or computed |

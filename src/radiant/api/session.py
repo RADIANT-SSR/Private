@@ -94,13 +94,41 @@ def _load_qe_curve(
     except (KeyError, TypeError):
         path_str = ""
 
-    if not path_str and factor == 1.0:
+    try:
+        _material_probe: str = params.get("detector.qe_material")
+    except (KeyError, TypeError):
+        _material_probe = ""
+    if not path_str and not _material_probe and factor == 1.0:
         return None
+
+    try:
+        material: str = params.get("detector.qe_material")
+    except (KeyError, TypeError):
+        material = ""
 
     if path_str:
         from radiant.io.qe_csv import load_qe_csv
 
         base = load_qe_csv(path_str).evaluate(wavelength_um, out_of_range="zero")
+    elif material:
+        # Gap 69: a named bundled detector QE curve. Resolved here per Rule 6;
+        # unknown names are rejected with the legal vocabulary (Rule 17). QE = 0
+        # past the library data span (the same cutoff convention as qe_table_path).
+        from radiant.core.parameters import ParameterBoundsError
+        from radiant.data.library import SpectralLibrary
+
+        library = SpectralLibrary()
+        known = library.detectors()
+        if material not in known:
+            raise ParameterBoundsError(
+                what=f"detector.qe_material = {material!r} is not in the detector library",
+                why="QE(λ) can only be resolved for bundled detector materials.",
+                action=f"Choose one of: {', '.join(sorted(known))}; or supply "
+                "a vendor curve via detector.qe_table_path.",
+                context={"material": material, "known_materials": sorted(known)},
+            )
+        curve = library.detector_qe(material)
+        base = np.interp(wavelength_um, curve.wavelength_um, curve.values, left=0.0, right=0.0)
     else:
         qe_value: float = params.get("detector.qe_value")
         base = np.full_like(wavelength_um, qe_value)

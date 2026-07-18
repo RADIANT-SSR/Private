@@ -71,6 +71,27 @@ class TestViewerStateMapping:
         assert vs.observer_pitch_rad == 0.0
         assert vs.observer_roll_rad == 0.0
 
+    def test_day_scene_has_sun(self, evaluated) -> None:  # type: ignore[no-untyped-def]
+        sensor, result = evaluated
+        vs = ViewerState.from_chain_result(result, sensor)
+        assert vs.has_sun is True
+
+    def test_night_scene_drops_sun_instead_of_crashing(self) -> None:
+        """Night publishes theta_s_rad = None; the adapter must record "no sun"
+        rather than dying on float(None) (owner bug 2026-07-18)."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set("geometry.solar_illumination", "night")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = sensor.evaluate()
+        assert result.stage_outputs["geometry"]["theta_s_rad"] is None
+
+        vs = ViewerState.from_chain_result(result, sensor)
+        assert vs.has_sun is False
+        # Inert placeholders — never drawn (the scene hides all sun elements).
+        assert vs.solar_zenith_rad == 0.0
+        assert vs.relative_azimuth_rad == 0.0
+
 
 class TestViewerImportsNoPhysicsStage:
     """The viewer package must not import any physics stage (gui → api + core)."""

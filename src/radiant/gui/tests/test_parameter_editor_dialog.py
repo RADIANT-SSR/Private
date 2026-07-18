@@ -26,10 +26,13 @@ from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QLabel, QLineEdit
 from radiant.api.sensor import Sensor
 from radiant.api.units import _CONVERSIONS
 from radiant.gui.param_format import display_in_unit, provenance_from_explain, provenance_label
+from radiant.gui.widgets import parameter_editor_dialog as dialog_mod
 from radiant.gui.widgets import parameter_panel as panel_mod
 from radiant.gui.widgets.parameter_editor_dialog import (
     ParameterEditorDialog,
     convertible_units,
+    default_browse_dir,
+    path_picker_kind,
 )
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 
@@ -303,3 +306,83 @@ class TestEditorTypes:
         d.value_editor.setCurrentIndex(choices.index(target))
         d.apply(close=False)
         assert sensor.get(_ENUM) == target
+
+
+class TestPathBrowse:
+    """Path-typed parameters get a Browse… picker next to the line edit
+    (owner request 2026-07-18: "need a link" on atmosphere.interpolated_data_dir)."""
+
+    def test_path_picker_kind_follows_the_naming_convention(self) -> None:
+        """The schema types paths as str; the *_path/*_file/*_dir leaf marks them."""
+        assert path_picker_kind("atmosphere.interpolated_data_dir") == "dir"
+        assert path_picker_kind("atmosphere.modtran.cache_dir") == "dir"
+        assert path_picker_kind("atmosphere.modtran.tape7_path") == "file"
+        assert path_picker_kind("atmosphere.tabulated_transmittance_file") == "file"
+        assert path_picker_kind("geometry.sensor_altitude_m") is None
+        assert path_picker_kind("geometry.solar_illumination") is None
+
+    def test_dir_param_gets_browse_button(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        d = _dialog(sensor, "atmosphere.interpolated_data_dir", qtbot)
+        assert isinstance(d.value_editor, QLineEdit)
+        assert d.browse_button is not None
+        assert d.browse_button.isEnabled()
+
+    def test_file_param_gets_browse_button(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        d = _dialog(sensor, "atmosphere.modtran.tape7_path", qtbot)
+        assert d.browse_button is not None
+
+    def test_non_path_params_get_no_browse_button(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        assert _dialog(sensor, _ALT, qtbot).browse_button is None
+        assert _dialog(sensor, _ENUM, qtbot).browse_button is None
+        assert _dialog(sensor, _BOOL, qtbot).browse_button is None
+
+    def test_dir_picker_fills_the_editor(  # type: ignore[no-untyped-def]
+        self, sensor: Sensor, qtbot, monkeypatch, tmp_path
+    ) -> None:
+        """Choosing a directory writes it into the value editor; commit stays on Apply."""
+        d = _dialog(sensor, "atmosphere.interpolated_data_dir", qtbot)
+        chosen = str(tmp_path / "atmospheres")
+        monkeypatch.setattr(
+            dialog_mod.QFileDialog,
+            "getExistingDirectory",
+            staticmethod(lambda *a, **k: chosen),
+        )
+        assert d.browse_button is not None
+        d.browse_button.click()
+        assert isinstance(d.value_editor, QLineEdit)
+        assert d.value_editor.text() == chosen
+
+    def test_file_picker_cancel_leaves_editor_untouched(  # type: ignore[no-untyped-def]
+        self, sensor: Sensor, qtbot, monkeypatch
+    ) -> None:
+        d = _dialog(sensor, "atmosphere.modtran.tape7_path", qtbot)
+        assert isinstance(d.value_editor, QLineEdit)
+        before = d.value_editor.text()
+        monkeypatch.setattr(
+            dialog_mod.QFileDialog,
+            "getOpenFileName",
+            staticmethod(lambda *a, **k: ("", "")),
+        )
+        assert d.browse_button is not None
+        d.browse_button.click()
+        assert d.value_editor.text() == before
+
+
+class TestBrowseStartLocation:
+    """The picker opens on RADIANT's shipped data, not an arbitrary cwd (2026-07-18)."""
+
+    def test_atmosphere_params_start_in_shipped_atmospheres(self) -> None:
+        start = default_browse_dir("atmosphere.interpolated_data_dir")
+        assert start is not None
+        assert start.name == "atmospheres"
+        assert start.is_dir()
+
+    def test_detector_params_start_in_shipped_detectors(self) -> None:
+        start = default_browse_dir("detector.qe_table_path")
+        assert start is not None
+        assert start.name == "detectors"
+
+    def test_unmapped_namespace_falls_back_to_data_root(self) -> None:
+        start = default_browse_dir("optics.zernike_file")
+        assert start is not None
+        assert start.name == "data"

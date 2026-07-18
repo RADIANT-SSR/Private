@@ -222,6 +222,10 @@ class SchematicScene:
     is_point: bool
     altitude_km: float
     target_altitude_km: float
+    # Night scene (no sun): the sun glyph, SUN→TARGET / SUN→GROUND vectors, drop
+    # lines, and every sun-derived arc (θ_s, Δφ, phase) are omitted; sun_dir/sun_pos
+    # then hold inert placeholder directions that are never drawn.
+    has_sun: bool = True
 
 
 def _origin() -> np.ndarray:
@@ -412,6 +416,8 @@ def build_scene(state: ViewerState) -> SchematicScene:
     sun_az = math.degrees(state.relative_azimuth_rad)
     sun_zen = math.degrees(state.solar_zenith_rad)
     sen_zen = math.degrees(state.observer_look_angle_rad)
+    # Night: the angles above are inert 0.0 placeholders; sun_dir/sun_pos are still
+    # populated (the dataclass contract) but nothing sun-derived is drawn.
 
     sun_dir = dir_from_az_zen(sun_az, sun_zen)
     sensor_dir = dir_from_az_zen(0.0, sen_zen)
@@ -464,6 +470,7 @@ def build_scene(state: ViewerState) -> SchematicScene:
         is_point=is_point,
         altitude_km=state.observer_altitude_m / 1000.0,
         target_altitude_km=state.target_altitude_m / 1000.0,
+        has_sun=state.has_sun,
     )
 
 
@@ -649,11 +656,12 @@ class SchematicView(QWidget):
             np.array([0.0, _AXIS_LEN, 0.0]),
             np.array([0.0, -_AXIS_LEN, 0.0]),
             np.array([0.0, 0.0, _ZENITH_LEN]),
-            scene.sun_pos,
             scene.sensor_pos,
             scene.target_top,
             scene.ground_point,
         ]
+        if scene.has_sun:
+            pts.append(scene.sun_pos)
         for a, b in scene.target_edges:
             pts.append(a)
             pts.append(b)
@@ -846,8 +854,14 @@ class SchematicView(QWidget):
         return f"{ann.symbol} {deg:.1f}°"
 
     def _arc_points(self, scene: SchematicScene, name: str) -> list[np.ndarray]:
-        """The world-space arc polyline for annotation *name* (empty if not drawable)."""
+        """The world-space arc polyline for annotation *name* (empty if not drawable).
+
+        Sun-derived arcs (θ_s, Δφ, phase) are not drawable in a night scene — there is
+        no sun to measure against, so they return empty rather than a fabricated angle.
+        """
         zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        if name in ("sun_zenith", "phase_angle", "relative_azimuth") and not scene.has_sun:
+            return []
         if name == "off_nadir":
             return [
                 p + scene.target_top for p in arc_between(zenith, scene.sensor_dir, _ARC_RADIUS)
@@ -964,7 +978,8 @@ class SchematicView(QWidget):
 
     def _draw_drop_lines(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
         pen = self._pen(self._theme.muted, _W_DROP, dashed=True)
-        for pos in (scene.sun_pos, scene.sensor_pos):
+        positions = (scene.sun_pos, scene.sensor_pos) if scene.has_sun else (scene.sensor_pos,)
+        for pos in positions:
             sub = np.array([pos[0], pos[1], 0.0])
             self._line(painter, cam, pos, sub, pen)  # vertical drop to sub-point
             self._line(painter, cam, _origin(), sub, pen)  # radial to origin
@@ -983,10 +998,14 @@ class SchematicView(QWidget):
         """
         if not scene.airborne:
             return []
-        return [
+        vectors = [
             ("SENSOR → GROUND", scene.sensor_pos, scene.ground_point, palette.SATELLITE_FAMILY),
-            ("SUN → GROUND", scene.sun_pos, scene.ground_point, palette.SOLAR_FAMILY),
         ]
+        if scene.has_sun:
+            vectors.append(
+                ("SUN → GROUND", scene.sun_pos, scene.ground_point, palette.SOLAR_FAMILY)
+            )
+        return vectors
 
     def _draw_ground_vectors(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
         """Draw SENSOR→GROUND (blue) + SUN→GROUND (amber), both dashed, for an elevated target.
@@ -1025,17 +1044,18 @@ class SchematicView(QWidget):
         self._text(painter, p.x + 10, p.y + 4, "TARGET", self._theme.ink)
 
     def _draw_glyphs(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
-        # Sun glyph: amber disc + ray ticks.
-        sp = cam.project(scene.sun_pos)
-        self._draw_star_glyph(
-            painter,
-            sp,
-            palette.SUN_DISC_FILL,
-            palette.SOLAR_FAMILY,
-            6.0,
-            (0, 60, 120, 180, 240, 300),
-        )
-        self._text(painter, sp.x + 20, sp.y - 8, "SUN", palette.SOLAR_FAMILY)
+        # Sun glyph: amber disc + ray ticks (absent in a night scene).
+        if scene.has_sun:
+            sp = cam.project(scene.sun_pos)
+            self._draw_star_glyph(
+                painter,
+                sp,
+                palette.SUN_DISC_FILL,
+                palette.SOLAR_FAMILY,
+                6.0,
+                (0, 60, 120, 180, 240, 300),
+            )
+            self._text(painter, sp.x + 20, sp.y - 8, "SUN", palette.SOLAR_FAMILY)
         # Sensor glyph: blue disc + 4 cardinal ticks (fewer ticks → distinct from sun).
         np_ = cam.project(scene.sensor_pos)
         self._draw_star_glyph(
@@ -1070,8 +1090,11 @@ class SchematicView(QWidget):
             )
 
     def _draw_main_vectors(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
-        # Sun → target (amber solid) and sensor → target (blue solid).
-        self._vector(painter, cam, scene.sun_pos, scene.target_top, palette.SOLAR_FAMILY, _W_VECTOR)
+        # Sun → target (amber solid, absent at night) and sensor → target (blue solid).
+        if scene.has_sun:
+            self._vector(
+                painter, cam, scene.sun_pos, scene.target_top, palette.SOLAR_FAMILY, _W_VECTOR
+            )
         self._vector(
             painter, cam, scene.sensor_pos, scene.target_top, palette.SATELLITE_FAMILY, _W_VECTOR
         )
@@ -1079,14 +1102,15 @@ class SchematicView(QWidget):
     def _legend_entries(self, scene: SchematicScene) -> list[tuple[str, str, bool]]:
         """The VECTORS legend rows ``(label, colour, dashed)`` for *scene*.
 
-        The SENSOR→TARGET / SUN→TARGET / ZENITH rows are always present; the SENSOR→GROUND and
-        SUN→GROUND rows appear **only** when the target is elevated (they are drawn only then),
-        so the legend matches what is on the canvas (§6.2, owner request 2026-07-14).
+        The SENSOR→TARGET / ZENITH rows are always present; SUN→TARGET only when the scene
+        has a sun (day); the SENSOR→GROUND and SUN→GROUND rows appear **only** when the
+        target is elevated (they are drawn only then), so the legend matches what is on the
+        canvas (§6.2, owner request 2026-07-14; night sun removal 2026-07-18).
         """
-        entries: list[tuple[str, str, bool]] = [
-            ("SUN → TARGET", palette.SOLAR_FAMILY, False),
-            ("SENSOR → TARGET", palette.SATELLITE_FAMILY, False),
-        ]
+        entries: list[tuple[str, str, bool]] = []
+        if scene.has_sun:
+            entries.append(("SUN → TARGET", palette.SOLAR_FAMILY, False))
+        entries.append(("SENSOR → TARGET", palette.SATELLITE_FAMILY, False))
         for label, _start, _end, color in self._ground_vectors(scene):
             entries.append((label, color, True))
         entries.append(("ZENITH", self._theme.muted, False))

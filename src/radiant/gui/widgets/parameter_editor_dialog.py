@@ -37,6 +37,7 @@ theme via object names; this module sets structure and text only (GUI plan §4.9
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from PySide6.QtCore import Qt
@@ -45,6 +46,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -90,6 +92,55 @@ _NO_UNIT_LABEL = "(none)"
 # Extra px added to the unit-combo popup width beyond the widest item's text advance,
 # covering the item margins and a possible scrollbar (layout geometry, not a token).
 _COMBO_POPUP_PADDING_PX = 40
+
+
+# Repo-root ``data/`` tree (same file-relative pattern as ``radiant.data.library``):
+# this file is src/radiant/gui/widgets/parameter_editor_dialog.py → repo root is 4 up.
+_REPO_DATA_ROOT = Path(__file__).resolve().parents[4] / "data"
+
+# Where a path parameter's Browse… picker starts when the field is empty, by top-level
+# namespace: the shipped data family for that stage. Anything unmapped starts at the
+# data root (if present) so the picker opens on RADIANT's bundled data rather than an
+# arbitrary working directory (owner bug report 2026-07-18).
+_BROWSE_START_SUBDIR: dict[str, str] = {
+    "atmosphere": "atmospheres",
+    "detector": "detectors",
+    "source": "emissivity",
+}
+
+
+def default_browse_dir(dotpath: str) -> Path | None:
+    """The default directory the Browse… picker opens in for *dotpath*, or None.
+
+    The parameter's namespace maps to its shipped data family under the repo
+    ``data/`` tree; an unmapped namespace falls back to the data root. Returns None
+    when neither exists (e.g. an installed package without the repo data tree) —
+    the caller then falls back to the working directory.
+    """
+    namespace = dotpath.split(".", 1)[0]
+    subdir = _BROWSE_START_SUBDIR.get(namespace)
+    if subdir is not None and (_REPO_DATA_ROOT / subdir).is_dir():
+        return _REPO_DATA_ROOT / subdir
+    if _REPO_DATA_ROOT.is_dir():
+        return _REPO_DATA_ROOT
+    return None
+
+
+def path_picker_kind(dotpath: str) -> str | None:
+    """``"dir"`` / ``"file"`` when the dot-path leaf names a filesystem path, else None.
+
+    The parameter schema types paths as plain ``str``; what marks them as paths is the
+    binding naming convention (Parameter System doc): the leaf ends in ``_path`` or
+    ``_file`` for files, ``_dir`` for directories. Every ``*_path``/``*_file``/``*_dir``
+    parameter in the schema today is a real filesystem path (audited 2026-07-18), so the
+    editor can safely offer a native picker for them — the "need a link" owner request.
+    """
+    leaf = dotpath.rsplit(".", 1)[-1]
+    if leaf.endswith("_dir"):
+        return "dir"
+    if leaf.endswith(("_path", "_file")):
+        return "file"
+    return None
 
 
 def convertible_units(canonical_unit: str, input_unit: str) -> list[str]:
@@ -231,6 +282,23 @@ class ParameterEditorDialog(QDialog):
         editor = self._make_value_editor()
         editor.setEnabled(not self._read_only)
         row.addWidget(editor, 1)
+
+        # Browse… for filesystem-path parameters (leaf ends _path/_file/_dir): a native
+        # picker filling the same line edit — typing a long path by hand stays possible,
+        # it just stops being the only way (owner request 2026-07-18).
+        self._browse_button: QPushButton | None = None
+        if (
+            self._pdef.dtype is str
+            and self._pdef.enum_values is None
+            and path_picker_kind(self._dotpath) is not None
+            and isinstance(editor, QLineEdit)
+        ):
+            browse = QPushButton("Browse…", self)
+            browse.setObjectName("paramEditorBrowseButton")
+            browse.setEnabled(not self._read_only)
+            browse.clicked.connect(self._on_browse)
+            row.addWidget(browse)
+            self._browse_button = browse
 
         # Unit selector for numeric parameters only (the unit= boundary applies to
         # float/int; enum/bool/str carry no unit). Populated from the public registry
@@ -396,6 +464,35 @@ class ParameterEditorDialog(QDialog):
         label.setWordWrap(True)
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         return label
+
+    def _on_browse(self) -> None:
+        """Native file/directory picker → the value editor (path params only).
+
+        The picker starts at the current value's directory when one is set (so
+        re-picking a sibling file is one click), else at the parameter's shipped-data
+        default (:func:`default_browse_dir` — e.g. ``data/atmospheres`` for
+        ``atmosphere.*``), else the working directory. Cancelling leaves the editor
+        untouched; committing still goes through the one validated ``sensor.set`` on
+        Apply — the picker only fills the text field.
+        """
+        editor = self._value_editor
+        if not isinstance(editor, QLineEdit):
+            return
+        current = editor.text().strip()
+        if current:
+            start = str(Path(current).parent)
+        else:
+            start = str(default_browse_dir(self._dotpath) or Path.cwd())
+        if path_picker_kind(self._dotpath) == "dir":
+            chosen = QFileDialog.getExistingDirectory(
+                self, f"Choose directory — {self._dotpath}", current or start
+            )
+        else:
+            chosen, _filter = QFileDialog.getOpenFileName(
+                self, f"Choose file — {self._dotpath}", start
+            )
+        if chosen:
+            editor.setText(chosen)
 
     # -- edit / commit ------------------------------------------------------
 
@@ -731,6 +828,11 @@ class ParameterEditorDialog(QDialog):
         return self._unit_combo
 
     @property
+    def browse_button(self) -> QPushButton | None:
+        """The Browse… picker button (``None`` for a non-path parameter)."""
+        return self._browse_button
+
+    @property
     def preview_label(self) -> QLabel:
         """The canonical-value preview label."""
         return self._preview_label
@@ -741,4 +843,9 @@ class ParameterEditorDialog(QDialog):
         return self._error_frame
 
 
-__all__ = ["ParameterEditorDialog", "convertible_units"]
+__all__ = [
+    "ParameterEditorDialog",
+    "convertible_units",
+    "default_browse_dir",
+    "path_picker_kind",
+]

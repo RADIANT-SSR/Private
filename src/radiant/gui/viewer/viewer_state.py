@@ -103,6 +103,12 @@ class ViewerState:
     regime_override: RegimeOverride
     background_kind: BackgroundKind
 
+    # Night scenes (geometry.solar_illumination = "night") have no sun: the geometry
+    # stage publishes theta_s_rad / delta_phi_rad as None, and the schematic hides the
+    # sun glyph and every sun-derived vector/arc instead of fabricating angles. The
+    # angle fields above then hold inert 0.0 placeholders (never drawn).
+    has_sun: bool = True
+
     @classmethod
     def default(cls) -> ViewerState:
         """A neutral airborne-ish baseline used only by tests / anchor enumeration.
@@ -149,6 +155,12 @@ class ViewerState:
         geometry = result.stage_outputs.get("geometry", {})
         optics = result.stage_outputs.get("optics", {})
 
+        # Night scenes publish theta_s_rad / delta_phi_rad as None (geometry stage,
+        # SolarResolution mode="night"): no sun exists, so record that instead of
+        # crashing on float(None) — the schematic drops the sun (owner bug 2026-07-18).
+        theta_s = geometry.get("theta_s_rad", 0.0)
+        delta_phi = geometry.get("delta_phi_rad", 0.0)
+
         return cls(
             observer_altitude_m=float(geometry.get("h_sensor_m", 0.0)),
             observer_look_angle_rad=float(geometry.get("eta_rad", 0.0)),
@@ -172,10 +184,11 @@ class ViewerState:
             # get() returns the canonical value (metres) despite the ``_um`` input-unit
             # name (detector schema: canonical_unit="m").
             pixel_pitch_m=float(params.get("detector.pixel_pitch_x_um")),  # type: ignore[arg-type]
-            solar_zenith_rad=float(geometry.get("theta_s_rad", 0.0)),
-            relative_azimuth_rad=float(geometry.get("delta_phi_rad", 0.0)),
+            solar_zenith_rad=float(theta_s) if theta_s is not None else 0.0,
+            relative_azimuth_rad=float(delta_phi) if delta_phi is not None else 0.0,
             regime_override=_regime_of(optics.get("regime")),
             background_kind="none",
+            has_sun=theta_s is not None,
         )
 
 

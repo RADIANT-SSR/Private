@@ -406,6 +406,20 @@ and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). A d
 parameter opens read-only: the value/unit editors are disabled and only a Close button is
 offered.
 
+**Path parameters get a Browse… picker (owner request 2026-07-18).** A `str` parameter
+whose dot-path leaf follows the schema's path naming convention (`*_path` / `*_file` →
+file picker, `*_dir` → directory picker; `path_picker_kind()` in the dialog module) gains
+a **Browse…** button beside the line edit that opens the native `QFileDialog` and fills
+the field with the chosen path — typing a path stays possible, it just stops being the
+only way. When the field is empty the picker opens on the parameter's shipped-data home
+(`default_browse_dir`: `atmosphere.*` → `data/atmospheres/`, `detector.*` →
+`data/detectors/`, `source.*` → `data/emissivity/`, anything else → `data/`), not an
+arbitrary working directory (owner bug 2026-07-18); a set field re-opens beside its
+current value. The picker only fills the text field; committing still goes through the one
+validated `sensor.set` on Apply. Cancelling the picker leaves the field untouched. (Every
+`*_path`/`*_file`/`*_dir` parameter in the schema is a real filesystem path — audited
+2026-07-18; the convention is load-bearing for this affordance.)
+
 **Two complementary edit paths.** The Value column keeps its fast in-place editor
 (double-click column 1 → `ParameterEditDelegate`); the Parameter (name) and Source columns
 open the full Parameter Editor dialog instead (double-click, or right-click → **Edit…** at
@@ -852,12 +866,18 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
 - 3D schematic viewport with orbit / pan / zoom (standard mouse drag / shift-drag / wheel).
 - Sun, sensor, target glyphs on a faint two-tone reference ground grid (reference, not
   measurement).
-- **Vectors:** sun→target (always on); sensor→target (always on); and, **only when the
+- **Vectors:** sun→target (day scenes); sensor→target (always on); and, **only when the
   target is elevated** (target altitude > 0), **sensor→ground** (blue, dashed) and
-  **sun→ground** (amber, dashed), both landing at the target's **ground projection** G_i
-  (the nadir footprint directly below the body on the ground plane) — a ground target has
-  target == ground, so these are degenerate and absent (owner request 2026-07-14). The
-  legend rows for the two ground vectors are shown only when they are drawn.
+  **sun→ground** (amber, dashed, day scenes), both landing at the target's **ground
+  projection** G_i (the nadir footprint directly below the body on the ground plane) — a
+  ground target has target == ground, so these are degenerate and absent (owner request
+  2026-07-14). The legend rows match what is drawn.
+- **Night scenes** (`geometry.solar_illumination = "night"`, owner bug 2026-07-18): the
+  geometry stage publishes θ_s / Δφ as `None` — there is no sun — so the schematic drops
+  the sun glyph, both sun vectors, the sun drop lines, the sun legend rows, and every
+  sun-derived angle annotation (θ_s, Δφ, phase) rather than fabricating angles. The
+  sensor/target/zenith geometry renders unchanged (`ViewerState.has_sun` /
+  `SchematicScene.has_sun`).
 - **Click-to-reveal angle annotations**, split by frame:
   - *Target-frame* (anchored at the target): θₛ, θᵥ, φₛ, φᵥ, Δφ, phase angle g.
   - *Ground-frame* (anchored at G_i, the radiometrically-relevant point when target

@@ -153,6 +153,62 @@ class TestSceneBuild:
         # Sensor is at azimuth 0; a nonzero relative azimuth gives the sun a +X component.
         assert scene.sun_pos[0] != pytest.approx(0.0, abs=1e-6)
 
+    def test_night_scene_carries_no_sun(self) -> None:
+        """A night state (has_sun=False) flows through to the scene flag."""
+        scene = build_scene(self._state(has_sun=False))
+        assert scene.has_sun is False
+
+
+class TestNightHidesSunElements:
+    """Night (owner bug 2026-07-18): every sun-derived element disappears."""
+
+    def _night_scene(self, **overrides: object):  # type: ignore[no-untyped-def]
+        base = ViewerState.default()
+        state = ViewerState(**{**base.__dict__, "has_sun": False, **overrides})
+        return build_scene(state)
+
+    def test_sun_legend_row_absent(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        day = canvas._legend_entries(build_scene(ViewerState.default()))
+        night = canvas._legend_entries(self._night_scene())
+        assert any(label == "SUN → TARGET" for label, _c, _d in day)
+        assert not any("SUN" in label for label, _c, _d in night)
+
+    def test_sun_ground_vector_absent_for_airborne_target(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        vectors = canvas._ground_vectors(self._night_scene(target_altitude_m=9_000.0))
+        labels = [label for label, *_rest in vectors]
+        assert labels == ["SENSOR → GROUND"]
+
+    def test_sun_arcs_not_drawable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        scene = self._night_scene()
+        for name in ("sun_zenith", "phase_angle", "relative_azimuth"):
+            assert canvas._arc_points(scene, name) == []
+        # The sensor's off-nadir arc survives — it does not involve the sun.
+        assert canvas._arc_points(scene, "off_nadir")
+
+    def test_fit_points_exclude_sun(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        scene = self._night_scene()
+        assert not any(np.allclose(p, scene.sun_pos) for p in canvas._fit_points(scene))
+
+    def test_night_canvas_renders_without_sun_color(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The night render succeeds and paints no amber (sun-family) pixels."""
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        canvas.resize(900, 600)
+        base = ViewerState.default()
+        canvas.set_state(ViewerState(**{**base.__dict__, "has_sun": False}))
+        img = canvas.grab().toImage()
+        assert img.width() == 900 and img.height() == 600
+        assert not _has_color(img, palette.SOLAR_FAMILY)
+        assert _has_color(img, palette.SATELLITE_FAMILY)
+
 
 class TestSchematicCanvas:
     """The QPainter canvas renders and rotates."""

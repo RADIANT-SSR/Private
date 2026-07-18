@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-154 — `Tape7Reader` did not support the MODTRAN 6 underscore-header tape7 variant
-
-**Discovered**: first real MODTRAN run set delivered (2026-07-17), while executing MODTRAN_Run_Matrix_Plan §8 acceptance criterion #1 (`Tape7Reader` round-trips a real A1 tape7).
-**Status**: Fix implemented in the working tree; tests pass. Pending commit — move to Resolved with the commit SHA when this lands (Rule 22).
-**File**: `src/radiant/atmosphere/modtran.py` (`_TAPE7_LABEL_ALIASES`, `_locate_tape7_columns`, `Tape7Reader.parse`).
-**Symptom**: every file in the delivered 39-run matrix (MODTRAN 6) uses the underscore column header `FREQ TOT_TRANS THRML_EM THRML_SCT SURF_EMIS MULT_SCAT SING_SCAT GRND_RFLT DRCT_RFLT TOTAL_RAD …`. The pre-fix reader recognised only the classic space-delimited vocabulary (`TOT TRANS`, `PTH THRML`, `SOL SCAT`, `GRND RFLT`) and raised `Tape7ParseError: … missing required label(s) …` on all 39. A second issue: MODTRAN's lone `-9999.` end-of-block sentinel is float-parseable and corrupted the data array (inhomogeneous shape).
-**Why it still matters**: without this, no real MODTRAN data can enter RADIANT — Gap 39, Gap 38, CU-011, and the shipped-atmosphere library all depend on the reader accepting the real output. This was the single critical-path blocker for the whole run-matrix closeout.
-**Resolution (implemented, pre-commit)**: dual-vocabulary alias table mapping both classic and MODTRAN 6 labels to canonical keys; `path_scattered_radiance` sourced from the classic combined `SOL_SCAT` when present, else `MULT_SCAT + SING_SCAT` (verified against the `TOTAL_RAD` column on real A1 — median rel-err 1.1e-5); footer/sentinel rows detected by column-count mismatch. New tests: `TestTape7ReaderModtran6` (5, committed synthetic MODTRAN 6 fixture) and `TestRealModtranA1` (3, `skipif`-guarded on the gitignored real A1, hand-anchored in LWIR/MWIR/VIS). All 39 real tape7s parse cleanly. The same work adds `ModtranFluxReader` (+ `ModtranFluxOutput`) for the Block E `*_flux.csv` irradiance sidecar (UP/DOWN/SOLAR per level → ground-level direct/diffuse in W/m²/µm; validated on real E1), the reference data for Gap 38 — parser only, chain-wiring deferred to Gap 38. Docs updated in lock-step: `RADIANT_Atmosphere.md` §5.3 (tape7 parser + flux reader) + verification caveat. Tests: `TestModtranFluxReader` (4) + `TestRealModtranE1Flux` (3, skipif-guarded).
-
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`
@@ -364,24 +355,6 @@
 **Why it still matters**: lint drift in the integration suite hides real defects (the unused-variable class) and makes new-test review noisier; the gate's src/-only scope is undocumented.
 **Suggested fix**: inline-fix-now — run `ruff check tests/ --fix`, hand-fix the remainder, and widen the documented gate (CLAUDE.md "Running Tests Locally") to `ruff check src/ tests/`. Effort S; category A.
 
-### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted)
-
-**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10, commit `fe57c74`
-**Status**: CONFIRMED 2026-07-17 — ready to close on commit (move to Resolved with the SHA, Rule 22). The at-H1 ANGLE convention is now empirically verified against the real 2026-07-17 MODTRAN 6 run set, which is a stronger authority than the manual: (1) **three-way agreement** — `render_tape5` output == the CSV's hand-worked `modtran_angle_at_h1_deg` column == the delivered tape7's Card-3 echo, on all 35 non-E rows (E-block ANGLE is solar-geometry-driven on Card 3A1, correctly 0 on Card 3 in both deck and delivered); (2) **correct airmass physics** — the B-block zenith fan (nadir/30°/45°/60° off) shows LWIR-window transmittance decreasing monotonically (0.846→0.826→0.793→0.720), i.e. ANGLE=180 is the shortest (nadir) path, not grazing; Beer cross-check τ_nadir^1.414 = 0.790 vs measured τ(45° off) = 0.793 (0.4%). The pre-fix history: the deck-side conversion landed 2026-07-11 (`2e707c7`); this entry records the real-data confirmation of that convention.
-**File**: `src/radiant/atmosphere/modtran.py` (`render_tape5`, Card 3)
-**Symptom (pre-fix, for the record)**: RADIANT's `path_zenith_rad` was written directly as MODTRAN's ANGLE, but MODTRAN measures ANGLE from zenith **at H1 (the sensor)**: a nadir-looking space sensor needs ANGLE = 180°, not 0°.
-**Why it still matters**: the rendered decks in `modtran/decks/` are what will be handed to whoever runs real MODTRAN; a convention error there silently corrupts every slant-path validation run, since tape7 parses fine either way.
-**Suggested fix (remaining)**: on manual access, verify the at-H1 convention (and the E-block solar-geometry ANGLE handling) field-by-field; then close. Effort S; category C.
-
-### CU-067 — Card 1's inline field-name comment does not align with its own token positions
-
-**Discovered**: implementing CU-064 (IEMSCT threading), 2026-07-10 — reverse-engineering which token is IEMSCT to add `ModtranConfig.iemsct` surfaced that `render_tape5`'s inline comment (`# Card 1: MODRAN, SPEED, BINARY, LYMOLC, MODEL, T_BEST, ITYPE, IEMSCT, IMULT`) cannot be paired index-for-index with the 14 literal tokens the function writes — e.g. the name-list's 4th entry, LYMOLC (a molecular-band-model flag), would land on the token that is actually the atmosphere `MODEL` code, which is meaningless as LYMOLC.
-**Status**: FIXED 2026-07-17 — ready to close on commit (Rule 22). The RADIANT-controlled Card 1 token positions are now verified field-by-field against the real MODTRAN 6 run set and pinned by a test: [3]=MODEL (A1–A6 vary this token and produced the matching standard profile in each tape7), [5]=ITYPE / [6]=IEMSCT (E-block set 3/3 and produced irradiance/flux output, every other run 2/2 and produced radiance), [7]=IMULT (scatter columns populated). The stale/miscounted inline name-list comment (the original defect) is replaced with this verified map; the fixed-literal tokens [0-2],[4],[8-13] are unchanged for all 39 runs (an error in any would have broken every run). New Level-0 test `TestCardDeck::test_card1_token_positions` asserts the four controlled positions with distinct values (6/2/3/1).
-**File**: `src/radiant/atmosphere/modtran.py` (`render_tape5`, Card 1 comment + token construction)
-**Symptom**: the documentation comment above Card 1 is not a reliable map from field name to token index; a future reader (or agent) editing Card 1 by trusting that comment literally risks writing to the wrong field, the same failure class as CU-065's ANGLE bug but for the whole card, not just one field.
-**Why it still matters**: Card 1 carries MODEL, ITYPE, IEMSCT, IMULT — the four fields every run in the matrix depends on; an undetected misalignment here is not a niche corner case.
-**Suggested fix**: when MODTRAN access arrives, rebuild Card 1 field-by-field against the manual's true FORTRAN format spec, replace the stale inline comment, and add a Level-0 test asserting each field's token position directly (not just substring presence). Effort S; category C.
-
 ### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
 
 **Discovered**: CU-068 doc rewrite, 2026-07-11 — the old §5.3 documented `cache_key = sha256(tape5 + modtran_version)`, but the shipped `_cache_key` hashes the tape5 alone.
@@ -439,6 +412,18 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-154 — `Tape7Reader` did not support the MODTRAN 6 underscore-header tape7 variant — RESOLVED 2026-07-17 (commit `e69d0a6`)
+
+**Discovered**: first real MODTRAN run set delivered (2026-07-17), executing MODTRAN_Run_Matrix_Plan §8 criterion #1. **Symptom**: all 39 delivered files (MODTRAN 6) use the underscore column header (`TOT_TRANS`, `THRML_EM`, `MULT_SCAT`/`SING_SCAT`, `GRND_RFLT`, …); the pre-fix reader recognised only the classic space-delimited vocabulary and raised `Tape7ParseError` on every one, and MODTRAN's lone `-9999.` end-of-block sentinel (float-parseable) corrupted the data array. This was the single critical-path blocker for the run-matrix closeout. **Resolution**: dual-vocabulary alias table → canonical keys; `path_scattered_radiance` = classic `SOL_SCAT` when present, else `MULT_SCAT + SING_SCAT` (verified vs `TOTAL_RAD` on real A1, median rel-err 1.1e-5); footer/sentinel rows dropped by column-count mismatch. Also adds `ModtranFluxReader` (+ `ModtranFluxOutput`) for the Block E `*_flux.csv` irradiance sidecar (UP/DOWN/SOLAR per level → ground direct/diffuse W/m²/µm; validated on real E1), the Gap 38 reference data — parser only, chain-wiring deferred to Gap 38. All 39 tape7s + 4 flux files parse. Tests: `TestTape7ReaderModtran6` (5), `TestRealModtranA1` (3, skipif), `TestModtranFluxReader` (4), `TestRealModtranE1Flux` (3, skipif). Docs: `RADIANT_Atmosphere.md` §5.3 + verification caveat; CHANGELOG.
+
+### CU-067 — Card 1's inline field-name comment does not align with its own token positions — RESOLVED 2026-07-17 (commit `e69d0a6`)
+
+**Discovered**: implementing CU-064 (IEMSCT threading), 2026-07-10 — the inline name-list comment could not be paired index-for-index with the 14 literal tokens `render_tape5` writes. **Resolution**: the RADIANT-controlled Card 1 token positions are verified field-by-field against the real MODTRAN 6 run set — [3]=MODEL (A1–A6 vary this token → matching standard profile in each tape7), [5]=ITYPE / [6]=IEMSCT (E-block set 3/3 → irradiance/flux, every other run 2/2 → radiance), [7]=IMULT (scatter columns populated). The stale/miscounted comment is replaced with this verified map; the fixed-literal tokens are unchanged for all 39 runs (an error would have broken every run). New Level-0 test `TestCardDeck::test_card1_token_positions` pins the four controlled positions (distinct values 6/2/3/1).
+
+### CU-065 — Card 3 ANGLE convention suspect (path zenith written unconverted) — RESOLVED 2026-07-17 (commit `e69d0a6`)
+
+**Discovered**: MODTRAN_Run_Matrix_Plan §6 PW-3 (deck-builder audit), 2026-07-10. **Resolution**: the deck-side conversion landed 2026-07-11 (`2e707c7`); the at-H1 ANGLE convention (nadir renders 180°) is now empirically confirmed against the real MODTRAN 6 run set — a stronger authority than the manual — by (1) three-way agreement `render_tape5` == the CSV's hand-worked `modtran_angle_at_h1_deg` == the delivered tape7 Card-3 echo on all 35 non-E rows (E-block ANGLE is solar-driven on Card 3A1, correctly 0 on Card 3 in both), and (2) correct airmass physics — B-block zenith-fan LWIR-window transmittance decreasing 0.846→0.826→0.793→0.720 with off-nadir angle (so ANGLE=180 = shortest/nadir path), Beer cross-check τ_nadir^1.414 = 0.790 vs measured τ(45° off) = 0.793 (0.4%). Level-0 tests (nadir 180 / 30° 150 / uplooking 48.2) + `tests/integration/test_modtran_real_runs.py` (cross-ladder C-vs-G + airmass fan).
 
 ### CU-142 — GUI function-key shortcuts (F5/F6/F7) require the Fn modifier on default macOS — RESOLVED 2026-07-16 (commit `c7aeb13`)
 

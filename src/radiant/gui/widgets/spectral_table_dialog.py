@@ -36,6 +36,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.gui.errors import GuiValidationError
+
 
 def parse_spectrum_text(text: str) -> list[tuple[float, float]]:
     """Parse pasted spreadsheet-style text into (wavelength_um, value) points.
@@ -51,11 +53,11 @@ def parse_spectrum_text(text: str) -> list[tuple[float, float]]:
             continue
         columns = line.replace(",", " ").replace("\t", " ").split()
         if len(columns) < 2:
-            raise ValueError(f"line {lineno}: need two columns (λ_um, value), got {line!r}")
+            raise GuiValidationError(f"line {lineno}: need two columns (λ_um, value), got {line!r}")
         try:
             points.append((float(columns[0]), float(columns[1])))
         except ValueError as exc:
-            raise ValueError(f"line {lineno}: {exc}") from exc
+            raise GuiValidationError(f"line {lineno}: {exc}") from exc
     return points
 
 

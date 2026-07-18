@@ -22,12 +22,9 @@ from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog  #
 
 
 class TestBareLaunch:
-    def test_cli_loader_returns_blank_sensor_for_no_config(self) -> None:
-        from radiant.cli.gui import _load_sensor
-
-        sensor = _load_sensor(None)
-        assert sensor is not None  # a dead None-window is the reported bug
-        assert dict(sensor._params.inputs()) == {}  # noqa: SLF001 — truly blank
+    # The CLI-loader assertion (blank Sensor for no config) lives with the
+    # CLI tests — src/radiant/cli/tests/test_gui_cli.py — because gui code
+    # (tests included) may not import radiant.cli (import table; CU-158).
 
     def test_blank_window_is_editable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         window = RADIANTMainWindow(Sensor())

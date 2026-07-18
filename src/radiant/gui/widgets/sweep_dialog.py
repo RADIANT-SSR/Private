@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 from radiant.api import OperationCancelledError
 from radiant.core.exceptions import RadiantError
 from radiant.core.units import convert
+from radiant.gui.errors import GuiValidationError
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 
 if TYPE_CHECKING:
@@ -240,10 +241,10 @@ class SweepDialog(QDialog):
         pdef = self._defs[dotpath]
         start, stop, n = float(start_text), float(stop_text), int(n_text)
         if n < 2:
-            raise ValueError(f"points must be >= 2, got {n}")
+            raise GuiValidationError(f"points must be >= 2, got {n}")
         if log:
             if start <= 0 or stop <= 0:
-                raise ValueError("log spacing needs positive start/stop")
+                raise GuiValidationError("log spacing needs positive start/stop")
             values = np.logspace(np.log10(start), np.log10(stop), n)
         else:
             values = np.linspace(start, stop, n)
@@ -276,7 +277,7 @@ class SweepDialog(QDialog):
         if spec["mode"] == "2d":
             p2 = self._param2.currentText()
             if p2 == p1:
-                raise ValueError("2-D sweep needs two different parameters")
+                raise GuiValidationError("2-D sweep needs two different parameters")
             spec["param2"] = p2
             spec["values2"] = self._axis_values(
                 p2, self._start2.text(), self._stop2.text(), self._n2.text(), log=False

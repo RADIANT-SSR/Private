@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.config_io import preview_spectral_import
 from radiant.core.exceptions import RadiantError
+from radiant.gui.errors import GuiValidationError
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ class ImportPreviewDialog(QDialog):
     def __init__(self, kind: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         if kind not in _KINDS:
-            raise ValueError(f"ImportPreviewDialog: unknown kind {kind!r}")
+            raise GuiValidationError(f"ImportPreviewDialog: unknown kind {kind!r}")
         self._kind = kind
         title, self._filter = _KINDS[kind]
         self.setObjectName("importPreviewDialog")

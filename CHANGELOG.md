@@ -21,6 +21,11 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Scenario 8.1 (off-nadir interpolation) upgraded to the real MODTRAN 6 zenith fan**, adding a
+  holdout validation of the interpolation method itself: predicting the real 45° run from its
+  30°/60° neighbors lands −4.07% (log-τ linear in angle) vs +6.84% for nearest-neighbor — and
+  −0.10% when interpolated in airmass sec(θ) space, filed as CU-160 (also affects the shipped
+  zenith-fan library's off-node queries). Figure/walkthrough regenerated from real data.
 - **Scenarios 1.1 (MWIR maritime) and 6.2 (atmospheric intercomparison) upgraded from
   synthetic to real MODTRAN 6 data (2026-07-17 run set).** Both scripts auto-detect the
   staged real runs (synthetic remains a loud fallback); walkthroughs, figures, and results

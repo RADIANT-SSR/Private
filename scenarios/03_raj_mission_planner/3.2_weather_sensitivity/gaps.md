@@ -48,3 +48,15 @@ Scalar transmission mode lumps all optics into a single τ and applies Kirchhoff
 - NIIRS ≥ 5.0 unachievable at 7.5 m GSD regardless of weather. Reaching it requires GSD ≤ ~2.5 m — a larger telescope (f ~ 3.6 m vs current 1.2 m).
 - Photon-noise-limited budget (signal + background = 99.9%) correctly identified.
 - Weather effect on NIIRS enters entirely through SNR term (GIQE coefficient 1.559) — GSD and RER are fixed by geometry/optics.
+
+---
+
+## Real-data validation (2026-07-17)
+
+D-block anchors validated the visibility axis (sensitivity same order,
+absolute τ within 6%) and falsified the PWV axis magnitude: simple's
+MWIR water response is ~5.5× too steep vs real MODTRAN (τ slope
+−0.207/cm vs −0.038/cm) — saturated-band curve-of-growth physics that
+linear-Beer PWV scaling cannot capture. This scenario's PWV go/no-go
+conclusions are overstated accordingly; visibility conclusions stand.
+Mirrored to `docs/tracking/Cleanup_Backlog.md` CU-161.

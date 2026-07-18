@@ -109,6 +109,37 @@ refill shrinks it further to ~19%. Because NIIRS depends on log₁₀(SNR), that
 - Sub-pixel smear preserves spatial resolution
 - Well fill: 248K e- = 50% of 500K FWC (safe)
 
+## Real-MODTRAN validation note (added 2026-07-17)
+
+The real MODTRAN 6 D-block (2026-07-17 run set: D1 vis=5 km, D4/D5
+H₂O ×0.5/×2.0, all us_standard rural, nadir full column; baseline A1)
+pins this scenario's two sweep axes. MWIR 3.5–5.0 µm band means:
+
+| Axis | Real MODTRAN | SimpleAtmosphere | Verdict |
+|---|---|---|---|
+| Visibility 23→5 km | τ 0.555→0.511 (−8.0%) | τ 0.524→0.497 (−5.1%) | **Validated** — absolute τ within 6%, sensitivity same order (simple mildly under-responds) |
+| PWV 0.7→2.8 cm | τ 0.586→0.506 (−0.038/cm) | τ 0.717→0.283 (−0.207/cm) | **~5.5× too steep** (CU-161) |
+
+Consequences for this walkthrough's conclusions:
+
+- **The visibility go/no-go threshold is roughly trustworthy** — the
+  aerosol/visibility response is the physics SimpleAtmosphere gets
+  right (validated here for the first time against real data).
+- **The PWV sensitivity results are overstated ~5×.** The real MWIR
+  band barely responds to column water (saturated H₂O bands grow
+  sub-linearly with absorber amount — curve of growth), while the
+  linear-Beer parametric model scales optical depth ∝ PWV. Raj's
+  humidity-related margin conclusions are far more pessimistic than
+  the real atmosphere warrants; the visibility axis, not water, is
+  the weather driver at this band. Filed as CU-161 with the D-block
+  anchors as the future refit's reference data.
+
+Numbers not re-baselined (the scenario demonstrates the parametric
+sweep workflow); this note records the accuracy context. Note the
+anchors are us_standard while this scenario runs midlat_summer — the
+*axis sensitivities* transfer; absolute values also carry the profile
+effect quantified in scenario 6.2.
+
 ## Gap Findings
 
 See [gaps.md](gaps.md) for full detail with severity and status.

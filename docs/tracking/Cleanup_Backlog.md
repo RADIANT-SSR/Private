@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-161 — SimpleAtmosphere's MWIR water-vapor response is ~5× too steep (linear-Beer PWV scaling vs saturated-band curve of growth)
+
+**Discovered**: scenario re-validation pass against the real MODTRAN 6 run set, 2026-07-17 — measured three independent ways in one day.
+**Status**: Open — quantified model defect, consolidating the atmosphere-accuracy findings of scenarios 6.2, 1.1, and 3.2.
+**File**: `src/radiant/atmosphere/simple.py` (H₂O extinction term: optical depth scales linearly with `precipitable_water_cm`).
+**Symptom** (all MWIR 3.5–5.0 µm band means, nadir full column): (1) **PWV axis, everything else fixed** (D4/A1/D5 vs simple at matching PWV): real τ moves 0.586→0.506 across PWV 0.7→2.8 cm (−0.038/cm) while simple moves 0.717→0.283 (−0.207/cm) — **5.5× too steep**; (2) **across profiles** (scenario 6.2): simple spans τ 0.16–0.81 where real MODTRAN spans 0.42–0.57, near-exact at us_standard and ±40–60% at the climate extremes; (3) **maritime column** (scenario 1.1): 0.239 vs real 0.432. The visibility/aerosol axis is *fine* (real −8.0% vs simple −5.1% for 23→5 km) — the defect is specifically the water response.
+**Why it still matters**: PWV is the axis mission planners sweep for weather go/no-go (scenario 3.2's PWV conclusions are ~5× overstated; its visibility threshold is roughly right). Physics: MWIR water absorption is dominated by saturated bands whose curve of growth is sub-linear (√/log regime) in absorber amount; a linear-Beer OD ∝ PWV model over-responds by construction, in both directions from its us_standard calibration point.
+**Suggested fix**: (b) stand-alone Category C task — refit the H₂O band term with a sub-linear absorber-amount dependence (two-parameter curve-of-growth, e.g. τ_H2O = exp(−a·w^b) with b ≈ 0.3–0.6 fit per band), anchored to the now-available real τ(PWV) points (D4/A1/D5) and the six profile anchors; results-affecting (CHANGELOG + golden review; Cells 25/40/55 and scenarios 3.2/6.2 re-audit on landing). The pinned constants in `tests/integration/test_modtran_real_runs.py` and the shipped profile NPZs are the fit's reference data. Effort M.
+
 ### CU-160 — Zenith-angle interpolation should be in airmass (sec θ) space, not linear in angle
 
 **Discovered**: scenario 8.1 holdout validation against the real B-fan, 2026-07-17 — the first ground-truth test of the interpolation method.

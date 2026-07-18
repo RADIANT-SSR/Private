@@ -705,7 +705,7 @@ class TestProtocol:
 
 
 class TestNonAxisGeometryWarning:
-    """CU-164: non-axis query geometry is never silently substituted."""
+    """CU-167: non-axis query geometry is never silently substituted."""
 
     def _target_axis_model(self, wl: np.ndarray) -> InterpolatedAtmosphere:
         points = [

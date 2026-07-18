@@ -34,7 +34,7 @@ retroactively reconstructed.
   run set (`docs/plans/MODTRAN_Boost_Ladder_Expansion_Plan.md`; 14 runs appended
   to the run matrix).
 - **`InterpolatedAtmosphere` warns when non-axis query geometry is ignored
-  (CU-164).** Querying a data set at a geometry the samples don't cover in a
+  (CU-167).** Querying a data set at a geometry the samples don't cover in a
   non-interpolated dimension (e.g. the nadir-only ladders at 45° LOS zenith) now
   emits a `UserWarning` naming the ignored field and the value actually served
   (~1°/1 m tolerance), instead of silently substituting the stored column; a

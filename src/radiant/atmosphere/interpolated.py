@@ -92,7 +92,7 @@ _AIRMASS_AXES: frozenset[str] = frozenset({"path_zenith_rad", "solar_zenith_rad"
 # than interpolate on an exploding coordinate (≈ 88.85°, airmass ≈ 50).
 _MAX_ZENITH_RAD: float = 1.55
 
-# CU-164: a query field that is NOT an interpolation axis is served with the
+# CU-167: a query field that is NOT an interpolation axis is served with the
 # stored runs' (fixed) value, whatever the query says. When the query differs
 # from the stored value beyond these tolerances, warn — silently substituting
 # e.g. the nadir column for a 45° slant path is a Rule-17-class reduction.
@@ -277,7 +277,7 @@ class InterpolatedAtmosphere:
                         f"{sorted(pt.coordinates)}."
                     )
 
-        # CU-164: record the fixed value of any non-axis geometry field the
+        # CU-167: record the fixed value of any non-axis geometry field the
         # points carry, so queries can be checked against the stored run
         # geometry. A recorded non-axis field that VARIES across points is
         # ill-posed — the samples differ in a dimension the interpolator
@@ -294,7 +294,7 @@ class InterpolatedAtmosphere:
                     f"varies across the sample points "
                     f"([{min(recorded):.6g}, {max(recorded):.6g}]) but is not an "
                     "interpolation axis — the samples differ in a dimension the "
-                    "interpolator would silently ignore (CU-164). Add the field "
+                    "interpolator would silently ignore (CU-167). Add the field "
                     "to the interpolation axes, or fix the sample set."
                 )
             self._non_axis_recorded[field] = recorded[0]
@@ -428,7 +428,7 @@ class InterpolatedAtmosphere:
         return self._wavelength_um.copy()
 
     def _warn_ignored_geometry(self, geometry: AtmosphericGeometry) -> None:
-        """CU-164: warn when a non-axis query field departs from the stored runs.
+        """CU-167: warn when a non-axis query field departs from the stored runs.
 
         The reference is the value recorded in the sample points' coordinate
         dicts when present (constructor-validated as consistent), else the
@@ -451,7 +451,7 @@ class InterpolatedAtmosphere:
                         f"InterpolatedAtmosphere: query {field} = {query_val:.6g} "
                         f"is IGNORED — '{field}' is not an interpolation axis "
                         f"(axes={self._axes}), so the result carries the sample "
-                        f"runs' {origin} value {reference:.6g} instead (CU-164). "
+                        f"runs' {origin} value {reference:.6g} instead (CU-167). "
                         "Add runs covering this dimension and include "
                         f"'{field}' in atmosphere.interpolation_axes, or accept "
                         "the stored geometry's physics."
@@ -552,7 +552,7 @@ class InterpolatedAtmosphere:
             dtype=np.float64,
         )
 
-        # CU-164: a query value on a NON-axis field cannot influence the
+        # CU-167: a query value on a NON-axis field cannot influence the
         # result — it is served with the stored runs' geometry. Warn loud
         # when the query meaningfully departs from the recorded (or, for
         # LOS zenith, assumed-nadir) run value instead of silently

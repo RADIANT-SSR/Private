@@ -23,7 +23,7 @@ boosting target continuously from launch (0 km) through burnout (>100 km):
   the background) landed 2026-07-18 (`atmosphere/exo_target.py`, wired in
   `AtmosphereStage`). No MODTRAN run can improve on an identity.
 - **Off-nadir** — boost-phase tracking from LEO is rarely nadir. The shipped
-  ladders are nadir-only, and CU-164 (fixed 2026-07-18) now *warns* rather than
+  ladders are nadir-only, and CU-167 (fixed 2026-07-18) now *warns* rather than
   silently serving the nadir column for a slant query; the warning goes away
   only when the data actually covers the zenith dimension.
 
@@ -78,9 +78,9 @@ All in `scripts/build_atmosphere_library.py` (regenerates `data/atmospheres/`):
    (nadir column from A3/G1-derived nodes; 45° from I1/G6/I2–I4; 60° from
    I5–I9), duplicated at 40 000 km for the orbital hull. Zenith axis
    interpolates in airmass sec(θ) space automatically (CU-160).
-4. **Record full run geometry per NPZ** (CU-164 follow-through) — write all
+4. **Record full run geometry per NPZ** (CU-167 follow-through) — write all
    five geometry fields into each NPZ `geometry` dict (including the fields
-   that are constant per family), so the CU-164 mismatch check compares against
+   that are constant per family), so the CU-167 mismatch check compares against
    recorded values instead of the assumed-nadir fallback.
 5. Update `data/atmospheres/MANIFEST.md` (family tables, provenance, the
    synthesized-node note) and `data/atmospheres/README.md` in the same PR
@@ -113,7 +113,7 @@ All in `scripts/build_atmosphere_library.py` (regenerates `data/atmospheres/`):
 1. A single scenario config can sweep `geometry.target_altitude_m` from 0 m to
    300 km with `atmosphere.model = "interpolated"` and produce physically
    monotone τ_up (decreasing path absorption with altitude, τ_up = 1.000 above
-   100 km) with no errors and no CU-164 warnings at any swept zenith ≤ 60°.
+   100 km) with no errors and no CU-167 warnings at any swept zenith ≤ 60°.
 2. All Category C/D validation sections for the new families (truth anchors
    from the delivered tape7s; dimensional audit unchanged — same units as
    existing families) reported in the landing PR.

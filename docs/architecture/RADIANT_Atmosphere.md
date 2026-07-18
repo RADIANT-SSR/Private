@@ -100,7 +100,7 @@ class AtmosphericState:
 > the target-local (up-leg) query. No extrapolation: an `h_tgt` beyond the grid's
 > target hull (ladders: 0–29 km) is refused. Without a target axis, `h_tgt > 0`
 > raises `NotImplementedError` — one column cannot supply both legs.
-> **Non-axis query geometry is never silently substituted (CU-164):** a query
+> **Non-axis query geometry is never silently substituted (CU-167):** a query
 > field that is not an interpolation axis is served with the sample runs'
 > geometry; when the query departs from the recorded per-point value (or, for
 > LOS zenith on data that records none, the assumed-nadir run geometry) beyond

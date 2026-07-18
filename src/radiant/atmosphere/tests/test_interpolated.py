@@ -19,9 +19,12 @@ Failure modes:
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.interpolated import (
     GeometryPoint,
     InterpolatedAtmosphere,
@@ -132,9 +135,7 @@ class TestLogTauInterpolation:
         thetas = (0.0, np.radians(30.0), np.radians(60.0))
         sec = lambda t: 1.0 / np.cos(t)  # noqa: E731
         points = [
-            _make_point(
-                {"path_zenith_rad": th}, wl, (tau_vert ** sec(th)) * np.ones_like(wl)
-            )
+            _make_point({"path_zenith_rad": th}, wl, (tau_vert ** sec(th)) * np.ones_like(wl))
             for th in thetas
         ]
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
@@ -701,3 +702,97 @@ class TestProtocol:
         )
         assert model.n_points == 3
         assert model.grid_type == "regular"
+
+
+class TestNonAxisGeometryWarning:
+    """CU-164: non-axis query geometry is never silently substituted."""
+
+    def _target_axis_model(self, wl: np.ndarray) -> InterpolatedAtmosphere:
+        points = [
+            _make_point({"target_altitude_m": 0.0}, wl, 0.7 * np.ones_like(wl)),
+            _make_point({"target_altitude_m": 10_000.0}, wl, 0.9 * np.ones_like(wl)),
+        ]
+        return InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+
+    @pytest.mark.level0
+    def test_offnadir_query_of_nadir_grid_warns(self, wl: np.ndarray) -> None:
+        """Querying a target-altitude grid at 45° LOS zenith warns that the
+        (assumed-nadir) stored column is served instead."""
+        model = self._target_axis_model(wl)
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=5_000.0,
+            path_zenith_rad=np.deg2rad(45.0),
+            solar_zenith_rad=0.0,
+        )
+        with pytest.warns(UserWarning, match="path_zenith_rad.*IGNORED"):
+            model.build_state(wl, geom)
+
+    @pytest.mark.level0
+    def test_nadir_query_does_not_warn(self, wl: np.ndarray) -> None:
+        model = self._target_axis_model(wl)
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=5_000.0,
+            path_zenith_rad=0.0,
+            solar_zenith_rad=0.0,
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            model.build_state(wl, geom)  # must not warn
+
+    @pytest.mark.level1
+    def test_recorded_value_mismatch_warns(self, wl: np.ndarray) -> None:
+        """Points recording a common non-axis value warn when the query departs."""
+        points = [
+            _make_point(
+                {"target_altitude_m": t, "path_zenith_rad": 0.5236},  # 30° recorded
+                wl,
+                tau * np.ones_like(wl),
+            )
+            for t, tau in ((0.0, 0.7), (10_000.0, 0.9))
+        ]
+        model = InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=5_000.0,
+            path_zenith_rad=0.0,  # nadir query vs 30° runs
+            solar_zenith_rad=0.0,
+        )
+        with pytest.warns(UserWarning, match="recorded value 0.5236"):
+            model.build_state(wl, geom)
+
+    @pytest.mark.level1
+    def test_recorded_value_match_does_not_warn(self, wl: np.ndarray) -> None:
+        points = [
+            _make_point(
+                {"target_altitude_m": t, "path_zenith_rad": 0.5236},
+                wl,
+                tau * np.ones_like(wl),
+            )
+            for t, tau in ((0.0, 0.7), (10_000.0, 0.9))
+        ]
+        model = InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=5_000.0,
+            path_zenith_rad=0.5236,
+            solar_zenith_rad=0.0,
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            model.build_state(wl, geom)
+
+    @pytest.mark.level1
+    def test_varying_recorded_non_axis_field_refused(self, wl: np.ndarray) -> None:
+        """A non-axis field that VARIES across points is ill-posed → loud error."""
+        points = [
+            _make_point(
+                {"target_altitude_m": t, "path_zenith_rad": z},
+                wl,
+                0.8 * np.ones_like(wl),
+            )
+            for t, z in ((0.0, 0.0), (10_000.0, 0.7854))
+        ]
+        with pytest.raises(AtmosphereValidationError, match="varies across"):
+            InterpolatedAtmosphere(points, axes=["target_altitude_m"])

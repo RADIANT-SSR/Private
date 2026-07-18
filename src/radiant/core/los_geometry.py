@@ -50,13 +50,18 @@ class LineOfSightGeometry:
     Parameters
     ----------
     h_tgt:
-        Target altitude above mean sea level [m].  Must satisfy
-        ``0 ≤ h_tgt ≤ h_atm_top``.  ``at_aperture`` descriptors set
-        this to 0 by convention; the assembly arm ignores it.
+        Target altitude above mean sea level [m].  Must be ≥ 0.
+        ``at_aperture`` descriptors set this to 0 by convention; the
+        assembly arm ignores it.  ``h_tgt ≥ h_atm_top`` is legal (Gap
+        95): the target sits above the atmospheric column (exo-altitude
+        target — satellite, post-burnout booster) and the target→sensor
+        leg is vacuum; ``AtmosphereStage`` serves that case exactly
+        (τ_up = 1, L_path_up = 0, full ground→sensor column kept for
+        the background) via
+        ``radiant.atmosphere.exo_target.evaluate_with_exo_target``.
     h_atm_top:
         Top of the atmospheric integration column [m] (v1 fixed default =
-        Kármán line ≈ 100 km).  Must be strictly greater than ``h_tgt``
-        when ``h_tgt`` is finite.
+        Kármán line ≈ 100 km).
     theta_o:
         Observer zenith angle at the target [rad].  ``0`` = sensor at zenith
         (nadir view); must lie in the half-open interval ``[0, π/2)``.
@@ -98,20 +103,13 @@ class LineOfSightGeometry:
                 context={"h_atm_top": self.h_atm_top},
             )
 
-        if not (0.0 <= self.h_tgt <= self.h_atm_top):
+        if self.h_tgt < 0.0:
             raise ParameterBoundsError(
-                what=(
-                    f"LineOfSightGeometry.h_tgt = {self.h_tgt} m is outside "
-                    f"[0, h_atm_top = {self.h_atm_top}] m"
-                ),
-                why=(
-                    "Target altitude must be non-negative (above MSL) and at or "
-                    "below the top of the atmospheric integration column."
-                ),
+                what=f"LineOfSightGeometry.h_tgt = {self.h_tgt} m is negative",
+                why="Target altitude must be non-negative (above MSL).",
                 action=(
-                    "Set h_tgt to a non-negative value ≤ h_atm_top; if the target "
-                    "is above the atmosphere, use target_location='no_atmosphere' "
-                    "with sub-case 'space' instead."
+                    "Set h_tgt ≥ 0 m. Values at or above h_atm_top are legal — "
+                    "the target→sensor leg is then treated as vacuum (Gap 95)."
                 ),
                 context={"h_tgt": self.h_tgt, "h_atm_top": self.h_atm_top},
             )
@@ -168,7 +166,11 @@ class LineOfSightGeometry:
         where r_t = R_E + h_tgt and r_top = R_E + h_atm_top.
 
         At θ_o = 0 this reduces to ``h_atm_top − h_tgt`` exactly.
+        For an exo-altitude target (``h_tgt ≥ h_atm_top``, Gap 95) there
+        is no column above the target: returns 0.0 m.
         """
+        if self.h_tgt >= self.h_atm_top:
+            return 0.0
         r_t = R_EARTH_M + self.h_tgt
         r_top = R_EARTH_M + self.h_atm_top
         cos_theta = math.cos(self.theta_o)
@@ -187,24 +189,13 @@ class LineOfSightGeometry:
         slowly than sec(θ_o) as θ_o → π/2, matching the standard "Kasten"
         shape without explicit refraction.
 
-        Raises
-        ------
-        ParameterBoundsError
-            If h_tgt == h_atm_top (column has zero vertical extent).  This
-            is caught by ``__post_init__`` during construction; the property
-            guards against the degenerate post-construction state.
+        For an exo-altitude target (``h_tgt ≥ h_atm_top``, Gap 95) the
+        target→sensor leg traverses no column at all; the ratio is the
+        vacuum limit 1.0 (0 m of slant path over 0 m of column).
         """
         dz = self.h_atm_top - self.h_tgt
         if dz <= 0.0:
-            raise ParameterBoundsError(
-                what=(
-                    f"LineOfSightGeometry.path_airmass_up: vertical column "
-                    f"h_atm_top − h_tgt = {dz} m is non-positive"
-                ),
-                why="Airmass is undefined for a column of zero vertical extent.",
-                action="Increase h_atm_top or decrease h_tgt.",
-                context={"h_tgt": self.h_tgt, "h_atm_top": self.h_atm_top},
-            )
+            return 1.0
         return float(self.slant_range_atm / dz)
 
     # ------------------------------------------------------------------

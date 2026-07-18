@@ -1416,6 +1416,31 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | `atmosphere.model = "simple"` for h_tgt < 100 km (validated to +0.13 τ envelope vs MODTRAN per Gap 39); `"exo"` when the target and background are both effectively above the atmosphere. |
 ---
 
+## Gap 95: Above-atmosphere target over an atmospheric background (exo-target mixed case) unreachable on every backend
+
+| | |
+|---|---|
+| **Found in** | Owner scenario question 2026-07-18: sub-pixel target at 101 km, LEO sensor at 500 km — τ_up should be 1.0, L_path_up 0 W/m²/sr/µm, while the background branch keeps the full 0→sensor column for the noise |
+| **Status** | CODE FIXED 2026-07-18 (commit pending, this branch); 29–100 km DATA remainder planned — see **Fix** row |
+| **Fix** | (1) `LineOfSightGeometry` accepts any `h_tgt ≥ 0`; `slant_range_atm` → 0 m and `path_airmass_up` → 1.0 (vacuum limits) for `h_tgt ≥ h_atm_top`. (2) New `atmosphere/exo_target.py::evaluate_with_exo_target` — called by `AtmosphereStage` for every backend — serves `h_tgt ≥ h_atm_top` with the exact identities τ_up ≡ 1, L_path_up ≡ 0, τ_sun ≡ 1 over the surface-evaluation full column (background branch byte-identical to a surface run; works on single-column imports too). Level-0 + chain integration tests (`test_exo_target.py`; `tests/integration/test_exo_target_chain.py`: 101 km target, 500 km sensor, shipped ladders, SNR finite). Docs `RADIANT_Atmosphere.md` §4.2a + CHANGELOG in lock-step. **Remainder (planned)**: the 29–100 km endo band needs real runs — 14 appended to the run matrix (G7–G11, I1–I9) with processing/integration steps in `docs/plans/MODTRAN_Boost_Ladder_Expansion_Plan.md`; close this remainder against the library-build commit. |
+| **Description** | Two independent blockers, verified empirically 2026-07-18. **(a)** `LineOfSightGeometry` enforces `0 ≤ h_tgt ≤ h_atm_top` with `h_atm_top` fixed at 1e5 m (not parameterized; `_infer_los` keeps the dataclass default), so a 101 km target is rejected with `ParameterBoundsError` before any atmosphere model is consulted. The sanctioned route for above-atmosphere targets — the `no_atmosphere` "space" subcase / `exo` model — vacuums the **whole** path, dropping the background's full-column τ_full_up and L_path_full, which is precisely what the scenario must keep. **(b)** Inside the column, the shipped ladder hull ends at 29 km: h_tgt = 90 km on the interpolated backend is refused (no extrapolation), and `SimpleAtmosphere` is the only backend covering 29–100 km. The physically required behavior for h_tgt ≥ h_atm_top is exact and needs **no new data**: τ_up ≡ 1.0, L_path_up ≡ 0, with τ_full_up / L_path_full from the (sensor, 0 km) full-column query — the Gap 94 two-leg machinery already delivers the full column to the background branch (`assemble_background…: L_bg·τ_full_up + L_path_full`). |
+| **Impact** | Sub-pixel / point-source scenarios of exo-atmospheric targets (satellites, post-burnout boost vehicles, 100+ km hypersonics) viewed against an Earth background cannot be modeled with any atmosphere backend; the space subcase silently loses background attenuation and path radiance. |
+| **Suggested fix** | (1) Relax the LOS invariant to admit `h_tgt > h_atm_top` with documented vacuum-target-leg semantics; (2) every backend's `evaluate()`: `h_tgt ≥ h_atm_top` → exact vacuum up-leg (τ_up = 1, L_path_up = 0) + full-column background — this regime needs no `target_altitude_m` axis and no second tape7, so it also unblocks the single-file import and `tabulated`; (3) close the 29–100 km ladder band by appending an exact vacuum node at `target_altitude_m = 100 km` (τ = 1, L_path = 0 — a physical identity, not fabricated data) so log-τ interpolation spans 29–100 km with bias bounded by OD(29 km) ≈ 0.01–0.05 (≲ 2% in mid-band τ). Effort M; category C (results-affecting only for scenarios that currently cannot run at all). |
+| **Workaround** | None faithful. `SimpleAtmosphere` covers targets to just below 100 km (but not ≥ 100 km); the space subcase runs but zeroes the background column. |
+---
+
+## Gap 96: No per-metric enable/select for performance metrics — inapplicable metrics (and their warnings) cannot be turned off
+
+| | |
+|---|---|
+| **Found in** | GUI-exercise campaign, owner feature request 2026-07-18 — "a toggle on/off for performance parameters would be a nice feature" (in response to a valid MWIR scenario flooding NIIRS/GIQE-5 extrapolation warnings). |
+| **Status** | OPEN |
+| **Description** | `PerformanceStage.run` computes every metric unconditionally (`stage.py:762-791`), and there is no config surface to select *which* metrics are computed or shown for a given system. So a metric that is inapplicable to the configuration — e.g. NIIRS on a system outside the GIQE-5 envelope (see CU-166) — is still computed (returning a low-confidence extrapolation) and cannot be suppressed. This gap is the **user-override half** of CU-166's applicability problem: CU-166 covers the engine deciding applicability *automatically* (clean-by-default); this gap covers the analyst *explicitly* scoping the output to the metrics that matter for their study. Key design point: a display-only toggle (hide the badge) does **not** stop the compute or the warnings — the toggle must be a *compute* selection to be effective. Best expressed as a first-class config concept (a `performance.metrics` enable set / per-metric flags in the schema) that the GUI toggle flips, so the choice is reproducible (saved in YAML), scriptable in sweeps, and drives compute + display + warnings consistently (one GUI action ↔ one API call, per the GUI-is-a-view rule). |
+| **Impact** | Analysts cannot scope results to the metrics relevant to a study; inapplicable metrics add clutter and (via CU-166) warning noise to every evaluate. Without a compute-level toggle there is no user-side way to silence an out-of-envelope metric even when they know it is N/A. |
+| **Suggested fix** | Add a `performance.metrics` selection to the schema/API (per-metric enable, or metric *groups* — Radiometric / Spatial-MTF / Interpretability — to avoid ~30 individual switches); `PerformanceStage` computes only the enabled set; the GUI renders group/metric toggles bound to those flags. Defaults should come from **engine applicability** (CU-166) so valid scenarios are clean *before* the user touches anything — the toggle is an override, not the primary mechanism — and ideally be preselected by the **mission-type selector** (extended / sub-pixel / point-source declares the relevant metric family). Effort M; category D (schema + API + GUI + UX). New public surface ⇒ Rule 20 doc updates (`RADIANT_Metrics.md`, GUI arch) + Rule 29 CHANGELOG when landed. **Related**: CU-166 (engine-set applicability defaults + zero-warnings-for-valid-scenarios principle); mission-type selector (relevance-driven UI). |
+| **Workaround** | None in-tool. In the scripting API a caller can simply ignore the metrics they don't want and read only the keys they care about, but the metrics are still computed and still warn. |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1514,6 +1539,8 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
 | 93 | No public provenance / reset-all surface on `Sensor` | — | GUI Edit → Reset to Defaults (GX-1) | FIXED |
 | 94 | Elevated targets (h_tgt > 0) unreachable on file-backed atmosphere paths; shipped ladder library stranded | M | Near-space / boost-phase (UC Tables C, G) | FIXED 2026-07-18 |
+| 95 | Above-atmosphere target over atmospheric background unreachable (LOS cap + ladder hull) | M | Exo-target sub-pixel / point-source vs Earth background | CODE FIXED 2026-07-18; 29–100 km data planned |
+| 96 | No per-metric enable/select for performance metrics (toggle inapplicable metrics + warnings off) | M | All; GUI performance view (override half of CU-166) | OPEN |
 
 ---
 

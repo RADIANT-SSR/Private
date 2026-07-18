@@ -68,6 +68,7 @@ from radiant.atmosphere.assembly import (
     validate_no_atmosphere_subcase,
 )
 from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.atmosphere.exo_target import evaluate_with_exo_target
 from radiant.atmosphere.loaders import build_atmosphere_model, model_requires_prebuild
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet, Provenance
@@ -162,7 +163,11 @@ class AtmosphereStage:
         # 3. Evaluate the atmospheric quantities bundle and assemble the
         #    at-aperture radiance arrays for the target and background arms.
         # ------------------------------------------------------------------
-        atm_quantities: AtmosphericQuantities = model.evaluate(  # type: ignore[attr-defined]
+        # Gap 95: exo-altitude targets (h_tgt ≥ h_atm_top) are served with an
+        # exact vacuum target leg over the full-column background, for every
+        # backend, by the wrapper (see atmosphere/exo_target.py).
+        atm_quantities: AtmosphericQuantities = evaluate_with_exo_target(
+            model,
             state.wavelength_um,
             los,
             params,

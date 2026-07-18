@@ -21,6 +21,25 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Exo-altitude targets over an atmospheric background (Gap 95).**
+  `LineOfSightGeometry` now accepts any target altitude ≥ 0 m; a target at or
+  above the atmosphere top (default 100 km — satellite, post-burnout booster)
+  is served by every atmosphere backend with the exact vacuum target leg
+  (τ_up ≡ 1, L_path_up ≡ 0, τ_sun ≡ 1) while the ground→sensor full column
+  (τ_full_up, L_path_full) is retained for the background/noise branch —
+  identical to a surface-target evaluation of the same backend. Implemented
+  once, model-agnostically (`atmosphere/exo_target.py`), so single-column file
+  imports work too. Previously these configurations were rejected at LOS
+  construction. The 29–100 km band remains data-limited pending the boost-ladder
+  run set (`docs/plans/MODTRAN_Boost_Ladder_Expansion_Plan.md`; 14 runs appended
+  to the run matrix).
+- **`InterpolatedAtmosphere` warns when non-axis query geometry is ignored
+  (CU-164).** Querying a data set at a geometry the samples don't cover in a
+  non-interpolated dimension (e.g. the nadir-only ladders at 45° LOS zenith) now
+  emits a `UserWarning` naming the ignored field and the value actually served
+  (~1°/1 m tolerance), instead of silently substituting the stored column; a
+  recorded non-axis field that varies across sample points is refused at
+  construction.
 - **Airborne targets (h_tgt > 0) on the file-backed atmosphere paths (Gap 94).**
   (1) `InterpolatedAtmosphere.evaluate()` now serves elevated targets when the grid
   carries a `target_altitude_m` axis — two interpolator queries give the real two-leg

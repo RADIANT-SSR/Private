@@ -92,6 +92,26 @@ _AIRMASS_AXES: frozenset[str] = frozenset({"path_zenith_rad", "solar_zenith_rad"
 # than interpolate on an exploding coordinate (≈ 88.85°, airmass ≈ 50).
 _MAX_ZENITH_RAD: float = 1.55
 
+# CU-164: a query field that is NOT an interpolation axis is served with the
+# stored runs' (fixed) value, whatever the query says. When the query differs
+# from the stored value beyond these tolerances, warn — silently substituting
+# e.g. the nadir column for a 45° slant path is a Rule-17-class reduction.
+_NON_AXIS_ANGLE_TOL_RAD: float = 0.0175  # ≈ 1°
+_NON_AXIS_LENGTH_TOL_M: float = 1.0
+
+# Geometry fields measured as angles (tolerance in radians); the rest are
+# altitudes (tolerance in metres).
+_ANGLE_FIELDS: frozenset[str] = frozenset(
+    {"path_zenith_rad", "solar_zenith_rad", "solar_azimuth_rad"}
+)
+
+# Non-axis fields with no recorded value fall back to these assumed run
+# geometries for the mismatch check (the shipped families are rendered
+# nadir; record the field in the NPZ 'geometry' dict to override). Fields
+# not listed here are skipped when unrecorded — there is no defensible
+# assumption for e.g. an unrecorded sensor altitude.
+_ASSUMED_UNRECORDED: dict[str, float] = {"path_zenith_rad": 0.0}
+
 
 def _axis_to_interp_space(axis: str, values: np.ndarray | float) -> np.ndarray | float:
     """Map coordinate values to the axis's interpolation space.
@@ -257,6 +277,28 @@ class InterpolatedAtmosphere:
                         f"{sorted(pt.coordinates)}."
                     )
 
+        # CU-164: record the fixed value of any non-axis geometry field the
+        # points carry, so queries can be checked against the stored run
+        # geometry. A recorded non-axis field that VARIES across points is
+        # ill-posed — the samples differ in a dimension the interpolator
+        # would silently ignore — and is refused loud.
+        self._non_axis_recorded: dict[str, float] = {}
+        for field in sorted(_GEOMETRY_FIELDS - set(self._axes)):
+            recorded = [float(pt.coordinates[field]) for pt in points if field in pt.coordinates]
+            if not recorded:
+                continue
+            tol = _NON_AXIS_ANGLE_TOL_RAD if field in _ANGLE_FIELDS else _NON_AXIS_LENGTH_TOL_M
+            if max(recorded) - min(recorded) > tol:
+                raise AtmosphereValidationError(
+                    f"InterpolatedAtmosphere: non-axis geometry field '{field}' "
+                    f"varies across the sample points "
+                    f"([{min(recorded):.6g}, {max(recorded):.6g}]) but is not an "
+                    "interpolation axis — the samples differ in a dimension the "
+                    "interpolator would silently ignore (CU-164). Add the field "
+                    "to the interpolation axes, or fix the sample set."
+                )
+            self._non_axis_recorded[field] = recorded[0]
+
         # Validate: all points share the same wavelength grid.
         ref_wl = points[0].transmittance.wavelength_um
         for i, pt in enumerate(points[1:], start=1):
@@ -385,6 +427,39 @@ class InterpolatedAtmosphere:
         """The shared wavelength grid of all points."""
         return self._wavelength_um.copy()
 
+    def _warn_ignored_geometry(self, geometry: AtmosphericGeometry) -> None:
+        """CU-164: warn when a non-axis query field departs from the stored runs.
+
+        The reference is the value recorded in the sample points' coordinate
+        dicts when present (constructor-validated as consistent), else the
+        assumed run geometry in :data:`_ASSUMED_UNRECORDED` (LOS zenith:
+        nadir — every shipped down-looking family is nadir-rendered). Fields
+        with neither are skipped: no defensible reference exists.
+        """
+        import warnings
+
+        for field in sorted(_GEOMETRY_FIELDS - set(self._axes)):
+            reference = self._non_axis_recorded.get(field, _ASSUMED_UNRECORDED.get(field))
+            if reference is None:
+                continue
+            query_val = float(getattr(geometry, field))
+            tol = _NON_AXIS_ANGLE_TOL_RAD if field in _ANGLE_FIELDS else _NON_AXIS_LENGTH_TOL_M
+            if abs(query_val - reference) > tol:
+                origin = "recorded" if field in self._non_axis_recorded else "assumed"
+                warnings.warn(
+                    (
+                        f"InterpolatedAtmosphere: query {field} = {query_val:.6g} "
+                        f"is IGNORED — '{field}' is not an interpolation axis "
+                        f"(axes={self._axes}), so the result carries the sample "
+                        f"runs' {origin} value {reference:.6g} instead (CU-164). "
+                        "Add runs covering this dimension and include "
+                        f"'{field}' in atmosphere.interpolation_axes, or accept "
+                        "the stored geometry's physics."
+                    ),
+                    UserWarning,
+                    stacklevel=3,
+                )
+
     def coordinate_bounds(self) -> dict[str, tuple[float, float]]:
         """Return the min/max coordinate range for each axis."""
         bounds: dict[str, tuple[float, float]] = {}
@@ -476,6 +551,13 @@ class InterpolatedAtmosphere:
             [_extract_geometry_coord(geometry, ax) for ax in self._axes],
             dtype=np.float64,
         )
+
+        # CU-164: a query value on a NON-axis field cannot influence the
+        # result — it is served with the stored runs' geometry. Warn loud
+        # when the query meaningfully departs from the recorded (or, for
+        # LOS zenith, assumed-nadir) run value instead of silently
+        # substituting e.g. the nadir column for a 45° slant path.
+        self._warn_ignored_geometry(geometry)
 
         # Bounds check with actionable error.
         bounds = self.coordinate_bounds()

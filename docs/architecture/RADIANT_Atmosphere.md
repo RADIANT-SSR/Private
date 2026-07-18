@@ -100,6 +100,14 @@ class AtmosphericState:
 > the target-local (up-leg) query. No extrapolation: an `h_tgt` beyond the grid's
 > target hull (ladders: 0–29 km) is refused. Without a target axis, `h_tgt > 0`
 > raises `NotImplementedError` — one column cannot supply both legs.
+> **Non-axis query geometry is never silently substituted (CU-164):** a query
+> field that is not an interpolation axis is served with the sample runs'
+> geometry; when the query departs from the recorded per-point value (or, for
+> LOS zenith on data that records none, the assumed-nadir run geometry) beyond
+> ~1° / 1 m, a `UserWarning` names the ignored field and the value actually
+> served. A *recorded* non-axis field that varies across sample points is
+> refused at construction — the set differs in a dimension the interpolator
+> would ignore.
 > The diagram and subsections below predate it; treat `interpolated` as a sixth box
 > feeding the same single `AtmosphericState` contract.
 
@@ -227,6 +235,34 @@ For zenith > 80°: switch to spherical-Earth correction
 ```
 
 Air mass `m = L_slant / Δh` is stored alongside; for zenith ≤ 80° it equals `sec(θ)`, and the spherical correction kicks in past 80° to keep the horizon finite (`m ≈ 38` at the horizon for sea level).
+
+### 4.2a Exo-altitude targets — the vacuum target leg (Gap 95)
+
+A target at or above the top of the atmospheric column (`los.h_tgt ≥
+los.h_atm_top`, default 100 km — a satellite, a post-burnout booster, a 100+ km
+hypersonic) is legal geometry (`LineOfSightGeometry` accepts any `h_tgt ≥ 0`)
+and is served **model-agnostically** by
+`atmosphere/exo_target.py::evaluate_with_exo_target`, which `AtmosphereStage`
+calls in place of a bare `model.evaluate`:
+
+- `τ_up ≡ 1`, `L_path_up ≡ 0 W/m²/sr/µm`, `τ_sun ≡ 1` — exact identities (no
+  absorber above the column top), not approximations; no warning is emitted.
+- `τ_full_up`, `L_path_full`, `E_TOA`, and the E_sky terms come from the same
+  backend evaluated at the surface-target geometry (`h_tgt = 0`, same angles) —
+  the ground→sensor full column survives to the background/noise branch
+  unchanged.
+- Works for every backend, including single-column file imports (tape7,
+  tabulated) that refuse endo-atmospheric elevated targets — in this regime one
+  column is all the physics needs.
+- Documented conflation: the single E_sky pair in `AtmosphericQuantities` still
+  carries ground-level downwelling, so an exo target's reflected-diffuse term
+  uses Earthshine-magnitude but ground-spectrum illumination (see the module
+  docstring; negligible against plume/self emission in the driving scenarios).
+
+`LineOfSightGeometry.slant_range_atm` returns 0 m and `path_airmass_up` the
+vacuum limit 1.0 for these targets. Targets in the 29–100 km band on the
+interpolated ladders remain data-limited until the boost-ladder run set lands —
+`docs/plans/MODTRAN_Boost_Ladder_Expansion_Plan.md`.
 
 ### 4.3 How geometry feeds each model
 

@@ -37,15 +37,14 @@ def test_los_construct_nadir_ground() -> None:
 
 
 @pytest.mark.level0
-def test_los_h_tgt_at_top_is_valid_but_airmass_undefined() -> None:
-    """h_tgt = h_atm_top is a valid edge (empty column); airmass property raises."""
+def test_los_h_tgt_at_top_is_valid_with_vacuum_limits() -> None:
+    """h_tgt = h_atm_top is a valid edge (empty column); vacuum-limit properties (Gap 95)."""
     los = LineOfSightGeometry(h_tgt=1.0e5, theta_o=0.0)
     assert los.h_tgt == 1.0e5
-    # slant_range_atm is 0 exactly at the edge
+    # slant_range_atm is 0 exactly at the edge [m]
     assert los.slant_range_atm == pytest.approx(0.0, abs=1e-6)
-    # airmass undefined — property raises
-    with pytest.raises(ParameterBoundsError, match="vertical column"):
-        _ = los.path_airmass_up
+    # airmass takes the vacuum limit (0 m of slant over 0 m of column) [dimensionless]
+    assert los.path_airmass_up == 1.0
 
 
 @pytest.mark.level0
@@ -73,15 +72,21 @@ def test_los_h_tgt_negative_raises() -> None:
 
 
 @pytest.mark.level0
-def test_los_h_tgt_above_top_raises() -> None:
-    with pytest.raises(ParameterBoundsError, match="h_tgt"):
-        LineOfSightGeometry(h_tgt=2.0e5, theta_o=0.0)
+def test_los_h_tgt_above_top_is_exo_target() -> None:
+    """Gap 95: h_tgt above the column top is a legal exo-altitude target —
+    no column above it (slant 0 m), vacuum airmass limit 1.0."""
+    los = LineOfSightGeometry(h_tgt=2.0e5, theta_o=0.0)
+    assert los.h_tgt == 2.0e5
+    assert los.slant_range_atm == 0.0
+    assert los.path_airmass_up == 1.0
 
 
 @pytest.mark.level0
-def test_los_h_atm_top_less_than_h_tgt_raises() -> None:
-    with pytest.raises(ParameterBoundsError, match="h_tgt"):
-        LineOfSightGeometry(h_tgt=5.0e4, theta_o=0.0, h_atm_top=1.0e4)
+def test_los_h_atm_top_less_than_h_tgt_is_exo_target() -> None:
+    """Same Gap 95 semantics when h_atm_top is explicitly below the target."""
+    los = LineOfSightGeometry(h_tgt=5.0e4, theta_o=0.0, h_atm_top=1.0e4)
+    assert los.slant_range_atm == 0.0
+    assert los.path_airmass_up == 1.0
 
 
 @pytest.mark.level0

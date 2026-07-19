@@ -848,10 +848,15 @@ class StagePane(QWidget):
             dotpath: field_display_text(self._sensor, dotpath, self._display_units)
             for dotpath in _SHAPE_DIMENSION_PATHS
         }
+        # The scalar projected-area field (shown by the panel only when shape="none").
+        area_text = field_display_text(
+            self._sensor, "geometry.target.projected_area_m2", self._display_units
+        )
         for panel in (*self._geometry_panels, *self._target_panels):
             panel.set_shape(shape)
             panel.set_orientation(rpy)
             panel.set_dimensions(dims)
+            panel.set_projected_area(area_text)
 
 
 class StageCenter(QWidget):

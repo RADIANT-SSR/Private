@@ -883,7 +883,12 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
   - *Ground-frame* (anchored at G_i, the radiometrically-relevant point when target
     altitude > 0): θₛ_g, θᵥ_g, φₛ_g, φᵥ_g.
 - Target shape library: extended scene, plate, box, sphere, cylinder, cone, circle,
-  ellipsoid, point source, custom-mesh placeholder.
+  ellipsoid, point source, custom-mesh placeholder. The shared **Target shape** panel
+  (`TargetShapePanel`, mounted on the Schematic tab and the Source instrument) shows the
+  selected shape's dimension subset **or**, when the shape is `none`, a scalar **Projected
+  area** field (`geometry.target.projected_area_m2`) — never both (they are the two
+  mutually-exclusive ways to size the target; the engine's shape-wins precedence is the
+  backstop for raw configs that set both).
 - **Projected-area leader pill** (CU-168): when the target is sized only by
   `geometry.target.projected_area_m2` (shape library = "none", so no wireframe body is
   drawn — just a point marker), a leader-label pill by the target reads

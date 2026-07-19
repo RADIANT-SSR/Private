@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: the Target-shape panel gains a Projected-area field, mutually exclusive
+  with the shape dimensions.** When the shape library is `none`, the panel shows a
+  scalar **Projected area** field (`geometry.target.projected_area_m2`); when a
+  shape is selected it shows that shape's dimensions instead — never both. Shape
+  and projected area are two ways to size the same target, so the GUI now enforces
+  "one or the other" by construction (the engine's shape-wins precedence remains
+  the backstop for raw configs that set both). Previously a shapeless target's area
+  could be set only from the parameter tree.
 - **GUI: the Geometry Schematic now shows the target's projected area (CU-168).**
   A leader-label pill by the target reads `A_t  <area> m²  ·  <n> px` (the pixel
   multiple is √A/range over the detector IFOV — the sub-pixel-vs-resolved cue),

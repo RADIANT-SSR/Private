@@ -142,15 +142,6 @@
 **Why it still matters**: The persistence half of the two ratified §4.5 capabilities is still open — a pin set the operator curates does not survive a relaunch. It wants the Phase-9 preferences/`QSettings` surface (the same path as the theme toggle), not the Step-B rearrangement.
 **Suggested fix**: (b) stand-alone task — Phase 9: persist `PinnedPanel`'s session list (including `output` refs) via `QSettings` on the same path as the theme toggle. Effort S; category D (UX). Re-audit date: at Phase 9 landing.
 
-### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
-
-**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (display units), 2026-07-13
-**Status**: Open — minor cosmetic; the tree, the API, and the canonical preview are all correct; only the dialog's own informative "Current" line can momentarily disagree with the combo after an Apply-without-close.
-**File**: `src/radiant/gui/widgets/parameter_editor_dialog.py` (`_render_current` / `_current_display_value` use `self._display_unit`, fixed at construction, while the unit combo is user-mutable).
-**Symptom**: open the editor on a metre-displayed altitude, type `8`, change the unit combo to `km`, click **Apply** (not Apply & Close). The sensor is correctly `8 km` (`8000 m` canonical) and the tree adopts `km`, but the dialog's **Current** line re-renders as `8000 m` (the dialog's original display unit), so the Current line reads `m` while the combo reads `km` until the dialog is reopened.
-**Why it still matters**: purely a within-dialog presentation inconsistency (no wrong value, no wrong unit written) — but a technical-fellow owner watching the Current line after Apply sees it disagree with the combo. It is the same "doing math in my head" friction the punch-list item set out to remove, in a narrow corner.
-**Suggested fix**: inline-fix-now — after a successful `apply`, set `self._display_unit = unit` (the chosen unit) before `_render_current`, and re-seed the value editor + bounds from it, so the whole dialog re-expresses in the newly-adopted unit. Effort XS; category A (presentation only, no physics/results).
-
 ### CU-110 — `EvaluationWorker` warning capture mutates the process-global `warnings` filter; safe only under the single-worker invariant
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
@@ -333,6 +324,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending111>`. **Resolution**: `apply()` now calls `_reexpress_in_unit(chosen_unit, provenance)` on acceptance — it adopts the chosen unit as `self._display_unit` and re-renders both the Current line and the (now reference-held) Bounds row, so after Apply-without-close the whole dialog reads the chosen unit (`8 km`, not `8000 m`) and agrees with the combo. The editor + combo already hold the value in that unit, so no editor re-seed is needed. Regression test added. Presentation-only; canonical value unchanged. Wave 3 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/gui/widgets/parameter_editor_dialog.py`, `src/radiant/gui/tests/test_parameter_editor_dialog.py`.
 
 ### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
 

@@ -219,6 +219,25 @@ class TestUnitRoundTrip:
         assert panel.display_unit(_ALT) == "km"  # chosen unit adopted as display unit
         assert provenance_label(provenance_from_explain(sensor.explain(_ALT))) == "user-set"
 
+    def test_apply_reexpresses_current_and_bounds_in_chosen_unit(
+        self, sensor: Sensor, qtbot
+    ) -> None:  # type: ignore[no-untyped-def]
+        """CU-111: after Apply (no close), the Current + Bounds rows adopt the combo unit.
+
+        Opening in metres then applying 8 km should leave the informative rows reading
+        km (not the original ``8000 m``), agreeing with the combo the user just set.
+        """
+        d = _dialog(sensor, _ALT, qtbot)  # opens in the input unit (m)
+        assert d.unit_combo is not None
+        d.value_editor.setText("8")
+        d.unit_combo.setCurrentIndex(d.unit_combo.findData("km"))
+        d.apply(close=False)
+        assert d._display_unit == "km"
+        assert "8 km" in d._current_label.text()
+        assert "m" not in d._current_label.text().replace("km", "")  # no stray metres
+        assert d._bounds_label is not None
+        assert d._bounds_label.text().rstrip().endswith("km")
+
     def test_apply_and_close_accepts_the_dialog(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Apply & Close commits then dismisses (accepted); Apply alone keeps it open."""
         d = _dialog(sensor, _ALT, qtbot)

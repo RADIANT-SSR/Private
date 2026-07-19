@@ -140,6 +140,10 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI Parameter Editor: Current/Bounds rows follow the chosen unit after Apply
+  (CU-111).** Applying a new unit without closing the dialog now re-expresses the
+  informative Current and Bounds rows in that unit (e.g. `8 km`, not `8000 m`), so they
+  agree with the unit combo. Display-only; the canonical value is unchanged.
 - **GUI Source Outputs readout: `inf`/`None` render cleanly (CU-135).** An
   extended-target angular extent shows `∞` instead of `inf rad`, and an absent
   (`None`) background descriptor is skipped rather than shown as a backwards `— ` row.

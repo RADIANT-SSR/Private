@@ -259,13 +259,12 @@ class ParameterEditorDialog(QDialog):
         self._add_row(form, "Current", self._current_label)
         self._render_current(provenance)
 
+        # Kept by reference so Apply-without-close can re-express it in the newly
+        # adopted unit alongside the Current line (CU-111).
+        self._bounds_label: QLabel | None = None
         if self._pdef.bounds is not None:
-            lo, hi = self._pdef.bounds
-            # Bounds are declared in input_unit; show them in the display unit too when
-            # soundly convertible (owner feedback 2026-07-13), else in the input unit.
-            lo_d, hi_d = self._to_display(lo), self._to_display(hi)
-            bounds_text = f"{lo_d:g} – {hi_d:g} {self._display_unit}".rstrip()
-            self._add_row(form, "Bounds", self._value_field(bounds_text))
+            self._bounds_label = self._value_field(self._bounds_text())
+            self._add_row(form, "Bounds", self._bounds_label)
 
         if self._read_only:
             note = self._value_field("derived from a consistency group — read-only")
@@ -439,6 +438,29 @@ class ParameterEditorDialog(QDialog):
 
     # -- info rendering -----------------------------------------------------
 
+    def _bounds_text(self) -> str:
+        """Bounds row text in the current display unit (falls back to input unit)."""
+        lo, hi = self._pdef.bounds  # type: ignore[misc]  # caller guards bounds is not None
+        # Bounds are declared in input_unit; show them in the display unit too when
+        # soundly convertible (owner feedback 2026-07-13), else in the input unit.
+        lo_d, hi_d = self._to_display(lo), self._to_display(hi)
+        return f"{lo_d:g} – {hi_d:g} {self._display_unit}".rstrip()
+
+    def _reexpress_in_unit(self, unit: str | None, provenance: str | None) -> None:
+        """Adopt *unit* as the dialog's display unit and re-render the info rows.
+
+        After Apply-without-close the editor + combo already hold the value in the
+        chosen unit; this re-expresses the informative Current and Bounds rows in the
+        same unit so the whole dialog agrees (CU-111). A no-unit param is unchanged.
+        """
+        if unit is None or unit == self._display_unit:
+            self._render_current(provenance)
+            return
+        self._display_unit = self._sound_display_unit(unit)
+        self._render_current(provenance)
+        if self._bounds_label is not None:
+            self._bounds_label.setText(self._bounds_text())
+
     def _render_current(self, provenance: str | None) -> None:
         """Set the Current row to ``<value> <unit>  ·  <provenance>`` (⚡ if derived).
 
@@ -598,9 +620,10 @@ class ParameterEditorDialog(QDialog):
             self._sensor.set(self._dotpath, value)
 
         self._clear_error()
-        # Refresh the dialog's own informative readouts (the "after"), then let the
-        # panel refresh the tree + mark results stale.
-        self._render_current(safe_provenance(self._sensor, self._dotpath))
+        # Refresh the dialog's own informative readouts (the "after") in the unit the
+        # user just chose, so the Current/Bounds rows agree with the combo (CU-111);
+        # then let the panel refresh the tree + mark results stale.
+        self._reexpress_in_unit(unit, safe_provenance(self._sensor, self._dotpath))
         self._update_preview()
         if self._on_committed is not None:
             # Hand back the chosen unit so the panel adopts it as the row's display

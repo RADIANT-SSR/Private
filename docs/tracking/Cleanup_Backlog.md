@@ -41,15 +41,6 @@
 **Why it still matters**: a 2-minute evaluate makes the GUI look hung for any legitimately oversampled design (long focal length / small aperture is common for LWIR), and no progress/cancel affordance covers it here; trade studies that sweep such a config become hours-long. The result is correct — only the cost is the problem.
 **Suggested fix**: (b) stand-alone task — profile the PSF-path grid sizing at high Q; cap or decouple the pupil-grid size from Q (the *sampled* PSF only needs the detector-pitch resolution), and/or reuse the per-wavelength pupil grid instead of re-FFTing 500× when only the wavelength scale changes. Category C (touches the PSF numerics — needs a consistency-check regression, Rule 4). Effort M–L. Interim: the GUI's existing progress/cancel plumbing should wrap `evaluate()` so a slow run is cancellable rather than a freeze.
 
-### CU-162 — Committed tree fails the CLAUDE.md lint gate: `ruff check src/` (9 × E501) and `ruff format --check` (17 files) on HEAD
-
-**Discovered**: Gap 94 verification sweep, 2026-07-18 (measured on a clean stash of `fix/cu-147-148-descriptor`, i.e. committed content only).
-**Status**: Open.
-**File**: `src/radiant/geometry/_schema.py:198,221,241` and 6 further E501 sites (`ruff check src/` lists them); 17 files fail `ruff format --check src/` (e.g. `src/radiant/optics/tests/test_stage_pupil_maps.py`, `src/radiant/atmosphere/tests/test_interpolated.py`).
-**Symptom**: `ruff check src/` reports 9 errors and `ruff format --check src/` 17 would-reformat files on HEAD, while CLAUDE.md ("Running Tests Locally") requires both to pass before any PR — so every PR author inherits pre-existing failures that mask their own.
-**Why it still matters**: a permanently-red lint gate stops distinguishing new violations from old ones; contributors learn to ignore it (the failure mode Rule 21 exists to catch early).
-**Suggested fix**: (a) inline-fix-now in a dedicated hygiene commit — `ruff format src/` + wrap the 9 long lines; zero behavior change, no CHANGELOG (Rule 29 internal-only). Effort S; category A. Coordinate around in-flight branches to avoid churn.
-
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`
@@ -450,6 +441,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-162 — Committed tree fails the CLAUDE.md lint gate: `ruff check src/` (9 × E501) and `ruff format --check` (17 files) on HEAD — RESOLVED 2026-07-18 (commit `3570b07`)
+
+**Discovered**: Gap 94 verification sweep, 2026-07-18 (measured on a clean stash of `fix/cu-147-148-descriptor`, i.e. committed content only).
+**Status**: RESOLVED 2026-07-18, commit `3570b07`. **Resolution**: a dedicated hygiene commit — `ruff format src/` reformatted the 17 flagged files and rewrapped the 9 E501 lines (all in `geometry/_schema.py` `tags=frozenset({...})` lines) in one pass; zero behavior change (git diff -w shows only line-rewrapping). `ruff check src/`, `ruff format --check src/`, `mypy --strict core+api`, and `lint-imports` now all pass. Verified behavior-neutral: 1280 non-GUI unit tests (atmosphere/geometry/optics/io/api) + 72 GUI-file tests pass; no golden touched. Isolated in its own commit (it conflicts textually with in-flight work); no CHANGELOG (Rule 29 internal-only).
+**File**: `src/radiant/geometry/_schema.py` (9 × E501) + 16 further `ruff format` files (api/atmosphere/gui/io/optics).
+**Symptom (was)**: `ruff check src/` reported 9 errors and `ruff format --check src/` 17 would-reformat files on HEAD, while CLAUDE.md ("Running Tests Locally") requires both to pass before any PR — so every PR author inherited pre-existing failures that masked their own.
+**Why it mattered**: a permanently-red lint gate stops distinguishing new violations from old ones; contributors learn to ignore it (the failure mode Rule 21 exists to catch early).
 
 ### CU-163 — Geometry schematic's "unavailable" guard panel is one-way (canvas destroyed, never rebuilt) — RESOLVED 2026-07-18 (commit `6862fa0`)
 

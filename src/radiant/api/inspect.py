@@ -26,6 +26,10 @@ from radiant.io.results import ChainResult
 
 logger = logging.getLogger(__name__)
 
+# Arrays larger than this collapse to NumPy's summarized `[a, b, ..., y, z]` form
+# in the inspector tree, so nested arrays don't dump hundreds of lines (CU-113).
+_ARRAY_SUMMARY_THRESHOLD = 20
+
 
 def inspect_result(
     result: ChainResult,
@@ -46,9 +50,14 @@ def inspect_result(
     str
         Formatted tree string.
     """
-    if stage is not None:
-        return _format_stage(result, stage)
-    return _format_full(result)
+    # Summarise large NumPy arrays — including ones nested inside a stage-output
+    # object's own repr — so a single evaluation's tree stays structural instead
+    # of thousands of array-continuation lines (CU-113). `_fmt` already collapses
+    # top-level arrays to `ndarray(shape=…)`; this context catches the rest.
+    with np.printoptions(threshold=_ARRAY_SUMMARY_THRESHOLD, edgeitems=2):
+        if stage is not None:
+            return _format_stage(result, stage)
+        return _format_full(result)
 
 
 def _format_full(result: ChainResult) -> str:

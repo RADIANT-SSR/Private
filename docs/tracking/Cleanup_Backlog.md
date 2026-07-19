@@ -151,15 +151,6 @@
 **Why it still matters**: The persistence half of the two ratified §4.5 capabilities is still open — a pin set the operator curates does not survive a relaunch. It wants the Phase-9 preferences/`QSettings` surface (the same path as the theme toggle), not the Step-B rearrangement.
 **Suggested fix**: (b) stand-alone task — Phase 9: persist `PinnedPanel`'s session list (including `output` refs) via `QSettings` on the same path as the theme toggle. Effort S; category D (UX). Re-audit date: at Phase 9 landing.
 
-### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
-
-**Discovered**: GUI Development Plan Phase 4 Task B (Variable Explorer tab), 2026-07-13
-**Status**: Open — verbosity, not incorrectness; the GUI folds the overflow, but the inspector text itself is bloated.
-**File**: `src/radiant/api/inspect.py` (`_fmt` / `_format_full`).
-**Symptom**: `_fmt` summarises a *top-level* `np.ndarray` as `ndarray(shape=…, dtype=…)`, but an array **nested inside** a stage-output object/tuple is printed via that object's `repr`, which expands the full array across hundreds of wrapped lines. For the shipped example, `inspect_result(result)` is 3938 lines, of which ~3757 are array-continuation lines; the real structural tree is ~182 nodes. The GUI Variable Explorer (`parse_inspect_tree`) folds each wrapped continuation onto its parent node to keep the tree structural, but the underlying inspector string is still enormous (slow to build, unwieldy in the console).
-**Why it still matters**: `inspect_result` is the public introspection surface (Gap 87) — a 3900-line dump for one evaluation is poor console ergonomics and makes the GUI tab do cleanup the API should. A reader printing `inspect_result(result)` at the REPL gets a wall of numbers.
-**Suggested fix**: (b) stand-alone task — have `_fmt` (or a NumPy print-options context in `inspect_result`) summarise **any** ndarray it encounters, including nested ones, to `ndarray(shape=…, dtype=…)` or a `np.array2string(threshold=…)` truncation. Effort S; category A (formatting only — no computed values change). Re-audit the GUI fold once done (it can then be simplified but stays correct either way).
-
 ### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (display units), 2026-07-13
@@ -351,6 +342,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
+
+**Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending113>`. **Resolution**: wrapped the `inspect_result` render in a `np.printoptions(threshold=20, edgeitems=2)` context so any array — including ones reached only via a stage-output object's own `repr` (tuple/dataclass), which `_fmt` couldn't intercept — collapses to NumPy's summarised form. Shipped-example dump drops ~3900 → ~230 lines; structural tree unchanged. Regression test added. Formatting only; no computed values change. Wave 3 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/api/inspect.py`, `src/radiant/api/tests/test_inspect.py`.
 
 ### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels
 

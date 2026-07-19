@@ -87,6 +87,23 @@ class TestInspectStage:
         assert "not found" in text
         assert "Available" in text
 
+    def test_nested_large_array_is_summarised_not_dumped(self) -> None:
+        """CU-113: a big array nested inside a container/object repr collapses.
+
+        A *direct* array stage output is already collapsed by ``_fmt`` to
+        ``ndarray(shape=…)``; the regression is an array reached only via a
+        surrounding object's ``repr`` (a tuple/list/dataclass), which the
+        printoptions context now summarises too.
+        """
+        wl = np.linspace(3.5, 5.0, 10)
+        big = np.arange(5000.0)
+        state = ChainState(wavelength_um=wl)
+        state = state.with_stage_output("optics", "regime", "extended")
+        state = state.with_stage_output("detector", "wrapped", (big,))  # nested in a tuple repr
+        text = inspect_result(ChainResult(state))
+        assert "..." in text  # NumPy summarised form
+        assert text.count("\n") < 200  # would be thousands without the fix
+
 
 @pytest.mark.level1
 class TestResultPlotNamespace:

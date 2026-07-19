@@ -140,6 +140,11 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **`inspect_result` summarises nested NumPy arrays (CU-113).** Arrays reached only
+  via a stage-output object's own `repr` (tuples, dataclasses) are now collapsed to
+  NumPy's summarized `[a, b, … y, z]` form instead of dumping hundreds of
+  continuation lines — the shipped-example dump drops from ~3900 lines to ~230. The
+  structural tree is unchanged; only oversized array bodies shrink.
 - **`result.plot.psf()` default axes labelled "x/y (PSF samples)" (CU-136).** The
   default (non-grid) render's imshow extent is the PSF sample grid, not the detector
   pixel grid, so the previous "x/y (pixels)" labels were misleading for an oversampled

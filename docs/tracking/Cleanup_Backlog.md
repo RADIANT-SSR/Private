@@ -68,15 +68,6 @@
 **Why it still matters**: Rule 30 (cross-platform portability) + Rule 15 (actionable errors) — the error should suggest a platform-appropriate remedy, and a platform-conditional default (or no default + required-when-modtran-mode) would remove the trap.
 **Suggested fix**: (b) stand-alone task — either make the default platform-conditional (`shutil.which("modtran")` fallback) or drop the default and require the parameter in MODTRAN mode, updating the error's `action` text to name a Windows example path. Effort S; category B (schema default change — check no golden depends on it). Re-audit at the next atmosphere/modtran touch.
 
-### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms
-
-**Discovered**: Windows-portability review, 2026-07-16, `main`
-**Status**: Open — latent reproducibility risk, blocking-adjacent for a Windows checkout. The repo has no `.gitattributes`, so text files' working-tree line endings depend on each clone's `core.autocrlf`. A Windows checkout with `autocrlf=true` rewrites every text file to CRLF: Python/YAML parsing is unaffected, but any text file compared byte-for-byte (golden baselines, reference CSVs hashed for provenance) and the MODTRAN `tape5` written via `Path.write_text` inherit platform newlines, so "same inputs → identical outputs" can silently differ across platforms.
-**File**: repo root (missing `.gitattributes`); `src/radiant/atmosphere/modtran.py:898` (`tape5_path.write_text(tape5)` — platform-default newlines).
-**Symptom**: `git config core.autocrlf true` + fresh clone on Windows yields CRLF working-tree files; byte-level comparisons and checksums of text artifacts diverge from a macOS clone.
-**Why it still matters**: Rule 30 (cross-platform portability) and the traceability requirement (same inputs → identical outputs) — cross-platform runs should produce byte-identical text artifacts.
-**Suggested fix**: (a) inline-fix-now — add a root `.gitattributes` with `* text=auto eol=lf` (plus explicit `-text` entries for binaries: `.png`, `.h5`, `.xlsx`), and pass `newline="\n"` where a written text artifact's bytes matter (tape5). Effort S; category A. Re-audit after the first Windows clone.
-
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 
 **Discovered**: GUI Development Plan Phase 9 (theme toggle), 2026-07-15, branch `gui-framework-plots`
@@ -441,6 +432,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`.
+**Status**: RESOLVED 2026-07-19, commit `<pending150>`. **Resolution**: added a root `.gitattributes` (`* text=auto eol=lf` + explicit `-text` for `.png`/`.jpg`/`.pdf`/`.xls*`/`.npy`/`.npz`/`.h5`/`.zip`/`.gz`/`.ttf`/`.otf`/…), so a Windows checkout with `core.autocrlf=true` cannot rewrite tracked text to CRLF. Belt-and-suspenders: the MODTRAN deck writers now pass `newline="\n"` explicitly where byte-exactness matters — `atmosphere/modtran.py` (tape5), `scripts/render_modtran_decks.py` (tp5), `scripts/synth_modtran/tape7_writer.py` (tape7). No existing tree file is CRLF (macOS dev), so nothing renormalized; no results change. Wave 1 of the autonomous CU-cleanup plan.
+**File**: `.gitattributes` (new); `src/radiant/atmosphere/modtran.py`, `scripts/render_modtran_decks.py`, `scripts/synth_modtran/tape7_writer.py`.
 
 ### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default)
 

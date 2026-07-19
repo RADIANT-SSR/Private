@@ -1,0 +1,29 @@
+# Line-ending normalization (CU-150, Rule 30).
+#
+# Text files are stored with LF in the repository. `text=auto` lets Git detect
+# text vs. binary; `eol=lf` pins the working-tree ending to LF so a Windows
+# checkout with core.autocrlf=true cannot rewrite tracked text to CRLF and make
+# byte-level comparisons (golden baselines, checksummed reference data, MODTRAN
+# decks) diverge across platforms. Where a written artifact's exact bytes matter,
+# the writer also passes newline="\n" explicitly (belt-and-suspenders).
+* text=auto eol=lf
+
+# Binary assets — never normalize or diff as text.
+*.png   -text
+*.jpg   -text
+*.jpeg  -text
+*.gif   -text
+*.ico   -text
+*.pdf   -text
+*.xls   -text
+*.xlsx  -text
+*.npy   -text
+*.npz   -text
+*.h5    -text
+*.hdf5  -text
+*.zip   -text
+*.gz    -text
+*.ttf   -text
+*.otf   -text
+*.woff  -text
+*.woff2 -text

@@ -213,6 +213,11 @@ retroactively reconstructed.
   `°`, `⁻`) decode correctly on stock Windows (cp1252 locale) instead of raising or
   silently mojibaking. Ruff `PLW1514` (`unspecified-encoding`) is enabled to prevent
   regression. Not results-affecting on macOS/Linux (UTF-8 is already the default).
+- **Pinned line endings via `.gitattributes` (CU-150).** A root `.gitattributes`
+  (`* text=auto eol=lf` + `-text` for binary assets) keeps tracked text at LF in the
+  working tree, so byte-level comparisons (golden baselines, checksummed reference data,
+  MODTRAN decks) stay identical across macOS/Windows. The MODTRAN deck writers also pass
+  `newline="\n"` explicitly. Not results-affecting.
 - **NIIRS out-of-calibration is now structured status, not a per-evaluate warning
   (CU-166).** When a NIIRS/IIRS input falls outside the GIQE-5 calibration band the
   chain no longer emits a `UserWarning` (nor a `logger.warning`) on every evaluate —

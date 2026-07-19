@@ -1259,7 +1259,7 @@ class ModtranAtmosphere:
 
         work_dir.mkdir(parents=True, exist_ok=True)
         tape5_path = work_dir / "tape5"
-        tape5_path.write_text(tape5, encoding="utf-8")
+        tape5_path.write_text(tape5, encoding="utf-8", newline="\n")
 
         result = subprocess.run(
             [str(binary)],

@@ -134,7 +134,7 @@ def main() -> None:
         config = _row_to_config(row)
         geometry = _row_to_geometry(row)
         tape5 = render_tape5(config, geometry)
-        (_OUTPUT_DIR / f"{run_id}.tp5").write_text(tape5, encoding="utf-8")
+        (_OUTPUT_DIR / f"{run_id}.tp5").write_text(tape5, encoding="utf-8", newline="\n")
 
         rendered_angle_deg = _rendered_card3_angle_deg(tape5)
         caveats = []

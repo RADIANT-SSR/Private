@@ -418,7 +418,7 @@
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`.
-**Status**: RESOLVED 2026-07-19, commit `<pending152>`. **Resolution**: replaced the bash installer with a pinned `dev_tools/geometry_gui_v2/requirements.txt` + a cross-platform `install_deps.py` (`python -m pip install -r requirements.txt` via `sys.executable`), which runs identically on Windows and macOS/Linux (Rule 30). Deleted `install_deps.sh` (Rule 27, one canonical installer) and repointed the three prose references (`scene/__init__.py`, two test docstrings). Dev-tooling only — no library/results change, no CHANGELOG entry. Wave 1 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `7095a34`. **Resolution**: replaced the bash installer with a pinned `dev_tools/geometry_gui_v2/requirements.txt` + a cross-platform `install_deps.py` (`python -m pip install -r requirements.txt` via `sys.executable`), which runs identically on Windows and macOS/Linux (Rule 30). Deleted `install_deps.sh` (Rule 27, one canonical installer) and repointed the three prose references (`scene/__init__.py`, two test docstrings). Dev-tooling only — no library/results change, no CHANGELOG entry. Wave 1 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/requirements.txt` (new), `install_deps.py` (new); `install_deps.sh` (deleted).
 
 ### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only

@@ -115,6 +115,18 @@ _IHAZE_MAP: dict[str, int] = {
 # Default cache location.
 _DEFAULT_CACHE_DIR = Path.home() / ".radiant" / "modtran_cache"
 
+# Reflective-solar / thermal band boundary [µm] used to split the single
+# MODTRAN flux DOWN column (thermal emission + scattered solar, undifferenced)
+# between E_sky_scattered (λ < boundary) and E_sky_thermal (λ ≥ boundary) on
+# the flux-import path (CU-157; owner-ratified band-split, gaps.md Gap 38).
+# 4 µm is the conventional solar/thermal crossover for terrestrial-temperature
+# scenes.  This is a *labelling* boundary only: the assembly consumes the sum
+# E_sky_scattered + E_sky_thermal (assembly._diffuse_sky_term), so the split
+# affects per-component introspection but never a computed metric — it is not
+# a tuneable physics quantity and is deliberately a module constant, not a
+# ParameterDef (mirrors simple.py's _ESKY_* fit constants).
+_FLUX_REFLECTIVE_SOLAR_MAX_UM: float = 4.0
+
 
 @dataclass
 class ModtranConfig:
@@ -1040,6 +1052,68 @@ class Tape7Import:
         )
 
 
+@dataclass(frozen=True)
+class FluxImport:
+    """A MODTRAN spectral flux CSV parsed to RADIANT canonical units.
+
+    Built by the loader layer (``radiant.atmosphere.loaders._build_modtran``)
+    when ``atmosphere.modtran.flux_path`` is set — Rule 6 keeps the file
+    read out of ``AtmosphereStage.run``.  Wraps the ground-level downwelling
+    arrays from :meth:`ModtranFluxReader.to_radiant_units` plus provenance.
+
+    Only meaningful alongside a :class:`Tape7Import` (the flux file supplies
+    the downwelling the standard IEMSCT=2 tape7 lacks; the tape7 still
+    supplies transmittance and upwelling path radiance).  Like the tape7
+    import, the arrays are served as-is for any query geometry.
+
+    Attributes
+    ----------
+    wavelength_um:
+        Wavelength grid [µm], strictly ascending.
+    e_direct:
+        Direct-solar-beam spectral irradiance at the ground (MODTRAN SOLAR
+        column) [W/m²/µm].  Captured for provenance / ``inspect()``; the
+        direct-solar branch of the assembly still uses ``E_TOA · τ_sun``,
+        so this column is not (yet) wired into the chain.
+    e_diffuse:
+        Downward-diffuse spectral irradiance at the ground (MODTRAN DOWN
+        column — thermal emission + scattered solar) [W/m²/µm].  This is
+        the reference the sky-reflection terms consume (CU-157).
+    source_path:
+        Path the file was read from.
+    content_key:
+        First 16 hex chars of the SHA-256 of the file bytes.
+    """
+
+    wavelength_um: np.ndarray
+    e_direct: np.ndarray
+    e_diffuse: np.ndarray
+    source_path: str
+    content_key: str
+
+    @classmethod
+    def from_file(cls, flux_path: str | Path) -> FluxImport:
+        """Parse *flux_path* via :class:`ModtranFluxReader` and convert units.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file does not exist.
+        Tape7ParseError
+            If the file cannot be parsed as a MODTRAN flux CSV.
+        """
+        path = Path(flux_path)
+        wavelength_um, e_direct, e_diffuse = ModtranFluxReader(path).to_radiant_units()
+        content_key = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+        return cls(
+            wavelength_um=wavelength_um,
+            e_direct=e_direct,
+            e_diffuse=e_diffuse,
+            source_path=str(path),
+            content_key=content_key,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Cache utilities
 # ---------------------------------------------------------------------------
@@ -1135,6 +1209,12 @@ class ModtranAtmosphere:
         and path-radiance columns supply ``tau_up`` / ``L_path_up`` in
         :meth:`evaluate`, enabling airborne targets (``h_tgt > 0``) on
         the file-import path.
+    flux_import:
+        Optional pre-parsed spectral flux CSV (:class:`FluxImport`,
+        CU-157).  Only meaningful together with *tape7_import*; its
+        ground-level DOWN column supplies the downwelling sky irradiance
+        (``E_sky_scattered`` / ``E_sky_thermal``) that a standard
+        IEMSCT=2 tape7 lacks, superseding the Gap 81 zeros.
     """
 
     def __init__(
@@ -1143,11 +1223,13 @@ class ModtranAtmosphere:
         tape7_import: Tape7Import | None = None,
         tape7_sun_import: Tape7Import | None = None,
         tape7_up_import: Tape7Import | None = None,
+        flux_import: FluxImport | None = None,
     ) -> None:
         self._config = config
         self._tape7_import = tape7_import
         self._tape7_sun_import = tape7_sun_import
         self._tape7_up_import = tape7_up_import
+        self._flux_import = flux_import
         self._name = "modtran_atmosphere"
 
     @property
@@ -1326,8 +1408,12 @@ class ModtranAtmosphere:
           space sensor), still under the collapse warning.
         - ``L_path_up == L_path_full`` (unless the up-leg import splits
           them).
-        - ``E_sky_thermal == π · L_atm_down``.
-        - ``E_sky_scattered == 0`` (Stage 6 deliverable).
+        - ``E_sky_thermal == π · L_atm_down`` and ``E_sky_scattered == 0``
+          on a bare tape7 import (Gap 81 — no downwelling column).  With a
+          flux CSV imported (``atmosphere.modtran.flux_path``, CU-157) the
+          real ground-level DOWN irradiance is split at the reflective-
+          solar / thermal boundary: ``E_sky_scattered`` from λ below it,
+          ``E_sky_thermal`` from λ above (see ``_FLUX_REFLECTIVE_SOLAR_MAX_UM``).
         - ``E_TOA`` from the core solar irradiance so the direct-solar
           branch still works in the assembly.
 
@@ -1470,8 +1556,27 @@ class ModtranAtmosphere:
             )
 
         E_TOA = np.asarray(toa_solar_spectral_irradiance(wavelength_um), dtype=np.float64)
-        E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
-        E_sky_scattered = np.zeros_like(wavelength_um, dtype=np.float64)
+
+        lam_arr = np.asarray(wavelength_um, dtype=np.float64)
+        if self._flux_import is not None:
+            # CU-157: a flux CSV supplies the real ground-level downwelling
+            # the standard IEMSCT=2 tape7 lacks.  build_state has already
+            # loaded it into atm_emission_down (= DOWN / π), so E_down = π·ldown
+            # reconstructs the hemispheric DOWN irradiance [W/m²/µm].  Split it
+            # between the two sky-reflection labels at the reflective-solar /
+            # thermal boundary (owner-ratified band-split, gaps.md Gap 38); the
+            # assembly consumes the SUM, so the boundary is a labelling choice
+            # (see _FLUX_REFLECTIVE_SOLAR_MAX_UM).  A small thermal-overlap
+            # overcount in E_sky_scattered near the boundary is accepted.
+            e_down = np.maximum(np.pi * ldown, 0.0)
+            reflective = lam_arr < _FLUX_REFLECTIVE_SOLAR_MAX_UM
+            E_sky_scattered = np.where(reflective, e_down, 0.0)
+            E_sky_thermal = np.where(reflective, 0.0, e_down)
+        else:
+            # No flux file: the Gap 81 zero downwelling stands — ldown is the
+            # zeros build_state emitted, so E_sky_thermal collapses to 0 too.
+            E_sky_thermal = np.maximum(np.pi * ldown, 0.0)
+            E_sky_scattered = np.zeros_like(lam_arr)
 
         return AtmosphericQuantities(
             wavelength_um=np.asarray(wavelength_um, dtype=np.float64),
@@ -1517,31 +1622,56 @@ class ModtranAtmosphere:
         tau_resampled = tau_sd.resample(target_grid)
         lp_resampled = lp_sd.resample(target_grid)
 
-        # MODTRAN tape7 does not provide a separate downwelling column
-        # in the standard IEMSCT=2 output.  Set to zeros; the user can
-        # supply a separate downwelling run or use the simple-model
-        # approximation for L_atm_down.
+        # MODTRAN tape7 does not provide a separate downwelling column in
+        # the standard IEMSCT=2 output.  Two cases:
         #
-        # Gap 81: this is a real physics reduction — the reflected-downwelling
-        # and sky-scatter background terms disappear, so a MODTRAN-backed run
-        # is *lower* fidelity than SimpleAtmosphere for the background in
-        # thermal bands. Warn loudly rather than let switching model= silently
-        # drop the terms. The full fix (ingest a separate downwelling run via
-        # atmosphere.modtran.tape7_down_path, mirroring tape7_sun_path) is
-        # gated on MODTRAN access, alongside CU-011/065/070.
-        warnings.warn(
-            "ModtranAtmosphere: downwelling sky emission (atm_emission_down / "
-            "E_sky_thermal) and scattered-solar sky radiance are set to ZERO — "
-            "the standard IEMSCT=2 tape7 carries no downwelling column. Any "
-            "reflected-downwelling or sky-scatter background term is dropped, so "
-            "in thermal bands this MODTRAN state is lower-fidelity than "
-            "SimpleAtmosphere for the background. Use atmosphere.model='simple' "
-            "where downwelling matters, or supply a separate downwelling run "
-            "(atmosphere.modtran.tape7_down_path — not yet implemented; Gap 81).",
-            UserWarning,
-            stacklevel=2,
-        )
-        zeros = np.zeros_like(query_wavelength_um)
+        #  (a) A flux CSV is imported (CU-157): the ground-level DOWN column
+        #      (thermal + scattered solar) is the real hemispheric downwelling
+        #      irradiance [W/m²/µm].  Store it as a mean radiance
+        #      L_atm_down = DOWN / π so the existing consumers (SkyBackground,
+        #      and evaluate()'s E_sky reconstruction via π·ldown) get real
+        #      data.  No warning — the term is supplied, superseding Gap 81.
+        #
+        #  (b) No flux CSV: set to zeros and warn loudly (Gap 81) — the
+        #      reflected-downwelling and sky-scatter background terms
+        #      disappear, so a MODTRAN-backed run is *lower* fidelity than
+        #      SimpleAtmosphere for the background in thermal bands.
+        if self._flux_import is not None:
+            flux = self._flux_import
+            ldown_sd = SpectralData(
+                name="atm.emission_down.modtran_flux",
+                wavelength_um=flux.wavelength_um,
+                values=np.maximum(flux.e_diffuse, 0.0) / np.pi,
+                unit="W/m²/sr/µm",
+                source=f"MODTRAN flux import: {flux.source_path}",
+                source_parameters={
+                    "model": "modtran",
+                    "flux_content_key": flux.content_key,
+                },
+            )
+            ldown_values = ldown_sd.resample(target_grid).values
+            ldown_source = f"MODTRAN flux DOWN/π import (content_key={flux.content_key})"
+            ldown_params = {
+                "model": "modtran",
+                "cache_key": cache_key,
+                "flux_content_key": flux.content_key,
+            }
+        else:
+            warnings.warn(
+                "ModtranAtmosphere: downwelling sky emission (atm_emission_down / "
+                "E_sky_thermal) and scattered-solar sky radiance are set to ZERO — "
+                "the standard IEMSCT=2 tape7 carries no downwelling column. Any "
+                "reflected-downwelling or sky-scatter background term is dropped, so "
+                "in thermal bands this MODTRAN state is lower-fidelity than "
+                "SimpleAtmosphere for the background. Use atmosphere.model='simple' "
+                "where downwelling matters, or supply the run's spectral flux CSV "
+                "via atmosphere.modtran.flux_path (CU-157; Gap 81).",
+                UserWarning,
+                stacklevel=2,
+            )
+            ldown_values = np.zeros_like(query_wavelength_um)
+            ldown_source = "ModtranAtmosphere default (zeros — use separate downwelling run)"
+            ldown_params = {"model": "modtran", "cache_key": cache_key}
 
         return AtmosphericState(
             transmittance=SpectralData(
@@ -1563,10 +1693,10 @@ class ModtranAtmosphere:
             atm_emission_down=SpectralData(
                 name="atm.emission_down.modtran",
                 wavelength_um=query_wavelength_um,
-                values=zeros,
+                values=ldown_values,
                 unit="W/m²/sr/µm",
-                source="ModtranAtmosphere default (zeros — use separate downwelling run)",
-                source_parameters={"model": "modtran", "cache_key": cache_key},
+                source=ldown_source,
+                source_parameters=ldown_params,
             ),
             geometry=geometry,
             derivation_chain=(

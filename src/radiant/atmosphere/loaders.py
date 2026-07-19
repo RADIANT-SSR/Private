@@ -158,7 +158,12 @@ def _build_modtran(params: ParameterSet) -> object:
     ``Tape7Import`` supersedes the binary/cache/fallback path.  Unset,
     no file I/O happens here and the binary flavor is unchanged.
     """
-    from radiant.atmosphere.modtran import ModtranAtmosphere, ModtranConfig, Tape7Import
+    from radiant.atmosphere.modtran import (
+        FluxImport,
+        ModtranAtmosphere,
+        ModtranConfig,
+        Tape7Import,
+    )
 
     config = ModtranConfig(
         binary_path=Path(params.get("atmosphere.modtran.binary_path")),
@@ -179,6 +184,7 @@ def _build_modtran(params: ParameterSet) -> object:
     tape7_path = str(params.get("atmosphere.modtran.tape7_path"))
     tape7_sun_path = str(params.get("atmosphere.modtran.tape7_sun_path"))
     tape7_up_path = str(params.get("atmosphere.modtran.tape7_up_path"))
+    flux_path = str(params.get("atmosphere.modtran.flux_path"))
     if tape7_sun_path and not tape7_path:
         raise AtmosphereValidationError(
             "build_atmosphere_model: atmosphere.modtran.tape7_sun_path is set "
@@ -195,10 +201,19 @@ def _build_modtran(params: ParameterSet) -> object:
             "ground→sensor full-column file the background branch needs) "
             "too, or unset tape7_up_path (Gap 94)."
         )
+    if flux_path and not tape7_path:
+        raise AtmosphereValidationError(
+            "build_atmosphere_model: atmosphere.modtran.flux_path is set "
+            "but atmosphere.modtran.tape7_path is not. The flux file only "
+            "supplements a tape7 file import — it supplies the downwelling "
+            "sky irradiance the tape7 lacks. Set tape7_path too, or unset "
+            "flux_path (CU-157; Gap 81)."
+        )
 
     tape7_import = None
     tape7_sun_import = None
     tape7_up_import = None
+    flux_import = None
     if tape7_path:
         if not Path(tape7_path).exists():
             raise FileNotFoundError(
@@ -240,12 +255,27 @@ def _build_modtran(params: ParameterSet) -> object:
                 tape7_up_path,
                 tape7_up_import.content_key,
             )
+        if flux_path:
+            if not Path(flux_path).exists():
+                raise FileNotFoundError(
+                    f"atmosphere.modtran.flux_path: file not found: "
+                    f"{flux_path}. Check the path, or unset the parameter "
+                    "(the tape7 import then carries zero downwelling — "
+                    "Gap 81)."
+                )
+            flux_import = FluxImport.from_file(flux_path)
+            logger.info(
+                "MODTRAN flux import: %s (content_key=%s)",
+                flux_path,
+                flux_import.content_key,
+            )
 
     return ModtranAtmosphere(
         config,
         tape7_import=tape7_import,
         tape7_sun_import=tape7_sun_import,
         tape7_up_import=tape7_up_import,
+        flux_import=flux_import,
     )
 
 

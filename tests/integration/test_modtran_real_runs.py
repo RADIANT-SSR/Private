@@ -309,3 +309,91 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
             f"{run}/{profile}: MWIR E_sky_thermal ratio "
             f"{mwir_simple / mwir_ref:.3f} outside the CU-155 parity envelope."
         )
+
+
+# ---------------------------------------------------------------------------
+# Flux-file downwelling ingestion on the tape7-import path (CU-157)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level2
+def test_flux_import_downwelling_matches_e1_flux_column() -> None:
+    """CU-157: with the E1 flux CSV imported alongside the E1 tape7, the
+    chain's sky-reflection irradiance reproduces the real MODTRAN DOWN
+    column — LWIR to E_sky_thermal, VIS to E_sky_scattered — instead of the
+    Gap 81 zeros. Truth anchors are the E1 DOWN band integrals read straight
+    from the flux file (independent of the chain under test):
+
+        DOWN(8–12 µm)   ≈ 24.60 W/m²   (thermal band → E_sky_thermal)
+        DOWN(0.4–0.7 µm) ≈ 124.16 W/m²  (reflective band → E_sky_scattered)
+
+    The band split at 4 µm is a labelling boundary only: the assembly
+    consumes E_sky_scattered + E_sky_thermal, so the sum must equal the full
+    DOWN column regardless of the split.
+    """
+    import warnings as _warnings
+
+    from radiant.api.session import RadiantSession
+    from radiant.atmosphere.modtran import (
+        FluxImport,
+        ModtranAtmosphere,
+        ModtranConfig,
+        Tape7Import,
+    )
+    from radiant.core.los_geometry import LineOfSightGeometry
+
+    flux = FluxImport.from_file(_REAL_RUNS / "E1_flux.csv")
+    # Native-grid truth anchors (independent of the chain).
+    lwir_ref = _band_integral(flux.wavelength_um, flux.e_diffuse, 8.0, 12.0)
+    vis_ref = _band_integral(flux.wavelength_um, flux.e_diffuse, 0.4, 0.7)
+    assert lwir_ref == pytest.approx(24.60, rel=0.01)
+    assert vis_ref == pytest.approx(124.16, rel=0.01)
+
+    atm = ModtranAtmosphere(
+        ModtranConfig(binary_path=Path("/nonexistent"), allow_fallback=False),
+        tape7_import=Tape7Import.from_file(_REAL_RUNS / "E1.tp7"),
+        flux_import=flux,
+    )
+    # Fine chain grid so resampling loss is small (< 1%).
+    wl = np.linspace(0.4, 14.0, 4000)
+    session = RadiantSession(wavelength_um=wl)
+    params = session.default_params()
+    params.set("source.target.temperature", 300.0)
+    params.set("source.target.emissivity", 0.95)
+    params.set("atmosphere.model", "modtran")
+    params.set("geometry.sensor_altitude_m", 100_000.0)
+    params.set("geometry.solar_zenith_rad", np.radians(30.0))
+    params.set("optics.aperture_diameter_m", 0.08)
+    params.set("optics.focal_length_m", 0.20)
+    params.set("optics.transmission_scalar", 0.60)
+    params.set("detector.pixel_pitch_x_um", 17.0)
+    params.set("detector.pixel_pitch_y_um", 17.0)
+    params.set("detector.qe_value", 0.55)
+    params.set("detector.dark_rate_e_per_s", 1000.0)
+    params.set("spectral_integration.filter_min_um", float(wl[0]))
+    params.set("spectral_integration.filter_max_um", float(wl[-1]))
+    params.set("spectral_integration.integration_time_s", 0.015)
+    params.set("readout.read_noise_e_rms", 20.0)
+    params.set("readout.gain_e_per_dn", 2.0)
+    params.set("readout.adc_bits", 14)
+    params.resolve()
+
+    los = LineOfSightGeometry(
+        h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.radians(30.0), delta_phi=0.0
+    )
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        q = atm.evaluate(wl, los, params)
+
+    # Thermal band routes entirely to E_sky_thermal (scattered ≈ 0 in LWIR).
+    assert _band_integral(wl, q.E_sky_thermal, 8.0, 12.0) == pytest.approx(lwir_ref, rel=0.02)
+    assert _band_integral(wl, q.E_sky_scattered, 8.0, 12.0) == 0.0
+    # Reflective band routes entirely to E_sky_scattered (thermal ≈ 0 in VIS).
+    assert _band_integral(wl, q.E_sky_scattered, 0.4, 0.7) == pytest.approx(vis_ref, rel=0.02)
+    assert _band_integral(wl, q.E_sky_thermal, 0.4, 0.7) == 0.0
+    # Disjoint at the 4 µm boundary and the sum reconstructs the full column.
+    assert np.all(q.E_sky_scattered[wl >= 4.0] == 0.0)
+    assert np.all(q.E_sky_thermal[wl < 4.0] == 0.0)
+    full_ref = _band_integral(flux.wavelength_um, flux.e_diffuse, 0.4, 14.0)
+    e_sum = q.E_sky_scattered + q.E_sky_thermal
+    assert _band_integral(wl, e_sum, 0.4, 14.0) == pytest.approx(full_ref, rel=0.02)

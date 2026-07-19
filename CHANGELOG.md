@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Results-affecting (opt-in): MODTRAN flux-file downwelling on the tape7-import
+  path (CU-157).** New parameter `atmosphere.modtran.flux_path` names a Block E
+  spectral flux CSV (`*_flux.csv`) alongside `atmosphere.modtran.tape7_path`.
+  When set, the run's ground-level DOWN irradiance feeds the sky-reflection
+  terms — `E_sky_thermal` from the thermal band (≥ 4 µm) and `E_sky_scattered`
+  from the reflective-solar band (< 4 µm) — superseding the Gap 81 zeros for
+  flux-equipped imports (no more zero-downwelling warning). This raises reflected-
+  sky background for low-ε / mixed emit+reflect targets on the MODTRAN-import
+  path (e.g. E1 LWIR downwelling ≈ 24.6 W/m², VIS ≈ 124 W/m², previously 0).
+  Only affects configurations that set `flux_path`; all existing scenarios and
+  goldens (none set it) are unchanged. New `FluxImport` public class.
 - **Exo-altitude targets over an atmospheric background (Gap 95).**
   `LineOfSightGeometry` now accepts any target altitude ≥ 0 m; a target at or
   above the atmosphere top (default 100 km — satellite, post-burnout booster)

@@ -12,6 +12,7 @@ Models
 from radiant.atmosphere.exo import ExoAtmosphere
 from radiant.atmosphere.interpolated import GeometryPoint, InterpolatedAtmosphere
 from radiant.atmosphere.modtran import (
+    FluxImport,
     ModtranAtmosphere,
     ModtranConfig,
     ModtranNativeOutput,
@@ -34,6 +35,7 @@ __all__ = [
     "AtmosphericGeometry",
     "AtmosphericState",
     "ExoAtmosphere",
+    "FluxImport",
     "GeometryPoint",
     "InterpolatedAtmosphere",
     "ModtranAtmosphere",

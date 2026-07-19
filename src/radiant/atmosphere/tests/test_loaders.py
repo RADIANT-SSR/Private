@@ -53,6 +53,22 @@ def _write_named_header_tape7(path: Path, n_points: int = 20) -> None:
     path.write_text("\n".join(lines))
 
 
+def _write_flux_csv(path: Path, n_freq: int = 6) -> None:
+    """Minimal MODTRAN 6 flux CSV (one 0 km level: UP/DOWN/SOLAR triple)."""
+    nu = np.linspace(5000.0, 2000.0, n_freq)
+    lines = [
+        "case index 0 = {",
+        f"num freq, {n_freq}",
+        "num column, 3",
+        "Freq, UP, DOWN, SOLAR",
+        "[cm-1], 0 KM, 0 KM, 0 KM",
+    ]
+    for f in nu:
+        lines.append(f"{f:g}, 1.0e-4, 2.0e-4, 3.0e-4")
+    lines.append("}")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 class TestBuildAtmosphereModel:
     @pytest.mark.level0
     def test_exo(self) -> None:
@@ -213,6 +229,46 @@ class TestBuildAtmosphereModel:
                     "modtran",
                     atmosphere__modtran__tape7_path=str(main),
                     atmosphere__modtran__tape7_sun_path=str(tmp_path / "missing.tp7"),
+                )
+            )
+
+    @pytest.mark.level0
+    def test_modtran_flux_path_builds_import(self, tmp_path: Path) -> None:
+        tape7 = tmp_path / "run.tp7"
+        flux = tmp_path / "run_flux.csv"
+        _write_named_header_tape7(tape7)
+        _write_flux_csv(flux)
+        model = build_atmosphere_model(
+            _make_params(
+                "modtran",
+                atmosphere__modtran__tape7_path=str(tape7),
+                atmosphere__modtran__flux_path=str(flux),
+            )
+        )
+        imp = model._flux_import  # type: ignore[attr-defined]
+        assert imp is not None
+        assert imp.source_path == str(flux)
+        assert imp.wavelength_um[0] < imp.wavelength_um[-1]  # ascending µm
+
+    @pytest.mark.level0
+    def test_modtran_flux_path_without_main_raises(self, tmp_path: Path) -> None:
+        flux = tmp_path / "run_flux.csv"
+        _write_flux_csv(flux)
+        with pytest.raises(ValueError, match="flux_path"):
+            build_atmosphere_model(
+                _make_params("modtran", atmosphere__modtran__flux_path=str(flux))
+            )
+
+    @pytest.mark.level0
+    def test_modtran_flux_path_missing_file_raises(self, tmp_path: Path) -> None:
+        tape7 = tmp_path / "run.tp7"
+        _write_named_header_tape7(tape7)
+        with pytest.raises(FileNotFoundError, match="flux_path"):
+            build_atmosphere_model(
+                _make_params(
+                    "modtran",
+                    atmosphere__modtran__tape7_path=str(tape7),
+                    atmosphere__modtran__flux_path=str(tmp_path / "missing.csv"),
                 )
             )
 

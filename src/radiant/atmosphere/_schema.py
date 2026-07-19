@@ -240,6 +240,30 @@ MODTRAN_TAPE7_UP_PATH = ParameterDef(
     ),
 )
 
+MODTRAN_FLUX_PATH = ParameterDef(
+    name="atmosphere.modtran.flux_path",
+    description=(
+        "Optional MODTRAN spectral flux CSV (a Block E irradiance run's "
+        "*_flux.csv sidecar) supplying the downwelling sky irradiance for "
+        "the tape7-import path (CU-157, Gap 38). Requires "
+        "atmosphere.modtran.tape7_path. When set, the ground-level DOWN "
+        "column (thermal emission + scattered solar) feeds the sky-"
+        "reflection terms: E_sky_scattered from the reflective-solar band "
+        "and E_sky_thermal from the thermal band — superseding the Gap 81 "
+        "zero for flux-equipped imports. Unset, a standard IEMSCT=2 tape7 "
+        "carries no downwelling column, so both terms stay zero (Gap 81)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    tags=frozenset({"atmosphere", "modtran"}),
+    default_justification=(
+        "Empty string = not set; a tape7 import without a flux file keeps the "
+        "Gap 81 zero downwelling."
+    ),
+)
+
 MODTRAN_BINARY_PATH = ParameterDef(
     name="atmosphere.modtran.binary_path",
     description="Path to the MODTRAN executable.",
@@ -441,6 +465,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     MODTRAN_TAPE7_PATH,
     MODTRAN_TAPE7_SUN_PATH,
     MODTRAN_TAPE7_UP_PATH,
+    MODTRAN_FLUX_PATH,
     MODTRAN_BINARY_PATH,
     MODTRAN_CACHE_DIR,
     MODTRAN_ALLOW_FALLBACK,

@@ -18,6 +18,8 @@ import numpy as np
 import pytest
 
 from radiant.atmosphere.modtran import (
+    _FLUX_REFLECTIVE_SOLAR_MAX_UM,
+    FluxImport,
     ModtranAtmosphere,
     ModtranConfig,
     ModtranFluxReader,
@@ -34,6 +36,7 @@ from radiant.atmosphere.protocol import (
     Atmosphere,
     AtmosphericGeometry,
 )
+from radiant.core.los_geometry import LineOfSightGeometry
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -686,6 +689,168 @@ class TestRealModtranE1Flux:
         k = int(np.argmin(np.abs(wl - 0.5)))
         assert e_direct[k] == pytest.approx(1020.9, rel=0.02)
         assert e_diffuse[k] > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Flux import + downwelling band-split (CU-157)
+# ---------------------------------------------------------------------------
+
+
+class TestFluxImport:
+    """CU-157: ``FluxImport.from_file`` parses a flux CSV to canonical units
+    and captures provenance (the loader builds this pre-chain, Rule 6)."""
+
+    def test_from_file_round_trips_synthetic(self, tmp_path: Path) -> None:
+        _write_modtran_flux_csv(tmp_path / "flux.csv", n_freq=6)
+        imp = FluxImport.from_file(tmp_path / "flux.csv")
+        # Ground level (0 km, j=0): DOWN=2e-4, SOLAR=3e-4 native, ×ν² Jacobian.
+        wl_r, e_dir_r, e_dif_r = ModtranFluxReader(tmp_path / "flux.csv").to_radiant_units()
+        np.testing.assert_allclose(imp.wavelength_um, wl_r)
+        np.testing.assert_allclose(imp.e_direct, e_dir_r)
+        np.testing.assert_allclose(imp.e_diffuse, e_dif_r)
+        assert np.all(np.diff(imp.wavelength_um) > 0.0)
+        assert len(imp.content_key) == 16
+        assert imp.source_path.endswith("flux.csv")
+
+    def test_content_key_deterministic(self, tmp_path: Path) -> None:
+        _write_modtran_flux_csv(tmp_path / "flux.csv")
+        a = FluxImport.from_file(tmp_path / "flux.csv")
+        b = FluxImport.from_file(tmp_path / "flux.csv")
+        assert a.content_key == b.content_key
+
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError):
+            FluxImport.from_file(tmp_path / "nope.csv")
+
+
+def _flux_resolved_params(wavelength_um: np.ndarray):
+    """Minimal resolved ParameterSet for a MODTRAN-import evaluate() test."""
+    from radiant.api.session import RadiantSession
+
+    session = RadiantSession(wavelength_um=wavelength_um)
+    params = session.default_params()
+    params.set("source.target.temperature", 300.0)
+    params.set("source.target.emissivity", 0.95)
+    params.set("atmosphere.model", "modtran")
+    params.set("geometry.sensor_altitude_m", 100_000.0)
+    params.set("geometry.solar_zenith_rad", np.deg2rad(30.0))
+    params.set("optics.aperture_diameter_m", 0.08)
+    params.set("optics.focal_length_m", 0.20)
+    params.set("optics.transmission_scalar", 0.60)
+    params.set("detector.pixel_pitch_x_um", 17.0)
+    params.set("detector.pixel_pitch_y_um", 17.0)
+    params.set("detector.qe_value", 0.55)
+    params.set("detector.dark_rate_e_per_s", 1000.0)
+    params.set("spectral_integration.filter_min_um", float(wavelength_um[0]))
+    params.set("spectral_integration.filter_max_um", float(wavelength_um[-1]))
+    params.set("spectral_integration.integration_time_s", 0.015)
+    params.set("readout.read_noise_e_rms", 20.0)
+    params.set("readout.gain_e_per_dn", 2.0)
+    params.set("readout.adc_bits", 14)
+    params.resolve()
+    return params
+
+
+def _synthetic_tape7_import() -> Tape7Import:
+    """A flat surface-target tape7 import spanning VIS→LWIR."""
+    wl = np.linspace(0.4, 14.0, 200)
+    return Tape7Import(
+        wavelength_um=wl,
+        transmittance=np.full_like(wl, 0.7),
+        path_radiance=np.full_like(wl, 0.1),
+        ground_reflected=np.zeros_like(wl),
+        source_path="synthetic-tape7",
+        content_key="deadbeefdeadbeef",
+    )
+
+
+def _synthetic_flux_import(down: float = 5.0, direct: float = 100.0) -> FluxImport:
+    """A flat downwelling flux import (constant DOWN and SOLAR)."""
+    wl = np.linspace(0.4, 14.0, 200)
+    return FluxImport(
+        wavelength_um=wl,
+        e_direct=np.full_like(wl, direct),
+        e_diffuse=np.full_like(wl, down),
+        source_path="synthetic-flux",
+        content_key="cafecafecafecafe",
+    )
+
+
+class TestModtranFluxDownwelling:
+    """CU-157: a flux import supplies the downwelling the tape7 lacks, split
+    at the reflective-solar / thermal boundary between the two sky terms."""
+
+    def test_band_split_partitions_down_column(self) -> None:
+        cfg = ModtranConfig(binary_path="/nonexistent", allow_fallback=False)
+        atm = ModtranAtmosphere(
+            cfg,
+            tape7_import=_synthetic_tape7_import(),
+            flux_import=_synthetic_flux_import(down=5.0),
+        )
+        wl = np.linspace(0.4, 14.0, 400)
+        params = _flux_resolved_params(wl)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            q = atm.evaluate(wl, los, params)
+
+        split = _FLUX_REFLECTIVE_SOLAR_MAX_UM
+        reflective = wl < split
+        # Scattered carries the DOWN (≈5 W/m²/µm) below the boundary, zero above.
+        assert np.all(q.E_sky_scattered[~reflective] == 0.0)
+        assert np.all(q.E_sky_thermal[reflective] == 0.0)
+        np.testing.assert_allclose(q.E_sky_scattered[reflective], 5.0, rtol=1e-6)
+        np.testing.assert_allclose(q.E_sky_thermal[~reflective], 5.0, rtol=1e-6)
+        # Physics invariant: the assembly consumes the sum, which equals the
+        # full DOWN column regardless of where the labelling boundary sits.
+        np.testing.assert_allclose(q.E_sky_scattered + q.E_sky_thermal, 5.0, rtol=1e-6)
+
+    def test_flux_import_suppresses_gap81_warning(self) -> None:
+        cfg = ModtranConfig(binary_path="/nonexistent", allow_fallback=False)
+        atm = ModtranAtmosphere(
+            cfg,
+            tape7_import=_synthetic_tape7_import(),
+            flux_import=_synthetic_flux_import(),
+        )
+        wl = np.linspace(0.4, 14.0, 400)
+        params = _flux_resolved_params(wl)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            # No "downwelling ... set to ZERO" warning when flux supplies it.
+            # (The single-τ collapse warning is a different message; ignore it.)
+            try:
+                q = atm.evaluate(wl, los, params)
+            except UserWarning as exc:
+                assert "set to ZERO" not in str(exc), (
+                    "Gap 81 zero-downwelling warning must not fire with a flux import"
+                )
+                # Re-run tolerantly to obtain the result for the state check.
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    q = atm.evaluate(wl, los, params)
+        assert np.any(q.E_sky_thermal > 0.0)
+
+    def test_no_flux_import_keeps_gap81_zero(self) -> None:
+        cfg = ModtranConfig(binary_path="/nonexistent", allow_fallback=False)
+        atm = ModtranAtmosphere(cfg, tape7_import=_synthetic_tape7_import())
+        wl = np.linspace(0.4, 14.0, 400)
+        params = _flux_resolved_params(wl)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            q = atm.evaluate(wl, los, params)
+        assert any("set to ZERO" in str(w.message) for w in caught), (
+            "Gap 81 warning must still fire on a bare tape7 import"
+        )
+        assert np.all(q.E_sky_scattered == 0.0)
+        assert np.all(q.E_sky_thermal == 0.0)
 
 
 # ---------------------------------------------------------------------------

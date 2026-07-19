@@ -259,15 +259,6 @@
 **Why it still matters**: Rule 20 / Rule 23 — a doc claiming a precise, wrong file count is aspirational-drift bait; a reader trusting "348" is misled. The doc self-declares `find` as the source of truth, which caps the harm, but the printed totals should either be regenerated or replaced with a generator command.
 **Suggested fix**: stand-alone task — regenerate the count header + subtotal/grand-total rows from `find src/radiant -name '*.py'` (split by `__init__.py` / `test_*.py` / source), or replace the static totals with the command and drop the hand-maintained numbers. Effort S; category A (doc-only, no code change).
 
-### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
-
-**Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12
-**Status**: Open
-**File**: `src/radiant/atmosphere/protocol.py:41` (`EARTH_RADIUS_M: float = 6_371_000.0`; consumed at :196–198 by the atmospheric slant-path-through-shell computation)
-**Symptom**: after CU-097 collapsed the two *core* Earth radii into the single canonical `constants.R_EARTH_M` (6.371e6 m), `atmosphere/protocol.py` still defines a third, name-colliding copy of the constant. The value is identical (6 371 000.0 m == 6.371e6 m) so there is no results impact today, but it is a hardcoded physical constant in a physics module.
-**Why it still matters**: Rule 13 spirit — "No module may hardcode physical constants. Import from here." A separately-maintained copy can silently drift from the canonical value on any future radius change; it is the lone remaining duplicate Earth-radius home after CU-097. The atmosphere stage may import `radiant.core` (import table), so the fix is a one-line repoint.
-**Suggested fix**: inline-fix-now — `from radiant.core.constants import R_EARTH_M`, delete the local `EARTH_RADIUS_M`, repoint the two `:196–198` usages. Effort S; category A (no numeric change — the values are already equal).
-
 ### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
 
 **Discovered**: Geometry_Stage_Plan Phase 1 (regenerating for the geometry namespace), 2026-07-12
@@ -405,6 +396,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
+
+**Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12.
+**Status**: RESOLVED 2026-07-19, commit `<pending100>`. **Resolution**: replaced the local `EARTH_RADIUS_M` with `from radiant.core.constants import R_EARTH_M` and repointed the two slant-path usages (`protocol.py:196,198`). Values were already equal (6 371 000.0 m), so no numeric/results change — this is the Rule-13 one-canonical-constant repoint. Atmosphere-suite green (330 tests). Wave 2 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/atmosphere/protocol.py`.
 
 ### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
 

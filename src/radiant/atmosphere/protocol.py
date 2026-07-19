@@ -28,6 +28,7 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.core.constants import R_EARTH_M
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData
@@ -36,9 +37,8 @@ from radiant.core.spectral import SpectralData
 # Constants used by geometry math
 # ---------------------------------------------------------------------------
 
-# Mean Earth radius [m] used for the spherical-Earth slant-path correction.
-# Value from RADIANT_Atmosphere.md §4.2 (consistent with US Standard 1976).
-EARTH_RADIUS_M: float = 6_371_000.0
+# Mean Earth radius [m] for the spherical-Earth slant-path correction —
+# the one canonical value from core.constants (Rule 13; CU-100).
 
 # Zenith angle (rad) above which the flat-Earth approximation breaks down
 # and the spherical correction kicks in. Per RADIANT_Atmosphere.md §4.2.
@@ -193,9 +193,9 @@ class AtmosphericGeometry:
         # Spherical-Earth correction. The formulation is the standard
         # plane-parallel-atmosphere root-form Air Mass approximation
         # specialised to a finite-thickness slab.
-        x = dh / EARTH_RADIUS_M
+        x = dh / R_EARTH_M
         radicand = cos_theta * cos_theta + 2.0 * x + x * x
-        return EARTH_RADIUS_M * (math.sqrt(radicand) - cos_theta)
+        return R_EARTH_M * (math.sqrt(radicand) - cos_theta)
 
     def cos_scattering_angle(self) -> float:
         """Cosine of the single-scatter angle ``Θ`` between sun and sensor.

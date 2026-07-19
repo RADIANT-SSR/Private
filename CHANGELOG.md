@@ -89,6 +89,11 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI: the geometry schematic's "unavailable" guard panel now recovers (CU-163).**
+  A build failure during `show_result` still surfaces the actionable panel, but a
+  later evaluate that builds cleanly rebuilds the canvas and re-enters schematic
+  mode — one transient adapter error no longer disables the viewer for the rest
+  of the session (previously the panel was one-way and required restarting the app).
 - **GUI: night scenes no longer kill the geometry schematic.** With
   `geometry.solar_illumination = "night"` the geometry stage publishes the solar
   angles as `None`; the schematic adapter crashed on `float(None)` and the viewer

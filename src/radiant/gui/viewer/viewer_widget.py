@@ -86,6 +86,7 @@ class GeometryViewer(QWidget):
         # arc repaint. The overlay is a child of the canvas; the viewer owns the wiring.
         self._canvas.angle_overlay.angleToggled.connect(self.set_angle_revealed)
         self._unavailable_reason: str | None = None
+        self._unavailable_panel: QLabel | None = None
         self._mode: str = "schematic"
 
     # -- accessors ---------------------------------------------------------
@@ -157,23 +158,37 @@ class GeometryViewer(QWidget):
         adapter needs for the target shape and sampling. A build failure surfaces the
         actionable guard panel rather than raising (Rules 15/17) — effectively unreachable
         for a pure-Qt widget, but kept so a malformed result never crashes the shell.
+        The guard panel is **not** one-way (CU-163): a later evaluate that builds cleanly
+        tears the panel down and restores the schematic, so one transient adapter error
+        never disables the viewer for the rest of the session.
         """
         self._result = result
         self._params = params
-        if self._mode == "unavailable" or self._canvas is None:
-            return
+        # Build the state first; only touch the canvas/panel on the known outcome.
         try:
             state = ViewerState.from_chain_result(result, params)
-            self._canvas.set_state(state)
         except Exception as exc:  # noqa: BLE001 — degrade to the actionable panel
+            self._enter_unavailable(str(exc))
+            return
+        # Clean build: restore the schematic canvas if the guard panel is up (CU-163).
+        if self._mode == "unavailable" or self._canvas is None:
+            self._restore_canvas()
+        try:
+            self._canvas.set_state(state)
+        except Exception as exc:  # noqa: BLE001 — a render failure still degrades gracefully
             self._enter_unavailable(str(exc))
 
     def _enter_unavailable(self, reason: str) -> None:
-        """Replace the canvas with the actionable guard panel (minimal; near-unreachable)."""
+        """Replace the canvas with the actionable guard panel (minimal; recoverable)."""
         if self._canvas is not None:
             self._canvas.setParent(None)
             self._canvas.deleteLater()
             self._canvas = None
+        # A stale panel from an earlier failure is replaced, not stacked.
+        if self._unavailable_panel is not None:
+            self._unavailable_panel.setParent(None)
+            self._unavailable_panel.deleteLater()
+            self._unavailable_panel = None
         self._unavailable_reason = reason
         self._mode = "unavailable"
         panel = QLabel(
@@ -186,7 +201,28 @@ class GeometryViewer(QWidget):
         panel.setWordWrap(True)
         panel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._layout.addWidget(panel)
+        self._unavailable_panel = panel
         _log.warning("geometry schematic unavailable: %s", reason)
+
+    def _restore_canvas(self) -> None:
+        """Rebuild the schematic canvas after the guard panel was shown (CU-163).
+
+        Inverse of :meth:`_enter_unavailable`: drop the panel, recreate the
+        :class:`SchematicView`, re-wire the angle-overlay signal, and re-apply
+        the mirrored view state (theme, revealed arcs, triad) so the restored
+        schematic matches the widget's current controls.
+        """
+        if self._unavailable_panel is not None:
+            self._unavailable_panel.setParent(None)
+            self._unavailable_panel.deleteLater()
+            self._unavailable_panel = None
+        self._canvas = SchematicView(self, theme=self._theme)
+        self._layout.addWidget(self._canvas)
+        self._canvas.angle_overlay.angleToggled.connect(self.set_angle_revealed)
+        self._canvas.set_revealed_angles(self._revealed_arcs)
+        self._canvas.set_triad_visible(self._show_triad)
+        self._unavailable_reason = None
+        self._mode = "schematic"
 
     def close_viewer(self) -> None:
         """Teardown hook (no VTK render window to release — kept for surface parity)."""

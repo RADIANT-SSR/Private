@@ -400,6 +400,42 @@ class TestGeometryViewerWidget:
         panels = [w for w in viewer.findChildren(QLabel) if w.objectName() == "viewerUnavailable"]
         assert panels and "unavailable" in panels[0].text().lower()
 
+    def test_guard_panel_recovers_on_next_good_result(self, qtbot, evaluated) -> None:  # type: ignore[no-untyped-def]
+        """CU-163: the guard panel is not one-way — a later clean evaluate
+        rebuilds the canvas and re-enters schematic mode."""
+        from PySide6.QtWidgets import QLabel
+
+        from radiant.gui.viewer import viewer_widget
+        from radiant.gui.viewer.viewer_widget import GeometryViewer
+
+        sensor, result = evaluated
+        viewer = GeometryViewer()
+        qtbot.addWidget(viewer)
+
+        # Force one transient adapter failure → guard panel.
+        def _boom(_result, _params):  # type: ignore[no-untyped-def]
+            raise RuntimeError("transient")
+
+        monkey = pytest.MonkeyPatch()
+        monkey.setattr(viewer_widget.ViewerState, "from_chain_result", staticmethod(_boom))
+        try:
+            viewer.show_result(result, sensor)
+        finally:
+            monkey.undo()
+        assert viewer.is_degraded and viewer.canvas is None
+
+        # A subsequent good evaluate must restore the schematic.
+        viewer.show_result(result, sensor)
+        assert viewer.is_available and viewer.mode == "schematic"
+        assert viewer.unavailable_reason is None
+        assert viewer.canvas is not None
+        # The guard panel is gone, not merely hidden behind the restored canvas.
+        panels = [w for w in viewer.findChildren(QLabel) if w.objectName() == "viewerUnavailable"]
+        assert not panels
+        # View controls still route to the rebuilt canvas without error.
+        viewer.set_triad_visible(True)
+        viewer.set_angle_revealed("theta_o", True)
+
     def test_close_viewer_is_safe(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         from radiant.gui.viewer.viewer_widget import GeometryViewer
 

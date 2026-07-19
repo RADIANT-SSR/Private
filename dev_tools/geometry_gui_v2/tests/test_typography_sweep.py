@@ -66,7 +66,7 @@ def _string_literals(source: str) -> list[str]:
 
 @pytest.mark.parametrize("rel_path", _SWEPT_MODULES)
 def test_swept_module_has_no_raw_subscript_literal(rel_path: str) -> None:
-    src = (_repo_root() / rel_path).read_text()
+    src = (_repo_root() / rel_path).read_text(encoding="utf-8")
     literals = _string_literals(src)
     offenders: list[tuple[str, str]] = []
     for lit in literals:
@@ -87,13 +87,13 @@ def test_swept_module_has_no_raw_subscript_literal(rel_path: str) -> None:
 
 def test_anchors_imports_viewport_label() -> None:
     """The anchor-collection module must import the typography helper."""
-    src = (_repo_root() / _SWEPT_MODULES[0]).read_text()
+    src = (_repo_root() / _SWEPT_MODULES[0]).read_text(encoding="utf-8")
     assert "from dev_tools.geometry_gui_v2.scene.labels.typography import" in src
     assert "viewport_label" in src
 
 
 def test_readouts_panel_imports_panel_label() -> None:
     """The Qt readouts panel must import the typography helper."""
-    src = (_repo_root() / _SWEPT_MODULES[1]).read_text()
+    src = (_repo_root() / _SWEPT_MODULES[1]).read_text(encoding="utf-8")
     assert "from dev_tools.geometry_gui_v2.scene.labels.typography import" in src
     assert "panel_label" in src

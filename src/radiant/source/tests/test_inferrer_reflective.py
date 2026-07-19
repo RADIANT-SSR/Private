@@ -412,7 +412,7 @@ def _write_flat_rho_csv(
     if header:
         lines.append("wavelength_um,reflectance")
     lines.extend(f"{w:.6f},{rho_value:.6f}" for w in wl_um)
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -425,7 +425,8 @@ def _write_two_row_rho_csv(
     rho_high: float,
 ) -> Path:
     path.write_text(
-        f"wavelength_um,reflectance\n{wl_low:.6f},{rho_low:.6f}\n{wl_high:.6f},{rho_high:.6f}\n"
+        f"wavelength_um,reflectance\n{wl_low:.6f},{rho_low:.6f}\n{wl_high:.6f},{rho_high:.6f}\n",
+        encoding="utf-8",
     )
     return path
 
@@ -473,7 +474,10 @@ class TestReflectancePathCSV:
         # the step as two rows on either side of the edge to avoid
         # linear-interpolation smoothing around the cut.
         csv = tmp_path / "step_rho.csv"
-        csv.write_text("wavelength_um,reflectance\n0.30,0.1\n0.59999,0.1\n0.60001,0.6\n0.90,0.6\n")
+        csv.write_text(
+            "wavelength_um,reflectance\n0.30,0.1\n0.59999,0.1\n0.60001,0.6\n0.90,0.6\n",
+            encoding="utf-8",
+        )
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
@@ -578,7 +582,7 @@ class TestReflectancePathCSV:
     @pytest.mark.level1
     def test_reflectance_path_with_rho_gt_1_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "bad.csv"
-        csv.write_text("wavelength_um,reflectance\n0.3,0.3\n0.5,1.5\n0.9,0.3\n")
+        csv.write_text("wavelength_um,reflectance\n0.3,0.3\n0.5,1.5\n0.9,0.3\n", encoding="utf-8")
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
@@ -595,7 +599,7 @@ class TestReflectancePathCSV:
     @pytest.mark.level1
     def test_reflectance_path_with_negative_rho_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "neg.csv"
-        csv.write_text("wavelength_um,reflectance\n0.3,0.3\n0.5,-0.1\n0.9,0.3\n")
+        csv.write_text("wavelength_um,reflectance\n0.3,0.3\n0.5,-0.1\n0.9,0.3\n", encoding="utf-8")
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()
@@ -636,7 +640,8 @@ class TestReflectancePathCSV:
             "wavelength_um,reflectance\n"
             "0.3,0.1\n"
             "0.9,0.2\n"
-            "0.5,0.3\n"  # out-of-order ⇒ diffs not all > 0
+            "0.5,0.3\n",  # out-of-order ⇒ diffs not all > 0
+            encoding="utf-8",
         )
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
@@ -650,7 +655,9 @@ class TestReflectancePathCSV:
     @pytest.mark.level1
     def test_reflectance_path_duplicate_wavelengths_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "dup.csv"
-        csv.write_text("wavelength_um,reflectance\n0.3,0.1\n0.5,0.2\n0.5,0.3\n0.9,0.4\n")
+        csv.write_text(
+            "wavelength_um,reflectance\n0.3,0.1\n0.5,0.2\n0.5,0.3\n0.9,0.4\n", encoding="utf-8"
+        )
         params = _reflective_params()
         params.set("source.target.reflectance_path", str(csv))
         params.resolve()

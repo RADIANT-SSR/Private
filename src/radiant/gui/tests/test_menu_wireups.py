@@ -76,7 +76,7 @@ class TestExports:
             mw.QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(dest), ""))
         )
         window.action("file.export_json").trigger()
-        record = json.loads(dest.read_text())
+        record = json.loads(dest.read_text(encoding="utf-8"))
         assert isinstance(record, dict) and record  # a real provenance record landed
 
 

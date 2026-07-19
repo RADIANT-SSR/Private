@@ -66,4 +66,4 @@ def write_synthetic_tape7(
             f"{sol_scat[i]:12.4e}{zero[i]:12.4e}{zero[i]:12.4e}"
             f"{total_rad[i]:12.4e}"
         )
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")

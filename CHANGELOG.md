@@ -207,6 +207,12 @@ retroactively reconstructed.
   phase angle annotations) simply absent; the sensor/target geometry is unchanged.
 
 ### Changed
+- **Cross-platform text I/O: explicit `encoding="utf-8"` everywhere (CU-149).** All
+  text-mode `open()`/`read_text()`/`write_text()` call sites in `src/`, `scripts/`, and
+  `dev_tools/` now pass `encoding="utf-8"`, so UTF-8 data/config files (containing `µ`,
+  `°`, `⁻`) decode correctly on stock Windows (cp1252 locale) instead of raising or
+  silently mojibaking. Ruff `PLW1514` (`unspecified-encoding`) is enabled to prevent
+  regression. Not results-affecting on macOS/Linux (UTF-8 is already the default).
 - **NIIRS out-of-calibration is now structured status, not a per-evaluate warning
   (CU-166).** When a NIIRS/IIRS input falls outside the GIQE-5 calibration band the
   chain no longer emits a `UserWarning` (nor a `logger.warning`) on every evaluate —

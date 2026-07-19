@@ -62,7 +62,7 @@ def _load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
             "Check the file path and ensure the file exists."
         )
 
-    lines = path.read_text().strip().splitlines()
+    lines = path.read_text(encoding="utf-8").strip().splitlines()
     if not lines:
         raise AtmosphereValidationError(
             f"Tabulated atmosphere CSV is empty: {path}. "

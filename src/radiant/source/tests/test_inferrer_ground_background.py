@@ -77,7 +77,7 @@ class TestBackgroundEmissivityResolver:
     def test_a4_path_overrides_material(self, tmp_path: Path) -> None:
         """A4: emissivity_path wins over a named material."""
         csv = tmp_path / "override.csv"
-        csv.write_text("wavelength_um,emissivity\n7.0,0.5\n10.0,0.5\n14.0,0.5\n")
+        csv.write_text("wavelength_um,emissivity\n7.0,0.5\n10.0,0.5\n14.0,0.5\n", encoding="utf-8")
         params = _sub_pixel_params(material="vegetation_green", emissivity_path=str(csv))
         sd = _load_background_emissivity(params)
         np.testing.assert_allclose(sd.values, 0.5, atol=1e-12)

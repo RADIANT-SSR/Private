@@ -84,7 +84,7 @@ def _write_synthetic_tape7(path: Path, n_points: int = 50) -> np.ndarray:
             f"{nu[i]:12.2f} {trans[i]:12.6f} {thermal[i]:14.6e} "
             f"{scattered[i]:14.6e} {ground[i]:14.6e}"
         )
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
     return nu
 
 
@@ -132,7 +132,7 @@ def _write_realistic_tape7(
             f"{sngl_scat[i]:12.4e}{grnd_rflt[i]:12.4e}{drct_rflt[i]:12.4e}"
             f"{total_rad[i]:12.4e}"
         )
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
     return {
         "wavenumber_cm1": nu,
         "total_transmittance": tot_trans,
@@ -207,7 +207,7 @@ def _write_modtran6_tape7(
         ]
         lines.append(" ".join(f"{v:.6e}" for v in vals))
     lines.append("  -9999.")  # MODTRAN end-of-block sentinel
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
     return {
         "wavenumber_cm1": nu,
         "total_transmittance": tot_trans,
@@ -267,7 +267,7 @@ class TestUnitConversion:
             "2000.00     0.900000   1.000000e-05   0.000000e+00   0.000000e+00",
             "2500.00     0.800000   1.000000e-05   0.000000e+00   0.000000e+00",
         ]
-        tape7.write_text("\n".join(lines))
+        tape7.write_text("\n".join(lines), encoding="utf-8")
 
         reader = Tape7Reader(tape7)
         with pytest.warns(UserWarning, match="CU-066"):
@@ -292,7 +292,7 @@ class TestUnitConversion:
             "2000.00     0.850000   0.000000e+00   0.000000e+00   0.000000e+00",
             "3000.00     0.750000   0.000000e+00   0.000000e+00   0.000000e+00",
         ]
-        tape7.write_text("\n".join(lines))
+        tape7.write_text("\n".join(lines), encoding="utf-8")
 
         reader = Tape7Reader(tape7)
         with pytest.warns(UserWarning, match="CU-066"):
@@ -338,13 +338,13 @@ class TestTape7Reader:
 
     @pytest.mark.level1
     def test_empty_file(self, tmp_path: Path) -> None:
-        (tmp_path / "tape7").write_text("")
+        (tmp_path / "tape7").write_text("", encoding="utf-8")
         with pytest.raises(Tape7ParseError, match="no numeric data"):
             Tape7Reader(tmp_path / "tape7").parse()
 
     @pytest.mark.level1
     def test_header_only_file(self, tmp_path: Path) -> None:
-        (tmp_path / "tape7").write_text("Header only\nNo data here\n")
+        (tmp_path / "tape7").write_text("Header only\nNo data here\n", encoding="utf-8")
         with pytest.raises(Tape7ParseError, match="no numeric data"):
             Tape7Reader(tmp_path / "tape7").parse()
 
@@ -410,7 +410,7 @@ class TestTape7ReaderNamedColumns:
             "5000.00     0.800000   1.0000e-06   2.0000e-06",
             "4000.00     0.800000   1.0000e-06   2.0000e-06",
         ]
-        (tmp_path / "tape7").write_text("\n".join(lines))
+        (tmp_path / "tape7").write_text("\n".join(lines), encoding="utf-8")
         with pytest.raises(Tape7ParseError, match="missing required column"):
             Tape7Reader(tmp_path / "tape7").parse()
 
@@ -490,7 +490,7 @@ class TestTape7ReaderModtran6:
             "5000.0 0.80 1.0e-6 3.0e-6 2.0e-6",
             "4000.0 0.80 1.0e-6 3.0e-6 2.0e-6",
         ]
-        (tmp_path / "tape7").write_text("\n".join(lines))
+        (tmp_path / "tape7").write_text("\n".join(lines), encoding="utf-8")
         with pytest.raises(Tape7ParseError, match="solar-scatter"):
             Tape7Reader(tmp_path / "tape7").parse()
 

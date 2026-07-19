@@ -557,7 +557,7 @@ class Tape7Reader:
         if self._native is not None:
             return self._native
 
-        text = self._path.read_text()
+        text = self._path.read_text(encoding="utf-8")
         lines = text.strip().splitlines()
 
         # Pass 1: look for a named column-header line ("FREQ..."),
@@ -1259,7 +1259,7 @@ class ModtranAtmosphere:
 
         work_dir.mkdir(parents=True, exist_ok=True)
         tape5_path = work_dir / "tape5"
-        tape5_path.write_text(tape5)
+        tape5_path.write_text(tape5, encoding="utf-8")
 
         result = subprocess.run(
             [str(binary)],

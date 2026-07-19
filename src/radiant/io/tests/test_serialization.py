@@ -243,7 +243,7 @@ class TestFailureModes:
 
     def test_not_a_zip(self, tmp_path: Path) -> None:
         p = tmp_path / "junk.radiant"
-        p.write_text("not a zip")
+        p.write_text("not a zip", encoding="utf-8")
         with pytest.raises(ResultArchiveError, match="not a RADIANT result archive"):
             load_result_archive(p)
 

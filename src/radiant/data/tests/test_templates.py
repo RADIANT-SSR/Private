@@ -35,7 +35,7 @@ class TestTemplateFiles:
     @pytest.mark.parametrize("path", _template_paths(), ids=_template_ids())
     def test_template_valid_yaml(self, path: Path) -> None:
         """Each template must be valid YAML."""
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             config = yaml.safe_load(fh)
         assert isinstance(config, dict), f"{path.name}: not a dict"
 
@@ -43,7 +43,7 @@ class TestTemplateFiles:
     @pytest.mark.parametrize("path", _template_paths(), ids=_template_ids())
     def test_template_has_required_sections(self, path: Path) -> None:
         """Each template must have source, optics, detector, spectral_integration, readout."""
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             config = yaml.safe_load(fh)
         required = ["source", "optics", "detector", "spectral_integration", "readout"]
         for section in required:
@@ -53,7 +53,7 @@ class TestTemplateFiles:
     @pytest.mark.parametrize("path", _template_paths(), ids=_template_ids())
     def test_template_positive_values(self, path: Path) -> None:
         """Key physical parameters must be positive."""
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             config = yaml.safe_load(fh)
         checks = [
             ("optics", "aperture_diameter_m"),
@@ -72,7 +72,7 @@ class TestTemplateFiles:
     @pytest.mark.parametrize("path", _template_paths(), ids=_template_ids())
     def test_template_filter_range_valid(self, path: Path) -> None:
         """filter_min_um must be less than filter_max_um."""
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             config = yaml.safe_load(fh)
         si = config.get("spectral_integration", {})
         fmin = si.get("filter_min_um")

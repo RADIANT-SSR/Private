@@ -41,7 +41,7 @@ def _load_csv(path: Path, value_column: str) -> tuple[np.ndarray, np.ndarray]:
     """
     wavelengths: list[float] = []
     values: list[float] = []
-    with open(path, newline="") as fh:
+    with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         if reader.fieldnames is None or value_column not in reader.fieldnames:
             raise KeyError(
@@ -76,7 +76,7 @@ class SpectralLibrary:
         """Load and cache the emissivity manifest."""
         if self._manifest is None:
             manifest_path = self._root / "emissivity" / "manifest.yaml"
-            with open(manifest_path) as fh:
+            with open(manifest_path, encoding="utf-8") as fh:
                 self._manifest = yaml.safe_load(fh)
         return self._manifest  # type: ignore[return-value]
 

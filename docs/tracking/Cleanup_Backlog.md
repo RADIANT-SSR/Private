@@ -77,15 +77,6 @@
 **Why it still matters**: Rule 30 (cross-platform portability) and the traceability requirement (same inputs → identical outputs) — cross-platform runs should produce byte-identical text artifacts.
 **Suggested fix**: (a) inline-fix-now — add a root `.gitattributes` with `* text=auto eol=lf` (plus explicit `-text` entries for binaries: `.png`, `.h5`, `.xlsx`), and pass `newline="\n"` where a written text artifact's bytes matter (tape5). Effort S; category A. Re-audit after the first Windows clone.
 
-### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default)
-
-**Discovered**: Windows-portability review, 2026-07-16, `main`
-**Status**: Open — real bug risk on Windows, silent-corruption class. Several readers open text files with no `encoding=` argument, so they use the locale preferred encoding — UTF-8 on macOS/Linux but cp1252 on stock Windows (until PEP 686 lands in Python 3.15). The codebase's data and config files legitimately contain non-ASCII (`µ`, `°`, `⁻`): read as cp1252 these either raise mid-parse or silently mojibake (`µm` → `Âµm`) into loaded strings.
-**File**: `src/radiant/io/element_config.py:53,234` (YAML element configs), `src/radiant/data/library.py:44,79` (spectral-library CSVs + manifest), `src/radiant/source/converters/_csv.py:114`, `src/radiant/atmosphere/tabulated.py:65`, `src/radiant/atmosphere/modtran.py:511` (`read_text()`), `src/radiant/atmosphere/modtran.py:898` (`write_text()`); sweep the whole tree for other text-mode `open()`/`read_text()`/`write_text()` without `encoding=`.
-**Symptom**: On a stock Windows Python (no `PYTHONUTF8=1`), loading any UTF-8 file containing `µ` through these paths mis-decodes or raises `UnicodeDecodeError` with no RADIANT-actionable message.
-**Why it still matters**: Rule 30 (cross-platform portability), Rule 17 (no silent failures) — mojibake in loaded metadata is a silent data corruption; it also bites any collaborator on a non-UTF-8 locale, not just Windows.
-**Suggested fix**: (a) inline-fix-now — mechanical sweep adding `encoding="utf-8"` to every text-mode `open()`/`read_text()`/`write_text()` in `src/`, `scripts/`, `dev_tools/`; add the ruff rule `PLW1514` (`unspecified-encoding`) so new call sites can't regress. Effort S; category A (no results change on macOS). Re-audit after the ruff rule is enabled.
-
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 
 **Discovered**: GUI Development Plan Phase 9 (theme toggle), 2026-07-15, branch `gui-framework-plots`
@@ -450,6 +441,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default)
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`.
+**Status**: RESOLVED 2026-07-19, commit `769ebab`. **Resolution**: tokenize-based codemod added `encoding="utf-8"` to 86 text-mode `open()`/`read_text()`/`write_text()` call sites across `src/`, `scripts/`, `dev_tools/` (binary modes and already-encoded calls skipped). The named library readers — `data/library.py`, `source/converters/_csv.py`, `atmosphere/tabulated.py`, `atmosphere/modtran.py` — are covered; `io/element_config.py` already carried `encoding=`. Enabled ruff `PLW1514` (`unspecified-encoding`) via `preview = true` + `explicit-preview-rules = true` so only that preview rule activates and new call sites can't regress. `ruff check --select PLW1514 src scripts dev_tools` is clean; no results change on macOS (UTF-8 is already the platform default). First item of the autonomous CU-cleanup plan Wave 1 (`docs/plans/CU_Autonomous_Cleanup_Plan.md`).
+**File**: swept `src/`, `scripts/`, `dev_tools/`; ruff config in `pyproject.toml` (`[tool.ruff.lint]`).
 
 ### CU-169 — GUI font stacks lead with "IBM Plex" which is not installed → Qt logs a `qt.qpa.fonts` warning + ~170 ms alias-population cost on every launch
 

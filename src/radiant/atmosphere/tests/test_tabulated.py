@@ -69,7 +69,7 @@ def _write_csv(
         lines.append("wavelength_um,value")
     for w, v in zip(wavelength_um, values, strict=False):
         lines.append(f"{w},{v}")
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 class TestCSVRoundTrip:
@@ -417,7 +417,7 @@ class TestValidationFailures:
     @pytest.mark.level0
     def test_non_ascending_wavelength_csv(self, tmp_path: Path) -> None:
         f = tmp_path / "bad.csv"
-        f.write_text("5.0,0.9\n3.0,0.8\n")
+        f.write_text("5.0,0.9\n3.0,0.8\n", encoding="utf-8")
         with pytest.raises(ValueError, match="strictly ascending"):
             _load_csv(f)  # raw loader doesn't check, but SpectralData will
             TabulatedAtmosphere.from_csv(f, f)
@@ -425,7 +425,7 @@ class TestValidationFailures:
     @pytest.mark.level0
     def test_empty_csv(self, tmp_path: Path) -> None:
         f = tmp_path / "empty.csv"
-        f.write_text("")
+        f.write_text("", encoding="utf-8")
         with pytest.raises(ValueError, match="empty"):
             _load_csv(f)
 

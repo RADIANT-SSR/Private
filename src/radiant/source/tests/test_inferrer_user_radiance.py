@@ -65,7 +65,7 @@ def _write_flat_csv(
         lines.append("wavelength_um,L_t_source_W_per_m2_per_sr_per_um")
     for wl in wl_um:
         lines.append(f"{float(wl)},{float(L_value)}")
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
 
@@ -311,21 +311,21 @@ class TestCSVLoader:
     @pytest.mark.level1
     def test_empty_file_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "empty.csv"
-        csv_path.write_text("")
+        csv_path.write_text("", encoding="utf-8")
         with pytest.raises(ParameterBoundsError, match="empty"):
             load_user_radiance_csv(csv_path)
 
     @pytest.mark.level1
     def test_single_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "one_row.csv"
-        csv_path.write_text("wavelength_um,L\n10.0,5.0\n")
+        csv_path.write_text("wavelength_um,L\n10.0,5.0\n", encoding="utf-8")
         with pytest.raises(ParameterBoundsError, match="fewer than 2"):
             load_user_radiance_csv(csv_path)
 
     @pytest.mark.level1
     def test_malformed_row_raises(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "bad.csv"
-        csv_path.write_text("wavelength_um,L\n10.0,5.0\nnot-a-number,7.0\n")
+        csv_path.write_text("wavelength_um,L\n10.0,5.0\nnot-a-number,7.0\n", encoding="utf-8")
         with pytest.raises(ParameterBoundsError, match="floats"):
             load_user_radiance_csv(csv_path)
 
@@ -435,7 +435,7 @@ class TestInferrerRejections:
         for i, wl in enumerate(_WL_LWIR):
             val = -1.0 if i == 5 else 5.0
             lines.append(f"{float(wl)},{val}")
-        csv_path.write_text("\n".join(lines))
+        csv_path.write_text("\n".join(lines), encoding="utf-8")
 
         params = _user_radiance_params(csv_path, wl_um=_WL_LWIR)
         params.resolve()

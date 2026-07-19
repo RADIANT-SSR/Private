@@ -111,7 +111,7 @@ def load_two_column_csv(
             context={"path": str(path), "column_label": column_label},
         )
 
-    lines = path.read_text().strip().splitlines()
+    lines = path.read_text(encoding="utf-8").strip().splitlines()
     if not lines:
         raise ParameterBoundsError(
             what=f"{prefix}: CSV file is empty at {path!s}",

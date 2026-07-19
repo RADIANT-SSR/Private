@@ -73,7 +73,7 @@ class TestInlineSpectrumDocument:
 
         path = tmp_path / "spectral_train.yaml"
         sensor.save(path)
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert "wavelength_um" in text  # the inline table persisted into the YAML
 
         reloaded = Sensor.load(path)
@@ -117,7 +117,7 @@ class TestDefineQeTable:
                 {"wavelength_um": [3.0, 4.0, 5.0], "values": [0.35, 0.4, 0.3]}, csv_path
             )
         assert blocker.args == ["detector.qe_table_path"]
-        assert csv_path.read_text().startswith("wavelength_um,qe")
+        assert csv_path.read_text(encoding="utf-8").startswith("wavelength_um,qe")
         assert sensor.get_input("detector.qe_table_path") == str(csv_path)
 
     def test_defined_qe_curve_changes_signal(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]

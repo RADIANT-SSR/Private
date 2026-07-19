@@ -82,7 +82,7 @@ class TestPreview:
 
     def test_spectral_file_reference_reported(self, tmp_path: Path) -> None:
         csv = tmp_path / "gold.csv"
-        csv.write_text("3.0,0.98\n5.0,0.985\n")
+        csv.write_text("3.0,0.98\n5.0,0.985\n", encoding="utf-8")
         entry = _mirror("M1")
         entry["reflectance"] = "gold.csv"
         (p,) = preview_optical_elements([entry], base_dir=tmp_path)
@@ -98,7 +98,7 @@ class TestPreview:
 class TestNormalize:
     def test_relative_file_refs_become_absolute(self, tmp_path: Path) -> None:
         csv = tmp_path / "gold.csv"
-        csv.write_text("3.0,0.98\n5.0,0.985\n")
+        csv.write_text("3.0,0.98\n5.0,0.985\n", encoding="utf-8")
         entry = _mirror("M1")
         entry["reflectance"] = "gold.csv"
         (norm,) = normalize_element_document([entry], base_dir=tmp_path)
@@ -203,7 +203,7 @@ class TestPersistence:
 
         path = tmp_path / "with_elements.yaml"
         s.save(path)
-        assert "optical_elements" in path.read_text()
+        assert "optical_elements" in path.read_text(encoding="utf-8")
 
         s2 = Sensor.load(path)
         doc = s2.optical_elements()
@@ -215,7 +215,7 @@ class TestPersistence:
         s = Sensor.from_yaml(_EXAMPLE)
         path = tmp_path / "plain.yaml"
         s.save(path)
-        assert "optical_elements" not in path.read_text()
+        assert "optical_elements" not in path.read_text(encoding="utf-8")
 
     def test_from_dict_accepts_section(self) -> None:
         s = Sensor.from_dict(

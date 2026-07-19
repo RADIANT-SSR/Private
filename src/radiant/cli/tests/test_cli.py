@@ -141,7 +141,7 @@ class TestRunCommand:
         )
         assert result.exit_code == 0, result.output
         assert out.exists()
-        data = json.loads(out.read_text())
+        data = json.loads(out.read_text(encoding="utf-8"))
         assert "metrics" in data
 
     @pytest.mark.level2
@@ -158,7 +158,7 @@ class TestRunCommand:
         )
         assert result.exit_code == 0, result.output
         assert prov.exists()
-        data = json.loads(prov.read_text())
+        data = json.loads(prov.read_text(encoding="utf-8"))
         assert "parameters" in data
 
 
@@ -336,7 +336,7 @@ class TestSweepCommand:
         )
         assert result.exit_code == 0, result.output
         assert out.exists()
-        content = out.read_text()
+        content = out.read_text(encoding="utf-8")
         assert "value,snr" in content
 
     @pytest.mark.level2
@@ -359,7 +359,7 @@ class TestSweepCommand:
             ],
         )
         assert result.exit_code == 0, result.output
-        data = json.loads(out.read_text())
+        data = json.loads(out.read_text(encoding="utf-8"))
         assert "values" in data
         assert "metric_values" in data
 
@@ -418,7 +418,7 @@ class TestToleranceCommand:
             ],
         )
         assert result.exit_code == 0, result.output
-        data = json.loads(out.read_text())
+        data = json.loads(out.read_text(encoding="utf-8"))
         assert data["n_trials"] == 5
 
 
@@ -457,7 +457,7 @@ class TestCompareCommand:
             ],
         )
         assert result.exit_code == 0, result.output
-        data = json.loads(out.read_text())
+        data = json.loads(out.read_text(encoding="utf-8"))
         assert "metrics" in data
 
 
@@ -541,7 +541,7 @@ class TestTemplateCommand:
         )
         assert result.exit_code == 0, result.output
         assert out.exists()
-        content = out.read_text()
+        content = out.read_text(encoding="utf-8")
         assert "aperture_diameter_m" in content
 
 
@@ -705,8 +705,10 @@ class TestElementSectionConfigs:
         from radiant.cli.validate import validate
 
         path = self._element_config(tmp_path)
-        text = path.read_text().replace("transfer_mode: REFLECTIVE", "transfer_mode: SIDEWAYS")
-        path.write_text(text)
+        text = path.read_text(encoding="utf-8").replace(
+            "transfer_mode: REFLECTIVE", "transfer_mode: SIDEWAYS"
+        )
+        path.write_text(text, encoding="utf-8")
         result = CliRunner().invoke(validate, [str(path)])
         assert result.exit_code != 0
         assert "optical_elements" in result.output

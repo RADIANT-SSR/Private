@@ -398,7 +398,7 @@ def _write_flat_T_B_csv(
     if header:
         lines.append("wavelength_um,brightness_temperature_K")
     lines.extend(f"{w:.6f},{T_B_value:.6f}" for w in wl_um)
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -412,7 +412,7 @@ def _write_ramp_T_B_csv(
     lines = ["wavelength_um,brightness_temperature_K"]
     for w, t in zip(wl_um, T_B_values, strict=True):
         lines.append(f"{float(w):.6f},{float(t):.6f}")
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -491,7 +491,10 @@ class TestBrightnessTemperaturePathCSV:
     @pytest.mark.level1
     def test_T_B_path_with_negative_value_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "neg.csv"
-        csv.write_text("wavelength_um,brightness_temperature_K\n7.5,290.0\n10.0,-5.0\n13.5,290.0\n")
+        csv.write_text(
+            "wavelength_um,brightness_temperature_K\n7.5,290.0\n10.0,-5.0\n13.5,290.0\n",
+            encoding="utf-8",
+        )
         params = _s11_path_params(csv)
         params.resolve()
 
@@ -506,7 +509,8 @@ class TestBrightnessTemperaturePathCSV:
     def test_T_B_path_above_ceiling_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "hot.csv"
         csv.write_text(
-            "wavelength_um,brightness_temperature_K\n7.5,300.0\n10.0,15000.0\n13.5,300.0\n"
+            "wavelength_um,brightness_temperature_K\n7.5,300.0\n10.0,15000.0\n13.5,300.0\n",
+            encoding="utf-8",
         )
         params = _s11_path_params(csv)
         params.resolve()

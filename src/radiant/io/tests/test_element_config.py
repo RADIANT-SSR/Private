@@ -45,7 +45,7 @@ def tmp_yaml(tmp_path: Path) -> Path:
             distance_to_fpa_m: 0.3
     """)
     p = tmp_path / "sensor.yaml"
-    p.write_text(content)
+    p.write_text(content, encoding="utf-8")
     return p
 
 
@@ -76,7 +76,7 @@ def cavity_yaml(tmp_path: Path) -> Path:
             distance_to_fpa_m: 0.3
     """)
     p = tmp_path / "cavity_sensor.yaml"
-    p.write_text(content)
+    p.write_text(content, encoding="utf-8")
     return p
 
 
@@ -138,7 +138,9 @@ class TestLoadElementList:
         """Spectral property loaded from CSV file path."""
         # Write a CSV file.
         csv_path = tmp_path / "gold_reflectance.csv"
-        csv_path.write_text("# wavelength_um, reflectance\n3.0, 0.98\n5.0, 0.97\n")
+        csv_path.write_text(
+            "# wavelength_um, reflectance\n3.0, 0.98\n5.0, 0.97\n", encoding="utf-8"
+        )
         content = textwrap.dedent("""\
             optical_elements:
               - name: gold_mirror
@@ -149,7 +151,7 @@ class TestLoadElementList:
                 distance_to_fpa_m: 1.2
         """)
         yaml_path = tmp_path / "spectral_sensor.yaml"
-        yaml_path.write_text(content)
+        yaml_path.write_text(content, encoding="utf-8")
 
         elements = load_element_list(yaml_path)
         m = elements[0]
@@ -168,7 +170,7 @@ class TestElementConfigErrors:
     @pytest.mark.level1
     def test_missing_optical_elements_key(self, tmp_path: Path) -> None:
         p = tmp_path / "bad.yaml"
-        p.write_text("optics:\n  aperture: 0.3\n")
+        p.write_text("optics:\n  aperture: 0.3\n", encoding="utf-8")
         with pytest.raises(ElementConfigError, match="optical_elements"):
             load_element_list(p)
 
@@ -180,7 +182,7 @@ class TestElementConfigErrors:
                 transfer_mode: REFLECTIVE
         """)
         p = tmp_path / "missing.yaml"
-        p.write_text(content)
+        p.write_text(content, encoding="utf-8")
         with pytest.raises(ElementConfigError, match="reflectance"):
             load_element_list(p, wavelength_um=WL)
 
@@ -193,7 +195,7 @@ class TestElementConfigErrors:
                 reflectance: 0.5
         """)
         p = tmp_path / "bad_mode.yaml"
-        p.write_text(content)
+        p.write_text(content, encoding="utf-8")
         with pytest.raises(ElementConfigError, match="REFLECTIVE.*REFRACTIVE"):
             load_element_list(p, wavelength_um=WL)
 
@@ -206,7 +208,7 @@ class TestElementConfigErrors:
                 reflectance: nonexistent.csv
         """)
         p = tmp_path / "bad_path.yaml"
-        p.write_text(content)
+        p.write_text(content, encoding="utf-8")
         with pytest.raises(ElementConfigError, match="not found"):
             load_element_list(p)
 
@@ -214,6 +216,6 @@ class TestElementConfigErrors:
     def test_empty_element_list(self, tmp_path: Path) -> None:
         content = "optical_elements: []\n"
         p = tmp_path / "empty.yaml"
-        p.write_text(content)
+        p.write_text(content, encoding="utf-8")
         with pytest.raises(ElementConfigError, match="non-empty"):
             load_element_list(p)

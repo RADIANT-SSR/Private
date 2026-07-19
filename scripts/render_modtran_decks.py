@@ -134,7 +134,7 @@ def main() -> None:
         config = _row_to_config(row)
         geometry = _row_to_geometry(row)
         tape5 = render_tape5(config, geometry)
-        (_OUTPUT_DIR / f"{run_id}.tp5").write_text(tape5)
+        (_OUTPUT_DIR / f"{run_id}.tp5").write_text(tape5, encoding="utf-8")
 
         rendered_angle_deg = _rendered_card3_angle_deg(tape5)
         caveats = []
@@ -154,7 +154,7 @@ def main() -> None:
             f"{caveat_text} |"
         )
 
-    (_OUTPUT_DIR / "MANIFEST.md").write_text("\n".join(manifest_lines) + "\n")
+    (_OUTPUT_DIR / "MANIFEST.md").write_text("\n".join(manifest_lines) + "\n", encoding="utf-8")
     print(f"Rendered {len(rows)} tape5 decks to {_OUTPUT_DIR}")
 
 

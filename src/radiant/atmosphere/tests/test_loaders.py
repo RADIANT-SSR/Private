@@ -50,7 +50,7 @@ def _write_named_header_tape7(path: Path, n_points: int = 20) -> None:
             f"{nu[i]:12.2f}{0.75:12.6f}{1.0e-6:12.4e}{0.0:12.4e}{0.0:12.4e}"
             f"{2.0e-6:12.4e}{0.0:12.4e}{0.0:12.4e}{0.0:12.4e}{3.0e-6:12.4e}"
         )
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _write_flux_csv(path: Path, n_freq: int = 6) -> None:

@@ -288,7 +288,7 @@ class TestSaveConfig:
         params.resolve()
         outfile = tmp_path / "with_header.yaml"
         save_config(params, outfile, header="# custom header\n")
-        text = outfile.read_text()
+        text = outfile.read_text(encoding="utf-8")
         assert text.startswith("# custom header\n")
 
     @pytest.mark.level1
@@ -298,7 +298,7 @@ class TestSaveConfig:
         params.resolve()
         outfile = tmp_path / "valid.yaml"
         save_config(params, outfile)
-        parsed = yaml.safe_load(outfile.read_text())
+        parsed = yaml.safe_load(outfile.read_text(encoding="utf-8"))
         assert isinstance(parsed, dict)
 
 
@@ -367,7 +367,9 @@ class TestRadiantMetaBlock:
         from radiant.io.config import read_radiant_meta
 
         p = tmp_path / "cfg.yaml"
-        p.write_text("_radiant:\n  wavelength_points: 250\noptics:\n  f_number: 4.0\n")
+        p.write_text(
+            "_radiant:\n  wavelength_points: 250\noptics:\n  f_number: 4.0\n", encoding="utf-8"
+        )
         assert read_radiant_meta(p) == {"wavelength_points": 250}
 
     @pytest.mark.level1
@@ -375,7 +377,7 @@ class TestRadiantMetaBlock:
         from radiant.io.config import read_radiant_meta
 
         p = tmp_path / "cfg.yaml"
-        p.write_text("optics:\n  f_number: 4.0\n")
+        p.write_text("optics:\n  f_number: 4.0\n", encoding="utf-8")
         assert read_radiant_meta(p) == {}
 
 
@@ -385,7 +387,7 @@ class TestSaveConfigScopes:
         params = load_config(_full_config_dict(), build_parameter_set())
         params.resolve()
         p = save_config(params, tmp_path / "inputs.yaml", scope="inputs")
-        raw = yaml.safe_load(p.read_text())
+        raw = yaml.safe_load(p.read_text(encoding="utf-8"))
         flat = _flatten(raw)
         assert set(flat) == set(params.inputs())
         # Derived f_number must NOT be written in inputs scope.
@@ -396,7 +398,7 @@ class TestSaveConfigScopes:
         params = load_config(_full_config_dict(), build_parameter_set())
         params.resolve()
         p = save_config(params, tmp_path / "resolved.yaml", scope="resolved")
-        flat = _flatten(yaml.safe_load(p.read_text()))
+        flat = _flatten(yaml.safe_load(p.read_text(encoding="utf-8")))
         assert "optics.f_number" in flat  # derived value written
 
     @pytest.mark.level1
@@ -416,7 +418,7 @@ class TestSaveConfigScopes:
             meta={"format": 1, "wavelength_points": 123},
             scope="inputs",
         )
-        raw = yaml.safe_load(p.read_text())
+        raw = yaml.safe_load(p.read_text(encoding="utf-8"))
         assert raw["_radiant"] == {"format": 1, "wavelength_points": 123}
         # And the file loads cleanly.
         load_config(p, build_parameter_set()).resolve()

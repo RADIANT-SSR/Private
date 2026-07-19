@@ -59,7 +59,8 @@ def _write_flat_rho_csv(path: Path, *, rho_value: float) -> Path:
         f"0.300000,{rho_value:.6f}\n"
         f"0.400000,{rho_value:.6f}\n"
         f"0.800000,{rho_value:.6f}\n"
-        f"0.900000,{rho_value:.6f}\n"
+        f"0.900000,{rho_value:.6f}\n",
+        encoding="utf-8",
     )
     return path
 

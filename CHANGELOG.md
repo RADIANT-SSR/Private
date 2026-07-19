@@ -89,6 +89,14 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI: File → New (or opening an incomplete config) no longer wedges the window.**
+  A result belongs to the sensor that produced it; the stage center now drops its
+  stored result when the sensor is swapped, so navigating to a stage after a swap
+  shows the placeholder instead of re-populating the *stale* result against the new
+  live sensor. Previously that re-render resolved the new (blank) sensor through the
+  geometry viewer and crashed with `CoreValidationError: Circular dependency …
+  ['optics.aperture_diameter_m', 'optics.focal_length_m', 'optics.f_number']`,
+  leaving the whole window unusable behind a modal error (screens would not switch).
 - **GUI: the geometry schematic's "unavailable" guard panel now recovers (CU-163).**
   A build failure during `show_result` still surfaces the actionable panel, but a
   later evaluate that builds cleanly rebuilds the canvas and re-enters schematic

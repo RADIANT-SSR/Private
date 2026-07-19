@@ -299,8 +299,11 @@ def plot_psf(
         _overlay_pixel_grid(ax, psf, pixel_grid_span)
     else:
         ax.set_title("Effective PSF")
-        ax.set_xlabel("x (pixels)")
-        ax.set_ylabel("y (pixels)")
+        # The imshow extent is the PSF sample grid (spacing sample_spacing_m),
+        # not the detector pixel grid — label it accurately (CU-136). The
+        # pixel_grid branch above overlays and labels the detector pitch.
+        ax.set_xlabel("x (PSF samples)")
+        ax.set_ylabel("y (PSF samples)")
     return cast("Figure", fig)
 
 

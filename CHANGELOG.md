@@ -140,6 +140,10 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **`result.plot.psf()` default axes labelled "x/y (PSF samples)" (CU-136).** The
+  default (non-grid) render's imshow extent is the PSF sample grid, not the detector
+  pixel grid, so the previous "x/y (pixels)" labels were misleading for an oversampled
+  PSF. Label-only; no data change.
 - **Warning-free evaluate: four informational chain warnings reclassified (owner
   bar — a valid scenario evaluates warning-free).** These fired a `UserWarning`
   on every evaluate for a *documented, legitimate* behavior, so they polluted the

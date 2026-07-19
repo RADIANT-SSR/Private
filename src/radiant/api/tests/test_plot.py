@@ -201,6 +201,14 @@ class TestPlotPsfPixelGrid:
         assert not ax.get_lines()  # no gridlines
         matplotlib.pyplot.close(fig)
 
+    def test_default_axes_labelled_psf_samples_not_pixels(self) -> None:
+        """CU-136: the default imshow extent is the PSF sample grid, not detector pixels."""
+        fig = plot_psf(self._psf())
+        ax = fig.axes[0]
+        assert ax.get_xlabel() == "x (PSF samples)"
+        assert ax.get_ylabel() == "y (PSF samples)"
+        matplotlib.pyplot.close(fig)
+
     def test_grid_overlays_lines_and_crops_and_titles_pitch(self) -> None:
         """pixel_grid=True → gridlines drawn, view cropped to the core, pitch (µm) in title."""
         psf = self._psf()

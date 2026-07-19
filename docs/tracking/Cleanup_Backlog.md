@@ -400,7 +400,7 @@
 ### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
 
 **Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12.
-**Status**: RESOLVED 2026-07-19, commit `<pending100>`. **Resolution**: replaced the local `EARTH_RADIUS_M` with `from radiant.core.constants import R_EARTH_M` and repointed the two slant-path usages (`protocol.py:196,198`). Values were already equal (6 371 000.0 m), so no numeric/results change — this is the Rule-13 one-canonical-constant repoint. Atmosphere-suite green (330 tests). Wave 2 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `a120824`. **Resolution**: replaced the local `EARTH_RADIUS_M` with `from radiant.core.constants import R_EARTH_M` and repointed the two slant-path usages (`protocol.py:196,198`). Values were already equal (6 371 000.0 m), so no numeric/results change — this is the Rule-13 one-canonical-constant repoint. Atmosphere-suite green (330 tests). Wave 2 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/atmosphere/protocol.py`.
 
 ### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion

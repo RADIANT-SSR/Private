@@ -1,0 +1,16 @@
+# RADIANT Geometry GUI v2 — pinned dev/runtime dependencies.
+# Per PLAN_v2.md §8 step 5: versions known to work together.
+# Install with: python dev_tools/geometry_gui_v2/install_deps.py
+#
+# Notes:
+#   * PySide6 6.5.x requires Python <3.12; 6.7+ supports 3.12 cleanly.
+#     Recommended interpreter is Python 3.12.
+#   * pytest-image-diff has no version floor — max published version is 0.0.14.
+pyvista>=0.43
+pyvistaqt>=0.11
+PySide6>=6.7
+numpy>=1.24
+qt-material>=2.14
+pytest>=7
+pytest-qt>=4
+pytest-image-diff

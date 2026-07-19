@@ -50,15 +50,6 @@
 **Why it still matters**: a 2-minute evaluate makes the GUI look hung for any legitimately oversampled design (long focal length / small aperture is common for LWIR), and no progress/cancel affordance covers it here; trade studies that sweep such a config become hours-long. The result is correct — only the cost is the problem.
 **Suggested fix**: (b) stand-alone task — profile the PSF-path grid sizing at high Q; cap or decouple the pupil-grid size from Q (the *sampled* PSF only needs the detector-pitch resolution), and/or reuse the per-wavelength pupil grid instead of re-FFTing 500× when only the wavelength scale changes. Category C (touches the PSF numerics — needs a consistency-check regression, Rule 4). Effort M–L. Interim: the GUI's existing progress/cancel plumbing should wrap `evaluate()` so a slow run is cancellable rather than a freeze.
 
-### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
-
-**Discovered**: Windows-portability review, 2026-07-16, `main`
-**Status**: Open — dev-tooling only, non-blocking. The geometry-GUI-v2 dependency installer is a `.sh` shell script that cannot run on a stock Windows machine (needs WSL or Git-Bash). Library code is unaffected.
-**File**: `dev_tools/geometry_gui_v2/install_deps.sh`
-**Symptom**: On Windows, `install_deps.sh` is not executable; a developer must read the script and run the pip commands by hand.
-**Why it still matters**: Rule 30 (cross-platform portability) — dev tooling should be runnable on both supported platforms, or its README must state the manual steps.
-**Suggested fix**: (a) inline-fix-now candidate — replace with a `pip install`-able requirements file or a short cross-platform Python script, or document the equivalent manual commands in the tool's README. Effort S; category A. Re-audit at the next geometry_gui_v2 touch.
-
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 
 **Discovered**: GUI Development Plan Phase 9 (theme toggle), 2026-07-15, branch `gui-framework-plots`
@@ -423,6 +414,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`.
+**Status**: RESOLVED 2026-07-19, commit `<pending152>`. **Resolution**: replaced the bash installer with a pinned `dev_tools/geometry_gui_v2/requirements.txt` + a cross-platform `install_deps.py` (`python -m pip install -r requirements.txt` via `sys.executable`), which runs identically on Windows and macOS/Linux (Rule 30). Deleted `install_deps.sh` (Rule 27, one canonical installer) and repointed the three prose references (`scene/__init__.py`, two test docstrings). Dev-tooling only — no library/results change, no CHANGELOG entry. Wave 1 of the autonomous CU-cleanup plan.
+**File**: `dev_tools/geometry_gui_v2/requirements.txt` (new), `install_deps.py` (new); `install_deps.sh` (deleted).
 
 ### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only
 

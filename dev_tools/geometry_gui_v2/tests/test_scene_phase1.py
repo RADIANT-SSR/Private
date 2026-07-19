@@ -12,7 +12,7 @@ PLAN_v2.md §9 acceptance:
     full Phase-1 builder, not just the Phase-0 stub.
 
 This test runs only when PyVista is installed (the C7 invariant is
-"PyVista without Qt"). Before ``install_deps.sh`` runs, it skips cleanly.
+"PyVista without Qt"). Before ``install_deps.py`` runs, it skips cleanly.
 """
 
 from __future__ import annotations

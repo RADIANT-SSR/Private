@@ -9,7 +9,7 @@ GUI integration without modification (decision D5).
 
 The ``build_scene`` re-export is *lazy* via ``__getattr__`` so that pure-constant
 modules like :mod:`scene.style` can be imported in environments without
-PyVista installed (e.g. before ``install_deps.sh`` runs). PyVista is only
+PyVista installed (e.g. before ``install_deps.py`` runs). PyVista is only
 imported the first time something actually touches ``build_scene``.
 """
 

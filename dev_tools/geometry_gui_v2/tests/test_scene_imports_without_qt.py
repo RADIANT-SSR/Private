@@ -23,7 +23,7 @@ import unittest.mock
 import pytest
 
 # This test is meaningful only once PyVista is installed (the C7 invariant
-# is "imports PyVista without dragging Qt in"). Before ``install_deps.sh``
+# is "imports PyVista without dragging Qt in"). Before ``install_deps.py``
 # runs, skip cleanly so the rest of the suite stays green.
 pytest.importorskip("pyvista")
 

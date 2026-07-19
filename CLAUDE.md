@@ -653,6 +653,9 @@ import-linter --config pyproject.toml
 # Organization rules (placement + naming per docs/OPERATING_MODEL.md):
 python scripts/check_org_rules.py
 
+# Parameter-reference doc freshness (CU-099; also enforced by a pytest test):
+python scripts/gen_param_reference.py --check
+
 # Lint:
 ruff check src/
 ```

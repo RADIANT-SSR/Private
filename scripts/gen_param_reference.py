@@ -3,11 +3,12 @@
 
 Usage::
 
-    python scripts/gen_param_reference.py > docs/guides/parameter_reference.md
+    python scripts/gen_param_reference.py          # write the file
+    python scripts/gen_param_reference.py --check   # verify committed copy is current
 
-Or simply run it to write the file directly:
-
-    python scripts/gen_param_reference.py
+``--check`` regenerates the reference in memory and diffs it against the
+committed copy, exiting non-zero on any drift (CU-099 enforcement) — the same
+fail-on-mismatch pattern as ``scripts/check_org_rules.py``.
 """
 
 from __future__ import annotations
@@ -21,8 +22,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from radiant.api._param_registry import build_parameter_set  # noqa: E402
 
+_OUT_PATH = Path(__file__).resolve().parent.parent / "docs" / "guides" / "parameter_reference.md"
 
-def main() -> None:
+
+def render() -> str:
+    """Render the full parameter-reference markdown from the live registry."""
     ps = build_parameter_set()
     defs = ps._defs  # dict[str, ParameterDef]
 
@@ -81,13 +85,28 @@ def main() -> None:
                      "optics.aperture_diameter_m`.")
         lines.append("")
 
-    output = "\n".join(lines)
+    return "\n".join(lines)
 
-    # Write to file
-    out_path = Path(__file__).resolve().parent.parent / "docs" / "guides" / "parameter_reference.md"
-    out_path.write_text(output, encoding="utf-8")
-    print(f"Wrote {out_path} ({len(defs)} parameters)")
+
+def main() -> int:
+    """Write the reference file, or (with --check) verify the committed copy."""
+    check = "--check" in sys.argv[1:]
+    output = render()
+    if check:
+        committed = _OUT_PATH.read_text(encoding="utf-8") if _OUT_PATH.exists() else ""
+        if committed != output:
+            print(
+                "parameter_reference.md is STALE — regenerate with "
+                "`python scripts/gen_param_reference.py` and commit (CU-099).",
+                file=sys.stderr,
+            )
+            return 1
+        print("parameter_reference.md: OK (matches the registry)")
+        return 0
+    _OUT_PATH.write_text(output, encoding="utf-8")
+    print(f"Wrote {_OUT_PATH}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

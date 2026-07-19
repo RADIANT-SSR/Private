@@ -241,15 +241,6 @@
 **Why it still matters**: §8.2 is the binding typography spec; without IBM Plex the app is close but not identical to the ratified visual target, and parity drifts further on Linux hosts with a different default UI font. The fallback keeps the app correct and legible everywhere (no missing-glyph boxes), so this is polish, not a defect — but the arch doc names a specific family the app does not guarantee.
 **Suggested fix**: stand-alone task (owner call) — bundle the IBM Plex Sans + Mono OFL `.ttf` files under `src/radiant/gui/themes/fonts/` and load them at bootstrap via `QFontDatabase.addApplicationFont(...)` before `apply_theme`, so the leading family in each stack resolves. Adds packaged binary assets (Rule 26 manifest + license note) and package-data wiring in `pyproject.toml`. Effort S–M; category A (no physics, no results). Deferred here rather than done inline because bundling font binaries is a licensing/packaging decision, not a theming one.
 
-### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
-
-**Discovered**: Geometry_Stage_Plan Phase 1 (regenerating for the geometry namespace), 2026-07-12
-**Status**: Open
-**File**: `docs/guides/parameter_reference.md` (banner: "Auto-generated … re-run `python scripts/gen_param_reference.py`"); `scripts/gen_param_reference.py`
-**Symptom**: before the Phase-1 regeneration, the committed file said "134 parameters" while the registry held ~150+: missing `optics.n_spiders`/`spider_*`, `optics.stray.halo_sigma_um`/`veiling_glare_mtf`, `atmosphere.modtran.tape7_path`/`tape7_sun_path`, `source.lab_test_mode`, `source.background.material`/`emissivity_path`, `detector.qe_temperature_coeff_per_K`, and a drifted `detector.dark_reference_temperature_K` default (file said 300.0 K; schema says 77.0 K).
-**Why it still matters**: this is the published (mkdocs) parameter table — users sizing sensors from it miss real capability and read a wrong cryo default. A doc labeled auto-generated that silently drifts is worse than a hand-edited one (it claims freshness).
-**Suggested fix**: inline-fix-now — add a CI check (static job) that regenerates to a temp file and diffs against the committed copy, failing on mismatch (same pattern as `check_org_rules.py`); or a pre-commit hook when any `_schema.py` changes. Effort S; category A.
-
 ### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance
 
 **Discovered**: Geometry_Stage_Plan Phase 1 implementation read-through, 2026-07-12
@@ -378,6 +369,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
+
+**Discovered**: Geometry_Stage_Plan Phase 1, 2026-07-12.
+**Status**: RESOLVED 2026-07-19, commit `<pending099>`. **Resolution**: refactored `scripts/gen_param_reference.py` into a `render()` function + a `--check` mode that regenerates in memory and diffs against the committed copy (fail-on-mismatch, same pattern as `check_org_rules.py`); regenerated the committed `parameter_reference.md` (now 172 parameters, was ~152); added `tests/test_parameter_reference_current.py` which runs `--check` so CI enforces freshness; documented the check in CLAUDE.md's gate list. Doc + tooling; no results/API change. Wave 2 of the autonomous CU-cleanup plan.
+**File**: `scripts/gen_param_reference.py`, `docs/guides/parameter_reference.md`, `tests/test_parameter_reference_current.py`, `CLAUDE.md`.
 
 ### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
 

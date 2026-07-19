@@ -24,6 +24,8 @@ rebind table:
 ``regime_override``          ``stage_outputs["optics"]["regime"]`` (final, Rule 10)
 ``target_shape`` + dims      ``geometry.target.shape`` / ``geometry.target.shape_*``
 ``target_fill_fraction``     ``source.target.fill_fraction``
+``projected_area_m2``        ``stage_outputs["source"]["projected_area_m2"]`` (CU-168)
+``angular_extent_rad``       ``stage_outputs["source"]["angular_extent_rad"]`` (CU-168)
 ``focal_length_m``           ``optics.focal_length_m``
 ``pixel_pitch_m``            ``detector.pixel_pitch_x_um`` (returned canonical m)
 ``observer_{yaw,pitch,roll}``  **no stage owner** — defaulted to 0 (CU-122)
@@ -93,6 +95,12 @@ class ViewerState:
     target_pitch_rad: float
     target_roll_rad: float
     target_fill_fraction: float
+    # Target projected area facing the sensor and its angular extent (√A / range),
+    # from SourceStage (CU-168). Surfaced on the schematic as a leader-label pill so a
+    # target sized only by projected_area_m2 (shape library = "none") is visible, not
+    # invisible in the parameter tree. 0.0 when no area is defined (the pill is hidden).
+    projected_area_m2: float
+    angular_extent_rad: float
 
     focal_length_m: float
     pixel_pitch_m: float
@@ -134,6 +142,8 @@ class ViewerState:
             target_pitch_rad=0.0,
             target_roll_rad=0.0,
             target_fill_fraction=1.0,
+            projected_area_m2=0.0,
+            angular_extent_rad=0.0,
             focal_length_m=1.0,
             pixel_pitch_m=10e-6,
             solar_zenith_rad=math.radians(35.0),
@@ -154,6 +164,7 @@ class ViewerState:
         """
         geometry = result.stage_outputs.get("geometry", {})
         optics = result.stage_outputs.get("optics", {})
+        source = result.stage_outputs.get("source", {})
 
         # Night scenes publish theta_s_rad / delta_phi_rad as None (geometry stage,
         # SolarResolution mode="night"): no sun exists, so record that instead of
@@ -180,6 +191,10 @@ class ViewerState:
             target_pitch_rad=float(params.get("geometry.target.shape_pitch_rad")),  # type: ignore[arg-type]
             target_roll_rad=float(params.get("geometry.target.shape_roll_rad")),  # type: ignore[arg-type]
             target_fill_fraction=float(params.get("source.target.fill_fraction")),  # type: ignore[arg-type]
+            # SourceStage publishes these as None when no target area is defined
+            # (extended scene); coerce to 0.0 so the schematic simply hides the pill.
+            projected_area_m2=float(source.get("projected_area_m2") or 0.0),
+            angular_extent_rad=float(source.get("angular_extent_rad") or 0.0),
             focal_length_m=float(params.get("optics.focal_length_m")),  # type: ignore[arg-type]
             # get() returns the canonical value (metres) despite the ``_um`` input-unit
             # name (detector schema: canonical_unit="m").

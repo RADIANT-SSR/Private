@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: the Geometry Schematic now shows the target's projected area (CU-168).**
+  A leader-label pill by the target reads `A_t  <area> m²  ·  <n> px` (the pixel
+  multiple is √A/range over the detector IFOV — the sub-pixel-vs-resolved cue),
+  drawn whenever a target area is defined. Previously a target sized only by
+  `geometry.target.projected_area_m2` (shape library = "none") drew a bare point
+  marker, so a defined area was visible only in the parameter tree. Read verbatim
+  from `stage_outputs["source"]`; no physics change.
 - **Results-affecting (opt-in): MODTRAN flux-file downwelling on the tape7-import
   path (CU-157).** New parameter `atmosphere.modtran.flux_path` names a Block E
   spectral flux CSV (`*_flux.csv`) alongside `atmosphere.modtran.tape7_path`.

@@ -884,6 +884,15 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
     altitude > 0): θₛ_g, θᵥ_g, φₛ_g, φᵥ_g.
 - Target shape library: extended scene, plate, box, sphere, cylinder, cone, circle,
   ellipsoid, point source, custom-mesh placeholder.
+- **Projected-area leader pill** (CU-168): when the target is sized only by
+  `geometry.target.projected_area_m2` (shape library = "none", so no wireframe body is
+  drawn — just a point marker), a leader-label pill by the target reads
+  `A_t  <area> m²  ·  <n> px`, where the pixel multiple is the angular extent (√A / range)
+  over the detector IFOV — the sub-pixel-vs-resolved cue. Same not-to-scale idiom as the
+  h_s / h_t pills (§6.1); read verbatim from `stage_outputs["source"]`
+  (`projected_area_m2` / `angular_extent_rad`) via `ViewerState` /
+  `SchematicScene.target_area_label`. Without it a defined target area was visible only in
+  the parameter tree, so the schematic read as "no target size defined".
 - Target body-frame **RPY** (roll/pitch/yaw) with an on-target triad gizmo for 3D shapes
   (color-coded pink=Roll, green=Pitch, purple=Yaw).
 - Right-side accordion side panel: live numeric readout of all angles (every value with

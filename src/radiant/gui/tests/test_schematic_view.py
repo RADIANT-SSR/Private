@@ -44,6 +44,7 @@ from radiant.gui.viewer.schematic_view import (  # noqa: E402
     _SENSOR_DIST,
     _SUN_DIST,
     SchematicView,
+    _area_label,
     _format_km,
     build_scene,
 )
@@ -117,6 +118,45 @@ class TestProjectionParity:
         p = cam.project(np.array([0.0, 0.0, 5.0]))
         assert p.x == pytest.approx(200.0, abs=1e-6)
         assert p.y == pytest.approx(200.0, abs=1e-6)
+
+
+class TestTargetAreaLabel:
+    """The projected-area leader pill (CU-168) surfaces a target sized only by area."""
+
+    def _state(self, **overrides: object) -> ViewerState:
+        base = ViewerState.default()
+        return ViewerState(**{**base.__dict__, **overrides})
+
+    def test_no_area_no_label(self) -> None:
+        """No projected area (extended scene) → no pill."""
+        assert _area_label(0.0, 0.0, 10e-6, 1.0) is None
+
+    def test_label_shows_area_and_pixel_multiple(self) -> None:
+        """Maritime geometry: 240 m², 2.91e-5 rad extent, 15 µm / 0.75 m → 1.5 px."""
+        label = _area_label(240.0, 2.9115e-5, 15e-6, 0.75)
+        assert label == "A_t  240 m²  ·  1.5 px"
+
+    def test_label_omits_px_when_ifov_unknown(self) -> None:
+        """No focal length → area only, no fabricated pixel multiple."""
+        assert _area_label(240.0, 2.9e-5, 15e-6, 0.0) == "A_t  240 m²"
+
+    def test_scene_carries_label_for_point_target(self) -> None:
+        """A shape='none' target with an area still gets the pill (the CU-168 case)."""
+        scene = build_scene(
+            self._state(
+                target_shape="none",
+                projected_area_m2=240.0,
+                angular_extent_rad=2.9115e-5,
+                pixel_pitch_m=15e-6,
+                focal_length_m=0.75,
+            )
+        )
+        assert scene.is_point is True  # bare marker — the size would otherwise be invisible
+        assert scene.target_area_label == "A_t  240 m²  ·  1.5 px"
+
+    def test_scene_label_none_when_no_area(self) -> None:
+        scene = build_scene(self._state(target_shape="none", projected_area_m2=0.0))
+        assert scene.target_area_label is None
 
 
 class TestSceneBuild:

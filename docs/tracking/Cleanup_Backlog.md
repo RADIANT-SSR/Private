@@ -59,15 +59,6 @@
 **Why it still matters**: the guard exists to degrade gracefully (Rules 15/17), but an unrecoverable degrade turns a one-evaluate hiccup into "restart the app"; the night bug demonstrated exactly this failure mode reaching users.
 **Suggested fix**: (a) inline-fix-now — on a successful `show_result` while in `unavailable` mode, rebuild the canvas and re-enter `schematic` mode (keep the panel only while errors persist). Effort S; category A (GUI resilience, no physics). Test: force one `_boom` build (the existing monkeypatch pattern), then a good result → canvas returns.
 
-### CU-157 — Wire MODTRAN flux-file downwelling into the tape7-import path (`atmosphere.modtran.flux_path`)
-
-**Discovered**: Gap 38 closeout work, 2026-07-17 — the reader exists (`ModtranFluxReader`, CU-154) and the owner's sourcing decision is ratified (gaps.md Gap 38), but nothing consumes the flux data in the chain yet.
-**Status**: Open — stand-alone task, fully unblocked.
-**File**: `src/radiant/atmosphere/modtran.py` (`Tape7Import`, `ModtranAtmosphere._build_state_from_arrays`), `src/radiant/atmosphere/_schema.py` (new parameter), `src/radiant/atmosphere/loaders.py` (`_build_modtran`).
-**Symptom**: a tape7 import sets `E_sky_scattered = 0` and `E_sky_thermal = 0` (documented Gap 81 warning), even when the matching `*_flux.csv` with the real downwelling exists alongside the tape7.
-**Why it still matters**: MWIR mixed emit+reflect scenes and low-ε LWIR targets lose their sky-reflection term entirely on the MODTRAN-import path — the exact regimes where the import path should beat SimpleAtmosphere (whose downwelling carries CU-155's ~7×/25× deficit).
-**Suggested fix**: (b) stand-alone task — add `atmosphere.modtran.flux_path` (`ParameterDef` in `_schema.py`); loader parses it with `ModtranFluxReader.to_radiant_units()` and threads ground-level `(e_direct, e_diffuse)` into `Tape7Import`; per the owner decision, `E_sky_scattered` = flux DOWN band-limited to the reflective-solar region (thermal overlap overcount accepted) and the thermal-band DOWN can serve `E_sky_thermal` (supersedes the Gap 81 zero for flux-equipped imports). Public-surface change: Rule 20 docs (`RADIANT_Atmosphere.md` §5.1/§5.3) + Rule 29 CHANGELOG in the landing PR. Effort M; category C (new physics coupling, needs E1-anchored integration test — anchors already exist in `test_modtran_real_runs.py`).
-
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`
@@ -468,6 +459,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-157 — Wire MODTRAN flux-file downwelling into the tape7-import path (`atmosphere.modtran.flux_path`) — RESOLVED 2026-07-18 (commit `5e316f7`)
+
+**Discovered**: Gap 38 closeout work, 2026-07-17 — the reader existed (`ModtranFluxReader`, CU-154) and the owner's sourcing decision was ratified (gaps.md Gap 38), but nothing consumed the flux data in the chain.
+**Status**: RESOLVED 2026-07-18, commit `5e316f7`. **Resolution**: added `atmosphere.modtran.flux_path` (`ParameterDef`); the loader parses it with `ModtranFluxReader.to_radiant_units()` into a new `FluxImport` dataclass (Rule 6, pre-chain) and threads it into `ModtranAtmosphere`. `_build_state_from_arrays` fills `atm_emission_down = DOWN/π` from the flux and suppresses the Gap 81 zero-warning when a flux file is present; `evaluate` splits the DOWN irradiance at the reflective-solar/thermal boundary (`_FLUX_REFLECTIVE_SOLAR_MAX_UM = 4.0`) — `E_sky_scattered` below, `E_sky_thermal` above — per the owner band-split (thermal-overlap overcount accepted). The boundary is a labelling choice only: the assembly consumes `E_sky_scattered + E_sky_thermal`, which equals the full DOWN column regardless of the split, so no computed metric depends on the boundary value (constant is a module-level label, mirroring simple.py's `_ESKY_*`; not a ParameterDef). `flux_path` requires `tape7_path` (config error otherwise); missing file raises `FileNotFoundError`. E1-anchored integration test (`test_modtran_real_runs.py`: DOWN 8–12 µm ≈ 24.6 W/m², 0.4–0.7 µm ≈ 124 W/m²) + FluxImport / band-split / warning-gating unit tests + loader tests. Docs `RADIANT_Atmosphere.md` §5.1/§5.3 + parameter table, CHANGELOG (Results-affecting, opt-in), gaps.md Gap 81 (resolved for flux imports) / Gap 38 in lock-step.
+**File**: `src/radiant/atmosphere/modtran.py`, `_schema.py`, `loaders.py`, `__init__.py`.
+**Symptom (was)**: a tape7 import set `E_sky_scattered = 0` and `E_sky_thermal = 0` (Gap 81 warning) even when the matching `*_flux.csv` with the real downwelling existed alongside the tape7.
+**Why it mattered**: MWIR mixed emit+reflect scenes and low-ε LWIR targets lost their sky-reflection term entirely on the MODTRAN-import path — the exact regimes where the import path should beat SimpleAtmosphere (whose downwelling carries CU-155's residual deficit). Note the `SOLAR`/`e_direct` column is parsed and retained on `FluxImport` for provenance but not yet consumed (the direct-solar branch still uses `E_TOA·τ_sun`) — that remainder stays under Gap 81's binary-flavor deferral.
 
 ### CU-155 — SimpleAtmosphere `E_sky_thermal` underestimated real downwelling by ~7× (LWIR) / ~25–50× (MWIR) for high-altitude sensors — RESOLVED 2026-07-18 (commit `77d8ad2`)
 

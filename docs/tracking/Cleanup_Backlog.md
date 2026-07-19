@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-169 — GUI font stacks lead with "IBM Plex" which is not installed → Qt logs a `qt.qpa.fonts` warning + ~170 ms alias-population cost on every launch
-
-**Discovered**: GUI-launch report, 2026-07-19 (owner). Reproduced throughout the session's offscreen GUI renders.
-**Status**: Open — cosmetic + minor startup cost; the GUI renders correctly (the fallback stack works).
-**File**: `src/radiant/gui/themes/tokens.py:168-169` (`FONT_SANS` / `FONT_MONO` lead with `"IBM Plex Sans"` / `"IBM Plex Mono"`); consumed by every `font-family` rule in `src/radiant/gui/themes/stylesheet.py`.
-**Symptom**: on GUI launch, Qt prints `qt.qpa.fonts: Populating font family aliases took 173 ms. Replace uses of missing font family "IBM Plex Mono" (and "IBM Plex Sans") with one that exists to avoid this cost.` — because the design's lead font family (IBM Plex) is not installed on the dev machine (or most machines). Qt falls back to the next stack entry (Helvetica Neue / Menlo …), so the UI looks correct, but it re-scans the font database and logs the warning every launch.
-**Why it still matters**: a warning on every launch trains users to ignore console output (same cry-wolf failure mode as CU-166's owner bar — a valid launch should be quiet); the ~170 ms alias-population is a small but repeated startup tax. The typography note already in `tokens.py` (lines 18-20) acknowledges IBM Plex "may not be installed" and leads the stack with it deliberately for the design look — so this is a known trade-off, not an oversight, but it should be resolved cleanly.
-**Suggested fix**: one of (a) **bundle the IBM Plex fonts** in the package (e.g. `radiant/gui/assets/fonts/`) and register them at app startup via `QFontDatabase.addApplicationFont` before building the stylesheet — keeps the intended design look and silences the warning; (b) reorder the stacks to lead with an installed system font (drops the IBM Plex look); or (c) only lead with IBM Plex when `QFontDatabase` reports it available, else fall back (detect-and-swap at startup). Prefer (a). Effort S–M; category A (GUI chrome, no physics/results). Related bar: CU-166 (a valid, nominal launch should be warning-free).
-
 ### CU-166 — Out-of-calibration NIIRS is re-announced every evaluate via two warning channels instead of being a once-read result status; no metric-applicability gate
 
 **Discovered**: GUI-exercise campaign, 2026-07-18 — a scenario sweep in the scripting console floods with `GSD = 430 inch … outside the GIQE-5 calibration range` / `SNR = 526 … outside the GIQE-5 calibration range` on every evaluate.
@@ -289,7 +280,7 @@
 ### CU-103 — IBM Plex fonts are the design target but are not bundled; the GUI falls back to the platform UI/mono font
 
 **Discovered**: GUI Development Plan Phase 1 Task B (design-system QSS theme), 2026-07-12
-**Status**: Open — punch-list candidate surfaced at the Phase 1 look-and-feel checkpoint; owner decides whether to bundle the OFL font files.
+**Status**: Open (narrowed 2026-07-19, commit `24c11e3`) — the startup **registration hook** now exists: `apply_theme` calls `radiant.gui.themes.fonts.register_bundled_fonts()`, which registers any `.ttf`/`.otf` under `gui/assets/fonts/` via `QFontDatabase.addApplicationFont` (CU-169). **Remaining**: add the actual IBM Plex OFL font files to that directory (owner decision on shipping the ~MB of font binaries). Until then the GUI uses the platform fallback (Helvetica Neue/Menlo), now warning-free.
 **File**: `src/radiant/gui/themes/tokens.py` (`FONT_SANS`, `FONT_MONO` — the fallback stacks); `RADIANT_GUI_Architecture.md` §8.2 (specifies `IBM Plex Sans` 13px + `IBM Plex Mono` for numerics).
 **Symptom**: `QFontDatabase.families()` on the build machine (macOS) reports neither `IBM Plex Sans` nor `IBM Plex Mono` installed (313 families present; Menlo + Helvetica Neue are). The theme therefore leads its stacks with IBM Plex and falls back — sans → `"Helvetica Neue"`/system UI, mono → `"Menlo"`/monospace. The instrument-panel look (§8.2: "numeric values are always mono") is preserved via Menlo, but the exact letterforms/metrics differ from the mockups, so pixel-parity against `radiant_mid_fi.html` (which loads a webfont) is approximate, not exact.
 **Why it still matters**: §8.2 is the binding typography spec; without IBM Plex the app is close but not identical to the ratified visual target, and parity drifts further on Linux hosts with a different default UI font. The fallback keeps the app correct and legible everywhere (no missing-glyph boxes), so this is polish, not a defect — but the arch doc names a specific family the app does not guarantee.
@@ -450,6 +441,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-169 — GUI font stacks lead with "IBM Plex" which is not installed → Qt logs a `qt.qpa.fonts` warning + ~170 ms alias-population cost on every launch
+
+**Discovered**: GUI-launch report, 2026-07-19 (owner). Reproduced throughout the session's offscreen GUI renders.
+**Status**: RESOLVED 2026-07-19, commit `24c11e3`. **Resolution**: new `src/radiant/gui/themes/fonts.py` resolves each font stack (`tokens.FONT_SANS`/`FONT_MONO`) to families Qt actually has — unavailable design fonts (IBM Plex) are dropped from the stack, so the applied QSS never names a missing family and Qt populates no aliases (no warning, no ~170 ms cost). Qt was already falling back to the same next family, so the rendered UI is unchanged. `build_stylesheet` resolves on return; `apply_theme` first calls `register_bundled_fonts()` (CU-103 hook). Verified: resolved QSS omits "IBM Plex"; a launch emits 0 `qt.qpa.fonts` warnings. 6 theme tests. First item of the Warning-Free UX campaign (`docs/plans/Warning_Free_UX_Plan.md`).
+**File**: `src/radiant/gui/themes/tokens.py:168-169` (`FONT_SANS` / `FONT_MONO` lead with `"IBM Plex Sans"` / `"IBM Plex Mono"`); consumed by every `font-family` rule in `src/radiant/gui/themes/stylesheet.py`.
+**Symptom**: on GUI launch, Qt prints `qt.qpa.fonts: Populating font family aliases took 173 ms. Replace uses of missing font family "IBM Plex Mono" (and "IBM Plex Sans") with one that exists to avoid this cost.` — because the design's lead font family (IBM Plex) is not installed on the dev machine (or most machines). Qt falls back to the next stack entry (Helvetica Neue / Menlo …), so the UI looks correct, but it re-scans the font database and logs the warning every launch.
+**Why it still matters**: a warning on every launch trains users to ignore console output (same cry-wolf failure mode as CU-166's owner bar — a valid launch should be quiet); the ~170 ms alias-population is a small but repeated startup tax. The typography note already in `tokens.py` (lines 18-20) acknowledges IBM Plex "may not be installed" and leads the stack with it deliberately for the design look — so this is a known trade-off, not an oversight, but it should be resolved cleanly.
 
 ### CU-167 — Three GUI Messages/health tests assert a warning the example no longer emits (stale after CU-166) — RESOLVED 2026-07-18 (commit `fa3d8b2`)
 

@@ -139,8 +139,9 @@ class TestSourcePane:
         assert "regime_tentative" in keys
         # The enum renders by its value string, not its repr.
         assert readout.value_text("regime_tentative") == "extended"
-        # A dimensional source output carries its unit (R-UNITS).
-        assert readout.value_text("angular_extent_rad").endswith("rad")
+        # An extended target has an unbounded angular extent — rendered as the ∞
+        # sentinel without a (meaningless) unit, not "inf rad" (CU-135).
+        assert readout.value_text("angular_extent_rad") == "∞"
 
 
 # ---------------------------------------------------------------------------

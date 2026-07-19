@@ -369,28 +369,30 @@ class TestInferrerReflectiveRejections:
             )
 
     @pytest.mark.level1
-    def test_reflectance_mwir_emits_warning(self) -> None:
-        """S4 with MWIR grid triggers the T2 non-mixed Rule-17 warning.
+    def test_reflectance_mwir_emits_advisory(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """S4 with MWIR grid triggers the T2 non-mixed advisory.
 
         Matrix §3.2: ambient-temperature MWIR scenes should use T3Mixed.
-        The T2Reflective ``__post_init__`` fires the warning; this test
-        asserts the inferrer does not suppress it (Rule 17 pass-through).
+        The T2Reflective ``__post_init__`` logs the advisory; this test
+        asserts the inferrer does not suppress it (pass-through).  Warning-Free
+        UX: the advisory is a quiet ``logger.debug`` note, not a ``UserWarning``.
         """
+        import logging
+
         params = _reflective_params()
         params.set("source.target.reflectance", 0.5)
         params.resolve()
 
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always", UserWarning)
+        with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
             target, _bg, _los = infer_descriptors(params, _WL_MWIR)
 
         assert isinstance(target, T2Reflective)
         mwir_msgs = [
-            w for w in caught if "MWIR" in str(w.message) and "T2Reflective" in str(w.message)
+            r for r in caplog.records if "MWIR" in r.message and "T2Reflective" in r.message
         ]
         assert mwir_msgs, (
-            "Expected T2Reflective MWIR non-mixed warning to propagate; "
-            f"got warnings: {[str(w.message) for w in caught]}"
+            "Expected T2Reflective MWIR non-mixed advisory to propagate; "
+            f"got debug records: {[r.message for r in caplog.records]}"
         )
 
 

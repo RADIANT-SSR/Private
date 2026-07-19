@@ -75,11 +75,15 @@ class TestStylesheetCoverage:
         for token in (theme.bg, theme.panel, theme.ink, theme.accent, theme.line):
             assert token in qss, f"{theme.name}: token {token} missing from QSS"
 
-    def test_font_stacks_present(self, theme: Theme) -> None:
-        """Both the sans (UI) and mono (numeric) stacks are used."""
+    def test_font_stacks_present(self, theme: Theme, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Both the sans (UI) and mono (numeric) stacks are used — resolved to the
+        host's available families (CU-169 drops IBM Plex when it is not installed)."""
+        from PySide6.QtGui import QFontDatabase
+
         qss = build_stylesheet(theme)
-        assert "IBM Plex Sans" in qss
-        assert "IBM Plex Mono" in qss
+        available = set(QFontDatabase.families())
+        assert fonts.resolve_stack(tokens.FONT_SANS, available) in qss
+        assert fonts.resolve_stack(tokens.FONT_MONO, available) in qss
 
 
 class TestThemesDiffer:

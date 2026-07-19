@@ -239,13 +239,17 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
             )
 
     @pytest.mark.level1
-    def test_mwir_warning_fires_on_scalar_lambertian_adapter(self) -> None:
-        """MWIR Rule-17 warning fires when the adapter's stored grid overlaps 3–5 µm.
+    def test_mwir_advisory_fires_on_scalar_lambertian_adapter(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """MWIR non-mixed advisory logs when the adapter's stored grid overlaps 3–5 µm.
 
-        Gap H: post-wrap, the authoritative MWIR warning runs against the
+        Gap H: post-wrap, the authoritative MWIR advisory runs against the
         ``ScalarLambertianReflectance`` adapter's stored SpectralData.  The
         raw-SpectralData path was removed (Gap H negative test above).
+        Warning-Free UX: the advisory is a quiet ``logger.debug`` note, not a
+        per-evaluate ``UserWarning``.
         """
+        import logging
+
         wl_mwir = np.linspace(3.5, 4.5, 8, dtype=np.float64)
         rho_mwir = SpectralData(
             name="test.mwir",
@@ -255,10 +259,11 @@ class TestT2ReflectiveAcceptsReflectanceDescriptor:
             source="test_reflectance_descriptor",
         )
         adapter = ScalarLambertianReflectance(reflectance=rho_mwir)
-        with pytest.warns(UserWarning, match="MWIR"):
+        with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
             T2Reflective(
                 scene_type="extended",
                 target_location="terrestrial",
                 h_tgt=0.0,
                 rho=adapter,
             )
+        assert any("MWIR" in r.message for r in caplog.records)

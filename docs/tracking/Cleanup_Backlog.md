@@ -355,7 +355,7 @@
 ### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels
 
 **Discovered**: GUI Development Plan Phase PS-3, 2026-07-15.
-**Status**: RESOLVED 2026-07-19, commit `<pending136>`. **Resolution**: relabelled the default `plot_psf` axes "x (PSF samples)"/"y (PSF samples)" (matching the `pixel_grid` branch), since the default imshow extent is the PSF sample grid (`sample_spacing_m`), not the detector pixel grid. Added a guard test. Label-only; no data/results change. Wave 3 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `0db02d1`. **Resolution**: relabelled the default `plot_psf` axes "x (PSF samples)"/"y (PSF samples)" (matching the `pixel_grid` branch), since the default imshow extent is the PSF sample grid (`sample_spacing_m`), not the detector pixel grid. Added a guard test. Label-only; no data/results change. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/api/plot.py`, `src/radiant/api/tests/test_plot.py`.
 
 ### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)

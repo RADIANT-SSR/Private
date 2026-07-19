@@ -31,6 +31,11 @@ from radiant.performance.dynamic_range import compute_dynamic_range
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.ground_range import compute_ground_range_m
 from radiant.performance.gsd import compute_gsd, compute_gsd_from_geometry
+from radiant.performance.metric_selection import (
+    ALL_GROUPED_METRICS,
+    GROUP_PARAMS,
+    resolve_selection,
+)
 from radiant.performance.minimum_resolvable import minimum_resolvable_temperature_K
 from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
@@ -728,6 +733,62 @@ def _compute_niirs_metric(
     return state.with_stage_output("performance", "niirs_result", result)
 
 
+# Metric keys each helper (or inline block) can write. Used to gate the helper
+# on the dependency-closure *compute* set (Gap 96): a helper runs iff it would
+# produce at least one metric the selection needs. The scalar-metric helpers
+# ``snr``/``contrast_snr``/``scnr`` are gated individually (their keys, below);
+# the multi-metric helpers are gated on the union of what they can write.
+_PRODUCES_SPATIAL = frozenset(
+    {
+        "fwhm_x_m",
+        "fwhm_y_m",
+        "rer",
+        "ee_1x1",
+        "ee_3x3",
+        "mtf_at_nyquist",
+        "strehl",
+        "mtf_system_at_nyquist_x",
+        "mtf_system_at_nyquist_y",
+        "mtf_folded_at_nyquist",
+        "alias_fraction_at_nyquist",
+    }
+)
+_PRODUCES_GSD = frozenset(
+    {
+        "gsd_cross_track_m",
+        "gsd_along_track_m",
+        "gsd_geometric_mean_m",
+        "max_integration_time_s",
+    }
+)
+_PRODUCES_ACCESS = frozenset({"ground_range_m", "swath_width_m", "access_rate_m2_s"})
+_PRODUCES_Q = frozenset({"q_center", "q_min", "q_max"})
+_PRODUCES_DIFFRACTION = frozenset(
+    {"diffraction_limit_angular_urad", "diffraction_limit_ground_m"}
+)
+_PRODUCES_NIIRS = frozenset({"niirs", "niirs_extrapolated"})
+_PRODUCES_SATURATION = frozenset({"well_margin_dB", "adc_margin_dB", "dynamic_range_dB"})
+
+
+def _enabled_groups(params: ParameterSet) -> frozenset[str]:
+    """Read the five metric-group flags, defaulting to enabled when unset.
+
+    A missing or unresolved flag means "on": partial fixtures build a
+    ParameterSet without the performance metric-selection defs, and the
+    all-on default must reproduce pre-Gap-96 behavior exactly (Rule 6 — the
+    stage reads the selection from the ParameterSet, mutating nothing).
+    """
+    enabled: set[str] = set()
+    for group, param_name in GROUP_PARAMS.items():
+        try:
+            flag = bool(params.get(param_name))
+        except (KeyError, TypeError):
+            flag = True  # flag absent/unresolved → group on (additive default)
+        if flag:
+            enabled.add(group)
+    return frozenset(enabled)
+
+
 class PerformanceStage:
     """Chain stage for performance metrics."""
 
@@ -736,56 +797,92 @@ class PerformanceStage:
         return "performance"
 
     def run(self, state: ChainState, params: ParameterSet) -> ChainState:
-        result = compute_snr(state)
+        # Gap 96: resolve which metric groups are enabled into the surfaced set
+        # (what we emit) and the compute set (its dependency closure — the
+        # prerequisites we must calculate even if they are not themselves
+        # surfaced). Each _compute_* helper is gated on the compute set; the
+        # compute-only prerequisites are dropped at the end so only surfaced
+        # metrics reach the result. Default (all groups on) ⇒ compute == every
+        # metric ⇒ nothing gated and nothing dropped ⇒ identical to before.
+        surfaced, compute = resolve_selection(_enabled_groups(params))
 
-        state = state.with_metric("snr", result.value)
-        state = state.with_stage_output("performance", "snr_result", result)
+        snr_result = None
+        if "snr" in compute:
+            snr_result = compute_snr(state)
+            state = state.with_metric("snr", snr_result.value)
+            state = state.with_stage_output("performance", "snr_result", snr_result)
 
         # Contrast SNR: ΔS / σ — positive for hot, negative for cold.
-        contrast_result = compute_contrast_snr(state)
-        state = state.with_metric("contrast_snr", contrast_result.value)
-        state = state.with_stage_output(
-            "performance",
-            "contrast_snr_result",
-            contrast_result,
-        )
+        if "contrast_snr" in compute:
+            contrast_result = compute_contrast_snr(state)
+            state = state.with_metric("contrast_snr", contrast_result.value)
+            state = state.with_stage_output(
+                "performance",
+                "contrast_snr_result",
+                contrast_result,
+            )
 
         # SCNR: clutter-inclusive detection FoM (Gap 77) — always includes
         # the spatial noise, unlike snr/contrast_snr.
-        scnr_result = compute_scnr(state)
-        state = state.with_metric("scnr", scnr_result.value)
-        state = state.with_stage_output("performance", "scnr_result", scnr_result)
+        if "scnr" in compute:
+            scnr_result = compute_scnr(state)
+            state = state.with_metric("scnr", scnr_result.value)
+            state = state.with_stage_output("performance", "scnr_result", scnr_result)
 
-        # Point-source detection range (Gap 77).
-        state = _compute_detection_range_metric(state, params, result)
+        # Point-source detection range (Gap 77). Needs the SNR result object;
+        # detection_range_m requires snr, so the closure guarantees snr_result.
+        if "detection_range_m" in compute and snr_result is not None:
+            state = _compute_detection_range_metric(state, params, snr_result)
 
-        # Compute spatial metrics if EffectivePSF is available from optics.
-        state = _compute_spatial_metrics(state, params)
+        # Compute spatial metrics if EffectivePSF is available from optics. The
+        # Rule-4 dual-path consistency check lives here; when the whole spatial
+        # path is deselected (and nothing enabled needs a spatial input) it does
+        # not run — there is no spatial computation to check (owner-ratified).
+        if compute & _PRODUCES_SPATIAL:
+            state = _compute_spatial_metrics(state, params)
 
         # Ground sample distance (when orbital/airborne geometry is set).
-        state = _compute_gsd_metrics(state, params)
+        if compute & _PRODUCES_GSD:
+            state = _compute_gsd_metrics(state, params)
 
         # Access geometry (ground range, swath width, access rate).
-        state = _compute_access_metrics(state, params)
+        if compute & _PRODUCES_ACCESS:
+            state = _compute_access_metrics(state, params)
 
         # Sampling parameter Q.
-        state = _compute_q_metrics(state, params)
+        if compute & _PRODUCES_Q:
+            state = _compute_q_metrics(state, params)
 
         # Diffraction-limited resolution (Gap 49) and sampling regime (Gap 50).
-        state = _compute_diffraction_limit_metrics(state, params)
-        state = _compute_sampling_regime_metric(state, params)
+        if compute & _PRODUCES_DIFFRACTION:
+            state = _compute_diffraction_limit_metrics(state, params)
+        if "sampling_regime_code" in compute:
+            state = _compute_sampling_regime_metric(state, params)
 
         # Strehl ratio (Marechal approximation).
-        state = _compute_strehl_metric(state, params)
+        if "strehl_marechal" in compute:
+            state = _compute_strehl_metric(state, params)
 
         # NEDT (Planck-derivative approximation, requires SNR).
-        state = _compute_nedt_metric(state, params)
+        if "nedt_K" in compute:
+            state = _compute_nedt_metric(state, params)
 
         # Minimum resolvable temperature at Nyquist (Gap 53; needs NEDT + MTF).
-        state = _compute_mrt_metric(state, params)
+        if "mrt_at_nyquist_K" in compute:
+            state = _compute_mrt_metric(state, params)
 
         # NIIRS / IIRS (requires GSD, RER, SNR from earlier in this stage).
-        state = _compute_niirs_metric(state, params)
+        if compute & _PRODUCES_NIIRS:
+            state = _compute_niirs_metric(state, params)
 
         # Saturation and dynamic range metrics.
-        return _compute_saturation_metrics(state, params)
+        if compute & _PRODUCES_SATURATION:
+            state = _compute_saturation_metrics(state, params)
+
+        # Drop dependency-closure prerequisites that were computed but not
+        # selected for surfacing (Gap 96). Only grouped (PerformanceStage-owned)
+        # keys are touched — never a metric written elsewhere.
+        for key in ALL_GROUPED_METRICS - surfaced:
+            state = state.without_metric(key)
+
+        return state

@@ -68,6 +68,7 @@ from radiant.gui.widgets.optical_element_editor import OpticalElementEditor
 from radiant.gui.widgets.optics_inputs_form import OpticsInputsForm
 from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
+from radiant.gui.widgets.performance_metrics_form import PerformanceMetricsForm
 from radiant.gui.widgets.platform_inputs_form import PlatformInputsForm
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.readout_inputs_form import ReadoutInputsForm
@@ -247,6 +248,10 @@ class StagePane(QWidget):
         self._last_result: ChainResult | None = None
         self._outputs_list: list[OutputsReadout] = []
         self._metrics_list: list[OutputsReadout] = []
+        # The Performance metric-group selection card (Gap 96): checkboxes for the five
+        # performance.metrics.* group flags. A toggle is one sensor.set + parameterEdited,
+        # so the host re-evaluates and the Metrics readout re-renders with the reduced set.
+        self._metric_selection_forms: list[PerformanceMetricsForm] = []
         self._mtf_panels: list[MtfPanel] = []
         self._noise_panels: list[NoiseBudgetPanel] = []
         self._plot_sections: list[_PlotSection] = []
@@ -408,6 +413,13 @@ class StagePane(QWidget):
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
             self._add_section(layout, "Outputs", outputs)
             self._outputs_list.append(outputs)
+        if spec.metric_selection:
+            # Gap 96: the metric-group selection card sits above the Metrics readout so the
+            # analyst scopes the output; each toggle re-emits parameterEdited → re-evaluate.
+            metric_form = PerformanceMetricsForm(parent)
+            metric_form.parameterEdited.connect(self.parameterEdited)
+            self._add_section(layout, "Metric selection", metric_form)
+            self._metric_selection_forms.append(metric_form)
         if spec.metrics:
             metrics = OutputsReadout(parent)
             metrics.pinMetricRequested.connect(self.pinMetricRequested)
@@ -538,6 +550,11 @@ class StagePane(QWidget):
         return self._optics_forms[0] if self._optics_forms else None
 
     @property
+    def metric_selection_form(self) -> PerformanceMetricsForm | None:
+        """The Performance metric-group selection card, if this stage has one (Gap 96)."""
+        return self._metric_selection_forms[0] if self._metric_selection_forms else None
+
+    @property
     def detector_inputs_form(self) -> DetectorInputsForm | None:
         """The Detector editable-inputs form, if this stage has one (Detector, PS-3)."""
         return self._detector_forms[0] if self._detector_forms else None
@@ -601,6 +618,8 @@ class StagePane(QWidget):
             atmosphere_form.bind_sensor(sensor, display_units)
         for element_editor in self._element_editors:
             element_editor.bind_sensor(sensor, display_units)
+        for metric_form in self._metric_selection_forms:
+            metric_form.bind_sensor(sensor, display_units)
         if sensor is not None and (self._geometry_panels or self._target_panels):
             self._configure_panels_from_schema(sensor)
 

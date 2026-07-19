@@ -496,6 +496,26 @@ Compare to RADIANT_Metric_Dependencies.md, which is the *static* form of this sa
 
 ---
 
+## 7a. Metric selection — which metrics are computed and surfaced (Gap 96)
+
+The analyst chooses *which* metric families the chain computes and surfaces via five boolean **group flags** in the performance schema (`radiant/performance/_schema.py`). Turning a group off truly stops the *computation* of its metrics — and any warnings they would emit — not merely their display: `PerformanceStage.run` gates each `_compute_*` helper on the selection, so a deselected metric produces no value.
+
+| Parameter (`bool`, default `True`) | Group | Surfaced metrics |
+|---|---|---|
+| `performance.metrics.radiometric` | Radiometric | `snr`, `contrast_snr`, `scnr`, `detection_range_m`, `nedt_K` |
+| `performance.metrics.spatial_mtf` | Spatial / MTF | `fwhm_x_m`, `fwhm_y_m`, `rer`, `ee_1x1`, `ee_3x3`, `mtf_at_nyquist`, `strehl`, `strehl_marechal`, `mtf_system_at_nyquist_x/_y`, `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` |
+| `performance.metrics.interpretability` | Interpretability | `niirs`, `niirs_extrapolated`, `mrt_at_nyquist_K` |
+| `performance.metrics.sampling` | Sampling / geometry | `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `q_center`, `q_min`, `q_max`, `sampling_regime_code`, `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`, `max_integration_time_s` |
+| `performance.metrics.saturation` | Saturation | `well_margin_dB`, `adc_margin_dB`, `dynamic_range_dB` |
+
+**Surfaced vs. compute (the dependency-closure rule).** Metrics are not independent — `niirs` needs `snr` + `rer` + `gsd_*`; `mrt_at_nyquist_K` needs `nedt_K` + `mtf_at_nyquist`; `nedt_K`/`scnr`/`detection_range_m` need `snr`. The **effective compute set is the transitive closure of the enabled (surfaced) set over the inter-metric dependency graph**, and a metric is *surfaced* (emitted in `result.metrics` and shown in the GUI) iff its group is enabled. So enabling only Interpretability auto-computes `snr`/`rer`/`gsd_*` (needed for NIIRS) but does **not** surface them; disabling Interpretability stops the NIIRS compute (and any of its warnings) entirely.
+
+The dependency graph is **not** re-declared for this feature — it is derived from each `MetricSpec.requires_metrics` (§6, the single source of metric metadata). Only the group→metric partition is declared, in `radiant/performance/metric_selection.py` (`METRIC_GROUPS`, `GROUP_PARAMS`, `resolve_selection`), and `test_metric_selection.py` asserts it partitions `METRIC_SPECS` exactly. The view layers reach it through `radiant.api.metric_groups` (import-linter forbids `gui` → `performance`).
+
+Default selection is **all groups on**, so the change is additive and alters no golden result. It is an analyst override: the engine-side applicability defaults that make a valid scenario clean *before* the user touches anything are CU-166.
+
+---
+
 ## 8. Out of Scope for v1
 
 - Hyperspectral metrics (spectral angle mapper, spectral correlation).

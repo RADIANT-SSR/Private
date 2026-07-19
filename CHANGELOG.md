@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Per-metric group selection for performance metrics (Gap 96).** Five new
+  boolean parameters — `performance.metrics.radiometric`,
+  `performance.metrics.spatial_mtf`, `performance.metrics.interpretability`,
+  `performance.metrics.sampling`, `performance.metrics.saturation` (all default
+  `True`) — select which metric families `PerformanceStage` computes and
+  surfaces. Turning a group off stops the *computation* of its metrics (and any
+  warnings they emit), not merely their display; hidden prerequisites are still
+  computed via the metric dependency closure (enabling only Interpretability
+  computes `snr`/`rer`/`gsd_*` for NIIRS but does not surface them). Saved in
+  YAML and scriptable; the GUI Performance stage adds a "Metric selection" card
+  of five checkboxes (one toggle ↔ one `sensor.set`). New public surface:
+  `radiant.api.metric_groups` (`GROUP_PARAMS`, `METRIC_GROUPS`,
+  `resolve_selection`, `group_of`) and `ChainState.without_metric`. **Not
+  results-affecting**: the all-on default reproduces every existing metric
+  exactly.
 - **Results-affecting (opt-in): MODTRAN flux-file downwelling on the tape7-import
   path (CU-157).** New parameter `atmosphere.modtran.flux_path` names a Block E
   spectral flux CSV (`*_flux.csv`) alongside `atmosphere.modtran.tape7_path`.

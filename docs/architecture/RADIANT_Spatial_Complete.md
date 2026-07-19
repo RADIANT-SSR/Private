@@ -297,7 +297,7 @@ errors = abs(product_x[:nyquist] − mtf_psf_x[:nyquist])
 passed_x = max(errors) <= 2e-2
 ```
 
-The check runs unconditionally on every chain execution (default tolerance `2e-2`, the `tolerance` parameter of `check_dual_path_consistency`). The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`. On failure, `PerformanceStage` logs a warning with both per-axis errors and stores the failing result — it does **not** raise; the stored result is the machine-checkable record.
+The check runs on every chain execution in which the spatial (PSF/MTF) path is computed (default tolerance `2e-2`, the `tolerance` parameter of `check_dual_path_consistency`). It is skipped only when the `performance.metrics.spatial_mtf` group is deselected and no enabled metric needs a spatial input (Gap 96 metric selection) — there is then no spatial computation to check. The result lives at `state.stage_outputs["performance"]["dual_path_consistency"]` as a `DualPathConsistencyResult` with `passed_x`, `passed_y`, `max_absolute_error_x`, `max_absolute_error_y`, and `tolerance`. On failure, `PerformanceStage` logs a warning with both per-axis errors and stores the failing result — it does **not** raise; the stored result is the machine-checkable record.
 
 **Excluded prefixes:** `mtf_tdi*` is excluded because TDI misalignment has no spatial-domain kernel in v1 (§6). When a kernel is added, the exclusion list shrinks; both paths must update together.
 

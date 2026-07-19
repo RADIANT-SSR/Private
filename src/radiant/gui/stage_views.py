@@ -101,6 +101,7 @@ class StageSubView:
     noise_panel_chart: bool = True
     outputs: bool = False
     metrics: bool = False
+    metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
     note: str | None = None
 
@@ -222,6 +223,7 @@ class StageComposition:
     noise_panel_chart: bool = True
     outputs: bool = False
     metrics: bool = False
+    metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
     note: str | None = None
     subviews: tuple[StageSubView, ...] = field(default_factory=tuple)
@@ -451,6 +453,7 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # All metrics (values + units) + system MTF and the MTF budget.
     "performance": StageComposition(
         title="Performance",
+        metric_selection=True,
         metrics=True,
         plots=(
             PlotSpec("System MTF", "mtf"),

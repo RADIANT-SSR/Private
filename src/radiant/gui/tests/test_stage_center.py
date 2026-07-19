@@ -41,7 +41,7 @@ from radiant.gui.widgets.inspector_dialog import InspectorDialog, parse_inspect_
 from radiant.gui.widgets.mtf_panel import MtfPanel, _bases
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel, describe_noise_term
 from radiant.gui.widgets.outputs_readout import OutputsReadout
-from radiant.gui.widgets.stage_center import StagePane
+from radiant.gui.widgets.stage_center import StageCenter, StagePane
 from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
@@ -69,6 +69,40 @@ def _load_window(qtbot):  # type: ignore[no-untyped-def]
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window
+
+
+class TestSensorSwapClearsStaleResult:
+    """A sensor swap drops the stale result so navigation never resolves the new sensor.
+
+    Regression: after File → New (a blank config with no optics), clicking a stage
+    re-populated the stale result against the new live sensor; the geometry viewer then
+    resolved the blank sensor and crashed with the circular f/# dependency, leaving the
+    whole window unusable behind a modal error.
+    """
+
+    def test_new_config_navigation_shows_placeholder_not_crash(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        center = StageCenter()
+        qtbot.addWidget(center)
+        good = Sensor.from_yaml(_EXAMPLE)
+        center.bind_sensor(good, {})
+        center.show_result(good.evaluate())
+        center.select_stage("geometry")
+        assert not center.is_placeholder()  # a good result renders
+
+        # File → New: a blank config with nothing set (optics f/# group unresolvable).
+        center.bind_sensor(Sensor(), {})
+        assert center.is_placeholder()  # the stale result was dropped
+        for namespace in STAGE_NAMESPACES:
+            center.select_stage(namespace)  # would raise before the fix
+            assert center.is_placeholder(), namespace
+
+    def test_main_window_new_then_navigate_is_stable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """End-to-end: evaluate a config, File → New, click every stage — no modal error."""
+        window = _load_window(qtbot)
+        window._adopt_sensor(Sensor(), path=None, dirty=False, add_recent=False, evaluate=False)
+        for namespace in STAGE_NAMESPACES:
+            window._on_stage_selected(namespace)  # catches + would have shown UnexpectedError
+            assert window.central_canvas.stage_center.is_placeholder(), namespace
 
 
 # ---------------------------------------------------------------------------

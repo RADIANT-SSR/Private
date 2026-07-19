@@ -600,6 +600,10 @@ class StagePane(QWidget):
         """
         self._sensor = sensor
         self._display_units = display_units
+        # The last result belongs to the previously-bound sensor; drop it so a shape/RPY
+        # preview (or any re-render) never resolves the new live sensor against a stale
+        # result (blank-config crash, see StageCenter.bind_sensor).
+        self._last_result = None
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
         for source_form in self._source_forms:
@@ -951,7 +955,17 @@ class StageCenter(QWidget):
 
         Only stages carrying an input form (Geometry, GUI plan Phase 5) do anything; the
         rest ignore it. Called by the window on sensor load and after a config swap.
+
+        A result belongs to the sensor that produced it, so a sensor swap invalidates the
+        stored result: it is dropped and the center falls back to the placeholder until the
+        next evaluation. Without this, navigating to a stage after File → New (or opening an
+        incomplete config) re-populated a stale result against the *new* live sensor — the
+        geometry viewer then resolved that (possibly unresolvable) sensor and the whole
+        window became unusable behind a modal error (crash: circular f/# dependency on a
+        blank config).
         """
+        self._result = None
+        self._stack.setCurrentWidget(self._placeholder)
         for pane in self._panes.values():
             pane.bind_sensor(sensor, display_units)
 

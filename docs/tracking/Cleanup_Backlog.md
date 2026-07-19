@@ -169,15 +169,6 @@
 **Why it still matters**: `inspect_result` is the public introspection surface (Gap 87) — a 3900-line dump for one evaluation is poor console ergonomics and makes the GUI tab do cleanup the API should. A reader printing `inspect_result(result)` at the REPL gets a wall of numbers.
 **Suggested fix**: (b) stand-alone task — have `_fmt` (or a NumPy print-options context in `inspect_result`) summarise **any** ndarray it encounters, including nested ones, to `ndarray(shape=…, dtype=…)` or a `np.array2string(threshold=…)` truncation. Effort S; category A (formatting only — no computed values change). Re-audit the GUI fold once done (it can then be simplified but stays correct either way).
 
-### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
-
-**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13
-**Status**: Open — doc drift; harmless (the File_Tree is a navigational aid, not a contract a test enforces), but increasingly stale as the GUI grows.
-**File**: `docs/architecture/RADIANT_File_Tree.md` (the `gui/widgets/` block, ~L249–259).
-**Symptom**: the widgets listing enumerates only the nine Phase-1 shell widgets and is even headed "Phase 1 shell chrome". Every widget added since — `matplotlib_canvas.py`, `saturation_banner.py`, `actionable_error_dialog.py`, `unexpected_error_dialog.py`, `explain_dialog.py`, `parameter_delegate.py`, `parameter_editor_dialog.py`, and now `warning_strip.py` / `warning_list_dialog.py` — is absent. Phases 2 and 3 did not update this block, so it lags the package by ~9 files.
-**Why it still matters**: Rule 20/23 want the file-tree to reflect the shipped tree; a reader using it to navigate the GUI package will miss half the widgets. Not a functional bug, but the manifest's usefulness decays with each unlisted widget.
-**Suggested fix**: stand-alone doc task — regenerate the `gui/widgets/` block from the live directory (one line per widget class, per the Rule-19 one-class-per-file convention) and drop the "Phase 1 shell chrome" qualifier, then keep it in lock-step going forward. Effort XS; category A (doc-only).
-
 ### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (display units), 2026-07-13
@@ -249,15 +240,6 @@
 **Symptom**: `QFontDatabase.families()` on the build machine (macOS) reports neither `IBM Plex Sans` nor `IBM Plex Mono` installed (313 families present; Menlo + Helvetica Neue are). The theme therefore leads its stacks with IBM Plex and falls back — sans → `"Helvetica Neue"`/system UI, mono → `"Menlo"`/monospace. The instrument-panel look (§8.2: "numeric values are always mono") is preserved via Menlo, but the exact letterforms/metrics differ from the mockups, so pixel-parity against `radiant_mid_fi.html` (which loads a webfont) is approximate, not exact.
 **Why it still matters**: §8.2 is the binding typography spec; without IBM Plex the app is close but not identical to the ratified visual target, and parity drifts further on Linux hosts with a different default UI font. The fallback keeps the app correct and legible everywhere (no missing-glyph boxes), so this is polish, not a defect — but the arch doc names a specific family the app does not guarantee.
 **Suggested fix**: stand-alone task (owner call) — bundle the IBM Plex Sans + Mono OFL `.ttf` files under `src/radiant/gui/themes/fonts/` and load them at bootstrap via `QFontDatabase.addApplicationFont(...)` before `apply_theme`, so the leading family in each stack resolves. Adds packaged binary assets (Rule 26 manifest + license note) and package-data wiring in `pyproject.toml`. Effort S–M; category A (no physics, no results). Deferred here rather than done inline because bundling font binaries is a licensing/packaging decision, not a theming one.
-
-### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444)
-
-**Discovered**: GUI Development Plan Phase 1 Task A (adding the `gui/` package to the file tree), 2026-07-12
-**Status**: Open
-**File**: `docs/architecture/RADIANT_File_Tree.md` — the "Current file count" header line (~L8, "348 `.py` files … 184 source + 128 test + 36 `__init__.py`") and the "File Count Summary" table subtotal / grand-total rows (~L347–352, "Subtotal 184/128", "Grand total (non-init) 330").
-**Symptom**: `find src/radiant -name '*.py' | wc -l` returns **444** (40 `__init__.py`, 165 `test_*.py`), not the 348 the doc claims. The per-package inventory rows were updated in this task (cli 12/2, gui 3/1) but the roll-up totals were left at their 2026-07-06 values because the base is ~96 files stale from repo growth unrelated to this task — reconciling the whole table is out of Phase-1 scope. The header and totals now carry an inline "stale — see CU-102" note.
-**Why it still matters**: Rule 20 / Rule 23 — a doc claiming a precise, wrong file count is aspirational-drift bait; a reader trusting "348" is misled. The doc self-declares `find` as the source of truth, which caps the harm, but the printed totals should either be regenerated or replaced with a generator command.
-**Suggested fix**: stand-alone task — regenerate the count header + subtotal/grand-total rows from `find src/radiant -name '*.py'` (split by `__init__.py` / `test_*.py` / source), or replace the static totals with the command and drop the hand-maintained numbers. Effort S; category A (doc-only, no code change).
 
 ### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
 
@@ -396,6 +378,18 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending112>`. **Resolution**: regenerated the `gui/widgets/` block from the live directory — 56 widget/dialog files, one line per class (primary public class extracted from each file), dropped the stale 9-entry "Phase 1 shell chrome" listing and qualifier. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
+**File**: `docs/architecture/RADIANT_File_Tree.md`.
+
+### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444)
+
+**Discovered**: 2026-07-06 doc-reconciliation pass (noted stale in-doc).
+**Status**: RESOLVED 2026-07-19, commit `<pending112>`. **Resolution**: regenerated the count header and the per-package subtotal/grand-total table from `find src/radiant -name '*.py'` — now 583 `.py` (322 source + 219 test + 42 `__init__.py`), 41 integration + 6 top-level tests, grand-total (non-init) 588; added the missing `geometry/` row; refreshed the `Last regenerated` date and dropped the stale-snapshot/CU-102 caveat. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
+**File**: `docs/architecture/RADIANT_File_Tree.md`.
 
 ### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
 

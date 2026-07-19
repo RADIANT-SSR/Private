@@ -1,14 +1,16 @@
 # RADIANT File Tree and Module Layout
 
 **Status:** Living reference (regenerated against current `src/`)
-**Last regenerated:** 2026-07-06 (doc-reconciliation pass)
+**Last regenerated:** 2026-07-19 (CU-102/CU-112 count + widgets regeneration)
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 348 `.py` files under `src/radiant/` (184 source +
-128 test + 36 `__init__.py`), plus 15 integration tests under
-`tests/integration/` and 3 top-level test files (`tests/test_public_api.py`,
-`tests/test_exceptions.py`, `tests/test_provenance.py`).
+**Current file count:** 583 `.py` files under `src/radiant/` (322 source +
+219 test + 42 `__init__.py`), plus 41 integration tests under
+`tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
+`tests/test_exceptions.py`, `tests/test_provenance.py`,
+`tests/test_calibration_analysis.py`, `tests/test_error_budget.py`,
+`tests/test_veiling_glare_signal_consistency.py`).
 
 ---
 
@@ -246,17 +248,63 @@ gui/
 ├── app.py               # QApplication bootstrap
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
 ├── workers.py           # EvaluationWorker(QThread) — off-thread evaluate (Phase 3)
-├── widgets/             # one widget class per file (Rule 19 spirit) — Phase 1 shell chrome
-│   ├── health_dot.py    # HealthDot — themed status dot (§8.4)
-│   ├── stage_chip.py    # StageChip — one signal-chain stage tile
-│   ├── stage_strip.py   # StageStrip — the 9-stage geometry-first chain strip (§4.2)
-│   ├── metric_badge.py  # MetricBadge — one KPI cell (mono value slot, §8.2)
-│   ├── run_button.py    # RunButton — accent Evaluate button (#runButton hook)
-│   ├── kpi_badge_row.py # KpiBadgeRow — the five v1 metric badges + Run button (§4.4)
-│   ├── plot_placeholder.py  # PlotPlaceholder — empty-canvas prompt (§4.4)
-│   ├── central_canvas.py    # CentralCanvas — KPI row above the plot (visualizationArea)
-│   ├── parameter_panel.py   # ParameterPanel — filter box + empty Parameter/Value tree (§4.3)
-│   └── detail_tabs.py   # DetailTabs — the five detail tabs with placeholder pages (§4.5)
+├── widgets/             # one widget/dialog class per file (Rule 19 spirit)
+│   ├── actionable_error_dialog.py           # ActionableErrorDialog
+│   ├── atmosphere_inputs_form.py            # AtmosphereInputsForm
+│   ├── central_canvas.py                    # CentralCanvas
+│   ├── comparison_dialog.py                 # ComparisonDialog
+│   ├── detector_illustration.py             # DetectorIllustration
+│   ├── detector_inputs_form.py              # DetectorInputsForm
+│   ├── explain_dialog.py                    # ExplainDialog
+│   ├── field_row.py                         # FieldRow
+│   ├── geometry_angle_panel.py              # GeometryAnglePanel
+│   ├── geometry_mode_form.py                # GeometryModeForm
+│   ├── geometry_readout.py                  # GeometryReadout
+│   ├── health_dot.py                        # HealthDot
+│   ├── import_preview_dialog.py             # ImportPreviewDialog
+│   ├── inspector_dialog.py                  # InspectorDialog
+│   ├── matplotlib_canvas.py                 # MatplotlibCanvas
+│   ├── message_item.py                      # MessageItem
+│   ├── messages_panel.py                    # MessagesPanel
+│   ├── mtf_overlay_dialog.py                # MtfOverlayDialog
+│   ├── mtf_panel.py                         # MtfPanel
+│   ├── noise_budget_panel.py                # NoiseBudgetPanel
+│   ├── optical_element_editor.py            # OpticalElementEditor
+│   ├── optics_inputs_form.py                # OpticsInputsForm
+│   ├── outputs_readout.py                   # OutputsReadout
+│   ├── parameter_delegate.py                # ReadOnlyCellDelegate
+│   ├── parameter_editor_dialog.py           # ParameterEditorDialog
+│   ├── parameter_panel.py                   # ParameterPanel
+│   ├── performance_metrics_form.py          # PerformanceMetricsForm
+│   ├── pin_picker_dialog.py                 # PinPickerDialog
+│   ├── pinned_card.py                       # PinnedCard
+│   ├── pinned_panel.py                      # PinnedPanel
+│   ├── platform_inputs_form.py              # PlatformInputsForm
+│   ├── plot_placeholder.py                  # PlotPlaceholder
+│   ├── python_highlighter.py                # PythonHighlighter
+│   ├── readout_inputs_form.py               # ReadoutInputsForm
+│   ├── right_rail.py                        # RightRail
+│   ├── run_button.py                        # RunButton
+│   ├── saturation_banner.py                 # SaturationBanner
+│   ├── schema_browser_dialog.py             # SchemaBrowserDialog
+│   ├── script_editor.py                     # ScriptEditor
+│   ├── script_tab.py                        # ScriptTab
+│   ├── scripting_console.py                 # ScriptingConsole
+│   ├── scripting_window.py                  # ScriptingWindow
+│   ├── set_parameter_command.py             # SetParameterCommand
+│   ├── solve_dialog.py                      # SolveDialog
+│   ├── source_inputs_form.py                # SourceInputsForm
+│   ├── spectral_integration_inputs_form.py  # SpectralIntegrationInputsForm
+│   ├── spectral_table_dialog.py             # SpectralTableDialog
+│   ├── stage_center.py                      # StageCenter
+│   ├── stage_chip.py                        # StageChip
+│   ├── stage_strip.py                       # StageStrip
+│   ├── sweep_dialog.py                      # SweepDialog
+│   ├── target_shape_panel.py                # TargetShapePanel
+│   ├── unexpected_error_dialog.py           # UnexpectedErrorDialog
+│   ├── warning_list_dialog.py               # WarningListDialog
+│   ├── workspace_panel.py                   # WorkspacePanel
+│   └── yaml_editor_dialog.py                # YamlEditorDialog
 ├── themes/              # QSS design-system theme — single owner of all visual tokens
 │   ├── tokens.py        # every colour/font/spacing/radius (LIGHT default, DARK alt)
 │   └── stylesheet.py    # build_stylesheet(theme) QSS generator + apply_theme(app)
@@ -356,35 +404,35 @@ SSR_Tool/
 
 ## File Count Summary
 
-Numbers below exclude `__init__.py` files. Per-package rows are current; the
-**subtotal / grand-total lines are a 2026-07-06 snapshot and are stale** — a
-`find src/radiant -name '*.py'` now returns 444 files (repo growth since the
-snapshot). Regenerating the totals is tracked as **CU-102**. Treat the find
-command as the source of truth, per the header.
+Numbers below exclude `__init__.py` files and are regenerated from
+`find src/radiant -name '*.py'` (Source = non-init, non-`test_`; Tests =
+`test_*.py`). Regenerated 2026-07-19 (CU-102). Treat the find command as the
+source of truth, per the header.
 
 | Subpackage             | Source | Tests | Notes |
 |------------------------|--------|-------|-------|
-| core/                  | 18     | 15    | foundational abstractions |
-| source/                | 40     | 27    | spec-form fan-out + shape catalog |
-| atmosphere/            | 12     | 12    | MODTRAN + simple + exo + tabulated + loaders |
-| optics/                | 30     | 19    | dual-path PSF/MTF + element model |
-| platform/              | 6      | 6     | smear, jitter, sampling, turbulence |
-| spectral_integration/  | 2      | 1     | single-stage collapse |
-| detector/              | 14     | 9     | includes `detector/noise/` subpackage |
-| readout/               | 10     | 8     | TDI, ADC, binning, coadds |
-| performance/           | 28     | 16    | one metric per module (Rule 19) |
-| io/                    | 3      | 3     | config, results, element_config |
+| core/                  | 22     | 19    | foundational abstractions |
+| geometry/              | 4      | 2     | scene geometry / LOS (ADR-0006) |
+| source/                | 43     | 33    | spec-form fan-out + shape catalog |
+| atmosphere/            | 15     | 15    | MODTRAN + simple + exo + tabulated + loaders |
+| optics/                | 31     | 22    | dual-path PSF/MTF + element model |
+| platform/              | 7      | 6     | smear, jitter, sampling, turbulence |
+| spectral_integration/  | 3      | 1     | single-stage collapse |
+| detector/              | 16     | 10    | includes `detector/noise/` subpackage |
+| readout/               | 12     | 9     | TDI, ADC, binning, coadds |
+| performance/           | 47     | 29    | one metric per module (Rule 19) |
+| io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
-| api/                   | 9      | 7     | public + internal session |
-| gui/                   | 18     | 3     | PySide6 shell + widgets + design-system theme — optional `gui` extra (GUI plan Phase 1) |
+| api/                   | 19     | 13    | public + internal session |
+| gui/                   | 79     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |
-| **Subtotal**           | **186**| **129**| 315 non-init files |
-| Integration tests      | —      | 15    | `tests/integration/` |
-| Top-level tests        | —      | 3     | `tests/test_public_api.py`, `tests/test_exceptions.py`, `tests/test_provenance.py` |
-| **Grand total (non-init)** |    |       | **330** |
+| **Subtotal**           | **322**| **219**| 541 non-init files |
+| Integration tests      | —      | 41    | `tests/integration/` |
+| Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |
+| **Grand total (non-init)** |    |       | **588** |
 
-Including `__init__.py` files, total `.py` count under `src/radiant/` is 348 (36 `__init__.py`).
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 583 (42 `__init__.py`).
 
 ---
 

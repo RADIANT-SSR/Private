@@ -1,31 +1,31 @@
-"""The Performance stage's **Metrics** selection card — group enable toggles (Gap 96).
+"""The Performance stage's **Metric selection** control — group enable toggles (Gap 96).
 
-:class:`PerformanceMetricsForm` is the contextual-center control that lets the analyst
-choose *which* performance metric families the chain computes and surfaces. It exposes the
-five ``performance.metrics.*`` boolean group flags (Radiometric / Spatial-MTF /
-Interpretability / Sampling / Saturation) as checkboxes. Turning a group off truly stops
-its *computation* — and any warnings it would emit — not merely its display (Gap 96);
-:class:`~radiant.performance.stage.PerformanceStage` still computes any hidden prerequisites
-via the metric dependency closure.
+:class:`PerformanceMetricsForm` lets the analyst choose *which* performance metric families
+the chain computes and surfaces. It exposes the five ``performance.metrics.*`` boolean group
+flags (Radiometric / Spatial-MTF / Interpretability / Sampling / Saturation) as a compact
+two-column list: a bold group name (the checkbox) beside a dimmed hint naming the group's
+metrics. Turning a group off truly stops its *computation* — and any warnings it would emit —
+not merely its display (Gap 96); :class:`~radiant.performance.stage.PerformanceStage` still
+computes any hidden prerequisites via the metric dependency closure.
 
 **One GUI action ↔ one API call (owner hard rule).** Each toggle performs exactly one
 ``sensor.set("performance.metrics.<group>", checked)`` and re-emits :attr:`parameterEdited`,
-so the host debounces a full re-evaluation and every metric surface (the Metrics readout,
-the pinned rail) re-renders with the reduced set. Labels come from a small human map; the
-tooltip/description is read from the live schema
+so the host debounces a full re-evaluation and every metric surface (the Metrics readout, the
+pinned rail) re-renders with the reduced set. The hover tooltip is read from the live schema
 (:meth:`Sensor.parameter_def`) — never transcribed. Programmatic state-sync in
 :meth:`bind_sensor` blocks signals so binding never fires a spurious edit.
 
-All colour/typography come from the QSS theme via object names; this file holds no
-colour/font literal. One widget class per file (Rule 19).
+All colour/typography come from the QSS theme via object names (``metricGroupCheck`` /
+``metricGroupHint``); this file holds no colour/font literal. One widget class per file
+(Rule 19).
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QCheckBox, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QCheckBox, QGridLayout, QLabel, QWidget
 
 from radiant.api.metric_groups import GROUP_PARAMS
 from radiant.core.exceptions import RadiantError
@@ -33,22 +33,20 @@ from radiant.core.exceptions import RadiantError
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
-# Human labels for the five metric groups, in reading order. The dot-path comes from
-# ``GROUP_PARAMS`` (the single source of truth shared with the schema and the stage), so the
-# label is the only literal here.
-_GROUP_LABELS: Final[tuple[tuple[str, str], ...]] = (
-    ("radiometric", "Radiometric — SNR, contrast, SCNR, NEDT, detection range"),
-    ("spatial_mtf", "Spatial / MTF — FWHM, RER, EE, Strehl, MTF at Nyquist"),
-    ("interpretability", "Interpretability — NIIRS / IIRS, MRT"),
-    ("sampling", "Sampling / geometry — GSD, Q, swath, diffraction limit"),
-    ("saturation", "Saturation — well margin, ADC margin, dynamic range"),
+# (group, bold name, dimmed metric hint), in reading order. The dot-path comes from
+# ``GROUP_PARAMS`` (the single source of truth shared with the schema and the stage); the
+# label + hint are the only literals here.
+_GROUP_ROWS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("radiometric", "Radiometric", "SNR, contrast, SCNR, NEDT, detection range"),
+    ("spatial_mtf", "Spatial / MTF", "FWHM, RER, EE, Strehl, MTF at Nyquist"),
+    ("interpretability", "Interpretability", "NIIRS / IIRS, MRT"),
+    ("sampling", "Sampling / geometry", "GSD, Q, swath, diffraction limit"),
+    ("saturation", "Saturation", "well margin, ADC margin, dynamic range"),
 )
-
-_TITLE = "Metrics — select which groups are computed and shown"
 
 
 class PerformanceMetricsForm(QWidget):
-    """The Performance metric-selection card: one checkbox per metric group.
+    """The Performance metric-selection control: one checkbox per metric group.
 
     Signals
     -------
@@ -66,34 +64,24 @@ class PerformanceMetricsForm(QWidget):
 
         self._sensor: Sensor | None = None
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-
-        card = QWidget(self)
-        card.setObjectName("geoModeFamily")
-        card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        card.setProperty("state", "normal")
-        box = QVBoxLayout(card)
-        box.setContentsMargins(12, 10, 12, 10)
-        box.setSpacing(6)
-
-        title = QLabel(_TITLE, card)
-        title.setObjectName("geoModeFamilyTitle")
-        title.setWordWrap(True)
-        box.addWidget(title)
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(4)
 
         self._checks: dict[str, QCheckBox] = {}
-        for group, label in _GROUP_LABELS:
+        for row, (group, name, hint) in enumerate(_GROUP_ROWS):
             dotpath = GROUP_PARAMS[group]
-            check = QCheckBox(label, card)
+            check = QCheckBox(name, self)
             check.setObjectName("metricGroupCheck")
             check.setChecked(True)  # schema default; corrected on bind
             check.toggled.connect(lambda checked, dp=dotpath: self._on_toggle(dp, checked))
-            box.addWidget(check)
+            hint_label = QLabel(hint, self)
+            hint_label.setObjectName("metricGroupHint")
+            grid.addWidget(check, row, 0)
+            grid.addWidget(hint_label, row, 1)
             self._checks[dotpath] = check
-
-        layout.addWidget(card)
+        grid.setColumnStretch(1, 1)
 
     # -- binding / refresh --------------------------------------------------
 
@@ -111,6 +99,7 @@ class PerformanceMetricsForm(QWidget):
         """Re-read each flag from the bound sensor and set the checkbox (no signal)."""
         for dotpath, check in self._checks.items():
             checked = True
+            tooltip = ""
             if self._sensor is not None:
                 try:
                     checked = bool(self._sensor.get_input(dotpath))
@@ -119,9 +108,14 @@ class PerformanceMetricsForm(QWidget):
                     # config cannot resolve yet (a blank File → New) — the box shows the
                     # default (on), not a crash (CU-140 guard pattern in param_format).
                     checked = True
+                try:
+                    tooltip = self._sensor.parameter_def(dotpath).description
+                except (KeyError, RadiantError):
+                    tooltip = ""
             blocked = check.blockSignals(True)
             check.setChecked(checked)
             check.blockSignals(blocked)
+            check.setToolTip(tooltip)
 
     # -- editing (one sensor.set per toggle) --------------------------------
 

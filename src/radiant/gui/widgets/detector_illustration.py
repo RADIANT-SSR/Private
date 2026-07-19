@@ -66,9 +66,7 @@ class DetectorIllustration(QWidget):
 
     # -- state --------------------------------------------------------------
 
-    def set_pixel_geometry(
-        self, pitch_x_um: float, pitch_y_um: float, fill_factor: float
-    ) -> None:
+    def set_pixel_geometry(self, pitch_x_um: float, pitch_y_um: float, fill_factor: float) -> None:
         """Set the pixel pitch (µm, cross/along-track) + fill factor and repaint."""
         self._pitch_x_um = float(pitch_x_um)
         self._pitch_y_um = float(pitch_y_um)

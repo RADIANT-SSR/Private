@@ -188,9 +188,22 @@ def _write_modtran6_tape7(
     ]
     for i in range(n_points):
         vals = [
-            nu[i], tot_trans[i], thrml_em[i], thrml_sct[i], surf_emis[i],
-            mult_scat[i], sing_scat[i], grnd_rflt[i], drct_rflt[i], total_rad[i],
-            ref_sol[i], sol_obs[i], depth[i], dir_em[i], toa_sun[i], bbody_t[i],
+            nu[i],
+            tot_trans[i],
+            thrml_em[i],
+            thrml_sct[i],
+            surf_emis[i],
+            mult_scat[i],
+            sing_scat[i],
+            grnd_rflt[i],
+            drct_rflt[i],
+            total_rad[i],
+            ref_sol[i],
+            sol_obs[i],
+            depth[i],
+            dir_em[i],
+            toa_sun[i],
+            bbody_t[i],
         ]
         lines.append(" ".join(f"{v:.6e}" for v in vals))
     lines.append("  -9999.")  # MODTRAN end-of-block sentinel
@@ -485,9 +498,7 @@ class TestTape7ReaderModtran6:
 # Real MODTRAN A1 tape7 — staged, gitignored, in modtran/real_runs/ until
 # the fixture subset is committed (MODTRAN_Run_Matrix_Plan §7.1). The
 # acceptance test below runs only where that file is present locally.
-_REAL_A1_TAPE7 = (
-    Path(__file__).resolve().parents[4] / "modtran" / "real_runs" / "A1.tp7"
-)
+_REAL_A1_TAPE7 = Path(__file__).resolve().parents[4] / "modtran" / "real_runs" / "A1.tp7"
 
 
 @pytest.mark.skipif(
@@ -650,9 +661,7 @@ class TestModtranFluxReader:
 
 
 # Real MODTRAN E1 flux CSV — staged, gitignored, in modtran/real_runs/.
-_REAL_E1_FLUX = (
-    Path(__file__).resolve().parents[4] / "modtran" / "real_runs" / "E1_flux.csv"
-)
+_REAL_E1_FLUX = Path(__file__).resolve().parents[4] / "modtran" / "real_runs" / "E1_flux.csv"
 
 
 @pytest.mark.skipif(

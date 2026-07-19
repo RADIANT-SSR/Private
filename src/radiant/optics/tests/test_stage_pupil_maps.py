@@ -122,12 +122,16 @@ class TestObscurationVisible:
 
     @pytest.mark.level1
     def test_obscured_area_smaller_than_unobscured(self, wl: np.ndarray) -> None:
-        amp_open = OpticsStage().run(
-            _make_state(wl), _make_params(obscuration=0.0)
-        ).stage_outputs["optics"]["pupil_amplitude"]
-        amp_obs = OpticsStage().run(
-            _make_state(wl), _make_params(obscuration=0.4)
-        ).stage_outputs["optics"]["pupil_amplitude"]
+        amp_open = (
+            OpticsStage()
+            .run(_make_state(wl), _make_params(obscuration=0.0))
+            .stage_outputs["optics"]["pupil_amplitude"]
+        )
+        amp_obs = (
+            OpticsStage()
+            .run(_make_state(wl), _make_params(obscuration=0.4))
+            .stage_outputs["optics"]["pupil_amplitude"]
+        )
         assert amp_obs.sum() < amp_open.sum()
 
 
@@ -189,9 +193,7 @@ class TestPolychromaticPupilMaps:
 
     @pytest.mark.level1
     def test_poly_maps_persisted(self, wl: np.ndarray) -> None:
-        out = OpticsStage().run(
-            _make_state(wl), _make_params(n_psf_wavelengths=3)
-        )
+        out = OpticsStage().run(_make_state(wl), _make_params(n_psf_wavelengths=3))
         opt = out.stage_outputs["optics"]
         assert opt["pupil_amplitude"].shape == (_PUPIL_NPIX, _PUPIL_NPIX)
         assert opt["pupil_phase_waves"].shape == (_PUPIL_NPIX, _PUPIL_NPIX)

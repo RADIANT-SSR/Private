@@ -486,9 +486,7 @@ class TestAnchor3HandCalculatedOD:
         # tiny water term for the near-dry 10–100 km water column
         # (w_eff = 1.4 · col_h2o/2 km ≈ 0.009 cm → OD ≈ 2e-3).
         od_gas = 0.4497 * (col_mol_km / (H_MOL_M / 1000.0))
-        col_h2o_km = (H_H2O_M / 1000.0) * (
-            math.exp(-h_low / H_H2O_M) - math.exp(-h_high / H_H2O_M)
-        )
+        col_h2o_km = (H_H2O_M / 1000.0) * (math.exp(-h_low / H_H2O_M) - math.exp(-h_high / H_H2O_M))
         w_eff = 1.4 * col_h2o_km / (H_H2O_M / 1000.0)
         od_h2o = 0.0944 * w_eff**0.808
 

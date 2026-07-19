@@ -193,9 +193,7 @@ class TestPupilAccessors:
         result = _make_pupil_result()
         fig = ResultPlotNamespace(result).pupil_amplitude()
         shown = fig.axes[0].images[0].get_array()
-        np.testing.assert_array_equal(
-            shown, result.stage_outputs["optics"]["pupil_amplitude"]
-        )
+        np.testing.assert_array_equal(shown, result.stage_outputs["optics"]["pupil_amplitude"])
 
     def test_phase_returns_figure_with_waves_colorbar(self) -> None:
         ns = ResultPlotNamespace(_make_pupil_result())

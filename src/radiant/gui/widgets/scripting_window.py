@@ -285,9 +285,7 @@ class ScriptingWindow(QMainWindow):
         if tab is None:
             return
         start = str(tab.path) if tab.path is not None else self._recent_dir()
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save Python script", start, _SCRIPT_FILTER
-        )
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Python script", start, _SCRIPT_FILTER)
         if filename:
             self._save_tab_to(tab, Path(filename))
 

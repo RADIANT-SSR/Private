@@ -110,8 +110,7 @@ def _spectral_from_inline(mapping: dict[str, Any], name: str) -> SpectralData:
         )
     if wavelengths.size < 2:
         raise ElementConfigError(
-            f"Inline spectrum for '{name}' must have at least 2 points, "
-            f"got {wavelengths.size}."
+            f"Inline spectrum for '{name}' must have at least 2 points, got {wavelengths.size}."
         )
     return SpectralData(
         name=name,

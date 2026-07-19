@@ -357,9 +357,7 @@ class TestRadiantMetaBlock:
     def test_tolerance_on_unknown_parameter_raises(self) -> None:
         cfg = _full_config_dict()
         cfg["_radiant"] = {
-            "tolerances": {
-                "detector.nope": {"distribution": "gaussian", "params": {"std": 1.0}}
-            }
+            "tolerances": {"detector.nope": {"distribution": "gaussian", "params": {"std": 1.0}}}
         }
         with pytest.raises(ConfigError, match="unknown parameter"):
             load_config(cfg, build_parameter_set())

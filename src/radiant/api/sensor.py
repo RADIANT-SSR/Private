@@ -102,9 +102,7 @@ class Sensor:
         sections: dict[str, Any] = {}
         load_config(Path(path), sensor._params, sections_out=sections)
         if "optical_elements" in sections:
-            sensor.set_optical_elements(
-                sections["optical_elements"], base_dir=Path(path).parent
-            )
+            sensor.set_optical_elements(sections["optical_elements"], base_dir=Path(path).parent)
         return sensor
 
     @classmethod

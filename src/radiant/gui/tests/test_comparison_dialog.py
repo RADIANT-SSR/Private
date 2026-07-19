@@ -46,8 +46,7 @@ class TestComparisonDialog:
         assert snr.best_index == 1  # bigger aperture wins SNR
         # The rendered table marks the winner and shows the delta.
         headers = [
-            dialog.table.horizontalHeaderItem(c).text()
-            for c in range(dialog.table.columnCount())
+            dialog.table.horizontalHeaderItem(c).text() for c in range(dialog.table.columnCount())
         ]
         assert headers[:2] == ["metric", "unit"]
         row_names = [dialog.table.item(r, 0).text() for r in range(dialog.table.rowCount())]

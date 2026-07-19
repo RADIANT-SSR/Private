@@ -334,9 +334,7 @@ def _overlay_pixel_grid(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
     ax.set_ylim(lo, hi)
 
 
-def _pupil_axes_labels(
-    ax: Any, extent_m: float | None
-) -> dict[str, Any]:
+def _pupil_axes_labels(ax: Any, extent_m: float | None) -> dict[str, Any]:
     """Label pupil-plane axes; return imshow kwargs carrying the extent.
 
     When the physical pupil diameter ``extent_m`` [m] is known the map is

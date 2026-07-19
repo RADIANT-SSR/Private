@@ -440,17 +440,25 @@ def render_tape5(
 # labels preserved in ``header`` for future use) but not consumed.
 _TAPE7_LABEL_ALIASES: dict[str, str] = {
     "FREQ": "FREQ",
-    "TOT TRANS": "TOT_TRANS", "TOT_TRANS": "TOT_TRANS",
-    "PTH THRML": "THRML_EM", "THRML_EM": "THRML_EM",
-    "THRML SCT": "THRML_SCT", "THRML_SCT": "THRML_SCT",
-    "SURF EMIS": "SURF_EMIS", "SURF_EMIS": "SURF_EMIS",
+    "TOT TRANS": "TOT_TRANS",
+    "TOT_TRANS": "TOT_TRANS",
+    "PTH THRML": "THRML_EM",
+    "THRML_EM": "THRML_EM",
+    "THRML SCT": "THRML_SCT",
+    "THRML_SCT": "THRML_SCT",
+    "SURF EMIS": "SURF_EMIS",
+    "SURF_EMIS": "SURF_EMIS",
     # Classic combined solar scatter; MODTRAN 6 splits it in two.
     "SOL SCAT": "SOL_SCAT",
     "MULT_SCAT": "MULT_SCAT",
-    "SNGL SCAT": "SING_SCAT", "SING_SCAT": "SING_SCAT",
-    "GRND RFLT": "GRND_RFLT", "GRND_RFLT": "GRND_RFLT",
-    "DRCT RFLT": "DRCT_RFLT", "DRCT_RFLT": "DRCT_RFLT",
-    "TOTAL RAD": "TOTAL_RAD", "TOTAL_RAD": "TOTAL_RAD",
+    "SNGL SCAT": "SING_SCAT",
+    "SING_SCAT": "SING_SCAT",
+    "GRND RFLT": "GRND_RFLT",
+    "GRND_RFLT": "GRND_RFLT",
+    "DRCT RFLT": "DRCT_RFLT",
+    "DRCT_RFLT": "DRCT_RFLT",
+    "TOTAL RAD": "TOTAL_RAD",
+    "TOTAL_RAD": "TOTAL_RAD",
 }
 
 # Canonical keys that must be present to build a ModtranNativeOutput.
@@ -895,10 +903,7 @@ class ModtranFluxReader:
             )
         n_levels = n_cols // 3
         altitude_km = np.array(
-            [
-                float(labels[3 * j].lower().replace("km", "").strip())
-                for j in range(n_levels)
-            ],
+            [float(labels[3 * j].lower().replace("km", "").strip()) for j in range(n_levels)],
             dtype=np.float64,
         )
 

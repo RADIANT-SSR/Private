@@ -205,9 +205,7 @@ class ResultPlotNamespace:
                 "run OpticsStage with a WFE mode that has a pupil-phase "
                 "representation (scalar_rms / zernike)."
             )
-        return plot_pupil_phase(
-            phase_waves, extent_m=optics.get("pupil_plane_extent_m"), **kwargs
-        )
+        return plot_pupil_phase(phase_waves, extent_m=optics.get("pupil_plane_extent_m"), **kwargs)
 
     def noise_budget(self, **kwargs: Any) -> Any:
         """Plot the noise budget as a horizontal bar chart."""

@@ -336,9 +336,7 @@ def _compute_optical_mtf_terms(
             phase_waves = pupil_phase_rad / (2.0 * np.pi)
             phase_waves = np.where(pupil_amp_map > 0.0, phase_waves, 0.0)
             state = state.with_stage_output("optics", "pupil_phase_waves", phase_waves)
-            state = state.with_stage_output(
-                "optics", "pupil_wavelength_um", pupil_ref_wl_m * 1e6
-            )
+            state = state.with_stage_output("optics", "pupil_wavelength_um", pupil_ref_wl_m * 1e6)
     return state
 
 
@@ -1175,9 +1173,7 @@ class OpticsStage:
         # Declared-vs-derived regime cross-check (ADR-0008 Amendment 1 / T2).
         # SourceStage publishes the declared scene_type; default 'auto' (no
         # cross-check) when absent (degenerate chains / minimal stage tests).
-        _warn_declared_regime_mismatch(
-            source_out.get("scene_type_declared", "auto"), regime
-        )
+        _warn_declared_regime_mismatch(source_out.get("scene_type_declared", "auto"), regime)
 
         # EE_box is computed in PlatformStage from the fully degraded PSF
         # (jitter, smear, turbulence included) and applied once in

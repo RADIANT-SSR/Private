@@ -119,9 +119,7 @@ class Camera:
         )
 
 
-def make_camera(
-    yaw_deg: float, pitch_deg: float, scale_px: float, cx: float, cy: float
-) -> Camera:
+def make_camera(yaw_deg: float, pitch_deg: float, scale_px: float, cx: float, cy: float) -> Camera:
     """Construct a :class:`Camera` (mirrors the ``geometry.js`` ``makeCamera`` factory)."""
     return Camera(yaw_deg=yaw_deg, pitch_deg=pitch_deg, scale_px=scale_px, cx=cx, cy=cy)
 
@@ -170,10 +168,9 @@ def compute_angles(sun_dir: np.ndarray, sensor_dir: np.ndarray) -> SceneAngles:
     dphi = abs(phi_v - phi_s)
     if dphi > math.pi:
         dphi = 2 * math.pi - dphi
-    cos_phase = (
-        math.cos(theta_s) * math.cos(theta_v)
-        + math.sin(theta_s) * math.sin(theta_v) * math.cos(dphi)
-    )
+    cos_phase = math.cos(theta_s) * math.cos(theta_v) + math.sin(theta_s) * math.sin(
+        theta_v
+    ) * math.cos(dphi)
     phase = math.acos(float(np.clip(cos_phase, -1.0, 1.0)))
     return SceneAngles(
         theta_s_rad=theta_s,

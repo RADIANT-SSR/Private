@@ -389,9 +389,7 @@ class RADIANTMainWindow(QMainWindow):
         scripting_action.triggered.connect(self._show_scripting_window)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
         self._add_action(tools_menu, "tools.compare", "Compare Configurations…", enabled=False)
-        self._add_action(
-            tools_menu, "tools.mtf_overlay", "Compare Measured MTF…", enabled=False
-        )
+        self._add_action(tools_menu, "tools.mtf_overlay", "Compare Measured MTF…", enabled=False)
         self._add_action(tools_menu, "tools.solve", "Solve for Parameter…", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
         self._add_action(tools_menu, "tools.preferences", "Preferences…", enabled=False)

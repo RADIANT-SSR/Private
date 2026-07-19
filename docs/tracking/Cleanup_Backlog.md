@@ -373,7 +373,7 @@
 ### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
 
 **Discovered**: Geometry_Stage_Plan Phase 1, 2026-07-12.
-**Status**: RESOLVED 2026-07-19, commit `<pending099>`. **Resolution**: refactored `scripts/gen_param_reference.py` into a `render()` function + a `--check` mode that regenerates in memory and diffs against the committed copy (fail-on-mismatch, same pattern as `check_org_rules.py`); regenerated the committed `parameter_reference.md` (now 172 parameters, was ~152); added `tests/test_parameter_reference_current.py` which runs `--check` so CI enforces freshness; documented the check in CLAUDE.md's gate list. Doc + tooling; no results/API change. Wave 2 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `74e9fa0`. **Resolution**: refactored `scripts/gen_param_reference.py` into a `render()` function + a `--check` mode that regenerates in memory and diffs against the committed copy (fail-on-mismatch, same pattern as `check_org_rules.py`); regenerated the committed `parameter_reference.md` (now 172 parameters, was ~152); added `tests/test_parameter_reference_current.py` which runs `--check` so CI enforces freshness; documented the check in CLAUDE.md's gate list. Doc + tooling; no results/API change. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `scripts/gen_param_reference.py`, `docs/guides/parameter_reference.md`, `tests/test_parameter_reference_current.py`, `CLAUDE.md`.
 
 ### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget

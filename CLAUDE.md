@@ -245,6 +245,21 @@ These rules govern how a coding agent handles a task. Violating them produces sc
 
 ---
 
+## Multi-Agent Git Hygiene
+
+Multiple agents work this repo. Long-lived, shared workspaces — not branches — are
+what create merge pain, files changing underfoot, and ambiguous `git status`.
+These rules keep concurrent work clean. They are process rules, enforced by
+convention and review (not CI).
+
+- **One agent, one workspace. Never two agents in the same working directory at once.** This is the load-bearing rule — it is what prevents files appearing under you and registry files changing mid-edit. If work genuinely overlaps in time, isolate with a **git worktree** per agent (`git worktree add ../ssr-<task> -b <task-branch>`), each on its own branch sharing one repo/history.
+- **One task = one short-lived branch = one merge.** Branch off `main`, do the task, commit, merge back to `main` in the same session, delete the branch. Branches live minutes-to-hours, not days. The reconciliation pain you are avoiding comes from branches that drift; merge fast and there is nothing to reconcile. Name branches by task (`gap96/metric-toggle`), never by agent.
+- **Commit at the end of each task, not in a big batch.** Uncommitted work is what gets clobbered when another agent touches the tree. A task is not "done" until its work is committed.
+- **Registries are the collision hot-spots** — `docs/tracking/gaps.md`, `docs/tracking/Cleanup_Backlog.md`, `CHANGELOG.md`. Edits to them must be **small, append-only, and committed immediately** (a new CU/Gap goes in and gets committed on its own, before the surrounding task work), so concurrent edits land in different sections and merge trivially. Never leave a half-edited registry uncommitted across other work.
+- **Do not merge to `main` or push without explicit owner approval** (existing rule; restated here because a stale long-lived branch tempts a big catch-up merge). Keep the branch current with small merges instead of one large reconciliation.
+
+---
+
 ## Validation Framework
 
 Every task is assigned a category (A–D). The category determines what the completion report must include. The category is declared at the top of each task prompt.

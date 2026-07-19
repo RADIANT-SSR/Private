@@ -1,6 +1,11 @@
 # Warning-Free Launch & Evaluate — UX Cleanup Campaign
 
-**Status:** Active — kicked off 2026-07-19.
+> **HISTORICAL** — Archived 2026-07-19. Completed by commit `ef8ed24` (merged
+> fast-forward to `main`). Acceptance met: the 36-config sweep emits zero
+> non-deprecation warnings except saturation; full suite green (4413 passed).
+> Follow-up CU-170 tracks the 12 saturating scenario baselines.
+
+**Status:** Complete — kicked off and completed 2026-07-19.
 
 ## Goal (owner bar)
 

@@ -45,6 +45,7 @@ ROOT_ALLOWED = {
     "pyproject.toml",
     "mkdocs.yml",
     ".gitignore",
+    ".gitattributes",
     ".pre-commit-config.yaml",
 }
 

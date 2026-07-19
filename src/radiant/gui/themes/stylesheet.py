@@ -17,7 +17,7 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
-from radiant.gui.themes import tokens
+from radiant.gui.themes import fonts, tokens
 from radiant.gui.themes.tokens import Theme
 
 # The theme most recently installed by :func:`apply_theme`. Widgets that must
@@ -51,7 +51,7 @@ def build_stylesheet(theme: Theme) -> str:
     colours from :mod:`~radiant.gui.themes.tokens`, never inline.
     """
     t = theme
-    return f"""
+    sheet = f"""
 /* ============================================================ *
  * RADIANT GUI — generated QSS ({t.name} theme)                  *
  * Source of every value: radiant.gui.themes.tokens ({t.name})   *
@@ -1174,6 +1174,10 @@ QLabel:disabled {{
     color: {t.muted};
 }}
 """
+    # CU-169: rewrite the IBM Plex font stacks to families Qt actually has, so the
+    # applied QSS never names a missing family (no qt.qpa.fonts alias-population
+    # warning on launch). No-op when the design fonts are installed/bundled.
+    return fonts.resolve_fonts_in(sheet)
 
 
 def _base_palette(theme: Theme) -> QPalette:
@@ -1230,6 +1234,9 @@ def apply_theme(app: QApplication, theme: Theme = tokens.LIGHT) -> None:
     """
     global _ACTIVE_THEME
     _ACTIVE_THEME = theme
+    # CU-103: register any bundled IBM Plex fonts before resolving the stacks, so
+    # the design font is used when shipped (no-op until the .ttf files are added).
+    fonts.register_bundled_fonts()
     base_font = app.font()
     base_font.setPointSize(tokens.FONT_SIZE_BASE_PT)
     app.setFont(base_font)

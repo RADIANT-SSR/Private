@@ -25,7 +25,7 @@ from PySide6.QtGui import QColor, QImage, QPalette
 from PySide6.QtWidgets import QApplication, QLineEdit
 
 from radiant.api.sensor import Sensor
-from radiant.gui.themes import DARK, LIGHT, Theme, apply_theme, build_stylesheet
+from radiant.gui.themes import DARK, LIGHT, Theme, apply_theme, build_stylesheet, fonts, tokens
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 
 # A clean bounded float in the shipped example config — the row the delegate opens
@@ -271,3 +271,44 @@ class TestTokenDiscipline:
             if hits:
                 offenders[str(path)] = hits
         assert not offenders, f"font-family literals outside themes/: {offenders}"
+
+
+class TestFontResolution:
+    """The applied QSS names only installed families, so Qt logs no qt.qpa.fonts
+    warning on launch (CU-169). The design fonts (IBM Plex) are dropped from the
+    stack when they are not installed/bundled; Qt already fell back to the same
+    next family, so the rendered UI is unchanged."""
+
+    def test_resolve_drops_unavailable_keeps_available_and_generic(self) -> None:
+        available = {"Helvetica Neue", "Menlo"}
+        assert fonts.resolve_stack(tokens.FONT_SANS, available) == '"Helvetica Neue", sans-serif'
+        assert fonts.resolve_stack(tokens.FONT_MONO, available) == '"Menlo", monospace'
+
+    def test_resolve_keeps_ibm_plex_when_available(self) -> None:
+        """When the design font IS installed, it stays first (look preserved)."""
+        available = {"IBM Plex Sans", "IBM Plex Mono", "Helvetica Neue", "Menlo"}
+        assert fonts.resolve_stack(tokens.FONT_SANS, available).startswith('"IBM Plex Sans"')
+        assert fonts.resolve_stack(tokens.FONT_MONO, available).startswith('"IBM Plex Mono"')
+
+    def test_resolve_falls_back_to_generic_when_nothing_named_available(self) -> None:
+        assert fonts.resolve_stack(tokens.FONT_SANS, set()) == "sans-serif"
+        assert fonts.resolve_stack(tokens.FONT_MONO, set()) == "monospace"
+
+    def test_no_app_leaves_stack_unchanged(self) -> None:
+        assert fonts.resolve_stack(tokens.FONT_SANS, None) == tokens.FONT_SANS
+
+    def test_applied_stylesheet_does_not_name_missing_family(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """On a host without IBM Plex, the built QSS must not name it (else Qt warns)."""
+        from PySide6.QtGui import QFontDatabase
+
+        installed = set(QFontDatabase.families())
+        sheet = build_stylesheet(LIGHT)
+        for family in ("IBM Plex Sans", "IBM Plex Mono"):
+            if family not in installed:
+                assert family not in sheet, family
+
+    def test_register_bundled_fonts_is_idempotent(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        fonts._registered = False  # reset the once-guard for the test
+        first = fonts.register_bundled_fonts()
+        assert first >= 0  # 0 today (no bundled fonts); registers them if added later
+        assert fonts.register_bundled_fonts() == 0  # idempotent

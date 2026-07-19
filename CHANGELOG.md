@@ -140,6 +140,16 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI: no more `qt.qpa.fonts` warning on launch (CU-169).** The theme's font
+  stacks led with "IBM Plex Sans"/"IBM Plex Mono", which are usually not
+  installed, so Qt logged `Populating font family aliases took … ms. Replace uses
+  of missing font family "IBM Plex Mono" …` (and paid a ~170 ms cost) every
+  launch. The generated stylesheet now names only families Qt actually has —
+  unavailable design fonts are dropped from each stack (Qt was already falling
+  back to the same next family, so the UI look is unchanged) — and a startup hook
+  registers any IBM Plex `.ttf` bundled under `gui/assets/fonts/` (CU-103
+  infrastructure) so the design font is used when shipped. First item of the
+  Warning-Free UX campaign (`docs/plans/Warning_Free_UX_Plan.md`).
 - **Point-source workflow: range fallback + actionable "no intensity" error (Gap 98 A/C).**
   (C) A `point_source` target no longer requires `geometry.target_range_m` to be set
   explicitly — `source.range_m` falls back to the GeometryStage-derived slant range

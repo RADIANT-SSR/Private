@@ -1,0 +1,61 @@
+# Warning-Free Launch & Evaluate — UX Cleanup Campaign
+
+**Status:** Active — kicked off 2026-07-19.
+
+## Goal (owner bar)
+
+*A valid, nominally-operating scenario should launch and evaluate with **zero**
+warnings.* A warning must mean the configuration is wrong or the results are
+untrustworthy (full-well saturation, an unphysical input) — **never** that a
+model applied a documented, legitimate behavior (a clamp, a routing choice, a
+temperature-inert dark rate). Informational conditions are carried as **structured
+status** on the result and rendered **once** by a consumer, not re-emitted as a
+`warnings.warn` / `logger.warning` on every evaluate.
+
+This generalizes the CU-166 principle to the whole chain + the GUI launch.
+
+## Empirical work-list (2026-07-19)
+
+Evaluating the 36 shipped configs (`examples/` + `scenarios/*/*/inputs/*.gui.yaml`)
+surfaced the warnings that actually fire on **valid** scenarios. These are the
+targets — reclassify each as (a) genuinely-actionable warning (keep) or (b)
+informational status (carry on the result, stop warning):
+
+| # | Warning | Fires | Verdict | Fix |
+|---|---|---|---|---|
+| L | GUI launch: `qt.qpa.fonts … missing font family "IBM Plex …"` | every launch | (b) informational | CU-169/CU-103 — register bundled fonts + drop the unavailable lead family so Qt never resolves a missing family. **← first** |
+| A | `SimpleAtmosphere: aerosol extinction is clamped to its 5.0 µm …` | 12 | (b) informational | Ångström clamp is a config property (band outside the fit) — carry as `stage_outputs["atmosphere"]` status, drop the per-evaluate `warnings.warn`. |
+| B | `source._inferrer: extended terrestrial/airborne scene was configured with …` | 11 | (b) informational | routing/config notice — structured status on the source descriptor. |
+| C | `DetectorStage: detector_temperature_K = … differs from dark_reference_temperature_K …, activation_energy = 0 …` | ~20 | (b) informational | CU-081 "temperature knob inert" is a config property — carry as `stage_outputs["detector"]` status; keep the actionable guidance in the field, not a per-evaluate warning. |
+| D | `TargetDescriptor: T1Thermal applied to a spectral band overlapping the …` | 2 | (b) informational | routing notice — structured status. |
+| — | `ReadoutStage: full well / ADC saturated`, `pixel saturated` | several | **(a) KEEP** | saturation clips the signal → results untrustworthy; genuinely actionable (owner-affirmed). Verify shipped scenarios that saturate intend to. |
+
+The full 46-site inventory (`grep warnings.warn|logger.warning` across the stages)
+is audited opportunistically as each area is touched; a site that never fires on a
+valid config stays as-is.
+
+## Pattern
+
+For each (b): add a typed status field to the owning stage's `stage_outputs`
+(a bool + a one-line message, or a small dataclass), remove the `warnings.warn` /
+`logger.warning`, and update the GUI Messages/readout to render it once as a dimmed
+note. Update the affected tests (they assert the warning today) and refresh any
+scenario `expected.json` baseline that captured the warning. CHANGELOG under
+`[Unreleased]`; the retired warning is a public-surface change (Rule 20/29).
+
+## Acceptance
+
+- Re-running the 36-config sweep emits **zero** non-deprecation warnings except
+  genuinely-actionable ones (saturation on scenarios that intend it).
+- GUI launches without the `qt.qpa.fonts` warning.
+- Each converted condition is still discoverable (structured field + GUI note).
+- No golden physics result changes (status is metadata, not a computed value).
+
+## Progress
+
+- [x] L — launch font warning (CU-169 done; CU-103 registration hook landed, .ttf bundling remains)
+- [ ] C — detector dark-reference-temp (CU-081) → status
+- [ ] A — SimpleAtmosphere aerosol clamp → status
+- [ ] B — inferrer extended-scene notice → status
+- [ ] D — T1Thermal band-overlap notice → status
+- [ ] Saturation audit — confirm shipped scenarios that warn intend to

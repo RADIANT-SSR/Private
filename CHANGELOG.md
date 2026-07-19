@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: point-source intensity inputs on the Source instrument (Gap 98 D).**
+  A new "Target — point source" tab exposes the point-intensity inputs
+  (`point_intensity_temperature_K`/`_area_m2`/`_emissivity`, `_band_W_per_sr`),
+  gated ON only for a declared `point_source` scene (schema `regime:point_source`
+  tag); conversely the surface-radiance `source.target.temperature`/`emissivity`
+  rows gate OFF for point-source (a point source is defined by intensity, not
+  radiance × area). Completes Gap 98 (with the A/C engine fixes above).
 - **Point-source intensity convenience inputs (Gap B).** A true point source
   (SDA object, star) is defined by radiant intensity `I(λ)` [W/sr/µm], not
   surface radiance × area. Two new opt-in ways to supply it without a CSV, both

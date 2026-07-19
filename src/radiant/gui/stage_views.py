@@ -300,6 +300,17 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                 ),
             ),
             StageSubView(
+                title="Target — point source",
+                source_inputs=True,
+                source_groups=("point_source",),
+                plots=(
+                    PlotSpec(
+                        "Radiance at aperture (day/night moves the reflected term)",
+                        "spectral_source",
+                    ),
+                ),
+            ),
+            StageSubView(
                 title="Target — reflective",
                 source_inputs=True,
                 source_groups=("reflective",),

@@ -81,9 +81,24 @@ _SCENE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Fill fraction (sub-pixel)", "source.target.fill_fraction"),
 )
 
+# Point-source radiant intensity I(λ) [W/sr] — the point-source-regime input (Gap 98 D).
+# A true point source is defined by intensity, not surface radiance × area; these rows
+# carry the ``regime:point_source`` schema tag so they gate ON only for a point-source
+# scene (and the thermal surface-radiance rows gate OFF — see _THERMAL_FIELDS tags).
+_POINT_INTENSITY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Emitter temperature (blackbody I)", "source.target.point_intensity_temperature_K"),
+    ("Emitting area (blackbody I)", "source.target.point_intensity_area_m2"),
+    ("Emitter emissivity (blackbody I)", "source.target.point_intensity_emissivity"),
+    ("Band-integrated intensity [W/sr]", "source.target.point_intensity_band_W_per_sr"),
+)
+
 # The flat union, in display order — the single manifest tests and hosts iterate.
 _RADIOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    _THERMAL_FIELDS + _REFLECTIVE_FIELDS + _BACKGROUND_FIELDS + _SCENE_FIELDS
+    _THERMAL_FIELDS
+    + _REFLECTIVE_FIELDS
+    + _POINT_INTENSITY_FIELDS
+    + _BACKGROUND_FIELDS
+    + _SCENE_FIELDS
 )
 
 # (heading, fields) in reading order: what the target emits, what it reflects, what
@@ -94,6 +109,7 @@ _GROUPS: Final[tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...]] = (
     ("scene", "Scene type & regime", _SCENE_FIELDS),
     ("thermal", "Thermal (emissive)", _THERMAL_FIELDS),
     ("reflective", "Reflective (solar)", _REFLECTIVE_FIELDS),
+    ("point_source", "Point-source intensity", _POINT_INTENSITY_FIELDS),
     ("background", "Background & contrast reference", _BACKGROUND_FIELDS),
 )
 

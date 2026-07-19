@@ -21,7 +21,7 @@ TARGET_TEMPERATURE = ParameterDef(
     input_unit="K",
     default=300.0,
     bounds=(0.0, 5000.0),
-    tags=frozenset({"thermal", "source", "target"}),
+    tags=frozenset({"thermal", "source", "target", "regime:extended", "regime:sub_pixel"}),
     default_justification=(
         "300 K is Earth ambient — a neutral default for terrestrial thermal "
         "imaging scenarios. User overrides for specific scenes."
@@ -39,7 +39,7 @@ TARGET_EMISSIVITY = ParameterDef(
     input_unit="",
     default=0.95,
     bounds=(0.0, 1.0),
-    tags=frozenset({"thermal", "source", "target"}),
+    tags=frozenset({"thermal", "source", "target", "regime:extended", "regime:sub_pixel"}),
     default_justification=(
         "0.95 is typical for painted / oxidized natural surfaces in the LWIR "
         "and a conservative non-unity default."
@@ -639,7 +639,7 @@ POINT_INTENSITY_TEMPERATURE_K = ParameterDef(
     input_unit="K",
     default=0.0,
     bounds=(0.0, 5000.0),
-    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    tags=frozenset({"source", "target", "point_intensity", "S10", "regime:point_source"}),
     default_justification=(
         "0 K = not set (provenance-detected); the blackbody point-source path is opt-in."
     ),
@@ -657,7 +657,7 @@ POINT_INTENSITY_AREA_M2 = ParameterDef(
     input_unit="m^2",
     default=0.0,
     bounds=(0.0, 1.0e12),
-    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    tags=frozenset({"source", "target", "point_intensity", "S10", "regime:point_source"}),
     default_justification=(
         "0 m² = not set; the emitting area is required only for the blackbody point-source path."
     ),
@@ -675,7 +675,7 @@ POINT_INTENSITY_EMISSIVITY = ParameterDef(
     input_unit="",
     default=1.0,
     bounds=(0.0, 1.0),
-    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    tags=frozenset({"source", "target", "point_intensity", "S10", "regime:point_source"}),
     default_justification=(
         "ε = 1.0 (ideal blackbody) is the neutral default when only T and A are given."
     ),
@@ -698,7 +698,7 @@ POINT_INTENSITY_BAND_W_PER_SR = ParameterDef(
     input_unit="W/sr",
     default=0.0,
     bounds=(0.0, 1.0e12),
-    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    tags=frozenset({"source", "target", "point_intensity", "S10", "regime:point_source"}),
     default_justification=(
         "0 W/sr = not set (provenance-detected); the scalar band-intensity path is opt-in."
     ),

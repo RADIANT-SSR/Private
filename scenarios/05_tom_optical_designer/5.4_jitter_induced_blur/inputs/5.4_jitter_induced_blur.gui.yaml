@@ -1,0 +1,43 @@
+# RADIANT config — written by Sensor.to_yaml()
+_radiant:
+  format: 1
+  wavelength_points: 500
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 5.0
+  detector_temperature_K: 243.0
+  ipc_coupling: 0.005
+  pixel_pitch_x_um: 8.0
+  pixel_pitch_y_um: 8.0
+  qe_value: 0.85
+geometry:
+  path_zenith_rad: 0.0
+  sensor_altitude_m: 500000.0
+  solar_zenith_rad: 0.5235987755982988
+optics:
+  aperture_diameter_m: 0.5
+  focal_length_m: 5.0
+  obscuration_ratio: 0.3
+  optics_temperature_K: 293.15
+  transmission_scalar: 0.7
+  wfe_rms_waves: 0.05
+platform:
+  jitter_rms_urad: 0.0
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 100000.0
+  gain_e_per_dn: 6.5
+  read_noise_e_rms: 5.0
+source:
+  background:
+    emissivity: 0.1
+    temperature: 295.0
+  target:
+    emissivity: 0.15
+    temperature: 300.0
+spectral_integration:
+  filter_max_um: 0.7
+  filter_min_um: 0.45
+  integration_time_s: 0.0005

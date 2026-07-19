@@ -1,0 +1,10 @@
+{
+  "id": "6.1",
+  "title": "Published SNR benchmark \u2014 datasheet sensor",
+  "metrics": {
+    "snr": 2463.4885878035234,
+    "nedt_K": 0.025191484338465693,
+    "niirs": 10.429086860588322
+  },
+  "notes": "Fixed datasheet-benchmark configuration."
+}

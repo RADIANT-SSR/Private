@@ -1,0 +1,10 @@
+{
+  "id": "4.1",
+  "title": "Target detection matrix \u2014 Sensor A (MWIR smallsat)",
+  "metrics": {
+    "snr": 893.7141444623255,
+    "nedt_K": 0.030895655346022545,
+    "niirs": 3.9204458541180975
+  },
+  "notes": "Reuses the committed sensor_a_mwir_smallsat.yaml (this scenario ships YAML)."
+}

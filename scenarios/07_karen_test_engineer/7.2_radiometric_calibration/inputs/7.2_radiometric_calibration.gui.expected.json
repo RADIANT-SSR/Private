@@ -1,0 +1,10 @@
+{
+  "id": "7.2",
+  "title": "Radiometric calibration \u2014 as-built sensor",
+  "metrics": {
+    "snr": 440.28779677887553,
+    "nedt_K": 0.06334700556066289,
+    "niirs": 21.870094793187356
+  },
+  "notes": "Runner's module-level as-built sensor; the sweep varies blackbody T."
+}

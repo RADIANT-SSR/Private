@@ -1,0 +1,10 @@
+{
+  "id": "5.5",
+  "title": "Stray light \u2014 clean (no veiling glare) baseline",
+  "metrics": {
+    "snr": 546.7204409777512,
+    "nedt_K": 0.007225181581761992,
+    "niirs": 11.052477432475984
+  },
+  "notes": "Rooftop target reflectance, zero veiling-glare (clean reference)."
+}

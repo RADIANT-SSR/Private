@@ -1,0 +1,10 @@
+{
+  "id": "5.3",
+  "title": "Chromatic PSF \u2014 monochromatic baseline (single wavelength)",
+  "metrics": {
+    "snr": 706.8774130244773,
+    "nedt_K": 0.04224597863939464,
+    "niirs": 4.754429986720446
+  },
+  "notes": "Single-wavelength (mono) PSF baseline; poly variant raises psf_n_wavelengths."
+}

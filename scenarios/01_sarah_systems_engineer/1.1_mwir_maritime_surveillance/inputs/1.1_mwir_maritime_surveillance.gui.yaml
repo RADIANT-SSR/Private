@@ -1,0 +1,42 @@
+# RADIANT config — written by Sensor.to_yaml()
+_radiant:
+  format: 1
+  wavelength_points: 500
+atmosphere:
+  aerosol_type: maritime
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 50000.0
+  detector_temperature_K: 77.0
+  pixel_pitch_x_um: 15.0
+  pixel_pitch_y_um: 15.0
+  qe_value: 0.7734760469011726
+geometry:
+  path_zenith_rad: 0.3490658503988659
+  sensor_altitude_m: 500000.0
+  target:
+    projected_area_m2: 240.0
+  target_range_m: 532088.886237956
+optics:
+  aperture_diameter_m: 0.3
+  focal_length_m: 0.75
+  transmission_scalar: 0.85
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 8000000.0
+  gain_e_per_dn: 500.0
+  read_noise_e_rms: 30.0
+source:
+  background:
+    material: water_calm
+    temperature: 288.0
+  regime_override: sub_pixel
+  scene_type: sub_pixel
+  target:
+    emissivity_path: /Users/jforsyth/SSR_Tool/data/emissivity/steel.csv
+    temperature: 288.0
+spectral_integration:
+  filter_max_um: 5.0
+  filter_min_um: 3.5
+  integration_time_s: 0.005

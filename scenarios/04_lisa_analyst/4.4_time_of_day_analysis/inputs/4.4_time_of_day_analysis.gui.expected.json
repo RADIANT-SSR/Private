@@ -1,0 +1,10 @@
+{
+  "id": "4.4",
+  "title": "Time-of-day analysis \u2014 300 K, emissivity 0.9 pixel",
+  "metrics": {
+    "snr": 1586.0726270828577,
+    "nedt_K": 0.03922303309039925,
+    "niirs": 10.774922026968987
+  },
+  "notes": "Nominal 300 K surface, emissivity 0.9."
+}

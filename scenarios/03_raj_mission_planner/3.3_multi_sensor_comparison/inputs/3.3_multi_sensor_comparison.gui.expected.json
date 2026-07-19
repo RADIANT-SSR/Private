@@ -1,0 +1,10 @@
+{
+  "id": "3.3",
+  "title": "Multi-sensor comparison \u2014 Vendor A baseline",
+  "metrics": {
+    "snr": 1035.4145252915391,
+    "nedt_K": 0.026521245373053934,
+    "niirs": 4.750043739923193
+  },
+  "notes": "Vendor A of the three-vendor comparison (transcribes evaluate_vendor)."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "5.2",
+  "title": "Pixel-pitch sweep \u2014 mid pixel-pitch baseline",
+  "metrics": {
+    "snr": 706.8774130244773,
+    "nedt_K": 0.04224597863939464,
+    "niirs": 4.754429986720446
+  },
+  "notes": "Middle pixel-pitch row of the sweep (transcribes the loop body)."
+}

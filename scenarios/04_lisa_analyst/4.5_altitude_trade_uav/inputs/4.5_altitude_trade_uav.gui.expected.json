@@ -1,0 +1,10 @@
+{
+  "id": "4.5",
+  "title": "UAV altitude trade \u2014 2000 m reference altitude",
+  "metrics": {
+    "snr": 3105.8777160565696,
+    "nedt_K": 0.021361759294822293,
+    "niirs": 8.903081702945318
+  },
+  "notes": "Runner's reference altitude (2 km)."
+}

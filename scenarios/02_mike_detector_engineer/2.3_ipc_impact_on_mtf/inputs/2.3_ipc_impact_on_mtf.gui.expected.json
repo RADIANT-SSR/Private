@@ -1,0 +1,10 @@
+{
+  "id": "2.3",
+  "title": "IPC impact on MTF \u2014 2% IPC baseline",
+  "metrics": {
+    "snr": 710.5807237526384,
+    "nedt_K": 0.04189560188174978,
+    "niirs": 4.7141682235077305
+  },
+  "notes": "Nominal 2% inter-pixel capacitance fraction."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "3.5",
+  "title": "Nighttime MWIR feasibility \u2014 MWIR thermal-emission pixel",
+  "metrics": {
+    "snr": 308.4005435930497,
+    "nedt_K": 0.08829194683208949,
+    "niirs": 11.088650686276821
+  },
+  "notes": "MWIR band, nominal target/background thermal temperatures."
+}

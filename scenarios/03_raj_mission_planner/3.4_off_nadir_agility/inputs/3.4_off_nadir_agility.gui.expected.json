@@ -1,0 +1,10 @@
+{
+  "id": "3.4",
+  "title": "Off-nadir agility \u2014 nadir baseline config",
+  "metrics": {
+    "snr": 118.30295969371988,
+    "nedt_K": 0.032543429850079936,
+    "niirs": 5.810439351874457
+  },
+  "notes": "Runner's module-level base_config (nadir); the sweep varies path zenith."
+}

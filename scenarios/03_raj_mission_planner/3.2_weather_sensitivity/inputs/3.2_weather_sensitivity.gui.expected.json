@@ -1,0 +1,10 @@
+{
+  "id": "3.2",
+  "title": "Weather sensitivity \u2014 baseline clear atmosphere",
+  "metrics": {
+    "snr": 432.33421530706937,
+    "nedt_K": 0.06477472239351557,
+    "niirs": 4.388820939311045
+  },
+  "notes": "Runner's baseline visibility and precipitable-water values."
+}

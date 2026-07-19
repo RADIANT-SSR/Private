@@ -1,0 +1,10 @@
+{
+  "id": "2.1",
+  "title": "Detector shootout \u2014 InSb baseline",
+  "metrics": {
+    "snr": 1023.4192080064854,
+    "nedt_K": 0.02746157725645759,
+    "niirs": 20.004341697427122
+  },
+  "notes": "InSb option; the HgCdTe variant is the other build_config branch."
+}

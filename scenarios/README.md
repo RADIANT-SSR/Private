@@ -43,6 +43,36 @@ mirrored to `docs/tracking/gaps.md` (the tracking registry) to be actionable.
 `walkthrough.md` are committed with a manifest line; `*_results.xlsx`
 workbooks are regenerate-on-demand and gitignored.
 
+## GUI exercise layer
+
+The scenarios above validated the **backend**. To exercise the **GUI** with the
+same cases, each chain-based scenario also ships a GUI-openable baseline:
+
+```
+N.M_scenario_slug/
+  inputs/
+    <slug>.gui.yaml            # GUI-openable baseline, derived from the runner
+    <slug>.gui.expected.json   # headline-metric snapshot (verify gate re-checks)
+  scripts/
+    gui_console_<slug>.py       # scripting-window script (metrics, sweep, mutate)
+```
+
+These are **generated**, not hand-written — `scenarios/tools/` imports each
+runner's validated config factory and serialises `Sensor.to_yaml()`. Regenerate
+and verify with:
+
+```bash
+python scenarios/tools/emit_gui_yaml.py        # baselines + snapshots
+python scenarios/tools/gen_gui_console.py      # console scripts
+python scenarios/tools/verify_gui_yaml.py      # API gate: reload + reproduce
+QT_QPA_PLATFORM=offscreen python scenarios/tools/verify_gui_open.py  # real-GUI gate
+```
+
+The campaign driver — how to walk each scenario through the GUI and what each one
+stresses — is `scenarios/GUI_EXERCISE_INDEX.md`. Three scenarios (2.4, 4.2, 6.5)
+are analytic sub-module demos with no sensor-chain config, so they have no
+`.gui.yaml`; the index notes how to exercise them from the scripting window.
+
 ## Status
 
 **All 35 persona scenarios plus both interpolation demonstrations are

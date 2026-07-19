@@ -1,0 +1,11 @@
+{
+  "id": "7.3",
+  "title": "MTF measurement vs prediction \u2014 nominal config",
+  "metrics": {
+    "mtf_at_nyquist": 0.40671134534687003,
+    "rer": 0.6772899103949446,
+    "strehl": 0.8206205701469694,
+    "fwhm_x_m": 1.0177959342220412e-05
+  },
+  "notes": "MTF bench (VNIR, thermal source) \u2014 SNR is ~0 by design; MTF is the metric."
+}

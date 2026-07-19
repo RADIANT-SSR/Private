@@ -1,0 +1,36 @@
+# RADIANT config — written by Sensor.to_yaml()
+_radiant:
+  format: 1
+  wavelength_points: 500
+atmosphere:
+  model: exo
+detector:
+  dark_rate_e_per_s: 100.0
+  detector_temperature_K: 77.0
+  ipc_coupling: 0.01
+  pixel_pitch_x_um: 15.0
+  pixel_pitch_y_um: 15.0
+  qe_value: 0.72
+geometry:
+  sensor_altitude_m: 1.0
+optics:
+  aperture_diameter_m: 0.2
+  focal_length_m: 0.4
+  optics_temperature_K: 293.15
+  transmission_scalar: 0.8
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 2000000.0
+  gain_e_per_dn: 130.0
+  read_noise_e_rms: 20.0
+source:
+  background:
+    emissivity: 1.0
+    temperature: 280.0
+  target:
+    emissivity: 1.0
+    temperature: 300.0
+spectral_integration:
+  filter_max_um: 5.0
+  filter_min_um: 3.5
+  integration_time_s: 0.001

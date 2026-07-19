@@ -234,6 +234,24 @@ class TestOutputsReadout:
         assert readout.value_text("smear_width_m").endswith("m")
         assert "effective_psf" not in keys  # structured object, not a scalar
 
+    def test_non_finite_scalar_renders_sentinel_without_unit(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """CU-135: an unbounded (extended) angular extent shows ∞, not 'inf rad'."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("source", {"angular_extent_rad": float("inf")})
+        assert readout.value_text("angular_extent_rad") == "∞"
+
+    def test_none_descriptor_key_is_skipped_not_shown_as_dash(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """CU-135: an absent (None) background descriptor is skipped, not a bare '—' row."""
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs(
+            "source", {"background": None, "regime_tentative": "extended"}
+        )
+        keys = readout.rendered_keys()
+        assert "background" not in keys
+        assert "regime_tentative" in keys
+
     def test_optics_dimensional_outputs_carry_their_unit(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
         """Regression: Optics A_collect → m², Omega_pixel → sr (owner R-UNITS bug).
 

@@ -81,6 +81,12 @@ def _humanize(key: str) -> str:
     return label.replace("_", " ").strip().capitalize() or key
 
 
+# Descriptor-typed stage outputs that are ``None`` when absent (a *present* one is a
+# structured object and is skipped as non-scalar). Rendering the absent case as a bare
+# "— " row reads backwards, so these are skipped when None (CU-135).
+_NULLABLE_DESCRIPTOR_KEYS = frozenset({"background", "target", "los_geometry"})
+
+
 def _is_scalar(value: Any) -> bool:
     """True for the primitive scalars the readout renders (numbers, strings, enums, None).
 
@@ -90,6 +96,23 @@ def _is_scalar(value: Any) -> bool:
     structured objects are not scalars; they surface as plots, not readout rows.
     """
     return value is None or isinstance(value, (bool, int, float, str, Enum))
+
+
+def _format_scalar(display: Any, unit: str) -> str:
+    """Format a scalar for a readout row, rendering non-finite floats as sentinels.
+
+    A non-finite value (``inf`` for an unbounded/extended angular extent, ``nan``
+    for undefined) has no meaningful unit, so it shows a bare glyph rather than
+    "inf rad" (CU-135). Booleans are ``bool`` subclasses of ``int`` but always
+    finite, so they take the normal path.
+    """
+    if isinstance(display, float) and not math.isfinite(display):
+        if display == math.inf:
+            return "∞"  # ∞ — unbounded (e.g. extended-target angular extent)
+        if display == -math.inf:
+            return "−∞"  # −∞
+        return "n/a"  # nan
+    return format_value(display, unit)
 
 
 class OutputsReadout(QWidget):
@@ -139,12 +162,17 @@ class OutputsReadout(QWidget):
         for key, value in outputs.items():
             if not _is_scalar(value):
                 continue
+            # A descriptor key that is None means "absent" — skip it rather than
+            # render a backwards "— " row (a present descriptor is non-scalar and
+            # already skipped above) (CU-135).
+            if value is None and key in _NULLABLE_DESCRIPTOR_KEYS:
+                continue
             # An enum (e.g. regime_tentative) renders by its value string ("extended"),
             # never its ``RadiometricRegime.EXTENDED`` repr.
             display = value.value if isinstance(value, Enum) else value
             unit = stage_output_unit(stage, key)
             label = _humanize(key)
-            self._add_row(row, key, label, format_value(display, unit))
+            self._add_row(row, key, label, _format_scalar(display, unit))
             self._add_pin(
                 row, lambda k=key, la=label, u=unit: self.pinOutputRequested.emit(stage, k, la, u)
             )

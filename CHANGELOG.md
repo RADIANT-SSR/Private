@@ -140,6 +140,10 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI Source Outputs readout: `inf`/`None` render cleanly (CU-135).** An
+  extended-target angular extent shows `∞` instead of `inf rad`, and an absent
+  (`None`) background descriptor is skipped rather than shown as a backwards `— ` row.
+  Display-only.
 - **`inspect_result` summarises nested NumPy arrays (CU-113).** Arrays reached only
   via a stage-output object's own `repr` (tuples, dataclasses) are now collapsed to
   NumPy's summarized `[a, b, … y, z]` form instead of dumping hundreds of

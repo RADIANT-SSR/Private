@@ -77,15 +77,6 @@
 **Why it still matters**: UX-grouping hygiene only — **no schema change** and no physics impact (the sensor path stays `spectral_integration.integration_time_s`, one `sensor.set` per edit). The arch note explicitly permits this deferral (GUI grouping need not mirror the schema namespace).
 **Suggested fix**: (b) stand-alone task — when an operator-facing acquisition grouping is designed (a cross-stage "Acquisition" card/tab pulling `integration_time_s` + TDI/binning timing knobs), move the presentation there and drop the per-stage heading. Effort M; category D. Re-audit when the acquisition grouping is specced or when a second acquisition-timing knob is added to the GUI.
 
-### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
-
-**Discovered**: GUI Development Plan Phase PS-1 (Source stage instrument), 2026-07-14, branch `gui-framework-plots`
-**Status**: Open — cosmetic, non-blocking. Both are honest (nothing is hidden or wrong), just noisy. The values are read verbatim from `stage_outputs["source"]`; the readout invents nothing.
-**File**: `src/radiant/gui/widgets/outputs_readout.py` (`OutputsReadout.show_stage_outputs`); source values from `src/radiant/source/stage.py` (`angular_extent_rad`, `background`).
-**Symptom**: On the Source stage Outputs readout, (a) an **extended / fills-pixel** target shows `Angular extent  inf rad` — `SourceStage` classifies an unbounded-extent (extended) target with `angular_extent_rad = inf`, which the readout displays literally as "inf rad"; and (b) when **no background descriptor** is present, `stage_outputs["source"]["background"]` is `None`, which passes the scalar filter and renders a `Background  —` row, whereas a *present* background is a descriptor object and is (correctly) skipped — so the row appears only in the absent case, which reads backwards.
-**Why it still matters**: R-UNITS/readability polish — "inf rad" and a phantom "Background —" row are confusing to an operator scanning the Source classification outputs. No correctness or physics impact (the regime label already conveys "extended").
-**Suggested fix**: (a) inline-fix-now candidate at the next `outputs_readout` touch — in `show_stage_outputs`, render a non-finite float as a themed sentinel (e.g. "∞ (extended)" or "—") and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) rather than showing it as "—". Alternatively curate an explicit per-stage display key-list. Effort S; category D (view-only). Re-audit at GUI Phase 9 polish.
-
 ### CU-126 — Arc value-label unit `"rad"` is hardcoded in the viewer, not sourced from the output key
 
 **Discovered**: GUI Development Plan Phase 7 Part B (3D viewer interactions), 2026-07-13 (commit on branch `gui-phase1-task-a`; ADR-0007)
@@ -342,6 +333,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
+
+**Discovered**: GUI Development Plan Phase PS-1, 2026-07-14.
+**Status**: RESOLVED 2026-07-19, commit `<pending135>`. **Resolution**: added `_format_scalar` — a non-finite float renders as a bare sentinel (`∞` / `−∞` / `n/a`) without the meaningless unit — and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) so the absent case no longer renders a backwards `— ` row (a present descriptor is non-scalar and already skipped). Two regression tests. Display-only; no physics/results change. Wave 3 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/gui/widgets/outputs_readout.py`, `src/radiant/gui/tests/test_stage_center.py`.
 
 ### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
 

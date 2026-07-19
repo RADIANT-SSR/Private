@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-167 — Three GUI Messages/health tests assert a warning the example no longer emits (stale after CU-166)
-
-**Discovered**: Gap 96 implementation, 2026-07-18 (branch `gap96/metric-toggle`) — full GUI-suite run.
-**Status**: Open — pre-existing on the base branch `fix/cu-147-148-descriptor` (verified by stashing the Gap-96 changes: these three fail identically without them). Not caused by Gap 96; surfaced by it.
-**File**: `src/radiant/gui/tests/test_right_rail.py::TestMessages::test_warnings_listed_on_a_warning_run`, `src/radiant/gui/tests/test_evaluate_loop.py::TestMessagesPanel::test_chain_warnings_appear_in_messages`, `src/radiant/gui/tests/test_stage_navigation.py::TestHealthDotTransitions::test_warning_run_marks_all_yellow`.
-**Symptom**: each asserts `messages.warning_count >= 1` (or an all-yellow health strip) after evaluating `examples/mwir_leo_minimal.yaml`, on the premise (in the test comment) that "the example's SNR is out of GIQE range → a NIIRS extrapolation warning". CU-166 (`9ae5daa`) deliberately removed that per-evaluate warning (out-of-calibration NIIRS is now structured status only), so the example evaluates warning-free and the assertions fail with `assert 0 >= 1`.
-**Why it still matters**: the tests encode the *opposite* of CU-166's owner-ratified acceptance bar ("a valid, nominally-operating scenario evaluates with zero warnings"). Left as-is they are red in CI and train contributors to expect a warning that is intentionally gone. This is exactly the lock-step-test debt CU-166's warning removal should have carried.
-**Suggested fix**: (a) inline-fix-now — rework the three tests to drive a genuinely warning-*worthy* config (e.g. a saturated full-well run, or the scan-feasibility dwell violation) instead of the (now-clean) NIIRS example, so they still exercise the Messages/health-dot warning path against an *actionable* warning. Effort S; category A. Re-audit as part of CU-166's remaining warning-site audit (approach 4).
-
 ### CU-166 — Out-of-calibration NIIRS is re-announced every evaluate via two warning channels instead of being a once-read result status; no metric-applicability gate
 
 **Discovered**: GUI-exercise campaign, 2026-07-18 — a scenario sweep in the scripting console floods with `GSD = 430 inch … outside the GIQE-5 calibration range` / `SNR = 526 … outside the GIQE-5 calibration range` on every evaluate.
@@ -450,6 +441,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-167 — Three GUI Messages/health tests assert a warning the example no longer emits (stale after CU-166) — RESOLVED 2026-07-18 (commit `fa3d8b2`)
+
+**Discovered**: Gap 96 implementation, 2026-07-18 (branch `gap96/metric-toggle`) — full GUI-suite run. Pre-existing on the base branch `fix/cu-147-148-descriptor` (verified by stashing the Gap-96 changes: these three failed identically without them); surfaced by Gap 96, not caused by it.
+**Status**: RESOLVED 2026-07-18, commit `fa3d8b2`. **Resolution**: retargeted the three tests at a genuinely *actionable* warning — a hard full-well clip (`readout.full_well_capacity_e = 100000`) re-evaluated — instead of the (now warning-free) NIIRS example, so they still exercise the Messages panel / health-dot warning path against a warning that *should* fire, matching CU-166's zero-warnings-for-valid-scenarios bar. All 32 tests across the three files pass.
+**File (was)**: `test_right_rail.py::TestMessages::test_warnings_listed_on_a_warning_run`, `test_evaluate_loop.py::TestMessagesPanel::test_chain_warnings_appear_in_messages`, `test_stage_navigation.py::TestHealthDotTransitions::test_warning_run_marks_all_yellow`.
+**Symptom (was)**: each asserted `messages.warning_count >= 1` (or an all-yellow health strip) after evaluating `examples/mwir_leo_minimal.yaml`, on the premise that its out-of-GIQE-range SNR emits a NIIRS extrapolation warning. CU-166 (`9ae5daa`) removed that per-evaluate warning (structured status now), so the example evaluates warning-free and the assertions failed `assert 0 >= 1`.
+**Why it mattered**: the tests encoded the opposite of CU-166's owner-ratified acceptance bar; left red they train contributors to expect a warning that is intentionally gone — the lock-step-test debt CU-166's warning removal should have carried.
 
 ### CU-162 — Committed tree fails the CLAUDE.md lint gate: `ruff check src/` (9 × E501) and `ruff format --check` (17 files) on HEAD — RESOLVED 2026-07-18 (commit `3570b07`)
 

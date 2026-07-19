@@ -89,6 +89,20 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **Results-affecting: sub-pixel signal now derives `fill_fraction` from the target
+  projected area (Gap 97).** In the `sub_pixel` regime the target's share of the
+  pixel was taken from `source.target.fill_fraction` (default 1.0) and never from
+  `geometry.target.projected_area_m2` — so a specified target area was silently
+  ignored and the chain computed an extended-scene signal regardless of target
+  size. `SourceStage` now derives `fill_fraction = A_proj / (Ω_pixel · range²)`
+  (clamped to 1.0 on overfill) whenever a projected area is given and no explicit
+  `fill_fraction` is set; an explicit `fill_fraction` is still honored. **Direction/
+  magnitude:** only affects sub-pixel targets specified by area without an explicit
+  fill fraction; for genuinely sub-pixel targets it *reduces* the target signal /
+  contrast by the fill factor (e.g. a 24 m² target at 532 km, 15 µm/0.75 m optics:
+  `contrast_snr` −84 → −17, a ~4.8× correction). Shipped scenarios are unchanged
+  (1.1 maritime overfills → clamps to 1.0; 1.3 sets `fill_fraction` explicitly);
+  no golden moved. New module `radiant.source.fill_fraction`.
 - **GUI: the geometry schematic's "unavailable" guard panel now recovers (CU-163).**
   A build failure during `show_result` still surfaces the actionable panel, but a
   later evaluate that builds cleanly rebuilds the canvas and re-enters schematic

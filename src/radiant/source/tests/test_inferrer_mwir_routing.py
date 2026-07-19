@@ -192,16 +192,22 @@ class TestA4MwirWarningSurfaces:
             f"(T3 is the matrix-recommended descriptor); got {mwir_msgs!r}"
         )
 
-    def test_mwir_hot_target_emits_exactly_one_mwir_warning(self) -> None:
+    def test_mwir_hot_target_notes_exactly_one_mwir_advisory(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """is_hot_target=True surfaces the matrix-§3.2 advisory as a debug log note,
+        not a per-evaluate UserWarning (warning-free-UX campaign)."""
+        import logging
+
         params, wl = _mwir_params(is_hot_target=True)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            _build(params, wl)
-        mwir_msgs = _mwir_user_warnings(caught)
-        assert len(mwir_msgs) == 1, (
-            f"is_hot_target=True opt-in must surface the matrix-§3.2 advisory "
-            f"warning (Rule 17); got {len(mwir_msgs)} warning(s): {mwir_msgs!r}"
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)  # must NOT warn
+            with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
+                _build(params, wl)
+        mwir_msgs = [
+            r.message
+            for r in caplog.records
+            if "spectral band overlapping the MWIR" in r.message
+        ]
+        assert len(mwir_msgs) == 1, mwir_msgs
         assert "T3Mixed" in mwir_msgs[0]
 
 

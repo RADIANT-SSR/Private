@@ -39,6 +39,7 @@ Notes
 
 from __future__ import annotations
 
+import logging
 import warnings
 from dataclasses import dataclass
 from typing import ClassVar, Literal
@@ -46,6 +47,8 @@ from typing import ClassVar, Literal
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.reflectance import ReflectanceDescriptor, ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Types
@@ -285,7 +288,10 @@ def _warn_mwir_non_mixed(
         )
         if extra:
             msg = f"{msg} {extra}"
-        warnings.warn(msg, UserWarning, stacklevel=3)
+        # Warning-free-UX campaign: a variant/band routing caveat (matrix §3.2) is a
+        # property of the config, not a per-evaluate event, and the descriptor variant
+        # is already surfaced on the result — log at debug, not a UserWarning.
+        logger.debug(msg)
 
 
 # SWIR hot-target threshold per matrix §3.2 line 318.

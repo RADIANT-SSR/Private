@@ -54,6 +54,7 @@ pipeline running while we wire up the real background path.
 
 from __future__ import annotations
 
+import logging
 import math
 import warnings
 from typing import Any
@@ -111,6 +112,8 @@ from radiant.source.converters.user_radiance import (
 from radiant.source.resolvers.shape_factory import build_shape
 from radiant.source.shape import TargetShape
 from radiant.source.tabulated import TabulatedRadianceSource
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants / helpers
@@ -2043,20 +2046,19 @@ def _build_background_descriptor(
                 fields.append(f"source.background.temperature = {bg_t_rv.value} K")
             if e_user_set:
                 fields.append(f"source.background.emissivity = {bg_e_rv.value}")
-            warnings.warn(
-                (
-                    "source._inferrer: extended terrestrial/airborne scene "
-                    "was configured with user-set "
-                    f"{', '.join(fields)}.  Per ADR-0002 Decision #15, "
-                    "source.background.* parameters are adjacent-scene only "
-                    "(sub_pixel / point_source).  For extended scenes the "
-                    "background photon term is computed from the atmospheric "
-                    "downwelling / ground reflectance physics and these "
-                    "values are ignored.  Remove them from the scenario to "
-                    "silence this warning."
-                ),
-                UserWarning,
-                stacklevel=3,
+            # Warning-free-UX campaign: "these background.* params are ignored for
+            # an extended scene" is a property of the config (Decision #15), not a
+            # per-evaluate event — and the operative regime is already surfaced as
+            # stage_outputs["source"]["regime_tentative"]. Log at debug rather than a
+            # UserWarning on every evaluate.
+            logger.debug(
+                "source._inferrer: extended terrestrial/airborne scene was configured "
+                "with user-set %s. Per ADR-0002 Decision #15, source.background.* are "
+                "adjacent-scene only (sub_pixel / point_source); for extended scenes the "
+                "background photon term is computed from the atmospheric downwelling / "
+                "ground reflectance physics and these values are ignored. Remove them "
+                "from the scenario to silence this note.",
+                ", ".join(fields),
             )
         return None
 

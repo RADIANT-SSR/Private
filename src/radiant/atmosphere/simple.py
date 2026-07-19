@@ -72,8 +72,8 @@ for narrow-band line absorption. Users with those needs run MODTRAN.
 
 from __future__ import annotations
 
+import logging
 import math
-import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -93,6 +93,8 @@ from radiant.core.solar import (
     toa_solar_spectral_irradiance,
 )
 from radiant.core.spectral import SpectralData
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Model constants
@@ -384,15 +386,17 @@ class SimpleAtmosphere:
         lam_eff = np.minimum(wavelength_um, AEROSOL_CLAMP_WAVELENGTH_UM)
         scaled = sigma_550 * (lam_eff / AEROSOL_REFERENCE_WAVELENGTH_UM) ** (-alpha)
         if np.any(wavelength_um > AEROSOL_CLAMP_WAVELENGTH_UM):
-            warnings.warn(
-                "SimpleAtmosphere: aerosol extinction is clamped to its "
-                f"{AEROSOL_CLAMP_WAVELENGTH_UM:.1f} µm (MWIR-LWIR boundary) value "
-                "for longer wavelengths — the Ångström power law is unreliable in "
-                "MWIR and wrong in LWIR (CU-088). Aerosol sensitivity to "
-                "visibility_km in those bands is approximate; use a MODTRAN or "
-                "tabulated aerosol model for quantitative MWIR/LWIR aerosol work.",
-                UserWarning,
-                stacklevel=2,
+            # Warning-free-UX campaign: the Ångström clamp beyond 5 µm is a
+            # documented property of choosing SimpleAtmosphere for an MWIR/LWIR
+            # grid (CU-088), not a per-evaluate event — log at debug (quiet by
+            # default, discoverable) instead of a UserWarning on every evaluate.
+            logger.debug(
+                "SimpleAtmosphere: aerosol extinction is clamped to its %.1f µm "
+                "(MWIR-LWIR boundary) value for longer wavelengths — the Ångström "
+                "power law is unreliable in MWIR and wrong in LWIR (CU-088). Aerosol "
+                "sensitivity to visibility_km in those bands is approximate; use a "
+                "MODTRAN or tabulated aerosol model for quantitative MWIR/LWIR work.",
+                AEROSOL_CLAMP_WAVELENGTH_UM,
             )
         height_factor = math.exp(-mean_altitude_m / H_AER_M)
         return np.asarray(scaled * height_factor, dtype=np.float64)

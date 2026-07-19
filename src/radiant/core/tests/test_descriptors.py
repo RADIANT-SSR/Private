@@ -507,9 +507,12 @@ def test_no_warn_ground_background_T_g_in_range() -> None:
 
 
 @pytest.mark.level0
-def test_warn_mwir_t1_pure_thermal() -> None:
-    """T1 applied to an MWIR band emits a matrix §3.2 reclassification warning."""
-    with pytest.warns(UserWarning, match="MWIR"):
+def test_warn_mwir_t1_pure_thermal(caplog) -> None:  # type: ignore[no-untyped-def]
+    """T1 applied to an MWIR band logs a matrix §3.2 reclassification note at debug
+    (warning-free-UX campaign — not a per-evaluate UserWarning)."""
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
         T1Thermal(
             scene_type="extended",
             target_location="terrestrial",
@@ -517,17 +520,21 @@ def test_warn_mwir_t1_pure_thermal() -> None:
             epsilon=eps_mwir(),
             T_t=300.0,
         )
+    assert any("MWIR" in r.message for r in caplog.records)
 
 
 @pytest.mark.level0
-def test_warn_mwir_t2_pure_reflective() -> None:
-    with pytest.warns(UserWarning, match="MWIR"):
+def test_warn_mwir_t2_pure_reflective(caplog) -> None:  # type: ignore[no-untyped-def]
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
         T2Reflective(
             scene_type="extended",
             target_location="terrestrial",
             h_tgt=0.0,
             rho=rho_mwir(),
         )
+    assert any("MWIR" in r.message for r in caplog.records)
 
 
 @pytest.mark.level0

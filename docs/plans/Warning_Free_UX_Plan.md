@@ -54,8 +54,21 @@ scenario `expected.json` baseline that captured the warning. CHANGELOG under
 ## Progress
 
 - [x] L — launch font warning (CU-169 done; CU-103 registration hook landed, .ttf bundling remains)
-- [ ] C — detector dark-reference-temp (CU-081) → status
-- [ ] A — SimpleAtmosphere aerosol clamp → status
-- [ ] B — inferrer extended-scene notice → status
-- [ ] D — T1Thermal band-overlap notice → status
-- [ ] Saturation audit — confirm shipped scenarios that warn intend to
+- [x] C — detector dark-reference-temp (CU-081) → structured status note on `stage_outputs["detector"]`
+- [x] A — SimpleAtmosphere aerosol clamp → `logger.debug` (model-method; clamp is documented CU-088 behavior)
+- [x] B — inferrer extended-scene notice → `logger.debug` (regime already surfaced as `regime_tentative`)
+- [x] D — MWIR non-mixed advisory → `logger.debug` (descriptor variant already surfaced)
+- [x] Saturation audit — the only warnings left on the 36-config sweep are saturation (full-well/ADC/pixel), the genuinely-actionable kind (owner-affirmed KEEP). Confirmed via the acceptance sweep.
+
+**Acceptance met (2026-07-19):** the 36-config sweep emits **zero** non-deprecation
+warnings except saturation (which is genuinely actionable). The reclassified
+conditions stay discoverable — C as a stage-output status note (Outputs readout /
+inspect), A/B/D as debug logs. No golden physics result changed.
+
+> **Note on A/B/D representation:** these three are model-/inferrer-level notices
+> whose operative fact is already surfaced on the result (the atmosphere model
+> name, the source `regime_tentative`, the descriptor variant), so they became
+> quiet-by-default `logger.debug` messages rather than new stage-output fields —
+> a proportionate reading of "structured status" (not a per-evaluate warning;
+> discoverable). C, the one that changes physics interpretation ("your temperature
+> knob is inert"), got a first-class stage-output status note.

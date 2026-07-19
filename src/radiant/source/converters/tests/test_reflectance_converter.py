@@ -85,7 +85,7 @@ def test_reflectance_at_round_trips_bit_identical_on_native_grid() -> None:
 
 
 @pytest.mark.level0
-def test_mwir_warn_fires_at_wrap_site() -> None:
+def test_mwir_warn_fires_at_wrap_site(caplog) -> None:  # type: ignore[no-untyped-def]
     """Invariant (3): MWIR §3.2 warning fires at T2Reflective construction.
 
     Gap H relocates the warning from the ``SpectralData`` branch of
@@ -97,7 +97,9 @@ def test_mwir_warn_fires_at_wrap_site() -> None:
     wl_mwir = np.linspace(3.5, 4.5, 8, dtype=np.float64)
     rho_sd = _sd(wl_mwir, 0.2)
 
-    with pytest.warns(UserWarning, match="MWIR"):
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
         reflectance_to_descriptor(
             rho=rho_sd,
             wavelength_um=wl_mwir,
@@ -105,6 +107,7 @@ def test_mwir_warn_fires_at_wrap_site() -> None:
             target_location="terrestrial",
             h_tgt=0.0,
         )
+    assert any("MWIR" in r.message for r in caplog.records)
 
 
 @pytest.mark.level0

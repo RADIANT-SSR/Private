@@ -961,10 +961,18 @@ class TestAerosolLwirClamp:
         assert mwir[0] > mwir[-1]
 
     @pytest.mark.level0
-    def test_warns_when_clamp_engages(self) -> None:
+    def test_notes_clamp_at_debug_not_warning(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """The Ångström clamp beyond 5 µm is logged at debug (warning-free-UX), not a
+        UserWarning — a valid MWIR/LWIR SimpleAtmosphere scenario stays quiet."""
+        import logging
+        import warnings
+
         atm = SimpleAtmosphere(visibility_km=10.0, aerosol_type="rural")
-        with pytest.warns(UserWarning, match="aerosol extinction is clamped"):
-            atm._aerosol_extinction_km(np.linspace(8.0, 13.0, 10), 0.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)  # must NOT warn
+            with caplog.at_level(logging.DEBUG, logger="radiant.atmosphere.simple"):
+                atm._aerosol_extinction_km(np.linspace(8.0, 13.0, 10), 0.0)
+        assert any("aerosol extinction is clamped" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------

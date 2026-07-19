@@ -140,6 +140,19 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **Warning-free evaluate: four informational chain warnings reclassified (owner
+  bar — a valid scenario evaluates warning-free).** These fired a `UserWarning`
+  on every evaluate for a *documented, legitimate* behavior, so they polluted the
+  GUI Messages panel and console on valid scenarios: (C) the detector
+  temperature-inert dark-rate note (CU-081) is now `stage_outputs["detector"]
+  ["dark_temperature_note"]` (rendered once in the Outputs readout); (A) the
+  SimpleAtmosphere Ångström aerosol clamp beyond 5 µm (CU-088), (B) the
+  extended-scene "background.* ignored" notice (ADR-0002 #15), and (D) the MWIR
+  non-mixed model advisory (matrix §3.2) now log at `debug` (quiet by default,
+  discoverable) instead of warning. Saturation warnings (full-well/ADC/pixel)
+  stay as-is — they signal untrustworthy results. The 36 shipped configs now
+  evaluate with zero non-deprecation warnings except genuine saturation. No
+  physics/results change. (`docs/plans/Warning_Free_UX_Plan.md`.)
 - **GUI: no more `qt.qpa.fonts` warning on launch (CU-169).** The theme's font
   stacks led with "IBM Plex Sans"/"IBM Plex Mono", which are usually not
   installed, so Qt logged `Populating font family aliases took … ms. Replace uses

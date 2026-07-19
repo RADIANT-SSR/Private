@@ -154,13 +154,14 @@ L_path(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ) · P(θ_scatter) ·
 ```
 where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.7` (`simple.HG_ASYMMETRY`). This is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
 
-**Atmospheric thermal emission** for the simple model uses a graybody approximation at the path-mean temperature:
+**Atmospheric thermal emission** for the simple model uses a target-anchored graybody (CU-155, recalibrated 2026-07-18):
 ```
-L_atm_down(λ) = [1 − τ_atm(λ)] · B(λ, T_atm_eff)
+E_sky_thermal(λ) = [1 − τ_sky,vert(λ)^D] · π · B(λ, T(h_tgt + z_em))
+L_atm_down(λ)    = E_sky_thermal(λ) / π        (hemispheric-mean radiance)
 ```
-with `T_atm_eff` from the standard-atmosphere lookup at 0.5 × sensor altitude (clamped to the 216.65 K tropopause above 22 km).
+where `τ_sky,vert` is the **vertical** transmittance of the **target→h_atm_top** column (the sky the target actually sees — the sensor's altitude and viewing zenith deliberately do not enter a hemispheric flux at the target), `T(·)` is the fixed-lapse ICAO standard-atmosphere lookup (floored at the 216.65 K tropopause), and the two constants are fit jointly to the real MODTRAN 6 up-looking H-runs (H2 us_standard + H4 tropical, LWIR + MWIR band integrals): emission-height offset `z_em = 200 m` (downwelling is dominated by near-surface air; the E1 flux DOWN at 14.4 µm ≈ π·B(283 K)) and flux-diffusivity exponent `D = 1.1` (below the textbook Elsasser 1.66 because the CU-161 τ calibration to slant paths already absorbs part of the hemispheric weighting).
 
-> **Measured accuracy caveat (CU-155, 2026-07-17):** compared against real MODTRAN 6 up-looking runs (H2/H4), this graybody underestimates downwelling sky irradiance by **~7× in the LWIR and ~25–50× in the MWIR for space-sensor columns** — the 0.5·h heuristic lands on the tropopause instead of the ~280 K near-surface air that dominates real downwelling, and the model has no H₂O continuum. Adequate only when the reflected-sky term is unimportant (high-ε targets); for low-ε MWIR/LWIR scenes use MODTRAN-derived data. Characterization pinned in `tests/integration/test_modtran_real_runs.py`; improvement tracked as CU-155.
+> **Measured accuracy (CU-155, resolved 2026-07-18):** band-integrated model/MODTRAN ratios at the fit — H2 LWIR 1.24, H2 MWIR 0.70, H4 LWIR 1.41, H4 MWIR 1.34, versus 0.21 / 0.02 / 0.21 / 0.03 for the pre-fix model (which evaluated `T_atm_eff` at 0.5·h_sensor and clamped every space column to the tropopause). The residual ±40% tracks the CU-161 region-flat spectral-shape fragility, not temperature structure. Parity envelope pinned in `tests/integration/test_modtran_real_runs.py`; for higher fidelity use MODTRAN-derived data (Gap 81/CU-157 for the import path's own sky terms).
 
 **Inputs** (all parameters are user-facing; see §6):
 `atmosphere.visibility_km`, `atmosphere.aerosol_type`, `atmosphere.precipitable_water_cm`, `atmosphere.standard_atmosphere`.
@@ -268,7 +269,7 @@ interpolated ladders remain data-limited until the boost-ladder run set lands �
 
 | Model | Slant path effect | Solar zenith effect |
 |-------|-------------------|---------------------|
-| Simple | `τ = exp(−σ · L_slant)`; aerosol & H₂O scale heights re-evaluated for `(h_sensor, h_target)` | Drives `cos(θ_sun)` in single-scatter `L_path`; drives `T_atm_eff` weakly |
+| Simple | `τ = exp(−σ · L_slant)`; aerosol & H₂O scale heights re-evaluated for `(h_sensor, h_target)` | Drives `cos(θ_sun)` in single-scatter `L_path`; the downwelling `T_eff` is target-anchored (CU-155 — sensor altitude does not enter) |
 | Tabulated | **None.** Tabulated files are taken at face value. `GeometryDrift` warning if geometry changes after load | None |
 | Exo | None | None |
 | MODTRAN | Set into card deck (CARD 3: `H1`, `H2`, `ANGLE`); MODTRAN computes the slant path internally | Set into card deck (CARD 3A1: `IPARM`, `PARM1`, `PARM2`); MODTRAN computes single + multiple scatter |

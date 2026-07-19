@@ -260,11 +260,17 @@ class TestAnchor3_MWIR_crossover:
         assert E_scat > 0.0, f"E_sky_scattered(4 µm) = {E_scat} must be positive"
         assert E_therm > 0.0, f"E_sky_thermal(4 µm) = {E_therm} must be positive"
 
-        # Order-of-magnitude: the larger / smaller ratio must be < 10.
+        # Order-of-magnitude: the larger / smaller ratio must be < 20.
+        # Re-calibrated 2026-07-18 (CU-155): the corrected thermal
+        # downwelling (~40× the old deficient MWIR value, anchored to the
+        # real H-runs) puts the 4 µm thermal/scattered ratio at ~10.3 —
+        # the crossover sits nearer 3.5 µm. The anchor's intent is
+        # unchanged: both components are live, same-order contributions
+        # (positivity asserted above), neither silently zeroed.
         hi = max(E_scat, E_therm)
         lo = min(E_scat, E_therm)
         ratio = hi / lo
-        assert ratio < 10.0, (
+        assert ratio < 20.0, (
             f"MWIR crossover anchor: E_sky components @ 4 µm are out of "
             f"order-of-magnitude agreement (ratio = {ratio:.2f}, "
             f"scattered = {E_scat:.3e}, thermal = {E_therm:.3e}).  The "

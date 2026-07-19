@@ -38,11 +38,14 @@ This cut implements the full §3.1 simple-model triple:
   5778 K blackbody TOA solar spectrum from ``radiant.core.solar`` and
   a weighted two-component phase function (Rayleigh for molecular,
   Henyey-Greenstein with ``g = 0.7`` for aerosol).
-- **``L_atm_down(λ)``** via the graybody ``(1 − τ) · B(λ, T_atm_eff)``
-  with ``T_atm_eff`` from a closed-form standard-atmosphere
-  temperature lookup evaluated at ``0.5 × sensor_altitude``
-  (plane-parallel troposphere with a fixed 6.5 K/km lapse, floored
-  at the ICAO tropopause temperature 216.65 K).
+- **``L_atm_down(λ)``** via the graybody ``(1 − τ_vert^D) · B(λ, T_eff)``
+  (CU-155) with ``T_eff`` the standard-atmosphere temperature a small
+  emission-height offset above the TARGET (plane-parallel troposphere,
+  fixed 6.5 K/km lapse, floored at the ICAO tropopause 216.65 K) and
+  ``D`` a flux-diffusivity exponent — both fit to the real MODTRAN 6
+  up-looking H-runs (see the ``_ESKY_*`` constants). The sensor
+  altitude does not enter: the sky a target sees is independent of
+  where the sensor flies.
 
 Assumptions
 -----------
@@ -223,6 +226,37 @@ PROFILE_PWV_CM: dict[str, float] = {
 _LAPSE_RATE_K_PER_M: float = 6.5e-3  # 6.5 K / km
 _TROPOPAUSE_T_K: float = 216.65  # ICAO isothermal tropopause temperature
 _TROPOPAUSE_H_M: float = 11_000.0
+
+# --- CU-155: downwelling sky-emission calibration (fit 2026-07-18) ---
+# E_sky_thermal = (1 − τ_sky,vert^D) · π · B(T(h_tgt + z_em)), where τ_sky,vert
+# is the VERTICAL transmittance of the target→h_atm_top column — the sky the
+# target actually sees. Two things deliberately do NOT enter: the sensor
+# altitude (the sky above a ground target is the same whether the sensor is at
+# 2 km or 500 km — the pre-fix model evaluated T at 0.5·h_sensor and clamped
+# every space column to the 216.65 K tropopause, producing the measured
+# ~5×/40× LWIR/MWIR downwelling deficit), and the sensor's viewing zenith
+# (downwelling is a hemispheric flux at the target).
+#
+# Both constants are fit jointly to the real MODTRAN 6 up-looking H-runs
+# (H2 us_standard + H4 tropical; band-integrated π·L_sky(48.2°), the
+# diffusivity-angle hemispheric-flux proxy validated to ~15% against the E1
+# flux table — tests/integration/test_modtran_real_runs.py):
+#
+#   z_em = 200 m  — emission-height offset: downwelling is dominated by
+#                   near-surface air (the E1 flux DOWN at 14.4 µm ≈ π·B(283 K)).
+#   D    = 1.1    — flux-diffusivity exponent on the vertical transmittance.
+#                   The textbook Elsasser value is 1.66; the fitted value is
+#                   lower because the CU-161 gas-band τ calibration (fit to
+#                   slant-path transmission) already absorbs part of the
+#                   hemispheric weighting in the LWIR window.
+#
+# Fit result, band-integrated model/MODTRAN (8–12 µm | 3–5 µm):
+#   H2 us_standard 1.24 | 0.70    H4 tropical 1.41 | 1.34
+# vs 0.21 | 0.018 and 0.21 | 0.026 before the fix. The residual ±40% tracks
+# the CU-161 region-flat spectral-shape fragility, not temperature structure
+# (an opacity-dependent spectral emission-height variant measured worse).
+_ESKY_EMISSION_HEIGHT_M: float = 200.0
+_ESKY_DIFFUSIVITY_D: float = 1.1
 
 
 # ---------------------------------------------------------------------------
@@ -439,18 +473,23 @@ class SimpleAtmosphere:
         omega0[safe] = scat[safe] / ext[safe]
         return omega0
 
-    def _effective_atmospheric_temperature_K(self, sensor_altitude_m: float) -> float:
-        """Graybody downwelling effective temperature [K].
+    def _downwelling_effective_temperature_K(self, target_altitude_m: float) -> float:
+        """Effective sky-emission temperature at the target [K] (CU-155).
 
-        Evaluated at ``0.5 × sensor_altitude_m`` per RADIANT_Atmosphere.md
-        §3.1: a plane-parallel troposphere with a fixed 6.5 K/km lapse
-        rate and an isothermal tropopause clamp at 216.65 K (ICAO
-        standard). Negative or sub-sea-level sensor altitudes clamp to
-        ``h_eval = 0``; altitudes above ``2 × 11 km`` saturate at the
-        tropopause temperature. This is the textbook closed-form
-        approximation appropriate for a "simple" atmosphere.
+        The downwelling reaching a target is dominated by the first
+        optical depth of air ABOVE it, so the graybody temperature is the
+        profile temperature a small emission-height offset above the
+        target — ``T(h_tgt + _ESKY_EMISSION_HEIGHT_M)`` on the
+        fixed-lapse ICAO troposphere, floored at the 216.65 K tropopause
+        (evaluation height capped at the tropopause). The sensor altitude
+        does not enter: the sky a ground target sees is the same whether
+        the sensor flies at 2 km or 500 km. (The pre-CU-155 model
+        evaluated at ``0.5 × h_sensor`` and clamped every space column to
+        the tropopause — the measured ~5×/40× LWIR/MWIR deficit against
+        the real up-looking H-runs.) Negative target altitudes clamp
+        to 0 m.
         """
-        h_eval_m = max(0.0, 0.5 * sensor_altitude_m)
+        h_eval_m = max(0.0, target_altitude_m) + _ESKY_EMISSION_HEIGHT_M
         h_eval_m = min(h_eval_m, _TROPOPAUSE_H_M)
         t_sea = _T_SEA_LEVEL_K[self.standard_atmosphere]
         t_eff = t_sea - _LAPSE_RATE_K_PER_M * h_eval_m
@@ -594,7 +633,7 @@ class SimpleAtmosphere:
         sigma_h2o = (od_h2o / max(col_h2o, 1e-12)) * h2o_scale
         sigma_gas = (od_gas / max(col_mol, 1e-12)) * math.exp(-mean_alt_m / H_MOL_M)
 
-        t_atm_eff_K = self._effective_atmospheric_temperature_K(geometry.sensor_altitude_m)
+        t_atm_eff_K = self._downwelling_effective_temperature_K(geometry.target_altitude_m)
 
         cos_theta_sun = math.cos(geometry.solar_zenith_rad)
         cos_theta_scatter = geometry.cos_scattering_angle()
@@ -668,13 +707,17 @@ class SimpleAtmosphere:
             source_parameters=provenance,
         )
 
-        # Graybody downwelling: L_atm_down(λ) = (1 − τ) · B(λ, T_atm_eff).
-        # At τ = 1 (exo-configuration / zero slant path) this is exactly
-        # zero; at τ = 0 (opaque column) it saturates at the blackbody
-        # curve, consistent with Kirchhoff's law for the atmospheric
-        # column treated as a single isothermal slab.
+        # Graybody downwelling (CU-155): L_atm_down(λ) = (1 − τ_vert^D) ·
+        # B(λ, T_eff) — hemispheric-mean sky radiance at the target. The
+        # VERTICAL optical depth with the fitted flux-diffusivity exponent
+        # D gives the slab's hemispheric emissivity (the slant/airmass
+        # factor belongs to the sensor's beam, not the sky's flux); T_eff
+        # is target-anchored (see _downwelling_effective_temperature_K).
+        # At τ_vert = 1 (exo / zero column) this is exactly zero; at
+        # τ_vert = 0 it saturates at the blackbody curve (Kirchhoff).
         planck_curve = planck_spectral_radiance(lam, t_atm_eff_K)
-        atm_emission_down_values = (1.0 - tau) * planck_curve
+        od_vert_total = od_mol + od_aer + od_h2o + od_gas
+        atm_emission_down_values = -np.expm1(-_ESKY_DIFFUSIVITY_D * od_vert_total) * planck_curve
         atm_emission_down = SpectralData(
             name="atm.emission_down.simple",
             wavelength_um=lam,
@@ -733,8 +776,10 @@ class SimpleAtmosphere:
           on the h_tgt→h_sensor vertical column (same slab as thermal)
           (Stage 6, ADR-0002).  Degrades to 0 as cos θ_s → 0 (sun below
           horizon) or as h_tgt → h_sensor (vacuum limit).
-        - ``E_sky_thermal = (1 − τ_down) · π · B(T_atm_eff)`` on the
-          h_tgt→h_sensor vertical column, so it degrades to 0 as
+        - ``E_sky_thermal = (1 − τ_sky,vert^D) · π · B(T(h_tgt + z_em))``
+          (CU-155) on the h_tgt→h_atm_top vertical column — the sky the
+          target sees, independent of the sensor — with the H-run-fit
+          ``_ESKY_*`` constants; degrades to 0 exactly as
           ``h_tgt → h_atm_top``.
 
         The sensor altitude comes from ``params["geometry.sensor_altitude_m"]``
@@ -949,9 +994,7 @@ class SimpleAtmosphere:
         # Column-mean water/gas "extinctions" from the up-leg ODs (CU-161),
         # scaled to the mean altitude by their scale heights — relative
         # weights for SSA/phase only, not optical depth.
-        sigma_h2o = (
-            self._h2o_vertical_od(lam, col_h2o_up) / max(col_h2o_up, 1e-12)
-        ) * h2o_scale
+        sigma_h2o = (self._h2o_vertical_od(lam, col_h2o_up) / max(col_h2o_up, 1e-12)) * h2o_scale
         sigma_gas = (
             self._gas_floor_vertical_od(lam, col_mol_up) / max(col_mol_up, 1e-12)
         ) * math.exp(-mean_alt_m / H_MOL_M)
@@ -1064,17 +1107,21 @@ class SimpleAtmosphere:
             else:
                 L_path_full = np.zeros_like(lam)
 
-        # --- E_sky_thermal: (1 − τ_down) · π · B(T_atm_eff) ---
-        # τ_down is the vertical transmittance of the atmosphere between
-        # the target (at h_tgt) and the sensor (at h_sensor) — i.e. the
-        # up-leg column at airmass=1.  For h_tgt=0 this is exp(-od_vert_up),
-        # matching the legacy formula bit-exactly.  As h_tgt → h_atm_top
-        # the column collapses and (1 − τ_down) → 0, so E_sky_thermal → 0
-        # in the vacuum limit (Anchor 2).
+        # --- E_sky_thermal: (1 − τ_sky,vert^D) · π · B(T(h_tgt + z_em)) (CU-155) ---
+        # τ_sky,vert is the VERTICAL transmittance of the target→h_atm_top
+        # column (od_vert_sun) — the sky the target actually sees; the
+        # sensor's altitude and zenith do not enter a hemispheric flux at
+        # the target. D (flux-diffusivity exponent) and the emission-height
+        # offset in T_eff are fit to the real MODTRAN up-looking H-runs —
+        # see the _ESKY_* constants. As h_tgt → h_atm_top the sky column
+        # collapses, τ_sky,vert → 1, and E_sky_thermal → 0 exactly (the
+        # vacuum limit, Anchor 2, is preserved).
+        # tau_down_vertical (target→sensor column) is kept for the
+        # E_sky_scattered slab below (Stage 6 / Gap 38 semantics unchanged).
         tau_down_vertical = np.exp(-od_vert_up)
-        t_atm_eff_K = self._effective_atmospheric_temperature_K(h_sensor_m)
+        t_atm_eff_K = self._downwelling_effective_temperature_K(h_tgt)
         B_atm = planck_spectral_radiance(lam, t_atm_eff_K)
-        E_sky_thermal = (1.0 - tau_down_vertical) * np.pi * B_atm
+        E_sky_thermal = -np.expm1(-_ESKY_DIFFUSIVITY_D * od_vert_sun) * np.pi * B_atm
 
         # --- E_sky_scattered: single-scatter diffuse solar on target ---
         # Stage 6 (ADR-0002 / Option C plan):

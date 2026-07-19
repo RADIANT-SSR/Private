@@ -62,9 +62,7 @@ def test_cross_ladder_consistency_C_vs_G() -> None:
     ratios_arr = np.array(ratios)
     # The ratio is the 35→100 km column transmittance: near-unity in the
     # LWIR window (thin upper atmosphere) and, crucially, constant.
-    assert ratios_arr.std() < 1.0e-3, (
-        f"cross-ladder ratio not constant: {ratios_arr}"
-    )
+    assert ratios_arr.std() < 1.0e-3, f"cross-ladder ratio not constant: {ratios_arr}"
     assert np.all(ratios_arr < 1.0)  # extra column only attenuates
     assert ratios_arr.mean() == pytest.approx(0.998, abs=3.0e-3)
 
@@ -85,7 +83,7 @@ def test_airmass_monotonicity_confirms_angle_convention() -> None:
     # Beer's-law airmass cross-check at 45° off-nadir (airmass = √2):
     # τ(45°) ≈ τ_nadir**(1/cos45°) = τ_nadir**√2.
     tau_nadir, tau_45 = taus[0], taus[2]
-    assert tau_45 == pytest.approx(tau_nadir**np.sqrt(2.0), rel=0.02)
+    assert tau_45 == pytest.approx(tau_nadir ** np.sqrt(2.0), rel=0.02)
 
 
 @pytest.mark.level2
@@ -208,9 +206,7 @@ def test_diffusivity_angle_matches_hemispheric_flux() -> None:
     from radiant.atmosphere.modtran import ModtranFluxReader
 
     wl_h, esky_h = _modtran_esky_thermal("H2")
-    wl_f, _e_direct, e_diffuse = ModtranFluxReader(
-        _REAL_RUNS / "E1_flux.csv"
-    ).to_radiant_units()
+    wl_f, _e_direct, e_diffuse = ModtranFluxReader(_REAL_RUNS / "E1_flux.csv").to_radiant_units()
 
     i_h = _band_integral(wl_h, esky_h, 8.0, 12.0)
     i_f = _band_integral(wl_f, e_diffuse, 8.0, 12.0)
@@ -224,20 +220,24 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
     """Criterion #5: SimpleAtmosphere's graybody E_sky_thermal compared
     against real MODTRAN H-run downwelling (us_standard H2, tropical H4).
 
-    RESULT (2026-07-17, CU-155): parity is NOT achieved — the simple
-    backend underestimates downwelling sky irradiance by ~7× in the LWIR
-    and ~25–50× in the MWIR for a space-sensor column. Two causes:
-    (1) T_atm_eff evaluates at 0.5·h_sensor and clamps to the 216.65 K
-    tropopause for h_sensor ≥ 22 km, while real downwelling is dominated
-    by ~280 K near-surface air (the E1 flux DOWN at 14.4 µm ≈ π·B(283 K));
-    (2) the 3-component simple model has no H₂O continuum, so the LWIR
-    window is too transparent and the sky under-emits.
+    RESULT (2026-07-18, CU-155 FIXED): the pre-fix deficit (~7× LWIR /
+    ~25–50× MWIR for a space-sensor column, caused by T_atm_eff at
+    0.5·h_sensor clamping to the 216.65 K tropopause + vertical-beam
+    emissivity) is closed by the target-anchored, H-run-fit model
+    E = (1 − τ_sky,vert^D)·π·B(T(h_tgt + z_em)) (see the _ESKY_*
+    constants in simple.py). Measured parity at the fit (2026-07-18,
+    band-integrated model/MODTRAN):
 
-    This test pins BOTH sides of the characterization: the MODTRAN
-    reference magnitudes (stable goldens for the H-runs) and the
-    documented deficit band. If SimpleAtmosphere's downwelling model is
-    ever improved (CU-155), the ratio assertions flip and force this
-    characterization — and the CU — to be updated together.
+        H2 us_standard: LWIR 1.24, MWIR 0.70
+        H4 tropical:    LWIR 1.41, MWIR 1.34
+
+    The pinned envelope below carries margin around those points; the
+    residual ±40% is the CU-161 region-flat spectral-shape fragility
+    (documented in simple.py), not temperature structure. This test pins
+    BOTH sides: the MODTRAN reference magnitudes (stable goldens) and the
+    parity envelope — a regression toward the old deficit OR an
+    unexplained improvement both fail loud and force this record and the
+    CU-155 Resolved entry to be updated together.
     """
     import warnings as _warnings
 
@@ -296,15 +296,16 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
         lwir_simple = _band_integral(wl, quantities.E_sky_thermal, 8.0, 12.0)
         mwir_simple = _band_integral(wl, quantities.E_sky_thermal, 3.0, 5.0)
 
-        # The characterized deficit (CU-155): simple/MODTRAN in
-        # [0.03, 0.25] LWIR, [0.005, 0.10] MWIR for these profiles.
-        assert 0.03 < lwir_simple / lwir_ref < 0.25, (
+        # The CU-155 parity envelope (fit 2026-07-18, margin around the
+        # measured ratios): simple/MODTRAN in [1.0, 1.6] LWIR,
+        # [0.55, 1.5] MWIR for these profiles.
+        assert 1.0 < lwir_simple / lwir_ref < 1.6, (
             f"{run}/{profile}: LWIR E_sky_thermal ratio "
-            f"{lwir_simple / lwir_ref:.3f} outside the CU-155 characterized "
-            "band — if the simple downwelling model was improved, update "
-            "this characterization and the CU-155 record together."
+            f"{lwir_simple / lwir_ref:.3f} outside the CU-155 parity "
+            "envelope — if the downwelling model changed, update this "
+            "record and the CU-155 Resolved entry together."
         )
-        assert 0.005 < mwir_simple / mwir_ref < 0.10, (
+        assert 0.55 < mwir_simple / mwir_ref < 1.5, (
             f"{run}/{profile}: MWIR E_sky_thermal ratio "
-            f"{mwir_simple / mwir_ref:.3f} outside the CU-155 characterized band."
+            f"{mwir_simple / mwir_ref:.3f} outside the CU-155 parity envelope."
         )

@@ -647,7 +647,11 @@ def test_l_atm_down_zero_when_tau_one() -> None:
 
 @pytest.mark.level1
 def test_l_atm_down_nonnegative_and_bounded_by_planck() -> None:
-    """L_atm_down ∈ [0, B(λ, T_atm_eff)] point-wise, per §3.1 hard limit."""
+    """L_atm_down ∈ [0, B(λ, T_eff)] point-wise, per §3.1 hard limit.
+
+    CU-155: T_eff is target-anchored — ground target (0 m) + 200 m
+    emission-height offset → 288.15 − 6.5·0.2 = 286.85 K.
+    """
     from radiant.core.blackbody import planck_spectral_radiance
 
     atm = SimpleAtmosphere(
@@ -659,8 +663,7 @@ def test_l_atm_down_nonnegative_and_bounded_by_planck() -> None:
     state = atm.build_state(grid, _vertical_geometry(2_000.0))
     emission = state.atm_emission_down.values
 
-    # Expected t_atm_eff at h_eval = 1 km → 288.15 − 6.5 = 281.65 K.
-    t_expected = 288.15 - 6.5 * 1.0
+    t_expected = 288.15 - 6.5 * 0.2
     planck = planck_spectral_radiance(grid, t_expected)
 
     assert np.all(emission >= 0.0)
@@ -688,19 +691,24 @@ def test_l_atm_down_truth_anchor_opaque_limit() -> None:
     grid = np.array([6.28, 6.30, 6.32])
     state = atm.build_state(grid, _vertical_geometry(4_000.0))
 
-    # T_atm_eff at h_eval = 2 km → 288.15 − 13.0 = 275.15 K
-    t_expected = 288.15 - 6.5 * 2.0
+    # CU-155: T_eff is target-anchored (ground target + 200 m offset).
+    t_expected = 288.15 - 6.5 * 0.2
     planck = planck_spectral_radiance(grid, t_expected)
-    tau = state.transmittance.values
+    tau = state.transmittance.values  # vertical geometry → τ = τ_vert
 
     # With w_pw = 10 cm at the 6.3 µm band centre the calibrated band
     # is effectively opaque (curve-of-growth-bounded OD ≈ 6.2 → τ ≈ 2.1e-3).
     assert np.all(tau < 2.5e-3)
-    # Graybody identity holds exactly: L_atm_down = (1 − τ) · B.
+    # Graybody identity holds exactly: L_atm_down = (1 − τ_vert^D) · B
+    # with the CU-155 flux-diffusivity exponent D.
+    from radiant.atmosphere.simple import _ESKY_DIFFUSIVITY_D
+
     np.testing.assert_allclose(
-        state.atm_emission_down.values, (1.0 - tau) * planck, rtol=1e-12
+        state.atm_emission_down.values,
+        (1.0 - tau**_ESKY_DIFFUSIVITY_D) * planck,
+        rtol=1e-9,
     )
-    # And approaches the Planck curve to within the (1 − τ) shortfall.
+    # And approaches the Planck curve to within the (1 − τ^D) shortfall.
     assert np.allclose(state.atm_emission_down.values, planck, rtol=3e-3, atol=0.0)
 
 
@@ -721,17 +729,46 @@ def test_l_atm_down_scales_with_profile_temperature() -> None:
 
 @pytest.mark.level0
 def test_t_atm_eff_truth_anchor_lookup() -> None:
-    """T_atm_eff = T_sea − 6.5 · (h_sensor / 2) / 1000, clamped at 216.65 K."""
+    """T_eff = T_sea − 6.5·(h_tgt + 200 m)/1000, clamped at 216.65 K (CU-155).
+
+    Target-anchored: the sensor altitude does not enter (the pre-CU-155
+    model evaluated at 0.5·h_sensor, clamping every space column to the
+    tropopause — the measured downwelling deficit).
+    """
     atm = SimpleAtmosphere(standard_atmosphere="us_standard")
-    # Sea-level sensor → h_eval = 0 → T_eff = 288.15 K.
-    assert atm._effective_atmospheric_temperature_K(0.0) == pytest.approx(288.15)
-    # 4 km sensor → h_eval = 2 km → T_eff = 288.15 − 13 = 275.15 K.
-    assert atm._effective_atmospheric_temperature_K(4_000.0) == pytest.approx(275.15)
-    # 30 km sensor → h_eval clamped at 11 km, tropopause clamp applies.
-    # Without clamp: 288.15 − 6.5·11 = 216.65 → already at the floor.
-    assert atm._effective_atmospheric_temperature_K(30_000.0) == pytest.approx(216.65)
-    # Negative sensor altitude clamps h_eval to 0.
-    assert atm._effective_atmospheric_temperature_K(-500.0) == pytest.approx(288.15)
+    # Ground target → h_eval = 200 m → 288.15 − 1.3 = 286.85 K.
+    assert atm._downwelling_effective_temperature_K(0.0) == pytest.approx(286.85)
+    # 4 km target → h_eval = 4.2 km → 288.15 − 27.3 = 260.85 K.
+    assert atm._downwelling_effective_temperature_K(4_000.0) == pytest.approx(260.85)
+    # 30 km target → h_eval capped at 11 km → tropopause floor 216.65 K.
+    assert atm._downwelling_effective_temperature_K(30_000.0) == pytest.approx(216.65)
+    # Negative target altitude clamps to ground + offset.
+    assert atm._downwelling_effective_temperature_K(-500.0) == pytest.approx(286.85)
+
+
+@pytest.mark.level0
+def test_esky_thermal_independent_of_sensor_altitude() -> None:
+    """CU-155 marquee property: the sky a ground target sees is the same
+    whether the sensor flies at 3 km or 500 km — E_sky_thermal is computed
+    on the target→h_atm_top column at a target-anchored temperature, so it
+    is identical for both sensors [W/m²/µm]."""
+    import warnings as _warnings
+
+    from radiant.core.los_geometry import LineOfSightGeometry
+
+    from .test_evaluate import _resolved_params
+
+    grid = np.linspace(3.0, 14.0, 111)
+    results = []
+    for h_sensor_m in (3_000.0, 500_000.0):
+        atm = SimpleAtmosphere(standard_atmosphere="us_standard")
+        params = _resolved_params(grid, sensor_altitude_m=h_sensor_m)
+        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore")
+            results.append(atm.evaluate(grid, los, params).E_sky_thermal)
+    np.testing.assert_array_equal(results[0], results[1])
+    assert results[0].max() > 0.0
 
 
 @pytest.mark.level0

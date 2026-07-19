@@ -86,6 +86,21 @@ retroactively reconstructed.
   phase angle annotations) simply absent; the sensor/target geometry is unchanged.
 
 ### Changed
+- **Results-affecting (simple-atmosphere scenes with a reflected-sky term):
+  SimpleAtmosphere downwelling sky emission rebuilt against the real MODTRAN 6
+  up-looking runs (CU-155).** `E_sky_thermal` (and the legacy `L_atm_down`) now
+  use a target-anchored emission temperature `T(h_tgt + 200 m)` with a
+  flux-diffusivity exponent `D = 1.1` on the **vertical target→h_atm_top**
+  column — the sensor's altitude and viewing zenith no longer enter (the old
+  model evaluated `T` at `0.5·h_sensor`, clamping every space column to the
+  216.65 K tropopause). Direction/magnitude: downwelling sky irradiance rises
+  ~5× in LWIR and ~40× in MWIR for space-sensor columns, landing within
+  [0.7, 1.4]× of the real H-run references (was 0.02–0.21×). Scenes with
+  low-emissivity targets/backgrounds gain reflected-sky signal and background;
+  high-ε scenes shift little (golden `mwir_leo_minimal`, ε = 0.95: signal_e
+  +1.48%, SNR +0.74% — re-baselined per Testing §5.3 with provenance). The
+  MWIR crossover anchor re-calibrated to the corrected thermal (ratio bound
+  10 → 20 at 4 µm, intent unchanged).
 - **Results-affecting (all simple-atmosphere configs): SimpleAtmosphere recalibrated against
   the real MODTRAN 6 run set (CU-161).** Two model changes: (1) the five-Lorentzian water fit —
   whose far wings made the MWIR water response ~5× too steep — is replaced by a 15-region

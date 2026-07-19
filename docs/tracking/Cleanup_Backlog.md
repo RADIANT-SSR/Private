@@ -346,7 +346,7 @@
 ### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
 
 **Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13.
-**Status**: RESOLVED 2026-07-19, commit `<pending113>`. **Resolution**: wrapped the `inspect_result` render in a `np.printoptions(threshold=20, edgeitems=2)` context so any array — including ones reached only via a stage-output object's own `repr` (tuple/dataclass), which `_fmt` couldn't intercept — collapses to NumPy's summarised form. Shipped-example dump drops ~3900 → ~230 lines; structural tree unchanged. Regression test added. Formatting only; no computed values change. Wave 3 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `c69a3d2`. **Resolution**: wrapped the `inspect_result` render in a `np.printoptions(threshold=20, edgeitems=2)` context so any array — including ones reached only via a stage-output object's own `repr` (tuple/dataclass), which `_fmt` couldn't intercept — collapses to NumPy's summarised form. Shipped-example dump drops ~3900 → ~230 lines; structural tree unchanged. Regression test added. Formatting only; no computed values change. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/api/inspect.py`, `src/radiant/api/tests/test_inspect.py`.
 
 ### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels

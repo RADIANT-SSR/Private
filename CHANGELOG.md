@@ -118,6 +118,15 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **Point-source workflow: range fallback + actionable "no intensity" error (Gap 98 A/C).**
+  (C) A `point_source` target no longer requires `geometry.target_range_m` to be set
+  explicitly — `source.range_m` falls back to the GeometryStage-derived slant range
+  (from altitude + zenith / orbit / site modes), so a point-source config that derives
+  its range now runs instead of failing with "requires … range_m". (A) When a
+  `point_source` target has no radiant intensity, the error now steers to the intensity
+  inputs (`point_intensity_*` / `user_intensity_path`) instead of pointing back to
+  `projected_area_m2` — a point source is defined by intensity, not radiance × area.
+  Not results-affecting for existing configs (only enables previously-erroring ones).
 - **Results-affecting: sub-pixel signal now derives `fill_fraction` from the target
   projected area (Gap 97).** In the `sub_pixel` regime the target's share of the
   pixel was taken from `source.target.fill_fraction` (default 1.0) and never from

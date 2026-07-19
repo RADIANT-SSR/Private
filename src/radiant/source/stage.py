@@ -109,6 +109,15 @@ class SourceStage:
         raw_range: float = params.get("geometry.target_range_m")
         projected_area_m2: float | None = raw_area if raw_area > 0.0 else None
         range_m: float | None = raw_range if raw_range > 0.0 else None
+        # Gap 98 C: when the target range is not set explicitly, fall back to the
+        # slant range GeometryStage derived (ADR-0006 — from altitude + zenith, or
+        # the orbit/site modes). Previously source.range_m was None whenever
+        # geometry.target_range_m was unset, so the point_source signal (which reads
+        # source.range_m) failed even though the chain already knew the slant range.
+        if range_m is None:
+            derived_range = state.stage_outputs.get("geometry", {}).get("slant_range_m")
+            if derived_range is not None and derived_range > 0.0:
+                range_m = float(derived_range)
         fill_fraction: float = params.get("source.target.fill_fraction")
         regime_override: str = params.get("source.regime_override")
         # Declared scene type ('auto' = no declaration). Published so OpticsStage

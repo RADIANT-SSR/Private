@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-170 — 12 shipped scenario `.gui.yaml` baselines sit at a saturating operating point (full-well / ADC clip) — the nominal point is not warning-free
+
+**Discovered**: Warning-Free UX campaign saturation audit, 2026-07-19 (`docs/plans/Warning_Free_UX_Plan.md`).
+**Status**: Open — after reclassifying the four informational chain warnings, the *only* non-deprecation warnings left on the 36-config sweep are saturation warnings (correctly kept — clipping makes results untrustworthy). But they fire on 12 scenario baselines, so those scenarios are not "nominally-operating warning-free" at their shipped default operating point.
+**File**: the `inputs/*.gui.yaml` baseline of `02/2.3_ipc_impact_on_mtf`, `03/3.3_multi_sensor_comparison`, `03/3.5_nighttime_mwir_feasibility`, `04/4.1_target_detection_matrix`, `04/4.4_time_of_day_analysis`, `04/4.5_altitude_trade_uav`, `05/5.2_pixel_pitch_optimization`, `05/5.3_mono_vs_poly_psf`, `05/5.5_stray_light_veiling_glare`, `06/6.1_published_snr_benchmark`, `06/6.3_noise_model_verification`, `07/7.4_cold_stop_sweep`.
+**Symptom**: evaluating the baseline emits `ReadoutStage: full well saturated …` / `ADC saturated …` / `pixel saturated …`. Many of these are *sweep* scenarios whose `.gui.yaml` captures one mid-sweep point; that point clips.
+**Why it still matters**: the owner bar is "a valid, nominally-operating scenario evaluates warning-free." A baseline that clips is either (a) intentionally a saturation study — fine, document it — or (b) an accidentally-hot default operating point that should be re-centered (lower integration time / larger full well / smaller aperture) so the shipped baseline is clean, with saturation shown only where the sweep deliberately drives it.
+**Suggested fix**: (b) stand-alone task — audit each of the 12; for accidental clips, re-center the `.gui.yaml` baseline to a non-saturating nominal point (refresh the `expected.json`); for deliberate saturation studies, leave as-is and note it in the scenario `walkthrough.md`. Effort M (12 scenarios, per-scenario judgment + baseline refresh); category D. Related: the Warning-Free UX plan (saturation is the actionable-warning class kept by design).
+
 ### CU-166 — Out-of-calibration NIIRS is re-announced every evaluate via two warning channels instead of being a once-read result status; no metric-applicability gate
 
 **Discovered**: GUI-exercise campaign, 2026-07-18 — a scenario sweep in the scripting console floods with `GSD = 430 inch … outside the GIQE-5 calibration range` / `SNR = 526 … outside the GIQE-5 calibration range` on every evaluate.

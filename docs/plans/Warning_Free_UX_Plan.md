@@ -58,7 +58,7 @@ scenario `expected.json` baseline that captured the warning. CHANGELOG under
 - [x] A — SimpleAtmosphere aerosol clamp → `logger.debug` (model-method; clamp is documented CU-088 behavior)
 - [x] B — inferrer extended-scene notice → `logger.debug` (regime already surfaced as `regime_tentative`)
 - [x] D — MWIR non-mixed advisory → `logger.debug` (descriptor variant already surfaced)
-- [x] Saturation audit — the only warnings left on the 36-config sweep are saturation (full-well/ADC/pixel), the genuinely-actionable kind (owner-affirmed KEEP). Confirmed via the acceptance sweep.
+- [x] Saturation audit — the only warnings left on the 36-config sweep are saturation (full-well/ADC/pixel), the genuinely-actionable kind (owner-affirmed KEEP). Audit found **12 scenario baselines** clip at their shipped operating point → filed **CU-170** to re-center the accidental ones (kept-by-design ones stay + get documented).
 
 **Acceptance met (2026-07-19):** the 36-config sweep emits **zero** non-deprecation
 warnings except saturation (which is genuinely actionable). The reclassified

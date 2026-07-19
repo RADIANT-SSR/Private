@@ -328,7 +328,7 @@
 ### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13.
-**Status**: RESOLVED 2026-07-19, commit `<pending111>`. **Resolution**: `apply()` now calls `_reexpress_in_unit(chosen_unit, provenance)` on acceptance — it adopts the chosen unit as `self._display_unit` and re-renders both the Current line and the (now reference-held) Bounds row, so after Apply-without-close the whole dialog reads the chosen unit (`8 km`, not `8000 m`) and agrees with the combo. The editor + combo already hold the value in that unit, so no editor re-seed is needed. Regression test added. Presentation-only; canonical value unchanged. Wave 3 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `630715a`. **Resolution**: `apply()` now calls `_reexpress_in_unit(chosen_unit, provenance)` on acceptance — it adopts the chosen unit as `self._display_unit` and re-renders both the Current line and the (now reference-held) Bounds row, so after Apply-without-close the whole dialog reads the chosen unit (`8 km`, not `8000 m`) and agrees with the combo. The editor + combo already hold the value in that unit, so no editor re-seed is needed. Regression test added. Presentation-only; canonical value unchanged. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/widgets/parameter_editor_dialog.py`, `src/radiant/gui/tests/test_parameter_editor_dialog.py`.
 
 ### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row

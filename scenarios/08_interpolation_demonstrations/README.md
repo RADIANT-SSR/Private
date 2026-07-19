@@ -23,6 +23,13 @@ demonstration.
 - **8.2 — Target-altitude interpolation.** Query 15 km against the
   `altitude_ladder_stratospheric` family (0/1/5/10/20/29 km), same
   method, different axis type, showing the tool generalizes.
+- **8.3 — Boost-phase target-altitude sweep (skeleton).** A missile-
+  defense LEO MWIR tracker sweeps a booster's target altitude 0→300 km
+  against the *shipped interpolated* library, crossing three regimes:
+  interpolated (0–29 km), PENDING (29–100 km — data-limited, gated on the
+  boost-ladder run set), and the Gap 95 vacuum leg (≥ 100 km). Unlike 8.1
+  and 8.2, it uses the shipped `midlat_summer_ladders` (real MODTRAN data,
+  not synthetic) and demonstrates graceful handling of a data-limited band.
 
 Both use *synthetic* (not real MODTRAN) atmosphere data — see
 `modtran/synthetic/README.md`. They demonstrate the interpolation

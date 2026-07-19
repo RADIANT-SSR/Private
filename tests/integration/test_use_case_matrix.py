@@ -33,11 +33,11 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import warnings
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -48,7 +48,6 @@ from radiant.atmosphere.stage import AtmosphereStage
 from radiant.core.chain import ChainRunner, ChainState
 from radiant.core.descriptors import (
     AtApertureBackground,
-    ColdSpaceBackground,
     T1Thermal,
     T5AtAperture,
     UserSpectralBackground,
@@ -63,7 +62,6 @@ from radiant.performance.stage import PerformanceStage
 from radiant.platform.stage import PlatformStage
 from radiant.readout.stage import ReadoutStage
 from radiant.spectral_integration.stage import SpectralIntegrationStage
-
 
 # ---------------------------------------------------------------------------
 # Regime-specific grids and defaults
@@ -88,7 +86,7 @@ _REGIME_GRIDS: dict[str, np.ndarray] = {
 _REGIME_TARGET_K: dict[str, float] = {
     "VIS": 300.0,
     "NIR": 300.0,
-    "SWIR": 400.0,      # warm enough to have SWIR thermal tail (and stay <700K so SWIR warning doesn't fire)
+    "SWIR": 400.0,      # warm enough for a SWIR thermal tail, <700 K so no SWIR warning
     "MWIR": 320.0,
     "LWIR": 300.0,
 }
@@ -259,7 +257,8 @@ class CellSpec:
     """Describes one matrix cell and how the test should handle it."""
 
     cell_id: str                      # e.g. "1", "28", "G13", "L1"
-    location: str                     # at_aperture | terrestrial | airborne | no_atm_space | ground_test | lab_test
+    # at_aperture | terrestrial | airborne | no_atm_space | ground_test | lab_test
+    location: str
     regime: str                       # VIS | NIR | SWIR | MWIR | LWIR
     scene_type: str                   # extended | sub_pixel | point_source
     outcome: str                      # "pass" | "raise" | "xfail"
@@ -279,7 +278,7 @@ def _build_primary_cells() -> list[CellSpec]:
     cells: list[CellSpec] = []
     cell_num = 1
 
-    for location, tag in (
+    for location, _tag in (
         ("at_aperture", "A"),
         ("terrestrial", "B"),
         ("airborne", "C"),

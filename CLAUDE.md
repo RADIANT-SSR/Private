@@ -656,8 +656,8 @@ python scripts/check_org_rules.py
 # Parameter-reference doc freshness (CU-099; also enforced by a pytest test):
 python scripts/gen_param_reference.py --check
 
-# Lint:
-ruff check src/
+# Lint (src/ and tests/ — CU-089 widened the gate to cover tests/):
+ruff check src/ tests/
 ```
 
 All of these must pass before submitting a PR or declaring a task complete.

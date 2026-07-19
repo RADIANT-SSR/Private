@@ -49,7 +49,6 @@ from radiant.core.parameters import ParameterBoundsError
 from radiant.core.reflectance import ScalarLambertianReflectance
 from radiant.core.spectral import SpectralData
 
-
 # ---------------------------------------------------------------------------
 # Regime grids — mirror test_use_case_matrix.py so cell numbering lines up.
 # ---------------------------------------------------------------------------
@@ -387,7 +386,9 @@ class TestPointSourceAngularSizeRaise:
         _seed_optics_detector_readout(params, regime)
         params.resolve()
 
-        with pytest.raises(ParameterBoundsError, match=r"point.source"):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                session.run(params)
+        with (
+            pytest.raises(ParameterBoundsError, match=r"point.source"),
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", UserWarning)
+            session.run(params)

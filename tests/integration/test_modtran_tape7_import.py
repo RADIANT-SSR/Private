@@ -50,7 +50,7 @@ def _write_named_header_tape7(path: Path, n_points: int = 60, trans_scale: float
             f"{0.0:12.4e}{sol_scat[i]:12.4e}{0.0:12.4e}{0.0:12.4e}"
             f"{0.0:12.4e}{0.0:12.4e}"
         )
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _write_side_door_csvs(tape7: Path, tmp_dir: Path) -> tuple[str, str]:

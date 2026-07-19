@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Any
 
 import numpy as np
 import pytest
@@ -57,7 +56,6 @@ from radiant.performance.stage import PerformanceStage
 from radiant.platform.stage import PlatformStage
 from radiant.readout.stage import ReadoutStage
 from radiant.spectral_integration.stage import SpectralIntegrationStage
-
 
 # ---------------------------------------------------------------------------
 # Helpers

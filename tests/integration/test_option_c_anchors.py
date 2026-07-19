@@ -29,7 +29,6 @@ import pytest
 
 from radiant.api.session import RadiantSession
 
-
 # The fixed wavelength grid used for L_aperture captures.
 # Chosen to land exactly on multiple of the integration grids below so that
 # index selection is unambiguous (no interpolation).

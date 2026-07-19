@@ -182,7 +182,7 @@ def _augment_coverage_with_spec_forms() -> Iterable[None]:
 
 def _write_csv(path: Path, wl: np.ndarray, value: float) -> Path:
     lines = [f"{float(w)},{float(value)}" for w in wl]
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
 

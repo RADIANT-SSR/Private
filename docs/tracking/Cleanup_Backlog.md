@@ -303,15 +303,6 @@
 **Why it still matters**: Rule 16 inspectability for MODTRAN products; a schema-generated GUI cannot express path type, irradiance mode, or spectral range for the binary flavor.
 **Suggested fix**: stand-alone task when the binary flavor becomes exercisable — thread `ground_reflected` into stage outputs (inspection-only) and add ParameterDefs for the deck knobs. Effort S-M; category B.
 
-### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)
-
-**Discovered**: Gap 67 persistence task (pre-commit gate run), 2026-07-11
-**Status**: Open
-**File**: `tests/integration/` (e.g. `test_dual_path_mtf.py:178` unused variable, `test_no_atm_subcases.py:32` unsorted imports; 18 errors total, 11 auto-fixable)
-**Symptom**: `ruff check tests/` reports 18 errors; the CLAUDE.md gate is `ruff check src/`, so the root `tests/` tree is unlinted and drifting.
-**Why it still matters**: lint drift in the integration suite hides real defects (the unused-variable class) and makes new-test review noisier; the gate's src/-only scope is undocumented.
-**Suggested fix**: inline-fix-now — run `ruff check tests/ --fix`, hand-fix the remainder, and widen the documented gate (CLAUDE.md "Running Tests Locally") to `ruff check src/ tests/`. Effort S; category A.
-
 ### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
 
 **Discovered**: CU-068 doc rewrite, 2026-07-11 — the old §5.3 documented `cache_key = sha256(tape5 + modtran_version)`, but the shipped `_cache_key` hashes the tape5 alone.
@@ -369,6 +360,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)
+
+**Discovered**: Gap 67 persistence task (pre-commit gate run), 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending089>`. **Resolution**: `ruff check tests/ --fix` cleared the auto-fixable errors (imports, unused imports); hand-fixed the remainder — 2 F841/B007 unused vars, 3 E501 long lines, 1 SIM117 nested-with, 1 UP035, and **2 PLW1514** encoding sites the CU-149 sweep hadn't reached (top-level `tests/` was outside that sweep's roots). Widened the documented gate in CLAUDE.md to `ruff check src/ tests/`. Test-lint + doc only; no test behaviour/results change. Wave 2 of the autonomous CU-cleanup plan.
+**File**: `tests/` (several integration + top-level files); `CLAUDE.md`.
 
 ### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
 

@@ -175,7 +175,6 @@ class TestAnisotropy:
     """Along-track smear makes y MTF worse than x."""
 
     def test_smear_degrades_y_more(self, result) -> None:
-        budget = result.stage_outputs["performance"]["mtf_budget"]
         # Along-track smear degrades y; x is unity for smear.
         terms = result.state.mtf_terms
         smear_x = terms["mtf_smear_x"]

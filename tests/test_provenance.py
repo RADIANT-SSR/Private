@@ -44,7 +44,6 @@ from radiant.core.provenance import (
     python_version_string,
 )
 
-
 # ---------------------------------------------------------------------------
 # core/provenance.py helper unit tests
 # ---------------------------------------------------------------------------
@@ -79,7 +78,9 @@ class TestGitCommit:
         assert sha != "unknown"
         assert re.fullmatch(r"[0-9a-f]{7,12}", sha), f"not a short SHA: {sha}"
 
-    def test_returns_unknown_outside_repo(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_unknown_outside_repo(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Outside any git repo, the helper degrades gracefully."""
         monkeypatch.chdir(tmp_path)
         # `git rev-parse` exits non-zero outside a repo; helper returns

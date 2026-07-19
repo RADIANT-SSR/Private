@@ -173,14 +173,20 @@ class TestDarkTemperatureWarning:
     """CU-081: warn when temperature is set but dark current is inert."""
 
     @pytest.mark.level1
-    def test_warns_on_temp_mismatch_with_zero_activation(self) -> None:
+    def test_notes_temp_mismatch_with_zero_activation(self) -> None:
+        """A temperature-inert dark rate is carried as a structured status note on the
+        detector stage output, NOT a per-evaluate warning (warning-free-UX campaign)."""
         params = _make_params()
         params.set("detector.detector_temperature_K", 120.0)  # != 77 K reference
         params.set("detector.dark_activation_energy_eV", 0.0)
         params.resolve()
         state = _make_state(np.linspace(3.5, 5.0, 50))
-        with pytest.warns(UserWarning, match="does NOT scale with temperature"):
-            DetectorStage().run(state, params)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)  # must NOT warn
+            out = DetectorStage().run(state, params)
+        note = out.stage_outputs["detector"]["dark_temperature_note"]
+        assert "does NOT scale with temperature" in note
+        assert "CU-081" in note
 
     @pytest.mark.level1
     def test_no_warning_at_reference_temperature(self) -> None:

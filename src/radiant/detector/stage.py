@@ -13,7 +13,6 @@ of ``NoiseTerm`` objects (after applying TDI/binning/coadd scaling).
 from __future__ import annotations
 
 import math
-import warnings
 
 import numpy as np
 
@@ -54,24 +53,21 @@ class DetectorStage:
             activation_energy_eV=params.get("detector.dark_activation_energy_eV"),
         )
         detector_temp_K: float = params.get("detector.detector_temperature_K")
+        # CU-081 (warning-free-UX campaign): a temperature-inert dark rate is a
+        # property of the configuration (dark_activation_energy_eV = 0), not a
+        # per-evaluate event — carry it as a structured status note on the detector
+        # stage output instead of a UserWarning that fires on every evaluate.
+        dark_temperature_note = ""
         if dark.activation_energy_eV > 0.0:
             dark = dark.at_temperature(detector_temp_K)
         elif abs(detector_temp_K - dark.reference_temperature_K) > 1.0:
-            # CU-081: with no Arrhenius activation energy, dark current is
-            # temperature-inert — the detector_temperature_K setting (e.g. a
-            # GUI slider) silently has no effect on dark noise. Warn loudly
-            # rather than let it read as "temperature doesn't matter".
-            warnings.warn(
-                f"DetectorStage: detector_temperature_K = {detector_temp_K:.1f} K "
-                f"differs from dark_reference_temperature_K = "
-                f"{dark.reference_temperature_K:.1f} K, but "
-                "detector.dark_activation_energy_eV = 0, so dark current does NOT "
-                "scale with temperature — the temperature setting has no effect on "
-                "dark noise. Set dark_activation_energy_eV (e.g. ~0.5 eV for MWIR "
-                "HgCdTe) for Arrhenius temperature scaling, or reference the "
-                "dark rate to the operating temperature (CU-081).",
-                UserWarning,
-                stacklevel=2,
+            dark_temperature_note = (
+                f"detector_temperature_K = {detector_temp_K:.1f} K differs from "
+                f"dark_reference_temperature_K = {dark.reference_temperature_K:.1f} K, "
+                "but dark_activation_energy_eV = 0, so dark current does NOT scale with "
+                "temperature — the temperature setting has no effect on dark noise. Set "
+                "dark_activation_energy_eV (e.g. ~0.5 eV for MWIR HgCdTe) for Arrhenius "
+                "scaling, or reference the dark rate to the operating temperature (CU-081)."
             )
         dark_e = dark.electrons_accumulated(t_int)
 
@@ -181,4 +177,8 @@ class DetectorStage:
         state = state.with_stage_output("detector", "stray_e", stray_e)
         state = state.with_stage_output("detector", "dark_e", dark_e)
         state = state.with_stage_output("detector", "glow_e", glow_e)
+        if dark_temperature_note:
+            state = state.with_stage_output(
+                "detector", "dark_temperature_note", dark_temperature_note
+            )
         return state.with_stage_output("detector", "noise_budget_raw", budget)

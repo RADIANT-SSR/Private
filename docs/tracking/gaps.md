@@ -1442,6 +1442,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | None in-tool. In the scripting API a caller can simply ignore the metrics they don't want and read only the keys they care about, but the metrics are still computed and still warn. |
 ---
 
+## Gap 97: `sub_pixel` regime silently ignores `geometry.target.projected_area_m2` — the signal is driven by `fill_fraction` (default 1.0), so a specified target area does nothing
+
+| | |
+|---|---|
+| **Found in** | Maritime-surveillance scenario review, 2026-07-18 — scenario `01/1.1_mwir_maritime_surveillance` (`regime_override: sub_pixel`, `geometry.target.projected_area_m2: 240`, `fill_fraction` unset → default 1.0). |
+| **Status** | OPEN |
+| **Description** | In the SUB_PIXEL regime the target signal is computed from `source.target.fill_fraction` (`spectral_integration/stage.py`: `L_mixed = ff·L_target·EE_box + (1−ff)·L_bg + L_path`), **not** from `geometry.target.projected_area_m2`. The projected area feeds only the regime *classification* (`angular_extent = √A/R`) and the POINT_SOURCE branch (`Ω_target = A/R²`). There is no derivation of `fill_fraction` from `projected_area / pixel-footprint`, and no error when both are given inconsistently. Net effect for the maritime config: `fill_fraction` defaults to **1.0** (target fills the pixel), so the 240 m² is ignored and the chain computes an **extended-scene** signal (`L_target · Ω_pixel`), yielding an implausibly high SNR ≈ 688. **Reproduced** (2026-07-18): sweeping `projected_area_m2` over 24 / 240 / 2400 m² leaves `signal_e_final = 1,014,902` and SNR = 688.009 **unchanged**; only `fill_fraction` moves them. Physical check: √240 ≈ 15.5 m at 532 km with IFOV 2×10⁻⁵ rad ⇒ angular extent 2.9×10⁻⁵ rad ≈ **1.46 pixels**, i.e. the target actually *overfills* one pixel — so the "sub_pixel" label is itself wrong for this config (it is marginally resolved). |
+| **Impact** | Any scenario that specifies a sub-pixel target by **radiance + projected area** (the natural way for a resolved-but-undersampled body) and forces `sub_pixel` gets a silently wrong, area-independent signal unless it *also* hand-sets a consistent `fill_fraction`. The two sub-pixel specification modes (dimensionless `fill_fraction` vs. `projected_area_m2` + range) do not cross-wire, and the mismatch is silent (violates the spirit of Rules 16/17 — no silent wrong physics). |
+| **Suggested fix** | Candidate directions (decision pending): (A) when `projected_area_m2 > 0` and the regime is sub_pixel, **derive** `fill_fraction = min(1, A_target / A_pixel_footprint)` from the pixel IFOV ground footprint (and drop to EXTENDED when it saturates to 1); (B) route radiance+area targets through the **POINT_SOURCE** branch (I = L·A_target, E = I/R²) when unresolved; (C) **error** (Rule 15/16) when `regime = sub_pixel` + `projected_area_m2` set + `fill_fraction` still at its 1.0 default — the over-/under-specified combination the consistency system is meant to catch. Needs a Level-0 test that the signal scales with `projected_area_m2` in sub_pixel mode. Effort M; category C (results-affecting for sub-pixel scenarios). Related: **CU-168** (the same area is also invisible on the GUI schematic), mission-type selector, Gap 96 metric selection. |
+| **Workaround** | Set `source.target.fill_fraction` explicitly to `A_target / A_pixel_footprint`, or model the target as `point_source` so the projected area drives the signal via `Ω_target = A/R²`. |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1542,6 +1554,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 94 | Elevated targets (h_tgt > 0) unreachable on file-backed atmosphere paths; shipped ladder library stranded | M | Near-space / boost-phase (UC Tables C, G) | FIXED 2026-07-18 (0aebdda) |
 | 95 | Above-atmosphere target over atmospheric background unreachable (LOS cap + ladder hull) | M | Exo-target sub-pixel / point-source vs Earth background | CODE FIXED 2026-07-18 (1d212e8); 29–100 km data planned |
 | 96 | No per-metric enable/select for performance metrics (toggle inapplicable metrics + warnings off) | M | All; GUI performance view (override half of CU-166) | OPEN |
+| 97 | `sub_pixel` regime ignores `projected_area_m2`; signal driven by `fill_fraction` (default 1.0) → area does nothing, extended-scene signal | M | Sub-pixel targets specified by radiance+area (maritime 1.1, others) | OPEN |
 
 ---
 

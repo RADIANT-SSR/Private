@@ -22,10 +22,15 @@ The controls are the identical building blocks the Inputs-tab
 cards holding a shape combo styled like a geometry mode selector (``geoModeSelector``,
 populated from the ``geometry.target.shape`` schema ``enum_values`` — never a hardcoded list,
 Gap 70), the per-shape **dimension** fields (radius / length / width / height / base-radius
-— only the subset the selected shape uses is shown, CU-131), and the yaw / pitch / roll
-fields, each rendered as the shared :class:`~radiant.gui.widgets.field_row.FieldRow`
-(label + value button). Clicking a dimension or RPY value emits
-:attr:`TargetShapePanel.editRequested`; selecting a shape emits :attr:`shapeRequested`.
+— only the subset the selected shape uses is shown, CU-131) **or**, when ``shape="none"``,
+the scalar **Projected area** field (``geometry.target.projected_area_m2``) that sizes a
+shapeless target — the two are mutually exclusive by construction (the panel never shows a
+shape's dims and the projected-area field together), the GUI half of "size the target one way
+or the other" (CU-168 follow-up; the engine's shape-wins precedence is the backstop for raw
+configs). Plus the yaw / pitch / roll fields, each rendered as the shared
+:class:`~radiant.gui.widgets.field_row.FieldRow` (label + value button). Clicking a dimension,
+the projected area, or an RPY value emits :attr:`TargetShapePanel.editRequested`; selecting a
+shape emits :attr:`shapeRequested`.
 
 All colour/typography comes from the QSS theme via object names (GUI plan §4.9); this file
 holds no colour/font literal. One widget class per file (Rule 19).
@@ -54,6 +59,13 @@ _RPY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Pitch", "geometry.target.shape_pitch_rad"),
     ("Roll", "geometry.target.shape_roll_rad"),
 )
+
+# The scalar projected-area dot-path — the size input for a target with NO shape
+# (extended/sub-pixel scene). Shape and projected area are two ways to specify the same
+# quantity (the projected area); the panel shows exactly one — this field when shape="none",
+# the shape's dimension subset otherwise — so they are mutually exclusive by construction
+# (CU-168 follow-up; the engine's shape-wins precedence is the backstop for raw configs).
+_PROJECTED_AREA_PATH: Final[str] = "geometry.target.projected_area_m2"
 
 # Every shape-dimension dot-path (the schema owns bounds/units; the label + the
 # shape→subset matrix below are the grouping literals, tracked under CU-120/CU-131).
@@ -170,6 +182,10 @@ class TargetShapePanel(QWidget):
         # opened in the shared editor dialog); only the subset the selected shape uses shows
         # (CU-131 + owner request: ALL dims per shape).
         dim_card, dim_box = self._card("Dimensions", self)
+        # Projected-area field (shape="none" only) — the size input for a shapeless target.
+        # Shown/hidden opposite the shape dims so the panel never offers both at once.
+        self._area_row = FieldRow(_PROJECTED_AREA_PATH, "Projected area", self._request_edit)
+        dim_box.addWidget(self._area_row)
         for label, dotpath in _DIM_FIELDS:
             row = FieldRow(dotpath, label, self._request_edit)
             dim_box.addWidget(row)
@@ -229,10 +245,16 @@ class TargetShapePanel(QWidget):
             self.editRequested.emit(dotpath)
 
     def _update_visible_dims(self, shape: str) -> None:
-        """Show only the dimension rows the *shape* uses (schema shape→dims matrix)."""
+        """Show only the dimension rows the *shape* uses (schema shape→dims matrix).
+
+        With ``shape="none"`` no body dims apply; the scalar **Projected area** field takes
+        their place instead. Shape dims and the projected-area field are never shown together
+        — they are the two mutually-exclusive ways to size the target (CU-168 follow-up).
+        """
         visible = set(_SHAPE_DIMENSIONS.get(shape, ()))
         for dotpath, row in self._dim_rows.items():
             row.setVisible(dotpath in visible)
+        self._area_row.setVisible(shape == "none")
 
     # -- programmatic sync (from the owner, does not echo signals) ----------
 
@@ -275,6 +297,14 @@ class TargetShapePanel(QWidget):
             if dotpath in texts:
                 row.set_value_text(texts[dotpath])
 
+    def set_projected_area(self, text: str) -> None:
+        """Reflect the sensor's current ``projected_area_m2`` as display text — pure view.
+
+        Only meaningful when ``shape="none"`` (the field is hidden otherwise); the owner
+        formats the value in its display unit via the shared formatter and passes the string.
+        """
+        self._area_row.set_value_text(text)
+
     # -- accessors (tests) --------------------------------------------------
 
     @property
@@ -294,6 +324,11 @@ class TargetShapePanel(QWidget):
     def dimension_row(self, dotpath: str) -> FieldRow:
         """The shape-dimension field row for *dotpath* (KeyError if unknown)."""
         return self._dim_rows[dotpath]
+
+    @property
+    def projected_area_row(self) -> FieldRow:
+        """The scalar projected-area field row (shown only when shape='none')."""
+        return self._area_row
 
     def visible_dimensions(self) -> tuple[str, ...]:
         """The dimension dot-paths whose rows are currently shown (for tests).

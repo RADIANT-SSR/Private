@@ -79,6 +79,7 @@ class TestSourceComposition:
         assert titles == [
             "Scene & regime",
             "Target — thermal",
+            "Target — point source",
             "Target — reflective",
             "Background & contrast",
         ]
@@ -104,7 +105,7 @@ class TestSourcePane:
         """Every radiometric input is the shared FieldRow (by-construction consistency)."""
         pane = _source_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         forms = pane._source_forms  # noqa: SLF001 — one per GT-0 tab
-        assert len(forms) == 4
+        assert len(forms) == 5
         rows: dict[str, FieldRow] = {}
         for form in forms:
             for dotpath in form.field_dotpaths():
@@ -303,6 +304,31 @@ class TestRelevanceGating:
         assert form.row("source.target.temperature").isEnabled()
         # The scene-type selector itself never gates (the way back out).
         assert form.row("source.scene_type").isEnabled()
+
+    def test_point_source_enables_intensity_extended_disables(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The point-intensity inputs gate ON for a point_source scene, OFF otherwise (Gap 98 D)."""
+        intensity_paths = (
+            "source.target.point_intensity_temperature_K",
+            "source.target.point_intensity_area_m2",
+            "source.target.point_intensity_emissivity",
+            "source.target.point_intensity_band_W_per_sr",
+        )
+        ps = Sensor.from_yaml(_EXAMPLE)
+        ps.set("source.scene_type", "point_source")
+        form_ps = self._form(qtbot, ps)
+        for dotpath in intensity_paths:
+            assert form_ps.row(dotpath).isEnabled(), dotpath
+        # Conversely the surface-radiance (ε, T) rows gate OFF — they are not the
+        # point-source input (a point source is defined by intensity).
+        assert not form_ps.row("source.target.temperature").isEnabled()
+        assert not form_ps.row("source.target.emissivity").isEnabled()
+
+        ext = Sensor.from_yaml(_EXAMPLE)
+        ext.set("source.scene_type", "extended")
+        form_ext = self._form(qtbot, ext)
+        for dotpath in intensity_paths:
+            assert not form_ext.row(dotpath).isEnabled(), dotpath
+            assert "point_source" in form_ext.row(dotpath).toolTip()
 
     def test_sub_pixel_disables_contrast_reference(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         sensor = Sensor.from_yaml(_EXAMPLE)

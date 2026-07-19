@@ -450,6 +450,13 @@
 **Symptom (was)**: each asserted `messages.warning_count >= 1` (or an all-yellow health strip) after evaluating `examples/mwir_leo_minimal.yaml`, on the premise that its out-of-GIQE-range SNR emits a NIIRS extrapolation warning. CU-166 (`9ae5daa`) removed that per-evaluate warning (structured status now), so the example evaluates warning-free and the assertions failed `assert 0 >= 1`.
 **Why it mattered**: the tests encoded the opposite of CU-166's owner-ratified acceptance bar; left red they train contributors to expect a warning that is intentionally gone — the lock-step-test debt CU-166's warning removal should have carried.
 
+### CU-168 — Geometry Schematic doesn't surface the target's projected area / angular extent — a sized target looks sizeless — RESOLVED 2026-07-18 (commit `3e94486`)
+
+**Discovered**: Maritime-surveillance scenario review, 2026-07-18 — scenario `01/1.1_mwir_maritime_surveillance` (`geometry.target.projected_area_m2 = 240`).
+**Status**: RESOLVED 2026-07-18, commit `3e94486`. **Resolution**: added a projected-area leader pill to the 2D schematic — `A_t  <area> m²  ·  <n> px`, where the pixel multiple is the angular extent (√A/range) over the detector IFOV (the sub-pixel-vs-resolved cue), drawn whenever a target area is defined (same not-to-scale idiom as the h_s/h_t altitude pills). `ViewerState` gains `projected_area_m2` / `angular_extent_rad` (read verbatim from `stage_outputs["source"]`); `SchematicScene.target_area_label` is built by `_area_label()` and rendered by `_draw_leader_labels`. Read-only projection — no physics change. Tests in `test_schematic_view.py` (5 cases, incl. the shape='none' point-target case); docs `RADIANT_GUI_Architecture.md` §6.2 + CHANGELOG in lock-step.
+**File (was)**: `src/radiant/gui/viewer/` (the 2D QPainter Geometry Schematic).
+**Symptom (was)**: a target sized only by the scalar `projected_area_m2` (shape library = "none") drew a bare point marker; the size was visible only in the parameter tree, so the schematic read as "no target area defined". It also masked Gap 97 (the area was both invisible and, in sub_pixel mode, functionally ignored).
+
 ### CU-162 — Committed tree fails the CLAUDE.md lint gate: `ruff check src/` (9 × E501) and `ruff format --check` (17 files) on HEAD — RESOLVED 2026-07-18 (commit `3570b07`)
 
 **Discovered**: Gap 94 verification sweep, 2026-07-18 (measured on a clean stash of `fix/cu-147-148-descriptor`, i.e. committed content only).

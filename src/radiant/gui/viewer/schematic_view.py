@@ -157,6 +157,29 @@ def _format_km(km: float) -> str:
     return f"{km * 1000.0:.0f} m"
 
 
+def _area_label(
+    projected_area_m2: float, angular_extent_rad: float, pixel_pitch_m: float, focal_length_m: float
+) -> str | None:
+    """Leader-label text for the target projected area (CU-168), or None when undefined.
+
+    Shows the projected area and — when the detector IFOV is known — the angular
+    extent as a multiple of one pixel (``√A/range ÷ IFOV``), the sub-pixel-vs-resolved
+    cue. Not-to-scale magnitude annotation only (§6.1); nothing here rescales geometry.
+    """
+    if projected_area_m2 <= 0.0:
+        return None
+    if projected_area_m2 >= 100.0:
+        area_txt = f"{projected_area_m2:.0f} m²"
+    else:
+        area_txt = f"{projected_area_m2:.2g} m²"
+    label = f"A_t  {area_txt}"
+    if angular_extent_rad > 0.0 and pixel_pitch_m > 0.0 and focal_length_m > 0.0:
+        ifov = pixel_pitch_m / focal_length_m
+        if ifov > 0.0:
+            label += f"  ·  {angular_extent_rad / ifov:.1f} px"
+    return label
+
+
 # -- Line weights (px), mirroring the mockup stroke conventions -----------------
 _W_GRID: float = 0.6
 _W_AXIS: float = 1.0
@@ -222,6 +245,11 @@ class SchematicScene:
     is_point: bool
     altitude_km: float
     target_altitude_km: float
+    # Projected-area leader label (CU-168): "A_t  240 m²  ·  1.5 px" when a target
+    # area is defined (via projected_area_m2 or a shape), else None (pill hidden). The
+    # px multiple is the angular extent over the detector IFOV — the sub-pixel vs
+    # resolved cue. Not-to-scale annotation (§6.1), same idiom as the h_s/h_t pills.
+    target_area_label: str | None = None
     # Night scene (no sun): the sun glyph, SUN→TARGET / SUN→GROUND vectors, drop
     # lines, and every sun-derived arc (θ_s, Δφ, phase) are omitted; sun_dir/sun_pos
     # then hold inert placeholder directions that are never drawn.
@@ -470,6 +498,12 @@ def build_scene(state: ViewerState) -> SchematicScene:
         is_point=is_point,
         altitude_km=state.observer_altitude_m / 1000.0,
         target_altitude_km=state.target_altitude_m / 1000.0,
+        target_area_label=_area_label(
+            state.projected_area_m2,
+            state.angular_extent_rad,
+            state.pixel_pitch_m,
+            state.focal_length_m,
+        ),
         has_sun=state.has_sun,
     )
 
@@ -932,6 +966,18 @@ class SchematicView(QWidget):
                 tp.x + 12,
                 tp.y + 22,
                 f"h_t  {_format_km(scene.target_altitude_km)}",
+                self._theme.muted,
+            )
+        # Projected-area pill (CU-168): sits below the target marker, clearing the h_t
+        # pill when the target is also airborne. Makes a target sized only by
+        # projected_area_m2 (shape = "none" → a bare point marker) visible on-screen.
+        if scene.target_area_label is not None:
+            tc = cam.project(scene.target_center)
+            self._label_pill(
+                painter,
+                tc.x + 12,
+                tc.y + (38 if scene.airborne else 20),
+                scene.target_area_label,
                 self._theme.muted,
             )
 

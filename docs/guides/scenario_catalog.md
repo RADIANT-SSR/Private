@@ -1,8 +1,10 @@
 # RADIANT Scenario Catalog — Persona-Driven Test Cases
 
 **Date:** 2026-04-15
-**Purpose:** 35 realistic usage scenarios (5 per persona) designed to stress-test
-RADIANT, reveal gaps, and guide prioritization of improvements.
+**Purpose:** 36 realistic usage scenarios designed to stress-test
+RADIANT, reveal gaps, and guide prioritization of improvements. (The original
+closed set was 35, 5 per persona; scenario 1.6 was added 2026-07-18 to cover the
+point-source / intensity workflow — owner-approved extension.)
 
 ---
 
@@ -244,6 +246,38 @@ obscuration and spiders affect PSF, EE, and MTF vs. a clear aperture.
 - No Strehl ratio in result.metrics
 - No off-axis MTF (only x/y, not arbitrary angle)
 - No PSF comparison/overlay mode
+
+---
+
+### Scenario 1.6: MWIR Point-Source SDA (Space Domain Awareness)
+
+**Context**: Sarah is scoping a space-based MWIR sensor (700 km LEO) that must
+detect **unresolved** satellites — point sources. She needs SNR and detection
+range for an object defined by its thermal **radiant intensity**, not a surface
+radiance × area (the object is smaller than a pixel IFOV).
+
+**Inputs she has**:
+- Target: a satellite bus radiating as a graybody — ε = 0.85, 8 m² emitting
+  area, 290 K → `I(λ) = ε·A·B(λ,T)` [W/sr/µm]
+- Sensor: 30 cm aperture, f/5, 15 µm InSb-class pixels, 3.5–5.0 µm, 10 ms
+- Slant range ≈ 729 km; detection threshold SNR = 6
+
+**Desired outputs**:
+- SNR and signal for the point-source target
+- Detection range (range at which SNR falls to the threshold)
+- Confirmation of point-source scaling (linear in intensity, inverse-square in range)
+
+**What it exercises**: the point-source regime and the **intensity** input
+surfaces — blackbody (`source.target.point_intensity_*`), scalar band flux, and
+CSV — all → `T7IntensityAtSource`. Baseline: SNR ≈ 30.5, detection range ≈ 1262 km.
+Config + runner: `scenarios/01_sarah_systems_engineer/1.6_mwir_point_source_sda/`.
+
+**Gaps revealed** (see the scenario's `gaps.md` → Gap 98):
+- Point-source regime doesn't steer to intensity — a blackbody + zero area raises
+  an error pointing to *area*, not to the intensity inputs
+- `point_source` requires `geometry.target_range_m` set explicitly (no fallback to
+  the derived slant range)
+- No GUI surface for the intensity inputs
 
 ---
 

@@ -226,11 +226,26 @@ class SpectralIntegrationStage:
             source_out = state.stage_outputs["source"]
             A_target: float = source_out["projected_area_m2"]
             R: float = source_out["range_m"]
-            if A_target is None or R is None or R <= 0.0:
+            # Gap 98 A: a point source is defined by its radiant intensity, not a
+            # surface radiance × area. When neither an intensity input nor a
+            # projected area is present, steer to the intensity surfaces rather than
+            # back to `projected_area_m2` (the intensity paths publish a fictitious
+            # reference area, so A_target is None only when no intensity was given).
+            if A_target is None:
                 raise SpectralIntegrationValidationError(
-                    "SpectralIntegrationStage: point_source regime requires "
-                    "projected_area_m2 and range_m from SourceStage. "
-                    f"Got A_target={A_target}, R={R}."
+                    "SpectralIntegrationStage: point_source regime has no target "
+                    "intensity. A point source is defined by its radiant intensity "
+                    "I(λ) [W/sr], not a surface radiance × area — set one of "
+                    "source.target.point_intensity_temperature_K (+ _area_m2, "
+                    "_emissivity), source.target.point_intensity_band_W_per_sr, or "
+                    "source.target.user_intensity_path; or give a projected area "
+                    "(geometry.target.projected_area_m2) to model a resolved target."
+                )
+            if R is None or R <= 0.0:
+                raise SpectralIntegrationValidationError(
+                    "SpectralIntegrationStage: point_source regime requires a positive "
+                    "slant range. Set geometry.target_range_m (or a geometry mode that "
+                    f"derives the slant range). Got range_m={R}."
                 )
 
             L_aperture_target = state.frames["at_aperture_target"].spectral_radiance

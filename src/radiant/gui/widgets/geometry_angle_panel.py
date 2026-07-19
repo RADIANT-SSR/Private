@@ -142,6 +142,10 @@ class GeometryAnglePanel(QWidget):
         """Reflect the sensor's current RPY as display text (dotpath → text) — pure view."""
         self._target_panel.set_orientation(texts)
 
+    def set_projected_area(self, text: str) -> None:
+        """Reflect the sensor's current projected area (shape='none' only) — pure view."""
+        self._target_panel.set_projected_area(text)
+
     # -- accessors (tests) --------------------------------------------------
 
     @property

@@ -36,6 +36,42 @@ retroactively reconstructed.
   `resolve_selection`, `group_of`) and `ChainState.without_metric`. **Not
   results-affecting**: the all-on default reproduces every existing metric
   exactly.
+- **GUI: point-source intensity inputs on the Source instrument (Gap 98 D).**
+  A new "Target — point source" tab exposes the point-intensity inputs
+  (`point_intensity_temperature_K`/`_area_m2`/`_emissivity`, `_band_W_per_sr`),
+  gated ON only for a declared `point_source` scene (schema `regime:point_source`
+  tag); conversely the surface-radiance `source.target.temperature`/`emissivity`
+  rows gate OFF for point-source (a point source is defined by intensity, not
+  radiance × area). Completes Gap 98 (with the A/C engine fixes above).
+- **Point-source intensity convenience inputs (Gap B).** A true point source
+  (SDA object, star) is defined by radiant intensity `I(λ)` [W/sr/µm], not
+  surface radiance × area. Two new opt-in ways to supply it without a CSV, both
+  routing to the same `T7IntensityAtSource` (point-source regime):
+  - **Blackbody emitter** — `source.target.point_intensity_temperature_K`,
+    `point_intensity_area_m2`, `point_intensity_emissivity` →
+    `I(λ) = ε·A·B(λ,T)`.
+  - **Scalar band flux** — `source.target.point_intensity_band_W_per_sr`, taken
+    as the in-band integral `∫ I(λ) dλ` [W/sr] over the filter band and modeled
+    as spectrally flat within it.
+  Mutually exclusive with each other, the CSV intensity path, and the
+  surface-radiance (ε, T) path (actionable errors on conflict / zero area). New
+  module `radiant.source.converters.point_intensity`. Not results-affecting for
+  existing configs (all params default to their "not set" sentinel).
+- **GUI: the Target-shape panel gains a Projected-area field, mutually exclusive
+  with the shape dimensions.** When the shape library is `none`, the panel shows a
+  scalar **Projected area** field (`geometry.target.projected_area_m2`); when a
+  shape is selected it shows that shape's dimensions instead — never both. Shape
+  and projected area are two ways to size the same target, so the GUI now enforces
+  "one or the other" by construction (the engine's shape-wins precedence remains
+  the backstop for raw configs that set both). Previously a shapeless target's area
+  could be set only from the parameter tree.
+- **GUI: the Geometry Schematic now shows the target's projected area (CU-168).**
+  A leader-label pill by the target reads `A_t  <area> m²  ·  <n> px` (the pixel
+  multiple is √A/range over the detector IFOV — the sub-pixel-vs-resolved cue),
+  drawn whenever a target area is defined. Previously a target sized only by
+  `geometry.target.projected_area_m2` (shape library = "none") drew a bare point
+  marker, so a defined area was visible only in the parameter tree. Read verbatim
+  from `stage_outputs["source"]`; no physics change.
 - **Results-affecting (opt-in): MODTRAN flux-file downwelling on the tape7-import
   path (CU-157).** New parameter `atmosphere.modtran.flux_path` names a Block E
   spectral flux CSV (`*_flux.csv`) alongside `atmosphere.modtran.tape7_path`.
@@ -104,6 +140,29 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **Point-source workflow: range fallback + actionable "no intensity" error (Gap 98 A/C).**
+  (C) A `point_source` target no longer requires `geometry.target_range_m` to be set
+  explicitly — `source.range_m` falls back to the GeometryStage-derived slant range
+  (from altitude + zenith / orbit / site modes), so a point-source config that derives
+  its range now runs instead of failing with "requires … range_m". (A) When a
+  `point_source` target has no radiant intensity, the error now steers to the intensity
+  inputs (`point_intensity_*` / `user_intensity_path`) instead of pointing back to
+  `projected_area_m2` — a point source is defined by intensity, not radiance × area.
+  Not results-affecting for existing configs (only enables previously-erroring ones).
+- **Results-affecting: sub-pixel signal now derives `fill_fraction` from the target
+  projected area (Gap 97).** In the `sub_pixel` regime the target's share of the
+  pixel was taken from `source.target.fill_fraction` (default 1.0) and never from
+  `geometry.target.projected_area_m2` — so a specified target area was silently
+  ignored and the chain computed an extended-scene signal regardless of target
+  size. `SourceStage` now derives `fill_fraction = A_proj / (Ω_pixel · range²)`
+  (clamped to 1.0 on overfill) whenever a projected area is given and no explicit
+  `fill_fraction` is set; an explicit `fill_fraction` is still honored. **Direction/
+  magnitude:** only affects sub-pixel targets specified by area without an explicit
+  fill fraction; for genuinely sub-pixel targets it *reduces* the target signal /
+  contrast by the fill factor (e.g. a 24 m² target at 532 km, 15 µm/0.75 m optics:
+  `contrast_snr` −84 → −17, a ~4.8× correction). Shipped scenarios are unchanged
+  (1.1 maritime overfills → clamps to 1.0; 1.3 sets `fill_fraction` explicitly);
+  no golden moved. New module `radiant.source.fill_fraction`.
 - **GUI: the geometry schematic's "unavailable" guard panel now recovers (CU-163).**
   A build failure during `show_result` still surfaces the actionable panel, but a
   later evaluate that builds cleanly rebuilds the canvas and re-enters schematic

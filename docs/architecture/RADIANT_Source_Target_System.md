@@ -360,6 +360,8 @@ This integral is what makes "geometry + materials" path produce the same `Resolv
 
 **Note on the radiance combination**: The sub-pixel math could equivalently keep `L_target` and `L_background` separate and let the chain combine them. We do the combination here so the chain sees one radiance everywhere — but we preserve the `background_radiance` for the noise budget. This is a deliberate denormalization: it makes the chain simpler at the cost of a small loss of inspectability.
 
+**Fill fraction ↔ projected area are one quantity (Gap 97).** `fill_fraction` and `geometry.target.projected_area_m2` are inverses of each other, not independent knobs: `fill_fraction = A_proj / (Ω_pixel · range²)` where `Ω_pixel = (p_x·p_y)/f²`. When a sub-pixel target is specified by **radiance + projected area** (Path 1 / geometry, then forced into `sub_pixel`) and the analyst does **not** set an explicit `fill_fraction`, `SourceStage` derives it from the area with this relation (`source/fill_fraction.py`, clamped to 1.0 when the target overfills the pixel) and publishes it as the `fill_fraction` stage output the sub-pixel signal mixes on. This makes the projected area actually drive the sub-pixel signal; before Gap 97 it fell back to the 1.0 default and the area was silently ignored (an extended-scene signal regardless of target size). An **explicit** `fill_fraction` (this Path 3) is always honored — geometry is skipped, the analyst owns the fraction; setting both an explicit `fill_fraction` and a `projected_area` is over-specification (the explicit value wins).
+
 **Use case**: Detection-of-small-targets analysis where the user has a SWAG on target temperature and wants to know detection range.
 
 ### Path 4: Direct intensity (point source)
@@ -375,6 +377,13 @@ This integral is what makes "geometry + materials" path produce the same `Resolv
 - `tentative_regime` ← forced to `POINT_SOURCE`
 
 **Use case**: Star observations, missile plume models, calibrated point sources.
+
+**Intensity input surfaces (S10).** The point-source intensity `I(λ)` may be supplied three ways, all converging on the same `T7IntensityAtSource` descriptor (`scene_type='point_source'` required; mutually exclusive with each other and with the surface-radiance (ε, T) path):
+- **CSV** — `source.target.user_intensity_path`: a 2-column `(wavelength_um, W/sr/µm)` file (the user owns the spectrum).
+- **Blackbody emitter (Gap B)** — `source.target.point_intensity_temperature_K` + `point_intensity_area_m2` (+ `point_intensity_emissivity`): `I(λ) = ε·A_emit·B(λ,T)`. The natural input for an SDA thermal object; no hand-authored CSV. `point_intensity_area_m2` is distinct from `geometry.target.projected_area_m2` — it scales the *intensity*, it does not size a resolved target.
+- **Scalar band flux (Gap B)** — `source.target.point_intensity_band_W_per_sr`: a single in-band intensity `∫ I(λ) dλ` [W/sr] over `[filter_min_um, filter_max_um]`, modeled as a spectrally **flat** `I(λ) = value/(λ_max−λ_min)` inside the band so the band integral recovers it (owner convention 2026-07-18: the scalar is the integrated value over the band, not a per-µm density). The simplest star-tracker/SDA input when only a band flux is known.
+
+Converters: `radiant.source.converters.point_intensity` (blackbody / scalar → `I(λ)`) and `radiant.source.converters.user_intensity` (CSV → `I(λ)`); both wrap the result in the S10 boundary converter. **Note**: a point source is defined by intensity — leaving the surface-radiance (ε, T) params set in `point_source` regime with zero area does *not* define a point source (it raises); use one of the intensity surfaces above.
 
 ### Path 5: Physical object → integrated intensity
 

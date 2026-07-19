@@ -1,0 +1,49 @@
+# RADIANT config — 1.6 MWIR point-source SDA (space domain awareness)
+#
+# A space-based MWIR sensor detecting an UNRESOLVED satellite by its thermal
+# self-emission. The target is a point source, defined by radiant INTENSITY
+# I(λ) = ε · A_emit · B(λ, T) [W/sr/µm] via the blackbody point-intensity inputs
+# (source.target.point_intensity_*, Gap B) — NOT surface radiance × area.
+# See walkthrough.md for the physics and the point-source workflow (Gap 98).
+_radiant:
+  format: 1
+  wavelength_points: 300
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 50000.0
+  detector_temperature_K: 80.0
+  dark_reference_temperature_K: 80.0
+  pixel_pitch_x_um: 15.0
+  pixel_pitch_y_um: 15.0
+  qe_value: 0.75
+geometry:
+  sensor_altitude_m: 700000.0
+  path_zenith_rad: 0.30
+  # Explicit slant range — the point_source signal reads source.range_m from this
+  # param (it does not fall back to the derived slant range; Gap 98 item C).
+  target_range_m: 729287.0
+optics:
+  aperture_diameter_m: 0.30
+  focal_length_m: 1.5
+  transmission_scalar: 0.85
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 6000000.0
+  gain_e_per_dn: 300.0
+  read_noise_e_rms: 30.0
+source:
+  scene_type: point_source
+  regime_override: point_source
+  target:
+    # Blackbody point-source intensity: I(λ) = ε · A_emit · B(λ, T).
+    point_intensity_temperature_K: 290.0
+    point_intensity_area_m2: 8.0
+    point_intensity_emissivity: 0.85
+spectral_integration:
+  filter_min_um: 3.5
+  filter_max_um: 5.0
+  integration_time_s: 0.01
+performance:
+  detection_snr_threshold: 6.0

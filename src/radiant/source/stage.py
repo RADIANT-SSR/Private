@@ -34,13 +34,14 @@ from radiant.core.descriptors import (
     T7IntensityAtSource,
     warn_if_reflective_and_sun_below_horizon,
 )
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterSet, Provenance
 from radiant.core.regime import (
     REGIME_EXTENDED_IFOV_MULTIPLE,
     REGIME_POINT_SOURCE_IFOV_MULTIPLE,
     RadiometricRegime,
 )
 from radiant.source._inferrer import infer_descriptors
+from radiant.source.fill_fraction import fill_fraction_from_area
 
 
 def _classify_regime(
@@ -108,6 +109,15 @@ class SourceStage:
         raw_range: float = params.get("geometry.target_range_m")
         projected_area_m2: float | None = raw_area if raw_area > 0.0 else None
         range_m: float | None = raw_range if raw_range > 0.0 else None
+        # Gap 98 C: when the target range is not set explicitly, fall back to the
+        # slant range GeometryStage derived (ADR-0006 — from altitude + zenith, or
+        # the orbit/site modes). Previously source.range_m was None whenever
+        # geometry.target_range_m was unset, so the point_source signal (which reads
+        # source.range_m) failed even though the chain already knew the slant range.
+        if range_m is None:
+            derived_range = state.stage_outputs.get("geometry", {}).get("slant_range_m")
+            if derived_range is not None and derived_range > 0.0:
+                range_m = float(derived_range)
         fill_fraction: float = params.get("source.target.fill_fraction")
         regime_override: str = params.get("source.regime_override")
         # Declared scene type ('auto' = no declaration). Published so OpticsStage
@@ -117,7 +127,16 @@ class SourceStage:
 
         # Pixel pitch and focal length for IFOV.
         pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
+        pixel_pitch_y_m: float = params.get("detector.pixel_pitch_y_um")
         focal_length_m: float = params.get("optics.focal_length_m")
+        # Gap 97: did the user set fill_fraction explicitly, or is it the schema
+        # default? When it is the default AND a projected area is given, the fill
+        # fraction is *derived* from geometry so the area actually drives the
+        # sub-pixel signal (see below); an explicit fill_fraction is honored
+        # (Path 3 — the analyst owns the fraction, geometry is skipped).
+        fill_fraction_is_default: bool = (
+            params.get_resolved("source.target.fill_fraction").provenance is Provenance.DEFAULT
+        )
 
         regime, angular_extent_rad = _classify_regime(
             projected_area_m2=projected_area_m2,
@@ -227,6 +246,28 @@ class SourceStage:
                 "angular_extent_rad",
                 angular_extent_rad,
             )
+
+        # --- Gap 97: derive the sub-pixel fill fraction from the projected area ---
+        # The sub-pixel signal (SpectralIntegrationStage) mixes by
+        # ``fill_fraction``. When the target is specified by radiance + projected
+        # area and the analyst did NOT set an explicit fill_fraction, derive it
+        # from the geometry — ff = A_proj / (R² · Ω_pixel) — so the area drives
+        # the signal instead of silently falling back to the 1.0 default (which
+        # yields an extended-scene signal regardless of area). An explicit
+        # fill_fraction is left untouched (Path 3: geometry is skipped, the
+        # analyst owns the fraction). Republishes the ``fill_fraction`` output
+        # SpectralIntegrationStage reads.
+        if fill_fraction_is_default and projected_area_m2 is not None and range_m is not None:
+            derived_ff = fill_fraction_from_area(
+                projected_area_m2,
+                range_m,
+                pixel_pitch_m,
+                pixel_pitch_y_m,
+                focal_length_m,
+            )
+            if derived_ff is not None:
+                fill_fraction = derived_ff
+                state = state.with_stage_output("source", "fill_fraction", fill_fraction)
 
         # Matrix §7 cross-descriptor check: T2Reflective + θ_s > π/2 warns
         # (sun below horizon → zero reflected signal).  Requires both the

@@ -87,6 +87,10 @@ from radiant.source.converters.brightness_temperature import (
     brightness_temperature_to_descriptor,
     load_brightness_temperature_csv,
 )
+from radiant.source.converters.point_intensity import (
+    blackbody_point_intensity,
+    scalar_band_intensity,
+)
 from radiant.source.converters.radiance_temperature import (
     radiance_temperature_to_descriptor,
 )
@@ -1412,6 +1416,122 @@ def _maybe_build_from_user_radiance(
     )
 
 
+def _maybe_build_from_point_intensity(
+    params: ParameterSet,
+    wavelength_um: np.ndarray,
+    scene_type: str,
+    target_location: str,
+    no_atmosphere_subcase: str,
+    h_tgt: float | None,
+) -> TargetDescriptor | None:
+    """Return an S10 T7IntensityAtSource from the point-intensity convenience inputs (Gap B).
+
+    Two opt-in ways to give a point-source intensity without a CSV
+    (:mod:`radiant.source.converters.point_intensity`):
+
+    * **Blackbody** — ``point_intensity_temperature_K`` (+ ``_area_m2``, ``_emissivity``)
+      → ``I(λ) = ε·A·B(λ,T)``.
+    * **Scalar** — ``point_intensity_band_W_per_sr`` → a spectrally flat ``I(λ)`` whose
+      band integral equals the given value.
+
+    Both build ``I(λ)`` on the chain grid and route through
+    :func:`user_intensity_to_descriptor` (so CSV / blackbody / scalar converge on one
+    T7 path). ``scene_type='point_source'`` is enforced there. Set-detection is
+    provenance-based; the two modes and the (ε, T)/CSV paths are mutually exclusive.
+    """
+    bb_set = _is_user_set(params, "source.target.point_intensity_temperature_K")
+    scalar_set = _is_user_set(params, "source.target.point_intensity_band_W_per_sr")
+    if not bb_set and not scalar_set:
+        return None
+
+    if bb_set and scalar_set:
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: point_intensity_temperature_K (blackbody) and "
+                "point_intensity_band_W_per_sr (scalar) are both set"
+            ),
+            why="They are two mutually-exclusive ways to define the same point-source intensity.",
+            action=(
+                "Set exactly one: point_intensity_temperature_K (+area, emissivity) for a "
+                "blackbody emitter, or point_intensity_band_W_per_sr for a band flux."
+            ),
+            context={},
+        )
+    for other, label in (
+        ("source.target.temperature", "temperature"),
+        ("source.target.emissivity", "emissivity"),
+        ("source.target.user_intensity_path", "user_intensity_path"),
+    ):
+        if _is_user_set(params, other):
+            raise ParameterBoundsError(
+                what=(
+                    "source._inferrer: point-intensity inputs are mutually exclusive with "
+                    f"source.target.{label}"
+                ),
+                why=(
+                    "The point-intensity path supplies an absolute I(λ) at the target plane; "
+                    "combining it with a surface-radiance (ε, T) or the CSV intensity path "
+                    "over-specifies the target."
+                ),
+                action=(
+                    f"Remove source.target.{label}, or drop the point_intensity_* params to "
+                    "use that form instead."
+                ),
+                context={"conflicting_param": f"source.target.{label}"},
+            )
+
+    lam = np.asarray(wavelength_um, dtype=np.float64)
+    if bb_set:
+        temperature_K = float(params.get("source.target.point_intensity_temperature_K"))
+        area_m2 = float(params.get("source.target.point_intensity_area_m2"))
+        emissivity = float(params.get("source.target.point_intensity_emissivity"))
+        if area_m2 <= 0.0:
+            raise ParameterBoundsError(
+                what=(
+                    f"source.target.point_intensity_area_m2 = {area_m2} m² must be > 0 for a "
+                    "blackbody point source"
+                ),
+                why=(
+                    "The emitting area scales the intensity I(λ) = ε·A·B(λ,T); "
+                    "zero area emits nothing."
+                ),
+                action=(
+                    "Set source.target.point_intensity_area_m2 to the emitter's projected area "
+                    "[m²]."
+                ),
+                context={"point_intensity_area_m2": area_m2},
+            )
+        i_values = blackbody_point_intensity(lam, temperature_K, area_m2, emissivity)
+        source_str = (
+            f"source.converters.point_intensity blackbody "
+            f"(ε={emissivity}, A={area_m2} m², T={temperature_K} K)"
+        )
+    else:
+        band_W_per_sr = float(params.get("source.target.point_intensity_band_W_per_sr"))
+        filter_min_um = float(params.get("spectral_integration.filter_min_um"))
+        filter_max_um = float(params.get("spectral_integration.filter_max_um"))
+        i_values = scalar_band_intensity(lam, band_W_per_sr, filter_min_um, filter_max_um)
+        source_str = (
+            f"source.converters.point_intensity scalar "
+            f"({band_W_per_sr} W/sr over [{filter_min_um}, {filter_max_um}] µm, band-flat)"
+        )
+
+    i_sd = SpectralData(
+        name="source.target.point_intensity",
+        wavelength_um=lam,
+        values=np.asarray(i_values, dtype=np.float64),
+        unit="W/sr/um",
+        source=source_str,
+    )
+    return user_intensity_to_descriptor(
+        I_t_source=i_sd,
+        scene_type=scene_type,  # type: ignore[arg-type]
+        target_location=target_location,  # type: ignore[arg-type]
+        no_atmosphere_subcase=(no_atmosphere_subcase or None),  # type: ignore[arg-type]
+        h_tgt=h_tgt,
+    )
+
+
 def _maybe_build_from_user_intensity(
     params: ParameterSet,
     wavelength_um: np.ndarray,
@@ -1686,6 +1806,20 @@ def _build_target_descriptor(
     )
     if s8 is not None:
         return s8
+
+    # S10 convenience — point-source intensity from a blackbody emitter (ε, A, T)
+    # or a scalar band-integrated flux (Gap B). Checked before the CSV S10 (both
+    # build T7IntensityAtSource; they are mutually exclusive).
+    s10b = _maybe_build_from_point_intensity(
+        params=params,
+        wavelength_um=wavelength_um,
+        scene_type=scene_type,
+        target_location=target_location,
+        no_atmosphere_subcase=no_atmosphere_subcase,
+        h_tgt=h_tgt,
+    )
+    if s10b is not None:
+        return s10b
 
     # S10 fast path — user-supplied absolute intensity at the target
     # plane (point-source; ADR-0004).

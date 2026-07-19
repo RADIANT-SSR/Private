@@ -378,6 +378,13 @@ This integral is what makes "geometry + materials" path produce the same `Resolv
 
 **Use case**: Star observations, missile plume models, calibrated point sources.
 
+**Intensity input surfaces (S10).** The point-source intensity `I(λ)` may be supplied three ways, all converging on the same `T7IntensityAtSource` descriptor (`scene_type='point_source'` required; mutually exclusive with each other and with the surface-radiance (ε, T) path):
+- **CSV** — `source.target.user_intensity_path`: a 2-column `(wavelength_um, W/sr/µm)` file (the user owns the spectrum).
+- **Blackbody emitter (Gap B)** — `source.target.point_intensity_temperature_K` + `point_intensity_area_m2` (+ `point_intensity_emissivity`): `I(λ) = ε·A_emit·B(λ,T)`. The natural input for an SDA thermal object; no hand-authored CSV. `point_intensity_area_m2` is distinct from `geometry.target.projected_area_m2` — it scales the *intensity*, it does not size a resolved target.
+- **Scalar band flux (Gap B)** — `source.target.point_intensity_band_W_per_sr`: a single in-band intensity `∫ I(λ) dλ` [W/sr] over `[filter_min_um, filter_max_um]`, modeled as a spectrally **flat** `I(λ) = value/(λ_max−λ_min)` inside the band so the band integral recovers it (owner convention 2026-07-18: the scalar is the integrated value over the band, not a per-µm density). The simplest star-tracker/SDA input when only a band flux is known.
+
+Converters: `radiant.source.converters.point_intensity` (blackbody / scalar → `I(λ)`) and `radiant.source.converters.user_intensity` (CSV → `I(λ)`); both wrap the result in the S10 boundary converter. **Note**: a point source is defined by intensity — leaving the surface-radiance (ε, T) params set in `point_source` regime with zero area does *not* define a point source (it raises); use one of the intensity surfaces above.
+
 ### Path 5: Physical object → integrated intensity
 
 **User provides**: `TargetGeometry` + materials, but the user *expects* the target to be unresolved.  

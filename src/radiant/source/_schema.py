@@ -619,6 +619,91 @@ USER_INTENSITY_PATH = ParameterDef(
     ),
 )
 
+# --- Point-source intensity from a blackbody emitter (Gap B / S10 convenience) ---
+# I(λ) = ε · A_emit · B(λ, T) [W/sr/µm], routed to the same T7IntensityAtSource as the
+# CSV path — so an SDA / star-tracker analyst gives (T, A, ε) instead of hand-authoring a
+# CSV. Set-detection is provenance-based (a value at its default is "not set"); requires
+# scene_type='point_source' and is mutually exclusive with the surface-radiance (ε, T)
+# path, the CSV intensity path, and the scalar band intensity below.
+POINT_INTENSITY_TEMPERATURE_K = ParameterDef(
+    name="source.target.point_intensity_temperature_K",
+    description=(
+        "Point-source emitter temperature [K]. With point_intensity_area_m2 (and "
+        "point_intensity_emissivity) defines a blackbody radiant intensity "
+        "I(λ) = ε·A·B(λ,T) [W/sr/µm] for an unresolved target (SDA thermal object, "
+        "S10 convenience — no surface radiance × area needed). Requires "
+        "scene_type='point_source'."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=0.0,
+    bounds=(0.0, 5000.0),
+    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    default_justification=(
+        "0 K = not set (provenance-detected); the blackbody point-source path is opt-in."
+    ),
+)
+
+POINT_INTENSITY_AREA_M2 = ParameterDef(
+    name="source.target.point_intensity_area_m2",
+    description=(
+        "Projected emitting area [m²] of a blackbody point source — the A in "
+        "I(λ) = ε·A·B(λ,T). Distinct from geometry.target.projected_area_m2 (which sizes "
+        "a resolved/sub-pixel target); this one only scales the point-source intensity."
+    ),
+    dtype=float,
+    canonical_unit="m^2",
+    input_unit="m^2",
+    default=0.0,
+    bounds=(0.0, 1.0e12),
+    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    default_justification=(
+        "0 m² = not set; the emitting area is required only for the blackbody point-source path."
+    ),
+)
+
+POINT_INTENSITY_EMISSIVITY = ParameterDef(
+    name="source.target.point_intensity_emissivity",
+    description=(
+        "Scalar emissivity ε ∈ [0, 1] of a blackbody point source (the ε in "
+        "I(λ) = ε·A·B(λ,T)). Independent material property (Rule 5 applies to optical "
+        "elements, not scene targets)."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=1.0,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    default_justification=(
+        "ε = 1.0 (ideal blackbody) is the neutral default when only T and A are given."
+    ),
+)
+
+POINT_INTENSITY_BAND_W_PER_SR = ParameterDef(
+    name="source.target.point_intensity_band_W_per_sr",
+    description=(
+        "Scalar band-integrated radiant intensity [W/sr] of a point source — the "
+        "in-band integral ∫ I(λ) dλ over the filter band "
+        "[spectral_integration.filter_min_um, filter_max_um]. Modeled as a spectrally "
+        "flat intensity I(λ) = value/(filter_max−filter_min) inside the band, zero "
+        "outside, so the band integral recovers the specified value. The simplest "
+        "point-source input (star-tracker / SDA when only a band flux is known); requires "
+        "scene_type='point_source'. Mutually exclusive with the blackbody point-intensity "
+        "params and the CSV intensity path."
+    ),
+    dtype=float,
+    canonical_unit="W/sr",
+    input_unit="W/sr",
+    default=0.0,
+    bounds=(0.0, 1.0e12),
+    tags=frozenset({"source", "target", "point_intensity", "S10"}),
+    default_justification=(
+        "0 W/sr = not set (provenance-detected); the scalar band-intensity path is opt-in."
+    ),
+)
+
 
 def validate_reflectance_albedo_exclusive(params: Any) -> None:
     """Raise if both ``reflectance`` and ``albedo`` surfaces are user-set.
@@ -708,4 +793,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     EMISSIVITY_PATH,
     USER_RADIANCE_PATH,
     USER_INTENSITY_PATH,
+    POINT_INTENSITY_TEMPERATURE_K,
+    POINT_INTENSITY_AREA_M2,
+    POINT_INTENSITY_EMISSIVITY,
+    POINT_INTENSITY_BAND_W_PER_SR,
 )

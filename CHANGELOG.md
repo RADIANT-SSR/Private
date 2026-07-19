@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Point-source intensity convenience inputs (Gap B).** A true point source
+  (SDA object, star) is defined by radiant intensity `I(λ)` [W/sr/µm], not
+  surface radiance × area. Two new opt-in ways to supply it without a CSV, both
+  routing to the same `T7IntensityAtSource` (point-source regime):
+  - **Blackbody emitter** — `source.target.point_intensity_temperature_K`,
+    `point_intensity_area_m2`, `point_intensity_emissivity` →
+    `I(λ) = ε·A·B(λ,T)`.
+  - **Scalar band flux** — `source.target.point_intensity_band_W_per_sr`, taken
+    as the in-band integral `∫ I(λ) dλ` [W/sr] over the filter band and modeled
+    as spectrally flat within it.
+  Mutually exclusive with each other, the CSV intensity path, and the
+  surface-radiance (ε, T) path (actionable errors on conflict / zero area). New
+  module `radiant.source.converters.point_intensity`. Not results-affecting for
+  existing configs (all params default to their "not set" sentinel).
 - **GUI: the Target-shape panel gains a Projected-area field, mutually exclusive
   with the shape dimensions.** When the shape library is `none`, the panel shows a
   scalar **Projected area** field (`geometry.target.projected_area_m2`); when a

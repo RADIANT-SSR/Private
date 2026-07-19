@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-168 — Geometry Schematic doesn't surface the target's projected area / angular extent — a sized target looks sizeless
-
-**Discovered**: Maritime-surveillance scenario review, 2026-07-18 — scenario `01/1.1_mwir_maritime_surveillance` (`geometry.target.projected_area_m2 = 240`).
-**Status**: Open — GUI-visibility gap, orthogonal to the Gap 97 physics bug it exposed.
-**File**: `src/radiant/gui/viewer/` (the 2D QPainter Geometry Schematic) + the "Target shape / orientation" side panel (`Dimensions` / shape-library controls).
-**Symptom**: the Schematic renders the target from the *shape library* (+ Dimensions); when the target size is given only as the scalar `geometry.target.projected_area_m2` (shape library = "none"), nothing sized is drawn — the target is a point marker at the origin. Looking at the screen, an analyst reasonably concludes *no target area is defined*, even though 240 m² is set in the parameter tree. The size is invisible on the one screen meant to show geometry.
-**Why it still matters**: the schematic is the at-a-glance geometry truth surface; a defined target extent that it omits is a silent-omission UX failure (the GUI-is-a-view rule: the screen should reflect the model). It also masks Gap 97 — because the area is both invisible *and* (in sub_pixel mode) functionally ignored, the two failures reinforce a false "sizeless target" reading.
-**Suggested fix**: (b) stand-alone task — surface `projected_area_m2` and its **angular extent** (`√A / range`) on the Schematic: draw the target marker sized to the angular extent and/or annotate `A_proj = 240 m² (≈1.5 px)`, and ideally overlay the pixel IFOV ground footprint so sub-pixel vs. resolved is visible at a glance (this directly supports diagnosing Gap 97). Read-only projection of existing stage outputs (`source.projected_area_m2`, `source.angular_extent_rad`, IFOV from optics/detector) — no physics change. Lock-step doc: `RADIANT_GUI_Architecture.md` (Geometry Schematic §). Effort M; category D (GUI/UX). Related: Gap 97, mission-type selector.
-
 ### CU-166 — Out-of-calibration NIIRS is re-announced every evaluate via two warning channels instead of being a once-read result status; no metric-applicability gate
 
 **Discovered**: GUI-exercise campaign, 2026-07-18 — a scenario sweep in the scripting console floods with `GSD = 430 inch … outside the GIQE-5 calibration range` / `SNR = 526 … outside the GIQE-5 calibration range` on every evaluate.
@@ -450,6 +441,13 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-168 — Geometry Schematic doesn't surface the target's projected area / angular extent — a sized target looks sizeless — RESOLVED 2026-07-18 (commit `3e94486`)
+
+**Discovered**: Maritime-surveillance scenario review, 2026-07-18 — scenario `01/1.1_mwir_maritime_surveillance` (`geometry.target.projected_area_m2 = 240`).
+**Status**: RESOLVED 2026-07-18, commit `3e94486`. **Resolution**: added a projected-area leader pill to the 2D schematic — `A_t  <area> m²  ·  <n> px`, where the pixel multiple is the angular extent (√A/range) over the detector IFOV (the sub-pixel-vs-resolved cue), drawn whenever a target area is defined (same not-to-scale idiom as the h_s/h_t altitude pills). `ViewerState` gains `projected_area_m2` / `angular_extent_rad` (read verbatim from `stage_outputs["source"]`); `SchematicScene.target_area_label` is built by `_area_label()` and rendered by `_draw_leader_labels`. Read-only projection — no physics change. Tests in `test_schematic_view.py` (5 cases, incl. the shape='none' point-target case); docs `RADIANT_GUI_Architecture.md` §6.2 + CHANGELOG in lock-step.
+**File (was)**: `src/radiant/gui/viewer/` (the 2D QPainter Geometry Schematic).
+**Symptom (was)**: a target sized only by the scalar `projected_area_m2` (shape library = "none") drew a bare point marker; the size was visible only in the parameter tree, so the schematic read as "no target area defined". It also masked Gap 97 (the area was both invisible and, in sub_pixel mode, functionally ignored).
 
 ### CU-162 — Committed tree fails the CLAUDE.md lint gate: `ruff check src/` (9 × E501) and `ruff format --check` (17 files) on HEAD — RESOLVED 2026-07-18 (commit `3570b07`)
 

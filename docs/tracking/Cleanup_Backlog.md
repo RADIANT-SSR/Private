@@ -436,7 +436,7 @@
 ### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`.
-**Status**: RESOLVED 2026-07-19, commit `<pending150>`. **Resolution**: added a root `.gitattributes` (`* text=auto eol=lf` + explicit `-text` for `.png`/`.jpg`/`.pdf`/`.xls*`/`.npy`/`.npz`/`.h5`/`.zip`/`.gz`/`.ttf`/`.otf`/…), so a Windows checkout with `core.autocrlf=true` cannot rewrite tracked text to CRLF. Belt-and-suspenders: the MODTRAN deck writers now pass `newline="\n"` explicitly where byte-exactness matters — `atmosphere/modtran.py` (tape5), `scripts/render_modtran_decks.py` (tp5), `scripts/synth_modtran/tape7_writer.py` (tape7). No existing tree file is CRLF (macOS dev), so nothing renormalized; no results change. Wave 1 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `457ba8f`. **Resolution**: added a root `.gitattributes` (`* text=auto eol=lf` + explicit `-text` for `.png`/`.jpg`/`.pdf`/`.xls*`/`.npy`/`.npz`/`.h5`/`.zip`/`.gz`/`.ttf`/`.otf`/…), so a Windows checkout with `core.autocrlf=true` cannot rewrite tracked text to CRLF. Belt-and-suspenders: the MODTRAN deck writers now pass `newline="\n"` explicitly where byte-exactness matters — `atmosphere/modtran.py` (tape5), `scripts/render_modtran_decks.py` (tp5), `scripts/synth_modtran/tape7_writer.py` (tape7). No existing tree file is CRLF (macOS dev), so nothing renormalized; no results change. Wave 1 of the autonomous CU-cleanup plan.
 **File**: `.gitattributes` (new); `src/radiant/atmosphere/modtran.py`, `scripts/render_modtran_decks.py`, `scripts/synth_modtran/tape7_writer.py`.
 
 ### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default)

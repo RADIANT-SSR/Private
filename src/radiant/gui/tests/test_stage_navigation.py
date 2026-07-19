@@ -23,6 +23,7 @@ from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 _APERTURE = "optics.aperture_diameter_m"
+_FULL_WELL = "readout.full_well_capacity_e"
 _WAIT_MS = 15000
 
 
@@ -93,12 +94,17 @@ class TestHealthDotTransitions:
             assert chip.status == "stale"
 
     def test_warning_run_marks_all_yellow(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The example config's NIIRS extrapolation warning turns every dot yellow.
+        """An actionable chain warning turns every dot yellow.
 
         Per the documented v1 decision (arch doc §4.2) warnings are not attributed
-        per-stage, so any warning marks the whole run yellow.
+        per-stage, so any warning marks the whole run yellow. A valid scenario now
+        evaluates warning-free (CU-166), so this drives a genuine full-well-clip
+        warning to exercise the yellow branch (CU-167).
         """
         window = _load_window(qtbot)
+        window.sensor.set(_FULL_WELL, 100000.0)  # forces a hard full-well clip
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit(_FULL_WELL)
         assert window.right_rail.messages.warning_count >= 1
         for chip in window.stage_strip.chips:
             assert chip.status == "warn"

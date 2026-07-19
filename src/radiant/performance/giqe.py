@@ -16,13 +16,10 @@ See RADIANT_Metrics.md §4.6.
 
 from __future__ import annotations
 
-import logging
 import math
 from dataclasses import dataclass
 
 from radiant.performance.errors import PerformanceValidationError
-
-logger = logging.getLogger(__name__)
 
 # GIQE-5 coefficients (published).
 C0 = 9.57
@@ -138,6 +135,13 @@ def compute_giqe5(
     rer = math.sqrt(rer_along * rer_cross)
 
     # Calibration-range checks (Gap 22): flag extrapolation, both ends.
+    # The out-of-range condition is carried as structured status only
+    # (GIQEResult.extrapolated + .warnings); it is NOT emitted as a
+    # logging or Python warning here. A metric falling outside its own
+    # calibration band is a property of the configuration, not a per-
+    # evaluate event, so re-announcing it every evaluate floods sweeps /
+    # Monte-Carlo / the GUI console and buries actionable warnings
+    # (CU-166; owner bar: a valid scenario evaluates warning-free).
     for label, value, (lo, hi) in (
         ("GSD", gsd_inch, GIQE5_GSD_INCH_RANGE),
         ("RER", rer, GIQE5_RER_RANGE),
@@ -151,7 +155,6 @@ def compute_giqe5(
                 "extrapolation with reduced confidence"
             )
             warnings.append(msg)
-            logger.warning("%s", msg)
 
     # GIQE-5 formula.
     niirs = (

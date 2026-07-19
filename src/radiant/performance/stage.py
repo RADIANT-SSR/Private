@@ -718,13 +718,13 @@ def _compute_niirs_metric(
     result = compute_niirs(gsd_along, gsd_cross, rer, rer, snr, band=band)
     state = state.with_metric("niirs", result.niirs)
     state = state.with_metric("niirs_extrapolated", 1.0 if result.extrapolated else 0.0)
-    if result.extrapolated:
-        warnings.warn(
-            "NIIRS is an extrapolation outside the GIQE-5 calibration range: "
-            + "; ".join(result.warnings),
-            UserWarning,
-            stacklevel=2,
-        )
+    # Extrapolation beyond the GIQE-5 calibration band is carried as structured
+    # status only — the `niirs_extrapolated` metric (0/1), `result.extrapolated`,
+    # and `result.warnings` on the stage output. It is deliberately NOT re-emitted
+    # as a `warnings.warn` every evaluate: a metric outside its own calibration
+    # band is a configuration property, not a per-evaluate event, and re-announcing
+    # it floods sweeps / the GUI console (CU-166; owner bar: a valid scenario
+    # evaluates warning-free). Consumers render the caveat once from the fields.
     return state.with_stage_output("performance", "niirs_result", result)
 
 

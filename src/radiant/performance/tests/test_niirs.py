@@ -221,3 +221,22 @@ class TestExtrapolationFlag:
         result = compute_niirs(0.3, 0.3, 0.1, 0.1, 50.0, band="mwir")
         assert result.extrapolated is True
         assert any("RER" in w for w in result.warnings)
+
+    def test_compute_niirs_emits_no_warning(self, recwarn) -> None:  # type: ignore[no-untyped-def]
+        """CU-166: the calibration-range check is structured status only —
+        `compute_niirs` never raises a Python warning, even out of range."""
+        result = compute_niirs(100.0, 100.0, 0.1, 0.1, 1000.0, band="vis")
+        assert result.extrapolated is True  # GSD, RER, SNR all out of range
+        assert len(recwarn) == 0
+
+    def test_niirs_metric_wiring_emits_no_warning(self, recwarn) -> None:  # type: ignore[no-untyped-def]
+        """CU-166: an out-of-calibration NIIRS through the chain wiring flags
+        `niirs_extrapolated` but emits no `UserWarning` (owner bar: a valid
+        scenario evaluates warning-free)."""
+        # Default GSD 1.0 m = 39.4 inch is already past the [1.18, 31.5] range.
+        state = _make_state_with_metrics()
+        params = _make_niirs_params()
+        out = _compute_niirs_metric(state, params)
+        assert out.metrics["niirs_extrapolated"] == 1.0
+        assert out.stage_outputs["performance"]["niirs_result"].extrapolated is True
+        assert len(recwarn) == 0

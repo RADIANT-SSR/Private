@@ -102,6 +102,15 @@ retroactively reconstructed.
   phase angle annotations) simply absent; the sensor/target geometry is unchanged.
 
 ### Changed
+- **NIIRS out-of-calibration is now structured status, not a per-evaluate warning
+  (CU-166).** When a NIIRS/IIRS input falls outside the GIQE-5 calibration band the
+  chain no longer emits a `UserWarning` (nor a `logger.warning`) on every evaluate —
+  the condition is carried solely on the result (`GIQEResult.extrapolated`,
+  `.warnings`, and the `niirs_extrapolated` metric), which was always available.
+  This stops the warning flood in sweeps / Monte-Carlo / the GUI console (owner bar:
+  a valid, nominally-operating scenario evaluates warning-free). No computed value
+  changes. Up-front metric-applicability gating and the MWIR→IIRS/GIQE-5 routing
+  question remain deferred, gated on the Gap 96 metric-selection decision.
 - **Results-affecting (simple-atmosphere scenes with a reflected-sky term):
   SimpleAtmosphere downwelling sky emission rebuilt against the real MODTRAN 6
   up-looking runs (CU-155).** `E_sky_thermal` (and the legacy `L_atm_down`) now

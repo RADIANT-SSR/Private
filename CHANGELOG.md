@@ -213,6 +213,12 @@ retroactively reconstructed.
   `°`, `⁻`) decode correctly on stock Windows (cp1252 locale) instead of raising or
   silently mojibaking. Ruff `PLW1514` (`unspecified-encoding`) is enabled to prevent
   regression. Not results-affecting on macOS/Linux (UTF-8 is already the default).
+- **Cross-platform MODTRAN `binary_path` default (CU-151).** The default MODTRAN
+  executable path now resolves to `modtran` on `PATH`, else the per-platform install
+  location (POSIX `/usr/local/bin/modtran`; Windows `C:\Program Files\MODTRAN\modtran.exe`),
+  instead of a hardcoded POSIX path that could never exist on Windows.
+  `ModtranUnavailableError` names both a Windows and a POSIX example. Not
+  results-affecting (the macOS default string is unchanged).
 - **Pinned line endings via `.gitattributes` (CU-150).** A root `.gitattributes`
   (`* text=auto eol=lf` + `-text` for binary assets) keeps tracked text at LF in the
   working tree, so byte-level comparisons (golden baselines, checksummed reference data,

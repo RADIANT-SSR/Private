@@ -59,15 +59,6 @@
 **Why it still matters**: Rule 30 (cross-platform portability) — dev tooling should be runnable on both supported platforms, or its README must state the manual steps.
 **Suggested fix**: (a) inline-fix-now candidate — replace with a `pip install`-able requirements file or a short cross-platform Python script, or document the equivalent manual commands in the tool's README. Effort S; category A. Re-audit at the next geometry_gui_v2 touch.
 
-### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only
-
-**Discovered**: Windows-portability review, 2026-07-16, `main`
-**Status**: Open — portability nit, degrades gracefully. The schema default for the MODTRAN executable is a POSIX path that can never exist on Windows. The failure mode is already actionable (`ModtranUnavailableError` at `modtran.py:894` when `binary_path.exists()` is false), so nothing crashes — but the default is dead weight on Windows and every Windows config must override it to a `modtran.exe` path.
-**File**: `src/radiant/atmosphere/modtran.py:174` (`ModtranConfig.binary_path` default) and `src/radiant/atmosphere/_schema.py:223` (`default="/usr/local/bin/modtran"`).
-**Symptom**: On Windows, any MODTRAN-mode run without an explicit `atmosphere.modtran.binary_path` raises `ModtranUnavailableError` pointing at a path form (`/usr/local/bin/...`) that is meaningless on the platform.
-**Why it still matters**: Rule 30 (cross-platform portability) + Rule 15 (actionable errors) — the error should suggest a platform-appropriate remedy, and a platform-conditional default (or no default + required-when-modtran-mode) would remove the trap.
-**Suggested fix**: (b) stand-alone task — either make the default platform-conditional (`shutil.which("modtran")` fallback) or drop the default and require the parameter in MODTRAN mode, updating the error's `action` text to name a Windows example path. Effort S; category B (schema default change — check no golden depends on it). Re-audit at the next atmosphere/modtran touch.
-
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 
 **Discovered**: GUI Development Plan Phase 9 (theme toggle), 2026-07-15, branch `gui-framework-plots`
@@ -432,6 +423,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only
+
+**Discovered**: Windows-portability review, 2026-07-16, `main`.
+**Status**: RESOLVED 2026-07-19, commit `<pending151>`. **Resolution**: new leaf module `atmosphere/_modtran_paths.py` (`default_modtran_binary`/`_str`, stdlib-only) resolves the default to `modtran` on `PATH` if present, else the per-platform install location (POSIX `/usr/local/bin/modtran`; Windows `C:\Program Files\MODTRAN\modtran.exe`). `ModtranConfig.binary_path` uses it via `field(default_factory=...)`; the `_schema.py` `MODTRAN_BINARY_PATH` default calls the `_str` form. `ModtranUnavailableError` now names a Windows and a POSIX example path. On macOS the default string is unchanged (`/usr/local/bin/modtran`), so no golden/behavior change; 6 new tests. R20: corrected `RADIANT_Atmosphere.md` (removed a stale `RADIANT_MODTRAN_BIN` env-var claim never in code; now describes the real PATH-then-platform resolution). Wave 1 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/atmosphere/_modtran_paths.py` (new), `modtran.py`, `_schema.py`; `docs/architecture/RADIANT_Atmosphere.md`.
 
 ### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms
 

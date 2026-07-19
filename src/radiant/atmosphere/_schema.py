@@ -6,6 +6,7 @@ plus the interpolated model and viewing geometry parameters.
 
 from __future__ import annotations
 
+from radiant.atmosphere._modtran_paths import default_modtran_binary_str
 from radiant.core.parameters import ParameterDef
 
 # ---------------------------------------------------------------------------
@@ -270,9 +271,13 @@ MODTRAN_BINARY_PATH = ParameterDef(
     dtype=str,
     canonical_unit="",
     input_unit="",
-    default="/usr/local/bin/modtran",
+    default=default_modtran_binary_str(),
     tags=frozenset({"atmosphere", "modtran"}),
-    default_justification="Common install location for MODTRAN.",
+    default_justification=(
+        "MODTRAN on PATH if present, else the conventional per-platform install "
+        "location (POSIX /usr/local/bin/modtran; Windows Program Files). Availability "
+        "is authoritatively checked at run time (CU-151, Rule 30)."
+    ),
 )
 
 MODTRAN_CACHE_DIR = ParameterDef(

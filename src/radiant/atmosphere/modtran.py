@@ -41,6 +41,7 @@ from typing import Any
 
 import numpy as np
 
+from radiant.atmosphere._modtran_paths import default_modtran_binary
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.errors import AtmosphereStateError, AtmosphereValidationError
 from radiant.atmosphere.protocol import (
@@ -70,9 +71,11 @@ class ModtranUnavailableError(RadiantError, RuntimeError):
     def __init__(self, binary_path: str | Path, detail: str = "") -> None:
         msg = (
             f"MODTRAN binary not found at '{binary_path}'. "
-            "Install MODTRAN and set atmosphere.modtran.binary_path, "
-            "or set atmosphere.modtran.allow_fallback=True to use the "
-            "simple parametric model as a fallback."
+            "Install MODTRAN and set atmosphere.modtran.binary_path to the "
+            r"executable (e.g. 'C:\Program Files\MODTRAN\modtran.exe' on Windows, "
+            "'/usr/local/bin/modtran' on macOS/Linux), or set "
+            "atmosphere.modtran.allow_fallback=True to use the simple parametric "
+            "model as a fallback."
         )
         if detail:
             msg += f" Detail: {detail}"
@@ -183,7 +186,7 @@ class ModtranConfig:
         Not exposed as a ParameterDef (dict type not supported).
     """
 
-    binary_path: Path = Path("/usr/local/bin/modtran")
+    binary_path: Path = field(default_factory=default_modtran_binary)
     cache_dir: Path = _DEFAULT_CACHE_DIR
     allow_fallback: bool = False
     atmosphere_profile: str = "us_standard"

@@ -50,15 +50,6 @@
 **Why it still matters**: a permanently-red lint gate stops distinguishing new violations from old ones; contributors learn to ignore it (the failure mode Rule 21 exists to catch early).
 **Suggested fix**: (a) inline-fix-now in a dedicated hygiene commit — `ruff format src/` + wrap the 9 long lines; zero behavior change, no CHANGELOG (Rule 29 internal-only). Effort S; category A. Coordinate around in-flight branches to avoid churn.
 
-### CU-163 — Geometry schematic's "unavailable" guard panel is one-way (canvas destroyed, never rebuilt)
-
-**Discovered**: night-mode crash triage (owner bug 2026-07-18) — the reported "schematic dies" was `ViewerState.from_chain_result` raising on `float(None)` (fixed same day), but the *dying* behavior is this panel.
-**Status**: Open.
-**File**: `src/radiant/gui/viewer/viewer_widget.py` (`show_result` → `_enter_unavailable`).
-**Symptom**: any exception during state-building deletes the canvas (`deleteLater`) and sets `_mode = "unavailable"` permanently — every later `show_result` returns early, so one transient adapter error kills the schematic for the rest of the session even after the offending input is corrected.
-**Why it still matters**: the guard exists to degrade gracefully (Rules 15/17), but an unrecoverable degrade turns a one-evaluate hiccup into "restart the app"; the night bug demonstrated exactly this failure mode reaching users.
-**Suggested fix**: (a) inline-fix-now — on a successful `show_result` while in `unavailable` mode, rebuild the canvas and re-enter `schematic` mode (keep the panel only while errors persist). Effort S; category A (GUI resilience, no physics). Test: force one `_boom` build (the existing monkeypatch pattern), then a good result → canvas returns.
-
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`
@@ -459,6 +450,14 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-163 — Geometry schematic's "unavailable" guard panel is one-way (canvas destroyed, never rebuilt) — RESOLVED 2026-07-18 (commit `6862fa0`)
+
+**Discovered**: night-mode crash triage (owner bug 2026-07-18) — the reported "schematic dies" was `ViewerState.from_chain_result` raising on `float(None)` (fixed same day), but the *dying* behavior was this panel.
+**Status**: RESOLVED 2026-07-18, commit `6862fa0`. **Resolution**: `show_result` now builds the state first and, on a clean build, calls the new `_restore_canvas` (recreate `SchematicView`, re-wire the `angle_overlay` signal, re-apply theme/revealed-arcs/triad) to re-enter schematic mode before rendering — the guard panel is tracked (`_unavailable_panel`) so it is torn down on restore and never stacked. One transient adapter error no longer disables the viewer for the session. Category A (GUI resilience, no physics); CHANGELOG (Fixed) in lock-step. Test `test_guard_panel_recovers_on_next_good_result` (force one `_boom` build → panel, then a good result → canvas returns and view controls route to it).
+**File**: `src/radiant/gui/viewer/viewer_widget.py` (`show_result`, `_enter_unavailable`, new `_restore_canvas`).
+**Symptom (was)**: any exception during state-building deleted the canvas (`deleteLater`) and set `_mode = "unavailable"` permanently — every later `show_result` returned early, so one transient adapter error killed the schematic for the rest of the session even after the offending input was corrected.
+**Why it mattered**: the guard exists to degrade gracefully (Rules 15/17), but an unrecoverable degrade turned a one-evaluate hiccup into "restart the app"; the night bug demonstrated exactly this failure mode reaching users.
 
 ### CU-157 — Wire MODTRAN flux-file downwelling into the tape7-import path (`atmosphere.modtran.flux_path`) — RESOLVED 2026-07-18 (commit `5e316f7`)
 

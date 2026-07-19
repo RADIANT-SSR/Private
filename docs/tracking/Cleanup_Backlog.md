@@ -160,15 +160,6 @@
 **Why it still matters**: The persistence half of the two ratified §4.5 capabilities is still open — a pin set the operator curates does not survive a relaunch. It wants the Phase-9 preferences/`QSettings` surface (the same path as the theme toggle), not the Step-B rearrangement.
 **Suggested fix**: (b) stand-alone task — Phase 9: persist `PinnedPanel`'s session list (including `output` refs) via `QSettings` on the same path as the theme toggle. Effort S; category D (UX). Re-audit date: at Phase 9 landing.
 
-### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
-
-**Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13
-**Status**: Open — dead style rule; harmless (no widget carries the object name, so nothing renders it), but misleading to a reader.
-**File**: `src/radiant/gui/themes/stylesheet.py` (the `/* -- Stage gap panel … */` block: `#stageGapPanel`, `QLabel#stageGapHeader`, `QLabel#stageGapDetail`, `QLabel#stageGapTracked`, ~L264–281).
-**Symptom**: Phase 4 Task A deleted the `StageGapPanel` widget once the Gap-86 spectral accessors landed (arch doc §4.4 states "the former gap panel (`StageGapPanel`) is deleted"), but its four QSS rules were left behind. `grep -rn stageGapPanel src/radiant/gui` finds hits only in `themes/stylesheet.py`.
-**Why it still matters**: Rule 26/27 — a superseded artifact should be deleted with its replacement, not retained. The dead block invites a future reader to think a gap panel still exists and grows the theme sheet with unreachable rules.
-**Suggested fix**: (a) inline-fix-now — delete the four-rule block in the next PR touching `stylesheet.py`. Effort XS; category A (style-only, no behaviour). Deferred out of Phase 4B to keep that PR's stylesheet diff limited to the additive detail-tab section.
-
 ### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
 
 **Discovered**: GUI Development Plan Phase 4 Task B (Variable Explorer tab), 2026-07-13
@@ -414,6 +405,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
+
+**Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending114>`. **Resolution**: deleted the four dead QSS rules (`#stageGapPanel`, `QLabel#stageGapHeader`/`#stageGapDetail`/`#stageGapTracked`) from `gui/themes/stylesheet.py`. Confirmed no widget carries those object names (`grep` finds hits only in the stylesheet). Style-only, no behaviour/results change; verified `build_stylesheet(LIGHT/DARK)` no longer contains `stageGap`. Wave 2 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/gui/themes/stylesheet.py`.
 
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
 

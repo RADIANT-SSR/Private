@@ -384,25 +384,6 @@ QPushButton#geoModeFieldValue:disabled {{
     border: {tokens.BORDER_WIDTH} solid {t.line};
 }}
 
-/* -- Stage gap panel (§4.1 — a §4.4 figure result.plot does not yet carry) */
-#stageGapPanel {{
-    background-color: {t.panel};
-}}
-QLabel#stageGapHeader {{
-    color: {t.muted};
-    font-size: 14px;
-    font-weight: 600;
-}}
-QLabel#stageGapDetail {{
-    color: {t.ink_2};
-    font-family: {tokens.FONT_MONO};
-    font-size: 12.5px;
-}}
-QLabel#stageGapTracked {{
-    color: {t.muted_2};
-    font-size: 11px;
-}}
-
 /* -- Right-rail Evaluate footer (§4.5) --------------------------------- *
  * The footer strip carrying the accent Evaluate (F5) button, pinned at the
  * bottom-right of the right rail (owner feedback 2026-07-13 — the run action

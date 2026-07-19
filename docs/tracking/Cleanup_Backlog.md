@@ -364,7 +364,7 @@
 ### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)
 
 **Discovered**: Gap 67 persistence task (pre-commit gate run), 2026-07-11.
-**Status**: RESOLVED 2026-07-19, commit `<pending089>`. **Resolution**: `ruff check tests/ --fix` cleared the auto-fixable errors (imports, unused imports); hand-fixed the remainder — 2 F841/B007 unused vars, 3 E501 long lines, 1 SIM117 nested-with, 1 UP035, and **2 PLW1514** encoding sites the CU-149 sweep hadn't reached (top-level `tests/` was outside that sweep's roots). Widened the documented gate in CLAUDE.md to `ruff check src/ tests/`. Test-lint + doc only; no test behaviour/results change. Wave 2 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `924c1c4`. **Resolution**: `ruff check tests/ --fix` cleared the auto-fixable errors (imports, unused imports); hand-fixed the remainder — 2 F841/B007 unused vars, 3 E501 long lines, 1 SIM117 nested-with, 1 UP035, and **2 PLW1514** encoding sites the CU-149 sweep hadn't reached (top-level `tests/` was outside that sweep's roots). Widened the documented gate in CLAUDE.md to `ruff check src/ tests/`. Test-lint + doc only; no test behaviour/results change. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `tests/` (several integration + top-level files); `CLAUDE.md`.
 
 ### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry

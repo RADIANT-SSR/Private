@@ -337,7 +337,7 @@
 ### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
 
 **Discovered**: GUI Development Plan Phase PS-1, 2026-07-14.
-**Status**: RESOLVED 2026-07-19, commit `<pending135>`. **Resolution**: added `_format_scalar` — a non-finite float renders as a bare sentinel (`∞` / `−∞` / `n/a`) without the meaningless unit — and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) so the absent case no longer renders a backwards `— ` row (a present descriptor is non-scalar and already skipped). Two regression tests. Display-only; no physics/results change. Wave 3 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `df8bfda`. **Resolution**: added `_format_scalar` — a non-finite float renders as a bare sentinel (`∞` / `−∞` / `n/a`) without the meaningless unit — and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) so the absent case no longer renders a backwards `— ` row (a present descriptor is non-scalar and already skipped). Two regression tests. Display-only; no physics/results change. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/widgets/outputs_readout.py`, `src/radiant/gui/tests/test_stage_center.py`.
 
 ### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs

@@ -382,13 +382,13 @@
 ### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13.
-**Status**: RESOLVED 2026-07-19, commit `<pending112>`. **Resolution**: regenerated the `gui/widgets/` block from the live directory — 56 widget/dialog files, one line per class (primary public class extracted from each file), dropped the stale 9-entry "Phase 1 shell chrome" listing and qualifier. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `18a1650`. **Resolution**: regenerated the `gui/widgets/` block from the live directory — 56 widget/dialog files, one line per class (primary public class extracted from each file), dropped the stale 9-entry "Phase 1 shell chrome" listing and qualifier. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `docs/architecture/RADIANT_File_Tree.md`.
 
 ### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444)
 
 **Discovered**: 2026-07-06 doc-reconciliation pass (noted stale in-doc).
-**Status**: RESOLVED 2026-07-19, commit `<pending112>`. **Resolution**: regenerated the count header and the per-package subtotal/grand-total table from `find src/radiant -name '*.py'` — now 583 `.py` (322 source + 219 test + 42 `__init__.py`), 41 integration + 6 top-level tests, grand-total (non-init) 588; added the missing `geometry/` row; refreshed the `Last regenerated` date and dropped the stale-snapshot/CU-102 caveat. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `18a1650`. **Resolution**: regenerated the count header and the per-package subtotal/grand-total table from `find src/radiant -name '*.py'` — now 583 `.py` (322 source + 219 test + 42 `__init__.py`), 41 integration + 6 top-level tests, grand-total (non-init) 588; added the missing `geometry/` row; refreshed the `Last regenerated` date and dropped the stale-snapshot/CU-102 caveat. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `docs/architecture/RADIANT_File_Tree.md`.
 
 ### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`

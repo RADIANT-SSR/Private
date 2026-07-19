@@ -952,6 +952,15 @@ QLabel#stageSectionHeader, QLabel#stagePlotTitle {{
     font-size: 11px;
     font-weight: 600;
 }}
+QCheckBox#metricGroupCheck {{
+    color: {t.ink};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#metricGroupHint {{
+    color: {t.muted};
+    font-size: 11px;
+}}
 QLabel#stageNote {{
     color: {t.muted};
     background-color: {t.panel_2};

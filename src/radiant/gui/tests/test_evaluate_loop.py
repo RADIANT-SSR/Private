@@ -148,13 +148,20 @@ class TestMessagesPanel:
     """
 
     def test_chain_warnings_appear_in_messages(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """After evaluate, the Messages panel carries the chain UserWarnings by count."""
+        """After evaluate, the Messages panel carries the chain UserWarnings by count.
+
+        A valid, nominally-operating scenario now evaluates warning-free (CU-166 —
+        out-of-calibration NIIRS is structured status, not a warning), so this drives a
+        genuinely *actionable* warning — a hard full-well clip — and confirms it reaches
+        the Messages panel (the in-window channel replacing the terminal, CU-167).
+        """
         window = _load_window(qtbot)
         messages = window.right_rail.messages
-        # The example config's SNR is out of the GIQE range → a NIIRS extrapolation
-        # warning is always emitted; it now shows in-window instead of the terminal.
+        window.sensor.set(_FULL_WELL, 100000.0)  # forces a hard full-well clip
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit(_FULL_WELL)
         assert messages.warning_count >= 1
-        assert any("NIIRS" in m or "extrapolation" in m for m in messages.warnings)
+        assert any("saturat" in m.lower() for m in messages.warnings)
 
     def test_saturation_adds_its_warning_and_the_list_dialog_shows_all(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A saturating edit adds the full-well warning; the dialog lists all verbatim."""

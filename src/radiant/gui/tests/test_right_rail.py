@@ -27,6 +27,7 @@ from radiant.gui.yaml_format import serialize_yaml
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 _WAIT_MS = 15000
+_FULL_WELL = "readout.full_well_capacity_e"
 
 _DEFAULT_KEYS = ["snr", "nedt_K", "niirs", "gsd_geometric_mean_m", "mtf_at_nyquist"]
 
@@ -148,9 +149,15 @@ class TestYamlEditor:
 
 class TestMessages:
     def test_warnings_listed_on_a_warning_run(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A warning-emitting config populates the Messages panel."""
+        """An actionable-warning-emitting run populates the Messages panel.
+
+        A valid scenario evaluates warning-free (CU-166); a hard full-well clip is a
+        genuine, actionable warning that must surface in the panel (CU-167).
+        """
         window = _load_window(qtbot)
-        # The example's SNR is out of GIQE range → a NIIRS extrapolation warning.
+        window.sensor.set(_FULL_WELL, 100000.0)  # forces a hard full-well clip
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit(_FULL_WELL)
         assert window.right_rail.messages.warning_count >= 1
 
     def test_messages_clear_on_a_clean_run(self, qtbot) -> None:  # type: ignore[no-untyped-def]

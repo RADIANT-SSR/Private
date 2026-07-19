@@ -132,6 +132,20 @@ class ChainState:
         new_metrics[key] = value
         return replace(self, metrics=new_metrics)
 
+    def without_metric(self, key: str) -> ChainState:
+        """Return a state with ``key`` removed from ``metrics`` (no-op if absent).
+
+        The counterpart to :meth:`with_metric`: lets a stage drop a metric it
+        computed only as an intermediate (a dependency-closure prerequisite that
+        the caller did not select for surfacing — Gap 96). Never removes a
+        history entry or any other field.
+        """
+        if key not in self.metrics:
+            return self
+        new_metrics = dict(self.metrics)
+        del new_metrics[key]
+        return replace(self, metrics=new_metrics)
+
     def with_history(self, stage_name: str) -> ChainState:
         """Append ``stage_name`` to the history tuple."""
         return replace(self, history=self.history + (stage_name,))

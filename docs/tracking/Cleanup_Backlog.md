@@ -409,7 +409,7 @@
 ### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
 
 **Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13.
-**Status**: RESOLVED 2026-07-19, commit `<pending114>`. **Resolution**: deleted the four dead QSS rules (`#stageGapPanel`, `QLabel#stageGapHeader`/`#stageGapDetail`/`#stageGapTracked`) from `gui/themes/stylesheet.py`. Confirmed no widget carries those object names (`grep` finds hits only in the stylesheet). Style-only, no behaviour/results change; verified `build_stylesheet(LIGHT/DARK)` no longer contains `stageGap`. Wave 2 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `b78cef8`. **Resolution**: deleted the four dead QSS rules (`#stageGapPanel`, `QLabel#stageGapHeader`/`#stageGapDetail`/`#stageGapTracked`) from `gui/themes/stylesheet.py`. Confirmed no widget carries those object names (`grep` finds hits only in the stylesheet). Style-only, no behaviour/results change; verified `build_stylesheet(LIGHT/DARK)` no longer contains `stageGap`. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/themes/stylesheet.py`.
 
 ### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent

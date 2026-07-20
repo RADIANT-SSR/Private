@@ -73,6 +73,21 @@ anchor every mode.
 6. A user-set `geometry.ground_speed_m_s` that disagrees (>1 %) with the
    circular-orbit derivation raises.
 
+### Machine-readable manifest (`geometry/mode_manifest.py`)
+
+The family → mode → parameter structure above is also stated as **data** in
+`geometry/mode_manifest.py` (`MODE_FAMILIES`: family key, anchor params, ordered
+modes with their entry dot-paths, default door) together with
+`active_mode_key(family, is_provided, get_value)` — the provenance-based
+detection a view layer uses to show which door a config currently sits in.
+View layers consume it through the public bridge `radiant.api.geometry_modes`
+(pure re-export, the `radiant.api.metric_groups` precedent), so the GUI's
+Geometry screen transcribes no grouping of its own (CU-120; it keeps only
+display labels). The manifest is hand-maintained next to the resolvers;
+`geometry/tests/test_mode_manifest.py` proves per mode that it matches the
+resolver behaviour and the `mode_entry` / `solar_site` schema tags, so it
+cannot drift silently.
+
 ## 3. Published Contract — `stage_outputs["geometry"]`
 
 | Key | Type | Meaning |

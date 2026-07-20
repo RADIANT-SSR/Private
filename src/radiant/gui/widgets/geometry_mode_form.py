@@ -49,7 +49,9 @@ from radiant.gui.geometry_modes import (
     GeometryModeFamily,
     active_mode_key,
     all_mode_params,
+    family_title,
     implicated_families,
+    mode_label,
 )
 from radiant.gui.param_format import (
     field_display_text,
@@ -86,7 +88,7 @@ class _FamilyBlock(QWidget):
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(6)
 
-        self._title = QLabel(family.title, self)
+        self._title = QLabel(family_title(family.key), self)
         self._title.setObjectName("geoModeFamilyTitle")
         layout.addWidget(self._title)
 
@@ -103,7 +105,7 @@ class _FamilyBlock(QWidget):
         self._selector.setMinimumContentsLength(6)
         self._selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         for mode in family.modes:
-            self._selector.addItem(mode.label, mode.key)
+            self._selector.addItem(mode_label(mode.key), mode.key)
         self._selector.currentIndexChanged.connect(self._apply_active_mode)
         layout.addWidget(self._selector)
 

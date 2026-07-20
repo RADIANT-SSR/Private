@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`radiant.api.geometry_modes` — public geometry input-mode manifest (CU-120).** The
+  ADR-0006 family → mode → parameter structure (viewing V0–V4, solar S1–S3 + night,
+  kinematics direct/circular: entry dot-paths, anchors, default doors, and provenance-based
+  `active_mode_key` detection) is now owned by `radiant.geometry.mode_manifest` and
+  re-exported through `radiant.api.geometry_modes` (the `metric_groups` precedent). The GUI
+  Geometry screen consumes it instead of a hand-transcribed grouping and keeps only display
+  labels. No results change.
 - **`radiant.api.plot.plot_theme(dark=…)` context manager (CU-139).** A public seam that
   applies a dark or light matplotlib *chrome* theme (background/axes/text/ticks/grid) around
   figure production, so GUI/notebook callers can request a dark-styled `result.plot.*` figure

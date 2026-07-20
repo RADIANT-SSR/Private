@@ -1,4 +1,4 @@
-"""Stage-0 input-mode manifest for the Geometry screen (GUI plan Phase 5, §4.4).
+"""Stage-0 input-mode view helpers for the Geometry screen (GUI plan Phase 5, §4.4).
 
 The Geometry stage resolves the scene by **input mode** (ADR-0006 /
 ``RADIANT_Geometry.md`` §2): the user expresses the viewing geometry in one of
@@ -7,221 +7,88 @@ kinematics as direct-speed or a circular orbit. Detection is by **provenance** �
 there is no mode-switch parameter — so the GUI's mode selector is a *view* over
 that structure, not a new degree of freedom.
 
-This module is the single **Qt-free** source of that structure:
+**One source (CU-120).** The family → mode → parameter structure itself is owned
+by :mod:`radiant.geometry.mode_manifest` and consumed here through the public
+:mod:`radiant.api.geometry_modes` bridge (the Gap 96 ``metric_groups``
+precedent) — nothing about the grouping, the default doors, or the active-mode
+detection order is transcribed in the GUI anymore. This module keeps only what
+is genuinely view-layer:
 
-* :data:`MODE_FAMILIES` — the three families, each a selector with its ordered
-  modes and the schema dot-path(s) each mode's field(s) expose.
-* :func:`active_mode_key` — which mode a loaded sensor currently sits in, decided
-  from provenance exactly as :mod:`radiant.geometry.modes` decides it (so the
-  selector reflects the config, never guesses).
+* :data:`FAMILY_TITLES` / :data:`MODE_LABELS` — the human wording for each
+  family and mode key (checked complete against the manifest at import, so a
+  new mode added in ``radiant.geometry`` fails loudly here until it gets a
+  label);
 * :func:`implicated_families` — which family(ies) a
   :class:`~radiant.geometry.errors.GeometrySpecificationError` names, so the
   screen can highlight the offending selector (Phase 5 task 3).
 
-**What is transcribed here vs. schema-driven.** The mode → dot-path *grouping*
-(which parameter is the V2 door) is architectural knowledge from ADR-0006; the
-GUI cannot import ``radiant.geometry`` (import rules), so the grouping is named
-here — the same precedent as the geometry-readout key→symbol map. Everything a
-field actually *shows* (value, unit, bounds, description, editor kind) is read
-from the live schema via :meth:`Sensor.parameter_def` — never transcribed (Gap
-70). :func:`all_mode_params` lists every dot-path the manifest names so the form
-can assert, at build time, that each still exists in the schema (drift guard);
-the coupling to the dot-path spelling is tracked as a CU.
+Everything a field actually *shows* (value, unit, bounds, description, editor
+kind) is read from the live schema via :meth:`Sensor.parameter_def` — never
+transcribed (Gap 70). :func:`all_mode_params` (re-exported from the manifest)
+lets the form assert at build time that every dot-path still exists in the
+schema.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping
 from typing import Any, Final
 
-# ---------------------------------------------------------------------------
-# The three mode families (viewing / solar / kinematics)
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class GeometryMode:
-    """One input mode within a family — a labelled door onto the canonical value.
-
-    Attributes
-    ----------
-    key:
-        Short mode id from the geometry doc (``"V2"``, ``"S3"``, ``"circular"``).
-    label:
-        Human label shown in the selector.
-    params:
-        The schema dot-path(s) this mode exposes as editable fields. Empty for a
-        mode that carries no field of its own (the nadir/default viewing door).
-    """
-
-    key: str
-    label: str
-    params: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class GeometryModeFamily:
-    """A selector: one canonical quantity, several mutually-preferred input modes.
-
-    Attributes
-    ----------
-    key:
-        Family id (``"viewing"`` / ``"solar"`` / ``"kinematics"``) — matches the
-        ``*_mode`` stage-output family and the disagreement-error family word.
-    title:
-        Human heading for the selector.
-    anchor_params:
-        Dot-path(s) that apply in **every** mode of this family (always editable),
-        e.g. the sensor/target altitudes that anchor every viewing triangle.
-    modes:
-        The ordered input modes; exactly one is "active" at a time.
-    default_mode_key:
-        The mode the selector shows when no mode-entry parameter is user-set
-        (the documented default door: nadir view, direct solar zenith, …).
-    """
-
-    key: str
-    title: str
-    anchor_params: tuple[str, ...]
-    modes: tuple[GeometryMode, ...]
-    default_mode_key: str
-
-
-VIEWING_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
-    key="viewing",
-    title="Viewing geometry",
-    anchor_params=("geometry.sensor_altitude_m", "geometry.target_altitude_m"),
-    modes=(
-        GeometryMode("V1", "Path zenith θ_o (V1)", ("geometry.path_zenith_rad",)),
-        GeometryMode("V2", "Off-nadir angle η (V2)", ("geometry.sensor_off_nadir_rad",)),
-        GeometryMode("V3", "Ground range (V3)", ("geometry.ground_range_m",)),
-        GeometryMode("V4", "Elevation angle (V4)", ("geometry.elevation_angle_rad",)),
-        GeometryMode("V0", "Direct slant range (V0)", ("geometry.target_range_m",)),
-    ),
-    default_mode_key="V1",
-)
-
-SOLAR_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
-    key="solar",
-    title="Solar geometry",
-    anchor_params=("geometry.solar_illumination", "geometry.solar_azimuth_rad"),
-    modes=(
-        GeometryMode("S1", "Solar zenith θ_s (S1)", ("geometry.solar_zenith_rad",)),
-        GeometryMode("S2", "Solar elevation (S2)", ("geometry.solar_elevation_rad",)),
-        GeometryMode(
-            "S3",
-            "Site + time (S3)",
-            (
-                "geometry.site_latitude_rad",
-                "geometry.day_of_year",
-                "geometry.local_solar_time_h",
-                "geometry.ltan_h",
-            ),
-        ),
-    ),
-    default_mode_key="S1",
-)
-
-KINEMATICS_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
-    key="kinematics",
-    title="Platform kinematics",
-    anchor_params=(),
-    modes=(
-        GeometryMode("direct", "Direct ground speed", ("geometry.ground_speed_m_s",)),
-        GeometryMode("circular", "Circular orbit (V6)", ("geometry.circular_orbit",)),
-    ),
-    default_mode_key="direct",
-)
-
-MODE_FAMILIES: Final[tuple[GeometryModeFamily, ...]] = (
-    VIEWING_FAMILY,
-    SOLAR_FAMILY,
+from radiant.api.geometry_modes import (
     KINEMATICS_FAMILY,
+    MODE_FAMILIES,
+    SOLAR_FAMILY,
+    VIEWING_FAMILY,
+    GeometryMode,
+    GeometryModeFamily,
+    active_mode_key,
+    all_mode_params,
 )
 
-
-def all_mode_params() -> tuple[str, ...]:
-    """Every geometry dot-path the manifest names (anchors + mode fields).
-
-    The form asserts each of these exists in ``sensor.parameter_defs()`` at build
-    time, so a schema rename/removal fails loudly here rather than silently
-    dropping a field (the drift guard the module docstring describes).
-    """
-    seen: list[str] = []
-    for family in MODE_FAMILIES:
-        for dotpath in family.anchor_params:
-            if dotpath not in seen:
-                seen.append(dotpath)
-        for mode in family.modes:
-            for dotpath in mode.params:
-                if dotpath not in seen:
-                    seen.append(dotpath)
-    return tuple(seen)
-
-
 # ---------------------------------------------------------------------------
-# Active-mode detection (mirrors radiant.geometry.modes, by provenance)
+# Display wording (the only mode knowledge that lives GUI-side)
 # ---------------------------------------------------------------------------
 
+FAMILY_TITLES: Final[Mapping[str, str]] = {
+    "viewing": "Viewing geometry",
+    "solar": "Solar geometry",
+    "kinematics": "Platform kinematics",
+}
 
-def active_mode_key(
-    family: GeometryModeFamily,
-    is_provided: Callable[[str], bool],
-    get_value: Callable[[str], Any],
-) -> str:
-    """The mode *family* currently sits in, decided from provenance.
+MODE_LABELS: Final[Mapping[str, str]] = {
+    "V1": "Path zenith θ_o (V1)",
+    "V2": "Off-nadir angle η (V2)",
+    "V3": "Ground range (V3)",
+    "V4": "Elevation angle (V4)",
+    "V0": "Direct slant range (V0)",
+    "S1": "Solar zenith θ_s (S1)",
+    "S2": "Solar elevation (S2)",
+    "S3": "Site + time (S3)",
+    "direct": "Direct ground speed",
+    "circular": "Circular orbit (V6)",
+}
 
-    Mirrors the detection order in :mod:`radiant.geometry.modes`:
-
-    * **viewing** — the first user-set door among V2/V3/V4/V1, else V0 if only a
-      direct range is set, else the default (V1, nadir).
-    * **solar** — night when illumination is ``"night"``; else the first user-set
-      door among S2/S3/S1, else the default (S1).
-    * **kinematics** — circular when ``circular_orbit`` is set true, else direct.
-
-    Parameters
-    ----------
-    is_provided:
-        ``dotpath -> bool`` — True when the parameter resolved from an explicit
-        input (provenance is not DEFAULT). The GUI supplies this from the public
-        provenance seam so the detection matches the stage's own.
-    get_value:
-        ``dotpath -> value`` — the resolved input value (used only for the night
-        toggle and the circular-orbit flag).
-    """
-    if family.key == "viewing":
-        for mode_key in ("V2", "V3", "V4", "V1"):
-            mode = _mode(family, mode_key)
-            if any(is_provided(p) for p in mode.params):
-                return mode_key
-        if is_provided("geometry.target_range_m"):
-            return "V0"
-        return family.default_mode_key
-    if family.key == "solar":
-        if str(get_value("geometry.solar_illumination")) == "night":
-            return "night" if _has_mode(family, "night") else family.default_mode_key
-        for mode_key in ("S2", "S3", "S1"):
-            mode = _mode(family, mode_key)
-            if any(is_provided(p) for p in mode.params):
-                return mode_key
-        return family.default_mode_key
-    if family.key == "kinematics":
-        if bool(get_value("geometry.circular_orbit")):
-            return "circular"
-        return "direct"
-    return family.default_mode_key  # pragma: no cover - families are closed
+# Import-time drift guard (developer invariant, not user input): a mode or
+# family added to the manifest without wording here must fail the GUI import
+# loudly, not render a blank selector entry.
+_UNLABELLED: Final[tuple[str, ...]] = tuple(
+    mode.key for family in MODE_FAMILIES for mode in family.modes if mode.key not in MODE_LABELS
+)
+_UNTITLED: Final[tuple[str, ...]] = tuple(
+    family.key for family in MODE_FAMILIES if family.key not in FAMILY_TITLES
+)
+assert not _UNLABELLED, f"geometry modes without a GUI label: {_UNLABELLED}"
+assert not _UNTITLED, f"geometry families without a GUI title: {_UNTITLED}"
 
 
-def _mode(family: GeometryModeFamily, key: str) -> GeometryMode:
-    for mode in family.modes:
-        if mode.key == key:
-            return mode
-    raise KeyError(key)  # pragma: no cover - keys are internal constants
+def family_title(family_key: str) -> str:
+    """The selector heading for *family_key* (KeyError on an unknown family)."""
+    return FAMILY_TITLES[family_key]
 
 
-def _has_mode(family: GeometryModeFamily, key: str) -> bool:
-    return any(mode.key == key for mode in family.modes)
+def mode_label(mode_key: str) -> str:
+    """The combo label for *mode_key* (KeyError on an unknown mode)."""
+    return MODE_LABELS[mode_key]
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +99,7 @@ def _has_mode(family: GeometryModeFamily, key: str) -> bool:
 # Every geometry parameter (and the short context keys the stage's errors use) →
 # the family whose selector the GUI highlights when that key appears in a
 # GeometrySpecificationError's context. Built from the manifest so it cannot
-# drift from the family grouping above; the short keys are the ones
+# drift from the family grouping; the short keys are the ones
 # radiant.geometry.modes puts in a context dict that are not full dot-paths.
 def _param_family_map() -> dict[str, str]:
     mapping: dict[str, str] = {}
@@ -289,6 +156,10 @@ __all__ = [
     "SOLAR_FAMILY",
     "KINEMATICS_FAMILY",
     "MODE_FAMILIES",
+    "FAMILY_TITLES",
+    "MODE_LABELS",
+    "family_title",
+    "mode_label",
     "all_mode_params",
     "active_mode_key",
     "implicated_families",

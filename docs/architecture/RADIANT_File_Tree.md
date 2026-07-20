@@ -65,9 +65,10 @@ geometry/
 ├── __init__.py          # GeometryStage, GeometrySpecificationError re-exports
 ├── _schema.py           # the geometry.* namespace (27 ParameterDefs, incl. the geometry.target.* extent params — ADR-0008)
 ├── errors.py            # GeometrySpecificationError (over/under-specification)
+├── mode_manifest.py     # family → mode → param manifest as data (ADR-0006; CU-120)
 ├── modes.py             # input-mode detection + resolution (V/S families)
 ├── stage.py             # GeometryStage — publishes stage_outputs["geometry"]
-└── tests/               # mode matrix, stage contract, alias behavior
+└── tests/               # mode matrix, stage contract, alias behavior, manifest drift
 ```
 
 Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
@@ -232,6 +233,7 @@ api/
 ├── inspect.py             # post-run introspection helpers
 ├── plot.py                # plotting helpers (uses matplotlib if available)
 ├── units.py               # public unit-conversion helpers
+├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)
 └── _param_registry.py     # private — assembles the master schema
 ```
 
@@ -412,7 +414,7 @@ source of truth, per the header.
 | Subpackage             | Source | Tests | Notes |
 |------------------------|--------|-------|-------|
 | core/                  | 22     | 19    | foundational abstractions |
-| geometry/              | 4      | 2     | scene geometry / LOS (ADR-0006) |
+| geometry/              | 5      | 3     | scene geometry / LOS (ADR-0006) |
 | source/                | 43     | 33    | spec-form fan-out + shape catalog |
 | atmosphere/            | 15     | 15    | MODTRAN + simple + exo + tabulated + loaders |
 | optics/                | 31     | 22    | dual-path PSF/MTF + element model |

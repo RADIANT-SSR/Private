@@ -491,9 +491,12 @@ Platform carries no MTF, Readout adds the scalar noise budget; no bespoke invent
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a
-`GeometryModeForm` — the stage-0 **input-mode selectors** (`radiant.gui.geometry_modes`, a
-Qt-free manifest of the viewing / solar / kinematics families and their modes V0–V4, S1–S3
-+ night, direct/circular). Each family carries a mode combo; only the **active** mode's
+`GeometryModeForm` — the stage-0 **input-mode selectors** over the viewing / solar /
+kinematics families and their modes V0–V4, S1–S3 + night, direct/circular. The family →
+mode → parameter structure is owned by `radiant.geometry.mode_manifest` and read through
+the public `radiant.api.geometry_modes` bridge (CU-120, the `metric_groups` precedent);
+`radiant.gui.geometry_modes` keeps only the display wording (family titles, mode labels —
+checked complete against the manifest at import) and the error→family highlight map. Each family carries a mode combo; only the **active** mode's
 fields are editable, the rest disabled, so the user drives exactly one door per family
 (ADR-0006 rule 1). The active mode is detected from **provenance** (mirroring
 `radiant.geometry.modes`), never guessed. Every field is schema-driven (`Sensor.parameter_def`

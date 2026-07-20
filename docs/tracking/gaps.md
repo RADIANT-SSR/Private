@@ -1466,6 +1466,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Use the point-intensity convenience inputs (or `user_intensity_path`), set `scene_type='point_source'`, and set `geometry.target_range_m` explicitly. See the SDA scenario walkthrough. |
 ---
 
+## Gap 99: Spectral capability envelope mismatch — schema admits 0.1–30 µm bandpasses but no atmosphere backend has physics beyond 0.375–14.29 µm
+
+| | |
+|---|---|
+| **Found in** | Atmospheric-paradigm audit, 2026-07-19 (finding 5). |
+| **Status** | OPEN — documented-envelope decision pending (extend data vs. tighten/document bounds). |
+| **Description** | `spectral_integration.filter_min_um`/`filter_max_um` bounds are (0.1, 30.0) µm, but every atmosphere data source stops well short of that envelope: the entire MODTRAN run matrix (all 56 runs, delivered and planned) spans 700–25,000 cm⁻¹ = 0.375–14.29 µm, so the shipped `data/atmospheres/` library refuses (loud, no extrapolation) any bandpass edge outside that range on the `tabulated`/`interpolated`/`modtran`-import paths; `SimpleAtmosphere`'s CU-161 calibration clamps λ outside 0.30–14.29 µm to its edge regions (documented fragility — silent edge-region physics, not an error). A VLWIR band (e.g. 14–16 µm CO₂ sounding, or a 14–25 µm astronomy band) or a UV band (< 0.375 µm, < 0.30 µm for simple) is therefore schema-legal but has **no** atmosphere backend with real physics behind it. |
+| **Impact** | VLWIR/UV sensor studies fail with a range error on the file-backed paths (discoverable only by hitting it) or silently get clamped edge-band physics on `simple`. No doc states the supported spectral envelope of the atmosphere paradigm as a whole. |
+| **Suggested fix** | Owner decision, two branches: (a) **extend the data** — re-run the library at v1 = 400 cm⁻¹ (25 µm); note `InterpolatedAtmosphere` requires all points of a family on one shared grid, so this is a whole-library re-run + re-baseline (goldens move within slit tolerance), not an incremental append; or (b) **document/tighten the envelope** — state 0.375–14.29 µm (0.30 µm floor for `simple`) as the supported atmospheric range in `RADIANT_Atmosphere.md` §9 and validate bandpass-vs-model coverage at config time with an actionable error (Rule 15/16), leaving the schema bounds as detector-side limits. (b) is cheap and honest; (a) only if a VLWIR scenario materializes. |
+| **Workaround** | Keep bandpass edges inside 0.375–14.29 µm on file-backed atmospheres; for exo-atmospheric scenes (`atmosphere.model = "exo"`) the whole 0.1–30 µm schema range is physical (τ ≡ 1 has no spectral limit). |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

@@ -169,15 +169,6 @@
 **Why it still matters**: schema-generated GUI forms render a no-op toggle; users entering pre-CDS datasheet noise are silently ~41 % low.
 **Suggested fix**: stand-alone task — implement both or delete parameter and doc claims in lock-step (Rule 20). Effort S-M; category C.
 
-### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README)
-
-**Discovered**: Capability audit 2026-07 (F-23), 2026-07-11
-**Status**: Open
-**File**: `data/detectors/*.csv` (no manifest/citations); `data/solar/solar_irradiance_am0.csv` (Planck fit labeled AM0, ±5 % TSI-only validation); `data/emissivity/*.csv` (19 materials on one identical synthetic 84-point grid, no committed generator — Rule 26 tension); `data/atmospheres/README.md` (names nonexistent `atmosphere.modtran_file` and `radiant.io.modtran`)
-**Symptom**: library dropdowns present untraceable representative curves as reference data; the README sends users to a parameter that raises.
-**Why it still matters**: users comparing against vendor datasheets get unexplained deviations; violates the manifest-per-data-family convention.
-**Suggested fix**: stand-alone task — manifests naming generator+source per family; fix the README; label or replace synthetic curves. Effort M; category A.
-
 ### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
 
 **Discovered**: Capability audit 2026-07 (F-26), 2026-07-11
@@ -244,6 +235,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README)
+
+**Discovered**: Capability audit 2026-07 (F-23), 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending080>`. **Resolution**: added honest provenance manifests per data family — `data/detectors/MANIFEST.md` (the 6 QE curves labelled representative/illustrative, spans verified against the CSVs, no committed citations flagged), `data/solar/MANIFEST.md` (the AM0 curve documented as a Planck-continuum approximation validated only against total irradiance ±5%, no Fraunhofer lines, band-integrated use only) — and a top-level provenance note in `data/emissivity/manifest.yaml` (19 materials share one synthetic 84-point 0.3–14 µm grid; citations are the level *basis*, not verbatim data; no committed generator, Rule 26). The `data/atmospheres/README.md` stale-reference half was **already fixed** by the 2026-07-17 rewrite (it now uses `atmosphere.modtran.tape7_path` / `tabulated_*_file`, not the nonexistent `atmosphere.modtran_file` / `radiant.io.modtran`) — verified. Emissivity manifest still loads (comment ignored; 19 materials intact; data suite green). Doc-only. Wave 6 of the autonomous CU-cleanup plan.
+**File**: `data/detectors/MANIFEST.md` (new), `data/solar/MANIFEST.md` (new), `data/emissivity/manifest.yaml`.
 
 ### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots)
 

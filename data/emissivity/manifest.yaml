@@ -1,4 +1,13 @@
 # RADIANT Material Emissivity Library - Manifest
+#
+# Provenance note (CU-080): each material's `source_citation` below names the
+# literature/database BASIS for its emissivity level (Palik, ASTER, Salisbury, …),
+# but the committed CSVs are REPRESENTATIVE approximations, not verbatim reproductions
+# of those sources: every material shares one identical synthetic 84-point wavelength
+# grid (0.3–14 µm) with a smoothed spectral shape. There is no committed generator
+# (Rule 26 tension). Use these as shape-representative defaults for the material class;
+# for datasheet-grade work, replace a curve with its cited spectrally-resolved data.
+# (Comments are ignored by the yaml loader, so this note does not appear as a material.)
 aluminum:
   default_temperature_K: 300
   description: Polished aluminum surface

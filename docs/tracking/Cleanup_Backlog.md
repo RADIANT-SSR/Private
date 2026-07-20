@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-172 — `RADIANT_File_Tree.md` §`api/` lists 10 of 21 modules; header count stale
+
+**Discovered**: CU-120 focused pass (R20 doc edit), 2026-07-20
+**Status**: Open
+**File**: `docs/architecture/RADIANT_File_Tree.md` (`### api/` section)
+**Symptom**: the section is headed "9 source + 7 tests" and lists 10 modules (after CU-120 added `geometry_modes.py`), but `src/radiant/api/` holds 21: `_progress.py`, `batch.py`, `calibration_analysis.py`, `compare.py`, `config_io.py`, `error_budget.py`, `errors.py`, `metric_groups.py`, `solve.py`, and `stage_output_units.py` are absent — including the two existing public re-export bridges (`metric_groups`, `stage_output_units`) the CU-120 design leaned on as precedent.
+**Why it still matters**: R20 aspirational-doc drift — the doc presents itself as the package file tree, so a reader (or agent) planning api-layer work from it sees half the surface and can re-invent an existing module.
+**Suggested fix**: (a) inline-fix-now, doc-only — regenerate the `api/` listing with one-line comments and correct the counts (and spot-check the other per-package counts in the same pass). Effort S; category A.
+
+### CU-171 — `mypy --strict core+api` checks different effective scope in a worktree vs the primary checkout
+
+**Discovered**: CU-120 focused pass, 2026-07-20
+**Status**: Open
+**File**: `pyproject.toml` (`[tool.mypy]`); no source defect
+**Symptom**: `mypy --strict src/radiant/core src/radiant/api` reports Success (77 files, cold cache) in `/Users/jforsyth/SSR_Tool`, but the identical command at the identical commit in a fresh `git worktree` reports ~120 pre-existing errors in ~54 files — all in packages *outside* the gate (`gui`, `source`, `optics`, …). In the primary checkout the followed imports resolve through the editable install and their errors are suppressed; in a worktree they resolve as first-party source and are fully checked.
+**Why it still matters**: the multi-agent hygiene rules send agents into worktrees, where the gate appears to fail with a wall of out-of-scope errors — inviting either a misdiagnosis ("my change broke typing") or out-of-scope "fixes". The gate's meaning should not depend on which tree runs it.
+**Suggested fix**: (a) inline-fix-now — pin the scope in `[tool.mypy]` (e.g. `follow_imports = "silent"`, or explicit `files`/per-package `ignore_errors` overrides for the non-strict packages) so both trees report identically; alternatively document the worktree caveat next to the command in CLAUDE.md. Effort S; category A.
+
 ### CU-170 — 12 shipped scenario `.gui.yaml` baselines sit at a saturating operating point (full-well / ADC clip) — the nominal point is not warning-free
 
 **Discovered**: Warning-Free UX campaign saturation audit, 2026-07-19 (`docs/plans/Warning_Free_UX_Plan.md`).
@@ -86,15 +104,6 @@
 **Why it still matters**: Rule 27 one-canonical-model drift left a dev tool pinned to a deleted API; and the Phase 7 viewer's attitude annotations (RPY triad, `target/_pose`, body axes) have no upstream truth source, so Phase 7 must either wire attitude into a stage or add a viewer-local attitude input. Both are architectural decisions, not incidental fixes.
 **Suggested fix**: (b) stand-alone task, folded into Phase 7 — (i) when the production viewer lifts `scene/`, leave `app/view_model.py` behind (superseded by `GeometryStage` + a `ViewerState` adapter; see ADR-0007 lift table), and either repair or delete the prototype's `view_model.py`/`test_integration_boundary.py` so the dev tool is not carried broken; (ii) resolve the attitude source — add platform/target attitude to `GeometryStage` outputs (re-audit ADR-0006 §4's "consumer exists" trigger, now satisfied) **or** define a viewer-local attitude input outside the chain. Effort M; category D. Re-audit at Phase 7 start.
 
-### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure)
-
-**Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Status**: INVESTIGATING 2026-07-19 (autonomous Wave 8) — **needs a design pass, not a mechanical fix**: the family→mode→param structure the GUI transcribes is **implicit in the `geometry/modes.py` resolver functions** (`resolve_viewing`/`resolve_solar`/`resolve_kinematics` chains of `_provided()` checks), and the mode-entry `ParameterDef`s carry no family/mode tags — so there is nothing to expose yet. A correct fix must first extract an authoritative `GEOMETRY_MODE_MANIFEST` (family key → mode keys → param dot-paths → default) in `radiant.geometry`, prove it matches the resolvers, add a `Sensor.geometry_modes()` accessor (gui can't import `radiant.geometry`), then rebuild the GUI `MODE_FAMILIES` from it (GUI keeps only titles/labels) with drift tests. That new-public-API design is deferred to a focused pass. Non-blocking today (guarded by a build-time assert + test). — *(prior)* Open — coupling, non-blocking. Guarded against drift by a build-time assertion and a test.
-**File**: `src/radiant/gui/geometry_modes.py` (`VIEWING_FAMILY` / `SOLAR_FAMILY` / `KINEMATICS_FAMILY`, `all_mode_params`).
-**Symptom**: The mode → parameter *grouping* (which `geometry.*` dot-path is the V2 door, which are S3's site+time inputs, …) is named literally in the GUI manifest, because the import rules forbid `gui` importing `radiant.geometry` (where ADR-0006's mode structure lives). Every field's value/unit/bounds/editor is still schema-driven (`Sensor.parameter_def`), so only the *grouping* is transcribed — the same precedent as `geometry_readout._LABELS`. A schema/param rename to a mode-entry parameter would not be caught by the type checker; it is caught at runtime by `GeometryModeForm._assert_schema_present` (build-time assert) and `test_geometry_screen.py::test_manifest_covers_every_geometry_parameter`.
-**Why it still matters**: Gap 70 / one-source hygiene — the authoritative mode structure is ADR-0006, expressed in `radiant.geometry.modes` provenance detection and in `_schema.py` tags (`mode_entry`, `solar_site`), but there is no machine-readable "family → modes → params" manifest the GUI can consume without crossing the import boundary. The GUI re-encodes it.
-**Suggested fix**: (b) stand-alone task — expose the mode manifest as data the GUI may read through the public API (e.g. a `Sensor.geometry_modes()` accessor over a structure owned by `radiant.geometry`, or schema metadata on the mode-entry `ParameterDef`s that names each's family+mode), then have `geometry_modes.py` build `MODE_FAMILIES` from it and drop the literal grouping. Effort M; category B/D. Re-audit when a geometry input mode is added or a mode-entry parameter is renamed.
-
 ### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes
 
 **Discovered**: GUI contextual-layout retrofit Step B, 2026-07-13 (commit on branch `gui-phase1-task-a`)
@@ -143,6 +152,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure)
+
+**Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13.
+**Status**: RESOLVED 2026-07-20, commit `41b8158`. **Resolution**: the ADR-0006 family → mode → parameter structure is now owned by `radiant.geometry.mode_manifest` (families, entry dot-paths, anchors, default doors, and the provenance-based `active_mode_key` detection — the detection-order transcription went too) and re-exported through the new public bridge `radiant.api.geometry_modes` (the Gap 96 `metric_groups` precedent; owner picked module-level bridge over a `Sensor` method, 2026-07-20). `radiant.gui.geometry_modes` keeps only display wording (`FAMILY_TITLES`/`MODE_LABELS`, asserted complete against the manifest at import) plus the error→family highlight map. 20 drift tests (`geometry/tests/test_mode_manifest.py`): schema coverage, `mode_entry`/`solar_site` tag reconciliation, and per-mode resolver round-trips. R20 docs (Geometry, File_Tree, GUI_Architecture), R29 CHANGELOG. No results change (4434 passed / 0 failed, non-golden).
+**File**: `src/radiant/geometry/mode_manifest.py`, `src/radiant/api/geometry_modes.py`, `src/radiant/gui/geometry_modes.py`.
 
 ### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions
 

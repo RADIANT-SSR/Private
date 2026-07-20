@@ -71,8 +71,9 @@ golden physics result changed. Backlog Open count: 48 → 24.
   angle-only arc catalog; radians `stage_output_unit` is not the right source until a non-angle
   arc is added).
 
-**Remaining actionable:** CU-120 (geometry mode manifest — needs a deliberate new
-public-accessor design, deferred out of this run); stretch CU-139 (dark-theme plots).
+**Remaining actionable:** none — CU-120 resolved 2026-07-20 (focused pass, commit
+`41b8158`: manifest owned by `radiant.geometry.mode_manifest`, public via the
+`radiant.api.geometry_modes` bridge; owner-ratified design); CU-139 resolved in Wave 8.
 
 ## Goal
 

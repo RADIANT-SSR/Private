@@ -160,15 +160,6 @@
 **Why it still matters**: at any off-nadir geometry the chain's atmospheric attenuation and its spatial/ground metrics describe two *different* lines of sight. All 14 baselines sit at the nadir default (η = θ_o = 0) so goldens don't expose it.
 **Suggested fix**: stand-alone step inside Geometry_Stage_Plan Phase 2 — GeometryStage derives slant range, ground range, and η from the canonical θ_o via one consistent spherical triangle (law-of-cosines forms already derived in `los_geometry.intercepts_earth`); downstream consumes the published values. Any off-nadir golden drift is a **Results-affecting** CHANGELOG entry (direction: correct-physics fix). Effort M; category C.
 
-### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
-
-**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — verified (only consumer is a "deferred" docstring)
-**Status**: Open
-**File**: `src/radiant/readout/_schema.py:90`; `src/radiant/readout/read_noise.py:24`; `docs/architecture/RADIANT_Detector_Complete.md` §4.1
-**Symptom**: schema + three docs describe a √2 pre-CDS read-noise scaling and a 0.7 flicker-suppression factor; no code reads either.
-**Why it still matters**: schema-generated GUI forms render a no-op toggle; users entering pre-CDS datasheet noise are silently ~41 % low.
-**Suggested fix**: stand-alone task — implement both or delete parameter and doc claims in lock-step (Rule 20). Effort S-M; category C.
-
 ### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
 
 **Discovered**: CU-086 re-audit of the landed MODTRAN rework (`d56fd9c`), 2026-07-11
@@ -190,6 +181,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
+
+**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending77>` (owner decision: delete). **Resolution**: removed the unread `READ_NOISE_IS_POST_CDS` ParameterDef from `readout/_schema.py` (readout.* 17→16 params); no pre/post-CDS √2 scaling is modelled, so `read_noise_e_rms` is documented as the effective per-frame (post-CDS) value. Corrected the false claims in `RADIANT_Detector_Complete.md` §CDS (the `cds_1f_suppression` 0.7 factor and the √2 read-noise scaling are **not** applied — table now says both terms are unaffected) and dropped the deleted param from the §11.2 list; `cds_1f_suppression` remains correctly listed under §11.3 designed-but-not-implemented. Read_noise.py docstring updated. parameter_reference regenerated; readout suite green; no results change (nothing read the param). R20 + R29 CHANGELOG. Wave 7.
+**File**: `src/radiant/readout/_schema.py`, `read_noise.py`; `docs/architecture/RADIANT_Detector_Complete.md`.
 
 ### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27)
 

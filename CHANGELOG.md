@@ -255,6 +255,11 @@ retroactively reconstructed.
   phase angle annotations) simply absent; the sensor/target geometry is unchanged.
 
 ### Removed
+- **Dead `readout.read_noise_is_post_cds` parameter (CU-077).** The parameter was never
+  read by any code (no pre/post-CDS √2 scaling is modelled); removed from the schema.
+  Enter `read_noise_e_rms` as the effective per-frame (post-CDS) value. The likewise-unimplemented
+  `cds_1f_suppression` was doc-only and the `RADIANT_Detector_Complete.md` CDS table is
+  corrected to match the code (neither factor is applied).
 - **Dead source exports `CompositeTarget` and `SubPixelSource` (CU-084).** These two
   `radiant.source` classes had no live constructor in the chain (self-references only);
   removed along with their modules and tests. The rest of the former "shadow" source

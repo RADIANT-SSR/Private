@@ -86,21 +86,6 @@ CDS_ENABLED = ParameterDef(
     default_justification="Most modern ROICs use CDS.",
 )
 
-READ_NOISE_IS_POST_CDS = ParameterDef(
-    name="readout.read_noise_is_post_cds",
-    description=(
-        "If 1, the read_noise_e_rms value is already the post-CDS "
-        "number (no √2 scaling needed). If 0, the value is pre-CDS "
-        "and CDS adds √2."
-    ),
-    dtype=int,
-    canonical_unit="",
-    input_unit="",
-    default=1,
-    tags=frozenset({"readout", "cds"}),
-    default_justification="Datasheet values are typically post-CDS.",
-)
-
 NODE_CAPACITANCE_F = ParameterDef(
     name="readout.node_capacitance_F",
     description="Sense-node capacitance [F]. Zero disables kTC noise.",
@@ -252,7 +237,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ADC_BITS,
     FULL_WELL_CAPACITY_E,
     CDS_ENABLED,
-    READ_NOISE_IS_POST_CDS,
     NODE_CAPACITANCE_F,
     N_TDI,
     TDI_MODE,

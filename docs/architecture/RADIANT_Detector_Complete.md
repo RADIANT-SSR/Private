@@ -213,8 +213,8 @@ Correlated double sampling subtracts a reset frame from a signal frame, suppress
 | Term | Effect of CDS |
 |------|---------------|
 | `ktc_reset_noise` | Set to 0 |
-| `flicker_1f` | Reduced by `√2 · sin(πf_signal · t_cds)` integrated over PSD; in practice, RADIANT applies a fixed `cds_1f_suppression` factor (default 0.7) |
-| `read_noise` | Multiplied by √2 (two reads added in quadrature) — *unless* the user-supplied `read_noise_e_rms` is already the post-CDS value, which is the default convention. A `read_noise_is_post_cds` flag (default `True`) controls this |
+| `flicker_1f` | **Unaffected** — RADIANT does not currently model CDS 1/f suppression. (A `cds_1f_suppression` 0.7 factor was documented but never implemented; removed CU-077.) |
+| `read_noise` | **Unaffected** — `read_noise_e_rms` is the *effective per-frame (post-CDS)* value delivered to the signal path; RADIANT does not apply a pre/post-CDS √2 scaling. (The unread `read_noise_is_post_cds` toggle was removed CU-077.) |
 | All others | Unaffected |
 
 The default convention is: when `read_noise_e_rms` comes from a datasheet, it is already the post-CDS number, so no further scaling is applied.
@@ -397,9 +397,9 @@ section is the authoritative, reconciled inventory (verified against
 
 **IPC (1):** `ipc_coupling`.
 
-### 11.2 `readout.*` — 17 parameters
+### 11.2 `readout.*` — 16 parameters
 
-**Read / CDS (5):** `read_noise_e_rms`, `read_noise_is_post_cds`, `cds_enabled`,
+**Read / CDS (4):** `read_noise_e_rms`, `cds_enabled`,
 `node_capacitance_F`, `electronics_sigma_um`.
 
 **ADC and gain (2):** `gain_e_per_dn`, `adc_bits`.

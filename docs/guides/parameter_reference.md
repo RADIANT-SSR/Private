@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 172**
+**Total parameters: 171**
 
 ## source
 
@@ -195,7 +195,6 @@
 | `readout.n_tdi` | int | 1 | --- | (1, 1000) | Number of TDI stages. 1 = no TDI. |
 | `readout.node_capacitance_F` | float | 0.0 | F | (0.0, 1e-09) | Sense-node capacitance [F]. Zero disables kTC noise. |
 | `readout.read_noise_e_rms` | float | 5.0 | --- | (0.0, 10000.0) | Per-frame read noise delivered to the signal path [e- RMS]. |
-| `readout.read_noise_is_post_cds` | int | 1 | --- | --- | If 1, the read_noise_e_rms value is already the post-CDS number (no √2 scaling needed). If 0, the value is pre-CDS and CDS adds √2. |
 | `readout.tdi_misalign_pixels` | float | 0.0 | --- | (0.0, 10.0) | Cross-scan TDI misalignment in pixel units. Zero = perfect alignment. |
 | `readout.tdi_mode` | str | analog | --- | --- | TDI readout mode: 'analog' (single readout after charge accumulation) or 'digital' (each stage read independently, summed digitally). |
 

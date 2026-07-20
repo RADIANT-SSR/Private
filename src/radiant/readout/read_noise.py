@@ -20,9 +20,10 @@ class ReadNoise:
     """Per-read Gaussian read noise ``σ_read`` [e⁻ RMS].
 
     The stored value is always the *effective per-frame* read noise
-    delivered to the signal path. The CDS convention
-    (``read_noise_is_post_cds`` in the full design) is deferred to the
-    readout-chain task; this 2B.4 stub accepts a single scalar.
+    delivered to the signal path (i.e. the post-CDS number). RADIANT does
+    not model a pre-CDS → post-CDS √2 scaling: enter the effective per-frame
+    read noise directly (CU-077 removed the unread ``read_noise_is_post_cds``
+    toggle).
 
     Parameters
     ----------

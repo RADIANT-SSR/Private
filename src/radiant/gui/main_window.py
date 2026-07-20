@@ -568,11 +568,17 @@ class RADIANTMainWindow(QMainWindow):
         declined) — every re-evaluation is a full chain.
 
         Any geometry conflict tint is cleared: the pending run re-highlights it only if
-        the conflict survives (Rule 17 — the state is honest, never stale). This handler
-        touches no resolve (a caller may signal an intentionally-invalid edit to exercise
-        the failure path); the originating surface has already refreshed itself.
+        the conflict survives (Rule 17 — the state is honest, never stale).
+
+        The Geometry input form is re-synced immediately (CU-121) so a value edited in the
+        parameter tree shows on the form at once, not only after the debounced run lands.
+        This is safe on a mid-edit *invalid* sensor: ``refresh`` reads through the guarded
+        accessors (``safe_provenance`` → "", ``field_display_text`` → "—", CU-105/CU-140),
+        so an unresolvable sensor shows unset rather than raising, and the debounced
+        re-evaluate still surfaces any genuine error through the normal failure path.
         """
         self._central.stage_center.clear_geometry_highlight()
+        self._central.stage_center.refresh_forms()
         # Record the edit as a reversible command (Edit → Undo/Redo, Phase 9) and mark the
         # config dirty (its title * marker) — both before scheduling the re-run.
         self._push_edit_command(dotpath)

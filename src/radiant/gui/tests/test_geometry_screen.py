@@ -362,6 +362,23 @@ class TestGeometryScreenIntegration:
         # The window jumped to the Geometry screen so the tint is visible.
         assert window.central_canvas.selected_stage == "geometry"
 
+    def test_tree_edit_syncs_geometry_form_immediately(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """CU-121: a geometry value edited in the tree re-syncs the Geometry form at once.
+
+        Firing the tree-edit signal (``parameterEdited``) updates the form synchronously,
+        before the debounced re-evaluate lands — the two surfaces are no longer a cycle
+        out of step.
+        """
+        window = _load_window(qtbot)
+        form = window.central_canvas.stage_center.pane("geometry").geometry_form
+        assert form is not None
+        # Change altitude as a tree edit would (public API), then fire the tree-edit
+        # signal WITHOUT waiting for the debounced evaluate.
+        window.sensor.set("geometry.sensor_altitude_m", 654321.0)
+        window.parameter_panel.parameterEdited.emit("geometry.sensor_altitude_m")
+        # The form already shows the new value — no evaluation was awaited.
+        assert "654321" in form.field_value_text("geometry.sensor_altitude_m")
+
     def test_clean_run_clears_conflict(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         """Resolving the conflict on a clean re-run clears the selector tint."""
         window = _load_window(qtbot)

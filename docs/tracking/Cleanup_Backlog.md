@@ -95,15 +95,6 @@
 **Why it still matters**: Rule 27 one-canonical-model drift left a dev tool pinned to a deleted API; and the Phase 7 viewer's attitude annotations (RPY triad, `target/_pose`, body axes) have no upstream truth source, so Phase 7 must either wire attitude into a stage or add a viewer-local attitude input. Both are architectural decisions, not incidental fixes.
 **Suggested fix**: (b) stand-alone task, folded into Phase 7 — (i) when the production viewer lifts `scene/`, leave `app/view_model.py` behind (superseded by `GeometryStage` + a `ViewerState` adapter; see ADR-0007 lift table), and either repair or delete the prototype's `view_model.py`/`test_integration_boundary.py` so the dev tool is not carried broken; (ii) resolve the attitude source — add platform/target attitude to `GeometryStage` outputs (re-audit ADR-0006 §4's "consumer exists" trigger, now satisfied) **or** define a viewer-local attitude input outside the chain. Effort M; category D. Re-audit at Phase 7 start.
 
-### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately
-
-**Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Status**: Open — minor UX latency, non-blocking. The form is always correct after the (debounced) re-evaluation that every edit triggers.
-**File**: `src/radiant/gui/main_window.py` (`_on_parameter_edited`, `_on_eval_ok` → `stage_center.refresh_forms()`); `src/radiant/gui/widgets/geometry_mode_form.py` (`GeometryModeForm.refresh`).
-**Symptom**: A geometry parameter edited in the **left parameter tree** re-syncs into the Geometry screen's `GeometryModeForm` only when the next evaluation succeeds (`_on_eval_ok` calls `refresh_forms()`), not the instant the tree edit is accepted. The reverse direction is immediate (a form edit repopulates the tree in `_on_form_parameter_edited`). The shared post-edit handler `_on_parameter_edited` deliberately touches **no** resolve, because a caller may signal an intentionally-invalid edit (the error-path tests) and forcing `form.refresh()` (which reads `Sensor.explain`/`get_input` → a full resolve) would raise on a mid-edit invalid sensor.
-**Why it still matters**: Rule 15/17 hygiene vs. immediacy — a form open while the user edits the same geometry parameter in the tree shows a one-cycle-stale value until the debounced run lands (~200 ms + chain time). No correctness impact (the value is right after the run), but the two surfaces are momentarily out of step.
-**Suggested fix**: (a) inline-fix-now candidate — refresh the form on tree edits guarded by a resolvability check that does not swallow a real error (e.g. refresh only when `Sensor` is currently resolvable, surfacing any genuine failure through the existing error path), or expose a structured provenance/value accessor (CU-105) that reads one parameter without forcing a global resolve. Effort S; category D (UX). Re-audit with CU-105 (structured provenance accessor).
-
 ### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure)
 
 **Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13 (commit on branch `gui-phase1-task-a`)
@@ -306,6 +297,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately
+
+**Discovered**: GUI Development Plan Phase 5, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending121>`. **Resolution**: `_on_parameter_edited` now calls `stage_center.refresh_forms()` so a tree edit re-syncs the Geometry Inputs/Schematic form synchronously, not only after the debounced evaluate. This is safe on a mid-edit unresolvable sensor because `GeometryModeForm.refresh` reads exclusively through guarded accessors (`safe_provenance` → "", `field_display_text`/`_input_value` → "—"/None on `RadiantError`, CU-105/CU-140) — the original "would raise" concern is obsolete — and the debounced re-evaluate still surfaces any genuine error. Regression test added; blank-sensor (File→New) tests still pass. Display-only. Wave 4 of the autonomous CU-cleanup plan (unblocked by CU-105).
+**File**: `src/radiant/gui/main_window.py`, `src/radiant/gui/tests/test_geometry_screen.py`.
 
 ### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists
 

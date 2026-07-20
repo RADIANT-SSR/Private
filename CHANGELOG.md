@@ -149,6 +149,9 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI Geometry form re-syncs immediately on a parameter-tree edit (CU-121).** A
+  geometry value edited in the left parameter tree now updates the Geometry Inputs/Schematic
+  form at once, instead of only after the next debounced evaluation. Display-only.
 - **GUI Parameter Editor: Current/Bounds rows follow the chosen unit after Apply
   (CU-111).** Applying a new unit without closing the dialog now re-expresses the
   informative Current and Bounds rows in that unit (e.g. `8 km`, not `8000 m`), so they

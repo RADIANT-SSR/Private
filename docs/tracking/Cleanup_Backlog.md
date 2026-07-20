@@ -292,7 +292,7 @@
 ### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
 
 **Discovered**: GUI metric-badge R-UNITS review, 2026-07.
-**Status**: RESOLVED 2026-07-19, commit `<pending108>`. **Resolution**: added a `scale_for_display(metric_key, value, unit)` helper + a single `_METRIC_DISPLAY_SCALE` table in `gui/metric_format.py` (currently `nedt_K → (mK, ×1000)`); `badge_display` applies it so the NEDT badge reads e.g. 44.6 mK instead of 0.0446 K. The base unit still comes from the registry (`rec.unit`); only the display prefix is chosen, in one table, out of the widgets. Display-only — the stored metric value (K) is unchanged. 2 new tests; existing badge tests still pass (mK still ends with K). R29 CHANGELOG. Wave 4 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `6098040`. **Resolution**: added a `scale_for_display(metric_key, value, unit)` helper + a single `_METRIC_DISPLAY_SCALE` table in `gui/metric_format.py` (currently `nedt_K → (mK, ×1000)`); `badge_display` applies it so the NEDT badge reads e.g. 44.6 mK instead of 0.0446 K. The base unit still comes from the registry (`rec.unit`); only the display prefix is chosen, in one table, out of the widgets. Display-only — the stored metric value (K) is unchanged. 2 new tests; existing badge tests still pass (mK still ends with K). R29 CHANGELOG. Wave 4 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/metric_format.py`, `src/radiant/gui/tests/test_widgets.py`.
 
 ### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately

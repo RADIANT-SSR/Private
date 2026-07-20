@@ -213,15 +213,6 @@
 **Why it still matters**: Rule 16 inspectability for MODTRAN products; a schema-generated GUI cannot express path type, irradiance mode, or spectral range for the binary flavor.
 **Suggested fix**: stand-alone task when the binary flavor becomes exercisable — thread `ground_reflected` into stage outputs (inspection-only) and add ParameterDefs for the deck knobs. Effort S-M; category B.
 
-### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
-
-**Discovered**: CU-068 doc rewrite, 2026-07-11 — the old §5.3 documented `cache_key = sha256(tape5 + modtran_version)`, but the shipped `_cache_key` hashes the tape5 alone.
-**Status**: DEFERRED, NARROWED 2026-07-17 — real MODTRAN data arrived, but as **external tape7/flux files**, not via RADIANT invoking the binary, so the specific blocker stands: RADIANT still cannot obtain a `modtran -version` string because the binary-invocation path has never executed here. Scope narrowed by the tape7-import workflow: `Tape7Import.content_key = sha256(file bytes)` already captures the exact producing version implicitly, so **the import path is not exposed to this bug** — only the `_cache_key(tape5)` binary-invocation cache is. Gating condition: RADIANT actually invokes a MODTRAN binary (unblocks obtaining the version). Re-audit: 2026-10-01 or when the binary-invocation path is first exercised.
-**File**: `src/radiant/atmosphere/modtran.py` (`_cache_key`)
-**Symptom**: two different MODTRAN versions producing different physics for the same deck hash to the same cache key; after upgrading the binary, RADIANT silently serves results computed by the old version.
-**Why it still matters**: violates the reproducibility intent the cache was designed for; a version-driven physics change would be invisible.
-**Suggested fix**: include the binary's version string (e.g. `modtran -version` output, or executable hash as a fallback) in the hash input; document the cache-directory flush as the interim workaround (now noted in `RADIANT_Atmosphere.md` §5.4 — renumbered from §5.3 when the tape7-import §5.1 landed). Effort S; category A.
-
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
 **Discovered**: Option C Stage 3 (2026-04-19)
@@ -261,6 +252,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
+
+**Discovered**: CU-068 doc rewrite, 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending070>`. **Resolution**: `_cache_key(tape5, binary_path)` now folds in a `_binary_fingerprint` — `exe:<sha256(binary bytes)[:16]>`, falling back to the path string when the executable is unreadable — so a MODTRAN upgrade invalidates stale entries instead of silently serving old-version results. Resolved via the executable-**byte-hash** fallback the CU's own suggested-fix names, which needs only to read the binary (never invoke it), sidestepping the earlier deferral's `modtran -version` blocker; a version-string form can supersede the byte-hash once the binary-invocation path is first exercised. 2 new Level-0 tests; the existing `test_cache_hit_bypasses_binary` repointed to the binary-aware key. R20 (`RADIANT_Atmosphere.md` §5.4 + verification caveat), R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/atmosphere/modtran.py`; `docs/architecture/RADIANT_Atmosphere.md`.
 
 ### CU-071 — `ModtranAtmosphere._build_state_from_arrays` clips τ and L_path silently (Rule 17)
 

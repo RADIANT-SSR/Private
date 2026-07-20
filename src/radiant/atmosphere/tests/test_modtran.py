@@ -1065,6 +1065,31 @@ class TestCache:
     def test_cache_key_differs_for_different_decks(self) -> None:
         assert _cache_key("deck_a\n") != _cache_key("deck_b\n")
 
+    @pytest.mark.level0
+    def test_cache_key_includes_binary_fingerprint(self, tmp_path: Path) -> None:
+        """CU-070: two binaries with the same deck hash to different keys (no stale serve)."""
+        tape5 = "some card deck content\n"
+        bin_v1 = tmp_path / "modtran_v1"
+        bin_v2 = tmp_path / "modtran_v2"
+        bin_v1.write_bytes(b"MODTRAN version 6.0 bytes")
+        bin_v2.write_bytes(b"MODTRAN version 6.1 bytes")
+        key_v1 = _cache_key(tape5, bin_v1)
+        key_v2 = _cache_key(tape5, bin_v2)
+        assert key_v1 != key_v2  # a binary upgrade invalidates the stale entry
+        # Deterministic and distinct from the deck-only key.
+        assert _cache_key(tape5, bin_v1) == key_v1
+        assert key_v1 != _cache_key(tape5)
+
+    @pytest.mark.level0
+    def test_cache_key_binary_fingerprint_tracks_bytes(self, tmp_path: Path) -> None:
+        """Rewriting the same binary path with new bytes changes the key."""
+        tape5 = "deck\n"
+        path = tmp_path / "modtran"
+        path.write_bytes(b"old")
+        before = _cache_key(tape5, path)
+        path.write_bytes(b"new-rebuilt-binary")
+        assert _cache_key(tape5, path) != before
+
     @pytest.mark.level1
     def test_cache_round_trip(self, tmp_path: Path) -> None:
         cache_dir = tmp_path / "cache"
@@ -1148,9 +1173,9 @@ class TestFallback:
             allow_fallback=False,
         )
 
-        # Render the tape5 and pre-populate cache.
+        # Render the tape5 and pre-populate cache (keyed on deck + binary, CU-070).
         tape5 = render_tape5(config, default_geometry)
-        key = _cache_key(tape5)
+        key = _cache_key(tape5, config.binary_path)
         wl_cached = np.linspace(3.0, 5.0, 100)
         tau_cached = np.linspace(0.9, 0.5, 100)
         lp_cached = np.linspace(0.01, 0.03, 100)

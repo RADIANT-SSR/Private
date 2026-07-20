@@ -149,6 +149,11 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **MODTRAN cache key fingerprints the binary (CU-070).** The binary-invocation cache
+  key now includes a hash of the MODTRAN executable's bytes, so upgrading the binary
+  invalidates stale entries instead of silently serving the old version's results. The
+  fingerprint is read from the executable's bytes (never by invoking it). Existing
+  binary-path caches regenerate on first use.
 - **MODTRAN state validates arrays before clamping (CU-071, Rule 17).** A tape7 import
   or cached array with transmittance well outside [0, 1] or a clearly-negative path
   radiance now raises an actionable `AtmosphereValidationError` (naming the likely

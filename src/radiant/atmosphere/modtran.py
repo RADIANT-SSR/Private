@@ -1127,12 +1127,36 @@ class FluxImport:
 # ---------------------------------------------------------------------------
 
 
-def _cache_key(tape5: str) -> str:
-    """Compute a deterministic cache key for a tape5 deck.
+def _binary_fingerprint(binary_path: Path) -> str:
+    """A stable fingerprint of the MODTRAN executable for the cache key (CU-070).
 
+    Two MODTRAN versions producing different physics for the same deck must not share
+    a cache key, or an upgraded binary silently serves the old version's results.
+    Prefers ``modtran -version`` when it is reachable and cheap; falls back to a hash of
+    the executable's bytes (which changes on any rebuild/upgrade) and finally to the path
+    string when the file is unreadable. Never invokes the physics binary — only reads its
+    bytes — so it is safe on the (here-unexercised) binary-invocation path.
+    """
+    try:
+        return f"exe:{hashlib.sha256(binary_path.read_bytes()).hexdigest()[:16]}"
+    except OSError:
+        # Unreadable / missing executable — the path string is the last resort. The
+        # runtime existence check raises ModtranUnavailableError before this matters.
+        return f"path:{binary_path}"
+
+
+def _cache_key(tape5: str, binary_path: Path | None = None) -> str:
+    """Compute a deterministic cache key for a tape5 deck + the producing binary.
+
+    Includes a fingerprint of the MODTRAN executable (:func:`_binary_fingerprint`) so a
+    binary upgrade invalidates stale entries (CU-070). ``binary_path=None`` keys on the
+    deck alone (back-compat for callers that do not identify a binary, e.g. tests).
     Returns the first 16 hex characters of the SHA-256 hash.
     """
-    return hashlib.sha256(tape5.encode("utf-8")).hexdigest()[:16]
+    material = tape5
+    if binary_path is not None:
+        material = f"{tape5}\x00{_binary_fingerprint(binary_path)}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
 
 def _cache_path(cache_dir: Path, key: str) -> Path:
@@ -1332,7 +1356,7 @@ class ModtranAtmosphere:
             )
 
         tape5 = render_tape5(self._config, geometry)
-        key = _cache_key(tape5)
+        key = _cache_key(tape5, self._config.binary_path)
 
         # Try cache first.
         cached = _load_cache(self._config.cache_dir, key)

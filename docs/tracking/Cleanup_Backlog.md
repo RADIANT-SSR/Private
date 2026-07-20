@@ -265,7 +265,7 @@
 ### CU-071 — `ModtranAtmosphere._build_state_from_arrays` clips τ and L_path silently (Rule 17)
 
 **Discovered**: tape7 file-import task, 2026-07-11.
-**Status**: RESOLVED 2026-07-19, commit `<pending071>`. **Resolution**: `_build_state_from_arrays` now validates the arrays before clamping — transmittance below `-1e-12` or above `1 + 1e-12`, or path radiance below `-1e-12`, raises an actionable `AtmosphereValidationError` naming the likely unit-confusion / corrupt-tape7 cause (matching `TabulatedAtmosphere`); only ≤1e-12 float-noise snaps are still clipped. Reachable from the user-facing tape7 import path. 3 new tests (τ>1 raises, negative L_path raises, float-noise τ clipped). R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `620b64f`. **Resolution**: `_build_state_from_arrays` now validates the arrays before clamping — transmittance below `-1e-12` or above `1 + 1e-12`, or path radiance below `-1e-12`, raises an actionable `AtmosphereValidationError` naming the likely unit-confusion / corrupt-tape7 cause (matching `TabulatedAtmosphere`); only ≤1e-12 float-noise snaps are still clipped. Reachable from the user-facing tape7 import path. 3 new tests (τ>1 raises, negative L_path raises, float-noise τ clipped). R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/atmosphere/modtran.py`.
 
 ### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site

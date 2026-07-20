@@ -15,6 +15,7 @@ import math
 import numpy as np
 import pytest
 
+from radiant.readout.errors import ReadoutValidationError
 from radiant.readout.tdi_mtf import (
     tdi_misalign_m,
     tdi_misalign_mtf_1d,
@@ -138,8 +139,23 @@ class TestTDIShotScaling:
 class TestTDIReadNoiseScaling:
     @pytest.mark.level0
     def test_read_noise_unchanged(self) -> None:
-        """Read noise injected once — unchanged by TDI."""
+        """Analog TDI: charge accumulates on-chip, one readout → read noise × 1."""
         assert tdi_scale_read_noise(5.0) == pytest.approx(5.0, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_digital_read_noise_scales_sqrt_n(self) -> None:
+        """Digital TDI (CU-085): N independent readouts summed → read noise × √N."""
+        assert tdi_scale_read_noise(5.0, n_tdi=4, digital=True) == pytest.approx(10.0, rel=1e-12)
+        assert tdi_scale_read_noise(3.0, n_tdi=9, digital=True) == pytest.approx(9.0, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_digital_read_noise_n1_is_identity(self) -> None:
+        assert tdi_scale_read_noise(5.0, n_tdi=1, digital=True) == pytest.approx(5.0, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_digital_read_noise_invalid_n_raises(self) -> None:
+        with pytest.raises(ReadoutValidationError, match="n_tdi"):
+            tdi_scale_read_noise(5.0, n_tdi=0, digital=True)
 
 
 class TestTDIFPNScaling:
@@ -147,3 +163,39 @@ class TestTDIFPNScaling:
     def test_fpn_scales_linearly(self) -> None:
         """FPN correlated → scales as N."""
         assert tdi_scale_fpn(10.0, 4) == pytest.approx(40.0, rel=1e-12)
+
+
+class TestScaleNoiseTermDigitalTDI:
+    """CU-085: the stage-level digital-TDI branches of `_scale_noise_term`.
+
+    No binning (M=P=1), single coadd, so only the TDI factor varies — isolating
+    the analog-vs-digital behavior the CU flagged as untested.
+    """
+
+    @staticmethod
+    def _scale(term: str, *, digital: bool, n_tdi: int = 4) -> float:
+        from radiant.readout.coadds import CoaddMode
+        from radiant.readout.stage import _scale_noise_term
+
+        return _scale_noise_term(
+            10.0, term, n_tdi=n_tdi, tdi_digital=digital,
+            mx_on=1, my_on=1, px_off=1, py_off=1, n_coadds=1, coadd_mode=CoaddMode.AVERAGE,
+        )
+
+    @pytest.mark.level0
+    def test_read_noise_digital_scales_sqrt_n(self) -> None:
+        """Digital TDI: read noise × √N (analog leaves it unchanged)."""
+        assert self._scale("read_noise", digital=True) == pytest.approx(20.0, rel=1e-12)
+        assert self._scale("read_noise", digital=False) == pytest.approx(10.0, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_prnu_digital_is_correlated_analog_is_independent(self) -> None:
+        """Digital re-reads the same pixel → PRNU correlated (×N); analog → independent (×√N)."""
+        assert self._scale("prnu", digital=True) == pytest.approx(40.0, rel=1e-12)  # ×4
+        assert self._scale("prnu", digital=False) == pytest.approx(20.0, rel=1e-12)  # ×√4
+
+    @pytest.mark.level0
+    def test_clutter_is_scene_correlated_in_both_modes(self) -> None:
+        """Clutter is the same ground point every stage → ×N regardless of TDI mode."""
+        assert self._scale("clutter", digital=True) == pytest.approx(40.0, rel=1e-12)
+        assert self._scale("clutter", digital=False) == pytest.approx(40.0, rel=1e-12)

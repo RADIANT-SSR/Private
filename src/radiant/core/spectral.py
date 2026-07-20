@@ -19,12 +19,20 @@ SpectralDataStore
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from radiant.core.exceptions import CoreValidationError
+
+# Fraction of the store grid that may be constant-extrapolated before it is a
+# UserWarning rather than a quiet debug log (CU-085 #3). A curve stopping a little
+# short of the band (near-edge, ≤ this fraction) is legitimate and stays quiet — the
+# owner's warning-free bar; a curve missing a large chunk of the requested band means
+# most of that region's values are invented, which the caller should see.
+_EXTRAP_WARN_FRACTION = 0.20
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -482,17 +490,25 @@ class SpectralDataStore:
         if data.name in self._data:
             raise CoreValidationError(f"SpectralData '{data.name}' already in store")
 
-        # Check for extrapolation and warn
+        # Constant extrapolation over a small near-edge fraction of the grid is
+        # legitimate (a curve that stops a nm short of the band) and stays a quiet debug
+        # log; over a large fraction the requested band is mostly invented, which the
+        # caller should see as a UserWarning (CU-085 #3).
         if data.wavelength_um[0] > self._grid[0] or data.wavelength_um[-1] < self._grid[-1]:
-            logger.debug(
-                "SpectralDataStore.add('%s'): source range [%.4f, %.4f] µm does not "
-                "cover store grid [%.4f, %.4f] µm — constant extrapolation applied.",
-                data.name,
-                data.wavelength_um[0],
-                data.wavelength_um[-1],
-                self._grid[0],
-                self._grid[-1],
+            covered = (self._grid >= data.wavelength_um[0]) & (
+                self._grid <= data.wavelength_um[-1]
             )
+            extrap_fraction = float(1.0 - np.mean(covered))
+            msg = (
+                f"SpectralDataStore.add('{data.name}'): source range "
+                f"[{data.wavelength_um[0]:.4f}, {data.wavelength_um[-1]:.4f}] µm does not "
+                f"cover store grid [{self._grid[0]:.4f}, {self._grid[-1]:.4f}] µm — "
+                f"{extrap_fraction:.1%} of the grid is constant-extrapolated."
+            )
+            if extrap_fraction > _EXTRAP_WARN_FRACTION:
+                warnings.warn(msg, UserWarning, stacklevel=2)
+            else:
+                logger.debug(msg)
 
         # Linear interpolation; clip to endpoints (constant extrapolation)
         interp = np.interp(

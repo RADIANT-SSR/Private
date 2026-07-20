@@ -196,14 +196,6 @@
 **Why it still matters**: two "source systems" in the public API invite integrators (or the GUI) to bind the dead, physically wrong one; violates one-canonical-version.
 **Suggested fix**: delete-as-unused (or wire deliberately and document) — decide alongside the CU-079 Source doc reconciliation. Effort S-M; category B.
 
-### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots)
-
-**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11 — grouped as one sweep task; items are individually small and same-shaped
-**Status**: NARROWED (2026-07-12, commit `513c9c5`) — 6 of 8 sub-items fixed; 2 remain
-**Resolved sub-items (commit `513c9c5`)**: (1) `Tolerance.__post_init__` validates the distribution and required spread params — a parameter-less gaussian raises instead of silently sampling std=0; (2) consistency-group over-spec check picks a free variable that has a derivation rule (was silently skipped when `parameters[0]` lacked one); (4) velocity smear warns instead of returning 0 when altitude/t_int is missing though a velocity was set; (5) `detector.pixel_pitch_y_um` description corrected (required, no "defaults to x pitch" fallback); (6) IPC y-axis MTF uses `pixel_pitch_y` (was `pixel_pitch_x` — wrong for rectangular pixels); (8) `cli/run.py` provenance version reads `radiant.__version__` (was hardcoded "0.1.0").
-**Remaining sub-items**: (3) `core/spectral.py` SpectralDataStore.add constant-extrapolates non-covering curves at DEBUG level (should warn — deferred: risks warning noise on legitimate near-edge curves, needs a coverage-fraction threshold); (7) readout digital-TDI branches have zero test coverage (add tests). Effort S; category B.
-**Why it still matters**: exactly the silent-failure class Rules 16/17 forbid; a GUI amplifies each into invisible wrong answers.
-
 ### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
 
 **Discovered**: CU-086 re-audit of the landed MODTRAN rework (`d56fd9c`), 2026-07-11
@@ -252,6 +244,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots)
+
+**Discovered**: Capability audit 2026-07 (F-25), 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending085>` (final 2 of 8 sub-items; sub-items 1/2/4/5/6/8 fixed earlier in `513c9c5`). **Resolution**: (3) `SpectralDataStore.add` now computes the constant-extrapolated fraction of the store grid and raises a `UserWarning` past a 20% coverage-fraction threshold (`_EXTRAP_WARN_FRACTION`), keeping legitimate near-edge extrapolation a quiet debug log — verified against the 37-config sweep (0 new warnings, warning-free bar preserved). (7) added digital-TDI test coverage: `tdi_scale_read_noise(digital=True)` √N scaling and the stage-level `_scale_noise_term` digital branches (read noise ×√N, PRNU/DSNU correlated ×N, clutter always ×N). 11 new tests. R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/core/spectral.py`; tests in `test_spectral.py` + `readout/tests/test_tdi.py`.
 
 ### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
 

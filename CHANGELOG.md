@@ -149,6 +149,11 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **`SpectralDataStore` warns on gross spectral extrapolation (CU-085).** When a curve
+  covers less than ~80% of the requested band (> 20% constant-extrapolated), the store now
+  raises a `UserWarning` naming the extrapolated fraction instead of a silent debug log;
+  legitimate near-edge extrapolation (≤ 20%) stays quiet, so shipped scenarios remain
+  warning-free. Also added test coverage for the digital-TDI noise-scaling branches.
 - **MODTRAN cache key fingerprints the binary (CU-070).** The binary-invocation cache
   key now includes a hash of the MODTRAN executable's bytes, so upgrading the binary
   invalidates stale entries instead of silently serving the old version's results. The

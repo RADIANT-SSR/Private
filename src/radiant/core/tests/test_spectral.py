@@ -8,6 +8,7 @@ All tests use @pytest.mark.level0 and explicit tolerances on pytest.approx.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -479,6 +480,37 @@ class TestSpectralDataStore:
     def test_has_returns_false_before_add(self) -> None:
         store = SpectralDataStore(np.linspace(1.0, 5.0, 100))
         assert not store.has("test")
+
+    @pytest.mark.level0
+    def test_full_coverage_curve_is_quiet(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """CU-085 #3: a curve covering the grid warns/logs nothing."""
+        import logging
+
+        store = SpectralDataStore(np.linspace(2.0, 4.0, 100))
+        with warnings.catch_warnings(), caplog.at_level(logging.DEBUG, "radiant.core.spectral"):
+            warnings.simplefilter("error", UserWarning)  # any warning would raise
+            store.add(_make_sd("full", lam_min=1.0, lam_max=5.0))
+        assert not any("extrapolated" in r.message for r in caplog.records)
+
+    @pytest.mark.level0
+    def test_near_edge_extrapolation_is_debug_not_warning(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """A curve stopping just short of the band (< 20% of grid) stays a quiet debug log."""
+        import logging
+
+        # Grid [2, 4]; curve [2.05, 4] leaves ~2.5% of the grid extrapolated on the low edge.
+        store = SpectralDataStore(np.linspace(2.0, 4.0, 100))
+        with warnings.catch_warnings(), caplog.at_level(logging.DEBUG, "radiant.core.spectral"):
+            warnings.simplefilter("error", UserWarning)  # a UserWarning would raise
+            store.add(_make_sd("near_edge", lam_min=2.05, lam_max=4.0))
+        assert any("constant-extrapolated" in r.message for r in caplog.records)
+
+    @pytest.mark.level0
+    def test_gross_extrapolation_warns(self) -> None:
+        """A curve covering < 80% of the band (> 20% extrapolated) raises a UserWarning."""
+        # Grid [2, 4]; curve [3.0, 4.0] → the lower half (~50%) is constant-extrapolated.
+        store = SpectralDataStore(np.linspace(2.0, 4.0, 100))
+        with pytest.warns(UserWarning, match="constant-extrapolated"):
+            store.add(_make_sd("gross", lam_min=3.0, lam_max=4.0))
 
     @pytest.mark.level0
     def test_names_empty(self) -> None:

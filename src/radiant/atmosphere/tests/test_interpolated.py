@@ -796,3 +796,56 @@ class TestNonAxisGeometryWarning:
         ]
         with pytest.raises(AtmosphereValidationError, match="varies across"):
             InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+
+
+class TestVacuumEquivalentSensor:
+    """Sensor-altitude mismatch check honors the above-TOA vacuum identity.
+
+    MODTRAN's atmosphere ends at 100 km: a query sensor ABOVE a recorded
+    at-/above-TOA sensor sees the identical column (the added path is
+    vacuum), so it is exact — not a CU-167 mismatch. A query sensor BELOW
+    the recorded one, or above a recorded sub-TOA sensor, is a real
+    substitution and still warns.
+    """
+
+    def _zenith_axis_model(self, wl: np.ndarray, sensor_m: float) -> InterpolatedAtmosphere:
+        points = [
+            _make_point(
+                {"path_zenith_rad": z, "sensor_altitude_m": sensor_m, "target_altitude_m": 0.0},
+                wl,
+                tau * np.ones_like(wl),
+            )
+            for z, tau in ((0.0, 0.9), (1.0, 0.6))
+        ]
+        return InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+
+    def _geom(self, sensor_m: float) -> AtmosphericGeometry:
+        return AtmosphericGeometry(
+            sensor_altitude_m=sensor_m,
+            target_altitude_m=0.0,
+            path_zenith_rad=0.5,
+            solar_zenith_rad=0.0,
+        )
+
+    @pytest.mark.level0
+    def test_orbital_query_above_toa_record_does_not_warn(self, wl: np.ndarray) -> None:
+        """LEO/GEO sensor over a recorded 100 km (TOA) run: exact, silent."""
+        model = self._zenith_axis_model(wl, sensor_m=100_000.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            model.build_state(wl, self._geom(500_000.0))  # must not warn
+
+    @pytest.mark.level0
+    def test_airborne_query_below_toa_record_warns(self, wl: np.ndarray) -> None:
+        """Airborne sensor over a recorded 100 km run: real substitution."""
+        model = self._zenith_axis_model(wl, sensor_m=100_000.0)
+        with pytest.warns(UserWarning, match="sensor_altitude_m.*IGNORED"):
+            model.build_state(wl, self._geom(10_000.0))
+
+    @pytest.mark.level1
+    def test_query_above_sub_toa_record_still_warns(self, wl: np.ndarray) -> None:
+        """A recorded 35 km sensor is NOT vacuum-equivalent to higher
+        sensors — real atmosphere lies between 35 km and the query."""
+        model = self._zenith_axis_model(wl, sensor_m=35_000.0)
+        with pytest.warns(UserWarning, match="sensor_altitude_m.*IGNORED"):
+            model.build_state(wl, self._geom(80_000.0))

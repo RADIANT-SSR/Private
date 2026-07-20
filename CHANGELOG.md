@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Shipped atmosphere library records full run geometry; geometry-mismatch
+  warnings sharpened (boost plan §4.6 / CU-167 follow-through).** Every
+  `data/atmospheres/` NPZ now records all five run-geometry fields (spectral
+  arrays are byte-identical — no computed results change). Consequences a user
+  can observe: an airborne-sensor query against the space-column zenith fan now
+  warns instead of silently receiving the 100 km column; a solar zenith other
+  than the runs' 30° now warns on interpolated families; a LEO/GEO sensor above
+  a recorded at-TOA sensor is recognized as vacuum-exact and does NOT warn; and
+  pure-thermal scenes (no declared solar geometry) adopt the recorded run sun
+  instead of spuriously warning.
+
 ### Added
 - **`radiant.api.geometry_modes` — public geometry input-mode manifest (CU-120).** The
   ADR-0006 family → mode → parameter structure (viewing V0–V4, solar S1–S3 + night,

@@ -25,7 +25,16 @@ fixtures (plan §7.1), not this library.
 **NPZ format:** `TabulatedAtmosphere.from_npz` keys — `wavelength_um`
 [µm, ascending], `transmittance` [–], `path_radiance` [W/m²/sr/µm],
 optional `atm_emission_down` [W/m²/sr/µm], plus a pickled `geometry`
-dict of interpolation coordinates on the interpolated families.
+dict. Since 2026-07-20 (boost plan §4.6, CU-167 follow-through) the
+`geometry` dict on **every** file — profiles included — records the full
+five-field run geometry (`sensor_altitude_m`, `target_altitude_m`,
+`path_zenith_rad`, `solar_zenith_rad`, `solar_azimuth_rad`), not just
+the interpolation coordinates. All shipped down-looking runs used solar
+zenith 30° / azimuth 0°; `InterpolatedAtmosphere` warns when a query
+departs from a recorded non-axis value (a pure-thermal scene with no
+declared solar geometry adopts the recorded sun — no warning), and a
+query sensor above a recorded at-/above-TOA (100 km) sensor is exempt —
+the added path is vacuum, the column identical.
 
 ## Families
 

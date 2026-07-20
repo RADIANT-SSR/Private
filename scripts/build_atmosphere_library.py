@@ -62,6 +62,30 @@ _DECIMATE = 2
 # Deg → rad without importing math for one constant.
 _DEG = np.pi / 180.0
 
+# Solar geometry shared by EVERY shipped down-looking run (run matrix:
+# solar_zenith_deg = 30, solar_azimuth_deg = 0 on all A/B/C/G rows).
+SOLAR_ZENITH_RAD = 30.0 * _DEG
+SOLAR_AZIMUTH_RAD = 0.0
+
+
+def _full_geometry(sensor_km: float, target_km: float, path_zenith_rad: float) -> dict[str, float]:
+    """All five ``AtmosphericGeometry`` fields for a run (CU-167 / boost plan §4.6).
+
+    Recording the constant fields (not just the interpolation axes) lets
+    ``InterpolatedAtmosphere``'s non-axis mismatch check compare queries
+    against the RECORDED run geometry instead of silently substituting —
+    e.g. an airborne-sensor query against the 100 km zenith fan, or a
+    solar zenith other than the 30° every shipped run used, now warns.
+    """
+    return {
+        "sensor_altitude_m": sensor_km * 1000.0,
+        "target_altitude_m": target_km * 1000.0,
+        "path_zenith_rad": path_zenith_rad,
+        "solar_zenith_rad": SOLAR_ZENITH_RAD,
+        "solar_azimuth_rad": SOLAR_AZIMUTH_RAD,
+    }
+
+
 # run id -> profile name for the Block A anchors.
 PROFILE_RUNS: dict[str, str] = {
     "A1": "us_standard",
@@ -107,14 +131,13 @@ LADDER: dict[str, tuple[float, float]] = {
 # vacuum, so interpolating between identical values is exact.
 ORBITAL_NODE_KM = 40_000.0
 
-# Off-grid validation points: run -> geometry description dict.
-VALIDATION: dict[str, dict[str, float]] = {
-    "C7": {"sensor_altitude_m": 35_000.0, "target_altitude_m": 10_000.0,
-           "path_zenith_rad": 45.0 * _DEG},
-    "G6": {"sensor_altitude_m": 100_000.0, "target_altitude_m": 10_000.0,
-           "path_zenith_rad": 45.0 * _DEG},
-    "H1": {"sensor_altitude_m": 0.0, "target_altitude_m": 100_000.0,
-           "path_zenith_rad": 0.0},
+# Off-grid validation points: run -> (sensor km, target km, LOS zenith rad).
+# Full five-field geometry is emitted via _full_geometry (CU-167 / §4.6);
+# H1 is the up-looking downwelling anchor (sensor at ground, "target" = TOA).
+VALIDATION: dict[str, tuple[float, float, float]] = {
+    "C7": (35.0, 10.0, 45.0 * _DEG),
+    "G6": (100.0, 10.0, 45.0 * _DEG),
+    "H1": (0.0, 100.0, 0.0),
 }
 
 
@@ -174,7 +197,13 @@ def main() -> int:
         down_run = DOWNWELLING_RUNS.get(profile)
         if down_run is not None:
             arrays["atm_emission_down"] = _load_downwelling(down_run)
-        _save(OUT_ROOT / "profiles" / f"{profile}.npz", arrays, geometry=None)
+        # Geometry is provenance for the tabulated profiles (the loader is
+        # geometry-agnostic) but recorded anyway per CU-167 / plan §4.6.
+        _save(
+            OUT_ROOT / "profiles" / f"{profile}.npz",
+            arrays,
+            geometry=_full_geometry(100.0, 0.0, 0.0),
+        )
 
     print("Zenith fan (us_standard, interpolated over path_zenith_rad):")
     h2_down = _load_downwelling("H2")
@@ -184,7 +213,7 @@ def main() -> int:
         _save(
             OUT_ROOT / "us_standard_zenith_fan" / f"zen{round(zenith_rad / _DEG):02d}.npz",
             arrays,
-            geometry={"path_zenith_rad": zenith_rad},
+            geometry=_full_geometry(100.0, 0.0, zenith_rad),
         )
 
     print("Ladders (midlat_summer, interpolated over sensor x target altitude):")
@@ -193,10 +222,7 @@ def main() -> int:
         _save(
             OUT_ROOT / "midlat_summer_ladders" / f"s{sensor_km:05.0f}_t{target_km:02.0f}.npz",
             arrays,
-            geometry={
-                "sensor_altitude_m": sensor_km * 1000.0,
-                "target_altitude_m": target_km * 1000.0,
-            },
+            geometry=_full_geometry(sensor_km, target_km, 0.0),
         )
         if sensor_km == 100.0:
             # Orbital-hull duplicate (identical state; vacuum above TOA).
@@ -205,16 +231,17 @@ def main() -> int:
                 / "midlat_summer_ladders"
                 / f"s{ORBITAL_NODE_KM:05.0f}_t{target_km:02.0f}.npz",
                 arrays,
-                geometry={
-                    "sensor_altitude_m": ORBITAL_NODE_KM * 1000.0,
-                    "target_altitude_m": target_km * 1000.0,
-                },
+                geometry=_full_geometry(ORBITAL_NODE_KM, target_km, 0.0),
             )
 
     print("Validation points (off-grid, not interpolation nodes):")
-    for run, geom in VALIDATION.items():
+    for run, (sensor_km, target_km, zenith_rad) in VALIDATION.items():
         arrays = _load_degraded(run)
-        _save(OUT_ROOT / "validation" / f"{run}.npz", arrays, geometry=geom)
+        _save(
+            OUT_ROOT / "validation" / f"{run}.npz",
+            arrays,
+            geometry=_full_geometry(sensor_km, target_km, zenith_rad),
+        )
 
     print("Done. See data/atmospheres/MANIFEST.md for the design record.")
     return 0

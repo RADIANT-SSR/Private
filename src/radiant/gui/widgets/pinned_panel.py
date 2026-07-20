@@ -126,9 +126,13 @@ class PinnedPanel(QWidget):
         super().__init__(parent)
         self.setObjectName("pinnedPanel")
 
-        # Pin set persists across sessions via QSettings (CU-115). Tests inject a
-        # scratch QSettings so they never touch the real user config.
-        self._settings: QSettings = settings or QSettings(_SETTINGS_ORG, _SETTINGS_APP)
+        # Pin set persists across sessions via QSettings (CU-115). Use IniFormat
+        # explicitly (cross-platform + test-isolatable via QSettings.setPath) rather
+        # than the platform-native store. Tests inject a scratch QSettings so they
+        # never touch the real user config.
+        self._settings: QSettings = settings or QSettings(
+            QSettings.Format.IniFormat, QSettings.Scope.UserScope, _SETTINGS_ORG, _SETTINGS_APP
+        )
         self._result: ChainResult | None = None
         self._pins: list[_PinSpec] = _load_pins(self._settings)
         self._cards: dict[str, PinnedCard] = {}

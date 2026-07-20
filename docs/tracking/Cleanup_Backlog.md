@@ -133,24 +133,6 @@
 **Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
 **Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
 
-### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
-
-**Discovered**: GUI Development Plan Phase 1 checkpoint punch-list (populating the shell chrome), 2026-07-12
-**Status**: Open — polish; surfaced while porting the mockup typography to QSS.
-**File**: `src/radiant/gui/themes/stylesheet.py` (the `#stageChipEyebrow` / `#metricLabel` / `QDockWidget::title` rules); `RADIANT_GUI_Architecture.md` §8.2 (specifies `letter-spacing 0.06em` on eyebrows/KPI labels, `−0.01em` on the app title, and `text-transform: uppercase` on panel titles / eyebrows / KPI labels).
-**Symptom**: Qt's QSS subset supports neither `letter-spacing` nor `text-transform` on `QLabel`, so those §8.2 values cannot be applied in the stylesheet. The Phase-1 widgets work around uppercasing by calling `.upper()` in Python (`StageChip`, `MetricBadge`) and simply drop the letter-spacing (tracking) entirely. The chrome therefore reads correctly (uppercase eyebrows/labels) but without the specified tracking, so it is close to — not pixel-identical with — the mockup, which uses CSS `letter-spacing`.
-**Why it still matters**: §8.2 is the binding typography spec and names tracking values no test or QSS rule enforces (the aspirational-drift failure mode CLAUDE.md warns against). Two smells compound: (1) the uppercasing lives in widget Python, not the theme, so a design change to casing is no longer a one-file `themes/` edit (mild §4.9 tension); (2) the doc asserts tracking the app cannot deliver via its chosen styling mechanism.
-**Suggested fix**: stand-alone task (owner call) — either (a) implement tracking/casing via `QFont.setLetterSpacing(...)` + `QFont.setCapitalization(QFont.AllUppercase)` applied from a small theme helper (keeps values in `themes/`, restores §4.9 single-owner), or (b) amend §8.2 to record that letter-spacing is a nominal target Qt does not render and uppercasing is applied in-widget. Effort S; category A (no physics, no results).
-
-### CU-103 — IBM Plex fonts are the design target but are not bundled; the GUI falls back to the platform UI/mono font
-
-**Discovered**: GUI Development Plan Phase 1 Task B (design-system QSS theme), 2026-07-12
-**Status**: Open (narrowed 2026-07-19, commit `24c11e3`) — the startup **registration hook** now exists: `apply_theme` calls `radiant.gui.themes.fonts.register_bundled_fonts()`, which registers any `.ttf`/`.otf` under `gui/assets/fonts/` via `QFontDatabase.addApplicationFont` (CU-169). **Remaining**: add the actual IBM Plex OFL font files to that directory (owner decision on shipping the ~MB of font binaries). Until then the GUI uses the platform fallback (Helvetica Neue/Menlo), now warning-free.
-**File**: `src/radiant/gui/themes/tokens.py` (`FONT_SANS`, `FONT_MONO` — the fallback stacks); `RADIANT_GUI_Architecture.md` §8.2 (specifies `IBM Plex Sans` 13px + `IBM Plex Mono` for numerics).
-**Symptom**: `QFontDatabase.families()` on the build machine (macOS) reports neither `IBM Plex Sans` nor `IBM Plex Mono` installed (313 families present; Menlo + Helvetica Neue are). The theme therefore leads its stacks with IBM Plex and falls back — sans → `"Helvetica Neue"`/system UI, mono → `"Menlo"`/monospace. The instrument-panel look (§8.2: "numeric values are always mono") is preserved via Menlo, but the exact letterforms/metrics differ from the mockups, so pixel-parity against `radiant_mid_fi.html` (which loads a webfont) is approximate, not exact.
-**Why it still matters**: §8.2 is the binding typography spec; without IBM Plex the app is close but not identical to the ratified visual target, and parity drifts further on Linux hosts with a different default UI font. The fallback keeps the app correct and legible everywhere (no missing-glyph boxes), so this is polish, not a defect — but the arch doc names a specific family the app does not guarantee.
-**Suggested fix**: stand-alone task (owner call) — bundle the IBM Plex Sans + Mono OFL `.ttf` files under `src/radiant/gui/themes/fonts/` and load them at bootstrap via `QFontDatabase.addApplicationFont(...)` before `apply_theme`, so the leading family in each stack resolves. Adds packaged binary assets (Rule 26 manifest + license note) and package-data wiring in `pyproject.toml`. Effort S–M; category A (no physics, no results). Deferred here rather than done inline because bundling font binaries is a licensing/packaging decision, not a theming one.
-
 ### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance
 
 **Discovered**: Geometry_Stage_Plan Phase 1 implementation read-through, 2026-07-12
@@ -181,6 +163,16 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
+
+**Status**: RESOLVED 2026-07-19, commit `<pending104>` (owner decision: amend the spec). **Resolution**: added a rendering note to `RADIANT_GUI_Architecture.md` §8.2 recording that the `letter-spacing` values are nominal design targets Qt's QSS subset cannot render, and the `uppercase` transform is honored in-widget (`.upper()` in Python), not via QSS — with the per-widget `QFont.setLetterSpacing` path noted as the deferred option if exact tracking is ever required. Doc-only; the current approximation is accepted. Wave 7.
+**File**: `docs/architecture/RADIANT_GUI_Architecture.md` §8.2.
+
+### CU-103 — IBM Plex fonts are the design target but are not bundled; the GUI falls back to the platform UI/mono font
+
+**Status**: RESOLVED (Declined) 2026-07-19 (owner decision: keep the fallback). **Resolution**: **won't-bundle** — CU-169 already ships a warning-free clean fallback to the platform UI/mono fonts (the `qt.qpa.fonts` warning and alias-population cost are gone). Bundling the IBM Plex OFL `.ttf` binaries would add ~1 MB of packaged assets plus licensing/manifest/package-data wiring for a purely cosmetic gain, which the owner declined. The `register_bundled_fonts()` hook remains in place should bundling ever be reconsidered. No code change. Wave 7.
+**File**: n/a (declined).
 
 ### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
 

@@ -1308,6 +1308,15 @@ Weights: 400 body, 500 labels/buttons, 600 titles and values. **Numeric values a
 always mono** — this is what carries the instrument-panel feel and keeps unit-suffixed
 readouts aligned.
 
+**Rendering note (CU-104).** The `letter-spacing` values above are **nominal design
+targets**: Qt's QSS subset supports neither `letter-spacing` nor `text-transform` on a
+`QLabel`, so they are **not** applied in the stylesheet and the shell reads close to — not
+pixel-identical with — the CSS mockup. The `uppercase` transform *is* honored, applied
+**in-widget** in Python (`.upper()` in `StageChip` / metric labels) rather than via QSS.
+If exact tracking is ever required, it would be applied per-widget via
+`QFont.setLetterSpacing(...)` from `themes/`, not through the stylesheet (deferred — the
+current approximation is accepted).
+
 ### 8.3 Spacing, Radius, Borders
 
 - **Border radius:** cards/panels 8–9 px · buttons & inputs 4–5 px · chips/kbd/badges

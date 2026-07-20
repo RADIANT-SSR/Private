@@ -62,6 +62,17 @@ def _compute_ee_box(regime: RadiometricRegime | str | None, epsf: object) -> flo
     return float(epsf.ensquared_energy_nxn(1))  # type: ignore[attr-defined]
 
 
+# Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
+# declared next to the ``with_stage_output(...)`` emission sites and aggregated by
+# ``radiant.api.stage_output_units``. "" marks a dimensionless numeric (bare number).
+OUTPUT_UNITS: dict[str, str] = {
+    "jitter_sigma_x_m": "m",
+    "jitter_sigma_y_m": "m",
+    "smear_width_m": "m",
+    "EE_box": "",
+}
+
+
 class PlatformStage:
     """Chain stage for platform-induced spatial degradation (jitter + smear)."""
 

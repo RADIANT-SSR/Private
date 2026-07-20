@@ -91,6 +91,17 @@ def _classify_regime(
     return RadiometricRegime.SUB_PIXEL, angular_extent
 
 
+# Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
+# declared next to the ``with_stage_output(...)`` emission sites and aggregated by
+# ``radiant.api.stage_output_units``. "" marks a dimensionless numeric (bare number).
+OUTPUT_UNITS: dict[str, str] = {
+    "projected_area_m2": "m²",
+    "range_m": "m",
+    "fill_fraction": "",
+    "angular_extent_rad": "rad",
+}
+
+
 class SourceStage:
     """Chain stage for target spectral radiance with regime classification."""
 

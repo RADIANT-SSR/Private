@@ -7,13 +7,15 @@ owner's R-UNITS hard rule requires every displayed numeric to carry its unit, an
 GUI's per-stage *Outputs* readout must therefore label ``stage_outputs["optics"]
 ["A_collect"]`` as ``m²`` and ``["Omega_pixel"]`` as ``sr`` rather than as bare numbers.
 
-This module is the **single authoritative source** for those display units: a table keyed
-by ``(stage, output_key)`` → canonical unit string, drawn from
+Each outputs-bearing stage **declares its own** output units in an ``OUTPUT_UNITS``
+mapping next to the ``with_stage_output(...)`` emission sites in its ``stage.py``
+(CU-118); this module only **aggregates** those per-stage tables into the flattened
+``(stage, output_key)`` → canonical-unit view the GUI/CLI consume. Units follow
 ``docs/architecture/RADIANT_Conventions.md`` (length **m**, area **m²**, solid angle
 **sr**, charge **e-**, temperature **K**, time **s**, digital number **DN**, in-band
-irradiance **W/m²**). It covers exactly the finite set of *scalar* outputs the
-outputs-bearing stages emit (Source, Optics, Platform, Spectral-Integration, Detector,
-Readout — Performance uses the metric registry via :meth:`ChainResult.metric_records`).
+irradiance **W/m²**). Covered stages are Source, Optics, Platform, Spectral-Integration,
+Detector, Readout — Performance uses the metric registry via
+:meth:`ChainResult.metric_records`.
 The Source rows back the Phase-PS-1 Source-stage Outputs readout (its ``regime_tentative``
 enum and ``regime_override`` string need no unit and are rendered unadorned).
 
@@ -25,65 +27,40 @@ parameter. Non-numeric outputs (status enums like ``well_status``, mode strings 
 ``transmission_input_mode``, booleans) are absent: they need no unit and a caller shows
 them unadorned. An unlisted key returns ``""`` (honest — a bare number beats a wrong unit).
 
-No unit arithmetic happens here (Rule 2 — this is display metadata only). The longer-term
-fix is for each stage to *declare* its output units at the emission site rather than this
-central hand-maintained table (tracked as CU-118, aligned with Gap 87).
+No unit arithmetic happens here (Rule 2 — this is display metadata only). Per-stage
+declaration keeps each unit next to the code that emits the value (CU-118, aligned with
+Gap 87), so a new scalar output's unit is added in the same file as its
+``with_stage_output`` call.
 """
 
 from __future__ import annotations
 
 from typing import Final
 
-# (stage, output_key) -> canonical unit string (RADIANT_Conventions.md). ``""`` marks a
-# genuinely dimensionless numeric (fraction/ratio), rendered as a bare number. Grouped by
-# stage; keys mirror the ``with_stage_output(...)`` sites in each stage's ``stage.py``.
+from radiant.detector.stage import OUTPUT_UNITS as _DETECTOR_UNITS
+from radiant.optics.stage import OUTPUT_UNITS as _OPTICS_UNITS
+from radiant.platform.stage import OUTPUT_UNITS as _PLATFORM_UNITS
+from radiant.readout.stage import OUTPUT_UNITS as _READOUT_UNITS
+from radiant.source.stage import OUTPUT_UNITS as _SOURCE_UNITS
+from radiant.spectral_integration.stage import OUTPUT_UNITS as _SPECTRAL_UNITS
+
+# Per-stage output-unit tables, each owned and declared by the stage that emits the
+# outputs (CU-118) — no longer a central hand-maintained literal here. Aggregated into
+# the ``(stage, key)`` view the GUI/CLI consume.
+_STAGE_UNIT_TABLES: Final[dict[str, dict[str, str]]] = {
+    "source": _SOURCE_UNITS,
+    "optics": _OPTICS_UNITS,
+    "platform": _PLATFORM_UNITS,
+    "spectral_integration": _SPECTRAL_UNITS,
+    "detector": _DETECTOR_UNITS,
+    "readout": _READOUT_UNITS,
+}
+
+# Flattened ``(stage, output_key) -> unit`` view assembled from the per-stage tables.
 STAGE_OUTPUT_UNITS: Final[dict[tuple[str, str], str]] = {
-    # -- Source ---------------------------------------------------------------
-    ("source", "projected_area_m2"): "m²",  # target projected area facing the sensor
-    ("source", "range_m"): "m",  # target slant range
-    ("source", "fill_fraction"): "",  # in-pixel fill fraction
-    ("source", "angular_extent_rad"): "rad",  # target angular extent
-    # -- Optics ---------------------------------------------------------------
-    ("optics", "A_collect"): "m²",  # clear collecting area
-    ("optics", "Omega_pixel"): "sr",  # pixel solid angle
-    ("optics", "scatter_tis"): "",  # total integrated scatter — fraction
-    # -- Platform -------------------------------------------------------------
-    ("platform", "jitter_sigma_x_m"): "m",
-    ("platform", "jitter_sigma_y_m"): "m",
-    ("platform", "smear_width_m"): "m",
-    ("platform", "EE_box"): "",  # ensquared-energy fraction
-    # -- Spectral integration -------------------------------------------------
-    ("spectral_integration", "signal_e"): "e-",
-    ("spectral_integration", "e_rate_per_s"): "e-/s",
-    ("spectral_integration", "background_e"): "e-",
-    ("spectral_integration", "contrast_e"): "e-",
-    ("spectral_integration", "contrast_reference_signal_e"): "e-",
-    ("spectral_integration", "ds_dt_e_per_K"): "e-/K",
-    ("spectral_integration", "nearfield_e"): "e-",
-    ("spectral_integration", "stray_e"): "e-",
-    ("spectral_integration", "qe_scalar"): "",  # quantum efficiency — fraction
-    # -- Detector -------------------------------------------------------------
-    ("detector", "signal_e"): "e-",
-    ("detector", "background_e"): "e-",
-    ("detector", "nearfield_e"): "e-",
-    ("detector", "stray_e"): "e-",
-    ("detector", "dark_e"): "e-",
-    ("detector", "glow_e"): "e-",
-    # -- Readout --------------------------------------------------------------
-    ("readout", "electronics_sigma_m"): "m",
-    ("readout", "contrast_e_final"): "e-",
-    ("readout", "signal_e_final"): "e-",
-    ("readout", "signal_dn_final"): "DN",
-    ("readout", "signal_dn_pre_coadd"): "DN",
-    ("readout", "gain_e_per_dn"): "e-/DN",
-    ("readout", "well_fill_fraction"): "",  # fraction of full well
-    ("readout", "total_well_e"): "e-",
-    ("readout", "full_well_capacity_e"): "e-",
-    ("readout", "sigma_temporal_e"): "e-",
-    ("readout", "sigma_spatial_e"): "e-",
-    ("readout", "sigma_total_e"): "e-",
-    ("readout", "read_noise_e"): "e-",
-    ("readout", "quantization_noise_e"): "e-",
+    (stage, key): unit
+    for stage, table in _STAGE_UNIT_TABLES.items()
+    for key, unit in table.items()
 }
 
 

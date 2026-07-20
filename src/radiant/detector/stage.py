@@ -23,6 +23,18 @@ from radiant.detector.diffusion import diffusion_mtf_1d
 from radiant.detector.ipc import ipc_kernel, ipc_kernel_pitch_spaced, ipc_mtf_1d
 from radiant.detector.noise.budget import compute_noise_budget
 
+# Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
+# declared next to the ``with_stage_output(...)`` emission sites and aggregated by
+# ``radiant.api.stage_output_units``. "" marks a dimensionless numeric (bare number).
+OUTPUT_UNITS: dict[str, str] = {
+    "signal_e": "e-",
+    "background_e": "e-",
+    "nearfield_e": "e-",
+    "stray_e": "e-",
+    "dark_e": "e-",
+    "glow_e": "e-",
+}
+
 
 class DetectorStage:
     """Chain stage for detector electron counts and raw noise budget."""

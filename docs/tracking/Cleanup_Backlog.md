@@ -104,15 +104,6 @@
 **Why it still matters**: Gap 70 / one-source hygiene — the authoritative mode structure is ADR-0006, expressed in `radiant.geometry.modes` provenance detection and in `_schema.py` tags (`mode_entry`, `solar_site`), but there is no machine-readable "family → modes → params" manifest the GUI can consume without crossing the import boundary. The GUI re-encodes it.
 **Suggested fix**: (b) stand-alone task — expose the mode manifest as data the GUI may read through the public API (e.g. a `Sensor.geometry_modes()` accessor over a structure owned by `radiant.geometry`, or schema metadata on the mode-entry `ParameterDef`s that names each's family+mode), then have `geometry_modes.py` build `MODE_FAMILIES` from it and drop the literal grouping. Effort M; category B/D. Re-audit when a geometry input mode is added or a mode-entry parameter is renamed.
 
-### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
-
-**Discovered**: GUI Outputs-readout R-UNITS fix, 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Status**: Open — maintainability, non-blocking. The table is complete for today's scalar outputs and unit-tested; it must be extended by hand when a stage adds a new scalar output.
-**File**: `src/radiant/api/stage_output_units.py` (`STAGE_OUTPUT_UNITS`, `stage_output_unit`).
-**Symptom**: Stage outputs are computed values, not parameters, so — unlike the `_schema.py` `ParameterDef` surface — they carry no per-field unit metadata (Gap 87 notes there is no per-output unit accessor). The R-UNITS fix supplies units from a central `(stage, key) -> unit` dict in the api layer. A stage that later emits a new dimensional scalar output (e.g. a new `readout.*_e` or an irradiance term) will render as a bare number in the GUI Outputs readout until that key is added to this table — the table can silently drift behind the stages it describes. A test (`test_every_table_entry_uses_a_canonical_unit_string`) guards unit spelling but cannot detect a *missing* entry.
-**Why it still matters**: Rule 12/one-source hygiene — the authoritative unit for a computed quantity ideally lives with the code that computes it, not in a downstream lookup a contributor must remember to update. Aligned with Gap 87 (no per-output unit accessor on the framework).
-**Suggested fix**: (b) stand-alone task — let each stage *declare* its scalar outputs' units at (or near) the `with_stage_output(...)` site (e.g. a per-stage `OUTPUT_UNITS` mapping the stage owns, aggregated by the api accessor), or add an output-metadata surface analogous to the metric registry (`radiant.performance.registry`); then have `stage_output_unit` read the declared source and drop the central table. Effort M; category B (a framework accessor over declared metadata — no physics/results change). Re-audit when a stage next adds a scalar output.
-
 ### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes
 
 **Discovered**: GUI contextual-layout retrofit Step B, 2026-07-13 (commit on branch `gui-phase1-task-a`)
@@ -279,6 +270,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
+
+**Discovered**: GUI Outputs-readout R-UNITS fix, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending118>`. **Resolution**: each outputs-bearing stage now declares its own `OUTPUT_UNITS: dict[str, str]` next to the `with_stage_output(...)` sites in its `stage.py` (source, optics, platform, spectral_integration, detector, readout — 40 entries total); `api/stage_output_units.py` imports the six per-stage tables and **aggregates** them into the same `STAGE_OUTPUT_UNITS` `(stage, key)` view and `stage_output_unit()` accessor (public surface unchanged; the central hand-maintained literal is gone). A new test asserts the aggregate matches each stage's declaration. R20: module docstring + `RADIANT_Scripting_API.md` updated. Aggregated table is byte-identical (40 entries), so no display/results change. Wave 4 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/api/stage_output_units.py`, `src/radiant/{source,optics,platform,spectral_integration,detector,readout}/stage.py`.
 
 ### CU-107 — Generic schema-bounds/enum rejection raises a flat `CoreValidationError`, so the GUI's actionable dialog can show only "what" (no why/action/context)
 

@@ -781,6 +781,16 @@ def _validate_psf_regime_consistency(
         )
 
 
+# Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
+# declared next to the ``with_stage_output(...)`` emission sites and aggregated by
+# ``radiant.api.stage_output_units``. "" marks a dimensionless numeric (bare number).
+OUTPUT_UNITS: dict[str, str] = {
+    "A_collect": "m²",
+    "Omega_pixel": "sr",
+    "scatter_tis": "",
+}
+
+
 class OpticsStage:
     """Chain stage for full optical throughput, nearfield, stray light, and regime finalization."""
 

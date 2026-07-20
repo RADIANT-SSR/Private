@@ -73,3 +73,17 @@ def test_every_table_entry_uses_a_canonical_unit_string() -> None:
     """Guard against a typo'd unit (e.g. 'm2' instead of 'm²')."""
     for (stage, key), unit in STAGE_OUTPUT_UNITS.items():
         assert unit in _CANONICAL_UNITS, f"{stage}.{key} has non-canonical unit {unit!r}"
+
+
+def test_aggregated_view_matches_each_stages_own_declaration() -> None:
+    """CU-118: the (stage, key) view is assembled from each stage's own OUTPUT_UNITS."""
+    from radiant.detector.stage import OUTPUT_UNITS as detector_units
+    from radiant.optics.stage import OUTPUT_UNITS as optics_units
+    from radiant.readout.stage import OUTPUT_UNITS as readout_units
+
+    for key, unit in optics_units.items():
+        assert stage_output_unit("optics", key) == unit
+    for key, unit in detector_units.items():
+        assert stage_output_unit("detector", key) == unit
+    for key, unit in readout_units.items():
+        assert stage_output_unit("readout", key) == unit

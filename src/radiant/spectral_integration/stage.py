@@ -122,6 +122,22 @@ def _extended_contrast_reference_signal(
     return ref_e_per_s * t_int
 
 
+# Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
+# declared next to the ``with_stage_output(...)`` emission sites and aggregated by
+# ``radiant.api.stage_output_units``. "" marks a dimensionless numeric (bare number).
+OUTPUT_UNITS: dict[str, str] = {
+    "signal_e": "e-",
+    "e_rate_per_s": "e-/s",
+    "background_e": "e-",
+    "contrast_e": "e-",
+    "contrast_reference_signal_e": "e-",
+    "ds_dt_e_per_K": "e-/K",
+    "nearfield_e": "e-",
+    "stray_e": "e-",
+    "qe_scalar": "",
+}
+
+
 class SpectralIntegrationStage:
     """Chain stage for spectral-to-scalar integration."""
 

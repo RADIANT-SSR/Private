@@ -127,6 +127,27 @@ def _scale_noise_term(
     return v
 
 
+# Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
+# declared next to the ``with_stage_output(...)`` emission sites and aggregated by
+# ``radiant.api.stage_output_units``. "" marks a dimensionless numeric (bare number).
+OUTPUT_UNITS: dict[str, str] = {
+    "electronics_sigma_m": "m",
+    "contrast_e_final": "e-",
+    "signal_e_final": "e-",
+    "signal_dn_final": "DN",
+    "signal_dn_pre_coadd": "DN",
+    "gain_e_per_dn": "e-/DN",
+    "well_fill_fraction": "",
+    "total_well_e": "e-",
+    "full_well_capacity_e": "e-",
+    "sigma_temporal_e": "e-",
+    "sigma_spatial_e": "e-",
+    "sigma_total_e": "e-",
+    "read_noise_e": "e-",
+    "quantization_noise_e": "e-",
+}
+
+
 class ReadoutStage:
     """Chain stage implementing the full canonical readout chain."""
 

@@ -222,15 +222,6 @@
 **Why it still matters**: violates the reproducibility intent the cache was designed for; a version-driven physics change would be invisible.
 **Suggested fix**: include the binary's version string (e.g. `modtran -version` output, or executable hash as a fallback) in the hash input; document the cache-directory flush as the interim workaround (now noted in `RADIANT_Atmosphere.md` §5.4 — renumbered from §5.3 when the tape7-import §5.1 landed). Effort S; category A.
 
-### CU-071 — `ModtranAtmosphere._build_state_from_arrays` clips τ and L_path silently (Rule 17)
-
-**Discovered**: tape7 file-import task (`atmosphere.modtran.tape7_path`), 2026-07-11 — the import path routes through the same array→state builder the cache-hit path uses, which made the existing silent clamp newly reachable from user-supplied files.
-**Status**: Open
-**File**: `src/radiant/atmosphere/modtran.py` (`_build_state_from_arrays`: `np.clip(source_transmittance, 0.0, 1.0)`, `np.maximum(source_path_radiance, 0.0)`)
-**Symptom**: a tape7 (or cached array) with τ > 1 or negative path radiance — a unit-confusion or corrupt-file signature — is silently snapped into range instead of warning or raising. Contrast: `TabulatedAtmosphere.__post_init__` raises `AtmosphereValidationError` on the identical condition, and `AtmosphericQuantities.__post_init__` (Rule 17 note) explicitly forbids silent clipping.
-**Why it still matters**: with the tape7 import now a first-class user-facing path, a mis-scaled file (e.g. radiance in W/cm² not converted) would produce a plausible-looking but wrong state with no diagnostic. Rule 17 requires at minimum a `UserWarning` when clipping to valid ranges.
-**Suggested fix**: inline-fix-now — validate the arrays before clamping: raise (matching `TabulatedAtmosphere`) for gross violations beyond a float-noise tolerance, keep the clamp only for ≤1e-12-level snap. Effort S; category B.
-
 ### CU-011 — MODTRAN backend's `evaluate()` aliases two-leg τ (single-τ adapter)
 
 **Discovered**: Option C Stage 3 (2026-04-19)
@@ -270,6 +261,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-071 — `ModtranAtmosphere._build_state_from_arrays` clips τ and L_path silently (Rule 17)
+
+**Discovered**: tape7 file-import task, 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending071>`. **Resolution**: `_build_state_from_arrays` now validates the arrays before clamping — transmittance below `-1e-12` or above `1 + 1e-12`, or path radiance below `-1e-12`, raises an actionable `AtmosphereValidationError` naming the likely unit-confusion / corrupt-tape7 cause (matching `TabulatedAtmosphere`); only ≤1e-12 float-noise snaps are still clipped. Reachable from the user-facing tape7 import path. 3 new tests (τ>1 raises, negative L_path raises, float-noise τ clipped). R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/atmosphere/modtran.py`.
 
 ### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
 

@@ -1608,6 +1608,28 @@ class ModtranAtmosphere:
         cache_key: str,
     ) -> AtmosphericState:
         """Build an AtmosphericState by resampling MODTRAN output."""
+        # Validate before clamping (CU-071 / Rule 17): a τ well outside [0, 1] or a
+        # clearly-negative path radiance signals unit confusion or a corrupt tape7/cache,
+        # not float noise — raise (matching TabulatedAtmosphere) instead of silently
+        # snapping into range. Only a ≤1e-12 snap is treated as numerical noise and clipped.
+        _NOISE_TOL = 1e-12
+        tau_min = float(np.min(source_transmittance))
+        tau_max = float(np.max(source_transmittance))
+        if tau_min < -_NOISE_TOL or tau_max > 1.0 + _NOISE_TOL:
+            raise AtmosphereValidationError(
+                f"MODTRAN state (cache_key={cache_key}): transmittance out of [0, 1] "
+                f"(min={tau_min:g}, max={tau_max:g}). Transmittance is a probability and "
+                "must be bounded — check the tape7 columns/units for a mis-scaled or "
+                "corrupt file."
+            )
+        lp_min = float(np.min(source_path_radiance))
+        if lp_min < -_NOISE_TOL:
+            raise AtmosphereValidationError(
+                f"MODTRAN state (cache_key={cache_key}): path radiance has negative values "
+                f"(min={lp_min:g}). Path radiance must be non-negative — check the tape7 "
+                "units (e.g. W/cm²/sr/µm not converted to W/m²/sr/µm) or file integrity."
+            )
+
         target_grid = SpectralGrid(wavelengths_um=query_wavelength_um)
 
         tau_sd = SpectralData(

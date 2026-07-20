@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.modtran import (
     _FLUX_REFLECTIVE_SOLAR_MAX_UM,
     FluxImport,
@@ -783,6 +784,48 @@ def _synthetic_flux_import(down: float = 5.0, direct: float = 100.0) -> FluxImpo
         source_path="synthetic-flux",
         content_key="cafecafecafecafe",
     )
+
+
+class TestModtranArrayValidation:
+    """CU-071: a mis-scaled tape7 import (τ > 1 / negative L_path) raises, not silent clip."""
+
+    @staticmethod
+    def _atm(trans: float, lp: float) -> ModtranAtmosphere:
+        wl = np.linspace(0.4, 14.0, 200)
+        bad = Tape7Import(
+            wavelength_um=wl,
+            transmittance=np.full_like(wl, trans),
+            path_radiance=np.full_like(wl, lp),
+            ground_reflected=np.zeros_like(wl),
+            source_path="bad-tape7",
+            content_key="badc0ffeebadc0ff",
+        )
+        cfg = ModtranConfig(binary_path="/nonexistent", allow_fallback=False)
+        return ModtranAtmosphere(cfg, tape7_import=bad)
+
+    @staticmethod
+    def _evaluate(atm: ModtranAtmosphere):  # type: ignore[no-untyped-def]
+        wl = np.linspace(0.4, 14.0, 400)
+        params = _flux_resolved_params(wl)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return atm.evaluate(wl, los, params)
+
+    def test_transmittance_above_one_raises(self) -> None:
+        with pytest.raises(AtmosphereValidationError, match="transmittance out of"):
+            self._evaluate(self._atm(trans=1.5, lp=0.1))
+
+    def test_negative_path_radiance_raises(self) -> None:
+        with pytest.raises(AtmosphereValidationError, match="path radiance has negative"):
+            self._evaluate(self._atm(trans=0.7, lp=-1.0))
+
+    def test_float_noise_tau_is_snapped_not_raised(self) -> None:
+        """τ = 1 + 1e-13 is float noise (≤ tol) — clipped silently, not raised."""
+        q = self._evaluate(self._atm(trans=1.0 + 1e-13, lp=0.1))
+        assert q is not None  # evaluated cleanly
 
 
 class TestModtranFluxDownwelling:

@@ -149,6 +149,11 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **MODTRAN state validates arrays before clamping (CU-071, Rule 17).** A tape7 import
+  or cached array with transmittance well outside [0, 1] or a clearly-negative path
+  radiance now raises an actionable `AtmosphereValidationError` (naming the likely
+  unit-confusion / corrupt-file cause) instead of being silently snapped into range;
+  only ≤1e-12 float noise is still clipped. Matches `TabulatedAtmosphere`.
 - **GUI NEDT metric badge displays in mK (CU-108).** The NEDT badge now shows its
   canonical Kelvin value at a legible milli-Kelvin scale (0.045 K → 45 mK) via a single
   per-metric display-scale table in `metric_format`; the base unit still comes from the

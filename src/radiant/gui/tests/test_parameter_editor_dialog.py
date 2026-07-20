@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QLabel, QLineEdit
 
 from radiant.api.sensor import Sensor
 from radiant.api.units import units_for
-from radiant.gui.param_format import display_in_unit, provenance_from_explain, provenance_label
+from radiant.gui.param_format import display_in_unit, provenance_label, safe_provenance
 from radiant.gui.widgets import parameter_editor_dialog as dialog_mod
 from radiant.gui.widgets import parameter_panel as panel_mod
 from radiant.gui.widgets.parameter_editor_dialog import (
@@ -160,7 +160,7 @@ class TestOpensInformative:
     def test_current_value_carries_unit_and_provenance(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The Current row shows value + unit and the provenance label from the API."""
         d = _dialog(sensor, _ALT, qtbot)
-        prov = provenance_label(provenance_from_explain(sensor.explain(_ALT)))
+        prov = provenance_label(safe_provenance(sensor, _ALT))
         text = d._current_label.text()
         assert "m" in text and prov in text
 
@@ -217,7 +217,7 @@ class TestUnitRoundTrip:
         assert sensor.get_input(_ALT) == pytest.approx(8000.0, abs=0)
         assert panel.value_text(_ALT).endswith("8 km")  # tree shows the user's unit
         assert panel.display_unit(_ALT) == "km"  # chosen unit adopted as display unit
-        assert provenance_label(provenance_from_explain(sensor.explain(_ALT))) == "user-set"
+        assert provenance_label(safe_provenance(sensor, _ALT)) == "user-set"
 
     def test_apply_reexpresses_current_and_bounds_in_chosen_unit(
         self, sensor: Sensor, qtbot

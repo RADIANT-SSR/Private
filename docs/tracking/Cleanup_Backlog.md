@@ -169,15 +169,6 @@
 **Why it still matters**: Rule 15 mandates actionable errors (what/why/action). The most common GUI rejection path (any simple bounds/enum violation) only carries "what", so the owner sees a terse message rather than the guided remedy the dialog is built to display. This is an actionability gap in the exact surface Phase 2B ships, not a GUI bug.
 **Suggested fix**: stand-alone task — have the `ParameterSet` resolver raise `ParameterBoundsError` for bounds violations (and a similarly structured enum error) with `why`/`action`/`context` populated from the `ParameterDef` (bounds, unit, `default_justification`), replacing the flat `CoreValidationError`. Both classes already co-inherit `ValueError`, so existing `except`/`pytest.raises(CoreValidationError)` and `ValueError` callers keep working; audit the parameter tests for exact-type asserts first. Effort S–M; category B (error surface, no physics/results change).
 
-### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists
-
-**Discovered**: GUI Development Plan Phase 2 Task A (schema-driven parameter tree, provenance badges), 2026-07-12
-**Status**: Open — working but fragile; surfaced building the read-only parameter tree's Source column.
-**File**: `src/radiant/gui/param_format.py` (`provenance_from_explain`), consumed by `src/radiant/gui/widgets/parameter_panel.py`.
-**Symptom**: the tree's provenance ("Source") badge is sourced by scraping the `"  Provenance: <value>"` line out of `Sensor.explain(dotpath)` free text. The structured value (`ResolvedValue.provenance`) exists but only behind the private `Sensor._params` (`ParameterSet.get_resolved` / `all_resolved`); GUI plan ground rule §4.1 forbids reaching into that internal, so `explain()` is the only *public* surface carrying provenance. The GUI is therefore coupled to the exact text format of a human-readable method.
-**Why it still matters**: a future edit to `ParameterSet.explain`'s wording (it is a display method, not a contract) would silently blank every provenance badge — parsing returns `None` and the badge disappears rather than erroring. Task B (parameter editing) will also need provenance to re-render a row after `sensor.set`, widening the reliance on the parse.
-**Suggested fix**: stand-alone task — add a structured public accessor on `Sensor`, e.g. `Sensor.provenance(dotpath) -> Provenance` or `Sensor.resolved(dotpath) -> ResolvedValue` (thin passthrough to `ParameterSet.get_resolved`, already public on `ParameterSet`), and switch `param_format` to it; delete `provenance_from_explain`. Lock-step doc update to `RADIANT_GUI_Architecture.md` §4.3 (provenance source) and the API doc. Effort S; category A (no physics, no results).
-
 ### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
 
 **Discovered**: GUI Development Plan Phase 1 checkpoint punch-list (populating the shell chrome), 2026-07-12
@@ -315,6 +306,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists
+
+**Discovered**: GUI Parameter-tree Source column, 2026-07 (branch `gui-phase1-task-a`).
+**Status**: RESOLVED 2026-07-19, commit `<pending105>`. **Resolution**: added `Sensor.resolved(dotpath) -> ResolvedValue` and `Sensor.provenance(dotpath) -> Provenance` — thin passthroughs to `ParameterSet.get_resolved` (already public). Rewrote `param_format.safe_provenance` to read `sensor.resolved(dotpath).provenance.value` and **deleted `provenance_from_explain`** (and its `_PROVENANCE_PREFIX`); switched `yaml_format.dotpath_provenance` and all provenance tests to the structured path. R20: `RADIANT_GUI_Architecture.md` §4.3 + param_format/yaml_format docstrings. R29 CHANGELOG (new public accessors). 4 new tests (2 sensor, 1 safe_provenance guard, label tests). No results change. Wave 4 of the autonomous CU-cleanup plan. Unblocks CU-121.
+**File**: `src/radiant/api/sensor.py`, `src/radiant/gui/param_format.py`, `src/radiant/gui/yaml_format.py`.
 
 ### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor
 

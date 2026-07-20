@@ -3,7 +3,7 @@
 The YAML tab shows the **current config** the way the scripting API serialises it —
 via the one public serialize surface, :meth:`~radiant.api.sensor.Sensor.save` — with
 each parameter line tinted by its provenance (user-set / config / default / derived),
-reusing the Phase-2 provenance path (:func:`radiant.gui.param_format.provenance_from_explain`).
+reusing the structured provenance path (:func:`radiant.gui.param_format.safe_provenance`).
 
 Two pure (Qt-free) pieces live here so the mapping is unit-tested without a widget:
 
@@ -61,16 +61,16 @@ def serialize_yaml(sensor: Sensor) -> str:
 
 
 def dotpath_provenance(sensor: Sensor) -> dict[str, str]:
-    """Map every schema dot-path to its provenance token via the public explain surface.
+    """Map every schema dot-path to its provenance token via the structured accessor.
 
-    Reuses the Phase-2 provenance path — :func:`provenance_from_explain` over
-    :meth:`Sensor.explain` (CU-105) — for each key in :meth:`Sensor.parameter_defs`.
-    Unresolved parameters (``explain`` reports no provenance) are omitted.
+    Reads :func:`safe_provenance` (which wraps :meth:`Sensor.resolved`, CU-105) for each
+    key in :meth:`Sensor.parameter_defs`. Unresolved parameters (``safe_provenance``
+    returns "") are omitted.
     """
     mapping: dict[str, str] = {}
     for dotpath in sensor.parameter_defs():
         token = safe_provenance(sensor, dotpath)
-        if token is not None:
+        if token:
             mapping[dotpath] = token
     return mapping
 

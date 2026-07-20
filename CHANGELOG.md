@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`Sensor.resolved(dotpath)` and `Sensor.provenance(dotpath)` accessors (CU-105).**
+  Structured, machine-readable passthroughs to the resolved parameter record — value,
+  units, `provenance` (a `Provenance` enum), and source — replacing the need to parse the
+  human-readable `Sensor.explain` string. The GUI now reads provenance through these.
 - **Named unit-enumeration accessors on `radiant.api.units` (CU-109).** New public
   `units_for(canonical_unit)`, `input_units()`, and `targets_for(from_unit)` replace
   reaching into the underscored `_CONVERSIONS` registry, which is no longer re-exported

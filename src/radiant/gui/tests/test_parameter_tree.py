@@ -20,8 +20,8 @@ from radiant.gui.param_format import (
     UNSET_TEXT,
     format_value,
     ordered_namespaces,
-    provenance_from_explain,
     provenance_label,
+    safe_provenance,
 )
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 
@@ -102,9 +102,9 @@ class TestRowRendering:
     def test_provenance_labels_from_resolved_set(
         self, panel: ParameterPanel, sensor: Sensor
     ) -> None:
-        """Each Source cell matches the provenance sourced from Sensor.explain."""
+        """Each Source cell matches the provenance from the structured accessor."""
         for dotpath in panel.row_dotpaths():
-            token = provenance_from_explain(sensor.explain(dotpath))
+            token = safe_provenance(sensor, dotpath)
             assert panel.source_text(dotpath) == provenance_label(token)
 
 
@@ -164,14 +164,20 @@ class TestParamFormatHelpers:
         assert format_value(True, "") == "true"
         assert format_value(None, "m") == UNSET_TEXT
 
-    def test_provenance_parse_and_label(self) -> None:
-        text = "x = 1 m\n  Provenance: config_file\n  Source: file.yaml"
-        assert provenance_from_explain(text) == "config_file"
+    def test_provenance_label_maps_tokens(self) -> None:
         assert provenance_label("config_file") == "config"
+        assert provenance_label("user_set") == "user-set"
 
-    def test_provenance_parse_absent(self) -> None:
-        assert provenance_from_explain("Parameter 'x' is not resolved.") is None
+    def test_provenance_label_absent(self) -> None:
         assert provenance_label(None) == ""
+        assert provenance_label("") == ""
+
+    def test_safe_provenance_empty_for_unresolved_sensor(self) -> None:
+        """CU-105: an unresolvable sensor yields "" (not a crash) via safe_provenance."""
+        from radiant.api.sensor import Sensor
+
+        blank = Sensor()  # required params unset → cannot resolve
+        assert safe_provenance(blank, "optics.aperture_diameter_m") == ""
 
     def test_namespace_order_matches_chain(self) -> None:
         """Ordering is chain-derived; unknown namespaces append in sorted order."""

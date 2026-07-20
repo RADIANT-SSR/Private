@@ -367,8 +367,9 @@ parameters are ⚡-badged and read-only; a provenance badge (user-set / default 
 derived) comes from the resolved set. The shipped tree (GUI plan Phase 2) renders this
 as three columns — **Parameter / Value / Source** — where Value carries the value + unit
 (⚡-prefixed when derived) and Source is the provenance label; provenance is read from
-the resolved set via the public `Sensor.explain(dotpath)` surface (a structured accessor
-is tracked as CU-105). A search box filters by substring across dot-paths.
+the structured public `Sensor.resolved(dotpath)` / `Sensor.provenance(dotpath)` accessors
+(CU-105, resolved — no longer parsed out of the `Sensor.explain` text). A search box
+filters by substring across dot-paths.
 
 **Editing (Task B).** Double-click (or the platform edit key) on a non-derived row
 opens the editor its `ParameterDef` dtype calls for: a combo box for an enum (choices

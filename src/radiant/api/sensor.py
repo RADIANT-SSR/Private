@@ -34,7 +34,13 @@ from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.core.orbit import ground_track_speed_m_s
-from radiant.core.parameters import ParameterDef, ParameterSet, Provenance, Tolerance
+from radiant.core.parameters import (
+    ParameterDef,
+    ParameterSet,
+    Provenance,
+    ResolvedValue,
+    Tolerance,
+)
 from radiant.io.config import load_config, read_radiant_meta, save_config, serialize_config
 from radiant.io.element_config import parse_element_entries
 from radiant.io.results import ChainResult
@@ -259,6 +265,28 @@ class Sensor:
         """Get a resolved parameter value in input (display) units."""
         self._ensure_resolved()
         return self._params.get_input(dotpath)
+
+    def resolved(self, dotpath: str) -> ResolvedValue:
+        """Return the full resolved record for *dotpath* (CU-105).
+
+        A structured, machine-readable passthrough to
+        :meth:`ParameterSet.get_resolved` — value (canonical), ``input_value``,
+        units, ``provenance`` (a :class:`~radiant.core.parameters.Provenance`),
+        and human-readable ``source``. This is the public alternative to parsing
+        :meth:`explain`; GUI/tooling that needs provenance should read it here
+        rather than scrape the explanation text. Raises ``KeyError`` for an
+        unknown/unresolved parameter.
+        """
+        self._ensure_resolved()
+        return self._params.get_resolved(dotpath)
+
+    def provenance(self, dotpath: str) -> Provenance:
+        """Return just the :class:`~radiant.core.parameters.Provenance` for *dotpath*.
+
+        Convenience over :meth:`resolved` (CU-105) for callers that only need to
+        know whether a value was user-set, config-file, default, or derived.
+        """
+        return self.resolved(dotpath).provenance
 
     def parameter_defs(self) -> Mapping[str, ParameterDef]:
         """Read-only view of the full parameter schema, keyed by dot-path.

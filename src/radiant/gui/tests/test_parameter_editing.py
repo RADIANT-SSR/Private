@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.sensor import Sensor
 from radiant.core.parameters import ParameterBoundsError
-from radiant.gui.param_format import provenance_from_explain, provenance_label
+from radiant.gui.param_format import provenance_label, safe_provenance
 from radiant.gui.widgets import parameter_panel as panel_mod
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.explain_dialog import ExplainDialog
@@ -129,7 +129,7 @@ class TestEditAccept:
         # The row refreshed: value + unit and the provenance badge (now user-set).
         assert panel.value_text(_TEMP).endswith("310 K")
         assert panel.source_text(_TEMP) == "user-set"
-        assert provenance_label(provenance_from_explain(sensor.explain(_TEMP))) == "user-set"
+        assert provenance_label(safe_provenance(sensor, _TEMP)) == "user-set"
         assert not panel.has_error(_TEMP)
 
     def test_accepted_edit_emits_parameter_edited(self, panel: ParameterPanel, qtbot) -> None:  # type: ignore[no-untyped-def]

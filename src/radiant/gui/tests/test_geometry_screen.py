@@ -129,10 +129,10 @@ class TestModeManifest:
         """With only the anchor altitude set, each family sits in its default door."""
 
         def provided(dotpath: str) -> bool:
-            from radiant.gui.param_format import provenance_from_explain
+            from radiant.gui.param_format import safe_provenance
 
-            prov = provenance_from_explain(sensor.explain(dotpath))
-            return prov is not None and prov != "default"
+            prov = safe_provenance(sensor, dotpath)
+            return prov not in ("", "default")
 
         def value(dotpath: str):  # type: ignore[no-untyped-def]
             try:

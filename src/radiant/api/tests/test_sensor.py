@@ -100,6 +100,23 @@ class TestParameterAccess:
         val = sensor.get_input("optics.aperture_diameter_m")
         assert val == pytest.approx(0.30, rel=1e-10)
 
+    def test_resolved_carries_structured_provenance(self, sensor: Sensor) -> None:
+        """CU-105: Sensor.resolved returns a ResolvedValue with provenance, no text parse."""
+        from radiant.core.parameters import Provenance, ResolvedValue
+
+        sensor.set("optics.aperture_diameter_m", 0.42)
+        rv = sensor.resolved("optics.aperture_diameter_m")
+        assert isinstance(rv, ResolvedValue)
+        assert rv.provenance is Provenance.USER_SET
+        assert rv.value == pytest.approx(0.42, rel=1e-10)
+
+    def test_provenance_convenience_accessor(self, sensor: Sensor) -> None:
+        """CU-105: Sensor.provenance returns just the Provenance enum."""
+        from radiant.core.parameters import Provenance
+
+        sensor.set("optics.aperture_diameter_m", 0.42)
+        assert sensor.provenance("optics.aperture_diameter_m") is Provenance.USER_SET
+
     def test_reset(self, sensor: Sensor) -> None:
         sensor.set("optics.transmission_scalar", 0.50)
         sensor.reset("optics.transmission_scalar")

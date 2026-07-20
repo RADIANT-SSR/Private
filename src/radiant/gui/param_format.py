@@ -11,13 +11,10 @@ These are pure functions with no Qt dependency, so the row-formatting contract i
 tested directly (``tests/test_parameter_tree.py``) without a widget. No colour, font, or
 size literal lives here — those belong to :mod:`radiant.gui.themes` (GUI plan §4.9).
 
-Provenance sourcing (read this): the Sensor public API exposes per-parameter provenance
-only through the human-readable :meth:`Sensor.explain` string (the structured
-:class:`~radiant.core.parameters.ResolvedValue` lives behind the private
-``Sensor._params``). Per GUI plan ground rule §4.1 the GUI must not reach into that
-internal, so :func:`provenance_from_explain` parses the one public surface that carries
-it. That text coupling is tracked as CU-105 (recommend a structured
-``Sensor.provenance()``/resolved accessor to replace the parse).
+Provenance sourcing: per-parameter provenance comes from the structured public
+:meth:`Sensor.resolved` accessor (a :class:`~radiant.core.parameters.ResolvedValue`
+carrying ``provenance``), read via :func:`safe_provenance`. This replaced the earlier
+:meth:`Sensor.explain`-string parse (CU-105, resolved).
 """
 
 from __future__ import annotations
@@ -53,8 +50,6 @@ PROVENANCE_LABELS: Mapping[str, str] = {
     "derived": "derived",
     "sampled": "sampled",
 }
-
-_PROVENANCE_PREFIX = "Provenance:"
 
 
 def format_value(value: Any, unit: str) -> str:
@@ -107,14 +102,16 @@ def display_in_unit(
 def safe_provenance(sensor: Sensor, dotpath: str) -> str:
     """Provenance token for *dotpath*, or "" when the sensor cannot resolve yet.
 
-    ``Sensor.explain`` resolves internally; on a config that cannot resolve (a blank
-    File → New with required parameters unset) it raises — every display surface
-    that only wants a provenance label uses this guard instead of crashing
-    (found 2026-07-16 with the CU-140 guard tests).
+    Reads the structured :meth:`Sensor.resolved` accessor (CU-105) and returns the
+    ``Provenance`` value string ("user_set", "config_file", "derived", …). On a config
+    that cannot resolve (a blank File → New with required parameters unset) the accessor
+    raises, and on a present-but-unresolved parameter it raises ``KeyError``; either way
+    a display surface that only wants a provenance label gets "" instead of a crash
+    (CU-140 guard tests).
     """
     try:
-        return provenance_from_explain(sensor.explain(dotpath))
-    except RadiantError:
+        return sensor.resolved(dotpath).provenance.value
+    except (RadiantError, KeyError):
         return ""
 
 
@@ -149,21 +146,6 @@ def field_display_text(
     except KeyError:
         return format_value(value, pdef.input_unit)
     return format_value(shown, target)
-
-
-def provenance_from_explain(explain_text: str) -> str | None:
-    """Extract the provenance token from a :meth:`Sensor.explain` string.
-
-    Returns the raw ``Provenance`` value (e.g. ``"config_file"``, ``"derived"``)
-    or ``None`` when the explanation carries no provenance line — the case for an
-    unresolved parameter, which :meth:`Sensor.explain` reports as "not resolved".
-    See the module docstring / CU-105 for why this parses text.
-    """
-    for line in explain_text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith(_PROVENANCE_PREFIX):
-            return stripped[len(_PROVENANCE_PREFIX) :].strip() or None
-    return None
 
 
 def provenance_label(provenance: str | None) -> str:
@@ -232,7 +214,6 @@ __all__ = [
     "format_value",
     "display_in_unit",
     "field_display_text",
-    "provenance_from_explain",
     "safe_provenance",
     "provenance_label",
     "is_derived",

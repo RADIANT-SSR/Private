@@ -104,17 +104,6 @@
 **Why it still matters**: Rule 26/hygiene — pyplot figures are a process-global resource; retaining them per visited stage is a slow leak in a long-lived session (the operator clicking through stages repeatedly re-renders on re-evaluation, which does close-and-replace, but the *count* is bounded by stages, not runs, so it is not unbounded). No correctness impact; the warning is noise that could mask a real leak later.
 **Suggested fix**: (a) inline-fix-now candidate — either lazily build/populate only the selected pane's canvas and discard others on switch, or close a pane's figures in a `hideEvent`/on deselect. Effort S; category A (no behaviour/physics change). Deferred out of Step B to keep that PR's diff focused on the relocation.
 
-### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions
-
-**Discovered**: GUI contextual-layout retrofit Step A, 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Re-audited**: GUI contextual-layout retrofit Step B, 2026-07-13 — the Step-B (stage-output pinning) clause **fired and is delivered** (see below); the persistence clause is refreshed with its Phase-9 gate.
-**Status**: Stage-deferred — gating on **GUI plan Phase 9** (View/preferences, `QSettings`) for pin-set persistence. Re-audit when Phase 9 lands.
-**File**: `src/radiant/gui/widgets/pinned_panel.py`, `src/radiant/gui/widgets/pinned_card.py`.
-**Symptom (remaining)**: The pinned set is a plain session-scoped list on the `PinnedPanel` — unpinning a default or pinning an extra value is lost when the window closes (no `QSettings` round-trip).
-**Delivered in Step B (this branch)**: Stage-output pinning is implemented — each per-stage center Outputs/Metrics row carries a pin affordance (`OutputsReadout.pinOutputRequested(stage, key, label, unit)` / `pinMetricRequested(key, label)`), wired to `PinnedPanel.pin_stage_output(...)` / `pin(...)`. A stage-output card (`PinnedCard(output_ref=(stage, key, unit))`) re-reads `stage_outputs[stage][key]` on each evaluation with its unit (R-UNITS), honouring the Rule-17 `n/a` states. This delivers the ratified §4.5 "pin any stage's metric or output value" capability.
-**Why it still matters**: The persistence half of the two ratified §4.5 capabilities is still open — a pin set the operator curates does not survive a relaunch. It wants the Phase-9 preferences/`QSettings` surface (the same path as the theme toggle), not the Step-B rearrangement.
-**Suggested fix**: (b) stand-alone task — Phase 9: persist `PinnedPanel`'s session list (including `output` refs) via `QSettings` on the same path as the theme toggle. Effort S; category D (UX). Re-audit date: at Phase 9 landing.
-
 ### CU-110 — `EvaluationWorker` warning capture mutates the process-global `warnings` filter; safe only under the single-worker invariant
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
@@ -154,6 +143,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions
+
+**Discovered**: GUI contextual-layout retrofit Step A, 2026-07-13.
+**Status**: RESOLVED 2026-07-19, commit `<pending115>`. **Resolution**: `PinnedPanel` now persists its pin set (metric and stage-output pins, via JSON in `QSettings` under `rightRail/pinnedPins`): every pin/unpin/pin_stage_output saves, and the constructor restores the set (falling back to the default five-metric set when none is stored or the value is unreadable). A `settings=` constructor injection lets tests use a scratch `QSettings` so the real user config is never touched. 4 tests (pin/unpin round-trip, empty→default, stage-output round-trip); right-rail suite green. Wave 8. R29 CHANGELOG. (The Step-B stage-output pinning half was already delivered.)
+**File**: `src/radiant/gui/widgets/pinned_panel.py`, `src/radiant/gui/tests/test_right_rail.py`.
 
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
 

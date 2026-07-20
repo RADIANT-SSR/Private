@@ -41,6 +41,51 @@ def _load_window(qtbot):  # type: ignore[no-untyped-def]
     return window
 
 
+class TestPinPersistence:
+    """CU-115: the pin set persists across sessions via an (injected) QSettings."""
+
+    @staticmethod
+    def _panel(qtbot, ini_path):  # type: ignore[no-untyped-def]
+        from PySide6.QtCore import QSettings
+
+        from radiant.gui.widgets.pinned_panel import PinnedPanel
+
+        settings = QSettings(str(ini_path), QSettings.Format.IniFormat)
+        panel = PinnedPanel(settings=settings)
+        qtbot.addWidget(panel)
+        return panel, settings
+
+    def test_pin_persists_across_panels(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        ini = tmp_path / "pins.ini"
+        p1, s1 = self._panel(qtbot, ini)
+        p1.pin("custom_metric", "Custom")
+        s1.sync()
+        assert "custom_metric" in p1.pinned_keys
+        # A fresh panel on the same settings file restores the pin.
+        p2, _ = self._panel(qtbot, ini)
+        assert "custom_metric" in p2.pinned_keys
+
+    def test_unpin_persists_across_panels(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        ini = tmp_path / "pins.ini"
+        p1, s1 = self._panel(qtbot, ini)
+        p1.unpin("snr")  # remove a default
+        s1.sync()
+        p2, _ = self._panel(qtbot, ini)
+        assert "snr" not in p2.pinned_keys
+
+    def test_empty_settings_yields_default_set(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        p, _ = self._panel(qtbot, tmp_path / "empty.ini")
+        assert p.pinned_keys == _DEFAULT_KEYS
+
+    def test_stage_output_pin_round_trips(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        ini = tmp_path / "pins.ini"
+        p1, s1 = self._panel(qtbot, ini)
+        p1.pin_stage_output("optics", "A_collect", "A collect", "m²")
+        s1.sync()
+        p2, _ = self._panel(qtbot, ini)
+        assert "optics.A_collect" in p2.pinned_keys
+
+
 class TestPinned:
     def test_default_set_present_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The default pinned set is the five performance metrics, with units (R-UNITS)."""

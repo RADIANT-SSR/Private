@@ -9,9 +9,11 @@ a pinnable, extensible rail (badges → pinnable cards).
 
 The **default pinned set** is the five v1 performance metrics — SNR · NEDT · NIIRS ·
 GSD · MTF@Nyquist (:data:`radiant.gui.metric_format.BADGE_METRICS`) — so the summary the
-old badge row gave is present on launch. The pin set is **session-scoped** (a plain list
-on the panel); persisting it across sessions via ``QSettings`` is Phase 9 (CU-115 notes
-this and the deferred stage-output pinning).
+old badge row gave is present on launch. The pin set (metric **and** stage-output pins)
+**persists across sessions** via ``QSettings`` (CU-115): every pin/unpin is saved and the
+set is restored on construction, falling back to the default set when none is stored or
+the stored value is unreadable. Tests inject a scratch ``QSettings`` so they never touch
+the real user config.
 
 One widget class per file (Rule 19). Styling is entirely themed via object names
 (GUI plan §4.9); this file holds no colour/font/size literal.
@@ -19,9 +21,12 @@ One widget class per file (Rule 19). Styling is entirely themed via object names
 
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QDialog,
     QLabel,
@@ -37,9 +42,16 @@ from radiant.gui.widgets.pinned_card import PinnedCard
 if TYPE_CHECKING:
     from radiant.api import ChainResult
 
+_log = logging.getLogger(__name__)
+
 _ADD_LABEL: str = "+ Pin…"
 # The source-stage line for the default performance-metric cards.
 _PERFORMANCE_SOURCE: str = "performance"
+
+# QSettings coordinates for cross-session pin persistence (CU-115).
+_SETTINGS_ORG: str = "RADIANT"
+_SETTINGS_APP: str = "GUI"
+_PINS_SETTINGS_KEY: str = "rightRail/pinnedPins"
 
 
 @dataclass(frozen=True)
@@ -66,6 +78,41 @@ _DEFAULT_PINS: tuple[_PinSpec, ...] = tuple(
 )
 
 
+def _spec_to_dict(spec: _PinSpec) -> dict[str, object]:
+    """JSON-serialisable form of a pin spec (``output`` tuple → list)."""
+    return {
+        "key": spec.key,
+        "label": spec.label,
+        "source": spec.source,
+        "primary": spec.primary,
+        "output": list(spec.output) if spec.output is not None else None,
+    }
+
+
+def _spec_from_dict(d: dict[str, object]) -> _PinSpec:
+    out = d.get("output")
+    return _PinSpec(
+        key=str(d["key"]),
+        label=str(d["label"]),
+        source=str(d["source"]),
+        primary=bool(d["primary"]),
+        output=(str(out[0]), str(out[1]), str(out[2])) if isinstance(out, list) else None,
+    )
+
+
+def _load_pins(settings: QSettings) -> list[_PinSpec]:
+    """Restore the persisted pin set, or the default set when none/invalid (CU-115)."""
+    raw = settings.value(_PINS_SETTINGS_KEY)
+    if not raw:
+        return list(_DEFAULT_PINS)
+    try:
+        data = json.loads(str(raw))
+        return [_spec_from_dict(d) for d in data]
+    except (ValueError, TypeError, KeyError, IndexError):
+        _log.debug("Pinned-panel settings unreadable; falling back to defaults.")
+        return list(_DEFAULT_PINS)
+
+
 class PinnedPanel(QWidget):
     """The Pinned rail section: metric cards + a ``+ Pin…`` action (arch doc §4.5).
 
@@ -75,12 +122,15 @@ class PinnedPanel(QWidget):
         The owning widget, if any.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, settings: QSettings | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("pinnedPanel")
 
+        # Pin set persists across sessions via QSettings (CU-115). Tests inject a
+        # scratch QSettings so they never touch the real user config.
+        self._settings: QSettings = settings or QSettings(_SETTINGS_ORG, _SETTINGS_APP)
         self._result: ChainResult | None = None
-        self._pins: list[_PinSpec] = list(_DEFAULT_PINS)
+        self._pins: list[_PinSpec] = _load_pins(self._settings)
         self._cards: dict[str, PinnedCard] = {}
 
         layout = QVBoxLayout(self)
@@ -152,6 +202,7 @@ class PinnedPanel(QWidget):
         if any(spec.key == key for spec in self._pins):
             return
         self._pins.append(_PinSpec(key=key, label=label, source=source, primary=False))
+        self._save_pins()
         self._rebuild_cards()
 
     def pin_stage_output(self, stage: str, key: str, label: str, unit: str) -> None:
@@ -173,14 +224,22 @@ class PinnedPanel(QWidget):
                 output=(stage, key, unit),
             )
         )
+        self._save_pins()
         self._rebuild_cards()
 
     def unpin(self, key: str) -> None:
         """Remove the card for *key* (no-op if not pinned)."""
         self._pins = [spec for spec in self._pins if spec.key != key]
+        self._save_pins()
         self._rebuild_cards()
 
     # -- internal -----------------------------------------------------------
+
+    def _save_pins(self) -> None:
+        """Persist the current pin set to QSettings (CU-115)."""
+        self._settings.setValue(
+            _PINS_SETTINGS_KEY, json.dumps([_spec_to_dict(s) for s in self._pins])
+        )
 
     def _rebuild_cards(self) -> None:
         """Rebuild the card widgets from the current pin list and refresh them."""

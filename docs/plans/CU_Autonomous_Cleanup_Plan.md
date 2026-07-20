@@ -1,6 +1,33 @@
 # CU Autonomous Cleanup Plan
 
-**Status:** Active — 2026-07-19. Owner green-lit autonomous execution.
+**Status:** Active — 2026-07-19. Owner green-lit autonomous execution; owner-gated CUs
+dispositioned 2026-07-19 (below) and scheduled into Waves 7–10.
+
+## Owner decisions on the gated CUs (2026-07-19)
+
+| CU | Decision | Disposition |
+|----|----------|-------------|
+| CU-122 + CU-082/053/054/056 | **Delete** the broken `geometry_gui_v2` VTK prototype (superseded by the 2D viewer) | Wave 7 — one deletion closes 5 CUs |
+| CU-084 | **Delete** the unwired shadow legacy source (Rule 27) | Wave 7 |
+| CU-077 | **Delete** the dead `read_noise_is_post_cds` param + doc-only `cds_1f_suppression` | Wave 7 |
+| CU-104 | **Amend the design-system doc** (letter-spacing/casing are nominal; Qt QSS can't render them) | Wave 7 (doc-only) |
+| CU-103 | **Keep the fallback** — do not bundle IBM Plex; close as won't-bundle (Declined) | Wave 7 (close-out) |
+| CU-138 | **Restore** the qtconsole in-process kernel (headless test strategy or manual-verify; REPL stays fallback) | Wave 8 |
+| CU-115 | Build pin-set persistence via `QSettings` | Wave 8 |
+| CU-139 | Add a `dark=` seam to `radiant.api.plot` so the theme toggle re-renders dark figures | Wave 8 (stretch) |
+| CU-120 | Expose the geometry mode manifest via a public accessor (design proposed in-wave) | Wave 8 |
+| CU-096 | **Approved** — off-nadir θ_o/η fix; **Results-affecting** golden refresh | Wave 9 (physics) |
+| CU-166 | **Approach 2** — PerformanceStage metric-applicability gating (NIIRS N/A when out of GIQE-5 envelope, opt-in for the extrapolated value) + MWIR→IIRS label routing | Wave 9 (metric layer) |
+| CU-165 | **Approved** — profile + optimize the PSF-path grid sizing at high Q (Rule-4 consistency regression) | Wave 9 (PSF numerics) |
+| CU-170 | Investigate each of the 12 saturating baselines' intent; re-center accidental ones, document deliberate ones | Wave 10 (per-scenario) |
+| CU-116 | Attempt a safe-fix candidate (deferred close / non-pyplot figures) | Wave 10 |
+| CU-164 | Focused per-file runner refactor + 20-figure regeneration + tooling cleanup | Wave 10 |
+| CU-011, CU-087 | **Parked** — need a real MODTRAN *binary invocation* to validate; cannot be done here | not scheduled |
+| CU-137 | **Parked** — needs an owner-facing cross-stage "Acquisition" grouping design (no yes/no) | not scheduled |
+
+Risk ordering: Wave 7 (safe deletions + docs) → Wave 8 (GUI features) → Wave 9
+(category-C physics/metric, golden-touching — full golden suite verified per CU) →
+Wave 10 (investigation + careful refactors). Waves 9–10 checkpoint and merge individually.
 
 ## Progress (2026-07-19)
 

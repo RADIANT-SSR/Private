@@ -117,7 +117,7 @@ class TestShippedZenithFan:
             sensor_altitude_m=100_000.0,
             target_altitude_m=0.0,
             path_zenith_rad=np.radians(37.0),
-            solar_zenith_rad=0.5,
+            solar_zenith_rad=np.radians(30.0),
             solar_azimuth_rad=0.0,
         )
         state = fan.build_state(fan.wavelength_um, geom)
@@ -125,6 +125,36 @@ class TestShippedZenithFan:
         tau_37 = _band_mean(wl, state.transmittance.values, 10.0, 12.0)
         # Between the 30° (0.8257) and 45° (0.7925) node values.
         assert 0.7925 < tau_37 < 0.8257
+
+    def test_airborne_sensor_query_warns(self) -> None:
+        """Boost plan §4.6 (2026-07-19 audit): the fan NPZs record their
+        100 km run sensor, so an airborne-sensor query is now a LOUD
+        substitution instead of silently receiving the space column."""
+        fan = _load_interpolated("us_standard_zenith_fan", ["path_zenith_rad"])
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=10_000.0,  # aircraft vs the recorded 100 km
+            target_altitude_m=0.0,
+            path_zenith_rad=np.radians(30.0),
+            solar_zenith_rad=np.radians(30.0),
+            solar_azimuth_rad=0.0,
+        )
+        with pytest.warns(UserWarning, match="sensor_altitude_m.*IGNORED"):
+            fan.build_state(fan.wavelength_um, geom)
+
+    def test_orbital_sensor_query_does_not_warn(self) -> None:
+        """A LEO sensor above the recorded 100 km (TOA) run sees the
+        identical column (vacuum above TOA) — exact, no warning."""
+        fan = _load_interpolated("us_standard_zenith_fan", ["path_zenith_rad"])
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=500_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=np.radians(30.0),
+            solar_zenith_rad=np.radians(30.0),
+            solar_azimuth_rad=0.0,
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            fan.build_state(fan.wavelength_um, geom)  # must not warn
 
     def test_airmass_interpolation_holdout_45deg(self) -> None:
         """CU-160 acceptance on committed data: build the fan from ONLY the
@@ -153,7 +183,7 @@ class TestShippedZenithFan:
             sensor_altitude_m=100_000.0,
             target_altitude_m=0.0,
             path_zenith_rad=np.radians(45.0),
-            solar_zenith_rad=0.5,
+            solar_zenith_rad=np.radians(30.0),
             solar_azimuth_rad=0.0,
         )
         predicted = fan_2node.build_state(fan_2node.wavelength_um, geom)
@@ -177,7 +207,7 @@ class TestShippedZenithFan:
             sensor_altitude_m=100_000.0,
             target_altitude_m=0.0,
             path_zenith_rad=np.radians(75.0),
-            solar_zenith_rad=0.5,
+            solar_zenith_rad=np.radians(30.0),
             solar_azimuth_rad=0.0,
         )
         with pytest.raises(AtmosphereValidationError, match="outside the available range"):
@@ -211,7 +241,7 @@ class TestShippedLadders:
             sensor_altitude_m=500_000.0,
             target_altitude_m=10_000.0,
             path_zenith_rad=0.0,
-            solar_zenith_rad=0.5,
+            solar_zenith_rad=np.radians(30.0),
             solar_azimuth_rad=0.0,
         )
         state = ladders.build_state(ladders.wavelength_um, geom)
@@ -230,7 +260,7 @@ class TestShippedLadders:
                 sensor_altitude_m=35_000.0,
                 target_altitude_m=h_tgt,
                 path_zenith_rad=0.0,
-                solar_zenith_rad=0.5,
+                solar_zenith_rad=np.radians(30.0),
                 solar_azimuth_rad=0.0,
             )
             state = ladders.build_state(ladders.wavelength_um, geom)
@@ -284,7 +314,7 @@ class TestShippedLadders:
                 sensor_altitude_m=100_000.0,
                 target_altitude_m=10_000.0,
                 path_zenith_rad=0.0,
-                solar_zenith_rad=0.0,
+                solar_zenith_rad=np.radians(30.0),
                 solar_azimuth_rad=0.0,
             ),
         )
@@ -294,7 +324,7 @@ class TestShippedLadders:
                 sensor_altitude_m=100_000.0,
                 target_altitude_m=0.0,
                 path_zenith_rad=0.0,
-                solar_zenith_rad=0.0,
+                solar_zenith_rad=np.radians(30.0),
                 solar_azimuth_rad=0.0,
             ),
         )
@@ -308,6 +338,51 @@ class TestShippedLadders:
         assert band_up > band_full
         # Same G3 anchor the build_state golden pins (slit-degraded ~0.923).
         assert band_up == pytest.approx(0.9253, abs=5e-3)
+
+    def test_evaluate_pure_thermal_no_solar_mismatch_warning(self) -> None:
+        """Boost plan §4.6: a pure-thermal scene (theta_s = None — no solar
+        geometry declared) adopts the RECORDED run sun (30°) rather than a
+        literal 0.0 that would spuriously trip the CU-167 solar mismatch.
+        Only the pre-existing τ_sun collapse warning may fire."""
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        ladders = _load_interpolated(
+            "midlat_summer_ladders", ["sensor_altitude_m", "target_altitude_m"]
+        )
+        wl = ladders.wavelength_um
+        session = RadiantSession(wavelength_um=wl)
+        params = session.default_params()
+        params.set("source.target.temperature", 300.0)
+        params.set("source.target.emissivity", 0.95)
+        params.set("geometry.sensor_altitude_m", 100_000.0)
+        params.set("optics.aperture_diameter_m", 0.10)
+        params.set("optics.focal_length_m", 0.25)
+        params.set("optics.transmission_scalar", 0.60)
+        params.set("detector.pixel_pitch_x_um", 17.0)
+        params.set("detector.pixel_pitch_y_um", 17.0)
+        params.set("detector.qe_value", 0.55)
+        params.set("detector.dark_rate_e_per_s", 1000.0)
+        params.set("spectral_integration.filter_min_um", 8.0)
+        params.set("spectral_integration.filter_max_um", 13.0)
+        params.set("spectral_integration.integration_time_s", 0.015)
+        params.set("readout.read_noise_e_rms", 20.0)
+        params.set("readout.gain_e_per_dn", 2.0)
+        params.set("readout.adc_bits", 14)
+        params.resolve()
+
+        los = LineOfSightGeometry(h_tgt=10_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        assert los.theta_s is None  # pure-thermal contract
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            ladders.evaluate(wl, los, params)
+        solar_warnings = [w for w in caught if "solar_zenith_rad" in str(w.message)]
+        assert solar_warnings == []
+        # An EXPLICIT solar zenith differing from the recorded 30° still warns.
+        los_sun = LineOfSightGeometry(
+            h_tgt=10_000.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.radians(60.0)
+        )
+        with pytest.warns(UserWarning, match="solar_zenith_rad.*IGNORED"):
+            ladders.evaluate(wl, los_sun, params)
 
 
 @pytest.mark.level2
@@ -344,3 +419,221 @@ def test_chain_end_to_end_on_shipped_profile() -> None:
     assert result is not None
     assert np.isfinite(float(result.metrics["snr"]))
     assert float(result.metrics["snr"]) > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Boost-ladder expansion families (MODTRAN_Boost_Ladder_Expansion_Plan §5).
+# Scaffolded 2026-07-20 ahead of the 17-run delivery: each class skips until
+# scripts/build_atmosphere_library.py has produced its family from the
+# delivered tape7s. Numeric goldens (band-mean τ anchors, the CO₂ band-core
+# threshold) are pinned AT BUILD TIME from the delivered runs — the plan's
+# no-fabricated-data policy; the structural physics below needs no goldens.
+# ---------------------------------------------------------------------------
+
+_BOOST_LADDER_DIR = _LIB / "midlat_summer_boost_ladder"
+_BOOST_OFFNADIR_DIR = _LIB / "midlat_summer_boost_offnadir"
+_SENSOR_LADDER_DIR = _LIB / "midlat_summer_sensor_ladder"
+
+
+@pytest.mark.level2
+@pytest.mark.skipif(
+    not _BOOST_LADDER_DIR.exists(),
+    reason="boost-ladder family not yet built (plan §4.1; awaiting G7–G11 tape7s)",
+)
+class TestBoostLadder:
+    """Nadir boost ladder: targets 0–100 km from a space sensor."""
+
+    def _model(self) -> InterpolatedAtmosphere:
+        return _load_interpolated(
+            "midlat_summer_boost_ladder", ["sensor_altitude_m", "target_altitude_m"]
+        )
+
+    def test_tau_monotone_in_target_altitude_0_to_100km(self) -> None:
+        """τ_up(h_tgt) increases with target altitude (less column below
+        the sensor): band-mean 8–13 µm and 3.5–5 µm, nadir, 100 km sensor."""
+        model = self._model()
+        wl = model.wavelength_um
+        heights_m = [0.0, 10_000.0, 29_000.0, 35_000.0, 50_000.0, 80_000.0, 100_000.0]
+        for lo_um, hi_um in ((8.0, 13.0), (3.5, 5.0)):
+            taus = []
+            for h in heights_m:
+                geom = AtmosphericGeometry(
+                    sensor_altitude_m=100_000.0,
+                    target_altitude_m=h,
+                    path_zenith_rad=0.0,
+                    solar_zenith_rad=np.radians(30.0),
+                    solar_azimuth_rad=0.0,
+                )
+                state = model.build_state(wl, geom)
+                taus.append(_band_mean(wl, state.transmittance.values, lo_um, hi_um))
+            assert all(a < b + 1e-12 for a, b in zip(taus, taus[1:], strict=False)), (
+                f"τ({lo_um}–{hi_um} µm) not monotone over target altitude: {taus}"
+            )
+
+    def test_vacuum_node_exact_at_100km(self) -> None:
+        """The synthesized 100 km rung is the exact identity τ ≡ 1,
+        L_path ≡ 0 W/m²/sr/µm — continuity into the Gap 95 exo branch."""
+        model = self._model()
+        wl = model.wavelength_um
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=100_000.0,
+            path_zenith_rad=0.0,
+            solar_zenith_rad=np.radians(30.0),
+            solar_azimuth_rad=0.0,
+        )
+        state = model.build_state(wl, geom)
+        np.testing.assert_allclose(state.transmittance.values, 1.0, atol=1e-6)
+        np.testing.assert_allclose(state.path_radiance.values, 0.0, atol=1e-12)
+
+    def test_co2_band_core_real_at_50km(self) -> None:
+        """The reason the boost rungs exist: the 4.20–4.45 µm CO₂ band core
+        at h_tgt = 50 km must be materially below 1 — guards against a
+        future 'optimization' replacing the rungs with vacuum
+        interpolation. Provisional threshold 0.90; tighten to the
+        delivered-run value (expected ≈ 0.5–0.8) at build time (plan §5)."""
+        model = self._model()
+        wl = model.wavelength_um
+        geom = AtmosphericGeometry(
+            sensor_altitude_m=100_000.0,
+            target_altitude_m=50_000.0,
+            path_zenith_rad=0.0,
+            solar_zenith_rad=np.radians(30.0),
+            solar_azimuth_rad=0.0,
+        )
+        state = model.build_state(wl, geom)
+        tau_core = _band_mean(wl, state.transmittance.values, 4.20, 4.45)
+        assert tau_core < 0.90
+
+
+@pytest.mark.level2
+@pytest.mark.skipif(
+    not _BOOST_OFFNADIR_DIR.exists(),
+    reason="boost off-nadir family not yet built (plan §4.3; awaiting I1–I9 tape7s)",
+)
+class TestBoostOffNadir:
+    """3-D target × zenith grid at the space sensor (I-block + nadir nodes)."""
+
+    _AXES = ["sensor_altitude_m", "target_altitude_m", "path_zenith_rad"]
+
+    def test_45deg_column_consistent_with_airmass_prediction(self) -> None:
+        """B-fan holdout methodology at altitude (plan §5): rebuild the
+        zenith axis from ONLY the 0° and 60° columns at h_tgt = 29 km,
+        predict 45° via airmass-space interpolation (CU-160), and compare
+        against the real 45° node. Envelope matches the CU-160 fan
+        acceptance (0.5% band-mean τ)."""
+        model = _load_interpolated("midlat_summer_boost_offnadir", self._AXES)
+        wl = model.wavelength_um
+
+        def _tau(zenith_rad: float) -> np.ndarray:
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=29_000.0,
+                path_zenith_rad=zenith_rad,
+                solar_zenith_rad=np.radians(30.0),
+                solar_azimuth_rad=0.0,
+            )
+            return model.build_state(wl, geom).transmittance.values
+
+        tau_0, tau_45, tau_60 = _tau(0.0), _tau(np.radians(45.0)), _tau(np.radians(60.0))
+        sec = lambda t: 1.0 / np.cos(t)  # noqa: E731
+        frac = (sec(np.radians(45.0)) - sec(0.0)) / (sec(np.radians(60.0)) - sec(0.0))
+        tau_45_pred = np.exp(
+            (1.0 - frac) * np.log(np.clip(tau_0, 1e-30, 1.0))
+            + frac * np.log(np.clip(tau_60, 1e-30, 1.0))
+        )
+        band_real = _band_mean(wl, tau_45, 8.0, 13.0)
+        band_pred = _band_mean(wl, tau_45_pred, 8.0, 13.0)
+        assert band_pred == pytest.approx(band_real, rel=5e-3)
+
+    def test_vacuum_rung_exact_at_all_zeniths(self) -> None:
+        """Plan §4.2 (2026-07-19 amendment): the synthesized 100 km rung
+        holds at EVERY zenith column — τ ≡ 1 at 0°/45°/60°, so the
+        acceptance sweep's 80–100 km band is inside the hull off-nadir."""
+        model = _load_interpolated("midlat_summer_boost_offnadir", self._AXES)
+        wl = model.wavelength_um
+        for zen_deg in (0.0, 45.0, 60.0):
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=100_000.0,
+                path_zenith_rad=np.radians(zen_deg),
+                solar_zenith_rad=np.radians(30.0),
+                solar_azimuth_rad=0.0,
+            )
+            state = model.build_state(wl, geom)
+            np.testing.assert_allclose(
+                state.transmittance.values,
+                1.0,
+                atol=1e-6,
+                err_msg=f"vacuum rung not exact at {zen_deg}°",
+            )
+
+    def test_tau_decreases_with_zenith_at_fixed_target(self) -> None:
+        """Longer slant column → lower τ: 0° > 45° > 60° at h_tgt = 0."""
+        model = _load_interpolated("midlat_summer_boost_offnadir", self._AXES)
+        wl = model.wavelength_um
+        taus = []
+        for zen_deg in (0.0, 45.0, 60.0):
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=0.0,
+                path_zenith_rad=np.radians(zen_deg),
+                solar_zenith_rad=np.radians(30.0),
+                solar_azimuth_rad=0.0,
+            )
+            state = model.build_state(wl, geom)
+            taus.append(_band_mean(wl, state.transmittance.values, 8.0, 13.0))
+        assert taus[0] > taus[1] > taus[2]
+
+
+@pytest.mark.level2
+@pytest.mark.skipif(
+    not _SENSOR_LADDER_DIR.exists(),
+    reason="sensor-ladder family not yet built (plan §4.5; awaiting J1–J2 tape7s)",
+)
+class TestSensorLadder:
+    """1-D airborne sensor-altitude family (F2/J1/J2/C1/A3 + orbital node)."""
+
+    def test_tau_monotone_in_sensor_altitude(self) -> None:
+        """More column below the sensor → lower τ: band-mean τ increases
+        with sensor altitude over 3/10/20/35/100 km, ground target, nadir."""
+        model = _load_interpolated("midlat_summer_sensor_ladder", ["sensor_altitude_m"])
+        wl = model.wavelength_um
+        taus = []
+        for h_km in (3.0, 10.0, 20.0, 35.0, 100.0):
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=h_km * 1000.0,
+                target_altitude_m=0.0,
+                path_zenith_rad=0.0,
+                solar_zenith_rad=np.radians(30.0),
+                solar_azimuth_rad=0.0,
+            )
+            state = model.build_state(wl, geom)
+            taus.append(_band_mean(wl, state.transmittance.values, 8.0, 13.0))
+        assert all(a < b + 1e-12 for a, b in zip(taus, taus[1:], strict=False)), (
+            f"τ(8–13 µm) not monotone over sensor altitude: {taus}"
+        )
+
+    def test_leo_query_inside_orbital_hull(self) -> None:
+        """A 500 km LEO sensor lands inside the duplicated-node hull and
+        matches the 100 km TOA column exactly (vacuum above TOA)."""
+        model = _load_interpolated("midlat_summer_sensor_ladder", ["sensor_altitude_m"])
+        wl = model.wavelength_um
+
+        def _state(h_m: float):
+            return model.build_state(
+                wl,
+                AtmosphericGeometry(
+                    sensor_altitude_m=h_m,
+                    target_altitude_m=0.0,
+                    path_zenith_rad=0.0,
+                    solar_zenith_rad=np.radians(30.0),
+                    solar_azimuth_rad=0.0,
+                ),
+            )
+
+        np.testing.assert_allclose(
+            _state(500_000.0).transmittance.values,
+            _state(100_000.0).transmittance.values,
+            rtol=1e-10,
+        )

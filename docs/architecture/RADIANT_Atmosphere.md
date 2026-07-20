@@ -107,7 +107,16 @@ class AtmosphericState:
 > ~1° / 1 m, a `UserWarning` names the ignored field and the value actually
 > served. A *recorded* non-axis field that varies across sample points is
 > refused at construction — the set differs in a dimension the interpolator
-> would ignore.
+> would ignore. Two physics-aware refinements (2026-07-20, boost plan §4.6):
+> a query **sensor above a recorded at-/above-TOA (100 km) sensor** is exempt
+> from the mismatch warning — the added path is vacuum and the column exactly
+> identical (the same identity behind the ladders' 40,000 km duplicate node);
+> and a **pure-thermal scene** (`theta_s = None` — no solar geometry declared)
+> adopts the recorded run sun in `evaluate()` rather than a literal 0.0, so it
+> cannot spuriously mismatch — an explicitly set solar geometry is still
+> compared and warned. The shipped `data/atmospheres/` NPZs record the full
+> five-field run geometry on every file (see the library MANIFEST), so these
+> checks compare against recorded values, not assumptions.
 > The diagram and subsections below predate it; treat `interpolated` as a sixth box
 > feeding the same single `AtmosphericState` contract.
 

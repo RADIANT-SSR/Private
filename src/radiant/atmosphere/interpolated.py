@@ -112,6 +112,13 @@ _ANGLE_FIELDS: frozenset[str] = frozenset(
 # assumption for e.g. an unrecorded sensor altitude.
 _ASSUMED_UNRECORDED: dict[str, float] = {"path_zenith_rad": 0.0}
 
+# MODTRAN's atmosphere ends at 100 km: a sensor at or above this altitude
+# sees the identical column as any higher sensor (the added path is
+# vacuum). A query sensor ABOVE a recorded at-or-above-TOA sensor is
+# therefore physically exact, not a mismatch — the same identity that
+# justifies the ladders' 40,000 km duplicate node.
+_VACUUM_EQUIVALENT_SENSOR_M: float = 100_000.0
+
 
 def _axis_to_interp_space(axis: str, values: np.ndarray | float) -> np.ndarray | float:
     """Map coordinate values to the axis's interpolation space.
@@ -443,6 +450,15 @@ class InterpolatedAtmosphere:
             if reference is None:
                 continue
             query_val = float(getattr(geometry, field))
+            if (
+                field == "sensor_altitude_m"
+                and reference >= _VACUUM_EQUIVALENT_SENSOR_M
+                and query_val > reference
+            ):
+                # Query sensor above a recorded at-/above-TOA sensor: the
+                # added path is vacuum, the column is identical — exact,
+                # not a mismatch.
+                continue
             tol = _NON_AXIS_ANGLE_TOL_RAD if field in _ANGLE_FIELDS else _NON_AXIS_LENGTH_TOL_M
             if abs(query_val - reference) > tol:
                 origin = "recorded" if field in self._non_axis_recorded else "assumed"
@@ -735,10 +751,23 @@ class InterpolatedAtmosphere:
 
         # Build legacy AtmosphericGeometry queries to reuse the
         # interpolator's coordinate-extraction logic.  h_sensor comes
-        # from params.
+        # from params.  A pure-thermal scene carries theta_s/delta_phi =
+        # None ("no solar geometry declared") — that cannot conflict with
+        # the sample runs' recorded sun position, so None adopts the
+        # recorded value (no CU-167 mismatch warning) rather than a
+        # literal 0.0 that would spuriously differ from it.  An
+        # explicitly set solar geometry is still compared and warned.
         h_sensor_m = float(params.get("geometry.sensor_altitude_m"))
-        theta_s = float(los.theta_s) if los.theta_s is not None else 0.0
-        delta_phi = float(los.delta_phi) if los.delta_phi is not None else 0.0
+        theta_s = (
+            float(los.theta_s)
+            if los.theta_s is not None
+            else self._non_axis_recorded.get("solar_zenith_rad", 0.0)
+        )
+        delta_phi = (
+            float(los.delta_phi)
+            if los.delta_phi is not None
+            else self._non_axis_recorded.get("solar_azimuth_rad", 0.0)
+        )
 
         def _query_geometry(target_altitude_m: float) -> AtmosphericGeometry:
             return AtmosphericGeometry(

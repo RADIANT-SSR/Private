@@ -147,7 +147,7 @@
 ### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions
 
 **Discovered**: GUI contextual-layout retrofit Step A, 2026-07-13.
-**Status**: RESOLVED 2026-07-19, commit `<pending115>`. **Resolution**: `PinnedPanel` now persists its pin set (metric and stage-output pins, via JSON in `QSettings` under `rightRail/pinnedPins`): every pin/unpin/pin_stage_output saves, and the constructor restores the set (falling back to the default five-metric set when none is stored or the value is unreadable). A `settings=` constructor injection lets tests use a scratch `QSettings` so the real user config is never touched. 4 tests (pin/unpin round-trip, empty→default, stage-output round-trip); right-rail suite green. Wave 8. R29 CHANGELOG. (The Step-B stage-output pinning half was already delivered.)
+**Status**: RESOLVED 2026-07-19, commit `f93f255`. **Resolution**: `PinnedPanel` now persists its pin set (metric and stage-output pins, via JSON in `QSettings` under `rightRail/pinnedPins`): every pin/unpin/pin_stage_output saves, and the constructor restores the set (falling back to the default five-metric set when none is stored or the value is unreadable). A `settings=` constructor injection lets tests use a scratch `QSettings` so the real user config is never touched. 4 tests (pin/unpin round-trip, empty→default, stage-output round-trip); right-rail suite green. Wave 8. R29 CHANGELOG. (The Step-B stage-output pinning half was already delivered.)
 **File**: `src/radiant/gui/widgets/pinned_panel.py`, `src/radiant/gui/tests/test_right_rail.py`.
 
 ### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme

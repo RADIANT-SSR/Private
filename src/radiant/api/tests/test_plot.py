@@ -24,6 +24,7 @@ from radiant.api.plot import (
     plot_spectral_multi,
     plot_sweep,
     plot_sweep_2d,
+    plot_theme,
 )
 from radiant.api.sweep import Sweep2DResult, SweepResult
 from radiant.optics.psf.effective import EffectivePSF
@@ -442,3 +443,34 @@ class TestConstrainedLayout:
         labels = {t.get_text() for t in legend.get_texts()}
         assert labels == {"mtf_optics (x)", "mtf_optics (y)"}
         matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestPlotTheme:
+    """CU-139: the plot_theme(dark=…) public rcParams seam."""
+
+    def test_dark_context_applies_dark_facecolor(self) -> None:
+        import matplotlib.pyplot as plt
+
+        with plot_theme(dark=True):
+            fig, ax = plt.subplots()
+            # Within the context, the figure inherits the dark chrome rcParams.
+            assert fig.get_facecolor()[:3] != (1.0, 1.0, 1.0)  # not white
+            assert plt.rcParams["text.color"] == "#e0e0e0"
+            plt.close(fig)
+
+    def test_light_context_is_a_noop(self) -> None:
+        import matplotlib.pyplot as plt
+
+        before = plt.rcParams["figure.facecolor"]
+        with plot_theme(dark=False):
+            assert plt.rcParams["figure.facecolor"] == before  # unchanged
+        assert plt.rcParams["figure.facecolor"] == before
+
+    def test_dark_context_restores_rcparams_on_exit(self) -> None:
+        import matplotlib.pyplot as plt
+
+        before = plt.rcParams["text.color"]
+        with plot_theme(dark=True):
+            assert plt.rcParams["text.color"] == "#e0e0e0"
+        assert plt.rcParams["text.color"] == before  # restored

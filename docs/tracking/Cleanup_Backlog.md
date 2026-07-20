@@ -50,15 +50,6 @@
 **Why it still matters**: a 2-minute evaluate makes the GUI look hung for any legitimately oversampled design (long focal length / small aperture is common for LWIR), and no progress/cancel affordance covers it here; trade studies that sweep such a config become hours-long. The result is correct — only the cost is the problem.
 **Suggested fix**: (b) stand-alone task — profile the PSF-path grid sizing at high Q; cap or decouple the pupil-grid size from Q (the *sampled* PSF only needs the detector-pitch resolution), and/or reuse the per-wavelength pupil grid instead of re-FFTing 500× when only the wavelength scale changes. Category C (touches the PSF numerics — needs a consistency-check regression, Rule 4). Effort M–L. Interim: the GUI's existing progress/cancel plumbing should wrap `evaluate()` so a slow run is cancellable rather than a freeze.
 
-### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
-
-**Discovered**: GUI Development Plan Phase 9 (theme toggle), 2026-07-15, branch `gui-framework-plots`
-**Status**: Open — cosmetic, non-blocking; **pre-existing**, only surfaced by the new runtime theme toggle. The Phase-9 View → Dark/Light toggle re-themes every QSS-styled widget and the custom-painted `QPainter` widgets (schematic viewer, detector illustration via `set_theme`), but the embedded `result.plot.*` matplotlib figures keep matplotlib's default (light) styling in both themes — they always did (nothing themed them before the toggle existed).
-**File**: `src/radiant/api/plot.py` (all `plt.subplots(...)` figure factories); consumed by `src/radiant/gui/widgets/matplotlib_canvas.py` / `stage_center._PlotSection`.
-**Symptom**: In the dark theme, the plot canvases render on a light matplotlib background inside an otherwise-dark app — a jarring bright rectangle. `stage_center.StagePane.set_theme` deliberately does **not** re-render the figures (documented there) because their styling is API-owned, not GUI-owned (a GUI-side re-style would reach past the `result.plot.*` surface, violating GUI plan §4.1).
-**Why it still matters**: Visual-consistency polish in the dark theme. No correctness/physics/results impact (figure data is identical; only chrome colours differ).
-**Suggested fix**: (b) stand-alone task — give `radiant.api.plot` an optional theme/`rcParams` context (a `dark=`/style seam on the plot accessors) so the GUI can request a dark-styled figure through the public surface (keeping one-action-↔-one-API-call), and have the theme toggle re-render the current composite through it. Effort M; category D (view/accessor; goldens are figures, not asserted pixels). Re-audit when a plot-styling API seam is designed or at a v1.1 polish pass.
-
 ### CU-138 — Scripting console ships as a `code.InteractiveConsole` REPL, not the preferred `qtconsole` in-process Jupyter kernel
 
 **Discovered**: GUI Development Plan Phase 8 (scripting console), 2026-07-15, branch `gui-framework-plots`
@@ -163,6 +154,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
+
+**Discovered**: GUI Development Plan Phase 9, 2026-07-15.
+**Status**: RESOLVED 2026-07-19, commit `<pending139>`. **Resolution**: added a public `radiant.api.plot.plot_theme(dark=…)` context manager (dark matplotlib chrome rcParams; light is a no-op) — the seam through which the GUI requests a dark figure without restyling it (one action ↔ one API call). Wired the GUI: `_PlotSection` tracks the dark flag, wraps figure production in `plot_theme`, and `set_dark()` re-renders via the normal re-embed path; `StagePane.set_theme` propagates `theme.name=='dark'`. Only figure chrome is themed (data-series colours unchanged). 4 tests (3 API + 1 GUI end-to-end) + smoke-verified light→dark facecolour flip; theme + stage_center suites green (no re-render deadlock). Wave 8. R29 CHANGELOG.
+**File**: `src/radiant/api/plot.py`, `src/radiant/gui/widgets/stage_center.py`.
 
 ### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
 

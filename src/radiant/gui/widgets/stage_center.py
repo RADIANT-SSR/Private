@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.errors import ApiValidationError
 from radiant.api.inspect import ResultPlotNamespace
+from radiant.api.plot import plot_theme
 from radiant.gui.param_format import field_display_text
 from radiant.gui.stage_views import (
     DEFAULT_STAGE,
@@ -100,6 +101,8 @@ class _PlotSection(QWidget):
     def __init__(self, spec: PlotSpec, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._spec = spec
+        self._dark = False
+        self._result: ChainResult | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -126,8 +129,10 @@ class _PlotSection(QWidget):
 
     def render(self, result: ChainResult) -> None:
         """Draw the section's ``result.plot.*`` figure, or its actionable message."""
+        self._result = result
         try:
-            figure = getattr(ResultPlotNamespace(result), self._spec.method)()
+            with plot_theme(dark=self._dark):
+                figure = getattr(ResultPlotNamespace(result), self._spec.method)()
         except ApiValidationError as exc:
             # A frame absent for this regime — show the actionable text, never a blank.
             self._message.setText(str(exc))
@@ -137,6 +142,20 @@ class _PlotSection(QWidget):
         self._message.setVisible(False)
         self._canvas.setVisible(True)
         self._canvas.show_figure(figure)
+
+    def set_dark(self, dark: bool) -> None:
+        """Adopt the dark/light plot theme; re-render the figure if one is shown (CU-139).
+
+        The GUI matplotlib figures now follow the app theme through the public
+        ``radiant.api.plot.plot_theme`` seam. Re-render only when a result is already
+        drawn (via the normal close-and-re-embed path); an unpopulated section just
+        remembers the flag for its next :meth:`render`.
+        """
+        if dark == self._dark:
+            return
+        self._dark = dark
+        if self._result is not None:
+            self.render(self._result)
 
 
 class StagePane(QWidget):
@@ -628,19 +647,23 @@ class StagePane(QWidget):
             self._configure_panels_from_schema(sensor)
 
     def set_theme(self, theme: Theme) -> None:
-        """Re-theme this pane's custom-painted widgets (Phase-9 theme toggle).
+        """Re-theme this pane's custom-painted widgets + matplotlib figures (theme toggle).
 
-        Only the ``QPainter`` widgets that read design tokens from a stored
+        The ``QPainter`` widgets that read design tokens from a stored
         :class:`~radiant.gui.themes.tokens.Theme` (the geometry schematic viewer and the
-        detector pixel illustration) need telling — every QSS-styled widget re-styles
-        automatically when the app stylesheet is re-applied. The ``result.plot.*``
-        matplotlib figures are drawn by the API with their own styling and are theme-neutral
-        (tracked as CU-139); they are left as-is.
+        detector pixel illustration) are told directly. The ``result.plot.*`` matplotlib
+        figures now follow the app theme too (CU-139): each plot section adopts the dark
+        or light chrome via the public ``radiant.api.plot.plot_theme`` seam and re-renders
+        if already drawn. Every QSS-styled widget re-styles automatically when the app
+        stylesheet is re-applied.
         """
         for viewer in self._geometry_viewers:
             viewer.set_theme(theme)
         for illustration in self._detector_illustrations:
             illustration.set_theme(theme)
+        dark = theme.name == "dark"
+        for section in self._plot_sections:
+            section.set_dark(dark)
 
     def refresh_geometry_forms(self) -> None:
         """Re-read every geometry input form from the bound sensor (Inputs + Schematic tabs).

@@ -16,6 +16,8 @@ Usage::
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 import numpy as np
@@ -28,6 +30,46 @@ if TYPE_CHECKING:
     from radiant.optics.psf.effective import EffectivePSF
 
 logger = logging.getLogger(__name__)
+
+# Dark-theme matplotlib rcParams — chrome only (background, axes, text, ticks, grid).
+# Data-series colours keep matplotlib's cycle, which reads on both backgrounds.
+_DARK_RCPARAMS: dict[str, Any] = {
+    "figure.facecolor": "#1e1e1e",
+    "savefig.facecolor": "#1e1e1e",
+    "axes.facecolor": "#252526",
+    "axes.edgecolor": "#8a8a8a",
+    "axes.labelcolor": "#e0e0e0",
+    "axes.titlecolor": "#e0e0e0",
+    "text.color": "#e0e0e0",
+    "xtick.color": "#c0c0c0",
+    "ytick.color": "#c0c0c0",
+    "grid.color": "#3a3a3a",
+    "legend.facecolor": "#252526",
+    "legend.edgecolor": "#3a3a3a",
+}
+
+
+@contextmanager
+def plot_theme(dark: bool = False) -> Iterator[None]:
+    """Context manager applying a dark (or light) matplotlib chrome theme (CU-139).
+
+    The public seam through which a GUI/notebook can request a dark-styled
+    ``result.plot.*`` figure without the GUI restyling the figure itself (keeps
+    one action ↔ one API call). Wrap figure production::
+
+        with plot_theme(dark=True):
+            fig = result.plot.mtf()
+
+    ``dark=False`` is a no-op (matplotlib's default light chrome). Only figure
+    chrome (background, axes, text, ticks, grid) is themed; data-series colours are
+    unchanged, so the figures read on either background.
+    """
+    if not dark:
+        yield
+        return
+    plt = _require_matplotlib()
+    with plt.rc_context(_DARK_RCPARAMS):
+        yield
 
 
 def _require_matplotlib() -> Any:

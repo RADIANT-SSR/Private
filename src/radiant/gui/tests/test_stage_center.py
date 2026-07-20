@@ -110,6 +110,22 @@ class TestSensorSwapClearsStaleResult:
 # ---------------------------------------------------------------------------
 
 
+class TestDarkThemePlots:
+    def test_plot_section_re_renders_dark_on_set_dark(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """CU-139: a plot section's figure follows the app theme via plot_theme."""
+        from radiant.gui.stage_views import PlotSpec
+        from radiant.gui.widgets.stage_center import _PlotSection
+
+        sec = _PlotSection(PlotSpec(title="MTF", method="mtf"))
+        qtbot.addWidget(sec)
+        sec.render(result)
+        light_fc = sec.canvas._figure.get_facecolor()[:3]
+        sec.set_dark(True)
+        dark_fc = sec.canvas._figure.get_facecolor()[:3]
+        assert light_fc != dark_fc
+        assert max(dark_fc) < 0.5  # dark background
+
+
 class TestComposition:
     def test_every_stage_has_a_composition(self) -> None:
         """The nine chain namespaces each have a §4.4.1 composition."""

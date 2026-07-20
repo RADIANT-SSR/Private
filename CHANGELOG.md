@@ -21,6 +21,11 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`radiant.api.plot.plot_theme(dark=…)` context manager (CU-139).** A public seam that
+  applies a dark or light matplotlib *chrome* theme (background/axes/text/ticks/grid) around
+  figure production, so GUI/notebook callers can request a dark-styled `result.plot.*` figure
+  without restyling it themselves. The GUI theme toggle now re-renders its stage plots through
+  it, ending the bright-rectangle-in-dark-mode look. Data-series colours are unchanged.
 - **`Sensor.resolved(dotpath)` and `Sensor.provenance(dotpath)` accessors (CU-105).**
   Structured, machine-readable passthroughs to the resolved parameter record — value,
   units, `provenance` (a `Provenance` enum), and source — replacing the need to parse the

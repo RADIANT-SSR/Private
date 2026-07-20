@@ -1,11 +1,11 @@
 # RADIANT File Tree and Module Layout
 
 **Status:** Living reference (regenerated against current `src/`)
-**Last regenerated:** 2026-07-19 (CU-102/CU-112 count + widgets regeneration)
+**Last regenerated:** 2026-07-20 (CU-172 — full `api/` listing + counts)
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 583 `.py` files under `src/radiant/` (322 source +
+**Current file count:** 584 `.py` files under `src/radiant/` (323 source +
 219 test + 42 `__init__.py`), plus 41 integration tests under
 `tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
 `tests/test_exceptions.py`, `tests/test_provenance.py`,
@@ -219,7 +219,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 9 source + 7 tests
+### `api/` — 20 source + 13 tests
 
 Public scripting API.
 
@@ -227,13 +227,23 @@ Public scripting API.
 api/
 ├── sensor.py              # Sensor — public class (also re-exported at top level)
 ├── session.py             # RadiantSession — internal session orchestrator
-├── sweep.py               # SweepResult, parameter sweeps
+├── sweep.py               # SweepResult, 1-D and 2-D parameter sweeps
+├── batch.py               # batch matrix execution (one evaluation per grid cell)
+├── solve.py               # inverse solver — parameter value that hits a target metric (Gap 10)
 ├── sensitivity.py         # finite-difference sensitivity
 ├── tolerance.py           # tolerance / Monte Carlo helpers
+├── error_budget.py        # RSS error-budget combination + allocation (Gaps 23 + 28)
+├── calibration_analysis.py  # radiometric-calibration sweep → fit report
+├── compare.py             # predicted-vs-measured MTF comparison (Gap 30)
 ├── inspect.py             # post-run introspection helpers
 ├── plot.py                # plotting helpers (uses matplotlib if available)
 ├── units.py               # public unit-conversion helpers
+├── metric_groups.py       # re-export bridge: performance metric-group taxonomy (Gap 96)
 ├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)
+├── stage_output_units.py  # canonical display units for scalar stage outputs (CU-118)
+├── config_io.py           # config-document facade for structured configuration
+├── errors.py              # stage-scoped RADIANT error types (Rule 15)
+├── _progress.py           # private — progress/cancellation plumbing (Gap 72)
 └── _param_registry.py     # private — assembles the master schema
 ```
 
@@ -425,7 +435,7 @@ source of truth, per the header.
 | performance/           | 47     | 29    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
-| api/                   | 19     | 13    | public + internal session |
+| api/                   | 20     | 13    | public + internal session |
 | gui/                   | 79     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |

@@ -2,6 +2,25 @@
 
 **Status:** Active — 2026-07-19. Owner green-lit autonomous execution.
 
+## Progress (2026-07-19)
+
+**Resolved & merged to `main` (20):** Wave 1 — CU-149, 150, 151, 152. Wave 2 — CU-114,
+100, 112, 102, 099, 089. Wave 3 — CU-136, 113, 135, 111. Wave 4 — CU-109, 105, 121, 108,
+107, 118. Each: own commit + SHA-linked backlog closure; every wave's static gates + full
+fast suite green (last: 4428 passed, 0 failed); no golden physics result changed.
+
+**Flagged / not done:**
+- **CU-116** — INVESTIGATING: the mechanical fix deadlocks C-level in matplotlib's Qt
+  backend under offscreen (faulthandler-confirmed); reverted, 3 safe-fix candidates recorded.
+- **CU-110** — stays correctly Open+**gated** (no concurrent evaluation exists; a lock would
+  wrongly serialize whole evaluations and the thread-local fix isn't warranted yet).
+- **CU-126** — stays correctly Open+**gated** (the schematic's `°` display is provably correct
+  for the angle-only arc catalog; `stage_output_unit` in radians is not the right source until
+  a non-angle arc is added).
+
+**Remaining actionable:** CU-120 (geometry mode manifest — needs a deliberate new
+public-accessor design); Wave 5 (CU-070, 071, 085); Wave 6 (CU-080, 164); stretch CU-139.
+
 ## Goal
 
 Work through every open Cleanup-Backlog CU that can be resolved **without owner

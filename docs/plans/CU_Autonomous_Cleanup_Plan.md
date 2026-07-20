@@ -29,6 +29,28 @@ Risk ordering: Wave 7 (safe deletions + docs) → Wave 8 (GUI features) → Wave
 (category-C physics/metric, golden-touching — full golden suite verified per CU) →
 Wave 10 (investigation + careful refactors). Waves 9–10 checkpoint and merge individually.
 
+### Waves 7–10 outcome (2026-07-19/20)
+
+- **Wave 7 (done, merged):** deleted `geometry_gui_v2` → closed CU-082/053/054/056 + CU-122(i);
+  CU-084 (dead source exports removed), CU-077 (dead CDS param removed + doc fix), CU-104 (typography
+  spec amended), CU-103 (declined bundling). Full suite green.
+- **Wave 8 (done, merged):** CU-139 (`plot_theme` dark-figure seam + GUI wiring), CU-115 (pin
+  persistence via QSettings). CU-138 **blocked-on-dep** (qtconsole not installed here);
+  CU-120 **needs a design pass** (mode structure is implicit in the resolvers). Full suite green.
+- **Wave 9 (assessed → all flagged for focused passes):** CU-165 (PSF-perf hotspot located; both
+  optimizations change PSF discretisation → need validated result-invariance), CU-096 (owner-approved
+  fix **already landed** in Phase 2; residue is a subtle θ_o/η fallback correction no golden exercises),
+  CU-166 (approach-2 is a metric-contract change needing a threshold/opt-in design + multi-scenario
+  golden refresh). None rushed — category-C physics/metric risk.
+- **Wave 10 (assessed → flagged):** CU-116 (proven to deadlock in matplotlib's Qt backend; both
+  safe-fix candidates carry re-entrancy/api-wide risk), CU-164 (coupled 20-file refactor + 20-figure
+  regen), CU-170 (per-scenario intent triage + golden-moving baseline re-centering).
+
+**Disposition:** all remaining Open CUs are either owner-decision-closed (103 declined),
+dependency-blocked (138, 011, 087), or **precisely-investigated focused-pass items** with
+findings recorded in the backlog. No category-C physics/metric/numerics or golden-moving
+scenario change was rushed at the tail of the run.
+
 ## Progress (2026-07-19)
 
 **Resolved & merged to `main` (24):** Wave 1 — CU-149, 150, 151, 152. Wave 2 — CU-114,

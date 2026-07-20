@@ -24,7 +24,7 @@ import pytest
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QLabel, QLineEdit
 
 from radiant.api.sensor import Sensor
-from radiant.api.units import _CONVERSIONS
+from radiant.api.units import units_for
 from radiant.gui.param_format import display_in_unit, provenance_from_explain, provenance_label
 from radiant.gui.widgets import parameter_editor_dialog as dialog_mod
 from radiant.gui.widgets import parameter_panel as panel_mod
@@ -87,7 +87,7 @@ def _reset_captures() -> None:
 class TestUnitEnumeration:
     def test_convertible_units_come_from_the_public_registry(self) -> None:
         """The unit list is the registry's convert-to-canonical set, not a hardcode."""
-        expected = sorted({frm for (frm, to) in _CONVERSIONS if to == "m"} | {"m"})
+        expected = sorted(set(units_for("m")) | {"m"})
         assert convertible_units("m", "m") == expected
         assert "km" in expected and "cm" in expected
 

@@ -94,6 +94,26 @@ def inverse_convert(value: float, canonical_unit: str, display_unit: str) -> flo
     return value / _CONVERSIONS[forward_key]
 
 
+def units_for(canonical_unit: str) -> tuple[str, ...]:
+    """Input units that convert to *canonical_unit* (sorted; includes the canonical).
+
+    The named "units convertible to X" accessor (CU-109) — the display-unit choices
+    a GUI/CLI should offer for a parameter whose canonical unit is *canonical_unit*.
+    Returns an empty tuple for an unregistered canonical unit.
+    """
+    return tuple(sorted({frm for (frm, to) in _CONVERSIONS if to == canonical_unit}))
+
+
+def input_units() -> tuple[str, ...]:
+    """All recognised (non-empty) input unit strings, sorted."""
+    return tuple(sorted({frm for (frm, _to) in _CONVERSIONS if frm}))
+
+
+def targets_for(from_unit: str) -> tuple[str, ...]:
+    """Canonical units *from_unit* converts to, excluding the identity (sorted)."""
+    return tuple(sorted({to for (frm, to) in _CONVERSIONS if frm == from_unit and frm != to}))
+
+
 def wavelength_to_wavenumber(lam_um: float) -> float:
     """Convert wavelength to wavenumber.
 

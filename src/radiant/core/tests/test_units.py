@@ -11,9 +11,12 @@ import pytest
 from radiant.core.constants import c, h
 from radiant.core.units import (
     convert,
+    input_units,
     inverse_convert,
     photon_energy_J,
     photon_rate,
+    targets_for,
+    units_for,
     wavelength_to_wavenumber,
     wavenumber_to_wavelength,
 )
@@ -107,6 +110,41 @@ def test_inverse_convert_unregistered_raises_key_error() -> None:
     """inverse_convert raises KeyError for unregistered unit pairs."""
     with pytest.raises(KeyError):
         inverse_convert(1.0, "m", "kg")
+
+
+# ---------------------------------------------------------------------------
+# unit-enumeration accessors (CU-109)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_units_for_length_includes_all_registered_and_the_canonical() -> None:
+    """units_for('m') lists every input unit convertible to metres, sorted, incl. 'm'."""
+    result = units_for("m")
+    assert result == tuple(sorted(result))  # sorted
+    for u in ("m", "cm", "mm", "um", "nm", "km"):
+        assert u in result
+
+
+@pytest.mark.level0
+def test_units_for_unregistered_canonical_is_empty() -> None:
+    assert units_for("kg") == ()
+
+
+@pytest.mark.level0
+def test_input_units_are_nonempty_and_sorted() -> None:
+    result = input_units()
+    assert "" not in result
+    assert result == tuple(sorted(result))
+    assert "deg" in result and "km" in result
+
+
+@pytest.mark.level0
+def test_targets_for_excludes_identity() -> None:
+    """targets_for('um') lists the canonical units um converts to, not um→um."""
+    result = targets_for("um")
+    assert "um" not in result  # identity excluded
+    assert "m" in result  # um → m is registered
 
 
 # ---------------------------------------------------------------------------

@@ -425,9 +425,10 @@ validated `sensor.set` on Apply. Cancelling the picker leaves the field untouche
 open the full Parameter Editor dialog instead (double-click, or right-click → **Edit…** at
 the top of the menu). Those two columns carry a `ReadOnlyCellDelegate` so Qt's default
 rename editor never appears there, and the dialog is opened from the tree's `doubleClicked`
-signal (which fires for derived rows too). The unit-enumeration seam being the underscored
-`radiant.api.units._CONVERSIONS` re-export (rather than a named `units_for()` accessor) is
-tracked as CU-109.
+signal (which fires for derived rows too). The unit choices come from the named public
+accessor `radiant.api.units.units_for(canonical_unit)` (CU-109) — the underscored
+`_CONVERSIONS` registry stays private to `core`; the CLI `radiant convert` uses the sibling
+`input_units()` / `targets_for()` accessors.
 
 **Display units (owner feedback 2026-07-13).** A row shows its value in the unit the
 **user** chose, not always the schema canonical/input unit ("otherwise I'm doing math in my

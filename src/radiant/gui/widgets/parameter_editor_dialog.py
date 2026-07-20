@@ -58,7 +58,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from radiant.api.units import _CONVERSIONS
+from radiant.api.units import units_for
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.units import convert
@@ -153,7 +153,7 @@ def convertible_units(canonical_unit: str, input_unit: str) -> list[str]:
     parameter's own ``input_unit`` and ``canonical_unit`` are always included (both are
     always legal), so the list is never empty even for a single-unit dimension.
     """
-    units = {frm for (frm, to) in _CONVERSIONS if to == canonical_unit}
+    units = set(units_for(canonical_unit))
     units |= {canonical_unit, input_unit}
     return sorted(units)
 

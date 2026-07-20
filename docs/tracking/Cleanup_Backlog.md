@@ -151,15 +151,6 @@
 **Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
 **Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
 
-### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor
-
-**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list (Parameter Editor dialog), 2026-07-13
-**Status**: Open — working but awkward; the GUI's unit selector and the `radiant convert` CLI both enumerate off a name-mangled dict re-export rather than a first-class API.
-**File**: `src/radiant/api/units.py` (`__all__ = ["_CONVERSIONS", "convert"]` — re-exports the private `radiant.core.units._CONVERSIONS`); consumers `src/radiant/gui/widgets/parameter_editor_dialog.py` (`convertible_units`) and `src/radiant/cli/convert.py` (target enumeration).
-**Symptom**: to list the units a value may be entered in for a given parameter, the Parameter Editor dialog reads the raw `(from, to) -> factor` registry through `radiant.api.units._CONVERSIONS` and filters `{frm for (frm, to) in _CONVERSIONS if to == canonical_unit}`. That underscore-named dict is technically public (in `radiant.api.units.__all__`, the sanctioned `core`-to-`api` seam) but exposes an internal data structure and leading-underscore name as the only enumeration surface — the CLI already leans on the same pattern.
-**Why it still matters**: GUI plan ground rule §4.1 wants the GUI to consume *public* surfaces; consuming a `_`-prefixed dict re-export is the letter, not the spirit. A future change to the registry's shape (e.g. dimension grouping, or offset units like °C/°F that are not multiplicative) would silently break both the dialog's unit list and the CLI's target enumeration, with no typed accessor to migrate behind.
-**Suggested fix**: stand-alone task — add a named public accessor, e.g. `radiant.api.units.units_for(canonical_unit: str) -> tuple[str, ...]` (or `convertible_units`), backed by `radiant.core.units`, and switch both the GUI dialog and the CLI to it; drop the `_CONVERSIONS` re-export from `radiant.api.units.__all__`. Lock-step doc note in `RADIANT_GUI_Architecture.md` §4.3 (which currently cites the seam). Effort S; category A (no physics, no results).
-
 ### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
 
 **Discovered**: GUI Development Plan Phase 3 (evaluate loop / live badges), 2026-07-12
@@ -324,6 +315,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor
+
+**Discovered**: 2026-07 (GUI/CLI unit-seam review).
+**Status**: RESOLVED 2026-07-19, commit `<pending109>`. **Resolution**: added named accessors in `core/units.py` — `units_for(canonical_unit)` (inputs convertible to a canonical unit), `input_units()` (all recognised input units), `targets_for(from_unit)` (canonical targets of a unit) — re-exported via `radiant.api.units` and added to its `__all__`; **removed the `_CONVERSIONS` re-export entirely** from the api seam (it stays private to `core`). Switched the GUI parameter-editor unit selector, the `radiant convert` CLI, and their tests to the accessors. R20: `RADIANT_GUI_Architecture.md` §4.3 updated. R29 CHANGELOG (public surface). 4 new Level-0 tests. No results change. Wave 4 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/core/units.py`, `src/radiant/api/units.py`, `src/radiant/gui/widgets/parameter_editor_dialog.py`, `src/radiant/cli/convert.py`.
 
 ### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
 

@@ -21,6 +21,11 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Named unit-enumeration accessors on `radiant.api.units` (CU-109).** New public
+  `units_for(canonical_unit)`, `input_units()`, and `targets_for(from_unit)` replace
+  reaching into the underscored `_CONVERSIONS` registry, which is no longer re-exported
+  from `radiant.api.units` (it stays private to `radiant.core.units`). The GUI unit
+  selector and the `radiant convert` CLI now use these accessors. No results change.
 - **Per-metric group selection for performance metrics (Gap 96).** Five new
   boolean parameters — `performance.metrics.radiometric`,
   `performance.metrics.spatial_mtf`, `performance.metrics.interpretability`,

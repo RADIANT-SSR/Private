@@ -166,7 +166,7 @@
 
 ### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
 
-**Status**: RESOLVED 2026-07-19, commit `<pending104>` (owner decision: amend the spec). **Resolution**: added a rendering note to `RADIANT_GUI_Architecture.md` §8.2 recording that the `letter-spacing` values are nominal design targets Qt's QSS subset cannot render, and the `uppercase` transform is honored in-widget (`.upper()` in Python), not via QSS — with the per-widget `QFont.setLetterSpacing` path noted as the deferred option if exact tracking is ever required. Doc-only; the current approximation is accepted. Wave 7.
+**Status**: RESOLVED 2026-07-19, commit `69c8060` (owner decision: amend the spec). **Resolution**: added a rendering note to `RADIANT_GUI_Architecture.md` §8.2 recording that the `letter-spacing` values are nominal design targets Qt's QSS subset cannot render, and the `uppercase` transform is honored in-widget (`.upper()` in Python), not via QSS — with the per-widget `QFont.setLetterSpacing` path noted as the deferred option if exact tracking is ever required. Doc-only; the current approximation is accepted. Wave 7.
 **File**: `docs/architecture/RADIANT_GUI_Architecture.md` §8.2.
 
 ### CU-103 — IBM Plex fonts are the design target but are not bundled; the GUI falls back to the platform UI/mono font

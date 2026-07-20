@@ -81,6 +81,7 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.atmosphere.omega0_eff import omega0_eff
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -463,9 +464,16 @@ class SimpleAtmosphere:
         (pure scatter) plus aerosol ``ω_aer · σ_aer`` and ``σ_ext``
         counts everything including H₂O and well-mixed-gas absorption
         (the gas term entered with CU-161 — pure absorbers belong in
-        the denominator only, which also moves ω₀ off the unphysical
-        ≈1.0 it showed for space columns, Gap 38). Bounded in ``[0, 1]``
-        by construction; returns zero wherever extinction vanishes.
+        the denominator only). Bounded in ``[0, 1]`` by construction;
+        returns zero wherever extinction vanishes.
+
+        Since the Gap 38 swap (2026-07-20) this internal ω₀ feeds only
+        the phase-weighted ``L_path`` single-scatter terms; the
+        ``E_sky_scattered`` diffuse-sky formula uses the MODTRAN-derived
+        ``omega0_eff(λ, aerosol)`` lookup instead (that table is fit
+        through the hemispheric-flux closed form and is not a valid
+        substitute in the phase-function-weighted path-radiance
+        integral, so the two deliberately coexist).
         """
         omega_aer = float(_AEROSOL_TABLE[self.aerosol_type]["ssa"])
         scat = sigma_mol + omega_aer * sigma_aer
@@ -1134,13 +1142,19 @@ class SimpleAtmosphere:
         # target→sensor column (identical to the column used by E_sky_thermal,
         # which keeps the two decomposed components on a symmetric footing —
         # both are diffuse-sky fluxes at the target generated within the same
-        # atmospheric slab) and ω₀ is the mean-altitude single-scattering
-        # albedo on that same column.
+        # atmospheric slab) and ω₀ is the MODTRAN-derived effective albedo
+        # ω₀_eff(λ, aerosol) (Gap 38, swapped 2026-07-20): the value that
+        # makes this closed form reproduce the real MODTRAN 6 ground-level
+        # diffuse flux (band-median inversion of the E1/E3/E4 flux tables;
+        # see atmosphere/omega0_eff.py). The previous extinction-weighted
+        # column ω₀ evaluated ≈ 1.000 for space columns, over-predicting
+        # diffuse sky irradiance ~1.3× (VIS rural) to ~5× (SWIR/urban).
         # Physics:
         #   • cos(θ_s) projects the TOA normal irradiance onto the horizontal
         #     target plane (plane-parallel single-scatter convention).
-        #   • ω₀ converts extinction to scattering (absorbed photons do not
-        #     contribute to diffuse illumination of the target).
+        #   • ω₀_eff converts extinction to effective scattering (absorbed
+        #     photons do not contribute; the fit through this formula also
+        #     absorbs MODTRAN's multiple-scatter contribution).
         #   • (1 − τ_down,vert) is the fraction of the incoming solar flux
         #     that interacts with the overhead atmospheric slab and is
         #     scattered isotropically toward the target.  The *vertical*
@@ -1156,7 +1170,7 @@ class SimpleAtmosphere:
         #     and E_sky_scattered → 0 (vacuum limit) — mirrors E_sky_thermal.
         #   • The ceiling is E_TOA · cos(θ_s) since ω₀ ≤ 1 and (1−τ) ≤ 1
         #     (energy-conservation check in the single-scatter limit).
-        omega0_up = self._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
+        omega0_up = omega0_eff(lam, self.aerosol_type)
         # Sun-below-horizon guard: cos(π/2) evaluates to ~6e-17 in IEEE-754
         # due to π round-off; treat cosines below a small tolerance as
         # exactly zero so the diffuse-sky term is strictly null for

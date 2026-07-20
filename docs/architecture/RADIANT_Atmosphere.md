@@ -163,6 +163,12 @@ where `τ_sky,vert` is the **vertical** transmittance of the **target→h_atm_to
 
 > **Measured accuracy (CU-155, resolved 2026-07-18):** band-integrated model/MODTRAN ratios at the fit — H2 LWIR 1.24, H2 MWIR 0.70, H4 LWIR 1.41, H4 MWIR 1.34, versus 0.21 / 0.02 / 0.21 / 0.03 for the pre-fix model (which evaluated `T_atm_eff` at 0.5·h_sensor and clamped every space column to the tropopause). The residual ±40% tracks the CU-161 region-flat spectral-shape fragility, not temperature structure. Parity envelope pinned in `tests/integration/test_modtran_real_runs.py`; for higher fidelity use MODTRAN-derived data (Gap 81/CU-157 for the import path's own sky terms).
 
+**Diffuse scattered-solar sky irradiance** for the simple model (Stage 6 / ADR-0002; ω₀ recalibrated 2026-07-20, Gap 38):
+```
+E_sky_scattered(λ) = E_TOA(λ) · cos(θ_s) · ω₀_eff(λ, aerosol) · [1 − τ_down,vert(λ)]
+```
+on the same target→sensor vertical slab as `E_sky_thermal`. `ω₀_eff` is the **MODTRAN-derived effective single-scattering albedo** (`atmosphere/omega0_eff.py`): band-median values per aerosol regime (VIS 0.4–0.7 / NIR 0.7–1.4 / SWIR 1.4–2.5 µm, edge-extended outside; e.g. rural 0.791/0.698/0.187, urban 0.423/0.430/0.263), obtained by inverting this closed form against the real MODTRAN 6 ground-level diffuse-flux tables (E1/E3/E4), so it absorbs MODTRAN's multiple-scatter contribution as an effective parameter of this formula. It replaces the internal extinction-weighted column ω₀, which evaluated ≈ 1.000 for space columns and over-predicted diffuse sky irradiance ~1.3× (VIS rural) to ~5× (SWIR/urban). The internal ω₀ survives only in the phase-weighted `L_path` single-scatter integral above, where the flux-fit table is not a valid substitute. Reference table independently pinned with a re-derivation guard in `tests/integration/test_modtran_real_runs.py`. Known fragility: piecewise-constant spectral shape (steps at 0.7/1.4 µm); the fit is at θ_s = 30°, and the E2 comparison shows the cos θ_s scaling under-predicts diffuse at low sun (θ_s = 60°) — the residual sun-angle dependence is documented in gaps.md Gap 38.
+
 **Inputs** (all parameters are user-facing; see §6):
 `atmosphere.visibility_km`, `atmosphere.aerosol_type`, `atmosphere.precipitable_water_cm`, `atmosphere.standard_atmosphere`.
 

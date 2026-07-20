@@ -20,6 +20,22 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: `E_sky_scattered` now uses the MODTRAN-derived effective
+  single-scattering albedo `omega0_eff(lambda, aerosol)` (Gap 38 swap).** The simple
+  model's diffuse scattered-solar sky irradiance replaces its internal
+  extinction-weighted column omega_0 (which evaluated ~1.000 for space-sensor columns)
+  with band-median values inverted from the real MODTRAN 6 flux tables (e.g. rural
+  0.791/0.698/0.187 in VIS/NIR/SWIR). Direction and magnitude: diffuse sky irradiance
+  DROPS toward MODTRAN parity in the reflective bands — band-integrated
+  E_sky_scattered at theta_s = 30 deg falls ~21% (rural VIS) to ~77% (rural SWIR) and
+  ~58% (urban VIS); scenes gain correct aerosol dependence (previously nearly
+  aerosol-independent). In the MWIR the edge-extended SWIR value slightly RAISES the
+  small sky-reflected term (mwir_leo_minimal golden: signal +0.60%, SNR +0.30% —
+  golden updated in this change). L_path single-scatter is unchanged (still the
+  internal omega_0 with the phase function). New module
+  `radiant.atmosphere.omega0_eff`.
+
 ### Added
 - **`radiant.api.plot.plot_theme(dark=…)` context manager (CU-139).** A public seam that
   applies a dark or light matplotlib *chrome* theme (background/axes/text/ticks/grid) around

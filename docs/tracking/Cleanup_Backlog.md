@@ -142,15 +142,6 @@
 **Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
 **Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
 
-### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
-
-**Discovered**: GUI Development Plan Phase 3 (evaluate loop / live badges), 2026-07-12
-**Status**: Open — cosmetic; the value and its unit are correct and honest, just not in the most human-friendly magnitude for small-valued metrics.
-**File**: `src/radiant/gui/metric_format.py` (`format_metric_value` — formats `value` with `:.4g` and appends the registry `unit` verbatim); consumed by `src/radiant/gui/widgets/kpi_badge_row.py`.
-**Symptom**: the NEDT badge shows `0.04463 K` (the canonical `nedt_K` registry unit is `K`), where the mockup and instrument convention prefer `44.63 mK`. Likewise a future µrad/nm metric would show its base unit. The badge sources the unit from `ChainResult.metric_records()` (R-UNITS-correct) but there is no view-layer unit-scaling table to pick a human-friendly SI prefix per metric.
-**Why it still matters**: R-UNITS is satisfied (every value carries its unit), so this is ergonomics, not correctness — but a technical-fellow owner reading `0.04463 K` for NEDT is a small friction the mockup avoided. Worth a deliberate, tested display-scaling helper rather than an ad-hoc `mK` hardcode (which would reintroduce a unit literal in a widget, violating GUI plan §4.9).
-**Suggested fix**: stand-alone task — add a small display-scaling helper (metric key → preferred display unit + scale factor, or a general SI-prefix chooser) in `metric_format.py`, unit-tested, sourcing the base unit from the registry and the preferred prefix from one table. Keep the scaled unit string out of the widgets (formatting-helper only). Effort S; category A (presentation only, no physics/results).
-
 ### CU-107 — Generic schema-bounds/enum rejection raises a flat `CoreValidationError`, so the GUI's actionable dialog can show only "what" (no why/action/context)
 
 **Discovered**: GUI Development Plan Phase 2 Task B (parameter editing), 2026-07-12
@@ -297,6 +288,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
+
+**Discovered**: GUI metric-badge R-UNITS review, 2026-07.
+**Status**: RESOLVED 2026-07-19, commit `<pending108>`. **Resolution**: added a `scale_for_display(metric_key, value, unit)` helper + a single `_METRIC_DISPLAY_SCALE` table in `gui/metric_format.py` (currently `nedt_K → (mK, ×1000)`); `badge_display` applies it so the NEDT badge reads e.g. 44.6 mK instead of 0.0446 K. The base unit still comes from the registry (`rec.unit`); only the display prefix is chosen, in one table, out of the widgets. Display-only — the stored metric value (K) is unchanged. 2 new tests; existing badge tests still pass (mK still ends with K). R29 CHANGELOG. Wave 4 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/gui/metric_format.py`, `src/radiant/gui/tests/test_widgets.py`.
 
 ### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately
 

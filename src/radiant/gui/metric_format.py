@@ -19,7 +19,7 @@ The five v1 badges (arch doc §4.4) and the metric each reads:
 Badge   metric key            registry unit
 ======  ====================  =========================
 SNR     ``snr``               dimensionless
-NEDT    ``nedt_K``            K
+NEDT    ``nedt_K``            K (displayed as mK — CU-108)
 NIIRS   ``niirs``             NIIRS level
 GSD     ``gsd_geometric_mean_m``  m
 MTF@Nyq ``mtf_at_nyquist``    dimensionless
@@ -68,6 +68,30 @@ _FAILURE_RESULT_KEY: Final[dict[str, str]] = {
 # Shown in the value slot for a failed / unavailable metric — explicitly *not a
 # number*, so a stale or failed metric never reads as a real value.
 NOT_AVAILABLE: Final[str] = "n/a"
+
+# Per-metric display scaling (CU-108): metric key → (display unit, multiply factor).
+# The base unit still comes from the registry (``rec.unit``); this one table only
+# chooses a more legible display prefix for metrics whose canonical value sits at an
+# awkward magnitude. NEDT is milli-Kelvin-scale, so 0.045 K reads far better as 45 mK.
+# A metric with no entry is shown in its registry unit unchanged.
+_METRIC_DISPLAY_SCALE: Final[dict[str, tuple[str, float]]] = {
+    "nedt_K": ("mK", 1000.0),
+}
+
+
+def scale_for_display(metric_key: str, value: float, unit: str) -> tuple[float, str]:
+    """Return *(value, unit)* rescaled to the metric's preferred display prefix (CU-108).
+
+    Consults the single :data:`_METRIC_DISPLAY_SCALE` table. Metrics with no entry
+    are returned unchanged (the registry unit is the default), so only opted-in
+    metrics — NEDT today — rescale. The scaled unit string lives here, never in a
+    widget (R-UNITS, GUI plan §4.6).
+    """
+    scale = _METRIC_DISPLAY_SCALE.get(metric_key)
+    if scale is None:
+        return value, unit
+    display_unit, factor = scale
+    return value * factor, display_unit
 
 
 def format_metric_value(value: float, unit: str) -> str:
@@ -124,7 +148,8 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
     if not math.isfinite(rec.value):
         reason = metric_failure_reason(result, metric_key)
         return NOT_AVAILABLE, reason or "unavailable (non-finite result)"
-    return format_metric_value(rec.value, rec.unit), None
+    scaled_value, display_unit = scale_for_display(metric_key, rec.value, rec.unit)
+    return format_metric_value(scaled_value, display_unit), None
 
 
 __all__ = [
@@ -132,6 +157,7 @@ __all__ = [
     "BADGE_KEYS",
     "NOT_AVAILABLE",
     "format_metric_value",
+    "scale_for_display",
     "metric_failure_reason",
     "badge_display",
 ]

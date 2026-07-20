@@ -9,7 +9,9 @@ Behaviour (clicks, evaluation) is exercised in the evaluate-loop / stage-center 
 
 from __future__ import annotations
 
-from radiant.gui.metric_format import format_metric_value
+import pytest
+
+from radiant.gui.metric_format import format_metric_value, scale_for_display
 from radiant.gui.widgets.health_dot import VALID_STATUSES, HealthDot
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
@@ -87,6 +89,18 @@ class TestMetricFormat:
         assert format_metric_value(0.0446, "K") == "0.0446 K"
         assert format_metric_value(615.96, "dimensionless") == "616"
         assert format_metric_value(10.62, "NIIRS level") == "10.62"
+
+    def test_nedt_scales_to_millikelvin(self) -> None:
+        """CU-108: NEDT's canonical K value displays in mK (0.0446 K → 44.6 mK)."""
+        value, unit = scale_for_display("nedt_K", 0.0446, "K")
+        assert unit == "mK"
+        assert value == pytest.approx(44.6, rel=1e-6)
+        assert format_metric_value(value, unit) == "44.6 mK"
+
+    def test_scale_for_display_leaves_unlisted_metrics_unchanged(self) -> None:
+        """A metric with no scaling entry keeps its registry unit and value."""
+        assert scale_for_display("snr", 616.0, "dimensionless") == (616.0, "dimensionless")
+        assert scale_for_display("gsd_geometric_mean_m", 1.2, "m") == (1.2, "m")
 
 
 class TestRunButton:

@@ -149,6 +149,10 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI NEDT metric badge displays in mK (CU-108).** The NEDT badge now shows its
+  canonical Kelvin value at a legible milli-Kelvin scale (0.045 K → 45 mK) via a single
+  per-metric display-scale table in `metric_format`; the base unit still comes from the
+  registry and the stored result is unchanged. Display-only.
 - **GUI Geometry form re-syncs immediately on a parameter-tree edit (CU-121).** A
   geometry value edited in the left parameter tree now updates the Geometry Inputs/Schematic
   form at once, instead of only after the next debounced evaluation. Display-only.

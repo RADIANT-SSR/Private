@@ -85,6 +85,36 @@ class ParameterBoundsError(RadiantError, ValueError):
         super().__init__(" | ".join(parts))
 
 
+class ParameterEnumError(RadiantError, ValueError):
+    """A user-controlled enum parameter was given a value outside its closed set.
+
+    The enum-choice sibling of :class:`ParameterBoundsError` (CU-107): carries the
+    same structured ``what / why / action / context`` payload (Rule 15) so the GUI /
+    CLI can render each field independently instead of a flat message. Co-inherits
+    :class:`ValueError` for back-compat with ``pytest.raises(ValueError)`` callers;
+    :class:`RadiantError` is the canonical base.
+    """
+
+    def __init__(
+        self,
+        what: str,
+        why: str = "",
+        action: str = "",
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        self.what: str = what
+        self.why: str = why
+        self.action: str = action
+        self.context: dict[str, Any] = dict(context) if context is not None else {}
+
+        parts: list[str] = [what]
+        if why:
+            parts.append(f"Why: {why}")
+        if action:
+            parts.append(f"Action: {action}")
+        super().__init__(" | ".join(parts))
+
+
 # ---------------------------------------------------------------------------
 # Provenance
 # ---------------------------------------------------------------------------
@@ -628,16 +658,29 @@ class ParameterSet:
         if pdef.enum_values is not None:
             str_value = str(value)
             if str_value not in pdef.enum_values:
-                raise CoreValidationError(
-                    f"Parameter '{name}' = {value!r}; must be one of {list(pdef.enum_values)}"
+                allowed = list(pdef.enum_values)
+                raise ParameterEnumError(
+                    what=f"Parameter '{name}' = {value!r}; must be one of {allowed}",
+                    why=f"'{name}' is a fixed-choice parameter with a closed set of valid values",
+                    action=f"Set '{name}' to one of {allowed}",
+                    context={"param": name, "value": value, "allowed": allowed},
                 )
 
         # Bounds check (in input units)
         if pdef.bounds is not None:
             lo, hi = pdef.bounds
             if not (lo <= value <= hi):
-                raise CoreValidationError(
-                    f"Parameter '{name}' = {value} out of bounds [{lo}, {hi}] ({pdef.input_unit})"
+                unit = pdef.input_unit or "dimensionless"
+                raise ParameterBoundsError(
+                    what=f"Parameter '{name}' = {value} out of bounds [{lo}, {hi}] ({unit})",
+                    why=f"'{name}' must lie within its declared valid domain [{lo}, {hi}] {unit}",
+                    action=f"Set '{name}' to a value in [{lo}, {hi}] {unit}",
+                    context={
+                        "param": name,
+                        "value": value,
+                        "bounds": (lo, hi),
+                        "unit": pdef.input_unit,
+                    },
                 )
 
         # Unit conversion to canonical

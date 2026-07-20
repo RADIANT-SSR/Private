@@ -240,6 +240,13 @@ retroactively reconstructed.
   phase angle annotations) simply absent; the sensor/target geometry is unchanged.
 
 ### Changed
+- **Structured errors for parameter bounds/enum rejection (CU-107).** The
+  `ParameterSet` resolver now raises `ParameterBoundsError` (out-of-bounds) and the new
+  `ParameterEnumError` (invalid enum choice) — each carrying a `what / why / action /
+  context` payload (Rule 15) — instead of a flat `CoreValidationError`, so the GUI's
+  actionable dialog can show why and how to fix, not just what. Both co-inherit
+  `ValueError` + `RadiantError`, so existing `except ValueError` / `except RadiantError`
+  and message-match callers are unaffected. No results change.
 - **Cross-platform text I/O: explicit `encoding="utf-8"` everywhere (CU-149).** All
   text-mode `open()`/`read_text()`/`write_text()` call sites in `src/`, `scripts/`, and
   `dev_tools/` now pass `encoding="utf-8"`, so UTF-8 data/config files (containing `µ`,

@@ -27,6 +27,7 @@ from radiant.core.los_geometry import theta_o_from_eta as theta_o_from_eta
 from radiant.core.parameters import ConsistencyGroup as ConsistencyGroup
 from radiant.core.parameters import ParameterBoundsError as ParameterBoundsError
 from radiant.core.parameters import ParameterDef as ParameterDef
+from radiant.core.parameters import ParameterEnumError as ParameterEnumError
 from radiant.core.parameters import ParameterSet as ParameterSet
 from radiant.core.parameters import Provenance as Provenance
 from radiant.core.parameters import ResolvedValue as ResolvedValue

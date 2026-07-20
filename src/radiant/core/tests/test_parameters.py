@@ -14,7 +14,9 @@ import pytest
 
 from radiant.core.parameters import (
     ConsistencyGroup,
+    ParameterBoundsError,
     ParameterDef,
+    ParameterEnumError,
     ParameterSet,
     Provenance,
     ResolvedValue,
@@ -952,6 +954,42 @@ class TestUnitAwareSet:
         ps.set("t.fraction", 150.0, unit="%")
         with pytest.raises(ValueError, match="out of bounds"):
             ps.resolve()
+
+    def test_bounds_rejection_is_structured(self) -> None:
+        """CU-107: out-of-bounds raises ParameterBoundsError with why/action/context."""
+        ps = self._pset()
+        ps.set("t.fraction", 150.0, unit="%")
+        with pytest.raises(ParameterBoundsError) as exc_info:
+            ps.resolve()
+        err = exc_info.value
+        assert "out of bounds" in err.what
+        assert err.why and err.action  # populated, not empty (the GUI can show them)
+        assert err.context["param"] == "t.fraction"
+        assert err.context["bounds"] == (0.0, 1.0)
+
+    def test_enum_rejection_is_structured(self) -> None:
+        """CU-107: an invalid enum value raises ParameterEnumError with why/action/context."""
+        ps = ParameterSet(
+            [
+                ParameterDef(
+                    name="m.mode",
+                    description="mode",
+                    dtype=str,
+                    canonical_unit="",
+                    input_unit="",
+                    default="a",
+                    enum_values=("a", "b"),
+                ),
+            ]
+        )
+        ps.set("m.mode", "zzz")
+        with pytest.raises(ParameterEnumError) as exc_info:
+            ps.resolve()
+        err = exc_info.value
+        assert "must be one of" in err.what
+        assert err.why and err.action
+        assert err.context["param"] == "m.mode"
+        assert err.context["allowed"] == ["a", "b"]
 
     def test_unknown_unit_actionable_error(self) -> None:
         ps = self._pset()

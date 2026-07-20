@@ -142,15 +142,6 @@
 **Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
 **Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
 
-### CU-107 — Generic schema-bounds/enum rejection raises a flat `CoreValidationError`, so the GUI's actionable dialog can show only "what" (no why/action/context)
-
-**Discovered**: GUI Development Plan Phase 2 Task B (parameter editing), 2026-07-12
-**Status**: Open — latent; the GUI degrades correctly (flat message shown as "what"), but the actionable-error UX is thinner than the structured surface allows.
-**File**: `src/radiant/core/parameters.py` (the bounds check ~L632 and the enum check ~L624 both `raise CoreValidationError(<flat message>)`); consumed by `src/radiant/gui/widgets/actionable_error_dialog.py` (`_payload` falls back to `str(exc)` as "what" when no `what`/`why`/`action`/`context` attrs exist).
-**Symptom**: editing a schema-bounded parameter out of range in the GUI (e.g. `source.target.temperature = 9999` with bounds `[0, 5000]`) surfaces `CoreValidationError: Parameter '…' = 9999.0 out of bounds [0.0, 5000.0] (K)`. The dialog renders that string as "What" and shows no "Why"/"Action"/context — even though the codebase already defines the structured `ParameterBoundsError(what, why, action, context)` (Rule 15) and uses it in several physics stages. The generic resolver path does not.
-**Why it still matters**: Rule 15 mandates actionable errors (what/why/action). The most common GUI rejection path (any simple bounds/enum violation) only carries "what", so the owner sees a terse message rather than the guided remedy the dialog is built to display. This is an actionability gap in the exact surface Phase 2B ships, not a GUI bug.
-**Suggested fix**: stand-alone task — have the `ParameterSet` resolver raise `ParameterBoundsError` for bounds violations (and a similarly structured enum error) with `why`/`action`/`context` populated from the `ParameterDef` (bounds, unit, `default_justification`), replacing the flat `CoreValidationError`. Both classes already co-inherit `ValueError`, so existing `except`/`pytest.raises(CoreValidationError)` and `ValueError` callers keep working; audit the parameter tests for exact-type asserts first. Effort S–M; category B (error surface, no physics/results change).
-
 ### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
 
 **Discovered**: GUI Development Plan Phase 1 checkpoint punch-list (populating the shell chrome), 2026-07-12
@@ -288,6 +279,12 @@
 **Suggested fix**: stand-alone small task — screen-space sizing via `vtkActor2D` or a camera-change callback, per the file docstring's deferral note. Effort S; category A.
 
 ## Resolved
+
+### CU-107 — Generic schema-bounds/enum rejection raises a flat `CoreValidationError`, so the GUI's actionable dialog can show only "what" (no why/action/context)
+
+**Discovered**: GUI actionable-error review, 2026-07.
+**Status**: RESOLVED 2026-07-19, commit `<pending107>`. **Resolution**: the `ParameterSet` resolver now raises the structured `ParameterBoundsError` (out-of-bounds) and a new sibling `ParameterEnumError` (invalid enum choice) — each with `what/why/action/context` populated from the `ParameterDef` (name, value, bounds/allowed, unit) — instead of a flat `CoreValidationError`. Both co-inherit `(RadiantError, ValueError)`, and the messages keep "out of bounds"/"must be one of", so every existing `pytest.raises(ValueError|RadiantError, match=…)` and the GUI's `except RadiantError` catch are unaffected (audited: no `pytest.raises(CoreValidationError)` for these). `ParameterEnumError` re-exported from `core/__init__`; CLAUDE.md Rule-15 list updated (R20); R29 CHANGELOG. 2 new structured-payload tests. No results change. Wave 4 of the autonomous CU-cleanup plan.
+**File**: `src/radiant/core/parameters.py`, `src/radiant/core/__init__.py`.
 
 ### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
 

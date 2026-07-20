@@ -154,6 +154,10 @@ retroactively reconstructed.
   interpolated families.
 
 ### Fixed
+- **GUI pinned-panel set persists across sessions (CU-115).** Pinning/unpinning a metric
+  or stage-output card is now saved via `QSettings` and restored on the next launch (falling
+  back to the default five-metric set when none is stored). Previously the pin set reset
+  every relaunch.
 - **`SpectralDataStore` warns on gross spectral extrapolation (CU-085).** When a curve
   covers less than ~80% of the requested band (> 20% constant-extrapolated), the store now
   raises a `UserWarning` naming the extrapolated fraction instead of a silent debug log;

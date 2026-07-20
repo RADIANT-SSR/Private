@@ -61,7 +61,12 @@ modtran/decks/
 # shipped subset repackaged into data/atmospheres/ per plan §7. These
 # cannot be regenerated locally (no MODTRAN binary), so preserve them.
 # See modtran/real_runs/README.md for the provenance manifest.
+# Both forms: 'real_runs/' ignores the directory contents; bare
+# 'real_runs' also refuses a FILE or SYMLINK at that path — a tracked
+# symlink slipped through the dir-only pattern on 2026-07-20 and its
+# checkout clobbered the ignored (irreplaceable) staged delivery.
 modtran/real_runs/
+modtran/real_runs
 
 # Synthetic (NOT real) tape7 outputs — deterministic from
 # modtran_run_matrix.csv via scripts/generate_synthetic_tape7.py;

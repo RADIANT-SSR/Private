@@ -202,22 +202,22 @@
 
 ### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
 
-**Status**: RESOLVED 2026-07-19, commit `<pending7>` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
 ### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044")
 
-**Status**: RESOLVED 2026-07-19, commit `<pending7>` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
 ### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045")
 
-**Status**: RESOLVED 2026-07-19, commit `<pending7>` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
 ### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
 
-**Status**: RESOLVED 2026-07-19, commit `<pending7>` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
+**Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
 ### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README)

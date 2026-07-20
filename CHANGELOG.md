@@ -254,6 +254,13 @@ retroactively reconstructed.
   (glyph, SUN→TARGET / SUN→GROUND vectors, drop lines, legend rows, and the θ_s / Δφ /
   phase angle annotations) simply absent; the sensor/target geometry is unchanged.
 
+### Removed
+- **Dead source exports `CompositeTarget` and `SubPixelSource` (CU-084).** These two
+  `radiant.source` classes had no live constructor in the chain (self-references only);
+  removed along with their modules and tests. The rest of the former "shadow" source
+  system (`ThermalSource`/`ReflectedSolarSource`/`CombinedSource`/`SurfaceMaterial`/the
+  `resolvers`) is now the wired live source-object system and is unaffected.
+
 ### Changed
 - **Structured errors for parameter bounds/enum rejection (CU-107).** The
   `ParameterSet` resolver now raises `ParameterBoundsError` (out-of-bounds) and the new

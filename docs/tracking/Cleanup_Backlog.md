@@ -169,15 +169,6 @@
 **Why it still matters**: schema-generated GUI forms render a no-op toggle; users entering pre-CDS datasheet noise are silently ~41 % low.
 **Suggested fix**: stand-alone task — implement both or delete parameter and doc claims in lock-step (Rule 20). Effort S-M; category C.
 
-### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27)
-
-**Discovered**: Capability audit 2026-07 (F-22), 2026-07-11
-**Status**: Open
-**File**: `src/radiant/source/__init__.py` (exports ResolvedTarget, five `resolve_*` paths, CombinedSource, ReflectedSolarSource, SurfaceMaterial, SubPixelSource, CompositeTarget…)
-**Symptom**: a complete parallel source system is publicly importable but not connected to the chain; its CombinedSource applies no atmospheric attenuation to the solar term.
-**Why it still matters**: two "source systems" in the public API invite integrators (or the GUI) to bind the dead, physically wrong one; violates one-canonical-version.
-**Suggested fix**: delete-as-unused (or wire deliberately and document) — decide alongside the CU-079 Source doc reconciliation. Effort S-M; category B.
-
 ### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
 
 **Discovered**: CU-086 re-audit of the landed MODTRAN rework (`d56fd9c`), 2026-07-11
@@ -199,6 +190,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27)
+
+**Discovered**: Capability audit 2026-07 (F-22), 2026-07-11.
+**Status**: RESOLVED 2026-07-19, commit `<pending84>`. **Resolution**: audit found the CU's "unwired shadow system" premise **stale** — since it was filed, the source system was reconciled and most of the listed exports are now the **wired live** source-object system (`_inferrer` → `resolvers` → `material`/`combined`; `converters/reflectance` → `reflected`), so they cannot be deleted without breaking the chain. Only `CompositeTarget` and `SubPixelSource` were **genuinely dead** (self-references only, no live constructor) — those two modules, their tests, and their `source/__init__` exports were removed (Rule 27; owner decision "delete as unused" applied to what is actually unused). The one-canonical-version concern is thereby resolved: no dead parallel source objects remain in the public API. R29 CHANGELOG. Source suite + public-API test green. Wave 7.
+**File**: `src/radiant/source/composite.py`, `sub_pixel.py` (deleted) + tests; `source/__init__.py`.
 
 ### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
 

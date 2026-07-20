@@ -9,7 +9,6 @@ from radiant.source.backgrounds import (
 from radiant.source.brdf_lambertian import LambertianBRDF
 from radiant.source.brdf_phong import PhongBRDF
 from radiant.source.combined import CombinedSource
-from radiant.source.composite import CompositeTarget
 from radiant.source.emitted import ThermalSource
 from radiant.source.material import SurfaceMaterial
 from radiant.source.point_source_blackbody import BlackbodyIntensitySource
@@ -26,7 +25,6 @@ from radiant.source.resolvers import (
 )
 from radiant.source.shape import TargetShape
 from radiant.source.shapes import Box, Cone, Cylinder, FlatPlate, Sphere
-from radiant.source.sub_pixel import SubPixelSource
 from radiant.source.tabulated import TabulatedRadianceSource
 
 __all__ = [
@@ -35,7 +33,6 @@ __all__ = [
     "Box",
     "CMB_BACKGROUND",
     "CombinedSource",
-    "CompositeTarget",
     "Cone",
     "ConstantBackground",
     "Cylinder",
@@ -47,7 +44,6 @@ __all__ = [
     "ResolvedTarget",
     "SpectralRadianceSource",
     "Sphere",
-    "SubPixelSource",
     "SurfaceMaterial",
     "TabulatedBackground",
     "TabulatedRadianceSource",

@@ -93,7 +93,11 @@ class TestPerformanceComposition:
 class TestPerformancePane:
     def test_metric_summary_shows_every_metric_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """All computed metrics render; dimensional ones carry their registry unit (R-UNITS)."""
-        pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        # The example config is outside the GIQE-5 envelope (SNR ~978); opt
+        # into extrapolated NIIRS (CU-166 gate) so the niirs row renders —
+        # this test's subject is unit-labelled rendering, not the gate.
+        sensor = Sensor.from_yaml(_EXAMPLE).set("performance.niirs.allow_extrapolated", True)
+        pane = _performance_pane(qtbot, sensor)
         readout = pane.metrics_readout
         assert readout is not None
         keys = readout.rendered_keys()

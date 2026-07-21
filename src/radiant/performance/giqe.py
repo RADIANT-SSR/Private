@@ -64,6 +64,14 @@ class GIQEResult:
     extrapolated:
         True when any input fell outside the GIQE-5 calibration range —
         the NIIRS value is an extrapolation with reduced confidence.
+    failure_reason:
+        ADR-B result-typed failure (CU-166): set when the metric is
+        **not applicable** — the configuration is outside the calibration
+        envelope and extrapolated values were not opted into
+        (``performance.niirs.allow_extrapolated`` is False). The ``niirs``
+        field still carries the computed (extrapolated) number for
+        inspectability (Rule 16), but the chain surfaces no ``niirs``
+        metric; callers check :attr:`applicable` before consuming it.
     """
 
     niirs: float
@@ -74,6 +82,13 @@ class GIQEResult:
     g: float
     warnings: tuple[str, ...]
     extrapolated: bool = False
+    failure_reason: str | None = None
+
+    @property
+    def applicable(self) -> bool:
+        """True when the NIIRS/IIRS value is inside its calibration envelope
+        (or extrapolation was explicitly opted into) — i.e. no failure_reason."""
+        return self.failure_reason is None
 
 
 def compute_giqe5(

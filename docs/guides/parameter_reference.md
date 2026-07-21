@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 171**
+**Total parameters: 172**
 
 ## source
 

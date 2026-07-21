@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting: NIIRS/IIRS is now N/A when outside the GIQE-5 calibration
+  envelope (CU-166 approach 2; owner-ratified strict refusal).** When any GIQE-5 input
+  (GSD 1.18–31.5 inch, RER 0.2–0.95, SNR 2–130) is out of range, the `niirs` metric is no
+  longer emitted; `niirs_result` carries a result-typed `failure_reason` (new
+  `GIQEResult.failure_reason`/`.applicable`), and the computed extrapolated value remains
+  inspectable on the result object. New parameter `performance.niirs.allow_extrapolated`
+  (default false) restores the previous behavior. Direction/magnitude: no numeric value
+  changes; the metric disappears by default on out-of-envelope configs — which includes
+  26 of 32 shipped scenario baselines (mostly SNR above 130) and the golden example
+  (SNR ≈ 978); their stored GUI baselines are refreshed with the CU-170 pass. The
+  `niirs_extrapolated` status metric is emitted in all cases. Real IR-calibrated IIRS is
+  tracked as Gap 100.
 - **PSF-path FFT fast paths — up to ~2.7× faster `evaluate()` on heavily-oversampled
   configs (CU-165).** Kernel convolution (`build_effective_psf`, `EffectivePSF.with_kernel`)
   now uses real-input FFTs with the exact even-grid shift-elision identity, and

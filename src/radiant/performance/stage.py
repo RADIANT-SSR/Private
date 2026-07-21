@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import math
 import warnings
+from dataclasses import replace
 
 import numpy as np
 
@@ -721,8 +722,33 @@ def _compute_niirs_metric(
 
     # RER is currently a geometric mean; use for both axes.
     result = compute_niirs(gsd_along, gsd_cross, rer, rer, snr, band=band)
-    state = state.with_metric("niirs", result.niirs)
+
+    # Applicability gate (CU-166 approach 2, owner-ratified 2026-07-20:
+    # strict refusal). Any input outside the GIQE-5 calibration envelope
+    # makes the fitted formula unreliable, so by default NIIRS is N/A —
+    # an ADR-B result-typed failure on `niirs_result`, no `niirs` metric.
+    # `performance.niirs.allow_extrapolated = true` opts back into the
+    # extrapolated value (still flagged). The `niirs_extrapolated` metric
+    # is emitted either way: it describes the configuration, which is
+    # known regardless of whether the value is surfaced.
+    try:
+        allow_extrapolated = bool(params.get("performance.niirs.allow_extrapolated"))
+    except (KeyError, TypeError):
+        allow_extrapolated = False  # partial fixtures: strict default
     state = state.with_metric("niirs_extrapolated", 1.0 if result.extrapolated else 0.0)
+    if result.extrapolated and not allow_extrapolated:
+        result = replace(
+            result,
+            failure_reason=(
+                "NIIRS/IIRS not applicable: "
+                + "; ".join(result.warnings)
+                + " — the GIQE-5 fit is unreliable outside its calibration "
+                "envelope. Set performance.niirs.allow_extrapolated=true to "
+                "report the extrapolated value anyway."
+            ),
+        )
+        return state.with_stage_output("performance", "niirs_result", result)
+    state = state.with_metric("niirs", result.niirs)
     # Extrapolation beyond the GIQE-5 calibration band is carried as structured
     # status only — the `niirs_extrapolated` metric (0/1), `result.extrapolated`,
     # and `result.warnings` on the stage output. It is deliberately NOT re-emitted
@@ -763,9 +789,7 @@ _PRODUCES_GSD = frozenset(
 )
 _PRODUCES_ACCESS = frozenset({"ground_range_m", "swath_width_m", "access_rate_m2_s"})
 _PRODUCES_Q = frozenset({"q_center", "q_min", "q_max"})
-_PRODUCES_DIFFRACTION = frozenset(
-    {"diffraction_limit_angular_urad", "diffraction_limit_ground_m"}
-)
+_PRODUCES_DIFFRACTION = frozenset({"diffraction_limit_angular_urad", "diffraction_limit_ground_m"})
 _PRODUCES_NIIRS = frozenset({"niirs", "niirs_extrapolated"})
 _PRODUCES_SATURATION = frozenset({"well_margin_dB", "adc_margin_dB", "dynamic_range_dB"})
 

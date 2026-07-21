@@ -117,8 +117,33 @@ METRICS_SATURATION = ParameterDef(
 )
 
 
+# --- NIIRS applicability (CU-166 approach 2) --------------------------------
+NIIRS_ALLOW_EXTRAPOLATED = ParameterDef(
+    name="performance.niirs.allow_extrapolated",
+    description=(
+        "Report a NIIRS/IIRS value even when a GIQE-5 input (GSD, RER, or "
+        "SNR) is outside the published calibration ranges. Default False: an "
+        "out-of-envelope configuration gets NIIRS as N/A (a result-typed "
+        "failure_reason on niirs_result, no niirs metric) because the fitted "
+        "formula is unreliable there (CU-166; owner-ratified 2026-07-20 — "
+        "strict refusal). True restores the extrapolated value, still "
+        "flagged via niirs_extrapolated."
+    ),
+    dtype=bool,
+    canonical_unit="",
+    input_unit="",
+    default=False,
+    tags=frozenset({"performance", "niirs"}),
+    default_justification=(
+        "Outside its calibration envelope the GIQE-5 fit produces "
+        "unphysical scores (e.g. NIIRS 20+ on a 0-9 scale for sub-envelope "
+        "GSD); refusing by default keeps the headline metric trustworthy."
+    ),
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     DETECTION_SNR_THRESHOLD,
+    NIIRS_ALLOW_EXTRAPOLATED,
     METRICS_RADIOMETRIC,
     METRICS_SPATIAL_MTF,
     METRICS_INTERPRETABILITY,

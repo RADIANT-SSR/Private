@@ -106,14 +106,18 @@ class TestClassifyBand:
 def _make_niirs_params(
     filter_min_um: float = 0.45,
     filter_max_um: float = 0.70,
+    allow_extrapolated: bool | None = None,
 ) -> ParameterSet:
     """Build a minimal ParameterSet with filter bounds for NIIRS wiring."""
+    from radiant.performance._schema import NIIRS_ALLOW_EXTRAPOLATED
     from radiant.spectral_integration._schema import FILTER_MAX_UM, FILTER_MIN_UM
 
-    schema = [FILTER_MIN_UM, FILTER_MAX_UM]
+    schema = [FILTER_MIN_UM, FILTER_MAX_UM, NIIRS_ALLOW_EXTRAPOLATED]
     ps = ParameterSet(schema)
     ps.set("spectral_integration.filter_min_um", filter_min_um)
     ps.set("spectral_integration.filter_max_um", filter_max_um)
+    if allow_extrapolated is not None:
+        ps.set("performance.niirs.allow_extrapolated", allow_extrapolated)
     ps.resolve()
     return ps
 
@@ -121,8 +125,8 @@ def _make_niirs_params(
 def _make_state_with_metrics(
     snr: float = 50.0,
     rer: float = 0.7,
-    gsd_along: float = 1.0,
-    gsd_cross: float = 1.0,
+    gsd_along: float = 0.5,
+    gsd_cross: float = 0.5,
 ) -> ChainState:
     """Build a ChainState with GSD, RER, SNR in metrics."""
     wl = np.linspace(0.45, 0.70, 10)
@@ -162,7 +166,7 @@ class TestNIIRSMetricsWiring:
         params = _make_niirs_params(filter_min_um=3.5, filter_max_um=5.0)
         out = _compute_niirs_metric(state, params)
 
-        direct = compute_niirs(1.0, 1.0, 0.7, 0.7, 50.0, band="mwir")
+        direct = compute_niirs(0.5, 0.5, 0.7, 0.7, 50.0, band="mwir")
         assert out.metrics["niirs"] == pytest.approx(direct.niirs, rel=1e-10)
 
     @pytest.mark.level1
@@ -233,10 +237,86 @@ class TestExtrapolationFlag:
         """CU-166: an out-of-calibration NIIRS through the chain wiring flags
         `niirs_extrapolated` but emits no `UserWarning` (owner bar: a valid
         scenario evaluates warning-free)."""
-        # Default GSD 1.0 m = 39.4 inch is already past the [1.18, 31.5] range.
-        state = _make_state_with_metrics()
+        # GSD 1.0 m = 39.4 inch is past the [1.18, 31.5] inch range.
+        state = _make_state_with_metrics(gsd_along=1.0, gsd_cross=1.0)
         params = _make_niirs_params()
         out = _compute_niirs_metric(state, params)
         assert out.metrics["niirs_extrapolated"] == 1.0
         assert out.stage_outputs["performance"]["niirs_result"].extrapolated is True
         assert len(recwarn) == 0
+
+
+# ---------------------------------------------------------------------------
+# Level 1 — applicability gate (CU-166 approach 2, owner-ratified 2026-07-20)
+# ---------------------------------------------------------------------------
+
+
+class TestNIIRSApplicabilityGate:
+    @pytest.mark.level1
+    def test_out_of_envelope_is_na_by_default(self) -> None:
+        """Strict refusal: any out-of-envelope input → no `niirs` metric."""
+        state = _make_state_with_metrics(snr=500.0)  # SNR above [2, 130]
+        out = _compute_niirs_metric(state, _make_niirs_params())
+
+        assert "niirs" not in out.metrics
+        assert out.metrics["niirs_extrapolated"] == 1.0
+        result = out.stage_outputs["performance"]["niirs_result"]
+        assert result.failure_reason is not None
+        assert "not applicable" in result.failure_reason
+        assert "allow_extrapolated" in result.failure_reason  # actionable
+        assert not result.applicable
+
+    @pytest.mark.level1
+    def test_out_of_envelope_gsd_is_na(self) -> None:
+        """Sub-envelope GSD (lab bench) gates too — the off-scale-score case."""
+        state = _make_state_with_metrics(gsd_along=0.001, gsd_cross=0.001)
+        out = _compute_niirs_metric(state, _make_niirs_params())
+        assert "niirs" not in out.metrics
+        assert not out.stage_outputs["performance"]["niirs_result"].applicable
+
+    @pytest.mark.level1
+    def test_value_still_inspectable_when_gated(self) -> None:
+        """Rule 16: the extrapolated number stays on the result object."""
+        state = _make_state_with_metrics(snr=500.0)
+        out = _compute_niirs_metric(state, _make_niirs_params())
+        result = out.stage_outputs["performance"]["niirs_result"]
+        direct = compute_niirs(0.5, 0.5, 0.7, 0.7, 500.0, band="vis")
+        assert result.niirs == pytest.approx(direct.niirs, rel=1e-10)
+
+    @pytest.mark.level1
+    def test_opt_in_restores_extrapolated_value(self) -> None:
+        """allow_extrapolated=True surfaces the value, still flagged."""
+        state = _make_state_with_metrics(snr=500.0)
+        out = _compute_niirs_metric(state, _make_niirs_params(allow_extrapolated=True))
+
+        assert "niirs" in out.metrics
+        assert out.metrics["niirs_extrapolated"] == 1.0
+        result = out.stage_outputs["performance"]["niirs_result"]
+        assert result.failure_reason is None
+        assert result.applicable
+        assert result.extrapolated
+
+    @pytest.mark.level1
+    def test_in_envelope_unaffected(self) -> None:
+        """Inside the envelope nothing changes: metric present, applicable."""
+        state = _make_state_with_metrics()
+        out = _compute_niirs_metric(state, _make_niirs_params())
+
+        assert "niirs" in out.metrics
+        assert out.metrics["niirs_extrapolated"] == 0.0
+        result = out.stage_outputs["performance"]["niirs_result"]
+        assert result.applicable
+        assert result.failure_reason is None
+
+    @pytest.mark.level1
+    def test_partial_fixture_defaults_strict(self) -> None:
+        """A ParameterSet without the new def gates strictly (no KeyError)."""
+        from radiant.spectral_integration._schema import FILTER_MAX_UM, FILTER_MIN_UM
+
+        ps = ParameterSet([FILTER_MIN_UM, FILTER_MAX_UM])
+        ps.set("spectral_integration.filter_min_um", 0.45)
+        ps.set("spectral_integration.filter_max_um", 0.70)
+        ps.resolve()
+        state = _make_state_with_metrics(snr=500.0)
+        out = _compute_niirs_metric(state, ps)
+        assert "niirs" not in out.metrics

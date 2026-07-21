@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-177 — GUI baselines that reference a data file serialize an absolute machine path (Rule 30 portability violation)
+
+**Discovered**: CU-170 pass, 2026-07-20 — regenerating in a worktree changed the embedded paths from `/Users/jforsyth/SSR_Tool/...` to `/Users/jforsyth/ssr-cu170/...`, breaking `verify_gui_yaml.py` once the worktree was removed (fixed by regenerating from the main tree, but the underlying non-portability remains).
+**Status**: Open.
+**File**: `scenarios/01_sarah_systems_engineer/1.1_mwir_maritime_surveillance/inputs/1.1_mwir_maritime_surveillance.gui.yaml` (`emissivity_path`), `scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/inputs/4.3_camouflage_effectiveness.gui.yaml` (`user_radiance_path`), and any other GUI baseline whose config references a file loader. Root cause is `Sensor.to_yaml(scope="inputs")` serializing the resolved **absolute** path for file-path parameters.
+**Symptom**: the committed `.gui.yaml` embeds `/Users/jforsyth/SSR_Tool/...` — the file loads only on this machine at this exact checkout path; the artifact is not portable to another user, another clone location, or Windows (Rule 30). `verify_gui_yaml.py` fails anywhere the absolute path does not exist.
+**Why it still matters**: the GUI baselines are meant to be portable `File -> Open YAML` artifacts (that is their whole purpose); an absolute path defeats it. Rule 30 forbids hardcoded absolute POSIX paths in committed files.
+**Suggested fix**: make the inputs-scope serializer emit repo-relative (or scenario-folder-relative) paths for file-path parameters, and have the loader resolve them relative to the YAML's location; regenerate the affected baselines. Effort S–M; category D. Related: [[CU-175]] (baseline regen), Rule 30.
+
 ### CU-176 — Scenario `walkthrough.md` narratives cite runner metric values (NIIRS, SNR, NEDT) stale vs the current engine
 
 **Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20 (worktree `cu170/fix`).

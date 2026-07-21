@@ -30,15 +30,6 @@
 **Why it still matters**: the documented pre-PR gate silently fails for anyone following CLAUDE.md verbatim — an agent could skip the import contract check believing the tool is broken.
 **Suggested fix**: (a) inline-fix-now, doc-only — update the invocation in CLAUDE.md (and grep for other copies). Effort S; category A.
 
-### CU-171 — `mypy --strict core+api` checks different effective scope in a worktree vs the primary checkout
-
-**Discovered**: CU-120 focused pass, 2026-07-20
-**Status**: Open
-**File**: `pyproject.toml` (`[tool.mypy]`); no source defect
-**Symptom**: `mypy --strict src/radiant/core src/radiant/api` reports Success (77 files, cold cache) in `/Users/jforsyth/SSR_Tool`, but the identical command at the identical commit in a fresh `git worktree` reports ~120 pre-existing errors in ~54 files — all in packages *outside* the gate (`gui`, `source`, `optics`, …). In the primary checkout the followed imports resolve through the editable install and their errors are suppressed; in a worktree they resolve as first-party source and are fully checked.
-**Why it still matters**: the multi-agent hygiene rules send agents into worktrees, where the gate appears to fail with a wall of out-of-scope errors — inviting either a misdiagnosis ("my change broke typing") or out-of-scope "fixes". The gate's meaning should not depend on which tree runs it.
-**Suggested fix**: (a) inline-fix-now — pin the scope in `[tool.mypy]` (e.g. `follow_imports = "silent"`, or explicit `files`/per-package `ignore_errors` overrides for the non-strict packages) so both trees report identically; alternatively document the worktree caveat next to the command in CLAUDE.md. Effort S; category A.
-
 ### CU-170 — 12 shipped scenario `.gui.yaml` baselines sit at a saturating operating point (full-well / ADC clip) — the nominal point is not warning-free
 
 **Discovered**: Warning-Free UX campaign saturation audit, 2026-07-19 (`docs/plans/Warning_Free_UX_Plan.md`).
@@ -161,6 +152,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-171 — `mypy --strict core+api` checks different effective scope in a worktree vs the primary checkout
+
+**Discovered**: CU-120 focused pass, 2026-07-20.
+**Status**: RESOLVED 2026-07-20, commit `c31996e`. **Resolution**: pinned `follow_imports = "silent"` in `[tool.mypy]` (with a rationale comment) — followed modules are still analyzed for type information but errors are reported only for the command-line files, so the gate is identical in any checkout. Verified: primary tree Success (78 files), fresh worktree Success (78 files, previously ~119 out-of-scope errors), and a negative probe (deliberate type error in `api/`) is still caught. Dev-tooling only — no CHANGELOG per R29.
+**File**: `pyproject.toml` (`[tool.mypy]`).
 
 ### CU-172 — `RADIANT_File_Tree.md` §`api/` lists 10 of 21 modules; header count stale
 

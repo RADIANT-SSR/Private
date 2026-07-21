@@ -1490,6 +1490,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Treat MWIR/LWIR `niirs` values as relative trend indicators only; `performance.niirs.allow_extrapolated=true` restores gated IR values where a trend is wanted. |
 ---
 
+## Gap 101: Charge-well/ADC saturation check misapplied to NETD-specified (bolometric) detectors
+
+| | |
+|---|---|
+| **Found in** | CU-170 saturating-baseline pass, 2026-07-20 (scenario 4.5). |
+| **Status** | OPEN — modeling gap; the readout saturation check has no notion of a thermal (bolometric) detector. |
+| **Description** | The signal chain always converts at-aperture flux to a photoelectron count and checks it against `readout.full_well_capacity_e` / the ADC full scale. For an uncooled microbolometer the "integration time" is the detector's **thermal time constant** (scenario 4.5: 16 ms, the frame at which NETD is quoted) and the device measures a resistance change, not accumulated charge — so the photoelectron count is not a physical well fill. At 4.5's 16 ms frame the photon-model signal is ~5.5×10⁹ e⁻, which is 55× the schema's maximum `full_well_capacity_e` (1×10⁸ e⁻): there is **no** valid parameter re-center that makes the charge-well check pass, because the check itself does not apply to this detector class. The scenario's real detection metric is the ΔT-vs-NETD threshold, which is independent of the (inapplicable) well/ADC clip. |
+| **Impact** | Scenario 4.5 (microbolometer UAV altitude trade) evaluates with a `full well saturated` / `pixel saturated` warning at its correct nominal operating point, violating the warning-free-for-valid-scenarios bar (CU-166 principle). Any NETD-specified/bolometric configuration on a warm scene will trip the same false saturation. The reported SNR for such a config is a photon-FPA quantity that has no bolometric meaning. |
+| **Suggested fix** | Stand-alone Category C task: give the detector a `readout_type` / detector-class notion so a bolometric detector (a) skips the charge-well saturation check (or checks against a bolometric dynamic-range limit instead) and (b) either suppresses or reinterprets the electron-count SNR path. Coordinates with the broader warning-site audit (CU-166 approach 4). |
+| **Workaround** | Read 4.5's ΔT-vs-NETD detection verdict, not its SNR/well status; the saturation warning is a known false positive documented in `scenarios/04_lisa_analyst/4.5_altitude_trade_uav/walkthrough.md`. |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1593,6 +1605,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 97 | `sub_pixel` regime ignores `projected_area_m2`; signal driven by `fill_fraction` (default 1.0) → area does nothing, extended-scene signal | M | Sub-pixel targets specified by radiance+area (maritime 1.1, others) | FIXED 2026-07-18 (db227b0) |
 | 98 | Point-source workflow doesn't steer to intensity (blackbody+zero-area trap, range re-spec, no GUI); convenience intensity inputs added | M | Point-source / SDA / star-tracker | FIXED 2026-07-18 (d560507/1a913d6/7b98d69) |
 | 100 | No real IIRS — MWIR/LWIR interpretability reuses GIQE-5 verbatim (formula, envelope, labels) | M-L | Every MWIR/LWIR scenario consuming niirs | OPEN |
+| 101 | Charge-well/ADC saturation check misapplied to NETD-specified (bolometric) detectors | M-L | 4.5 + any bolometric config on a warm scene | OPEN |
 
 ---
 

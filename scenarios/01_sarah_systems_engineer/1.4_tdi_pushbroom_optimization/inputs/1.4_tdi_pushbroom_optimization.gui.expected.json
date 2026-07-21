@@ -6,5 +6,5 @@
     "nedt_K": 0.0763937370865813,
     "niirs": 5.090186495807513
   },
-  "notes": "Runner's module-level base_config (nominal); the N_tdi sweep varies from here."
+  "notes": "Runner's module-level base_config (nominal); the N_tdi sweep varies from here. NIIRS is the scenario's headline trade metric, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

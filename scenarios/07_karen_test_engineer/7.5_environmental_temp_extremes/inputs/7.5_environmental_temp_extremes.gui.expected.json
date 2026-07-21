@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 828.5945858529299,
     "nedt_K": 0.03343581720337134,
-    "niirs": 21.7677674573367
+    "niirs": null
   },
   "notes": "Nominal 77 K detector (dark 5e4 e-/s, QE 0.78)."
 }

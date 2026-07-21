@@ -2,9 +2,9 @@
   "id": "5.5",
   "title": "Stray light \u2014 clean (no veiling glare) baseline",
   "metrics": {
-    "snr": 546.7204409777512,
-    "nedt_K": 0.007225181581761992,
-    "niirs": 11.052477432475984
+    "snr": 473.46230424641453,
+    "nedt_K": 0.008371370168153869,
+    "niirs": null
   },
-  "notes": "Rooftop target reflectance, zero veiling-glare (clean reference)."
+  "notes": "Rooftop target reflectance, zero veiling-glare (clean reference). GUI baseline shortens integration to 1 ms (well ~75% vs 3.75x over-full at the runner's 5 ms) and uses a well-matched gain (8 e-/DN) so neither the 0.3 Me- well nor the 16-bit ADC clips (CU-170). NIIRS stays absent \u2014 the extrapolated rating (>11 at SNR ~470) is outside any physical NIIRS range, so it is not opted in (CU-166)."
 }

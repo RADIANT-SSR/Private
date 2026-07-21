@@ -6,5 +6,5 @@
     "nedt_K": 0.032543429850079936,
     "niirs": 5.810439351874457
   },
-  "notes": "Runner's module-level base_config (nadir); the sweep varies path zenith."
+  "notes": "Runner's module-level base_config (nadir); the sweep varies path zenith. NIIRS-vs-off-nadir is the headline trade, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

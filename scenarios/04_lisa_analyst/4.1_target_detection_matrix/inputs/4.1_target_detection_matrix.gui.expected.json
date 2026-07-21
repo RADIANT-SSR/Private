@@ -2,9 +2,9 @@
   "id": "4.1",
   "title": "Target detection matrix \u2014 Sensor A (MWIR smallsat)",
   "metrics": {
-    "snr": 893.7141444623255,
-    "nedt_K": 0.030895655346022545,
-    "niirs": 3.9204458541180975
+    "snr": 613.9111621754103,
+    "nedt_K": 0.044940849094553856,
+    "niirs": null
   },
-  "notes": "Reuses the committed sensor_a_mwir_smallsat.yaml (this scenario ships YAML)."
+  "notes": "Reuses the committed sensor_a_mwir_smallsat.yaml (this scenario ships YAML). GUI baseline shortens integration to 1.5 ms (well ~47% vs 1.26x over-full at the runner's 4 ms) and uses a well-matched gain (48 e-/DN) so neither the 0.8 Me- well nor the 14-bit ADC clips. The committed sensor YAML + the scenario's figures are left untouched (the detection verdict is clutter-limited SCNR, not well-limited), so only the GUI baseline is re-centered (CU-170)."
 }

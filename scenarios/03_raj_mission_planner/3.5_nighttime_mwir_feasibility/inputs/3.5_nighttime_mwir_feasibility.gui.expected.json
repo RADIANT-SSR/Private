@@ -2,9 +2,9 @@
   "id": "3.5",
   "title": "Nighttime MWIR feasibility \u2014 MWIR thermal-emission pixel",
   "metrics": {
-    "snr": 308.4005435930497,
-    "nedt_K": 0.08829194683208949,
-    "niirs": 11.088650686276821
+    "snr": 305.17052296125553,
+    "nedt_K": 0.08922645651907236,
+    "niirs": null
   },
-  "notes": "MWIR band, nominal target/background thermal temperatures."
+  "notes": "MWIR band, nominal target/background thermal temperatures. The 0.2 ms / 1e7 e- well is deliberately sized so neither band saturates (well OK); the GUI baseline adds a well-matched gain (160 e-/DN) so the 16-bit ADC no longer clips (CU-170)."
 }

@@ -25,6 +25,7 @@ optics:
   transmission_scalar: 0.8
 readout:
   full_well_capacity_e: 300000.0
+  gain_e_per_dn: 8.0
   read_noise_e_rms: 30.0
 source:
   scene_type: extended
@@ -33,4 +34,4 @@ source:
 spectral_integration:
   filter_max_um: 0.8
   filter_min_um: 0.5
-  integration_time_s: 0.005
+  integration_time_s: 0.001

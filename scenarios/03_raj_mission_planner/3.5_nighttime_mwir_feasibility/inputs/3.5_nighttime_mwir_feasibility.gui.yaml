@@ -19,6 +19,7 @@ optics:
   focal_length_m: 1.2
 readout:
   full_well_capacity_e: 10000000.0
+  gain_e_per_dn: 160.0
   read_noise_e_rms: 50.0
 source:
   contrast_reference:

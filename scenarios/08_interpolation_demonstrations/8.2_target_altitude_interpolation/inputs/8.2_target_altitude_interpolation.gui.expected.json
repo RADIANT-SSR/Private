@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 1088.189700687396,
     "nedt_K": 0.040533771844400074,
-    "niirs": 7.244229731001272
+    "niirs": null
   },
   "notes": "Nominal LWIR chain; SimpleAtmosphere (tape7 family not portable)."
 }

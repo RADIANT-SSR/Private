@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 2048.7702821652215,
     "nedt_K": 0.02738217079029891,
-    "niirs": 22.093957564375764
+    "niirs": null
   },
   "notes": "Runner's default make_config (no flicker); the sweep varies frame rate."
 }

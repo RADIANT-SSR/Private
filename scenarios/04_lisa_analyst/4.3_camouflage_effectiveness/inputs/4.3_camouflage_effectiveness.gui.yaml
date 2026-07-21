@@ -30,7 +30,7 @@ source:
   regime_override: extended
   scene_type: extended
   target:
-    user_radiance_path: /Users/jforsyth/SSR_Tool/scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/outputs/derived/L_bare_vehicle.csv
+    user_radiance_path: /Users/jforsyth/ssr-cu170/scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/outputs/derived/L_bare_vehicle.csv
 spectral_integration:
   filter_max_um: 12.0
   filter_min_um: 8.0

@@ -22,6 +22,9 @@ optics:
   optics_temperature_K: 293.15
   transmission_scalar: 0.7
   wfe_rms_waves: 0.05
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   adc_bits: 14
   full_well_capacity_e: 60000.0

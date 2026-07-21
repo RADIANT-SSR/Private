@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 1280.5215443331604,
     "nedt_K": 0.021788937856408033,
-    "niirs": 11.119040345999261
+    "niirs": null
   },
-  "notes": "Runner's module-level verification sensor."
+  "notes": "Runner's module-level verification sensor. GUI baseline widens the ADC to 21 bits (from 14) so the bright MWIR signal (~1.6 Me-) fits the ADC range instead of clipping; gain stays 1.0 e-/DN, so every verified noise term \u2014 quantization = gain/sqrt(12) = 0.289 e- included \u2014 is bit-identical to the runner (CU-170)."
 }

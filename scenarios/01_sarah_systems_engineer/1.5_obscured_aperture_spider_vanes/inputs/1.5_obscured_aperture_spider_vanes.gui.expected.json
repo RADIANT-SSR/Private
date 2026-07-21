@@ -2,9 +2,9 @@
   "id": "1.5",
   "title": "Obscured aperture \u2014 30% obscuration, 4 spiders, 1 cm vanes",
   "metrics": {
-    "snr": 84.03810237080285,
-    "nedt_K": 0.04233918061306485,
-    "niirs": 6.841030844012229
+    "snr": 82.05484627649514,
+    "nedt_K": 0.043318392724630415,
+    "niirs": 6.824860894416752
   },
   "notes": "Baseline central obscuration with a 4-vane spider (1 cm width)."
 }

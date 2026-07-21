@@ -18,10 +18,13 @@ optics:
   aperture_diameter_m: 0.3
   focal_length_m: 1.2
   transmission_scalar: 0.82
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   adc_bits: 14
   full_well_capacity_e: 6000000.0
-  gain_e_per_dn: 20.0
+  gain_e_per_dn: 400.0
   read_noise_e_rms: 25.0
 source:
   scene_type: extended

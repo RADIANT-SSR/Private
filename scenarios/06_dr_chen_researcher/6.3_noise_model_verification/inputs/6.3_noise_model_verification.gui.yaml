@@ -18,7 +18,7 @@ optics:
   optics_temperature_K: 293.0
   transmission_scalar: 0.7000000000000001
 readout:
-  adc_bits: 14
+  adc_bits: 21
   full_well_capacity_e: 2000000.0
   gain_e_per_dn: 1.0
   read_noise_e_rms: 20.0

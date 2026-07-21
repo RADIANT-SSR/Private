@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 378.1397962476437,
     "nedt_K": 0.07344183160343579,
-    "niirs": 23.228981357849676
+    "niirs": null
   },
   "notes": "Nominal (primary) target temperature 298.15 K (25 C)."
 }

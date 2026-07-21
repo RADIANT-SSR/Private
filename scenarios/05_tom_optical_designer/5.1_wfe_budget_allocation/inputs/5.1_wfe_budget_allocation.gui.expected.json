@@ -6,5 +6,5 @@
     "nedt_K": 0.01606462157273579,
     "niirs": 6.615915236727959
   },
-  "notes": "Runner's module-level base_config; the sweep varies WFE RMS."
+  "notes": "Runner's module-level base_config; the sweep varies WFE RMS. NIIRS-vs-WFE is the headline budget metric, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

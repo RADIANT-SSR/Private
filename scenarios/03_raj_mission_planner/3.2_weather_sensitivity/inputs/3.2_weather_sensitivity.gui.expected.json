@@ -2,9 +2,9 @@
   "id": "3.2",
   "title": "Weather sensitivity \u2014 baseline clear atmosphere",
   "metrics": {
-    "snr": 432.33421530706937,
-    "nedt_K": 0.06477472239351557,
-    "niirs": 4.388820939311045
+    "snr": 437.70126386836296,
+    "nedt_K": 0.06394474851820876,
+    "niirs": 4.397174362678377
   },
-  "notes": "Runner's baseline visibility and precipitable-water values."
+  "notes": "Runner's baseline visibility and precipitable-water values. NIIRS-vs-weather is the scenario's headline, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

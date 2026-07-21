@@ -2,9 +2,9 @@
   "id": "3.3",
   "title": "Multi-sensor comparison \u2014 Vendor A baseline",
   "metrics": {
-    "snr": 1035.4145252915391,
-    "nedt_K": 0.026521245373053934,
-    "niirs": 4.750043739923193
+    "snr": 1029.0588732869803,
+    "nedt_K": 0.02668504533697654,
+    "niirs": 4.745874925018074
   },
-  "notes": "Vendor A of the three-vendor comparison (transcribes evaluate_vendor)."
+  "notes": "Vendor A of the three-vendor comparison (transcribes evaluate_vendor). GUI baseline uses a well-matched gain (400 e-/DN vs Vendor A's 20) so the 14-bit ADC spans the 6 Me- well at the 8 ms point instead of clipping; NIIRS is a per-vendor comparison column, so allow_extrapolated=true keeps the rating (CU-170/CU-166)."
 }

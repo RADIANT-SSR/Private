@@ -21,7 +21,7 @@ optics:
 readout:
   adc_bits: 14
   full_well_capacity_e: 800000.0
-  gain_e_per_dn: 12.0
+  gain_e_per_dn: 48.0
   read_noise_e_rms: 35.0
 source:
   target:
@@ -30,4 +30,4 @@ source:
 spectral_integration:
   filter_max_um: 4.9
   filter_min_um: 3.6
-  integration_time_s: 0.004
+  integration_time_s: 0.0015

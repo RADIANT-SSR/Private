@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 1016.6657236998514,
     "nedt_K": 0.027667192976565044,
-    "niirs": 22.831069878238985
+    "niirs": null
   },
   "notes": "Nominal 300 K scene temperature at the 1 ms comparison integration time."
 }

@@ -21,7 +21,7 @@ optics:
 readout:
   adc_bits: 14
   full_well_capacity_e: 10000000.0
-  gain_e_per_dn: 5.0
+  gain_e_per_dn: 640.0
   read_noise_e_rms: 60.0
 source:
   scene_type: extended

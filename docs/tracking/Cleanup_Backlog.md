@@ -30,15 +30,6 @@
 **Why it still matters**: the documented pre-PR gate silently fails for anyone following CLAUDE.md verbatim — an agent could skip the import contract check believing the tool is broken.
 **Suggested fix**: (a) inline-fix-now, doc-only — update the invocation in CLAUDE.md (and grep for other copies). Effort S; category A.
 
-### CU-172 — `RADIANT_File_Tree.md` §`api/` lists 10 of 21 modules; header count stale
-
-**Discovered**: CU-120 focused pass (R20 doc edit), 2026-07-20
-**Status**: Open
-**File**: `docs/architecture/RADIANT_File_Tree.md` (`### api/` section)
-**Symptom**: the section is headed "9 source + 7 tests" and lists 10 modules (after CU-120 added `geometry_modes.py`), but `src/radiant/api/` holds 21: `_progress.py`, `batch.py`, `calibration_analysis.py`, `compare.py`, `config_io.py`, `error_budget.py`, `errors.py`, `metric_groups.py`, `solve.py`, and `stage_output_units.py` are absent — including the two existing public re-export bridges (`metric_groups`, `stage_output_units`) the CU-120 design leaned on as precedent.
-**Why it still matters**: R20 aspirational-doc drift — the doc presents itself as the package file tree, so a reader (or agent) planning api-layer work from it sees half the surface and can re-invent an existing module.
-**Suggested fix**: (a) inline-fix-now, doc-only — regenerate the `api/` listing with one-line comments and correct the counts (and spot-check the other per-package counts in the same pass). Effort S; category A.
-
 ### CU-171 — `mypy --strict core+api` checks different effective scope in a worktree vs the primary checkout
 
 **Discovered**: CU-120 focused pass, 2026-07-20
@@ -170,6 +161,12 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-172 — `RADIANT_File_Tree.md` §`api/` lists 10 of 21 modules; header count stale
+
+**Discovered**: CU-120 focused pass (R20 doc edit), 2026-07-20.
+**Status**: RESOLVED 2026-07-20, commit `56902e0`. **Resolution**: regenerated the `api/` listing — all 20 source modules with one-line comments (adds batch, solve, error_budget, calibration_analysis, compare, metric_groups, stage_output_units, config_io, errors, _progress), header "20 source + 13 tests", summary-table row 19→20, top-of-doc file counts refreshed against the doc's own `find` command (584 files: 323 source + 219 test + 42 init), regeneration date stamped. Doc-only (no CHANGELOG per R29).
+**File**: `docs/architecture/RADIANT_File_Tree.md`.
 
 ### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure)
 

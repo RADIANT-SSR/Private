@@ -21,6 +21,25 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting: 11 saturating GUI-baseline scenarios re-centered to a
+  warning-free operating point, and all 34 `.gui.expected.json` baselines refreshed
+  (CU-170 + CU-166 item iv; CU-175).** The shipped GUI baselines for `2.3, 3.3, 3.5,
+  4.1, 4.4, 5.2, 5.3, 5.5, 6.1, 6.3, 7.4` captured a mid-sweep point that clipped the
+  full well and/or the ADC. Each is re-centered on the GUI baseline only (the validated
+  runner sweeps are unchanged): ADC-only clips get a well-matched `readout.gain_e_per_dn`
+  (or, for `6.3`, `adc_bits` 14→21 so the verified `gain=1.0` and every noise term stay
+  bit-identical); well clips additionally shorten integration time (`4.1` 4→1.5 ms,
+  `5.2`/`5.3` 2→1 ms, `5.5` 5→1 ms). Direction/magnitude: these baselines now report
+  unclipped SNR/NEDT (mostly higher SNR than the clipped values, ±small from added
+  quantization noise). Separately, every baseline's snapshot was refreshed for (a) the
+  CU-166 gate — `niirs` drops to N/A on out-of-envelope configs, with
+  `performance.niirs.allow_extrapolated=true` opted in for the five NIIRS-headline
+  scenarios (`1.4, 3.2, 3.3, 3.4, 5.1`) — and (b) post-2026-07-18 physics drift (Gap 38
+  VNIR scattered-sky; CU-155/157/161 + Gap 94/95 MWIR/LWIR recalibration), which had
+  never been re-snapshotted (e.g. `1.1` SNR 526→794, +51%, from the gas-band
+  recalibration). `verify_gui_yaml.py` is now 34/34; 32/34 evaluate fully warning-free.
+  `4.5` is deliberately **not** re-centered — its saturation is a photon-FPA charge-well
+  check misapplied to a bolometric detector (Gap 101), documented in its walkthrough.
 - **Results-affecting: NIIRS/IIRS is now N/A when outside the GIQE-5 calibration
   envelope (CU-166 approach 2; owner-ratified strict refusal).** When any GIQE-5 input
   (GSD 1.18–31.5 inch, RER 0.2–0.95, SNR 2–130) is out of range, the `niirs` metric is no

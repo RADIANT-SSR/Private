@@ -94,6 +94,25 @@ def runner_factory(
     return _build
 
 
+def _recenter(sensor: Sensor, overrides: dict[str, object]) -> Sensor:
+    """Apply GUI-baseline re-center overrides to a runner-built ``Sensor``.
+
+    CU-170 / CU-166(iv): a handful of GUI baselines captured a *saturating*
+    mid-sweep point (full-well / ADC clip), and the CU-166 applicability gate
+    now returns NIIRS N/A outside the GIQE-5 envelope. This applies the
+    owner-approved re-center (raise ADC gain/bits to a well-matched value, or
+    shorten integration time so the nominal point no longer clips) and/or the
+    ``performance.niirs.allow_extrapolated`` opt-in for walkthroughs whose story
+    is a NIIRS trend. The override is on the *GUI baseline only* — the validated
+    runner sweep is unchanged; each move is documented in the scenario
+    walkthrough and ``notes``.
+    """
+
+    for dotpath, value in overrides.items():
+        sensor.set(dotpath, value)
+    return sensor
+
+
 # ---------------------------------------------------------------------------
 # Inline baseline builders for runners with no importable factory. Each
 # transcribes the runner's *nominal* config (or, for MODTRAN-interpolation
@@ -313,9 +332,16 @@ REGISTRY: list[GuiScenario] = [
             "01_sarah_systems_engineer",
             "1.4_tdi_pushbroom_optimization",
             "run_tdi_pushbroom_trade.py",
-            lambda m: Sensor.from_dict(m.base_config),
+            lambda m: _recenter(
+                Sensor.from_dict(m.base_config),
+                {"performance.niirs.allow_extrapolated": True},
+            ),
         ),
-        notes="Runner's module-level base_config (nominal); the N_tdi sweep varies from here.",
+        notes=(
+            "Runner's module-level base_config (nominal); the N_tdi sweep varies from here. "
+            "NIIRS is the scenario's headline trade metric, so allow_extrapolated=true opts "
+            "the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
+        ),
     ),
     GuiScenario(
         id="1.5",
@@ -366,9 +392,16 @@ REGISTRY: list[GuiScenario] = [
             "02_mike_detector_engineer",
             "2.3_ipc_impact_on_mtf",
             "run_ipc_sweep.py",
-            lambda m: Sensor.from_dict(m.make_ipc_config(0.02)),
+            lambda m: _recenter(
+                Sensor.from_dict(m.make_ipc_config(0.02)),
+                {"readout.gain_e_per_dn": 110.0},
+            ),
         ),
-        notes="Nominal 2% inter-pixel capacitance fraction.",
+        notes=(
+            "Nominal 2% inter-pixel capacitance fraction. GUI baseline uses a well-matched "
+            "gain (110 e-/DN vs the runner's 1.2) so the 14-bit ADC spans the 1.8 Me- well "
+            "instead of clipping the signal (CU-170)."
+        ),
     ),
     GuiScenario(
         id="2.5",
@@ -408,9 +441,16 @@ REGISTRY: list[GuiScenario] = [
             "03_raj_mission_planner",
             "3.2_weather_sensitivity",
             "run_weather_sensitivity.py",
-            lambda m: Sensor.from_dict(m.make_config(m.baseline_vis_km, m.baseline_pwv_cm)),
+            lambda m: _recenter(
+                Sensor.from_dict(m.make_config(m.baseline_vis_km, m.baseline_pwv_cm)),
+                {"performance.niirs.allow_extrapolated": True},
+            ),
         ),
-        notes="Runner's baseline visibility and precipitable-water values.",
+        notes=(
+            "Runner's baseline visibility and precipitable-water values. NIIRS-vs-weather is "
+            "the scenario's headline, so allow_extrapolated=true opts the baseline into the "
+            "GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
+        ),
     ),
     GuiScenario(
         id="3.3",
@@ -421,9 +461,20 @@ REGISTRY: list[GuiScenario] = [
             "03_raj_mission_planner",
             "3.3_multi_sensor_comparison",
             "run_sensor_comparison.py",
-            _build_3_3_vendor_a,
+            lambda m: _recenter(
+                _build_3_3_vendor_a(m),
+                {
+                    "readout.gain_e_per_dn": 400.0,
+                    "performance.niirs.allow_extrapolated": True,
+                },
+            ),
         ),
-        notes="Vendor A of the three-vendor comparison (transcribes evaluate_vendor).",
+        notes=(
+            "Vendor A of the three-vendor comparison (transcribes evaluate_vendor). GUI "
+            "baseline uses a well-matched gain (400 e-/DN vs Vendor A's 20) so the 14-bit ADC "
+            "spans the 6 Me- well at the 8 ms point instead of clipping; NIIRS is a per-vendor "
+            "comparison column, so allow_extrapolated=true keeps the rating (CU-170/CU-166)."
+        ),
     ),
     GuiScenario(
         id="3.4",
@@ -434,9 +485,16 @@ REGISTRY: list[GuiScenario] = [
             "03_raj_mission_planner",
             "3.4_off_nadir_agility",
             "run_off_nadir_agility.py",
-            lambda m: Sensor.from_dict(m.base_config),
+            lambda m: _recenter(
+                Sensor.from_dict(m.base_config),
+                {"performance.niirs.allow_extrapolated": True},
+            ),
         ),
-        notes="Runner's module-level base_config (nadir); the sweep varies path zenith.",
+        notes=(
+            "Runner's module-level base_config (nadir); the sweep varies path zenith. NIIRS-vs-"
+            "off-nadir is the headline trade, so allow_extrapolated=true opts the baseline into "
+            "the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
+        ),
     ),
     GuiScenario(
         id="3.5",
@@ -447,9 +505,16 @@ REGISTRY: list[GuiScenario] = [
             "03_raj_mission_planner",
             "3.5_nighttime_mwir_feasibility",
             "run_nighttime_feasibility.py",
-            lambda m: m.build(m.BANDS["MWIR"], m.T_TARGET_K, m.E_TARGET, m.T_BG_K),
+            lambda m: _recenter(
+                m.build(m.BANDS["MWIR"], m.T_TARGET_K, m.E_TARGET, m.T_BG_K),
+                {"readout.gain_e_per_dn": 160.0},
+            ),
         ),
-        notes="MWIR band, nominal target/background thermal temperatures.",
+        notes=(
+            "MWIR band, nominal target/background thermal temperatures. The 0.2 ms / 1e7 e- "
+            "well is deliberately sized so neither band saturates (well OK); the GUI baseline "
+            "adds a well-matched gain (160 e-/DN) so the 16-bit ADC no longer clips (CU-170)."
+        ),
     ),
     # -- 04 Lisa — analyst --------------------------------------------------
     GuiScenario(
@@ -457,14 +522,27 @@ REGISTRY: list[GuiScenario] = [
         persona="04_lisa_analyst",
         slug="4.1_target_detection_matrix",
         title="Target detection matrix — Sensor A (MWIR smallsat)",
-        build=lambda: Sensor.from_yaml(
-            SCENARIOS
-            / "04_lisa_analyst"
-            / "4.1_target_detection_matrix"
-            / "inputs"
-            / "sensor_a_mwir_smallsat.yaml"
+        build=lambda: _recenter(
+            Sensor.from_yaml(
+                SCENARIOS
+                / "04_lisa_analyst"
+                / "4.1_target_detection_matrix"
+                / "inputs"
+                / "sensor_a_mwir_smallsat.yaml"
+            ),
+            {
+                "spectral_integration.integration_time_s": 0.0015,
+                "readout.gain_e_per_dn": 48.0,
+            },
         ),
-        notes="Reuses the committed sensor_a_mwir_smallsat.yaml (this scenario ships YAML).",
+        notes=(
+            "Reuses the committed sensor_a_mwir_smallsat.yaml (this scenario ships YAML). GUI "
+            "baseline shortens integration to 1.5 ms (well ~47% vs 1.26x over-full at the "
+            "runner's 4 ms) and uses a well-matched gain (48 e-/DN) so neither the 0.8 Me- well "
+            "nor the 14-bit ADC clips. The committed sensor YAML + the scenario's figures are "
+            "left untouched (the detection verdict is clutter-limited SCNR, not well-limited), "
+            "so only the GUI baseline is re-centered (CU-170)."
+        ),
     ),
     GuiScenario(
         id="4.3",
@@ -495,9 +573,16 @@ REGISTRY: list[GuiScenario] = [
             "04_lisa_analyst",
             "4.4_time_of_day_analysis",
             "run_diurnal_analysis.py",
-            lambda m: m.build_pixel(300.0, 0.9),
+            lambda m: _recenter(
+                m.build_pixel(300.0, 0.9),
+                {"readout.gain_e_per_dn": 400.0},
+            ),
         ),
-        notes="Nominal 300 K surface, emissivity 0.9.",
+        notes=(
+            "Nominal 300 K surface, emissivity 0.9. The 0.1 ms integration keeps the well "
+            "~43% full (linear contrast); the GUI baseline adds a well-matched gain "
+            "(400 e-/DN) so the 14-bit ADC spans the 6 Me- well instead of clipping (CU-170)."
+        ),
     ),
     GuiScenario(
         id="4.5",
@@ -510,7 +595,14 @@ REGISTRY: list[GuiScenario] = [
             "run_uav_altitude_trade.py",
             lambda m: m.build_sensor(2000.0),
         ),
-        notes="Runner's reference altitude (2 km).",
+        notes=(
+            "Runner's reference altitude (2 km). NOT re-centered: the 16 ms frame is the "
+            "microbolometer's thermal time constant (NETD is quoted at it) and cannot move, "
+            "while the photon-model signal (~5.5e9 e-) is 55x the schema's max full well — so "
+            "the well/ADC saturation warning is a photon-FPA check misapplied to a bolometer, "
+            "not a re-centerable operating point. See Gap 101; the scenario's real metric is "
+            "the delta-T-vs-NETD detection threshold, which is unaffected (CU-170)."
+        ),
     ),
     # -- 05 Tom — optical designer -----------------------------------------
     GuiScenario(
@@ -522,9 +614,16 @@ REGISTRY: list[GuiScenario] = [
             "05_tom_optical_designer",
             "5.1_wfe_budget_allocation",
             "run_wfe_budget_trade.py",
-            lambda m: Sensor.from_dict(m.base_config),
+            lambda m: _recenter(
+                Sensor.from_dict(m.base_config),
+                {"performance.niirs.allow_extrapolated": True},
+            ),
         ),
-        notes="Runner's module-level base_config; the sweep varies WFE RMS.",
+        notes=(
+            "Runner's module-level base_config; the sweep varies WFE RMS. NIIRS-vs-WFE is the "
+            "headline budget metric, so allow_extrapolated=true opts the baseline into the "
+            "GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
+        ),
     ),
     GuiScenario(
         id="5.2",
@@ -535,9 +634,19 @@ REGISTRY: list[GuiScenario] = [
             "05_tom_optical_designer",
             "5.2_pixel_pitch_optimization",
             "run_pixel_pitch_sweep.py",
-            _build_5_2_nominal,
+            lambda m: _recenter(
+                _build_5_2_nominal(m),
+                {
+                    "spectral_integration.integration_time_s": 0.001,
+                    "readout.gain_e_per_dn": 32.0,
+                },
+            ),
         ),
-        notes="Middle pixel-pitch row of the sweep (transcribes the loop body).",
+        notes=(
+            "Middle pixel-pitch row of the sweep (transcribes the loop body). GUI baseline "
+            "shortens integration to 1 ms (well ~52% vs clipping at the runner's 2 ms) and "
+            "uses a well-matched gain (32 e-/DN) so the 14-bit ADC no longer clips (CU-170)."
+        ),
     ),
     GuiScenario(
         id="5.3",
@@ -548,9 +657,19 @@ REGISTRY: list[GuiScenario] = [
             "05_tom_optical_designer",
             "5.3_mono_vs_poly_psf",
             "run_chromatic_psf_comparison.py",
-            lambda m: Sensor.from_dict(m.make_config(m.band_min_um, m.band_max_um, 1)),
+            lambda m: _recenter(
+                Sensor.from_dict(m.make_config(m.band_min_um, m.band_max_um, 1)),
+                {
+                    "spectral_integration.integration_time_s": 0.001,
+                    "readout.gain_e_per_dn": 32.0,
+                },
+            ),
         ),
-        notes="Single-wavelength (mono) PSF baseline; poly variant raises psf_n_wavelengths.",
+        notes=(
+            "Single-wavelength (mono) PSF baseline; poly variant raises psf_n_wavelengths. GUI "
+            "baseline shortens integration to 1 ms (well ~52%) and uses a well-matched gain "
+            "(32 e-/DN) so the 14-bit ADC no longer clips at the runner's 2 ms point (CU-170)."
+        ),
     ),
     GuiScenario(
         id="5.4",
@@ -574,9 +693,21 @@ REGISTRY: list[GuiScenario] = [
             "05_tom_optical_designer",
             "5.5_stray_light_veiling_glare",
             "run_straylight_analysis.py",
-            lambda m: m.build(m.RHO_TARGET),
+            lambda m: _recenter(
+                m.build(m.RHO_TARGET),
+                {
+                    "spectral_integration.integration_time_s": 0.001,
+                    "readout.gain_e_per_dn": 8.0,
+                },
+            ),
         ),
-        notes="Rooftop target reflectance, zero veiling-glare (clean reference).",
+        notes=(
+            "Rooftop target reflectance, zero veiling-glare (clean reference). GUI baseline "
+            "shortens integration to 1 ms (well ~75% vs 3.75x over-full at the runner's 5 ms) "
+            "and uses a well-matched gain (8 e-/DN) so neither the 0.3 Me- well nor the 16-bit "
+            "ADC clips (CU-170). NIIRS stays absent — the extrapolated rating (>11 at SNR ~470) "
+            "is outside any physical NIIRS range, so it is not opted in (CU-166)."
+        ),
     ),
     # -- 06 Dr Chen — researcher -------------------------------------------
     GuiScenario(
@@ -588,9 +719,17 @@ REGISTRY: list[GuiScenario] = [
             "06_dr_chen_researcher",
             "6.1_published_snr_benchmark",
             "run_datasheet_benchmark.py",
-            lambda m: m.build_sensor(),
+            lambda m: _recenter(
+                m.build_sensor(),
+                {"readout.gain_e_per_dn": 640.0},
+            ),
         ),
-        notes="Fixed datasheet-benchmark configuration.",
+        notes=(
+            "Fixed datasheet-benchmark configuration. The 30 us integration is chosen to stay "
+            "unsaturated on the intense LWIR flux (well ~61%); the GUI baseline adds a "
+            "well-matched gain (640 e-/DN) so the 14-bit ADC spans the 1e7 e- well instead of "
+            "clipping (CU-170)."
+        ),
     ),
     GuiScenario(
         id="6.2",
@@ -614,9 +753,17 @@ REGISTRY: list[GuiScenario] = [
             "06_dr_chen_researcher",
             "6.3_noise_model_verification",
             "run_verification.py",
-            lambda m: m.sensor,
+            lambda m: _recenter(
+                m.sensor,
+                {"readout.adc_bits": 21},
+            ),
         ),
-        notes="Runner's module-level verification sensor.",
+        notes=(
+            "Runner's module-level verification sensor. GUI baseline widens the ADC to 21 bits "
+            "(from 14) so the bright MWIR signal (~1.6 Me-) fits the ADC range instead of "
+            "clipping; gain stays 1.0 e-/DN, so every verified noise term — quantization = "
+            "gain/sqrt(12) = 0.289 e- included — is bit-identical to the runner (CU-170)."
+        ),
     ),
     GuiScenario(
         id="6.4",
@@ -686,9 +833,16 @@ REGISTRY: list[GuiScenario] = [
             "07_karen_test_engineer",
             "7.4_cold_stop_sweep",
             "run_cold_stop_sweep.py",
-            lambda m: Sensor.from_dict(m.config),
+            lambda m: _recenter(
+                Sensor.from_dict(m.config),
+                {"readout.gain_e_per_dn": 512.0},
+            ),
         ),
-        notes="Runner's module-level baseline config; the sweep varies cold-stop f-number.",
+        notes=(
+            "Runner's module-level baseline config; the sweep varies cold-stop f-number. GUI "
+            "baseline uses a well-matched gain (512 e-/DN vs the runner's 2.5) so the 14-bit "
+            "ADC spans the 8.5 Me- well instead of clipping (CU-170)."
+        ),
     ),
     GuiScenario(
         id="7.5",

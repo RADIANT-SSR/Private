@@ -93,6 +93,19 @@ NETD spec is simply the practical way vendors carry that sensitivity.
 - **Detection floor = 4 × NETD** is a recognition-grade SNR threshold; a
   detection-only task (≈2 × NETD) would push the ceiling higher.
 
+**Known false saturation warning (Gap 101).** Evaluating this scenario emits a
+`ReadoutStage: full well saturated` / `pixel saturated` warning. This is a
+**modeling artifact, not a real clip of this detector**: the signal chain
+converts flux to a photoelectron count and checks it against a charge-well
+capacity, but an uncooled microbolometer is a *thermal* (bolometric) detector —
+it measures a resistance change over its 16 ms thermal frame, not accumulated
+charge. At that physically-required frame the photon-model count is ~5.5 × 10⁹
+e⁻, which is 55× the schema's maximum `full_well_capacity_e` (1 × 10⁸ e⁻), so
+there is no parameter re-center that clears the (inapplicable) check. The
+scenario's actual metric — the ΔT-vs-NETD detection threshold — is independent
+of the well/ADC path and is unaffected. Tracked as **Gap 101**; the SNR value
+this baseline reports is a photon-FPA quantity with no bolometric meaning.
+
 ---
 
 ## Truth anchors for the converters

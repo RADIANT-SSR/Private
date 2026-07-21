@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-176 — Scenario `walkthrough.md` narratives cite runner metric values (NIIRS, SNR, NEDT) stale vs the current engine
+
+**Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20 (worktree `cu170/fix`).
+**Status**: Open — orthogonal doc-refresh surface, deliberately **not** folded into the CU-170/CU-166(iv) pass (that pass refreshes the machine-readable `.gui.expected.json` baselines only). Distinct from [[CU-175]], which covers the JSON snapshots; this covers the human-readable walkthrough prose.
+**File**: ~10 `scenarios/*/*/walkthrough.md` asserting hard numbers — e.g. `3.2_weather_sensitivity` ("NIIRS = 4.51", "SNR = 511.8"), `1.4_tdi_pushbroom_optimization` (NIIRS plateau table), `2.3_ipc_impact_on_mtf` ("NIIRS: 4.82"), `6.3_noise_model_verification` ("NIIRS = 11.10"), plus SNR/NEDT figures in VNIR/MWIR scenarios.
+**Symptom**: two independent drifts since these narratives were written. (1) The CU-166 applicability gate now returns `niirs` N/A for out-of-envelope configs — confirmed: no scenario runner sets `performance.niirs.allow_extrapolated`, so `Sensor.evaluate()` on `3.2`'s runner config has no `niirs` metric, yet the walkthrough states "NIIRS = 4.51". (2) Post-2026-07-18 physics (Gap 38, CU-155/157/161, Gap 94/95) shifted SNR/NEDT — e.g. `3.2` walkthrough "SNR = 511.8" vs current 437.7.
+**Why it still matters**: walkthroughs are the human-facing scenario explanations; stale hard numbers mislead readers and contradict what the engine now produces (Rule 20 drift, but at the tutorial layer, not a code surface). The associated figures may also be stale (same generators).
+**Suggested fix**: stand-alone doc pass — re-run each scenario runner, refresh the cited NIIRS/SNR/NEDT/figure numbers (units on all — hard rule), and either note NIIRS N/A or add `allow_extrapolated` narration where a trend is the point. Effort M (per-scenario reading + regen), category D. Coordinates with [[CU-175]] and the CU-166 gate.
+
 ### CU-175 — All 34 shipped `.gui.expected.json` scenario baselines were frozen 2026-07-18 and never refreshed against post-date physics
 
 **Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20 (worktree `cu170/fix`).

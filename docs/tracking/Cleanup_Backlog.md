@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-175 — All 34 shipped `.gui.expected.json` scenario baselines were frozen 2026-07-18 and never refreshed against post-date physics
+
+**Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20 (worktree `cu170/fix`).
+**Status**: Open — being resolved in the CU-170/CU-166(iv) pass for every baseline that pass regenerates (all saturating + all niirs-flip scenarios). The three pure-drift scenarios left over (1.2, 1.5, 3.1 — niirs still in-envelope, failing only on SNR/NEDT) are co-refreshed in the same pass per owner approval 2026-07-20.
+**File**: `scenarios/*/*/inputs/*.gui.expected.json` (all 34); generator `scenarios/tools/emit_gui_yaml.py` + `gui_baselines.py`.
+**Symptom**: `python scenarios/tools/verify_gui_yaml.py` reports 31/34 FAIL. Two of the three failure causes are chartered (niirs→N/A under the CU-166 gate; saturation re-centering under CU-170); the third is orthogonal SNR/NEDT drift. Every baseline was mass-generated 2026-07-18 (`ec8d8ef`); since then legitimate committed physics landed — **Gap 38** (VNIR scattered-sky ω₀: 1.2/3.2/6.2/8.1), **CU-155/157/161 + Gap 94/95** (MWIR/LWIR downwelling + gas-band recalibration: 1.1/1.3/2.3, 1.1 = +51% SNR) — and the snapshots were never refreshed. Because `emit_gui_yaml.py` snapshots all metrics at once, no niirs-only or saturation-only refresh is possible: regenerating any baseline co-refreshes its SNR/NEDT.
+**Why it still matters**: the verify gate is the acceptance test for the GUI-loadable artifacts; a 31/34 red gate means the shipped baselines no longer reproduce the backend engine. These are correct-then, stale-now — a golden update, not a regression (§5.3).
+**Suggested fix**: (a) inline-fix-now — regenerate every stale baseline through `scenarios/tools/emit_gui_yaml.py` (Rule 26: via the generator, never hand-edit), Results-affecting CHANGELOG citing the responsible commits. Executed as part of the CU-170/CU-166(iv) pass. Category D, effort S once the re-centers/opt-ins land.
+
 ### CU-174 — Staged MODTRAN delivery has no checksum manifest; ignored-precious data survives only as one clobberable copy
 
 **Discovered**: real_runs symlink incident during the overnight-branch merge, 2026-07-20

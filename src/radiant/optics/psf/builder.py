@@ -14,6 +14,7 @@ import numpy.typing as npt
 
 from radiant.optics.errors import OpticsValidationError
 from radiant.optics.psf.effective import EffectivePSF
+from radiant.optics.psf.fft_convolve import convolve_centered
 
 
 def build_effective_psf(
@@ -106,10 +107,8 @@ def build_effective_psf(
         offset = n // 2 - kc
         padded_kernel[offset : offset + kn, offset : offset + kn] = kernel_2d
 
-        # FFT convolution: shift both to put DC at corners, multiply, shift back.
-        PSF_fft = np.fft.fft2(np.fft.ifftshift(psf))
-        K_fft = np.fft.fft2(np.fft.ifftshift(padded_kernel))
-        psf = np.real(np.fft.fftshift(np.fft.ifft2(PSF_fft * K_fft)))
+        # FFT convolution (CU-165 real-input fast path; exact — see fft_convolve).
+        psf = convolve_centered(psf, padded_kernel)
 
     # Re-normalise to unit volume (absorb FFT round-off).
     total = psf.sum()

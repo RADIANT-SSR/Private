@@ -86,7 +86,14 @@ class EffectivePSF:
 Source: `src/radiant/optics/psf/effective.py`.
 
 **Method invariants:**
-1. `mtf_2d()` is `np.fft.fft2(data)`, normalized so MTF(0,0) = 1.
+1. `mtf_2d()` is `np.fft.fft2(data)`, normalized so MTF(0,0) = 1. `mtf_1d(axis)`
+   is the ky=0 (or kx=0) row of that same transform, computed via the
+   projection-slice theorem — one 1-D real FFT of `lsf(axis)` — which is
+   mathematically identical to slicing `mtf_2d()` (CU-165; equivalence pinned by
+   `optics/tests/test_fft_convolve.py`). Kernel convolution (`with_kernel`,
+   `build_effective_psf`) runs through the single real-FFT fast path in
+   `optics/psf/fft_convolve.py`, exact for the even grids `compute_sampling`
+   produces.
 2. `lsf(axis)` is the projection of `data` onto `axis`.
 3. `erf(axis)` is the cumulative integral of `lsf(axis)`.
 4. `edge_slope(axis)` is the maximum slope of `erf(axis)` in contrast per FPA-meter.

@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **PSF-path FFT fast paths — up to ~2.7× faster `evaluate()` on heavily-oversampled
+  configs (CU-165).** Kernel convolution (`build_effective_psf`, `EffectivePSF.with_kernel`)
+  now uses real-input FFTs with the exact even-grid shift-elision identity, and
+  `EffectivePSF.mtf_1d` uses the projection-slice theorem (one 1-D FFT of the LSF instead
+  of the full 2-D FFT). Same grid, same discretization, mathematically identical results —
+  measured metric agreement ≤5e-16 relative (the CU-165 Q≈8 reference config drops
+  97 s → 37 s; the golden config is unchanged at ≤1e-15). Not results-affecting.
 - **Results-affecting: `E_sky_scattered` now uses the MODTRAN-derived effective
   single-scattering albedo `omega0_eff(lambda, aerosol)` (Gap 38 swap).** The simple
   model's diffuse scattered-solar sky irradiance replaces its internal

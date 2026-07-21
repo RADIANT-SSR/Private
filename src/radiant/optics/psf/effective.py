@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.optics.errors import OpticsValidationError
+from radiant.optics.psf.fft_convolve import convolve_centered
 
 
 @dataclass(frozen=True)
@@ -79,10 +80,8 @@ class EffectivePSF:
         offset = n // 2 - kc
         padded[offset : offset + kn, offset : offset + kn] = kernel
 
-        # FFT convolution.
-        psf_fft = np.fft.fft2(np.fft.ifftshift(self.data))
-        k_fft = np.fft.fft2(np.fft.ifftshift(padded))
-        convolved = np.real(np.fft.fftshift(np.fft.ifft2(psf_fft * k_fft)))
+        # FFT convolution (CU-165 real-input fast path; exact — see fft_convolve).
+        convolved = convolve_centered(self.data, padded)
 
         # Re-normalise to unit volume.
         total = convolved.sum()
@@ -111,6 +110,15 @@ class EffectivePSF:
     def mtf_1d(self, axis: str = "x") -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """1-D MTF slice along the specified axis.
 
+        Computed via the projection-slice theorem (CU-165): the ky=0 (or
+        kx=0) row of the 2-D OTF is exactly the 1-D DFT of the PSF's
+        projection onto that axis, so one length-n real FFT of the LSF
+        replaces the full n×n 2-D FFT (identical values; validated to
+        ≤1e-12 against the 2-D slice in ``tests/test_fft_convolve.py``).
+        Normalisation is by the DC term — for a real, non-negative PSF the
+        2-D MTF's maximum is its DC value, so this matches the previous
+        ``mtf_2d().max()`` normalisation.
+
         Parameters
         ----------
         axis:
@@ -120,17 +128,22 @@ class EffectivePSF:
         -------
         (freq_cycles_per_m, mtf_values)
         """
-        mtf_2d = self.mtf_2d()
-        n = mtf_2d.shape[0]
+        n = self.data.shape[0]
         center = n // 2
         dx = self.sample_spacing_m
 
         if axis == "x":
-            mtf_slice = mtf_2d[center, center:]
+            lsf_vals = self.data.sum(axis=0)
         elif axis == "y":
-            mtf_slice = mtf_2d[center:, center]
+            lsf_vals = self.data.sum(axis=1)
         else:
             raise OpticsValidationError(f"axis must be 'x' or 'y', got {axis!r}")
+
+        spectrum = np.abs(np.fft.rfft(np.fft.ifftshift(lsf_vals)))
+        dc = spectrum[0]
+        if dc > 0:
+            spectrum /= dc
+        mtf_slice = spectrum[: n - center]
 
         freq = np.arange(len(mtf_slice)) / (n * dx)
         return freq, mtf_slice

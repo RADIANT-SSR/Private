@@ -31,6 +31,10 @@ def _run(overrides: dict[str, object] | None = None):
     session = RadiantSession(wavelength_um=wl)
     params = session.default_params()
     load_config(YAML_PATH, params)
+    # These tests exercise Gap 96 group *selection*; the example config is
+    # outside the GIQE-5 envelope (SNR ~978), so opt into extrapolated NIIRS
+    # (CU-166 gate) to keep `niirs` in the computed set the assertions cover.
+    params.set("performance.niirs.allow_extrapolated", True)
     for key, value in (overrides or {}).items():
         params.set(key, value)
     params.resolve()

@@ -296,9 +296,12 @@ _register(
     MetricSpec(
         name="niirs_extrapolated",
         unit="0/1 flag",
-        description="1.0 when GSD or SNR is outside the GIQE-5 calibration range.",
+        description="1.0 when GSD, RER, or SNR is outside the GIQE-5 calibration range.",
         kind="flag",
-        requires_metrics=frozenset({"niirs"}),
+        # Same inputs as niirs itself — the flag describes the configuration
+        # and is emitted even when the CU-166 applicability gate withholds
+        # the niirs metric, so it must not depend on niirs's presence.
+        requires_metrics=frozenset({"snr", "rer", "gsd_along_track_m", "gsd_cross_track_m"}),
     )
 )
 

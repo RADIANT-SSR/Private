@@ -61,6 +61,14 @@ markers = [
 [tool.mypy]
 python_version = "3.11"
 strict = true
+# CU-171: the strict gate is core+api (the modules passed on the command line).
+# Without this pin, followed imports (gui, source, optics, ...) resolve as
+# first-party source in a git worktree and get fully checked — surfacing ~120
+# pre-existing errors outside the gate — while the primary checkout resolves
+# them through the editable install and stays quiet. "silent" analyzes followed
+# modules for type information but reports errors only for the listed files,
+# making the gate identical in any checkout.
+follow_imports = "silent" 
 warn_unused_ignores = true
 warn_return_any = true
 disallow_untyped_defs = true

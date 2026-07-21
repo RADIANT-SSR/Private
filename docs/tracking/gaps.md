@@ -1478,6 +1478,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Keep bandpass edges inside 0.375–14.29 µm on file-backed atmospheres; for exo-atmospheric scenes (`atmosphere.model = "exo"`) the whole 0.1–30 µm schema range is physical (τ ≡ 1 has no spectral limit). |
 ---
 
+## Gap 100: No real IIRS — MWIR/LWIR interpretability reuses GIQE-5 verbatim (formula, envelope, and labels)
+
+| | |
+|---|---|
+| **Found in** | CU-166 focused pass, 2026-07-20 (owner decision: gap it rather than relabel). |
+| **Status** | OPEN — capability gap; needs IR-calibrated coefficients and ranges. |
+| **Description** | `performance/iirs.py::compute_iirs` is a one-line alias of `compute_giqe5`: MWIR/LWIR scenarios (band from the filter center, `_classify_band`) get the visible-light GIQE-5 polynomial, the vis/NIR calibration envelope (GSD 1.18–31.5 inch, RER 0.2–0.95, SNR 2–130), and messages/fields that cite "GIQE-5" — there is no IR-specific interpretability model. The CU-166 applicability gate therefore judges IR configurations against a visible-light envelope, and the surfaced metric key is `niirs` regardless of band. The full IIRS involves thermal-contrast terms (NEDT-adjusted SNR at minimum) that the v1 simplification documented in `iirs.py` omits. |
+| **Impact** | IR interpretability scores are indicative only; out-of-envelope refusals for MWIR/LWIR cite an envelope that was never fit for IR imagery. Scenario 1.1 (MWIR maritime) and every LWIR scenario consume this path. |
+| **Suggested fix** | Stand-alone Category C task: source IR-calibrated IIRS coefficients + fit ranges (literature anchor required), implement as a genuine model in `iirs.py` with its own envelope for the CU-166 gate, label results/messages IIRS (and decide `iirs` vs `niirs` metric key — a public-surface change, R20/R29), and validate against published IR imagery ratings (3 truth anchors). |
+| **Workaround** | Treat MWIR/LWIR `niirs` values as relative trend indicators only; `performance.niirs.allow_extrapolated=true` restores gated IR values where a trend is wanted. |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1580,6 +1592,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 96 | No per-metric enable/select for performance metrics (toggle inapplicable metrics + warnings off) | M | All; GUI performance view (override half of CU-166) | FIXED 2026-07-18 (36a6da9) |
 | 97 | `sub_pixel` regime ignores `projected_area_m2`; signal driven by `fill_fraction` (default 1.0) → area does nothing, extended-scene signal | M | Sub-pixel targets specified by radiance+area (maritime 1.1, others) | FIXED 2026-07-18 (db227b0) |
 | 98 | Point-source workflow doesn't steer to intensity (blackbody+zero-area trap, range re-spec, no GUI); convenience intensity inputs added | M | Point-source / SDA / star-tracker | FIXED 2026-07-18 (d560507/1a913d6/7b98d69) |
+| 100 | No real IIRS — MWIR/LWIR interpretability reuses GIQE-5 verbatim (formula, envelope, labels) | M-L | Every MWIR/LWIR scenario consuming niirs | OPEN |
 
 ---
 

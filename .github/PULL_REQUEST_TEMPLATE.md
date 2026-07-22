@@ -10,7 +10,7 @@
 
 - [ ] `pytest src/ -v -m "not golden"` passes
 - [ ] `mypy --strict src/radiant/core src/radiant/api` passes
-- [ ] `import-linter --config pyproject.toml` passes (all contracts KEPT)
+- [ ] `lint-imports --config pyproject.toml` passes (all contracts KEPT)
 - [ ] `ruff check src/` clean
 - [ ] If golden snapshots changed: review protocol per `RADIANT_Testing_Validation.md §5.3` followed
 

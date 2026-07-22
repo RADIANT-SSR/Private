@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-178 — Scenario runners crash on gated NIIRS (CU-166 regression) — they format `metrics["niirs"]` unconditionally, but it is now `None` outside the GIQE-5 envelope
+
+**Discovered**: CU-176 number-refresh pass, 2026-07-21 (worktree `cu176/number-refresh`).
+**Status**: Open — being fixed scenario-by-scenario in the CU-176 refresh (add `performance.niirs.allow_extrapolated=true` to each affected runner so it emits the extrapolated GIQE-5-form NIIRS the walkthrough documents, instead of `None`). Prerequisite for regenerating each scenario's figures/xlsx + walkthrough numbers.
+**File**: `scenarios/*/*/scripts/run_*.py` for the NIIRS-consuming scenarios — confirmed on `03_raj_mission_planner/3.2_weather_sensitivity` (`run_weather_sensitivity.py:534`, `TypeError: unsupported format string passed to NoneType.__format__`); `1.4`, `3.4`, `5.1` (~7-8 niirs-format sites each), `2.3`, `3.3`, `6.3` similar. None set `allow_extrapolated`.
+**Symptom**: since the CU-166 applicability gate landed (`c1aae9c`, 2026-07-20), `result.metrics.get("niirs")` returns `None` for any out-of-GIQE-5-envelope config, but the runners do `f"{niirs:.2f}"` / `niirs:.2f` unconditionally → the runner raises `TypeError` mid-analysis and never finishes (no figures, no xlsx). Every NIIRS-consuming scenario runner that is out-of-envelope is affected.
+**Why it still matters**: these runners are the generators for the committed scenario figures/workbooks and the numbers quoted in each `walkthrough.md`; a crashing runner means those artifacts cannot be regenerated and the scenario is silently broken for anyone who runs it. This is the runner-side twin of CU-167 (which fixed the GUI-test lock-step debt from the same CU-166 warning/gate change).
+**Suggested fix**: (a) inline-fix per runner — set `performance.niirs.allow_extrapolated=true` in each affected runner's config builder (the scenario intends the extrapolated NIIRS trend; the walkthrough + its CU-176 note already say so), so `niirs` is a float again and the analysis completes. Effort S per runner; category D. Coordinates with the CU-176 walkthrough refresh and the CU-166 gate.
+
 ### CU-176 — Scenario `walkthrough.md` narratives cite runner metric values (NIIRS, SNR, NEDT) stale vs the current engine
 
 **Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20 (worktree `cu170/fix`).

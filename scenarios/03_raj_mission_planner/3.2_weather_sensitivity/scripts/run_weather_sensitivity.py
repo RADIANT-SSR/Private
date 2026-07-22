@@ -226,6 +226,7 @@ def make_config(vis_km: float, pwv_cm: float) -> dict:
             "adc_bits": adc_bits,
             "full_well_capacity_e": fwc,
         },
+        "performance": {"niirs": {"allow_extrapolated": True}},
     }
 
 

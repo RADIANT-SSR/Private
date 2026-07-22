@@ -178,6 +178,7 @@ sensor.set("readout.read_noise_e_rms", read_noise)
 sensor.set("readout.gain_e_per_dn", gain)
 sensor.set("readout.adc_bits", adc_bits)
 sensor.set("readout.full_well_capacity_e", fwc)
+sensor.set("performance.niirs.allow_extrapolated", True)
 
 # --- Step 3a: cross-check RADIANT's boundary conversion vs the script's ---
 print("\n=== Step 3a: Unit-aware boundary conversion cross-check (Gap 6) ===")

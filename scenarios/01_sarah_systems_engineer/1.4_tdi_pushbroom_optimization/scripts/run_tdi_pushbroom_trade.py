@@ -215,6 +215,7 @@ base_config = {
         "adc_bits": adc_bits,
         "tdi_mode": "analog",
     },
+    "performance": {"niirs": {"allow_extrapolated": True}},
 }
 
 print(f"\n=== RADIANT Configuration ===")

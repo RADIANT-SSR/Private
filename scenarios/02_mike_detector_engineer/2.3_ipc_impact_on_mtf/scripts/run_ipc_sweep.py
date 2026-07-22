@@ -247,6 +247,7 @@ def make_ipc_config(ipc_fraction: float) -> dict:
             "adc_bits": adc_bits,
             "full_well_capacity_e": fwc,
         },
+        "performance": {"niirs": {"allow_extrapolated": True}},
     }
 
 

@@ -86,6 +86,7 @@ def evaluate_vendor(spec: dict) -> dict:
     s.set("readout.gain_e_per_dn", 20.0)
     s.set("readout.adc_bits", 14)
     s.set("readout.full_well_capacity_e", 6e6)
+    s.set("performance.niirs.allow_extrapolated", True)
     r = s.evaluate()
     m = r.metrics
     return {

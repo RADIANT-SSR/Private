@@ -310,6 +310,7 @@ base_config = {
         "gain_e_per_dn": gain,
         "adc_bits": adc_bits,
     },
+    "performance": {"niirs": {"allow_extrapolated": True}},
 }
 
 print(f"\n=== RADIANT Configuration ===")

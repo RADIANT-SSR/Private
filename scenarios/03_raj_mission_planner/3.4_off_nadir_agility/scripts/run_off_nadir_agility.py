@@ -340,6 +340,13 @@ base_config = {
         "gain_e_per_dn": gain,
         "adc_bits": adc_bits,
     },
+    # CU-178: this MWIR recon config sits above the GIQE-5 SNR envelope, so the
+    # CU-166 applicability gate returns NIIRS N/A by default. This scenario's
+    # whole story is the NIIRS-vs-off-nadir trend, so opt into the extrapolated
+    # GIQE-5-form rating (documented as a relative trend in the walkthrough).
+    "performance": {
+        "niirs": {"allow_extrapolated": True},
+    },
 }
 
 # ---------------------------------------------------------------------------

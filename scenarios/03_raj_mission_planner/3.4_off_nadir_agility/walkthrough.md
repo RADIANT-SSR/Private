@@ -74,17 +74,17 @@ angle:
 
 | Metric | Value | Unit | Notes |
 |--------|-------|------|-------|
-| NEDT | 31.7 | mK | Noise-equivalent delta temperature |
-| NIIRS | 5.88 | -- | GIQE-5 (nadir only) |
+| NEDT | 32.5 | mK | Noise-equivalent delta temperature |
+| NIIRS | 5.81 | -- | GIQE-5 (nadir only) |
 | GSD (RADIANT) | 1.37 | m | Nadir, cross-track |
 | Q (center) | 0.844 | -- | Slightly undersampled |
 | Q (min/max) | 0.562 / 1.125 | -- | Over band |
 | Strehl | 0.9065 | -- | Near diffraction-limited |
-| RER | 0.5592 | -- | Relative edge response |
-| EE(1x1) | 0.4490 | -- | |
-| Well margin | 14.7 | dB | |
-| Dynamic range | 56.4 | dB | |
-| Folded MTF@Ny | 1.5114 | -- | Indicates aliasing |
+| RER | 0.5372 | -- | Relative edge response |
+| EE(1x1) | 0.4143 | -- | |
+| Well margin | 15.1 | dB | |
+| Dynamic range | 56.6 | dB | |
+| Folded MTF@Ny | 1.4475 | -- | Indicates aliasing |
 | MTF budget | See table | -- | Per-component decomposition |
 
 ### RADIANT MTF Budget at Nyquist (Nadir)
@@ -102,7 +102,7 @@ angle:
 
 | Source | Value [e-] |
 |--------|-----------|
-| Signal shot | 121.40 |
+| Signal shot | 118.46 |
 | Dark shot | 0.12 |
 | Read noise | 6.00 |
 | Quantization | 1.44 |
@@ -137,16 +137,16 @@ along-track GSD is 2.94 m (+114%).
 
 | Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS (corr) | NEDT [mK] | dNIIRS |
 |-------------|------------|-------|------------|--------------|-----------|--------|
-| 0           | 0.4661     | 121.2 | 1.37       | 5.88         | 31.7      | 0.00   |
-| 5           | 0.4649     | 123.8 | 1.38       | 5.89         | 31.0      | +0.00  |
-| 10          | 0.4612     | 126.4 | 1.40       | 5.87         | 30.4      | -0.02  |
-| 15          | 0.4551     | 128.8 | 1.45       | 5.82         | 29.8      | -0.07  |
-| 20          | 0.4463     | 131.0 | 1.50       | 5.75         | 29.3      | -0.14  |
-| 25          | 0.4348     | 133.2 | 1.59       | 5.65         | 28.9      | -0.24  |
-| 30          | 0.4202     | 135.1 | 1.71       | 5.51         | 28.5      | -0.37  |
-| 35          | 0.4024     | 137.0 | 1.86       | 5.35         | 28.2      | -0.54  |
-| 40          | 0.3811     | 138.6 | 2.06       | 5.14         | 27.9      | -0.74  |
-| 45          | 0.3557     | 140.1 | 2.34       | 4.88         | 27.7      | -1.00  |
+| 0           | 0.4903     | 118.3 | 1.37       | 5.81         | 32.5      | 0.00   |
+| 5           | 0.4891     | 120.8 | 1.38       | 5.81         | 31.9      | +0.00  |
+| 10          | 0.4854     | 123.3 | 1.40       | 5.79         | 31.2      | -0.02  |
+| 15          | 0.4793     | 125.7 | 1.45       | 5.75         | 30.7      | -0.06  |
+| 20          | 0.4705     | 128.0 | 1.51       | 5.68         | 30.1      | -0.13  |
+| 25          | 0.4589     | 130.1 | 1.59       | 5.59         | 29.7      | -0.22  |
+| 30          | 0.4443     | 132.1 | 1.71       | 5.47         | 29.3      | -0.34  |
+| 35          | 0.4264     | 134.0 | 1.86       | 5.31         | 28.9      | -0.50  |
+| 40          | 0.4048     | 135.8 | 2.06       | 5.12         | 28.6      | -0.69  |
+| 45          | 0.3790     | 137.4 | 2.34       | 4.89         | 28.3      | -0.92  |
 
 ### RADIANT GSD vs. True Off-Nadir GSD
 
@@ -171,7 +171,7 @@ and does not compute along-track GSD separately.
 
 ### Why SNR Increases with Off-Nadir Angle
 
-A surprising result: SNR *increases* from 121.2 at nadir to 140.1 at 45 deg.
+A surprising result: SNR *increases* from 118.3 at nadir to 137.4 at 45 deg.
 This is counterintuitive but physically correct.  The mechanism:
 
 1. **Atmospheric transmission decreases** (-24% at 45 deg) → fewer target photons
@@ -208,11 +208,11 @@ which degrades along-track resolution disproportionately.
 
 ### Atmospheric Transmission
 
-Band-mean transmission drops from 0.466 at nadir to 0.353 at 45 deg (-24%).  The
+Band-mean transmission drops from 0.4903 at nadir to 0.3790 at 45 deg (-23%).  The
 physics:
 
 - Air mass = sec(theta) at 45 deg = 1.414 (flat-Earth) → 1.358 (spherical)
-- τ(45 deg) ≈ τ(nadir)^(air_mass) = 0.466^1.358 ≈ 0.352
+- τ(45 deg) ≈ τ(nadir)^(air_mass) = 0.4903^1.358 ≈ 0.380
 - This is consistent with Beer-Lambert exponential absorption
 
 For MWIR bands, the transmission decrease would be more severe due to stronger
@@ -224,15 +224,17 @@ The fundamental trade in agile pointing:
 
 | Angle [deg] | Ground Range [km] | GSD GM [m] | NIIRS | NEDT [mK] | Access Rate [km^2/s] |
 |-------------|-------------------|------------|-------|-----------|----------------------|
-| 0           | 0                 | 1.37       | 5.88  | 31.7      | 114                  |
-| 30          | 312               | 1.71       | 5.51  | 28.5      | 129                  |
-| 45          | 527               | 2.34       | 4.88  | 27.7      | 154                  |
+| 0           | 0                 | 1.37       | 5.81  | 32.5      | 114                  |
+| 30          | 312               | 1.71       | 5.47  | 29.3      | 129                  |
+| 45          | 527               | 2.34       | 4.89  | 28.3      | 154                  |
 
 At 45 deg off-nadir, Raj can image a target 527 km from nadir ground track,
-but at the cost of -1.00 NIIRS.  Whether this trade is acceptable depends on
+but at the cost of -0.92 NIIRS.  Whether this trade is acceptable depends on
 the mission's minimum NIIRS requirement.
 
 ## Real-MODTRAN validation note (added 2026-07-17)
+
+> **Pending refresh (CU-176/CU-178).** The `Simple τ` column below drifted with the post-2026-07-18 atmosphere-model updates (nadir Simple τ is now 0.4903, not 0.466 — see the refreshed sweep table above), and the `Real MODTRAN τ` column is pinned to the 2026-07-17 staged run set, which is being regenerated by the MODTRAN boost-ladder rebuild. This comparison table is therefore refreshed as a unit once that rebuild lands; the numbers below are the 2026-07-17 snapshot.
 
 The real MODTRAN 6 zenith fan (A1/B1/B2/B3, us_standard, 2026-07-17 run
 set) now pins this scenario's atmospheric component. Band-mean total
@@ -272,20 +274,20 @@ comparison script in the session record for commit-linked provenance.
 | Gap # | Description | Status | Impact |
 |-------|-------------|--------|--------|
 | 33    | GSD not fully adjusted for off-nadir angle | OPEN (partial) | RADIANT GSD now changes with angle but overestimates at large angles (+9.6% at 45 deg) and does not split cross/along |
-| 34    | NIIRS not recomputed with off-nadir GSD | OPEN (partial) | RADIANT now provides nadir NIIRS (5.88) but does not correct for off-nadir GSD |
+| 34    | NIIRS not recomputed with off-nadir GSD | OPEN (partial) | RADIANT now provides nadir NIIRS (5.81) but does not correct for off-nadir GSD |
 | 35    | No along-track vs cross-track GSD at off-nadir | OPEN | Both GSD axes equal in RADIANT; no ground projection correction |
 | 36    | No swath width / access geometry calculator | OPEN | Must compute externally |
 
 **Newly closed gaps (metrics now available):**
-- NEDT is now available via `result.metrics["nedt_K"]` -- 31.7 mK at nadir
-- NIIRS is now available via `result.metrics["niirs"]` -- 5.88 at nadir
+- NEDT is now available via `result.metrics["nedt_K"]` -- 32.5 mK at nadir
+- NIIRS is now available via `result.metrics["niirs"]` -- 5.81 at nadir
 - GSD is now available via `result.metrics["gsd_cross_track_m"]` -- 1.37 m at nadir
 - Q is now available via `result.metrics["q_center"]` -- 0.844
 - Strehl is now available via `result.metrics["strehl"]` -- 0.9065
-- RER is now available via `result.metrics["rer"]` -- 0.5592
+- RER is now available via `result.metrics["rer"]` -- 0.5372
 - MTF budget is now available via `result.stage_outputs["performance"]["mtf_budget"]`
-- Well margin is now available via `result.metrics["well_margin_dB"]` -- 14.7 dB
-- Folded MTF is now available via `result.metrics["mtf_folded_at_nyquist"]` -- 1.5114
+- Well margin is now available via `result.metrics["well_margin_dB"]` -- 15.1 dB
+- Folded MTF is now available via `result.metrics["mtf_folded_at_nyquist"]` -- 1.4475
 
 ## Outputs
 

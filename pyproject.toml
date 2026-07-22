@@ -50,6 +50,12 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
+# Prepend this checkout's own src/ to sys.path (rootdir-relative). Without it,
+# the editable install's .pth pins `radiant` to whichever tree ran `pip install
+# -e .` (normally the main checkout), so `pytest` run inside a git worktree would
+# silently exercise the MAIN tree's library code instead of the worktree's edits.
+# With it, each worktree tests its own src/. (pytest >= 7 pythonpath option.)
+pythonpath = ["src"]
 addopts = "--strict-markers"
 markers = [
     "level0: Physics correctness tests (analytic result checks)",

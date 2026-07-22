@@ -115,6 +115,39 @@ class TestBuildAtmosphereModel:
         assert isinstance(model, InterpolatedAtmosphere)
         assert model.axes == ["sensor_altitude_m", "target_altitude_m"]
 
+    def test_interpolated_without_dir_defaults_to_sensor_ladder(self) -> None:
+        """Unset data dir + the sensor-altitude axis → the boost-expansion
+        midlat_summer_sensor_ladder family (plan §4.7)."""
+        from radiant.atmosphere.interpolated import InterpolatedAtmosphere
+        from radiant.atmosphere.loaders import _SHIPPED_ATMOSPHERES_DIR
+
+        if not (_SHIPPED_ATMOSPHERES_DIR / "midlat_summer_sensor_ladder").exists():
+            pytest.skip("shipped sensor-ladder family not present")
+        model = build_atmosphere_model(
+            _make_params("interpolated", atmosphere__interpolation_axes="sensor_altitude_m")
+        )
+        assert isinstance(model, InterpolatedAtmosphere)
+        assert model.axes == ["sensor_altitude_m"]
+
+    def test_interpolated_without_dir_defaults_to_boost_offnadir(self) -> None:
+        """Unset data dir + the sensor×target×zenith axes → the
+        midlat_summer_boost_offnadir family (plan §4.7)."""
+        from radiant.atmosphere.interpolated import InterpolatedAtmosphere
+        from radiant.atmosphere.loaders import _SHIPPED_ATMOSPHERES_DIR
+
+        if not (_SHIPPED_ATMOSPHERES_DIR / "midlat_summer_boost_offnadir").exists():
+            pytest.skip("shipped off-nadir family not present")
+        model = build_atmosphere_model(
+            _make_params(
+                "interpolated",
+                atmosphere__interpolation_axes=(
+                    "sensor_altitude_m,target_altitude_m,path_zenith_rad"
+                ),
+            )
+        )
+        assert isinstance(model, InterpolatedAtmosphere)
+        assert model.axes == ["sensor_altitude_m", "target_altitude_m", "path_zenith_rad"]
+
     @pytest.mark.level0
     def test_interpolated_without_dir_and_uncovered_axes_raises(self) -> None:
         """No shipped family covers the axes → the actionable error still fires."""

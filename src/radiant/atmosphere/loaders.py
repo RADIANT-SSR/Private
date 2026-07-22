@@ -41,6 +41,12 @@ _SHIPPED_ATMOSPHERES_DIR = Path(__file__).resolve().parents[3] / "data" / "atmos
 _SHIPPED_FAMILY_BY_AXES: dict[str, str] = {
     "path_zenith_rad": "us_standard_zenith_fan",
     "sensor_altitude_m,target_altitude_m": "midlat_summer_ladders",
+    # Boost expansion families (plan §4.7). The 2-axis key above stays on
+    # the 0–29 km ladders (§4.1, no re-baseline); nadir 0–100 km boost
+    # coverage is reachable via the off-nadir family (which includes the
+    # 0° column) or an explicit interpolated_data_dir.
+    "sensor_altitude_m": "midlat_summer_sensor_ladder",
+    "sensor_altitude_m,target_altitude_m,path_zenith_rad": "midlat_summer_boost_offnadir",
 }
 
 #: Models whose construction ALWAYS requires reading data files. These

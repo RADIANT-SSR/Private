@@ -15,9 +15,12 @@ known limitations. Generator: `scripts/build_atmosphere_library.py`
 
 | Family | Model | Contents |
 |--------|-------|----------|
-| `profiles/` | `tabulated` | Six standard atmospheres, nadir full column (us_standard and tropical include real downwelling sky radiance) |
+| `profiles/` | `tabulated` | Six standard atmospheres, nadir full column (us_standard, tropical, midlat_summer include real downwelling sky radiance) |
 | `us_standard_zenith_fan/` | `interpolated` | LOS zenith 0–60° fan |
 | `midlat_summer_ladders/` | `interpolated` | Sensor (35 km–GEO) × target altitude (0–29 km) grid |
+| `midlat_summer_boost_ladder/` | `interpolated` | Space sensor × target altitude 0–100 km (missile boost; synthesized vacuum rung at 100 km) |
+| `midlat_summer_boost_offnadir/` | `interpolated` | Space sensor × target 0–100 km × LOS zenith 0/45/60° (off-nadir boost tracking) |
+| `midlat_summer_sensor_ladder/` | `interpolated` | Airborne→space sensor (3 km–GEO), ground target |
 | `validation/` | point data | Off-grid 45° and up-looking anchors |
 
 Example (shipped profile through the chain):

@@ -20,6 +20,25 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Boost-phase atmosphere families — targets to 100 km + off-nadir + airborne
+  sensors (MODTRAN boost-ladder expansion).** The shipped interpolated library
+  gains three midlat_summer families built from 17 new real MODTRAN 6 runs
+  (G7–G11, I1–I9, H5, J1–J2): `midlat_summer_boost_ladder/` (space sensor ×
+  target 0–100 km, nadir), `midlat_summer_boost_offnadir/` (× LOS zenith
+  0/45/60°), and `midlat_summer_sensor_ladder/` (airborne→space sensor
+  3 km–GEO, ground target). Each boost family closes to a synthesized exact
+  100 km vacuum rung (τ ≡ 1, present at every zenith), giving continuous τ_up
+  from the ground through the Gap 95 exo handoff. New `interpolation_axes`
+  defaults: `sensor_altitude_m` → sensor ladder,
+  `sensor_altitude_m,target_altitude_m,path_zenith_rad` → off-nadir. A single
+  `interpolated` config can now sweep `geometry.target_altitude_m` 0→300 km at
+  any zenith ≤ 60° with monotone τ_up and no geometry warnings.
+- **Real downwelling sky radiance for midlat_summer** (H5 up-looking 48.2° run),
+  attached to all midlat_summer families and the `profiles/midlat_summer.npz`
+  profile — the zero-downwelling default no longer applies to this profile
+  (three profiles with no H-run still load zero).
+
 ### Changed
 - **File-path parameters are now stored portably — relative to the config's own
   directory instead of as an absolute machine path (CU-177).** Parameters that name a

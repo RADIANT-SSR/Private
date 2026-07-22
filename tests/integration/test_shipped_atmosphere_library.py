@@ -95,13 +95,27 @@ class TestShippedProfiles:
         e_sky = float(np.trapezoid(np.pi * ld[band], wl[band]))
         assert e_sky == pytest.approx(20.87, rel=0.02)
 
+    def test_midlat_summer_carries_h5_downwelling(self) -> None:
+        """midlat_summer gained real downwelling with the boost expansion
+        (H5, plan §4.4): non-zero atm_emission_down, and π·band-integral is
+        the warmer/wetter mid-latitude sky (~47 W/m² vs us_standard ~21)."""
+        tab = TabulatedAtmosphere.from_npz(_LIB / "profiles" / "midlat_summer.npz")
+        wl = tab.transmittance_data.wavelength_um
+        ld = tab.atm_emission_down_data.values
+        assert np.any(ld > 0.0)
+        band = (wl >= 8.0) & (wl <= 12.0)
+        e_sky = float(np.trapezoid(np.pi * ld[band], wl[band]))
+        assert e_sky == pytest.approx(46.8, rel=0.03)
+
     def test_profiles_without_h_run_have_zero_downwelling(self) -> None:
-        """Only us_standard/tropical have real H-run downwelling; the
-        other four omit the key and load as zeros (manifest-documented)."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            tab = TabulatedAtmosphere.from_npz(_LIB / "profiles" / "midlat_summer.npz")
-        assert np.all(tab.atm_emission_down_data.values == 0.0)
+        """The three profiles with no H-run (midlat_winter, subarctic
+        summer/winter) omit the key and load as zeros (manifest-documented);
+        us_standard/tropical/midlat_summer carry real H2/H4/H5 downwelling."""
+        for profile in ("midlat_winter", "subarctic_summer", "subarctic_winter"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                tab = TabulatedAtmosphere.from_npz(_LIB / "profiles" / f"{profile}.npz")
+            assert np.all(tab.atm_emission_down_data.values == 0.0), profile
 
 
 @pytest.mark.level2
@@ -470,6 +484,35 @@ class TestBoostLadder:
                 f"τ({lo_um}–{hi_um} µm) not monotone over target altitude: {taus}"
             )
 
+    def test_band_mean_tau_anchors(self) -> None:
+        """Pinned band-mean τ at the new boost rungs (plan §5), extracted
+        from the delivered G7–G11 runs (slit-degraded, ±0.005). The
+        existing 0/10/29 km rungs match the untouched ladder family."""
+        model = self._model()
+        wl = model.wavelength_um
+        # h_tgt km -> (τ(8–13 µm), τ(3.5–5 µm)).
+        anchors = {
+            0.0: (0.557, 0.501),
+            10.0: (0.923, 0.786),
+            29.0: (0.978, 0.929),
+            35.0: (0.989, 0.958),
+            40.0: (0.994, 0.973),
+            50.0: (0.999, 0.988),
+            60.0: (1.000, 0.995),
+            80.0: (1.000, 0.999),
+        }
+        for h_km, (lwir, mwir) in anchors.items():
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=h_km * 1000.0,
+                path_zenith_rad=0.0,
+                solar_zenith_rad=np.radians(30.0),
+                solar_azimuth_rad=0.0,
+            )
+            v = model.build_state(wl, geom).transmittance.values
+            assert _band_mean(wl, v, 8.0, 13.0) == pytest.approx(lwir, abs=5e-3)
+            assert _band_mean(wl, v, 3.5, 5.0) == pytest.approx(mwir, abs=5e-3)
+
     def test_vacuum_node_exact_at_100km(self) -> None:
         """The synthesized 100 km rung is the exact identity τ ≡ 1,
         L_path ≡ 0 W/m²/sr/µm — continuity into the Gap 95 exo branch."""
@@ -488,22 +531,33 @@ class TestBoostLadder:
 
     def test_co2_band_core_real_at_50km(self) -> None:
         """The reason the boost rungs exist: the 4.20–4.45 µm CO₂ band core
-        at h_tgt = 50 km must be materially below 1 — guards against a
-        future 'optimization' replacing the rungs with vacuum
-        interpolation. Provisional threshold 0.90; tighten to the
-        delivered-run value (expected ≈ 0.5–0.8) at build time (plan §5)."""
+        carries real stratospheric structure the rungs must resolve, not a
+        vacuum interpolation. Pinned to the delivered G9 run
+        (slit-degraded), which also guards against a future 'optimization'
+        deleting the rungs — the band core climbs 0.58 (29 km) → 0.75
+        (35 km) → 0.92 (50 km) → 1.0 (vacuum), a curve no two-node
+        interpolation between 29 km and the 100 km vacuum reproduces
+        (plan §5)."""
         model = self._model()
         wl = model.wavelength_um
-        geom = AtmosphericGeometry(
-            sensor_altitude_m=100_000.0,
-            target_altitude_m=50_000.0,
-            path_zenith_rad=0.0,
-            solar_zenith_rad=np.radians(30.0),
-            solar_azimuth_rad=0.0,
-        )
-        state = model.build_state(wl, geom)
-        tau_core = _band_mean(wl, state.transmittance.values, 4.20, 4.45)
-        assert tau_core < 0.90
+
+        def _co2(h_km: float) -> float:
+            geom = AtmosphericGeometry(
+                sensor_altitude_m=100_000.0,
+                target_altitude_m=h_km * 1000.0,
+                path_zenith_rad=0.0,
+                solar_zenith_rad=np.radians(30.0),
+                solar_azimuth_rad=0.0,
+            )
+            return _band_mean(wl, model.build_state(wl, geom).transmittance.values, 4.20, 4.45)
+
+        # Delivered-run band-core anchors (slit-degraded, ±0.02).
+        assert _co2(29.0) == pytest.approx(0.580, abs=0.02)
+        assert _co2(35.0) == pytest.approx(0.750, abs=0.02)
+        assert _co2(50.0) == pytest.approx(0.923, abs=0.02)
+        # Materially below 1 (real CO₂ residual) and strictly rising with
+        # altitude — the structure the rungs exist to carry.
+        assert _co2(29.0) < _co2(35.0) < _co2(50.0) < 0.98
 
 
 @pytest.mark.level2
@@ -595,10 +649,14 @@ class TestSensorLadder:
     """1-D airborne sensor-altitude family (F2/J1/J2/C1/A3 + orbital node)."""
 
     def test_tau_monotone_in_sensor_altitude(self) -> None:
-        """More column below the sensor → lower τ: band-mean τ increases
-        with sensor altitude over 3/10/20/35/100 km, ground target, nadir."""
+        """More column below the sensor → lower τ: for a GROUND target,
+        band-mean τ DECREASES as the sensor climbs (3 → 100 km sees more
+        of the ground→sensor column), converging to the full-column value
+        as the sensor approaches TOA. Pinned to the delivered runs
+        (F2/J1/J2/C1/A3, slit-degraded, ±0.005)."""
         model = _load_interpolated("midlat_summer_sensor_ladder", ["sensor_altitude_m"])
         wl = model.wavelength_um
+        expected = {3.0: 0.640, 10.0: 0.601, 20.0: 0.574, 35.0: 0.558, 100.0: 0.557}
         taus = []
         for h_km in (3.0, 10.0, 20.0, 35.0, 100.0):
             geom = AtmosphericGeometry(
@@ -609,9 +667,11 @@ class TestSensorLadder:
                 solar_azimuth_rad=0.0,
             )
             state = model.build_state(wl, geom)
-            taus.append(_band_mean(wl, state.transmittance.values, 8.0, 13.0))
-        assert all(a < b + 1e-12 for a, b in zip(taus, taus[1:], strict=False)), (
-            f"τ(8–13 µm) not monotone over sensor altitude: {taus}"
+            tau = _band_mean(wl, state.transmittance.values, 8.0, 13.0)
+            assert tau == pytest.approx(expected[h_km], abs=5e-3)
+            taus.append(tau)
+        assert all(a > b - 1e-12 for a, b in zip(taus, taus[1:], strict=False)), (
+            f"τ(8–13 µm) not monotone-decreasing over sensor altitude: {taus}"
         )
 
     def test_leo_query_inside_orbital_hull(self) -> None:

@@ -2,8 +2,9 @@
 
 **Generator:** `scripts/build_atmosphere_library.py` reading the real
 MODTRAN run set staged (gitignored) under `modtran/real_runs/`
-(delivered 2026-07-17; 39-run matrix of
-`docs/plans/modtran_run_matrix.csv`). Regenerate with:
+(56-run matrix of `docs/plans/modtran_run_matrix.csv`: the 39-run base
+delivered 2026-07-17 + the 17-run boost-ladder expansion — G7–G11, I1–I9,
+H5, J1–J2 — delivered 2026-07-20). Regenerate with:
 
 ```
 python scripts/build_atmosphere_library.py
@@ -90,8 +91,64 @@ extrapolation).
   (clamping queries to TOA in the loader) would touch code; this is
   data-only.
 
-No downwelling data for midlat_summer (no H-run) — the ladders load
-with the zero-downwelling default.
+Since the boost expansion (2026-07-20) every midlat_summer_ladders node
+carries the **H5** up-looking 48.2° downwelling as `atm_emission_down`
+(plan §4.4) — the zero-downwelling default no longer applies to this
+family. The grid structure (18 nodes) is unchanged.
+
+### `midlat_summer_boost_ladder/` — 2-D grid over `(sensor_altitude_m, target_altitude_m)`, boost band
+
+24 nodes = 2 sensor altitudes × 12 target altitudes
+(0/1/5/10/20/29/35/40/50/60/80/100 km):
+
+- 100 km sensor (= TOA): runs A3, G1–G5 (0–29 km) + **G7–G11**
+  (35/40/50/60/80 km, the boost expansion) + the **synthesized 100 km
+  vacuum rung** (τ ≡ 1, L_path ≡ 0 — a physical identity, zero absorbing
+  column above the atmosphere top; NOT a MODTRAN run). The vacuum rung
+  closes the interpolation hull to the Gap 95 exo handoff so τ_up is
+  continuous from 0 km to space.
+- 40,000 km sensor: orbital-hull duplicate of the 100 km states, as for
+  the ladders (vacuum above TOA → exact).
+- The 4.20–4.45 µm **CO₂ band core** is the reason these rungs exist: it
+  climbs 0.0001 (ground) → 0.58 (29 km) → 0.75 (35 km) → 0.92 (50 km) →
+  1.0 (vacuum) — real stratospheric structure a two-node vacuum
+  interpolation cannot reproduce.
+
+### `midlat_summer_boost_offnadir/` — 3-D grid over `(sensor_altitude_m, target_altitude_m, path_zenith_rad)`
+
+36 nodes = 2 sensor × 6 target (0/10/29/50/80/100 km) × 3 zenith
+(0°/45°/60°):
+
+- nadir (0°): A3/G3/G5/G9/G11; 45°: I1/G6/I2/I3/I4; 60°: I5–I9.
+- The synthesized 100 km vacuum rung is present at **every** zenith
+  column (the identity holds at all angles), so the 80–100 km target
+  band is inside the hull off-nadir as well as at nadir (plan §4.2,
+  widened 2026-07-19).
+- Zenith interpolates in airmass sec(θ) space (CU-160): a 45° holdout
+  from the 0°/60° columns reproduces the real 45° node to 0.02%
+  band-mean τ at altitude.
+
+### `midlat_summer_sensor_ladder/` — 1-D grid over `sensor_altitude_m`
+
+6 nodes = F2 (3 km) + J1 (10 km) + J2 (20 km) + C1 (35 km) + A3 (100 km)
++ 40,000 km orbital duplicate; ground target, nadir. Closes the
+airborne-sensor hull for ground-target scenarios. Band-mean τ(8–13 µm)
+**decreases** with sensor altitude (0.640 at 3 km → 0.557 at 100 km):
+a higher sensor sees more of the ground→sensor column.
+
+All four midlat_summer families (ladders, boost, off-nadir, sensor
+ladder) carry the H5 downwelling.
+
+> **Elevated-target downwelling simplification (CU-181).** We have one
+> midlat_summer up-looking run (H5, ground level), so the same
+> `atm_emission_down` is attached to every target-altitude node,
+> including elevated and vacuum rungs. Physically the downwelling a
+> target sees thins with altitude (a 80 km target sees almost no sky
+> above it); the constant-per-family value therefore OVER-states
+> downwelling at elevated targets. This is a secondary (reflected-sky)
+> term, negligible against the self-emission of the hot boost bodies
+> these families model, and is tracked for future refinement in
+> `docs/tracking/Cleanup_Backlog.md` (CU-181).
 
 ### `validation/` — off-grid points (NOT interpolation nodes)
 
@@ -126,16 +183,42 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
 - **Chain consumption of `h_tgt > 0` — lifted 2026-07-18 (Gap 94):**
   `InterpolatedAtmosphere.evaluate` serves airborne targets from a
   `target_altitude_m` grid axis with a real two-leg up/full split, so
-  the ladders are reachable from a chain run (targets 0–29 km; beyond
-  the hull still refuses — no extrapolation). CU-011's binary flavor
-  remains open.
+  the ladders are reachable from a chain run (targets 0–29 km; the
+  boost families extend this to 0–100 km; beyond the hull still refuses
+  — no extrapolation). CU-011's binary flavor remains open.
+- **Elevated-target downwelling (CU-181)** — constant-per-family H-run
+  value over-states downwelling at elevated targets; see the boost
+  families' simplification note above.
 - **Aerosol/visibility variants (Blocks D/E) deliberately do not ship** —
   condition-specific studies, regenerate-on-demand (plan §7.2).
+
+## Default families by interpolation axes (loaders `_SHIPPED_FAMILY_BY_AXES`)
+
+When `atmosphere.interpolated_data_dir` is unset, the family is chosen
+from `atmosphere.interpolation_axes` (plan §4.7):
+
+| Axes | Family |
+|------|--------|
+| `path_zenith_rad` | `us_standard_zenith_fan` |
+| `sensor_altitude_m,target_altitude_m` | `midlat_summer_ladders` (0–29 km) |
+| `sensor_altitude_m` | `midlat_summer_sensor_ladder` |
+| `sensor_altitude_m,target_altitude_m,path_zenith_rad` | `midlat_summer_boost_offnadir` |
+
+The 2-axis key stays on the 0–29 km ladders (no re-baseline, plan §4.1);
+nadir 0–100 km boost coverage is reached via the off-nadir family (which
+includes the 0° column) or an explicit `interpolated_data_dir` pointed
+at `midlat_summer_boost_ladder`.
 
 ## Tests asserting this library
 
 `tests/integration/test_shipped_atmosphere_library.py` — loads every
 family through its intended runtime path, pins band-mean goldens
-(us_standard window τ, H2 downwelling energy, G3 LEO query), asserts
-the orbital hull, no-extrapolation refusal, altitude monotonicity, and
-a full chain run on the shipped us_standard profile.
+(us_standard window τ, H2/H5 downwelling energy, G3 LEO query, boost-rung
+τ and CO₂ band-core anchors, sensor-ladder τ), asserts the orbital hull,
+no-extrapolation refusal, altitude monotonicity, per-zenith vacuum-rung
+exactness, the 45° airmass holdout at altitude, and a full chain run on
+the shipped us_standard profile.
+`tests/integration/test_exo_target_chain.py` — mid-boost (50 km) chain
+smoke and the §6 acceptance sweep (target 0→300 km, monotone τ_up, no
+CU-167 warnings, at 45° zenith). `src/radiant/atmosphere/tests/
+test_loaders.py` — the shipped-default family selection per axes.

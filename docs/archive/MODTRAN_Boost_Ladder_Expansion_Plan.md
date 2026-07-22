@@ -1,6 +1,17 @@
+> **HISTORICAL — COMPLETE 2026-07-20.** All §4 processing and §5–§6
+> acceptance criteria are landed: the 17-run boost expansion (G7–G11,
+> I1–I9, H5, J1–J2) built the `midlat_summer_boost_ladder/`,
+> `midlat_summer_boost_offnadir/`, and `midlat_summer_sensor_ladder/`
+> families (targets 0–100 km, off-nadir 0/45/60°, airborne sensors
+> 3 km–GEO), each closing to a synthesized 100 km vacuum rung; H5
+> downwelling attached to all midlat_summer families; loaders defaults
+> wired; goldens pinned; Gap 95's 29–100 km data remainder closed. This
+> document is retained as the design record; it is no longer live.
+> Follow-up: CU-181 (elevated-target downwelling simplification).
+
 # MODTRAN Boost-Ladder Expansion Plan — targets to 100 km + off-nadir grid
 
-Status: Active
+Status: Complete (archived 2026-07-20)
 Owner trigger: 2026-07-18 — missile-defense boost-phase application (detect from
 launch through burnout from a space sensor); follows the Gap 95 owner review.
 Scope ratified in-conversation 2026-07-18 ("append the new runs to the existing

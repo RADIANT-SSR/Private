@@ -21,8 +21,25 @@ design record):
   ``(sensor_altitude_m, target_altitude_m)``; the 100 km states are
   duplicated at a 40,000 km sensor node so every orbital sensor altitude
   falls inside the interpolation hull (vacuum above TOA — exact).
+- ``midlat_summer_boost_ladder/``     — A3 + G1–G5 + G7–G11 (sensor 100 km)
+  as a 2-D grid over ``(sensor_altitude_m, target_altitude_m)`` spanning
+  target 0–100 km; the 100 km rung is the **synthesized** exact vacuum
+  node (τ ≡ 1, L_path ≡ 0), closing the hull to the Gap 95 exo handoff.
+  Orbital 40,000 km duplicate as for the ladders (boost plan §4.1/§4.2).
+- ``midlat_summer_boost_offnadir/``   — A3/G3/G5/G9/G11 (nadir), I1–I4+G6
+  (45°), I5–I9 (60°) plus the synthesized 100 km vacuum rung at every
+  zenith, as a 3-D grid over ``(sensor_altitude_m, target_altitude_m,
+  path_zenith_rad)``; zenith interpolates in airmass sec(θ) space
+  (CU-160). Orbital duplicate (boost plan §4.3).
+- ``midlat_summer_sensor_ladder/``    — F2 (3 km) + J1/J2 (10/20 km) +
+  C1 (35 km) + A3 (100 km) as a 1-D grid over ``sensor_altitude_m``,
+  ground target nadir; orbital 40,000 km duplicate (boost plan §4.5).
 - ``validation/``                     — off-grid single points (C7, G6 at
   45°; H1 nadir up-looking) kept as data but NOT interpolation nodes.
+
+All midlat_summer families carry the H5 up-looking 48.2° downwelling as
+``atm_emission_down`` (boost plan §4.4); see the MANIFEST for the
+elevated-target simplification note.
 
 Spectral treatment: every array is slit-degraded with a triangular
 FWHM = 5 cm⁻¹ kernel on the native uniform 1 cm⁻¹ wavenumber grid, then
@@ -97,10 +114,12 @@ PROFILE_RUNS: dict[str, str] = {
 }
 
 # profile -> up-looking H-run supplying real downwelling sky radiance
-# (48.2° diffusivity angle). Only two H-runs exist at that angle.
+# (48.2° diffusivity angle). H5 (midlat_summer) landed with the boost
+# expansion (plan §4.4); the remaining three profiles have no H-run.
 DOWNWELLING_RUNS: dict[str, str] = {
     "us_standard": "H2",
     "tropical": "H4",
+    "midlat_summer": "H5",
 }
 
 # Zenith fan (us_standard full column): run -> RADIANT LOS zenith [rad].
@@ -130,6 +149,64 @@ LADDER: dict[str, tuple[float, float]] = {
 # 100 km state is re-emitted at this sensor altitude — the added path is
 # vacuum, so interpolating between identical values is exact.
 ORBITAL_NODE_KM = 40_000.0
+
+# Boost ladder (midlat_summer, nadir, sensor 100 km): run -> target km.
+# Extends the 0–29 km ladder rungs with G7–G11 (35–80 km); the 100 km
+# rung is the synthesized vacuum node below (boost plan §4.1).
+BOOST_LADDER: dict[str, float] = {
+    "A3": 0.0,
+    "G1": 1.0,
+    "G2": 5.0,
+    "G3": 10.0,
+    "G4": 20.0,
+    "G5": 29.0,
+    "G7": 35.0,
+    "G8": 40.0,
+    "G9": 50.0,
+    "G10": 60.0,
+    "G11": 80.0,
+}
+BOOST_SENSOR_KM = 100.0
+
+# Synthesized exact vacuum rung: target at the atmosphere top, τ ≡ 1,
+# L_path ≡ 0 — a physical identity (zero absorbing column above), NOT
+# fabricated data. Closes the interpolation hull to the Gap 95 exo
+# handoff at 100 km (boost plan §4.2).
+VACUUM_TARGET_KM = 100.0
+
+# Off-nadir boost grid (midlat_summer, sensor 100 km): run -> (target km,
+# zenith deg). Nadir column reuses the boost-ladder tape7s; 45°/60°
+# columns are the I-block + G6 (boost plan §4.3). Synthesized vacuum rung
+# added at every zenith column below.
+BOOST_OFFNADIR: dict[str, tuple[float, float]] = {
+    "A3": (0.0, 0.0),
+    "G3": (10.0, 0.0),
+    "G5": (29.0, 0.0),
+    "G9": (50.0, 0.0),
+    "G11": (80.0, 0.0),
+    "I1": (0.0, 45.0),
+    "G6": (10.0, 45.0),
+    "I2": (29.0, 45.0),
+    "I3": (50.0, 45.0),
+    "I4": (80.0, 45.0),
+    "I5": (0.0, 60.0),
+    "I6": (10.0, 60.0),
+    "I7": (29.0, 60.0),
+    "I8": (50.0, 60.0),
+    "I9": (80.0, 60.0),
+}
+OFFNADIR_ZENITHS_DEG: tuple[float, ...] = (0.0, 45.0, 60.0)
+
+# Sensor ladder (midlat_summer, ground target, nadir): run -> sensor km.
+# Closes the airborne-sensor hull for ground targets (boost plan §4.5);
+# A3 (100 km) is duplicated at the orbital node as for the ladders.
+SENSOR_LADDER: dict[str, float] = {
+    "F2": 3.0,
+    "J1": 10.0,
+    "J2": 20.0,
+    "C1": 35.0,
+    "A3": 100.0,
+}
 
 # Off-grid validation points: run -> (sensor km, target km, LOS zenith rad).
 # Full five-field geometry is emitted via _full_geometry (CU-167 / §4.6);
@@ -168,6 +245,24 @@ def _load_downwelling(run: str) -> np.ndarray:
     """Degraded downwelling sky radiance from an up-looking H-run."""
     _wl, _tau, l_path, _ = Tape7Reader(REAL_RUNS / f"{run}.tp7").to_radiant_units()
     return np.maximum(_degrade(l_path), 0.0)
+
+
+def _vacuum_arrays(wl: np.ndarray, downwelling: np.ndarray) -> dict[str, np.ndarray]:
+    """Synthesized vacuum node: τ ≡ 1, L_path ≡ 0 (boost plan §4.2).
+
+    A physical identity (no absorbing column above the atmosphere top),
+    not fabricated data. ``atm_emission_down`` carries the family's H-run
+    downwelling so the interpolated downwelling is continuous across the
+    target axis — the up-path identity (τ, L_path) is what closes the
+    Gap 95 exo handoff; the downwelling is the constant-per-family
+    simplification documented in the MANIFEST.
+    """
+    return {
+        "wavelength_um": np.asarray(wl, dtype=np.float64),
+        "transmittance": np.ones_like(wl),
+        "path_radiance": np.zeros_like(wl),
+        "atm_emission_down": downwelling,
+    }
 
 
 def _save(path: Path, arrays: dict[str, np.ndarray], geometry: dict[str, float] | None) -> None:
@@ -216,9 +311,14 @@ def main() -> int:
             geometry=_full_geometry(100.0, 0.0, zenith_rad),
         )
 
+    # H5 up-looking 48.2° downwelling — attached to EVERY midlat_summer
+    # family node (ladders, boost, off-nadir, sensor-ladder; plan §4.4).
+    ms_down = _load_downwelling("H5")
+
     print("Ladders (midlat_summer, interpolated over sensor x target altitude):")
     for run, (sensor_km, target_km) in LADDER.items():
         arrays = _load_degraded(run)
+        arrays["atm_emission_down"] = ms_down  # plan §4.4 (was zero pre-boost)
         _save(
             OUT_ROOT / "midlat_summer_ladders" / f"s{sensor_km:05.0f}_t{target_km:02.0f}.npz",
             arrays,
@@ -233,6 +333,76 @@ def main() -> int:
                 arrays,
                 geometry=_full_geometry(ORBITAL_NODE_KM, target_km, 0.0),
             )
+
+    print("Boost ladder (midlat_summer, nadir, targets 0-100 km, sensor 100 km + orbital):")
+    ref_wl: np.ndarray | None = None
+    for run, target_km in BOOST_LADDER.items():
+        arrays = _load_degraded(run)
+        arrays["atm_emission_down"] = ms_down
+        if ref_wl is None:
+            ref_wl = arrays["wavelength_um"]
+        for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
+            _save(
+                OUT_ROOT
+                / "midlat_summer_boost_ladder"
+                / f"s{sensor_km:05.0f}_t{target_km:03.0f}.npz",
+                arrays,
+                geometry=_full_geometry(sensor_km, target_km, 0.0),
+            )
+    assert ref_wl is not None
+    vac = _vacuum_arrays(ref_wl, ms_down)
+    for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
+        _save(
+            OUT_ROOT
+            / "midlat_summer_boost_ladder"
+            / f"s{sensor_km:05.0f}_t{VACUUM_TARGET_KM:03.0f}.npz",
+            vac,
+            geometry=_full_geometry(sensor_km, VACUUM_TARGET_KM, 0.0),
+        )
+
+    print("Off-nadir boost grid (midlat_summer, sensor 100 km, zenith 0/45/60 + orbital):")
+    for run, (target_km, zenith_deg) in BOOST_OFFNADIR.items():
+        arrays = _load_degraded(run)
+        arrays["atm_emission_down"] = ms_down
+        for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
+            _save(
+                OUT_ROOT
+                / "midlat_summer_boost_offnadir"
+                / f"s{sensor_km:05.0f}_t{target_km:03.0f}_z{zenith_deg:02.0f}.npz",
+                arrays,
+                geometry=_full_geometry(sensor_km, target_km, zenith_deg * _DEG),
+            )
+    # Synthesized 100 km vacuum rung at EVERY zenith column (plan §4.2,
+    # widened 2026-07-19): the identity holds at all zeniths, so the
+    # 80–100 km band is inside the hull off-nadir too.
+    for zenith_deg in OFFNADIR_ZENITHS_DEG:
+        for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
+            _save(
+                OUT_ROOT
+                / "midlat_summer_boost_offnadir"
+                / f"s{sensor_km:05.0f}_t{VACUUM_TARGET_KM:03.0f}_z{zenith_deg:02.0f}.npz",
+                vac,
+                geometry=_full_geometry(sensor_km, VACUUM_TARGET_KM, zenith_deg * _DEG),
+            )
+
+    print("Sensor ladder (midlat_summer, ground target, nadir, 3-100 km + orbital):")
+    for run, sensor_km in SENSOR_LADDER.items():
+        arrays = _load_degraded(run)
+        arrays["atm_emission_down"] = ms_down
+        _save(
+            OUT_ROOT / "midlat_summer_sensor_ladder" / f"s{sensor_km:05.0f}.npz",
+            arrays,
+            geometry=_full_geometry(sensor_km, 0.0, 0.0),
+        )
+    # Orbital-hull duplicate of the 100 km (= TOA) node (A3), so LEO/GEO
+    # sensors fall inside the 1-D hull (vacuum above TOA — exact).
+    a3_arrays = _load_degraded("A3")
+    a3_arrays["atm_emission_down"] = ms_down
+    _save(
+        OUT_ROOT / "midlat_summer_sensor_ladder" / f"s{ORBITAL_NODE_KM:05.0f}.npz",
+        a3_arrays,
+        geometry=_full_geometry(ORBITAL_NODE_KM, 0.0, 0.0),
+    )
 
     print("Validation points (off-grid, not interpolation nodes):")
     for run, (sensor_km, target_km, zenith_rad) in VALIDATION.items():

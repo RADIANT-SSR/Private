@@ -195,7 +195,7 @@ This is the escape hatch for:
 
 **Inputs**: `atmosphere.tabulated_transmittance_file`, `atmosphere.tabulated_path_radiance_file`, `atmosphere.tabulated_downwelling_file` (optional).
 
-**Shipped nominal library (`data/atmospheres/`, 2026-07-17):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard and tropical carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), and a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated; the 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull — vacuum above TOA makes the duplication exact). Slit-degraded to 5 cm⁻¹ FWHM (~4 MB); full per-file provenance, packaging decisions, and known limitations in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py`. **Out-of-the-box default (2026-07-18):** `atmosphere.model = "interpolated"` with `interpolated_data_dir` unset loads the shipped family matching `interpolation_axes` — `path_zenith_rad` → `us_standard_zenith_fan`, `sensor_altitude_m,target_altitude_m` → `midlat_summer_ladders` — with a logged notice; an explicit directory always wins, and axes no shipped family covers still require one.
+**Shipped nominal library (`data/atmospheres/`, 56-run matrix; base 2026-07-17, boost expansion 2026-07-20):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard, tropical, and midlat_summer carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated), and the boost-expansion families for missile-defense boost-phase tracking: `midlat_summer_boost_ladder/` (space sensor × target 0–100 km, nadir), `midlat_summer_boost_offnadir/` (× LOS zenith 0/45/60°), and `midlat_summer_sensor_ladder/` (airborne→space sensor 3 km–GEO, ground target). The 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull (vacuum above TOA makes the duplication exact), and each boost family's 100 km target rung is a **synthesized exact vacuum node** (τ ≡ 1, L_path ≡ 0 — a physical identity, present at every zenith column) closing the hull to the Gap 95 exo handoff. All midlat_summer families carry the H5 48.2° downwelling. Slit-degraded to 5 cm⁻¹ FWHM; full per-file provenance, the CO₂-band-core rationale, packaging decisions, the elevated-target downwelling simplification (CU-181), and known limitations in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py` and `tests/integration/test_exo_target_chain.py`. **Out-of-the-box default:** `atmosphere.model = "interpolated"` with `interpolated_data_dir` unset loads the shipped family matching `interpolation_axes` — `path_zenith_rad` → `us_standard_zenith_fan`, `sensor_altitude_m,target_altitude_m` → `midlat_summer_ladders`, `sensor_altitude_m` → `midlat_summer_sensor_ladder`, `sensor_altitude_m,target_altitude_m,path_zenith_rad` → `midlat_summer_boost_offnadir` — with a logged notice; an explicit directory always wins, and axes no shipped family covers still require one.
 
 ### 3.3 Exo-atmospheric
 
@@ -276,9 +276,13 @@ calls in place of a bare `model.evaluate`:
   docstring; negligible against plume/self emission in the driving scenarios).
 
 `LineOfSightGeometry.slant_range_atm` returns 0 m and `path_airmass_up` the
-vacuum limit 1.0 for these targets. Targets in the 29–100 km band on the
-interpolated ladders remain data-limited until the boost-ladder run set lands —
-`docs/plans/MODTRAN_Boost_Ladder_Expansion_Plan.md`.
+vacuum limit 1.0 for these targets. Targets in the 29–100 km band are now
+covered by real MODTRAN data — the boost-ladder run set (G7–G11, I1–I9) landed
+2026-07-20 in the `midlat_summer_boost_ladder/` (nadir) and
+`midlat_summer_boost_offnadir/` (0/45/60°) families, so the interpolated
+backend serves a continuous τ_up from 0 km through the synthesized 100 km
+vacuum rung into this exo branch (see the shipped-library note in §3.2 and the
+archived `docs/archive/MODTRAN_Boost_Ladder_Expansion_Plan.md`).
 
 ### 4.3 How geometry feeds each model
 

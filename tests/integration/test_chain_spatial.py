@@ -486,10 +486,14 @@ class TestIPCWiring:
 
 @pytest.mark.level2
 class TestNyquistExceedsCutoff:
-    """Verify diagnostic warning when detector oversamples the optics."""
+    """Diagnostic debug note when the detector oversamples the optics.
+
+    CU-166 approach 4: this was a ``logger.warning``, now a ``logger.debug``
+    note (oversampling is a valid, documented sampling regime).
+    """
 
     def test_small_pixel_warns(self, caplog) -> None:
-        """8 µm pixel at f/4 MWIR → Nyquist > cutoff → warning logged."""
+        """8 µm pixel at f/4 MWIR → Nyquist > cutoff → debug note logged."""
         small_pitch_um = 8.0  # µm
         wl = np.linspace(FILTER_MIN, FILTER_MAX, 100)
         session = RadiantSession(wavelength_um=wl)
@@ -514,15 +518,15 @@ class TestNyquistExceedsCutoff:
         params.set("readout.full_well_capacity_e", 2000000.0)
         params.resolve()
 
-        with caplog.at_level(logging.WARNING, logger="radiant.performance.stage"):
+        with caplog.at_level(logging.DEBUG, logger="radiant.performance.stage"):
             r = session.run(params)
 
         assert r.metrics["mtf_at_nyquist"] == pytest.approx(0.0, abs=1e-6)
         assert any("exceeds diffraction cutoff" in msg for msg in caplog.messages)
 
     def test_normal_pixel_no_warning(self, caplog) -> None:
-        """18 µm pixel at f/4 MWIR → Nyquist < cutoff → no warning."""
-        with caplog.at_level(logging.WARNING, logger="radiant.performance.stage"):
+        """18 µm pixel at f/4 MWIR → Nyquist < cutoff → no note."""
+        with caplog.at_level(logging.DEBUG, logger="radiant.performance.stage"):
             # Uses the module-level result fixture's config (18 µm pitch).
             wl = np.linspace(FILTER_MIN, FILTER_MAX, 100)
             session = RadiantSession(wavelength_um=wl)

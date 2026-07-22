@@ -229,8 +229,8 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Found in** | Scenario 5.2 (Tom — pixel pitch optimization, 8 µm pixel at f/4) |
 | **Status** | CLOSED (not a bug) |
 | **Description** | **Investigated and confirmed physically correct.** At 8 µm pitch, f/4, λ=4.25 µm: detector Nyquist = 62,500 cy/m exceeds diffraction cutoff = 58,824 cy/m by 6.2%. The optics cannot pass spatial information at the Nyquist frequency, so MTF = 0 is the correct answer. PSF grid resolution verified adequate (32.9 samples across FWHM, FFT Nyquist 15× detector Nyquist). No interpolation or aliasing issues found. |
-| **Fix** | Added a diagnostic `logger.warning` in `_compute_spatial_metrics` when Nyquist > diffraction cutoff. Warning includes both frequencies, wavelength, f/#, and Q value so users understand why MTF = 0 rather than suspecting a bug. 2 integration tests (warning fires for 8 µm pixel, no warning for 18 µm pixel). |
-| **Impact** | Users now get clear diagnostic when operating in this regime. |
+| **Fix** | Added a diagnostic in `_compute_spatial_metrics` when Nyquist > diffraction cutoff, carrying both frequencies, wavelength, f/#, and Q so users understand why MTF = 0 rather than suspecting a bug. Originally a `logger.warning`; **reclassified to `logger.debug` (CU-166 approach 4, 2026-07-20)** — oversampling is a valid, documented sampling regime already surfaced as structured status (`q_center`/`q_min`/`q_max`, `sampling_regime_code`, `mtf_at_nyquist ≈ 0`), so it is a debug note, not a per-evaluate warning, per the zero-warnings-for-valid-scenarios bar. 2 integration tests (note fires for 8 µm pixel, none for 18 µm pixel). |
+| **Impact** | Users get a clear debug diagnostic in this regime; the operative fact is on the result (`q_*` metrics + `mtf_at_nyquist`) regardless of log level. |
 | **Rerun after fix** | N/A — behavior unchanged, diagnostic added |
 
 ---

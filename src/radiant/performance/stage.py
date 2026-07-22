@@ -126,17 +126,23 @@ def _compute_spatial_metrics(
     freq_y, mtf_y = epsf.mtf_1d("y")
     mtf_ny = mtf_at_nyquist(freq_x, mtf_x, pixel_pitch_m)
 
-    # Warn when Nyquist frequency exceeds the diffraction cutoff.
+    # Log (debug) when the Nyquist frequency exceeds the diffraction cutoff.
+    # This is a valid, documented sampling regime (the detector oversamples the
+    # optics), not a fault: the operative fact is already surfaced as structured
+    # status — the q_center/q_min/q_max metrics, sampling_regime_code, and
+    # mtf_at_nyquist ≈ 0. Per the zero-warnings-for-valid-scenarios bar (CU-166),
+    # it is a debug note, not a per-evaluate warning (was logger.warning; CU-166
+    # approach 4).
     try:
         f_number: float = params.get("optics.f_number")
         lambda_m = epsf.wavelength_um * 1e-6
         f_cutoff = 1.0 / (lambda_m * f_number)
         f_nyquist = 1.0 / (2.0 * pixel_pitch_m)
         if f_nyquist > f_cutoff:
-            logger.warning(
+            logger.debug(
                 "Detector Nyquist frequency (%.0f cy/m) exceeds diffraction cutoff "
                 "(%.0f cy/m) at λ=%.2f µm, f/%.1f. MTF at Nyquist is zero; "
-                "this is physically correct but indicates the detector oversamples "
+                "this is physically correct and indicates the detector oversamples "
                 "the optics (Q = %.2f).",
                 f_nyquist,
                 f_cutoff,

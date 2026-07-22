@@ -32,7 +32,7 @@ readout:
   gain_e_per_dn: 32.0
   read_noise_e_rms: 5.0
 source:
-  scene_type: point_source
+  scene_type: auto
   target:
     emissivity: 0.95
     temperature: 2000.0

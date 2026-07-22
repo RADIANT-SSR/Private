@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **The detector-oversampling (Nyquist > diffraction cutoff) diagnostic is now a
+  `logger.debug` note instead of a `logger.warning` (CU-166 approach 4).** Oversampling
+  (Q > 2) is a valid, documented sampling regime — the operative fact is already surfaced
+  as structured status (`q_center`/`q_min`/`q_max`, `sampling_regime_code`, `mtf_at_nyquist
+  ≈ 0`), so it no longer emits a per-evaluate warning, per the zero-warnings-for-valid-
+  scenarios bar. User-observable: scenario `6.4` (and any oversampled config) now evaluates
+  warning-free. Not results-affecting (log level only; no metric changes). Completes the
+  CU-166 chain-wide warning-site audit — of 42 warning sites, only saturation (genuinely
+  actionable, kept) and this notice fired on valid shipped configs.
+- **Example `nintendo.yaml` `source.scene_type` corrected `point_source` → `auto`.** The
+  config declared a point source but the 2000 K target has no angular size, so the engine
+  correctly derives an `extended` regime; the declaration tripped the (correct, kept)
+  declared-vs-derived regime-mismatch warning. `auto` lets the engine infer, so the shipped
+  example evaluates warning-free without weakening the actionable mismatch warning.
 - **Results-affecting: 11 saturating GUI-baseline scenarios re-centered to a
   warning-free operating point, and all 34 `.gui.expected.json` baselines refreshed
   (CU-170 + CU-166 item iv; CU-175).** The shipped GUI baselines for `2.3, 3.3, 3.5,

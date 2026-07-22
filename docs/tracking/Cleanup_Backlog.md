@@ -12,6 +12,14 @@
 
 ## Open
 
+### CU-179 — The GUI-baseline acceptance gate (`verify_gui_yaml.py`) runs outside CI/pytest, so the 34 shipped baselines drift undetected
+
+**Discovered**: CU-175/CU-176 refresh pass, 2026-07-22.
+**File**: `scenarios/tools/verify_gui_yaml.py` — no reference to it (or to the `.gui.expected.json` snapshots / `gui_baselines` registry) anywhere in `.github/` or `tests/` (confirmed by grep).
+**Symptom**: the 34 `scenarios/*/*/inputs/*.gui.expected.json` baselines are only checked when a human runs `python scenarios/tools/verify_gui_yaml.py` by hand. Nothing in pytest or CI exercises it, so when the engine legitimately moves (the CU-166 NIIRS gate, Gap 38, CU-155/157/161, …) the baselines silently go stale — [[CU-175]] found **31 of 34 red**, undetected until the script was run manually during that pass.
+**Why it still matters**: these are the acceptance artifacts for the GUI-loadable scenarios ("does the shipped YAML still reproduce the backend?"). An acceptance test that no gate runs is not an acceptance test — the drift it exists to catch accumulates invisibly. CU-175 refreshed the baselines but left the *detection gap* open, so the same silent drift recurs on the next physics change.
+**Suggested fix**: (a) stand-alone task — add a pytest test (`tests/integration/`, `@pytest.mark.golden`) that iterates the `gui_baselines` registry and asserts each `.gui.yaml` reload reproduces its `.gui.expected.json` (the body of `verify_gui_yaml.verify_one`), so drift fails CI; document the golden-update path (regenerate via `emit_gui_yaml.py`) mirroring `RADIANT_Testing_Validation.md` §5.3. Effort S; category A/D. Related: [[CU-175]] (symptom), [[CU-177]] (portable paths — needed for the test to run from any checkout, now fixed).
+
 ### CU-178 — Scenario runners crash on gated NIIRS (CU-166 regression) — they format `metrics["niirs"]` unconditionally, but it is now `None` outside the GIQE-5 envelope
 
 **Discovered**: CU-176 number-refresh pass, 2026-07-21 (worktree `cu176/number-refresh`).

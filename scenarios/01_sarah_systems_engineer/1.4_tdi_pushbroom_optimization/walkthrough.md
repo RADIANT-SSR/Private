@@ -1,5 +1,8 @@
 # Scenario 1.4 Walkthrough: TDI Pushbroom Optimization — Line Rate vs. SNR
 
+
+> **NIIRS applicability — engine update (CU-166).** Since this walkthrough was written, RADIANT added a metric-applicability gate: when one or more GIQE-5 inputs fall outside the calibration envelope — GSD 1.18–31.5 inch, RER 0.20–0.95, SNR 2–130 — the engine reports **NIIRS as N/A** by default instead of silently extrapolating. This configuration is outside that envelope, so the NIIRS values below are the **extrapolated** GIQE-5-form output: reproduce them with `performance.niirs.allow_extrapolated = true` and read them as a *relative trend, not a calibrated rating*. (The SNR/NEDT figures here predate later physics updates and are indicative; a full numeric refresh is tracked separately in the cleanup backlog. No IR-calibrated IIRS model yet — see `docs/tracking/gaps.md` Gap 100.)
+
 ## Persona
 Sarah, systems engineer. She is designing a VNIR panchromatic pushbroom imager (25 cm aperture, f/10, 7 um Si CCD) for a 500 km SSO. Ground velocity constrains the per-line integration time to ~0.2 ms. She needs TDI to build sufficient SNR and must find the optimal N_tdi.
 

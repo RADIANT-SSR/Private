@@ -1,5 +1,8 @@
 # Scenario 2.3 Walkthrough: IPC Impact on MTF
 
+
+> **NIIRS applicability — engine update (CU-166).** Since this walkthrough was written, RADIANT added a metric-applicability gate: when one or more GIQE-5 inputs fall outside the calibration envelope — GSD 1.18–31.5 inch, RER 0.20–0.95, SNR 2–130 — the engine reports **NIIRS as N/A** by default instead of silently extrapolating. This configuration is outside that envelope, so the NIIRS values below are the **extrapolated** GIQE-5-form output: reproduce them with `performance.niirs.allow_extrapolated = true` and read them as a *relative trend, not a calibrated rating*. (The SNR/NEDT figures here predate later physics updates and are indicative; a full numeric refresh is tracked separately in the cleanup backlog. No IR-calibrated IIRS model yet — see `docs/tracking/gaps.md` Gap 100.)
+
 ## The Problem
 
 Mike is a detector engineer evaluating HgCdTe MWIR detectors for a LEO pushbroom imaging system. His vendor has shipped five sample detectors from the same wafer lot, each with a different level of inter-pixel capacitance (IPC) — a parasitic electrical coupling between neighboring pixels that is inherent to the detector fabrication process.

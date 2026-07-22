@@ -34,7 +34,7 @@ source:
   regime_override: sub_pixel
   scene_type: sub_pixel
   target:
-    emissivity_path: /Users/jforsyth/SSR_Tool/data/emissivity/steel.csv
+    emissivity_path: ../../../../data/emissivity/steel.csv
     temperature: 288.0
 spectral_integration:
   filter_max_um: 5.0

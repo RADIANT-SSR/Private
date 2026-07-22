@@ -141,6 +141,20 @@ def test_parameterdef_bounds_requires_numeric() -> None:
         )
 
 
+@pytest.mark.level0
+def test_parameterdef_is_file_path_requires_str() -> None:
+    """is_file_path with non-str dtype raises ValueError (CU-177)."""
+    with pytest.raises(ValueError, match="is_file_path requires dtype=str"):
+        ParameterDef(
+            name="x.y",
+            description="test",
+            dtype=float,
+            canonical_unit="",
+            input_unit="",
+            is_file_path=True,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Tolerance tests
 # ---------------------------------------------------------------------------

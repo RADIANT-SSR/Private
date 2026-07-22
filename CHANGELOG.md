@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **File-path parameters are now stored portably — relative to the config's own
+  directory instead of as an absolute machine path (CU-177).** Parameters that name a
+  data file (`source.target`/`background` emissivity/reflectance/albedo/brightness-
+  temperature/radiance/intensity paths, `detector.qe_table_path`, `optics.zernike_file`,
+  the three `atmosphere.tabulated_*_file`) carry a new `ParameterDef.is_file_path` flag;
+  `Sensor.save` / `save_config` write their value relative to the output YAML directory
+  (forward-slashed, cross-platform), and `load_config` resolves it back to absolute against
+  the source YAML directory. A config referencing a repo-internal data file is now portable
+  across checkout locations, machines, and OSes. New optional `Sensor.to_yaml(relative_to=...)`
+  kwarg exposes the same relativization for string exports. Back-compatible: configs written
+  before this change (absolute paths) still load unchanged; system/staging paths (MODTRAN
+  binary, cache/data dirs, tape7/flux) are unaffected. User-observable: the shipped `1.1` and
+  `4.3` GUI baselines now store `../…`-relative data-file paths and load on any checkout.
 - **The detector-oversampling (Nyquist > diffraction cutoff) diagnostic is now a
   `logger.debug` note instead of a `logger.warning` (CU-166 approach 4).** Oversampling
   (Q > 2) is a valid, documented sampling regime — the operative fact is already surfaced

@@ -25,6 +25,7 @@ than the user intended (CU-050).
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -112,6 +113,45 @@ def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
             node = node.setdefault(part, {})
         node[parts[-1]] = value
     return nested
+
+
+def _relativize_file_paths(flat: dict[str, Any], params: ParameterSet, base_dir: Path) -> None:
+    """Rewrite ``is_file_path`` values from absolute to ``base_dir``-relative (CU-177).
+
+    In-place. Non-file-path params, empty values, and already-relative values are
+    left untouched; a path on a different filesystem root (Windows cross-drive)
+    keeps its absolute form. Relative paths use forward slashes so the written
+    YAML is byte-identical on macOS and Windows (Rule 30).
+    """
+    defs = params.parameter_defs()
+    for name, value in list(flat.items()):
+        pdef = defs.get(name)
+        if pdef is None or not pdef.is_file_path:
+            continue
+        if not isinstance(value, str) or not value or not os.path.isabs(value):
+            continue
+        try:
+            rel = os.path.relpath(value, base_dir)
+        except ValueError:
+            continue  # different drive on Windows — no relative form exists
+        flat[name] = Path(rel).as_posix()
+
+
+def _resolve_file_paths(flat: dict[str, Any], params: ParameterSet, base_dir: Path) -> None:
+    """Resolve relative ``is_file_path`` values against ``base_dir`` (CU-177).
+
+    In-place, the inverse of :func:`_relativize_file_paths`. Absolute values and
+    non-file-path params pass through unchanged, so configs written before CU-177
+    (absolute paths) still load.
+    """
+    defs = params.parameter_defs()
+    for name, value in list(flat.items()):
+        pdef = defs.get(name)
+        if pdef is None or not pdef.is_file_path:
+            continue
+        if not isinstance(value, str) or not value or os.path.isabs(value):
+            continue
+        flat[name] = str((base_dir / value).resolve())
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +266,11 @@ def load_config(
 
     flat = _flatten(raw)
     source_label = str(path) if path else "dict"
+    # CU-177: resolve relative file-path parameters against the config's own
+    # directory so a portable (relative-path) config finds its data files
+    # regardless of checkout location. A dict source has no anchor — skip.
+    if path is not None:
+        _resolve_file_paths(flat, params, path.parent)
 
     errors: list[str] = []
     for dotpath, value in flat.items():
@@ -359,9 +404,14 @@ def save_config(
                 f"save_config: unknown structured section(s) {keys}; "
                 f"registered sections: {sorted(_SECTION_KEYS)}."
             )
-    text = serialize_config(params, header=header, meta=meta, scope=scope, sections=sections)
     out = Path(dest)
     out.parent.mkdir(parents=True, exist_ok=True)
+    # CU-177: relativize file-path parameters against the output directory so the
+    # written config references repo-internal data files portably (resolved back
+    # to absolute against the YAML's location on load).
+    text = serialize_config(
+        params, header=header, meta=meta, scope=scope, sections=sections, relative_to=out.parent
+    )
     # Rule 30: explicit encoding; newline="\n" keeps the YAML byte-stable across platforms.
     with open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
@@ -375,6 +425,7 @@ def serialize_config(
     meta: dict[str, Any] | None = None,
     scope: str = "resolved",
     sections: dict[str, Any] | None = None,
+    relative_to: Path | None = None,
 ) -> str:
     """Serialise a resolved ParameterSet to a YAML **string** (Gap 88).
 
@@ -382,6 +433,12 @@ def serialize_config(
     scopes, same ``_radiant`` meta block, same structured sections. This is
     the surface ``Sensor.to_yaml`` exposes so the GUI's YAML tab no longer
     needs a temp-file round trip.
+
+    ``relative_to`` (CU-177): when set, any ``is_file_path`` parameter holding an
+    absolute path is rewritten relative to this directory (forward-slash form,
+    cross-platform), so the config references repo-internal data files portably.
+    ``save_config`` passes the output directory; ``Sensor.to_yaml`` leaves it
+    ``None`` (no destination), so string exports keep paths as-stored.
     """
     if scope not in ("resolved", "inputs"):
         raise ConfigError(f"serialize_config: scope must be 'resolved' or 'inputs', got {scope!r}.")
@@ -398,6 +455,8 @@ def serialize_config(
     else:
         resolved = params.all_resolved()
         flat = {name: rv.input_value for name, rv in resolved.items()}
+    if relative_to is not None:
+        _relativize_file_paths(flat, params, relative_to)
     nested = _unflatten(flat)
     if sections is not None:
         nested.update(sections)

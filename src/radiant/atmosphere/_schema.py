@@ -128,6 +128,7 @@ STANDARD_ATMOSPHERE = ParameterDef(
 
 TABULATED_TRANSMITTANCE_FILE = ParameterDef(
     name="atmosphere.tabulated_transmittance_file",
+    is_file_path=True,
     description=(
         "Path to CSV or NPZ file containing tabulated atmospheric "
         "transmittance. CSV: two columns (wavelength_um, value). "
@@ -144,6 +145,7 @@ TABULATED_TRANSMITTANCE_FILE = ParameterDef(
 
 TABULATED_PATH_RADIANCE_FILE = ParameterDef(
     name="atmosphere.tabulated_path_radiance_file",
+    is_file_path=True,
     description=(
         "Path to CSV or NPZ file containing tabulated path radiance "
         "[W/m^2/sr/um]. Required when atmosphere.model='tabulated'."
@@ -158,6 +160,7 @@ TABULATED_PATH_RADIANCE_FILE = ParameterDef(
 
 TABULATED_DOWNWELLING_FILE = ParameterDef(
     name="atmosphere.tabulated_downwelling_file",
+    is_file_path=True,
     description=(
         "Path to CSV file containing tabulated downwelling atmospheric "
         "emission [W/m^2/sr/um]. Optional; defaults to zeros if not provided."

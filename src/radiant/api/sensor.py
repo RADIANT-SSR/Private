@@ -195,7 +195,7 @@ class Sensor:
             sections=sections,
         )
 
-    def to_yaml(self, *, scope: str = "inputs") -> str:
+    def to_yaml(self, *, scope: str = "inputs", relative_to: str | Path | None = None) -> str:
         """Serialize this Sensor to a YAML string (Gap 88 — no temp file).
 
         ``scope="inputs"`` (default) is byte-identical to what :meth:`save`
@@ -203,6 +203,11 @@ class Sensor:
         ``optical_elements`` document) and reloads exactly.
         ``scope="resolved"`` writes every resolved parameter — defaults and
         derived values included — as a fully-specified documentation export.
+
+        ``relative_to`` (CU-177): a directory the emitted YAML will live in.
+        When given, file-path parameters (``is_file_path``) that hold an absolute
+        path are written relative to it, matching what :meth:`save` does with its
+        own destination directory, so the string is portable when written there.
         """
         self._ensure_resolved()
         meta: dict[str, Any] = {"format": 1, "wavelength_points": self._wl_points}
@@ -221,6 +226,7 @@ class Sensor:
             meta=meta,
             scope=scope,
             sections=sections,
+            relative_to=Path(relative_to) if relative_to is not None else None,
         )
 
     # ------------------------------------------------------------------

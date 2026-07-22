@@ -422,3 +422,107 @@ class TestSaveConfigScopes:
         assert raw["_radiant"] == {"format": 1, "wavelength_points": 123}
         # And the file loads cleanly.
         load_config(p, build_parameter_set()).resolve()
+
+
+# ---------------------------------------------------------------------------
+# CU-177 — file-path parameters are stored portably (relative to the YAML)
+# ---------------------------------------------------------------------------
+
+
+class TestFilePathPortability:
+    """save() relativizes is_file_path params; load() resolves them (CU-177)."""
+
+    @staticmethod
+    def _csv(dirpath: Path, name: str = "qe.csv") -> Path:
+        p = dirpath / name
+        p.write_text("wavelength_um,qe\n3.0,0.5\n5.0,0.6\n", encoding="utf-8")
+        return p
+
+    @pytest.mark.level1
+    def test_save_writes_relative_path(self, tmp_path: Path) -> None:
+        """An absolute is_file_path value is stored relative to the output dir."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        csv = self._csv(data_dir)  # <tmp>/data/qe.csv
+        out_dir = tmp_path / "cfg" / "inputs"
+        out_dir.mkdir(parents=True)
+
+        params = build_parameter_set()
+        params.set("detector.qe_table_path", str(csv.resolve()))
+        save_config(params, out_dir / "s.yaml", scope="inputs")
+
+        raw = yaml.safe_load((out_dir / "s.yaml").read_text(encoding="utf-8"))
+        stored = raw["detector"]["qe_table_path"]
+        assert not Path(stored).is_absolute()
+        assert stored == "../../data/qe.csv"  # forward slashes, relative to inputs/
+
+    @pytest.mark.level1
+    def test_roundtrip_resolves_to_same_absolute(self, tmp_path: Path) -> None:
+        """save (abs -> rel) then load (rel -> abs) recovers the original file."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        csv = self._csv(data_dir)
+        out = tmp_path / "cfg" / "s.yaml"
+        out.parent.mkdir()
+
+        params = build_parameter_set()
+        params.set("detector.qe_table_path", str(csv.resolve()))
+        save_config(params, out, scope="inputs")
+
+        reloaded = build_parameter_set()
+        load_config(out, reloaded)
+        loaded = reloaded.inputs()["detector.qe_table_path"]
+        assert Path(loaded) == csv.resolve()
+        assert Path(loaded).exists()
+
+    @pytest.mark.level1
+    def test_portable_across_move(self, tmp_path: Path) -> None:
+        """Config + data copied to a new tree still resolves to the new location."""
+        import shutil
+
+        src = tmp_path / "checkoutA"
+        (src / "data").mkdir(parents=True)
+        (src / "cfg").mkdir()
+        self._csv(src / "data")
+        params = build_parameter_set()
+        params.set("detector.qe_table_path", str((src / "data" / "qe.csv").resolve()))
+        save_config(params, src / "cfg" / "s.yaml", scope="inputs")
+
+        dst = tmp_path / "checkoutB"
+        shutil.copytree(src, dst)
+
+        reloaded = build_parameter_set()
+        load_config(dst / "cfg" / "s.yaml", reloaded)
+        loaded = reloaded.inputs()["detector.qe_table_path"]
+        assert Path(loaded) == (dst / "data" / "qe.csv").resolve()
+        assert Path(loaded).exists()
+
+    @pytest.mark.level1
+    def test_absolute_path_in_config_still_loads(self, tmp_path: Path) -> None:
+        """Back-compat: a config with an absolute file-path value passes through."""
+        csv = self._csv(tmp_path)
+        cfg = tmp_path / "s.yaml"
+        cfg.write_text(
+            f"detector:\n  qe_table_path: {csv.resolve()}\n", encoding="utf-8"
+        )
+        reloaded = build_parameter_set()
+        load_config(cfg, reloaded)
+        loaded = reloaded.inputs()["detector.qe_table_path"]
+        assert Path(loaded) == csv.resolve()
+
+    @pytest.mark.level1
+    def test_non_file_path_string_untouched(self, tmp_path: Path) -> None:
+        """A non-file-path str param is never rebased, even if it looks path-like."""
+        out = tmp_path / "s.yaml"
+        params = build_parameter_set()
+        params.set("atmosphere.standard_atmosphere", "midlat_summer")
+        save_config(params, out, scope="inputs")
+        raw = yaml.safe_load(out.read_text(encoding="utf-8"))
+        assert raw["atmosphere"]["standard_atmosphere"] == "midlat_summer"
+
+    @pytest.mark.level1
+    def test_dict_source_leaves_relative_untouched(self) -> None:
+        """A dict (no anchor) does not rebase a relative file-path value."""
+        params = build_parameter_set()
+        load_config({"detector": {"qe_table_path": "rel/qe.csv"}}, params)
+        assert params.inputs()["detector.qe_table_path"] == "rel/qe.csv"

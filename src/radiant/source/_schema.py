@@ -313,6 +313,7 @@ BACKGROUND_MATERIAL = ParameterDef(
 
 BACKGROUND_EMISSIVITY_PATH = ParameterDef(
     name="source.background.emissivity_path",
+    is_file_path=True,
     description=(
         "Two-column CSV (wavelength_um, emissivity) giving a measured "
         "background emissivity spectrum ε_g(λ) for the sub-pixel/"
@@ -381,6 +382,7 @@ BRIGHTNESS_TEMPERATURE_K = ParameterDef(
 
 BRIGHTNESS_TEMPERATURE_PATH = ParameterDef(
     name="source.target.brightness_temperature_path",
+    is_file_path=True,
     description=(
         "Path to a 2-column CSV (wavelength_um, T_B_K) carrying a "
         "wavelength-dependent brightness temperature.  When set, routes "
@@ -519,6 +521,7 @@ ALBEDO = ParameterDef(
 
 REFLECTANCE_PATH = ParameterDef(
     name="source.target.reflectance_path",
+    is_file_path=True,
     description=(
         "Path to a 2-column CSV (wavelength_um, rho) carrying a "
         "λ-dependent reflectance ρ(λ).  When set, routes through the "
@@ -537,6 +540,7 @@ REFLECTANCE_PATH = ParameterDef(
 
 ALBEDO_PATH = ParameterDef(
     name="source.target.albedo_path",
+    is_file_path=True,
     description=(
         "Alias of source.target.reflectance_path with identical CSV "
         "format.  Rejected when paired with the reflectance_path surface."
@@ -551,6 +555,7 @@ ALBEDO_PATH = ParameterDef(
 
 EMISSIVITY_PATH = ParameterDef(
     name="source.target.emissivity_path",
+    is_file_path=True,
     description=(
         "Path to a 2-column CSV (wavelength_um, emissivity) carrying a "
         "λ-dependent emissivity ε(λ) for a thermal target (Gap 47). When "
@@ -571,6 +576,7 @@ EMISSIVITY_PATH = ParameterDef(
 
 USER_RADIANCE_PATH = ParameterDef(
     name="source.target.user_radiance_path",
+    is_file_path=True,
     description=(
         "Path to a 2-column CSV (wavelength_um, L_t_source [W/m²/sr/µm]) "
         "carrying a user-supplied spectral radiance at the target plane.  "
@@ -595,6 +601,7 @@ USER_RADIANCE_PATH = ParameterDef(
 
 USER_INTENSITY_PATH = ParameterDef(
     name="source.target.user_intensity_path",
+    is_file_path=True,
     description=(
         "Path to a 2-column CSV (wavelength_um, I_t_source [W/sr/µm]) "
         "carrying a user-supplied spectral intensity at the target "

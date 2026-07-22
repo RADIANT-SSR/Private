@@ -236,6 +236,7 @@ WFE_MODE = ParameterDef(
 
 ZERNIKE_FILE = ParameterDef(
     name="optics.zernike_file",
+    is_file_path=True,
     description=(
         "Path to a Zemax 'Zernike Standard Coefficients' text export. When set, the "
         "API layer loads it pre-chain (Rule 6) and injects the resulting ZERNIKE-mode "

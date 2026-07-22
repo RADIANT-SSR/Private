@@ -49,7 +49,9 @@ def emit_one(scen: GuiScenario) -> dict[str, float | None]:
         warnings.simplefilter("ignore")
         sensor = scen.build()
         result = sensor.evaluate()
-        yaml_text = sensor.to_yaml(scope="inputs")
+        # CU-177: relative_to the YAML's own directory so file-path parameters
+        # (e.g. emissivity_path, user_radiance_path) are stored portably.
+        yaml_text = sensor.to_yaml(scope="inputs", relative_to=scen.yaml_path.parent)
     scen.yaml_path.write_text(yaml_text, encoding="utf-8", newline="\n")
     snap = _snapshot(result, scen)
     payload = {

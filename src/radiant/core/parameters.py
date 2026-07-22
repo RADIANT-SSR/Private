@@ -155,6 +155,14 @@ class ParameterDef:
     # Example: detector.qe_value is required UNLESS detector.qe_table_path
     # is set (the spectral curve supersedes the scalar).
     required_unless: str | None = None
+    # A str parameter whose value names a data file on disk (a CSV, a Zernike
+    # table, etc.). Serialization stores it relative to the output YAML's
+    # directory and loading resolves it relative to the source YAML's directory,
+    # so a config that references a repo-internal data file stays portable across
+    # checkout locations and machines (CU-177). NOT set for system/environment
+    # paths (MODTRAN binary, cache/data directories) that are not part of the
+    # portable config surface.
+    is_file_path: bool = False
 
     def __post_init__(self) -> None:
         if self.dtype not in (float, int, str, bool):
@@ -165,6 +173,10 @@ class ParameterDef:
             raise CoreValidationError(f"ParameterDef '{self.name}': enum_values requires dtype=str")
         if self.bounds is not None and self.dtype not in (float, int):
             raise CoreValidationError(f"ParameterDef '{self.name}': bounds requires numeric dtype")
+        if self.is_file_path and self.dtype is not str:
+            raise CoreValidationError(
+                f"ParameterDef '{self.name}': is_file_path requires dtype=str"
+            )
         if self.name in self.deprecated_aliases:
             raise CoreValidationError(f"ParameterDef '{self.name}': cannot alias itself")
         if self.required_unless is not None:

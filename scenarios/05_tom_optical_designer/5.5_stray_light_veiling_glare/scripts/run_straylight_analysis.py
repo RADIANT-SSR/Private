@@ -102,6 +102,9 @@ def build(
     s.set("spectral_integration.integration_time_s", T_INT_S)
     s.set("readout.read_noise_e_rms", READ_E)
     s.set("readout.full_well_capacity_e", FWC_E)
+    # CU-178: config outside the GIQE-5 envelope → NIIRS N/A by default; opt into
+    # the extrapolated NIIRS trend (read as relative, not calibrated).
+    s.set("performance.niirs.allow_extrapolated", True)
     return s
 
 

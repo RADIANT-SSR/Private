@@ -29,11 +29,11 @@ the workbook, which is the RADIANT-facing input.
 
 | Metric | Vendor A | Vendor B | Vendor C |
 |--------|----------|----------|----------|
-| SNR | 1246 | **2449** | 527 |
-| NIIRS | 4.86 | 4.58 | **4.94** |
-| NEDT [mK] | 21.6 | **10.0** | 51.1 |
+| SNR | 1035 | **2447** | 438 |
+| NIIRS | 4.75 | 4.54 | **4.81** |
+| NEDT [mK] | 26.5 | **11.4** | 62.7 |
 | GSD [m] | 9.0 | 19.2 | **3.4** |
-| MTF@Nyquist | 0.25 | **0.46** | 0.00 |
+| MTF@Nyquist | 0.27 | **0.43** | 0.00 |
 
 **Compliance matrix (vs requirements):**
 

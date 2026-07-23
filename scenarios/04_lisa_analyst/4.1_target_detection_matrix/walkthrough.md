@@ -1,8 +1,15 @@
 # Scenario 4.1 Walkthrough: Target Detection Matrix
 
-Executed 2026-07-08 (Scenario_Execution_Plan Phase T3, priority 16). First
-execution; prerequisites `radiant.api.batch.BatchRunner` and
-`radiant.io.target_library` landed in commit 6492028.
+Executed 2026-07-08 (Scenario_Execution_Plan Phase T3, priority 16);
+prerequisites `radiant.api.batch.BatchRunner` and `radiant.io.target_library`
+landed in commit 6492028. **Fully refreshed 2026-07-22 (CU-176) against the
+current engine, after the CU-182 geometry-convention fix** — the runner had
+been over-specifying the line of sight (both `geometry.target_range_m` and
+`geometry.path_zenith_rad`), which failed every cell under the CU-093
+consistency check; it now sets only the target-side path zenith θ_o and derives
+the slant range from the chain (`slant_range_from_theta_o_m`). All 144 cells now
+evaluate, and the numbers below reflect both that fix and the CU-155/161
+atmosphere recalibration.
 
 ## The Problem
 
@@ -57,71 +64,94 @@ regime weights the target by `source.target.fill_fraction =
 min(1, A_target/(IFOV·R)²)` — the pixel fraction it covers — NOT by
 `projected_area_m2` (which drives only the point-source path). Off-nadir the
 pixel footprint grows, fill drops, and SCNR falls: that is the
-detection-range mechanism, found by bisection on zenith (spherical-Earth
-slant range, the same function GSD uses).
+detection-range mechanism, found by bisection on the target-side path zenith
+θ_o (`geometry.path_zenith_rad`), with the slant range derived from θ_o through
+the chain's own spherical viewing triangle (`slant_range_from_theta_o_m`).
 
 ## Key Results (detection range [km slant], SCNR ≥ 5)
 
-**Sensor A — MWIR smallsat (16.7 m GSD, 278 m² footprint):** only the
-largest targets clear the sub-pixel threshold —
+**Sensor A — MWIR smallsat (16.7 m GSD, 278 m² footprint):** the coarse
+GSD gives a huge pixel footprint, so only the single largest fill target
+clears the sub-pixel threshold —
 
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
-| Transport aircraft | 1,139 | 968 | 831 | 1,146 |
-| Fuel bladder farm | 555 | 534 | 515 | 557 |
+| Fuel bladder farm | 1,040 | 1,040 | 1,044 | 1,036 |
 | (all others) | — not detectable — | | | |
 
 **Sensor B — MWIR flagship (4.0 m GSD, 16 m² footprint):** the small
-footprint gives high fill, so most targets are detectable —
+footprint gives high fill, so **every** target is detectable, most out to
+the swath edge —
 
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
-| Fuel bladder farm | 1,704* | 1,704* | 1,693 | 1,704* |
-| Patrol boat | 1,487 | 1,354 | 1,226 | 1,501 |
-| Fast attack craft | 1,102 | 1,032 | 951 | 1,114 |
-| Towed artillery | 826 | 813 | 800 | 829 |
-| SAM TEL | 772 | 761 | 748 | 774 |
-| Cargo truck | 698 | 689 | 678 | 700 |
-| Small UAV | 609 | 602 | 594 | 610 |
-| APC | 575 | 568 | 561 | 576 |
-| Technical | 505 | 502 | not det. | 506 |
-| MBT tank / Transport / Fighter | — not detectable — | | | |
+| Fuel bladder farm | 1,061* | 1,061* | 1,061* | 1,061* |
+| Fast attack craft | 1,061* | 1,061* | 1,061* | 1,061* |
+| Transport aircraft | 1,061* | 1,061* | 1,061* | 1,061* |
+| Patrol boat | 1,061* | 1,061* | 1,061* | 1,061* |
+| Fighter aircraft | 1,061* | 1,061* | 1,061* | 1,061* |
+| SAM TEL | 1,061* | 1,061* | 1,061* | 1,061* |
+| Towed artillery | 1,061* | 1,061* | 1,061* | 1,061* |
+| Cargo truck | 1,036 | 1,036 | 1,036 | 1,040 |
+| Small UAV | 904 | 904 | 899 | 921 |
+| APC | 817 | 817 | 815 | 819 |
+| MBT tank | 776 | 778 | 778 | 776 |
+| Technical (pickup) | 686 | 686 | 684 | 692 |
 
-**Sensor C — LWIR wide (12.1 m GSD):** large targets and ships; the LWIR
-band's temperature contrast is atmosphere-insensitive (identical across
-columns), so the ranking is size-driven.
+**Sensor C — LWIR wide (12.1 m GSD):** ships and the largest air/ground
+targets reach the swath edge; SAM TEL and towed artillery detect at mid
+range; small ground vehicles fall below threshold —
 
-`*` = swath-edge limited (SCNR ≥ 5 out to the 66° practical edge, 1,704 km).
+| Target | clear | haze | trop_haze | arctic |
+|--------|------:|-----:|----------:|-------:|
+| Patrol boat / Fast attack / Transport / Fighter / Fuel bladder | 1,061* | 1,061* | 1,061* | 1,061* |
+| SAM TEL | 564 | 564 | 567 | 560 |
+| Towed artillery | 527 | 527 | 529 | 523 |
+| (MBT, APC, Cargo, Technical, Small UAV) | — not detectable — | | | |
 
-**Worst-case target: MBT tank** — not detectable by *any* sensor (mean
-0 km). **Easiest: fuel bladder farm** (mean 1,315 km).
+`*` = swath-edge limited (SCNR ≥ 5 out to the 66° θ_o practical edge, slant
+1,061 km).
+
+**Worst-case target: Technical (pickup)** — the smallest ground vehicle
+(10 m²), detectable only on the flagship (mean 229 km across all 12
+sensor×atmosphere cells). **Easiest: fuel bladder farm** (mean 1,054 km).
 
 ## Physics Discussion
 
 **Aperture buys targets, size buys range.** Sensor B's 4 m GSD (16 m²
 footprint) fills a pixel with far smaller targets than sensor A's 16.7 m
-GSD (278 m²), so B detects nine targets to A's two. Within a sensor, bigger
-targets detect farther (fuel bladder 1,704 km vs APC 575 km on B) because
-fill stays near 1 out to longer slant ranges before the growing footprint
-dilutes it.
+GSD (278 m²), so B detects **all twelve** targets — most to the swath edge —
+while A's coarse footprint clears only the single largest (fuel bladder
+farm). Within a sensor, bigger targets detect farther (fuel bladder farm hits
+the 1,061 km edge vs the Technical pickup's 686 km on B) because fill stays
+near 1 out to longer slant ranges before the growing footprint dilutes it.
 
-**Why the tank is universally hardest — EE_box occlusion.** The sub-pixel
-contrast is `ff·(L_target·EE_box − L_bg)`: the target's compact energy is
-EE_box-weighted (its PSF spills to neighbouring pixels) while the uniform
-in-pixel background it OCCLUDES is not. The MBT tank (28 m², ε 0.90, 310 K)
-lands with `L_target·EE_box` closest to `L_bg` for all three sensors — its
-pixel departs least from background in either direction, so |contrast| is
-smallest. Counterintuitively the cooler APC (18 m², 306 K) is detectable on
-sensor B while the hotter tank is not: the tank's warmer radiance lands
-*nearer* the weighted-background null. This is correct single-pixel
-radiometry; a multi-pixel matched filter (summing the target energy that
-EE_box spread to neighbours) would recover the tank — a performance-model
-refinement beyond this single-pixel SCNR (noted in gaps.md).
+**Why the Technical pickup is universally hardest — EE_box occlusion.** The
+sub-pixel contrast is `ff·(L_target·EE_box − L_bg)`: the target's compact
+energy is EE_box-weighted (its PSF spills to neighbouring pixels) while the
+uniform in-pixel background it OCCLUDES is not. The Technical (pickup)
+(10 m², ε 0.88, 303 K) combines the smallest fill of the ground vehicles with
+`L_target·EE_box` landing closest to `L_bg` — its pixel departs least from
+background in either direction, so |contrast| is smallest and it detects only
+on the flagship. Counterintuitively the *cooler* Small UAV (12 m², 294 K)
+reaches farther on B (904 km) than the warmer Technical: the cooler radiance
+lands *farther* from the weighted-background null. The MBT tank (28 m², 310 K)
+— hardest in the pre-fix run — is now comfortably detectable on B (776 km).
+This is correct single-pixel radiometry; a multi-pixel matched filter (summing
+the target energy that EE_box spread to neighbours) would recover the
+Technical — a performance-model refinement beyond this single-pixel SCNR
+(noted in gaps.md).
 
-**Atmosphere matters for MWIR, not LWIR here.** MWIR ranges drop clear →
-tropical_haze (aerosol extinction); the LWIR sensor C's ranges are
-identical across columns because its 8–11.5 µm band is far less
-aerosol-sensitive and the target–background *thermal* contrast dominates.
+**Atmosphere barely reranks either band now.** In the refreshed run the MWIR
+detection ranges are nearly condition-independent — MBT tank 776/778/778/776,
+APC 817/817/815/819, cargo truck 1,036/1,036/1,036/1,040 across
+clear/haze/tropical_haze/arctic. The dramatic clear→tropical collapse the
+pre-fix matrix showed was the parametric water over-response, and the CU-155/161
+recalibration removed it (validated against real MODTRAN in scenario 6.2). The
+LWIR sensor C's ranges are likewise near-flat across columns — its 8–11.5 µm
+band is far less aerosol-sensitive and the target–background *thermal* contrast
+dominates. The condition axis is now a weak discriminator; target size and
+sensor GSD set detectability.
 
 ## Real-MODTRAN validation note (added 2026-07-17)
 
@@ -130,33 +160,33 @@ condition axis. Band-mean full-column nadir τ, real vs SimpleAtmosphere
 at the matching profile (visibility-23 baseline; the visibility *axis*
 itself is separately validated in scenario 3.2):
 
-| Condition (profile) | MWIR real/simple | LWIR real/simple |
+The band-mean τ ratios below were measured against the **pre-CU-161**
+SimpleAtmosphere and quantify the over-response that has since been fixed:
+
+| Condition (profile) | MWIR real/simple (pre-fix) | LWIR real/simple |
 |---|---|---|
 | clear, haze (midlat_summer) | **1.87×** | 0.84× |
 | tropical_haze (tropical) | **2.89×** | 0.78× |
 | arctic_clear (subarctic_winter) | **0.74×** | 0.88× |
 
-Consequences for the matrix:
+Consequences for the matrix (updated 2026-07-22, now that it is re-baselined):
 
-- **The MWIR condition axis substantially reranks.** SimpleAtmosphere
-  spans τ 0.16–0.81 across these profiles (5×); real MODTRAN spans
-  0.47–0.60 (**1.3×**). The tropical_haze column's MWIR detection
-  ranges are understated roughly 3× in τ terms, and arctic_clear's
-  overstated ~1.35× — the dramatic clear→tropical collapse this
-  walkthrough reports is mostly the parametric model's water
-  over-response (CU-161), not real atmospheric behavior. The real
-  condition spread is far flatter.
-- **The "Atmosphere matters for MWIR, not LWIR" claim survives but
-  weakens.** Real LWIR τ does vary across the conditions (0.47–0.82,
-  driven by the H₂O continuum the simple model lacks) — the tropical
-  cell's LWIR ranges carry a real ~22% τ penalty the model misses.
+- **The MWIR condition axis no longer reranks.** The pre-fix
+  SimpleAtmosphere spanned τ 0.16–0.81 across these profiles (5×) while real
+  MODTRAN spans 0.47–0.60 (**1.3×**). The CU-155/161 recalibration
+  (validated in scenario 6.2) collapsed that over-response, so the refreshed
+  matrix's MWIR ranges are now nearly condition-independent — matching the
+  real atmosphere's flat spread rather than the old parametric collapse.
+- **The LWIR band carries a modest real condition dependence.** Real LWIR τ
+  varies across the conditions (0.47–0.82, driven by the H₂O continuum) — the
+  tropical cell's LWIR ranges carry a real ~22% τ penalty; the refreshed
+  numbers are near-flat, so any residual under-response is a secondary term.
 - **Target-axis conclusions (which target is hardest, EE_box occlusion,
   aperture-vs-size) are unaffected** — they compare targets under a
   common atmosphere and don't depend on its absolute accuracy.
 
-Numbers not re-baselined (144-cell parametric matrix demonstration);
-this note records the accuracy context. Anchors: `modtran/real_runs/`
-A2/A3/A6 vs `SimpleAtmosphere` at profile-coupled PWV; model defect
+The matrix is now re-baselined against the recalibrated engine (CU-176).
+Anchors: `modtran/real_runs/` A2/A3/A6 vs `SimpleAtmosphere` at profile-coupled PWV; model defect
 consolidated in CU-161.
 
 ## Gaps and a Bug Caught
@@ -180,15 +210,22 @@ scenario-side and fixed here:
 
 ## What Lisa Would Do Next
 
-1. **Brief the aperture/GSD trade**: the flagship (B) detects 9 of 12
-   targets; the smallsat (A) only the two largest — the constellation-vs-
-   exquisite decision in one matrix
+1. **Brief the aperture/GSD trade**: the flagship (B) detects all 12
+   targets (most to the swath edge); the smallsat (A) only the single
+   largest — the constellation-vs-exquisite decision in one matrix
 2. **Add a matched-filter detection model** for the sub-pixel targets the
-   single-pixel SCNR marks "not detectable" (the tank is recoverable with
+   single-pixel SCNR marks "not detectable" (the Technical pickup, and the
+   small ground vehicles on the LWIR sensor, are recoverable with
    neighbour-pixel summation)
 3. **Fold in revisit/access** (scenario 3.x) — detection range × access
    rate is the operational figure of merit
 4. **Vary target temperature by time-of-day** (scenario 4.4) — the thermal
    contrast that drives sub-pixel detection swings diurnally
 
-**Postscript (2026-07-18):** the condition-axis distortion documented above was fixed by CU-161 (commit `0aebdda`) — the recalibrated model's climate spread matches real MODTRAN's. The committed 144-cell matrix still shows the pre-fix model; re-run for current behavior.
+**Postscript (2026-07-22):** the 144-cell matrix, both figures, and every hard
+number above were regenerated against the current engine after the CU-182
+geometry-convention fix (the runner had failed every cell under the CU-093
+over-spec check). The condition-axis distortion is gone — the recalibrated model
+(CU-161, commit `0aebdda`) matches real MODTRAN's flat climate spread — and the
+θ_o-consistent slant range moved the swath edge from the pre-fix 1,704 km to
+1,061 km.

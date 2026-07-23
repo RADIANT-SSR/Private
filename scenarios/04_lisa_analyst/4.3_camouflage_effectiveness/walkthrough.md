@@ -2,9 +2,9 @@
 
 Executed 2026-07-08 (Scenario_Execution_Plan Phase T3, priority 20); uses the
 ASTER importer (commit f50253a) and the S8 tabulated-source spec form for
-spectral emissivity. Nadir numbers refreshed 2026-07-22 (CU-176) against the
-current engine; the off-nadir detection-range sweep is currently blocked by a
-geometry-consistency bug (CU-182 — see below).
+spectral emissivity. Refreshed 2026-07-22 against the current engine (nadir
+numbers, CU-176) and re-run after the CU-182 geometry-convention fix, which
+restored the off-nadir detection-range sweep (edge-limited at 17.1 km).
 
 ## The Problem
 
@@ -69,21 +69,15 @@ the full FLIR — the reason spectral, not scalar, emissivity matters.
 
 ### Detection range
 
-At nadir every option is detected with wide margin (SCNR ≥ 65 even for
-Net C), so a sensitive FLIR at 3 km detects all options at the sub-slant
-ranges of interest. **Emissivity camo buys signature reduction, not
-invisibility** at this range.
-
-> **Off-nadir sweep currently blocked ([[CU-182]]).** The runner's
-> detection-range bisection sets both `geometry.target_range_m` (from the
-> scenario's own spherical-slant helper) and `geometry.path_zenith_rad`; at
-> large zenith the two diverge past the 1% consistency tolerance (e.g.
-> 17.4 km vs 17.1 km at 80°) and the CU-093 check raises
-> `GeometrySpecificationError`. This is the same angle-convention bug that
-> blocks scenario 4.1, tracked together as CU-182. The prior "edge-limited
-> at 17.4 km for every option" figure is the pre-CU-093 result and is not
-> re-verifiable until the geometry conventions are reconciled; the nadir
-> signature-reduction results above are unaffected.
+Edge-limited at 17.1 km for **every** option (the 80° zenith sweep cap,
+not SCNR): a sensitive FLIR at 3 km detects all options across the
+practical swath. **Emissivity camo buys signature reduction, not
+invisibility** at this range. (The zenith bisection sweeps
+`geometry.path_zenith_rad` — the target-side path zenith θ_o — and reads the
+slant range back through the chain's own `slant_range_from_theta_o_m`;
+CU-182 fixed the earlier over-spec that set a second, sensor-off-nadir slant
+via `geometry.target_range_m`, so the km figure is now internally consistent
+with the chain geometry, 17.1 km vs the pre-fix 17.4 km.)
 
 ## Physics Discussion
 

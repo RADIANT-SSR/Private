@@ -59,20 +59,20 @@ Smear MTF (1 pixel/line motion during each TDI stage) and TDI misalignment MTF a
 ### TDI Sweep
 | N_tdi | Signal [e-] | Well Fill [%] | SNR [--] | MTF@Nyq [--] | RER [--] | NIIRS [--] | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 3,118 | 5.2 | 53.9 | 0.1821 | 0.4790 | 5.08 | OK |
-| 2 | 6,236 | 10.4 | 77.6 | 0.1821 | 0.4790 | 5.33 | OK |
-| 4 | 12,473 | 20.8 | 110.7 | 0.1821 | 0.4790 | 5.57 | OK |
-| 8 | 24,945 | 41.6 | 157.2 | 0.1821 | 0.4790 | 5.81 | OK |
-| 16 | 49,891 | 83.2 | 222.9 | 0.1821 | 0.4790 | 6.04 | NEAR-SAT |
-| 32 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
-| 64 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
-| 96 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
-| 128 | 60,000 | 100.0 | 244.5 | 0.1821 | 0.4790 | 6.11 | NEAR-SAT |
+| 1 | 2,940 | 4.9 | 52.3 | 0.1962 | 0.4884 | 5.09 | OK |
+| 2 | 5,881 | 9.8 | 75.3 | 0.1962 | 0.4884 | 5.34 | OK |
+| 4 | 11,762 | 19.6 | 107.4 | 0.1962 | 0.4884 | 5.58 | OK |
+| 8 | 23,524 | 39.2 | 152.6 | 0.1962 | 0.4884 | 5.82 | OK |
+| 16 | 47,048 | 78.4 | 216.4 | 0.1962 | 0.4884 | 6.05 | OK |
+| 32 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
+| 64 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
+| 96 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
+| 128 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
 
 ### Optimal N_tdi
-- **Peak NIIRS**: 6.11, reached at N_tdi = 32 and held (plateau) for all higher stages.
-- **Conservative choice**: N_tdi = 8 (NIIRS = 5.81, 42% well fill, 80% margin).
-- **Sweet spot**: N_tdi = 16 (NIIRS = 6.04, 83% well fill) — within 0.07 NIIRS of the
+- **Peak NIIRS**: 6.13, reached at N_tdi = 32 and held (plateau) for all higher stages.
+- **Conservative choice**: N_tdi = 8 (NIIRS = 5.82, 39% well fill, comfortable margin).
+- **Sweet spot**: N_tdi = 16 (NIIRS = 6.05, 78% well fill) — within 0.08 NIIRS of the
   plateau while staying just below full saturation.
 - **Saturation onset**: N_tdi = 32 (signal first clips at FWC = 60,000 e-).
 
@@ -85,16 +85,16 @@ there is no sharp peak to sit below.
 ### SNR Scaling
 | N_tdi | SNR [--] | SNR/SNR_1 | sqrt(N) | Regime |
 |---|---|---|---|---|
-| 1 | 53.9 | 1.00 | 1.00 | baseline |
-| 2 | 77.6 | 1.44 | 1.41 | shot-limited |
-| 4 | 110.7 | 2.05 | 2.00 | shot-limited |
-| 8 | 157.2 | 2.92 | 2.83 | shot-limited |
-| 16 | 222.9 | 4.13 | 4.00 | shot-limited (near-sat) |
-| 32 | 244.5 | 4.53 | 5.66 | saturated (plateau) |
-| 64–128 | 244.5 | 4.53 | — | saturated (plateau) |
+| 1 | 52.3 | 1.00 | 1.00 | baseline |
+| 2 | 75.3 | 1.44 | 1.41 | shot-limited |
+| 4 | 107.4 | 2.06 | 2.00 | shot-limited |
+| 8 | 152.6 | 2.92 | 2.83 | shot-limited |
+| 16 | 216.4 | 4.14 | 4.00 | shot-limited |
+| 32 | 244.5 | 4.68 | 5.66 | saturated (plateau) |
+| 64–128 | 244.5 | 4.68 | — | saturated (plateau) |
 
 Below saturation, SNR scales as exactly sqrt(N_tdi) — the system is photon-shot-noise-
-limited (read noise = 15 e- is negligible against signal shot = 56–223 e-). At
+limited (read noise = 15 e- is negligible against signal shot = 52–216 e-). At
 saturation the signal caps at FWC and, with no background term to keep growing, the
 total noise caps at √FWC ≈ 245 e-, so **SNR plateaus at 244.5 rather than decreasing**.
 

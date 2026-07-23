@@ -187,6 +187,10 @@ def make_config(
             "model": "modtran",
             "modtran": {"tape7_path": str(D2_TAPE7)},
         }
+    # CU-178: this MWIR recon config is above the GIQE-5 SNR envelope, so the
+    # CU-166 gate returns NIIRS N/A by default; opt into the extrapolated
+    # GIQE-5-form rating the walkthrough documents as a relative trend.
+    config["performance"] = {"niirs": {"allow_extrapolated": True}}
     return config
 
 

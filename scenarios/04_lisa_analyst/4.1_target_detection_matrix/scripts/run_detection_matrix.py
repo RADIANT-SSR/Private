@@ -16,10 +16,12 @@ This script:
      (144 cells total). Per cell the evaluate callback:
      - evaluates SNR and NIIRS at nadir;
      - finds the detection-range zenith limit by bisection on
-       geometry.path_zenith_rad with source.target.range_m co-varied via
-       the SAME spherical-Earth slant-range function the chain uses for
-       GSD (radiant.core.geometry.slant_range_spherical_m) — flat-earth
-       sec(θ) would disagree with the chain's own geometry;
+       geometry.path_zenith_rad (the target-side path zenith θ_o); the
+       chain derives the slant range from θ_o via the spherical viewing
+       triangle, and the runner reads the same slant back through
+       radiant.core.viewing_triangle.slant_range_from_theta_o_m for the
+       footprint and the reported range — setting geometry.target_range_m
+       as well would over-specify the line of sight (CU-093/CU-182);
      - converts the zenith limit to a slant detection range [km].
   4. Writes the color-coded Excel matrix (per-sensor sheets), the NIIRS
      matrix, and summary plots; identifies the hardest target.
@@ -61,7 +63,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from radiant.api.batch import BatchRunner
 from radiant.api.sensor import Sensor
-from radiant.core.geometry import slant_range_spherical_m
+from radiant.core.viewing_triangle import slant_range_from_theta_o_m
 from radiant.io.target_library import load_target_library
 
 INPUTS = Path(__file__).parent.parent / "inputs"
@@ -193,18 +195,22 @@ def _ifov_rad(sensor: Sensor) -> float:
 def configure_geometry(sensor: Sensor, zenith_rad: float, area_m2: float) -> None:
     """Consistent off-nadir geometry AND sub-pixel fill fraction.
 
-    Range and zenith co-vary via the chain's own spherical-Earth slant
-    range. Crucially, the sub-pixel regime weights the target by
-    ``source.target.fill_fraction`` (NOT ``projected_area_m2`` — that
-    parameter drives the point-source A_t/R² path only). Fill is the
+    ``geometry.path_zenith_rad`` is the target-side path zenith angle θ_o
+    (ADR-0006); the chain derives the slant range from it via the spherical
+    viewing triangle. We set ONLY θ_o and read the same slant back through
+    ``slant_range_from_theta_o_m`` for the footprint — setting
+    ``geometry.target_range_m`` as well would over-specify the line of sight
+    with a *different* (sensor-off-nadir) slant and trip the CU-093
+    consistency check (CU-182). Crucially, the sub-pixel regime weights the
+    target by ``source.target.fill_fraction`` (NOT ``projected_area_m2`` —
+    that parameter drives the point-source A_t/R² path only). Fill is the
     target's projected area over the pixel footprint (IFOV·R)², capped at
     1.0 (a target larger than a pixel fills it). This is what makes
     detectability scale with target SIZE and with range (the footprint
     grows off-nadir, so fill — and SCNR — fall).
     """
-    r_slant = slant_range_spherical_m(ALTITUDE_M, zenith_rad)
+    r_slant = slant_range_from_theta_o_m(zenith_rad, ALTITUDE_M, 0.0)
     sensor.set("geometry.path_zenith_rad", zenith_rad)
-    sensor.set("geometry.target_range_m", r_slant)
     footprint_m2 = (_ifov_rad(sensor) * r_slant) ** 2
     sensor.set("geometry.target.projected_area_m2", min(area_m2, footprint_m2))
     sensor.set("source.target.fill_fraction", min(1.0, area_m2 / footprint_m2))
@@ -237,7 +243,7 @@ def evaluate_cell(sensor: Sensor, labels: dict[str, str]) -> dict[str, float]:
     niirs_nadir = sensor.evaluate().metrics.get("niirs")
 
     range_nadir_km = ALTITUDE_M / 1000.0  # noqa: F841 (documented reference)
-    range_max_km = slant_range_spherical_m(ALTITUDE_M, ZENITH_MAX_RAD) / 1000.0
+    range_max_km = slant_range_from_theta_o_m(ZENITH_MAX_RAD, ALTITUDE_M, 0.0) / 1000.0
 
     if scnr_nadir < SCNR_THRESHOLD:
         return {"scnr_nadir": scnr_nadir, "niirs_nadir": niirs_nadir,
@@ -254,7 +260,7 @@ def evaluate_cell(sensor: Sensor, labels: dict[str, str]) -> dict[str, float]:
             lo = mid
         else:
             hi = mid
-    detection_range_km = slant_range_spherical_m(ALTITUDE_M, 0.5 * (lo + hi)) / 1000.0
+    detection_range_km = slant_range_from_theta_o_m(0.5 * (lo + hi), ALTITUDE_M, 0.0) / 1000.0
     return {"scnr_nadir": scnr_nadir, "niirs_nadir": niirs_nadir,
             "detection_range_km": detection_range_km, "horizon_limited": 0.0}
 
@@ -267,17 +273,31 @@ print(f"\n=== Running the matrix: 12 × 4 × 3 = 144 cells ===")
 print(f"  Detection criterion: SCNR ≥ {SCNR_THRESHOLD:.0f} — |contrast| over RSS(noise + clutter),")
 print(f"  scene clutter = {CLUTTER_SIGMA * 100:.0f}% of in-pixel background (rural)")
 print(f"  Swath edge: zenith {math.degrees(ZENITH_MAX_RAD):.0f}° "
-      f"(slant {slant_range_spherical_m(ALTITUDE_M, ZENITH_MAX_RAD) / 1e3:,.0f} km; "
+      f"(slant {slant_range_from_theta_o_m(ZENITH_MAX_RAD, ALTITUDE_M, 0.0) / 1e3:,.0f} km; "
       f"horizon at 68.0°)")
 
 warnings.filterwarnings("ignore")  # GIQE extrapolation warnings — noted in output
 
 results = {}
+
+
+def _load_sensor(path: str) -> Sensor:
+    """Load a YAML config and opt into extrapolated NIIRS (CU-178).
+
+    These sub-pixel targets sit far outside the GIQE-5 envelope (GSD 8.6–17 m),
+    so the applicability gate returns NIIRS N/A by default; the scenario intends
+    the extrapolated NIIRS trend (read as relative, not calibrated).
+    """
+    s = Sensor.from_yaml(path)
+    s.set("performance.niirs.allow_extrapolated", True)
+    return s
+
+
 for label, path in SENSOR_FILES.items():
     runner = BatchRunner(
         base_config={},  # unused — the factory loads the YAML
         axes=[("target", TARGET_AXIS), ("atmosphere", ATMOSPHERES)],
-        sensor_factory=lambda cfg, p=path: Sensor.from_yaml(p),
+        sensor_factory=lambda cfg, p=path: _load_sensor(p),
     )
     print(f"  Running {label} (48 cells)...")
     results[label] = runner.run(evaluate_cell)
@@ -289,7 +309,7 @@ for label, path in SENSOR_FILES.items():
 # Step 5: Report — detection range matrices + hardest target
 # ---------------------------------------------------------------------------
 
-range_max_km = slant_range_spherical_m(ALTITUDE_M, ZENITH_MAX_RAD) / 1000.0
+range_max_km = slant_range_from_theta_o_m(ZENITH_MAX_RAD, ALTITUDE_M, 0.0) / 1000.0
 atm_names = list(ATMOSPHERES.keys())
 
 for label, batch in results.items():

@@ -65,6 +65,11 @@ modtran/decks/
 # 'real_runs' also refuses a FILE or SYMLINK at that path — a tracked
 # symlink slipped through the dir-only pattern on 2026-07-20 and its
 # checkout clobbered the ignored (irreplaceable) staged delivery.
+# Integrity: the SHA-256 checksums of the staged data are committed as the
+# SIBLING file 'modtran/real_runs_MANIFEST.sha256' (outside this ignore, so
+# the dir+symlink guard above stays intact) — regenerate/verify via
+# scripts/gen_modtran_manifest.py, gated by tests/integration/test_modtran_manifest.py
+# (CU-174). Keep a second copy of the original delivery outside the repo.
 modtran/real_runs/
 modtran/real_runs
 

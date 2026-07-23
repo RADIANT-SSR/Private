@@ -35,11 +35,11 @@ from gui_baselines import REGISTRY  # noqa: E402
 from verify_gui_yaml import verify_one  # noqa: E402
 
 # Baselines that reference a *generated* (gitignored) input file and so cannot be
-# reloaded in a cold checkout without first running the scenario. The path is
-# YAML-relative (CU-177), but the file itself is regenerate-on-import, not
-# committed — tracked as CU-180. Excluded here so the gate stays green for the
-# self-contained baselines; re-include once CU-180 makes them portable.
-_NON_PORTABLE = {"4.3"}
+# reloaded in a cold checkout without first running the scenario. Empty since
+# CU-180 committed 4.3's derived radiance CSV as a scenario input (its generator
+# is named in the scenario MANIFEST). Every shipped baseline is now portable and
+# gated; add an id here only if a future baseline reintroduces a non-committed input.
+_NON_PORTABLE: set[str] = set()
 
 
 @pytest.mark.golden

@@ -54,6 +54,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from radiant.api import Sensor
 from radiant.core.constants import c, h, k_B
 from radiant.core.geometry import slant_range_spherical_m
+from radiant.geometry.errors import GeometrySpecificationError
 from radiant.io.aster_library import load_aster_spectrum
 from radiant.io.measurement import load_measured_curve
 
@@ -301,24 +302,34 @@ print(f"  DETECTION RANGE (slant, SCNR >= {SCNR_THRESHOLD:.0f}, bisection on zen
 print(f"{'=' * 95}")
 ranges: dict[str, float] = {}
 capped: dict[str, bool] = {}
-for label in options:
-    ranges[label], capped[label] = detection_range_km(label)
-r_bare = ranges["Bare vehicle"]
-print(f"\n  {'Option':<14s} {'Detection range [km]':>21s}  {'Reduction vs bare [%]':>22s}")
-print(f"  {'-' * 14} {'-' * 21}  {'-' * 22}")
-for label in options:
-    marker = "*" if capped[label] else ""
-    if label == "Bare vehicle":
-        red = "-"
-    elif ranges[label] == 0.0:
-        red = "100.0 (undetectable)"
-    else:
-        red = f"{(1.0 - ranges[label] / r_bare) * 100:.1f}"
-    print(f"  {label:<14s} {ranges[label]:>20,.1f}{marker}  {red:>22s}")
-if any(capped.values()):
-    print(f"  * limited by the {math.degrees(ZENITH_MAX_RAD):.0f} deg zenith sweep edge, not by SCNR")
-    print(f"    (a sensitive FLIR at 3 km detects across the practical swath — camo")
-    print(f"    reduces the SIGNATURE, the primary metric above, more than the range).")
+try:
+    for label in options:
+        ranges[label], capped[label] = detection_range_km(label)
+    r_bare = ranges["Bare vehicle"]
+    print(f"\n  {'Option':<14s} {'Detection range [km]':>21s}  {'Reduction vs bare [%]':>22s}")
+    print(f"  {'-' * 14} {'-' * 21}  {'-' * 22}")
+    for label in options:
+        marker = "*" if capped[label] else ""
+        if label == "Bare vehicle":
+            red = "-"
+        elif ranges[label] == 0.0:
+            red = "100.0 (undetectable)"
+        else:
+            red = f"{(1.0 - ranges[label] / r_bare) * 100:.1f}"
+        print(f"  {label:<14s} {ranges[label]:>20,.1f}{marker}  {red:>22s}")
+    if any(capped.values()):
+        print(f"  * limited by the {math.degrees(ZENITH_MAX_RAD):.0f} deg zenith sweep edge, not by SCNR")
+        print(f"    (a sensitive FLIR at 3 km detects across the practical swath — camo")
+        print(f"    reduces the SIGNATURE, the primary metric above, more than the range).")
+except GeometrySpecificationError as exc:
+    # CU-182: the off-nadir bisection sets both geometry.target_range_m (from this
+    # script's spherical-slant helper) and geometry.path_zenith_rad, which diverge
+    # past the 1% CU-093 consistency tolerance at large zenith. The nadir results
+    # and figures below are unaffected; the detection-range figure is deferred.
+    print("\n  DETECTION RANGE SKIPPED — blocked by CU-182 (geometry over-spec):")
+    print(f"    {exc}")
+    print("    The nadir signature-reduction results above stand; re-enable once the")
+    print("    slant-range/path-zenith angle conventions are reconciled (CU-182).")
 
 best_net = min((label for label in options if label != "Bare vehicle"),
                key=lambda k: nadir_scnr[k])
@@ -400,13 +411,18 @@ for col, htext in enumerate(headers, 1):
     cell.fill = hdr_fill
     cell.alignment = Alignment(horizontal="center")
     cell.border = border
+r_bare = ranges.get("Bare vehicle")  # None when detection-range was skipped (CU-182)
 for i, label in enumerate(options, 4):
-    red = ("" if label == "Bare vehicle"
-           else round((1.0 - ranges[label] / r_bare) * 100, 1))
+    have_range = label in ranges and r_bare
+    if label == "Bare vehicle" or not have_range:
+        red = ""
+    else:
+        red = round((1.0 - ranges[label] / r_bare) * 100, 1)
+    range_cell = round(ranges[label], 1) if have_range else "N/A (CU-182)"
     vals = [label, round(nadir_contrast[label], 0), round(nadir_scnr[label], 1),
             round(subband_scnr[label]["8-10 um"], 1),
             round(subband_scnr[label]["10-12 um"], 1),
-            round(ranges[label], 1), red]
+            range_cell, red]
     for col, v in enumerate(vals, 1):
         ws1.cell(row=i, column=col, value=v).border = border
 for col_letter, width in zip("ABCDEFG", [16, 14, 12, 13, 13, 19, 20]):

@@ -35,6 +35,9 @@ from pathlib import Path
 import numpy as np
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+import matplotlib
+
+matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
@@ -270,6 +273,9 @@ for idx, p_um in enumerate(pitches_um):
             "adc_bits": adc_bits,
             "full_well_capacity_e": fwc,
         },
+        # CU-178: config outside the GIQE-5 envelope → NIIRS N/A by default; opt into
+        # the extrapolated NIIRS trend (read as relative, not calibrated).
+        "performance": {"niirs": {"allow_extrapolated": True}},
     }
 
     sensor = Sensor.from_dict(config)

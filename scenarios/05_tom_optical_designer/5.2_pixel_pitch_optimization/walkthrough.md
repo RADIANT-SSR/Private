@@ -69,15 +69,15 @@ Results:
 
 | Pitch [µm] | Q    | SNR    | MTF@Nyq | EE 1×1 | NIIRS | NEDT [mK] | Signal [e⁻] |
 |-------------|------|--------|---------|--------|-------|-----------|-------------|
-| 8           | 2.12 | 199.8  | 0.000   | 0.164  | 4.3   | 144.6     | 40,000      |
-| 12          | 1.42 | 346.2  | 0.119   | 0.312  | 4.6   | 83.5      | 120,000     |
-| 15          | 1.13 | 499.7  | 0.191   | 0.379  | 4.6   | 57.8      | 250,000     |
-| 18          | 0.94 | 706.9  | 0.253   | 0.470  | 4.7   | 40.9      | 500,000     |
-| 24          | 0.71 | 1058.4 | 0.366   | 0.576  | 4.8   | 27.3      | 1,120,727   |
-| 30          | 0.57 | 1304.0 | 0.385   | 0.599  | 4.7   | 22.2      | 1,701,104   |
+| 8           | 2.12 | 199.8  | 0.000   | 0.164  | 4.3   | 149.4     | 40,000      |
+| 12          | 1.42 | 346.2  | 0.115   | 0.309  | 4.5   | 86.2      | 120,000     |
+| 15          | 1.13 | 499.7  | 0.203   | 0.389  | 4.7   | 59.7      | 250,000     |
+| 18          | 0.94 | 706.9  | 0.267   | 0.483  | 4.8   | 42.2      | 500,000     |
+| 24          | 0.71 | 950.7  | 0.355   | 0.565  | 4.7   | 31.4      | 904,280     |
+| 30          | 0.57 | 1171.2 | 0.409   | 0.623  | 4.6   | 25.5      | 1,372,568   |
 
 The trends are clear:
-- **Signal scales roughly as p²** — the 30 µm pixel collects ~40× more photons than the 8 µm pixel. This is the dominant driver of SNR.
+- **Signal scales roughly as p²** — the 30 µm pixel collects ~34× more photons than the 8 µm pixel (whose well saturates and clips at 40,000 e⁻, so the ratio understates the raw p²·QE collection). This is the dominant driver of SNR.
 - **SNR increases with pitch** — larger pixels win on sensitivity.
 - **MTF at Nyquist decreases with smaller pitch** — counterintuitively, the 8 µm pixel has MTF = 0 at Nyquist. This is because at Q = 2.12, the Nyquist frequency (62.5 cy/mm) is well beyond the optical cutoff, so there is no modulation at that frequency. The MTF is zero because the optics can't produce contrast at such a high spatial frequency.
 - **EE 1×1 decreases with smaller pitch** — the Airy disk spreads across many pixels at small pitch, so each pixel captures less of the total PSF energy.
@@ -101,15 +101,15 @@ Among the three compliant candidates, a simple figure of merit (SNR / GSD — hi
 
 | Pitch [µm] | Q    | GSD [m] | SNR   | NIIRS | NEDT [mK] | FoM (SNR/GSD) |
 |-------------|------|---------|-------|-------|-----------|----------------|
-| 12          | 1.42 | 5.0     | 346.2 | 4.6   | 83.5      | 69.2           |
-| 15          | 1.13 | 6.2     | 499.7 | 4.6   | 57.8      | 80.0           |
-| 18          | 0.94 | 7.5     | 706.9 | 4.7   | 40.9      | **94.3**       |
+| 12          | 1.42 | 5.0     | 346.2 | 4.5   | 86.2      | 69.2           |
+| 15          | 1.13 | 6.2     | 499.7 | 4.7   | 59.7      | 80.6           |
+| 18          | 0.94 | 7.5     | 706.9 | 4.8   | 42.2      | **94.3**       |
 
 The 18 µm pixel has Q = 0.94 — slightly undersampled but with excellent SNR margin (707 vs. 100 requirement) and GSD margin (7.5 m vs. 10 m limit). It's the classic engineering trade-off: slightly sacrificing sampling adequacy for a large gain in sensitivity.
 
 ## Key Takeaways
 
-1. **Q = 0.94 (18 µm) is the sweet spot for this f/4 MWIR system.** Slightly undersampled, but the SNR gain from larger pixels far outweighs the modest aliasing risk. The MTF at Nyquist (0.42) and EE 1×1 (0.64) are both well above requirements.
+1. **Q = 0.94 (18 µm) is the sweet spot for this f/4 MWIR system.** Slightly undersampled, but the SNR gain from larger pixels far outweighs the modest aliasing risk. The MTF at Nyquist (0.267) and EE 1×1 (0.483) are both well above requirements.
 
 2. **Oversampling is expensive in SNR.** The 8 µm pixel (Q = 2.12) is severely oversampled — it has 3.3 m GSD but can barely meet the SNR requirement. Signal scales as p², so halving the pixel pitch quarters the signal. Going from 18 to 8 µm reduces signal by 5×.
 

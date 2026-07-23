@@ -58,24 +58,27 @@ the run script as constants so the run is self-contained and reproducible.
 
 | Off-nadir | GSD | NIIRS | SNR | Ground range | Swath |
 |-----------|-----|-------|-----|--------------|-------|
-| 0° | 0.65 m | 6.79 | 86.2 | 0 km | 5.2 km |
-| 15° | 0.69 m | 6.73 | 90.0 | 161 km | 5.4 km |
-| 30° | 0.83 m | 6.48 | 92.4 | 352 km | 6.1 km |
-| 45° | 1.22 m | 5.94 | 92.8 | 632 km | 7.7 km |
+| 0° | 0.65 m | 6.77 | 83.8 | 0 km | 5.2 km |
+| 15° | 0.68 m | 6.73 | 87.5 | 146 km | 5.4 km |
+| 30° | 0.80 m | 6.53 | 90.0 | 312 km | 5.9 km |
+| 45° | 1.05 m | 6.13 | 90.8 | 527 km | 7.1 km |
 
 - **GSD grows with off-nadir angle** (roughly ∝ 1/cos² through the slant-
-  range and projection stretch), dragging NIIRS from 6.79 at nadir to 5.94
-  at 45°. The **NIIRS floor of 6.0 is met out to 42°.**
+  range and projection stretch), dragging NIIRS from 6.77 at nadir to 6.13
+  at 45°. The **NIIRS floor of 6.0 is met across the entire 0–45° slew
+  range** — the quality limit no longer binds inside the agility envelope.
 - **SNR rises slightly** off-nadir — the ground footprint per pixel grows
   faster than the slant-range path loss for this extended sunlit scene, so
   each pixel collects more photons. Image *quality* (NIIRS/GSD) still
   degrades because resolution, not SNR, is the binding term.
 - **Coverage:** nadir swath 5.2 km, area-coverage rate **35.9 km²/s**,
   ≈104,000 km² per daylight pass.
-- **Key planning insight:** the spacecraft can *slew* to 45° (632 km
-  cross-track reach) but can only *image at spec* to 42° (563 km). The
-  usable access corridor is set by NIIRS quality, not by agility — Raj can
-  see targets he cannot collect at acceptable quality.
+- **Key planning insight:** at this configuration the spacecraft can *slew*
+  to 45° (527 km cross-track reach) and still *image at spec* over that
+  whole range — NIIRS = 6.13 at the 45° agility limit, just above the 6.0
+  floor. Agility, not image quality, sets the usable access corridor here;
+  a tighter NIIRS floor (or a longer slant path) would reintroduce a
+  quality-limited corridor narrower than the slew envelope.
 
 ---
 
@@ -94,10 +97,13 @@ the run script as constants so the run is self-contained and reproducible.
   chain's `swath_width_m` through `performance.access_rate` — the
   scenario stitches the two together. That composition is the gap the
   orbit model was built to close.
-- **NIIRS extrapolation warnings** appear at ≥30° (GSD > 31.5 inch, above
-  the GIQE-5 calibration range) — the framework's Gap 22 flagging fires
-  correctly; the NIIRS values past that point carry reduced confidence,
-  which is why the 42° NIIRS-floor crossing is reported as approximate.
+- **NIIRS extrapolation warnings** appear at large off-nadir angles (GSD
+  above the GIQE-5 calibration range) — the framework's Gap 22 flagging
+  fires correctly, and the runner opts into the extrapolated trend via
+  `performance.niirs.allow_extrapolated` (CU-178). The NIIRS values in the
+  off-nadir tail carry reduced confidence and are read as a relative trend;
+  the floor is met across the full 0–45° slew here, so no in-range crossing
+  is reported.
 
 ---
 

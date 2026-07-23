@@ -47,13 +47,13 @@ The sensor configuration includes the full optical system (30 cm aperture, f/4, 
 RADIANT evaluates the full signal chain from source through atmosphere, optics, spectral integration, detector, and readout to produce baseline performance metrics *without* IPC. This gives us the system's inherent capability before IPC degrades it.
 
 The baseline results at 500 km with atmosphere:
-- System MTF at Nyquist: 0.2532 (above the 0.15 requirement)
-- SNR: 809 (well above the 100 requirement)
-- EE 1x1: 0.4699 (below the 0.60 requirement — already fails at baseline)
+- System MTF at Nyquist: 0.2668 (above the 0.15 requirement)
+- SNR: 722 (well above the 100 requirement)
+- EE 1x1: 0.4826 (below the 0.60 requirement — already fails at baseline)
 - GSD: 7.50 m (cross-track = along-track at nadir)
 - Q (sampling parameter): 0.944 (near-optimal Nyquist matching)
-- NEDT: 35.6 mK
-- NIIRS: 4.82
+- NEDT: 41.2 mK
+- NIIRS: 4.77
 - Strehl ratio: 1.000 (diffraction-limited, no WFE applied)
 
 The extended radiometric regime is active because the target (a 310 K ground scene) fills the entire pixel. In this regime, background temperature (295 K) only enters the contrast SNR calculation — it does not affect the primary signal or noise budget.
@@ -74,11 +74,11 @@ The script sweeps IPC from 0% to 5% in 51 steps, running a full RADIANT evaluati
 
 ### Step 4: Find the Limit
 
-The sweep reveals that the **binding constraint is EE 1x1**, which already fails at baseline (0.4699 < 0.60 requirement) before any IPC is applied. The MTF requirement (>= 0.15) is comfortably met across the full 0-5% IPC range.
+The sweep reveals that the **binding constraint is EE 1x1**, which already fails at baseline (0.4826 < 0.60 requirement) before any IPC is applied. The MTF requirement (>= 0.15) is comfortably met across the full 0-5% IPC range.
 
-**Important caveat**: The IPC kernel convolution in the PSF path currently applies the 3x3 kernel at PSF sample spacing rather than pixel pitch, causing the IPC effect to be much smaller than expected. The analytic cross-check confirms this: at alpha = 5%, the analytic formula predicts system MTF = 0.2025 but RADIANT's native convolution gives 0.2514. The MTF product path correctly computes `mtf_ipc = 1 - 4*alpha`, triggering dual-path consistency check failures at alpha > 2.5%. See gaps.md for details.
+**Note (kernel sampling resolved)**: an earlier build applied the 3×3 IPC kernel at PSF sample spacing rather than pixel pitch, so RADIANT's native IPC MTF diverged from the analytic `1 − 4α` form (at alpha = 5%: analytic 0.2025 vs native 0.2514). The current build resolves this — the analytic cross-check now agrees with RADIANT's native convolution to within rounding (at alpha = 5%: analytic 0.2134 vs native 0.2139, Δ 0.0005).
 
-For Mike's purposes, the analytic IPC MTF formula (MTF_IPC = 1 - 4*alpha at Nyquist) should be used as the authoritative result until the kernel sampling is fixed.
+RADIANT's native IPC MTF can now be quoted directly; the analytic `MTF_IPC = 1 - 4*alpha` form remains a useful hand cross-check.
 
 ### Step 5: Validate Against Lab Data
 
@@ -111,8 +111,8 @@ The trend (MTF decreasing with IPC) matches well, confirming that the model capt
 
 | Metric | Previous Status | Current Status |
 |--------|----------------|----------------|
-| NEDT | Not available | `result.metrics["nedt_K"]` = 35.6 mK |
-| NIIRS | Not available | `result.metrics["niirs"]` = 4.82 |
+| NEDT | Not available | `result.metrics["nedt_K"]` = 41.2 mK |
+| NIIRS | Not available | `result.metrics["niirs"]` = 4.77 |
 | GSD | Manual calculation | `result.metrics["gsd_cross_track_m"]` = 7.50 m |
 | Q parameter | Manual calculation | `result.metrics["q_center"]` = 0.944 |
 | Strehl | Not available | `result.metrics["strehl"]` = 1.000 |

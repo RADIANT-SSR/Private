@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-182 — Scenario 4.1 runner over-specifies geometry (sets both `geometry.target_range_m` and `geometry.path_zenith_rad`); the CU-093 consistency check now fails every cell
+
+**Discovered**: CU-176/178 refresh pass, 2026-07-22 (branch `cu176/refresh-rest`).
+**Status**: Open — **blocks the 4.1 walkthrough refresh** (deferred out of the CU-176 pass).
+**File**: `scenarios/04_lisa_analyst/4.1_target_detection_matrix/scripts/run_detection_matrix.py` — `configure_geometry()` (~line 205) sets `geometry.path_zenith_rad = zenith_rad` **and** `geometry.target_range_m = slant_range_spherical_m(ALTITUDE_M, zenith_rad)`.
+**Symptom**: every one of the 144 batch cells fails with `ParameterConsistencyError: geometry.target_range_m = 1.70415e+06 m disagrees with the slant range implied by the viewing angles (1.06052e+06 m from geometry.path_zenith_rad)` (CU-093). The detection matrix, both figures, and the xlsx come out empty. Reproduce: `cd scenarios/04_lisa_analyst/4.1_target_detection_matrix/scripts && python run_detection_matrix.py`.
+**Root cause**: the scenario's `slant_range_spherical_m(ALT, angle)` and the chain's `path_zenith_rad` interpret the sweep angle under **different conventions** — the helper returns 1.704e6 m at 66° while the chain's θ_o-referenced spherical triangle (ADR-0006) returns 1.061e6 m for the same numeric angle. They agree only at nadir (both 5.0e5 m) and diverge off-nadir. The runner's docstring intends `path_zenith_rad` to co-vary range via the chain's own function, so the two must not both be set with mismatched values. Pre-dates this branch (surfaced whenever the CU-093 over-spec check landed); orthogonal to the CU-178 NIIRS gate.
+**Why it still matters**: 4.1 is a shipped scenario whose runner is the generator for its committed figures/xlsx and every hard number in `walkthrough.md`. It currently produces nothing, and the walkthrough numbers cannot be verified or refreshed until the geometry conventions are reconciled.
+**Suggested fix**: (b) stand-alone task — reconcile the angle convention: either set only `geometry.path_zenith_rad` and let the chain derive the slant range (deriving `footprint`/`fill_fraction` from the chain's slant range, not the scenario helper), or pass the observer/off-nadir angle the helper actually expects. Then re-add `performance.niirs.allow_extrapolated=True` (CU-178) and refresh the walkthrough. Effort M; category C (geometry correctness). Related: [[CU-093]], [[CU-176]], [[CU-178]], ADR-0006.
+
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
 **Discovered**: MODTRAN boost-ladder landing (plan §4.4 execution), 2026-07-20

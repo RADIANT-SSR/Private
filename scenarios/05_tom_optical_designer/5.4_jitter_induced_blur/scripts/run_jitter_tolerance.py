@@ -23,6 +23,9 @@ from pathlib import Path
 import numpy as np
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+import matplotlib
+
+matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt
 
 from radiant.api import Sensor
@@ -201,6 +204,11 @@ base_config = {
         "adc_bits": adc_bits,
         "full_well_capacity_e": fwc,
     },
+    # CU-178: the baseline is in the GIQE-5 envelope, but at high jitter RER
+    # falls below 0.20 and the applicability gate returns NIIRS N/A — opt into
+    # the extrapolated NIIRS so the degradation trend continues across the full
+    # sweep (read the sub-0.20-RER tail as a relative trend, not a calibrated NIIRS).
+    "performance": {"niirs": {"allow_extrapolated": True}},
 }
 
 # ---------------------------------------------------------------------------

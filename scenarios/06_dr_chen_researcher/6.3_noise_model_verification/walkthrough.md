@@ -1,7 +1,7 @@
 # Scenario 6.3: Noise Model Verification — Analytic vs. RADIANT
 
 
-> **NIIRS applicability — engine update (CU-166).** Since this walkthrough was written, RADIANT added a metric-applicability gate: when one or more GIQE-5 inputs fall outside the calibration envelope — GSD 1.18–31.5 inch, RER 0.20–0.95, SNR 2–130 — the engine reports **NIIRS as N/A** by default instead of silently extrapolating. This configuration is outside that envelope, so the NIIRS values below are the **extrapolated** GIQE-5-form output: reproduce them with `performance.niirs.allow_extrapolated = true` and read them as a *relative trend, not a calibrated rating*. (The SNR/NEDT figures here predate later physics updates and are indicative; a full numeric refresh is tracked separately in the cleanup backlog. No IR-calibrated IIRS model yet — see `docs/tracking/gaps.md` Gap 100.)
+> **NIIRS applicability — engine update (CU-166).** Since this walkthrough was written, RADIANT added a metric-applicability gate: when one or more GIQE-5 inputs fall outside the calibration envelope — GSD 1.18–31.5 inch, RER 0.20–0.95, SNR 2–130 — the engine reports **NIIRS as N/A** by default instead of silently extrapolating. This configuration is outside that envelope, so the NIIRS values below are the **extrapolated** GIQE-5-form output: reproduce them with `performance.niirs.allow_extrapolated = true` and read them as a *relative trend, not a calibrated rating*. (SNR/NEDT/spatial figures were refreshed 2026-07-22 against the current engine, CU-176. No IR-calibrated IIRS model yet — see `docs/tracking/gaps.md` Gap 100.)
 
 Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): parameters now enter
 RADIANT in vendor units via the unit-aware `Sensor.set(..., unit=...)`
@@ -107,13 +107,13 @@ longer exists in extended regime.)
 | Metric | RADIANT | Hand Calc | Unit | % Error |
 |--------|--------:|----------:|------|--------:|
 | SNR | 1280.52 | 1280.52 | -- | 0.00% |
-| NEDT | 20.76 | 23.92 | mK | 13.21% (Gap 43 — see below) |
-| NIIRS | 11.10 | -- | -- | -- |
+| NEDT | 21.79 | 23.92 | mK | 8.91% (Gap 43 — see below) |
+| NIIRS | 11.12 | -- | -- | -- |
 | GSD | 0.1200 | 0.1200 | m | 0.00% |
-| MTF at Nyquist | 0.2532 | -- | -- | -- |
+| MTF at Nyquist | 0.2668 | -- | -- | -- |
 | Strehl | 1.0000 | -- | -- | -- |
 | Q (sampling) | 0.9444 | 0.9444 | -- | 0.00% |
-| EE (1x1) | 0.4699 | -- | -- | -- |
+| EE (1x1) | 0.4826 | -- | -- | -- |
 | Well margin | 1.72 | -- | dB | -- |
 
 ### MTF Budget (at Nyquist)
@@ -170,8 +170,8 @@ to compute per-element emissivity via Kirchhoff's law (eps_mirror = 1 - R).
 
 ### NEDT Interpretation (registry Gap 43)
 
-RADIANT reports NEDT = 20.76 mK; the exact hand calculation gives 23.92 mK
-(13.2% apart). The cause is identified and filed as **registry Gap 43**:
+RADIANT reports NEDT = 21.79 mK; the exact hand calculation gives 23.92 mK
+(8.9% apart). The cause is identified and filed as **registry Gap 43**:
 the performance stage uses the single-wavelength Planck-factor approximation
 `NEDT = T / (SNR · x·eˣ/(eˣ−1))` (`nedt.compute_nedt_from_snr`), and its SNR
 numerator includes the reflected-solar signal — which does **not** vary with
@@ -183,7 +183,7 @@ T ± 0.1 K) is the trustworthy NEDT for daytime scenes.
 
 ### NIIRS and Spatial Quality
 
-NIIRS = 11.10 is exceptionally high because this is an 8 km altitude airborne
+NIIRS = 11.12 is exceptionally high because this is an 8 km altitude airborne
 platform with a 30 cm aperture, yielding GSD = 0.12 m. The Q parameter of 0.94
 indicates near-optimal sampling (Q = 1 is ideal for Nyquist matching). (Note:
 SNR = 1281 is far outside the GIQE-5 calibration range [2, 130]; RADIANT logs
@@ -196,8 +196,8 @@ this extrapolation warning on every run.)
 | Gap | Status | Evidence |
 |-----|--------|----------|
 | Unit-aware input (registry Gap 6) | **CLOSED** (exercised this refresh) | `Sensor.set(value, unit="cm"/"%"/"ms"/"km")`; Step 3a cross-check matches script conversions to 1e-12 |
-| No NEDT metric | **CLOSED** | `result.metrics["nedt_K"]` = 20.76 mK (but see Gap 43) |
-| No NIIRS metric | **CLOSED** | `result.metrics["niirs"]` = 11.10 |
+| No NEDT metric | **CLOSED** | `result.metrics["nedt_K"]` = 21.79 mK (but see Gap 43) |
+| No NIIRS metric | **CLOSED** | `result.metrics["niirs"]` = 11.12 |
 | No GSD metric | **CLOSED** | `result.metrics["gsd_geometric_mean_m"]` = 0.12 m |
 | No Strehl metric | **CLOSED** | `result.metrics["strehl"]` = 1.0 |
 | No Q parameter | **CLOSED** | `result.metrics["q_center"]` = 0.9444 |

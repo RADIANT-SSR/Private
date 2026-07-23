@@ -19,21 +19,21 @@ to show the tool generalizes.
 
 | Target altitude | In-band transmittance |
 |---|---|
-| 0 km | 0.7403 |
-| 1 km | 0.7963 |
-| 5 km | 0.8837 |
-| 10 km | 0.9040 |
-| 15 km, **interpolated** | **0.9280** |
-| 20 km | 0.9610 |
-| 29 km | 0.9831 |
+| 0 km | 0.5774 |
+| 1 km | 0.7039 |
+| 5 km | 0.8822 |
+| 10 km | 0.9151 |
+| 15 km, **interpolated** | **0.9291** |
+| 20 km | 0.9447 |
+| 29 km | 0.9790 |
 
 - **Naive nearest-neighbor (20 km) transmittance error vs. interpolated:
-  +3.5%** — noticeably larger than 8.1's zenith-angle case (−1.1%),
-  because this ladder's spacing is uneven and coarse right where the
-  query falls (10→20 km is a 10 km gap, the widest in the ladder) —
+  +1.7%** — the ladder's spacing is uneven and coarse right where the
+  query falls (10→20 km is a 10 km gap, the widest in the ladder), so the
+  nearest matrix point (20 km) still misses the true 15 km transmittance —
   exactly the situation where nearest-neighbor selection is weakest and
   interpolation earns its keep.
-- **Full-chain SNR error: +0.9%.** Smaller than the transmittance error
+- **Full-chain SNR error: +0.7%.** Smaller than the transmittance error
   for the same reason as scenario 6.2 found — SNR depends on the
   extended-scene target/background contrast, which partially cancels
   atmosphere effects that are common to both terms.

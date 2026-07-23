@@ -51,16 +51,16 @@ under-predicts** above the ~88 K knee. A Rule-07 Arrhenius extrapolation
 would call 95 K eight times better than it is — the reason a *measured*
 J(T) input matters.
 
-### Performance vs FPA Temperature (t_int = 0.55 ms)
+### Performance vs FPA Temperature (t_int = 0.6 ms)
 
 | T [K] | QE | well % | signal_shot | dark_shot | SNR | NEDT [mK] |
 |------:|----|-------:|------------:|----------:|----:|----------:|
-| 70 | 0.78 | 46.4 | 834.5 | 0.9 | 828.6 | 32.08 |
-| 85 | 0.73 | 43.4 | 807.3 | 30.2 | 801.0 | 33.19 |
-| 88 | 0.72 | 42.7 | 800.6 | 69.3 | 792.0 | 33.57 |
-| 90 | 0.71 | 42.3 | 796.2 | 124.2 | 781.1 | 34.03 |
-| 92 | 0.71 | 42.3 | 796.2 | 216.7 | 763.1 | 34.84 |
-| 95 | 0.71 | 42.3 | 796.2 | 466.5 | 683.2 | 38.91 |
+| 70 | 0.78 | 46.4 | 834.5 | 0.9 | 828.6 | 33.44 |
+| 85 | 0.73 | 43.4 | 807.3 | 30.2 | 801.0 | 34.59 |
+| 88 | 0.72 | 42.7 | 800.6 | 69.3 | 792.0 | 34.98 |
+| 90 | 0.71 | 42.3 | 796.2 | 124.2 | 781.1 | 35.47 |
+| 92 | 0.71 | 42.3 | 796.2 | 216.7 | 763.1 | 36.31 |
+| 95 | 0.71 | 42.3 | 796.2 | 466.5 | 683.2 | 40.55 |
 
 Dark shot noise climbs from ~1 e⁻ (70 K) to 467 e⁻ (95 K) — from
 negligible to the second-largest term — and drags SNR down and NEDT up.
@@ -75,10 +75,11 @@ answer — not compared to dark.
 
 ### Spec Compliance and Recommendation
 
-SNR ≥ 750 and NEDT ≤ 35 mK hold through **92 K** (NEDT 34.8 mK, 0.2 mK
-margin); 95 K fails both. **Recommendation: operate at 89 K** — a 3 K guard
-band below the compliance edge, protecting against cooler drift and the
-super-Arrhenius knee at ~88 K where dark current climbs steeply.
+SNR ≥ 750 and NEDT ≤ 35 mK hold through **88 K** (NEDT 35.0 mK, ~0 mK
+margin); 90 K fails on NEDT (35.5 mK) and 95 K fails both. **Recommendation:
+operate at 85 K** — a 3 K guard band below the compliance edge, protecting
+against cooler drift and the super-Arrhenius knee at ~88 K where dark current
+climbs steeply.
 
 ## Physics Discussion
 
@@ -97,9 +98,10 @@ so a 300,000× dark increase drives NEDT directly. This is why cooling budget
 (dark), not QE(T), sets the operating point.
 
 **The guard band is against two things.** Cooler drift (a few K of
-set-point wander) and the knee's steepness: at 92 K the margin is 0.2 mK,
-but the NEDT slope is ~2 mK/K and rising, so a 1 K warm excursion blows the
-spec. 89 K sits on the flat part of the curve with real margin.
+set-point wander) and the knee's steepness: at 88 K the margin is ~0 mK,
+and the NEDT slope steepens from ~0.25 mK/K near the edge to ~1.4 mK/K past
+92 K, so a 1 K warm excursion blows the spec. 85 K sits on the flatter part
+of the curve with real margin (NEDT 34.6 mK).
 
 ## Gaps Identified
 
@@ -120,7 +122,7 @@ no new gap).
 
 ## What Karen Would Do Next
 
-1. **Set the flight operating point at 89 K** and document the 3 K guard
+1. **Set the flight operating point at 85 K** and document the 3 K guard
    band and the 88 K knee in the acceptance data package
 2. **Investigate the knee mechanism** (bias dependence, pixel-to-pixel
    spread) — a defect-assisted onset often has an operability tail worse

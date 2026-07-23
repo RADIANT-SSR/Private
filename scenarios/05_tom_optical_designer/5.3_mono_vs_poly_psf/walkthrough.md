@@ -40,13 +40,13 @@ The script runs RADIANT at 5 individual wavelengths (3.5, 4.0, 4.25, 4.5, 5.0 µ
 
 | λ [µm] | MTF@Nyq | EE 1×1 | EE 3×3 | RER   | FWHM [µm] | SNR |
 |---------|---------|--------|--------|-------|------------|-----|
-| 3.50    | 0.308   | 0.520  | 0.902  | 0.647 | 20.3       | 172 |
-| 4.00    | 0.290   | 0.503  | 0.889  | 0.628 | 20.5       | 183 |
-| 4.25    | 0.253   | 0.470  | 0.882  | 0.602 | 21.8       | 204 |
-| 4.50    | 0.265   | 0.448  | 0.874  | 0.610 | 21.5       | 226 |
-| 5.00    | 0.203   | 0.389  | 0.861  | 0.563 | 23.9       | 245 |
+| 3.50    | 0.328   | 0.540  | 0.903  | 0.660 | 19.5       | 83  |
+| 4.00    | 0.290   | 0.503  | 0.889  | 0.628 | 20.5       | 141 |
+| 4.25    | 0.267   | 0.483  | 0.883  | 0.610 | 21.3       | 174 |
+| 4.50    | 0.248   | 0.433  | 0.874  | 0.599 | 22.0       | 208 |
+| 5.00    | 0.210   | 0.396  | 0.861  | 0.568 | 23.6       | 202 |
 
-The trends are monotonic: shorter wavelengths give better MTF and EE (tighter PSF concentrates more energy), but worse SNR (fewer photons in narrower band at shorter wavelengths for a thermal source). RER (relative edge response) is now also extracted at each wavelength.
+The trends are monotonic: shorter wavelengths give better MTF and EE (tighter PSF concentrates more energy), but worse SNR (fewer photons in a narrow band at shorter wavelengths for a thermal source — a 300 K target emits far more MWIR photons at 5 µm than at 3.5 µm). RER (relative edge response) is now also extracted at each wavelength.
 
 ### Step 2: Full-Band Comparison — Mono vs. Poly
 
@@ -56,10 +56,10 @@ RADIANT's `optics.psf_n_wavelengths` parameter controls the PSF model:
 
 | PSF Model | MTF@Nyq | EE 1×1 | EE 3×3 | RER   | FWHM [µm] | SNR | NEDT [mK] | NIIRS |
 |-----------|---------|--------|--------|-------|------------|-----|-----------|-------|
-| Mono (N=1)  | 0.253 | 0.470 | 0.882 | 0.601 | 21.8 | 707 | 40.9 | 4.7 |
-| Poly (N=5)  | 0.247 | 0.437 | 0.877 | 0.597 | 21.3 | 707 | 40.9 | 4.7 |
-| Poly (N=11) | 0.248 | 0.437 | 0.877 | 0.598 | 21.1 | 707 | 40.9 | 4.7 |
-| Poly (N=21) | 0.249 | 0.438 | 0.877 | 0.598 | 21.2 | 707 | 40.9 | 4.7 |
+| Mono (N=1)  | 0.267 | 0.483 | 0.883 | 0.610 | 21.3 | 707 | 42.2 | 4.8 |
+| Poly (N=5)  | 0.261 | 0.449 | 0.878 | 0.606 | 20.7 | 707 | 42.2 | 4.7 |
+| Poly (N=11) | 0.253 | 0.441 | 0.876 | 0.600 | 20.9 | 707 | 42.2 | 4.7 |
+| Poly (N=21) | 0.251 | 0.438 | 0.875 | 0.598 | 21.1 | 707 | 42.2 | 4.7 |
 
 ### Step 3: Quantify the Error
 
@@ -67,32 +67,32 @@ The chromaticism error from monochromatic analysis (relative to poly N=11):
 
 | Metric | Mono vs. Poly Error |
 |--------|---------------------|
-| MTF at Nyquist | +1.9% (mono overstates) |
-| EE 1×1 | +7.4% (mono overstates) |
-| EE 3×3 | +0.6% (negligible) |
-| RER | +0.6% (negligible) |
-| FWHM | +3.2% (mono understates broadness) |
+| MTF at Nyquist | +5.4% (mono overstates) |
+| EE 1×1 | +9.5% (mono overstates) |
+| EE 3×3 | +0.8% (negligible) |
+| RER | +1.7% (negligible) |
+| FWHM | +2.0% (mono understates broadness) |
 | SNR | +0.0% (no effect — SNR is radiometric, not spatial) |
 
-The largest error is in EE 1×1 (+7.4%). Monochromatic analysis tells Tom that 47.0% of a point source's energy falls in a single pixel, when the true value is 43.7%. That's a meaningful difference for point source detection sensitivity.
+The largest error is in EE 1×1 (+9.5%). Monochromatic analysis tells Tom that 48.3% of a point source's energy falls in a single pixel, when the true value is 44.1%. That's a meaningful difference for point source detection sensitivity.
 
 ### Step 4: Convergence Check
 
-N=11 vs N=21 agrees within 0.2% on all metrics. N=11 is sufficient for this band.
+N=11 vs N=21 agrees within ~1% on all metrics (MTF 0.99%, EE 1×1 0.57%, FWHM 0.89%). N=11 is sufficient for this band.
 
 ## Key Takeaways
 
-1. **Monochromatic PSF overstates spatial performance by 2–8%.** For this 3.5–5.0 µm band, EE 1×1 is overstated by 7.4% and MTF at Nyquist by 1.9%. The error is systematic — monochromatic always overstates because band-center is sharper than the flux-weighted average.
+1. **Monochromatic PSF overstates spatial performance by 2–10%.** For this 3.5–5.0 µm band, EE 1×1 is overstated by 9.5% and MTF at Nyquist by 5.4%. The error is systematic — monochromatic always overstates because band-center is sharper than the flux-weighted average.
 
 2. **SNR is unaffected.** The PSF model choice does not change SNR because SNR in extended-scene regime depends on total signal and noise, not the PSF shape. The signal is the same regardless of how the PSF is computed.
 
 3. **EE 3×3 is robust to chromaticism.** Only 1% error in EE 3×3 because the 3×3 box is large enough to capture the PSF regardless of wavelength-dependent broadening. EE 1×1 is much more sensitive because a single pixel is comparable in size to the PSF.
 
-4. **N=11 wavelengths is sufficient** for this band. Convergence is achieved within 0.2% of the N=21 result. N=5 also gives similar results (within 0.5% of N=11).
+4. **N=11 wavelengths is sufficient** for this band. Convergence is achieved within ~1% of the N=21 result. N=5 also gives similar results (within ~1–2% of N=11).
 
-5. **The FWHM result.** Polychromatic FWHM (21.1 µm) is smaller than monochromatic (21.8 µm), a 3.2% difference. The polychromatic PSF has a tighter core from the short-wavelength contributions but broader wings from the long-wavelength contributions. FWHM measures only the core width, so the sharper short-wavelength PSFs pull the FWHM down, while the broader wings reduce EE 1×1.
+5. **The FWHM result.** Polychromatic FWHM (20.9 µm) is smaller than monochromatic (21.3 µm), a 2.0% difference. The polychromatic PSF has a tighter core from the short-wavelength contributions but broader wings from the long-wavelength contributions. FWHM measures only the core width, so the sharper short-wavelength PSFs pull the FWHM down, while the broader wings reduce EE 1×1.
 
-6. **For Tom's design review**: the 18 µm pixel still passes all requirements under polychromatic analysis. MTF at Nyquist drops from 0.253 to 0.247 (requirement: ≥ 0.10) and EE 1×1 drops from 0.470 to 0.436 (requirement: ≥ 0.30). Both are well above thresholds.
+6. **For Tom's design review**: the 18 µm pixel still passes all requirements under polychromatic analysis. MTF at Nyquist drops from 0.267 to 0.253 (requirement: ≥ 0.10) and EE 1×1 drops from 0.483 to 0.441 (requirement: ≥ 0.30). Both are well above thresholds.
 
 ## Gaps Identified
 

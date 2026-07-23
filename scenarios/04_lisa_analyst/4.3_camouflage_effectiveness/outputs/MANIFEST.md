@@ -6,7 +6,9 @@ All artifacts below are produced by `scripts/run_camouflage_analysis.py` from
 Regenerate by running the script from the repo root. Committed figures are
 referenced by `walkthrough.md`; `outputs/derived/*.csv` (the S8 radiance inputs)
 and `*_results.xlsx` are regenerate-on-demand and not committed
-(see `docs/OPERATING_MODEL.md` Rule 26).
+(see `docs/OPERATING_MODEL.md` Rule 26). The bare-vehicle radiance is additionally
+committed as a golden input at `inputs/L_bare_vehicle.csv` so the `.gui.yaml`
+baseline reloads in a cold checkout (CU-180 — see `inputs/MANIFEST.md`).
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|

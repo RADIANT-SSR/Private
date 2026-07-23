@@ -56,16 +56,16 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 ---
 
-## Results (real MODTRAN 6; re-run 2026-07-18 after the CU-161 recalibration)
+## Results (real MODTRAN 6; re-run 2026-07-22, CU-176)
 
 | Profile | τ SimpleAtmosphere [-] | τ MODTRAN 6 [-] | τ residual | SNR Simple [-] | SNR MODTRAN [-] | SNR residual |
 |---------|------------------------|------------------|------------|----------------|------------------|----------------|
-| us_standard | 0.554 | 0.517 | −7.3% | 577.7 | 575.9 | −0.3% |
-| tropical | 0.467 | 0.421 | −10.7% | 528.0 | 582.5 | +9.4% |
-| midlat_summer | 0.501 | 0.458 | −9.4% | 548.0 | 579.5 | +5.4% |
-| midlat_winter | 0.578 | 0.544 | −6.2% | 590.4 | 574.0 | −2.9% |
-| subarctic_summer | 0.529 | 0.492 | −7.5% | 563.7 | 570.7 | +1.2% |
-| subarctic_winter | 0.599 | 0.571 | −4.8% | 601.7 | 582.3 | −3.3% |
+| us_standard | 0.554 | 0.517 | −7.3% | 583.9 | 575.9 | −1.4% |
+| tropical | 0.467 | 0.421 | −10.7% | 537.1 | 582.5 | +7.8% |
+| midlat_summer | 0.501 | 0.458 | −9.4% | 555.6 | 579.5 | +4.1% |
+| midlat_winter | 0.578 | 0.544 | −6.2% | 594.4 | 574.0 | −3.6% |
+| subarctic_summer | 0.529 | 0.492 | −7.5% | 569.9 | 570.7 | +0.1% |
+| subarctic_winter | 0.599 | 0.571 | −4.8% | 604.6 | 582.3 | −3.8% |
 
 **This table is the CU-161 acceptance evidence.** The first real-data
 run of this scenario (2026-07-17) found residuals spanning **−43% to
@@ -73,7 +73,7 @@ run of this scenario (2026-07-17) found residuals spanning **−43% to
 directions. The gas-band recalibration that finding triggered (CU-161,
 landed 2026-07-18: curve-of-growth water + well-mixed CO₂/N₂O floor,
 fit to the D-block water ladder) collapses the residuals **6×, to a
-uniform −5%…−11%**, and SNR residuals from −29%…−4% to ±9%. The small
+uniform −5%…−11%**, and SNR residuals from −29%…−4% to within ±8%. The small
 remaining τ offset is systematic (simple slightly transparent — largely
 the band-mean comparison convention this script uses) rather than
 profile-dependent: the water physics now scales correctly across
@@ -89,7 +89,7 @@ extended-scene contrast SNR, dimensionless)
   linear-in-w Lorentzian fit attributed the MWIR's saturated CO₂ floor
   to water. The recalibrated model spans 0.47–0.60 — matching real
   MODTRAN's narrow climate spread.
-- **SNR residuals (−4% to −29%) are smaller than the worst τ residuals
+- **SNR residuals (−4% to +8%) are smaller than the worst τ residuals
   and don't track them** (tropical: worst τ, best SNR). The
   extended-scene contrast term attenuates target and background by the
   same τ, cancelling much of the transmittance error in the signal

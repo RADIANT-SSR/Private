@@ -192,6 +192,9 @@ def make_config(filter_min, filter_max, psf_n_wavelengths=1):
             "adc_bits": adc_bits,
             "full_well_capacity_e": fwc,
         },
+        # CU-178: config outside the GIQE-5 envelope → NIIRS N/A by default; opt into
+        # the extrapolated NIIRS trend (read as relative, not calibrated).
+        "performance": {"niirs": {"allow_extrapolated": True}},
     }
 
 

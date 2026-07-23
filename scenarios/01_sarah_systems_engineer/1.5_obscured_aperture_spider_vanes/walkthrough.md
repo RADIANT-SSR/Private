@@ -50,9 +50,9 @@ correctly attributed to EE/RER/SNR, not Strehl.
 
 | Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
 |---------------|-----|--------|-----|---------|--------|
-| Unobstructed | 90.5 | 0.867 | 0.583 | 0.229 | 1.000 |
-| Obscured only (ε=0.30) | 86.1 | 0.771 | 0.518 | 0.208 | 1.000 |
-| Obscured + 4× 3 cm spiders | 80.7 | 0.664 | 0.486 | 0.222 | 1.000 |
+| Unobstructed | 88.0 | 0.867 | 0.583 | 0.229 | 1.000 |
+| Obscured only (ε=0.30) | 83.8 | 0.771 | 0.518 | 0.208 | 1.000 |
+| Obscured + 4× 3 cm spiders | 78.5 | 0.664 | 0.486 | 0.222 | 1.000 |
 
 - Going from an ideal unobstructed aperture to the full Cassegrain costs
   **11 % of SNR and 23 % of the 3×3 encircled energy.** The obscuration
@@ -66,10 +66,10 @@ correctly attributed to EE/RER/SNR, not Strehl.
 
 | Width | SNR | EE_3×3 | RER |
 |-------|-----|--------|-----|
-| 0 cm | 86.1 | 0.771 | 0.518 |
-| 2 cm | 82.5 | 0.690 | 0.494 |
-| 3 cm | 80.7 | 0.664 | 0.486 |
-| 5 cm | 76.8 | 0.613 | 0.470 |
+| 0 cm | 83.8 | 0.771 | 0.518 |
+| 2 cm | 80.3 | 0.690 | 0.494 |
+| 3 cm | 78.5 | 0.664 | 0.486 |
+| 5 cm | 74.7 | 0.613 | 0.470 |
 
 EE_3×3 and RER fall monotonically with strut width — each centimetre of
 strut scatters more core energy into the spikes and shaves more collecting

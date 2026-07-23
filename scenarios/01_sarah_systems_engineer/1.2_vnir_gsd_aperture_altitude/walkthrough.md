@@ -71,9 +71,9 @@ optics as the orbit rises.
 
 | Aperture | 400 km | 500 km | 600 km |
 |----------|--------|--------|--------|
-| 20 cm | SNR 20.7, Q 2.30, diff-GSD 1.40 m | SNR 15.1, Q 2.88 | SNR 11.4, Q 3.45 |
-| 50 cm | SNR 62.5, Q 0.92, diff-GSD 0.56 m | SNR 48.9, Q 1.15, diff-GSD 0.70 m | SNR 39.6, Q 1.38 |
-| 80 cm | SNR 102.8, Q 0.57, diff-GSD 0.35 m | SNR 81.4, Q 0.72 | SNR 67.1, Q 0.86 |
+| 20 cm | SNR 19.8, Q 2.30, diff-GSD 1.40 m | SNR 14.4, Q 2.88 | SNR 10.8, Q 3.45 |
+| 50 cm | SNR 60.3, Q 0.92, diff-GSD 0.56 m | SNR 47.1, Q 1.15, diff-GSD 0.70 m | SNR 38.1, Q 1.38 |
+| 80 cm | SNR 99.3, Q 0.57, diff-GSD 0.35 m | SNR 78.6, Q 0.72 | SNR 64.7, Q 0.86 |
 
 - **The 20 cm aperture is diffraction-limited** everywhere (Q > 2.3,
   diffraction ground spot 1.4–2.1 m ≫ the 0.5 m pixel): the pixel is far
@@ -84,8 +84,8 @@ optics as the orbit rises.
   GSD. This is the efficient regime for a 0.5 m sample.
 - **The 50 cm aperture straddles the crossover** (Q ≈ 0.9–1.4) — near
   critical sampling, the usual sweet spot for a pan imager.
-- **Seasonal swing is 43%**: at the 50 cm / 500 km reference design SNR
-  runs 86 in summer (θ_z = 23°) down to **48.9 in winter (θ_z = 62°),
+- **Seasonal swing is 44%**: at the 50 cm / 500 km reference design SNR
+  runs 83.8 in summer (θ_z = 23°) down to **47.1 in winter (θ_z = 62°),
   which FAILS the SNR = 50 spec.** Sizing to the annual mean would ship a
   sensor that misses spec every winter — the worst-case-season floor is
   the correct sizing basis.

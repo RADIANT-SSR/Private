@@ -3,7 +3,10 @@
 Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): the script now uses
 `Sensor.solve_for` (Gap 10), `optics.scalar_emissivity` (Gap 37), the
 `optics.nearfield_fraction` name (Gap 12), and the Stage-7
-`geometry.sensor_altitude_m` precondition. Numbers below are from the refreshed run.
+`geometry.sensor_altitude_m` precondition. Numbers re-verified 2026-07-22 (CU-176)
+against the current engine: this is a vacuum (exo) lab test, so signal, nearfield,
+SNR, and the η_nf inversions are unchanged; only NEDT shifted slightly (band-effective
+Planck-factor update, ~+0.5 mK).
 
 ## The Problem
 
@@ -107,7 +110,7 @@ The script evaluates SNR at both the nominal and anomalous cold stop positions w
 | Metric | Nominal (η_nf = 0.0437) | Anomaly (η_nf = 0.0542) |
 |--------|-------------------------|-------------------------|
 | SNR [—] | 1,719.1 | 1,716.7 |
-| NEDT [mK] | 16.32 | 16.34 |
+| NEDT [mK] | 16.81 | 16.83 |
 | Nearfield shot noise [e- RMS] | 188.4 | 209.8 |
 | Nearfield noise fraction | 1.2% | 1.4% |
 

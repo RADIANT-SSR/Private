@@ -42,17 +42,17 @@ This is more accurate than the analytic erfinv/erf approach used in the first ve
 ## Baseline Results (Zero Jitter)
 | Parameter | Value | Unit |
 |---|---|---|
-| Signal | 9,463 | e- (9.5% well) |
-| Total noise | 97.4 | e- RMS |
-| SNR | 97.1 | -- |
-| MTF@Nyquist | 0.2409 | -- |
-| RER | 0.5547 | -- |
-| NIIRS | 6.50 | -- |
+| Signal | 8,672 | e- (8.7% well) |
+| Total noise | 93.3 | e- RMS |
+| SNR | 93.0 | -- |
+| MTF@Nyquist | 0.2330 | -- |
+| RER | 0.5483 | -- |
+| NIIRS | 6.45 | -- |
 
 ### Noise Budget
 | Noise Term | sigma [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 97.3 | 99.7 |
+| signal_shot | 93.1 | 99.7 |
 | read_noise | 5.0 | 0.3 |
 | quantization | 1.9 | 0.0 |
 | dark_shot | 0.1 | 0.0 |
@@ -62,38 +62,43 @@ Signal shot noise dominates almost entirely. There is **no separate background_s
 ## Key Results
 
 ### SNR Invariance
-SNR is exactly 97.13 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
+SNR is exactly 93.0 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
 
 ### Jitter Sweep
 | Jitter [urad] | sigma_fp [pixels] | MTF_jitter@Nyq [--] | MTF_sys@Nyq [--] | RER [--] | NIIRS [--] | delta_NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.0 | 0.000 | 1.0000 | 0.2409 | 0.5547 | 6.50 | +0.00 |
-| 0.2 | 0.125 | 0.9258 | 0.2230 | 0.5420 | 6.46 | -0.03 |
-| 0.5 | 0.312 | 0.6176 | 0.1488 | 0.4878 | 6.31 | -0.19 |
-| 0.8 | 0.500 | 0.2912 | 0.0702 | 0.4209 | 6.10 | -0.40 |
-| 1.0 | 0.625 | 0.1455 | 0.0351 | 0.3797 | 5.95 | -0.55 |
-| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2848 | 5.54 | -0.96 |
-| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2416 | 5.30 | -1.20 |
-| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1733 | 4.82 | -1.68 |
-| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1098 | 4.16 | -2.34 |
+| 0.0 | 0.000 | 1.0000 | 0.2330 | 0.5483 | 6.45 | +0.00 |
+| 0.2 | 0.125 | 0.9258 | 0.2157 | 0.5359 | 6.42 | -0.03 |
+| 0.6 | 0.375 | 0.4996 | 0.1164 | 0.4614 | 6.21 | -0.25 |
+| 0.8 | 0.500 | 0.2912 | 0.0679 | 0.4178 | 6.06 | -0.39 |
+| 1.0 | 0.625 | 0.1455 | 0.0339 | 0.3773 | 5.91 | -0.54 |
+| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2837 | 5.50 | -0.95 |
+| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2409 | 5.27 | -1.19 |
+| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1730 | 4.79 | -1.66 |
+| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1097 | 4.13 | -2.32 |
+
+At jitter ≥ ~2.6 µrad the RER falls below 0.20 — outside the GIQE-5 calibration
+envelope — so the NIIRS values in the tail are the **extrapolated** GIQE-5-form
+output (`performance.niirs.allow_extrapolated = true`, CU-178); read them as a
+relative degradation trend, not a calibrated rating.
 
 ### Jitter Budget Thresholds
 | Threshold | Jitter [urad] | sigma_fp [um] | sigma_fp [pixels] |
 |---|---|---|---|
 | delta_NIIRS = -0.5 | 0.9 | 4.7 | 0.59 |
-| delta_NIIRS = -1.0 | 1.7 | 8.3 | 1.04 |
-| NIIRS = 6.0 floor | 0.9 | 4.7 | 0.59 |
+| delta_NIIRS = -1.0 | 1.7 | 8.4 | 1.05 |
+| NIIRS = 6.0 floor | 0.9 | 4.4 | 0.55 |
 
 ### Jitter in Context
 | Jitter [urad] | Fraction of IFOV | sigma_fp [pixels] | MTF@Nyq [--] | delta_NIIRS [--] |
 |---|---|---|---|---|
-| 0.2 | 0.13 | 0.125 | 0.2230 | -0.03 |
-| 0.5 | 0.31 | 0.312 | 0.1488 | -0.19 |
-| 1.0 | 0.62 | 0.625 | 0.0351 | -0.55 |
-| 1.6 (= 1 IFOV) | 1.00 | 1.000 | 0.0017 | -0.96 |
-| 2.0 | 1.25 | 1.250 | 0.0001 | -1.20 |
-| 3.0 | 1.88 | 1.875 | 0.0000 | -1.68 |
-| 5.0 | 3.13 | 3.125 | 0.0000 | -2.34 |
+| 0.2 | 0.13 | 0.125 | 0.2157 | -0.03 |
+| 0.5 | 0.31 | 0.312 | 0.1439 | -0.18 |
+| 1.0 | 0.62 | 0.625 | 0.0339 | -0.54 |
+| 1.6 (= 1 IFOV) | 1.00 | 1.000 | 0.0017 | -0.95 |
+| 2.0 | 1.25 | 1.250 | 0.0001 | -1.19 |
+| 3.0 | 1.88 | 1.875 | 0.0000 | -1.66 |
+| 5.0 | 3.13 | 3.125 | 0.0000 | -2.32 |
 
 ### Comparison: Full-Chain vs. Analytic Approach
 The first version of this scenario used an analytic approach (single RADIANT run + erfinv/erf RER approximation). The full-chain approach yields tighter (more conservative) thresholds:
@@ -102,8 +107,8 @@ The first version of this scenario used an analytic approach (single RADIANT run
 |---|---|---|---|
 | dNIIRS = -0.5 threshold | 1.0 urad | 0.9 urad | -10% (more conservative) |
 | dNIIRS = -1.0 threshold | 1.7 urad | 1.7 urad | same |
-| RER at 1.0 urad | 0.4564 | 0.3797 | -17% |
-| RER at 2.0 urad | 0.2869 | 0.2416 | -16% |
+| RER at 1.0 urad | 0.4564 | 0.3773 | -17% |
+| RER at 2.0 urad | 0.2869 | 0.2409 | -16% |
 
 The analytic approach assumed a purely Gaussian PSF shape when inverting the baseline RER. The real PSF has Airy rings (diffraction) and IPC coupling, making it wider in the tails than a Gaussian. The full ePSF convolution captures this, producing a lower RER for the same jitter — and thus tighter jitter requirements.
 
@@ -126,9 +131,9 @@ This is a fundamental consequence of long-focal-length design. The same 1 urad j
 
 2. **System MTF**: The total system MTF is the product of all MTF contributors. The baseline system MTF at Nyquist is 0.241 (from optics + detector + aberrations). At 1 urad jitter, the system MTF drops to 0.035 -- an 85% reduction.
 
-3. **RER (Relative Edge Response)**: RER measures how sharp edges appear. Baseline RER = 0.555; at 1 urad jitter, RER drops to 0.380 (computed via full ePSF convolution, not the Gaussian approximation).
+3. **RER (Relative Edge Response)**: RER measures how sharp edges appear. Baseline RER = 0.548; at 1 urad jitter, RER drops to 0.377 (computed via full ePSF convolution, not the Gaussian approximation).
 
-4. **NIIRS impact**: NIIRS depends on RER through +3.32 x log10(RER). When RER drops from 0.555 to 0.380, NIIRS drops by 0.55 -- more than half a grade. The RER term has the same coefficient magnitude as the GSD term, so RER degradation is as significant as GSD degradation.
+4. **NIIRS impact**: NIIRS depends on RER through +3.32 x log10(RER). When RER drops from 0.548 to 0.377, NIIRS drops by 0.54 -- more than half a grade. The RER term has the same coefficient magnitude as the GSD term, so RER degradation is as significant as GSD degradation.
 
 ### Why Jitter Doesn't Affect SNR
 Jitter is random pointing wander during the integration time. It spreads the image of a point source over a larger area, but:

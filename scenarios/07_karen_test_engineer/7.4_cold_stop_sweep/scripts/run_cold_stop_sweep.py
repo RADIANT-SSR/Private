@@ -270,6 +270,10 @@ config = {
         "adc_bits": adc_bits,
         "full_well_capacity_e": fwc,
     },
+    # CU-178: config outside the GIQE-5 envelope → NIIRS N/A by default; opt into
+    # the extrapolated NIIRS trend (read as relative, not calibrated). Propagates to
+    # config_shuttered via the per-dict copy below.
+    "performance": {"niirs": {"allow_extrapolated": True}},
 }
 
 print("\n=== Running RADIANT baseline (nearfield_fraction = 1.0, no cold stop) ===")
@@ -657,6 +661,9 @@ for label, eta_val, meas_data in [("Nominal (CS-NOM)", nominal_eta, nominal_data
 # Step 8: Generate plots
 # ---------------------------------------------------------------------------
 
+import matplotlib
+
+matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 

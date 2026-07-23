@@ -551,6 +551,9 @@ print(f"    especially near the 4.3 µm CO₂ band and the H₂O continuum.")
 # Step 11: Generate plots
 # ---------------------------------------------------------------------------
 
+import matplotlib
+
+matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm
 

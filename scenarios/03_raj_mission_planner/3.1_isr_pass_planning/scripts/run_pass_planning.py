@@ -94,6 +94,10 @@ def build_sensor(off_nadir_deg: float) -> Sensor:
     s.set("readout.gain_e_per_dn", GAIN_E_PER_DN)
     s.set("readout.adc_bits", ADC_BITS)
     s.set("readout.full_well_capacity_e", FULL_WELL_E)
+    # CU-178: this config sits outside the GIQE-5 calibration envelope, so the
+    # applicability gate returns NIIRS N/A by default. The scenario intends the
+    # extrapolated NIIRS trend, so opt in explicitly (read as relative, not calibrated).
+    s.set("performance.niirs.allow_extrapolated", True)
     return s
 
 

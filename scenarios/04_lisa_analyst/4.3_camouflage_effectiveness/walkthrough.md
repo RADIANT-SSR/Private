@@ -1,8 +1,10 @@
 # Scenario 4.3 Walkthrough: Camouflage Effectiveness Analysis
 
-Executed 2026-07-08 (Scenario_Execution_Plan Phase T3, priority 20). First
-execution; uses the ASTER importer (commit f50253a) and the S8
-tabulated-source spec form for spectral emissivity.
+Executed 2026-07-08 (Scenario_Execution_Plan Phase T3, priority 20); uses the
+ASTER importer (commit f50253a) and the S8 tabulated-source spec form for
+spectral emissivity. Nadir numbers refreshed 2026-07-22 (CU-176) against the
+current engine; the off-nadir detection-range sweep is currently blocked by a
+geometry-consistency bug (CU-182 — see below).
 
 ## The Problem
 
@@ -46,40 +48,51 @@ runs: `SCNR = |S_option − S_scrub| / noise_scrub`.
 
 | Option | Contrast [e⁻] | SCNR | Well fill [%] | Signature reduction |
 |--------|--------------:|-----:|--------------:|--------------------:|
-| Bare vehicle | +2,175,589 | 1,562.4 | 33.8 | — |
-| Camo net A (ε≈0.60) | −606,641 | 435.7 | 10.7 | 72.1% |
-| Camo net B (shaped) | −312,358 | 224.3 | 13.1 | 85.6% |
-| **Camo net C (ε≈0.93)** | **+97,764** | **70.2** | 16.5 | **95.5%** |
+| Bare vehicle | +1,860,247 | 1,450.4 | 28.8 | — |
+| Camo net A (ε≈0.60) | −512,481 | 399.6 | 9.0 | 72.5% |
+| Camo net B (shaped) | −274,894 | 214.3 | 11.0 | 85.2% |
+| **Camo net C (ε≈0.93)** | **+83,183** | **64.9** | 14.0 | **95.5%** |
 
 ### Sub-band (which half detects each option best?)
 
 | Option | 8–10 µm SCNR | 10–12 µm SCNR | Best |
 |--------|-------------:|--------------:|------|
-| Bare vehicle | 1,203.0 | 997.4 | 8–10 µm |
-| Net A | 283.2 | 323.4 | 10–12 µm |
-| Net B | 279.7 | 50.5 | 8–10 µm |
-| Net C | 51.2 | 47.3 | 8–10 µm |
+| Bare vehicle | 1,136.3 | 898.5 | 8–10 µm |
+| Net A | 264.7 | 291.0 | 10–12 µm |
+| Net B | 264.3 | 46.2 | 8–10 µm |
+| Net C | 48.1 | 42.6 | 8–10 µm |
 
 Net B's shaping is visible: its high 10–12 µm emissivity matches the
-background well there (SCNR 50), but its low 8–10 µm reads cold (SCNR 280).
+background well there (SCNR 46), but its low 8–10 µm reads cold (SCNR 264).
 A sensor confined to one half-band would rank the nets differently than
 the full FLIR — the reason spectral, not scalar, emissivity matters.
 
 ### Detection range
 
-Edge-limited at 17.4 km for **every** option (the 80° zenith sweep cap,
-not SCNR): a sensitive FLIR at 3 km detects all options across the
-practical swath. **Emissivity camo buys signature reduction, not
+At nadir every option is detected with wide margin (SCNR ≥ 65 even for
+Net C), so a sensitive FLIR at 3 km detects all options at the sub-slant
+ranges of interest. **Emissivity camo buys signature reduction, not
 invisibility** at this range.
+
+> **Off-nadir sweep currently blocked ([[CU-182]]).** The runner's
+> detection-range bisection sets both `geometry.target_range_m` (from the
+> scenario's own spherical-slant helper) and `geometry.path_zenith_rad`; at
+> large zenith the two diverge past the 1% consistency tolerance (e.g.
+> 17.4 km vs 17.1 km at 80°) and the CU-093 check raises
+> `GeometrySpecificationError`. This is the same angle-convention bug that
+> blocks scenario 4.1, tracked together as CU-182. The prior "edge-limited
+> at 17.4 km for every option" figure is the pre-CU-093 result and is not
+> re-verifiable until the geometry conventions are reconciled; the nadir
+> signature-reduction results above are unaffected.
 
 ## Physics Discussion
 
 **Camouflage is radiance MATCHING, not lowering emission.** The effective
 net drives `ε_net·B(T_net)` toward `ε_bg·B(T_bg)`, i.e. contrast → 0. Net C
 (ε ≈ 0.93, near the 0.96 scrub, at near-ambient 310 K) does exactly that:
-+98k e⁻ residual, a 95.5% signature cut. The intuitive "low-ε to reduce
++83k e⁻ residual, a 95.5% signature cut. The intuitive "low-ε to reduce
 emission" choice (net A) **over-corrects** — 0.60 emissivity at ambient
-reads distinctly *cold* (−607k e⁻), a large *negative* contrast that a
+reads distinctly *cold* (−512k e⁻), a large *negative* contrast that a
 `|contrast|` detector sees just as well as a hot one. This is the central,
 counter-intuitive result: against a warm ground background, a poorly
 chosen low-ε net can be *worse than nothing at all* in the wrong direction.

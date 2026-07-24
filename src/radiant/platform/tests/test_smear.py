@@ -151,20 +151,8 @@ class TestSmearKernel:
             smear_kernel_1d(65, 1e-6, -10e-6)
 
 
-# ---------------------------------------------------------------------------
-# Cross-model: rotated smear should be equivalent
-# ---------------------------------------------------------------------------
-
-
-class TestSmearCrossModel:
-    @pytest.mark.level0
-    def test_along_vs_cross_track_same_formula(self) -> None:
-        """Along-track and cross-track smear use the same sinc formula.
-
-        Rotated 90° just means applying to fy instead of fx.
-        """
-        freq = np.linspace(0, 1e5, 100)
-        w = 10e-6
-        mtf_along = smear_mtf_1d(freq, w)
-        mtf_cross = smear_mtf_1d(freq, w)
-        np.testing.assert_array_equal(mtf_along, mtf_cross)
+# NOTE (assurance audit B1-7, 2026-07): a former TestSmearCrossModel
+# "along vs cross same formula" test was deleted here — it called
+# smear_mtf_1d(freq, w) twice with identical arguments and asserted
+# equality, so it could not fail under any implementation. Directional
+# smear behaviour is covered by the 2-D kernel tests above.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import types
+
 import numpy as np
 import pytest
 
@@ -26,6 +28,55 @@ def _make_state(wl: np.ndarray, L: float = 1.0) -> ChainState:
     state = state.with_stage_output("optics", "Omega_pixel", 2.25e-10)
     state = state.with_stage_output("optics", "EE_box", 1.0)
     return state.with_stage_output("optics", "regime", "extended")
+
+
+def _make_point_source_state(wl: np.ndarray, ee_box: float) -> ChainState:
+    """Point-source ChainState with the given EE_box (audit B1-5)."""
+    state = ChainState(wavelength_um=wl)
+    state = state.with_frame(
+        RadiometricFrame(name="post_optics", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0))
+    )
+    state = state.with_frame(
+        RadiometricFrame(
+            name="at_aperture_target", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0)
+        )
+    )
+    state = state.with_stage_output("optics", "A_collect", 0.07)
+    state = state.with_stage_output("optics", "Omega_pixel", 2.25e-10)
+    state = state.with_stage_output("optics", "tau_opt", 0.8)
+    state = state.with_stage_output("optics", "EE_box", ee_box)
+    state = state.with_stage_output("optics", "regime", "point_source")
+    state = state.with_stage_output("source", "projected_area_m2", 1.0)
+    state = state.with_stage_output("source", "range_m", 500e3)
+    return state.with_stage_output("atmosphere", "L_path", np.zeros_like(wl))
+
+
+def _make_sub_pixel_state(wl: np.ndarray, ee_box: float, fill_fraction: float = 0.3) -> ChainState:
+    """Sub-pixel ChainState with target + background frames (audit B1-5)."""
+    state = ChainState(wavelength_um=wl)
+    state = state.with_frame(
+        RadiometricFrame(name="post_optics", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0))
+    )
+    state = state.with_frame(
+        RadiometricFrame(
+            name="at_aperture_target", wavelength_um=wl, spectral_radiance=np.full_like(wl, 3.0)
+        )
+    )
+    state = state.with_frame(
+        RadiometricFrame(
+            name="at_aperture_background", wavelength_um=wl, spectral_radiance=np.full_like(wl, 1.5)
+        )
+    )
+    state = state.with_stage_output("optics", "A_collect", 0.07)
+    state = state.with_stage_output("optics", "Omega_pixel", 2.25e-10)
+    state = state.with_stage_output("optics", "tau_opt", 0.8)
+    state = state.with_stage_output("optics", "EE_box", ee_box)
+    state = state.with_stage_output("optics", "regime", "sub_pixel")
+    state = state.with_stage_output("source", "fill_fraction", fill_fraction)
+    state = state.with_stage_output("atmosphere", "L_path", np.zeros_like(wl))
+    return state.with_stage_output(
+        "atmosphere", "atm_quantities", types.SimpleNamespace(L_path_full=np.zeros_like(wl))
+    )
 
 
 def _make_params(
@@ -89,6 +140,47 @@ class TestSpectralIntegrationStage:
         state2 = state.with_stage_output("optics", "EE_box", 0.8)
         with pytest.raises(RuntimeError, match="EE_box != 1.0"):
             SpectralIntegrationStage().run(state2, _make_params())
+
+    @pytest.mark.level1
+    def test_EE_box_applied_once_point_source(self, wl: np.ndarray) -> None:
+        """Rule 9 positive path (audit B1-5): point-source signal ∝ EE_box.
+
+        EE_box=0.5 must give exactly half the EE_box=1.0 signal (applied once,
+        multiplicatively). The prior suite only tested the extended-regime
+        guard, never that the positive path applies EE_box exactly once.
+        """
+        full = SpectralIntegrationStage().run(
+            _make_point_source_state(wl, 1.0), _make_params()
+        )
+        half = SpectralIntegrationStage().run(
+            _make_point_source_state(wl, 0.5), _make_params()
+        )
+        s_full = full.frames["photoelectrons"].in_band_value
+        s_half = half.frames["photoelectrons"].in_band_value
+        assert s_full is not None and s_half is not None
+        assert s_half == pytest.approx(0.5 * s_full, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_EE_box_exempts_background_sub_pixel(self, wl: np.ndarray) -> None:
+        """Rule 9 (audit B1-5): in sub-pixel regime EE_box scales only the
+        target (fill-fraction) term; the background/path pedestal is exempt.
+
+        Consequence: signal is affine in EE_box (target part linear, background
+        part constant), so equal EE_box steps give equal signal steps, and at
+        EE_box=0 a positive background-only signal remains.
+        """
+        s0 = SpectralIntegrationStage().run(
+            _make_sub_pixel_state(wl, 0.0), _make_params()
+        ).frames["photoelectrons"].in_band_value
+        s5 = SpectralIntegrationStage().run(
+            _make_sub_pixel_state(wl, 0.5), _make_params()
+        ).frames["photoelectrons"].in_band_value
+        s10 = SpectralIntegrationStage().run(
+            _make_sub_pixel_state(wl, 1.0), _make_params()
+        ).frames["photoelectrons"].in_band_value
+        assert s0 is not None and s5 is not None and s10 is not None
+        assert s0 > 0.0  # background + path pedestal survives EE_box=0
+        assert (s10 - s5) == pytest.approx(s5 - s0, rel=1e-9)  # affine in EE_box
 
     @pytest.mark.level1
     def test_hand_calculated_flat_source(self, wl: np.ndarray) -> None:

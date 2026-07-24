@@ -42,6 +42,7 @@ from radiant.atmosphere.assembly import (
     validate_no_atmosphere_subcase,
 )
 from radiant.atmosphere.exo import ExoAtmosphere
+from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.descriptors import (
     ColdSpaceBackground,
     GroundBackground,
@@ -156,10 +157,10 @@ class TestSpaceSubcaseSmoke:
         atm = _minimal_exo_bundle(wl, los)
         L = assemble_target_at_aperture(target, atm, los)
         assert L.shape == wl.shape
-        assert np.all(L > 0.0)
-        # Sanity: ε·B(285 K) for LWIR is O(7 W/m²/sr/µm).
-        assert np.all(L < 15.0)
-        assert np.all(L > 3.0)
+        # Exo (τ=1, no path term) makes this exact: L = ε·B(T_t). The prior
+        # loose 3 < L < 15 bound passed a factor-of-2-low result (audit B2-4).
+        expected = 0.98 * planck_spectral_radiance(wl, 285.0)
+        np.testing.assert_allclose(L, expected, rtol=1e-9)
 
     @pytest.mark.level1
     def test_validate_space_leo_nadir_passes(self) -> None:

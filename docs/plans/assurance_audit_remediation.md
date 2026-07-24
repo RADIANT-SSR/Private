@@ -127,7 +127,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | A2 spatial/MTF anchors (R1.6) | **DONE** → CU-189, commit `9a33dc0` (optical-MTF analytic anchor added; other four already covered) |
 | A4 geometry anchors (R1.7) | **DONE** → CU-190, commit `b80fdc8` (viewing triangle / orbit / GSD / solar; A4 comparison passed at machine precision) |
 | A3 noise anchors (R1.8) | **DONE** → CU-191, commit `3dfe941` (RSS / ADC / D*; A3 comparison passed, checklist verified) |
-| B1-5..B1-9, B2-4..B2-8 | Planned → R1 (CU entries to be filed per item when this plan is ratified) |
+| B2-4, B2-5, B2-6, B2-8, B1-5, B1-7, B1-8 | **DONE** → R1.9, CU-192, commit `6c8c785` (small test-quality fixes) |
+| B1-6, B1-9, B2-7 | Planned → R1 (B1-6/B2-7 in R1.10; B1-9 residual — see note) |
 | Track C drifted: D1–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risks 1–3 (consistency gate, conversion lint, approx lint) | Planned → R2 |
 | Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | Proposed **Declined** (documented residual risk — revisit if a regression ever implicates them) |

@@ -152,8 +152,10 @@ class TestUndersampledBehaviour:
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
 
-        # For very broad MTF, folded(0) > optical(0) = 1.0
-        assert result.mtf_folded[0] >= mtf_optical[0]
+        # For very broad MTF, folded(0) > optical(0) = 1.0 (audit B1-8: was
+        # >=, which a no-op folded==optical also passes; the aliased ±f_Ny
+        # copies make this strict — here folded(0) ≈ 2.91).
+        assert result.mtf_folded[0] > mtf_optical[0]
 
 
 class TestNFoldsZero:

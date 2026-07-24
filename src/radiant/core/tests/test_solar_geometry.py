@@ -92,7 +92,10 @@ class TestSolarZenith:
     def test_high_latitude_winter_low_sun(self) -> None:
         """φ = 60°N, December solstice, noon → very low sun (large θ_z)."""
         z = solar_zenith_angle_rad(60.0, 355, 12.0)
-        # cos θ_z = sin60 sin(-23.44) + cos60 cos(-23.44) = 0.0768 → 85.6°
+        # cos θ_z = sin60 sin(-23.44) + cos60 cos(-23.44)
+        #         = -0.3444 + 0.4588 = 0.1143 → θ_z = 83.44°
+        # (audit B2-8: the prior comment recorded 0.0768 → 85.6°, wrong
+        # arithmetic; the assertion was already correct.)
         assert math.degrees(z) == pytest.approx(83.4, abs=1.0)
 
     def test_cos_zenith_matches_formula(self) -> None:

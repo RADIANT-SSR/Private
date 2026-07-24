@@ -80,7 +80,7 @@ class TestPublishedContract:
 
     def test_target_range_user_value_passes_through(self) -> None:
         out = run_stage(make_params(geometry__target_range_m=750_000.0)).stage_outputs["geometry"]
-        assert out["target_range_m"] == pytest.approx(750_000.0)
+        assert out["target_range_m"] == pytest.approx(750_000.0, rel=1e-9)
 
     def test_night_mode_none_solar(self) -> None:
         out = run_stage(make_params(geometry__solar_illumination="night")).stage_outputs["geometry"]
@@ -121,7 +121,7 @@ class TestDeprecatedAlias:
         with pytest.warns(DeprecationWarning, match="geometry.target_range_m"):
             ps.set("source.target.range_m", 123_456.0)
         ps.resolve()
-        assert ps.get("geometry.target_range_m") == pytest.approx(123_456.0)
+        assert ps.get("geometry.target_range_m") == pytest.approx(123_456.0, rel=1e-9)
 
     def test_alias_preserves_user_provenance(self) -> None:
         ps = ParameterSet(list(ALL_PARAMETERS))
@@ -136,7 +136,7 @@ class TestDeprecatedAlias:
         ps = make_params(geometry__target_range_m=42_000.0)
         with pytest.warns(DeprecationWarning):
             value = ps.get("source.target.range_m")
-        assert value == pytest.approx(42_000.0)
+        assert value == pytest.approx(42_000.0, rel=1e-9)
 
     def test_stage_sees_alias_set_value(self) -> None:
         ps = ParameterSet(list(ALL_PARAMETERS))
@@ -145,7 +145,7 @@ class TestDeprecatedAlias:
             ps.set("source.target.range_m", 900_000.0)
         ps.resolve()
         out = run_stage(ps).stage_outputs["geometry"]
-        assert out["target_range_m"] == pytest.approx(900_000.0)
+        assert out["target_range_m"] == pytest.approx(900_000.0, rel=1e-9)
 
 
 class TestValidationSurface:
@@ -213,7 +213,7 @@ class TestRangeConsistency:
             out = run_stage(make_params(geometry__target_range_m=100_000.0)).stage_outputs[
                 "geometry"
             ]
-        assert out["target_range_m"] == pytest.approx(100_000.0)
+        assert out["target_range_m"] == pytest.approx(100_000.0, rel=1e-9)
 
     def test_range_matching_nadir_slant_is_silent(self) -> None:
         import warnings as _w
@@ -223,4 +223,4 @@ class TestRangeConsistency:
             out = run_stage(
                 make_params(geometry__target_range_m=H)  # == nadir slant
             ).stage_outputs["geometry"]
-        assert out["target_range_m"] == pytest.approx(H)
+        assert out["target_range_m"] == pytest.approx(H, rel=1e-9)

@@ -121,7 +121,7 @@ class TestViewingModes:
                 geometry__target_altitude_m=4000.0,
             )
         )
-        assert v.h_target_m == pytest.approx(4000.0)
+        assert v.h_target_m == pytest.approx(4000.0, rel=1e-9)
         assert v.slant_range_m < H_LEO / math.cos(0.4)  # tighter than flat Earth
 
 
@@ -222,7 +222,7 @@ class TestKinematics:
 
     def test_direct_explicit_speed(self) -> None:
         k = resolve_kinematics(make_params(geometry__ground_speed_m_s=250.0))
-        assert k.ground_speed_m_s == pytest.approx(250.0)
+        assert k.ground_speed_m_s == pytest.approx(250.0, rel=1e-9)
         assert k.mode == "direct"
 
     def test_circular_orbit_derives_speed_and_period(self) -> None:

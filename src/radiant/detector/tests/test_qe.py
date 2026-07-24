@@ -25,8 +25,8 @@ def test_constant_is_flat() -> None:
 def test_constant_stores_two_point_table() -> None:
     qe = QuantumEfficiency.constant(0.5, lam_min_um=0.2, lam_max_um=20.0)
     assert qe.table.wavelength_um.size == 2
-    assert qe.table.wavelength_um[0] == pytest.approx(0.2)
-    assert qe.table.wavelength_um[1] == pytest.approx(20.0)
+    assert qe.table.wavelength_um[0] == pytest.approx(0.2, rel=1e-9)
+    assert qe.table.wavelength_um[1] == pytest.approx(20.0, rel=1e-9)
     assert qe.mode == "constant"
 
 

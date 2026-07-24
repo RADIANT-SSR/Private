@@ -346,9 +346,9 @@ def test_geometry_from_degrees_round_trip() -> None:
         solar_zenith_deg=45.0,
         solar_azimuth_deg=180.0,
     )
-    assert geo.path_zenith_rad == pytest.approx(math.radians(30.0))
-    assert geo.solar_zenith_rad == pytest.approx(math.radians(45.0))
-    assert geo.solar_azimuth_rad == pytest.approx(math.radians(180.0))
+    assert geo.path_zenith_rad == pytest.approx(math.radians(30.0), rel=1e-9)
+    assert geo.solar_zenith_rad == pytest.approx(math.radians(45.0), rel=1e-9)
+    assert geo.solar_azimuth_rad == pytest.approx(math.radians(180.0), rel=1e-9)
 
 
 @pytest.mark.level0
@@ -737,13 +737,13 @@ def test_t_atm_eff_truth_anchor_lookup() -> None:
     """
     atm = SimpleAtmosphere(standard_atmosphere="us_standard")
     # Ground target → h_eval = 200 m → 288.15 − 1.3 = 286.85 K.
-    assert atm._downwelling_effective_temperature_K(0.0) == pytest.approx(286.85)
+    assert atm._downwelling_effective_temperature_K(0.0) == pytest.approx(286.85, rel=1e-9)
     # 4 km target → h_eval = 4.2 km → 288.15 − 27.3 = 260.85 K.
-    assert atm._downwelling_effective_temperature_K(4_000.0) == pytest.approx(260.85)
+    assert atm._downwelling_effective_temperature_K(4_000.0) == pytest.approx(260.85, rel=1e-9)
     # 30 km target → h_eval capped at 11 km → tropopause floor 216.65 K.
-    assert atm._downwelling_effective_temperature_K(30_000.0) == pytest.approx(216.65)
+    assert atm._downwelling_effective_temperature_K(30_000.0) == pytest.approx(216.65, rel=1e-9)
     # Negative target altitude clamps to ground + offset.
-    assert atm._downwelling_effective_temperature_K(-500.0) == pytest.approx(286.85)
+    assert atm._downwelling_effective_temperature_K(-500.0) == pytest.approx(286.85, rel=1e-9)
 
 
 @pytest.mark.level0

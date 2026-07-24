@@ -654,7 +654,7 @@ class TestProtocol:
         ]
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
         bounds = model.coordinate_bounds()
-        assert bounds["path_zenith_rad"] == pytest.approx((0.2, 0.8))
+        assert bounds["path_zenith_rad"] == pytest.approx((0.2, 0.8), rel=1e-9)
 
     @pytest.mark.level1
     def test_deterministic(self, wl: np.ndarray) -> None:

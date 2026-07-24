@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-200 — Spatial_Complete doc: stale CU-003 kernel claims, RER "averaged", "unconditional" consistency check, h_sensor (audit S1-S6)
+
+**Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.5.
+**Status**: RESOLVED 2026-07-23, commit `d0ae789`. Fixed six drifted claims in RADIANT_Spatial_Complete.md. **S1**: §9.3 still described the pixel-aperture rect kernel as a "binary mask" with a "planned" CU-003 anti-aliased fix — it has been area-integrated (anti-aliased edges) since CU-003 option a landed 2026-07-10; reworded to the real discretization floor. **S2**: §12 listed the anti-aliased kernel as out-of-scope/v2 — it is shipped. **S3**: §2 invariant 5 said RER is "averaged across the two axes"; the code uses the geometric mean `sqrt(rer_x·rer_y)` (differs for anisotropic PSFs). **S4**: §0/§1.4/§5/§11 and the §9.3 header called the dual-path consistency check "unconditional"; it is Gap-96-gated (skipped when the Spatial-MTF group is deselected) — reconciled to CLAUDE.md Rule 4. **S6**: `platform.h_sensor` was documented as a shipped param; it is a deprecated alias of `geometry.sensor_altitude_m` (CU-090/ADR-0006). Also fixed the stale §9.2 "11, not 12" count note (the table now has 12 terms). **S5** (wfe_reference default "band-center" vs 0.633) was already resolved by [[CU-197]] (R2.4 deleted the drifted §10.1 table). Doc-only. Related: [[CU-199]], [[CU-197]].
+
 ### CU-199 — Signal_Chain doc misattributes turbulence/platform/readout MTF ownership and cites phantom frames (audit D6–D9)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.1.

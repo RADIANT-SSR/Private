@@ -479,6 +479,19 @@ This is the reason the sub-pixel regime exists: it bridges the discontinuity bet
 
 ## 8. Parameter Inventory
 
+> **[DESIGN-TARGET] — these parameter names are NOT the shipped schema (CU-198, 2026-07-24).**
+> Every `source.material.*`, `source.solar.*`, `source.thermal.*`, `source.tabulated.*`,
+> `source.sub_pixel.*`, `source.point.*`, and `regime.*` name below is part of the unified
+> `ResolvedTarget` design (see the top-of-document reconciliation banner, CU-079); **none of
+> them exist in any `_schema.py` or in the generated Parameter Reference** — a config that sets
+> them is rejected. The **shipped** source/target/background surface is the `source.target.*` /
+> `source.background.*` descriptor schema (`source/_schema.py`), plus `source.scene_type`,
+> `source.regime_override`, and `source.target.fill_fraction` / `point_intensity_*`, resolved by
+> `radiant.source._inferrer` into the T1–T7 descriptors (ADR-0003/0004/0008). The canonical,
+> auto-generated list is [`docs/guides/parameter_reference.md`](../guides/parameter_reference.md)
+> (the `source` section) and RADIANT_Parameter_System.md. The inventory below is retained as the
+> planned unified surface pending the CU-084 disposition — do not read it as the current API.
+
 All parameters use the dot-path namespace `source.*` and `regime.*`. Tolerances are statistical defaults, not validation bounds. All values in the table are in `input_unit`; canonical units are listed when different.
 
 ### 8.1 Top-level dispatch (3 parameters)

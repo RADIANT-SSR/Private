@@ -124,13 +124,9 @@ def test_independent_formulation_five_points() -> None:
 def test_planck_radiance_anchor_literals() -> None:
     """B(λ,T) pinned to blind-derived numeric literals (Track A1 §1d)."""
     # L(10 µm, 300 K) = 9.92403333 W/m²/sr/µm (near the LWIR 300 K peak).
-    assert float(planck_spectral_radiance(10.0, 300.0)[0]) == pytest.approx(
-        9.92403333, rel=1e-6
-    )
+    assert float(planck_spectral_radiance(10.0, 300.0)[0]) == pytest.approx(9.92403333, rel=1e-6)
     # L(4 µm, 300 K) = 0.721976423 W/m²/sr/µm (MWIR).
-    assert float(planck_spectral_radiance(4.0, 300.0)[0]) == pytest.approx(
-        0.721976423, rel=1e-6
-    )
+    assert float(planck_spectral_radiance(4.0, 300.0)[0]) == pytest.approx(0.721976423, rel=1e-6)
 
 
 @pytest.mark.level0

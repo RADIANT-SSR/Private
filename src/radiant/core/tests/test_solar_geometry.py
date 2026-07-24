@@ -77,9 +77,8 @@ class TestSolarZenith:
         delta = math.radians(solar_declination_deg(172))
         phi = math.radians(35.0)
         h = math.radians(15.0)
-        hand = math.degrees(
-            math.acos(math.sin(phi) * math.sin(delta) + math.cos(phi) * math.cos(delta) * math.cos(h))
-        )
+        cos_z = math.sin(phi) * math.sin(delta) + math.cos(phi) * math.cos(delta) * math.cos(h)
+        hand = math.degrees(math.acos(cos_z))
         assert z_deg == pytest.approx(hand, rel=1e-12)  # formula composition
         assert z_deg == pytest.approx(17.425559, abs=0.02)  # A4 idealized-δ anchor
 

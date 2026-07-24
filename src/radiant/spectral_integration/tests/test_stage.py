@@ -34,7 +34,9 @@ def _make_point_source_state(wl: np.ndarray, ee_box: float) -> ChainState:
     """Point-source ChainState with the given EE_box (audit B1-5)."""
     state = ChainState(wavelength_um=wl)
     state = state.with_frame(
-        RadiometricFrame(name="post_optics", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0))
+        RadiometricFrame(
+            name="post_optics", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0)
+        )
     )
     state = state.with_frame(
         RadiometricFrame(
@@ -55,7 +57,9 @@ def _make_sub_pixel_state(wl: np.ndarray, ee_box: float, fill_fraction: float = 
     """Sub-pixel ChainState with target + background frames (audit B1-5)."""
     state = ChainState(wavelength_um=wl)
     state = state.with_frame(
-        RadiometricFrame(name="post_optics", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0))
+        RadiometricFrame(
+            name="post_optics", wavelength_um=wl, spectral_radiance=np.full_like(wl, 2.0)
+        )
     )
     state = state.with_frame(
         RadiometricFrame(
@@ -149,12 +153,8 @@ class TestSpectralIntegrationStage:
         multiplicatively). The prior suite only tested the extended-regime
         guard, never that the positive path applies EE_box exactly once.
         """
-        full = SpectralIntegrationStage().run(
-            _make_point_source_state(wl, 1.0), _make_params()
-        )
-        half = SpectralIntegrationStage().run(
-            _make_point_source_state(wl, 0.5), _make_params()
-        )
+        full = SpectralIntegrationStage().run(_make_point_source_state(wl, 1.0), _make_params())
+        half = SpectralIntegrationStage().run(_make_point_source_state(wl, 0.5), _make_params())
         s_full = full.frames["photoelectrons"].in_band_value
         s_half = half.frames["photoelectrons"].in_band_value
         assert s_full is not None and s_half is not None
@@ -169,15 +169,24 @@ class TestSpectralIntegrationStage:
         part constant), so equal EE_box steps give equal signal steps, and at
         EE_box=0 a positive background-only signal remains.
         """
-        s0 = SpectralIntegrationStage().run(
-            _make_sub_pixel_state(wl, 0.0), _make_params()
-        ).frames["photoelectrons"].in_band_value
-        s5 = SpectralIntegrationStage().run(
-            _make_sub_pixel_state(wl, 0.5), _make_params()
-        ).frames["photoelectrons"].in_band_value
-        s10 = SpectralIntegrationStage().run(
-            _make_sub_pixel_state(wl, 1.0), _make_params()
-        ).frames["photoelectrons"].in_band_value
+        s0 = (
+            SpectralIntegrationStage()
+            .run(_make_sub_pixel_state(wl, 0.0), _make_params())
+            .frames["photoelectrons"]
+            .in_band_value
+        )
+        s5 = (
+            SpectralIntegrationStage()
+            .run(_make_sub_pixel_state(wl, 0.5), _make_params())
+            .frames["photoelectrons"]
+            .in_band_value
+        )
+        s10 = (
+            SpectralIntegrationStage()
+            .run(_make_sub_pixel_state(wl, 1.0), _make_params())
+            .frames["photoelectrons"]
+            .in_band_value
+        )
         assert s0 is not None and s5 is not None and s10 is not None
         assert s0 > 0.0  # background + path pedestal survives EE_box=0
         assert (s10 - s5) == pytest.approx(s5 - s0, rel=1e-9)  # affine in EE_box

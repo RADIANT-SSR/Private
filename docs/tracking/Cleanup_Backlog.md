@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-192 — Assorted low/medium test-quality findings (weak asserts, tautology, stale comment) — audit B2-4/5/6/8, B1-5/7/8
+
+**Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.9.
+**Status**: RESOLVED 2026-07-23, commit `6c8c785`. Batched the small test-quality fixes: **B1-5** — added the Rule-9 positive-path stage tests that were missing (point-source EE_box=0.5 → exactly 0.5× signal; sub-pixel signal affine in EE_box with the background/path pedestal exempt, surviving EE_box=0). **B2-4** — tightened the exo target test from `3<L<15` (passed a factor-2-low result) to `L==0.98·B(285 K)` at rtol=1e-9. **B2-5** — added a revisit-interval value anchor (600 km/50 km → 3.60 days, rel=2e-2) where only orderings were tested. **B2-6** — pinned emissivity resample values against `np.interp` (ε(8)=0.6667, ε(10)=0.80, ε(12)=0.90) instead of a monotone-ramp-only check. **B2-8** — fixed the solar-zenith anchor comment arithmetic (correct: 0.1143→83.44°; the assertion was already right). **B1-7** — deleted the tautological smear "along vs cross same formula" test (identical call compared with itself). **B1-8** — folded-MTF DC `>=`→`>` (the docstring already claimed strict; folded(0)≈2.91). All test-only. Related: [[CU-191]].
+
 ### CU-191 — Track A3 noise/sensitivity code-vs-derivation comparison never run as pinned tests (RSS / ADC / D*)
 
 **Discovered**: Assurance Audit remediation R1.8 (Track A3 comparison wave), 2026-07-23.

@@ -55,8 +55,11 @@ nav:
     - Scenario Catalog: guides/scenario_catalog.md
   - Theory:
     - Radiometric Chain: theory/radiometric_chain.md
-    - Noise Model: theory/noise_model.md
+    - Geometry & Sampling: theory/geometry.md
     - Spatial Model: theory/spatial_model.md
+    - Noise Model: theory/noise_model.md
+    - Performance Metrics: theory/performance_metrics.md
+    - References: theory/references.md
   - Developer:
     - Architecture: architecture/RADIANT_Master_Architecture.md
     - Signal Chain: architecture/RADIANT_Signal_Chain_Architecture.md

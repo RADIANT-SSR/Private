@@ -50,6 +50,19 @@ retroactively reconstructed.
   (three profiles with no H-run still load zero).
 
 ### Changed
+- **Results-affecting: EE_box (ensquared energy) is now cell-area-overlap
+  weighted, removing an O(dx) box-edge bias that over-stated point-source /
+  sub-pixel signal (CU-188).** `EffectivePSF.ensquared_energy` previously gave
+  every PSF sample within `floor(half_width/dx)` full weight and only tapered a
+  fractional overshoot cell — so at critical sampling (integral half-width, the
+  common case) the box-edge cells were counted at full weight instead of half.
+  The box now weights each cell by the fraction of its area inside the box
+  (`w(d)=clamp(H−d+0.5,0,1)`). EE_box for an unaberrated Airy at Q=2 now matches
+  the analytic 0.177327 to ~3e-4 at the default `psf_oversample=8` (was 0.219,
+  +24 %). **Effect:** point-source and sub-pixel SNR **decrease** and NEDT
+  **increase** by roughly the old EE_box over-statement (e.g. GUI baselines 1.1
+  SNR −7.4 % / NEDT +8.0 %, 1.3 SNR −5.3 % / NEDT +5.6 %); extended-scene
+  results (EE_box ≡ 1) are unchanged. Two GUI-baseline snapshots regenerated.
 - **File-path parameters are now stored portably — relative to the config's own
   directory instead of as an absolute machine path (CU-177).** Parameters that name a
   data file (`source.target`/`background` emissivity/reflectance/albedo/brightness-

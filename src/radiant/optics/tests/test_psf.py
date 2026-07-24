@@ -437,9 +437,13 @@ class TestInvariant5EEMonotonicity:
     @pytest.mark.level1
     def test_ee_full_grid_is_one(self, epsf_with_detector: EffectivePSF) -> None:
         n = epsf_with_detector.shape[0]
-        half = (n // 2) * epsf_with_detector.sample_spacing_m
+        # A box covering the whole grid must reach the OUTER edge of the
+        # outermost cells: half-width (n//2 + 0.5)·dx (CU-188 cell-overlap
+        # weighting). At exactly (n//2)·dx the box edge bisects the outermost
+        # cells (weight 0.5), correctly returning slightly < 1.
+        half = (n // 2 + 0.5) * epsf_with_detector.sample_spacing_m
         ee = epsf_with_detector.ensquared_energy(half)
-        assert ee == pytest.approx(1.0, rel=1e-6)
+        assert ee == pytest.approx(1.0, rel=1e-9)
 
 
 # ---------------------------------------------------------------------------

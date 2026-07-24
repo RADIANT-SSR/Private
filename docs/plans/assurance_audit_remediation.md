@@ -128,7 +128,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | A4 geometry anchors (R1.7) | **DONE** → CU-190, commit `b80fdc8` (viewing triangle / orbit / GSD / solar; A4 comparison passed at machine precision) |
 | A3 noise anchors (R1.8) | **DONE** → CU-191, commit `3dfe941` (RSS / ADC / D*; A3 comparison passed, checklist verified) |
 | B2-4, B2-5, B2-6, B2-8, B1-5, B1-7, B1-8 | **DONE** → R1.9, CU-192, commit `6c8c785` (small test-quality fixes) |
-| B1-6, B1-9, B2-7 | Planned → R1 (B1-6/B2-7 in R1.10; B1-9 residual — see note) |
+| B1-6, B2-7 | **DONE** → R1.10, CU-193, commit `c6c57c8` (explicit approx tolerances, 29 sites) |
+| B1-9 | **Declined** — mitigated (NIIRS dispatcher asserts exact equality vs compute_giqe5/compute_iirs; band dispatch is unobservable while IIRS≡GIQE-5 in v1). Revisit when IIRS diverges from GIQE-5. |
 | Track C drifted: D1–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risks 1–3 (consistency gate, conversion lint, approx lint) | Planned → R2 |
 | Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | Proposed **Declined** (documented residual risk — revisit if a regression ever implicates them) |

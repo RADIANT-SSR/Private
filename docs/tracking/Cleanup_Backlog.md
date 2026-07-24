@@ -106,6 +106,11 @@
 
 ## Resolved
 
+### CU-184 — Band-integrated responsivity and electrons→radiance round-trip tests assert only positivity/ordering (audit findings B2-1, B2-2)
+
+**Discovered**: Assurance Audit 2026-07 (Track A1 / Track B), remediation plan R1.2.
+**Status**: RESOLVED 2026-07-23, commit `c11195f`. **Symptom**: `TestBandIntegratedResponsivity` asserted only `r_band>0` and `r_half<r_full` (B2-2), and `TestElectronsToRadiance.test_round_trip_consistency` asserted only `L>0` (B2-1) — both pass against a gutted `core/responsivity.py` (dropped `t_int`, QE factor, or λ/hc term; factor-of-2/π/1e6 unit slip). **Resolution**: added a closed-form value anchor for the band integral (flat τ·QE ⇒ R(λ)∝λ linear ⇒ trapezoid exact): `R_band = A·Ω·τ·QE·(1e-6/hc)·(λ_max²−λ_min²)/2` at rel=1e-9; and replaced the positivity round-trip with an end-to-end anchor that recovers a known radiance built from the *independent* closed-form R_band and the impl-inferred t_int. **Comparison-wave result**: both closed forms matched the implementation exactly (rel diff 0.0). Note: the plan's "λ in m" form (`(λ_max²−λ_min²)/(2hc)` with λ in metres) differs from the code by 1e-6 because the code integrates dλ in µm to match the band-averaged-radiance [W/m²/sr] convention — a consistent convention, verified not a bug. Test-only change. Related: [[CU-183]], sibling R1 items.
+
 ### CU-183 — Planck band-integral functions have no absolute value anchor; monochromatic anchors not pinned to blind-derived literals (audit findings B2-3, B1-4)
 
 **Discovered**: Assurance Audit 2026-07 (Track A1 / Track B), remediation plan R1.1.

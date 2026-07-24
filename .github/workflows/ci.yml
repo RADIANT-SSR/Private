@@ -33,6 +33,8 @@ jobs:
         run: lint-imports --config pyproject.toml
       - name: Organization rules (OPERATING_MODEL placement + naming)
         run: python scripts/check_org_rules.py
+      - name: Physics-module conversion/constant lint (Rules 2 + 13)
+        run: python scripts/check_physics_conversions.py
 
   fast-tests:
     name: Fast tests (level0 + level1)

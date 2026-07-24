@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 172**
+**Total parameters: 173**
 
 ## source
 
@@ -189,6 +189,7 @@
 | `readout.cds_enabled` | int | 1 | --- | --- | Correlated double sampling enabled (1=yes, 0=no). |
 | `readout.coadd_mode` | str | sum | --- | --- | Coadd combination mode: 'sum', 'average', or 'median'. |
 | `readout.electronics_sigma_um` | float | 0.0 | um | (0.0, 100.0) | Electronics MTF: equivalent Gaussian blur sigma on the focal plane [µm] from finite amplifier bandwidth at the pixel clock rate. Blurs the readout (cross-scan, x) axis only. Zero (default) = ideal electronics, no blur. Enters both the EffectivePSF (kernel) and the MTF product (analytic term) per Rule 4. |
+| `readout.frame_period_s` | float | 0.0 | s | (0.0, 1000000.0) | Frame period [s]: the time between frame starts, stored independently of the integration time (spectral_integration.integration_time_s) per RADIANT_Conventions.md §4. Frame rate = 1/frame_period and duty cycle = t_int/frame_period are derived by radiant.readout.frame_timing and published in stage_outputs['readout']. Default 0.0 means 'unset': the frame period defaults to the integration time (frame rate = 1/t_int, duty cycle = 1.0) with a logged warning. A duty cycle > 1 (integration longer than the frame period) is rejected. |
 | `readout.full_well_capacity_e` | float | 100000.0 | --- | (100.0, 100000000.0) | Full well capacity per pixel [e-]. |
 | `readout.gain_e_per_dn` | float | 1.0 | --- | (0.001, 1000000.0) | System conversion gain: electrons per digital number (LSB). |
 | `readout.n_coadds` | int | 1 | --- | (1, 10000) | Number of coadded frames. 1 = no coadd. |

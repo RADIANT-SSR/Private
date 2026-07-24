@@ -150,10 +150,10 @@ Storing photon quantities upstream would require carrying λ/(hc) through every 
 
 | Property | Convention |
 |----------|-----------|
-| Integration time | **Seconds (float64)** |
-| Frame period | **Seconds (float64)** |
-| Frame rate | **Hz (float64)** = 1 / frame_period |
-| Duty cycle | **Dimensionless (0–1)** = t_int / frame_period |
+| Integration time | **Seconds (float64)** — `spectral_integration.integration_time_s` |
+| Frame period | **Seconds (float64)** — `readout.frame_period_s` (0.0 = unset → defaults to `t_int`) |
+| Frame rate | **Hz (float64)** = 1 / frame_period — derived, published as `stage_outputs["readout"]["frame_rate_hz"]` |
+| Duty cycle | **Dimensionless (0–1)** = t_int / frame_period — derived, published as `stage_outputs["readout"]["duty_cycle"]` |
 | Display convention | **SI prefixes allowed in display** (ms, µs) but internal is always seconds |
 
 ### Justification
@@ -173,7 +173,7 @@ Storing photon quantities upstream would require carrying λ/(hc) through every 
 ### Conversion rules at interface boundaries
 
 - **Input:** Accept time values with optional unit specification. If no unit specified, assume seconds. Config file example: `integration_time: 0.010  # seconds`. Display helpers may show "10.0 ms" but internal storage is always seconds.
-- **No implicit frame rate ↔ integration time conversion.** Both must be specified independently. If only integration time is given, frame rate defaults to 1/t_int (duty cycle = 1.0) with a logged warning.
+- **No implicit frame rate ↔ integration time conversion.** Both are specified independently: `spectral_integration.integration_time_s` and `readout.frame_period_s`. The derivation is `radiant.readout.frame_timing.compute_frame_timing` (Rule 19), which `ReadoutStage` calls to publish `frame_period_s` / `frame_rate_hz` / `duty_cycle` / `frame_period_defaulted` in `stage_outputs["readout"]`. If only the integration time is given (`readout.frame_period_s` unset = 0.0), the frame period defaults to `t_int` — frame rate = 1/t_int, duty cycle = 1.0 — and `compute_frame_timing(..., warn=True)` logs the §4 warning (the chain passes `warn=False` to keep an ordinary default evaluation warning-free, surfacing the unset case via `frame_period_defaulted` instead). A duty cycle > 1 (integration longer than the frame period) is rejected with an actionable error.
 
 ---
 
@@ -211,9 +211,12 @@ Storing photon quantities upstream would require carrying λ/(hc) through every 
 
 ### Conversion rules at interface boundaries
 
-- **Input API contract:** All angular parameters are named with a suffix indicating their user-facing unit: `solar_zenith_deg`, `jitter_urad`, `fov_deg`, `ifov_urad`. On ingestion, the API converts to radians immediately:
+- **Input API contract:** Every angular parameter carries a **unit suffix** in its name — but the suffix names the parameter's *canonical stored* unit, which is **not always the user-facing display unit**. Two patterns coexist in the schema:
+  - **Small angles** are stored and named in their user-facing unit: `platform.jitter_rms_urad` (µrad → rad at `set()`). These match "named with user-facing unit".
+  - **Large geometry angles are stored in radians and named `_rad`**: `geometry.solar_zenith_rad`, `geometry.path_zenith_rad`, `geometry.elevation_angle_rad` all have `input_unit="rad"` (`geometry/_schema.py`). The user supplies degrees via the unit-aware `set(..., unit="deg")` conversion (Rule 2, §7), not a `_deg`-suffixed parameter. A few optics params do take degrees directly. So the earlier universal claim — *all* angular params named with the user-facing (degree) unit — is **false**; the invariant that actually holds is: every angular parameter is unit-suffixed and converted to radians exactly once at the `set()` boundary.
   ```
-  solar_zenith_rad = solar_zenith_deg * (π / 180)
+  # unit-aware set() converts at the boundary:
+  params.set("geometry.solar_zenith_rad", 30.0, unit="deg")   # → 0.5236 rad stored
   jitter_rad = jitter_urad * 1e-6
   ```
 - **Internal storage:** Radians only. No exceptions. No module may store angles in degrees or µrad internally.

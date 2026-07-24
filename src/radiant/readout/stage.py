@@ -23,6 +23,7 @@ applies all scaling and emits the final noise budget.
 
 from __future__ import annotations
 
+import logging
 import math
 import warnings
 
@@ -34,7 +35,7 @@ from radiant.core.noise_budget import (
     TEMPORAL_TERMS,
     NoiseBudget,
 )
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterSet, UnknownParameterError
 from radiant.core.radiometry import NoiseTerm
 from radiant.readout.binning_offchip import (
     offchip_scale_read_noise,
@@ -54,6 +55,7 @@ from radiant.readout.coadds import (
 )
 from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
 from radiant.readout.errors import ReadoutValidationError
+from radiant.readout.frame_timing import compute_frame_timing
 from radiant.readout.saturation import (
     SaturationStatus,
     check_adc_saturation,
@@ -66,6 +68,8 @@ from radiant.readout.tdi_scaling import (
     tdi_scale_shot_noise,
     tdi_scale_signal,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _scale_noise_term(
@@ -183,6 +187,22 @@ class ReadoutStage:
         fwc_e: float = params.get("readout.full_well_capacity_e")
         noise_regime: str = params.get("detector.noise_regime")
         tdi_digital: bool = params.get("readout.tdi_mode") == "digital"
+        frame_period_s: float = params.get("readout.frame_period_s")
+        # Integration time lives in the spectral_integration namespace. In the
+        # full chain it is always present; guard so a partial-chain readout run
+        # (unit tests with a readout+detector-only ParameterSet) skips the
+        # frame-timing publish rather than crashing — it is an inspection-only
+        # output with no downstream physics consumer.
+        try:
+            integration_time_s: float | None = params.get(
+                "spectral_integration.integration_time_s"
+            )
+        except (UnknownParameterError, KeyError):
+            integration_time_s = None
+            logger.debug(
+                "ReadoutStage: spectral_integration.integration_time_s unavailable "
+                "(partial chain); skipping frame-timing outputs."
+            )
 
         max_dn = (1 << adc_bits) - 1
 
@@ -421,6 +441,24 @@ class ReadoutStage:
         state = state.with_stage_output("readout", "sigma_total_e", sigma_total_e)
         state = state.with_stage_output("readout", "noise_regime", noise_regime)
         state = state.with_stage_output("readout", "scaled_noise_terms", scaled_terms)
+
+        # Frame timing (RADIANT_Conventions.md §4): derive frame rate and duty
+        # cycle from the integration time and the (optional) frame period, and
+        # publish them for inspection. warn=False keeps an ordinary default
+        # evaluation warning-free (CU-166); the unset case is surfaced by
+        # frame_period_defaulted instead of a per-evaluate log line.
+        if integration_time_s is not None:
+            frame_timing = compute_frame_timing(integration_time_s, frame_period_s, warn=False)
+            state = state.with_stage_output(
+                "readout", "frame_period_s", frame_timing.frame_period_s
+            )
+            state = state.with_stage_output(
+                "readout", "frame_rate_hz", frame_timing.frame_rate_hz
+            )
+            state = state.with_stage_output("readout", "duty_cycle", frame_timing.duty_cycle)
+            state = state.with_stage_output(
+                "readout", "frame_period_defaulted", frame_timing.frame_period_defaulted
+            )
         state = state.with_stage_output(
             "readout",
             "read_noise_e",

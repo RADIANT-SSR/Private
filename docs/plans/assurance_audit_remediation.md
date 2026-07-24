@@ -138,7 +138,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | B1-6, B2-7 | **DONE** → R1.10, CU-193, commit `c6c57c8` (explicit approx tolerances, 29 sites) |
 | B1-9 | **Declined** — mitigated (NIIRS dispatcher asserts exact equality vs compute_giqe5/compute_iirs; band dispatch is unobservable while IIRS≡GIQE-5 in v1). Revisit when IIRS diverges from GIQE-5. |
 | D6, D7, D8, D9 (Signal_Chain) | **DONE** → R3.1, CU-199, commit `0af7aaa` |
-| Track C drifted remaining: D1–D5, D10–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
+| S1–S6 (Spatial_Complete) | **DONE** → R3.5, CU-200, commit `d0ae789` (S5 subsumed by R2.4) |
+| Track C drifted remaining: D1–D5, D10–D18, O1–O3, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risk #1 (consistency gate) | **DONE** → R2.1, CU-194, commit `bc93dc3` |
 | Unenforced risk #2 (conversion/constant lint) | **DONE** → R2.2, CU-195, commit `6ba652d` |
 | Unenforced risk #3 (approx-without-tolerance lint) | **DONE** → R2.3, CU-196, commit `27cc248` (also fixed 24 GUI-test violations beyond audit scope) |

@@ -1502,6 +1502,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Read 4.5's ΔT-vs-NETD detection verdict, not its SNR/well status; the saturation warning is a known false positive documented in `scenarios/04_lisa_analyst/4.5_altitude_trade_uav/walkthrough.md`. |
 ---
 
+## Gap 102: Readout acquisition parameters (TDI, co-adds, binning, frame period) have no GUI form surface — reachable only via the parameter tree / YAML / scripting
+
+| | |
+|---|---|
+| **Found in** | Owner GUI session, 2026-07-24 ("I don't see how to set frame rate / coadds, TDI etc. in the GUI"). |
+| **Status** | OPEN — interface gap only; the engine capability is complete. |
+| **Description** | The Readout stage's contextual **Inputs** form is v1-minimal (owner-ratified at Phase PS-5): it exposes only `read_noise_e_rms`, `gain_e_per_dn`, `adc_bits`, `full_well_capacity_e`, and (shared) `integration_time_s`. The other 12 readout schema parameters — `n_tdi`, `tdi_mode`, `tdi_misalign_pixels`, `n_coadds`, `coadd_mode`, the four on/off-chip binning factors, `cds_enabled`, `node_capacitance_F`, `electronics_sigma_um`, and the new `frame_period_s` (added 2026-07-23, R3.4 frame-timing contract, commit fd35136 — no GUI pass at all) — have no bespoke form row. They remain settable through the schema-driven parameter tree (built live from `Sensor.parameter_defs()`, Gap 70), the YAML editor, and the scripting window, so this is not a capability gap. |
+| **Impact** | In the contextual per-stage workflow (the GUI's primary surface) TDI, co-adding, binning, and frame rate/duty cycle are effectively invisible — first-class radiometric knobs (√N SNR scaling, well-fill interaction, duty cycle) that an analyst won't find without knowing to open the parameter tree. |
+| **Suggested fix** | Small GUI task: extend `ReadoutInputsForm` with grouped sections mirroring the existing Noise/ADC/Full-well pattern — **TDI** (`n_tdi`, `tdi_mode`, `tdi_misalign_pixels`), **Co-adds** (`n_coadds`, `coadd_mode`), **Binning** (on/off-chip x/y), **Frame timing** (`frame_period_s` beside the shared integration time). Schema-driven rows via the shared `ParameterEditorDialog` (one `sensor.set` per commit, display-unit store shared). Frame-timing stage outputs (`frame_rate_hz`, `duty_cycle`, `frame_period_defaulted`) surface via the stage's Outputs readout for edit-and-watch. |
+| **Workaround** | Parameter tree → `readout.` namespace; or Edit Config (YAML); or scripting window `sensor.set("readout.n_tdi", …)`. |
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1606,6 +1618,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 98 | Point-source workflow doesn't steer to intensity (blackbody+zero-area trap, range re-spec, no GUI); convenience intensity inputs added | M | Point-source / SDA / star-tracker | FIXED 2026-07-18 (d560507/1a913d6/7b98d69) |
 | 100 | No real IIRS — MWIR/LWIR interpretability reuses GIQE-5 verbatim (formula, envelope, labels) | M-L | Every MWIR/LWIR scenario consuming niirs | OPEN |
 | 101 | Charge-well/ADC saturation check misapplied to NETD-specified (bolometric) detectors | M-L | 4.5 + any bolometric config on a warm scene | OPEN |
+| 102 | Readout acquisition params (TDI/co-adds/binning/frame period) missing from GUI form | Small | GUI workflows using TDI/co-add/binning (e.g. 1.4, 2.5) | OPEN |
 
 ---
 

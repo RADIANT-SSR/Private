@@ -216,7 +216,7 @@ It nulls at the radiance crossover `ε_t·B(λ,T_t) = ε_r·B(λ,T_r)`. The refe
 
 **Failure modes:**
 - `ff > 1` → falls back to extended-regime SNR with informational note.
-- `σ_total` includes clutter (`background.clutter_sigma > 0`), and the user's noise regime is `imaging` → warning "clutter not in σ_total because regime=imaging; CSNR may be optimistic."
+- `σ_total` includes clutter (`detector.clutter_sigma > 0`), and the user's noise regime is `imaging` → warning "clutter not in σ_total because regime=imaging; CSNR may be optimistic."
 
 ### 4.6 NIIRS — National Imagery Interpretability Rating Scale
 
@@ -300,7 +300,7 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 
 ### 4.10 EE — Encircled (or rather Ensquared) Energy
 
-**Formula:** `EE_nxn = ∫∫_{n×n pixels centered} psf dxdy`. Variants: 1×1 (often called EE_box), 3×3, 5×5, and `ee_vs_offset(pitch)`.
+**Formula:** `EE_nxn = ∫∫_{n×n pixels centered} psf dxdy`. Registered variants: `ee_1x1` (often called EE_box) and `ee_3x3` only (see §6 / the metric registry). Larger boxes and an `ee_vs_offset(pitch)` sweep are not computed in v1.
 
 **Required inputs:** `stage_outputs["optics"]["effective_psf"]` (registry: `ee`).
 

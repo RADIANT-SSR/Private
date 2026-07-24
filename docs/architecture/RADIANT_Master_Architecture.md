@@ -83,10 +83,10 @@ Physics subpackages (`geometry`, `source`, `atmosphere`, `optics`, `platform`, `
 Every user-facing parameter is defined once in a `_schema.py` file within its owning physics subpackage. The definition specifies: name (dot-path), dtype, canonical unit, input unit, default, bounds, enum values, consistency group, and tags. Parameters without a `ParameterDef` cannot exist in a valid RADIANT config.
 
 ### C11 — Validate Before Compute
-The full validation pipeline (type → bounds → enum → required → consistency → file) runs and completes before any physics computation begins. A config with validation errors never reaches the chain runner. Validation collects all errors before reporting (not fail-fast). This applies in all execution modes: CLI, scripting API, GUI.
+The full validation pipeline (type → bounds → enum → required → consistency → file) runs and completes before any physics computation begins. A config with validation errors never reaches the chain runner. **Collect-all-then-report** (not fail-fast) is currently the **`radiant validate` CLI** path only (`cli/validate.py`; note its resolve step still surfaces the first resolution error). The scripting API and GUI are **fail-fast**: `ParameterSet.set()` raises immediately on a bad value, `io/config.py` raises on the first config problem, and there is no `Sensor.validate()` aggregator yet. A unified collect-all across all execution modes is a design target, not shipped.
 
 ### C12 — Every Error Is Actionable
-Every exception raised by RADIANT inherits from `RadiantError` (base class in `radiant.core.exceptions`, re-exported as `radiant.RadiantError`). Concrete subclasses (`ParameterBoundsError`, `KirchhoffViolationError`, `ModtranUnavailableError`, `Tape7ParseError`, `ConfigError`, `ElementConfigError`) live with the module that raises them; in addition, every stage package carries a stage-scoped `<Stage>ValidationError(RadiantError, ValueError)` (plus a `...StateError(RadiantError, RuntimeError)` where invalid-chain-state raises exist) in its `errors.py`, used by all generic input/argument guards (CU-043 migration — the ValueError co-inheritance is the sanctioned Rule 15 back-compat carve-out, so historical `except ValueError` call sites keep working). The user-facing actionability contract — what went wrong (specific, not generic), why it is wrong (physics or logic reason), what the user should do (specific fix) — is carried as a structured `what / why / action / context` payload on every raise site. `ParameterBoundsError` formalizes that payload as constructor fields; other subclasses include the same information in their message strings until the carve-out is generalized. Exceptions that say only "invalid parameter" are bugs.
+Every exception raised by RADIANT inherits from `RadiantError` (base class in `radiant.core.exceptions`, re-exported as `radiant.RadiantError`). Concrete subclasses (`ParameterBoundsError`, `KirchhoffViolationError`, `ModtranUnavailableError`, `Tape7ParseError`, `ConfigError`, `ElementConfigError`) live with the module that raises them; in addition, most stage packages carry a stage-scoped `<Stage>ValidationError(RadiantError, ValueError)` (plus a `...StateError(RadiantError, RuntimeError)` where invalid-chain-state raises exist) in its `errors.py`, used by all generic input/argument guards (CU-043 migration — the ValueError co-inheritance is the sanctioned Rule 15 back-compat carve-out, so historical `except ValueError` call sites keep working). **Geometry is the exception**: it raises `GeometrySpecificationError(RadiantError)` (RadiantError only, no `ValueError` co-inherit, no `GeometryValidationError`) — so the "`<Stage>ValidationError` in every stage" pattern is near-universal, not literally universal. The user-facing actionability contract — what went wrong (specific, not generic), why it is wrong (physics or logic reason), what the user should do (specific fix) — is carried as a structured `what / why / action / context` payload on every raise site. `ParameterBoundsError` formalizes that payload as constructor fields; other subclasses include the same information in their message strings until the carve-out is generalized. Exceptions that say only "invalid parameter" are bugs.
 
 ### C13 — Provenance Is Mandatory
 Every `ChainResult` carries a complete provenance record: run ID, RADIANT version, git commit, Python version, dependency versions, resolved parameter set with per-parameter provenance, input file hashes, and active model identifiers. Provenance is not optional and cannot be disabled. Given a provenance record, the result must be reproducible.
@@ -175,7 +175,7 @@ When two documents address the same topic, this table shows which is authoritati
 
 ## 6. Implementation Order
 
-Modules can only be implemented after their dependencies are stable. This order is dependency-correct; see [archive/RADIANT_Phase1_Plan.md](archive/RADIANT_Phase1_Plan.md) for the historical Phase 1 implementation plan.
+Modules can only be implemented after their dependencies are stable. This order is dependency-correct; see [../archive/RADIANT_Phase1_Plan.md](../archive/RADIANT_Phase1_Plan.md) for the historical Phase 1 implementation plan.
 
 ```
 Phase 1a — Core Infrastructure (no dependencies)
@@ -251,7 +251,7 @@ Within each phase, modules can be implemented in parallel by different developer
 
 ### 7.4 Error Handling
 
-1. Use `RadiantError` subclasses (`RadiantError` lives in `radiant.core.exceptions`, re-exported at the top level as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError` in `core/parameters.py`, `KirchhoffViolationError` in `optics/element.py`, `ModtranUnavailableError` and `Tape7ParseError` in `atmosphere/modtran.py`, `ConfigError` in `io/config.py`, `ElementConfigError` in `io/element_config.py`; generic per-stage guards use the stage's `errors.py` classes (`CoreValidationError`/`CoreStateError` in `core/exceptions.py`, `SourceValidationError`, `AtmosphereValidationError`/`AtmosphereStateError`, `OpticsValidationError`, `PlatformValidationError`, `SpectralIntegrationValidationError`/`SpectralIntegrationStateError`, `DetectorValidationError`, `ReadoutValidationError`, `PerformanceValidationError`, `ApiValidationError`). Never raise bare `ValueError`, `TypeError`, or `AssertionError` for user-facing errors — `tests/test_exceptions.py::TestNoBareBuiltinRaises` enforces this repo-wide.
+1. Use `RadiantError` subclasses (`RadiantError` lives in `radiant.core.exceptions`, re-exported at the top level as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError` in `core/parameters.py`, `KirchhoffViolationError` in `optics/element.py`, `ModtranUnavailableError` and `Tape7ParseError` in `atmosphere/modtran.py`, `ConfigError` in `io/config.py`, `ElementConfigError` in `io/element_config.py`; generic per-stage guards use the stage's `errors.py` classes (`CoreValidationError`/`CoreStateError` in `core/exceptions.py`, `SourceValidationError`, `AtmosphereValidationError`/`AtmosphereStateError`, `OpticsValidationError`, `PlatformValidationError`, `SpectralIntegrationValidationError`/`SpectralIntegrationStateError`, `DetectorValidationError`, `ReadoutValidationError`, `PerformanceValidationError`, `ApiValidationError` — and `GeometrySpecificationError` for geometry, which does **not** follow the `<Stage>ValidationError`/`ValueError` pattern). Never raise bare `ValueError`, `TypeError`, or `AssertionError` for user-facing errors — `tests/test_exceptions.py::TestNoBareBuiltinRaises` enforces this repo-wide.
 2. Every `raise` must supply `what`, `why`, and `action` — either as `ParameterBoundsError` constructor fields or in the message string, until the carve-out is generalized.
 3. `assert` is for developer invariants only (not user-input validation). A user who triggers an `AssertionError` has found a bug in RADIANT, not made a user error.
 4. Catch exceptions at layer boundaries (e.g., `io/` catching file-not-found), re-raise as `RadiantError` with context.
@@ -279,9 +279,11 @@ spectral_integration/ → radiant.core only
 detector/     → radiant.core only
 readout/      → radiant.core only
 performance/  → radiant.core only
+data/         → radiant.core only (+ stdlib, numpy, yaml)
 io/           → radiant.core, any physics subpackage (read-only)
-api/          → radiant.core, all physics, radiant.io
-cli/          → radiant.api, radiant.io
+api/          → radiant.core, all physics, radiant.io, radiant.data
+cli/          → radiant.api, radiant.io, radiant.gui (lazy — the `radiant gui` subcommand; CU-098)
+gui/          → radiant.api, radiant.core only (+ PySide6, matplotlib, qtconsole, pyvista)
 ```
 
 (The `plugins/` package was removed 2026-07-06 — it was an empty stub. The

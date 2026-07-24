@@ -25,6 +25,7 @@ _CANONICAL_UNITS = {
     "DN",
     "K",
     "s",
+    "Hz",
     "W/m²",
 }
 
@@ -54,6 +55,13 @@ def test_readout_gain_and_dn_units() -> None:
     assert stage_output_unit("readout", "gain_e_per_dn") == "e-/DN"
     # A mid-key unit token the old suffix logic missed (ends in _final, not _e).
     assert stage_output_unit("readout", "signal_e_final") == "e-"
+
+
+def test_frame_timing_outputs_carry_their_unit() -> None:
+    """Gap 102: the R3.4 frame-timing outputs render with units (s / Hz / bare ratio)."""
+    assert stage_output_unit("readout", "frame_period_s") == "s"
+    assert stage_output_unit("readout", "frame_rate_hz") == "Hz"
+    assert stage_output_unit("readout", "duty_cycle") == ""  # ratio → bare number
 
 
 def test_dimensionless_numerics_map_to_empty_string() -> None:

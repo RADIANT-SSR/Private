@@ -484,10 +484,15 @@ lands the center on the default stage (**Performance** — metrics + system MTF,
 successor to the old default `result.plot.mtf()` figure). Only **[exists]** surfaces are
 built here; the **[GAP 89–92]** / bespoke items (Optics pupil & coating maps, the Source
 pre-atmosphere emission spectrum, the per-λ noise spectrum, the Detector pie/illustration
-and PSF-grid overlay) remain separate later per-stage tasks. Platform and Readout are
-v1-minimal (owner-ratified, GUI plan Phase PS-5): editable schema-driven inputs (jitter/smear
-for Platform, read-noise/ADC/well for Readout) beside the outputs readout and a themed note —
-Platform carries no MTF, Readout adds the scalar noise budget; no bespoke invented content.
+and PSF-grid overlay) remain separate later per-stage tasks. Platform is v1-minimal
+(owner-ratified, GUI plan Phase PS-5): editable schema-driven inputs (jitter/smear) beside
+the outputs readout and a themed note — Platform carries no MTF; no bespoke invented
+content. Readout began v1-minimal (read-noise/ADC/well) and was expanded per **Gap 102**
+(owner request 2026-07-24) with the acquisition knobs — TDI (`n_tdi`/`tdi_mode`/
+`tdi_misalign_pixels`), co-adds (`n_coadds`/`coadd_mode`), on/off-chip binning, and frame
+timing (`readout.frame_period_s` beside the shared integration time; the derived
+`frame_rate_hz`/`duty_cycle` appear in the Outputs readout) — plus the scalar noise budget.
+`cds_enabled`/`node_capacitance_F`/`electronics_sigma_um` remain tree/YAML/scripting-only.
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a

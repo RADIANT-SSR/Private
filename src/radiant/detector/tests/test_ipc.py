@@ -202,7 +202,7 @@ class TestIpcKernelPitchSpaced:
     def test_zero_coupling_is_identity(self) -> None:
         k = ipc_kernel_pitch_spaced(0.0, 1e-6, 18e-6, 18e-6)
         assert k.shape == (1, 1)
-        assert k[0, 0] == pytest.approx(1.0)
+        assert k[0, 0] == pytest.approx(1.0, rel=1e-9)
 
     @pytest.mark.level0
     def test_sums_to_unity(self) -> None:

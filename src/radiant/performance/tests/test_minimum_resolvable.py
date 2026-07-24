@@ -38,7 +38,7 @@ class TestMRT:
         )
 
     def test_default_threshold_value(self) -> None:
-        assert pytest.approx(2.25) == DEFAULT_SNR_THRESHOLD
+        assert pytest.approx(2.25, rel=1e-12) == DEFAULT_SNR_THRESHOLD
 
 
 class TestMRC:

@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-193 — 29 pytest.approx calls lack an explicit rel=/abs= tolerance (Rule 18) — audit B1-6, B2-7
+
+**Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.10.
+**Status**: RESOLVED 2026-07-23, commit `c6c57c8`. **Symptom**: 29 `pytest.approx` calls across the optics/performance/source/atmosphere/detector/geometry test suites relied on the implicit default tolerance, which CLAUDE.md Rule 18 forbids ("always uses explicit rel= or abs="). All are pass-through / echoed-parameter / context-value checks (not physics values), so the default 1e-6 was adequate but the rule is explicit. **Resolution**: added rel=1e-9 to nonzero comparisons and abs=1e-12 to the single `approx(0.0)` site; behavior preserved (all 236 tests in the touched files still pass). B1-6 (3 sites: test_stage_pupil_maps, test_minimum_resolvable) and B2-7 (26 sites) both closed. A CI lint to prevent regressions is remediation-plan item R2.3. Test-only change. Related: [[CU-192]].
+
 ### CU-192 — Assorted low/medium test-quality findings (weak asserts, tautology, stale comment) — audit B2-4/5/6/8, B1-5/7/8
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.9.

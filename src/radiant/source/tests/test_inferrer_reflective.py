@@ -592,7 +592,7 @@ class TestReflectancePathCSV:
         # Boundary-guard context carries the source file path so the user
         # can trace the bad row.
         assert exc.value.context["path"] == str(csv)
-        assert exc.value.context["max_rho"] == pytest.approx(1.5)
+        assert exc.value.context["max_rho"] == pytest.approx(1.5, rel=1e-9)
 
     # ----- Failure mode — ρ < 0 boundary rejection -----
 
@@ -628,8 +628,8 @@ class TestReflectancePathCSV:
         with pytest.raises(ParameterBoundsError, match="extends outside") as exc:
             infer_descriptors(params, _WL_VIS)
         ctx = exc.value.context
-        assert ctx["chain_grid_um"] == pytest.approx([0.4, 0.8])
-        assert ctx["file_grid_um"] == pytest.approx([0.5, 0.7])
+        assert ctx["chain_grid_um"] == pytest.approx([0.4, 0.8], rel=1e-9)
+        assert ctx["file_grid_um"] == pytest.approx([0.5, 0.7], rel=1e-9)
 
     # ----- Failure mode — non-monotonic CSV grid -----
 

@@ -501,7 +501,7 @@ class TestBrightnessTemperaturePathCSV:
         with pytest.raises(ParameterBoundsError, match="negative") as exc:
             infer_descriptors(params, _WL_LWIR)
         assert exc.value.context["path"] == str(csv)
-        assert exc.value.context["min_T_B_K"] == pytest.approx(-5.0)
+        assert exc.value.context["min_T_B_K"] == pytest.approx(-5.0, rel=1e-9)
 
     # ----- Failure mode — T_B > 10 000 K in CSV -----
 
@@ -518,7 +518,7 @@ class TestBrightnessTemperaturePathCSV:
         with pytest.raises(ParameterBoundsError, match="ceiling") as exc:
             infer_descriptors(params, _WL_LWIR)
         assert exc.value.context["path"] == str(csv)
-        assert exc.value.context["max_T_B_K"] == pytest.approx(15000.0)
+        assert exc.value.context["max_T_B_K"] == pytest.approx(15000.0, rel=1e-9)
 
     # ----- Failure mode — chain grid wider than file grid -----
 
@@ -537,8 +537,8 @@ class TestBrightnessTemperaturePathCSV:
         with pytest.raises(ParameterBoundsError, match="extends outside") as exc:
             infer_descriptors(params, _WL_LWIR)
         ctx = exc.value.context
-        assert ctx["chain_grid_um"] == pytest.approx([8.0, 13.0])
-        assert ctx["file_grid_um"] == pytest.approx([9.0, 12.0])
+        assert ctx["chain_grid_um"] == pytest.approx([8.0, 13.0], rel=1e-9)
+        assert ctx["file_grid_um"] == pytest.approx([9.0, 12.0], rel=1e-9)
         assert ctx["quantity"] == "brightness_temperature"
 
     # ----- Failure mode — both scalar K and path set -----

@@ -107,7 +107,7 @@ class TestUnaberratedFlatPhase:
         out = OpticsStage().run(_make_state(wl), _make_params(obscuration=0.0))
         amp = out.stage_outputs["optics"]["pupil_amplitude"]
         # Centre pixel is inside the clear aperture → unit transmission.
-        assert amp[_PUPIL_NPIX // 2, _PUPIL_NPIX // 2] == pytest.approx(1.0)
+        assert amp[_PUPIL_NPIX // 2, _PUPIL_NPIX // 2] == pytest.approx(1.0, rel=1e-12)
 
 
 class TestObscurationVisible:
@@ -118,7 +118,7 @@ class TestObscurationVisible:
         out = OpticsStage().run(_make_state(wl), _make_params(obscuration=0.4))
         amp = out.stage_outputs["optics"]["pupil_amplitude"]
         # Centre is blocked by the secondary; edge of clear aperture is open.
-        assert amp[_PUPIL_NPIX // 2, _PUPIL_NPIX // 2] == pytest.approx(0.0)
+        assert amp[_PUPIL_NPIX // 2, _PUPIL_NPIX // 2] == pytest.approx(0.0, abs=1e-12)
 
     @pytest.mark.level1
     def test_obscured_area_smaller_than_unobscured(self, wl: np.ndarray) -> None:

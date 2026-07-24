@@ -106,6 +106,11 @@
 
 ## Resolved
 
+### CU-186 — NEP↔noise-electrons converter has no absolute anchor; a λ unit slip passes (audit finding B1-2)
+
+**Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.4.
+**Status**: RESOLVED 2026-07-23, commit `889f0b1`. **Symptom**: `TestNepElectrons` (`performance/tests/test_noise_spec_converters.py`) held only a round-trip, a 2× scaling ratio, and a monotonicity check; all share the `wavelength_um * 1e-6` conversion in `nep_electrons.py`, so dropping the 1e-6 (10⁶ error) or a wrong hc cancels in both directions and passes. **Resolution**: added `test_nep_absolute_anchor` — σ_e=100 e⁻, η=0.7, λ=10 µm, t=0.01 s → NEP = 2.8377797959270403e-16 W at rel=1e-6 (the audit's ≈2.84e-16 is the rounded form). **Comparison-wave result**: code matched the hand value exactly. Test-only change. Related: [[CU-185]].
+
 ### CU-185 — GIQE-5 coefficients are never pinned; the hand-calc test imports the code's own constants (audit finding B1-1, High)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.3.

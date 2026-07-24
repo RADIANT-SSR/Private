@@ -44,6 +44,19 @@ class TestDetectivity:
 
 
 class TestNepElectrons:
+    def test_nep_absolute_anchor(self) -> None:
+        """Absolute hand anchor for NEP (audit finding B1-2).
+
+        The round-trip/scaling/monotonicity tests below all share the
+        ``wavelength_um * 1e-6`` conversion, so a dropped 1e-6 (10⁶ error) or a
+        wrong hc cancels and passes. Hand calc: σ_e=100, η=0.7, λ=10 µm,
+        t=0.01 s → NEP = 100·hc/(0.7·10e-6·0.01) = 2.8377797959270403e-16 W
+        (hc = 1.98644586e-25 J·m, CODATA 2018). rel=1e-6 catches the λ slip.
+        """
+        assert nep_from_noise_electrons(100.0, 0.7, 10.0, 0.01) == pytest.approx(
+            2.8377797959270403e-16, rel=1e-6
+        )
+
     def test_roundtrip(self) -> None:
         nep = nep_from_noise_electrons(100.0, 0.7, 10.0, 0.01)
         assert noise_electrons_from_nep(nep, 0.7, 10.0, 0.01) == pytest.approx(100.0, rel=1e-12)

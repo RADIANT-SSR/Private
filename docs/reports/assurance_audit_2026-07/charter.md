@@ -1,6 +1,6 @@
 # Assurance Audit — July 2026
 
-Status: Active
+Status: Complete (closed 2026-07-24 — see findings.md for the disposition register and verification)
 Triggered by: project owner (2026-07-22, interactive session)
 Auditor: Claude (Fable 5), multi-agent
 Scope ratified: owner selected three tracks from a proposed menu; no `src/` modifications

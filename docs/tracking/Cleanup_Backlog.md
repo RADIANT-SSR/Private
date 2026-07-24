@@ -106,6 +106,11 @@
 
 ## Resolved
 
+### CU-185 — GIQE-5 coefficients are never pinned; the hand-calc test imports the code's own constants (audit finding B1-1, High)
+
+**Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.3.
+**Status**: RESOLVED 2026-07-23, commit `46c1e52`. **Symptom**: `test_giqe.py::test_hand_calculation` imported `C0..C5` from `performance/giqe.py` and rebuilt its `expected` from them, so it verified only the formula *structure*; the three published-case tests assert only 2-NIIRS-wide windows. A silent edit of any coefficient (e.g. C5 −0.01→−0.1, C3 1.559→1.0) passed the entire file; only a gross C1 sign flip tripped a range check. **Resolution**: added `test_coefficients_pinned_to_literature` (exact `==` on all six Harrington/NGA-2015 values: 9.57, −3.32, 3.32, 1.559, −0.334, −0.01) and `test_hand_calculation_numeric_literal` (full NIIRS from pure literals: GSD=1 m, RER=0.9, SNR=50 → 6.426827307276607, rel=1e-10). **Comparison-wave result**: all six coefficients and the hand NIIRS matched the implementation exactly. Test-only change. Related: [[CU-183]], [[CU-184]].
+
 ### CU-184 — Band-integrated responsivity and electrons→radiance round-trip tests assert only positivity/ordering (audit findings B2-1, B2-2)
 
 **Discovered**: Assurance Audit 2026-07 (Track A1 / Track B), remediation plan R1.2.

@@ -38,6 +38,35 @@ class TestGIQE5:
         assert result.niirs == pytest.approx(expected, rel=1e-10)
 
     @pytest.mark.level0
+    def test_coefficients_pinned_to_literature(self) -> None:
+        """Pin the six GIQE-5 coefficients to their published literals (B1-1).
+
+        Assurance audit 2026-07: `test_hand_calculation` imports C0..C5 from
+        the implementation and rebuilds `expected` from them, so it verifies
+        only formula *structure* — a silent edit of any coefficient passes.
+        These are the GIQE-5 (v5) coefficients per Harrington et al., NGA 2015
+        (see giqe.py module docstring). Exact equality: each is a float literal.
+        """
+        assert C0 == 9.57
+        assert C1 == -3.32
+        assert C2 == 3.32
+        assert C3 == 1.559
+        assert C4 == -0.334
+        assert C5 == -0.01
+
+    @pytest.mark.level0
+    def test_hand_calculation_numeric_literal(self) -> None:
+        """Full NIIRS pinned with numeric literals — not imported constants (B1-1).
+
+        GSD=1 m, RER=0.9, SNR=50, H=1, G=1. Computed by hand from the six
+        published coefficients; catches a coefficient edit that the
+        constants-imported `test_hand_calculation` cannot.
+        """
+        assert compute_giqe5(1.0, 1.0, 0.9, 0.9, 50.0).niirs == pytest.approx(
+            6.426827307276607, rel=1e-10
+        )
+
+    @pytest.mark.level0
     def test_published_giqe5_case_1(self) -> None:
         """GSD=0.3m, RER=0.7, SNR=100 → NIIRS ~7-8 range."""
         result = compute_giqe5(0.3, 0.3, 0.7, 0.7, 100.0)

@@ -700,4 +700,4 @@ class TestA4GeometryAnchors:
         assert result.along_track_m == pytest.approx(3.473901, rel=1e-6)  # ÷cos θ_i
         # Discriminator: the wrong angle (η) would give 3.378137 m — reject it.
         wrong_angle = 10e-6 / 2.0 * slant_range_spherical_m(self.H, self.ETA) / math.cos(self.ETA)
-        assert not result.along_track_m == pytest.approx(wrong_angle, rel=1e-3)
+        assert result.along_track_m != pytest.approx(wrong_angle, rel=1e-3)

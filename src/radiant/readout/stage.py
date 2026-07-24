@@ -194,9 +194,7 @@ class ReadoutStage:
         # frame-timing publish rather than crashing — it is an inspection-only
         # output with no downstream physics consumer.
         try:
-            integration_time_s: float | None = params.get(
-                "spectral_integration.integration_time_s"
-            )
+            integration_time_s: float | None = params.get("spectral_integration.integration_time_s")
         except (UnknownParameterError, KeyError):
             integration_time_s = None
             logger.debug(
@@ -452,9 +450,7 @@ class ReadoutStage:
             state = state.with_stage_output(
                 "readout", "frame_period_s", frame_timing.frame_period_s
             )
-            state = state.with_stage_output(
-                "readout", "frame_rate_hz", frame_timing.frame_rate_hz
-            )
+            state = state.with_stage_output("readout", "frame_rate_hz", frame_timing.frame_rate_hz)
             state = state.with_stage_output("readout", "duty_cycle", frame_timing.duty_cycle)
             state = state.with_stage_output(
                 "readout", "frame_period_defaulted", frame_timing.frame_period_defaulted

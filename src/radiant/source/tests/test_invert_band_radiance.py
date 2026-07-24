@@ -41,9 +41,7 @@ class TestForwardIntegralMonotone:
         quadrature independent of RADIANT. The default 201-pt trapezoid grid
         lands ~1.6e-6 relative below the exact value, comfortably inside 1e-3.
         """
-        assert integrate_planck_over_band(300.0, (8.0, 12.0)) == pytest.approx(
-            38.5004239, rel=1e-3
-        )
+        assert integrate_planck_over_band(300.0, (8.0, 12.0)) == pytest.approx(38.5004239, rel=1e-3)
 
 
 class TestRoundTripAnchors:

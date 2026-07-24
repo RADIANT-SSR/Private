@@ -203,9 +203,9 @@ class TestElectronsToRadiance:
 
         signal_e_probe = 12345.0
         expected_L = signal_e_probe / (r_band * t_int)
-        L = electrons_to_radiance(signal_e_probe, state)
-        assert L is not None
-        assert L == pytest.approx(expected_L, rel=1e-9)
+        recovered = electrons_to_radiance(signal_e_probe, state)
+        assert recovered is not None
+        assert recovered == pytest.approx(expected_L, rel=1e-9)
 
     @pytest.mark.level0
     def test_missing_data_returns_none(self) -> None:

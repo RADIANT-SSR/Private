@@ -52,8 +52,12 @@ def slant_range_spherical_m(altitude_m: float, zenith_rad: float) -> float:
     altitude_m : float
         Sensor altitude above the Earth surface [m].  Must be >= 0.
     zenith_rad : float
-        Off-nadir look angle [rad].  Must be >= 0.  Must be less than
-        the horizon angle arcsin(R_E / (R_E + h)).
+        Sensor-side off-nadir look angle **η** [rad].  Must be >= 0.  Must be
+        less than the horizon angle arcsin(R_E / (R_E + h)).
+        NOTE (CU-096): this is η, the angle at the *sensor* — NOT the
+        target-side path zenith θ_o that ``geometry.path_zenith_rad`` holds
+        (θ_o > η off-nadir).  Starting from θ_o, use
+        ``core.viewing_triangle.slant_range_from_theta_o_m``.
 
     Returns
     -------

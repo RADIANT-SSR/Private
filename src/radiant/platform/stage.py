@@ -31,9 +31,9 @@ import warnings
 import numpy as np
 
 from radiant.core.chain import ChainState
-from radiant.core.geometry import slant_range_spherical_m
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
+from radiant.core.viewing_triangle import slant_range_from_theta_o_m
 from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
 from radiant.platform.smear import smear_kernel_1d, smear_mtf_1d, smear_width_m
 from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
@@ -304,16 +304,23 @@ class PlatformStage:
             return 0.0
 
         # Use slant range for off-nadir consistency — the GeometryStage
-        # published value when available (ADR-0006), else the legacy
-        # derivation for partial fixtures (CU-096).
+        # published value when available (ADR-0006), else derive it from the
+        # canonical target-side path zenith θ_o for partial fixtures. This
+        # matches what GeometryStage publishes (CU-096): geometry.path_zenith_rad
+        # is θ_o, so it must go through slant_range_from_theta_o_m — NOT the
+        # sensor-off-nadir-η helper slant_range_spherical_m.
         if published_slant_m is not None and published_slant_m > 0.0:
             slant_m = float(published_slant_m)
         else:
             try:
-                zenith_rad: float = params.get("geometry.path_zenith_rad")
+                theta_o_rad: float = params.get("geometry.path_zenith_rad")
             except (KeyError, TypeError):
-                zenith_rad = 0.0
-            slant_m = slant_range_spherical_m(altitude_m, zenith_rad)
+                theta_o_rad = 0.0
+            try:
+                h_target_m: float = params.get("geometry.target_altitude_m")
+            except (KeyError, TypeError):
+                h_target_m = 0.0
+            slant_m = slant_range_from_theta_o_m(theta_o_rad, altitude_m, h_target_m)
             if slant_m <= 0.0:
                 slant_m = altitude_m
 

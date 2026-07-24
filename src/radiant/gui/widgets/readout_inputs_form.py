@@ -1,19 +1,22 @@
-"""The Readout stage's **Inputs** section — the v1-minimal read-noise / ADC / well knobs.
+"""The Readout stage's **Inputs** section — noise / ADC / well / acquisition knobs.
 
 :class:`ReadoutInputsForm` is the *Inputs* section of the Readout stage's contextual center
-(arch doc §4.4 section 1, GUI plan Phase PS-5 — v1-minimal). The Readout stage is v1-minimal
-(owner-ratified): the instrument shows the key readout-chain parameters — the per-frame read
-noise, the ADC conversion gain + bit depth, and the full-well capacity — as editable
+(arch doc §4.4 section 1, GUI plan Phase PS-5, expanded per Gap 102). The form shows the
+readout-chain parameters — per-frame read noise, ADC conversion gain + bit depth, full-well
+capacity, and (Gap 102, 2026-07-24) the acquisition knobs: TDI (``n_tdi`` / ``tdi_mode`` /
+``tdi_misalign_pixels``), co-adding (``n_coadds`` / ``coadd_mode``), on/off-chip binning,
+and frame timing (``frame_period_s`` beside the shared integration time) — as editable
 schema-driven rows, beside the scalar outputs (``signal_dn_final``, ``sigma_total_e``,
-``total_well_e``, …) and the scalar noise budget. It is the readout sibling of
-:class:`~radiant.gui.widgets.detector_inputs_form.DetectorInputsForm`: edit the read noise or
-the gain and watch the noise budget and the DN output respond on the next evaluation.
+``duty_cycle``, …) and the scalar noise budget. It is the readout sibling of
+:class:`~radiant.gui.widgets.detector_inputs_form.DetectorInputsForm`: edit the TDI stage
+count or the gain and watch the noise budget and the DN output respond on the next
+evaluation.
 
-**The noise / ADC / well grouping.** The read noise sits under a **Read noise** heading, the
-gain + bit depth under an **ADC** heading, and the full-well capacity under a **Full well**
-heading — a presentation choice only, no schema change (the sensor paths stay
-``readout.read_noise_e_rms`` / ``readout.gain_e_per_dn`` / ``readout.adc_bits`` /
-``readout.full_well_capacity_e``), mirroring the Spectral-Integration form's grouped layout.
+**The grouping.** Read noise / ADC / Full well / TDI / Co-adds / Binning / Acquisition
+headings are a presentation choice only, no schema change — the sensor dot-paths are the
+schema names verbatim — mirroring the Spectral-Integration form's grouped layout. The
+remaining readout schema parameters (``cds_enabled``, ``node_capacitance_F``,
+``electronics_sigma_um``) stay tree/YAML/scripting-only by scope (Gap 102 suggested fix).
 
 **Schema-driven, one API call per edit (Gap 70 / R-API).** Every field is built from and
 formatted through the public :class:`~radiant.api.sensor.Sensor` surface; editing a field
@@ -66,19 +69,49 @@ _WELL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Full well capacity", "readout.full_well_capacity_e"),
 )
 
-# Acquisition timing (owner request 2026-07-16): the SAME parameter the Spectral
-# Integration card edits — schema-owned by spectral_integration (Rule 8: t_int is
-# consumed in the one spectral→scalar collapse), mirrored here because operators
-# look for integration time beside the readout knobs. Presentation only; both
-# surfaces edit the one dot-path and stay in sync through the shared refresh.
-_ACQUISITION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    ("Integration time", "spectral_integration.integration_time_s"),
+# TDI knobs (Gap 102): stage count, accumulation mode (enum → combo in the shared
+# editor), and cross-scan misalignment in pixels.
+_TDI_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("TDI stages", "readout.n_tdi"),
+    ("TDI mode", "readout.tdi_mode"),
+    ("TDI misalignment", "readout.tdi_misalign_pixels"),
 )
 
-_TITLE = "Readout — read noise, ADC & full well (v1-minimal)"
+# Co-adding knobs (Gap 102): frame count and combination mode (enum → combo).
+_COADD_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Co-added frames", "readout.n_coadds"),
+    ("Co-add mode", "readout.coadd_mode"),
+)
+
+# Binning factors (Gap 102): on-chip (pre-read, read noise once) vs off-chip
+# (post-read, read noise per binned pixel) — x/y each.
+_BINNING_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("On-chip binning (x)", "readout.binning_x_onchip"),
+    ("On-chip binning (y)", "readout.binning_y_onchip"),
+    ("Off-chip binning (x)", "readout.binning_x_offchip"),
+    ("Off-chip binning (y)", "readout.binning_y_offchip"),
+)
+
+# Acquisition timing. Integration time (owner request 2026-07-16) is the SAME parameter
+# the Spectral Integration card edits — schema-owned by spectral_integration (Rule 8:
+# t_int is consumed in the one spectral→scalar collapse), mirrored here because operators
+# look for it beside the readout knobs; both surfaces edit the one dot-path and stay in
+# sync through the shared refresh. Frame period (Gap 102) is readout-owned (R3.4 frame
+# timing contract, Conventions §4): 0.0 = unset → defaults to t_int (duty cycle 1.0);
+# the derived frame_rate_hz / duty_cycle appear in the stage's Outputs readout.
+_ACQUISITION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Integration time", "spectral_integration.integration_time_s"),
+    ("Frame period", "readout.frame_period_s"),
+)
+
+_TITLE = "Readout — noise, ADC, full well & acquisition"
 _NOISE_HEADING = "Read noise"
 _ADC_HEADING = "ADC"
 _WELL_HEADING = "Full well"
+_TDI_HEADING = "TDI"
+_COADD_HEADING = "Co-adds"
+_BINNING_HEADING = "Binning"
+_ACQUISITION_HEADING = "Acquisition"
 
 
 class ReadoutInputsForm(QWidget):
@@ -129,7 +162,10 @@ class ReadoutInputsForm(QWidget):
         self._add_group(box, card, _NOISE_HEADING, _NOISE_FIELDS)
         self._add_group(box, card, _ADC_HEADING, _ADC_FIELDS)
         self._add_group(box, card, _WELL_HEADING, _WELL_FIELDS)
-        self._add_group(box, card, "Acquisition (shared)", _ACQUISITION_FIELDS)
+        self._add_group(box, card, _TDI_HEADING, _TDI_FIELDS)
+        self._add_group(box, card, _COADD_HEADING, _COADD_FIELDS)
+        self._add_group(box, card, _BINNING_HEADING, _BINNING_FIELDS)
+        self._add_group(box, card, _ACQUISITION_HEADING, _ACQUISITION_FIELDS)
 
         layout.addWidget(card)
 

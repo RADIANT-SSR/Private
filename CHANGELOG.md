@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: Readout acquisition controls (Gap 102).** The Readout stage's Inputs
+  form gains grouped sections for TDI (`readout.n_tdi` / `tdi_mode` /
+  `tdi_misalign_pixels`), co-adding (`n_coadds` / `coadd_mode`), on/off-chip
+  binning (x/y), and frame timing (`readout.frame_period_s` beside the shared
+  integration time) — previously reachable only via the parameter tree, YAML,
+  or scripting. The frame-timing stage outputs (`frame_period_s`,
+  `frame_rate_hz`, `duty_cycle`) now carry display units in the Outputs
+  readout (they rendered as bare numbers since their introduction). No
+  computed results change.
 - **Frame-rate / duty-cycle timing (RADIANT_Conventions.md §4).** New parameter
   `readout.frame_period_s` (seconds; default `0.0` = unset) stores the frame
   period independently of `spectral_integration.integration_time_s`.

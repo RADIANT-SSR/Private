@@ -149,6 +149,10 @@ OUTPUT_UNITS: dict[str, str] = {
     "sigma_total_e": "e-",
     "read_noise_e": "e-",
     "quantization_noise_e": "e-",
+    "frame_period_s": "s",
+    "frame_rate_hz": "Hz",
+    "duty_cycle": "",
+    "frame_period_defaulted": "",
 }
 
 

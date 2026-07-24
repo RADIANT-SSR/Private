@@ -27,8 +27,12 @@ from radiant.gui.widgets.platform_inputs_form import (  # noqa: E402
     _MOTION_FIELDS,
 )
 from radiant.gui.widgets.readout_inputs_form import (  # noqa: E402
+    _ACQUISITION_FIELDS,
     _ADC_FIELDS,
+    _BINNING_FIELDS,
+    _COADD_FIELDS,
     _NOISE_FIELDS,
+    _TDI_FIELDS,
     _WELL_FIELDS,
 )
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
@@ -137,11 +141,39 @@ class TestReadoutPane:
         pane = _pane(qtbot, "readout", Sensor.from_yaml(_EXAMPLE))
         form = pane.readout_inputs_form
         assert form is not None
-        for _label, dotpath in (*_NOISE_FIELDS, *_ADC_FIELDS, *_WELL_FIELDS):
+        for _label, dotpath in (
+            *_NOISE_FIELDS,
+            *_ADC_FIELDS,
+            *_WELL_FIELDS,
+            *_TDI_FIELDS,
+            *_COADD_FIELDS,
+            *_BINNING_FIELDS,
+            *_ACQUISITION_FIELDS,
+        ):
             assert isinstance(form.row(dotpath), FieldRow)
         # The read noise + gain + well are dimensionless-in-schema scalars (e- RMS / e-/DN / e-
         # carried by the value, no input_unit suffix), so they render as bare numbers here.
         assert form.field_value_text(_GAIN)  # non-empty value text
+
+    def test_acquisition_fields_render_schema_values(  # type: ignore[no-untyped-def]
+        self, qtbot
+    ) -> None:
+        """Gap 102: TDI / co-add / binning / frame-period rows show live schema values.
+
+        The enum row (tdi_mode) renders its schema string; the frame period (seconds,
+        R3.4 frame-timing contract) carries its unit suffix (R-UNITS hard rule); the
+        integer counts render non-empty. Values come from the live schema defaults of
+        the example config (n_tdi=1, tdi_mode default, frame_period_s=0.0 = unset).
+        """
+        pane = _pane(qtbot, "readout", Sensor.from_yaml(_EXAMPLE))
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert form.field_value_text("readout.n_tdi")  # non-empty integer text
+        assert form.field_value_text("readout.tdi_mode")  # enum string, non-empty
+        assert form.field_value_text("readout.n_coadds")
+        assert form.field_value_text("readout.binning_x_onchip")
+        # Frame period is schema unit seconds — the row text must carry the unit.
+        assert form.field_value_text("readout.frame_period_s").endswith("s")
 
     def test_noise_budget_plot_renders(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The scalar noise budget draws from ``result.plot.noise_budget`` after evaluate."""
@@ -159,6 +191,9 @@ class TestReadoutPane:
         assert "signal_dn_final" in keys and "sigma_total_e" in keys
         assert readout.value_text("signal_dn_final").endswith("DN")
         assert readout.value_text("sigma_total_e").endswith("e-")
+        # Gap 102: frame-timing outputs (R3.4) surface with units for edit-and-watch.
+        assert "frame_rate_hz" in keys and "duty_cycle" in keys
+        assert readout.value_text("frame_rate_hz").endswith("Hz")
 
 
 # ---------------------------------------------------------------------------

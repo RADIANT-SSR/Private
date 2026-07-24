@@ -140,7 +140,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | D6, D7, D8, D9 (Signal_Chain) | **DONE** → R3.1, CU-199, commit `0af7aaa` |
 | S1–S6 (Spatial_Complete) | **DONE** → R3.5, CU-200, commit `d0ae789` (S5 subsumed by R2.4) |
 | O1–O3 (Optics) + R4.2 | **DONE** → R3.6, CU-201, commit `5dc4624` |
-| Track C drifted remaining: D1–D5, D10–D18, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
+| M1–M2 (Metrics) | **DONE** → R3.7, CU-202, commit `8f046bf` |
+| Track C drifted remaining: D1–D5, D10–D18, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risk #1 (consistency gate) | **DONE** → R2.1, CU-194, commit `bc93dc3` |
 | Unenforced risk #2 (conversion/constant lint) | **DONE** → R2.2, CU-195, commit `6ba652d` |
 | Unenforced risk #3 (approx-without-tolerance lint) | **DONE** → R2.3, CU-196, commit `27cc248` (also fixed 24 GUI-test violations beyond audit scope) |

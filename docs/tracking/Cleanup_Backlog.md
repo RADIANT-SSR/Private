@@ -21,15 +21,6 @@
 **Why it still matters**: aspirational-doc drift (the exact failure mode the audit and Rule 20 guard against) in a normative subsystem doc; RADIANT_Source_Target_System.md was outside the 2026-07 audit's doc scope so this went uncaught until now.
 **Suggested fix**: (b) stand-alone doc task — rewrite §8 against the real `source.target.*` / `source.background.*` schema (cross-check the generated reference), preserving the genuine descriptor/ADR-0008 alias narrative but re-keying it to shipped names; or (a) if §8 is a design-target for a future source-namespace refactor, banner it `[DESIGN-TARGET]` explicitly so it does not read as shipped. Effort M; category A/D. Related: R2.4 ([[CU-197]]), Rule 20.
 
-### CU-188 — Sampled-PSF EE_box carries an O(dx) discretization floor that biases point-source SNR high at the default chain resolution (psf_oversample=8)
-
-**Discovered**: Assurance Audit remediation R1.5 (building the B1-3 EE_box anchor), 2026-07-23.
-**Status**: Open — quantitative bias, non-blocking (physics limit is correct). The EE_box computed by `EffectivePSF.ensquared_energy`/`ensquared_energy_nxn` (a midpoint sum over the sampled PSF with full weight on the box-edge samples) converges to the analytic Airy value **from above** as the focal-plane sample spacing dx→0. Measured for an unaberrated Airy at Q=2 (analytic EE_□=0.177327, Track A2 §8): 0.219 / 0.198 / 0.188 / 0.183 at psf_oversample = 8 / 16 / 32 / 48 — a clean O(dx) floor.
-**File**: `src/radiant/optics/psf/effective.py` (`ensquared_energy`, box-boundary weighting ~line 179-188); default resolution set in `src/radiant/optics/stage.py:248,290` (`psf_oversample=8`).
-**Symptom**: at the chain default `psf_oversample=8` the EE_box(1×1) for a critically-sampled (Q=2) point source is ≈0.219 vs the analytic 0.177327 — a ≈+0.042 absolute / ≈+24 % relative bias. Per Rule 9 this EE_box multiplies the point-source / sub-pixel signal in `SpectralIntegrationStage`, so point-source and sub-pixel SNR inherit the bias (extended-scene SNR is unaffected — no EE factor). Magnitude is geometry-dependent (smaller at lower Q where the box spans more λF#); Q=2 is the worst practical case.
-**Why it still matters**: a ~20 % systematic bias in a Rule-9 signal-path quantity is physically material for point-source detection-range / NEI predictions, and was masked until now by the qualitative-only EE_box test (finding B1-3, now closed by [[CU-187]]).
-**Suggested fix**: (b) stand-alone task — either (i) give box-edge samples half-weight in `ensquared_energy` (removes the leading O(dx) term), (ii) Richardson-extrapolate EE_box across two oversample factors, or (iii) raise the default `psf_oversample` for the EE_box computation with a documented cost/accuracy trade. Add a convergence test asserting EE_box(Q=2)→0.177327 as ovs increases. Effort M; category C (results-affecting for point-source/sub-pixel SNR). Re-audit against the Rule-4 consistency floor (2e-2) and [[CU-003]] area-integrated pixel kernel — related discretization work.
-
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
 **Discovered**: MODTRAN boost-ladder landing (plan §4.4 execution), 2026-07-20
@@ -123,6 +114,11 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-188 — Sampled-PSF EE_box carried an O(dx) box-edge bias that over-stated point-source / sub-pixel SNR at the default resolution
+
+**Discovered**: Assurance Audit remediation R1.5 (building the B1-3 EE_box anchor), 2026-07-23.
+**Status**: RESOLVED 2026-07-24, commit `3c267a5`. **Root cause**: `EffectivePSF.ensquared_energy` gave every PSF cell within `floor(half_width/dx)` full weight and tapered only a fractional *overshoot* cell — so at critical sampling (integral half-width, the common case) the box-edge cells were counted at full weight instead of the ~half they physically straddle. This O(dx) bias made EE_box for an unaberrated Airy at Q=2 read 0.219 vs the analytic 0.177327 (+24 %) at the default `psf_oversample=8`, over-stating point-source / sub-pixel SNR (Rule 9). **Resolution**: replaced the point-sampling scheme with **cell-area-overlap** weighting — each cell weighted by the fraction of its area inside the box, `w(d)=clamp(H−d+0.5,0,1)`. Now second-order accurate: EE_box(Q=2) matches 0.177327 to ~3e-4 at **every** oversample including the default 8 (so no need to raise `psf_oversample`). Tightened the R1.5 anchor test to `abs=1e-3` at the default sampling; fixed `test_ee_full_grid_is_one` to use a whole-grid box that reaches the outer cell edges. **Results-affecting** (CHANGELOG): point-source/sub-pixel SNR down / NEDT up by ~the old over-statement (GUI baselines 1.1 SNR −7.4 %/NEDT +8.0 %, 1.3 SNR −5.3 %/NEDT +5.6 %); two `.gui.expected.json` snapshots regenerated per the golden-update protocol. Extended-scene results (EE_box ≡ 1) unchanged. Full suite green (4684 passed). Related: [[CU-187]], [[CU-003]].
 
 ### CU-206 — Testing_Validation §5-§9 describes a golden/provenance/CI toolchain that largely does not exist (audit D10-D18)
 

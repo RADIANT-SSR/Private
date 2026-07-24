@@ -126,6 +126,7 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | B1-3 | **DONE** → R1.5, CU-187, commit `380148c` (EE_box Q=2 anchor); spun off open CU-188 (default-resolution EE_box discretization bias) |
 | A2 spatial/MTF anchors (R1.6) | **DONE** → CU-189, commit `9a33dc0` (optical-MTF analytic anchor added; other four already covered) |
 | A4 geometry anchors (R1.7) | **DONE** → CU-190, commit `b80fdc8` (viewing triangle / orbit / GSD / solar; A4 comparison passed at machine precision) |
+| A3 noise anchors (R1.8) | **DONE** → CU-191, commit `3dfe941` (RSS / ADC / D*; A3 comparison passed, checklist verified) |
 | B1-5..B1-9, B2-4..B2-8 | Planned → R1 (CU entries to be filed per item when this plan is ratified) |
 | Track C drifted: D1–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risks 1–3 (consistency gate, conversion lint, approx lint) | Planned → R2 |

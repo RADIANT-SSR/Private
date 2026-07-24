@@ -28,6 +28,20 @@ def test_quantization_noise_truth_anchor() -> None:
     adc = AnalogToDigital(gain_e_per_dn=1.0, n_bits=16)
     assert adc.quantization_noise_e() == pytest.approx(1.0 / math.sqrt(12.0), rel=1e-12)
 
+
+@pytest.mark.level0
+def test_adc_14bit_100ke_a3_anchor() -> None:
+    """Track A3 §4d anchor: 14-bit ADC, 100 ke⁻ full well.
+
+    g = N_fullwell / 2ⁿ = 100000 / 16384 = 6.10351562 e⁻/DN;
+    σ_ADC = g/√12 = 1.76193316 e⁻ RMS. Pins the g/√12 convention against the
+    wrong divisor g/12 (which would give 0.508626, 3.4641× low).
+    """
+    gain = 100_000.0 / 2**14  # 6.10351562 e-/DN
+    assert gain == pytest.approx(6.10351562, rel=1e-8)
+    adc = AnalogToDigital(gain_e_per_dn=gain, n_bits=14)
+    assert adc.quantization_noise_e() == pytest.approx(1.76193316, rel=1e-6)
+
     adc2 = AnalogToDigital(gain_e_per_dn=5.0, n_bits=14)
     assert adc2.quantization_noise_e() == pytest.approx(5.0 / math.sqrt(12.0), rel=1e-12)
 

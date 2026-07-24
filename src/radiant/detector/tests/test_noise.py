@@ -14,7 +14,12 @@ import math
 import pytest
 
 from radiant.core.constants import k_B, q
-from radiant.core.noise_budget import ALL_NOISE_TERMS, SPATIAL_TERMS, TEMPORAL_TERMS
+from radiant.core.noise_budget import (
+    ALL_NOISE_TERMS,
+    SPATIAL_TERMS,
+    TEMPORAL_TERMS,
+    NoiseBudget,
+)
 from radiant.detector.noise.budget import compute_noise_budget
 from radiant.detector.noise.detector_material import (
     dark_shot_noise,
@@ -310,6 +315,30 @@ class TestGlowShot:
 
 
 class TestNoiseBudget:
+    @pytest.mark.level0
+    def test_rss_total_a3_anchor(self) -> None:
+        """Track A3 §3d anchor: RSS total noise = 136.381817 e⁻ RMS.
+
+        N_t=10000, N_bg=5000, N_dark=1000 (shot var 16000), σ_read=50,
+        σ_PRNU=k·N=0.1%·10000=10. σ_tot = √(16000 + 2500 + 100) = √18600 =
+        136.381817. Pins the variance-space RSS (not amplitude sum) and the
+        temporal/spatial → total combination: temporal √(16000+2500)=√18500,
+        spatial 10, total √(18500+100).
+        """
+        temporal = math.sqrt(10000.0 + 5000.0 + 1000.0 + 50.0**2)  # shot + read
+        budget = NoiseBudget(
+            terms={
+                "signal_shot": 100.0,
+                "background_shot": math.sqrt(5000.0),
+                "dark_shot": math.sqrt(1000.0),
+                "read_noise": 50.0,
+                "prnu": 10.0,
+            },
+            sigma_temporal_e=temporal,
+            sigma_spatial_e=10.0,
+        )
+        assert budget.sigma_total_e == pytest.approx(136.381817, rel=1e-6)
+
     @pytest.mark.level1
     def test_all_16_terms_present(self) -> None:
         budget = compute_noise_budget(signal_e=100.0)

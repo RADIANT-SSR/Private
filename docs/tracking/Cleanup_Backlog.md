@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-198 — RADIANT_Source_Target_System.md §8 documents a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema
+
+**Discovered**: Assurance Audit remediation R2.4 (arch-doc parameter-table sweep), 2026-07-23.
+**Status**: Open — doc drift, non-blocking. While converting duplicated parameter tables to generated-reference pointers (R2.4), the §8 parameter catalog in `RADIANT_Source_Target_System.md` (§8.1–§8.10, ~12 tables) was found to enumerate parameters — `source.material.name/temperature/emissivity_value/…`, `source.solar.*`, `source.sub_pixel.*`, `source.point.*`, `source.thermal.*`, `source.tabulated.*`, `regime.point_source_threshold` — **none of which exist** in the schema or the generated `parameter_reference.md` (0 occurrences each). The shipped source namespace is `source.target.*`, `source.background.*`, `source.scene_type`, `source.regime_override`, etc. The §8 catalog is an aspirational/legacy naming scheme that was never implemented (or was renamed pre-ship), so it could not be converted to a canonical-reference pointer under R2.4 (the pointer would send readers to entries that aren't there) and was deliberately left intact.
+**File**: `docs/architecture/RADIANT_Source_Target_System.md` §8 (parameter tables) — plus any prose referencing the `source.material.*`/`source.solar.*` names.
+**Symptom**: a reader configuring a source from §8 would set parameter names the schema rejects. Doc describes a parameter surface that does not exist.
+**Why it still matters**: aspirational-doc drift (the exact failure mode the audit and Rule 20 guard against) in a normative subsystem doc; RADIANT_Source_Target_System.md was outside the 2026-07 audit's doc scope so this went uncaught until now.
+**Suggested fix**: (b) stand-alone doc task — rewrite §8 against the real `source.target.*` / `source.background.*` schema (cross-check the generated reference), preserving the genuine descriptor/ADR-0008 alias narrative but re-keying it to shipped names; or (a) if §8 is a design-target for a future source-namespace refactor, banner it `[DESIGN-TARGET]` explicitly so it does not read as shipped. Effort M; category A/D. Related: R2.4 ([[CU-197]]), Rule 20.
+
 ### CU-188 — Sampled-PSF EE_box carries an O(dx) discretization floor that biases point-source SNR high at the default chain resolution (psf_oversample=8)
 
 **Discovered**: Assurance Audit remediation R1.5 (building the B1-3 EE_box anchor), 2026-07-23.
@@ -114,6 +123,11 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-197 — Architecture docs duplicate schema parameter tables with no freshness check (audit unenforced-risk: arch-doc param-table drift)
+
+**Discovered**: Assurance Audit 2026-07 (Track C / unenforced-risk register), remediation plan R2.4.
+**Status**: RESOLVED 2026-07-23, commit `a2c12e2`. **Symptom**: 19 parameter-definition tables across 6 subsystem architecture docs (Atmosphere, Detector_Complete, Optics, Scan_Timing, Spatial_Complete, Spectral_Integration) re-listed schema fields (type/default/unit/bounds) already generated canonically into `docs/guides/parameter_reference.md` by `gen_param_reference.py`. Nothing checked them against the schema; one (Optics §10.1) carried a stale `verified 2026-07-12` stamp — the drift artifact. **Resolution (owner decision: delete, not extend-check)**: removed the duplicated tables and replaced each with a pointer to the generated reference (Rule 27, one canonical version, "nothing to drift"); retained genuine per-subsystem design context (consistency-grouping, Gap/CU notes, DESIGN-TARGET banners, the five transmission/injection modes) as prose. `gen_param_reference.py --check` and `check_org_rules.py` both pass. Doc-only. **Surfaced [[CU-198]]** (Source_Target_System §8 documents a non-existent `source.material.*` namespace — name drift, left intact, filed open). Related: [[CU-195]], [[CU-196]] (sibling R2 tripwires), [[CU-099]] (the generated reference + its own --check).
 
 ### CU-196 — No lint for pytest.approx-without-tolerance (Rule 18); 24 GUI-test violations beyond the audit's scan scope (audit unenforced-risk #3)
 

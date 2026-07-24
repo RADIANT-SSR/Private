@@ -106,6 +106,11 @@
 
 ## Resolved
 
+### CU-183 — Planck band-integral functions have no absolute value anchor; monochromatic anchors not pinned to blind-derived literals (audit findings B2-3, B1-4)
+
+**Discovered**: Assurance Audit 2026-07 (Track A1 / Track B), remediation plan R1.1.
+**Status**: RESOLVED 2026-07-23, commit `49898fa`. **Symptom**: `integrate_planck_over_band` (source/converters) and `band_planck_radiance` (performance) had no repo-wide absolute value anchor — the round-trip/Jacobian tests invert the same forward model that generated the "measurement", so any scale/band-integration/unit slip cancels exactly (B2-3, B1-4). The monochromatic `planck_spectral_radiance`/`_dT` had an independent µm-native cross-check but no pinned numeric literal to catch a shared per-µm-Jacobian mistake. **Resolution**: added Level-0 tests pinning the Track A1 blind-derived literals — B(10,300)=9.92403333, B(4,300)=0.721976423 W/m²/sr/µm and ∂B/∂T(10,300)=0.159971567 W/m²/sr/µm/K at rel=1e-6; ∫₈¹²B(λ,300)dλ=38.5004239 W/m²/sr at rel=1e-3 for both band functions. **Running these tests was the audit's unfinished Track A1 comparison wave**: all four anchors matched the implementation on first run — no physics/constant/unit drift. Test-only change (no library or golden edits). Related: [[CU-184]]..[[CU-192]] (sibling R1 anchor-hardening items), `docs/reports/assurance_audit_2026-07/track_a1_radiometry_derivation.md`.
+
 ### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance
 
 **Discovered**: Geometry_Stage_Plan Phase 1 read-through, 2026-07-12.

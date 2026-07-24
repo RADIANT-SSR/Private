@@ -31,6 +31,16 @@ class TestDetectivity:
     def test_nep_anchor(self) -> None:
         assert nep_from_dstar(1e10, 1e-4, 1.0) == pytest.approx(1e-12, rel=1e-12)
 
+    def test_dstar_a3_anchor(self) -> None:
+        """Track A3 §9d anchor: D* = √(A_d·Δf)/NEP.
+
+        NEP=1e-14 W, A_d=4.0e-6 cm² (note cm², not m²), Δf=1000 Hz →
+        D* = √(4e-6·1000)/1e-14 = √4e-3/1e-14 = 0.06324555/1e-14 =
+        6.324555e12 cm·√Hz/W. Pins the area-in-cm² convention (m² would be
+        100× off) and the √(A·Δf) form.
+        """
+        assert dstar_from_nep(1e-14, 4.0e-6, 1000.0) == pytest.approx(6.324555e12, rel=1e-6)
+
     def test_roundtrip(self) -> None:
         nep = nep_from_dstar(1e10, 1e-4, 100.0)
         assert dstar_from_nep(nep, 1e-4, 100.0) == pytest.approx(1e10, rel=1e-12)

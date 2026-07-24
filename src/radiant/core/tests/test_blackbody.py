@@ -111,6 +111,38 @@ def test_independent_formulation_five_points() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Truth Anchor 4 — pinned numeric literals from the Track A1 blind
+# re-derivation (assurance audit 2026-07, computed independently of RADIANT
+# with CODATA 2018 constants). These guard against a shared-mistake constant
+# or per-µm-Jacobian slip that the algebraically-similar µm-native form above
+# could still miss. See docs/reports/assurance_audit_2026-07/
+# track_a1_radiometry_derivation.md §1–§2.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_planck_radiance_anchor_literals() -> None:
+    """B(λ,T) pinned to blind-derived numeric literals (Track A1 §1d)."""
+    # L(10 µm, 300 K) = 9.92403333 W/m²/sr/µm (near the LWIR 300 K peak).
+    assert float(planck_spectral_radiance(10.0, 300.0)[0]) == pytest.approx(
+        9.92403333, rel=1e-6
+    )
+    # L(4 µm, 300 K) = 0.721976423 W/m²/sr/µm (MWIR).
+    assert float(planck_spectral_radiance(4.0, 300.0)[0]) == pytest.approx(
+        0.721976423, rel=1e-6
+    )
+
+
+@pytest.mark.level0
+def test_planck_dBdT_anchor_literal() -> None:
+    """∂B/∂T pinned to the blind-derived NEDT-kernel literal (Track A1 §2d)."""
+    # ∂L/∂T(10 µm, 300 K) = 0.159971567 W/m²/sr/µm/K.
+    assert float(planck_spectral_radiance_dT(10.0, 300.0)[0]) == pytest.approx(
+        0.159971567, rel=1e-6
+    )
+
+
+# ---------------------------------------------------------------------------
 # Limit checks — Rayleigh–Jeans and Wien approximations.
 # ---------------------------------------------------------------------------
 

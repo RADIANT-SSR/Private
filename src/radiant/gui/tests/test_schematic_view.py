@@ -293,9 +293,9 @@ class TestSchematicCanvas:
         canvas = SchematicView()
         qtbot.addWidget(canvas)
         canvas.set_orientation(10.0, 200.0)
-        assert canvas.pitch_deg == pytest.approx(89.0)
+        assert canvas.pitch_deg == pytest.approx(89.0, rel=1e-9)
         canvas.set_orientation(10.0, -50.0)
-        assert canvas.pitch_deg == pytest.approx(2.0)
+        assert canvas.pitch_deg == pytest.approx(2.0, rel=1e-9)
 
 
 class TestFitToViewport:

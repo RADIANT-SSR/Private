@@ -34,7 +34,7 @@ class TestToleranceSection:
         dialog.apply(close=False)
         tol = sensor.tolerances()["detector.qe_value"]
         assert tol.distribution == "gaussian"
-        assert tol.params["std"] == pytest.approx(0.02)
+        assert tol.params["std"] == pytest.approx(0.02, rel=1e-9)
         # Clearing: back to none.
         dialog._tol_distribution.setCurrentText("none")  # noqa: SLF001
         dialog.apply(close=False)
@@ -61,7 +61,9 @@ class TestToleranceSection:
         path = tmp_path / "tol.yaml"
         sensor.save(path)
         reloaded = Sensor.load(path)
-        assert reloaded.tolerances()["detector.qe_value"].params["std"] == pytest.approx(0.02)
+        assert reloaded.tolerances()["detector.qe_value"].params["std"] == pytest.approx(
+            0.02, rel=1e-9
+        )
 
 
 class TestScaffolds:

@@ -119,9 +119,9 @@ class TestDetectorPane:
         illustration = pane.detector_illustration
         assert illustration is not None
         px, py, ff = illustration.pixel_geometry
-        assert px == pytest.approx(float(sensor.get_input("detector.pixel_pitch_x_um")))
-        assert py == pytest.approx(float(sensor.get_input("detector.pixel_pitch_y_um")))
-        assert ff == pytest.approx(float(sensor.get_input("detector.fill_factor")))
+        assert px == pytest.approx(float(sensor.get_input("detector.pixel_pitch_x_um")), rel=1e-9)
+        assert py == pytest.approx(float(sensor.get_input("detector.pixel_pitch_y_um")), rel=1e-9)
+        assert ff == pytest.approx(float(sensor.get_input("detector.fill_factor")), rel=1e-9)
 
     def test_inputs_are_the_shared_field_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Every detector input is the shared FieldRow (by-construction consistency)."""
@@ -185,7 +185,7 @@ class TestDetectorEditAndWatch:
             form._open_editor(dotpath)  # noqa: SLF001 — exercises the commit path
 
         assert set_calls.count(dotpath) == 1
-        assert window.sensor.get_input(dotpath) == pytest.approx(5000.0)
+        assert window.sensor.get_input(dotpath) == pytest.approx(5000.0, rel=1e-9)
         # The re-evaluated dark shot noise rose (√(dark_e) grew with the dark rate).
         dark_shot = {nt.name: nt.value_e for nt in window.last_result.noise_terms}["dark_shot"]
         assert dark_shot > 0.7071  # was √0.5 at the default 100 e-/s
@@ -215,10 +215,10 @@ class TestDetectorEditAndWatch:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             form._open_editor(dotpath)  # noqa: SLF001
 
-        assert window.sensor.get_input(dotpath) == pytest.approx(30.0)
+        assert window.sensor.get_input(dotpath) == pytest.approx(30.0, rel=1e-9)
         # The pixel schematic re-read the new cross-track pitch.
         assert pane.detector_illustration is not None
-        assert pane.detector_illustration.pixel_geometry[0] == pytest.approx(30.0)
+        assert pane.detector_illustration.pixel_geometry[0] == pytest.approx(30.0, rel=1e-9)
 
 
 class TestFullSchemaExpansion:

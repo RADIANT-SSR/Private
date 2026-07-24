@@ -35,6 +35,8 @@ jobs:
         run: python scripts/check_org_rules.py
       - name: Physics-module conversion/constant lint (Rules 2 + 13)
         run: python scripts/check_physics_conversions.py
+      - name: pytest.approx tolerance lint (Rule 18)
+        run: python scripts/check_approx_tolerances.py
 
   fast-tests:
     name: Fast tests (level0 + level1)

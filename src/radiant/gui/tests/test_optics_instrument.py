@@ -156,7 +156,7 @@ class TestOpticsEditAndWatch:
         dotpath = "optics.wfe_rms_waves"
         live = window.sensor
         # Unaberrated to start: the shipped example carries wfe_rms_waves = 0 (flat phase map).
-        assert float(live.get_input(dotpath)) == pytest.approx(0.0)
+        assert float(live.get_input(dotpath)) == pytest.approx(0.0, abs=1e-12)
 
         set_calls: list[str] = []
         orig_set = type(live).set
@@ -181,7 +181,7 @@ class TestOpticsEditAndWatch:
 
         # Exactly one set on the live sensor, for the edited parameter.
         assert set_calls.count(dotpath) == 1
-        assert window.sensor.get_input(dotpath) == pytest.approx(0.25)
+        assert window.sensor.get_input(dotpath) == pytest.approx(0.25, rel=1e-9)
         # The form re-synced to the committed value and every Optics tab re-rendered.
         assert form.field_value_text(dotpath).startswith("0.25")
         assert pane.plot_canvases and all(c.has_figure() for c in pane.plot_canvases)
@@ -212,7 +212,7 @@ class TestOpticsEditAndWatch:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             form._open_editor(dotpath)  # noqa: SLF001
 
-        assert window.sensor.get_input(dotpath) == pytest.approx(0.55)
+        assert window.sensor.get_input(dotpath) == pytest.approx(0.55, rel=1e-9)
         # The re-assembled system throughput reflects the new scalar τ_opt.
         tau = window.last_result.stage_outputs["optics"]["tau_opt_spectral"]
         assert float(tau.values.max()) == pytest.approx(0.55, abs=1e-9)

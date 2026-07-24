@@ -180,7 +180,7 @@ class TestSchematicTabIsEditable:
 
         # Exactly one set on the live sensor, for the edited parameter.
         assert set_calls.count(dotpath) == 1
-        assert window.sensor.get_input(dotpath) == pytest.approx(0.45)
+        assert window.sensor.get_input(dotpath) == pytest.approx(0.45, rel=1e-9)
 
         # The schematic visibly redrew from the new geometry.
         after = canvas.grab().toImage()
@@ -216,7 +216,7 @@ class TestNominalShapeDimensions:
             assert panel is not None
             panel.shape_combo.setCurrentText(shape)  # emits shapeRequested → pane seeds dims
             for dotpath, nominal in NOMINAL_SHAPE_DIMENSIONS[shape].items():
-                assert float(sensor.get(dotpath)) == pytest.approx(nominal)
+                assert float(sensor.get(dotpath)) == pytest.approx(nominal, rel=1e-9)
             # The subsequent physics re-evaluate succeeds (no ParameterBoundsError / zero-error).
             assert _evaluate(sensor) is not None
 
@@ -226,7 +226,7 @@ class TestNominalShapeDimensions:
         sensor.set("geometry.target.shape_radius_m", 3.0)
         pane = _geometry_pane(qtbot, sensor)
         pane.geometry_panel.shape_combo.setCurrentText("sphere")  # type: ignore[union-attr]
-        assert float(sensor.get("geometry.target.shape_radius_m")) == pytest.approx(3.0)
+        assert float(sensor.get("geometry.target.shape_radius_m")) == pytest.approx(3.0, rel=1e-9)
         assert _evaluate(sensor) is not None
 
 
@@ -283,14 +283,14 @@ class TestTargetFieldEditing:
             qtbot, monkeypatch, dotpath, "1.75"
         )
         assert set_calls.count(dotpath) == 1
-        assert float(sensor.get_input(dotpath)) == pytest.approx(1.75)
+        assert float(sensor.get_input(dotpath)) == pytest.approx(1.75, rel=1e-9)
         assert edited == [dotpath]
 
     def test_rpy_edit_sets_once_and_reevaluates(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         dotpath = "geometry.target.shape_yaw_rad"
         sensor, _pane, set_calls, edited = self._edit_via_dialog(qtbot, monkeypatch, dotpath, "0.3")
         assert set_calls.count(dotpath) == 1
-        assert float(sensor.get_input(dotpath)) == pytest.approx(0.3)
+        assert float(sensor.get_input(dotpath)) == pytest.approx(0.3, rel=1e-9)
         assert edited == [dotpath]
 
     def test_panel_field_reflects_committed_value(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]

@@ -203,7 +203,7 @@ class TestReadoutEditAndWatch:
             form._open_editor(_READ_NOISE)  # noqa: SLF001 — exercises the commit path
 
         assert set_calls.count(_READ_NOISE) == 1
-        assert window.sensor.get_input(_READ_NOISE) == pytest.approx(50.0)
+        assert window.sensor.get_input(_READ_NOISE) == pytest.approx(50.0, rel=1e-9)
         # Read noise adds in quadrature to the total: raising it raises sigma_total_e.
         sigma_after = window.last_result.stage_outputs["readout"]["sigma_total_e"]
         assert sigma_after > sigma_before

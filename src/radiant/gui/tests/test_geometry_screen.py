@@ -194,7 +194,7 @@ class TestGeometryModeForm:
             sensor.set(dotpath, value)  # one public-API call, the sanctioned edit
             form = _bound_form(qtbot, sensor)
             # The sensor reflects the set (round-trip via the public surface).
-            assert sensor.get_input(dotpath) == pytest.approx(value)
+            assert sensor.get_input(dotpath) == pytest.approx(value, rel=1e-9)
             # The form detected the mode and shows the value (formatted with its unit).
             assert form.active_mode("viewing") == mode_key
             unit = sensor.parameter_def(dotpath).input_unit

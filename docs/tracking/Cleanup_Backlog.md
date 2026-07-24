@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-201 — Optics doc: f_number listed as a stage output, non-existent Ω names with fictional type-system flagging, transmission_scalar default (audit O1-O3, R4.2)
+
+**Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.6.
+**Status**: RESOLVED 2026-07-23, commit `5dc4624`. **O2**: the §2 stage-output banner listed `f_number` among `stage_outputs["optics"]` keys; it is never written there (it lives only in the ParameterSet f-number consistency group). Removed it, and corrected `Ω_pixel`→`Omega_pixel` + added `tau_opt`. **O3**: §9 rule 3 claimed distinct names `omega_pixel_sr`/`omega_element_sr` "flagged by the type system"; neither identifier exists — the real names are `Omega_pixel` (stage-output float) and `OpticalElement.nearfield_solid_angle_sr`, both bare floats with only structural separation (no `NewType`/wrapper; a cross-wire type-checks clean — an unenforced risk). **O1/R4.2**: the §10.3 "default None" table was deleted in [[CU-197]] (R2.4); documented the real silent default `optics.transmission_scalar = 0.7` per owner decision R4.2 (keep the default, document it; no results change). Doc-only. Related: [[CU-200]], [[CU-197]].
+
 ### CU-200 — Spatial_Complete doc: stale CU-003 kernel claims, RER "averaged", "unconditional" consistency check, h_sensor (audit S1-S6)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.5.

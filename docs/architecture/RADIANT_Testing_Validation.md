@@ -33,7 +33,7 @@ These tests are **the ground truth for the entire tool**. They use no RADIANT in
 ```python
 def test_planck_stefan_boltzmann():
     """Integral of spectral radiance over all wavelengths = σ T⁴ / π."""
-    from radiant.core.constants import h, c, k_B, sigma_SB
+    from radiant.core.constants import h, c, k_B, sigma_sb
     import numpy as np
     from scipy.integrate import quad
 
@@ -43,7 +43,7 @@ def test_planck_stefan_boltzmann():
         return (2 * h * c**2 / lam_m**5) / (np.exp(h * c / (lam_m * k_B * T)) - 1) * 1e-6  # W/m²/sr/µm
 
     integral, _ = quad(planck_w_m2_sr_um, 0.1, 200.0, limit=500)
-    expected = sigma_SB * T**4 / np.pi  # W/m²/sr (Lambertian hemisphere)
+    expected = sigma_sb * T**4 / np.pi  # W/m²/sr (Lambertian hemisphere)
     assert abs(integral - expected) / expected < 0.001  # < 0.1%
 ```
 
@@ -126,16 +126,16 @@ def test_pupil_mtf_normalization(amplitude, phase, config):
 
 ### 2.5 Pixel Aperture MTF
 
-**Test:** `MTF(f) = |sinc(f × p)|` where `p` is pixel pitch.
+**Test:** `MTF(f) = |sinc(f × p × √FF)|` where `p` is pixel pitch and `FF` is the areal fill factor.
 
-The pixel aperture MTF has no standalone helper — `DetectorStage` computes it inline as `np.abs(np.sinc(freq_m * pixel_pitch))` and publishes it as `mtf_pixel_aperture_x` / `mtf_pixel_aperture_y` (`detector/stage.py`). The Level 0 check therefore reads the stage's published MTF term:
+The pixel aperture MTF has no standalone helper — `DetectorStage` computes it inline as `np.abs(np.sinc(freq_m * pixel_pitch * sqrt_ff))`, where `sqrt_ff = math.sqrt(detector.fill_factor)` (the photosite linear width is `pitch·√FF` for areal fill factor `FF`, CU-074), and publishes it as `mtf_pixel_aperture_x` / `mtf_pixel_aperture_y` (`detector/stage.py`, ~lines 153–162). This width matches the PSF-path pixel-aperture kernel exactly, so the two Rule-4 paths agree at `fill_factor < 1`. At `FF = 1` the √FF factor is unity and the term reduces to the plain `|sinc(f·p)|`. The Level 0 check reads the stage's published MTF term:
 
 ```python
 def test_pixel_aperture_mtf(state_after_detector, freq_m):
-    """MTF at Nyquist = sinc(0.5) ≈ 0.6366. At Nyquist/2 = sinc(0.25) ≈ 0.9003."""
+    """FF = 1: MTF at Nyquist = sinc(0.5) ≈ 0.6366. At Nyquist/2 = sinc(0.25) ≈ 0.9003."""
     import numpy as np
     p = 18e-6   # m
-    f_ny = 1 / (2 * p)   # Nyquist frequency (cycles/m)
+    f_ny = 1 / (2 * p)   # Nyquist frequency (cycles/m); fill_factor = 1.0
     mtf = state_after_detector.mtf_terms["mtf_pixel_aperture_x"]
     assert np.interp(f_ny, freq_m, mtf) == pytest.approx(np.sinc(0.5), rel=1e-3)
     assert np.interp(f_ny / 2, freq_m, mtf) == pytest.approx(np.sinc(0.25), rel=1e-3)
@@ -244,16 +244,11 @@ Every module-level test must:
 4. Assert on specific fields in the returned `ChainState`.
 5. Not read any file from disk (use in-memory spectral arrays or fixtures loaded in `conftest.py`).
 
-### 3.2 Coverage Requirements
+### 3.2 Coverage
 
-| Subpackage | Required coverage |
-|-----------|------------------|
-| `core/` | 95% line, 90% branch |
-| Each physics stage | 85% line, 75% branch |
-| `io/` | 80% line |
-| `api/`, `cli/` | 75% line |
+Coverage is **not gated in CI today.** `pytest-cov` is available as a dev dependency, so a contributor can run `pytest --cov=radiant --cov-report=html` locally (see CLAUDE.md "Running Tests Locally"), but no CI job passes `--cov` or `--cov-fail-under`, and there is no per-subpackage coverage threshold enforced anywhere. The `ci.yml` test jobs run `pytest -m level0/level1/level2` with `--strict-markers` only (§9.3). Do not read a coverage floor into this doc that the pipeline does not enforce.
 
-Coverage is enforced via `pytest-cov` in CI. PRs that reduce coverage require justification.
+**[DESIGN-TARGET]** A future per-subpackage coverage gate (e.g. higher bars on `core/` and `api/`, lower on `cli/`) is a reasonable target, but until a CI job actually asserts it, treat coverage as an informational local metric, not a merge gate.
 
 ### 3.3 Key Module Tests (Non-Exhaustive)
 
@@ -309,83 +304,78 @@ Ten reference scenarios with known-good results. These test the full chain but n
 
 **Regime consistency:** For an extended scene (large target), verify the regime is `"extended"` and EE_box does not appear in the signal computation. For a point target (A_target < 0.01 m² at 10 km range), verify regime = `"point"` and signal scales with EE_box.
 
-**Provenance completeness:** After any `result = sensor.evaluate()`, call `result.to_provenance_record()` and verify:
+**Provenance completeness:** After a run, call `ChainResult.to_provenance_record()` and verify (this mirrors what `tests/test_provenance.py` asserts):
 - `"radiant_version"` key is present and non-empty
-- `"resolved_at"` is a valid ISO 8601 timestamp
-- Every required parameter has a provenance entry
-- No parameter provenance entry is `None`
+- `"run_id"` is a UUID4 string for a run that went through `ChainRunner.run` (`None` for a synthetic state)
+- `"parameter_set"` has one entry per resolved parameter, each carrying value + unit + per-parameter provenance
+- `"input_file_hashes"` is a list of `{"path", "sha256"}` records for every config file consumed
+
+The exact key set is `run_id`, `radiant_version`, `git_commit`, `python_version`, `dependency_versions`, `parameter_set`, `input_file_hashes`, `active_models` — see §7.1.
 
 ---
 
 ## 5. Golden Regression Tests (`@pytest.mark.golden`)
 
-Golden results are frozen JSON files representing the exact output of a full chain evaluation for a reference scenario. They are not updated automatically — updates require an intentional command.
+Golden results are frozen JSON files representing the output of a full chain evaluation for a reference scenario. They are not updated automatically — updates require an intentional command (`scripts/update_golden.py`, §5.3). Today there is exactly one golden file: `tests/integration/golden/mwir_leo_minimal.json`, driven by `examples/mwir_leo_minimal.yaml`.
 
 ### 5.1 Golden File Structure
 
+Each value in the real golden file is a `{value, unit, provenance}` object (not a bare number), and a top-level `_provenance` block records how the file was generated. The current shape (read `tests/integration/golden/mwir_leo_minimal.json`):
+
 ```json
 {
-    "golden_version": "1",
-    "radiant_version": "0.1.0",
-    "config_hash": "sha256:abc123...",
-    "frozen_at": "2026-04-07T14:30:00Z",
-    "scenario": "mwir_leo_baseline",
-    "metrics": {
-        "snr": 47.312,
-        "nedt": 0.02314,
-        "niirs": 5.41,
-        "gsd": 3.60,
-        "mtf_at_nyquist": 0.422,
-        "rer": 0.281
+    "_provenance": {
+        "config": "examples/mwir_leo_minimal.yaml",
+        "wavelength_grid": "np.linspace(3.5, 5.0, 500)",
+        "chain_stages": [
+            "source", "atmosphere", "optics",
+            "spectral_integration", "detector", "readout", "performance"
+        ],
+        "generated_by": "scripts/update_golden.py",
+        "notes": "CU-155 refresh (2026-07-18). ... human-readable history of every value change ...",
+        "last_updated": "2026-07-20T12:52:23.144171+00:00"
     },
-    "noise_budget": {
-        "photon_shot": 111.6,
-        "dark_current_shot": 89.2,
-        "read_noise": 25.0,
-        "1_over_f": 12.0,
-        "ipc_crosstalk": 8.1,
-        "prnu_residual": 7.3,
-        "dsnu_residual": 4.2,
-        "quantization": 3.2,
-        "total_rss": 263.3
-    },
-    "signal": {
-        "photoelectrons": 12450,
-        "dn": 124.5
-    }
+    "signal_e":          {"value": 956457.31579691, "unit": "e-",        "provenance": "chain output, T3Mixed routing"},
+    "e_rate_per_s":      {"value": 191291463.159382, "unit": "e-/s",     "provenance": "signal_e / t_int"},
+    "A_collect":         {"value": 0.07068583470577035, "unit": "m^2",   "provenance": "pi/4 * 0.30^2"},
+    "Omega_pixel":       {"value": 2.25e-10, "unit": "sr",               "provenance": "(18e-6)^2 / 1.20^2"},
+    "noise_shot":        {"value": 977.9863576742315, "unit": "e- RMS",  "provenance": "sqrt(signal_e)"},
+    "noise_dark_shot":   {"value": 0.7071067811865476, "unit": "e- RMS", "provenance": "sqrt(dark_rate * t_int)"},
+    "noise_read":        {"value": 5.0, "unit": "e- RMS",                "provenance": "readout.read_noise_e_rms"},
+    "noise_quantization":{"value": 9.237604307034013, "unit": "e- RMS",  "provenance": "gain / sqrt(12)"},
+    "noise_rss":         {"value": 978.0430200815521, "unit": "e- RMS",  "provenance": "RSS of the noise terms"},
+    "snr":               {"value": 977.9296985496178, "unit": "dimensionless", "provenance": "signal_e_final / sigma_total_e"}
 }
 ```
 
+There is no `golden_version`, `config_hash`, `frozen_at`, `metrics`, `noise_budget`, or `signal` block — those were an earlier design that never shipped. The frozen fields are the scalar chain outputs (`signal_e`, `e_rate_per_s`, `A_collect`, `Omega_pixel`), the individual noise terms, their RSS, and `snr`.
+
 ### 5.2 Golden Test Protocol
 
-```python
-def test_golden_mwir_baseline(radiant_golden):
-    """Full chain against frozen golden result for MWIR LEO pushbroom baseline."""
-    result = Sensor.from_yaml("tests/fixtures/mwir_leo_baseline.yaml").evaluate()
-    golden = radiant_golden.load("tests/golden/mwir_leo_baseline.json")
-    radiant_golden.assert_within_tolerance(result, golden)
-```
+There is no `radiant_golden` fixture and no `assert_within_tolerance()` helper. The golden test lives with the integration suite under `tests/integration/`, loads the JSON directly, and asserts each recorded `value` against a freshly-run chain with an explicit `pytest.approx` tolerance (§6). Shape:
 
-The `radiant_golden` fixture loads the golden file and provides `assert_within_tolerance()`, which checks each metric against the golden value with the tolerances from §6.
+```python
+@pytest.mark.golden
+def test_golden_mwir_leo_minimal():
+    """Full chain against the frozen golden result for the MWIR LEO minimal scenario."""
+    golden = json.loads(
+        (GOLDEN_DIR / "mwir_leo_minimal.json").read_text(encoding="utf-8")
+    )
+    # ... build params from examples/mwir_leo_minimal.yaml, run RadiantSession ...
+    assert snr == pytest.approx(golden["snr"]["value"], rel=1e-6)
+```
 
 ### 5.3 Intentional Golden Updates
 
-When a physics improvement legitimately changes golden results (e.g., improved MODTRAN reader, corrected Marechal formula), golden files are updated via:
+When a physics improvement legitimately changes golden results (e.g. improved MODTRAN reader, a corrected routing rule such as CU-007/CU-155), the golden file is regenerated with the dedicated script — there is no `radiant freeze-golden` CLI:
 
 ```bash
-# Update a specific golden file:
-radiant freeze-golden tests/fixtures/mwir_leo_baseline.yaml \
-    --output tests/golden/mwir_leo_baseline.json \
-    --message "Fix Marechal WFE formula: Strehl now uses exact integral vs. approximation"
-
-# Update all golden files:
-radiant freeze-all-golden --message "Bump numpy from 1.26 to 2.0"
+python scripts/update_golden.py --i-know-what-im-doing
 ```
 
-The `--message` flag is mandatory. It is stored in the golden JSON as `"frozen_reason"`. Golden file updates require:
-1. PR with description of why the physics changed
-2. At least one reviewer who is a domain expert
-3. Before/after comparison table in the PR description (from `radiant compare-golden old.json new.json`)
+The `--i-know-what-im-doing` flag is mandatory: without it the script prints an error and exits non-zero. The script re-runs the MWIR LEO minimal chain, logs every value that changed (old → new with relative change), preserves the human-readable `_provenance.notes` history, and rewrites `_provenance.last_updated`. A golden update requires:
+1. A PR describing **why** the physics changed (the reason is also appended to `_provenance.notes`).
+2. Domain-expert review of the before/after values the script logs.
 
 Golden files are committed to the repository. They are not `.gitignore`d.
 
@@ -425,88 +415,69 @@ Tests that fail for non-physics reasons (platform, random seed, file path):
 
 ## 7. Provenance Tracking
 
-Every RADIANT result output must be fully reproducible from its provenance record alone.
+Every RADIANT result carries a provenance record so a run's inputs and environment are recoverable. The record is produced by `ChainResult.to_provenance_record()` (`radiant/io/results.py`) and implements the contract in `RADIANT_Master_Architecture.md` §C13; `tests/test_provenance.py` pins the exact key set.
 
 ### 7.1 What the Provenance Record Contains
+
+The real record has exactly these eight keys (copy the shape from `to_provenance_record()`):
 
 ```json
 {
     "run_id": "a4f7c2e1-8b3d-4e9a-a0b1-2c3d4e5f6789",
     "radiant_version": "0.1.0",
-    "git_commit": "abc1234def5678",
-    "git_tag": "v0.1.0",
-    "python_version": "3.12.3",
-    "dependencies": {
+    "git_commit": "abc1234",
+    "python_version": "3.11.9",
+    "dependency_versions": {
         "numpy": "1.26.4",
         "scipy": "1.13.0",
-        "pyyaml": "6.0.1"
+        "pyyaml": "6.0.1",
+        "click": "8.1.7"
     },
-    "resolved_at": "2026-04-07T14:30:00.123456Z",
-    "config_hash": "sha256:3a7b9c2d...",
-    "input_file_hashes": {
-        "sensors/baseline_mwir.yaml": "sha256:1a2b3c4d...",
-        "scenarios/leo_mwir_clear.yaml": "sha256:5e6f7a8b...",
-        "data/midlat_summer_mwir.tape7": "sha256:9c0d1e2f..."
-    },
-    "parameters": {
-        "sensor.optics.aperture_diameter": {
+    "parameter_set": {
+        "optics.aperture_diameter_m": {
             "value": 0.30,
-            "canonical_unit": "m",
-            "provenance": "config_file",
-            "source": "sensors/baseline_mwir.yaml"
+            "unit": "m",
+            "provenance": "config_file"
         },
-        "sensor.optics.f_number": {
-            "value": 4.0,
-            "provenance": "derived",
-            "derived_from": {
-                "sensor.optics.focal_length": 1.20,
-                "sensor.optics.aperture_diameter": 0.30
-            }
+        "optics.focal_length_m": {
+            "value": 1.20,
+            "unit": "m",
+            "provenance": "config_file"
         }
     },
-    "active_models": {
-        "atmosphere": "modtran",
-        "qe_model": "hgcdte_cutoff",
-        "dark_current_model": "rule07",
-        "mtf_wfe_model": "marechal"
-    }
+    "input_file_hashes": [
+        {"path": "examples/mwir_leo_minimal.yaml", "sha256": "1a2b3c4d..."}
+    ],
+    "active_models": [
+        "source", "atmosphere", "optics",
+        "spectral_integration", "detector", "readout", "performance"
+    ]
 }
 ```
 
+Field notes (per the `to_provenance_record` docstring):
+- `run_id` — UUID4 assigned at chain-runtime (`radiant.core.provenance.new_run_id`); `None` if the result came from a synthetic state that never went through `ChainRunner.run`.
+- `git_commit` — short SHA of the working-tree HEAD; `"unknown"` outside a git repo.
+- `dependency_versions` — `{name: version}` for the declared runtime deps (numpy, scipy, pyyaml, click).
+- `parameter_set` — `{dotpath: ResolvedValue.to_dict()}` for every resolved parameter (value + unit + per-parameter provenance); empty if no `ParameterSet` was attached.
+- `input_file_hashes` — an ordered **list** of `{"path", "sha256"}` records for every config file consumed via `radiant.io.config.load_config`.
+- `active_models` — an ordered **list of stage names** that ran (mirrors `ChainResult.history`), not a model-id dict.
+
+There is no `git_tag`, `resolved_at`, `config_hash`, or `dependencies` key, and `parameters`/`active_models` are not the nested-dict shapes an earlier draft described.
+
 ### 7.2 Run ID
 
-Every evaluation generates a UUID4 run ID. The run ID is:
-- Embedded in every output file
-- Logged to console at evaluation start: `[RADIANT] Run a4f7c2e1 started`
-- Used to correlate provenance record with result files
+Every chain run generates a UUID4 run ID (`radiant.core.provenance.new_run_id`), surfaced as the `run_id` provenance field and preserved across `ChainResult.save()`/`load()`. It is **not** logged to the console today (`[RADIANT] Run … started` is not implemented) — it is a provenance field only.
 
-### 7.3 Config Hash
+### 7.3 Reproducibility
 
-The config hash is the SHA256 of the fully resolved parameter set (after all inheritance, imports, and CLI overrides are applied, before evaluation). Two runs with identical config hashes are guaranteed to produce identical results if the software version and input file hashes match.
+Reproducibility today rests on determinism, not a dedicated tool:
 
-```python
-import hashlib, json
-def config_hash(resolved_params: dict) -> str:
-    canonical = json.dumps(resolved_params, sort_keys=True, default=str)
-    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
-```
+- **Same inputs → same outputs.** The chain has no random component; re-running the same config on the same RADIANT version and inputs reproduces the result bit-for-bit (this is what the golden regression test asserts).
+- To re-run a recorded scenario, load the same config (`examples/*.yaml`) through `RadiantSession`/`Sensor` and execute the chain again.
+- The provenance record captures what an external observer needs to confirm the environment: `radiant_version`, `git_commit`, `dependency_versions`, and `input_file_hashes` (so a changed input file is detectable by hash comparison).
 
-### 7.4 Reproducibility from Provenance
-
-Given a provenance record, a result is exactly reproducible by:
-
-```bash
-radiant reproduce provenance.json
-```
-
-This command:
-1. Verifies the current RADIANT version matches `radiant_version` in the record (warn if different, continue)
-2. Reconstructs the parameter set from `parameters` (bypasses config file loading)
-3. Verifies input file SHA256 hashes match (error if any file has changed)
-4. Runs the chain
-5. Reports whether the result matches the original (within golden tolerances)
-
-If the software version does not match, `radiant reproduce` warns but still runs. The user is responsible for verifying that the physics models have not changed between versions.
+**[DESIGN-TARGET]** A `config_hash` (SHA256 of the fully-resolved parameter set) and a one-shot `radiant reproduce provenance.json` command that reconstructs the parameter set, re-verifies input hashes, and re-runs the chain are **not implemented** — no such CLI subcommand or hash field exists in the code. They remain a reasonable future target but must not be documented as shipped.
 
 ---
 
@@ -561,10 +532,10 @@ Error messages have two levels:
 
 **Summary (always shown):**
 ```
-ConfigValidationError: 2 errors in 'configs/leo_mwir_clear.yaml'
-  [1] sensor.detector.operating_temp = 400 K (out of bounds: 1–300 K)
-  [2] target.temperature not provided (required, no default)
+ConfigError in configs/leo_mwir_clear.yaml: sensor.detector.operating_temp = 400 K
+  (out of bounds: 1–300 K)
 ```
+(The config loader raises `radiant.io.config.ConfigError`; a bad parameter value raises `ParameterBoundsError`. There is no `ConfigValidationError` class.)
 
 **Detail (shown with --verbose or when requested):**
 ```
@@ -581,94 +552,91 @@ ConfigValidationError: 2 errors in 'configs/leo_mwir_clear.yaml'
          For uncooled microbolometer, use material=VOx and remove this parameter.
 ```
 
-Verbose mode is enabled with `-v` on CLI or `sensor.validate(verbose=True)` in the API.
+**[DESIGN-TARGET]** The two-level summary/detail rendering above is the intended error-presentation model. Today, RADIANT exceptions already carry the actionable `what / why / action` payload (via `ParameterBoundsError` and its structured `context`) and message strings, but there is no `sensor.validate(verbose=True)` API and no `--verbose` error-detail switch — those remain a design target, not a shipped surface.
 
 ### 8.5 Exception Hierarchy
 
-Current hierarchy (matches code):
+Current hierarchy (matches code). `RadiantError` is a single-tier base — every concrete class derives directly from it, and most co-inherit the built-in exception they historically raised as (shown in parentheses) per the Rule 15 / CU-043 back-compat carve-out. `tests/test_exceptions.py` pins this set.
 
 ```
 RadiantError (radiant.core.exceptions; re-exported as radiant.RadiantError)
-├── ParameterBoundsError      (also ValueError)  — radiant.core.parameters
-├── KirchhoffViolationError   (also ValueError)  — radiant.optics.element
-├── ModtranUnavailableError   (also RuntimeError)— radiant.atmosphere.modtran
-├── Tape7ParseError           (also ValueError)  — radiant.atmosphere.modtran
-├── ConfigError                                  — radiant.io.config
-└── ElementConfigError        (also ValueError)  — radiant.io.element_config
+│
+├── Core / parameters
+│   ├── CoreValidationError        (ValueError)   — radiant.core.exceptions
+│   ├── CoreStateError             (RuntimeError) — radiant.core.exceptions
+│   ├── UnknownParameterError      (KeyError)     — radiant.core.parameters
+│   ├── ParameterBoundsError       (ValueError)   — radiant.core.parameters  [structured what/why/action/context]
+│   └── ParameterEnumError         (ValueError)   — radiant.core.parameters
+│
+├── Per-stage validation / state families
+│   ├── GeometrySpecificationError                — radiant.geometry.errors
+│   ├── SourceValidationError      (ValueError)   — radiant.source.errors
+│   ├── AtmosphereValidationError  (ValueError)   — radiant.atmosphere.errors
+│   ├── AtmosphereStateError       (RuntimeError) — radiant.atmosphere.errors
+│   ├── ModtranUnavailableError    (RuntimeError) — radiant.atmosphere.modtran
+│   ├── Tape7ParseError            (ValueError)   — radiant.atmosphere.modtran
+│   ├── OpticsValidationError      (ValueError)   — radiant.optics.errors
+│   ├── KirchhoffViolationError    (ValueError)   — radiant.optics.element
+│   ├── PlatformValidationError    (ValueError)   — radiant.platform.errors
+│   ├── SpectralIntegrationValidationError (ValueError)   — radiant.spectral_integration.errors
+│   ├── SpectralIntegrationStateError      (RuntimeError) — radiant.spectral_integration.errors
+│   ├── DetectorValidationError    (ValueError)   — radiant.detector.errors
+│   ├── ReadoutValidationError     (ValueError)   — radiant.readout.errors
+│   └── PerformanceValidationError (ValueError)   — radiant.performance.errors
+│
+├── I/O
+│   ├── ConfigError                               — radiant.io.config
+│   └── ElementConfigError         (ValueError)   — radiant.io.element_config
+│
+└── API / CLI / GUI
+    ├── ApiValidationError         (ValueError)   — radiant.api.errors
+    ├── BatchRunnerError                          — radiant.api.batch
+    ├── ErrorBudgetError                          — radiant.api.error_budget
+    ├── SolveBracketError                         — radiant.api.solve
+    ├── CalibrationAnalysisError                  — radiant.api.calibration_analysis
+    ├── MtfComparisonError                        — radiant.api.compare
+    ├── ComparisonError                           — radiant.api.compare
+    ├── OperationCancelledError                   — radiant.api._progress
+    └── GuiValidationError         (ValueError)   — radiant.gui.errors
 ```
 
-`RadiantError` itself is importable from `radiant` (top-level re-export) and from `radiant.core.exceptions`. Each concrete subclass is importable from the module that raises it.
-
-The richer multi-tier hierarchy that earlier drafts of this doc described (`PhysicsError`, `PluginError`, `ReproductionError`, finer-grained `ParameterTypeError`/`ParameterEnumError`/etc.) has been deferred — see CU-NEW-01 follow-up tracking in `docs/tracking/Cleanup_Backlog.md`. The single-tier hierarchy above is the load-bearing contract today.
+`RadiantError` itself is importable from `radiant` (top-level re-export) and from `radiant.core.exceptions`. Each concrete subclass is importable from the module that raises it. Catching `RadiantError` catches every framework-defined error while letting unrelated bugs (`KeyError`, `AttributeError` from a buggy stage) propagate.
 
 ---
 
 ## 9. Test Infrastructure
 
-### 9.1 Fixtures
+### 9.1 Test Layout and Fixtures
+
+Tests live in three places (there is no top-level `tests/conftest.py`, no `tests/fixtures/` tree, and no `tests/golden/` directory):
 
 ```
-tests/
-├── conftest.py              # session-scoped fixtures: load tape7 once, build reference params
-├── fixtures/
-│   ├── sample_tape7.txt     # MODTRAN tape7 for midlat summer MWIR (4-column format)
-│   ├── mwir_leo_baseline.yaml   # complete config for E01–E10 reference scenarios
-│   ├── lwir_geo_stare.yaml
-│   ├── vis_aerial.yaml
-│   └── point_source.yaml
-└── golden/
-    ├── mwir_leo_baseline.json
-    ├── lwir_geo_stare.json
-    ├── vis_aerial.json
-    └── point_source.json
+src/radiant/<stage>/tests/       # module-local Level 0 / Level 1 tests + fixtures,
+                                 #   co-located with the stage they exercise
+tests/                           # cross-cutting tests: exceptions, provenance,
+                                 #   public-API surface (test_exceptions.py,
+                                 #   test_provenance.py, ...)
+tests/integration/               # Level 2 full-chain tests
+tests/integration/golden/        # frozen golden data
+    └── mwir_leo_minimal.json    #   the single current golden file
 ```
 
-### 9.2 Property-Based Testing (Hypothesis)
+Fixtures are defined locally in the test modules / package-level `conftest.py` files that need them (e.g. a stage's own `src/radiant/<stage>/tests/conftest.py`), not in one session-scoped root conftest. This mirrors the "How to Find Things" table in `CLAUDE.md`.
 
-Physics invariants that should hold for all valid inputs are tested with Hypothesis:
+### 9.2 Property-Based Testing
 
-```python
-from hypothesis import given, strategies as st
-
-@given(
-    T=st.floats(min_value=50, max_value=5000),
-    lam_min=st.floats(min_value=0.3, max_value=5.0),
-    lam_max=st.floats(min_value=6.0, max_value=25.0),
-)
-def test_planck_always_positive(T, lam_min, lam_max):
-    """Planck function is always positive for positive T."""
-    from radiant.core.blackbody import planck_spectral_radiance
-    import numpy as np
-    wl = np.linspace(lam_min, lam_max, 50)
-    L = planck_spectral_radiance(wl, T)
-    assert np.all(L > 0)
-
-@given(n=st.floats(min_value=0.0, max_value=1e9))
-def test_shot_noise_always_nonnegative(n):
-    """σ_shot = √n is non-negative and monotonic for all valid signals."""
-    from radiant.detector.shot_noise import shot_noise_e
-    assert shot_noise_e(n) >= 0.0
-```
+**[DESIGN-TARGET]** `hypothesis` is declared as a dev dependency in `pyproject.toml`, but it has **zero imports** anywhere in `src/` or `tests/` — no property-based tests exist today. Physics invariants (Planck positivity, `σ_shot = √n ≥ 0`, MTF ∈ [0, 1], etc.) are currently exercised by parametrized `level0` tests, not by generated inputs. Adopting Hypothesis for these invariants is a reasonable future target; until a test actually imports it, this section describes an aspiration, not shipped coverage. (Tracked as a cleanup item — the unused dependency should either be used or dropped.)
 
 ### 9.3 CI Configuration
 
-```yaml
-# .github/workflows/tests.yml (abridged)
-jobs:
-  test:
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/setup-python
-      - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v --cov=radiant --cov-fail-under=85
-            -m "not golden"    # golden tests in separate job
-  
-  golden:
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - run: pytest tests/ -v -m golden
-```
+The only CI workflow is `.github/workflows/ci.yml`. It runs on push/PR to `main` (and `workflow_dispatch`), on a single interpreter (Python 3.11, `ubuntu-latest`) — there is no Python 3.11 × 3.12 or ubuntu × macos matrix, and no `--cov` / `--cov-fail-under` gate. The jobs are:
+
+| Job | What it runs |
+|-----|--------------|
+| `static` | `ruff check src/`; `ruff format --check src/`; `mypy --strict src/radiant/core src/radiant/api`; `lint-imports --config pyproject.toml`; `python scripts/check_org_rules.py`; `python scripts/check_physics_conversions.py`; `python scripts/check_approx_tolerances.py` |
+| `fast-tests` | `pytest -m level0 --strict-markers -q` then `pytest -m level1 --strict-markers -q` |
+| `integration-tests` | `pytest -m level2 --strict-markers -q` (needs `fast-tests`) |
+| `gui-tests` | Geometry GUI v2 suite under `xvfb-run` (needs `fast-tests`; installs Qt/VTK system libs + `dev_tools/geometry_gui_v2`) |
+| `golden` | `pytest -m golden --strict-markers -q` — **main only** (`if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'`), so golden drift never blocks a PR |
+
+The golden job being main-only is what §1 refers to when it says golden tests run in a separate job on the main branch rather than on every PR.

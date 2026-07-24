@@ -153,37 +153,39 @@ class EffectivePSF:
     def ensquared_energy(self, half_width_m: float) -> float:
         """Fraction of PSF energy within a square box of given half-width.
 
-        Uses sub-sample interpolation at the box boundary to avoid
-        grid-quantization error when the PSF sample spacing does not
-        evenly divide the requested half-width (e.g. after FFT
-        power-of-2 padding).  A 1-D weight vector is constructed
-        with 1.0 for fully enclosed samples and fractional weight
-        at the boundary; the 2-D box integral is the separable
+        Each sample ``i`` carries the energy of the detector-plane cell
+        ``[i − 0.5, i + 0.5]·dx`` centred on it (``self.data`` is the
+        unit-volume per-cell energy). Its 1-D weight is the fraction of that
+        cell inside the box ``[−H, H]·dx`` with ``H = half_width / dx``:
+
+            w(d) = clamp(H − d + 0.5, 0, 1),   d = |i − center|
+
+        i.e. 1.0 for fully-enclosed cells, a linear taper across the one cell
+        the box edge cuts, 0 outside. The 2-D box integral is the separable
         product ``data · outer(w, w)``.
+
+        CU-188: this cell-area-overlap weighting replaces an earlier
+        point-sampling scheme that gave every cell within ``floor(H)`` full
+        weight and only tapered a fractional *overshoot* cell. That left the
+        box-edge cells at full weight when ``H`` was integral (the common
+        critically-sampled case), an O(dx) bias that over-stated EE_box — and
+        hence point-source / sub-pixel SNR — by up to ~24% at the default
+        pupil sampling. The overlap weighting is second-order accurate: the
+        unaberrated-Airy Q=2 box matches the analytic 0.177327 to ~3e-4 at
+        every ``psf_oversample`` including the default 8.
         """
         n = self.data.shape[0]
         center = n // 2
         dx = self.sample_spacing_m
-        half_samples = half_width_m / dx  # exact, may be fractional
+        half_samples = half_width_m / dx  # H, box half-width in samples
 
-        # Build 1-D weight vector for the relevant index range.
-        # Box spans [center - half_samples, center + half_samples].
-        # Sample i is fully inside if |i - center| <= floor(half_samples).
-        # The boundary samples at floor(half_samples)+1 from center get
-        # fractional weight equal to the overshoot.
-        n_full = int(half_samples)
-        frac = half_samples - n_full
-
-        lo = max(center - n_full - (1 if frac > 0.0 else 0), 0)
-        hi = min(center + n_full + 1 + (1 if frac > 0.0 else 0), n)
-        w = np.ones(hi - lo, dtype=np.float64)
-
-        if frac > 0.0:
-            # Weight the outermost sample on each side by the fraction
-            if lo == center - n_full - 1:
-                w[0] = frac
-            if hi == center + n_full + 2:
-                w[-1] = frac
+        idx = np.arange(n)
+        w_full = np.clip(half_samples - np.abs(idx - center) + 0.5, 0.0, 1.0)
+        support = np.nonzero(w_full > 0.0)[0]
+        if support.size == 0:
+            return 0.0
+        lo, hi = int(support[0]), int(support[-1]) + 1
+        w = w_full[lo:hi]
 
         return float(np.einsum("i,j,ij->", w, w, self.data[lo:hi, lo:hi]))
 

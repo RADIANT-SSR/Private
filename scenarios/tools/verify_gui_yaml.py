@@ -52,6 +52,41 @@ def _reload_metrics(scen: GuiScenario) -> dict[str, float | None]:
     return out
 
 
+def consistency_one(scen: GuiScenario) -> tuple[bool, str]:
+    """Check the Rule-4 dual-path (PSF vs MTF-product) consistency invariant.
+
+    Reloads and evaluates the scenario, then inspects
+    ``stage_outputs["performance"]["dual_path_consistency"]``. Returns
+    ``(True, "no spatial path")`` when the check is absent — the spatial
+    (PSF/MTF) path was not computed for this scenario (Gap 96 metric
+    deselection), so there is nothing to check. Otherwise returns whether
+    both axes passed, with the max per-axis errors and the tolerance.
+
+    This makes the warn-only invariant in ``PerformanceStage`` a hard CI gate
+    across the shipped GUI baselines (assurance audit R2.1): a degradation
+    added to one path but not the other now fails a test instead of only
+    logging a warning.
+    """
+    if not scen.yaml_path.is_file():
+        return False, "YAML missing (run emit_gui_yaml.py)"
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = Sensor.from_yaml(scen.yaml_path).evaluate()
+    except Exception as exc:  # noqa: BLE001
+        return False, f"reload/evaluate raised {type(exc).__name__}: {exc}"
+    consistency = result.stage_outputs.get("performance", {}).get("dual_path_consistency")
+    if consistency is None:
+        return True, "no spatial path (consistency check not computed)"
+    passed = bool(consistency.passed_x and consistency.passed_y)
+    msg = (
+        f"passed_x={consistency.passed_x} (max_err {consistency.max_absolute_error_x:.3e}), "
+        f"passed_y={consistency.passed_y} (max_err {consistency.max_absolute_error_y:.3e}), "
+        f"tol={consistency.tolerance:.1e}"
+    )
+    return passed, msg
+
+
 def verify_one(scen: GuiScenario) -> tuple[bool, str]:
     if not scen.yaml_path.is_file():
         return False, "YAML missing (run emit_gui_yaml.py)"

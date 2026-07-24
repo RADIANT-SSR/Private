@@ -32,7 +32,7 @@ if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
 from gui_baselines import REGISTRY  # noqa: E402
-from verify_gui_yaml import verify_one  # noqa: E402
+from verify_gui_yaml import consistency_one, verify_one  # noqa: E402
 
 # Baselines that reference a *generated* (gitignored) input file and so cannot be
 # reloaded in a cold checkout without first running the scenario. Empty since
@@ -53,3 +53,22 @@ def test_gui_baseline_reproduces_snapshot(scen: object) -> None:
         )
     ok, message = verify_one(scen)
     assert ok, f"{scen.id} {scen.slug}: {message}"
+
+
+@pytest.mark.golden
+@pytest.mark.parametrize("scen", REGISTRY, ids=[s.id for s in REGISTRY])
+def test_gui_baseline_dual_path_consistency(scen: object) -> None:
+    """R2.1: the Rule-4 dual-path (PSF vs MTF-product) invariant holds for every
+    shipped baseline that computes the spatial path.
+
+    ``PerformanceStage`` only *logs a warning* when the FFT of the convolved
+    EffectivePSF disagrees with the MTF product — the audit's #1 unenforced
+    risk. This turns that warn-only invariant into a hard gate: a spatial
+    degradation added to one path but not the other fails CI here. Scenarios
+    that deselect the spatial-MTF metric group (Gap 96) compute no consistency
+    check and pass trivially.
+    """
+    if scen.id in _NON_PORTABLE:
+        pytest.skip(f"{scen.id}: non-portable baseline (see CU-180)")
+    ok, message = consistency_one(scen)
+    assert ok, f"{scen.id} {scen.slug}: dual-path consistency FAILED — {message}"

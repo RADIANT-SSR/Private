@@ -131,7 +131,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | B1-6, B2-7 | **DONE** → R1.10, CU-193, commit `c6c57c8` (explicit approx tolerances, 29 sites) |
 | B1-9 | **Declined** — mitigated (NIIRS dispatcher asserts exact equality vs compute_giqe5/compute_iirs; band dispatch is unobservable while IIRS≡GIQE-5 in v1). Revisit when IIRS diverges from GIQE-5. |
 | Track C drifted: D1–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
-| Unenforced risks 1–3 (consistency gate, conversion lint, approx lint) | Planned → R2 |
+| Unenforced risk #1 (consistency gate) | **DONE** → R2.1, CU-194, commit `bc93dc3` |
+| Unenforced risks #2–3 (conversion lint, approx lint) | Planned → R2.2 / R2.3 |
 | Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | Proposed **Declined** (documented residual risk — revisit if a regression ever implicates them) |
 | Track A wave-2 comparison incompletion | Planned → R1 (subsumed) / R4.4 |
 

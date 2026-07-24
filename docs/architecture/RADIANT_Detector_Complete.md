@@ -128,12 +128,7 @@ For multi-layer / two-color detectors, the user supplies a list of sub-bands, ea
 
 ### 3.3 Pixel geometry
 
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `detector.pixel_pitch_x_um` | µm | None (required) |
-| `detector.pixel_pitch_y_um` | µm | = pitch_x (square) |
-| `detector.fill_factor` | dimensionless | 1.0 |
-| `detector.charge_diffusion_length_m` | m | 0.0 |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The pixel-geometry parameters are `detector.pixel_pitch_x_um`, `detector.pixel_pitch_y_um` (defaults to `pitch_x` for a square pixel), `detector.fill_factor`, and `detector.charge_diffusion_length_m`.
 
 The canonical charge-diffusion parameter is `detector.charge_diffusion_length_m`
 (canonical unit metres, per the naming convention), **not** `_um`. There is no

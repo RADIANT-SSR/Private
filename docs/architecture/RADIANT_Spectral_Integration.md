@@ -272,12 +272,12 @@ signal_e`, `in_band_unit = "e-"`).
 ## 10. Parameters
 
 **Owned by this stage** (`_schema.py`, all `default=None` — required inputs):
-
-| Parameter | Unit | Bounds | Meaning |
-|-----------|------|--------|---------|
-| `spectral_integration.filter_min_um` | µm | (0.1, 30.0) | Short-wavelength edge of the top-hat filter |
-| `spectral_integration.filter_max_um` | µm | (0.1, 30.0) | Long-wavelength edge of the top-hat filter |
-| `spectral_integration.integration_time_s` | s | (1e-9, 100.0) | Detector integration time `t_int` |
+`spectral_integration.filter_min_um` and `spectral_integration.filter_max_um`
+(the short- and long-wavelength edges of the top-hat filter) and
+`spectral_integration.integration_time_s` (detector integration time `t_int`).
+Parameter types, defaults, units, and bounds are the canonical [Parameter
+Reference](../guides/parameter_reference.md) (auto-generated from the schema —
+the single source of truth, Rule 27).
 
 **Read from other stages' schemas** (Rule 12 — each has its `ParameterDef` in the
 owning stage): `detector.qe_value`, `detector.fill_factor`,

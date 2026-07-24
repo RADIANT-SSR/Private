@@ -234,39 +234,31 @@ Jitter does not depend on scan mode or velocity; the timing module passes throug
 All parameters under `scan.*` and `platform.*`.
 
 ### 7.1 Scan
-| Parameter | Unit | Default | Notes |
-|-----------|------|---------|-------|
-| `scan.mode` | enum | None (required) | |
-| `scan.integration_time_mode` | enum: `direct`, `from_scan`, `from_frame_rate`, `auto` | `auto` | |
-| `scan.t_int_s` | s | derived | direct mode |
-| `scan.frame_period_s` | s | derived | stare / step-stare |
-| `scan.frame_rate_hz` | Hz | derived | stare / step-stare |
-| `scan.line_period_s` | s | derived | pushbroom |
-| `scan.dwell_time_per_pixel_s` | s | derived | whiskbroom |
-| `scan.settle_time_s` | s | 0.0 | step-stare |
-| `scan.slew_time_s` | s | 0.0 | step-stare |
-| `scan.n_mosaic_positions` | int | 1 | step-stare |
-| `scan.readout_time_s` | s | 0.001 | analog readout overhead |
-| `scan.fov_cross_rad` | rad (input deg) | derived from array width | whiskbroom |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Which scan mode each parameter serves:
+
+- `scan.t_int_s` — direct integration-time mode.
+- `scan.frame_period_s`, `scan.frame_rate_hz` — stare / step-stare.
+- `scan.line_period_s` — pushbroom.
+- `scan.dwell_time_per_pixel_s` — whiskbroom.
+- `scan.settle_time_s`, `scan.slew_time_s`, `scan.n_mosaic_positions` — step-stare.
+- `scan.readout_time_s` — analog readout overhead.
+- `scan.fov_cross_rad` — whiskbroom; derived from array width.
 
 ### 7.2 Platform / velocity
-| Parameter | Unit | Default | Notes |
-|-----------|------|---------|-------|
-| `platform.altitude_m` | m | None (required) | |
-| `platform.velocity_source` | enum: `orbit`, `aircraft`, `override` | inferred | |
-| `platform.orbit_altitude_km` | km | None | orbit |
-| `platform.orbit_inclination_deg` | deg | 0.0 | orbit |
-| `platform.airspeed_m_s` | m/s | None | aircraft |
-| `platform.ground_velocity_m_s` | m/s | computed or None | override |
-| `platform.slant_range_m` | m | from altitude + look angle | |
-| `platform.look_angle_deg` | deg | 0.0 | nadir-pointing |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Which velocity source each parameter serves:
+
+- `platform.velocity_source` — inferred when unset (`orbit` / `aircraft` / `override`).
+- `platform.orbit_altitude_km`, `platform.orbit_inclination_deg` — orbit source.
+- `platform.airspeed_m_s` — aircraft source.
+- `platform.ground_velocity_m_s` — override source.
+- `platform.slant_range_m` — from altitude + look angle.
+- `platform.look_angle_deg` — nadir-pointing default.
 
 ### 7.3 Target motion
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `target.velocity_x_m_s` | m/s | 0.0 |
-| `target.velocity_y_m_s` | m/s | 0.0 |
-| `target.tracked` | bool | False |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The parameters are `target.velocity_x_m_s`, `target.velocity_y_m_s`, and `target.tracked`.
 
 ---
 

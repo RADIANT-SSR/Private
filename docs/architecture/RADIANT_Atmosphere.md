@@ -400,49 +400,49 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 
 ### 6.1 Selection
 
-| Parameter | Unit / type | Default | Required for | Notes |
-|-----------|-------------|---------|--------------|-------|
-| `atmosphere.model` | enum: `simple`, `exo`, `tabulated`, `modtran`, `interpolated` | `simple` (schema default) | all | Five legal values; `interpolated` interpolates between pre-computed runs |
-| `atmosphere.turbulence_enabled` | bool | `False` | ground only | Rejected if observer is space |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `atmosphere.model` — five legal values; `interpolated` interpolates between pre-computed runs.
+- `atmosphere.turbulence_enabled` — ground-only; rejected if the observer is space.
 
 ### 6.2 Simple parametric
 
-| Parameter | Unit / type | Default | Notes |
-|-----------|-------------|---------|-------|
-| `atmosphere.visibility_km` | km | 23.0 | "Clear" per Koschmieder; rejected if ≤ 0 |
-| `atmosphere.aerosol_type` | enum: `rural`, `urban`, `maritime` | `rural` | Sets Ångström α and SSA |
-| `atmosphere.precipitable_water_cm` | cm | 1.4 (US Standard) — **profile-coupled** | If left at its schema default while a non-default `standard_atmosphere` is selected, the loader substitutes the profile's McClatchey/MODTRAN standard column (`simple.PROFILE_PWV_CM`: tropical 4.11, midlat_summer 2.92, midlat_winter 0.85, subarctic_summer 2.08, subarctic_winter 0.42, us_standard 1.4). An explicitly set value always wins (provenance-based, Gap 57). |
-| `atmosphere.standard_atmosphere` | enum: `tropical`, `midlat_summer`, `midlat_winter`, `subarctic_summer`, `subarctic_winter`, `us_standard` | `us_standard` | Used for `T_atm_eff` lookup, aerosol/H₂O scale heights, and the default water column (above) |
-| `atmosphere.cloud_fraction` | dimensionless 0–1 | 0.0 | Stubbed in v1; non-zero raises `NotImplementedError` |
-| `atmosphere.cloud_optical_depth` | dimensionless | 0.0 | Same |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `atmosphere.visibility_km` — "clear" per Koschmieder; rejected if ≤ 0.
+- `atmosphere.aerosol_type` — sets Ångström α and SSA.
+- `atmosphere.precipitable_water_cm` — **profile-coupled**: if left at its schema default while a non-default `standard_atmosphere` is selected, the loader substitutes the profile's McClatchey/MODTRAN standard column (`simple.PROFILE_PWV_CM`: tropical 4.11, midlat_summer 2.92, midlat_winter 0.85, subarctic_summer 2.08, subarctic_winter 0.42, us_standard 1.4). An explicitly set value always wins (provenance-based, Gap 57).
+- `atmosphere.standard_atmosphere` — used for `T_atm_eff` lookup, aerosol/H₂O scale heights, and the default water column (above).
+- `atmosphere.cloud_fraction` — stubbed in v1; non-zero raises `NotImplementedError`.
+- `atmosphere.cloud_optical_depth` — same (stubbed in v1).
 
 ### 6.3 Tabulated
 
-| Parameter | Unit / type | Default | Notes |
-|-----------|-------------|---------|-------|
-| `atmosphere.tabulated_transmittance_file` | path | None (required) | CSV / .npz / .sli; ascending λ in µm |
-| `atmosphere.tabulated_path_radiance_file` | path | None (required) | Same format; W/m²/sr/µm |
-| `atmosphere.tabulated_downwelling_file` | path | None (optional) | Same format; defaults to zero with warning |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `atmosphere.tabulated_transmittance_file` — CSV / .npz / .sli; ascending λ in µm.
+- `atmosphere.tabulated_path_radiance_file` — same format; W/m²/sr/µm.
+- `atmosphere.tabulated_downwelling_file` — same format; optional, defaults to zero with a warning.
 
 ### 6.4 MODTRAN
 
-| Parameter | Unit / type | Default | Notes |
-|-----------|-------------|---------|-------|
-| `atmosphere.modtran.tape7_path` | path | `""` (unset) | Tape7 file import (§5.1). Set → the file wins; binary/cache/fallback never consulted. Geometry-agnostic; `h_tgt > 0` rejected unless `tape7_up_path` supplies the target leg |
-| `atmosphere.modtran.tape7_sun_path` | path | `""` (unset) | Optional sun-leg tape7 (§5.1, CU-011 file flavor). Requires `tape7_path`. Set → `τ_sun` from this file, no collapse warning; unset → `τ_sun` aliases `τ_up` with a warning |
-| `atmosphere.modtran.tape7_up_path` | path | `""` (unset) | Optional target→sensor up-leg tape7 (§5.1, Gap 94). Requires `tape7_path` (the full column). Set → `τ_up`/`L_path_up` from this file and airborne targets (`h_tgt > 0`) accepted; unset → airborne targets rejected on the file-import path |
-| `atmosphere.modtran.flux_path` | path | `""` (unset) | Optional spectral flux CSV supplying downwelling (§5.1, CU-157). Requires `tape7_path`. Set → the DOWN column feeds `E_sky_thermal` (thermal band) and `E_sky_scattered` (reflective-solar band), superseding the Gap 81 zeros; unset → both sky terms stay zero with the Gap 81 warning |
-| `atmosphere.modtran.binary_path` | path | `modtran` on `PATH`, else the per-platform install location (POSIX `/usr/local/bin/modtran`; Windows `C:\Program Files\MODTRAN\modtran.exe`) | Cross-platform default (CU-151); existence is checked at first use (not config load) and a missing binary raises `ModtranUnavailableError` |
-| `atmosphere.modtran.cache_dir` | path | `~/.radiant/modtran_cache/` | Created if missing |
-| `atmosphere.modtran.allow_fallback` | bool | `False` | If `True`, falls back to simple parametric on missing binary |
-| `atmosphere.modtran.atmosphere_profile` | enum: `tropical`, `midlat_summer`, `midlat_winter`, `subarctic_summer`, `subarctic_winter`, `us_standard` | `us_standard` | Maps to `MODEL` 1–6 |
-| `atmosphere.modtran.aerosol_model` | enum: `rural`, `urban`, `maritime`, `tropospheric`, `none` | `rural` | Maps to `IHAZE` |
-| `atmosphere.modtran.h2o_scale` | dimensionless multiplier | 1.0 | `H2OSTR = "1.0g"` syntax handled by deck builder |
-| `atmosphere.modtran.o3_scale` | dimensionless multiplier | 1.0 | Same |
-| `atmosphere.modtran.cloud_model` | enum: `none`, `cumulus`, `altostratus`, `stratus`, `stratocumulus`, `nimbostratus` | `none` | Cloud fraction is 0/1 in v1 (stubbed for fractional) |
-| `atmosphere.modtran.disort_streams` | int | 8 | 4 for fast mode; 8 for production; 16 reserved |
-| `atmosphere.modtran.spectral_resolution_cm1` | cm⁻¹ | 1.0 | Drives `DV` and `FWHM` |
-| `atmosphere.modtran.extra_cards` | dict[str,str] | `{}` | Override hatch; recorded in cache key |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `atmosphere.modtran.tape7_path` — Tape7 file import (§5.1). Set → the file wins; binary/cache/fallback never consulted. Geometry-agnostic; `h_tgt > 0` rejected unless `tape7_up_path` supplies the target leg.
+- `atmosphere.modtran.tape7_sun_path` — optional sun-leg tape7 (§5.1, CU-011 file flavor). Requires `tape7_path`. Set → `τ_sun` from this file, no collapse warning; unset → `τ_sun` aliases `τ_up` with a warning.
+- `atmosphere.modtran.tape7_up_path` — optional target→sensor up-leg tape7 (§5.1, Gap 94). Requires `tape7_path` (the full column). Set → `τ_up`/`L_path_up` from this file and airborne targets (`h_tgt > 0`) accepted; unset → airborne targets rejected on the file-import path.
+- `atmosphere.modtran.flux_path` — optional spectral flux CSV supplying downwelling (§5.1, CU-157). Requires `tape7_path`. Set → the DOWN column feeds `E_sky_thermal` (thermal band) and `E_sky_scattered` (reflective-solar band), superseding the Gap 81 zeros; unset → both sky terms stay zero with the Gap 81 warning.
+- `atmosphere.modtran.binary_path` — cross-platform default (CU-151): `modtran` on `PATH`, else the per-platform install location (POSIX `/usr/local/bin/modtran`; Windows `C:\Program Files\MODTRAN\modtran.exe`). Existence is checked at first use (not config load) and a missing binary raises `ModtranUnavailableError`.
+- `atmosphere.modtran.cache_dir` — created if missing.
+- `atmosphere.modtran.allow_fallback` — if `True`, falls back to simple parametric on missing binary.
+- `atmosphere.modtran.atmosphere_profile` — maps to `MODEL` 1–6.
+- `atmosphere.modtran.aerosol_model` — maps to `IHAZE`.
+- `atmosphere.modtran.h2o_scale` — `H2OSTR = "1.0g"` syntax handled by deck builder.
+- `atmosphere.modtran.o3_scale` — same (dimensionless multiplier).
+- `atmosphere.modtran.cloud_model` — cloud fraction is 0/1 in v1 (stubbed for fractional).
+- `atmosphere.modtran.disort_streams` — 4 for fast mode; 8 for production; 16 reserved.
+- `atmosphere.modtran.spectral_resolution_cm1` — drives `DV` and `FWHM`.
+- `atmosphere.modtran.extra_cards` — override hatch; recorded in cache key.
 
 ### 6.5 Geometry (consumed, not owned)
 
@@ -454,12 +454,12 @@ These parameters live in `geometry.*`, owned by GeometryStage since ADR-0006 (de
 
 ### 6.6 Turbulence (stubbed)
 
-| Parameter | Unit / type | Default | Notes |
-|-----------|-------------|---------|-------|
-| `atmosphere.turbulence_enabled` | bool | `False` | Rejected if observer is space |
-| `atmosphere.r0_cm` | cm at 500 nm | 10.0 | Fried parameter; user provides directly in v1 |
-| `atmosphere.turbulence_outer_scale_m` | m | 25.0 | von Kármán outer scale; reserved (Kolmogorov uses ∞) |
-| `atmosphere.cn2_profile` | enum: `none`, `hufnagel_valley`, `slc_day`, `slc_night` | `none` | Reserved interface; `none` means "use r₀ directly" |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `atmosphere.turbulence_enabled` — rejected if observer is space.
+- `atmosphere.r0_cm` — Fried parameter (at 500 nm); user provides directly in v1.
+- `atmosphere.turbulence_outer_scale_m` — von Kármán outer scale; reserved (Kolmogorov uses ∞).
+- `atmosphere.cn2_profile` — reserved interface; `none` means "use r₀ directly".
 
 ---
 

@@ -318,33 +318,21 @@ This section enumerates only parameters that ship today. Future-state spatial pa
 
 ### 10.1 Optics-side spatial parameters
 
-| Parameter | Unit | Default | Source |
-|-----------|------|---------|--------|
-| `optics.aperture_diameter_m` | m | required | `optics/_schema.py` |
-| `optics.focal_length_m` | m | required | |
-| `optics.f_number` | — | derived | |
-| `optics.obscuration_ratio` | — | 0.0 | |
-| `optics.defocus_um` | µm | 0.0 | |
-| `optics.wfe_mode` | enum | `scalar_rms` | `scalar_rms`/`zernike`/`field_dependent` |
-| `optics.wfe_rms_waves` | waves | 0.0 | |
-| `optics.wfe_reference_wavelength_um` | µm | (band-center) | |
-| `optics.field_position_x` | deg | 0.0 | |
-| `optics.field_position_y` | deg | 0.0 | |
-| `optics.psf_n_wavelengths` | int | 1 | controls polychromatic broadening (§3.4) |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The `optics.*` spatial parameters (`aperture_diameter_m`, `focal_length_m`, `f_number`, `obscuration_ratio`, `defocus_um`, `wfe_mode`, `wfe_rms_waves`, `wfe_reference_wavelength_um`, `field_position_x`, `field_position_y`, `psf_n_wavelengths`) all live in `optics/_schema.py`. Design context:
+
+- `optics.psf_n_wavelengths` — controls polychromatic broadening (§3.4).
 
 Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded inside `optics/sampling.py` (128 and 8 respectively). Promoting them to schema parameters is an open follow-up (§4).
 
 ### 10.2 Platform-side smear / motion / jitter
 
-| Parameter | Unit | Default | Notes |
-|-----------|------|---------|-------|
-| `platform.ground_velocity_m_s` | m/s | 0.0 | along-track velocity for smear; identity-grouped with `geometry.ground_speed_m_s` |
-| `platform.smear_length_um` | µm | 0.0 | image-plane smear length (direct) |
-| `platform.h_sensor` | m | (schema) | sensor altitude (space subcase; see CU-090 re: `geometry.sensor_altitude_m`) |
-| `platform.jitter_rms_urad` | µrad | 0.0 | |
-| `platform.jitter_axes` | enum (`isotropic` / `anisotropic`) | `isotropic` | |
-| `platform.jitter_rms_x_urad` | µrad | 0.0 (anisotropic only) | |
-| `platform.jitter_rms_y_urad` | µrad | 0.0 (anisotropic only) | |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `platform.ground_velocity_m_s` — along-track velocity for smear; identity-grouped with `geometry.ground_speed_m_s`.
+- `platform.smear_length_um` — image-plane smear length (direct).
+- `platform.h_sensor` — sensor altitude (space subcase; see CU-090 re: `geometry.sensor_altitude_m`).
+- `platform.jitter_axes` — `isotropic` / `anisotropic`.
+- `platform.jitter_rms_x_urad`, `platform.jitter_rms_y_urad` — anisotropic mode only.
 
 **[DESIGN-TARGET] — not in the schema:** `platform.velocity_m_s`,
 `platform.altitude_m` (use `ground_velocity_m_s` / `h_sensor`),
@@ -354,14 +342,13 @@ terms (§6, psf_4/psf_5 "NOT IMPLEMENTED").
 
 ### 10.3 Detector / readout / atmosphere pass-through
 
-| Parameter | Unit | Default | Notes |
-|-----------|------|---------|-------|
-| `detector.pixel_pitch_x_um` | µm | required | feeds `pixel_pitch_m` for sampling |
-| `detector.pixel_pitch_y_um` | µm | required | |
-| `detector.ipc_coupling` | — | 0.0 | term 4 in §9.2 (α); doc previously called this `ipc_alpha` |
-| `detector.charge_diffusion_length_m` | m | 0.0 | term 3 in §9.2; doc previously called this `diffusion_sigma_um` |
-| `readout.tdi_misalign_pixels` | pixels | 0.0 | term 9 in §9.2 |
-| `atmosphere.r0_m` | m | (consumed from atmosphere model) | term 10 in §9.2; canonical unit is metres, not cm |
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context (mapping to the §9.2 MTF-cascade terms):
+
+- `detector.pixel_pitch_x_um` — feeds `pixel_pitch_m` for sampling.
+- `detector.ipc_coupling` — term 4 in §9.2 (α); doc previously called this `ipc_alpha`.
+- `detector.charge_diffusion_length_m` — term 3 in §9.2; doc previously called this `diffusion_sigma_um`.
+- `readout.tdi_misalign_pixels` — term 9 in §9.2.
+- `atmosphere.r0_m` — term 10 in §9.2; canonical unit is metres, not cm (consumed from the atmosphere model, not a spatial-stage parameter).
 
 ---
 

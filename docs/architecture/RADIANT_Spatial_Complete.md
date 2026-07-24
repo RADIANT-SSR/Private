@@ -11,7 +11,7 @@
 
 There is **no separate "spatial stage"** in RADIANT. Spatial physics is interleaved through the radiometric chain: each stage that has a spatial effect publishes its MTF contribution to `state.mtf_terms` and (where it owns a kernel) convolves it into the propagating `EffectivePSF`. The accumulator is `ChainState`; the stages that contribute spatial terms are `OpticsStage`, `PlatformStage`, `DetectorStage`, `ReadoutStage`, and `AtmosphereStage` (turbulence, ground-based scenarios only). `PerformanceStage` reads the accumulated terms at the end and forms the system MTF.
 
-This is the actual implementation as of 2026-04-25 (post-Stage-8). Earlier docs implied a monolithic "spatial pass" or a configurable fidelity dial; neither exists. The dual-path discipline (PSF path + MTF product path) is enforced by the **unconditional** `check_dual_path_consistency` step in `PerformanceStage`, with a fixed tolerance of `2e-2` — see §1.4 and §9.3.
+This is the actual implementation as of 2026-04-25 (post-Stage-8). Earlier docs implied a monolithic "spatial pass" or a configurable fidelity dial; neither exists. The dual-path discipline (PSF path + MTF product path) is enforced by the `check_dual_path_consistency` step in `PerformanceStage`, with a fixed tolerance of `2e-2`. The check runs on every chain execution **in which the spatial (PSF/MTF) path is computed**; it is skipped only when the analyst deselects the entire Spatial-MTF metric group and no enabled metric needs a spatial input (Gap 96 metric selection, owner-ratified 2026-07-18) — there is then no spatial computation to check. See §1.4 and §9.3, and CLAUDE.md Rule 4.
 
 ---
 
@@ -41,7 +41,7 @@ The previous generation of EO performance tools computed MTF and EE independentl
 
 Both paths originate from the same pupil. After all convolutions are applied to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of the contributor MTFs (excluding terms that have no spatial-domain kernel — see §9.3) to within a fixed tolerance.
 
-Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`), the check is **unconditional** — it runs on every chain execution, not gated by a fidelity preset. Tolerance: `2e-2` absolute error on max(|MTF_psf − MTF_product|) below Nyquist on each axis. The check function is `check_dual_path_consistency` in `src/radiant/performance/consistency_check.py`; the result lives at `state.stage_outputs["performance"]["dual_path_consistency"]`.
+Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`), the check is **not gated by a fidelity preset** — there is no draft/fast mode that skips it. It runs on every chain execution in which the spatial (PSF/MTF) path is computed, and is skipped only when the Spatial-MTF metric group is deselected and no enabled metric needs a spatial input (Gap 96 metric selection) — there is then no spatial computation to check. Tolerance: `2e-2` absolute error on max(|MTF_psf − MTF_product|) below Nyquist on each axis. The check function is `check_dual_path_consistency` in `src/radiant/performance/consistency_check.py`; the result lives at `state.stage_outputs["performance"]["dual_path_consistency"]`.
 
 A failure means a degradation was added to one path but not the other — the build is broken. The default `2e-2` tolerance (CU-045, 2026-07-10) sits ~2× above the worst measured full-chain discretization residual (~1e-2 at undersampled Q ≈ 0.2) now that the pixel-aperture rect kernel is area-integrated (anti-aliased edges — CU-003 option a; the old binary mask cost up to 4.2e-2 at Nyquist). Wide enough to absorb the remaining bin-average envelope, narrow enough to catch a missing convolution or an unmultiplied MTF term.
 
@@ -97,7 +97,7 @@ Source: `src/radiant/optics/psf/effective.py`.
 2. `lsf(axis)` is the projection of `data` onto `axis`.
 3. `erf(axis)` is the cumulative integral of `lsf(axis)`.
 4. `edge_slope(axis)` is the maximum slope of `erf(axis)` in contrast per FPA-meter.
-5. `rer()` is `erf(0.5·pitch) − erf(−0.5·pitch)` averaged across the two axes (GIQE-5 definition).
+5. `rer()` is `erf(0.5·pitch) − erf(−0.5·pitch)` combined across the two axes as the **geometric mean** `sqrt(rer_x · rer_y)` (GIQE-5 definition; `optics/psf/effective.py::rer`). For anisotropic PSFs (e.g. smear) the geometric mean differs from the arithmetic average — the code and RADIANT_Metrics.md §4.7 both use the geometric mean.
 6. `ensquared_energy(box, offset)` is `∫∫_box data dxdy` with the box centered at `offset`.
 7. `strehl(reference)` is `data.peak / reference.peak` after both are normalized to unit volume. In the shipped chain the reference is `stage_outputs["optics"]["reference_psf"]` — the diffraction-limited PSF from the same pupil with WFE = 0, carrying the **same detector kernels** as the degraded PSF — published by `OpticsStage`; `PerformanceStage` computes the reported `strehl` metric as `epsf.strehl(ref_epsf)`.
 
@@ -168,7 +168,7 @@ The two free knobs (`pupil_npix=128`, `psf_oversample=8`) are **not** exposed as
 
 **Removed.** Earlier drafts of this doc described a `FidelityPreset` enum (`draft` / `standard` / `high` / `publication`) that would gate (a) the consistency-check tolerance and (b) bundles of `pupil_npix` / `psf_oversample` / `n_wavelength_samples` defaults. Per **ADR-A** (`docs/adr/ADR-A-fidelity-preset.md`):
 
-- The dual-path consistency check is **unconditional** with tolerance `2e-2` (§1.4, §9.3). No "draft mode that skips the check" exists.
+- The dual-path consistency check runs whenever the spatial (PSF/MTF) path is computed, with tolerance `2e-2` (§1.4, §9.3); it is skipped only when the Spatial-MTF metric group is deselected and nothing else needs a spatial input (Gap 96). No "draft mode that skips the check" exists.
 - The two sampling knobs (`pupil_npix=128`, `psf_oversample=8`) are unconditional defaults. If a scenario needs different sampling, the schema gets two new parameters; it does not need a preset enum to bundle them.
 - Polychromatic sampling is controlled by the existing `optics.psf_n_wavelengths` parameter (§3.4), which is the only "fidelity-like" knob that ships.
 
@@ -284,12 +284,12 @@ The remaining contributors are physically independent of the pupil and of each o
 | 12 | `mtf_scatter` | (1 − TIS) + TIS·exp(−2π² σ_halo² f²), isotropic | `optics/scatter.py` |
 
 Notes:
-- The previous 12-component table listed `mtf_diffraction`, `mtf_wfe`, and `mtf_defocus` as separate terms. These are unified into a single `mtf_optics` via pupil autocorrelation (§9.1). The component count is 11, not 12.
+- Diffraction, WFE, and defocus are **not** separate terms: they are unified into the single `mtf_optics` via pupil autocorrelation (§9.1), which is why the table opens with one optics term rather than three. The 12 rows above are the distinct contributor terms in the current build.
 - Each term keys into `state.mtf_terms` with a `_x` / `_y` suffix for per-axis storage (e.g., `mtf_optics_x`, `mtf_pixel_aperture_y`).
 - **Scatter MTF (Gap 31) enters BOTH paths**: `OpticsStage` computes TIS = 1 − exp(−(4πσ_s/λ)²) from `optics.surface_roughness_nm` at the ePSF wavelength, convolves the mixed kernel `(1−TIS)·δ + TIS·Gaussian(optics.scatter_halo_sigma_um)` into the ePSF, and pushes the analytic Fourier-pair term `(1−TIS) + TIS·exp(−2π²σ_halo²f²)` isotropically. Included in the consistency check. Harvey–Shack BRDF is out of scope for v1.
 - **Electronics MTF (Gap 32) enters BOTH paths**, unlike TDI: `ReadoutStage` pushes the analytic term and builds the matching Gaussian-in-x kernel (delta in y — readout-axis blur only), which `PerformanceStage` convolves into the `EffectivePSF` exactly like the IPC kernel (the kernel travels via `stage_outputs["readout"]["electronics_kernel"]`, Rule 11). It is therefore *included* in the dual-path consistency comparison. Parameter: `readout.electronics_sigma_um` (default 0 = ideal electronics).
 
-### 9.3 The Consistency Check (unconditional)
+### 9.3 The Consistency Check (whenever the spatial path is computed)
 
 After every spatial degradation has been applied via convolution to the PSF (§6), the FFT of the resulting `psf_eff` must equal the product of `mtf_optics` and the independent contributor MTFs that have a corresponding spatial kernel:
 
@@ -308,7 +308,7 @@ The check runs on every chain execution in which the spatial (PSF/MTF) path is c
 
 **Excluded prefixes:** `mtf_tdi*` is excluded because TDI misalignment has no spatial-domain kernel in v1 (§6). When a kernel is added, the exclusion list shrinks; both paths must update together.
 
-**Why the wider tolerance than the previous doc claimed (2e-2 vs the old "1e-6"):** the rect kernel in `optics/pixel_kernel.py` is a binary mask sampled on the FPA grid, not the analytic `sinc` it pairs with on the product side; at low Q (long-wave SWIR, small focal length, e.g., `swir_aerial_gas` with Q ≈ 0.34) the discretization mismatch reaches ~5 % near Nyquist. CU-003 tracks the planned anti-aliased-rect fix that would let the tolerance tighten back to ~1e-6; until then, `2e-2` is calibrated to the real-world worst case across the baseline scenario set without masking any actual missing-degradation regressions.
+**Why the wider tolerance than the previous doc claimed (2e-2 vs the old "1e-6"):** the rect kernel in `optics/pixel_kernel.py` is **area-integrated** — each 1-D sample carries the exact area overlap of the pixel aperture (anti-aliased edges, CU-003 option a, resolved 2026-07-10) — not the old binary mask. Even so, an area-integrated sampled kernel is not the continuous analytic `sinc` it pairs with on the product side; the residual is the irreducible `sinc(πfΔ)` bin-average envelope (~3.5e-3 at Nyquist worst-case), reaching ~1e-2 at undersampled Q ≈ 0.2 (CU-045). `2e-2` sits ~2× above that measured full-chain floor — calibrated to the real-world worst case across the baseline scenario set without masking any actual missing-degradation regression.
 
 ---
 
@@ -330,12 +330,12 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 
 - `platform.ground_velocity_m_s` — along-track velocity for smear; identity-grouped with `geometry.ground_speed_m_s`.
 - `platform.smear_length_um` — image-plane smear length (direct).
-- `platform.h_sensor` — sensor altitude (space subcase; see CU-090 re: `geometry.sensor_altitude_m`).
+- `platform.h_sensor` — **deprecated alias** of `geometry.sensor_altitude_m`; no longer a distinct schema parameter (folded per CU-090 / ADR-0006, `geometry/_schema.py`). Use `geometry.sensor_altitude_m`.
 - `platform.jitter_axes` — `isotropic` / `anisotropic`.
 - `platform.jitter_rms_x_urad`, `platform.jitter_rms_y_urad` — anisotropic mode only.
 
 **[DESIGN-TARGET] — not in the schema:** `platform.velocity_m_s`,
-`platform.altitude_m` (use `ground_velocity_m_s` / `h_sensor`),
+`platform.altitude_m` (use `ground_velocity_m_s` / `geometry.sensor_altitude_m`),
 `scan.cross_track_velocity_m_s`, `target.velocity_x_m_s`, `target.velocity_y_m_s`
 — cross-track scan smear and target-motion smear are the unbuilt Gap-74 cascade
 terms (§6, psf_4/psf_5 "NOT IMPLEMENTED").
@@ -360,7 +360,7 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 | `samples_across_Airy_FWHM ≥ 2` | `optics/sampling.py::compute_sampling` | soft (logs warning) |
 | `psf.data` integrates to 1 ± numerical error | `optics/psf/builder.py` re-normalizes after each kernel | hard (always-true post-build) |
 | `mtf_2d` ≤ 1 + 1e-9 | `optics/psf/effective.py` per FFT normalization | hard |
-| Dual-path MTF consistency, tol = 2e-2 | `performance/consistency_check.py` (§9.3) | **unconditional**; soft on failure (logs a warning, result stored in stage outputs — does not raise) |
+| Dual-path MTF consistency, tol = 2e-2 | `performance/consistency_check.py` (§9.3) | runs whenever the spatial path is computed (skipped only when the Spatial-MTF group is deselected, Gap 96); soft on failure (logs a warning, result stored in stage outputs — does not raise) |
 | `r0_cm > 0` if turbulence enabled | `atmosphere/turbulence.py` | hard |
 | `psf_eff` symmetric for symmetric inputs | unit tests | sanity |
 
@@ -375,4 +375,5 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 - Speckle from coherent illumination.
 - Adaptive-optics correction simulation.
 - Tracking mode (target / background PSF split — §8 — v2).
-- Anti-aliased pixel-aperture rect kernel (CU-003) — would let §9.3 tighten to ~1e-6.
+
+(The anti-aliased pixel-aperture rect kernel is **shipped**, not out of scope — CU-003 option a landed 2026-07-10; see §9.3 and §1.4.)

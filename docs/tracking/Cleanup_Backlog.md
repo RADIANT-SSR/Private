@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-191 — Track A3 noise/sensitivity code-vs-derivation comparison never run as pinned tests (RSS / ADC / D*)
+
+**Discovered**: Assurance Audit remediation R1.8 (Track A3 comparison wave), 2026-07-23.
+**Status**: RESOLVED 2026-07-23, commit `3dfe941`. **Symptom**: the audit's Track A3 blind derivation produced noise anchors but the code-vs-derivation diff was never completed (session usage limit). Several hard anchors were unpinned: the RSS total (only a self-referential structural test existed), the specific 14-bit/100 ke⁻ ADC case (existing tests used g=1/5), and the D*=6.324555e12 area-in-cm² case (only the 1e-12 NEP case was pinned). **Resolution**: added Level-0 anchors — RSS √(16000+2500+100)=136.381817 e⁻ via a hand-built `NoiseBudget` (variance-space RSS + temporal/spatial split), ADC g=6.10351562 e⁻/DN and σ_ADC=g/√12=1.76193316 (pins g/√12 vs the wrong g/12), D*=6.324555e12 (pins area-in-cm²). **A3 comparison result**: every anchor matched the implementation exactly — no drift. Checklist items verified as already-covered/declared: Δf=1/(2t_int) (`test_bandwidth_anchor`=50 Hz), TDI shot ×√N (`test_tdi`), PRNU linear-in-signal (`prnu_noise` 100 e⁻ at 1%/10000), contrast-SNR denominator uses `sigma_total_e` (background+dark shot included), étendue paraxial π/(4F#²) declared in `aperture.py` docstring. Test-only change. Related: [[CU-186]], [[CU-190]].
+
 ### CU-190 — Track A4 geometry code-vs-derivation comparison never run as pinned tests (viewing triangle / orbit / off-nadir GSD / solar zenith)
 
 **Discovered**: Assurance Audit remediation R1.7 (Track A4 comparison wave), 2026-07-23.

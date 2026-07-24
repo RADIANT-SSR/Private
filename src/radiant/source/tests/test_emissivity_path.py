@@ -60,10 +60,14 @@ class TestLoadEmissivity:
         eps = _load_emissivity_on_grid(_params(**{"source.target.emissivity_path": str(csv)}), grid)
         assert eps is not None
         assert eps.values.shape == grid.shape
-        # genuinely spectral (monotone ramp), all in [0, 1]
-        assert not np.allclose(eps.values, eps.values[0])
-        assert eps.values.min() >= 0.0 and eps.values.max() <= 1.0
-        assert eps.values[-1] > eps.values[0]
+        # Pin the interpolated values (audit B2-6): the prior test asserted
+        # only a monotone ramp in [0,1], so a wrong-column read that still
+        # ramped up would pass. Linear interpolation of (7,0.60)/(10,0.80)/
+        # (13,0.95): ε(8)=0.6667, ε(10)=0.80, ε(12)=0.90.
+        expected = np.interp(grid, [7.0, 10.0, 13.0], [0.60, 0.80, 0.95])
+        np.testing.assert_allclose(eps.values, expected, rtol=1e-9)
+        assert eps.values[0] == pytest.approx(0.66666667, rel=1e-6)  # ε(8)
+        assert eps.values[-1] == pytest.approx(0.90, rel=1e-9)  # ε(12)
 
     def test_out_of_range_raises(self, tmp_path: Path) -> None:
         csv = tmp_path / "bad.csv"

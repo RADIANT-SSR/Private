@@ -69,6 +69,18 @@ class TestGroundTrackSpacing:
 
 
 class TestRevisit:
+    def test_revisit_value_anchor(self) -> None:
+        """Hand anchor for revisit interval (audit B2-5): 600 km, 50 km swath.
+
+        The prior TestRevisit asserted only orderings, so a constant-factor
+        error passed. First-order equatorial revisit =
+        spacing_eq / (swath · orbits_per_day). At 600 km:
+        orbits/day = 86400/period ≈ 86400/5792.5 ≈ 14.92;
+        spacing_eq = 2πR_E/orbits_per_day ≈ 40031/14.92 ≈ 2683.7 km;
+        revisit ≈ 2683.7 / (50 · 14.92) ≈ 3.60 days.
+        """
+        assert revisit_interval_days(600e3, 50e3) == pytest.approx(3.60, rel=2e-2)
+
     def test_wider_swath_shorter_revisit(self) -> None:
         narrow = revisit_interval_days(600e3, 50e3)
         wide = revisit_interval_days(600e3, 200e3)

@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-198 — RADIANT_Source_Target_System.md §8 documents a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema
-
-**Discovered**: Assurance Audit remediation R2.4 (arch-doc parameter-table sweep), 2026-07-23.
-**Status**: Open — doc drift, non-blocking. While converting duplicated parameter tables to generated-reference pointers (R2.4), the §8 parameter catalog in `RADIANT_Source_Target_System.md` (§8.1–§8.10, ~12 tables) was found to enumerate parameters — `source.material.name/temperature/emissivity_value/…`, `source.solar.*`, `source.sub_pixel.*`, `source.point.*`, `source.thermal.*`, `source.tabulated.*`, `regime.point_source_threshold` — **none of which exist** in the schema or the generated `parameter_reference.md` (0 occurrences each). The shipped source namespace is `source.target.*`, `source.background.*`, `source.scene_type`, `source.regime_override`, etc. The §8 catalog is an aspirational/legacy naming scheme that was never implemented (or was renamed pre-ship), so it could not be converted to a canonical-reference pointer under R2.4 (the pointer would send readers to entries that aren't there) and was deliberately left intact.
-**File**: `docs/architecture/RADIANT_Source_Target_System.md` §8 (parameter tables) — plus any prose referencing the `source.material.*`/`source.solar.*` names.
-**Symptom**: a reader configuring a source from §8 would set parameter names the schema rejects. Doc describes a parameter surface that does not exist.
-**Why it still matters**: aspirational-doc drift (the exact failure mode the audit and Rule 20 guard against) in a normative subsystem doc; RADIANT_Source_Target_System.md was outside the 2026-07 audit's doc scope so this went uncaught until now.
-**Suggested fix**: (b) stand-alone doc task — rewrite §8 against the real `source.target.*` / `source.background.*` schema (cross-check the generated reference), preserving the genuine descriptor/ADR-0008 alias narrative but re-keying it to shipped names; or (a) if §8 is a design-target for a future source-namespace refactor, banner it `[DESIGN-TARGET]` explicitly so it does not read as shipped. Effort M; category A/D. Related: R2.4 ([[CU-197]]), Rule 20.
-
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
 **Discovered**: MODTRAN boost-ladder landing (plan §4.4 execution), 2026-07-20
@@ -114,6 +105,11 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-198 — RADIANT_Source_Target_System.md §8 documented a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema
+
+**Discovered**: Assurance Audit remediation R2.4 (arch-doc parameter-table sweep), 2026-07-23.
+**Status**: RESOLVED 2026-07-24, commit `beb14d6`. **Symptom**: §8 of `RADIANT_Source_Target_System.md` (§8.1–§8.10, ~12 tables) enumerated `source.material.*`, `source.solar.*`, `source.thermal.*`, `source.tabulated.*`, `source.sub_pixel.*`, `source.point.*`, and `regime.*` parameters — **none of which exist** in any `_schema.py` or the generated `parameter_reference.md` (the shipped surface is `source.target.*` / `source.background.*` / `source.scene_type` / `source.regime_override`, resolved by `radiant.source._inferrer` into the T1–T7 descriptors). The doc's top reconciliation banner (CU-079) already flags the unified `ResolvedTarget` surface as design-target, but §8 read as a live parameter catalog when accessed directly — it misled the R2.4 arch-doc sweep. **Resolution (option a)**: added a §8-level `[DESIGN-TARGET]` banner stating the names are not in the schema and pointing at the shipped `source.target.*`/`source.background.*` descriptor schema (`source/_schema.py`, ADR-0003/0004/0008) and the generated Parameter Reference. A full re-key of §8 to shipped names is deferred to the CU-084 disposition (the `ResolvedTarget` machinery is exported but not chain-wired). Doc-only. Related: [[CU-197]] (R2.4), [[CU-084]], Rule 20.
 
 ### CU-188 — Sampled-PSF EE_box carried an O(dx) box-edge bias that over-stated point-source / sub-pixel SNR at the default resolution
 

@@ -122,7 +122,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | B2-3, B1-4 | **DONE** → R1.1, CU-183, commit `49898fa` (Planck-family anchor literals) |
 | B2-1, B2-2 | **DONE** → R1.2, CU-184, commit `c11195f` (responsivity value anchors) |
 | B1-1 | **DONE** → R1.3, CU-185, commit `46c1e52` (GIQE-5 coefficients pinned) |
-| B1-2, B1-3, B1-5..B1-9, B2-4..B2-8 | Planned → R1 (CU entries to be filed per item when this plan is ratified) |
+| B1-2 | **DONE** → R1.4, CU-186, commit `889f0b1` (NEP↔electrons hand anchor) |
+| B1-3, B1-5..B1-9, B2-4..B2-8 | Planned → R1 (CU entries to be filed per item when this plan is ratified) |
 | Track C drifted: D1–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risks 1–3 (consistency gate, conversion lint, approx lint) | Planned → R2 |
 | Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | Proposed **Declined** (documented residual risk — revisit if a regression ever implicates them) |

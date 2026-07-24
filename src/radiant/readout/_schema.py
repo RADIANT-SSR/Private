@@ -231,6 +231,31 @@ ELECTRONICS_SIGMA_UM = ParameterDef(
     default_justification="0.0 = ideal electronics (backward compatible).",
 )
 
+FRAME_PERIOD_S = ParameterDef(
+    name="readout.frame_period_s",
+    description=(
+        "Frame period [s]: the time between frame starts, stored "
+        "independently of the integration time "
+        "(spectral_integration.integration_time_s) per RADIANT_Conventions.md "
+        "§4. Frame rate = 1/frame_period and duty cycle = t_int/frame_period "
+        "are derived by radiant.readout.frame_timing and published in "
+        "stage_outputs['readout']. Default 0.0 means 'unset': the frame period "
+        "defaults to the integration time (frame rate = 1/t_int, duty cycle = "
+        "1.0) with a logged warning. A duty cycle > 1 (integration longer than "
+        "the frame period) is rejected."
+    ),
+    dtype=float,
+    canonical_unit="s",
+    input_unit="s",
+    default=0.0,
+    bounds=(0.0, 1.0e6),
+    tags=frozenset({"readout", "timing"}),
+    default_justification=(
+        "0.0 = unset: derive the frame period from the integration time "
+        "(duty cycle 1.0), the backward-compatible continuous-readout case."
+    ),
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     READ_NOISE_E_RMS,
     GAIN_E_PER_DN,
@@ -248,4 +273,5 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     N_COADDS,
     COADD_MODE,
     ELECTRONICS_SIGMA_UM,
+    FRAME_PERIOD_S,
 )

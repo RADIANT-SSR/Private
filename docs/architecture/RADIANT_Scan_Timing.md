@@ -4,10 +4,16 @@
 **Scope**: Scan modes (stare, pushbroom, whiskbroom, step-stare), timing computation per mode, integration time derivation and consistency, ground-velocity computation, and the motion parameters that feed the spatial PSF cascade.
 **Sister documents**: RADIANT_Conventions.md, RADIANT_Spatial_Complete.md, RADIANT_Detector_Complete.md, RADIANT_Parameter_System.md
 
-> **Implementation status (2026-07-11, Gap 74).** The `TimingState` /
-> `ScanTimingStage` subsystem described below is a design target — there is no
-> `ScanMode` enum, no line-rate/frame-rate derivation, and no cross-track or
-> target-motion smear kernel. **What is implemented** is the single feasibility
+> **Implementation status (2026-07-11, Gap 74; updated 2026-07-23).** The
+> `TimingState` / `ScanTimingStage` subsystem described below is a design target
+> — there is no `ScanMode` enum, no line-rate derivation, and no cross-track or
+> target-motion smear kernel. **Two pieces are now implemented**, both outside
+> this design-target subsystem: (1) the basic **frame-rate / duty-cycle
+> derivation** of RADIANT_Conventions.md §4 — `readout.frame_period_s` +
+> `radiant.readout.frame_timing.compute_frame_timing`, published as
+> `frame_rate_hz` / `duty_cycle` in `stage_outputs["readout"]` (this is the
+> `frame_period`/`frame_rate`/`duty_cycle` math §7 describes, minus the
+> `scan.*` consistency-group machinery); and (2) the single feasibility
 > guard the capability audit flagged as silently missing (Gap 74, minimum
 > slice): the pushbroom/TDI per-line **dwell-time** constraint. When a
 > `platform.ground_velocity_m_s` is set, `PerformanceStage` computes

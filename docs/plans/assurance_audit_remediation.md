@@ -143,7 +143,8 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | M1–M2 (Metrics) | **DONE** → R3.7, CU-202, commit `8f046bf` |
 | P1–P3 (Parameter_System) | **DONE** → R3.8, CU-203, commit `0a75729` |
 | D3, D4, D5 + archive link (Master) | **DONE** → R3.3, CU-204, commit `606408c` |
-| Track C drifted remaining: D1–D2, D10–D18 | Planned → R3 (+R4 decisions) |
+| D1, D2 (Conventions) + R4.1 | **DONE** → R3.4, CU-205, commit `fd35136` (frame-rate contract implemented) |
+| Track C drifted remaining: D10–D18 (Testing_Validation) | Planned → R3.2 |
 | Unenforced risk #1 (consistency gate) | **DONE** → R2.1, CU-194, commit `bc93dc3` |
 | Unenforced risk #2 (conversion/constant lint) | **DONE** → R2.2, CU-195, commit `6ba652d` |
 | Unenforced risk #3 (approx-without-tolerance lint) | **DONE** → R2.3, CU-196, commit `27cc248` (also fixed 24 GUI-test violations beyond audit scope) |

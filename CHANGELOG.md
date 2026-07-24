@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Frame-rate / duty-cycle timing (RADIANT_Conventions.md §4).** New parameter
+  `readout.frame_period_s` (seconds; default `0.0` = unset) stores the frame
+  period independently of `spectral_integration.integration_time_s`.
+  `radiant.readout.frame_timing.compute_frame_timing` derives the frame rate
+  (`1/frame_period`) and duty cycle (`t_int/frame_period`); `ReadoutStage`
+  publishes `frame_period_s` / `frame_rate_hz` / `duty_cycle` /
+  `frame_period_defaulted` in `stage_outputs["readout"]`. An unset frame period
+  defaults to `t_int` (duty cycle 1.0, continuous readout — the prior implicit
+  behavior, so existing results are unchanged); a duty cycle > 1 is rejected.
+  Implements the previously-unbuilt §4 contract (assurance audit D1 / R4.1).
 - **Boost-phase atmosphere families — targets to 100 km + off-nadir + airborne
   sensors (MODTRAN boost-ladder expansion).** The shipped interpolated library
   gains three midlat_summer families built from 17 new real MODTRAN 6 runs

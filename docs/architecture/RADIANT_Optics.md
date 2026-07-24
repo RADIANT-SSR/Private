@@ -23,9 +23,11 @@ The optics module has one job: **deliver an `OpticsState` to the chain**. Five g
 > **Not implemented as a single object.** There is no `OpticsState` dataclass in
 > the codebase (only an aspirational mention in `aperture.py`'s module docstring).
 > `OpticsStage` writes its outputs directly into the immutable `ChainState`:
-> `A_collect`, `Ω_pixel`, `f_number`, `effective_psf`, `reference_psf`,
-> `nearfield_irradiance_at_fpa`, `stray_light_irradiance_at_fpa`, and the final
-> regime go into `stage_outputs["optics"]`; the optical MTF goes into `mtf_terms`
+> `A_collect`, `Ω_pixel` (written as `Omega_pixel`), `tau_opt`, `effective_psf`,
+> `reference_psf`, `nearfield_irradiance_at_fpa`, `stray_light_irradiance_at_fpa`,
+> and the final regime go into `stage_outputs["optics"]` (`f_number` is **not** a
+> stage output — it lives only in the ParameterSet's f-number consistency group);
+> the optical MTF goes into `mtf_terms`
 > (`mtf_optics_x/y`); the transmitted radiance goes into a frame (§11). The block
 > below is the *conceptual* contract those outputs satisfy, not a literal type.
 >
@@ -467,7 +469,7 @@ This is the most common confusion in EO performance modeling, and the architectu
 **Rules:**
 1. The signal path multiplies `L(λ) × A_collect × Ω_pixel × τ_opt(λ) × QE(λ)`. The Ω here is `Ω_pixel = pixel_area / focal_length²`.
 2. The nearfield path multiplies `ε_i(λ) × B(λ, T_i) × Ω_element_i × τ_downstream`. The Ω here is the per-element solid angle from the FPA's perspective.
-3. **No code anywhere uses both Ωs in the same expression.** They live in different functions, with different parameter names (`omega_pixel_sr` vs. `omega_element_sr`), and the type system flags any cross-use.
+3. **No code anywhere uses both Ωs in the same expression.** They live in different places under different names — the pixel solid angle is the stage output `Omega_pixel` (a plain `float`, consumed in `spectral_integration/stage.py`), the per-element solid angle is `OpticalElement.nearfield_solid_angle_sr` (`optics/element.py`). Both are bare floats: the separation is **structural** (different objects, different call sites), not enforced by a `NewType`/wrapper — nothing in the type system would flag a cross-wire, so it surfaces only as wrong radiometry. (An unenforced-risk item; see the Track-C audit.)
 
 The reason this is subtle: in many old performance tools, "warm optics" is computed by treating the entire instrument as one element with one effective solid angle, often the entrance pupil seen from the FPA. That is wrong for any instrument with a relay or a field lens, where elements close to the FPA dominate. Per-element Ω is the right answer; the parameter inventory makes it explicit.
 
@@ -510,7 +512,7 @@ arrives via the injected `WavefrontError`, not as scalar/path params).
 Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The five transmission modes and their inputs (injection descriptors are pre-chain, not schema parameters):
 
 - `optics.transmission_input_mode` — enum; inferred when unset.
-- `optics.transmission_scalar` — mode 1.
+- `optics.transmission_scalar` — mode 1. **Silent default 0.7** (typical broadband end-to-end throughput): a config that omits it gets τ_opt = 0.7, not a required-parameter error, and a default-provenance audit shows the value as a schema default. (Owner decision R4.2, 2026-07-23: keep the 0.7 default and document it; results unchanged. The generated Parameter Reference is authoritative for the value.)
 - `optics.scalar_emissivity` — mode 1; declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1.
 - `optics_config["transmission_spectral"]` (injection, `SpectralData`) — mode 2 (Gap 68 — no path parameter; caller loads and injects).
 - `optics_config["telescope_transmission"]` (injection, float or `SpectralData`) — mode 3.

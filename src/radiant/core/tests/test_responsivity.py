@@ -144,6 +144,32 @@ class TestBandIntegratedResponsivity:
         assert r_half < r_full
 
     @pytest.mark.level0
+    def test_band_integral_closed_form_anchor(self) -> None:
+        """Absolute value anchor for the band integral (audit finding B2-2).
+
+        For flat τ·QE the spectral responsivity R(λ) = A·Ω·τ·QE·(λ_m/hc) is
+        *linear* in wavelength, so the band integral over the µm grid has the
+        closed form
+
+            R_band = A·Ω·τ·QE · (1e-6/hc) · (λ_max² − λ_min²)/2   [λ in µm]
+
+        The 1e-6 is the µm→m Jacobian of λ inside R(λ); it appears once
+        (R is linear in λ), and the integration variable dλ is in µm — the
+        convention band-averaged radiance [W/m²/sr] uses. Trapezoid is exact
+        for a linear integrand, so this pins the value, not just the sign.
+        A factor-of-2, factor-of-π, or 1e6 unit slip in the integral fails.
+        """
+        A, Om, tau, qe = 0.1, 1e-10, 0.6, 0.7
+        lo, hi = 3.5, 5.0
+        state = _make_state(A_collect=A, Omega_pixel=Om, tau_opt_val=tau)
+        state = state.with_stage_output("spectral_integration", "qe_scalar", qe)
+
+        expected = A * Om * tau * qe * (1e-6 / hc) * (hi**2 - lo**2) / 2.0
+        r_band = band_integrated_responsivity(state, lo, hi)
+        assert r_band is not None
+        assert r_band == pytest.approx(expected, rel=1e-9)
+
+    @pytest.mark.level0
     def test_missing_optics_returns_none(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
         state = ChainState(wavelength_um=wl)
@@ -152,17 +178,34 @@ class TestBandIntegratedResponsivity:
 
 class TestElectronsToRadiance:
     @pytest.mark.level0
-    def test_round_trip_consistency(self) -> None:
-        """signal_e ÷ (R_band × t_int) should give back radiance."""
-        state = _make_state(A_collect=0.1, Omega_pixel=1e-10, tau_opt_val=0.6)
+    def test_round_trip_recovers_known_radiance(self) -> None:
+        """End-to-end anchor: recover a known input radiance (audit finding B2-1).
 
-        # Set up integration outputs
-        state = state.with_stage_output("spectral_integration", "signal_e", 10000.0)
-        state = state.with_stage_output("spectral_integration", "e_rate_per_s", 1e6)
+        The prior test asserted only ``L > 0``, which passes even if the impl
+        drops ``t_int``, the QE factor, or the λ/hc term. Here the expected
+        radiance is built from an *independently* computed R_band (the B2-2
+        closed form) and the t_int the impl must infer, so a dropped factor
+        moves the recovered value off the anchor.
+        """
+        A, Om, tau, qe = 0.1, 1e-10, 0.6, 0.7
+        lo, hi = 3.5, 5.0
+        state = _make_state(A_collect=A, Omega_pixel=Om, tau_opt_val=tau)
+        state = state.with_stage_output("spectral_integration", "qe_scalar", qe)
 
-        L = electrons_to_radiance(10000.0, state)
+        # e_rate/signal fix the inferred integration time: t_int = 1e4/1e6 = 0.01 s.
+        signal_e_stored, e_rate = 10000.0, 1e6
+        t_int = signal_e_stored / e_rate
+        state = state.with_stage_output("spectral_integration", "signal_e", signal_e_stored)
+        state = state.with_stage_output("spectral_integration", "e_rate_per_s", e_rate)
+
+        # Independent R_band (closed form, flat τ·QE) — see test_band_integral_closed_form_anchor.
+        r_band = A * Om * tau * qe * (1e-6 / hc) * (hi**2 - lo**2) / 2.0
+
+        signal_e_probe = 12345.0
+        expected_L = signal_e_probe / (r_band * t_int)
+        L = electrons_to_radiance(signal_e_probe, state)
         assert L is not None
-        assert L > 0.0
+        assert L == pytest.approx(expected_L, rel=1e-9)
 
     @pytest.mark.level0
     def test_missing_data_returns_none(self) -> None:

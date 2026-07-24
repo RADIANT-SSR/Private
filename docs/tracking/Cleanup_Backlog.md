@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-202 — Metrics doc lists non-existent EE variants and wrong clutter parameter namespace (audit M1, M2)
+
+**Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.7.
+**Status**: RESOLVED 2026-07-23, commit `8f046bf`. **M1**: RADIANT_Metrics.md §4.10 listed EE variants "1×1, 3×3, 5×5, and `ee_vs_offset(pitch)`"; only `ee_1x1` and `ee_3x3` are computed and registered (`performance/stage.py`, registry, and the doc's own §6). Trimmed §4.10 to the two shipped variants. **M2**: §4.5 referenced `background.clutter_sigma`; the actual parameter is `detector.clutter_sigma` (`detector/_schema.py:307`). Doc-only. Related: [[CU-201]].
+
 ### CU-201 — Optics doc: f_number listed as a stage output, non-existent Ω names with fictional type-system flagging, transmission_scalar default (audit O1-O3, R4.2)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.6.

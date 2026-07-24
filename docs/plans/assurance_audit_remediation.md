@@ -102,6 +102,13 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
   rewrite the unimplemented explain/sweep/sensitivity examples (P3), cds_enabled literal,
   required_unless prose, alias-list completeness.
 
+### R4 — Owner decisions (ANSWERED 2026-07-23)
+
+- **R2.4 → DELETE.** Remove the duplicated parameter tables from the architecture docs; point at the generated reference (Rule 27, one canonical version).
+- **R4.1 → IMPLEMENT.** Build the Conventions §4 frame-rate/duty-cycle contract for real (new parameters + derivation + validation warning), then make the doc true. R3.4 is therefore a physics/schema task, not a doc-only fix.
+- **R4.2 → KEEP 0.7 + FIX DOC.** Document the real silent default `optics.transmission_scalar = 0.7`; no computed results change.
+- R4.3 (ratify Declined low-severity items) and R4.4 (drop wave-2 comparison agents) — ratified by starting the task; R1 subsumed the comparison.
+
 ### R4 — Owner decisions needed (blocking the corresponding R3 items)
 
 - R4.1: Conventions §4 frame-rate/duty-cycle contract — implement it (new parameters +

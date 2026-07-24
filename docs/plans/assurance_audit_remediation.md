@@ -133,7 +133,7 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | Track C drifted: D1–D18, O1–O3, S1–S6, M1–M2, P1–P3 | Planned → R3 (+R4 decisions) |
 | Unenforced risk #1 (consistency gate) | **DONE** → R2.1, CU-194, commit `bc93dc3` |
 | Unenforced risk #2 (conversion/constant lint) | **DONE** → R2.2, CU-195, commit `6ba652d` |
-| Unenforced risk #3 (approx-without-tolerance lint) | Planned → R2.3 |
+| Unenforced risk #3 (approx-without-tolerance lint) | **DONE** → R2.3, CU-196, commit `27cc248` (also fixed 24 GUI-test violations beyond audit scope) |
 | Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | Proposed **Declined** (documented residual risk — revisit if a regression ever implicates them) |
 | Track A wave-2 comparison incompletion | Planned → R1 (subsumed) / R4.4 |
 

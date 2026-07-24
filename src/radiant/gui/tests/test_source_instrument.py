@@ -186,7 +186,7 @@ class TestSourceEditAndWatch:
 
         # Exactly one set on the live sensor, for the edited parameter.
         assert set_calls.count(dotpath) == 1
-        assert window.sensor.get_input(dotpath) == pytest.approx(321.0)
+        assert window.sensor.get_input(dotpath) == pytest.approx(321.0, rel=1e-9)
         # The form re-synced to the committed value and the emission figure re-rendered.
         assert form.field_value_text(dotpath) == "321 K"
         assert pane.plot_canvases[0].has_figure()
@@ -206,7 +206,7 @@ class TestSourceEditAndWatch:
             pane.compoundParameterEdited.connect(compound.append)
             panel.shape_combo.setCurrentText(shape)  # emits shapeRequested → pane seeds dims
             for dotpath, nominal in NOMINAL_SHAPE_DIMENSIONS[shape].items():
-                assert float(sensor.get(dotpath)) == pytest.approx(nominal)
+                assert float(sensor.get(dotpath)) == pytest.approx(nominal, rel=1e-9)
             # CU-141: the shape pick + the dims seeded alongside it are emitted as ONE
             # compound edit (shape first) so the host records them under a single undo macro.
             assert len(compound) == 1

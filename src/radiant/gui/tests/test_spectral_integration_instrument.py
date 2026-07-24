@@ -175,7 +175,7 @@ class TestSpectralEditAndWatch:
             form._open_editor(_FILTER_MAX)  # noqa: SLF001 — exercises the commit path
 
         assert set_calls.count(_FILTER_MAX) == 1
-        assert window.sensor.get_input(_FILTER_MAX) == pytest.approx(4.5)
+        assert window.sensor.get_input(_FILTER_MAX) == pytest.approx(4.5, rel=1e-9)
         # The in-band spectrum re-rendered against the re-clipped band.
         assert pane.plot_canvases and all(c.has_figure() for c in pane.plot_canvases)
 
@@ -203,7 +203,7 @@ class TestSpectralEditAndWatch:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             form._open_editor(_INTEGRATION_TIME)  # noqa: SLF001
 
-        assert window.sensor.get_input(_INTEGRATION_TIME) == pytest.approx(0.010)
+        assert window.sensor.get_input(_INTEGRATION_TIME) == pytest.approx(0.010, rel=1e-9)
         signal_after = window.last_result.stage_outputs["spectral_integration"]["signal_e"]
         # Signal integrates linearly in t_int (Rule 8): doubling t_int doubles signal_e.
         assert signal_after == pytest.approx(2.0 * signal_before, rel=1e-6)

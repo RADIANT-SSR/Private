@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-196 — No lint for pytest.approx-without-tolerance (Rule 18); 24 GUI-test violations beyond the audit's scan scope (audit unenforced-risk #3)
+
+**Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.3.
+**Status**: RESOLVED 2026-07-23, commit `27cc248`. **Symptom**: Rule 18 ("pytest.approx always uses explicit rel=/abs=") was enforced only by review; R1.10 fixed the 29 calls the audit's Track B found, but Track B only scanned the physics-stage suites. **Resolution**: added `scripts/check_approx_tolerances.py` (AST-based, wired into the CI `static` job) scanning **all** of `src/radiant/**/tests/` and `tests/`; a call is compliant with rel/abs as keyword or positional. **Running it surfaced 24 additional bare calls in `src/radiant/gui/tests/`** — never in Track B's scope — all GUI value/round-trip echoes; fixed with rel=1e-9 (abs=1e-12 for the one `approx(0.0)`). Tree now clean; 183 GUI tests + a planted-violation self-test pass. Related: [[CU-193]] (the physics-suite sweep), [[CU-195]].
+
 ### CU-195 — No lint for in-physics-module unit conversions or hardcoded constants (audit unenforced-risk #2)
 
 **Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.2.

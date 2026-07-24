@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-194 — Rule-4 dual-path (PSF vs MTF-product) consistency invariant is warn-only; no CI gate (audit unenforced-risk #1)
+
+**Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.1.
+**Status**: RESOLVED 2026-07-23, commit `bc93dc3`. **Symptom**: `PerformanceStage` computes the Rule-4 dual-path consistency check on every spatial chain execution but only *logs a warning* when the FFT of the convolved EffectivePSF disagrees with the MTF product — the audit's #1 unenforced risk. A spatial degradation added to one path but not the other would ship silently. **Resolution**: extended the CU-179 GUI-baseline gate (`tests/integration/test_gui_baselines.py`) with a `golden`-marked parametrized test asserting `dual_path_consistency.passed_x/passed_y` for every shipped baseline that computes the spatial path (34 baselines); scenarios that deselect the spatial-MTF group (Gap 96) compute no check and pass trivially. Added `consistency_one()` to `scenarios/tools/verify_gui_yaml.py`. Verified: 68 baseline tests pass (34 metrics + 34 consistency). The in-stage warn-only behavior is unchanged (still the runtime signal); this adds a hard CI backstop across the baseline set. Test/tooling only. Related: [[CU-179]].
+
 ### CU-193 — 29 pytest.approx calls lack an explicit rel=/abs= tolerance (Rule 18) — audit B1-6, B2-7
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.10.

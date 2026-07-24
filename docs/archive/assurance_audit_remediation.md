@@ -1,8 +1,16 @@
 # Assurance Audit Remediation Plan
 
-Status: Draft (awaiting owner ratification of dispositions)
+> **HISTORICAL — completed 2026-07-23 by Claude (Opus 4.8, 1M).** All waves
+> R1–R3 landed on local `main` (CU-183..CU-206; two follow-ups CU-188 / CU-198
+> filed Open), the R4 owner decisions were answered (R2.4 delete, R4.1
+> implement, R4.2 keep+doc), and every audit finding carries a disposition
+> (DONE / Declined / spawned-open-CU) in the register below. Archived per
+> Rule 24. The immutable audit report stays at
+> `docs/reports/assurance_audit_2026-07/` (Rule 28).
+
+Status: Complete (archived 2026-07-23)
 Source audit: `docs/reports/assurance_audit_2026-07/` (chartered 2026-07-22)
-Author: Claude (Fable 5), 2026-07-22
+Author: Claude (Fable 5), 2026-07-22; executed by Claude (Opus 4.8), 2026-07-23
 
 ## What the audit found, in one paragraph
 
@@ -148,8 +156,9 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 | Unenforced risk #1 (consistency gate) | **DONE** → R2.1, CU-194, commit `bc93dc3` |
 | Unenforced risk #2 (conversion/constant lint) | **DONE** → R2.2, CU-195, commit `6ba652d` |
 | Unenforced risk #3 (approx-without-tolerance lint) | **DONE** → R2.3, CU-196, commit `27cc248` (also fixed 24 GUI-test violations beyond audit scope) |
-| Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | Proposed **Declined** (documented residual risk — revisit if a regression ever implicates them) |
-| Track A wave-2 comparison incompletion | Planned → R1 (subsumed) / R4.4 |
+| Unenforced: pupil_npix/psf_oversample literals; Ω typing; stage-output key schema; convolution-order test; stage purity; coverage thresholds | **Declined** (ratified by starting the task, 2026-07-23; documented residual risk — revisit if a regression ever implicates them). Note: Ω typing residual is now also documented in the Optics doc (R3.6), and pupil_npix/psf_oversample surfaced open CU-188 (EE_box discretization). |
+| Track A wave-2 comparison incompletion (R4.4) | **DONE / Dropped** — R1 subsumed all four comparisons (A1→R1.1, A2→R1.6, A3→R1.8, A4→R1.7), each run as pinned Level-0 anchors; every anchor matched the code, so no one-shot report was needed. |
+| **Spawned open follow-ups** (Rule 21) | CU-188 (default-resolution EE_box discretization bias → point-source SNR); CU-198 (Source_Target_System §8 documents a non-existent `source.material.*` namespace). Both filed **Open** in the Cleanup Backlog for standalone tasks. |
 
 Sequencing: R1 first (it is both the highest-value hardening and the missing audit wave), R2
 second, R3 in any order after (R3.1 early — it misleads implementers today). Waves are

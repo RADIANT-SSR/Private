@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-195 — No lint for in-physics-module unit conversions or hardcoded constants (audit unenforced-risk #2)
+
+**Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.2.
+**Status**: RESOLVED 2026-07-23, commit `6ba652d`. **Symptom**: Rules 2 (convert units at boundaries only) and 13 (constants from `radiant.core.constants`) were enforced only by review — nothing caught a `* pi/180`, a MODTRAN `* 1e4` radiance factor, or a hardcoded `6.62607015e-34` slipped into a physics module. **Resolution**: added `scripts/check_physics_conversions.py` (wired into the CI `static` job) scanning the nine physics packages on **code tokens only** (tokenize-based, so docstrings/comments never false-positive) for pi/180 degree arithmetic, the 1e4/1e-4 W/cm²↔W/m² factor, and h/c/k_B/q/σ_SB digit strings; sanctioned `math.radians`/`math.degrees` and imported constants are not flagged. A `# units-ok: <reason>` opt-out allows documented at-boundary conversions. **The lint surfaced one such conversion** — R₀A Ω·cm²→Ω·m² in `detector/noise/detector_material.py:83`, a datasheet-unit argument converted at the function boundary (Rule-2-compliant, audit-accepted) — now annotated with the opt-out; the tree is otherwise clean. Self-tested against planted violations. Related: [[CU-194]].
+
 ### CU-194 — Rule-4 dual-path (PSF vs MTF-product) consistency invariant is warn-only; no CI gate (audit unenforced-risk #1)
 
 **Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.1.

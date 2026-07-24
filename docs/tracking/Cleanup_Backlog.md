@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-206 — Testing_Validation §5-§9 describes a golden/provenance/CI toolchain that largely does not exist (audit D10-D18)
+
+**Discovered**: Assurance Audit 2026-07 (Track C1 — the headline finding), remediation plan R3.2.
+**Status**: RESOLVED 2026-07-23, commit `0a20f97`. RADIANT_Testing_Validation.md §5–§9 (plus spots in §2/§3/§4) described a freeze-golden CLI, a `radiant reproduce` command, `config_hash`, a Hypothesis property-test suite, a coverage-threshold matrix, and a `tests.yml` CI matrix — **none of which exist**. Rewritten against the real code and tooling: **D10** real `ci.yml` (single Python 3.11/ubuntu, no `--cov`, main-only golden; static job now runs the three R2 `check_*.py` lints) and coverage-not-gated; **D11** the real 8-key provenance record (`io/results.py`); **D12** the real `mwir_leo_minimal.json` golden shape; **D13** `scripts/update_golden.py --i-know-what-im-doing` (no freeze-golden CLI, no `radiant_golden` fixture); **D14** `run_id` kept, `config_hash`/`radiant reproduce`/run-id console-log banner'd DESIGN-TARGET; **D15** `ConfigError` (not `ConfigValidationError`), `sensor.validate(verbose=True)` DESIGN-TARGET'd; **D16** the real exception hierarchy; **D17** the real fixture layout (`src/radiant/<stage>/tests/` + `tests/integration/golden/`, no `tests/conftest.py`/`tests/fixtures`); **D18** Hypothesis is a declared-but-unused dev dep. Minor: §2.1 `sigma_SB`→`sigma_sb`; §2.5 pixel-MTF `√(fill-factor)` term. Every fictional identifier that remains sits inside an explicit "does not exist" negation or a DESIGN-TARGET banner. Verified §5.1/§7.1/§9.3 against the real files; org-rules pass. Doc-only, net −32 lines. Two out-of-scope items noted for a possible follow-up (§8.1 base-class narrower list; §4.1/§6 illustrative scenario names) — neither was an audit DRIFTED finding. Related: [[CU-205]].
+
 ### CU-205 — Conventions doc: §4 frame-rate/duty-cycle contract unimplemented, §5 angle-naming claim false (audit D1, D2; owner decision R4.1 = implement)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.4.

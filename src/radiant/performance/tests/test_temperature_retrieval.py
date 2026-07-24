@@ -41,6 +41,17 @@ class TestRoundTrip:
     def test_warmer_surface_more_radiance(self) -> None:
         assert band_planck_radiance(320.0, BAND) > band_planck_radiance(300.0, BAND)
 
+    def test_band_planck_radiance_absolute_anchor(self) -> None:
+        """Absolute value anchor for band_planck_radiance (Track A1 §3d).
+
+        Closes B1-4 (assurance audit 2026-07): the round-trip anchors above
+        invert the same forward model that generated the measurement, so a
+        scale/band-integration slip cancels. ∫₈¹² B(λ, 300 K) dλ = 38.5004239
+        W/m²/sr, blind-derived by adaptive quadrature independent of RADIANT;
+        the 200-pt BAND grid lands ~1.6e-6 relative below it, inside 1e-3.
+        """
+        assert band_planck_radiance(300.0, BAND) == pytest.approx(38.5004239, rel=1e-3)
+
 
 class TestJacobian:
     def test_emissivity_jacobian_is_band_radiance(self) -> None:

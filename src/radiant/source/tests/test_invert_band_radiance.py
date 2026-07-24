@@ -30,6 +30,21 @@ class TestForwardIntegralMonotone:
         diffs = np.diff(Ls)
         assert np.all(diffs > 0.0), f"Band integral not monotone in T: L={Ls}, diffs={diffs}"
 
+    @pytest.mark.level0
+    def test_forward_integral_absolute_anchor(self) -> None:
+        """Absolute value anchor for the forward band integral (Track A1 §3d).
+
+        Closes B2-3 (assurance audit 2026-07): before this, no test anywhere
+        pinned an absolute value for ``integrate_planck_over_band`` — the
+        round-trip anchors below cancel any scale error in the forward model.
+        ∫₈¹² B(λ, 300 K) dλ = 38.5004239 W/m²/sr, blind-derived by adaptive
+        quadrature independent of RADIANT. The default 201-pt trapezoid grid
+        lands ~1.6e-6 relative below the exact value, comfortably inside 1e-3.
+        """
+        assert integrate_planck_over_band(300.0, (8.0, 12.0)) == pytest.approx(
+            38.5004239, rel=1e-3
+        )
+
 
 class TestRoundTripAnchors:
     @pytest.mark.level0

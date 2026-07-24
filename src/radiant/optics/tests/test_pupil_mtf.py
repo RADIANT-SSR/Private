@@ -10,6 +10,8 @@ See RADIANT_Spatial_Complete.md §1.2 and §9.1.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -105,6 +107,37 @@ class TestClearCircularAperture:
         mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
         center = config.padded_npix // 2
         assert mtf_2d[center, center] == pytest.approx(1.0, rel=1e-10)
+
+    @pytest.mark.level1
+    @pytest.mark.parametrize("axis", ["x", "y"])
+    def test_analytic_circular_mtf_anchor(self, config: PSFSamplingConfig, axis: str) -> None:
+        """Optical MTF pinned to the analytic circular-aperture closed form (R1.6).
+
+        The other tests here cross-check the pupil-autocorrelation MTF against
+        FFT(PSF) — genuinely independent paths, but neither is pinned to an
+        external number, so a shared-convention slip in the cutoff or the
+        autocorrelation normalization escapes. Anchor against the analytic
+        incoherent circular-aperture MTF (Goodman; Track A2 §2):
+
+            MTF(ν̃) = (2/π)[arccos(ν̃) − ν̃·√(1−ν̃²)],  ν̃ = ν/ν_c
+
+        at ν̃ = 0.25, 0.5, 0.75 → 0.685038, 0.391002, 0.144294. ν_c = 1/(λF#).
+        The autocorrelation MTF is interpolated to those frequencies; the
+        residual (~2e-4) is interpolation + pupil-grid discretization.
+        """
+        amplitude = make_pupil_amplitude(config.pupil_npix)
+        phase = np.zeros((config.pupil_npix, config.pupil_npix))
+        mtf_2d = pupil_autocorrelation_mtf_2d(amplitude, phase, config.padded_npix)
+        freq, mtf = pupil_autocorrelation_mtf_1d(mtf_2d, config.focal_spacing_m, axis)
+
+        nu_c = 1.0 / (WAVELENGTH_M * FOCAL_LENGTH_M / APERTURE_M)  # cy/m
+        for nu_tilde, expected in ((0.25, 0.685038), (0.5, 0.391002), (0.75, 0.144294)):
+            value = float(np.interp(nu_tilde * nu_c, freq, mtf))
+            analytic = (2.0 / math.pi) * (
+                math.acos(nu_tilde) - nu_tilde * math.sqrt(1.0 - nu_tilde**2)
+            )
+            assert analytic == pytest.approx(expected, rel=1e-5)  # literal ↔ formula
+            assert value == pytest.approx(expected, rel=1e-3)
 
     @pytest.mark.level1
     def test_non_negative(self, config: PSFSamplingConfig) -> None:

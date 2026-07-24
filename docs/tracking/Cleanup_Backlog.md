@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-204 — Master doc: C12 universal ValidationError claim, C11 collect-all overstated, §7.6 import table incomplete, broken archive link (audit D3-D5)
+
+**Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.3.
+**Status**: RESOLVED 2026-07-23, commit `606408c`. **D3 (C12)**: claimed "every stage package carries a stage-scoped `<Stage>ValidationError` in its errors.py"; geometry raises `GeometrySpecificationError(RadiantError)` only (no `ValueError` co-inherit, no `GeometryValidationError`). Softened to "most/near-universal" and named geometry as the exception in both C12 and the §8 error-class list. **D4 (C11)**: "Validation collects all errors before reporting … all execution modes: CLI, scripting API, GUI" overstated — collect-all is the `radiant validate` CLI path only; the scripting API and GUI are fail-fast (`ParameterSet.set()` / `io/config.py` raise immediately; no `Sensor.validate()` aggregator). **D5 (§7.6)**: the import table's `cli/` row omitted `radiant.gui` (lazy, CU-098) and the table lacked `data/` and `gui/` rows — added them to match the import-linter contracts and CLAUDE.md. **Archive link**: `[archive/RADIANT_Phase1_Plan.md]` resolved to a nonexistent `docs/architecture/archive/` path; fixed to `../archive/`. Doc-only. Related: [[CU-203]].
+
 ### CU-203 — Parameter_System doc: non-existent spectral-grid namespace, stale altitude-fold note, unimplemented explain/sweep API, cds_enabled type (audit P1-P3)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.8.

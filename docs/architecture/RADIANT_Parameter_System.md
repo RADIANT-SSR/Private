@@ -90,7 +90,7 @@ Key properties:
 - `tags` enable filtering ("show me all detector parameters", "what parameters matter in LWIR?").
 - `deprecated_aliases` (Gap 12): old dot-paths for renamed parameters. `set`/`get`/`set_tolerance`/`clear_input` resolve an alias to the canonical name with a `DeprecationWarning`. Aliases may not collide with defined names and are validated at `ParameterSet` construction. Current aliases: `optics.cold_stop_efficiency` → `optics.nearfield_fraction`.
 - `tags` regime-relevance convention (Gap 85, 2026-07-16): a tag of the form `regime:<scene_type>` (`regime:extended` / `regime:sub_pixel` / `regime:point_source`) declares that the parameter matters only for those **declared** scene types (`source.scene_type`). A def with no `regime:` tag is regime-independent. Consumed by the GUI Source form, which disables (never hides) irrelevant rows with an explanatory tooltip when a scene type is declared; `auto` gates nothing. Currently authored on the source-stage background / contrast-reference / fill-fraction parameters; other stages are unauthored (relevance there is regime-independent until tagged).
-- `required_unless` (Gap 66; comma-list since Gap 69): names one or more comma-separated alternative parameters, any of which supersedes this required one. When the alternative is explicitly set (non-empty, non-None input), the requirement is waived and the parameter is left **unresolved** — `get()` raises if any code path reads it anyway, so no phantom value is ever consumed. An explicitly-set empty string does not waive the requirement. Only valid on required (`default=None`) parameters. Current use: `detector.qe_value` is required unless `detector.qe_table_path` is set (the spectral QE curve supersedes the scalar).
+- `required_unless` (Gap 66; comma-list since Gap 69): names one or more comma-separated alternative parameters, any of which supersedes this required one. When the alternative is explicitly set (non-empty, non-None input), the requirement is waived and the parameter is left **unresolved** — `get()` raises if any code path reads it anyway, so no phantom value is ever consumed. An explicitly-set empty string does not waive the requirement. Only valid on required (`default=None`) parameters. Current use: `detector.qe_value` is required unless **either** `detector.qe_table_path` **or** `detector.qe_material` is set (`required_unless="detector.qe_table_path,detector.qe_material"`, `detector/_schema.py`) — a spectral QE curve (from file or the bundled library) supersedes the scalar.
 - `is_file_path` (CU-177): marks a `dtype=str` parameter whose value names a data file on disk (a CSV of ε(λ)/ρ(λ)/L(λ), a QE table, a Zernike file, a tabulated-atmosphere file). **Serialization stores such a value relative to the output YAML's directory** (`save_config` / `Sensor.save` / `Sensor.to_yaml(relative_to=...)`), and **loading resolves it back to absolute against the source YAML's directory** (`load_config` when the source is a file). A config that references a repo-internal data file therefore stays portable across checkout locations, machines, and OSes (relative paths are written forward-slashed, Rule 30); configs written before CU-177 with absolute paths still load unchanged. Not set for system/environment paths that are **not** part of the portable config surface — `atmosphere.modtran.binary_path`, `atmosphere.modtran.cache_dir`, `atmosphere.interpolated_data_dir`, and the staged MODTRAN `tape7_*`/`flux_path` files, which stay verbatim. A relative path loaded from a bare dict (no file anchor) is left as-is.
 
 ### Unit Conversion
@@ -171,7 +171,7 @@ readout.read_noise_e_rms              # e- RMS
 readout.gain_e_per_dn                 # e-/DN
 readout.adc_bits                      # int
 readout.full_well_capacity_e          # e-
-readout.cds_enabled                   # bool
+readout.cds_enabled                   # int (1 = yes, 0 = no; dtype=int, default 1)
 readout.n_tdi                         # int
 readout.n_coadds                      # int
 readout.binning_x_onchip              # int
@@ -255,7 +255,7 @@ Each parameter definition includes a default value or `None` (required).
    - `detector.pixel_pitch_y_um`: None (required)
 
 2. **Defaulted to common value:** Parameters where a reasonable assumption covers 80% of use cases.
-   - `readout.cds_enabled`: True (most modern ROICs use CDS)
+   - `readout.cds_enabled`: 1 (dtype=int, 1=yes/0=no; most modern ROICs use CDS)
    - `readout.n_coadds`: 1
    - `readout.n_tdi`: 1 (no TDI)
    - `readout.binning_x_onchip`: 1
@@ -418,9 +418,10 @@ _GROUND_SPEED_GROUP = ConsistencyGroup(
 Both parameters default to `0.0`, so an unset pair resolves to `0` (no motion).
 The `Sensor.set_ground_velocity_from_orbit()` helper (Gap 75) derives the value
 from `geometry.sensor_altitude_m` via `radiant.core.orbit.ground_track_speed_m_s`
-for orbital platforms. The analogous altitude duplicate
-(`geometry.sensor_altitude_m` vs `platform.h_sensor`) is **not** yet collapsed —
-`h_sensor` carries stop-gap space-subcase semantics; see CU-090.
+for orbital platforms. The analogous altitude duplicate has been collapsed:
+`platform.h_sensor` is now a **deprecated alias** of `geometry.sensor_altitude_m`
+(warn-and-redirect at `set()`/`get()`, CU-090 fold / ADR-0006, 2026-07-12) — see
+the `deprecated_aliases` note earlier in this section.
 
 ---
 
@@ -550,28 +551,26 @@ params.explain("optics.f_number")
 
 params.explain("readout.cds_enabled")
 # Returns:
-# "readout.cds_enabled = True
+# "readout.cds_enabled = 1
 #  Provenance: DEFAULT
 #  Justification: CDS is standard on modern HgCdTe and CMOS ROICs; eliminates kTC noise"
 ```
 
-For downstream outputs (SNR, NEDT, NIIRS), the explainability chain extends through the computation:
+For downstream outputs, explainability is exposed by these **shipped** surfaces (there is no single `result.explain("snr")` method — it is a design target):
 
 ```python
-result.explain("snr")
-# Returns:
-# "SNR = 47.3
-#  Signal: 12,450 e- (from source radiance × A × Ω × τ × QE × t_int)
-#  Noise: 263 e- RMS (quadrature sum of 12 terms)
-#    Shot noise: 111.6 e- (√signal)
-#    Dark current noise: 89.2 e- (√(J_dark × t_int))
-#    Read noise: 25.0 e- (spec)
-#    ... [full noise budget]
-#  Top 3 parameters by sensitivity:
-#    optics.aperture_diameter_m: ∂SNR/∂D = +312 /m
-#    spectral_integration.integration_time_s: ∂SNR/∂t = +2340 /s
-#    detector.dark_rate_e_per_s: ∂SNR/∂J = -0.0012 /(e-/s)"
+# Noise breakdown for a computed metric (shipped):
+result.explain_noise("dark")     # ChainResult.explain_noise(term) — io/results.py
+result.noise_terms               # tuple[NoiseTerm] — the full per-term budget
+
+# Parameter-level explanation (shipped):
+sensor.explain("readout.cds_enabled")   # Sensor.explain(dotpath) — api/sensor.py
+
+# Sweeps and sensitivities are Sensor / radiant.api surfaces (NOT ParameterSet):
+sensor.sweep("optics.aperture_diameter_m", [0.15, 0.30, 0.45, 0.60])
 ```
+
+**[DESIGN-TARGET]** A single unified `result.explain("snr")` that folds the signal chain, the full noise budget, and the top-3 parameter sensitivities into one narrative does not exist yet; assemble it today from `explain_noise` + the sensitivity API.
 
 ---
 
@@ -615,16 +614,17 @@ carry no compatibility guarantee.
 
 ### Common wavelength grid
 
-All spectral data is interpolated onto a single common wavelength grid before any physics computation. The grid is defined by parameters:
+All spectral data is interpolated onto a single common wavelength grid before any physics computation. There is **no `spectral.*` parameter namespace**; the grid is built from the filter bandpass plus a point count:
 
 ```
-spectral.lambda_min         # µm — default: auto from filter
-spectral.lambda_max         # µm — default: auto from filter
-spectral.n_points           # int — default: 500
-spectral.grid_type          # enum: "uniform_wavelength", "uniform_wavenumber", "from_modtran"
+grid = numpy.linspace(
+    spectral_integration.filter_min_um,   # µm — lower filter edge (schema parameter)
+    spectral_integration.filter_max_um,   # µm — upper filter edge (schema parameter)
+    wavelength_points,                    # Sensor(...) constructor argument, NOT a schema param
+)
 ```
 
-If `spectral.grid_type = "from_modtran"`, the grid is extracted from the MODTRAN output file and used directly (no interpolation of MODTRAN data — everything else interpolates onto it).
+The grid is uniform in wavelength (`Sensor._wavelength_grid`, `api/sensor.py`). MODTRAN and every other spectral table are interpolated **onto** this grid; there is no `grid_type` enum and no "use the MODTRAN grid directly" mode at this layer.
 
 ### SpectralData class
 
@@ -720,7 +720,7 @@ readout:
   read_noise_e_rms: 5.0          # e- RMS
   gain_e_per_dn: 32.0            # e-/DN
   adc_bits: 16
-  cds_enabled: true
+  cds_enabled: 1
   n_tdi: 1
 
 platform:
@@ -742,10 +742,10 @@ Each layer records its provenance. If the same parameter appears in multiple lay
 
 | Persona | Parameter system requirement | How it's met |
 |---------|----------------------------|-------------|
-| Sarah (P1) | Sweep one parameter, hold others constant | `ParameterSet.sweep("optics.aperture_diameter_m", [0.15, 0.20, ..., 0.60])` returns list of resolved sets |
+| Sarah (P1) | Sweep one parameter, hold others constant | `Sensor.sweep("optics.aperture_diameter_m", [0.15, 0.20, ..., 0.60])` (`api/sensor.py`; sweeps live on `Sensor`/`radiant.api`, not `ParameterSet`) |
 | Mike (P2) | Inspect every noise term independently | Provenance + explainability on all derived noise values |
 | Raj (P3) | Load a sensor config and specify only the scenario | Config file layering: sensor config + scenario overrides |
 | Lisa (P4) | Batch run across target × atmosphere × sensor | Cross-product of config files → list of ParameterSets |
 | Tom (P5) | Override WFE, see MTF effect | Direct `params.set()` override with instant re-resolution |
 | Dr. Chen (P6) | Full provenance for reproducibility | Provenance audit record attached to every output |
-| Karen (P7) | Compare predicted vs. measured; adjust one param to close gap | Sensitivity analysis via `params.sensitivity("snr", "detector.dark_rate_e_per_s")` |
+| Karen (P7) | Compare predicted vs. measured; adjust one param to close gap | Sensitivity analysis via `Sensor.sensitivity("snr", "detector.dark_rate_e_per_s")` (`api/sensor.py`; on `Sensor`/`radiant.api`, not `ParameterSet`) |

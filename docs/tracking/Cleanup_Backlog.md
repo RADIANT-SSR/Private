@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-203 — Parameter_System doc: non-existent spectral-grid namespace, stale altitude-fold note, unimplemented explain/sweep API, cds_enabled type (audit P1-P3)
+
+**Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.8.
+**Status**: RESOLVED 2026-07-23, commit `0a75729`. **P1**: the "Common wavelength grid" section claimed `spectral.lambda_min/lambda_max/n_points/grid_type` parameters — no `spectral.*` namespace exists. Rewrote to the real mechanism: `numpy.linspace(spectral_integration.filter_min_um, filter_max_um, wavelength_points)` with `wavelength_points` a `Sensor(...)` constructor argument (`Sensor._wavelength_grid`), uniform-in-wavelength, no `grid_type`. **P2**: "altitude duplicate … not yet collapsed … see CU-090" contradicted the same section — `platform.h_sensor` is a deprecated alias of `geometry.sensor_altitude_m` (CU-090 fold / ADR-0006). **P3**: `result.explain("snr")` and `ParameterSet.sweep(...)` / `params.sensitivity(...)` were shown as working but don't exist on those types; repointed to the shipped surfaces (`ChainResult.explain_noise`, `Sensor.explain`/`sweep`/`sensitivity`) and bannered the unified `result.explain` DESIGN-TARGET. **Minor**: `cds_enabled` shown as bool `True`; it is `dtype=int` default `1` — fixed the definitional/defaults/explain-output/YAML mentions; `required_unless` "current use" prose now names both alternatives (`qe_table_path` + `qe_material`). Doc-only. Related: [[CU-202]].
+
 ### CU-202 — Metrics doc lists non-existent EE variants and wrong clutter parameter namespace (audit M1, M2)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.7.

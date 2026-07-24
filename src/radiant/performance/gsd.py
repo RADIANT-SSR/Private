@@ -63,9 +63,14 @@ def compute_gsd(
     focal_length_m : float
         Effective focal length [m].  Must be > 0.
     path_zenith_rad : float
-        Off-nadir look angle [rad].  Default 0.0 (nadir).  Uses
-        spherical-Earth slant range and incidence angle to compute
+        Sensor-side off-nadir look angle **η** [rad].  Default 0.0 (nadir).
+        Uses spherical-Earth slant range and incidence angle to compute
         cross-track and along-track GSD correctly at off-nadir angles.
+        NOTE (CU-096): despite the name this is η, the angle at the *sensor*
+        — NOT the target-side path zenith θ_o that ``geometry.path_zenith_rad``
+        holds.  Starting from θ_o (e.g. a stage), pass the θ_o-derived slant
+        and incidence to :func:`compute_gsd_from_geometry` instead of feeding
+        θ_o here, or convert with ``core.viewing_triangle.eta_from_theta_o``.
 
     Returns
     -------

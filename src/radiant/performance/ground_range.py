@@ -26,7 +26,11 @@ def compute_ground_range_m(altitude_m: float, path_zenith_rad: float) -> float:
     altitude_m : float
         Sensor altitude above the Earth surface [m].  Must be > 0.
     path_zenith_rad : float
-        Off-nadir look angle [rad].  Must be >= 0.
+        Sensor-side off-nadir look angle **η** [rad].  Must be >= 0.
+        NOTE (CU-096): despite the name this is η, the angle at the *sensor* —
+        NOT the target-side path zenith θ_o that ``geometry.path_zenith_rad``
+        holds.  Starting from θ_o, use
+        ``core.viewing_triangle.ground_range_from_theta_o_m`` instead.
 
     Returns
     -------

@@ -79,8 +79,8 @@ def johnson_noise(
         return 0.0
     if pixel_area_m2 <= 0.0 or temp_K <= 0.0 or t_int_s <= 0.0:
         return 0.0
-    # Convert R₀A from Ω·cm² to Ω·m²
-    r0a_ohm_m2 = r0a_ohm_cm2 * 1.0e-4
+    # Convert R₀A from Ω·cm² to Ω·m² (datasheet-unit argument, at this boundary)
+    r0a_ohm_m2 = r0a_ohm_cm2 * 1.0e-4  # units-ok: datasheet Ω·cm² arg
     # Current noise PSD: S_I = 4kT/R [A²/Hz] where R = R₀A/A.
     # Charge variance: σ_Q² = S_I × t_int [C²] (white noise × integration).
     # In electrons: σ² = 4kT·A/(R₀A)·t / q².

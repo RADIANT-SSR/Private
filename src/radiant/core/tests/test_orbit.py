@@ -26,6 +26,26 @@ from radiant.core.orbit import (
 )
 
 
+class TestA4Anchors:
+    """Precise mean-radius anchors from the Track A4 blind re-derivation.
+
+    The audit derived these first-principles (µ=3.986004418e14, R=6371.0 km —
+    the mean radius RADIANT uses; the report's headline 6378.137-km equatorial
+    values differ, so the mean-R variants are pinned here). RADIANT reproduced
+    every value to machine precision in the R1.7 comparison wave.
+    See docs/reports/assurance_audit_2026-07/track_a4_geometry_derivation.md.
+    """
+
+    def test_orbital_velocity_500km(self) -> None:
+        assert orbital_velocity_m_s(500e3) == pytest.approx(7616.560806, rel=1e-9)
+
+    def test_ground_track_speed_500km(self) -> None:
+        assert ground_track_speed_m_s(500e3) == pytest.approx(7062.306636, rel=1e-9)
+
+    def test_orbital_period_500km(self) -> None:
+        assert orbital_period_s(500e3) == pytest.approx(5668.144369, rel=1e-9)
+
+
 class TestOrbitalVelocity:
     def test_500km_velocity(self) -> None:
         # v = √(μ/a), a = 6371+500 km → 7.616 km/s

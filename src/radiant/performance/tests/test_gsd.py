@@ -650,3 +650,54 @@ class TestAccessMetricsWiring:
 
         out = _compute_access_metrics(state, params)
         assert "ground_range_m" not in out.metrics
+
+
+class TestA4GeometryAnchors:
+    """Track A4 blind-derivation anchors: viewing triangle + off-nadir GSD.
+
+    h=500 km, η=30° look angle, mean radius R=6371.0 km (the radius RADIANT
+    uses; A4's headline values are at 6378.137 km equatorial, so the mean-R
+    variants are pinned here). Independent first-principles values (RADIANT
+    reproduced every one to machine precision in the R1.7 comparison wave):
+
+        θ_i = 32.631938°   Λ = θ_i − η = 2.631938°   R_s = 585110.538 m
+        GSD(p=10 µm, f=2 m): 2.925553 m (no-cos) and 3.473901 m (÷cos θ_i)
+
+    See docs/reports/assurance_audit_2026-07/track_a4_geometry_derivation.md.
+    Note on axis labels: RADIANT applies the 1/cos θ_i stretch to *along*-track
+    (its documented convention, test_gsd lines 325-326); A4 labels the stretched
+    axis "cross-track" for a cross-track-pointed sensor — a tilt-direction
+    naming difference, not a value difference (the two magnitudes match).
+    """
+
+    H = 500_000.0
+    ETA = math.radians(30.0)
+
+    @pytest.mark.level0
+    def test_slant_range_anchor(self) -> None:
+        assert slant_range_spherical_m(self.H, self.ETA) == pytest.approx(585110.538, rel=1e-8)
+
+    @pytest.mark.level0
+    def test_incidence_angle_anchor(self) -> None:
+        theta_i = math.degrees(incidence_angle_rad(self.H, self.ETA))
+        assert theta_i == pytest.approx(32.631938, rel=1e-7)
+
+    @pytest.mark.level0
+    def test_earth_central_angle_anchor(self) -> None:
+        """Λ = θ_i − η (viewing-triangle closure)."""
+        lam_deg = math.degrees(incidence_angle_rad(self.H, self.ETA)) - 30.0
+        assert lam_deg == pytest.approx(2.631938, rel=1e-6)
+
+    @pytest.mark.level0
+    def test_off_nadir_gsd_anchor_and_theta_i_discriminator(self) -> None:
+        """GSD magnitudes match A4, and the ÷cos uses θ_i not η.
+
+        The θ_i-vs-η discriminator (A4 flag #1): the stretched GSD is
+        3.473901 m (÷cos θ_i), NOT the wrong-angle 3.378137 m (÷cos η).
+        """
+        result = compute_gsd(10e-6, 10e-6, self.H, 2.0, path_zenith_rad=self.ETA)
+        assert result.cross_track_m == pytest.approx(2.925553, rel=1e-6)  # no-cos
+        assert result.along_track_m == pytest.approx(3.473901, rel=1e-6)  # ÷cos θ_i
+        # Discriminator: the wrong angle (η) would give 3.378137 m — reject it.
+        wrong_angle = 10e-6 / 2.0 * slant_range_spherical_m(self.H, self.ETA) / math.cos(self.ETA)
+        assert not result.along_track_m == pytest.approx(wrong_angle, rel=1e-3)

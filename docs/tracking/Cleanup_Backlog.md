@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-190 — Track A4 geometry code-vs-derivation comparison never run as pinned tests (viewing triangle / orbit / off-nadir GSD / solar zenith)
+
+**Discovered**: Assurance Audit remediation R1.7 (Track A4 comparison wave), 2026-07-23.
+**Status**: RESOLVED 2026-07-23, commit `b80fdc8`. **Symptom**: the audit's Track A4 blind derivation produced geometry anchors but the code-vs-derivation diff was never completed (session usage limit). Orbit anchors existed only at loose rounded tolerances (rel=1e-3/2e-3) and no test pinned the precise viewing-triangle / off-nadir-GSD values or the θ_i-vs-η discriminator (A4 flag #1). **Resolution**: added Level-0 A4-anchor tests at the mean radius RADIANT uses (6371.0 km): R_s=585110.538 m, θ_i=32.631938°, Λ=2.631938° (test_gsd), v=7616.560806 / v_g=7062.306636 / T=5668.144369 (test_orbit, rel=1e-9), off-nadir GSD 2.925553/3.473901 with the θ_i discriminator rejecting the wrong-angle 3.378137, and the A4 solar-zenith case (test_solar_geometry). Independent formulas were validated by reproducing A4's 6378.137-km equatorial table exactly before switching to mean-R. **A4 comparison result**: RADIANT reproduced every value to machine precision — no physics/constant/unit drift. Two pre-existing, correct convention nuances documented (not bugs): RADIANT applies the off-nadir 1/cos θ_i stretch to *along*-track (its tested convention) vs A4's cross-track label (tilt-direction naming); and RADIANT's Spencer declination series vs A4's idealized 23.44° axial tilt (0.0085° zenith gap). Test-only change. Related: [[CU-096]], [[CU-182]] (θ_o-vs-η geometry), [[CU-189]].
+
 ### CU-189 — Optical (pupil-autocorrelation) MTF is cross-checked only against FFT(PSF), never pinned to an external analytic value (Track A2 §2)
 
 **Discovered**: Assurance Audit remediation R1.6 (Track A2 spatial comparison), 2026-07-23.

@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-188 — Sampled-PSF EE_box carries an O(dx) discretization floor that biases point-source SNR high at the default chain resolution (psf_oversample=8)
+
+**Discovered**: Assurance Audit remediation R1.5 (building the B1-3 EE_box anchor), 2026-07-23.
+**Status**: Open — quantitative bias, non-blocking (physics limit is correct). The EE_box computed by `EffectivePSF.ensquared_energy`/`ensquared_energy_nxn` (a midpoint sum over the sampled PSF with full weight on the box-edge samples) converges to the analytic Airy value **from above** as the focal-plane sample spacing dx→0. Measured for an unaberrated Airy at Q=2 (analytic EE_□=0.177327, Track A2 §8): 0.219 / 0.198 / 0.188 / 0.183 at psf_oversample = 8 / 16 / 32 / 48 — a clean O(dx) floor.
+**File**: `src/radiant/optics/psf/effective.py` (`ensquared_energy`, box-boundary weighting ~line 179-188); default resolution set in `src/radiant/optics/stage.py:248,290` (`psf_oversample=8`).
+**Symptom**: at the chain default `psf_oversample=8` the EE_box(1×1) for a critically-sampled (Q=2) point source is ≈0.219 vs the analytic 0.177327 — a ≈+0.042 absolute / ≈+24 % relative bias. Per Rule 9 this EE_box multiplies the point-source / sub-pixel signal in `SpectralIntegrationStage`, so point-source and sub-pixel SNR inherit the bias (extended-scene SNR is unaffected — no EE factor). Magnitude is geometry-dependent (smaller at lower Q where the box spans more λF#); Q=2 is the worst practical case.
+**Why it still matters**: a ~20 % systematic bias in a Rule-9 signal-path quantity is physically material for point-source detection-range / NEI predictions, and was masked until now by the qualitative-only EE_box test (finding B1-3, now closed by [[CU-187]]).
+**Suggested fix**: (b) stand-alone task — either (i) give box-edge samples half-weight in `ensquared_energy` (removes the leading O(dx) term), (ii) Richardson-extrapolate EE_box across two oversample factors, or (iii) raise the default `psf_oversample` for the EE_box computation with a documented cost/accuracy trade. Add a convergence test asserting EE_box(Q=2)→0.177327 as ovs increases. Effort M; category C (results-affecting for point-source/sub-pixel SNR). Re-audit against the Rule-4 consistency floor (2e-2) and [[CU-003]] area-integrated pixel kernel — related discretization work.
+
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
 **Discovered**: MODTRAN boost-ladder landing (plan §4.4 execution), 2026-07-20
@@ -105,6 +114,11 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-187 — compute_ee_box tested only qualitatively; a factor-2 box-size error passes (audit finding B1-3)
+
+**Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.5.
+**Status**: RESOLVED 2026-07-23, commit `380148c`. **Symptom**: `optics/tests/test_ee_box.py` asserted only `0<ee<1`, monotone-in-n, and →1 at n=50; the one quantitative cross-check elsewhere (`platform/tests/test_stage.py`) compared PlatformStage's EE_box to `epsf.ensquared_energy_nxn(1)` itself — circular. An implementation ensquaring over half/twice the pixel pitch passed every assertion, and EE_box scales point-source SNR (Rule 9). **Resolution**: added `test_ee_box_airy_q2_anchor` — an unaberrated Airy at Q=2 (λ=4 µm, F#=4, p=8 µm) anchored to the Track A2 §8 analytic ensquared energy EE_□=0.177327 (blind-derived by 2-D quadrature). **Comparison-wave result**: RADIANT's sampled-PSF EE_box converges to 0.177327 **from above** as dx→0 (0.219/0.198/0.188/0.183 at psf_oversample 8/16/32/48) — physics/box-definition correct; the finite-grid residual is a pure O(dx) discretization floor. Test uses ovs=32 (floor ≈+0.010) with a one-sided bracket to the analytic limit. The default-resolution (ovs=8) EE_box bias uncovered while building this anchor is tracked separately as open [[CU-188]]. Test-only change. Related: [[CU-186]].
 
 ### CU-186 — NEP↔noise-electrons converter has no absolute anchor; a λ unit slip passes (audit finding B1-2)
 

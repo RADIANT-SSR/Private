@@ -62,6 +62,27 @@ class TestSolarZenith:
         z = solar_zenith_angle_rad(latitude_deg=0.0, day_of_year=80, local_solar_time_hr=10.5)
         assert math.degrees(z) == pytest.approx(22.5, abs=0.6)
 
+    def test_a4_anchor_35N_solstice_hourangle_15deg(self) -> None:
+        """Track A4 §8d anchor: φ=35°N, solstice, H=15° → θ_z ≈ 17.42°.
+
+        A4's idealized value uses δ=23.44° exactly and gives θ_z=17.425559°.
+        RADIANT's Spencer-series declination at June solstice (day 172) is
+        δ=23.452°, so RADIANT gives 17.417054° — the 0.0085° gap is purely the
+        declination model, not the zenith formula. Verified: RADIANT matches
+        the independent hand formula cos θ_z = sinφ sinδ + cosφ cosδ cos(15°)
+        (with RADIANT's own δ) to machine precision, and lands within 0.02° of
+        the A4 idealized anchor.
+        """
+        z_deg = math.degrees(solar_zenith_angle_rad(35.0, 172, 13.0))  # H = 15° (LST=13)
+        delta = math.radians(solar_declination_deg(172))
+        phi = math.radians(35.0)
+        h = math.radians(15.0)
+        hand = math.degrees(
+            math.acos(math.sin(phi) * math.sin(delta) + math.cos(phi) * math.cos(delta) * math.cos(h))
+        )
+        assert z_deg == pytest.approx(hand, rel=1e-12)  # formula composition
+        assert z_deg == pytest.approx(17.425559, abs=0.02)  # A4 idealized-δ anchor
+
     def test_symmetry_about_noon(self) -> None:
         """θ_z(LST) = θ_z(24 − LST) — morning/afternoon symmetry."""
         z_morning = solar_zenith_angle_rad(40.0, 150, 9.0)

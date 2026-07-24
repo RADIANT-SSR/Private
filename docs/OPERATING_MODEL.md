@@ -86,7 +86,7 @@ Every PR description ends with this six-line checklist (copy-paste; it belongs i
 - [ ] Changelog: results-affecting or public-surface change ⇒ entry under CHANGELOG.md [Unreleased] in this PR (Rule 29)
 ```
 
-## 5. Naming Conventions (everything except source code)
+## 5. Naming & Format Conventions (everything except source code)
 
 Source code naming is governed by CLAUDE.md / PEP 8 and is out of scope here. Everything else — markdown, audits, scenarios, data, configs, figures, folders — follows this section.
 
@@ -131,6 +131,37 @@ Source code naming is governed by CLAUDE.md / PEP 8 and is out of scope here. Ev
 `misc*`, `temp*`, `scratch*`, `untitled*`, `notes.md` (unscoped), `stuff*`, `output*.png`, `test.py` outside a test suite, bare `data.csv`/`results.xlsx` without a scoping prefix, any name whose meaning requires opening the file.
 
 Project name is **RADIANT** in all documents. The repo folder name (`SSR_Tool`) is historical; noted once in the root README and nowhere else.
+
+### 5.4 LaTeX-convertible Markdown (owner-ratified 2026-07-24)
+
+All project documents are authored in Markdown, single-sourced: typeset output (PDF via
+Pandoc/XeLaTeX) is **generated**, never hand-rewritten — a parallel `.tex` version of any
+document is a Rule-27 violation. To keep every document convertible:
+
+1. **Math is written as Pandoc-compatible LaTeX** — inline `$...$`, display `$$...$$` —
+   in all *new* documents and in any *new or edited* equation content in existing
+   documents. Unicode math approximations (superscript runs, `√`, `×` chains standing in
+   for an equation) are not used in new equation content. **Scope: equations and
+   mathematical expressions only.** Unicode symbols in prose, tables, and unit strings
+   (µm, °, θ_o as a *name*, e-, W/m²/sr/µm) are correct and stay — XeLaTeX handles them;
+   converting prose units to math mode is churn, not compliance.
+2. **Structure stays in the Pandoc subset**: GFM pipe tables, fenced code blocks with a
+   language tag, images by relative path with alt text. No raw HTML blocks in documents
+   intended for typeset output (manual-class docs: `theory/`, `guides/`, any future user
+   manual). ASCII diagrams live in fenced blocks (they typeset verbatim).
+3. **Grandfathering — no churn PRs.** Existing documents with Unicode math are compliant
+   as-is until wholesale rewritten; a PR that only converts math notation is rejected.
+   New sections added to a grandfathered doc follow this rule; mixed notation within one
+   doc is acceptable during that transition.
+4. **Build is regenerable (Rule 26).** The canonical conversion is
+   `pandoc <files> --pdf-engine=xelatex -o <out>.pdf` (plus the repo template once one
+   exists under `scripts/`); generated PDFs are gitignored unless a committed document
+   references them, in which case the generator invocation is named in the referencing
+   doc or manifest.
+
+Enforcement is review-blocking per Rule 23, same as naming. Motivation: the theory manual
+and the planned user manual publish as typeset documents; single-sourcing from Markdown
+keeps them in Rule-20 lock-step with the code, which a hand-maintained LaTeX fork cannot.
 
 ## 6. Boundary Rules (where docs may NOT live)
 

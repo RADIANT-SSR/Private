@@ -35,16 +35,20 @@ Not a free-form DAG. Not bare function composition. A `Chain` is an ordered list
 0. GeometryStage       — resolves the scene-geometry input mode (ADR-0006); publishes LOS,
                          slant/ground range, solar geometry via stage_outputs["geometry"]
 1. SourceStage         — assembles target/background emission and reflection; classifies regime
-2. AtmosphereStage     — applies τ(λ), L_path(λ), L_atm(λ); adds turbulence MTF (ground-based only)
+2. AtmosphereStage     — applies τ(λ), L_path(λ), L_atm(λ); publishes r0_m (Fried parameter).
+                         It does NOT add a turbulence MTF: the turbulence PSF kernel is applied in
+                         PlatformStage and the turbulence MTF term is written by PerformanceStage,
+                         both when r0_m > 0 (see D6 fix, 2026-07)
 3. OpticsStage         — applies A, Ω, τ_opt(λ), warm-optics emission, cold stop, narcissus;
                          adds diffraction MTF, WFE/Strehl, defocus MTF, vignetting, encircled energy
-4. PlatformStage       — adds smear MTF, jitter MTF, LOS drift, platform vibration, TDI alignment MTF
+4. PlatformStage       — adds smear MTF and jitter MTF; degrades the EffectivePSF with the jitter,
+                         smear, and turbulence kernels; publishes EE_box from the degraded PSF
 5. SpectralIntegrationStage — collapses spectral radiance to in-band photoelectrons per pixel;
                               applies regime-dependent spatial factors (Ω_pixel or EE_box)
 6. DetectorStage       — applies QE, dark current, full well, generates noise terms;
                          adds pixel aperture MTF, IPC MTF, charge-diffusion MTF
 7. ReadoutStage        — applies TDI signal gain, binning, coadds, gain, ADC; adds quantization noise;
-                         finalizes noise budget
+                         writes TDI-misregistration MTF and electronics MTF; finalizes noise budget
 8. PerformanceStage    — composes system MTF from all accumulated MTF terms;
                          computes SNR, NEDT, RER, NIIRS, detection range
 ```
@@ -90,13 +94,13 @@ class Stage(Protocol):
 |-------|----------|------------------------|--------------------|
 | **GeometryStage** | params (`geometry.*` — altitudes, one viewing-mode entry, one solar-mode entry) | `stage_outputs["geometry"]`: `los_geometry`, θ_o, η, slant/ground range, θ_s/Δφ, ground speed, mode labels (no frames — scene geometry, not radiometry) | — |
 | **SourceStage** | params (target T, ε, ρ, area; background; geometry) | `L_source(λ)`, target solid angle, tentative regime | — |
-| **AtmosphereStage** | `L_source(λ)`, params (atmosphere model, geometry) | `L_at_aperture(λ)`, τ_atm(λ), L_path(λ), L_atm(λ) | MTF_turbulence(f) (ground-based only) |
+| **AtmosphereStage** | `L_source(λ)`, params (atmosphere model, geometry) | `L_at_aperture(λ)`, τ_atm(λ), L_path(λ), L_atm(λ), `r0_m` (Fried parameter) | — (no MTF written; turbulence PSF kernel is applied in PlatformStage and the turbulence MTF term by PerformanceStage, when `r0_m > 0`) |
 | **OpticsStage** | `L_at_aperture(λ)`, params (D, f, ε_obs, T_opt, ε_opt, η_cold, WFE, defocus, vignetting) | `L_post_optics(λ)`, A_collect, Ω_pixel, `effective_psf`, `reference_psf` (diffraction-limited reference with the same detector kernels, for PSF-derived Strehl), final regime | MTF_optics(f) — single term from the pupil autocorrelation; WFE and defocus enter via the pupil (Rule 4) |
 | **PlatformStage** | `effective_psf`, regime, params (smear velocity, jitter, t_int) | **EE_box** (ensquared energy in pixel footprint, from the fully degraded PSF) | MTF_smear(f), MTF_jitter(f) |
 | **SpectralIntegrationStage** | `L_post_optics(λ)`, **EE_box** (from PlatformStage), regime, params (filter, QE, λ-grid, t_int) | In-band photoelectrons per pixel per integration (regime-dependent) | — |
 | **DetectorStage** | photoelectrons, params (J_dark, FWC, IPC, glow, L_d, nonlinearity, etc.) | Signal `S` [e-], noise terms {shot, dark, read, 1/f, kTC, DSNU, PRNU, NUC, glow, persistence, ...} | MTF_pixel(f), MTF_IPC(f), MTF_diffusion(f) |
-| **ReadoutStage** | signal, noise terms, params (TDI, binning, coadds, gain, ADC) | Signal in DN, full noise budget; quantization noise added | — |
-| **PerformanceStage** | full state (all frames, all noise terms, all MTF terms) | SNR, NEDT, RER, NIIRS, detection range | System MTF = ∏ MTF_i |
+| **ReadoutStage** | signal, noise terms, params (TDI, binning, coadds, gain, ADC) | Signal in DN, full noise budget; quantization noise added | MTF_TDI(f) (TDI mis-registration), MTF_electronics(f) |
+| **PerformanceStage** | full state (all frames, all noise terms, all MTF terms) | SNR, NEDT, RER, NIIRS, detection range; turbulence MTF term (when `r0_m > 0`) | System MTF = ∏ MTF_i |
 
 ### State transformation rules
 
@@ -333,14 +337,14 @@ class NoiseTerm:
 result = chain.run(params)
 
 # Forward propagation
-result.signal_at("electrons")     # 12,450 e-
+result.signal_at("photoelectrons")  # 12,450 e-  (valid frame; "electrons" is not one)
 result.signal_at("dn")            # 124.5 DN
 result.signal_at("at_aperture")   # spectral radiance returned
 
 # Backward propagation
-result.noise_at("electrons")      # 263 e- RMS total
+result.noise_at("photoelectrons")   # 263 e- RMS total
 result.noise_at("dn")             # 2.63 DN RMS total
-result.noise_at("electrons", term_name="dark")  # 89.2 e- (just one term)
+result.noise_at("photoelectrons", term_name="dark")  # 89.2 e- (just one term)
 # result.noise_budget() is NOT a method (Appendix A) — use result.noise_terms
 # (tuple of NoiseTerm) or inspect_result(result) for a formatted breakdown.
 
@@ -564,11 +568,11 @@ A staring MWIR sensor observing an extended thermal scene.
 - MODTRAN file loaded → τ_atm(λ), L_path(λ), L_atm(λ)
 
 ### Stage execution
-1. **SourceStage** computes `L_source(λ) = ε × Planck(T,λ)`. Adds `at_target` frame. Tentative regime = extended (target angular size ≫ IFOV). Stores tentative regime + target solid angle in `state.stage_outputs["source"]`.
-2. **AtmosphereStage** computes `L_at_aperture(λ) = L_source(λ) × τ_atm(λ) + L_path(λ) + L_atm(λ)`. Adds `at_aperture` frame. Turbulence MTF = 1 (space-based).
+1. **SourceStage** computes `L_source(λ) = ε × Planck(T,λ)`. Registers no `RadiometricFrame` (the pre-atmosphere `at_source_*` snapshots are added by AtmosphereStage — see §5). Tentative regime = extended (target angular size ≫ IFOV). Stores tentative regime + target solid angle in `state.stage_outputs["source"]`.
+2. **AtmosphereStage** computes `L_at_aperture(λ) = L_source(λ) × τ_atm(λ) + L_path(λ) + L_atm(λ)`. Registers the `at_source_*` / `at_aperture_*` / `at_aperture` frames. Publishes `r0_m`; for this space scenario `r0_m` is unset (vacuum path), so no turbulence PSF kernel or MTF term is produced downstream.
 3. **OpticsStage** computes `L_post_optics(λ) = L_at_aperture(λ) × τ_opt(λ) + L_warm_optics(λ) × (1 − η_cold)`. Adds `post_optics` frame. Stores A_collect, Ω_pixel, computes the `effective_psf` and diffraction-limited `reference_psf`, finalizes regime = extended, writes MTF_optics (pupil autocorrelation) into `state.mtf_terms`.
 4. **PlatformStage** writes MTF_smear (sinc from v_img × t_int), MTF_jitter (Gaussian from σ_jitter) into `state.mtf_terms`, degrades the PSF accordingly, and publishes EE_box from the fully degraded PSF (`stage_outputs["platform"]["EE_box"]`; 1.0 in the extended regime).
-5. **SpectralIntegrationStage** reads regime = extended → does not apply EE_box. Computes per-pixel photon rate by integrating `L × A × Ω × τ × QE × λ/hc` over the filter bandpass. Adds `at_fpa` and (after × t_int) `photoelectrons` frames.
+5. **SpectralIntegrationStage** reads regime = extended → does not apply EE_box. Computes per-pixel photon rate by integrating `L × A × Ω × τ × QE × λ/hc` over the filter bandpass. Adds the `photoelectrons` frame (after × t_int). There is no `at_fpa` frame — the focal-plane irradiance lives only as the optics stage-outputs `nearfield_irradiance_at_fpa` / `stray_light_irradiance_at_fpa` (§5).
 6. **DetectorStage** generates noise terms: shot, dark shot, read, 1/f, kTC (off because CDS=on), DSNU residual, PRNU residual, NUC residual, IPC, glow, persistence. Writes MTF_pixel, MTF_IPC, MTF_diffusion into `state.mtf_terms`.
 7. **ReadoutStage** applies gain, ADC; adds quantization noise. Updates noise terms for TDI/coadds (each multiplied by √N_TDI · √N_coadd in the appropriate direction).
 8. **PerformanceStage** forms system MTF = ∏ MTF_i over all accumulated terms. Computes SNR = signal / σ_total, NEDT from dS/dT, RER from system MTF integrated over the edge spread function, NIIRS from GIQE/IIRS using RER + SNR + GSD + Q.

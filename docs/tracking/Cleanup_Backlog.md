@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-199 — Signal_Chain doc misattributes turbulence/platform/readout MTF ownership and cites phantom frames (audit D6–D9)
+
+**Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.1.
+**Status**: RESOLVED 2026-07-23, commit `0af7aaa`. The Signal_Chain doc — the stage map implementers read first — carried four drifted claims. **D6**: §1/§2/§8 said AtmosphereStage "adds turbulence MTF (ground-based only)"; it publishes only `r0_m` (Fried parameter) — the turbulence PSF kernel is applied in PlatformStage and the turbulence MTF term written by PerformanceStage, both gated on `r0_m > 0`. **D7**: §1 credited PlatformStage with LOS-drift / platform-vibration / TDI-alignment MTF (none exist there — only smear+jitter); TDI mis-registration MTF and electronics MTF are ReadoutStage's, whose §2 MTF cell was empty. **D8**: §5 `signal_at("electrons")` / `noise_at("electrons")` examples would raise — `"electrons"` is not a `ReferenceFrame`; corrected to `"photoelectrons"` (a real enum member, `core/quantity.py:41`). **D9**: §8 worked example claimed SourceStage adds an `at_target` frame (source registers none) and SpectralIntegrationStage adds an `at_fpa` frame (no such frame). All corrected to match the code and the doc's own (correct) §5. Doc-only. Related: [[CU-197]].
+
 ### CU-197 — Architecture docs duplicate schema parameter tables with no freshness check (audit unenforced-risk: arch-doc param-table drift)
 
 **Discovered**: Assurance Audit 2026-07 (Track C / unenforced-risk register), remediation plan R2.4.

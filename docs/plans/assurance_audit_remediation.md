@@ -72,10 +72,10 @@ failure evidence, and treat per Rule 15/17 severity before "fixing" the test.
 - R2.2 (S): Physics-module lint — CI grep/ruff rule for `pi / 180`, `* 1e4`-style conversions
   and hardcoded constants (6.62e-34, 1.38e-23, 3e8…) inside the nine physics packages.
 - R2.3 (S): `pytest.approx`-without-tolerance lint (simple AST or grep check in CI).
-- R2.4 (M, owner decision): architecture-doc parameter-table freshness — either extend
-  `gen_param_reference.py --check` to the architecture-doc tables, or delete the duplicated
-  tables and point at the generated reference (recommended: delete — one canonical version,
-  Rule 27).
+- R2.4 (M, owner decision): architecture-doc parameter-table freshness. **DONE** → CU-197,
+  commit `a2c12e2`. Owner chose delete: 19 duplicated tables across 6 subsystem docs removed and
+  pointed at the generated reference (Rule 27). Surfaced open CU-198 (Source_Target_System §8
+  documents a non-existent `source.material.*` namespace).
 
 ### R3 — Doc repairs (Category A, Rule 20 lock-step; one PR per doc)
 

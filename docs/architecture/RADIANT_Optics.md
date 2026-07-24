@@ -479,18 +479,11 @@ All parameters live under the `optics.*` namespace per RADIANT_Parameter_System.
 
 ### 10.1 Aperture & geometry
 
-**Shipped** (`optics/_schema.py`, verified 2026-07-12):
+**Shipped** (see the canonical [Parameter Reference](../guides/parameter_reference.md) for current types, defaults, units, and bounds — auto-generated from `optics/_schema.py`, the single source of truth, Rule 27). Design context:
 
-| Parameter | Unit | Default | Notes |
-|-----------|------|---------|-------|
-| `optics.aperture_diameter_m` | m | None (required) | circular aperture |
-| `optics.obscuration_ratio` | dimensionless | 0.0 | |
-| `optics.n_spiders` | int | 0 | |
-| `optics.spider_width_m` | m | 0.0 | |
-| `optics.spider_angle_deg` | deg | 0.0 | |
-| `optics.defocus_um` | µm | 0.0 | defocus WFE (feeds the pupil) |
-| `optics.focal_length_m` | m | None (required) | |
-| `optics.f_number` | dimensionless | derived from D and f | consistency-grouped |
+- `optics.aperture_diameter_m` — circular aperture only.
+- `optics.defocus_um` — defocus WFE (feeds the pupil).
+- `optics.f_number` — derived from D and f (consistency-grouped).
 
 **[DESIGN-TARGET] — not in the schema** (see §3.1/§3.4 banners, CU-079):
 `optics.aperture_shape`, `optics.aperture_width_m`, `optics.aperture_height_m`,
@@ -502,58 +495,48 @@ obscuration + spiders is reachable; an arbitrary pupil is injected pre-chain
 
 ### 10.2 Wavefront error
 
-**Shipped:**
+**Shipped** (types, defaults, units, and bounds in the canonical [Parameter Reference](../guides/parameter_reference.md) — auto-generated from the schema, the single source of truth, Rule 27). Design context:
 
-| Parameter | Unit | Default | Notes |
-|-----------|------|---------|-------|
-| `optics.wfe_mode` | enum: `scalar_rms`, `zernike`, `field_dependent` | `scalar_rms` | `opd_map` removed (no pupil-phase rep in v1, Gap 68); `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]` |
-| `optics.wfe_rms_waves` | waves | 0.0 | |
-| `optics.wfe_reference_wavelength_um` | µm | 0.633 | |
-| `optics.field_position_x` | deg | 0.0 | field angle, for field-dependent WFE |
-| `optics.field_position_y` | deg | 0.0 | |
-| `optics.psf_n_wavelengths` | int | (schema) | polychromatic-PSF sampling count |
+- `optics.wfe_mode` — `opd_map` removed (no pupil-phase rep in v1, Gap 68); `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]`.
+- `optics.field_position_x`, `optics.field_position_y` — field angle, for field-dependent WFE.
+- `optics.psf_n_wavelengths` — polychromatic-PSF sampling count.
 
 **[DESIGN-TARGET] — not in the schema:** `optics.wfe_zernike_coeffs`,
 `optics.wfe_opd_file`, `optics.wfe_field_table` (the Zernike/field WFE data
 arrives via the injected `WavefrontError`, not as scalar/path params).
 
 ### 10.3 Transmission
-| Parameter | Unit | Default | Mode |
-|-----------|------|---------|------|
-| `optics.transmission_input_mode` | enum | inferred | |
-| `optics.transmission_scalar` | dimensionless | None | mode 1 |
-| `optics.scalar_emissivity` | dimensionless (0–1) | 0.0 | mode 1 — declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1 |
-| *(injection)* `optics_config["transmission_spectral"]` | SpectralData | — | mode 2 (Gap 68 — no path parameter; caller loads and injects) |
-| *(injection)* `optics_config["telescope_transmission"]` | float or SpectralData | — | mode 3 |
-| *(injection)* `optics_config["filter_specs"]` | tuple[FilterSpec, ...] | `()` | mode 3 |
-| *(injection)* `optics_config["key_elements"]` | tuple[OpticalElement, ...] | — | mode 4 |
-| *(injection)* `optics_config["residual_transmission"]` | float or SpectralData | 1.0 | mode 4 |
-| *(injection)* `optics_config["element_list"]` | tuple[OpticalElement, ...] | — | mode 5 (auto-selects the mode) |
-| `optics.optics_temperature_K` | K | 290 | default for synthesized elements |
-| `optics.optics_distance_to_fpa_m` | m | `focal_length_m` | default for synthesized elements |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The five transmission modes and their inputs (injection descriptors are pre-chain, not schema parameters):
+
+- `optics.transmission_input_mode` — enum; inferred when unset.
+- `optics.transmission_scalar` — mode 1.
+- `optics.scalar_emissivity` — mode 1; declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1.
+- `optics_config["transmission_spectral"]` (injection, `SpectralData`) — mode 2 (Gap 68 — no path parameter; caller loads and injects).
+- `optics_config["telescope_transmission"]` (injection, float or `SpectralData`) — mode 3.
+- `optics_config["filter_specs"]` (injection, `tuple[FilterSpec, ...]`, default `()`) — mode 3.
+- `optics_config["key_elements"]` (injection, `tuple[OpticalElement, ...]`) — mode 4.
+- `optics_config["residual_transmission"]` (injection, float or `SpectralData`, default 1.0) — mode 4.
+- `optics_config["element_list"]` (injection, `tuple[OpticalElement, ...]`) — mode 5 (auto-selects the mode).
+- `optics.optics_temperature_K`, `optics.optics_distance_to_fpa_m` — defaults for synthesized elements (`optics_distance_to_fpa_m` defaults to `focal_length_m`).
 
 ### 10.4 Nearfield
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `optics.nearfield_fraction` (deprecated alias: `optics.cold_stop_efficiency`) | dimensionless | 1.0 |
-| `optics.nearfield_enabled` | bool | True |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `optics.nearfield_fraction` — deprecated alias: `optics.cold_stop_efficiency`.
 
 ### 10.5 Stray light
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `optics.stray.input_mode` | enum: `veiling_glare`, `absolute_irradiance`, `spectral_file` (`pst_file` removed — Gap 68) | `veiling_glare` |
-| `optics.stray.veiling_glare_fraction` | dimensionless | 0.0 |
-| `optics.stray.absolute_irradiance_W_m2` | W/m² | 0.0 |
-| *(injection)* `optics_config["stray_light_spectral"]` | SpectralData (W/m²/µm at FPA) | — (required for `spectral_file` mode) |
-| `optics.stray.includes_thermal` | bool | False |
-| `optics.stray.veiling_glare_mtf` | bool (int 0/1) | 0 (pedestal-only) |
-| `optics.stray.halo_sigma_um` | µm | 50.0 |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
+
+- `optics.stray.input_mode` — modes `veiling_glare` / `absolute_irradiance` / `spectral_file` (`pst_file` removed — Gap 68).
+- `optics_config["stray_light_spectral"]` (injection, `SpectralData`, W/m²/µm at FPA) — required for the `spectral_file` mode.
+- `optics.stray.veiling_glare_mtf` — default 0 is pedestal-only.
 
 ### 10.6 Surface-roughness scatter (TIS, §7.4b)
-| Parameter | Unit | Default |
-|-----------|------|---------|
-| `optics.surface_roughness_nm` | nm | 0.0 (off) |
-| `optics.scatter_halo_sigma_um` | µm | 100.0 |
+
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The parameters are `optics.surface_roughness_nm` (0.0 = off) and `optics.scatter_halo_sigma_um`.
 
 ---
 

@@ -115,6 +115,11 @@
 
 ## Resolved
 
+### CU-189 — Optical (pupil-autocorrelation) MTF is cross-checked only against FFT(PSF), never pinned to an external analytic value (Track A2 §2)
+
+**Discovered**: Assurance Audit remediation R1.6 (Track A2 spatial comparison), 2026-07-23.
+**Status**: RESOLVED 2026-07-23, commit `9a33dc0`. **Symptom**: `optics/tests/test_pupil_mtf.py` verified the pupil-autocorrelation MTF only against FFT(PSF) — genuinely independent internal paths, but neither pinned to an external number, so a shared-convention slip in the cutoff ν_c or the autocorrelation normalization could escape both. **Resolution**: added `test_analytic_circular_mtf_anchor` pinning the incoherent circular-aperture MTF to the Goodman closed form MTF(ν̃)=(2/π)[arccos ν̃ − ν̃√(1−ν̃²)] at ν̃=0.25/0.5/0.75 → 0.685038/0.391002/0.144294 (both axes, rel=1e-3). Verified the other four Track A2 spatial anchors were already covered (detector MTF@Nyquist=2/π, jitter σ=0.25px=0.734603 and smear d=0.5px=0.900316 via machine-precision analytic-form tests, Maréchal S(λ/14)=0.817569 via `test_wavefront.py::test_lambda_over_14`). **A2 comparison result**: all five anchors matched the implementation. Test-only change. Related: [[CU-187]].
+
 ### CU-187 — compute_ee_box tested only qualitatively; a factor-2 box-size error passes (audit finding B1-3)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.5.

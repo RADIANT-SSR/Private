@@ -124,6 +124,11 @@
 
 ## Resolved
 
+### CU-205 — Conventions doc: §4 frame-rate/duty-cycle contract unimplemented, §5 angle-naming claim false (audit D1, D2; owner decision R4.1 = implement)
+
+**Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.4.
+**Status**: RESOLVED 2026-07-23, commit `fd35136`. **D1 (implement, owner decision R4.1)**: Conventions §4 described a frame-period / frame-rate / duty-cycle contract with zero implementation (no `frame_rate`/`frame_period`/`duty` anywhere in `src/`). Rather than delete the claim, the owner chose to build it: added `readout.frame_period_s` (default 0.0 = unset), `radiant.readout.frame_timing.compute_frame_timing` (Rule 19; frame_rate=1/frame_period, duty=t_int/frame_period, unset→defaults to t_int with the §4 logged warning for direct callers, duty>1 rejected), and `ReadoutStage` publishing `frame_period_s`/`frame_rate_hz`/`duty_cycle`/`frame_period_defaulted` in `stage_outputs["readout"]`. Backward-compatible: the unset default reproduces the prior implicit continuous-readout behavior, so all 810 readout+integration tests (incl. goldens) pass unchanged; 7 new Level-0 tests. **D2 (doc)**: §5 claimed *all* angular parameters are named with their user-facing (degree) unit; the geometry schema stores `solar_zenith_rad`/`path_zenith_rad`/`elevation_angle_rad` as `_rad` (`input_unit="rad"`; degrees supplied via the unit-aware `set(..., unit="deg")`). Reworded to the invariant that holds (every angular param is unit-suffixed and converted to radians once at `set()`). Docs updated in lock-step (Conventions §4/§5, Scan_Timing banner, generated parameter reference, CHANGELOG). Related: [[CU-204]]; Scan_Timing line-rate/scan model remains a design target (Gap 74).
+
 ### CU-204 — Master doc: C12 universal ValidationError claim, C11 collect-all overstated, §7.6 import table incomplete, broken archive link (audit D3-D5)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.3.

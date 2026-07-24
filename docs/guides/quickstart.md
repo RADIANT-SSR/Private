@@ -8,8 +8,11 @@ Get from zero to a working sensor evaluation in under 5 minutes.
 
 ## Installation
 
+Requires **Python 3.11 or 3.12**.
+
 ```bash
-git clone <repo-url> && cd SSR_Tool
+git clone https://github.com/RADIANT-SSR/Private.git SSR_Tool && cd SSR_Tool
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 
@@ -18,6 +21,9 @@ Verify the install:
 ```bash
 radiant --version
 ```
+
+For prerequisites, optional extras, and troubleshooting, see the
+[project README](../../README.md) and the [developer guide](../../DEVELOPMENT.md).
 
 ---
 

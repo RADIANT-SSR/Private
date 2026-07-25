@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`Sensor.set(..., source=)` / `set_many(..., source=)`, `Sensor.inputs()`, and
+  `Sensor.resolve()` (CU-208).** Three additive, back-compatible public seams:
+  `source=` sets the provenance **label** recorded with an input (the provenance
+  class stays `USER_SET`; defaults are unchanged), `inputs()` returns a read-only
+  snapshot of the explicitly-set inputs in input units, and `resolve()` is a public,
+  idempotent ensure-resolved surface returning `self`. `ConfigurationSet` uses all
+  three instead of reaching into `Sensor` internals. No computed results change.
 - **`ConfigurationSet` — up to eight named configurations of one modeling problem
   (ADR-0010, multi-configuration Phase 1).** New public api surface
   `radiant.api.ConfigurationSet` (plus `ConfigSetRunResult`, `ConfigRun`, and the

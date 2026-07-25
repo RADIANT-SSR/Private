@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Version/build provenance is now visible (WS-A3, Windows first-deploy report).**
+  `radiant --version` prints the package version, the on-disk **load path** the
+  `radiant` package was imported from, and (when that path is a git checkout) the
+  short commit SHA + dirty flag. The GUI window title gains the same `vX.Y.Z (+sha)`
+  label. New public helper `radiant.api.build_info.build_info()`. This makes a
+  stale/wrong install — the root cause behind several "already-fixed but not visible"
+  findings — a glance instead of a guess. `--version` output format changed (was
+  Click's bare `radiant, version 0.1.0`).
 - **GUI: Readout acquisition controls (Gap 102).** The Readout stage's Inputs
   form gains grouped sections for TDI (`readout.n_tdi` / `tdi_mode` /
   `tdi_misalign_pixels`), co-adding (`n_coadds` / `coadd_mode`), on/off-chip

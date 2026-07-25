@@ -20,6 +20,7 @@ object names only.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -38,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.api.build_info import build_info
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.geometry_modes import implicated_families
@@ -59,6 +61,17 @@ from radiant.gui.widgets.sweep_dialog import SweepDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import EvaluationWorker
+
+
+@lru_cache(maxsize=1)
+def _build_label() -> str:
+    """The running package's ``vX.Y.Z (+sha)`` label for the window title.
+
+    Cached: :func:`build_info` shells out to git, and the title is recomposed on every
+    dirty toggle / file change, so it is resolved exactly once per process.
+    """
+    return build_info().one_line()
+
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
@@ -242,11 +255,14 @@ class RADIANTMainWindow(QMainWindow):
         shows ``untitled``. A leading ``*`` marks unsaved edits (the dirty marker), so
         the operator always sees whether the on-screen config matches the file on disk.
         """
+        # The build label (version + git SHA) makes a stale/wrong install visible at a
+        # glance — the provenance the Windows first-deploy report needed (WS-A3).
+        suffix = f"RADIANT {_build_label()}"
         if self._sensor is None:
-            return "RADIANT"
+            return suffix
         name = self._current_path.name if self._current_path is not None else "untitled"
         marker = "* " if self._dirty else ""
-        return f"{marker}{name} — RADIANT"
+        return f"{marker}{name} — {suffix}"
 
     def _add_action(
         self,

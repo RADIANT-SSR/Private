@@ -45,7 +45,7 @@ class TestTitleAndDirty:
     def test_title_shows_file_no_dirty_on_load(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         """A loaded config shows its file name and no dirty marker."""
         window = _window(qtbot, tmp_path, path=str(_EXAMPLE))
-        assert window.windowTitle() == "mwir_leo_minimal.yaml — RADIANT"
+        assert window.windowTitle().startswith("mwir_leo_minimal.yaml — RADIANT")
         assert "*" not in window.windowTitle()
 
     def test_edit_sets_dirty_marker(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -54,7 +54,7 @@ class TestTitleAndDirty:
         window.sensor.set(_APERTURE, 0.6)
         window._on_parameter_edited(_APERTURE)
         assert window.windowTitle().startswith("* ")
-        assert window.windowTitle() == "* mwir_leo_minimal.yaml — RADIANT"
+        assert window.windowTitle().startswith("* mwir_leo_minimal.yaml — RADIANT")
 
 
 class TestSaveRoundTrip:
@@ -69,7 +69,7 @@ class TestSaveRoundTrip:
         window._save_to_path(out)
 
         assert "*" not in window.windowTitle()
-        assert window.windowTitle() == "roundtrip.yaml — RADIANT"
+        assert window.windowTitle().startswith("roundtrip.yaml — RADIANT")
         reloaded = Sensor.load(str(out))
         assert reloaded.get(_APERTURE) == window.sensor.get(_APERTURE) == 0.6
 
@@ -78,7 +78,7 @@ class TestOpenSwapsSensor:
     def test_open_swaps_sensor_and_updates_title(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         """Opening a file swaps the live sensor, updates the title, clears dirty."""
         window = _window(qtbot, tmp_path)  # launched with no path (untitled)
-        assert window.windowTitle() == "untitled — RADIANT"
+        assert window.windowTitle().startswith("untitled — RADIANT")
 
         # Write a distinct config to open (a changed aperture) and open it.
         other = tmp_path / "other.yaml"
@@ -91,7 +91,7 @@ class TestOpenSwapsSensor:
             window._open_path(str(other))
         assert window.sensor is not first  # a genuinely new sensor object
         assert window.sensor.get(_APERTURE) == 0.42
-        assert window.windowTitle() == "other.yaml — RADIANT"
+        assert window.windowTitle().startswith("other.yaml — RADIANT")
         assert "*" not in window.windowTitle()
 
 

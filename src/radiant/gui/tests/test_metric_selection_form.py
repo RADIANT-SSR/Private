@@ -39,9 +39,8 @@ def _performance_pane(qtbot, sensor: Sensor) -> StagePane:
 
 class TestComposition:
     def test_performance_declares_metric_selection(self) -> None:
-        """The selection row lives on the All-metrics tab (owner redesign 2026-07-25)."""
-        comp = STAGE_COMPOSITIONS["performance"]
-        assert any(sub.metric_selection for sub in comp.subviews)
+        """The selection row sits on the (flat) Performance pane above the metric cards."""
+        assert STAGE_COMPOSITIONS["performance"].metric_selection is True
 
 
 class TestMetricSelectionForm:

@@ -1,15 +1,13 @@
 """Tests for the Performance stage instrument (arch doc §4.4.1, owner redesign 2026-07-25).
 
-The Performance stage is the terminal, output-only stage, rendered as a tabbed composite
-(the §4.4 sub-view hook): **Summary** — the five headline badges (SNR accented) above the
-system MTF, the post-evaluate landing; **All metrics** — the Gap-96 compute toggles
-(checkbox order matching the card sections, geometry first) above the grouped metric cards
-(one themed card per metric group, human display labels, values with registry units,
-hover-revealed pins); **MTF budget** — the per-term Nyquist budget chart. A result-typed
-metric failure (a non-finite value, Rule 17 carve-out for the ``radiant.performance``
-metric layer) renders as ``n/a (<failure_reason>)`` — never a bare ``nan``, never a blank.
-Every figure is one call on the bound ``result.plot.*`` accessor; every test drives the
-real widgets offscreen.
+The Performance stage is the terminal, output-only stage: one flat pane with the Gap-96
+compute toggles (checkbox order matching the card sections, geometry first) above the
+grouped metric cards — one themed card per metric group, human display labels, values with
+registry units, hover-revealed pins. No plots here (owner-slimmed 2026-07-25: the system
+MTF and MTF budget live on the Optics MTF tab). A result-typed metric failure (a non-finite
+value, Rule 17 carve-out for the ``radiant.performance`` metric layer) renders as ``n/a
+(<failure_reason>)`` — never a bare ``nan``, never a blank. Every test drives the real
+widgets offscreen.
 """
 
 from __future__ import annotations
@@ -71,67 +69,49 @@ def _performance_pane(qtbot, sensor: Sensor) -> StagePane:
 
 
 # ---------------------------------------------------------------------------
-# Composition (Qt-free) — the owner-picked tabbed layout (2026-07-25)
+# Composition (Qt-free) — the owner-slimmed single pane (2026-07-25)
 # ---------------------------------------------------------------------------
 
 
 class TestPerformanceComposition:
-    def test_three_owner_ordered_tabs(self) -> None:
-        """Summary lands first (badges + system MTF), then All metrics, then MTF budget."""
+    def test_single_flat_pane_with_toggles_and_cards(self) -> None:
+        """One flat pane: the compute toggles + the grouped metric cards, nothing else
+        (owner-slimmed 2026-07-25 — no Summary badges, no MTF tabs; the MTF figures
+        live on the Optics MTF tab)."""
         comp = STAGE_COMPOSITIONS["performance"]
-        assert [sub.title for sub in comp.subviews] == ["Summary", "All metrics", "MTF budget"]
-        summary, all_metrics, budget = comp.subviews
-        assert summary.summary_badges is True
-        assert [p.method for p in summary.plots] == ["mtf"]
-        assert all_metrics.metric_selection is True
-        assert all_metrics.metrics is True
-        assert [p.method for p in budget.plots] == ["mtf_budget"]
-        # Both MTF figures still ship, one per tab.
-        assert [p.method for sub in comp.subviews for p in sub.plots] == ["mtf", "mtf_budget"]
+        assert comp.subviews == ()
+        assert comp.metric_selection is True
+        assert comp.metrics is True
+        assert comp.plots == ()
 
     def test_performance_has_no_editable_inputs(self) -> None:
-        """The terminal stage consumes the chain — no input forms on any tab."""
+        """The terminal stage consumes the chain — no input forms of any kind."""
         comp = STAGE_COMPOSITIONS["performance"]
-        for spec in (comp, *comp.subviews):
-            assert not any(
-                (
-                    spec.source_inputs,
-                    spec.optics_inputs,
-                    spec.detector_inputs,
-                    spec.spectral_inputs,
-                    spec.platform_inputs,
-                    spec.readout_inputs,
-                    spec.geometry_form,
-                )
+        assert not any(
+            (
+                comp.source_inputs,
+                comp.optics_inputs,
+                comp.detector_inputs,
+                comp.spectral_inputs,
+                comp.platform_inputs,
+                comp.readout_inputs,
+                comp.geometry_form,
             )
+        )
 
 
 # ---------------------------------------------------------------------------
-# The pane renders: badges + grouped cards with units + both MTF figures
+# The pane renders: the toggle row + grouped cards with units, no tabs
 # ---------------------------------------------------------------------------
 
 
 class TestPerformancePane:
-    def test_tabs_render_and_land_on_summary(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_renders_flat_without_tabs_or_plots(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        assert pane.has_tabs
-        assert pane.tab_titles() == ["Summary", "All metrics", "MTF budget"]
-
-    def test_summary_badges_fill_from_the_metric_surface(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The five headline badges render real values (the PinnedCard badge path)."""
-        pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        badges = pane.badge_row
-        assert badges is not None
-        assert badges.metric_keys() == (
-            "snr",
-            "nedt_K",
-            "niirs",
-            "gsd_geometric_mean_m",
-            "mtf_at_nyquist",
-        )
-        assert badges.card("snr").value_text() not in ("", "—")
-        # NEDT shows in the CU-108 display prefix (mK), unit sourced from the surface.
-        assert badges.card("nedt_K").value_text().endswith("mK")
+        assert not pane.has_tabs
+        assert pane.tab_titles() == []
+        assert pane.plot_canvases == []
+        assert pane.metric_selection_form is not None
 
     def test_metric_cards_show_every_metric_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """All computed metrics render as card rows; dimensional ones keep their unit."""
@@ -149,11 +129,6 @@ class TestPerformancePane:
         assert cards.value_text("gsd_geometric_mean_m").endswith("m")
         # SNR is a dimensionless ratio — a bare number, no fake unit.
         assert "dimensionless" not in cards.value_text("snr")
-
-    def test_system_mtf_and_budget_figures_render(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        assert len(pane.plot_canvases) == 2
-        assert all(c.has_figure() for c in pane.plot_canvases)
 
 
 # ---------------------------------------------------------------------------

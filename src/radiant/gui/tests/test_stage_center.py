@@ -431,14 +431,14 @@ class TestStageCenterInWindow:
             assert all(c.has_figure() for c in pane.plot_canvases)
 
     def test_performance_shows_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Performance center shows the grouped metric cards + two MTF figures."""
+        """The Performance center shows the grouped metric cards (no plots — the MTF
+        figures live on the Optics MTF tab, owner-slimmed 2026-07-25)."""
         window = _load_window(qtbot)
         window.stage_strip.stageClicked.emit("performance")
         pane = window.central_canvas.stage_center.pane("performance")
         assert pane.metric_cards is not None
         assert "snr" in pane.metric_cards.rendered_keys()
-        assert len(pane.plot_canvases) == 2
-        assert all(c.has_figure() for c in pane.plot_canvases)
+        assert pane.plot_canvases == []
 
     def test_pre_evaluate_shows_placeholder(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """With no sensor the center shows its placeholder; a stage click is remembered."""
@@ -473,9 +473,9 @@ class TestStageCenterInWindow:
 
 class TestTabbedSubViewHook:
     """The multi-tab hook (arch doc §4.4): a stage MAY declare named sub-views; the pane
-    renders them as a QTabWidget (Geometry / Optics / Detector / Performance use it).
-    These prove the hook itself and the single-pane fallback with synthetic
-    compositions, independent of any real stage's declaration.
+    renders them as a QTabWidget (Geometry / Optics / Detector / Source use it). These
+    prove the hook itself and the single-pane fallback with synthetic compositions,
+    independent of any real stage's declaration.
     """
 
     def test_two_subviews_render_a_tab_widget_with_both_labels(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
@@ -520,11 +520,11 @@ class TestTabbedSubViewHook:
         # Its flat sections are still built (the outputs readout + the in-band plot).
         assert pane.outputs_readout is not None
         assert pane.plot_canvases
-        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), Source (GT-0 rework,
-        # 2026-07-16), and Performance (owner redesign 2026-07-25) are the tabbed
-        # stages; the rest are flat.
+        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), and Source (GT-0 rework,
+        # 2026-07-16) are the tabbed stages; the rest are flat (Performance returned to
+        # a single pane, owner-slimmed 2026-07-25).
         tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
-        assert tabbed == {"geometry", "optics", "detector", "source", "performance"}
+        assert tabbed == {"geometry", "optics", "detector", "source"}
 
 
 class TestBottomTabsRemoved:

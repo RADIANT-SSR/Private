@@ -168,5 +168,113 @@ def main() -> None:
     )
 
 
+# ============================ Landsat 8 TIRS =================================
+# Provenance: docs/validation/landsat_tirs_source_data.md. Validation target:
+# measured NEdT (Montanaro 2014b Table 2). The published parameter set (CE 0.8%,
+# tau 0.49) over-collects vs the published 5e6 e- full well at the 360 K
+# calibrated ceiling, so the effective throughput is INVERTED from that
+# saturation constraint (see data doc "Modeling notes"), then NEdT predicted.
+
+TIRS_D_M = 0.1085  # m — derived (178 mm / f1.64), published components
+TIRS_F_M = 0.178  # m — published
+TIRS_TAU = 0.49  # — published system model value (Jhabvala 2011)
+TIRS_CE_PUB = 0.008  # — published band-average conversion efficiency
+TIRS_PITCH_UM = 25.0  # µm — published
+TIRS_T_INT_S = 3.49e-3  # s — published (as flown)
+TIRS_DARK_E_S = 4.0e7  # e-/s — published
+TIRS_READ_LO = 260.0  # e- RMS — published ROIC typical
+TIRS_READ_HI = 1033.0  # e- RMS — sqrt(260^2 + 1000^2), electronics spec ceiling
+TIRS_FULL_WELL = 5.0e6  # e- — published (">5 million electrons")
+TIRS_ALT_M = 705_000.0  # m — published
+# Per-band published saturation temperatures (Reuter 2015) — the well is full there
+# by definition, giving a published physical constraint to invert throughput from.
+TIRS_SAT_K = {"B10": 400.0, "B11": 370.0}
+
+TIRS_BANDS = (
+    ("B10", 10.6, 11.2, {270.0: (0.56, 0.057), 300.0: (0.40, 0.049), 320.0: (0.35, 0.045)}),
+    ("B11", 11.5, 12.5, {270.0: (0.53, 0.060), 300.0: (0.40, 0.052), 320.0: (0.35, 0.051)}),
+)
+
+
+def _run_tirs(lo_um: float, hi_um: float, scene_k: float, qe: float, read_e: float):
+    """Run one TIRS band/temperature; return (NEDT [K], signal [e-], well fill [-])."""
+    wl = np.linspace(lo_um, hi_um, 41)
+    session = RadiantSession(wavelength_um=wl)
+    params = session.default_params()
+    params.set("source.target.temperature", scene_k)
+    params.set("source.target.emissivity", 1.0)  # onboard-blackbody validation view
+    params.set("source.scene_type", "extended")
+    params.set("atmosphere.model", "exo")
+    params.set("geometry.sensor_altitude_m", TIRS_ALT_M)
+    params.set("geometry.target_altitude_m", 0.0)
+    params.set("optics.aperture_diameter_m", TIRS_D_M)
+    params.set("optics.focal_length_m", TIRS_F_M)
+    params.set("optics.transmission_scalar", TIRS_TAU)
+    params.set("detector.pixel_pitch_x_um", TIRS_PITCH_UM)
+    params.set("detector.pixel_pitch_y_um", TIRS_PITCH_UM)
+    params.set("detector.qe_value", qe)
+    params.set("detector.dark_rate_e_per_s", TIRS_DARK_E_S)
+    params.set("spectral_integration.filter_min_um", float(wl[0]))
+    params.set("spectral_integration.filter_max_um", float(wl[-1]))
+    params.set("spectral_integration.integration_time_s", TIRS_T_INT_S)
+    params.set("readout.read_noise_e_rms", read_e)
+    params.set("readout.full_well_capacity_e", TIRS_FULL_WELL)
+    params.set("readout.adc_bits", 12)
+    params.set("readout.gain_e_per_dn", TIRS_FULL_WELL / 2**12)
+    params.resolve()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        result = session.run(params)
+    nedt_k = float(result.nedt())
+    sig = float(result.stage_outputs["readout"]["signal_e_final"])
+    well = float(result.stage_outputs["readout"]["well_fill_fraction"])
+    return nedt_k, sig, well
+
+
+def tirs_main() -> None:
+    print("\nLandsat 8 TIRS — RADIANT predicted NEdT vs published (Montanaro 2014b)")
+    print("(300 K-class blackbody scene, exo path, extended; NEdT in mK;")
+    print(" see docs/validation/landsat_tirs_source_data.md for provenance)\n")
+    for name, lo, hi, table in TIRS_BANDS:
+        # Bound A — raw published parameters (CE 0.8%, tau 0.49), no tuning. The raw
+        # signal agrees with Jhabvala's published signal model within ~25%.
+        _, sig_raw, well_raw = _run_tirs(lo, hi, 300.0, TIRS_CE_PUB, TIRS_READ_LO)
+        # Bound B — CE inverted from the published per-band saturation temperature
+        # (well full there by definition). Planck ratio taken unclipped via tiny qe.
+        _, s300_tiny, _ = _run_tirs(lo, hi, 300.0, TIRS_CE_PUB * 1e-3, TIRS_READ_LO)
+        _, s_sat_tiny, _ = _run_tirs(lo, hi, TIRS_SAT_K[name], TIRS_CE_PUB * 1e-3, TIRS_READ_LO)
+        planck_ratio = s_sat_tiny / s300_tiny
+        qe_eff = TIRS_CE_PUB * TIRS_FULL_WELL / (sig_raw * planck_ratio)
+        scale = qe_eff / TIRS_CE_PUB
+        print(
+            f"{name}: raw model well fill {well_raw:.0%} at 300 K (signal {sig_raw:.3g} e-); "
+            f"saturation inversion at {TIRS_SAT_K[name]:.0f} K -> "
+            f"CE_eff = {qe_eff:.2e} [-] (x{scale:.2f} vs published CE)"
+        )
+        print(
+            f"{'  T':>6} {'raw-CE pred [mK]':>17} {'sat-CE pred [mK]':>17} "
+            f"{'spec [mK]':>10} {'meas [mK]':>10}"
+        )
+        for scene_k, (spec_k, meas_k) in table.items():
+            raw_lo, _, _ = _run_tirs(lo, hi, scene_k, TIRS_CE_PUB, TIRS_READ_LO)
+            raw_hi, _, _ = _run_tirs(lo, hi, scene_k, TIRS_CE_PUB, TIRS_READ_HI)
+            inv_lo, _, _ = _run_tirs(lo, hi, scene_k, qe_eff, TIRS_READ_LO)
+            inv_hi, _, well = _run_tirs(lo, hi, scene_k, qe_eff, TIRS_READ_HI)
+            print(
+                f"{scene_k:>5.0f}K {1e3 * raw_lo:>7.1f}\u2013{1e3 * raw_hi:<8.1f} "
+                f"{1e3 * inv_lo:>7.1f}\u2013{1e3 * inv_hi:<8.1f} "
+                f"{1e3 * spec_k:>10.0f} {1e3 * meas_k:>10.0f}   (well {well:.0%})"
+            )
+    print(
+        "\nRegime notes: photon/dark/read floor only — the published Jhabvala budget is\n"
+        "dominated by blackbody/optics temperature-INSTABILITY terms (calibration\n"
+        "stability), which are not detector noise and are not modeled; the prediction\n"
+        "should therefore sit at or below the measured NEdT, and far below the 400 mK\n"
+        "spec. Read-noise envelope: 260 e- (ROIC typical) to 1033 e- (with the 1000 e-\n"
+        "electronics spec ceiling RSS'd)."
+    )
+
+
 if __name__ == "__main__":
     main()
+    tirs_main()

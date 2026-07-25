@@ -1,4 +1,4 @@
-"""Presentation helpers for the performance-metric cards (arch doc §4.4/§4.5, R-UNITS).
+"""Presentation helpers for the performance-metric cards + readout (arch doc §4.4/§4.5).
 
 These pure functions turn the *public* ``ChainResult`` metric surface
 (:meth:`ChainResult.metric_records`, which joins each value with its registry
@@ -29,9 +29,13 @@ MTF@Nyq ``mtf_at_nyquist``    dimensionless
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
+
+from radiant.api.metric_groups import group_of
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from radiant.api import ChainResult
 
 # (badge key, display label, ChainResult metric key, primary?) for the five v1
@@ -68,6 +72,56 @@ _FAILURE_RESULT_KEY: Final[dict[str, str]] = {
 # Shown in the value slot for a failed / unavailable metric — explicitly *not a
 # number*, so a stale or failed metric never reads as a real value.
 NOT_AVAILABLE: Final[str] = "n/a"
+
+# (taxonomy group key, display heading) in the Performance readout's *section order*
+# (Windows-deployment finding 12: the flat ~30-metric alphabetical dump was unusable —
+# geometric/sampling first, then spatial, then radiometric/interpretability, saturation
+# last). The keys are the Gap-96 metric-group taxonomy names
+# (:mod:`radiant.api.metric_groups` — the owner-ratified single source of the
+# metric → group partition, CI-enforced to cover the registry exactly), so a newly
+# registered metric lands in the right section automatically. The headings are shared
+# with the Metric-selection card (:mod:`.widgets.performance_metrics_form`), so a
+# group's checkbox and its readout section read identically.
+METRIC_GROUP_HEADINGS: Final[tuple[tuple[str, str], ...]] = (
+    ("sampling", "Sampling / geometry"),
+    ("spatial_mtf", "Spatial / MTF"),
+    ("radiometric", "Radiometric"),
+    ("interpretability", "Interpretability"),
+    ("saturation", "Saturation"),
+)
+
+# Fallback section for a metric key the taxonomy does not know (defensive — the
+# partition test makes this unreachable for registry metrics; a foreign key still
+# renders rather than vanishing).
+UNGROUPED_HEADING: Final[str] = "Other"
+
+
+def grouped_metric_records(records: Iterable[Any]) -> tuple[tuple[str, tuple[Any, ...]], ...]:
+    """Partition metric *records* into the labeled display sections (finding 12).
+
+    Takes the (duck-typed, ``.name``-carrying) records from
+    :meth:`ChainResult.metric_records` and returns ``(heading, records)`` sections in
+    :data:`METRIC_GROUP_HEADINGS` order, each record placed by the Gap-96 taxonomy
+    (:func:`radiant.api.metric_groups.group_of`). Records keep their incoming
+    (sorted-name) order within a section; empty sections are dropped. A record whose
+    key the taxonomy does not know lands in a trailing :data:`UNGROUPED_HEADING`
+    section — shown, never silently dropped. Pure and Qt-free, so the section
+    contract is unit-tested directly.
+    """
+    buckets: dict[str, list[Any]] = {key: [] for key, _ in METRIC_GROUP_HEADINGS}
+    ungrouped: list[Any] = []
+    for rec in records:
+        try:
+            buckets[group_of(rec.name)].append(rec)
+        except KeyError:
+            ungrouped.append(rec)
+    sections = [
+        (heading, tuple(buckets[key])) for key, heading in METRIC_GROUP_HEADINGS if buckets[key]
+    ]
+    if ungrouped:
+        sections.append((UNGROUPED_HEADING, tuple(ungrouped)))
+    return tuple(sections)
+
 
 # Per-metric display scaling (CU-108): metric key → (display unit, multiply factor).
 # The base unit still comes from the registry (``rec.unit``); this one table only
@@ -155,8 +209,11 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
 __all__ = [
     "BADGE_METRICS",
     "BADGE_KEYS",
+    "METRIC_GROUP_HEADINGS",
     "NOT_AVAILABLE",
+    "UNGROUPED_HEADING",
     "format_metric_value",
+    "grouped_metric_records",
     "scale_for_display",
     "metric_failure_reason",
     "badge_display",

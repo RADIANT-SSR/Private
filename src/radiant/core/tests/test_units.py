@@ -148,6 +148,74 @@ def test_targets_for_excludes_identity() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Temperature — affine (offset) conversions K / degC / degF (GUI finding 13)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_degC_to_K_freezing() -> None:
+    """0 °C = 273.15 K (water freezing point)."""
+    assert convert(0.0, "degC", "K") == pytest.approx(273.15, abs=1e-12)
+
+
+@pytest.mark.level0
+def test_degC_to_K_boiling() -> None:
+    """100 °C = 373.15 K (water boiling point)."""
+    assert convert(100.0, "degC", "K") == pytest.approx(373.15, abs=1e-12)
+
+
+@pytest.mark.level0
+def test_degF_to_K_freezing() -> None:
+    """32 °F = 273.15 K."""
+    assert convert(32.0, "degF", "K") == pytest.approx(273.15, abs=1e-12)
+
+
+@pytest.mark.level0
+def test_degF_to_K_boiling() -> None:
+    """212 °F = 373.15 K."""
+    assert convert(212.0, "degF", "K") == pytest.approx(373.15, abs=1e-12)
+
+
+@pytest.mark.level0
+def test_minus_40_crossover() -> None:
+    """−40 °C = −40 °F = 233.15 K — the classic scale crossover."""
+    assert convert(-40.0, "degC", "K") == pytest.approx(233.15, abs=1e-12)
+    assert convert(-40.0, "degF", "K") == pytest.approx(233.15, abs=1e-12)
+
+
+@pytest.mark.level0
+def test_K_to_degC_and_degF() -> None:
+    """Canonical K back out to °C / °F (used by inverse_convert / display)."""
+    assert inverse_convert(273.15, "K", "degC") == pytest.approx(0.0, abs=1e-12)
+    assert inverse_convert(373.15, "K", "degC") == pytest.approx(100.0, abs=1e-12)
+    assert inverse_convert(273.15, "K", "degF") == pytest.approx(32.0, abs=1e-12)
+    assert inverse_convert(373.15, "K", "degF") == pytest.approx(212.0, abs=1e-12)
+
+
+@pytest.mark.level0
+@pytest.mark.parametrize("value", [-50.0, 0.0, 25.0, 1088.0, 3000.0])
+def test_temperature_round_trip_degC(value: float) -> None:
+    """degC → K → degC is identity (invertibility of the affine pair)."""
+    k = convert(value, "degC", "K")
+    assert inverse_convert(k, "K", "degC") == pytest.approx(value, abs=1e-9)
+
+
+@pytest.mark.level0
+@pytest.mark.parametrize("value", [-40.0, 32.0, 98.6, 451.0])
+def test_temperature_round_trip_degF(value: float) -> None:
+    """degF → K → degF is identity."""
+    k = convert(value, "degF", "K")
+    assert inverse_convert(k, "K", "degF") == pytest.approx(value, abs=1e-9)
+
+
+@pytest.mark.level0
+def test_units_for_K_offers_celsius_and_fahrenheit() -> None:
+    """The GUI unit dropdown for a Kelvin parameter must offer K, degC, degF."""
+    result = units_for("K")
+    assert "K" in result and "degC" in result and "degF" in result
+
+
+# ---------------------------------------------------------------------------
 # wavelength_to_wavenumber — known values and invertibility
 # ---------------------------------------------------------------------------
 

@@ -14,6 +14,12 @@ from radiant.api.config_io import (
     normalize_element_document,
     preview_optical_elements,
 )
+from radiant.api.config_set import (
+    ConfigRun,
+    ConfigSetError,
+    ConfigSetRunResult,
+    ConfigurationSet,
+)
 from radiant.api.error_budget import BudgetContributor, ErrorBudget
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
@@ -44,4 +50,8 @@ __all__ = [
     "ElementPreview",
     "preview_optical_elements",
     "normalize_element_document",
+    "ConfigurationSet",
+    "ConfigSetRunResult",
+    "ConfigRun",
+    "ConfigSetError",
 ]

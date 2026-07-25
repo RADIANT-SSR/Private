@@ -2,30 +2,33 @@
 
 :class:`PerformanceMetricsForm` lets the analyst choose *which* performance metric families
 the chain computes and surfaces. It exposes the five ``performance.metrics.*`` boolean group
-flags (Radiometric / Spatial-MTF / Interpretability / Sampling / Saturation) as a compact
-two-column list: a bold group name (the checkbox) beside a dimmed hint naming the group's
-metrics. Turning a group off truly stops its *computation* — and any warnings it would emit —
-not merely its display (Gap 96); :class:`~radiant.performance.stage.PerformanceStage` still
-computes any hidden prerequisites via the metric dependency closure.
+flags as one compact "Compute:" row of checkboxes sitting directly above the grouped metric
+cards. **The checkbox order is derived from the shared section-order table**
+(:data:`~radiant.gui.metric_format.METRIC_GROUP_HEADINGS` — sampling/geometry first, owner
+feedback 2026-07-25), so each toggle lines up with the card section it controls by
+construction and the two orders can never drift. Turning a group off truly stops its
+*computation* — and any warnings it would emit — not merely its display (Gap 96);
+:class:`~radiant.performance.stage.PerformanceStage` still computes any hidden
+prerequisites via the metric dependency closure.
 
 **One GUI action ↔ one API call (owner hard rule).** Each toggle performs exactly one
 ``sensor.set("performance.metrics.<group>", checked)`` and re-emits :attr:`parameterEdited`,
-so the host debounces a full re-evaluation and every metric surface (the Metrics readout, the
-pinned rail) re-renders with the reduced set. The hover tooltip is read from the live schema
-(:meth:`Sensor.parameter_def`) — never transcribed. Programmatic state-sync in
-:meth:`bind_sensor` blocks signals so binding never fires a spurious edit.
+so the host debounces a full re-evaluation and every metric surface (the grouped cards, the
+Summary badges, the pinned rail) re-renders with the reduced set. The hover tooltip is read
+from the live schema (:meth:`Sensor.parameter_def`) — never transcribed. Programmatic
+state-sync in :meth:`bind_sensor` blocks signals so binding never fires a spurious edit.
 
 All colour/typography come from the QSS theme via object names (``metricGroupCheck`` /
-``metricGroupHint``); this file holds no colour/font literal. One widget class per file
+``outputsRowLabel``); this file holds no colour/font literal. One widget class per file
 (Rule 19).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QCheckBox, QGridLayout, QLabel, QWidget
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QWidget
 
 from radiant.api.metric_groups import GROUP_PARAMS
 from radiant.core.exceptions import RadiantError
@@ -33,21 +36,6 @@ from radiant.gui.metric_format import METRIC_GROUP_HEADINGS
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
-
-# The shared group → display-heading table (metric_format), so a group's checkbox here
-# and its section heading in the Metrics readout read identically (finding 12).
-_HEADINGS: Final[dict[str, str]] = dict(METRIC_GROUP_HEADINGS)
-
-# (group, bold name, dimmed metric hint), in reading order. The dot-path comes from
-# ``GROUP_PARAMS`` (the single source of truth shared with the schema and the stage); the
-# hint is the only literal here (the name is the shared heading).
-_GROUP_ROWS: Final[tuple[tuple[str, str, str], ...]] = (
-    ("radiometric", _HEADINGS["radiometric"], "SNR, contrast, SCNR, NEDT, detection range"),
-    ("spatial_mtf", _HEADINGS["spatial_mtf"], "FWHM, RER, EE, Strehl, MTF at Nyquist"),
-    ("interpretability", _HEADINGS["interpretability"], "NIIRS / IIRS, MRT"),
-    ("sampling", _HEADINGS["sampling"], "GSD, Q, swath, diffraction limit"),
-    ("saturation", _HEADINGS["saturation"], "well margin, ADC margin, dynamic range"),
-)
 
 
 class PerformanceMetricsForm(QWidget):
@@ -69,24 +57,26 @@ class PerformanceMetricsForm(QWidget):
 
         self._sensor: Sensor | None = None
 
-        grid = QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(4)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(14)
 
+        prompt = QLabel("Compute:", self)
+        prompt.setObjectName("outputsRowLabel")
+        row.addWidget(prompt)
+
+        # One checkbox per group, in the shared section order (METRIC_GROUP_HEADINGS) —
+        # the checkbox row and the card sections below stay aligned by construction.
         self._checks: dict[str, QCheckBox] = {}
-        for row, (group, name, hint) in enumerate(_GROUP_ROWS):
+        for group, heading in METRIC_GROUP_HEADINGS:
             dotpath = GROUP_PARAMS[group]
-            check = QCheckBox(name, self)
+            check = QCheckBox(heading, self)
             check.setObjectName("metricGroupCheck")
             check.setChecked(True)  # schema default; corrected on bind
             check.toggled.connect(lambda checked, dp=dotpath: self._on_toggle(dp, checked))
-            hint_label = QLabel(hint, self)
-            hint_label.setObjectName("metricGroupHint")
-            grid.addWidget(check, row, 0)
-            grid.addWidget(hint_label, row, 1)
+            row.addWidget(check)
             self._checks[dotpath] = check
-        grid.setColumnStretch(1, 1)
+        row.addStretch(1)
 
     # -- binding / refresh --------------------------------------------------
 

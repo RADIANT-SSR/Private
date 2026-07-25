@@ -1,13 +1,15 @@
-"""Tests for the Performance stage instrument (GUI plan Phase PS-6, arch doc §4.4.1).
+"""Tests for the Performance stage instrument (arch doc §4.4.1, owner redesign 2026-07-25).
 
-The Performance stage is the terminal, output-only stage: a single flat pane with the metric
-summary (all of ``result.metric_records()`` — SNR / NEDT / NIIRS / GSD / MTF@Nyquist and any
-others — each value with its registry unit, sectioned under the Gap-96 metric-group headings
-per Windows-deployment finding 12) above the system-MTF and MTF-budget plots. It has
-no editable inputs (it consumes the chain). A result-typed metric failure (a non-finite value,
-Rule 17 carve-out for the ``radiant.performance`` metric layer) renders as ``n/a
-(<failure_reason>)`` — never a bare ``nan``, never a blank. Every figure is one call on the
-bound ``result.plot.*`` accessor; every test drives the real widgets offscreen.
+The Performance stage is the terminal, output-only stage, rendered as a tabbed composite
+(the §4.4 sub-view hook): **Summary** — the five headline badges (SNR accented) above the
+system MTF, the post-evaluate landing; **All metrics** — the Gap-96 compute toggles
+(checkbox order matching the card sections, geometry first) above the grouped metric cards
+(one themed card per metric group, human display labels, values with registry units,
+hover-revealed pins); **MTF budget** — the per-term Nyquist budget chart. A result-typed
+metric failure (a non-finite value, Rule 17 carve-out for the ``radiant.performance``
+metric layer) renders as ``n/a (<failure_reason>)`` — never a bare ``nan``, never a blank.
+Every figure is one call on the bound ``result.plot.*`` accessor; every test drives the
+real widgets offscreen.
 """
 
 from __future__ import annotations
@@ -21,22 +23,24 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
-from radiant.api.metric_groups import METRIC_GROUPS  # noqa: E402
+from radiant.api.metric_groups import GROUP_PARAMS, METRIC_GROUPS  # noqa: E402
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.metric_format import (  # noqa: E402
+    METRIC_DISPLAY_LABELS,
     METRIC_GROUP_HEADINGS,
     NOT_AVAILABLE,
     UNGROUPED_HEADING,
     grouped_metric_records,
+    metric_display_label,
 )
 from radiant.gui.stage_views import STAGE_COMPOSITIONS  # noqa: E402
-from radiant.gui.widgets.outputs_readout import OutputsReadout  # noqa: E402
-from radiant.gui.widgets.performance_metrics_form import _GROUP_ROWS  # noqa: E402
+from radiant.gui.widgets.metric_group_cards import MetricGroupCards  # noqa: E402
+from radiant.gui.widgets.performance_metrics_form import PerformanceMetricsForm  # noqa: E402
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 
 
 class _Record(NamedTuple):
-    """A minimal stand-in for ``io.results.MetricRecord`` — the fields ``show_metrics`` reads.
+    """A minimal stand-in for ``io.results.MetricRecord`` — the fields the readout reads.
 
     The GUI layer imports only ``radiant.api`` + ``radiant.core`` (import rules), and
     ``MetricRecord`` is not re-exported on the public API surface, so the metric-failure unit
@@ -67,57 +71,84 @@ def _performance_pane(qtbot, sensor: Sensor) -> StagePane:
 
 
 # ---------------------------------------------------------------------------
-# Composition (Qt-free) — metrics + system MTF + MTF budget, no editable inputs
+# Composition (Qt-free) — the owner-picked tabbed layout (2026-07-25)
 # ---------------------------------------------------------------------------
 
 
 class TestPerformanceComposition:
-    def test_composition_binds_metrics_and_the_two_mtf_plots(self) -> None:
+    def test_three_owner_ordered_tabs(self) -> None:
+        """Summary lands first (badges + system MTF), then All metrics, then MTF budget."""
         comp = STAGE_COMPOSITIONS["performance"]
-        assert comp.metrics is True
-        assert [p.method for p in comp.plots] == ["mtf", "mtf_budget"]
+        assert [sub.title for sub in comp.subviews] == ["Summary", "All metrics", "MTF budget"]
+        summary, all_metrics, budget = comp.subviews
+        assert summary.summary_badges is True
+        assert [p.method for p in summary.plots] == ["mtf"]
+        assert all_metrics.metric_selection is True
+        assert all_metrics.metrics is True
+        assert [p.method for p in budget.plots] == ["mtf_budget"]
+        # Both MTF figures still ship, one per tab.
+        assert [p.method for sub in comp.subviews for p in sub.plots] == ["mtf", "mtf_budget"]
 
     def test_performance_has_no_editable_inputs(self) -> None:
-        """The terminal stage consumes the chain — no input forms of any kind."""
+        """The terminal stage consumes the chain — no input forms on any tab."""
         comp = STAGE_COMPOSITIONS["performance"]
-        assert not any(
-            (
-                comp.source_inputs,
-                comp.optics_inputs,
-                comp.detector_inputs,
-                comp.spectral_inputs,
-                comp.platform_inputs,
-                comp.readout_inputs,
-                comp.geometry_form,
+        for spec in (comp, *comp.subviews):
+            assert not any(
+                (
+                    spec.source_inputs,
+                    spec.optics_inputs,
+                    spec.detector_inputs,
+                    spec.spectral_inputs,
+                    spec.platform_inputs,
+                    spec.readout_inputs,
+                    spec.geometry_form,
+                )
             )
-        )
 
 
 # ---------------------------------------------------------------------------
-# The pane renders: the metric summary with units + both MTF figures
+# The pane renders: badges + grouped cards with units + both MTF figures
 # ---------------------------------------------------------------------------
 
 
 class TestPerformancePane:
-    def test_metric_summary_shows_every_metric_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """All computed metrics render; dimensional ones carry their registry unit (R-UNITS)."""
-        # The example config is outside the GIQE-5 envelope (SNR ~978); opt
-        # into extrapolated NIIRS (CU-166 gate) so the niirs row renders —
-        # this test's subject is unit-labelled rendering, not the gate.
+    def test_tabs_render_and_land_on_summary(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        assert pane.has_tabs
+        assert pane.tab_titles() == ["Summary", "All metrics", "MTF budget"]
+
+    def test_summary_badges_fill_from_the_metric_surface(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The five headline badges render real values (the PinnedCard badge path)."""
+        pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        badges = pane.badge_row
+        assert badges is not None
+        assert badges.metric_keys() == (
+            "snr",
+            "nedt_K",
+            "niirs",
+            "gsd_geometric_mean_m",
+            "mtf_at_nyquist",
+        )
+        assert badges.card("snr").value_text() not in ("", "—")
+        # NEDT shows in the CU-108 display prefix (mK), unit sourced from the surface.
+        assert badges.card("nedt_K").value_text().endswith("mK")
+
+    def test_metric_cards_show_every_metric_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """All computed metrics render as card rows; dimensional ones keep their unit."""
+        # The example config is outside the GIQE-5 envelope (SNR ~978); opt into
+        # extrapolated NIIRS (CU-166 gate) so the niirs row renders.
         sensor = Sensor.from_yaml(_EXAMPLE).set("performance.niirs.allow_extrapolated", True)
         pane = _performance_pane(qtbot, sensor)
-        readout = pane.metrics_readout
-        assert readout is not None
-        keys = readout.rendered_keys()
-        # The v1 metric set (units from metric_records(), never hardcoded).
+        cards = pane.metric_cards
+        assert cards is not None
+        keys = cards.rendered_keys()
         for name in ("snr", "nedt_K", "niirs", "gsd_geometric_mean_m", "mtf_at_nyquist"):
             assert name in keys
         # NEDT is in kelvin, GSD in metres — the dimensional metrics carry their unit.
-        assert readout.value_text("nedt_K").endswith("K")
-        assert readout.value_text("gsd_geometric_mean_m").endswith("m")
+        assert cards.value_text("nedt_K").endswith("K")
+        assert cards.value_text("gsd_geometric_mean_m").endswith("m")
         # SNR is a dimensionless ratio — a bare number, no fake unit.
-        assert readout.value_text("snr") == readout.value_text("snr").strip()
-        assert "dimensionless" not in readout.value_text("snr")
+        assert "dimensionless" not in cards.value_text("snr")
 
     def test_system_mtf_and_budget_figures_render(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
@@ -126,13 +157,11 @@ class TestPerformancePane:
 
 
 # ---------------------------------------------------------------------------
-# Finding 12 (Windows deployment review): the metric readout is grouped, not a
-# flat alphabetical dump — labeled sections in a fixed reading order, headings
-# shared with the Metric-selection card, values/units untouched.
+# Grouped cards: taxonomy partition, physics order, human labels, hover pins
 # ---------------------------------------------------------------------------
 
 
-class TestGroupedMetricReadout:
+class TestGroupedMetricCards:
     def test_sections_partition_by_taxonomy_and_keep_order(self) -> None:
         """Qt-free contract: every record lands in its Gap-96 group's section, sections
         follow the declared reading order, and no record is dropped or duplicated."""
@@ -143,9 +172,7 @@ class TestGroupedMetricReadout:
 
         heading_order = [h for _k, h in METRIC_GROUP_HEADINGS]
         rendered_headings = [heading for heading, _recs in sections]
-        # Sections appear in declared order (empty ones dropped, none invented).
         assert rendered_headings == [h for h in heading_order if h in rendered_headings]
-        # The partition is exact: every metric appears once, in its taxonomy group.
         flat = [rec.name for _heading, recs in sections for rec in recs]
         assert sorted(flat) == sorted(rec.name for rec in records)
         by_heading = {heading: {rec.name for rec in recs} for heading, recs in sections}
@@ -154,6 +181,24 @@ class TestGroupedMetricReadout:
             expected = members & set(flat)
             if expected:
                 assert by_heading[heading_of[group]] == expected
+
+    def test_within_group_rows_follow_the_display_table_order(self) -> None:
+        """Rows follow METRIC_DISPLAY_LABELS insertion order (physics reading order),
+        not alphabetical — GSD cross/along/mean stay adjacent and lead the Q family."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        result = _evaluate(sensor)
+        sections = dict(grouped_metric_records(result.metric_records()))  # type: ignore[attr-defined]
+        sampling = [rec.name for rec in sections["Sampling / geometry"]]
+        rank = {key: i for i, key in enumerate(METRIC_DISPLAY_LABELS)}
+        assert sampling == sorted(sampling, key=lambda k: rank[k])
+        assert sampling.index("gsd_cross_track_m") < sampling.index("q_center")
+
+    def test_every_taxonomy_metric_has_a_display_label(self) -> None:
+        """A registered metric without a human label fails here, not silently in the GUI."""
+        for group_members in METRIC_GROUPS.values():
+            for name in group_members:
+                assert name in METRIC_DISPLAY_LABELS, f"metric without display label: {name}"
+                assert METRIC_DISPLAY_LABELS[name] != name
 
     def test_unknown_metric_key_lands_in_other_section(self) -> None:
         """A metric key outside the taxonomy renders under 'Other' — never dropped."""
@@ -164,28 +209,44 @@ class TestGroupedMetricReadout:
         sections = grouped_metric_records(records)
         assert sections[-1][0] == UNGROUPED_HEADING
         assert [rec.name for rec in sections[-1][1]] == ["not_a_registered_metric"]
+        # The raw-key fallback keeps it visible (and labelled by its key).
+        assert metric_display_label("not_a_registered_metric") == "not_a_registered_metric"
 
-    def test_widget_renders_group_headings_with_values_and_units_intact(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Performance readout shows the section headings in order; grouping is
-        presentation-only (same keys, same value+unit texts as the metric surface)."""
+    def test_widget_renders_cards_with_headings_and_hover_pins(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The cards widget shows the section headings in order; a row's pin emits the
+        metric key with its human label; grouping is presentation-only."""
         sensor = Sensor.from_yaml(_EXAMPLE).set("performance.niirs.allow_extrapolated", True)
         pane = _performance_pane(qtbot, sensor)
-        readout = pane.metrics_readout
-        assert readout is not None
-        headings = readout.rendered_group_headings()
-        assert len(headings) >= 3  # the example computes several groups
+        cards = pane.metric_cards
+        assert cards is not None
+        headings = cards.rendered_group_headings()
+        assert len(headings) >= 3
         declared = [h for _k, h in METRIC_GROUP_HEADINGS]
         assert list(headings) == [h for h in declared if h in headings]
-        # Grouping did not change what renders: every computed metric is still a row,
-        # and the dimensional rows keep their units (R-UNITS).
         result = _evaluate(sensor)
-        assert readout.rendered_keys() == {rec.name for rec in result.metric_records()}  # type: ignore[attr-defined]
-        assert readout.value_text("gsd_geometric_mean_m").endswith("m")
+        assert cards.rendered_keys() == {rec.name for rec in result.metric_records()}  # type: ignore[attr-defined]
+        # The pin carries the human label, so the rail card reads like the row.
+        captured: list[tuple] = []  # type: ignore[type-arg]
+        cards.pinMetricRequested.connect(lambda *a: captured.append(a))
+        cards.row("gsd_cross_track_m").pin_button.click()
+        assert captured == [("gsd_cross_track_m", "GSD (cross-track)")]
 
-    def test_headings_match_metric_selection_card_labels(self) -> None:
-        """A group's checkbox label and its readout section heading are the same string."""
-        card_labels = {group: name for group, name, _hint in _GROUP_ROWS}
-        assert card_labels == dict(METRIC_GROUP_HEADINGS)
+
+# ---------------------------------------------------------------------------
+# The compute-toggle row lines up with the card sections (owner 2026-07-25)
+# ---------------------------------------------------------------------------
+
+
+class TestSelectionOrderMatchesSections:
+    def test_checkbox_order_is_the_section_order(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Compute row's checkboxes follow METRIC_GROUP_HEADINGS (geometry first),
+        each labelled with the exact heading of the card section it controls."""
+        form = PerformanceMetricsForm()
+        qtbot.addWidget(form)
+        expected_dotpaths = tuple(GROUP_PARAMS[group] for group, _h in METRIC_GROUP_HEADINGS)
+        assert form.group_dotpaths() == expected_dotpaths
+        for group, heading in METRIC_GROUP_HEADINGS:
+            assert form.checkbox(GROUP_PARAMS[group]).text() == heading
 
 
 # ---------------------------------------------------------------------------
@@ -213,25 +274,25 @@ class _FakeResult:
 class TestMetricFailureRendering:
     def test_non_finite_metric_shows_failure_reason_not_nan(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A non-finite SNR renders ``n/a (<failure_reason>)`` — never ``nan``, never blank."""
-        readout = OutputsReadout()
-        qtbot.addWidget(readout)
+        cards = MetricGroupCards()
+        qtbot.addWidget(cards)
         records = (_Record(name="snr", value=math.nan, unit="dimensionless"),)
         result = _FakeResult(records, {"snr_result": _FailedSnrResult()})
-        readout.show_metrics(result)  # type: ignore[arg-type]
+        cards.show_metrics(result)  # type: ignore[arg-type]
 
-        text = readout.value_text("snr")
+        text = cards.value_text("snr")
         assert text.startswith(NOT_AVAILABLE)
         assert "signal below noise floor" in text
         assert "nan" not in text.lower()
 
     def test_non_finite_metric_without_reason_shows_generic_note(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A non-finite metric with no named reason still never renders a bare number."""
-        readout = OutputsReadout()
-        qtbot.addWidget(readout)
+        cards = MetricGroupCards()
+        qtbot.addWidget(cards)
         records = (_Record(name="mtf_at_nyquist", value=math.inf, unit="dimensionless"),)
         result = _FakeResult(records, {})  # no result object for this key
-        readout.show_metrics(result)  # type: ignore[arg-type]
+        cards.show_metrics(result)  # type: ignore[arg-type]
 
-        text = readout.value_text("mtf_at_nyquist")
+        text = cards.value_text("mtf_at_nyquist")
         assert text.startswith(NOT_AVAILABLE)
         assert "non-finite" in text  # the generic named note, not a bare "inf"

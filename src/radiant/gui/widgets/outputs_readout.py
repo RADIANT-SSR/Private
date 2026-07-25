@@ -4,29 +4,23 @@
 section 2): a titled key/value grid where every row shows a human label, the value **with
 its unit** (R-UNITS, an owner hard rule), and a small **pin affordance** that adds the
 value to the right-rail Pinned panel (arch doc §4.5). It is the generic sibling of the
-Geometry angle readout, used for the scalar ``stage_outputs`` of the Optics, Platform,
-Spectral-Integration, Detector, and Readout views and for the Performance metric summary.
+Geometry angle readout, used for the scalar ``stage_outputs`` of the Source, Optics,
+Platform, Spectral-Integration, Detector, and Readout views.
 
-Two row sources, one widget:
+One row source: :meth:`show_stage_outputs` — the scalar entries of
+``stage_outputs["<stage>"]`` (arrays and structured objects are skipped; they are shown as
+plots, not scalars). The unit is read from the framework's single authoritative table
+(:func:`radiant.api.stage_output_units.stage_output_unit`, keyed by ``(stage, key)`` per
+``RADIANT_Conventions.md``), never inferred in this widget; no unit maths happens here
+(Rule 2 — display only). A pinned row routes to the stage-output pin path (the value is
+re-read from ``stage_outputs`` on each evaluation) — the §4.5 / CU-115 Step-B capability.
 
-* :meth:`show_stage_outputs` — the scalar entries of ``stage_outputs["<stage>"]`` (arrays
-  and structured objects are skipped; they are shown as plots, not scalars). The unit is
-  read from the framework's single authoritative table
-  (:func:`radiant.api.stage_output_units.stage_output_unit`, keyed by ``(stage, key)`` per
-  ``RADIANT_Conventions.md``), never inferred in this widget; no unit maths happens here
-  (Rule 2 — display only). A pinned row routes to the stage-output pin path (the value is
-  re-read from ``stage_outputs`` on each evaluation).
-* :meth:`show_metrics` — the performance metric surface
-  (:meth:`ChainResult.metric_records`), each value+unit via the shared
-  :func:`~radiant.gui.metric_format.format_metric_value` helper, rendered under labeled
-  group headings (:func:`~radiant.gui.metric_format.grouped_metric_records` — the Gap-96
-  metric-group taxonomy, Windows-deployment finding 12: the flat alphabetical dump was
-  unusable). A pinned metric routes to the metric pin path (the same surface the default
-  badge cards read).
+The **performance metric** readout is no longer this widget: the 2026-07-25 owner redesign
+moved it to :class:`~radiant.gui.widgets.metric_group_cards.MetricGroupCards` (grouped
+themed cards, human labels), which owns the metric pin path.
 
-Pinning any stage-output or metric value delivers the ratified §4.5 capability to "pin any
-stage's metric or output value" (CU-115, Step-B clause). All colour/typography comes from
-the QSS theme via object names (GUI plan §4.9); this file holds no colour/font/size literal.
+All colour/typography comes from the QSS theme via object names (GUI plan §4.9); this file
+holds no colour/font/size literal.
 """
 
 from __future__ import annotations
@@ -34,7 +28,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Final
+from typing import Any, Final
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -45,16 +39,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.api.stage_output_units import stage_output_unit
-from radiant.gui.metric_format import (
-    NOT_AVAILABLE,
-    format_metric_value,
-    grouped_metric_records,
-    metric_failure_reason,
-)
 from radiant.gui.param_format import format_value
-
-if TYPE_CHECKING:
-    from radiant.api import ChainResult
 
 # The pin affordance glyph (a push-pin). A glyph, not a style token.
 _PIN_GLYPH: Final[str] = "📌"
@@ -132,13 +117,9 @@ class OutputsReadout(QWidget):
     pinOutputRequested(str, str, str, str):
         Emitted ``(stage, key, label, unit)`` when a stage-output row's pin is clicked;
         the Pinned panel re-reads ``stage_outputs[stage][key]`` on each evaluation.
-    pinMetricRequested(str, str):
-        Emitted ``(metric_key, label)`` when a metric row's pin is clicked; the Pinned
-        panel reads the metric surface (the default-card path).
     """
 
     pinOutputRequested = Signal(str, str, str, str)
-    pinMetricRequested = Signal(str, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -150,10 +131,8 @@ class OutputsReadout(QWidget):
         self._grid.setVerticalSpacing(5)
         self._grid.setColumnStretch(0, 1)  # let the label column take the slack
 
-        # Keyed by output/metric key so tests can read a rendered value back.
+        # Keyed by output key so tests can read a rendered value back.
         self._value_labels: dict[str, QLabel] = {}
-        # The group headings rendered by show_metrics, in display order (tests).
-        self._group_headings: list[str] = []
 
     # -- row sources --------------------------------------------------------
 
@@ -185,60 +164,14 @@ class OutputsReadout(QWidget):
             row += 1
         self._grid.setRowStretch(row, 1)
 
-    def show_metrics(self, result: ChainResult) -> None:
-        """Render the performance metric surface as rows under labeled group headings.
-
-        The metrics are sectioned by the Gap-96 metric-group taxonomy
-        (:func:`~radiant.gui.metric_format.grouped_metric_records` — sampling/geometry,
-        spatial/MTF, radiometric, interpretability, saturation; finding 12: a flat
-        alphabetical dump of ~30 metrics was unusable), each heading matching the
-        Metric-selection card's checkbox label for that group. Presentation only — the
-        computed set and every value/unit are unchanged.
-
-        Each metric row's pin routes to :attr:`pinMetricRequested` (the metric-card path).
-        Units come from :meth:`ChainResult.metric_records` (registry-sourced, R-UNITS). A
-        **result-typed metric failure** (a non-finite value — Rule 17 carve-out for the
-        ``radiant.performance`` metric layer, e.g. an SNR/NEDT that could not compute) is
-        rendered as ``n/a (<failure_reason>)`` rather than a ``nan`` or a blank, so a failed
-        metric always reads as an explicit, named failure and never as a real number.
-        """
-        self._clear()
-        row = 0
-        for heading, records in grouped_metric_records(result.metric_records()):
-            self._add_group_heading(row, heading)
-            row += 1
-            for rec in records:
-                self._add_row(row, rec.name, rec.name, self._metric_value_text(result, rec))
-                self._add_pin(row, lambda k=rec.name: self.pinMetricRequested.emit(k, k))
-                row += 1
-        self._grid.setRowStretch(row, 1)
-
-    @staticmethod
-    def _metric_value_text(result: ChainResult, rec: Any) -> str:
-        """The value+unit text for a metric record, or its named failure (Rule 17 carve-out).
-
-        A finite value renders through :func:`format_metric_value` (value + registry unit); a
-        non-finite value renders as ``n/a (<failure_reason>)`` — the ``failure_reason`` from the
-        metric's result object when one exists, else a generic non-finite note. Never a bare
-        ``nan``, never a blank.
-        """
-        if math.isfinite(rec.value):
-            return format_metric_value(rec.value, rec.unit)
-        reason = metric_failure_reason(result, rec.name) or "unavailable (non-finite result)"
-        return f"{NOT_AVAILABLE} ({reason})"
-
     # -- accessors (tests) --------------------------------------------------
 
     def rendered_keys(self) -> set[str]:
-        """The output/metric keys currently rendered as rows."""
+        """The output keys currently rendered as rows."""
         return set(self._value_labels)
 
-    def rendered_group_headings(self) -> tuple[str, ...]:
-        """The metric group headings currently rendered, in display order (for tests)."""
-        return tuple(self._group_headings)
-
     def value_text(self, key: str) -> str:
-        """The rendered 'value + unit' text for an output/metric *key* (for tests)."""
+        """The rendered 'value + unit' text for an output *key* (for tests)."""
         return self._value_labels[key].text()
 
     # -- internal -----------------------------------------------------------
@@ -255,13 +188,6 @@ class OutputsReadout(QWidget):
         self._grid.addWidget(value_label, row, 1)
         self._value_labels[key] = value_label
 
-    def _add_group_heading(self, row: int, heading: str) -> None:
-        """Add a metric group heading spanning the full grid width at *row*."""
-        label = QLabel(heading, self)
-        label.setObjectName("outputsGroupHeading")
-        self._grid.addWidget(label, row, 0, 1, 3)
-        self._group_headings.append(heading)
-
     def _add_pin(self, row: int, on_click) -> None:  # type: ignore[no-untyped-def]
         """Add the pin affordance at grid *row*, column 2, wired to *on_click*."""
         pin = QToolButton(self)
@@ -274,7 +200,6 @@ class OutputsReadout(QWidget):
     def _clear(self) -> None:
         """Remove all existing rows before a re-populate."""
         self._value_labels.clear()
-        self._group_headings.clear()
         while self._grid.count():
             item = self._grid.takeAt(0)
             widget = item.widget()

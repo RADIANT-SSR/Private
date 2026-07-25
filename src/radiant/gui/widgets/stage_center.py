@@ -62,6 +62,8 @@ from radiant.gui.widgets.geometry_angle_panel import (
 from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
+from radiant.gui.widgets.metric_badge_row import MetricBadgeRow
+from radiant.gui.widgets.metric_group_cards import MetricGroupCards
 from radiant.gui.widgets.mtf_panel import MtfPanel
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
 from radiant.gui.widgets.optical_element_editor import OpticalElementEditor
@@ -263,10 +265,14 @@ class StagePane(QWidget):
         self._display_units: dict[str, str] = {}
         self._last_result: ChainResult | None = None
         self._outputs_list: list[OutputsReadout] = []
-        self._metrics_list: list[OutputsReadout] = []
-        # The Performance metric-group selection card (Gap 96): checkboxes for the five
-        # performance.metrics.* group flags. A toggle is one sensor.set + parameterEdited,
-        # so the host re-evaluates and the Metrics readout re-renders with the reduced set.
+        # The Performance instrument's metric surfaces (owner redesign 2026-07-25): the
+        # Summary tab's headline badge row and the All-metrics tab's grouped cards.
+        self._badge_rows: list[MetricBadgeRow] = []
+        self._metrics_list: list[MetricGroupCards] = []
+        # The Performance metric-group selection row (Gap 96): checkboxes for the five
+        # performance.metrics.* group flags, ordered to match the card sections. A toggle
+        # is one sensor.set + parameterEdited, so the host re-evaluates and every metric
+        # surface re-renders with the reduced set.
         self._metric_selection_forms: list[PerformanceMetricsForm] = []
         self._mtf_panels: list[MtfPanel] = []
         self._noise_panels: list[NoiseBudgetPanel] = []
@@ -415,17 +421,27 @@ class StagePane(QWidget):
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
             self._add_section(layout, "Outputs", outputs)
             self._outputs_list.append(outputs)
+        if spec.summary_badges:
+            # The Performance Summary tab's headline badge row (owner redesign 2026-07-25):
+            # the five PinnedCard badges above the system-MTF plot — the landing verdict.
+            badge_row = MetricBadgeRow(parent)
+            layout.addWidget(badge_row)
+            self._badge_rows.append(badge_row)
         if spec.metric_selection:
-            # Gap 96: the metric-group selection card sits above the Metrics readout so the
-            # analyst scopes the output; each toggle re-emits parameterEdited → re-evaluate.
+            # Gap 96: the compact "Compute:" toggle row sits directly above the grouped
+            # metric cards, checkbox order matching the card sections (owner 2026-07-25);
+            # each toggle re-emits parameterEdited → re-evaluate. Self-labelling — no
+            # section header.
             metric_form = PerformanceMetricsForm(parent)
             metric_form.parameterEdited.connect(self.parameterEdited)
-            self._add_section(layout, "Metric selection", metric_form)
+            layout.addWidget(metric_form)
             self._metric_selection_forms.append(metric_form)
         if spec.metrics:
-            metrics = OutputsReadout(parent)
+            # The grouped metric cards (human labels, values with units, hover pins). The
+            # "All metrics" tab label provides the context — no section header.
+            metrics = MetricGroupCards(parent)
             metrics.pinMetricRequested.connect(self.pinMetricRequested)
-            self._add_section(layout, "Metrics", metrics)
+            layout.addWidget(metrics)
             self._metrics_list.append(metrics)
         if spec.geometry_form:
             geometry_form = GeometryModeForm(parent)
@@ -762,9 +778,14 @@ class StagePane(QWidget):
         return self._outputs_list[0] if self._outputs_list else None
 
     @property
-    def metrics_readout(self) -> OutputsReadout | None:
-        """The performance-metric readout, if this stage has one."""
+    def metric_cards(self) -> MetricGroupCards | None:
+        """The grouped performance-metric cards, if this stage has them (Performance)."""
         return self._metrics_list[0] if self._metrics_list else None
+
+    @property
+    def badge_row(self) -> MetricBadgeRow | None:
+        """The Summary tab's headline badge row, if this stage has one (Performance)."""
+        return self._badge_rows[0] if self._badge_rows else None
 
     @property
     def mtf_panel(self) -> MtfPanel | None:
@@ -816,6 +837,8 @@ class StagePane(QWidget):
             self._sync_panels()
         for outputs in self._outputs_list:
             outputs.show_stage_outputs(self._namespace, stage_outputs)
+        for badge_row in self._badge_rows:
+            badge_row.update_from_result(result)
         for metrics in self._metrics_list:
             metrics.show_metrics(result)
         for mtf_panel in self._mtf_panels:

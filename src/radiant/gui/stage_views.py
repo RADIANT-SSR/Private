@@ -28,8 +28,9 @@ A stage may optionally declare named :class:`StageSubView` tabs (the deferred mu
 hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably,
 ``StageComposition.subviews`` carries two or more sub-views and the pane renders them as a
 ``QTabWidget``. The **Geometry** (Inputs | Schematic), **Optics** (Inputs | MTF | PSF &
-Pupil | Throughput, GUI plan Phase PS-2), and **Detector** (Inputs | Noise | Detector + PSF,
-GUI plan Phase PS-3) stages use the hook; the rest are single panes.
+Pupil | Throughput, GUI plan Phase PS-2), **Detector** (Inputs | Noise | Detector + PSF,
+GUI plan Phase PS-3), and **Performance** (Summary | All metrics | MTF budget,
+owner-picked redesign 2026-07-25) stages use the hook; the rest are single panes.
 
 Being pure data, the composition table is unit-tested directly.
 """
@@ -68,10 +69,10 @@ class StageSubView:
     sub-view carries the **same content fields** as :class:`StageComposition` (minus the
     stage title and nested sub-views) — so a tab is just a scoped composite.
 
-    The **Geometry**, **Optics** (GUI plan Phase PS-2), and **Detector** (GUI plan Phase PS-3)
-    stages declare sub-views; a stage whose content fits one pane declares none
-    (``StageComposition.subviews`` empty). Turning a stage tabbed is a data change (populate
-    ``subviews``), not a widget rewrite.
+    The **Geometry**, **Optics** (GUI plan Phase PS-2), **Detector** (GUI plan Phase PS-3),
+    and **Performance** (owner redesign 2026-07-25) stages declare sub-views; a stage whose
+    content fits one pane declares none (``StageComposition.subviews`` empty). Turning a
+    stage tabbed is a data change (populate ``subviews``), not a widget rewrite.
 
     Attributes
     ----------
@@ -101,6 +102,7 @@ class StageSubView:
     noise_panel: bool = False
     noise_panel_chart: bool = True
     outputs: bool = False
+    summary_badges: bool = False
     metrics: bool = False
     metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
@@ -120,8 +122,9 @@ class StageComposition:
     present, :class:`~radiant.gui.widgets.stage_center.StagePane` renders them as tabs
     (a ``QTabWidget``) instead of the single flat pane (the deferred multi-tab hook, arch
     doc §4.4). With zero or one sub-view the stage renders as a single composite pane from
-    the section fields below. The **Geometry**, **Optics** (GUI plan Phase PS-2), and
-    **Detector** (GUI plan Phase PS-3) stages declare sub-views; the rest leave ``subviews`` empty.
+    the section fields below. The **Geometry**, **Optics** (GUI plan Phase PS-2),
+    **Detector** (GUI plan Phase PS-3), and **Performance** (owner redesign 2026-07-25)
+    stages declare sub-views; the rest leave ``subviews`` empty.
 
     Attributes
     ----------
@@ -187,8 +190,13 @@ class StageComposition:
         chart and the panel contributes only the table + click-to-explain (GUI plan Phase PS-3).
     outputs:
         Show a scalar readout of ``stage_outputs["<stage>"]`` (values with units).
+    summary_badges:
+        Show the headline metric badge row — SNR / NEDT / NIIRS / GSD / MTF@Nyquist as
+        full-width :class:`PinnedCard` badges (Performance "Summary" tab only, owner
+        redesign 2026-07-25).
     metrics:
-        Show the performance-metric readout (Performance only).
+        Show the grouped performance-metric cards (Performance "All metrics" tab only —
+        one themed card per Gap-96 metric group, human labels, hover pins).
     plots:
         Zero or more plot sections, each a :class:`PlotSpec`.
     note:
@@ -218,6 +226,7 @@ class StageComposition:
     noise_panel: bool = False
     noise_panel_chart: bool = True
     outputs: bool = False
+    summary_badges: bool = False
     metrics: bool = False
     metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
@@ -457,14 +466,31 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         plots=(PlotSpec("Noise budget", "noise_budget"),),
         note=_READOUT_NOTE,
     ),
-    # All metrics (values + units) + system MTF and the MTF budget.
+    # The Performance stage instrument, tabbed redesign (owner-picked 2026-07-25, option B
+    # of the layout review — the flat single-column readout read as a "wall of text").
+    # Three tabs: "Summary" — the post-evaluate landing: the five headline badges (SNR
+    # accented) above the system MTF; "All metrics" — the Gap-96 compute toggles (ordered
+    # to match the sections, geometry first) above the grouped metric cards (human labels,
+    # values with units, hover pins); "MTF budget" — the per-term Nyquist budget chart.
+    # More plot tabs may join later (owner note 2026-07-25). Terminal stage: the
+    # metric-selection card is the only editable control.
     "performance": StageComposition(
         title="Performance",
-        metric_selection=True,
-        metrics=True,
-        plots=(
-            PlotSpec("System MTF", "mtf"),
-            PlotSpec("MTF budget", "mtf_budget"),
+        subviews=(
+            StageSubView(
+                title="Summary",
+                summary_badges=True,
+                plots=(PlotSpec("System MTF", "mtf"),),
+            ),
+            StageSubView(
+                title="All metrics",
+                metric_selection=True,
+                metrics=True,
+            ),
+            StageSubView(
+                title="MTF budget",
+                plots=(PlotSpec("MTF budget", "mtf_budget"),),
+            ),
         ),
     ),
 }

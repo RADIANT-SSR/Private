@@ -261,9 +261,7 @@ class TestOutputsReadout:
         """CU-135: an absent (None) background descriptor is skipped, not a bare '—' row."""
         readout = OutputsReadout()
         qtbot.addWidget(readout)
-        readout.show_stage_outputs(
-            "source", {"background": None, "regime_tentative": "extended"}
-        )
+        readout.show_stage_outputs("source", {"background": None, "regime_tentative": "extended"})
         keys = readout.rendered_keys()
         assert "background" not in keys
         assert "regime_tentative" in keys
@@ -305,14 +303,17 @@ class TestOutputsReadout:
         readout.show_stage_outputs("platform", result.stage_outputs["platform"])
         assert readout.value_text("EE_box") == "1"
 
-    def test_metric_rows_and_units(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
-        """The metric readout renders the metric surface with its registry units."""
-        readout = OutputsReadout()
-        qtbot.addWidget(readout)
-        readout.show_metrics(result)
-        keys = readout.rendered_keys()
+    def test_metric_cards_rows_and_units(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """The grouped metric cards render the metric surface with its registry units
+        (the 2026-07-25 redesign moved metrics off OutputsReadout)."""
+        from radiant.gui.widgets.metric_group_cards import MetricGroupCards
+
+        cards = MetricGroupCards()
+        qtbot.addWidget(cards)
+        cards.show_metrics(result)
+        keys = cards.rendered_keys()
         assert "nedt_K" in keys
-        assert readout.value_text("nedt_K").endswith("K")
+        assert cards.value_text("nedt_K").endswith("K")
 
     def test_pin_output_signal_carries_stage_key_label_unit(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
         """A stage-output pin emits ``(stage, key, label, unit)``."""
@@ -430,12 +431,12 @@ class TestStageCenterInWindow:
             assert all(c.has_figure() for c in pane.plot_canvases)
 
     def test_performance_shows_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Performance center shows the metric readout with units + two MTF figures."""
+        """The Performance center shows the grouped metric cards + two MTF figures."""
         window = _load_window(qtbot)
         window.stage_strip.stageClicked.emit("performance")
         pane = window.central_canvas.stage_center.pane("performance")
-        assert pane.metrics_readout is not None
-        assert "snr" in pane.metrics_readout.rendered_keys()
+        assert pane.metric_cards is not None
+        assert "snr" in pane.metric_cards.rendered_keys()
         assert len(pane.plot_canvases) == 2
         assert all(c.has_figure() for c in pane.plot_canvases)
 
@@ -471,10 +472,10 @@ class TestStageCenterInWindow:
 
 
 class TestTabbedSubViewHook:
-    """The deferred multi-tab hook (arch doc §4.4): a stage MAY declare named sub-views;
-    the pane renders them as a QTabWidget. v1 stages declare none, so they stay single
-    panes. These prove the capability exists and the single-pane fallback is unchanged —
-    no v1 stage is turned tabbed (a synthetic composition is used, not a real stage edit).
+    """The multi-tab hook (arch doc §4.4): a stage MAY declare named sub-views; the pane
+    renders them as a QTabWidget (Geometry / Optics / Detector / Performance use it).
+    These prove the hook itself and the single-pane fallback with synthetic
+    compositions, independent of any real stage's declaration.
     """
 
     def test_two_subviews_render_a_tab_widget_with_both_labels(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
@@ -496,8 +497,8 @@ class TestTabbedSubViewHook:
         pane.populate(result)
         assert len(pane.plot_canvases) == 2
         assert all(c.has_figure() for c in pane.plot_canvases)
-        assert pane.metrics_readout is not None
-        assert "snr" in pane.metrics_readout.rendered_keys()
+        assert pane.metric_cards is not None
+        assert "snr" in pane.metric_cards.rendered_keys()
 
     def test_single_subview_falls_back_to_a_flat_pane(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Exactly one sub-view is below the >1 threshold: a single pane, no tabs."""
@@ -519,10 +520,11 @@ class TestTabbedSubViewHook:
         # Its flat sections are still built (the outputs readout + the in-band plot).
         assert pane.outputs_readout is not None
         assert pane.plot_canvases
-        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), and Source (GT-0 rework,
-        # 2026-07-16) are the tabbed stages; the rest are flat.
+        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), Source (GT-0 rework,
+        # 2026-07-16), and Performance (owner redesign 2026-07-25) are the tabbed
+        # stages; the rest are flat.
         tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
-        assert tabbed == {"geometry", "optics", "detector", "source"}
+        assert tabbed == {"geometry", "optics", "detector", "source", "performance"}
 
 
 class TestBottomTabsRemoved:

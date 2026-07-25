@@ -95,6 +95,67 @@ METRIC_GROUP_HEADINGS: Final[tuple[tuple[str, str], ...]] = (
 # renders rather than vanishing).
 UNGROUPED_HEADING: Final[str] = "Other"
 
+# Human display labels for the metric readout (owner feedback 2026-07-25: raw registry
+# keys — ``gsd_cross_track_m``, ``mtf_folded_at_nyquist`` — read as a wall of text; every
+# other screen shows human labels). Presentation-only: the *unit* still comes from the
+# registry via ``metric_records()`` (R-UNITS), never from this table — a label therefore
+# never repeats the unit. **Insertion order is meaningful**: within a group section,
+# rows render in this table's order (the registry's physics reading order), not
+# alphabetically. A test asserts every taxonomy metric has an entry, so a newly
+# registered metric without a label fails CI instead of silently rendering its raw key.
+METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
+    # Radiometric
+    "snr": "SNR",
+    "contrast_snr": "Contrast SNR",
+    "scnr": "SCNR",
+    "detection_range_m": "Detection range",
+    "nedt_K": "NEDT",
+    # Interpretability
+    "mrt_at_nyquist_K": "MRT @ Nyquist",
+    "niirs": "NIIRS",
+    "niirs_extrapolated": "NIIRS (extrapolated)",
+    # Spatial / MTF
+    "fwhm_x_m": "FWHM (x)",
+    "fwhm_y_m": "FWHM (y)",
+    "rer": "RER",
+    "ee_1x1": "Ensquared energy 1×1",
+    "ee_3x3": "Ensquared energy 3×3",
+    "mtf_at_nyquist": "MTF @ Nyquist",
+    "strehl": "Strehl ratio",
+    "strehl_marechal": "Strehl (Maréchal)",
+    "mtf_system_at_nyquist_x": "System MTF @ Nyq (x)",
+    "mtf_system_at_nyquist_y": "System MTF @ Nyq (y)",
+    "mtf_folded_at_nyquist": "Folded MTF @ Nyquist",
+    "alias_fraction_at_nyquist": "Alias fraction @ Nyquist",
+    # Sampling / geometry
+    "gsd_cross_track_m": "GSD (cross-track)",
+    "gsd_along_track_m": "GSD (along-track)",
+    "gsd_geometric_mean_m": "GSD (geometric mean)",
+    "ground_range_m": "Ground range",
+    "swath_width_m": "Swath width",
+    "access_rate_m2_s": "Access rate",
+    "q_center": "Q (band center)",
+    "q_min": "Q (min λ)",
+    "q_max": "Q (max λ)",
+    "sampling_regime_code": "Sampling regime",
+    "diffraction_limit_angular_urad": "Diffraction limit (angular)",
+    "diffraction_limit_ground_m": "Diffraction limit (ground)",
+    "max_integration_time_s": "Max integration time",
+    # Saturation
+    "well_margin_dB": "Well margin",
+    "adc_margin_dB": "ADC margin",
+    "dynamic_range_dB": "Dynamic range",
+}
+
+
+def metric_display_label(metric_key: str) -> str:
+    """The human display label for *metric_key* (the raw key when unlabelled).
+
+    The raw-key fallback keeps a foreign / not-yet-labelled metric visible (never a
+    blank row); the labels test keeps the fallback unreachable for registry metrics.
+    """
+    return METRIC_DISPLAY_LABELS.get(metric_key, metric_key)
+
 
 def grouped_metric_records(records: Iterable[Any]) -> tuple[tuple[str, tuple[Any, ...]], ...]:
     """Partition metric *records* into the labeled display sections (finding 12).
@@ -102,12 +163,16 @@ def grouped_metric_records(records: Iterable[Any]) -> tuple[tuple[str, tuple[Any
     Takes the (duck-typed, ``.name``-carrying) records from
     :meth:`ChainResult.metric_records` and returns ``(heading, records)`` sections in
     :data:`METRIC_GROUP_HEADINGS` order, each record placed by the Gap-96 taxonomy
-    (:func:`radiant.api.metric_groups.group_of`). Records keep their incoming
-    (sorted-name) order within a section; empty sections are dropped. A record whose
-    key the taxonomy does not know lands in a trailing :data:`UNGROUPED_HEADING`
-    section — shown, never silently dropped. Pure and Qt-free, so the section
-    contract is unit-tested directly.
+    (:func:`radiant.api.metric_groups.group_of`). Within a section, records follow the
+    :data:`METRIC_DISPLAY_LABELS` insertion order (the registry's physics reading
+    order — owner feedback 2026-07-25: alphabetical scattered related rows), with
+    unlabelled records trailing in their incoming order; empty sections are dropped.
+    A record whose key the taxonomy does not know lands in a trailing
+    :data:`UNGROUPED_HEADING` section — shown, never silently dropped. Pure and
+    Qt-free, so the section contract is unit-tested directly.
     """
+    display_rank = {key: i for i, key in enumerate(METRIC_DISPLAY_LABELS)}
+    unranked = len(display_rank)
     buckets: dict[str, list[Any]] = {key: [] for key, _ in METRIC_GROUP_HEADINGS}
     ungrouped: list[Any] = []
     for rec in records:
@@ -115,12 +180,29 @@ def grouped_metric_records(records: Iterable[Any]) -> tuple[tuple[str, tuple[Any
             buckets[group_of(rec.name)].append(rec)
         except KeyError:
             ungrouped.append(rec)
+    for bucket in buckets.values():
+        bucket.sort(key=lambda rec: display_rank.get(rec.name, unranked))
     sections = [
         (heading, tuple(buckets[key])) for key, heading in METRIC_GROUP_HEADINGS if buckets[key]
     ]
     if ungrouped:
         sections.append((UNGROUPED_HEADING, tuple(ungrouped)))
     return tuple(sections)
+
+
+def metric_value_display(result: ChainResult, rec: Any) -> str:
+    """The value+unit text for a metric record, or its named failure (Rule 17 carve-out).
+
+    A finite value renders through :func:`format_metric_value` (value + registry unit,
+    R-UNITS); a non-finite value renders as ``n/a (<failure_reason>)`` — the
+    ``failure_reason`` from the metric's result object when one exists, else a generic
+    non-finite note. Never a bare ``nan``, never a blank. (Relocated from the old
+    ``OutputsReadout`` metrics path so every metric surface formats identically.)
+    """
+    if math.isfinite(rec.value):
+        return format_metric_value(rec.value, rec.unit)
+    reason = metric_failure_reason(result, rec.name) or "unavailable (non-finite result)"
+    return f"{NOT_AVAILABLE} ({reason})"
 
 
 # Per-metric display scaling (CU-108): metric key → (display unit, multiply factor).
@@ -209,11 +291,14 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
 __all__ = [
     "BADGE_METRICS",
     "BADGE_KEYS",
+    "METRIC_DISPLAY_LABELS",
     "METRIC_GROUP_HEADINGS",
     "NOT_AVAILABLE",
     "UNGROUPED_HEADING",
     "format_metric_value",
     "grouped_metric_records",
+    "metric_display_label",
+    "metric_value_display",
     "scale_for_display",
     "metric_failure_reason",
     "badge_display",

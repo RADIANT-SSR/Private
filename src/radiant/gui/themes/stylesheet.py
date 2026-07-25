@@ -954,14 +954,6 @@ QLabel#stagePlotMessage {{
     color: {t.muted};
     font-size: 12px;
 }}
-QLabel#outputsGroupHeading {{
-    color: {t.muted};
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding-top: 6px;
-}}
 QLabel#outputsRowLabel {{
     color: {t.ink_2};
     font-size: 12px;

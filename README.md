@@ -56,14 +56,18 @@ pip install -e ".[dev]"
 ```
 
 This installs RADIANT in editable mode (your source edits take effect immediately) with
-the developer toolchain (pytest, mypy, ruff, import-linter). Optional extras:
+the developer toolchain (pytest, mypy, ruff, import-linter).
+
+The **desktop GUI is included in the base install** — `pip install radiant` ships a
+runnable `radiant gui` (the PySide6/matplotlib/console stack is a base dependency as of
+2026-07-24). Optional extras:
 
 | Extra          | Install                        | Adds                                              |
 |----------------|--------------------------------|---------------------------------------------------|
-| `gui`          | `pip install -e ".[gui]"`      | Desktop GUI (PySide6, matplotlib, console)        |
+| `gui`          | `pip install -e ".[gui]"`      | Back-compat alias — the GUI stack is already in the base install |
 | `scenarios`    | `pip install -e ".[scenarios]"`| Excel workbook + plotting support for scenario runs |
 
-Combine them: `pip install -e ".[dev,gui]"`.
+Combine them: `pip install -e ".[dev]"`.
 
 ### 5. Verify
 

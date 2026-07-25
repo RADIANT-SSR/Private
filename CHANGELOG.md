@@ -20,6 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **The desktop GUI stack is now a base dependency (owner decision 2026-07-24).**
+  `PySide6`, `matplotlib`, `qtconsole`, and `openpyxl` moved from the `[gui]`
+  optional-extra into base `dependencies`, so a plain `pip install radiant` ships a
+  runnable `radiant gui` with no extra install step (Windows first-deploy note: the
+  GUI packages were not being installed). The core library still imports and runs
+  without constructing any Qt object (the GUI is import-time-lazy). `radiant[gui]`
+  is retained as a no-op back-compat alias.
+
 ### Fixed
 - **Reference data now ships inside the package (Windows first-deploy finding 5).**
   The bundled reference-data tree (emissivity / detector-QE / solar CSVs and the

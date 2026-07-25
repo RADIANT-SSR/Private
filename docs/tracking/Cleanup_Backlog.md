@@ -12,6 +12,14 @@
 
 ## Open
 
+### CU-207 — `examples/nintendo.yaml` is a committed scratch config with a hardcoded absolute data path (Rule 30 violation)
+
+**Discovered**: data-in-wheel packaging (finding 5), 2026-07-24
+**File**: `examples/nintendo.yaml:6`
+**Symptom**: `interpolated_data_dir: /Users/jforsyth/SSR_Tool/data/atmospheres` — a machine-specific absolute POSIX path pointing at the (now-relocated) repo-root data tree. The config is committed but referenced by no test; it fails to load on any machine but the author's, and now points at a directory that no longer exists after the data move to `src/radiant/data/tables/atmospheres/`.
+**Why it still matters**: Rule 30 forbids hardcoded absolute POSIX paths; a committed example that only works on one developer's machine is misleading, and the name (`nintendo.yaml`) suggests a scratch file that should not be in `examples/` at all.
+**Suggested fix**: (c) delete-as-unused, or (a) if it is a real example, rename to a descriptive slug and repoint `interpolated_data_dir` to the shipped default (unset it — the loader now resolves the bundled library) or a portable relative path. Effort S; category A.
+
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
 **Discovered**: MODTRAN boost-ladder landing (plan §4.4 execution), 2026-07-20

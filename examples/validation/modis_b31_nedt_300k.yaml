@@ -1,0 +1,48 @@
+# RADIANT config — schema v1
+# External-validation scenario: MODIS (Aqua) TEB B31 @ 300 K.
+# Provenance: docs/validation/modis_teb_source_data.md; canonical comparison:
+# scripts/run_external_validation.py; results: docs/reports/external_validation_2026-07/
+#   Published L_typ = 9.55 W/m²/sr/µm (matches RADIANT band-avg Planck to <=0.1%);
+#   NEdT spec 50 mK; Aqua measured 20 mK (detector-noise-limited — the photon
+#   floor is a bound, not a prediction; see Findings §3).
+# NOTE (Gap 101, second instance): this band's PC/PV HgCdTe integrates photocurrent
+# with no discrete charge well; the collected charge exceeds RADIANT's well-schema
+# maximum (1e8 e-), so the chain reports a (physically inapplicable) saturation and
+# well-clipped SNR. The valid photon-floor NEdT is computed from the pre-readout
+# signal by scripts/run_external_validation.py. This config remains the faithful
+# instrument definition for GUI inspection of the signal chain up to the detector.
+
+source:
+  scene_type: extended
+  target:
+    temperature: 300.0           # K
+    emissivity: 1.0
+
+atmosphere:
+  model: exo
+
+geometry:
+  sensor_altitude_m: 705000.0    # m — published orbit
+  target_altitude_m: 0.0
+
+optics:
+  aperture_diameter_m: 0.1778    # m — published
+  focal_length_m: 0.282118       # m — published system EFL (LWIR FPA)
+  transmission_scalar: 0.40      # - ASSUMPTION (envelope 0.30–0.50; LUT-internal)
+
+detector:
+  pixel_pitch_x_um: 400.0         # µm — published (~400 µm LWIR, derived)
+  pixel_pitch_y_um: 400.0
+  qe_value: 0.7                  # - ASSUMPTION (PV eta 0.6–0.8)
+  dark_rate_e_per_s: 1.0e6       # e-/s — assumption; sub-dominant
+
+spectral_integration:
+  filter_min_um: 10.78           # µm — published band edges
+  filter_max_um: 11.28
+  integration_time_s: 3.233330e-04  # s — published (323.333 µs frame sample)
+
+readout:
+  read_noise_e_rms: 500.0        # e- RMS — assumption; sub-dominant
+  full_well_capacity_e: 1.0e8    # e- — schema maximum (see NOTE above)
+  adc_bits: 12                   # — published
+  gain_e_per_dn: 24414.0625      # e-/DN — schema-max well / 2^12

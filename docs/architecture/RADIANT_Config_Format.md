@@ -66,6 +66,8 @@ Scientific notation (`1.5e6`) is acceptable for large values. Units go in the na
 
 ### 1.3 Variable Substitution
 
+> **Not the multi-configuration feature (ADR-0010, 2026-07-25):** `_extends`/`_imports`/`_vars` are *file-composition* directives — one config file built from several. A **configuration set** (§1.9) is the unrelated in-file feature: one config file holding up to 8 named configurations of the same problem, via the `configurations:` structured section. Configuration sets do **not** use, need, or imply `_extends`; the directives below remain unimplemented and still raise.
+
 > **Implementation status (2026-07-06):** `_vars`, `_extends`, and `_imports` (§1.3–1.5) are **design targets, not implemented**. The current loader (`radiant/io/config.py`) **raises `ConfigError`** when any of these top-level keys is present (CU-050; previously they were silently stripped, which loaded the config with the directive ignored — a Rule 17 antipattern). Inline the parent/imported values into a single complete config. There is no CLI `--var` flag. Do not rely on these features until this banner is removed.
 
 Variables are defined at the top of a config in a `_vars:` block. They are substituted anywhere in the document using `${VAR_NAME}` syntax. Substitution is string-level: the YAML parser resolves variables before YAML is parsed. Arithmetic is not supported; use Python if you need arithmetic.
@@ -92,6 +94,8 @@ Variables can be overridden from the CLI: `radiant run config.yaml --var ALT_M=5
 Variable names are SCREAMING_SNAKE_CASE to distinguish them from parameter names.
 
 ### 1.4 Inheritance (`_extends`)
+
+Not to be confused with configuration sets (§1.9): `_extends` composes **one** parameter set from several files; a configuration set holds **several** configurations in one file. Band or as-built variants are expressed with §1.9, not with `_extends`.
 
 A config file can declare a single parent config using `_extends:`. The parent is loaded first; the child's fields are deep-merged on top, field by field. Child fields override parent fields at any depth.
 
@@ -151,6 +155,8 @@ readout:
 - `_extends` is resolved before `_imports`.
 
 ### 1.5 Imports (`_imports`)
+
+As in §1.4, this is file composition, not the in-file configuration sets of §1.9.
 
 A config file can include partial config files using `_imports:`. Each partial is a YAML file containing only a subset of the top-level keys. Partials are merged in order, then the current file's body is merged on top. This is the mechanism for composing sensor + atmosphere + target libraries.
 
@@ -233,6 +239,53 @@ section-bearing config unless the caller opts in via `sections_out` — a loader
 attach the section must not silently drop physics the config describes. The CLI
 (`radiant run` / `validate`) currently takes the bare path and therefore rejects
 section-bearing configs with that actionable error (CU-153).
+
+### 1.9 Configuration Sets (`configurations`) — implemented (ADR-0010, 2026-07-25)
+
+The second registered structured section. It turns one config file into one **study**: the shared parameter document exactly as §1.7–1.8 describe it, plus the per-configuration state of a `ConfigurationSet` (`RADIANT_Scripting_API.md` §2.5c) — up to **8** named *configurations* of the same modeling problem (band variants, geometry variants, nominal vs. as-built).
+
+Terminology (ADR-0010 D-10): the on-disk artifact is a **config file**; a **configuration** is a member of a configuration set.
+
+```yaml
+# ... shared parameters exactly as today ...
+_radiant:
+  format: 1
+  wavelength_points: 500          # the SHARED grid point count
+optics:
+  aperture_diameter_m: 0.30       # shared: one value for every configuration
+
+configurations:
+  names: [MWIR, LWIR]             # 1–8, unique, non-empty; defines the column order
+  active: MWIR                    # GUI resume state   (optional; default names[0])
+  baseline: MWIR                  # delta reference    (optional; default names[0])
+  wavelength_points:              # optional; omitted names use _radiant.wavelength_points
+    LWIR: 300
+  parameters:                     # dot-path → list aligned with `names`
+    spectral_integration.filter_min_um: [3.95, 8.0]
+    spectral_integration.filter_max_um: [4.45, 12.0]
+    detector.qe_value: [0.75, 0.62]
+```
+
+Binding rules, all enforced at load with a `ConfigError` naming the config file, the configuration, and the parameter (`radiant/io/config_set_section.py`):
+
+| Rule | Violation |
+|---|---|
+| `names`: 1–8 unique, non-empty strings | missing/empty list, duplicate name, 9th name, non-string |
+| `active` / `baseline` optional, each names a member | a name not in `names` |
+| `wavelength_points`: mapping of member name → `int >= 2` | non-member key, `< 2`, non-integer |
+| `parameters`: mapping of dot-path → list, **every list length = `len(names)`** | a short or long list — dense by construction (ADR-0010 D-A), never padded |
+| Dot-paths validate against the schema (alias-aware) | unknown name → error with the usual did-you-mean; the same parameter twice (canonical + deprecated alias) |
+| A dot-path is in the shared body **or** in `parameters`, never both | the single-store invariant (ADR-0010 D-B) — the shared value would be silently shadowed |
+| Values are **input-unit scalars** | type/bounds/enum are validated on the ordinary parameter path, per configuration |
+| `is_file_path` values relativize on save and resolve on load against the config file's directory | — (CU-177 parity with shared values) |
+
+Loader behavior (Rule 17 — never a silent skip): `ConfigurationSet.load(path)` reads the whole document (shared body, `_radiant` meta, `optical_elements`, and this section); `ConfigurationSet.save(path)` writes it. A section-bearing config file loaded through `Sensor.load` / `Sensor.from_yaml` / `Sensor.from_dict`, a bare `load_config`, or the CLI (`radiant run` / `validate`) raises an actionable `ConfigError` — "this config file is a configuration set — load it with `ConfigurationSet.load(path)`" — rather than running one config file's shared body as if it were the whole study. A caller that knows how to handle the section opts in via `sections_out=` (the ADR-0009 mechanism), which is what `ConfigurationSet.load` does.
+
+Scope, and what stays shared: tolerance distributions and `_radiant.wavelength_points` are the **shared** defaults (per-configuration tolerances are out of the v1 model); the `optical_elements` document is shared across all configurations (ADR-0010 D-7, per-configuration prescriptions deferred to v1.1); stage-output injections (Gap 68) have no YAML form and are unaffected.
+
+**Backward compatibility is structural, not a migration:** a config file with no `configurations:` key is byte-for-byte today's format and loads everywhere unchanged — registering the key changed no existing output. `ConfigurationSet.save` always writes the section, including for the degenerate single-configuration set with an empty table (the file then differs from `Sensor.save` output by the section alone), so the file is self-identifying as a study and the configuration's name survives the round trip. `ConfigurationSet.load` accepts a config file with **no** section and returns that degenerate one-configuration set.
+
+There is no `scope="resolved"` export for a configuration set: writing every resolved value of the base would place configured dot-paths in the shared body as well, violating the invariant the file exists to persist.
 
 ---
 

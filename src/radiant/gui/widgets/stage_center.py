@@ -62,7 +62,6 @@ from radiant.gui.widgets.geometry_angle_panel import (
 from radiant.gui.widgets.geometry_mode_form import GeometryModeForm
 from radiant.gui.widgets.geometry_readout import GeometryReadout
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
-from radiant.gui.widgets.metric_badge_row import MetricBadgeRow
 from radiant.gui.widgets.metric_group_cards import MetricGroupCards
 from radiant.gui.widgets.mtf_panel import MtfPanel
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel
@@ -265,9 +264,8 @@ class StagePane(QWidget):
         self._display_units: dict[str, str] = {}
         self._last_result: ChainResult | None = None
         self._outputs_list: list[OutputsReadout] = []
-        # The Performance instrument's metric surfaces (owner redesign 2026-07-25): the
-        # Summary tab's headline badge row and the All-metrics tab's grouped cards.
-        self._badge_rows: list[MetricBadgeRow] = []
+        # The Performance instrument's metric surface (owner redesign 2026-07-25):
+        # the grouped metric cards.
         self._metrics_list: list[MetricGroupCards] = []
         # The Performance metric-group selection row (Gap 96): checkboxes for the five
         # performance.metrics.* group flags, ordered to match the card sections. A toggle
@@ -421,12 +419,6 @@ class StagePane(QWidget):
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
             self._add_section(layout, "Outputs", outputs)
             self._outputs_list.append(outputs)
-        if spec.summary_badges:
-            # The Performance Summary tab's headline badge row (owner redesign 2026-07-25):
-            # the five PinnedCard badges above the system-MTF plot — the landing verdict.
-            badge_row = MetricBadgeRow(parent)
-            layout.addWidget(badge_row)
-            self._badge_rows.append(badge_row)
         if spec.metric_selection:
             # Gap 96: the compact "Compute:" toggle row sits directly above the grouped
             # metric cards, checkbox order matching the card sections (owner 2026-07-25);
@@ -783,11 +775,6 @@ class StagePane(QWidget):
         return self._metrics_list[0] if self._metrics_list else None
 
     @property
-    def badge_row(self) -> MetricBadgeRow | None:
-        """The Summary tab's headline badge row, if this stage has one (Performance)."""
-        return self._badge_rows[0] if self._badge_rows else None
-
-    @property
     def mtf_panel(self) -> MtfPanel | None:
         """The MTF per-term table + overlay, if this stage embeds it."""
         return self._mtf_panels[0] if self._mtf_panels else None
@@ -837,8 +824,6 @@ class StagePane(QWidget):
             self._sync_panels()
         for outputs in self._outputs_list:
             outputs.show_stage_outputs(self._namespace, stage_outputs)
-        for badge_row in self._badge_rows:
-            badge_row.update_from_result(result)
         for metrics in self._metrics_list:
             metrics.show_metrics(result)
         for mtf_panel in self._mtf_panels:

@@ -58,12 +58,14 @@ class TestEvaluateRoundTrip:
         # Dimensionless / rating-scale metrics render as a bare number.
         assert cards["snr"].value_text().replace(".", "").isdigit()
 
-        # The center swapped from the placeholder to the default stage's composite,
-        # whose plot section rendered a real figure.
+        # The center swapped from the placeholder to the default stage's composite —
+        # Performance, now the grouped metric readout (owner-slimmed 2026-07-25: no
+        # plots on this stage; the MTF figures live on the Optics MTF tab).
         center = window.central_canvas.stage_center
         assert not center.is_placeholder()
         default_pane = center.pane(center.selected_stage)
-        assert any(c.has_figure() for c in default_pane.plot_canvases)
+        assert default_pane.metric_cards is not None
+        assert "snr" in default_pane.metric_cards.rendered_keys()
 
     def test_edit_reevaluates_and_moves_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Editing the aperture re-runs the chain and changes SNR (the D2 click)."""

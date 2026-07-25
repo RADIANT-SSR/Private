@@ -100,6 +100,6 @@ def resolve_fonts_in(sheet: str) -> str:
     available = _available_families()
     if available is None:
         return sheet
-    return sheet.replace(
-        tokens.FONT_SANS, resolve_stack(tokens.FONT_SANS, available)
-    ).replace(tokens.FONT_MONO, resolve_stack(tokens.FONT_MONO, available))
+    return sheet.replace(tokens.FONT_SANS, resolve_stack(tokens.FONT_SANS, available)).replace(
+        tokens.FONT_MONO, resolve_stack(tokens.FONT_MONO, available)
+    )

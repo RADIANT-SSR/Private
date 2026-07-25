@@ -10,7 +10,7 @@ import click
 from radiant.api.config_io import normalize_element_document
 from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
-from radiant.io.config import ConfigError, load_config
+from radiant.io.config import ConfigError, load_config, unattached_section_error
 from radiant.io.element_config import ElementConfigError
 
 
@@ -49,6 +49,12 @@ def validate(config: str, overrides: tuple[str, ...]) -> None:
             normalize_element_document(sections["optical_elements"], base_dir=config_path.parent)
         except ElementConfigError as exc:
             errors.append(f"optical_elements: {exc}")
+    # Sections this command cannot validate (today: `configurations:`, ADR-0010)
+    # are reported, never silently accepted (Rule 17).
+    unattached = sorted(set(sections) - {"optical_elements"})
+    if unattached:
+        click.echo(f"Error: {unattached_section_error(unattached, config_path)}", err=True)
+        sys.exit(1)
 
     # Apply overrides — collect errors instead of exiting on first.
     try:

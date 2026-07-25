@@ -25,9 +25,13 @@ Validation, bounds, enums, consistency groups, and defaults therefore all run
 per configuration inside the existing ``ParameterSet.resolve()`` — there is no
 second resolution engine and ``radiant.core`` is not modified.
 
-Persistence (``load``/``save``/``to_yaml``) is deliberately **not** part of this
-module yet; it lands with the ``configurations:`` YAML section in Phase 2 of
-``docs/plans/Multi_Configuration_Plan.md``.
+Persistence (ADR-0010 D-D) is one file per study: the shared base serialized
+exactly as ``Sensor.save`` writes it, plus a ``configurations:`` structured
+section carrying names, active/baseline, per-configuration ``wavelength_points``,
+and the configured table (:mod:`radiant.io.config_set_section`). A config file
+with no section is byte-for-byte today's format, and loading a section-bearing
+file through bare ``Sensor.load`` raises with a "load it with
+``ConfigurationSet.load``" message rather than dropping the study.
 
 Example::
 
@@ -46,14 +50,23 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any, ClassVar
 
+from radiant.api._param_registry import build_parameter_set
 from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api.compare import ComparisonResult, compare_configs
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance
+from radiant.io.config import ConfigError
+from radiant.io.config_set_section import (
+    SECTION_KEY,
+    ConfigurationsSection,
+    parse_configurations_section,
+    serialize_configurations_section,
+)
 from radiant.io.results import ChainResult
 
 logger = logging.getLogger(__name__)
@@ -538,14 +551,10 @@ class ConfigurationSet:
         sensor = (
             self._base.clone() if n_points is None else self._base.with_wavelength_points(n_points)
         )
-        # Same-package access to the Sensor's ParameterSet: the public
-        # ``Sensor.set`` has no provenance-source seam, and ADR-0010 D-C
-        # specifies ``source="config:<name>"`` for configured values (CU-208).
-        params = sensor._params
         for dotpath, values in self._configured.items():
-            params.set(dotpath, values[index], Provenance.USER_SET, f"config:{name}")
+            sensor.set(dotpath, values[index], source=f"config:{name}")
         try:
-            sensor._ensure_resolved()
+            sensor.resolve()
         except RadiantError as exc:
             raise ConfigSetError(
                 what=f"configuration {name!r} does not resolve",
@@ -642,6 +651,132 @@ class ConfigurationSet:
         return compare_configs(items, baseline=self._names.index(self._baseline))
 
     # ------------------------------------------------------------------
+    # Persistence (ADR-0010 D-D)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def load(cls, path: str | Path) -> ConfigurationSet:
+        """Load a configuration set from a config file written by :meth:`save`.
+
+        The shared body loads exactly as ``Sensor.load`` loads it (parameters,
+        tolerances, ``_radiant.wavelength_points``, any ``optical_elements``
+        document); the ``configurations:`` section then supplies the names,
+        ``active``/``baseline``, per-configuration ``wavelength_points``, and the
+        configured table.
+
+        A config file **without** the section is a valid input: it loads as the
+        degenerate one-configuration set (named ``"Configuration 1"``), which is
+        observably the bare ``Sensor`` it contains.
+
+        Raises :class:`~radiant.io.config.ConfigError` — naming the config file,
+        the configuration, and the parameter — for every section violation:
+        a value list whose length is not the configuration count, duplicate or
+        empty names, more than :attr:`MAX_CONFIGS` names, an unknown dot-path
+        (with did-you-mean), a dot-path present in both the shared body and the
+        section (ADR-0010 D-B), an ``active``/``baseline`` that names no member,
+        and any configured value the schema rejects.
+        """
+        src = Path(path)
+        sections: dict[str, Any] = {}
+        base = Sensor.load(src, sections_out=sections)
+        raw = sections.get(SECTION_KEY)
+        if raw is None:
+            # Plain config file: the single-configuration set == the bare Sensor.
+            return cls(base)
+        section = parse_configurations_section(
+            raw,
+            build_parameter_set(),
+            shared_inputs=base.inputs(),
+            path=src,
+            base_dir=src.parent,
+            max_configurations=cls.MAX_CONFIGS,
+        )
+        try:
+            cs = cls(base, names=section.names)
+            for dotpath, values in section.parameters.items():
+                cs.configure(dotpath, values)
+            for name, n_points in section.wavelength_points.items():
+                cs.set_wavelength_points(name, n_points)
+            cs.active = section.active
+            cs.baseline = section.baseline
+        except ConfigSetError as exc:
+            # Surface a rejected configured value as a config-file error naming
+            # the file, rather than as a bare model error (Rule 15).
+            raise ConfigError(f"'{SECTION_KEY}' section: {exc}", path=src) from exc
+        return cs
+
+    def save(self, path: str | Path) -> Path:
+        """Write this set to *path* as one study config file. Returns the path.
+
+        The document is exactly what ``Sensor.save`` writes for the shared base —
+        explicit inputs in input units, the ``_radiant`` meta block
+        (``wavelength_points`` = the shared point count, tolerances), and the
+        ``optical_elements`` section when one is attached — plus the
+        ``configurations:`` section. :meth:`load` restores names and order, the
+        configured table, ``active``/``baseline``, and every wavelength point
+        count.
+
+        The section is written even for a single-configuration set with an empty
+        configured table: the file then differs from ``Sensor.save`` output by
+        the section alone, and the configuration's **name** survives the round
+        trip (omitting it would silently rename it on reload).
+
+        ``is_file_path`` values inside the section are written relative to the
+        destination directory, exactly like shared file-path values (CU-177).
+        """
+        out = Path(path)
+        return self._document_sensor().save(
+            out,
+            extra_sections={SECTION_KEY: self._section_document(relative_to=out.parent)},
+            validate=False,
+        )
+
+    def to_yaml(self, *, relative_to: str | Path | None = None) -> str:
+        """Serialize this set to a YAML **string** — the in-memory twin of :meth:`save`.
+
+        ``relative_to`` names the directory the YAML is destined for, so
+        file-path values (shared and configured alike) are written relative to
+        it; omitted, paths are left as stored, matching ``Sensor.to_yaml``.
+
+        There is no ``scope="resolved"`` export: writing every resolved value of
+        the base would put configured dot-paths in the shared body as well, and
+        the resulting file would violate the single-store invariant it is meant
+        to persist (ADR-0010 D-B).
+        """
+        rel = Path(relative_to) if relative_to is not None else None
+        return self._document_sensor().to_yaml(
+            scope="inputs",
+            relative_to=rel,
+            extra_sections={SECTION_KEY: self._section_document(relative_to=rel)},
+            validate=False,
+        )
+
+    def _document_sensor(self) -> Sensor:
+        """The base as it should be serialized — carrying the shared point count.
+
+        ``set_wavelength_points(None, n)`` sets the set-level shared default,
+        which persists as ``_radiant.wavelength_points`` (there is only one such
+        field). When it is unset, the base's own point count is already the
+        shared default and the base serializes directly.
+        """
+        if self._shared_wl_points is None:
+            return self._base
+        return self._base.with_wavelength_points(self._shared_wl_points)
+
+    def _section_document(self, *, relative_to: Path | None) -> dict[str, Any]:
+        """This set's state as the ``configurations:`` section mapping."""
+        section = ConfigurationsSection(
+            names=tuple(self._names),
+            active=self._active,
+            baseline=self._baseline,
+            wavelength_points=dict(self._wl_points),
+            parameters=dict(self._configured),
+        )
+        return serialize_configurations_section(
+            section, build_parameter_set(), relative_to=relative_to
+        )
+
+    # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
@@ -670,7 +805,7 @@ class ConfigurationSet:
         shared value would then be silently shadowed by the configured column.
         That is caught here rather than ignored (Rule 17).
         """
-        shared = self._base._params.inputs()
+        shared = self._base.inputs()
         clashes = sorted(p for p in self._configured if p in shared)
         if clashes:
             raise ConfigSetError(
@@ -722,7 +857,7 @@ class ConfigurationSet:
         resolve because the base on its own need not be resolvable — once a
         *required* parameter is configured, it has left the base's inputs.
         """
-        explicit = self._base._params.inputs().get(name)
+        explicit = self._base.inputs().get(name)
         if explicit is not None:
             return explicit
         default = self._base.parameter_def(name).default

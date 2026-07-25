@@ -66,18 +66,20 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 
 | Method | Description |
 |--------|-------------|
-| `Sensor.from_yaml(path, *, wavelength_points=500)` | Classmethod. Load a YAML config file. Returns a new `Sensor`. |
-| `Sensor.from_dict(data, *, wavelength_points=500)` | Classmethod. Load a nested config dict. Returns a new `Sensor`. |
-| `s.set(dotpath, value)` | Set a parameter by dot-path (input units). Returns `self` for chaining. |
-| `s.set_many({dotpath: value, ...})` | Set multiple parameters at once. Returns `self`. |
+| `Sensor.from_yaml(path, *, wavelength_points=500, sections_out=None)` | Classmethod. Load a YAML config file. Returns a new `Sensor`. `optical_elements` is parsed and attached; a section a Sensor cannot attach (today `configurations:`, ADR-0010) goes to `sections_out` when a dict is passed, and otherwise raises an actionable `ConfigError` naming `ConfigurationSet.load` — never a silent drop (Rule 17). |
+| `Sensor.from_dict(data, *, wavelength_points=500, sections_out=None)` | Classmethod. Load a nested config dict, with the same section handling. |
+| `s.set(dotpath, value, *, unit=None, source="Sensor.set")` | Set a parameter by dot-path (input units). `unit=` converts from the caller's native unit at this boundary (Gap 6). `source=` is the provenance **label** recorded with the input and shown by `resolved()`/`explain()` (CU-208) — the provenance *class* stays `USER_SET`; `ConfigurationSet` passes `source="config:<name>"` (§2.5c). Returns `self` for chaining. |
+| `s.set_many({dotpath: value, ...}, *, source="Sensor.set_many")` | Set multiple parameters at once, with the same provenance-label seam as `set` (CU-208). Returns `self`. |
+| `s.inputs()` | Read-only snapshot of the **explicitly-set** inputs: dot-path → value in input units (CU-208). Defaults and derived values are absent — this is the persistence/inspection surface `save()` writes and `ConfigurationSet` reads to tell shared from configured parameters. Passthrough to `ParameterSet.inputs()`. |
+| `s.resolve()` | Resolve the parameter set now if it is not already resolved (CU-208) — idempotent, and the same resolution `evaluate()`/`get()`/`save()` trigger implicitly. Calling it explicitly surfaces an over-constrained group or out-of-bounds value at a chosen point. Returns `self`. |
 | `s.get(dotpath)` | Get a resolved parameter value in **canonical units** (m, rad, s, K, e-). |
 | `s.get_input(dotpath)` | Get a resolved parameter value in **input (display) units** (e.g., µm for pixel pitch). |
 | `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `UnknownParameterError` (a `RadiantError` that co-inherits `KeyError`, with a did-you-mean suggestion) for unknown names, like `set()` (CU-073, 2026-07-11). |
 | `s.parameter_defs()` | Read-only mapping of the full parameter schema keyed by dot-path (Gap 70). Each `ParameterDef` carries dtype, canonical/input units, bounds, enum values, default, description, and tags. |
 | `s.parameter_def(dotpath)` | Single `ParameterDef` lookup. Alias-aware; unknown names raise `UnknownParameterError` with a did-you-mean suggestion. |
-| `s.save(path)` | Write a YAML config restoring this Sensor via `Sensor.load` (Gap 67): explicitly-set inputs (input units) plus a `_radiant` block (`wavelength_points`, tolerance distributions). Defaults and derived values are *not* written, so reloading reproduces the original resolution — including provenance splits between explicit and defaulted parameters. Returns the written `Path`. |
-| `s.to_yaml(scope="inputs")` | Serialize to a YAML **string** (Gap 88 — no temp file): `"inputs"` is byte-identical in body to `save()` (explicit inputs + `_radiant` meta + `optical_elements` section) and reloads exactly; `"resolved"` writes every resolved parameter (defaults + derived) as a documentation export. |
-| `Sensor.load(path)` | Classmethod. Reload a `save()`d config (or any RADIANT YAML): parameters, tolerances, `wavelength_points`. |
+| `s.save(path, *, extra_sections=None, validate=True)` | Write a YAML config restoring this Sensor via `Sensor.load` (Gap 67): explicitly-set inputs (input units) plus a `_radiant` block (`wavelength_points`, tolerance distributions). Defaults and derived values are *not* written, so reloading reproduces the original resolution — including provenance splits between explicit and defaulted parameters. `extra_sections` writes additional registered structured sections alongside the Sensor's own `optical_elements` (the seam `ConfigurationSet.save` uses for `configurations:`); `validate=False` skips the pre-write resolve for a caller that owns validation and whose sensor is deliberately incomplete (a *configured* required parameter is absent from the shared base). Omit both and the written file is byte-for-byte what it has always been. Returns the written `Path`. |
+| `s.to_yaml(scope="inputs", *, relative_to=None, extra_sections=None, validate=True)` | Serialize to a YAML **string** (Gap 88 — no temp file): `"inputs"` is byte-identical in body to `save()` (explicit inputs + `_radiant` meta + `optical_elements` section) and reloads exactly; `"resolved"` writes every resolved parameter (defaults + derived) as a documentation export. `extra_sections`/`validate` behave as on `save` (`validate=False` requires `scope="inputs"`). |
+| `Sensor.load(path, *, sections_out=None)` | Classmethod. Reload a `save()`d config (or any RADIANT YAML): parameters, tolerances, `wavelength_points`. `sections_out` as on `from_yaml` — without it, a `configurations:`-bearing config file raises instead of loading as a single configuration. |
 | `s.reset_all(scope="user_set")` | Bulk reset by provenance (Gap 93): `"user_set"` clears every interactively-set input (note: an *edited* config value reverts to its schema default, not the file value — an edit replaces provenance; reload the file to revert exactly); `"all"` clears every explicit input. Returns `self`. Backed by the new `ParameterSet.input_provenances()` read-only snapshot. |
 | `s.tolerances()` / `s.clear_tolerance(dotpath)` | Read-only view of the set tolerance distributions / remove one (GT-2). Feeds the GUI ± badges + the Monte-Carlo scaffold; the same data `save`/`to_yaml` persist in `_radiant.tolerances`. |
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
@@ -221,6 +223,16 @@ resolution engine, and `radiant.core` is untouched.
 | `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolve-only, **no physics**. One configuration's failure never hides another's. |
 | `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). |
 | `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** (stable when `active` changes), delta reference = `cs.baseline`. |
+| `ConfigurationSet.load(path)` | Classmethod (ADR-0010 D-D). Load a study config file: the shared body exactly as `Sensor.load` reads it (parameters, tolerances, `_radiant.wavelength_points`, `optical_elements`) plus the `configurations:` section — names and order, `active`/`baseline`, per-configuration `wavelength_points`, and the configured table. A config file **without** the section loads as the degenerate one-configuration set. Every section violation raises `ConfigError` naming the config file, the configuration, and the parameter (`RADIANT_Config_Format.md` §1.9). |
+| `cs.save(path)` | Write the study as one config file and return the `Path`: the base serialized exactly as `Sensor.save` writes it, plus the `configurations:` section (always written — the file is then self-identifying and the configuration names survive). Configured `is_file_path` values relativize to the destination directory like shared ones (CU-177). |
+| `cs.to_yaml(relative_to=None)` | The in-memory twin of `save` — the same document as a string. `relative_to` is the directory the YAML is destined for (file-path values are written relative to it); omitted, paths are left as stored. There is no `scope="resolved"` export: it would put configured dot-paths in the shared body too, breaking the single-store invariant the file persists. |
+
+Persistence is one file per study. A config file with no `configurations:` key is byte-for-byte
+today's format, so nothing that a plain `Sensor` writes changed. Conversely, a section-bearing
+config file loaded through `Sensor.load` / `from_yaml` / `from_dict`, a bare `load_config`, or the
+CLI raises an actionable `ConfigError` pointing at `ConfigurationSet.load` — a study is never
+silently run as a single config (Rule 17). Callers that *can* handle the section opt in with
+`Sensor.load(path, sections_out={})`, the ADR-0009 mechanism `ConfigurationSet.load` itself uses.
 
 `ConfigSetRunResult` carries `entries` (a `ConfigRun` per configuration, in **evaluation
 order** — active first), `names`, `baseline`, `n_failed`, `failures` (name → error),
@@ -239,11 +251,10 @@ names the configuration — including configured values rejected at **edit time*
 A set with one configuration and an empty configured table is observably identical to the
 bare `Sensor` it wraps — that degenerate case is the ordinary single-model session.
 
-**Not in Phase 1:** persistence (`ConfigurationSet.load` / `save` / `to_yaml` and the
-`configurations:` YAML section) lands with Phase 2 of
-`docs/plans/Multi_Configuration_Plan.md`. Also out of the v1 model: per-configuration
-tolerance distributions, per-configuration stage-output injections, per-configuration
-optical-element documents (ADR-0010 D-7), and sweeps of a whole set.
+**Out of the v1 model:** per-configuration tolerance distributions, per-configuration
+stage-output injections, per-configuration optical-element documents (ADR-0010 D-7), and
+sweeps of a whole set. Tolerances, the `optical_elements` document, and the default
+`wavelength_points` are shared state on the base.
 
 ### 2.6 Optical-Element Documents — `radiant.api.config_io` (ADR-0009, 2026-07-16)
 

@@ -12,15 +12,6 @@
 
 ## Open
 
-### CU-208 — `ConfigurationSet` reaches into `Sensor._params` / `Sensor._ensure_resolved` because `Sensor` has no provenance-source or resolve seam
-
-**Discovered**: multi-configuration Phase 1 (`api/config_set.py`), 2026-07-25
-**Status**: Open
-**File**: `src/radiant/api/config_set.py` (`sensor_for`, `_check_single_store`, `_shared_seed`); `src/radiant/api/sensor.py` (`Sensor.set`, `Sensor._ensure_resolved`)
-**Symptom**: materialization must stamp configured values with provenance `source="config:<name>"` (ADR-0010 D-C) and must resolve the materialized sensor to surface a per-configuration consistency-group error at a named site. `Sensor.set`/`set_many` hardcode `source="Sensor.set"`, `Sensor` exposes no `resolve()`, and `Sensor` exposes no read-only view of its explicit inputs — so `config_set.py` uses `sensor._params.set(..., source=...)`, `sensor._ensure_resolved()`, and `self._base._params.inputs()`. Same-package access, but private.
-**Why it still matters**: the private surface is now load-bearing for a public capability. A future refactor of `Sensor`'s internals (e.g. lazy parameter sets, a different resolve trigger) would silently break configured-value provenance — which `Sensor.resolved()`/`explain()` and the Phase-2 YAML section both depend on — with no type or lint signal. Phase 2/4 will add more callers (persistence, GUI badges) on the same private path.
-**Suggested fix**: (a) inline-fix in a later multi-config phase — add three small public seams to `Sensor`: a `source=` keyword on `set`/`set_many` (default unchanged), a public `resolve()` (or `ensure_resolved()`), and an `inputs()` read-only mapping mirroring `ParameterSet.inputs()`. Then delete the private reaches from `config_set.py`. Each is additive and back-compatible; all three take Rule 20 lock-step doc lines in `RADIANT_Scripting_API.md` §2.2 and a Rule 29 CHANGELOG entry. Effort S; category B. Related: ADR-0010 D-C, `docs/plans/Multi_Configuration_Plan.md` §3.1.
-
 ### CU-207 — `examples/nintendo.yaml` is a committed scratch config with a hardcoded absolute data path (Rule 30 violation)
 
 **Discovered**: data-in-wheel packaging (finding 5), 2026-07-24
@@ -122,6 +113,11 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-208 — `ConfigurationSet` reached into `Sensor._params` / `Sensor._ensure_resolved` because `Sensor` had no provenance-source or resolve seam
+
+**Discovered**: multi-configuration Phase 1 (`api/config_set.py`), 2026-07-25
+**Status**: RESOLVED 2026-07-25, commit `780ae6b`. **Resolution (option a, as suggested)**: added the three additive, back-compatible public seams to `Sensor` — a `source=` keyword on `set`/`set_many` (provenance *label* only; the class stays `USER_SET`; defaults `"Sensor.set"`/`"Sensor.set_many"` unchanged), a public idempotent `resolve() -> Sensor`, and `inputs() -> Mapping[str, Any]` mirroring `ParameterSet.inputs()`. `config_set.py`'s `sensor_for` now calls `sensor.set(..., source=f"config:{name}")` + `sensor.resolve()`, and `_check_single_store` / `_shared_seed` read `self._base.inputs()`; the CU-208 comment at the call site is removed and no `_params` / `_ensure_resolved` reference remains in the module. R20 lock-step: three rows in `RADIANT_Scripting_API.md` §2.2. R29 CHANGELOG (public surface). 8 new Level-1 tests (`api/tests/test_sensor.py::TestProvenanceAndInputSeams`). Results-neutral. Related: ADR-0010 D-C, `docs/plans/Multi_Configuration_Plan.md` §3.1, multi-config Phase 2.
 
 ### CU-198 — RADIANT_Source_Target_System.md §8 documented a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema
 

@@ -35,6 +35,22 @@ class TestRunCommand:
         assert "SNR:" in result.output
         assert "Signal:" in result.output
 
+    @pytest.mark.level1
+    def test_run_rejects_a_configuration_set_file(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """`radiant run` refuses a study file rather than running its shared body."""
+        study = tmp_path / "study.yaml"
+        study.write_text(
+            EXAMPLE_YAML.read_text(encoding="utf-8")
+            + "\nconfigurations:\n  names: [MWIR, LWIR]\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        result = runner.invoke(cli, ["run", str(study)])
+        assert result.exit_code != 0
+        assert "ConfigurationSet.load" in result.output
+
     @pytest.mark.level2
     def test_run_shows_noise_terms(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["run", str(EXAMPLE_YAML)])
@@ -210,6 +226,22 @@ class TestValidateCommand:
         result = runner.invoke(cli, ["validate", str(bad_param)])
         assert result.exit_code != 0
         assert "unknown parameter" in result.output.lower()
+
+    @pytest.mark.level1
+    def test_validate_rejects_a_configuration_set_file(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """A `configurations:` section is refused, not silently ignored (Rule 17)."""
+        study = tmp_path / "study.yaml"
+        study.write_text(
+            EXAMPLE_YAML.read_text(encoding="utf-8")
+            + "\nconfigurations:\n  names: [MWIR, LWIR]\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        result = runner.invoke(cli, ["validate", str(study)])
+        assert result.exit_code != 0
+        assert "ConfigurationSet.load" in result.output
 
     @pytest.mark.level1
     def test_validate_set_override(self, runner: CliRunner) -> None:

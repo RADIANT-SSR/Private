@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -43,12 +44,28 @@ _RESERVED_KEYS = frozenset({"_extends", "_imports", "_vars"})
 
 # Structured document sections (ADR-0009 D4): top-level keys that carry a
 # declarative document, not parameters. They are parsed by their own io
-# loaders (e.g. ``optical_elements`` -> element_config.parse_element_entries)
-# and attached by the API layer (Sensor.from_yaml / Sensor.load). A bare
-# load_config caller must opt in via ``sections_out``; otherwise the section
-# raises rather than being silently dropped (Rule 17 — skipping it would
-# silently change the physics the config describes).
-_SECTION_KEYS = frozenset({"optical_elements"})
+# loaders (e.g. ``optical_elements`` -> element_config.parse_element_entries,
+# ``configurations`` -> config_set_section.parse_configurations_section) and
+# attached by the API layer (Sensor.from_yaml / Sensor.load /
+# ConfigurationSet.load). A bare load_config caller must opt in via
+# ``sections_out``; otherwise the section raises rather than being silently
+# dropped (Rule 17 — skipping it would silently change the physics, or the
+# study, the config describes).
+_SECTION_KEYS = frozenset({"optical_elements", "configurations"})
+
+# Per-section advice for the "this loader cannot attach that section" error.
+_SECTION_ADVICE: dict[str, str] = {
+    "optical_elements": (
+        "Load the file with Sensor.load() / Sensor.from_yaml() (which parse and "
+        "attach the element document), or remove the section for parameter-only loading."
+    ),
+    "configurations": (
+        "This config file is a configuration set (ADR-0010) — load it with "
+        "ConfigurationSet.load(path), which restores the shared base and every "
+        "configuration. Sensor.load() / Sensor.from_yaml() load single-configuration "
+        "config files only; remove the section to load it as one."
+    ),
+}
 
 # Top-level metadata block written by Sensor.save() (Gap 67):
 # format marker, wavelength_points, and tolerance distributions.
@@ -115,43 +132,88 @@ def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
     return nested
 
 
+def relativize_file_value(value: Any, base_dir: Path) -> Any:
+    """Rewrite one absolute file-path value to a ``base_dir``-relative one (CU-177).
+
+    The per-value half of :func:`_relativize_file_paths`, shared with the
+    ``configurations:`` section serializer (``io/config_set_section.py``) so
+    configured file-path values relativize exactly like shared ones. Non-string,
+    empty, and already-relative values pass through unchanged; a path on a
+    different filesystem root (Windows cross-drive) keeps its absolute form.
+    Relative paths use forward slashes so the written YAML is byte-identical on
+    macOS and Windows (Rule 30). The caller checks ``ParameterDef.is_file_path``.
+    """
+    if not isinstance(value, str) or not value or not os.path.isabs(value):
+        return value
+    try:
+        rel = os.path.relpath(value, base_dir)
+    except ValueError:
+        return value  # different drive on Windows — no relative form exists
+    return Path(rel).as_posix()
+
+
+def resolve_file_value(value: Any, base_dir: Path) -> Any:
+    """Resolve one relative file-path value against ``base_dir`` (CU-177).
+
+    The inverse of :func:`relativize_file_value`, and the per-value half of
+    :func:`_resolve_file_paths`. Absolute, non-string, and empty values pass
+    through unchanged, so configs written before CU-177 (absolute paths) still
+    load. The caller checks ``ParameterDef.is_file_path``.
+    """
+    if not isinstance(value, str) or not value or os.path.isabs(value):
+        return value
+    return str((base_dir / value).resolve())
+
+
 def _relativize_file_paths(flat: dict[str, Any], params: ParameterSet, base_dir: Path) -> None:
     """Rewrite ``is_file_path`` values from absolute to ``base_dir``-relative (CU-177).
 
-    In-place. Non-file-path params, empty values, and already-relative values are
-    left untouched; a path on a different filesystem root (Windows cross-drive)
-    keeps its absolute form. Relative paths use forward slashes so the written
-    YAML is byte-identical on macOS and Windows (Rule 30).
+    In-place, over a flat dot-path → value mapping; each value goes through
+    :func:`relativize_file_value`.
     """
     defs = params.parameter_defs()
     for name, value in list(flat.items()):
         pdef = defs.get(name)
         if pdef is None or not pdef.is_file_path:
             continue
-        if not isinstance(value, str) or not value or not os.path.isabs(value):
-            continue
-        try:
-            rel = os.path.relpath(value, base_dir)
-        except ValueError:
-            continue  # different drive on Windows — no relative form exists
-        flat[name] = Path(rel).as_posix()
+        flat[name] = relativize_file_value(value, base_dir)
 
 
 def _resolve_file_paths(flat: dict[str, Any], params: ParameterSet, base_dir: Path) -> None:
     """Resolve relative ``is_file_path`` values against ``base_dir`` (CU-177).
 
-    In-place, the inverse of :func:`_relativize_file_paths`. Absolute values and
-    non-file-path params pass through unchanged, so configs written before CU-177
-    (absolute paths) still load.
+    In-place, the inverse of :func:`_relativize_file_paths`; each value goes
+    through :func:`resolve_file_value`.
     """
     defs = params.parameter_defs()
     for name, value in list(flat.items()):
         pdef = defs.get(name)
         if pdef is None or not pdef.is_file_path:
             continue
-        if not isinstance(value, str) or not value or os.path.isabs(value):
-            continue
-        flat[name] = str((base_dir / value).resolve())
+        flat[name] = resolve_file_value(value, base_dir)
+
+
+def unattached_section_error(
+    sections: Sequence[str],
+    path: str | Path | None = None,
+) -> ConfigError:
+    """Build the actionable error for section(s) the calling loader cannot attach.
+
+    Shared by :func:`load_config` (bare, no ``sections_out``) and
+    ``Sensor.from_yaml`` / ``Sensor.load`` (which attach ``optical_elements``
+    but not ``configurations``), so both raise the same message naming the
+    loader that *can* read the section (Rule 15/17 — never a silent drop).
+    """
+    keys = ", ".join(f"'{k}'" for k in sections)
+    advice = " ".join(
+        _SECTION_ADVICE.get(key, f"No loader in this call path attaches '{key}'.")
+        for key in sections
+    )
+    return ConfigError(
+        f"Config carries structured section(s) {keys}, which this loader does not "
+        f"attach. {advice}",
+        path=path,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -242,14 +304,7 @@ def load_config(
     sections_present = sorted(_SECTION_KEYS & raw.keys())
     if sections_present:
         if sections_out is None:
-            keys = ", ".join(f"'{k}'" for k in sections_present)
-            raise ConfigError(
-                f"Config carries structured section(s) {keys}, which this "
-                "loader does not attach. Load the file with Sensor.load() / "
-                "Sensor.from_yaml() (which parse and attach sections), or "
-                "remove the section for parameter-only loading.",
-                path=path,
-            )
+            raise unattached_section_error(sections_present, path)
         for key in sections_present:
             sections_out[key] = raw.pop(key)
 

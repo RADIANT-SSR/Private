@@ -21,6 +21,31 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Config format: the `configurations:` structured section, and
+  `ConfigurationSet.load` / `save` / `to_yaml` (ADR-0010 D-D, multi-configuration
+  Phase 2).** One config file is one study: today's shared parameter document plus a
+  `configurations:` section carrying names (1–8), `active`/`baseline`, optional
+  per-configuration `wavelength_points`, and the dense configured table (dot-path →
+  one value per configuration). Every section violation raises `ConfigError` naming
+  the config file, the configuration, and the parameter — list-length mismatch (never
+  padded), duplicate names, more than 8, unknown dot-path (did-you-mean preserved), a
+  dot-path in both the shared body and the section, a non-member `active`/`baseline`.
+  Configured file-path values relativize and resolve against the config file's
+  directory exactly like shared ones (CU-177). **A config file with no
+  `configurations:` key is byte-for-byte the previous format** and loads unchanged
+  everywhere; a section-bearing file loaded through `Sensor.load` / `from_yaml` /
+  `from_dict`, a bare `load_config`, or the CLI (`radiant run` / `validate`) now
+  raises an actionable "load it with `ConfigurationSet.load`" error instead of
+  running one study's shared body (Rule 17). New keywords on the loaders/writers:
+  `Sensor.from_yaml/from_dict/load(..., sections_out=)` and
+  `Sensor.save/to_yaml(..., extra_sections=, validate=)`. No computed results change.
+- **`Sensor.set(..., source=)` / `set_many(..., source=)`, `Sensor.inputs()`, and
+  `Sensor.resolve()` (CU-208).** Three additive, back-compatible public seams:
+  `source=` sets the provenance **label** recorded with an input (the provenance
+  class stays `USER_SET`; defaults are unchanged), `inputs()` returns a read-only
+  snapshot of the explicitly-set inputs in input units, and `resolve()` is a public,
+  idempotent ensure-resolved surface returning `self`. `ConfigurationSet` uses all
+  three instead of reaching into `Sensor` internals. No computed results change.
 - **`ConfigurationSet` — up to eight named configurations of one modeling problem
   (ADR-0010, multi-configuration Phase 1).** New public api surface
   `radiant.api.ConfigurationSet` (plus `ConfigSetRunResult`, `ConfigRun`, and the

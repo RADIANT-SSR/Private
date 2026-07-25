@@ -12,6 +12,14 @@ dependencies = [
     "scipy>=1.11",
     "pyyaml>=6.0",
     "click>=8.1",
+    # Desktop GUI stack — bundled into the base install (owner decision 2026-07-24)
+    # so `pip install radiant` ships a runnable `radiant gui` with no extra step.
+    # The core library remains importable/runnable without ever constructing a Qt
+    # object; these are import-time-lazy in cli/gui.py and radiant.gui.
+    "PySide6>=6.6",
+    "matplotlib>=3.8",
+    "qtconsole>=5.5",
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +43,10 @@ scenarios = [
 # pure-Qt QPainter 2D schematic (ADR-0007, D7) — no PyVista/VTK/OpenGL dependency,
 # so those pins were dropped (CU-134). qtconsole is retained for the deferred
 # in-process Jupyter-kernel console path (CU-138); the shipped console is a REPL.
+# Back-compat alias only (owner decision 2026-07-24): the GUI stack now lives in the
+# base `dependencies`, so `pip install radiant` already ships the GUI. `radiant[gui]`
+# is retained so existing install commands / docs keep working; it is a no-op superset
+# of the base deps.
 gui = [
     "PySide6>=6.6",
     "matplotlib>=3.8",

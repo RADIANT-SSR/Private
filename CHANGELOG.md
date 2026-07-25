@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Temperature input in K / °C / °F (Windows finding 13).** Temperatures remain
+  canonically Kelvin, but may now be *entered* in Celsius (`degC`) or Fahrenheit
+  (`degF`) via the unit-aware `Sensor.set(..., unit=...)` boundary and the GUI
+  parameter-editor unit dropdown (which auto-offers them for any Kelvin parameter,
+  e.g. `source.target.temperature`, `detector.detector_temperature_K`). Implemented
+  as a new affine-conversion table in `radiant.core.units` (`_AFFINE_CONVERSIONS`);
+  `convert` / `inverse_convert` / `units_for` / `input_units` / `targets_for` now
+  cover offset units. Canonical values and computed results are unchanged (Rule 2 —
+  conversion happens once, at the input boundary).
 - **GUI: Readout acquisition controls (Gap 102).** The Readout stage's Inputs
   form gains grouped sections for TDI (`readout.n_tdi` / `tdi_mode` /
   `tdi_misalign_pixels`), co-adding (`n_coadds` / `coadd_mode`), on/off-chip

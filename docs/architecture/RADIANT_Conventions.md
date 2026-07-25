@@ -110,6 +110,13 @@ Nanometers (nm) are rejected because MWIR/LWIR wavelengths become unwieldy (3000
 | MTF | MTF(f) | **dimensionless** | 0–1, as a function of spatial frequency f |
 | Spatial frequency | f | **cycles / mm** (focal plane) or **cycles / mrad** (angular) | Context-dependent; always labeled |
 
+**Temperature input units (user-facing boundary).** All temperatures are stored and
+computed canonically in **K**, but a user may *enter* one in K, °C (`degC`), or °F
+(`degF`): the unit-aware `Sensor.set(..., unit=...)` boundary converts to K exactly once
+(Rule 2), and the GUI parameter editor's unit dropdown offers the three. This is an
+affine (offset) conversion, registered separately from the multiplicative unit table
+(`radiant.core.units._AFFINE_CONVERSIONS`; enforced by `core/tests/test_units.py`).
+
 ### Justification
 
 **W/m²/sr/µm for spectral radiance:** This is the SI-adjacent standard used by MODTRAN, most radiometry textbooks (Dereniak & Boreman, Schott), and the remote sensing community. The alternative W/cm²/sr/µm (used in some older military specs like MIL-STD-2500) introduces a factor of 10⁴ that causes unit conversion bugs. We use m², not cm².

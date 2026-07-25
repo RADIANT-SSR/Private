@@ -43,6 +43,7 @@ ROOT_ALLOWED = {
     "CLAUDE.md",
     "LICENSE",
     "pyproject.toml",
+    "MANIFEST.in",  # sdist data-inclusion manifest (bundled reference data → wheel)
     "mkdocs.yml",
     ".gitignore",
     ".gitattributes",

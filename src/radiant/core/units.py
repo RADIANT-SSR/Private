@@ -45,6 +45,7 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     ("e-", "e-"): 1.0,
     ("e-/s", "e-/s"): 1.0,
     ("e-/s/pixel", "e-/s/pixel"): 1.0,
+    ("e-/DN", "e-/DN"): 1.0,  # ADC conversion gain (electrons per digital number)
     # Dimensionless
     ("", ""): 1.0,
     ("%", ""): 1e-2,  # percent → fraction, for unit-aware set() (Gap 6)

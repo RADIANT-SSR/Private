@@ -2,210 +2,212 @@
 
 *Persona: Mike (detector engineer), Dr. Chen (researcher)*
 
-Complete noise taxonomy, equations, and scaling rules as implemented in
-RADIANT.
+Complete noise taxonomy, equations, scaling rules, and acquisition timing as implemented
+in RADIANT. All noise in electrons RMS (Rule 2 canonical unit). Numeric anchors are
+blind-derived values from the 2026-07 assurance audit
+(`docs/reports/assurance_audit_2026-07/track_a3_noise_metrics_derivation.md`).
 
 ---
 
-## Overview
+## Overview — RSS composition
 
-RADIANT models 16 independent noise sources, each computed in electrons
-RMS. The total noise is the RSS (root sum of squares) combination:
+RADIANT models 16 independent noise sources, each in e- RMS. With statistical
+independence, variances add:
 
 $$\sigma_{\text{total}} = \sqrt{\sum_{i=1}^{16} \sigma_i^2}$$
 
-Noise terms are categorized as **temporal** (independent between frames,
-reducible by averaging) or **spatial** (fixed-pattern, not reducible by
-temporal averaging).
+**The load-bearing assumption is independence** — each mechanism arises in a physically
+distinct process, so cross-covariances vanish. It is deliberately violated by
+fixed-pattern terms across frames of the same pixel (they are a static spatial pattern:
+they belong in a single-frame spatial budget but do not average down over frames — see
+TDI/co-add scaling below). All terms are input-referred to electrons at the sense node
+before combining; mixing DN-domain and e--domain terms in one RSS is the classic error.
+
+Terms are classed **temporal** (frame-independent, average down as $\sqrt{N}$) or
+**spatial** (fixed-pattern).
+
+**Numeric anchor.** $N_{target}=10000$, $N_{bg}=5000$, $N_{dark}=1000$ e-,
+$\sigma_{read}=50$ e-, PRNU 0.1% ($\sigma_{PRNU}=10$ e-):
+$\sigma_{tot} = \sqrt{16000 + 2500 + 100} = 136.381817$ e- RMS.
+
+**In RADIANT.** `detector/noise/budget.py` (assembly), `core/noise_budget.py`
+(NoiseTerm/temporal-spatial classing) · anchored by `detector/tests/test_noise.py` and
+the audit-pinned RSS case therein. **References.** [Dereniak & Boreman 1996],
+[Holst 2008].
 
 ---
 
 ## Noise Taxonomy
 
-### Photon Shot Noise (4 terms)
+### Photon shot noise (4 terms)
 
-These arise from Poisson statistics of photon arrival.
+Poisson statistics of photon arrival: for $N_e$ photoelectrons,
+$\sigma = \sqrt{N_e}$. QE < 1 preserves Poisson statistics (binomial thinning), so the
+square root is taken of **electrons**, never photons or DN
+($\sigma_{DN} = \sqrt{S_{DN}/g}$, not $\sqrt{S_{DN}}$).
 
-**Signal shot noise** --- from target photocurrent:
+- Signal shot: $\sigma = \sqrt{S}$ (target electrons)
+- Background shot: $\sigma = \sqrt{S_{bg}}$
+- Nearfield shot: $\sqrt{S_{nf}}$ (warm-optics self-emission)
+- Straylight shot: $\sqrt{S_{stray}}$
 
-$$\sigma_{\text{signal\_shot}} = \sqrt{S}$$
+**Pitfalls.** Adding σ's instead of variances; dark-frame subtraction removes the dark
+*mean*, never its shot noise (single-shot subtraction doubles the dark shot variance).
 
-where $S$ is signal electrons.
+**In RADIANT.** `detector/noise/photon.py`, `detector/shot_noise.py` · anchored by
+`detector/tests/test_shot_noise.py`, `test_noise.py`.
 
-**Background shot noise** --- from scene background:
+### Detector-material noise (4 terms)
 
-$$\sigma_{\text{background\_shot}} = \sqrt{S_{\text{bg}}}$$
+**Dark shot:** $\sigma = \sqrt{J_{dark}\,t_{int}}$ with $J_{dark}$ in e-/s.
+Temperature scaling is Arrhenius:
 
-**Nearfield shot noise** --- from warm optics thermal emission:
+$$J(T) = J_{\text{ref}}\exp\!\left[\frac{E_a}{k_B}\left(\frac{1}{T_{\text{ref}}} - \frac{1}{T}\right)\right]$$
 
-$$\sigma_{\text{nearfield\_shot}} = \sqrt{S_{\text{nf}}}$$
+(`detector.dark_activation_energy_eV`, `dark_reference_temperature_K`). Physics note:
+diffusion-limited material has $E_a \approx E_g$, generation–recombination-limited
+$E_a \approx E_g/2$ — conflating them mis-predicts the cooling benefit by squaring the
+true ratio (audit anchor: $E_g = 0.1$ eV diffusion, 77→84 K: dark current ×4.56).
 
-**Straylight shot noise** --- from scattered light:
+**G-R noise:** $\sigma_{gr} = \sqrt{2 g_{gr} J_{dark} t_{int}}$ ($g_{gr}\approx0$ PV,
+~1 PC — the same generation-AND-recombination doubling that costs photoconductors
+$\sqrt2$ in D*).
 
-$$\sigma_{\text{straylight\_shot}} = \sqrt{S_{\text{stray}}}$$
+**Johnson noise** (from $R_0A$) and **1/f noise** (flicker coefficient over a frequency
+band) per the forms in `detector/noise/detector_material.py`.
 
-*Implementation: `src/radiant/detector/noise.py`*
+**In RADIANT.** `detector/dark_current.py`, `detector/noise/detector_material.py` ·
+anchored by `detector/tests/test_dark_current.py`, `test_noise.py`.
+**References.** [Vincent 1990], [Dereniak & Boreman 1996].
 
-### Detector Noise (4 terms)
+### ROIC noise (3 terms)
 
-**Dark current shot noise** --- from detector leakage current:
+**Read noise:** fixed floor `readout.read_noise_e_rms`; includes CDS benefit when
+`read_noise_is_post_cds = True` (default).
 
-$$\sigma_{\text{dark\_shot}} = \sqrt{J_{\text{dark}} \cdot t_{\text{int}}}$$
+**kTC reset noise:** $\sigma_{kTC} = \sqrt{k_B T C_{node}}/q$ — suppressed to zero when
+CDS is enabled (`readout.cds_enabled = 1`, default).
 
-where $J_{\text{dark}}$ is dark current rate (e-/s) and $t_{\text{int}}$ is
-integration time.
+**ADC quantization:**
 
-**Generation-recombination (G-R) noise**:
+$$\sigma_{ADC} = \frac{g}{\sqrt{12}},\qquad g = \frac{N_{fullwell}}{2^n}\ \text{[e-/DN]}.$$
 
-$$\sigma_{\text{gr}} = \sqrt{2 \cdot g_{\text{gr}} \cdot J_{\text{dark}} \cdot t_{\text{int}}}$$
+Valid when input noise ≳ 1 LSB (dithered); the error is uniform on ±LSB/2 and its
+variance is LSB²/12.
 
-where $g_{\text{gr}}$ is the G-R factor (typically 0 for photovoltaic
-detectors, ~1 for photoconductive).
+**Pitfalls.** Dividing by 12 instead of $\sqrt{12}$ (3.46× understatement); counting
+quantization twice when a vendor's measured "read noise in e-" already includes the ADC;
+leaving σ_ADC in DN when the RSS is in e-.
 
-**Johnson noise** --- from detector resistance:
+**Numeric anchor.** 14-bit, 100 ke- full well: $g = 6.10352$ e-/DN,
+$\sigma_{ADC} = 1.76193$ e- RMS.
 
-$$\sigma_{\text{johnson}} = \sqrt{\frac{4 k_B T \cdot A_{\text{det}}}{R_0 A} \cdot \frac{t_{\text{int}}}{q^2}}$$
+**In RADIANT.** `readout/read_noise.py`, `detector/noise/roic.py` (kTC),
+`readout/adc.py::AnalogToDigital.quantization_noise_e` · anchored by
+`readout/tests/test_read_noise.py`, `test_adc.py`.
 
-where $R_0 A$ is the detector resistance-area product, $A_{\text{det}}$ is
-pixel area, and $q$ is electron charge.
+### Spatial (fixed-pattern) noise (3 terms)
 
-**1/f (flicker) noise**:
+**PRNU** — multiplicative gain dispersion, **linear in signal** (not $\sqrt{N}$):
+$\sigma_{PRNU} = k\,S$ with $k$ the residual non-uniformity after NUC. Shot/PRNU
+crossover at $N = 1/k^2$ (0.1% → $10^6$ e-): above it, more integration cannot improve
+single-frame spatial SNR — only better flat-fielding can.
 
-$$\sigma_{\text{1/f}} = \sqrt{K \cdot \ln\!\left(\frac{f_{\text{high}}}{f_{\text{low}}}\right)}$$
+**DSNU** — dark-signal non-uniformity, a fixed spatial floor (`dsnu_e_rms`).
 
-where $K$ is the flicker noise coefficient and $f_{\text{high}}$,
-$f_{\text{low}}$ define the frequency band.
+**Clutter** — scene-induced spatial variance, $\sigma_c \cdot S_{bg}$
+(`detector.clutter_sigma`).
 
-*Implementation: `src/radiant/detector/noise.py`*
+**Pitfalls.** Applying $\sqrt{\cdot}$ to PRNU; claiming temporal co-adding reduces FPN
+(perfectly frame-correlated for a staring pixel); applying $k$ to signal+dark (dark
+dispersion is DSNU's job).
 
-### ROIC Noise (3 terms)
-
-**Read noise** --- amplifier noise floor:
-
-$$\sigma_{\text{read}} = \text{read\_noise\_e\_rms}$$
-
-A fixed value in electrons. If `readout.read_noise_is_post_cds = True`
-(default), this already includes CDS benefit.
-
-**kTC (reset) noise** --- from capacitor reset:
-
-$$\sigma_{\text{kTC}} = \frac{\sqrt{k_B T \cdot C_{\text{node}}}}{q}$$
-
-where $C_{\text{node}}$ is node capacitance. **Suppressed to zero when CDS
-is enabled** (`readout.cds_enabled = True`, the default).
-
-**Quantization noise** --- from ADC digitization:
-
-$$\sigma_{\text{quant}} = \frac{\text{gain\_e\_per\_dn}}{\sqrt{12}}$$
-
-where gain converts between electrons and digital numbers.
-
-*Implementation: `src/radiant/readout/stage.py`*
-
-### Spatial (Fixed-Pattern) Noise (3 terms)
-
-**PRNU** (Photo-Response Non-Uniformity) --- pixel-to-pixel gain variation:
-
-$$\sigma_{\text{PRNU}} = \frac{\text{prnu\_pct}}{100} \cdot S$$
-
-Proportional to signal level. Spatial noise --- does not average with frames.
-
-**DSNU** (Dark Signal Non-Uniformity) --- pixel-to-pixel dark current
-variation:
-
-$$\sigma_{\text{DSNU}} = \text{dsnu\_e\_rms}$$
-
-A fixed spatial noise floor.
-
-**Clutter noise** --- scene-induced spatial variation:
-
-$$\sigma_{\text{clutter}} = \sigma_c \cdot S_{\text{bg}}$$
-
-where $\sigma_c$ is the clutter contrast coefficient. Scales with
-background signal.
+**In RADIANT.** `detector/noise/fixed_pattern.py` · anchored by
+`detector/tests/test_noise.py`.
 
 ### Other (2 terms)
 
-**Persistence noise** --- residual charge from prior exposure:
-
-$$\sigma_{\text{persist}} = f_p \cdot S_{\text{prior}} \cdot \sqrt{1 - \exp\!\left(-\frac{\Delta t}{\tau}\right)}$$
-
-where $f_p$ is persistence fraction, $S_{\text{prior}}$ is prior frame
-signal, $\Delta t$ is time between frames, and $\tau$ is decay time constant.
-
-**Glow shot noise** --- from ROIC thermal glow:
-
-$$\sigma_{\text{glow}} = \sqrt{R_{\text{glow}} \cdot t_{\text{int}}}$$
+**Persistence** (residual charge from prior exposure, exponential decay model —
+`detector/persistence_sequence.py`) and **ROIC glow shot** ($\sqrt{R_{glow} t_{int}}$)
+per `detector/noise/other.py`.
 
 ---
 
-## Dark Current vs. Temperature
+## Acquisition scaling
 
-RADIANT models dark current temperature dependence via the Arrhenius
-relation:
+### TDI and co-adding
 
-$$J(T) = J_{\text{ref}} \cdot \exp\!\left[\frac{E_a}{k_B}\left(\frac{1}{T_{\text{ref}}} - \frac{1}{T}\right)\right]$$
+Summing $N$ stages/frames: signal ×$N$; uncorrelated temporal noise ×$\sqrt{N}$; SNR
+×$\sqrt{N}$. The architecture determines the read-noise and FPN behavior:
 
-where $E_a$ is activation energy (eV), $T_{\text{ref}}$ is the reference
-temperature, and $J_{\text{ref}}$ is dark current at reference temperature.
-
-Parameters: `detector.dark_rate_e_per_s`, `detector.dark_reference_temperature_K`,
-`detector.dark_activation_energy_eV`, `detector.detector_temperature_K`.
-
----
-
-## CDS Noise Reduction
-
-Correlated Double Sampling (CDS) eliminates kTC reset noise by differencing
-the reset and signal reads. When `readout.cds_enabled = True` (default):
-
-- kTC noise → 0
-- Read noise is assumed to already include CDS benefit if
-  `readout.read_noise_is_post_cds = True`
-
----
-
-## TDI Noise Scaling
-
-Time Delay Integration sums $N_{\text{TDI}}$ rows. Each noise term scales
-differently:
-
-| Noise category | Analog TDI | Digital TDI |
-|---------------|-----------|------------|
-| Signal        | × $N$     | × $N$      |
+| Noise category | Charge-domain (analog) TDI | Digital co-add |
+|---|---|---|
+| Signal | × $N$ | × $N$ |
 | Shot-like temporal | × $\sqrt{N}$ | × $\sqrt{N}$ |
-| Read / kTC / quant | × 1 | × $\sqrt{N}$ |
-| PRNU / DSNU (spatial) | × $\sqrt{N}$ | × $\sqrt{N}$ |
-| Clutter (spatial, scene-correlated) | × $N$ | × $N$ |
+| Read / kTC / quantization | × 1 (one read) | × $\sqrt{N}$ (read per frame) |
+| PRNU/DSNU across **distinct** pixels (cross-scan TDI) | effective $k/\sqrt{N}$ | — |
+| FPN, **same** pixels (staring co-add) | — | × $N$ (coherent; no SNR gain) |
+| Clutter (scene-correlated) | × $N$ | × $N$ |
 
-Analog TDI sums charge before readout (one read per TDI group). Digital TDI
-reads each row independently and sums digitally (read noise per row).
+**Well-fill cap:** charge-domain TDI accumulates into one well —
+$N(S_1 + N_{d,1}) \le N_{fullwell}$ bounds the useful $N$
+(audit anchor: 10 ke- per stage against a 100 ke- well caps $N$ at 10, SNR gain at
+$\sqrt{10}$).
+
+**In RADIANT.** `readout/tdi_scaling.py`, `readout/coadds.py`
+(`readout.n_tdi`/`tdi_mode`, `n_coadds`/`coadd_mode`), well check in
+`readout/saturation.py` · anchored by `readout/tests/test_tdi.py`, `test_coadds.py`,
+`test_saturation.py`.
+
+### Binning
+
+On-chip binning merges charge before read (read noise once per binned super-pixel);
+off-chip binning averages after read (read noise per contributing pixel, ×$\sqrt{n}$ in
+the sum). Signal scales with the binned area in both.
+
+**In RADIANT.** `readout/binning_onchip.py`, `readout/binning_offchip.py` · anchored by
+`readout/tests/test_binning.py`.
+
+### Frame timing (Conventions §4)
+
+Frame period is stored independently of integration time:
+
+$$f_{frame} = \frac{1}{T_{frame}},\qquad \text{duty} = \frac{t_{int}}{T_{frame}} \le 1.$$
+
+Unset `readout.frame_period_s` (0.0) defaults to $t_{int}$ (duty 1.0, continuous
+readout); duty > 1 is rejected with an actionable error. Outputs
+`frame_period_s`/`frame_rate_hz`/`duty_cycle`/`frame_period_defaulted` in
+`stage_outputs["readout"]`.
+
+**In RADIANT.** `readout/frame_timing.py::compute_frame_timing` · anchored by
+`readout/tests/test_frame_timing.py`.
 
 ---
 
-## Noise Regime
+## Noise regime selection
 
-The `detector.noise_regime` parameter controls which noise terms enter
-$\sigma_{\text{total}}$:
-
-- `"imaging"` (default): temporal noise only (shot, dark, read, quant, 1/f,
-  G-R, Johnson, kTC, glow, persistence)
-- `"detection"`: temporal + spatial noise (adds PRNU, DSNU, clutter)
+`detector.noise_regime` controls the budget composition: `"imaging"` (temporal terms
+only, default) vs `"detection"` (adds PRNU, DSNU, clutter). The regime distinction exists
+because single-frame detection against a scene sees the spatial pattern as noise, while a
+calibrated imaging chain removes the static component.
 
 ---
 
-## When Each Term Dominates
+## When each term dominates
 
 | Regime | Dominant noise | Typical scenario |
 |--------|---------------|-----------------|
-| BLIP (Background-Limited) | Signal/background shot | Cold targets, long integration, low read noise |
-| Read-noise limited | Read noise | Short integration, low signal |
-| Dark-current limited | Dark shot | Long integration, warm detector |
-| FPN-limited | PRNU/clutter | High signal, no frame averaging |
+| BLIP (background-limited) | Background shot | IR, long $t_{int}$, low read noise — see `theory/performance_metrics.md` for the BLIP criterion and $f_{BLIP}$ |
+| Read-noise limited | Read | Short $t_{int}$, low flux |
+| Dark-current limited | Dark shot | Long $t_{int}$, warm detector |
+| FPN-limited | PRNU/clutter | $S > 1/k^2$, no scan averaging |
+
+A system can exit BLIP *from above* as flux grows: $\sigma_{PRNU} = kN_{bg}$ outpaces
+$\sqrt{N_{bg}}$ past the crossover.
 
 ---
 
-## Parameter Cross-Reference
+## Parameter cross-reference
 
-See [Parameter Reference](../guides/parameter_reference.md) for the full
-list of detector and readout parameters with types, defaults, and bounds.
+See [Parameter Reference](../guides/parameter_reference.md) for all detector/readout
+parameters with types, defaults, and bounds.

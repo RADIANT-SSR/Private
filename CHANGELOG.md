@@ -59,6 +59,15 @@ retroactively reconstructed.
   (three profiles with no H-run still load zero).
 
 ### Changed
+- **Readout parameter display units (findings 7, 9).** `readout.read_noise_e_rms`
+  now carries the unit `e-` and `readout.gain_e_per_dn` the unit `e-/DN` (both
+  were dimensionless `""`, shown as "(none)" in the parameter editor). Display-only
+  — the canonical values and all computed results are unchanged; the gain unit now
+  matches the `stage_outputs["readout"]["gain_e_per_dn"]` output unit that already
+  reported `e-/DN`. New registry unit `("e-/DN","e-/DN")` in `core/units.py`.
+- **`readout.full_well_capacity_e` upper bound raised `1e8` → `1e12` e- (finding
+  11)** so high-dynamic-range focal planes can be configured. Default and all valid
+  existing values are unchanged.
 - **Results-affecting: EE_box (ensquared energy) is now cell-area-overlap
   weighted, removing an O(dx) box-edge bias that over-stated point-source /
   sub-pixel signal (CU-188).** `EffectivePSF.ensquared_energy` previously gave

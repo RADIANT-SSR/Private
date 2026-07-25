@@ -82,7 +82,13 @@ APERTURES_CM = np.linspace(15.0, 45.0, 7)  # customer's aperture range [cm]
 SHIP_LENGTH_M, SHIP_BEAM_M = 30.0, 8.0
 SHIP_TEMP_K = 288.0  # steel hull near sea temperature
 SHIP_EMISSIVITY_PATH = str(
-    Path(__file__).resolve().parents[4] / "data" / "emissivity" / "steel.csv"
+    Path(__file__).resolve().parents[4]
+    / "src"
+    / "radiant"
+    / "data"
+    / "tables"
+    / "emissivity"
+    / "steel.csv"
 )
 
 # Ocean background: catalog says ~0.98 emissivity, ~288 K, wind-state

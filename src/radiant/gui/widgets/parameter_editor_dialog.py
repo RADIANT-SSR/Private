@@ -94,9 +94,11 @@ _NO_UNIT_LABEL = "(none)"
 _COMBO_POPUP_PADDING_PX = 40
 
 
-# Repo-root ``data/`` tree (same file-relative pattern as ``radiant.data.library``):
-# this file is src/radiant/gui/widgets/parameter_editor_dialog.py → repo root is 4 up.
-_REPO_DATA_ROOT = Path(__file__).resolve().parents[4] / "data"
+# Bundled reference-data tree, inside the package at src/radiant/data/tables/ (same
+# file-relative pattern as ``radiant.data.library``): this file is
+# src/radiant/gui/widgets/parameter_editor_dialog.py → the ``radiant`` package root is
+# parents[2]. Ships in a wheel install; Rule 30: no repo-root path assumption.
+_REPO_DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "tables"
 
 # Where a path parameter's Browse… picker starts when the field is empty, by top-level
 # namespace: the shipped data family for that stage. Anything unmapped starts at the
@@ -112,10 +114,10 @@ _BROWSE_START_SUBDIR: dict[str, str] = {
 def default_browse_dir(dotpath: str) -> Path | None:
     """The default directory the Browse… picker opens in for *dotpath*, or None.
 
-    The parameter's namespace maps to its shipped data family under the repo
-    ``data/`` tree; an unmapped namespace falls back to the data root. Returns None
-    when neither exists (e.g. an installed package without the repo data tree) —
-    the caller then falls back to the working directory.
+    The parameter's namespace maps to its shipped data family under the bundled
+    ``src/radiant/data/tables/`` tree; an unmapped namespace falls back to the data
+    root. Returns None when neither exists — the caller then falls back to the
+    working directory.
     """
     namespace = dotpath.split(".", 1)[0]
     subdir = _BROWSE_START_SUBDIR.get(namespace)

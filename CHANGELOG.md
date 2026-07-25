@@ -20,6 +20,21 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Reference data now ships inside the package (Windows first-deploy finding 5).**
+  The bundled reference-data tree (emissivity / detector-QE / solar CSVs and the
+  MODTRAN-derived atmosphere NPZ library) moved from repo-root `data/` to
+  `src/radiant/data/tables/` and is included in the wheel via
+  `[tool.setuptools.package-data]` + `MANIFEST.in`. Previously a non-editable
+  `pip install radiant` shipped **no** reference data (the loaders resolved a
+  repo-root path that does not exist in an installed package), so material /
+  detector / solar / shipped-atmosphere lookups failed off a clean install. The
+  three loaders (`radiant.data.library`, `radiant.atmosphere.loaders`, the GUI
+  Browse picker) now resolve the tree relative to their module (Rule 30). The
+  atmosphere-library build script writes to the new location. No computed results
+  change. OPERATING_MODEL §6 gains a carve-out so the data-tree manifests may live
+  beside the data (Rule 26).
+
 ### Added
 - **Temperature input in K / °C / °F (Windows finding 13).** Temperatures remain
   canonically Kelvin, but may now be *entered* in Celsius (`degC`) or Fahrenheit

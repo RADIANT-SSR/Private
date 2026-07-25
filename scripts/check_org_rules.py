@@ -99,6 +99,13 @@ def main() -> int:
         parts = f.split("/")
         if not f.endswith(".md"):
             continue
+        # Carve-out: the bundled reference-data tree ships inside the package
+        # (src/radiant/data/tables/), and Rule 26 requires each generated-artifact
+        # family to keep its generator manifest (MANIFEST.md / README.md) *beside*
+        # the data it describes. These are data manifests, not project-management
+        # markdown. (OPERATING_MODEL §6 carve-out; data-in-wheel packaging fix.)
+        if f.startswith("src/radiant/data/tables/"):
+            continue
         if parts[0] == "src" and len(parts) > 1:
             errors.append(f"no markdown inside src/ packages (OPERATING_MODEL §6): {f}")
         if parts[0] == "dev_tools" and len(parts) == 3 and parts[2] not in TOOL_ROOT_MD_ALLOWED:

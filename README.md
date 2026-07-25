@@ -139,9 +139,9 @@ Run `radiant <command> --help` for full options.
 ```
 SSR_Tool/
 ├── src/radiant/        # Package: core + physics stages (source … performance) + api/cli/gui
+│   └── data/tables/    # Bundled reference data (solar, emissivity, QE, atmospheres) — ships in the wheel
 ├── tests/              # Integration + golden tests (unit tests live beside each stage)
 ├── examples/           # Reference configs and Python usage scripts
-├── data/               # Reference spectra (solar, emissivity, QE)
 ├── docs/               # Architecture, guides, ADRs, tracking
 ├── CLAUDE.md           # Coding-agent rules (authoritative)
 └── DEVELOPMENT.md      # Developer setup and workflows

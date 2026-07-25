@@ -25,7 +25,7 @@ from radiant.atmosphere.interpolated import GeometryPoint, InterpolatedAtmospher
 from radiant.atmosphere.protocol import AtmosphericGeometry
 from radiant.atmosphere.tabulated import TabulatedAtmosphere
 
-_LIB = Path(__file__).resolve().parents[2] / "data" / "atmospheres"
+_LIB = Path(__file__).resolve().parents[2] / "src" / "radiant" / "data" / "tables" / "atmospheres"
 
 _PROFILES = (
     "us_standard",

@@ -2,7 +2,8 @@
 
 The Performance stage is the terminal, output-only stage: a single flat pane with the metric
 summary (all of ``result.metric_records()`` — SNR / NEDT / NIIRS / GSD / MTF@Nyquist and any
-others — each value with its registry unit) above the system-MTF and MTF-budget plots. It has
+others — each value with its registry unit, sectioned under the Gap-96 metric-group headings
+per Windows-deployment finding 12) above the system-MTF and MTF-budget plots. It has
 no editable inputs (it consumes the chain). A result-typed metric failure (a non-finite value,
 Rule 17 carve-out for the ``radiant.performance`` metric layer) renders as ``n/a
 (<failure_reason>)`` — never a bare ``nan``, never a blank. Every figure is one call on the
@@ -20,10 +21,17 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from radiant.api.metric_groups import METRIC_GROUPS  # noqa: E402
 from radiant.api.sensor import Sensor  # noqa: E402
-from radiant.gui.metric_format import NOT_AVAILABLE  # noqa: E402
+from radiant.gui.metric_format import (  # noqa: E402
+    METRIC_GROUP_HEADINGS,
+    NOT_AVAILABLE,
+    UNGROUPED_HEADING,
+    grouped_metric_records,
+)
 from radiant.gui.stage_views import STAGE_COMPOSITIONS  # noqa: E402
 from radiant.gui.widgets.outputs_readout import OutputsReadout  # noqa: E402
+from radiant.gui.widgets.performance_metrics_form import _GROUP_ROWS  # noqa: E402
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 
 
@@ -115,6 +123,69 @@ class TestPerformancePane:
         pane = _performance_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         assert len(pane.plot_canvases) == 2
         assert all(c.has_figure() for c in pane.plot_canvases)
+
+
+# ---------------------------------------------------------------------------
+# Finding 12 (Windows deployment review): the metric readout is grouped, not a
+# flat alphabetical dump — labeled sections in a fixed reading order, headings
+# shared with the Metric-selection card, values/units untouched.
+# ---------------------------------------------------------------------------
+
+
+class TestGroupedMetricReadout:
+    def test_sections_partition_by_taxonomy_and_keep_order(self) -> None:
+        """Qt-free contract: every record lands in its Gap-96 group's section, sections
+        follow the declared reading order, and no record is dropped or duplicated."""
+        sensor = Sensor.from_yaml(_EXAMPLE).set("performance.niirs.allow_extrapolated", True)
+        result = _evaluate(sensor)
+        records = result.metric_records()  # type: ignore[attr-defined]
+        sections = grouped_metric_records(records)
+
+        heading_order = [h for _k, h in METRIC_GROUP_HEADINGS]
+        rendered_headings = [heading for heading, _recs in sections]
+        # Sections appear in declared order (empty ones dropped, none invented).
+        assert rendered_headings == [h for h in heading_order if h in rendered_headings]
+        # The partition is exact: every metric appears once, in its taxonomy group.
+        flat = [rec.name for _heading, recs in sections for rec in recs]
+        assert sorted(flat) == sorted(rec.name for rec in records)
+        by_heading = {heading: {rec.name for rec in recs} for heading, recs in sections}
+        heading_of = dict(METRIC_GROUP_HEADINGS)
+        for group, members in METRIC_GROUPS.items():
+            expected = members & set(flat)
+            if expected:
+                assert by_heading[heading_of[group]] == expected
+
+    def test_unknown_metric_key_lands_in_other_section(self) -> None:
+        """A metric key outside the taxonomy renders under 'Other' — never dropped."""
+        records = (
+            _Record(name="snr", value=1.0, unit="dimensionless"),
+            _Record(name="not_a_registered_metric", value=2.0, unit="m"),
+        )
+        sections = grouped_metric_records(records)
+        assert sections[-1][0] == UNGROUPED_HEADING
+        assert [rec.name for rec in sections[-1][1]] == ["not_a_registered_metric"]
+
+    def test_widget_renders_group_headings_with_values_and_units_intact(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Performance readout shows the section headings in order; grouping is
+        presentation-only (same keys, same value+unit texts as the metric surface)."""
+        sensor = Sensor.from_yaml(_EXAMPLE).set("performance.niirs.allow_extrapolated", True)
+        pane = _performance_pane(qtbot, sensor)
+        readout = pane.metrics_readout
+        assert readout is not None
+        headings = readout.rendered_group_headings()
+        assert len(headings) >= 3  # the example computes several groups
+        declared = [h for _k, h in METRIC_GROUP_HEADINGS]
+        assert list(headings) == [h for h in declared if h in headings]
+        # Grouping did not change what renders: every computed metric is still a row,
+        # and the dimensional rows keep their units (R-UNITS).
+        result = _evaluate(sensor)
+        assert readout.rendered_keys() == {rec.name for rec in result.metric_records()}  # type: ignore[attr-defined]
+        assert readout.value_text("gsd_geometric_mean_m").endswith("m")
+
+    def test_headings_match_metric_selection_card_labels(self) -> None:
+        """A group's checkbox label and its readout section heading are the same string."""
+        card_labels = {group: name for group, name, _hint in _GROUP_ROWS}
+        assert card_labels == dict(METRIC_GROUP_HEADINGS)
 
 
 # ---------------------------------------------------------------------------

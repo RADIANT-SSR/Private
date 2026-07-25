@@ -29,19 +29,24 @@ from PySide6.QtWidgets import QCheckBox, QGridLayout, QLabel, QWidget
 
 from radiant.api.metric_groups import GROUP_PARAMS
 from radiant.core.exceptions import RadiantError
+from radiant.gui.metric_format import METRIC_GROUP_HEADINGS
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
+# The shared group → display-heading table (metric_format), so a group's checkbox here
+# and its section heading in the Metrics readout read identically (finding 12).
+_HEADINGS: Final[dict[str, str]] = dict(METRIC_GROUP_HEADINGS)
+
 # (group, bold name, dimmed metric hint), in reading order. The dot-path comes from
 # ``GROUP_PARAMS`` (the single source of truth shared with the schema and the stage); the
-# label + hint are the only literals here.
+# hint is the only literal here (the name is the shared heading).
 _GROUP_ROWS: Final[tuple[tuple[str, str, str], ...]] = (
-    ("radiometric", "Radiometric", "SNR, contrast, SCNR, NEDT, detection range"),
-    ("spatial_mtf", "Spatial / MTF", "FWHM, RER, EE, Strehl, MTF at Nyquist"),
-    ("interpretability", "Interpretability", "NIIRS / IIRS, MRT"),
-    ("sampling", "Sampling / geometry", "GSD, Q, swath, diffraction limit"),
-    ("saturation", "Saturation", "well margin, ADC margin, dynamic range"),
+    ("radiometric", _HEADINGS["radiometric"], "SNR, contrast, SCNR, NEDT, detection range"),
+    ("spatial_mtf", _HEADINGS["spatial_mtf"], "FWHM, RER, EE, Strehl, MTF at Nyquist"),
+    ("interpretability", _HEADINGS["interpretability"], "NIIRS / IIRS, MRT"),
+    ("sampling", _HEADINGS["sampling"], "GSD, Q, swath, diffraction limit"),
+    ("saturation", _HEADINGS["saturation"], "well margin, ADC margin, dynamic range"),
 )
 
 

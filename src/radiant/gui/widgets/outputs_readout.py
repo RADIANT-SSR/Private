@@ -18,8 +18,11 @@ Two row sources, one widget:
   re-read from ``stage_outputs`` on each evaluation).
 * :meth:`show_metrics` — the performance metric surface
   (:meth:`ChainResult.metric_records`), each value+unit via the shared
-  :func:`~radiant.gui.metric_format.format_metric_value` helper. A pinned metric routes to
-  the metric pin path (the same surface the default badge cards read).
+  :func:`~radiant.gui.metric_format.format_metric_value` helper, rendered under labeled
+  group headings (:func:`~radiant.gui.metric_format.grouped_metric_records` — the Gap-96
+  metric-group taxonomy, Windows-deployment finding 12: the flat alphabetical dump was
+  unusable). A pinned metric routes to the metric pin path (the same surface the default
+  badge cards read).
 
 Pinning any stage-output or metric value delivers the ratified §4.5 capability to "pin any
 stage's metric or output value" (CU-115, Step-B clause). All colour/typography comes from
@@ -45,6 +48,7 @@ from radiant.api.stage_output_units import stage_output_unit
 from radiant.gui.metric_format import (
     NOT_AVAILABLE,
     format_metric_value,
+    grouped_metric_records,
     metric_failure_reason,
 )
 from radiant.gui.param_format import format_value
@@ -148,6 +152,8 @@ class OutputsReadout(QWidget):
 
         # Keyed by output/metric key so tests can read a rendered value back.
         self._value_labels: dict[str, QLabel] = {}
+        # The group headings rendered by show_metrics, in display order (tests).
+        self._group_headings: list[str] = []
 
     # -- row sources --------------------------------------------------------
 
@@ -180,7 +186,14 @@ class OutputsReadout(QWidget):
         self._grid.setRowStretch(row, 1)
 
     def show_metrics(self, result: ChainResult) -> None:
-        """Render the performance metric surface (name + value + unit) as rows.
+        """Render the performance metric surface as rows under labeled group headings.
+
+        The metrics are sectioned by the Gap-96 metric-group taxonomy
+        (:func:`~radiant.gui.metric_format.grouped_metric_records` — sampling/geometry,
+        spatial/MTF, radiometric, interpretability, saturation; finding 12: a flat
+        alphabetical dump of ~30 metrics was unusable), each heading matching the
+        Metric-selection card's checkbox label for that group. Presentation only — the
+        computed set and every value/unit are unchanged.
 
         Each metric row's pin routes to :attr:`pinMetricRequested` (the metric-card path).
         Units come from :meth:`ChainResult.metric_records` (registry-sourced, R-UNITS). A
@@ -190,10 +203,15 @@ class OutputsReadout(QWidget):
         metric always reads as an explicit, named failure and never as a real number.
         """
         self._clear()
-        for row, rec in enumerate(result.metric_records()):
-            self._add_row(row, rec.name, rec.name, self._metric_value_text(result, rec))
-            self._add_pin(row, lambda k=rec.name: self.pinMetricRequested.emit(k, k))
-        self._grid.setRowStretch(self._grid.rowCount(), 1)
+        row = 0
+        for heading, records in grouped_metric_records(result.metric_records()):
+            self._add_group_heading(row, heading)
+            row += 1
+            for rec in records:
+                self._add_row(row, rec.name, rec.name, self._metric_value_text(result, rec))
+                self._add_pin(row, lambda k=rec.name: self.pinMetricRequested.emit(k, k))
+                row += 1
+        self._grid.setRowStretch(row, 1)
 
     @staticmethod
     def _metric_value_text(result: ChainResult, rec: Any) -> str:
@@ -215,6 +233,10 @@ class OutputsReadout(QWidget):
         """The output/metric keys currently rendered as rows."""
         return set(self._value_labels)
 
+    def rendered_group_headings(self) -> tuple[str, ...]:
+        """The metric group headings currently rendered, in display order (for tests)."""
+        return tuple(self._group_headings)
+
     def value_text(self, key: str) -> str:
         """The rendered 'value + unit' text for an output/metric *key* (for tests)."""
         return self._value_labels[key].text()
@@ -233,6 +255,13 @@ class OutputsReadout(QWidget):
         self._grid.addWidget(value_label, row, 1)
         self._value_labels[key] = value_label
 
+    def _add_group_heading(self, row: int, heading: str) -> None:
+        """Add a metric group heading spanning the full grid width at *row*."""
+        label = QLabel(heading, self)
+        label.setObjectName("outputsGroupHeading")
+        self._grid.addWidget(label, row, 0, 1, 3)
+        self._group_headings.append(heading)
+
     def _add_pin(self, row: int, on_click) -> None:  # type: ignore[no-untyped-def]
         """Add the pin affordance at grid *row*, column 2, wired to *on_click*."""
         pin = QToolButton(self)
@@ -245,6 +274,7 @@ class OutputsReadout(QWidget):
     def _clear(self) -> None:
         """Remove all existing rows before a re-populate."""
         self._value_labels.clear()
+        self._group_headings.clear()
         while self._grid.count():
             item = self._grid.takeAt(0)
             widget = item.widget()

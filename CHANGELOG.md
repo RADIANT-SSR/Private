@@ -33,6 +33,13 @@ retroactively reconstructed.
   change; documented in `RADIANT_Detector_Complete.md` §6.
 
 ### Changed
+- **GUI: the Performance metric readout is grouped (Windows finding 12).** The
+  Performance stage's metric summary now renders under labeled section headings —
+  *Sampling / geometry*, *Spatial / MTF*, *Radiometric*, *Interpretability*,
+  *Saturation* — instead of one flat alphabetical list of ~30 metrics. The sections
+  reuse the Gap-96 metric-group taxonomy, so each heading matches the Metric-selection
+  checkbox that toggles it. Presentation-only: which metrics compute, their values,
+  and their units are unchanged.
 - **The desktop GUI stack is now a base dependency (owner decision 2026-07-24).**
   `PySide6`, `matplotlib`, `qtconsole`, and `openpyxl` moved from the `[gui]`
   optional-extra into base `dependencies`, so a plain `pip install radiant` ships a

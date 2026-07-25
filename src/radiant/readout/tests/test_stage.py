@@ -384,3 +384,57 @@ class TestReadoutNoiseRegime:
             elif nt.name == "signal_shot":
                 assert "temporal" in nt.contributes_to
             assert "total" in nt.contributes_to
+
+
+class TestAdcWellMatchDiagnostics:
+    """ADC↔well match diagnostics — read-only outputs, egregious-only warning (finding 10)."""
+
+    @pytest.fixture()
+    def wl(self) -> np.ndarray:
+        return np.linspace(3.5, 5.0, 50)
+
+    @pytest.mark.level0
+    def test_diagnostic_formulas(self, wl: np.ndarray) -> None:
+        """adc_full_scale = (2^bits-1)·gain, matched_gain = fwc/2^bits, ratio = fs/fwc."""
+        budget = compute_noise_budget(signal_e=1000.0)
+        out = ReadoutStage().run(
+            _make_state(wl, signal_e=1000.0, budget=budget),
+            _make_params(gain=2.0, bits=14, fwc=1.0e5),
+        )
+        ro = out.stage_outputs["readout"]
+        assert ro["adc_full_scale_e"] == pytest.approx((2**14 - 1) * 2.0, rel=0, abs=0)
+        assert ro["matched_gain_e_per_dn"] == pytest.approx(1.0e5 / 2**14, rel=1e-12)
+        assert ro["adc_well_match_ratio"] == pytest.approx((2**14 - 1) * 2.0 / 1.0e5, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_matched_adc_ratio_is_unity(self, wl: np.ndarray) -> None:
+        """Gain = full_well / (2^bits-1) makes adc_full_scale == full_well (ratio 1.0)."""
+        bits, fwc = 16, 1.0e5
+        gain = fwc / (2**bits - 1)  # matched to max_dn
+        budget = compute_noise_budget(signal_e=1000.0)
+        out = ReadoutStage().run(
+            _make_state(wl, signal_e=1000.0, budget=budget),
+            _make_params(gain=gain, bits=bits, fwc=fwc),
+        )
+        assert out.stage_outputs["readout"]["adc_well_match_ratio"] == pytest.approx(1.0, rel=1e-9)
+
+    @pytest.mark.level1
+    def test_egregious_mismatch_warns(self, wl: np.ndarray) -> None:
+        """An ADC reaching a few percent of the well warns, pointing at the matched gain."""
+        budget = compute_noise_budget(signal_e=100.0)
+        with pytest.warns(UserWarning, match="badly mismatched to the full well"):
+            ReadoutStage().run(
+                _make_state(wl, signal_e=100.0, budget=budget),
+                _make_params(gain=1.0, bits=8, fwc=1.0e6),  # ratio ≈ 2.6e-4
+            )
+
+    @pytest.mark.level1
+    def test_reasonable_adc_does_not_warn(self, wl: np.ndarray) -> None:
+        """A matched/near-matched ADC (ratio within 0.1–10) emits no match warning."""
+        budget = compute_noise_budget(signal_e=100.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            ReadoutStage().run(
+                _make_state(wl, signal_e=100.0, budget=budget),
+                _make_params(gain=1.0, bits=16, fwc=1.0e5),  # ratio 0.655
+            )

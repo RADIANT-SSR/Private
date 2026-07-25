@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **ADC↔well match diagnostics (Windows finding 10).** `ReadoutStage` now publishes
+  three read-only outputs — `adc_full_scale_e` (`(2^bits−1)·gain`),
+  `matched_gain_e_per_dn` (`full_well / 2^bits`), and `adc_well_match_ratio`
+  (`adc_full_scale / full_well`; 1.0 = matched) — so the relationship between
+  `gain_e_per_dn`, `adc_bits`, and `full_well_capacity_e` is visible in the GUI and
+  scripting. An **egregious** mismatch (ratio outside 0.1–10) additionally emits a
+  `UserWarning` pointing at the matched gain. The three parameters stay **independent
+  inputs** — `gain = full_well/2^bits` is the matched-ADC design target, not a physical
+  law (non-matched ADCs are legitimate), so gain is not derived. No computed results
+  change; documented in `RADIANT_Detector_Complete.md` §6.
+
 ### Changed
 - **The desktop GUI stack is now a base dependency (owner decision 2026-07-24).**
   `PySide6`, `matplotlib`, `qtconsole`, and `openpyxl` moved from the `[gui]`

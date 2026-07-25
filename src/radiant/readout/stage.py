@@ -141,6 +141,9 @@ OUTPUT_UNITS: dict[str, str] = {
     "signal_dn_final": "DN",
     "signal_dn_pre_coadd": "DN",
     "gain_e_per_dn": "e-/DN",
+    "adc_full_scale_e": "e-",
+    "matched_gain_e_per_dn": "e-/DN",
+    "adc_well_match_ratio": "",
     "well_fill_fraction": "",
     "total_well_e": "e-",
     "full_well_capacity_e": "e-",
@@ -207,6 +210,36 @@ class ReadoutStage:
             )
 
         max_dn = (1 << adc_bits) - 1
+
+        # ---- ADC↔well match diagnostics (finding 10) ----
+        # The three readout knobs — gain, ADC bit depth, full-well — are independent
+        # inputs, NOT a derived group: gain = full_well / 2^bits is the *matched-ADC*
+        # design target, an engineering choice, not a physical law (unlike ε = 1 − R,
+        # Rule 5), and non-matched ADCs (deep well, partial digitization; or shallow
+        # well, oversampled) are legitimate. These read-only outputs expose the
+        # relationship so a user can see how their ADC range compares to the well:
+        #   • adc_full_scale_e   = max_dn · gain  — the largest signal the ADC digitizes
+        #   • matched_gain_e_per_dn = full_well / 2^bits — the gain that makes them equal
+        #   • adc_well_match_ratio  = adc_full_scale / full_well — 1.0 when matched,
+        #        <1 the ADC cannot reach the full well (undersampled), >1 wasted range.
+        adc_full_scale_e = max_dn * gain_e_per_dn
+        matched_gain_e_per_dn = fwc_e / float(1 << adc_bits)
+        adc_well_match_ratio = adc_full_scale_e / fwc_e if fwc_e > 0.0 else float("inf")
+        # Warn only on an *egregious* mismatch (>10× either way) — a matched or merely
+        # suboptimal ADC (the flagship configs sit at 0.66–1.05) stays quiet; a config
+        # whose ADC reaches only a few percent of the well (or vastly overshoots it) is
+        # almost always an oversight, so point at the matched gain.
+        if adc_well_match_ratio < 0.1 or adc_well_match_ratio > 10.0:
+            warnings.warn(
+                f"ReadoutStage: ADC full-scale ({adc_full_scale_e:.4g} e- = {adc_bits}-bit "
+                f"at {gain_e_per_dn:.4g} e-/DN) is badly mismatched to the full well "
+                f"({fwc_e:.4g} e-) — adc_well_match_ratio = {adc_well_match_ratio:.3g}. "
+                f"For a matched ADC set readout.gain_e_per_dn ≈ "
+                f"{matched_gain_e_per_dn:.4g} e-/DN (= full_well / 2^bits), or adjust "
+                f"readout.adc_bits / readout.full_well_capacity_e. (finding 10)",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # ---- Read non-signal electron sources for well fill check ----
         dark_e: float = det_out.get("dark_e", 0.0)
@@ -429,6 +462,14 @@ class ReadoutStage:
         # Stored so the post_readout->dn transfer factor stays computable when
         # the well saturates and signal_e_final = 0 (Gap 73 well-fill).
         state = state.with_stage_output("readout", "gain_e_per_dn", gain_e_per_dn)
+        # ADC↔well match diagnostics (finding 10) — read-only; see the computation above.
+        state = state.with_stage_output("readout", "adc_full_scale_e", adc_full_scale_e)
+        state = state.with_stage_output(
+            "readout", "matched_gain_e_per_dn", matched_gain_e_per_dn
+        )
+        state = state.with_stage_output(
+            "readout", "adc_well_match_ratio", adc_well_match_ratio
+        )
         state = state.with_stage_output("readout", "well_status", well_status.value)
         # CU-101: publish the supporting well-charge numbers so the
         # ChainResult.well_status() surface (GUI saturation banner) carries

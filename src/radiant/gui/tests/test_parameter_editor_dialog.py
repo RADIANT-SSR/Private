@@ -139,12 +139,19 @@ class TestDisplayUnits:
         assert text.endswith("km")
         assert f"{display_in_unit(hi, 'm', 'km', 'm'):g}" in text
 
-    def test_non_multiplicative_unit_falls_back_to_canonical(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A temperature (only K registered) given an offset unit falls back to K safely."""
+    def test_offset_temperature_unit_is_accepted(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A temperature given an offset unit (degC) is soundly convertible (WS-C) and kept."""
         d = ParameterEditorDialog(sensor, _TEMP, None, None, display_unit="degC")
         qtbot.addWidget(d)
         assert d.unit_combo is not None
-        # 'degC' is not a registered (multiplicative) conversion → dialog falls back to K.
+        # 'degC' now has an affine registration → the dialog keeps it (no fallback to K).
+        assert d.unit_combo.currentData() == "degC"
+
+    def test_unregistered_unit_falls_back_to_canonical(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A genuinely unregistered display unit still falls back to the canonical unit safely."""
+        d = ParameterEditorDialog(sensor, _TEMP, None, None, display_unit="zorp")
+        qtbot.addWidget(d)
+        assert d.unit_combo is not None
         assert d.unit_combo.currentData() == "K"
         assert "K" in d._current_label.text()
 

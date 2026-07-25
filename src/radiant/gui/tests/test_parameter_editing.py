@@ -102,11 +102,23 @@ class TestDisplayUnits:
         assert panel.value_text(_ALT).endswith("550 km")  # what you type is what you read
 
     def test_unsound_display_unit_falls_back_to_input_unit(self, panel: ParameterPanel) -> None:
-        """An offset unit (temperature only registers K) falls back — with its suffix."""
-        panel._display_units[_TEMP] = "degC"  # not a registered multiplicative conversion
+        """An unregistered display unit falls back to the canonical/input unit — with its suffix."""
+        # A genuinely unregistered token (degC/degF are now soundly convertible per WS-C, so
+        # they are *kept*; see test_offset_temperature_display_converts). An unknown unit has
+        # no path to the canonical unit and must fall back.
+        panel._display_units[_TEMP] = "zorp"  # not a registered conversion of any kind
         panel.populate(panel._sensor)  # same sensor → preserves the override
         text = panel.value_text(_TEMP)
         assert text.endswith("300 K")  # fell back to the canonical/input unit, suffix present
+
+    def test_offset_temperature_display_converts(self, panel: ParameterPanel) -> None:
+        """An offset temperature unit (degC) is now soundly convertible (WS-C) and is used."""
+        panel._display_units[_TEMP] = "degC"
+        panel.populate(panel._sensor)  # same sensor → preserves the override
+        text = panel.value_text(_TEMP)
+        # 300 K → 26.85 °C, shown in the chosen unit (not fallen back to K).
+        assert text.endswith("degC")
+        assert "26.85" in text
 
     def test_never_edited_row_keeps_canonical_display(self, panel: ParameterPanel) -> None:
         """A row with no display-unit override still shows its schema input unit."""

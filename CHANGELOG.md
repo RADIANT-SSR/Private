@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Per-configuration warning attribution and `ConfigSetRunResult.summary()`
+  (multi-configuration Phase 3).** `ConfigurationSet.evaluate_all` now evaluates each
+  configuration inside its own warning-capture window and records the warnings it
+  raised on the new `ConfigRun.warnings` field (`tuple[str, ...]`, formatted
+  `"<Category>: <message>"` — the same rendering the GUI evaluation worker shows). A
+  warning raised by configuration X is attributed to X and to no other, including on
+  configurations that then failed. Captured warnings are also re-emitted through
+  `logging` (`radiant.api.config_set`), so nothing is dropped; they are not re-raised
+  into the caller's warning filters. New on `ConfigSetRunResult`: `warnings`
+  (name → messages, quiet configurations absent), `n_warnings`, and `summary()` — a
+  plain-text triage view, one line per configuration, with every metric value carrying
+  the unit the metric registry declares for it and an uncomputed metric omitted rather
+  than zero-filled. No computed results change.
 - **Config format: the `configurations:` structured section, and
   `ConfigurationSet.load` / `save` / `to_yaml` (ADR-0010 D-D, multi-configuration
   Phase 2).** One config file is one study: today's shared parameter document plus a

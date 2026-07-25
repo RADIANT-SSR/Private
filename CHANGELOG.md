@@ -21,6 +21,25 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`ConfigurationSet` — up to eight named configurations of one modeling problem
+  (ADR-0010, multi-configuration Phase 1).** New public api surface
+  `radiant.api.ConfigurationSet` (plus `ConfigSetRunResult`, `ConfigRun`, and the
+  `ConfigSetError` error class): a shared base `Sensor` plus a dense table of
+  *configured* parameters carrying one value per configuration (CODE V zoom
+  semantics). `configure`/`unconfigure`/`set_value(s)` move a parameter between the
+  shared and per-configuration stores; `sensor_for(name)` materializes a
+  configuration as an isolated `Sensor` (configured values carry provenance
+  `source="config:<name>"`); `validate_all` resolves every configuration without
+  running physics; `evaluate_all` evaluates all of them active-first with
+  progress/cancel support and per-configuration failure capture; `compare` adapts a
+  run into the existing `compare_configs` matrix. Persistence (`load`/`save`/
+  `to_yaml`) lands in Phase 2. No computed results change — a single-configuration
+  set is observably identical to a bare `Sensor`.
+- **`Sensor.with_wavelength_points(n)`.** Returns a clone evaluated on *n* spectral
+  grid points over the same resolved band — the supported way to vary grid density
+  after construction (previously constructor-only). Raises `ApiValidationError` for
+  `n < 2`, matching `Sensor.load`'s check on `_radiant.wavelength_points`. Backs the
+  per-configuration `wavelength_points` of `ConfigurationSet` (ADR-0010 D-F).
 - **ADC↔well match diagnostics (Windows finding 10).** `ReadoutStage` now publishes
   three read-only outputs — `adc_full_scale_e` (`(2^bits−1)·gain`),
   `matched_gain_e_per_dn` (`full_well / 2^bits`), and `adc_well_match_ratio`

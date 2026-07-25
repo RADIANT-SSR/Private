@@ -45,13 +45,17 @@ retroactively reconstructed.
   parameters remain fully editable from Geometry (and the parameter tree).
 
 ### Changed
-- **GUI: the Performance metric readout is grouped (Windows finding 12).** The
-  Performance stage's metric summary now renders under labeled section headings —
-  *Sampling / geometry*, *Spatial / MTF*, *Radiometric*, *Interpretability*,
-  *Saturation* — instead of one flat alphabetical list of ~30 metrics. The sections
-  reuse the Gap-96 metric-group taxonomy, so each heading matches the Metric-selection
-  checkbox that toggles it. Presentation-only: which metrics compute, their values,
-  and their units are unchanged.
+- **GUI: the Performance screen is a tabbed dashboard (Windows finding 12 + owner
+  redesign 2026-07-25).** Replaces the flat single-column readout ("wall of text"):
+  **Summary** (the post-evaluate landing) shows the five headline badges — SNR
+  (accented), NEDT, NIIRS, GSD, MTF@Nyquist — above the system MTF; **All metrics**
+  shows a compact Compute toggle row (Gap 96, checkbox order matching the sections —
+  geometry first) above one themed card per metric group — *Sampling / geometry*,
+  *Spatial / MTF*, *Radiometric*, *Interpretability*, *Saturation* — with **human
+  metric labels** ("GSD (cross-track)" instead of `gsd_cross_track_m`), rows in
+  physics order, and hover-revealed pins; **MTF budget** holds the per-term Nyquist
+  chart. Presentation-only: which metrics compute, their values, and their units
+  (registry-sourced) are unchanged.
 - **The desktop GUI stack is now a base dependency (owner decision 2026-07-24).**
   `PySide6`, `matplotlib`, `qtconsole`, and `openpyxl` moved from the `[gui]`
   optional-extra into base `dependencies`, so a plain `pip install radiant` ships a

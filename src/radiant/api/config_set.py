@@ -538,14 +538,10 @@ class ConfigurationSet:
         sensor = (
             self._base.clone() if n_points is None else self._base.with_wavelength_points(n_points)
         )
-        # Same-package access to the Sensor's ParameterSet: the public
-        # ``Sensor.set`` has no provenance-source seam, and ADR-0010 D-C
-        # specifies ``source="config:<name>"`` for configured values (CU-208).
-        params = sensor._params
         for dotpath, values in self._configured.items():
-            params.set(dotpath, values[index], Provenance.USER_SET, f"config:{name}")
+            sensor.set(dotpath, values[index], source=f"config:{name}")
         try:
-            sensor._ensure_resolved()
+            sensor.resolve()
         except RadiantError as exc:
             raise ConfigSetError(
                 what=f"configuration {name!r} does not resolve",
@@ -670,7 +666,7 @@ class ConfigurationSet:
         shared value would then be silently shadowed by the configured column.
         That is caught here rather than ignored (Rule 17).
         """
-        shared = self._base._params.inputs()
+        shared = self._base.inputs()
         clashes = sorted(p for p in self._configured if p in shared)
         if clashes:
             raise ConfigSetError(
@@ -722,7 +718,7 @@ class ConfigurationSet:
         resolve because the base on its own need not be resolvable — once a
         *required* parameter is configured, it has left the base's inputs.
         """
-        explicit = self._base._params.inputs().get(name)
+        explicit = self._base.inputs().get(name)
         if explicit is not None:
             return explicit
         default = self._base.parameter_def(name).default

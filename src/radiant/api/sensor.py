@@ -233,30 +233,73 @@ class Sensor:
     # Parameter access
     # ------------------------------------------------------------------
 
-    def set(self, dotpath: str, value: Any, *, unit: str | None = None) -> Sensor:
+    def set(
+        self,
+        dotpath: str,
+        value: Any,
+        *,
+        unit: str | None = None,
+        source: str = "Sensor.set",
+    ) -> Sensor:
         """Set a parameter by dot-path.
 
         With ``unit``, the value is converted from the caller's native
         unit at this boundary (Gap 6), e.g.
         ``sensor.set("optics.aperture_diameter_m", 30.0, unit="cm")``.
 
+        ``source`` is the human-readable provenance label recorded with the
+        input and shown by :meth:`resolved` / :meth:`explain` (CU-208). It
+        defaults to ``"Sensor.set"``; a caller that sets values on behalf of a
+        named context passes its own label, e.g.
+        :class:`~radiant.api.config_set.ConfigurationSet` stamps
+        ``source="config:<name>"`` (ADR-0010 D-C). The provenance *class*
+        stays ``USER_SET``.
+
         Returns ``self`` for method chaining.
         """
-        self._params.set(dotpath, value, Provenance.USER_SET, "Sensor.set", unit=unit)
+        self._params.set(dotpath, value, Provenance.USER_SET, source, unit=unit)
         return self
 
-    def set_many(self, overrides: dict[str, Any]) -> Sensor:
+    def set_many(self, overrides: dict[str, Any], *, source: str = "Sensor.set_many") -> Sensor:
         """Set multiple parameters at once.
 
         Parameters
         ----------
         overrides:
             Dict mapping dot-path → value.
+        source:
+            Provenance label recorded with every input (CU-208), as on
+            :meth:`set`.
 
         Returns ``self`` for method chaining.
         """
         for dotpath, value in overrides.items():
-            self._params.set(dotpath, value, Provenance.USER_SET, "Sensor.set_many")
+            self._params.set(dotpath, value, Provenance.USER_SET, source)
+        return self
+
+    def inputs(self) -> Mapping[str, Any]:
+        """Read-only snapshot of the explicitly-set inputs (CU-208).
+
+        Passthrough to :meth:`ParameterSet.inputs`: dot-path → value **in
+        input units**, holding only parameters actually set (by
+        :meth:`set`/:meth:`set_many` or a config load) — defaults and derived
+        values do not appear. This is the persistence/inspection surface
+        :meth:`save` writes and :class:`~radiant.api.config_set.ConfigurationSet`
+        reads to tell shared from configured parameters.
+        """
+        return self._params.inputs()
+
+    def resolve(self) -> Sensor:
+        """Resolve the parameter set now, if it is not already resolved (CU-208).
+
+        Idempotent: applies defaults, derives consistency-group members, and
+        validates bounds/enums exactly once — the same resolution
+        :meth:`evaluate`, :meth:`get`, and :meth:`save` trigger implicitly.
+        Calling it explicitly surfaces a configuration error (over-constrained
+        group, out-of-bounds value) at a chosen point rather than inside a
+        later call. Returns ``self`` for method chaining.
+        """
+        self._ensure_resolved()
         return self
 
     def get(self, dotpath: str) -> Any:

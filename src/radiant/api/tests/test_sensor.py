@@ -138,6 +138,62 @@ class TestParameterAccess:
             sensor.reset("bogus.param")
 
 
+@pytest.mark.level1
+class TestProvenanceAndInputSeams:
+    """CU-208: public source= / inputs() / resolve() seams."""
+
+    def test_set_source_label_reaches_provenance(self, sensor: Sensor) -> None:
+        from radiant.core.parameters import Provenance
+
+        sensor.set("optics.aperture_diameter_m", 0.42, source="config:MWIR")
+        rv = sensor.resolved("optics.aperture_diameter_m")
+        assert rv.source == "config:MWIR"
+        assert rv.provenance is Provenance.USER_SET
+
+    def test_set_source_default_unchanged(self, sensor: Sensor) -> None:
+        sensor.set("optics.aperture_diameter_m", 0.42)
+        assert sensor.resolved("optics.aperture_diameter_m").source == "Sensor.set"
+
+    def test_set_source_with_unit_conversion(self, sensor: Sensor) -> None:
+        sensor.set("optics.aperture_diameter_m", 42.0, unit="cm", source="config:LWIR")
+        assert sensor.get("optics.aperture_diameter_m") == pytest.approx(0.42, rel=1e-10)
+        assert sensor.resolved("optics.aperture_diameter_m").source.startswith("config:LWIR")
+
+    def test_set_many_source_label(self, sensor: Sensor) -> None:
+        sensor.set_many({"detector.qe_value": 0.8}, source="config:LWIR")
+        assert sensor.resolved("detector.qe_value").source == "config:LWIR"
+        # Default label unchanged for callers that do not pass one.
+        sensor.set_many({"optics.transmission_scalar": 0.6})
+        assert sensor.resolved("optics.transmission_scalar").source == "Sensor.set_many"
+
+    def test_inputs_holds_only_explicit_values(self, sensor: Sensor) -> None:
+        sensor.set("optics.aperture_diameter_m", 0.42)
+        inputs = sensor.inputs()
+        assert inputs["optics.aperture_diameter_m"] == pytest.approx(0.42, rel=1e-10)
+        # Defaults and derived values do not appear — inputs is a strict subset
+        # of the schema (the persistence surface, not the resolved state).
+        assert set(inputs) < set(sensor.parameter_defs())
+        sensor.reset("optics.aperture_diameter_m")
+        assert "optics.aperture_diameter_m" not in sensor.inputs()
+
+    def test_inputs_is_read_only(self, sensor: Sensor) -> None:
+        with pytest.raises(TypeError):
+            sensor.inputs()["optics.aperture_diameter_m"] = 0.9  # type: ignore[index]
+
+    def test_resolve_is_idempotent_and_chains(self, sensor: Sensor) -> None:
+        assert sensor.resolve() is sensor
+        first = sensor.get("optics.f_number")
+        assert sensor.resolve() is sensor
+        assert sensor.get("optics.f_number") == pytest.approx(first, rel=1e-12)
+
+    def test_resolve_surfaces_configuration_error(self, sensor: Sensor) -> None:
+        from radiant.core.exceptions import RadiantError
+
+        sensor.set("detector.qe_value", 5.0)  # out of bounds (0–1)
+        with pytest.raises(RadiantError):
+            sensor.resolve()
+
+
 # ------------------------------------------------------------------
 # Evaluation
 # ------------------------------------------------------------------

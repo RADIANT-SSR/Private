@@ -68,8 +68,10 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 |--------|-------------|
 | `Sensor.from_yaml(path, *, wavelength_points=500)` | Classmethod. Load a YAML config file. Returns a new `Sensor`. |
 | `Sensor.from_dict(data, *, wavelength_points=500)` | Classmethod. Load a nested config dict. Returns a new `Sensor`. |
-| `s.set(dotpath, value)` | Set a parameter by dot-path (input units). Returns `self` for chaining. |
-| `s.set_many({dotpath: value, ...})` | Set multiple parameters at once. Returns `self`. |
+| `s.set(dotpath, value, *, unit=None, source="Sensor.set")` | Set a parameter by dot-path (input units). `unit=` converts from the caller's native unit at this boundary (Gap 6). `source=` is the provenance **label** recorded with the input and shown by `resolved()`/`explain()` (CU-208) — the provenance *class* stays `USER_SET`; `ConfigurationSet` passes `source="config:<name>"` (§2.5c). Returns `self` for chaining. |
+| `s.set_many({dotpath: value, ...}, *, source="Sensor.set_many")` | Set multiple parameters at once, with the same provenance-label seam as `set` (CU-208). Returns `self`. |
+| `s.inputs()` | Read-only snapshot of the **explicitly-set** inputs: dot-path → value in input units (CU-208). Defaults and derived values are absent — this is the persistence/inspection surface `save()` writes and `ConfigurationSet` reads to tell shared from configured parameters. Passthrough to `ParameterSet.inputs()`. |
+| `s.resolve()` | Resolve the parameter set now if it is not already resolved (CU-208) — idempotent, and the same resolution `evaluate()`/`get()`/`save()` trigger implicitly. Calling it explicitly surfaces an over-constrained group or out-of-bounds value at a chosen point. Returns `self`. |
 | `s.get(dotpath)` | Get a resolved parameter value in **canonical units** (m, rad, s, K, e-). |
 | `s.get_input(dotpath)` | Get a resolved parameter value in **input (display) units** (e.g., µm for pixel pitch). |
 | `s.reset(dotpath)` | Remove a user-set input so the parameter reverts to its schema default (or is re-derived) on the next resolve. Returns `self`. Raises `UnknownParameterError` (a `RadiantError` that co-inherits `KeyError`, with a did-you-mean suggestion) for unknown names, like `set()` (CU-073, 2026-07-11). |

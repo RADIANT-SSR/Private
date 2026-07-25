@@ -31,10 +31,11 @@ class TestWindowLifecycle:
         assert not window.isVisible()
 
     def test_default_title_and_status(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """With no sensor, the title is the bare app name and status is Ready."""
+        """With no sensor, the title is the app name + build label (WS-A3) and status is Ready."""
         window = RADIANTMainWindow()
         qtbot.addWidget(window)
-        assert window.windowTitle() == "RADIANT"
+        # Title carries the version/build label (e.g. "RADIANT v0.1.0 (+abc123)").
+        assert window.windowTitle().startswith("RADIANT v")
         assert window.statusBar().currentMessage() == "Ready"
         assert window.sensor is None
 

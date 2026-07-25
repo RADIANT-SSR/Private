@@ -16,6 +16,7 @@ Usage::
 
 import click
 
+from radiant.api.build_info import build_info
 from radiant.cli.compare import compare
 from radiant.cli.convert import convert_cmd
 from radiant.cli.explain import explain
@@ -28,8 +29,28 @@ from radiant.cli.tolerance_cmd import tolerance_cmd
 from radiant.cli.validate import validate
 
 
+def _print_version(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    """``--version`` callback: version + load path + git SHA (build_info).
+
+    Replaces Click's bare ``version_option`` so the output also reveals *where* the
+    running ``radiant`` is imported from and *what commit* it is — the provenance a
+    stale-install mismatch needs (Windows first-deploy report).
+    """
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(build_info().multi_line())
+    ctx.exit()
+
+
 @click.group()
-@click.version_option(package_name="radiant")
+@click.option(
+    "--version",
+    is_flag=True,
+    is_eager=True,
+    expose_value=False,
+    callback=_print_version,
+    help="Show the version, load path, and git commit, then exit.",
+)
 def cli() -> None:
     """RADIANT — first-principles EO sensor performance modeling."""
 

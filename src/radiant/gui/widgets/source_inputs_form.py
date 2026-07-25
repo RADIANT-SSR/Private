@@ -3,10 +3,11 @@
 :class:`SourceInputsForm` is the *Inputs* section of the Source stage's contextual center
 (arch doc §4.4 section 1, GUI plan Phase PS-1): the key source radiometric parameters —
 target (ε, T), background (ε, T), and the extended contrast-reference (ε, T) — as editable
-schema-driven rows. It is the radiometric sibling of the shape editor
-(:class:`~radiant.gui.widgets.target_shape_panel.TargetShapePanel`): together they make the
-Source stage an *instrument* (emission spectra + editable inputs + shape/orientation),
-matching the Geometry-screen standard.
+schema-driven rows. Together with the emission spectra and the Outputs readout it makes the
+Source stage an *instrument*, matching the Geometry-screen standard. Target
+extent/shape/orientation is **not** Source content: it is geometry (``geometry.target.*``,
+post-TEG) and is edited on Geometry → Schematic only (GT-0 / Windows finding 14 — the
+Source-tab duplicate of the shape editor was removed).
 
 **Schema-driven, one API call per edit (Gap 70 / R-API).** Every field is built from and
 formatted through the public :class:`~radiant.api.sensor.Sensor` surface

@@ -16,7 +16,9 @@ Every content item is a **[exists]** surface today (arch doc §4.4.1): the shipp
 and the ``stage_outputs`` scalar readouts. The Source stage instrument (GUI plan Phase
 PS-1) consumes the FP-1
 ``spectral_source_emission`` accessor (Gap 91 closed) and adds editable radiometric inputs
-plus the shared target-shape editor. Bespoke per-stage content that still needs a new
+(target extent/shape/orientation is geometry content post-TEG and is edited on
+Geometry → Schematic only — GT-0 / Windows-deployment finding 14). Bespoke per-stage
+content that still needs a new
 framework capability — the Optics pupil/coating maps (Gaps 89/90) and the per-λ noise
 decomposition (Gap 92) — is **not** built here; those are separate later per-stage tasks.
 Platform and Readout are v1-minimal (owner-ratified): an outputs readout plus a themed
@@ -88,7 +90,6 @@ class StageSubView:
     source_inputs: bool = False
     source_groups: tuple[str, ...] = ()
     atmosphere_inputs: bool = False
-    target_shape: bool = False
     optics_inputs: bool = False
     element_editor: bool = False
     detector_inputs: bool = False
@@ -145,10 +146,6 @@ class StageComposition:
         with the active backend's parameters (simple / MODTRAN tape7 / tabulated files /
         interpolated run-matrix / exo note) + turbulence r₀ as schema-driven
         :class:`FieldRow`s (Atmosphere only, GUI Capability Expansion plan GS-2).
-    target_shape:
-        Show the shared target shape/size/orientation editor (shape combo + dimension fields
-        + RPY) — the same widget the Geometry Schematic tab mounts, editing the one
-        ``geometry.target.shape*`` parameter set (Source only, GUI plan Phase PS-1).
     optics_inputs:
         Show the Optics stage's editable inputs card — aperture / focal length / f-number /
         obscuration / spiders / scalar throughput / WFE / optics temperature as schema-driven
@@ -210,7 +207,6 @@ class StageComposition:
     source_inputs: bool = False
     source_groups: tuple[str, ...] = ()
     atmosphere_inputs: bool = False
-    target_shape: bool = False
     optics_inputs: bool = False
     element_editor: bool = False
     detector_inputs: bool = False
@@ -272,9 +268,9 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         ),
     ),
     # The Source stage instrument (GUI plan Phase PS-1, arch doc §4.4.1 Source rows):
-    # editable radiometric inputs + shared shape/orientation editor + the tentative-regime
-    # outputs readout + the pre-atmosphere emission spectra (target + background, FP-1) with
-    # the at-aperture radiance kept as a secondary plot.
+    # editable radiometric inputs + the tentative-regime outputs readout + the
+    # pre-atmosphere emission spectra (target + background, FP-1) with the at-aperture
+    # radiance kept as a secondary plot.
     # The Source stage instrument, GT-0 rework (owner-shaped 2026-07-16): scene
     # declaration FIRST (it drives the Gap-85 relevance dimming everywhere), then the
     # two target pathways, then the background — each tab pairing its inputs with the

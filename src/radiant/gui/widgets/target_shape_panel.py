@@ -1,18 +1,13 @@
 """The shared **Target shape & orientation** control — shape combo + dims + RPY.
 
-This is the reusable target-shape editor factored out of the Geometry "Schematic" tab so
-it can be mounted **verbatim** on two surfaces (Rule 19 — one implementation, two homes):
-
-* the Geometry Schematic-tab accordion
-  (:class:`~radiant.gui.widgets.geometry_angle_panel.GeometryAnglePanel`, Part B), where a
-  shape edit tilts the 3D-schematic glyph, and
-* the **Source** stage instrument (arch-doc §4.4.1 Source "size / shape / orientation"),
-  where the same controls set the target's projected-area shape (GUI plan Phase PS-1).
-
-Both edit the **same** ``geometry.target.shape`` / ``geometry.target.shape_*`` schema
-parameters — there is only one target in the model, so the two surfaces are two views of
-one parameter set (a shape set from the Source stage shows on the Geometry schematic and
-vice-versa after the next evaluation). This panel is a **view + control surface only**: it
+This is the reusable target-shape editor of the Geometry "Schematic" tab, embedded in its
+accordion side panel
+(:class:`~radiant.gui.widgets.geometry_angle_panel.GeometryAnglePanel`, Part B), where a
+shape edit tilts the schematic glyph. That is its **only** mount: target extent is
+geometry content (``geometry.target.shape`` / ``geometry.target.shape_*``, post-TEG), and
+the earlier second mount on the Source instrument (GUI plan Phase PS-1) was removed as a
+duplicate — Geometry is the single source of truth (GT-0 / Windows-deployment finding 14).
+This panel is a **view + control surface only**: it
 emits intent signals and never touches a ``Sensor`` — the owning ``StagePane``
 (:mod:`radiant.gui.widgets.stage_center`) performs the one ``sensor.set`` per edit (one GUI
 action ↔ one API call, GUI plan §4.1).

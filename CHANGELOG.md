@@ -32,6 +32,18 @@ retroactively reconstructed.
   law (non-matched ADCs are legitimate), so gain is not derived. No computed results
   change; documented in `RADIANT_Detector_Complete.md` §6.
 
+### Removed
+- **GUI: the Source tab no longer shows the target shape/dimensions/orientation
+  editor (Windows finding 14).** Target extent is geometry content
+  (`geometry.target.shape*`, geometry-first / Rule 10): the shared shape panel is
+  edited on Geometry → Schematic only, and the Source stage keeps only the
+  radiometric target properties (temperature, emissivity, contrast reference,
+  scene declaration). The user-visible duplicate was removed by the GT-0
+  Source-screen rework (2026-07-16, previously unrecorded here); this entry also
+  covers deleting the now-dead `target_shape` composition flag and its mount
+  machinery so the duplicate cannot silently return. All `geometry.target.*`
+  parameters remain fully editable from Geometry (and the parameter tree).
+
 ### Changed
 - **GUI: the Performance metric readout is grouped (Windows finding 12).** The
   Performance stage's metric summary now renders under labeled section headings —

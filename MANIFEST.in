@@ -1,0 +1,5 @@
+# Ensure the bundled reference-data tree ships in the sdist as well as the wheel
+# (the wheel inclusion is driven by [tool.setuptools.package-data] in pyproject.toml).
+# Data lives inside the package at src/radiant/data/tables/ so it installs with
+# `pip install radiant` (Rule 30: loaders resolve it relative to their module).
+recursive-include src/radiant/data/tables *.npz *.csv *.md *.yaml

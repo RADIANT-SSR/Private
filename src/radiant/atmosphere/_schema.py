@@ -390,7 +390,7 @@ INTERPOLATED_DATA_DIR = ParameterDef(
     description=(
         "Directory containing pre-computed atmosphere runs (NPZ files) "
         "at discrete geometry points for the interpolated model. Empty "
-        "(the default) uses the shipped data/atmospheres library family "
+        "(the default) uses the bundled atmosphere library family "
         "matching atmosphere.interpolation_axes: 'path_zenith_rad' → "
         "us_standard_zenith_fan (LOS zenith 0–60°), "
         "'sensor_altitude_m,target_altitude_m' → midlat_summer_ladders "

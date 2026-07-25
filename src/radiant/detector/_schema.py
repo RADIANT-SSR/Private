@@ -95,7 +95,7 @@ QE_TABLE_PATH = ParameterDef(
 QE_MATERIAL = ParameterDef(
     name="detector.qe_material",
     description=(
-        "Named bundled detector QE curve (Gap 69): a material in the data/detectors "
+        "Named bundled detector QE curve (Gap 69): a material in the bundled detector "
         "library (e.g. 'insb', 'hgcdte_mwir', 'silicon' — the API rejects unknown names "
         "with the legal vocabulary). Resolved pre-chain by the API layer (Rule 6) onto the "
         "wavelength grid, QE = 0 past the data span. Precedence: qe_table_path (explicit "

@@ -165,6 +165,6 @@ keeps them in Rule-20 lock-step with the code, which a hand-maintained LaTeX for
 
 ## 6. Boundary Rules (where docs may NOT live)
 
-- No markdown project-management document inside a Python package (`src/`, `dev_tools/<tool>/`). Tool folders keep only `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`. Their plans/audits/reports live in `docs/plans/` and `docs/reports/<tool>/`.
+- No markdown project-management document inside a Python package (`src/`, `dev_tools/<tool>/`). Tool folders keep only `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`. Their plans/audits/reports live in `docs/plans/` and `docs/reports/<tool>/`. **Carve-out:** the bundled reference-data tree `src/radiant/data/tables/` may keep `MANIFEST.md` / `README.md` files *beside the data they describe* — Rule 26 requires each generated-artifact family to name its generator in an adjacent manifest, and the data ships inside the package so a wheel install carries it. These are data manifests, not project-management markdown (`scripts/check_org_rules.py` skips this subtree).
 - No tracking lists inside scenario folders beyond the per-scenario `gaps.md` (whose open items must also be mirrored as CUs or `tracking/gaps.md` entries to be actionable).
 - No new top-level entries in `docs/` — the §1 table is closed.

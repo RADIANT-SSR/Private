@@ -48,6 +48,18 @@ radiant = "radiant.cli.main:cli"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Bundle the reference-data tree (emissivity / detectors / solar CSVs, MODTRAN-derived
+# atmosphere NPZs + manifests) into the wheel. It lives inside the package at
+# src/radiant/data/tables/ so `pip install radiant` ships it; the loaders resolve it
+# relative to their module, never the repo root (Rule 30).
+[tool.setuptools.package-data]
+"radiant.data" = [
+    "tables/**/*.npz",
+    "tables/**/*.csv",
+    "tables/**/*.md",
+    "tables/**/*.yaml",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
 # Prepend this checkout's own src/ to sys.path (rootdir-relative). Without it,

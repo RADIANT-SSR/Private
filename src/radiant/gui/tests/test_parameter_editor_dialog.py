@@ -404,4 +404,5 @@ class TestBrowseStartLocation:
     def test_unmapped_namespace_falls_back_to_data_root(self) -> None:
         start = default_browse_dir("optics.zernike_file")
         assert start is not None
-        assert start.name == "data"
+        # The bundled data root is src/radiant/data/tables/ (data-in-wheel packaging).
+        assert start.name == "tables"

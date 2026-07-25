@@ -1,8 +1,9 @@
 """SpectralLibrary — load bundled spectral data (materials, detectors, solar).
 
-The library reads CSV files shipped in the ``data/`` directory at the
-repository root and returns :class:`~radiant.core.spectral.SpectralData`
-objects ready for use in RADIANT signal-chain calculations.
+The library reads CSV files shipped inside the package at
+``src/radiant/data/tables/`` (so a wheel install carries them) and returns
+:class:`~radiant.core.spectral.SpectralData` objects ready for use in RADIANT
+signal-chain calculations.
 
 Usage::
 
@@ -28,10 +29,10 @@ from radiant.core.spectral import SpectralData
 
 logger = logging.getLogger(__name__)
 
-# Root of the ``data/`` tree — three levels up from this file
-# (this file is src/radiant/data/library.py → repo root is ../../../)
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_DATA_ROOT = _REPO_ROOT / "data"
+# Root of the bundled reference-data tree. It ships *inside* the package at
+# src/radiant/data/tables/ so a wheel install carries it — resolve relative to
+# this module, never the repository root (Rule 30: no repo-root path assumption).
+_DATA_ROOT = Path(__file__).resolve().parent / "tables"
 
 
 def _load_csv(path: Path, value_column: str) -> tuple[np.ndarray, np.ndarray]:
@@ -60,8 +61,9 @@ class SpectralLibrary:
     Parameters
     ----------
     data_root:
-        Override path to the ``data/`` directory.  Defaults to the
-        ``data/`` directory at the repository root.
+        Override path to the reference-data directory.  Defaults to the
+        bundled ``tables/`` directory inside the package
+        (``src/radiant/data/tables/``).
     """
 
     def __init__(self, data_root: Path | None = None) -> None:

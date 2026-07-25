@@ -67,7 +67,7 @@ sys.path.insert(0, str(REPO / "src"))
 from radiant.atmosphere.modtran import Tape7Reader  # noqa: E402
 
 REAL_RUNS = REPO / "modtran" / "real_runs"
-OUT_ROOT = REPO / "data" / "atmospheres"
+OUT_ROOT = REPO / "src" / "radiant" / "data" / "tables" / "atmospheres"
 
 # Triangular slit: FWHM = 5 samples (5 cm⁻¹ on the 1 cm⁻¹ grid),
 # base = 9 samples. Decimate by 2 afterwards (2 cm⁻¹ sampling).

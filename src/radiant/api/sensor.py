@@ -41,7 +41,13 @@ from radiant.core.parameters import (
     ResolvedValue,
     Tolerance,
 )
-from radiant.io.config import load_config, read_radiant_meta, save_config, serialize_config
+from radiant.io.config import (
+    load_config,
+    read_radiant_meta,
+    save_config,
+    serialize_config,
+    unattached_section_error,
+)
 from radiant.io.element_config import parse_element_entries
 from radiant.io.results import ChainResult
 
@@ -89,6 +95,7 @@ class Sensor:
         path: str | Path,
         *,
         wavelength_points: int = _DEFAULT_WL_POINTS,
+        sections_out: dict[str, Any] | None = None,
     ) -> Sensor:
         """Load a YAML configuration file.
 
@@ -98,6 +105,16 @@ class Sensor:
             Path to a RADIANT YAML config file.
         wavelength_points:
             Number of spectral grid points.
+        sections_out:
+            Opt-in for structured sections a `Sensor` does **not** attach —
+            today the ``configurations:`` section of a configuration set
+            (ADR-0010). When a dict is passed, any such section is placed in it
+            for the caller to parse (``ConfigurationSet.load`` does exactly
+            that); when ``None`` (default), a config file carrying one raises an
+            actionable :class:`~radiant.io.config.ConfigError` rather than
+            loading a study as if it were a single config (Rule 17). The
+            ``optical_elements`` section is always attached by the Sensor itself
+            and never appears here.
 
         Returns
         -------
@@ -108,7 +125,10 @@ class Sensor:
         sections: dict[str, Any] = {}
         load_config(Path(path), sensor._params, sections_out=sections)
         if "optical_elements" in sections:
-            sensor.set_optical_elements(sections["optical_elements"], base_dir=Path(path).parent)
+            sensor.set_optical_elements(
+                sections.pop("optical_elements"), base_dir=Path(path).parent
+            )
+        _dispatch_unattached_sections(sections, sections_out, path)
         return sensor
 
     @classmethod
@@ -117,6 +137,7 @@ class Sensor:
         data: dict[str, Any],
         *,
         wavelength_points: int = _DEFAULT_WL_POINTS,
+        sections_out: dict[str, Any] | None = None,
     ) -> Sensor:
         """Create a Sensor from a nested configuration dict.
 
@@ -127,6 +148,8 @@ class Sensor:
             ``{"optics": {"aperture_diameter_m": 0.3}}``).
         wavelength_points:
             Number of spectral grid points.
+        sections_out:
+            Structured-section opt-in, as on :meth:`from_yaml`.
 
         Returns
         -------
@@ -137,7 +160,8 @@ class Sensor:
         sections: dict[str, Any] = {}
         load_config(data, sensor._params, sections_out=sections)
         if "optical_elements" in sections:
-            sensor.set_optical_elements(sections["optical_elements"])
+            sensor.set_optical_elements(sections.pop("optical_elements"))
+        _dispatch_unattached_sections(sections, sections_out, None)
         return sensor
 
     # ------------------------------------------------------------------
@@ -145,12 +169,15 @@ class Sensor:
     # ------------------------------------------------------------------
 
     @classmethod
-    def load(cls, path: str | Path) -> Sensor:
+    def load(cls, path: str | Path, *, sections_out: dict[str, Any] | None = None) -> Sensor:
         """Load a Sensor saved with :meth:`save` (or any RADIANT YAML).
 
         Restores parameters, tolerance distributions, and the spectral
         grid size from the file's ``_radiant`` metadata block when
         present; plain configs load exactly as with :meth:`from_yaml`.
+        ``sections_out`` is the same structured-section opt-in
+        :meth:`from_yaml` documents — without it, a configuration-set file
+        raises instead of loading as a single configuration.
         """
         meta = read_radiant_meta(path)
         wl_points = meta.get("wavelength_points", _DEFAULT_WL_POINTS)
@@ -159,9 +186,15 @@ class Sensor:
                 f"Sensor.load: '_radiant.wavelength_points' must be an "
                 f"integer >= 2, got {wl_points!r} in {path}."
             )
-        return cls.from_yaml(path, wavelength_points=wl_points)
+        return cls.from_yaml(path, wavelength_points=wl_points, sections_out=sections_out)
 
-    def save(self, path: str | Path) -> Path:
+    def save(
+        self,
+        path: str | Path,
+        *,
+        extra_sections: Mapping[str, Any] | None = None,
+        validate: bool = True,
+    ) -> Path:
         """Save this Sensor to a YAML config that :meth:`load` restores.
 
         Writes the explicitly-set inputs (input units) plus a
@@ -171,8 +204,23 @@ class Sensor:
         provenance distinctions between explicit and defaulted
         parameters survive. The file is a normal RADIANT config: it
         also loads via :meth:`from_yaml` or the CLI.
+
+        ``extra_sections`` writes additional registered structured sections
+        alongside the Sensor's own ``optical_elements`` — the seam
+        :meth:`ConfigurationSet.save <radiant.api.config_set.ConfigurationSet.save>`
+        uses for the ``configurations:`` section (ADR-0010 D-D). Omitted (the
+        default), the written file is byte-for-byte what it has always been.
+
+        ``validate=False`` skips the resolve gate. Only the explicit inputs are
+        written, so resolution is not needed to *produce* the document — it is a
+        deliberate check that what is being saved is a complete, valid config.
+        A caller that owns validation and whose sensor is legitimately
+        incomplete passes ``False``: `ConfigurationSet` does, because a
+        *required* parameter that has been configured is (by the single-store
+        invariant, ADR-0010 D-B) absent from the shared base.
         """
-        self._ensure_resolved()
+        if validate:
+            self._ensure_resolved()
         meta: dict[str, Any] = {
             "format": 1,
             "wavelength_points": self._wl_points,
@@ -183,9 +231,7 @@ class Sensor:
         }
         if tolerances:
             meta["tolerances"] = tolerances
-        sections: dict[str, Any] | None = None
-        if self._element_document is not None:
-            sections = {"optical_elements": copy.deepcopy(self._element_document)}
+        sections = self._sections(extra_sections)
         return save_config(
             self._params,
             Path(path),
@@ -195,7 +241,14 @@ class Sensor:
             sections=sections,
         )
 
-    def to_yaml(self, *, scope: str = "inputs", relative_to: str | Path | None = None) -> str:
+    def to_yaml(
+        self,
+        *,
+        scope: str = "inputs",
+        relative_to: str | Path | None = None,
+        extra_sections: Mapping[str, Any] | None = None,
+        validate: bool = True,
+    ) -> str:
         """Serialize this Sensor to a YAML string (Gap 88 — no temp file).
 
         ``scope="inputs"`` (default) is byte-identical to what :meth:`save`
@@ -208,8 +261,14 @@ class Sensor:
         When given, file-path parameters (``is_file_path``) that hold an absolute
         path are written relative to it, matching what :meth:`save` does with its
         own destination directory, so the string is portable when written there.
+
+        ``extra_sections`` writes additional registered structured sections, and
+        ``validate`` gates the resolve, both as on :meth:`save`
+        (``validate=False`` requires ``scope="inputs"`` — a resolved export has
+        nothing to write without resolving).
         """
-        self._ensure_resolved()
+        if validate or scope != "inputs":
+            self._ensure_resolved()
         meta: dict[str, Any] = {"format": 1, "wavelength_points": self._wl_points}
         tolerances = {
             name: {"distribution": tol.distribution, "params": dict(tol.params)}
@@ -217,9 +276,7 @@ class Sensor:
         }
         if tolerances:
             meta["tolerances"] = tolerances
-        sections: dict[str, Any] | None = None
-        if self._element_document is not None:
-            sections = {"optical_elements": copy.deepcopy(self._element_document)}
+        sections = self._sections(extra_sections)
         return serialize_config(
             self._params,
             header="# RADIANT config — written by Sensor.to_yaml()\n",
@@ -878,6 +935,26 @@ class Sensor:
         if not self._params.is_resolved:
             self._params.resolve()
 
+    def _sections(self, extra: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        """Structured sections to write: the element document plus *extra*.
+
+        ``None`` when there is nothing to write, so a Sensor with neither an
+        element document nor extra sections produces exactly the document it
+        always has.
+        """
+        sections: dict[str, Any] = {}
+        if self._element_document is not None:
+            sections["optical_elements"] = copy.deepcopy(self._element_document)
+        for key, value in (extra or {}).items():
+            if key in sections:
+                raise ApiValidationError(
+                    f"Sensor.save/to_yaml: section '{key}' is written by the Sensor "
+                    "itself and cannot be passed in extra_sections. Attach it with "
+                    "set_optical_elements() instead."
+                )
+            sections[key] = value
+        return sections or None
+
     def _wavelength_grid(self) -> npt.NDArray[np.float64]:
         """The evaluation wavelength grid (filter band × wavelength_points)."""
         fmin: float = self._params.get("spectral_integration.filter_min_um")
@@ -908,6 +985,25 @@ class Sensor:
             return float(val)
 
         return _extract, metric_key
+
+
+def _dispatch_unattached_sections(
+    sections: dict[str, Any],
+    sections_out: dict[str, Any] | None,
+    path: str | Path | None,
+) -> None:
+    """Hand over — or refuse — structured sections a ``Sensor`` does not attach.
+
+    A ``Sensor`` attaches ``optical_elements`` itself; anything left (today the
+    ``configurations:`` section of a configuration set) either goes to an
+    opted-in caller or raises the actionable io error naming the loader that can
+    read it. Never a silent drop (Rule 17).
+    """
+    if not sections:
+        return
+    if sections_out is None:
+        raise unattached_section_error(sorted(sections), path)
+    sections_out.update(sections)
 
 
 def _format_value(val: Any) -> str:

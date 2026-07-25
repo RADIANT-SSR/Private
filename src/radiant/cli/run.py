@@ -12,7 +12,7 @@ import numpy as np
 
 from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
-from radiant.io.config import ConfigError, load_config
+from radiant.io.config import ConfigError, load_config, unattached_section_error
 from radiant.io.element_config import ElementConfigError, parse_element_entries
 
 
@@ -118,6 +118,14 @@ def run(
         load_config(Path(config), params, sections_out=sections)
     except ConfigError as exc:
         click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    # A section the CLI cannot act on (today: `configurations:`, ADR-0010) is an
+    # error, never a silent drop — the CLI would otherwise run one configuration
+    # of a study as if it were the whole config (Rule 17; CLI support is Phase 5).
+    unattached = sorted(set(sections) - {"optical_elements"})
+    if unattached:
+        click.echo(f"Error: {unattached_section_error(unattached, config)}", err=True)
         sys.exit(1)
 
     # Apply --set overrides.

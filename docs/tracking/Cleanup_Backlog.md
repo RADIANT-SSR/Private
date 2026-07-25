@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-209 — folded MTF replicates at `f_Nyquist` instead of the sampling frequency `2·f_Nyquist`
+
+**Discovered**: multi-config Phase 3 dual-band example (`examples/scripts/dual_band_configuration_set.py`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/performance/folded_mtf.py:122-129` (`shifted_freq = np.abs(freq_cy_m + k * f_nyquist_cy_m)`), module docstring :7-13
+**Symptom**: sampling replicates the spectrum at multiples of the **sampling** frequency `f_s = 1/pitch = 2·f_Nyquist`, but `compute_folded_mtf` shifts by `k·f_Nyquist`. At `f = f_Nyquist` the `k = -1` term therefore lands on DC and contributes `MTF(0) = 1` to every system, sampled or not. Reproduce with the dual-band example: the LWIR configuration is oversampled (Q = 2.22, `mtf_at_nyquist = 5.4e-17`, i.e. the optics cut off below Nyquist so there is nothing to alias) yet reports `mtf_folded_at_nyquist = 0.9957` and `alias_fraction_at_nyquist = 1.0`. The MWIR configuration reports `mtf_folded_at_nyquist = 1.53` — an MTF above unity, which the ×2 replica sum alone (2 × 0.267 ≈ 0.53) does not produce.
+**Why it still matters**: `mtf_folded_at_nyquist` and `alias_fraction_at_nyquist` are shipped metrics in the Spatial-MTF group and are rendered in the GUI Performance dashboard. As computed they contradict the module's own documented invariant ("For well-sampled systems (Q >> 1) … the folded MTF equals the optical MTF") exactly at the frequency the two reported metrics are sampled at, so an oversampled design reads as fully aliased. Existing unit tests (`performance/tests/test_folded_mtf.py::test_oversampled_folded_equals_optical`, `…alias_fraction_zero`) mask it — both restrict their assertions to the band where the optical MTF is significant, which for their narrow Gaussian is far below `f_Nyquist`; nothing pins the value **at** `f_Nyquist`.
+**Suggested fix**: (a) inline-fix — shift by `k * 2 * f_nyquist_cy_m`, correct the module docstring formula, and add Level-0 anchors at `f = f_Nyquist` for both an oversampled case (folded == optical, alias fraction 0) and an undersampled case (folded == 2 × optical for the ±1 orders). **Results-affecting** (`mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` change for every scenario; golden baselines carrying them must be re-reviewed per `RADIANT_Testing_Validation.md` §5.3), so it does not belong in an orthogonal PR. Also update the explanatory note in `examples/scripts/dual_band_configuration_set.py` (which currently tells the reader to ignore those two rows and cites this CU) when it closes. Effort S for the fix, M including the baseline review; category C.
+
 ### CU-207 — `examples/nintendo.yaml` is a committed scratch config with a hardcoded absolute data path (Rule 30 violation)
 
 **Discovered**: data-in-wheel packaging (finding 5), 2026-07-24

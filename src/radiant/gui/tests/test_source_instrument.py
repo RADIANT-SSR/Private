@@ -3,10 +3,11 @@
 The Source stage's contextual center becomes a real instrument, matching the Geometry-screen
 standard: pre-atmosphere target + background **emission** spectra
 (``result.plot.spectral_source_emission``, FP-1), editable schema-driven radiometric inputs
-(the shared :class:`FieldRow`), the shared target shape/size/orientation editor
-(:class:`TargetShapePanel` — the same widget the Geometry Schematic tab mounts), and an
-Outputs readout carrying the tentative regime with units. Every test drives the real widgets
-on the shipped example config, offscreen.
+(the shared :class:`FieldRow`), and an Outputs readout carrying the tentative regime with
+units. Target shape/size/orientation is geometry content (GT-0 / Windows finding 14): its
+editor (:class:`TargetShapePanel`) mounts on Geometry → Schematic **only**, and this module
+guards that the Source tab shows no duplicate. Every test drives the real widgets on the
+shipped example config, offscreen.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from radiant.gui.widgets.source_inputs_form import _RADIOMETRY_FIELDS  # noqa: E
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 from radiant.gui.widgets.target_shape_panel import (  # noqa: E402
     NOMINAL_SHAPE_DIMENSIONS,
+    TargetShapePanel,
 )
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
@@ -72,8 +74,10 @@ class TestSourceComposition:
         assert "spectral_source" in methods
 
     def test_source_declares_scene_first_tabs_without_shape(self) -> None:
-        """GT-0: four owner-ordered tabs, scene declaration first; the shape editor is
-        GONE from Source (extent is geometry content post-TEG)."""
+        """GT-0 / Windows finding 14: owner-ordered tabs, scene declaration first; the
+        shape editor is GONE from Source (extent is geometry content post-TEG) — the
+        composition vocabulary no longer even carries a ``target_shape`` section, so the
+        duplicate cannot be reintroduced by a data change."""
         comp = STAGE_COMPOSITIONS["source"]
         titles = [sub.title for sub in comp.subviews]
         assert titles == [
@@ -85,8 +89,8 @@ class TestSourceComposition:
         ]
         assert comp.subviews[0].source_groups == ("scene",)
         assert comp.subviews[0].outputs is True
-        assert not any(sub.target_shape for sub in comp.subviews)
-        assert comp.target_shape is False
+        assert not hasattr(comp, "target_shape")
+        assert not any(hasattr(sub, "target_shape") for sub in comp.subviews)
 
 
 # ---------------------------------------------------------------------------
@@ -117,18 +121,19 @@ class TestSourcePane:
         assert thermal.field_value_text("source.target.temperature").endswith("K")
 
     def test_shape_panel_removed_from_source_but_kept_on_geometry(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """GT-0 regression guard: extent editing left Source (it is geometry content);
-        the Geometry Schematic tab still mounts the shared TargetShapePanel."""
+        """GT-0 / Windows finding 14 regression guard: extent editing left Source (it is
+        geometry content) — the built Source pane contains no TargetShapePanel widget at
+        all, while the Geometry Schematic tab still mounts the shared editor."""
         sensor = Sensor.from_yaml(_EXAMPLE)
         source_pane = _source_pane(qtbot, sensor)
-        assert source_pane.target_shape_panel is None
+        assert source_pane.findChildren(TargetShapePanel) == []
         geo_pane = StagePane("geometry", STAGE_COMPOSITIONS["geometry"])
         qtbot.addWidget(geo_pane)
         geo_pane.bind_sensor(sensor, {})
         panel = geo_pane.geometry_panel
         assert panel is not None and panel.shape_combo.count() > 1
-        # No 3D scene on the Source stage → no triad toggle.
-        assert not panel.triad_checkbox.isVisible()
+        # The one mount of the shared editor lives inside the Geometry side panel.
+        assert len(geo_pane.findChildren(TargetShapePanel)) == 1
 
     def test_outputs_readout_shows_regime_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The Outputs readout carries the tentative regime + a dimensional output with unit."""

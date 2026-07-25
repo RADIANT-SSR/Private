@@ -10,14 +10,15 @@ plan Phase 7 Part B). It composes two accordion pages (``QToolBox``):
    binds it to the live sensor and re-emits its ``parameterEdited``. The derived-angles table
    is deliberately **not** here (it lives on the Inputs tab; the key derived values surface on
    the schematic itself as arc degree labels + leader labels — owner request 2026-07-14).
-2. **Target shape & orientation** — the shared
+2. **Target shape & orientation** — the
    :class:`~radiant.gui.widgets.target_shape_panel.TargetShapePanel` (shape combo + per-shape
-   dimension fields + RPY fields). This is the **same** widget the Source stage instrument
-   mounts (GUI plan Phase PS-1) — one target-shape editor, two homes (Rule 19) — editing the
-   same ``geometry.target.shape*`` parameters. For the shape/RPY controls this panel is a **view
-   + control surface only**: it re-emits the :class:`TargetShapePanel` intent signals and never
-   touches a ``Sensor`` — the owning ``StagePane`` performs the one ``sensor.set`` per edit (one
-   GUI action ↔ one API call, GUI plan §4.1).
+   dimension fields + RPY fields), editing the ``geometry.target.shape*`` parameters. This is
+   the shape editor's **only** mount: target extent is geometry content, and the earlier
+   Source-instrument duplicate was removed (GT-0 / Windows finding 14). For the shape/RPY
+   controls this panel is a **view + control surface only**: it re-emits the
+   :class:`TargetShapePanel` intent signals and never touches a ``Sensor`` — the owning
+   ``StagePane`` performs the one ``sensor.set`` per edit (one GUI action ↔ one API call,
+   GUI plan §4.1).
 
 The **angle-arc reveal toggles** are no longer in this accordion: owner feedback 2026-07-14
 moved that selector **onto the plot** as a bottom-left overlay

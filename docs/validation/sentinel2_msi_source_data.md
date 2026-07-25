@@ -28,7 +28,7 @@ Primary sources:
 | Quantization | 12 | bit | [S2-EO], [S2-SW] | published |
 | VNIR read noise | 15 | e- RMS | **ASSUMPTION** from [S2-EO] "readout noise of the order of 130 µV rms" with an assumed CVF ~10 µV/e- (envelope 5–30 e-) | assumption |
 | QE at band (see per-band) | — | — | **ASSUMPTION** (no published curves found) | assumption |
-| Full well | 100 000 | e- | **ASSUMPTION** (envelope 60–200 ke-; not binding at L_ref) | assumption |
+| Full well (analysis mode) | 500 000 | e- | sized above signal(Lmax) so the comparison never clips; the real MSI sizes per-band CTIA capacity/CVF to avoid Lmax saturation ([S2-EO]) — collected charge at L_ref is unaffected | analysis choice |
 
 ## Geometry
 
@@ -67,3 +67,15 @@ Primary sources:
   these; read noise is non-binding at L_ref (shot-dominated by >10×).
 - **B11 caveat:** SWIR MCT with unpublished t_int for the 20 m focal plane; line time
   derived as 20 m / v_g ≈ 3.0 ms; weakest-confidence row.
+
+## First-run inversion notes (2026-07-24)
+
+Shot-limited inversion of the measured SNRs (implied QE·τ = assumed × (meas/pred)²):
+B4 → 0.341 (vs 0.4125 assumed — **plausible**, inside the envelope);
+B2 → 0.153 (QE ≈ 0.20 at 493 nm with τ = 0.75 — **plausible** for front-illuminated CMOS
+plus blue-end dichroic/filter losses; resolves the first-run "tension" as a QE-assumption
+artifact, not a physics discrepancy);
+B11 → 0.091 (implausibly low for MCT SWIR QE ~0.75 — points instead at a much shorter
+SWIR integration time than the derived 3.0 ms 20 m line time, e.g. effective
+t ≈ 0.5 ms under the published pixel-deselection/TDI scheme, or CTIA well-limited
+integration — **INCONCLUSIVE pending a sourced SWIR t_int**).

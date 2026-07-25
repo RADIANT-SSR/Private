@@ -34,7 +34,9 @@ FOCAL_LENGTH_M = 0.5895  # m — derived: p*h/GSD (7.5 µm * 786 km / 10 m)
 TAU_OPTICS = 0.75  # — ASSUMPTION (envelope 0.60–0.85)
 ALTITUDE_M = 786_000.0  # m — published
 READ_NOISE_E = 15.0  # e- RMS — ASSUMPTION (envelope 5–30; non-binding at L_ref)
-FULL_WELL_E = 100_000.0  # e- — ASSUMPTION (non-binding at L_ref)
+FULL_WELL_E = 500_000.0  # e- — ANALYSIS MODE: sized above signal(Lmax); never clips.
+# Real MSI sizes per-band CTIA capacity/CVF to avoid Lmax saturation (eoPortal);
+# charge collection at L_ref is unaffected by this choice.
 ADC_BITS = 12  # — published
 N_TDI = 2  # — published "1 TDI stage for 2 lines" modeled as 2-line charge sum
 
@@ -127,12 +129,12 @@ def main() -> None:
     print(" docs/validation/sentinel2_msi_source_data.md for provenance)\n")
     header = (
         f"{'band':<5} {'L_ref':>8} {'pred SNR':>9} {'envelope':>15} "
-        f"{'req':>6} {'meas':>6} {'signal':>12}"
+        f"{'req':>6} {'meas':>6} {'signal':>12} {'impl QE·τ':>10}"
     )
     print(header)
     print(
         f"{'':<5} {'[W/m²/sr/µm]':>8} {'[-]':>9} {'[- min–max]':>15} "
-        f"{'[-]':>6} {'[-]':>6} {'[e-]':>12}"
+        f"{'[-]':>6} {'[-]':>6} {'[e-]':>12} {'[-]':>10}"
     )
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
@@ -142,10 +144,17 @@ def main() -> None:
             snr_hi, _, _ = _run_band(band, band.qe_hi, TAU_HI, tmp)
             meas = f"{band.snr_measured:.0f}" if band.snr_measured else "—"
             clip = f"  WELL-CLIPPED ({well:.0%} fill)" if well >= 0.999 else ""
+            # Shot-limited inversion: SNR ∝ sqrt(QE·τ·t·N), so the measured SNR
+            # implies a throughput product (QE·τ)_impl = (QE·τ)_assumed·(meas/pred)².
+            if band.snr_measured:
+                implied = band.qe * TAU_OPTICS * (band.snr_measured / snr) ** 2
+                impl_txt = f"{implied:>10.3f}"
+            else:
+                impl_txt = f"{'—':>10}"
             print(
                 f"{band.name:<5} {band.l_ref:>8.2f} {snr:>9.1f} "
                 f"{snr_lo:>7.1f}–{snr_hi:<6.1f} {band.snr_required:>6.0f} "
-                f"{meas:>6} {sig:>12.0f}{clip}"
+                f"{meas:>6} {sig:>12.0f} {impl_txt}{clip}"
             )
     print(
         "\nRegime notes: extended scene (EE_box = 1 — no ensquared-energy factor);\n"
@@ -153,7 +162,9 @@ def main() -> None:
         "prediction scales as sqrt(QE·τ·t_int·N_TDI) in this limit, so the envelope\n"
         "spans the QE and τ assumption ranges. TDI modeled as 2-line charge sum\n"
         "(signal ×2, one read). Verdict criterion: CONSISTENT if the published value\n"
-        "falls inside the assumption envelope."
+        "falls inside the assumption envelope. The implied-QE·τ column inverts the\n"
+        "measured SNR for the throughput product it would require (shot limit) —\n"
+        "judged plausible/implausible against detector-technology expectations."
     )
 
 

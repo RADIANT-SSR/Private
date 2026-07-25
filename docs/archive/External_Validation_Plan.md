@@ -1,6 +1,9 @@
 # External Validation Plan
 
-Status: Active
+**HISTORICAL** — completed 2026-07-24 (all three targets validated; report:
+`docs/reports/external_validation_2026-07/Findings.md`). Archived per Rule 24.
+
+Status: Complete
 Owner ask: 2026-07-24 ("move out on" the validation dossier). Multi-PR effort per
 OPERATING_MODEL §3 sizing rule; this plan is the epic, findings will be CU'd/Gap'd.
 

@@ -1,6 +1,6 @@
 # External Validation Dossier — Findings
 
-Status: Draft (MODIS section pending)
+Status: Complete (2026-07-24)
 Campaign: `docs/plans/External_Validation_Plan.md` (owner-chartered 2026-07-24)
 Method, provenance, and reproduction: `docs/validation/*_source_data.md` +
 `scripts/run_external_validation.py` (all numbers below regenerate from that script).
@@ -61,9 +61,42 @@ blackbody/optics temperature-*instability* terms (calibration stability, not det
 noise) — RADIANT correctly models the photon/dark/read floor, and the flight values sit
 where that floor predicts.
 
-## 3. MODIS thermal emissive bands
+## 3. MODIS TEB (Aqua) — spectral-chain anchors + NEdT floor
 
-*(pending — researcher in flight; section to be added before this report closes)*
+Setup: 300 K blackbody through a vacuum path. Published: 17.78 cm aperture, EFL
+380.859/282.118 mm, 540/400 µm detectors, 83 K FPA, t_int 323.3 µs (293.3 µs B29),
+whiskbroom 1.4771 s scan / 1354 frames; unknowns: per-band optics transmission
+(0.30–0.50 assumed), QE (0.7 assumed), detector noise (the dominant term — see below).
+
+**Part 1 — spectral-chain anchors.** NASA's published "typical radiance" column is the
+300 K band-averaged Planck radiance; RADIANT's band-average matches all four to ≤0.1%:
+
+| Band | L_typ published [W/m²/sr/µm] | RADIANT [W/m²/sr/µm] | diff |
+|---|---|---|---|
+| B20 (3.66–3.84 µm) | 0.45 | 0.450 | −0.0% |
+| B29 (8.40–8.70 µm) | 9.58 | 9.583 | +0.0% |
+| B31 (10.78–11.28 µm) | 9.55 | 9.555 | +0.1% |
+| B32 (11.77–12.27 µm) | 8.94 | 8.946 | +0.1% |
+
+Four independent published anchors; direct validation of the Planck/band-integration
+chain. **Verdict: CONSISTENT (exact).**
+
+**Part 2 — NEdT.** MODIS TEBs are detector/system-noise-limited (PC HgCdTe G-R/1/f for
+31–36; PV crosstalk families documented by MCST) — a photon model cannot and should not
+reproduce the measured values. RADIANT's photon/dark/read floor and the inversion of the
+implied detector noise (σ_det = dS/dT × NEdT_meas):
+
+| Band | Photon floor [mK] | Spec [mK] | Measured (Aqua) [mK] | Implied σ_det [e-] | Verdict |
+|---|---|---|---|---|---|
+| B20 | 8.1–10.6 | 50 | 20 | 7.4×10³ | CONSISTENT as bound (floor < measured < spec) |
+| B29 | 2.1–2.7 | 50 | 20 | 2.4×10⁵ | CONSISTENT as bound |
+| B31 | 1.8–2.3 | 50 | 20 | 4.4×10⁵ | CONSISTENT as bound |
+| B32 | 1.9–2.4 | 50 | 30 | 6.2×10⁵ | CONSISTENT as bound |
+
+The floor sits 2–11× below measured in the physically expected ordering
+(floor < measured < spec, with B20's smaller margin reflecting its tiny 0.45 W/m²/sr/µm
+band radiance), and the implied detector noise is the named, published-data-anchored
+target any future HgCdTe detector-noise model must reproduce.
 
 ## Cross-cutting observations (to disposition at close)
 
@@ -74,6 +107,12 @@ where that floor predicts.
   SNR/NEdT plus a published physical constraint) converts unexplained residuals into
   testable hypotheses — used for S2 B2/B11 and TIRS; worth capturing in the theory
   manual's performance chapter at close.
-- No RADIANT physics discrepancy was uncovered by either sensor: every gap traced to an
+- **Representational finding:** PC HgCdTe (MODIS 31–36) integrates photocurrent with
+  no discrete charge well; RADIANT's well schema (max 1×10⁸ e-, saturation check)
+  cannot represent that detector class — a second instance of Gap 101's
+  detector-class gap (bolometers). Noted on the Gap 101 entry.
+- No RADIANT physics discrepancy was uncovered by any of the three sensors: every gap traced to an
   unpublished instrument parameter, and every published-vs-predicted comparison landed
   inside the documented assumption envelope.
+
+Per Rule 24/28 this report is a point-in-time record — immutable once merged.

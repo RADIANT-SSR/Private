@@ -275,6 +275,104 @@ def tirs_main() -> None:
     )
 
 
+# ============================ MODIS TEB (Aqua) ===============================
+# Provenance: docs/validation/modis_teb_source_data.md. Two-part validation:
+# (1) the published L_typ column is 300 K band-averaged Planck radiance — a free
+#     published anchor set for RADIANT's spectral chain (band_planck_radiance);
+# (2) NEdT: the photon/read floor is predicted and the implied detector noise
+#     inverted from the measured NEdT (MODIS TEBs are detector-noise-limited).
+
+MODIS_D_M = 0.1778  # m — published aperture
+MODIS_TAU_LO, MODIS_TAU_HI = 0.30, 0.50  # — ASSUMPTION (calibration-LUT internal)
+MODIS_QE = 0.7  # — ASSUMPTION (PV eta 0.6-0.8; PC treated identically for the floor)
+MODIS_ALT_M = 705_000.0  # m — published
+
+# name, lo_um, hi_um, L_typ [W/m2/sr/um], NEdT spec [K], NEdT measured [K],
+# focal [m], pitch [um], t_int [s]
+MODIS_BANDS = (
+    ("B20", 3.660, 3.840, 0.45, 0.05, 0.02, 0.380859, 540.0, 323.333e-6),
+    ("B29", 8.400, 8.700, 9.58, 0.05, 0.02, 0.282118, 400.0, 293.332e-6),
+    ("B31", 10.780, 11.280, 9.55, 0.05, 0.02, 0.282118, 400.0, 323.333e-6),
+    ("B32", 11.770, 12.270, 8.94, 0.05, 0.03, 0.282118, 400.0, 323.333e-6),
+)
+
+
+def _run_modis(lo, hi, focal_m, pitch_um, t_int_s, tau):
+    """One MODIS band at a 300 K blackbody scene; returns (NEdT [K], dS/dT [e-/K])."""
+    wl = np.linspace(lo, hi, 41)
+    session = RadiantSession(wavelength_um=wl)
+    params = session.default_params()
+    params.set("source.target.temperature", 300.0)
+    params.set("source.target.emissivity", 1.0)
+    params.set("source.scene_type", "extended")
+    params.set("atmosphere.model", "exo")
+    params.set("geometry.sensor_altitude_m", MODIS_ALT_M)
+    params.set("geometry.target_altitude_m", 0.0)
+    params.set("optics.aperture_diameter_m", MODIS_D_M)
+    params.set("optics.focal_length_m", focal_m)
+    params.set("optics.transmission_scalar", tau)
+    params.set("detector.pixel_pitch_x_um", pitch_um)
+    params.set("detector.pixel_pitch_y_um", pitch_um)
+    params.set("detector.qe_value", MODIS_QE)
+    params.set("detector.dark_rate_e_per_s", 1.0e6)  # ASSUMPTION; sub-dominant
+    params.set("spectral_integration.filter_min_um", float(wl[0]))
+    params.set("spectral_integration.filter_max_um", float(wl[-1]))
+    params.set("spectral_integration.integration_time_s", t_int_s)
+    params.set("readout.read_noise_e_rms", 500.0)  # ASSUMPTION; sub-dominant
+    # PC HgCdTe integrates photocurrent — no discrete charge well; RADIANT's
+    # well schema (max 1e8 e-) cannot represent that (same representational gap
+    # as Gap 101's bolometers), so the floor is computed from the pre-readout
+    # spectral_integration signal below rather than the well-clipped readout.
+    params.set("readout.full_well_capacity_e", 1.0e8)
+    params.set("readout.adc_bits", 12)
+    params.set("readout.gain_e_per_dn", 1.0e8 / 2**12)
+    params.resolve()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        result = session.run(params)
+    ds_dt = float(result.stage_outputs["spectral_integration"]["ds_dt_e_per_K"])
+    sig_e = float(result.stage_outputs["spectral_integration"]["signal_e"])
+    dark_e = 1.0e6 * t_int_s
+    sigma_floor = float(np.sqrt(sig_e + dark_e + 500.0**2))
+    return sigma_floor / ds_dt, ds_dt
+
+
+def modis_main() -> None:
+    from radiant.performance.temperature_retrieval import band_planck_radiance
+
+    print("\nMODIS TEB (Aqua) — spectral-chain anchors + NEdT floor vs published")
+    print("(300 K blackbody, exo path; see docs/validation/modis_teb_source_data.md)\n")
+    print("Part 1 — published L_typ vs RADIANT 300 K band-averaged Planck radiance:")
+    print(f"{'band':<5} {'L_typ pub':>10} {'RADIANT':>9} {'diff':>7}   [W/m²/sr/µm]")
+    for name, lo, hi, l_typ, *_ in MODIS_BANDS:
+        l_rad = band_planck_radiance(300.0, np.linspace(lo, hi, 201)) / (hi - lo)
+        print(f"{name:<5} {l_typ:>10.2f} {l_rad:>9.3f} {(l_rad / l_typ - 1):>+7.1%}")
+    print(
+        "\nPart 2 — NEdT: photon/read floor (tau 0.30-0.50) vs spec and measured;"
+        "\nimplied detector noise = dS/dT x NEdT_meas (the named unknown):"
+    )
+    print(
+        f"{'band':<5} {'floor [mK]':>12} {'spec [mK]':>10} {'meas [mK]':>10} "
+        f"{'impl sigma_det [e-]':>20}"
+    )
+    for name, lo, hi, _l, spec_k, meas_k, focal, pitch, t_int in MODIS_BANDS:
+        n_lo, ds_dt = _run_modis(lo, hi, focal, pitch, t_int, MODIS_TAU_HI)
+        n_hi, _ = _run_modis(lo, hi, focal, pitch, t_int, MODIS_TAU_LO)
+        sigma_det = ds_dt * meas_k
+        print(
+            f"{name:<5} {1e3 * n_lo:>5.2f}\u2013{1e3 * n_hi:<6.2f} "
+            f"{1e3 * spec_k:>10.0f} {1e3 * meas_k:>10.0f} {sigma_det:>20.3g}"
+        )
+    print(
+        "\nRegime notes: MODIS TEBs are detector/system-noise limited (PC HgCdTe G-R/1/f;"
+        "\nPV crosstalk) — the measured 20-30 mK sits ~10-40x above the photon floor, so"
+        "\nthe floor is a BOUND, not a prediction; the implied detector-noise column is"
+        "\nthe quantity a detector model must reproduce. Part 1 is the direct spectral-"
+        "\nchain validation: four independent published Planck anchors."
+    )
+
+
 if __name__ == "__main__":
     main()
     tirs_main()
+    modis_main()

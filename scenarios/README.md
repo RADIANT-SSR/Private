@@ -128,8 +128,12 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | **08 Interpolation demonstrations** | |
 | 8.1_off_nadir_angle_interpolation | implemented |
 | 8.2_target_altitude_interpolation | implemented |
+| **09 Flagship missions (external validation)** | |
+| 9.1_sentinel2_msi_snr | implemented (config-driven; canonical comparison in scripts/run_external_validation.py) |
+| 9.2_landsat_tirs_nedt | implemented (config-driven) |
+| 9.3_modis_teb_nedt | implemented (config-driven) |
 
-37 of 37 implemented (35 persona + 2 interpolation). Each folder carries the
+40 of 40 implemented (35 persona + 2 interpolation + 3 flagship-mission validation). Each folder carries the
 `walkthrough.md` / `gaps.md` / `gui_workflow.md` trio and executed
 `inputs/scripts/outputs`.
 
@@ -144,3 +148,4 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | 05_tom_optical_designer | Tom | Optical designer optimizing PSF and MTF |
 | 06_dr_chen_researcher | Dr. Chen | Researcher validating models against theory |
 | 07_karen_test_engineer | Karen | Test engineer reconciling predictions with measurements |
+| 09_flagship_missions | — | External validation vs published flagship-mission flight data (Sentinel-2, Landsat TIRS, MODIS) |

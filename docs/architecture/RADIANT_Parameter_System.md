@@ -491,10 +491,28 @@ class ResolvedValue:
     value: Any                             # In canonical units
     input_value: Any                       # In input units (as the user provided it)
     provenance: Provenance
-    source: str                            # "user", "config:sensor_abc.yaml", "default", "derived:f/D"
+    source: str                            # "user", "/path/to/sensor_abc.yaml", "default", "derived:f/D"
     derived_from: dict[str, Any] | None    # For DERIVED: {param_name: value_used}
     timestamp: str                         # ISO 8601 when this value was set/computed
 ```
+
+**Source strings in use.** `source` is a free-form human-readable origin, not an enum;
+the writers that populate it are:
+
+| `source` | Written by |
+|---|---|
+| `"user"`, `"Sensor.set"`, `"Sensor.set_many"` | interactive / scripting edits |
+| the YAML file path (or `"dict"`) | `radiant.io.config.load_config` |
+| `"default: <justification>"` | schema defaults applied during resolution |
+| `"derived: <constraint>"` | consistency-group derivation |
+| `"config:<name>"` | a **configured** parameter's value, materialized for the configuration named `<name>` by `ConfigurationSet.sensor_for` (ADR-0010 D-C) |
+
+The `config:<name>` form is what lets `Sensor.resolved()` / `Sensor.explain()` name the
+owning configuration of a multi-configuration study with **zero new provenance
+machinery**: a materialized configuration is an ordinary `Sensor` whose configured
+values were set with `Provenance.USER_SET` and that source string. Note the ADR-0010
+D-10 disambiguation convention: `<name>` here is a **configuration** (a member of a
+configuration set), never a config *file* — file-sourced values carry the file path.
 
 ### Provenance audit
 

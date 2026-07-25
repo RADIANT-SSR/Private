@@ -761,6 +761,27 @@ class Sensor:
         """Return a deep copy of this Sensor."""
         return copy.deepcopy(self)
 
+    def with_wavelength_points(self, n: int) -> Sensor:
+        """Return a clone evaluated on *n* spectral grid points.
+
+        The grid still spans this sensor's own resolved
+        ``spectral_integration.filter_min_um`` … ``filter_max_um`` band; only
+        the point count changes. This sensor is left untouched — the supported
+        way to vary the grid density after construction (ADR-0010 D-F, the
+        per-configuration ``wavelength_points`` hook).
+
+        Raises :class:`~radiant.api.errors.ApiValidationError` for ``n < 2`` or
+        a non-integer, matching the check :meth:`load` applies to the
+        ``_radiant.wavelength_points`` metadata field.
+        """
+        if not isinstance(n, int) or isinstance(n, bool) or n < 2:
+            raise ApiValidationError(
+                f"Sensor.with_wavelength_points: n must be an integer >= 2, got {n!r}."
+            )
+        clone = self.clone()
+        clone._wl_points = n
+        return clone
+
     def summary(self) -> str:
         """Return a human-readable summary of all resolved parameters."""
         self._ensure_resolved()

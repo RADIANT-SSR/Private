@@ -92,6 +92,7 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.sensitivity(*, metric="snr", param_names=None, delta_fraction=0.01)` | One-at-a-time sensitivity analysis. Returns `SensitivityResult` (§8). |
 | `s.solve_for(param, target, *, bounds, metric="snr", rtol=1e-6)` | Inverse solve (Gap 10): Brent root-finding for the parameter value where *metric* equals *target* over the `bounds` bracket (input units). Returns `SolveResult` (solution, achieved, n_evaluations, full `ChainResult`). Raises `SolveBracketError` with both endpoint metric values when the target is not bracketed — note a saturated (plateaued) metric cannot be bracketed. |
 | `s.clone()` | Deep copy of the Sensor (parameters, tolerances). Use before sweeps/what-ifs to keep the original unchanged. |
+| `s.with_wavelength_points(n)` | Return a **clone** evaluated on `n` spectral grid points over the same resolved band; this sensor is unchanged. The supported way to vary grid density after construction (`wavelength_points` is otherwise constructor-only). Raises `ApiValidationError` for `n < 2` or a non-integer, matching `Sensor.load`'s check on `_radiant.wavelength_points`. Backs per-configuration grids in `ConfigurationSet` (§2.5c, ADR-0010 D-F). |
 | `s.summary()` | Return (not print) a human-readable string of all resolved parameters, grouped by namespace, with input units and provenance tags. |
 | `s.explain(dotpath=None)` | Return a string. With a dot-path: that parameter's value, units, provenance, and derivation chain. With no argument: evaluates the chain and returns a stage-by-stage walkthrough with intermediate values. |
 
@@ -156,6 +157,93 @@ Rows cover the union of metric names with units/descriptions from the metric reg
 metric absent from a config shows `None`, never a zero-fill. Best-per-metric marking is
 conservative: higher-is-better default, NEDT/GSD/FWHM lower-is-better, flags/codes unmarked.
 Raises `ComparisonError` (a `RadiantError`) on fewer than two configs or a bad baseline index.
+
+### 2.5c Configuration Sets — `ConfigurationSet` (ADR-0010, 2026-07-25)
+
+One study, up to **8** named *configurations* of the same modeling problem — band
+variants, geometry variants, nominal vs. as-built. The interaction model is CODE V zoom
+configurations: a parameter is **shared** by default; the user explicitly marks it
+**configured**, and it then carries **one value per configuration** (dense — never sparse).
+
+Terminology (ADR-0010 D-10): a **configuration** is a member of a configuration set; the
+on-disk YAML artifact is always called a **config file**.
+
+```python
+from radiant.api import ConfigurationSet, Sensor
+
+cs = ConfigurationSet(Sensor.from_yaml("examples/mwir_leo_minimal.yaml"),
+                      names=["MWIR", "LWIR"])
+cs.configure("spectral_integration.filter_min_um", [3.95, 8.0])   # one value per configuration
+cs.configure("spectral_integration.filter_max_um", [4.45, 12.0])
+cs.configure("detector.qe_value")            # seeded N-wide from the current shared value
+cs.set_value("detector.qe_value", "LWIR", 0.62)
+
+cs.base.set("optics.aperture_diameter_m", 0.35)   # a *shared* edit — all configurations
+
+run = cs.evaluate_all()                      # active configuration first
+run.result_for("LWIR").metrics["snr"]
+print(cs.compare(run).to_table())            # the §2.5b comparison matrix
+```
+
+**Model.** The set owns a **base** `Sensor` (the shared state — every parameter that is
+not configured lives there with one value for all) plus a **configured table**
+mapping dot-path → one value per configuration, in input units, aligned with `names()`.
+The **single-store invariant** (ADR-0010 D-B) is that a dot-path is in the base's
+explicit inputs *or* in the configured table, never both: `configure()` *moves* it,
+`unconfigure()` collapses it back. A consistency-group member that should be **derived**
+is simply absent from both, exactly as for a bare `Sensor`.
+
+**Materialization** is the only evaluation route — `sensor_for(name)` is
+`base.clone()` with that configuration's values set (provenance `source="config:<name>"`,
+see `RADIANT_Parameter_System.md` § Provenance) and its wavelength point count in force.
+Validation, bounds, enums, consistency groups, and defaults therefore all run per
+configuration inside the existing `ParameterSet.resolve()` — there is no second
+resolution engine, and `radiant.core` is untouched.
+
+| Member | Description |
+|--------|-------------|
+| `ConfigurationSet(base, names=None)` | Wrap a `Sensor` as the shared base. `names` defaults to a single `"Configuration 1"`. The base is **owned**, not copied — pass `sensor.clone()` to keep an independent handle. |
+| `ConfigurationSet.MAX_CONFIGS` | `8`. A ninth configuration raises `ConfigSetError` (ADR-0010 D-E). |
+| `cs.base` | The shared base `Sensor`. Editing it (`cs.base.set(...)`) edits the shared value of a parameter that is *not* configured. |
+| `cs.names()` / `len(cs)` / `name in cs` | Configuration names in set order; count; membership. |
+| `cs.add(name, *, copy_from=None)` | Append a configuration. Every configured parameter gains a value: copied from `copy_from` (the duplicate route), else from **configuration #1**. |
+| `cs.remove(name)` | Remove a configuration and drop its column. The last one cannot be removed; an active/baseline designation moves to the first remaining configuration. |
+| `cs.rename(old, new)` / `cs.reorder(names)` | Rename in place; reorder by a **permutation** of the current names (value columns permute with them, so alignment is preserved). |
+| `cs.configured()` | Read-only mapping dot-path → tuple of one value per configuration (input units). |
+| `cs.is_configured(dotpath)` | Whether a parameter carries per-configuration values. |
+| `cs.configure(dotpath, values=None)` | Promote a parameter. With `values` (length must equal the configuration count — dense, never padded); without, all configurations are seeded from the current shared value (base input → schema default → base-derived value). The parameter's base input is removed. |
+| `cs.unconfigure(dotpath, *, keep=None)` | Collapse back to one shared value. `keep=None` keeps **configuration #1**'s value (ADR-0010 D-6, what the GUI uses); `keep=<name>` is a scripting-only override. |
+| `cs.set_value(dotpath, config, value, *, unit=None)` | Set one configuration's value. `unit=` converts from the caller's native unit at this boundary, exactly as `Sensor.set`. |
+| `cs.set_values(dotpath, values)` | Replace the whole column (one value per configuration, in `names()` order). |
+| `cs.baseline` / `cs.active` | The delta reference used by `compare`, and the displayed configuration (GUI state; evaluated first). Assigning a non-member raises `ConfigSetError`. |
+| `cs.set_wavelength_points(config, n)` | Spectral grid point count for one configuration, or the shared default with `config=None`. The grid *span* is already per configuration for free — each materialized sensor spans its own resolved band (ADR-0010 D-F). |
+| `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). Later edits to the set do not reach it, and vice versa. |
+| `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolve-only, **no physics**. One configuration's failure never hides another's. |
+| `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). |
+| `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** (stable when `active` changes), delta reference = `cs.baseline`. |
+
+`ConfigSetRunResult` carries `entries` (a `ConfigRun` per configuration, in **evaluation
+order** — active first), `names`, `baseline`, `n_failed`, `failures` (name → error),
+`entry_for(name)`, and `result_for(name)`. A configuration whose evaluation raises a
+`RadiantError` becomes a recorded failure and the rest still run (Rule 17 — never dropped,
+never zero-filled); any other exception is a bug and propagates. `compare()` refuses to
+build a matrix with a missing column: it raises `ConfigSetError` **naming** the failed
+configurations.
+
+All errors raised on behalf of a configuration are `ConfigSetError` (a `RadiantError`)
+carrying the Rule 15 `what` / `why` / `action` / `context` payload, and every one of them
+names the configuration — including configured values rejected at **edit time**, since
+`configure` / `set_value` / `set_values` validate each value through the schema
+(type, bounds, enum, unit conversion) immediately rather than at evaluation.
+
+A set with one configuration and an empty configured table is observably identical to the
+bare `Sensor` it wraps — that degenerate case is the ordinary single-model session.
+
+**Not in Phase 1:** persistence (`ConfigurationSet.load` / `save` / `to_yaml` and the
+`configurations:` YAML section) lands with Phase 2 of
+`docs/plans/Multi_Configuration_Plan.md`. Also out of the v1 model: per-configuration
+tolerance distributions, per-configuration stage-output injections, per-configuration
+optical-element documents (ADR-0010 D-7), and sweeps of a whole set.
 
 ### 2.6 Optical-Element Documents — `radiant.api.config_io` (ADR-0009, 2026-07-16)
 
@@ -1042,6 +1130,17 @@ from radiant.api import (
 )
 ```
 
+Multi-configuration studies (§2.5c):
+
+```python
+from radiant.api import (
+    ConfigurationSet,     # up to 8 named configurations over one shared base Sensor
+    ConfigSetRunResult,   # from cs.evaluate_all()
+    ConfigRun,            # one configuration's (name, result | error)
+    ConfigSetError,       # RadiantError subclass; every message names the configuration
+)
+```
+
 Helper modules:
 
 ```python
@@ -1090,6 +1189,7 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `ChainResult` properties and methods (§3) | Stable across minor versions |
 | `ChainResult.signal_at_frame` / `noise_at_frame` | **Deprecated** — removed in 0.2.0 |
 | `SweepResult`, `Sweep2DResult`, `MonteCarloResult`, `SensitivityResult` public attributes | Stable |
+| `ConfigurationSet`, `ConfigSetRunResult`, `ConfigRun`, `ConfigSetError` (`radiant.api.config_set`, ADR-0010) | Stable; **growing** — `load`/`save`/`to_yaml` land in multi-config Phase 2 |
 | `ErrorBudget`, `BudgetContributor` (`radiant.api.error_budget`, Gaps 23+28) | Stable |
 | `SolveResult` (`radiant.api.solve`, Gap 10) | Stable |
 | `compare_mtf`, `MtfComparisonResult` (`radiant.api.compare`, Gap 30) | Stable |

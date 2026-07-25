@@ -1,0 +1,45 @@
+# RADIANT config — schema v1
+# External-validation scenario: Sentinel-2 MSI B03 SNR @ L_ref.
+# Provenance (every value cited): docs/validation/sentinel2_msi_source_data.md
+# Canonical comparison: scripts/run_external_validation.py; results:
+#   docs/reports/external_validation_2026-07/Findings.md
+#   ESA requirement SNR >= 168 @ L_ref = 128.0 W/m²/sr/µm; S2C measured n/a.
+# Design: flat user-radiance = L_ref through a vacuum (exo) — validates
+# aperture-to-electrons radiometry at the radiance the requirement is defined at.
+# The CSV path below resolves relative to this file's directory.
+
+source:
+  scene_type: extended
+  target_location: auto
+  target:
+    user_radiance_path: data/s2_msi_b03_lref.csv  # flat 128.0 W/m²/sr/µm
+
+atmosphere:
+  model: exo                     # vacuum — requirement is at-sensor
+
+geometry:
+  sensor_altitude_m: 786000.0    # m — published orbit
+  target_altitude_m: 0.0
+
+optics:
+  aperture_diameter_m: 0.150     # m — published pupil diameter
+  focal_length_m: 0.5895         # m — derived: p·h/GSD (self-consistent 10 m & 20 m)
+  transmission_scalar: 0.75      # - ASSUMPTION (envelope 0.60–0.85)
+
+detector:
+  pixel_pitch_x_um: 7.5          # µm — published
+  pixel_pitch_y_um: 7.5
+  qe_value: 0.55                  # - ASSUMPTION (see per-band envelope in data doc)
+  dark_rate_e_per_s: 100.0       # e-/s — assumption; non-binding at L_ref
+
+spectral_integration:
+  filter_min_um: 0.542300         # µm — band 50% edges (S2A, FWHM)
+  filter_max_um: 0.577300
+  integration_time_s: 1.505290e-03  # s — line time GSD/v_g (derived)
+
+readout:
+  n_tdi: 2                       # published "1 TDI stage for 2 lines" as 2-line charge sum
+  read_noise_e_rms: 15.0         # e- RMS — assumption (non-binding, shot-dominated)
+  full_well_capacity_e: 500000.0 # e- — analysis mode: sized above signal(Lmax), never clips
+  adc_bits: 12                   # — published
+  gain_e_per_dn: 122.0703125     # e-/DN — full well / 2^12

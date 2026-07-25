@@ -1,0 +1,46 @@
+# RADIANT config — schema v1
+# External-validation scenario: Landsat 8 TIRS B11 NEdT @ 300 K.
+# Provenance: docs/validation/landsat_tirs_source_data.md; canonical comparison:
+# scripts/run_external_validation.py; results: docs/reports/external_validation_2026-07/
+#   Spec NEdT 400 mK @ 300 K; measured 52 mK (Montanaro 2014b Table 2).
+# Design: 300 K unit-emissivity blackbody through a vacuum (the published NEdT is
+# measured against the onboard blackbody). qe_value carries the effective conversion
+# efficiency inverted from the published 370 K saturation temperature (well full
+# there by definition); the raw published band-average CE is 8.0e-3 — the two values
+# bracket the prediction (see Findings §2).
+
+source:
+  scene_type: extended
+  target:
+    temperature: 300.0           # K — validation reference scene
+    emissivity: 1.0              # - onboard-blackbody view
+
+atmosphere:
+  model: exo
+
+geometry:
+  sensor_altitude_m: 705000.0    # m — published orbit
+  target_altitude_m: 0.0
+
+optics:
+  aperture_diameter_m: 0.1085    # m — derived: 178 mm / f1.64 (both published)
+  focal_length_m: 0.178          # m — published
+  transmission_scalar: 0.49      # - published system model value (Jhabvala 2011)
+
+detector:
+  pixel_pitch_x_um: 25.0         # µm — published QWIP pitch
+  pixel_pitch_y_um: 25.0
+  qe_value: 0.0136              # - CE_eff, saturation-inverted (raw published: 8.0e-3)
+  dark_rate_e_per_s: 4.0e7       # e-/s — published
+
+spectral_integration:
+  filter_min_um: 11.5            # µm — published 50% response points
+  filter_max_um: 12.5
+  integration_time_s: 3.49e-3    # s — published (as flown)
+
+readout:
+  read_noise_e_rms: 260.0        # e- RMS — published ROIC typical (electronics spec
+                                 # ceiling adds to 1033 e- — upper bound in Findings)
+  full_well_capacity_e: 5.0e6    # e- — published
+  adc_bits: 12                   # — published
+  gain_e_per_dn: 1220.703125     # e-/DN — full well / 2^12

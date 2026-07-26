@@ -667,6 +667,58 @@ class TestSetValuesUnit:
         assert cs.configured()["geometry.sensor_altitude_m"] == before
 
 
+class TestConfigureUnit:
+    """``configure(values, unit=)`` — promote *and* set the column in one atomic call.
+
+    The GUI's *Configure across configurations…* flow (§4.2c) needs both halves to
+    land together, in whatever unit the analyst was typing in, so that one undo step
+    reverses the whole promotion. Without the unit the view would have to convert,
+    which Rule 2 forbids.
+    """
+
+    def test_supplied_column_is_converted_once_at_the_boundary(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("geometry.sensor_altitude_m", [450.0, 700.0], unit="km")
+        assert cs.configured()["geometry.sensor_altitude_m"] == pytest.approx(
+            (450_000.0, 700_000.0), rel=1e-12
+        )
+
+    def test_it_matches_configure_then_set_values(self) -> None:
+        """One atomic call must equal the two-step sequence it replaces."""
+        atomic = _set("A", "B")
+        atomic.configure("geometry.sensor_altitude_m", [450.0, 700.0], unit="km")
+
+        stepwise = _set("A", "B")
+        stepwise.configure("geometry.sensor_altitude_m", [0.0, 0.0])
+        stepwise.set_values("geometry.sensor_altitude_m", [450.0, 700.0], unit="km")
+
+        assert atomic.configured() == stepwise.configured()
+
+    def test_a_rejected_value_configures_nothing(self) -> None:
+        """Atomicity: the parameter must still be shared, and still in the base."""
+        cs = _set("A", "B")
+        before = cs.base.inputs().get("geometry.sensor_altitude_m")
+        with pytest.raises(ConfigSetError, match="'B'"):
+            cs.configure("geometry.sensor_altitude_m", [450.0, -700.0], unit="km")
+        assert cs.is_configured("geometry.sensor_altitude_m") is False
+        assert cs.base.inputs().get("geometry.sensor_altitude_m") == before
+
+    def test_a_unit_without_values_is_refused_actionably(self) -> None:
+        """A seeded column is already in input units — silently ignoring the unit
+        would be exactly the swallowed instruction Rule 17 forbids."""
+        cs = _set("A", "B")
+        with pytest.raises(ConfigSetError, match="no values"):
+            cs.configure("geometry.sensor_altitude_m", unit="km")
+        assert cs.is_configured("geometry.sensor_altitude_m") is False
+
+    def test_omitted_unit_is_the_input_unit_as_before(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("geometry.sensor_altitude_m", [450_000.0, 700_000.0])
+        assert cs.configured()["geometry.sensor_altitude_m"] == pytest.approx(
+            (450_000.0, 700_000.0), rel=1e-12
+        )
+
+
 class TestClone:
     """``clone()`` — the set-level thread-isolation snapshot (GUI Phase 4a)."""
 

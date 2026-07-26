@@ -85,6 +85,35 @@ REMOVE_DISPLAYED_POLICY = (
     "Removing the displayed configuration moves the display to the first remaining one."
 )
 
+# What the grid-points fields actually set (owner question 2026-07-26: "what are we
+# setting here?"). Stated in one place so the shared field, the column heading, and
+# every row box answer it identically — a number of *wavelength samples*, not a
+# spectral range and not a resolution in µm.
+SHARED_POINTS_TOOLTIP = (
+    "Number of wavelength samples in each configuration's spectral evaluation grid. "
+    "The grid spans that configuration's own filter_min_um → filter_max_um, so the "
+    "same point count means a finer grid over a narrower band. Every configuration "
+    "uses this number unless its own Grid points box overrides it. RADIANT's default "
+    "is 500 points; more points cost evaluation time, fewer risk under-resolving "
+    "narrow spectral features."
+)
+
+GRID_POINTS_COLUMN_TOOLTIP = (
+    "Per-configuration override of the number of wavelength samples in that "
+    "configuration's spectral evaluation grid (which spans its own filter_min_um → "
+    "filter_max_um). Blank means it inherits the shared grid-points value above."
+)
+
+
+def row_points_tooltip(shared_points: int | None) -> str:
+    """One row's Grid points tooltip, naming the shared value blank would inherit."""
+    inherited = "the study's shared value" if shared_points is None else f"{shared_points} points"
+    return (
+        "Number of wavelength samples in this configuration's spectral evaluation "
+        "grid, which spans its own filter_min_um → filter_max_um. Leave blank to "
+        f"inherit the study's shared value ({inherited}); RADIANT's default is 500."
+    )
+
 
 class ConfigurationManagerDialog(QDialog):
     """Create, name, order, and validate the configurations of one study.
@@ -151,13 +180,11 @@ class ConfigurationManagerDialog(QDialog):
         row.setSpacing(8)
         label = QLabel("Shared grid points", self)
         label.setObjectName("configManagerHeading")
+        label.setToolTip(SHARED_POINTS_TOOLTIP)
         editor = QLineEdit(self)
         editor.setObjectName("configManagerSharedPoints")
         editor.setValidator(QIntValidator(1, 1_000_000, editor))
-        editor.setToolTip(
-            "Spectral grid points every configuration uses unless its own row overrides "
-            "it. Trading evaluation cost against spectral resolution for the whole study."
-        )
+        editor.setToolTip(SHARED_POINTS_TOOLTIP)
         editor.editingFinished.connect(self._commit_shared_points)
         row.addWidget(label, 0)
         row.addWidget(editor, 0)
@@ -175,6 +202,8 @@ class ConfigurationManagerDialog(QDialog):
         for column, text in columns:
             label = QLabel(text, self)
             label.setObjectName("configManagerHeading")
+            if text == "Grid points":
+                label.setToolTip(GRID_POINTS_COLUMN_TOOLTIP)
             headings.addWidget(label, 0, column)
         layout.addLayout(headings)
 
@@ -306,10 +335,7 @@ class ConfigurationManagerDialog(QDialog):
             override = self._working.wavelength_points(name)
             points.setText("" if override is None else str(override))
             points.setPlaceholderText(f"shared: {shared_points} pts")
-            points.setToolTip(
-                "Spectral grid points for this configuration. Leave blank to use the "
-                f"study's shared default of {shared_points} points."
-            )
+            points.setToolTip(row_points_tooltip(shared_points))
             points.editingFinished.connect(lambda n=name: self._commit_points(n))
             self._points_editors[name] = points
 
@@ -623,4 +649,10 @@ def _full_text(exc: RadiantError) -> str:
     return str(exc)
 
 
-__all__ = ["REMOVE_DISPLAYED_POLICY", "ConfigurationManagerDialog"]
+__all__ = [
+    "GRID_POINTS_COLUMN_TOOLTIP",
+    "REMOVE_DISPLAYED_POLICY",
+    "SHARED_POINTS_TOOLTIP",
+    "ConfigurationManagerDialog",
+    "row_points_tooltip",
+]

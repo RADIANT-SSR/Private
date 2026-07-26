@@ -10,7 +10,9 @@ assert the contracts Phase 4b owes (plan §4 items 3–4, §6 "4b"):
    in set order.
 2. **Un-configure.** Keeps configuration #1's value as the shared value (D-6), states
    that value in the confirmation, and drops the badge everywhere.
-3. **Table editor.** One row per configuration; editing one row changes only that
+3. **Per-configuration editor.** The Parameter Editor opened on a configured parameter
+   shows one row per configuration (§4.2c; the stand-alone table dialog Phase 4b shipped
+   was retired into it on 2026-07-26, Rule 27); editing one row changes only that
    column; an out-of-bounds value is refused with the offending configuration named
    and the set is left **exactly** as it was (no half-commit); Cancel writes nothing.
 4. **Inline edit scope (D-8).** Editing a configured parameter while X is displayed
@@ -28,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox
+from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QMessageBox
 
 from radiant.api.config_set import ConfigurationSet
 from radiant.api.sensor import Sensor
@@ -42,8 +44,9 @@ from radiant.gui.widgets.configure_menu import (
     SINGLE_CONFIGURATION_HINT,
     unconfigure_text,
 )
-from radiant.gui.widgets.configured_values_dialog import ConfiguredValuesDialog
 from radiant.gui.widgets.field_row import FieldRow
+from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
+from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -230,40 +233,78 @@ class TestUnconfigure:
         assert cs.is_configured(_FILTER_MIN) is True
 
 
-class TestTableEditor:
-    def _dialog(self, window: RADIANTMainWindow, dotpath: str) -> ConfiguredValuesDialog:
-        """Build the dialog the window would open (without entering its modal loop).
+def _editor_dialog(window: RADIANTMainWindow, dotpath: str) -> ParameterEditorDialog:
+    """Build the Parameter Editor the window would open (no modal loop entered).
 
-        Mirrors ``_on_edit_configured_values`` exactly, including the display unit it
-        passes and the two-argument commit callback it builds (CU-211).
-        """
-        cs = window.configuration_set
-        assert cs is not None
-        return ConfiguredValuesDialog(
-            dotpath,
-            cs.base.parameter_def(dotpath),
-            cs.names(),
-            cs.configured()[dotpath],
-            lambda values, unit: window._commit_configured_values(dotpath, values, unit),
-            window.parameter_panel.display_unit(dotpath),
-            window,
-        )
+    Mirrors ``ParameterPanel.open_parameter_editor`` exactly, including the display
+    unit it passes (CU-211) and the session scope that puts the dialog into its
+    per-configuration mode for a configured parameter (§4.2c).
+    """
+    return ParameterEditorDialog(
+        window.sensor,
+        dotpath,
+        None,
+        window,
+        display_unit=window.parameter_panel.display_unit(dotpath),
+        scope=window.configuration_scope,
+    )
+
+
+def _capture_editor_dialogs(monkeypatch) -> list[ParameterEditorDialog]:  # type: ignore[no-untyped-def]
+    """Record every Parameter Editor raised, without entering a modal loop."""
+    opened: list[ParameterEditorDialog] = []
+    monkeypatch.setattr(ParameterEditorDialog, "exec", lambda self: opened.append(self) or 0)
+    return opened
+
+
+def _rows(dialog: ParameterEditorDialog) -> PerConfigurationValues:
+    """The dialog's per-configuration block (asserting it entered that mode)."""
+    block = dialog.per_configuration
+    assert block is not None, "expected the editor to open in per-configuration mode"
+    return block
+
+
+class TestPerConfigurationEditor:
+    """The owner's "one box for MWIR and one for LWIR" (2026-07-26)."""
 
     def test_one_row_per_configuration_seeded_with_its_value(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
-        dialog = self._dialog(window, _FILTER_MIN)
+        dialog = _editor_dialog(window, _FILTER_MIN)
         qtbot.addWidget(dialog)
-        assert dialog.names == ("MWIR", "LWIR")
-        assert [dialog.editor(i).text() for i in range(2)] == ["3.5", "8.0"]  # type: ignore[attr-defined]
+        rows = _rows(dialog)
+        assert rows.names == ("MWIR", "LWIR")
+        assert [rows.editor(i).text() for i in range(2)] == ["3.5", "8.0"]  # type: ignore[attr-defined]
+        # The single-value box gave way to them — one value surface, never two.
+        assert dialog.value_editor.isVisibleTo(dialog) is False
+
+    def test_editing_two_rows_commits_both_columns_and_undoes_as_one_step(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path
+    ) -> None:
+        window = _open_study(qtbot, tmp_path)
+        before = _configured(window, _FILTER_MIN)
+        depth = window._undo_stack.count()
+        dialog = _editor_dialog(window, _FILTER_MIN)
+        qtbot.addWidget(dialog)
+        rows = _rows(dialog)
+        rows.editor(0).setText("3.6")  # type: ignore[attr-defined]
+        rows.editor(1).setText("9.0")  # type: ignore[attr-defined]
+        _act(qtbot, window, lambda: dialog.apply(close=False))
+
+        assert _configured(window, _FILTER_MIN) == pytest.approx((3.6, 9.0), rel=1e-12)
+        assert window._undo_stack.count() == depth + 1  # one step, not two
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        assert _configured(window, _FILTER_MIN) == pytest.approx(before, rel=1e-12)
 
     def test_editing_one_row_changes_only_that_column(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
-        dialog = self._dialog(window, _FILTER_MIN)
+        dialog = _editor_dialog(window, _FILTER_MIN)
         qtbot.addWidget(dialog)
-        editor = dialog.editor(1)
+        editor = _rows(dialog).editor(1)
         assert isinstance(editor, QLineEdit)
         editor.setText("9.0")
-        _act(qtbot, window, dialog.apply_values)
+        _act(qtbot, window, lambda: dialog.apply(close=False))
 
         assert _configured(window, _FILTER_MIN) == pytest.approx((3.5, 9.0), rel=1e-12)
 
@@ -273,15 +314,17 @@ class TestTableEditor:
         """Atomicity: the API validates the whole column, so nothing half-commits."""
         window = _open_study(qtbot, tmp_path)
         before = _configured(window, _FILTER_MIN)
-        dialog = self._dialog(window, _FILTER_MIN)
+        dialog = _editor_dialog(window, _FILTER_MIN)
         qtbot.addWidget(dialog)
-        dialog.editor(0).setText("3.9")  # type: ignore[attr-defined]
-        dialog.editor(1).setText("-5.0")  # type: ignore[attr-defined]  # below the schema bound
-        dialog.apply_values()
+        rows = _rows(dialog)
+        rows.editor(0).setText("3.9")  # type: ignore[attr-defined]
+        rows.editor(1).setText("-5.0")  # type: ignore[attr-defined]  # below the schema bound
+        dialog.apply(close=False)
 
         # Neither the good MWIR value nor the bad LWIR one landed.
         assert _configured(window, _FILTER_MIN) == before
         assert dialog.error_frame.isVisibleTo(dialog)
+        assert dialog.result() != QDialog.DialogCode.Accepted  # still open, never accepted
         rendered = " ".join(label.text() for label in dialog.error_frame.findChildren(QLabel))
         assert "LWIR" in rendered
         assert "out of bounds" in rendered or "not a valid value" in rendered
@@ -289,11 +332,169 @@ class TestTableEditor:
     def test_cancel_leaves_the_set_untouched(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
         before = _configured(window, _FILTER_MIN)
-        dialog = self._dialog(window, _FILTER_MIN)
+        dialog = _editor_dialog(window, _FILTER_MIN)
         qtbot.addWidget(dialog)
-        dialog.editor(0).setText("4.2")  # type: ignore[attr-defined]
+        _rows(dialog).editor(0).setText("4.2")  # type: ignore[attr-defined]
         dialog.reject()
         assert _configured(window, _FILTER_MIN) == before
+
+    def test_tolerance_section_says_it_is_shared(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """ADR-0010 keeps tolerances on the shared parameter — the dialog says so."""
+        window = _open_study(qtbot, tmp_path)
+        dialog = _editor_dialog(window, _FILTER_MIN)
+        qtbot.addWidget(dialog)
+        note = dialog.tolerance_note
+        assert note is not None
+        assert note.isVisibleTo(dialog) is True
+        assert "configuration" in note.text()
+
+    def test_badge_route_opens_the_same_per_configuration_editor(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path, monkeypatch
+    ) -> None:
+        """Edit configured values… / the badge still opens per-configuration editing."""
+        window = _open_study(qtbot, tmp_path)
+        opened = _capture_editor_dialogs(monkeypatch)
+
+        window.configuration_scope.request_edit_values(_FILTER_MIN)
+
+        assert len(opened) == 1
+        assert opened[0].dotpath == _FILTER_MIN
+        assert _rows(opened[0]).names == ("MWIR", "LWIR")
+
+    def test_shared_parameter_route_explains_instead_of_opening(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path, monkeypatch
+    ) -> None:
+        window = _open_study(qtbot, tmp_path)
+        opened = _capture_editor_dialogs(monkeypatch)
+
+        window.configuration_scope.request_edit_values(_APERTURE)
+
+        assert opened == []
+        assert "configure it across configurations first" in window.statusBar().currentMessage()
+
+
+class TestConfigureFromTheEditorDialog:
+    """Owner question 3: "how do you set a variable to be configurable?" (§4.2c)."""
+
+    def test_affordance_expands_into_seeded_boxes_without_configuring(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path
+    ) -> None:
+        window = _open_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+        shared = cs.base.inputs()[_APERTURE]
+
+        dialog = _editor_dialog(window, _APERTURE)
+        qtbot.addWidget(dialog)
+        assert dialog.per_configuration is None
+        button = dialog.configure_button
+        assert button is not None and button.isVisibleTo(dialog)
+
+        button.click()
+
+        rows = _rows(dialog)
+        assert rows.names == ("MWIR", "LWIR")
+        assert [float(rows.editor(i).text()) for i in range(2)] == pytest.approx(  # type: ignore[attr-defined]
+            [shared, shared], rel=1e-12
+        )
+        # Staged only — clicking configured nothing (ADR-0010: Apply is the commit).
+        assert cs.is_configured(_APERTURE) is False
+
+    def test_cancel_after_expanding_leaves_the_parameter_shared(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+        before = cs.base.inputs()[_APERTURE]
+
+        dialog = _editor_dialog(window, _APERTURE)
+        qtbot.addWidget(dialog)
+        assert dialog.configure_button is not None
+        dialog.configure_button.click()
+        _rows(dialog).editor(0).setText("0.9")  # type: ignore[attr-defined]
+        dialog.reject()
+
+        assert cs.is_configured(_APERTURE) is False
+        assert cs.base.inputs()[_APERTURE] == pytest.approx(before, rel=1e-12)
+
+    def test_apply_configures_with_the_typed_column_and_one_undo_returns_it(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path
+    ) -> None:
+        window = _open_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+        before = cs.base.inputs()[_APERTURE]
+        depth = window._undo_stack.count()
+
+        dialog = _editor_dialog(window, _APERTURE)
+        qtbot.addWidget(dialog)
+        assert dialog.configure_button is not None
+        dialog.configure_button.click()
+        _rows(dialog).editor(1).setText("0.42")  # type: ignore[attr-defined]
+        _act(qtbot, window, lambda: dialog.apply(close=False))
+
+        assert cs.is_configured(_APERTURE) is True
+        assert _configured(window, _APERTURE) == pytest.approx((before, 0.42), rel=1e-12)
+        assert _APERTURE not in cs.base.inputs()  # single-store invariant (D-B)
+        assert window._undo_stack.count() == depth + 1
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+
+        assert cs.is_configured(_APERTURE) is False
+        assert cs.base.inputs()[_APERTURE] == pytest.approx(before, rel=1e-12)
+
+    def test_a_rejected_column_configures_nothing(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+
+        dialog = _editor_dialog(window, _APERTURE)
+        qtbot.addWidget(dialog)
+        assert dialog.configure_button is not None
+        dialog.configure_button.click()
+        _rows(dialog).editor(1).setText("-1.0")  # type: ignore[attr-defined]
+        dialog.apply(close=False)
+
+        assert cs.is_configured(_APERTURE) is False
+        assert dialog.error_frame.isVisibleTo(dialog)
+        rendered = " ".join(label.text() for label in dialog.error_frame.findChildren(QLabel))
+        assert "LWIR" in rendered
+
+    def test_single_configuration_session_answers_with_the_4b_hint(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Guarded, never silent — the same message and menu path the context menu gives."""
+        window = _open_plain(qtbot)
+        cs = window.configuration_set
+        assert cs is not None
+
+        dialog = _editor_dialog(window, _APERTURE)
+        qtbot.addWidget(dialog)
+        button = dialog.configure_button
+        assert button is not None
+        assert button.toolTip() == SINGLE_CONFIGURATION_HINT
+
+        button.click()
+
+        assert dialog.per_configuration is None
+        assert cs.is_configured(_APERTURE) is False
+        hint = dialog.configure_hint
+        assert hint is not None
+        assert hint.isVisibleTo(dialog) is True
+        assert hint.text() == SINGLE_CONFIGURATION_HINT
+
+    def test_a_configured_parameter_offers_no_configure_affordance(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_study(qtbot, tmp_path)
+        dialog = _editor_dialog(window, _FILTER_MIN)
+        qtbot.addWidget(dialog)
+        assert dialog.configure_button is None
+
+    def test_a_parentless_dialog_stays_single_valued(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """No scope reachable ⇒ exactly the pre-refinement dialog (zero regression)."""
+        window = _open_study(qtbot, tmp_path)
+        dialog = ParameterEditorDialog(window.sensor, _FILTER_MIN, None, None)
+        qtbot.addWidget(dialog)
+        assert dialog.per_configuration is None
+        assert dialog.configure_button is None
+        assert dialog.value_editor.isVisibleTo(dialog) is True
 
 
 class TestInlineEditScope:

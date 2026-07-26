@@ -22,6 +22,32 @@ registry can actually convert to the parameter's canonical unit, read through th
 that call (the sanctioned Rule-2 boundary). The canonical preview is computed the same
 way — on a throwaway ``sensor.clone()`` — so no unit maths is reimplemented in the view.
 
+**Multi-configuration (§4.2c, owner feedback 2026-07-26).** In a study this dialog is
+also the *per-configuration* editor — the owner's *"you should be able to set the value
+for all the configurations at one time … one box for MWIR and one for LWIR"*:
+
+* opened on a **configured** parameter it shows one seeded value box per configuration
+  (:class:`~radiant.gui.widgets.per_configuration_values.PerConfigurationValues` —
+  accent chip + name + editor + unit, in set order) instead of the single box, and
+  Apply commits the whole column in **one** ``set_values(..., unit=)`` call recorded as
+  one scoped undo step. A rejection names the offending configuration, commits nothing,
+  and keeps the dialog open;
+* opened on a **shared** parameter in a study it offers *Configure across
+  configurations…* — the answer to the owner's *"how do you set a variable to be
+  configurable?"*. Clicking **stages** the intent and expands the dialog in place into
+  the same seeded boxes; nothing is configured until Apply, which commits the promotion
+  and its values as the single atomic ``configure(dotpath, values, unit=)`` call — so
+  Cancel leaves the parameter shared and one undo returns it there. In a
+  single-configuration session the button answers with the same actionable hint the
+  4b context menu gives (``SINGLE_CONFIGURATION_HINT``), never a silent no-op.
+
+The dialog still makes no ``ConfigurationSet`` call itself: it writes through the
+:class:`~radiant.gui.config_scope.ConfigurationScope`'s committer, which is the window's
+own method, so the single API call and the undo command stay with the window (R-API).
+The scope is passed in, or found by walking the widget's ancestors
+(:func:`~radiant.gui.config_scope.scope_of`) — a parentless dialog simply gets the
+single-value behaviour.
+
 **Rejection (Rules 15/17).** A rejected value is validated on a throwaway
 ``sensor.clone()`` first, so the live sensor is never touched; the actionable error
 (what / why / action) renders **inside** the dialog and the dialog stays open for
@@ -62,6 +88,7 @@ from radiant.api.units import units_for
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.units import convert
+from radiant.gui.config_scope import scope_of
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -70,11 +97,14 @@ from radiant.gui.param_format import (
     provenance_label,
     safe_provenance,
 )
+from radiant.gui.widgets.configure_menu import CONFIGURE_TEXT, SINGLE_CONFIGURATION_HINT
+from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
     from radiant.core.parameters import ParameterDef
+    from radiant.gui.config_scope import ConfigurationScope
 
 # QSpinBox needs int limits when the schema declares no bounds for an int
 # parameter (layout geometry, not a design token). Mirrors the delegate's fallback.
@@ -92,6 +122,18 @@ _NO_UNIT_LABEL = "(none)"
 # Extra px added to the unit-combo popup width beyond the widest item's text advance,
 # covering the item margins and a possible scrollbar (layout geometry, not a token).
 _COMBO_POPUP_PADDING_PX = 40
+
+# Heading above the per-configuration value boxes (§4.2c multi-configuration mode).
+PER_CONFIGURATION_HEADING = "Value in each configuration"
+
+# The tolerance section keeps its base-level meaning in a study: ADR-0010 puts the
+# Monte-Carlo spread on the shared parameter, not on one configuration's column. Said
+# once, next to the section, rather than redesigning it (owner note 2026-07-26).
+TOLERANCE_SHARED_NOTE = "Shared by every configuration — a tolerance is not per-configuration."
+
+# Separator between per-configuration entries in the canonical preview, matching the
+# badge tooltip's ``MWIR: 3.5 um · LWIR: 8 um`` shape.
+_PREVIEW_SEPARATOR = " · "
 
 
 # Bundled reference-data tree, inside the package at src/radiant/data/tables/ (same
@@ -182,6 +224,12 @@ class ParameterEditorDialog(QDialog):
         The unit the value should open displayed in (owner feedback 2026-07-13) — the
         row's current display unit. Defaults to the schema ``input_unit``. If it is not
         soundly convertible from the input unit it falls back to the input unit.
+    scope:
+        The session's :class:`~radiant.gui.config_scope.ConfigurationScope`, which turns
+        this into the per-configuration editor for a configured parameter and offers the
+        *Configure across configurations…* affordance for a shared one (§4.2c). Omitted,
+        it is found by walking *parent*'s ancestors; ``None`` throughout leaves the
+        dialog in its single-value form.
     """
 
     def __init__(
@@ -191,6 +239,7 @@ class ParameterEditorDialog(QDialog):
         on_committed: Callable[[str, str | None], None] | None = None,
         parent: QWidget | None = None,
         display_unit: str | None = None,
+        scope: ConfigurationScope | None = None,
     ) -> None:
         super().__init__(parent)
         self._sensor = sensor
@@ -207,6 +256,19 @@ class ParameterEditorDialog(QDialog):
         provenance = safe_provenance(sensor, dotpath)
         self._read_only = is_derived(provenance)
 
+        # Multi-configuration state (§4.2c). ``_per_config`` is the live block of
+        # per-configuration boxes (None in single-value mode); ``_staged_configure``
+        # marks the boxes as a *staged* promotion that only Apply commits.
+        self._scope: ConfigurationScope | None = scope if scope is not None else scope_of(parent)
+        self._per_config: PerConfigurationValues | None = None
+        self._staged_configure = False
+        self._opened_configured = bool(
+            self._scope is not None
+            and self._scope.can_commit
+            and not self._read_only
+            and self._scope.is_configured(dotpath)
+        )
+
         self.setObjectName("parameterEditorDialog")
         self.setWindowTitle(f"Edit — {dotpath}")
         self.setModal(True)
@@ -218,15 +280,25 @@ class ParameterEditorDialog(QDialog):
         self._build_header(layout)
         self._build_info(layout, provenance)
         self._value_editor: QWidget = self._build_editor_row(layout)
+        self._build_per_configuration_section(layout)
+        self._build_configure_affordance(layout)
         # GT-2 tolerance annotation — placed BELOW the main value (owner request
         # 2026-07-17): the value is the headline, the Monte-Carlo spread annotates it.
         self._tol_distribution: QComboBox | None = None
         self._tol_params: dict[str, QLineEdit] = {}
+        self._tol_shared_note: QLabel | None = None
         if self._pdef.dtype is float and not self._read_only:
             self._build_tolerance_section(layout)
         self._build_preview(layout)
         self._build_error_area(layout)
         self._build_buttons(layout)
+
+        if self._opened_configured and self._scope is not None:
+            # Already configured: open straight into one box per configuration, seeded
+            # from the stored column (input units) and shown in the display unit.
+            self._enter_per_configuration(
+                self._scope.values_for(dotpath), self._pdef.input_unit or ""
+            )
 
         # Seed the canonical preview with the current resolved value (the "before").
         self._update_preview()
@@ -315,7 +387,7 @@ class ParameterEditorDialog(QDialog):
             start = combo.findData(self._display_unit)
             combo.setCurrentIndex(max(start, 0))
             combo.setEnabled(not self._read_only)
-            combo.currentIndexChanged.connect(self._update_preview)
+            combo.currentIndexChanged.connect(self._on_unit_changed)
             self._size_combo_popup(combo)
             row.addWidget(combo)
             self._unit_combo = combo
@@ -324,7 +396,148 @@ class ParameterEditorDialog(QDialog):
         container.setObjectName("paramEditorRow")
         container.setLayout(row)
         layout.addWidget(container)
+        self._editor_row_host = container
         return editor
+
+    def _on_unit_changed(self) -> None:
+        """Adopt the newly chosen unit: relabel any per-configuration rows, re-preview.
+
+        Like the single-value path, changing the unit **reinterprets** what is typed
+        rather than converting it — the one conversion still happens at the API
+        boundary, from the unit reported here.
+        """
+        if self._per_config is not None:
+            self._per_config.set_unit(self._chosen_unit() or "")
+        self._update_preview()
+
+    # -- multi-configuration mode (§4.2c) -----------------------------------
+
+    def _build_per_configuration_section(self, layout: QVBoxLayout) -> None:
+        """The (initially empty, hidden) host for the one-box-per-configuration block.
+
+        Built unconditionally so entering the mode — at open for a configured
+        parameter, or on the *Configure across configurations…* click for a shared one —
+        is a fill-and-show rather than a re-layout of the whole dialog.
+        """
+        host = QWidget(self)
+        host.setObjectName("paramEditorPerConfig")
+        box = QVBoxLayout(host)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(6)
+
+        header = QHBoxLayout()
+        header.setSpacing(8)
+        heading = QLabel(PER_CONFIGURATION_HEADING, host)
+        heading.setObjectName("geoModeGroupHeading")
+        header.addWidget(heading)
+        header.addStretch(1)
+        box.addLayout(header)
+
+        host.setVisible(False)
+        layout.addWidget(host)
+        self._per_config_host = host
+        self._per_config_box = box
+        self._per_config_header = header
+
+    def _build_configure_affordance(self, layout: QVBoxLayout) -> None:
+        """*Configure across configurations…* — the discoverability answer (owner Q3).
+
+        Offered for an editable **shared** parameter whenever the session has a
+        document. It is deliberately offered in a single-configuration session too and
+        answers there with the 4b hint naming ``Edit → Configurations…``, exactly as the
+        context-menu action does — a hidden control cannot teach the analyst that the
+        capability exists (Rule 17's spirit for UI state).
+        """
+        self._configure_button: QPushButton | None = None
+        self._configure_hint: QLabel | None = None
+        scope = self._scope
+        if scope is None or not scope.can_commit or self._read_only or self._opened_configured:
+            return
+
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        button = QPushButton(CONFIGURE_TEXT, self)
+        button.setObjectName("paramEditorConfigureButton")
+        button.setToolTip(
+            "Give this parameter its own value in every configuration, then set them "
+            "all here."
+            if scope.is_multi()
+            else SINGLE_CONFIGURATION_HINT
+        )
+        button.clicked.connect(self._on_configure_clicked)
+        row.addWidget(button)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        hint = QLabel("", self)
+        hint.setObjectName("paramEditorConfigureHint")
+        hint.setWordWrap(True)
+        hint.setVisible(False)
+        layout.addWidget(hint)
+
+        self._configure_button = button
+        self._configure_hint = hint
+
+    def _on_configure_clicked(self) -> None:
+        """Stage a configure and expand into per-configuration boxes (nothing committed).
+
+        The parameter becomes configured only on **Apply**, as one atomic
+        ``configure(dotpath, values, unit=)`` call — so Cancel leaves it shared and
+        untouched, and one undo reverses the whole promotion. A single-configuration
+        session gets the actionable hint instead, and nothing expands.
+        """
+        scope = self._scope
+        if scope is None:
+            return
+        if not scope.is_multi():
+            if self._configure_hint is not None:
+                self._configure_hint.setText(SINGLE_CONFIGURATION_HINT)
+                self._configure_hint.setVisible(True)
+            return
+        # Seed every configuration from what the editor currently holds — already in
+        # the dialog's display unit, so the block must not convert it a second time.
+        seed = self._editor_value()
+        self._staged_configure = True
+        self._enter_per_configuration([seed] * len(scope.names()), self._display_unit)
+        if self._configure_button is not None:
+            self._configure_button.setVisible(False)
+        if self._configure_hint is not None:
+            self._configure_hint.setVisible(False)
+
+    def _enter_per_configuration(self, values: Any, source_unit: str) -> None:
+        """Swap the single value box for one box per configuration, seeded from *values*."""
+        scope = self._scope
+        if scope is None:
+            return
+        block = PerConfigurationValues(
+            self._pdef,
+            scope.names(),
+            list(values),
+            self._display_unit,
+            self._per_config_host,
+            source_unit=source_unit,
+        )
+        block.valueChanged.connect(self._update_preview)
+        self._per_config_box.addWidget(block)
+        self._per_config = block
+
+        # The unit selector governs the whole column (one schema entry, one dimension),
+        # so it moves up beside the heading rather than being duplicated per row.
+        if self._unit_combo is not None:
+            self._per_config_header.addWidget(self._unit_combo)
+        self._editor_row_host.setVisible(False)
+        self._per_config_host.setVisible(True)
+        if self._tol_shared_note is not None:
+            self._tol_shared_note.setVisible(True)
+        if not self._staged_configure:
+            self._current_label.setText(scope.summary(self._dotpath))
+
+    def _write_unit(self) -> str | None:
+        """The unit to hand the API for a column write (``None`` = schema input unit)."""
+        unit = self._chosen_unit()
+        if not unit or unit == (self._pdef.input_unit or ""):
+            return None
+        return unit
 
     def _size_combo_popup(self, combo: QComboBox) -> None:
         """Size the unit combo + its popup to its widest item (owner punch-list item 1).
@@ -534,6 +747,15 @@ class ParameterEditorDialog(QDialog):
         heading = QLabel("Tolerance (Monte Carlo)", self)
         heading.setObjectName("geoModeGroupHeading")
         layout.addWidget(heading)
+        # Only shown in per-configuration mode, where "which configuration does this
+        # spread belong to?" is a real question: it belongs to all of them (ADR-0010
+        # keeps tolerances on the shared parameter).
+        note = QLabel(TOLERANCE_SHARED_NOTE, self)
+        note.setObjectName("paramEditorDescription")
+        note.setWordWrap(True)
+        note.setVisible(False)
+        layout.addWidget(note)
+        self._tol_shared_note = note
         row_host = QWidget(self)
         row = QHBoxLayout(row_host)
         row.setContentsMargins(0, 0, 0, 0)
@@ -600,6 +822,9 @@ class ParameterEditorDialog(QDialog):
         """
         if self._read_only:
             return
+        if self._per_config is not None:
+            self._apply_per_configuration(close)
+            return
         value = self._editor_value()
         unit = self._chosen_unit()
         canonical, rejection, unexpected = self._try_resolve(value, unit)
@@ -633,6 +858,73 @@ class ParameterEditorDialog(QDialog):
             self._on_committed(self._dotpath, unit)
         if close:
             self.accept()
+
+    def _apply_per_configuration(self, close: bool) -> None:
+        """Commit the whole column (and, if staged, the promotion) in one API call.
+
+        The scope's committer performs exactly one ``ConfigurationSet`` call —
+        ``configure(dotpath, values, unit=)`` when this Apply is also the promotion of a
+        still-shared parameter, ``set_values(dotpath, values, unit=)`` when the column
+        already exists — and records **one** scoped undo step, so undo restores both the
+        values and the store they live in. The API validates every value before it
+        writes anything, so a rejection (which names the offending configuration) leaves
+        the set exactly as it was; it renders inline and the dialog stays open.
+        """
+        scope = self._scope
+        block = self._per_config
+        if scope is None or block is None:
+            return
+        rejection = scope.commit_values(
+            self._dotpath,
+            block.values(),
+            self._write_unit(),
+            configure=self._staged_configure,
+        )
+        if rejection is not None:
+            self._show_error(rejection)
+            return
+        self._staged_configure = False
+        self._opened_configured = True
+
+        # Values first, then the (shared, base-level) tolerance: a value rejection must
+        # leave the whole action uncommitted, which only holds if nothing precedes it.
+        tol_error = self._apply_tolerance()
+        if tol_error is not None:
+            self._show_error(f"Tolerance not applied — {tol_error}")
+            return
+
+        self._clear_error()
+        self._current_label.setText(scope.summary(self._dotpath))
+        self._update_preview()
+        if self._on_committed is not None:
+            self._on_committed(self._dotpath, self._chosen_unit())
+        if close:
+            self.accept()
+
+    def _per_configuration_preview(self) -> str:
+        """``= MWIR: 3.5 um · LWIR: 8 um`` — every configuration's **canonical** value.
+
+        The single-value dialog previews one canonical number; with N boxes that line
+        would be a lie, so it becomes N named canonical values — what each configuration
+        will actually hold once Apply lands. The conversion routes through the public
+        registry seam, and a value that cannot yet be resolved (mid-typing, or a
+        non-numeric parameter) drops the whole line to the visible not-yet-known state
+        rather than showing a partial answer.
+        """
+        block = self._per_config
+        scope = self._scope
+        if block is None or scope is None:
+            return _PREVIEW_UNSET
+        chosen = self._chosen_unit() or ""
+        canonical_unit = self._pdef.canonical_unit
+        parts: list[str] = []
+        for name, value in zip(scope.names(), block.values(), strict=False):
+            try:
+                canonical = display_in_unit(float(value), chosen, canonical_unit, canonical_unit)
+            except (TypeError, ValueError, KeyError):
+                return _PREVIEW_UNSET
+            parts.append(f"{name}: {format_value(canonical, canonical_unit)}")
+        return f"= {_PREVIEW_SEPARATOR.join(parts)}" if parts else _PREVIEW_UNSET
 
     def _try_resolve(
         self, value: Any, unit: str | None
@@ -730,6 +1022,9 @@ class ParameterEditorDialog(QDialog):
         actual actionable error (Rule 17).
         """
         if self._unit_combo is None:
+            return
+        if self._per_config is not None:
+            self._preview_label.setText(self._per_configuration_preview())
             return
         canonical, _rejection, _unexpected = self._try_resolve(
             self._editor_value(), self._chosen_unit()
@@ -867,8 +1162,32 @@ class ParameterEditorDialog(QDialog):
         """The inline error area (visible only after a rejected Apply)."""
         return self._error_frame
 
+    # -- accessors: multi-configuration mode (§4.2c) ------------------------
+
+    @property
+    def per_configuration(self) -> PerConfigurationValues | None:
+        """The one-box-per-configuration block, or ``None`` in single-value mode."""
+        return self._per_config
+
+    @property
+    def configure_button(self) -> QPushButton | None:
+        """The *Configure across configurations…* affordance (``None`` when not offered)."""
+        return self._configure_button
+
+    @property
+    def configure_hint(self) -> QLabel | None:
+        """The inline hint the affordance answers with in a single-configuration session."""
+        return self._configure_hint
+
+    @property
+    def tolerance_note(self) -> QLabel | None:
+        """The "tolerances are shared" clarifier (visible only in per-configuration mode)."""
+        return self._tol_shared_note
+
 
 __all__ = [
+    "PER_CONFIGURATION_HEADING",
+    "TOLERANCE_SHARED_NOTE",
     "ParameterEditorDialog",
     "convertible_units",
     "default_browse_dir",

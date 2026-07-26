@@ -550,13 +550,29 @@ class ConfigurationSet:
         """True when *dotpath* carries one value per configuration."""
         return self._canonical(dotpath) in self._configured
 
-    def configure(self, dotpath: str, values: Sequence[Any] | None = None) -> None:
+    def configure(
+        self,
+        dotpath: str,
+        values: Sequence[Any] | None = None,
+        *,
+        unit: str | None = None,
+    ) -> None:
         """Promote *dotpath* to a configured parameter (one value per configuration).
 
         With *values*, they are used directly (length must equal the number of
         configurations — dense, never padded). Without, all configurations are
         seeded from the parameter's current **shared** value: the base's
         explicit input when it has one, otherwise its resolved default.
+
+        With ``unit``, **every** supplied value is read in the caller's unit and
+        converted at this boundary (Rule 2), exactly as :meth:`set_values` does;
+        one unit applies to the whole column, because a configured parameter has
+        one schema entry and therefore one dimension. It is only meaningful
+        alongside explicit *values* — a seeded column is already in input units —
+        and passing it without them is refused rather than silently ignored.
+        This is what lets a caller promote a parameter **and** set its
+        per-configuration values in one atomic call, in whatever unit the user
+        typed (the GUI's *Configure across configurations…* flow, §4.2c).
 
         Every seeded or supplied value is validated through the schema
         immediately (type, bounds, enum — the same checks ``Sensor.set``
@@ -577,13 +593,24 @@ class ConfigurationSet:
                 context={"param": name},
             )
         if values is None:
+            if unit is not None:
+                raise ConfigSetError(
+                    what=f"configure({name!r}, unit={unit!r}) was given a unit but no values",
+                    why="a seeded column is taken from the parameter's current shared "
+                    "value, which is already in its input unit — there is nothing to "
+                    "convert",
+                    action=f"Pass the values you mean, e.g. configure({name!r}, "
+                    f"[...], unit={unit!r}), or drop the unit to seed from the "
+                    "shared value.",
+                    context={"param": name, "unit": unit},
+                )
             seed = self._shared_seed(name)
             column = [seed] * len(self._names)
         else:
             column = list(values)
             self._check_column_length(name, column)
         validated = tuple(
-            self._validated(name, value, config)
+            self._validated(name, value, config, unit=unit)
             for value, config in zip(column, self._names, strict=True)
         )
         # Move, never copy: clearing the base input is what makes the

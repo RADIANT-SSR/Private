@@ -273,7 +273,7 @@ gui/
 │   ├── configuration_shape_command.py       # ConfigurationShape(+Command) — shape undo (4c)
 │   ├── configure_menu.py                    # the three configured-parameter context actions (4b)
 │   ├── configured_badge.py                  # ConfiguredBadge + the painted red "C" icon (4b)
-│   ├── configured_values_dialog.py          # ConfiguredValuesDialog — all-configurations table (4b)
+│   ├── configured_name_delegate.py          # ConfiguredNameDelegate — tree "C" after the name
 │   ├── detector_illustration.py             # DetectorIllustration
 │   ├── detector_inputs_form.py              # DetectorInputsForm
 │   ├── explain_dialog.py                    # ExplainDialog
@@ -296,6 +296,7 @@ gui/
 │   ├── parameter_delegate.py                # ReadOnlyCellDelegate
 │   ├── parameter_editor_dialog.py           # ParameterEditorDialog
 │   ├── parameter_panel.py                   # ParameterPanel
+│   ├── per_configuration_values.py          # PerConfigurationValues — one box per configuration
 │   ├── performance_metrics_form.py          # PerformanceMetricsForm
 │   ├── pin_picker_dialog.py                 # PinPickerDialog
 │   ├── pinned_card.py                       # PinnedCard

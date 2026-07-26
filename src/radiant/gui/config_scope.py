@@ -28,6 +28,7 @@ state plumbing over the public :mod:`radiant.api` surface.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QObject, Signal
@@ -36,6 +37,15 @@ from radiant.gui.param_format import format_value
 
 if TYPE_CHECKING:
     from radiant.api.config_set import ConfigurationSet
+    from radiant.core.exceptions import RadiantError
+
+# The host's whole-column writer: ``(dotpath, values, unit, configure) -> rejection``.
+# ``configure`` is True when the parameter is still shared and this write is the
+# moment it becomes configured (one atomic ``configure(dotpath, values, unit=)``);
+# False when it already has a column (``set_values``). Returning the API's
+# ``RadiantError`` keeps the caller's dialog open with the rejection rendered;
+# returning None means the write landed and is on the undo stack.
+CommitValues = Callable[[str, Sequence[Any], str | None, bool], "RadiantError | None"]
 
 # Separator between per-configuration entries in a badge tooltip, e.g.
 # "MWIR: 3.5 µm · LWIR: 8.0 µm" (the owner's Phase 4b spec, plan §4 item 3).
@@ -56,7 +66,7 @@ class ConfigurationScope(QObject):
     unconfigureRequested(str):
         The user asked to collapse a configured dot-path back to a shared value.
     editValuesRequested(str):
-        The user asked to open the per-parameter all-configurations table editor.
+        The user asked to open the parameter's per-configuration value editor.
     """
 
     changed = Signal()
@@ -67,6 +77,7 @@ class ConfigurationScope(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._config_set: ConfigurationSet | None = None
+        self._committer: CommitValues | None = None
 
     # -- binding ------------------------------------------------------------
 
@@ -155,8 +166,74 @@ class ConfigurationScope(QObject):
         self.unconfigureRequested.emit(dotpath)
 
     def request_edit_values(self, dotpath: str) -> None:
-        """Ask the host to open *dotpath*'s all-configurations table editor."""
+        """Ask the host to open *dotpath*'s per-configuration editor."""
         self.editValuesRequested.emit(dotpath)
 
+    # -- whole-column writes (the one synchronous request) ------------------
 
-__all__ = ["ConfigurationScope"]
+    def set_committer(self, committer: CommitValues | None) -> None:
+        """Install the host's whole-column writer (the window installs it once).
+
+        The three actions above are *asynchronous* intent: the window acts and the
+        surfaces re-read themselves from ``changed``. Writing a whole column from a
+        dialog is different — the dialog must know, **synchronously**, whether the API
+        accepted it, because a rejection has to render inline and keep the dialog open
+        (Rules 15/17). A Qt signal cannot answer, so the write is a callback. It still
+        keeps R-API intact: the callback is the *window's* method, so the single
+        ``ConfigurationSet`` call and the one undo command stay where they belong.
+        """
+        self._committer = committer
+
+    @property
+    def can_commit(self) -> bool:
+        """True when a bound set **and** a host writer make a column write possible."""
+        return self._config_set is not None and self._committer is not None
+
+    def commit_values(
+        self,
+        dotpath: str,
+        values: Sequence[Any],
+        unit: str | None,
+        *,
+        configure: bool,
+    ) -> RadiantError | None:
+        """Write *dotpath*'s whole column through the host; return any rejection.
+
+        *unit* is the unit **every** value is expressed in (``None`` = the schema input
+        unit); the API converts once at its own boundary (Rule 2). *configure* marks the
+        write that also promotes a still-shared parameter, which the host performs as
+        the single atomic ``configure(dotpath, values, unit=)`` call — so a staged
+        configure and its values land, and undo, as one step.
+
+        Raises :class:`RuntimeError` when no committer is installed: that is a wiring
+        bug, never a user input, and silently dropping the analyst's whole column would
+        be exactly the swallowed failure Rule 17 forbids.
+        """
+        if self._committer is None:
+            raise RuntimeError(
+                "ConfigurationScope has no committer installed — "
+                "the host window must call set_committer() before offering column edits"
+            )
+        return self._committer(dotpath, values, unit, configure)
+
+
+def scope_of(node: QObject | None) -> ConfigurationScope | None:
+    """The session :class:`ConfigurationScope` owning *node*, by ancestor walk.
+
+    Every configured-parameter surface is a descendant of the one window that owns the
+    scope, and the window exposes it as ``configuration_scope``. Walking up from a
+    widget therefore finds the session's scope without threading it through the ten
+    places that open the Parameter Editor — and, unlike a module-level singleton, it
+    stays per-window, so two windows in one process (the test suite's normal state)
+    never share a scope. A widget with no such ancestor — a dialog built parentless in
+    a unit test — gets ``None`` and the single-value behaviour.
+    """
+    while node is not None:
+        candidate = getattr(node, "configuration_scope", None)
+        if isinstance(candidate, ConfigurationScope):
+            return candidate
+        node = node.parent()
+    return None
+
+
+__all__ = ["CommitValues", "ConfigurationScope", "scope_of"]

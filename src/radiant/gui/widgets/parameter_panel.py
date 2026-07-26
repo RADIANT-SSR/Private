@@ -36,9 +36,10 @@ tree:
 Multi-configuration Phase 4b adds, on top of that, the configured-parameter surface
 (ADR-0010 D-2): given a :class:`~radiant.gui.config_scope.ConfigurationScope`, a row
 whose dot-path carries one value per configuration is marked with the small red "C"
-(painted decoration on the Parameter column, tooltip listing **every** configuration's
+(painted by ``ConfiguredNameDelegate`` immediately **right** of the name text in the
+Parameter column — owner 2026-07-26 — with a tooltip listing **every** configuration's
 value with units), and the right-click menu grows the three scope actions — configure
-across configurations, edit the all-configurations table, un-configure. The panel makes
+across configurations, edit every configuration's value, un-configure. The panel makes
 no ``ConfigurationSet`` call itself: it renders the scope and emits intent through it,
 and the window performs the single API call and records the undoable command (R-API).
 
@@ -51,7 +52,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -78,7 +78,10 @@ from radiant.gui.param_format import (
 )
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.configure_menu import add_configuration_actions
-from radiant.gui.widgets.configured_badge import configured_badge_icon
+from radiant.gui.widgets.configured_name_delegate import (
+    CONFIGURED_ROLE,
+    ConfiguredNameDelegate,
+)
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.parameter_delegate import (
     DOTPATH_ROLE,
@@ -102,9 +105,10 @@ _COLUMNS: tuple[str, ...] = ("Parameter", "Value", "Source")
 # and the both-directions schema-match test). Shared with the edit delegate.
 _DOTPATH_ROLE = DOTPATH_ROLE
 
-# Item-data role flagging a row as configured (one value per configuration). Tests
-# and the badge refresh read it; it never collides with the delegate's own roles.
-CONFIGURED_ROLE = int(Qt.ItemDataRole.UserRole) + 2
+# ``CONFIGURED_ROLE`` — the item-data role flagging a row as configured (one value per
+# configuration) — is imported above rather than defined here: it belongs with the
+# delegate that paints from it (``configured_name_delegate``), so the writer and the
+# painter cannot drift. It is re-exported from this module for tests and callers.
 
 _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
 
@@ -190,9 +194,12 @@ class ParameterPanel(QWidget):
         )
         self._tree.setItemDelegateForColumn(1, self._delegate)
         # Parameter (name) + Source columns never open an in-place editor: a
-        # double-click there opens the full ParameterEditorDialog instead (§4.3).
+        # double-click there opens the full ParameterEditorDialog instead (§4.3). The
+        # Parameter column additionally paints the configured "C" immediately right of
+        # the name text (owner 2026-07-26) — a decoration icon can only sit left of it.
         self._readonly_delegate = ReadOnlyCellDelegate(self._tree)
-        self._tree.setItemDelegateForColumn(0, self._readonly_delegate)
+        self._name_delegate = ConfiguredNameDelegate(self._tree)
+        self._tree.setItemDelegateForColumn(0, self._name_delegate)
         self._tree.setItemDelegateForColumn(2, self._readonly_delegate)
         # Double-click on any column other than Value opens the detail editor dialog.
         self._tree.doubleClicked.connect(self._on_double_click)
@@ -276,16 +283,20 @@ class ParameterPanel(QWidget):
             self._apply_badge(item, dotpath)
 
     def _apply_badge(self, item: QTreeWidgetItem, dotpath: str) -> None:
-        """Mark (or unmark) one row as configured — decoration + tooltip + role flag."""
+        """Mark (or unmark) one row as configured — role flag + tooltip.
+
+        The marker itself is painted by :class:`ConfiguredNameDelegate` from the role
+        set here, *after* the name text (owner 2026-07-26), so no decoration icon is
+        set: Qt would paint that to the left of the name, which is the placement the
+        owner asked us to move away from.
+        """
         scope = self._scope
         configured = scope is not None and scope.is_configured(dotpath)
         item.setData(0, CONFIGURED_ROLE, True if configured else None)
         if configured and scope is not None:
             summary = scope.summary(dotpath)
-            item.setIcon(0, configured_badge_icon())
             item.setToolTip(0, f"{dotpath}\nConfigured — {summary}")
         else:
-            item.setIcon(0, QIcon())
             item.setToolTip(0, self._base_tooltip(dotpath))
 
     def _base_tooltip(self, dotpath: str) -> str:
@@ -668,12 +679,21 @@ class ParameterPanel(QWidget):
         self._open_editor_dialog(str(dotpath))
 
     def _open_editor_dialog(self, dotpath: str) -> None:
-        """Open the full-detail Parameter Editor for *dotpath* (both entry points).
+        """Open the full-detail Parameter Editor for *dotpath* (both entry points)."""
+        self.open_parameter_editor(dotpath)
 
-        The dialog owns the value + unit entry, the canonical preview, and the inline
-        actionable-error surface; an accepted edit calls back into
+    def open_parameter_editor(self, dotpath: str, parent: QWidget | None = None) -> None:
+        """Open the full-detail Parameter Editor for *dotpath* (the one editor).
+
+        The dialog owns the value + unit entry (or, for a configured parameter in a
+        study, one value box per configuration — §4.2c), the canonical preview, and the
+        inline actionable-error surface; an accepted edit calls back into
         :meth:`_after_dialog_commit`, which refreshes the tree and marks results stale
         exactly as an in-place edit does.
+
+        Public because the window raises the same dialog for the *Edit configured
+        values…* / badge route: one parameter, one editor, whatever its scope (Rule 27).
+        *parent* overrides the dialog's owner so the window can centre it on itself.
         """
         if self._sensor is None:
             return
@@ -681,8 +701,9 @@ class ParameterPanel(QWidget):
             self._sensor,
             dotpath,
             self._after_dialog_commit,
-            self,
+            parent if parent is not None else self,
             display_unit=self.display_unit(dotpath),
+            scope=self._scope,
         )
         dialog.exec()
 

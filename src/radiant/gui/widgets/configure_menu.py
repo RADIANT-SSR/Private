@@ -17,7 +17,7 @@ command (R-API).
   (:data:`CONFIGURATIONS_MENU_PATH`); a silently disabled or absent item would leave
   the analyst guessing (Rule 17's spirit for UI state).
 * **Edit configured values…** — shown for a *configured* parameter; opens the
-  all-configurations table.
+  Parameter Editor in its per-configuration mode (§4.2c).
 * **Un-configure (keep <first>'s value)…** — shown for a *configured* parameter, and
   named with the configuration whose value survives (ADR-0010 D-6) so the collapse is
   never a surprise physics change; the window's confirmation states the kept value

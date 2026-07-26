@@ -21,9 +21,9 @@ Numbers are never re-derived here: every expected cell string is computed from t
 public ``run.result_for(<name>).metric_records()`` surface, so a test failure means the
 GUI diverged from the API, not that a physics value moved.
 
-Window-release discipline (CU-212): this module opens one main window per test, and the
-GUI suite ends with an app-wide theme re-polish that walks every live widget. Windows are
-closed, deleted, and drained after each test.
+Window-release discipline (CU-212): this module opens one main window per test; the
+session-wide ``_release_widgets`` fixture in ``conftest.py`` closes, deletes, and drains
+them after each test.
 """
 
 from __future__ import annotations
@@ -36,7 +36,6 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from radiant.api.config_set import ConfigurationSet  # noqa: E402
 from radiant.api.sensor import Sensor  # noqa: E402
@@ -63,19 +62,6 @@ _WAIT_MS = 20000  # headroom over an 8-configuration evaluate-all pass
 _GSD = "gsd_geometric_mean_m"
 _WELL_MARGIN = "well_margin_dB"
 
-_OPEN_WINDOWS: list[RADIANTMainWindow] = []
-
-
-@pytest.fixture(autouse=True)
-def _release_windows() -> Any:  # type: ignore[misc]
-    """Close, delete, and drain every window this module opened, after each test."""
-    yield
-    while _OPEN_WINDOWS:
-        window = _OPEN_WINDOWS.pop()
-        window.close()
-        window.deleteLater()
-    QApplication.processEvents()
-
 
 # ---------------------------------------------------------------------------
 # Fixtures — three-configuration studies
@@ -100,7 +86,6 @@ def _open(qtbot, path: Path) -> RADIANTMainWindow:  # type: ignore[no-untyped-de
     """Open *path* as a study and await its first evaluate-all pass."""
     window = RADIANTMainWindow(config_set=ConfigurationSet.load(path), path=str(path))
     qtbot.addWidget(window)
-    _OPEN_WINDOWS.append(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window
@@ -114,7 +99,6 @@ def _open_plain(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
     """Open the shipped single-configuration example and await its first pass."""
     window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
     qtbot.addWidget(window)
-    _OPEN_WINDOWS.append(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window

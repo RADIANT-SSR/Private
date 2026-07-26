@@ -34,7 +34,6 @@ from typing import Any
 
 import pytest
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
     QInputDialog,
     QLabel,
@@ -62,23 +61,8 @@ _F_NUMBER = "optics.f_number"
 _WAIT_MS = 20000  # headroom over an 8-configuration evaluate-all pass
 
 
-# Windows opened by the helpers below, released after each test — the module-local
-# form of the CU-212 house-keeping Phase 4b introduced. pytest-qt closes a registered
-# widget at teardown but does not force its C++ deletion, and the GUI suite ends with
-# an app-wide theme re-polish that walks every live widget. The manager dialogs are
-# children of their window, so releasing the window releases them too.
-_OPEN_WINDOWS: list[RADIANTMainWindow] = []
-
-
-@pytest.fixture(autouse=True)
-def _release_windows() -> Any:  # type: ignore[misc]
-    """Close, delete, and drain every window this module opened, after each test."""
-    yield
-    while _OPEN_WINDOWS:
-        window = _OPEN_WINDOWS.pop()
-        window.close()
-        window.deleteLater()
-    QApplication.processEvents()
+# Window release is the session-wide ``_release_widgets`` fixture's job (conftest.py,
+# CU-212); the manager dialogs are children of their window and go with it.
 
 
 def _dual_band_study(tmp_path: Path) -> Path:
@@ -96,7 +80,6 @@ def _open_study(qtbot, tmp_path: Path) -> RADIANTMainWindow:  # type: ignore[no-
     path = _dual_band_study(tmp_path)
     window = RADIANTMainWindow(config_set=ConfigurationSet.load(path), path=str(path))
     qtbot.addWidget(window)
-    _OPEN_WINDOWS.append(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window
@@ -106,7 +89,6 @@ def _open_plain(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
     """Open the shipped single-configuration example and await its first pass."""
     window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
     qtbot.addWidget(window)
-    _OPEN_WINDOWS.append(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window

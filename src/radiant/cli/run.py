@@ -10,10 +10,21 @@ from pathlib import Path
 import click
 import numpy as np
 
+from radiant import RadiantError
+from radiant.api.sensor import Sensor
 from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
+from radiant.cli._study import (
+    SECTION_KEY,
+    die,
+    is_study,
+    load_study,
+    no_configuration_flag_error,
+    not_a_study_error,
+)
 from radiant.io.config import ConfigError, load_config, unattached_section_error
 from radiant.io.element_config import ElementConfigError, parse_element_entries
+from radiant.io.results import ChainResult
 
 
 def _parse_overrides(overrides: tuple[str, ...]) -> dict[str, str]:
@@ -40,6 +51,14 @@ def _coerce_value(raw: str) -> int | float | str:
 @click.command()
 @click.argument("config", type=click.Path(exists=True, dir_okay=False))
 @set_option
+@click.option(
+    "--configuration",
+    "configuration",
+    metavar="NAME",
+    default=None,
+    help="Configuration of a study config file to evaluate (ADR-0010). Required for a "
+    "study file; rejected for a plain config file.",
+)
 @click.option(
     "--wavelength-min",
     "wl_min",
@@ -93,6 +112,7 @@ def _coerce_value(raw: str) -> int | float | str:
 def run(
     config: str,
     overrides: tuple[str, ...],
+    configuration: str | None,
     wl_min: float | None,
     wl_max: float | None,
     wl_n: int,
@@ -108,6 +128,7 @@ def run(
         radiant run examples/mwir_leo_minimal.yaml
         radiant run examples/mwir_leo_minimal.yaml --set optics.aperture_diameter_m=0.5
         radiant run examples/mwir_leo_minimal.yaml --output result.json
+        radiant run study.yaml --configuration LWIR
     """
     # Load config. Structured sections (optical_elements, ADR-0009 / CU-153) are
     # taken via sections_out and injected pre-chain below — the same route
@@ -120,10 +141,27 @@ def run(
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
-    # A section the CLI cannot act on (today: `configurations:`, ADR-0010) is an
-    # error, never a silent drop — the CLI would otherwise run one configuration
-    # of a study as if it were the whole config (Rule 17; CLI support is Phase 5).
-    unattached = sorted(set(sections) - {"optical_elements"})
+    # A study config file (`configurations:`, ADR-0010) runs one named
+    # configuration and never its shared body alone (Rule 17).
+    if is_study(sections):
+        _run_study(
+            config=config,
+            configuration=configuration,
+            overrides=overrides,
+            wl_min=wl_min,
+            wl_max=wl_max,
+            wl_n=wl_n,
+            output_path=output_path,
+            provenance_path=provenance_path,
+            fmt=fmt,
+            quiet=quiet,
+        )
+        return
+    if configuration is not None:
+        die(not_a_study_error(config, configuration))
+
+    # Any other section the CLI cannot act on is an error, never a silent drop.
+    unattached = sorted(set(sections) - {"optical_elements", SECTION_KEY})
     if unattached:
         click.echo(f"Error: {unattached_section_error(unattached, config)}", err=True)
         sys.exit(1)
@@ -175,54 +213,8 @@ def run(
 
     # -- Output --------------------------------------------------------
 
-    if fmt == "json":
-        data = {
-            "config": config,
-            "metrics": dict(result.metrics),
-            "noise_terms": [
-                {"name": nt.name, "value_e_rms": nt.value_e} for nt in result.noise_terms
-            ],
-        }
-        click.echo(json.dumps(data, indent=2))
-    elif fmt == "csv":
-        click.echo("metric,value")
-        for name, val in sorted(result.metrics.items()):
-            click.echo(f"{name},{val}")
-    else:
-        # Text format (default).
-        if not quiet:
-            pe = result.frames["photoelectrons"].in_band_value
-            click.echo(f"Signal:  {pe:.2f} e-")
-
-            for nt in result.noise_terms:
-                click.echo(f"  {nt.name:15s}  {nt.value_e:.4f} e- RMS")
-
-            noise_total = math.sqrt(sum(n.value_e**2 for n in result.noise_terms))
-            click.echo(f"Noise (RSS): {noise_total:.4f} e- RMS")
-
-        snr = result.metrics.get("snr")
-        if snr is not None:
-            click.echo(f"SNR:     {snr:.2f}")
-
-        if quiet:
-            for name, val in sorted(result.metrics.items()):
-                if name != "snr":
-                    click.echo(f"{name}: {val:.6g}")
-
-    # -- File outputs --------------------------------------------------
-
-    if output_path is not None:
-        data = {
-            "config": config,
-            "metrics": dict(result.metrics),
-            "noise_terms": [
-                {"name": nt.name, "value_e_rms": nt.value_e} for nt in result.noise_terms
-            ],
-            "history": list(result.history),
-        }
-        Path(output_path).write_text(json.dumps(data, indent=2), encoding="utf-8")
-        if not quiet:
-            click.echo(f"Results written to {output_path}")
+    _emit_result(result, config=config, configuration=None, fmt=fmt, quiet=quiet)
+    _write_result_file(result, config=config, configuration=None, path=output_path, quiet=quiet)
 
     if provenance_path is not None:
         from radiant import __version__ as _radiant_version
@@ -231,3 +223,199 @@ def run(
         Path(provenance_path).write_text(json.dumps(prov, indent=2), encoding="utf-8")
         if not quiet:
             click.echo(f"Provenance written to {provenance_path}")
+
+
+# ---------------------------------------------------------------------------
+# Study config files (ADR-0010) — one named configuration per invocation
+# ---------------------------------------------------------------------------
+
+
+def _explicitly_given(name: str) -> bool:
+    """True when the caller supplied option *name* rather than taking its default.
+
+    ``--wavelength-points`` carries a default (500) that the study path must be
+    able to tell apart from an explicit ``--wavelength-points 500``: a study's
+    configurations carry their own point counts, and silently overwriting them
+    with the flag's default would evaluate the file on a grid it does not
+    describe.
+    """
+    ctx = click.get_current_context(silent=True)
+    if ctx is None:
+        return False
+    source = ctx.get_parameter_source(name)
+    return source is not None and source.name != "DEFAULT"
+
+
+def _run_study(
+    *,
+    config: str,
+    configuration: str | None,
+    overrides: tuple[str, ...],
+    wl_min: float | None,
+    wl_max: float | None,
+    wl_n: int,
+    output_path: str | None,
+    provenance_path: str | None,
+    fmt: str,
+    quiet: bool,
+) -> None:
+    """Evaluate one named configuration of a study config file.
+
+    Thin by construction: ``ConfigurationSet.load`` →
+    :meth:`ConfigurationSet.sensor_for` → the ordinary ``Sensor.evaluate``
+    path. Every validation, unit conversion, and actionable error is the api
+    layer's, not the CLI's.
+    """
+    cs = load_study(Path(config))
+    names = cs.names()
+    if configuration is None:
+        die(no_configuration_flag_error(config, names))
+
+    if wl_min is not None or wl_max is not None:
+        die(
+            "--wavelength-min / --wavelength-max cannot be combined with --configuration: "
+            "each configuration of a study spans its own resolved "
+            "spectral_integration.filter_min_um … filter_max_um band (ADR-0010 D-F), so a "
+            "single grid span imposed from the command line would contradict the file. "
+            "Override the band itself, e.g. "
+            "--set spectral_integration.filter_min_um=3.9, or edit the study."
+        )
+
+    try:
+        sensor: Sensor = cs.sensor_for(configuration)
+    except RadiantError as exc:
+        die(str(exc))
+
+    # The configuration's own point count is in force unless the caller asked
+    # for a different one explicitly.
+    if _explicitly_given("wl_n"):
+        sensor = sensor.with_wavelength_points(wl_n)
+
+    # --set overrides apply to the materialized configuration (they are the
+    # last word, as on a plain config file); a configured parameter's value for
+    # *this* configuration is what they override.
+    for key, raw_value in parse_overrides(overrides).items():
+        try:
+            sensor.set(key, coerce_value(raw_value))
+        except KeyError:
+            die(
+                f"unknown parameter '{key}'. Check spelling or run 'radiant schema' for "
+                "available parameters."
+            )
+        except RadiantError as exc:
+            die(str(exc))
+
+    try:
+        result = sensor.evaluate()
+    except RadiantError as exc:
+        die(f"configuration {configuration!r} failed to evaluate: {exc}")
+
+    _emit_result(result, config=config, configuration=configuration, fmt=fmt, quiet=quiet)
+    _write_result_file(
+        result, config=config, configuration=configuration, path=output_path, quiet=quiet
+    )
+
+    if provenance_path is not None:
+        # The run's own record (`ChainResult.to_provenance_record`), tagged with
+        # the configuration it came from. It is a different, richer shape than
+        # the plain path's `ParameterSet.to_provenance_record` — see CU-218.
+        prov: dict[str, object] = {"configuration": configuration}
+        prov.update(result.to_provenance_record())
+        Path(provenance_path).write_text(json.dumps(prov, indent=2), encoding="utf-8")
+        if not quiet:
+            click.echo(f"Provenance written to {provenance_path}")
+
+
+# ---------------------------------------------------------------------------
+# Result rendering (shared by the plain and study paths)
+# ---------------------------------------------------------------------------
+
+
+def _emit_result(
+    result: ChainResult,
+    *,
+    config: str,
+    configuration: str | None,
+    fmt: str,
+    quiet: bool,
+) -> None:
+    """Render one run to stdout in the requested format.
+
+    When *configuration* is given (a study run) every format carries it, so a
+    saved or piped result can never be read as "the" result of the file: the
+    text header gains a ``Configuration:`` line, the JSON object a
+    ``configuration`` key, and the CSV a leading ``configuration`` column.
+    """
+    if fmt == "json":
+        click.echo(json.dumps(_result_document(result, config, configuration), indent=2))
+        return
+
+    if fmt == "csv":
+        if configuration is None:
+            click.echo("metric,value")
+            for name, val in sorted(result.metrics.items()):
+                click.echo(f"{name},{val}")
+        else:
+            click.echo("configuration,metric,value")
+            for name, val in sorted(result.metrics.items()):
+                click.echo(f"{configuration},{name},{val}")
+        return
+
+    # Text format (default).
+    if configuration is not None:
+        click.echo(f"Configuration: {configuration}")
+    if not quiet:
+        pe = result.frames["photoelectrons"].in_band_value
+        click.echo(f"Signal:  {pe:.2f} e-")
+
+        for nt in result.noise_terms:
+            click.echo(f"  {nt.name:15s}  {nt.value_e:.4f} e- RMS")
+
+        noise_total = math.sqrt(sum(n.value_e**2 for n in result.noise_terms))
+        click.echo(f"Noise (RSS): {noise_total:.4f} e- RMS")
+
+    snr = result.metrics.get("snr")
+    if snr is not None:
+        click.echo(f"SNR:     {snr:.2f}")
+
+    if quiet:
+        for name, val in sorted(result.metrics.items()):
+            if name != "snr":
+                click.echo(f"{name}: {val:.6g}")
+
+
+def _result_document(
+    result: ChainResult,
+    config: str,
+    configuration: str | None,
+    *,
+    with_history: bool = False,
+) -> dict[str, object]:
+    """The JSON document for one run (stdout form, or the ``--output`` file form)."""
+    data: dict[str, object] = {"config": config}
+    if configuration is not None:
+        data["configuration"] = configuration
+    data["metrics"] = dict(result.metrics)
+    data["noise_terms"] = [
+        {"name": nt.name, "value_e_rms": nt.value_e} for nt in result.noise_terms
+    ]
+    if with_history:
+        data["history"] = list(result.history)
+    return data
+
+
+def _write_result_file(
+    result: ChainResult,
+    *,
+    config: str,
+    configuration: str | None,
+    path: str | None,
+    quiet: bool,
+) -> None:
+    """Write the ``--output`` JSON file, when one was requested."""
+    if path is None:
+        return
+    document = _result_document(result, config, configuration, with_history=True)
+    Path(path).write_text(json.dumps(document, indent=2), encoding="utf-8")
+    if not quiet:
+        click.echo(f"Results written to {path}")

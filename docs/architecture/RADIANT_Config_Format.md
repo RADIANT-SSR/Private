@@ -236,9 +236,9 @@ Loader behavior (Rule 17 — never a silent skip): `Sensor.from_yaml` / `Sensor.
 (relative spectral-file paths are absolutized at attach so the saved config loads from
 anywhere). A **bare** `load_config` call raises an actionable `ConfigError` on a
 section-bearing config unless the caller opts in via `sections_out` — a loader that cannot
-attach the section must not silently drop physics the config describes. The CLI
-(`radiant run` / `validate`) currently takes the bare path and therefore rejects
-section-bearing configs with that actionable error (CU-153).
+attach the section must not silently drop physics the config describes. `radiant run` and
+`radiant validate` opt in and act on the section (CU-153): run parses the element document
+onto the run grid, validate normalizes it and reports its errors.
 
 ### 1.9 Configuration Sets (`configurations`) — implemented (ADR-0010, 2026-07-25)
 
@@ -279,7 +279,7 @@ Binding rules, all enforced at load with a `ConfigError` naming the config file,
 | Values are **input-unit scalars** | type/bounds/enum are validated on the ordinary parameter path, per configuration |
 | `is_file_path` values relativize on save and resolve on load against the config file's directory | — (CU-177 parity with shared values) |
 
-Loader behavior (Rule 17 — never a silent skip): `ConfigurationSet.load(path)` reads the whole document (shared body, `_radiant` meta, `optical_elements`, and this section); `ConfigurationSet.save(path)` writes it. A section-bearing config file loaded through `Sensor.load` / `Sensor.from_yaml` / `Sensor.from_dict`, a bare `load_config`, or the CLI (`radiant run` / `validate`) raises an actionable `ConfigError` — "this config file is a configuration set — load it with `ConfigurationSet.load(path)`" — rather than running one config file's shared body as if it were the whole study. A caller that knows how to handle the section opts in via `sections_out=` (the ADR-0009 mechanism), which is what `ConfigurationSet.load` does.
+Loader behavior (Rule 17 — never a silent skip): `ConfigurationSet.load(path)` reads the whole document (shared body, `_radiant` meta, `optical_elements`, and this section); `ConfigurationSet.save(path)` writes it. A section-bearing config file loaded through `Sensor.load` / `Sensor.from_yaml` / `Sensor.from_dict` or a bare `load_config` raises an actionable `ConfigError` — "this config file is a configuration set — load it with `ConfigurationSet.load(path)`" — rather than running one config file's shared body as if it were the whole study. A caller that knows how to handle the section opts in via `sections_out=` (the ADR-0009 mechanism), which is what `ConfigurationSet.load` does — and which `radiant run` / `radiant validate` do on the caller's behalf (§4.4). The `radiant explain` / `sweep` / `compare` / `tolerance` subcommands load through `Sensor.from_yaml` and therefore still raise that error on a study config file.
 
 Scope, and what stays shared: tolerance distributions and `_radiant.wavelength_points` are the **shared** defaults (per-configuration tolerances are out of the v1 model); the `optical_elements` document is shared across all configurations (ADR-0010 D-7, per-configuration prescriptions deferred to v1.1); stage-output injections (Gap 68) have no YAML form and are unaffected.
 
@@ -453,6 +453,38 @@ for D in 0.15 0.20 0.25 0.30 0.35 0.40; do
     --output results/snr_D${D}.json
 done
 ```
+
+### 4.4 Study Config Files — `--configuration` (ADR-0010, 2026-07-25)
+
+A config file carrying a `configurations:` section (§1.9) is a **study**, and the CLI
+treats it as one. Terminology per ADR-0010 D-10: the file is a *config file*, a
+*configuration* is a member of the set.
+
+```bash
+# Run one named configuration. Required for a study file.
+radiant run study.yaml --configuration LWIR
+
+# Validate EVERY configuration; one line each, non-zero exit if any failed.
+radiant validate study.yaml
+```
+
+`radiant run --configuration NAME` is thin by construction: `ConfigurationSet.load(path)`
+→ `ConfigurationSet.sensor_for(NAME)` → the ordinary `Sensor.evaluate()` path. Contract:
+
+| Invocation | Behavior |
+|---|---|
+| `run study.yaml --configuration NAME` | Evaluates that configuration. Every output form names it: a `Configuration: NAME` header line (text), a `configuration` key (`--format json`, `--output`, `--provenance`), a leading `configuration` column (`--format csv`). Plain config files keep their existing output shapes exactly. |
+| `run study.yaml` (no flag) | **Error**, listing every configuration name and the flag. The study's `active` designation is GUI display state, not a scripting default — honoring it would make a batch result depend on where the selector was last left. |
+| `run plain.yaml --configuration NAME` | **Error** — a plain config file has no named configurations. |
+| `run study.yaml --configuration NAME --set p=v` | The override applies to the **materialized** configuration (last word, as on a plain config file), including a configured parameter's value for that configuration. |
+| `run … --wavelength-min/--wavelength-max` with `--configuration` | **Error** — each configuration spans its own resolved `filter_min_um … filter_max_um` band (ADR-0010 D-F). Override the band itself with `--set`. |
+| `run … --wavelength-points N` with `--configuration` | Honored only when given explicitly; otherwise each configuration's own point count (§1.9) stays in force. |
+| `validate study.yaml` | `ConfigurationSet.validate_all()` — resolve-only, every configuration reported independently as `ok` (with its band in µm and its grid-point count) or `ERROR` with the actionable what-line. Exit status 1 if any configuration failed. |
+| `validate study.yaml --set p=v` | Applies to the **shared** base. A *configured* dot-path is refused: one value has no unambiguous target across N configurations — edit `configurations.parameters`, or use `ConfigurationSet.set_value(s)`. |
+
+There is no `--all-configurations` batch flag; running the whole study is
+`ConfigurationSet.evaluate_all()` in the scripting API, or a shell loop over the
+configuration names (gap-tracked: `docs/tracking/gaps.md` Gap 105).
 
 ---
 

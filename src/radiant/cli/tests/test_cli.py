@@ -21,6 +21,50 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
+def _write_study(
+    tmp_path: Path,
+    *,
+    section: str | None = None,
+    name: str = "study.yaml",
+    strip_band: bool = True,
+) -> Path:
+    """Write a two-configuration study config file (ADR-0010) built on the example.
+
+    The default section makes MWIR/LWIR band variants: the shared body's
+    ``filter_min_um`` / ``filter_max_um`` lines are dropped (``strip_band``),
+    because a dot-path lives in the shared body **or** in the configured table,
+    never both (ADR-0010 D-B). A caller that configures something else keeps
+    the band shared.
+
+    The integration time is shortened to 0.1 ms so neither band saturates the
+    example's 2 Me- well — a clipped signal would make both configurations
+    report the same SNR and mask exactly what these tests assert.
+    """
+    body = "\n".join(
+        line.replace("integration_time_s: 0.005", "integration_time_s: 0.0001")
+        for line in EXAMPLE_YAML.read_text(encoding="utf-8").splitlines()
+        if not (strip_band and ("filter_min_um" in line or "filter_max_um" in line))
+    )
+    default_section = """
+configurations:
+  names: [MWIR, LWIR]
+  active: LWIR
+  baseline: MWIR
+  wavelength_points:
+    LWIR: 300
+  parameters:
+    spectral_integration.filter_min_um: [3.95, 8.0]
+    spectral_integration.filter_max_um: [4.45, 12.0]
+"""
+    path = tmp_path / name
+    path.write_text(
+        body + (default_section if section is None else section),
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
+
+
 # ---------------------------------------------------------------------------
 # radiant run
 # ---------------------------------------------------------------------------
@@ -36,20 +80,17 @@ class TestRunCommand:
         assert "Signal:" in result.output
 
     @pytest.mark.level1
-    def test_run_rejects_a_configuration_set_file(
+    def test_run_rejects_a_configuration_set_file_without_the_flag(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
         """`radiant run` refuses a study file rather than running its shared body."""
-        study = tmp_path / "study.yaml"
-        study.write_text(
-            EXAMPLE_YAML.read_text(encoding="utf-8")
-            + "\nconfigurations:\n  names: [MWIR, LWIR]\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        study = _write_study(tmp_path)
         result = runner.invoke(cli, ["run", str(study)])
         assert result.exit_code != 0
-        assert "ConfigurationSet.load" in result.output
+        # The refusal names every configuration and the flag that resolves it.
+        assert "'MWIR'" in result.output
+        assert "'LWIR'" in result.output
+        assert "--configuration" in result.output
 
     @pytest.mark.level2
     def test_run_shows_noise_terms(self, runner: CliRunner) -> None:
@@ -228,20 +269,22 @@ class TestValidateCommand:
         assert "unknown parameter" in result.output.lower()
 
     @pytest.mark.level1
-    def test_validate_rejects_a_configuration_set_file(
+    def test_validate_reports_every_configuration_of_a_study(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
-        """A `configurations:` section is refused, not silently ignored (Rule 17)."""
-        study = tmp_path / "study.yaml"
-        study.write_text(
-            EXAMPLE_YAML.read_text(encoding="utf-8")
-            + "\nconfigurations:\n  names: [MWIR, LWIR]\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        """A study validates every configuration, one line each (ADR-0010)."""
+        study = _write_study(tmp_path)
         result = runner.invoke(cli, ["validate", str(study)])
-        assert result.exit_code != 0
-        assert "ConfigurationSet.load" in result.output
+        assert result.exit_code == 0, result.output
+        assert "Study OK" in result.output
+        assert "2 configuration(s)" in result.output
+        # One line per configuration, each carrying that configuration's band
+        # and grid density with units.
+        assert "MWIR" in result.output and "LWIR" in result.output
+        assert "3.950–4.450 µm" in result.output
+        assert "8.000–12.000 µm" in result.output
+        assert "500 grid points" in result.output
+        assert "300 grid points" in result.output
 
     @pytest.mark.level1
     def test_validate_set_override(self, runner: CliRunner) -> None:
@@ -744,3 +787,250 @@ class TestElementSectionConfigs:
         result = CliRunner().invoke(validate, [str(path)])
         assert result.exit_code != 0
         assert "optical_elements" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Study config files (ADR-0010) — multi-config Phase 5
+# ---------------------------------------------------------------------------
+
+
+class TestRunStudyConfigFiles:
+    """`radiant run study.yaml --configuration NAME` (ADR-0010, plan §5 Phase 5)."""
+
+    @pytest.mark.level2
+    def test_runs_the_named_configuration(self, runner: CliRunner, tmp_path: Path) -> None:
+        """The named configuration evaluates, and the output says which one it was."""
+        study = _write_study(tmp_path)
+        result = runner.invoke(cli, ["run", str(study), "--configuration", "LWIR"])
+        assert result.exit_code == 0, result.output
+        assert result.output.splitlines()[0] == "Configuration: LWIR"
+        assert "SNR:" in result.output
+
+    @pytest.mark.level2
+    def test_each_configuration_gives_its_own_result(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """The two band configurations are materialized separately, not shared."""
+        study = _write_study(tmp_path)
+        mwir = runner.invoke(cli, ["run", str(study), "--configuration", "MWIR"])
+        lwir = runner.invoke(cli, ["run", str(study), "--configuration", "LWIR"])
+        assert mwir.exit_code == 0 and lwir.exit_code == 0, mwir.output + lwir.output
+        assert _extract_snr(mwir.output) != _extract_snr(lwir.output)
+
+    @pytest.mark.level1
+    def test_active_is_not_honored_implicitly(self, runner: CliRunner, tmp_path: Path) -> None:
+        """`active: LWIR` is GUI state — it must not silently pick the configuration."""
+        study = _write_study(tmp_path)
+        result = runner.invoke(cli, ["run", str(study)])
+        assert result.exit_code != 0
+        assert "active" in result.output
+        assert "--configuration" in result.output
+
+    @pytest.mark.level1
+    def test_unknown_configuration_names_the_available_ones(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(cli, ["run", str(study), "--configuration", "SWIR"])
+        assert result.exit_code != 0
+        assert "'SWIR'" in result.output
+        assert "MWIR" in result.output and "LWIR" in result.output
+
+    @pytest.mark.level1
+    def test_flag_on_a_plain_config_is_refused(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["run", str(EXAMPLE_YAML), "--configuration", "MWIR"])
+        assert result.exit_code != 0
+        assert "plain config file" in result.output
+
+    @pytest.mark.level1
+    def test_json_output_carries_the_configuration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(
+            cli, ["run", str(study), "--configuration", "MWIR", "--format", "json"]
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["configuration"] == "MWIR"
+        assert "snr" in data["metrics"]
+
+    @pytest.mark.level1
+    def test_csv_output_carries_the_configuration_column(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(
+            cli, ["run", str(study), "--configuration", "MWIR", "--format", "csv"]
+        )
+        assert result.exit_code == 0, result.output
+        lines = result.output.strip().splitlines()
+        assert lines[0] == "configuration,metric,value"
+        assert all(line.startswith("MWIR,") for line in lines[1:])
+
+    @pytest.mark.level1
+    def test_plain_config_csv_shape_is_unchanged(self, runner: CliRunner) -> None:
+        """The configuration column appears for studies only (no regression)."""
+        result = runner.invoke(cli, ["run", str(EXAMPLE_YAML), "--format", "csv"])
+        assert result.exit_code == 0, result.output
+        assert result.output.splitlines()[0] == "metric,value"
+
+    @pytest.mark.level1
+    def test_output_and_provenance_files_name_the_configuration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        out = tmp_path / "result.json"
+        prov = tmp_path / "prov.json"
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(study),
+                "--configuration",
+                "LWIR",
+                "--output",
+                str(out),
+                "--provenance",
+                str(prov),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert json.loads(out.read_text(encoding="utf-8"))["configuration"] == "LWIR"
+        assert json.loads(prov.read_text(encoding="utf-8"))["configuration"] == "LWIR"
+
+    @pytest.mark.level2
+    def test_set_override_applies_to_the_materialized_configuration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        base = runner.invoke(cli, ["run", str(study), "--configuration", "MWIR"])
+        overridden = runner.invoke(
+            cli,
+            [
+                "run",
+                str(study),
+                "--configuration",
+                "MWIR",
+                "--set",
+                "optics.aperture_diameter_m=0.50",
+            ],
+        )
+        assert base.exit_code == 0 and overridden.exit_code == 0, overridden.output
+        assert _extract_snr(base.output) != _extract_snr(overridden.output)
+
+    @pytest.mark.level1
+    def test_unknown_set_parameter_is_actionable(self, runner: CliRunner, tmp_path: Path) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(
+            cli, ["run", str(study), "--configuration", "MWIR", "--set", "typo.nope=1"]
+        )
+        assert result.exit_code != 0
+        assert "unknown parameter" in result.output.lower()
+
+    @pytest.mark.level1
+    def test_wavelength_span_flags_are_refused(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Each configuration spans its own band (D-F) — a CLI span would contradict it."""
+        study = _write_study(tmp_path)
+        result = runner.invoke(
+            cli, ["run", str(study), "--configuration", "MWIR", "--wavelength-min", "3.0"]
+        )
+        assert result.exit_code != 0
+        assert "--wavelength-min" in result.output
+
+    @pytest.mark.level2
+    def test_explicit_wavelength_points_override_the_configuration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """The flag's *default* must not overwrite the study's own point count."""
+        study = _write_study(tmp_path)
+        default_run = runner.invoke(cli, ["run", str(study), "--configuration", "LWIR"])
+        coarse = runner.invoke(
+            cli, ["run", str(study), "--configuration", "LWIR", "--wavelength-points", "25"]
+        )
+        assert default_run.exit_code == 0 and coarse.exit_code == 0, coarse.output
+        # LWIR carries wavelength_points: 300; the unflagged run must use it,
+        # so a 25-point run differs.
+        assert _extract_snr(default_run.output) != _extract_snr(coarse.output)
+
+    @pytest.mark.level1
+    def test_a_broken_section_reports_the_loader_error(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Section violations surface as the api layer's actionable error."""
+        study = _write_study(
+            tmp_path,
+            section=(
+                "\nconfigurations:\n  names: [A, B]\n  parameters:\n"
+                "    spectral_integration.filter_min_um: [3.95]\n"
+            ),
+        )
+        result = runner.invoke(cli, ["run", str(study), "--configuration", "A"])
+        assert result.exit_code != 0
+        assert "filter_min_um" in result.output
+
+
+class TestValidateStudyConfigFiles:
+    """`radiant validate study.yaml` validates every configuration (validate_all)."""
+
+    @staticmethod
+    def _partly_broken(tmp_path: Path) -> Path:
+        """A study whose second configuration over-constrains the f-number group."""
+        return _write_study(
+            tmp_path,
+            strip_band=False,
+            section=(
+                "\nconfigurations:\n  names: [good, bad]\n  parameters:\n"
+                "    optics.f_number: [4.0, 6.0]\n"
+            ),
+        )
+
+    @pytest.mark.level1
+    def test_one_failing_configuration_does_not_hide_the_others(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = self._partly_broken(tmp_path)
+        result = runner.invoke(cli, ["validate", str(study)])
+        assert result.exit_code != 0
+        assert "good" in result.output and "ok" in result.output
+        assert "ERROR" in result.output
+        assert "1 failed" in result.output
+
+    @pytest.mark.level1
+    def test_shared_set_override_applies_to_the_base(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(
+            cli, ["validate", str(study), "--set", "optics.aperture_diameter_m=0.50"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Study OK" in result.output
+
+    @pytest.mark.level1
+    def test_set_on_a_configured_parameter_is_refused(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """One value has no unambiguous target across N configurations (Rule 17)."""
+        study = _write_study(tmp_path)
+        result = runner.invoke(
+            cli, ["validate", str(study), "--set", "spectral_integration.filter_min_um=4.0"]
+        )
+        assert result.exit_code != 0
+        assert "configured parameter" in result.output
+
+    @pytest.mark.level1
+    def test_unknown_set_parameter_is_actionable(self, runner: CliRunner, tmp_path: Path) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(cli, ["validate", str(study), "--set", "typo.nope=1"])
+        assert result.exit_code != 0
+        assert "unknown parameter" in result.output.lower()
+
+    @pytest.mark.level1
+    def test_configuration_count_and_configured_count_reported(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = _write_study(tmp_path)
+        result = runner.invoke(cli, ["validate", str(study)])
+        assert result.exit_code == 0, result.output
+        assert "2 configuration(s), 2 configured parameter(s), 0 failed." in result.output

@@ -392,7 +392,7 @@ class RADIANTMainWindow(QMainWindow):
         marker = "* " if self._dirty else ""
         study = ""
         cs = self._config_set
-        if is_study(cs) and cs is not None:
+        if cs is not None and is_study(cs):
             plural = "s" if len(cs) != 1 else ""
             study = f" ({len(cs)} configuration{plural})"
         return f"{marker}{name}{study} — {suffix}"

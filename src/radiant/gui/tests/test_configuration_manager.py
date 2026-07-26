@@ -274,6 +274,34 @@ class TestCrudDrivesTheApi:
 
         assert cs.baseline == "LWIR"
 
+    def test_the_selector_bands_gear_opens_the_same_manager(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path, monkeypatch
+    ) -> None:
+        """Two entry points, one action: the gear must not grow a second code path."""
+        window = _open_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+        _answer_name(monkeypatch, "SWIR")
+        holder: list[ConfigurationManagerDialog] = []
+        original_init = ConfigurationManagerDialog.__init__
+
+        def _init(self: ConfigurationManagerDialog, config_set: Any, parent: Any = None) -> None:
+            original_init(self, config_set, parent)
+            holder.append(self)
+
+        def _exec(self: ConfigurationManagerDialog) -> int:
+            self.action_button("add").click()
+            return int(QDialog.DialogCode.Accepted)
+
+        monkeypatch.setattr(ConfigurationManagerDialog, "__init__", _init)
+        monkeypatch.setattr(ConfigurationManagerDialog, "exec", _exec)
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.configuration_bar.manage_button.click()
+
+        assert len(holder) == 1
+        assert cs.names() == ("MWIR", "LWIR", "SWIR")
+
     def test_cancel_applies_nothing(self, qtbot, tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
         cs = window.configuration_set

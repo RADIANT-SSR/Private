@@ -21,6 +21,32 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: master configuration selector and evaluate-all session model
+  (multi-configuration Phase 4a).** The desktop GUI's session is now a
+  `ConfigurationSet` rather than a single `Sensor`. Opening a study file (one with a
+  `configurations:` section) loads every configuration and reveals a compact selector
+  band above the signal-chain strip; picking a configuration displays it across all
+  nine stage views, the input forms, the readouts, and the right rail, each
+  configuration carrying a stable accent colour from the theme token set (light and
+  dark). The background evaluate loop became evaluate-all: one pass runs every
+  configuration with the displayed one first, per-configuration warnings appear in
+  Messages prefixed with their configuration name, and a configuration that fails
+  while it is not displayed is a named Messages entry rather than a modal — the rest
+  of the study still evaluates. Saving a study writes the whole study document.
+  **Opening a plain config file is unchanged**: no selector is shown, the file saves
+  in exactly the format it did before, and the session behaves as it always has. No
+  computed results change. Still to come: per-parameter `configure` and the red "C"
+  badge (4b), the configuration manager dialog (4c), per-configuration Performance
+  columns (4d), and the study YAML view / console `configs` object (4e) — in this
+  phase the selector is read-only over whatever the loaded file defines, the YAML
+  editor and console Refresh state that they are single-configuration surfaces
+  instead of silently collapsing a study, and per-configuration edits are not yet
+  undoable.
+- **`ConfigurationSet.clone()`.** Returns an independent copy of a set — cloned base,
+  copied configured table, wavelength-point overrides, and `active`/`baseline`. The
+  set-level counterpart of `Sensor.clone()`, and what lets the GUI hand its worker a
+  private snapshot; a copy rebuilt from the public accessors would lose the
+  wavelength-point overrides (CU-210).
 - **Per-configuration warning attribution and `ConfigSetRunResult.summary()`
   (multi-configuration Phase 3).** `ConfigurationSet.evaluate_all` now evaluates each
   configuration inside its own warning-capture window and records the warnings it

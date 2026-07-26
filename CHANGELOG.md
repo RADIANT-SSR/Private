@@ -21,6 +21,27 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: configure a parameter across configurations — red "C" badges, an
+  all-configurations value table, and scoped undo (multi-configuration Phase 4b).**
+  Any editable parameter can now be marked **configured** from its context menu in the
+  all-parameters tree or on any per-stage form field: *Configure across
+  configurations…* seeds one value per configuration from the current shared value
+  (one `ConfigurationSet.configure` call). A configured parameter carries a small red
+  **C** everywhere it appears, whose tooltip lists every configuration's value with
+  units in set order (`MWIR: 3.5 um · LWIR: 8 um`). *Edit configured values…* opens a
+  compact table — one row per configuration with its accent chip, a schema-driven value
+  editor, and the unit — that commits the whole column in one `set_values` call, so a
+  rejected value leaves the set untouched and the rejection names the offending
+  configuration. *Un-configure* always keeps configuration #1's value and states that
+  value, with its unit, in the confirmation before collapsing the column. Editing a
+  configured parameter inline while a configuration is displayed still changes that
+  configuration only (ADR-0010 D-8) and is now **undoable**: configure, un-configure,
+  table edits, and per-configuration edits all round-trip through Edit → Undo/Redo,
+  restoring both the value and the scope it lives in (the Phase-4a "per-configuration
+  edits are not undoable" caveat is gone). **A single-configuration session is
+  unchanged** — no badges, no reachable dialogs; the configure action answers with an
+  actionable message pointing at the (Phase 4c) configuration manager rather than
+  doing nothing. No public API surface changed and no computed results change.
 - **GUI: master configuration selector and evaluate-all session model
   (multi-configuration Phase 4a).** The desktop GUI's session is now a
   `ConfigurationSet` rather than a single `Sensor`. Opening a study file (one with a

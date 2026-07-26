@@ -43,6 +43,7 @@ from radiant.api.build_info import build_info
 from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
+from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.geometry_modes import implicated_families
 from radiant.gui.param_format import format_value
 from radiant.gui.settings_store import SettingsStore
@@ -50,11 +51,14 @@ from radiant.gui.themes import DARK, LIGHT, active_theme, apply_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.configuration_bar import ConfigurationBar
+from radiant.gui.widgets.configure_menu import SINGLE_CONFIGURATION_HINT
+from radiant.gui.widgets.configured_values_dialog import ConfiguredValuesDialog
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
 from radiant.gui.widgets.schema_browser_dialog import SchemaBrowserDialog
+from radiant.gui.widgets.scoped_parameter_command import ScopedParameterCommand, ScopeState
 from radiant.gui.widgets.scripting_console import ScriptingConsole
 from radiant.gui.widgets.scripting_window import ScriptingWindow
 from radiant.gui.widgets.set_parameter_command import SetParameterCommand
@@ -190,6 +194,16 @@ class RADIANTMainWindow(QMainWindow):
         self._undo_stack.setUndoLimit(_UNDO_LIMIT)
         self._input_snapshot: dict[str, Any] = {}
 
+        # The configured-parameter scope (multi-configuration Phase 4b): the one object
+        # the parameter tree and every per-stage field read for the red "C" badge, and
+        # the one channel their scope actions travel back on. The window is its only
+        # listener — it makes the single ConfigurationSet call and records the undo
+        # command, so a widget never touches the API (R-API).
+        self._config_scope = ConfigurationScope(self)
+        self._config_scope.configureRequested.connect(self._on_configure_requested)
+        self._config_scope.unconfigureRequested.connect(self._on_unconfigure_requested)
+        self._config_scope.editValuesRequested.connect(self._on_edit_configured_values)
+
         # Evaluate-loop state (Phase 3): the in-flight worker, a coalescing flag
         # for edits that land mid-run, the most recent result, and a count of
         # completed evaluations (the debounce test asserts on it).
@@ -215,6 +229,11 @@ class RADIANTMainWindow(QMainWindow):
         self._build_dock_panels()
         self._build_scripting_window()
         self._build_status_bar()
+        # Hand the scope to the badge-bearing surfaces, then push the session document
+        # into it so their badges are correct before the window is first shown.
+        self._parameter_panel.set_configuration_scope(self._config_scope)
+        self._central.stage_center.bind_configuration_scope(self._config_scope)
+        self._config_scope.bind(self._config_set)
         self._apply_dock_proportions()
         self._wire_evaluate_loop()
         self._wire_file_menu()
@@ -274,6 +293,16 @@ class RADIANTMainWindow(QMainWindow):
     def configuration_bar(self) -> ConfigurationBar:
         """The master configuration selector (hidden for a single-configuration session)."""
         return self._configuration_bar
+
+    @property
+    def configuration_scope(self) -> ConfigurationScope:
+        """The configured-parameter scope shared by the tree and the stage forms (§4.2c).
+
+        The read side of every red "C" badge and the channel the configure /
+        edit-configured-values / un-configure actions travel back on. Always present
+        (a session with no document simply reports nothing configured).
+        """
+        return self._config_scope
 
     @property
     def last_run(self) -> ConfigSetRunResult | None:
@@ -1360,6 +1389,7 @@ class RADIANTMainWindow(QMainWindow):
         self._set_sensor_actions_enabled(sensor is not None)
         self.setWindowTitle(self._compose_title())
         self._refresh_configuration_bar()
+        self._config_scope.bind(config_set)
         self._parameter_panel.populate(sensor)
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
         self._console.bind_sensor(sensor)
@@ -1927,21 +1957,35 @@ class RADIANTMainWindow(QMainWindow):
         * a **configured** parameter is written to the displayed configuration's own
           column (ADR-0010 D-8: an inline edit while X is displayed edits X's value).
 
-        Returns True when the edit should join the undo stack. A configured-parameter
-        edit returns False: the undo commands target the shared base, and scoped
-        undo/redo of per-configuration edits is Phase 4b. The operator is told so in
-        the status bar rather than left with a silently non-reversible edit.
+        Returns True when the caller should record the edit as a **shared**
+        :class:`SetParameterCommand`. A configured-parameter edit returns False because
+        it records its own, scope-aware command here (Phase 4b): the before/after states
+        are that parameter's whole configured column, so undo restores the column — and
+        therefore the value *and* the store it lives in (plan §6, 4b).
         """
         cs = self._config_set
         if cs is None or self._is_degenerate():
             return True
         try:
             if cs.is_configured(dotpath):
+                before = ScopeState.configured_column(cs.configured()[dotpath])
                 cs.set_value(dotpath, cs.active, value, unit=unit)
-                self.statusBar().showMessage(
-                    f"Edited {dotpath} in configuration {cs.active} only — "
-                    "per-configuration edits are not undoable yet"
-                )
+                after = ScopeState.configured_column(cs.configured()[dotpath])
+                if after.values != before.values:
+                    self._undo_stack.push(
+                        ScopedParameterCommand(
+                            cs,
+                            dotpath,
+                            before,
+                            after,
+                            self._apply_scope_change,
+                            f"Set {dotpath} in {cs.active} = {format_value(value, unit or '')}",
+                        )
+                    )
+                    # The caller repopulates and re-evaluates; only the badges (whose
+                    # tooltip now shows a new value for this configuration) need saying.
+                    self._config_scope.notify_changed()
+                self.statusBar().showMessage(f"Edited {dotpath} in configuration {cs.active} only")
                 return False
             if unit:
                 cs.base.set(dotpath, value, unit=unit)
@@ -1951,6 +1995,148 @@ class RADIANTMainWindow(QMainWindow):
             ActionableErrorDialog(exc, "edit", self).exec()
             return False
         return True
+
+    # -- configured parameters (multi-configuration Phase 4b) ---------------
+
+    def _on_configure_requested(self, dotpath: str) -> None:
+        """Configure *dotpath* across every configuration (plan §4 item 3).
+
+        One GUI action ↔ one API call: ``ConfigurationSet.configure(dotpath)``, which
+        seeds **every** configuration from the parameter's current shared value and
+        moves it out of the base (ADR-0010 D-B). A single-configuration session has no
+        second column to fill, so the action answers with the actionable hint pointing
+        at the configuration manager rather than doing nothing (Rule 17's spirit).
+        """
+        cs = self._config_set
+        if cs is None:
+            return
+        if len(cs) < 2:
+            self.statusBar().showMessage(SINGLE_CONFIGURATION_HINT)
+            return
+        if cs.is_configured(dotpath):
+            self.statusBar().showMessage(f"{dotpath} is already configured")
+            return
+        # The base's *explicit* input, or None when the parameter resolved from its
+        # default / a consistency group — undo then resets rather than pinning a value
+        # the user never typed.
+        before = ScopeState.shared(cs.base.inputs().get(dotpath))
+        try:
+            cs.configure(dotpath)
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, dotpath, self).exec()
+            return
+        after = ScopeState.configured_column(cs.configured()[dotpath])
+        self._push_scope_command(
+            dotpath, before, after, f"Configure {dotpath} across {len(cs)} configurations"
+        )
+        self.statusBar().showMessage(
+            f"Configured {dotpath} — {self._config_scope.summary(dotpath)}"
+        )
+
+    def _on_unconfigure_requested(self, dotpath: str) -> None:
+        """Collapse *dotpath* back to one shared value, keeping configuration #1's (D-6).
+
+        The confirmation **states the kept value with its unit** before anything
+        happens: un-configuring silently changes the physics of every configuration
+        that did not hold that value, and that is never allowed to be a surprise
+        (plan §4 item 3).
+        """
+        cs = self._config_set
+        if cs is None or not cs.is_configured(dotpath):
+            return
+        kept_name = cs.names()[0]
+        kept_value = self._config_scope.value_text(dotpath, 0)
+        answer = QMessageBox.question(
+            self,
+            "Un-configure parameter",
+            f"Un-configure {dotpath}?\n\n"
+            f"Every configuration will share {kept_name}'s value, {kept_value}. "
+            f"The other configurations' values ({self._config_scope.summary(dotpath)}) "
+            "are discarded.",
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Ok:
+            return
+        before = ScopeState.configured_column(cs.configured()[dotpath])
+        try:
+            cs.unconfigure(dotpath)
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, dotpath, self).exec()
+            return
+        after = ScopeState.shared(cs.base.inputs().get(dotpath))
+        self._push_scope_command(
+            dotpath, before, after, f"Un-configure {dotpath} (keep {kept_name})"
+        )
+        self.statusBar().showMessage(
+            f"Un-configured {dotpath} — every configuration now shares {kept_value}"
+        )
+
+    def _on_edit_configured_values(self, dotpath: str) -> None:
+        """Open *dotpath*'s all-configurations table editor (ADR-0010 D-2)."""
+        cs = self._config_set
+        if cs is None:
+            return
+        if not cs.is_configured(dotpath):
+            self.statusBar().showMessage(
+                f"{dotpath} is shared — configure it across configurations first"
+            )
+            return
+        dialog = ConfiguredValuesDialog(
+            dotpath,
+            cs.base.parameter_def(dotpath),
+            cs.names(),
+            cs.configured()[dotpath],
+            lambda values: self._commit_configured_values(dotpath, values),
+            self,
+        )
+        dialog.exec()
+
+    def _commit_configured_values(self, dotpath: str, values: list[Any]) -> RadiantError | None:
+        """Write a whole configured column in **one** ``set_values`` call (atomic).
+
+        The API validates every value before it replaces the column, so a rejection
+        leaves the set exactly as it was — no half-committed table — and names the
+        offending configuration, which the dialog renders verbatim (Rules 15/17). The
+        accepted write is recorded as one undoable scope command.
+        """
+        cs = self._config_set
+        if cs is None:
+            return None
+        before = ScopeState.configured_column(cs.configured()[dotpath])
+        try:
+            cs.set_values(dotpath, values)
+        except RadiantError as exc:
+            return exc
+        after = ScopeState.configured_column(cs.configured()[dotpath])
+        if after.values == before.values:
+            return None
+        self._push_scope_command(dotpath, before, after, f"Set {dotpath} for all configurations")
+        return None
+
+    def _push_scope_command(
+        self, dotpath: str, before: ScopeState, after: ScopeState, text: str
+    ) -> None:
+        """Record one scope-and-value change and refresh every surface it touched."""
+        cs = self._config_set
+        if cs is None:
+            return
+        self._undo_stack.push(
+            ScopedParameterCommand(cs, dotpath, before, after, self._apply_scope_change, text)
+        )
+        self._apply_scope_change(dotpath)
+
+    def _apply_scope_change(self, dotpath: str) -> None:
+        """Re-read every surface after a configure / unconfigure / configured-value write.
+
+        The badges come first (the scope's one ``changed`` signal reaches the parameter
+        tree and every stage field), then the ordinary post-edit path re-materializes
+        the displayed configuration, repopulates the panels, marks the document dirty,
+        and schedules the debounced re-evaluation. Called both by the action and by
+        undo/redo, so the two can never drift.
+        """
+        self._config_scope.notify_changed()
+        self._apply_undo_redo(dotpath)
 
     def _apply_undo_redo(self, dotpath: str) -> None:
         """Re-read the panels and re-evaluate after an undo/redo mutates the sensor.
@@ -2056,6 +2242,11 @@ class RADIANTMainWindow(QMainWindow):
         # The scripting window's Editor uses a QSyntaxHighlighter (outside QSS's reach), so its
         # glyph colours are re-applied here to keep the Editor in step with the toggle (§4.6.1).
         self._scripting_window.set_theme(new_theme)
+        self._configuration_bar.set_theme(new_theme)
+        # The tree's configured-parameter "C" is a painted icon (QSS cannot reach a
+        # decoration), so it is repainted from the new token set here — the same
+        # pattern as the selector's accent chips (§4.2c).
+        self._parameter_panel.refresh_configured_badges()
         if self._last_result is not None:
             self._central.show_result(self._last_result)
         self._settings.set_theme_name(new_theme.name)

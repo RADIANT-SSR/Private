@@ -33,6 +33,15 @@ tree:
   :class:`~radiant.gui.widgets.explain_dialog.ExplainDialog`), Reset to Default
   (``sensor.reset``).
 
+Multi-configuration Phase 4b adds, on top of that, the configured-parameter surface
+(ADR-0010 D-2): given a :class:`~radiant.gui.config_scope.ConfigurationScope`, a row
+whose dot-path carries one value per configuration is marked with the small red "C"
+(painted decoration on the Parameter column, tooltip listing **every** configuration's
+value with units), and the right-click menu grows the three scope actions — configure
+across configurations, edit the all-configurations table, un-configure. The panel makes
+no ``ConfigurationSet`` call itself: it renders the scope and emits intent through it,
+and the window performs the single API call and records the undoable command (R-API).
+
 Styling comes entirely from the design-system QSS theme; this module sets structure,
 object names, and text only (GUI plan §4.9).
 """
@@ -42,6 +51,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -67,6 +77,8 @@ from radiant.gui.param_format import (
     safe_provenance,
 )
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
+from radiant.gui.widgets.configure_menu import add_configuration_actions
+from radiant.gui.widgets.configured_badge import configured_badge_icon
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.parameter_delegate import (
     DOTPATH_ROLE,
@@ -80,6 +92,7 @@ from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
     from radiant.core.parameters import ParameterDef
+    from radiant.gui.config_scope import ConfigurationScope
 
 # The three columns of the parameter tree (§4.3): the leaf parameter name, its
 # value + unit suffix, and its provenance ("Source").
@@ -88,6 +101,10 @@ _COLUMNS: tuple[str, ...] = ("Parameter", "Value", "Source")
 # Qt item-data role carrying each leaf row's full dot-path (for filtering, editing,
 # and the both-directions schema-match test). Shared with the edit delegate.
 _DOTPATH_ROLE = DOTPATH_ROLE
+
+# Item-data role flagging a row as configured (one value per configuration). Tests
+# and the badge refresh read it; it never collides with the delegate's own roles.
+CONFIGURED_ROLE = int(Qt.ItemDataRole.UserRole) + 2
 
 _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
 
@@ -132,6 +149,10 @@ class ParameterPanel(QWidget):
         # with an explicit unit choice. Session-scoped only — persistence across
         # launches arrives with QSettings in Phase 9. Cleared when a new sensor loads.
         self._display_units: dict[str, str] = {}
+        # The session's configuration scope (multi-configuration Phase 4b): what makes a
+        # row show the red "C" and what the context menu's scope actions route through.
+        # None (or a single-configuration session) leaves the tree exactly as it was.
+        self._scope: ConfigurationScope | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -231,6 +252,56 @@ class ParameterPanel(QWidget):
         Cleared in place on a new-sensor load, so a shared reference stays valid.
         """
         return self._display_units
+
+    # -- multi-configuration (Phase 4b) -------------------------------------
+
+    def set_configuration_scope(self, scope: ConfigurationScope | None) -> None:
+        """Bind the session's :class:`ConfigurationScope` (badges + scope context actions).
+
+        Re-binding disconnects the previous scope so a document swap cannot leave the
+        tree reading a stale set. Badges refresh immediately and then on every
+        ``changed`` — configure / unconfigure / value edits all announce themselves
+        through that one signal, so the "C" tracks the model live.
+        """
+        if self._scope is not None:
+            self._scope.changed.disconnect(self.refresh_configured_badges)
+        self._scope = scope
+        if scope is not None:
+            scope.changed.connect(self.refresh_configured_badges)
+        self.refresh_configured_badges()
+
+    def refresh_configured_badges(self) -> None:
+        """Re-apply the red "C" (and its all-configurations tooltip) to every row."""
+        for dotpath, item in self._items.items():
+            self._apply_badge(item, dotpath)
+
+    def _apply_badge(self, item: QTreeWidgetItem, dotpath: str) -> None:
+        """Mark (or unmark) one row as configured — decoration + tooltip + role flag."""
+        scope = self._scope
+        configured = scope is not None and scope.is_configured(dotpath)
+        item.setData(0, CONFIGURED_ROLE, True if configured else None)
+        if configured and scope is not None:
+            summary = scope.summary(dotpath)
+            item.setIcon(0, configured_badge_icon())
+            item.setToolTip(0, f"{dotpath}\nConfigured — {summary}")
+        else:
+            item.setIcon(0, QIcon())
+            item.setToolTip(0, self._base_tooltip(dotpath))
+
+    def _base_tooltip(self, dotpath: str) -> str:
+        """The row's ordinary tooltip (dot-path + schema description)."""
+        if self._sensor is None:
+            return dotpath
+        description = self._sensor.parameter_def(dotpath).description
+        return f"{dotpath}\n{description}" if description else dotpath
+
+    def is_configured_row(self, dotpath: str) -> bool:
+        """True when the row for *dotpath* carries the configured "C" marker."""
+        return bool(self._items[dotpath].data(0, CONFIGURED_ROLE))
+
+    def configured_tooltip(self, dotpath: str) -> str:
+        """The Parameter-column tooltip for a row (carries the per-configuration values)."""
+        return self._items[dotpath].toolTip(0)
 
     def row_dotpaths(self) -> set[str]:
         """Every parameter dot-path currently rendered as a tree row."""
@@ -352,6 +423,9 @@ class ParameterPanel(QWidget):
         item = QTreeWidgetItem([leaf, value_text, provenance_label(provenance)])
         item.setData(0, _DOTPATH_ROLE, dotpath)
         item.setToolTip(0, f"{dotpath}\n{pdef.description}" if pdef.description else dotpath)
+        # The configured-parameter marker (Phase 4b): a small red "C" whose tooltip
+        # lists every configuration's value with units (ADR-0010 D-2).
+        self._apply_badge(item, dotpath)
         # Editable unless derived (Rule 4 / §4.3: ⚡ rows are read-only). The
         # ItemIsEditable flag on column 1 is what lets the delegate open an editor.
         if not derived:
@@ -559,6 +633,10 @@ class ParameterPanel(QWidget):
         copy_action = menu.addAction("Copy dot-path")
         explain_action = menu.addAction("Explain")
         reset_action = menu.addAction("Reset to Default")
+        # The multi-configuration scope actions (Phase 4b), identical in wording and
+        # order to the per-stage form fields' menu — both come from one helper.
+        if self._scope is not None and self._scope.configuration_set is not None:
+            add_configuration_actions(menu, self._scope, dotpath)
         chosen = menu.exec(self._tree.viewport().mapToGlobal(pos))
         if chosen is None:
             return

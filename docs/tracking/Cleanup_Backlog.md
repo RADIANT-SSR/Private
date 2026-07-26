@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-212 — the GUI test session sits on a widget-accumulation cliff: an app-wide `apply_theme` segfaults once enough windows are alive
+
+**Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/themes/stylesheet.py:1288` (`apply_theme` → `app.setStyleSheet`), interacting with every `src/radiant/gui/tests/` module that opens a `RADIANTMainWindow`
+**Symptom**: running the GUI suite in file order (`pytest -q -p no:randomly src/radiant/gui`) with one additional test module that opens ~24 main windows makes `test_theme.py::TestApplyTheme::test_apply_sets_app_stylesheet` die with `Fatal Python error: Segmentation fault` inside `app.setStyleSheet(...)`. Reproduced deterministically twice; deselecting the extra module's windows (or releasing them per test) makes it pass. The crash fires on the *first* `apply_theme` of the test — before that test builds any widget of its own — so it is the app-wide re-polish walking the accumulated live widget tree, not anything the crashing test does. `main` at `3ab6298` passes the same suite, i.e. the cliff is a threshold, not a regression: pytest-qt's `addWidget` closes a widget at teardown but does not force its C++ deletion, so every window a module opens stays alive for the remainder of the session (matplotlib figures accumulate alongside — the suite already logs "More than 20 figures have been opened").
+**Why it still matters**: it makes the full gate battery a function of how many GUI tests exist rather than of whether the code is correct — the next module that adds a dozen windows will hit it again, and the failure mode (segfault, no test name, truncated output) costs an hour to diagnose. It is also a weak signal about widget lifetime in the theme path that deserves a look before someone hits it interactively (a long-lived session with many dialogs, then View → theme).
+**Suggested fix**: (b) stand-alone task — put the release in one place instead of per module: a session-level `conftest.py` fixture in `src/radiant/gui/tests/` that, after each test, closes + `deleteLater()`s every top-level widget and drains the event queue (plus `pyplot.close("all")`), and re-audit whether `apply_theme` should re-polish only the windows it owns. Phase 4b did the module-local version (`test_configured_parameters.py::_release_windows`) to keep its own gate honest; the general fix is the follow-up. Effort S–M; category A (test infrastructure) with a small D-flavoured investigation of the theme re-polish.
+
+### CU-211 — the all-configurations value table edits in input units only (no per-row display-unit choice)
+
+**Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/widgets/configured_values_dialog.py` (the dialog's unit column), `src/radiant/gui/main_window.py::_commit_configured_values`
+**Symptom**: the per-parameter all-configurations table shows and accepts values in the parameter's schema `input_unit`, labelled on every row, while the parameter tree row for the same dot-path may be displaying that value in a *different* user-chosen unit (the `ParameterPanel.display_units` preference, owner feedback 2026-07-13). Reproduce: set a length row's display unit to `km` in the Parameter Editor, then open that (configured) parameter's table — the rows read in `m`.
+**Why it still matters**: the display-unit rule is that entry and display are symmetric and the analyst never does mental arithmetic. Inside the dialog they are symmetric (both sides are the labelled input unit), but crossing from the tree to the table changes the unit under the reader. The reason it is not fixed inline: `ConfigurationSet.set_values` takes no `unit=` (it is the dense whole-column write), so honouring per-row units would mean one `set_value(..., unit=...)` per row — losing the atomic "validate the whole column, then commit" property that keeps a rejected table from half-committing (the Phase 4b acceptance criterion). The right fix is an API-side seam, not a GUI-side conversion (Rule 2).
+**Suggested fix**: (b) stand-alone task — add `ConfigurationSet.set_values(dotpath, values, *, unit: str | None = None)` (one unit for the whole column, converted once at the API boundary like `Sensor.set`), then seed the dialog rows in the tree's display unit and pass that unit through. Lock-step `RADIANT_Scripting_API.md` + `RADIANT_GUI_Architecture.md` §4.2c. Effort S–M; category B.
+
 ### CU-210 — `ConfigurationSet` wavelength-point overrides are write-only (no public read accessor)
 
 **Discovered**: multi-config Phase 4a GUI session model (`gui/multiconfig-phase4a`), 2026-07-25

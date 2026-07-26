@@ -124,8 +124,9 @@ class ConfiguredValuesDialog(QDialog):
         self._names = list(names)
         self._commit = commit
         self._editors: list[QWidget] = []
-        self._unit, shown = self._in_display_unit(values, display_unit)
-        values = shown
+        # Incoming values are in the parameter's input unit (what the configured table
+        # stores); the rows show and accept the analyst's chosen display unit (CU-211).
+        self._unit, row_values = self._in_display_unit(values, display_unit)
 
         self.setObjectName("configuredValuesDialog")
         self.setWindowTitle(f"Configured values — {dotpath}")
@@ -136,7 +137,7 @@ class ConfiguredValuesDialog(QDialog):
         layout.setSpacing(10)
 
         self._build_header(layout)
-        self._build_table(layout, values)
+        self._build_table(layout, row_values)
         self._build_error_area(layout)
         self._build_buttons(layout)
 

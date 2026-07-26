@@ -217,9 +217,7 @@ class TestUnconfigure:
         window = _open_study(qtbot, tmp_path)
         cs = window.configuration_set
         assert cs is not None
-        monkeypatch.setattr(
-            QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok
-        )
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok)
 
         _act(qtbot, window, lambda: window.configuration_scope.request_unconfigure(_FILTER_MIN))
 
@@ -377,9 +375,7 @@ class TestScopedUndoRedo:
         cs = window.configuration_set
         assert cs is not None
         column_before = _configured(window, _FILTER_MIN)
-        monkeypatch.setattr(
-            QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok
-        )
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok)
 
         _act(qtbot, window, lambda: window.configuration_scope.request_unconfigure(_FILTER_MIN))
         assert cs.is_configured(_FILTER_MIN) is False
@@ -419,9 +415,7 @@ class TestScopedUndoRedo:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.action("edit.redo").trigger()
 
-        assert _configured(window, _FILTER_MIN) == pytest.approx(
-            (3.7, column_before[1]), rel=1e-12
-        )
+        assert _configured(window, _FILTER_MIN) == pytest.approx((3.7, column_before[1]), rel=1e-12)
 
     def test_table_editor_edit_undo_restores_the_prior_column(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)

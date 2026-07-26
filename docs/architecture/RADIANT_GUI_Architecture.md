@@ -56,7 +56,7 @@ D5 (the 3D engine) was ratified the same day.
    live derived-angle readout from `stage_outputs["geometry"]`.
 6. 3D geometry viewer: the not-to-scale schematic (sun/sensor/target glyphs, vectors,
    click-to-reveal angle annotations, target shape library, RPY triad).
-7. Scripting console: embedded IPython with live `sensor` / `result` objects.
+7. Scripting console: embedded REPL with live `sensor` / `configs` / `result` objects.
 8. File round-trip: Open/Save/Recent YAML via `Sensor.load()` / `sensor.save()`;
    undo/redo of parameter edits.
 
@@ -405,10 +405,9 @@ the configuration manager (§4.2d) — the same dialog `Edit → Configurations�
 selector itself is still display-only: it chooses which configuration is shown, and the
 manager is the one place membership changes.
 
-**Not yet built (upcoming sub-phase, not shipped):** the study YAML view, the console
-`configs` object, and study-aware recent handling (**4e**). The YAML editor and the
-console Refresh are still single-configuration surfaces and say so rather than silently
-collapsing a study to one configuration.
+The study YAML document, the console `configs` object, study-aware recent handling, and
+the dirty/title polish landed in **Phase 4e** (§4.2f); no part of the multi-configuration
+GUI is outstanding.
 
 ### 4.2c Configured Parameters — badge, table editor, scoped undo (Phase 4b SHIPPED 2026-07-25)
 
@@ -591,6 +590,82 @@ dock.
 **Pinning survives.** A matrix row's label cell keeps the hover-revealed pin (§4.5, pin
 any metric). It pins the *metric*; the rail card shows the **displayed** configuration's
 value for it, which is what every other rail card already does.
+
+### 4.2f Study Persistence and Polish (Phase 4e SHIPPED 2026-07-25)
+
+The last multi-configuration sub-phase: the surfaces that read, write, or narrate the
+**document** rather than one configuration of it (plan §4 item 7).
+
+**One predicate decides the document's kind.** `gui/document_yaml.py` is Qt-free and
+holds three functions — `is_study`, `serialize_document`, `load_document_from_text` —
+and every surface that serializes or re-reads the session goes through them: `File →
+Save`, `Export YAML`, the right-rail *Edit Config (YAML)* modal, and
+`RADIANTMainWindow._is_degenerate` itself. A **study** is a set with more than one
+configuration *or* any configured parameter (a one-configuration set with a configured
+column is still a study document — its column would be lost if the file were written as a
+bare sensor). A study serializes as `ConfigurationSet.to_yaml` (shared body +
+`configurations:`), a plain session as `Sensor.to_yaml(scope="inputs")` — byte-for-byte
+the format the app has always written. Putting the choice in one place is what keeps the
+file the analyst saves and the text the YAML modal shows from ever disagreeing.
+
+**The YAML view/editor is the study.** *Edit Config (YAML)* (§4.5) preloads the whole
+document, section included, and Apply re-parses it through `ConfigurationSet.load` — the
+one reader that handles both kinds. Success adopts the parsed document exactly as
+`File → Open` does: selector, badges, parameter tree, forms and console rebind, undo stack
+cleared (a whole-document replace is not one reversible edit), dirty set, file path kept.
+Failure leaves the session untouched and renders the loader's own what/why/action — for a
+section violation the `ConfigError` already names the configuration and the parameter, so
+the GUI adds nothing. Two consequences follow from routing through the loader rather than
+special-casing:
+
+* adding a `configurations:` section by hand turns a plain session into a study;
+* **removing** it collapses the study to a plain session (selector hidden) — the analyst's
+  explicit instruction, typed into the document. (A removal that leaves a formerly-configured
+  dot-path set nowhere produces a document that does not resolve; the window opens it
+  editable with the reason in Messages, the same from-scratch rule §4.2b already applies.)
+
+**The console binds the document.** Alongside `sensor` the Command Window namespace
+carries **`configs`** — the live `ConfigurationSet`, the same object the selector, the
+manager, and Save write through (§4.6.1). No GUI-only wrapper: it is the scripting API
+object. `sensor` keeps its §4.2b meaning (the *displayed configuration's* materialization,
+which in a plain session is literally `configs.base`), so a study's document edits belong
+on `configs`. **Refresh is study-aware**: it adopts `configs`, so a console edit to one
+configuration's column survives and the study is never collapsed to the displayed
+configuration; a rebound `configs = ConfigurationSet.load(...)` is adopted by identity; a
+rebound `sensor` in a plain session is still adopted as the document (the pre-4e
+workflow), and in a study the status line says why `sensor` is not one. The staleness
+banner's mutation surface grew the `configs` document-editing calls beside
+`sensor.set*`/`sensor.load`; it deliberately lists the *named* mutating calls rather than a
+bare `configs.` prefix, so an ordinary read does not raise a false banner.
+
+**`active` is view state — written on save, never dirty.** `ConfigurationSet.save`
+persists `active`, so switching the displayed configuration does change what the next save
+writes. It nevertheless does **not** mark the document dirty: a switch is a look-around,
+and putting a `*` in the title for one would train the analyst to ignore the marker. The
+switch is captured silently at save time instead (the owner-recommended choice; recorded
+here because the alternative — dirty-on-switch — is the one a reader would otherwise
+expect from "save writes it"). Everything that changes the **model** does mark dirty: a
+shared or per-configuration parameter edit, configure / un-configure, a configured-value
+table write, a configuration-manager transaction, an undo or redo of any of those, a
+YAML-editor Apply, and a console Refresh.
+
+**Title.** The existing `[*] <file> — RADIANT <build>` pattern gains one parenthetical in
+a study — `dual_band.yaml (2 configurations) — RADIANT v…` — filling the slot the pattern
+already had between the name and the app suffix. No new chrome; a plain session's title is
+unchanged.
+
+**Recent files** need no study-specific handling and are tested to prove it: `Open Recent`
+routes through the same `_open_path` → `ConfigurationSet.load` as `File → Open`, so a
+study reopens as the full set with its selector visible.
+
+**Shared spectral grid points (CU-213).** The configuration manager (§4.2d) gained the one
+control it was missing: a **Shared grid points** field above the rows, writing
+`set_wavelength_points(None, n)`. It is the number every blank per-row placeholder already
+named, and until now it was reachable only from the YAML editor or the console. Blank has
+no meaning above the shared default (`wavelength_points()` always reports a count in
+force), so a cleared box restores the current value rather than writing `None`. Undo is
+free: `ConfigurationShape` already snapshots `shared_wavelength_points`, so the change
+reverses with the rest of the manager transaction in one step.
 
 ### 4.3 All-Parameters Panel (permanent left column)
 
@@ -881,14 +956,17 @@ across sessions via `QSettings` is Phase 9 (also CU-115). A failed / absent metr
 its `failure_reason` (Rule 17 carve-out), never a blank.
 
 **Edit Config (YAML) button.** A button that opens a **roomy modal editor** of the full
-config. **Apply re-parses the edited text through the framework** (`Sensor.load` on the
-text); **invalid YAML → an actionable error and the config is left unchanged** (the live
-sensor is never corrupted — the edit is parsed on a throwaway sensor first, exactly the
-§4.1 validate-before-commit discipline). This is the relocation of the shipped read-only
-YAML tab into an editable modal; it still round-trips through `Sensor.load`/`sensor.save`.
-As shipped, the serialized text is the **inputs** scope and there is no in-memory /
-resolved-scope serialize surface (**Gap 88**); the modal shows the inputs scope until that
-lands.
+**document** — since Phase 4e the whole study when the session is one, `configurations:`
+section included, and exactly today's single-config text when it is not (§4.2f decides
+which, once, for this modal and for Save alike). **Apply re-parses the edited text through
+the framework** (`ConfigurationSet.load`, the one reader that takes both document kinds);
+**invalid YAML → an actionable error and the document is left unchanged** (the live
+document is never corrupted — the edit is parsed on a throwaway first, exactly the §4.1
+validate-before-commit discipline), and a section violation's error already names the
+configuration and the parameter. This is the relocation of the shipped read-only YAML tab
+into an editable modal. As shipped, the serialized text is the **inputs** scope and there
+is no resolved-scope serialize surface (**Gap 88**); the modal shows the inputs scope until
+that lands.
 
 **Messages.** Warnings and errors, replacing the old floating warning strip. Chain
 `UserWarning`s (saturation clip, NIIRS extrapolation, …) are captured by
@@ -1005,11 +1083,15 @@ glyph colours (a `QSyntaxHighlighter`, outside QSS's reach): the toggle calls
 
 **Live-object binding.** The console namespace carries live references: `sensor` (the
 window's live `Sensor` — the *same* object the parameter tree edits, so a `sensor.set(...)`
-in the console and a tree edit both mutate one object), `result` (the most recent
-`ChainResult`, re-bound after every evaluation), `plot` (`ResultPlotNamespace(result)` — the
-public `result.plot.*` figure surface, since `ChainResult` carries no `.plot` property,
-Gap 87), plus the conveniences `inspect_result` (Gap-87 sugar for `result.inspect()`) and
-`Sensor` (so a script can rebind).
+in the console and a tree edit both mutate one object; in a study it is the displayed
+configuration's materialization, §4.2b), **`configs`** (the live `ConfigurationSet` — the
+session *document*, the same object the selector, the configuration manager, and Save write
+through, multi-configuration Phase 4e §4.2f; a plain session binds the degenerate set, whose
+`configs.base is sensor`), `result` (the most recent `ChainResult`, re-bound after every
+evaluation), `plot` (`ResultPlotNamespace(result)` — the public `result.plot.*` figure
+surface, since `ChainResult` carries no `.plot` property, Gap 87), plus the conveniences
+`inspect_result` (Gap-87 sugar for `result.inspect()`) and the classes `Sensor` /
+`ConfigurationSet` (so a script can rebind either name).
 
 **REPL, not qtconsole (CU-138).** The plan prefers a `qtconsole` in-process Jupyter kernel,
 but explicitly sanctions a plain REPL over `code.InteractiveConsole` if qtconsole proves
@@ -1024,14 +1106,17 @@ rendered inline — dependency-light and backend-agnostic. The console keeps ref
 windows are not garbage-collected and closes them on teardown.
 
 **GUI ↔ console coherence (explicit, not magic).** A console command can mutate `sensor`
-behind the GUI's back. After such a command the console raises a visible **"console changed
-state — Refresh"** banner and the window echoes the staleness (stage-health dots → stale +
-status bar); the one-click **Refresh** *adopts* the console's current `sensor` — covering both
-an in-place `sensor.set(...)` (same object, detected via the `sensor.set*`/`sensor.load`
-mutation surface, §3.1) and a full rebind `sensor = Sensor.load(...)` (a new object, detected
-by identity) — re-reads it into the parameter tree + input forms, and re-evaluates. A fresh
-evaluation clears the stale state. There is no live-sync (GUI plan Phase 8 — "explicit and
-honest beats magic sync").
+or `configs` behind the GUI's back. After such a command the console raises a visible
+**"console changed state — Refresh"** banner and the window echoes the staleness
+(stage-health dots → stale + status bar); the one-click **Refresh** *adopts the console's
+current document* — `configs` — covering an in-place edit anywhere in it (`sensor.set(...)`
+on a plain session's base, `configs.set_value(...)` on one configuration's column,
+`configs.add(...)` on its membership; detected via the named mutation surface, §3.1 and
+§4.2f) and a full rebind of either name (a new object, detected by identity) — re-reads it
+into the selector, parameter tree, and input forms, and re-evaluates every configuration. A
+study is never collapsed to its displayed configuration. A fresh evaluation clears the
+stale state. There is no live-sync (GUI plan Phase 8 — "explicit and honest beats magic
+sync").
 
 ### 4.7 What the Redesign Relocates (the dissolved detail tabs)
 

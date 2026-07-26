@@ -286,9 +286,12 @@ QLabel#configManagerRowStatus[state="ok"] {{
 QLabel#configManagerRowStatus[state="error"] {{
     color: {t.err};
 }}
-QLineEdit#configManagerPoints {{
+QLineEdit#configManagerPoints, QLineEdit#configManagerSharedPoints {{
     font-family: {tokens.FONT_MONO};
     font-size: 11px;
+}}
+QLineEdit#configManagerSharedPoints {{
+    max-width: 90px;
 }}
 
 /* -- Health dots (§8.4) — colour keyed on the [status] property --------- */

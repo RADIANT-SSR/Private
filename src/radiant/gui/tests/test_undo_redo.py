@@ -13,6 +13,7 @@ from pathlib import Path
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QKeySequence
 
+from radiant.api.config_set import ConfigurationSet
 from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.settings_store import SettingsStore
@@ -74,14 +75,19 @@ class TestUndoRedo:
         assert window.sensor.get_input(_APERTURE) == 0.6
 
     def test_config_swap_clears_the_stack(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        """A whole-config Apply (YAML editor / console) resets the undo history."""
+        """A whole-document Apply (YAML editor / console) resets the undo history.
+
+        Since Phase 4e the Apply hand-off is a ``ConfigurationSet`` (the document), not a
+        bare sensor; a plain session's degenerate set *is* its sensor, so the assertion
+        that the swapped-in object becomes ``window.sensor`` is unchanged.
+        """
         window = _window(qtbot, tmp_path)
         _edit(window, _APERTURE, 0.6)
         assert window._undo_stack.count() == 1
 
         replacement = Sensor.load(_EXAMPLE)
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window._apply_new_config(replacement)
+            window._apply_new_document(ConfigurationSet(replacement))
 
         assert window._undo_stack.count() == 0
         assert not window.action("edit.undo").isEnabled()

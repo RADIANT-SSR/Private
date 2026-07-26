@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMessageBox
+from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox
 
 from radiant.api.config_set import ConfigurationSet
 from radiant.api.sensor import Sensor
@@ -54,25 +54,9 @@ _APERTURE = "optics.aperture_diameter_m"
 _WAIT_MS = 20000  # headroom over an 8-configuration evaluate-all pass
 
 
-# Windows opened by the helpers below, released after each test. pytest-qt closes a
-# registered widget at teardown but does not force its C++ deletion, so a module that
-# opens one full main window per test leaves them alive for the rest of the session.
-# The GUI suite runs every module in one process and ends with the app-wide
-# ``apply_theme`` re-polish, which walks every live widget — accumulating 24 more
-# windows here pushed that walk into a segmentation fault (CU-212). Releasing them is
-# this module's own house-keeping, not a workaround for the code under test.
-_OPEN_WINDOWS: list[RADIANTMainWindow] = []
-
-
-@pytest.fixture(autouse=True)
-def _release_windows() -> Any:  # type: ignore[misc]
-    """Close, delete, and drain every window this module opened, after each test."""
-    yield
-    while _OPEN_WINDOWS:
-        window = _OPEN_WINDOWS.pop()
-        window.close()
-        window.deleteLater()
-    QApplication.processEvents()
+# Every window this module opens is released by the session-wide ``_release_widgets``
+# fixture in ``conftest.py`` (CU-212, generalized in Phase 4e); the module-local copy
+# Phase 4b carried is gone.
 
 
 def _dual_band_study(tmp_path: Path) -> Path:
@@ -90,7 +74,6 @@ def _open_study(qtbot, tmp_path: Path) -> RADIANTMainWindow:  # type: ignore[no-
     path = _dual_band_study(tmp_path)
     window = RADIANTMainWindow(config_set=ConfigurationSet.load(path), path=str(path))
     qtbot.addWidget(window)
-    _OPEN_WINDOWS.append(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window
@@ -100,7 +83,6 @@ def _open_plain(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
     """Open the shipped single-configuration example and await its first pass."""
     window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
     qtbot.addWidget(window)
-    _OPEN_WINDOWS.append(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
         pass
     return window
@@ -217,9 +199,7 @@ class TestUnconfigure:
         window = _open_study(qtbot, tmp_path)
         cs = window.configuration_set
         assert cs is not None
-        monkeypatch.setattr(
-            QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok
-        )
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok)
 
         _act(qtbot, window, lambda: window.configuration_scope.request_unconfigure(_FILTER_MIN))
 
@@ -377,9 +357,7 @@ class TestScopedUndoRedo:
         cs = window.configuration_set
         assert cs is not None
         column_before = _configured(window, _FILTER_MIN)
-        monkeypatch.setattr(
-            QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok
-        )
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok)
 
         _act(qtbot, window, lambda: window.configuration_scope.request_unconfigure(_FILTER_MIN))
         assert cs.is_configured(_FILTER_MIN) is False
@@ -419,9 +397,7 @@ class TestScopedUndoRedo:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.action("edit.redo").trigger()
 
-        assert _configured(window, _FILTER_MIN) == pytest.approx(
-            (3.7, column_before[1]), rel=1e-12
-        )
+        assert _configured(window, _FILTER_MIN) == pytest.approx((3.7, column_before[1]), rel=1e-12)
 
     def test_table_editor_edit_undo_restores_the_prior_column(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)

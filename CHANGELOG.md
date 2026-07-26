@@ -21,6 +21,33 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: studies are a first-class document — YAML view/editor, console `configs`, and
+  persistence polish (multi-configuration Phase 4e; completes the GUI half of the
+  capability).** The right-rail **Edit Config (YAML)** modal now shows and edits the
+  **whole study**, `configurations:` section included, and re-parses it through
+  `ConfigurationSet.load` on Apply: a valid edit — including an edit to a configured
+  value inside the section — becomes the new session state exactly as `File → Open`
+  would, while an invalid one leaves the session untouched and renders the loader's own
+  what/why/action (which already names the configuration and the parameter). Because
+  Apply goes through the ordinary loader, adding a section by hand turns a plain session
+  into a study and deleting one collapses a study back to a plain session. The scripting
+  console binds **`configs`** — the live `ConfigurationSet`, the same object the selector,
+  the configuration manager, and Save write through — beside `sensor` (which stays the
+  displayed configuration), and its **Refresh** now re-adopts that whole document instead
+  of refusing to act on a study. The window title carries `(N configurations)` for a
+  study; switching the displayed configuration deliberately does **not** mark the document
+  dirty (`active` is view state, captured silently at save time) while every model change
+  does. A single-configuration session is unchanged in every one of these surfaces: same
+  YAML text, same file format, same title, same console behaviour. No computed results
+  change.
+- **GUI: the configuration manager can set a study's shared spectral grid points**
+  (CU-213). A *Shared grid points* field above the rows writes
+  `ConfigurationSet.set_wavelength_points(None, n)` — the number every blank per-row
+  override already named in its placeholder, and until now editable only from the YAML
+  editor or the console. It reverses with the rest of the manager transaction in one undo
+  step. Changing it changes each configuration's spectral sampling density and therefore
+  its computed metrics, exactly as editing `_radiant.wavelength_points` in the YAML always
+  did; the default is untouched, so no existing result moves.
 - **GUI: the Performance stage shows every configuration side by side (multi-configuration
   Phase 4d).** In a study, each metric group card becomes a **metric × configuration
   matrix** — the same groups in the same order, plus one column per configuration in set

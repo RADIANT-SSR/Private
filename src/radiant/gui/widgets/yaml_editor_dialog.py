@@ -1,23 +1,36 @@
-"""The roomy in-app YAML config editor modal (arch doc §4.5).
+"""The roomy in-app YAML document editor modal (arch doc §4.5, §4.2f).
 
 :class:`YamlEditorDialog` is what the right-rail **Edit Config (YAML)** button opens: a
-large :class:`QPlainTextEdit` preloaded with the current config YAML (via
-:func:`radiant.gui.yaml_format.serialize_yaml`, the ``Sensor.save`` round-trip), with
-**Apply / Revert / Cancel**.
+large :class:`QPlainTextEdit` preloaded with the session **document**'s YAML (via
+:func:`radiant.gui.document_yaml.serialize_document`), with **Apply / Revert / Cancel**.
+
+**The document, not one configuration** (multi-configuration Phase 4e). The session
+document is a :class:`~radiant.api.config_set.ConfigurationSet`, so a study's text is
+the full study — the shared body **plus** its ``configurations:`` section — and a plain
+single-configuration session's text is exactly what it always was, with no section.
+:mod:`radiant.gui.document_yaml` makes that choice once for every surface that
+serializes or re-reads the document.
 
 **Apply re-parses the edited text through the framework** and never corrupts the live
-sensor: the text is loaded into a *fresh* :class:`~radiant.api.sensor.Sensor` via
-:meth:`Sensor.load` (round-tripped through a temp file — there is no string-load surface,
-Gap 88). Only on success is the new sensor handed back (via :attr:`configApplied`) so the
-caller can swap it in and re-evaluate; on failure the live sensor is untouched and the
-dialog stays open with the bad text so the user can fix it:
+document: the text is loaded into a *fresh* ``ConfigurationSet`` via
+:func:`~radiant.gui.document_yaml.load_document_from_text` (round-tripped through a temp
+file — there is no string-load surface, Gap 88). Only on success is the new document
+handed back (via :attr:`configApplied`) so the caller can swap it in and re-evaluate; on
+failure the live document is untouched and the dialog stays open with the bad text so the
+user can fix it:
 
-* a :class:`~radiant.core.exceptions.RadiantError` (e.g. a YAML/`ConfigError`) shows the
+* a :class:`~radiant.core.exceptions.RadiantError` (e.g. a YAML/`ConfigError`, which for
+  a section violation already names the configuration and the parameter) shows the
   actionable :class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog`
   (what / why / action, Rule 15);
 * any other exception shows the traceback dialog — surfaced, never swallowed (Rule 17).
 
-**Revert** restores the editor to the current config text. **Cancel** closes without
+Because Apply goes through the ordinary loader, **editing the section away is a legal
+edit**: the parsed document is then the degenerate one-configuration set and the window
+adopts it as a plain session (the selector band disappears). That is the analyst's
+explicit instruction, typed into the document, not a silent collapse by the GUI.
+
+**Revert** restores the editor to the current document text. **Cancel** closes without
 applying. One widget class per file (Rule 19); styling is entirely themed via object
 names (GUI plan §4.9), so this file holds no colour/font/size literal.
 """
@@ -25,8 +38,6 @@ names (GUI plan §4.9), so this file holds no colour/font/size literal.
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
@@ -41,72 +52,53 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.document_yaml import is_study, load_document_from_text, serialize_document
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
-from radiant.gui.yaml_format import serialize_yaml
 
 if TYPE_CHECKING:
-    from radiant.api.sensor import Sensor
+    from radiant.api.config_set import ConfigurationSet
 
 logger = logging.getLogger(__name__)
 
 _TITLE: str = "Edit Configuration"
 _CAP: str = "Apply re-parses through the framework; invalid YAML leaves the config unchanged."
-
-
-def load_sensor_from_text(yaml_text: str) -> Sensor:
-    """Parse *yaml_text* into a fresh :class:`Sensor` via the public loader.
-
-    ``Sensor.load`` takes a path only (no string-load surface — Gap 88), so the text is
-    written to a throwaway temp file and loaded back. Any parse/validation failure
-    propagates to the caller — the live sensor is never touched here.
-    """
-    from radiant.api.sensor import Sensor
-
-    fd, tmp_path = tempfile.mkstemp(suffix=".yaml", prefix="radiant_gui_yaml_edit_")
-    os.close(fd)
-    try:
-        with open(tmp_path, "w", encoding="utf-8") as handle:
-            handle.write(yaml_text)
-        return Sensor.load(tmp_path)
-    finally:
-        # Best-effort cleanup; a failed unlink is benign (the OS reclaims the temp
-        # dir) but it is logged, never silently swallowed (Rule 17).
-        try:
-            os.unlink(tmp_path)
-        except OSError as exc:  # pragma: no cover - benign
-            logger.debug("Could not remove temp YAML file %s: %s", tmp_path, exc)
+_STUDY_CAP: str = (
+    "This is the whole study — the shared parameters plus the configurations: section. "
+    "Apply re-parses through the framework; invalid YAML leaves the study unchanged."
+)
 
 
 class YamlEditorDialog(QDialog):
-    """A roomy editable YAML modal; Apply validates on a fresh sensor (arch doc §4.5).
+    """A roomy editable YAML modal; Apply validates on a fresh document (arch doc §4.5).
 
     Parameters
     ----------
-    sensor:
-        The live :class:`~radiant.api.sensor.Sensor`; its serialized config preloads the
-        editor. Never mutated by this dialog.
+    config_set:
+        The live session document. Never mutated by this dialog — its serialization
+        preloads the editor and Apply parses a *new* set from the edited text.
     parent:
         The owning widget, if any.
 
     Signals
     -------
     configApplied(object):
-        Emitted with the freshly-parsed :class:`Sensor` when Apply succeeds; the caller
-        swaps it in and re-evaluates. Not emitted on failure.
+        Emitted with the freshly-parsed
+        :class:`~radiant.api.config_set.ConfigurationSet` when Apply succeeds; the
+        caller adopts it and re-evaluates. Not emitted on failure.
     """
 
     configApplied = Signal(object)
 
-    def __init__(self, sensor: Sensor, parent: QWidget | None = None) -> None:
+    def __init__(self, config_set: ConfigurationSet, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("yamlEditorDialog")
         self.setWindowTitle(_TITLE)
         self.setModal(True)
         self.resize(680, 560)
 
-        self._sensor = sensor
-        self._original_text = serialize_yaml(sensor)
+        self._config_set = config_set
+        self._original_text = serialize_document(config_set)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 16, 18, 14)
@@ -122,7 +114,7 @@ class YamlEditorDialog(QDialog):
         self._editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         layout.addWidget(self._editor, 1)
 
-        caption = QLabel(_CAP, self)
+        caption = QLabel(_STUDY_CAP if is_study(config_set) else _CAP, self)
         caption.setObjectName("yamlEditorCaption")
         caption.setWordWrap(True)
         layout.addWidget(caption)
@@ -169,27 +161,28 @@ class YamlEditorDialog(QDialog):
     # -- actions ------------------------------------------------------------
 
     def _on_apply(self) -> None:
-        """Validate the edited text on a fresh sensor; swap in only on success.
+        """Validate the edited text on a fresh document; hand it back only on success.
 
-        The live sensor is never mutated here — the text is parsed into a *new*
-        ``Sensor`` first (§4.1 validate-before-commit). On failure the actionable /
-        traceback dialog is shown and this dialog stays open with the bad text.
+        The live document is never mutated here — the text is parsed into a *new*
+        ``ConfigurationSet`` first (§4.1 validate-before-commit). On failure the
+        actionable / traceback dialog is shown and this dialog stays open with the bad
+        text.
         """
         text = self._editor.toPlainText()
         try:
-            new_sensor = load_sensor_from_text(text)
+            new_document = load_document_from_text(text)
         except RadiantError as exc:
             ActionableErrorDialog(exc, "Edit Config (YAML)", self).exec()
             return
         except Exception as exc:  # surfaced, never swallowed (Rules 15/17)
             UnexpectedErrorDialog(exc, "Parsing the edited YAML config", self).exec()
             return
-        self.configApplied.emit(new_sensor)
+        self.configApplied.emit(new_document)
         self.accept()
 
     def _on_revert(self) -> None:
-        """Restore the editor to the current config text (the preloaded serialization)."""
+        """Restore the editor to the current document text (the preloaded serialization)."""
         self._editor.setPlainText(self._original_text)
 
 
-__all__ = ["YamlEditorDialog", "load_sensor_from_text"]
+__all__ = ["YamlEditorDialog"]

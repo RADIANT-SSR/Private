@@ -394,21 +394,75 @@ live handle it may `set()` on. In the degenerate case it is literally
 `configuration_set.base` (the same object, not a clone), which is what makes the
 single-model edit path unchanged.
 
-**Where an edit lands (Phase 4a scope).** A shared parameter's edit is written through to
-the shared base, exactly as a single-model edit behaves, and the undo commands target that
-base — so a shared edit stays undoable **across** a selector switch. An inline edit of a
-parameter that a loaded study already marks *configured* is written to the displayed
-configuration's own column (ADR-0010 D-8) and is **not** yet undoable; the operator is told
-so in the status bar rather than left with a silently non-reversible edit.
+**Where an edit lands.** A shared parameter's edit is written through to the shared
+base, exactly as a single-model edit behaves, and the undo commands target that base — so
+a shared edit stays undoable **across** a selector switch. An inline edit of a parameter
+the study marks *configured* is written to the displayed configuration's own column
+(ADR-0010 D-8) and, since Phase 4b, is undoable as a scoped command (§4.2c).
 
-**Not yet built (upcoming sub-phases, not shipped):** the *Configure across
-configurations…* action, the red "C" badge, and the per-parameter N-value table editor
-with scoped undo (**4b**); the configuration manager dialog — create / duplicate / rename /
-delete / reorder / baseline (**4c**); per-configuration Performance columns (**4d**); the
-study YAML view, the console `configs` object, and study-aware recent/dirty handling
-(**4e**). In Phase 4a the selector is **read-only** over whatever the loaded file defines;
-the YAML editor and the console Refresh are single-configuration surfaces and say so
-rather than silently collapsing a study to one configuration.
+**Not yet built (upcoming sub-phases, not shipped):** the configuration manager dialog —
+create / duplicate / rename / delete / reorder / baseline (**4c**); per-configuration
+Performance columns (**4d**); the study YAML view, the console `configs` object, and
+study-aware recent/dirty handling (**4e**). Through Phase 4b the selector is still
+**read-only** over whatever the loaded file defines; the YAML editor and the console
+Refresh are single-configuration surfaces and say so rather than silently collapsing a
+study to one configuration.
+
+### 4.2c Configured Parameters — badge, table editor, scoped undo (Phase 4b SHIPPED 2026-07-25)
+
+A parameter is **shared** by default and becomes **configured** — one value per
+configuration, dense by construction — only when the analyst says so (ADR-0010 D-A/D-2).
+Phase 4b is the surface for that decision and for editing the values it creates.
+
+**The scope object.** One `ConfigurationScope` (`gui/config_scope.py`) is the read side
+and the intent channel shared by every badge-bearing surface. Widgets ask it *is this
+dot-path configured* and *what are its values*; they emit *configure / edit values /
+un-configure* through it. The main window is its only listener, so a widget still makes
+no API call — the window makes the single `ConfigurationSet` call and records one undo
+command (R-API). A single `changed` signal re-reads every badge in the window, which is
+what keeps the "C" honest after a configure, an un-configure, or any value edit.
+
+**The red "C" badge.** Every configured parameter is marked with a small red **C** — the
+owner's explicit visual spec — in the all-parameters tree (§4.3, a painted decoration on
+the Parameter column) and in every per-stage form field (§4.4). The form badge reaches all
+nine stages because every field is the one shared `FieldRow`. The colour is the theme's
+`err` token in both themes (§8.1), never a literal. The tooltip lists **every**
+configuration's value with its unit, in set order — `MWIR: 3.5 um · LWIR: 8 um` — so the
+whole column is readable without opening anything.
+
+**The three actions** (identical wording and order in the tree's context menu and the form
+fields', because both are built by one helper, `widgets/configure_menu.py`):
+
+| Action | API call | Notes |
+|---|---|---|
+| *Configure across configurations…* | `configure(dotpath)` | Seeds every configuration from the current shared value and moves the parameter out of the base (D-B). Offered on a shared parameter. In a **single-configuration** session it answers with an actionable status message pointing at the (4c) configuration manager — never a silent no-op. |
+| *Edit configured values…* | `set_values(dotpath, values)` | Opens the all-configurations table (below). |
+| *Un-configure (keep &lt;first&gt;'s value)…* | `unconfigure(dotpath)` | Always keeps configuration #1's value (D-6). The confirmation **states that value with its unit** before proceeding, so collapsing a column is never a silent physics change in the other configurations. |
+
+**The all-configurations table editor** (`widgets/configured_values_dialog.py`): one row per
+configuration in set order, each with the configuration's accent chip (§8.1
+`config_accents`, the selector's hue for that slot), its name, a value editor built from
+the parameter's own schema entry (enum → combo, bool → check box, int → bounded spin box,
+float/str → line edit — the same editors the single-value Parameter Editor builds), and
+the unit (R-UNITS). It commits in **one** `set_values` call: the API validates the whole
+column before replacing it, so a rejected value leaves the set untouched — no half-commit —
+and the rejection, which names the offending configuration, renders inline while the dialog
+stays open (Rules 15/17). The table works in the parameter's schema input unit, labelled
+per row; a per-row *display*-unit choice needs an API seam and is tracked as CU-211.
+
+**Scoped undo/redo.** `ScopedParameterCommand` (`widgets/scoped_parameter_command.py`)
+records a parameter's whole **scope state** — which store it lives in plus the value(s) —
+before and after an action, so one command class covers configure, un-configure, a
+table-editor write, and an inline per-configuration edit, and undo restores **both the
+value and the scope**: undoing a configure drops the column and restores the base's prior
+explicit input (or resets it, when the base never had one, so a defaulted parameter stays
+defaulted); undoing an un-configure restores the full column. Shared edits keep Phase 4a's
+`SetParameterCommand` against the base, so both kinds share one stack and a shared edit
+stays undoable across a selector switch.
+
+**Single-configuration sessions are unchanged.** Nothing is configured, so no badge is ever
+shown, no dialog is reachable, and the only new behaviour is the guarded action's message —
+a tested zero-regression requirement (`gui/tests/test_configured_parameters.py`).
 
 ### 4.3 All-Parameters Panel (permanent left column)
 

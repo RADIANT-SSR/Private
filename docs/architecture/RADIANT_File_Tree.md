@@ -259,6 +259,7 @@ gui/
 ├── __init__.py          # launch_gui(sensor) entry point
 ├── app.py               # QApplication bootstrap
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
+├── config_scope.py      # ConfigurationScope — configured-parameter badges + scope actions (4b)
 ├── workers.py           # ConfigSetEvaluationWorker(QThread) — off-thread evaluate_all (Phase 4a)
 ├── widgets/             # one widget/dialog class per file (Rule 19 spirit)
 │   ├── actionable_error_dialog.py           # ActionableErrorDialog
@@ -266,6 +267,9 @@ gui/
 │   ├── central_canvas.py                    # CentralCanvas
 │   ├── comparison_dialog.py                 # ComparisonDialog
 │   ├── configuration_bar.py                 # ConfigurationBar — master configuration selector
+│   ├── configure_menu.py                    # the three configured-parameter context actions (4b)
+│   ├── configured_badge.py                  # ConfiguredBadge + the painted red "C" icon (4b)
+│   ├── configured_values_dialog.py          # ConfiguredValuesDialog — all-configurations table (4b)
 │   ├── detector_illustration.py             # DetectorIllustration
 │   ├── detector_inputs_form.py              # DetectorInputsForm
 │   ├── explain_dialog.py                    # ExplainDialog
@@ -304,6 +308,7 @@ gui/
 │   ├── script_tab.py                        # ScriptTab
 │   ├── scripting_console.py                 # ScriptingConsole
 │   ├── scripting_window.py                  # ScriptingWindow
+│   ├── scoped_parameter_command.py          # ScopedParameterCommand — scope+value undo (4b)
 │   ├── set_parameter_command.py             # SetParameterCommand
 │   ├── solve_dialog.py                      # SolveDialog
 │   ├── source_inputs_form.py                # SourceInputsForm

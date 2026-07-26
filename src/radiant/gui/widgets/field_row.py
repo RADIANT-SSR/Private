@@ -18,6 +18,16 @@ supplied (which opens the shared
 ``sensor.set`` on commit, the same validate-on-a-clone reject path everywhere). The row
 never touches a ``Sensor`` itself; it is pure presentation + an edit-intent hook.
 
+**Multi-configuration (Phase 4b).** Given a
+:class:`~radiant.gui.config_scope.ConfigurationScope`, the row also carries the red
+"C" badge of a configured parameter (ADR-0010 D-2) — tooltip listing every
+configuration's value with units — and a right-click menu offering the three scope
+actions (configure / edit configured values / un-configure). Because every per-stage
+input form is built from this one widget, the badge and the menu reach all nine
+stages by construction rather than by nine independent implementations. The row still
+makes no API call: it emits intent through the scope, and the window performs the
+single ``ConfigurationSet`` call and records the undo command.
+
 One widget class per file (Rule 19). All colour/typography comes from the QSS theme via
 the object names above (GUI plan §4.9); this module holds no colour/font literal.
 """
@@ -25,10 +35,17 @@ the object names above (GUI plan §4.9); this module holds no colour/font litera
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QPoint, QSize, Qt
 from PySide6.QtGui import QFontMetrics, QResizeEvent
-from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QSizePolicy, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QMenu, QPushButton, QSizePolicy, QWidget
+
+from radiant.gui.widgets.configure_menu import add_configuration_actions
+from radiant.gui.widgets.configured_badge import ConfiguredBadge
+
+if TYPE_CHECKING:
+    from radiant.gui.config_scope import ConfigurationScope
 
 # The value shown for a field the user has not provided (inert default): a visible
 # "not set via this door" state, not a swallowed value.
@@ -97,6 +114,7 @@ class FieldRow(QWidget):
         super().__init__(None)
         self._dotpath = dotpath
         self._on_edit = on_edit
+        self._scope: ConfigurationScope | None = None
         self.setObjectName("geoModeFieldRow")
 
         row = QGridLayout(self)
@@ -127,13 +145,62 @@ class FieldRow(QWidget):
         self._value.setMaximumWidth(VALUE_BOX_MAX)
         self._value.clicked.connect(lambda: self._on_edit(self._dotpath))
 
+        # The configured-parameter marker (Phase 4b): hidden until a scope says this
+        # dot-path carries one value per configuration. It sits after the value so a
+        # row's label/value geometry is identical whether or not it is configured.
+        self._badge = ConfiguredBadge(self)
+
         row.addWidget(self._label, 0, 0)
         row.addWidget(self._value, 0, 1)
+        row.addWidget(self._badge, 0, 2)
+
+        # Right-click offers the multi-configuration scope actions (no-op without a
+        # scope — a session that has no document has nothing to configure).
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
     @property
     def dotpath(self) -> str:
         """The parameter this row edits."""
         return self._dotpath
+
+    # -- multi-configuration (Phase 4b) -------------------------------------
+
+    def set_configuration_scope(self, scope: ConfigurationScope | None) -> None:
+        """Bind (or clear) the :class:`ConfigurationScope` that drives the badge + menu.
+
+        Re-binding disconnects the previous scope, so a document swap cannot leave a
+        row listening to a stale set. The badge is refreshed immediately and then on
+        every ``changed`` — one signal keeps every row in the window honest.
+        """
+        if self._scope is not None:
+            self._scope.changed.disconnect(self.refresh_badge)
+        self._scope = scope
+        if scope is not None:
+            scope.changed.connect(self.refresh_badge)
+        self.refresh_badge()
+
+    def refresh_badge(self) -> None:
+        """Show or hide the red "C", with every configuration's value as its tooltip."""
+        scope = self._scope
+        if scope is not None and scope.is_configured(self._dotpath):
+            self._badge.show_for(scope.summary(self._dotpath))
+        else:
+            self._badge.clear_badge()
+
+    @property
+    def badge(self) -> ConfiguredBadge:
+        """The configured-parameter marker (visible only for a configured parameter)."""
+        return self._badge
+
+    def _show_context_menu(self, pos: QPoint) -> None:
+        """Right-click menu: the three configuration scope actions (Phase 4b)."""
+        scope = self._scope
+        if scope is None or scope.configuration_set is None:
+            return
+        menu = QMenu(self)
+        add_configuration_actions(menu, scope, self._dotpath)
+        menu.exec(self.mapToGlobal(pos))
 
     def set_value_text(self, text: str) -> None:
         """Set the displayed value+unit text."""

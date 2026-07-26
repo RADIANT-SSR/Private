@@ -421,6 +421,32 @@ QPushButton#geoModeFieldValue:disabled {{
     border: {tokens.BORDER_WIDTH} solid {t.line};
 }}
 
+/* -- Configured-parameter marker (ADR-0010 D-2, multi-configuration 4b) - *
+ * The small red "C" on any parameter that carries one value per configuration.
+ * Same `err` red as every other "look here" surface, in both themes; hidden
+ * outright for a shared parameter, so a single-configuration session shows none. */
+QLabel#configuredBadge {{
+    color: {t.err};
+    font-family: {tokens.FONT_MONO};
+    font-size: 11px;
+    font-weight: 700;
+}}
+
+/* -- All-configurations value table (§4.2c, multi-configuration 4b) ----- */
+#configuredValuesDialog {{
+    background-color: {t.panel};
+}}
+QLabel#configuredValuesName {{
+    color: {t.ink};
+    font-size: 12px;
+    font-weight: 500;
+}}
+QLabel#configuredValuesUnit {{
+    color: {t.muted};
+    font-family: {tokens.FONT_MONO};
+    font-size: 11px;
+}}
+
 /* -- Right-rail Evaluate footer (§4.5) --------------------------------- *
  * The footer strip carrying the accent Evaluate (F5) button, pinned at the
  * bottom-right of the right rail (owner feedback 2026-07-13 — the run action

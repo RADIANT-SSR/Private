@@ -55,6 +55,7 @@ from radiant.gui.viewer.viewer_widget import GeometryViewer
 from radiant.gui.widgets.atmosphere_inputs_form import AtmosphereInputsForm
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
+from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.geometry_angle_panel import (
     NOMINAL_SHAPE_DIMENSIONS,
     GeometryAnglePanel,
@@ -79,6 +80,7 @@ from radiant.gui.widgets.spectral_integration_inputs_form import SpectralIntegra
 if TYPE_CHECKING:
     from radiant.api import ChainResult
     from radiant.api.sensor import Sensor
+    from radiant.gui.config_scope import ConfigurationScope
 
 # Minimum figure height so a composite with two plots stays readable in a scroll area.
 _PLOT_MIN_HEIGHT: int = 240
@@ -224,6 +226,9 @@ class StagePane(QWidget):
         # Section widgets. Kept as lists so a tabbed composite (multiple tabs, each with
         # its own sections) and a flat composite (one of each at most) share one populate
         # path; the singular accessors return the first of a kind.
+        # The session's configuration scope (Phase 4b): handed to every FieldRow so a
+        # configured parameter shows its red "C" wherever it is edited.
+        self._config_scope: ConfigurationScope | None = None
         self._geometry_forms: list[GeometryModeForm] = []
         self._geometry_readouts: list[GeometryReadout] = []
         self._geometry_viewers: list[GeometryViewer] = []
@@ -632,6 +637,21 @@ class StagePane(QWidget):
         if sensor is not None and self._geometry_panels:
             self._configure_panels_from_schema(sensor)
 
+    def bind_configuration_scope(self, scope: ConfigurationScope | None) -> None:
+        """Give every input-form field the session's configuration scope (Phase 4b).
+
+        Every per-stage form field is the one shared
+        :class:`~radiant.gui.widgets.field_row.FieldRow`, so the red "C" badge and the
+        scope context menu reach all nine stages by handing the scope to each row —
+        found by widget-tree walk rather than by nine per-form fan-out methods that
+        would silently miss any field a future form adds. The rows are built with their
+        panes, so a walk at bind time sees all of them; each row then re-reads itself
+        from the scope's ``changed`` signal.
+        """
+        self._config_scope = scope
+        for row in self.findChildren(FieldRow):
+            row.set_configuration_scope(scope)
+
     def set_theme(self, theme: Theme) -> None:
         """Re-theme this pane's custom-painted widgets + matplotlib figures (theme toggle).
 
@@ -976,6 +996,11 @@ class StageCenter(QWidget):
         self._stack.setCurrentWidget(self._placeholder)
         for pane in self._panes.values():
             pane.bind_sensor(sensor, display_units)
+
+    def bind_configuration_scope(self, scope: ConfigurationScope | None) -> None:
+        """Hand the session's configuration scope to every stage pane's form fields (4b)."""
+        for pane in self._panes.values():
+            pane.bind_configuration_scope(scope)
 
     def set_theme(self, theme: Theme) -> None:
         """Re-theme every stage pane's custom-painted widgets (Phase-9 theme toggle)."""

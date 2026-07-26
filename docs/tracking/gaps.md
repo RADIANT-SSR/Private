@@ -1660,6 +1660,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 103 | Configuration sets share one optical element document (no per-configuration prescription) | M | Per-band element trains; as-built prescriptions | DEFERRED to v1.1 (ADR-0010 D-7) |
 | 104 | Tolerances and stage-output injections are shared across a configuration set | M | Per-configuration uncertainty models / measured inputs | DEFERRED (ADR-0010) |
 | 105 | No set-level execution (sweep / Monte-Carlo / CLI --all-configurations across a set) | M | Multi-configuration trades | OPEN |
+| 106 | No active-imaging modality (lidar/ladar) — RADIANT is passive-EO only | L | Flash LADAR missions; active EO trades | PLANNED (`docs/plans/Active_Imaging_Plan.md`, 2026-07-26; v1-exclusion sub-gaps filed at its Phase 0) |
 
 ---
 

@@ -45,6 +45,7 @@ from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, Configura
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
+from radiant.gui.document_yaml import is_study
 from radiant.gui.geometry_modes import implicated_families
 from radiant.gui.metric_matrix import ConfigurationColumns, build_metric_matrix
 from radiant.gui.param_format import format_value
@@ -367,12 +368,20 @@ class RADIANTMainWindow(QMainWindow):
     # -- construction helpers ----------------------------------------------
 
     def _compose_title(self) -> str:
-        """Window title: ``[*] <file> — RADIANT`` (arch doc §10 / GUI plan Phase 9).
+        """Window title: ``[*] <file> [(N configurations)] — RADIANT`` (arch doc §10).
 
         With no sensor the title is the bare app name. A loaded/saved config shows its
         base file name; a sensor with no file yet (the script hand-off or File → New)
         shows ``untitled``. A leading ``*`` marks unsaved edits (the dirty marker), so
         the operator always sees whether the on-screen config matches the file on disk.
+
+        A **study** adds one parenthetical after the file name — ``(3 configurations)``
+        — filling the slot the pattern already has between the name and the app suffix
+        (multi-configuration Phase 4e). It is the only new chrome studies get in the
+        title: no new field, no reordering, and a plain session's title is byte-for-byte
+        what it was. A one-configuration set that carries configured parameters is still
+        a study document (§4.2f) and reads ``(1 configuration)``, which is exactly the
+        signal that its file will carry a ``configurations:`` section.
         """
         # The build label (version + git SHA) makes a stale/wrong install visible at a
         # glance — the provenance the Windows first-deploy report needed (WS-A3).
@@ -381,7 +390,12 @@ class RADIANTMainWindow(QMainWindow):
             return suffix
         name = self._current_path.name if self._current_path is not None else "untitled"
         marker = "* " if self._dirty else ""
-        return f"{marker}{name} — {suffix}"
+        study = ""
+        cs = self._config_set
+        if is_study(cs) and cs is not None:
+            plural = "s" if len(cs) != 1 else ""
+            study = f" ({len(cs)} configuration{plural})"
+        return f"{marker}{name}{study} — {suffix}"
 
     def _add_action(
         self,
@@ -577,9 +591,13 @@ class RADIANTMainWindow(QMainWindow):
         return cs.sensor_for(cs.active)
 
     def _is_degenerate(self) -> bool:
-        """True when the session is a plain single-model session (no selector, no scoping)."""
-        cs = self._config_set
-        return cs is None or (len(cs) == 1 and not cs.configured())
+        """True when the session is a plain single-model session (no selector, no scoping).
+
+        The inverse of :func:`radiant.gui.document_yaml.is_study`, which is the one
+        place the study/plain distinction is decided so the save, export, YAML-editor,
+        and console surfaces cannot drift apart (§4.2f).
+        """
+        return not is_study(self._config_set)
 
     def _build_configuration_bar(self) -> None:
         """The master configuration selector band, above the stage strip (§4.2b).
@@ -763,7 +781,8 @@ class RADIANTMainWindow(QMainWindow):
         The window is a :class:`~radiant.gui.widgets.scripting_window.ScriptingWindow` — a
         real separate top-level window (not a dock), hidden until launched from **Tools →
         Scripting Window**. Its Command Window's namespace is bound to the live ``sensor``
-        here; ``result`` is bound after each evaluation (:meth:`_on_eval_ok`). The coherence
+        (the displayed configuration) and ``configs`` (the session document) here;
+        ``result`` is bound after each evaluation (:meth:`_on_eval_ok`). The coherence
         wiring is unchanged from the retired dock: a console mutation raises the console's
         stale banner and marks the window stale (:meth:`_on_console_state_changed`); the
         Refresh button drives :meth:`_refresh_from_console` (explicit-and-honest, not magic
@@ -772,6 +791,7 @@ class RADIANTMainWindow(QMainWindow):
         scripting_window = ScriptingWindow(self, settings=self._settings)
         console = scripting_window.console
         console.bind_sensor(self._sensor)
+        console.bind_config_set(self._config_set)
         console.refreshRequested.connect(self._refresh_from_console)
         console.stateMaybeChanged.connect(self._on_console_state_changed)
         scripting_window.refresh_workspace()  # reflect the just-bound sensor in the Workspace
@@ -787,7 +807,7 @@ class RADIANTMainWindow(QMainWindow):
         self._scripting_window.show_and_raise()
 
     def _on_console_state_changed(self) -> None:
-        """A console command may have mutated the sensor: mark the GUI's own state stale.
+        """A console command may have mutated the session: mark the GUI's own state stale.
 
         The console already shows its 'console changed state — Refresh' banner; here the
         window echoes the staleness in its primary surfaces (stage-health dots + status bar)
@@ -795,41 +815,59 @@ class RADIANTMainWindow(QMainWindow):
         Phase 8 — explicit, not magic). Refresh (or a normal Evaluate) clears it.
         """
         self._stage_strip.set_all_status("stale")
-        self.statusBar().showMessage("Console changed the sensor — Refresh to re-read it")
+        self.statusBar().showMessage("Console changed the session — Refresh to re-read it")
 
     def _refresh_from_console(self) -> None:
-        """Adopt the console's current ``sensor``, re-read it into the GUI, re-evaluate.
+        """Adopt the console's current **document**, re-read it into the GUI, re-evaluate.
 
-        This is the one-click Refresh (GUI plan Phase 8). Adopting the console namespace's
-        ``sensor`` handles both an in-place ``sensor.set(...)`` (same object) and a full
-        rebind ``sensor = Sensor.load(...)`` (a new object the window never saw) — the honest
-        counterpart to magic live-sync. The parameter tree and the per-stage input forms are
-        repopulated from the adopted sensor, the console is rebound so identities agree again,
-        and a full re-evaluation refreshes every panel and the console's ``result``/``plot``.
+        This is the one-click Refresh (GUI plan Phase 8), study-aware since Phase 4e. The
+        console binds two live names and Refresh reads both:
+
+        * ``configs`` — the session :class:`~radiant.api.config_set.ConfigurationSet`, the
+          document. Adopting it covers an in-place edit of any part of the study (a shared
+          value via ``configs.base.set``, one configuration's column via
+          ``configs.set_value``, membership via ``configs.add``) **and** a full rebind
+          (``configs = ConfigurationSet.load(...)``). The whole study survives — Refresh
+          never collapses it to the displayed configuration.
+        * ``sensor`` — in a plain session this *is* ``configs.base``, so rebinding the name
+          (``sensor = Sensor.load(...)``) is a document swap and is adopted as one. In a
+          **study** it is the displayed configuration's throwaway materialization, so a
+          rebind there cannot be a document; the status line says so rather than guessing
+          which configuration the analyst meant (Rule 17).
+
+        The undo stack is cleared and the document marked dirty — the console's changes are
+        unsaved and are not a single reversible edit. The file path is kept as-is; the
+        console cannot report a new one.
         """
+        console_set = self._console.namespace_config_set()
         console_sensor = self._console.namespace_sensor()
-        if console_sensor is None:
+        if console_set is None and console_sensor is None:
             return
-        if not self._is_degenerate():
-            # In a study the console is bound to the *displayed configuration's*
-            # materialization, and an arbitrary console mutation cannot be attributed to
-            # the shared base or to one configuration's column. Adopting it would silently
-            # collapse the study to a single configuration, so it is refused with a reason
-            # (Rule 17); the console's own `configs` object lands in Phase 4e.
-            self.statusBar().showMessage(
-                "Console Refresh is not available for a multi-configuration study yet — "
-                "edit parameters in the GUI, or re-open the study file to discard the "
-                "console's changes"
+        if console_set is None:
+            # The console dropped `configs` entirely (`del configs`, or a script that
+            # rebound it to None): fall back to the sensor, which is the pre-4e path.
+            self._adopt_sensor(
+                console_sensor, path=self._current_path, dirty=True, add_recent=False, evaluate=True
             )
             return
-        # A console mutation may have edited the live sensor in place or rebound it to a
-        # whole new object (`sensor = Sensor.load(...)`), so the undo stack is cleared and
-        # the config is marked dirty (the console's changes are unsaved). The file path is
-        # kept as-is — the console cannot report a new one. (GUI plan Phase 9: console /
-        # YAML-editor changes reset the undo history; explicit beats a fragile merge.)
-        self._adopt_sensor(
-            console_sensor, path=self._current_path, dirty=True, add_recent=False, evaluate=True
+        rebound_sensor = console_sensor is not None and console_sensor is not console_set.base
+        if rebound_sensor and not is_study(console_set):
+            # A plain session whose `sensor` was rebound: the new sensor *is* the new
+            # document (the degenerate set is observably its base).
+            self._adopt_sensor(
+                console_sensor, path=self._current_path, dirty=True, add_recent=False, evaluate=True
+            )
+            return
+        self._adopt_config_set(
+            console_set, path=self._current_path, dirty=True, add_recent=False, evaluate=True
         )
+        if rebound_sensor:
+            self.statusBar().showMessage(
+                f"Re-read the study from configs ({len(console_set)} configurations). "
+                "In a study `sensor` is the displayed configuration's materialization — "
+                "edit `configs.base` (shared) or `configs.set_value(...)` (one "
+                "configuration) to change the document."
+            )
 
     def _on_parameter_edited(self, dotpath: str) -> None:
         """React to an accepted parameter edit: gray the dots + schedule a re-evaluate.
@@ -1298,40 +1336,44 @@ class RADIANTMainWindow(QMainWindow):
 
     def _on_edit_config_requested(self) -> None:
         """Handle the right-rail Edit Config (YAML) click: open the modal editor."""
-        if not self._is_degenerate():
-            self.statusBar().showMessage(
-                "Edit Config (YAML) shows one configuration at a time and is not wired to "
-                "study documents yet — the study YAML view arrives in Phase 4e"
-            )
-            return
         dialog = self.open_yaml_editor()
         if dialog is not None:
             dialog.exec()
 
     def open_yaml_editor(self) -> YamlEditorDialog | None:
-        """Build the YAML editor against the live sensor, wired to apply-and-reevaluate.
+        """Build the YAML editor against the live **document**, wired to apply-and-reevaluate.
+
+        The document is the whole session (§4.2f): a study serializes with its
+        ``configurations:`` section, a plain session without one, and either text
+        re-parses through the same loader on Apply.
 
         Returns the dialog (not yet exec'd) so tests can drive Apply/Revert without
         blocking on the modal event loop; the button handler exec's the returned dialog.
-        ``None`` when no sensor is loaded (nothing to serialize).
+        ``None`` when no document is loaded (nothing to serialize).
         """
-        if self._sensor is None:
+        if self._config_set is None:
             return None
-        dialog = YamlEditorDialog(self._sensor, self)
-        dialog.configApplied.connect(self._apply_new_config)
+        dialog = YamlEditorDialog(self._config_set, self)
+        dialog.configApplied.connect(self._apply_new_document)
         return dialog
 
-    def _apply_new_config(self, sensor: Sensor) -> None:
-        """Swap the live sensor for the Apply-parsed one and re-evaluate the whole GUI.
+    def _apply_new_document(self, config_set: ConfigurationSet) -> None:
+        """Swap the live document for the Apply-parsed one and re-evaluate the whole GUI.
 
-        The new sensor was parsed on a throwaway in the dialog (the live sensor was never
-        touched on failure); here it becomes the session sensor via the shared adopt path
-        (parameter tree + forms + console rebind, then a full re-evaluation, §4.5). The
-        edited YAML is unsaved (dirty) and keeps the current file path; the undo stack is
-        reset (a whole-config replace, not a single reversible edit — GUI plan Phase 9).
+        The new document was parsed on a throwaway in the dialog (the live one was never
+        touched on failure); here it becomes the session document via the shared adopt
+        path (selector + parameter tree + forms + console rebind, then a full
+        re-evaluation, §4.5). The edited YAML is unsaved (dirty) and keeps the current
+        file path; the undo stack is reset (a whole-document replace, not a single
+        reversible edit — GUI plan Phase 9).
+
+        Because the parse decides the document's *kind*, an edit that adds a
+        ``configurations:`` section turns a plain session into a study (the selector band
+        appears) and an edit that removes one collapses a study back to a plain session
+        (the band disappears) — both by adoption, not by a special case here.
         """
-        self._adopt_sensor(
-            sensor, path=self._current_path, dirty=True, add_recent=False, evaluate=True
+        self._adopt_config_set(
+            config_set, path=self._current_path, dirty=True, add_recent=False, evaluate=True
         )
 
     # -- File round-trip (arch doc §10, GUI plan Phase 9) ------------------
@@ -1442,6 +1484,9 @@ class RADIANTMainWindow(QMainWindow):
         self._parameter_panel.populate(sensor)
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
         self._console.bind_sensor(sensor)
+        # The console's `configs` is the *document*, so it is rebound exactly here —
+        # where the document changes — and not on a selector switch (§4.2f).
+        self._console.bind_config_set(config_set)
         self._console.set_stale(False)
         self._scripting_window.refresh_workspace()  # the Workspace tracks the adopted sensor
         if add_recent and path is not None:
@@ -1616,9 +1661,15 @@ class RADIANTMainWindow(QMainWindow):
         """Write the session document to *path* and return the written path.
 
         One API call either way: ``Sensor.save`` for a single-configuration session
-        (unchanged file format), ``ConfigurationSet.save`` for a study. Full
-        study-file open/save polish — recent-file handling, the YAML view of the
-        section, dirty tracking of configured edits — is Phase 4e.
+        (unchanged file format), ``ConfigurationSet.save`` for a study — the same
+        study/plain choice :func:`radiant.gui.document_yaml.serialize_document` makes
+        for the YAML editor's text, so the file and the editor can never disagree
+        (§4.2f).
+
+        A study's file carries ``active``, the displayed configuration. That is **view
+        state**, captured silently at save time and never a reason to mark the document
+        dirty: switching the selector changes what is on screen, not the model, so a
+        pure look-around must not leave a ``*`` in the title bar (§4.2f).
         """
         cs = self._config_set
         if cs is None:  # pragma: no cover - guarded by callers
@@ -1632,10 +1683,24 @@ class RADIANTMainWindow(QMainWindow):
         return cs.save(path)
 
     def _mark_dirty(self) -> None:
-        """Flag unsaved edits and refresh the title's ``*`` marker (idempotent)."""
-        if self._sensor is not None and not self._dirty:
-            self._dirty = True
-            self.setWindowTitle(self._compose_title())
+        """Flag unsaved edits and recompose the title (idempotent in effect).
+
+        The title is rebuilt on **every** call, not only on the clean→dirty edge: a
+        configuration-manager transaction can change the study's size while the document
+        is already dirty, and the title's ``(N configurations)`` slot has to follow it.
+
+        What marks the document dirty is every path that changes the **model**: a
+        parameter edit (shared or per-configuration), a configure / un-configure, a
+        configured-value table write, a configuration-manager transaction, an undo or
+        redo of any of those, a YAML-editor apply, and a console Refresh. What does
+        **not** is switching the displayed configuration: ``active`` is view state, is
+        captured silently by :meth:`_write_document` at save time, and must not put a
+        ``*`` in the title for a look-around (§4.2f).
+        """
+        if self._sensor is None:
+            return
+        self._dirty = True
+        self.setWindowTitle(self._compose_title())
 
     # -- Undo / redo (arch doc §10, GUI plan Phase 9) ----------------------
 

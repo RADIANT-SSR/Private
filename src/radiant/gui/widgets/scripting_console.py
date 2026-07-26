@@ -10,7 +10,17 @@ whose namespace carries live references to the GUI's objects:
 
 * ``sensor``  — the window's live :class:`~radiant.api.sensor.Sensor` (the *same* object
   the parameter tree edits, so a ``sensor.set(...)`` in the console and an edit in the tree
-  both mutate one object);
+  both mutate one object). In a **study** it is the *displayed configuration's*
+  materialization (arch doc §4.2b) — a throwaway the next switch or evaluation rebuilds, so
+  a study's edits belong on ``configs`` below, and the window says so on Refresh;
+* ``configs`` — the window's live :class:`~radiant.api.config_set.ConfigurationSet`, the
+  session **document** (multi-configuration Phase 4e). It is the same object the
+  configuration selector, the manager dialog, and Save write through, so
+  ``configs.set_value(...)`` / ``configs.configure(...)`` / ``configs.base.set(...)`` from
+  the console are ordinary document edits the GUI adopts on Refresh. A plain
+  single-configuration session binds the degenerate set, which is observably its one
+  sensor — ``configs.base is sensor`` — so the object is always present, never ``None``
+  for a loaded document;
 * ``result``  — the most recent :class:`~radiant.api.ChainResult` (refreshed after every
   evaluation);
 * ``plot``    — ``ResultPlotNamespace(result)``, the public ``result.plot.*`` figure
@@ -35,13 +45,14 @@ does not rely on an interactive matplotlib backend. The console keeps references
 pop-out windows so they are not garbage-collected and closes them when it is destroyed.
 
 **GUI ↔ console coherence (explicit, not magic).** A console command can mutate ``sensor``
-behind the GUI's back. After such a command the console raises a visible **"console changed
-state — Refresh"** banner and emits :attr:`stateMaybeChanged`; the one-click **Refresh**
-button emits :attr:`refreshRequested`, which the window handles by *adopting* the console's
-current ``sensor`` (this covers both in-place ``sensor.set(...)`` and a full rebind
-``sensor = Sensor.load(...)``), re-reading it into the parameter tree + forms, and
-re-evaluating. There is no magic live-sync (GUI plan Phase 8 — "explicit and honest beats
-magic sync").
+or ``configs`` behind the GUI's back. After such a command the console raises a visible
+**"console changed state — Refresh"** banner and emits :attr:`stateMaybeChanged`; the
+one-click **Refresh** button emits :attr:`refreshRequested`, which the window handles by
+*adopting the console's current document* — ``configs`` (this covers an in-place
+``configs.set_value(...)`` / ``sensor.set(...)`` on the shared base and a full rebind of
+either name), re-reading it into the selector, parameter tree, and forms, and re-evaluating
+every configuration. There is no magic live-sync (GUI plan Phase 8 — "explicit and honest
+beats magic sync").
 
 All colour/typography comes from the QSS theme (GUI plan §4.9); this file sets object names
 only and holds no colour/font/size literal.
@@ -77,6 +88,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from radiant.api import ChainResult
+    from radiant.api.config_set import ConfigurationSet
     from radiant.api.sensor import Sensor
 
 _PROMPT: Final[str] = ">>> "
@@ -88,21 +100,41 @@ _CONT: Final[str] = "... "
 # 2026-07-15). The window also resizes the dock to a larger target on reveal.
 _CONSOLE_MIN_HEIGHT: Final[int] = 180
 
-# A console command that mutates the live sensor makes the GUI stale. In-place mutation
-# (a shared object) cannot be detected by identity, so the canonical mutation surface —
-# ``sensor.set*`` and ``sensor.load`` (arch doc §3.1) — is detected in the command source;
-# a full rebind is detected by object identity. See :meth:`_flag_if_mutated`.
-_MUTATION_MARKERS: Final[tuple[str, ...]] = ("sensor.set", "sensor.load")
+# A console command that mutates the live document makes the GUI stale. In-place mutation
+# (a shared object) cannot be detected by identity, so the canonical mutation surfaces —
+# ``sensor.set*`` / ``sensor.load`` (arch doc §3.1) and the ``configs`` document-editing
+# calls (§4.2f) — are detected in the command source; a full rebind of either name is
+# detected by object identity. See :meth:`_flag_if_mutated`.
+#
+# The list is deliberately the *named* mutating surface rather than a bare "configs."
+# prefix: a read such as ``configs.names()`` must not raise a false staleness banner. A
+# few prefixes (``configs.base.``) do cover reads too; over-flagging costs one redundant
+# Refresh, which is harmless, whereas under-flagging hides a real divergence (Rule 17).
+_MUTATION_MARKERS: Final[tuple[str, ...]] = (
+    "sensor.set",
+    "sensor.load",
+    "configs.set",
+    "configs.configure",
+    "configs.unconfigure",
+    "configs.add",
+    "configs.remove",
+    "configs.rename",
+    "configs.reorder",
+    "configs.active",
+    "configs.baseline",
+    "configs.base.",
+)
 
 _BANNER: Final[str] = (
-    "RADIANT scripting console — live  sensor  and  result  are bound.\n"
+    "RADIANT scripting console — live  sensor ,  configs , and  result  are bound.\n"
     "  result.snr            a metric with units\n"
     "  inspect_result(result)  the full variable dump (result.inspect() is Gap 87)\n"
     "  sensor.set('optics.aperture_diameter_m', 0.3)   then click Refresh\n"
+    "  configs               the session document (ConfigurationSet); configs.names()\n"
     "  plot.mtf()            a figure — pops out into its own window\n"
 )
 
-_STALE_TEXT: Final[str] = "Console changed the sensor — the GUI is out of date."
+_STALE_TEXT: Final[str] = "Console changed the session — the GUI is out of date."
 
 # The header echoed to the transcript before an Editor "Run" (a whole-script exec), so the
 # Command Window reads as a session log where authored runs and typed commands interleave.
@@ -196,19 +228,23 @@ class ScriptingConsole(QWidget):
         # zero/sliver strip (owner report 2026-07-15 — macOS/cocoa bottom-dock reveal).
         self.setMinimumHeight(_CONSOLE_MIN_HEIGHT)
 
-        # Live-object namespace. `sensor`/`result`/`plot` are (re)bound by the window; the
-        # convenience `inspect_result` is the public inspect surface (Gap 87 sugar), and
-        # `Sensor` is bound so a script can rebind (`sensor = Sensor.load(...)`) — the
-        # coherence model adopts whatever `sensor` becomes on Refresh.
+        # Live-object namespace. `sensor`/`configs`/`result`/`plot` are (re)bound by the
+        # window; the convenience `inspect_result` is the public inspect surface (Gap 87
+        # sugar), and `Sensor` / `ConfigurationSet` are bound so a script can rebind
+        # (`sensor = Sensor.load(...)`, `configs = ConfigurationSet.load(...)`) — the
+        # coherence model adopts whatever those names become on Refresh.
         from radiant.api import Sensor
+        from radiant.api.config_set import ConfigurationSet
 
         self._namespace: dict[str, Any] = {
             "__name__": "__radiant_console__",
             "sensor": None,
+            "configs": None,
             "result": None,
             "plot": None,
             "inspect_result": inspect_result,
             "Sensor": Sensor,
+            "ConfigurationSet": ConfigurationSet,
         }
         self._console = _LiveInteractiveConsole(self._namespace, self._append_text)
 
@@ -216,6 +252,7 @@ class ScriptingConsole(QWidget):
         self._pending: bool = False  # inside a multi-line block awaiting more input
         self._pending_source: list[str] = []
         self._stmt_before_sensor: Any = None  # sensor object before the current statement ran
+        self._stmt_before_configs: Any = None  # document object before that statement ran
         self._history: list[str] = []
         self._history_index: int = 0
         self._stale: bool = False
@@ -308,6 +345,15 @@ class ScriptingConsole(QWidget):
         """The ``sensor`` currently bound in the console namespace (post-mutation-aware)."""
         return self._namespace.get("sensor")
 
+    def namespace_config_set(self) -> ConfigurationSet | None:
+        """The ``configs`` document currently bound in the namespace (post-mutation-aware).
+
+        The window reads this on Refresh: a console command may have mutated the live set
+        in place *or* rebound the name to a whole new one (``configs =
+        ConfigurationSet.load(...)``), and both are adopted from here.
+        """
+        return self._namespace.get("configs")
+
     def namespace_variables(self) -> dict[str, Any]:
         """A snapshot of the live REPL namespace (name → value) for the Workspace browser.
 
@@ -326,6 +372,15 @@ class ScriptingConsole(QWidget):
     def bind_sensor(self, sensor: Sensor | None) -> None:
         """Bind the window's live ``sensor`` into the namespace (on load / config swap)."""
         self._namespace["sensor"] = sensor
+
+    def bind_config_set(self, config_set: ConfigurationSet | None) -> None:
+        """Bind the window's live ``configs`` document into the namespace (Phase 4e).
+
+        Called whenever the *document* changes — a file open, a YAML-editor apply, a
+        console Refresh, File → New. A selector switch does **not** change the document,
+        only :meth:`bind_sensor`'s materialization, so the two are bound separately.
+        """
+        self._namespace["configs"] = config_set
 
     def update_result(self, result: ChainResult | None) -> None:
         """Bind the latest ``result`` (and its ``plot`` surface) and clear the stale flag.
@@ -391,9 +446,10 @@ class ScriptingConsole(QWidget):
             used as the compiled code's filename so a traceback names the script.
         """
         self._append_text(f"{_RUN_HEADER}{label}\n")
-        # Snapshot the sensor so an in-place rebind inside the script is caught by identity,
-        # mirroring the per-statement REPL path.
+        # Snapshot both live names so an in-place rebind inside the script is caught by
+        # identity, mirroring the per-statement REPL path.
         self._stmt_before_sensor = self._namespace.get("sensor")
+        self._stmt_before_configs = self._namespace.get("configs")
         filename = f"<script:{label}>"
         with self._captured_io():
             try:
@@ -468,8 +524,9 @@ class ScriptingConsole(QWidget):
         self._append_text((_CONT if self._pending else _PROMPT) + line + "\n")
 
         if not self._pending:
-            # Starting a fresh statement — snapshot the sensor to detect a rebind.
+            # Starting a fresh statement — snapshot both live names to detect a rebind.
             self._stmt_before_sensor = self._namespace.get("sensor")
+            self._stmt_before_configs = self._namespace.get("configs")
         self._pending_source.append(line)
 
         with self._captured_io():
@@ -527,17 +584,24 @@ class ScriptingConsole(QWidget):
         self._append_text(repr(value) + "\n")
 
     def _flag_if_mutated(self, source: str) -> None:
-        """Raise the stale banner if the just-run command (maybe) mutated the sensor.
+        """Raise the stale banner if the just-run command (maybe) mutated the session.
 
-        Detection is honest, not magic: a full rebind (``sensor = …``) is caught by object
-        identity; an in-place ``sensor.set*`` / ``sensor.load`` (a shared object, no identity
-        change) is caught in the source text (arch doc §3.1 mutation surface). Reads never
-        flag; the Refresh button is the always-available escape hatch regardless.
+        Detection is honest, not magic: a full rebind (``sensor = …`` or ``configs = …``)
+        is caught by object identity; an in-place ``sensor.set*`` / ``configs.configure``
+        / … (a shared object, no identity change) is caught in the source text
+        (:data:`_MUTATION_MARKERS`). Reads of the plain read surface never flag; the
+        Refresh button is the always-available escape hatch regardless.
         """
-        after = self._namespace.get("sensor")
-        rebound = after is not self._stmt_before_sensor
+        sensor_after = self._namespace.get("sensor")
+        configs_after = self._namespace.get("configs")
+        if sensor_after is None and configs_after is None:
+            return
+        rebound = (
+            sensor_after is not self._stmt_before_sensor
+            or configs_after is not self._stmt_before_configs
+        )
         mutating_call = any(marker in source for marker in _MUTATION_MARKERS)
-        if after is not None and (rebound or mutating_call):
+        if rebound or mutating_call:
             self.set_stale(True)
 
     # -- figure pop-out -----------------------------------------------------

@@ -6,6 +6,11 @@ create, duplicate, rename, remove, reorder, and pick the baseline — and it is 
 door a plain single-model session walks through to **become** a study: `Add` on a
 one-configuration session is what makes the master selector appear.
 
+Above the rows sits the study's **shared grid points** field (CU-213, Phase 4e): the
+spectral point count every configuration uses unless its own row overrides it. It is
+the number the blank per-row placeholders name, and until Phase 4e no GUI surface could
+change it.
+
 **One row per configuration**, in set order, each carrying
 
 * the configuration's stable accent chip (the selector's hue for that slot, §8.1
@@ -112,6 +117,7 @@ class ConfigurationManagerDialog(QDialog):
         layout.setSpacing(10)
 
         self._build_header(layout)
+        self._build_shared_points(layout)
         self._build_table(layout)
         self._build_actions(layout)
         self._build_error_area(layout)
@@ -132,6 +138,32 @@ class ConfigurationManagerDialog(QDialog):
         title.setObjectName("configManagerIntro")
         title.setWordWrap(True)
         layout.addWidget(title)
+
+    def _build_shared_points(self, layout: QVBoxLayout) -> None:
+        """The study-wide spectral grid point count, above the per-row overrides (CU-213).
+
+        Every blank per-row box states this number in its placeholder, so the dialog was
+        showing a value it could not edit — the shared default was reachable only through
+        the YAML editor or the console. This is that one missing control; the per-row
+        boxes below still override it configuration by configuration.
+        """
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        label = QLabel("Shared grid points", self)
+        label.setObjectName("configManagerHeading")
+        editor = QLineEdit(self)
+        editor.setObjectName("configManagerSharedPoints")
+        editor.setValidator(QIntValidator(1, 1_000_000, editor))
+        editor.setToolTip(
+            "Spectral grid points every configuration uses unless its own row overrides "
+            "it. Trading evaluation cost against spectral resolution for the whole study."
+        )
+        editor.editingFinished.connect(self._commit_shared_points)
+        row.addWidget(label, 0)
+        row.addWidget(editor, 0)
+        row.addStretch(1)
+        layout.addLayout(row)
+        self._shared_points_editor = editor
 
     def _build_table(self, layout: QVBoxLayout) -> None:
         """The column headings plus the (rebuilt-on-change) row grid."""
@@ -245,6 +277,10 @@ class ConfigurationManagerDialog(QDialog):
             self._selected = self._working.active
         accents = active_theme().config_accents
         shared_points = self._working.wavelength_points()
+        # ``wavelength_points()`` always reports the count *in force* (never None), so
+        # the shared field is never blank and "blank" carries no meaning here — unlike a
+        # per-row box, where blank means "inherit".
+        self._shared_points_editor.setText("" if shared_points is None else str(shared_points))
 
         for row, name in enumerate(names):
             chip = QLabel(self)
@@ -454,6 +490,33 @@ class ConfigurationManagerDialog(QDialog):
             f"{name!r} spectral grid: {'shared default' if points is None else f'{points} points'}",
         )
 
+    def _commit_shared_points(self) -> None:
+        """Write the study-wide grid point count (CU-213), then redraw the placeholders.
+
+        Blank is *not* a clear here: unlike a per-row override there is no "inherit"
+        state above the shared default, and ``wavelength_points()`` always reports a
+        concrete count. A cleared box therefore restores the current value rather than
+        writing ``None`` — the field states a number, so it always shows one.
+
+        The write goes through the same :meth:`_guarded` path as every other action, so
+        the API's own refusal (a non-positive count) renders as its what/why/action, and
+        the rebuild refreshes every blank per-row placeholder to the new number.
+        """
+        if self._rebuilding:
+            return
+        current = self._working.wavelength_points()
+        text = self._shared_points_editor.text().strip()
+        if not text:
+            self._shared_points_editor.setText("" if current is None else str(current))
+            return
+        points = int(text)
+        if points == current:
+            return
+        self._guarded(
+            lambda: self._working.set_wavelength_points(None, points),
+            f"Shared spectral grid: {points} points",
+        )
+
     def _ask_name(self, title: str, prompt: str, seed: str) -> str | None:
         """Ask for a configuration name; ``None`` when the user cancels.
 
@@ -520,6 +583,11 @@ class ConfigurationManagerDialog(QDialog):
     def points_editor(self, name: str) -> QLineEdit:
         """*name*'s wavelength-points editor (tests drive these)."""
         return self._points_editors[name]
+
+    @property
+    def shared_points_editor(self) -> QLineEdit:
+        """The study-wide grid-point editor above the rows (CU-213)."""
+        return self._shared_points_editor
 
     def status_text(self, name: str) -> str:
         """*name*'s rendered validate_all status (``OK`` or the error's what-line)."""

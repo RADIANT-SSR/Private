@@ -2,13 +2,13 @@
 
 *Persona: Sarah (systems engineer), Raj (mission planner), Lisa (analyst)*
 
-How to define, customize, and manage RADIANT sensor configurations.
+How to define, customize, and manage RADIANT config files.
 
 ---
 
 ## YAML Structure
 
-A RADIANT configuration file has seven top-level sections matching the
+A RADIANT config file has seven top-level parameter sections matching the
 signal-chain stages. Here is an annotated example showing the most commonly
 used parameters:
 
@@ -222,6 +222,114 @@ rather than bundled.
 
 ---
 
+## Configuration Sets --- Several Configurations in One File
+
+One config file can describe **one modeling problem in up to eight named
+variants of itself**: MWIR vs. LWIR on the same telescope, nominal vs.
+as-built, three off-nadir geometries. Add a top-level `configurations:` section
+and the file becomes a **study**.
+
+Three words, used consistently everywhere in RADIANT:
+
+- **config file** --- the YAML artifact on disk.
+- **configuration** --- one member of a configuration set (`MWIR`, `LWIR`).
+- **configuration set** (or **study**) --- the whole document: the shared
+  parameters plus the per-configuration ones.
+
+Everything in the ordinary body of the file is **shared** --- one value for
+every configuration. The `configurations:` section names the configurations and
+lists only the parameters that *differ*, each as a dense list of values aligned
+with the names:
+
+```yaml
+# --- shared body: an ordinary RADIANT config, one value for ALL configurations ---
+_radiant:
+  format: 1
+  wavelength_points: 500        # shared spectral grid density
+geometry:
+  sensor_altitude_m: 8000.0     # m
+optics:
+  aperture_diameter_m: 0.30     # m
+  focal_length_m: 1.20          # m -> f/4.0
+  transmission_scalar: 0.70     # dimensionless
+detector:
+  pixel_pitch_x_um: 18.0        # um
+  pixel_pitch_y_um: 18.0        # um
+source:
+  target:
+    temperature: 300.0          # K
+    emissivity: 0.95            # dimensionless
+
+# --- what makes this file a study ---
+configurations:
+  names: [MWIR, LWIR]           # 1-8 unique names; defines the value order below
+  active: MWIR                  # configuration the GUI opens on (optional)
+  baseline: MWIR                # delta reference for comparisons (optional)
+  wavelength_points:            # optional per-configuration grid density
+    LWIR: 300                   # points (MWIR inherits the shared 500)
+  parameters:                   # dot-path -> one value per name, in input units
+    spectral_integration.filter_min_um: [3.5, 8.0]            # um
+    spectral_integration.filter_max_um: [5.0, 12.0]           # um
+    spectral_integration.integration_time_s: [0.005, 0.0005]  # s
+    detector.qe_value: [0.70, 0.55]                           # dimensionless
+    readout.full_well_capacity_e: [2.0e6, 6.0e6]              # e-
+```
+
+Read that as a table: `MWIR` is 3.5--5.0 um integrated 5.0 ms at QE 0.70,
+`LWIR` is 8.0--12.0 um integrated 0.5 ms at QE 0.55, and both look through the
+same 0.30 m f/4 telescope from 8000 m at the same 300 K scene. Change
+`optics.aperture_diameter_m` once and both configurations move together --- the
+study states what differs, not what is repeated.
+
+The binding rules, all checked at load time with an error naming the file, the
+configuration, and the parameter:
+
+- **`names`** --- 1 to 8 unique, non-empty names. This list defines the order of
+  every value list below it.
+- **`parameters`** --- every list has exactly as many values as there are names.
+  The lists are dense by construction: there is no "unset for this
+  configuration" and nothing is padded for you.
+- **Shared or configured, never both.** A dot-path that appears in
+  `configurations.parameters` must *not* also appear in the shared body ---
+  the shared value would be silently shadowed. Move a parameter into the
+  section, do not copy it.
+- **Values are in input units** --- exactly the units the shared body uses, so
+  `filter_min_um` is micrometers here too. Type, bounds, and enum checks run
+  per configuration.
+- **Shared regardless:** tolerance distributions, the `optical_elements`
+  document, and the default `_radiant.wavelength_points`. Only the grid
+  *density* is per configuration; each configuration's grid *span* already
+  follows its own resolved band.
+
+Running and validating a study from the CLI:
+
+```bash
+# One configuration by name --- required for a study file.
+radiant run study.yaml --configuration LWIR
+
+# Validate EVERY configuration; one line each, non-zero exit if any failed.
+radiant validate study.yaml
+```
+
+In the GUI, a study file opens with a configuration tab strip above the
+signal-chain strip, and **Edit -> Configurations...** adds, renames, reorders,
+and duplicates configurations.
+
+**Plain config files are unchanged.** A file with no `configurations:` key is
+byte-for-byte today's format and loads everywhere exactly as before --- nothing
+in this section is required, and nothing about it changed existing output. A
+study file, conversely, is only loaded by tools that understand the section:
+`radiant run --configuration` / `radiant validate` and, in Python,
+`ConfigurationSet.load`. Loading one as a plain single sensor is refused with an
+error pointing at the right entry point, so a study is never silently run as if
+its shared body were the whole model.
+
+For building, evaluating, and comparing a study, see the
+[Trade Studies Guide](trade_studies.md); for the complete section
+specification, `docs/architecture/RADIANT_Config_Format.md` §1.9.
+
+---
+
 ## Common Patterns
 
 ### Change one parameter and re-run
@@ -230,11 +338,15 @@ rather than bundled.
 radiant run config.yaml --set optics.aperture_diameter_m=0.40
 ```
 
-### Compare two configurations
+### Compare two config files
 
 ```bash
 radiant compare config_a.yaml config_b.yaml
 ```
+
+This compares two *files* --- two separate designs. To compare named
+configurations *within* one study file, see **Configuration Sets** above and
+the [Trade Studies Guide](trade_studies.md).
 
 ### Batch many scenarios (Python)
 

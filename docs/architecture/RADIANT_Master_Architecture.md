@@ -35,8 +35,8 @@ Read documents in this order. Stop when you have what you need for your task.
 | [RADIANT_Detector_Complete.md](RADIANT_Detector_Complete.md) | Implementing detector/readout | All noise terms, QE models, dark current, IPC, ADC |
 | [RADIANT_Metrics.md](RADIANT_Metrics.md) | Implementing performance stage | SNR, NEDT, NIIRS (GIQE5/IIRS), detection range, RER |
 | [RADIANT_Scan_Timing.md](RADIANT_Scan_Timing.md) | Implementing TDI/scan | TDI alignment, frame timing, duty cycle |
-| [RADIANT_Config_Format.md](RADIANT_Config_Format.md) | Implementing I/O | YAML format, inheritance, validation, example configs |
-| [RADIANT_Scripting_API.md](RADIANT_Scripting_API.md) | Implementing the user API | `Sensor` class, sweep, Monte Carlo, plotting |
+| [RADIANT_Config_Format.md](RADIANT_Config_Format.md) | Implementing I/O | YAML format, inheritance, validation, configuration sets, example configs |
+| [RADIANT_Scripting_API.md](RADIANT_Scripting_API.md) | Implementing the user API | `Sensor` class, sweep, Monte Carlo, `ConfigurationSet`, plotting |
 | [RADIANT_GUI_Architecture.md](RADIANT_GUI_Architecture.md) | Phase 2 GUI work only | PySide6 layout, GUI-backend interface |
 | [RADIANT_Testing_Validation.md](RADIANT_Testing_Validation.md) | Before writing any test | Test hierarchy, 10 reference cases, provenance tracking |
 | [RADIANT_Plugins.md](RADIANT_Plugins.md) | Writing a plugin or extension | Plugin ABCs, entry points, spectral libraries, templates |

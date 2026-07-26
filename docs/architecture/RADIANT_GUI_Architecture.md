@@ -199,36 +199,54 @@ A full chain evaluates in ~0.22 s, so the worker emits only started / finished /
 and the status bar shows a busy indicator — there is **no** per-stage progress stream
 (the old `on_stage_complete` sketch described a callback the API does not have):
 
+Since the session model became a configuration set (§4.2b, multi-configuration Phase 4a)
+the worker drives `ConfigurationSet.evaluate_all` — one call, every configuration, the
+displayed one first:
+
 ```python
-class EvaluationWorker(QThread):
-    finished_ok = Signal(object)      # ChainResult
+class ConfigSetEvaluationWorker(QThread):
+    finished_ok = Signal(object)      # ConfigSetRunResult
     failed = Signal(object)           # the exception (RadiantError or otherwise)
 
-    def __init__(self, sensor: Sensor) -> None:
+    def __init__(self, config_set: ConfigurationSet) -> None:
         super().__init__()
-        self._sensor = sensor
+        self._config_set = config_set
 
     def run(self) -> None:
         try:
-            result = self._sensor.evaluate()
+            run = self._config_set.evaluate_all()
         except Exception as exc:      # re-raised into the GUI thread via signal — never swallowed (Rules 15/17)
             self.failed.emit(exc)
         else:
-            self.finished_ok.emit(result)
+            self.finished_ok.emit(run)
 ```
 
 The `except Exception` here is a thread-boundary hand-off, not a swallow: the exception
 is re-emitted to the GUI thread, which renders it (RadiantError → what/why/action modal;
-anything else → error dialog with a traceback fold). Nothing is silently dropped.
+anything else → error dialog with a traceback fold). Nothing is silently dropped. Note
+that a *per-configuration* physics failure is not an exception at this boundary — it is
+recorded on the returned `ConfigSetRunResult` (Rule 17), and the window decides how to
+show it (§4.5).
 
-**Thread isolation (as shipped, GUI plan Phase 3).** The main window hands the worker a
-private `sensor.clone()` taken on the GUI thread at schedule time, not the live sensor, so
-a parameter edit that lands on the GUI thread while the chain is mid-run cannot race the
-worker's read of the same object. The worker still performs exactly one `evaluate()` call
-(one GUI action ↔ one API call); the clone is a thread-isolation mechanism, not a second
-API surface. The status bar shows an indeterminate busy indicator while the worker runs,
-and only one evaluation runs at a time — an edit that arrives mid-run is coalesced and
-re-issued when the in-flight run finishes.
+**Warning capture lives in the API, not the worker.** `evaluate_all` opens one
+`warnings.catch_warnings(record=True)` + `simplefilter("always")` window **per
+configuration** and records that configuration's warnings on `ConfigRun.warnings`
+(re-logging them as well, so nothing is dropped). The GUI worker therefore captures
+nothing of its own: a second capture would double-count the warnings and destroy the
+per-configuration attribution. CU-110 (the process-global filter mutation being safe only
+under the single-worker invariant) travels with the capture to `api/config_set.py`.
+
+**Thread isolation (as shipped, GUI plan Phase 3; set-level since Phase 4a).** The main
+window hands the worker a private `config_set.clone()` taken on the GUI thread at schedule
+time, not the live document, so a parameter edit that lands on the GUI thread while the
+chain is mid-run cannot race the worker's read of the same objects. The worker still
+performs exactly one `evaluate_all()` call (one GUI action ↔ one API call); the clone is a
+thread-isolation mechanism, not a second API surface. The status bar shows an
+indeterminate busy indicator while the worker runs, and only one evaluation runs at a
+time — an edit that arrives mid-run is coalesced and re-issued when the in-flight run
+finishes. The whole pass is retained on the window (`last_run`) for the
+per-configuration Performance columns (Phase 4d) and to render a selector switch from
+cache.
 
 Per-point `progress(done, total)` / `cancel()` callbacks **do** exist on
 `sensor.sweep()` / `sweep_2d()` / `monte_carlo()` (Gap 72, `api/_progress.py`) and back
@@ -339,6 +357,58 @@ it cannot source); refining either to per-stage attribution is a later enhanceme
 > The mockups in `dev_tools/gui_mockups/radiant_ui/` predate ADR-0006 — they open on the
 > **Source** screen with an 8-stage strip. v1 opens on **Geometry** with the 9-stage
 > strip above; the mockups remain the visual spec for chrome and styling only.
+
+### 4.2b Master Configuration Selector (multi-configuration — Phase 4a SHIPPED 2026-07-25)
+
+The GUI session is a **`ConfigurationSet`**, not a bare `Sensor` (ADR-0010; plan
+`docs/plans/Multi_Configuration_Plan.md` §4). A plain config file loads as the
+**degenerate one-configuration set** — observably the single sensor it contains — and a
+study file (one carrying a `configurations:` section) loads as the full set.
+
+**Selector form (decided in Phase 4a).** A compact **tab strip in its own thin top dock,
+directly above the signal-chain strip** — one tab per configuration, in set order, each
+carrying that configuration's accent chip (§8.1 `config_accents`, both themes). It is
+`ConfigurationBar` (`widgets/configuration_bar.py`). The alternative considered was a
+toolbar/status-area combo; the window has **no toolbar**, and the nine stage chips already
+consume the full width of the strip, so a combo would have had to crowd either the menu
+corner (already carrying the Inspector affordance) or the status bar (which is a
+transient-message surface, not a persistent control). The dedicated band costs one row and
+keeps the study's shape readable at a glance.
+
+**Zero visibility for a single configuration.** With one configuration the bar builds no
+tabs and its **dock is hidden**, so the window carries no extra band at all — a
+single-configuration session is the pre-Phase-4a GUI byte for byte. This is a tested
+requirement, not an intention (`gui/tests/test_configuration_selector.py`).
+
+**What a switch does.** One GUI action ↔ the API state it means: `config_set.active = name`
+plus one `sensor_for(name)` materialization (R-API). Every surface then reads the displayed
+configuration — the nine stage center views, the input forms, the readouts, the right rail,
+the parameter tree, and the scripting console's `sensor`. A switch **does not re-evaluate**
+when the retained pass already holds that configuration's result; the views render from
+cache. A pass made stale by an edit is covered by the ordinary 200 ms debounce (§3.3).
+
+**Displayed-sensor identity.** `RADIANTMainWindow.sensor` returns the *displayed
+configuration's materialized sensor* and is **stable between evaluations** — materialized
+once per displayed configuration and cached — because every existing reader treats it as a
+live handle it may `set()` on. In the degenerate case it is literally
+`configuration_set.base` (the same object, not a clone), which is what makes the
+single-model edit path unchanged.
+
+**Where an edit lands (Phase 4a scope).** A shared parameter's edit is written through to
+the shared base, exactly as a single-model edit behaves, and the undo commands target that
+base — so a shared edit stays undoable **across** a selector switch. An inline edit of a
+parameter that a loaded study already marks *configured* is written to the displayed
+configuration's own column (ADR-0010 D-8) and is **not** yet undoable; the operator is told
+so in the status bar rather than left with a silently non-reversible edit.
+
+**Not yet built (upcoming sub-phases, not shipped):** the *Configure across
+configurations…* action, the red "C" badge, and the per-parameter N-value table editor
+with scoped undo (**4b**); the configuration manager dialog — create / duplicate / rename /
+delete / reorder / baseline (**4c**); per-configuration Performance columns (**4d**); the
+study YAML view, the console `configs` object, and study-aware recent/dirty handling
+(**4e**). In Phase 4a the selector is **read-only** over whatever the loaded file defines;
+the YAML editor and the console Refresh are single-configuration surfaces and say so
+rather than silently collapsing a study to one configuration.
 
 ### 4.3 All-Parameters Panel (permanent left column)
 
@@ -639,14 +709,25 @@ resolved-scope serialize surface (**Gap 88**); the modal shows the inputs scope 
 lands.
 
 **Messages.** Warnings and errors, replacing the old floating warning strip. Chain
-`UserWarning`s (saturation clip, NIIRS extrapolation, …) are captured by the
-`EvaluationWorker` (`warnings.catch_warnings(record=True)` + `simplefilter("always")`, so
-the process-wide filter cannot suppress them and none is deduplicated) and delivered with
-the result; the panel reads `⚠ N warnings` with the first inline and, clicked, lists every
-message verbatim (the shipped `WarningListDialog`). Captured warnings are also re-logged,
-so nothing is swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders
-its actionable **what / why / action** (Rule 15), and clicking opens the full message. This
-is the warning strip relocated and widened to carry errors as well as warnings.
+`UserWarning`s (saturation clip, NIIRS extrapolation, …) are captured by
+`ConfigurationSet.evaluate_all` (`warnings.catch_warnings(record=True)` +
+`simplefilter("always")` per configuration, so the process-wide filter cannot suppress
+them and none is deduplicated — §3.2) and delivered with the result; the panel reads
+`⚠ N warnings` with the first inline and, clicked, lists every message verbatim (the
+shipped `WarningListDialog`). Captured warnings are also re-logged, so nothing is
+swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders its actionable
+**what / why / action** (Rule 15), and clicking opens the full message. This is the
+warning strip relocated and widened to carry errors as well as warnings.
+
+*Multi-configuration attribution (Phase 4a).* In a study, each warning is prefixed with
+the configuration that raised it (`LWIR: UserWarning: …`) so a per-band effect never reads
+as a property of the whole study; a **single-configuration session shows the bare text it
+always showed**. A configuration that failed while it was **not** the displayed one is a
+named error row (`MessagesPanel.set_configuration_failures`) and raises **no modal** — the
+rest of the study keeps evaluating and the operator is not interrupted for a configuration
+they are not looking at. A failure in the **displayed** configuration takes the ordinary
+modal + stale-result path unchanged; the wrapper `ConfigSetError` is unwrapped first, so
+the operator sees the underlying physics error exactly as before.
 
 *Step-A saturation-banner placement (retrofit 2026-07-13):* the generic chain warnings
 move into this Messages panel, but the full-well **saturation banner stays in the center**
@@ -1297,6 +1378,15 @@ keyword `#d69fd8` / `#8a2a8e` · string `#97c49e` / `#2f6b3a` · number `#e0a075
 **Window traffic-light dots** (macOS-style title chrome, raw hex, not themed):
 red `#ec6a5e` · yellow `#f4bf4f` · green `#61c555`. These are the window-decoration
 dots only; **stage health dots use the themed `ok`/`warn`/`err`/`stale` tokens** above.
+
+**Configuration accents** (`config_accents`, multi-configuration Phase 4a) — eight hues,
+one per configuration **slot** (`ConfigurationSet.MAX_CONFIGS` = 8), assigned by position
+in the set so a configuration keeps its colour, and index-for-index across the two themes
+so it survives a theme toggle. Dark / light: `#86a8df` / `#2f5aa8` · `#e08157` /
+`#b8431a` · `#7fb987` / `#2f7a3a` · `#c79ad8` / `#7a3a8e` · `#e0b249` / `#a97c14` ·
+`#6fc0c0` / `#1f7a7a` · `#e07fa4` / `#a8305a` · `#a8b0be` / `#5a6270`. Used by the master
+configuration selector (§4.2b) and, from Phase 4d, the per-configuration Performance
+columns.
 
 ### 8.2 Typography
 

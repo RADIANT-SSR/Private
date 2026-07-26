@@ -119,7 +119,7 @@ class TestHealthDotTransitions:
         """
         window = _load_window(qtbot)
         assert window.last_result is not None
-        window._on_eval_ok(window.last_result, [])
+        window._on_result_ok(window.last_result, [])
         for chip in window.stage_strip.chips:
             assert chip.status == "ok"
 
@@ -127,7 +127,7 @@ class TestHealthDotTransitions:
         """A parameter edit grays the dots (results are now out of date)."""
         window = _load_window(qtbot)
         # Green them first so the transition to stale is unambiguous.
-        window._on_eval_ok(window.last_result, [])
+        window._on_result_ok(window.last_result, [])
         assert all(c.status == "ok" for c in window.stage_strip.chips)
 
         # An edit fires parameterEdited; the handler grays the dots immediately (before

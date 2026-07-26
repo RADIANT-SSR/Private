@@ -541,6 +541,53 @@ class TestWavelengthPoints:
             cs.set_wavelength_points("ZZ", 100)
 
 
+class TestClone:
+    """``clone()`` — the set-level thread-isolation snapshot (GUI Phase 4a)."""
+
+    def test_copies_names_table_designations_and_grids(self) -> None:
+        cs = _set("MWIR", "LWIR")
+        cs.configure("detector.qe_value", [0.70, 0.55])
+        cs.set_wavelength_points("LWIR", 31)
+        cs.set_wavelength_points(None, 22)
+        cs.active = "LWIR"
+        cs.baseline = "LWIR"
+
+        copy = cs.clone()
+        assert copy.names() == cs.names()
+        assert dict(copy.configured()) == dict(cs.configured())
+        assert copy.active == "LWIR"
+        assert copy.baseline == "LWIR"
+        # Both wavelength-point stores travel: the per-configuration override and
+        # the shared default (neither has a public read accessor — CU-210).
+        assert _evaluate(copy.sensor_for("LWIR")).wavelength_um.size == 31
+        assert _evaluate(copy.sensor_for("MWIR")).wavelength_um.size == 22
+
+    def test_is_fully_independent_in_both_directions(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("detector.qe_value", [0.70, 0.55])
+        copy = cs.clone()
+
+        copy.set_value("detector.qe_value", "A", 0.10)
+        copy.base.set("optics.aperture_diameter_m", 0.9)
+        copy.add("C")
+        assert cs.configured()["detector.qe_value"] == (0.70, 0.55)
+        assert cs.base.inputs()["optics.aperture_diameter_m"] == pytest.approx(0.30, rel=1e-12)
+        assert cs.names() == ("A", "B")
+
+        cs.set_value("detector.qe_value", "B", 0.99)
+        assert copy.configured()["detector.qe_value"][1] == pytest.approx(0.55, rel=1e-12)
+
+    def test_clone_evaluates_identically(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("spectral_integration.filter_max_um", [5.0, 4.6])
+        original = _evaluate_all(cs)
+        copied = _evaluate_all(cs.clone())
+        for name in cs.names():
+            assert original.result_for(name).metrics["snr"] == pytest.approx(
+                copied.result_for(name).metrics["snr"], rel=1e-12
+            )
+
+
 class TestSensorWithWavelengthPoints:
     def test_returns_a_clone_leaving_the_original_untouched(self) -> None:
         s = _sensor(points=50)

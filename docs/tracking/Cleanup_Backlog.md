@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-210 — `ConfigurationSet` wavelength-point overrides are write-only (no public read accessor)
+
+**Discovered**: multi-config Phase 4a GUI session model (`gui/multiconfig-phase4a`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/api/config_set.py` (`_wl_points`, `_shared_wl_points`; written by `set_wavelength_points`, read only by `sensor_for` / `_document_sensor` / `_section_document`)
+**Symptom**: a caller can set a per-configuration or shared spectral point count but cannot read it back. `configured()` exposes the configured table and `names()`/`active`/`baseline` expose the designations, so the wavelength-grid state is the one piece of a set that is invisible from outside. Reproduce: `cs.set_wavelength_points("LWIR", 300)` then try to display or re-serialize that number without calling `sensor_for("LWIR").evaluate()` and measuring `wavelength_um.size`.
+**Why it still matters**: it is why the GUI's thread-isolation snapshot had to become an API method (`ConfigurationSet.clone()`, landed with this phase) instead of GUI-side composition from public accessors — a hand-built copy would silently evaluate on the default grid, changing results. The same hole blocks a Phase 4c/4e GUI surface for per-configuration grid settings (nothing can show the current value) and any round-trip inspection in the console.
+**Suggested fix**: (a) inline-fix-now candidate in the next `api/config_set.py` task — add `wavelength_points(config: str | None = None) -> int | None` (mirroring `set_wavelength_points`'s argument shape) plus a lock-step `RADIANT_Scripting_API.md` line and a round-trip unit test. Effort S; category B (additive read surface, no behaviour change).
+
 ### CU-209 — folded MTF replicates at `f_Nyquist` instead of the sampling frequency `2·f_Nyquist`
 
 **Discovered**: multi-config Phase 3 dual-band example (`examples/scripts/dual_band_configuration_set.py`), 2026-07-25
@@ -96,7 +105,8 @@
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
 **Status**: Open — latent fragility; correct today because the window runs at most one evaluation worker at a time and the Qt thread never runs the chain. Gated by any future concurrent-evaluation work (inline Sweep / Monte-Carlo workers, GUI plan Phase deferred). Re-audit when concurrent evaluation lands.
-**File**: `src/radiant/gui/workers.py` (`EvaluationWorker.run` uses `warnings.catch_warnings(record=True)` + `simplefilter("always")`).
+**Re-audited 2026-07-25** (multi-config Phase 4a, gating stage "GUI evaluate loop" landed): the capture **moved out of the GUI** into `ConfigurationSet.evaluate_all` (`_evaluate_one`), which opens one `catch_warnings` window per configuration; `radiant.gui.workers` no longer captures at all. The fragility is unchanged in kind (still a process-global filter mutation, still safe only under the single-worker invariant) and is now additionally relied on across N sequential configurations in one pass. Still Open, same gating condition, same fix; re-audit next when a concurrent evaluation path lands.
+**File**: `src/radiant/api/config_set.py` (`ConfigurationSet._evaluate_one` uses `warnings.catch_warnings(record=True)` + `simplefilter("always")`; was `radiant.gui.workers.EvaluationWorker.run` before 2026-07-25).
 **Symptom**: `warnings.catch_warnings` saves/restores the **module-global** filter list and `showwarning`; if two chain evaluations ever run concurrently (two worker threads), one worker's enter/exit can clobber the other's filter state, losing or mis-capturing warnings, and the capture itself is not thread-safe against a concurrent `warnings.warn`.
 **Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
 **Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).

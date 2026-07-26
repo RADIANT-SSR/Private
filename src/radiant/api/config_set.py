@@ -413,10 +413,11 @@ class ConfigurationSet:
         the same reason — **thread isolation**. The GUI hands its evaluation
         worker a private snapshot taken on the GUI thread, so a parameter edit
         that lands mid-run cannot race the worker's read of the same object.
-        Rebuilding a snapshot from the public accessors is not equivalent: the
-        per-configuration and shared ``wavelength_points`` overrides have no
-        read accessor, so a hand-built copy would silently evaluate a loaded
-        study on the wrong spectral grid.
+        Hand-rolling a snapshot out of the public accessors is possible but not
+        equivalent: it would have to re-apply the configured table, both kinds of
+        ``wavelength_points`` state (:meth:`wavelength_points`), and both
+        designations without dropping one, and a copy that missed the spectral
+        overrides would silently evaluate a loaded study on the wrong grid.
         """
         copy = ConfigurationSet(self._base.clone(), names=tuple(self._names))
         copy._configured = dict(self._configured)
@@ -631,16 +632,34 @@ class ConfigurationSet:
         column[index] = validated
         self._configured[name] = tuple(column)
 
-    def set_values(self, dotpath: str, values: Sequence[Any]) -> None:
+    def set_values(
+        self,
+        dotpath: str,
+        values: Sequence[Any],
+        *,
+        unit: str | None = None,
+    ) -> None:
         """Replace every configuration's value of a configured parameter.
 
         *values* must have one entry per configuration, in :meth:`names` order.
+
+        With ``unit``, **every** supplied value is read in the caller's unit and
+        converted at this boundary (Rule 2), exactly as
+        :meth:`set_value` and ``Sensor.set(..., unit=...)`` do; one unit applies
+        to the whole column, because a configured parameter has one schema entry
+        and therefore one dimension. The stored values are always in the
+        parameter's input unit, so :meth:`configured` reads back in input units
+        whatever unit was typed.
+
+        Whole-column atomicity holds with or without ``unit``: every value is
+        validated (and converted) *before* the column is replaced, so a rejected
+        value leaves the set exactly as it was — never half-written.
         """
         name = self._require_configured(dotpath, "set_values")
         column = list(values)
         self._check_column_length(name, column)
         self._configured[name] = tuple(
-            self._validated(name, value, config)
+            self._validated(name, value, config, unit=unit)
             for value, config in zip(column, self._names, strict=True)
         )
 
@@ -648,15 +667,53 @@ class ConfigurationSet:
     # Spectral grid
     # ------------------------------------------------------------------
 
-    def set_wavelength_points(self, config: str | None, n: int) -> None:
-        """Set the spectral grid point count for one configuration, or the shared default.
+    def wavelength_points(self, config: str | None = None) -> int | None:
+        """Read the spectral grid point count — the shared default or one override.
+
+        Mirrors :meth:`set_wavelength_points`'s argument shape (CU-210):
+
+        * ``config=None`` returns the **shared default in force** — the set-level
+          default when one was set, otherwise the base sensor's own point count.
+          Always an ``int``: some grid density is always in force.
+        * ``config=<name>`` returns that configuration's **override**, or ``None``
+          when it carries none and therefore uses the shared default. The
+          ``None`` is the distinction a display surface needs — "inherits" is not
+          the same statement as "happens to equal the default".
+
+        Raises :class:`ConfigSetError` when *config* names no configuration.
+        """
+        if config is None:
+            if self._shared_wl_points is not None:
+                return self._shared_wl_points
+            return self._base.wavelength_points
+        self._index(config, "wavelength_points")
+        return self._wl_points.get(config)
+
+    def set_wavelength_points(self, config: str | None, n: int | None) -> None:
+        """Set (or clear) the spectral grid point count for one configuration.
 
         ``config=None`` sets the default every configuration without its own
         override uses; a name sets that configuration's override. The grid
         *span* is already per configuration for free — each materialized
         sensor spans its own resolved ``filter_min_um``/``filter_max_um``
         (ADR-0010 D-F).
+
+        ``n=None`` **clears** rather than sets: a named configuration goes back to
+        the shared default, and ``config=None, n=None`` drops the set-level
+        default so the base sensor's own point count is the shared default again.
+        Clearing exists because the setting is user-editable and every editable
+        setting needs a way back — without it, an undone edit could not restore an
+        override that was not there before.
+
+        Read the current state back with :meth:`wavelength_points`.
         """
+        if n is None:
+            if config is None:
+                self._shared_wl_points = None
+            else:
+                self._index(config, "set_wavelength_points")
+                self._wl_points.pop(config, None)
+            return
         if not isinstance(n, int) or isinstance(n, bool) or n < 2:
             raise ConfigSetError(
                 what=f"wavelength_points must be an integer >= 2, got {n!r}",

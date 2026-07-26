@@ -267,6 +267,8 @@ gui/
 │   ├── central_canvas.py                    # CentralCanvas
 │   ├── comparison_dialog.py                 # ComparisonDialog
 │   ├── configuration_bar.py                 # ConfigurationBar — master configuration selector
+│   ├── configuration_manager_dialog.py      # ConfigurationManagerDialog — study CRUD (4c)
+│   ├── configuration_shape_command.py       # ConfigurationShape(+Command) — shape undo (4c)
 │   ├── configure_menu.py                    # the three configured-parameter context actions (4b)
 │   ├── configured_badge.py                  # ConfiguredBadge + the painted red "C" icon (4b)
 │   ├── configured_values_dialog.py          # ConfiguredValuesDialog — all-configurations table (4b)

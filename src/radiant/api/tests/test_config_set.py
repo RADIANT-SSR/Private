@@ -541,6 +541,132 @@ class TestWavelengthPoints:
             cs.set_wavelength_points("ZZ", 100)
 
 
+class TestWavelengthPointsAccessor:
+    """CU-210 — the point-count state is readable, not write-only."""
+
+    def test_shared_default_is_the_base_grid_until_one_is_set(self) -> None:
+        cs = _set("A", "B")
+        assert cs.wavelength_points() == _WL_POINTS
+        cs.set_wavelength_points(None, 123)
+        assert cs.wavelength_points() == 123
+
+    def test_override_reads_back_and_none_means_inherits(self) -> None:
+        cs = _set("A", "B")
+        assert cs.wavelength_points("A") is None  # inherits the shared default
+        cs.set_wavelength_points("A", 77)
+        assert cs.wavelength_points("A") == 77
+        assert cs.wavelength_points("B") is None
+        # The reader distinguishes "inherits" from "equals the default".
+        cs.set_wavelength_points(None, 77)
+        assert cs.wavelength_points("B") is None
+        assert cs.wavelength_points() == 77
+
+    def test_round_trips_through_save_and_load(self, tmp_path: Path) -> None:
+        cs = _set("MWIR", "LWIR")
+        cs.set_wavelength_points("LWIR", 31)
+        cs.set_wavelength_points(None, 22)
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+        assert loaded.wavelength_points() == 22
+        assert loaded.wavelength_points("LWIR") == 31
+        assert loaded.wavelength_points("MWIR") is None
+
+    def test_rename_rekeys_the_override(self) -> None:
+        """The ``_wl_points`` dict is keyed by name, so a rename must move the entry."""
+        cs = _set("A", "B")
+        cs.set_wavelength_points("B", 30)
+        cs.rename("B", "LWIR")
+        assert cs.wavelength_points("LWIR") == 30
+        with pytest.raises(ConfigSetError, match="no configuration named 'B'"):
+            cs.wavelength_points("B")
+
+    def test_duplicate_copies_the_source_override(self) -> None:
+        cs = _set("A", "B")
+        cs.set_wavelength_points("B", 30)
+        cs.add("C", copy_from="B")
+        assert cs.wavelength_points("C") == 30
+        cs.add("D")  # seeded from configuration #1, which has no override
+        assert cs.wavelength_points("D") is None
+
+    def test_remove_drops_the_override(self) -> None:
+        cs = _set("A", "B")
+        cs.set_wavelength_points("B", 30)
+        cs.remove("B")
+        cs.add("B")
+        assert cs.wavelength_points("B") is None
+
+    def test_none_clears_an_override_and_the_shared_default(self) -> None:
+        cs = _set("A", "B")
+        cs.set_wavelength_points("A", 60)
+        cs.set_wavelength_points(None, 44)
+        cs.set_wavelength_points("A", None)
+        assert cs.wavelength_points("A") is None
+        assert _evaluate(cs.sensor_for("A")).wavelength_um.size == 44
+        cs.set_wavelength_points(None, None)
+        assert cs.wavelength_points() == _WL_POINTS
+        assert _evaluate(cs.sensor_for("A")).wavelength_um.size == _WL_POINTS
+
+    def test_clearing_an_unknown_configuration_is_still_actionable(self) -> None:
+        cs = _set("A", "B")
+        with pytest.raises(ConfigSetError, match="no configuration named 'ZZ'"):
+            cs.set_wavelength_points("ZZ", None)
+
+    def test_sensor_exposes_its_own_point_count(self) -> None:
+        sensor = _sensor(37)
+        assert sensor.wavelength_points == 37
+        assert sensor.with_wavelength_points(9).wavelength_points == 9
+        assert sensor.wavelength_points == 37  # the original is untouched
+
+
+class TestSetValuesUnit:
+    """CU-211 — ``set_values`` converts a whole column from the caller's unit."""
+
+    def test_column_is_converted_once_at_the_boundary(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("geometry.sensor_altitude_m", [500_000.0, 600_000.0])
+        cs.set_values("geometry.sensor_altitude_m", [450.0, 700.0], unit="km")
+        assert cs.configured()["geometry.sensor_altitude_m"] == pytest.approx(
+            (450_000.0, 700_000.0), rel=1e-12
+        )
+
+    def test_matches_per_row_set_value_conversion(self) -> None:
+        """One ``set_values(unit=)`` must equal N ``set_value(unit=)`` calls."""
+        column = _set("A", "B")
+        column.configure("geometry.sensor_altitude_m", [500_000.0, 600_000.0])
+        column.set_values("geometry.sensor_altitude_m", [450.0, 700.0], unit="km")
+
+        rows = _set("A", "B")
+        rows.configure("geometry.sensor_altitude_m", [500_000.0, 600_000.0])
+        rows.set_value("geometry.sensor_altitude_m", "A", 450.0, unit="km")
+        rows.set_value("geometry.sensor_altitude_m", "B", 700.0, unit="km")
+
+        assert column.configured() == rows.configured()
+
+    def test_omitted_unit_is_the_input_unit_as_before(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("geometry.sensor_altitude_m", [500_000.0, 600_000.0])
+        cs.set_values("geometry.sensor_altitude_m", [450_000.0, 700_000.0])
+        assert cs.configured()["geometry.sensor_altitude_m"] == pytest.approx(
+            (450_000.0, 700_000.0), rel=1e-12
+        )
+
+    def test_a_rejected_value_leaves_the_whole_column_untouched(self) -> None:
+        """Atomicity survives the unit seam: convert-then-validate, then commit."""
+        cs = _set("A", "B")
+        cs.configure("geometry.sensor_altitude_m", [500_000.0, 600_000.0])
+        before = cs.configured()["geometry.sensor_altitude_m"]
+        with pytest.raises(ConfigSetError, match="'B'"):
+            cs.set_values("geometry.sensor_altitude_m", [450.0, -700.0], unit="km")
+        assert cs.configured()["geometry.sensor_altitude_m"] == before
+
+    def test_unknown_unit_is_rejected_actionably(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("geometry.sensor_altitude_m", [500_000.0, 600_000.0])
+        before = cs.configured()["geometry.sensor_altitude_m"]
+        with pytest.raises(ConfigSetError):
+            cs.set_values("geometry.sensor_altitude_m", [450.0, 700.0], unit="furlong")
+        assert cs.configured()["geometry.sensor_altitude_m"] == before
+
+
 class TestClone:
     """``clone()`` — the set-level thread-isolation snapshot (GUI Phase 4a)."""
 

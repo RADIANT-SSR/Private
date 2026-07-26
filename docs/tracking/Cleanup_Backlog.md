@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-222 — Horizon-guard threshold constants are degree-valued in a core physics module (Rule-2 tension)
+
+**Discovered**: Geometry-Flexibility Phase 1 (branch `gf1/geometry-core`), core-geometry agent self-flag, 2026-07-26.
+**Status**: Open
+**File**: `radiant.core.viewing_triangle` (`GUARD_HARD_DEG = 0.5`, `GUARD_WARN_DEG = 2.0`; `horizon_band_action` converts the band via `math.degrees()` before comparing)
+**Symptom**: the two angular guard thresholds are module-level constants in **degrees**, and the comparison converts the radian band to degrees inside a core module — canonical internal units are radians (Rule 2), and the conversion-at-comparison pattern is the exact shape Rule 2 flags. The Δh thresholds (`GUARD_DH_*_M`) are in meters and fine.
+**Why it still matters**: cosmetic today (conversion is explicit, named, and single-site), but it seeds the "which unit is this threshold in?" ambiguity Rule 2 exists to prevent, and Phase 2's MODTRAN threshold calibration will touch exactly these constants.
+**Suggested fix**: (a) inline-fix — store `GUARD_HARD_RAD`/`GUARD_WARN_RAD` in radians (values `math.radians(0.5)`, `math.radians(2.0)`), compare in radians, convert to degrees only in message formatting; keep the plan/ADR prose in degrees. Effort S; category A. Natural home: the Phase 2 threshold-calibration PR (plan §8.3 addendum), which re-touches these constants anyway.
+
 ### CU-221 — `scripts/test_docs_code.py` always reports 3 failures, so its signal is dead
 
 **Discovered**: multi-config user-guide coverage (`docs/multiconfig-guides`), 2026-07-26

@@ -114,9 +114,14 @@ exactly like a Rule 20 doc-drift violation, not deferred to a CU.
 
 - `core/viewing_triangle.py`: symmetric solutions valid for any
   `h_sensor ≠ h_target` ordering + the equal-altitude horizontal case
-  (central-angle form); extended $\theta_o$ domain; horizon guard band.
+  (central-angle form); extended $\theta_o$ domain; horizon guard band
+  per the §8.3 addendum (tangent-point topology: angular bands for
+  endpoint-minimum paths, tangent-height-depression thresholds —
+  provisional 100 m / 2 km — for interior-tangent paths).
   Level-0 tests first: up/down symmetry identities
-  (η↔θ_o role swap), nadir/zenith limits, horizon behavior.
+  (η↔θ_o role swap), nadir/zenith limits, horizon behavior, and the
+  guard-topology boundary cases (short A5 arm clean; 200 km air-to-air
+  warns; deep transit raises).
 - `core/los_geometry.py`: `LineOfSightGeometry` carries **both endpoints**
   (`h_sensor` joins the contract; GF-3) and exposes signed direction;
   serialization round-trip extended back-compatibly.
@@ -308,3 +313,26 @@ within Phase 3.
 **Kickoff:** deferred to a dedicated session (owner, 2026-07-26). Phase 0
 is the first action there; nothing beyond this ratification record was
 executed in the auditing session.
+
+**Addendum (owner, 2026-07-26, Phase 0 close) — horizon-guard
+discriminator (Use-Case Matrix open questions 8 and 10):** the
+near-horizontal guard keys on the ray's **tangent-point topology**, not on
+$|\theta_o - \pi/2|$ alone. Endpoint-minimum paths (up/down slants grazing
+the horizon at their lower endpoint) keep the ratified angular bands at the
+lower endpoint (±0.5° raise, ≈±2° warn shoulder). Interior-tangent paths
+(level / near-level, incl. every constant-altitude arm) guard instead on
+the tangent-height depression $\Delta h = (R_E + h_{low})(1 -
+\sin\theta_{low}) \approx L^2/8R_E$: below ~100 m compute clean; ~100 m–2 km
+compute with the quantified refraction `UserWarning`; above ~2 km raise
+(limb-like transit). Thresholds provisional; calibrated in Phase 2 by a
+MODTRAN refraction on/off deck pair (batch 2, alongside the SST ladder).
+The same interior-tangent test is the B2/B4 background discriminator
+(continuation tangent deeper than the raise threshold → B4 raise). This
+refines ADR-0011 decision 6 (the angular bands there apply to the
+endpoint-minimum topology); it lands in `core/viewing_triangle.py` with the
+extended domain in Phase 1, with Rule-20 doc lock-step in that PR.
+Rationale: a pure angular test over-rejects benign short horizontal paths
+(8 km towers, $\Delta h$ = 1.3 m, θ_o = 90.04°) and a blanket equal-altitude
+exemption both under-rejects long transits (500 km at 5 km altitude,
+$\Delta h$ ≈ 4.9 km) and makes behavior discontinuous between equal and
+almost-equal altitudes.

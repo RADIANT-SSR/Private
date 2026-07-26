@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-211 — the all-configurations value table edits in input units only (no per-row display-unit choice)
+
+**Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/widgets/configured_values_dialog.py` (the dialog's unit column), `src/radiant/gui/main_window.py::_commit_configured_values`
+**Symptom**: the per-parameter all-configurations table shows and accepts values in the parameter's schema `input_unit`, labelled on every row, while the parameter tree row for the same dot-path may be displaying that value in a *different* user-chosen unit (the `ParameterPanel.display_units` preference, owner feedback 2026-07-13). Reproduce: set a length row's display unit to `km` in the Parameter Editor, then open that (configured) parameter's table — the rows read in `m`.
+**Why it still matters**: the display-unit rule is that entry and display are symmetric and the analyst never does mental arithmetic. Inside the dialog they are symmetric (both sides are the labelled input unit), but crossing from the tree to the table changes the unit under the reader. The reason it is not fixed inline: `ConfigurationSet.set_values` takes no `unit=` (it is the dense whole-column write), so honouring per-row units would mean one `set_value(..., unit=...)` per row — losing the atomic "validate the whole column, then commit" property that keeps a rejected table from half-committing (the Phase 4b acceptance criterion). The right fix is an API-side seam, not a GUI-side conversion (Rule 2).
+**Suggested fix**: (b) stand-alone task — add `ConfigurationSet.set_values(dotpath, values, *, unit: str | None = None)` (one unit for the whole column, converted once at the API boundary like `Sensor.set`), then seed the dialog rows in the tree's display unit and pass that unit through. Lock-step `RADIANT_Scripting_API.md` + `RADIANT_GUI_Architecture.md` §4.2c. Effort S–M; category B.
+
 ### CU-210 — `ConfigurationSet` wavelength-point overrides are write-only (no public read accessor)
 
 **Discovered**: multi-config Phase 4a GUI session model (`gui/multiconfig-phase4a`), 2026-07-25

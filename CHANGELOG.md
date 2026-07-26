@@ -21,6 +21,28 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **CLI: studies run and validate from the command line (multi-configuration Phase 5 —
+  close-out).** `radiant run study.yaml --configuration NAME` evaluates one named
+  configuration of a study config file: `ConfigurationSet.load` → `sensor_for(NAME)` →
+  the ordinary run path, with the configuration named in every output form (a
+  `Configuration:` header line in text, a `configuration` key in `--format json` and in
+  the `--output` / `--provenance` files, and a leading `configuration` column in
+  `--format csv`). Plain config files are byte-for-byte unaffected in all four forms.
+  `radiant validate study.yaml` now validates **every** configuration through
+  `ConfigurationSet.validate_all()` and prints one line each — `ok` with that
+  configuration's band (µm) and grid-point count, or `ERROR` with the actionable
+  what-line — exiting non-zero if any failed, so one configuration's failure never hides
+  another's. This replaces Phase 2's blanket refusal of study files: `radiant run` still
+  refuses a study **without** `--configuration`, now with a message naming every
+  configuration and the flag (the study's `active` designation is GUI display state and
+  is deliberately not honored by scripting), and `--configuration` against a plain config
+  file is refused the same way. `--set` overrides the materialized configuration on
+  `run`; on `validate` it edits the shared base and refuses a configured dot-path (one
+  value has no unambiguous target across N configurations). `--wavelength-min/-max` are
+  refused with `--configuration` (each configuration spans its own resolved band,
+  ADR-0010 D-F); an explicit `--wavelength-points` overrides the study's own count while
+  the flag's default no longer silently does. No API change and no computed result
+  changes.
 - **GUI: studies are a first-class document — YAML view/editor, console `configs`, and
   persistence polish (multi-configuration Phase 4e; completes the GUI half of the
   capability).** The right-rail **Edit Config (YAML)** modal now shows and edits the

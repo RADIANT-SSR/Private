@@ -1552,6 +1552,71 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 107: Viewing geometry is down-looking only — ground-to-air, air-to-air, ground-to-space, and up-looking space-to-space scenes are all rejected
+
+| | |
+|---|---|
+| **Found in** | Geometry-flexibility audit (`docs/reports/geometry_flexibility_2026-07/`), 2026-07-26. Root policy: owner ruling 2026-07-11 ("v1 has no uplooking geometry"), enforced in `core/viewing_triangle._validate_altitudes` and documented in `RADIANT_Geometry.md` §4 and `RADIANT_Use_Case_Matrix.md` ("Sensor location is fixed to `space` in v1"). |
+| **Status** | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`, 2026-07-26, Draft) |
+| **Description** | Every viewing-geometry entry point requires `h_sensor > h_target` and $\theta_o \in [0, \pi/2)$: `core.viewing_triangle` raises `ParameterBoundsError` for `h_sensor <= h_target` (the collocated case survives only as a degenerate no-triangle carve-out), `LineOfSightGeometry` rejects $\theta_o \geq \pi/2$, and `geometry/modes.py` inherits both. Consequently a ground or airborne sensor looking **up** at an air/space target, an air-to-air engagement (level or climbing LOS), a ground observatory looking at a satellite, and even a **space-to-space up-looking** case (LEO sensor viewing a higher-altitude GEO target — both endpoints in vacuum, atmosphere entirely irrelevant) are all unexpressible. The atmosphere layer below is notably *less* restrictive than the front door: `AtmosphericGeometry` explicitly documents `target_altitude_m > sensor_altitude_m` uplooking support, the MODTRAN deck builder implements the uplooking Card-3 ANGLE convention and ITYPE=1 horizontal paths, and `SimpleAtmosphere` integrates its column between the two endpoint altitudes symmetrically (`min/max`). The restriction is a geometry-stage policy gate, not a physics limitation of the backends. |
+| **Impact** | Blocks entire mission classes: ground-based SST/astronomy, counter-UAS from ground or ship, air-to-air IRST, up-looking SDA (LEO→GEO), missile warning from below, horizontal test-range measurements at altitude. |
+| **Suggested fix** | Phased generalization per `docs/plans/Geometry_Flexibility_Plan.md`: endpoint-symmetric viewing triangle + `LineOfSightGeometry` carrying both endpoints, extended zenith domain, direction-aware mode resolution, scene-class taxonomy (observer × target ∈ {ground, air, space}²). Requires an ADR superseding the 2026-07-11 ruling. Effort L. |
+| **Workaround** | None inside RADIANT. Reciprocity hand-tricks (swapping endpoints) silently mis-assign path radiance, sky/ground background, and every ground-projected metric — do not use. |
+
+---
+
+## Gap 108: Background selection is LOS-direction-blind — no sky background, no earthlimb, no direction-driven default
+
+| | |
+|---|---|
+| **Found in** | Geometry-flexibility audit (`docs/reports/geometry_flexibility_2026-07/`), 2026-07-26. |
+| **Status** | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`) |
+| **Description** | The four `BackgroundDescriptor` variants (`AtAperture`, `ColdSpace`, `Ground`, `UserSpectral`) encode the v1 assumption that the scene behind the target is either the ground (down-looking through-atmosphere cells; assembled with the ground→sensor full column $\tau_{full,up}$, $L_{path,full}$) or cold space (exo cells). There is no `SkyBackground` — the radiance of the sky along the LOS *past* an elevated target as seen from below — and no earthlimb background (already deferred to v2 by the Use-Case Matrix), and no logic that selects a background from where the LOS actually terminates (Earth surface / limb / space). For any up-looking or horizontal scene the physically correct background (bright daytime sky in VIS, cold sky in LWIR with strong zenith-angle dependence) is unrepresentable; sub-pixel/point-target contrast — the quantity that drives detection — is therefore uncomputable for those scenes. |
+| **Impact** | Ground-to-air and air-to-air detection scenarios (the dominant use of an up-looking sensor) are blocked even after Gap 107's LOS generalization, because SCNR/contrast needs the sky radiance behind the target. |
+| **Suggested fix** | Add a `SkyBackground` descriptor assembled from a new sky-radiance-along-LOS atmospheric product (simple model: single-scatter solar + graybody thermal along the view ray; MODTRAN: up-looking radiance runs), plus LOS-termination logic (hits Earth → ground; exits atmosphere → space/limb) for defaults. Effort M–L, gated on Gap 107 Phase 1–2. |
+| **Workaround** | `UserSpectralBackground` with an externally computed sky spectrum (e.g. a MODTRAN up-looking run) — script-only, and only once Gap 107 admits the geometry at all. |
+
+---
+
+## Gap 109: Atmosphere path topology hard-codes the down-looking two-leg column — no up-path products, no horizontal path, sun restricted to above-horizon
+
+| | |
+|---|---|
+| **Found in** | Geometry-flexibility audit (`docs/reports/geometry_flexibility_2026-07/`), 2026-07-26. |
+| **Status** | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`) |
+| **Description** | `AtmosphericQuantities` is a fixed eight-field bundle whose topology is baked in: $\tau_{up}$ (target→sensor, upward), $\tau_{full,up}$ (ground→sensor, the background column), $\tau_{sun}$ (TOA→target), $E_{sky}$ evaluated on the **target's** sky dome (sensor altitude deliberately absent), and $L_{path}$ terms for the upward legs only. Three structural consequences: (1) an up-looking sensor's path radiance (sunlit column between a low sensor and a high target — the dominant clutter term for ground-to-air) has no slot and no backend computes it; (2) a horizontal constant-altitude path (air-to-air level engagement; MODTRAN ITYPE=1 exists in the deck builder but is unreachable) has no representation — the plane-parallel airmass model presumes a vertical column traversal; (3) `AtmosphericGeometry` and the schema hard-bound the solar zenith to $[0, \pi/2)$, so twilight/terminator scenes and the operationally central case of a **sunlit high-altitude target over a dark ground** (boost-phase, SDA twilight windows) are unexpressible — the day/night toggle (Gap 59) is scene-global, not altitude-aware. The interpolated/tabulated MODTRAN library axes likewise refuse zenith ≥ 88.8°, and the shipped ladder families are all down-looking. |
+| **Impact** | Even with Gap 107 (LOS direction) and Gap 108 (backgrounds) resolved, radiometric fidelity for non-down-looking scenes needs these path products; the solar-terminator restriction alone invalidates the illumination model for most SDA windows. |
+| **Suggested fix** | Generalize the backend contract to a direction-aware path-segment product (column between two altitudes + zenith at the lower endpoint, plus a horizontal-path arm), add per-endpoint solar visibility (shadow-height test instead of a global $\theta_s < \pi/2$ bound), and extend the simple model + MODTRAN library families with up-looking/horizontal runs. Effort L (dominant cost of the plan). |
+| **Workaround** | None for the missing products; MODTRAN tape7 file import can substitute per-scene numbers only for geometries the front door accepts. |
+
+---
+
+## Gap 110: Turbulence is a path-blind user-input r0 stub — no Cn² profile, no direction dependence, ground/air observers structurally excluded
+
+| | |
+|---|---|
+| **Found in** | Geometry-flexibility audit (`docs/reports/geometry_flexibility_2026-07/`), 2026-07-26; the stub status is self-documented in `atmosphere/turbulence.py`. |
+| **Status** | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`, Phase 3) |
+| **Description** | The Kolmogorov long-exposure turbulence MTF takes `atmosphere.r0_m` as a direct user input; there is no $C_n^2$ profile model (Hufnagel-Valley or user-supplied), no path-weighted $r_0$ integration ($r_0 \propto [\sec\theta \int C_n^2(h)\,dh]^{-3/5}$ with the appropriate spherical-wave path weighting), and therefore no dependence on look direction or on which end of the path sits in the strong near-ground turbulence. Additionally, `RADIANT_Scope_Decisions.md` has the parameter resolver reject turbulence for space observers outright. For the up-looking scenes Gap 107 unlocks — ground-based SST is the canonical case — turbulence is the *dominant* spatial degradation and its magnitude is set almost entirely by the near-sensor $C_n^2$; a bare user $r_0$ with no zenith scaling cannot support even a simple elevation trade. |
+| **Impact** | Ground-to-air/space image-quality predictions (FWHM, Strehl, NIIRS-class metrics) are not credible without it; air-to-air long horizontal paths similarly. |
+| **Suggested fix** | Add a $C_n^2$-profile parameter family (HV-5/7 preset + tabulated user profile), an $r_0$-from-profile integrator with plane/spherical wave options and zenith scaling, keeping direct `r0_m` as an override. Effort M. Independent of, but only *useful* after, Gap 107. |
+| **Workaround** | Compute $r_0$ offline for the specific path and feed `atmosphere.r0_m` — valid for a single geometry point, breaks under any sweep over elevation/range. |
+
+---
+
+## Gap 111: No relative target kinematics — smear and revisit metrics assume a ground-track scene; LOS-rate-driven smear for air/space targets is unexpressible
+
+| | |
+|---|---|
+| **Found in** | Geometry-flexibility audit (`docs/reports/geometry_flexibility_2026-07/`), 2026-07-26. |
+| **Status** | OPEN |
+| **Description** | Platform kinematics is a single scalar `geometry.ground_speed_m_s` (directly set or derived from a circular orbit, mode V6). Smear is computed as platform velocity over range; the target is implicitly stationary on the ground. There is no target velocity vector, no LOS angular-rate computation from relative motion, and no way to express the crossing rate of an aircraft, missile, or satellite target — for air-to-air and SDA scenes the *target's* angular rate, not the platform ground speed, sets the smear and the required integration-time trade. Access-rate/revisit metrics similarly presume a ground swath. |
+| **Impact** | Integration-time and TDI trades for any moving-target scene misstate smear; air-to-air and SDA scenarios (unlocked by Gaps 107–109) would silently reuse ground-scene kinematics. |
+| **Suggested fix** | Add target velocity parameters (or LOS-rate direct entry), derive the relative LOS angular rate in GeometryStage, and route it to the smear kernel as the moving-target arm. Effort M. Gated on Gap 107 (scene classes must exist first). |
+| **Workaround** | Hand-compute the equivalent "ground speed" that reproduces the desired LOS rate at the given range and set `geometry.ground_speed_m_s` — obscures provenance and breaks the V6 consistency check, but numerically serviceable for single points. |
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1661,6 +1726,11 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 104 | Tolerances and stage-output injections are shared across a configuration set | M | Per-configuration uncertainty models / measured inputs | DEFERRED (ADR-0010) |
 | 105 | No set-level execution (sweep / Monte-Carlo / CLI --all-configurations across a set) | M | Multi-configuration trades | OPEN |
 | 106 | No active-imaging modality (lidar/ladar) — RADIANT is passive-EO only | L | Flash LADAR missions; active EO trades | PLANNED (`docs/plans/Active_Imaging_Plan.md`, 2026-07-26; v1-exclusion sub-gaps filed at its Phase 0) |
+| 107 | Viewing geometry is down-looking only (ground-to-air / air-to-air / ground-to-space / up-looking space-to-space all rejected) | L | Ground SST, IRST, counter-UAS, up-looking SDA | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`, 2026-07-26) |
+| 108 | Background selection is LOS-direction-blind (no SkyBackground, no earthlimb, no termination-driven default) | M–L | Ground-to-air / air-to-air detection & contrast | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`) |
+| 109 | Atmosphere path topology hard-codes down-looking two-leg column (no up-path products, no horizontal path, sun above-horizon only) | L | All non-down-looking scenes; SDA twilight illumination | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`) |
+| 110 | Turbulence is a path-blind r0 stub (no Cn² profile, no zenith/direction dependence) | M | Ground-to-space image quality; long horizontal paths | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`, Phase 3) |
+| 111 | No relative target kinematics (LOS-rate smear for air/space targets unexpressible) | M | Air-to-air / SDA integration-time & TDI trades | OPEN |
 
 ---
 

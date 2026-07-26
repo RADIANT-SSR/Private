@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-214 — Tools → "Compare Configurations…" now collides with the study vocabulary it predates
+
+**Discovered**: multi-config Phase 4c configuration manager (`gui/multiconfig-phase4c`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/main_window.py` (the `tools.compare` action label), `src/radiant/gui/widgets/comparison_dialog.py`
+**Symptom**: the Tools menu item **"Compare Configurations…"** (GT-3) compares the current config against other **config files on disk**. Since Phase 4c the Edit menu carries **"Configurations…"**, which manages the *configurations of one study* (ADR-0010 members). Two menu items now use "configuration" for two different things one menu apart — exactly the collision ADR-0010 D-10's disambiguation convention exists to prevent ("config file" / "YAML config" for the on-disk artifact; bare "configuration" only for a set member). Reproduce: open the GUI and read Edit and Tools side by side.
+**Why it still matters**: D-10 was ratified conditionally — "on the terminology staying unambiguous", and a review finding that it is breaking down in practice is a Phase-0-level signal, not a silent drift. An analyst reading "Compare Configurations…" in a study session will reasonably expect the per-configuration comparison surface (which is Phase 4d's Performance tabs / the scripting `cs.compare`), and get a file picker instead.
+**Suggested fix**: (a) inline-fix-now in the next GUI phase touching the menus (4d is the natural one, since it *does* land the per-configuration comparison surface) — relabel the Tools item to "Compare Config Files…" and re-word `ComparisonDialog`'s header to match, then re-check every remaining GUI string against the D-10 convention. Doc lock-step: `RADIANT_GUI_Architecture.md` §10 menu table. Effort S; category A (UX wording), with a D-10 terminology re-audit attached.
+
+### CU-213 — no GUI surface for a study's **shared** spectral grid point count
+
+**Discovered**: multi-config Phase 4c configuration manager (`gui/multiconfig-phase4c`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/widgets/configuration_manager_dialog.py` (the per-row grid editor), `src/radiant/api/config_set.py` (`set_wavelength_points(None, n)`)
+**Symptom**: the Phase 4c manager row lets the analyst set or clear a **per-configuration** `wavelength_points` override, and states the shared default in its blank-row placeholder (`shared: 500 pts`) — but nothing in the GUI can *change* that shared default. It is settable only by editing `_radiant.wavelength_points` in the YAML (Edit Config (YAML)) or from the scripting console (`cs.set_wavelength_points(None, n)`). Reproduce: open any study, `Edit → Configurations…`, and try to move every configuration off the 500-point default at once.
+**Why it still matters**: the shared point count is the one knob that trades every configuration's evaluation cost against spectral resolution, and it is the value the dialog *shows* the analyst on every blank row — a number the UI displays and explains but cannot edit reads as an oversight rather than a boundary. It predates this phase (no GUI ever exposed it); 4c made it visible. Note the API side is complete: `wavelength_points()` reads it and `set_wavelength_points(None, n | None)` sets or clears it, so this is purely a surface.
+**Suggested fix**: (a) inline-fix — one "Shared grid points" spin/line row in the manager's footer, above the per-row overrides, written through the same `_guarded` path and carried by the existing `ConfigurationShape.shared_wavelength_points` (which already snapshots and restores it, so undo needs no change). Alternatively (b) fold it into the Preferences dialog if the point count is judged session-level rather than document-level — decide which before building. Effort S; category A. Natural home: multi-config Phase 4e (persistence + polish).
+
 ### CU-212 — the GUI test session sits on a widget-accumulation cliff: an app-wide `apply_theme` segfaults once enough windows are alive
 
 **Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25

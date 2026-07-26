@@ -252,7 +252,11 @@ class TestUnconfigure:
 
 class TestTableEditor:
     def _dialog(self, window: RADIANTMainWindow, dotpath: str) -> ConfiguredValuesDialog:
-        """Build the dialog the window would open (without entering its modal loop)."""
+        """Build the dialog the window would open (without entering its modal loop).
+
+        Mirrors ``_on_edit_configured_values`` exactly, including the display unit it
+        passes and the two-argument commit callback it builds (CU-211).
+        """
         cs = window.configuration_set
         assert cs is not None
         return ConfiguredValuesDialog(
@@ -260,7 +264,8 @@ class TestTableEditor:
             cs.base.parameter_def(dotpath),
             cs.names(),
             cs.configured()[dotpath],
-            lambda values: window._commit_configured_values(dotpath, values),
+            lambda values, unit: window._commit_configured_values(dotpath, values, unit),
+            window.parameter_panel.display_unit(dotpath),
             window,
         )
 

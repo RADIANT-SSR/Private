@@ -14,12 +14,20 @@ table — **one row per configuration**, in set order, each carrying:
   builds it;
 * the parameter's unit, on every row (R-UNITS — no unrendered number anywhere).
 
-**Units.** The table works in the parameter's schema **input unit**, shown on each
-row, and is symmetric: what a row displays is what typing into it means. That is the
-unit the configured table itself stores, so the whole edit commits as *one* dense
-``ConfigurationSet.set_values`` call with no GUI-side conversion (Rule 2). A
-per-row display-unit choice would need one ``set_value`` per row and would lose that
-atomicity; it is tracked as CU-211 rather than smuggled in here.
+**Units.** The table works in the **parameter row's display unit** — whatever unit
+the analyst last chose for that dot-path in the Parameter Editor (the session
+``ParameterPanel.display_units`` store), falling back to the schema ``input_unit``
+when they never chose one. The unit is labelled on every row and the table is
+symmetric: what a row displays is what typing into it means, and it is the same unit
+the tree shows for the same parameter, so crossing from the tree to the table never
+changes the unit under the reader (owner's display-unit rule; CU-211).
+
+The conversion happens **once, at the API boundary**: the whole column still commits
+as a single dense ``ConfigurationSet.set_values(..., unit=<display unit>)`` call, so
+atomicity is untouched (the API converts and validates every value before replacing
+the column) and no unit arithmetic happens in this file (Rule 2). A unit the public
+registry cannot soundly convert (an unregistered or offset unit) makes the table fall
+back to the schema input unit for every row rather than inventing a conversion.
 
 **Atomicity.** The dialog never half-commits. It hands the whole column to its
 ``commit`` callback, which makes the single ``set_values`` call; the API validates
@@ -56,6 +64,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.param_format import display_in_unit
 from radiant.gui.themes import active_theme
 
 if TYPE_CHECKING:
@@ -86,10 +95,15 @@ class ConfiguredValuesDialog(QDialog):
         The current per-configuration values, in set order and in the parameter's
         input unit (i.e. ``ConfigurationSet.configured()[dotpath]``).
     commit:
-        ``(values) -> RadiantError | None`` — called once with the full column when
-        the user accepts. The host makes the single ``set_values`` API call and
-        records the undo command; returning the API's rejection keeps the dialog
-        open with the error rendered, returning ``None`` closes it.
+        ``(values, unit) -> RadiantError | None`` — called once with the full column
+        and the unit those values are expressed in (``None`` when they are already
+        in the schema input unit). The host makes the single ``set_values`` API
+        call and records the undo command; returning the API's rejection keeps the
+        dialog open with the error rendered, returning ``None`` closes it.
+    display_unit:
+        The unit the analyst chose for this dot-path elsewhere in the window
+        (``ParameterPanel.display_unit``). ``None`` — or a unit the registry cannot
+        soundly convert — leaves the table in the schema input unit.
     parent:
         The owning widget, if any.
     """
@@ -100,7 +114,8 @@ class ConfiguredValuesDialog(QDialog):
         pdef: ParameterDef,
         names: Sequence[str],
         values: Sequence[Any],
-        commit: Callable[[list[Any]], RadiantError | None],
+        commit: Callable[[list[Any], str | None], RadiantError | None],
+        display_unit: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -109,6 +124,9 @@ class ConfiguredValuesDialog(QDialog):
         self._names = list(names)
         self._commit = commit
         self._editors: list[QWidget] = []
+        # Incoming values are in the parameter's input unit (what the configured table
+        # stores); the rows show and accept the analyst's chosen display unit (CU-211).
+        self._unit, row_values = self._in_display_unit(values, display_unit)
 
         self.setObjectName("configuredValuesDialog")
         self.setWindowTitle(f"Configured values — {dotpath}")
@@ -119,9 +137,38 @@ class ConfiguredValuesDialog(QDialog):
         layout.setSpacing(10)
 
         self._build_header(layout)
-        self._build_table(layout, values)
+        self._build_table(layout, row_values)
         self._build_error_area(layout)
         self._build_buttons(layout)
+
+    # -- units --------------------------------------------------------------
+
+    def _in_display_unit(
+        self, values: Sequence[Any], display_unit: str | None
+    ) -> tuple[str, list[Any]]:
+        """The unit this table works in, plus *values* re-expressed in it.
+
+        Conversion routes through the public registry seam
+        (:func:`~radiant.gui.param_format.display_in_unit`) — no unit arithmetic
+        lives here (Rule 2). The whole table converts or none of it does: a unit the
+        registry cannot invert (unregistered, or one needing an additive offset)
+        drops the table back to the schema input unit rather than showing a mixture.
+        """
+        source = self._pdef.input_unit or ""
+        target = display_unit or source
+        if not source or target == source:
+            return source, list(values)
+        try:
+            return target, [
+                display_in_unit(value, source, target, self._pdef.canonical_unit)
+                for value in values
+            ]
+        except KeyError:
+            return source, list(values)
+
+    def _write_unit(self) -> str | None:
+        """The unit to hand the API, or ``None`` when the table is in input units."""
+        return self._unit if self._unit != (self._pdef.input_unit or "") else None
 
     # -- construction -------------------------------------------------------
 
@@ -149,7 +196,7 @@ class ConfiguredValuesDialog(QDialog):
         grid.setColumnStretch(1, 1)
 
         accents = active_theme().config_accents
-        unit = self._pdef.input_unit or ""
+        unit = self._unit
         for row, name in enumerate(self._names):
             label = QLabel(name, self)
             label.setObjectName("configuredValuesName")
@@ -245,7 +292,7 @@ class ConfiguredValuesDialog(QDialog):
         open with the offending configuration named (Rule 17 — never a half-commit,
         never a silent drop).
         """
-        rejection = self._commit(self.values())
+        rejection = self._commit(self.values(), self._write_unit())
         if rejection is not None:
             self._show_error(rejection)
             return
@@ -253,8 +300,16 @@ class ConfiguredValuesDialog(QDialog):
         self.accept()
 
     def values(self) -> list[Any]:
-        """The current editor values, in set order (raw; the API does the validating)."""
+        """The current editor values, in set order and in :attr:`unit`.
+
+        Raw as typed — the API validates and converts them (Rule 2).
+        """
         return [self._editor_value(editor) for editor in self._editors]
+
+    @property
+    def unit(self) -> str:
+        """The unit every row displays in and is typed in (may be the input unit)."""
+        return self._unit
 
     @staticmethod
     def _editor_value(editor: QWidget) -> Any:

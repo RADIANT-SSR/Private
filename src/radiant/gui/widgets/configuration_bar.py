@@ -18,9 +18,11 @@ Selecting a tab is **display state only**: it emits
 re-binds the panels. The bar owns no sensor, no set, and no API call (R-API —
 one GUI action ↔ one API call, made by the host).
 
-Read-only in Phase 4a: it shows whatever configurations the loaded study file
-defines. Creating / renaming / reordering configurations is the configuration
-manager dialog (Phase 4c).
+Since Phase 4c the strip also carries a trailing **manage** affordance — the gear
+button at its right end emits :attr:`manageRequested`, which the host answers with the
+same configuration manager dialog its Edit menu opens (§4.2d). Creating, renaming,
+reordering, and removing configurations all live there; the bar itself still owns no
+set and makes no API call.
 
 Styling is entirely themed via object names (GUI plan §4.9); the only colour this
 file names is the token tuple it reads from the active theme, never a literal.
@@ -41,6 +43,14 @@ from radiant.gui.themes.tokens import Theme
 # Geometry, not a design token (GUI plan §4.9 keeps colours/fonts in themes/).
 _CHIP_PX: int = 10
 
+# The manage affordance's glyph and label — text content, not a style token.
+_MANAGE_GLYPH = "⚙"
+_MANAGE_TOOLTIP = "Add, rename, reorder, or remove configurations (Edit → Configurations…)"
+
+# Layout items pinned to the right of the tabs: the stretch and the manage button.
+# New tabs are inserted before them.
+_TRAILING_ITEMS: int = 2
+
 
 class ConfigurationBar(QWidget):
     """A compact tab strip selecting the displayed configuration.
@@ -56,9 +66,13 @@ class ConfigurationBar(QWidget):
         Emitted with a configuration's name when the user picks its tab. Not
         emitted for programmatic updates (:meth:`set_configurations`,
         :meth:`set_active`), so a host re-binding its state cannot re-enter.
+    manageRequested():
+        Emitted when the user clicks the trailing gear — the host opens the
+        configuration manager (§4.2d).
     """
 
     configurationSelected = Signal(str)
+    manageRequested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -78,6 +92,17 @@ class ConfigurationBar(QWidget):
         layout.addWidget(self._label)
         self._layout = layout
         layout.addStretch(1)
+
+        # The manage affordance sits after the stretch, pinned to the right end, so
+        # adding tabs never pushes it around. It is built once and never rebuilt.
+        manage = QPushButton(_MANAGE_GLYPH, self)
+        manage.setObjectName("configurationManageButton")
+        manage.setFlat(True)
+        manage.setCursor(Qt.CursorShape.PointingHandCursor)
+        manage.setToolTip(_MANAGE_TOOLTIP)
+        manage.clicked.connect(self.manageRequested.emit)
+        layout.addWidget(manage)
+        self._manage_button = manage
 
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
@@ -101,6 +126,11 @@ class ConfigurationBar(QWidget):
     def buttons(self) -> list[QPushButton]:
         """The configuration tabs, in set order (tests click these)."""
         return list(self._buttons)
+
+    @property
+    def manage_button(self) -> QPushButton:
+        """The trailing gear that opens the configuration manager (§4.2d)."""
+        return self._manage_button
 
     def accent_for(self, name: str) -> str:
         """The theme accent colour assigned to configuration *name*.
@@ -179,8 +209,9 @@ class ConfigurationBar(QWidget):
                 button.setIconSize(QSize(_CHIP_PX, _CHIP_PX))
                 button.setToolTip(f"Display configuration {name!r}")
                 button.setChecked(name == self._active)
-                # Insert before the trailing stretch so the tabs stay left-aligned.
-                self._layout.insertWidget(self._layout.count() - 1, button)
+                # Insert before the trailing stretch + manage button, so the tabs stay
+                # left-aligned and the gear stays pinned to the right end.
+                self._layout.insertWidget(self._layout.count() - _TRAILING_ITEMS, button)
                 self._group.addButton(button, index)
                 self._buttons.append(button)
         finally:

@@ -13,9 +13,9 @@ command (R-API).
 
 * **Configure across configurations…** — shown for a *shared* parameter. It stays
   enabled in a single-configuration session and answers with an actionable status
-  message (there is no second configuration to hold a second value, and the
-  configuration manager that would create one is Phase 4c); a silently disabled or
-  absent item would leave the analyst guessing (Rule 17's spirit for UI state).
+  message naming the configuration manager that creates the second configuration
+  (:data:`CONFIGURATIONS_MENU_PATH`); a silently disabled or absent item would leave
+  the analyst guessing (Rule 17's spirit for UI state).
 * **Edit configured values…** — shown for a *configured* parameter; opens the
   all-configurations table.
 * **Un-configure (keep <first>'s value)…** — shown for a *configured* parameter, and
@@ -40,11 +40,17 @@ if TYPE_CHECKING:
 CONFIGURE_TEXT = "Configure across configurations…"
 EDIT_VALUES_TEXT = "Edit configured values…"
 
+# The configuration manager's menu entry and the full path to it. Named here, next
+# to the hint that points at it, so the guidance can never name a menu item that
+# does not exist (the wording the window builds its Edit-menu action from).
+CONFIGURATIONS_MENU_TEXT = "Configurations…"
+CONFIGURATIONS_MENU_PATH = f"Edit → {CONFIGURATIONS_MENU_TEXT}"
+
 # Tooltip/status hint shown when the session has a single configuration — the
-# actionable "what to do instead", pointing at the (Phase 4c) manager.
+# actionable "what to do instead", naming the manager by its real menu path.
 SINGLE_CONFIGURATION_HINT = (
     "Configuring a parameter needs more than one configuration — this session has one. "
-    "Add configurations with the configuration manager (arriving in the next sub-phase), "
+    f"Add configurations with the configuration manager ({CONFIGURATIONS_MENU_PATH}), "
     "or open a study file that defines several."
 )
 
@@ -82,6 +88,8 @@ def add_configuration_actions(menu: QMenu, scope: ConfigurationScope, dotpath: s
 
 
 __all__ = [
+    "CONFIGURATIONS_MENU_PATH",
+    "CONFIGURATIONS_MENU_TEXT",
     "CONFIGURE_TEXT",
     "EDIT_VALUES_TEXT",
     "SINGLE_CONFIGURATION_HINT",

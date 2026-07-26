@@ -400,13 +400,16 @@ a shared edit stays undoable **across** a selector switch. An inline edit of a p
 the study marks *configured* is written to the displayed configuration's own column
 (ADR-0010 D-8) and, since Phase 4b, is undoable as a scoped command (§4.2c).
 
-**Not yet built (upcoming sub-phases, not shipped):** the configuration manager dialog —
-create / duplicate / rename / delete / reorder / baseline (**4c**); per-configuration
-Performance columns (**4d**); the study YAML view, the console `configs` object, and
-study-aware recent/dirty handling (**4e**). Through Phase 4b the selector is still
-**read-only** over whatever the loaded file defines; the YAML editor and the console
-Refresh are single-configuration surfaces and say so rather than silently collapsing a
-study to one configuration.
+Since Phase 4c the strip also carries a trailing **gear** at its right end, which opens
+the configuration manager (§4.2d) — the same dialog `Edit → Configurations…` opens. The
+selector itself is still display-only: it chooses which configuration is shown, and the
+manager is the one place membership changes.
+
+**Not yet built (upcoming sub-phases, not shipped):** per-configuration Performance
+columns (**4d**); the study YAML view, the console `configs` object, and study-aware
+recent handling (**4e**). The YAML editor and the console Refresh are still
+single-configuration surfaces and say so rather than silently collapsing a study to one
+configuration.
 
 ### 4.2c Configured Parameters — badge, table editor, scoped undo (Phase 4b SHIPPED 2026-07-25)
 
@@ -435,7 +438,7 @@ fields', because both are built by one helper, `widgets/configure_menu.py`):
 
 | Action | API call | Notes |
 |---|---|---|
-| *Configure across configurations…* | `configure(dotpath)` | Seeds every configuration from the current shared value and moves the parameter out of the base (D-B). Offered on a shared parameter. In a **single-configuration** session it answers with an actionable status message pointing at the (4c) configuration manager — never a silent no-op. |
+| *Configure across configurations…* | `configure(dotpath)` | Seeds every configuration from the current shared value and moves the parameter out of the base (D-B). Offered on a shared parameter. In a **single-configuration** session it answers with an actionable status message naming the configuration manager by its real menu path, `Edit → Configurations…` (§4.2d) — never a silent no-op. |
 | *Edit configured values…* | `set_values(dotpath, values)` | Opens the all-configurations table (below). |
 | *Un-configure (keep &lt;first&gt;'s value)…* | `unconfigure(dotpath)` | Always keeps configuration #1's value (D-6). The confirmation **states that value with its unit** before proceeding, so collapsing a column is never a silent physics change in the other configurations. |
 
@@ -447,8 +450,15 @@ float/str → line edit — the same editors the single-value Parameter Editor b
 the unit (R-UNITS). It commits in **one** `set_values` call: the API validates the whole
 column before replacing it, so a rejected value leaves the set untouched — no half-commit —
 and the rejection, which names the offending configuration, renders inline while the dialog
-stays open (Rules 15/17). The table works in the parameter's schema input unit, labelled
-per row; a per-row *display*-unit choice needs an API seam and is tracked as CU-211.
+stays open (Rules 15/17). The table works in the **parameter row's display unit** — whatever unit the analyst chose
+for that dot-path in the Parameter Editor (`ParameterPanel.display_units`), falling back
+to the schema `input_unit` — and labels it on every row, so crossing from the tree to the
+table never changes the unit under the reader. The conversion happens once, at the API
+boundary: the column still commits as a single `set_values(..., unit=<display unit>)`
+call, so atomicity is untouched and the GUI performs no unit arithmetic (Rule 2). A unit
+the public registry cannot soundly invert drops the whole table back to the input unit
+rather than showing a mixture. (CU-211, closed in Phase 4c — the API seam it needed is
+`ConfigurationSet.set_values(..., unit=)`.)
 
 **Scoped undo/redo.** `ScopedParameterCommand` (`widgets/scoped_parameter_command.py`)
 records a parameter's whole **scope state** — which store it lives in plus the value(s) —
@@ -463,6 +473,68 @@ stays undoable across a selector switch.
 **Single-configuration sessions are unchanged.** Nothing is configured, so no badge is ever
 shown, no dialog is reachable, and the only new behaviour is the guarded action's message —
 a tested zero-regression requirement (`gui/tests/test_configured_parameters.py`).
+
+### 4.2d Configuration Manager (Phase 4c SHIPPED 2026-07-25)
+
+The dialog that answers the owner's first study requirement — *"the user can define the
+number of configurations and then name them"* (plan §4 item 1). It is reached from
+**`Edit → Configurations…`** and from the **gear** at the right end of the selector band
+(§4.2b); both trigger the one `edit.configurations` action. It lives in Edit rather than
+Tools because it edits the *document's* shape; Tools' similarly-named
+*Compare Configurations…* compares this config against other **files** and is unrelated
+— a live collision with the ADR-0010 D-10 vocabulary, filed as CU-214 for relabelling.
+
+It is `ConfigurationManagerDialog` (`widgets/configuration_manager_dialog.py`).
+
+**One row per configuration**, in set order: the configuration's accent chip (§8.1
+`config_accents`, the selector's hue for that slot) and name, a **baseline** marker, its
+per-configuration **wavelength-points** override, and a live **status**.
+
+* *Wavelength points* — an integer, or blank to inherit. A blank row's grey placeholder
+  states both the shared value and what blank means (`shared: 500 pts`), so an empty box
+  is never unexplained. Reading and clearing the state needs the Phase-4c API additions
+  `ConfigurationSet.wavelength_points(config=None)` (CU-210) and
+  `set_wavelength_points(config, None)`.
+* *Status* — from `ConfigurationSet.validate_all()`: `OK`, or the failing
+  configuration's error *what*-line with the full what/why/action on hover. It is
+  **resolve-only**; opening or editing in this dialog never runs physics. It re-runs
+  after every action in the dialog.
+
+**Actions**: Add, Duplicate (`add(copy_from=)`), Rename, Remove, Move Up / Move Down
+(`reorder`), Set as Baseline — one `ConfigurationSet` call each (R-API).
+
+**A private working copy.** The dialog edits `config_set.clone()` and hands the window a
+whole study *shape* on OK. Two things follow. Cancel is exactly "discard the clone" — no
+partial application and no undo entry. And every guard the analyst meets is the **API's
+own** — a ninth configuration, a duplicate or empty name, removing the last one — raised
+by the real call on the clone and rendered inline as its what/why/action; the dialog
+duplicates no validation.
+
+**Removing the displayed configuration** is allowed. The policy, stated in the dialog and
+again in the confirmation, is the model's own `remove()` behaviour: *the display moves to
+the first remaining configuration*. The confirmation also names how many configured
+parameters lose a value, so a column is never dropped silently.
+
+**Undo/redo is one step for the whole transaction.**
+`ConfigurationShapeCommand` (`widgets/configuration_shape_command.py`) records the study's
+**shape** — names in order, the configured table's value columns, each
+`wavelength_points` override plus the shared default, and `baseline` / `active` — before
+and after the dialog's OK, and applies a shape as a unit. That follows from the
+apply-on-OK design: the live set never sees the intermediate states, so there are no
+per-action steps to reverse. It also avoids the sequencing trap a per-action design has
+(undoing *rename A→B* after *add A* must not collide) — a shape is applied by
+construction, via placeholder renames, rather than by replaying inverses. Undoing a
+Remove therefore restores that configuration's configured values exactly, and the
+selector, badges, and displayed configuration are refreshed from the same code path in
+both directions. A shape deliberately does **not** carry *which* parameters are
+configured or any shared value: the manager never changes those, so they stay with
+§4.2c's `ScopedParameterCommand`. Both command kinds mutate the one live
+`ConfigurationSet` and share one undo stack in any order.
+
+**This is how a plain session becomes a study.** Add on a one-configuration session
+reveals the selector band on the way out, marks the document dirty, and makes
+`File → Save` write the `configurations:` section (the routing 4a already put in
+`_write_document`). Undoing it collapses the session back to a hidden selector.
 
 ### 4.3 All-Parameters Panel (permanent left column)
 
@@ -1569,7 +1641,8 @@ interfaces for workflows that are currently script-only.
 ```
 File   New · Open YAML… (Ctrl+O) · Open Recent → · Save (Ctrl+S) · Save As… ·
        Export YAML… [SHIPPED GX-1 → sensor.save] · Export JSON Result… [SHIPPED GX-1 → result.to_provenance_record] · ───── · Quit (Ctrl+Q)
-Edit   Undo (Ctrl+Z) · Redo · Reset to Defaults · Find Parameter (Ctrl+F)
+Edit   Undo (Ctrl+Z) · Redo · Reset to Defaults · Find Parameter (Ctrl+F) ·
+       ───── · Configurations… [SHIPPED 4c → §4.2d configuration manager]
 View   Show/Hide Parameter Panel (F6) · Show/Hide Detail Panel (F7) ·
        Stage: … (Ctrl+1..9) · Dark/Light Theme · Font Size +/−
 Run    Evaluate (F5) · Validate Only (Ctrl+R) ·

@@ -861,6 +861,17 @@ class Sensor:
         """Return a deep copy of this Sensor."""
         return copy.deepcopy(self)
 
+    @property
+    def wavelength_points(self) -> int:
+        """The number of spectral grid points this sensor evaluates on.
+
+        The read counterpart of :meth:`with_wavelength_points` and of the
+        ``_radiant.wavelength_points`` metadata field ``save``/``load`` carry, so
+        a caller can display or re-serialize the grid density without evaluating
+        the chain and measuring ``result.wavelength_um.size`` (CU-210).
+        """
+        return self._wl_points
+
     def with_wavelength_points(self, n: int) -> Sensor:
         """Return a clone evaluated on *n* spectral grid points.
 

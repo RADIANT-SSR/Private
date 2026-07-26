@@ -21,6 +21,42 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: configuration manager — define how many configurations a study has and name
+  them (multi-configuration Phase 4c).** A new `Edit → Configurations…` dialog (also on
+  the gear at the right end of the selector band) creates, duplicates, renames, removes,
+  reorders, and picks the baseline configuration, one `ConfigurationSet` call per action.
+  Each row shows the configuration's accent chip and name, a baseline marker, its
+  spectral **grid-point** override (blank inherits the study's shared default, whose
+  value and meaning the blank row states), and a live **status** from
+  `validate_all()` — `OK`, or the failing configuration's error line with its full
+  what/why/action on hover; the status is resolve-only, so the dialog never runs physics.
+  Every refusal — a ninth configuration, a duplicate or empty name, removing the last
+  configuration — is the API's own actionable message rendered inline, and removing the
+  displayed configuration moves the display to the first survivor after a confirmation
+  that states it. The dialog edits a private copy and applies on OK, so Cancel changes
+  nothing and the whole transaction is **one** undo step that restores the prior
+  membership, order, configured value columns (including a removed configuration's
+  values), grid overrides, and baseline/active designations. This is also how a plain
+  single-model session becomes a study: adding a second configuration reveals the
+  selector and makes Save write the `configurations:` section. No computed results
+  change.
+- **GUI: the all-configurations value table now works in the parameter's chosen display
+  unit** (CU-211). Setting a row to `km` in the Parameter Editor and then opening that
+  configured parameter's table shows and accepts kilometres, instead of silently
+  switching back to the schema input unit; the conversion happens once at the API
+  boundary and the whole column still commits atomically.
+- **`ConfigurationSet.wavelength_points(config=None)`** (CU-210) — read the spectral
+  grid point count back: the shared default in force with no argument, or a named
+  configuration's override (`None` when it inherits). Its write counterpart
+  `set_wavelength_points(config, n)` now also accepts `n=None` to **clear** an override
+  (or the shared default), so an editable setting has a way back.
+- **`Sensor.wavelength_points`** — read-only property exposing the sensor's spectral
+  grid point count, the counterpart of `with_wavelength_points` and of the
+  `_radiant.wavelength_points` config-file field.
+- **`ConfigurationSet.set_values(dotpath, values, *, unit=None)`** (CU-211) — the dense
+  whole-column write now accepts a unit, converting every value from the caller's unit
+  at the API boundary exactly as `set_value(unit=)` does, without giving up
+  validate-then-commit atomicity.
 - **GUI: configure a parameter across configurations — red "C" badges, an
   all-configurations value table, and scoped undo (multi-configuration Phase 4b).**
   Any editable parameter can now be marked **configured** from its context menu in the

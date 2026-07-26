@@ -28,6 +28,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QDockWidget,
     QFileDialog,
     QInputDialog,
@@ -51,7 +52,15 @@ from radiant.gui.themes import DARK, LIGHT, active_theme, apply_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
 from radiant.gui.widgets.configuration_bar import ConfigurationBar
-from radiant.gui.widgets.configure_menu import SINGLE_CONFIGURATION_HINT
+from radiant.gui.widgets.configuration_manager_dialog import ConfigurationManagerDialog
+from radiant.gui.widgets.configuration_shape_command import (
+    ConfigurationShape,
+    ConfigurationShapeCommand,
+)
+from radiant.gui.widgets.configure_menu import (
+    CONFIGURATIONS_MENU_TEXT,
+    SINGLE_CONFIGURATION_HINT,
+)
 from radiant.gui.widgets.configured_values_dialog import ConfiguredValuesDialog
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
@@ -443,6 +452,12 @@ class RADIANTMainWindow(QMainWindow):
             edit_menu, "edit.redo", "Redo", enabled=False, shortcut=QKeySequence.StandardKey.Redo
         )
         self._add_action(edit_menu, "edit.reset_defaults", "Reset to Defaults", enabled=False)
+        edit_menu.addSeparator()
+        # The configuration manager (§4.2d): it edits the *document's* shape — which
+        # configurations exist — so it belongs with Edit's other document-wide actions
+        # rather than in Tools, which holds analysis utilities (the similarly named
+        # "Compare Configurations…" there compares this config against other *files*).
+        self._add_action(edit_menu, "edit.configurations", CONFIGURATIONS_MENU_TEXT, enabled=False)
         self._add_action(
             edit_menu,
             "edit.find",
@@ -573,6 +588,7 @@ class RADIANTMainWindow(QMainWindow):
         """
         bar = ConfigurationBar(self)
         bar.configurationSelected.connect(self._on_configuration_selected)
+        bar.manageRequested.connect(self._on_manage_configurations)
         self._configuration_bar = bar
 
         dock = QDockWidget("", self)
@@ -988,6 +1004,7 @@ class RADIANTMainWindow(QMainWindow):
         self.action("tools.schema").setEnabled(enabled)
         self.action("tools.explain").setEnabled(enabled)
         self.action("edit.reset_defaults").setEnabled(enabled)
+        self.action("edit.configurations").setEnabled(enabled)
         self.action("run.sweep").setEnabled(enabled)
         self.action("run.monte_carlo").setEnabled(enabled)
         self.action("tools.compare").setEnabled(enabled)
@@ -1835,6 +1852,9 @@ class RADIANTMainWindow(QMainWindow):
         # Gap 93 closed: Reset to Defaults reverts every USER_SET input (edits since
         # load) via the one Sensor.reset_all() call; config-file inputs survive.
         self.action("edit.reset_defaults").triggered.connect(self._on_reset_defaults)
+        # The configuration manager — same action from the Edit menu and from the
+        # selector band's gear (§4.2d).
+        self.action("edit.configurations").triggered.connect(self._on_manage_configurations)
 
     def _on_reset_defaults(self) -> None:
         """Edit → Reset to Defaults: discard every edit made since the config loaded.
@@ -2087,13 +2107,21 @@ class RADIANTMainWindow(QMainWindow):
             cs.base.parameter_def(dotpath),
             cs.names(),
             cs.configured()[dotpath],
-            lambda values: self._commit_configured_values(dotpath, values),
+            lambda values, unit: self._commit_configured_values(dotpath, values, unit),
+            self._parameter_panel.display_unit(dotpath),
             self,
         )
         dialog.exec()
 
-    def _commit_configured_values(self, dotpath: str, values: list[Any]) -> RadiantError | None:
+    def _commit_configured_values(
+        self, dotpath: str, values: list[Any], unit: str | None = None
+    ) -> RadiantError | None:
         """Write a whole configured column in **one** ``set_values`` call (atomic).
+
+        *unit* is the unit the table's rows were typed in — the parameter row's
+        display unit, or ``None`` when that is already the schema input unit. It is
+        handed straight to the API, which performs the single Rule-2 conversion for
+        the whole column; the GUI never converts.
 
         The API validates every value before it replaces the column, so a rejection
         leaves the set exactly as it was — no half-committed table — and names the
@@ -2105,7 +2133,7 @@ class RADIANTMainWindow(QMainWindow):
             return None
         before = ScopeState.configured_column(cs.configured()[dotpath])
         try:
-            cs.set_values(dotpath, values)
+            cs.set_values(dotpath, values, unit=unit)
         except RadiantError as exc:
             return exc
         after = ScopeState.configured_column(cs.configured()[dotpath])
@@ -2125,6 +2153,89 @@ class RADIANTMainWindow(QMainWindow):
             ScopedParameterCommand(cs, dotpath, before, after, self._apply_scope_change, text)
         )
         self._apply_scope_change(dotpath)
+
+    # -- configuration manager (multi-configuration Phase 4c) ---------------
+
+    def _on_manage_configurations(self) -> None:
+        """Edit → Configurations… (and the selector's gear): open the manager (§4.2d).
+
+        The dialog edits a private ``ConfigurationSet.clone()`` and returns a whole
+        study **shape** on OK, so nothing is applied until the user accepts and
+        Cancel is a no-op by construction. The transaction lands here as exactly one
+        undo step (:class:`ConfigurationShapeCommand`) whose reverse restores the
+        prior membership, order, configured columns — including a removed
+        configuration's values — spectral grids, and designations.
+
+        This is also how a plain single-model session becomes a study: adding a second
+        configuration reveals the master selector on the way out.
+        """
+        cs = self._config_set
+        if cs is None:
+            return
+        before = ConfigurationShape.of(cs)
+        dialog = ConfigurationManagerDialog(cs, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        after = dialog.shape()
+        if after == before:
+            self.statusBar().showMessage("Configurations unchanged")
+            return
+        try:
+            after.apply_to(cs)
+        except RadiantError as exc:
+            # The dialog validated every step against a real ConfigurationSet, so this
+            # is not a user-input path; surfacing it (never swallowing) is the Rule 17
+            # contract for the case the two objects ever disagree.
+            ActionableErrorDialog(exc, "configurations", self).exec()
+            return
+        self._undo_stack.push(
+            ConfigurationShapeCommand(
+                cs,
+                before,
+                after,
+                self._apply_shape_change,
+                f"Edit configurations ({len(cs)})",
+            )
+        )
+        self._apply_shape_change()
+        self.statusBar().showMessage(
+            f"{len(cs)} configuration(s): {', '.join(cs.names())} — displaying {cs.active}"
+        )
+
+    def _apply_shape_change(self) -> None:
+        """Re-read every surface after the study's shape changed (or was undone).
+
+        A shape change can add, drop, rename, or reorder configurations, so more is
+        stale than after a parameter edit: the master selector, the configured-value
+        badges (their tooltips name every configuration), the displayed
+        configuration's materialization, and the whole retained evaluate-all pass —
+        which described a different set of configurations and is therefore discarded
+        rather than partially reused (Rule 17). Called by the action and by
+        undo/redo, so the two can never drift.
+        """
+        cs = self._config_set
+        if cs is None:  # pragma: no cover - guarded by the caller
+            return
+        self._last_run = None
+        try:
+            self._sensor = self._materialize_display_sensor()
+        except RadiantError as exc:
+            self._right_rail.messages.set_error(self._underlying(exc))
+        else:
+            self._central.stage_center.bind_sensor(
+                self._sensor, self._parameter_panel.display_units
+            )
+            self._console.bind_sensor(self._sensor)
+        self._refresh_configuration_bar()
+        self._config_scope.notify_changed()
+        sensor = self._sensor
+        if sensor is not None:
+            self._parameter_panel.populate(sensor)
+            self._central.stage_center.refresh_forms()
+            self._refresh_snapshot()
+        self._mark_dirty()
+        self._stage_strip.set_all_status("stale")
+        self._debounce.start()
 
     def _apply_scope_change(self, dotpath: str) -> None:
         """Re-read every surface after a configure / unconfigure / configured-value write.

@@ -237,10 +237,58 @@ QPushButton#configurationTab:checked {{
     color: {t.ink};
     font-weight: 600;
 }}
+QPushButton#configurationManageButton {{
+    background-color: transparent;
+    color: {t.muted};
+    border: none;
+    padding: {tokens.PAD_INPUT};
+    font-size: 12px;
+}}
+QPushButton#configurationManageButton:hover {{
+    color: {t.ink};
+}}
 /* The per-configuration accent chip is painted by the widget from
  * Theme.config_accents (a colour QSS cannot key on an arbitrary index). */
 QFrame#configurationAccent {{
     border-radius: 2px;
+}}
+
+/* -- Configuration manager (§4.2d, multi-configuration Phase 4c) -------- */
+#configurationManagerDialog {{
+    background-color: {t.panel};
+}}
+QLabel#configManagerIntro {{
+    color: {t.ink_2};
+    font-size: 11.5px;
+}}
+QLabel#configManagerHeading {{
+    color: {t.muted};
+    font-size: 10.5px;
+    font-weight: 600;
+}}
+QLabel#configManagerBaseline {{
+    color: {t.accent};
+    font-size: 10.5px;
+    font-weight: 600;
+}}
+QLabel#configManagerNote,
+QLabel#configManagerStatus {{
+    color: {t.muted};
+    font-size: 11px;
+}}
+QLabel#configManagerRowStatus {{
+    color: {t.muted};
+    font-size: 11px;
+}}
+QLabel#configManagerRowStatus[state="ok"] {{
+    color: {t.ok};
+}}
+QLabel#configManagerRowStatus[state="error"] {{
+    color: {t.err};
+}}
+QLineEdit#configManagerPoints {{
+    font-family: {tokens.FONT_MONO};
+    font-size: 11px;
 }}
 
 /* -- Health dots (§8.4) — colour keyed on the [status] property --------- */

@@ -20,6 +20,7 @@ object names only.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -64,7 +65,6 @@ from radiant.gui.widgets.configure_menu import (
     CONFIGURATIONS_MENU_TEXT,
     SINGLE_CONFIGURATION_HINT,
 )
-from radiant.gui.widgets.configured_values_dialog import ConfiguredValuesDialog
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
@@ -215,6 +215,10 @@ class RADIANTMainWindow(QMainWindow):
         self._config_scope.configureRequested.connect(self._on_configure_requested)
         self._config_scope.unconfigureRequested.connect(self._on_unconfigure_requested)
         self._config_scope.editValuesRequested.connect(self._on_edit_configured_values)
+        # The one synchronous scope request: a dialog writing a whole column needs the
+        # API's verdict inline. The window stays the only caller (R-API) and the only
+        # place a scope command is pushed.
+        self._config_scope.set_committer(self._commit_scoped_column)
 
         # Evaluate-loop state (Phase 3): the in-flight worker, a coalescing flag
         # for edits that land mid-run, the most recent result, and a count of
@@ -2190,7 +2194,14 @@ class RADIANTMainWindow(QMainWindow):
         )
 
     def _on_edit_configured_values(self, dotpath: str) -> None:
-        """Open *dotpath*'s all-configurations table editor (ADR-0010 D-2)."""
+        """Open *dotpath*'s per-configuration editor (ADR-0010 D-2).
+
+        Since the 2026-07-26 refinement that editor is the ordinary Parameter Editor in
+        its per-configuration mode (§4.2c) — one dialog for "edit this parameter",
+        whether it holds one value or N. The stand-alone ``ConfiguredValuesDialog`` the
+        badge used to raise is retired (Rule 27): it had become a second, thinner copy
+        of this dialog's table.
+        """
         cs = self._config_set
         if cs is None:
             return
@@ -2199,16 +2210,46 @@ class RADIANTMainWindow(QMainWindow):
                 f"{dotpath} is shared — configure it across configurations first"
             )
             return
-        dialog = ConfiguredValuesDialog(
-            dotpath,
-            cs.base.parameter_def(dotpath),
-            cs.names(),
-            cs.configured()[dotpath],
-            lambda values, unit: self._commit_configured_values(dotpath, values, unit),
-            self._parameter_panel.display_unit(dotpath),
-            self,
+        self._parameter_panel.open_parameter_editor(dotpath, self)
+
+    def _commit_scoped_column(
+        self,
+        dotpath: str,
+        values: Sequence[Any],
+        unit: str | None,
+        configure: bool,
+    ) -> RadiantError | None:
+        """The scope's whole-column writer — one API call, one undo step.
+
+        *configure* marks the write that also **promotes** a still-shared parameter:
+        that is the single atomic ``configure(dotpath, values, unit=)`` call, so the
+        promotion and the values the analyst typed land together and one undo returns
+        the parameter to its prior shared state. Otherwise the column already exists and
+        this is ``set_values``. Either way the API validates every value before writing,
+        so a rejection — returned to the dialog, which renders it and stays open —
+        leaves the set exactly as it was.
+        """
+        cs = self._config_set
+        if cs is None:
+            return None
+        if not configure or cs.is_configured(dotpath):
+            return self._commit_configured_values(dotpath, list(values), unit)
+        if len(cs) < 2:
+            self.statusBar().showMessage(SINGLE_CONFIGURATION_HINT)
+            return None
+        before = ScopeState.shared(cs.base.inputs().get(dotpath))
+        try:
+            cs.configure(dotpath, list(values), unit=unit)
+        except RadiantError as exc:
+            return exc
+        after = ScopeState.configured_column(cs.configured()[dotpath])
+        self._push_scope_command(
+            dotpath, before, after, f"Configure {dotpath} across {len(cs)} configurations"
         )
-        dialog.exec()
+        self.statusBar().showMessage(
+            f"Configured {dotpath} — {self._config_scope.summary(dotpath)}"
+        )
+        return None
 
     def _commit_configured_values(
         self, dotpath: str, values: list[Any], unit: str | None = None

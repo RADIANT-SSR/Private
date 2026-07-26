@@ -21,6 +21,49 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: the Parameter Editor edits every configuration at once, and can make a
+  parameter configurable (owner UX round, 2026-07-26).** Opened on a **configured**
+  parameter in a study, the *Edit — &lt;dotpath&gt;* dialog now shows **one seeded value box
+  per configuration** — accent chip, name, editor, unit, in set order — instead of one
+  box for the displayed configuration. Apply commits the whole column in a single
+  `set_values(..., unit=)` call recorded as one undo step; a rejected value names the
+  offending configuration, commits nothing, and keeps the dialog open. Opened on a
+  **shared** parameter it offers *Configure across configurations…*, which expands the
+  dialog in place into the same boxes and — only on Apply — promotes the parameter and
+  writes the typed values as one atomic `configure(dotpath, values, unit=)` call, so
+  Cancel leaves it shared and one undo returns it there. A single-configuration session
+  gets the existing actionable hint naming `Edit → Configurations…`, never a silent
+  no-op. The single canonical preview becomes a per-configuration one
+  (`= MWIR: 3.5 um · LWIR: 8 um`), and the Tolerance section gains a one-line note that
+  a tolerance is shared across configurations (ADR-0010).
+- **API: `ConfigurationSet.configure(dotpath, values, *, unit=None)`.** `unit=` reads
+  every supplied value in the caller's unit and converts once at the boundary, exactly
+  as `set_values(unit=)` does — so a caller can promote a parameter *and* set its
+  per-configuration values atomically in the unit the user typed. Only meaningful with
+  explicit `values`; passing it without them is refused with an actionable error rather
+  than ignored. A rejected value configures nothing. Results-neutral.
+
+### Changed
+- **GUI: the red "C" now sits immediately right of the parameter name** (owner request).
+  In per-stage form fields the badge moved from after the value box to the slot between
+  the label and the value box (its space is reserved when hidden, so configuring a
+  parameter never reflows the row); in the parameter tree it moved from a decoration icon
+  on the left of the name to a painted glyph just after the name text.
+- **GUI: the configuration manager's grid-points fields say what they set.** The shared
+  field, the *Grid points* column heading, and every per-row box now carry a tooltip
+  stating that the number is the count of **wavelength samples** in that configuration's
+  spectral evaluation grid (which spans its own `filter_min_um → filter_max_um`), that a
+  blank row inherits the shared value, and that RADIANT's default is 500.
+
+### Removed
+- **GUI: the stand-alone *Configured values* dialog.** Its per-configuration table is now
+  the Parameter Editor's per-configuration mode (above), so the badge / *Edit configured
+  values…* route opens that one dialog instead. No capability is lost — per-configuration
+  editing is reachable from exactly the same places, plus the tree and every stage form —
+  and the behaviour it guaranteed (display units, whole-column atomicity, the
+  configuration-named rejection) is asserted against the editor dialog by the same tests.
+
+### Added
 - **CLI: studies run and validate from the command line (multi-configuration Phase 5 —
   close-out).** `radiant run study.yaml --configuration NAME` evaluates one named
   configuration of a study config file: `ConfigurationSet.load` → `sensor_for(NAME)` →

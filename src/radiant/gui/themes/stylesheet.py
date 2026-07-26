@@ -483,10 +483,11 @@ QLabel#configuredBadge {{
     font-weight: 700;
 }}
 
-/* -- All-configurations value table (§4.2c, multi-configuration 4b) ----- */
-#configuredValuesDialog {{
-    background-color: {t.panel};
-}}
+/* -- Per-configuration value rows (§4.2c) ------------------------------ *
+ * The one-box-per-configuration block the Parameter Editor embeds for a
+ * configured parameter (and for a staged configure). The object names predate
+ * the 2026-07-26 retirement of the stand-alone dialog and are kept so the rows
+ * look identical to the ones the badge route has always shown. */
 QLabel#configuredValuesName {{
     color: {t.ink};
     font-size: 12px;
@@ -835,6 +836,10 @@ QLabel#paramEditorPreview {{
     font-family: {tokens.FONT_MONO};
     font-size: 12px;
     font-weight: 600;
+}}
+QLabel#paramEditorConfigureHint {{
+    color: {t.muted};
+    font-size: 11px;
 }}
 QLabel#paramEditorDerivedNote {{
     color: {t.warn};

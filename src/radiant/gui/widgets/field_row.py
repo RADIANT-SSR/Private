@@ -20,11 +20,13 @@ never touches a ``Sensor`` itself; it is pure presentation + an edit-intent hook
 
 **Multi-configuration (Phase 4b).** Given a
 :class:`~radiant.gui.config_scope.ConfigurationScope`, the row also carries the red
-"C" badge of a configured parameter (ADR-0010 D-2) — tooltip listing every
-configuration's value with units — and a right-click menu offering the three scope
-actions (configure / edit configured values / un-configure). Because every per-stage
-input form is built from this one widget, the badge and the menu reach all nine
-stages by construction rather than by nine independent implementations. The row still
+"C" badge of a configured parameter (ADR-0010 D-2), **immediately right of the label**
+(owner 2026-07-26 — the marker belongs to the parameter's name, not to its value) —
+tooltip listing every configuration's value with units — and a right-click menu
+offering the three scope actions (configure / edit configured values / un-configure).
+Because every per-stage input form is built from this one widget, the badge and the
+menu reach all nine stages by construction rather than by nine independent
+implementations. The row still
 makes no API call: it emits intent through the scope, and the window performs the
 single ``ConfigurationSet`` call and records the undo command.
 
@@ -120,12 +122,15 @@ class FieldRow(QWidget):
         row = QGridLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
         row.setHorizontalSpacing(10)
-        # The value field takes the slack (column 1 stretches); the label keeps its natural
-        # width (column 0). This makes the field editors *expand to the available column
-        # width* rather than forcing a fixed too-wide row that overflows the right-column
-        # accordion and trips its horizontal scrollbar (owner bug 2026-07-14).
+        # Three columns: label (0), the configured "C" badge (1, a fixed narrow slot
+        # immediately right of the label — owner 2026-07-26), value field (2). The value
+        # field takes the slack; the label keeps its natural width. This makes the field
+        # editors *expand to the available column width* rather than forcing a fixed
+        # too-wide row that overflows the right-column accordion and trips its horizontal
+        # scrollbar (owner bug 2026-07-14).
         row.setColumnStretch(0, 0)
-        row.setColumnStretch(1, 1)
+        row.setColumnStretch(1, 0)
+        row.setColumnStretch(2, 1)
 
         self._label = ElidingLabel(label, self)
         self._label.setObjectName("geoModeFieldLabel")
@@ -146,13 +151,16 @@ class FieldRow(QWidget):
         self._value.clicked.connect(lambda: self._on_edit(self._dotpath))
 
         # The configured-parameter marker (Phase 4b): hidden until a scope says this
-        # dot-path carries one value per configuration. It sits after the value so a
-        # row's label/value geometry is identical whether or not it is configured.
+        # dot-path carries one value per configuration. It sits **immediately right of
+        # the label** (owner feedback 2026-07-26: "move the red C just to the right of
+        # the variable name") — the marker belongs to the parameter's name, not to its
+        # value. Its slot is a fixed narrow width whose size hint does not change with
+        # visibility, so a row's label/value geometry is identical either way.
         self._badge = ConfiguredBadge(self)
 
         row.addWidget(self._label, 0, 0)
-        row.addWidget(self._value, 0, 1)
-        row.addWidget(self._badge, 0, 2)
+        row.addWidget(self._badge, 0, 1)
+        row.addWidget(self._value, 0, 2)
 
         # Right-click offers the multi-configuration scope actions (no-op without a
         # scope — a session that has no document has nothing to configure).

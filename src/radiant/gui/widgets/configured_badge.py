@@ -5,16 +5,22 @@ carries one value per configuration is marked, everywhere it appears, with a sma
 red **C**. Its tooltip lists *every* configuration's value with units (R-UNITS) —
 see :meth:`~radiant.gui.config_scope.ConfigurationScope.summary`.
 
-Two renderings of the one marker live here because the two host surfaces take
-different kinds of child:
+Both host surfaces place it **immediately right of the parameter's name** (owner
+feedback 2026-07-26), but they take different kinds of child, so the one marker has
+two renderings:
 
 * :class:`ConfiguredBadge` — a tiny ``QLabel`` for the per-stage input forms, where
-  the badge sits inside a real widget layout (:class:`~radiant.gui.widgets.field_row.FieldRow`).
-  Its colour comes from the QSS theme via the ``configuredBadge`` object name.
-* :func:`configured_badge_icon` — the same glyph painted into a ``QIcon`` for the
-  parameter tree, whose rows are ``QTreeWidgetItem``s and can carry a decoration but
-  not a child widget. The colour is read from the active theme's ``err`` token — the
-  same red the rejected-edit surfaces use — never a literal (GUI plan §4.9).
+  the badge sits inside a real widget layout
+  (:class:`~radiant.gui.widgets.field_row.FieldRow` puts it in the grid column between
+  the label and the value box). Its colour comes from the QSS theme via the
+  ``configuredBadge`` object name.
+* :func:`configured_badge_icon` — the same glyph as a ``QIcon``, painted by
+  :class:`~radiant.gui.widgets.configured_name_delegate.ConfiguredNameDelegate` after
+  the name text in the parameter tree, whose rows are ``QTreeWidgetItem``s and cannot
+  carry a child widget. (A plain item *decoration* would paint to the **left** of the
+  name, which is the placement the owner asked us to move away from — hence the
+  delegate.) The colour is read from the active theme's ``err`` token — the same red
+  the rejected-edit surfaces use — never a literal (GUI plan §4.9).
 
 Both are driven from the one theme token set, so the marker matches in light and
 dark and moves with any future palette change.
@@ -73,6 +79,12 @@ class ConfiguredBadge(QLabel):
         super().__init__(BADGE_TEXT, parent)
         self.setObjectName("configuredBadge")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # The badge sits between the field label and its value box (owner 2026-07-26),
+        # so its slot must exist whether or not the parameter is configured: without
+        # this, showing the "C" would shove every value box right by the badge width.
+        policy = self.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.setSizePolicy(policy)
         self.setVisible(False)
 
     def sizeHint(self) -> QSize:  # noqa: N802 — Qt override

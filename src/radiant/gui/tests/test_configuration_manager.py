@@ -22,7 +22,7 @@ Category D — the GUI half of plan §4 items 1 and 7 (`docs/archive/Multi_Confi
    the ``configurations:`` section.
 8. **Undo/redo of the whole transaction** restores the full shape, including the values
    a Remove dropped, with the selector kept in step.
-9. **CU-211**: the all-configurations table displays and accepts the parameter row's
+9. **CU-211**: the per-configuration value boxes display and accept the parameter row's
    chosen display unit, with the conversion asserted numerically.
 """
 
@@ -49,7 +49,7 @@ from radiant.gui.widgets.configuration_manager_dialog import (
     ConfigurationManagerDialog,
 )
 from radiant.gui.widgets.configure_menu import CONFIGURATIONS_MENU_PATH, SINGLE_CONFIGURATION_HINT
-from radiant.gui.widgets.configured_values_dialog import ConfiguredValuesDialog
+from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -143,7 +143,7 @@ def _confirm(monkeypatch, ok: bool = True) -> None:  # type: ignore[no-untyped-d
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: button)
 
 
-def _error_text(dialog: ConfigurationManagerDialog | ConfiguredValuesDialog) -> str:
+def _error_text(dialog: ConfigurationManagerDialog | ParameterEditorDialog) -> str:
     """Everything a dialog's inline refusal area is currently rendering."""
     return " ".join(label.text() for label in dialog.error_frame.findChildren(QLabel))
 
@@ -736,20 +736,28 @@ class TestUndoRedoOfTheTransaction:
 
 
 class TestConfiguredValuesDisplayUnit:
-    """CU-211 — the table works in the parameter row's chosen display unit."""
+    """CU-211 — the per-configuration boxes work in the parameter row's chosen unit.
 
-    def _dialog(self, window: RADIANTMainWindow, dotpath: str) -> ConfiguredValuesDialog:
-        cs = window.configuration_set
-        assert cs is not None
-        return ConfiguredValuesDialog(
+    The surface moved in the 2026-07-26 refinement (the stand-alone table dialog was
+    retired into the Parameter Editor's per-configuration mode, Rule 27), so these
+    now drive that dialog; every contract they assert is unchanged.
+    """
+
+    def _dialog(self, window: RADIANTMainWindow, dotpath: str) -> ParameterEditorDialog:
+        return ParameterEditorDialog(
+            window.sensor,
             dotpath,
-            cs.base.parameter_def(dotpath),
-            cs.names(),
-            cs.configured()[dotpath],
-            lambda values, unit: window._commit_configured_values(dotpath, values, unit),
-            window.parameter_panel.display_unit(dotpath),
+            None,
             window,
+            display_unit=window.parameter_panel.display_unit(dotpath),
+            scope=window.configuration_scope,
         )
+
+    @staticmethod
+    def _rows(dialog: ParameterEditorDialog):  # type: ignore[no-untyped-def]
+        block = dialog.per_configuration
+        assert block is not None
+        return block
 
     def test_rows_display_and_accept_the_rows_chosen_unit(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
@@ -761,19 +769,20 @@ class TestConfiguredValuesDisplayUnit:
 
         dialog = self._dialog(window, _ALTITUDE)
         qtbot.addWidget(dialog)
+        rows = self._rows(dialog)
 
         # Display: the stored metres are shown as kilometres, and every row says km.
-        assert dialog.unit == "km"
-        assert [float(dialog.editor(i).text()) for i in range(2)] == pytest.approx(  # type: ignore[attr-defined]
+        assert rows.unit == "km"
+        assert [float(rows.editor(i).text()) for i in range(2)] == pytest.approx(  # type: ignore[attr-defined]
             [500.0, 600.0], rel=1e-12
         )
 
         # Entry: typing 450 into a km row means 450 km, converted once at the API.
-        editor = dialog.editor(0)
+        editor = rows.editor(0)
         assert isinstance(editor, QLineEdit)
         editor.setText("450")
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            dialog.apply_values()
+            dialog.apply(close=False)
 
         assert cs.configured()[_ALTITUDE] == pytest.approx((450_000.0, 600_000.0), rel=1e-12)
 
@@ -786,9 +795,10 @@ class TestConfiguredValuesDisplayUnit:
 
         dialog = self._dialog(window, _ALTITUDE)
         qtbot.addWidget(dialog)
+        rows = self._rows(dialog)
 
-        assert dialog.unit == cs.base.parameter_def(_ALTITUDE).input_unit
-        assert [float(dialog.editor(i).text()) for i in range(2)] == pytest.approx(  # type: ignore[attr-defined]
+        assert rows.unit == cs.base.parameter_def(_ALTITUDE).input_unit
+        assert [float(rows.editor(i).text()) for i in range(2)] == pytest.approx(  # type: ignore[attr-defined]
             [500_000.0, 600_000.0], rel=1e-12
         )
 
@@ -805,9 +815,10 @@ class TestConfiguredValuesDisplayUnit:
 
         dialog = self._dialog(window, _ALTITUDE)
         qtbot.addWidget(dialog)
-        dialog.editor(0).setText("450")  # type: ignore[attr-defined]
-        dialog.editor(1).setText("-700")  # type: ignore[attr-defined]  # below the schema bound
-        dialog.apply_values()
+        rows = self._rows(dialog)
+        rows.editor(0).setText("450")  # type: ignore[attr-defined]
+        rows.editor(1).setText("-700")  # type: ignore[attr-defined]  # below the schema bound
+        dialog.apply(close=False)
 
         assert cs.configured()[_ALTITUDE] == pytest.approx(before, rel=1e-12)
         assert dialog.error_frame.isVisibleTo(dialog)

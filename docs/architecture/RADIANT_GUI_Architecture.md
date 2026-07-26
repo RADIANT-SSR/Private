@@ -423,54 +423,111 @@ no API call — the window makes the single `ConfigurationSet` call and records 
 command (R-API). A single `changed` signal re-reads every badge in the window, which is
 what keeps the "C" honest after a configure, an un-configure, or any value edit.
 
-**The red "C" badge.** Every configured parameter is marked with a small red **C** — the
-owner's explicit visual spec — in the all-parameters tree (§4.3, a painted decoration on
-the Parameter column) and in every per-stage form field (§4.4). The form badge reaches all
-nine stages because every field is the one shared `FieldRow`. The colour is the theme's
-`err` token in both themes (§8.1), never a literal. The tooltip lists **every**
-configuration's value with its unit, in set order — `MWIR: 3.5 um · LWIR: 8 um` — so the
-whole column is readable without opening anything.
+**The red "C" badge — immediately right of the name.** Every configured parameter is
+marked with a small red **C** — the owner's explicit visual spec — in the all-parameters
+tree (§4.3) and in every per-stage form field (§4.4). The form badge reaches all nine
+stages because every field is the one shared `FieldRow`. The colour is the theme's `err`
+token in both themes (§8.1), never a literal. The tooltip lists **every** configuration's
+value with its unit, in set order — `MWIR: 3.5 um · LWIR: 8 um` — so the whole column is
+readable without opening anything.
+
+*Placement* (owner feedback 2026-07-26, *"move the red C just to the right of the variable
+name"* — it had been sitting after the value box, and in the tree to the left of the name):
+
+| Surface | How it is placed |
+|---|---|
+| Form field (`FieldRow`) | The badge is the grid column **between** the label and the value box. Its slot retains its size when hidden (`setRetainSizeWhenHidden`), so configuring a parameter never reflows the row |
+| Parameter tree | A `QTreeWidgetItem` decoration can only paint *left* of the text, so the Parameter column carries `ConfiguredNameDelegate` (`widgets/configured_name_delegate.py`), which paints the row normally and then the badge at the name's text advance plus a gap, clamped inside the cell for an elided name. The item sets only the `CONFIGURED_ROLE` flag the delegate reads — no icon. `badge_rect()` is the placement decision, factored out so it is assertable without a rendered window |
 
 **The three actions** (identical wording and order in the tree's context menu and the form
 fields', because both are built by one helper, `widgets/configure_menu.py`):
 
 | Action | API call | Notes |
 |---|---|---|
-| *Configure across configurations…* | `configure(dotpath)` | Seeds every configuration from the current shared value and moves the parameter out of the base (D-B). Offered on a shared parameter. In a **single-configuration** session it answers with an actionable status message naming the configuration manager by its real menu path, `Edit → Configurations…` (§4.2d) — never a silent no-op. |
-| *Edit configured values…* | `set_values(dotpath, values)` | Opens the all-configurations table (below). |
+| *Configure across configurations…* | `configure(dotpath)` | Seeds every configuration from the current shared value and moves the parameter out of the base (D-B). Offered on a shared parameter. In a **single-configuration** session it answers with an actionable status message naming the configuration manager by its real menu path, `Edit → Configurations…` (§4.2d) — never a silent no-op. The Parameter Editor offers the same action as a button (below), differing only in that it stages values first and so commits `configure(dotpath, values, unit=)`. |
+| *Edit configured values…* | `set_values(dotpath, values, unit=)` | Opens the Parameter Editor in its per-configuration mode (below). |
 | *Un-configure (keep &lt;first&gt;'s value)…* | `unconfigure(dotpath)` | Always keeps configuration #1's value (D-6). The confirmation **states that value with its unit** before proceeding, so collapsing a column is never a silent physics change in the other configurations. |
 
-**The all-configurations table editor** (`widgets/configured_values_dialog.py`): one row per
-configuration in set order, each with the configuration's accent chip (§8.1
-`config_accents`, the selector's hue for that slot), its name, a value editor built from
-the parameter's own schema entry (enum → combo, bool → check box, int → bounded spin box,
-float/str → line edit — the same editors the single-value Parameter Editor builds), and
-the unit (R-UNITS). It commits in **one** `set_values` call: the API validates the whole
-column before replacing it, so a rejected value leaves the set untouched — no half-commit —
-and the rejection, which names the offending configuration, renders inline while the dialog
-stays open (Rules 15/17). The table works in the **parameter row's display unit** — whatever unit the analyst chose
-for that dot-path in the Parameter Editor (`ParameterPanel.display_units`), falling back
-to the schema `input_unit` — and labels it on every row, so crossing from the tree to the
-table never changes the unit under the reader. The conversion happens once, at the API
-boundary: the column still commits as a single `set_values(..., unit=<display unit>)`
-call, so atomicity is untouched and the GUI performs no unit arithmetic (Rule 2). A unit
-the public registry cannot soundly invert drops the whole table back to the input unit
-rather than showing a mixture. (CU-211, closed in Phase 4c — the API seam it needed is
+**The per-configuration editor is the Parameter Editor** (owner feedback 2026-07-26 —
+*"when you click on a parameter that is configured you should be able to set the value for
+all the configurations at one time … one box for MWIR and one for LWIR"*). Opened on a
+**configured** parameter, `ParameterEditorDialog` (§4.3) shows one seeded value box per
+configuration instead of its single box: `PerConfigurationValues`
+(`widgets/per_configuration_values.py`) renders one row per configuration in set order —
+the configuration's accent chip (§8.1 `config_accents`, the selector's hue for that slot),
+its name, a value editor built from the parameter's own schema entry (enum → combo, bool →
+check box, int → bounded spin box, float/str → line edit — the same editors the
+single-value path builds), and the unit (R-UNITS). One dot-path, one editor, whatever its
+scope; the badge, the tree double-click, the form value button, and *Edit configured
+values…* all raise this dialog.
+
+*Phase 4b's stand-alone `ConfiguredValuesDialog` is retired* (Rule 27): it had become a
+second, thinner copy of this same table, reachable only from the badge route. Its
+behaviour and every one of its tests moved onto the editor dialog — the badge route still
+opens per-configuration editing, it just opens the one editor.
+
+It commits in **one** API call — `set_values(dotpath, values, unit=)` — recorded as one
+scoped undo step. The API validates the whole column before replacing it, so a rejected
+value leaves the set untouched (no half-commit) and the rejection, which names the
+offending configuration, renders inline while the dialog stays open (Rules 15/17). The
+rows work in the **parameter row's display unit** — whatever unit the analyst chose for
+that dot-path (`ParameterPanel.display_units`), falling back to the schema `input_unit` —
+labelled on every row, and the dialog's single unit selector governs the whole column
+(one schema entry ⇒ one dimension) rather than a per-row unit. Changing it *reinterprets*
+what is typed, exactly as it does in the single-value path; the conversion still happens
+once, at the API boundary, so the GUI performs no unit arithmetic (Rule 2). A unit the
+public registry cannot soundly invert drops every row back to the input unit rather than
+showing a mixture. (CU-211, closed in Phase 4c — the API seam it needed is
 `ConfigurationSet.set_values(..., unit=)`.)
+
+Two other things change in this mode. The **canonical preview** — the single `= 8 um`
+line — becomes N named canonical values, `= MWIR: 3.5 um · LWIR: 8 um`: with N boxes the
+one-number line was no longer true of anything. And the **Tolerance** section keeps its
+base-level meaning (ADR-0010 puts the Monte-Carlo spread on the shared parameter, not on
+one configuration's column) with a one-line clarifier saying so, rather than being
+redesigned.
+
+**Configuring from the editor — the discoverability answer** (owner question 2026-07-26,
+*"how do you set a variable to be configurable?"*). Opened on an editable **shared**
+parameter with a document bound, the dialog offers a *Configure across configurations…*
+button (the same wording as the context-menu action, from the one `configure_menu`
+constant). Clicking it **stages** the intent: the dialog expands in place into the same
+per-configuration boxes, seeded from the value currently in its editor, and *nothing is
+configured yet* — Cancel leaves the parameter shared and untouched. **Apply** commits the
+promotion and the typed values together, as the single atomic
+`configure(dotpath, values, unit=)` call, so one undo returns the parameter to its prior
+shared state (value *and* scope). In a **single-configuration** session the button is
+present but guarded: it answers with the same `SINGLE_CONFIGURATION_HINT`, naming
+`Edit → Configurations…`, that the 4b context-menu action gives — a hidden control cannot
+teach the analyst that the capability exists. The context-menu route is unchanged.
+
+**How a dialog reaches the scope.** `ParameterEditorDialog` takes an optional
+`scope=`; omitted, it walks its ancestors for the window's `configuration_scope`
+(`config_scope.scope_of`), so the ten places that open the editor need no plumbing and a
+parentless dialog (a unit test) simply gets the single-value behaviour. Writing a whole
+column is the one *synchronous* scope request — a dialog needs the API's verdict inline —
+so it goes through a committer the window installs on the scope
+(`ConfigurationScope.set_committer`), keeping the single `ConfigurationSet` call and the
+undo push in the window (R-API). Surfaces gate on `scope.can_commit`; a write attempted
+without a committer raises `ConfigurationScopeError` (a `RadiantError`, Rule 15) rather
+than dropping the analyst's column, which makes the wiring fault loud instead of silent.
 
 **Scoped undo/redo.** `ScopedParameterCommand` (`widgets/scoped_parameter_command.py`)
 records a parameter's whole **scope state** — which store it lives in plus the value(s) —
-before and after an action, so one command class covers configure, un-configure, a
-table-editor write, and an inline per-configuration edit, and undo restores **both the
-value and the scope**: undoing a configure drops the column and restores the base's prior
-explicit input (or resets it, when the base never had one, so a defaulted parameter stays
+before and after an action, so one command class covers configure (with or without
+staged values), un-configure, a whole-column write, and an inline per-configuration
+edit, and undo restores **both the value and the scope**: undoing a configure drops the
+column and restores the base's prior explicit input (or resets it, when the base never had one, so a defaulted parameter stays
 defaulted); undoing an un-configure restores the full column. Shared edits keep Phase 4a's
 `SetParameterCommand` against the base, so both kinds share one stack and a shared edit
 stays undoable across a selector switch.
 
-**Single-configuration sessions are unchanged.** Nothing is configured, so no badge is ever
-shown, no dialog is reachable, and the only new behaviour is the guarded action's message —
-a tested zero-regression requirement (`gui/tests/test_configured_parameters.py`).
+**Single-configuration sessions are unchanged.** Nothing is configured, so no badge is
+ever shown and no per-configuration editing surface appears; the only new behaviour is
+the guarded action — the context-menu item's status message and the editor dialog's
+button, both answering with the one `SINGLE_CONFIGURATION_HINT`. A tested zero-regression
+requirement (`gui/tests/test_configured_parameters.py`,
+`gui/tests/test_configured_badge_placement.py`).
 
 ### 4.2d Configuration Manager (Phase 4c SHIPPED 2026-07-25)
 
@@ -494,7 +551,13 @@ per-configuration **wavelength-points** override, and a live **status**.
   states both the shared value and what blank means (`shared: 500 pts`), so an empty box
   is never unexplained. Reading and clearing the state needs the Phase-4c API additions
   `ConfigurationSet.wavelength_points(config=None)` (CU-210) and
-  `set_wavelength_points(config, None)`.
+  `set_wavelength_points(config, None)`. The shared field, the column heading, and every
+  row box carry a tooltip saying **what** is being set (owner question 2026-07-26, *"what
+  are we setting here?"*): the number of **wavelength samples** in that configuration's
+  spectral evaluation grid, which spans its own `filter_min_um → filter_max_um`; blank
+  inherits the shared value; RADIANT's default is 500. The wording lives in one place
+  (`SHARED_POINTS_TOOLTIP` / `GRID_POINTS_COLUMN_TOOLTIP` / `row_points_tooltip`) so the
+  three surfaces cannot answer the question differently.
 * *Status* — from `ConfigurationSet.validate_all()`: `OK`, or the failing
   configuration's error *what*-line with the full what/why/action on hover. It is
   **resolve-only**; opening or editing in this dialog never runs physics. It re-runs
@@ -732,7 +795,8 @@ renders its what/why/action **inside** the dialog (themed error area) and keeps 
 correction, while an accepted edit refreshes the tree (the panel's existing refresh path)
 and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). A derived (⚡)
 parameter opens read-only: the value/unit editors are disabled and only a Close button is
-offered.
+offered. **In a study** the same dialog carries the per-configuration value boxes and the
+*Configure across configurations…* affordance — see §4.2c, which owns that spec.
 
 **Path parameters get a Browse… picker (owner request 2026-07-18).** A `str` parameter
 whose dot-path leaf follows the schema's path naming convention (`*_path` / `*_file` →

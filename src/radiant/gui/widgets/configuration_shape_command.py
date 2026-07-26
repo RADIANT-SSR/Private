@@ -128,6 +128,20 @@ class ConfigurationShape:
 
         Every step is an ordinary ``ConfigurationSet`` call, so the model's own
         validation applies throughout and this module holds no rules of its own.
+
+        Two things this relies on, both worth naming:
+
+        * Step 4 requires every dot-path in the shape to still be *configured* on the
+          target set. It always is: the manager never configures or un-configures, and
+          the undo stack is LIFO, so a later ``ScopedParameterCommand`` is reversed
+          before this command is. A dot-path that had left the configured table would
+          raise the API's own "not configured" error rather than write silently
+          elsewhere.
+        * Step 5's shared default is always a concrete count (``wavelength_points()``
+          reports the count *in force*, never ``None``), so applying a shape pins the
+          set-level default even where the base's own count had been carrying it. That
+          is observationally identical — the same grid, and the same
+          ``_radiant.wavelength_points`` on save.
         """
         current = config_set.names()
         placeholders = _placeholder_names(

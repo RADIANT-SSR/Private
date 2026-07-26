@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-212 — the GUI test session sits on a widget-accumulation cliff: an app-wide `apply_theme` segfaults once enough windows are alive
+
+**Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/themes/stylesheet.py:1288` (`apply_theme` → `app.setStyleSheet`), interacting with every `src/radiant/gui/tests/` module that opens a `RADIANTMainWindow`
+**Symptom**: running the GUI suite in file order (`pytest -q -p no:randomly src/radiant/gui`) with one additional test module that opens ~24 main windows makes `test_theme.py::TestApplyTheme::test_apply_sets_app_stylesheet` die with `Fatal Python error: Segmentation fault` inside `app.setStyleSheet(...)`. Reproduced deterministically twice; deselecting the extra module's windows (or releasing them per test) makes it pass. The crash fires on the *first* `apply_theme` of the test — before that test builds any widget of its own — so it is the app-wide re-polish walking the accumulated live widget tree, not anything the crashing test does. `main` at `3ab6298` passes the same suite, i.e. the cliff is a threshold, not a regression: pytest-qt's `addWidget` closes a widget at teardown but does not force its C++ deletion, so every window a module opens stays alive for the remainder of the session (matplotlib figures accumulate alongside — the suite already logs "More than 20 figures have been opened").
+**Why it still matters**: it makes the full gate battery a function of how many GUI tests exist rather than of whether the code is correct — the next module that adds a dozen windows will hit it again, and the failure mode (segfault, no test name, truncated output) costs an hour to diagnose. It is also a weak signal about widget lifetime in the theme path that deserves a look before someone hits it interactively (a long-lived session with many dialogs, then View → theme).
+**Suggested fix**: (b) stand-alone task — put the release in one place instead of per module: a session-level `conftest.py` fixture in `src/radiant/gui/tests/` that, after each test, closes + `deleteLater()`s every top-level widget and drains the event queue (plus `pyplot.close("all")`), and re-audit whether `apply_theme` should re-polish only the windows it owns. Phase 4b did the module-local version (`test_configured_parameters.py::_release_windows`) to keep its own gate honest; the general fix is the follow-up. Effort S–M; category A (test infrastructure) with a small D-flavoured investigation of the theme re-polish.
+
 ### CU-211 — the all-configurations value table edits in input units only (no per-row display-unit choice)
 
 **Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25

@@ -2249,6 +2249,11 @@ class RADIANTMainWindow(QMainWindow):
         if cs is None:  # pragma: no cover - guarded by the caller
             return
         self._last_run = None
+        # The Performance columns described the *old* membership, so they go with the
+        # pass they were built from rather than lingering as dead state (§4.2e). The
+        # centre is on its placeholder until the next run anyway; this keeps the two
+        # from ever disagreeing.
+        self._push_configuration_columns(None)
         try:
             self._sensor = self._materialize_display_sensor()
         except RadiantError as exc:

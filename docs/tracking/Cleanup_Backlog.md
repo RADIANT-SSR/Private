@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-215 — `test_configured_parameters.py` is not `ruff format` clean, and the gate cannot see it
+
+**Discovered**: multi-config Phase 4d Performance columns (`gui/multiconfig-phase4d`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/gui/tests/test_configured_parameters.py` (landed by `b6089a5`, Phase 4c)
+**Symptom**: `ruff format --check src/radiant/gui/` reports `Would reformat: src/radiant/gui/tests/test_configured_parameters.py`. `ruff check src/ tests/` — the gate the merge battery actually runs — passes, because formatting and linting are separate ruff commands. Reproduce: `ruff format --check src/ tests/` on a clean `main`.
+**Why it still matters**: CLAUDE.md names `ruff format` as *the* formatter, but no gate enforces it, so formatting drift accumulates silently and shows up as unrelated diff noise the next time someone runs the formatter over a file they are editing. One file today; the mechanism is the issue, not the file.
+**Suggested fix**: (a) inline-fix-now for the file (`ruff format` it, one commit), plus the real fix — add `ruff format --check src/ tests/` to the merge gate battery in CLAUDE.md and to CI alongside `ruff check`, and reformat whatever else that first run flags in the same PR. Effort S; category A. Not done here: reformatting another phase's test file inside a Performance-columns PR is exactly the scope creep the task discipline forbids, and widening the gate battery is an owner-facing process change.
+
 ### CU-214 — Tools → "Compare Configurations…" now collides with the study vocabulary it predates
 
 **Discovered**: multi-config Phase 4c configuration manager (`gui/multiconfig-phase4c`), 2026-07-25

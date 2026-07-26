@@ -1,6 +1,6 @@
 # RADIANT Geometry Stage — Scene Geometry as Stage 0
 
-**Status:** Active (2026-07-12) — normative spec for `src/radiant/geometry/`; decision record ADR-0006
+**Status:** Active (2026-07-12; direction-general since 2026-07-26) — normative spec for `src/radiant/geometry/`; decision records ADR-0006 and ADR-0011
 **Scope:** the GeometryStage contract: parameters, input modes, published outputs, validation rules. The underlying orbital/geometric *theory* (slant range derivations, GSD, J2 sun-sync, revisit) lives in [RADIANT_Geometry_Orbital.md](RADIANT_Geometry_Orbital.md).
 
 ---
@@ -32,17 +32,25 @@ geodetic) and Gap 84 (TLE/trajectory/ephemeris).
 
 ### Viewing family (resolves to θ_o, the target-side path zenith)
 
+**Every entered viewing angle is referenced to the path's LOWER endpoint**
+(ADR-0011 decision 3). This is exactly back-compatible: in every scene the
+sensor is above the target, so the target *is* the lower endpoint and each
+entry means precisely what it always meant. When the sensor is the lower
+endpoint (up-looking), θ_o is derived as $\pi - \zeta_{up}$ and the published
+`viewing_mode` label says so.
+
 | Mode | Entry parameters | Derivation |
 |------|------------------|------------|
-| V0 direct range | `geometry.target_range_m` | range drives regime classification; angles default to nadir |
-| V1 path zenith (reference) | `geometry.path_zenith_rad` | θ_o taken directly |
-| V2 off-nadir | `geometry.sensor_off_nadir_rad` | θ_o via spherical sine rule (`core.los_geometry.theta_o_from_eta`) |
-| V3 ground range | `geometry.ground_range_m` | θ_o via the spherical viewing triangle (`core.viewing_triangle`) |
-| V4 elevation | `geometry.elevation_angle_rad` | θ_o = π/2 − elevation |
+| V0 direct range | `geometry.target_range_m` | range drives regime classification; angles default to nadir. On a **level** path with no angle entry the range is the chord that builds the triangle: $\varphi = 2\arcsin(d/2r)$, $\theta_o = \pi/2 + \varphi/2$ |
+| V1 path zenith (reference) | `geometry.path_zenith_rad` | LOS zenith **at the lower endpoint**. Sensor above target ⇒ identical to θ_o (all classic scenes). Sensor below ⇒ it is the sensor's own zenith and θ_o = π − ζ_up (`core.viewing_triangle.solve_from_lower_zenith`) |
+| V2 off-boresight | `geometry.sensor_off_nadir_rad` | Off-**boresight** angle at the sensor; the reference axis is resolved from the altitudes, never declared. Sensor above target ⇒ the classic off-nadir η, θ_o via spherical sine rule (`core.los_geometry.theta_o_from_eta`). Sensor at or below ⇒ zenith-referenced, so the entry already is ζ_low |
+| V3 ground range | `geometry.ground_range_m` | Direction-free: the surface arc between the two ground points fixes the central angle Δ = arc / R_E whichever endpoint is higher; θ_o via the spherical viewing triangle (`core.viewing_triangle`) |
+| V4 elevation | `geometry.elevation_angle_rad` | Elevation above the horizontal **at the lower endpoint**; ζ_low = π/2 − elevation. **Signed** since ADR-0011 — a negative elevation is legal and means the path leaves its lower endpoint on a descending shoulder (a level arm sags below the horizontal) |
 | V6 circular orbit | `geometry.circular_orbit` (bool) | ground speed + orbital period from `core.orbit` at `sensor_altitude_m` |
 
 `geometry.sensor_altitude_m` (required) and `geometry.target_altitude_m`
-anchor every mode.
+anchor every mode, and their ordering — never a user switch — derives the LOS
+direction (`down` / `up` / `level`, published as `los_direction`).
 
 ### Solar family (resolves to θ_s, Δφ)
 
@@ -92,12 +100,13 @@ cannot drift silently.
 
 | Key | Type | Meaning |
 |-----|------|---------|
-| `los_geometry` | `LineOfSightGeometry` | the Source → Atmosphere contract object (ADR-0002), built here |
-| `theta_o_rad` | float | canonical target-side path zenith |
-| `eta_rad` | float | sensor-side off-nadir angle (sine rule) |
-| `slant_range_m` | float | target ↔ sensor slant range (spherical triangle, θ_o-based) |
-| `ground_range_m` | float | surface arc, nadir point → target |
-| `incidence_angle_rad` | float | LOS vs target local vertical (≡ θ_o on a spherical Earth) |
+| `los_geometry` | `LineOfSightGeometry` | the Source → Atmosphere contract object (ADR-0002), built here. Carries **both** endpoints since ADR-0011: `h_sensor` joins `h_tgt`, which is what lets the object own the altitude/hemisphere invariant and the horizon guard, and what makes it the single source of truth for the sensor altitude inside `radiant.atmosphere` (guardrail G2 — no backend side-load) |
+| `theta_o_rad` | float | canonical target-side path zenith, domain **[0, π] closed** (π = target directly overhead; obtuse ⇒ up-looking) |
+| `los_direction` | str | `down` / `up` / `level` — derived from the altitude pair, never a user switch (ADR-0011 decision 1); read straight off `los_geometry` so there is one definition |
+| `eta_rad` | float \| None | interior angle at the sensor (sine rule); the familiar off-nadir look angle when the sensor is above the target, obtuse when below |
+| `slant_range_m` | float \| None | target ↔ sensor slant range (spherical triangle, θ_o-based) |
+| `ground_range_m` | float \| None | surface arc between the two ground points |
+| `incidence_angle_rad` | float \| None | LOS vs target local vertical (≡ θ_o on a spherical Earth); `None` alongside the ranges in the coincident-endpoint case |
 | `target_range_m` | float \| None | user-declared slant range (V0); None if unset |
 | `h_sensor_m`, `h_target_m` | float | anchor altitudes |
 | `theta_s_rad`, `delta_phi_rad` | float \| None | solar geometry (None at night) |
@@ -106,9 +115,20 @@ cannot drift silently.
 | `orbital_period_s` | float \| None | circular-orbit mode only |
 | `viewing_mode`, `solar_mode`, `kinematics_mode` | str | which input mode resolved each family |
 
+`eta_rad` / `slant_range_m` / `ground_range_m` are `None` in exactly one case:
+**coincident endpoints** — equal altitudes with no separation supplied at all
+(no angle entry, no ground range, no target range), where the two endpoints
+are the same point and there is no path. That is the $\varphi \to 0$ limit of
+the level solution, not a carve-out: an equal-altitude scene carrying *any*
+separation resolves to the full horizontal triangle (guardrail G4 — the
+pre-ADR-0011 collocated no-triangle carve-out is retired).
+
 **Consumers** (Geometry_Stage_Plan Phase 2, shipped): SourceStage adopts the
 published `los_geometry` (descriptor-adjusted in `_adjust_scene_los` — T1
-solar-strip, at_aperture → None, no_atmosphere h_tgt override) and feeds the
+solar-strip, at_aperture → None, and the `no_atmosphere` `h_tgt` → 0 override,
+which since ADR-0011 applies only on a down-looking path: rewriting `h_tgt`
+while keeping `h_sensor` and θ_o would otherwise fabricate a triple that
+violates the hemisphere invariant) and feeds the
 published θ_o to shape view directions; AtmosphereStage receives the adopted
 LOS through source's output as before (ADR-0002 unchanged); PlatformStage
 consumes `slant_range_m` for velocity smear; PerformanceStage consumes
@@ -124,15 +144,89 @@ All viewing solutions use one spherical triangle (Earth centre, target,
 sensor) on `constants.R_EARTH_M` (6371.0 km mean radius, the single
 canonical Earth radius since CU-097), implemented in
 `core/viewing_triangle.py` — the θ_o-referenced counterpart of the
-η-referenced helpers in `core/geometry.py`. The implementation is downlooking
-only (`h_sensor > h_target`); uplooking and horizontal inputs are rejected
-loudly. The 2026-07-11 "v1 has no uplooking geometry" ruling behind that
-restriction is **superseded by ADR-0011** (generalized viewing geometry,
-$\theta_o$ domain extended to $[0, \pi)$), but the code restriction **remains
-in force until Geometry-Flexibility Phase 1 lands**
-(`docs/plans/Geometry_Flexibility_Plan.md`) — until then this stage still
-raises on `h_sensor <= h_target` and on $\theta_o \ge \pi/2$. One unification
-remains tracked: CU-096 (θ_o vs η in platform/performance).
+η-referenced helpers in `core/geometry.py`.
+
+**The implementation is direction-general** since Geometry-Flexibility Phase 1
+([ADR-0011](../adr/0011-generalized-viewing-geometry.md)). The 2026-07-11
+"v1 has no uplooking geometry" ruling is superseded and **the code restriction
+is no longer in force**: `h_sensor <= h_target` and $\theta_o \ge \pi/2$ are
+accepted inputs, not errors. The same triangle is simply read from the other
+vertex — symmetric solutions, not a parallel module (Rule 27):
+
+- **θ_o domain is the closed interval $[0, \pi]$.** $\pi$ is attained exactly
+  by the vertical up-looking geometry (ground sensor with the target at its
+  zenith; a LEO sensor directly beneath a GEO target) and is an ordinary
+  scene, not an edge case. *(ADR-0011 writes the domain as $[0, \pi)$; that is
+  a flagged notation slip pending owner confirmation — the closed interval is
+  what the geometry requires and what is implemented, with the discrepancy
+  noted at the domain validator.)*
+- **Altitude/hemisphere invariant** (derived, enforced):
+  $h_{sensor} > h_{target} \iff \theta_o < \pi/2$ and
+  $h_{sensor} \le h_{target} \iff \theta_o > \pi/2$; equal altitudes give
+  $\theta_o = \pi/2 + \varphi/2$. A user-supplied combination that violates it
+  is not a viewing geometry at all and raises an actionable error naming both
+  altitudes and the hemisphere the angle implies.
+- **Root selection** follows the altitude ordering. Down-looking keeps the
+  historical `+` root of the law of cosines *verbatim* (zero drift); level
+  degenerates the `−` root to zero so the chord is the `+` root; up-looking
+  takes the **near** (`−`) root — the `+` root there is the far,
+  through-the-Earth intersection, which is what made a vertical LEO→GEO LOS
+  falsely report an Earth intercept.
+- **Unambiguous entry** for near-level geometry is `solve_from_lower_zenith`:
+  a ray leaving the lower endpoint crosses the higher shell exactly once,
+  whether it ascends monotonically or descends to a perigee first.
+
+### 4.1 Horizon guard
+
+Near-horizontal paths are guarded, not approximated: v1.x models no
+refraction, so the band where refraction dominates must fail loudly rather
+than return a plausible wrong number (Rule 17; ADR-0011 decision 6 as refined
+by plan §8.3). The guard keys on the segment's **tangent-point topology**, not
+on $|\theta_o - \pi/2|$ alone — a pure angular test over-rejects benign short
+horizontal arms and a blanket equal-altitude exemption under-rejects long
+transits. `classify_horizon_topology` classifies; `check_horizon_guard`
+applies the verdict; `LineOfSightGeometry.__post_init__` calls it.
+
+| Topology | Test | Condition | Thresholds (module constants) | Action |
+|---|---|---|---|---|
+| **endpoint_minimum** — the foot of the perpendicular from the Earth centre lies *outside* the segment (every ordinary up/down slant) | angular band at the **lower** endpoint, $\lvert \zeta_{low} - 90^\circ \rvert$ | $< 0.5^\circ$ | `GUARD_HARD_DEG` | raise |
+| | | $0.5^\circ$–$2^\circ$ | `GUARD_WARN_DEG` | compute + quantified `UserWarning` |
+| | | $> 2^\circ$ | — | clean |
+| **interior_tangent** — the foot lies *on* the segment, so the ray dips to a tangent point between the endpoints (level and near-level arms) | tangent-height depression $\Delta h = (R_E + h_{low})(1 - \sin \zeta_{low}) \approx L^2/8R_E$ | $< 100$ m | `GUARD_DH_CLEAN_M` | clean |
+| | | $100$ m – $2$ km | `GUARD_DH_RAISE_M` | compute + quantified `UserWarning` |
+| | | $> 2$ km | — | raise (limb-like transit) |
+
+Worked reference points: two 30 m towers 8 km apart → $\Delta h \approx 1.3$ m,
+clean; two aircraft at 10 km, 200 km apart → $\Delta h \approx 784$ m, warns;
+500 km at 5 km altitude → $\Delta h \approx 4.9$ km, raises. **Thresholds are
+provisional**, calibrated in Phase 2 against a MODTRAN refraction on/off deck
+pair. They are named module constants precisely so recalibration is a one-line
+change.
+
+Two consequences worth stating plainly:
+
+- A *down-looking* $\theta_o$ in roughly $(88^\circ, 90^\circ)$ now warns where the old
+  schema bound (89.5°) accepted it silently. No shipped scenario or golden
+  baseline is near that band (the existing set tops out around 75°), so no
+  computed result moves.
+- A pre-ADR-0011 `LineOfSightGeometry` that does not carry `h_sensor` cannot
+  see the topology, so only the conservative angular band applies. That is
+  exactly the legacy down-looking case, and it is why level and near-level
+  geometry **must** supply the sensor endpoint.
+
+### 4.2 What Phase 1 does *not* change
+
+The atmosphere remains direction-blind: every backend integrates the column
+*above* the target out to the sensor, which is the target→sensor leg only when
+the sensor is the upper endpoint. `AtmosphereStage` therefore refuses, before
+backend dispatch, any path whose sensor sits at or below the target while the
+path's lower endpoint is still inside the modelled column — with an error
+naming the pending capability (direction-aware atmosphere, Phase 2, Gaps
+108/109), not a backend-internal zenith-ceiling message. The one up-looking
+composition that runs today is the wholly-vacuum one (both endpoints at or
+above `h_atm_top`): the LEO→GEO quick win. See `RADIANT_Atmosphere.md` §4.2a–b.
+
+One unification remains tracked: CU-096 (θ_o vs η in platform/performance).
 
 ## 5. Parameters
 

@@ -5,10 +5,16 @@ entire product is ``stage_outputs["geometry"]`` — the validated,
 mode-resolved scene geometry that every downstream stage consumes
 instead of re-deriving:
 
-    los_geometry        LineOfSightGeometry (h_tgt, θ_o, θ_s, Δφ) — the
-                        Source → Atmosphere contract object (ADR-0002),
-                        now built here
-    theta_o_rad         canonical target-side path zenith
+    los_geometry        LineOfSightGeometry (h_tgt, h_sensor, θ_o, θ_s, Δφ)
+                        — the Source → Atmosphere contract object
+                        (ADR-0002), now built here.  Both endpoints are
+                        always carried (ADR-0011 / GF-3), so the contract
+                        object owns the horizon guard and the direction.
+    theta_o_rad         canonical target-side path zenith, closed domain
+                        [0, π] — obtuse for an up-looking scene
+    los_direction       "down" | "up" | "level", read off the LOS object
+                        (derived from the altitudes, never a user switch —
+                        ADR-0011 decision 1)
     eta_rad             sensor-side off-nadir angle (spherical sine rule)
     slant_range_m       target ↔ sensor slant range (spherical triangle)
     ground_range_m      surface arc, nadir point → target
@@ -69,16 +75,22 @@ class GeometryStage:
         raw_range: float = float(params.get("geometry.target_range_m"))
         target_range_m: float | None = raw_range if raw_range > 0.0 else None
 
+        # Both endpoints, always (ADR-0011 / GF-3): h_sensor is what lets the
+        # contract object enforce the altitude/hemisphere invariant and run
+        # the full two-topology horizon guard instead of the conservative
+        # angular band a pre-ADR-0011 payload was limited to.
         los = LineOfSightGeometry(
             h_tgt=viewing.h_target_m,
+            h_sensor=viewing.h_sensor_m,
             theta_o=viewing.theta_o_rad,
             theta_s=solar.theta_s_rad,
             delta_phi=solar.delta_phi_rad,
         )
 
         logger.debug(
-            "GeometryStage: viewing=%s solar=%s kinematics=%s theta_o=%.6f rad slant=%.1f m",
+            "GeometryStage: viewing=%s (%s) solar=%s kinematics=%s theta_o=%.6f rad slant=%s m",
             viewing.mode,
+            viewing.direction,
             solar.mode,
             kinematics.mode,
             viewing.theta_o_rad,
@@ -87,6 +99,10 @@ class GeometryStage:
 
         for key, value in (
             ("los_geometry", los),
+            # Derived, never declared (ADR-0011 decision 1).  Read straight
+            # off the contract object so there is exactly one definition of
+            # the direction; the scene-class machinery is Phase 3.
+            ("los_direction", los.los_direction),
             ("theta_o_rad", viewing.theta_o_rad),
             ("eta_rad", viewing.eta_rad),
             ("slant_range_m", viewing.slant_range_m),

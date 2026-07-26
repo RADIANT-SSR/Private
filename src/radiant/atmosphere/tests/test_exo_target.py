@@ -45,7 +45,7 @@ class TestVacuumTargetLeg:
         """h_tgt = 150 km ≥ h_atm_top = 100 km: τ_up ≡ 1, L_path_up ≡ 0,
         τ_sun ≡ 1 [all dimensionless / W/m²/sr/µm]."""
         model = SimpleAtmosphere()
-        los = LineOfSightGeometry(h_tgt=150_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=150_000.0, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
         q = _quiet_evaluate(model, wl, los, params)
         np.testing.assert_array_equal(q.tau_up, np.ones_like(wl))
         np.testing.assert_array_equal(q.tau_sun, np.ones_like(wl))
@@ -56,8 +56,8 @@ class TestVacuumTargetLeg:
         """The full-column and sky quantities equal a surface-target run of
         the same backend — the background branch is untouched."""
         model = SimpleAtmosphere()
-        exo = LineOfSightGeometry(h_tgt=150_000.0, theta_o=0.0, h_atm_top=1.0e5)
-        surface = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
+        exo = LineOfSightGeometry(h_tgt=150_000.0, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        surface = LineOfSightGeometry(h_tgt=0.0, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
         q_exo = _quiet_evaluate(model, wl, exo, params)
         q_surf = _quiet_evaluate(model, wl, surface, params)
         np.testing.assert_array_equal(q_exo.tau_full_up, q_surf.tau_full_up)
@@ -72,7 +72,7 @@ class TestVacuumTargetLeg:
         """h_tgt exactly at h_atm_top takes the vacuum branch (the column
         above the target has zero extent)."""
         model = SimpleAtmosphere()
-        los = LineOfSightGeometry(h_tgt=1.0e5, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=1.0e5, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
         q = _quiet_evaluate(model, wl, los, params)
         np.testing.assert_array_equal(q.tau_up, np.ones_like(wl))
 
@@ -80,7 +80,7 @@ class TestVacuumTargetLeg:
     def test_endo_target_passes_through(self, wl: np.ndarray, params) -> None:  # type: ignore[no-untyped-def]
         """Below h_atm_top the wrapper is a transparent pass-through."""
         model = SimpleAtmosphere()
-        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
         via_wrapper = _quiet_evaluate(model, wl, los, params)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -105,7 +105,7 @@ class TestVacuumTargetLeg:
             atm_emission_down=0.02 * np.ones_like(wl),
         )
         model = TabulatedAtmosphere.from_npz(npz)
-        los = LineOfSightGeometry(h_tgt=150_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=150_000.0, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
         q = _quiet_evaluate(model, wl, los, params)
         np.testing.assert_array_equal(q.tau_up, np.ones_like(wl))
         np.testing.assert_array_equal(q.L_path_up, np.zeros_like(wl))

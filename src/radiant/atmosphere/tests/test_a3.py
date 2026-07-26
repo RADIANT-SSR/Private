@@ -145,8 +145,8 @@ class TestAnchor1HTgtZeroLimit:
         params = _resolved_params(lwir_grid, sensor_altitude_m=20000.0)
         atm = _default_simple()
 
-        los_a2 = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
-        los_a3 = LineOfSightGeometry(h_tgt=1.0, theta_o=0.0)
+        los_a2 = LineOfSightGeometry(h_tgt=0.0, h_sensor=20000.0, theta_o=0.0)
+        los_a3 = LineOfSightGeometry(h_tgt=1.0, h_sensor=20000.0, theta_o=0.0)
 
         q_a2 = atm.evaluate(lwir_grid, los_a2, params)
         q_a3 = atm.evaluate(lwir_grid, los_a3, params)
@@ -168,12 +168,14 @@ class TestAnchor1HTgtZeroLimit:
         atm = _default_simple()
         los_a2 = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=20000.0,
             theta_o=0.0,
             theta_s=np.deg2rad(30.0),
             delta_phi=0.0,
         )
         los_a3 = LineOfSightGeometry(
             h_tgt=1.0,
+            h_sensor=20000.0,
             theta_o=0.0,
             theta_s=np.deg2rad(30.0),
             delta_phi=0.0,
@@ -198,12 +200,14 @@ class TestAnchor1HTgtZeroLimit:
         atm = _default_simple()
         los_a2 = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=20000.0,
             theta_o=0.0,
             theta_s=np.deg2rad(30.0),
             delta_phi=0.0,
         )
         los_a3 = LineOfSightGeometry(
             h_tgt=1.0,
+            h_sensor=20000.0,
             theta_o=0.0,
             theta_s=np.deg2rad(30.0),
             delta_phi=0.0,
@@ -231,7 +235,7 @@ class TestAnchor1HTgtZeroLimit:
         """
         params = _resolved_params(lwir_grid, sensor_altitude_m=2000.0)
         atm = _default_simple()
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0)
+        los = LineOfSightGeometry(h_tgt=0.0, h_sensor=2000.0, theta_o=0.0)
         q = atm.evaluate(lwir_grid, los, params)
         # Bit-exact invariants: tau_up == tau_full_up and L_path_up == L_path_full
         # at h_tgt = 0.  These must survive the Stage 5 cut unchanged.
@@ -258,7 +262,7 @@ class TestAnchor2HTgtVacuumLimit:
     def test_tau_up_is_near_unity(self, lwir_grid: np.ndarray) -> None:
         params = _resolved_params(lwir_grid, sensor_altitude_m=100_000.0)
         atm = _default_simple()
-        los = LineOfSightGeometry(h_tgt=99_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=99_000.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5)
         q = atm.evaluate(lwir_grid, los, params)
         # Residual column above 99 km is < 4e-4 of the surface column for
         # molecular species; τ_up must exceed 0.995 on the whole grid.
@@ -274,6 +278,7 @@ class TestAnchor2HTgtVacuumLimit:
         atm = _default_simple()
         los = LineOfSightGeometry(
             h_tgt=99_000.0,
+            h_sensor=100_000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=np.deg2rad(30.0),
@@ -298,6 +303,7 @@ class TestAnchor2HTgtVacuumLimit:
         atm = _default_simple()
         los_surface = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=100_000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=np.deg2rad(30.0),
@@ -305,6 +311,7 @@ class TestAnchor2HTgtVacuumLimit:
         )
         los_airborne = LineOfSightGeometry(
             h_tgt=99_000.0,
+            h_sensor=100_000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=np.deg2rad(30.0),
@@ -332,9 +339,12 @@ class TestAnchor2HTgtVacuumLimit:
         """
         params = _resolved_params(lwir_grid, sensor_altitude_m=100_000.0)
         atm = _default_simple()
-        los_surface = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
+        los_surface = LineOfSightGeometry(
+            h_tgt=0.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5
+        )
         los_airborne = LineOfSightGeometry(
             h_tgt=99_000.0,
+            h_sensor=100_000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
         )
@@ -459,7 +469,7 @@ class TestAnchor3HandCalculatedOD:
 
         params = _resolved_params(lam, sensor_altitude_m=100_000.0)
         atm = _default_simple()
-        los = LineOfSightGeometry(h_tgt=10_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=10_000.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5)
         q = atm.evaluate(lam, los, params)
 
         # Hand calc at 4 µm:
@@ -514,10 +524,14 @@ class TestFragilityEdgeCases:
         0 ≤ h_tgt ≤ h_atm_top; at equality the path_airmass_up property
         raises ParameterBoundsError.  Construction succeeds — we only
         trip the guard when the backend tries to read path_airmass_up.
+
+        The sensor sits at 150 km (above h_tgt = h_atm_top = 100 km) so the
+        LOS is an ordinary down-looking geometry: the raise under test is
+        the zero-column guard, not the ADR-0011 hemisphere invariant.
         """
-        params = _resolved_params(lwir_grid, sensor_altitude_m=100_000.0)
+        params = _resolved_params(lwir_grid, sensor_altitude_m=150_000.0)
         atm = _default_simple()
-        los = LineOfSightGeometry(h_tgt=1.0e5, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=1.0e5, h_sensor=150_000.0, theta_o=0.0, h_atm_top=1.0e5)
         # The backend should surface the underlying parameter error rather
         # than silently returning NaNs.
         from radiant.core.parameters import ParameterBoundsError
@@ -530,7 +544,7 @@ class TestFragilityEdgeCases:
         """Smoke test: mid-altitude h_tgt returns a shape-valid bundle."""
         params = _resolved_params(lwir_grid, sensor_altitude_m=20000.0)
         atm = _default_simple()
-        los = LineOfSightGeometry(h_tgt=5000.0, theta_o=0.0)
+        los = LineOfSightGeometry(h_tgt=5000.0, h_sensor=20000.0, theta_o=0.0)
         q = atm.evaluate(lwir_grid, los, params)
         assert isinstance(q, AtmosphericQuantities)
         # Invariants from the two-leg split at h_tgt > 0:

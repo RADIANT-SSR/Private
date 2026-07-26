@@ -31,6 +31,7 @@ path without requiring the full YAML-driven chain.
 
 from __future__ import annotations
 
+import math
 import warnings
 
 import numpy as np
@@ -241,18 +242,23 @@ class TestSpaceSubcaseFailures:
 
     @pytest.mark.level1
     def test_los_intercepts_earth_raises(self) -> None:
-        """Matrix §7: LOS from a low-altitude sensor looking down at a
-        high-zenith angle will pass below the Earth surface toward an
-        equally low target — must raise."""
-        # Construct a geometry where the sensor is at 10 m altitude and
-        # wants to see a high-altitude target at a large zenith — the
-        # straight line between them dips through the Earth.  In practice
-        # we flip the "who is above" by setting h_sensor < h_tgt: if a
-        # sensor at 10 m looks at a target at 100 km with a large
-        # zenith, the LOS from the sensor crosses the Earth at the limb.
-        #
-        # Simpler approach: build a geometry with theta_o near π/2 (grazing)
-        # so the LOS closest approach to Earth centre drops below R_E.
+        """Matrix §7: a LOS whose chord passes below the surface must raise.
+
+        Two satellites at the same 400 km altitude, far enough apart that
+        the straight chord between them dips inside R_E (theta_o = 110°,
+        closest approach ≈ 6362 km < 6371 km).
+
+        Post-ADR-0011 note: this geometry is expressed through a **legacy**
+        LOS (``h_sensor`` not carried), which is the only way to reach the
+        intercept branch now.  A fully-specified LOS with the same numbers
+        is rejected one layer earlier by the horizon guard — an
+        Earth-intercepting chord is a limb-like transit by definition, and
+        its tangent depression (≈ 408 km) is far past the raise threshold.
+        The pre-Phase-1 version of this test instead paired a down-looking
+        theta_o (1.55 rad) with a sensor *below* the target; that triple
+        violates the altitude/hemisphere invariant and admits no triangle
+        at all, so it is now an input error rather than an "intercept".
+        """
         wl = _lwir_grid()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -264,19 +270,15 @@ class TestSpaceSubcaseFailures:
                 epsilon=_grey_sd(wl, 0.98),
                 T_t=285.0,
             )
-        # Sensor directly opposite target (sensor below horizon from
-        # target's frame).  With theta_o = 1.55 rad (grazing), the line
-        # passes close to the limb and below R_E — intercepts_earth
-        # returns True.  NOTE: h_atm_top is bumped above h_tgt so the
-        # LineOfSightGeometry constructor accepts this space-target geometry;
-        # h_atm_top is irrelevant for intercepts_earth (which uses h_sensor).
-        los = LineOfSightGeometry(h_tgt=400_000.0, theta_o=1.55, h_atm_top=500_000.0)
+        # h_atm_top is bumped above h_tgt so the constructor accepts this
+        # space-target geometry; h_atm_top is irrelevant to intercepts_earth.
+        los = LineOfSightGeometry(h_tgt=400_000.0, theta_o=math.radians(110.0), h_atm_top=500_000.0)
         with pytest.raises(ParameterBoundsError, match="intersects the Earth"):
             validate_no_atmosphere_subcase(
                 target=target,
                 background=ColdSpaceBackground(),
                 los=los,
-                h_sensor=100_000.0,  # sensor below target
+                h_sensor=400_000.0,  # co-altitude partner
                 h_sensor_user_set=True,
             )
 
@@ -597,14 +599,35 @@ class TestIntercepsEarth:
         assert not los.intercepts_earth(1.0)
 
     @pytest.mark.level1
-    def test_grazing_los_below_limb_intercepts(self) -> None:
-        """A pair at low altitude with θ_o close to π/2 — LOS dips below."""
+    def test_chord_below_limb_intercepts(self) -> None:
+        """Two co-altitude satellites far enough apart that the chord dips.
+
+        theta_o = 110° at 400 km puts the chord's closest approach at
+        r_t·sin(110°) ≈ 6362 km, inside R_E = 6371 km, with the foot of the
+        perpendicular ON the segment — the interior-tangent topology.
+        Expressed through a legacy LOS (no ``h_sensor``): see
+        ``test_los_intercepts_earth_raises`` for why that is now the only
+        route to this branch.
+        """
         # h_atm_top bumped to admit the space-target geometry; the
         # Earth-intercept check does not use h_atm_top.
-        los = LineOfSightGeometry(h_tgt=400_000.0, theta_o=1.55, h_atm_top=500_000.0)
-        # A sensor at 100 km looking at a 400 km target at grazing zenith:
-        # the line between them crosses below the Earth limb.
-        assert los.intercepts_earth(100_000.0)
+        los = LineOfSightGeometry(h_tgt=400_000.0, theta_o=math.radians(110.0), h_atm_top=500_000.0)
+        assert los.intercepts_earth(400_000.0)
+
+    @pytest.mark.level1
+    def test_contradictory_altitude_and_zenith_is_an_input_error(self) -> None:
+        """ADR-0011: no triangle is a bad input, not an "intercept".
+
+        theta_o = 1.55 rad (88.8°) says the sensor is ABOVE the target;
+        passing a sensor altitude below it contradicts the hemisphere
+        invariant.  The pre-Phase-1 code answered "True" (intercepts) from
+        a degenerate branch; it now names the contradiction.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            los = LineOfSightGeometry(h_tgt=400_000.0, theta_o=1.55, h_atm_top=500_000.0)
+        with pytest.raises(ParameterBoundsError, match="hemisphere"):
+            los.intercepts_earth(100_000.0)
 
     @pytest.mark.level1
     def test_negative_h_sensor_raises(self) -> None:

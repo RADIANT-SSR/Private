@@ -110,7 +110,21 @@ exactly like a Rule 20 doc-drift violation, not deferred to a CU.
   refreshed.
 - **Gate:** owner ratification of §8 — satisfied (§8.3, 2026-07-26).
 
-### Phase 1 — Direction-general geometry core (Category B)
+### Phase 1 — Direction-general geometry core (Category B) — COMPLETE 2026-07-26
+
+Exit criteria met: (a) LEO→GEO up-looking runs end-to-end through the exo
+backend (`tests/integration/test_uplooking_phase1.py` — vertical θ_o = π
+exact and slant cases, vacuum identities exact); (b) **G2** grep-provable —
+zero `geometry.sensor_altitude_m` parameter reads under
+`src/radiant/atmosphere/`; (c) **G4** — the collocated no-triangle
+carve-out is subsumed by the level central-angle solution (only the
+zero-separation coincident-endpoints limit keeps None ranges, documented).
+Down-looking golden baselines byte-identical (differential proof over
+9 256 configurations + full golden suite). Up-looking/level paths through
+real atmosphere refuse actionably pending Phase 2. One deviation flagged
+for owner confirmation: θ_o domain implemented **closed** `[0, π]`
+(ADR-0011 writes `[0, π)`; the vertical up-looking case is θ_o = π
+exactly). CU-222 filed (guard-threshold units).
 
 - `core/viewing_triangle.py`: symmetric solutions valid for any
   `h_sensor ≠ h_target` ordering + the equal-altitude horizontal case

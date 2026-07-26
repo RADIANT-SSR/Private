@@ -808,7 +808,12 @@ class TestModtranArrayValidation:
         wl = np.linspace(0.4, 14.0, 400)
         params = _flux_resolved_params(wl)
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+            h_tgt=0.0,
+            h_sensor=100_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -842,7 +847,12 @@ class TestModtranFluxDownwelling:
         wl = np.linspace(0.4, 14.0, 400)
         params = _flux_resolved_params(wl)
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+            h_tgt=0.0,
+            h_sensor=100_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -869,7 +879,12 @@ class TestModtranFluxDownwelling:
         wl = np.linspace(0.4, 14.0, 400)
         params = _flux_resolved_params(wl)
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+            h_tgt=0.0,
+            h_sensor=100_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
@@ -893,7 +908,12 @@ class TestModtranFluxDownwelling:
         wl = np.linspace(0.4, 14.0, 400)
         params = _flux_resolved_params(wl)
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.deg2rad(30.0), delta_phi=0.0
+            h_tgt=0.0,
+            h_sensor=100_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=np.deg2rad(30.0),
+            delta_phi=0.0,
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -1350,7 +1370,9 @@ class TestTape7Import:
 
         wl = np.linspace(2.5, 4.5, 30)
         params = _resolved_params_for_evaluate(RadiantSession, wl)
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=0.5, delta_phi=0.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, h_sensor=20_000.0, theta_o=0.0, theta_s=0.5, delta_phi=0.0
+        )
 
         with pytest.warns(UserWarning, match="two-leg"):
             atm = model.evaluate(wl, los, params)
@@ -1374,7 +1396,7 @@ class TestTape7Import:
 
         wl = np.linspace(2.5, 4.5, 30)
         params = _resolved_params_for_evaluate(RadiantSession, wl)
-        los = LineOfSightGeometry(h_tgt=5000.0, theta_o=0.0)
+        los = LineOfSightGeometry(h_tgt=5000.0, h_sensor=20_000.0, theta_o=0.0)
         with pytest.raises(NotImplementedError, match="tape7 file-import"):
             model.evaluate(wl, los, params)
 
@@ -1406,7 +1428,9 @@ class TestTape7SunLegImport:
         wl = np.linspace(2.5, 4.5, 30)
         params = _resolved_params_for_evaluate(RadiantSession, wl)
         # Non-zero solar zenith: the sun leg is a genuinely different path.
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, h_sensor=20_000.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -1437,7 +1461,9 @@ class TestTape7SunLegImport:
 
         wl = np.linspace(2.5, 4.5, 30)
         params = _resolved_params_for_evaluate(RadiantSession, wl)
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, h_sensor=20_000.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
 
         with pytest.warns(UserWarning, match="tape7_sun_path"):
             atm = model.evaluate(wl, los, params)
@@ -1454,7 +1480,9 @@ class TestTape7SunLegImport:
         config = ModtranConfig(binary_path=tmp_path / "no_modtran", allow_fallback=False)
         model = ModtranAtmosphere(config, tape7_import=Tape7Import.from_file(main))
         wl = np.linspace(2.5, 4.5, 30)
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, h_sensor=20_000.0, theta_o=0.0, theta_s=np.deg2rad(30.0), delta_phi=0.0
+        )
         with pytest.warns(UserWarning, match="downwelling sky emission"):
             state = model.build_state(wl, los)
         assert np.all(state.atm_emission_down.values == 0.0)
@@ -1488,7 +1516,7 @@ class TestTape7UpLegImport:
 
         wl = np.linspace(2.5, 4.5, 30)
         params = _resolved_params_for_evaluate(RadiantSession, wl)
-        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0)
+        los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=20_000.0, theta_o=0.0)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -1514,7 +1542,7 @@ class TestTape7UpLegImport:
         model = ModtranAtmosphere(config, tape7_import=Tape7Import.from_file(full))
         wl = np.linspace(2.5, 4.5, 30)
         params = _resolved_params_for_evaluate(RadiantSession, wl)
-        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0)
+        los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=20_000.0, theta_o=0.0)
         with pytest.raises(NotImplementedError, match="tape7_up_path"):
             model.evaluate(wl, los, params)
 

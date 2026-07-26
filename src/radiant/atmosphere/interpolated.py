@@ -52,6 +52,7 @@ import numpy as np
 from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
@@ -750,14 +751,15 @@ class InterpolatedAtmosphere:
             )
 
         # Build legacy AtmosphericGeometry queries to reuse the
-        # interpolator's coordinate-extraction logic.  h_sensor comes
-        # from params.  A pure-thermal scene carries theta_s/delta_phi =
+        # interpolator's coordinate-extraction logic.  h_sensor comes from
+        # the LOS contract (ADR-0011; guardrail G2 — no params side-load).
+        # A pure-thermal scene carries theta_s/delta_phi =
         # None ("no solar geometry declared") — that cannot conflict with
         # the sample runs' recorded sun position, so None adopts the
         # recorded value (no CU-167 mismatch warning) rather than a
         # literal 0.0 that would spuriously differ from it.  An
         # explicitly set solar geometry is still compared and warned.
-        h_sensor_m = float(params.get("geometry.sensor_altitude_m"))
+        h_sensor_m = require_sensor_altitude_m(los, "InterpolatedAtmosphere.evaluate")
         theta_s = (
             float(los.theta_s)
             if los.theta_s is not None

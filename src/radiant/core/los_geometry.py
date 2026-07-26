@@ -18,6 +18,18 @@ Notes
   secant-type correction; see docstrings for the exact formulas.
 - Earth radius is imported from `radiant.core.constants.R_EARTH_M` (Rule 13).
 
+Direction generality (ADR-0011)
+-------------------------------
+Since Phase 1 of the Geometry Flexibility plan the contract carries **both**
+endpoints: `h_sensor` joins `h_tgt`, and `theta_o` spans the closed domain
+[0, π] so up-looking (`theta_o > π/2`) and level scenes are expressible.
+`h_sensor` is optional only for back-compatibility with pre-ADR-0011
+payloads (`None` = "sensor endpoint not carried"); `GeometryStage` always
+populates it.  When it is present the altitude/hemisphere invariant and the
+full two-topology horizon guard are enforced here; when it is absent only
+the conservative angular band on `theta_o` can be applied, which is why
+level and near-level geometry MUST supply the sensor endpoint.
+
 Boundary converter
 ------------------
 `theta_o_from_eta` is a module-level converter from the sensor-side off-nadir
@@ -36,11 +48,19 @@ is **not dead code**.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass
 from typing import Any
 
 from radiant.core.constants import R_EARTH_M
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.viewing_triangle import (
+    GUARD_HARD_DEG,
+    GUARD_WARN_DEG,
+    check_horizon_guard,
+    horizon_band_action,
+    slant_range_from_theta_o_m,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -59,12 +79,23 @@ class LineOfSightGeometry:
         (τ_up = 1, L_path_up = 0, full ground→sensor column kept for
         the background) via
         ``radiant.atmosphere.exo_target.evaluate_with_exo_target``.
+    h_sensor:
+        Sensor altitude above mean sea level [m], or ``None`` for a
+        pre-ADR-0011 payload that does not carry the sensor endpoint.
+        ``GeometryStage`` always populates it.  When present it must be
+        ≥ 0 and consistent with ``theta_o`` under the altitude/hemisphere
+        invariant (``h_sensor > h_tgt ⟺ theta_o < π/2``), and the full
+        two-topology horizon guard is applied.
     h_atm_top:
         Top of the atmospheric integration column [m] (v1 fixed default =
         Kármán line ≈ 100 km).
     theta_o:
-        Observer zenith angle at the target [rad].  ``0`` = sensor at zenith
-        (nadir view); must lie in the half-open interval ``[0, π/2)``.
+        Observer zenith angle at the target [rad].  ``0`` = sensor at
+        zenith-of-nadir (straight above the target), ``π/2`` = sensor on the
+        target's horizon plane, ``π`` = sensor straight below (vertical
+        up-looking).  Domain is the **closed** interval ``[0, π]``
+        (ADR-0011); the near-horizontal band around ``π/2`` is rejected by
+        the horizon guard rather than by the domain check.
     theta_s:
         Solar zenith angle at the target [rad], or ``None`` for pure-thermal
         scenarios where the sun is not used.  Must lie in ``[0, π]`` if set.
@@ -76,14 +107,20 @@ class LineOfSightGeometry:
     ------------------
     slant_range_atm:
         Distance along the LOS from ``h_tgt`` to ``h_atm_top`` [m] on a
-        spherical Earth.
+        spherical Earth.  Down-looking topology only — see the property
+        docstring for the up-looking Phase 2 guard.
     path_airmass_up:
         Dimensionless airmass factor for the sensor-up leg.  Reduces to
         ``sec(theta_o)`` in the plane-parallel limit and diverges
         smoothly as ``theta_o → π/2``.
+    los_direction:
+        ``"down"`` | ``"up"`` | ``"level"`` — derived, never a user switch.
+    is_uplooking:
+        ``True`` iff ``los_direction == "up"``.
     """
 
     h_tgt: float
+    h_sensor: float | None = None
     h_atm_top: float = 1.0e5
     theta_o: float
     theta_s: float | None = None
@@ -114,20 +151,33 @@ class LineOfSightGeometry:
                 context={"h_tgt": self.h_tgt, "h_atm_top": self.h_atm_top},
             )
 
-        if not (0.0 <= self.theta_o < math.pi / 2.0):
+        if not (0.0 <= self.theta_o <= math.pi):
             raise ParameterBoundsError(
                 what=(
                     f"LineOfSightGeometry.theta_o = {self.theta_o} rad "
-                    f"({math.degrees(self.theta_o):.3f}°) is outside [0, π/2)"
+                    f"({math.degrees(self.theta_o):.3f}°) is outside [0, π]"
                 ),
                 why=(
-                    "Observer zenith at target must be between nadir (0) and "
-                    "horizon (π/2, exclusive).  At or beyond horizon the "
-                    "plane-parallel airmass diverges and v1 has no refraction model."
+                    "Observer zenith at the target runs from 0 (sensor straight "
+                    "above) through π/2 (sensor on the target's horizon plane) to "
+                    "π (sensor straight below — vertical up-looking).  Nothing "
+                    "outside [0, π] is a zenith angle.  The domain is closed at π "
+                    "since ADR-0011; near-horizontal paths are handled by the "
+                    "horizon guard, not by the domain check."
                 ),
-                action="Reduce theta_o below π/2 radians (90°).",
+                action="Wrap theta_o into [0, π] radians (0–180°).",
                 context={"theta_o": self.theta_o},
             )
+
+        if self.h_sensor is not None and self.h_sensor < 0.0:
+            raise ParameterBoundsError(
+                what=f"LineOfSightGeometry.h_sensor = {self.h_sensor} m is negative",
+                why="Sensor altitude must be non-negative (at or above MSL).",
+                action="Set h_sensor ≥ 0 m, or leave it None for a legacy payload.",
+                context={"h_sensor": self.h_sensor},
+            )
+
+        self._validate_path_geometry()
 
         if self.theta_s is not None and not (0.0 <= self.theta_s <= math.pi):
             raise ParameterBoundsError(
@@ -148,9 +198,137 @@ class LineOfSightGeometry:
                 context={"delta_phi": self.delta_phi},
             )
 
+    def _validate_path_geometry(self) -> None:
+        """Hemisphere invariant + horizon guard (ADR-0011, plan §8.3).
+
+        With the sensor endpoint present the full two-topology guard runs
+        (angular bands for endpoint-minimum paths, tangent-height depression
+        for interior-tangent ones).  Without it — a pre-ADR-0011 payload —
+        only ``theta_o`` is known, so the conservative endpoint-minimum
+        angular band is applied; that is exactly the legacy down-looking
+        topology, and it is why a level or near-level scene must carry
+        ``h_sensor``.
+        """
+        if self.h_sensor is not None:
+            check_horizon_guard(
+                self.theta_o,
+                self.h_sensor,
+                self.h_tgt,
+                where="LineOfSightGeometry: horizon guard",
+            )
+            return
+
+        action, band_deg = horizon_band_action(self.theta_o)
+        if action == "raise":
+            raise ParameterBoundsError(
+                what=(
+                    f"LineOfSightGeometry.theta_o = {self.theta_o} rad "
+                    f"({math.degrees(self.theta_o):.4f}°) is {band_deg:.4f}° from the "
+                    f"geometric horizontal, inside the ±{GUARD_HARD_DEG}° hard "
+                    f"horizon guard"
+                ),
+                why=(
+                    "Within a half-degree of the horizontal, atmospheric refraction "
+                    "dominates the path geometry and v1.x has no refraction model, so "
+                    "any number returned here would be quietly wrong (ADR-0011 "
+                    "decision 6).  The airmass column also loses meaning there."
+                ),
+                action=(
+                    f"Move theta_o more than {GUARD_WARN_DEG}° from π/2 rad (90°), or "
+                    "supply h_sensor so the guard can use the tangent-point topology "
+                    "(a short level path with a shallow tangent is admissible; a "
+                    "grazing slant is not)."
+                ),
+                context={"theta_o": self.theta_o, "band_deg": band_deg},
+            )
+        if action == "warn":
+            warnings.warn(
+                f"LineOfSightGeometry.theta_o = {math.degrees(self.theta_o):.4f}° is "
+                f"{band_deg:.4f}° from the geometric horizontal. Computing anyway, but "
+                "atmospheric refraction is NOT modelled in v1.x and is the dominant "
+                f"geometric error in this band (hard guard at ±{GUARD_HARD_DEG}°; "
+                "thresholds provisional pending Phase 2 MODTRAN calibration).",
+                UserWarning,
+                stacklevel=4,
+            )
+
+    # ------------------------------------------------------------------
+    # Derived direction (ADR-0011 decision 1 — derived, never a switch)
+    # ------------------------------------------------------------------
+
+    @property
+    def los_direction(self) -> str:
+        """Signed LOS direction: ``"down"`` | ``"up"`` | ``"level"``.
+
+        Derived from the altitude pair when ``h_sensor`` is carried, and
+        from ``theta_o`` otherwise — the two agree by the hemisphere
+        invariant, except for equal altitudes, which cannot occur in a
+        legacy (``h_sensor is None``) payload.
+        """
+        if self.h_sensor is not None:
+            if self.h_sensor > self.h_tgt:
+                return "down"
+            if self.h_sensor < self.h_tgt:
+                return "up"
+            return "level"
+        if self.theta_o < math.pi / 2.0:
+            return "down"
+        if self.theta_o > math.pi / 2.0:
+            return "up"
+        return "level"
+
+    @property
+    def is_uplooking(self) -> bool:
+        """``True`` iff the sensor sits below the target (``theta_o > π/2``)."""
+        return self.los_direction == "up"
+
     # ------------------------------------------------------------------
     # Derived geometric properties
     # ------------------------------------------------------------------
+
+    def _require_downlooking_column(self, what: str) -> None:
+        """Reject up-looking use of the target→h_atm_top column (Phase 2).
+
+        ``slant_range_atm`` and ``path_airmass_up`` are down-looking-topology
+        quantities: they measure the column *above* the target, on the way
+        out to the sensor.  For ``theta_o > π/2`` the sensor is below the
+        target and that column is not the path — the up-looking atmospheric
+        arm is Phase 2 path-segment work (Gaps 108/109), so this raises
+        rather than returning a plausible-looking wrong number (Rule 17).
+
+        The exo-altitude carve-out (``h_tgt >= h_atm_top``) is checked by the
+        callers *before* this guard: there is no column either way, so the
+        vacuum limits (0.0 m, airmass 1.0) stay exact — that is what the
+        up-looking LEO→GEO quick win rides on.
+        """
+        if self.theta_o > math.pi / 2.0:
+            raise ParameterBoundsError(
+                what=(
+                    f"LineOfSightGeometry.{what}: theta_o = {self.theta_o} rad "
+                    f"({math.degrees(self.theta_o):.3f}°) is up-looking, but "
+                    f"{what} measures the atmospheric column from h_tgt = "
+                    f"{self.h_tgt} m up to h_atm_top = {self.h_atm_top} m"
+                ),
+                why=(
+                    "For an up-looking path the sensor is below the target, so the "
+                    "column above the target is not the target→sensor leg.  The "
+                    "direction-aware path-segment products (up-path radiance, "
+                    "horizontal arm, sky background) arrive in Phase 2 of the "
+                    "Geometry Flexibility plan (Gaps 108/109); returning the "
+                    "down-looking column here would be silently wrong."
+                ),
+                action=(
+                    "Use a down-looking geometry (theta_o < π/2), or an exo-altitude "
+                    "target (h_tgt >= h_atm_top) where the leg is vacuum, until the "
+                    "Phase 2 up-looking column lands."
+                ),
+                context={
+                    "theta_o": self.theta_o,
+                    "h_tgt": self.h_tgt,
+                    "h_atm_top": self.h_atm_top,
+                    "los_direction": self.los_direction,
+                },
+            )
 
     @property
     def slant_range_atm(self) -> float:
@@ -171,6 +349,7 @@ class LineOfSightGeometry:
         """
         if self.h_tgt >= self.h_atm_top:
             return 0.0
+        self._require_downlooking_column("slant_range_atm")
         r_t = R_EARTH_M + self.h_tgt
         r_top = R_EARTH_M + self.h_atm_top
         cos_theta = math.cos(self.theta_o)
@@ -196,6 +375,7 @@ class LineOfSightGeometry:
         dz = self.h_atm_top - self.h_tgt
         if dz <= 0.0:
             return 1.0
+        self._require_downlooking_column("path_airmass_up")
         return float(self.slant_range_atm / dz)
 
     # ------------------------------------------------------------------
@@ -221,7 +401,10 @@ class LineOfSightGeometry:
         Parameters
         ----------
         h_sensor:
-            Sensor altitude above MSL [m].  Must be non-negative.
+            Sensor altitude above MSL [m].  Must be non-negative.  Passed
+            explicitly rather than read from the ``h_sensor`` field so the
+            pre-ADR-0011 call sites keep working; when the field is also
+            set the caller is responsible for passing the same value.
 
         Returns
         -------
@@ -234,7 +417,9 @@ class LineOfSightGeometry:
         Raises
         ------
         ParameterBoundsError
-            If ``h_sensor`` is negative.
+            If ``h_sensor`` is negative, if it contradicts ``theta_o``
+            under the altitude/hemisphere invariant, or if no viewing
+            triangle exists for the (altitudes, ``theta_o``) combination.
 
         Notes
         -----
@@ -242,12 +427,26 @@ class LineOfSightGeometry:
           * Target is at radius ``r_t = R_E + h_tgt``.
           * Sensor is at radius ``r_s = R_E + h_sensor``.
           * The target-centred observer zenith is ``theta_o``.
-          * Apply the law of cosines to the triangle (Earth centre,
-            target, sensor):
+          * The slant range comes from
+            :func:`radiant.core.viewing_triangle.slant_range_from_theta_o_m`,
+            which applies the law of cosines to the triangle (Earth centre,
+            target, sensor)::
+
                 r_s² = r_t² + d² − 2 r_t d cos(π − theta_o)
                      = r_t² + d² + 2 r_t d cos(theta_o)
-            where ``d`` is the slant range target→sensor.  Solve for
-            ``d`` (positive root).
+
+            and selects the root by altitude ordering (ADR-0011): the ``+``
+            root for a sensor at or above the target — bit-identical to the
+            expression this method used before Phase 1 — and the **near**
+            (``−``) root for an up-looking path, where the ``+`` root is the
+            far, through-the-Earth intersection.  Taking ``+`` unconditionally
+            is what made a vertical LEO→GEO LOS (``theta_o = π``) falsely
+            report an Earth intercept.
+          * An altitude/zenith combination that admits no triangle at all
+            (the ray never descends to the sensor shell) is a bad input, not
+            an intercept: the solver raises an actionable error naming the
+            ray's perigee altitude.  The pre-Phase-1 "return True" degenerate
+            branches are gone.
           * The closest approach of the LOS segment to the Earth centre
             is:
                 - if the foot of the perpendicular from the centre lies
@@ -273,34 +472,17 @@ class LineOfSightGeometry:
             )
 
         r_t = R_EARTH_M + self.h_tgt
-        r_s = R_EARTH_M + h_sensor
         cos_to = math.cos(self.theta_o)
         sin_to = math.sin(self.theta_o)
 
-        # Slant range target→sensor via law of cosines on the triangle
-        # (Earth centre, target, sensor).  The interior angle at the target
-        # between the local-up (Earth-centre→target extended) and the
-        # target→sensor ray is (π − theta_o) because theta_o is measured
-        # from local up toward the sensor (zenith convention).  So:
-        #   r_s² = r_t² + d² − 2 r_t d cos(π − theta_o)
-        #        = r_t² + d² + 2 r_t d cos(theta_o)
-        # ⇒   d² + 2 r_t cos(theta_o) d + (r_t² − r_s²) = 0
-        # Positive root:
-        #   d = −r_t cos(theta_o) + √(r_t² cos²(theta_o) + r_s² − r_t²)
-        disc = (r_t * cos_to) ** 2 + (r_s * r_s - r_t * r_t)
-        if disc < 0.0:
-            # Should not occur for h_sensor ≥ h_tgt; indicates the sensor is
-            # below the target shell with a geometry that never reaches up
-            # to the sensor.  In that degenerate case the LOS is ill-defined
-            # and we treat it as intercepting (conservative — the caller
-            # should supply a sensible h_sensor).
-            return True
-        d = -r_t * cos_to + math.sqrt(disc)
+        # Slant range target→sensor, branch-selected by altitude ordering.
+        # The hemisphere invariant and the "no such triangle" case are
+        # validated inside the solver (actionable errors, Rule 15/17).
+        d = slant_range_from_theta_o_m(self.theta_o, h_sensor, self.h_tgt)
         if d <= 0.0:
-            # Degenerate: sensor coincides with (or is below) the target
-            # along the LOS.  Not a physical imaging geometry; treat as
-            # intercepting to fail loudly upstream.
-            return True
+            # Coincident endpoints (level path of zero length): there is no
+            # segment to dip below anything.
+            return False
 
         # Closest approach of the infinite line through (target, sensor)
         # to Earth centre = r_t · sin(theta_o) (perpendicular from centre
@@ -342,21 +524,40 @@ class LineOfSightGeometry:
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to a JSON-friendly dict."""
-        return {
+        """Serialize to a JSON-friendly dict.
+
+        ``h_sensor`` is emitted **only when it is carried** (not ``None``):
+        a legacy payload therefore serializes to exactly the pre-ADR-0011
+        byte sequence, which keeps the descriptor-snapshot baselines
+        unchanged for every existing down-looking scene (plan §3 principle
+        3 — new behaviour is reachable only through newly legal inputs).
+        Round-tripping is unaffected: :meth:`from_dict` maps both "key
+        absent" and an explicit ``None`` back to ``h_sensor=None``, which is
+        the same state ("sensor endpoint not carried").
+        """
+        payload: dict[str, Any] = {
             "h_tgt": self.h_tgt,
             "h_atm_top": self.h_atm_top,
             "theta_o": self.theta_o,
             "theta_s": self.theta_s,
             "delta_phi": self.delta_phi,
         }
+        if self.h_sensor is not None:
+            payload["h_sensor"] = self.h_sensor
+        return payload
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> LineOfSightGeometry:
-        """Rebuild from a ``to_dict`` payload."""
+        """Rebuild from a ``to_dict`` payload.
+
+        Back-compatible with pre-ADR-0011 payloads: a missing ``h_sensor``
+        key and an explicit ``None`` both round-trip to ``None`` (sensor
+        endpoint not carried), distinct from any numeric altitude.
+        """
         return cls(
             h_tgt=float(d["h_tgt"]),
             theta_o=float(d["theta_o"]),
+            h_sensor=None if d.get("h_sensor") is None else float(d["h_sensor"]),
             h_atm_top=float(d.get("h_atm_top", 1.0e5)),
             theta_s=None if d.get("theta_s") is None else float(d["theta_s"]),
             delta_phi=None if d.get("delta_phi") is None else float(d["delta_phi"]),

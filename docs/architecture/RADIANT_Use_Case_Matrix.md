@@ -1,11 +1,11 @@
 # RADIANT Use-Case Matrix
 
-**Status**: Active — reworked 2026-07-26 under Geometry-Flexibility **Phase 0** (Category A, docs only). Two changes: the observer location becomes an explicit axis (§1.4), and scenes are defined **compositionally** (§3.2) instead of enumerated cell-by-cell. Decision record: [ADR-0011 — Generalized viewing geometry](../adr/0011-generalized-viewing-geometry.md), authored in the same PR; execution plan: [`docs/plans/Geometry_Flexibility_Plan.md`](../plans/Geometry_Flexibility_Plan.md); source audit: [`docs/reports/geometry_flexibility_2026-07/findings.md`](../reports/geometry_flexibility_2026-07/findings.md).
+**Status**: Active — reworked 2026-07-26 under Geometry-Flexibility **Phase 0** (Category A, docs only), then updated in lock-step with **Phase 1** (direction-general geometry core, 2026-07-26). Phase 0 made the observer location an explicit axis (§1.4) and defined scenes **compositionally** (§3.2) instead of cell-by-cell; Phase 1 lifted the down-looking-only code restriction (§7). Decision record: [ADR-0011 — Generalized viewing geometry](../adr/0011-generalized-viewing-geometry.md), authored in the same PR; execution plan: [`docs/plans/Geometry_Flexibility_Plan.md`](../plans/Geometry_Flexibility_Plan.md); source audit: [`docs/reports/geometry_flexibility_2026-07/findings.md`](../reports/geometry_flexibility_2026-07/findings.md).
 
 **Scope**: this document captures the axes, locked decisions, composition rules, and descriptor schemas for the imaging-scenario space. It governs how GeometryStage, SourceStage, AtmosphereStage, and downstream stages consume user inputs. Three tiers, and the difference between them is load-bearing:
 
 - **Supported today (runs, tested, golden-backed).** Space-based sensors (the v1 baseline: space→ground, space→air, space→space down-looking) **and airborne down-looking sensors** — air-to-ground was ratified as already-supported on 2026-07-26 (plan §8.1 item 3, audit finding GF-6): nothing validates `h_sensor ≥ h_atm_top`, `SimpleAtmosphere` integrates optical depth between the two endpoint altitudes, and the MODTRAN deck builder already emits H1/H2 pairs for an in-atmosphere sensor. The pre-2026-07-26 scope sentence ("sensor location is fixed to `space` in v1") described an intent the code never enforced; it is superseded here (locked decision 15).
-- **Ratified for delivery, NOT yet implemented.** Ground-based and up-looking observers, equal-altitude/horizontal paths, sky-along-LOS backgrounds, per-altitude solar illumination, and direction-aware metrics. These are ratified in ADR-0011 and scheduled by plan §4 (Phases 1–5). **The code restriction remains fully in force until Geometry-Flexibility Phase 1 lands**: `core/viewing_triangle.py::_validate_altitudes` raises `ParameterBoundsError` unless `h_sensor > h_target` ("v1 has no uplooking geometry"), and $\theta_o \in [0, \pi/2)$ is enforced independently in `viewing_triangle._validate_theta_o`, `LineOfSightGeometry.__post_init__`, and `AtmosphericGeometry.__post_init__` (ceiling 89.5°). Every up-looking, ground-based, and equal-altitude scene **raises today**. Wherever this document describes such a scene it is describing ratified intent, and says so explicitly.
+- **Geometry accepted, radiometry NOT yet implemented.** Ground-based and up-looking observers and equal-altitude/horizontal paths are **expressible and resolved** since Geometry-Flexibility Phase 1 (2026-07-26): the `h_sensor > h_target` gate is gone, $\theta_o$ spans the closed domain $[0, \pi]$, `LineOfSightGeometry` carries both endpoints, and the near-horizontal band is judged by the tangent-topology horizon guard rather than rejected wholesale. What is *not* implemented is the direction-aware **atmosphere**: `AtmosphereStage` refuses any up-looking or level path whose lower endpoint is inside the modelled column, with an error naming the pending capability (Phase 2, Gaps 108/109). The one up-looking composition that runs end-to-end today is the wholly-vacuum space-to-space case (LEO→GEO). Sky-along-LOS backgrounds, per-altitude solar illumination, and direction-aware metrics remain scheduled by plan §4 (Phases 2–5). Wherever this document describes an unimplemented scene it says so explicitly.
 - **Still deferred.** Clouds, ellipsoidal Earth, atmospheric refraction, earthlimb/limb radiance, BRDF, plume/line emission, diurnal ground thermal response, per-pixel background texture (§9).
 
 **Related documents**:
@@ -64,9 +64,9 @@ Regime affects which terms in the radiance assembly equation dominate and which 
 
 | Value | Definition | Status |
 |---|---|---|
-| `space` | `h_sensor > h_atm_top` (100 km) | Supported today — the v1 baseline |
-| `air` | 1 km ≲ `h_sensor` ≲ 100 km | Down-looking (`h_sensor > h_target`): **supported today** (ratified, GF-6). Level and up-looking arms: ratified, Phase 1–2 |
-| `ground` | `h_sensor` ≲ 1 km | Ratified, **not implemented** — every such scene needs either an up-looking or an equal-altitude path, both rejected by the current code |
+| `space` | `h_sensor > h_atm_top` (100 km) | Supported today — the v1 baseline. Up-looking space-to-space (LEO→GEO) **also supported** since Phase 1: both endpoints above the column ⇒ vacuum path |
+| `air` | 1 km ≲ `h_sensor` ≲ 100 km | Down-looking (`h_sensor > h_target`): **supported today** (ratified, GF-6). Level and up-looking arms: **geometry accepted (Phase 1); atmospheric radiometry Phase 2** — the scene resolves through `GeometryStage` and is refused at `AtmosphereStage` with a pending-capability error |
+| `ground` | `h_sensor` ≲ 1 km | **Geometry accepted (Phase 1); atmospheric radiometry Phase 2.** Up-looking and equal-altitude paths are no longer rejected by the geometry core; the up-path/horizontal atmosphere products they need arrive in Phase 2 |
 
 Observer location is **not a user switch**: it is a classification of `geometry.sensor_altitude_m`, exactly as target location classifies `geometry.target_altitude_m`. LOS direction (up / level / down) is likewise derived from the altitude pair and $\theta_o$, never entered (locked decision 17; `RADIANT_Geometry.md` §2 mode resolution is unchanged in form).
 
@@ -116,7 +116,7 @@ Decisions made during design review, in order. Decisions 1–14 are the original
 
 **Ratification of 2026-07-26** (Geometry Flexibility plan §8.3; owner-ratified in full). Each item below is a decision of ADR-0011 as it lands in this document:
 
-15. **Observer location is a free axis; air-to-ground is supported now.** `h_sensor` is not restricted to `space`. Air-to-ground (airborne sensor, down-looking) is ratified as supported today (GF-6). Ground-based and up-looking observers are ratified for delivery; the enforcing code restriction (`h_sensor > h_target`, $\theta_o \in [0, \pi/2)$) stays in force until plan Phase 1 lands. Supersedes decision 3.
+15. **Observer location is a free axis; air-to-ground is supported now.** `h_sensor` is not restricted to `space`. Air-to-ground (airborne sensor, down-looking) is ratified as supported today (GF-6). Ground-based and up-looking observers are ratified for delivery; the enforcing code restriction (`h_sensor > h_target`, $\theta_o \in [0, \pi/2)$) was **lifted by plan Phase 1 on 2026-07-26** — the geometry core is direction-general and the remaining gate is the Phase-2 atmosphere. Supersedes decision 3.
 
 16. **Scenes are composed, not enumerated.** A scene = observer leg × illumination leg × LOS-termination background, with the target model selected by regime and material. Adding the observer axis by enumeration would roughly triple an already 60-row matrix and pull the code toward per-cell match arms; the composition rules (§3.2) are normative and the matrix carries exactly one worked example per scene class (§3.4). This is the plan's highest-leverage anti-spaghetti decision, companion to guardrails G1–G4 (plan §3.5).
 
@@ -178,8 +178,8 @@ with the target model chosen by Rule T and its parameterization by Rule S. The i
 
 Two derived selectors (both classifications of existing numbers, neither a new user switch):
 
-- **Scene class** $= (C_{obs}, C_{tgt})$, each $\in$ {ground ($h \lesssim 1$ km), air (1–100 km), space ($h > h_{atm,top}$)}. Derived per §1.4; **not implemented today**.
-- **LOS direction** — down ($\theta_o < \pi/2$, sensor above the target's horizon plane), horizontal ($\theta_o \approx \pi/2$), up ($\theta_o > \pi/2$). Today only the down branch is reachable; the other two raise (§7).
+- **Scene class** $= (C_{obs}, C_{tgt})$, each $\in$ {ground ($h \lesssim 1$ km), air (1–100 km), space ($h > h_{atm,top}$)}. Derived per §1.4; **not implemented today** (Phase 3). The coarser *LOS direction* it builds on — `down` / `up` / `level` — **is** published since Phase 1 as `stage_outputs["geometry"]["los_direction"]`.
+- **LOS direction** — down ($\theta_o < \pi/2$, sensor above the target's horizon plane), level ($h_{sensor} = h_{target}$), up ($\theta_o > \pi/2$). All three are reachable in the geometry layer since Phase 1 and published as `los_direction`; the level and up branches are refused by the *atmosphere* until Phase 2 unless the whole path is vacuum (§7).
 
 #### 3.2.1 Rule T — target model from regime and material
 
@@ -212,14 +212,14 @@ Read the altitude pair and the declared target location; emit the A-code for the
 |---|---|---|
 | `at_aperture` — propagation declared away | A0 | Supported today |
 | `no_atmosphere (ground_test / lab_test)` — path short enough that τ ≈ 1 | A0 | Supported today |
-| Both endpoints above `h_atm_top`, LOS does not re-enter the atmosphere | A0 | Down-looking supported today; up-looking (LEO→GEO) blocked **only** by the geometry gate — plan Phase 1 quick win |
+| Both endpoints above `h_atm_top`, LOS does not re-enter the atmosphere | A0 | Supported today in **both** directions: the up-looking (LEO→GEO) arm shipped with plan Phase 1 (2026-07-26). An up-looking A0 path also zeroes the full-column terms — the LOS terminates on deep space, not on the ground |
 | Sensor above a surface target, solar down-leg present | A2 | Supported today (up-leg ends at `h_sensor`, not necessarily `h_atm_top`) |
 | Sensor above a surface target, no solar down-leg (LWIR / night) | A4 | Supported today |
 | Sensor above an in-atmosphere target at altitude | A3 | Supported today; degrades smoothly to A0 as `h_tgt → h_atm_top` |
-| **Sensor below the target** — column `h_sensor → h_tgt`, zenith at `h_sensor` | **A1** | Ratified; **raises today** (`h_sensor ≤ h_target`) — plan Phase 2 |
-| **Equal / near-equal altitudes** — constant-altitude arm | **A5** | Ratified; **raises today** — plan Phase 2 |
+| **Sensor below the target** — column `h_sensor → h_tgt`, zenith at `h_sensor` | **A1** | **Geometry resolves (Phase 1)**; the column product is Phase 2, so `AtmosphereStage` raises with a pending-capability error unless the lower endpoint is above `h_atm_top` |
+| **Equal / near-equal altitudes** — constant-altitude arm | **A5** | **Geometry resolves (Phase 1)**, judged by the tangent-topology horizon guard; the constant-altitude column product is Phase 2, so `AtmosphereStage` raises with the same pending-capability error |
 
-Implementation note (current behavior, GF-3): `LineOfSightGeometry` does not carry `h_sensor`; `slant_range_atm` and `path_airmass_up` integrate target → top-of-atmosphere, and backends side-load `geometry.sensor_altitude_m` from params. Phase 1 puts `h_sensor` on the contract and deletes every side-load in the same PR (guardrail G2).
+Implementation note (current behavior since Phase 1, GF-3 / guardrail G2): `LineOfSightGeometry` **carries** `h_sensor`, and it is the single source of truth for the sensor endpoint inside `radiant.atmosphere` — no backend `evaluate` reads `geometry.sensor_altitude_m` from params (`atmosphere/_sensor_endpoint.py` raises rather than falling back). `slant_range_atm` and `path_airmass_up` remain **down-looking-topology** quantities — they measure the column *above* the target — and refuse an up-looking θ_o rather than returning the wrong column; the exo carve-out (`h_tgt ≥ h_atm_top`) short-circuits to the exact vacuum limits before that guard.
 
 #### 3.2.4 Rule I — illumination leg
 
@@ -266,7 +266,7 @@ Applied after composition, before any physics runs (Rule 16). The full list of s
 6. `T_g ∉ [150, 350]` K warns at the boundary and raises far outside.
 7. Over-specification of ε and ρ (target or ground) raises.
 8. `no_atmosphere` without `no_atmosphere_subcase` raises.
-9. **Geometry gate (current behavior)**: `h_sensor ≤ h_target` raises, and $\theta_o \notin [0, \pi/2)$ raises. ADR-0011 replaces both with the extended domain plus the horizon guard band (decision 18); until Phase 1 lands they are unconditional.
+9. **Geometry gate (current behavior, since plan Phase 1)**: any altitude ordering and any $\theta_o \in [0, \pi]$ are accepted. What raises is (a) an altitude pair that contradicts $\theta_o$ under the hemisphere invariant, and (b) a path the tangent-topology horizon guard rejects (decision 18 as refined by plan §8.3). The *atmospheric* gate is separate: an up-looking or level path whose lower endpoint is inside the modelled column raises at `AtmosphereStage` pending Phase 2.
 
 ### 3.3 `no_atmosphere` sub-cases (presets)
 
@@ -295,17 +295,17 @@ Exactly one example per cell of the plan §2 taxonomy (observer × target ∈ {g
 
 | # | Scene class (obs → tgt) | Example scenario | Regime / scene type | Target model | Atmosphere (observer leg) | Background | Illumination | Status |
 |---|---|---|---|---|---|---|---|---|
-| E1 | ground → ground | Two 30 m towers 8 km apart, level LOS (θ_o ≈ 90.04°; both endpoints inside each other's geometric horizon) | LWIR / point_source | Thermal graybody (**T1**) | Horizontal constant-altitude arm (**A5**) | Terrain beyond the target (**B3**, explicit ε_g, T_g) | None (**I0**) | **Ratified, not implemented** — Phases 1 + 2. Today equal altitudes hit the degenerate collocated carve-out (no viewing triangle, GF-1). Note the unresolved interaction with the ±0.5° hard guard of decision 18 — open question 10 |
-| E2 | ground → air | Ground site tracking an aircraft at 10 km altitude, ~30 km slant range (θ_o ≈ 110°) | MWIR / point_source | **T3 mandatory** (T1 permitted if ρ ≈ 0, e.g. plume-dominated) | Up-path only, 0 → 10 km (**A1**) | Sky along the LOS (**B2**, MWIR — first-delivery band) | Solar direct + thermal downwelling (**I2**) | **Ratified, not implemented** — Phases 1 + 2. Owner priority 1 |
-| E3 | ground → space | Ground SST site observing a satellite above `h_atm_top` | VIS / point_source | Lambertian reflective (**T2**) | Up-path full column, 0 → `h_atm_top` (**A1**); vacuum above | Sky along the LOS (**B2**, VIS — provisional, carries a `UserWarning` per decision 20) | Solar direct at TOA, unattenuated (**I1**) | **Ratified, not implemented** — Phases 1 + 2; credible spatial performance also needs the Gap 110 turbulence upgrade (Phase 3). Owner priority 4 |
-| E4 | air → ground | Airborne sensor at 10 km imaging a surface target | MWIR / sub_pixel | **T3 mandatory** | Full two-way; up-leg terminates at `h_sensor` = 10 km, not `h_atm_top` (**A2**, with the **A4** thermal arm) | Ground (**B3**, explicit ε_g, T_g) | Solar direct + thermal downwelling (**I2**) | **Supported today** — ratified 2026-07-26 (decision 15, GF-6). Caveat: `h_sensor` reaches the backend by side-load, not the LOS contract (GF-3); Phase 1/G2 fixes the plumbing without changing results |
-| E5 | air → air | Two aircraft at 10 km, 150 km apart, level LOS (θ_o ≈ 90.7°) | MWIR / point_source | **T3** (T1 if ρ ≈ 0) | Horizontal constant-altitude arm (**A5**) | Sky along the LOS (**B2**), inside the near-horizontal shoulder → computes with the refraction-caveat `UserWarning` (decision 18) | Solar direct at altitude (**I1**) | **Ratified, not implemented** — Phases 1 + 2. The *down-looking* sub-case (higher aircraft, lower aircraft) is already expressible via **A3** today; the level and up-looking arms are not. Owner priority 2 |
-| E6 | air → space | Sensor at 12 km viewing a boosting target at 120 km | SWIR / point_source | **T2 escalated to T3** (hot-target rule, `T_t` ≳ 700 K) | Up-path partial column, 12 km → `h_atm_top` (**A1**) | Sky along the LOS with a cold-space terminus (**B2**) | Solar direct at TOA, unattenuated (**I1**) | **Ratified, not implemented** — Phases 1 + 2 |
+| E1 | ground → ground | Two 30 m towers 8 km apart, level LOS (θ_o ≈ 90.04°; both endpoints inside each other's geometric horizon) | LWIR / point_source | Thermal graybody (**T1**) | Horizontal constant-altitude arm (**A5**) | Terrain beyond the target (**B3**, explicit ε_g, T_g) | None (**I0**) | **Geometry supported (Phase 1); radiometry Phase 2.** Equal altitudes now resolve to a real horizontal triangle — the degenerate collocated carve-out is retired (guardrail G4, GF-1) — and the tangent-topology guard passes this arm clean (Δh ≈ 1.3 m), which is how open question 10 was resolved. The A5 atmosphere product is Phase 2 |
+| E2 | ground → air | Ground site tracking an aircraft at 10 km altitude, ~30 km slant range (θ_o ≈ 110°) | MWIR / point_source | **T3 mandatory** (T1 permitted if ρ ≈ 0, e.g. plume-dominated) | Up-path only, 0 → 10 km (**A1**) | Sky along the LOS (**B2**, MWIR — first-delivery band) | Solar direct + thermal downwelling (**I2**) | **Geometry supported (Phase 1); radiometry Phase 2.** The up-looking scene resolves through `GeometryStage` and is refused at `AtmosphereStage` naming Gaps 108/109. Owner priority 1 |
+| E3 | ground → space | Ground SST site observing a satellite above `h_atm_top` | VIS / point_source | Lambertian reflective (**T2**) | Up-path full column, 0 → `h_atm_top` (**A1**); vacuum above | Sky along the LOS (**B2**, VIS — provisional, carries a `UserWarning` per decision 20) | Solar direct at TOA, unattenuated (**I1**) | **Geometry supported (Phase 1); radiometry Phase 2**; credible spatial performance also needs the Gap 110 turbulence upgrade (Phase 3). Owner priority 4 |
+| E4 | air → ground | Airborne sensor at 10 km imaging a surface target | MWIR / sub_pixel | **T3 mandatory** | Full two-way; up-leg terminates at `h_sensor` = 10 km, not `h_atm_top` (**A2**, with the **A4** thermal arm) | Ground (**B3**, explicit ε_g, T_g) | Solar direct + thermal downwelling (**I2**) | **Supported today** — ratified 2026-07-26 (decision 15, GF-6). The GF-3 caveat is closed: since Phase 1 `h_sensor` reaches the backend on the LOS contract, not by parameter side-load (guardrail G2), with results unchanged |
+| E5 | air → air | Two aircraft at 10 km, 150 km apart, level LOS (θ_o ≈ 90.7°) | MWIR / point_source | **T3** (T1 if ρ ≈ 0) | Horizontal constant-altitude arm (**A5**) | Sky along the LOS (**B2**), inside the near-horizontal shoulder → computes with the refraction-caveat `UserWarning` (decision 18) | Solar direct at altitude (**I1**) | **Geometry supported (Phase 1); radiometry Phase 2.** The *down-looking* sub-case is expressible via **A3** today; the level arm now resolves geometrically (and warns — Δh ≈ 784 m at 200 km) but its A5 atmosphere product is Phase 2. Owner priority 2 |
+| E6 | air → space | Sensor at 12 km viewing a boosting target at 120 km | SWIR / point_source | **T2 escalated to T3** (hot-target rule, `T_t` ≳ 700 K) | Up-path partial column, 12 km → `h_atm_top` (**A1**) | Sky along the LOS with a cold-space terminus (**B2**) | Solar direct at TOA, unattenuated (**I1**) | **Geometry supported (Phase 1); radiometry Phase 2** |
 | E7 | space → ground | Spaceborne imager, extended terrestrial scene | LWIR / extended | Thermal graybody (**T1**) | Emission-only two-way (**A4**) | **None populated** — extended target fills the pixel (locked decision 13) | None (**I0**) | **Supported today** — the v1 baseline |
 | E8 | space → air | Spaceborne sensor, airborne target at 20 km | MWIR / point_source | **T3** | Partial two-way (**A3**) | Ground past the target (**B3**) | Solar direct + thermal downwelling (**I2**) | **Supported today** |
-| E9 | space → space | LEO sensor viewing a lower space target (down); LEO → GEO (up) | VIS / point_source | Lambertian reflective (**T2**) | None (**A0**) | Cold space (**B1**); raises if the LOS intercepts Earth | Solar direct at TOA (**I1**) | **Down-looking supported today.** Up-looking is blocked by the geometry gate alone — the exo backends already handle it, making LEO → GEO the Phase 1 quick win. Owner priority 3 |
+| E9 | space → space | LEO sensor viewing a lower space target (down); LEO → GEO (up) | VIS / point_source | Lambertian reflective (**T2**) | None (**A0**) | Cold space (**B1**); raises if the LOS intercepts Earth | Solar direct at TOA (**I1**) | **Supported today, both arms.** The up-looking arm was blocked by the geometry gate alone; Phase 1 removed it and LEO → GEO now runs end-to-end (vertical, θ_o = π exactly, and slant). Pinned by `tests/integration/test_uplooking_phase1.py`. Owner priority 3 |
 
-Reading the table: every "not implemented" row raises today at `core/viewing_triangle.py` (altitude ordering) or at one of the three $\theta_o$ validators, before any atmosphere code is consulted. No row describes behavior that is silently wrong — the restriction is loud (§7).
+Reading the table since Phase 1 (2026-07-26): "geometry accepted, radiometry Phase 2" rows resolve through `GeometryStage` — the altitude ordering and the extended $\theta_o$ domain are no longer gates — and then raise at `AtmosphereStage` with an error naming the pending direction-aware atmosphere (Gaps 108/109). Near-horizontal paths are additionally judged by the horizon guard (§7, `RADIANT_Geometry.md` §4.1). No row describes behavior that is silently wrong — every restriction is loud (§7).
 
 ### 3.5 Semantic-preservation ledger
 
@@ -414,28 +414,36 @@ Lives in `src/radiant/core/los_geometry.py` (per Rule 19).
 ```
 @dataclass(frozen=True)
 class LineOfSightGeometry:
-    h_tgt: float              # m, target altitude above MSL
-    h_atm_top: float = 1e5    # m, top of atmospheric integration (Kármán line)
-    theta_o: float            # rad, observer zenith at target
-    theta_s: float | None     # rad, solar zenith at target
-    delta_phi: float | None   # rad, relative azimuth φ_s − φ_o ∈ [−π, π]
+    h_tgt: float                  # m, target altitude above MSL
+    h_sensor: float | None = None # m, sensor altitude above MSL (ADR-0011);
+                                  #    None only for a pre-ADR-0011 payload
+    h_atm_top: float = 1e5        # m, top of atmospheric integration (Kármán line)
+    theta_o: float                # rad, observer zenith at target, domain [0, π]
+    theta_s: float | None         # rad, solar zenith at target
+    delta_phi: float | None       # rad, relative azimuth φ_s − φ_o ∈ [−π, π]
 
     @property
     def slant_range_atm(self) -> float: ...      # m, LOS from h_tgt to h_atm_top, spherical Earth
     @property
     def path_airmass_up(self) -> float: ...      # dimensionless, airmass factor for up-leg
+    @property
+    def los_direction(self) -> str: ...          # "down" | "up" | "level", derived
+    @property
+    def is_uplooking(self) -> bool: ...
 ```
 
 **Input-boundary converter** (also in this file): `theta_o_from_eta(eta, h_sensor, h_tgt)` using corrected sine rule `sin(θ_o) = (R_E + h_sensor)/(R_E + h_tgt) · sin(η)` — Rule 2 compliance (conversion once at boundary).
 
-**Validation (current behavior)**:
-- `h_tgt ∈ [0, h_atm_top]`
+**Validation (current behavior — direction-general since Geometry-Flexibility Phase 1, 2026-07-26)**:
+- `h_tgt ≥ 0`; `h_tgt ≥ h_atm_top` is legal (Gap 95 exo-altitude target)
+- `h_sensor ≥ 0` when carried; `GeometryStage` always populates it. It is the **single source of truth** for the sensor altitude inside `radiant.atmosphere` (guardrail G2 — no backend reads `geometry.sensor_altitude_m`)
 - `h_atm_top = 1e5 m` fixed
-- `θ_o ∈ [0, π/2)`; **raises** outside — enforced here, in `viewing_triangle._validate_theta_o`, and (at 89.5°) in `AtmosphericGeometry`
+- `θ_o ∈ [0, π]` — the **closed** interval, π attained exactly by the vertical up-looking case. (ADR-0011 writes `[0, π)`; flagged notation slip pending owner confirmation, noted at the domain validator.) `AtmosphericGeometry`'s separate 89.5° ceiling still applies inside the simple-model backend
+- **Altitude/hemisphere invariant**: `h_sensor > h_tgt ⟺ θ_o < π/2`, `h_sensor ≤ h_tgt ⟺ θ_o > π/2` (equal altitudes ⇒ `θ_o = π/2 + φ/2`). A violating combination raises, naming both altitudes and the implied hemisphere
+- **Horizon guard** applied here, keyed on tangent-point topology — angular bands (0.5° raise / 2° warn) at the lower endpoint for endpoint-minimum paths, tangent-height depression (100 m clean / 2 km raise) for interior-tangent ones. Full table: `RADIANT_Geometry.md` §4.1. Without `h_sensor` only the conservative angular band can be applied, which is why level and near-level geometry must carry the sensor endpoint
 - `θ_s ∈ [0, π]` accepted by this object if provided; the schema bound (1.5707 rad) and `AtmosphericGeometry` reject θ_s ≥ π/2 upstream, so a sub-horizon sun cannot reach here
 - `Δφ ∈ [−π, π]` if provided
-
-**Ratified changes, not yet implemented** (ADR-0011; plan Phase 1): `h_sensor` joins the contract (GF-3) and the object exposes a signed LOS direction; the θ_o domain extends to $[0, \pi)$ with the horizon guard band of decision 18; serialization round-trip extends back-compatibly. Every field and validator above is unchanged until that PR lands.
+- **Serialization**: `h_sensor` is emitted only when carried, so a legacy payload serializes to exactly the pre-ADR-0011 byte sequence; `from_dict` maps both an absent key and an explicit `null` to `None`
 
 ### 4.4 SensorDescriptor — SUPERSEDED by ADR-0006 (2026-07-12)
 
@@ -525,7 +533,7 @@ The schema validator rejects combinations where the physics is ill-defined. Non-
 | Combination | Reason | Resolution | Status |
 |---|---|---|---|
 | `at_aperture` + `sub_pixel` or `point_source` | At-aperture is extended-only per decision 2 | Raise `ParameterBoundsError` | Permanent |
-| `no_atmosphere (space)` + LOS intercepts Earth | No earthlimb model (B4 declined for v1.x) | Raise | Permanent for v1.x |
+| `no_atmosphere (space)` + LOS intercepts Earth | No earthlimb model (B4 declined for v1.x) | Raise | Permanent for v1.x. Since Phase 1 the horizon guard usually fires first on a LOS that carries `h_sensor` — an Earth-intercepting chord is a limb-like transit by definition — so the refusal is the same, from the more informative validator. `intercepts_earth` also no longer answers "True" for an altitude/zenith pair that admits no triangle at all; that is an input error naming the contradiction |
 | `no_atmosphere (ground_test / lab_test)` without `UserSpectralBackground` | No sensible default for test-range / chamber radiance | Raise | Permanent |
 | `target_location == "no_atmosphere"` without `no_atmosphere_subcase` | Ambiguous sub-case | Raise | Permanent |
 | `terrestrial`/`airborne` without `GroundBackground` | No sensible default for (ε, T_g) | Raise | Permanent |
@@ -533,11 +541,13 @@ The schema validator rejects combinations where the physics is ill-defined. Non-
 | MWIR scene with T1 or T2 alone (not T3) | MWIR requires the mixed model for ambient targets | Warn or raise on the ambient check; never forced when ρ ≈ 0 | Permanent |
 | Point-source target with resolved angular size | `√A_t/d > 0.1 · PSF_FWHM` | Raise | Permanent |
 | `T_g ∉ [150, 350] K` | Physically implausible Earth surface | Warn at the boundaries; raise far outside | Permanent |
-| **`h_sensor ≤ h_target`** | `core/viewing_triangle.py::_validate_altitudes` — "v1 has no uplooking geometry" (owner ruling 2026-07-11) | Raise `ParameterBoundsError` | **Current restriction.** Superseded by [ADR-0011](../adr/0011-generalized-viewing-geometry.md); **lifted when plan Phase 1 lands**, replaced by symmetric solutions for any altitude ordering plus the equal-altitude case |
-| **`θ_o ∉ [0, π/2)`** | Target beyond the sensor's horizon plane; enforced in `viewing_triangle._validate_theta_o`, `LineOfSightGeometry.__post_init__`, and `AtmosphericGeometry` (89.5° ceiling) | Raise | **Current restriction.** Superseded by ADR-0011 (domain extends to $[0,\pi)$); **lifted in plan Phase 1** |
-| **LOS within ±0.5° of the geometric horizon** | No refraction model; the answer would be quietly wrong (Rule 17) | Raise | **Ratified, not implemented** — the guard arrives with the extended domain (decision 18, Phase 1) |
-| **LOS in the ±0.5°–≈±2° near-horizontal shoulder** | Refraction excluded but the path is still usable (long-range air-to-air) | Compute + `UserWarning` quantifying the caveat | **Ratified, not implemented** — decision 18, Phase 1 |
-| **Limb-crossing LOS termination** | No limb radiance model (B4 declined, GF-11) | Raise | **Ratified, not implemented** — the termination test arrives with B2 in Phase 2 |
+| ~~`h_sensor ≤ h_target`~~ | Was `core/viewing_triangle.py::_validate_altitudes` — "v1 has no uplooking geometry" (owner ruling 2026-07-11) | — | **LIFTED (plan Phase 1, 2026-07-26).** Superseded by [ADR-0011](../adr/0011-generalized-viewing-geometry.md) and replaced by symmetric solutions for any altitude ordering plus the equal-altitude (level) case. Any ordering is now accepted; what *is* enforced is the altitude/hemisphere invariant (next row) |
+| ~~`θ_o ∉ [0, π/2)`~~ | Was: target beyond the sensor's horizon plane | — | **LIFTED (plan Phase 1, 2026-07-26).** The domain is the **closed** interval `[0, π]`; `π` is the vertical up-looking case. `AtmosphereGeometry`'s 89.5° ceiling survives only inside the simple-model backend, which Phase 2 revisits |
+| `h_sensor`/`h_target` ordering contradicts `θ_o` | Altitude/hemisphere invariant: `h_sensor > h_tgt ⟺ θ_o < π/2`. A violating triple is not a viewing geometry at all | Raise `ParameterBoundsError` naming both altitudes and the implied hemisphere | **Implemented (Phase 1)** — `viewing_triangle._validate_hemisphere`, reached from `LineOfSightGeometry.__post_init__` |
+| **LOS within ±0.5° of the geometric horizon** (endpoint-minimum topology), **or interior tangent > 2 km below its endpoints** | No refraction model; the answer would be quietly wrong (Rule 17). The interior-tangent case is a limb-like transit (B4 declined) | Raise | **Implemented (Phase 1)** — `viewing_triangle.check_horizon_guard`; thresholds are named constants, provisional pending Phase 2 MODTRAN calibration. Table: `RADIANT_Geometry.md` §4.1 |
+| **LOS in the ±0.5°–≈±2° near-horizontal shoulder**, or interior tangent 100 m – 2 km below its endpoints | Refraction excluded but the path is still usable (long-range air-to-air) | Compute + `UserWarning` quantifying the band or the tangent depression | **Implemented (Phase 1).** Consequence worth noting: a *down-looking* θ_o in ≈(88°, 90°) now warns where it was previously silent; no shipped scenario or golden baseline is in that band |
+| **Up-looking or level path whose lower endpoint is inside the modelled column** | Geometry is legal (ADR-0011); the direction-aware atmosphere is Phase 2 (Gaps 108/109), so every backend would integrate the wrong column | Raise at `AtmosphereStage`, before backend dispatch, naming the pending capability | **Implemented (Phase 1)** — `atmosphere/_uplooking_guard.py`. Lifted by Phase 2 |
+| **Limb-crossing LOS *termination*** (the continuation past the target) | No limb radiance model (B4 declined, GF-11) | Raise | **Ratified, not implemented** — the termination test arrives with B2 in Phase 2, reusing the Phase-1 interior-tangent machinery (open question 8) |
 | `θ_s ≥ π/2` (sun at or below the horizon) | Currently rejected outright: `geometry.solar_zenith_rad` is bounded at 1.5707 rad and `AtmosphericGeometry.__post_init__` raises. Night scenes use `geometry.solar_illumination = "night"` (S0), not a sub-horizon sun | Raise (schema bound / `AtmosphereValidationError`) | **Current restriction.** Superseded by decision 21 (per-altitude shadow-height test, Phase 2). *This row previously read "Warn (physical, not error)", which never matched the code; corrected here per Rule 20* |
 
 ---
@@ -572,14 +582,14 @@ Known-unresolved, expected to come up during implementation or subsequent design
 
 ### 9.1 Ratified for delivery on 2026-07-26 (no longer deferred)
 
-Moved out of the v2-deferral list by [ADR-0011](../adr/0011-generalized-viewing-geometry.md) and the Geometry Flexibility plan. **None of these is implemented yet** except where noted; each carries its plan phase.
+Moved out of the v2-deferral list by [ADR-0011](../adr/0011-generalized-viewing-geometry.md) and the Geometry Flexibility plan. Each carries its plan phase; the Phase 1 geometry core landed 2026-07-26, so the status column below distinguishes "geometry shipped" from "radiometry still Phase 2".
 
 | Item | Codes | Phase |
 |---|---|---|
 | Airborne sensor, down-looking (air-to-ground) | A2/A3 | **Supported today** — ratified, GF-6 (decision 15) |
-| Ground-based sensor; up-looking observer legs | A1 | Phases 1–2 |
-| Equal-altitude / horizontal paths | A5 | Phases 1–2 |
-| Up-looking space-to-space (LEO → GEO) | A0 | Phase 1 (quick win — geometry gate only) |
+| Ground-based sensor; up-looking observer legs | A1 | **Geometry shipped (Phase 1, 2026-07-26)**; atmosphere Phase 2 |
+| Equal-altitude / horizontal paths | A5 | **Geometry shipped (Phase 1, 2026-07-26)**; atmosphere Phase 2 |
+| Up-looking space-to-space (LEO → GEO) | A0 | **SHIPPED — Phase 1, 2026-07-26** (the gate was geometry only) |
 | Sky-path background for upward-looking sensors | B2 (`SkyBackground`) | Phase 2, band-gated (decision 20) |
 | Per-altitude (shadow-height) solar illumination | I0/I1/I2 selection | Phase 2 (decision 21) |
 | Direction-aware turbulence ($C_n^2$ profile, path-weighted $r_0$) | — | Phase 3 (Gap 110) |

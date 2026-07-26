@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -155,14 +156,30 @@ class TestValidationSurface:
             ps.resolve()
 
     def test_horizontal_view_rejected(self) -> None:
-        with pytest.raises(Exception, match="bounds|π/2|horizon"):
-            make_params(geometry__path_zenith_rad=math.pi / 2.0)
+        """θ_o = π/2 with the sensor ABOVE the target is the grazing case.
+
+        Since ADR-0011 the schema domain is the closed [0, π], so π/2 is no
+        longer a bounds violation — it is rejected one layer in, by the
+        altitude/hemisphere invariant (a sensor strictly above the target
+        cannot sit on the target's horizon plane) and, failing that, by the
+        hard horizon guard.  Both name "horizon".
+        """
+        ps = make_params(geometry__path_zenith_rad=math.pi / 2.0)
+        with pytest.raises(Exception, match="horizon"):
+            run_stage(ps)
 
 
-class TestCollocatedDegenerate:
-    """Lab-bench case: h_sensor == h_target — no viewing triangle (Phase 3)."""
+class TestLevelPath:
+    """Equal altitudes (ADR-0011 / guardrail G4).
 
-    def test_bench_at_zero_altitude_runs(self) -> None:
+    The old "collocated — no viewing triangle" carve-out is retired: an
+    equal-altitude scene with ANY separation resolves the full horizontal
+    triangle through the central-angle form; only coincident endpoints
+    (no separation at all) have no path.
+    """
+
+    def test_coincident_endpoints_have_no_path(self) -> None:
+        """Zero separation is the φ → 0 limit, not a special case."""
         ps = ParameterSet(list(ALL_PARAMETERS))
         ps.set("geometry.sensor_altitude_m", 0.0)
         ps.resolve()
@@ -171,15 +188,117 @@ class TestCollocatedDegenerate:
         assert out["ground_range_m"] is None
         assert out["eta_rad"] is None
         assert out["incidence_angle_rad"] is None
-        assert "collocated" in out["viewing_mode"]
+        assert out["theta_o_rad"] == pytest.approx(math.pi / 2.0, abs=1e-15)
+        assert out["los_direction"] == "level"
+        assert "coincident endpoints" in out["viewing_mode"]
 
-    def test_uplooking_still_raises(self) -> None:
+    def test_lab_bench_range_builds_the_horizontal_triangle(self) -> None:
+        """A 5 m bench at 0 m: θ_o ≈ π/2, slant = the entered chord, guard clean."""
         ps = ParameterSet(list(ALL_PARAMETERS))
-        ps.set("geometry.sensor_altitude_m", 1000.0)
-        ps.set("geometry.target_altitude_m", 90_000.0)
+        ps.set("geometry.sensor_altitude_m", 0.0)
+        ps.set("geometry.target_range_m", 5.0)
         ps.resolve()
-        with pytest.raises(Exception, match="not above"):
-            run_stage(ps)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)  # guard must be silent
+            out = run_stage(ps).stage_outputs["geometry"]
+        assert out["theta_o_rad"] > math.pi / 2.0  # the chord sags below horizontal
+        assert out["theta_o_rad"] == pytest.approx(math.pi / 2.0, abs=1e-6)
+        assert out["slant_range_m"] == pytest.approx(5.0, rel=1e-9)
+        assert out["ground_range_m"] == pytest.approx(5.0, rel=1e-6)
+        assert out["los_direction"] == "level"
+        assert "level path" in out["viewing_mode"]
+
+    def test_tower_pair_ground_range_is_clean(self) -> None:
+        """Matrix cell E1: two 30 m towers 8 km apart — Δh ≈ 1.3 m, clean."""
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", 30.0)
+        ps.set("geometry.target_altitude_m", 30.0)
+        ps.set("geometry.ground_range_m", 8_000.0)
+        ps.resolve()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            out = run_stage(ps).stage_outputs["geometry"]
+        assert math.degrees(out["theta_o_rad"]) == pytest.approx(90.036, abs=1e-3)
+        assert out["slant_range_m"] == pytest.approx(8_000.0, rel=1e-4)
+        assert out["los_direction"] == "level"
+
+
+class TestUpLooking:
+    """ADR-0011: the sensor may sit below the target (Gap 107)."""
+
+    def test_leo_to_geo_default_is_target_at_zenith(self) -> None:
+        """Phase 1 quick win — the LEO→GEO scene resolves with no angle entry."""
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", 500_000.0)
+        ps.set("geometry.target_altitude_m", 35_786_000.0)
+        ps.resolve()
+        out = run_stage(ps).stage_outputs["geometry"]
+        assert out["theta_o_rad"] == pytest.approx(math.pi, abs=1e-12)
+        assert out["slant_range_m"] == pytest.approx(35_286_000.0, rel=1e-12)
+        assert out["ground_range_m"] == pytest.approx(0.0, abs=1e-12)
+        assert out["los_direction"] == "up"
+        assert out["los_geometry"].is_uplooking
+
+    def test_slant_theta_o_is_obtuse(self) -> None:
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", 0.0)
+        ps.set("geometry.target_altitude_m", 10_000.0)
+        ps.set("geometry.path_zenith_rad", 0.5)  # ζ at the ground sensor
+        ps.resolve()
+        out = run_stage(ps).stage_outputs["geometry"]
+        assert out["theta_o_rad"] > math.pi / 2.0
+        assert out["los_direction"] == "up"
+        assert out["incidence_angle_rad"] == pytest.approx(out["theta_o_rad"], rel=1e-12)
+
+
+class TestHorizonGuardAtTheStage:
+    """Plan §8.3 addendum — the guard now judges every scene the stage builds."""
+
+    def _level(self, h_m: float, arc_m: float) -> ParameterSet:
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", h_m)
+        ps.set("geometry.target_altitude_m", h_m)
+        ps.set("geometry.ground_range_m", arc_m)
+        ps.resolve()
+        return ps
+
+    def test_long_level_arm_warns(self) -> None:
+        """200 km at 5 km altitude: Δh ≈ 780 m — inside the warn shoulder."""
+        with pytest.warns(UserWarning, match="near-horizontal"):
+            out = run_stage(self._level(5_000.0, 200_000.0)).stage_outputs["geometry"]
+        assert out["los_direction"] == "level"
+
+    def test_deep_level_transit_raises(self) -> None:
+        """500 km at 5 km altitude: Δh ≈ 4.9 km — a limb-like transit."""
+        with pytest.raises(Exception, match="tangent"):
+            run_stage(self._level(5_000.0, 500_000.0))
+
+    def test_near_horizon_down_looking_now_warns(self) -> None:
+        """Documented consequence of the guard: θ_o in (88°, 90°) was silent
+        before ADR-0011 (the schema stopped at 89.5°) and now warns."""
+        with pytest.warns(UserWarning, match="near-horizontal"):
+            run_stage(make_params(geometry__path_zenith_rad=math.radians(89.0)))
+
+    def test_normal_off_nadir_stays_silent(self) -> None:
+        """Every shipped scenario lives here (≤ ~75°): no new warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            run_stage(make_params(geometry__path_zenith_rad=math.radians(75.0)))
+
+
+class TestSensorEndpointCarried:
+    """GF-3: h_sensor is on the contract object for every scene."""
+
+    def test_los_carries_h_sensor(self) -> None:
+        out = run_stage(make_params(geometry__path_zenith_rad=0.4)).stage_outputs["geometry"]
+        los = out["los_geometry"]
+        assert los.h_sensor == pytest.approx(H, rel=1e-12)
+        assert los.los_direction == "down"
+        assert out["los_direction"] == "down"
+
+    def test_los_round_trip_keeps_h_sensor(self) -> None:
+        los = run_stage(make_params()).stage_outputs["geometry"]["los_geometry"]
+        assert LineOfSightGeometry.from_dict(los.to_dict()) == los
 
 
 class TestRangeConsistency:

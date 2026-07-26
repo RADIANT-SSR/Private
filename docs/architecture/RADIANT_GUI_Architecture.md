@@ -244,8 +244,8 @@ performs exactly one `evaluate_all()` call (one GUI action ↔ one API call); th
 thread-isolation mechanism, not a second API surface. The status bar shows an
 indeterminate busy indicator while the worker runs, and only one evaluation runs at a
 time — an edit that arrives mid-run is coalesced and re-issued when the in-flight run
-finishes. The whole pass is retained on the window (`last_run`) for the
-per-configuration Performance columns (Phase 4d) and to render a selector switch from
+finishes. The whole pass is retained on the window (`last_run`): it is the sole source of the
+per-configuration Performance columns (§4.2e) and it renders a selector switch from
 cache.
 
 Per-point `progress(done, total)` / `cancel()` callbacks **do** exist on
@@ -405,11 +405,10 @@ the configuration manager (§4.2d) — the same dialog `Edit → Configurations�
 selector itself is still display-only: it chooses which configuration is shown, and the
 manager is the one place membership changes.
 
-**Not yet built (upcoming sub-phases, not shipped):** per-configuration Performance
-columns (**4d**); the study YAML view, the console `configs` object, and study-aware
-recent handling (**4e**). The YAML editor and the console Refresh are still
-single-configuration surfaces and say so rather than silently collapsing a study to one
-configuration.
+**Not yet built (upcoming sub-phase, not shipped):** the study YAML view, the console
+`configs` object, and study-aware recent handling (**4e**). The YAML editor and the
+console Refresh are still single-configuration surfaces and say so rather than silently
+collapsing a study to one configuration.
 
 ### 4.2c Configured Parameters — badge, table editor, scoped undo (Phase 4b SHIPPED 2026-07-25)
 
@@ -480,9 +479,11 @@ The dialog that answers the owner's first study requirement — *"the user can d
 number of configurations and then name them"* (plan §4 item 1). It is reached from
 **`Edit → Configurations…`** and from the **gear** at the right end of the selector band
 (§4.2b); both trigger the one `edit.configurations` action. It lives in Edit rather than
-Tools because it edits the *document's* shape; Tools' similarly-named
-*Compare Configurations…* compares this config against other **files** and is unrelated
-— a live collision with the ADR-0010 D-10 vocabulary, filed as CU-214 for relabelling.
+Tools because it edits the *document's* shape; Tools' neighbouring
+*Compare Config Files…* compares this config against other config **files on disk** and
+is unrelated. That item read *Compare Configurations…* until Phase 4d relabelled it
+(CU-214): under the ADR-0010 D-10 convention a bare "configuration" is a member of a
+configuration set, and the surface that compares *those* is §4.2e's Performance columns.
 
 It is `ConfigurationManagerDialog` (`widgets/configuration_manager_dialog.py`).
 
@@ -535,6 +536,61 @@ configured or any shared value: the manager never changes those, so they stay wi
 reveals the selector band on the way out, marks the document dirty, and makes
 `File → Save` write the `configurations:` section (the routing 4a already put in
 `_write_document`). Undoing it collapses the session back to a hidden selector.
+
+### 4.2e Per-Configuration Performance Columns (Phase 4d SHIPPED 2026-07-25)
+
+The study's comparison surface: on the **Performance** stage every metric row carries
+**one column per configuration** (plan §4 item 6). The full content spec is the §4.4.1
+Performance row; this section records the decisions behind it.
+
+**Grouping → columns, not grouping → tabs.** The plan wrote this as *"each metric
+grouping gets its own tab, with a column per configuration"*. Between the plan and this
+phase the owner slimmed the Performance pane twice, ending at **one flat pane of themed
+group cards** — one card per Gap-96 metric group — with the interim Summary / All
+metrics / MTF-budget tab set removed. The grouping unit therefore already exists, and it
+is the **card**, not a tab. Phase 4d promotes those cards to matrices rather than
+re-introducing the tab strip the owner had just taken out: the analyst still sees one
+labelled section per metric group, in the same order, and each section grows N columns.
+Re-adding tabs is still a data change away (`StageComposition.subviews`, §4.4) if the
+owner later wants one group per screen; nothing here forecloses it.
+
+**Plain values only (ADR-0010 D-9).** A cell carries a value and its unit and nothing
+else — no delta column, no best-per-metric mark. Delta-vs-baseline and best-marks live
+on the scripting surface (`ConfigurationSet.compare` → `compare_configs`), and the set's
+`baseline` designation stays in the model for exactly that. This is the one place the
+GUI deliberately shows *less* than the API.
+
+**Where the numbers come from.** The retained evaluate-all pass (`last_run`, §3.2) and
+nothing else. Rendering a study — including switching the displayed configuration —
+**runs no physics**; a pass made stale by an edit is covered by the ordinary 200 ms
+debounce and the existing staleness affordances (§3.3).
+
+**The presentation model is Qt-free.** `gui/metric_matrix.py` turns the run into a
+`MetricMatrix` (columns × grouped rows, each cell a text + tooltip); `MetricGroupCards`
+only lays it out. Every rule below is therefore unit-tested without a widget, and both
+layers are asserted against `run.result_for(<name>)` in
+`gui/tests/test_performance_columns.py`.
+
+| Rule | Rendering |
+|---|---|
+| Column order | The **set** order (`ConfigurationSet.names()`), never the run's evaluation order (which puts the active configuration first) — so columns do not reshuffle when the displayed configuration changes |
+| Units | `metric_format.metric_value_display` — the *same* function the single-model readout uses, sourcing the unit from `ChainResult.metric_records()` (R-UNITS). No unit string is written in the matrix or the widget |
+| Metric a configuration did not compute | `—`, never `0` and never blank (Rule 17); the cell's hover text names the configuration and the metric |
+| Configuration that **failed** to evaluate | Its column stays. Cells read *not evaluated*; the header carries a `✕` and the error's **what**-line (plus its *why*) on hover. Other columns keep their real values — no silent drop |
+| Configuration that **warned** | A `⚠` on its header, its warnings on hover. This is a **pointer** to the right-rail Messages entries Phase 4a already attributes per configuration, not a second rendering of them |
+| Column headers | The configuration name with its accent chip — the *selector band's* hue for that slot (§8.1 `config_accents`, both themes), handed down from the window so the two surfaces cannot drift apart |
+| The displayed configuration | Marked by a **text emphasis** on its header (ink + weight, a themed `[displayed="true"]` property), never a second colour — colour on that header belongs to the accent chip |
+| Card layout | One-up in a study (a card carrying N configuration columns needs the full pane width), two-up in a single-configuration session as before |
+
+**Zero regression for one configuration.** A single-configuration session pushes no
+matrix at all: `MetricGroupCards.show_metrics(result)` builds exactly the widgets it
+built before this phase — no headers, no chips, no extra grid columns — and the pinning
+path is the pre-4d `_MetricRow`. Tested explicitly, like the §4.2b selector's hidden
+dock.
+
+**Pinning survives.** A matrix row's label cell keeps the hover-revealed pin (§4.5, pin
+any metric). It pins the *metric*; the rail card shows the **displayed** configuration's
+value for it, which is what every other rail card already does.
 
 ### 4.3 All-Parameters Panel (permanent left column)
 
@@ -792,7 +848,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 | **Detector** | PSF with detector/pixel-grid overlay | **[SHIPPED — GUI plan Phase PS-3]** `result.plot.psf_pixel_grid()` — `psf()` with the detector pixel grid overlaid (a `plot_psf(pixel_grid=True)` draw over `EffectivePSF.pixel_pitch_m`/`sample_spacing_m`, cropped to the PSF core, pitch µm in the title), in the **Detector + PSF** tab |
 | **Detector** | Noise contributions as a **pie** chart | **[SHIPPED — GUI plan Phase PS-3, framework accessor]** `result.plot.noise_pie()` — the **primary** chart of the Detector **Noise** tab: a pie of `result.noise_terms` by **variance** share (σ_i²; noise adds in quadrature), each wedge labelled with its σ_i in e- RMS and % of variance. The ratified framework accessor (§8 decision 2), the pie sibling of the shipped `noise_budget()` bar; the per-term table + click-to-explain (`NoiseBudgetPanel`) sits alongside, the redundant bar suppressed |
 | **Readout** | Minimal for v1 | **[SHIPPED — GUI plan Phase PS-5, v1-minimal]** `ReadoutInputsForm` — `read_noise_e_rms` under a *Read noise* heading, `gain_e_per_dn` + `adc_bits` under an *ADC* heading, `full_well_capacity_e` under a *Full well* heading, as shared `FieldRow`s (one `sensor.set` per edit, the edit+reject discipline), beside the scalar `OutputsReadout` (`signal_dn_final` DN, `sigma_total_e`/`total_well_e` e-, `well_fill_fraction`, …; units from `api.stage_output_units`), the scalar noise budget (`result.plot.noise_budget()` — read noise + quantization live in this stage), and a themed *v1-minimal* note; editing re-evaluates and the outputs + noise budget refresh (edit-and-watch). Single flat pane |
-| **Performance** | Grouped metric readout | **[SHIPPED — GUI plan Phase PS-6; owner-shaped 2026-07-25 over two walkthrough rounds: the flat single-column readout read as a "wall of text"; the interim tabbed dashboard was then slimmed to just its All-metrics screen]** One flat pane: a compact **Compute:** toggle row (`PerformanceMetricsForm`, Gap 96: five checkboxes bound to the `performance.metrics.*` group flags; each toggle is one `sensor.set` + `parameterEdited`, and a deselected group stops its *computation*, not just its display) **ordered to match the card sections by construction** (both derive from `metric_format.METRIC_GROUP_HEADINGS` — geometry first, owner 2026-07-25), above the grouped metric cards (`MetricGroupCards`): one themed card per Gap-96 group in reading order — *Sampling / geometry*, *Spatial / MTF*, *Radiometric*, *Interpretability*, *Saturation* (+ a defensive *Other*) — two-up, every row a **human display label** (`metric_format.METRIC_DISPLAY_LABELS`, CI-checked to cover the taxonomy; never a raw registry key) with its registry unit (`ChainResult.metric_records()`, R-UNITS), rows in the table's physics order, pin affordances hover-revealed (§4.5 pin-any-metric retained). **No plots on this stage** (owner decision 2026-07-25): the system MTF and MTF budget live on the Optics **MTF** tab; plot tabs may return later via the sub-view hook (a data change). A **result-typed metric failure** (non-finite, Rule 17 carve-out) renders as `n/a (<failure_reason>)`, never a bare `nan`/blank. The metric-selection row is the only editable control (terminal stage). Presentation-only: the computed set and every value/unit are unchanged |
+| **Performance** | Grouped metric readout | **[SHIPPED — GUI plan Phase PS-6; owner-shaped 2026-07-25 over two walkthrough rounds: the flat single-column readout read as a "wall of text"; the interim tabbed dashboard was then slimmed to just its All-metrics screen]** One flat pane: a compact **Compute:** toggle row (`PerformanceMetricsForm`, Gap 96: five checkboxes bound to the `performance.metrics.*` group flags; each toggle is one `sensor.set` + `parameterEdited`, and a deselected group stops its *computation*, not just its display) **ordered to match the card sections by construction** (both derive from `metric_format.METRIC_GROUP_HEADINGS` — geometry first, owner 2026-07-25), above the grouped metric cards (`MetricGroupCards`): one themed card per Gap-96 group in reading order — *Sampling / geometry*, *Spatial / MTF*, *Radiometric*, *Interpretability*, *Saturation* (+ a defensive *Other*) — two-up, every row a **human display label** (`metric_format.METRIC_DISPLAY_LABELS`, CI-checked to cover the taxonomy; never a raw registry key) with its registry unit (`ChainResult.metric_records()`, R-UNITS), rows in the table's physics order, pin affordances hover-revealed (§4.5 pin-any-metric retained). **No plots on this stage** (owner decision 2026-07-25): the system MTF and MTF budget live on the Optics **MTF** tab; plot tabs may return later via the sub-view hook (a data change). A **result-typed metric failure** (non-finite, Rule 17 carve-out) renders as `n/a (<failure_reason>)`, never a bare `nan`/blank. The metric-selection row is the only editable control (terminal stage). Presentation-only: the computed set and every value/unit are unchanged. **In a study (multi-configuration Phase 4d, §4.2e)** each card becomes a **metric × configuration matrix**: the same groups, the same rows in the same order, plus one column per configuration in **set order** with the selector band's accent chip on its header. Cells are **plain values only** (ADR-0010 D-9 — no delta, no best-mark), rendered by the same `metric_value_display` and so carrying the same registry units; `—` for a metric a configuration did not compute (Rule 17, never zero); a **failed** configuration keeps its column with a `✕` and the error's what-line on hover while the others keep their numbers; a configuration that warned gets a `⚠` pointing at its Messages entries. The cards lay out one-up in that mode. Values come from the retained `last_run` — rendering, including a selector switch, evaluates nothing. A **single-configuration** session renders exactly the pre-4d readout: no columns, no headers, no chips (tested) |
 
 **Reading the spec.** Most of the ratified content **already has a backing surface** —
 every plot the shipped `result.plot.*` carries (MTF, PSF, noise budget, and the three
@@ -1511,8 +1567,8 @@ in the set so a configuration keeps its colour, and index-for-index across the t
 so it survives a theme toggle. Dark / light: `#86a8df` / `#2f5aa8` · `#e08157` /
 `#b8431a` · `#7fb987` / `#2f7a3a` · `#c79ad8` / `#7a3a8e` · `#e0b249` / `#a97c14` ·
 `#6fc0c0` / `#1f7a7a` · `#e07fa4` / `#a8305a` · `#a8b0be` / `#5a6270`. Used by the master
-configuration selector (§4.2b) and, from Phase 4d, the per-configuration Performance
-columns.
+configuration selector (§4.2b) and, since Phase 4d, the per-configuration Performance
+column headers (§4.2e), which read their hue off the selector so the two cannot drift.
 
 ### 8.2 Typography
 
@@ -1602,9 +1658,13 @@ plan):
 Monte Carlo / Batch deliberately have **no dialogs** (owner D3): they are console workflows;
 their Run-menu items become script scaffolds (GT-2).
 
-## 8c. Comparison Mode (Tier-2 GT-3 — SHIPPED 2026-07-16)
+## 8c. Config-File Comparison Mode (Tier-2 GT-3 — SHIPPED 2026-07-16)
 
-**Tools → Compare Configurations…** opens `ComparisonDialog` (content spec per Rule 20):
+**Tools → Compare Config Files…** opens `ComparisonDialog` (content spec per Rule 20).
+The label says *config files* deliberately (relabelled 2026-07-25, CU-214): this dialog
+compares the live config against config **files on disk**, and is not the study's
+per-configuration surface — that is §4.2e's Performance columns and the scripting
+`ConfigurationSet.compare`.
 
 - **Columns**: the current live config (always first, evaluated on a clone) plus N config
   files added via a file picker; baseline column selectable.
@@ -1647,7 +1707,9 @@ View   Show/Hide Parameter Panel (F6) · Show/Hide Detail Panel (F7) ·
        Stage: … (Ctrl+1..9) · Dark/Light Theme · Font Size +/−
 Run    Evaluate (F5) · Validate Only (Ctrl+R) ·
        Run Sweep…  [v1.1] · Monte Carlo…  [v1.1] · Batch Run…  [v1.1]
-Tools  Scripting Window (Ctrl+Shift+P) · Parameter Schema Browser · Explain Parameter… · Preferences…
+Tools  Scripting Window (Ctrl+Shift+P) · Parameter Schema Browser ·
+       Compare Config Files… [SHIPPED GT-3 → §8c; relabelled 2026-07-25, CU-214] ·
+       Compare Measured MTF… · Solve for Parameter… · Explain Parameter… · Preferences…
 Help   Documentation · Example Configs · About RADIANT
 ```
 

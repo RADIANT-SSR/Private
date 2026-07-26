@@ -1074,6 +1074,34 @@ QLabel#outputsRowValue {{
     font-family: {tokens.FONT_MONO};
     font-size: 12px;
 }}
+/* -- Per-configuration Performance columns (§4.4.1, multi-config Phase 4d) - */
+/* A single-configuration session renders no header at all, so these rules only
+ * ever paint a genuine study. The displayed configuration is marked by weight +
+ * ink, never by a second hue — the accent chip owns colour on this header. */
+QLabel#metricColumnName {{
+    color: {t.muted};
+    font-size: 11px;
+    font-weight: 500;
+}}
+QLabel#metricColumnName[displayed="true"] {{
+    color: {t.ink};
+    font-weight: 700;
+}}
+QLabel#metricColumnFailed {{
+    color: {t.err};
+    font-size: 11px;
+}}
+QLabel#metricColumnWarning {{
+    color: {t.warn};
+    font-size: 11px;
+}}
+/* "—" (metric not computed by this configuration) and the failed-column state:
+ * muted, so an absence never reads with the weight of a measured value. */
+QLabel#metricCellAbsent {{
+    color: {t.muted};
+    font-family: {tokens.FONT_MONO};
+    font-size: 12px;
+}}
 QToolButton#outputsPinButton {{
     border: none;
     background: transparent;

@@ -81,6 +81,7 @@ if TYPE_CHECKING:
     from radiant.api import ChainResult
     from radiant.api.sensor import Sensor
     from radiant.gui.config_scope import ConfigurationScope
+    from radiant.gui.metric_matrix import ConfigurationColumns
 
 # Minimum figure height so a composite with two plots stays readable in a scroll area.
 _PLOT_MIN_HEIGHT: int = 240
@@ -811,11 +812,18 @@ class StagePane(QWidget):
 
     # -- result delivery ----------------------------------------------------
 
-    def populate(self, result: ChainResult) -> None:
+    def populate(self, result: ChainResult, columns: ConfigurationColumns | None = None) -> None:
         """Fill every section of this pane from *result* (one API call per figure).
 
         Iterates the per-kind lists so a tabbed composite (each tab contributing its own
         sections) is filled exactly like the single flat pane.
+
+        *columns* is the study's per-configuration Performance model (Phase 4d): when it
+        is present the metric cards render one column per configuration from the retained
+        evaluate-all pass, and when it is ``None`` — every single-configuration session —
+        they render exactly the rows they rendered before Phase 4d. Every **other**
+        section stays single-configuration by design: the stage views show the displayed
+        configuration (§4.2b), and only the Performance surface goes side by side.
         """
         self._last_result = result
         stage_outputs = result.stage_outputs.get(self._namespace, {})
@@ -845,7 +853,10 @@ class StagePane(QWidget):
         for outputs in self._outputs_list:
             outputs.show_stage_outputs(self._namespace, stage_outputs)
         for metrics in self._metrics_list:
-            metrics.show_metrics(result)
+            if columns is None:
+                metrics.show_metrics(result)
+            else:
+                metrics.show_matrix(columns.matrix, columns.accents)
         for mtf_panel in self._mtf_panels:
             mtf_panel.show_result(result)
         for noise_panel in self._noise_panels:
@@ -961,6 +972,9 @@ class StageCenter(QWidget):
 
         self._result: ChainResult | None = None
         self._selected: str | None = None
+        # The study's per-configuration Performance model (Phase 4d). ``None`` for every
+        # single-configuration session, which is what keeps that path unchanged.
+        self._columns: ConfigurationColumns | None = None
 
     # -- accessors ----------------------------------------------------------
 
@@ -1001,6 +1015,25 @@ class StageCenter(QWidget):
         """Hand the session's configuration scope to every stage pane's form fields (4b)."""
         for pane in self._panes.values():
             pane.bind_configuration_scope(scope)
+
+    def set_configuration_columns(self, columns: ConfigurationColumns | None) -> None:
+        """Set (or clear) the study's per-configuration Performance columns (Phase 4d).
+
+        Pushed by the window from its retained ``last_run`` before each render — the
+        columns are a *view* over a pass that already completed, so setting them never
+        evaluates anything. ``None`` restores the single-configuration readout, which is
+        what a one-configuration session always gets.
+
+        Held here rather than passed through :meth:`show_result` so a stage switch, a
+        theme re-render, and a selector switch all re-render the same columns without the
+        caller having to re-supply them.
+        """
+        self._columns = columns
+
+    @property
+    def configuration_columns(self) -> ConfigurationColumns | None:
+        """The study columns currently in force (``None`` for a single configuration)."""
+        return self._columns
 
     def set_theme(self, theme: Theme) -> None:
         """Re-theme every stage pane's custom-painted widgets (Phase-9 theme toggle)."""
@@ -1073,7 +1106,7 @@ class StageCenter(QWidget):
             self._stack.setCurrentWidget(self._placeholder)
             return
         pane = self._panes[self._selected]
-        pane.populate(self._result)
+        pane.populate(self._result, self._columns)
         self._stack.setCurrentWidget(pane)
 
 

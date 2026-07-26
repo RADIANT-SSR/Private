@@ -124,10 +124,15 @@ All viewing solutions use one spherical triangle (Earth centre, target,
 sensor) on `constants.R_EARTH_M` (6371.0 km mean radius, the single
 canonical Earth radius since CU-097), implemented in
 `core/viewing_triangle.py` — the θ_o-referenced counterpart of the
-η-referenced helpers in `core/geometry.py`. Downlooking only
-(`h_sensor > h_target`); uplooking is rejected loudly (owner ruling
-2026-07-11). One unification remains tracked: CU-096 (θ_o vs η in
-platform/performance).
+η-referenced helpers in `core/geometry.py`. The implementation is downlooking
+only (`h_sensor > h_target`); uplooking and horizontal inputs are rejected
+loudly. The 2026-07-11 "v1 has no uplooking geometry" ruling behind that
+restriction is **superseded by ADR-0011** (generalized viewing geometry,
+$\theta_o$ domain extended to $[0, \pi)$), but the code restriction **remains
+in force until Geometry-Flexibility Phase 1 lands**
+(`docs/plans/Geometry_Flexibility_Plan.md`) — until then this stage still
+raises on `h_sensor <= h_target` and on $\theta_o \ge \pi/2$. One unification
+remains tracked: CU-096 (θ_o vs η in platform/performance).
 
 ## 5. Parameters
 

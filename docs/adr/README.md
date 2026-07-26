@@ -17,6 +17,7 @@ This directory contains Architecture Decision Records (ADRs) for **RADIANT** —
 | [0008](0008-target-extent-to-geometry-and-scenario-type.md) | Target Spatial Extent Belongs to Geometry; Declared Scenario Type | Accepted |
 | [0009](0009-gui-config-object-editing-and-import.md) | GUI Config-Object Editing and Data Import via an API Facade | Accepted |
 | [0010](0010-multi-configuration-model.md) | Multi-Configuration Model — CODE V Zoom Semantics | Accepted |
+| [0011](0011-generalized-viewing-geometry.md) | Generalized Viewing Geometry | Accepted |
 | [ADR-A](ADR-A-fidelity-preset.md) | Drop FidelityPreset | Accepted |
 | [ADR-B](ADR-B-metric-soft-fail.md) | Metric-Layer Soft Failures | Accepted |
 | [ADR-C](ADR-C-public-api-surface.md) | Public API Surface | Accepted |

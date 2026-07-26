@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-218 — `radiant run --provenance` writes two different record shapes depending on the config file
+
+**Discovered**: multi-config Phase 5 CLI study support (`cli/multiconfig-phase5`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/cli/run.py` (the plain path's `params.to_provenance_record(radiant_version=…)` vs. the study path's `result.to_provenance_record()`)
+**Symptom**: one flag, two JSON schemas. For a plain config file `--provenance out.json` writes `ParameterSet.to_provenance_record` — three keys (`radiant_version`, `resolved_at`, `parameters`). For a study config file (`--configuration NAME`) it writes `ChainResult.to_provenance_record` — the 8-key run record (`run_id`, `radiant_version`, `git_commit`, `parameter_set`, …) with a CLI-added `configuration` key. A consumer parsing the file has to sniff which shape it got. Reproduce: `radiant run examples/mwir_leo_minimal.yaml --provenance a.json` vs. `radiant run study.yaml --configuration MWIR --provenance b.json`, then compare the top-level keys.
+**Why it still matters**: the divergence is not physics but it is a public output surface, and the two shapes disagree about what "provenance" means (resolved parameters only vs. the whole run record). The study path took the richer one deliberately — a materialized `Sensor` exposes no `ParameterSet`, and `ChainResult.to_provenance_record()` is the public seam that exists (it also carries the `config:<name>` provenance sources, which is exactly what a study run wants recorded). Left alone, the next consumer of the flag writes shape-sniffing code.
+**Suggested fix**: (a) inline-fix-now in a small follow-up — move the plain path onto `result.to_provenance_record()` as well, so both paths emit the run record. That is a **public-surface change** (the file's keys change for existing users of the flag) and therefore needs a `CHANGELOG.md` entry and an update to `RADIANT_Config_Format.md` §4.2; it also wants a check that nothing in `scripts/` or the scenario workbooks parses the three-key form. Alternative (b): add `Sensor.to_provenance_record()` and keep both paths on the parameter-set shape — smaller blast radius, but it keeps the poorer record. Effort S; category A.
+
 ### CU-215 — `test_configured_parameters.py` is not `ruff format` clean, and the gate cannot see it
 
 **Discovered**: multi-config Phase 4d Performance columns (`gui/multiconfig-phase4d`), 2026-07-25

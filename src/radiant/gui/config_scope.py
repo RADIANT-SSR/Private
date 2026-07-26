@@ -33,11 +33,11 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QObject, Signal
 
+from radiant.core.exceptions import RadiantError
 from radiant.gui.param_format import format_value
 
 if TYPE_CHECKING:
     from radiant.api.config_set import ConfigurationSet
-    from radiant.core.exceptions import RadiantError
 
 # The host's whole-column writer: ``(dotpath, values, unit, configure) -> rejection``.
 # ``configure`` is True when the parameter is still shared and this write is the
@@ -46,6 +46,30 @@ if TYPE_CHECKING:
 # ``RadiantError`` keeps the caller's dialog open with the rejection rendered;
 # returning None means the write landed and is on the undo stack.
 CommitValues = Callable[[str, Sequence[Any], str | None, bool], "RadiantError | None"]
+
+
+class ConfigurationScopeError(RadiantError):
+    """The scope was asked to do something its host never wired up.
+
+    Raised only for a *wiring* fault — a surface offering a whole-column write
+    before the window installed its committer. It is not a user input rejection
+    (those are the API's own :class:`~radiant.api.config_set.ConfigSetError`,
+    passed back to the caller untouched), but it must not be swallowed either:
+    silently dropping the analyst's whole column is exactly the failure Rule 17
+    forbids. Carries the Rule-15 what/why/action payload like every other
+    RADIANT error, so a surface that does surface it renders it the usual way.
+    """
+
+    def __init__(self, what: str, why: str = "", action: str = "") -> None:
+        self.what: str = what
+        self.why: str = why
+        self.action: str = action
+        parts = [what]
+        if why:
+            parts.append(f"Why: {why}")
+        if action:
+            parts.append(f"Action: {action}")
+        super().__init__(" | ".join(parts))
 
 # Separator between per-configuration entries in a badge tooltip, e.g.
 # "MWIR: 3.5 µm · LWIR: 8.0 µm" (the owner's Phase 4b spec, plan §4 item 3).
@@ -205,14 +229,19 @@ class ConfigurationScope(QObject):
         the single atomic ``configure(dotpath, values, unit=)`` call — so a staged
         configure and its values land, and undo, as one step.
 
-        Raises :class:`RuntimeError` when no committer is installed: that is a wiring
-        bug, never a user input, and silently dropping the analyst's whole column would
-        be exactly the swallowed failure Rule 17 forbids.
+        Raises :class:`ConfigurationScopeError` when no committer is installed: that is
+        a wiring bug, never a user input, and silently dropping the analyst's whole
+        column would be exactly the swallowed failure Rule 17 forbids. Surfaces guard
+        on :attr:`can_commit` before offering a column edit, so it is unreachable in a
+        correctly wired window.
         """
         if self._committer is None:
-            raise RuntimeError(
-                "ConfigurationScope has no committer installed — "
-                "the host window must call set_committer() before offering column edits"
+            raise ConfigurationScopeError(
+                what=f"no committer is installed, so {dotpath}'s values cannot be written",
+                why="ConfigurationScope routes whole-column writes to the host window, "
+                "which must install that writer before any surface offers the edit",
+                action="Call ConfigurationScope.set_committer(...) when the window is "
+                "constructed, and gate column-editing surfaces on scope.can_commit.",
             )
         return self._committer(dotpath, values, unit, configure)
 
@@ -236,4 +265,4 @@ def scope_of(node: QObject | None) -> ConfigurationScope | None:
     return None
 
 
-__all__ = ["CommitValues", "ConfigurationScope", "scope_of"]
+__all__ = ["CommitValues", "ConfigurationScope", "ConfigurationScopeError", "scope_of"]

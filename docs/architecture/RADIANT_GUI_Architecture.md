@@ -508,7 +508,9 @@ parentless dialog (a unit test) simply gets the single-value behaviour. Writing 
 column is the one *synchronous* scope request — a dialog needs the API's verdict inline —
 so it goes through a committer the window installs on the scope
 (`ConfigurationScope.set_committer`), keeping the single `ConfigurationSet` call and the
-undo push in the window (R-API).
+undo push in the window (R-API). Surfaces gate on `scope.can_commit`; a write attempted
+without a committer raises `ConfigurationScopeError` (a `RadiantError`, Rule 15) rather
+than dropping the analyst's column, which makes the wiring fault loud instead of silent.
 
 **Scoped undo/redo.** `ScopedParameterCommand` (`widgets/scoped_parameter_command.py`)
 records a parameter's whole **scope state** — which store it lives in plus the value(s) —

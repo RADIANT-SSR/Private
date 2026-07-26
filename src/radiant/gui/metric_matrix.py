@@ -239,15 +239,15 @@ def build_metric_matrix(
     union: dict[str, Any] = {}
     for _name, entry in entries:
         result = entry.result
-        records = {rec.name: rec for rec in result.metric_records()} if result is not None else {}
-        sources.append((result, records, "" if result is not None else _failure_tooltip(entry)))
-        for key, rec in records.items():
+        by_key = {rec.name: rec for rec in result.metric_records()} if result is not None else {}
+        sources.append((result, by_key, "" if result is not None else _failure_tooltip(entry)))
+        for key, rec in by_key.items():
             union.setdefault(key, rec)
 
     groups: list[tuple[str, tuple[MatrixRow, ...]]] = []
-    for heading, records in grouped_metric_records(union.values()):
+    for heading, group_records in grouped_metric_records(union.values()):
         rows: list[MatrixRow] = []
-        for rec in records:
+        for rec in group_records:
             label = metric_display_label(rec.name)
             cells: list[MatrixCell] = []
             for column, (result, config_records, failure_tip) in zip(columns, sources, strict=True):

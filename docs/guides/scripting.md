@@ -288,8 +288,12 @@ Example scripts in `examples/scripts/`:
 - `basic_evaluation.py` --- load, evaluate, inspect
 - `aperture_sweep.py` --- 1D sweep with plotting
 - `tolerance_analysis.py` --- Monte Carlo workflow
-- `compare_configs.py` --- side-by-side comparison
+- `compare_configs.py` --- side-by-side comparison of two `Sensor` objects
 - `custom_loop.py` --- advanced iteration patterns
+- `dual_band_configuration_set.py` --- a `ConfigurationSet` study (MWIR vs LWIR
+  on one telescope): configured vs shared parameters, `evaluate_all` with
+  per-configuration warning attribution, `summary()`, `compare()` deltas
+  against a baseline, and the save/load round trip
 
 Plot functions are available in `radiant.api.plot` for sweep results,
 noise budgets, PSF images, MTF curves, and spectral data visualization.

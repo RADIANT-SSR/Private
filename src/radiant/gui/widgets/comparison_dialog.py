@@ -1,7 +1,13 @@
-"""The Tools → Compare Configurations… dialog (Tier-2 GT-3, over Gap 79's primitive).
+"""The Tools → Compare Config Files… dialog (Tier-2 GT-3, over Gap 79's primitive).
 
-:class:`ComparisonDialog` compares the **current** configuration against N loaded
-config files: each column evaluates once on a worker thread (sequential, with
+:class:`ComparisonDialog` compares the **current config** against N config **files on
+disk**. The label says "config files" deliberately (CU-214, ADR-0010 D-10): since the
+multi-configuration work landed, a bare "configuration" means a member of one study's
+configuration set, and the per-configuration comparison surface for those is the
+Performance stage's columns (§4.4.1) and the scripting ``ConfigurationSet.compare``.
+This dialog is the *file* comparison and is unrelated to a study's configurations.
+
+Each column evaluates once on a worker thread (sequential, with
 progress), then :func:`radiant.api.compare_configs` builds the aligned matrix —
 union-of-metrics rows with registry units, per-metric deltas against the chosen
 baseline, and conservative best-per-metric marks (rendered bold with a ✓). A
@@ -38,6 +44,12 @@ from PySide6.QtWidgets import (
 from radiant.api import ComparisonError, Sensor, compare_configs
 from radiant.core.exceptions import RadiantError
 
+# The one place the Tools action and the dialog title agree on their wording (CU-214).
+# The trailing ellipsis marks the menu item as opening a dialog; the window title drops
+# it, per the platform convention the rest of the menu bar follows.
+COMPARE_FILES_MENU_TEXT: str = "Compare Config Files…"
+COMPARE_FILES_TITLE: str = "Compare Config Files"
+
 if TYPE_CHECKING:
     from radiant.api import ComparisonResult
 
@@ -72,7 +84,7 @@ class ComparisonDialog(QDialog):
     def __init__(self, sensor: Sensor, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("comparisonDialog")
-        self.setWindowTitle("Compare Configurations")
+        self.setWindowTitle(COMPARE_FILES_TITLE)
         self.resize(760, 560)
 
         self._sensor = sensor
@@ -254,4 +266,4 @@ class ComparisonDialog(QDialog):
     comparisonSettled = Signal()
 
 
-__all__ = ["ComparisonDialog"]
+__all__ = ["COMPARE_FILES_MENU_TEXT", "COMPARE_FILES_TITLE", "ComparisonDialog"]

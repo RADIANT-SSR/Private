@@ -252,6 +252,11 @@ layout:
    never zero-filled). **Plain values only** (D-9) — no delta or best-mark
    decoration in the GUI; delta-vs-baseline and best-marks remain available via the
    scripting `compare` surface.
+   *As shipped (Phase 4d):* between this plan and that phase the owner slimmed the
+   Performance pane to **one flat pane of themed group cards** and removed the interim
+   tab set, so the grouping unit is the card, not a tab. The columns landed on those
+   cards rather than re-introducing tabs — same groups, same order, N columns each.
+   Rationale and the full rendering contract: `RADIANT_GUI_Architecture.md` §4.2e.
 7. **Cross-cutting.** Undo/redo covers configure/unconfigure, per-config edits, and
    configuration CRUD (extend the existing `QUndoStack` commands with scope); YAML
    view shows the full document including the section; scripting console exposes the

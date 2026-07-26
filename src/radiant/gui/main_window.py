@@ -46,11 +46,13 @@ from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.geometry_modes import implicated_families
+from radiant.gui.metric_matrix import ConfigurationColumns, build_metric_matrix
 from radiant.gui.param_format import format_value
 from radiant.gui.settings_store import SettingsStore
 from radiant.gui.themes import DARK, LIGHT, active_theme, apply_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
+from radiant.gui.widgets.comparison_dialog import COMPARE_FILES_MENU_TEXT
 from radiant.gui.widgets.configuration_bar import ConfigurationBar
 from radiant.gui.widgets.configuration_manager_dialog import ConfigurationManagerDialog
 from radiant.gui.widgets.configuration_shape_command import (
@@ -455,8 +457,10 @@ class RADIANTMainWindow(QMainWindow):
         edit_menu.addSeparator()
         # The configuration manager (§4.2d): it edits the *document's* shape — which
         # configurations exist — so it belongs with Edit's other document-wide actions
-        # rather than in Tools, which holds analysis utilities (the similarly named
-        # "Compare Configurations…" there compares this config against other *files*).
+        # rather than in Tools, which holds analysis utilities (Tools' neighbouring
+        # "Compare Config Files…" compares this config against other config *files* —
+        # relabelled from "Compare Configurations…" to keep the ADR-0010 D-10
+        # vocabulary unambiguous, CU-214).
         self._add_action(edit_menu, "edit.configurations", CONFIGURATIONS_MENU_TEXT, enabled=False)
         self._add_action(
             edit_menu,
@@ -527,7 +531,7 @@ class RADIANTMainWindow(QMainWindow):
         )
         scripting_action.triggered.connect(self._show_scripting_window)
         self._add_action(tools_menu, "tools.schema", "Parameter Schema Browser", enabled=False)
-        self._add_action(tools_menu, "tools.compare", "Compare Configurations…", enabled=False)
+        self._add_action(tools_menu, "tools.compare", COMPARE_FILES_MENU_TEXT, enabled=False)
         self._add_action(tools_menu, "tools.mtf_overlay", "Compare Measured MTF…", enabled=False)
         self._add_action(tools_menu, "tools.solve", "Solve for Parameter…", enabled=False)
         self._add_action(tools_menu, "tools.explain", "Explain Parameter…", enabled=False)
@@ -1100,6 +1104,7 @@ class RADIANTMainWindow(QMainWindow):
         (plan §4 item 5). Nothing is dropped (Rule 17).
         """
         entry = run.entry_for(displayed)
+        self._push_configuration_columns(run, displayed)
         self._right_rail.messages.set_configuration_failures(
             {
                 other.name: self._underlying(other.error)
@@ -1113,6 +1118,33 @@ class RADIANTMainWindow(QMainWindow):
         if entry.result is None:  # pragma: no cover - evaluate_all always records one
             return
         self._on_result_ok(entry.result, self._attributed_warnings(run))
+
+    def _push_configuration_columns(
+        self, run: ConfigSetRunResult | None, displayed: str | None = None
+    ) -> None:
+        """Push (or clear) the Performance surface's per-configuration columns (§4.4.1).
+
+        A study's Performance cards render one column per configuration, straight from
+        the retained pass — **no re-evaluation** happens here, and none is needed: the
+        pass already holds every configuration's result (plan §4 item 6). A
+        single-configuration session pushes ``None``, which is what keeps its readout
+        the pre-Phase-4d one.
+
+        The accent hue for each column is read off the selector band, so the columns and
+        the tabs use one assignment of hue to configuration slot in both themes (§8.1).
+        """
+        centre = self._central.stage_center
+        cs = self._config_set
+        if cs is None or run is None or len(cs) < 2:
+            centre.set_configuration_columns(None)
+            return
+        order = cs.names()
+        centre.set_configuration_columns(
+            ConfigurationColumns(
+                matrix=build_metric_matrix(run, order, displayed or cs.active),
+                accents={name: self._configuration_bar.accent_for(name) for name in order},
+            )
+        )
 
     def _on_result_ok(self, result: ChainResult, warnings: list[str]) -> None:
         """Render the displayed configuration's result into Pinned, Messages, banner, plot.
@@ -1693,7 +1725,7 @@ class RADIANTMainWindow(QMainWindow):
         MtfOverlayDialog(self._last_result, self).exec()
 
     def _on_compare_configs(self) -> None:
-        """Tools → Compare Configurations… (GT-3): current config vs loaded files."""
+        """Tools → Compare Config Files… (GT-3): current config vs config files on disk."""
         if self._sensor is None:
             return
         from radiant.gui.widgets.comparison_dialog import ComparisonDialog
@@ -2217,6 +2249,11 @@ class RADIANTMainWindow(QMainWindow):
         if cs is None:  # pragma: no cover - guarded by the caller
             return
         self._last_run = None
+        # The Performance columns described the *old* membership, so they go with the
+        # pass they were built from rather than lingering as dead state (§4.2e). The
+        # centre is on its placeholder until the next run anyway; this keeps the two
+        # from ever disagreeing.
+        self._push_configuration_columns(None)
         try:
             self._sensor = self._materialize_display_sensor()
         except RadiantError as exc:
@@ -2358,6 +2395,10 @@ class RADIANTMainWindow(QMainWindow):
         # decoration), so it is repainted from the new token set here — the same
         # pattern as the selector's accent chips (§4.2c).
         self._parameter_panel.refresh_configured_badges()
+        # The Performance columns carry accent chips painted from the token set (QSS
+        # cannot reach a pixmap), so they are rebuilt from the new theme *before* the
+        # re-render below — the same pattern as the selector's chips (§4.4.1, Phase 4d).
+        self._push_configuration_columns(self._last_run)
         if self._last_result is not None:
             self._central.show_result(self._last_result)
         self._settings.set_theme_name(new_theme.name)

@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: the Performance stage shows every configuration side by side (multi-configuration
+  Phase 4d).** In a study, each metric group card becomes a **metric × configuration
+  matrix** — the same groups in the same order, plus one column per configuration in set
+  order, headed by the configuration's name and the accent chip it carries in the
+  selector band (both themes). Cells are **plain values with their registry units** and
+  nothing else: no delta column and no best-per-metric mark in the GUI — those stay on
+  the scripting `ConfigurationSet.compare` / `compare_configs` surface. A metric a
+  configuration did not compute shows `—`, never zero; a configuration that **failed**
+  keeps its column, reads *not evaluated*, and carries the error's what-line on its
+  header while the other columns keep their real numbers; a configuration that warned
+  gets a marker pointing at its Messages entries. Everything renders from the retained
+  evaluate-all pass, so switching the displayed configuration re-marks the columns
+  without re-running anything. A single-configuration session is unchanged — no columns,
+  no headers, no chips. No computed results change.
 - **GUI: configuration manager — define how many configurations a study has and name
   them (multi-configuration Phase 4c).** A new `Edit → Configurations…` dialog (also on
   the gear at the right end of the selector band) creates, duplicates, renames, removes,
@@ -185,6 +199,12 @@ retroactively reconstructed.
   parameters remain fully editable from Geometry (and the parameter tree).
 
 ### Changed
+- **GUI: Tools → "Compare Configurations…" is now "Compare Config Files…"** (CU-214).
+  The item compares the live config against config **files on disk**; since the
+  multi-configuration work landed, a bare "configuration" means a member of one study's
+  configuration set (managed by `Edit → Configurations…`, compared on the Performance
+  stage's new columns), so the two menu items no longer use one word for two things. The
+  dialog's window title moves with the label; behaviour is unchanged.
 - **GUI: the Performance screen is the grouped metric readout (Windows finding 12 +
   owner redesign 2026-07-25, two rounds).** Replaces the flat single-column readout
   ("wall of text") with one clean page: a compact Compute toggle row (Gap 96,

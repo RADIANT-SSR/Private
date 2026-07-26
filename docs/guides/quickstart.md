@@ -146,3 +146,5 @@ radiant validate examples/mwir_leo_minimal.yaml
 - [Trade Studies](trade_studies.md) --- worked examples of common trade study workflows
 - [Parameter Reference](parameter_reference.md) --- all 91 parameters with types and defaults
 - [Regime Selection](regime_selection.md) --- extended-scene vs. sub-pixel vs. point-source
+- Several named designs in one file? See **Configuration Sets** in the
+  [Configuration Guide](configuration.md) and [Trade Studies](trade_studies.md)

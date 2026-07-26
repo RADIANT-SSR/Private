@@ -259,6 +259,55 @@ delta_snr = r_upgrade.metrics["snr"] - r_base.metrics["snr"]
 
 ---
 
+## Configuration Sets
+
+Cloning gives you two independent sensors. A `ConfigurationSet` instead keeps
+**one** document with up to eight named *configurations* of the same problem: a
+parameter is **shared** by default and carries one value per configuration only
+once you `configure()` it. Shared edits move every configuration at once, and
+the whole study saves as a single config file.
+
+```python
+from radiant.api import ConfigurationSet, Sensor
+
+base = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
+cs = ConfigurationSet(base, names=["MWIR", "LWIR"])
+
+# Configured: one value per configuration, in names() order, in input units.
+cs.configure("spectral_integration.filter_min_um", [3.5, 8.0])            # um
+cs.configure("spectral_integration.filter_max_um", [5.0, 12.0])           # um
+cs.configure("spectral_integration.integration_time_s", [0.005, 0.0005])  # s
+cs.configure("readout.full_well_capacity_e", [2.0e6, 6.0e6])              # e-
+cs.configure("detector.qe_value", [0.70, 0.55])                           # dimensionless
+cs.set_value("detector.qe_value", "LWIR", 0.62)                           # one configuration
+cs.base.set("optics.aperture_diameter_m", 0.35)      # m — shared: moves both
+cs.baseline = "MWIR"                                 # delta reference
+
+cs.names()              # ('MWIR', 'LWIR') — set order
+cs.configured()         # dot-path -> one value per configuration
+cs.validate_all()       # {name: None or error} — resolve-only, no physics
+lwir = cs.sensor_for("LWIR")       # materialize one configuration as a Sensor
+
+run = cs.evaluate_all()            # every configuration, active first
+run.result_for("LWIR").metrics["snr"]     # dimensionless
+run.warnings                       # {name: messages} — attributed per configuration
+print(run.summary())               # one triage line per configuration, with units
+print(cs.compare(run).to_table())  # metric x configuration, deltas vs the baseline
+
+yaml_text = cs.to_yaml()           # the whole study as one document
+```
+
+`cs.save(path)` writes that document and `ConfigurationSet.load(path)` reads it
+back --- names and order, `active` / `baseline`, per-configuration
+`wavelength_points`, and the configured table all round-trip. A plain config
+file loads as the degenerate one-configuration set; a study file loaded through
+`Sensor.from_yaml` raises an error pointing at `ConfigurationSet.load`.
+
+The full member list is in `docs/architecture/RADIANT_Scripting_API.md` §2.5c,
+and `examples/scripts/dual_band_configuration_set.py` is the worked study.
+
+---
+
 ## Exporting Results
 
 ### CLI export
@@ -291,9 +340,7 @@ Example scripts in `examples/scripts/`:
 - `compare_configs.py` --- side-by-side comparison of two `Sensor` objects
 - `custom_loop.py` --- advanced iteration patterns
 - `dual_band_configuration_set.py` --- a `ConfigurationSet` study (MWIR vs LWIR
-  on one telescope): configured vs shared parameters, `evaluate_all` with
-  per-configuration warning attribution, `summary()`, `compare()` deltas
-  against a baseline, and the save/load round trip
+  on one telescope), worked end to end: see **Configuration Sets** above
 
 Plot functions are available in `radiant.api.plot` for sweep results,
 noise budgets, PSF images, MTF curves, and spectral data visualization.

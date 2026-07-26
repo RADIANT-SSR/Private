@@ -1,6 +1,6 @@
 """Tests for ``ConfigurationSet`` — multi-configuration core model.
 
-Covers the Phase 1 test list of ``docs/plans/Multi_Configuration_Plan.md`` §6
+Covers the Phase 1 test list of ``docs/archive/Multi_Configuration_Plan.md`` §6
 against the model ratified in ``docs/adr/0010-multi-configuration-model.md``:
 materialization/isolation/provenance, the single-store invariant, the
 consistency-group story, CRUD edge cases, ``evaluate_all`` ordering and

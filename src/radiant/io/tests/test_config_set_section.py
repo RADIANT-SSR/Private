@@ -1,6 +1,6 @@
 """Tests for the ``configurations:`` structured section (ADR-0010 D-D, Phase 2).
 
-Covers the load-time validation matrix of `docs/plans/Multi_Configuration_Plan.md`
+Covers the load-time validation matrix of `docs/archive/Multi_Configuration_Plan.md`
 §6 Phase 2 at the io level: every violation is a `ConfigError` naming the config
 file, the configuration, and the parameter — never a padded or dropped value.
 """

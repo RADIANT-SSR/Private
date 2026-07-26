@@ -1,6 +1,34 @@
 # Multi-Configuration Capability — Development and Test Plan
 
-**Status:** Active — ratified 2026-07-25; execution in progress (this Phase 0 commit)
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-07-25, completed by the Phase 5 close-out
+> branch `cli/multiconfig-phase5`. All phases (0–5) shipped: the capability is live in the
+> scripting API, the config-file format, the GUI, and the CLI. This plan is retained as the
+> historical record of the build and is no longer edited. The **shipped** design is
+> `docs/adr/0010-multi-configuration-model.md` (decisions) plus
+> `docs/architecture/RADIANT_Scripting_API.md` §2.5c (`ConfigurationSet`),
+> `docs/architecture/RADIANT_Config_Format.md` §1.9 + §4.4 (`configurations:` section, CLI),
+> and `docs/architecture/RADIANT_GUI_Architecture.md` §4.2c–§4.2f (GUI). Remaining work
+> lives in `docs/tracking/gaps.md` (Gap 80's cross-band-derived-metric remainder, Gaps
+> 103–105) and `docs/tracking/Cleanup_Backlog.md` (CU-209, CU-216, CU-217, CU-218).
+
+**Status:** Complete — all phases merged 2026-07-25; archived 2026-07-25 (close-out done).
+*(Prior: Active — ratified 2026-07-25.)*
+
+**Merge record (one branch per phase, §5):**
+
+| Phase | Branch | Merge SHA |
+|---|---|---|
+| 0 — ADR + activation | `adr/multiconfig-phase0` | `fa60ecb` |
+| 1 — Core model (`api/config_set.py`) | `api/multiconfig-phase1` | `3a7aec3` |
+| 2 — Persistence (`configurations:` section) | `io/multiconfig-phase2` | `00fab71` |
+| 3 — Orchestration polish + dual-band example | `api/multiconfig-phase3` | `a3decbc` |
+| 4a — Session model + selector | `gui/multiconfig-phase4a` | `3ab6298` |
+| 4b — Configure flow, "C" badges, table editor | `gui/multiconfig-phase4b` | `0b564bc` |
+| 4c — Configuration manager dialog | `gui/multiconfig-phase4c` | `9ddeaab` |
+| 4d — Performance side-by-side columns | `gui/multiconfig-phase4d` | `a31b8ab` |
+| 4e — Study persistence + polish | `gui/multiconfig-phase4e` | `58d6523` |
+| 5 — Close-out (CLI, Gap 80, archival) | `cli/multiconfig-phase5` | this PR |
+
 **Date:** 2026-07-25 (rev 2 — reworked to the owner's CODE V zoom-configuration model)
 **Category:** D (integration + UX; core model work is Category B)
 **Read first:** `docs/architecture/RADIANT_Parameter_System.md`,
@@ -326,6 +354,19 @@ before the next starts.
 ### Phase 5 — Close-out (Category A)
 - CLI `--configuration` flag (or explicitly gap it); Gap 80 re-disposition; CU sweep
   (Rule 21); plan → `docs/archive/` (Rule 24).
+
+  *As closed out (2026-07-25):* the flag shipped — `radiant run study.yaml
+  --configuration NAME` (required for a study file, refused for a plain one) and
+  `radiant validate study.yaml` validating every configuration via `validate_all`
+  (`RADIANT_Config_Format.md` §4.4). A study run without the flag is an actionable error
+  listing the configuration names: `active` is GUI view state and is never an implicit
+  scripting default. No `--all-configurations` batch was built (Gap 105). Gap 80 is
+  RESOLVED for expressibility and orchestration with cross-band **derived** metrics as the
+  narrowed remainder; the §3.2 v1 exclusions became Gaps 103 (per-configuration element
+  documents, D-7), 104 (per-configuration tolerances / injections), and 105 (set-level
+  sweeps, Monte-Carlo, CLI batch). CU sweep: CU-208/210/211/212/213/214 resolved with
+  SHAs during the build; CU-209 (folded-MTF, results-affecting), CU-215, CU-216, CU-217
+  remain correctly Open, joined by CU-218 (the CLI's two `--provenance` record shapes).
 
 Rough effort: Phases 1–3 one solid session each; Phase 4 is 3–5 sessions (4b and 4d
 are the heavy ones). Every phase ends user-visible.

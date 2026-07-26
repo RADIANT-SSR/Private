@@ -1,6 +1,6 @@
 # Geometry Flexibility — Generalized Viewing Geometry Development Plan
 
-**Status:** Draft — awaiting owner ratification of §8.1 proposed decisions and answers to §8.2 open questions.
+**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). Execution not yet started; Phase 0 begins in a dedicated session per owner direction.
 **Source audit:** `docs/reports/geometry_flexibility_2026-07/` (chartered 2026-07-26).
 **Gaps served:** 107 (down-looking-only LOS), 108 (direction-blind backgrounds), 109 (path topology), 110 (turbulence stub), 111 (target kinematics). Related: 82 (clouds — untouched), 83 (two-point geodetic), 84 (ephemeris), 85 (mission-type relevance), 100 (IIRS).
 **Supersedes on ratification:** the 2026-07-11 "v1 has no uplooking geometry" ruling (`RADIANT_Geometry.md` §4); requires a new ADR (ADR-0011, Phase 0 deliverable).
@@ -262,3 +262,38 @@ and gap statuses (107–111) per Rules 20–22/29.
    library data?
 4. Target kinematics (Gap 111): first delivery as direct LOS-rate entry, or
    full target velocity vector?
+
+### 8.3 Ratification record (owner, 2026-07-26)
+
+**§8.1:** all eight items ratified as written.
+
+**§8.2 answers:**
+
+1. **Near-horizontal shoulder** — compute with a Rule-17 `UserWarning` in
+   the band between the hard ±0.5° guard and ≈±2° of horizontal
+   (warning quantifies the refraction-excluded caveat); long-range
+   air-to-air stays usable at first delivery.
+2. **MODTRAN batch** — the owner runs MODTRAN. The needed decks are
+   **appended to `docs/plans/modtran_run_matrix.csv`** (first batch scope:
+   ground-to-air up-looking partial-column ladder + constant-altitude
+   horizontal set, with the CU-065 uplooking Card-3 ANGLE convention check
+   folded in; SST full-column ladder is batch 2). All atmospheric
+   documentation (`RADIANT_Atmosphere.md` and companions) is updated in
+   Rule-20 lock-step at every phase — owner-emphasized.
+3. **Sky-background gating** — band-split: MWIR/LWIR sky backgrounds
+   supported at first delivery; VIS/NIR sky computes but carries a
+   "provisional — single-scatter underestimates daytime sky" `UserWarning`
+   until MODTRAN-anchored.
+4. **Gap 111 input shape** — both doors, provenance-resolved: direct
+   LOS-rate entry and a target-velocity-vector mode deriving it, with the
+   V0–V4 agreement-check pattern on disagreement.
+
+**Scene-class priority (owner-ordered):** ground-to-air → air-to-air →
+up-looking space-to-space (LEO→GEO) → ground-to-space (SST). Consequences:
+Phase 2 library work targets the first two; the Phase 1 LEO→GEO quick win
+ships on its own; the Gap 110 turbulence upgrade (SST-critical) may trail
+within Phase 3.
+
+**Kickoff:** deferred to a dedicated session (owner, 2026-07-26). Phase 0
+is the first action there; nothing beyond this ratification record was
+executed in the auditing session.

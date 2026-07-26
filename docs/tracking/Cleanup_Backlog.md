@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-221 — `scripts/test_docs_code.py` always reports 3 failures, so its signal is dead
+
+**Discovered**: multi-config user-guide coverage (`docs/multiconfig-guides`), 2026-07-26
+**Status**: Open
+**File**: `scripts/test_docs_code.py` (the `^```python` extraction regex) vs. `docs/guides/scenario_testing.md:74,87,101`
+**Symptom**: `python scripts/test_docs_code.py` exits 1 with `Total: 41  Passed: 38  Failed: 3` on a clean tree. All three failures are in `docs/guides/scenario_testing.md` and are `NameError` (`row`, `snr`, `ax`) — that guide's ```python fences are deliberately *illustrative fragments* ("CORRECT: … WRONG: …" print examples, a matplotlib axis-label example), not standalone runnable snippets. The script assumes every python fence under `docs/guides/` executes.
+**Why it still matters**: the checker is the only thing that verifies guide snippets still match the API, and a tool that is red on a clean tree gets ignored — a *real* regression in a runnable snippet would land invisibly among the three known failures. It is not in the merge gate battery, which is why the red has persisted unnoticed.
+**Suggested fix**: (a) inline-fix-now, small — teach the extractor to skip fences marked as illustrative (an info-string suffix on the fence, e.g. `python title="fragment"`, or an HTML `docs-code: skip` comment immediately above the fence) and tag the three fragments in `scenario_testing.md`; then the script exits 0 on a clean tree and a failure means something. Optionally, once green, add it to the gate battery (owner's call — same boundary as CU-215). Effort S. Category A.
+
 ### CU-220 — a configured filesystem-path parameter loses its Browse… picker
 
 **Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26

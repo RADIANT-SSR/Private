@@ -1,6 +1,6 @@
 # Geometry Flexibility — Generalized Viewing Geometry Development Plan
 
-**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). Execution not yet started; Phase 0 begins in a dedicated session per owner direction.
+**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). **Phase 0 complete 2026-07-26** (ADR-0011 accepted; Use-Case Matrix reworked to composition; batch-1 decks K1–K7/L1–L4 appended to the run matrix). Phases 1–5 not started.
 **Source audit:** `docs/reports/geometry_flexibility_2026-07/` (chartered 2026-07-26).
 **Gaps served:** 107 (down-looking-only LOS), 108 (direction-blind backgrounds), 109 (path topology), 110 (turbulence stub), 111 (target kinematics). Related: 82 (clouds — untouched), 83 (two-point geodetic), 84 (ephemeris), 85 (mission-type relevance), 100 (IIRS).
 **Supersedes on ratification:** the 2026-07-11 "v1 has no uplooking geometry" ruling (`RADIANT_Geometry.md` §4); requires a new ADR (ADR-0011, Phase 0 deliverable).
@@ -88,16 +88,27 @@ exactly like a Rule 20 doc-drift violation, not deferred to a CU.
 
 ## 4. Phases
 
-### Phase 0 — ADR-0011 + scope ratification (Category A; docs only)
+### Phase 0 — ADR-0011 + scope ratification (Category A; docs only) — COMPLETE 2026-07-26
 
-- Write ADR-0011 "Generalized viewing geometry": taxonomy (§2), canonical
+- ✅ ADR-0011 "Generalized Viewing Geometry" accepted
+  (`docs/adr/0011-generalized-viewing-geometry.md`): taxonomy (§2), canonical
   representation (§3.1), lower-endpoint path convention (§3.2), the
-  supersession of the 2026-07-11 ruling, and the v1.x exclusions (limb
-  radiance, refraction, ellipsoidal Earth — each with its validity guard).
-- Reconcile `RADIANT_Use_Case_Matrix.md` "sensor fixed to space" with actual
-  code behavior (GF-6): ratify air-to-ground as supported, define the new
-  cells' target/atmosphere/background codes (A1 up-path enters the matrix).
-- **Gate:** owner ratification of §8.
+  supersession of the 2026-07-11 ruling (code restriction stays in force
+  until Phase 1), the v1.x exclusions with validity guards, the two-tier
+  horizon guard, guardrails G1–G4 as binding consequences, and the
+  derived-scene-class decision.
+- ✅ `RADIANT_Use_Case_Matrix.md` reconciled and converted to compositional
+  scene definition (observer leg × illumination leg × LOS-termination
+  background; one worked example per §2 class; semantic-preservation ledger
+  §3.5): air-to-ground ratified supported, A1 up-path and A5 horizontal-arm
+  codes enter the catalog, B2 `SkyBackground` ratified band-gated.
+- ✅ Batch-1 MODTRAN decks appended to `docs/plans/modtran_run_matrix.csv`
+  (K1–K7 ground-to-air up-looking ladder incl. the CU-065 elevated-endpoint
+  ANGLE check at K7; L1–L4 constant-altitude horizontal set — owner runs).
+- ✅ Rule-20 lock-step: `RADIANT_Geometry.md` §4 cites ADR-0011 and states
+  the restriction remains until Phase 1; ADR index updated; Gap 107 status
+  refreshed.
+- **Gate:** owner ratification of §8 — satisfied (§8.3, 2026-07-26).
 
 ### Phase 1 — Direction-general geometry core (Category B)
 

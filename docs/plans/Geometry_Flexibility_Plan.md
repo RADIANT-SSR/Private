@@ -1,6 +1,6 @@
 # Geometry Flexibility — Generalized Viewing Geometry Development Plan
 
-**Status:** Draft — awaiting owner ratification of §8.1 proposed decisions and answers to §8.2 open questions.
+**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). Execution not yet started; Phase 0 begins in a dedicated session per owner direction.
 **Source audit:** `docs/reports/geometry_flexibility_2026-07/` (chartered 2026-07-26).
 **Gaps served:** 107 (down-looking-only LOS), 108 (direction-blind backgrounds), 109 (path topology), 110 (turbulence stub), 111 (target kinematics). Related: 82 (clouds — untouched), 83 (two-point geodetic), 84 (ephemeris), 85 (mission-type relevance), 100 (IIRS).
 **Supersedes on ratification:** the 2026-07-11 "v1 has no uplooking geometry" ruling (`RADIANT_Geometry.md` §4); requires a new ADR (ADR-0011, Phase 0 deliverable).
@@ -53,6 +53,39 @@ user switch (provenance-driven mode detection is retained unchanged).
    errors until a refraction/limb model exists — never a quietly wrong
    answer (Rule 17).
 
+### 3.5 Upgradeability guardrails (review-blocking; owner-directed 2026-07-26)
+
+These four are the identified spaghetti attractors of this upgrade. Each is
+a **phase-gate criterion** — a PR that violates one is rejected in review,
+exactly like a Rule 20 doc-drift violation, not deferred to a CU.
+
+- **G1 — No flat-bundle accretion in `AtmosphericQuantities`.** New path
+  products enter as *path-segment composition* (a segment product assembled
+  per topology), not as ever-more parallel top-level fields. Alarm
+  threshold: if the Phase 2 design has the flat contract exceeding ~12
+  fields, or any field whose meaning depends on scene class, the design
+  review rejects it and the segment abstraction becomes the contract.
+  (Gate: Phase 2 design review.)
+- **G2 — One source of truth for the sensor endpoint.** The same PR that
+  puts `h_sensor` on `LineOfSightGeometry` **deletes every backend
+  side-load** of `geometry.sensor_altitude_m` from params. Grep-provable
+  exit criterion: no atmosphere backend `evaluate` path reads the parameter
+  directly. Two live sources for one quantity is the CU-090/CU-093 disease
+  ADR-0006 just cured; it does not come back. (Gate: Phase 1 exit.)
+- **G3 — Scene-class conditioning is data, not scattered branches.** Metric
+  applicability lives in **one declarative scene-class → relevance map**
+  feeding the Gap 96 selection machinery (the mode-manifest pattern: owned
+  as data, consumed by views). Per-metric `if scene_class == ...` branches
+  in `performance/` modules are review-blocking. (Gate: Phase 3.)
+- **G4 — Generalizations retire their carve-outs in the same PR (Rule 27).**
+  The collocated no-triangle carve-out (`modes.py`) is subsumed by the
+  horizontal-path solution in Phase 1; `evaluate_with_exo_target`'s override
+  branch becomes a natural case of the Phase 2 path-segment product and the
+  wrapper is deleted; the CU-096 legacy (altitude, angle) fallbacks are
+  re-audited at Phase 3 close. A carve-out that must outlive its
+  generalization gets an explicit deferral record (gating stage + re-audit
+  date), never silence. (Gate: every phase close.)
+
 ## 4. Phases
 
 ### Phase 0 — ADR-0011 + scope ratification (Category A; docs only)
@@ -80,8 +113,12 @@ user switch (provenance-driven mode detection is retained unchanged).
   entries generalized (elevation angle may go negative = target below
   sensor horizon; off-nadir becomes off-boresight with direction resolved
   from altitudes); agreement checks unchanged in form.
-- **Exit criterion (quick win):** up-looking space-to-space (LEO→GEO) runs
-  end-to-end through the exo backend — the only blocker is this phase.
+- **Exit criteria:** (a) quick win — up-looking space-to-space (LEO→GEO)
+  runs end-to-end through the exo backend, the only blocker being this
+  phase; (b) **G2** — zero backend side-loads of
+  `geometry.sensor_altitude_m` remain (grep-provable); (c) **G4** — the
+  collocated no-triangle carve-out in `modes.py` is subsumed by the
+  general horizontal solution, not retained beside it.
 - Golden down-looking baselines byte-identical.
 
 ### Phase 2 — Direction-aware atmosphere (Category C; the dominant cost)
@@ -90,8 +127,13 @@ user switch (provenance-driven mode detection is retained unchanged).
   between two altitudes with zenith at the lower endpoint; adds an
   up-path radiance product (sensor→target leg viewed from below) and a
   horizontal constant-altitude arm (analytic Beer-Lambert at local density
-  in the simple model; MODTRAN ITYPE=1 wiring). `AtmosphericQuantities`
-  grows the new fields additively (existing eight unchanged).
+  in the simple model; MODTRAN ITYPE=1 wiring). Contract shape is governed
+  by **G1**: segment composition, not flat-field accretion — the existing
+  eight fields are unchanged for back-compat, but new products enter
+  through the segment abstraction, and the Phase 2 design review rejects a
+  flat contract past ~12 fields. **G4**: `evaluate_with_exo_target` folds
+  into the general segment product and the wrapper is deleted in the same
+  PR.
 - **Sky-radiance-along-LOS + `SkyBackground`** (Gap 108): simple model
   single-scatter solar + graybody thermal along the view ray (reusing the
   CU-155/CU-161 machinery); MODTRAN via up-looking radiance runs.
@@ -118,7 +160,9 @@ user switch (provenance-driven mode detection is retained unchanged).
 - **Metric conditioning** (GF-5/GF-13): scene-class → metric relevance map
   over the Gap 96 selection machinery (GSD/ground-range/NIIRS/access off by
   default for non-ground targets; angular resolution/target-plane sample
-  distance on).
+  distance on). Shape governed by **G3**: one declarative map, no
+  per-metric scene-class branches. **G4**: the CU-096 legacy
+  (altitude, angle) fallbacks are re-audited at this phase's close.
 - **Detection-range solver** (GF-15): piecewise path-aware extinction.
 - **Target kinematics** (Gap 111): target velocity params → LOS angular
   rate in GeometryStage → smear moving-target arm.
@@ -179,6 +223,31 @@ and gap statuses (107–111) per Rules 20–22/29.
 4. **Limb/refraction exclusions** with hard validity guards (§3.4, §5).
 5. **Horizon guard band**: paths within ±0.5° of the geometric horizon
    raise until refraction exists (value tunable at ratification).
+6. **Use-Case Matrix moves to composition, not enumeration.** Adding the
+   observer axis by enumerating cells would roughly triple an already
+   60-row matrix and pull the code toward per-cell match arms. ADR-0011
+   instead defines scenes compositionally — observer leg × target leg ×
+   LOS-termination background — and the matrix is reduced to one worked
+   example per §2 class. This is the highest-leverage anti-spaghetti
+   decision in the plan (companion to guardrails §3.5).
+7. **Guardrails §3.5 (G1–G4) are review-blocking phase-gate criteria**, on
+   par with Rule 20 — a violating PR is rejected, not CU'd forward.
+8. **Scene class is derived, never mandatory — with an optional validated
+   assertion.** The class (§2) is computed from `h_sensor`, `h_target`, and
+   θ_o and published with DERIVED provenance; physics never branches on it
+   (it drives defaults, metric relevance, validation, and GUI composition
+   only — the radiometry stays continuous in the real inputs). An optional
+   `geometry.scene_class` enum lets the user assert intent: if set and it
+   disagrees with the derivation, the stage raises
+   `GeometrySpecificationError` (the CU-093 / redundant-mode-entry
+   pattern) — catching wrong-magnitude altitude typos that pure derivation
+   renders as a self-consistent scene of the wrong class. In the GUI the
+   same assertion is the mission-type entry point (Gap 85 tie-in): picking
+   a class steers defaults/relevance up front and is validated against the
+   numbers entered afterward. A mandatory declaration is rejected: it
+   re-states derivable truth, breaks sweeps that cross class boundaries,
+   burdens every existing config, and invites the per-class physics
+   branching G3 forbids.
 
 ### 8.2 Open questions
 
@@ -193,3 +262,38 @@ and gap statuses (107–111) per Rules 20–22/29.
    library data?
 4. Target kinematics (Gap 111): first delivery as direct LOS-rate entry, or
    full target velocity vector?
+
+### 8.3 Ratification record (owner, 2026-07-26)
+
+**§8.1:** all eight items ratified as written.
+
+**§8.2 answers:**
+
+1. **Near-horizontal shoulder** — compute with a Rule-17 `UserWarning` in
+   the band between the hard ±0.5° guard and ≈±2° of horizontal
+   (warning quantifies the refraction-excluded caveat); long-range
+   air-to-air stays usable at first delivery.
+2. **MODTRAN batch** — the owner runs MODTRAN. The needed decks are
+   **appended to `docs/plans/modtran_run_matrix.csv`** (first batch scope:
+   ground-to-air up-looking partial-column ladder + constant-altitude
+   horizontal set, with the CU-065 uplooking Card-3 ANGLE convention check
+   folded in; SST full-column ladder is batch 2). All atmospheric
+   documentation (`RADIANT_Atmosphere.md` and companions) is updated in
+   Rule-20 lock-step at every phase — owner-emphasized.
+3. **Sky-background gating** — band-split: MWIR/LWIR sky backgrounds
+   supported at first delivery; VIS/NIR sky computes but carries a
+   "provisional — single-scatter underestimates daytime sky" `UserWarning`
+   until MODTRAN-anchored.
+4. **Gap 111 input shape** — both doors, provenance-resolved: direct
+   LOS-rate entry and a target-velocity-vector mode deriving it, with the
+   V0–V4 agreement-check pattern on disagreement.
+
+**Scene-class priority (owner-ordered):** ground-to-air → air-to-air →
+up-looking space-to-space (LEO→GEO) → ground-to-space (SST). Consequences:
+Phase 2 library work targets the first two; the Phase 1 LEO→GEO quick win
+ships on its own; the Gap 110 turbulence upgrade (SST-critical) may trail
+within Phase 3.
+
+**Kickoff:** deferred to a dedicated session (owner, 2026-07-26). Phase 0
+is the first action there; nothing beyond this ratification record was
+executed in the auditing session.

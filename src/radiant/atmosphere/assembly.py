@@ -117,8 +117,8 @@ def validate_no_atmosphere_subcase(
 
     Matrix §7 rules enforced here:
 
-    * ``space`` requires a positive ``platform.h_sensor`` set by the
-      user (Rule 17 — no silent default).
+    * ``space`` requires a positive sensor altitude carried on the LOS
+      (Rule 17 — no silent default).
     * ``space`` with an Earth-intercepting LOS raises (v1 has no
       earthlimb model, §7 "no_atmosphere (space) + LOS intercepts
       Earth").
@@ -142,13 +142,17 @@ def validate_no_atmosphere_subcase(
         LineOfSightGeometry.  Required for the space sub-case
         Earth-intercept check; optional otherwise.
     h_sensor:
-        Sensor altitude above MSL [m], from ``params["geometry.sensor_altitude_m"]``
-        (``platform.h_sensor`` is a deprecated alias — CU-090).
-        Only consulted for the space sub-case; ignored otherwise.
+        Sensor altitude above MSL [m], taken from ``los.h_sensor`` — the LOS
+        contract carries the sensor endpoint since ADR-0011 and is the
+        single source of truth for it inside this package (plan §3.5
+        guardrail G2; the user-facing input door is unchanged).  ``None``
+        when the LOS does not carry it.  Only consulted for the space
+        sub-case; ignored otherwise.
     h_sensor_user_set:
-        ``True`` iff the user explicitly set ``platform.h_sensor``.  The
-        space sub-case rejects the default value loudly rather than
-        silently using 0.0 (Rule 17).
+        ``True`` iff the sensor endpoint actually reached this stage (i.e.
+        ``los.h_sensor is not None``).  The space sub-case rejects a missing
+        or non-positive sensor altitude loudly rather than silently using
+        0.0 (Rule 17).
     """
     if target.target_location != "no_atmosphere":
         return  # Not a no_atmosphere cell — nothing to validate here.

@@ -337,8 +337,11 @@ class TestA7OutOfRangeRaises:
     """A7 — out-of-range geometry params raise rather than being clamped.
 
     Two safety nets:
-      * ParameterSet bounds (input layer) reject negative or
-        > π/2 path zenith.
+      * ParameterSet bounds (input layer) reject a negative path zenith
+        or one beyond π.  Since ADR-0011 the domain is the CLOSED
+        interval [0, π] — π/2 and beyond are legal inputs describing an
+        up-looking path, so the schema's job is only to keep θ_o a
+        zenith angle at all.
       * ``LineOfSightGeometry.__post_init__`` (dataclass invariant)
         catches anything that bypasses the schema.
 
@@ -354,10 +357,26 @@ class TestA7OutOfRangeRaises:
 
     def test_path_zenith_above_schema_upper_bound_rejected(self) -> None:
         params = _los_params(resolve=False)
-        # Schema upper bound is 1.562 rad (~89.5°); π/2 ≈ 1.5708 exceeds it.
-        params.set("geometry.path_zenith_rad", math.pi / 2.0)
+        # Schema upper bound is π since ADR-0011 (the closed domain); the
+        # old 1.562 rad (~89.5°) ceiling is gone, so the out-of-bounds
+        # probe has to clear π rather than π/2.
+        params.set("geometry.path_zenith_rad", math.pi + 0.1)
         with pytest.raises(ValueError, match=r"out of bounds"):
             params.resolve()
+
+    def test_path_zenith_at_pi_over_two_is_in_bounds(self) -> None:
+        """ADR-0011: π/2 is a legal input, not a schema rejection.
+
+        Whether a *particular* π/2 geometry is admissible is the horizon
+        guard's call (it depends on the altitudes and the path's tangent
+        topology), not the schema's — which is exactly why the bound moved.
+        """
+        params = _los_params(resolve=False)
+        params.set("geometry.path_zenith_rad", math.pi / 2.0)
+        params.resolve()  # must not raise
+        assert params.get("geometry.path_zenith_rad") == pytest.approx(
+            math.pi / 2.0, rel=0.0, abs=0.0
+        )
 
     def test_los_dataclass_rejects_negative_theta_o(self) -> None:
         # Defence in depth: even if the schema is bypassed, the dataclass
@@ -372,15 +391,27 @@ class TestA7OutOfRangeRaises:
 
 
 class TestA8HalfOpenIntervalLimit:
-    """A8 — the LOS half-open interval ``[0, π/2)`` works at the limit.
+    """A8 — behaviour approaching the horizon, post-ADR-0011.
 
-    Bypasses the (tighter) schema bound to exercise the dataclass
-    invariant directly.  Verifies that at θ_o just below π/2 the
-    dataclass constructs and ``path_airmass_up`` is finite.
+    The old contract was a half-open domain ``[0, π/2)`` that constructed
+    at ``π/2 − ε`` and returned a large-but-finite airmass.  Since
+    Geometry-Flexibility Phase 1 the *domain* is the closed ``[0, π]`` and
+    the near-horizontal band is judged by the **horizon guard** instead:
+    a grazing slant inside ±0.5° of the horizontal raises rather than
+    returning a number refraction would dominate (Rule 17).  So the limit
+    case moved — the airmass is still finite and large just outside the
+    guard, and the ``π/2 − ε`` case that used to be the interesting one is
+    now a rejection.
     """
 
-    def test_theta_o_just_below_horizon_is_finite(self) -> None:
+    def test_theta_o_just_below_horizon_is_rejected_by_the_guard(self) -> None:
         theta_o = math.pi / 2.0 - 1e-12
+        with pytest.raises(ParameterBoundsError, match=r"horizon guard"):
+            LineOfSightGeometry(h_tgt=0.0, theta_o=theta_o)
+
+    def test_theta_o_outside_the_guard_band_is_finite(self) -> None:
+        # 3° off the horizontal — clear of the 2° warn shoulder.
+        theta_o = math.radians(87.0)
         los = LineOfSightGeometry(h_tgt=0.0, theta_o=theta_o)
         airmass = los.path_airmass_up
         assert math.isfinite(airmass)

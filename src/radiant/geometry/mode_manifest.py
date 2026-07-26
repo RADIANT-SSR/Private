@@ -19,6 +19,13 @@ the grouping against the ``mode_entry`` / ``solar_site`` tags in
 
 Display strings (family titles, mode labels) are deliberately absent — they
 are view-layer concerns and live with the GUI (which keeps *only* those).
+
+Direction generality (ADR-0011) leaves this structure untouched: the doors
+are the same parameters, detected the same way. What changed is what each
+door *means* — every viewing angle is read at the path's lower endpoint, so
+V2 is an off-**boresight** angle (nadir- or zenith-referenced depending on
+which endpoint the sensor is) and V4's elevation may be negative. The
+manifest names doors, not semantics, so no entry moves.
 """
 
 from __future__ import annotations
@@ -79,6 +86,9 @@ VIEWING_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
     key="viewing",
     anchor_params=("geometry.sensor_altitude_m", "geometry.target_altitude_m"),
     modes=(
+        # V1 = lower-endpoint path zenith; V2 = sensor off-boresight angle
+        # (nadir- or zenith-referenced, resolved from the altitudes);
+        # V3 = direction-free surface arc; V4 = lower-endpoint elevation.
         GeometryMode("V1", ("geometry.path_zenith_rad",)),
         GeometryMode("V2", ("geometry.sensor_off_nadir_rad",)),
         GeometryMode("V3", ("geometry.ground_range_m",)),

@@ -30,7 +30,10 @@ from radiant.core.parameters import ParameterDef
 SENSOR_ALTITUDE_M = ParameterDef(
     name="geometry.sensor_altitude_m",
     description=(
-        "Sensor altitude above mean sea level [m]. Also the altitude the "
+        "Sensor altitude above mean sea level [m]. 0 = a ground-based "
+        "sensor (legal; the LOS direction is derived from this altitude "
+        "against geometry.target_altitude_m, never declared). Also the "
+        "altitude the "
         "no_atmosphere 'space' sub-case uses for the Earth-limb intercept "
         "check (formerly the separate platform.h_sensor stop-gap — folded "
         "as a deprecated alias per CU-090/ADR-0006)."
@@ -59,16 +62,25 @@ TARGET_ALTITUDE_M = ParameterDef(
 PATH_ZENITH_RAD = ParameterDef(
     name="geometry.path_zenith_rad",
     description=(
-        "Line-of-sight zenith angle at the TARGET (theta_o) [rad]. "
-        "0 = sensor at the target's zenith (nadir view). This is the "
-        "target-side angle consumed by the atmospheric path; the "
-        "sensor-side off-nadir angle is geometry.sensor_off_nadir_rad."
+        "Line-of-sight zenith angle at the path's LOWER endpoint [rad] — "
+        "mode V1 entry (ADR-0011 decision 3). When the sensor is above the "
+        "target (every classic scene) the target IS the lower endpoint, so "
+        "this is the canonical target-side zenith theta_o and 0 = sensor at "
+        "the target's zenith (nadir view). When the sensor is below the "
+        "target it is the sensor's own zenith angle, and theta_o = pi - "
+        "zeta_up is derived from it (0 = target directly overhead). The "
+        "sensor-side off-boresight angle is geometry.sensor_off_nadir_rad."
     ),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
     default=0.0,
-    bounds=(0.0, 1.562),  # ~89.5 deg
+    # Closed [0, pi] since ADR-0011: pi is the vertical up-looking case
+    # (ground sensor with the target at its zenith, LEO under GEO). Values
+    # near pi/2 are rejected by the HORIZON GUARD (core.viewing_triangle),
+    # not by this bound — the guard keys on the path's tangent topology,
+    # which the schema cannot see.
+    bounds=(0.0, 3.141592653589793),
     tags=frozenset({"geometry"}),
     default_justification="Nadir (0 rad) is the standard staring geometry.",
 )
@@ -387,11 +399,17 @@ SHAPE_ROLL = ParameterDef(
 SENSOR_OFF_NADIR_RAD = ParameterDef(
     name="geometry.sensor_off_nadir_rad",
     description=(
-        "Sensor off-nadir look angle eta [rad] — mode V2 entry. The "
-        "target-side path zenith is derived via the spherical-Earth sine "
-        "rule (core.los_geometry.theta_o_from_eta). Unused unless "
-        "explicitly set; do not also set geometry.path_zenith_rad unless "
-        "the two agree."
+        "Sensor off-BORESIGHT angle [rad] — mode V2 entry. The reference "
+        "axis is resolved from the altitudes (ADR-0011), never declared: "
+        "the sensor's NADIR when the sensor is above the target (the "
+        "classic off-nadir look angle eta, converted to the target-side "
+        "path zenith by the spherical-Earth sine rule, "
+        "core.los_geometry.theta_o_from_eta), and the sensor's ZENITH when "
+        "the sensor is at or below the target — where the sensor is the "
+        "path's lower endpoint, so the entered angle already is the "
+        "lower-endpoint zenith and theta_o is derived from it. Unused "
+        "unless explicitly set; do not also set geometry.path_zenith_rad "
+        "unless the two agree."
     ),
     dtype=float,
     canonical_unit="rad",
@@ -405,9 +423,11 @@ SENSOR_OFF_NADIR_RAD = ParameterDef(
 GROUND_RANGE_M = ParameterDef(
     name="geometry.ground_range_m",
     description=(
-        "Surface arc distance from the sensor nadir point to the target "
-        "[m] — mode V3 entry. The target-side path zenith is derived via "
-        "the spherical viewing triangle. Unused unless explicitly set."
+        "Surface arc distance between the sensor's ground point and the "
+        "target's ground point [m] — mode V3 entry. Direction-free: the "
+        "arc fixes the central angle Delta = arc / R_E whichever endpoint "
+        "is higher, and the spherical viewing triangle is solved for that "
+        "ordering. Unused unless explicitly set."
     ),
     dtype=float,
     canonical_unit="m",
@@ -421,15 +441,24 @@ GROUND_RANGE_M = ParameterDef(
 ELEVATION_ANGLE_RAD = ParameterDef(
     name="geometry.elevation_angle_rad",
     description=(
-        "Sensor elevation above the target's local horizon [rad] — mode "
-        "V4 entry (grazing-angle framing). path zenith = pi/2 − elevation. "
-        "Unused unless explicitly set."
+        "Elevation of the line of sight above the local horizontal AT THE "
+        "PATH'S LOWER ENDPOINT [rad] — mode V4 entry (grazing-angle "
+        "framing). lower-endpoint zenith = pi/2 - elevation; for the "
+        "classic sensor-above-target scene the lower endpoint is the "
+        "target, so this is the sensor's elevation seen from the target "
+        "and path zenith = pi/2 - elevation exactly as before. NEGATIVE "
+        "elevation is legal since ADR-0011 — the path leaves its lower "
+        "endpoint on a descending shoulder (a level or near-level arm sags "
+        "below the horizontal). Unused unless explicitly set."
     ),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
     default=1.5707963,
-    bounds=(0.0088, 1.5708),  # 0.5° grazing floor to zenith
+    # [-pi/2, pi/2]: the full elevation range in both hemispheres. The old
+    # 0.0088 rad (0.5°) grazing floor is superseded by the horizon guard,
+    # which judges the path's tangent topology rather than the raw angle.
+    bounds=(-1.5708, 1.5708),
     tags=frozenset({"geometry", "mode_entry"}),
     default_justification=(
         "Inert (pi/2 = sensor at zenith, the nadir-view complement) — "

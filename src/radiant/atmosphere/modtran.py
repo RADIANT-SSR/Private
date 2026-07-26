@@ -43,6 +43,7 @@ import numpy as np
 
 from radiant.atmosphere._modtran_paths import default_modtran_binary
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
 from radiant.atmosphere.errors import AtmosphereStateError, AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
@@ -1487,10 +1488,13 @@ class ModtranAtmosphere:
                 "surface-level target."
             )
 
-        # Reconstruct an AtmosphericGeometry from params; MODTRAN consumes it
-        # via build_state below.  h_tgt flows through to MODTRAN H2.
+        # Reconstruct an AtmosphericGeometry for the deck; MODTRAN consumes
+        # it via build_state below.  Both endpoints come from the LOS
+        # contract (ADR-0011; guardrail G2 — no params side-load for
+        # h_sensor); h_tgt flows through to MODTRAN H2.  The solar angles
+        # still fall back to params when the LOS declares none.
         geometry = AtmosphericGeometry(
-            sensor_altitude_m=float(params.get("geometry.sensor_altitude_m")),
+            sensor_altitude_m=require_sensor_altitude_m(los, "ModtranAtmosphere.evaluate"),
             target_altitude_m=float(los.h_tgt),
             path_zenith_rad=float(los.theta_o),
             solar_zenith_rad=(

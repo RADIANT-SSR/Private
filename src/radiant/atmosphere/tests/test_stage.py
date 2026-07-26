@@ -45,6 +45,9 @@ def _make_state_with_descriptors(
     )
     los = LineOfSightGeometry(
         h_tgt=0.0,
+        # ADR-0011 / guardrail G2: the sensor endpoint travels on the LOS
+        # (GeometryStage populates it); it matches _make_params' default.
+        h_sensor=8000.0,
         theta_o=0.0,
         theta_s=math.radians(30.0),
         delta_phi=0.0,

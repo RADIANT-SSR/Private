@@ -21,6 +21,103 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Generalized viewing geometry — the geometry core is direction-general
+  (Geometry-Flexibility Phase 1, ADR-0011; Gap 107).** RADIANT can now *express and
+  resolve* any observer/target altitude pair and LOS direction, not only
+  sensor-above-target. Concretely:
+  - `geometry.path_zenith_rad` (θ_o) spans the **closed** domain `[0, π]` — up from
+    `[0, 1.562]` (≈89.5°). `π` is the vertical up-looking case (a ground sensor with
+    the target at its zenith; a LEO sensor directly beneath a GEO target) and is
+    attained exactly. *(ADR-0011 writes `[0, π)`; that is a flagged notation slip
+    pending owner confirmation — the closed interval is implemented, with the
+    discrepancy noted at the domain validator.)*
+  - `geometry.elevation_angle_rad` becomes **signed**: bounds widen from
+    `[0.0088, 1.5708]` to `[−π/2, π/2]`. The 0.5° grazing floor is superseded by the
+    horizon guard, which judges the path's tangent topology rather than the raw angle.
+  - **Every entered viewing angle is referenced to the path's lower endpoint**
+    (ADR-0011 decision 3). Exactly back-compatible — today's target is always the
+    lower endpoint — but it is what makes V1/V2/V4 unambiguous when the sensor is
+    below the target. V2 (`geometry.sensor_off_nadir_rad`) is therefore an
+    off-**boresight** angle whose reference axis (nadir or zenith) is resolved from
+    the altitudes, never declared.
+  - `LineOfSightGeometry` carries **both** endpoints: `h_sensor` joins `h_tgt`, and
+    the object exposes the derived `los_direction` (`down`/`up`/`level`) and
+    `is_uplooking`. `GeometryStage` always populates `h_sensor` and publishes
+    `stage_outputs["geometry"]["los_direction"]`. Serialization extends
+    back-compatibly: `h_sensor` is emitted only when carried, so a legacy payload
+    round-trips to the identical byte sequence, and `from_dict` maps both an absent
+    key and an explicit `null` to `None`.
+  - `h_sensor` on the LOS is now the **single source of truth** for the sensor
+    altitude inside `radiant.atmosphere`; no backend reads
+    `geometry.sensor_altitude_m` from the `ParameterSet` (guardrail G2). A LOS that
+    does not carry it raises an actionable error rather than silently falling back.
+  - **Up-looking space-to-space (LEO→GEO) runs end-to-end**, vertical and slant —
+    both endpoints above `h_atm_top` make the whole path, and its continuation,
+    vacuum (`τ ≡ 1`, `L_path ≡ 0`, `E_sky ≡ 0`, cold-space background).
+  - **Not yet: the atmosphere.** It remains direction-blind, so `AtmosphereStage`
+    refuses — before backend dispatch, with an error naming the pending capability —
+    any up-looking or level path whose lower endpoint is inside the modelled column.
+    Direction-aware path products, sky-along-LOS backgrounds, and the horizontal arm
+    are Phase 2 (Gaps 108/109).
+- **Horizon guard for near-horizontal paths (ADR-0011 decision 6, plan §8.3).** Paths
+  where unmodelled refraction would dominate now fail loudly or warn quantitatively
+  instead of returning a plausible wrong number (Rule 17). The guard keys on the
+  segment's tangent-point topology: *endpoint-minimum* paths use angular bands at the
+  lower endpoint (< 0.5° raise, 0.5–2° compute + `UserWarning`), *interior-tangent*
+  paths use the tangent-height depression Δh ≈ L²/8R_E (< 100 m clean, 100 m–2 km
+  compute + `UserWarning`, > 2 km raise as a limb-like transit). Thresholds are named
+  module constants in `core/viewing_triangle.py` and are **provisional** pending
+  Phase 2 MODTRAN calibration. New public helpers: `classify_horizon_topology`,
+  `check_horizon_guard`, `HorizonGuardResult`, `solve_from_lower_zenith`, and the
+  `level_*` central-angle family.
+
+### Changed
+- **Down-looking θ_o in roughly (88°, 90°) now emits a `UserWarning`** where the old
+  89.5° schema bound accepted it silently. Results-neutral: no shipped scenario or
+  golden baseline is in that band (the existing set tops out near 75°), so no computed
+  number moves — only the warning surface.
+- **Results-affecting (unreachable configurations only): the collocated
+  "no viewing triangle" carve-out is retired (guardrail G4, Rule 27).** An
+  equal-altitude scene that carries *any* separation — a lab bench with
+  `geometry.target_range_m`, a tower pair with `geometry.ground_range_m` — now
+  resolves the full horizontal triangle through the central-angle form
+  (θ_o = π/2 + φ/2, real `slant_range_m` / `ground_range_m` / `eta_rad` /
+  `incidence_angle_rad`) instead of publishing θ_o = 0 with three `None`s. Only
+  *coincident* endpoints (equal altitudes, no separation at all) have no path; they
+  publish θ_o = π/2 rather than the old nadir default of 0. Direction and magnitude:
+  θ_o moves by up to π/2 rad for such scenes and the range/angle outputs change from
+  `None` to metre-accurate values (e.g. two 30 m towers 8 km apart: θ_o = 90.036°,
+  slant = 8000.0 m). No golden baseline or shipped scenario changes value. One
+  reachable composition changes *outcome* rather than value: an equal-altitude scene
+  over a real atmosphere (e.g. `sensor_altitude_m = target_altitude_m = 0` with
+  `atmosphere.model = "simple"`) is now classified `level` and therefore refused by
+  the Phase-2 atmosphere guard below, where it previously integrated a zero-length
+  column. That is the intended consequence of retiring the carve-out: the horizontal
+  constant-altitude arm (A5) is Phase 2 work, and a degenerate zero-length column is
+  not a substitute for it.
+- **`no_atmosphere` no longer rewrites `h_tgt` to 0 on a non-down-looking path.**
+  The historical override (the no-atmosphere arm never integrates a column, so the
+  only consumer of `h_tgt` was the Earth-limb intercept check) is kept verbatim for
+  every down-looking scene — bit-identical results — but on an up-looking or level
+  path it would fabricate an `(h_sensor, h_tgt, θ_o)` triple that violates the new
+  altitude/hemisphere invariant. The real target altitude is kept there instead, and
+  the intercept check reads the true segment.
+- **`LineOfSightGeometry.intercepts_earth` reports a bad input as a bad input.** An
+  altitude/zenith combination that admits no viewing triangle at all (e.g. a
+  down-looking θ_o paired with a sensor *below* the target) previously fell into a
+  degenerate branch and answered `True` — "intercepts Earth". It now raises,
+  naming the contradiction and the ray's perigee altitude. Consequence worth
+  knowing: for a LOS that carries `h_sensor`, a genuinely Earth-intercepting chord
+  is now caught one layer earlier by the horizon guard, which classifies it as a
+  limb-like transit (its tangent depression is hundreds of km). The `no_atmosphere
+  (space)` Earth-intercept precondition is unchanged and still permanent; only the
+  validator that fires first has moved.
+- **`ParameterBoundsError` is now raised at `AtmosphereStage` — not from inside a
+  backend — for up-looking and level atmospheric paths.** A ground→air scene
+  previously surfaced whatever the configured backend happened to say (a
+  `ZENITH_CEILING` bound, a "looking-up configuration" message); it now gets one
+  actionable error naming the pending Phase-2 capability and Gaps 108/109. The
+  matrix's `test_sensor_below_space_target_raises` negative path moved with it.
 - **GUI: the Parameter Editor edits every configuration at once, and can make a
   parameter configurable (owner UX round, 2026-07-26).** Opened on a **configured**
   parameter in a study, the *Edit — &lt;dotpath&gt;* dialog now shows **one seeded value box

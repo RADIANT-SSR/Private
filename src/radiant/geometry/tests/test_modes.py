@@ -11,13 +11,18 @@ import math
 
 import pytest
 
+from radiant.core.constants import R_EARTH_M
 from radiant.core.los_geometry import theta_o_from_eta
 from radiant.core.orbit import ground_track_speed_m_s
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.solar_geometry import solar_zenith_angle_rad
 from radiant.core.viewing_triangle import (
     eta_from_theta_o,
     ground_range_from_theta_o_m,
+    level_central_angle_from_slant_m,
+    level_theta_o_from_central_angle_rad,
+    slant_range_from_theta_o_m,
+    solve_from_lower_zenith,
 )
 from radiant.geometry._schema import ALL_PARAMETERS
 from radiant.geometry.errors import GeometrySpecificationError
@@ -123,6 +128,221 @@ class TestViewingModes:
         )
         assert v.h_target_m == pytest.approx(4000.0, rel=1e-9)
         assert v.slant_range_m < H_LEO / math.cos(0.4)  # tighter than flat Earth
+
+    @pytest.mark.parametrize("theta_o", [0.0, 0.1, 0.4, 0.7, 1.0, 1.3])
+    def test_down_looking_arithmetic_is_bit_identical(self, theta_o: float) -> None:
+        """Zero drift (plan §3 principle 3): the down-looking path must be
+        the *same* expressions, not merely close — so exact float equality
+        against the core solvers, no tolerance."""
+        v = resolve_viewing(make_params(geometry__path_zenith_rad=theta_o))
+        assert v.theta_o_rad == theta_o
+        assert v.direction == "down"
+        assert v.slant_range_m == slant_range_from_theta_o_m(theta_o, H_LEO, 0.0)
+        if theta_o > 0.0:
+            assert v.eta_rad == eta_from_theta_o(theta_o, H_LEO, 0.0)
+            assert v.ground_range_m == ground_range_from_theta_o_m(theta_o, H_LEO, 0.0)
+        else:
+            assert v.eta_rad == 0.0
+            assert v.ground_range_m == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Direction-general viewing (ADR-0011, plan Phase 1)
+# ---------------------------------------------------------------------------
+
+H_GEO = 35_786_000.0
+
+
+def uplooking_params(**inputs: object) -> ParameterSet:
+    """Ground sensor (0 m) under an air/space target."""
+    ps = ParameterSet(list(ALL_PARAMETERS))
+    ps.set("geometry.sensor_altitude_m", 0.0)
+    for name, value in inputs.items():
+        ps.set(name.replace("__", "."), value)
+    ps.resolve()
+    return ps
+
+
+class TestUpLookingViewing:
+    """The sensor below the target — the 2026-07-11 ruling is superseded."""
+
+    def test_default_puts_target_at_the_sensor_zenith(self) -> None:
+        v = resolve_viewing(uplooking_params(geometry__target_altitude_m=H_GEO))
+        assert v.direction == "up"
+        assert v.theta_o_rad == pytest.approx(math.pi, abs=1e-12)
+        assert v.eta_rad == pytest.approx(math.pi, abs=1e-12)
+        assert v.slant_range_m == pytest.approx(H_GEO, rel=1e-12)
+        assert v.ground_range_m == pytest.approx(0.0, abs=1e-12)
+        assert "default" in v.mode
+
+    def test_v1_zenith_is_read_at_the_sensor(self) -> None:
+        """V1 is the LOWER-endpoint zenith (ADR-0011 decision 3)."""
+        zeta = 0.6
+        v = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__path_zenith_rad=zeta,
+            )
+        )
+        expected = solve_from_lower_zenith(zeta, 0.0, 20_000.0)
+        assert v.theta_o_rad == pytest.approx(expected.theta_o_rad, rel=1e-12)
+        assert v.theta_o_rad > math.pi / 2.0
+        assert v.slant_range_m == pytest.approx(expected.slant_range_m, rel=1e-9)
+        assert v.ground_range_m == pytest.approx(R_EARTH_M * expected.central_angle_rad, rel=1e-6)
+        assert "up-looking" in v.mode
+
+    def test_v2_off_boresight_is_zenith_referenced_when_sensor_is_lower(self) -> None:
+        """V2's reference axis flips with the altitude ordering, so the same
+        number entered through V1 and V2 must describe the same scene."""
+        angle = 0.45
+        v1 = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__path_zenith_rad=angle,
+            )
+        )
+        v2 = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__sensor_off_nadir_rad=angle,
+            )
+        )
+        assert v2.theta_o_rad == pytest.approx(v1.theta_o_rad, rel=1e-12)
+        assert v2.mode.startswith("geometry.sensor_off_nadir_rad")
+
+    def test_v4_elevation_is_read_at_the_sensor(self) -> None:
+        elev = math.radians(35.0)
+        v = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__elevation_angle_rad=elev,
+            )
+        )
+        expected = solve_from_lower_zenith(math.pi / 2.0 - elev, 0.0, 20_000.0)
+        assert v.theta_o_rad == pytest.approx(expected.theta_o_rad, rel=1e-12)
+
+    def test_v3_ground_range_round_trips(self) -> None:
+        v = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__ground_range_m=15_000.0,
+            )
+        )
+        assert v.direction == "up"
+        assert v.ground_range_m == pytest.approx(15_000.0, rel=1e-6)
+
+    def test_redundant_up_looking_entries_agree(self) -> None:
+        zeta = 0.6
+        v = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__path_zenith_rad=zeta,
+                geometry__elevation_angle_rad=math.pi / 2.0 - zeta,
+            )
+        )
+        assert "consistent" in v.mode
+        assert v.theta_o_rad > math.pi / 2.0
+
+    def test_disagreeing_up_looking_entries_raise(self) -> None:
+        with pytest.raises(GeometrySpecificationError):
+            resolve_viewing(
+                uplooking_params(
+                    geometry__target_altitude_m=20_000.0,
+                    geometry__path_zenith_rad=0.2,
+                    geometry__elevation_angle_rad=0.2,
+                )
+            )
+
+    def test_geometry_identity_eta_equals_pi_minus_lower_zenith(self) -> None:
+        """η at the upper endpoint and ζ at the lower one are supplements of
+        each other's roles: R_E·(θ_o − η) is the same arc either way."""
+        zeta = 0.9
+        h_tgt = 100_000.0
+        v = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=h_tgt,
+                geometry__path_zenith_rad=zeta,
+            )
+        )
+        sol = solve_from_lower_zenith(zeta, 0.0, h_tgt)
+        assert v.eta_rad == pytest.approx(math.pi - zeta, rel=1e-9)
+        assert v.ground_range_m == pytest.approx(R_EARTH_M * sol.central_angle_rad, rel=1e-9)
+
+
+class TestLevelViewing:
+    """Equal altitudes — the horizontal solution that retires the carve-out."""
+
+    def _level(self, h_m: float, **inputs: object) -> ParameterSet:
+        ps = ParameterSet(list(ALL_PARAMETERS))
+        ps.set("geometry.sensor_altitude_m", h_m)
+        ps.set("geometry.target_altitude_m", h_m)
+        for name, value in inputs.items():
+            ps.set(name.replace("__", "."), value)
+        ps.resolve()
+        return ps
+
+    def test_coincident_endpoints_have_no_triangle(self) -> None:
+        v = resolve_viewing(self._level(0.0))
+        assert v.direction == "level"
+        assert v.theta_o_rad == pytest.approx(math.pi / 2.0, abs=1e-15)
+        assert v.eta_rad is None and v.slant_range_m is None and v.ground_range_m is None
+        assert "coincident endpoints" in v.mode
+
+    def test_chord_builds_the_triangle(self) -> None:
+        v = resolve_viewing(self._level(0.0, geometry__target_range_m=5.0))
+        assert v.slant_range_m == pytest.approx(5.0, rel=1e-9)
+        assert v.theta_o_rad == pytest.approx(
+            level_theta_o_from_central_angle_rad(level_central_angle_from_slant_m(5.0, 0.0)),
+            rel=1e-15,
+        )
+        assert "chord" in v.mode
+
+    def test_ground_arc_builds_the_triangle(self) -> None:
+        v = resolve_viewing(self._level(30.0, geometry__ground_range_m=8_000.0))
+        assert v.slant_range_m == pytest.approx(8_000.0, rel=1e-4)
+        assert v.ground_range_m == pytest.approx(8_000.0, rel=1e-9)
+        # Isoceles triangle: each endpoint looks *down* at the other by φ/2.
+        phi = 8_000.0 / R_EARTH_M
+        assert v.theta_o_rad == pytest.approx(math.pi / 2.0 + phi / 2.0, rel=1e-12)
+        assert v.eta_rad == pytest.approx(math.pi - v.theta_o_rad, rel=1e-9)
+
+    def test_negative_elevation_is_the_level_door(self) -> None:
+        """A level arm sags below the horizontal, so its elevation entry is
+        negative — legal since ADR-0011, rejected by the old 0.5° floor."""
+        phi = 8_000.0 / R_EARTH_M
+        v = resolve_viewing(self._level(30.0, geometry__elevation_angle_rad=-phi / 2.0))
+        assert v.theta_o_rad == pytest.approx(math.pi / 2.0 + phi / 2.0, rel=1e-12)
+        assert v.ground_range_m == pytest.approx(8_000.0, rel=1e-6)
+
+
+class TestHemisphereInvariant:
+    """h_sensor > h_target ⟺ θ_o < π/2 — a violating pair is a bad input."""
+
+    def test_down_looking_with_obtuse_zenith_raises(self) -> None:
+        with pytest.raises(ParameterBoundsError, match="hemisphere"):
+            resolve_viewing(make_params(geometry__path_zenith_rad=2.0))
+
+    def test_error_names_both_altitudes(self) -> None:
+        with pytest.raises(ParameterBoundsError) as exc:
+            resolve_viewing(
+                make_params(
+                    geometry__target_altitude_m=1000.0,
+                    geometry__path_zenith_rad=2.0,
+                )
+            )
+        msg = str(exc.value)
+        assert "h_sensor_m" in msg and "h_target_m" in msg
+
+    def test_up_looking_pair_cannot_take_an_acute_target_zenith(self) -> None:
+        """V3 is the one door that names θ_o-space directly; an arc of zero
+        on an up-looking pair is θ_o = π, never θ_o = 0."""
+        v = resolve_viewing(
+            uplooking_params(
+                geometry__target_altitude_m=20_000.0,
+                geometry__ground_range_m=0.0,
+            )
+        )
+        assert v.theta_o_rad == pytest.approx(math.pi, abs=1e-12)
 
 
 # ---------------------------------------------------------------------------

@@ -266,7 +266,18 @@ calls in place of a bare `model.evaluate`:
 - `τ_full_up`, `L_path_full`, `E_TOA`, and the E_sky terms come from the same
   backend evaluated at the surface-target geometry (`h_tgt = 0`, same angles) —
   the ground→sensor full column survives to the background/noise branch
-  unchanged.
+  unchanged. This is a **down-looking** construction: it is the column behind
+  the target, kept because a down-looking LOS continues past an exo target to
+  the ground.
+- **Up-looking / level exo path (ADR-0011, Geometry-Flexibility Phase 1):** when
+  the sensor sits at or below the target, the LOS continues into space rather
+  than to the ground. Such a path is served only when its **lower** endpoint is
+  itself at or above `h_atm_top` — both endpoints outside the column, so the
+  whole path *and its continuation* are vacuum and the full-column terms are the
+  vacuum identities too (`τ_full_up ≡ 1`, `L_path_full ≡ 0`, `E_sky ≡ 0`,
+  `E_TOA` still from `radiant.core.solar`). This is the up-looking
+  space-to-space case (LEO→GEO). An up-looking path whose lower endpoint is
+  still inside the column (ground/air → satellite) is **refused** — see §4.2b.
 - Works for every backend, including single-column file imports (tape7,
   tabulated) that refuse endo-atmospheric elevated targets — in this regime one
   column is all the physics needs.
@@ -283,6 +294,26 @@ covered by real MODTRAN data — the boost-ladder run set (G7–G11, I1–I9) la
 backend serves a continuous τ_up from 0 km through the synthesized 100 km
 vacuum rung into this exo branch (see the shipped-library note in §3.2 and the
 archived `docs/archive/MODTRAN_Boost_Ladder_Expansion_Plan.md`).
+
+### 4.2b Path direction — one source of truth, one pending-capability refusal
+
+Since ADR-0011 (Geometry-Flexibility Phase 1) `LineOfSightGeometry` carries
+**both** endpoints, and `los.h_sensor` is the **only** source of the sensor
+altitude inside `radiant.atmosphere`: no backend `evaluate` reads
+`geometry.sensor_altitude_m` from the `ParameterSet` (plan §3.5 guardrail G2 —
+`GeometryStage` is the one place that reads the parameter and puts it on the
+LOS). A LOS that does not carry `h_sensor` raises an actionable error rather
+than falling back to the parameter (`atmosphere/_sensor_endpoint.py`).
+
+Direction is derived from the altitude pair, never declared. The atmosphere is
+still direction-blind — every backend integrates the column *above* the target
+out to the sensor — so `AtmosphereStage` rejects, **before backend dispatch**,
+any path whose sensor sits at or below the target while the path's lower
+endpoint is inside the column (`atmosphere/_uplooking_guard.py`). The error
+names the pending capability (direction-aware atmosphere, Phase 2, Gaps
+108/109) instead of surfacing as a backend zenith-ceiling or "looking-up
+configuration" message. Admissible today: every down-looking path, and the
+wholly-vacuum up-looking/level path of §4.2a.
 
 ### 4.3 How geometry feeds each model
 

@@ -60,6 +60,7 @@ import logging
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere._uplooking_guard import reject_pending_uplooking_path
 from radiant.atmosphere.assembly import (
     assemble_background_at_aperture,
     assemble_background_source_emission,
@@ -71,7 +72,7 @@ from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.exo_target import evaluate_with_exo_target
 from radiant.atmosphere.loaders import build_atmosphere_model, model_requires_prebuild
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet, Provenance
+from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 
 logger = logging.getLogger(__name__)
@@ -134,30 +135,37 @@ class AtmosphereStage:
 
         # ------------------------------------------------------------------
         # 2a. Stage 7 (Option C) — no_atmosphere sub-case preconditions.
-        # Matrix §7: space sub-case requires a positive user-set sensor
-        # altitude and the LOS must clear the Earth limb; the ground_test /
-        # lab_test sub-cases require a UserSpectralBackground on the
-        # background arm.  Fails loud per Rule 17 before any physics runs.
-        # CU-090/ADR-0006: reads the canonical geometry.sensor_altitude_m
-        # (the old platform.h_sensor is a deprecated alias of it).
+        # Matrix §7: space sub-case requires a positive sensor altitude and
+        # the LOS must clear the Earth limb; the ground_test / lab_test
+        # sub-cases require a UserSpectralBackground on the background arm.
+        # Fails loud per Rule 17 before any physics runs.
+        # ADR-0011 / guardrail G2: the sensor endpoint is read from the LOS
+        # contract (GeometryStage populates it from the required geometry
+        # parameter), never side-loaded from the ParameterSet here — one
+        # source of truth.  A LOS without it counts as "not supplied", the
+        # same verdict the old un-set-parameter branch produced.
         # ------------------------------------------------------------------
         if getattr(target_desc, "target_location", None) == "no_atmosphere":
-            try:
-                h_sensor_rv = params.get_resolved("geometry.sensor_altitude_m")
-                h_sensor: float | None = float(h_sensor_rv.value)
-                h_sensor_user_set: bool = h_sensor_rv.provenance is not Provenance.DEFAULT
-            except KeyError:
-                # Geometry schema not registered in this ParameterSet (source-
-                # only unit-test fixture).  Treat as "not supplied".
-                h_sensor = None
-                h_sensor_user_set = False
+            h_sensor: float | None = los.h_sensor if los is not None else None
             validate_no_atmosphere_subcase(
                 target=target_desc,
                 background=background_desc,
                 los=los,
                 h_sensor=h_sensor,
-                h_sensor_user_set=h_sensor_user_set,
+                h_sensor_user_set=h_sensor is not None,
             )
+
+        # ------------------------------------------------------------------
+        # 2b. Direction admissibility (ADR-0011 / Geometry-Flexibility
+        # Phase 1).  Up-looking and level geometry is legal to express but
+        # the direction-aware atmosphere is Phase 2 work (Gaps 108/109);
+        # reject it here, before backend dispatch, so the user gets one
+        # actionable error naming the pending capability instead of a
+        # backend-internal zenith-ceiling or looking-up message.  Vacuum
+        # (both endpoints above h_atm_top) up-looking paths pass through —
+        # that is the Phase 1 LEO→GEO quick win.
+        # ------------------------------------------------------------------
+        reject_pending_uplooking_path(los, where="AtmosphereStage")
 
         # ------------------------------------------------------------------
         # 3. Evaluate the atmospheric quantities bundle and assemble the

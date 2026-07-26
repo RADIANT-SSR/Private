@@ -135,6 +135,7 @@ class TestAnchor1_LWIR_limit:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=math.radians(30.0),
@@ -192,6 +193,7 @@ class TestAnchor2_VIS_limit:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=math.radians(30.0),
@@ -245,6 +247,7 @@ class TestAnchor3_MWIR_crossover:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=math.radians(30.0),
@@ -314,6 +317,7 @@ class TestFragility_HighOpticalDepth:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=theta_s,
@@ -364,6 +368,7 @@ class TestFragility_LowSun:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=theta_s,
@@ -379,6 +384,7 @@ class TestFragility_LowSun:
         )
         ref_los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=math.radians(30.0),
@@ -412,6 +418,7 @@ class TestFragility_LowSun:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=theta_s,
@@ -449,6 +456,7 @@ class TestSumPreservation:
         )
         los = LineOfSightGeometry(
             h_tgt=0.0,
+            h_sensor=2000.0,
             theta_o=0.0,
             h_atm_top=1.0e5,
             theta_s=math.radians(30.0),

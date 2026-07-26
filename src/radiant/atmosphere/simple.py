@@ -80,6 +80,7 @@ from typing import Any
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.omega0_eff import omega0_eff
 from radiant.atmosphere.protocol import (
@@ -794,9 +795,10 @@ class SimpleAtmosphere:
           ``_ESKY_*`` constants; degrades to 0 exactly as
           ``h_tgt → h_atm_top``.
 
-        The sensor altitude comes from ``params["geometry.sensor_altitude_m"]``
-        (the LineOfSightGeometry does not carry ``h_sensor`` in v1 — see
-        `docs/RADIANT_SourceStage.md`).
+        The sensor altitude comes from ``los.h_sensor`` — the LOS contract
+        carries both endpoints since ADR-0011 (Geometry-Flexibility Phase 1),
+        and it is the single source of truth for the sensor endpoint inside
+        this package (plan §3.5 guardrail G2).
         """
         h_tgt = los.h_tgt
 
@@ -819,16 +821,10 @@ class SimpleAtmosphere:
                 f"SimpleAtmosphere '{self.name}': wavelength_um must be strictly positive."
             )
 
-        # Sensor altitude from the ParameterSet (LineOfSightGeometry does
-        # not carry h_sensor in v1 — see Stage 3 plan).
-        h_sensor_m = float(params.get("geometry.sensor_altitude_m"))
-        if h_sensor_m < 0.0:
-            raise ParameterBoundsError(
-                what=f"SimpleAtmosphere.evaluate: h_sensor = {h_sensor_m} m is negative",
-                why="Sensor altitude must be non-negative.",
-                action="Set geometry.sensor_altitude_m ≥ 0.",
-                context={"h_sensor_m": h_sensor_m},
-            )
+        # Sensor altitude from the LOS contract — the single source of truth
+        # since ADR-0011 (guardrail G2; no params side-load).  Non-negativity
+        # is enforced by LineOfSightGeometry.__post_init__.
+        h_sensor_m = require_sensor_altitude_m(los, "SimpleAtmosphere.evaluate")
 
         # A3 degenerate case: h_tgt == h_atm_top collapses the sun-leg
         # column to zero extent, making the solar airmass undefined.
@@ -870,11 +866,15 @@ class SimpleAtmosphere:
                 why=(
                     "The A3 partial-column model integrates the slant column "
                     "from h_tgt upward to h_sensor; h_sensor must be at or "
-                    "above h_tgt for the integral to be well-defined."
+                    "above h_tgt for the integral to be well-defined.  The "
+                    "direction-aware (up-looking / level) atmosphere arrives "
+                    "in Geometry-Flexibility Phase 2 (Gaps 108/109) — "
+                    "AtmosphereStage rejects such a path at stage entry; this "
+                    "is the same refusal for a direct backend call."
                 ),
                 action=(
-                    "Raise geometry.sensor_altitude_m above h_tgt, or model "
-                    "a looking-up configuration with a dedicated backend."
+                    "Raise the sensor altitude on the LOS above h_tgt, or "
+                    "wait for the Phase 2 up-looking column."
                 ),
                 context={"h_sensor_m": h_sensor_m, "h_tgt": h_tgt},
             )

@@ -22,6 +22,32 @@ Rules (normative, ADR-0006):
      so ``result.inspect()`` shows how each number was produced.
   4. No user-set entry at all falls back to the documented defaults
      (nadir view, 0.5 rad solar zenith in day mode) — never a silent NaN.
+
+Angle-entry semantics (ADR-0011 decision 3, plan Phase 1)
+---------------------------------------------------------
+Since the geometry core became direction-general, **every viewing angle a
+user enters is referenced to the path's LOWER endpoint**:
+
+* ``path_zenith_rad`` (V1) is the LOS zenith *at the lower endpoint*;
+* ``sensor_off_nadir_rad`` (V2) is an off-**boresight** angle whose
+  reference axis is resolved from the altitudes — nadir when the sensor is
+  the upper endpoint, zenith when it is the lower one;
+* ``elevation_angle_rad`` (V4) is the elevation above the horizontal *at
+  the lower endpoint*, and may now be negative (the path leaves its lower
+  endpoint on a descending shoulder);
+* ``ground_range_m`` (V3) is direction-free — the surface arc fixes the
+  central angle whichever endpoint is higher.
+
+This is exactly back-compatible: in every pre-ADR-0011 scene the sensor is
+strictly above the target, so the target *is* the lower endpoint and the
+entered angle is the canonical target-side zenith θ_o, unchanged.  For an
+up-looking scene the sensor is the lower endpoint and θ_o is **derived**
+(``θ_o = π − ζ_up``); the mode label says so.
+
+The canonical published quantity remains θ_o on the closed domain [0, π]
+(π = target directly overhead), and the resolved values are the ones the
+horizon guard in :class:`~radiant.core.los_geometry.LineOfSightGeometry`
+then judges.
 """
 
 from __future__ import annotations
@@ -40,7 +66,10 @@ from radiant.core.solar_geometry import (
 from radiant.core.viewing_triangle import (
     eta_from_theta_o,
     ground_range_from_theta_o_m,
+    level_central_angle_from_slant_m,
+    level_theta_o_from_central_angle_rad,
     slant_range_from_theta_o_m,
+    solve_from_lower_zenith,
     theta_o_from_ground_range_m,
 )
 from radiant.geometry.errors import GeometrySpecificationError
@@ -54,15 +83,29 @@ _ABS_FLOOR_RAD = 1e-6
 class ViewingResolution:
     """Canonical viewing geometry after mode resolution.
 
+    ``theta_o_rad`` is the target-side observer zenith on the closed domain
+    [0, π] — acute for a down-looking scene, obtuse for an up-looking one,
+    ``π/2 + φ/2`` for a level (equal-altitude) path.  Up-looking is legal
+    since ADR-0011 (the 2026-07-11 "v1 has no uplooking geometry" ruling is
+    superseded).
+
     The triangle-derived fields (``eta_rad``, ``slant_range_m``,
-    ``ground_range_m``) are ``None`` in the degenerate collocated case
-    (``h_sensor == h_target``, e.g. a lab bench at 0 m) where the
-    spherical viewing triangle does not exist.  Uplooking
-    (``h_sensor < h_target``) raises — v1 policy (owner-ratified
-    2026-07-11).
+    ``ground_range_m``) are ``None`` in exactly one case: **coincident
+    endpoints** — equal altitudes with no separation information at all
+    (no angle entry, no ground range, no target range), where the two
+    endpoints are the same point and there is no path.  That is the
+    φ → 0 limit of the level solution, not a carve-out: an equal-altitude
+    scene that carries *any* separation (a lab bench with
+    ``geometry.target_range_m``, a tower pair with ``ground_range_m``, an
+    elevation entry) resolves to the full horizontal triangle (ADR-0011
+    guardrail G4 — the collocated no-triangle carve-out is retired here).
+
+    ``direction`` is derived from the altitude pair, never a user switch
+    (ADR-0011 decision 1).
     """
 
     mode: str  # which entry resolved theta_o
+    direction: str  # "down" | "up" | "level" — derived from the altitudes
     theta_o_rad: float
     eta_rad: float | None
     slant_range_m: float | None
@@ -126,30 +169,88 @@ def _raise_disagreement(family: str, entries: list[tuple[str, float]], unit: str
     )
 
 
+def viewing_direction(h_sensor_m: float, h_target_m: float) -> str:
+    """Derived LOS direction from the altitude pair (ADR-0011 decision 1).
+
+    ``"down"`` when the sensor is strictly above the target (every
+    pre-ADR-0011 scene), ``"up"`` when it is strictly below, ``"level"``
+    when the altitudes are equal.  Never a user switch.
+    """
+    if h_sensor_m > h_target_m:
+        return "down"
+    if h_sensor_m < h_target_m:
+        return "up"
+    return "level"
+
+
+#: Mode-label suffix naming the endpoint an entered angle was read at.
+#: Empty for the down-looking case so every existing label — and the
+#: manifest round-trip test that pins it — is unchanged (zero drift).
+_DIRECTION_NOTE: dict[str, str] = {
+    "down": "",
+    "up": " (up-looking — angle at the sensor, the lower endpoint)",
+    "level": " (level path — angle at either endpoint)",
+}
+
+
+def _theta_o_from_lower_zenith(
+    zeta_low_rad: float, direction: str, h_sensor: float, h_target: float
+) -> float:
+    """Canonical θ_o from a zenith angle entered at the path's LOWER endpoint.
+
+    ADR-0011 decision 3.  Down-looking and level paths have the target at
+    (or level with) the lower endpoint, so the entered angle **is** θ_o and
+    the historical expression is untouched.  Up-looking paths are solved
+    from the sensor end, which is unambiguous by construction, and θ_o is
+    derived as ``π − ζ_up``.
+    """
+    if direction == "up":
+        return solve_from_lower_zenith(zeta_low_rad, h_sensor, h_target).theta_o_rad
+    return zeta_low_rad
+
+
 def resolve_viewing(params: ParameterSet) -> ViewingResolution:
     """Resolve the viewing-geometry family (modes V1–V4) to canonical θ_o.
 
     ``geometry.sensor_altitude_m`` is the anchor (required parameter);
-    every angle entry is converted to an implied target-side zenith and
-    checked for agreement per ADR-0006 rule 2.
+    every angle entry is read at the path's lower endpoint (ADR-0011
+    decision 3), converted to an implied target-side zenith θ_o, and
+    checked for agreement per ADR-0006 rule 2 — the agreement check is
+    unchanged in form, only its inputs are now direction-aware.
     """
     h_sensor: float = params.get("geometry.sensor_altitude_m")
     h_target: float = params.get("geometry.target_altitude_m")
+    direction = viewing_direction(h_sensor, h_target)
 
     candidates: list[tuple[str, float]] = []
     if _provided(params, "geometry.path_zenith_rad"):
         candidates.append(
-            ("geometry.path_zenith_rad", float(params.get("geometry.path_zenith_rad")))
+            (
+                "geometry.path_zenith_rad",
+                _theta_o_from_lower_zenith(
+                    float(params.get("geometry.path_zenith_rad")), direction, h_sensor, h_target
+                ),
+            )
         )
     if _provided(params, "geometry.sensor_off_nadir_rad"):
         eta_in = float(params.get("geometry.sensor_off_nadir_rad"))
+        # V2 is an off-BORESIGHT angle: the reference axis is the sensor's
+        # nadir when the sensor is the upper endpoint (the historical
+        # off-nadir look angle, converted by the sine rule exactly as
+        # before), and the sensor's zenith when it is the lower endpoint —
+        # in which case the entered angle already *is* ζ_low.
         candidates.append(
             (
                 "geometry.sensor_off_nadir_rad",
-                theta_o_from_eta(eta_in, h_sensor, h_target),
+                theta_o_from_eta(eta_in, h_sensor, h_target)
+                if direction == "down"
+                else _theta_o_from_lower_zenith(eta_in, direction, h_sensor, h_target),
             )
         )
     if _provided(params, "geometry.ground_range_m"):
+        # V3 is direction-free: the surface arc fixes the central angle
+        # Δ = arc / R_E whichever endpoint is higher, and the solver picks
+        # the triangle branch from the altitude ordering.
         candidates.append(
             (
                 "geometry.ground_range_m",
@@ -159,41 +260,88 @@ def resolve_viewing(params: ParameterSet) -> ViewingResolution:
             )
         )
     if _provided(params, "geometry.elevation_angle_rad"):
+        # V4: elevation above the horizontal AT THE LOWER ENDPOINT.  A
+        # negative elevation is legal since ADR-0011 — the path leaves its
+        # lower endpoint on a descending shoulder (ζ_low > π/2); whether
+        # that is admissible is the horizon guard's call, not the schema's.
         candidates.append(
             (
                 "geometry.elevation_angle_rad",
-                math.pi / 2.0 - float(params.get("geometry.elevation_angle_rad")),
+                _theta_o_from_lower_zenith(
+                    math.pi / 2.0 - float(params.get("geometry.elevation_angle_rad")),
+                    direction,
+                    h_sensor,
+                    h_target,
+                ),
             )
         )
 
-    if not candidates:
-        theta_o = float(params.get("geometry.path_zenith_rad"))  # schema default: nadir
-        mode = "path_zenith (default)"
+    # A level path with no angle entry at all still has a triangle whenever
+    # the user gave a separation: the chord (V0 geometry.target_range_m)
+    # fixes the central angle directly, φ = 2·asin(d / 2r).  This is what
+    # subsumes the old collocated no-triangle carve-out (guardrail G4).
+    chord_m = float(params.get("geometry.target_range_m"))
+    level_no_angle = direction == "level" and not candidates
+    level_from_chord = level_no_angle and chord_m > 0.0
+    # Coincident endpoints: equal altitudes with no separation given at all.
+    # The φ → 0 limit of the level solution — θ_o = π/2, zero slant, zero
+    # arc — so there is no path to publish ranges for.  Downstream consumers
+    # keep their None-handling (PerformanceStage skips the ground-projection
+    # metrics for exactly this reason).
+    coincident = level_no_angle and chord_m <= 0.0
+
+    if coincident:
+        theta_o = math.pi / 2.0
+        mode = "path_zenith (default) (level path — coincident endpoints, zero separation)"
+    elif level_from_chord:
+        theta_o = level_theta_o_from_central_angle_rad(
+            level_central_angle_from_slant_m(chord_m, h_sensor)
+        )
+        mode = "geometry.target_range_m (level path — chord ⇒ central angle)"
+    elif not candidates:
+        # Schema default 0.0, read at the lower endpoint: nadir view when
+        # the sensor is above (unchanged), target-at-zenith when below.
+        theta_o = _theta_o_from_lower_zenith(
+            float(params.get("geometry.path_zenith_rad")), direction, h_sensor, h_target
+        )
+        mode = "path_zenith (default)" + _DIRECTION_NOTE[direction]
     elif len(candidates) == 1:
         mode, theta_o = candidates[0]
+        mode += _DIRECTION_NOTE[direction]
     else:
         first = candidates[0][1]
         if not all(_agree(first, v) for _, v in candidates[1:]):
             _raise_disagreement("viewing", candidates, "rad")
         mode = " + ".join(name for name, _ in candidates) + " (consistent)"
+        mode += _DIRECTION_NOTE[direction]
         theta_o = first
 
-    if h_sensor == h_target:
-        # Degenerate collocated case (lab bench, ground test): no viewing
-        # triangle exists; angle-entry modes V2/V3 already raised above
-        # (their converters validate h_sensor > h_target).  The scene is
-        # still valid — regime/range come from geometry.target_range_m.
-        eta: float | None = None
-        slant: float | None = None
-        ground: float | None = None
-        mode += " (collocated — no viewing triangle)"
-    else:
-        # h_sensor < h_target raises inside the triangle (uplooking policy).
+    eta: float | None
+    slant: float | None
+    ground: float | None
+    if direction == "down":
+        # Historical expressions, untouched — every existing golden baseline
+        # flows through exactly these three lines (plan §3 principle 3).
         eta = eta_from_theta_o(theta_o, h_sensor, h_target) if theta_o > 0.0 else 0.0
         slant = slant_range_from_theta_o_m(theta_o, h_sensor, h_target)
         ground = ground_range_from_theta_o_m(theta_o, h_sensor, h_target) if theta_o > 0.0 else 0.0
+    elif coincident:
+        eta = None
+        slant = None
+        ground = None
+    else:
+        # Up-looking or a level path with separation: the same triangle read
+        # from the other vertex.  θ_o = π (target at the sensor's zenith) is
+        # the mirror of the down-looking θ_o = 0 nadir limit and is taken
+        # exactly rather than through a 1e-16 sine.
+        at_zenith = theta_o >= math.pi
+        eta = math.pi if at_zenith else eta_from_theta_o(theta_o, h_sensor, h_target)
+        slant = slant_range_from_theta_o_m(theta_o, h_sensor, h_target)
+        ground = 0.0 if at_zenith else ground_range_from_theta_o_m(theta_o, h_sensor, h_target)
+
     return ViewingResolution(
         mode=mode,
+        direction=direction,
         theta_o_rad=theta_o,
         eta_rad=eta,
         slant_range_m=slant,
@@ -347,6 +495,11 @@ def check_range_consistency(
       default-nadir slant by more than 1 %, a ``UserWarning`` is issued
       (Rule 17 — the historical silent disagreement is never silent).
     * no user range → nothing to check.
+
+    On a **level** path with no angle entry the range is not merely a
+    consistency partner — it is the separation that builds the triangle
+    (``resolve_viewing``'s chord door), so the two agree by construction
+    and this check is a no-op there.
     """
     raw_range = float(params.get("geometry.target_range_m"))
     if raw_range <= 0.0 or viewing.slant_range_m is None:

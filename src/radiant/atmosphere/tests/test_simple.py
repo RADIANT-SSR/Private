@@ -763,7 +763,9 @@ def test_esky_thermal_independent_of_sensor_altitude() -> None:
     for h_sensor_m in (3_000.0, 500_000.0):
         atm = SimpleAtmosphere(standard_atmosphere="us_standard")
         params = _resolved_params(grid, sensor_altitude_m=h_sensor_m)
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
+        # ADR-0011 / guardrail G2: the backend reads the sensor endpoint from
+        # the LOS, so it is the LOS that must carry the varied altitude.
+        los = LineOfSightGeometry(h_tgt=0.0, h_sensor=h_sensor_m, theta_o=0.0, h_atm_top=1.0e5)
         with _warnings.catch_warnings():
             _warnings.simplefilter("ignore")
             results.append(atm.evaluate(grid, los, params).E_sky_thermal)

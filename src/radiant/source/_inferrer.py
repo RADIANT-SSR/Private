@@ -354,6 +354,31 @@ def _infer_los(
     )
 
 
+def _no_atmosphere_h_tgt(scene_los: LineOfSightGeometry) -> float:
+    """Target altitude the ``no_atmosphere`` arm carries on the adjusted LOS.
+
+    Historically this was unconditionally ``0.0``: the no-atmosphere path
+    never integrates a column, so the only consumer of ``h_tgt`` is the
+    Earth-limb intercept check, which was written against a surface-anchored
+    target.  That override is kept **verbatim for every down-looking scene**
+    (``h_sensor > h_tgt``) — which is every pre-ADR-0011 scene — so no
+    existing result moves by a bit.
+
+    Since ADR-0011 the LOS also carries ``h_sensor``, and
+    :class:`~radiant.core.los_geometry.LineOfSightGeometry` enforces the
+    altitude/hemisphere invariant (``h_sensor > h_tgt ⟺ θ_o < π/2``).  On an
+    up-looking or level path, rewriting ``h_tgt`` to 0 while keeping
+    ``h_sensor`` and ``θ_o`` fabricates a triple that violates that invariant
+    (e.g. LEO→GEO: ``h_sensor`` = 500 km, ``θ_o`` = π, ``h_tgt`` → 0), so the
+    contract object rightly refuses to be built.  The real target altitude is
+    kept there: it is self-consistent, and the intercept check reads the true
+    segment instead of a surface-anchored stand-in.
+    """
+    if scene_los.h_sensor is None or scene_los.h_sensor > scene_los.h_tgt:
+        return 0.0
+    return scene_los.h_tgt
+
+
 def _adjust_scene_los(
     scene_los: LineOfSightGeometry,
     target_location: str,
@@ -369,23 +394,34 @@ def _adjust_scene_los(
       * ``at_aperture``     → ``None`` (the pass-through arm never
         evaluates an atmospheric path — matrix §4.3), matching
         :func:`_infer_los`.
-      * ``no_atmosphere``   → ``h_tgt`` forced to 0.0, matching
-        :func:`_infer_los` ("the space LOS is above everything"; the
-        no-atm path ignores it, and the Earth-limb intercept check keeps
-        its legacy geometry).
+      * ``no_atmosphere``   → ``h_tgt`` forced to 0.0 **on a down-looking
+        path**, matching :func:`_infer_los` ("the space LOS is above
+        everything"; the no-atm path ignores it, and the Earth-limb
+        intercept check keeps its legacy geometry).  See
+        :func:`_no_atmosphere_h_tgt` for why the override stops at the
+        down-looking case since ADR-0011.
       * T1 (non-T2/T3) targets → solar fields stripped (CU-009 predicate:
         a pure-thermal radiance has no solar leg).  Night mode arrives
         already stripped from GeometryStage.
     """
     if target_location == "at_aperture":
         return None
-    h_tgt = 0.0 if target_location == "no_atmosphere" else scene_los.h_tgt
+    h_tgt = (
+        _no_atmosphere_h_tgt(scene_los) if target_location == "no_atmosphere" else scene_los.h_tgt
+    )
     if isinstance(target_descriptor, (T2Reflective, T3Mixed)):
         theta_s, delta_phi = scene_los.theta_s, scene_los.delta_phi
     else:
         theta_s, delta_phi = None, None
     return LineOfSightGeometry(
         h_tgt=h_tgt,
+        # ADR-0011 / GF-3: the sensor endpoint published by GeometryStage is
+        # carried through unchanged — this function adjusts the *radiometric*
+        # fields (h_tgt for no_atmosphere, the solar pair per target type),
+        # never the sensor endpoint.  Dropping it here would leave the
+        # atmosphere backends without the single source of truth they now
+        # read (guardrail G2).
+        h_sensor=scene_los.h_sensor,
         h_atm_top=scene_los.h_atm_top,
         theta_o=scene_los.theta_o,
         theta_s=theta_s,

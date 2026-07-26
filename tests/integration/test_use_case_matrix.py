@@ -686,13 +686,13 @@ def test_use_case_matrix_cell(cell: CellSpec) -> None:
 
 
 class TestEarthLosInterceptNegativePath:
-    """Gap 41: the Earth-LOS-intercept validator raises end-to-end.
+    """Gap 41 / ADR-0011: a sensor below the target raises end-to-end.
 
-    Flips the Cell-58-style geometry: sensor (1 km) BELOW the space
-    target (90 km) at nadir — a degenerate LOS that never reaches the
-    sensor. ``intercepts_earth`` treats it as intercepting and
-    ``assembly.validate_no_atmosphere_subcase`` must raise through the
-    full RadiantSession chain, not just in unit isolation.
+    Flips the Cell-58-style geometry: sensor (1 km) BELOW the target
+    (90 km), zenith entered at the path's lower endpoint (the sensor).
+    Something must refuse this through the full RadiantSession chain, not
+    just in unit isolation — which layer refuses, and why, is what
+    ADR-0011 changed (see the test bodies).
     """
 
     def _params(self, h_sensor_m: float):
@@ -712,15 +712,25 @@ class TestEarthLosInterceptNegativePath:
         return session, params
 
     def test_sensor_below_space_target_raises(self) -> None:
-        # Since ADR-0006, GeometryStage rejects the uplooking configuration
-        # (h_sensor below h_target) before the atmosphere's Earth-limb check
-        # can fire — same v1 policy (uplooking rejection ratified 2026-07-11),
-        # earlier and more specific error site. The Earth-limb validator
-        # itself stays covered by assembly unit tests.
+        # Refusal site, historically: GeometryStage, on the blanket
+        # "v1 has no uplooking geometry" ruling of 2026-07-11.
+        #
+        # Refusal site since Geometry-Flexibility Phase 1 (ADR-0011): the
+        # geometry is *legal* — sensor at 1 km, target at 90 km, theta_o = pi
+        # is a perfectly ordinary ground-to-air scene — so GeometryStage
+        # accepts it and AtmosphereStage refuses it instead, because the
+        # 1 km -> 90 km leg lies inside the modelled column and the
+        # direction-aware atmosphere is Phase 2 (Gaps 108/109). The refusal
+        # is still loud, still before any physics, and now names the pending
+        # capability rather than a superseded policy.
+        #
+        # The Earth-limb validator itself stays covered by assembly unit
+        # tests and by the LEO->GEO chain in test_uplooking_phase1.py, where
+        # both endpoints are above h_atm_top so this guard does not fire.
         session, params = self._params(1_000.0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            with pytest.raises(ParameterBoundsError, match="not above"):
+            with pytest.raises(ParameterBoundsError, match="Phase 2"):
                 session.run(params)
 
     def test_sensor_above_space_target_runs(self) -> None:

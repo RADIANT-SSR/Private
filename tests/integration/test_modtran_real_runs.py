@@ -287,7 +287,12 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
             precipitable_water_cm=PROFILE_PWV_CM[profile],
         )
         los = LineOfSightGeometry(
-            h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=None, delta_phi=None
+            h_tgt=0.0,
+            h_sensor=100_000.0,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+            theta_s=None,
+            delta_phi=None,
         )
         with _warnings.catch_warnings():
             _warnings.simplefilter("ignore")
@@ -379,7 +384,12 @@ def test_flux_import_downwelling_matches_e1_flux_column() -> None:
     params.resolve()
 
     los = LineOfSightGeometry(
-        h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=np.radians(30.0), delta_phi=0.0
+        h_tgt=0.0,
+        h_sensor=100_000.0,
+        theta_o=0.0,
+        h_atm_top=1.0e5,
+        theta_s=np.radians(30.0),
+        delta_phi=0.0,
     )
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore")

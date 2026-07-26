@@ -14,6 +14,8 @@ answers evaluate() without erroring and returns shape-valid data".
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -42,9 +44,15 @@ def vis_wavelengths() -> np.ndarray:
 
 @pytest.fixture
 def terrestrial_los() -> LineOfSightGeometry:
-    """Ground-target LOS at nadir, no explicit sun (pure-thermal case)."""
+    """Ground-target LOS at nadir, no explicit sun (pure-thermal case).
+
+    ``h_sensor`` matches the 2000 m sensor altitude the ``*_params``
+    fixtures pin: since ADR-0011 the sensor endpoint travels on the LOS and
+    is the only source the backends read (guardrail G2).
+    """
     return LineOfSightGeometry(
         h_tgt=0.0,
+        h_sensor=2000.0,
         theta_o=0.0,
         h_atm_top=1.0e5,
         theta_s=None,
@@ -57,6 +65,7 @@ def vis_terrestrial_los() -> LineOfSightGeometry:
     """Ground-target LOS with a 30° sun for a reflective smoke test."""
     return LineOfSightGeometry(
         h_tgt=0.0,
+        h_sensor=2000.0,
         theta_o=0.0,
         h_atm_top=1.0e5,
         theta_s=np.deg2rad(30.0),
@@ -219,12 +228,20 @@ class TestSimpleAtmosphereEvaluate:
 
         Pre-Stage-5 this test asserted that any ``h_tgt > 0`` raised
         ``NotImplementedError``; Stage 5 narrows the raise to the
-        looking-up edge case.  ``lwir_params`` pins h_sensor = 2000 m, so
-        h_tgt = 5000 m is above the sensor and triggers the guard.
+        looking-up edge case.
+
+        Since ADR-0011 the up-looking geometry is legal to *express*, so the
+        LOS carries h_sensor = 2000 m below h_tgt = 5000 m with theta_o = π
+        (the sensor straight below the target — the hemisphere invariant
+        makes any acute theta_o inexpressible for this altitude pair).  The
+        backend still refuses it: the direction-aware column is Phase 2
+        (Gaps 108/109).  AtmosphereStage refuses the same geometry earlier;
+        this is the direct-backend-call path.
         """
         los = LineOfSightGeometry(
             h_tgt=5000.0,  # airborne target above the sensor (h_sensor=2000)
-            theta_o=0.0,
+            h_sensor=2000.0,
+            theta_o=math.pi,
             h_atm_top=1.0e5,
         )
         atm = SimpleAtmosphere(
@@ -477,7 +494,7 @@ class TestInterpolatedAtmosphereEvaluate:
         [W/m²/sr/µm], E_sky_thermal = π·0.015 [W/m²/µm].
         """
         model = _interp_with_target_axis(lwir_wavelengths)
-        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=20_000.0, theta_o=0.0, h_atm_top=1.0e5)
 
         with pytest.warns(UserWarning, match="two-leg"):
             q = model.evaluate(lwir_wavelengths, los, lwir_params)
@@ -499,7 +516,7 @@ class TestInterpolatedAtmosphereEvaluate:
     ) -> None:
         """h_tgt = 0 keeps the pre-Gap-94 contract: one column, all legs alias."""
         model = _interp_with_target_axis(lwir_wavelengths)
-        los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=0.0, h_sensor=2000.0, theta_o=0.0, h_atm_top=1.0e5)
         with pytest.warns(UserWarning, match="two-leg"):
             q = model.evaluate(lwir_wavelengths, los, lwir_params)
         np.testing.assert_allclose(q.tau_up, 0.7, rtol=1e-9)
@@ -529,7 +546,7 @@ class TestInterpolatedAtmosphereEvaluate:
             for z, t in ((0.0, 0.8), (0.5, 0.7))
         ]
         model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
-        los = LineOfSightGeometry(h_tgt=5_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=20_000.0, theta_o=0.0, h_atm_top=1.0e5)
         with pytest.raises(NotImplementedError, match="target_altitude_m"):
             model.evaluate(lwir_wavelengths, los, lwir_params)
 
@@ -539,7 +556,7 @@ class TestInterpolatedAtmosphereEvaluate:
         from radiant.atmosphere.errors import AtmosphereValidationError
 
         model = _interp_with_target_axis(lwir_wavelengths)
-        los = LineOfSightGeometry(h_tgt=90_000.0, theta_o=0.0, h_atm_top=1.0e5)
+        los = LineOfSightGeometry(h_tgt=90_000.0, h_sensor=95_000.0, theta_o=0.0, h_atm_top=1.0e5)
         with pytest.raises(AtmosphereValidationError, match="outside the available range"):
             model.evaluate(lwir_wavelengths, los, lwir_params)
 

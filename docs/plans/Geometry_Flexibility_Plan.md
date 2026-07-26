@@ -53,6 +53,39 @@ user switch (provenance-driven mode detection is retained unchanged).
    errors until a refraction/limb model exists — never a quietly wrong
    answer (Rule 17).
 
+### 3.5 Upgradeability guardrails (review-blocking; owner-directed 2026-07-26)
+
+These four are the identified spaghetti attractors of this upgrade. Each is
+a **phase-gate criterion** — a PR that violates one is rejected in review,
+exactly like a Rule 20 doc-drift violation, not deferred to a CU.
+
+- **G1 — No flat-bundle accretion in `AtmosphericQuantities`.** New path
+  products enter as *path-segment composition* (a segment product assembled
+  per topology), not as ever-more parallel top-level fields. Alarm
+  threshold: if the Phase 2 design has the flat contract exceeding ~12
+  fields, or any field whose meaning depends on scene class, the design
+  review rejects it and the segment abstraction becomes the contract.
+  (Gate: Phase 2 design review.)
+- **G2 — One source of truth for the sensor endpoint.** The same PR that
+  puts `h_sensor` on `LineOfSightGeometry` **deletes every backend
+  side-load** of `geometry.sensor_altitude_m` from params. Grep-provable
+  exit criterion: no atmosphere backend `evaluate` path reads the parameter
+  directly. Two live sources for one quantity is the CU-090/CU-093 disease
+  ADR-0006 just cured; it does not come back. (Gate: Phase 1 exit.)
+- **G3 — Scene-class conditioning is data, not scattered branches.** Metric
+  applicability lives in **one declarative scene-class → relevance map**
+  feeding the Gap 96 selection machinery (the mode-manifest pattern: owned
+  as data, consumed by views). Per-metric `if scene_class == ...` branches
+  in `performance/` modules are review-blocking. (Gate: Phase 3.)
+- **G4 — Generalizations retire their carve-outs in the same PR (Rule 27).**
+  The collocated no-triangle carve-out (`modes.py`) is subsumed by the
+  horizontal-path solution in Phase 1; `evaluate_with_exo_target`'s override
+  branch becomes a natural case of the Phase 2 path-segment product and the
+  wrapper is deleted; the CU-096 legacy (altitude, angle) fallbacks are
+  re-audited at Phase 3 close. A carve-out that must outlive its
+  generalization gets an explicit deferral record (gating stage + re-audit
+  date), never silence. (Gate: every phase close.)
+
 ## 4. Phases
 
 ### Phase 0 — ADR-0011 + scope ratification (Category A; docs only)
@@ -80,8 +113,12 @@ user switch (provenance-driven mode detection is retained unchanged).
   entries generalized (elevation angle may go negative = target below
   sensor horizon; off-nadir becomes off-boresight with direction resolved
   from altitudes); agreement checks unchanged in form.
-- **Exit criterion (quick win):** up-looking space-to-space (LEO→GEO) runs
-  end-to-end through the exo backend — the only blocker is this phase.
+- **Exit criteria:** (a) quick win — up-looking space-to-space (LEO→GEO)
+  runs end-to-end through the exo backend, the only blocker being this
+  phase; (b) **G2** — zero backend side-loads of
+  `geometry.sensor_altitude_m` remain (grep-provable); (c) **G4** — the
+  collocated no-triangle carve-out in `modes.py` is subsumed by the
+  general horizontal solution, not retained beside it.
 - Golden down-looking baselines byte-identical.
 
 ### Phase 2 — Direction-aware atmosphere (Category C; the dominant cost)
@@ -90,8 +127,13 @@ user switch (provenance-driven mode detection is retained unchanged).
   between two altitudes with zenith at the lower endpoint; adds an
   up-path radiance product (sensor→target leg viewed from below) and a
   horizontal constant-altitude arm (analytic Beer-Lambert at local density
-  in the simple model; MODTRAN ITYPE=1 wiring). `AtmosphericQuantities`
-  grows the new fields additively (existing eight unchanged).
+  in the simple model; MODTRAN ITYPE=1 wiring). Contract shape is governed
+  by **G1**: segment composition, not flat-field accretion — the existing
+  eight fields are unchanged for back-compat, but new products enter
+  through the segment abstraction, and the Phase 2 design review rejects a
+  flat contract past ~12 fields. **G4**: `evaluate_with_exo_target` folds
+  into the general segment product and the wrapper is deleted in the same
+  PR.
 - **Sky-radiance-along-LOS + `SkyBackground`** (Gap 108): simple model
   single-scatter solar + graybody thermal along the view ray (reusing the
   CU-155/CU-161 machinery); MODTRAN via up-looking radiance runs.
@@ -118,7 +160,9 @@ user switch (provenance-driven mode detection is retained unchanged).
 - **Metric conditioning** (GF-5/GF-13): scene-class → metric relevance map
   over the Gap 96 selection machinery (GSD/ground-range/NIIRS/access off by
   default for non-ground targets; angular resolution/target-plane sample
-  distance on).
+  distance on). Shape governed by **G3**: one declarative map, no
+  per-metric scene-class branches. **G4**: the CU-096 legacy
+  (altitude, angle) fallbacks are re-audited at this phase's close.
 - **Detection-range solver** (GF-15): piecewise path-aware extinction.
 - **Target kinematics** (Gap 111): target velocity params → LOS angular
   rate in GeometryStage → smear moving-target arm.
@@ -179,6 +223,15 @@ and gap statuses (107–111) per Rules 20–22/29.
 4. **Limb/refraction exclusions** with hard validity guards (§3.4, §5).
 5. **Horizon guard band**: paths within ±0.5° of the geometric horizon
    raise until refraction exists (value tunable at ratification).
+6. **Use-Case Matrix moves to composition, not enumeration.** Adding the
+   observer axis by enumerating cells would roughly triple an already
+   60-row matrix and pull the code toward per-cell match arms. ADR-0011
+   instead defines scenes compositionally — observer leg × target leg ×
+   LOS-termination background — and the matrix is reduced to one worked
+   example per §2 class. This is the highest-leverage anti-spaghetti
+   decision in the plan (companion to guardrails §3.5).
+7. **Guardrails §3.5 (G1–G4) are review-blocking phase-gate criteria**, on
+   par with Rule 20 — a violating PR is rejected, not CU'd forward.
 
 ### 8.2 Open questions
 

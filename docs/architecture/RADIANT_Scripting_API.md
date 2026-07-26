@@ -184,6 +184,8 @@ cs.base.set("optics.aperture_diameter_m", 0.35)   # a *shared* edit — all conf
 
 run = cs.evaluate_all()                      # active configuration first
 run.result_for("LWIR").metrics["snr"]
+run.entry_for("LWIR").warnings               # the warnings LWIR raised, and only those
+print(run.summary())                         # one triage line per configuration, with units
 print(cs.compare(run).to_table())            # the §2.5b comparison matrix
 ```
 
@@ -221,8 +223,8 @@ resolution engine, and `radiant.core` is untouched.
 | `cs.set_wavelength_points(config, n)` | Spectral grid point count for one configuration, or the shared default with `config=None`. The grid *span* is already per configuration for free — each materialized sensor spans its own resolved band (ADR-0010 D-F). |
 | `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). Later edits to the set do not reach it, and vice versa. |
 | `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolve-only, **no physics**. One configuration's failure never hides another's. |
-| `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). |
-| `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** (stable when `active` changes), delta reference = `cs.baseline`. |
+| `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). Each configuration is evaluated inside its **own** warning-capture window, so the warnings it raises land on its `ConfigRun.warnings` and on no other (see below). |
+| `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** = `cs.names()` (stable when `active` changes), delta reference = the index of `cs.baseline`. **Raises** `ConfigSetError` naming any failed configuration rather than dropping its column (see below). |
 | `ConfigurationSet.load(path)` | Classmethod (ADR-0010 D-D). Load a study config file: the shared body exactly as `Sensor.load` reads it (parameters, tolerances, `_radiant.wavelength_points`, `optical_elements`) plus the `configurations:` section — names and order, `active`/`baseline`, per-configuration `wavelength_points`, and the configured table. A config file **without** the section loads as the degenerate one-configuration set. Every section violation raises `ConfigError` naming the config file, the configuration, and the parameter (`RADIANT_Config_Format.md` §1.9). |
 | `cs.save(path)` | Write the study as one config file and return the `Path`: the base serialized exactly as `Sensor.save` writes it, plus the `configurations:` section (always written — the file is then self-identifying and the configuration names survive). Configured `is_file_path` values relativize to the destination directory like shared ones (CU-177). |
 | `cs.to_yaml(relative_to=None)` | The in-memory twin of `save` — the same document as a string. `relative_to` is the directory the YAML is destined for (file-path values are written relative to it); omitted, paths are left as stored. There is no `scope="resolved"` export: it would put configured dot-paths in the shared body too, breaking the single-store invariant the file persists. |
@@ -236,11 +238,42 @@ silently run as a single config (Rule 17). Callers that *can* handle the section
 
 `ConfigSetRunResult` carries `entries` (a `ConfigRun` per configuration, in **evaluation
 order** — active first), `names`, `baseline`, `n_failed`, `failures` (name → error),
-`entry_for(name)`, and `result_for(name)`. A configuration whose evaluation raises a
-`RadiantError` becomes a recorded failure and the rest still run (Rule 17 — never dropped,
-never zero-filled); any other exception is a bug and propagates. `compare()` refuses to
-build a matrix with a missing column: it raises `ConfigSetError` **naming** the failed
-configurations.
+`warnings` (name → messages, only for configurations that warned), `n_warnings`,
+`entry_for(name)`, `result_for(name)`, and `summary()`. A configuration whose evaluation
+raises a `RadiantError` becomes a recorded failure and the rest still run (Rule 17 — never
+dropped, never zero-filled); any other exception is a bug and propagates.
+
+| Member | Description |
+|--------|-------------|
+| `ConfigRun.name` / `.result` / `.error` / `.ok` | One configuration's outcome. Exactly one of `result` / `error` is populated. |
+| `ConfigRun.warnings` | `tuple[str, ...]` — the Python warnings raised **while this configuration evaluated**, each formatted `"<Category>: <message>"` (the same rendering the GUI evaluation worker uses). Populated on failed configurations too: a chain often warns before it raises. |
+| `run.warnings` / `run.n_warnings` | Name → messages for the configurations that warned (quiet ones are absent), and the total count. |
+| `run.summary()` | Plain-text triage view, one line per configuration in evaluation order: name, `ok` / `FAILED`, the headline metrics **with the units the metric registry declares for them** or the failure's `what` line, a warning count, and a `*` on the baseline. A headline metric a configuration did not compute is omitted from its line, never rendered as zero (Rule 17). It is a summary, not the comparison surface — use `compare()` for aligned values and deltas. |
+
+**Warning attribution.** `evaluate_all` opens a `warnings.catch_warnings(record=True)`
+window with `simplefilter("always")` around **each** configuration's materialization and
+`evaluate()`. A warning raised by configuration *X* is therefore attributed to *X* and to
+nothing else — a saturation warning from one band never reads as a property of the study.
+Captured warnings are **not** re-raised into the caller's warning filters; they are
+recorded on the result *and* re-emitted through `logging` (`radiant.api.config_set`), so
+nothing is discarded. That is not the Rule 17 silent-failure pattern, which forbids
+*dropping* a signal: the signal is promoted from a process-global side channel to named,
+per-configuration data on the object the caller already inspects — the same treatment
+`failures` gives errors. A caller that wants ordinary Python-level warnings evaluates
+configurations itself via `sensor_for(name).evaluate()`. Because `catch_warnings` mutates
+process-global filter state, `evaluate_all` must not run concurrently with another
+`catch_warnings` user in the same process; evaluation here is strictly sequential, and a
+GUI worker driving `evaluate_all` needs **no** capture of its own — the per-configuration
+attribution it wants is already on the result.
+
+**Failed configurations and `compare()`.** `compare()` refuses to build a matrix with a
+missing column: it raises `ConfigSetError` **naming** the failed configurations. The
+rejected alternative — silently comparing the survivors — breaks the column ↔
+configuration correspondence the method promises (`result.labels` would no longer equal
+`cs.names()`), so a reader who did not check `run.n_failed` would read a partial matrix as
+the whole study. The escape hatch is one line on the subset the caller chooses:
+`compare_configs([(n, run.result_for(n)) for n in run.names if run.entry_for(n).ok])`.
+`run.summary()` renders a partially-failed pass without raising.
 
 All errors raised on behalf of a configuration are `ConfigSetError` (a `RadiantError`)
 carrying the Rule 15 `what` / `why` / `action` / `context` payload, and every one of them
@@ -1200,7 +1233,7 @@ from radiant.api.session import RadiantSession   # advanced: run a chain on a cu
 | `ChainResult` properties and methods (§3) | Stable across minor versions |
 | `ChainResult.signal_at_frame` / `noise_at_frame` | **Deprecated** — removed in 0.2.0 |
 | `SweepResult`, `Sweep2DResult`, `MonteCarloResult`, `SensitivityResult` public attributes | Stable |
-| `ConfigurationSet`, `ConfigSetRunResult`, `ConfigRun`, `ConfigSetError` (`radiant.api.config_set`, ADR-0010) | Stable; **growing** — `load`/`save`/`to_yaml` land in multi-config Phase 2 |
+| `ConfigurationSet`, `ConfigSetRunResult`, `ConfigRun`, `ConfigSetError` (`radiant.api.config_set`, ADR-0010) | Stable — persistence (`load`/`save`/`to_yaml`) landed in multi-config Phase 2, per-configuration warning attribution and `summary()` in Phase 3 |
 | `ErrorBudget`, `BudgetContributor` (`radiant.api.error_budget`, Gaps 23+28) | Stable |
 | `SolveResult` (`radiant.api.solve`, Gap 10) | Stable |
 | `compare_mtf`, `MtfComparisonResult` (`radiant.api.compare`, Gap 30) | Stable |

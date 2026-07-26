@@ -10,6 +10,7 @@ single-configuration case, and the ``compare`` adapter.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -78,9 +79,7 @@ class TestMaterialization:
         assert mwir.get_input("spectral_integration.filter_min_um") == pytest.approx(
             3.95, rel=1e-12
         )
-        assert lwir.get_input("spectral_integration.filter_min_um") == pytest.approx(
-            8.0, rel=1e-12
-        )
+        assert lwir.get_input("spectral_integration.filter_min_um") == pytest.approx(8.0, rel=1e-12)
         assert lwir.get_input("spectral_integration.filter_max_um") == pytest.approx(
             12.0, rel=1e-12
         )
@@ -646,3 +645,230 @@ class TestRunResultSurface:
         assert run.names == ("A", "B")
         assert run.n_failed == 1
         assert list(run.failures) == ["B"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — per-configuration warning attribution
+# ---------------------------------------------------------------------------
+
+
+class TestWarningAttribution:
+    """A warning raised by configuration X belongs to X and to nothing else."""
+
+    def test_real_chain_warning_lands_only_on_the_configuration_that_raised_it(self) -> None:
+        # Real physics-chain warning path, not a stub: ReadoutStage warns when
+        # the ADC full scale is badly mismatched to the full well (>10x either
+        # way) and again when the ADC clips. gain = 1 e-/DN at 16 bits reaches
+        # 6.55e4 e- against a 2e6 e- well (ratio 0.033), so 'mismatched' warns
+        # in that configuration only — 'matched' keeps the example's 32 e-/DN.
+        cs = _set("matched", "mismatched")
+        cs.configure("readout.gain_e_per_dn", [32.0, 1.0])
+        run = cs.evaluate_all()  # deliberately NOT wrapped: capture is internal
+
+        assert run.n_failed == 0
+        assert run.entry_for("matched").warnings == ()
+        offending = run.entry_for("mismatched").warnings
+        assert len(offending) >= 1
+        assert all(w.startswith("UserWarning: ") for w in offending)
+        assert any("badly mismatched" in w for w in offending)
+        # Attribution is exclusive: the run-level view names only the offender.
+        assert set(run.warnings) == {"mismatched"}
+        assert run.n_warnings == len(offending)
+
+    def test_capture_is_per_configuration_not_per_pass(self, monkeypatch: Any) -> None:
+        # Two configurations warn with distinct messages; neither inherits the
+        # other's. A single capture window around the whole pass would put both
+        # messages on both configurations (or on neither).
+        cs = _set("A", "B", "C")
+        original = ConfigurationSet.sensor_for
+
+        def warning_sensor_for(self: ConfigurationSet, name: str) -> Sensor:
+            sensor = original(self, name)
+            if name in ("A", "C"):
+                warnings.warn(f"probe from {name}", UserWarning, stacklevel=1)
+            return sensor
+
+        monkeypatch.setattr(ConfigurationSet, "sensor_for", warning_sensor_for)
+        run = cs.evaluate_all()
+
+        assert run.entry_for("A").warnings == ("UserWarning: probe from A",)
+        assert run.entry_for("B").warnings == ()
+        assert run.entry_for("C").warnings == ("UserWarning: probe from C",)
+        assert run.n_warnings == 2
+
+    def test_a_failing_configuration_still_reports_the_warnings_it_raised(
+        self, monkeypatch: Any
+    ) -> None:
+        cs = _set("good", "bad")
+        original = ConfigurationSet.sensor_for
+
+        def warn_then_fail(self: ConfigurationSet, name: str) -> Sensor:
+            if name == "bad":
+                warnings.warn("about to fail", UserWarning, stacklevel=1)
+                raise ConfigSetError(what="configuration 'bad' does not resolve")
+            return original(self, name)
+
+        monkeypatch.setattr(ConfigurationSet, "sensor_for", warn_then_fail)
+        run = cs.evaluate_all()
+
+        bad = run.entry_for("bad")
+        assert not bad.ok
+        assert bad.warnings == ("UserWarning: about to fail",)
+        assert run.entry_for("good").warnings == ()
+
+    def test_captured_warnings_are_logged_not_dropped(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cs = _set("matched", "mismatched")
+        cs.configure("readout.gain_e_per_dn", [32.0, 1.0])
+        with caplog.at_level(logging.WARNING, logger="radiant.api.config_set"):
+            cs.evaluate_all()
+        logged = [rec.getMessage() for rec in caplog.records]
+        assert any("Configuration 'mismatched' warned" in m for m in logged)
+        assert not any("Configuration 'matched' warned" in m for m in logged)
+
+    def test_capture_does_not_leak_the_always_filter_to_the_caller(self) -> None:
+        cs = _set("A", "B")
+        before = list(warnings.filters)
+        _evaluate_all(cs)
+        assert list(warnings.filters) == before
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — baseline deltas with a metric absent from one configuration
+# ---------------------------------------------------------------------------
+
+
+class TestBaselineDeltaSemantics:
+    @staticmethod
+    def _three_configs() -> ConfigurationSet:
+        """A, B, C differing in QE; C computes no saturation-group metrics."""
+        cs = _set("A", "B", "C")
+        cs.configure("detector.qe_value", [0.70, 0.50, 0.60])
+        # Gap 96 metric selection: deselecting the saturation group in C alone
+        # makes well_margin_dB / adc_margin_dB / dynamic_range_dB genuinely
+        # absent from C's result — the "metric missing in one configuration"
+        # case the plan calls for.
+        cs.configure("performance.metrics.saturation", [True, True, False])
+        return cs
+
+    def test_absent_metric_is_none_never_zero(self) -> None:
+        cs = self._three_configs()
+        cmp_ = cs.compare(_evaluate_all(cs))
+        row = cmp_.row("well_margin_dB")
+        assert row.values[2] is None
+        assert row.deltas[2] is None
+        assert row.values[0] is not None and row.values[1] is not None
+        # The present configurations still carry real numbers (Rule 17: absent
+        # is absent, it does not zero-fill the column or blank the others).
+        assert row.unit == "dB"
+
+    def test_deltas_are_measured_against_the_named_baseline(self) -> None:
+        cs = self._three_configs()
+        cs.baseline = "B"
+        cmp_ = cs.compare(_evaluate_all(cs))
+        assert cmp_.labels == ("A", "B", "C")
+        assert cmp_.baseline_index == 1
+        snr = cmp_.row("snr")
+        assert snr.deltas[1] == 0.0
+        base_value = snr.values[1]
+        assert base_value is not None
+        for i in (0, 2):
+            value, delta = snr.values[i], snr.deltas[i]
+            assert value is not None and delta is not None
+            assert delta == pytest.approx(value - base_value, rel=1e-12)
+
+    def test_delta_is_none_when_the_baseline_itself_lacks_the_metric(self) -> None:
+        cs = self._three_configs()
+        cs.baseline = "C"  # C has no saturation metrics
+        cmp_ = cs.compare(_evaluate_all(cs))
+        row = cmp_.row("well_margin_dB")
+        assert row.values[0] is not None and row.values[1] is not None
+        assert row.deltas == (None, None, None)  # no reference ⇒ no delta, not 0.0
+
+    def test_column_order_is_set_order_independent_of_baseline_and_active(self) -> None:
+        cs = self._three_configs()
+        cs.active = "C"
+        cs.baseline = "B"
+        run = _evaluate_all(cs)
+        assert run.names == ("C", "A", "B")  # evaluation order
+        assert cs.compare(run).labels == cs.names() == ("A", "B", "C")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — failed-configuration ergonomics and summary()
+# ---------------------------------------------------------------------------
+
+
+class TestFailedConfigurationErgonomics:
+    @staticmethod
+    def _one_failing() -> tuple[ConfigurationSet, ConfigSetRunResult]:
+        cs = _set("good", "bad")
+        cs.configure("optics.f_number", [4.0, 6.0])  # 'bad' over-constrains
+        return cs, _evaluate_all(cs)
+
+    def test_compare_raises_rather_than_dropping_the_failed_column(self) -> None:
+        cs, run = self._one_failing()
+        with pytest.raises(ConfigSetError) as excinfo:
+            cs.compare(run)
+        exc = excinfo.value
+        assert exc.context["failed"] == ["bad"]
+        assert "run.failures" in exc.action
+        # The documented escape hatch actually works on the surviving subset.
+        survivors = [(n, run.result_for(n)) for n in run.names if run.entry_for(n).ok]
+        assert [label for label, _ in survivors] == ["good"]
+
+    def test_documented_subset_escape_hatch_compares_the_survivors(self) -> None:
+        cs = _set("good", "also_good", "bad")
+        cs.configure("optics.f_number", [4.0, 4.0, 6.0])
+        run = _evaluate_all(cs)
+        assert run.n_failed == 1
+        survivors = [(n, run.result_for(n)) for n in cs.names() if run.entry_for(n).ok]
+        cmp_ = compare_configs(survivors, baseline=0)
+        assert cmp_.labels == ("good", "also_good")
+
+    def test_summary_renders_a_partially_failed_pass_without_raising(self) -> None:
+        _cs, run = self._one_failing()
+        text = run.summary()
+        lines = text.splitlines()
+        assert len(lines) == len(run.entries) + 1
+        good_line = next(ln for ln in lines if ln.startswith("good"))
+        bad_line = next(ln for ln in lines if ln.startswith("bad"))
+        assert "ok" in good_line
+        assert "FAILED" in bad_line
+        assert "does not resolve" in bad_line
+        assert "1 of 2 configuration(s) failed" in lines[-1]
+
+    def test_summary_metric_values_all_carry_units(self) -> None:
+        cs = _set("A", "B")
+        cs.configure("detector.qe_value", [0.70, 0.50])
+        line = _evaluate_all(cs).summary().splitlines()[0]
+        assert "snr = " in line and "[dimensionless]" in line
+        assert "nedt_K = " in line and "[K]" in line
+        assert "gsd_geometric_mean_m = " in line and "[m]" in line
+        # Every "name = value" pair on the line is followed by a [unit] token.
+        assert line.count(" = ") == line.count("[")
+
+    def test_summary_omits_a_headline_metric_the_configuration_did_not_compute(
+        self,
+    ) -> None:
+        cs = _set("full", "no_radiometry")
+        cs.configure("performance.metrics.radiometric", [True, False])
+        lines = _evaluate_all(cs).summary().splitlines()
+        full_line = next(ln for ln in lines if ln.startswith("full"))
+        thin_line = next(ln for ln in lines if ln.startswith("no_radiometry"))
+        assert "snr = " in full_line and "nedt_K = " in full_line
+        assert "snr = " not in thin_line and "nedt_K = " not in thin_line
+        assert "0" not in thin_line.split("ok")[1].split("gsd")[0]  # not zero-filled
+        assert "gsd_geometric_mean_m = " in thin_line
+
+    def test_summary_marks_the_baseline_and_counts_warnings(self) -> None:
+        cs = _set("matched", "mismatched")
+        cs.configure("readout.gain_e_per_dn", [32.0, 1.0])
+        cs.baseline = "mismatched"
+        lines = cs.evaluate_all().summary().splitlines()
+        marked = [ln for ln in lines if " * " in ln]
+        assert len(marked) == 1 and marked[0].startswith("mismatched")
+        assert "warning" in marked[0]
+        assert "warning" not in next(ln for ln in lines if ln.startswith("matched"))
+        assert "baseline: 'mismatched'" in lines[-1]

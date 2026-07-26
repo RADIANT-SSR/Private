@@ -48,6 +48,7 @@ Example::
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +76,25 @@ __all__ = ["ConfigRun", "ConfigSetError", "ConfigSetRunResult", "ConfigurationSe
 
 # Name given to the single configuration of a freshly built set.
 _DEFAULT_NAME = "Configuration 1"
+
+# Metrics shown, in this order, on a :meth:`ConfigSetRunResult.summary` line.
+# Deliberately short — a summary is a triage line, not the comparison matrix
+# (that is :meth:`ConfigurationSet.compare`). A metric a configuration did not
+# compute is omitted from its line, never zero-filled (Rule 17). Units are read
+# from the metric registry via ``ChainResult.metric_records()``, never spelled
+# out here, so a registry unit change cannot desynchronize this rendering.
+_HEADLINE_METRICS: tuple[str, ...] = ("snr", "nedt_K", "niirs", "gsd_geometric_mean_m")
+
+
+def _format_warning(record: warnings.WarningMessage) -> str:
+    """One captured warning as a single display string (category + message).
+
+    Matches the format the GUI evaluation worker
+    (``radiant.gui.workers._format_warning``) already shows in its warning
+    strip, so a warning reads identically whether it reached the user through
+    a single-sensor GUI run or through :meth:`ConfigurationSet.evaluate_all`.
+    """
+    return f"{record.category.__name__}: {record.message}"
 
 
 class ConfigSetError(RadiantError):
@@ -116,11 +136,31 @@ class ConfigRun:
 
     Exactly one of *result* / *error* is populated (Rule 17: a failed
     configuration is recorded data, never a silent drop or a zero-fill).
+
+    Attributes
+    ----------
+    name:
+        The configuration this outcome belongs to.
+    result:
+        The completed :class:`~radiant.io.results.ChainResult`, or ``None``
+        when this configuration failed.
+    error:
+        The recorded :class:`~radiant.core.exceptions.RadiantError`, or
+        ``None`` when this configuration succeeded.
+    warnings:
+        Python warnings raised **while this configuration evaluated**, each
+        formatted ``"<Category>: <message>"``. Attribution is exact: the
+        capture window opens and closes around one configuration's
+        materialization + ``evaluate()``, so a warning raised by
+        configuration X appears on X's entry and on no other. Present (and
+        possibly non-empty) on failed configurations too — a chain often
+        warns before it raises.
     """
 
     name: str
     result: ChainResult | None
     error: RadiantError | None
+    warnings: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -161,6 +201,21 @@ class ConfigSetRunResult:
         """Configuration name → the error it failed with (empty when all passed)."""
         return {e.name: e.error for e in self.entries if e.error is not None}
 
+    @property
+    def warnings(self) -> dict[str, tuple[str, ...]]:
+        """Configuration name → the warnings raised while it evaluated.
+
+        Only configurations that warned appear (an empty dict means the whole
+        pass was quiet). Each configuration's warnings are exactly the ones
+        its own evaluation raised — see :attr:`ConfigRun.warnings`.
+        """
+        return {e.name: e.warnings for e in self.entries if e.warnings}
+
+    @property
+    def n_warnings(self) -> int:
+        """Total number of warnings captured across every configuration."""
+        return sum(len(e.warnings) for e in self.entries)
+
     def entry_for(self, name: str) -> ConfigRun:
         """The :class:`ConfigRun` for configuration *name*.
 
@@ -194,6 +249,69 @@ class ConfigSetRunResult:
                 context={"configuration": name},
             ) from entry.error
         return entry.result
+
+    def summary(self) -> str:
+        """A plain-text triage view of the pass — one line per configuration.
+
+        Lines follow **evaluation order** (active configuration first), which
+        is the order :attr:`entries` holds. Each line is::
+
+            <name>  ok      snr = 964.8 [dimensionless]; nedt_K = 0.0289 [K]   (1 warning)
+            <name>  FAILED  <the error's what-line>
+
+        Every number carries the unit the metric registry declares for it
+        (project hard rule: no bare numbers in output). A headline metric a
+        configuration did not compute is simply absent from its line — never
+        shown as zero (Rule 17). Failed configurations show their error's
+        ``what`` line; the full error stays in :attr:`failures`. Warnings are
+        counted, not quoted — :attr:`warnings` holds their text.
+
+        This is a summary, not the comparison surface: for aligned metric ×
+        configuration values with deltas use
+        :meth:`ConfigurationSet.compare`.
+        """
+        width = max((len(e.name) for e in self.entries), default=0)
+        lines: list[str] = []
+        for entry in self.entries:
+            note = ""
+            if entry.warnings:
+                n = len(entry.warnings)
+                note = f"   ({n} warning{'s' if n != 1 else ''})"
+            if entry.error is not None:
+                what = getattr(entry.error, "what", None) or str(entry.error)
+                body = f"FAILED  {what}"
+            elif entry.result is None:
+                # Not reachable through evaluate_all (which always records one
+                # or the other); a hand-built ConfigRun says so rather than
+                # rendering an empty metric line.
+                body = "ok      (no result recorded)"
+            else:
+                body = f"ok      {_headline(entry.result)}"
+            marker = " *" if entry.name == self.baseline else "  "
+            lines.append(f"{entry.name.ljust(width)}{marker}  {body}{note}")
+        lines.append(
+            f"(* = baseline: {self.baseline!r}; {self.n_failed} of "
+            f"{len(self.entries)} configuration(s) failed)"
+        )
+        return "\n".join(lines)
+
+
+def _headline(result: ChainResult) -> str:
+    """Headline metrics of one result as ``name = value [unit]``, semicolon-joined.
+
+    Reads units from the result's own metric records, so every rendered number
+    carries the registry's unit for that metric. A configuration missing a
+    headline metric contributes nothing for it (Rule 17 — absent, not zero).
+    """
+    records = {rec.name: rec for rec in result.metric_records()}
+    parts = [
+        f"{name} = {records[name].value:.4g} [{records[name].unit}]"
+        for name in _HEADLINE_METRICS
+        if name in records
+    ]
+    if not parts:
+        return f"no headline metric computed ({len(records)} metric(s) available)"
+    return "; ".join(parts)
 
 
 class ConfigurationSet:
@@ -600,6 +718,45 @@ class ConfigurationSet:
         remaining configurations still run; any other exception is a
         programming bug and propagates.
 
+        Warning capture and attribution
+        -------------------------------
+        Each configuration is evaluated inside its own
+        ``warnings.catch_warnings(record=True)`` window with
+        ``simplefilter("always")``, and the warnings raised in that window are
+        recorded on that configuration's :attr:`ConfigRun.warnings`. Because
+        the window spans exactly one configuration's materialization and
+        ``evaluate()``, **a warning raised by configuration X is attributed to
+        X and to no other configuration** — which is the point: in a
+        one-window-for-the-whole-pass design a saturation warning from the
+        LWIR configuration would read as a property of the study.
+        ``simplefilter("always")`` makes the capture independent of the
+        ambient filter state (nothing is deduplicated away by the
+        once-per-location registry, and a ``filterwarnings=error`` setting
+        cannot convert a chain warning into an exception inside the window).
+
+        **Captured warnings are not re-raised into the caller's warning
+        filters.** They are recorded on the result *and* re-emitted to the
+        logging machinery (``logger.warning``), so nothing is dropped: a
+        script that ignores :attr:`ConfigRun.warnings` still sees them in the
+        log, and a GUI reads them per configuration. This is not the Rule 17
+        silent-failure pattern — that rule forbids *discarding* a signal
+        (``except Exception: pass``, a warning logged and forgotten, a value
+        clipped with no notice). Here the signal is promoted from a
+        process-global side channel to named, per-configuration data on the
+        object the caller already inspects, which is the same treatment
+        :attr:`failures` gives errors. A caller that wants Python-level
+        warnings instead can evaluate configurations itself via
+        :meth:`sensor_for`.
+
+        Note that ``catch_warnings`` mutates process-global filter state, so
+        this method must not run concurrently with another
+        ``catch_warnings`` user in the same process. Evaluation here is
+        strictly sequential, and the GUI runs at most one evaluation worker at
+        a time, which is what makes the pattern safe (the same reasoning as
+        ``radiant.gui.workers.EvaluationWorker``). A GUI worker driving
+        ``evaluate_all`` therefore needs no capture of its own — the
+        per-configuration attribution it wants is already on the result.
+
         Parameters
         ----------
         progress:
@@ -613,16 +770,34 @@ class ConfigurationSet:
         entries: list[ConfigRun] = []
         for done, name in enumerate(order):
             check_cancel(cancel, "ConfigurationSet.evaluate_all", done, total)
-            try:
-                result = self.sensor_for(name).evaluate()
-            except RadiantError as exc:
-                logger.warning("Configuration %r failed to evaluate: %s", name, exc)
-                entries.append(ConfigRun(name=name, result=None, error=exc))
-            else:
-                entries.append(ConfigRun(name=name, result=result, error=None))
+            entries.append(self._evaluate_one(name))
             if progress is not None:
                 progress(done + 1, total)
         return ConfigSetRunResult(entries=tuple(entries), baseline=self._baseline)
+
+    def _evaluate_one(self, name: str) -> ConfigRun:
+        """Evaluate configuration *name*, capturing its warnings and its failure.
+
+        The capture window is per configuration — that is what makes warning
+        attribution exact (see :meth:`evaluate_all`).
+        """
+        result: ChainResult | None = None
+        error: RadiantError | None = None
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            try:
+                result = self.sensor_for(name).evaluate()
+            except RadiantError as exc:
+                error = exc
+            messages = tuple(_format_warning(record) for record in captured)
+        # Outside the window, with the ambient filters restored: nothing that
+        # was captured is dropped — every warning reaches the log as well as
+        # the returned ConfigRun.
+        for message in messages:
+            logger.warning("Configuration %r warned: %s", name, message)
+        if error is not None:
+            logger.warning("Configuration %r failed to evaluate: %s", name, error)
+        return ConfigRun(name=name, result=result, error=error, warnings=messages)
 
     def compare(self, run: ConfigSetRunResult) -> ComparisonResult:
         """Adapt a run into the :func:`~radiant.api.compare.compare_configs` matrix.
@@ -635,6 +810,18 @@ class ConfigurationSet:
         raises :class:`ConfigSetError` naming it rather than quietly losing a
         column (Rule 17). Fewer than two configurations raises the usual
         ``ComparisonError``.
+
+        The rejected alternative was to drop failed configurations and compare
+        the survivors. It was rejected because it silently breaks the
+        column ↔ configuration correspondence this method promises:
+        ``result.labels`` would no longer equal :meth:`names`, and a reader who
+        did not check :attr:`ConfigSetRunResult.n_failed` would read a
+        four-column matrix as the whole study. Raising keeps the failure in
+        front of the caller, and the escape hatch is one line — call
+        :func:`~radiant.api.compare.compare_configs` on the subset:
+        ``compare_configs([(n, run.result_for(n)) for n in run.names if
+        run.entry_for(n).ok])``. :meth:`ConfigSetRunResult.summary` renders a
+        partially-failed pass without raising.
         """
         failed = [name for name in self._names if not run.entry_for(name).ok]
         if failed:
@@ -929,8 +1116,7 @@ class ConfigurationSet:
                 f"got {len(names)}",
                 why="the cap bounds the always-on evaluate-all pass and keeps the "
                 "side-by-side comparison surface readable (ADR-0010 D-E)",
-                action=f"Pass at most {self.MAX_CONFIGS} names, or split the study into "
-                "two sets.",
+                action=f"Pass at most {self.MAX_CONFIGS} names, or split the study into two sets.",
                 context={"count": len(names), "max": self.MAX_CONFIGS},
             )
         for name in names:
@@ -939,8 +1125,7 @@ class ConfigurationSet:
         if duplicates:
             raise ConfigSetError(
                 what=f"duplicate configuration name(s) {duplicates}",
-                why="configuration names must be unique — they key values, columns, and "
-                "provenance",
+                why="configuration names must be unique — they key values, columns, and provenance",
                 action="Give every configuration a distinct name.",
                 context={"duplicates": duplicates},
             )

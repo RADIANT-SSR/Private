@@ -4,8 +4,10 @@
 the shipped floating chain-warning strip, widened to carry **errors** as well as
 warnings (§4.5, §4.7):
 
-* **Warnings** — the chain ``UserWarning``s the :class:`~radiant.gui.workers.EvaluationWorker`
-  captured for the last evaluation (saturation clip, NIIRS extrapolation, …). Each is a
+* **Warnings** — the chain ``UserWarning``s ``ConfigurationSet.evaluate_all`` captured for
+  the last evaluation (saturation clip, NIIRS extrapolation, …), attributed per
+  configuration and prefixed with the configuration name in a multi-configuration
+  study. Each is a
   clickable :class:`~radiant.gui.widgets.message_item.MessageItem` (warn token); clicking
   any opens the verbatim :class:`~radiant.gui.widgets.warning_list_dialog.WarningListDialog`
   (the shipped full list). Nothing is swallowed (Rule 17) — the worker also re-logs them.
@@ -13,6 +15,11 @@ warnings (§4.5, §4.7):
   here as an err-token item showing its actionable ``what``; clicking opens the full
   :class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog`
   (what / why / action, Rule 15).
+* **Per-configuration failures** — in a multi-configuration study, a configuration that
+  failed while it was *not* the displayed one renders here as a named error item
+  (:meth:`MessagesPanel.set_configuration_failures`) instead of interrupting the session
+  with a modal. Nothing is dropped; the study keeps running on the configurations that
+  succeeded (Rule 17).
 
 The panel clears/repopulates each evaluation: :meth:`set_warnings` on success,
 :meth:`set_error` on failure (the error item persists alongside the last warnings until
@@ -22,7 +29,7 @@ object names (GUI plan §4.9), so this file holds no colour/font/size literal.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
@@ -57,6 +64,7 @@ class MessagesPanel(QWidget):
 
         self._warnings: list[str] = []
         self._error: BaseException | None = None
+        self._config_errors: dict[str, BaseException] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -110,6 +118,20 @@ class MessagesPanel(QWidget):
         """True iff an error item is currently shown."""
         return self._error is not None
 
+    @property
+    def configuration_errors(self) -> dict[str, BaseException]:
+        """Per-configuration failures currently listed (name → recorded error).
+
+        Populated by the multi-configuration evaluate-all pass for the
+        configurations that are **not** displayed: their failure is a Messages
+        entry naming the configuration, never a modal (a modal for a
+        configuration the user is not looking at would block the study). The
+        displayed configuration's failure still takes the ordinary
+        :meth:`set_error` + modal path. Empty for a single-configuration
+        session, so that session's panel is byte-for-byte today's.
+        """
+        return dict(self._config_errors)
+
     # -- update -------------------------------------------------------------
 
     def set_warnings(self, messages: Sequence[str]) -> None:
@@ -127,10 +149,24 @@ class MessagesPanel(QWidget):
         self._error = exc
         self._rebuild()
 
+    def set_configuration_failures(self, failures: Mapping[str, BaseException]) -> None:
+        """Replace the per-configuration failure items (multi-configuration Phase 4a).
+
+        Each entry renders as an error-token row reading
+        ``<name>: <the error's what line>`` and clicking it opens the full
+        actionable dialog, so a configuration that failed in the background is
+        named and inspectable rather than silently missing (Rule 17). Passing an
+        empty mapping clears them — which is what every single-configuration
+        evaluation does.
+        """
+        self._config_errors = dict(failures)
+        self._rebuild()
+
     def clear(self) -> None:
-        """Clear every message (warnings and error)."""
+        """Clear every message (warnings, error, per-configuration failures)."""
         self._warnings = []
         self._error = None
+        self._config_errors = {}
         self._rebuild()
 
     # -- internal -----------------------------------------------------------
@@ -153,18 +189,26 @@ class MessagesPanel(QWidget):
             row.clicked.connect(self._open_error_dialog)
             self._items_layout.addWidget(row)
 
-        has_any = bool(self._warnings) or self._error is not None
+        for name, exc in self._config_errors.items():
+            row = MessageItem(f"{name}: {_payload_what(exc)}", SEVERITY_ERROR, self._items_host)
+            row.clicked.connect(
+                lambda _checked=False, e=exc: ActionableErrorDialog(e, "evaluate", self).exec()
+            )
+            self._items_layout.addWidget(row)
+
+        has_any = bool(self._warnings) or self._error is not None or bool(self._config_errors)
         self._empty.setVisible(not has_any)
         self._update_count()
 
     def _update_count(self) -> None:
-        """Refresh the header count line (warnings + optional error)."""
+        """Refresh the header count line (warnings + errors)."""
         n_warn = len(self._warnings)
+        n_err = len(self._config_errors) + (1 if self._error is not None else 0)
         parts: list[str] = []
         if n_warn:
             parts.append(f"{n_warn} warning{'s' if n_warn != 1 else ''}")
-        if self._error is not None:
-            parts.append("1 error")
+        if n_err:
+            parts.append(f"{n_err} error{'s' if n_err != 1 else ''}")
         self._count.setText(", ".join(parts) if parts else "clean")
 
     def _open_warning_list(self) -> WarningListDialog:

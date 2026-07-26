@@ -206,6 +206,43 @@ QLabel#stageChipSub {{
     font-size: 10.5px;
 }}
 
+/* -- Master configuration selector (§4.2b, multi-configuration Phase 4a) - */
+/* The bar is hidden outright for a single-configuration session, so these rules
+ * only ever paint a genuine multi-configuration study. */
+#configurationBar {{
+    background-color: {t.panel_2};
+    border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
+}}
+QLabel#configurationBarLabel {{
+    color: {t.muted};
+    font-size: 10.5px;
+    font-weight: 500;
+}}
+QPushButton#configurationTab {{
+    background-color: {t.panel};
+    color: {t.ink_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CHIP};
+    padding: {tokens.PAD_INPUT};
+    font-size: 11px;
+    font-weight: 500;
+}}
+QPushButton#configurationTab:hover {{
+    border-color: {t.line_2};
+    background-color: {t.panel_3};
+}}
+QPushButton#configurationTab:checked {{
+    background-color: {t.focus_soft};
+    border-color: {t.focus};
+    color: {t.ink};
+    font-weight: 600;
+}}
+/* The per-configuration accent chip is painted by the widget from
+ * Theme.config_accents (a colour QSS cannot key on an arbitrary index). */
+QFrame#configurationAccent {{
+    border-radius: 2px;
+}}
+
 /* -- Health dots (§8.4) — colour keyed on the [status] property --------- */
 QFrame#healthDot {{
     border-radius: 5px;

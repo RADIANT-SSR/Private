@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.api.build_info import build_info
+from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.geometry_modes import implicated_families
@@ -48,6 +49,7 @@ from radiant.gui.settings_store import SettingsStore
 from radiant.gui.themes import DARK, LIGHT, active_theme, apply_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.central_canvas import CentralCanvas
+from radiant.gui.widgets.configuration_bar import ConfigurationBar
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
@@ -60,7 +62,7 @@ from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
 from radiant.gui.widgets.sweep_dialog import SweepDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
-from radiant.gui.workers import EvaluationWorker
+from radiant.gui.workers import ConfigSetEvaluationWorker
 
 
 @lru_cache(maxsize=1)
@@ -108,11 +110,31 @@ class RADIANTMainWindow(QMainWindow):
     the metric badges and the central plot; a failed evaluation leaves the previous
     result displayed with a visible stale state and shows the actionable error.
 
+    Session model (multi-configuration Phase 4a)
+    -------------------------------------------
+    The session state is a :class:`~radiant.api.config_set.ConfigurationSet`, not a
+    bare sensor (ADR-0010). Opening a plain config file yields the **degenerate
+    one-configuration set**, which is observably the single sensor it contains;
+    opening a study file (one carrying a ``configurations:`` section) yields the
+    full set and reveals the master configuration selector (§4.2b).
+
+    :attr:`sensor` keeps its meaning for every reader (stage views, forms, console,
+    dialogs): it is the **displayed configuration's materialized sensor**. Identity
+    is deliberately stable — the object is materialized once per displayed
+    configuration and cached, never re-created per access — because callers treat it
+    as a live handle they may ``set()`` on between evaluations. In the degenerate
+    case the displayed sensor *is* ``config_set.base`` (the same object, not a
+    clone), so a single-configuration session behaves exactly as it did before this
+    phase. See :meth:`_materialize_display_sensor`.
+
     Parameters
     ----------
     sensor:
         The :class:`~radiant.api.sensor.Sensor` the window opens on, or ``None``
-        for an empty window.
+        for an empty window. Wrapped in a degenerate one-configuration set.
+    config_set:
+        A ready-made :class:`~radiant.api.config_set.ConfigurationSet` to open on
+        (the study-file path). Takes precedence over *sensor*.
 
     Signals
     -------
@@ -131,9 +153,24 @@ class RADIANTMainWindow(QMainWindow):
         *,
         path: str | None = None,
         settings: SettingsStore | None = None,
+        config_set: ConfigurationSet | None = None,
     ) -> None:
         super().__init__()
-        self._sensor = sensor
+        if config_set is not None:
+            self._config_set: ConfigurationSet | None = config_set
+        elif sensor is not None:
+            self._config_set = ConfigurationSet(sensor)
+        else:
+            self._config_set = None
+        # Materializing the active configuration can fail (a study whose active
+        # configuration does not resolve). The window still opens — editable, with
+        # the reason shown once the right rail exists (never swallowed, Rule 17).
+        self._startup_error: RadiantError | None = None
+        try:
+            self._sensor = self._materialize_display_sensor()
+        except RadiantError as exc:
+            self._startup_error = exc
+            self._sensor = self._config_set.base if self._config_set is not None else None
         # Registry of every menu action by a stable key, so tests and later
         # phases can look one up without walking the menu tree.
         self._actions: dict[str, QAction] = {}
@@ -156,9 +193,13 @@ class RADIANTMainWindow(QMainWindow):
         # Evaluate-loop state (Phase 3): the in-flight worker, a coalescing flag
         # for edits that land mid-run, the most recent result, and a count of
         # completed evaluations (the debounce test asserts on it).
-        self._worker: EvaluationWorker | None = None
+        self._worker: ConfigSetEvaluationWorker | None = None
         self._rerun_pending: bool = False
         self._last_result: ChainResult | None = None
+        # The whole evaluate-all pass (every configuration's result / failure /
+        # warnings). Retained for the per-configuration Performance columns
+        # (Phase 4d) and to render a selector switch from cache (§4.2b).
+        self._last_run: ConfigSetRunResult | None = None
         # GT-1: the last completed sweep (SweepResult | Sweep2DResult), for export.
         self.last_sweep_result: object | None = None
         self._evaluation_count: int = 0
@@ -168,6 +209,7 @@ class RADIANTMainWindow(QMainWindow):
         self.resize(_DEFAULT_WIDTH, _DEFAULT_HEIGHT)
 
         self._build_menu_bar()
+        self._build_configuration_bar()
         self._build_stage_strip()
         self._build_central_area()
         self._build_dock_panels()
@@ -185,7 +227,13 @@ class RADIANTMainWindow(QMainWindow):
         # Auto-evaluate once on load so the badges and plot populate immediately
         # (the D2 checkpoint opens on a filled dashboard). Deferred to the event
         # loop so the worker's signals are delivered after the window is shown.
-        if self._sensor is not None:
+        if self._startup_error is not None:
+            self._right_rail.messages.set_error(self._underlying(self._startup_error))
+            self.statusBar().showMessage(
+                "The active configuration does not resolve — see Messages, fix its "
+                "parameters, then Evaluate (F5)"
+            )
+        elif self._sensor is not None:
             if self._current_path is not None:
                 self._settings.add_recent_file(str(self._current_path))
                 self._rebuild_recent_menu()
@@ -203,8 +251,39 @@ class RADIANTMainWindow(QMainWindow):
 
     @property
     def sensor(self) -> Sensor | None:
-        """The sensor this window was opened on (``None`` if none)."""
+        """The **displayed configuration's** materialized sensor (``None`` if none).
+
+        Every existing reader — the parameter tree, the per-stage forms, the
+        scripting console, the export/tool dialogs — keeps working through this
+        property unchanged. The object is stable between evaluations (materialized
+        once per displayed configuration, cached here), and in a
+        single-configuration session it is literally ``configuration_set.base``.
+        """
         return self._sensor
+
+    @property
+    def configuration_set(self) -> ConfigurationSet | None:
+        """The session's :class:`~radiant.api.config_set.ConfigurationSet` (``None`` if empty).
+
+        A plain config file loads as the degenerate one-configuration set; a study
+        file (``configurations:`` section) loads as the full set (ADR-0010).
+        """
+        return self._config_set
+
+    @property
+    def configuration_bar(self) -> ConfigurationBar:
+        """The master configuration selector (hidden for a single-configuration session)."""
+        return self._configuration_bar
+
+    @property
+    def last_run(self) -> ConfigSetRunResult | None:
+        """The whole retained evaluate-all pass — every configuration's outcome.
+
+        ``None`` until the first pass completes. Phase 4d renders the
+        per-configuration Performance columns from this; Phase 4a uses it to
+        display a selector switch from cache instead of re-evaluating.
+        """
+        return self._last_run
 
     @property
     def stage_strip(self) -> StageStrip:
@@ -426,6 +505,123 @@ class RADIANTMainWindow(QMainWindow):
         bar.setCornerWidget(inspector_button, Qt.Corner.TopRightCorner)
         self._inspector_button = inspector_button
 
+    # -- session model: configuration set + displayed configuration (§4.2b) --
+
+    def _materialize_display_sensor(self) -> Sensor | None:
+        """The sensor the window displays for the active configuration.
+
+        Degenerate set (one configuration, nothing configured) → the base sensor
+        **itself**, by identity. That is what makes a single-configuration session
+        byte-for-byte today's app: the parameter panel, the forms, and the console
+        all edit the one shared object, and no materialization step sits between an
+        edit and the next evaluation.
+
+        Multi-configuration set → ``config_set.sensor_for(active)``, an isolated
+        materialization of the shared base plus that configuration's configured
+        values (ADR-0010 §3.1). Raises :class:`ConfigSetError` when the active
+        configuration does not resolve; callers surface it (Rule 15).
+        """
+        cs = self._config_set
+        if cs is None:
+            return None
+        if len(cs) == 1 and not cs.configured():
+            return cs.base
+        return cs.sensor_for(cs.active)
+
+    def _is_degenerate(self) -> bool:
+        """True when the session is a plain single-model session (no selector, no scoping)."""
+        cs = self._config_set
+        return cs is None or (len(cs) == 1 and not cs.configured())
+
+    def _build_configuration_bar(self) -> None:
+        """The master configuration selector band, above the stage strip (§4.2b).
+
+        A compact tab strip in its own thin top dock: it is added **before** the
+        stage-strip dock, so Qt stacks it above the chain strip and neither control
+        steals horizontal room from the other (the nine stage chips already consume
+        the full width). The dock is hidden outright for a single-configuration
+        session, so that session's layout is unchanged.
+        """
+        bar = ConfigurationBar(self)
+        bar.configurationSelected.connect(self._on_configuration_selected)
+        self._configuration_bar = bar
+
+        dock = QDockWidget("", self)
+        dock.setObjectName("configurationBarDock")
+        dock.setTitleBarWidget(QWidget(dock))  # hide the dock title bar
+        dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        dock.setWidget(bar)
+        self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
+        self._configuration_bar_dock = dock
+        self._refresh_configuration_bar()
+
+    def _refresh_configuration_bar(self) -> None:
+        """Push the current set's names / active configuration into the selector."""
+        cs = self._config_set
+        if cs is None:
+            self._configuration_bar.set_configurations([], None)
+        else:
+            self._configuration_bar.set_configurations(cs.names(), cs.active)
+        # Hide the dock (not just the widget) for a single-configuration session so
+        # the window carries no extra band at all — the zero-regression requirement.
+        # Driven off the model, not the widget's own visibility (a hidden dock would
+        # otherwise keep its child reporting hidden and latch the band off).
+        self._configuration_bar_dock.setVisible(cs is not None and len(cs) > 1)
+
+    def _on_configuration_selected(self, name: str) -> None:
+        """Display configuration *name*: re-bind every panel, then show its result.
+
+        One GUI action ↔ the API state change it means: ``config_set.active = name``
+        plus one ``sensor_for(name)`` materialization (R-API). **No re-evaluation**
+        when the retained pass already holds that configuration's result — the
+        views render straight from cache; a pass made stale by an edit is already
+        covered by the running debounce (§4.2b).
+
+        Parameter edits are *not* lost by switching: in Phase 4a they land on the
+        shared base (or, for a configured parameter, on that configuration's own
+        column), never on the throwaway materialization.
+        """
+        cs = self._config_set
+        if cs is None or name == cs.active:
+            return
+        previous = cs.active
+        try:
+            cs.active = name
+            self._sensor = self._materialize_display_sensor()
+        except RadiantError as exc:
+            cs.active = previous
+            self._configuration_bar.set_active(previous)
+            ActionableErrorDialog(exc, "display configuration", self).exec()
+            return
+        self._configuration_bar.set_active(name)
+        self._rebind_display_sensor()
+        self._show_displayed_configuration(name)
+
+    def _rebind_display_sensor(self) -> None:
+        """Re-point every panel at the displayed sensor, keeping the undo history.
+
+        The lighter sibling of :meth:`_adopt_config_set`: the *document* has not
+        changed, only which configuration of it is on screen, so the undo stack,
+        the current file, and the dirty flag all survive (a shared-parameter edit
+        stays undoable across a selector switch — the commands target the shared
+        base, which the switch does not replace).
+        """
+        sensor = self._sensor
+        self._parameter_panel.populate(sensor)
+        self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
+        self._console.bind_sensor(sensor)
+        self._scripting_window.refresh_workspace()
+        self._refresh_snapshot()
+
+    def _show_displayed_configuration(self, name: str) -> None:
+        """Render the retained pass's entry for *name*, or schedule an evaluation."""
+        run = self._last_run
+        if run is None or name not in run.names:
+            self.statusBar().showMessage(f"Displaying {name} — evaluating…")
+            self._evaluate_now()
+            return
+        self._render_run(run, name)
+
     def _build_stage_strip(self) -> None:
         """The clickable 9-stage signal-chain strip with live health dots (Phase 4).
 
@@ -564,6 +760,18 @@ class RADIANTMainWindow(QMainWindow):
         """
         console_sensor = self._console.namespace_sensor()
         if console_sensor is None:
+            return
+        if not self._is_degenerate():
+            # In a study the console is bound to the *displayed configuration's*
+            # materialization, and an arbitrary console mutation cannot be attributed to
+            # the shared base or to one configuration's column. Adopting it would silently
+            # collapse the study to a single configuration, so it is refused with a reason
+            # (Rule 17); the console's own `configs` object lands in Phase 4e.
+            self.statusBar().showMessage(
+                "Console Refresh is not available for a multi-configuration study yet — "
+                "edit parameters in the GUI, or re-open the study file to discard the "
+                "console's changes"
+            )
             return
         # A console mutation may have edited the live sensor in place or rebound it to a
         # whole new object (`sensor = Sensor.load(...)`), so the undo stack is cleared and
@@ -766,7 +974,7 @@ class RADIANTMainWindow(QMainWindow):
         debounced run). If a worker is already in flight, the request is remembered
         and re-issued when it finishes, so only one chain runs at a time.
         """
-        if self._sensor is None:
+        if self._config_set is None:
             return
         self._debounce.stop()
         if self._worker is not None and self._worker.isRunning():
@@ -775,28 +983,100 @@ class RADIANTMainWindow(QMainWindow):
         self._start_worker()
 
     def _start_worker(self) -> None:
-        """Launch the evaluation worker on a private sensor snapshot (§3.2)."""
-        sensor = self._sensor
-        if sensor is None:  # pragma: no cover - guarded by caller
+        """Launch the evaluate-all worker on a private configuration-set snapshot (§3.2).
+
+        Every configuration evaluates, the **displayed one first** (the API orders
+        the pass from ``active``), so the on-screen views refresh at today's
+        single-model latency and the remaining configurations land behind them.
+        """
+        cs = self._config_set
+        if cs is None:  # pragma: no cover - guarded by caller
             return
         self._set_busy(True)
         # Clone on the GUI thread so a concurrent edit cannot race the worker's
-        # read of the sensor (see workers.py). The worker still does one evaluate().
-        worker = EvaluationWorker(sensor.clone())
+        # read of the set (see workers.py). The worker still does one evaluate_all().
+        worker = ConfigSetEvaluationWorker(cs.clone())
         worker.finished_ok.connect(self._on_eval_ok)
         worker.failed.connect(self._on_eval_failed)
         worker.finished.connect(self._on_worker_finished)
         self._worker = worker
         worker.start()
 
-    def _on_eval_ok(self, result: ChainResult, warnings: list[str]) -> None:
-        """Render a successful result into the Pinned cards, Messages, banner, and plot.
+    def _on_eval_ok(self, run: ConfigSetRunResult) -> None:
+        """Retain the whole pass and render the displayed configuration from it."""
+        self._last_run = run
+        cs = self._config_set
+        name = cs.active if cs is not None else ""
+        if name not in run.names:
+            # The set was edited while the pass ran; the next debounced run covers
+            # the new state. Render the pass's own first (active-at-launch) entry
+            # rather than dropping it silently.
+            name = run.names[0]
+        self._render_run(run, name)
+
+    @staticmethod
+    def _underlying(exc: BaseException) -> BaseException:
+        """The physics error behind a per-configuration wrapper.
+
+        ``ConfigurationSet.sensor_for`` wraps a configuration's resolve failure in a
+        :class:`~radiant.api.config_set.ConfigSetError` naming that configuration.
+        The GUI's failure surfaces (the actionable modal, the geometry-conflict
+        locator, the Messages item) key on the *original* error's structured
+        ``what`` / ``context``, so the wrapper is unwrapped here — a
+        single-configuration session then renders exactly the error it rendered
+        before this phase.
+        """
+        if isinstance(exc, ConfigSetError) and isinstance(exc.__cause__, RadiantError):
+            return exc.__cause__
+        return exc
+
+    def _attributed_warnings(self, run: ConfigSetRunResult) -> list[str]:
+        """Every configuration's warnings, named when there is more than one.
+
+        A single-configuration session shows the bare warning text it always
+        showed; a study prefixes each with its configuration so a saturation
+        warning from one band never reads as a property of the whole study.
+        The warnings themselves are captured (and re-logged) once, by
+        ``ConfigurationSet.evaluate_all`` — the GUI never re-captures them.
+        """
+        if len(run.entries) == 1:
+            return list(run.entries[0].warnings)
+        return [f"{entry.name}: {message}" for entry in run.entries for message in entry.warnings]
+
+    def _render_run(self, run: ConfigSetRunResult, displayed: str) -> None:
+        """Drive every view from *run*, showing configuration *displayed*.
+
+        The displayed configuration's outcome takes the ordinary success/failure
+        path — identical to the pre-Phase-4a behaviour for a single-configuration
+        session. A **non-displayed** configuration's failure is a named Messages
+        entry only: it never raises the modal, because a modal for a configuration
+        the operator is not looking at would block a study that is otherwise fine
+        (plan §4 item 5). Nothing is dropped (Rule 17).
+        """
+        entry = run.entry_for(displayed)
+        self._right_rail.messages.set_configuration_failures(
+            {
+                other.name: self._underlying(other.error)
+                for other in run.entries
+                if other.error is not None and other.name != displayed
+            }
+        )
+        if entry.error is not None:
+            self._on_eval_failed(self._underlying(entry.error))
+            return
+        if entry.result is None:  # pragma: no cover - evaluate_all always records one
+            return
+        self._on_result_ok(entry.result, self._attributed_warnings(run))
+
+    def _on_result_ok(self, result: ChainResult, warnings: list[str]) -> None:
+        """Render the displayed configuration's result into Pinned, Messages, banner, plot.
 
         The performance metrics fill the right-rail *Pinned* panel (§4.5, the relocated
-        badge row); chain warnings captured by the worker fill the right-rail *Messages*
-        panel (a warning-free run clears it) rather than printing to the terminal (owner
-        feedback 2026-07-13, Rule 17). Both are updated before the plot render so a render
-        failure still leaves the metrics and warnings surfaced.
+        badge row); the chain warnings ``evaluate_all`` attributed to each configuration
+        fill the right-rail *Messages* panel (a warning-free run clears it) rather than
+        printing to the terminal (owner feedback 2026-07-13, Rule 17). Both are updated
+        before the plot render so a render failure still leaves the metrics and warnings
+        surfaced.
         """
         self._last_result = result
         # Bind the fresh result into the scripting console (updates `result`/`plot` and
@@ -838,7 +1118,13 @@ class RADIANTMainWindow(QMainWindow):
         # values so the next edit's before-value is known (the panel signals an edit only
         # after applying it, so the pre-edit value must come from this snapshot).
         self._refresh_snapshot()
-        self.statusBar().showMessage(self._evaluated_message(result))
+        message = self._evaluated_message(result)
+        cs = self._config_set
+        if cs is not None and len(cs) > 1:
+            # R-UNITS/attribution: in a study the operator must never wonder which
+            # configuration the on-screen numbers belong to.
+            message = f"{cs.active} — {message} ({len(cs)} configurations evaluated)"
+        self.statusBar().showMessage(message)
 
     def _on_eval_failed(self, exc: BaseException) -> None:
         """Handle a failed evaluation: keep the previous result, show it as stale.
@@ -934,6 +1220,12 @@ class RADIANTMainWindow(QMainWindow):
 
     def _on_edit_config_requested(self) -> None:
         """Handle the right-rail Edit Config (YAML) click: open the modal editor."""
+        if not self._is_degenerate():
+            self.statusBar().showMessage(
+                "Edit Config (YAML) shows one configuration at a time and is not wired to "
+                "study documents yet — the study YAML view arrives in Phase 4e"
+            )
+            return
         dialog = self.open_yaml_editor()
         if dialog is not None:
             dialog.exec()
@@ -1015,21 +1307,59 @@ class RADIANTMainWindow(QMainWindow):
         add_recent: bool,
         evaluate: bool,
     ) -> None:
-        """Make *sensor* the session sensor and rebind every panel (the shared swap path).
+        """Adopt *sensor* as a degenerate one-configuration session (the shared swap path).
 
-        The one place a new sensor becomes live: File → Open / New, the YAML-editor Apply,
-        and the console Refresh all route here. It rebinds the parameter tree, the per-stage
-        input forms, and the console; resets the undo stack (a whole-sensor swap is not a
-        reversible single edit); updates the title (file name + dirty marker); optionally
-        records the file in the recent list; and either re-evaluates (a real config) or just
-        snapshots the inputs (a blank File → New that cannot resolve yet).
+        File → New, the YAML-editor Apply, the console Refresh, and Reset to Defaults all
+        hand over a bare :class:`~radiant.api.sensor.Sensor`; each becomes the base of a
+        one-configuration :class:`~radiant.api.config_set.ConfigurationSet`, which is
+        observably the sensor itself (ADR-0010). File → Open routes through
+        :meth:`_adopt_config_set` directly, since a study file carries several.
         """
-        self._sensor = sensor
+        self._adopt_config_set(
+            ConfigurationSet(sensor) if sensor is not None else None,
+            path=path,
+            dirty=dirty,
+            add_recent=add_recent,
+            evaluate=evaluate,
+        )
+
+    def _adopt_config_set(
+        self,
+        config_set: ConfigurationSet | None,
+        *,
+        path: Path | None,
+        dirty: bool,
+        add_recent: bool,
+        evaluate: bool,
+    ) -> None:
+        """Make *config_set* the session document and rebind every panel.
+
+        The one place a new document becomes live. It materializes the displayed
+        configuration, refreshes the master selector, rebinds the parameter tree, the
+        per-stage input forms, and the console; resets the undo stack (a whole-document
+        swap is not a reversible single edit) and discards the retained evaluate-all pass
+        (it described the previous document); updates the title (file name + dirty
+        marker); optionally records the file in the recent list; and either re-evaluates
+        (a real config) or just snapshots the inputs (a blank File → New that cannot
+        resolve yet).
+        """
+        self._config_set = config_set
+        self._last_run = None
+        try:
+            self._sensor = self._materialize_display_sensor()
+        except RadiantError as exc:
+            # A study whose active configuration does not resolve still opens —
+            # editable, with the reason stated — rather than failing to open at all
+            # (the from-scratch rule, owner report 2026-07-17). Never silent (Rule 17).
+            self._sensor = config_set.base if config_set is not None else None
+            self._right_rail.messages.set_error(self._underlying(exc))
+        sensor = self._sensor
         self._current_path = path
         self._dirty = dirty
         self._undo_stack.clear()
         self._set_sensor_actions_enabled(sensor is not None)
         self.setWindowTitle(self._compose_title())
+        self._refresh_configuration_bar()
         self._parameter_panel.populate(sensor)
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
         self._console.bind_sensor(sensor)
@@ -1108,22 +1438,40 @@ class RADIANTMainWindow(QMainWindow):
             self._open_path(filename)
 
     def _open_path(self, path: str) -> None:
-        """Load *path* via :meth:`Sensor.load`, swap it in, and re-evaluate (Rule 15 errors).
+        """Load *path* via :meth:`ConfigurationSet.load`, swap it in, re-evaluate (Rule 15).
 
-        A malformed or missing config surfaces its actionable error (a ``RadiantError`` shows
-        what/why/action; an I/O or parse error gets the traceback dialog) and leaves the
-        current sensor untouched — never a blank or half-swapped state (Rules 15/17).
+        One reader covers both document kinds, and it is the API that decides which is
+        which — never a GUI-side sniff of the file text. ``ConfigurationSet.load`` reads
+        the ``configurations:`` structured section when the file carries one (a study →
+        the full set, selector visible) and returns the degenerate one-configuration set
+        when it does not (a plain config → today's session, no selector). That is exactly
+        the distinction the API surface draws: loading a section-bearing file through the
+        plain ``Sensor.load`` path raises rather than dropping the study, so the GUI uses
+        the reader that handles both instead of catching-and-retrying.
+
+        A malformed or missing config surfaces its actionable error (a ``RadiantError``
+        shows what/why/action; an I/O or parse error gets the traceback dialog) and leaves
+        the current document untouched — never a blank or half-swapped state (Rules 15/17).
         """
         try:
-            sensor = Sensor.load(path)
+            config_set = ConfigurationSet.load(path)
         except RadiantError as exc:
             ActionableErrorDialog(exc, "open", self).exec()
             return
         except (OSError, ValueError) as exc:
             UnexpectedErrorDialog(exc, f"Opening {path}", self).exec()
             return
-        self._adopt_sensor(sensor, path=Path(path), dirty=False, add_recent=True, evaluate=True)
-        self.statusBar().showMessage(f"Opened {Path(path).name}")
+        self._adopt_config_set(
+            config_set, path=Path(path), dirty=False, add_recent=True, evaluate=True
+        )
+        opened = Path(path).name
+        if len(config_set) > 1:
+            self.statusBar().showMessage(
+                f"Opened {opened} — {len(config_set)} configurations "
+                f"({', '.join(config_set.names())}); displaying {config_set.active}"
+            )
+        else:
+            self.statusBar().showMessage(f"Opened {opened}")
 
     def _rebuild_recent_menu(self) -> None:
         """Repopulate File → Open Recent from the persisted list (QSettings, Phase 9)."""
@@ -1156,17 +1504,22 @@ class RADIANTMainWindow(QMainWindow):
             self._save_to_path(Path(filename))
 
     def _save_to_path(self, path: Path) -> None:
-        """Write the live sensor to *path* via :meth:`Sensor.save`; clear the dirty marker.
+        """Write the live document to *path*; clear the dirty marker.
+
+        The **document** is the configuration set, so what is written depends on what the
+        session holds (never a partial file, Rule 17): a single-configuration session
+        writes ``Sensor.save`` output — byte-for-byte the format it has always written,
+        with no ``configurations:`` section — and a study writes ``ConfigurationSet.save``,
+        the shared body plus that section, which round-trips through :meth:`_open_path`.
 
         A serialization failure (an unresolved config, an I/O error) surfaces its actionable
         error and leaves the dirty state as-is (Rules 15/17). On success the file becomes the
         current path, the title's ``*`` clears, and the file joins the recent list.
         """
-        sensor = self._sensor
-        if sensor is None:
+        if self._config_set is None:
             return
         try:
-            written = sensor.save(path)
+            written = self._write_document(path)
         except RadiantError as exc:
             ActionableErrorDialog(exc, "save", self).exec()
             return
@@ -1180,6 +1533,25 @@ class RADIANTMainWindow(QMainWindow):
         self._rebuild_recent_menu()
         self.statusBar().showMessage(f"Saved {Path(written).name}")
 
+    def _write_document(self, path: Path) -> Path:
+        """Write the session document to *path* and return the written path.
+
+        One API call either way: ``Sensor.save`` for a single-configuration session
+        (unchanged file format), ``ConfigurationSet.save`` for a study. Full
+        study-file open/save polish — recent-file handling, the YAML view of the
+        section, dirty tracking of configured edits — is Phase 4e.
+        """
+        cs = self._config_set
+        if cs is None:  # pragma: no cover - guarded by callers
+            raise ConfigSetError(
+                what="there is no configuration to save",
+                why="the window has no document loaded",
+                action="Open a config file or create one with File → New first.",
+            )
+        if self._is_degenerate():
+            return cs.base.save(path)
+        return cs.save(path)
+
     def _mark_dirty(self) -> None:
         """Flag unsaved edits and refresh the title's ``*`` marker (idempotent)."""
         if self._sensor is not None and not self._dirty:
@@ -1189,19 +1561,20 @@ class RADIANTMainWindow(QMainWindow):
     # -- Undo / redo (arch doc §10, GUI plan Phase 9) ----------------------
 
     def _on_export_yaml(self) -> None:
-        """File → Export YAML…: write the config to a chosen path (one Sensor.save call).
+        """File → Export YAML…: write the document to a chosen path (one save call).
 
-        Unlike Save As, exporting does not adopt the destination as the current file and
-        does not clear the dirty marker — it is a snapshot, not a rebind.
+        Writes the same document :meth:`_save_to_path` would (a study exports as a study,
+        never as just the displayed configuration). Unlike Save As, exporting does not
+        adopt the destination as the current file and does not clear the dirty marker —
+        it is a snapshot, not a rebind.
         """
-        sensor = self._sensor
-        if sensor is None:
+        if self._config_set is None:
             return
         filename, _ = QFileDialog.getSaveFileName(self, "Export RADIANT config", "", _YAML_FILTER)
         if not filename:
             return
         try:
-            sensor.save(Path(filename))
+            self._write_document(Path(filename))
         except RadiantError as exc:
             ActionableErrorDialog(exc, "export_yaml", self).exec()
             return
@@ -1437,7 +1810,8 @@ class RADIANTMainWindow(QMainWindow):
         """Edit → Reset to Defaults: discard every edit made since the config loaded.
 
         With a current file, the honest revert is a clean reload (one
-        ``Sensor.load`` call) — an edit replaces an input's provenance, so a
+        ``ConfigurationSet.load`` call, which restores a study's configurations too)
+        — an edit replaces an input's provenance, so a
         provenance-scoped reset cannot restore an edited config value (see
         ``Sensor.reset_all``). Without a file (File → New), every explicit input
         clears to schema defaults via ``Sensor.reset_all(scope="all")``. Both run
@@ -1462,11 +1836,11 @@ class RADIANTMainWindow(QMainWindow):
             return
         if self._current_path is not None:
             try:
-                fresh = Sensor.load(self._current_path)
+                fresh = ConfigurationSet.load(self._current_path)
             except RadiantError as exc:
                 ActionableErrorDialog(exc, str(self._current_path), self).exec()
                 return
-            self._adopt_sensor(
+            self._adopt_config_set(
                 fresh, path=self._current_path, dirty=False, add_recent=False, evaluate=True
             )
             self.statusBar().showMessage(f"Reverted to {self._current_path.name}")
@@ -1510,7 +1884,8 @@ class RADIANTMainWindow(QMainWindow):
         :meth:`_on_compound_parameter_edited` (CU-141), so they reverse as a single step.
         """
         sensor = self._sensor
-        if sensor is None:
+        cs = self._config_set
+        if sensor is None or cs is None:
             return
         try:
             new_value = sensor.get_input(dotpath)
@@ -1523,9 +1898,11 @@ class RADIANTMainWindow(QMainWindow):
         self._input_snapshot[dotpath] = new_value
         if old_value == new_value:
             return
+        if not self._mirror_edit_to_set(dotpath, new_value, pdef.input_unit or None):
+            return
         text = f"Set {dotpath} = {format_value(new_value, pdef.input_unit)}"
         command = SetParameterCommand(
-            sensor,
+            cs.base,
             dotpath,
             old_value,
             new_value,
@@ -1535,6 +1912,46 @@ class RADIANTMainWindow(QMainWindow):
         )
         self._undo_stack.push(command)
 
+    def _mirror_edit_to_set(self, dotpath: str, value: Any, unit: str | None) -> bool:
+        """Write an edit made on the displayed sensor back onto the session document.
+
+        In a single-configuration session the displayed sensor **is** the base, so
+        there is nothing to mirror and this is a no-op — today's edit path exactly.
+
+        In a study the displayed sensor is a materialization, which the next switch
+        or evaluation discards, so the edit must land on the document or it would be
+        silently lost (Rule 17):
+
+        * a **shared** parameter is written to the shared base — one value, every
+          configuration, exactly as a single-model edit behaves (Phase 4a scope);
+        * a **configured** parameter is written to the displayed configuration's own
+          column (ADR-0010 D-8: an inline edit while X is displayed edits X's value).
+
+        Returns True when the edit should join the undo stack. A configured-parameter
+        edit returns False: the undo commands target the shared base, and scoped
+        undo/redo of per-configuration edits is Phase 4b. The operator is told so in
+        the status bar rather than left with a silently non-reversible edit.
+        """
+        cs = self._config_set
+        if cs is None or self._is_degenerate():
+            return True
+        try:
+            if cs.is_configured(dotpath):
+                cs.set_value(dotpath, cs.active, value, unit=unit)
+                self.statusBar().showMessage(
+                    f"Edited {dotpath} in configuration {cs.active} only — "
+                    "per-configuration edits are not undoable yet"
+                )
+                return False
+            if unit:
+                cs.base.set(dotpath, value, unit=unit)
+            else:
+                cs.base.set(dotpath, value)
+        except RadiantError as exc:
+            ActionableErrorDialog(exc, "edit", self).exec()
+            return False
+        return True
+
     def _apply_undo_redo(self, dotpath: str) -> None:
         """Re-read the panels and re-evaluate after an undo/redo mutates the sensor.
 
@@ -1543,7 +1960,26 @@ class RADIANTMainWindow(QMainWindow):
         the parameter tree + geometry forms from the restored value, keeps the snapshot in
         step, marks the config dirty (it now differs from the file again), and schedules the
         debounced full-chain re-run.
+
+        Undo commands target the **shared base**, which no selector switch replaces, so an
+        edit stays undoable after the displayed configuration changes. In a study the
+        displayed sensor is a materialization of that base, so it is rebuilt here — the
+        restored value shows on screen for whichever configuration is displayed.
         """
+        if not self._is_degenerate():
+            try:
+                self._sensor = self._materialize_display_sensor()
+            except RadiantError as exc:
+                # The restored value leaves this configuration unresolvable. Surface it
+                # in Messages (never swallowed, Rule 17) and keep the previous
+                # materialization on screen; the debounced re-evaluate below reports it
+                # through the ordinary failure path too.
+                self._right_rail.messages.set_error(self._underlying(exc))
+            else:
+                self._central.stage_center.bind_sensor(
+                    self._sensor, self._parameter_panel.display_units
+                )
+                self._console.bind_sensor(self._sensor)
         sensor = self._sensor
         if sensor is not None:
             self._parameter_panel.populate(sensor)

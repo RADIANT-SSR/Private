@@ -401,6 +401,31 @@ class ConfigurationSet:
         self._index(name, "active")
         self._active = name
 
+    def clone(self) -> ConfigurationSet:
+        """Return an independent copy of this set — base, table, and designations.
+
+        The copy owns ``base.clone()``, its own configured table, its own
+        wavelength-point overrides, and the same ``active`` / ``baseline``
+        designations. Nothing is shared: editing either set afterwards leaves
+        the other untouched.
+
+        This is the set-level counterpart of :meth:`Sensor.clone` and exists for
+        the same reason — **thread isolation**. The GUI hands its evaluation
+        worker a private snapshot taken on the GUI thread, so a parameter edit
+        that lands mid-run cannot race the worker's read of the same object.
+        Rebuilding a snapshot from the public accessors is not equivalent: the
+        per-configuration and shared ``wavelength_points`` overrides have no
+        read accessor, so a hand-built copy would silently evaluate a loaded
+        study on the wrong spectral grid.
+        """
+        copy = ConfigurationSet(self._base.clone(), names=tuple(self._names))
+        copy._configured = dict(self._configured)
+        copy._wl_points = dict(self._wl_points)
+        copy._shared_wl_points = self._shared_wl_points
+        copy._baseline = self._baseline
+        copy._active = self._active
+        return copy
+
     # ------------------------------------------------------------------
     # Configuration CRUD
     # ------------------------------------------------------------------

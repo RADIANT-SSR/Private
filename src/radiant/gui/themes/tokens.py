@@ -81,6 +81,14 @@ class Theme:
     syntax_function: str
     syntax_comment: str
 
+    # Per-configuration accents (§8.1, multi-configuration Phase 4a). One stable
+    # colour per configuration slot, indexed by position in the configuration set
+    # (``ConfigurationSet.MAX_CONFIGS`` = 8, so exactly eight entries). The same
+    # index always yields the same hue in both themes, so a configuration keeps
+    # its identity across a light/dark toggle. Used by the master configuration
+    # selector, and (Phase 4d) the per-configuration Performance columns.
+    config_accents: tuple[str, ...]
+
 
 # -- Light theme — v1 launch default (§8.1 light block) --------------------------
 LIGHT = Theme(
@@ -116,6 +124,18 @@ LIGHT = Theme(
     syntax_number="#a04018",
     syntax_function="#2a5abf",
     syntax_comment="#8a93a1",
+    # Eight configuration accents — saturated mid-darks that read against the
+    # light panel surfaces. Index 0 is the first configuration in set order.
+    config_accents=(
+        "#2f5aa8",
+        "#b8431a",
+        "#2f7a3a",
+        "#7a3a8e",
+        "#a97c14",
+        "#1f7a7a",
+        "#a8305a",
+        "#5a6270",
+    ),
 )
 
 
@@ -150,6 +170,18 @@ DARK = Theme(
     syntax_number="#e0a075",
     syntax_function="#9bb8e3",
     syntax_comment="#6a7385",
+    # The same eight hues lightened for the dark surfaces — index-for-index the
+    # light set, so a configuration's colour identity survives a theme toggle.
+    config_accents=(
+        "#86a8df",
+        "#e08157",
+        "#7fb987",
+        "#c79ad8",
+        "#e0b249",
+        "#6fc0c0",
+        "#e07fa4",
+        "#a8b0be",
+    ),
 )
 
 

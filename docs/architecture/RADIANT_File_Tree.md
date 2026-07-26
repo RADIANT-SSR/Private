@@ -259,12 +259,13 @@ gui/
 ├── __init__.py          # launch_gui(sensor) entry point
 ├── app.py               # QApplication bootstrap
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
-├── workers.py           # EvaluationWorker(QThread) — off-thread evaluate (Phase 3)
+├── workers.py           # ConfigSetEvaluationWorker(QThread) — off-thread evaluate_all (Phase 4a)
 ├── widgets/             # one widget/dialog class per file (Rule 19 spirit)
 │   ├── actionable_error_dialog.py           # ActionableErrorDialog
 │   ├── atmosphere_inputs_form.py            # AtmosphereInputsForm
 │   ├── central_canvas.py                    # CentralCanvas
 │   ├── comparison_dialog.py                 # ComparisonDialog
+│   ├── configuration_bar.py                 # ConfigurationBar — master configuration selector
 │   ├── detector_illustration.py             # DetectorIllustration
 │   ├── detector_inputs_form.py              # DetectorInputsForm
 │   ├── explain_dialog.py                    # ExplainDialog

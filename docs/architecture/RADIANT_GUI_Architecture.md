@@ -481,7 +481,8 @@ number of configurations and then name them"* (plan §4 item 1). It is reached f
 **`Edit → Configurations…`** and from the **gear** at the right end of the selector band
 (§4.2b); both trigger the one `edit.configurations` action. It lives in Edit rather than
 Tools because it edits the *document's* shape; Tools' similarly-named
-*Compare Configurations…* compares this config against other **files** and is unrelated.
+*Compare Configurations…* compares this config against other **files** and is unrelated
+— a live collision with the ADR-0010 D-10 vocabulary, filed as CU-214 for relabelling.
 
 It is `ConfigurationManagerDialog` (`widgets/configuration_manager_dialog.py`).
 

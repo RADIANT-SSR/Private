@@ -1,8 +1,9 @@
 # ADR-0010: Multi-Configuration Model — CODE V Zoom Semantics, Materialized per Configuration
 
 **Date:** 2026-07-25
-**Status:** Accepted (owner-ratified 2026-07-25; gates Phase 0 of
-`docs/plans/Multi_Configuration_Plan.md`)
+**Status:** Accepted (owner-ratified 2026-07-25). Fully implemented: Phases 0–5 of
+`docs/archive/Multi_Configuration_Plan.md` (complete, archived 2026-07-25) shipped the
+API, the config-file section, the GUI, and the CLI.
 
 ## Context
 
@@ -237,8 +238,8 @@ are inherited rather than re-implemented.
 
 ## References
 
-- `docs/plans/Multi_Configuration_Plan.md` — the plan this ADR gates (§3 core model, §4 GUI
-  vision, §5 phases, §8.1 decisions D-1…D-10)
+- `docs/archive/Multi_Configuration_Plan.md` — the plan this ADR gated (§3 core model,
+  §4 GUI vision, §5 phases, §8.1 decisions D-1…D-10); complete and archived 2026-07-25
 - ADR-0009 (`0009-gui-config-object-editing-and-import.md`) — the structured-section
   persistence mechanism D-D extends, and the "authoring implies persistence parity" ruling
 - `docs/architecture/RADIANT_Parameter_System.md` (resolution, provenance),

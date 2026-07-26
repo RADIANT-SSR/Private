@@ -292,6 +292,12 @@ stage-output injections, per-configuration optical-element documents (ADR-0010 D
 sweeps of a whole set. Tolerances, the `optical_elements` document, and the default
 `wavelength_points` are shared state on the base.
 
+**From the CLI:** `radiant run study.yaml --configuration NAME` materializes one
+configuration and runs it (the flag is required for a study config file and rejected for a
+plain one); `radiant validate study.yaml` runs `validate_all()` and reports every
+configuration. There is no whole-set CLI batch — `evaluate_all()` is the API for that.
+Full contract: `RADIANT_Config_Format.md` §4.4.
+
 ### 2.6 Optical-Element Documents — `radiant.api.config_io` (ADR-0009, 2026-07-16)
 
 The config-document facade: structured configuration is authored as **declarative documents**

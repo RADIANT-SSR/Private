@@ -1209,10 +1209,12 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | Field | Value |
 |-------|-------|
 | **Found in** | Capability audit 2026-07 (F-16), 2026-07-11 |
-| **Status** | OPEN |
+| **Status** | RESOLVED for expressibility and orchestration (2026-07-25, ADR-0010 multi-configuration model, Phases 0–5) — a multi-band study is now a first-class object; only **cross-band derived metrics** remain (see "Still deferred"). |
 | **Description** | Exactly one scalar `filter_min_um`/`filter_max_um` pair per run; no band-list structure anywhere in the API. Dual-band comparison (scenario 1.3) and band-set trades require externally orchestrated separate runs with hand-merged results. |
-| **Impact** | GUI band-selector/dual-band comparison screens must implement N-run orchestration and result merging themselves; shared-scene consistency across bands is the caller's problem. |
-| **Workaround** | Run per band and merge script-side (1.3 pattern). |
+| **Landed** | (2026-07-25, ADR-0010, merged Phases 0–5) A **configuration set** holds up to 8 named configurations of one modeling problem, with band edges as ordinary configured parameters — one value per configuration, dense (`spectral_integration.filter_min_um: [3.95, 8.0]`). `ConfigurationSet.evaluate_all()` runs the whole set (active-first, per-configuration failure and warning capture) and `ConfigurationSet.compare(run)` returns the aligned metric × configuration matrix with deltas vs. a baseline — the merging the workaround did by hand. Per-configuration wavelength grids are in v1 (span from each configuration's own band, plus an optional per-configuration `wavelength_points`). One file is one study (`configurations:` section, `RADIANT_Config_Format.md` §1.9); the GUI evaluates every configuration continuously and shows them side by side on the Performance surface; the CLI runs one named configuration (`radiant run study.yaml --configuration LWIR`) and validates all of them (`radiant validate study.yaml`). Worked example: `examples/scripts/dual_band_configuration_set.py`. |
+| **Still deferred** | **Cross-band *derived* metrics** — a single number computed **across** configurations (band ratio, dual-band contrast, two-color temperature). Configuration sets make the per-configuration results available side by side, but every metric is still computed inside one configuration's chain; nothing consumes two configurations' results to produce a third value. **Gating condition**: an owner-specified list of which cross-band quantities matter (the metric registry, GIQE/NIIRS envelope, and `compare_configs` surface all assume one chain per number). **Re-audit date**: at the next multi-configuration task, or when a scenario demands a two-color metric. |
+| **Impact** | Band-variant studies are expressible and orchestrated end-to-end (API, config file, GUI, CLI); only a derived two-band number still has to be computed by the caller from the two per-configuration results. |
+| **Workaround** | For a derived cross-band quantity: read the two `ChainResult`s out of `ConfigurationSet.evaluate_all()` and compute it script-side (one line, and no longer needs hand-merged runs). |
 
 ## Gap 81: MODTRAN sky terms not ingestable — downwelling thermal hard-zeroed, scattered solar zeroed
 
@@ -1515,6 +1517,41 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Parameter tree → `readout.` namespace; or Edit Config (YAML); or scripting window `sensor.set("readout.n_tdi", …)`. |
 ---
 
+## Gap 103: Configuration sets share one optical element document — per-configuration prescriptions are not expressible
+
+| | |
+|---|---|
+| **Found in** | Multi-configuration close-out (Phase 5), 2026-07-25 — the ratified v1 exclusion D-7 of ADR-0010. |
+| **Status** | DEFERRED to v1.1 (owner-ratified 2026-07-25, ADR-0010 D-7). **Gating condition**: a workflow that needs two configurations to differ by more than scalar as-built knobs — e.g. a swapped filter/window per band, or two element trains with different coatings. **Re-audit date**: at the next multi-configuration task, or when a scenario asks for a per-band element train. |
+| **Description** | A study's `optical_elements` document (ADR-0009) lives in the shared body and applies to every configuration; the `configurations:` section carries scalar parameters only. Two configurations of one set therefore cannot carry different element trains, coatings, or per-element temperatures. |
+| **Impact** | Nominal-vs-as-built and band-variant studies are covered by scalar knobs (WFE, f/#, transmission, element temperatures are ordinary configurable parameters), but a genuine per-band prescription (say a cold filter swapped between MWIR and LWIR) must be split into two separate study files and compared with `compare_configs`. |
+| **Suggested fix** | Additive extension of the section format: an optional per-configuration element document (or a per-configuration override list) parsed by `io/config_set_section.py` and attached in `ConfigurationSet.sensor_for`. Needs a decision on whole-document replacement vs. per-element patching before implementation. |
+| **Workaround** | One study file per prescription; compare across files with `radiant.api.compare_configs` or the GUI's Tools → Compare Config Files. |
+
+## Gap 104: Tolerance distributions and stage-output injections are shared across a configuration set
+
+| | |
+|---|---|
+| **Found in** | Multi-configuration close-out (Phase 5), 2026-07-25 — ratified v1 exclusions of ADR-0010 §3.2. |
+| **Status** | DEFERRED (owner-ratified 2026-07-25, ADR-0010). **Gating condition**: a Monte-Carlo or as-built study whose configurations need different uncertainty models, or a study whose configurations need different injected objects (measured PSF/WFE, per-band QE curve). **Re-audit date**: at the next multi-configuration task, or when set-level Monte-Carlo is built (see Gap 105). |
+| **Description** | A configuration set's tolerances live on the shared base (`_radiant.tolerances`) and apply identically to every configuration; likewise the Gap 68 stage-output injections, which have no YAML form at all and are attached to the base sensor. Neither is expressible per configuration. |
+| **Impact** | A study cannot say "the LWIR build's alignment is toleranced ±2× the MWIR build's", and cannot give two configurations different measured spectral inputs. Since set-level Monte-Carlo does not exist yet either (Gap 105), the tolerance half is currently latent rather than blocking. |
+| **Suggested fix** | Tolerances: an optional per-configuration `tolerances:` block inside the `configurations:` section, applied to the materialized sensor in `sensor_for`. Injections: dependent on Gap 68's config-surface route (objects need a YAML form before they can be per configuration). |
+| **Workaround** | One study per uncertainty model / injection set; run `Sensor.monte_carlo` per configuration via `ConfigurationSet.sensor_for(name)`. |
+
+## Gap 105: No set-level execution — sweeps, Monte-Carlo, and a whole-study CLI run all stop at one configuration
+
+| | |
+|---|---|
+| **Found in** | Multi-configuration close-out (Phase 5), 2026-07-25 — ratified v1 exclusion of ADR-0010 §3.2, plus the CLI scope decision of plan §5 Phase 5. |
+| **Status** | OPEN |
+| **Description** | `ConfigurationSet.evaluate_all()` evaluates every configuration **at one point in parameter space**. There is no set-level sweep (vary a shared parameter and evaluate all N configurations at every point, yielding a metric × configuration × sweep-value cube), no set-level Monte-Carlo, and no set-level solve. The CLI mirrors the same boundary deliberately: `radiant run study.yaml --configuration NAME` runs exactly one configuration and there is no `--all-configurations` batch flag. |
+| **Impact** | The natural multi-configuration trade — "sweep aperture from 0.2 to 0.5 m and show me SNR for MWIR and LWIR side by side" — is caller-orchestrated: loop over `sensor_for(name).sweep(...)`, or loop the CLI over the configuration names in a shell for-loop. Result alignment across configurations is the caller's problem, which is the same complaint Gap 80 originally made one level down. |
+| **Suggested fix** | Two separable pieces. (1) API: `ConfigurationSet.sweep(param, values)` returning a set-aware result (per-configuration `SweepResult`s sharing one axis), with the same failure-capture contract as `evaluate_all`; Monte-Carlo follows the same shape. (2) CLI: `radiant run study.yaml --all-configurations` writing one labelled block/JSON object per configuration — thin once (1) exists, and cheap even without it (loop `sensor_for`). Effort M for (1), S for (2). |
+| **Workaround** | `for name in cs.names(): cs.sensor_for(name).sweep(...)` in a script; or `for c in MWIR LWIR; do radiant run study.yaml --configuration $c --output $c.json; done` from a shell. |
+
+---
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |
@@ -1598,7 +1635,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 77 | No native SCNR / in-chain detection-range solver | Medium | 1.1, 1.3, 4.1–4.3 | NARROWED 2026-07-11 |
 | 78 | Decision-grade acquisition metrics library-only | — | 4.x, 6.x, 2.x | OPEN |
 | 79 | No multi-config compare primitive | — | 1.3, 3.3, 4.1, 6.1 | OPEN |
-| 80 | No multi-band / dual-band run concept | — | 1.3 | OPEN |
+| 80 | No multi-band / dual-band run concept | — | 1.3 | RESOLVED 2026-07-25 (ADR-0010 configuration sets) for expressibility + orchestration; cross-band derived metrics still deferred |
 | 81 | MODTRAN sky terms not ingestable (downwelling zeroed) | Medium | thermal-band scenes | NARROWED 2026-07-12 |
 | 82 | No cloud/rain/fog capability | — | 3.2 | OPEN |
 | 83 | No two-point geodetic geometry input | — | airborne mission planning (V5) | OPEN |
@@ -1620,6 +1657,9 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | 100 | No real IIRS — MWIR/LWIR interpretability reuses GIQE-5 verbatim (formula, envelope, labels) | M-L | Every MWIR/LWIR scenario consuming niirs | OPEN |
 | 101 | Charge-well/ADC saturation check misapplied to NETD-specified (bolometric) detectors | M-L | 4.5 + any bolometric config on a warm scene | OPEN |
 | 102 | Readout acquisition params (TDI/co-adds/binning/frame period) missing from GUI form | Small | GUI workflows using TDI/co-add/binning (e.g. 1.4, 2.5) | FIXED |
+| 103 | Configuration sets share one optical element document (no per-configuration prescription) | M | Per-band element trains; as-built prescriptions | DEFERRED to v1.1 (ADR-0010 D-7) |
+| 104 | Tolerances and stage-output injections are shared across a configuration set | M | Per-configuration uncertainty models / measured inputs | DEFERRED (ADR-0010) |
+| 105 | No set-level execution (sweep / Monte-Carlo / CLI --all-configurations across a set) | M | Multi-configuration trades | OPEN |
 
 ---
 

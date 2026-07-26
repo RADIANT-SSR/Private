@@ -2,7 +2,7 @@
 
 (ADR-0010 D-D, multi-configuration Phase 2.)
 
-Covers `docs/plans/Multi_Configuration_Plan.md` §6 Phase 2 at the api level:
+Covers `docs/archive/Multi_Configuration_Plan.md` §6 Phase 2 at the api level:
 full round trip, the unchanged shared-only format, load-time validation surfacing
 as `ConfigError`, CU-177 file-path parity for configured values, and the
 actionable refusal when a section-bearing config file is opened as a plain

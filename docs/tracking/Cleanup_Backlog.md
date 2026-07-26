@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-218 — `radiant run --provenance` writes two different record shapes depending on the config file
+
+**Discovered**: multi-config Phase 5 CLI study support (`cli/multiconfig-phase5`), 2026-07-25
+**Status**: Open
+**File**: `src/radiant/cli/run.py` (the plain path's `params.to_provenance_record(radiant_version=…)` vs. the study path's `result.to_provenance_record()`)
+**Symptom**: one flag, two JSON schemas. For a plain config file `--provenance out.json` writes `ParameterSet.to_provenance_record` — three keys (`radiant_version`, `resolved_at`, `parameters`). For a study config file (`--configuration NAME`) it writes `ChainResult.to_provenance_record` — the 8-key run record (`run_id`, `radiant_version`, `git_commit`, `parameter_set`, …) with a CLI-added `configuration` key. A consumer parsing the file has to sniff which shape it got. Reproduce: `radiant run examples/mwir_leo_minimal.yaml --provenance a.json` vs. `radiant run study.yaml --configuration MWIR --provenance b.json`, then compare the top-level keys.
+**Why it still matters**: the divergence is not physics but it is a public output surface, and the two shapes disagree about what "provenance" means (resolved parameters only vs. the whole run record). The study path took the richer one deliberately — a materialized `Sensor` exposes no `ParameterSet`, and `ChainResult.to_provenance_record()` is the public seam that exists (it also carries the `config:<name>` provenance sources, which is exactly what a study run wants recorded). Left alone, the next consumer of the flag writes shape-sniffing code.
+**Suggested fix**: (a) inline-fix-now in a small follow-up — move the plain path onto `result.to_provenance_record()` as well, so both paths emit the run record. That is a **public-surface change** (the file's keys change for existing users of the flag) and therefore needs a `CHANGELOG.md` entry and an update to `RADIANT_Config_Format.md` §4.2; it also wants a check that nothing in `scripts/` or the scenario workbooks parses the three-key form. Alternative (b): add `Sensor.to_provenance_record()` and keep both paths on the parameter-set shape — smaller blast radius, but it keeps the poorer record. Effort S; category A.
+
 ### CU-215 — `test_configured_parameters.py` is not `ruff format` clean, and the gate cannot see it
 
 **Discovered**: multi-config Phase 4d Performance columns (`gui/multiconfig-phase4d`), 2026-07-25
@@ -187,7 +196,7 @@
 ### CU-208 — `ConfigurationSet` reached into `Sensor._params` / `Sensor._ensure_resolved` because `Sensor` had no provenance-source or resolve seam
 
 **Discovered**: multi-configuration Phase 1 (`api/config_set.py`), 2026-07-25
-**Status**: RESOLVED 2026-07-25, commit `780ae6b`. **Resolution (option a, as suggested)**: added the three additive, back-compatible public seams to `Sensor` — a `source=` keyword on `set`/`set_many` (provenance *label* only; the class stays `USER_SET`; defaults `"Sensor.set"`/`"Sensor.set_many"` unchanged), a public idempotent `resolve() -> Sensor`, and `inputs() -> Mapping[str, Any]` mirroring `ParameterSet.inputs()`. `config_set.py`'s `sensor_for` now calls `sensor.set(..., source=f"config:{name}")` + `sensor.resolve()`, and `_check_single_store` / `_shared_seed` read `self._base.inputs()`; the CU-208 comment at the call site is removed and no `_params` / `_ensure_resolved` reference remains in the module. R20 lock-step: three rows in `RADIANT_Scripting_API.md` §2.2. R29 CHANGELOG (public surface). 8 new Level-1 tests (`api/tests/test_sensor.py::TestProvenanceAndInputSeams`). Results-neutral. Related: ADR-0010 D-C, `docs/plans/Multi_Configuration_Plan.md` §3.1, multi-config Phase 2.
+**Status**: RESOLVED 2026-07-25, commit `780ae6b`. **Resolution (option a, as suggested)**: added the three additive, back-compatible public seams to `Sensor` — a `source=` keyword on `set`/`set_many` (provenance *label* only; the class stays `USER_SET`; defaults `"Sensor.set"`/`"Sensor.set_many"` unchanged), a public idempotent `resolve() -> Sensor`, and `inputs() -> Mapping[str, Any]` mirroring `ParameterSet.inputs()`. `config_set.py`'s `sensor_for` now calls `sensor.set(..., source=f"config:{name}")` + `sensor.resolve()`, and `_check_single_store` / `_shared_seed` read `self._base.inputs()`; the CU-208 comment at the call site is removed and no `_params` / `_ensure_resolved` reference remains in the module. R20 lock-step: three rows in `RADIANT_Scripting_API.md` §2.2. R29 CHANGELOG (public surface). 8 new Level-1 tests (`api/tests/test_sensor.py::TestProvenanceAndInputSeams`). Results-neutral. Related: ADR-0010 D-C, `docs/archive/Multi_Configuration_Plan.md` §3.1, multi-config Phase 2.
 
 ### CU-198 — RADIANT_Source_Target_System.md §8 documented a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema
 

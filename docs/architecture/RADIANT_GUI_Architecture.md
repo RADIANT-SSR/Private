@@ -361,7 +361,7 @@ it cannot source); refining either to per-stage attribution is a later enhanceme
 ### 4.2b Master Configuration Selector (multi-configuration — Phase 4a SHIPPED 2026-07-25)
 
 The GUI session is a **`ConfigurationSet`**, not a bare `Sensor` (ADR-0010; plan
-`docs/plans/Multi_Configuration_Plan.md` §4). A plain config file loads as the
+`docs/archive/Multi_Configuration_Plan.md` §4). A plain config file loads as the
 **degenerate one-configuration set** — observably the single sensor it contains — and a
 study file (one carrying a `configurations:` section) loads as the full set.
 

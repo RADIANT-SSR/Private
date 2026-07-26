@@ -1,6 +1,6 @@
 """Multi-configuration Phase 4c: the configuration manager dialog + CU-210/CU-211 GUI half.
 
-Category D — the GUI half of plan §4 items 1 and 7 (`docs/plans/Multi_Configuration_Plan.md`
+Category D — the GUI half of plan §4 items 1 and 7 (`docs/archive/Multi_Configuration_Plan.md`
 §5/§6 "4c"). These drive the real window offscreen and assert what 4c owes:
 
 1. **CRUD drives the API object.** Add / Duplicate / Rename / Remove / Move / Set as

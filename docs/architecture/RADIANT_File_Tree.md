@@ -208,8 +208,9 @@ Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
 cli/
 ├── main.py                # `radiant` entry point
 ├── _common.py             # shared CLI helpers
-├── run.py                 # `radiant run`
-├── validate.py            # `radiant validate`
+├── _study.py              # study (configuration-set) helpers for run/validate (ADR-0010)
+├── run.py                 # `radiant run` (+ `--configuration` for study files)
+├── validate.py            # `radiant validate` (every configuration of a study)
 ├── explain.py             # `radiant explain` (param provenance)
 ├── compare.py             # `radiant compare` (two runs)
 ├── convert.py             # `radiant convert` (between config formats)

@@ -472,7 +472,12 @@ class MetricGroupCards(QWidget):
         return self._cells[(key, configuration)].toolTip()
 
     def column_header(self, configuration: str) -> _ColumnHeader:
-        """The column header widget for *configuration* (KeyError if unknown)."""
+        """A column header widget for *configuration* (KeyError if unknown).
+
+        Every card repeats the header row, so this returns the last card's — they are
+        built from one :class:`~radiant.gui.metric_matrix.MatrixColumn` each and carry
+        identical name, chip, marker and tooltip state.
+        """
         return self._headers[configuration]
 
     def metric_label(self, key: str) -> _MetricLabel:

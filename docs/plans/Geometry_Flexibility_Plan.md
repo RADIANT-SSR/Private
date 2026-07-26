@@ -232,6 +232,22 @@ and gap statuses (107–111) per Rules 20–22/29.
    decision in the plan (companion to guardrails §3.5).
 7. **Guardrails §3.5 (G1–G4) are review-blocking phase-gate criteria**, on
    par with Rule 20 — a violating PR is rejected, not CU'd forward.
+8. **Scene class is derived, never mandatory — with an optional validated
+   assertion.** The class (§2) is computed from `h_sensor`, `h_target`, and
+   θ_o and published with DERIVED provenance; physics never branches on it
+   (it drives defaults, metric relevance, validation, and GUI composition
+   only — the radiometry stays continuous in the real inputs). An optional
+   `geometry.scene_class` enum lets the user assert intent: if set and it
+   disagrees with the derivation, the stage raises
+   `GeometrySpecificationError` (the CU-093 / redundant-mode-entry
+   pattern) — catching wrong-magnitude altitude typos that pure derivation
+   renders as a self-consistent scene of the wrong class. In the GUI the
+   same assertion is the mission-type entry point (Gap 85 tie-in): picking
+   a class steers defaults/relevance up front and is validated against the
+   numbers entered afterward. A mandatory declaration is rejected: it
+   re-states derivable truth, breaks sweeps that cross class boundaries,
+   burdens every existing config, and invites the per-class physics
+   branching G3 forbids.
 
 ### 8.2 Open questions
 

@@ -22,11 +22,15 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.core.parameters import ParameterSet
+
+if TYPE_CHECKING:  # type-only: keeps scipy out of this module's import cost
+    from radiant.atmosphere.interpolated import GeometryPoint
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +43,34 @@ _SHIPPED_ATMOSPHERES_DIR = (
 )
 
 #: Shipped library family to use when ``atmosphere.interpolated_data_dir`` is
-#: left unset, keyed by the (normalized) ``atmosphere.interpolation_axes``
-#: value. Only axes combinations a shipped family actually covers appear here;
-#: anything else still requires an explicit data dir.
-_SHIPPED_FAMILY_BY_AXES: dict[str, str] = {
-    "path_zenith_rad": "us_standard_zenith_fan",
-    "sensor_altitude_m,target_altitude_m": "midlat_summer_ladders",
+#: left unset, keyed by ``(los_direction, normalized interpolation_axes)``.
+#:
+#: The axes string alone stopped being a sufficient key at
+#: Geometry-Flexibility Phase 2 (GF-10): an up-looking family and a
+#: down-looking family can share an axes signature while carrying different
+#: physical products (upwelling vs downwelling path radiance), so the LOS
+#: direction is part of the key. Only combinations a shipped family actually
+#: covers appear here; anything else still requires an explicit data dir and
+#: raises the no-family error naming everything that IS shipped.
+#:
+#: Data, not branches (guardrail G3 in spirit): adding a family is a row.
+_SHIPPED_FAMILY_BY_DIRECTION_AND_AXES: dict[tuple[str, str], str] = {
+    ("down", "path_zenith_rad"): "us_standard_zenith_fan",
+    ("down", "sensor_altitude_m,target_altitude_m"): "midlat_summer_ladders",
     # Boost expansion families (plan §4.7). The 2-axis key above stays on
     # the 0–29 km ladders (§4.1, no re-baseline); nadir 0–100 km boost
     # coverage is reachable via the off-nadir family (which includes the
     # 0° column) or an explicit interpolated_data_dir.
-    "sensor_altitude_m": "midlat_summer_sensor_ladder",
-    "sensor_altitude_m,target_altitude_m,path_zenith_rad": "midlat_summer_boost_offnadir",
+    ("down", "sensor_altitude_m"): "midlat_summer_sensor_ladder",
+    (
+        "down",
+        "sensor_altitude_m,target_altitude_m,path_zenith_rad",
+    ): "midlat_summer_boost_offnadir",
+    # Up-looking (Geometry-Flexibility Phase 2, GF-10): the K-block vertical
+    # partial-column ladder, ground sensor, targets 0–20 km. One axis — the
+    # family is rendered at a single lower endpoint (ground) and a single
+    # lower-endpoint zenith (vertical), so neither is an axis.
+    ("up", "target_altitude_m"): "midlat_summer_uplooking_ladder",
 }
 
 #: Models whose construction ALWAYS requires reading data files. These
@@ -289,6 +309,149 @@ def _build_modtran(params: ParameterSet) -> object:
     )
 
 
+def _scene_los_direction(params: ParameterSet) -> str:
+    """Pre-chain mirror of :attr:`LineOfSightGeometry.los_direction`.
+
+    The shipped-family default must be picked *before* the chain runs (Rule 6:
+    all file I/O happens here), so the LOS object that owns the authoritative
+    derivation does not exist yet.  The rule is reproduced from the same two
+    altitudes the geometry stage uses, and
+    ``test_loaders.py::test_direction_matches_line_of_sight_geometry`` pins the
+    two together so this copy cannot drift (guardrail G2's spirit: one rule,
+    even where it must be evaluated in two places).
+
+    Falls back to ``"down"`` — the historical behaviour and the only direction
+    that existed before Phase 2 — when the geometry schema is not registered
+    (partial-chain fixtures), mirroring
+    :func:`model_requires_prebuild`'s handling of the same situation.
+    """
+    try:
+        h_sensor = float(params.get("geometry.sensor_altitude_m"))
+        h_tgt = float(params.get("geometry.target_altitude_m"))
+    except KeyError:
+        logger.debug(
+            "geometry altitudes are not registered; assuming a down-looking "
+            "scene for the shipped-atmosphere-family default."
+        )
+        return "down"
+    if h_sensor > h_tgt:
+        return "down"
+    if h_sensor < h_tgt:
+        return "up"
+    return "level"
+
+
+def _shipped_family_catalogue() -> str:
+    """Human-readable list of every shipped ``(direction, axes)`` combination."""
+    return ", ".join(
+        f"{direction}-looking axes='{axes}' → {family}"
+        for (direction, axes), family in sorted(_SHIPPED_FAMILY_BY_DIRECTION_AND_AXES.items())
+    )
+
+
+def _npz_family_direction(npz_files: list[Path]) -> str:
+    """Read the self-describing direction marker off a family's NPZ files.
+
+    Files written before Geometry-Flexibility Phase 2 carry no marker and are
+    down-looking by construction, so a missing key reads as ``"down"`` and
+    every pre-existing family loads through exactly the path it always did.
+    A directory mixing directions is refused: the two carry different
+    physical radiance products and cannot share one interpolator.
+    """
+    from radiant.atmosphere.interpolated import FAMILY_DIRECTION_KEY, FAMILY_DIRECTIONS
+
+    seen: set[str] = set()
+    for npz_file in npz_files:
+        with np.load(npz_file, allow_pickle=True) as data:
+            # A file written before GF-10 carries no marker and is
+            # down-looking by construction.
+            has_marker = FAMILY_DIRECTION_KEY in data.files
+            marker = str(data[FAMILY_DIRECTION_KEY]) if has_marker else "down"
+        seen.add(marker)
+    if len(seen) > 1:
+        raise AtmosphereValidationError(
+            "build_atmosphere_model: the interpolated data directory mixes "
+            f"run directions {sorted(seen)}. An up-looking family's radiance "
+            "product is the DOWNWELLING path radiance and a down-looking "
+            "family's is the UPWELLING one — different quantities that cannot "
+            "share one interpolation grid. Split the directory by direction."
+        )
+    direction = seen.pop()
+    if direction not in FAMILY_DIRECTIONS:
+        raise AtmosphereValidationError(
+            f"build_atmosphere_model: NPZ direction marker '{direction}' is not "
+            f"recognised. Expected one of {sorted(FAMILY_DIRECTIONS)} under the "
+            f"'{FAMILY_DIRECTION_KEY}' key."
+        )
+    return direction
+
+
+def _uplooking_geometry_point(npz_file: Path, coords: dict[str, float]) -> GeometryPoint:
+    """Build a :class:`GeometryPoint` from an up-looking family NPZ.
+
+    The downwelling product is stored under
+    :data:`~radiant.atmosphere.interpolated.UPLOOKING_RADIANCE_KEY`, never
+    under ``path_radiance`` — a down-looking reader therefore fails on a
+    missing key instead of silently reading the wrong-direction product.
+    Inside the interpolator the array rides in the ``path_radiance`` slot;
+    it is only ever published through
+    :meth:`InterpolatedAtmosphere.uplooking_column_product`, which names it
+    ``L_toward_lower``, and :meth:`InterpolatedAtmosphere.evaluate` refuses
+    an up-looking family outright.
+    """
+    from radiant.atmosphere.interpolated import UPLOOKING_RADIANCE_KEY, GeometryPoint
+    from radiant.core.spectral import SpectralData
+
+    with np.load(npz_file, allow_pickle=True) as data:
+        missing = [
+            k for k in ("wavelength_um", "transmittance", UPLOOKING_RADIANCE_KEY) if k not in data
+        ]
+        if missing:
+            raise AtmosphereValidationError(
+                f"build_atmosphere_model: up-looking NPZ {npz_file} is missing "
+                f"required key(s) {missing}. An up-looking run family stores "
+                f"'wavelength_um', 'transmittance' and '{UPLOOKING_RADIANCE_KEY}' "
+                "(the downwelling path radiance). Regenerate it with "
+                "scripts/build_atmosphere_library.py."
+            )
+        wl = np.asarray(data["wavelength_um"], dtype=np.float64)
+        tau = np.asarray(data["transmittance"], dtype=np.float64)
+        l_down = np.asarray(data[UPLOOKING_RADIANCE_KEY], dtype=np.float64)
+
+    source = f"Up-looking library NPZ: {npz_file}"
+    provenance = {"model": "interpolated", "npz_file": str(npz_file), "los_direction": "up"}
+    return GeometryPoint(
+        coordinates=coords,
+        transmittance=SpectralData(
+            name="atm.transmittance.uplooking",
+            wavelength_um=wl.copy(),
+            values=tau,
+            unit="",
+            source=source,
+            source_parameters=provenance,
+        ),
+        path_radiance=SpectralData(
+            name="atm.path_radiance_toward_lower.uplooking",
+            wavelength_um=wl.copy(),
+            values=l_down,
+            unit="W/m²/sr/µm",
+            source=source,
+            source_parameters=provenance,
+        ),
+        # An up-looking family carries no separate hemispheric downwelling
+        # term: its own product IS the downwelling radiance along the LOS.
+        # Zeros here are never read — evaluate() refuses up-looking families.
+        atm_emission_down=SpectralData(
+            name="atm.emission_down.not_carried_by_uplooking_family",
+            wavelength_um=wl.copy(),
+            values=np.zeros_like(wl),
+            unit="W/m²/sr/µm",
+            source=source,
+            source_parameters=provenance,
+        ),
+    )
+
+
 def _build_interpolated(params: ParameterSet) -> object:
     """Construct an InterpolatedAtmosphere from a data directory.
 
@@ -297,6 +460,12 @@ def _build_interpolated(params: ParameterSet) -> object:
     optionally ``atm_emission_down``.  Each file must also contain
     a ``geometry`` key with a JSON-encoded dict of coordinate
     values.
+
+    An **up-looking** run family (marked ``los_direction = "up"``) stores its
+    downwelling product under ``path_radiance_toward_lower`` instead of
+    ``path_radiance`` and carries no ``atm_emission_down``; the loader reads
+    it through :func:`_uplooking_geometry_point` and tags the resulting model
+    so its down-looking entry point stays closed (GF-10).
     """
     from radiant.atmosphere.interpolated import (
         GeometryPoint,
@@ -309,29 +478,36 @@ def _build_interpolated(params: ParameterSet) -> object:
     axes = [a.strip() for a in axes_str.split(",")]
     method: str = params.get("atmosphere.interpolation_method")
 
+    scene_direction = _scene_los_direction(params)
+    family_key = (scene_direction, ",".join(axes))
+
     if not data_dir:
         # Owner request 2026-07-18: selecting the interpolated model with no
         # directory must work out of the box. Default to the shipped library
         # family matching the interpolation axes (mirrors the Gap 57
         # profile→PWV pattern: a loud, logged default; an explicit dir wins).
-        family = _SHIPPED_FAMILY_BY_AXES.get(",".join(axes))
+        # Since GF-10 the key is (LOS direction, axes) — see the dispatch table.
+        family = _SHIPPED_FAMILY_BY_DIRECTION_AND_AXES.get(family_key)
         default_dir = _SHIPPED_ATMOSPHERES_DIR / family if family else None
         if family is None or default_dir is None or not default_dir.exists():
             raise AtmosphereValidationError(
                 "build_atmosphere_model: model='interpolated' requires "
                 "atmosphere.interpolated_data_dir to be set — no shipped "
-                f"library family covers interpolation_axes='{axes_str}' "
-                f"(shipped: {sorted(_SHIPPED_FAMILY_BY_AXES)} under "
+                f"library family covers a {scene_direction}-looking scene with "
+                f"interpolation_axes='{axes_str}' (shipped: "
+                f"{_shipped_family_catalogue()}; all under "
                 f"{_SHIPPED_ATMOSPHERES_DIR}). Point interpolated_data_dir "
                 "at a directory of NPZ runs with 'geometry' coordinates for "
-                "those axes."
+                "those axes, change atmosphere.interpolation_axes to a shipped "
+                "combination, or use atmosphere.model='simple'."
             )
         logger.info(
             "atmosphere.interpolated_data_dir left unset; using the shipped "
-            "%s family (%s) matching interpolation_axes='%s'. Set "
+            "%s family (%s) matching %s-looking interpolation_axes='%s'. Set "
             "interpolated_data_dir to override.",
             family,
             default_dir,
+            scene_direction,
             axes_str,
         )
         data_dir = str(default_dir)
@@ -349,15 +525,16 @@ def _build_interpolated(params: ParameterSet) -> object:
         # (owner bug 2026-07-18). If the family matching the interpolation axes
         # is a direct child with runs, descend into it; otherwise fail with the
         # family folders that were found so the fix is one click away.
-        family = _SHIPPED_FAMILY_BY_AXES.get(",".join(axes))
+        family = _SHIPPED_FAMILY_BY_DIRECTION_AND_AXES.get(family_key)
         family_dir = data_path / family if family else None
         if family_dir is not None and len(sorted(family_dir.glob("*.npz"))) >= 2:
             logger.info(
                 "atmosphere.interpolated_data_dir %s holds no NPZ runs itself; "
-                "descending into its %s family (matching "
+                "descending into its %s family (matching %s-looking "
                 "interpolation_axes='%s').",
                 data_path,
                 family,
+                scene_direction,
                 axes_str,
             )
             data_path = family_dir
@@ -369,8 +546,8 @@ def _build_interpolated(params: ParameterSet) -> object:
             hint = (
                 f" Its subdirectories with NPZ runs: {subdirs_with_runs} — pick "
                 "the family folder matching atmosphere.interpolation_axes "
-                f"('{axes_str}'), or leave interpolated_data_dir empty to use "
-                "the shipped default."
+                f"('{axes_str}') for this {scene_direction}-looking scene, or "
+                "leave interpolated_data_dir empty to use the shipped default."
                 if subdirs_with_runs
                 else ""
             )
@@ -378,6 +555,8 @@ def _build_interpolated(params: ParameterSet) -> object:
                 f"build_atmosphere_model: interpolated data directory {data_path} "
                 f"must contain at least 2 NPZ files, found {len(npz_files)}.{hint}"
             )
+
+    family_direction = _npz_family_direction(npz_files)
 
     points: list[GeometryPoint] = []
     for npz_file in npz_files:
@@ -392,6 +571,10 @@ def _build_interpolated(params: ParameterSet) -> object:
         geom_raw = data["geometry"]
         coords = geom_raw.item() if hasattr(geom_raw, "item") else json.loads(str(geom_raw))
 
+        if family_direction == "up":
+            points.append(_uplooking_geometry_point(npz_file, coords))
+            continue
+
         tab = TabulatedAtmosphere.from_npz(npz_file)
         points.append(
             GeometryPoint(
@@ -402,7 +585,7 @@ def _build_interpolated(params: ParameterSet) -> object:
             )
         )
 
-    return InterpolatedAtmosphere(points, axes, method)
+    return InterpolatedAtmosphere(points, axes, method, family_direction=family_direction)
 
 
 __all__ = ["FILE_BACKED_MODELS", "build_atmosphere_model", "model_requires_prebuild"]

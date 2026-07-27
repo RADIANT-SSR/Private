@@ -705,3 +705,163 @@ class TestSensorLadder:
             _state(100_000.0).transmittance.values,
             rtol=1e-10,
         )
+
+
+@pytest.mark.level2
+class TestUplookingLadder:
+    """1-D up-looking target-altitude family (K1–K5 + synthesized 0 km node).
+
+    The first up-looking family in the library (Geometry-Flexibility Phase 2,
+    GF-10). Its radiance product is the DOWNWARD path radiance at the ground
+    sensor, so it is loaded and queried through the up-looking entry points,
+    never the down-looking ones.
+    """
+
+    _AXES = ["target_altitude_m"]
+    _DIR = "midlat_summer_uplooking_ladder"
+
+    def _model(self) -> InterpolatedAtmosphere:
+        if not (_LIB / self._DIR).exists():
+            pytest.skip("shipped up-looking family not present")
+        from radiant.atmosphere.interpolated import UPLOOKING_RADIANCE_KEY
+        from radiant.core.spectral import SpectralData
+
+        points = []
+        for npz_file in sorted((_LIB / self._DIR).glob("*.npz")):
+            with np.load(npz_file, allow_pickle=True) as data:
+                coords = data["geometry"].item()
+                wl = np.asarray(data["wavelength_um"], dtype=np.float64)
+                tau = np.asarray(data["transmittance"], dtype=np.float64)
+                l_down = np.asarray(data[UPLOOKING_RADIANCE_KEY], dtype=np.float64)
+            points.append(
+                GeometryPoint(
+                    coordinates=coords,
+                    transmittance=SpectralData(
+                        name="tau",
+                        wavelength_um=wl.copy(),
+                        values=tau,
+                        unit="",
+                        source=str(npz_file),
+                    ),
+                    path_radiance=SpectralData(
+                        name="L_toward_lower",
+                        wavelength_um=wl.copy(),
+                        values=l_down,
+                        unit="W/m²/sr/µm",
+                        source=str(npz_file),
+                    ),
+                    atm_emission_down=SpectralData(
+                        name="unused",
+                        wavelength_um=wl.copy(),
+                        values=np.zeros_like(wl),
+                        unit="W/m²/sr/µm",
+                        source=str(npz_file),
+                    ),
+                )
+            )
+        return InterpolatedAtmosphere(points, axes=self._AXES, family_direction="up")
+
+    def _product(self, model: InterpolatedAtmosphere, h_tgt_m: float):
+        import math
+
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        los = LineOfSightGeometry(theta_o=math.pi, h_tgt=h_tgt_m, h_sensor=0.0)
+        return model.uplooking_column_product(model.wavelength_um, los)
+
+    def test_band_mean_tau_anchors(self) -> None:
+        """Pinned band means of the shipped (slit-degraded) K rungs.
+
+        Extracted from the delivered tape7s at generation time; ±0.005 covers
+        the slit degradation against the full-resolution goldens elsewhere.
+        """
+        model = self._model()
+        wl = model.wavelength_um
+        expected = {1.0: 0.778, 3.0: 0.667, 5.0: 0.644, 10.0: 0.626, 20.0: 0.595}
+        for h_km, tau_ref in expected.items():
+            product = self._product(model, h_km * 1000.0)
+            assert _band_mean(wl, product.tau, 8.0, 12.0) == pytest.approx(tau_ref, abs=5e-3)
+
+    def test_tau_falls_and_downwelling_rises_with_target_altitude(self) -> None:
+        """An up-looking ladder's path GROWS with target altitude: more column
+        between sensor and target → lower τ and more downwelling radiance."""
+        model = self._model()
+        wl = model.wavelength_um
+        taus, radiances = [], []
+        # 1 nm above the sensor is the practical stand-in for the synthesized
+        # zero-length node: h_tgt == h_sensor is not an up-looking LOS at all
+        # (it is a degenerate level path the horizon guard rejects).
+        for h_m in (1e-9, 1_000.0, 3_000.0, 5_000.0, 10_000.0, 20_000.0):
+            product = self._product(model, h_m)
+            taus.append(_band_mean(wl, product.tau, 8.0, 12.0))
+            radiances.append(_band_mean(wl, product.L_toward_lower, 8.0, 12.0))
+        assert all(a > b for a, b in zip(taus, taus[1:], strict=False)), taus
+        assert all(a < b for a, b in zip(radiances, radiances[1:], strict=False)), radiances
+
+    def test_zero_length_node_is_the_exact_identity(self) -> None:
+        """τ ≡ 1, L ≡ 0 at h_tgt = h_sensor — synthesized, never a MODTRAN run.
+
+        Asserted on the stored node (exactly 1 and 0) and through the query
+        path in the limit: a target at the sensor's own altitude is a
+        degenerate level path, so the closest legal up-looking query is 1 nm
+        above it.
+        """
+        if not (_LIB / self._DIR).exists():
+            pytest.skip("shipped up-looking family not present")
+        from radiant.atmosphere.interpolated import UPLOOKING_RADIANCE_KEY
+
+        with np.load(_LIB / self._DIR / "t000.npz", allow_pickle=True) as data:
+            tau = np.asarray(data["transmittance"], dtype=np.float64)
+            l_down = np.asarray(data[UPLOOKING_RADIANCE_KEY], dtype=np.float64)
+        np.testing.assert_array_equal(tau, np.ones_like(tau))
+        np.testing.assert_array_equal(l_down, np.zeros_like(l_down))
+
+        product = self._product(self._model(), 1e-9)
+        np.testing.assert_allclose(product.tau, 1.0, atol=1e-9)
+        np.testing.assert_allclose(product.L_toward_lower, 0.0, atol=1e-9)
+
+    def test_tau_is_reciprocal_against_the_down_looking_sensor_ladder(self) -> None:
+        """Truth anchor: τ is direction-free (RADIANT_Atmosphere.md §4.4).
+
+        K2/K4/K5 (ground → 3/10/20 km, up-looking) span exactly the same
+        columns as F2/J1/J2 (3/10/20 km sensor → ground, nadir) in the
+        down-looking sensor ladder. Independent MODTRAN runs; the shipped
+        arrays must agree to slit-degradation round-off.
+        """
+        up = self._model()
+        down = _load_interpolated("midlat_summer_sensor_ladder", ["sensor_altitude_m"])
+        wl = up.wavelength_um
+        np.testing.assert_allclose(wl, down.wavelength_um, rtol=0, atol=0)
+        for h_km in (3.0, 10.0, 20.0):
+            tau_up = self._product(up, h_km * 1000.0).tau
+            tau_down = down.build_state(
+                wl,
+                AtmosphericGeometry(
+                    sensor_altitude_m=h_km * 1000.0,
+                    target_altitude_m=0.0,
+                    path_zenith_rad=0.0,
+                    solar_zenith_rad=np.radians(30.0),
+                    solar_azimuth_rad=0.0,
+                ),
+            ).transmittance.values
+            for lo, hi in ((0.5, 0.7), (3.5, 4.1), (8.0, 12.0)):
+                assert _band_mean(wl, tau_up, lo, hi) == pytest.approx(
+                    _band_mean(wl, tau_down, lo, hi), rel=1e-6
+                ), f"τ reciprocity broken at {h_km} km over {lo}–{hi} µm"
+
+    def test_offgrid_query_lands_between_its_bracketing_rungs(self) -> None:
+        model = self._model()
+        wl = model.wavelength_um
+        tau_5 = _band_mean(wl, self._product(model, 5_000.0).tau, 8.0, 12.0)
+        tau_7 = _band_mean(wl, self._product(model, 7_000.0).tau, 8.0, 12.0)
+        tau_10 = _band_mean(wl, self._product(model, 10_000.0).tau, 8.0, 12.0)
+        assert tau_10 < tau_7 < tau_5
+
+    def test_above_the_hull_refuses(self) -> None:
+        """No vertical midlat_summer full-column up-looking run exists, so the
+        hull stops at 20 km and a higher target is refused, not extrapolated."""
+        from radiant.atmosphere.errors import AtmosphereValidationError
+
+        model = self._model()
+        with pytest.raises(AtmosphereValidationError, match="outside the available range"):
+            self._product(model, 40_000.0)

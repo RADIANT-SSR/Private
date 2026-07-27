@@ -17,8 +17,10 @@ Three families of classes live here:
 
 - :class:`BackgroundDescriptor` — base class.  Subclasses
   :class:`AtApertureBackground`, :class:`ColdSpaceBackground`,
-  :class:`GroundBackground`, :class:`UserSpectralBackground` cover the
-  four v1 background variants.
+  :class:`GroundBackground`, :class:`SkyBackground`,
+  :class:`UserSpectralBackground` cover the five v1.x background variants
+  (:class:`SkyBackground` is the matrix B2 variant added by
+  Geometry-Flexibility Phase 2 for up-looking / level scenes).
 
 - Cross-field validation: each ``__post_init__`` enforces the matrix §7
   must-raise combinations it can check from the descriptor alone.
@@ -895,6 +897,41 @@ class GroundBackground(BackgroundDescriptor):
 
 
 @dataclass(frozen=True)
+class SkyBackground(BackgroundDescriptor):
+    """Sky radiance along the LOS continuation (matrix B2).
+
+    Selected by Rule B (matrix §3.2.5) when the line of sight, followed
+    **past** the target, exits the atmosphere into space instead of landing
+    on the Earth — i.e. for up-looking and level scenes.  What the sensor
+    sees behind the target is then the atmospheric column the ray traverses
+    on its way out, terminated by cold space.
+
+    Carries **no user parameters by design.**  Unlike
+    :class:`GroundBackground` (whose ε_g and T_g are material properties the
+    user must supply) and :class:`UserSpectralBackground` (a measured
+    spectrum), the sky radiance is *derived* from quantities the scene
+    already fixes — the target altitude, the continuation zenith, the
+    atmosphere model and the solar geometry.  Asking the user for it would
+    be asking them to restate the atmosphere.  ``AtmosphereStage`` computes
+    it and passes it into assembly; see
+    :mod:`radiant.atmosphere.uplooking_quantities`.
+
+    Band gating (ADR-0011 decision 10 / plan §8.3 answer 3): the MWIR/LWIR
+    sky is first-class at first delivery; below 3 µm the scattered-solar
+    component is provisional and the evaluation emits a ``UserWarning``
+    (raised in :mod:`radiant.atmosphere.sky_radiance`, where the wavelength
+    grid is in scope).
+
+    A user-supplied override of the sky radiance is deliberately **not** in
+    scope for this variant: a caller who has a measured sky spectrum injects
+    a :class:`UserSpectralBackground` instead, which is already the
+    "I know better than the model" door.
+    """
+
+    # No parameters in v1 — the radiance is computed from the scene.
+
+
+@dataclass(frozen=True)
 class UserSpectralBackground(BackgroundDescriptor):
     """User-supplied spectral background.
 
@@ -931,6 +968,7 @@ __all__ = [
     "BackgroundDescriptor",
     "ColdSpaceBackground",
     "GroundBackground",
+    "SkyBackground",
     "T1Thermal",
     "T2Reflective",
     "T3Mixed",

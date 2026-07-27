@@ -8,6 +8,18 @@ then calls :func:`assemble_target_at_aperture` /
 :func:`assemble_background_at_aperture` to produce the at-aperture radiance
 arrays.
 
+Path topology (ADR-0011, Geometry-Flexibility Phase 2)
+------------------------------------------------------
+The bundle is not built by calling ``model.evaluate`` directly; it comes from
+:func:`radiant.atmosphere.topology.evaluate_path_topology`, which dispatches on
+the **derived** ``los.los_direction``: ``down`` is the backend's own evaluate
+path, unchanged and byte-identical (including the Gap-95 exo-altitude target,
+now expressed as a segment composition over that same call); ``up`` and
+``level`` are served by path-segment composition. An up/level topology also
+yields a sky-continuation radiance, which is handed to the ``SkyBackground``
+assembly arm — the one new product, carried alongside the eight-field bundle
+rather than bolted onto it (guardrail G1).
+
 Rule 6 — the atmosphere model is resolved before chain execution:
 ``RadiantSession.run`` calls
 :func:`radiant.atmosphere.loaders.build_atmosphere_model` (which owns any
@@ -60,7 +72,6 @@ import logging
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
-from radiant.atmosphere._uplooking_guard import reject_pending_uplooking_path
 from radiant.atmosphere.assembly import (
     assemble_background_at_aperture,
     assemble_background_source_emission,
@@ -69,10 +80,12 @@ from radiant.atmosphere.assembly import (
     validate_no_atmosphere_subcase,
 )
 from radiant.atmosphere.errors import AtmosphereValidationError
-from radiant.atmosphere.exo_target import evaluate_with_exo_target
 from radiant.atmosphere.loaders import build_atmosphere_model, model_requires_prebuild
+from radiant.atmosphere.topology import TopologyProducts, evaluate_path_topology
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet
+from radiant.core.descriptors import GroundBackground
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 
 logger = logging.getLogger(__name__)
@@ -156,30 +169,30 @@ class AtmosphereStage:
             )
 
         # ------------------------------------------------------------------
-        # 2b. Direction admissibility (ADR-0011 / Geometry-Flexibility
-        # Phase 1).  Up-looking and level geometry is legal to express but
-        # the direction-aware atmosphere is Phase 2 work (Gaps 108/109);
-        # reject it here, before backend dispatch, so the user gets one
-        # actionable error naming the pending capability instead of a
-        # backend-internal zenith-ceiling or looking-up message.  Vacuum
-        # (both endpoints above h_atm_top) up-looking paths pass through —
-        # that is the Phase 1 LEO→GEO quick win.
+        # 2b. Background/topology admissibility (ADR-0011 Phase 2).  An
+        # up-looking or level LOS terminates on space, so there is no ground
+        # behind the target and a GroundBackground cannot be served — refuse
+        # it here rather than propagating a ground term through a column that
+        # does not exist (Rule 17).
         # ------------------------------------------------------------------
-        reject_pending_uplooking_path(los, where="AtmosphereStage")
+        _reject_ground_background_without_ground(background_desc, los)
 
         # ------------------------------------------------------------------
         # 3. Evaluate the atmospheric quantities bundle and assemble the
         #    at-aperture radiance arrays for the target and background arms.
         # ------------------------------------------------------------------
-        # Gap 95: exo-altitude targets (h_tgt ≥ h_atm_top) are served with an
-        # exact vacuum target leg over the full-column background, for every
-        # backend, by the wrapper (see atmosphere/exo_target.py).
-        atm_quantities: AtmosphericQuantities = evaluate_with_exo_target(
+        # Topology dispatch (ADR-0011): down-looking scenes take the backend's
+        # own evaluate path unchanged; up-looking and level scenes are served
+        # by segment composition; the Gap-95 exo-altitude target is a segment
+        # composition over the same down-looking call.  See
+        # atmosphere/topology.py.
+        topology: TopologyProducts = evaluate_path_topology(
             model,
             state.wavelength_um,
             los,
             params,
         )
+        atm_quantities: AtmosphericQuantities = topology.quantities
         L_aperture_target: np.ndarray = assemble_target_at_aperture(
             target_desc,
             atm_quantities,
@@ -189,6 +202,7 @@ class AtmosphereStage:
             background_desc,
             atm_quantities,
             los,
+            sky_source_radiance=topology.sky_source_radiance,
         )
         # Gap 91: pre-atmosphere source emission (emitted+reflected radiance
         # LEAVING the target/background, before the up-leg τ/L_path).  This is
@@ -204,6 +218,7 @@ class AtmosphereStage:
             background_desc,
             atm_quantities,
             los,
+            sky_source_radiance=topology.sky_source_radiance,
         )
 
         # ------------------------------------------------------------------
@@ -302,6 +317,56 @@ class AtmosphereStage:
             state = state.with_stage_output("atmosphere", "r0_m", r0_m)
 
         return state
+
+
+def _reject_ground_background_without_ground(
+    background: object,
+    los: LineOfSightGeometry | None,
+) -> None:
+    """Refuse a ``GroundBackground`` on a path whose LOS never reaches the ground.
+
+    Rule B (matrix §3.2.5) selects the background by where the LOS
+    *continuation* terminates.  For an up-looking or level path it terminates
+    on space, so the ground is not behind the target at all; the up/level
+    quantities bundle consequently carries the observer leg in
+    ``tau_full_up`` / ``L_path_full`` rather than a ground→sensor column
+    (``atmosphere/uplooking_quantities.py``).  Assembling a ground term
+    against those fields would produce a number for a surface the sensor
+    cannot see, so it raises (Rule 17).
+
+    No-op for every down-looking scene, which is where every existing
+    ``GroundBackground`` lives.
+    """
+    if los is None or not isinstance(background, GroundBackground):
+        return
+    if los.los_direction == "down":
+        return
+    raise ParameterBoundsError(
+        what=(
+            f"AtmosphereStage: a GroundBackground was supplied for an "
+            f"{los.los_direction}-looking path (h_sensor = {los.h_sensor} m, "
+            f"h_tgt = {los.h_tgt} m, theta_o = {los.theta_o} rad)"
+        ),
+        why=(
+            "The background is what lies behind the target along the line of sight "
+            "(Use-Case Matrix Rule B).  An up-looking or level LOS continues upward "
+            "past the target and leaves the atmosphere — the Earth's surface is "
+            "behind the *sensor*, not behind the target — so there is no ground "
+            "column to propagate a ground radiance through."
+        ),
+        action=(
+            "Use SkyBackground (the Rule-B default for up-looking and level scenes, "
+            "computed from the scene with no user parameters), a "
+            "UserSpectralBackground if you have a measured background spectrum, or a "
+            "down-looking geometry if you meant to view the ground."
+        ),
+        context={
+            "h_sensor": los.h_sensor,
+            "h_tgt": los.h_tgt,
+            "theta_o": los.theta_o,
+            "los_direction": los.los_direction,
+        },
+    )
 
 
 __all__ = ["AtmosphereStage"]

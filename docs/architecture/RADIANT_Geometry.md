@@ -189,8 +189,8 @@ applies the verdict; `LineOfSightGeometry.__post_init__` calls it.
 
 | Topology | Test | Condition | Thresholds (module constants) | Action |
 |---|---|---|---|---|
-| **endpoint_minimum** — the foot of the perpendicular from the Earth centre lies *outside* the segment (every ordinary up/down slant) | angular band at the **lower** endpoint, $\lvert \zeta_{low} - 90^\circ \rvert$ | $< 0.5^\circ$ | `GUARD_HARD_DEG` | raise |
-| | | $0.5^\circ$–$2^\circ$ | `GUARD_WARN_DEG` | compute + quantified `UserWarning` |
+| **endpoint_minimum** — the foot of the perpendicular from the Earth centre lies *outside* the segment (every ordinary up/down slant) | angular band at the **lower** endpoint, $\lvert \zeta_{low} - 90^\circ \rvert$ | $< 0.5^\circ$ | `GUARD_HARD_RAD` | raise |
+| | | $0.5^\circ$–$2^\circ$ | `GUARD_WARN_RAD` | compute + quantified `UserWarning` |
 | | | $> 2^\circ$ | — | clean |
 | **interior_tangent** — the foot lies *on* the segment, so the ray dips to a tangent point between the endpoints (level and near-level arms) | tangent-height depression $\Delta h = (R_E + h_{low})(1 - \sin \zeta_{low}) \approx L^2/8R_E$ | $< 100$ m | `GUARD_DH_CLEAN_M` | clean |
 | | | $100$ m – $2$ km | `GUARD_DH_RAISE_M` | compute + quantified `UserWarning` |
@@ -202,6 +202,18 @@ clean; two aircraft at 10 km, 200 km apart → $\Delta h \approx 784$ m, warns;
 provisional**, calibrated in Phase 2 against a MODTRAN refraction on/off deck
 pair. They are named module constants precisely so recalibration is a one-line
 change.
+
+The angular thresholds are **stored in radians** — `GUARD_HARD_RAD =
+math.radians(0.5)`, `GUARD_WARN_RAD = math.radians(2.0)` — and every comparison
+is made in radians (Rule 2: radians are the canonical internal angular unit).
+The degrees in the table above are presentation only; they appear in code
+solely inside error and warning message text. `horizon_band_action` accordingly
+takes and returns a band in radians, and `HorizonGuardResult` carries
+`band_rad` (CU-222). The threshold comparison carries 1e-12 rad of slack so
+that a band landing *exactly* on a ratified threshold resolves to the
+permissive side no matter how the caller constructed the angle — without it,
+`math.radians(89.5)` and $\pi/2 -$ `math.radians(0.5)` differ by ~1e-16 rad and
+would flip the verdict at 89.5° exactly.
 
 Two consequences worth stating plainly:
 

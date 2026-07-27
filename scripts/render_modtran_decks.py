@@ -47,6 +47,7 @@ def _row_to_config(row: dict[str, str]) -> ModtranConfig:
             f"{row['ihaze']!r}. Fix the CSV before rendering."
         )
     vis_km = float(row["vis_km"]) if row["vis_km"].strip() else None
+    hrange_str = row.get("hrange_km", "").strip()
     return ModtranConfig(
         atmosphere_profile=row["profile"],
         aerosol_model=row["aerosol"],
@@ -55,6 +56,7 @@ def _row_to_config(row: dict[str, str]) -> ModtranConfig:
         visibility_km=vis_km,
         itype=int(row["itype"]),
         iemsct=int(row["iemsct"]),
+        hrange_km=float(hrange_str) if hrange_str else 0.0,
         spectral_resolution_cm1=float(row["dv_cm1"]),
         v1_cm1=float(row["v1_cm1"]),
         v2_cm1=float(row["v2_cm1"]),
@@ -62,8 +64,23 @@ def _row_to_config(row: dict[str, str]) -> ModtranConfig:
 
 
 def _row_to_geometry(row: dict[str, str]) -> AtmosphericGeometry:
+    """Build the deck's geometry carrier from a run-matrix row.
+
+    ITYPE=1 (horizontal) rows are the one case where the row's
+    ``path_zenith_deg_radiant`` column (90°) is *not* passed through.
+    ``AtmosphericGeometry`` deliberately refuses zenith angles past
+    ``protocol.ZENITH_CEILING_RAD`` (89.5°) because that is where the
+    column air-mass model stops meaning anything — and a level path's 90°
+    is not a column zenith at all: it is an interior-tangent topology whose
+    lowest point is mid-path (Geometry_Flexibility_Plan §8.3 addendum).
+    ``render_tape5`` therefore writes the horizontal ANGLE = 90.000 itself
+    for ITYPE=1 and never reads ``path_zenith_rad``, so the value carried
+    here is inert for those rows.
+    """
     zenith_str = row["path_zenith_deg_radiant"].strip()
     path_zenith_rad = math.radians(float(zenith_str)) if zenith_str else 0.0
+    if int(row["itype"]) == 1:
+        path_zenith_rad = 0.0
     return AtmosphericGeometry(
         sensor_altitude_m=float(row["h1_sensor_km"]) * 1000.0,
         target_altitude_m=float(row["h2_target_km"]) * 1000.0,
@@ -125,8 +142,8 @@ def main() -> None:
         "real MODTRAN binary to produce validation data; see "
         "`../README.md`.",
         "",
-        "| run_id | block | profile | iemsct | itype | destination | caveats |",
-        "|--------|-------|---------|--------|-------|-------------|---------|",
+        "| run_id | block | profile | iemsct | itype | hrange_km | destination | caveats |",
+        "|--------|-------|---------|--------|-------|-----------|-------------|---------|",
     ]
 
     for row in rows:
@@ -150,8 +167,8 @@ def main() -> None:
         caveat_text = "; ".join(caveats) if caveats else ""
         manifest_lines.append(
             f"| {run_id} | {row['block']} | {row['profile']} | "
-            f"{row['iemsct']} | {row['itype']} | {row['destination']} | "
-            f"{caveat_text} |"
+            f"{row['iemsct']} | {row['itype']} | {config.hrange_km:g} | "
+            f"{row['destination']} | {caveat_text} |"
         )
 
     (_OUTPUT_DIR / "MANIFEST.md").write_text("\n".join(manifest_lines) + "\n", encoding="utf-8")

@@ -34,8 +34,20 @@ design record):
 - ``midlat_summer_sensor_ladder/``    — F2 (3 km) + J1/J2 (10/20 km) +
   C1 (35 km) + A3 (100 km) as a 1-D grid over ``sensor_altitude_m``,
   ground target nadir; orbital 40,000 km duplicate (boost plan §4.5).
+- ``midlat_summer_uplooking_ladder/`` — K1–K5 (ground sensor looking
+  **up** a vertical partial column to targets at 1/3/5/10/20 km) as a 1-D
+  grid over ``target_altitude_m``, plus the synthesized exact
+  zero-length node at 0 km. This is the **up-looking** family
+  (Geometry-Flexibility Phase 2, GF-10): its radiance product is the
+  *downward* path radiance ``path_radiance_toward_lower``, a different
+  physical quantity from every other family's upwelling ``path_radiance``,
+  so it uses a different NPZ key and is refused by the down-looking
+  loaders. See :mod:`radiant.atmosphere.interpolated` and the MANIFEST.
 - ``validation/``                     — off-grid single points (C7, G6 at
   45°; H1 nadir up-looking) kept as data but NOT interpolation nodes.
+  K6 (the up-looking 45° coupling anchor) is deliberately **not** shipped:
+  it is a holdout, consumed only by the ``skipif``-guarded characterization
+  test against the staged tape7.
 
 All midlat_summer families carry the H5 up-looking 48.2° downwelling as
 ``atm_emission_down`` (boost plan §4.4); see the MANIFEST for the
@@ -64,6 +76,10 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
+from radiant.atmosphere.interpolated import (  # noqa: E402
+    FAMILY_DIRECTION_KEY,
+    UPLOOKING_RADIANCE_KEY,
+)
 from radiant.atmosphere.modtran import Tape7Reader  # noqa: E402
 
 REAL_RUNS = REPO / "modtran" / "real_runs"
@@ -208,6 +224,38 @@ SENSOR_LADDER: dict[str, float] = {
     "A3": 100.0,
 }
 
+# Up-looking partial-column ladder (midlat_summer, GROUND sensor, vertical):
+# run -> target km.  The K block (plan §8.3 batch 1) is the first up-looking
+# run family: H1 = 0 is the path's LOWER endpoint, so MODTRAN's Card-3 ANGLE
+# is the lower-endpoint zenith unchanged (CU-065; confirmed by the delivered
+# Card-3 echo).  The radiance MODTRAN reports is the radiance *at the
+# observer*, i.e. travelling DOWNWARD out of the segment's lower end — the
+# ``L_toward_lower`` product of ``atmosphere.segments``, not the upwelling
+# ``path_radiance`` every other family carries.
+UPLOOKING_LADDER: dict[str, float] = {
+    "K1": 1.0,
+    "K2": 3.0,
+    "K3": 5.0,
+    "K4": 10.0,
+    "K5": 20.0,
+}
+UPLOOKING_SENSOR_KM = 0.0
+
+# Synthesized exact zero-length node for the up-looking ladder: a target at
+# the sensor's own altitude has no column between the endpoints, so τ ≡ 1 and
+# L ≡ 0 exactly.  Same G-block principle as the boost ladder's 100 km rung (a
+# vacuum identity, never a MODTRAN run) — but at the OTHER end of the axis,
+# because an up-looking ladder's path GROWS with target altitude: τ → 1 is the
+# h_tgt → h_sensor limit, not the h_tgt → TOA limit.  Closes the hull so a
+# target below the 1 km bottom rung interpolates instead of being refused.
+UPLOOKING_ZERO_LENGTH_TARGET_KM = 0.0
+
+# Self-describing direction marker written into every up-looking NPZ.  The key
+# and value come from the runtime module that reads them, so builder and
+# loader cannot drift apart (Rule 26: the artifact names its generator, and
+# the generator names the contract it writes).
+UPLOOKING_MARKERS: dict[str, str] = {FAMILY_DIRECTION_KEY: "up"}
+
 # Off-grid validation points: run -> (sensor km, target km, LOS zenith rad).
 # Full five-field geometry is emitted via _full_geometry (CU-167 / §4.6);
 # H1 is the up-looking downwelling anchor (sensor at ground, "target" = TOA).
@@ -265,13 +313,56 @@ def _vacuum_arrays(wl: np.ndarray, downwelling: np.ndarray) -> dict[str, np.ndar
     }
 
 
-def _save(path: Path, arrays: dict[str, np.ndarray], geometry: dict[str, float] | None) -> None:
+def _load_uplooking_degraded(run: str) -> dict[str, np.ndarray]:
+    """Degraded up-looking segment products from a K-block tape7.
+
+    MODTRAN reports the radiance **at the observer**.  For a K run the
+    observer sits at ``H1 = 0``, the path's lower endpoint, so that radiance
+    is travelling downward out of the segment — the ``L_toward_lower``
+    product of :mod:`radiant.atmosphere.segments`, NOT the upwelling
+    ``path_radiance`` every down-looking family stores.  The key is named to
+    say so: a down-looking reader asking for ``path_radiance`` gets a missing
+    key error instead of a plausible-looking wrong number.
+
+    ``transmittance`` keeps its usual name because τ is reciprocal
+    (``RADIANT_Atmosphere.md`` §4.4) — one value per segment, direction-free.
+    """
+    wl, tau, l_path, _l_ground = Tape7Reader(REAL_RUNS / f"{run}.tp7").to_radiant_units()
+    return {
+        "wavelength_um": _degrade(wl),
+        "transmittance": np.clip(_degrade(tau), 0.0, 1.0),
+        UPLOOKING_RADIANCE_KEY: np.maximum(_degrade(l_path), 0.0),
+    }
+
+
+def _uplooking_zero_length_arrays(wl: np.ndarray) -> dict[str, np.ndarray]:
+    """Synthesized exact zero-length node: τ ≡ 1, L_toward_lower ≡ 0.
+
+    A target at the sensor's own altitude has no air between the endpoints.
+    This is a physical identity, not fabricated data — the up-looking
+    counterpart of the boost ladder's synthesized 100 km vacuum rung.
+    """
+    return {
+        "wavelength_um": np.asarray(wl, dtype=np.float64),
+        "transmittance": np.ones_like(wl),
+        UPLOOKING_RADIANCE_KEY: np.zeros_like(wl),
+    }
+
+
+def _save(
+    path: Path,
+    arrays: dict[str, np.ndarray],
+    geometry: dict[str, float] | None,
+    markers: dict[str, str] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
         key: np.asarray(vals, dtype=np.float32) for key, vals in arrays.items()
     }
     if geometry is not None:
         payload["geometry"] = np.array(geometry, dtype=object)
+    for key, value in (markers or {}).items():
+        payload[key] = np.array(value)
     np.savez_compressed(path, **payload)
     print(f"  wrote {path.relative_to(REPO)}  ({path.stat().st_size / 1024:.0f} KiB)")
 
@@ -402,6 +493,28 @@ def main() -> int:
         OUT_ROOT / "midlat_summer_sensor_ladder" / f"s{ORBITAL_NODE_KM:05.0f}.npz",
         a3_arrays,
         geometry=_full_geometry(ORBITAL_NODE_KM, 0.0, 0.0),
+    )
+
+    print("Up-looking ladder (midlat_summer, ground sensor, vertical, targets 0-20 km):")
+    up_ref_wl: np.ndarray | None = None
+    for run, target_km in UPLOOKING_LADDER.items():
+        arrays = _load_uplooking_degraded(run)
+        if up_ref_wl is None:
+            up_ref_wl = arrays["wavelength_um"]
+        _save(
+            OUT_ROOT / "midlat_summer_uplooking_ladder" / f"t{target_km:03.0f}.npz",
+            arrays,
+            geometry=_full_geometry(UPLOOKING_SENSOR_KM, target_km, 0.0),
+            markers=UPLOOKING_MARKERS,
+        )
+    assert up_ref_wl is not None
+    _save(
+        OUT_ROOT
+        / "midlat_summer_uplooking_ladder"
+        / f"t{UPLOOKING_ZERO_LENGTH_TARGET_KM:03.0f}.npz",
+        _uplooking_zero_length_arrays(up_ref_wl),
+        geometry=_full_geometry(UPLOOKING_SENSOR_KM, UPLOOKING_ZERO_LENGTH_TARGET_KM, 0.0),
+        markers=UPLOOKING_MARKERS,
     )
 
     print("Validation points (off-grid, not interpolation nodes):")

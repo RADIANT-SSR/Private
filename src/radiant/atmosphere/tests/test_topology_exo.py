@@ -1,11 +1,18 @@
 """Gap 95: exo-altitude target (h_tgt ≥ h_atm_top) — vacuum target leg.
 
-Level 0 for the identity substitution in
-:func:`radiant.atmosphere.exo_target.evaluate_with_exo_target`: the
+Level 0 for the ``G ∪ V`` segment composition in
+:func:`radiant.atmosphere.topology.evaluate_path_topology`: the
 target→sensor leg of a target above the atmospheric column is exactly
 τ_up = 1 / L_path_up = 0 / τ_sun = 1, while the ground→sensor full
 column (background branch) is byte-identical to a surface-target
 evaluation of the same backend.
+
+Guardrail G4 (ADR-0011): this used to live behind an
+``evaluate_with_exo_target`` *wrapper* that overrode fields of a
+substituted-geometry result.  The wrapper is deleted; the same behaviour is
+now one arm of the topology dispatch, written as the segment composition it
+always was.  Every assertion below is unchanged from the wrapper era — that
+is the point.
 """
 
 from __future__ import annotations
@@ -16,8 +23,8 @@ import numpy as np
 import pytest
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
-from radiant.atmosphere.exo_target import evaluate_with_exo_target
 from radiant.atmosphere.simple import SimpleAtmosphere
+from radiant.atmosphere.topology import evaluate_path_topology
 from radiant.core.los_geometry import LineOfSightGeometry
 
 from .test_evaluate import _resolved_params
@@ -36,7 +43,7 @@ def params(wl: np.ndarray):  # type: ignore[no-untyped-def]
 def _quiet_evaluate(model: object, wl: np.ndarray, los, params) -> AtmosphericQuantities:  # type: ignore[no-untyped-def]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
-        return evaluate_with_exo_target(model, wl, los, params)
+        return evaluate_path_topology(model, wl, los, params).quantities
 
 
 class TestVacuumTargetLeg:
@@ -78,22 +85,22 @@ class TestVacuumTargetLeg:
 
     @pytest.mark.level1
     def test_endo_target_passes_through(self, wl: np.ndarray, params) -> None:  # type: ignore[no-untyped-def]
-        """Below h_atm_top the wrapper is a transparent pass-through."""
+        """Below h_atm_top the down-looking arm is a transparent pass-through."""
         model = SimpleAtmosphere()
         los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=500_000.0, theta_o=0.0, h_atm_top=1.0e5)
-        via_wrapper = _quiet_evaluate(model, wl, los, params)
+        via_dispatch = _quiet_evaluate(model, wl, los, params)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             direct = model.evaluate(wl, los, params)
-        np.testing.assert_array_equal(via_wrapper.tau_up, direct.tau_up)
-        np.testing.assert_array_equal(via_wrapper.L_path_up, direct.L_path_up)
+        np.testing.assert_array_equal(via_dispatch.tau_up, direct.tau_up)
+        np.testing.assert_array_equal(via_dispatch.L_path_up, direct.L_path_up)
 
     @pytest.mark.level1
     def test_single_column_backends_serve_exo_targets(
         self, wl: np.ndarray, params, tmp_path
     ) -> None:  # type: ignore[no-untyped-def]
         """A single-file tabulated import — which refuses 0 < h_tgt <
-        h_atm_top — serves an exo target exactly through the wrapper."""
+        h_atm_top — serves an exo target exactly through the composition."""
         from radiant.atmosphere.tabulated import TabulatedAtmosphere
 
         npz = tmp_path / "column.npz"

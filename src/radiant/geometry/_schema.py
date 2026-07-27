@@ -87,12 +87,23 @@ PATH_ZENITH_RAD = ParameterDef(
 
 SOLAR_ZENITH_RAD = ParameterDef(
     name="geometry.solar_zenith_rad",
-    description="Solar zenith angle [rad].",
+    description=(
+        "Solar zenith angle [rad]. Domain is the full closed interval [0, π] "
+        "since Geometry-Flexibility Phase 2 (ADR-0011 decision 10 / ratified "
+        "decision 21): θ_s > π/2 puts the sun below the *local* horizontal, "
+        "which a target high enough to clear the terminator shadow can still "
+        "see. Whether a given point is lit is decided per-altitude by the "
+        "shadow-height test in radiant.atmosphere.solar_shadow, not by this "
+        "bound. The pre-Phase-2 bound was 1.5707 rad (a hard sun-above-horizon "
+        "rule that made sunlit-target-over-dark-ground inexpressible); "
+        "widening it changes no down-looking result, because every scene that "
+        "was legal before keeps the same solar column."
+    ),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
     default=0.5,
-    bounds=(0.0, 1.5707),
+    bounds=(0.0, 3.141592653589793),
     tags=frozenset({"geometry"}),
     default_justification="~28.6° — moderate solar elevation.",
 )

@@ -100,7 +100,8 @@ SpectralIntensitySource (ABC)
 
 BackgroundSource (ABC)
 ├── BlackbodyBackground     — Planck at T_bg with optional ε
-├── SkyBackground           — atmospheric thermal + solar scattered downwelling
+├── SkyBackground           — sky radiance along the LOS continuation (implemented
+│                             as core.descriptors.SkyBackground since 2026-07-26)
 ├── GroundBackground        — natural surface (soil/vegetation/water/concrete)
 ├── TabulatedBackground     — user-provided L_bg(λ)
 └── ConstantBackground      — flat L_bg per band (for quick studies)
@@ -180,7 +181,7 @@ Background source types:
 | Type | Use case |
 |------|----------|
 | `BlackbodyBackground` | "Background is a 295 K graybody with ε=0.95" |
-| `SkyBackground` | Looking up: atmospheric thermal + scattered solar downwelling |
+| `SkyBackground` | Looking up: the sky radiance along the LOS *past* the target, terminating on cold space. **Implemented 2026-07-26** as `core.descriptors.SkyBackground` (Use-Case Matrix B2), selected by `core/los_termination.py` for any up-looking or level path. It carries **no user parameters**: the radiance is a directional `L(λ)` [W/m²/sr/µm] computed from the scene by `atmosphere/sky_radiance.py` and passed into assembly — *not* the hemispheric downwelling irradiance this row previously described. Band-gated: below 3 µm the scattered-solar component is provisional and the evaluation emits a `UserWarning` (`RADIANT_Atmosphere.md` §4.2g) |
 | `GroundBackground` | Looking down: terrain BRDF + thermal emission |
 | `TabulatedBackground` | User-supplied `L_bg(λ)` |
 | `ConstantBackground` | Constant L_bg across all wavelengths (smoke tests) |

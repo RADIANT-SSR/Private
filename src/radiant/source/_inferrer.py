@@ -67,6 +67,7 @@ from radiant.core.descriptors import (
     BackgroundDescriptor,
     ColdSpaceBackground,
     GroundBackground,
+    SkyBackground,
     T1Thermal,
     T2Reflective,
     T3Mixed,
@@ -76,6 +77,7 @@ from radiant.core.descriptors import (
     _is_mwir_spectral_data,
 )
 from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.los_termination import classify_los_termination
 from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
 from radiant.core.regime import (
     REGIME_EXTENDED_IFOV_MULTIPLE,
@@ -1936,6 +1938,68 @@ def _build_target_descriptor(
 # ---------------------------------------------------------------------------
 
 
+def _select_los_termination_background(
+    los: LineOfSightGeometry | None,
+) -> BackgroundDescriptor | None:
+    """Rule-B background default for a non-down-looking LOS, or ``None``.
+
+    Use-Case Matrix §3.2.5 (Rule B) selects the background by following the
+    line of sight **past** the target and asking where it ends.  Before
+    Geometry-Flexibility Phase 2 every expressible scene was down-looking, so
+    the continuation always ran into the Earth and the ground default was the
+    only reachable answer.  Phase 1 made up-looking and level scenes legal;
+    their continuation ascends and terminates on space, which is matrix
+    ``B2`` — :class:`~radiant.core.descriptors.SkyBackground`.
+
+    Returns ``None`` for a missing LOS and for every **down-looking** path:
+    the down-looking default is deliberately untouched so that no existing
+    scene can change background (plan §3 principle 3, zero drift).  An
+    explicit ``GroundBackground`` is still required for a down-looking
+    sub-pixel / point-source scene exactly as before.
+
+    Raises
+    ------
+    ParameterBoundsError
+        If the continuation is a limb-crossing column (matrix ``B4``),
+        declined for v1.x by ADR-0011 decision 5 — guarded, never
+        approximated.
+    """
+    if los is None or los.los_direction == "down":
+        return None
+
+    termination = classify_los_termination(los)
+    if termination.terminus == "space":
+        return SkyBackground()
+    if termination.terminus == "limb":
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: the line of sight continues past the target into a "
+                f"limb-crossing column ({termination.detail})"
+            ),
+            why=(
+                "Earthlimb backgrounds (Use-Case Matrix B4) are declined for v1.x — "
+                "ADR-0011 decision 5 guards a limb termination with an actionable "
+                "error naming the tangent altitude rather than approximating a "
+                "radiance RADIANT cannot model."
+            ),
+            action=(
+                "Tilt the geometry away from the limb, or supply an explicit "
+                "BackgroundDescriptor via stage_outputs['source']['background'] if "
+                "you have the background radiance from another source."
+            ),
+            context={
+                "theta_o": los.theta_o,
+                "h_tgt": los.h_tgt,
+                "tangent_altitude_m": termination.tangent_altitude_m,
+                "tangent_depression_m": termination.tangent_depression_m,
+            },
+        )
+    # "earth" — an ascending continuation cannot reach it, so this is
+    # unreachable for a non-down-looking LOS; fall back to the existing
+    # defaults rather than inventing a new one.
+    return None  # pragma: no cover
+
+
 def _build_background_descriptor(
     params: ParameterSet,
     wavelength_um: np.ndarray,
@@ -1943,6 +2007,7 @@ def _build_background_descriptor(
     no_atmosphere_subcase: str,
     scene_type: str,
     background_emissivity: SpectralData | None = None,
+    los: LineOfSightGeometry | None = None,
 ) -> BackgroundDescriptor | None:
     """Build the background descriptor matching ``target_location`` / subcase.
 
@@ -2098,7 +2163,16 @@ def _build_background_descriptor(
             )
         return None
 
-    # sub_pixel / point_source: need a GroundBackground (CU-008).
+    # sub_pixel / point_source with an up-looking or level LOS: Rule B says
+    # the background is what the LOS runs into *past* the target, and for
+    # those topologies that is the sky, not the ground (matrix B2).  Checked
+    # before the ground branch so the ground default stays the answer for
+    # every down-looking scene, byte-for-byte (zero drift).
+    sky = _select_los_termination_background(los)
+    if sky is not None:
+        return sky
+
+    # sub_pixel / point_source (down-looking): need a GroundBackground (CU-008).
     # Spectral ε_g(λ) comes from the API-layer injection
     # (source.background.material library entry or .emissivity_path CSV,
     # resolved pre-chain per Rule 6) when present; otherwise the scalar
@@ -2272,6 +2346,7 @@ def infer_descriptors(
         no_atmosphere_subcase=no_atmosphere_subcase,
         scene_type=scene_type,
         background_emissivity=background_emissivity,
+        los=los,
     )
 
     return target, background, los

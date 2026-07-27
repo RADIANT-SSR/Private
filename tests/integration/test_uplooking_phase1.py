@@ -12,10 +12,11 @@ This module pins the four seams where those two facts meet:
    up-looking space-to-space scene runs end-to-end, vertically
    (``theta_o = π`` *exactly*) and on a slant, because both endpoints sit
    above ``h_atm_top`` so the whole path is vacuum by construction.
-2. **Layered rejection** — a ground→air up-looking scene is accepted by the
-   geometry layer and refused by ``AtmosphereStage`` with the
-   *pending-capability* error naming Phase 2 / Gaps 108/109, not with a
-   backend-internal ``ZENITH_CEILING`` message.
+2. **The ground→air seam** — a ground→air up-looking scene is accepted by
+   the geometry layer and, since **Phase 2** (2026-07-26), served by the
+   direction-aware atmosphere; the refusal that remains is the *capability*
+   one for a backend without up-looking run families, and it still must not
+   surface as a backend-internal ``ZENITH_CEILING`` message (Rule 15).
 3. **The horizon guard**, exercised through ``GeometryStage`` rather than in
    unit isolation: an interior-tangent level path warns, an
    endpoint-minimum grazing path raises, a short tower-to-tower arm is
@@ -292,15 +293,15 @@ class TestLeoToGeoUpLooking:
 
 
 @pytest.mark.level2
-class TestUpLookingThroughAtmosphereIsRefused:
+class TestUpLookingThroughAtmosphere:
     """Ground site → 10 km airborne target on the simple atmosphere.
 
-    Worked example E2 (owner priority 1).  Phase 1 must accept the geometry
-    and Phase 2 must supply the radiometry, so the *only* correct outcome
-    today is a refusal that names the pending capability.  A
-    ``ZENITH_CEILING`` message here would mean the refusal came from inside
-    whichever backend happened to be configured, i.e. that the layering
-    failed (Rule 15).
+    Worked example E2 (owner priority 1).  Phase 1 accepted the geometry and
+    **Phase 2 supplies the radiometry** (2026-07-26), so this scene now runs
+    end-to-end: the Phase-1 pending-capability refusal this class used to
+    assert is lifted, and what replaces it is the full-chain proof plus the
+    *capability* refusal that survives it (a backend without up-looking run
+    families still fails actionably).
     """
 
     @staticmethod
@@ -315,7 +316,10 @@ class TestUpLookingThroughAtmosphereIsRefused:
         p.set("geometry.target_altitude_m", 10_000.0)  # airborne target
         # 20° from the sensor's zenith — entered at the LOWER endpoint.
         p.set("geometry.path_zenith_rad", math.radians(20.0))
-        p.set("geometry.target.projected_area_m2", 4.0)
+        # Deliberately tiny: at 10 km with this optic a real aircraft is
+        # resolved, and the point-source guard (matrix §7) rightly refuses it.
+        # The scene under test is the atmosphere, not the target model.
+        p.set("geometry.target.projected_area_m2", 1.0e-4)
         _seed_system(p, "MWIR")
         _deselect_ground_metrics(p)
         p.resolve()
@@ -336,27 +340,65 @@ class TestUpLookingThroughAtmosphereIsRefused:
         assert theta_o > math.pi / 2.0
         assert geom["los_geometry"].h_sensor == 0.0
 
-    def test_atmosphere_refuses_with_the_phase_2_pending_error(self) -> None:
+    def test_ground_to_air_runs_end_to_end(self) -> None:
+        """Phase 2 half of the contract: the radiometry is there now."""
         session = RadiantSession(wavelength_um=MWIR_WL)
         params = self._params(session)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            with pytest.raises(ParameterBoundsError) as excinfo:
-                session.run(params)
+            result = session.run(params)
 
-        message = str(excinfo.value)
-        # Names the pending capability and its tracking entries...
-        assert "Phase 2" in message
-        assert "108/109" in message
-        assert "AtmosphereStage" in message
-        # ...and explicitly is NOT the backend-internal zenith-ceiling path.
-        assert "ZENITH_CEILING" not in message
-        # The error carries the geometry that produced it (Rule 15 context).
-        context = excinfo.value.context
-        assert context["h_sensor"] == 0.0
-        assert context["h_tgt"] == 10_000.0
-        assert context["los_direction"] == "up"
+        geom = result.stage_outputs["geometry"]
+        assert geom["los_direction"] == "up"
+
+        q = result.stage_outputs["atmosphere"]["atm_quantities"]
+        # A real column was traversed, in both directions of the product:
+        # attenuating (τ < 1 everywhere) and emitting (L_path > 0).
+        assert float(q.tau_up.max()) < 1.0
+        assert float(q.tau_up.min()) > 0.0
+        assert float(q.L_path_up.min()) > 0.0
+        # Rule 16/17: nothing silently non-finite reaches the assembly.
+        for field in ("tau_sun", "tau_up", "tau_full_up", "L_path_up", "L_path_full"):
+            assert np.all(np.isfinite(getattr(q, field))), field
+
+        # The scene is a SkyBackground scene by Rule B — the LOS continues
+        # past the aircraft and leaves the atmosphere.
+        background = result.stage_outputs["source"]["background"]
+        assert type(background).__name__ == "SkyBackground"
+        assert "at_aperture_background" in result.frames
+
+        # And the chain produced a usable answer, not a NaN.
+        signal = result.stage_outputs["spectral_integration"]["signal_e"]
+        assert math.isfinite(float(signal)) and float(signal) > 0.0
+
+    def test_uplooking_transmittance_is_reciprocal_with_the_down_look(self) -> None:
+        """ADR-0011 decision 3: one τ per segment, keyed to the lower endpoint.
+
+        The ground→10 km up-look at ζ_low = 20° and the 10 km→ground
+        down-look over the same column must agree.  Entered from the lower
+        endpoint both times, so no ``asin``/``sin`` round trip intervenes and
+        the agreement is exact.
+        """
+        from radiant.atmosphere.simple import SimpleAtmosphere
+        from radiant.atmosphere.topology import evaluate_path_topology
+
+        session = RadiantSession(wavelength_um=MWIR_WL)
+        params = self._params(session)
+        atm = SimpleAtmosphere(standard_atmosphere="midlat_summer")
+        zeta_low = math.radians(20.0)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            state = _run_geometry_only(params, MWIR_WL)
+            up_los = state.stage_outputs["geometry"]["los_geometry"]
+            up = evaluate_path_topology(atm, MWIR_WL, up_los, params).quantities
+            down_los = LineOfSightGeometry(
+                h_tgt=0.0, h_sensor=10_000.0, theta_o=zeta_low, h_atm_top=1.0e5
+            )
+            down = evaluate_path_topology(atm, MWIR_WL, down_los, params).quantities
+
+        np.testing.assert_allclose(up.tau_up, down.tau_up, rtol=1e-12, atol=0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -444,7 +486,7 @@ class TestHorizonGuardThroughGeometryStage:
         assert "horizon guard" in message
         assert "refraction" in message
         assert excinfo.value.context["topology"] == "endpoint_minimum"
-        assert excinfo.value.context["band_deg"] == pytest.approx(0.3, abs=1e-9)
+        assert math.degrees(excinfo.value.context["band_rad"]) == pytest.approx(0.3, abs=1e-9)
 
     def test_two_towers_8_km_apart_compute_clean(self) -> None:
         """Interior-tangent topology, clean band — and guardrail G4.

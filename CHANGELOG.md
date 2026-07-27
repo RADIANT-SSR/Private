@@ -21,6 +21,97 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Shipped up-looking atmosphere library family + direction-aware family
+  dispatch (Geometry-Flexibility Phase 2, GF-10; Gap 109).** New committed
+  family `midlat_summer_uplooking_ladder/` — the MODTRAN K-block vertical
+  partial-column ladder (ground sensor looking up to targets at 1/3/5/10/20 km,
+  plus a synthesized exact zero-length node at 0 km). It is the first
+  **up-looking** run family, and its radiance product is the *downward* path
+  radiance (`L_toward_lower`), stored under a distinct NPZ key
+  (`path_radiance_toward_lower`) with a `los_direction = "up"` marker so it can
+  never be read as an upwelling column. New public surface:
+  `InterpolatedAtmosphere.uplooking_column_product(wavelength_um, los) ->
+  UplookingColumnProduct` (τ + `L_toward_lower`, 1-D log-τ interpolation over
+  target altitude, sensor endpoint taken from `los.h_sensor` per guardrail G2),
+  the `family_direction` constructor keyword (default `"down"`), and the
+  `family_direction` property. `InterpolatedAtmosphere.evaluate` now refuses an
+  up-looking family and vice versa. Shipped-family default selection is keyed on
+  `(los_direction, interpolation_axes)` instead of the axes string alone; an
+  unshipped combination raises the existing actionable error, now naming every
+  shipped combination in both directions. **Not results-affecting** — every
+  pre-existing family, construction and query path is byte-identical (proven by
+  regenerating all 97 committed NPZ files and comparing array-for-array).
+  Deliberate limits, all refusals rather than approximations: the family is
+  vertical-only (an off-vertical up-looking interpolated query raises and points
+  at `atmosphere.model = "simple"`; the sec(ζ)-space mapping is deferred until an
+  up-looking zenith fan is run — the K6 45° holdout measures the error it would
+  have made at 0.1–2.2 % band-mean τ), ground-endpoint-only (1 m tolerance), and
+  hull-limited to 20 km.
+- **Direction-aware atmosphere — up-looking and level paths compute
+  (Geometry-Flexibility Phase 2; Gaps 107/108/109; ADR-0011).** `AtmosphereStage`
+  now dispatches on the derived `los.los_direction`
+  (`atmosphere/topology.py::evaluate_path_topology`): `down` takes the backend's own
+  `evaluate` **unchanged and not rerouted**, while `up` and `level` are served by
+  ADR-0011 path-segment composition — an observer-leg column keyed to the *sensor*
+  (the lower endpoint) or a constant-altitude arm, the target-side illumination
+  products reused as-is, and a sky continuation. Ground-to-air (matrix E2),
+  air-to-air level (E5), ground-to-space SST (E3) and air-to-space (E6) run
+  end-to-end on `atmosphere.model = "simple"`. Transmittance reciprocity is
+  pinned: the same physical line expressed both ways gives the same τ to within
+  an ULP, exactly for the vertical case. **Not results-affecting** — the new
+  behaviour is reachable only through inputs that were rejected before Phase 1,
+  and every down-looking golden baseline is unchanged.
+
+  **Zero drift, stated explicitly (Rule 29):** no existing scene's numbers moved
+  anywhere in Geometry-Flexibility Phase 2. The full suite is green with **zero**
+  golden-baseline changes, and no entry in this release carries a
+  **Results-affecting:** prefix on account of Phase 2. The only Phase-2 change of
+  *outcome* for a previously-computable scene is the retired collocated carve-out
+  recorded under **Changed** below, which was landed in Phase 1.
+- **`SkyBackground` background descriptor (matrix B2; Gap 108).** New
+  `radiant.core.descriptors.SkyBackground` — the sky radiance along the LOS
+  continuation, for scenes whose line of sight leaves the atmosphere past the
+  target instead of landing on the Earth. It carries **no user parameters**: the
+  radiance is computed from the scene (`atmosphere/sky_radiance.py`, or
+  `atmosphere/segment_grazing.py` for a near-tangent continuation past the 89.5°
+  column ceiling) and passed into assembly. Selected automatically for up-looking
+  and level point-source / sub-pixel scenes by the new
+  `radiant.core.los_termination.classify_los_termination` (Use-Case Matrix Rule B);
+  the down-looking default is untouched, so `GroundBackground` is still required
+  for a down-looking non-extended scene exactly as before. Band-gated per the
+  ratified decision: MWIR/LWIR first-class, VIS/NIR computes with a provisional
+  `UserWarning`. A `GroundBackground` supplied for an up-looking or level path now
+  raises (there is no ground behind the target).
+- **Per-altitude solar illumination — the terminator shadow-height test (GF-9;
+  ratified decision 21).** New `radiant.atmosphere.solar_shadow` (`sunlit`,
+  `shadow_height_m`, `solar_tangent_radius_m`) replaces the global
+  sun-above-the-horizon rule, so sunlit-target-over-dark-ground is expressible: a
+  60 km booster is lit at 5° solar depression while the ground beneath it
+  (shadow height ≈ 24 km) is not. A sunlit target below the terminator gets a
+  two-arm tangent transit for `τ_sun` (`radiant.atmosphere.solar_transit`,
+  **provisional** — no MODTRAN twilight deck in batch 1); a shadowed one gets
+  `τ_sun ≡ 0`. Supporting primitives: `radiant.atmosphere.grazing_column`
+  (spherical slant column through an exponential shell, validated against
+  Chapman's analytic grazing limit and Kasten-Young air mass) and
+  `radiant.atmosphere.segment_grazing`.
+
+- **MODTRAN horizontal (ITYPE=1) path length is wired — `ModtranConfig.hrange_km`
+  (Geometry-Flexibility Phase 2; Gap 109).** New config field `hrange_km: float = 0.0`
+  carries Card 3 `RANGE` (the geometric path length of a constant-altitude path, km).
+  `render_tape5` writes it, and for `itype=1` writes the horizontal `ANGLE = 90.000`
+  a level path has by definition rather than reading `path_zenith_rad` (MODTRAN ignores
+  H2/ANGLE for ITYPE=1, and a level path's 90° is an interior-tangent quantity
+  `AtmosphericGeometry` deliberately refuses to carry). Validation is two-sided and
+  actionable: `itype=1` without `hrange_km` is a zero-length path and raises;
+  `hrange_km` with `itype` 2 or 3 over-specifies a slant path (MODTRAN derives RANGE
+  from H1/H2/ANGLE) and raises. **Not results-affecting**: the field defaults to 0.0
+  and `f"{0.0:10.3f}"` reproduces the exact ten-character literal the RANGE field held
+  before, so every non-horizontal deck renders byte-identically (proven over the 63
+  ITYPE≠1 run-matrix rows and a 34 560-configuration parameter grid, exact string
+  equality against the pre-change builder). Consequence: the 25-row horizontal 5×5
+  grid (`docs/plans/modtran_run_matrix.csv` rows L1–L25) is regenerable from the
+  matrix instead of needing a hand-edited HRANGE, and its `deck_builder_support`
+  moves from `phase2_range_wiring` to `current`.
 - **Generalized viewing geometry — the geometry core is direction-general
   (Geometry-Flexibility Phase 1, ADR-0011; Gap 107).** RADIANT can now *express and
   resolve* any observer/target altitude pair and LOS direction, not only
@@ -72,6 +163,26 @@ retroactively reconstructed.
   `level_*` central-angle family.
 
 ### Changed
+- **Horizon-guard thresholds are stored in radians (CU-222).**
+  `radiant.core.viewing_triangle.GUARD_HARD_DEG` / `GUARD_WARN_DEG` become
+  `GUARD_HARD_RAD` / `GUARD_WARN_RAD` (`math.radians(0.5)` / `math.radians(2.0)`),
+  `horizon_band_action` compares and returns in radians, and
+  `HorizonGuardResult.band_deg` becomes `band_rad`. Degrees survive only in
+  message text. The error `context` keys move with them: `band_deg` → `band_rad`,
+  `guard_hard_deg` → `guard_hard_rad`, `guard_warn_deg` → `guard_warn_rad` (no
+  deprecated aliases — the only readers were in-repo and moved in the same
+  change). Rule 2: radians are the canonical internal angular unit. Verdicts are
+  unchanged, with one deliberate repair: the boundary comparison now carries
+  1e-12 rad of slack, so a band landing *exactly* on a ratified threshold falls
+  on the permissive side regardless of how the caller's angle was constructed —
+  without it, `math.radians(89.5)` and `π/2 − math.radians(0.5)` differ by ~1e-16
+  rad and flip the verdict at 89.5° exactly. **Not results-affecting.**
+- **`geometry.solar_zenith_rad` upper bound widened from 1.5707 rad to π**, and
+  `AtmosphericGeometry.solar_zenith_rad` likewise accepts the closed `[0, π]`
+  (was `[0, π/2)`). A sun below the local horizontal is now legal input; whether a
+  point is illuminated is decided per-altitude by `atmosphere/solar_shadow.py`, not
+  by the bound. **Not results-affecting**: every scene with `θ_s ≤ π/2` — everything
+  expressible before — keeps the backend's own solar column, bit-identical.
 - **Down-looking θ_o in roughly (88°, 90°) now emits a `UserWarning`** where the old
   89.5° schema bound accepted it silently. Results-neutral: no shipped scenario or
   golden baseline is in that band (the existing set tops out near 75°), so no computed
@@ -90,11 +201,11 @@ retroactively reconstructed.
   slant = 8000.0 m). No golden baseline or shipped scenario changes value. One
   reachable composition changes *outcome* rather than value: an equal-altitude scene
   over a real atmosphere (e.g. `sensor_altitude_m = target_altitude_m = 0` with
-  `atmosphere.model = "simple"`) is now classified `level` and therefore refused by
-  the Phase-2 atmosphere guard below, where it previously integrated a zero-length
-  column. That is the intended consequence of retiring the carve-out: the horizontal
-  constant-altitude arm (A5) is Phase 2 work, and a degenerate zero-length column is
-  not a substitute for it.
+  `atmosphere.model = "simple"`) is now classified `level`, where it previously
+  integrated a zero-length column. On `simple` it is served by the Phase-2
+  constant-altitude arm (A5); on any other backend it raises the capability error.
+  That is the intended consequence of retiring the carve-out: a degenerate
+  zero-length column was never a substitute for a horizontal path.
 - **`no_atmosphere` no longer rewrites `h_tgt` to 0 on a non-down-looking path.**
   The historical override (the no-atmosphere arm never integrates a column, so the
   only consumer of `h_tgt` was the Earth-limb intercept check) is kept verbatim for
@@ -112,12 +223,16 @@ retroactively reconstructed.
   limb-like transit (its tangent depression is hundreds of km). The `no_atmosphere
   (space)` Earth-intercept precondition is unchanged and still permanent; only the
   validator that fires first has moved.
-- **`ParameterBoundsError` is now raised at `AtmosphereStage` — not from inside a
-  backend — for up-looking and level atmospheric paths.** A ground→air scene
-  previously surfaced whatever the configured backend happened to say (a
-  `ZENITH_CEILING` bound, a "looking-up configuration" message); it now gets one
-  actionable error naming the pending Phase-2 capability and Gaps 108/109. The
-  matrix's `test_sensor_below_space_target_raises` negative path moved with it.
+- **Up-looking and level atmospheric paths fail — when they fail — at
+  `AtmosphereStage`, with one actionable error.** A ground→air scene previously
+  surfaced whatever the configured backend happened to say (a `ZENITH_CEILING`
+  bound, a "looking-up configuration" message). Phase 1 replaced that with a
+  single pending-capability `ParameterBoundsError`; Phase 2 (above) turned it
+  into a **backend-capability** error, raised only when the configured backend
+  cannot serve the topology. On `atmosphere.model = "simple"` the scene now
+  computes. The error names what *is* supported (simple for any endo path; any
+  backend for a wholly-vacuum path). The matrix's
+  `test_sensor_below_space_target_raises` negative path moved with it.
 - **GUI: the Parameter Editor edits every configuration at once, and can make a
   parameter configurable (owner UX round, 2026-07-26).** Opened on a **configured**
   parameter in a study, the *Edit — &lt;dotpath&gt;* dialog now shows **one seeded value box
@@ -153,6 +268,16 @@ retroactively reconstructed.
   blank row inherits the shared value, and that RADIANT's default is 500.
 
 ### Removed
+- **`radiant.atmosphere.exo_target.evaluate_with_exo_target` and
+  `radiant.atmosphere._uplooking_guard`** (ADR-0011 guardrail G4 / Rule 27 — a
+  generalization retires its carve-outs in the same PR). The Gap-95 exo-altitude
+  target is now the down-looking arm of `atmosphere/topology.py` written as the
+  segment composition it always was, and the Phase-1 blanket refusal of
+  up-looking/level paths is replaced by direction dispatch plus a *capability*
+  refusal that names what each backend can serve. **Not results-affecting**: the
+  exo fold is bit-identical over a 3 124-configuration differential proof
+  (exact `==` on all nine `AtmosphericQuantities` fields, simple and tabulated
+  backends).
 - **GUI: the stand-alone *Configured values* dialog.** Its per-configuration table is now
   the Parameter Editor's per-configuration mode (above), so the badge / *Edit configured
   values…* route opens that one dialog instead. No capability is lost — per-configuration

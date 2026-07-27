@@ -55,8 +55,8 @@ from typing import Any
 from radiant.core.constants import R_EARTH_M
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.viewing_triangle import (
-    GUARD_HARD_DEG,
-    GUARD_WARN_DEG,
+    GUARD_HARD_RAD,
+    GUARD_WARN_RAD,
     check_horizon_guard,
     horizon_band_action,
     slant_range_from_theta_o_m,
@@ -77,8 +77,11 @@ class LineOfSightGeometry:
         target — satellite, post-burnout booster) and the target→sensor
         leg is vacuum; ``AtmosphereStage`` serves that case exactly
         (τ_up = 1, L_path_up = 0, full ground→sensor column kept for
-        the background) via
-        ``radiant.atmosphere.exo_target.evaluate_with_exo_target``.
+        the background) as the down-looking arm of
+        ``radiant.atmosphere.topology.evaluate_path_topology``.  (The
+        ``evaluate_with_exo_target`` wrapper this used to name was
+        deleted in Geometry-Flexibility Phase 2 — ADR-0011 guardrail
+        G4; the case is now a segment composition, not a carve-out.)
     h_sensor:
         Sensor altitude above mean sea level [m], or ``None`` for a
         pre-ADR-0011 payload that does not carry the sensor endpoint.
@@ -218,14 +221,14 @@ class LineOfSightGeometry:
             )
             return
 
-        action, band_deg = horizon_band_action(self.theta_o)
+        action, band_rad = horizon_band_action(self.theta_o)
         if action == "raise":
             raise ParameterBoundsError(
                 what=(
                     f"LineOfSightGeometry.theta_o = {self.theta_o} rad "
-                    f"({math.degrees(self.theta_o):.4f}°) is {band_deg:.4f}° from the "
-                    f"geometric horizontal, inside the ±{GUARD_HARD_DEG}° hard "
-                    f"horizon guard"
+                    f"({math.degrees(self.theta_o):.4f}°) is "
+                    f"{math.degrees(band_rad):.4f}° from the geometric horizontal, "
+                    f"inside the ±{math.degrees(GUARD_HARD_RAD):g}° hard horizon guard"
                 ),
                 why=(
                     "Within a half-degree of the horizontal, atmospheric refraction "
@@ -234,19 +237,22 @@ class LineOfSightGeometry:
                     "decision 6).  The airmass column also loses meaning there."
                 ),
                 action=(
-                    f"Move theta_o more than {GUARD_WARN_DEG}° from π/2 rad (90°), or "
+                    f"Move theta_o more than {math.degrees(GUARD_WARN_RAD):g}° from "
+                    "π/2 rad (90°), or "
                     "supply h_sensor so the guard can use the tangent-point topology "
                     "(a short level path with a shallow tangent is admissible; a "
                     "grazing slant is not)."
                 ),
-                context={"theta_o": self.theta_o, "band_deg": band_deg},
+                context={"theta_o": self.theta_o, "band_rad": band_rad},
             )
         if action == "warn":
             warnings.warn(
                 f"LineOfSightGeometry.theta_o = {math.degrees(self.theta_o):.4f}° is "
-                f"{band_deg:.4f}° from the geometric horizontal. Computing anyway, but "
+                f"{math.degrees(band_rad):.4f}° from the geometric horizontal. "
+                "Computing anyway, but "
                 "atmospheric refraction is NOT modelled in v1.x and is the dominant "
-                f"geometric error in this band (hard guard at ±{GUARD_HARD_DEG}°; "
+                f"geometric error in this band (hard guard at "
+                f"±{math.degrees(GUARD_HARD_RAD):g}°; "
                 "thresholds provisional pending Phase 2 MODTRAN calibration).",
                 UserWarning,
                 stacklevel=4,

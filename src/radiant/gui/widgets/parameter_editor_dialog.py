@@ -97,6 +97,7 @@ from radiant.gui.param_format import (
     provenance_label,
     safe_provenance,
 )
+from radiant.gui.tolerance_units import convert_tolerance_value, field_unit_label
 from radiant.gui.widgets.configure_menu import CONFIGURE_TEXT, SINGLE_CONFIGURATION_HINT
 from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
@@ -286,6 +287,8 @@ class ParameterEditorDialog(QDialog):
         # 2026-07-17): the value is the headline, the Monte-Carlo spread annotates it.
         self._tol_distribution: QComboBox | None = None
         self._tol_params: dict[str, QLineEdit] = {}
+        # Per-field unit suffix labels, kept in step with the value editor's unit.
+        self._tol_units: dict[str, QLabel] = {}
         self._tol_shared_note: QLabel | None = None
         if self._pdef.dtype is float and not self._read_only:
             self._build_tolerance_section(layout)
@@ -408,6 +411,10 @@ class ParameterEditorDialog(QDialog):
         """
         if self._per_config is not None:
             self._per_config.set_unit(self._chosen_unit() or "")
+        # The tolerance boxes are read in this same unit, so their suffixes move
+        # with it. Like the value box, what is already typed is *reinterpreted*
+        # in the new unit rather than converted.
+        self._sync_tolerance_units()
         self._update_preview()
 
     # -- multi-configuration mode (§4.2c) -----------------------------------
@@ -733,8 +740,12 @@ class ParameterEditorDialog(QDialog):
 
     # -- edit / commit ------------------------------------------------------
 
-    # Distribution → its parameter fields (labels carry units: absolute spreads are
-    # in the parameter's input unit; fractions are of nominal).
+    # Distribution → its parameter fields. Each dimensional field is entered and
+    # shown in the dialog's **display unit** — the same unit the value editor
+    # above it is using — and converted to the parameter's input unit at the
+    # ``set_tolerance`` boundary (Rule 2: one conversion, at the boundary). The
+    # per-field conversion rule lives in :mod:`radiant.gui.tolerance_units`,
+    # because a spread and a bound do not transform alike under an affine unit.
     _TOL_FIELDS: ClassVar[dict[str, tuple[str, ...]]] = {
         "gaussian": ("std",),
         "uniform": ("low", "high"),
@@ -768,23 +779,69 @@ class ParameterEditorDialog(QDialog):
             field.setMaximumWidth(90)
             self._tol_params[key] = field
             row.addWidget(field)
+            # The unit this box is read in, stated beside it (owner rule: every
+            # number the GUI shows or takes carries its unit). Kept in sync with
+            # the value editor's unit combo by _sync_tolerance_units.
+            suffix = QLabel("", row_host)
+            suffix.setObjectName("paramEditorTolUnit")
+            self._tol_units[key] = suffix
+            row.addWidget(suffix)
         row.addStretch(1)
         layout.addWidget(row_host)
         self._tol_distribution.currentTextChanged.connect(self._sync_tolerance_fields)
 
-        # Pre-fill from the live sensor's existing tolerance, if any.
+        # Pre-fill from the live sensor's existing tolerance, converting out of
+        # the stored input unit into the unit this dialog is displaying in.
         existing = self._sensor.tolerances().get(self._dotpath)
         if existing is not None:
             self._tol_distribution.setCurrentText(existing.distribution)
             for key, value in existing.params.items():
                 if key in self._tol_params:
-                    self._tol_params[key].setText(f"{value:g}")
+                    shown = self._tolerance_to_display(float(value), key)
+                    self._tol_params[key].setText(f"{shown:g}")
         self._sync_tolerance_fields(self._tol_distribution.currentText())
 
     def _sync_tolerance_fields(self, distribution: str) -> None:
         wanted = set(self._TOL_FIELDS.get(distribution, ()))
         for key, field in self._tol_params.items():
             field.setVisible(key in wanted)
+            suffix = self._tol_units.get(key)
+            if suffix is not None:
+                suffix.setVisible(key in wanted)
+        self._sync_tolerance_units()
+
+    def _sync_tolerance_units(self) -> None:
+        """Relabel each tolerance box with the unit it is currently read in.
+
+        Follows the value editor's chosen unit, so "30000 m" and a "1000 m"
+        spread are stated in the same unit — the operator never converts in
+        their head (owner display-unit rule).
+        """
+        unit = self._tolerance_unit()
+        for key, suffix in self._tol_units.items():
+            suffix.setText(field_unit_label(key, unit))
+
+    def _tolerance_unit(self) -> str:
+        """The unit tolerance entries are interpreted in — the editor's chosen unit."""
+        return self._chosen_unit() or self._pdef.input_unit or ""
+
+    def _tolerance_to_display(self, stored: float, field: str) -> float:
+        """A stored (input-unit) tolerance *field* re-expressed in the display unit.
+
+        Falls back to the stored number when the registry has no route (the same
+        Rule-2 fallback the value editor's display path takes) rather than
+        inventing a conversion.
+        """
+        try:
+            return convert_tolerance_value(
+                stored,
+                field,
+                self._pdef.input_unit or "",
+                self._tolerance_unit(),
+                self._pdef.canonical_unit,
+            )
+        except KeyError:
+            return stored
 
     def _apply_tolerance(self) -> str | None:
         """Commit the tolerance section (one API call); returns an error text or None."""
@@ -796,9 +853,18 @@ class ParameterEditorDialog(QDialog):
             if existing is not None:
                 self._sensor.clear_tolerance(self._dotpath)
             return None
+        entered_unit = self._tolerance_unit()
         try:
+            # Entered in the display unit; stored in the parameter's input unit.
+            # The conversion happens exactly once, here at the API boundary.
             kwargs = {
-                key: float(self._tol_params[key].text())
+                key: convert_tolerance_value(
+                    float(self._tol_params[key].text()),
+                    key,
+                    entered_unit,
+                    self._pdef.input_unit or "",
+                    self._pdef.canonical_unit,
+                )
                 for key in self._TOL_FIELDS[distribution]
                 if self._tol_params[key].text().strip()
             }
@@ -806,6 +872,11 @@ class ParameterEditorDialog(QDialog):
             if missing:
                 return f"tolerance {distribution} needs {sorted(missing)}"
             self._sensor.set_tolerance(self._dotpath, distribution, **kwargs)
+        except KeyError:
+            return (
+                f"no registered conversion from {entered_unit!r} to "
+                f"{self._pdef.input_unit!r} for this tolerance"
+            )
         except (ValueError, RadiantError) as exc:
             return str(exc)
         return None

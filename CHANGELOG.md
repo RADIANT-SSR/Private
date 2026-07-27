@@ -20,6 +20,47 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **An up-looking scene no longer aborts the whole chain evaluation (GUI
+  walkthrough items 3 & 4).** Ground sample distance is a down-looking quantity —
+  it is the ground footprint of a pixel — but `PerformanceStage` computed it
+  whenever a sensor altitude and focal length were set, regardless of where the
+  line of sight pointed. An up-looking scene publishes θ_o = π, which
+  `compute_gsd_from_geometry` correctly rejects as outside `[0, π/2)`, and that
+  raise propagated out of `Sensor.evaluate()` — killing every other stage and
+  metric with it. In the GUI it surfaced as *"Parameter Rejected —
+  compute_gsd_from_geometry: incidence_angle_rad = 3.141592653589793 must be in
+  [0, pi/2)"* on raising `geometry.target_altitude_m` above the sensor, and as a
+  geometry schematic that then refused to redraw. `gsd_cross_track_m`,
+  `gsd_along_track_m`, and `gsd_geometric_mean_m` are now simply **absent** for
+  up-looking and level scenes, following this stage's existing convention that a
+  metric which does not apply is not published. Down-looking results are
+  unchanged. Note `diffraction_limit_ground_m` still publishes for these scenes
+  (it is a slant-range quantity despite its name) — tracked as CU-231.
+- **Monte-Carlo tolerances are entered and shown in the parameter's displayed
+  unit (GUI walkthrough item 2).** The tolerance fields in the parameter editor
+  were unlabelled and passed their numbers to `Sensor.set_tolerance` raw, so a
+  target altitude displayed in km silently took its spread in metres. Each field
+  now states the unit it is read in, follows the value editor's unit selector,
+  and converts once at the API boundary. The conversion is per-field because the
+  fields are not the same kind of quantity: `std` is a *difference* (scale only —
+  a σ of 1 °C is a σ of 1 K, not 274.15 K), `low`/`high` are *absolute* bounds
+  (the affine offset applies), and log-normal `sigma` is dimensionless and is
+  never converted. New Qt-free module `radiant.gui.tolerance_units` holds that
+  rule. Stored tolerance values are unchanged; only entry and display move.
+- **The GUI test suite no longer overwrites the developer's real preferences
+  (GUI walkthrough item 1).** A chosen dark theme kept reverting to the light
+  default between launches. Persistence was working — the culprit was the suite:
+  `QSettings(organization, application)` ignores `QSettings.setDefaultFormat()`
+  and resolves to `NativeFormat`, so the CU-115 isolation fixture never
+  redirected `SettingsStore` at all. Every GUI test that built a window without
+  injecting a store wrote to the real user preferences, and the configuration
+  theme-toggle test stamped an arbitrary theme over the operator's choice on each
+  run. The fixture now sandboxes the store's `QSettings` construction directly.
+  The underlying backend inconsistency (`SettingsStore` on `NativeFormat` while
+  `PinnedPanel` uses `IniFormat`) is tracked as CU-233 — fixing it relocates
+  saved preferences and needs an owner call.
+
 ### Added
 - **Shipped up-looking atmosphere library family + direction-aware family
   dispatch (Geometry-Flexibility Phase 2, GF-10; Gap 109).** New committed

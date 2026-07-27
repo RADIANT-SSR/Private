@@ -48,14 +48,6 @@
 **Why it still matters**: unreachable today, and blocked by construction rather than by luck — `AtmosphericGeometry.__post_init__` rejects any `path_zenith_rad` past `ZENITH_CEILING_RAD` (89.5°), and *every* up-looking scene has `θ_o > π/2` (a point below the target's altitude is always inside the tangent sphere at the target, hence below its horizon plane). So the wrong value cannot survive construction and there is no wrong number in the field. (The Phase-2 topology layer is separately not routing an up-looking LOS to the MODTRAN backend yet — but that is in-flight work, whereas the ceiling is the durable guard.) It matters because it is a **silent trap primed for the exact PR that lifts the gate**: the topology layer will make up-looking LOS objects legal, and this line will then render a nadir deck for a zenith-looking scene without raising — the failure mode Rule 17 exists to prevent, in the one backend whose output is treated as truth data.
 **Suggested fix**: (b) stand-alone task, folded into the Phase 2 topology PR that first routes an up-looking LOS to a backend. Derive the lower-endpoint zenith explicitly (`ζ_low = θ_o if los.h_sensor >= los.h_tgt else π − θ_o`) in one named helper — the same quantity `ColumnSegmentSpec.zeta_low_rad` already carries, so the natural fix is to build the deck geometry *from the segment spec* rather than re-deriving it. Effort S once the topology exists; category C (it changes what MODTRAN is asked to compute). Related: ADR-0011 decision 3, Gap 109, [[CU-065]].
 
-### CU-222 — Horizon-guard threshold constants are degree-valued in a core physics module (Rule-2 tension)
-
-**Discovered**: Geometry-Flexibility Phase 1 (branch `gf1/geometry-core`), core-geometry agent self-flag, 2026-07-26.
-**Status**: Open
-**File**: `radiant.core.viewing_triangle` (`GUARD_HARD_DEG = 0.5`, `GUARD_WARN_DEG = 2.0`; `horizon_band_action` converts the band via `math.degrees()` before comparing)
-**Symptom**: the two angular guard thresholds are module-level constants in **degrees**, and the comparison converts the radian band to degrees inside a core module — canonical internal units are radians (Rule 2), and the conversion-at-comparison pattern is the exact shape Rule 2 flags. The Δh thresholds (`GUARD_DH_*_M`) are in meters and fine.
-**Why it still matters**: cosmetic today (conversion is explicit, named, and single-site), but it seeds the "which unit is this threshold in?" ambiguity Rule 2 exists to prevent, and Phase 2's MODTRAN threshold calibration will touch exactly these constants.
-**Suggested fix**: (a) inline-fix — store `GUARD_HARD_RAD`/`GUARD_WARN_RAD` in radians (values `math.radians(0.5)`, `math.radians(2.0)`), compare in radians, convert to degrees only in message formatting; keep the plan/ADR prose in degrees. Effort S; category A. Natural home: the Phase 2 threshold-calibration PR (plan §8.3 addendum), which re-touches these constants anyway.
 
 ### CU-221 — `scripts/test_docs_code.py` always reports 3 failures, so its signal is dead
 
@@ -233,6 +225,15 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-222 — Horizon-guard threshold constants are degree-valued in a core physics module (Rule-2 tension) — RESOLVED 2026-07-27 (commit `f4c389b`)
+
+**Discovered**: Geometry-Flexibility Phase 1 (branch `gf1/geometry-core`), core-geometry agent self-flag, 2026-07-26.
+**Status**: Resolved 2026-07-27, commit `f4c389b` (Geometry-Flexibility Phase 2). **Resolution**: constants renamed and stored in radians (`GUARD_HARD_RAD = math.radians(0.5)`, `GUARD_WARN_RAD = math.radians(2.0)`); all comparisons in radians; degrees appear only in message formatting; no consumer outside core read the old names (grep-verified), so no aliases were kept. Lock-step: `RADIANT_Geometry.md` guard paragraph updated.
+**File**: `radiant.core.viewing_triangle` (`GUARD_HARD_DEG = 0.5`, `GUARD_WARN_DEG = 2.0`; `horizon_band_action` converts the band via `math.degrees()` before comparing)
+**Symptom**: the two angular guard thresholds are module-level constants in **degrees**, and the comparison converts the radian band to degrees inside a core module — canonical internal units are radians (Rule 2), and the conversion-at-comparison pattern is the exact shape Rule 2 flags. The Δh thresholds (`GUARD_DH_*_M`) are in meters and fine.
+**Why it still matters**: cosmetic today (conversion is explicit, named, and single-site), but it seeds the "which unit is this threshold in?" ambiguity Rule 2 exists to prevent, and Phase 2's MODTRAN threshold calibration will touch exactly these constants.
+**Suggested fix**: (a) inline-fix — store `GUARD_HARD_RAD`/`GUARD_WARN_RAD` in radians (values `math.radians(0.5)`, `math.radians(2.0)`), compare in radians, convert to degrees only in message formatting; keep the plan/ADR prose in degrees. Effort S; category A. Natural home: the Phase 2 threshold-calibration PR (plan §8.3 addendum), which re-touches these constants anyway.
 
 ### CU-214 — Tools → "Compare Configurations…" now collides with the study vocabulary it predates
 

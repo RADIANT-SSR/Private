@@ -287,6 +287,29 @@ def _compute_saturation_metrics(
     return state
 
 
+def _is_downlooking(state: ChainState, params: ParameterSet) -> bool:
+    """Whether the configured scene looks *down* — the gate for ground-referenced metrics.
+
+    Reads the ``los_direction`` label GeometryStage already derived and
+    published (ADR-0011 decision 1: derived once, in
+    :class:`~radiant.core.los_geometry.LineOfSightGeometry`, never re-derived
+    here).  Falls back to the θ_o hemisphere test only for partial fixtures
+    that run PerformanceStage without GeometryStage — the same fallback the
+    GSD derivation itself carries (CU-096).
+
+    Returns ``False`` for both up-looking (θ_o > π/2) and level (θ_o = π/2)
+    scenes: neither has a ground footprint below the sensor.
+    """
+    direction = state.stage_outputs.get("geometry", {}).get("los_direction")
+    if direction is not None:
+        return bool(direction == "down")
+    try:
+        theta_o_rad: float = params.get("geometry.path_zenith_rad")
+    except (KeyError, TypeError):
+        return True  # No θ_o at all: the legacy nadir default (θ_o = 0).
+    return bool(theta_o_rad < math.pi / 2.0)
+
+
 def _compute_gsd_metrics(
     state: ChainState,
     params: ParameterSet,
@@ -298,7 +321,25 @@ def _compute_gsd_metrics(
     target-side path zenith θ_o) via the spherical viewing triangle and hands
     them to ``gsd.compute_gsd_from_geometry`` (CU-096).  Off-nadir correction
     defaults to nadir (θ_o = 0) if not set.  Skips gracefully when altitude or
-    focal length is not set (e.g. lab/TVAC scenarios).
+    focal length is not set (e.g. lab/TVAC scenarios), and when the LOS is not
+    down-looking (see below).
+
+    Down-looking only
+    -----------------
+    Ground sample distance is a **down-looking** quantity: it is the ground
+    footprint of one pixel, which exists only when the LOS actually intersects
+    a ground plane below the sensor.  For an up-looking scene (sensor beneath
+    the target, θ_o > π/2 — a ground or airborne sensor viewing an aircraft,
+    balloon, or satellite) and for a level scene (θ_o = π/2) there is no such
+    footprint, so the metric is **absent** rather than wrong.  This mirrors
+    :meth:`~radiant.core.los_geometry.LineOfSightGeometry._require_downlooking_column`,
+    which fences the other down-looking-topology quantities.
+
+    Without this gate the θ_o = π an up-looking scene publishes reaches
+    ``compute_gsd_from_geometry``'s ``[0, π/2)`` validator and raises, aborting
+    the whole chain evaluation — including stages that have nothing to do with
+    GSD.  The skip follows this module's established convention: a metric that
+    does not apply to the configured scene is simply not published.
     """
     try:
         altitude_m: float = params.get("geometry.sensor_altitude_m")
@@ -306,6 +347,9 @@ def _compute_gsd_metrics(
         return state
 
     if altitude_m <= 0.0:
+        return state
+
+    if not _is_downlooking(state, params):
         return state
 
     try:

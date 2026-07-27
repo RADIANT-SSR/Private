@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Final, Protocol, cast, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from radiant.optics.psf.effective import EffectivePSF
 
 logger = logging.getLogger(__name__)
+
+# Smallest variance share that still earns an on-wedge label in the noise pie.
+# Below ~3 % a wedge subtends under 11°, so its label collides with its
+# neighbours' — those terms are carried by the legend instead (see
+# :func:`plot_noise_pie`). Presentation-only: it changes no computed value.
+_PIE_LABEL_MIN_SHARE: Final[float] = 0.03
 
 # Dark-theme matplotlib rcParams — chrome only (background, axes, text, ticks, grid).
 # Data-series colours keep matplotlib's cycle, which reads on both backgrounds.
@@ -207,6 +213,17 @@ def plot_noise_pie(
     term name, its σ_i in **e- RMS** (unit on the label, R-UNITS), and its % of
     the total variance. Zero terms are omitted (they carry no power).
 
+    Label placement
+    ---------------
+    A realistic budget is usually dominated by one term — shot noise at 100.0 %
+    with every other term rounding to 0.0 % is the common case, not the corner
+    case. Those sub-percent wedges subtend almost no angle, so matplotlib stacks
+    their labels on top of each other at the same radius and the text becomes
+    unreadable. Only wedges holding at least :data:`_PIE_LABEL_MIN_SHARE` of the
+    variance are therefore labelled **on the wedge**; a legend carries **every**
+    term (including the tiny ones) with the same name / σ_i / % detail, so no
+    information is lost — it just moves somewhere it fits.
+
     This is the pie sibling of :func:`plot_noise_budget` (same
     ``result.noise_terms`` data, a different mark): the bar shows the absolute
     σ_i in e- RMS; the pie shows the variance share.
@@ -248,9 +265,27 @@ def plot_noise_pie(
         f"{name}\n{sigma:.3g} e- RMS ({100.0 * var / total_var:.1f}%)"
         for name, sigma, var in zip(names, sigmas, variances, strict=True)
     ]
+    # Sub-threshold wedges get no on-wedge text (their labels would overlap);
+    # the legend below still names every one of them.
+    wedge_labels = [
+        label if var / total_var >= _PIE_LABEL_MIN_SHARE else ""
+        for label, var in zip(labels, variances, strict=True)
+    ]
     fig, ax = plt.subplots(constrained_layout=True)
-    ax.pie(variances, labels=labels, **kwargs)  # slices ∝ σ_i² (noise power)
+    wedges, _ = ax.pie(variances, labels=wedge_labels, **kwargs)  # slices ∝ σ_i² (noise power)
     ax.set_aspect("equal")
+    # One legend row per term, dominant first — the tiny terms are readable here
+    # even when they are invisible on the wedge. Newlines suit the wedge labels,
+    # not a legend row, so the same fields are joined inline.
+    ax.legend(
+        wedges,
+        [label.replace("\n", " — ") for label in labels],
+        title="σ per term (e- RMS) · share of σ²",
+        loc="center left",
+        bbox_to_anchor=(1.0, 0.5),
+        fontsize="small",
+        frameon=False,
+    )
     ax.set_title("Noise budget — share of variance (σ²; total noise power)")
     return cast("Figure", fig)
 

@@ -121,10 +121,10 @@ carve-out is subsumed by the level central-angle solution (only the
 zero-separation coincident-endpoints limit keeps None ranges, documented).
 Down-looking golden baselines byte-identical (differential proof over
 9 256 configurations + full golden suite). Up-looking/level paths through
-real atmosphere refuse actionably pending Phase 2. One deviation flagged
-for owner confirmation: θ_o domain implemented **closed** `[0, π]`
-(ADR-0011 writes `[0, π)`; the vertical up-looking case is θ_o = π
-exactly). CU-222 filed (guard-threshold units).
+real atmosphere refuse actionably pending Phase 2. θ_o domain implemented
+**closed** `[0, π]` — ADR-0011's `[0, π)` was a notation slip,
+owner-confirmed 2026-07-26 (§8.3 addendum). CU-222 filed
+(guard-threshold units).
 
 - `core/viewing_triangle.py`: symmetric solutions valid for any
   `h_sensor ≠ h_target` ordering + the equal-altitude horizontal case
@@ -350,3 +350,25 @@ Rationale: a pure angular test over-rejects benign short horizontal paths
 exemption both under-rejects long transits (500 km at 5 km altitude,
 $\Delta h$ ≈ 4.9 km) and makes behavior discontinuous between equal and
 almost-equal altitudes.
+
+**Addendum (owner, 2026-07-26, Phase 1 close) — θ_o domain closed at π.**
+ADR-0011 decision 2 writes the extended domain as "$[0, \pi)$"; the owner
+confirms this was a notation slip. The canonical domain is the **closed**
+interval $[0, \pi]$: $\theta_o = \pi$ is the vertical up-looking case
+(ground sensor with the target at zenith; LEO sensor directly beneath a
+GEO target — the K-ladder and SST geometries) and is attained exactly.
+Implemented as closed in Phase 1 (`core/viewing_triangle.py`,
+`core/los_geometry.py`, `geometry.path_zenith_rad` bounds).
+
+**Addendum (owner, 2026-07-26) — batch 1 delivered; horizontal set
+re-scoped to a 5×5 grid.** The K-block (K1–K7) and the horizontal set were
+run and staged to `modtran/real_runs/` (manifest regenerated). The original
+L1–L4 decks were run with Card-3 RANGE = 0.000 (the builder's hardcoded
+value) and came back without path length — confirming the
+`phase2_range_wiring` caveat. The owner re-scoped the horizontal family to
+a **5×5 grid** — altitude {0, 3, 5, 10, 15} km × range {5, 10, 25, 50,
+100} km, rows L1–L25, new `hrange_km` column in the run matrix — ran all
+25 with HRANGE set correctly, and delivered the tape7s. Owner snapshot
+archived at `docs/archive/modtran_run_matrix_update_2026-07.csv`; the
+master matrix carries the merged content. Phase 2's horizontal-arm truth
+anchors are therefore already in hand.

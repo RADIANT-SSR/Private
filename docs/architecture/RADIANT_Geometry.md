@@ -157,7 +157,7 @@ vertex — symmetric solutions, not a parallel module (Rule 27):
   by the vertical up-looking geometry (ground sensor with the target at its
   zenith; a LEO sensor directly beneath a GEO target) and is an ordinary
   scene, not an edge case. *(ADR-0011 writes the domain as $[0, \pi)$; that is
-  a flagged notation slip pending owner confirmation — the closed interval is
+  a notation slip (owner-confirmed 2026-07-26, plan §8.3) — the closed interval is
   what the geometry requires and what is implemented, with the discrepancy
   noted at the domain validator.)*
 - **Altitude/hemisphere invariant** (derived, enforced):

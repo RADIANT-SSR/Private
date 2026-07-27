@@ -45,7 +45,7 @@ ADR-0011: the same triangle is now read from either vertex.
 θ_o domain is the **closed** interval [0, π].  π is attained exactly by the
 vertical up-looking case (ground sensor with the target at its zenith, LEO
 sensor directly under a GEO target).  ADR-0011 writes "[0, π)"; that is a
-flagged notation slip pending owner confirmation — the closed interval is
+notation slip — owner-confirmed 2026-07-26 (plan §8.3) — the closed interval is
 what the geometry requires and what is implemented here.
 
 Altitude/hemisphere invariant (derived, enforced):
@@ -227,8 +227,8 @@ def _validate_theta_o(theta_o_rad: float, where: str) -> None:
     Closed at π: the vertical up-looking geometry (ground sensor with the
     target at its zenith, LEO sensor directly beneath a GEO target) is
     θ_o = π *exactly*, and it is a perfectly ordinary scene.  ADR-0011
-    writes the domain as "[0, π)" — a flagged notation slip pending owner
-    confirmation; the closed interval is implemented here.
+    writes the domain as "[0, π)" — a notation slip, owner-confirmed
+    2026-07-26 (plan §8.3); the closed interval is implemented here.
     """
     if not (0.0 <= theta_o_rad <= math.pi):
         raise ParameterBoundsError(

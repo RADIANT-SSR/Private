@@ -438,7 +438,7 @@ class LineOfSightGeometry:
 - `h_tgt ≥ 0`; `h_tgt ≥ h_atm_top` is legal (Gap 95 exo-altitude target)
 - `h_sensor ≥ 0` when carried; `GeometryStage` always populates it. It is the **single source of truth** for the sensor altitude inside `radiant.atmosphere` (guardrail G2 — no backend reads `geometry.sensor_altitude_m`)
 - `h_atm_top = 1e5 m` fixed
-- `θ_o ∈ [0, π]` — the **closed** interval, π attained exactly by the vertical up-looking case. (ADR-0011 writes `[0, π)`; flagged notation slip pending owner confirmation, noted at the domain validator.) `AtmosphericGeometry`'s separate 89.5° ceiling still applies inside the simple-model backend
+- `θ_o ∈ [0, π]` — the **closed** interval, π attained exactly by the vertical up-looking case. (ADR-0011 writes `[0, π)`; notation slip — owner-confirmed 2026-07-26 (plan §8.3), noted at the domain validator.) `AtmosphericGeometry`'s separate 89.5° ceiling still applies inside the simple-model backend
 - **Altitude/hemisphere invariant**: `h_sensor > h_tgt ⟺ θ_o < π/2`, `h_sensor ≤ h_tgt ⟺ θ_o > π/2` (equal altitudes ⇒ `θ_o = π/2 + φ/2`). A violating combination raises, naming both altitudes and the implied hemisphere
 - **Horizon guard** applied here, keyed on tangent-point topology — angular bands (0.5° raise / 2° warn) at the lower endpoint for endpoint-minimum paths, tangent-height depression (100 m clean / 2 km raise) for interior-tangent ones. Full table: `RADIANT_Geometry.md` §4.1. Without `h_sensor` only the conservative angular band can be applied, which is why level and near-level geometry must carry the sensor endpoint
 - `θ_s ∈ [0, π]` accepted by this object if provided; the schema bound (1.5707 rad) and `AtmosphericGeometry` reject θ_s ≥ π/2 upstream, so a sub-horizon sun cannot reach here

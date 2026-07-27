@@ -28,8 +28,8 @@ retroactively reconstructed.
   - `geometry.path_zenith_rad` (θ_o) spans the **closed** domain `[0, π]` — up from
     `[0, 1.562]` (≈89.5°). `π` is the vertical up-looking case (a ground sensor with
     the target at its zenith; a LEO sensor directly beneath a GEO target) and is
-    attained exactly. *(ADR-0011 writes `[0, π)`; that is a flagged notation slip
-    pending owner confirmation — the closed interval is implemented, with the
+    attained exactly. *(ADR-0011 writes `[0, π)`; that was a notation slip —
+    owner-confirmed 2026-07-26 (plan §8.3). The closed interval is implemented, with the
     discrepancy noted at the domain validator.)*
   - `geometry.elevation_angle_rad` becomes **signed**: bounds widen from
     `[0.0088, 1.5708]` to `[−π/2, π/2]`. The 0.5° grazing floor is superseded by the

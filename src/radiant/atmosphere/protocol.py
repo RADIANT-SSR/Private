@@ -78,7 +78,11 @@ class AtmosphericGeometry:
         for ``slant_path_length_m`` and ``air_mass``.
     solar_zenith_rad:
         Solar zenith angle [rad], for the single-scatter ``L_path``
-        and reflected-solar paths. ``0 ≤ θ_sun < π/2``. Defaults to
+        and reflected-solar paths. ``0 ≤ θ_sun ≤ π`` (widened from the
+        pre-Phase-2 ``< π/2`` by ADR-0011 decision 10; a sun below the local
+        horizontal is legal, and whether a point is lit is a per-altitude
+        shadow-height question — see
+        :mod:`radiant.atmosphere.solar_shadow`). Defaults to
         zero (sun overhead) which is enough for transmittance-only use.
     solar_azimuth_rad:
         Solar azimuth *relative to the sensor look direction* [rad].
@@ -122,12 +126,16 @@ class AtmosphericGeometry:
                 "model is unreliable past the horizon; reduce path_zenith_rad or use "
                 "a higher-fidelity atmosphere model."
             )
-        if not (0.0 <= self.solar_zenith_rad < math.pi / 2):
+        if not (0.0 <= self.solar_zenith_rad <= math.pi):
             raise AtmosphereValidationError(
                 f"AtmosphericGeometry: solar_zenith_rad = {self.solar_zenith_rad:.4f} rad "
-                f"({math.degrees(self.solar_zenith_rad):.2f}°) is out of [0, 90°). "
-                "Set solar_zenith_rad < π/2; for night-side conditions disable the "
-                "reflected-solar source rather than supplying a sub-horizon sun."
+                f"({math.degrees(self.solar_zenith_rad):.2f}°) is out of [0, 180°]. "
+                "Solar zenith is a zenith angle: 0 is overhead, π/2 the local "
+                "horizontal, π directly underfoot. The domain is the full closed "
+                "interval since Geometry-Flexibility Phase 2 (ADR-0011 decision 10) so "
+                "that twilight and sunlit-above-the-terminator geometry is "
+                "expressible; whether a given altitude is actually lit is decided by "
+                "radiant.atmosphere.solar_shadow, not by this bound."
             )
 
     # ------------------------------------------------------------------

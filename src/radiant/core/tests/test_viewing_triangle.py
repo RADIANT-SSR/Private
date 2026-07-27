@@ -24,8 +24,8 @@ from radiant.core.parameters import ParameterBoundsError
 from radiant.core.viewing_triangle import (
     GUARD_DH_CLEAN_M,
     GUARD_DH_RAISE_M,
-    GUARD_HARD_DEG,
-    GUARD_WARN_DEG,
+    GUARD_HARD_RAD,
+    GUARD_WARN_RAD,
     check_horizon_guard,
     classify_horizon_topology,
     eta_from_theta_o,
@@ -457,7 +457,11 @@ class TestHorizonGuard:
         guard = classify_horizon_topology(math.radians(89.0), H_LEO, 0.0)
         assert guard.topology == "endpoint_minimum"
         assert guard.action == "warn"
-        assert guard.band_deg == pytest.approx(1.0, abs=1e-9)
+        # ``band_rad`` is ``float | None`` — populated only for the
+        # endpoint_minimum topology asserted above.  The explicit check both
+        # narrows the type for ``mypy --strict`` and pins the contract.
+        assert guard.band_rad is not None
+        assert math.degrees(guard.band_rad) == pytest.approx(1.0, abs=1e-9)
         with pytest.warns(UserWarning):
             check_horizon_guard(math.radians(89.0), H_LEO, 0.0, where="test")
 
@@ -473,7 +477,11 @@ class TestHorizonGuard:
         assert guard.action == "clean"
 
     def test_band_thresholds_are_named_constants(self) -> None:
-        assert GUARD_HARD_DEG == 0.5
-        assert GUARD_WARN_DEG == 2.0
+        # Stored in radians (Rule 2 / CU-222); the ratified degree values
+        # are what the plan and ADR quote, so both readings are pinned.
+        assert math.radians(0.5) == GUARD_HARD_RAD
+        assert math.radians(2.0) == GUARD_WARN_RAD
+        assert math.degrees(GUARD_HARD_RAD) == pytest.approx(0.5, abs=1e-12)
+        assert math.degrees(GUARD_WARN_RAD) == pytest.approx(2.0, abs=1e-12)
         assert GUARD_DH_CLEAN_M == 100.0
         assert GUARD_DH_RAISE_M == 2000.0

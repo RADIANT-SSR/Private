@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import subprocess
 import warnings
 from dataclasses import dataclass, field
@@ -176,6 +177,19 @@ class ModtranConfig:
         remaining MODTRAN-defined values (no emission; thermal-only).
         See the CU-067 caveat on ``render_tape5`` for how this token's
         position was identified.
+    hrange_km:
+        Card 3 ``RANGE`` — the geometric path length [km] of a
+        **horizontal (constant-altitude) path**.  Meaningful only for
+        ``itype = 1``, where MODTRAN takes the path from ``H1`` plus this
+        length and ignores ``H2``/``ANGLE``.  It is the *only* thing that
+        sets a horizontal path's length, so ``itype = 1`` with
+        ``hrange_km = 0`` is rejected (a zero-length path is not a path),
+        and a positive ``hrange_km`` with ``itype != 1`` is rejected as
+        over-specification (for a slant path MODTRAN derives RANGE from
+        H1/H2/ANGLE and a supplied value would silently contradict them).
+        Default ``0.0`` renders the historical literal ``     0.000``, so
+        every non-horizontal deck is byte-identical to the pre-``hrange_km``
+        builder.
     spectral_resolution_cm1:
         Spectral resolution in cm-1 for the MODTRAN run.
     v1_cm1:
@@ -197,6 +211,7 @@ class ModtranConfig:
     visibility_km: float | None = None
     itype: int = 2
     iemsct: int = 2
+    hrange_km: float = 0.0
     spectral_resolution_cm1: float = 1.0
     v1_cm1: float = 700.0  # ~14.3 um
     v2_cm1: float = 25000.0  # ~0.4 um
@@ -238,6 +253,31 @@ class ModtranConfig:
             raise AtmosphereValidationError(
                 f"ModtranConfig: iemsct={self.iemsct} not recognised. "
                 "MODTRAN defines IEMSCT in {0, 1, 2, 3}."
+            )
+        if not math.isfinite(self.hrange_km) or self.hrange_km < 0.0:
+            raise AtmosphereValidationError(
+                f"ModtranConfig: hrange_km={self.hrange_km} is not a finite "
+                "non-negative length. Card 3 RANGE is a geometric path length "
+                "in km; set hrange_km >= 0 (0 = 'not a horizontal path')."
+            )
+        if self.itype == 1 and self.hrange_km == 0.0:
+            raise AtmosphereValidationError(
+                "ModtranConfig: itype=1 (horizontal constant-altitude path) "
+                "needs hrange_km > 0. For ITYPE=1 MODTRAN takes the path from "
+                "H1 plus Card 3 RANGE and ignores H2/ANGLE, so hrange_km is "
+                "the only thing that gives the path a length; hrange_km=0 "
+                "would render a zero-length path. Set hrange_km to the arm "
+                "length in km, or use itype=2 for a slant path between two "
+                "altitudes."
+            )
+        if self.itype != 1 and self.hrange_km > 0.0:
+            raise AtmosphereValidationError(
+                f"ModtranConfig: hrange_km={self.hrange_km} km was supplied "
+                f"with itype={self.itype}. Card 3 RANGE is meaningful only for "
+                "itype=1 (horizontal constant-altitude path); for a slant path "
+                "MODTRAN derives the range from H1, H2 and ANGLE, so supplying "
+                "it here over-specifies the geometry. Set itype=1 to express a "
+                "horizontal path, or leave hrange_km at its 0.0 default."
             )
         if self.spectral_resolution_cm1 <= 0.0:
             raise AtmosphereValidationError(
@@ -304,8 +344,6 @@ def render_tape5(
     str
         The complete tape5 content as a string.
     """
-    import math
-
     model_code = _PROFILE_MAP[config.atmosphere_profile]
     ihaze = _IHAZE_MAP[config.aerosol_model]
 
@@ -328,8 +366,25 @@ def render_tape5(
     # `modtran_angle_at_h1_deg` column of
     # docs/plans/modtran_run_matrix.csv for every ITYPE=2 row.
     # Residual CU-065 caveat: confirm the convention against the
-    # MODTRAN user manual when access arrives.
+    # MODTRAN user manual when access arrives.  The delivered K7 run
+    # (5 → 15 km at 45°) closes the elevated-lower-endpoint half of the
+    # convention empirically: its Card-3 echo reads ANGLE 45.000 with
+    # PHI 135.083 at H2 — consistent only with ANGLE belonging to H1.
     angle_deg = 180.0 - zenith_deg if h1_km > h2_km else zenith_deg
+
+    # ITYPE=1 (horizontal, constant-altitude) is the one path type where
+    # ANGLE is not a free field: MODTRAN builds the path from H1 plus
+    # Card 3 RANGE and ignores H2/ANGLE, and a horizontal path's zenith
+    # is π/2 by definition.  Writing the literal 90° here (rather than
+    # reading ``geometry.path_zenith_rad``) is deliberate: a level path
+    # is an *interior-tangent* topology whose lowest point is mid-path,
+    # so its 90° is not a column zenith at all — ``AtmosphericGeometry``
+    # correctly refuses to carry it (``ZENITH_CEILING_RAD`` = 89.5° is
+    # the column air-mass validity ceiling).  Confirmed against the
+    # delivered L-block decks, whose Card-3 echoes read ANGLE 90.00000
+    # (docs/plans/modtran_run_matrix.csv rows L1–L25).
+    if config.itype == 1:
+        angle_deg = 90.0
 
     # Card 1 — whitespace-split token positions (CU-067, verified against
     # the real 2026-07-17 MODTRAN 6 run set):
@@ -379,9 +434,16 @@ def render_tape5(
     card2c = f"  {h2o_str}  {o3_str}"
 
     # Card 3: H1, H2, ANGLE, RANGE, BETA, RO, LENN, PHI
+    # RANGE carries ``config.hrange_km`` (the ITYPE=1 horizontal path
+    # length).  ``ModtranConfig`` guarantees hrange_km == 0.0 for every
+    # itype != 1, and ``f"{0.0:10.3f}"`` is exactly the ``     0.000``
+    # literal this field held before the field was wired, so every
+    # non-horizontal deck renders byte-identically to the pre-wiring
+    # builder.  BETA, RO, LENN and PHI stay at their literal defaults —
+    # MODTRAN derives them.
     card3 = (
-        f"  {h1_km:10.3f}{h2_km:10.3f}{angle_deg:10.3f}"
-        f"     0.000     0.000     0.000    0     0.000"
+        f"  {h1_km:10.3f}{h2_km:10.3f}{angle_deg:10.3f}{config.hrange_km:10.3f}"
+        f"     0.000     0.000    0     0.000"
     )
 
     # Card 3A1: IPARM, IPH, IDAY, ISOURC, PARM1 (solar zen), PARM2 (solar az)

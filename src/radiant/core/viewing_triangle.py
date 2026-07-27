@@ -95,14 +95,30 @@ from radiant.core.parameters import ParameterBoundsError
 # inline literals, precisely so that recalibration is a one-line change.
 # ---------------------------------------------------------------------------
 
-#: Endpoint-minimum topology — hard guard half-width about the horizontal [deg].
-GUARD_HARD_DEG = 0.5
-#: Endpoint-minimum topology — outer edge of the compute-with-warning shoulder [deg].
-GUARD_WARN_DEG = 2.0
+# Rule 2 — angles are stored in radians internally; the degree values the plan
+# and ADR quote (0.5° / 2.0°) appear exactly once each, in the ``math.radians``
+# call that defines the canonical constant, and thereafter only in message text
+# (CU-222).
+
+#: Endpoint-minimum topology — hard guard half-width about the horizontal [rad]
+#: (0.5°).
+GUARD_HARD_RAD = math.radians(0.5)
+#: Endpoint-minimum topology — outer edge of the compute-with-warning shoulder
+#: [rad] (2.0°).
+GUARD_WARN_RAD = math.radians(2.0)
 #: Interior-tangent topology — tangent-height depression below which the path is clean [m].
 GUARD_DH_CLEAN_M = 100.0
 #: Interior-tangent topology — tangent-height depression above which the path is rejected [m].
 GUARD_DH_RAISE_M = 2000.0
+
+#: Angular slack on the band comparisons [rad].  A threshold quoted as "0.5°"
+#: must mean the same band whether the caller's angle was built as
+#: ``math.radians(89.5)`` or as ``math.pi/2 - math.radians(0.5)`` — those two
+#: differ by ~1e-16 rad in IEEE-754, which without this slack flips the verdict
+#: at exactly the ratified boundary (found while landing CU-222).  1e-12 rad is
+#: 6e-11 degrees: far below any physical meaning, and the same trigonometric
+#: tolerance the rest of the package uses.
+_GUARD_BAND_EPS_RAD = 1e-12
 
 _TOPOLOGY_ENDPOINT_MIN = "endpoint_minimum"
 _TOPOLOGY_INTERIOR = "interior_tangent"
@@ -135,9 +151,11 @@ class HorizonGuardResult:
     dh_m:
         Tangent-height depression below the lower endpoint [m] — set for
         ``interior_tangent`` topology, ``None`` otherwise.
-    band_deg:
-        ``|zenith_low − 90°|`` [deg] — set for ``endpoint_minimum``
-        topology, ``None`` otherwise.
+    band_rad:
+        ``|zenith_low − π/2|`` [rad] — set for ``endpoint_minimum``
+        topology, ``None`` otherwise.  Radians is the canonical angular unit
+        (Rule 2); degrees appear only in :attr:`detail` and in the guard's
+        warning / error text.
     detail:
         Human-readable, quantified one-liner used by
         :func:`check_horizon_guard` in its warning / error text.
@@ -149,7 +167,7 @@ class HorizonGuardResult:
     h_low_m: float
     slant_range_m: float
     dh_m: float | None = None
-    band_deg: float | None = None
+    band_rad: float | None = None
     detail: str = ""
 
 
@@ -748,16 +766,22 @@ def _validate_central_angle(central_angle_rad: float, where: str) -> None:
 def horizon_band_action(zenith_low_rad: float) -> tuple[str, float]:
     """Angular-band verdict for an endpoint-minimum path.
 
-    Returns ``(action, band_deg)`` where ``band_deg = |ζ_low − 90°|`` and
-    action is ``"raise"`` inside :data:`GUARD_HARD_DEG`, ``"warn"`` inside
-    :data:`GUARD_WARN_DEG`, else ``"clean"``.
+    Returns ``(action, band_rad)`` where ``band_rad = |ζ_low − π/2|`` [rad]
+    and action is ``"raise"`` inside :data:`GUARD_HARD_RAD`, ``"warn"``
+    inside :data:`GUARD_WARN_RAD`, else ``"clean"``.
+
+    The comparison is done in radians end to end (Rule 2, CU-222); callers
+    that print the band convert with ``math.degrees`` at the format string.
+    Both boundaries carry :data:`_GUARD_BAND_EPS_RAD` of slack so a band
+    landing *exactly* on a ratified threshold falls on the permissive side
+    regardless of how the caller's angle was constructed.
     """
-    band_deg = abs(math.degrees(zenith_low_rad) - 90.0)
-    if band_deg < GUARD_HARD_DEG:
-        return "raise", band_deg
-    if band_deg < GUARD_WARN_DEG:
-        return "warn", band_deg
-    return "clean", band_deg
+    band_rad = abs(zenith_low_rad - math.pi / 2.0)
+    if band_rad < GUARD_HARD_RAD - _GUARD_BAND_EPS_RAD:
+        return "raise", band_rad
+    if band_rad < GUARD_WARN_RAD - _GUARD_BAND_EPS_RAD:
+        return "warn", band_rad
+    return "clean", band_rad
 
 
 def _classify_segment(zenith_low_rad: float, r_low: float, slant_m: float) -> HorizonGuardResult:
@@ -799,11 +823,11 @@ def _classify_segment(zenith_low_rad: float, r_low: float, slant_m: float) -> Ho
             dh_m=dh,
             detail=detail,
         )
-    action, band_deg = horizon_band_action(zenith_low_rad)
+    action, band_rad = horizon_band_action(zenith_low_rad)
     detail = (
         f"path leaves its lower endpoint ({h_low_m:.1f} m MSL) at zenith "
-        f"{math.degrees(zenith_low_rad):.4f}°, i.e. {band_deg:.4f}° from the "
-        f"geometric horizontal"
+        f"{math.degrees(zenith_low_rad):.4f}°, i.e. {math.degrees(band_rad):.4f}° "
+        f"from the geometric horizontal"
     )
     return HorizonGuardResult(
         topology=_TOPOLOGY_ENDPOINT_MIN,
@@ -811,7 +835,7 @@ def _classify_segment(zenith_low_rad: float, r_low: float, slant_m: float) -> Ho
         zenith_low_rad=zenith_low_rad,
         h_low_m=h_low_m,
         slant_range_m=slant_m,
-        band_deg=band_deg,
+        band_rad=band_rad,
         detail=detail,
     )
 
@@ -826,8 +850,8 @@ def classify_horizon_topology(
     * **endpoint_minimum** — the perpendicular from the Earth centre falls
       outside the segment, so the closest approach to the surface is the
       lower endpoint.  Guarded by the **angular bands** at that endpoint:
-      inside ±:data:`GUARD_HARD_DEG` of the horizontal → ``raise``; out to
-      ±:data:`GUARD_WARN_DEG` → ``warn``; beyond → ``clean``.
+      inside ±:data:`GUARD_HARD_RAD` of the horizontal → ``raise``; out to
+      ±:data:`GUARD_WARN_RAD` → ``warn``; beyond → ``clean``.
     * **interior_tangent** — the perpendicular falls *on* the segment, so
       the ray dips to a tangent point between the endpoints (every level
       and near-level arm).  Guarded by the **tangent-height depression**
@@ -874,16 +898,16 @@ def _check_segment(
         {
             "topology": result.topology,
             "slant_range_m": result.slant_range_m,
-            "guard_hard_deg": GUARD_HARD_DEG,
-            "guard_warn_deg": GUARD_WARN_DEG,
+            "guard_hard_rad": GUARD_HARD_RAD,
+            "guard_warn_rad": GUARD_WARN_RAD,
             "guard_dh_clean_m": GUARD_DH_CLEAN_M,
             "guard_dh_raise_m": GUARD_DH_RAISE_M,
         }
     )
     if result.dh_m is not None:
         payload["tangent_depression_m"] = result.dh_m
-    if result.band_deg is not None:
-        payload["band_deg"] = result.band_deg
+    if result.band_rad is not None:
+        payload["band_rad"] = result.band_rad
 
     if result.action == "raise":
         if result.topology == _TOPOLOGY_INTERIOR:
@@ -909,7 +933,7 @@ def _check_segment(
         raise ParameterBoundsError(
             what=(
                 f"{where}: near-horizontal path rejected — {result.detail}, inside the "
-                f"±{GUARD_HARD_DEG}° hard horizon guard"
+                f"±{math.degrees(GUARD_HARD_RAD):g}° hard horizon guard"
             ),
             why=(
                 "Within a half-degree of the geometric horizontal, atmospheric "
@@ -918,7 +942,8 @@ def _check_segment(
                 "(ADR-0011 decision 6)."
             ),
             action=(
-                f"Move the path more than {GUARD_WARN_DEG}° off the horizontal at its "
+                f"Move the path more than {math.degrees(GUARD_WARN_RAD):g}° off the "
+                "horizontal at its "
                 "lower endpoint, or change the altitudes so the geometry is no longer "
                 "grazing."
             ),
@@ -929,7 +954,7 @@ def _check_segment(
             f"{where}: near-horizontal path — {result.detail}. Computing anyway, but "
             "atmospheric refraction is NOT modelled in v1.x and is the dominant "
             "geometric error in this band (hard guard at "
-            f"±{GUARD_HARD_DEG}° / {GUARD_DH_RAISE_M:.0f} m tangent depression; "
+            f"±{math.degrees(GUARD_HARD_RAD):g}° / {GUARD_DH_RAISE_M:.0f} m tangent depression; "
             "thresholds provisional pending Phase 2 MODTRAN calibration).",
             UserWarning,
             stacklevel=3,

@@ -11,6 +11,7 @@ Category C validation for ModtranAtmosphere:
 
 from __future__ import annotations
 
+import math
 import warnings
 from pathlib import Path
 
@@ -1060,6 +1061,77 @@ class TestCardDeck:
         card1 = tape5.splitlines()[0]
         assert card1 == "T    5    0    6    0    3    3    1    0    0    0    1    0  0.000"
 
+    @pytest.mark.level0
+    def test_card3_byte_image_unchanged_by_hrange_wiring(
+        self, default_geometry: AtmosphericGeometry
+    ) -> None:
+        """Zero drift: wiring Card 3 RANGE must not move a single byte of a
+        non-horizontal deck.
+
+        The literal below was captured from the pre-``hrange_km`` builder
+        (git HEAD of 2026-07-26) for the default 20 km → ground nadir
+        geometry.  ``ModtranConfig`` forbids ``hrange_km > 0`` unless
+        ``itype == 1``, and ``f"{0.0:10.3f}"`` is exactly the ten-character
+        ``     0.000`` literal the RANGE field held before, so byte-identity
+        for every ITYPE ∈ {2, 3} deck is structural, not incidental — this
+        test pins it.
+        """
+        card3 = render_tape5(ModtranConfig(), default_geometry).splitlines()[4]
+        assert card3 == (
+            "      20.000     0.000   180.000     0.000     0.000     0.000    0     0.000"
+        )
+
+    @pytest.mark.level0
+    def test_card3_range_carries_hrange_for_itype1(self) -> None:
+        """ITYPE=1 horizontal path: Card 3 becomes (H1, H2, 90.000, RANGE).
+
+        Truth anchor — the delivered run-matrix row L20 (10 km altitude,
+        100 km range): its tape7 Card-3 echo reads
+        ``10.00000 10.00000 90.00000 100.00000``.  The rendered deck must
+        reproduce those four fields.
+        """
+        geometry = AtmosphericGeometry(
+            sensor_altitude_m=10_000.0,
+            target_altitude_m=10_000.0,
+            # Inert for ITYPE=1 — a level path's 90° zenith is an
+            # interior-tangent quantity AtmosphericGeometry cannot carry.
+            path_zenith_rad=0.0,
+            solar_zenith_rad=math.radians(30.0),
+            solar_azimuth_rad=math.radians(0.0),
+        )
+        config = ModtranConfig(itype=1, hrange_km=100.0)
+        card3 = render_tape5(config, geometry).splitlines()[4]
+        h1, h2, angle, rng = (float(x) for x in card3.split()[:4])
+        assert h1 == pytest.approx(10.0, abs=1e-9)
+        assert h2 == pytest.approx(10.0, abs=1e-9)
+        assert angle == pytest.approx(90.0, abs=1e-9)
+        assert rng == pytest.approx(100.0, abs=1e-9)
+        # Field widths are unchanged: Card 3 is still eight whitespace-
+        # separated fields in the historical column positions.
+        assert len(card3.split()) == 8
+
+    @pytest.mark.level0
+    def test_card3_itype1_angle_ignores_path_zenith(self) -> None:
+        """A horizontal deck's ANGLE is 90° by definition of the path, not a
+        function of the carrier's ``path_zenith_rad`` (which MODTRAN ignores
+        for ITYPE=1).  Two different carrier zeniths must render the same
+        deck."""
+        decks = [
+            render_tape5(
+                ModtranConfig(itype=1, hrange_km=25.0),
+                AtmosphericGeometry(
+                    sensor_altitude_m=5_000.0,
+                    target_altitude_m=5_000.0,
+                    path_zenith_rad=zen,
+                    solar_zenith_rad=0.5,
+                    solar_azimuth_rad=0.0,
+                ),
+            )
+            for zen in (0.0, math.radians(45.0))
+        ]
+        assert decks[0] == decks[1]
+        assert float(decks[0].splitlines()[4].split()[2]) == pytest.approx(90.0, abs=1e-9)
+
     @pytest.mark.level1
     def test_deterministic_rendering(self, default_geometry: AtmosphericGeometry) -> None:
         config = ModtranConfig()
@@ -1259,6 +1331,37 @@ class TestConfigValidation:
     def test_invalid_itype(self) -> None:
         with pytest.raises(ValueError, match="itype"):
             ModtranConfig(itype=0)
+
+    @pytest.mark.level1
+    def test_negative_hrange_rejected(self) -> None:
+        with pytest.raises(AtmosphereValidationError, match="hrange_km"):
+            ModtranConfig(itype=1, hrange_km=-5.0)
+
+    @pytest.mark.level1
+    def test_nonfinite_hrange_rejected(self) -> None:
+        with pytest.raises(AtmosphereValidationError, match="hrange_km"):
+            ModtranConfig(itype=1, hrange_km=float("nan"))
+
+    @pytest.mark.level1
+    def test_itype1_without_hrange_rejected(self) -> None:
+        """A horizontal path with no RANGE is a zero-length path — refuse
+        actionably rather than render a deck MODTRAN would reject or
+        silently reinterpret (Rules 15/17)."""
+        with pytest.raises(AtmosphereValidationError, match="itype=1"):
+            ModtranConfig(itype=1)
+
+    @pytest.mark.level1
+    def test_hrange_with_slant_itype_rejected(self) -> None:
+        """RANGE is derived from H1/H2/ANGLE for a slant path; supplying it
+        over-specifies the geometry."""
+        for itype in (2, 3):
+            with pytest.raises(AtmosphereValidationError, match="hrange_km"):
+                ModtranConfig(itype=itype, hrange_km=10.0)
+
+    @pytest.mark.level1
+    def test_hrange_default_is_zero_and_slant_default_valid(self) -> None:
+        assert ModtranConfig().hrange_km == 0.0
+        assert ModtranConfig(itype=3, iemsct=3).hrange_km == 0.0
 
 
 # ---------------------------------------------------------------------------

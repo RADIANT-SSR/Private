@@ -39,11 +39,35 @@ If the available geometry points form a structured rectangular grid
 ``scipy.interpolate.RegularGridInterpolator`` for efficiency.
 Otherwise it falls back to ``scipy.interpolate.LinearNDInterpolator``
 for scattered data.
+
+Family direction (Geometry-Flexibility Phase 2, GF-10)
+------------------------------------------------------
+Every family shipped before Phase 2 is **down-looking**: its radiance
+product is the upwelling path radiance a sensor above the column sees.
+The K-block ``midlat_summer_uplooking_ladder`` family is the first
+**up-looking** one, and its radiance product is the *downward* path
+radiance a sensor below the column sees — ``L_toward_lower`` in the
+:mod:`radiant.atmosphere.segments` vocabulary.  Those are different
+physical quantities, so they are kept apart at every level:
+
+- different NPZ key (:data:`UPLOOKING_RADIANCE_KEY` vs ``path_radiance``),
+  so a down-looking reader fails on a missing key rather than silently
+  reading the wrong product;
+- a ``family_direction`` on the model object, defaulting to ``"down"`` so
+  every pre-existing construction is unchanged;
+- different query entry points — :meth:`InterpolatedAtmosphere.evaluate`
+  (the eight-field down-looking bundle) refuses an up-looking family, and
+  :meth:`InterpolatedAtmosphere.uplooking_column_product` (the segment
+  product) refuses a down-looking one.
+
+Zero drift: a family constructed without ``family_direction`` behaves
+exactly as before — same interpolators, same warnings, same numbers.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -112,6 +136,29 @@ _ANGLE_FIELDS: frozenset[str] = frozenset(
 # not listed here are skipped when unrecorded — there is no defensible
 # assumption for e.g. an unrecorded sensor altitude.
 _ASSUMED_UNRECORDED: dict[str, float] = {"path_zenith_rad": 0.0}
+
+# --- Up-looking family contract (GF-10) ------------------------------------
+
+#: NPZ key carrying an up-looking family's DOWNWARD path radiance
+#: [W/m²/sr/µm] — the ``L_toward_lower`` product of
+#: :mod:`radiant.atmosphere.segments`.  Deliberately not ``path_radiance``:
+#: the two are different physical quantities and must not be
+#: interchangeable by accident (Rule 17).
+UPLOOKING_RADIANCE_KEY: str = "path_radiance_toward_lower"
+
+#: NPZ key carrying a family's self-describing LOS direction marker.
+FAMILY_DIRECTION_KEY: str = "los_direction"
+
+#: Directions a shipped family can declare.  ``"down"`` is the historical
+#: (and default) value; ``"up"`` is the Phase-2 K-block family.
+FAMILY_DIRECTIONS: frozenset[str] = frozenset({"down", "up"})
+
+# An up-looking column family is rendered at ONE lower-endpoint zenith
+# (the K ladder is vertical). Anything off it would need a sec-space zenith
+# fan of up-looking runs, which is not shipped, so the query is refused
+# rather than served from the vertical column (Rule 17). The tolerance is
+# pure float slack: geometry hands vertical paths theta_o = π exactly.
+_UPLOOKING_VERTICAL_TOL_RAD: float = 1e-6
 
 # MODTRAN's atmosphere ends at 100 km: a sensor at or above this altitude
 # sees the identical column as any higher sensor (the added path is
@@ -224,6 +271,43 @@ class GeometryPoint:
     atm_emission_down: SpectralData
 
 
+@dataclass(frozen=True)
+class UplookingColumnProduct:
+    """One up-looking column segment, interpolated out of an up-looking family.
+
+    Parameters
+    ----------
+    wavelength_um:
+        Query wavelength grid [µm].
+    tau:
+        Segment transmittance, dimensionless ∈ [0, 1].  One value per
+        segment: τ is reciprocal (``RADIANT_Atmosphere.md`` §4.4).
+    L_toward_lower:
+        Radiance emerging at the segment's **lower** end travelling downward
+        [W/m²/sr/µm] — what the ground sensor at the lower endpoint sees.
+    provenance:
+        Inputs and intermediates (Rule 16 inspectability).  Never consumed by
+        physics.
+
+    Notes
+    -----
+    This deliberately is **not** a
+    :class:`~radiant.atmosphere.segments.SegmentQuantities`.  That contract
+    carries both directional radiances, and an up-looking MODTRAN family
+    measures only one of them: the reverse-direction product for the same
+    column is a separate run set (the reciprocal down-looking F/J block
+    covers only 3 of the 5 K rungs).  Publishing a ``SegmentQuantities``
+    would require inventing an ``L_toward_upper``; a type with no such field
+    is the Rule-17-clean way to say "this family carries one direction".
+    The topology layer composes it into the eight-field bundle.
+    """
+
+    wavelength_um: np.ndarray
+    tau: np.ndarray
+    L_toward_lower: np.ndarray
+    provenance: dict[str, Any]
+
+
 # ---------------------------------------------------------------------------
 # InterpolatedAtmosphere
 # ---------------------------------------------------------------------------
@@ -243,6 +327,13 @@ class InterpolatedAtmosphere:
         ``["path_zenith_rad", "sensor_altitude_m"]``).
     method:
         Interpolation method: ``"linear"`` (default) or ``"nearest"``.
+    family_direction:
+        Which LOS direction the sample runs were rendered for — ``"down"``
+        (default, every pre-Phase-2 family) or ``"up"`` (the K-block
+        up-looking ladder).  Keyword-only and defaulted, so every existing
+        construction is byte-for-byte unchanged.  It selects which query
+        entry point is legal: ``"down"`` families serve :meth:`evaluate`,
+        ``"up"`` families serve :meth:`uplooking_column_product`.
     """
 
     def __init__(
@@ -250,7 +341,17 @@ class InterpolatedAtmosphere:
         points: Sequence[GeometryPoint],
         axes: Sequence[str],
         method: str = "linear",
+        *,
+        family_direction: str = "down",
     ) -> None:
+        if family_direction not in FAMILY_DIRECTIONS:
+            raise AtmosphereValidationError(
+                f"InterpolatedAtmosphere: family_direction='{family_direction}' "
+                f"is not recognised. Choose one of {sorted(FAMILY_DIRECTIONS)} — "
+                "'down' for an upwelling (sensor-above-column) run family, 'up' "
+                "for a downwelling (sensor-below-column) one."
+            )
+        self._family_direction = family_direction
         if len(points) < 2:
             raise AtmosphereValidationError(
                 f"InterpolatedAtmosphere: at least 2 geometry points required, got {len(points)}."
@@ -421,6 +522,11 @@ class InterpolatedAtmosphere:
         return list(self._axes)
 
     @property
+    def family_direction(self) -> str:
+        """``'down'`` (upwelling products) or ``'up'`` (downwelling products)."""
+        return self._family_direction
+
+    @property
     def grid_type(self) -> str:
         """'regular' for structured grid, 'scattered' for unstructured."""
         return self._grid_type
@@ -476,6 +582,37 @@ class InterpolatedAtmosphere:
                     UserWarning,
                     stacklevel=3,
                 )
+
+    def _require_family_direction(self, wanted: str, where: str) -> None:
+        """Refuse a query whose direction the loaded family cannot serve.
+
+        Up-looking and down-looking families carry *different physical
+        products* under superficially similar names (upwelling vs downwelling
+        path radiance).  Serving one through the other's entry point would be
+        a silent, plausible-looking error — exactly what Rule 17 forbids.
+        """
+        if self._family_direction == wanted:
+            return
+        if wanted == "down":
+            action = (
+                "Use InterpolatedAtmosphere.uplooking_column_product() for an "
+                "up-looking family, or point atmosphere.interpolated_data_dir "
+                "at a down-looking family."
+            )
+        else:
+            action = (
+                "Point atmosphere.interpolated_data_dir at an up-looking family "
+                "(shipped: midlat_summer_uplooking_ladder), or use "
+                "InterpolatedAtmosphere.evaluate() for a down-looking scene."
+            )
+        raise AtmosphereValidationError(
+            f"{where}: this family was built from '{self._family_direction}'-looking "
+            f"runs, and this entry point serves '{wanted}'-looking scenes. A "
+            "down-looking family's radiance product is the UPWELLING path "
+            "radiance; an up-looking family's is the DOWNWELLING one "
+            "(L_toward_lower). They are different quantities and are never "
+            f"substituted for one another. {action}"
+        )
 
     def coordinate_bounds(self) -> dict[str, tuple[float, float]]:
         """Return the min/max coordinate range for each axis."""
@@ -696,6 +833,139 @@ class InterpolatedAtmosphere:
             ),
         )
 
+    def uplooking_column_product(
+        self,
+        wavelength_um: np.ndarray,
+        los: LineOfSightGeometry,
+    ) -> UplookingColumnProduct:
+        """Interpolate the up-looking observer-leg column segment for *los*.
+
+        The segment is the sensor→target column of an up-looking scene.  Per
+        ADR-0011 decision 3 it is keyed to its **lower** endpoint — which for
+        an up-looking LOS is the *sensor* — so the family's
+        ``target_altitude_m`` axis is the segment's upper endpoint and its
+        recorded ``path_zenith_rad`` is the lower-endpoint zenith
+        ``ζ_low = π − θ_o``.  (That is the same meaning ``path_zenith_rad``
+        already carries in every down-looking family, where the lower endpoint
+        is the target and ``θ_o`` is target-referenced — one convention, not
+        two.)
+
+        Interpolation conventions are the family-wide ones: τ in log-τ
+        (optical-depth) space, radiance linearly, no extrapolation outside the
+        hull, and a query wavelength grid inside the stored spectral range
+        resampled by :meth:`build_state`.
+
+        Parameters
+        ----------
+        wavelength_um:
+            Query wavelength grid [µm].
+        los:
+            The line of sight.  ``h_sensor`` supplies the segment's lower
+            endpoint and ``h_tgt`` its upper one — read from the LOS contract,
+            never from parameters (guardrail G2).
+
+        Raises
+        ------
+        AtmosphereValidationError
+            If the family is not up-looking; if *los* is not up-looking; if
+            the LOS is not vertical (no up-looking zenith fan is shipped); if
+            the LOS carries no ``h_sensor``; or if ``h_sensor`` departs from
+            the family's rendered lower endpoint.
+        """
+        self._require_family_direction("up", "InterpolatedAtmosphere.uplooking_column_product")
+
+        if los.los_direction != "up":
+            raise AtmosphereValidationError(
+                "InterpolatedAtmosphere.uplooking_column_product: the line of "
+                f"sight is '{los.los_direction}'-looking (h_sensor="
+                f"{los.h_sensor}, h_tgt={los.h_tgt} m), and this entry point "
+                "serves up-looking scenes only. Use evaluate() for a "
+                "down-looking scene, or the level-arm segment evaluator for a "
+                "constant-altitude path."
+            )
+
+        h_sensor_m = require_sensor_altitude_m(
+            los, "InterpolatedAtmosphere.uplooking_column_product"
+        )
+
+        # ζ_low = π − θ_o: the zenith of the up-going ray at the sensor, which
+        # is the segment's lower endpoint.
+        zeta_low_rad = math.pi - float(los.theta_o)
+        if abs(zeta_low_rad) > _UPLOOKING_VERTICAL_TOL_RAD:
+            raise AtmosphereValidationError(
+                "InterpolatedAtmosphere.uplooking_column_product: the query is "
+                f"{math.degrees(zeta_low_rad):.4f}° off vertical at the sensor "
+                f"(theta_o = {los.theta_o:.6f} rad; vertical up-looking is "
+                "theta_o = π). The shipped up-looking family is a VERTICAL "
+                "partial-column ladder — one lower-endpoint zenith only — and "
+                "there is no up-looking zenith fan to interpolate over, so an "
+                "off-vertical query cannot be served from it. Mapping "
+                "off-vertical up-looking queries into airmass sec(ζ) space is "
+                "deferred until such a fan is run (plan §4 Phase 2, GF-10; the "
+                "K6 45° deck is the coupling anchor for that work, measured at "
+                "up to ~2.5% band-mean τ deviation from the sec-law "
+                "prediction). Use atmosphere.model='simple', which serves any "
+                "up-looking zenith through the segment evaluators."
+            )
+
+        # The family is rendered at ONE lower endpoint (the K ladder: ground).
+        # Serving a different one would silently swap in a different column —
+        # the bottom 100 m alone hold ~8% of the aerosol column (H_aer =
+        # 1.2 km) and ~5% of the water column (H_H2O = 2 km), so this is a
+        # refusal, not a warning.
+        rendered_sensor_m = self._non_axis_recorded.get("sensor_altitude_m")
+        if (
+            rendered_sensor_m is not None
+            and abs(h_sensor_m - rendered_sensor_m) > _NON_AXIS_LENGTH_TOL_M
+        ):
+            raise AtmosphereValidationError(
+                "InterpolatedAtmosphere.uplooking_column_product: query "
+                f"h_sensor = {h_sensor_m:.6g} m does not match the family's "
+                f"rendered lower endpoint {rendered_sensor_m:.6g} m (tolerance "
+                f"{_NON_AXIS_LENGTH_TOL_M:g} m). The runs integrate the column "
+                "from THAT altitude upward; starting somewhere else is a "
+                "different column, and near the ground the difference is large "
+                "(the lowest 100 m carry ~8% of the aerosol column). Add "
+                "'sensor_altitude_m' to atmosphere.interpolation_axes with a "
+                "run family covering it, or use atmosphere.model='simple'."
+            )
+
+        query_geometry = AtmosphericGeometry(
+            sensor_altitude_m=h_sensor_m,
+            target_altitude_m=float(los.h_tgt),
+            path_zenith_rad=abs(zeta_low_rad),
+            solar_zenith_rad=(
+                float(los.theta_s)
+                if los.theta_s is not None
+                else self._non_axis_recorded.get("solar_zenith_rad", 0.0)
+            ),
+            solar_azimuth_rad=(
+                float(los.delta_phi)
+                if los.delta_phi is not None
+                else self._non_axis_recorded.get("solar_azimuth_rad", 0.0)
+            ),
+        )
+        state = self.build_state(wavelength_um, query_geometry)
+
+        provenance: dict[str, Any] = {
+            "model": "interpolated",
+            "family_direction": "up",
+            "segment_kind": "column",
+            "h_low_m": h_sensor_m,
+            "h_high_m": float(los.h_tgt),
+            "zeta_low_rad": abs(zeta_low_rad),
+            "axes": list(self._axes),
+            "grid_type": self._grid_type,
+            "n_points": self.n_points,
+            "radiance_product": "L_toward_lower",
+        }
+        return UplookingColumnProduct(
+            wavelength_um=np.asarray(state.transmittance.wavelength_um, dtype=np.float64),
+            tau=np.asarray(state.transmittance.values, dtype=np.float64),
+            L_toward_lower=np.asarray(state.path_radiance.values, dtype=np.float64),
+            provenance=provenance,
+        )
+
     def evaluate(
         self,
         wavelength_um: np.ndarray,
@@ -733,6 +1003,8 @@ class InterpolatedAtmosphere:
         supply both legs.
         """
         import warnings
+
+        self._require_family_direction("down", "InterpolatedAtmosphere.evaluate")
 
         has_target_axis = "target_altitude_m" in self._axes
         if los.h_tgt > 0.0 and not has_target_axis:

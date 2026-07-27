@@ -13,7 +13,7 @@ The atmosphere module has one job: **deliver an `AtmosphericState` to the chain*
 Five guiding rules:
 
 1. **One contract, four input paths.** A user may specify the atmosphere by simple parametric model, by tabulated transmittance/path-radiance, by MODTRAN run, or by declaring the path exo-atmospheric (τ ≡ 1, L_path ≡ 0). All four paths produce the **same** `AtmosphericState`. The chain has no idea which path was used.
-2. **Three spectral outputs, always.** Every model, including exo-atmospheric, returns `τ_atm(λ)`, `L_path(λ)` (upwelling path radiance — what the sensor sees added to the target on its way through the atmosphere), and `L_atm_down(λ)` (downwelling, used by `SkyBackground` and reflected-solar paths). Numerical zero is preferable to a model-dependent `None`.
+2. **Three spectral outputs, always.** Every model, including exo-atmospheric, returns `τ_atm(λ)`, `L_path(λ)` (upwelling path radiance — what the sensor sees added to the target on its way through the atmosphere), and `L_atm_down(λ)` (hemispheric downwelling **irradiance**, used by the reflected-diffuse terms of the target and ground-background arms). The `SkyBackground` descriptor consumes a different product — a directional radiance along the LOS continuation, §4.2g — not this one. Numerical zero is preferable to a model-dependent `None`.
 3. **Geometry is an input, not a model property.** Slant range, sensor altitude, target altitude, path zenith angle, and solar zenith are all geometry inputs to *every* atmosphere model. The model decides how each input affects its outputs; the user does not pre-bake geometry into a tabulated file.
 4. **Turbulence is a stub with a real interface.** The Kolmogorov MTF formula is implemented because it is one line. Everything else (Cn² profiles, anisoplanatism, scintillation) is reserved interface. Turbulence is a flag, off by default, and never enabled for space-based observers.
 5. **MODTRAN is a wrapped tool, not an embedded library.** RADIANT writes a card deck, calls a `modtran` binary, parses tape7, and caches the result keyed by a hash of the deck. If the binary is missing, the cache is consulted; if the cache misses, a clear error is raised. RADIANT itself never tries to *be* MODTRAN.
@@ -117,6 +117,15 @@ class AtmosphericState:
 > compared and warned. The shipped `data/atmospheres/` NPZs record the full
 > five-field run geometry on every file (see the library MANIFEST), so these
 > checks compare against recorded values, not assumptions.
+> **Family direction (GF-10, 2026-07-26):** a family is tagged `down` (default,
+> upwelling products) or `up` (downwelling products) at construction, from the
+> `los_direction` marker on its NPZ files. `evaluate()` — the eight-field
+> down-looking bundle — refuses an up-looking family, and
+> `uplooking_column_product()` — the segment product for an up-looking observer
+> leg — refuses a down-looking one. The up-looking query takes its lower endpoint
+> from `los.h_sensor` (guardrail G2), interpolates 1-D over target altitude in
+> the same log-τ space, and refuses an off-vertical or elevated-endpoint query
+> rather than approximating it (§4.2b).
 > The diagram and subsections below predate it; treat `interpolated` as a sixth box
 > feeding the same single `AtmosphericState` contract.
 
@@ -195,7 +204,7 @@ This is the escape hatch for:
 
 **Inputs**: `atmosphere.tabulated_transmittance_file`, `atmosphere.tabulated_path_radiance_file`, `atmosphere.tabulated_downwelling_file` (optional).
 
-**Shipped nominal library (`data/atmospheres/`, 56-run matrix; base 2026-07-17, boost expansion 2026-07-20):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard, tropical, and midlat_summer carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated), and the boost-expansion families for missile-defense boost-phase tracking: `midlat_summer_boost_ladder/` (space sensor × target 0–100 km, nadir), `midlat_summer_boost_offnadir/` (× LOS zenith 0/45/60°), and `midlat_summer_sensor_ladder/` (airborne→space sensor 3 km–GEO, ground target). The 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull (vacuum above TOA makes the duplication exact), and each boost family's 100 km target rung is a **synthesized exact vacuum node** (τ ≡ 1, L_path ≡ 0 — a physical identity, present at every zenith column) closing the hull to the Gap 95 exo handoff. All midlat_summer families carry the H5 48.2° downwelling. Slit-degraded to 5 cm⁻¹ FWHM; full per-file provenance, the CO₂-band-core rationale, packaging decisions, the elevated-target downwelling simplification (CU-181), and known limitations in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py` and `tests/integration/test_exo_target_chain.py`. **Out-of-the-box default:** `atmosphere.model = "interpolated"` with `interpolated_data_dir` unset loads the shipped family matching `interpolation_axes` — `path_zenith_rad` → `us_standard_zenith_fan`, `sensor_altitude_m,target_altitude_m` → `midlat_summer_ladders`, `sensor_altitude_m` → `midlat_summer_sensor_ladder`, `sensor_altitude_m,target_altitude_m,path_zenith_rad` → `midlat_summer_boost_offnadir` — with a logged notice; an explicit directory always wins, and axes no shipped family covers still require one.
+**Shipped nominal library (`data/atmospheres/`; base 2026-07-17, boost expansion 2026-07-20, up-looking K block 2026-07-26):** RADIANT ships a committed NPZ library derived from the real MODTRAN 6 run matrix, so `tabulated`/`interpolated` users get real-radiative-transfer atmospheres without a MODTRAN license: six standard-profile nadir columns (`profiles/`, tabulated; us_standard, tropical, and midlat_summer carry real H-run downwelling sky radiance), a us_standard LOS-zenith fan 0–60° (`us_standard_zenith_fan/`, interpolated), a midlat_summer sensor×target-altitude grid spanning 35 km–GEO × 0–29 km (`midlat_summer_ladders/`, interpolated), and the boost-expansion families for missile-defense boost-phase tracking: `midlat_summer_boost_ladder/` (space sensor × target 0–100 km, nadir), `midlat_summer_boost_offnadir/` (× LOS zenith 0/45/60°), and `midlat_summer_sensor_ladder/` (airborne→space sensor 3 km–GEO, ground target). The 100 km TOA states are duplicated at a 40,000 km node so orbital sensors fall inside the interpolation hull (vacuum above TOA makes the duplication exact), and each boost family's 100 km target rung is a **synthesized exact vacuum node** (τ ≡ 1, L_path ≡ 0 — a physical identity, present at every zenith column) closing the hull to the Gap 95 exo handoff. All midlat_summer families carry the H5 48.2° downwelling. Slit-degraded to 5 cm⁻¹ FWHM; full per-file provenance, the CO₂-band-core rationale, packaging decisions, the elevated-target downwelling simplification (CU-181), and known limitations in `data/atmospheres/MANIFEST.md`. Asserted by `tests/integration/test_shipped_atmosphere_library.py` and `tests/integration/test_exo_target_chain.py`. **Up-looking family (GF-10, 2026-07-26):** `midlat_summer_uplooking_ladder/` (K1–K5 + a synthesized zero-length node) is the first up-looking family — ground sensor, vertical, targets 0–20 km, carrying the *downward* path radiance under `path_radiance_toward_lower` with a `los_direction` marker; see §4.2b. **Out-of-the-box default:** `atmosphere.model = "interpolated"` with `interpolated_data_dir` unset loads the shipped family matching the scene's LOS direction and `interpolation_axes` — down-looking `path_zenith_rad` → `us_standard_zenith_fan`, down `sensor_altitude_m,target_altitude_m` → `midlat_summer_ladders`, down `sensor_altitude_m` → `midlat_summer_sensor_ladder`, down `sensor_altitude_m,target_altitude_m,path_zenith_rad` → `midlat_summer_boost_offnadir`, up `target_altitude_m` → `midlat_summer_uplooking_ladder` — with a logged notice; an explicit directory always wins, and a (direction, axes) pair no shipped family covers still requires one.
 
 ### 3.3 Exo-atmospheric
 
@@ -257,9 +266,15 @@ Air mass `m = L_slant / Δh` is stored alongside; for zenith ≤ 80° it equals 
 A target at or above the top of the atmospheric column (`los.h_tgt ≥
 los.h_atm_top`, default 100 km — a satellite, a post-burnout booster, a 100+ km
 hypersonic) is legal geometry (`LineOfSightGeometry` accepts any `h_tgt ≥ 0`)
-and is served **model-agnostically** by
-`atmosphere/exo_target.py::evaluate_with_exo_target`, which `AtmosphereStage`
-calls in place of a bare `model.evaluate`:
+and is served **model-agnostically** by the down-looking exo arm of
+`atmosphere/topology.py::evaluate_path_topology`, which `AtmosphereStage` calls
+in place of a bare `model.evaluate`. Since Geometry-Flexibility Phase 2 it is
+expressed as the ADR-0011 **path-segment composition** it always was. The path
+partitions at `h_atm_top` into a ground→target column `G` (the backend's own full
+column, from a surface-target evaluation) and a vacuum target→sensor segment `V`
+(`τ_V ≡ 1`, `L_V ≡ 0`, no model consulted), and the composition rules
+`τ(G ∪ V) = τ_G·τ_V`, `L(G ∪ V) = L_G·τ_V + L_V` collapse by those identities to
+exactly the published fields — with no arithmetic performed at all:
 
 - `τ_up ≡ 1`, `L_path_up ≡ 0 W/m²/sr/µm`, `τ_sun ≡ 1` — exact identities (no
   absorber above the column top), not approximations; no warning is emitted.
@@ -286,6 +301,18 @@ calls in place of a bare `model.evaluate`:
   uses Earthshine-magnitude but ground-spectrum illumination (see the module
   docstring; negligible against plume/self emission in the driving scenarios).
 
+> **Retirement note (guardrail G4 / Rule 27, 2026-07-26).** Before Phase 2 this
+> case was served by an `evaluate_with_exo_target` *wrapper* — a function that
+> called the backend at a substituted geometry and then overrode fields of the
+> result. G4 requires a carve-out to become a natural case of its generalization
+> and the wrapper to be deleted in the same PR, so `atmosphere/exo_target.py` is
+> gone and the composition above is the only description. Because the
+> composition performs no arithmetic, the fold was provably bit-identical: a
+> differential run over 3 124 exo configurations compared old and new with exact
+> `==`. The name survives only in retirement notes — this paragraph, the
+> `atmosphere/topology.py` module docstring, and the `h_tgt` note on
+> `LineOfSightGeometry` — and nothing in the live design depends on it.
+
 `LineOfSightGeometry.slant_range_atm` returns 0 m and `path_airmass_up` the
 vacuum limit 1.0 for these targets. Targets in the 29–100 km band are now
 covered by real MODTRAN data — the boost-ladder run set (G7–G11, I1–I9) landed
@@ -295,7 +322,7 @@ backend serves a continuous τ_up from 0 km through the synthesized 100 km
 vacuum rung into this exo branch (see the shipped-library note in §3.2 and the
 archived `docs/archive/MODTRAN_Boost_Ladder_Expansion_Plan.md`).
 
-### 4.2b Path direction — one source of truth, one pending-capability refusal
+### 4.2b Path direction — one source of truth, three topology arms
 
 Since ADR-0011 (Geometry-Flexibility Phase 1) `LineOfSightGeometry` carries
 **both** endpoints, and `los.h_sensor` is the **only** source of the sensor
@@ -305,15 +332,333 @@ altitude inside `radiant.atmosphere`: no backend `evaluate` reads
 LOS). A LOS that does not carry `h_sensor` raises an actionable error rather
 than falling back to the parameter (`atmosphere/_sensor_endpoint.py`).
 
-Direction is derived from the altitude pair, never declared. The atmosphere is
-still direction-blind — every backend integrates the column *above* the target
-out to the sensor — so `AtmosphereStage` rejects, **before backend dispatch**,
-any path whose sensor sits at or below the target while the path's lower
-endpoint is inside the column (`atmosphere/_uplooking_guard.py`). The error
-names the pending capability (direction-aware atmosphere, Phase 2, Gaps
-108/109) instead of surfacing as a backend zenith-ceiling or "looking-up
-configuration" message. Admissible today: every down-looking path, and the
-wholly-vacuum up-looking/level path of §4.2a.
+Direction is derived from the altitude pair, never declared, and since
+Geometry-Flexibility **Phase 2** it *dispatches* rather than refuses
+(`atmosphere/topology.py::evaluate_path_topology`; the Phase-1
+`_uplooking_guard.py` blanket refusal is deleted):
+
+| `los.los_direction` | Product |
+|---|---|
+| `down` | The backend's own `evaluate`, **unchanged and not rerouted** — every existing scene is byte-identical. The exo-altitude target is the segment composition of §4.2a over that same call |
+| `up` | Segment composition: an observer-leg column keyed to the **sensor** (the lower endpoint), plus reused target-side illumination, plus a sky continuation — §4.2d |
+| `level` | Same, with a constant-altitude arm as the observer leg |
+
+The refusal that remains is a **capability** refusal, not a
+pending-implementation one: the segment evaluators are built on the
+CU-161-calibrated `SimpleAtmosphere` species model, so `atmosphere.model =
+"simple"` serves up-looking and level paths and every other backend raises an
+actionable error naming exactly what *is* supported (simple for any endo path;
+any backend for a wholly-vacuum path with both endpoints above `h_atm_top`).
+MODTRAN tape7-import and the interpolated library arrive with their own
+up-looking / ITYPE=1 run families (owner-run batches, GF-10).
+
+**Up-looking interpolated library (GF-10, shipped 2026-07-26).** The first
+up-looking run family ships as `midlat_summer_uplooking_ladder/` — the K-block
+vertical partial-column ladder (ground sensor → targets 1/3/5/10/20 km, plus a
+synthesized exact zero-length node at 0 km). It is queried through
+`InterpolatedAtmosphere.uplooking_column_product(wavelength_um, los)`, which
+returns an `UplookingColumnProduct` carrying the segment's reciprocal `tau` and
+its `L_toward_lower` — the *downward* path radiance the ground sensor sees. It
+is deliberately **not** a `SegmentQuantities`: an up-looking run measures one
+travel direction, and a type with no `L_toward_upper` field is how that is said
+without inventing one (Rule 17). Three properties keep the two directions from
+being confused: the NPZ radiance key differs (`path_radiance_toward_lower` vs
+`path_radiance`), every file carries a `los_direction` marker, and the two query
+entry points refuse each other's families. The shipped-family default is keyed
+on `(los_direction, interpolation_axes)`. The family is vertical-only and
+ground-endpoint-only; off-vertical and elevated-endpoint queries raise and name
+`atmosphere.model = "simple"` rather than being approximated (see
+`data/atmospheres/MANIFEST.md` for the K6 45° measurement that justifies the
+refusal).
+
+> **Deferred — the sec-space zenith axis (GF-10, batch 2).** Down-looking
+> families interpolate a zenith axis in **sec θ** (airmass) space, which is
+> what makes a zenith fan interpolate linearly (CU-160). An up-looking zenith
+> fan would need the same treatment, and the transform diverges as θ → 90°, so
+> the near-horizontal band an up-looking family most wants to cover is exactly
+> where sec-space is worst behaved. Rather than ship a fan on an untested
+> mapping, the first up-looking family is rendered at a single zenith and
+> off-vertical queries **raise**. Revisiting the mapping for the near-horizontal
+> band is batch-2 work, alongside the refraction on/off calibration pair; until
+> then `atmosphere.model = "simple"` is the answer for a slant up-look.
+>
+> **Also deferred: chain wiring.** The family is reachable only through
+> `InterpolatedAtmosphere.uplooking_column_product`. `uplooking_quantities.
+> supports_uplooking` still admits `SimpleAtmosphere` alone, so an up-looking
+> chain run on `atmosphere.model = "interpolated"` raises the capability error
+> rather than consuming the shipped family.
+
+### 4.2c The path-segment contract (guardrail G1)
+
+Guardrail G1 forbids serving new path topologies by giving
+`AtmosphericQuantities` new flat fields. The unit of composition is instead a
+**path segment**: one piece of path between two points, evaluated once, read
+from either end. `atmosphere/segments.py` owns the contract; the evaluators
+(`segment_simple.py`, `segment_thermal.py`, `segment_single_scatter.py`,
+`segment_grazing.py`, `level_arm.py`) implement it, one computation per module
+(Rule 19).
+
+Two spec types, because there are two path topologies and they are not
+variations of one form:
+
+| Spec | Fields | Topology |
+|---|---|---|
+| `ColumnSegmentSpec` | `h_low_m`, `h_high_m` [m], `zeta_low_rad` [rad] | **endpoint-minimum** — the path's lowest point is an endpoint. Plane-parallel-with-spherical-correction air mass |
+| `LevelArmSpec` | `altitude_m` [m], `length_m` [m] | **interior-tangent** — the lowest point is in the middle. True spherical chord at constant density; **no air mass at all** (§4.2f) |
+
+One evaluated product, `SegmentQuantities`, carrying:
+
+- `wavelength_um` [µm] — the chain grid, ascending and strictly positive.
+- `tau` — **one** array, dimensionless ∈ [0, 1]. Transmittance is reciprocal
+  (§4.4), so a segment has one τ no matter which way it is read. A second
+  direction-tagged τ would be a second source of truth for one quantity.
+- `L_toward_upper`, `L_toward_lower` [W/m²/sr/µm] — path radiance **is**
+  direction-specific, so it is two fields. `L_toward_upper` is what a sensor
+  above the segment sees; `L_toward_lower` is what a sensor below it sees. They
+  differ because the emitting and scattering layers are weighted by the
+  transmittance of the material *between* them and the receiver, and that
+  weighting reverses with direction.
+
+**The lower-endpoint convention** (ADR-0011 decision 3). Every column segment's
+zenith is keyed to its **lower** endpoint. Two reasons, both structural: it is
+the one endpoint the two travel directions share, so a single scalar describes
+the segment rather than the reading of it; and it is the angle MODTRAN's Card 3
+wants when `H1 ≤ H2` (§5.2), so no convention translation sits between RADIANT
+and its truth source. A level arm has no column zenith at all — its 90° is an
+interior-tangent quantity, not an air-mass argument — which is why `LevelArmSpec`
+carries a length instead.
+
+**The validity ceiling and the refused sliver.** `zeta_low_rad` is bounded at
+`ZENITH_CEILING_RAD` = 89.5° — the existing
+plane-parallel-with-spherical-correction air-mass ceiling, unchanged from the
+down-looking path. A zenith in the sliver **(89.5°, 90°)** is *geometrically*
+admissible, and the Phase-1
+horizon guard only **warns** there for an endpoint-minimum path; but there is no
+trustworthy column air mass in that band, so `ColumnSegmentSpec` **refuses** it
+with an actionable error rather than returning a plausible-looking wrong number
+(Rule 17). The two layers disagreeing is deliberate, not an oversight: geometry
+judges whether the *path* is modellable, the segment spec judges whether the
+*column air mass* is. A near-horizontal path in that sliver is an
+interior-tangent path and belongs in a `LevelArmSpec`, which carries no air mass
+and is therefore unaffected by the ceiling. This is also why the near-tangent
+sky continuation past 89.5° switches to the true spherical slant integral of
+`segment_grazing.py` (§4.2g) instead of extrapolating the column form.
+
+### 4.2d Direction-aware composition — up-looking and level paths (Phase 2)
+
+Gaps 108/109. An up-looking or level scene is a **composition of path
+segments** (guardrail G1: the eight-field `AtmosphericQuantities` contract is
+unchanged; what changes is which segment fills the observer-leg slots), built by
+`atmosphere/uplooking_quantities.py`:
+
+```
+observer leg = segment(target ↔ sensor)       → tau_obs, L_obs→sensor
+illumination = target-side products, reused   → tau_sun, E_TOA, E_sky_*
+continuation = segment(target → space)        → L_sky
+
+L_t,aperture  = [ε·B(T_t) + ρ·τ_sun·E_TOA·cos θ_s/π + ρ·E_sky/π] · tau_obs + L_obs→sensor
+L_bg,aperture = L_sky · tau_obs + L_obs→sensor
+```
+
+The target equation is the **unmodified §6.1 equation with the observer leg
+swapped**, so `assembly.assemble_target_at_aperture` is reused verbatim and
+every T-code works up-looking with no new arms.
+
+- **Observer leg** (`atmosphere/observer_leg.py`). Up-looking: a
+  `ColumnSegmentSpec` from `h_sensor` to `h_tgt` keyed to the sensor's zenith
+  `ζ_low = π − η` (ADR-0011 decision 3), read in the `toward_lower` direction.
+  Level: a `LevelArmSpec` whose length is the true spherical chord, read
+  `toward_upper`. The sun's relative azimuth is re-expressed in the segment's
+  frame (`Δφ_seg = Δφ − π` up-looking, where lower→upper is sensor→target).
+  **Transmittance is reciprocal**: the same physical line expressed down-looking
+  and up-looking gives the same `τ` to within an ULP, and exactly for the
+  vertical case.
+- **Illumination leg.** `τ_sun`, `E_TOA` and the two `E_sky` terms describe the
+  *target's* environment and are direction-agnostic, so they are reused from a
+  proxy down-looking evaluation at the same `h_tgt` and solar angles with the
+  sensor at `h_atm_top` and `θ_o = 0`. With the proxy sensor at the column top
+  the `E_sky_scattered` slab coincides with the CU-155 `E_sky_thermal` slab, so
+  both diffuse components mean "the sky above the target", which is what an
+  up-looking scene means by them. An exo-altitude target takes the vacuum
+  identities instead.
+- **Continuation / `SkyBackground`.** The LOS continuation leaves the target at
+  `ζ_c = π − θ_o`; `core/los_termination.py` classifies where it ends
+  (Rule B). Inside the 89.5° column ceiling it is
+  `sky_radiance.sky_radiance_along_los`; past it — every level arm shorter than
+  ≈ 111 km — it is the true spherical slant integral
+  (`atmosphere/segment_grazing.py`, over `atmosphere/grazing_column.py`),
+  because the plane-parallel air mass understates the real column by ~3× there.
+  For an exo target the continuation is vacuum and `L_sky ≡ 0`, so the
+  background reduces to the observer leg's own emission.
+- **`tau_full_up` / `L_path_full` carry the observer leg** for these topologies:
+  the LOS terminates on space, so the background source plane *is* the target
+  plane. An explicit `GroundBackground` on an up-looking or level path is
+  refused (there is no ground behind the target — `AtmosphereStage`).
+
+### 4.2e Per-altitude solar illumination (GF-9, ratified decision 21)
+
+The global `θ_s < π/2` bound is replaced by a per-altitude shadow-height test.
+`geometry.solar_zenith_rad` and `AtmosphericGeometry.solar_zenith_rad` now span
+the closed `[0, π]`; whether a given point is lit is decided by
+`atmosphere/solar_shadow.py`:
+
+```
+sunlit(h, θ_s)  ⟺  θ_s ≤ π/2  or  (R_E + h)·sin θ_s ≥ R_E
+                ⟺  h ≥ R_E·(sec δ − 1),   δ = θ_s − π/2
+```
+
+so a 60 km booster is sunlit at 5° solar depression while the ground beneath it
+(shadow height ≈ 24 km) is not. Assumption: a **sharp terminator** — opaque
+sphere, point Sun, no refraction; the ≈ 200 m penumbral blur and the ≈ 0.5° of
+unmodelled refractive lift are documented, not smoothed.
+
+For a **sunlit** target with `θ_s > π/2` the direct beam is a tangent transit,
+not a descending column, so `τ_sun` is the two-arm decomposition
+`τ(tangent → target)·τ(tangent → TOA)` of `atmosphere/solar_transit.py`. For a
+**shadowed** target `τ_sun` is exactly 0 (no beam at all) and the scattered-sky
+solar component is already identically zero; the thermal sky is untouched.
+
+> **PROVISIONAL.** The twilight transit carries the largest optical depths
+> anywhere in RADIANT (30–70 air masses), where the exponential-in-column
+> transmittance and the unmodelled refraction are both at their worst, and
+> MODTRAN batch 1 contains no twilight deck. Treat it as an order-of-magnitude
+> bound; a twilight pair belongs in batch 2 alongside the refraction on/off
+> calibration.
+>
+> Note also that RADIANT models the target as a horizontal Lambertian facet, so
+> assembly multiplies the direct-solar term by `cos θ_s` clamped at zero. For
+> any `θ_s > π/2` that factor is zero and the direct term vanishes regardless of
+> `τ_sun` — the beam arrives from below the facet. `τ_sun` is still published
+> correctly because it is an inspectable physical quantity (Rule 16) and a
+> non-horizontal target model would consume it.
+
+**Zero drift**: every scene with `θ_s ≤ π/2` — everything expressible before
+Phase 2 — keeps the backend's own solar column, untouched.
+
+### 4.2f The constant-altitude arm — the level path (A5)
+
+A level or near-level path (`los_direction == "level"`) cannot be served by the
+column machinery at all, and the reason is structural rather than a matter of
+accuracy: a column segment's optical depth is `∫ exp(−h/H) dh` between its two
+endpoint altitudes, which for equal altitudes is **exactly zero**, and its air
+mass is a plane-parallel `sec ζ` that is undefined at ζ = π/2. The level arm is
+an **interior-tangent** topology — its lowest point is in the middle, not at an
+endpoint — so it gets its own spec type (`LevelArmSpec`) and its own evaluator
+(`atmosphere/level_arm.py`), per Rule 19.
+
+```
+τ(λ)      = exp[ −α(λ, h) · L ]                    (Beer-Lambert, exact)
+L_path(λ) = (1 − τ(λ))·B(λ, T_eff)  +  single-scatter solar source
+```
+
+with `α(λ, h)` the **local** extinction coefficient at the arm's altitude
+[1/km] and `L` the **true spherical chord** between the endpoints [km] — not a
+flat-Earth range. No new calibration is introduced: Rayleigh and aerosol have
+closed-form local values already, and the CU-161 water and well-mixed-gas terms
+(which are calibrated as *column* optical depths, the water one as a curve of
+growth `OD = k·w_eff^b` that is the integral of no local coefficient) are
+linearised the same way `simple.py` already linearises them for its
+single-scattering-albedo weights — the species' column-mean sea-level extinction
+over the column *above* the arm, brought down to the arm's local density. That
+reference column is independent of the arm's own length, which is what makes `α`
+a property of altitude alone and `τ` a pure exponential in `L`.
+
+**Constant-density assumption, and where it stops being valid.** The arm is a
+straight chord of uniform density at `altitude_m`. On a spherical Earth the
+chord dips below its endpoints by the tangent-height depression
+`Δh ≈ L²/8R_E` (mean sag over the chord `≈ (2/3)Δh`), so the real path samples
+slightly *denser* air and the model **under-states** optical depth. The Phase-1
+horizon guard is what bounds the error: it admits `Δh < 100 m` clean, warns to
+2 km, and raises beyond. Working the numbers on the 2 km water scale height:
+
+| Guard band | Δh | Mean sag | Water-density error |
+|---|---|---|---|
+| clean edge | 100 m (L ≈ 71 km) | 67 m | 3.4 % |
+| L-grid longest arm | 196 m (L = 100 km) | 131 m | 6.8 % |
+| raise threshold | 2 km | 1.33 km | ≈ 1.9× (90 %) |
+
+The last row is *why* 2 km raises rather than warns — a two-fold understatement
+of water optical depth is not a caveat, it is a wrong answer (Rule 17).
+
+**The exponential is the model's own claim, and it is measured.** `τ(2L) = τ(L)²`
+holds exactly for this arm and is precisely where a correlated-k band model
+disagrees: strong lines saturate first and flux keeps leaking through the
+windows between them. Against the real MODTRAN horizontal 5×5 grid (rows
+L1–L25, midlat_summer, rural, 23 km visibility) the band-mean model/MODTRAN
+ratio at 3 km altitude runs **1.03, 1.01, 0.95, 0.87, 0.82** over 5/10/25/50/100
+km at 8–12 µm, and **1.09, 0.88, 0.43, 0.11, 0.01** at 3–5 µm — the exponential
+arm collapses while MODTRAN keeps leaking. Long-range MWIR horizontal work needs
+a MODTRAN or interpolated backend; the A5 library family is batch 2. MODTRAN's
+own horizontal path type is `ITYPE=1`, wired through `ModtranConfig.hrange_km`
+(§5.2).
+
+### 4.2g Sky radiance along the LOS — the `SkyBackground` product (Gap 108)
+
+The one genuinely **new** product of Phase 2. It is the radiance a receiver at
+`h_start` sees looking **up** along a ray of zenith ζ with nothing behind the
+atmosphere but cold space, and it is what a sensor sees *behind* an airborne
+target:
+
+```
+L_sky(h_start, ζ) = SegmentQuantities(ColumnSegmentSpec(h_start, h_atm_top, ζ)).L_toward_lower
+                    + τ_segment · L_beyond ,      L_beyond ≡ 0
+```
+
+`L_beyond ≡ 0` because the 2.7 K cosmic background contributes
+< 1e-9 W/m²/sr/µm anywhere in the 0.3–14 µm working range and is deliberately
+not modelled. The composition is therefore a no-op and
+`atmosphere/sky_radiance.py` is a thin, well-named wrapper over
+`segment_simple.py` rather than a second physics implementation.
+
+Two things it is **not**:
+
+- It is not `AtmosphericQuantities.E_sky_thermal`. That is a hemispheric
+  downwelling **irradiance** [W/m²/µm] used for surface reflection; this is a
+  directional **radiance** [W/m²/sr/µm] along one ray. Different quantity,
+  different unit, different geometry — nothing here modifies or replaces it, so
+  no existing scene moves.
+- It is not a field on `AtmosphericQuantities` (guardrail G1). It rides
+  alongside the eight-field bundle on `TopologyProducts.sky_source_radiance` and
+  is consumed only by the `SkyBackground` arm of `assembly.py`, which propagates
+  it as `L_sky·τ_full_up + L_path_full` — structurally the `GroundBackground`
+  arm with the source plane moved from the surface to the target.
+
+A missing or off-grid `sky_source_radiance` **raises** rather than defaulting to
+zero: a silently-zero sky background would delete the background photon term and
+therefore *inflate* SNR, which is the exact failure mode Rule 17 forbids.
+
+**Band gating (plan §8.3 answer 3, locked decision 20).** The thermal component
+is first-class at first delivery — it is anchored directly against the real
+MODTRAN up-looking H-runs. The scattered-solar component rests on a
+single-scatter approximation known to under-predict the daytime VIS/NIR sky,
+where multiple scattering dominates. A `UserWarning` is emitted when **both**
+conditions hold: the evaluation grid extends below
+`sky_radiance.SCATTERED_SKY_PROVISIONAL_MAX_UM` (3 µm) **and** a solar geometry
+with the sun above the local horizon is supplied. A pure-thermal MWIR/LWIR call
+warns about nothing, and neither does a night scene on a VIS grid.
+
+> **Coupling caveat (found 2026-07-26, not yet repaired).** Whether the sky
+> carries a scattered-solar component at all is gated by `los.theta_s`, and
+> `source/_inferrer._adjust_scene_los` strips `theta_s` for a **T1Thermal**
+> target (the CU-009 predicate: "a pure-thermal radiance has no solar leg").
+> That predicate was complete when the target was the only consumer of
+> `theta_s`; the sky background is now a second consumer whose solar dependence
+> has nothing to do with the target's material. Consequence: a pure-thermal
+> target on a VIS/NIR grid gets a **thermal-only sky at noon**, and no
+> provisional warning, because the trigger condition is never met. Pinned as a
+> characterization by
+> `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`.
+
+**Near-tangent continuation.** Past the 89.5° column ceiling — which is every
+level arm shorter than ≈ 111 km — the continuation is evaluated as a true
+spherical slant integral (`atmosphere/segment_grazing.py` over
+`grazing_column.py`) instead, because the plane-parallel air mass understates
+the real column by ~3× there. The hand-over at 89.5° is a **step, not a blend**
+(CU-225): the two forms agree to 0.05 % at the 48° zenith the MODTRAN H-runs
+anchor and to 1.6 % at 80°, but differ by ≈ 28 % in band-mean LWIR sky radiance
+right at the ceiling. The grazing form is the more accurate one there — that is
+why it takes over — but closing the step means choosing between two anchored
+products, which is a batch-2 question.
 
 ### 4.3 How geometry feeds each model
 
@@ -330,7 +675,9 @@ The simple model and the MODTRAN interface both *recompute* their outputs whenev
 
 For unpolarized broadband radiation in a plane-parallel atmosphere, transmittance is reciprocal: `τ(sensor → target) = τ(target → sensor)`. RADIANT exploits this — only one transmittance is computed per slant path. Path radiance is *not* reciprocal: the sensor-bound (`L_path`, "upwelling") and source-bound (`L_atm_down`, "downwelling") radiances differ because of the geometry of where the scattering and emission happen. Both are computed independently, and they are not interchanged.
 
-`L_atm_down` is consumed by `SkyBackground` (RADIANT_Source_Target_System.md §3.7) and by any `ReflectedSolarSource` whose downwelling spectrum is tied to the atmospheric model rather than to a top-of-atmosphere standard. The atmosphere module *produces* `L_atm_down`; it does not consume it.
+`L_atm_down` (surfaced in `AtmosphericQuantities` as the `E_sky_thermal` / `E_sky_scattered` **irradiance** pair) is consumed by the reflected-diffuse term of the target and ground-background arms, and by any `ReflectedSolarSource` whose downwelling spectrum is tied to the atmospheric model rather than to a top-of-atmosphere standard. The atmosphere module *produces* it; it does not consume it.
+
+**Not to be confused with the `SkyBackground` product.** Before Phase 2 this paragraph named `SkyBackground` as `L_atm_down`'s consumer, which the Phase-2 implementation makes wrong in both directions: the `SkyBackground` descriptor consumes a *directional radiance along the LOS continuation* (§4.2g, `TopologyProducts.sky_source_radiance`, W/m²/sr/µm), never the hemispheric irradiance, and the irradiance's real consumers are the reflective terms. The two are separate products computed by separate modules; conflating them would put a hemispheric integral where a single ray belongs.
 
 ---
 
@@ -343,7 +690,7 @@ There are **two ways in**, with a fixed precedence:
 1. **Tape7 file import (§5.1) — the primary workflow.** `atmosphere.modtran.tape7_path` names a tape7 produced elsewhere (a colleague's licensed MODTRAN run, a donated fixture). When set, the file wins unconditionally: the binary, the cache, and the fallback are never consulted.
 2. **Binary invocation (§5.2–§5.5) — secondary, never yet exercised.** With `tape7_path` unset, RADIANT renders a tape5 deck and drives a locally-installed `modtran` executable, with caching and an opt-in fallback. This path is retained unchanged for when MODTRAN access arrives.
 
-**Verification status caveat**: as of 2026-07-17 a real MODTRAN 6 run set (the 39-run matrix) has been produced externally, and both the **parse side** and the **deck side** are now validated against it. Parse: tape7 output round-trips through the reader (CU-154; §5.3 "Real-data validation"). Deck: the field-position conventions RADIANT *writes* are confirmed by three-way agreement (`render_tape5` == the CSV's hand-worked column == the delivered tape7's card echoes) across all 35 non-E rows plus correct airmass physics — **CU-065** (Card 3 ANGLE-at-H1 convention: nadir renders 180°) and **CU-067** (Card 1 token positions MODEL/ITYPE/IEMSCT/IMULT) are verified this way, a stronger authority than the manual alone, and pinned by Level-0 tests. Still external: RADIANT has not itself *invoked* a MODTRAN binary (the runs were delivered as files); the binary-invocation cache key now fingerprints the executable's bytes so an upgrade invalidates stale entries (**CU-070** resolved via the byte-hash fallback; a `modtran -version` form can supersede it once the binary path is exercised). The committed test fixtures remain synthetic/hand-authored until the real fixture subset is committed (plan §7.1). See `docs/archive/MODTRAN_Run_Matrix_Plan.md`.
+**Verification status caveat**: as of 2026-07-17 a real MODTRAN 6 run set (the 39-run matrix) has been produced externally, and both the **parse side** and the **deck side** are now validated against it. Parse: tape7 output round-trips through the reader (CU-154; §5.3 "Real-data validation"). Deck: the field-position conventions RADIANT *writes* are confirmed by three-way agreement (`render_tape5` == the CSV's hand-worked column == the delivered tape7's card echoes) across all 35 non-E rows plus correct airmass physics — **CU-065** (Card 3 ANGLE-at-H1 convention: nadir renders 180°) and **CU-067** (Card 1 token positions MODEL/ITYPE/IEMSCT/IMULT) are verified this way, a stronger authority than the manual alone, and pinned by Level-0 tests. Still external: RADIANT has not itself *invoked* a MODTRAN binary (the runs were delivered as files); the binary-invocation cache key now fingerprints the executable's bytes so an upgrade invalidates stale entries (**CU-070** resolved via the byte-hash fallback; a `modtran -version` form can supersede it once the binary path is exercised). The committed test fixtures remain synthetic/hand-authored until the real fixture subset is committed (plan §7.1). **Extended 2026-07-26** (Geometry-Flexibility Phase 2, batch-1 delivery): the same three-way agreement now covers every delivered row of the 88-row matrix, including the K-block up-looking ladder (K7 closing the elevated-lower-endpoint ANGLE convention) and the 25-row ITYPE=1 horizontal grid, whose Card-3 **RANGE** field is compared as well (`tests/integration/test_uplooking_horizontal_anchors.py`). See `docs/archive/MODTRAN_Run_Matrix_Plan.md`.
 
 ### 5.1 Tape7 file import (primary workflow)
 
@@ -361,9 +708,9 @@ Setting `atmosphere.modtran.tape7_path` (with `atmosphere.model = "modtran"`) bu
 
 ### 5.2 Card deck builder
 
-`ModtranConfig` is a dataclass holding the MODTRAN knobs RADIANT exposes; the free function `render_tape5(config, geometry)` emits the fixed-format tape5 string. RADIANT does not expose every MODTRAN knob — only the ones that matter for the in-scope use cases: `atmosphere_profile` (MODEL 1–6), `aerosol_model` (IHAZE), `h2o_scale` / `o3_scale` (Card 2C column scaling), `visibility_km` (Card 2 VIS; `None` = IHAZE default, CU-063), `itype` (Card 1 path geometry; default 2 = slant path H1→H2, CU-069), `iemsct` (Card 1 mode; default 2 = thermal+solar path radiance, 3 = solar irradiance, CU-064), `spectral_resolution_cm1`, `v1_cm1` / `v2_cm1` (Card 4), plus `binary_path`, `cache_dir`, and `allow_fallback`.
+`ModtranConfig` is a dataclass holding the MODTRAN knobs RADIANT exposes; the free function `render_tape5(config, geometry)` emits the fixed-format tape5 string. RADIANT does not expose every MODTRAN knob — only the ones that matter for the in-scope use cases: `atmosphere_profile` (MODEL 1–6), `aerosol_model` (IHAZE), `h2o_scale` / `o3_scale` (Card 2C column scaling), `visibility_km` (Card 2 VIS; `None` = IHAZE default, CU-063), `itype` (Card 1 path geometry; default 2 = slant path H1→H2, CU-069), `iemsct` (Card 1 mode; default 2 = thermal+solar path radiance, 3 = solar irradiance, CU-064), `hrange_km` (Card 3 RANGE — the horizontal path length in km; meaningful only for `itype=1`), `spectral_resolution_cm1`, `v1_cm1` / `v2_cm1` (Card 4), plus `binary_path`, `cache_dir`, and `allow_fallback`.
 
-**Cards RADIANT writes** (1, 1A, 2, 2C, 3, 3A1, 4, 5): geometry comes from `AtmosphericGeometry` — H1/H2 from sensor/target altitude; Card 3 ANGLE is converted from `path_zenith_rad` (measured at the path's lower endpoint, §4.1) to MODTRAN's zenith-at-H1 convention: downlooking (H1 above H2) renders `180° − zenith` (nadir-from-space → 180°), uplooking renders the zenith unchanged. The conversion reproduces the hand-worked `modtran_angle_at_h1_deg` column of `docs/plans/modtran_run_matrix.csv` for every ITYPE=2 row; the CU-065 residue is confirming that convention against the MODTRAN manual itself. Solar zenith/azimuth go on Card 3A1 (IPARM=2). IMULT=1 (multiple scattering) is fixed. Anything not exposed is left at the literal values in `render_tape5`; the `ModtranConfig.extra_cards: dict[str, str]` field lets advanced users override a whole card line, and the override is part of the rendered deck and therefore of the cache key.
+**Cards RADIANT writes** (1, 1A, 2, 2C, 3, 3A1, 4, 5): geometry comes from `AtmosphericGeometry` — H1/H2 from sensor/target altitude; Card 3 ANGLE is converted from `path_zenith_rad` (measured at the path's lower endpoint, §4.1) to MODTRAN's zenith-at-H1 convention: downlooking (H1 above H2) renders `180° − zenith` (nadir-from-space → 180°), uplooking renders the zenith unchanged. The conversion reproduces the hand-worked `modtran_angle_at_h1_deg` column of `docs/plans/modtran_run_matrix.csv` for every ITYPE=2 row; the CU-065 residue is confirming that convention against the MODTRAN manual itself, and the delivered K7 run (5 → 15 km at 45°) closes the elevated-lower-endpoint half of it empirically: its Card-3 echo reads `ANGLE 45.000` with `PHI 135.083` at H2, which is only consistent with ANGLE belonging to H1. **ITYPE=1 (horizontal, constant-altitude) is the one path type where ANGLE is not derived from `path_zenith_rad`**: MODTRAN builds the path from H1 plus Card 3 RANGE and ignores H2/ANGLE, so `render_tape5` writes the literal 90° a level path has by definition and takes the path length from `ModtranConfig.hrange_km`. A level path's 90° is an interior-tangent quantity, not a column zenith, so `AtmosphericGeometry` correctly refuses to carry it (`ZENITH_CEILING_RAD` = 89.5° is the column air-mass validity ceiling) and the horizontal branch does not consult it. `ModtranConfig` refuses `itype=1` without `hrange_km` (a zero-length path) and `hrange_km` outside `itype=1` (over-specification — MODTRAN derives RANGE from H1/H2/ANGLE for a slant path). Because `hrange_km` is 0.0 for every non-horizontal deck and `f"{0.0:10.3f}"` is exactly the ten-character literal the RANGE field previously held, every ITYPE ∈ {2, 3} deck renders byte-identically to the pre-wiring builder. Solar zenith/azimuth go on Card 3A1 (IPARM=2). IMULT=1 (multiple scattering) is fixed. Anything not exposed is left at the literal values in `render_tape5`; the `ModtranConfig.extra_cards: dict[str, str]` field lets advanced users override a whole card line, and the override is part of the rendered deck and therefore of the cache key.
 
 The deck is rendered to a tape5 in a per-run temp directory. RADIANT does *not* edit a user-supplied tape5 — the deck is built from scratch every run, so reproducibility is owned entirely by the parameter set, not by a hand-tuned input file.
 
@@ -535,7 +882,7 @@ Per RADIANT_Signal_Chain_Architecture.md §2, `AtmosphereStage` is the second st
    L_at_aperture(λ) = L_at_target(λ) · τ_atm(λ) + L_path(λ)
    ```
 3. **Register the `at_aperture` frame** on the `ChainState` per the architecture document.
-4. **Register `L_atm_down(λ)`** in `state.stage_outputs["atmosphere"]["downwelling"]` so the source stage's reflected-solar and sky-background paths can consume it on their next pass — this is the only chain-level back-coupling and is handled by re-running `SourceStage` once if the source has a downwelling-dependent component (per RADIANT_Signal_Chain_Architecture.md §6.3).
+4. **Register `L_atm_down(λ)`** in `state.stage_outputs["atmosphere"]["downwelling"]` so the source stage's reflected-solar paths can consume it on their next pass (the `SkyBackground` arm does *not* read it — its radiance arrives on `TopologyProducts.sky_source_radiance`, §4.2g) — this is the only chain-level back-coupling and is handled by re-running `SourceStage` once if the source has a downwelling-dependent component (per RADIANT_Signal_Chain_Architecture.md §6.3).
 5. **Register the turbulence MTF** in `state.mtf_terms["turbulence"]` if turbulence is enabled. Otherwise this term is omitted entirely (not set to unity); the system-MTF cascade simply has one fewer term, which is faster and avoids the temptation to "see" turbulence in a debug plot when it is off.
 6. **Store the full `AtmosphericState`** in `state.stage_outputs["atmosphere"]["state"]` for downstream inspection.
 
@@ -546,6 +893,7 @@ Per RADIANT_Signal_Chain_Architecture.md §2, `AtmosphereStage` is the second st
 Rule 6 forbids stages from reading files, so all file-backed model construction lives in `radiant/atmosphere/loaders.py`, which runs **before** chain execution:
 
 - `build_atmosphere_model(params)` dispatches on `atmosphere.model` and performs any file I/O the model needs (NPZ/CSV tables for `tabulated`, an NPZ directory scan for `interpolated`, tape7 parsing for `modtran` with `tape7_path` set); `exo` and `simple` need no I/O.
+- For `interpolated` with no explicit directory, the shipped family is selected from `(LOS direction, interpolation_axes)` (GF-10). Direction must be resolved **pre-chain**, before the `LineOfSightGeometry` exists, so `_scene_los_direction(params)` reproduces `LineOfSightGeometry.los_direction`'s rule from `geometry.sensor_altitude_m` vs `geometry.target_altitude_m`; a test pins the two together so the copies cannot drift. An unregistered geometry schema (partial-chain fixtures) falls back to `down` — the only direction that existed before Phase 2.
 - `FILE_BACKED_MODELS = frozenset({"tabulated", "interpolated"})` names the models that **always** need files; `model_requires_prebuild(params)` is the parameter-aware check the stage uses — it additionally returns True for `modtran` when `atmosphere.modtran.tape7_path` is set (§5.1).
 - The API layer (`RadiantSession`, and therefore `Sensor`) calls the loader and injects the constructed model into the chain via `ChainRunner.run(..., initial_stage_outputs={"atmosphere_config": {"model": model}})`; `AtmosphereStage` reads it from `stage_outputs["atmosphere_config"]["model"]`.
 - If no injected model is present, the stage builds only non-file-backed models inline (partial-chain convenience). For a file-backed model it **refuses to build inline** and raises a `ValueError` directing the caller to `RadiantSession`/`Sensor` or to `build_atmosphere_model()` + manual injection.

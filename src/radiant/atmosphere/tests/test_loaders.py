@@ -156,6 +156,114 @@ class TestBuildAtmosphereModel:
                 _make_params("interpolated", atmosphere__interpolation_axes="solar_zenith_rad")
             )
 
+
+class TestDirectionAwareFamilyDispatch:
+    """GF-10: the shipped-family key is (LOS direction, axes), not axes alone."""
+
+    @pytest.mark.level0
+    def test_uplooking_scene_resolves_the_uplooking_ladder(self) -> None:
+        from radiant.atmosphere.interpolated import InterpolatedAtmosphere
+        from radiant.atmosphere.loaders import _SHIPPED_ATMOSPHERES_DIR
+
+        if not (_SHIPPED_ATMOSPHERES_DIR / "midlat_summer_uplooking_ladder").exists():
+            pytest.skip("shipped up-looking family not present")
+        model = build_atmosphere_model(
+            _make_params(
+                "interpolated",
+                atmosphere__interpolation_axes="target_altitude_m",
+                geometry__sensor_altitude_m=0.0,
+                geometry__target_altitude_m=10_000.0,
+            )
+        )
+        assert isinstance(model, InterpolatedAtmosphere)
+        assert model.family_direction == "up"
+        assert model.axes == ["target_altitude_m"]
+        assert model.coordinate_bounds()["target_altitude_m"] == (0.0, 20_000.0)
+
+    @pytest.mark.level0
+    def test_downlooking_scene_with_the_uplooking_axes_is_refused(self) -> None:
+        """The axes string alone must not reach the up-looking family."""
+        with pytest.raises(ValueError, match="down-looking scene"):
+            build_atmosphere_model(
+                _make_params(
+                    "interpolated",
+                    atmosphere__interpolation_axes="target_altitude_m",
+                    geometry__sensor_altitude_m=500e3,
+                    geometry__target_altitude_m=0.0,
+                )
+            )
+
+    @pytest.mark.level0
+    def test_uplooking_scene_with_an_unshipped_axes_names_what_is_shipped(self) -> None:
+        with pytest.raises(ValueError) as exc:
+            build_atmosphere_model(
+                _make_params(
+                    "interpolated",
+                    atmosphere__interpolation_axes="path_zenith_rad",
+                    geometry__sensor_altitude_m=0.0,
+                    geometry__target_altitude_m=10_000.0,
+                )
+            )
+        message = str(exc.value)
+        assert "up-looking scene" in message
+        # Every shipped (direction, axes) row is named, both directions.
+        assert "down-looking axes='path_zenith_rad' → us_standard_zenith_fan" in message
+        assert "up-looking axes='target_altitude_m' → midlat_summer_uplooking_ladder" in message
+
+    @pytest.mark.level0
+    def test_level_scene_has_no_shipped_family(self) -> None:
+        """Constant-altitude paths are served by the simple backend's level arm."""
+        with pytest.raises(ValueError, match="level-looking scene"):
+            build_atmosphere_model(
+                _make_params(
+                    "interpolated",
+                    atmosphere__interpolation_axes="target_altitude_m",
+                    geometry__sensor_altitude_m=5_000.0,
+                    geometry__target_altitude_m=5_000.0,
+                )
+            )
+
+    @pytest.mark.level0
+    @pytest.mark.parametrize(
+        ("h_sensor", "h_tgt"),
+        [
+            (500e3, 0.0),
+            (10_000.0, 3_000.0),
+            (0.0, 1.0),
+            (0.0, 20_000.0),
+            (5_000.0, 5_000.0),
+            (0.0, 0.0),
+        ],
+    )
+    def test_direction_matches_line_of_sight_geometry(self, h_sensor: float, h_tgt: float) -> None:
+        """Pin the loader's pre-chain direction rule to the LOS authority.
+
+        ``_scene_los_direction`` must reproduce
+        ``LineOfSightGeometry.los_direction`` exactly — the rule is evaluated
+        in two places (pre-chain from params, in-chain from the LOS) and this
+        test is what stops the two copies drifting.
+        """
+        import math
+
+        from radiant.atmosphere.loaders import _scene_los_direction
+        from radiant.core.los_geometry import LineOfSightGeometry
+
+        params = _make_params(
+            "simple",
+            geometry__sensor_altitude_m=h_sensor,
+            geometry__target_altitude_m=h_tgt,
+        )
+        # theta_o is irrelevant to the direction derivation, but must satisfy
+        # the LOS invariant h_sensor > h_tgt ⟺ theta_o < π/2.
+        if h_sensor > h_tgt:
+            theta_o = 0.0
+        elif h_sensor < h_tgt:
+            theta_o = math.pi
+        else:
+            theta_o = math.pi / 2.0
+        los = LineOfSightGeometry(theta_o=theta_o, h_tgt=h_tgt, h_sensor=h_sensor)
+        assert _scene_los_direction(params) == los.los_direction
+
     @pytest.mark.level0
     def test_file_backed_registry(self) -> None:
         assert frozenset({"tabulated", "interpolated"}) == FILE_BACKED_MODELS

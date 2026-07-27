@@ -151,7 +151,29 @@ owner-confirmed 2026-07-26 (§8.3 addendum). CU-222 filed
   general horizontal solution, not retained beside it.
 - Golden down-looking baselines byte-identical.
 
-### Phase 2 — Direction-aware atmosphere (Category C; the dominant cost)
+### Phase 2 — Direction-aware atmosphere (Category C; the dominant cost) — DELIVERED 2026-07-26 (simple backend); MODTRAN library families outstanding
+
+Exit state: `AtmosphereStage` dispatches on the derived `los.los_direction`
+(`atmosphere/topology.py`) — `down` takes the backend's own `evaluate`
+unchanged and byte-identical, `up`/`level` take the segment composition
+(`observer_leg.py` → `segment_simple.py` / `level_arm.py`, assembled by
+`uplooking_quantities.py`). Matrix classes E2 (ground→air), E3 (ground→space
+SST), E5 (air→air level) and E6 (air→space) run end-to-end on
+`atmosphere.model = "simple"`; other backends raise an actionable **capability**
+error naming what is supported. `SkyBackground` (matrix B2) and the Rule-B
+LOS-termination selector (`core/los_termination.py`) land with it, band-gated as
+ratified. GF-9 per-altitude illumination lands (`solar_shadow.py`,
+`solar_transit.py`; `geometry.solar_zenith_rad` bound widened to π). **G1** held:
+`AtmosphericQuantities` still has exactly eight product fields. **G4**
+discharged: `evaluate_with_exo_target` and `_uplooking_guard` are deleted, the
+exo carve-out folded into the segment composition with a 3 124-configuration
+bit-identity differential proof. Zero drift: all 78 golden baselines unchanged.
+**Outstanding:** MODTRAN / interpolated up-looking + ITYPE=1 **library
+families** (owner-run batch 2 — the deck builder is wired, the runs are not),
+the twilight and refraction calibration decks, and CU-224 (down-looking
+`L_path_up` carries no thermal term, so the two topologies use different
+path-radiance physics).
+
 
 - **Path-segment product** (Gap 109): backend contract evaluates a column
   between two altitudes with zenith at the lower endpoint; adds an

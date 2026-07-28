@@ -1630,6 +1630,39 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 113: Detection range is unreachable for the entire ground-to-air class — no altitude-resolved extinction for an up-looking ray that exits the column past the reference range
+
+| | |
+|---|---|
+| **Found in** | Scenario 10.1 (direction-general validation, ground_to_air), 2026-07-28. |
+| **Status** | OPEN |
+| **Description** | `performance/path_optical_depth.py` refuses to build a τ(R) profile whenever the up-looking continuation is still inside the modelled column (a 10 km UAS target: the ray exits at ~115 km, far past the 11.5 km reference range), so `detection_range_m` is absent — `failure_reason` precise and actionable (correct Rule-17/ADR-B behaviour) — for **every** aircraft/UAS/balloon target below `h_atm_top`. The shipped path-aware solver serves only up-looking targets already at/above 100 km plus level arms. |
+| **Impact** | The headline detection-range metric is missing for the owner's **priority-1** scene class (counter-UAS, ground-based air surveillance). |
+| **Workaround** | Scenario 10.1 walks the ray with the full chain (bisection on evaluate; target repositioned along the ray by the spherical h(s) relation), giving 58.4–62.8 km at SNR = 5 for its camera — the pattern any analysis can script. |
+| **Suggested fix** | Extend the path-aware solver with an altitude-resolved extinction sampler for up-looking rays whose target sits inside the column (the segment machinery already computes per-segment τ; the solver needs τ(R) along the continuation, not a refusal). Effort M; category C. Related: Gap 107, GF-15, CU-263. |
+
+## Gap 114: No reflective point-source door — solar phase angle is inexpressible, and cos(θ_s) clamping contradicts the GF-9 shadow-height verdict
+
+| | |
+|---|---|
+| **Found in** | Scenario 10.3 (direction-general validation, ground_to_space SST), 2026-07-28. |
+| **Status** | OPEN |
+| **Description** | A sunlit satellite is a *reflective point source*: its signal is set by the solar phase angle, for which RADIANT has no input door. `atmosphere/assembly.py::_cos_theta_s` clamps cos(θ_s) to 0 for θ_s > π/2 — right for a horizontal ground facet, wrong for a space object — so a reflectance-door target goes dark at exactly the terminator geometry where GF-9's shadow-height test declares it SUNLIT and the chain publishes τ_sun = 1. The whole SST terminator window (the operationally dominant observing window) returns SNR = 0 through the reflectance door. |
+| **Impact** | Ground-to-space visible SST — the owner's priority-4 class — cannot express its canonical target through the surface-property door. |
+| **Workaround** | Precompute I(λ) externally and use `source.target.user_intensity_path` (scenario 10.3 does exactly this) — which then hits CU-258/CU-259's intensity-door solar decoupling. |
+| **Suggested fix** | A solar-phase-angle input (derivable from the published scene geometry + solar geometry) driving a reflective point-source intensity; the facet clamp stays for ground scenes. Effort M–L; category C. Related: Gap 107, GF-9, CU-258, CU-259. |
+
+## Gap 115: No inertial-velocity door for the sensor endpoint — LOS rates for space targets use the sub-satellite ground-track speed
+
+| | |
+|---|---|
+| **Found in** | Scenario 10.4 (direction-general validation, LEO→GEO), 2026-07-28. |
+| **Status** | OPEN |
+| **Description** | `radiant.geometry.los_rate` models the platform's velocity as `ground_speed_m_s × e_perp`, and V6 `circular_orbit` derives the **sub-satellite ground-track** speed (v·R_E/a). Correct for a ground target (dη/dt = v_g/h); wrong for a space target, where the platform's **inertial** velocity rotates the LOS and the target's own orbital motion enters. Measured on the LEO→GEO scene: `circular_orbit = True` publishes 200.1 µrad/s vs the correct 128.7 µrad/s (+55.5 %). |
+| **Impact** | K0/V6 kinematics silently overestimate smear for every space-to-space scene; only the K1 direct-rate door is trustworthy there. |
+| **Workaround** | Never set `circular_orbit` for a space target; compute both inertial speeds (core.orbit) and enter the relative rate through K1 — scenario 10.4's pattern, verified against the K2 door. |
+| **Suggested fix** | An inertial-velocity door (or an orbit-aware K0 branch keyed on `target_class == "space"` — as data, per G3) deriving the relative LOS rate from both endpoints' orbital motion. Effort M; category C. Related: Gap 111, CU-268. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

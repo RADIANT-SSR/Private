@@ -76,6 +76,7 @@ from radiant.gui.widgets.performance_metrics_form import PerformanceMetricsForm
 from radiant.gui.widgets.platform_inputs_form import PlatformInputsForm
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.readout_inputs_form import ReadoutInputsForm
+from radiant.gui.widgets.scene_class_panel import SceneClassPanel
 from radiant.gui.widgets.source_inputs_form import SourceInputsForm
 from radiant.gui.widgets.spectral_integration_inputs_form import SpectralIntegrationInputsForm
 
@@ -236,6 +237,11 @@ class StagePane(QWidget):
         # The session's configuration scope (Phase 4b): handed to every FieldRow so a
         # configured parameter shows its red "C" wherever it is edited.
         self._config_scope: ConfigurationScope | None = None
+        # The Geometry Inputs tab's scene-class steering card (Geometry-Flexibility
+        # Phase 4): derived-class chip + the optional geometry.scene_class assertion +
+        # the metrics that class turns off by default. Bound/refreshed with the geometry
+        # forms and populated from each result's geometry stage outputs.
+        self._scene_class_panels: list[SceneClassPanel] = []
         self._geometry_forms: list[GeometryModeForm] = []
         self._geometry_readouts: list[GeometryReadout] = []
         self._geometry_viewers: list[GeometryViewer] = []
@@ -450,6 +456,15 @@ class StagePane(QWidget):
             metrics.pinMetricRequested.connect(self.pinMetricRequested)
             layout.addWidget(metrics)
             self._metrics_list.append(metrics)
+        if spec.scene_class_panel:
+            # Above the mode forms by design: the scene class is the mission-type entry
+            # point, and the operator reads (or asserts) it before typing angles. One
+            # sensor.set per accepted assertion edit, relayed through the standard
+            # parameterEdited pipeline so results go stale and a re-evaluate is scheduled.
+            scene_class_panel = SceneClassPanel(parent)
+            scene_class_panel.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(scene_class_panel)
+            self._scene_class_panels.append(scene_class_panel)
         if spec.geometry_form:
             geometry_form = GeometryModeForm(parent)
             geometry_form.parameterEdited.connect(self.parameterEdited)
@@ -628,6 +643,11 @@ class StagePane(QWidget):
         return [self._tabs.tabText(i) for i in range(self._tabs.count())]
 
     @property
+    def scene_class_panel(self) -> SceneClassPanel | None:
+        """The scene-class steering card, if this stage has one (Geometry 'Inputs')."""
+        return self._scene_class_panels[0] if self._scene_class_panels else None
+
+    @property
     def geometry_form(self) -> GeometryModeForm | None:
         """The stage-0 input-mode forms, if this stage has them (Geometry)."""
         return self._geometry_forms[0] if self._geometry_forms else None
@@ -712,6 +732,8 @@ class StagePane(QWidget):
         # preview (or any re-render) never resolves the new live sensor against a stale
         # result (blank-config crash, see StageCenter.bind_sensor).
         self._last_result = None
+        for scene_class_panel in self._scene_class_panels:
+            scene_class_panel.bind_sensor(sensor, display_units)
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
         for source_form in self._source_forms:
@@ -774,8 +796,12 @@ class StagePane(QWidget):
 
         Both the Inputs-tab form and the Schematic-tab form read the one live sensor, so a
         value edited on either surface (or in the parameter tree) is reflected on both after
-        the next clean evaluation, keeping the two tabs in sync.
+        the next clean evaluation, keeping the two tabs in sync. The scene-class card's
+        assertion field re-reads on the same beat — an assertion set in the parameter tree
+        shows on the Geometry screen immediately, exactly like a mode field (CU-121).
         """
+        for scene_class_panel in self._scene_class_panels:
+            scene_class_panel.refresh()
         for form in self._geometry_forms:
             form.refresh()
 
@@ -939,6 +965,11 @@ class StagePane(QWidget):
         for atmosphere_form in self._atmosphere_forms:
             atmosphere_form.refresh()
         self._refresh_detector_illustration()
+        # The derived scene class + its relevance preview come from the same
+        # ``stage_outputs["geometry"]`` mapping the angle readout renders — read
+        # verbatim, never re-derived GUI-side (arch doc §6.3).
+        for scene_class_panel in self._scene_class_panels:
+            scene_class_panel.populate(stage_outputs)
         for geometry_readout in self._geometry_readouts:
             geometry_readout.populate(stage_outputs)
         # The 3D viewer needs the full result + the live sensor (for shape/optics params);
@@ -1159,11 +1190,26 @@ class StageCenter(QWidget):
             return set()
         return form.highlight_error(what, context)
 
+    def highlight_scene_class_error(self, what: str, context: dict[str, object] | None) -> bool:
+        """Tint the scene-class card when the error names its assertion (Phase 4).
+
+        Returns whether the error was the assertion's, so the window can decide to
+        navigate to the Geometry screen. Cleared by :meth:`clear_geometry_highlight`
+        along with the mode-selector tint — one lifecycle for both geometry locators.
+        """
+        panel = self._panes["geometry"].scene_class_panel
+        if panel is None:
+            return False
+        return panel.highlight_error(what, context)
+
     def clear_geometry_highlight(self) -> None:
-        """Clear any geometry mode-selector conflict tint (a clean run/edit)."""
+        """Clear any geometry conflict tint — mode selectors and scene-class card."""
         form = self._panes["geometry"].geometry_form
         if form is not None:
             form.clear_highlight()
+        panel = self._panes["geometry"].scene_class_panel
+        if panel is not None:
+            panel.clear_highlight()
 
     def active_pane(self) -> QWidget:
         """The stack pane currently shown (placeholder or a :class:`StagePane`)."""

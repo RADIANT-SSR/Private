@@ -69,6 +69,7 @@ from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
+from radiant.gui.widgets.scene_class_panel import names_scene_class_assertion
 from radiant.gui.widgets.schema_browser_dialog import SchemaBrowserDialog
 from radiant.gui.widgets.scoped_parameter_command import ScopedParameterCommand, ScopeState
 from radiant.gui.widgets.scripting_console import ScriptingConsole
@@ -1278,28 +1279,36 @@ class RADIANTMainWindow(QMainWindow):
             UnexpectedErrorDialog(exc, "Evaluating the signal chain", self).exec()
 
     def _highlight_geometry_conflict(self, exc: BaseException) -> None:
-        """Tint + navigate to the geometry selector a mode conflict names (task 3).
+        """Tint + navigate to the geometry control a conflict names (task 3 / Phase 4).
 
         Reads the structured ``what`` / ``context`` off the error (a
         :class:`~radiant.geometry.errors.GeometrySpecificationError` carries both) and
-        asks the stage center to highlight the implicated family. Navigates to the
-        Geometry stage only when a family is actually implicated, so an unrelated error
-        does not hijack the view.
+        asks the stage center to highlight the control the error localises to: the
+        implicated mode family (an over/under-specification), the scene-class card (an
+        asserted-vs-derived mismatch, ADR-0011 decision 8), or both — a mismatch names
+        the two altitudes, which *are* viewing-family anchors, so tinting both is
+        correct rather than a duplicate. Navigates to the Geometry stage only when
+        something is actually implicated, so an unrelated error does not hijack the view.
         """
         what = str(getattr(exc, "what", "") or exc)
         raw_context = getattr(exc, "context", None)
         context = raw_context if isinstance(raw_context, dict) else None
-        # implicated_families is pure (no resolve): decide first whether this is a geometry
+        # Both predicates are pure (no resolve): decide first whether this is a geometry
         # conflict at all, so a non-geometry failure (e.g. a bounds error) never triggers a
         # form re-sync that would resolve an intentionally-broken sensor.
-        if not implicated_families(what, context):
+        families = implicated_families(what, context)
+        scene_class = names_scene_class_assertion(what, context)
+        if not families and not scene_class:
             self._central.stage_center.clear_geometry_highlight()
             return
-        # A geometry over-spec is a stage check, not a bounds failure, so its parameters
-        # still resolve individually — re-syncing the form to show the conflicting values
-        # is safe. Then apply the tint and jump to the Geometry screen.
+        # A geometry over-spec (or a scene-class mismatch) is a stage check, not a bounds
+        # failure, so its parameters still resolve individually — re-syncing the forms to
+        # show the conflicting values is safe. Then apply the tint(s) and jump to Geometry.
         self._central.stage_center.refresh_forms()
-        self._central.stage_center.highlight_geometry_error(what, context)
+        if families:
+            self._central.stage_center.highlight_geometry_error(what, context)
+        if scene_class:
+            self._central.stage_center.highlight_scene_class_error(what, context)
         self._on_stage_selected("geometry")
 
     def _on_worker_finished(self) -> None:

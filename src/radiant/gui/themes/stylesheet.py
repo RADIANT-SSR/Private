@@ -483,6 +483,67 @@ QPushButton#geoModeFieldValue[state="readonly"]:hover {{
     border: {tokens.BORDER_WIDTH} dashed {t.line};
 }}
 
+/* -- Scene-class steering card (ADR-0011 decision 8, Geometry Inputs top) - *
+ * The derived-class chip, the optional geometry.scene_class assertion (the
+ * mission-type entry point), and the metrics that class turns off by default.
+ * The card mirrors geoModeFamily exactly — same panel fill, same border, and the
+ * same property-based [state="conflict"] tint — so an asserted-vs-derived
+ * mismatch reads as the same kind of "these inputs disagree" signal as an
+ * over-specified mode family, one screen apart. */
+#sceneClassPanel {{
+    background-color: {t.panel};
+}}
+QWidget#sceneClassCard {{
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+}}
+QWidget#sceneClassCard[state="conflict"] {{
+    border: {tokens.BORDER_WIDTH} solid {t.err};
+    background-color: {t.err_soft};
+}}
+QLabel#sceneClassTitle {{
+    color: {t.ink_2};
+    font-size: 11px;
+    font-weight: 600;
+}}
+QWidget#sceneClassCard[state="conflict"] QLabel#sceneClassTitle {{
+    color: {t.err};
+}}
+QLabel#sceneClassChip {{
+    color: {t.ink};
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    font-size: 12px;
+    padding: 4px 8px;
+}}
+QWidget#sceneClassCard[state="conflict"] QLabel#sceneClassChip {{
+    color: {t.err};
+    border: {tokens.BORDER_WIDTH} solid {t.err};
+}}
+QLabel#sceneClassConflict {{
+    color: {t.err};
+    font-size: 11px;
+}}
+QLabel#sceneClassRelevanceHeading {{
+    color: {t.muted};
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding-top: 2px;
+}}
+QLabel#sceneClassRelevanceItem {{
+    color: {t.ink_2};
+    font-size: 11.5px;
+}}
+QLabel#sceneClassNote {{
+    color: {t.muted};
+    font-size: 11px;
+    padding-top: 2px;
+}}
+
 /* -- Configured-parameter marker (ADR-0010 D-2, multi-configuration 4b) - *
  * The small red "C" on any parameter that carries one value per configuration.
  * Same `err` red as every other "look here" surface, in both themes; hidden

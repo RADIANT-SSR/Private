@@ -58,8 +58,6 @@
 **Why it still matters**: a reader (or agent) building a turbulence scenario from either doc will set a parameter name that `ParameterSet` rejects with `UnknownParameterError`, and will believe a space-observer restriction that no longer exists. The metric-dependency tree is also the document the GUI relevance work reads for parameter→metric edges, so the wrong names propagate.
 **Suggested fix**: (a) inline-fix-now in the next PR touching either file — replace with `atmosphere.r0_m` / `atmosphere.cn2_profile`, drop the "Ground only" and "if turbulence enabled" qualifiers, and point the validation row at `atmosphere/r0_resolution.py`. Effort XS; category A. Related: Gap 110, ADR-0011 G4.
 
-### CU-233 — `SettingsStore` persists through `NativeFormat`, which no test-isolation mechanism can redirect
-
 ### CU-235 — Clamping the smear kernel to the PSF grid can make its size even, which the kernel builder rejects
 
 **Discovered**: GUI walkthrough cleanup batch 2, item 15 (hit while exercising the platform kernels with a large ground velocity), branch `gui/cleanup-batch2`, 2026-07-27.
@@ -781,7 +779,8 @@
 **Symptom**: on GUI launch, Qt prints `qt.qpa.fonts: Populating font family aliases took 173 ms. Replace uses of missing font family "IBM Plex Mono" (and "IBM Plex Sans") with one that exists to avoid this cost.` — because the design's lead font family (IBM Plex) is not installed on the dev machine (or most machines). Qt falls back to the next stack entry (Helvetica Neue / Menlo …), so the UI looks correct, but it re-scans the font database and logs the warning every launch.
 **Why it still matters**: a warning on every launch trains users to ignore console output (same cry-wolf failure mode as CU-166's owner bar — a valid launch should be quiet); the ~170 ms alias-population is a small but repeated startup tax. The typography note already in `tokens.py` (lines 18-20) acknowledges IBM Plex "may not be installed" and leads the stack with it deliberately for the design look — so this is a known trade-off, not an oversight, but it should be resolved cleanly.
 
-### CU-167 — Three GUI Messages/health tests assert a warning the example no longer emits (stale after CU-166) — RESOLVED 2026-07-18 (commit `fa3d8b2`)
+### CU-238 — Three GUI Messages/health tests assert a warning the example no longer emits (stale after CU-166) — RESOLVED 2026-07-18 (commit `fa3d8b2`)
+*(ID correction 2026-07-27: originally mis-filed as a second CU-167 — an ID-reuse collision with the interpolated-atmosphere CU-167 filed the same day; renumbered when the duplicate-ID gate landed. No external doc cites this entry under the old number.)*
 
 **Discovered**: Gap 96 implementation, 2026-07-18 (branch `gap96/metric-toggle`) — full GUI-suite run. Pre-existing on the base branch `fix/cu-147-148-descriptor` (verified by stashing the Gap-96 changes: these three failed identically without them); surfaced by Gap 96, not caused by it.
 **Status**: RESOLVED 2026-07-18, commit `fa3d8b2`. **Resolution**: retargeted the three tests at a genuinely *actionable* warning — a hard full-well clip (`readout.full_well_capacity_e = 100000`) re-evaluated — instead of the (now warning-free) NIIRS example, so they still exercise the Messages panel / health-dot warning path against a warning that *should* fire, matching CU-166's zero-warnings-for-valid-scenarios bar. All 32 tests across the three files pass.

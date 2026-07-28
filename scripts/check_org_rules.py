@@ -124,6 +124,26 @@ def main() -> int:
         if PROHIBITED_NAME.search(f):
             errors.append(f"prohibited name pattern (OPERATING_MODEL §5.3): {f}")
 
+    # 6. Registry IDs are unique (Rules 21/22/25 — never reuse a CU or Gap
+    # number; closure MOVES an entry, never copies it). Guards the
+    # concurrent-session minting collision of 2026-07-27: two sessions took
+    # "next available" from the same base while one held its numbers on an
+    # unpushed branch. Leading-ID extraction only — headings may legitimately
+    # cite other CU/Gap numbers in their titles.
+    for path, pattern in (
+        (REPO / "docs" / "tracking" / "Cleanup_Backlog.md", r"^### (CU-\d+)[ —]"),
+        (REPO / "docs" / "tracking" / "gaps.md", r"^## (Gap \d+)\b"),
+    ):
+        ids = re.findall(pattern, path.read_text(encoding="utf-8"), re.MULTILINE)
+        seen: set[str] = set()
+        for rid in ids:
+            if rid in seen:
+                errors.append(
+                    f"duplicate registry ID {rid} in {path.name} (Rules 21/22/25: "
+                    "IDs are never reused; closure moves an entry, never copies it)"
+                )
+            seen.add(rid)
+
     if errors:
         print(f"check_org_rules: {len(errors)} violation(s)\n")
         for e in errors:

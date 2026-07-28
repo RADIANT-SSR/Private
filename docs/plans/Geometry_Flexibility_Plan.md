@@ -1,6 +1,6 @@
 # Geometry Flexibility — Generalized Viewing Geometry Development Plan
 
-**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). **Phase 0 complete 2026-07-26** (ADR-0011 accepted; Use-Case Matrix reworked to composition; batch-1 decks K1–K7/L1–L4 appended to the run matrix). Phases 1–5 not started.
+**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). Phases 0–2 complete 2026-07-26, Phase 3 complete 2026-07-27, **Phase 4 complete 2026-07-28**. Remaining: Phase 5 (validation scenarios + close-out) and the owner-run MODTRAN batch 2.
 **Source audit:** `docs/reports/geometry_flexibility_2026-07/` (chartered 2026-07-26).
 **Gaps served:** 107 (down-looking-only LOS), 108 (direction-blind backgrounds), 109 (path topology), 110 (turbulence stub), 111 (target kinematics). Related: 82 (clouds — untouched), 83 (two-point geodetic), 84 (ephemeris), 85 (mission-type relevance), 100 (IIRS).
 **Supersedes on ratification:** the 2026-07-11 "v1 has no uplooking geometry" ruling (`RADIANT_Geometry.md` §4); requires a new ADR (ADR-0011, Phase 0 deliverable).
@@ -234,17 +234,39 @@ Zero golden drift; full suite green.
 - **Target kinematics** (Gap 111): target velocity params → LOS angular
   rate in GeometryStage → smear moving-target arm.
 
-### Phase 4 — GUI (Category D)
+### Phase 4 — GUI (Category D) — COMPLETE 2026-07-28
 
-- Mode-form labels + new mode wording (manifest auto-delivers structure).
+Exit state: the schematic composes by the stage-derived `los_direction` —
+up-looking (sensor = lower endpoint, on the ground plane for a ground
+observer, LOS ascending) and level (both endpoints at one abstract height)
+join the unchanged down-looking layout (byte-identical render parity proven
+against pre-Phase-4 `main`). Angle catalog extended with θ_o (obtuse-capable)
+and ζ_low — each stage-backed arc swept to its **own** ray, since η/θ_o/ζ_low
+are read at different triangle vertices; ζ_low's stage truth is θ_o for
+down/level and **π − η** for up (the plan's earlier π − θ_o shorthand was a
+flat-Earth slip, ~2° off at LEO altitudes) — plus the level-arm Δh sag pill
+from the core horizon-guard classifier. Angle-truth consistency tests
+parametrize over the new scene classes (ground→air, ground→space, LEO→GEO,
+air→air level + down-looking) at the existing 1e-9 rad tolerance. Mode labels
+re-worded direction-general (V1 lower-endpoint zenith, V2 off-boresight, V4
+signed elevation). Scene-class steering shipped: the derived-class chip + the
+`geometry.scene_class` assertion as the mission-type entry (mismatch tints
+in-context) + the per-class default-off metric preview over the new
+`radiant.api.scene_relevance` bridge (G3 held — a re-export, no GUI-side
+copy). CU-246…CU-251 filed from in-phase findings. The per-scene-class
+`gui_workflow.md` rider ships with each validation scenario in Phase 5, where
+the scenarios themselves are built.
+
+- Mode-form labels + new mode wording (manifest auto-delivers structure). ✅
 - Schematic viewer: up-looking and horizontal compositions (ground plane
   placed by scene class; LOS ascending; both-elevated layout), angle-catalog
-  extension, angle-truth tests extended per class.
+  extension, angle-truth tests extended per class. ✅
 - Scene-class steering: surfaces the Gap 85 mission-type concept for
   geometry (class chip driving defaults/relevance); full Gap 85 remains its
-  own effort.
+  own effort. ✅
 - Per the GUI workflow rule: each new scene class ships with a
-  `gui_workflow.md` in its validation scenario.
+  `gui_workflow.md` in its validation scenario (→ Phase 5, with the
+  scenarios).
 
 ### Phase 5 — Validation and scenario close-out (Category D)
 

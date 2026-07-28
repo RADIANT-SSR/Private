@@ -171,6 +171,17 @@ the CU-093 redundant-entry pattern, which is what catches a wrong-magnitude
 altitude typo (600 m where 600 km was meant) that pure derivation would render
 as a self-consistent scene of the wrong class.
 
+View layers consume the scene-class → default-metric-relevance map through the
+public bridge **`radiant.api.scene_relevance`** (a pure re-export of
+`radiant.performance.scene_relevance` — the `radiant.api.geometry_modes` /
+`metric_groups` precedent), so the GUI's scene-class steering card
+(Geometry-Flexibility Phase 4) shows which metrics a class turns off by default
+without importing a physics stage and without a second copy of the map
+(guardrail G3). In the GUI the assertion is the mission-type entry point: the
+card renders the derived chip, the assertion field (one `sensor.set` per edit),
+and the relevance preview, and an asserted-vs-derived mismatch tints the card
+in-context.
+
 **Consumers** (Geometry_Stage_Plan Phase 2, shipped): SourceStage adopts the
 published `los_geometry` (descriptor-adjusted in `_adjust_scene_los` — T1
 solar-strip, at_aperture → None, and the `no_atmosphere` `h_tgt` → 0 override,

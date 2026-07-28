@@ -196,19 +196,19 @@ class TestGroundToAirRelevanceDefaults:
         ] == pytest.approx(expected, rel=1e-12)
 
     def test_explicit_group_selection_overrides_the_map(self) -> None:
-        """Setting the flag explicitly restores Gap 96's verbatim semantics.
+        """Setting the flag explicitly overrides the map — for computable metrics.
 
-        GSD is *defined* through ``incidence_angle_rad ∈ [0, π/2)``, which an
-        up-looking θ_o violates — so the explicit opt-in surfaces the same
-        actionable refusal it always did, rather than the map silently
-        protecting the analyst from their own choice.  (The sensor is lifted
-        to 500 m — still the ``ground`` band — because the GSD helper skips
-        entirely at zero altitude and would never reach that refusal.)
+        The explicit opt-in restores the group's computable members; GSD stays
+        absent regardless because the LOS-direction computability gate (GUI
+        cleanup batch 1, 5af0362) makes it *undefined* — not merely
+        deselected — for an up-looking ``incidence_angle_rad ≥ π/2``
+        (absent, not wrong; the ADR-B convention).  (Sensor at 500 m — still
+        the ``ground`` band — matching the original refusal-era geometry.)
         """
-        from radiant.performance.errors import PerformanceValidationError
-
-        with pytest.raises(PerformanceValidationError, match="incidence_angle_rad"):
-            self._run(sensor_altitude_m=500.0, sampling=True)
+        result = self._run(sensor_altitude_m=500.0, sampling=True)
+        assert "target_plane_sample_distance_geometric_mean_m" in result.metrics
+        assert "gsd_cross_track_m" not in result.metrics
+        assert "gsd_along_track_m" not in result.metrics
 
     def test_default_map_protects_the_same_scene(self) -> None:
         """The very configuration that raises with an explicit flag runs clean."""

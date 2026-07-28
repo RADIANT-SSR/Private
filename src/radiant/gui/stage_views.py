@@ -39,6 +39,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
+# Where an embedded panel (the MTF per-term table, the noise-budget table, the
+# detector pixel illustration) sits relative to the stage's plot sections. Set on
+# a composition/sub-view via ``panel_placement``; the pane reads it and nothing
+# else branches on it.
+#
+#   before  — panel above the plots. The original v1 arrangement.
+#   beside  — panel and plots side by side in a horizontal splitter, so a long
+#             table is readable without scrolling past the chart (owner
+#             walkthrough item 17: "have the noise budget next to the pie chart
+#             so we can see all the terms and not have to scroll").
+PANEL_BEFORE: Final[str] = "before"
+PANEL_BESIDE: Final[str] = "beside"
+
+PANEL_PLACEMENTS: Final[frozenset[str]] = frozenset({PANEL_BEFORE, PANEL_BESIDE})
+
 
 @dataclass(frozen=True, slots=True)
 class PlotSpec:
@@ -78,9 +93,11 @@ class StageSubView:
     title:
         The tab label.
     geometry_form, geometry_readout, geometry_viewer, mtf_panel, noise_panel, outputs, \
-    metrics, plots, note:
+    metrics, plots, plot_columns, panel_placement, note:
         The same section fields as :class:`StageComposition`, scoped to this tab.
         ``geometry_viewer`` embeds the geometry schematic viewer (ADR-0007, Geometry "Schematic").
+        ``plot_columns`` and ``panel_placement`` control this tab's arrangement — see
+        :class:`StageComposition` for both.
     """
 
     title: str
@@ -104,6 +121,8 @@ class StageSubView:
     metrics: bool = False
     metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
+    plot_columns: int = 1
+    panel_placement: str = PANEL_BEFORE
     note: str | None = None
 
 
@@ -193,6 +212,15 @@ class StageComposition:
         per Gap-96 metric group, human labels, hover pins; owner redesign 2026-07-25).
     plots:
         Zero or more plot sections, each a :class:`PlotSpec`.
+    plot_columns:
+        How many plot sections to place per row (default ``1`` — one per row, the
+        v1 stacked arrangement). ``3`` puts the Optics "PSF + Pupil" trio on one
+        row (owner walkthrough item 13: "three 2D plots in the same row"). Plots
+        fill left-to-right and wrap; a trailing partial row is left-aligned.
+    panel_placement:
+        Where an embedded panel (MTF table, noise table, detector illustration)
+        sits relative to the plots — :data:`PANEL_BEFORE` (default) or
+        :data:`PANEL_BESIDE`. See those constants.
     note:
         An optional themed note (deferred content / v1-minimal rationale).
     subviews:
@@ -223,6 +251,8 @@ class StageComposition:
     metrics: bool = False
     metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
+    plot_columns: int = 1
+    panel_placement: str = PANEL_BEFORE
     note: str | None = None
     subviews: tuple[StageSubView, ...] = field(default_factory=tuple)
 
@@ -376,17 +406,22 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             # ADR-0009 D2 element-train editor — per-element R/T/temperature/geometry,
             # ε derived read-only (Rule 5), Apply = one Sensor.set_optical_elements call.
             StageSubView(title="Elements", element_editor=True),
-            StageSubView(
-                title="MTF",
-                mtf_panel=True,
-                plots=(PlotSpec("MTF-at-Nyquist budget", "mtf_budget"),),
-            ),
+            # Owner walkthrough items 10-12: the system-MTF overlay leads (with Nyquist
+            # marked on it), and the per-term budget table follows *below* the figure
+            # rather than above it. The separate MTF-at-Nyquist bar chart is gone —
+            # it re-marked the table's own numbers ("MTF, don't need the bar chart"),
+            # and the budget now reads at four fractions of Nyquist in x and y.
+            StageSubView(title="MTF", mtf_panel=True),
+            # Owner walkthrough item 13: pupil apodization, pupil WFE and the PSF as
+            # three 2-D maps on ONE row — they are read together (the pupil pair is
+            # the cause, the PSF is the effect), so stacking them hid the comparison.
             StageSubView(
                 title="PSF + Pupil",
+                plot_columns=3,
                 plots=(
-                    PlotSpec("Effective PSF", "psf"),
                     PlotSpec("Pupil apodization (amplitude / transmission)", "pupil_amplitude"),
                     PlotSpec("Pupil wavefront error (waves)", "pupil_phase"),
+                    PlotSpec("Effective PSF", "psf"),
                 ),
             ),
             StageSubView(
@@ -434,10 +469,13 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         title="Detector",
         subviews=(
             StageSubView(title="Inputs", detector_inputs=True, outputs=True),
+            # Owner walkthrough item 17: the per-term table sits *beside* the pie, not
+            # under it, so every term is visible without scrolling past the chart.
             StageSubView(
                 title="Noise",
                 noise_panel=True,
                 noise_panel_chart=False,
+                panel_placement=PANEL_BESIDE,
                 plots=(PlotSpec("Noise budget — share of variance", "noise_pie"),),
             ),
             StageSubView(

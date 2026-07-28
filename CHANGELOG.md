@@ -21,6 +21,43 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **The PSF plots now show the fully degraded PSF, cropped to the core (GUI
+  walkthrough items 14 and 20).** `result.plot.psf()` and
+  `result.plot.psf_pixel_grid()` read `stage_outputs["optics"]["effective_psf"]`
+  — the PSF *before* PlatformStage convolves jitter, smear and turbulence into
+  it. Rule 4 makes one `EffectivePSF` the source of every spatial metric, and
+  that one is the fully degraded PSF the later stages build (`performance` >
+  `platform` > `optics`), so the figure disagreed with the EE_box, RER, FWHM and
+  Strehl computed beside it: with 15 µrad of jitter the plotted peak was ~5×
+  too high. Both accessors now resolve the most-degraded PSF available. They
+  also crop to ±6 detector pixels around the core (`span_pixels`) instead of
+  rendering the whole array — a 1024² grid at ~8 samples/pixel is ±60 pixels of
+  mostly empty field — and `psf()` outlines the pixel the core lands in
+  (`pixel_outline`). `plot_psf(pixel_grid_span=...)` is deprecated in favour of
+  `span_pixels=...`, which now applies to both variants.
+- **The Optics MTF tab is re-laid out and the MTF-at-Nyquist bar chart is gone
+  (GUI walkthrough items 10-12).** The `mtf()` overlay now marks the detector
+  Nyquist frequency with a red dashed vertical line, and the per-contributor
+  budget moved *below* the figure and split into X and Y tabs, each sampling
+  every contributor at 0.25, 0.5, 0.75 and 1.0 × Nyquist plus a system-product
+  row — where a single MTF@Nyquist column showed only where each roll-off ends.
+  The separate `mtf_budget` bar chart was dropped from the tab (it re-marked the
+  table's own numbers); the `result.plot.mtf_budget()` accessor itself is
+  unchanged and still available to scripts.
+- **The Optics PSF + Pupil tab puts its three maps on one row** (walkthrough
+  item 13), ordered cause-then-effect: pupil apodization, pupil WFE, PSF.
+- **The Detector noise table sits beside the pie rather than under it**
+  (walkthrough item 17), so every term is visible without scrolling.
+
+### Added
+- **`radiant.performance.mtf_fraction_table`** — samples each MTF contributor at
+  a ladder of Nyquist fractions (default 0.25/0.5/0.75/1.0). Sampling only: no
+  new MTF physics. `PerformanceStage` publishes
+  `stage_outputs["performance"]["mtf_fraction_table_x"]` / `_y`, plus
+  `nyquist_freq_cycles_per_mrad` (the Nyquist limit on the chain's angular axis,
+  so views need not re-derive the cycles/m ↔ cycles/mrad conversion).
+
+### Changed
 - **GUI preferences now persist to a portable INI file (CU-233).** `SettingsStore`
   built its `QSettings` with the two-argument `QSettings(organization,
   application)` constructor, which ignores `QSettings.setDefaultFormat()` and

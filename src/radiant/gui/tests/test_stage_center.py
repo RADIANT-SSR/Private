@@ -38,7 +38,7 @@ from radiant.gui.stage_views import (
     composition_for,
 )
 from radiant.gui.widgets.inspector_dialog import InspectorDialog, parse_inspect_tree
-from radiant.gui.widgets.mtf_panel import MtfPanel, _bases
+from radiant.gui.widgets.mtf_panel import MtfPanel
 from radiant.gui.widgets.noise_budget_panel import NoiseBudgetPanel, describe_noise_term
 from radiant.gui.widgets.outputs_readout import OutputsReadout
 from radiant.gui.widgets.stage_center import StageCenter, StagePane
@@ -159,41 +159,71 @@ class TestMtfPanel:
         qtbot.addWidget(panel)
         assert not panel.is_populated()
 
+    def test_has_an_x_and_a_y_axis_tab(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Owner walkthrough item 10: the budget is split per axis, not one merged table."""
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        assert panel.axis_tab_labels() == ["X (cross-track)", "Y (along-track)"]
+
     def test_terms_discovered_from_api_surface(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
-        """The table's contributor rows match the budget surface exactly (generated)."""
+        """The table's contributor rows match the published fraction table exactly."""
         panel = MtfPanel()
         qtbot.addWidget(panel)
         panel.show_result(result)
         assert panel.is_populated()
-        budget = result.stage_outputs["performance"]["mtf_budget"]
-        expected = _bases(budget.per_term_at_nyquist)
+        expected = result.stage_outputs["performance"]["mtf_fraction_table_x"].term_names()
         assert expected  # the example really has MTF terms
-        assert panel.term_names() == expected
+        assert panel.term_names("x") == expected
+
+    def test_columns_are_the_four_nyquist_fractions(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """Owner walkthrough item 10: evaluate at 0.25, 0.5, 0.75 and 1 Nyquist."""
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        panel.show_result(result)
+        assert panel.column_headers("x") == [
+            "Contributor",
+            "0.25 x Nyq",
+            "0.5 x Nyq",
+            "0.75 x Nyq",
+            "1 x Nyq",
+        ]
 
     def test_cells_use_formatting_helper_and_overlay_renders(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
         """MTF cells render via the shared helper (dimensionless → bare) and the overlay draws."""
         panel = MtfPanel()
         qtbot.addWidget(panel)
         panel.show_result(result)
-        per_term = result.stage_outputs["performance"]["mtf_budget"].per_term_at_nyquist
-        base = _bases(per_term)[0]
-        value_x = per_term.get(f"{base}_x")
-        assert value_x is not None
-        expected = format_metric_value(value_x, _MTF_UNIT)
-        assert panel.table.item(0, 1).text() == expected
+        table = result.stage_outputs["performance"]["mtf_fraction_table_x"]
+        first = table.term_names()[0]
+        expected = format_metric_value(table.per_term[first][0], _MTF_UNIT)
+        assert panel.table_for("x").item(0, 1).text() == expected
         assert " " not in expected  # dimensionless → bare number
         assert panel.canvas.has_figure()
 
-    def test_column0_header_text_and_sizes_to_contents(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_system_product_row_closes_the_table(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """The per-contributor rows are followed by the system product they multiply to."""
+        panel = MtfPanel()
+        qtbot.addWidget(panel)
+        panel.show_result(result)
+        table = panel.table_for("x")
+        last_row = table.rowCount() - 1
+        assert table.item(last_row, 0).text() == "SYSTEM (product)"
+        # The 1.0 x Nyquist system cell must agree with the published metric.
+        expected = format_metric_value(result.metrics["mtf_system_at_nyquist_x"], _MTF_UNIT)
+        assert table.item(last_row, table.columnCount() - 1).text() == expected
+
+    def test_column0_header_text_and_sizes_to_contents(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
         """Column 0 carries the real 'Contributor' header and sizes to contents so it is
         never clipped to 'trib…' in a narrow pane (the reported truncation bug)."""
         from PySide6.QtWidgets import QHeaderView
 
         panel = MtfPanel()
         qtbot.addWidget(panel)
-        assert panel.table.horizontalHeaderItem(0).text() == "Contributor"
-        header = panel.table.horizontalHeader()
-        for col in range(panel.table.columnCount()):
+        panel.show_result(result)
+        table = panel.table_for("x")
+        assert table.horizontalHeaderItem(0).text() == "Contributor"
+        header = table.horizontalHeader()
+        for col in range(table.columnCount()):
             assert header.sectionResizeMode(col) == QHeaderView.ResizeMode.ResizeToContents
 
 

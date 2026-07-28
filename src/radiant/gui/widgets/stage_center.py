@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QHBoxLayout,
     QLabel,
     QScrollArea,
     QSplitter,
@@ -44,6 +45,7 @@ from radiant.api.plot import plot_theme
 from radiant.gui.param_format import field_display_text
 from radiant.gui.stage_views import (
     DEFAULT_STAGE,
+    PANEL_BESIDE,
     STAGE_COMPOSITIONS,
     PlotSpec,
     StageComposition,
@@ -85,6 +87,10 @@ if TYPE_CHECKING:
 
 # Minimum figure height so a composite with two plots stays readable in a scroll area.
 _PLOT_MIN_HEIGHT: int = 240
+
+# Gap between plot sections inside a multi-column plot block (layout geometry, not a
+# theme token — the QSS owns colour and type, this owns only spacing between figures).
+_PLOT_BLOCK_SPACING_PX: int = 8
 
 # The shape-dimension parameters the geometry side panel edits (bounds/units from the
 # schema; this list is the read/sync surface — the panel owns the shape→subset matrix).
@@ -483,27 +489,113 @@ class StagePane(QWidget):
             self._geometry_viewers.append(geometry_viewer)
             self._geometry_panels.append(geometry_panel)
             fills = True
+        # The embedded panel and the plot sections are placed together, because
+        # ``panel_placement`` decides their relative arrangement (stage_views:
+        # before / after / beside). Build the panel first, then hand both to the
+        # placement helper — nothing below branches on the placement again.
+        panel: QWidget | None = None
+        panel_header = ""
         if spec.mtf_panel:
             mtf_panel = MtfPanel(parent)
-            self._add_section(layout, "MTF budget", mtf_panel)
             self._mtf_panels.append(mtf_panel)
+            panel, panel_header = mtf_panel, "MTF budget"
         if spec.noise_panel:
             # The Detector view suppresses the embedded bar (noise_panel_chart=False) so the
             # framework noise **pie** is the primary chart (drawn as a plot section) and the
             # panel contributes only the table + click-to-explain (GUI plan Phase PS-3).
             noise_panel = NoiseBudgetPanel(parent, show_chart=spec.noise_panel_chart)
-            self._add_section(layout, "Noise budget", noise_panel)
             self._noise_panels.append(noise_panel)
-        for plot_spec in spec.plots:
-            section = _PlotSection(plot_spec, parent)
-            self._plot_sections.append(section)
-            layout.addWidget(section)
+            panel, panel_header = noise_panel, "Noise budget"
+        self._place_panel_and_plots(layout, parent, spec, panel, panel_header)
         if spec.note is not None:
             note = QLabel(spec.note, parent)
             note.setObjectName("stageNote")
             note.setWordWrap(True)
             layout.addWidget(note)
         return fills
+
+    def _place_panel_and_plots(
+        self,
+        layout: QVBoxLayout,
+        parent: QWidget,
+        spec: StageComposition | StageSubView,
+        panel: QWidget | None,
+        panel_header: str,
+    ) -> None:
+        """Lay out the embedded *panel* and the spec's plot sections per its arrangement.
+
+        Honours the two declarative arrangement fields (``stage_views``):
+
+        * ``panel_placement`` — ``before`` (panel above the plots, the original v1
+          order) or ``beside`` (a horizontal splitter, plots left and panel right).
+        * ``plot_columns`` — how many plot sections share a row; they fill
+          left-to-right and wrap.
+
+        A spec with no panel behaves exactly as before, so the arrangement fields
+        cost nothing for the stages that do not set them.
+        """
+        plots_host = self._build_plot_block(parent, spec)
+
+        if panel is None:
+            if plots_host is not None:
+                layout.addWidget(plots_host)
+            return
+
+        if spec.panel_placement == PANEL_BESIDE and plots_host is not None:
+            # Chart left, table right, user-draggable. Stretch favours the chart:
+            # the table needs enough width to show its terms, not half the pane.
+            split = QSplitter(Qt.Orientation.Horizontal, parent)
+            split.setObjectName("stagePanelSplit")
+            split.addWidget(plots_host)
+            split.addWidget(panel)
+            split.setStretchFactor(0, 3)
+            split.setStretchFactor(1, 2)
+            layout.addWidget(split)
+            return
+
+        # PANEL_BEFORE (and the beside-with-no-plots degenerate case).
+        self._add_section(layout, panel_header, panel)
+        if plots_host is not None:
+            layout.addWidget(plots_host)
+
+    def _build_plot_block(
+        self,
+        parent: QWidget,
+        spec: StageComposition | StageSubView,
+    ) -> QWidget | None:
+        """Build the spec's plot sections into one container, or ``None`` if it has none.
+
+        With ``plot_columns == 1`` the container is a plain vertical stack — the
+        same visual result as adding each section straight to the pane. Above 1 the
+        sections are packed into equal-width rows so related maps read side by side.
+        """
+        if not spec.plots:
+            return None
+        host = QWidget(parent)
+        host.setObjectName("stagePlotBlock")
+        columns = max(1, spec.plot_columns)
+        outer = QVBoxLayout(host)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(_PLOT_BLOCK_SPACING_PX)
+
+        row: QHBoxLayout | None = None
+        for index, plot_spec in enumerate(spec.plots):
+            section = _PlotSection(plot_spec, host)
+            self._plot_sections.append(section)
+            if columns == 1:
+                outer.addWidget(section)
+                continue
+            if index % columns == 0:
+                row_host = QWidget(host)
+                row = QHBoxLayout(row_host)
+                row.setContentsMargins(0, 0, 0, 0)
+                row.setSpacing(_PLOT_BLOCK_SPACING_PX)
+                outer.addWidget(row_host)
+            assert row is not None  # set on every index % columns == 0 above
+            # Equal stretch so a row of maps divides the width evenly rather than
+            # sizing to whichever figure happens to render widest.
+            row.addWidget(section, 1)
+        return host
 
     def _add_section(self, layout: QVBoxLayout, header: str, widget: QWidget) -> None:
         """Add a titled section (a header label over *widget*) to *layout*."""

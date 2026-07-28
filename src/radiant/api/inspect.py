@@ -144,31 +144,56 @@ class ResultPlotNamespace:
     def __init__(self, result: ChainResult) -> None:
         self._result = result
 
+    def _degraded_psf(self) -> Any:
+        """The **fully degraded** effective PSF — the one every spatial metric uses.
+
+        Rule 4 makes one ``EffectivePSF`` the single source of truth for the
+        spatial-domain metrics, and the stages build it up in order: ``optics``
+        holds optical + pixel-aperture + diffusion, ``platform`` adds jitter,
+        smear and turbulence, and ``performance`` adds the IPC and electronics
+        kernels. Plotting the ``optics`` one — as these accessors used to —
+        therefore showed a *different* PSF from the one EE_box, RER, FWHM and
+        Strehl are computed from: with 15 µrad of jitter its peak is ~5× too
+        high, because the jitter convolution is missing (owner walkthrough item
+        20: "the PSF should then be the convolution of everything in the chain").
+
+        Resolution order is most-degraded first, falling back for partial chains
+        that stopped before the later stages.
+        """
+        outputs = self._result.stage_outputs
+        for stage in ("performance", "platform", "optics"):
+            psf_data = outputs.get(stage, {}).get("effective_psf")
+            if psf_data is not None:
+                return psf_data
+        raise ApiValidationError(
+            "No effective PSF found in result stage_outputs — looked in "
+            "'performance', 'platform' and 'optics'. The chain must run "
+            "OpticsStage to build one."
+        )
+
     def psf(self, **kwargs: Any) -> Any:
-        """Plot the effective PSF as a 2D image."""
-        from radiant.api.plot import plot_psf
+        """Plot the fully degraded effective PSF as a 2D image.
 
-        psf_data = self._result.stage_outputs.get("optics", {}).get("effective_psf")
-        if psf_data is None:
-            raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
-        return plot_psf(psf_data, **kwargs)
-
-    def psf_pixel_grid(self, **kwargs: Any) -> Any:
-        """Plot the effective PSF with the detector **pixel grid** overlaid.
-
-        Same figure as :meth:`psf`, plus pixel-boundary gridlines at the detector
-        pixel pitch (``EffectivePSF.pixel_pitch_m`` over samples spaced at
-        ``sample_spacing_m``) and a crop to the PSF core, so the viewer sees how
-        the PSF spreads across detector pixels (arch-doc §4.4.1 Detector row). A
-        GUI draw over already-computed data — no results change. Raises
-        :class:`ApiValidationError` when the effective PSF is absent.
+        Cropped to a few detector pixels around the core and outlining the pixel
+        the core lands in (walkthrough items 14 and 20); pass ``span_pixels`` to
+        widen the window or ``pixel_outline=False`` to drop the outline.
         """
         from radiant.api.plot import plot_psf
 
-        psf_data = self._result.stage_outputs.get("optics", {}).get("effective_psf")
-        if psf_data is None:
-            raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
-        return plot_psf(psf_data, pixel_grid=True, **kwargs)
+        return plot_psf(self._degraded_psf(), **kwargs)
+
+    def psf_pixel_grid(self, **kwargs: Any) -> Any:
+        """Plot the fully degraded effective PSF with the detector **pixel grid** overlaid.
+
+        Same figure as :meth:`psf`, but with pixel-boundary gridlines across the
+        whole cropped window rather than a single outlined pixel, so the viewer
+        sees how the PSF spreads across neighbouring detector pixels (arch-doc
+        §4.4.1 Detector row). A GUI draw over already-computed data — no results
+        change. Raises :class:`ApiValidationError` when no effective PSF exists.
+        """
+        from radiant.api.plot import plot_psf
+
+        return plot_psf(self._degraded_psf(), pixel_grid=True, **kwargs)
 
     def pupil_amplitude(self, **kwargs: Any) -> Any:
         """Plot the pupil amplitude (apodization) map (Gap 89).
@@ -243,12 +268,21 @@ class ResultPlotNamespace:
         return plot_noise_pie(self._result.noise_terms, **kwargs)
 
     def mtf(self, **kwargs: Any) -> Any:
-        """Plot all MTF terms."""
+        """Plot all MTF terms, with the detector Nyquist limit marked.
+
+        The Nyquist frequency is read from
+        ``stage_outputs['performance']['nyquist_freq_cycles_per_mrad']`` —
+        published by ``PerformanceStage`` on the chain's own angular axis — and
+        drawn as a red dashed vertical line. It is absent (and the marker simply
+        omitted) when the chain ran without a focal length.
+        """
         from radiant.api.plot import plot_mtf_terms
 
+        performance = self._result.stage_outputs.get("performance", {})
         return plot_mtf_terms(
             dict(self._result.state.mtf_terms),
             self._result.state.spatial_freq_cycles_per_mrad,
+            nyquist_cycles_per_mrad=performance.get("nyquist_freq_cycles_per_mrad"),
             **kwargs,
         )
 

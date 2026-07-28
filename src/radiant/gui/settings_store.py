@@ -6,6 +6,16 @@ chosen **theme** (light default / dark alternate — the View-menu toggle), and 
 show/hide state. Everything routes through a single :class:`~PySide6.QtCore.QSettings`
 handle so there is one persistence surface, not a scatter of ``QSettings`` constructions.
 
+**Backend (CU-233).** The store is built with an explicit ``IniFormat`` /
+``UserScope`` :class:`QSettings`, the same backend
+:class:`~radiant.gui.widgets.pinned_panel.PinnedPanel` chose: portable across
+macOS and Windows (Rule 30), and — decisively — redirectable by
+:meth:`QSettings.setPath`, which is what lets the test suite sandbox it. The
+two-argument ``QSettings(organization, application)`` constructor this class used
+before **ignores** :meth:`QSettings.setDefaultFormat` and resolves to
+``NativeFormat``, so no redirection reached it and every GUI test that built a
+window without injecting a store overwrote the real user's preferences.
+
 No physics, no colour/font/size literal (GUI plan §4.9) — this module only reads and writes
 opaque preference values. Tests inject a temp-file-backed :class:`QSettings` so the suite
 never touches a developer's real settings.
@@ -42,7 +52,16 @@ class SettingsStore:
     """
 
     def __init__(self, settings: QSettings | None = None) -> None:
-        self._settings = settings if settings is not None else QSettings(_ORG, _APP)
+        # IniFormat explicitly, matching PinnedPanel (CU-115) — NOT the two-argument
+        # QSettings(org, app) constructor, which ignores QSettings.setDefaultFormat()
+        # and resolves to NativeFormat. That made this store unreachable by the
+        # suite's setPath redirection, so GUI tests wrote the developer's real
+        # preferences and kept resetting their chosen theme (CU-233).
+        self._settings = (
+            settings
+            if settings is not None
+            else QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, _ORG, _APP)
+        )
 
     # -- recent files -------------------------------------------------------
 

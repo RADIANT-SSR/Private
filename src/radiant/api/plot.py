@@ -16,6 +16,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Protocol, cast, runtime_checkable
@@ -30,6 +31,12 @@ if TYPE_CHECKING:
     from radiant.optics.psf.effective import EffectivePSF
 
 logger = logging.getLogger(__name__)
+
+# Default plotted window for a PSF, in detector pixels (±6). The PSF array covers
+# far more focal plane than the PSF occupies, so an uncropped render is a bright
+# dot in an empty field (owner walkthrough item 14: "zoomed into like +/-5 or 10
+# pixel widths"). Presentation-only: it changes no computed value.
+_DEFAULT_PSF_SPAN_PIXELS: Final[int] = 12
 
 # Smallest variance share that still earns an on-wedge label in the noise pie.
 # Below ~3 % a wedge subtends under 11°, so its label collides with its
@@ -325,27 +332,40 @@ def plot_psf(
     psf: EffectivePSF,
     *,
     pixel_grid: bool = False,
-    pixel_grid_span: int = 16,
+    span_pixels: int = _DEFAULT_PSF_SPAN_PIXELS,
+    pixel_outline: bool = True,
+    pixel_grid_span: int | None = None,
     **kwargs: Any,
 ) -> Figure:
-    """Plot an EffectivePSF as a 2D image with log scale.
+    """Plot an EffectivePSF as a 2D image with log scale, cropped to the PSF core.
 
     Parameters
     ----------
     psf:
         An :class:`EffectivePSF` object.
     pixel_grid:
-        When ``True``, overlay the **detector pixel grid** — pixel-boundary
+        When ``True``, overlay the full **detector pixel grid** — pixel-boundary
         gridlines at the detector pixel pitch (``psf.pixel_pitch_m``) over the
         PSF (sampled at ``psf.sample_spacing_m``), so the viewer sees how the
-        PSF spreads across detector pixels. The view is cropped to a window of
-        ``pixel_grid_span`` detector pixels centred on the PSF peak (the full
-        array spans many pixels — a whole-array grid would be an unreadable
-        mesh), and the title carries the pitch (with units). Default ``False``
-        leaves the plot byte-for-byte the shipped image.
+        PSF spreads across many detector pixels. Default ``False`` draws only the
+        single-pixel outline described below.
+    span_pixels:
+        Width of the plotted window in **detector pixels**, centred on the PSF
+        peak. The PSF array spans far more of the focal plane than the PSF
+        occupies — a 1024² grid at ~8 samples per pixel is ±60 pixels of mostly
+        empty field — so the core rendered full-array is a small bright dot
+        (owner walkthrough item 14: "PSF plot should be zoomed into like +/-5 or
+        10 pixel widths"). Applies whether or not *pixel_grid* is set.
+    pixel_outline:
+        When ``True`` (default), outline the **one** detector pixel centred on the
+        PSF peak, so the PSF is always read against the pixel that samples it
+        (owner walkthrough item 20: "we should also see the outline of the
+        detector pixel on the PSF plot"). Suppressed automatically when
+        *pixel_grid* is set, since the grid already draws that boundary.
     pixel_grid_span:
-        Width of the cropped window, in detector pixels, when ``pixel_grid`` is
-        set. Ignored otherwise.
+        Deprecated alias for *span_pixels*, kept so existing callers keep working.
+        When given it overrides *span_pixels* and emits a
+        :class:`DeprecationWarning`.
     **kwargs:
         Passed to ``ax.imshow()``.
 
@@ -356,6 +376,15 @@ def plot_psf(
     """
     plt = _require_matplotlib()
     from matplotlib.colors import LogNorm
+
+    if pixel_grid_span is not None:
+        warnings.warn(
+            "plot_psf(pixel_grid_span=...) is deprecated; use span_pixels=... "
+            "(it now crops the plain PSF plot too, not only the pixel-grid one).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        span_pixels = pixel_grid_span
 
     fig, ax = plt.subplots(constrained_layout=True)
     data = psf.data
@@ -368,20 +397,68 @@ def plot_psf(
     defaults.update(kwargs)
     im = ax.imshow(data, **defaults)
     fig.colorbar(im, ax=ax, label="PSF intensity")
+    # The imshow extent is the PSF sample grid (spacing sample_spacing_m), not the
+    # detector pixel grid — label it accurately (CU-136).
+    ax.set_xlabel("x (PSF samples)")
+    ax.set_ylabel("y (PSF samples)")
+    pitch_um = psf.pixel_pitch_m * 1e6
     if pixel_grid:
-        pitch_um = psf.pixel_pitch_m * 1e6
         ax.set_title(f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)")
-        ax.set_xlabel("x (PSF samples)")
-        ax.set_ylabel("y (PSF samples)")
-        _overlay_pixel_grid(ax, psf, pixel_grid_span)
+        _overlay_pixel_grid(ax, psf, span_pixels)
     else:
-        ax.set_title("Effective PSF")
-        # The imshow extent is the PSF sample grid (spacing sample_spacing_m),
-        # not the detector pixel grid — label it accurately (CU-136). The
-        # pixel_grid branch above overlays and labels the detector pitch.
-        ax.set_xlabel("x (PSF samples)")
-        ax.set_ylabel("y (PSF samples)")
+        ax.set_title(f"Effective PSF ({pitch_um:.1f} µm pixel outlined)")
+        _crop_to_pixels(ax, psf, span_pixels)
+        if pixel_outline:
+            _overlay_pixel_outline(ax, psf)
     return cast("Figure", fig)
+
+
+def _pixel_geometry(psf: EffectivePSF) -> tuple[float, float, float] | None:
+    """``(samples_per_pixel, centre_sample, n_samples)``, or ``None`` if degenerate."""
+    dx = psf.sample_spacing_m
+    pitch = psf.pixel_pitch_m
+    n = psf.data.shape[0]
+    if dx <= 0.0 or pitch <= 0.0:
+        return None
+    return pitch / dx, (n - 1) / 2.0, float(n)
+
+
+def _crop_to_pixels(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
+    """Limit *ax* to ``span_pixels`` detector pixels centred on the PSF peak."""
+    geometry = _pixel_geometry(psf)
+    if geometry is None:
+        return
+    samples_per_pixel, center, n = geometry
+    half = max(1, span_pixels // 2) * samples_per_pixel
+    ax.set_xlim(max(-0.5, center - half), min(n - 0.5, center + half))
+    ax.set_ylim(max(-0.5, center - half), min(n - 0.5, center + half))
+
+
+def _overlay_pixel_outline(ax: Any, psf: EffectivePSF) -> None:
+    """Outline the single detector pixel centred on the PSF peak.
+
+    Item 20's "outline of the detector pixel": the boundary of the one pixel the
+    PSF core lands in, so its spread is always read against the sampling element
+    rather than against bare sample indices.
+    """
+    from matplotlib.patches import Rectangle
+
+    geometry = _pixel_geometry(psf)
+    if geometry is None:
+        return
+    samples_per_pixel, center, _n = geometry
+    half = samples_per_pixel / 2.0
+    ax.add_patch(
+        Rectangle(
+            (center - half, center - half),
+            samples_per_pixel,
+            samples_per_pixel,
+            fill=False,
+            edgecolor="white",
+            linewidth=1.2,
+            linestyle="--",
+        )
+    )
 
 
 def _overlay_pixel_grid(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
@@ -523,6 +600,7 @@ def plot_pupil_phase(
 def plot_mtf_terms(
     mtf_terms: dict[str, npt.NDArray[np.float64]],
     spatial_freq: npt.NDArray[np.float64] | None = None,
+    nyquist_cycles_per_mrad: float | None = None,
     **kwargs: Any,
 ) -> Figure:
     """Plot all MTF terms on a single axis.
@@ -533,6 +611,12 @@ def plot_mtf_terms(
         Dict mapping term name → MTF array.
     spatial_freq:
         Spatial frequency axis (cycles/mrad). If None, uses array index.
+    nyquist_cycles_per_mrad:
+        Detector Nyquist frequency in the plotted axis' units. When given (and
+        an explicit *spatial_freq* axis is in use) it is drawn as a **red dashed
+        vertical line** labelled with its value — the sampling limit against
+        which every roll-off is read (owner walkthrough item 12). ``None`` omits
+        the marker rather than guessing a pitch.
     **kwargs:
         Passed to ``ax.plot()``.
 
@@ -586,6 +670,19 @@ def plot_mtf_terms(
                 label = base if not suffix else f"{base} ({suffix})"
                 ax.plot(_x_axis(arr), arr, label=label, **kwargs)
                 n_labels += 1
+
+    # The detector sampling limit, marked on the axis every roll-off is read against
+    # (owner walkthrough item 12). Drawn only with a real frequency axis — on the
+    # index fallback the value would land at a meaningless x position.
+    if nyquist_cycles_per_mrad is not None and spatial_freq is not None:
+        ax.axvline(
+            float(nyquist_cycles_per_mrad),
+            color="red",
+            linestyle="--",
+            linewidth=1.2,
+            label=f"Nyquist ({nyquist_cycles_per_mrad:.3g} cycles/mrad)",
+        )
+        n_labels += 1
 
     ax.set_xlabel("Spatial frequency (cycles/mrad)" if spatial_freq is not None else "Index")
     ax.set_ylabel("MTF")

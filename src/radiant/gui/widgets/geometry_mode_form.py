@@ -95,9 +95,9 @@ class _FamilyBlock(QWidget):
         self._selector = QComboBox(self)
         self._selector.setObjectName("geoModeSelector")
         # Size the combo to the available column width, not to its longest item: a mode label
-        # like "Path zenith θ_o (V1)" is wide, and adjusting-to-contents made the combo (and so
-        # the whole form) demand more width than the accordion column, tripping its horizontal
-        # scrollbar (owner bug 2026-07-14). Minimum-contents sizing + an Expanding policy lets
+        # like "Path zenith at lower endpoint (V1)" is wide, and adjusting-to-contents made the
+        # combo (and so the whole form) demand more width than the accordion column, tripping its
+        # horizontal scrollbar (owner bug 2026-07-14). Minimum-contents sizing + Expanding lets
         # the closed combo elide its display text and shrink to the column.
         self._selector.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon

@@ -959,7 +959,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 
 | Stage | Ratified content | Classification |
 |-------|------------------|----------------|
-| **Geometry** | Two tabs: **Inputs** (stage-0 input-mode forms + derived-angle readout) and **3D View** (the 3D scene viewer, §6) | **[exists]** `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit) + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **3D View** tab embeds `GeometryViewer` — the static bound scene (GUI plan Phase 7 Part A, §6.7); interactions/shape-library/RPY are Part B |
+| **Geometry** | Two tabs: **Inputs** (scene-class steering card + stage-0 input-mode forms + derived-angle readout) and **Schematic** (the 2D schematic viewer, §6) | **[exists]** The Inputs tab leads with the **scene-class steering card** (`SceneClassPanel`, Geometry-Flexibility Phase 4 / ADR-0011 decision 8): the **derived** class chip read verbatim from `stage_outputs["geometry"]` (`scene_class` + `observer_class`/`target_class`; a neutral placeholder pre-evaluate), the optional **`geometry.scene_class` assertion** (the mission-type entry point — a shared `FieldRow` + `ParameterEditorDialog`, one `sensor.set` per edit; asserting steers defaults and is validated against the derivation at the next evaluate), and the **relevance preview** — the metrics the displayed class turns off by default, read through the `radiant.api.scene_relevance` bridge (guardrail G3 — one declarative map, never transcribed GUI-side) with human labels from `metric_format`, plus the note that an explicitly-set `performance.metrics.*` group flag always wins (Gap 96 override semantics). An asserted-vs-derived `GeometrySpecificationError` tints the card in-context (`[state="conflict"]`, the `geoModeFamily` pattern) with the error's what-line beside the chip. Full per-input mission-type gating remains Gap 85. Below it: `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit; labels re-worded direction-general per ADR-0011 — "Path zenith at lower endpoint (V1)", "Off-boresight angle (V2)", "Elevation angle, signed (V4)") + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **Schematic** tab embeds `GeometryViewer` (§6.9, incl. the Phase-4 up-looking/level compositions) |
 | **Source** | Target radiance plot | **[SHIPPED — GUI plan Phase PS-1; retabbed by owner walkthrough items 5 + 6]** `result.plot.spectral_source_emission()` — draws the pre-atmosphere `at_source_target` frame (emitted+reflected radiance leaving the target, before the up-leg), persisted by AtmosphereStage. It is the Source stage's **primary** center plot. `spectral_source()` (at-aperture) is **no longer** shown on any Source tab: it is post-atmosphere, and the Atmosphere view owns that step |
 | **Source** | Background radiance plot | **[SHIPPED — GUI plan Phase PS-1]** same accessor draws the optional `at_source_background` arm alongside the target |
 | **Source** | Reflective view — ρ(λ) and the radiance it produces | **[SHIPPED — owner walkthrough item 6]** The *Target — reflective* tab is a surface-property instrument: `result.plot.target_reflectance()` (ρ(λ), dimensionless, from `stage_outputs["source"]["reflectance"]`) leads, with `result.plot.spectral_reflected_radiance()` (`frames["at_source_target_reflected"]`) beside it — cause and effect in one row. Both reflectance **input** surfaces are mounted: the scalar `source.target.reflectance` and the λ-dependent `source.target.reflectance_path` CSV (mutually exclusive; the engine's inferrer-time rejection reaches the operator through the actionable evaluate dialog + Messages, the surface every cross-parameter conflict uses). The three `geometry.solar_*` rows stay on the tab **read-only** (`FieldRow.set_read_only`) with the Geometry stage named as their owner — they explain a dark reflected term without offering a second editor for a Geometry-owned parameter |
@@ -1290,12 +1290,32 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
 - 3D schematic viewport with orbit / pan / zoom (standard mouse drag / shift-drag / wheel).
 - Sun, sensor, target glyphs on a faint two-tone reference ground grid (reference, not
   measurement).
-- **Vectors:** sun→target (day scenes); sensor→target (always on); and, **only when the
-  target is elevated** (target altitude > 0), **sensor→ground** (blue, dashed) and
-  **sun→ground** (amber, dashed, day scenes), both landing at the target's **ground
-  projection** G_i (the nadir footprint directly below the body on the ground plane) — a
-  ground target has target == ground, so these are degenerate and absent (owner request
-  2026-07-14). The legend rows match what is drawn.
+- **Vectors:** sun→target (day scenes); sensor→target (always on); and, **only in a
+  down-looking scene with an elevated target** (target altitude > 0), **sensor→ground**
+  (blue, dashed) and **sun→ground** (amber, dashed, day scenes), both landing at the
+  target's **ground projection** G_i (the nadir footprint directly below the body on the
+  ground plane) — a ground target has target == ground, so these are degenerate and absent
+  (owner request 2026-07-14). The pair is likewise **omitted for the ADR-0011 up-looking
+  and level compositions**: looking up or along, the LOS never terminates on the ground and
+  the footprint below an air/space target is not a scene participant, so drawing them would
+  assert a ground interaction the scene does not have. The legend rows match what is drawn.
+- **Composition keyed by the stage-derived `los_direction`** (Geometry-Flexibility Phase 4,
+  ADR-0011 decisions 1/8 — read verbatim from `stage_outputs["geometry"]`, never re-derived):
+  the original **down-looking** layout (bit-identical to pre-Phase-4, proven by a pinned
+  regression test and a byte-identical render-parity check); an **up-looking** layout in
+  which the SENSOR is the path's lower endpoint — sitting *on* the ground plane for a
+  `ground` observer class, lifted to the fixed abstract off-ground height otherwise — with
+  the target carried above it along the θ_o ray so the SENSOR→TARGET vector ascends; and a
+  **level** layout with both endpoints at the one fixed abstract height (LOS horizontal).
+  All placements are fixed abstract scene units (§6.1); the scene class places the ground
+  plane and nothing else. The **h_t altitude pill** keeps the original airborne-only rule
+  for down-looking and is always shown for up/level (both endpoints are drawn apart, so
+  both magnitudes are annotated — including a surface-level arm's 0 m). **Level arms** add
+  the **Δh tangent-sag leader pill** ("Δh  49 m"): the LOS's tangent-height depression,
+  invisible in a not-to-scale drawing, computed from the stage's θ_o + endpoint altitude
+  through the core horizon-guard classifier
+  (`radiant.core.viewing_triangle.classify_horizon_topology`) — the schematic never
+  restates the formula, so the pill and the guard cannot disagree.
 - **Night scenes** (`geometry.solar_illumination = "night"`, owner bug 2026-07-18): the
   geometry stage publishes θ_s / Δφ as `None` — there is no sun — so the schematic drops
   the sun glyph, both sun vectors, the sun drop lines, the sun legend rows, and every
@@ -1489,16 +1509,23 @@ PyVista/VTK, no physics stage):
   check **only** — never as a second angle authority (§6.3).
 - **`schematic_view.py`** — the `SchematicView` canvas + the engine-independent
   `build_scene`/`SchematicScene`. Draws: ground grid, X/Y/Z axes, the labelled vectors
-  (sun→target, sensor→target, zenith always; sensor→ground + sun→ground only for an elevated
-  target, landing at its nadir ground projection `scene.ground_point` — §6.2),
-  sun/sensor glyphs, the **full shape-library** wireframe (sphere great-circles, box,
-  cylinder, cone, flat-plate, point reticle), rotated by the target's ZYX-Euler RPY; the
-  **revealable angle arcs** (off-nadir η, sun-zenith θ_s, relative-azimuth Δφ on the ground,
-  phase α_t) each with a **degree** value pill; the **h_s / h_t altitude leader labels**
+  (sun→target, sensor→target, zenith always; sensor→ground + sun→ground only for a
+  down-looking elevated target, landing at its nadir ground projection
+  `scene.ground_point` — §6.2), sun/sensor glyphs, the **full shape-library** wireframe
+  (sphere great-circles, box, cylinder, cone, flat-plate, point reticle), rotated by the
+  target's ZYX-Euler RPY; the **revealable angle arcs** (off-nadir η, sun-zenith θ_s,
+  relative-azimuth Δφ on the ground, phase α_t, and — Geometry-Flexibility Phase 4 — the
+  path zenith **θ_o** and lower-endpoint zenith **ζ_low**) each with a **degree** value
+  pill; the **h_s / h_t altitude leader labels** and the level-arm **Δh sag pill**
   (not-to-scale magnitudes, §6.1); and the on-target **RPY triad** (roll +X′ pink / pitch
-  +Y′ green / yaw +Z′ purple). Orthographic yaw/pitch by mouse drag. Hosts the interactive
-  `AngleToggleOverlay` as a bottom-left child widget (mirroring the top-left VECTORS legend),
-  repositioned in `resizeEvent`.
+  +Y′ green / yaw +Z′ purple). Composition is keyed by the stage-derived `los_direction`
+  (§6.2 — down / up / level). **Each stage-backed zenith arc is swept to its own ray**
+  (`eta_dir` / `theta_o_dir` / `zeta_low_dir`): η, θ_o and ζ_low are read at different
+  vertices of the viewing triangle and differ by the Earth-centre central angle, so sharing
+  one ray would pin a stage-true number on a visibly wrong arc; the ζ_low arc moves to the
+  sensor glyph when the sensor is the lower endpoint (`_arc_apex`). Orthographic yaw/pitch
+  by mouse drag. Hosts the interactive `AngleToggleOverlay` as a bottom-left child widget
+  (mirroring the top-left VECTORS legend), repositioned in `resizeEvent`.
 - **`angle_overlay.py`** — the interactive `AngleToggleOverlay` reveal selector: one
   frame-grouped checkbox per annotatable angle, mounted **on** the canvas bottom-left (owner
   feedback 2026-07-14, moved out of the right-column accordion). Each toggle emits
@@ -1509,10 +1536,22 @@ PyVista/VTK, no physics stage):
   target-frame/ground-frame split (matches the Phase-5 `GeometryReadout` grouping).
 - **`angle_truth.py`** — the viewer-local recomputation the consistency test checks against
   `stage_outputs["geometry"]` within `ANGLE_CONSISTENCY_ABS_TOL_RAD = 1e-9` rad (off-nadir,
-  sun-zenith, relative-azimuth; phase excluded — no stage truth). Divergence is a red build.
-- **`viewer_state.py` / `viewer_widget.py`** — the `ViewerState` adapter (reused unchanged)
-  and the `GeometryViewer` widget; `set_angle_revealed` / `set_triad_visible` now reveal the
-  arcs / triad on the canvas and repaint (a plain `update()`, no VTK render).
+  sun-zenith, relative-azimuth, and — Phase 4 — path-zenith θ_o and lower-zenith ζ_low;
+  phase excluded — no stage truth). `stage_angle_rad(geometry, name)` is the single
+  stage-truth accessor: every annotation reads one key verbatim except ζ_low, which has no
+  single stage key and goes through the direction-keyed transform defined once in
+  `angle_catalog.lower_zenith_rad` — θ_o for a down/level scene (the target/shared lower
+  endpoint), **π − η for an up-looking one** (the sensor's zenith is the supplement of the
+  sensor-vertex interior angle; note this is *not* π − θ_o, which differs by the
+  Earth-centre central angle). The consistency tests parametrize over the scene classes
+  (down, ground→air up, ground→space up, LEO→GEO up, air→air level). Divergence is a red
+  build.
+- **`viewer_state.py` / `viewer_widget.py`** — the `ViewerState` adapter and the
+  `GeometryViewer` widget; `set_angle_revealed` / `set_triad_visible` reveal the arcs /
+  triad on the canvas and repaint (a plain `update()`, no VTK render). Phase 4 binds five
+  more stage outputs verbatim — `theta_o_rad`, `los_direction`, `scene_class`,
+  `observer_class`, `target_class` — with down-looking defaults, so a partial or
+  pre-ADR-0011 result composes exactly the pre-Phase-4 scene.
 
 **Angle value sourcing (§6.3, binding):** each arc's degree label is `math.degrees()` of the
 stage angle bound verbatim into `ViewerState` (`eta_rad`, `theta_s_rad`, `delta_phi_rad`) —

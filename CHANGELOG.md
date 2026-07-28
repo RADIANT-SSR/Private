@@ -20,6 +20,26 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Direction-aware Geometry GUI (Geometry-Flexibility Phase 4).** The 2D
+  geometry schematic now composes by the stage-derived `los_direction`:
+  up-looking scenes draw the sensor as the path's lower endpoint (on the ground
+  plane for a ground observer) with the LOS ascending, and level arms draw both
+  endpoints at one abstract height. Two new revealable angle annotations — the
+  path zenith θ_o (obtuse-capable) and the lower-endpoint zenith ζ_low — join
+  the catalog, plus a level-arm Δh tangent-sag leader pill sourced from the core
+  horizon-guard classifier. Down-looking scenes render byte-identically to
+  before. The Geometry Inputs tab gains the **scene-class steering card**: the
+  derived observer→target class chip, the optional `geometry.scene_class`
+  assertion (mission-type entry point; asserted-vs-derived mismatches tint the
+  card in-context), and a per-class preview of the metrics off by default.
+  Viewing-mode labels are re-worded direction-general ("Path zenith at lower
+  endpoint (V1)", "Off-boresight angle (V2)", "Elevation angle, signed (V4)").
+- **`radiant.api.scene_relevance`** — new public bridge re-exporting the
+  scene-class → default-metric-relevance map (`SCENE_RELEVANCE`,
+  `default_off_metrics`, …) from `radiant.performance.scene_relevance` for view
+  layers (guardrail G3: one declarative map, no GUI-side copy).
+
 ### Fixed
 - **A smear wider than the PSF grid no longer crashes the evaluation (CU-235).**
   `PlatformStage` forced each kernel size odd and *then* clamped it to the PSF

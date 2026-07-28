@@ -58,10 +58,15 @@ FAMILY_TITLES: Final[Mapping[str, str]] = {
 }
 
 MODE_LABELS: Final[Mapping[str, str]] = {
-    "V1": "Path zenith θ_o (V1)",
-    "V2": "Off-nadir angle η (V2)",
+    # Viewing labels name the *direction-general* door (ADR-0011 decision 3):
+    # every entered viewing angle is read at the path's LOWER endpoint, and the
+    # reference axis is resolved from the altitudes, never declared. The labels
+    # stay short — the ζ_low ↔ θ_o relationship and the axis resolution are the
+    # schema description the editor dialog shows, not combo text.
+    "V1": "Path zenith at lower endpoint (V1)",
+    "V2": "Off-boresight angle (V2)",
     "V3": "Ground range (V3)",
-    "V4": "Elevation angle (V4)",
+    "V4": "Elevation angle, signed (V4)",
     "V0": "Direct slant range (V0)",
     "S1": "Solar zenith θ_s (S1)",
     "S2": "Solar elevation (S2)",

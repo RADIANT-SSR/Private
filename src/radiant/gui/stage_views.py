@@ -92,7 +92,8 @@ class StageSubView:
     ----------
     title:
         The tab label.
-    geometry_form, geometry_readout, geometry_viewer, mtf_panel, noise_panel, outputs, \
+    scene_class_panel, geometry_form, geometry_readout, geometry_viewer, mtf_panel, \
+    noise_panel, outputs, \
     metrics, plots, plot_columns, panel_placement, note:
         The same section fields as :class:`StageComposition`, scoped to this tab.
         ``geometry_viewer`` embeds the geometry schematic viewer (ADR-0007, Geometry "Schematic").
@@ -101,6 +102,7 @@ class StageSubView:
     """
 
     title: str
+    scene_class_panel: bool = False
     geometry_form: bool = False
     geometry_readout: bool = False
     geometry_viewer: bool = False
@@ -147,6 +149,11 @@ class StageComposition:
     ----------
     title:
         The stage heading shown at the top of the center.
+    scene_class_panel:
+        Show the scene-class steering card — the derived-class chip, the optional
+        ``geometry.scene_class`` assertion (the mission-type entry point), and the
+        metrics that class turns off by default (Geometry "Inputs", top of the tab;
+        ADR-0011 decision 8 / Geometry-Flexibility plan Phase 4).
     geometry_form:
         Show the stage-0 input-mode forms — the mode selectors + schema-driven fields
         (Geometry only; the arch-doc §4.4 "Inputs" section, GUI plan Phase 5).
@@ -231,6 +238,7 @@ class StageComposition:
     """
 
     title: str
+    scene_class_panel: bool = False
     geometry_form: bool = False
     geometry_readout: bool = False
     geometry_viewer: bool = False
@@ -296,14 +304,23 @@ _READOUT_NOTE: Final[str] = (
 # ``Sensor.parameter_defs()`` — note ``spectral_integration``, not ``spectral``; CU-106).
 STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # Stage-0 is a two-tab composite (GUI plan Phase 7 "Inputs | Schematic" split): an
-    # "Inputs" tab with the input-mode forms (§4.4 Inputs, Phase 5) + the derived
-    # angles/ranges readout, and a "Schematic" tab with the embedded 2D geometry
-    # schematic viewer (ADR-0007, superseded 2026-07-14 — 2D orthographic Qt schematic).
-    # The tabbed sub-view hook renders them as a QTabWidget.
+    # "Inputs" tab with the scene-class steering card (Geometry-Flexibility Phase 4 —
+    # the derived class, the optional assertion, the metrics that class defaults off),
+    # then the input-mode forms (§4.4 Inputs, Phase 5) + the derived angles/ranges
+    # readout, and a "Schematic" tab with the embedded 2D geometry schematic viewer
+    # (ADR-0007, superseded 2026-07-14 — 2D orthographic Qt schematic).
+    # The tabbed sub-view hook renders them as a QTabWidget. The scene-class card leads
+    # the tab because the class steers what the rest of the screen means: it is the
+    # mission-type entry point, read before the angles are typed.
     "geometry": StageComposition(
         title="Geometry",
         subviews=(
-            StageSubView(title="Inputs", geometry_form=True, geometry_readout=True),
+            StageSubView(
+                title="Inputs",
+                scene_class_panel=True,
+                geometry_form=True,
+                geometry_readout=True,
+            ),
             StageSubView(title="Schematic", geometry_viewer=True),
         ),
     ),

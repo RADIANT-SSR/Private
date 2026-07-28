@@ -7,6 +7,9 @@ These drive the real widgets on the shipped example config, offscreen. The contr
 * each input mode round-trips — selecting a mode, setting its field through the public
   API, and refreshing shows the value and detects that mode as active;
 * mode switching enables the active mode's fields and disables the rest;
+* every mode/family carries display wording, and the viewing labels state the
+  ADR-0011 direction-general semantics (lower-endpoint reference, off-**boresight**
+  rather than off-nadir, signed elevation);
 * the derived-angle readout groups target-frame vs ground-frame and renders every value
   from ``stage_outputs["geometry"]`` **exactly**, each with its unit;
 * a real over-/under-specified geometry surfaces the stage's error with the offending
@@ -23,13 +26,17 @@ import pytest
 import radiant.gui.widgets.actionable_error_dialog as aed
 from radiant.api.sensor import Sensor
 from radiant.gui.geometry_modes import (
+    FAMILY_TITLES,
     KINEMATICS_FAMILY,
     MODE_FAMILIES,
+    MODE_LABELS,
     SOLAR_FAMILY,
     VIEWING_FAMILY,
     active_mode_key,
     all_mode_params,
+    family_title,
     implicated_families,
+    mode_label,
 )
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.param_format import format_value
@@ -153,6 +160,56 @@ class TestModeManifest:
         assert active_mode_key(VIEWING_FAMILY, provided, value) == "V1"
         assert active_mode_key(SOLAR_FAMILY, provided, value) == "S1"
         assert active_mode_key(KINEMATICS_FAMILY, provided, value) == "direct"
+
+
+# ---------------------------------------------------------------------------
+# Display wording (the only mode knowledge that lives GUI-side)
+# ---------------------------------------------------------------------------
+
+
+class TestModeWording:
+    """The mode/family labels — direction-general since ADR-0011 (Geometry doc §2)."""
+
+    def test_every_mode_and_family_has_wording(self) -> None:
+        """Drift guard, asserted as a test as well as at import (blank combo entries)."""
+        for family in MODE_FAMILIES:
+            assert family_title(family.key)
+            for mode in family.modes:
+                assert mode_label(mode.key)
+
+    def test_viewing_labels_state_direction_general_semantics(self) -> None:
+        """V1/V2/V4 name the lower-endpoint, axis-resolved, signed doors verbatim."""
+        assert MODE_LABELS["V1"] == "Path zenith at lower endpoint (V1)"
+        assert MODE_LABELS["V2"] == "Off-boresight angle (V2)"
+        assert MODE_LABELS["V4"] == "Elevation angle, signed (V4)"
+
+    def test_no_label_says_off_nadir(self) -> None:
+        """Regression guard: "off-nadir" is wrong for an up-looking scene (ADR-0011).
+
+        The V2 entry is an off-**boresight** angle whose reference axis is resolved
+        from the altitudes — nadir-referenced only when the sensor is the upper
+        endpoint — so no selector label may hard-code the nadir axis.
+        """
+        offenders = [key for key, label in MODE_LABELS.items() if "nadir" in label.lower()]
+        assert not offenders, f"mode labels still hard-code a nadir reference: {offenders}"
+
+    def test_direction_neutral_labels_unchanged(self) -> None:
+        """The doors ADR-0011 did not re-mean keep their wording (V0/V3, solar, rate)."""
+        assert MODE_LABELS["V0"] == "Direct slant range (V0)"
+        assert MODE_LABELS["V3"] == "Ground range (V3)"
+        assert MODE_LABELS["S1"] == "Solar zenith θ_s (S1)"
+        assert MODE_LABELS["circular"] == "Circular orbit (V6)"
+        assert MODE_LABELS["K1"] == "Direct LOS rate (K1)"
+        assert FAMILY_TITLES["viewing"] == "Viewing geometry"
+        assert FAMILY_TITLES["los_rate"] == "Line-of-sight rate"
+
+    def test_form_selector_shows_the_labels(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
+        """The viewing combo renders the wording (not just the mapping in isolation)."""
+        form = _bound_form(qtbot, sensor)
+        combo = form.selector("viewing")
+        shown = [combo.itemText(i) for i in range(combo.count())]
+        assert "Off-boresight angle (V2)" in shown
+        assert not any("nadir" in text.lower() for text in shown)
 
 
 # ---------------------------------------------------------------------------

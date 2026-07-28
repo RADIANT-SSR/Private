@@ -20,6 +20,95 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Source "Target — point source" plots the source-side emission, not the
+  at-aperture radiance (GUI walkthrough item 5).** The tab defines what the
+  target *emits* (blackbody T/area/ε or a band-integrated intensity in W/sr),
+  but plotted `spectral_source` — the radiance after the atmosphere has already
+  attenuated it — so the operator could not see the effect of the intensity they
+  were typing. It now plots `spectral_source_emission`. The at-aperture view
+  still lives on the Atmosphere stage, which owns that step.
+- **Integration time is edited on Readout only (GUI walkthrough item 21).**
+  `spectral_integration.integration_time_s` was mounted on both the
+  Spectral-Integration and Readout input cards, giving one parameter two
+  editors. The Spectral-Integration card is now the filter bandpass alone. The
+  schema is unchanged — the parameter keeps its dot-path and owning stage; only
+  which form surfaces it changed.
+- **The PSF plots now show the fully degraded PSF, cropped to the core (GUI
+  walkthrough items 14 and 20).** `result.plot.psf()` and
+  `result.plot.psf_pixel_grid()` read `stage_outputs["optics"]["effective_psf"]`
+  — the PSF *before* PlatformStage convolves jitter, smear and turbulence into
+  it. Rule 4 makes one `EffectivePSF` the source of every spatial metric, and
+  that one is the fully degraded PSF the later stages build (`performance` >
+  `platform` > `optics`), so the figure disagreed with the EE_box, RER, FWHM and
+  Strehl computed beside it: with 15 µrad of jitter the plotted peak was ~5×
+  too high. Both accessors now resolve the most-degraded PSF available. They
+  also crop to ±6 detector pixels around the core (`span_pixels`) instead of
+  rendering the whole array — a 1024² grid at ~8 samples/pixel is ±60 pixels of
+  mostly empty field — and `psf()` outlines the pixel the core lands in
+  (`pixel_outline`). `plot_psf(pixel_grid_span=...)` is deprecated in favour of
+  `span_pixels=...`, which now applies to both variants.
+- **The Optics MTF tab is re-laid out and the MTF-at-Nyquist bar chart is gone
+  (GUI walkthrough items 10-12).** The `mtf()` overlay now marks the detector
+  Nyquist frequency with a red dashed vertical line, and the per-contributor
+  budget moved *below* the figure and split into X and Y tabs, each sampling
+  every contributor at 0.25, 0.5, 0.75 and 1.0 × Nyquist plus a system-product
+  row — where a single MTF@Nyquist column showed only where each roll-off ends.
+  The separate `mtf_budget` bar chart was dropped from the tab (it re-marked the
+  table's own numbers); the `result.plot.mtf_budget()` accessor itself is
+  unchanged and still available to scripts.
+- **The Optics PSF + Pupil tab puts its three maps on one row** (walkthrough
+  item 13), ordered cause-then-effect: pupil apodization, pupil WFE, PSF.
+- **The Detector noise table sits beside the pie rather than under it**
+  (walkthrough item 17), so every term is visible without scrolling.
+
+### Added
+- **The Atmosphere view separates the target and background columns (GUI
+  walkthrough item 8).** These are genuinely different paths whenever the target
+  sits above the surface: the target is seen through `τ_up` (target → sensor)
+  while a surface background is seen through `τ_full_up` (ground → sensor,
+  including the air *below* the target). On the shipped MWIR example with a
+  500 km sensor and a 10 km target the two transmittances are 0.87 and 0.50 —
+  the effect that sets contrast, previously invisible because only the target
+  arm was plotted. New `result.plot.spectral_atmosphere_background()` draws the
+  background column, and `result.plot.spectral_at_aperture_arms()` puts both
+  at-aperture radiances on one axis. `result.plot.spectral_atmosphere()` is
+  unchanged except for a title now naming it as the target arm. For a
+  surface-level target, or an up-looking scene, the two columns coincide by
+  construction and the figures agree.
+- **PSF convolution kernels are now visible, not just named (GUI walkthrough
+  items 15 and 19).** `EffectivePSF` gained a `kernels` field holding the arrays
+  convolved in, paired with the names `convolution_history` already recorded —
+  so a view can show *what* each degradation did rather than only that it
+  happened. New `result.plot.psf_kernels()` draws every retained kernel as a row
+  of 2-D maps (each cropped to its own support and scaled independently, since
+  they differ by orders of magnitude), and `result.plot.detector_kernels()`
+  draws only the detector-side subset (pixel aperture, charge diffusion, IPC).
+  The Platform stage gains a **PSF degradation** tab pairing the kernels with
+  the post-convolution PSF; the Detector **Detector + PSF** tab now places the
+  pixel illustration beside the kernel that pixel imposes.
+- **`radiant.performance.mtf_fraction_table`** — samples each MTF contributor at
+  a ladder of Nyquist fractions (default 0.25/0.5/0.75/1.0). Sampling only: no
+  new MTF physics. `PerformanceStage` publishes
+  `stage_outputs["performance"]["mtf_fraction_table_x"]` / `_y`, plus
+  `nyquist_freq_cycles_per_mrad` (the Nyquist limit on the chain's angular axis,
+  so views need not re-derive the cycles/m ↔ cycles/mrad conversion).
+
+### Changed
+- **GUI preferences now persist to a portable INI file (CU-233).** `SettingsStore`
+  built its `QSettings` with the two-argument `QSettings(organization,
+  application)` constructor, which ignores `QSettings.setDefaultFormat()` and
+  resolves to the platform-native backend (a plist under
+  `~/Library/Preferences` on macOS). That made the store unreachable by the test
+  suite's path redirection — the cause of the theme resets fixed above — and it
+  persisted differently on macOS than on Windows. It now uses the explicit
+  `IniFormat` / `UserScope` constructor that `PinnedPanel` already used, so both
+  GUI persistence surfaces share one portable, redirectable backend.
+  **One-time reset (owner-ratified):** no migration reads the old native store
+  forward, so the remembered theme, recent-files list, and panel show/hide state
+  start empty on the next launch. The GUI opens in the light default once; the
+  View menu re-establishes the preference and it persists from then on.
+
 ### Fixed
 - **Results-affecting (turbulence scenes only; no shipped baseline affected):
   turbulence now actually enters the MTF-product path.** A unit slip

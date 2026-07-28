@@ -1604,6 +1604,19 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 112: No CODE V wavefront import — Zernike coefficients can only be supplied in Zemax Noll ordering, and no `.int` reader exists
+
+| | |
+|---|---|
+| **Found in** | GUI walkthrough round 2, item 9 (owner: "We use Code V not zemax"), 2026-07-27. |
+| **Status** | OPEN |
+| **Description** | The only wavefront-import path is `radiant.io.zemax_zernike.load_zemax_zernike`, which parses the Zemax OpticStudio *Zernike Standard Coefficients* text report and interprets the coefficients in **Noll** ordering. RADIANT's optical design work is done in **CODE V**, which (a) writes interferogram/wavefront data as `.int` files, not Zemax text reports, and (b) conventionally numbers Zernikes in **Fringe** ordering, which is a different index→polynomial map from Noll. There is consequently no supported route from the actual design tool into the pupil-phase map, and no GUI affordance for entering Zernike coefficients by hand (the owner asked for one "similar to inputting a coating" — i.e. a small editable table beside the existing element/coating editors). |
+| **Impact** | The `optics` WFE surface is reachable only via a scalar RMS or a Zemax export nobody produces here, so real as-designed and as-built wavefronts cannot drive the PSF/MTF dual path. Every aberrated-system study is therefore run from an idealised or hand-approximated wavefront, and the Gap-89 pupil-phase map (now plotted in the GUI's PSF + Pupil tab) renders flat for designs that are not actually diffraction-limited. |
+| **Suggested fix** | Three separable pieces, in order: (1) a Fringe↔Noll index mapping in `radiant.optics` with Level-0 tests against the published tables — the pure computation both other pieces need (Rule 19: its own module); (2) `radiant.io.codev_int` reading the CODE V `.int` interferogram format into the same wavefront-array surface `ZemaxZernikeResult.to_wavefront_error` produces, so the downstream pupil path is untouched; (3) a GUI Zernike-coefficient table on the Optics stage, committing through one `Sensor.set`, with a Fringe/Noll ordering selector so the number the optical engineer reads off CODE V is the number they type. Effort M-L overall (S for the index map, M for the reader, M for the editor); category C for (1) and (2), D for (3). |
+| **Workaround** | Convert coefficients to Noll ordering by hand and write a synthetic Zemax-format text report for `load_zemax_zernike`, or supply a scalar `optics.wfe_rms_waves` and accept an unstructured wavefront. Both lose the per-term provenance the design tool has. |
+
+---
+
 ## Gap 111: No relative target kinematics — smear and revisit metrics assume a ground-track scene; LOS-rate-driven smear for air/space targets is unexpressible
 
 | | |

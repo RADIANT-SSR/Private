@@ -44,6 +44,7 @@ from radiant.performance.metric_selection import (
 )
 from radiant.performance.minimum_resolvable import minimum_resolvable_temperature_K
 from radiant.performance.mtf_budget import compute_mtf_budget
+from radiant.performance.mtf_fraction_table import compute_mtf_fraction_table
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.path_optical_depth import resolve_path_optical_depth
@@ -180,6 +181,22 @@ def _compute_spatial_metrics(
 
     # Folded (aliased) MTF: meaningful for Q < 2.0.
     f_ny = nyquist_freq(pixel_pitch_m)
+
+    # The same Nyquist limit expressed on the chain's angular frequency axis, so a
+    # view can mark it on an MTF overlay without re-deriving the conversion (the
+    # cycles/m ↔ cycles/mrad step is exactly where CU-234's error lives). An
+    # angular frequency f_ang [cycles/rad] images to f_ang / focal [cycles/m] on
+    # the focal plane, so the inverse is f_mrad = f_m × focal / 1e3.
+    try:
+        focal_for_nyquist: float = params.get("optics.focal_length_m")
+    except (KeyError, TypeError):
+        focal_for_nyquist = 0.0
+    if focal_for_nyquist > 0.0:
+        state = state.with_stage_output(
+            "performance",
+            "nyquist_freq_cycles_per_mrad",
+            f_ny * focal_for_nyquist / 1e3,
+        )
     folded_x = compute_folded_mtf(freq_x, mtf_x, f_ny, n_folds=3)
     folded_y = compute_folded_mtf(freq_y, mtf_y, f_ny, n_folds=3)
 
@@ -232,6 +249,20 @@ def _compute_spatial_metrics(
             state = state.with_stage_output("performance", "mtf_budget", budget)
             state = state.with_metric("mtf_system_at_nyquist_x", budget.system_mtf_at_nyquist_x)
             state = state.with_metric("mtf_system_at_nyquist_y", budget.system_mtf_at_nyquist_y)
+
+            # Per-contributor MTF across a ladder of Nyquist fractions, one table
+            # per axis. Sampling only — no new MTF physics (see the module
+            # docstring). Published so the view layer can show the shape of each
+            # roll-off without importing the performance package (import-linter
+            # forbids gui -> performance) and without re-deriving the frequency
+            # conversion (CU-234).
+            nyquist_mrad = f_ny * focal_length_m / 1e3
+            for axis in ("x", "y"):
+                state = state.with_stage_output(
+                    "performance",
+                    f"mtf_fraction_table_{axis}",
+                    compute_mtf_fraction_table(budget, nyquist_mrad, axis),
+                )
 
     # --- Dual-path consistency check ---
     if freq_mrad is not None and len(state.mtf_terms) > 0:

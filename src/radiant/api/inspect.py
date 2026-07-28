@@ -127,6 +127,14 @@ def _format_stage(result: ChainResult, stage: str) -> str:
     return "\n".join(lines)
 
 
+#: The PSF convolution kernels the **detector** contributes, in application order.
+#: Named here (not discovered) because "which of these kernels is the detector's"
+#: is a fact about the signal chain, not about any one result: pixel aperture and
+#: charge diffusion are applied by OpticsStage, IPC by PerformanceStage, so no
+#: single stage's output identifies the set.
+_DETECTOR_KERNELS: tuple[str, ...] = ("pixel_aperture", "charge_diffusion", "ipc")
+
+
 class ResultPlotNamespace:
     """Namespace for result plot accessors.
 
@@ -144,31 +152,152 @@ class ResultPlotNamespace:
     def __init__(self, result: ChainResult) -> None:
         self._result = result
 
+    def _degraded_psf(self) -> Any:
+        """The **fully degraded** effective PSF — the one every spatial metric uses.
+
+        Rule 4 makes one ``EffectivePSF`` the single source of truth for the
+        spatial-domain metrics, and the stages build it up in order: ``optics``
+        holds optical + pixel-aperture + diffusion, ``platform`` adds jitter,
+        smear and turbulence, and ``performance`` adds the IPC and electronics
+        kernels. Plotting the ``optics`` one — as these accessors used to —
+        therefore showed a *different* PSF from the one EE_box, RER, FWHM and
+        Strehl are computed from: with 15 µrad of jitter its peak is ~5× too
+        high, because the jitter convolution is missing (owner walkthrough item
+        20: "the PSF should then be the convolution of everything in the chain").
+
+        Resolution order is most-degraded first, falling back for partial chains
+        that stopped before the later stages.
+        """
+        outputs = self._result.stage_outputs
+        for stage in ("performance", "platform", "optics"):
+            psf_data = outputs.get(stage, {}).get("effective_psf")
+            if psf_data is not None:
+                return psf_data
+        raise ApiValidationError(
+            "No effective PSF found in result stage_outputs — looked in "
+            "'performance', 'platform' and 'optics'. The chain must run "
+            "OpticsStage to build one."
+        )
+
     def psf(self, **kwargs: Any) -> Any:
-        """Plot the effective PSF as a 2D image."""
-        from radiant.api.plot import plot_psf
+        """Plot the fully degraded effective PSF as a 2D image.
 
-        psf_data = self._result.stage_outputs.get("optics", {}).get("effective_psf")
-        if psf_data is None:
-            raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
-        return plot_psf(psf_data, **kwargs)
-
-    def psf_pixel_grid(self, **kwargs: Any) -> Any:
-        """Plot the effective PSF with the detector **pixel grid** overlaid.
-
-        Same figure as :meth:`psf`, plus pixel-boundary gridlines at the detector
-        pixel pitch (``EffectivePSF.pixel_pitch_m`` over samples spaced at
-        ``sample_spacing_m``) and a crop to the PSF core, so the viewer sees how
-        the PSF spreads across detector pixels (arch-doc §4.4.1 Detector row). A
-        GUI draw over already-computed data — no results change. Raises
-        :class:`ApiValidationError` when the effective PSF is absent.
+        Cropped to a few detector pixels around the core and outlining the pixel
+        the core lands in (walkthrough items 14 and 20); pass ``span_pixels`` to
+        widen the window or ``pixel_outline=False`` to drop the outline.
         """
         from radiant.api.plot import plot_psf
 
-        psf_data = self._result.stage_outputs.get("optics", {}).get("effective_psf")
-        if psf_data is None:
-            raise ApiValidationError("No effective PSF found in result stage_outputs['optics'].")
-        return plot_psf(psf_data, pixel_grid=True, **kwargs)
+        return plot_psf(self._degraded_psf(), **kwargs)
+
+    def psf_pixel_grid(self, **kwargs: Any) -> Any:
+        """Plot the fully degraded effective PSF with the detector **pixel grid** overlaid.
+
+        Same figure as :meth:`psf`, but with pixel-boundary gridlines across the
+        whole cropped window rather than a single outlined pixel, so the viewer
+        sees how the PSF spreads across neighbouring detector pixels (arch-doc
+        §4.4.1 Detector row). A GUI draw over already-computed data — no results
+        change. Raises :class:`ApiValidationError` when no effective PSF exists.
+        """
+        from radiant.api.plot import plot_psf
+
+        return plot_psf(self._degraded_psf(), pixel_grid=True, **kwargs)
+
+    def spectral_atmosphere_background(self, **kwargs: Any) -> Any:
+        """Plot the **background** arm's transmittance and path radiance vs λ.
+
+        The sibling of :meth:`spectral_atmosphere`, which draws the *target*
+        arm. The two are genuinely different columns whenever the target sits
+        above the surface: the target arm carries ``τ_up`` / ``L_path_up``
+        (target → sensor), while a surface background is seen through
+        ``τ_full_up`` / ``L_path_full`` (ground → sensor), the full column
+        including the air *below* the target. On the shipped MWIR example with a
+        500 km sensor and a 10 km target the two transmittances are 0.87 and
+        0.50 — the background is nearly a factor of two dimmer through the
+        atmosphere, which is exactly the effect that sets contrast (owner
+        walkthrough item 8: "depending on geometry these could be different,
+        lets show both").
+
+        For a surface-level target the two are identical by construction, and
+        for an up-looking scene the topology sets the full column equal to the
+        observer leg, so the two figures coincide — correctly, not by accident.
+
+        Raises :class:`ApiValidationError` when the atmosphere stage did not run.
+        """
+        from radiant.api.plot import plot_atmosphere_spectral
+
+        quantities = self._result.stage_outputs.get("atmosphere", {}).get("atm_quantities")
+        if quantities is None:
+            raise ApiValidationError(
+                "No atmospheric quantities found in result "
+                "stage_outputs['atmosphere']['atm_quantities'] — the chain must "
+                "run AtmosphereStage."
+            )
+        return plot_atmosphere_spectral(
+            self._result.state.wavelength_um,
+            quantities.tau_full_up,
+            quantities.L_path_full,
+            title="Background path — τ_full_up & L_path_full (ground → sensor)",
+            **kwargs,
+        )
+
+    def spectral_at_aperture_arms(self, **kwargs: Any) -> Any:
+        """Plot the target and background radiance **at the aperture** together.
+
+        The end of the atmospheric story on one axis: what actually arrives after
+        each arm's own transmittance and path radiance have been applied (owner
+        walkthrough item 8's third plot). Their ratio here — not the ratio at the
+        source — is what the contrast metrics see.
+
+        The background curve appears only when a background is configured; a
+        target-only scene draws the target alone rather than failing.
+        """
+        from radiant.api.plot import plot_spectral_multi
+
+        frames = self._result.frames
+        target = frames.get("at_aperture_target") or frames.get("at_aperture")
+        if target is None or target.spectral_radiance is None:
+            raise ApiValidationError(
+                "No at-aperture frame found in result.frames "
+                "('at_aperture_target') — the chain must run AtmosphereStage."
+            )
+        series: dict[str, Any] = {"target": target.spectral_radiance}
+        background = frames.get("at_aperture_background")
+        if background is not None and background.spectral_radiance is not None:
+            series["background"] = background.spectral_radiance
+        return plot_spectral_multi(
+            self._result.state.wavelength_um,
+            series,
+            ylabel="Radiance at aperture (W/m²/sr/µm)",
+            title="At aperture — target vs background (after atmosphere)",
+            **kwargs,
+        )
+
+    def psf_kernels(self, **kwargs: Any) -> Any:
+        """Plot every convolution kernel that degraded the effective PSF.
+
+        One 2-D map per kernel, in the order applied — the optical PSF's
+        successive degradations made visible instead of merely named in
+        ``convolution_history`` (walkthrough item 15). Raises
+        :class:`ApiValidationError` when the PSF retains no kernels, which means
+        every optional degradation is configured to zero.
+        """
+        from radiant.api.plot import plot_psf_kernels
+
+        return plot_psf_kernels(self._degraded_psf(), **kwargs)
+
+    def detector_kernels(self, **kwargs: Any) -> Any:
+        """Plot only the **detector-side** PSF convolution kernels.
+
+        The subset of :meth:`psf_kernels` contributed by the detector — pixel
+        aperture, charge diffusion, and inter-pixel capacitance — so the pixel
+        illustration can sit beside the kernel that pixel actually imposes on the
+        PSF (walkthrough item 19). Raises :class:`ApiValidationError` when none
+        of them is present.
+        """
+        from radiant.api.plot import plot_psf_kernels
+
+        return plot_psf_kernels(self._degraded_psf(), names=_DETECTOR_KERNELS, **kwargs)
 
     def pupil_amplitude(self, **kwargs: Any) -> Any:
         """Plot the pupil amplitude (apodization) map (Gap 89).
@@ -243,12 +372,21 @@ class ResultPlotNamespace:
         return plot_noise_pie(self._result.noise_terms, **kwargs)
 
     def mtf(self, **kwargs: Any) -> Any:
-        """Plot all MTF terms."""
+        """Plot all MTF terms, with the detector Nyquist limit marked.
+
+        The Nyquist frequency is read from
+        ``stage_outputs['performance']['nyquist_freq_cycles_per_mrad']`` —
+        published by ``PerformanceStage`` on the chain's own angular axis — and
+        drawn as a red dashed vertical line. It is absent (and the marker simply
+        omitted) when the chain ran without a focal length.
+        """
         from radiant.api.plot import plot_mtf_terms
 
+        performance = self._result.stage_outputs.get("performance", {})
         return plot_mtf_terms(
             dict(self._result.state.mtf_terms),
             self._result.state.spatial_freq_cycles_per_mrad,
+            nyquist_cycles_per_mrad=performance.get("nyquist_freq_cycles_per_mrad"),
             **kwargs,
         )
 
@@ -421,6 +559,9 @@ class ResultPlotNamespace:
                 "stage_outputs['atmosphere'] ('tau_atm', 'L_path') — the chain "
                 "must run AtmosphereStage."
             )
+        # Named as the target arm so it reads as one of a pair with
+        # spectral_atmosphere_background rather than as "the" atmosphere.
+        kwargs.setdefault("title", "Target path — τ_up & L_path_up (target → sensor)")
         return plot_atmosphere_spectral(
             self._result.state.wavelength_um,
             tau_atm,

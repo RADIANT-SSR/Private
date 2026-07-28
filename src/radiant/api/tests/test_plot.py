@@ -252,11 +252,52 @@ class TestPlotPsfPixelGrid:
         )
 
     def test_default_has_no_grid_and_shipped_title(self) -> None:
-        """pixel_grid defaults False → the shipped image, uncropped, titled 'Effective PSF'."""
-        fig = plot_psf(self._psf())
+        """pixel_grid defaults False → no grid mesh, but the single pixel is outlined.
+
+        Walkthrough items 14 and 20 changed this default: the plain PSF plot is
+        now cropped to a few detector pixels and outlines the pixel the core lands
+        in, so the title names the pitch and a Rectangle patch is present. The
+        distinguishing feature of ``pixel_grid=True`` is the *mesh* of Line2D
+        gridlines, which must still be absent here.
+        """
+        from matplotlib.patches import Rectangle
+
+        psf = self._psf()
+        fig = plot_psf(psf)
         ax = fig.axes[0]
-        assert ax.get_title() == "Effective PSF"
-        assert not ax.get_lines()  # no gridlines
+        assert ax.get_title() == "Effective PSF (10.0 µm pixel outlined)"
+        assert not ax.get_lines()  # no pixel-boundary grid mesh
+        # Exactly one pixel outlined, not a grid of them.
+        assert len([p for p in ax.patches if isinstance(p, Rectangle)]) == 1
+        # Cropped to the core rather than the full array (item 14).
+        lo, hi = ax.get_xlim()
+        assert (hi - lo) < psf.data.shape[0]
+        matplotlib.pyplot.close(fig)
+
+    def test_pixel_outline_can_be_suppressed(self) -> None:
+        """``pixel_outline=False`` drops the rectangle for callers that want a bare map."""
+        from matplotlib.patches import Rectangle
+
+        fig = plot_psf(self._psf(), pixel_outline=False)
+        ax = fig.axes[0]
+        assert not [p for p in ax.patches if isinstance(p, Rectangle)]
+        matplotlib.pyplot.close(fig)
+
+    def test_span_pixels_controls_the_crop_width(self) -> None:
+        """A wider span shows more of the array (item 14's zoom is a parameter, not fixed)."""
+        psf = self._psf()
+        narrow = plot_psf(psf, span_pixels=4)
+        wide = plot_psf(psf, span_pixels=12)
+        nlo, nhi = narrow.axes[0].get_xlim()
+        wlo, whi = wide.axes[0].get_xlim()
+        assert (whi - wlo) > (nhi - nlo)
+        matplotlib.pyplot.close(narrow)
+        matplotlib.pyplot.close(wide)
+
+    def test_deprecated_pixel_grid_span_still_works(self) -> None:
+        """The old kwarg keeps working, with a DeprecationWarning."""
+        with pytest.warns(DeprecationWarning, match="pixel_grid_span"):
+            fig = plot_psf(self._psf(), pixel_grid=True, pixel_grid_span=8)
         matplotlib.pyplot.close(fig)
 
     def test_default_axes_labelled_psf_samples_not_pixels(self) -> None:
@@ -270,7 +311,7 @@ class TestPlotPsfPixelGrid:
     def test_grid_overlays_lines_and_crops_and_titles_pitch(self) -> None:
         """pixel_grid=True → gridlines drawn, view cropped to the core, pitch (µm) in title."""
         psf = self._psf()
-        fig = plot_psf(psf, pixel_grid=True, pixel_grid_span=8)
+        fig = plot_psf(psf, pixel_grid=True, span_pixels=8)
         ax = fig.axes[0]
         assert ax.get_lines()  # pixel-boundary gridlines present
         assert "µm pitch" in ax.get_title()

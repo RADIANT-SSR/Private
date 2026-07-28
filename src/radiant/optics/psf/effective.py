@@ -37,6 +37,14 @@ class EffectivePSF:
     pixel_pitch_m: float
     wavelength_um: float
     convolution_history: tuple[str, ...]
+    #: The kernels convolved in, paired with their history names and in the same
+    #: order — the *unpadded* arrays as handed to :meth:`with_kernel`, on this
+    #: PSF's sample grid. ``convolution_history`` records that a degradation was
+    #: applied; this records **what it looked like**, which is what a view needs
+    #: to show the convolution rather than only name it. Empty on a freshly built
+    #: PSF (nothing convolved yet) and for the ``"optical"`` seed term, which is
+    #: the diffraction PSF itself and not a kernel.
+    kernels: tuple[tuple[str, npt.NDArray[np.float64]], ...] = ()
 
     # -- basic properties ---------------------------------------------------
 
@@ -94,6 +102,10 @@ class EffectivePSF:
             pixel_pitch_m=self.pixel_pitch_m,
             wavelength_um=self.wavelength_um,
             convolution_history=self.convolution_history + (name,),
+            # Retain the kernel beside its name so the convolution can be shown,
+            # not merely listed. The unpadded array is kept (the padded copy is a
+            # full PSF-grid array and would cost the same memory as the PSF).
+            kernels=(*self.kernels, (name, kernel)),
         )
 
     # -- MTF ----------------------------------------------------------------

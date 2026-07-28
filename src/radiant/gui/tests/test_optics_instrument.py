@@ -73,15 +73,21 @@ class TestOpticsComposition:
         # Inputs tab: the editable optics form + the FINAL-regime outputs readout (Rule 10).
         assert subviews["Inputs"].optics_inputs is True
         assert subviews["Inputs"].outputs is True
-        # MTF tab: the relocated MtfPanel (table + mtf() overlay) + the mtf_budget bar.
+        # MTF tab: the relocated MtfPanel (per-term table + mtf() overlay), with the
+        # table BELOW the figure (owner walkthrough item 11). The separate
+        # MTF-at-Nyquist bar chart was removed in the same pass (item 10: "MTF,
+        # don't need the bar chart") — it re-marked the table's own numbers.
         assert subviews["MTF"].mtf_panel is True
-        assert [p.method for p in subviews["MTF"].plots] == ["mtf_budget"]
-        # PSF + Pupil tab: psf + the two FP-2 complex-pupil maps.
+        assert list(subviews["MTF"].plots) == []
+        # PSF + Pupil tab: the two FP-2 complex-pupil maps and the PSF, three across
+        # one row (owner walkthrough item 13). Order is cause-then-effect: the pupil
+        # pair produces the PSF beside them.
         assert [p.method for p in subviews["PSF + Pupil"].plots] == [
-            "psf",
             "pupil_amplitude",
             "pupil_phase",
+            "psf",
         ]
+        assert subviews["PSF + Pupil"].plot_columns == 3
         # Throughput tab: the two FP-3 accessors.
         assert [p.method for p in subviews["Throughput"].plots] == [
             "optical_throughput",

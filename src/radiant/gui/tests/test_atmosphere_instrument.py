@@ -49,14 +49,52 @@ def _pane(qtbot, sensor: Sensor) -> StagePane:  # type: ignore[no-untyped-def]
 
 
 class TestComposition:
-    def test_atmosphere_declares_inputs_outputs_and_three_plots(self) -> None:
+    def test_atmosphere_declares_inputs_outputs_and_four_plots(self) -> None:
         spec = STAGE_COMPOSITIONS["atmosphere"]
         assert spec.atmosphere_inputs
         assert spec.outputs
         methods = [p.method for p in spec.plots]
-        # The before/after propagation story: τ&L_path, pre-atmosphere emission,
-        # at-aperture radiance — in that reading order.
-        assert methods == ["spectral_atmosphere", "spectral_source_emission", "spectral_source"]
+        # The before/after propagation story, now split per arm (owner walkthrough
+        # item 8): the target column, the background column (a different column
+        # whenever the target sits above the surface), the pre-atmosphere emission,
+        # and the two at-aperture radiances on one axis — in that reading order.
+        assert methods == [
+            "spectral_atmosphere",
+            "spectral_atmosphere_background",
+            "spectral_source_emission",
+            "spectral_at_aperture_arms",
+        ]
+
+    def test_target_and_background_columns_really_differ(self) -> None:
+        """The two arms are not a cosmetic split: an elevated target sees less air.
+
+        Target at 10 km under a 500 km sensor — the target arm carries the
+        10 km → sensor column, the surface background the full ground → sensor
+        column, which includes the dense air *below* the target.
+        """
+        import numpy as np
+
+        sensor = (
+            Sensor.from_yaml(_EXAMPLE)
+            .set("geometry.sensor_altitude_m", 500_000.0)
+            .set("geometry.target_altitude_m", 10_000.0)
+        )
+        quantities = _evaluate(sensor).stage_outputs["atmosphere"]["atm_quantities"]
+        assert not np.array_equal(quantities.tau_up, quantities.tau_full_up)
+        # The background is seen through more atmosphere, so it transmits less.
+        assert float(np.mean(quantities.tau_full_up)) < float(np.mean(quantities.tau_up))
+
+    def test_surface_target_makes_the_two_columns_coincide(self) -> None:
+        """A surface-level target has no air below it — the split collapses, correctly."""
+        import numpy as np
+
+        sensor = (
+            Sensor.from_yaml(_EXAMPLE)
+            .set("geometry.sensor_altitude_m", 500_000.0)
+            .set("geometry.target_altitude_m", 0.0)
+        )
+        quantities = _evaluate(sensor).stage_outputs["atmosphere"]["atm_quantities"]
+        assert np.allclose(quantities.tau_up, quantities.tau_full_up)
 
 
 class TestForm:

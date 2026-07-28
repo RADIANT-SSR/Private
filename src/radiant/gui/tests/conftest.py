@@ -34,45 +34,35 @@ pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extr
 
 
 @pytest.fixture(autouse=True)
-def _isolate_qsettings(tmp_path, monkeypatch):  # type: ignore[no-untyped-def]
+def _isolate_qsettings(tmp_path):  # type: ignore[no-untyped-def]
     """Point every persisted GUI preference at a fresh per-test temp dir (CU-115).
 
     Without isolation a window test writes to — and reads back from — the real user
     config, leaking state between tests *and* onto the developer's machine.
 
-    Two mechanisms are needed, because the GUI has two persistence surfaces that
-    construct :class:`QSettings` differently:
+    Redirecting the ``UserScope`` INI path is sufficient **only because both**
+    persistence surfaces now construct their :class:`QSettings` with an explicit
+    ``IniFormat``: :class:`~radiant.gui.widgets.pinned_panel.PinnedPanel` always
+    did, and :class:`~radiant.gui.settings_store.SettingsStore` was moved onto it
+    by CU-233.
 
-    * :class:`~radiant.gui.widgets.pinned_panel.PinnedPanel` passes ``IniFormat``
-      explicitly, so redirecting the ``UserScope`` INI path is enough for it.
-    * :class:`~radiant.gui.settings_store.SettingsStore` uses the
-      ``QSettings(organization, application)`` constructor, and **that constructor
-      ignores** :meth:`QSettings.setDefaultFormat`: on macOS it resolves to
-      ``NativeFormat`` and writes straight to
-      ``~/Library/Preferences/com.RADIANT.RADIANT GUI.plist`` no matter what the
-      default format or the INI path is set to. Redirecting the path alone was
-      therefore silently ineffective for it — the theme, recent-files, and panel
-      state of a real user were being overwritten by every GUI test run, which is
-      how a developer's chosen dark theme kept reverting to the light default.
+    That second part is load-bearing, and its absence was invisible for a long
+    time. The two-argument ``QSettings(organization, application)`` constructor
+    the store used before **ignores** :meth:`QSettings.setDefaultFormat`: on macOS
+    it resolves to ``NativeFormat`` and writes straight to
+    ``~/Library/Preferences/com.RADIANT.RADIANT GUI.plist`` no matter what the
+    default format or the INI path is set to. This fixture therefore did nothing
+    at all for the store, and every GUI test that built a window without injecting
+    one overwrote the real user's recent files, panel state, and **theme** — which
+    is how a developer's chosen dark theme kept reverting to the light default.
 
-    The store is isolated by swapping the ``QSettings`` symbol its module resolves
-    for a temp-file factory. Only the *default* construction goes through it, so a
-    test that injects its own :class:`QSettings` is unaffected.
+    :mod:`radiant.gui.tests.test_settings_isolation` asserts the sandbox actually
+    holds, so a future backend change cannot silently reopen the hole.
     """
     from PySide6.QtCore import QSettings
 
-    from radiant.gui import settings_store as settings_store_module
-
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
-
-    ini_path = tmp_path / "radiant-gui-settings.ini"
-
-    def _scratch_qsettings(*_args: object, **_kwargs: object) -> QSettings:
-        """Ignore the requested org/app and hand back a throwaway INI-backed store."""
-        return QSettings(str(ini_path), QSettings.Format.IniFormat)
-
-    monkeypatch.setattr(settings_store_module, "QSettings", _scratch_qsettings)
     yield
 
 

@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-239 — Interpolated-library selection is an operator trap: a magic axes string stands in for a family picker, and mismatches surface as an evaluate-time crash dialog
+
+**Discovered**: operator session (owner driving the GUI), 2026-07-27 — LEO nadir → 20 km sub-pixel target, the textbook interpolated-library scenario (deck G4's exact geometry), failed at evaluate with the "Unexpected Error" dialog because `atmosphere.interpolation_axes` still carried its `path_zenith_rad` default; the fix required knowing to type `sensor_altitude_m,target_altitude_m` into a free-text field.
+**Status**: Open
+**File**: `gui` Atmosphere screen (`atmosphere.interpolated_data_dir` / `atmosphere.interpolation_axes` editors); `src/radiant/atmosphere/loaders.py` (`_SHIPPED_FAMILY_BY_DIRECTION_AND_AXES`, `_shipped_family_catalogue`)
+**Symptom**: the operator-facing contract is inverted. The shipped-family catalogue is a closed, known set keyed by (direction, axes), but the GUI asks the operator to *reconstruct a dict key by hand* in a free-text field, and the only feedback for a wrong key is a mid-evaluation refusal rendered as a crash. Three compounding layers: (1) no family picker — the catalogue is never shown; (2) no scene-aware default — the loader could derive the needed axes from the resolved scene (h_tgt > 0 ⇒ target-altitude axis; los_direction ⇒ family direction) and auto-select or at least pre-fill; (3) no config-time validation — the family/scene mismatch is knowable the moment both are set (Rule 16) and belongs in the Messages rail with the remedy, not in an exception five stages later.
+**Why it still matters**: the interpolated backend is the fast path the MODTRAN batches exist to feed; every operator hits this the first time they raise `target_altitude_m` above zero. The knowledge currently lives in a schema docstring.
+**Suggested fix**: (b) stand-alone GUI task, natural walkthrough-cleanup batch item. Family-first UI: a picker enumerating `_shipped_family_catalogue()` entries with plain-language coverage lines ("midlat summer, space/airborne sensor, targets 0–29 km, nadir–60°"), writing `interpolation_axes`/`interpolated_data_dir` as derived values; scene-aware default selection with a profile-mismatch warning (choosing the family must never silently change the atmosphere profile the operator asked for); config-time coverage check in the Messages rail. Effort M; category D. Related: Gap 94, CU-226, CU-240.
+
+### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes
+
+**Discovered**: operator session, 2026-07-27 (same scenario as CU-239).
+**Status**: Open
+**File**: `src/radiant/atmosphere/interpolated.py` (grep `raise NotImplementedError` — the h_tgt-needs-target-axis refusal at ~line 1011 and siblings)
+**Symptom**: the refusal text is exemplary Rule-15 content (what/why/two workarounds) wrapped in the wrong type: bare `NotImplementedError` is not a `RadiantError`, so the GUI's deliberate error routing (RadiantError → in-context rejection; everything else → the "Unexpected Error" crash dialog) presents a well-formed capability refusal as an internal failure, and `except RadiantError` handlers in user scripts miss it.
+**Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
+**Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
+
 
 
 ### CU-236 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)

@@ -12,6 +12,60 @@
 
 ## Open
 
+### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/gui/widgets/geometry_readout.py:52` (and the same phrasing in its module docstring, line 11); related internal identifier `"off_nadir"` in `src/radiant/gui/viewer/angle_catalog.py:73` / `angle_truth.py`.
+**Symptom**: the readout's display label for the published `eta_rad` asserts a nadir reference; `RADIANT_Geometry.md` §3 defines `eta_rad` as the sensor-vertex interior angle, "the familiar off-nadir look angle when the sensor is above the target, **obtuse when below**". For an up-looking scene the label claims a reference the value does not have. The Phase-4 wording pass fixed the V2 *input* label ("Off-boresight angle") but the derived-output label was out of that task's scope. The `"off_nadir"` viewer identifier is internal (not displayed) but embeds the same pre-ADR-0011 framing.
+**Why it still matters**: an analyst reading the Geometry readout for a ground-to-air scene sees "Nadir (off-nadir) angle 148°" — a physically wrong caption on a correct number.
+**Suggested fix**: (a) inline-fix-now — re-label to a direction-neutral wording (e.g. "Look angle at sensor (η)"), refresh the docstring, and optionally sweep the internal `"off_nadir"` identifier in the same pass. Effort S; category A. Related: [[CU-247]].
+
+### CU-247 — `geometry.sensor_off_nadir_rad` parameter NAME contradicts its off-boresight meaning
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/geometry/_schema.py` (`geometry.sensor_off_nadir_rad`), rendered as the raw leaf `sensor_off_nadir_rad` by `gui/widgets/field_row.py`.
+**Symptom**: the V2 schema description (correctly, per ADR-0011) defines the entry as an off-**boresight** angle whose reference axis is resolved from the altitudes, but the dot-path still says `off_nadir`. The GUI now shows the correct combo label "Off-boresight angle (V2)" directly above a field labelled `sensor_off_nadir_rad`.
+**Why it still matters**: the parameter name is a public surface users script against; name-vs-meaning contradiction invites exactly the wrong-hemisphere entry ADR-0011's agreement checks exist to catch.
+**Suggested fix**: (b) stand-alone task — either rename with a deprecated warn-and-redirect alias (the `source.target.range_m` precedent; Rule 20 doc + CHANGELOG + config back-compat), or Decline with a recorded rationale that the legacy name is kept for config back-compat. Effort M; category B. Related: [[CU-246]].
+
+### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*`
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding while running the GUI suite), 2026-07-28.
+**Status**: Open.
+**File**: GUI consumers of `src/radiant/api/plot.py` figures (`matplotlib_canvas.py` / stage panes); warning raised from `api/plot.py:1004`.
+**Symptom**: the GUI test suite emits matplotlib's "More than 20 figures have been opened" `RuntimeWarning` during `test_stage_center.py` / `test_stage_navigation.py` — figures created per evaluate/re-render are never `plt.close()`d once the canvas has taken the figure.
+**Why it still matters**: a real interactive session re-evaluates continuously; unbounded figure accumulation is a memory leak in the app, not just test noise.
+**Suggested fix**: (a) inline-fix-now — close each consumed figure after the canvas adopts it (or reuse figures per pane); assert the suite runs warning-free. Effort S; category A.
+
+### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/gui/tests/test_configuration_manager.py`.
+**Symptom**: ~109 s for 32 tests (~3.4 s/test) of a ~7.5 min suite — likely a full window + multi-configuration evaluate per test.
+**Why it still matters**: the GUI suite is in the merge gate battery; its wall-clock cost is paid on every merge to `main`.
+**Suggested fix**: (a) inline-fix-now — profile, then share a module-scoped window/configuration-set fixture where isolation permits. Effort S–M; category A.
+
+### CU-250 — Down-looking schematic places the sensor glyph along the η ray from the target apex (vertex mismatch)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, viewer agent finding), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/gui/viewer/schematic_view.py::build_scene` (down-looking branch).
+**Symptom**: the down-looking layout places the sensor from the target at zenith angle η — but η is the angle at the *sensor* vertex; the target-side zenith is θ_o (differs by the Earth-centre central angle, ~2.2° for a 705 km LEO scene). Phase 4 worked around it by giving every stage-backed arc its own ray (η, θ_o, ζ_low each swept to their own direction), so **no displayed number is wrong** — but the glyph-placement ray itself is the η ray at the wrong vertex. Pre-existing; retained because bit-identical down-looking composition was a Phase-4 hard constraint.
+**Why it still matters**: purely visual coherence — a future pass could place the down-looking sensor along `theta_o_dir` so glyph ray and target-apex arcs coincide in all three compositions.
+**Suggested fix**: (b) stand-alone small task, owner-visible (changes existing down-looking pixels, so it needs the screenshot-parity expectation reset). Effort S; category A.
+
+### CU-251 — No completeness guard tying the scene-relevance off-sets to `METRIC_DISPLAY_LABELS`
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, steering agent finding), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/gui/widgets/scene_class_panel.py::off_metric_labels` / `src/radiant/gui/metric_format.py` tests.
+**Symptom**: `off_metric_labels` falls back to the raw registry key for an unlabelled metric. Today unreachable (an existing test asserts every taxonomy metric has a label), but a future scene-relevance off-set naming a metric outside the Gap-96 taxonomy would render a raw key on the Geometry screen.
+**Why it still matters**: defence-in-depth for the "never a raw registry key on screen" rule; one asserted invariant instead of an implicit one.
+**Suggested fix**: (a) inline-fix-now — add a test asserting every metric in the union of `SCENE_RELEVANCE` off-sets has a display label. Effort S; category A.
+
 ### CU-242 — Spectral Integration screen: show only stage-computed values; remove the at-aperture radiance plot (owner-directed spec)
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27.

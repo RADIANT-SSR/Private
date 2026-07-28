@@ -286,6 +286,14 @@ npix_smear = max(npix_smear, 3)
 
 ## Resolved
 
+### CU-231 — Turbulence absent from the MTF-product path: 1e6 frequency-unit slip — RESOLVED 2026-07-27 (commit `4150cd6`)
+
+**Discovered**: Geometry-Flexibility Phase 3 integration (dual-path consistency tripwire under turbulence), 2026-07-27. Pre-existing on `main` since `847a71b` (2026-04-18, dual-path MTF architecture) — Gap 110 did not introduce it, it made turbulence reachable enough to expose it; no shipped scenario or golden sets `atmosphere.r0_m`, which is how it escaped the golden gate.
+**File**: `src/radiant/performance/stage.py` (turbulence MTF term)
+**Symptom**: cycles/mrad → cycles/m conversion used `focal_length * 1e3` instead of `* 1e-3` — a factor 1e6 — so `mtf_turbulence_x/y` sat in [0.99999965, 1.0] and the MTF product carried no turbulence while the PSF path applied the full Kolmogorov blur. Measured Rule-4 dual-path error up to 0.878 absolute (r₀ = 6.2 cm) vs the 2e-2 tolerance.
+**Resolution**: conversion corrected to `* 1e-3` (matching the reference form in `platform/stage.py`); the strict-xfail tripwire `test_dual_path_consistency_holds_under_turbulence` flipped to a plain assertion (CU-231 regression test). Results-affecting for turbulence scenes only — CHANGELOG `[Unreleased]/Fixed` entry records direction and magnitude; no recorded baseline moves.
+
+
 ### CU-222 — Horizon-guard threshold constants are degree-valued in a core physics module (Rule-2 tension) — RESOLVED 2026-07-27 (commit `f4c389b`)
 
 **Discovered**: Geometry-Flexibility Phase 1 (branch `gf1/geometry-core`), core-geometry agent self-flag, 2026-07-26.
